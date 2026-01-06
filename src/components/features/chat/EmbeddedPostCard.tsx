@@ -12,13 +12,18 @@ import { Avatar } from '../../ui/UI';
 import Icon from '../../ui/Icon';
 import BlurredThumbnailBackground from '../../ui/BlurredThumbnailBackground';
 import { AtprotoService } from '../../../services/api/AtprotoService';
-import { ModerationDecision } from '../../../services/ModerationTypes';
+import { ModerationDecision } from '../../../services/moderation/ModerationTypes';
 import { feedService } from '../../../services/FeedService';
-import { openPostInBluesky } from '../../../utils/blueskyLinks';
+import { openPostInBluesky } from '../../../utils/links/bluesky';
 import MessageReactions from './MessageReactions';
 import { ReactionView } from '../../../services/ChatService';
-import { formatHandle } from '../../../utils/helpers';
-import type { PostView, VideoView, ImagesView, RecordWithMediaView } from '../../../services/api/types';
+import { formatHandle } from '../../../utils/formatting/handles';
+import type {
+  PostView,
+  VideoView,
+  ImagesView,
+  RecordWithMediaView,
+} from '../../../services/api/types';
 import { isVideoEmbed, isVideoEmbedInMedia } from '../../../services/api/types';
 
 interface EmbeddedPostCardProps {
@@ -36,9 +41,9 @@ interface EmbeddedPostCardProps {
   conversationMessages?: Array<{ embed?: { record?: { uri?: string; cid?: string } } }>;
 }
 
-export default function EmbeddedPostCard({ 
-  postUri, 
-  postCid: _postCid, 
+export default function EmbeddedPostCard({
+  postUri,
+  postCid: _postCid,
   moderationDecision,
   isCurrentUser = false,
   reactions,
@@ -72,7 +77,6 @@ export default function EmbeddedPostCard({
     setUserChoseToView(true);
   }, []);
 
-
   // Check if post has video content
   const isVideoPost = (post: PostView) => {
     const embed = post?.embed;
@@ -84,12 +88,15 @@ export default function EmbeddedPostCard({
   const isImagePost = (post: PostView) => {
     const embed = post?.embed;
     if (!embed) return false;
-    
+
     if (embed.$type === 'app.bsky.embed.images' || embed.$type === 'app.bsky.embed.images#view') {
       return true;
     } else if (embed.$type === 'app.bsky.embed.recordWithMedia#view') {
       const recordWithMedia = embed as RecordWithMediaView;
-      return recordWithMedia.media?.$type === 'app.bsky.embed.images' || recordWithMedia.media?.$type === 'app.bsky.embed.images#view';
+      return (
+        recordWithMedia.media?.$type === 'app.bsky.embed.images' ||
+        recordWithMedia.media?.$type === 'app.bsky.embed.images#view'
+      );
     }
     return false;
   };
@@ -98,15 +105,17 @@ export default function EmbeddedPostCard({
   const isExternalLinkPost = (post: PostView) => {
     const embed = post?.embed;
     if (!embed) return false;
-    
-    return embed.$type === 'app.bsky.embed.external' || embed.$type === 'app.bsky.embed.external#view';
+
+    return (
+      embed.$type === 'app.bsky.embed.external' || embed.$type === 'app.bsky.embed.external#view'
+    );
   };
 
   // Check if post has quoted post content
   const isQuotedPost = (post: PostView) => {
     const embed = post?.embed;
     if (!embed) return false;
-    
+
     return embed.$type === 'app.bsky.embed.record' || embed.$type === 'app.bsky.embed.record#view';
   };
 
@@ -114,36 +123,63 @@ export default function EmbeddedPostCard({
   const getPostThumbnail = (post: PostView) => {
     const embed = post?.embed;
     if (!embed || typeof embed !== 'object') return null;
-    
-    const embedObj = embed as { $type?: string; thumbnail?: string; media?: { $type?: string; thumbnail?: string; images?: Array<{ fullsize?: string; thumb?: string }> }; images?: Array<{ fullsize?: string; thumb?: string }>; thumb?: string };
-    
+
+    const embedObj = embed as {
+      $type?: string;
+      thumbnail?: string;
+      media?: {
+        $type?: string;
+        thumbnail?: string;
+        images?: Array<{ fullsize?: string; thumb?: string }>;
+      };
+      images?: Array<{ fullsize?: string; thumb?: string }>;
+      thumb?: string;
+    };
+
     // Video posts
-    if (embedObj.$type === 'app.bsky.embed.video' || embedObj.$type === 'app.bsky.embed.video#view') {
+    if (
+      embedObj.$type === 'app.bsky.embed.video' ||
+      embedObj.$type === 'app.bsky.embed.video#view'
+    ) {
       return (embed as VideoView).thumbnail || null;
     } else if (embedObj.$type === 'app.bsky.embed.recordWithMedia#view') {
       const recordWithMedia = embed as RecordWithMediaView;
-      if (recordWithMedia.media && (recordWithMedia.media.$type === 'app.bsky.embed.video' || recordWithMedia.media.$type === 'app.bsky.embed.video#view')) {
+      if (
+        recordWithMedia.media &&
+        (recordWithMedia.media.$type === 'app.bsky.embed.video' ||
+          recordWithMedia.media.$type === 'app.bsky.embed.video#view')
+      ) {
         return (recordWithMedia.media as VideoView).thumbnail || null;
       }
     }
-    
+
     // Image posts - get first image
-    if (embedObj.$type === 'app.bsky.embed.images' || embedObj.$type === 'app.bsky.embed.images#view') {
+    if (
+      embedObj.$type === 'app.bsky.embed.images' ||
+      embedObj.$type === 'app.bsky.embed.images#view'
+    ) {
       const imagesView = embed as ImagesView;
       return imagesView.images?.[0]?.fullsize || imagesView.images?.[0]?.thumb || null;
     } else if (embedObj.$type === 'app.bsky.embed.recordWithMedia#view') {
       const recordWithMedia = embed as RecordWithMediaView;
-      if (recordWithMedia.media && (recordWithMedia.media.$type === 'app.bsky.embed.images' || recordWithMedia.media.$type === 'app.bsky.embed.images#view')) {
+      if (
+        recordWithMedia.media &&
+        (recordWithMedia.media.$type === 'app.bsky.embed.images' ||
+          recordWithMedia.media.$type === 'app.bsky.embed.images#view')
+      ) {
         const imagesView = recordWithMedia.media as ImagesView;
         return imagesView.images?.[0]?.fullsize || imagesView.images?.[0]?.thumb || null;
       }
     }
-    
+
     // External link posts
-    if (embedObj.$type === 'app.bsky.embed.external' || embedObj.$type === 'app.bsky.embed.external#view') {
+    if (
+      embedObj.$type === 'app.bsky.embed.external' ||
+      embedObj.$type === 'app.bsky.embed.external#view'
+    ) {
       return embedObj.thumb || null;
     }
-    
+
     return null;
   };
 
@@ -152,7 +188,7 @@ export default function EmbeddedPostCard({
     const record = post.record as { text?: string };
     const text = record?.text || '';
     if (!text) return null;
-    
+
     return text;
   };
 
@@ -160,26 +196,38 @@ export default function EmbeddedPostCard({
   const getExternalLinkInfo = (post: PostView) => {
     const embed = post?.embed;
     if (!embed || typeof embed !== 'object') return null;
-    const embedObj = embed as { $type?: string; uri?: string; title?: string; description?: string; thumb?: string };
-    if (embedObj.$type !== 'app.bsky.embed.external' && embedObj.$type !== 'app.bsky.embed.external#view') {
+    const embedObj = embed as {
+      $type?: string;
+      uri?: string;
+      title?: string;
+      description?: string;
+      thumb?: string;
+    };
+    if (
+      embedObj.$type !== 'app.bsky.embed.external' &&
+      embedObj.$type !== 'app.bsky.embed.external#view'
+    ) {
       return null;
     }
-    
+
     return {
       uri: embedObj.uri,
       title: embedObj.title,
       description: embedObj.description,
-      thumb: embedObj.thumb
+      thumb: embedObj.thumb,
     };
   };
 
   // Get quoted post info
   const getQuotedPostInfo = (post: PostView) => {
     const embed = post?.embed;
-    if (!embed || (embed.$type !== 'app.bsky.embed.record' && embed.$type !== 'app.bsky.embed.record#view')) {
+    if (
+      !embed ||
+      (embed.$type !== 'app.bsky.embed.record' && embed.$type !== 'app.bsky.embed.record#view')
+    ) {
       return null;
     }
-    
+
     // Type guard for record embed
     if ('record' in embed) {
       return embed.record;
@@ -200,7 +248,7 @@ export default function EmbeddedPostCard({
   // Handle post tap - open in Bluesky app or Orbyt app for videos
   const handlePostPress = useCallback(async () => {
     if (!post?.uri) return;
-    
+
     // For video posts, open in Orbyt app using the existing feed modal
     if (isVideo) {
       try {
@@ -213,12 +261,12 @@ export default function EmbeddedPostCard({
 
           // Use cached data first, only fetch missing posts
           const videoPosts = await Promise.all(
-            embedUris.map(async (embedUri) => {
+            embedUris.map(async embedUri => {
               // Try to get from cache first
               const cachedPost = queryClient.getQueryData<PostView>(['embedded-post', embedUri]);
-              
+
               let postData = cachedPost;
-              
+
               // Only fetch if not in cache
               if (!postData) {
                 try {
@@ -234,18 +282,20 @@ export default function EmbeddedPostCard({
                   return null;
                 }
               }
-              
+
               if (!postData) return null;
-              
+
               // Check if it's actually a video post
               const embed = postData.embed;
-              const isVideoEmbed = embed?.$type === 'app.bsky.embed.video' || 
-                                 embed?.$type === 'app.bsky.embed.video#view' ||
-                                 (embed?.$type === 'app.bsky.embed.recordWithMedia#view' && 
-                                  ((embed as RecordWithMediaView).media?.$type === 'app.bsky.embed.video' || (embed as RecordWithMediaView).media?.$type === 'app.bsky.embed.video#view'));
-              
+              const isVideoEmbed =
+                embed?.$type === 'app.bsky.embed.video' ||
+                embed?.$type === 'app.bsky.embed.video#view' ||
+                (embed?.$type === 'app.bsky.embed.recordWithMedia#view' &&
+                  ((embed as RecordWithMediaView).media?.$type === 'app.bsky.embed.video' ||
+                    (embed as RecordWithMediaView).media?.$type === 'app.bsky.embed.video#view'));
+
               if (!isVideoEmbed) return null;
-              
+
               return {
                 post: {
                   uri: postData.uri,
@@ -259,19 +309,25 @@ export default function EmbeddedPostCard({
                   indexedAt: postData.indexedAt,
                 },
                 uniqueKey: postData.uri,
-                moderationDecision: 'moderationDecision' in postData ? (postData as PostView & { moderationDecision?: ModerationDecision }).moderationDecision : undefined,
+                moderationDecision:
+                  'moderationDecision' in postData
+                    ? (postData as PostView & { moderationDecision?: ModerationDecision })
+                        .moderationDecision
+                    : undefined,
               };
             })
           );
 
           // Filter out nulls and reverse to match chat direction (oldest to newest)
-          const validVideoPosts = videoPosts.filter((item): item is NonNullable<typeof item> => item !== null).reverse();
+          const validVideoPosts = videoPosts
+            .filter((item): item is NonNullable<typeof item> => item !== null)
+            .reverse();
           const currentIndex = validVideoPosts.findIndex(item => item.post.uri === post.uri);
-          
+
           // If we found videos, use the playlist; otherwise fall back to single post
           if (validVideoPosts.length > 0) {
             feedService.setCurrentFeed(validVideoPosts);
-            
+
             router.push({
               pathname: '/(modals)/feed',
               params: {
@@ -283,18 +339,18 @@ export default function EmbeddedPostCard({
                 hasNextPage: 'false',
                 isFetchingNextPage: 'false',
                 initialIndex: currentIndex >= 0 ? String(currentIndex) : '0',
-              }
+              },
             });
             return;
           }
         }
-        
+
         // Fallback: single post (original behavior)
         const postData = await AtprotoService.getPost(post.uri);
         if (!postData) {
           return;
         }
-        
+
         const feedItem = {
           post: {
             uri: postData.uri,
@@ -308,11 +364,14 @@ export default function EmbeddedPostCard({
             indexedAt: postData.indexedAt,
           },
           uniqueKey: postData.uri,
-          moderationDecision: 'moderationDecision' in post ? (post as PostView & { moderationDecision?: ModerationDecision }).moderationDecision : undefined,
+          moderationDecision:
+            'moderationDecision' in post
+              ? (post as PostView & { moderationDecision?: ModerationDecision }).moderationDecision
+              : undefined,
         };
-        
+
         feedService.setCurrentFeed([feedItem]);
-        
+
         router.push({
           pathname: '/(modals)/feed',
           params: {
@@ -323,9 +382,10 @@ export default function EmbeddedPostCard({
             searchQuery: '',
             hasNextPage: 'false',
             isFetchingNextPage: 'false',
-          }
+          },
         });
-      } catch (error) {
+      } catch (error: unknown) {
+        // ignore
       }
     } else {
       // For non-video posts, open in Bluesky app
@@ -338,7 +398,7 @@ export default function EmbeddedPostCard({
     const now = new Date();
     const postDate = new Date(timestamp);
     const diffInSeconds = Math.floor((now.getTime() - postDate.getTime()) / 1000);
-    
+
     if (diffInSeconds < 60) {
       return 'now';
     } else if (diffInSeconds < 3600) {
@@ -392,9 +452,9 @@ export default function EmbeddedPostCard({
 
   const author = post.author || {};
   // Ensure avatar URL is properly formatted
-  const avatarUrl = author.avatar 
-    ? author.avatar.startsWith('http') 
-      ? author.avatar 
+  const avatarUrl = author.avatar
+    ? author.avatar.startsWith('http')
+      ? author.avatar
       : `https://${author.avatar.replace(/^https?:\/\//, '')}`
     : undefined;
 
@@ -403,7 +463,7 @@ export default function EmbeddedPostCard({
     return (
       <View style={styles.cleanPostContainer}>
         <View style={styles.cleanPostHeader}>
-          <Avatar 
+          <Avatar
             uri={avatarUrl}
             type="profile"
             size={32}
@@ -419,25 +479,22 @@ export default function EmbeddedPostCard({
             <Icon name="bluesky-icon" size={18} color={Colors.bluesky} />
           </View>
         </View>
-        
-        {text && (
-          <Text style={styles.cleanPostText}>
-            {text}
-          </Text>
-        )}
-        
+
+        {text && <Text style={styles.cleanPostText}>{text}</Text>}
+
         {showImage && thumbnailUrl && (
           <View style={styles.cleanImageContainer}>
             {/* Blurred thumbnail background */}
             <BlurredThumbnailBackground thumbnailUrl={thumbnailUrl} />
             {/* Main image */}
-            <Image 
-              source={{ uri: thumbnailUrl }}
-              style={styles.cleanImage}
-              contentFit="contain"
-            />
+            <Image source={{ uri: thumbnailUrl }} style={styles.cleanImage} contentFit="contain" />
             {isBlurred && (
-              <BlurView intensity={80} tint="dark" style={styles.cleanBlurOverlay} experimentalBlurMethod="dimezisBlurView" />
+              <BlurView
+                intensity={80}
+                tint="dark"
+                style={styles.cleanBlurOverlay}
+                experimentalBlurMethod="dimezisBlurView"
+              />
             )}
             {isBlurred && (
               <View style={styles.cleanWarningOverlay}>
@@ -450,7 +507,7 @@ export default function EmbeddedPostCard({
             )}
           </View>
         )}
-        
+
         <View style={styles.cleanPostActions}>
           <View style={styles.actionItem}>
             <Icon name="heart" size={14} color={Colors.lightGray} />
@@ -481,22 +538,22 @@ export default function EmbeddedPostCard({
           <BlurredThumbnailBackground thumbnailUrl={thumbnailUrl} />
           {/* Main thumbnail */}
           {thumbnailUrl && (
-            <Image 
+            <Image
               source={{ uri: thumbnailUrl }}
               style={styles.videoThumbnail}
               contentFit="contain"
             />
           )}
-          
+
           {/* Black gradient from bottom */}
           <LinearGradient
             colors={['transparent', 'rgba(0, 0, 0, 0.5)']}
             style={styles.videoGradient}
           />
-          
+
           {/* Author overlay in bottom left */}
           <View style={styles.authorOverlay}>
-            <Avatar 
+            <Avatar
               uri={avatarUrl}
               type="profile"
               size={32}
@@ -505,9 +562,14 @@ export default function EmbeddedPostCard({
               fallbackIconColor={Colors.white}
             />
           </View>
-          
+
           {isBlurred && (
-            <BlurView intensity={80} tint="dark" style={styles.blurOverlay} experimentalBlurMethod="dimezisBlurView" />
+            <BlurView
+              intensity={80}
+              tint="dark"
+              style={styles.blurOverlay}
+              experimentalBlurMethod="dimezisBlurView"
+            />
           )}
           {isBlurred && (
             <View style={styles.contentWarningOverlay}>
@@ -527,37 +589,34 @@ export default function EmbeddedPostCard({
         </View>
       );
     }
-    
+
     // All non-video post types use the unified card with different parameters
     if (isImage) {
       return renderUnifiedPostCard(postText || undefined, true);
     }
-    
+
     if (isExternalLink && externalLinkInfo) {
       return renderUnifiedPostCard(postText || undefined, false);
     }
-    
+
     if (isQuoted && quotedPostInfo && 'record' in quotedPostInfo) {
       // quotedPostInfo is the record from embed, which should be a PostView
       const quotedText = getPostText(quotedPostInfo as PostView) || 'Quoted Post';
       return renderUnifiedPostCard(quotedText, false);
     }
-    
+
     // Fallback for posts with thumbnails
     if (thumbnailUrl) {
       return renderUnifiedPostCard(postText || 'Post', true);
     }
-    
+
     // Text-only post fallback
     return renderUnifiedPostCard(postText || 'Post', false);
   };
 
   return (
-    <Pressable 
-      style={[
-        styles.container,
-        isCurrentUser ? styles.containerRight : styles.containerLeft
-      ]}
+    <Pressable
+      style={[styles.container, isCurrentUser ? styles.containerRight : styles.containerLeft]}
       onPress={handlePostPress}
       onLongPress={onLongPress}
       delayLongPress={300}
@@ -578,8 +637,7 @@ export default function EmbeddedPostCard({
 }
 
 const styles = StyleSheet.create({
-  container: {
-  },
+  container: {},
   containerLeft: {
     alignItems: 'flex-start',
   },

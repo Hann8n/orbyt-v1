@@ -19,7 +19,7 @@ interface PostInteraction {
 interface PostInteractionState {
   // Map of post URIs to their interaction state
   interactions: Map<string, PostInteraction>;
-  
+
   // Actions
   updatePostInteraction: (postUri: string, update: Partial<PostInteraction>) => void;
   getPostInteraction: (postUri: string, defaultState: PostInteraction) => PostInteraction;
@@ -28,9 +28,9 @@ interface PostInteractionState {
 
 export const usePostInteractionStore = create<PostInteractionState>((set, get) => ({
   interactions: new Map(),
-  
+
   updatePostInteraction: (postUri: string, update: Partial<PostInteraction>) => {
-    set((state) => {
+    set(state => {
       const newInteractions = new Map(state.interactions);
       const current = newInteractions.get(postUri) || {
         isLiked: false,
@@ -43,11 +43,11 @@ export const usePostInteractionStore = create<PostInteractionState>((set, get) =
       return { interactions: newInteractions };
     });
   },
-  
+
   getPostInteraction: (postUri: string, defaultState: PostInteraction) => {
     return get().interactions.get(postUri) || defaultState;
   },
-  
+
   clearInteractions: () => {
     set({ interactions: new Map() });
   },

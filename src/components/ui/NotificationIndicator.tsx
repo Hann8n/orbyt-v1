@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Colors } from './UI';
-import { BORDER_RADIUS } from '../../utils/constants';
 
 interface NotificationIndicatorProps {
   hasUnread?: boolean;
@@ -19,15 +18,17 @@ export const NotificationIndicator: React.FC<NotificationIndicatorProps> = ({
   const indicatorSize = size === 'small' ? 12 : 16;
 
   return (
-    <View style={[
-      styles.indicator,
-      {
-        width: indicatorSize,
-        height: indicatorSize,
-        borderRadius: indicatorSize / 2,
-      },
-      position === 'top-right' ? styles.topRight : styles.topLeft,
-    ]} />
+    <View
+      style={[
+        styles.indicator,
+        {
+          width: indicatorSize,
+          height: indicatorSize,
+          borderRadius: indicatorSize / 2,
+        },
+        position === 'top-right' ? styles.topRight : styles.topLeft,
+      ]}
+    />
   );
 };
 

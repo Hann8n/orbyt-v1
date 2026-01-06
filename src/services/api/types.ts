@@ -1,12 +1,12 @@
 /**
  * Narrowed type helpers for AtprotoService using @atproto/api generated types.
- * 
+ *
  * This file follows AT Protocol's recommended structure and React Native TypeScript best practices:
  * 1. Groups imports by namespace (Feed, Actor, Embed, etc.) for better organization
  * 2. Uses type-only imports to avoid bundling runtime code in React Native
  * 3. Imports from stable paths that match the package's internal structure
  * 4. Maintains type safety while following package conventions
- * 
+ *
  * Note: We import types directly from defs files rather than namespace objects because:
  * - TypeScript type-only imports are stripped at compile time (safe for React Native)
  * - Direct imports provide better IDE autocomplete and type checking
@@ -81,7 +81,10 @@ import type { ConvoView, MessageView } from '@atproto/api/dist/client/types/chat
 // Repo namespace types (com.atproto.repo.*)
 // ============================================================================
 import type { OutputSchema as GetRecordOutput } from '@atproto/api/dist/client/types/com/atproto/repo/getRecord';
-import type { OutputSchema as ListRecordsOutput, Record as AtprotoRecord } from '@atproto/api/dist/client/types/com/atproto/repo/listRecords';
+import type {
+  OutputSchema as ListRecordsOutput,
+  Record as AtprotoRecord,
+} from '@atproto/api/dist/client/types/com/atproto/repo/listRecords';
 
 // ============================================================================
 // Type aliases for cleaner usage (following React Native TypeScript best practices)
@@ -278,12 +281,16 @@ export function isBlockedPost(post: ThreadPost): post is BlockedPost {
   return sdkIsBlockedPost(post);
 }
 
-export function isVideoEmbed(embed: FeedViewPost['post']['embed'] | null | undefined): embed is VideoView & FeedViewPost['post']['embed'] {
+export function isVideoEmbed(
+  embed: FeedViewPost['post']['embed'] | null | undefined
+): embed is VideoView & FeedViewPost['post']['embed'] {
   if (!embed || typeof embed !== 'object') return false;
   return embed.$type === 'app.bsky.embed.video' || embed.$type === 'app.bsky.embed.video#view';
 }
 
-export function isVideoEmbedInMedia(embed: FeedViewPost['post']['embed'] | null | undefined): embed is RecordWithMediaView & FeedViewPost['post']['embed'] {
+export function isVideoEmbedInMedia(
+  embed: FeedViewPost['post']['embed'] | null | undefined
+): embed is RecordWithMediaView & FeedViewPost['post']['embed'] {
   if (!embed || typeof embed !== 'object') return false;
   if (embed.$type === 'app.bsky.embed.recordWithMedia#view') {
     const mediaEmbed = (embed as RecordWithMediaView).media;
@@ -348,5 +355,5 @@ export type FeedItem = ExtendedFeedViewPost;
 
 // Type for feed items with moderation decision (used by UI)
 export interface FeedItemWithModeration extends ExtendedFeedViewPost {
-  moderationDecision?: import('../ModerationTypes').ModerationDecision;
+  moderationDecision?: import('../moderation/ModerationTypes').ModerationDecision;
 }

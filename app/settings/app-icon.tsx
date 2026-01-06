@@ -53,7 +53,7 @@ const AppIconSettingsScreen: React.FC = () => {
         setIsSubmitting(false);
       }
     },
-    [isSubmitting],
+    [isSubmitting]
   );
 
   return (
@@ -80,9 +80,9 @@ const AppIconSettingsScreen: React.FC = () => {
               <View style={styles.row}>
                 <Text style={settingsTextStyles.menuOptionText}>{option.label}</Text>
                 <View style={styles.previewContainer}>
-                  <Image 
-                    source={option.preview} 
-                    style={styles.previewImage} 
+                  <Image
+                    source={option.preview}
+                    style={styles.previewImage}
                     contentFit="contain"
                     cachePolicy="memory"
                   />
@@ -120,5 +120,3 @@ const styles = StyleSheet.create({
 });
 
 export default AppIconSettingsScreen;
-
-

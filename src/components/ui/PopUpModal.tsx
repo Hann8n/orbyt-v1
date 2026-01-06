@@ -1,12 +1,6 @@
 import React from 'react';
 import { BORDER_RADIUS } from '../../utils/constants';
-import {
-  Modal,
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-} from 'react-native';
+import { Modal, View, Text, Pressable, StyleSheet } from 'react-native';
 import { Colors } from './UI';
 
 interface PopUpModalProps {
@@ -31,43 +25,31 @@ const PopUpModal: React.FC<PopUpModalProps> = ({
   actions = [],
 }) => {
   return (
-    <Modal
-      animationType="fade"
-      transparent={true}
-      visible={visible}
-      onRequestClose={onClose}
-    >
-      <Pressable 
-        style={styles.modalBackdrop} 
-        onPress={onClose}
-      >
-        <Pressable onPress={(e) => e.stopPropagation()}>
+    <Modal animationType="fade" transparent={true} visible={visible} onRequestClose={onClose}>
+      <Pressable style={styles.modalBackdrop} onPress={onClose}>
+        <Pressable onPress={e => e.stopPropagation()}>
           <View style={styles.modalContainer}>
             <Text style={styles.modalTitle}>{title}</Text>
-            {subtitle && (
-              <Text style={styles.modalSubtitle}>{subtitle}</Text>
-            )}
-            
-            <View style={styles.childrenContainer}>
-              {children}
-            </View>
-            
+            {subtitle && <Text style={styles.modalSubtitle}>{subtitle}</Text>}
+
+            <View style={styles.childrenContainer}>{children}</View>
+
             {actions.length > 0 && (
               <View style={styles.actionsContainer}>
                 {actions.map((action, index) => (
-                  <Pressable 
+                  <Pressable
                     key={index}
                     style={[
-                      styles.actionButton, 
+                      styles.actionButton,
                       action.isPrimary ? styles.primaryButton : styles.secondaryButton,
-                      index > 0 && { marginLeft: 8 }
-                    ]} 
+                      index > 0 && { marginLeft: 8 },
+                    ]}
                     onPress={action.onPress}
                   >
-                    <Text 
+                    <Text
                       style={[
                         styles.actionButtonText,
-                        action.isPrimary && styles.primaryButtonText
+                        action.isPrimary && styles.primaryButtonText,
                       ]}
                     >
                       {action.label}

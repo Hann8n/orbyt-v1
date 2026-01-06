@@ -15,34 +15,37 @@ import {
   type EventSubscription,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { 
-  CameraView, 
+import {
+  CameraView,
   useCameraPermissions,
   useMicrophonePermissions,
-  CameraRecordingOptions
+  CameraRecordingOptions,
 } from 'expo-camera';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
-import Animated, { 
-  useSharedValue, 
-  useAnimatedStyle, 
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
   withTiming,
-  useFrameCallback
+  useFrameCallback,
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Icon, { CloseFillIcon, Loading3FillIcon, ArrowRightFillIcon } from '../src/components/ui/Icon';
+import Icon, {
+  CloseFillIcon,
+  Loading3FillIcon,
+  ArrowRightFillIcon,
+} from '../src/components/ui/Icon';
 import BottomToolBar from '../src/components/ui/BottomToolBar';
-import { isSmallScreen, isTablet, getBottomNavBarHeight } from '../src/utils/helpers';
+import { isSmallScreen, isTablet, getBottomNavBarHeight } from '../src/utils/device/screen';
 import { Colors } from '../src/components/ui/UI';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { showEditor, isValidFile, type Spec } from 'react-native-video-trim';
-import { SegmentManager, type Segment } from '../src/utils/segmentManager';
+import { SegmentManager, type Segment } from '../src/utils/video/segmentManager';
 import { useUserStore } from '../src/stores/userStore';
-
 
 // Duration options in seconds
 const DURATION_OPTIONS = [
@@ -64,7 +67,7 @@ const CreateScreen: React.FC = () => {
   const [selectedDuration, setSelectedDuration] = useState(16); // Default to 16 seconds
   const [isDurationSelectorExpanded, setIsDurationSelectorExpanded] = useState(false);
   const [isTrimmerActive, setIsTrimmerActive] = useState(false);
-  
+
   // Segment manager - single source of truth
   const segmentManagerRef = useRef<SegmentManager | null>(null);
   const [segmentUpdateTrigger, setSegmentUpdateTrigger] = useState(0);
@@ -77,7 +80,7 @@ const CreateScreen: React.FC = () => {
   const isRecordingRef = useRef(false);
   const lastTapRef = useRef<number>(0);
   const tapTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
+
   // Animated values
   const totalDurationShared = useSharedValue(0); // Total duration from segments (updated when segments change)
   const recordingStartTime = useSharedValue<number | null>(null); // Start time of current recording (milliseconds)
@@ -86,7 +89,7 @@ const CreateScreen: React.FC = () => {
   const zoomScale = useSharedValue(1);
   const baseZoom = useSharedValue(0);
   const startZoom = useSharedValue(0);
-  
+
   const isFocused = useIsFocused();
 
   // Initialize segment manager
@@ -105,44 +108,48 @@ const CreateScreen: React.FC = () => {
       setSegmentUpdateTrigger(prev => prev + 1);
     }
   }, [selectedDuration, totalDurationShared]);
-  
+
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const bottomNavBarHeight = getBottomNavBarHeight(insets);
   const listenerSubscription = useRef<Record<string, EventSubscription>>({});
   const { isDeveloper } = useUserStore();
-  
+
   // Track screen dimensions for camera updates on orientation change
   const [screenDims, setScreenDims] = useState(() => Dimensions.get('window'));
-  
+
   useEffect(() => {
-    const onChange = ({ window }: { window: { width: number; height: number; scale: number; fontScale: number } }) => {
+    const onChange = ({
+      window,
+    }: {
+      window: { width: number; height: number; scale: number; fontScale: number };
+    }) => {
       setScreenDims(window);
     };
     const subscription = Dimensions.addEventListener('change', onChange);
     return () => subscription?.remove();
   }, []);
-  
+
   // Calculate dimensions from tracked state
   const screenWidth = screenDims.width;
   const screenHeight = screenDims.height;
-  
+
   // Use existing utility to check if small screen or tablet
   const isSmallDevice = isSmallScreen();
   const isTabletDevice = isTablet();
-  
+
   // Camera key changes on dimension/orientation change to fix camera preview
   const cameraKey = `${Math.round(screenWidth)}x${Math.round(screenHeight)}-${isFrontCamera ? 'front' : 'back'}`;
-  
+
   // For small screens and tablets, use full screen; otherwise use available space between safe areas
-  const availableHeight = (isSmallDevice || isTabletDevice)
-    ? screenHeight 
-    : screenHeight - insets.top - bottomNavBarHeight;
-  
+  const availableHeight =
+    isSmallDevice || isTabletDevice ? screenHeight : screenHeight - insets.top - bottomNavBarHeight;
+
   // If small screen or tablet, use full screen; otherwise maintain 9:16 aspect ratio
-  const cameraHeight = (isSmallDevice || isTabletDevice)
-    ? screenHeight 
-    : Math.min((screenWidth * 16) / 9, availableHeight);
+  const cameraHeight =
+    isSmallDevice || isTabletDevice
+      ? screenHeight
+      : Math.min((screenWidth * 16) / 9, availableHeight);
   const cameraWidth = screenWidth; // Use full width
 
   // Derived values from segment manager
@@ -150,64 +157,62 @@ const CreateScreen: React.FC = () => {
   const availableTime = segmentManagerRef.current?.getAvailableTime() ?? 0;
 
   // Handle trimmed video from gallery
-  const handleTrimmingComplete = useCallback(({
-    outputPath,
-    startTime,
-    endTime,
-  }: {
-    outputPath: string;
-    startTime: number;
-    endTime: number;
-  }) => {
-    if (!segmentManagerRef.current) return;
+  const handleTrimmingComplete = useCallback(
+    ({
+      outputPath,
+      startTime,
+      endTime,
+    }: {
+      outputPath: string;
+      startTime: number;
+      endTime: number;
+    }) => {
+      if (!segmentManagerRef.current) return;
 
-    // Calculate trimmed duration (all times in milliseconds, convert to seconds)
-    // Use precise values (no rounding) for validation - display is rounded separately
-    const trimmedDurationSeconds = (endTime - startTime) / 1000;
+      // Calculate trimmed duration (all times in milliseconds, convert to seconds)
+      // Use precise values (no rounding) for validation - display is rounded separately
+      const trimmedDurationSeconds = (endTime - startTime) / 1000;
 
-    // Validate trimmed duration doesn't exceed available time
-    // Round both to milliseconds (0.001s) for comparison to handle floating point precision
-    // All actual values remain precise - rounding only for this comparison
-    const availableTime = segmentManagerRef.current.getAvailableTime();
-    const trimmedRounded = Math.round(trimmedDurationSeconds * 1000) / 1000;
-    const availableRounded = Math.round(availableTime * 1000) / 1000;
-    if (trimmedRounded > availableRounded) {
-      Alert.alert(
-        'Error',
-        `Trimmed video (${trimmedDurationSeconds.toFixed(1)}s) exceeds available time (${availableTime.toFixed(1)}s). Please trim to a shorter duration.`
-      );
+      // Validate trimmed duration doesn't exceed available time
+      // Round both to milliseconds (0.001s) for comparison to handle floating point precision
+      // All actual values remain precise - rounding only for this comparison
+      const availableTime = segmentManagerRef.current.getAvailableTime();
+      const trimmedRounded = Math.round(trimmedDurationSeconds * 1000) / 1000;
+      const availableRounded = Math.round(availableTime * 1000) / 1000;
+      if (trimmedRounded > availableRounded) {
+        Alert.alert(
+          'Error',
+          `Trimmed video (${trimmedDurationSeconds.toFixed(1)}s) exceeds available time (${availableTime.toFixed(1)}s). Please trim to a shorter duration.`
+        );
+        setIsLoadingFromGallery(false);
+        setIsProcessing(false);
+        return;
+      }
+
+      // Add segment
+      const videoUri = outputPath.startsWith('file://') ? outputPath : `file://${outputPath}`;
+      const newSegment: Segment = {
+        duration: trimmedDurationSeconds,
+        video: { uri: videoUri },
+        sourceType: 'gallery',
+      };
+
+      if (!segmentManagerRef.current.addSegment(newSegment)) {
+        Alert.alert('Error', 'Adding this video would exceed the maximum duration');
+        setIsLoadingFromGallery(false);
+        setIsProcessing(false);
+        return;
+      }
+
+      // Update UI
+      totalDurationShared.value = segmentManagerRef.current.getTotalDuration();
+      setSegmentUpdateTrigger(prev => prev + 1);
       setIsLoadingFromGallery(false);
       setIsProcessing(false);
-      return;
-    }
-
-    // Add segment
-    const videoUri = outputPath.startsWith('file://')
-      ? outputPath
-      : `file://${outputPath}`;
-    const newSegment: Segment = {
-      duration: trimmedDurationSeconds,
-      video: { uri: videoUri },
-      sourceType: 'gallery',
-    };
-
-    if (!segmentManagerRef.current.addSegment(newSegment)) {
-      Alert.alert(
-        'Error',
-        'Adding this video would exceed the maximum duration'
-      );
-      setIsLoadingFromGallery(false);
-      setIsProcessing(false);
-      return;
-    }
-
-    // Update UI
-    totalDurationShared.value = segmentManagerRef.current.getTotalDuration();
-    setSegmentUpdateTrigger(prev => prev + 1);
-    setIsLoadingFromGallery(false);
-    setIsProcessing(false);
-    setIsTrimmerActive(false);
-  }, [totalDurationShared]);
+      setIsTrimmerActive(false);
+    },
+    [totalDurationShared]
+  );
 
   // Helper to stop recording without processing (for when trimmer opens)
   const stopRecordingImmediate = useCallback(() => {
@@ -225,7 +230,7 @@ const CreateScreen: React.FC = () => {
   // Set up event listeners for react-native-video-trim using Spec API
   useEffect(() => {
     const VideoTrimModule = NativeModules.VideoTrim as Spec;
-    
+
     // Use the new Spec API if available, otherwise fall back to old architecture
     if (VideoTrimModule && typeof VideoTrimModule.onFinishTrimming === 'function') {
       // New Architecture - use Spec API
@@ -233,21 +238,17 @@ const CreateScreen: React.FC = () => {
 
       listenerSubscription.current.onStartTrimming = VideoTrimModule.onStartTrimming(() => {});
 
-      listenerSubscription.current.onCancelTrimming = VideoTrimModule.onCancelTrimming(
-        () => {
-          setIsLoadingFromGallery(false);
-          setIsProcessing(false);
-          setIsTrimmerActive(false);
-        }
-      );
+      listenerSubscription.current.onCancelTrimming = VideoTrimModule.onCancelTrimming(() => {
+        setIsLoadingFromGallery(false);
+        setIsProcessing(false);
+        setIsTrimmerActive(false);
+      });
 
-      listenerSubscription.current.onCancel = VideoTrimModule.onCancel(
-        () => {
-          setIsLoadingFromGallery(false);
-          setIsProcessing(false);
-          setIsTrimmerActive(false);
-        }
-      );
+      listenerSubscription.current.onCancel = VideoTrimModule.onCancel(() => {
+        setIsLoadingFromGallery(false);
+        setIsProcessing(false);
+        setIsTrimmerActive(false);
+      });
 
       listenerSubscription.current.onHide = VideoTrimModule.onHide(() => {
         setIsTrimmerActive(false);
@@ -258,22 +259,19 @@ const CreateScreen: React.FC = () => {
         setIsTrimmerActive(true);
       });
 
-      listenerSubscription.current.onFinishTrimming = VideoTrimModule.onFinishTrimming(
-        handleTrimmingComplete
-      );
+      listenerSubscription.current.onFinishTrimming =
+        VideoTrimModule.onFinishTrimming(handleTrimmingComplete);
 
       listenerSubscription.current.onLog = VideoTrimModule.onLog(() => {});
 
       listenerSubscription.current.onStatistics = VideoTrimModule.onStatistics(() => {});
 
-      listenerSubscription.current.onError = VideoTrimModule.onError(
-        ({ message }) => {
-          Alert.alert('Error', message || 'Failed to trim video');
-          setIsLoadingFromGallery(false);
-          setIsProcessing(false);
-          setIsTrimmerActive(false);
-        }
-      );
+      listenerSubscription.current.onError = VideoTrimModule.onError(({ message }) => {
+        Alert.alert('Error', message || 'Failed to trim video');
+        setIsLoadingFromGallery(false);
+        setIsProcessing(false);
+        setIsTrimmerActive(false);
+      });
     } else {
       // Fallback to old architecture
       const eventEmitter = new NativeEventEmitter(NativeModules.VideoTrim);
@@ -304,9 +302,7 @@ const CreateScreen: React.FC = () => {
     }
 
     return () => {
-      Object.values(listenerSubscription.current).forEach(listener => 
-        listener?.remove()
-      );
+      Object.values(listenerSubscription.current).forEach(listener => listener?.remove());
       listenerSubscription.current = {};
     };
   }, [handleTrimmingComplete, stopRecordingImmediate]);
@@ -318,8 +314,13 @@ const CreateScreen: React.FC = () => {
       if (!microphonePermission?.granted) await requestMicrophonePermission();
     };
     checkPermissions();
-  }, [cameraPermission, requestCameraPermission, microphonePermission, requestMicrophonePermission]);
-  
+  }, [
+    cameraPermission,
+    requestCameraPermission,
+    microphonePermission,
+    requestMicrophonePermission,
+  ]);
+
   // Cleanup: reset processing state when component unmounts or user navigates away
   useEffect(() => {
     isMountedRef.current = true;
@@ -339,7 +340,6 @@ const CreateScreen: React.FC = () => {
       setIsProcessing(false);
     };
   }, []);
-
 
   // Keep status bar hidden even when app returns from background
   useEffect(() => {
@@ -365,7 +365,7 @@ const CreateScreen: React.FC = () => {
       // Reset processing state when screen is focused again
       setIsProcessing(false);
       isMountedRef.current = true;
-      
+
       return () => {
         // Cleanup when screen loses focus - stop recording if active
         if (isRecordingRef.current && cameraRef.current) {
@@ -402,7 +402,7 @@ const CreateScreen: React.FC = () => {
       // Store the current zoom as the starting point for this gesture
       startZoom.value = baseZoom.value;
     })
-    .onUpdate((event) => {
+    .onUpdate(event => {
       'worklet';
       // Calculate new zoom: clamp between 0 and 1
       // Scale factor: 1.0 = no zoom, higher = zoom in
@@ -446,9 +446,12 @@ const CreateScreen: React.FC = () => {
     };
   }, [maxDuration]);
 
-  const animatedButtonOpacityStyle = useAnimatedStyle(() => ({
-    opacity: buttonOpacity.value,
-  }), []);
+  const animatedButtonOpacityStyle = useAnimatedStyle(
+    () => ({
+      opacity: buttonOpacity.value,
+    }),
+    []
+  );
 
   // Animate button opacity when recording state or max duration changes
   useEffect(() => {
@@ -461,42 +464,42 @@ const CreateScreen: React.FC = () => {
     if (!cameraRef.current || !isRecordingRef.current) {
       return;
     }
-    
+
     // Mark as not recording immediately to prevent re-entry
     isRecordingRef.current = false;
     setIsRecording(false);
-    
+
     try {
       setIsProcessing(true);
-      
+
       // Capture elapsed time before resetting (use recording time directly)
       const elapsedDuration = recordingElapsed.value;
-      
+
       // Optimistically update total duration immediately to prevent flash
       if (elapsedDuration > 0 && segmentManagerRef.current) {
         totalDurationShared.value = segmentManagerRef.current.getTotalDuration() + elapsedDuration;
       }
-      
+
       // Reset recording timer shared values (after optimistic update)
       recordingStartTime.value = null;
       recordingElapsed.value = 0;
-      
+
       cameraRef.current.stopRecording();
-      
+
       if (recordingPromiseRef.current) {
         const video = await recordingPromiseRef.current;
         if (video && segmentManagerRef.current && elapsedDuration > 0) {
           // Clamp elapsed duration to available time to prevent exceeding maxDuration
           const availableTime = segmentManagerRef.current.getAvailableTime();
           const clampedDuration = Math.min(elapsedDuration, availableTime);
-          
+
           // Use the clamped duration for the segment
           const newSegment: Segment = {
             duration: clampedDuration,
             video,
             sourceType: 'camera',
           };
-          
+
           if (clampedDuration > 0 && segmentManagerRef.current.addSegment(newSegment)) {
             // Update with actual total from segment manager (should match optimistic update)
             totalDurationShared.value = segmentManagerRef.current.getTotalDuration();
@@ -510,9 +513,9 @@ const CreateScreen: React.FC = () => {
           totalDurationShared.value = segmentManagerRef.current.getTotalDuration();
         }
       }
-      
+
       recordingPromiseRef.current = null;
-    } catch (e) {
+    } catch (_e) {
       // Reset recording timer shared values on error
       recordingStartTime.value = null;
       recordingElapsed.value = 0;
@@ -528,26 +531,29 @@ const CreateScreen: React.FC = () => {
       if (!microphonePermission?.granted) {
         const result = await requestMicrophonePermission();
         if (!result.granted) {
-          Alert.alert('Microphone Permission', 'Please enable microphone access to record video with sound.');
+          Alert.alert(
+            'Microphone Permission',
+            'Please enable microphone access to record video with sound.'
+          );
           return;
         }
       }
-      
+
       isRecordingRef.current = true;
       setIsRecording(true);
       const startTime = Date.now();
       segmentStartTime.current = startTime;
       recordingStartTime.value = startTime; // Set shared value for UI-thread timer
       recordingElapsed.value = 0; // Reset elapsed time
-      
+
       try {
         const availableTime = segmentManagerRef.current?.getAvailableTime() ?? 0;
         const recordingOptions: CameraRecordingOptions = {
           maxDuration: availableTime * 1000,
         };
-        
+
         recordingPromiseRef.current = cameraRef.current.recordAsync(recordingOptions);
-      } catch (e) {
+      } catch (_e) {
         // Reset recording timer shared values on error
         recordingStartTime.value = null;
         isRecordingRef.current = false;
@@ -555,13 +561,24 @@ const CreateScreen: React.FC = () => {
         recordingPromiseRef.current = null;
       }
     }
-  }, [stopRecording, microphonePermission, requestMicrophonePermission, maxDuration, recordingStartTime]);
-  
+  }, [
+    stopRecording,
+    microphonePermission,
+    requestMicrophonePermission,
+    maxDuration,
+    recordingStartTime,
+  ]);
+
   // Handle press start - begin recording (press in to start)
   const handlePressIn = useCallback(() => {
     const currentTotal = segmentManagerRef.current?.getTotalDuration() ?? 0;
     const availableTime = segmentManagerRef.current?.getAvailableTime() ?? 0;
-    if (!isRecordingRef.current && !isProcessing && currentTotal < maxDuration && availableTime > 0) {
+    if (
+      !isRecordingRef.current &&
+      !isProcessing &&
+      currentTotal < maxDuration &&
+      availableTime > 0
+    ) {
       startRecording();
     }
   }, [isProcessing, startRecording, maxDuration]);
@@ -577,7 +594,7 @@ const CreateScreen: React.FC = () => {
     try {
       setIsLoadingFromGallery(true);
       setIsProcessing(true);
-      
+
       // Request media library permissions before opening picker (required for videos on iOS SDK 54+)
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permissionResult.granted) {
@@ -589,18 +606,19 @@ const CreateScreen: React.FC = () => {
         );
         return;
       }
-      
+
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: 'videos',
         allowsMultipleSelection: false,
         videoQuality: ImagePicker.UIImagePickerControllerQualityType.High,
-        preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Current,
+        preferredAssetRepresentationMode:
+          ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Current,
         videoExportPreset: ImagePicker.VideoExportPreset.H264_1280x720,
       });
-      
+
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const videoUri = result.assets[0].uri;
-        
+
         try {
           // Validate file using library's API and get actual video duration
           const validationResult = await isValidFile(videoUri);
@@ -619,17 +637,17 @@ const CreateScreen: React.FC = () => {
             setIsProcessing(false);
             return;
           }
-          
+
           setIsLoadingFromGallery(false);
           setIsProcessing(false);
-          
+
           // Show editor with dynamic maxDuration constraint
           // Pass precise value (no rounding) - only display rounds in trimmer UI
           // NOTE: iOS has a bug where it treats maxDuration/minDuration as seconds instead of milliseconds
           // Android expects milliseconds, so we need to pass seconds for iOS, milliseconds for Android
           const maxDurationSeconds = availableTime;
           const maxDurationMs = availableTime * 1000;
-          
+
           showEditor(videoUri, {
             maxDuration: Platform.OS === 'ios' ? maxDurationSeconds : maxDurationMs,
             saveToPhoto: false,
@@ -652,7 +670,7 @@ const CreateScreen: React.FC = () => {
         setIsLoadingFromGallery(false);
         setIsProcessing(false);
       }
-    } catch (e) {
+    } catch (_e) {
       Alert.alert('Error', 'Failed to access gallery. Please try again.');
       setIsLoadingFromGallery(false);
       setIsProcessing(false);
@@ -675,7 +693,7 @@ const CreateScreen: React.FC = () => {
   const handleDoubleTap = useCallback(() => {
     const now = Date.now();
     const DOUBLE_TAP_DELAY = 300; // milliseconds
-    
+
     if (now - lastTapRef.current < DOUBLE_TAP_DELAY) {
       // Double tap detected
       if (tapTimeoutRef.current) {
@@ -705,7 +723,7 @@ const CreateScreen: React.FC = () => {
 
   const deleteLastSegment = useCallback(() => {
     if (!segmentManagerRef.current) return;
-    
+
     const removedSegment = segmentManagerRef.current.removeLastSegment();
     if (removedSegment) {
       totalDurationShared.value = segmentManagerRef.current.getTotalDuration();
@@ -713,34 +731,37 @@ const CreateScreen: React.FC = () => {
     }
   }, [totalDurationShared]);
 
-  const handleToolAction = useCallback((action: string) => {
-    switch (action) {
-      case 'gallery':
-        pickFromGallery();
-        break;
-      case 'flip':
-        flipCamera();
-        break;
-      case 'flash':
-        toggleFlash();
-        break;
-      case 'delete':
-        deleteLastSegment();
-        break;
-      default:
-        break;
-    }
-  }, [pickFromGallery, flipCamera, toggleFlash, deleteLastSegment]);
+  const handleToolAction = useCallback(
+    (action: string) => {
+      switch (action) {
+        case 'gallery':
+          pickFromGallery();
+          break;
+        case 'flip':
+          flipCamera();
+          break;
+        case 'flash':
+          toggleFlash();
+          break;
+        case 'delete':
+          deleteLastSegment();
+          break;
+        default:
+          break;
+      }
+    },
+    [pickFromGallery, flipCamera, toggleFlash, deleteLastSegment]
+  );
 
   const handleBackPress = async () => {
     if (isRecordingRef.current) {
       await stopRecording();
     }
-    
+
     // Show warning if there are recordings
     const hasSegments = segmentManagerRef.current?.hasSegments() ?? false;
     const currentTotal = segmentManagerRef.current?.getTotalDuration() ?? 0;
-    
+
     if (hasSegments || currentTotal > 0) {
       Alert.alert(
         'Discard Recordings?',
@@ -772,21 +793,21 @@ const CreateScreen: React.FC = () => {
     if (!segmentManagerRef.current || isProcessing) {
       return;
     }
-    
+
     // Wait for any active recording to finish
     if (isRecordingRef.current) {
       await stopRecording();
     }
-    
+
     const finalSegments = segmentManagerRef.current.getSegments();
-    
+
     if (finalSegments.length === 0) {
       return;
     }
-    
+
     // Convert to VideoSegment format
     const videoSegments = segmentManagerRef.current.toVideoSegments();
-    
+
     // Only navigate if component is still mounted
     if (isMountedRef.current) {
       // Route to video editor if developer, otherwise go straight to post screen
@@ -797,14 +818,14 @@ const CreateScreen: React.FC = () => {
             pathname: '/video-editor',
             params: {
               videoPath: videoSegments[0].video.uri,
-            }
+            },
           });
         } else {
           router.push({
             pathname: '/video-editor',
             params: {
               segments: JSON.stringify(videoSegments),
-            }
+            },
           });
         }
       } else {
@@ -815,7 +836,7 @@ const CreateScreen: React.FC = () => {
             params: {
               id: 'new',
               videoPath: videoSegments[0].video.uri,
-            }
+            },
           });
         } else {
           router.push({
@@ -823,7 +844,7 @@ const CreateScreen: React.FC = () => {
             params: {
               id: 'new',
               segments: JSON.stringify(videoSegments),
-            }
+            },
           });
         }
       }
@@ -843,10 +864,7 @@ const CreateScreen: React.FC = () => {
           <Icon name="videocam" size={64} color={Colors.lightGray} style={styles.errorIcon} />
           <Text style={styles.warningText}>Please enable camera permissions</Text>
           <Pressable
-            style={({ pressed }) => [
-              styles.button,
-              pressed && { opacity: 0.7 }
-            ]}
+            style={({ pressed }) => [styles.button, pressed && { opacity: 0.7 }]}
             onPress={requestCameraPermission}
           >
             <Text style={styles.buttonText}>Grant Permission</Text>
@@ -859,23 +877,50 @@ const CreateScreen: React.FC = () => {
     return (
       <>
         {/* Camera View - only render when screen is focused and trimmer is not active */}
-        <View style={[styles.cameraContainer, { 
-          justifyContent: isTabletDevice ? 'center' : (Platform.OS === 'ios' ? 'flex-start' : 'center')
-        }]}>
+        <View
+          style={[
+            styles.cameraContainer,
+            {
+              justifyContent: isTabletDevice
+                ? 'center'
+                : Platform.OS === 'ios'
+                  ? 'flex-start'
+                  : 'center',
+            },
+          ]}
+        >
           {isFocused && !isTrimmerActive && (
             <GestureDetector gesture={pinchGesture}>
-              <Animated.View style={[styles.cameraPressable, Platform.OS === 'android' && { flex: 0, height: 'auto' }]}>
-                <Pressable onPress={handleDoubleTap} style={[styles.cameraPressable, Platform.OS === 'android' && { flex: 0, height: 'auto' }]}>
+              <Animated.View
+                style={[
+                  styles.cameraPressable,
+                  Platform.OS === 'android' && { flex: 0, height: 'auto' },
+                ]}
+              >
+                <Pressable
+                  onPress={handleDoubleTap}
+                  style={[
+                    styles.cameraPressable,
+                    Platform.OS === 'android' && { flex: 0, height: 'auto' },
+                  ]}
+                >
                   <CameraView
                     key={cameraKey}
                     ref={cameraRef}
-                    style={[styles.camera, { 
-                      width: cameraWidth, 
-                      height: cameraHeight,
-                      marginTop: isTabletDevice 
-                        ? 0 
-                        : (Platform.OS === 'ios' ? (isSmallDevice ? 0 : insets.top) : 0),
-                    }]}
+                    style={[
+                      styles.camera,
+                      {
+                        width: cameraWidth,
+                        height: cameraHeight,
+                        marginTop: isTabletDevice
+                          ? 0
+                          : Platform.OS === 'ios'
+                            ? isSmallDevice
+                              ? 0
+                              : insets.top
+                            : 0,
+                      },
+                    ]}
                     facing={isFrontCamera ? 'front' : 'back'}
                     mode="video"
                     enableTorch={flash === 'on' && !isFrontCamera}
@@ -887,13 +932,21 @@ const CreateScreen: React.FC = () => {
               </Animated.View>
             </GestureDetector>
           )}
-          
+
           {/* Progress Bar - overlays on top of camera */}
-          <View style={[styles.progressBarOverlay, { 
-            height: (isSmallDevice || isTabletDevice) 
-              ? (isSmallDevice ? 49 : insets.top + 48) // Extends to bottom of header (5px top + 44px button for small, or insets.top + 4px + 44px for others)
-              : insets.top // iOS: extend to top of video, Android: just status bar
-          }]}>
+          <View
+            style={[
+              styles.progressBarOverlay,
+              {
+                height:
+                  isSmallDevice || isTabletDevice
+                    ? isSmallDevice
+                      ? 49
+                      : insets.top + 48 // Extends to bottom of header (5px top + 44px button for small, or insets.top + 4px + 44px for others)
+                    : insets.top, // iOS: extend to top of video, Android: just status bar
+              },
+            ]}
+          >
             <View style={styles.combinedProgressBarContainer}>
               <Animated.View
                 style={[
@@ -904,27 +957,36 @@ const CreateScreen: React.FC = () => {
               />
             </View>
           </View>
-          
+
           {/* Controls */}
-          <View style={[styles.centerButtonContainer, { bottom: bottomNavBarHeight + (isSmallScreen() ? 40 : 50) }]}>
+          <View
+            style={[
+              styles.centerButtonContainer,
+              { bottom: bottomNavBarHeight + (isSmallScreen() ? 40 : 50) },
+            ]}
+          >
             <Pressable
               onPressIn={handlePressIn}
               onPressOut={handlePressOut}
               disabled={availableTime <= 0}
               style={styles.recordButtonContainer}
             >
-              <Animated.View style={[
-                styles.recordButton,
-                animatedButtonOpacityStyle,
-                availableTime <= 0 && styles.recordButtonDisabled
-              ]}>
+              <Animated.View
+                style={[
+                  styles.recordButton,
+                  animatedButtonOpacityStyle,
+                  availableTime <= 0 && styles.recordButtonDisabled,
+                ]}
+              >
                 {isLoadingFromGallery ? (
                   <Loading3FillIcon size={32} color="white" />
                 ) : (
-                  <View style={[
-                    styles.captureButtonInner,
-                    availableTime <= 0 && styles.captureButtonInnerDisabled
-                  ]} />
+                  <View
+                    style={[
+                      styles.captureButtonInner,
+                      availableTime <= 0 && styles.captureButtonInnerDisabled,
+                    ]}
+                  />
                 )}
               </Animated.View>
             </Pressable>
@@ -938,24 +1000,24 @@ const CreateScreen: React.FC = () => {
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <StatusBar hidden={true} />
       <Pressable
-        style={[styles.backButton, { 
-          top: isSmallDevice ? 5 : insets.top + 4,
-          left: 4,
-        }]}
+        style={[
+          styles.backButton,
+          {
+            top: isSmallDevice ? 5 : insets.top + 4,
+            left: 4,
+          },
+        ]}
         onPress={handleBackPress}
       >
         <CloseFillIcon size={26} color="white" />
       </Pressable>
-      
+
       {/* Duration Selector */}
       {!isRecording && (!segmentManagerRef.current || !segmentManagerRef.current.hasSegments()) && (
-        <View style={[
-          styles.durationSelector,
-          { top: isSmallDevice ? 5 : insets.top + 4 }
-        ]}>
+        <View style={[styles.durationSelector, { top: isSmallDevice ? 5 : insets.top + 4 }]}>
           {isDurationSelectorExpanded ? (
             <>
-              {DURATION_OPTIONS.map((option) => {
+              {DURATION_OPTIONS.map(option => {
                 const useGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
                 const isSelected = selectedDuration === option.value;
                 return (
@@ -964,7 +1026,10 @@ const CreateScreen: React.FC = () => {
                     style={[
                       styles.durationOption,
                       useGlass && styles.durationOptionGlass,
-                      isSelected && (useGlass ? styles.durationOptionSelectedGlass : styles.durationOptionSelected),
+                      isSelected &&
+                        (useGlass
+                          ? styles.durationOptionSelectedGlass
+                          : styles.durationOptionSelected),
                     ]}
                     onPress={() => {
                       // Only allow changing duration if not recording and no segments exist
@@ -988,7 +1053,8 @@ const CreateScreen: React.FC = () => {
                       style={[
                         styles.durationOptionText,
                         isSelected && styles.durationOptionTextSelected,
-                        (isRecording || (segmentManagerRef.current?.hasSegments() ?? false)) && styles.durationOptionTextDisabled,
+                        (isRecording || (segmentManagerRef.current?.hasSegments() ?? false)) &&
+                          styles.durationOptionTextDisabled,
                       ]}
                     >
                       {option.label}
@@ -1020,7 +1086,7 @@ const CreateScreen: React.FC = () => {
           )}
         </View>
       )}
-      
+
       {segmentManagerRef.current?.hasSegments() && (
         <Pressable
           style={({ pressed }) => [
@@ -1029,7 +1095,7 @@ const CreateScreen: React.FC = () => {
               top: isSmallDevice ? 5 : insets.top + 4,
               right: 4,
             },
-            pressed && { opacity: 0.7 }
+            pressed && { opacity: 0.7 },
           ]}
           onPress={finishRecording}
           disabled={isProcessing}
@@ -1038,10 +1104,10 @@ const CreateScreen: React.FC = () => {
         </Pressable>
       )}
       {renderContent()}
-      <BottomToolBar 
-        mode="create" 
-        onToolPress={handleToolAction} 
-        flashActive={flash === 'on'} 
+      <BottomToolBar
+        mode="create"
+        onToolPress={handleToolAction}
+        flashActive={flash === 'on'}
         hasSegments={(segmentManagerRef.current?.getTotalDuration() ?? 0) > 0}
         isFrontCamera={isFrontCamera}
         disableGalleryUpload={availableTime <= 0}

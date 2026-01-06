@@ -1,7 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, StatusBar, Appearance, AppState, InteractionManager, Platform } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  StatusBar,
+  Appearance,
+  AppState,
+  InteractionManager,
+  Platform,
+} from 'react-native';
 import { Stack, useSegments } from 'expo-router';
-import { SafeAreaProvider, initialWindowMetrics, useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  SafeAreaProvider,
+  initialWindowMetrics,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
@@ -18,13 +30,14 @@ import { useAppStore } from '../src/stores/appStore';
 import { useUserStore } from '../src/stores/userStore';
 import { migrateAsyncStorageToMMKV } from '../src/utils/storage';
 import { useBookmarkStore } from '../src/stores/bookmarkStore';
-import { CommonErrorHandlers } from '../src/utils/errorHandler';
-import { feedService, createQueryKeys } from '../src/services/FeedService';
+import { CommonErrorHandlers } from '../src/utils/errors/errorHandler';
+import { feedService } from '../src/services/FeedService';
+import { queryKeys } from '../src/utils/query/queryKeys';
 import ShareSheet from '../src/components/ui/ShareSheet';
 import CommentSection from '../src/components/features/comments/CommentSection';
 import GlobalAccountSwitcher from '../src/components/ui/GlobalAccountSwitcher';
 import { useVisibilityCoreStore } from '../src/core/visibility';
-import { queryClient } from '../src/utils/queryClient';
+import { queryClient } from '../src/utils/query/queryClient';
 import { QueryErrorBoundary } from '../src/components/ui/QueryErrorBoundary';
 import { SessionProvider, useSession } from '../src/context/SessionProvider';
 import { TabBarProvider } from '../src/context/TabBarContext';
@@ -65,9 +78,7 @@ const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children }) => 
       <QueryClientProvider client={queryClient}>
         <GestureHandlerRootView style={styles.gestureHandler}>
           <KeyboardProvider>
-            <TabBarProvider>
-              {children}
-            </TabBarProvider>
+            <TabBarProvider>{children}</TabBarProvider>
           </KeyboardProvider>
         </GestureHandlerRootView>
       </QueryClientProvider>
@@ -94,7 +105,12 @@ function RootNavigator() {
 
   return (
     <View style={styles.rootView}>
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={Platform.OS === 'android'} hidden={false} />
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor="transparent"
+        translucent={Platform.OS === 'android'}
+        hidden={false}
+      />
       {!isAuthenticated && (
         <LinearGradient
           colors={['transparent', Colors.black]}
@@ -107,38 +123,38 @@ function RootNavigator() {
         <Stack.Protected guard={!!session}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="(modals)" />
-          <Stack.Screen 
-            name="create" 
-            options={{ 
+          <Stack.Screen
+            name="create"
+            options={{
               animation: 'fade',
               animationDuration: 200,
-            }} 
+            }}
           />
           <Stack.Screen name="video-editor" />
           <Stack.Screen name="video-trimmer" />
-          <Stack.Screen 
-            name="post/[id]" 
-            options={{ 
+          <Stack.Screen
+            name="post/[id]"
+            options={{
               animation: 'fade',
               gestureEnabled: false,
-            }} 
+            }}
           />
           <Stack.Screen name="channel/[id]" />
           <Stack.Screen name="profile/[did]" />
           <Stack.Screen name="chat" />
-          <Stack.Screen 
-            name="settings" 
-            options={{ 
+          <Stack.Screen
+            name="settings"
+            options={{
               presentation: 'modal',
-              animation: 'slide_from_bottom'
-            }} 
+              animation: 'slide_from_bottom',
+            }}
           />
-          <Stack.Screen 
-            name="edit-profile" 
-            options={{ 
+          <Stack.Screen
+            name="edit-profile"
+            options={{
               presentation: 'modal',
-              animation: 'slide_from_bottom'
-            }} 
+              animation: 'slide_from_bottom',
+            }}
           />
         </Stack.Protected>
 
@@ -149,12 +165,12 @@ function RootNavigator() {
         </Stack.Protected>
 
         {/* Always accessible routes */}
-        <Stack.Screen 
-          name="oauth/callback" 
-          options={{ 
+        <Stack.Screen
+          name="oauth/callback"
+          options={{
             animation: 'none',
             gestureEnabled: false,
-          }} 
+          }}
         />
         <Stack.Screen name="index" />
       </Stack>
@@ -165,15 +181,15 @@ function RootNavigator() {
 
 // Visibility hook for inline logic - tracks app state and active tab
 const useVisibilityTracking = () => {
-  const setAppState = useVisibilityCoreStore((state) => state.setAppState);
-  const setActiveTab = useVisibilityCoreStore((state) => state.setActiveTab);
+  const setAppState = useVisibilityCoreStore(state => state.setAppState);
+  const setActiveTab = useVisibilityCoreStore(state => state.setActiveTab);
   const segments = useSegments();
 
   useEffect(() => {
     const initialState = AppState.currentState;
     setAppState(initialState);
 
-    const subscription = AppState.addEventListener('change', (nextState) => {
+    const subscription = AppState.addEventListener('change', nextState => {
       setAppState(nextState);
     });
 
@@ -184,7 +200,7 @@ const useVisibilityTracking = () => {
   useEffect(() => {
     const normalizedSegments = Array.from(segments);
     let activeTab: string | null = null;
-    
+
     // Extract tab name from segments: (tabs)/index -> 'index', (tabs)/explore -> 'explore', etc.
     if (normalizedSegments.length >= 2 && normalizedSegments[0] === '(tabs)') {
       activeTab = normalizedSegments[1];
@@ -192,7 +208,7 @@ const useVisibilityTracking = () => {
       // Default to 'index' if we're at tabs root
       activeTab = 'index';
     }
-    
+
     setActiveTab(activeTab);
   }, [segments, setActiveTab]);
 };
@@ -201,15 +217,15 @@ export default function RootLayout() {
   // Use individual selectors to prevent unnecessary re-renders
   const fontsLoaded = useAppStore(state => state.fontsLoaded);
   const setFontsLoaded = useAppStore(state => state.setFontsLoaded);
-  
+
   // Inline visibility tracking
   useVisibilityTracking();
-  
+
   const isAuthenticated = useUserStore(state => state.isAuthenticated);
   const initializeUserState = useUserStore(state => state.initializeUserState);
   const loadBookmarks = useBookmarkStore(state => state.loadBookmarks);
   const clearBookmarks = useBookmarkStore(state => state.clearBookmarks);
-  
+
   const [isInitializing, setIsInitializing] = useState(true);
   const [appIsReady, setAppIsReady] = useState(false);
 
@@ -226,7 +242,7 @@ export default function RootLayout() {
     const initializeApp = async () => {
       // Migrate AsyncStorage to MMKV (one-time migration)
       await migrateAsyncStorageToMMKV();
-      
+
       // Run font loading and user initialization in parallel
       const [fontsResult] = await Promise.allSettled([
         Font.loadAsync({
@@ -279,14 +295,14 @@ export default function RootLayout() {
       clearBookmarks();
       return;
     }
-    
+
     if (!appIsReady) return;
-    
+
     // Defer until interactions complete (service already checks authentication state)
     const handle = InteractionManager.runAfterInteractions(() => {
       loadBookmarks().catch(() => {});
     });
-    
+
     return () => handle.cancel();
   }, [isAuthenticated, appIsReady, loadBookmarks, clearBookmarks]);
 
@@ -299,12 +315,15 @@ export default function RootLayout() {
       // Defer feed prefetching until after interactions complete
       const interactionHandle = InteractionManager.runAfterInteractions(() => {
         // Prefetch feed in background (non-blocking)
-        queryClient.prefetchInfiniteQuery({
-          queryKey: createQueryKeys.feed.infinite('following', currentUser.did ?? ''),
-          queryFn: ({ pageParam }: { pageParam: string | null }) => feedService.fetchFeed('following', currentUser.did ?? '', pageParam ?? undefined),
-          initialPageParam: null as string | null,
-          getNextPageParam: (lastPage: { cursor?: string | null }) => lastPage.cursor ?? null,
-        }).catch(() => {});
+        queryClient
+          .prefetchInfiniteQuery({
+            queryKey: queryKeys.feed.infinite('following', currentUser.did ?? ''),
+            queryFn: ({ pageParam }: { pageParam: string | null }) =>
+              feedService.fetchFeed('following', currentUser.did ?? '', pageParam ?? undefined),
+            initialPageParam: null as string | null,
+            getNextPageParam: (lastPage: { cursor?: string | null }) => lastPage.cursor ?? null,
+          })
+          .catch(() => {});
       });
 
       return () => {
@@ -370,4 +389,3 @@ const styles = StyleSheet.create({
     right: 0,
   },
 });
-

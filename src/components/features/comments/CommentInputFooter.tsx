@@ -117,19 +117,11 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                           isInteractive
                         />
                         <View style={styles.sendButtonContent} pointerEvents="none">
-                          <Icon 
-                            name="arrow-up-fill"
-                            size={22}
-                            color={Colors.black}
-                          />
+                          <Icon name="arrow-up-fill" size={22} color={Colors.black} />
                         </View>
                       </>
                     ) : (
-                      <Icon 
-                        name="arrow-up-fill"
-                        size={22}
-                        color={Colors.black}
-                      />
+                      <Icon name="arrow-up-fill" size={22} color={Colors.black} />
                     )}
                   </Pressable>
                 ) : !hasText ? (
@@ -141,11 +133,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                     accessibilityRole="button"
                     accessibilityLabel="Cancel reply"
                   >
-                    <Icon 
-                      name="close"
-                      size={18}
-                      color={Colors.lightGray}
-                    />
+                    <Icon name="close" size={18} color={Colors.lightGray} />
                   </Pressable>
                 ) : null}
               </>
@@ -169,30 +157,24 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                           isInteractive
                         />
                         <View style={styles.sendButtonContent} pointerEvents="none">
-                          <Icon 
-                            name="arrow-up-fill" 
-                            size={22} 
-                            color={Colors.black}
-                          />
+                          <Icon name="arrow-up-fill" size={22} color={Colors.black} />
                         </View>
                       </>
                     ) : (
-                      <Icon 
-                        name="arrow-up-fill" 
-                        size={22} 
-                        color={Colors.black}
-                      />
+                      <Icon name="arrow-up-fill" size={22} color={Colors.black} />
                     )}
                   </Pressable>
                 )}
               </>
             )}
             {showCharCount && (
-              <Text style={[
-                styles.charCountText,
-                styles.charCountBelow,
-                charCount > maxLength && styles.charCountTextError
-              ]}>
+              <Text
+                style={[
+                  styles.charCountText,
+                  styles.charCountBelow,
+                  charCount > maxLength && styles.charCountTextError,
+                ]}
+              >
                 {maxLength - charCount}
               </Text>
             )}
@@ -327,4 +309,3 @@ const styles = StyleSheet.create({
 });
 
 export default memo(CommentInputFooter);
-

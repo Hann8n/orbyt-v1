@@ -18,20 +18,22 @@ interface GroupedReaction {
   hasOtherUserReaction: boolean;
 }
 
-export default function MessageReactions({ 
-  reactions, 
-  currentUserId, 
-  onReactionPress, 
-  messageId 
+export default function MessageReactions({
+  reactions,
+  currentUserId,
+  onReactionPress,
 }: MessageReactionsProps) {
   // Animation values for each reaction
   const animationValues = React.useRef(new Map<string, Animated.Value>()).current;
-  
+
   // Group reactions by emoji and count them
   const groupedReactions: GroupedReaction[] = React.useMemo(() => {
-    const reactionMap = new Map<string, { count: number; isCurrentUserReacted: boolean; hasOtherUserReaction: boolean }>();
-    
-    reactions.forEach((reaction) => {
+    const reactionMap = new Map<
+      string,
+      { count: number; isCurrentUserReacted: boolean; hasOtherUserReaction: boolean }
+    >();
+
+    reactions.forEach(reaction => {
       const existing = reactionMap.get(reaction.value);
       if (existing) {
         existing.count += 1;
@@ -48,7 +50,7 @@ export default function MessageReactions({
         });
       }
     });
-    
+
     return Array.from(reactionMap.entries()).map(([emoji, data]) => ({
       emoji,
       count: data.count,
@@ -59,7 +61,7 @@ export default function MessageReactions({
 
   // Initialize animation values for new reactions
   React.useEffect(() => {
-    groupedReactions.forEach((reaction) => {
+    groupedReactions.forEach(reaction => {
       if (!animationValues.has(reaction.emoji)) {
         animationValues.set(reaction.emoji, new Animated.Value(1));
       }
@@ -72,7 +74,7 @@ export default function MessageReactions({
     if (animValue) {
       // Consistent haptic feedback for all reactions
       Vibration.vibrate(50);
-      
+
       // Same animation for all reactions
       Animated.sequence([
         Animated.timing(animValue, {
@@ -93,58 +95,50 @@ export default function MessageReactions({
     return null;
   }
 
-  // Check if current user has reacted to any emoji
-  const hasCurrentUserReaction = groupedReactions.some(reaction => reaction.isCurrentUserReacted);
-
   return (
     <View style={styles.reactionsContainer}>
       <View style={styles.reactionsContent}>
-          {groupedReactions.map((reaction, index) => {
-            const animValue = animationValues.get(reaction.emoji) || new Animated.Value(1);
-            const isFirst = index === 0;
-            const isLast = index === groupedReactions.length - 1;
-            
-            return (
-              <Animated.View
-                key={reaction.emoji}
+        {groupedReactions.map((reaction, index) => {
+          const animValue = animationValues.get(reaction.emoji) || new Animated.Value(1);
+          const isFirst = index === 0;
+          const isLast = index === groupedReactions.length - 1;
+
+          return (
+            <Animated.View
+              key={reaction.emoji}
+              style={[styles.individualReaction, { transform: [{ scale: animValue }] }]}
+            >
+              <Pressable
                 style={[
-                  styles.individualReaction,
-                  { transform: [{ scale: animValue }] }
+                  styles.reactionButton,
+                  isFirst && styles.reactionSegmentFirst,
+                  !isFirst && !isLast && styles.reactionSegmentMiddle,
+                  isLast && styles.reactionSegmentLast,
+                  reaction.isCurrentUserReacted && styles.reactionButtonCurrentUser,
+                  reaction.hasOtherUserReaction &&
+                    !reaction.isCurrentUserReacted &&
+                    styles.reactionButtonOtherUser,
                 ]}
+                onPress={() => {
+                  animateReaction(reaction.emoji);
+                  onReactionPress(reaction.emoji, reaction.isCurrentUserReacted);
+                }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Pressable
-                  style={[
-                    styles.reactionButton,
-                    isFirst && styles.reactionSegmentFirst,
-                    !isFirst && !isLast && styles.reactionSegmentMiddle,
-                    isLast && styles.reactionSegmentLast,
-                    reaction.isCurrentUserReacted && styles.reactionButtonCurrentUser,
-                    reaction.hasOtherUserReaction && !reaction.isCurrentUserReacted && styles.reactionButtonOtherUser,
-                  ]}
-                  onPress={() => {
-                    animateReaction(reaction.emoji);
-                    onReactionPress(reaction.emoji, reaction.isCurrentUserReacted);
-                  }}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Text style={[
-                    styles.emoji,
-                    reaction.isCurrentUserReacted && styles.emojiActive,
-                  ]}>
-                    {reaction.emoji}
+                <Text style={[styles.emoji, reaction.isCurrentUserReacted && styles.emojiActive]}>
+                  {reaction.emoji}
+                </Text>
+                {reaction.count > 1 && (
+                  <Text
+                    style={[styles.count, reaction.isCurrentUserReacted && styles.currentUserCount]}
+                  >
+                    {reaction.count}
                   </Text>
-                  {reaction.count > 1 && (
-                    <Text style={[
-                      styles.count,
-                      reaction.isCurrentUserReacted && styles.currentUserCount,
-                    ]}>
-                      {reaction.count}
-                    </Text>
-                  )}
-                </Pressable>
-              </Animated.View>
-            );
-          })}
+                )}
+              </Pressable>
+            </Animated.View>
+          );
+        })}
       </View>
     </View>
   );

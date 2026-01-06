@@ -22,6 +22,7 @@ module.exports = [
       globals: {
         __dirname: 'readonly',
         __filename: 'readonly',
+        __DEV__: 'readonly',
         console: 'readonly',
         process: 'readonly',
         Buffer: 'readonly',
@@ -35,6 +36,15 @@ module.exports = [
         require: 'readonly',
         module: 'readonly',
         exports: 'readonly',
+        fetch: 'readonly',
+        URL: 'readonly',
+        URLSearchParams: 'readonly',
+        Blob: 'readonly',
+        TextEncoder: 'readonly',
+        TextDecoder: 'readonly',
+        React: 'readonly',
+        NodeJS: 'readonly',
+        window: 'readonly',
       },
     },
     plugins: {
@@ -55,6 +65,7 @@ module.exports = [
         {
           argsIgnorePattern: '^_',
           varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
         },
       ],
       '@typescript-eslint/explicit-module-boundary-types': 'off',

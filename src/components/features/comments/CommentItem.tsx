@@ -1,13 +1,6 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import {
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-  Alert,
-  Linking,
-} from 'react-native';
+import { View, Text, Pressable, StyleSheet, Alert, Linking } from 'react-native';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import Animated, {
@@ -19,11 +12,12 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { prepopulateProfileCache } from '../../../services/cache/ProfileCache';
- 
+import { prefetchProfile } from '../../../services/data/ProfileService';
+
 import AtprotoService from '../../../services/api/AtprotoService';
-import { queryKeys } from '../../../utils/queryKeys';
-import { formatNumber, formatHandle } from '../../../utils/helpers';
+import { queryKeys } from '../../../utils/query/queryKeys';
+import { formatNumber } from '../../../utils/formatting/numbers';
+import { formatHandle } from '../../../utils/formatting/handles';
 import { Colors } from '../../ui/UI';
 import UI from '../../ui/UI';
 import { HeartFillIcon } from '../../ui/Icon';
@@ -86,19 +80,29 @@ function getCommentEmbed(c: Comment) {
 }
 
 const CommentItem: React.FC<CommentItemProps> = React.memo(
-  ({ comment, onDismiss, onReplyPress, rootUri, rootCid: _rootCid, level = 0, onImagePress, highlightUri, onLayoutChange: _onLayoutChange }) => {
-    
+  ({
+    comment,
+    onDismiss,
+    onReplyPress,
+    rootUri,
+    rootCid: _rootCid,
+    level = 0,
+    onImagePress,
+    highlightUri,
+    onLayoutChange: _onLayoutChange,
+  }) => {
     const uri = getCommentUri(comment);
     const cid = getCommentCid(comment);
     const viewerLike = getCommentViewerLike(comment);
-    
-    const { updateCommentInteraction, getCommentInteraction, markCommentAsDeleted } = useCommentStore();
+
+    const { updateCommentInteraction, getCommentInteraction, markCommentAsDeleted } =
+      useCommentStore();
     const { currentUser } = useUserStore();
-    
+
     // Get persisted interaction state from store, with API data as fallback
     // Only use store if we have a valid URI (prevents undefined keys causing shared state)
     const initialLikeCount = getCommentLikeCount(comment);
-    const persistedInteraction = uri 
+    const persistedInteraction = uri
       ? getCommentInteraction(uri, {
           isLiked: !!viewerLike,
           likeCount: initialLikeCount,
@@ -125,7 +129,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
           likeCount: apiLikeCount,
           likeUri: viewerLike,
         });
-        
+
         // Update local state and store if API data differs (preserves optimistic updates when they match)
         if (storeState.likeUri !== viewerLike) {
           setIsLiked(!!viewerLike);
@@ -153,7 +157,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
     }, [viewerLike, uri, updateCommentInteraction, getCommentInteraction, comment]);
 
     const queryClient = useQueryClient();
-    
+
     // Animation values for heart interaction
     const heartScale = useSharedValue(1);
     const heartOpacity = useSharedValue(1);
@@ -162,7 +166,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
     // Highlight animation for target comment
     const shouldHighlight = highlightUri && uri === highlightUri;
     const highlightOpacity = useSharedValue(0);
-    
+
     React.useEffect(() => {
       if (shouldHighlight) {
         // Delay highlight start by 500ms to allow comment section to appear
@@ -174,73 +178,54 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
           });
           // Then fade out after 2 seconds with smooth ease-in-out curve
           setTimeout(() => {
-            highlightOpacity.value = withTiming(0, { 
+            highlightOpacity.value = withTiming(0, {
               duration: 1400,
               easing: Easing.inOut(Easing.cubic),
             });
           }, 2000);
         }, 500);
-        
+
         return () => clearTimeout(delayTimeout);
       }
       return undefined;
     }, [shouldHighlight, highlightOpacity]);
-    
+
     const highlightStyle = useAnimatedStyle(() => ({
       backgroundColor: `rgba(129, 136, 150, ${highlightOpacity.value * 0.12})`,
     }));
 
     const authorName = useMemo(
-      () =>
-        formatHandle(
-          comment?.author?.handle ||
-          ''
-        ) || 'Unknown',
-      [
-        comment?.author?.handle,
-      ]
-    );
-    
-    const authorHandle = useMemo(
-      () =>
-        formatHandle(
-          comment?.author?.handle ||
-          ''
-        ),
+      () => formatHandle(comment?.author?.handle || '') || 'Unknown',
       [comment?.author?.handle]
     );
-    
-    const authorDid = useMemo(
-      () => comment?.author?.did || null,
-      [comment?.author?.did]
+
+    const authorHandle = useMemo(
+      () => formatHandle(comment?.author?.handle || ''),
+      [comment?.author?.handle]
     );
-    
+
+    const authorDid = useMemo(() => comment?.author?.did || null, [comment?.author?.did]);
+
     const authorAvatar = useMemo(
       () => comment?.author?.avatar || 'https://via.placeholder.com/40',
       [comment?.author?.avatar]
     );
-    
-    const commentText = useMemo(
-      () => getCommentText(comment),
-      [comment]
-    );
 
-    const facets = useMemo(
-      () => getCommentFacets(comment),
-      [comment]
-    );
+    const commentText = useMemo(() => getCommentText(comment), [comment]);
+
+    const facets = useMemo(() => getCommentFacets(comment), [comment]);
 
     const parent = comment?.parent;
     const parentAuthorName = useMemo(() => {
       if (!parent) return null;
       return formatHandle(parent?.author?.handle || '') || 'Unknown';
     }, [parent]);
-    
+
     const parentAuthorHandle = useMemo(() => {
       if (!parent) return null;
       return formatHandle(parent?.author?.handle || '');
     }, [parent]);
-    
+
     const parentAuthorDid = useMemo(() => {
       if (!parent) return null;
       return parent?.author?.did || null;
@@ -279,15 +264,15 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
       // Optimistic update - change state immediately
       const newIsLiked = !isLiked;
       const newLikeCount = newIsLiked ? likeCount + 1 : Math.max(0, likeCount - 1);
-      
+
       // Only animate when liking (not when unliking)
       if (newIsLiked) {
         animateHeart();
       }
-      
+
       setIsLiked(newIsLiked);
       setLikeCount(newLikeCount);
-      
+
       try {
         if (newIsLiked) {
           const likeURI: string = await AtprotoService.likePost(uri, cid);
@@ -335,48 +320,63 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
     const navigation = useRouter();
 
     // Modal-aware navigation to AuthorProfile (works inside FeedModal or regular screens)
-    const navigateToAuthorProfile = useCallback((rawHandle?: string | null, rawDid?: string | null, authorData?: { did?: string; handle?: string; displayName?: string; avatar?: string }) => {
-      const cleanHandle = (rawHandle || '').trim();
-      const cleanDid = (rawDid || '').trim();
-      
-      if (!cleanHandle && !cleanDid) {
-        return;
-      }
+    const navigateToAuthorProfile = useCallback(
+      (
+        rawHandle?: string | null,
+        rawDid?: string | null,
+        authorData?: { did?: string; handle?: string; displayName?: string; avatar?: string }
+      ) => {
+        const cleanHandle = (rawHandle || '').trim();
+        const cleanDid = (rawDid || '').trim();
 
-      // Pre-populate profile cache with available author data
-      if (queryClient && (cleanHandle || cleanDid)) {
-        const targetHandle = cleanHandle || authorData?.handle;
-        if (targetHandle) {
-          prepopulateProfileCache(queryClient, {
-            did: cleanDid || authorData?.did,
-            handle: targetHandle,
-            displayName: authorData?.displayName,
-            avatar: authorData?.avatar,
-          }, targetHandle);
+        if (!cleanHandle && !cleanDid) {
+          return;
         }
-      }
 
-      // Always dismiss the sheet first if provided
-      onDismiss?.();
+        // Prefetch profile: sets partial data immediately + fetches full profile
+        if (queryClient && (cleanHandle || cleanDid)) {
+          const targetHandle = cleanHandle || authorData?.handle;
+          if (targetHandle) {
+            prefetchProfile(
+              queryClient,
+              targetHandle,
+              authorData
+                ? {
+                    did: cleanDid || authorData?.did,
+                    handle: targetHandle,
+                    displayName: authorData?.displayName,
+                    avatar: authorData?.avatar,
+                  }
+                : undefined
+            );
+          }
+        }
 
-      // Navigate to profile using Expo Router - prefer DID if available, otherwise use handle
-      if (cleanDid) {
-        navigation.push({
-          pathname: '/profile/[did]',
-          params: cleanHandle 
-            ? { did: cleanDid, handle: cleanHandle }
-            : { did: cleanDid }
-        });
-      } else if (cleanHandle) {
-        navigation.push({
-          pathname: '/profile/[did]',
-          params: { did: cleanHandle }
-        });
-      }
-    }, [navigation, onDismiss, queryClient]);
+        // Always dismiss the sheet first if provided
+        onDismiss?.();
+
+        // Navigate to profile using Expo Router - prefer DID if available, otherwise use handle
+        if (cleanDid) {
+          navigation.push({
+            pathname: '/profile/[did]',
+            params: cleanHandle ? { did: cleanDid, handle: cleanHandle } : { did: cleanDid },
+          });
+        } else if (cleanHandle) {
+          navigation.push({
+            pathname: '/profile/[did]',
+            params: { did: cleanHandle },
+          });
+        }
+      },
+      [navigation, onDismiss, queryClient]
+    );
 
     const handleAuthorPress = useCallback(
-      (handle: string, did?: string | null, authorData?: { did?: string; handle?: string; displayName?: string; avatar?: string }) => {
+      (
+        handle: string,
+        did?: string | null,
+        authorData?: { did?: string; handle?: string; displayName?: string; avatar?: string }
+      ) => {
         navigateToAuthorProfile(handle, did, authorData);
       },
       [navigateToAuthorProfile]
@@ -390,7 +390,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
             feedOption: `hashtag:${hashtag}`,
             backgroundColor: '#000000',
             searchQuery: `#${hashtag}`,
-          }
+          },
         });
       },
       [navigation]
@@ -399,19 +399,25 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
     const handleAuthorAvatarPress = useCallback(() => {
       let handle = null;
       let authorData = null;
-      
+
       if (comment?.author?.handle) {
         handle = comment.author.handle.trim();
         authorData = comment.author;
       }
-      
+
       if (handle && typeof handle === 'string' && handle.trim() !== '') {
-        navigateToAuthorProfile(handle, authorData?.did, authorData ? {
-          did: authorData.did,
-          handle: authorData.handle,
-          displayName: authorData.displayName,
-          avatar: authorData.avatar,
-        } : undefined);
+        navigateToAuthorProfile(
+          handle,
+          authorData?.did,
+          authorData
+            ? {
+                did: authorData.did,
+                handle: authorData.handle,
+                displayName: authorData.displayName,
+                avatar: authorData.avatar,
+              }
+            : undefined
+        );
       }
     }, [comment?.author, navigateToAuthorProfile]);
 
@@ -421,15 +427,15 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
           authorName,
           parentUri: uri,
           parentCid: cid,
-          level: level + 1
+          level: level + 1,
         });
-        
+
         onReplyPress?.({
           ...comment,
           author: {
             ...comment.author,
-            displayName: authorName
-          }
+            displayName: authorName,
+          },
         });
       }
     }, [authorName, uri, cid, level, queryClient, onReplyPress, comment]);
@@ -450,229 +456,233 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
 
       if (isCurrentUserComment) {
         // Current user's post: Pin to profile, Repost, Delete
-        Alert.alert(
-          actionTitle,
-          'Choose an action:',
-          [
-            {
-              text: 'Cancel',
-              style: 'cancel',
+        Alert.alert(actionTitle, 'Choose an action:', [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+          {
+            text: 'Pin to Profile',
+            onPress: async () => {
+              try {
+                // Note: Pin to profile functionality may not be available in ATProto API
+                Alert.alert('Info', 'Pin to profile feature is not yet available.');
+              } catch (error) {
+                Alert.alert('Error', `Failed to pin ${postType}. Please try again.`);
+              }
             },
-            {
-              text: 'Pin to Profile',
-              onPress: async () => {
-                try {
-                  // Note: Pin to profile functionality may not be available in ATProto API
-                  Alert.alert('Info', 'Pin to profile feature is not yet available.');
-                } catch (error) {
-                  Alert.alert('Error', `Failed to pin ${postType}. Please try again.`);
-                }
-              },
-            },
-            {
-              text: 'Repost',
-              onPress: async () => {
-                try {
-                  await AtprotoService.repostPost(uri, cid);
-                  Alert.alert('Success', `${postType.charAt(0).toUpperCase() + postType.slice(1)} reposted successfully.`);
-                  queryClient.invalidateQueries({ 
-                    queryKey: queryKeys.comments.byPost(rootUri || ''),
-                    refetchType: 'active'
-                  });
-                } catch (error) {
-                  Alert.alert('Error', `Failed to repost ${postType}. Please try again.`);
-                }
-              },
-            },
-            {
-              text: 'Delete',
-              style: 'destructive',
-              onPress: async () => {
-                const capitalizedPostType = postType.charAt(0).toUpperCase() + postType.slice(1);
+          },
+          {
+            text: 'Repost',
+            onPress: async () => {
+              try {
+                await AtprotoService.repostPost(uri, cid);
                 Alert.alert(
-                  `Delete ${capitalizedPostType}`,
-                  `Are you sure you want to delete this ${postType}? This action cannot be undone.`,
-                  [
-                    {
-                      text: 'Cancel',
-                      style: 'cancel',
-                    },
-                    {
-                      text: 'Delete',
-                      style: 'destructive',
-                      onPress: async () => {
-                        try {
-                          const success = await AtprotoService.deletePost(uri);
-                          if (success) {
-                            // Mark as deleted in store for immediate UI update
-                            markCommentAsDeleted(uri);
-                            Alert.alert('Success', `${capitalizedPostType} deleted successfully.`);
-                            queryClient.invalidateQueries({ 
-                    queryKey: queryKeys.comments.byPost(rootUri || ''),
-                    refetchType: 'active'
-                  });
-                            queryClient.invalidateQueries({ 
-                              queryKey: queryKeys.feed.all,
-                              refetchType: 'active'
-                            });
-                          } else {
-                            Alert.alert('Error', `Failed to delete ${postType}. Please try again.`);
-                          }
-                        } catch (error) {
+                  'Success',
+                  `${postType.charAt(0).toUpperCase() + postType.slice(1)} reposted successfully.`
+                );
+                queryClient.invalidateQueries({
+                  queryKey: queryKeys.comments.byPost(rootUri || ''),
+                  refetchType: 'active',
+                });
+              } catch (error) {
+                Alert.alert('Error', `Failed to repost ${postType}. Please try again.`);
+              }
+            },
+          },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              const capitalizedPostType = postType.charAt(0).toUpperCase() + postType.slice(1);
+              Alert.alert(
+                `Delete ${capitalizedPostType}`,
+                `Are you sure you want to delete this ${postType}? This action cannot be undone.`,
+                [
+                  {
+                    text: 'Cancel',
+                    style: 'cancel',
+                  },
+                  {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: async () => {
+                      try {
+                        const success = await AtprotoService.deletePost(uri);
+                        if (success) {
+                          // Mark as deleted in store for immediate UI update
+                          markCommentAsDeleted(uri);
+                          Alert.alert('Success', `${capitalizedPostType} deleted successfully.`);
+                          queryClient.invalidateQueries({
+                            queryKey: queryKeys.comments.byPost(rootUri || ''),
+                            refetchType: 'active',
+                          });
+                          queryClient.invalidateQueries({
+                            queryKey: queryKeys.feed.all,
+                            refetchType: 'active',
+                          });
+                        } else {
                           Alert.alert('Error', `Failed to delete ${postType}. Please try again.`);
                         }
-                      },
+                      } catch (error) {
+                        Alert.alert('Error', `Failed to delete ${postType}. Please try again.`);
+                      }
                     },
-                  ]
-                );
-              },
+                  },
+                ]
+              );
             },
-          ]
-        );
+          },
+        ]);
       } else {
         // Other user's post: Repost, Report Post
-        Alert.alert(
-          actionTitle,
-          'Choose an action:',
-          [
-            {
-              text: 'Cancel',
-              style: 'cancel',
-            },
-            {
-              text: 'Repost',
-              onPress: async () => {
-                try {
-                  await AtprotoService.repostPost(uri, cid);
-                  Alert.alert('Success', `${postType.charAt(0).toUpperCase() + postType.slice(1)} reposted successfully.`);
-                  queryClient.invalidateQueries({ 
-                    queryKey: queryKeys.comments.byPost(rootUri || ''),
-                    refetchType: 'active'
-                  });
-                } catch (error) {
-                  Alert.alert('Error', `Failed to repost ${postType}. Please try again.`);
-                }
-              },
-            },
-            {
-              text: `Report ${postType.charAt(0).toUpperCase() + postType.slice(1)}`,
-              onPress: () => {
+        Alert.alert(actionTitle, 'Choose an action:', [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+          {
+            text: 'Repost',
+            onPress: async () => {
+              try {
+                await AtprotoService.repostPost(uri, cid);
                 Alert.alert(
-                  'Report Content',
-                  `Please select a reason for reporting this ${postType}:`,
-                  [
-                    {
-                      text: 'Cancel',
-                      style: 'cancel',
-                    },
-                    {
-                      text: 'Spam',
-                      onPress: async () => {
-                        try {
-                          const success = await AtprotoService.reportContent(uri, 'spam');
-                          if (success) {
-                            const { useReportedPostsStore } = await import('../../../stores/reportedPostsStore');
-                            useReportedPostsStore.getState().reportPost(uri);
-                            Alert.alert('Thank you', 'This content has been reported for review.');
-                          } else {
-                            Alert.alert('Error', 'Failed to submit report. Please try again.');
-                          }
-                        } catch (error) {
-                          Alert.alert('Error', 'Failed to submit report. Please try again.');
-                        }
-                      },
-                    },
-                    {
-                      text: 'Harmful Content',
-                      onPress: async () => {
-                        try {
-                          const success = await AtprotoService.reportContent(uri, 'violation');
-                          if (success) {
-                            const { useReportedPostsStore } = await import('../../../stores/reportedPostsStore');
-                            useReportedPostsStore.getState().reportPost(uri);
-                            Alert.alert('Thank you', 'This content has been reported for review.');
-                          } else {
-                            Alert.alert('Error', 'Failed to submit report. Please try again.');
-                          }
-                        } catch (error) {
-                          Alert.alert('Error', 'Failed to submit report. Please try again.');
-                        }
-                      },
-                    },
-                    {
-                      text: 'Misleading',
-                      onPress: async () => {
-                        try {
-                          const success = await AtprotoService.reportContent(uri, 'misleading');
-                          if (success) {
-                            const { useReportedPostsStore } = await import('../../../stores/reportedPostsStore');
-                            useReportedPostsStore.getState().reportPost(uri);
-                            Alert.alert('Thank you', 'This content has been reported for review.');
-                          } else {
-                            Alert.alert('Error', 'Failed to submit report. Please try again.');
-                          }
-                        } catch (error) {
-                          Alert.alert('Error', 'Failed to submit report. Please try again.');
-                        }
-                      },
-                    },
-                    {
-                      text: 'Sexual Content',
-                      onPress: async () => {
-                        try {
-                          const success = await AtprotoService.reportContent(uri, 'sexual');
-                          if (success) {
-                            const { useReportedPostsStore } = await import('../../../stores/reportedPostsStore');
-                            useReportedPostsStore.getState().reportPost(uri);
-                            Alert.alert('Thank you', 'This content has been reported for review.');
-                          } else {
-                            Alert.alert('Error', 'Failed to submit report. Please try again.');
-                          }
-                        } catch (error) {
-                          Alert.alert('Error', 'Failed to submit report. Please try again.');
-                        }
-                      },
-                    },
-                    {
-                      text: 'Rude/Offensive',
-                      onPress: async () => {
-                        try {
-                          const success = await AtprotoService.reportContent(uri, 'rude');
-                          if (success) {
-                            const { useReportedPostsStore } = await import('../../../stores/reportedPostsStore');
-                            useReportedPostsStore.getState().reportPost(uri);
-                            Alert.alert('Thank you', 'This content has been reported for review.');
-                          } else {
-                            Alert.alert('Error', 'Failed to submit report. Please try again.');
-                          }
-                        } catch (error) {
-                          Alert.alert('Error', 'Failed to submit report. Please try again.');
-                        }
-                      },
-                    },
-                    {
-                      text: 'Other',
-                      onPress: async () => {
-                        try {
-                          const success = await AtprotoService.reportContent(uri, 'other');
-                          if (success) {
-                            const { useReportedPostsStore } = await import('../../../stores/reportedPostsStore');
-                            useReportedPostsStore.getState().reportPost(uri);
-                            Alert.alert('Thank you', 'This content has been reported for review.');
-                          } else {
-                            Alert.alert('Error', 'Failed to submit report. Please try again.');
-                          }
-                        } catch (error) {
-                          Alert.alert('Error', 'Failed to submit report. Please try again.');
-                        }
-                      },
-                    },
-                  ]
+                  'Success',
+                  `${postType.charAt(0).toUpperCase() + postType.slice(1)} reposted successfully.`
                 );
-              },
+                queryClient.invalidateQueries({
+                  queryKey: queryKeys.comments.byPost(rootUri || ''),
+                  refetchType: 'active',
+                });
+              } catch (error) {
+                Alert.alert('Error', `Failed to repost ${postType}. Please try again.`);
+              }
             },
-          ]
-        );
+          },
+          {
+            text: `Report ${postType.charAt(0).toUpperCase() + postType.slice(1)}`,
+            onPress: () => {
+              Alert.alert(
+                'Report Content',
+                `Please select a reason for reporting this ${postType}:`,
+                [
+                  {
+                    text: 'Cancel',
+                    style: 'cancel',
+                  },
+                  {
+                    text: 'Spam',
+                    onPress: async () => {
+                      try {
+                        const success = await AtprotoService.reportContent(uri, 'spam');
+                        if (success) {
+                          const { useReportedPostsStore } =
+                            await import('../../../stores/reportedPostsStore');
+                          useReportedPostsStore.getState().reportPost(uri);
+                          Alert.alert('Thank you', 'This content has been reported for review.');
+                        } else {
+                          Alert.alert('Error', 'Failed to submit report. Please try again.');
+                        }
+                      } catch (error) {
+                        Alert.alert('Error', 'Failed to submit report. Please try again.');
+                      }
+                    },
+                  },
+                  {
+                    text: 'Harmful Content',
+                    onPress: async () => {
+                      try {
+                        const success = await AtprotoService.reportContent(uri, 'violation');
+                        if (success) {
+                          const { useReportedPostsStore } =
+                            await import('../../../stores/reportedPostsStore');
+                          useReportedPostsStore.getState().reportPost(uri);
+                          Alert.alert('Thank you', 'This content has been reported for review.');
+                        } else {
+                          Alert.alert('Error', 'Failed to submit report. Please try again.');
+                        }
+                      } catch (error) {
+                        Alert.alert('Error', 'Failed to submit report. Please try again.');
+                      }
+                    },
+                  },
+                  {
+                    text: 'Misleading',
+                    onPress: async () => {
+                      try {
+                        const success = await AtprotoService.reportContent(uri, 'misleading');
+                        if (success) {
+                          const { useReportedPostsStore } =
+                            await import('../../../stores/reportedPostsStore');
+                          useReportedPostsStore.getState().reportPost(uri);
+                          Alert.alert('Thank you', 'This content has been reported for review.');
+                        } else {
+                          Alert.alert('Error', 'Failed to submit report. Please try again.');
+                        }
+                      } catch (error) {
+                        Alert.alert('Error', 'Failed to submit report. Please try again.');
+                      }
+                    },
+                  },
+                  {
+                    text: 'Sexual Content',
+                    onPress: async () => {
+                      try {
+                        const success = await AtprotoService.reportContent(uri, 'sexual');
+                        if (success) {
+                          const { useReportedPostsStore } =
+                            await import('../../../stores/reportedPostsStore');
+                          useReportedPostsStore.getState().reportPost(uri);
+                          Alert.alert('Thank you', 'This content has been reported for review.');
+                        } else {
+                          Alert.alert('Error', 'Failed to submit report. Please try again.');
+                        }
+                      } catch (error) {
+                        Alert.alert('Error', 'Failed to submit report. Please try again.');
+                      }
+                    },
+                  },
+                  {
+                    text: 'Rude/Offensive',
+                    onPress: async () => {
+                      try {
+                        const success = await AtprotoService.reportContent(uri, 'rude');
+                        if (success) {
+                          const { useReportedPostsStore } =
+                            await import('../../../stores/reportedPostsStore');
+                          useReportedPostsStore.getState().reportPost(uri);
+                          Alert.alert('Thank you', 'This content has been reported for review.');
+                        } else {
+                          Alert.alert('Error', 'Failed to submit report. Please try again.');
+                        }
+                      } catch (error) {
+                        Alert.alert('Error', 'Failed to submit report. Please try again.');
+                      }
+                    },
+                  },
+                  {
+                    text: 'Other',
+                    onPress: async () => {
+                      try {
+                        const success = await AtprotoService.reportContent(uri, 'other');
+                        if (success) {
+                          const { useReportedPostsStore } =
+                            await import('../../../stores/reportedPostsStore');
+                          useReportedPostsStore.getState().reportPost(uri);
+                          Alert.alert('Thank you', 'This content has been reported for review.');
+                        } else {
+                          Alert.alert('Error', 'Failed to submit report. Please try again.');
+                        }
+                      } catch (error) {
+                        Alert.alert('Error', 'Failed to submit report. Please try again.');
+                      }
+                    },
+                  },
+                ]
+              );
+            },
+          },
+        ]);
       }
     }, [uri, cid, isCurrentUserComment, rootUri, queryClient, level, comment?.parent, authorName]);
 
@@ -680,15 +690,22 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
 
     // Shimmer Image Component
 
-    const LinkThumbnail: React.FC<{ external: { uri: string; thumb?: string | { ref: { $link: string } }; title?: string; description?: string } }> = React.memo(({ external }) => {
+    const LinkThumbnail: React.FC<{
+      external: {
+        uri: string;
+        thumb?: string | { ref: { $link: string } };
+        title?: string;
+        description?: string;
+      };
+    }> = React.memo(({ external }) => {
       if (!external?.uri || !/^https?:\/\//.test(external.uri)) return null;
-      
+
       const handlePress = () => {
         if (external.uri) {
           Linking.openURL(external.uri).catch(() => {});
         }
       };
-      
+
       return (
         <Pressable
           onPress={handlePress}
@@ -719,24 +736,45 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
 
     const renderImages = (hasText: boolean) => {
       const embed = getCommentEmbed(comment);
-      
-      const isExternalEmbed = (e: unknown): e is { $type: string; external: { uri: string; thumb?: string | { ref: { $link: string } }; description?: string; title?: string } } => {
+
+      const isExternalEmbed = (
+        e: unknown
+      ): e is {
+        $type: string;
+        external: {
+          uri: string;
+          thumb?: string | { ref: { $link: string } };
+          description?: string;
+          title?: string;
+        };
+      } => {
         if (!e || typeof e !== 'object') return false;
         const obj = e as { $type?: unknown; external?: unknown };
-        return (obj.$type === 'app.bsky.embed.external' || obj.$type === 'app.bsky.embed.external#view') && !!obj.external;
+        return (
+          (obj.$type === 'app.bsky.embed.external' ||
+            obj.$type === 'app.bsky.embed.external#view') &&
+          !!obj.external
+        );
       };
-      
-      let external: { uri: string; thumb?: string | { ref: { $link: string } }; description?: string; title?: string } | undefined = undefined;
+
+      let external:
+        | {
+            uri: string;
+            thumb?: string | { ref: { $link: string } };
+            description?: string;
+            title?: string;
+          }
+        | undefined = undefined;
       if (isExternalEmbed(embed)) {
         external = embed.external;
       }
-      
+
       const getClampedAspectRatio = (ar: number) => Math.max(0.5, Math.min(2.0, ar));
-      
+
       const isDirectImageUrl = (url: string) => {
         return /\.(jpg|jpeg|png|gif|webp)$/i.test(url.split('?')[0]);
       };
-      
+
       if (external && external.uri && /^https?:\/\//.test(external.uri)) {
         if (isDirectImageUrl(external.uri)) {
           const maxHeight = hasText ? 220 : 320;
@@ -753,7 +791,10 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
             <View style={styles.commentImagesContainer}>
               <Pressable
                 key={external.uri}
-                style={[styles.commentImageWrapper, { width: '100%', aspectRatio: defaultAspectRatio }]}
+                style={[
+                  styles.commentImageWrapper,
+                  { width: '100%', aspectRatio: defaultAspectRatio },
+                ]}
                 onPress={() => {
                   if (onImagePress) onImagePress(external.uri);
                 }}
@@ -772,19 +813,38 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
           return <LinkThumbnail external={external} />;
         }
       }
-      
-      let embedImages: { alt: string; thumb: string; fullsize: string; aspectRatio?: { width: number; height: number } }[] = [];
+
+      let embedImages: {
+        alt: string;
+        thumb: string;
+        fullsize: string;
+        aspectRatio?: { width: number; height: number };
+      }[] = [];
       const embedObj = embed as { $type?: string; images?: unknown[] } | undefined;
-      const isImagesEmbed = embedObj?.$type === 'app.bsky.embed.images' || embedObj?.$type === 'app.bsky.embed.images#view';
+      const isImagesEmbed =
+        embedObj?.$type === 'app.bsky.embed.images' ||
+        embedObj?.$type === 'app.bsky.embed.images#view';
       if (isImagesEmbed && Array.isArray(embedObj?.images)) {
-        embedImages = ((embed as { images: unknown[] }).images).filter((img: unknown): img is { thumb?: string; fullsize?: string; alt?: string; aspectRatio?: { width: number; height: number } } => 
-          typeof img === 'object' && img !== null && ('thumb' in img || 'fullsize' in img)
-        ) as { alt: string; thumb: string; fullsize: string; aspectRatio?: { width: number; height: number } }[];
+        embedImages = (embed as { images: unknown[] }).images.filter(
+          (
+            img: unknown
+          ): img is {
+            thumb?: string;
+            fullsize?: string;
+            alt?: string;
+            aspectRatio?: { width: number; height: number };
+          } => typeof img === 'object' && img !== null && ('thumb' in img || 'fullsize' in img)
+        ) as {
+          alt: string;
+          thumb: string;
+          fullsize: string;
+          aspectRatio?: { width: number; height: number };
+        }[];
       }
       if (!embedImages || embedImages.length === 0) {
         return null;
       }
-      
+
       const getImageLayoutStyle = (index: number, totalImages: number) => {
         if (totalImages === 1) {
           return { width: '100%' as const, maxHeight: 300 };
@@ -800,43 +860,50 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
           return { width: '49%' as const, maxHeight: 120 };
         }
       };
-      
+
       return (
         <View style={styles.commentImagesContainer}>
-          {embedImages.slice(0, 4).map((img: { alt: string; thumb: string; fullsize: string; aspectRatio?: { width: number; height: number } }, idx: number) => {
-            // Calculate aspect ratio from embed data or use default
-            const aspectRatio = img.aspectRatio 
-              ? getClampedAspectRatio(img.aspectRatio.width / img.aspectRatio.height)
-              : 1;
-            
-            return (
-              <Pressable 
-                key={`${img.thumb || img.fullsize || idx}`} 
-                style={[
-                  styles.commentImageWrapper,
-                  getImageLayoutStyle(idx, Math.min(embedImages.length, 4)),
-                  { aspectRatio },
-                  idx % 2 === 0 ? { marginRight: '1%' } : { marginLeft: '1%' }
-                ]}
-                onPress={() => {
-                  if (onImagePress && img.fullsize) {
-                    onImagePress(img.fullsize);
-                  }
-                }}
-              >
-                <Image
-                  source={{ uri: img.thumb || img.fullsize }}
+          {embedImages.slice(0, 4).map(
+            (
+              img: {
+                alt: string;
+                thumb: string;
+                fullsize: string;
+                aspectRatio?: { width: number; height: number };
+              },
+              idx: number
+            ) => {
+              // Calculate aspect ratio from embed data or use default
+              const aspectRatio = img.aspectRatio
+                ? getClampedAspectRatio(img.aspectRatio.width / img.aspectRatio.height)
+                : 1;
+
+              return (
+                <Pressable
+                  key={`${img.thumb || img.fullsize || idx}`}
                   style={[
-                    styles.commentImage,
-                    { aspectRatio }
+                    styles.commentImageWrapper,
+                    getImageLayoutStyle(idx, Math.min(embedImages.length, 4)),
+                    { aspectRatio },
+                    idx % 2 === 0 ? { marginRight: '1%' } : { marginLeft: '1%' },
                   ]}
-                  contentFit="cover"
-                  accessible={true}
-                  accessibilityLabel={img.alt || "Comment image"}
-                />
-              </Pressable>
-            );
-          })}
+                  onPress={() => {
+                    if (onImagePress && img.fullsize) {
+                      onImagePress(img.fullsize);
+                    }
+                  }}
+                >
+                  <Image
+                    source={{ uri: img.thumb || img.fullsize }}
+                    style={[styles.commentImage, { aspectRatio }]}
+                    contentFit="cover"
+                    accessible={true}
+                    accessibilityLabel={img.alt || 'Comment image'}
+                  />
+                </Pressable>
+              );
+            }
+          )}
           {embedImages.length > 4 && (
             <View style={styles.moreImagesIndicator}>
               <Text style={styles.moreImagesText}>+{embedImages.length - 4} more</Text>
@@ -847,120 +914,133 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
     };
 
     return (
-      <View style={[
-        styles.commentThreadContainer,
-        { marginLeft: 0, paddingLeft: 0 },
-        level > 0 && { marginLeft: 14 * level },
-      ]}>
-        <Pressable
-          onLongPress={handleLongPress}
-          delayLongPress={400}
-        >
-          <Animated.View style={[
-            styles.commentItemContainer,
-            { zIndex: 1, paddingVertical: 6, paddingHorizontal: 0, alignItems: 'center' },
-          ]}>
-          {/* Full-width highlight overlay */}
-          {shouldHighlight && (
-            <Animated.View 
-              style={[
-                styles.highlightOverlay,
-                highlightStyle,
-              ]}
-              pointerEvents="none"
-            />
-          )}
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start', flex: 1, zIndex: 1 }}>
-            <Pressable onPress={handleAuthorAvatarPress}>
-              <UI.Avatar
-                uri={authorAvatar}
-                type="profile"
-                size={level > 0 ? 30 : 40}
-                style={{
-                  width: level > 0 ? 30 : 40,
-                  height: level > 0 ? 30 : 40,
-                  borderRadius: BORDER_RADIUS.LARGE,
-                  marginRight: 12,
-                  borderWidth: 0,
-                }}
+      <View
+        style={[
+          styles.commentThreadContainer,
+          { marginLeft: 0, paddingLeft: 0 },
+          level > 0 && { marginLeft: 14 * level },
+        ]}
+      >
+        <Pressable onLongPress={handleLongPress} delayLongPress={400}>
+          <Animated.View
+            style={[
+              styles.commentItemContainer,
+              { zIndex: 1, paddingVertical: 6, paddingHorizontal: 0, alignItems: 'center' },
+            ]}
+          >
+            {/* Full-width highlight overlay */}
+            {shouldHighlight && (
+              <Animated.View
+                style={[styles.highlightOverlay, highlightStyle]}
+                pointerEvents="none"
               />
-            </Pressable>
-            <View style={{ flex: 1, justifyContent: 'center' }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
-                <Pressable
-                  onPress={() => {
-                    const authorData = comment?.author;
-                    if (authorHandle || authorDid) {
-                      handleAuthorPress(authorHandle, authorDid, authorData);
-                    }
+            )}
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', flex: 1, zIndex: 1 }}>
+              <Pressable onPress={handleAuthorAvatarPress}>
+                <UI.Avatar
+                  uri={authorAvatar}
+                  type="profile"
+                  size={level > 0 ? 30 : 40}
+                  style={{
+                    width: level > 0 ? 30 : 40,
+                    height: level > 0 ? 30 : 40,
+                    borderRadius: BORDER_RADIUS.LARGE,
+                    marginRight: 12,
+                    borderWidth: 0,
                   }}
-                >
-                  <Text style={{ color: Colors.white, fontSize: 16, marginBottom: 2, fontFamily: 'Firma-Bold' }}>
-                    {authorName}
-                  </Text>
-                </Pressable>
-                {authorHandle && (
-                  <VerificationBadge
-                    handle={authorHandle}
-                    textSize={16}
-                    textColor={Colors.white}
-                    autoPosition={true}
-                  />
-                )}
-                {/* Parent context chyron: Author Name → Parent Author Name */}
-                {/* Only show if parent is itself a reply (not a direct reply to top-level comment) */}
-                {parent && parentAuthorName && level > 0 && parent.parent && (
-                  <View style={styles.parentChyronContainer}>
-                    <Text style={styles.parentChyronArrow}>→</Text>
-                    <Pressable
-                      onPress={() => {
-                        const parentAuthorData = parent?.author;
-                        if (parentAuthorHandle && typeof parentAuthorHandle === 'string') {
-                          handleAuthorPress(parentAuthorHandle, parentAuthorDid ?? undefined, parentAuthorData);
-                        }
+                />
+              </Pressable>
+              <View style={{ flex: 1, justifyContent: 'center' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <Pressable
+                    onPress={() => {
+                      const authorData = comment?.author;
+                      if (authorHandle || authorDid) {
+                        handleAuthorPress(authorHandle, authorDid, authorData);
+                      }
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: Colors.white,
+                        fontSize: 16,
+                        marginBottom: 2,
+                        fontFamily: 'Firma-Bold',
                       }}
                     >
-                      <Text style={styles.parentChyronText} numberOfLines={1}>
-                        {parentAuthorName}
-                      </Text>
-                    </Pressable>
-                  </View>
-                )}
-              </View>
+                      {authorName}
+                    </Text>
+                  </Pressable>
+                  {authorHandle && (
+                    <VerificationBadge
+                      handle={authorHandle}
+                      textSize={16}
+                      textColor={Colors.white}
+                      autoPosition={true}
+                    />
+                  )}
+                  {/* Parent context chyron: Author Name → Parent Author Name */}
+                  {/* Only show if parent is itself a reply (not a direct reply to top-level comment) */}
+                  {parent && parentAuthorName && level > 0 && parent.parent && (
+                    <View style={styles.parentChyronContainer}>
+                      <Text style={styles.parentChyronArrow}>→</Text>
+                      <Pressable
+                        onPress={() => {
+                          const parentAuthorData = parent?.author;
+                          if (parentAuthorHandle && typeof parentAuthorHandle === 'string') {
+                            handleAuthorPress(
+                              parentAuthorHandle,
+                              parentAuthorDid ?? undefined,
+                              parentAuthorData
+                            );
+                          }
+                        }}
+                      >
+                        <Text style={styles.parentChyronText} numberOfLines={1}>
+                          {parentAuthorName}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  )}
+                </View>
 
-              {commentText ? (
-                <TextWithAuthorLinks
-                  text={commentText}
-                  style={{ color: Colors.lightGray, fontSize: 15, marginTop: 2, fontFamily: 'Firma-Regular' }}
-                  onAuthorPress={handleAuthorPress}
-                  onHashtagPress={handleHashtagPress}
-                  facets={facets as import('../../../utils/richTextParser').RichTextFacet[] | undefined}
-                />
-              ) : null}
-              {renderImages(!!commentText)}
-              <View style={styles.commentMetaContainer}>
-                <RelativeDate
-                  dateString={comment?.indexedAt}
-                  style={styles.commentTimestamp}
-                />
-                <Pressable onPress={handleReplyPress} style={styles.replyButton}>
-                  <Text style={styles.replyButtonText}>Reply</Text>
-                </Pressable>
+                {commentText ? (
+                  <TextWithAuthorLinks
+                    text={commentText}
+                    style={{
+                      color: Colors.lightGray,
+                      fontSize: 15,
+                      marginTop: 2,
+                      fontFamily: 'Firma-Regular',
+                    }}
+                    onAuthorPress={handleAuthorPress}
+                    onHashtagPress={handleHashtagPress}
+                    facets={
+                      facets as import('../../../utils/types/richText').RichTextFacet[] | undefined
+                    }
+                  />
+                ) : null}
+                {renderImages(!!commentText)}
+                <View style={styles.commentMetaContainer}>
+                  <RelativeDate dateString={comment?.indexedAt} style={styles.commentTimestamp} />
+                  <Pressable onPress={handleReplyPress} style={styles.replyButton}>
+                    <Text style={styles.replyButtonText}>Reply</Text>
+                  </Pressable>
+                </View>
               </View>
             </View>
-          </View>
-          <View style={styles.commentActionsContainer}>
-            <Pressable onPress={handleLikeComment} style={styles.likeButton} disabled={isLiking}>
-              <Animated.View style={heartAnimatedStyle}>
-                <HeartFillIcon
-                  size={20}
-                  color={isLiked ? Colors.INTERACTIVE.HEART.ACTIVE : Colors.gray}
-                />
-              </Animated.View>
-            </Pressable>
-            {likeCount > 0 && <Text style={styles.likeCount}>{formatNumber(likeCount)}</Text>}
-          </View>
-        </Animated.View>
+            <View style={styles.commentActionsContainer}>
+              <Pressable onPress={handleLikeComment} style={styles.likeButton} disabled={isLiking}>
+                <Animated.View style={heartAnimatedStyle}>
+                  <HeartFillIcon
+                    size={20}
+                    color={isLiked ? Colors.INTERACTIVE.HEART.ACTIVE : Colors.gray}
+                  />
+                </Animated.View>
+              </Pressable>
+              {likeCount > 0 && <Text style={styles.likeCount}>{formatNumber(likeCount)}</Text>}
+            </View>
+          </Animated.View>
         </Pressable>
       </View>
     );
@@ -1155,4 +1235,3 @@ const styles = StyleSheet.create({
 export default MemoizedCommentItem;
 export { CommentItem };
 export type { CommentItemProps };
-

@@ -1,16 +1,8 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { BORDER_RADIUS } from '../../utils/constants';
-import {
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-  ViewStyle,
-  TextStyle,
-  StyleProp,
-} from 'react-native';
+import { View, Text, Pressable, StyleSheet, ViewStyle, TextStyle, StyleProp } from 'react-native';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import { safeDismiss, safePresent } from '../../utils/truesheet/trueSheetUtils';
+import { safeDismiss, safePresent } from '../../utils/components/truesheet/utils';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from './Icon';
 import CloseButton from './CloseButton';
@@ -89,11 +81,12 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
   // For sheets with cancel button: use calculated footer height
   // For sheets without cancel button: use safe area bottom + small padding
   // Or use custom padding if provided
-  const contentPaddingBottom = contentBottomPadding !== undefined
-    ? contentBottomPadding
-    : showCancelButton
-    ? footerHeight
-    : insets.bottom + 12;
+  const contentPaddingBottom =
+    contentBottomPadding !== undefined
+      ? contentBottomPadding
+      : showCancelButton
+        ? footerHeight
+        : insets.bottom + 12;
 
   // Handle bottom sheet visibility
   useEffect(() => {
@@ -131,7 +124,10 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
   // Header component for TrueSheet header prop
   const headerComponent = (
     <View style={styles.headerContainer}>
-      <Text style={[styles.headerTitle, titleSize && { fontSize: titleSize }]} numberOfLines={1}>
+      <Text
+        style={[styles.headerTitle, titleSize != null && { fontSize: titleSize }]}
+        numberOfLines={1}
+      >
         {title}
       </Text>
       {hideCloseButton ? (
@@ -152,14 +148,16 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
       backgroundColor={Colors.black}
       onDidDismiss={onDismiss}
       grabber={false}
-      keyboardMode="pan"
       scrollable={scrollable}
       header={headerComponent}
       footer={
         showCancelButton ? (
           <View style={{ backgroundColor: Colors.black, paddingBottom: insets.bottom }}>
-            <View 
-              style={[styles.cancelContainer, { backgroundColor: Colors.black, paddingTop: footerTopPadding ?? 8 }]}
+            <View
+              style={[
+                styles.cancelContainer,
+                { backgroundColor: Colors.black, paddingTop: footerTopPadding ?? 8 },
+              ]}
             >
               <CancelButton onPress={onDismiss} text={cancelButtonText} />
             </View>
@@ -174,9 +172,9 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
             <Text style={styles.descriptionText}>{description}</Text>
           </View>
         )}
-        
+
         {/* Content */}
-        <View style={[styles.contentContainer, { paddingBottom: contentPaddingBottom }]}> 
+        <View style={[styles.contentContainer, { paddingBottom: contentPaddingBottom }]}>
           {children}
         </View>
       </View>
@@ -343,13 +341,10 @@ export const VerticalListCheckboxButton: React.FC<{
       onPress={onPress}
       disabled={disabled}
       rightIcon={
-        <View style={[
-          styles.checkboxButtonCheckbox,
-          checked && styles.checkboxButtonCheckboxSelected
-        ]}>
-          {checked && (
-            <Icon name="checkmark" size={16} color={Colors.black} />
-          )}
+        <View
+          style={[styles.checkboxButtonCheckbox, checked && styles.checkboxButtonCheckboxSelected]}
+        >
+          {checked && <Icon name="checkmark" size={16} color={Colors.black} />}
         </View>
       }
       style={[{ marginHorizontal: 12 }, style]}

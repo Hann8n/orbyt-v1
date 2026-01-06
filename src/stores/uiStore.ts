@@ -19,7 +19,7 @@ interface UIState {
   setLoading: (key: string, isLoading: boolean) => void;
   getLoading: (key: string) => boolean;
   clearAllLoading: () => void;
-  
+
   // Visibility states (for modals, dropdowns, etc.)
   visibility: VisibilityState;
   setVisibility: (key: string, isVisible: boolean) => void;
@@ -31,40 +31,40 @@ interface UIState {
 export const useUIStore = create<UIState>((set, get) => ({
   // Loading states
   loading: {},
-  
+
   setLoading: (key: string, isLoading: boolean) => {
-    set((state) => ({
+    set(state => ({
       loading: { ...state.loading, [key]: isLoading },
     }));
   },
-  
+
   getLoading: (key: string) => {
     return get().loading[key] ?? false;
   },
-  
+
   clearAllLoading: () => {
     set({ loading: {} });
   },
-  
+
   // Visibility states
   visibility: {},
-  
+
   setVisibility: (key: string, isVisible: boolean) => {
-    set((state) => ({
+    set(state => ({
       visibility: { ...state.visibility, [key]: isVisible },
     }));
   },
-  
+
   getVisibility: (key: string) => {
     return get().visibility[key] ?? false;
   },
-  
+
   toggleVisibility: (key: string) => {
-    set((state) => ({
+    set(state => ({
       visibility: { ...state.visibility, [key]: !state.visibility[key] },
     }));
   },
-  
+
   clearAllVisibility: () => {
     set({ visibility: {} });
   },
@@ -72,17 +72,17 @@ export const useUIStore = create<UIState>((set, get) => ({
 
 // Convenience hooks for common patterns
 export const useLoading = (key: string) => {
-  const isLoading = useUIStore((state) => state.loading[key] ?? false);
-  const setLoading = useUIStore((state) => state.setLoading);
-  
+  const isLoading = useUIStore(state => state.loading[key] ?? false);
+  const setLoading = useUIStore(state => state.setLoading);
+
   return [isLoading, (loading: boolean) => setLoading(key, loading)] as const;
 };
 
 export const useVisibility = (key: string) => {
-  const isVisible = useUIStore((state) => state.visibility[key] ?? false);
-  const setVisibility = useUIStore((state) => state.setVisibility);
-  const toggle = useUIStore((state) => state.toggleVisibility);
-  
+  const isVisible = useUIStore(state => state.visibility[key] ?? false);
+  const setVisibility = useUIStore(state => state.setVisibility);
+  const toggle = useUIStore(state => state.toggleVisibility);
+
   return {
     isVisible,
     setVisible: (visible: boolean) => setVisibility(key, visible),

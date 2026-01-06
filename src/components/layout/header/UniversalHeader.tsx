@@ -4,17 +4,22 @@ import React, { memo, useCallback, useMemo, useRef } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, StyleSheet, Pressable, Text } from 'react-native';
 import { ImageBackground } from 'expo-image';
-import Animated, { type SharedValue, useAnimatedStyle, interpolate, Extrapolate } from 'react-native-reanimated';
+import Animated, {
+  type SharedValue,
+  useAnimatedStyle,
+  interpolate,
+  Extrapolate,
+} from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { BackArrowIcon, MoreFillIcon, Loading3FillIcon } from '../../ui/Icon';
 import { useRouter } from 'expo-router';
-import { hexToRGBA } from '../../../utils/formatting/colorUtils';
+import { hexToRGBA } from '../../../utils/formatting/colors';
 import { Avatar } from '../../ui/UI';
 import { Colors } from '../../ui/UI';
-import { splitHandleSuffix } from '../../../utils/helpers';
+import { splitHandleSuffix } from '../../../utils/formatting/handles';
 import { TextWithLinks } from '../../ui/TextWithLinks';
-import type { RichTextFacet } from '../../../utils/richTextParser';
+import type { RichTextFacet } from '../../../utils/types/richText';
 
 // Types for the universal header system
 export interface HeaderAction {
@@ -94,7 +99,7 @@ const ActionButton = memo<{
 }>(({ action, textColor, backgroundColor, size = 'medium' }) => {
   const hasFilledBackground = useMemo(() => {
     const isFollowingState = action.label === 'Following' || action.label === 'Mutuals';
-    const isIconOnlyFollowingState = (action.id === 'follow' && !action.label);
+    const isIconOnlyFollowingState = action.id === 'follow' && !action.label;
     const isSaveButton = action.id === 'save';
     const isActiveSubscription = action.id === 'subscription' && action.active;
     return isFollowingState || isIconOnlyFollowingState || isSaveButton || isActiveSubscription;
@@ -103,47 +108,60 @@ const ActionButton = memo<{
   // Freeze hasFilledBackground when press starts to prevent flash during async state updates
   const frozenHasFilledBackgroundRef = useRef<boolean | null>(null);
 
-  const getButtonStyle = useCallback((pressed: boolean = false, frozenValue: boolean | null = null) => {
-    const label = (action.label || '').toLowerCase();
-    const isEdit = action.id === 'edit' || label.includes('edit');
-    const isFollowButton = action.id === 'follow' || label === 'follow' || label === 'following' || label === 'mutuals';
-    const isSubscribeButton = action.id === 'subscription';
-    
-    // Use frozen value if provided (during press), otherwise use current value
-    const baselineFilled = frozenValue !== null ? frozenValue : hasFilledBackground;
-    // When pressed, show opposite state by inverting baseline; when not pressed, use current value
-    const showFilledState = pressed ? !baselineFilled : hasFilledBackground;
-    
-    const baseStyle = {
-      backgroundColor: showFilledState ? textColor : hexToRGBA(textColor, 0.2),
-      borderColor: showFilledState ? textColor : hexToRGBA(textColor, 0.3),
-      ...((isEdit || isFollowButton || isSubscribeButton) && { borderWidth: 0 }),
-    };
+  const getButtonStyle = useCallback(
+    (pressed: boolean = false, frozenValue: boolean | null = null) => {
+      const label = (action.label || '').toLowerCase();
+      const isEdit = action.id === 'edit' || label.includes('edit');
+      const isFollowButton =
+        action.id === 'follow' ||
+        label === 'follow' ||
+        label === 'following' ||
+        label === 'mutuals';
+      const isSubscribeButton = action.id === 'subscription';
 
-    switch (action.variant) {
-      case 'danger':
-        return { ...baseStyle, backgroundColor: pressed ? hexToRGBA('#ff4444', 0.4) : hexToRGBA('#ff4444', 0.2) };
-      case 'secondary':
-        return { 
-          backgroundColor: 'transparent',
-          borderColor: 'transparent',
-        };
-      default:
-        return baseStyle;
-    }
-  }, [action.variant, textColor, backgroundColor, action.label, action.id, hasFilledBackground]);
+      // Use frozen value if provided (during press), otherwise use current value
+      const baselineFilled = frozenValue !== null ? frozenValue : hasFilledBackground;
+      // When pressed, show opposite state by inverting baseline; when not pressed, use current value
+      const showFilledState = pressed ? !baselineFilled : hasFilledBackground;
 
-  const getContentColor = useCallback((pressed: boolean = false, frozenValue: boolean | null = null) => {
-    // Use frozen value if provided (during press), otherwise use current value
-    const baselineFilled = frozenValue !== null ? frozenValue : hasFilledBackground;
-    // When pressed, show opposite state by inverting baseline
-    const showFilledState = pressed ? !baselineFilled : hasFilledBackground;
-    return showFilledState ? backgroundColor : textColor;
-  }, [textColor, backgroundColor, hasFilledBackground]);
+      const baseStyle = {
+        backgroundColor: showFilledState ? textColor : hexToRGBA(textColor, 0.2),
+        borderColor: showFilledState ? textColor : hexToRGBA(textColor, 0.3),
+        ...((isEdit || isFollowButton || isSubscribeButton) && { borderWidth: 0 }),
+      };
+
+      switch (action.variant) {
+        case 'danger':
+          return {
+            ...baseStyle,
+            backgroundColor: pressed ? hexToRGBA('#ff4444', 0.4) : hexToRGBA('#ff4444', 0.2),
+          };
+        case 'secondary':
+          return {
+            backgroundColor: 'transparent',
+            borderColor: 'transparent',
+          };
+        default:
+          return baseStyle;
+      }
+    },
+    [action.variant, textColor, backgroundColor, action.label, action.id, hasFilledBackground]
+  );
+
+  const getContentColor = useCallback(
+    (pressed: boolean = false, frozenValue: boolean | null = null) => {
+      // Use frozen value if provided (during press), otherwise use current value
+      const baselineFilled = frozenValue !== null ? frozenValue : hasFilledBackground;
+      // When pressed, show opposite state by inverting baseline
+      const showFilledState = pressed ? !baselineFilled : hasFilledBackground;
+      return showFilledState ? backgroundColor : textColor;
+    },
+    [textColor, backgroundColor, hasFilledBackground]
+  );
 
   const getButtonSize = useCallback(() => {
     const isFollowButton = action.id === 'follow';
-    
+
     // Follow button with label should match the combined width of following + gap + subscribed buttons
     // Following button: 50px, gap: 8px, subscribed button: 50px = 108px total
     if (isFollowButton && action.label) {
@@ -156,7 +174,7 @@ const ActionButton = memo<{
           return { width: 108, height: 44, borderRadius: 100 }; // 50 + 8 + 50
       }
     }
-    
+
     // Icon-only buttons should be circular/pill-shaped
     if (!action.label) {
       switch (size) {
@@ -168,7 +186,7 @@ const ActionButton = memo<{
           return { width: 50, height: 44, borderRadius: 100 };
       }
     }
-    
+
     switch (size) {
       case 'small':
         return { paddingHorizontal: 12, paddingVertical: 6, minWidth: 70, height: 32 };
@@ -179,61 +197,71 @@ const ActionButton = memo<{
     }
   }, [size, action.label, action.id]);
 
-  const renderContent = useCallback((pressed: boolean, frozenValue: boolean | null = null) => {
-    const contentColor = getContentColor(pressed, frozenValue);
-    
-    if (action.loading) {
+  const renderContent = useCallback(
+    (pressed: boolean, frozenValue: boolean | null = null) => {
+      const contentColor = getContentColor(pressed, frozenValue);
+
+      if (action.loading) {
+        return <Loading3FillIcon size={24} color={contentColor} />;
+      }
+
+      if (action.label) {
+        return (
+          <View style={styles.actionContent} pointerEvents="none">
+            <Text
+              style={[
+                styles.actionText,
+                {
+                  color: contentColor,
+                  fontFamily:
+                    action.variant === 'secondary' || action.id === 'save'
+                      ? 'Firma-Bold'
+                      : 'Firma-SemiBold',
+                },
+              ]}
+            >
+              {action.label}
+            </Text>
+            {action.customIcon ? (
+              React.isValidElement(action.customIcon) &&
+              action.customIcon.props &&
+              typeof action.customIcon.props === 'object' &&
+              'color' in action.customIcon.props ? (
+                React.cloneElement(action.customIcon as React.ReactElement<any>, {
+                  color: contentColor,
+                })
+              ) : (
+                action.customIcon
+              )
+            ) : action.icon ? (
+              <Icon name={action.icon} size={16} color={contentColor} strokeWidth={2.5} />
+            ) : null}
+          </View>
+        );
+      }
+
+      // Icon-only button
       return (
-        <Loading3FillIcon 
-          size={24} 
-          color={contentColor} 
-        />
-      );
-    }
-    
-    if (action.label) {
-      return (
-        <View style={styles.actionContent} pointerEvents="none">
-          <Text style={[styles.actionText, { 
-            color: contentColor,
-            fontFamily: (action.variant === 'secondary' || action.id === 'save') ? 'Firma-Bold' : 'Firma-SemiBold'
-          }]}>
-            {action.label}
-          </Text>
+        <View style={styles.iconOnlyContent} pointerEvents="none">
           {action.customIcon ? (
-            React.isValidElement(action.customIcon) && action.customIcon.props && typeof action.customIcon.props === 'object' && 'color' in action.customIcon.props
-              ? React.cloneElement(action.customIcon as React.ReactElement<any>, { color: contentColor })
-              : action.customIcon
+            React.isValidElement(action.customIcon) &&
+            action.customIcon.props &&
+            typeof action.customIcon.props === 'object' &&
+            'color' in action.customIcon.props ? (
+              React.cloneElement(action.customIcon as React.ReactElement<any>, {
+                color: contentColor,
+              })
+            ) : (
+              action.customIcon
+            )
           ) : action.icon ? (
-            <Icon 
-              name={action.icon} 
-              size={16} 
-              color={contentColor} 
-              strokeWidth={2.5} 
-            />
+            <Icon name={action.icon} size={20} color={contentColor} strokeWidth={2.5} />
           ) : null}
         </View>
       );
-    }
-    
-    // Icon-only button
-    return (
-      <View style={styles.iconOnlyContent} pointerEvents="none">
-        {action.customIcon ? (
-          React.isValidElement(action.customIcon) && action.customIcon.props && typeof action.customIcon.props === 'object' && 'color' in action.customIcon.props
-            ? React.cloneElement(action.customIcon as React.ReactElement<any>, { color: contentColor })
-            : action.customIcon
-        ) : action.icon ? (
-          <Icon 
-            name={action.icon} 
-            size={20} 
-            color={contentColor} 
-            strokeWidth={2.5} 
-          />
-        ) : null}
-      </View>
-    );
-  }, [action, getContentColor]);
+    },
+    [action, getContentColor]
+  );
 
   return (
     <Pressable
@@ -273,16 +301,10 @@ const CustomActionLayout = memo<{
 }>(({ layout, textColor, backgroundColor }) => {
   const renderMenuIcon = useCallback(() => {
     if (!layout.menuIcon) return null;
-    
+
     return (
-      <Pressable
-        style={styles.menuIconButton}
-        onPress={layout.menuIcon.onPress}
-      >
-        <MoreFillIcon 
-          size={layout.menuIcon.size || 24} 
-          color={textColor} 
-        />
+      <Pressable style={styles.menuIconButton} onPress={layout.menuIcon.onPress}>
+        <MoreFillIcon size={layout.menuIcon.size || 24} color={textColor} />
       </Pressable>
     );
   }, [layout.menuIcon, textColor]);
@@ -291,7 +313,7 @@ const CustomActionLayout = memo<{
     if (layout.type === 'button' && layout.buttons) {
       return (
         <View style={styles.buttonContainer}>
-          {layout.buttons.map((action) => (
+          {layout.buttons.map(action => (
             <ActionButton
               key={action.id}
               action={action}
@@ -349,11 +371,14 @@ const InlineTitleWithBadges: React.FC<{
   titleStyle: any;
   badges?: React.ReactNode[];
 }> = ({ title, titleStyle, badges = [] }) => {
-  const [lines, setLines] = React.useState<Array<{ x: number; y: number; width: number; height: number }>>([]);
+  const [lines, setLines] = React.useState<
+    Array<{ x: number; y: number; width: number; height: number }>
+  >([]);
 
   const handleTextLayout = useCallback((e: any) => {
     const l = e?.nativeEvent?.lines || [];
-    if (l.length) setLines(l.map((ln: any) => ({ x: ln.x, y: ln.y, width: ln.width, height: ln.height })));
+    if (l.length)
+      setLines(l.map((ln: any) => ({ x: ln.x, y: ln.y, width: ln.width, height: ln.height })));
   }, []);
 
   const last = lines.length ? lines[lines.length - 1] : null;
@@ -371,9 +396,9 @@ const InlineTitleWithBadges: React.FC<{
           pointerEvents="box-none"
           style={[
             styles.inlineBadgesContainer,
-            { left: badgeLeft, top: badgeTop, height: last.height, justifyContent: 'center' }
+            { left: badgeLeft, top: badgeTop, height: last.height, justifyContent: 'center' },
           ]}
-        > 
+        >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 0 }}>
             {badges.map((node, idx) => (
               <React.Fragment key={`badge-${idx}`}>{node}</React.Fragment>
@@ -394,24 +419,30 @@ const HeaderContentComponent = memo<{
 }>(({ content, textColor, backgroundColor, customDescription }) => {
   const router = useRouter();
 
-  const navigateToAuthorProfile = useCallback((handle: string) => {
-    const clean = handle.trim();
-    // Require a dot to resemble a valid Bluesky handle (e.g., name.bsky.social)
-    if (!clean || !clean.includes('.')) return;
-    
-    router.push(`/profile/${clean}`);
-  }, [router]);
+  const navigateToAuthorProfile = useCallback(
+    (handle: string) => {
+      const clean = handle.trim();
+      // Require a dot to resemble a valid Bluesky handle (e.g., name.bsky.social)
+      if (!clean || !clean.includes('.')) return;
 
-  const navigateToHashtagFeed = useCallback((hashtag: string) => {
-    router.push({
-      pathname: '/(modals)/feed',
-      params: {
-        feedOption: `hashtag:${hashtag}`,
-        backgroundColor: '#000000',
-        searchQuery: `#${hashtag}`,
-      }
-    });
-  }, [router]);
+      router.push(`/profile/${clean}`);
+    },
+    [router]
+  );
+
+  const navigateToHashtagFeed = useCallback(
+    (hashtag: string) => {
+      router.push({
+        pathname: '/(modals)/feed',
+        params: {
+          feedOption: `hashtag:${hashtag}`,
+          backgroundColor: '#000000',
+          searchQuery: `#${hashtag}`,
+        },
+      });
+    },
+    [router]
+  );
 
   // Don't render empty content
   if (!content.title && !content.avatar && !content.customTitle) {
@@ -420,12 +451,12 @@ const HeaderContentComponent = memo<{
 
   return (
     <View style={styles.contentContainer}>
-            <View style={styles.avatarContainer}>
+      <View style={styles.avatarContainer}>
         <Pressable
           style={[
-            styles.avatar, 
+            styles.avatar,
             content.avatarStyle === 'rounded-square' && styles.avatarRoundedSquare,
-            content.hideAvatar && styles.hiddenAvatar
+            content.hideAvatar && styles.hiddenAvatar,
           ]}
           onPress={content.onAvatarPress}
         >
@@ -441,65 +472,59 @@ const HeaderContentComponent = memo<{
           )}
         </Pressable>
       </View>
-      
-      <View style={[styles.textContainer, (!customDescription && !content.description) && { marginBottom: 0 }]}>
-        <Pressable
-          style={styles.titleRow}
-          onPress={content.onTitlePress}
-        >
-            {content.customTitle ? (
-              <View style={styles.titleRow}>
-                {content.customTitle}
-                {content.badge && (
-                  <View style={{ marginLeft: 6 }}>
-                    {content.badge}
-                  </View>
-                )}
-              </View>
-            ) : (
-              <InlineTitleWithBadges 
-                title={content.title}
-                titleStyle={[styles.title, { color: textColor }]}
-                badges={[content.badge as React.ReactNode]}
-              />
-            )}
-          </Pressable>
-        
-        {!!content.subtitle && (() => {
-          const { handleBase: subtitleBase, handleSuffix: subtitleSuffix } = splitHandleSuffix(content.subtitle);
-          
-          return (
-            <Pressable
-              style={styles.subtitleRow}
-              onPress={content.onTitlePress}
-            >
-              <View style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-                <Text
-                  style={[styles.subtitle, { color: textColor }]}
-                  numberOfLines={1}
-                >
-                  {subtitleBase}
-                  {subtitleSuffix && (
-                    <Text style={{ color: hexToRGBA(textColor, 0.70) }}>
-                      {subtitleSuffix}
-                    </Text>
-                  )}
-                  {content.onTitlePress ? ' ›' : ''}
-                </Text>
-              </View>
-            </Pressable>
-          );
-        })()}
-        
-        {customDescription || (content.description && (
-          <TextWithLinks
-            text={content.description}
-            style={[styles.description, { color: textColor }]}
-            onAuthorPress={navigateToAuthorProfile}
-            onHashtagPress={navigateToHashtagFeed}
-            facets={content.facets}
-          />
-        ))}
+
+      <View
+        style={[
+          styles.textContainer,
+          !customDescription && !content.description && { marginBottom: 0 },
+        ]}
+      >
+        <Pressable style={styles.titleRow} onPress={content.onTitlePress}>
+          {content.customTitle ? (
+            <View style={styles.titleRow}>
+              {content.customTitle}
+              {content.badge && <View style={{ marginLeft: 6 }}>{content.badge}</View>}
+            </View>
+          ) : (
+            <InlineTitleWithBadges
+              title={content.title}
+              titleStyle={[styles.title, { color: textColor }]}
+              badges={[content.badge as React.ReactNode]}
+            />
+          )}
+        </Pressable>
+
+        {!!content.subtitle &&
+          (() => {
+            const { handleBase: subtitleBase, handleSuffix: subtitleSuffix } = splitHandleSuffix(
+              content.subtitle
+            );
+
+            return (
+              <Pressable style={styles.subtitleRow} onPress={content.onTitlePress}>
+                <View style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                  <Text style={[styles.subtitle, { color: textColor }]} numberOfLines={1}>
+                    {subtitleBase}
+                    {subtitleSuffix && (
+                      <Text style={{ color: hexToRGBA(textColor, 0.7) }}>{subtitleSuffix}</Text>
+                    )}
+                    {content.onTitlePress ? ' ›' : ''}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          })()}
+
+        {customDescription ||
+          (content.description && (
+            <TextWithLinks
+              text={content.description}
+              style={[styles.description, { color: textColor }]}
+              onAuthorPress={navigateToAuthorProfile}
+              onHashtagPress={navigateToHashtagFeed}
+              facets={content.facets}
+            />
+          ))}
       </View>
     </View>
   );
@@ -544,14 +569,22 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
 
     return [
       styles.header,
-      { 
+      {
         backgroundColor: backgroundImage ? 'transparent' : backgroundColor,
         paddingTop: safeAreaTop + baseTopPadding + overlayExtraPadding,
       },
       minHeight && { minHeight },
       style,
     ];
-  }, [backgroundColor, backgroundImage, style, applySafeArea, insets.top, minHeight, reserveTopForOverlayButtons]);
+  }, [
+    backgroundColor,
+    backgroundImage,
+    style,
+    applySafeArea,
+    insets.top,
+    minHeight,
+    reserveTopForOverlayButtons,
+  ]);
 
   // Memoize image source to prevent flickering - same approach as Avatar component
   const imageSource = useMemo(() => {
@@ -560,26 +593,32 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
 
   // Calculate background container style to extend beyond padding
   // If tabs are present (hashtag feed), stop the background before them (approximately 70px for tab area)
-  const backgroundContainerStyle = useMemo(() => [
-    styles.backgroundImageContainer,
-    {
-      top: applySafeArea ? -insets.top : 0,
-      ...(hasTabs && { bottom: 70 }), // Stop before tab navigation
-    }
-  ], [applySafeArea, insets.top, hasTabs]);
+  const backgroundContainerStyle = useMemo(
+    () => [
+      styles.backgroundImageContainer,
+      {
+        top: applySafeArea ? -insets.top : 0,
+        ...(hasTabs && { bottom: 70 }), // Stop before tab navigation
+      },
+    ],
+    [applySafeArea, insets.top, hasTabs]
+  );
 
-  const backgroundOverlayStyle = useMemo(() => [
-    styles.backgroundOverlay,
-    {
-      top: applySafeArea ? -insets.top : 0,
-      ...(hasTabs && { bottom: 70 }), // Stop before tab navigation
-    }
-  ], [applySafeArea, insets.top, hasTabs]);
+  const backgroundOverlayStyle = useMemo(
+    () => [
+      styles.backgroundOverlay,
+      {
+        top: applySafeArea ? -insets.top : 0,
+        ...(hasTabs && { bottom: 70 }), // Stop before tab navigation
+      },
+    ],
+    [applySafeArea, insets.top, hasTabs]
+  );
 
   // Memoize background image component separately to prevent recreation on viewMode changes
   const backgroundImageComponent = useMemo(() => {
     if (!backgroundImage || !imageSource) return null;
-    
+
     return (
       <>
         <View style={backgroundContainerStyle} pointerEvents="none">
@@ -605,58 +644,71 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
   // Extract custom description from children
   const customDescription = useMemo(() => {
     if (!children) return null;
-    
+
     // If children is an array, look for the first element that might be a description
     if (Array.isArray(children)) {
-      return children.find(child => 
-        React.isValidElement(child) && 
-        child.type && 
-        typeof child.type === 'function' &&
-        (child.type.name === 'TextWithLinks' || (child.props as any)?.style?.fontFamily === 'Firma-Regular')
+      return children.find(
+        child =>
+          React.isValidElement(child) &&
+          child.type &&
+          typeof child.type === 'function' &&
+          (child.type.name === 'TextWithLinks' ||
+            (child.props as any)?.style?.fontFamily === 'Firma-Regular')
       );
     }
-    
+
     // If children is a single element, check if it's a description
-    if (React.isValidElement(children) && 
-        children.type && 
-        typeof children.type === 'function' &&
-        (children.type.name === 'TextWithLinks' || (children.props as any)?.style?.fontFamily === 'Firma-Regular')) {
+    if (
+      React.isValidElement(children) &&
+      children.type &&
+      typeof children.type === 'function' &&
+      (children.type.name === 'TextWithLinks' ||
+        (children.props as any)?.style?.fontFamily === 'Firma-Regular')
+    ) {
       return children;
     }
-    
+
     return null;
   }, [children]);
 
   // Filter out description from children for additional content
   const additionalChildren = useMemo(() => {
     if (!children) return null;
-    
+
     if (Array.isArray(children)) {
-      return children.filter(child => 
-        !React.isValidElement(child) || 
-        !child.type || 
-        typeof child.type !== 'function' ||
-        (child.type.name !== 'TextWithLinks' && (child.props as any)?.style?.fontFamily !== 'Firma-Regular')
+      return children.filter(
+        child =>
+          !React.isValidElement(child) ||
+          !child.type ||
+          typeof child.type !== 'function' ||
+          (child.type.name !== 'TextWithLinks' &&
+            (child.props as any)?.style?.fontFamily !== 'Firma-Regular')
       );
     }
-    
-    if (React.isValidElement(children) && 
-        children.type && 
-        typeof children.type === 'function' &&
-        (children.type.name === 'TextWithLinks' || (children.props as any)?.style?.fontFamily === 'Firma-Regular')) {
+
+    if (
+      React.isValidElement(children) &&
+      children.type &&
+      typeof children.type === 'function' &&
+      (children.type.name === 'TextWithLinks' ||
+        (children.props as any)?.style?.fontFamily === 'Firma-Regular')
+    ) {
       return null;
     }
-    
+
     return children;
   }, [children]);
 
-  const contentContainerStyle = useMemo(() => [
-    styles.content,
-    contentPosition === 'center' && styles.contentCenter,
-    contentPosition === 'bottom' && styles.contentBottom,
-    contentPosition === 'space-between' && styles.contentSpaceBetween,
-    contentStyle,
-  ], [contentPosition, contentStyle]);
+  const contentContainerStyle = useMemo(
+    () => [
+      styles.content,
+      contentPosition === 'center' && styles.contentCenter,
+      contentPosition === 'bottom' && styles.contentBottom,
+      contentPosition === 'space-between' && styles.contentSpaceBetween,
+      contentStyle,
+    ],
+    [contentPosition, contentStyle]
+  );
 
   // Optional animated style to fade out header content (text/image/tabs) with shared scroll progress
   const contentAnimatedStyle = useAnimatedStyle(() => {
@@ -673,19 +725,16 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
         <View style={styles.topRow}>
           <View style={styles.leftSection}>
             {showBackButton && (
-              <Pressable
-                style={styles.backButton}
-                onPress={handleBackPress}
-              >
+              <Pressable style={styles.backButton} onPress={handleBackPress}>
                 <BackArrowIcon size={30} color={textColor} />
               </Pressable>
             )}
           </View>
-          
+
           <View style={styles.rightSection}>
             {actions.length > 0 && (
               <View style={styles.actionsContainer}>
-                {actions.map((action) => (
+                {actions.map(action => (
                   <ActionButton
                     key={action.id}
                     action={action}
@@ -726,7 +775,7 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
         {/* Additional Children */}
         {additionalChildren}
       </Animated.View>
-      
+
       {/* Black shadow gradient at bottom - under all UI */}
       {showShadowGradient && (
         <LinearGradient
@@ -986,4 +1035,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default memo(UniversalHeader); 
+export default memo(UniversalHeader);

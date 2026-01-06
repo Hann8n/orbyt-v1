@@ -41,7 +41,7 @@ const ListHeader: React.FC<ListHeaderProps> = ({
 }) => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  
+
   const handleBackPress = onBackPress || (() => router.back());
   const handleClosePress = onClosePress || (() => router.back());
 
@@ -67,16 +67,20 @@ const ListHeader: React.FC<ListHeaderProps> = ({
     return (
       <View style={containerStyle}>
         <View style={styles.sheetLeft}>
-          {left ?? (title ? <Text style={titleStyle} numberOfLines={1}>{title}</Text> : null)}
+          {left ??
+            (title ? (
+              <Text style={titleStyle} numberOfLines={1}>
+                {title}
+              </Text>
+            ) : null)}
         </View>
         <View style={[styles.rightSection, styles.sheetRightSection]}>
-          {right ?? (
-            showCloseButton ? (
+          {right ??
+            (showCloseButton ? (
               <CloseButton onPress={handleClosePress} />
             ) : (
               <View style={styles.rightSpacer} />
-            )
-          )}
+            ))}
         </View>
       </View>
     );
@@ -87,23 +91,25 @@ const ListHeader: React.FC<ListHeaderProps> = ({
     return (
       <View style={containerStyle}>
         <View style={styles.stackedLeftRow}>
-          {left ?? (
-            showBackButton ? (
+          {left ??
+            (showBackButton ? (
               <Pressable onPress={handleBackPress}>
                 <BackArrowIcon size={28} color={textColor} />
               </Pressable>
-            ) : null
-          )}
+            ) : null)}
           {!!title && (
-            <Text style={[titleStyle, styles.titleStackedLeft]} numberOfLines={1}>{title}</Text>
+            <Text style={[titleStyle, styles.titleStackedLeft]} numberOfLines={1}>
+              {title}
+            </Text>
           )}
         </View>
         <View style={styles.rightSection}>
-          {right ?? (showCloseButton ? (
-            <CloseButton onPress={onClosePress || (() => {})} />
-          ) : (
-            <View style={styles.rightSpacer} />
-          ))}
+          {right ??
+            (showCloseButton ? (
+              <CloseButton onPress={onClosePress || (() => {})} />
+            ) : (
+              <View style={styles.rightSpacer} />
+            ))}
         </View>
       </View>
     );
@@ -113,23 +119,25 @@ const ListHeader: React.FC<ListHeaderProps> = ({
   return (
     <View style={containerStyle}>
       <View style={styles.leftSection}>
-        {left ?? (
-          showBackButton ? (
+        {left ??
+          (showBackButton ? (
             <Pressable onPress={onBackPress}>
               <BackArrowIcon size={28} color={textColor} />
             </Pressable>
           ) : (
             <View style={styles.leftSpacer} />
-          )
-        )}
+          ))}
       </View>
-      <Text style={titleStyle} numberOfLines={1}>{title}</Text>
+      <Text style={titleStyle} numberOfLines={1}>
+        {title}
+      </Text>
       <View style={styles.rightSection}>
-        {right ?? (showCloseButton ? (
-          <CloseButton onPress={onClosePress || (() => {})} />
-        ) : (
-          <View style={styles.rightSpacer} />
-        ))}
+        {right ??
+          (showCloseButton ? (
+            <CloseButton onPress={onClosePress || (() => {})} />
+          ) : (
+            <View style={styles.rightSpacer} />
+          ))}
       </View>
     </View>
   );
@@ -227,5 +235,3 @@ const styles = StyleSheet.create({
 });
 
 export default ListHeader;
-
-

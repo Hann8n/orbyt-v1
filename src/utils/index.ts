@@ -3,10 +3,20 @@
  * Provides a single import point for commonly used utilities
  */
 
-// Export all utilities from a centralized location
+// Core utilities (keep at root for short imports)
 export * from './constants';
-export * from './errorHandler';
-export * from './helpers';
-export * from './helpers/video';
-export * from './formatting/colorUtils';
-export * from './blueskyLinks';
+export * from './logger';
+
+// Domain-specific utilities
+export * from './query';
+export * from './storage';
+export * from './formatting';
+export * from './device';
+export * from './video';
+export * from './channels';
+export * from './chat';
+export * from './links';
+export * from './errors';
+export * from './navigation';
+export * from './components';
+export * from './types';

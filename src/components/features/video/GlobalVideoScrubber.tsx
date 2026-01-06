@@ -29,7 +29,7 @@ export const GlobalVideoScrubber: React.FC = () => {
     return null;
   }
 
-  const isVideoVisible = useUIStore((state) => state.visibility.isVideoVisible ?? false);
+  const isVideoVisible = useUIStore(state => state.visibility.isVideoVisible ?? false);
   const [activePlayer, setActivePlayer] = useState<VideoPlayer | null>(activePlayerRef);
   const seekingAnimationSV = useSharedValue(0);
 
@@ -63,4 +63,3 @@ export const GlobalVideoScrubber: React.FC = () => {
     />
   );
 };
-

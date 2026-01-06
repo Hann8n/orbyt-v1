@@ -22,5 +22,3 @@ export const useVideoTrimStore = create<TrimState>((set, get) => ({
     return current;
   },
 }));
-
-

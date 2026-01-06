@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'expo-router';
 import ListScreen from '../../src/components/ui/ListScreen';
 import AtprotoService from '../../src/services/api/AtprotoService';
 import { logger } from '../../src/utils/logger';
@@ -12,10 +11,9 @@ interface MutedUser {
 }
 
 const MutedUsersScreen: React.FC = () => {
-  const navigation = useRouter();
   const [mutedUsers, setMutedUsers] = useState<MutedUser[]>([]);
   const [loading, setLoading] = useState(true);
-  const [unmutingUsers, setUnmutingUsers] = useState<Set<string>>(new Set());
+  const [_unmutingUsers, setUnmutingUsers] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadMutedUsers();
@@ -25,7 +23,7 @@ const MutedUsersScreen: React.FC = () => {
     try {
       setLoading(true);
       const mutedDids = await AtprotoService.getMutedUsersFromAPI();
-      
+
       // Convert string[] to MutedUser objects
       const userPromises = mutedDids.map(async (did: string) => {
         try {
@@ -47,11 +45,14 @@ const MutedUsersScreen: React.FC = () => {
           };
         }
       });
-      
+
       const users = await Promise.all(userPromises);
       setMutedUsers(users);
     } catch (error) {
-      logger.error('Error loading muted users', error, { component: 'MutedUsersScreen', action: 'loadMutedUsers' });
+      logger.error('Error loading muted users', error, {
+        component: 'MutedUsersScreen',
+        action: 'loadMutedUsers',
+      });
     } finally {
       setLoading(false);
     }
@@ -65,7 +66,11 @@ const MutedUsersScreen: React.FC = () => {
       logger.info('Unmute functionality not implemented yet', { component: 'MutedUsersScreen' });
       setMutedUsers(prev => prev.filter(mutedUser => mutedUser.did !== user.did));
     } catch (error) {
-      logger.error('Error unmuting user', error, { component: 'MutedUsersScreen', action: 'handleUnmuteUser', userDid: user.did });
+      logger.error('Error unmuting user', error, {
+        component: 'MutedUsersScreen',
+        action: 'handleUnmuteUser',
+        userDid: user.did,
+      });
     } finally {
       setUnmutingUsers(prev => {
         const newSet = new Set(prev);
@@ -92,4 +97,4 @@ const MutedUsersScreen: React.FC = () => {
   );
 };
 
-export default MutedUsersScreen; 
+export default MutedUsersScreen;

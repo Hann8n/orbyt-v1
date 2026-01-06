@@ -6,9 +6,10 @@ import ListHeader from '../../src/components/ui/ListHeader';
 import Icon from '../../src/components/ui/Icon';
 import { Colors } from '../../src/components/ui/UI';
 import UI from '../../src/components/ui/UI';
-import feedService, { createQueryKeys } from '../../src/services/FeedService';
-import { ModerationService } from '../../src/services/api/moderation/ContentFilterService';
-import { ModerationSettings, LabelPreference } from '../../src/services/ModerationTypes';
+import feedService from '../../src/services/FeedService';
+import { queryKeys } from '../../src/utils/query/queryKeys';
+import { ModerationService } from '../../src/services/moderation/ModerationService';
+import { ModerationSettings, LabelPreference } from '../../src/services/moderation/ModerationTypes';
 import { useModeration, useUserStoreState } from '../../src/stores/userStore';
 import { settingsButtonStyles, settingsLayoutStyles, settingsActiveStyles } from './SettingsStyles';
 import { OptionsButton } from '../../src/components/ui/OptionsButton';
@@ -27,13 +28,13 @@ const ContentFiltersScreen: React.FC = () => {
   const queryClient = useQueryClient();
   const { saveModerationSettings } = useModeration();
   const { agent, isAuthenticated, currentUser } = useUserStoreState();
-  
+
   // Use React Query hook for moderation settings (account-scoped)
   const { settings: moderationSettings } = useModerationSettings(currentUser?.did ?? undefined);
-  
+
   const [settings, setSettings] = useState<ModerationSettings | null>(null);
   const [adultContentEnabled, setAdultContentEnabled] = useState(false);
-  
+
   // Check if agent is available
   useEffect(() => {
     if (!isAuthenticated || !agent) {
@@ -44,7 +45,7 @@ const ContentFiltersScreen: React.FC = () => {
       );
     }
   }, [agent, isAuthenticated]);
-  
+
   // Update local state when React Query settings change
   useEffect(() => {
     if (moderationSettings) {
@@ -59,43 +60,44 @@ const ContentFiltersScreen: React.FC = () => {
       label: 'NSFW',
       description: 'Not safe for work content',
       icon: '',
-      preference: 'hide'
+      preference: 'hide',
     },
     {
       id: 'suggestive',
       label: 'Suggestive Content',
       description: 'Suggestive or provocative content',
       icon: '',
-      preference: 'warn'
+      preference: 'warn',
     },
     {
       id: 'nudity',
       label: 'Artistic Nudity',
       description: 'Nude or partially nude content',
       icon: '',
-      preference: 'warn'
+      preference: 'warn',
     },
     {
       id: 'gore',
       label: 'Graphic Media',
       description: 'Violent or graphic content',
       icon: '',
-      preference: 'warn'
-    }
+      preference: 'warn',
+    },
   ]);
 
   // Update content options when settings change
   useEffect(() => {
     if (settings) {
-      setContentOptions(prev => prev.map(option => ({
-        ...option,
-        preference: settings.labels[option.id] || option.preference
-      })));
+      setContentOptions(prev =>
+        prev.map(option => ({
+          ...option,
+          preference: settings.labels[option.id] || option.preference,
+        }))
+      );
     }
   }, [settings]);
 
   const updateContentPreference = async (contentId: string, preference: LabelPreference) => {
-    
     // Check if user is authenticated
     if (!isAuthenticated || !agent) {
       Alert.alert(
@@ -105,25 +107,24 @@ const ContentFiltersScreen: React.FC = () => {
       );
       return;
     }
-    
-    setContentOptions(options => options.map(o => o.id === contentId ? { ...o, preference } : o));
+
+    setContentOptions(options => options.map(o => (o.id === contentId ? { ...o, preference } : o)));
     try {
       if (settings) {
         const updatedSettings: ModerationSettings = {
           ...settings,
           labels: {
             ...settings.labels,
-            [contentId]: preference
-          }
+            [contentId]: preference,
+          },
         };
         await saveModerationSettings(updatedSettings);
         setSettings(updatedSettings);
         // Reset moderation/feeds so all content re-evaluates with new rules
         ModerationService.clearModerationCache();
         feedService.clearCurrentFeed();
-        queryClient.invalidateQueries({ queryKey: createQueryKeys.feed.all });
+        queryClient.invalidateQueries({ queryKey: queryKeys.feed.all });
         // React Query cache for moderation settings is invalidated by saveModerationSettings
-
       }
     } catch (e) {
       console.error('Error saving content preference:', e);
@@ -145,7 +146,7 @@ const ContentFiltersScreen: React.FC = () => {
       );
       return;
     }
-    
+
     setAdultContentEnabled(value);
     try {
       if (settings) {
@@ -158,8 +159,7 @@ const ContentFiltersScreen: React.FC = () => {
         // Reset moderation/feeds so all content re-evaluates with new rules
         ModerationService.clearModerationCache();
         feedService.clearCurrentFeed();
-        queryClient.invalidateQueries({ queryKey: createQueryKeys.feed.all });
-
+        queryClient.invalidateQueries({ queryKey: queryKeys.feed.all });
       }
     } catch (e) {
       console.error('Error saving adult content preference:', e);
@@ -182,7 +182,11 @@ const ContentFiltersScreen: React.FC = () => {
         style={{ marginHorizontal: -5 }}
       />
 
-      <ScrollView style={styles.content} contentContainerStyle={settingsLayoutStyles.contentContainer} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={settingsLayoutStyles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Content Type Settings */}
         <View style={settingsLayoutStyles.section}>
           <View style={{ marginBottom: 12, paddingHorizontal: 5 }}>
@@ -196,7 +200,7 @@ const ContentFiltersScreen: React.FC = () => {
             )}
           </View>
 
-          {contentOptions.map((option) => {
+          {contentOptions.map(option => {
             const isAdult = ['nsfw'].includes(option.id);
             if (isAdult && !adultContentEnabled) return null;
             return (
@@ -208,7 +212,16 @@ const ContentFiltersScreen: React.FC = () => {
                     <View style={[styles.toggleButtonsContainer, { justifyContent: 'center' }]}>
                       <View style={settingsButtonStyles.toggleButtonGroup}>
                         <Pressable
-                          style={[settingsButtonStyles.toggleButton, option.preference === 'ignore' && [settingsActiveStyles.toggleButtonActive, { backgroundColor: UI.Colors.STATUS.SUCCESS, borderRightColor: UI.Colors.STATUS.SUCCESS }]]}
+                          style={[
+                            settingsButtonStyles.toggleButton,
+                            option.preference === 'ignore' && [
+                              settingsActiveStyles.toggleButtonActive,
+                              {
+                                backgroundColor: UI.Colors.STATUS.SUCCESS,
+                                borderRightColor: UI.Colors.STATUS.SUCCESS,
+                              },
+                            ],
+                          ]}
                           onPress={() => updateContentPreference(option.id, 'ignore')}
                           accessibilityLabel="Show"
                         >
@@ -219,7 +232,16 @@ const ContentFiltersScreen: React.FC = () => {
                           />
                         </Pressable>
                         <Pressable
-                          style={[settingsButtonStyles.toggleButton, option.preference === 'warn' && [settingsActiveStyles.toggleButtonActive, { backgroundColor: UI.Colors.STATUS.WARNING, borderRightColor: UI.Colors.STATUS.WARNING }]]}
+                          style={[
+                            settingsButtonStyles.toggleButton,
+                            option.preference === 'warn' && [
+                              settingsActiveStyles.toggleButtonActive,
+                              {
+                                backgroundColor: UI.Colors.STATUS.WARNING,
+                                borderRightColor: UI.Colors.STATUS.WARNING,
+                              },
+                            ],
+                          ]}
                           onPress={() => updateContentPreference(option.id, 'warn')}
                           accessibilityLabel="Warn"
                         >
@@ -230,7 +252,17 @@ const ContentFiltersScreen: React.FC = () => {
                           />
                         </Pressable>
                         <Pressable
-                          style={[settingsButtonStyles.toggleButton, styles.toggleButtonLast, option.preference === 'hide' && [settingsActiveStyles.toggleButtonActive, { backgroundColor: UI.Colors.STATUS.ERROR, borderRightColor: UI.Colors.STATUS.ERROR }]]}
+                          style={[
+                            settingsButtonStyles.toggleButton,
+                            styles.toggleButtonLast,
+                            option.preference === 'hide' && [
+                              settingsActiveStyles.toggleButtonActive,
+                              {
+                                backgroundColor: UI.Colors.STATUS.ERROR,
+                                borderRightColor: UI.Colors.STATUS.ERROR,
+                              },
+                            ],
+                          ]}
                           onPress={() => updateContentPreference(option.id, 'hide')}
                           accessibilityLabel="Hide"
                         >
@@ -280,5 +312,3 @@ const styles = StyleSheet.create({
 });
 
 export default ContentFiltersScreen;
-
-

@@ -1,10 +1,10 @@
 import { useCallback } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import ChatService from '../services/ChatService';
-import { ChatMessage } from '../utils/chatHelpers';
+import { ChatMessage } from '../utils/chat/helpers';
 import { ReactionView } from '../services/ChatService';
-import { formatHandle } from '../utils/helpers';
-import { queryKeys } from '../utils/queryKeys';
+import { formatHandle } from '../utils/formatting/handles';
+import { queryKeys } from '../utils/query/queryKeys';
 
 interface UseMessageReactionsProps {
   conversationId: string;
@@ -36,9 +36,9 @@ export function useMessageReactions({
         reactionValue: emoji,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ 
+      queryClient.invalidateQueries({
         queryKey: queryKeys.chat.messages.byConversation(conversationId),
-        refetchType: 'active'
+        refetchType: 'active',
       });
     },
     onError: () => {
@@ -55,9 +55,9 @@ export function useMessageReactions({
         reactionValue: emoji,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ 
+      queryClient.invalidateQueries({
         queryKey: queryKeys.chat.messages.byConversation(conversationId),
-        refetchType: 'active'
+        refetchType: 'active',
       });
     },
     onError: () => {
@@ -71,9 +71,9 @@ export function useMessageReactions({
    */
   const handleReactionToggle = useCallback(
     (emoji: string, messageId: string) => {
-      const targetMessage = messages.find((msg) => String(msg._id) === messageId);
+      const targetMessage = messages.find(msg => String(msg._id) === messageId);
       const isCurrentUserReacted = targetMessage?.reactions?.some(
-        (reaction) => reaction.value === emoji && reaction.sender.did === currentUserId
+        reaction => reaction.value === emoji && reaction.sender.did === currentUserId
       );
 
       // Save previous state for rollback
@@ -81,11 +81,11 @@ export function useMessageReactions({
 
       if (isCurrentUserReacted) {
         // Optimistically remove reaction
-        setMessages((prev) =>
-          prev.map((m) => {
+        setMessages(prev =>
+          prev.map(m => {
             if (String(m._id) !== messageId) return m;
             const nextReactions = (m.reactions || []).filter(
-              (r) => !(r.value === emoji && r.sender.did === currentUserId)
+              r => !(r.value === emoji && r.sender.did === currentUserId)
             );
             return { ...m, reactions: nextReactions } as ChatMessage;
           })
@@ -117,8 +117,8 @@ export function useMessageReactions({
           createdAt: new Date().toISOString(),
         };
 
-        setMessages((prev) =>
-          prev.map((m) => {
+        setMessages(prev =>
+          prev.map(m => {
             if (String(m._id) !== messageId) return m;
             const nextReactions = [...(m.reactions || []), optimisticReaction];
             return { ...m, reactions: nextReactions } as ChatMessage;
@@ -152,4 +152,3 @@ export function useMessageReactions({
 
   return { handleReactionToggle };
 }
-

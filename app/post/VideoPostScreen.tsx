@@ -15,7 +15,12 @@ import {
   StatusBar,
   Keyboard,
 } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  Easing,
+} from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
@@ -24,21 +29,32 @@ import * as MediaLibrary from 'expo-media-library';
 import { Image } from 'expo-image';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Avatar } from '../../src/components/ui/UI';
-import Icon, { BackArrowIcon, Loading3FillIcon, DownSmallFillIcon } from '../../src/components/ui/Icon';
+import Icon, {
+  BackArrowIcon,
+  Loading3FillIcon,
+  DownSmallFillIcon,
+} from '../../src/components/ui/Icon';
 import BlurredThumbnailBackground from '../../src/components/ui/BlurredThumbnailBackground';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextOverlay } from '../../src/types';
-import { resolveVideoPath, debugVideoPath, VideoPathInfo } from '../../src/utils/videoPath';
+import { resolveVideoPath, debugVideoPath, VideoPathInfo } from '../../src/utils/video/path';
 
 import { Colors } from '../../src/components/ui/UI';
-import { isTablet, isSmallScreen } from '../../src/utils/helpers';
+import { isTablet, isSmallScreen } from '../../src/utils/device/screen';
 import { useCurrentUser } from '../../src/stores/userStore';
-import ProfileCache from '../../src/services/cache/ProfileCache';
+import ProfileService from '../../src/services/data/ProfileService';
 import AtprotoService from '../../src/services/api/AtprotoService';
-import VideoProcessingService from '../../src/services/VideoProcessingService';
+import VideoProcessingService from '../../src/services/video/VideoProcessingService';
 import { logger } from '../../src/utils/logger';
 import { useVideoPostDraftStore } from '../../src/stores/videoPostDraftStore';
-import { getPostableChannels, shouldShowChannelSlash, OrbytChannel, extractFeedSlug, getChannelAvatarUri, getChannelByUri } from '../../src/utils/orbytChannels';
+import {
+  getPostableChannels,
+  shouldShowChannelSlash,
+  OrbytChannel,
+  extractFeedSlug,
+  getChannelAvatarUri,
+  getChannelByUri,
+} from '../../src/utils/channels/orbyt';
 import type { SubscribedChannel } from '../../src/stores/userStore';
 import VerticalListSheet, { VerticalListButton } from '../../src/components/ui/VerticalListSheet';
 import { useRichTextSearchTrigger, RichTextSearchModal } from '../../src/components/ui/usersearch';
@@ -70,9 +86,18 @@ const VideoPreviewContent: React.FC<{
   videoError: string | null;
   textOverlays: TextOverlay[];
   containerStyle?: any;
-}> = ({ thumbnailPath, videoUri, player, videoLoading, isMerging, videoError, textOverlays, containerStyle }) => {
+}> = ({
+  thumbnailPath,
+  videoUri,
+  player,
+  videoLoading,
+  isMerging,
+  videoError,
+  textOverlays,
+  containerStyle,
+}) => {
   const thumbnailUrl = thumbnailPath || videoUri;
-  
+
   return (
     <View style={[styles.videoContainer, containerStyle]}>
       {thumbnailUrl && (
@@ -84,7 +109,12 @@ const VideoPreviewContent: React.FC<{
         </>
       )}
       {videoUri && player && (
-        <VideoView player={player} style={styles.videoPlayer} contentFit="contain" nativeControls={false} />
+        <VideoView
+          player={player}
+          style={styles.videoPlayer}
+          contentFit="contain"
+          nativeControls={false}
+        />
       )}
       {(videoLoading || isMerging) && (
         <View style={styles.loadingOverlay}>
@@ -96,31 +126,35 @@ const VideoPreviewContent: React.FC<{
           <Text style={{ color: Colors.lightGray, fontSize: 16 }}>{videoError}</Text>
         </View>
       )}
-      {!videoLoading && !isMerging && !videoError && textOverlays.length > 0 && textOverlays.map((overlay: TextOverlay) => (
-        <View
-          key={overlay.id}
-          style={[
-            styles.textOverlayContainer,
-            {
-              left: overlay.position.x,
-              top: overlay.position.y,
-              transform: [{ scaleX: overlay.scale ?? 1 }, { scaleY: overlay.scale ?? 1 }] as any
-            }
-          ]}
-        >
-          <Text
+      {!videoLoading &&
+        !isMerging &&
+        !videoError &&
+        textOverlays.length > 0 &&
+        textOverlays.map((overlay: TextOverlay) => (
+          <View
+            key={overlay.id}
             style={[
-              styles.textOverlay,
-              { 
-                fontFamily: overlay.fontFamily,
-                color: overlay.color
-              }
+              styles.textOverlayContainer,
+              {
+                left: overlay.position.x,
+                top: overlay.position.y,
+                transform: [{ scaleX: overlay.scale ?? 1 }, { scaleY: overlay.scale ?? 1 }] as any,
+              },
             ]}
           >
-            {overlay.text}
-          </Text>
-        </View>
-      ))}
+            <Text
+              style={[
+                styles.textOverlay,
+                {
+                  fontFamily: overlay.fontFamily,
+                  color: overlay.color,
+                },
+              ]}
+            >
+              {overlay.text}
+            </Text>
+          </View>
+        ))}
     </View>
   );
 };
@@ -133,14 +167,18 @@ const DescriptionPreview: React.FC<{
 }> = ({ description, formattedRichText, onPress }) => (
   <View style={[styles.descriptionSection, { paddingBottom: 0 }]}>
     <Text style={[styles.sectionHeaderTitle, { marginBottom: 4 }]}>Description</Text>
-    <Pressable 
-      onPress={onPress}
-      style={styles.descriptionInputTouchable}
-    >
+    <Pressable onPress={onPress} style={styles.descriptionInputTouchable}>
       {description ? (
         <Text style={styles.descriptionInputPreview} numberOfLines={3}>
           {formattedRichText.map((part, index) => (
-            <Text key={index} style={part.isSemiBold ? styles.descriptionInputPreviewSemiBold : styles.descriptionInputPreviewNormal}>
+            <Text
+              key={index}
+              style={
+                part.isSemiBold
+                  ? styles.descriptionInputPreviewSemiBold
+                  : styles.descriptionInputPreviewNormal
+              }
+            >
               {part.text}
             </Text>
           ))}
@@ -162,16 +200,13 @@ const ChannelSelector: React.FC<{
 }> = ({ selectedChannel, onPress, showRing = false }) => (
   <View style={styles.section}>
     <Text style={styles.sectionHeaderTitle}>Channel (optional)</Text>
-    <Pressable 
-      style={styles.channelSelectorContainer}
-      onPress={onPress}
-    >
+    <Pressable style={styles.channelSelectorContainer} onPress={onPress}>
       <View style={styles.channelSelectorBox}>
         {!selectedChannel ? (
           <Avatar
             type="channel"
             size={52}
-            ringColor={showRing ? undefined : "transparent"}
+            ringColor={showRing ? undefined : 'transparent'}
             fallbackIcon="device-tv"
             fallbackIconColor={Colors.lightGray}
             fallbackIconSize={32}
@@ -181,7 +216,7 @@ const ChannelSelector: React.FC<{
             uri={getChannelAvatarUri(selectedChannel.uri)}
             type="channel"
             size={52}
-            ringColor={showRing ? undefined : "transparent"}
+            ringColor={showRing ? undefined : 'transparent'}
           />
         )}
       </View>
@@ -194,15 +229,21 @@ const ChannelSelector: React.FC<{
         <View style={styles.channelSelectorNameContainer}>
           {(() => {
             const orbytChannel = getChannelByUri(selectedChannel.uri);
-            return shouldShowChannelSlash(selectedChannel.uri) && (
-              <Text style={[
-                styles.channelSelectorName, 
-                styles.orbytSlash, 
-                { 
-                  color: orbytChannel?.channelColor || '#FFD700',
-                  fontFamily: 'Firma-SemiBold'
-                }
-              ]}>/</Text>
+            return (
+              shouldShowChannelSlash(selectedChannel.uri) && (
+                <Text
+                  style={[
+                    styles.channelSelectorName,
+                    styles.orbytSlash,
+                    {
+                      color: orbytChannel?.channelColor || '#FFD700',
+                      fontFamily: 'Firma-SemiBold',
+                    },
+                  ]}
+                >
+                  /
+                </Text>
+              )
             );
           })()}
           <Text style={[styles.channelSelectorName, { fontFamily: 'Firma-Bold' }]}>
@@ -222,23 +263,20 @@ const CommentFilterSelector: React.FC<{
 }> = ({ commentFilter, getSelectedCommentFilterLabel, onPress }) => (
   <View style={styles.section}>
     <Text style={styles.sectionHeaderTitle}>Comments</Text>
-    <Pressable 
-      style={styles.channelSelectorContainer}
-      onPress={onPress}
-    >
+    <Pressable style={styles.channelSelectorContainer} onPress={onPress}>
       <View style={styles.channelSelectorBox}>
         <Icon name="chat-3-line" size={32} color={Colors.lightGray} />
       </View>
       {!commentFilter ? (
         <View style={styles.channelSelectorPlaceholderContainer}>
-          <Text style={styles.channelSelectorPlaceholderText}>{getSelectedCommentFilterLabel()}</Text>
+          <Text style={styles.channelSelectorPlaceholderText}>
+            {getSelectedCommentFilterLabel()}
+          </Text>
           <DownSmallFillIcon size={20} color={Colors.gray} />
         </View>
       ) : (
         <View style={styles.channelSelectorNameContainer}>
-          <Text style={styles.channelSelectorName}>
-            {getSelectedCommentFilterLabel()}
-          </Text>
+          <Text style={styles.channelSelectorName}>{getSelectedCommentFilterLabel()}</Text>
         </View>
       )}
     </Pressable>
@@ -254,23 +292,20 @@ const ContentWarningSelector: React.FC<{
 }> = ({ selectedContentWarnings, otherWarning, getSelectedContentWarningsLabel, onPress }) => (
   <View style={styles.section}>
     <Text style={styles.sectionHeaderTitle}>Warnings</Text>
-    <Pressable 
-      style={styles.channelSelectorContainer}
-      onPress={onPress}
-    >
+    <Pressable style={styles.channelSelectorContainer} onPress={onPress}>
       <View style={styles.channelSelectorBox}>
         <Icon name="warning-line" size={32} color={Colors.lightGray} />
       </View>
       {selectedContentWarnings.length === 0 && !otherWarning.trim() ? (
         <View style={styles.channelSelectorPlaceholderContainer}>
-          <Text style={styles.channelSelectorPlaceholderText}>{getSelectedContentWarningsLabel()}</Text>
+          <Text style={styles.channelSelectorPlaceholderText}>
+            {getSelectedContentWarningsLabel()}
+          </Text>
           <DownSmallFillIcon size={20} color={Colors.gray} />
         </View>
       ) : (
         <View style={styles.channelSelectorNameContainer}>
-          <Text style={styles.channelSelectorName}>
-            {getSelectedContentWarningsLabel()}
-          </Text>
+          <Text style={styles.channelSelectorName}>{getSelectedContentWarningsLabel()}</Text>
         </View>
       )}
     </Pressable>
@@ -286,10 +321,15 @@ const PostButton: React.FC<{
   buttonStyle?: 'landscape' | 'portrait';
   width?: number;
 }> = ({ onPress, isPosting, isCompressing, uploadProgress, buttonStyle = 'portrait', width }) => {
-  const buttonWidth = buttonStyle === 'landscape' ? '100%' : (width || SCREEN_WIDTH * 0.6);
-  const glassStyle = buttonStyle === 'landscape' ? styles.landscapePostButtonGlass : styles.floatingPostButtonGlass;
-  const hostStyle = buttonStyle === 'landscape' ? styles.landscapePostButtonHost : styles.floatingPostButtonHost;
-  const disabledStyle = buttonStyle === 'landscape' ? styles.landscapePostButtonDisabled : styles.floatingPostButtonDisabled;
+  const buttonWidth = buttonStyle === 'landscape' ? '100%' : width || SCREEN_WIDTH * 0.6;
+  const glassStyle =
+    buttonStyle === 'landscape' ? styles.landscapePostButtonGlass : styles.floatingPostButtonGlass;
+  const hostStyle =
+    buttonStyle === 'landscape' ? styles.landscapePostButtonHost : styles.floatingPostButtonHost;
+  const disabledStyle =
+    buttonStyle === 'landscape'
+      ? styles.landscapePostButtonDisabled
+      : styles.floatingPostButtonDisabled;
 
   const buttonContent = (
     <View style={styles.buttonContent} pointerEvents="none">
@@ -297,17 +337,17 @@ const PostButton: React.FC<{
         <View style={styles.loadingContainer}>
           <Loading3FillIcon size={24} color={Colors.black} />
           <Text style={styles.postButtonText}>
-            {uploadProgress < 50 ? 'Uploading video...' : 
-             uploadProgress < 90 ? 'Processing video...' : 
-             'Creating post...'}
+            {uploadProgress < 50
+              ? 'Uploading video...'
+              : uploadProgress < 90
+                ? 'Processing video...'
+                : 'Creating post...'}
           </Text>
         </View>
       ) : isCompressing ? (
         <View style={styles.loadingContainer}>
           <Loading3FillIcon size={24} color={Colors.black} />
-          <Text style={styles.postButtonText}>
-            Getting ready...
-          </Text>
+          <Text style={styles.postButtonText}>Getting ready...</Text>
         </View>
       ) : (
         <Text style={styles.postButtonText}>POST</Text>
@@ -316,12 +356,12 @@ const PostButton: React.FC<{
   );
 
   return (
-    <Pressable 
+    <Pressable
       style={[
         glassStyle,
         { width: buttonWidth },
         !(Platform.OS === 'ios' && isLiquidGlassAvailable()) && hostStyle,
-        (isPosting || isCompressing) && disabledStyle
+        (isPosting || isCompressing) && disabledStyle,
       ]}
       onPress={onPress}
       disabled={isPosting || isCompressing}
@@ -353,36 +393,42 @@ const DescriptionInputModal: React.FC<{
   onClose: () => void;
   richTextSearchModalProps: any;
   insets: { top: number };
-}> = ({ visible, description, formattedRichText, setDescription, setDescriptionSelection, onClose, richTextSearchModalProps, insets }) => (
-  <Modal
-    visible={visible}
-    transparent={true}
-    animationType="fade"
-    onRequestClose={onClose}
-  >
+}> = ({
+  visible,
+  description,
+  formattedRichText,
+  setDescription,
+  setDescriptionSelection,
+  onClose,
+  richTextSearchModalProps,
+  insets,
+}) => (
+  <Modal visible={visible} transparent={true} animationType="fade" onRequestClose={onClose}>
     <View style={styles.descriptionModalContainer}>
       <View style={styles.descriptionModalOverlay}>
         <View style={[styles.descriptionModalContentWrapper, { paddingTop: insets.top }]}>
           <View style={styles.descriptionModalHeader}>
             <View style={styles.descriptionModalHeaderSpacer} />
             <Text style={[styles.sectionHeaderTitle, { marginBottom: 0 }]}>Description</Text>
-            <Pressable 
+            <Pressable
               onPress={onClose}
               style={[
                 styles.descriptionModalDoneButton,
-                description.length > 300 && styles.descriptionModalDoneButtonDisabled
+                description.length > 300 && styles.descriptionModalDoneButtonDisabled,
               ]}
               disabled={description.length > 300}
             >
-              <Text style={[
-                styles.descriptionModalDoneText,
-                description.length > 300 && styles.descriptionModalDoneTextDisabled
-              ]}>
+              <Text
+                style={[
+                  styles.descriptionModalDoneText,
+                  description.length > 300 && styles.descriptionModalDoneTextDisabled,
+                ]}
+              >
                 {description.length > 300 ? `+${description.length - 300}` : 'Done'}
               </Text>
             </Pressable>
           </View>
-          <KeyboardAvoidingView 
+          <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             style={styles.descriptionModalContent}
             keyboardVerticalOffset={0}
@@ -392,7 +438,7 @@ const DescriptionInputModal: React.FC<{
                 nativeID="video-post-description-input"
                 value={description}
                 onChangeText={setDescription}
-                onSelectionChange={(e) => {
+                onSelectionChange={e => {
                   setDescriptionSelection(e.nativeEvent.selection);
                 }}
                 style={styles.descriptionModalInput}
@@ -415,7 +461,14 @@ const DescriptionInputModal: React.FC<{
                 <View style={styles.descriptionInputOverlay} pointerEvents="none">
                   <Text style={styles.descriptionInputOverlayText}>
                     {formattedRichText.map((part, index) => (
-                      <Text key={index} style={part.isSemiBold ? styles.descriptionInputOverlaySemiBold : styles.descriptionInputOverlayNormal}>
+                      <Text
+                        key={index}
+                        style={
+                          part.isSemiBold
+                            ? styles.descriptionInputOverlaySemiBold
+                            : styles.descriptionInputOverlayNormal
+                        }
+                      >
                         {part.text}
                       </Text>
                     ))}
@@ -454,32 +507,35 @@ const COMMENT_FILTERS = [
 
 const VideoPostScreen: React.FC = () => {
   const params = useLocalSearchParams();
-  
+
   // Video path is already standardized when it arrives from create.tsx
   // OR segments are provided for background merging
   const videoPath = params.videoPath as string;
   const segmentsParam = params.segments as string | undefined;
   const thumbnailPath = params.thumbnailPath as string | undefined;
-  
+
   // Debug: Log thumbnail path
   useEffect(() => {
     if (thumbnailPath) {
-      logger.info('VideoPostScreen received thumbnailPath', { component: 'VideoPostScreen', thumbnailPath });
+      logger.info('VideoPostScreen received thumbnailPath', {
+        component: 'VideoPostScreen',
+        thumbnailPath,
+      });
     }
   }, [thumbnailPath]);
-  
+
   const textOverlays = (params.textOverlays as any) || [];
   const router = useRouter();
-  
+
   // Draft store
   const { setDraft, clearDraft, getDraft } = useVideoPostDraftStore();
-  
+
   const [description, setDescription] = useState('');
   const [isPosting, setIsPosting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
   const playerRef = useRef<VideoPlayer | null>(null);
-  
+
   // Background merging state
   const [isMerging, setIsMerging] = useState(false);
   const [mergedVideoPath, setMergedVideoPath] = useState<string | null>(null);
@@ -489,23 +545,23 @@ const VideoPostScreen: React.FC = () => {
   const [otherWarning, setOtherWarning] = useState('');
   const [showContentWarningInput, setShowContentWarningInput] = useState(false);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
-  
+
   // Comment filtering state
   const [commentFilter, setCommentFilter] = useState<string | null>(null);
 
   // Channel selection state
   const [selectedChannel, setSelectedChannel] = useState<SubscribedChannel | null>(null);
-  
+
   // Sheet visibility state
   const [showContentWarningsSheet, setShowContentWarningsSheet] = useState(false);
   const [showCommentSettingsSheet, setShowCommentSettingsSheet] = useState(false);
   const [showChannelSelectionSheet, setShowChannelSelectionSheet] = useState(false);
-  
+
   // Full-screen description input modal state
   const [showDescriptionInputModal, setShowDescriptionInputModal] = useState(false);
   const [videoLoading, setVideoLoading] = useState(true);
   const [videoError, setVideoError] = useState<string | null>(null);
-  
+
   // Rich text search state (for @ mentions and # hashtags)
   const [descriptionSelection, setDescriptionSelection] = useState({ start: 0, end: 0 });
 
@@ -516,11 +572,11 @@ const VideoPostScreen: React.FC = () => {
 
   // User store hooks
   const { currentUser } = useCurrentUser();
-  
+
   // Fade-in animation for smooth screen entry
   const fadeOpacity = useSharedValue(0);
   const headerFadeOpacity = useSharedValue(0);
-  
+
   useEffect(() => {
     // Fade in header buttons first, then content
     headerFadeOpacity.value = withTiming(1, {
@@ -533,23 +589,21 @@ const VideoPostScreen: React.FC = () => {
       easing: Easing.out(Easing.ease),
     });
   }, []);
-  
+
   const fadeAnimatedStyle = useAnimatedStyle(() => ({
     opacity: fadeOpacity.value,
   }));
-  
+
   const headerFadeAnimatedStyle = useAnimatedStyle(() => ({
     opacity: headerFadeOpacity.value,
   }));
-  
+
   // Rich text search hook for description input (for @ mentions and # hashtags)
-  const {
-    richTextSearchModalProps,
-  } = useRichTextSearchTrigger({
+  const { richTextSearchModalProps } = useRichTextSearchTrigger({
     value: description,
     selection: descriptionSelection,
     onChangeText: setDescription,
-    onSelectionChange: (e) => {
+    onSelectionChange: e => {
       setDescriptionSelection(e.nativeEvent.selection);
     },
   });
@@ -557,7 +611,7 @@ const VideoPostScreen: React.FC = () => {
   useEffect(() => {
     // Set current user handle in ProfileCache when userStore changes
     if (currentUser?.handle) {
-      ProfileCache.setCurrentUserHandle(currentUser.handle);
+      ProfileService.setCurrentUserHandle(currentUser.handle);
     }
   }, [currentUser?.did]);
 
@@ -580,7 +634,7 @@ const VideoPostScreen: React.FC = () => {
   const prevDraftRef = useRef<string>('');
   useEffect(() => {
     if (!videoPath) return;
-    
+
     const currentDraft = JSON.stringify({
       videoPath,
       segments: segmentsParam || null,
@@ -592,7 +646,7 @@ const VideoPostScreen: React.FC = () => {
       commentFilter,
       selectedChannel,
     });
-    
+
     // Only update if draft actually changed
     if (prevDraftRef.current !== currentDraft) {
       prevDraftRef.current = currentDraft;
@@ -608,23 +662,33 @@ const VideoPostScreen: React.FC = () => {
         selectedChannel,
       });
     }
-  }, [videoPath, segmentsParam, thumbnailPath, textOverlays, description, selectedContentWarnings, otherWarning, commentFilter, selectedChannel]);
+  }, [
+    videoPath,
+    segmentsParam,
+    thumbnailPath,
+    textOverlays,
+    description,
+    selectedContentWarnings,
+    otherWarning,
+    commentFilter,
+    selectedChannel,
+  ]);
 
   // Handle background merging if segments are provided
   useEffect(() => {
     if (!segmentsParam || mergedVideoPath) return; // Already merged or no segments
-    
+
     const mergeSegments = async () => {
       try {
         setIsMerging(true);
-        
+
         // Parse segments from params
         const segments = JSON.parse(segmentsParam);
-        
+
         if (!segments || segments.length === 0) {
           throw new Error('No video segments provided');
         }
-        
+
         // Convert to ProcessingVideoSegment format
         const processingSegments = segments.map((segment: any) => ({
           startTime: segment.startTime,
@@ -632,15 +696,15 @@ const VideoPostScreen: React.FC = () => {
           video: segment.video,
           sourceType: segment.sourceType,
         }));
-        
+
         // Merge segments in background using InteractionManager
         const { InteractionManager } = require('react-native');
         await InteractionManager.runAfterInteractions(async () => {
           const mergedVideo = await VideoProcessingService.mergeSegments(processingSegments);
-          
+
           setMergedVideoPath(mergedVideo.path);
           setIsMerging(false);
-          
+
           logger.info('Background merging completed', {
             component: 'VideoPostScreen',
             mergedPath: mergedVideo.path,
@@ -656,12 +720,12 @@ const VideoPostScreen: React.FC = () => {
             {
               text: 'Go Back',
               onPress: () => router.back(),
-            }
+            },
           ]
         );
       }
     };
-    
+
     mergeSegments();
   }, [segmentsParam, mergedVideoPath, router]);
 
@@ -678,7 +742,7 @@ const VideoPostScreen: React.FC = () => {
     const interactionHandle = InteractionManager.runAfterInteractions(async () => {
       try {
         setIsCompressing(true);
-        
+
         // Automatically check upload limits and compress if needed
         // This uses WhatsApp-like automatic compression in the background
         const result = await VideoProcessingService.checkAndCompressVideoForUpload(
@@ -687,23 +751,23 @@ const VideoPostScreen: React.FC = () => {
           () => {}
         );
 
-          // Update state based on compression result
-          if (result.wasCompressed) {
-            setCompressedVideoPath(result.processedVideo.path);
-            
-            logger.info('Video automatically compressed', {
-              component: 'VideoPostScreen',
-              originalSize: result.originalSize,
-              compressedSize: result.compressedSize,
-              reduction: `${((1 - result.compressedSize / result.originalSize) * 100).toFixed(1)}%`,
-            });
-          }
-        } catch (error) {
-          console.error('Error checking and compressing video:', error);
-        } finally {
-          setIsCompressing(false);
+        // Update state based on compression result
+        if (result.wasCompressed) {
+          setCompressedVideoPath(result.processedVideo.path);
+
+          logger.info('Video automatically compressed', {
+            component: 'VideoPostScreen',
+            originalSize: result.originalSize,
+            compressedSize: result.compressedSize,
+            reduction: `${((1 - result.compressedSize / result.originalSize) * 100).toFixed(1)}%`,
+          });
         }
-      });
+      } catch (error) {
+        console.error('Error checking and compressing video:', error);
+      } finally {
+        setIsCompressing(false);
+      }
+    });
 
     return () => {
       interactionHandle.cancel();
@@ -714,11 +778,9 @@ const VideoPostScreen: React.FC = () => {
 
   // Use RichText API hook for formatting
   const [richText] = useRichText(description);
-  
+
   // Format rich text for display using RichText API
   const formattedRichText = formatRichTextForDisplay(richText);
-
-
 
   const toggleContentWarning = (id: string) => {
     if (selectedContentWarnings.includes(id)) {
@@ -756,7 +818,7 @@ const VideoPostScreen: React.FC = () => {
       }
       return;
     }
-    
+
     if (!activeVideoPath) {
       Alert.alert('error', 'no video selected');
       return;
@@ -776,10 +838,10 @@ const VideoPostScreen: React.FC = () => {
     try {
       setIsPosting(true);
       setUploadProgress(0);
-      
+
       // Use compressed video if available, otherwise use the validated path
       const videoPathToUpload = compressedVideoPath || videoPathToUse;
-      
+
       // Save video to gallery FIRST (before upload) so user has it even if upload fails
       try {
         // Request media library permissions
@@ -787,11 +849,11 @@ const VideoPostScreen: React.FC = () => {
         if (status === 'granted') {
           // Resolve the video path to ensure it's accessible
           const pathInfo = await resolveVideoPath(videoPathToUpload);
-          
+
           if (pathInfo.exists) {
             // Save video to media library silently (don't block post flow if this fails)
             await MediaLibrary.createAssetAsync(pathInfo.uri);
-            
+
             logger.info('Video saved to gallery before posting', {
               component: 'VideoPostScreen',
             });
@@ -799,11 +861,11 @@ const VideoPostScreen: React.FC = () => {
         }
       } catch (saveError) {
         // Silently fail - don't interrupt the post flow if save fails
-        logger.error('Failed to save video to gallery before posting', saveError, { 
-          component: 'VideoPostScreen' 
+        logger.error('Failed to save video to gallery before posting', saveError, {
+          component: 'VideoPostScreen',
         });
       }
-      
+
       logger.info('Preparing video post', {
         component: 'VideoPostScreen',
         videoPath: videoPathToUpload?.substring(0, 50) + '...',
@@ -812,9 +874,11 @@ const VideoPostScreen: React.FC = () => {
         allContentWarnings,
         otherWarning: otherWarning.trim() || null,
         commentFilter,
-        selectedChannel: selectedChannel ? { uri: selectedChannel.uri, slug: extractFeedSlug(selectedChannel.uri) || undefined } : null
+        selectedChannel: selectedChannel
+          ? { uri: selectedChannel.uri, slug: extractFeedSlug(selectedChannel.uri) || undefined }
+          : null,
       });
-      
+
       // Simulate upload progress with realistic stages
       const progressInterval = setInterval(() => {
         setUploadProgress(prev => {
@@ -826,9 +890,9 @@ const VideoPostScreen: React.FC = () => {
           return prev + 5;
         });
       }, 300);
-      
+
       // Extract slug from channel URI to ensure it matches what the backend expects
-      const channelSlug = selectedChannel 
+      const channelSlug = selectedChannel
         ? extractFeedSlug(selectedChannel.uri) || undefined
         : undefined;
 
@@ -838,7 +902,7 @@ const VideoPostScreen: React.FC = () => {
         videoPath: videoPathToUpload?.substring(0, 50) + '...',
         contentWarnings: allContentWarnings.length > 0 ? allContentWarnings : undefined,
         commentFilter: (commentFilter || 'all') as 'all' | 'followers' | 'mentioned' | 'none',
-        channelSlug
+        channelSlug,
       });
 
       // Create the video post using AtprotoService
@@ -849,25 +913,24 @@ const VideoPostScreen: React.FC = () => {
         (commentFilter || 'all') as 'all' | 'followers' | 'mentioned' | 'none',
         channelSlug // Pass channel slug for tagging (extracted from URI)
       );
-      
+
       logger.info('Video post created successfully', {
         component: 'VideoPostScreen',
         uri: result?.uri,
-        cid: result?.cid
+        cid: result?.cid,
       });
-      
+
       // Complete the progress
       setUploadProgress(100);
-      
+
       // Small delay to show completion
       await new Promise(resolve => setTimeout(resolve, 500));
-      
+
       // Clear draft since post was successful
       clearDraft();
-      
+
       // Close the current screen and navigate back to main
       router.replace('/(tabs)');
-      
     } catch (error: any) {
       logger.error('Video post upload failed', error, {
         component: 'VideoPostScreen',
@@ -878,9 +941,9 @@ const VideoPostScreen: React.FC = () => {
         errorData: error?.data,
         selectedContentWarnings,
         allContentWarnings,
-        otherWarning: otherWarning.trim() || null
+        otherWarning: otherWarning.trim() || null,
       });
-      
+
       // For upload failures, assume issue and offer retry
       if (error.message?.includes('Video upload failed') || error.message?.includes('timeout')) {
         Alert.alert(
@@ -970,13 +1033,11 @@ const VideoPostScreen: React.FC = () => {
 
       // Resolve the video path to ensure it's accessible
       const pathInfo = await resolveVideoPath(videoPathToDownload);
-      
+
       if (!pathInfo.exists) {
-        Alert.alert(
-          'Video Not Found',
-          'The video file could not be found. Please try again.',
-          [{ text: 'OK' }]
-        );
+        Alert.alert('Video Not Found', 'The video file could not be found. Please try again.', [
+          { text: 'OK' },
+        ]);
         setIsDownloading(false);
         return;
       }
@@ -986,12 +1047,10 @@ const VideoPostScreen: React.FC = () => {
 
       // Save video to media library
       const asset = await MediaLibrary.createAssetAsync(fileUri);
-      
-      Alert.alert(
-        'Video Saved',
-        'Your video has been saved to your photo library.',
-        [{ text: 'OK' }]
-      );
+
+      Alert.alert('Video Saved', 'Your video has been saved to your photo library.', [
+        { text: 'OK' },
+      ]);
 
       logger.info('Video downloaded successfully', {
         component: 'VideoPostScreen',
@@ -1030,11 +1089,9 @@ const VideoPostScreen: React.FC = () => {
     }, [])
   );
 
-
-
   // Resolved video path info
   const [videoPathInfo, setVideoPathInfo] = useState<VideoPathInfo | null>(null);
-  
+
   // Resolve video path on mount or when activeVideoPath changes
   useEffect(() => {
     const resolveVideo = async () => {
@@ -1049,16 +1106,16 @@ const VideoPostScreen: React.FC = () => {
 
       // Debug the incoming path
       debugVideoPath('VideoPostScreen received', activeVideoPath);
-      
+
       try {
         setVideoLoading(true);
         setVideoError(null);
-        
+
         // Use the utility to resolve the path (handles iCloud, normalization, validation)
         const pathInfo = await resolveVideoPath(activeVideoPath);
-        
+
         setVideoPathInfo(pathInfo);
-        
+
         if (!pathInfo.exists) {
           setVideoError('Video file not found');
         }
@@ -1077,7 +1134,7 @@ const VideoPostScreen: React.FC = () => {
   const videoUri = videoPathInfo?.uri || '';
 
   // Simple video player - auto-plays when source is set
-  const player = useVideoPlayer(videoUri ? { uri: videoUri } : null, (p) => {
+  const player = useVideoPlayer(videoUri ? { uri: videoUri } : null, p => {
     p.loop = true;
     p.volume = 1;
     playerRef.current = p;
@@ -1096,7 +1153,6 @@ const VideoPostScreen: React.FC = () => {
     if (!player) return;
     isPlaying ? player.play() : player.pause();
   }, [player, isPlaying]);
-
 
   // Handle keyboard visibility for input spacing
   useEffect(() => {
@@ -1157,35 +1213,35 @@ const VideoPostScreen: React.FC = () => {
         style={[styles.statusBarGradient, { height: isSmallDevice ? 54 : insets.top + 60 }]}
         pointerEvents="none"
       />
-      <Animated.View 
+      <Animated.View
         style={[
-          styles.headerButton, 
-          { 
+          styles.headerButton,
+          {
             top: isSmallDevice ? 5 : insets.top + 4,
             left: 4,
           },
-          headerFadeAnimatedStyle
+          headerFadeAnimatedStyle,
         ]}
       >
-        <Pressable 
+        <Pressable
           onPress={handleCancel}
           style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
         >
           <BackArrowIcon size={32} color={Colors.white} />
         </Pressable>
       </Animated.View>
-      <Animated.View 
+      <Animated.View
         style={[
-          styles.headerButton, 
-          { 
+          styles.headerButton,
+          {
             top: isSmallDevice ? 5 : insets.top + 4,
             right: 4,
             left: undefined,
           },
-          headerFadeAnimatedStyle
+          headerFadeAnimatedStyle,
         ]}
       >
-        <Pressable 
+        <Pressable
           onPress={handleDownload}
           disabled={isDownloading || isMerging || !activeVideoPath}
           style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
@@ -1199,7 +1255,6 @@ const VideoPostScreen: React.FC = () => {
       </Animated.View>
     </>
   );
-
 
   // Render all modals/sheets - shared between portrait and landscape
   const renderModals = () => (
@@ -1232,10 +1287,12 @@ const VideoPostScreen: React.FC = () => {
               onPress={() => toggleContentWarning(warning.id)}
             >
               <Text style={styles.sheetOptionText}>{warning.label.toLowerCase()}</Text>
-              <View style={[
-                styles.checkbox,
-                selectedContentWarnings.includes(warning.id) && styles.checkboxSelected
-              ]}>
+              <View
+                style={[
+                  styles.checkbox,
+                  selectedContentWarnings.includes(warning.id) && styles.checkboxSelected,
+                ]}
+              >
                 {selectedContentWarnings.includes(warning.id) && (
                   <Icon name="checkmark" size={16} color={Colors.black} />
                 )}
@@ -1247,17 +1304,17 @@ const VideoPostScreen: React.FC = () => {
             onPress={() => setShowContentWarningInput(!showContentWarningInput)}
           >
             <Text style={styles.sheetOptionText}>other warning</Text>
-            <View style={[
-              styles.checkbox,
-              showContentWarningInput && styles.checkboxSelected
-            ]}>
-              {showContentWarningInput && (
-                <Icon name="checkmark" size={16} color={Colors.black} />
-              )}
+            <View style={[styles.checkbox, showContentWarningInput && styles.checkboxSelected]}>
+              {showContentWarningInput && <Icon name="checkmark" size={16} color={Colors.black} />}
             </View>
           </Pressable>
           {showContentWarningInput && (
-            <View style={[styles.sheetInputContainer, isKeyboardVisible && styles.sheetInputContainerKeyboard]}>
+            <View
+              style={[
+                styles.sheetInputContainer,
+                isKeyboardVisible && styles.sheetInputContainerKeyboard,
+              ]}
+            >
               <TextInput
                 nativeID="video-post-warning-input"
                 style={styles.otherWarningInput}
@@ -1312,11 +1369,11 @@ const VideoPostScreen: React.FC = () => {
         titleSize={26}
         hideCloseButton={true}
       >
-        <ScrollView 
+        <ScrollView
           style={styles.sheetContent}
           contentContainerStyle={[
             styles.sheetContentContainer,
-            { paddingBottom: 52 + insets.bottom }
+            { paddingBottom: 52 + insets.bottom },
           ]}
           showsVerticalScrollIndicator={false}
           nestedScrollEnabled={true}
@@ -1344,14 +1401,18 @@ const VideoPostScreen: React.FC = () => {
                 <View style={styles.listButtonContent}>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     {shouldShowChannelSlash(channel.uri) && (
-                      <Text style={[
-                        styles.channelListButtonText, 
-                        styles.orbytSlash, 
-                        { 
-                          color: channel.channelColor || '#FFD700',
-                          fontFamily: 'Firma-SemiBold'
-                        }
-                      ]}>/</Text>
+                      <Text
+                        style={[
+                          styles.channelListButtonText,
+                          styles.orbytSlash,
+                          {
+                            color: channel.channelColor || '#FFD700',
+                            fontFamily: 'Firma-SemiBold',
+                          },
+                        ]}
+                      >
+                        /
+                      </Text>
                     )}
                     <Text style={[styles.channelListButtonText, { fontFamily: 'Firma-Bold' }]}>
                       {channel.displayName.toLowerCase()}
@@ -1374,16 +1435,16 @@ const VideoPostScreen: React.FC = () => {
         <Animated.View style={[styles.landscapeContainer, fadeAnimatedStyle]}>
           {/* Left: Info Side */}
           <View style={styles.landscapeInfoSide}>
-            <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.landscapeInfoScroll, { paddingBottom: 40 }]}>
+            <ScrollView
+              style={{ flex: 1 }}
+              contentContainerStyle={[styles.landscapeInfoScroll, { paddingBottom: 40 }]}
+            >
               {/* Header Buttons */}
               <View style={styles.landscapeButtonsContainer}>
-                <Pressable 
-                  onPress={handleCancel}
-                  style={styles.landscapeHeaderButton}
-                >
+                <Pressable onPress={handleCancel} style={styles.landscapeHeaderButton}>
                   <BackArrowIcon size={32} color={Colors.white} />
                 </Pressable>
-                <Pressable 
+                <Pressable
                   onPress={handleDownload}
                   disabled={isDownloading || isMerging || !activeVideoPath}
                   style={styles.landscapeHeaderButton}
@@ -1416,7 +1477,12 @@ const VideoPostScreen: React.FC = () => {
                 getSelectedContentWarningsLabel={getSelectedContentWarningsLabel}
                 onPress={() => setShowContentWarningsSheet(true)}
               />
-              <View style={[styles.landscapePostButtonContainer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+              <View
+                style={[
+                  styles.landscapePostButtonContainer,
+                  { paddingBottom: Math.max(insets.bottom, 20) },
+                ]}
+              >
                 <PostButton
                   onPress={handlePost}
                   isPosting={isPosting}
@@ -1452,15 +1518,13 @@ const VideoPostScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       {renderHeader()}
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.container}
       >
-        <Animated.ScrollView 
+        <Animated.ScrollView
           style={[styles.contentContainer, fadeAnimatedStyle]}
-          contentContainerStyle={[
-            { paddingBottom: 60 + Math.max(insets.bottom, 20) + 80 }
-          ]}
+          contentContainerStyle={[{ paddingBottom: 60 + Math.max(insets.bottom, 20) + 80 }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
@@ -1477,44 +1541,45 @@ const VideoPostScreen: React.FC = () => {
               containerStyle={{ width: containerWidth, height: containerHeight }}
             />
           </View>
-          
+
           {/* Spacer to account for absolutely positioned preview */}
           <View style={{ height: containerHeight + 22 }} />
-          
+
           <DescriptionPreview
             description={description}
             formattedRichText={formattedRichText}
             onPress={() => setShowDescriptionInputModal(true)}
           />
-          
+
           {/* Divider */}
           <View style={styles.sectionDivider} />
-          
+
           <ChannelSelector
             selectedChannel={selectedChannel}
             onPress={() => setShowChannelSelectionSheet(true)}
             showRing={false}
           />
-          
+
           <CommentFilterSelector
             commentFilter={commentFilter}
             getSelectedCommentFilterLabel={getSelectedCommentFilterLabel}
             onPress={() => setShowCommentSettingsSheet(true)}
           />
-          
+
           <ContentWarningSelector
             selectedContentWarnings={selectedContentWarnings}
             otherWarning={otherWarning}
             getSelectedContentWarningsLabel={getSelectedContentWarningsLabel}
             onPress={() => setShowContentWarningsSheet(true)}
           />
-          
-          
         </Animated.ScrollView>
-        
 
-        
-        <View style={[styles.floatingPostButtonContainer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+        <View
+          style={[
+            styles.floatingPostButtonContainer,
+            { paddingBottom: Math.max(insets.bottom, 20) },
+          ]}
+        >
           <PostButton
             onPress={handlePost}
             isPosting={isPosting}
@@ -2253,7 +2318,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: 'Firma-Medium',
   },
-
 });
 
 export default VideoPostScreen;

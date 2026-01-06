@@ -1,4 +1,3 @@
-import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 
@@ -11,9 +10,7 @@ export default function IndividualChatScreen() {
   if (!id) {
     return (
       <View style={styles.container}>
-        <View style={styles.errorContainer}>
-          {/* Error state */}
-        </View>
+        <View style={styles.errorContainer}>{/* Error state */}</View>
       </View>
     );
   }

@@ -1,5 +1,5 @@
 import React, { createContext, useContext } from 'react';
-import { useFollowMutation } from '../services/cache/ProfileCache';
+import { useFollowMutation } from '../services/data/ProfileService';
 import { useUserStore } from '../stores/userStore';
 
 type FollowContextValue = {
@@ -27,8 +27,3 @@ export const useFollowContext = () => {
   }
   return context;
 };
-
-
-
-
-

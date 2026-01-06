@@ -8,7 +8,10 @@ interface BlurredThumbnailBackgroundProps {
   recyclingKey?: string;
 }
 
-export default function BlurredThumbnailBackground({ thumbnailUrl, recyclingKey }: BlurredThumbnailBackgroundProps) {
+export default function BlurredThumbnailBackground({
+  thumbnailUrl,
+  recyclingKey,
+}: BlurredThumbnailBackgroundProps) {
   if (!thumbnailUrl) return null;
 
   return (
@@ -21,7 +24,12 @@ export default function BlurredThumbnailBackground({ thumbnailUrl, recyclingKey 
         cachePolicy="disk"
         transition={200}
       />
-      <BlurView intensity={100} tint="systemChromeMaterialDark" style={styles.blur} experimentalBlurMethod="dimezisBlurView" />
+      <BlurView
+        intensity={100}
+        tint="systemChromeMaterialDark"
+        style={styles.blur}
+        experimentalBlurMethod="dimezisBlurView"
+      />
       <View style={styles.overlay} />
     </View>
   );
@@ -48,4 +56,3 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
   },
 });
-

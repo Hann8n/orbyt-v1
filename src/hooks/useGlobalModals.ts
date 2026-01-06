@@ -4,7 +4,11 @@
  * These hooks provide compatibility layer for existing code
  */
 
-import { useAccountSwitcher, useCommentSection as useCommentSectionStore, useShareSheet as useShareSheetStore } from '../stores/modalStore';
+import {
+  useAccountSwitcher,
+  useCommentSection as useCommentSectionStore,
+  useShareSheet as useShareSheetStore,
+} from '../stores/modalStore';
 
 // ============================================================================
 // HOOKS - Now proxying to Zustand store

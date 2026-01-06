@@ -1,16 +1,17 @@
 import { storageHelpers } from '../../utils/storage';
 import { InteractionManager } from 'react-native';
 import AtprotoService from '../api/AtprotoService';
-import { extractColorsFromImage, darkenColor } from '../../utils/formatting/colorUtils';
-import { 
-  useQuery, 
-  useMutation,
-  useQueryClient, 
-  UseQueryResult
-} from '@tanstack/react-query';
+import { extractColorsFromImage, darkenColor } from '../../utils/formatting/colors';
+import { useQuery, useMutation, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { Colors } from '../../components/ui/UI';
-import { isOrbytChannel, getChannelByUri, getChannelBySlug, extractFeedSlug, hashtagToChannelSlug } from '../../utils/orbytChannels';
+import {
+  isOrbytChannel,
+  getChannelByUri,
+  getChannelBySlug,
+  extractFeedSlug,
+  hashtagToChannelSlug,
+} from '../../utils/channels/orbyt';
 // Image.resolveAssetSource replaced with expo-asset
 
 export interface CachedChannel {
@@ -58,7 +59,7 @@ export const channelKeys = {
   colors: (uri: string) => [...channelKeys.all, 'colors', uri] as const,
 };
 
-class ChannelCache {
+class ChannelService {
   private static memoryCache = new Map<string, CachedChannel>();
   private static subscribers = new Map<string, Set<() => void>>();
 
@@ -123,11 +124,11 @@ class ChannelCache {
    */
   static async getChannelFromCache(uri: string): Promise<CachedChannel | null> {
     if (!uri) return null;
-    
+
     try {
       const normalizedUri = uri.toLowerCase();
       const cached = await storageHelpers.getItem(this.getCacheKey(normalizedUri));
-      
+
       if (cached) {
         const parsed = JSON.parse(cached) as CachedChannel;
         if (this.isCacheValid(parsed)) {
@@ -136,9 +137,10 @@ class ChannelCache {
           return parsed;
         }
       }
-    } catch (error) {
+    } catch (error: unknown) {
+      // ignore
     }
-    
+
     return null;
   }
 
@@ -148,19 +150,19 @@ class ChannelCache {
    */
   static async getChannel(uriOrFeed: string): Promise<CachedChannel | null> {
     if (!uriOrFeed) return null;
-    
+
     // Handle local channel URIs (at://local.orbyt.channel/{slug})
     if (uriOrFeed.startsWith('at://local.orbyt.channel/')) {
       const slug = extractFeedSlug(uriOrFeed);
       if (!slug) return null;
-      
+
       // Look up Orbyt channel by slug
       const orbytChannel = getChannelBySlug(slug);
       if (!orbytChannel) return null;
-      
+
       // Use the local URI for cache key (consistent with routing)
       const localUri = orbytChannel.uri; // This will be the local URI now
-      
+
       // Check memory cache first (using local URI as key)
       const memoryCached = this.getChannelFromCacheSync(localUri);
       if (memoryCached) {
@@ -176,19 +178,19 @@ class ChannelCache {
       // Create cache from Orbyt channel config
       return await this.createOrbytChannelCache(localUri, orbytChannel);
     }
-    
+
     // Handle hashtag feeds (legacy support for normalized Orbyt channels)
     if (uriOrFeed.startsWith('hashtag:')) {
       const slug = hashtagToChannelSlug(uriOrFeed);
       if (!slug) return null;
-      
+
       // Look up Orbyt channel by slug
       const orbytChannel = getChannelBySlug(slug);
       if (!orbytChannel) return null;
-      
+
       // Use the URI from orbytChannels for cache key
       const originalUri = orbytChannel.uri;
-      
+
       // Check memory cache first (using original URI as key)
       const memoryCached = this.getChannelFromCacheSync(originalUri);
       if (memoryCached) {
@@ -204,7 +206,7 @@ class ChannelCache {
       // Create cache from Orbyt channel config
       return await this.createOrbytChannelCache(originalUri, orbytChannel);
     }
-    
+
     // Handle feed generator URIs (both Orbyt and external)
     if (!uriOrFeed.startsWith('at://')) {
       return null;
@@ -231,18 +233,18 @@ class ChannelCache {
    */
   private static async fetchAndCacheChannel(uri: string): Promise<CachedChannel | null> {
     if (!uri) return null;
-    
+
     // Check if this is an Orbyt channel - if so, get data from orbytChannels.ts
     const orbytChannel = getChannelByUri(uri);
     if (orbytChannel) {
       return await this.createOrbytChannelCache(uri, orbytChannel);
     }
-    
+
     // Validate URI format - must be a valid at-uri for feed generators
     if (!uri.startsWith('at://')) {
       return null;
     }
-    
+
     // Async operations already run off the main thread - no delay needed
     try {
       const normalizedUri = uri.toLowerCase();
@@ -251,102 +253,99 @@ class ChannelCache {
         return null;
       }
 
+      let channelColors = undefined;
+      // Robust avatar extraction - all properties are on channel.view
+      const avatarUrl = channel.view?.avatar || channel.view?.creator?.avatar || undefined;
+      if (avatarUrl) {
+        try {
+          // Use the improved extractColorsFromImage function for better color extraction
+          const extractedColors = await extractColorsFromImage(avatarUrl);
+          // Darken the background color to ensure it's always darker
+          const darkenedBackground = darkenColor(extractedColors.backgroundColor, 0.5);
+          channelColors = {
+            backgroundColor: darkenedBackground,
+            foregroundColor: '#FFFFFF', // Always use white text for channels
+            accentColor: extractedColors.accentColor || '#000000', // Accent to black
+            statusBarStyle: 'light' as const,
+          };
+        } catch (_e) {
+          // Set fallback colors if extraction fails
+          channelColors = {
+            backgroundColor: Colors.black,
+            foregroundColor: '#FFFFFF',
+            accentColor: '#000000', // Accent to black
+            statusBarStyle: 'light' as const,
+          };
+        }
+      } else {
+        // Set fallback colors if no avatar
+        channelColors = {
+          backgroundColor: Colors.black,
+          foregroundColor: '#FFFFFF',
+          accentColor: '#000000', // Accent to black
+          statusBarStyle: 'light' as const,
+        };
+      }
 
+      // Get subscriber count (number of likes on the feed generator post)
+      const subscriberCount = channel.view?.likeCount || 0;
 
-            let channelColors = undefined;
-            // Robust avatar extraction - all properties are on channel.view
-            const avatarUrl =
-              channel.view?.avatar ||
-              channel.view?.creator?.avatar ||
-              undefined;
-            if (avatarUrl) {
-              try {
-                // Use the improved extractColorsFromImage function for better color extraction
-                const extractedColors = await extractColorsFromImage(avatarUrl);
-                // Darken the background color to ensure it's always darker
-                const darkenedBackground = darkenColor(extractedColors.backgroundColor, 0.5);
-                channelColors = {
-                  backgroundColor: darkenedBackground,
-                  foregroundColor: '#FFFFFF', // Always use white text for channels
-                  accentColor: extractedColors.accentColor || '#000000', // Accent to black
-                  statusBarStyle: 'light' as const
-                };
-              } catch (e) {
-                // Set fallback colors if extraction fails
-                channelColors = {
-                  backgroundColor: Colors.black,
-                  foregroundColor: '#FFFFFF',
-                  accentColor: '#000000', // Accent to black
-                  statusBarStyle: 'light' as const
-                };
-              }
-            } else {
-              // Set fallback colors if no avatar
-              channelColors = {
-                backgroundColor: Colors.black,
-                foregroundColor: '#FFFFFF',
-                accentColor: '#000000', // Accent to black
-                statusBarStyle: 'light' as const
-              };
-            }
+      // Determine if this is an experimental (non-video) feed
+      const isVideoOnly = channel.view?.contentMode === 'app.bsky.feed.defs#contentModeVideo';
+      const isExperimental = !isVideoOnly;
 
-            // Get subscriber count (number of likes on the feed generator post)
-            const subscriberCount = channel.view?.likeCount || 0;
+      // Debug logging
+      //   contentMode: channel.view?.contentMode,
+      //   isVideoOnly,
+      //   isExperimental
+      // });
 
-            // Determine if this is an experimental (non-video) feed
-            const isVideoOnly = channel.view?.contentMode === 'app.bsky.feed.defs#contentModeVideo';
-            const isExperimental = !isVideoOnly;
-
-            // Debug logging
-            //   contentMode: channel.view?.contentMode,
-            //   isVideoOnly,
-            //   isExperimental
-            // });
-
-            const channelUri = channel.view?.uri;
-            if (!channelUri) {
-              return null;
-            }
-            const cacheObject: CachedChannel = {
-              uri: channelUri,
-              cid: channel.view?.cid,
-              did: channel.view?.did,
-              creator: channel.view?.creator,
-              displayName: channel.view?.displayName,
-              description: channel.view?.description,
-              avatar: avatarUrl, // Use the avatarUrl variable directly
-              likeCount: channel.view?.likeCount,
-              subscriberCount,
-              indexedAt: channel.view?.indexedAt,
-              isExperimental, // Add experimental flag
-              isOrbytChannel: isOrbytChannel(channelUri), // Check if this is an Orbyt channel
-              channelColors: channelColors ? {
-                backgroundColor: channelColors.backgroundColor,
-                foregroundColor: channelColors.foregroundColor,
-                accentColor: channelColors.accentColor,
-                statusBarStyle: (channelColors.statusBarStyle === 'light' || channelColors.statusBarStyle === 'dark') 
-                  ? channelColors.statusBarStyle 
+      const channelUri = channel.view?.uri;
+      if (!channelUri) {
+        return null;
+      }
+      const cacheObject: CachedChannel = {
+        uri: channelUri,
+        cid: channel.view?.cid,
+        did: channel.view?.did,
+        creator: channel.view?.creator,
+        displayName: channel.view?.displayName,
+        description: channel.view?.description,
+        avatar: avatarUrl, // Use the avatarUrl variable directly
+        likeCount: channel.view?.likeCount,
+        subscriberCount,
+        indexedAt: channel.view?.indexedAt,
+        isExperimental, // Add experimental flag
+        isOrbytChannel: isOrbytChannel(channelUri), // Check if this is an Orbyt channel
+        channelColors: channelColors
+          ? {
+              backgroundColor: channelColors.backgroundColor,
+              foregroundColor: channelColors.foregroundColor,
+              accentColor: channelColors.accentColor,
+              statusBarStyle:
+                channelColors.statusBarStyle === 'light' || channelColors.statusBarStyle === 'dark'
+                  ? channelColors.statusBarStyle
                   : 'light',
-              } : {
-                backgroundColor: Colors.black,
-                foregroundColor: '#FFFFFF',
-                accentColor: '#00D4FF',
-                statusBarStyle: 'light' as const
-              },
-              lastUpdated: Date.now()
-            };
+            }
+          : {
+              backgroundColor: Colors.black,
+              foregroundColor: '#FFFFFF',
+              accentColor: '#00D4FF',
+              statusBarStyle: 'light' as const,
+            },
+        lastUpdated: Date.now(),
+      };
 
       // Update caches
       this.memoryCache.set(normalizedUri, cacheObject);
-      
+
       // Storage operations are already async - no delay needed
-      await storageHelpers.setItem(
-        this.getCacheKey(normalizedUri),
-        JSON.stringify(cacheObject)
-      ).catch(() => {
-        // Silently handle errors
-      });
-      
+      await storageHelpers
+        .setItem(this.getCacheKey(normalizedUri), JSON.stringify(cacheObject))
+        .catch(() => {
+          // Silently handle errors
+        });
+
       this.notifyChannelUpdated(normalizedUri);
       return cacheObject;
     } catch (error) {
@@ -364,35 +363,38 @@ class ChannelCache {
     accentColor?: string
   ): Promise<void> {
     if (!uri) return;
-    
+
     // Use InteractionManager to defer updates until interactions complete
     return InteractionManager.runAfterInteractions(async () => {
       try {
         const normalizedUri = uri.toLowerCase();
-        
+
         // Check memory cache first
         let cachedChannel = this.memoryCache.get(normalizedUri);
-        
+
         // If not in memory, check storage
         if (!cachedChannel) {
           cachedChannel = (await this.getChannelFromCache(normalizedUri)) || undefined;
         }
-        
+
         if (cachedChannel) {
           // Create a new colors object to avoid direct reference mutation
           cachedChannel.channelColors = {
             backgroundColor,
             foregroundColor: '#FFFFFF', // Always use white text for channels
             accentColor: accentColor || cachedChannel.channelColors?.accentColor || '#00D4FF',
-            statusBarStyle: 'light' // Always use light status bar for channels
+            statusBarStyle: 'light', // Always use light status bar for channels
           };
-          
+
           cachedChannel.lastUpdated = Date.now();
-          
+
           // Update both memory and storage
-          this.memoryCache.set(normalizedUri, {...cachedChannel});
-          await storageHelpers.setItem(this.getCacheKey(normalizedUri), JSON.stringify(cachedChannel));
-          
+          this.memoryCache.set(normalizedUri, { ...cachedChannel });
+          await storageHelpers.setItem(
+            this.getCacheKey(normalizedUri),
+            JSON.stringify(cachedChannel)
+          );
+
           // Notify subscribers of a channel update
           this.notifyChannelUpdated(normalizedUri);
         }
@@ -412,76 +414,84 @@ class ChannelCache {
     // Use InteractionManager to defer batch operations until interactions complete
     return InteractionManager.runAfterInteractions(async () => {
       try {
-            // Process channels with controlled concurrency in smaller batches
-            const batchSize = 3;
-            for (let i = 0; i < channels.length; i += batchSize) {
-              const batch = channels.slice(i, i + batchSize);
-              
-              await Promise.all(batch.map(async (channel) => {
-                const uri = channel.uri;
-                if (!uri) return;
-                
-                const normalizedUri = uri.toLowerCase();
+        // Process channels with controlled concurrency in smaller batches
+        const batchSize = 3;
+        for (let i = 0; i < channels.length; i += batchSize) {
+          const batch = channels.slice(i, i + batchSize);
 
-                // Skip if already in memory cache and valid
-                const memoryCached = this.memoryCache.get(normalizedUri);
-                if (memoryCached && this.isCacheValid(memoryCached)) {
-                  return;
-                }
-                
-                // Skip if already in AsyncStorage cache and valid
-                const cachedChannel = await this.getChannelFromCache(normalizedUri);
-                if (cachedChannel && this.isCacheValid(cachedChannel)) {
-                  this.memoryCache.set(normalizedUri, cachedChannel);
-                  return;
-                }
+          await Promise.all(
+            batch.map(async channel => {
+              const uri = channel.uri;
+              if (!uri) return;
 
-                // Extract channel colors
-                let channelColors = undefined;
-                try {
-                  if (channel.avatar) {
-                    const extractedColors = await extractColorsFromImage(channel.avatar);
-                                      channelColors = {
+              const normalizedUri = uri.toLowerCase();
+
+              // Skip if already in memory cache and valid
+              const memoryCached = this.memoryCache.get(normalizedUri);
+              if (memoryCached && this.isCacheValid(memoryCached)) {
+                return;
+              }
+
+              // Skip if already in AsyncStorage cache and valid
+              const cachedChannel = await this.getChannelFromCache(normalizedUri);
+              if (cachedChannel && this.isCacheValid(cachedChannel)) {
+                this.memoryCache.set(normalizedUri, cachedChannel);
+                return;
+              }
+
+              // Extract channel colors
+              let channelColors = undefined;
+              try {
+                if (channel.avatar) {
+                  const extractedColors = await extractColorsFromImage(channel.avatar);
+                  channelColors = {
                     backgroundColor: extractedColors.backgroundColor,
                     foregroundColor: '#FFFFFF', // Always use white text for channels
                     accentColor: extractedColors.accentColor || '#000000', // Accent to black
-                    statusBarStyle: 'light' as const
+                    statusBarStyle: 'light' as const,
                   };
-                  }
-                } catch (e) {
                 }
+              } catch (error: unknown) {
+                // ignore
+              }
 
-                const cacheObject: CachedChannel = {
-                  uri: channel.uri,
-                  cid: channel.cid,
-                  did: channel.did,
-                  creator: channel.creator,
-                  displayName: channel.displayName,
-                  description: channel.description,
-                  avatar: channel.avatar,
-                  likeCount: channel.likeCount,
-                  indexedAt: channel.indexedAt,
-                  channelColors: channelColors ? {
-                    backgroundColor: channelColors.backgroundColor,
-                    foregroundColor: channelColors.foregroundColor,
-                    accentColor: channelColors.accentColor,
-                    statusBarStyle: channelColors.statusBarStyle,
-                  } : undefined,
-                  lastUpdated: Date.now()
-                };
+              const cacheObject: CachedChannel = {
+                uri: channel.uri,
+                cid: channel.cid,
+                did: channel.did,
+                creator: channel.creator,
+                displayName: channel.displayName,
+                description: channel.description,
+                avatar: channel.avatar,
+                likeCount: channel.likeCount,
+                indexedAt: channel.indexedAt,
+                channelColors: channelColors
+                  ? {
+                      backgroundColor: channelColors.backgroundColor,
+                      foregroundColor: channelColors.foregroundColor,
+                      accentColor: channelColors.accentColor,
+                      statusBarStyle: channelColors.statusBarStyle,
+                    }
+                  : undefined,
+                lastUpdated: Date.now(),
+              };
 
-                // Save to both memory and persistent cache
-                this.memoryCache.set(normalizedUri, cacheObject);
-                await storageHelpers.setItem(this.getCacheKey(normalizedUri), JSON.stringify(cacheObject));
-                
-                // Notify subscribers of a channel update
-                this.notifyChannelUpdated(normalizedUri);
-              }));
-            }
-          } catch (error) {
-            // Silently handle errors during batch caching
-          }
-        });
+              // Save to both memory and persistent cache
+              this.memoryCache.set(normalizedUri, cacheObject);
+              await storageHelpers.setItem(
+                this.getCacheKey(normalizedUri),
+                JSON.stringify(cacheObject)
+              );
+
+              // Notify subscribers of a channel update
+              this.notifyChannelUpdated(normalizedUri);
+            })
+          );
+        }
+      } catch (error) {
+        // Silently handle errors during batch caching
+      }
+    });
   }
 
   /**
@@ -496,56 +506,59 @@ class ChannelCache {
     // Use InteractionManager to defer batch operations until interactions complete
     return InteractionManager.runAfterInteractions(async () => {
       try {
-            // Extract all unique URIs from feed items
-            const uniqueUris = new Set<string>();
-            
-            feedItems.forEach(item => {
-              // Handle feed items with channel structure
-              if (item.uri) {
-                uniqueUris.add(item.uri.toLowerCase());
-              }
-              
-              // Handle search result structure
-              if (item.data?.uri) {
-                uniqueUris.add(item.data.uri.toLowerCase());
-              }
-              
-              // Handle direct channel structure
-              if (item.channel?.uri) {
-                uniqueUris.add(item.channel.uri.toLowerCase());
-              }
-            });
+        // Extract all unique URIs from feed items
+        const uniqueUris = new Set<string>();
 
-            // Convert to array and filter out empty URIs
-            const urisToPrefetch = Array.from(uniqueUris).filter(uri => uri && uri.trim() !== '');
-            
-            if (urisToPrefetch.length === 0) {
-              return;
-            }
+        feedItems.forEach(item => {
+          // Handle feed items with channel structure
+          if (item.uri) {
+            uniqueUris.add(item.uri.toLowerCase());
+          }
 
-            // Process URIs in smaller batches to avoid overwhelming the API
-            const batchSize = 5;
-            for (let i = 0; i < urisToPrefetch.length; i += batchSize) {
-              const batch = urisToPrefetch.slice(i, i + batchSize);
-              
-              await Promise.allSettled(batch.map(async (uri) => {
-                try {
-                  // Check if already cached first
-                  const cached = this.getChannelFromCacheSync(uri);
-                  if (cached && this.isCacheValid(cached)) {
-                    return; // Already cached and valid
-                  }
-                  
-                  // Fetch and cache the channel
-                  await this.getChannel(uri);
-                } catch (error) {
-                }
-              }));
-            }
-          } catch (error) {
-            // Silently handle errors during batch prefetch
+          // Handle search result structure
+          if (item.data?.uri) {
+            uniqueUris.add(item.data.uri.toLowerCase());
+          }
+
+          // Handle direct channel structure
+          if (item.channel?.uri) {
+            uniqueUris.add(item.channel.uri.toLowerCase());
           }
         });
+
+        // Convert to array and filter out empty URIs
+        const urisToPrefetch = Array.from(uniqueUris).filter(uri => uri && uri.trim() !== '');
+
+        if (urisToPrefetch.length === 0) {
+          return;
+        }
+
+        // Process URIs in smaller batches to avoid overwhelming the API
+        const batchSize = 5;
+        for (let i = 0; i < urisToPrefetch.length; i += batchSize) {
+          const batch = urisToPrefetch.slice(i, i + batchSize);
+
+          await Promise.allSettled(
+            batch.map(async uri => {
+              try {
+                // Check if already cached first
+                const cached = this.getChannelFromCacheSync(uri);
+                if (cached && this.isCacheValid(cached)) {
+                  return; // Already cached and valid
+                }
+
+                // Fetch and cache the channel
+                await this.getChannel(uri);
+              } catch (error: unknown) {
+                // ignore
+              }
+            })
+          );
+        }
+      } catch (error) {
+        // Silently handle errors during batch prefetch
+      }
+    });
   }
 
   /**
@@ -562,21 +575,18 @@ class ChannelCache {
   static async invalidateChannel(uri: string): Promise<void> {
     try {
       const normalizedUri = uri.toLowerCase();
-      
 
-      
       // Remove from memory cache
       this.memoryCache.delete(normalizedUri);
-      
+
       // Remove from persistent cache
       const cacheKey = this.getCacheKey(normalizedUri);
       await storageHelpers.removeItem(cacheKey);
-      
+
       // Notify subscribers
       this.notifyChannelUpdated(normalizedUri);
-      
-
-    } catch (error) {
+    } catch (error: unknown) {
+      // ignore
     }
   }
 
@@ -585,10 +595,10 @@ class ChannelCache {
    */
   static async forceRefreshChannel(uri: string): Promise<CachedChannel | null> {
     if (!uri) return null;
-    
+
     // Invalidate the cache first
     await this.invalidateChannel(uri);
-    
+
     // Fetch fresh data
     return await this.fetchAndCacheChannel(uri);
   }
@@ -602,7 +612,7 @@ class ChannelCache {
     orbytChannel: any
   ): Promise<CachedChannel> {
     const normalizedUri = uri.toLowerCase();
-    
+
     // Extract avatar from channelGIF
     let avatarUrl: string | undefined = undefined;
     if (orbytChannel.channelGIF) {
@@ -610,7 +620,7 @@ class ChannelCache {
         const { Asset } = require('expo-asset');
         const asset = Asset.fromModule(orbytChannel.channelGIF);
         avatarUrl = asset.localUri || asset.uri;
-      } catch (e) {
+      } catch (_e) {
         // Fallback if image resolution fails
       }
     }
@@ -625,15 +635,15 @@ class ChannelCache {
           backgroundColor: darkenedBackground,
           foregroundColor: '#FFFFFF',
           accentColor: extractedColors.accentColor || '#000000',
-          statusBarStyle: 'light' as const
+          statusBarStyle: 'light' as const,
         };
-      } catch (e) {
+      } catch (_e) {
         // Fallback colors
         channelColors = {
           backgroundColor: Colors.black,
           foregroundColor: '#FFFFFF',
           accentColor: '#000000',
-          statusBarStyle: 'light' as const
+          statusBarStyle: 'light' as const,
         };
       }
     } else {
@@ -642,7 +652,7 @@ class ChannelCache {
         backgroundColor: Colors.black,
         foregroundColor: '#FFFFFF',
         accentColor: '#000000',
-        statusBarStyle: 'light' as const
+        statusBarStyle: 'light' as const,
       };
     }
 
@@ -655,7 +665,7 @@ class ChannelCache {
         did: 'did:plc:2xrqztnmzlckb3xfuuukupso',
         handle: 'getorbyt.com',
         displayName: 'Orbyt',
-        avatar: undefined
+        avatar: undefined,
       },
       displayName: orbytChannel.displayName,
       description: orbytChannel.description || '', // Use description from orbytChannels
@@ -666,20 +676,19 @@ class ChannelCache {
       isExperimental: false, // Orbyt channels are always video-only (hashtag feeds)
       isOrbytChannel: true,
       channelColors,
-      lastUpdated: Date.now()
+      lastUpdated: Date.now(),
     };
 
     // Cache in memory and storage
     this.memoryCache.set(normalizedUri, cacheObject);
-    
+
     // Storage operations are already async - no delay needed
-    storageHelpers.setItem(
-      this.getCacheKey(normalizedUri),
-      JSON.stringify(cacheObject)
-    ).catch(() => {
-      // Silently handle errors
-    });
-    
+    storageHelpers
+      .setItem(this.getCacheKey(normalizedUri), JSON.stringify(cacheObject))
+      .catch(() => {
+        // Silently handle errors
+      });
+
     this.notifyChannelUpdated(normalizedUri);
 
     return cacheObject;
@@ -692,7 +701,7 @@ class ChannelCache {
 export function useChannel(uri: string | null | undefined): UseQueryResult<CachedChannel | null> {
   return useQuery({
     queryKey: channelKeys.detail(uri || ''),
-    queryFn: () => ChannelCache.getChannel(uri || ''),
+    queryFn: () => ChannelService.getChannel(uri || ''),
     enabled: !!uri,
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
@@ -704,9 +713,15 @@ export function useChannel(uri: string | null | undefined): UseQueryResult<Cache
  */
 export function useChannelColors(uriOrFeed: string | null | undefined) {
   const { data: channel } = useChannel(uriOrFeed);
-  
+
   // Return default colors if URI/feed is not valid (accepts local channel URIs, hashtag feeds, and feed generator URIs)
-  if (!uriOrFeed || (!uriOrFeed.startsWith('hashtag:') && (!uriOrFeed.startsWith('at://') || (!uriOrFeed.includes('/app.bsky.feed.generator/') && !uriOrFeed.startsWith('at://local.orbyt.channel/'))))) {
+  if (
+    !uriOrFeed ||
+    (!uriOrFeed.startsWith('hashtag:') &&
+      (!uriOrFeed.startsWith('at://') ||
+        (!uriOrFeed.includes('/app.bsky.feed.generator/') &&
+          !uriOrFeed.startsWith('at://local.orbyt.channel/'))))
+  ) {
     return {
       colors: {
         backgroundColor: Colors.black,
@@ -727,10 +742,10 @@ export function useChannelColors(uriOrFeed: string | null | undefined) {
           return `rgba(${r}, ${g}, ${b}, ${opacity})`;
         }
         return hex;
-      }
+      },
     };
   }
-  
+
   const colors: ChannelColorScheme = {
     backgroundColor: channel?.channelColors?.backgroundColor || '#000000',
     foregroundColor: '#FFFFFF', // Always use white text for channels
@@ -740,7 +755,7 @@ export function useChannelColors(uriOrFeed: string | null | undefined) {
     accentColor: channel?.channelColors?.accentColor || '#000000', // Accent to black
     statusBarStyle: 'light', // Always use light status bar for channels
   };
-  
+
   return {
     colors,
     isLoading: !channel,
@@ -753,7 +768,7 @@ export function useChannelColors(uriOrFeed: string | null | undefined) {
         return `rgba(${r}, ${g}, ${b}, ${opacity})`;
       }
       return hex;
-    }
+    },
   };
 }
 
@@ -762,20 +777,20 @@ export function useChannelColors(uriOrFeed: string | null | undefined) {
  */
 export function useChannelColorsMutation() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
-    mutationFn: async ({ 
-      uri, 
-      backgroundColor, 
+    mutationFn: async ({
+      uri,
+      backgroundColor,
       foregroundColor,
-      accentColor 
-    }: { 
-      uri: string, 
-      backgroundColor: string, 
-      foregroundColor: string,
-      accentColor?: string 
+      accentColor,
+    }: {
+      uri: string;
+      backgroundColor: string;
+      foregroundColor: string;
+      accentColor?: string;
     }) => {
-      await ChannelCache.updateChannelColors(uri, backgroundColor, foregroundColor, accentColor);
+      await ChannelService.updateChannelColors(uri, backgroundColor, foregroundColor, accentColor);
       return { uri, backgroundColor, foregroundColor, accentColor };
     },
     onSuccess: (_, { uri }) => {
@@ -790,13 +805,16 @@ export function useChannelColorsMutation() {
  */
 export function useChannelInvalidation() {
   const queryClient = useQueryClient();
-  
-  return useCallback((uri: string) => {
-    queryClient.invalidateQueries({ queryKey: channelKeys.detail(uri) });
-  }, [queryClient]);
+
+  return useCallback(
+    (uri: string) => {
+      queryClient.invalidateQueries({ queryKey: channelKeys.detail(uri) });
+    },
+    [queryClient]
+  );
 }
 
 // Export forceRefreshChannel for direct use
-export const forceRefreshChannel = ChannelCache.forceRefreshChannel.bind(ChannelCache);
+export const forceRefreshChannel = ChannelService.forceRefreshChannel.bind(ChannelService);
 
-export default ChannelCache;
+export default ChannelService;

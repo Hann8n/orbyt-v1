@@ -5,7 +5,7 @@
  */
 import { create } from 'zustand';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import { safeDismiss } from '../utils/truesheet/trueSheetUtils';
+import { safeDismiss } from '../utils/components/truesheet/utils';
 
 // Types
 export interface CommentSectionData {
@@ -34,12 +34,12 @@ interface ModalState {
   accountSwitcherVisible: boolean;
   presentAccountSwitcher: () => void;
   dismissAccountSwitcher: () => void;
-  
+
   // Comment Section
   commentSectionData: CommentSectionData | null;
   presentCommentSection: (data: CommentSectionData) => void;
   dismissCommentSection: () => void;
-  
+
   // Share Sheet
   shareSheetData: ShareSheetData | null;
   presentShareSheet: (data: ShareSheetData) => void;
@@ -49,34 +49,34 @@ interface ModalState {
 export const useModalStore = create<ModalState>((set, get) => ({
   // Account Switcher State
   accountSwitcherVisible: false,
-  
+
   presentAccountSwitcher: () => {
     set({ accountSwitcherVisible: true });
   },
-  
+
   dismissAccountSwitcher: () => {
     safeDismiss('account-switcher');
     set({ accountSwitcherVisible: false });
   },
-  
+
   // Comment Section State
   commentSectionData: null,
-  
+
   presentCommentSection: (data: CommentSectionData) => {
     set({ commentSectionData: data });
   },
-  
+
   dismissCommentSection: () => {
     set({ commentSectionData: null });
   },
-  
+
   // Share Sheet State
   shareSheetData: null,
-  
+
   presentShareSheet: (data: ShareSheetData) => {
     set({ shareSheetData: data });
   },
-  
+
   dismissShareSheet: (skipDismiss = false) => {
     if (!skipDismiss) {
       safeDismiss('share-sheet');
@@ -90,7 +90,7 @@ export const useAccountSwitcher = () => {
   const visible = useModalStore(state => state.accountSwitcherVisible);
   const present = useModalStore(state => state.presentAccountSwitcher);
   const dismiss = useModalStore(state => state.dismissAccountSwitcher);
-  
+
   return { visible, presentAccountSwitcher: present, dismissAccountSwitcher: dismiss };
 };
 
@@ -98,7 +98,7 @@ export const useCommentSection = () => {
   const data = useModalStore(state => state.commentSectionData);
   const present = useModalStore(state => state.presentCommentSection);
   const dismiss = useModalStore(state => state.dismissCommentSection);
-  
+
   return {
     presentCommentSection: present,
     dismissCommentSection: dismiss,
@@ -110,7 +110,7 @@ export const useShareSheet = () => {
   const data = useModalStore(state => state.shareSheetData);
   const present = useModalStore(state => state.presentShareSheet);
   const dismiss = useModalStore(state => state.dismissShareSheet);
-  
+
   return {
     presentShareSheet: present,
     dismissShareSheet: dismiss,

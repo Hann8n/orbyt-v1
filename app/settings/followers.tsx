@@ -1,67 +1,43 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useRouter } from 'expo-router';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import ListScreen from '../../src/components/ui/ListScreen';
 import AtprotoService from '../../src/services/api/AtprotoService';
-import ProfileCache from '../../src/services/cache/ProfileCache';
+import { prefetchProfile } from '../../src/services/data/ProfileService';
 import { useCurrentUser } from '../../src/stores/userStore';
-
-interface Follower {
-  did: string;
-  handle: string;
-  displayName?: string;
-  avatar?: string;
-  description?: string;
-  viewer?: {
-    following?: string;
-  };
-  isFollowing?: boolean;
-}
 
 const FollowersScreen: React.FC = () => {
   const navigation = useRouter();
   const queryClient = useQueryClient();
   const { currentUser } = useCurrentUser();
 
-
   // Query for followers
-  const {
-    data,
-    isLoading,
-    isFetchingNextPage,
-    fetchNextPage,
-    hasNextPage,
-    error,
-    refetch,
-  } = useInfiniteQuery({
-    queryKey: ['followers', currentUser?.did],
-    queryFn: async ({ pageParam }: { pageParam: string | null }) => {
-      if (!currentUser?.did) throw new Error('No current user');
-      
-      const response = await AtprotoService.getFollowers(
-        currentUser.did,
-        pageParam,
-        50
-      );
-      
-      return {
-        followers: response.followers.map((follower: any) => ({
-          did: follower.did,
-          handle: follower.handle,
-          displayName: follower.displayName,
-          avatar: follower.avatar,
-          description: follower.description,
-          viewer: follower.viewer,
-          isFollowing: !!follower.viewer?.following,
-        })),
-        cursor: response.cursor,
-      };
-    },
-    getNextPageParam: (lastPage) => lastPage?.cursor ?? null,
-    initialPageParam: null as string | null,
-    enabled: !!currentUser?.did,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
+  const { data, isLoading, isFetchingNextPage, fetchNextPage, hasNextPage, error } =
+    useInfiniteQuery({
+      queryKey: ['followers', currentUser?.did],
+      queryFn: async ({ pageParam }: { pageParam: string | null }) => {
+        if (!currentUser?.did) throw new Error('No current user');
+
+        const response = await AtprotoService.getFollowers(currentUser.did, pageParam, 50);
+
+        return {
+          followers: response.followers.map((follower: any) => ({
+            did: follower.did,
+            handle: follower.handle,
+            displayName: follower.displayName,
+            avatar: follower.avatar,
+            description: follower.description,
+            viewer: follower.viewer,
+            isFollowing: !!follower.viewer?.following,
+          })),
+          cursor: response.cursor,
+        };
+      },
+      getNextPageParam: lastPage => lastPage?.cursor ?? null,
+      initialPageParam: null as string | null,
+      enabled: !!currentUser?.did,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+    });
 
   // Flatten all followers from all pages
   const followers = useMemo(() => {
@@ -69,29 +45,25 @@ const FollowersScreen: React.FC = () => {
     return data.pages.flatMap((page: any) => page.followers || []);
   }, [data]);
 
-
-
-  const handleProfilePress = useCallback((handle: string) => {
-    if (handle && handle.trim()) {
-      queryClient.prefetchQuery({
-        queryKey: ProfileCache.getQueryKey(handle.trim()),
-        queryFn: () => ProfileCache.getProfile(handle.trim()),
-        staleTime: ProfileCache.cacheExpiry,
-      }).finally(() => {
+  const handleProfilePress = useCallback(
+    (handle: string) => {
+      if (handle && handle.trim()) {
         const target = handle.trim();
-        if (target) {
+        // Prefetch profile (no partial data needed here)
+        prefetchProfile(queryClient, target).finally(() => {
           let rootNav: any = navigation as any;
           while (rootNav?.getParent?.()) {
             rootNav = rootNav.getParent();
           }
           navigation.push({
             pathname: '/profile/[did]',
-            params: { did: target }
+            params: { did: target },
           });
-        }
-      });
-    }
-  }, [navigation, queryClient]);
+        });
+      }
+    },
+    [navigation, queryClient]
+  );
 
   return (
     <ListScreen

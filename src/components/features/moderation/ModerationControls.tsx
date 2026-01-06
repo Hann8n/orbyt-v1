@@ -1,12 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  ScrollView,
-} from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { Colors } from '../../ui/UI';
 import Icon from '../../ui/Icon';
 import { useUserStoreState } from '../../../stores/userStore';
@@ -20,10 +14,10 @@ interface ModerationControlsProps {
 
 const ModerationControls: React.FC<ModerationControlsProps> = ({ visible }) => {
   const { currentUser } = useUserStoreState();
-  
+
   // Use React Query hook for moderation settings (account-scoped)
   const { isLoading: isLoadingSettings } = useModerationSettings(currentUser?.did ?? undefined);
-  
+
   const [loading, setLoading] = useState(isLoadingSettings);
   const [stats, setStats] = useState<any>(null);
 
@@ -42,17 +36,17 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible }) => {
     try {
       // Stats feature is not currently implemented
       setStats(null);
-    } catch (error) {
+    } catch (error: unknown) {
+      // ignore
     }
   };
 
   if (!visible) return null;
 
   return (
-    <View style={styles.container}> 
-
+    <View style={styles.container}>
       {/* Content */}
-      <ScrollView 
+      <ScrollView
         style={styles.content}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.contentContainer}
@@ -67,9 +61,7 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible }) => {
             {stats && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>moderation statistics</Text>
-                <View style={styles.statsGrid}>
-                  {/* muted words stat removed */}
-                </View>
+                <View style={styles.statsGrid}>{/* muted words stat removed */}</View>
               </View>
             )}
 
@@ -104,9 +96,7 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible }) => {
                 }}
               >
                 <Icon name="external-link" size={24} color={Colors.white} />
-                <Text style={styles.webSettingsTextButtonText}>
-                  adjust settings on bsky.app
-                </Text>
+                <Text style={styles.webSettingsTextButtonText}>adjust settings on bsky.app</Text>
               </Pressable>
             </View>
           </>
@@ -121,7 +111,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.black,
   },
-  
 
   content: {
     flex: 1,
@@ -376,4 +365,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ModerationControls; 
+export default ModerationControls;

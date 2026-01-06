@@ -1,14 +1,9 @@
 import React from 'react';
-import {
-  View,
-  Pressable,
-  StyleSheet,
-  Text,
-} from 'react-native';
+import { View, Pressable, StyleSheet, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { isSmallScreen, isTablet, getBottomNavBarHeight } from '../../utils/helpers';
+import { isSmallScreen, isTablet, getBottomNavBarHeight } from '../../utils/device/screen';
 import Icon from './Icon';
 import { Colors } from './UI';
 
@@ -67,8 +62,8 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
     const isFlashDisabled = tool.id === 'flash' && isFrontCamera;
     const isGalleryDisabled = tool.id === 'gallery' && disableGalleryUpload;
     const isDisabled = isDeleteDisabled || isFlashDisabled || isGalleryDisabled;
-    
-    let iconColor = "white";
+
+    let iconColor = 'white';
     if (tool.id === 'flash' && isFlashDisabled) {
       iconColor = 'rgba(255, 255, 255, 0.75)';
     } else if (tool.id === 'flash' && flashActive) {
@@ -78,24 +73,22 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
     }
 
     // Different styles for create vs edit mode
-    const toolStyle = mode === 'create' 
-      ? [styles.tool, { width: iconSize, height: iconSize }]
-      : [
-          styles.toolEdit,
-          { 
-            width: iconSize, 
-            height: iconSize,
-            marginLeft: index === 0 ? 0 : 30,
-          },
-        ];
+    const toolStyle =
+      mode === 'create'
+        ? [styles.tool, { width: iconSize, height: iconSize }]
+        : [
+            styles.toolEdit,
+            {
+              width: iconSize,
+              height: iconSize,
+              marginLeft: index === 0 ? 0 : 30,
+            },
+          ];
 
     return (
       <Pressable
         key={tool.id}
-        style={({ pressed }) => [
-          ...toolStyle,
-          pressed && { opacity: 0.7 },
-        ]}
+        style={({ pressed }) => [...toolStyle, pressed && { opacity: 0.7 }]}
         onPress={() => {
           if (!isDisabled) {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -104,11 +97,7 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
         }}
         disabled={isDisabled}
       >
-        <Icon 
-          name={tool.icon} 
-          size={iconSize} 
-          color={iconColor}
-        />
+        <Icon name={tool.icon} size={iconSize} color={iconColor} />
       </Pressable>
     );
   };
@@ -117,16 +106,18 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
   if (mode === 'create') {
     return (
       <View style={[styles.safeArea, { height: bottomNavBarHeight }]}>
-        <View style={[
-          styles.containerCreate, 
-          isSmallDevice && styles.containerSmall,
-          {
-            // Match bottom tab bar padding behavior from app/(tabs)/_layout.tsx
-            paddingTop: isSmallDevice ? 2 : 6,
-            paddingBottom: insets.bottom,
-          }
-        ]}>
-          {tools.map((tool) => renderTool(tool))}
+        <View
+          style={[
+            styles.containerCreate,
+            isSmallDevice && styles.containerSmall,
+            {
+              // Match bottom tab bar padding behavior from app/(tabs)/_layout.tsx
+              paddingTop: isSmallDevice ? 2 : 6,
+              paddingBottom: insets.bottom,
+            },
+          ]}
+        >
+          {tools.map(tool => renderTool(tool))}
         </View>
       </View>
     );
@@ -135,13 +126,15 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
   // New style for edit mode with next button
   return (
     <View style={[styles.safeArea, { height: bottomNavBarHeight }]}>
-      <View style={[
-        styles.containerEdit, 
-        isSmallDevice && styles.containerSmall,
-        {
-          paddingBottom: insets.bottom,
-        }
-      ]}>
+      <View
+        style={[
+          styles.containerEdit,
+          isSmallDevice && styles.containerSmall,
+          {
+            paddingBottom: insets.bottom,
+          },
+        ]}
+      >
         {/* Left side - tools */}
         <View style={styles.toolsContainer}>
           {tools.map((tool, index) => renderTool(tool, index))}

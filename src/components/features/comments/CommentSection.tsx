@@ -11,22 +11,18 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-} from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { FlashList, ListRenderItem, FlashListRef } from '@shopify/flash-list';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import { safeDismiss, safePresent } from '../../../utils/truesheet/trueSheetUtils';
+import { safeDismiss, safePresent } from '../../../utils/components/truesheet/utils';
 
 import AtprotoService from '../../../services/api/AtprotoService';
-import { queryKeys } from '../../../utils/queryKeys';
-import { useProfile } from '../../../services/cache/ProfileCache';
+import { queryKeys } from '../../../utils/query/queryKeys';
+import { useProfile } from '../../../services/data/ProfileService';
 import { useUserStore } from '../../../stores/userStore';
 import { usePostInteractionStore } from '../../../stores/postInteractionStore';
 import { useCommentStore } from '../../../stores/commentStore';
@@ -40,7 +36,8 @@ import RelativeDate from '../../ui/RelativeDate';
 import AuthorItem from '../../ui/AuthorItem';
 import { useUserSearchTrigger } from '../../ui/usersearch';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import { formatNumber, formatHandle } from '../../../utils/helpers';
+import { formatNumber } from '../../../utils/formatting/numbers';
+import { formatHandle } from '../../../utils/formatting/handles';
 import CommentInputFooter from './CommentInputFooter';
 import CommentItem from './CommentItem';
 import type { Comment, Like } from '../../../services/api/types';
@@ -128,7 +125,10 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const [fullscreenImageUri, setFullscreenImageUri] = useState<string | null>(null);
 
   const [newCommentText, setNewCommentText] = useState('');
-  const [inputSelection, setInputSelection] = useState<{ start: number; end: number }>({ start: 0, end: 0 });
+  const [inputSelection, setInputSelection] = useState<{ start: number; end: number }>({
+    start: 0,
+    end: 0,
+  });
   const inputRef = useRef<TextInput>(null);
   const [isInputFocused, setIsInputFocused] = useState(false);
 
@@ -162,12 +162,12 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     value: newCommentText,
     selection: inputSelection,
     onChangeText: setNewCommentText,
-    onSelectionChange: (e) => setInputSelection(e.nativeEvent.selection),
+    onSelectionChange: e => setInputSelection(e.nativeEvent.selection),
   });
 
   const { updatePostInteraction, getPostInteraction } = usePostInteractionStore();
-  const deletedComments = useCommentStore((state) => state.deletedComments);
-  
+  const deletedComments = useCommentStore(state => state.deletedComments);
+
   const [headerIsLiked, setHeaderIsLiked] = useState<boolean>(() => {
     if (!post?.uri || onToggleLike) {
       return !!isLiked;
@@ -181,7 +181,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       repostCount: 0,
     }).isLiked;
   });
-  
+
   const [headerLikeUri, setHeaderLikeUri] = useState<string | undefined>(() => {
     if (!post?.uri || onToggleLike) {
       return undefined;
@@ -195,9 +195,9 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       repostCount: 0,
     }).likeUri;
   });
-  
+
   const [headerIsPending, setHeaderIsPending] = useState<boolean>(false);
-  
+
   const [headerVisualLiked, setHeaderVisualLiked] = useState<boolean>(() => {
     if (!post?.uri || onToggleLike) {
       return !!isLiked;
@@ -310,7 +310,18 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     } finally {
       setHeaderIsPending(false);
     }
-  }, [post?.uri, post?.cid, headerIsPending, headerIsLiked, headerLikeUri, headerHeartScale, isLiked, totalLikes, getPostInteraction, updatePostInteraction]);
+  }, [
+    post?.uri,
+    post?.cid,
+    headerIsPending,
+    headerIsLiked,
+    headerLikeUri,
+    headerHeartScale,
+    isLiked,
+    totalLikes,
+    getPostInteraction,
+    updatePostInteraction,
+  ]);
 
   const handleHeaderToggleLike = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -358,20 +369,21 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     isFetchingNextPage: isFetchingNextCommentsPage,
   } = useInfiniteQuery<{ comments: Comment[]; cursor: string | null }, Error>({
     queryKey: queryKeys.comments.byPost(post?.uri || ''),
-    queryFn: ({ pageParam }) => AtprotoService.getComments(post?.uri || '', pageParam as string | null),
-    getNextPageParam: (lastPage) => lastPage?.cursor ?? undefined,
+    queryFn: ({ pageParam }) =>
+      AtprotoService.getComments(post?.uri || '', pageParam as string | null),
+    getNextPageParam: lastPage => lastPage?.cursor ?? undefined,
     initialPageParam: null,
     enabled: !!post?.uri,
     structuralSharing: false, // Disable structural sharing to avoid circular reference issues with nested comment structures
   });
 
   const comments = useMemo(
-    () => commentsPages?.pages.flatMap((p) => p.comments) ?? [],
+    () => commentsPages?.pages.flatMap(p => p.comments) ?? [],
     [commentsPages]
   );
 
   // Track reported comments for animated removal
-  const reportedPostUris = useReportedPostsStore((state) => state.reportedPostUris);
+  const reportedPostUris = useReportedPostsStore(state => state.reportedPostUris);
   const reportedUrisArray = useMemo(() => Array.from(reportedPostUris), [reportedPostUris.size]);
   const previousCommentsLengthRef = useRef<number>(0);
 
@@ -407,7 +419,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   useEffect(() => {
     const currentLength = flattenedComments.length;
     const previousLength = previousCommentsLengthRef.current;
-    
+
     if (previousLength > 0 && currentLength !== previousLength) {
       LayoutAnimation.configureNext({
         duration: 300,
@@ -424,7 +436,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         },
       });
     }
-    
+
     previousCommentsLengthRef.current = currentLength;
   }, [flattenedComments.length]);
 
@@ -436,21 +448,25 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     isFetchingNextPage: isFetchingNextLikesPage,
   } = useInfiniteQuery<{ likes: Like[]; cursor: string | null }, Error>({
     queryKey: queryKeys.likes.byPost(post?.uri || ''),
-    queryFn: ({ pageParam }) => AtprotoService.getLikes(post?.uri || '', pageParam as string | null),
-    getNextPageParam: (lastPage) => lastPage?.cursor ?? undefined,
+    queryFn: ({ pageParam }) =>
+      AtprotoService.getLikes(post?.uri || '', pageParam as string | null),
+    getNextPageParam: lastPage => lastPage?.cursor ?? undefined,
     initialPageParam: null,
     enabled: !!post?.uri && likesQueryEnabled,
   });
 
-  const likes = useMemo(
-    () => likesPages?.pages.flatMap((p) => p.likes) ?? [],
-    [likesPages]
-  );
+  const likes = useMemo(() => likesPages?.pages.flatMap(p => p.likes) ?? [], [likesPages]);
 
   useEffect(() => {
-    if (!scrollToCommentUri || !flattenedComments.length || commentsLoading || !commentsListRef.current) return;
+    if (
+      !scrollToCommentUri ||
+      !flattenedComments.length ||
+      commentsLoading ||
+      !commentsListRef.current
+    )
+      return;
 
-    const idx = flattenedComments.findIndex((c) => {
+    const idx = flattenedComments.findIndex(c => {
       const uri = c?.uri;
       return uri === scrollToCommentUri;
     });
@@ -488,9 +504,9 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       setNewCommentText('');
       setReplyContext(null);
 
-      queryClient.invalidateQueries({ 
+      queryClient.invalidateQueries({
         queryKey: queryKeys.comments.byPost(post.uri),
-        refetchType: 'active'
+        refetchType: 'active',
       });
 
       setTimeout(() => inputRef.current?.focus?.(), 100);
@@ -503,7 +519,10 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
   const tabOptions: TabOption[] = useMemo(
     () => [
-      { id: 'comments', label: totalComments > 0 ? `${formatNumber(totalComments)} Comments` : 'Comments' },
+      {
+        id: 'comments',
+        label: totalComments > 0 ? `${formatNumber(totalComments)} Comments` : 'Comments',
+      },
       { id: 'likes', label: totalLikes > 0 ? `${formatNumber(totalLikes)} Likes` : 'Likes' },
     ],
     [totalComments, totalLikes]
@@ -572,9 +591,15 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     [scrollToCommentUri, onDismiss, handleReplyPress]
   );
 
-  const renderLikeItem = useCallback<ListRenderItem<Like>>(({ item }) => <LikeRow like={item} />, []);
+  const renderLikeItem = useCallback<ListRenderItem<Like>>(
+    ({ item }) => <LikeRow like={item} />,
+    []
+  );
 
-  const commentKeyExtractor = useCallback((item: Comment) => item?.uri || item?.cid || Math.random().toString(36), []);
+  const commentKeyExtractor = useCallback(
+    (item: Comment) => item?.uri || item?.cid || Math.random().toString(36),
+    []
+  );
   const likeKeyExtractor = useCallback((item: Like) => `${item.actor.did}-${item.createdAt}`, []);
 
   const CommentsEmptyComponent = useMemo(
@@ -617,8 +642,9 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     if (hasNextLikesPage && !isFetchingNextLikesPage) fetchNextLikesPage();
   }, [hasNextLikesPage, isFetchingNextLikesPage, fetchNextLikesPage]);
 
-
-  const placeholder = replyContext ? `Replying to ${replyContext.authorName}` : 'Say something nice...';
+  const placeholder = replyContext
+    ? `Replying to ${replyContext.authorName}`
+    : 'Say something nice...';
 
   const handleInputFocus = useCallback(() => {
     setIsInputFocused(true);
@@ -629,11 +655,14 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     setIsInputFocused(false);
   }, []);
 
-  const handleDetentChange = useCallback((e: { nativeEvent: { index: number } }) => {
-    if (isInputFocused && e.nativeEvent.index === 0) {
-      sheetRef.current?.resize(1);
-    }
-  }, [isInputFocused]);
+  const handleDetentChange = useCallback(
+    (e: { nativeEvent: { index: number } }) => {
+      if (isInputFocused && e.nativeEvent.index === 0) {
+        sheetRef.current?.resize(1);
+      }
+    },
+    [isInputFocused]
+  );
 
   const ComposerFooter = useMemo(() => {
     return (
@@ -641,16 +670,20 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         value={newCommentText}
         onChangeText={setNewCommentText}
         inputSelection={inputSelection}
-        onSelectionChange={(e) => setInputSelection(e.nativeEvent.selection)}
+        onSelectionChange={e => setInputSelection(e.nativeEvent.selection)}
         placeholder={placeholder}
         onSubmit={handleSendComment}
         onCancelReply={handleCancelReply}
-        replyContext={replyContext ? {
-          authorName: replyContext.authorName,
-          parentUri: replyContext.parentUri,
-          parentCid: replyContext.parentCid,
-          level: 0,
-        } : null}
+        replyContext={
+          replyContext
+            ? {
+                authorName: replyContext.authorName,
+                parentUri: replyContext.parentUri,
+                parentCid: replyContext.parentCid,
+                level: 0,
+              }
+            : null
+        }
         isPosting={isPosting}
         maxLength={MAX_COMMENT_LENGTH}
         inputRef={inputRef}
@@ -712,7 +745,11 @@ const CommentSection: React.FC<CommentSectionProps> = ({
             <Animated.View style={headerHeartStyle}>
               <HeartFillIcon
                 size={26}
-                color={(onToggleLike ? headerVisualLiked : headerIsLiked) ? Colors.INTERACTIVE.HEART.ACTIVE : Colors.gray}
+                color={
+                  (onToggleLike ? headerVisualLiked : headerIsLiked)
+                    ? Colors.INTERACTIVE.HEART.ACTIVE
+                    : Colors.gray
+                }
               />
             </Animated.View>
           </Pressable>
@@ -765,7 +802,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               scrollEventThrottle={16}
               onEndReached={onEndReachedComments}
               onEndReachedThreshold={END_REACHED_THRESHOLD}
-              overrideItemLayout={(layout) => {
+              overrideItemLayout={layout => {
                 layout.span = COMMENT_ITEM_ESTIMATE;
               }}
               removeClippedSubviews={true}
@@ -786,7 +823,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               scrollEventThrottle={16}
               onEndReached={onEndReachedLikes}
               onEndReachedThreshold={END_REACHED_THRESHOLD}
-              overrideItemLayout={(layout) => {
+              overrideItemLayout={layout => {
                 layout.span = LIKE_ITEM_ESTIMATE;
               }}
               removeClippedSubviews={true}
@@ -805,7 +842,11 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       >
         <Pressable style={styles.modalOverlay} onPress={() => setFullscreenImageUri(null)}>
           {fullscreenImageUri && (
-            <Image source={{ uri: fullscreenImageUri }} style={styles.fullscreenImage} contentFit="contain" />
+            <Image
+              source={{ uri: fullscreenImageUri }}
+              style={styles.fullscreenImage}
+              contentFit="contain"
+            />
           )}
           <Pressable style={styles.closeButton} onPress={() => setFullscreenImageUri(null)}>
             <CloseFillIcon size={28} color={Colors.white} />

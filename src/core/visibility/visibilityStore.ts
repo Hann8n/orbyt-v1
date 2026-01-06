@@ -14,11 +14,11 @@ interface VisibilityState {
   setActiveRoute: (route: string | null) => void;
 }
 
-export const useVisibilityCoreStore = create<VisibilityState>()((set) => ({
+export const useVisibilityCoreStore = create<VisibilityState>()(set => ({
   appState: 'active',
   activeTab: null,
   activeRoute: null,
-  setAppState: (appState) => set({ appState }),
-  setActiveTab: (tab) => set({ activeTab: tab }),
-  setActiveRoute: (route) => set({ activeRoute: route }),
+  setAppState: appState => set({ appState }),
+  setActiveTab: tab => set({ activeTab: tab }),
+  setActiveRoute: route => set({ activeRoute: route }),
 }));

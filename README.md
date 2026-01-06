@@ -25,16 +25,19 @@ A new video app built for bluesky
 ### Installation
 
 1. Clone the repository:
+
 ```bash
 git clone https://github.com/Hann8n/orbyt
 ```
 
 2. Install dependencies:
+
 ```bash
 yarn install
 ```
 
 3. Start the development server:
+
 ```bash
 yarn start
 ```
@@ -71,4 +74,4 @@ yarn build:prod
 
 ## License
 
-MIT 
+MIT

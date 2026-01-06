@@ -11,9 +11,14 @@ import { settingsLayoutStyles } from './SettingsStyles';
 import { OptionsButton } from '../../src/components/ui/OptionsButton';
 import { useSubscribedChannels } from '../../src/hooks/useSubscribedChannels';
 import VerticalListSheet, { VerticalListButton } from '../../src/components/ui/VerticalListSheet';
-import { isOrbytChannel, getChannelByUri, getChannelAvatarUri, shouldShowChannelSlash } from '../../src/utils/orbytChannels';
+import {
+  isOrbytChannel,
+  getChannelByUri,
+  getChannelAvatarUri,
+  shouldShowChannelSlash,
+} from '../../src/utils/channels/orbyt';
 import { BORDER_RADIUS } from '../../src/utils/constants';
-import { hexToRGBA, isColorDark } from '../../src/utils/formatting/colorUtils';
+import { hexToRGBA, isColorDark } from '../../src/utils/formatting/colors';
 
 interface FeedProviderOption {
   id: string;
@@ -78,10 +83,10 @@ const AlgorithmicFeedScreen: React.FC = () => {
 
   const handleSelectProvider = async (uri: string | null) => {
     if (uri === selectedUri) return;
-    
+
     setIsSaving(true);
     setSelectedUri(uri);
-    
+
     try {
       await setAlgorithmicFeedProvider(uri);
       // Invalidate feed queries to refresh with new provider
@@ -105,14 +110,14 @@ const AlgorithmicFeedScreen: React.FC = () => {
     // Filter out built-in channels as a safety measure
     const BUILT_IN_CHANNELS = ['following', 'your-mix'];
     const filteredChannels = channels.filter(ch => !BUILT_IN_CHANNELS.includes(ch.uri));
-    
-    return filteredChannels.map((channel) => {
+
+    return filteredChannels.map(channel => {
       const avatar = getChannelAvatarUri(channel.uri, channel.avatar);
-      
+
       // Check if this is an Orbyt channel
       const isOrbyt = channel.isOrbytChannel ?? isOrbytChannel(channel.uri);
       const orbytChannel = isOrbyt ? getChannelByUri(channel.uri) : undefined;
-      
+
       return {
         did: channel.uri,
         handle: channel.uri.split('/').pop() || '',
@@ -144,14 +149,14 @@ const AlgorithmicFeedScreen: React.FC = () => {
       setSelectedChannel(null);
       router.push({
         pathname: '/channel/[id]',
-        params: { id: selectedChannel.uri }
+        params: { id: selectedChannel.uri },
       });
     }
   }, [selectedChannel, router]);
 
   const handleUnsubscribe = useCallback(async () => {
     if (!selectedChannel?.uri) return;
-    
+
     Alert.alert(
       'Unsubscribe from Channel',
       `Are you sure you want to unsubscribe from "${selectedChannel.displayName}"?`,
@@ -168,41 +173,47 @@ const AlgorithmicFeedScreen: React.FC = () => {
               console.error('Error unsubscribing from channel:', error);
               Alert.alert('Error', 'Failed to unsubscribe from channel. Please try again.');
             }
-          }
-        }
+          },
+        },
       ]
     );
   }, [selectedChannel, unsubscribeFromChannel]);
 
-  const handleSubscribeToggle = useCallback(async (channel: ChannelUser) => {
-    if (!channel.uri) return;
-    
-    const isSubscribed = channels.some(ch => ch.uri === channel.uri);
-    
-    try {
-      setSubscribingChannels(prev => new Set(prev).add(channel.uri!));
-      
-      if (isSubscribed) {
-        await unsubscribeFromChannel(channel.uri);
-      } else {
-        await subscribeToChannel({
-          uri: channel.uri,
-          displayName: channel.displayName || channel.handle || 'Untitled Channel',
-          description: channel.description,
-          avatar: channel.avatar,
+  const handleSubscribeToggle = useCallback(
+    async (channel: ChannelUser) => {
+      if (!channel.uri) return;
+
+      const isSubscribed = channels.some(ch => ch.uri === channel.uri);
+
+      try {
+        setSubscribingChannels(prev => new Set(prev).add(channel.uri!));
+
+        if (isSubscribed) {
+          await unsubscribeFromChannel(channel.uri);
+        } else {
+          await subscribeToChannel({
+            uri: channel.uri,
+            displayName: channel.displayName || channel.handle || 'Untitled Channel',
+            description: channel.description,
+            avatar: channel.avatar,
+          });
+        }
+      } catch (error) {
+        console.error('Error toggling subscription:', error);
+        Alert.alert(
+          'Error',
+          `Failed to ${isSubscribed ? 'unsubscribe from' : 'subscribe to'} channel. Please try again.`
+        );
+      } finally {
+        setSubscribingChannels(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(channel.uri!);
+          return newSet;
         });
       }
-    } catch (error) {
-      console.error('Error toggling subscription:', error);
-      Alert.alert('Error', `Failed to ${isSubscribed ? 'unsubscribe from' : 'subscribe to'} channel. Please try again.`);
-    } finally {
-      setSubscribingChannels(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(channel.uri!);
-        return newSet;
-      });
-    }
-  }, [channels, subscribeToChannel, unsubscribeFromChannel]);
+    },
+    [channels, subscribeToChannel, unsubscribeFromChannel]
+  );
 
   const handleExplorePress = useCallback(() => {
     router.back();
@@ -222,8 +233,8 @@ const AlgorithmicFeedScreen: React.FC = () => {
         style={{ marginHorizontal: -5 }}
       />
 
-      <ScrollView 
-        style={styles.content} 
+      <ScrollView
+        style={styles.content}
         contentContainerStyle={settingsLayoutStyles.contentContainerWithPadding}
         showsVerticalScrollIndicator={false}
       >
@@ -236,7 +247,7 @@ const AlgorithmicFeedScreen: React.FC = () => {
 
         {/* Feed Provider Options */}
         <View style={settingsLayoutStyles.section}>
-          {FEED_OPTIONS.map((option) => {
+          {FEED_OPTIONS.map(option => {
             const selected = isSelected(option.uri);
             return (
               <OptionsButton
@@ -247,11 +258,13 @@ const AlgorithmicFeedScreen: React.FC = () => {
                 disabled={isSaving}
                 selected={selected}
                 loading={isSaving && selected}
-                rightIcon={isSaving && selected ? (
-                  <Loading3FillIcon size={24} color={Colors.lightGreen} />
-                ) : selected ? (
-                  <Icon name="check" size={24} color={Colors.lightGreen} />
-                ) : undefined}
+                rightIcon={
+                  isSaving && selected ? (
+                    <Loading3FillIcon size={24} color={Colors.lightGreen} />
+                  ) : selected ? (
+                    <Icon name="check" size={24} color={Colors.lightGreen} />
+                  ) : undefined
+                }
               />
             );
           })}
@@ -267,39 +280,41 @@ const AlgorithmicFeedScreen: React.FC = () => {
               <Icon name="tv" size={48} color={Colors.lightGray} style={styles.emptyIcon} />
               <Text style={styles.emptyTitle}>No channels yet</Text>
               <Text style={styles.emptySubtitle}>Explore channels to subscribe to them</Text>
-              <Pressable
-                style={styles.exploreButton}
-                onPress={handleExplorePress}
-              >
+              <Pressable style={styles.exploreButton} onPress={handleExplorePress}>
                 <Text style={styles.exploreButtonText}>Explore Channels</Text>
               </Pressable>
             </View>
           ) : (
             <View style={styles.channelsList}>
-              {listData.map((channel) => {
+              {listData.map(channel => {
                 const channelName = channel.displayName || channel.handle || 'Unknown channel';
-                const showSlash = channel.isOrbytChannel && channel.uri && shouldShowChannelSlash(channel.uri);
-                
+                const showSlash =
+                  channel.isOrbytChannel && channel.uri && shouldShowChannelSlash(channel.uri);
+
                 const isSubscribed = channels.some(ch => ch.uri === channel.uri);
                 const isSubscribing = subscribingChannels.has(channel.uri || '');
                 const channelColor = channel.channelColor || Colors.lightGray;
                 const useGlass = isLiquidGlassAvailable();
-                const glassTint = isSubscribed ? hexToRGBA(channelColor, 1) : hexToRGBA('#FFFFFF', 0.08);
-                const subscribedTextColor = isSubscribed 
-                  ? (isColorDark(channelColor) ? '#FFFFFF' : '#000000')
+                const glassTint = isSubscribed
+                  ? hexToRGBA(channelColor, 1)
+                  : hexToRGBA('#FFFFFF', 0.08);
+                const subscribedTextColor = isSubscribed
+                  ? isColorDark(channelColor)
+                    ? '#FFFFFF'
+                    : '#000000'
                   : '#FFFFFF';
-                
+
                 return (
                   <Pressable
                     key={channel.uri || channel.did}
                     style={styles.channelItem}
                     onPress={() => handleChannelPress(channel)}
                   >
-                    <Avatar 
-                      uri={channel.avatar} 
-                      type="channel" 
-                      size={50} 
-                      ringColor="transparent" 
+                    <Avatar
+                      uri={channel.avatar}
+                      type="channel"
+                      size={50}
+                      ringColor="transparent"
                       style={styles.channelAvatar}
                       fallbackIcon="tv"
                       fallbackIconSize={28}
@@ -308,7 +323,13 @@ const AlgorithmicFeedScreen: React.FC = () => {
                     <View style={styles.channelContent}>
                       <View style={styles.channelNameRow}>
                         {showSlash && (
-                          <Text style={[styles.channelLabel, styles.orbytSlash, { color: channelColor }]}>
+                          <Text
+                            style={[
+                              styles.channelLabel,
+                              styles.orbytSlash,
+                              { color: channelColor },
+                            ]}
+                          >
                             /
                           </Text>
                         )}
@@ -326,14 +347,20 @@ const AlgorithmicFeedScreen: React.FC = () => {
                       style={[
                         styles.subscribeButton,
                         useGlass
-                          ? { backgroundColor: 'transparent', borderColor: 'transparent', borderWidth: 0 }
-                          : {
-                              backgroundColor: isSubscribed ? channelColor : 'rgba(255, 255, 255, 0.2)',
+                          ? {
+                              backgroundColor: 'transparent',
                               borderColor: 'transparent',
                               borderWidth: 0,
                             }
+                          : {
+                              backgroundColor: isSubscribed
+                                ? channelColor
+                                : 'rgba(255, 255, 255, 0.2)',
+                              borderColor: 'transparent',
+                              borderWidth: 0,
+                            },
                       ]}
-                      onPress={(e) => {
+                      onPress={e => {
                         e.stopPropagation();
                         handleSubscribeToggle(channel);
                       }}
@@ -347,26 +374,32 @@ const AlgorithmicFeedScreen: React.FC = () => {
                           isInteractive
                         />
                       )}
-                      <View pointerEvents="none" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                      <View
+                        pointerEvents="none"
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 4,
+                        }}
+                      >
                         {isSubscribing ? (
-                          <Loading3FillIcon 
-                            size={14} 
-                            color={isSubscribed ? subscribedTextColor : '#FFFFFF'} 
+                          <Loading3FillIcon
+                            size={14}
+                            color={isSubscribed ? subscribedTextColor : '#FFFFFF'}
                           />
                         ) : (
                           <>
-                            <Text style={[
-                              styles.subscribeButtonText,
-                              { color: isSubscribed ? subscribedTextColor : '#FFFFFF' }
-                            ]}>
+                            <Text
+                              style={[
+                                styles.subscribeButtonText,
+                                { color: isSubscribed ? subscribedTextColor : '#FFFFFF' },
+                              ]}
+                            >
                               {isSubscribed ? 'Subscribed' : 'Subscribe'}
                             </Text>
                             {!isSubscribed && (
-                              <PlusIcon 
-                                size={10} 
-                                color="#FFFFFF" 
-                                strokeWidth={2.0}
-                              />
+                              <PlusIcon size={10} color="#FFFFFF" strokeWidth={2.0} />
                             )}
                           </>
                         )}
@@ -390,16 +423,8 @@ const AlgorithmicFeedScreen: React.FC = () => {
         showCancelButton={true}
       >
         <View style={styles.sheetContent}>
-          {selectedChannel && (
-            <VerticalListButton
-              label="View"
-              onPress={handleViewChannel}
-            />
-          )}
-          <VerticalListButton
-            label="Unsubscribe"
-            onPress={handleUnsubscribe}
-          />
+          {selectedChannel && <VerticalListButton label="View" onPress={handleViewChannel} />}
+          <VerticalListButton label="Unsubscribe" onPress={handleUnsubscribe} />
         </View>
       </VerticalListSheet>
     </View>

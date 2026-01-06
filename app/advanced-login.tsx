@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { BORDER_RADIUS } from '../src/utils/constants';
 import {
   View,
@@ -14,9 +14,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { Loading3FillIcon } from '../src/components/ui/Icon';
 import { Colors } from '../src/components/ui/UI';
-import { PDSDiscoveryService } from '../src/services/PDSDiscoveryService';
 import { useAuth, useAccountManagement } from '../src/stores/userStore';
-import { isUserCancellation } from '../src/utils/errorHandler';
 
 export default function AdvancedLoginScreen() {
   const router = useRouter();
@@ -30,7 +28,7 @@ export default function AdvancedLoginScreen() {
 
   const handleUsernameLogin = useCallback(async () => {
     const trimmedUsername = username.trim();
-    
+
     if (!trimmedUsername) {
       setPdsError('Please enter your username or handle');
       return;
@@ -45,30 +43,29 @@ export default function AdvancedLoginScreen() {
     setPdsError(null);
     setIsAddingAccount(true);
     setIsValidatingPds(true);
-    
+
     try {
-      // Prepare identifier and let @atproto/oauth-client-expo handle the rest
-      const identifier = await PDSDiscoveryService.prepareIdentifier(trimmedUsername);
-      
-      await signIn(identifier);
-      
+      // @atproto/oauth-client-expo handles identifier normalization (handles, emails, URLs)
+      await signIn(trimmedUsername);
+
       // Reload accounts to show the new one
       await loadSavedAccounts();
-      
+
       // Navigate to home on success - use replace to avoid back navigation issues
       // The app will automatically show the main screen when authentication state changes
       router.replace('/(tabs)');
     } catch (error) {
       // Check if this is a user cancellation vs actual error
       const errorMessage = error instanceof Error ? error.message : 'OAuth sign-in failed';
-      const isUserCancellation = errorMessage.includes('cancelled') || 
-                                errorMessage.includes('Authentication was cancelled') ||
-                                errorMessage.includes('user_cancelled');
-      
+      const isUserCancellation =
+        errorMessage.includes('cancelled') ||
+        errorMessage.includes('Authentication was cancelled') ||
+        errorMessage.includes('user_cancelled');
+
       if (!isUserCancellation) {
         // More specific error messages based on common issues
         let userFriendlyMessage = `Could not connect to ${trimmedUsername}`;
-        
+
         if (errorMessage.includes('network') || errorMessage.includes('timeout')) {
           userFriendlyMessage = `Network error connecting to ${trimmedUsername}. Please check your internet connection and try again.`;
         } else if (errorMessage.includes('not found') || errorMessage.includes('404')) {
@@ -76,7 +73,7 @@ export default function AdvancedLoginScreen() {
         } else if (errorMessage.includes('invalid') || errorMessage.includes('malformed')) {
           userFriendlyMessage = `Invalid handle format: ${trimmedUsername}. Please enter a valid handle (e.g., user.domain.com).`;
         }
-        
+
         setPdsError(userFriendlyMessage);
       }
     } finally {
@@ -88,16 +85,17 @@ export default function AdvancedLoginScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={[styles.container, { 
-        paddingTop: typeof insets?.top === 'number' ? insets.top : 0,
-        paddingBottom: typeof insets?.bottom === 'number' ? insets.bottom : 0
-      }]}
+      style={[
+        styles.container,
+        {
+          paddingTop: typeof insets?.top === 'number' ? insets.top : 0,
+          paddingBottom: typeof insets?.bottom === 'number' ? insets.bottom : 0,
+        },
+      ]}
     >
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>
-          Network{'\n'}sign in
-        </Text>
+        <Text style={styles.headerTitle}>Network{'\n'}sign in</Text>
       </View>
 
       {/* Content */}
@@ -108,7 +106,7 @@ export default function AdvancedLoginScreen() {
               <Text style={styles.errorText}>{pdsError}</Text>
             </View>
           )}
-          
+
           <View style={styles.inputContainer}>
             <Icon name="at" size={28} color={Colors.black} style={styles.inputIcon} />
             <TextInput
@@ -117,7 +115,7 @@ export default function AdvancedLoginScreen() {
               placeholder="username"
               placeholderTextColor={Colors.gray}
               value={username}
-              onChangeText={(text) => {
+              onChangeText={text => {
                 setUsername(text);
                 if (pdsError) setPdsError(null); // Clear error when user starts typing
               }}
@@ -133,11 +131,11 @@ export default function AdvancedLoginScreen() {
               autoFocus
             />
           </View>
-          
+
           <Pressable
             style={[
               styles.loginButton,
-              (username.trim() && !isAddingAccount && !isValidatingPds) && styles.loginButtonActive,
+              username.trim() && !isAddingAccount && !isValidatingPds && styles.loginButtonActive,
             ]}
             onPress={handleUsernameLogin}
             disabled={!username.trim() || isAddingAccount || isValidatingPds}
@@ -151,24 +149,33 @@ export default function AdvancedLoginScreen() {
               </View>
             ) : (
               <View style={styles.buttonContentRow}>
-                <Text style={[
-                  styles.loginButtonText,
-                  (username.trim() && !isAddingAccount && !isValidatingPds) && styles.loginButtonTextActive
-                ]}>Sign me in</Text>
-                <Icon 
-                  name="right_arrow_filled" 
-                  size={24} 
-                  color={(username.trim() && !isAddingAccount && !isValidatingPds) ? Colors.darkGray : Colors.gray} 
+                <Text
+                  style={[
+                    styles.loginButtonText,
+                    username.trim() &&
+                      !isAddingAccount &&
+                      !isValidatingPds &&
+                      styles.loginButtonTextActive,
+                  ]}
+                >
+                  Sign me in
+                </Text>
+                <Icon
+                  name="right_arrow_filled"
+                  size={24}
+                  color={
+                    username.trim() && !isAddingAccount && !isValidatingPds
+                      ? Colors.darkGray
+                      : Colors.gray
+                  }
                 />
               </View>
             )}
           </Pressable>
-          
+
           <View style={styles.termsContainer}>
-            <Text style={styles.termsText}>
-              By signing in you are agreeing to the
-            </Text>
-            <Text 
+            <Text style={styles.termsText}>By signing in you are agreeing to the</Text>
+            <Text
               style={styles.termsLink}
               onPress={() => Linking.openURL('https://getorbyt.com/terms.html')}
             >

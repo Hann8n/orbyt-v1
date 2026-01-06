@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import ProfileCache from '../services/cache/ProfileCache';
+import ProfileService from '../services/data/ProfileService';
 import type { OrbytProfileRecord } from '../types';
 import { useUserStore } from '../stores/userStore';
 
@@ -10,11 +10,11 @@ import { useUserStore } from '../stores/userStore';
 export function useOrbytProfile(did?: string) {
   const currentUser = useUserStore(state => state.currentUser);
   const targetDid = did ?? currentUser?.did ?? null;
-  
+
   // Read directly from cached profile - data is already fetched with profile using listRecords
   const record = useMemo(() => {
     if (!targetDid) return null;
-    const cachedProfile = ProfileCache.getProfileFromCacheSyncByDid(targetDid);
+    const cachedProfile = ProfileService.getProfileFromCacheSyncByDid(targetDid);
     return cachedProfile?.orbytProfileRecord ?? null;
   }, [targetDid]);
 

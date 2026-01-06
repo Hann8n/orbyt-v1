@@ -19,10 +19,12 @@ export class RepoService {
    * @param videoPath - Path to the video file
    * @returns Blob reference for the uploaded video
    */
-  static async uploadVideo(videoPath: string): Promise<{ ref: { $link: string }; mimeType: string; size: number }> {
+  static async uploadVideo(
+    videoPath: string
+  ): Promise<{ ref: { $link: string }; mimeType: string; size: number }> {
     try {
       await AtprotoCore.ensureSession();
-      
+
       if (!videoPath.startsWith('file://')) {
         throw new Error('Unsupported video format');
       }
@@ -34,7 +36,7 @@ export class RepoService {
       // Upload the video to Bluesky
       const { api } = await AtprotoCore.getApiClient();
       const uploadResult = await api.uploadBlob(videoBlob, {
-        encoding: 'video/mp4'
+        encoding: 'video/mp4',
       });
 
       return uploadResult.data.blob;
@@ -59,7 +61,7 @@ export class RepoService {
           rkey: 'self',
         });
         return rec?.data?.value || null;
-      } catch (e) {
+      } catch (_e) {
         // Fallback: try listRecords once
         try {
           const list = await api.com.atproto.repo.listRecords({
@@ -127,7 +129,7 @@ export class RepoService {
   }> {
     try {
       if (!did) return { profileRecord: null, orbytRecord: null };
-      
+
       // Use dynamic import to avoid circular dependency with AtprotoService
       const { default: AtprotoService } = await import('../AtprotoService');
       const agent = await AtprotoService.getAgentForRepo(did);
@@ -135,26 +137,38 @@ export class RepoService {
 
       // Fetch both records in parallel using listRecords
       const [profileRecords, orbytRecords] = await Promise.all([
-        agent.api.com.atproto.repo.listRecords({
-          repo: did,
-          collection: 'app.bsky.actor.profile',
-          limit: 1,
-        }).catch((err) => {
-          logger.error('Failed to fetch profile records', err, { component: 'RepoService', action: 'getProfileRecordsForDid' });
-          return { data: { records: [], cursor: undefined } } as { data: ListRecordsOutput };
-        }),
-        agent.api.com.atproto.repo.listRecords({
-          repo: did,
-          collection: 'com.getorbyt.profile',
-          limit: 1,
-        }).catch((err) => {
-          logger.error('Failed to fetch orbyt records', err, { component: 'RepoService', action: 'getProfileRecordsForDid' });
-          return { data: { records: [], cursor: undefined } } as { data: ListRecordsOutput };
-        })
+        agent.api.com.atproto.repo
+          .listRecords({
+            repo: did,
+            collection: 'app.bsky.actor.profile',
+            limit: 1,
+          })
+          .catch(err => {
+            logger.error('Failed to fetch profile records', err, {
+              component: 'RepoService',
+              action: 'getProfileRecordsForDid',
+            });
+            return { data: { records: [], cursor: undefined } } as { data: ListRecordsOutput };
+          }),
+        agent.api.com.atproto.repo
+          .listRecords({
+            repo: did,
+            collection: 'com.getorbyt.profile',
+            limit: 1,
+          })
+          .catch(err => {
+            logger.error('Failed to fetch orbyt records', err, {
+              component: 'RepoService',
+              action: 'getProfileRecordsForDid',
+            });
+            return { data: { records: [], cursor: undefined } } as { data: ListRecordsOutput };
+          }),
       ]);
 
-      const profileRecord = (profileRecords?.data?.records?.[0]?.value as ProfileRecord | undefined) || null;
-      const orbytRecord = (orbytRecords?.data?.records?.[0]?.value as OrbytProfileRecord | undefined) || null;
+      const profileRecord =
+        (profileRecords?.data?.records?.[0]?.value as ProfileRecord | undefined) || null;
+      const orbytRecord =
+        (orbytRecords?.data?.records?.[0]?.value as OrbytProfileRecord | undefined) || null;
 
       return {
         profileRecord,
@@ -195,7 +209,9 @@ export class RepoService {
         });
         const output: GetRecordOutput = rec.data;
         existing = (output.value as OrbytProfileRecord) || null;
-      } catch {}
+      } catch {
+        // ignore
+      }
 
       const nowIso = new Date().toISOString();
       const existingRecord = existing;
@@ -206,7 +222,10 @@ export class RepoService {
         // Preserve prior fields unless overridden
         colors: update.colors === undefined ? existingRecord?.colors || null : update.colors,
         subscribedChannels: update.subscribedChannels ?? existingRecord?.subscribedChannels ?? [],
-        algorithmicFeedProvider: update.algorithmicFeedProvider === undefined ? existingRecord?.algorithmicFeedProvider ?? null : update.algorithmicFeedProvider,
+        algorithmicFeedProvider:
+          update.algorithmicFeedProvider === undefined
+            ? (existingRecord?.algorithmicFeedProvider ?? null)
+            : update.algorithmicFeedProvider,
       };
 
       if (existing) {
@@ -256,16 +275,21 @@ export class RepoService {
         // Filter out built-in channels
         const BUILT_IN_CHANNELS = ['following', 'your-mix'];
         subscribedChannels = allUris.filter((uri: string) => !BUILT_IN_CHANNELS.includes(uri));
-      } catch {}
+      } catch {
+        // ignore
+      }
 
       // Pull current algorithmic feed provider from userStore
       let algorithmicFeedProvider: string | null = null;
       try {
-        const { useUserStore, ALGORITHMIC_FEED_PROVIDERS } = await import('../../../stores/userStore');
+        const { useUserStore, ALGORITHMIC_FEED_PROVIDERS } =
+          await import('../../../stores/userStore');
         const provider = useUserStore.getState().algorithmicFeedProvider;
         // Use current value or default to Bluesky Video
         algorithmicFeedProvider = provider ?? ALGORITHMIC_FEED_PROVIDERS.BLUESKY_VIDEO.uri;
-      } catch {}
+      } catch {
+        // ignore
+      }
 
       await this.upsertOrbytProfileRecord({
         joinDate: new Date().toISOString(),

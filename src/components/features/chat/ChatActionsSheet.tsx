@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { View, Text, Alert, StyleSheet, Pressable } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import VerticalListSheet, { VerticalListButton } from '../../ui/VerticalListSheet';
 import { Colors } from '../../ui/UI';
 import { Loading3FillIcon } from '../../ui/Icon';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import { formatHandle } from '../../../utils/helpers';
+import { formatHandle } from '../../../utils/formatting/handles';
 import ChatService from '../../../services/ChatService';
-import { queryKeys } from '../../../utils/queryKeys';
+import { queryKeys } from '../../../utils/query/queryKeys';
 
 interface ChatActionsSheetProps {
   visible: boolean;
@@ -27,11 +27,11 @@ interface ChatAction {
   confirmationMessage?: string;
 }
 
-export default function ChatActionsSheet({ 
-  visible, 
-  onDismiss, 
+export default function ChatActionsSheet({
+  visible,
+  onDismiss,
   conversationId,
-  otherUserDid 
+  otherUserDid,
 }: ChatActionsSheetProps) {
   const [isLoading, setIsLoading] = useState<string | null>(null);
   const queryClient = useQueryClient();
@@ -40,18 +40,18 @@ export default function ChatActionsSheet({
   const acceptConversationMutation = useMutation({
     mutationFn: () => ChatService.acceptConversation(conversationId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ 
+      queryClient.invalidateQueries({
         queryKey: queryKeys.chat.conversations.detail(conversationId),
-        refetchType: 'active'
+        refetchType: 'active',
       });
-      queryClient.invalidateQueries({ 
+      queryClient.invalidateQueries({
         queryKey: queryKeys.chat.conversations.list(),
-        refetchType: 'active'
+        refetchType: 'active',
       });
       setIsLoading(null);
       Alert.alert('Success', 'Conversation accepted');
     },
-    onError: (error: any) => {
+    onError: () => {
       setIsLoading(null);
       Alert.alert('Error', 'Failed to accept conversation');
     },
@@ -61,15 +61,15 @@ export default function ChatActionsSheet({
   const leaveConversationMutation = useMutation({
     mutationFn: () => ChatService.leaveConversation(conversationId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ 
+      queryClient.invalidateQueries({
         queryKey: queryKeys.chat.conversations.list(),
-        refetchType: 'active'
+        refetchType: 'active',
       });
       setIsLoading(null);
       onDismiss();
       Alert.alert('Success', 'You have left the conversation');
     },
-    onError: (error: any) => {
+    onError: () => {
       setIsLoading(null);
       Alert.alert('Error', 'Failed to leave conversation');
     },
@@ -77,23 +77,24 @@ export default function ChatActionsSheet({
 
   // Mute conversation mutation
   const muteConversationMutation = useMutation({
-    mutationFn: (muted: boolean) => ChatService.muteConversation({
-      conversationId,
-      muted,
-    }),
+    mutationFn: (muted: boolean) =>
+      ChatService.muteConversation({
+        conversationId,
+        muted,
+      }),
     onSuccess: (_, muted) => {
-      queryClient.invalidateQueries({ 
+      queryClient.invalidateQueries({
         queryKey: queryKeys.chat.conversations.detail(conversationId),
-        refetchType: 'active'
+        refetchType: 'active',
       });
-      queryClient.invalidateQueries({ 
+      queryClient.invalidateQueries({
         queryKey: queryKeys.chat.conversations.list(),
-        refetchType: 'active'
+        refetchType: 'active',
       });
       setIsLoading(null);
       Alert.alert('Success', `Conversation ${muted ? 'muted' : 'unmuted'}`);
     },
-    onError: (error: any) => {
+    onError: () => {
       setIsLoading(null);
       Alert.alert('Error', 'Failed to update conversation settings');
     },
@@ -120,7 +121,11 @@ export default function ChatActionsSheet({
         action.confirmationMessage || `Are you sure you want to ${action.title.toLowerCase()}?`,
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Confirm', style: action.destructive ? 'destructive' : 'default', onPress: action.action }
+          {
+            text: 'Confirm',
+            style: action.destructive ? 'destructive' : 'default',
+            onPress: action.action,
+          },
         ]
       );
     } else {
@@ -143,7 +148,9 @@ export default function ChatActionsSheet({
     {
       id: 'mute-conversation',
       title: conversation?.muted ? 'Unmute Conversation' : 'Mute Conversation',
-      description: conversation?.muted ? 'Receive notifications again' : 'Stop receiving notifications',
+      description: conversation?.muted
+        ? 'Receive notifications again'
+        : 'Stop receiving notifications',
       icon: conversation?.muted ? 'volume-high' : 'volume-off',
       action: () => {
         setIsLoading('mute-conversation');
@@ -157,7 +164,8 @@ export default function ChatActionsSheet({
       icon: 'sign-out',
       destructive: true,
       requiresConfirmation: true,
-      confirmationMessage: 'Are you sure you want to leave this conversation? You will no longer receive messages.',
+      confirmationMessage:
+        'Are you sure you want to leave this conversation? You will no longer receive messages.',
       action: () => {
         setIsLoading('leave-conversation');
         leaveConversationMutation.mutate();
@@ -186,11 +194,13 @@ export default function ChatActionsSheet({
             disabled={isActionLoading}
           >
             <View style={styles.destructiveActionContent} pointerEvents="none">
-              <Text style={styles.destructiveActionText}>
-                {action.title}
-              </Text>
+              <Text style={styles.destructiveActionText}>{action.title}</Text>
               {isActionLoading && (
-                <Loading3FillIcon size={24} color={Colors.darkGray} style={styles.loadingIndicator} />
+                <Loading3FillIcon
+                  size={24}
+                  color={Colors.darkGray}
+                  style={styles.loadingIndicator}
+                />
               )}
             </View>
           </Pressable>
@@ -217,9 +227,7 @@ export default function ChatActionsSheet({
       detents={['auto']}
       showCancelButton={true}
     >
-      <View style={styles.content}>
-        {chatActions.map(renderActionItem)}
-      </View>
+      <View style={styles.content}>{chatActions.map(renderActionItem)}</View>
     </VerticalListSheet>
   );
 }

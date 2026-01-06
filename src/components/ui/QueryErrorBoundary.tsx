@@ -1,11 +1,11 @@
 /**
  * React Query Error Boundary Wrapper
- * 
+ *
  * Integrates ErrorBoundary with React Query's QueryErrorResetBoundary
  * to properly handle React Query errors and allow resetting queries.
- * 
+ *
  * This is the recommended way to handle errors in React Query v5.
- * 
+ *
  * Usage:
  * ```tsx
  * <QueryErrorBoundary>
@@ -25,7 +25,7 @@ export interface QueryErrorBoundaryProps extends Omit<ErrorBoundaryProps, 'child
 
 /**
  * Error Boundary that integrates with React Query
- * 
+ *
  * Wraps children with QueryErrorResetBoundary to allow React Query
  * to reset failed queries when the error boundary resets.
  */

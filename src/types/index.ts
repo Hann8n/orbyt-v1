@@ -17,12 +17,12 @@ import type React from 'react';
 /** View mode for feed displays */
 export type ViewMode = 'list' | 'grid';
 
-/** 
+/**
  * Component props for ListFeedView
  * @usage src/components/features/feed/ListFeedView.tsx:144
  */
 export interface ListFeedViewProps {
-  feed: FeedItem[];
+  feed: UIFeedItem[];
   headerComponent?: React.ReactNode;
   refreshControl?: React.ReactElement;
   backgroundColor?: string;
@@ -114,18 +114,27 @@ export interface ListFeedViewRef {
 
 /**
  * Feed option type for UI navigation
+ * Consolidated definition - matches FeedService.ts
  * @usage app/(tabs)/index.tsx:9
  * @usage src/components/features/feed/ListFeedView.tsx:50
  */
-export type FeedOption = 'following' | 'discover' | 'profile' | 'likes' | 'reposts' | string;
+export type FeedOption =
+  | 'profile'
+  | 'following'
+  | 'likes'
+  | 'reposts'
+  | 'search'
+  | 'hashtag'
+  | string;
 
 /**
  * Feed item type for UI components (has endCard and UI-specific properties)
  * Different from API FeedItem (ExtendedFeedViewPost)
+ * Renamed to UIFeedItem to avoid conflicts with API FeedItem type
  * @usage src/components/features/feed/ListFeedView.tsx:50,512,521
  * @usage src/components/features/feed/GridFeedView.tsx:30,37,80,189,303
  */
-export interface FeedItem {
+export interface UIFeedItem {
   post: {
     embed?: {
       $type: string;
@@ -185,7 +194,7 @@ export interface AppError {
 // Re-exported Types
 // ============================================================================
 
-import type { ModerationDecision } from '../services/ModerationTypes';
+import type { ModerationDecision } from '../services/moderation/ModerationTypes';
 export type { ModerationDecision };
 
 export type { OrbytProfileRecord } from '../services/api/types';

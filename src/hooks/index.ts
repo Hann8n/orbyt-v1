@@ -8,9 +8,9 @@ export { useAccountManager } from './useAccountManager';
 export { useOrbytProfile } from './useOrbytProfile';
 export { useModerationSettings } from './useModerationSettings';
 export {
-	useFeedVisibility,
-	useVisibilityOverlay,
-	useVisibilityRouteTracker,
-	useVisibilityRouteIsActive,
-	useVisibilityTabIsActive,
+  useFeedVisibility,
+  useVisibilityOverlay,
+  useVisibilityRouteTracker,
+  useVisibilityRouteIsActive,
+  useVisibilityTabIsActive,
 } from '../core/visibility';

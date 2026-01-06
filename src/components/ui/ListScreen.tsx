@@ -1,10 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-} from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
@@ -14,8 +9,8 @@ import { Avatar, Icon } from './UI';
 import { Loading3FillIcon } from './Icon';
 import ListHeader from './ListHeader';
 import { VerificationBadge } from '../features/badging';
-import { useFollowMutation } from '../../services/cache/ProfileCache';
-import { formatHandle } from '../../utils/helpers';
+import { useFollowMutation } from '../../services/data/ProfileService';
+import { formatHandle } from '../../utils/formatting/handles';
 import { isCurrentUser } from '../../stores/profileInteractionStore';
 import { useUserStore } from '../../stores/userStore';
 
@@ -74,135 +69,153 @@ const ListScreen: React.FC<ListScreenProps> = ({
   const followMutation = useFollowMutation();
   const currentUser = useUserStore(state => state.currentUser);
 
-  const handleUserPress = useCallback((handle: string) => {
-    if (onUserPress) {
-      onUserPress(handle);
-    }
-  }, [onUserPress]);
-
-  const handleFollowAction = useCallback((user: User) => {
-    if (user.handle) {
-      // Handle follow/unfollow actions
-      if (followButtonAction === 'follow' || followButtonAction === 'unfollow') {
-        const isFollowing = followButtonAction === 'follow' ? true : false;
-        
-        followMutation.mutate({
-          handle: user.handle,
-          isFollowing
-        });
-      } else if (onActionPress) {
-        // Handle unblock/unmute actions
-        onActionPress(user);
+  const handleUserPress = useCallback(
+    (handle: string) => {
+      if (onUserPress) {
+        onUserPress(handle);
       }
-      
-      // Add to action users set for visual feedback
-      setActionUsers(prev => new Set(prev).add(user.handle || user.did));
-      
-      // Remove after 3 seconds
-      setTimeout(() => {
-        setActionUsers(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(user.handle || user.did);
-          return newSet;
-        });
-      }, 3000);
-    }
-  }, [followMutation, followButtonAction, onActionPress]);
+    },
+    [onUserPress]
+  );
 
-  const renderUser = useCallback(({ item }: { item: User }) => {
-    const isCurrentUserProfile = isCurrentUser(item.did, item.handle, currentUser);
-    const shouldShowFollowButton = showFollowButton && !isCurrentUserProfile;
-    
-    return (
-      <View style={styles.profileItem}>
-        <Pressable
-          style={styles.profileTouchable}
-          onPress={() => handleUserPress(item.handle)}
-        >
-          <Avatar 
-            uri={item.avatar} 
-            type={item.isChannel ? "channel" : "profile"} 
-            size={40} 
-            ringColor="transparent" 
-            style={styles.profileImage} 
-          />
-          <View style={styles.profileContent}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Text style={styles.displayName} numberOfLines={1}>
-                {item.displayName || formatHandle(item.handle) || (item.isChannel ? 'Unknown channel' : 'Unknown user')}
-              </Text>
-              {item.handle && item.handle.trim() && item.handle.length > 0 && !item.isChannel && (
-                <VerificationBadge 
-                  handle={item.handle.trim()} 
-                  textSize={14} 
-                  textColor={Colors.white} 
-                />
-              )}
+  const handleFollowAction = useCallback(
+    (user: User) => {
+      if (user.handle) {
+        // Handle follow/unfollow actions
+        if (followButtonAction === 'follow' || followButtonAction === 'unfollow') {
+          const isFollowing = followButtonAction === 'follow' ? true : false;
+
+          followMutation.mutate({
+            handle: user.handle,
+            isFollowing,
+          });
+        } else if (onActionPress) {
+          // Handle unblock/unmute actions
+          onActionPress(user);
+        }
+
+        // Add to action users set for visual feedback
+        setActionUsers(prev => new Set(prev).add(user.handle || user.did));
+
+        // Remove after 3 seconds
+        setTimeout(() => {
+          setActionUsers(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(user.handle || user.did);
+            return newSet;
+          });
+        }, 3000);
+      }
+    },
+    [followMutation, followButtonAction, onActionPress]
+  );
+
+  const renderUser = useCallback(
+    ({ item }: { item: User }) => {
+      const isCurrentUserProfile = isCurrentUser(item.did, item.handle, currentUser);
+      const shouldShowFollowButton = showFollowButton && !isCurrentUserProfile;
+
+      return (
+        <View style={styles.profileItem}>
+          <Pressable style={styles.profileTouchable} onPress={() => handleUserPress(item.handle)}>
+            <Avatar
+              uri={item.avatar}
+              type={item.isChannel ? 'channel' : 'profile'}
+              size={40}
+              ringColor="transparent"
+              style={styles.profileImage}
+            />
+            <View style={styles.profileContent}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={styles.displayName} numberOfLines={1}>
+                  {item.displayName ||
+                    formatHandle(item.handle) ||
+                    (item.isChannel ? 'Unknown channel' : 'Unknown user')}
+                </Text>
+                {item.handle && item.handle.trim() && item.handle.length > 0 && !item.isChannel && (
+                  <VerificationBadge
+                    handle={item.handle.trim()}
+                    textSize={14}
+                    textColor={Colors.white}
+                  />
+                )}
+              </View>
             </View>
-          </View>
-        </Pressable>
-        {shouldShowFollowButton && (
-          <Pressable
-            style={[
-              styles.followButton,
-              actionUsers.has(item.handle || item.did) && styles.actionButton
-            ]}
-            onPress={() => handleFollowAction(item)}
-          >
-            {actionUsers.has(item.handle || item.did) ? (
-              <Icon 
-                name='checkmark' 
-                size={16} 
-                color={Colors.black} 
-              />
-            ) : (
-              <Icon 
-                name={followButtonIcon} 
-                size={16} 
-                color={Colors.black} 
-              />
-            )}
           </Pressable>
-        )}
+          {shouldShowFollowButton && (
+            <Pressable
+              style={[
+                styles.followButton,
+                actionUsers.has(item.handle || item.did) && styles.actionButton,
+              ]}
+              onPress={() => handleFollowAction(item)}
+            >
+              {actionUsers.has(item.handle || item.did) ? (
+                <Icon name="checkmark" size={16} color={Colors.black} />
+              ) : (
+                <Icon name={followButtonIcon} size={16} color={Colors.black} />
+              )}
+            </Pressable>
+          )}
+        </View>
+      );
+    },
+    [
+      handleUserPress,
+      handleFollowAction,
+      showFollowButton,
+      followButtonIcon,
+      followButtonAction,
+      actionUsers,
+      currentUser,
+    ]
+  );
+
+  const renderEmpty = useCallback(
+    () => (
+      <View style={styles.emptyContainer}>
+        <Icon name={emptyIcon} size={48} color={Colors.lightGray} style={styles.emptyIcon} />
+        <Text style={styles.emptyTitle}>{emptyTitle}</Text>
+        <Text style={styles.emptySubtitle}>{emptySubtitle}</Text>
       </View>
-    );
-  }, [handleUserPress, handleFollowAction, showFollowButton, followButtonIcon, followButtonAction, actionUsers, currentUser]);
+    ),
+    [emptyIcon, emptyTitle, emptySubtitle]
+  );
 
-  const renderEmpty = useCallback(() => (
-    <View style={styles.emptyContainer}>
-      <Icon name={emptyIcon} size={48} color={Colors.lightGray} style={styles.emptyIcon} />
-      <Text style={styles.emptyTitle}>{emptyTitle}</Text>
-      <Text style={styles.emptySubtitle}>{emptySubtitle}</Text>
-    </View>
-  ), [emptyIcon, emptyTitle, emptySubtitle]);
+  const renderLoading = useCallback(
+    () => (
+      <View style={styles.loadingContainer}>
+        <Loading3FillIcon size={48} color={Colors.lightGray} />
+        <Text style={styles.loadingText}>Loading {title.toLowerCase()}...</Text>
+      </View>
+    ),
+    [title]
+  );
 
-  const renderLoading = useCallback(() => (
-    <View style={styles.loadingContainer}>
-      <Loading3FillIcon size={48} color={Colors.lightGray} />
-      <Text style={styles.loadingText}>Loading {title.toLowerCase()}...</Text>
-    </View>
-  ), [title]);
+  const renderError = useCallback(
+    () => (
+      <View style={styles.errorContainer}>
+        <Icon name="alert-circle" size={48} color={Colors.lightGray} style={styles.emptyIcon} />
+        <Text style={styles.emptyTitle}>Failed to load {title.toLowerCase()}</Text>
+        <Text style={styles.emptySubtitle}>Please check your connection and try again</Text>
+      </View>
+    ),
+    [title]
+  );
 
-  const renderError = useCallback(() => (
-    <View style={styles.errorContainer}>
-      <Icon name="alert-circle" size={48} color={Colors.lightGray} style={styles.emptyIcon} />
-      <Text style={styles.emptyTitle}>Failed to load {title.toLowerCase()}</Text>
-      <Text style={styles.emptySubtitle}>
-        Please check your connection and try again
-      </Text>
-    </View>
-  ), [title]);
-
-  const renderListHeader = useCallback(() => (
-    <ListHeader 
-      mode="sheet"
-      title={title}
-      showCloseButton
-              onClosePress={() => router.back()}
-      applySafeAreaTop={false}
-      style={{ marginHorizontal: -5 }}
-    />
-  ), [title, router]);
+  const renderListHeader = useCallback(
+    () => (
+      <ListHeader
+        mode="sheet"
+        title={title}
+        showCloseButton
+        onClosePress={() => router.back()}
+        applySafeAreaTop={false}
+        style={{ marginHorizontal: -5 }}
+      />
+    ),
+    [title, router]
+  );
 
   if (isLoading) {
     return (
@@ -214,10 +227,7 @@ const ListScreen: React.FC<ListScreenProps> = ({
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={renderListHeader}
           ListEmptyComponent={renderLoading}
-          contentContainerStyle={[
-            styles.listContainer,
-            { paddingBottom: insets.bottom + 20 }
-          ]}
+          contentContainerStyle={[styles.listContainer, { paddingBottom: insets.bottom + 20 }]}
         />
       </View>
     );
@@ -233,10 +243,7 @@ const ListScreen: React.FC<ListScreenProps> = ({
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={renderListHeader}
           ListEmptyComponent={renderError}
-          contentContainerStyle={[
-            styles.listContainer,
-            { paddingBottom: insets.bottom + 20 }
-          ]}
+          contentContainerStyle={[styles.listContainer, { paddingBottom: insets.bottom + 20 }]}
         />
       </View>
     );
@@ -247,7 +254,7 @@ const ListScreen: React.FC<ListScreenProps> = ({
       <FlashList
         data={data}
         renderItem={renderUser}
-        keyExtractor={(item) => item.did}
+        keyExtractor={item => item.did}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={renderListHeader}
         onEndReached={() => {
@@ -257,10 +264,7 @@ const ListScreen: React.FC<ListScreenProps> = ({
         }}
         onEndReachedThreshold={0.5}
         ListEmptyComponent={renderEmpty}
-        contentContainerStyle={[
-          styles.listContainer,
-          { paddingBottom: insets.bottom + 20 }
-        ]}
+        contentContainerStyle={[styles.listContainer, { paddingBottom: insets.bottom + 20 }]}
       />
     </View>
   );

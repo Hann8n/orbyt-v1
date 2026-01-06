@@ -18,18 +18,18 @@ import { useRouter } from 'expo-router';
 import { FlashList, FlashListRef } from '@shopify/flash-list';
 import type { ListFeedViewRef } from '../../../types';
 import { Colors } from '../../ui/UI';
-import { extractVideoThumbnail } from '../../../utils/helpers/video';
+import { extractVideoThumbnail } from '../../../utils/video/helpers';
 import { feedService } from '../../../services/FeedService';
 import { BlurView } from 'expo-blur';
 import { QUERY_CONSTANTS } from '../../../utils/constants';
-import { FeedItem } from '../../../types';
-import { isTablet, getBottomNavBarHeight } from '../../../utils/helpers';
+import type { UIFeedItem } from '../../../types';
+import { isTablet, getBottomNavBarHeight } from '../../../utils/device/screen';
 import EmptyFeed from './EmptyFeed';
 import BlurredThumbnailBackground from '../../ui/BlurredThumbnailBackground';
 
 // Memoized shared video item component
 const VideoGridItem: React.FC<{
-  item: FeedItem;
+  item: UIFeedItem;
   index: number;
   onPress: (index: number) => void;
   style?: ViewStyle | ViewStyle[];
@@ -38,19 +38,19 @@ const VideoGridItem: React.FC<{
 }> = React.memo(({ item, index, onPress, style, itemStyle, thumbnailStyle }) => {
   const thumbnailUrl = extractVideoThumbnail(item.post.embed);
   const shouldBlur = !!item.moderationDecision?.blur;
-  
+
   const handlePress = useCallback(() => onPress(index), [onPress, index]);
-  
-  const validThumbnailUrl = thumbnailUrl && typeof thumbnailUrl === 'string' && thumbnailUrl.trim() !== '' ? thumbnailUrl : null;
-  
+
+  const validThumbnailUrl =
+    thumbnailUrl && typeof thumbnailUrl === 'string' && thumbnailUrl.trim() !== ''
+      ? thumbnailUrl
+      : null;
+
   // Use post URI or CID as unique recycling key to prevent image flashing during scroll
   const recyclingKey = item.post?.uri || item.post?.cid || `item-${index}`;
-  
+
   return (
-    <Pressable
-      style={[styles.gridItem, style, itemStyle]}
-      onPress={handlePress}
-    >
+    <Pressable style={[styles.gridItem, style, itemStyle]} onPress={handlePress}>
       <BlurredThumbnailBackground thumbnailUrl={validThumbnailUrl} recyclingKey={recyclingKey} />
       {validThumbnailUrl && (
         <Image
@@ -63,7 +63,12 @@ const VideoGridItem: React.FC<{
         />
       )}
       {shouldBlur && (
-        <BlurView intensity={80} tint="dark" style={styles.warningOverlay} experimentalBlurMethod="dimezisBlurView" />
+        <BlurView
+          intensity={80}
+          tint="dark"
+          style={styles.warningOverlay}
+          experimentalBlurMethod="dimezisBlurView"
+        />
       )}
     </Pressable>
   );
@@ -72,7 +77,7 @@ const VideoGridItem: React.FC<{
 const ITEM_MARGIN = 1; // Set divider thickness to 1 for both directions
 
 interface GridFeedViewProps {
-  feed: FeedItem[];
+  feed: UIFeedItem[];
   headerComponent?: React.ReactNode;
   refreshControl?: React.ReactElement;
   backgroundColor?: string;
@@ -92,241 +97,268 @@ interface GridFeedViewProps {
   onVerticalScroll?: (scrollY: number) => void;
 }
 
-const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(({
-  feed,
-  headerComponent,
-  refreshControl,
-  backgroundColor = '#000',
-  secondaryColor = '#fff',
-  isProfileLoading: _isProfileLoading = false,
-  isProfileFeed = false,
-  feedOption,
-  userDid,
-  onLoadMore,
-  isFetchingNextPage: _isFetchingNextPage = false,
-  hasNextPage = false,
-  onGridItemPress,
-  isError = false,
-  error: _error,
-  onRetry,
-  ListComponent,
-  onVerticalScroll,
-}, ref) => {
-  // Safe area removed for grid feed view
-  const navigation = useRouter();
-
-  // Determine if this is a header feed (profile, channel, etc.)
-  const isHeaderFeed: boolean = Boolean(
-    feedOption === 'profile' ||
-    feedOption === 'likes' ||
-    feedOption === 'reposts' ||
-    (feedOption && feedOption.startsWith('at://'))
-  );
-
-  // Initialize infinite scroll hook with cursor-based loading
-  // Infinite scroll functionality removed - should be handled by parent component
-
-  // Refs for scrolling
-  const scrollViewRef = useRef<ScrollView>(null);
-  const flashListRef = useRef<FlashListRef<FeedItem>>(null);
-
-  // Expose scrollToTop method
-  useImperativeHandle(ref, () => ({
-    scrollToTop: () => {
-      if (feed.length === 0 && scrollViewRef.current) {
-        // Empty state uses ScrollView
-        scrollViewRef.current.scrollTo({ y: 0, animated: true });
-      } else if (flashListRef.current) {
-        // Grid content uses FlashList
-        flashListRef.current.scrollToOffset({ offset: 0, animated: true });
-      }
+const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
+  (
+    {
+      feed,
+      headerComponent,
+      refreshControl,
+      backgroundColor = '#000',
+      secondaryColor = '#fff',
+      isProfileLoading: _isProfileLoading = false,
+      isProfileFeed = false,
+      feedOption,
+      userDid,
+      onLoadMore,
+      isFetchingNextPage: _isFetchingNextPage = false,
+      hasNextPage = false,
+      onGridItemPress,
+      isError = false,
+      error: _error,
+      onRetry,
+      ListComponent,
+      onVerticalScroll,
     },
-  }), [feed.length]);
+    ref
+  ) => {
+    // Safe area removed for grid feed view
+    const navigation = useRouter();
 
-  // Responsive grid columns and item size
-  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
-  // Breakpoints: ensure at least 3 columns; default 3 on mobile
-  // Adjust as needed: 3 (<=480), 4 (<=900), 5 (<=1200), 6 (>1200 or tablets)
-  const computedColumns = useMemo(() => {
-    const w = windowWidth || Dimensions.get('window').width;
-    let cols = 3; // default mobile
-    if (w > 1200 || isTablet()) {
-      cols = 6;
-    } else if (w > 900) {
-      cols = 5;
-    } else if (w > 480) {
-      cols = 4;
-    } else {
-      cols = 3;
-    }
-    // enforce minimum of 3
-    return Math.max(3, cols);
-  }, [windowWidth]);
-
-  const numColumns = computedColumns;
-  // With borders instead of margins, items can use full width divided by columns
-  const itemWidth = (windowWidth || Dimensions.get('window').width) / numColumns;
-  const itemHeight = itemWidth * (16 / 9);
-
-  // Use actual safe area insets and bottom nav bar height
-  const insets = useSafeAreaInsets();
-  const effectiveInsets = { top: insets.top || 0, bottom: insets.bottom || 0, left: insets.left || 0, right: insets.right || 0 } as const;
-  const bottomNavBarHeight = getBottomNavBarHeight(effectiveInsets);
-  const viewableAreaHeight = (windowHeight || Dimensions.get('window').height) - effectiveInsets.top - bottomNavBarHeight;
-      // When used inside a custom container, subtract header height
-  const headerHeightForTabs = ListComponent ? 280 : 0;
-  const emptyComponentHeight = Math.max(0, viewableAreaHeight - headerHeightForTabs);
-
-
-
-  // Render each grid item - optimized with background processing
-  const renderGridItem = useCallback(({ item, index }: { item: FeedItem; index: number }) => {
-    // Calculate if this is the last column or last row for spacing
-    const isLastColumn = (index + 1) % numColumns === 0;
-    const isLastRow = Math.floor(index / numColumns) === Math.floor((feed.length - 1) / numColumns);
-
-    const onPress = () => {
-      if (onGridItemPress) {
-        onGridItemPress(index);
-        return;
-      }
-      feedService.setCurrentFeed(feed as unknown as import('../../../services/api/types').ExtendedFeedViewPost[]);
-             navigation.push({
-          pathname: '/(modals)/feed',
-          params: {
-            feedOption,
-            userDid,
-            backgroundColor,
-            secondaryColor,
-          }
-        });
-    };
-
-    // Create border styles - only show borders on the inside of the grid
-    const borderStyle = {
-      borderRightWidth: isLastColumn ? 0 : ITEM_MARGIN,
-      borderBottomWidth: isLastRow ? 0 : ITEM_MARGIN,
-      borderColor: 'transparent', // Transparent borders
-    };
-
-    return (
-      <VideoGridItem
-        item={item}
-        index={index}
-        onPress={onPress}
-        style={[
-          { width: itemWidth, height: itemHeight },
-          borderStyle,
-        ]}
-        itemStyle={{ 
-          borderRadius: 0,
-          backgroundColor: 'transparent',
-          padding: 0
-        }}
-        thumbnailStyle={{ 
-          borderRadius: 0,
-          backgroundColor: 'transparent'
-        }}
-      />
+    // Determine if this is a header feed (profile, channel, etc.)
+    const isHeaderFeed: boolean = Boolean(
+      feedOption === 'profile' ||
+      feedOption === 'likes' ||
+      feedOption === 'reposts' ||
+      (feedOption && feedOption.startsWith('at://'))
     );
-  }, [onGridItemPress, feed, numColumns, itemWidth, itemHeight, navigation, feedOption, userDid, backgroundColor, secondaryColor]);
 
-  // Combine scroll handlers for infinite scroll and header scroll progress updates
-  const handleScroll = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      if (onVerticalScroll && event?.nativeEvent?.contentOffset) {
-        onVerticalScroll(event.nativeEvent.contentOffset.y || 0);
+    // Initialize infinite scroll hook with cursor-based loading
+    // Infinite scroll functionality removed - should be handled by parent component
+
+    // Refs for scrolling
+    const scrollViewRef = useRef<ScrollView>(null);
+    const flashListRef = useRef<FlashListRef<UIFeedItem>>(null);
+
+    // Expose scrollToTop method
+    useImperativeHandle(
+      ref,
+      () => ({
+        scrollToTop: () => {
+          if (feed.length === 0 && scrollViewRef.current) {
+            // Empty state uses ScrollView
+            scrollViewRef.current.scrollTo({ y: 0, animated: true });
+          } else if (flashListRef.current) {
+            // Grid content uses FlashList
+            flashListRef.current.scrollToOffset({ offset: 0, animated: true });
+          }
+        },
+      }),
+      [feed.length]
+    );
+
+    // Responsive grid columns and item size
+    const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+    // Breakpoints: ensure at least 3 columns; default 3 on mobile
+    // Adjust as needed: 3 (<=480), 4 (<=900), 5 (<=1200), 6 (>1200 or tablets)
+    const computedColumns = useMemo(() => {
+      const w = windowWidth || Dimensions.get('window').width;
+      let cols = 3; // default mobile
+      if (w > 1200 || isTablet()) {
+        cols = 6;
+      } else if (w > 900) {
+        cols = 5;
+      } else if (w > 480) {
+        cols = 4;
+      } else {
+        cols = 3;
       }
-    },
-    [onVerticalScroll],
-  );
+      // enforce minimum of 3
+      return Math.max(3, cols);
+    }, [windowWidth]);
 
-  // Use FlashList to render the grid with appropriate numColumns
-  return (
-    <View style={[styles.container, { backgroundColor }]}>
-      {feed.length === 0 ? (
-        // Empty state: Use ScrollView for proper pull-to-refresh support
-        <ScrollView
-          ref={scrollViewRef}
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollViewContent}
-          showsVerticalScrollIndicator={false}
-          bounces={true}
-          refreshControl={refreshControl as any}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
-        >
-          {headerComponent && (
-            <View style={styles.headerWrapper}>
-              {headerComponent}
-            </View>
-          )}
-          {isError ? (
-            <EmptyFeed 
-              type="error" 
-              secondaryColor={secondaryColor} 
-              profileColors={secondaryColor ? { backgroundColor, textColor: secondaryColor } : undefined}
-              onRetry={onRetry}
-              isProfileFeed={isProfileFeed || isHeaderFeed}
-              viewableAreaHeight={emptyComponentHeight}
-              feedOption={feedOption}
-            />
-          ) : (
-            <EmptyFeed 
-              type={feedOption === 'following' ? 'no-following' : 'no-videos'} 
-              secondaryColor={secondaryColor} 
-              profileColors={secondaryColor ? { backgroundColor, textColor: secondaryColor } : undefined}
-              isProfileFeed={isProfileFeed || isHeaderFeed}
-              viewableAreaHeight={emptyComponentHeight}
-              feedOption={feedOption}
-            />
-          )}
-        </ScrollView>
-      ) : (
-        // Grid content: Use FlashList with header inside
-        (() => {
-          const ListEl = ListComponent || FlashList;
-          // Only attach ref if using FlashList (not custom ListComponent)
-          const listProps = ListComponent ? {} : { ref: flashListRef };
-          return (
-            <ListEl
-              {...listProps}
-              key={`grid-${feedOption}-${userDid || 'default'}-cols-${numColumns}`}
-              data={feed}
-              renderItem={renderGridItem}
-              keyExtractor={(item: FeedItem) => {
-                // Use URI and CID for stable keys to prevent recycling issues
-                if (item.post?.cid && item.post?.uri) {
-                  return `${item.post.uri}:${item.post.cid}`;
-                }
-                return item.post?.uri || `item-${Math.random()}`;
-              }}
-              numColumns={numColumns}
-              contentContainerStyle={[
-                styles.listContent,
-                { paddingBottom: effectiveInsets.bottom + bottomNavBarHeight, backgroundColor }
-              ]}
-              showsVerticalScrollIndicator={false}
-              contentInsetAdjustmentBehavior="never"
-              bounces={true}
-              ListHeaderComponent={headerComponent ? (
-                <View style={styles.headerWrapper}>
-                  {headerComponent}
-                </View>
-              ) : null}
-              refreshControl={refreshControl as any}
-              onScroll={handleScroll}
-              scrollEventThrottle={16}
-              scrollEnabled={true}
-              onEndReached={hasNextPage ? onLoadMore : undefined}
-              onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
-            />
+    const numColumns = computedColumns;
+    // With borders instead of margins, items can use full width divided by columns
+    const itemWidth = (windowWidth || Dimensions.get('window').width) / numColumns;
+    const itemHeight = itemWidth * (16 / 9);
+
+    // Use actual safe area insets and bottom nav bar height
+    const insets = useSafeAreaInsets();
+    const effectiveInsets = {
+      top: insets.top || 0,
+      bottom: insets.bottom || 0,
+      left: insets.left || 0,
+      right: insets.right || 0,
+    } as const;
+    const bottomNavBarHeight = getBottomNavBarHeight(effectiveInsets);
+    const viewableAreaHeight =
+      (windowHeight || Dimensions.get('window').height) - effectiveInsets.top - bottomNavBarHeight;
+    // When used inside a custom container, subtract header height
+    const headerHeightForTabs = ListComponent ? 280 : 0;
+    const emptyComponentHeight = Math.max(0, viewableAreaHeight - headerHeightForTabs);
+
+    // Render each grid item - optimized with background processing
+    const renderGridItem = useCallback(
+      ({ item, index }: { item: UIFeedItem; index: number }) => {
+        // Calculate if this is the last column or last row for spacing
+        const isLastColumn = (index + 1) % numColumns === 0;
+        const isLastRow =
+          Math.floor(index / numColumns) === Math.floor((feed.length - 1) / numColumns);
+
+        const onPress = () => {
+          if (onGridItemPress) {
+            onGridItemPress(index);
+            return;
+          }
+          feedService.setCurrentFeed(
+            feed as unknown as import('../../../services/api/types').ExtendedFeedViewPost[]
           );
-        })()
-      )}
-    </View>
-  );
-});
+          navigation.push({
+            pathname: '/(modals)/feed',
+            params: {
+              feedOption,
+              userDid,
+              backgroundColor,
+              secondaryColor,
+            },
+          });
+        };
+
+        // Create border styles - only show borders on the inside of the grid
+        const borderStyle = {
+          borderRightWidth: isLastColumn ? 0 : ITEM_MARGIN,
+          borderBottomWidth: isLastRow ? 0 : ITEM_MARGIN,
+          borderColor: 'transparent', // Transparent borders
+        };
+
+        return (
+          <VideoGridItem
+            item={item}
+            index={index}
+            onPress={onPress}
+            style={[{ width: itemWidth, height: itemHeight }, borderStyle]}
+            itemStyle={{
+              borderRadius: 0,
+              backgroundColor: 'transparent',
+              padding: 0,
+            }}
+            thumbnailStyle={{
+              borderRadius: 0,
+              backgroundColor: 'transparent',
+            }}
+          />
+        );
+      },
+      [
+        onGridItemPress,
+        feed,
+        numColumns,
+        itemWidth,
+        itemHeight,
+        navigation,
+        feedOption,
+        userDid,
+        backgroundColor,
+        secondaryColor,
+      ]
+    );
+
+    // Combine scroll handlers for infinite scroll and header scroll progress updates
+    const handleScroll = useCallback(
+      (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+        if (onVerticalScroll && event?.nativeEvent?.contentOffset) {
+          onVerticalScroll(event.nativeEvent.contentOffset.y || 0);
+        }
+      },
+      [onVerticalScroll]
+    );
+
+    // Use FlashList to render the grid with appropriate numColumns
+    return (
+      <View style={[styles.container, { backgroundColor }]}>
+        {feed.length === 0 ? (
+          // Empty state: Use ScrollView for proper pull-to-refresh support
+          <ScrollView
+            ref={scrollViewRef}
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollViewContent}
+            showsVerticalScrollIndicator={false}
+            bounces={true}
+            refreshControl={refreshControl as any}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
+          >
+            {headerComponent && <View style={styles.headerWrapper}>{headerComponent}</View>}
+            {isError ? (
+              <EmptyFeed
+                type="error"
+                secondaryColor={secondaryColor}
+                profileColors={
+                  secondaryColor ? { backgroundColor, textColor: secondaryColor } : undefined
+                }
+                onRetry={onRetry}
+                isProfileFeed={isProfileFeed || isHeaderFeed}
+                viewableAreaHeight={emptyComponentHeight}
+                feedOption={feedOption}
+              />
+            ) : (
+              <EmptyFeed
+                type={feedOption === 'following' ? 'no-following' : 'no-videos'}
+                secondaryColor={secondaryColor}
+                profileColors={
+                  secondaryColor ? { backgroundColor, textColor: secondaryColor } : undefined
+                }
+                isProfileFeed={isProfileFeed || isHeaderFeed}
+                viewableAreaHeight={emptyComponentHeight}
+                feedOption={feedOption}
+              />
+            )}
+          </ScrollView>
+        ) : (
+          // Grid content: Use FlashList with header inside
+          (() => {
+            const ListEl = ListComponent || FlashList;
+            // Only attach ref if using FlashList (not custom ListComponent)
+            const listProps = ListComponent ? {} : { ref: flashListRef };
+            return (
+              <ListEl
+                {...listProps}
+                key={`grid-${feedOption}-${userDid || 'default'}-cols-${numColumns}`}
+                data={feed}
+                renderItem={renderGridItem}
+                keyExtractor={(item: UIFeedItem) => {
+                  // Use URI and CID for stable keys to prevent recycling issues
+                  if (item.post?.cid && item.post?.uri) {
+                    return `${item.post.uri}:${item.post.cid}`;
+                  }
+                  return item.post?.uri || `item-${Math.random()}`;
+                }}
+                numColumns={numColumns}
+                contentContainerStyle={[
+                  styles.listContent,
+                  { paddingBottom: effectiveInsets.bottom + bottomNavBarHeight, backgroundColor },
+                ]}
+                showsVerticalScrollIndicator={false}
+                contentInsetAdjustmentBehavior="never"
+                bounces={true}
+                ListHeaderComponent={
+                  headerComponent ? (
+                    <View style={styles.headerWrapper}>{headerComponent}</View>
+                  ) : null
+                }
+                refreshControl={refreshControl as any}
+                onScroll={handleScroll}
+                scrollEventThrottle={16}
+                scrollEnabled={true}
+                onEndReached={hasNextPage ? onLoadMore : undefined}
+                onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
+              />
+            );
+          })()
+        )}
+      </View>
+    );
+  }
+);
 
 const styles = StyleSheet.create({
   container: {
@@ -380,7 +412,7 @@ const styles = StyleSheet.create({
   authorAvatar: {
     width: 18,
     height: 18,
-                borderRadius: BORDER_RADIUS.SMALL,
+    borderRadius: BORDER_RADIUS.SMALL,
   },
   authorName: {
     color: Colors.white,

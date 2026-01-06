@@ -55,7 +55,7 @@ class Logger {
         try {
           const keys = Object.getOwnPropertyNames(error);
           errorDisplay = JSON.stringify(error, keys);
-        } catch (e) {
+        } catch (_e) {
           // Fallback to simple string conversion if property enumeration fails
           try {
             errorDisplay = JSON.stringify(error);
@@ -66,7 +66,7 @@ class Logger {
       } else {
         errorDisplay = String(error);
       }
-    } catch (e) {
+    } catch (_e) {
       // Ultimate fallback
       try {
         errorDisplay = String(error);
@@ -82,11 +82,11 @@ class Logger {
    */
   private formatContext(context?: LogContext): string {
     if (!context) return '';
-    
+
     const parts: string[] = [];
     if (context.component) parts.push(`[${context.component}]`);
     if (context.action) parts.push(`[${context.action}]`);
-    
+
     return parts.length > 0 ? ` ${parts.join('')}` : '';
   }
 }

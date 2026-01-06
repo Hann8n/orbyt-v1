@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors } from '../../../components/ui/UI';
 import { ConversationList } from '../chat';
-import { getBottomNavBarHeight } from '../../../utils/helpers';
+import { getBottomNavBarHeight } from '../../../utils/device/screen';
 
 const ChatsTab: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -25,4 +25,3 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.black,
   },
 });
-

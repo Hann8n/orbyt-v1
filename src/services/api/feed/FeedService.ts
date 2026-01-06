@@ -6,7 +6,7 @@
 import { RichText, AtUri } from '@atproto/api';
 import { Platform } from 'react-native';
 import { logger } from '../../../utils/logger';
-import { storageHelpers } from '../../../utils/storage';
+import { storageHelpers } from '../../../utils/storage/storage';
 import { AtprotoCore } from '../core';
 import type {
   FeedResponse,
@@ -46,7 +46,7 @@ import {
 export class FeedService {
   /**
    * Get feed content - optimized for video-only feeds with maximum batch loading
-   * 
+   *
    * @param cursor - Pagination cursor
    * @param feedLink - Link to the feed
    * @param _feedVariables - Additional parameters
@@ -64,24 +64,25 @@ export class FeedService {
     feedType?: FeedType
   ): Promise<FeedResponse> {
     let retries = 3;
-    
+
     while (retries > 0) {
       try {
         const apiClient = await AtprotoCore.getApiClient();
-        
+
         // Handle case where no session is available
         if (!apiClient) {
           return { feed: [], cursor: null };
         }
-        
+
         const { api } = apiClient;
 
         let responseData: GetAuthorFeedOutput | GetFeedOutput | GetActorLikesOutput;
-        
+
         // Unified feed handling based on feedType
         if (feedType === 'author' || feedType === 'authorVideos') {
           // Author feed - use author filter
-          const authorFilter = feedType === 'authorVideos' ? 'posts_with_video' : 'posts_with_media';
+          const authorFilter =
+            feedType === 'authorVideos' ? 'posts_with_video' : 'posts_with_media';
           try {
             const params = {
               actor: feedLink || '',
@@ -89,7 +90,7 @@ export class FeedService {
               cursor: cursor || undefined,
               filter: authorFilter as AuthorFilter,
             };
-            
+
             const apiResponse = await api.app.bsky.feed.getAuthorFeed(params);
             responseData = apiResponse.data;
           } catch (authorError: unknown) {
@@ -104,7 +105,7 @@ export class FeedService {
               limit: limit,
               cursor: cursor || undefined,
             };
-            
+
             const apiResponse = await api.app.bsky.feed.getActorLikes(params);
             responseData = apiResponse.data;
           } catch (likesError: unknown) {
@@ -114,7 +115,7 @@ export class FeedService {
         } else {
           // Custom feed handling
           let feed = feedLink || '';
-          
+
           // Handle both ATProto URI format and direct URLs
           if (feed && feed.includes('/profile/')) {
             // Convert from URL format to AT protocol URI if needed
@@ -126,39 +127,42 @@ export class FeedService {
               }
             }
           }
-          
+
           // Validate feed URI format before making the request
           if (!feed) {
             logger.warn('No feed specified, returning empty feed', { component: 'FeedService' });
             return { feed: [], cursor: null };
           }
-          
+
           // Validate AT-URI format
           if (!feed.startsWith('at://') && !feed.startsWith('did:')) {
             logger.warn(`Invalid feed URI format: ${feed}`, { component: 'FeedService' });
             return { feed: [], cursor: null };
           }
-          
-          const params = { 
-            feed, 
+
+          const params = {
+            feed,
             limit: limit,
             cursor: cursor || undefined,
           };
-          
+
           try {
             const apiResponse = await api.app.bsky.feed.getFeed(params);
             responseData = apiResponse.data;
           } catch (customFeedError: unknown) {
             logger.error('Custom feed error', customFeedError, { component: 'FeedService' });
             // Check if it's a feed validation error
-            if (customFeedError instanceof Error && customFeedError.message.includes('feed must be a valid at-uri')) {
+            if (
+              customFeedError instanceof Error &&
+              customFeedError.message.includes('feed must be a valid at-uri')
+            ) {
               logger.warn(`Invalid feed URI: ${feed}`, { component: 'FeedService' });
               return { feed: [], cursor: null };
             }
             return { feed: [], cursor: null };
           }
         }
-        
+
         // Ensure the response has the expected data structure
         if (!responseData || !responseData.feed) {
           logger.warn('Unexpected feed response format', { component: 'FeedService' });
@@ -171,20 +175,20 @@ export class FeedService {
             ...post.post,
           } as ExtendedPostView,
         }));
-        
+
         // Filter for video posts at API level if requested
         if (filterVideosOnly) {
-          feedData = feedData.filter((post) => {
+          feedData = feedData.filter(post => {
             const embed = post.post.embed;
             if (!embed) {
               return false;
             }
-            
+
             // Only include posts with video embeds
             return isVideoEmbed(embed) || isVideoEmbedInMedia(embed);
           });
         }
-        
+
         return { feed: feedData, cursor: responseData.cursor ?? null };
       } catch (error: unknown) {
         retries--;
@@ -195,7 +199,7 @@ export class FeedService {
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
-    
+
     return { feed: [], cursor: null };
   }
 
@@ -204,23 +208,26 @@ export class FeedService {
    */
   private static filterVideoPostsEfficiently(posts: FeedViewPost[]): ExtendedFeedViewPost[] {
     const videoPosts: ExtendedFeedViewPost[] = [];
-    
+
     for (const item of posts) {
       const embed = item?.post?.embed;
       if (!embed) continue;
-      
+
       // Only include posts where embed is of type 'app.bsky.embed.video' or 'app.bsky.embed.video#view'
       const hasVideo = isVideoEmbed(embed) || isVideoEmbedInMedia(embed);
-      
+
       if (hasVideo) {
         // Create extended post with repost information
         const reason = item.reason;
-        const repostedBy = reason?.$type === 'app.bsky.feed.defs#reasonRepost' && 'by' in reason && reason.by ? {
-          avatar: reason.by.avatar,
-          displayName: reason.by.displayName,
-          handle: reason.by.handle
-        } : undefined;
-        
+        const repostedBy =
+          reason?.$type === 'app.bsky.feed.defs#reasonRepost' && 'by' in reason && reason.by
+            ? {
+                avatar: reason.by.avatar,
+                displayName: reason.by.displayName,
+                handle: reason.by.handle,
+              }
+            : undefined;
+
         const extendedPost: ExtendedFeedViewPost = {
           ...item,
           post: {
@@ -229,11 +236,11 @@ export class FeedService {
           } as ExtendedPostView,
           uniqueKey: `${item.post.uri}_${videoPosts.length}`,
         };
-        
+
         videoPosts.push(extendedPost);
       }
     }
-    
+
     return videoPosts;
   }
 
@@ -250,7 +257,7 @@ export class FeedService {
     return AtprotoService.deduplicateRequest(cacheKey, async () => {
       const userDid = await AtprotoCore.getCurrentUserDid();
       if (!userDid) throw new Error('No authenticated user');
-      
+
       const record = {
         $type: 'app.bsky.feed.like' as const,
         subject: { uri, cid },
@@ -291,7 +298,7 @@ export class FeedService {
     return AtprotoService.deduplicateRequest(cacheKey, async () => {
       const userDid = await AtprotoCore.getCurrentUserDid();
       if (!userDid) throw new Error('No authenticated user');
-      
+
       const record = {
         $type: 'app.bsky.feed.repost' as const,
         subject: { uri, cid },
@@ -315,7 +322,7 @@ export class FeedService {
     const { api } = await AtprotoCore.getApiClient();
     const userDid = await AtprotoCore.getCurrentUserDid();
     if (!userDid) throw new Error('No authenticated user');
-    
+
     const parts = repostURI.split('/');
     const rkey = parts[parts.length - 1];
     await api.app.bsky.feed.repost.delete({ repo: userDid, rkey });
@@ -332,24 +339,24 @@ export class FeedService {
    * @returns The response from creating the comment
    */
   static async postComment(
-    text: string, 
-    rootUri: string, 
+    text: string,
+    rootUri: string,
     rootCid: string,
     parentUri?: string,
     parentCid?: string,
-    images?: { uri: string, alt: string, aspectRatio?: { width: number, height: number } }[]
+    images?: { uri: string; alt: string; aspectRatio?: { width: number; height: number } }[]
   ): Promise<{ uri: string; cid: string }> {
     await AtprotoCore.ensureSession();
     const { api } = await AtprotoCore.getApiClient();
-    
+
     // If no parent is specified, reply directly to the post (parent = root)
     const actualParentUri = parentUri || rootUri;
     const actualParentCid = parentCid || rootCid;
-    
+
     // Use official RichText API to detect facets
     const richText = new RichText({ text: text || '' });
     await richText.detectFacets(api);
-    
+
     const postRecord: PostRecord = {
       $type: 'app.bsky.feed.post',
       text: richText.text,
@@ -364,44 +371,44 @@ export class FeedService {
     if (richText.facets && richText.facets.length > 0) {
       postRecord.facets = richText.facets;
     }
-    
+
     // Add images if provided
     if (images && images.length > 0) {
       try {
         // Upload each image and get its blob reference
         const uploadedImages = await Promise.all(
-          images.map(async (img) => {
+          images.map(async img => {
             if (img.uri.startsWith('file://')) {
               const response = await fetch(img.uri);
               const blob = await response.blob();
-              
+
               // Upload the blob to Bluesky
               const { api } = await AtprotoCore.getApiClient();
               const uploadResult = await api.uploadBlob(blob, {
-                encoding: 'image/jpeg' // Default to JPEG, but ideally detect from the blob
+                encoding: 'image/jpeg', // Default to JPEG, but ideally detect from the blob
               });
-              
+
               return {
                 image: uploadResult.data.blob,
                 alt: img.alt || 'Image',
-                aspectRatio: img.aspectRatio
+                aspectRatio: img.aspectRatio,
               };
             } else {
               throw new Error('Unsupported image URI format');
             }
           })
         );
-        
+
         // Add embed with images to post record
         postRecord.embed = {
           $type: 'app.bsky.embed.images',
-          images: uploadedImages
+          images: uploadedImages,
         };
       } catch (error) {
         // Continue without images if there was an error
       }
     }
-    
+
     const commentResponse = await api.post(postRecord);
     return commentResponse;
   }
@@ -423,7 +430,7 @@ export class FeedService {
     feedSlug?: string
   ): Promise<CreateRecordResponse> {
     await AtprotoCore.ensureSession();
-    
+
     try {
       logger.info('Starting video post creation', {
         component: 'FeedService',
@@ -431,14 +438,14 @@ export class FeedService {
         textLength: text?.length || 0,
         contentWarnings,
         commentFilter,
-        feedSlug
+        feedSlug,
       });
 
       // Validate video file
       if (!videoPath || !videoPath.startsWith('file://')) {
         logger.error('Invalid video path', new Error('Invalid video path'), {
           component: 'FeedService',
-          videoPath
+          videoPath,
         });
         throw new Error('Invalid video path');
       }
@@ -449,15 +456,17 @@ export class FeedService {
       try {
         const videoResponse = await fetch(videoPath);
         if (!videoResponse.ok) {
-          throw new Error(`Failed to fetch video: ${videoResponse.status} ${videoResponse.statusText}`);
+          throw new Error(
+            `Failed to fetch video: ${videoResponse.status} ${videoResponse.statusText}`
+          );
         }
         videoBlob = await videoResponse.blob();
-        
+
         logger.info('Video blob created', {
           component: 'FeedService',
           blobSize: videoBlob.size,
           blobType: videoBlob.type,
-          videoPath: videoPath.substring(0, 100) + '...'
+          videoPath: videoPath.substring(0, 100) + '...',
         });
       } catch (fetchError: unknown) {
         const errorMessage = fetchError instanceof Error ? fetchError.message : 'Unknown error';
@@ -466,30 +475,43 @@ export class FeedService {
           component: 'FeedService',
           videoPath: videoPath.substring(0, 100) + '...',
           errorMessage,
-          errorStack
+          errorStack,
         });
         throw new Error(`Failed to create video blob: ${errorMessage}`);
       }
-      
+
       const { api } = await AtprotoCore.getApiClient();
       logger.debug('Uploading video blob to PDS', {
         component: 'FeedService',
         blobSize: videoBlob.size,
-        blobType: videoBlob.type
+        blobType: videoBlob.type,
       });
-      
+
       let blobData: { data: { blob: { ref: { $link: string }; mimeType: string; size: number } } };
       try {
         blobData = await api.com.atproto.repo.uploadBlob(videoBlob, {
-          encoding: 'video/mp4'
+          encoding: 'video/mp4',
         });
       } catch (uploadError: unknown) {
-        const errorMessage = uploadError instanceof Error ? uploadError.message : 'Network request failed';
+        const errorMessage =
+          uploadError instanceof Error ? uploadError.message : 'Network request failed';
         const errorStack = uploadError instanceof Error ? uploadError.stack : undefined;
-        const errorResponse = uploadError && typeof uploadError === 'object' && 'response' in uploadError ? uploadError.response : undefined;
-        const errorData = uploadError && typeof uploadError === 'object' && 'data' in uploadError ? uploadError.data : undefined;
-        const errorStatus = uploadError && typeof uploadError === 'object' && 'status' in uploadError ? uploadError.status : undefined;
-        const errorStatusText = uploadError && typeof uploadError === 'object' && 'statusText' in uploadError ? uploadError.statusText : undefined;
+        const errorResponse =
+          uploadError && typeof uploadError === 'object' && 'response' in uploadError
+            ? uploadError.response
+            : undefined;
+        const errorData =
+          uploadError && typeof uploadError === 'object' && 'data' in uploadError
+            ? uploadError.data
+            : undefined;
+        const errorStatus =
+          uploadError && typeof uploadError === 'object' && 'status' in uploadError
+            ? uploadError.status
+            : undefined;
+        const errorStatusText =
+          uploadError && typeof uploadError === 'object' && 'statusText' in uploadError
+            ? uploadError.statusText
+            : undefined;
         logger.error('Failed to upload video blob to PDS', uploadError, {
           component: 'FeedService',
           blobSize: videoBlob.size,
@@ -499,20 +521,20 @@ export class FeedService {
           errorResponse,
           errorData,
           errorStatus,
-          errorStatusText
+          errorStatusText,
         });
         throw new Error(`Failed to upload video blob: ${errorMessage}`);
       }
-      
+
       const { data } = blobData;
-      
+
       logger.info('Video blob uploaded successfully', {
         component: 'FeedService',
         blobRef: data.blob.ref?.$link,
         blobSize: data.blob.size,
-        blobMimeType: data.blob.mimeType
+        blobMimeType: data.blob.mimeType,
       });
-      
+
       // Get video aspect ratio
       logger.debug('Getting video aspect ratio', { component: 'FeedService' });
       const aspectRatio = await this.getVideoAspectRatio(videoPath);
@@ -524,7 +546,7 @@ export class FeedService {
       await richText.detectFacets(api);
       logger.debug('Rich text processed', {
         component: 'FeedService',
-        facetsCount: richText.facets?.length || 0
+        facetsCount: richText.facets?.length || 0,
       });
 
       // Determine platform tag
@@ -555,7 +577,7 @@ export class FeedService {
         embed: {
           $type: 'app.bsky.embed.video',
           video: data.blob as unknown as import('@atproto/lexicon').BlobRef,
-          aspectRatio
+          aspectRatio,
         },
         tags: tags,
         facets: richText.facets && richText.facets.length > 0 ? richText.facets : undefined,
@@ -567,9 +589,9 @@ export class FeedService {
       if (contentWarnings && contentWarnings.length > 0) {
         logger.debug('Processing content warnings', {
           component: 'FeedService',
-          inputWarnings: contentWarnings
+          inputWarnings: contentWarnings,
         });
-        
+
         const validLabels = contentWarnings
           .map(warning => {
             // Remove 'other:' prefix if present (custom warnings aren't valid for self-labeling)
@@ -577,37 +599,37 @@ export class FeedService {
             if (!cleanWarning) {
               logger.debug('Filtered out custom warning', {
                 component: 'FeedService',
-                warning
+                warning,
               });
               return null;
             }
-            
+
             // Map UI label IDs to valid Bluesky self-label values
             const labelMap: Record<string, string> = {
-              'nsfw': 'porn',
-              'nudity': 'nudity',
-              'violence': 'graphic-media',
-              'sensitive': 'sexual'
+              nsfw: 'porn',
+              nudity: 'nudity',
+              violence: 'graphic-media',
+              sensitive: 'sexual',
             };
-            
+
             const mappedLabel = labelMap[cleanWarning] || null;
             if (!mappedLabel) {
               logger.warn('Unknown content warning label', {
                 component: 'FeedService',
-                warning: cleanWarning
+                warning: cleanWarning,
               });
             }
-            
+
             return mappedLabel;
           })
           .filter((label): label is string => label !== null);
-        
+
         logger.info('Content warnings mapped', {
           component: 'FeedService',
           inputWarnings: contentWarnings,
-          validLabels
+          validLabels,
         });
-        
+
         if (validLabels.length > 0) {
           // Self-labels should be an array of selfLabel objects
           // Each object has $type: 'com.atproto.label.defs#selfLabel' and val: string
@@ -615,18 +637,18 @@ export class FeedService {
             $type: 'com.atproto.label.defs#selfLabels',
             values: validLabels.map(label => ({
               $type: 'com.atproto.label.defs#selfLabel',
-              val: label
-            }))
+              val: label,
+            })),
           };
           logger.debug('Self-labels added to post record', {
             component: 'FeedService',
             labels: postRecord.labels,
-            validLabels
+            validLabels,
           });
         } else {
           logger.warn('No valid labels after mapping', {
             component: 'FeedService',
-            inputWarnings: contentWarnings
+            inputWarnings: contentWarnings,
           });
         }
       }
@@ -637,8 +659,11 @@ export class FeedService {
         hasText: !!postRecord.text,
         hasEmbed: !!postRecord.embed,
         hasLabels: !!postRecord.labels,
-        labelsCount: postRecord.labels && '$type' in postRecord.labels && 'values' in postRecord.labels ? postRecord.labels.values.length : 0,
-        tags: postRecord.tags
+        labelsCount:
+          postRecord.labels && '$type' in postRecord.labels && 'values' in postRecord.labels
+            ? postRecord.labels.values.length
+            : 0,
+        tags: postRecord.tags,
       });
 
       // Create the post
@@ -647,7 +672,7 @@ export class FeedService {
       logger.info('Post created successfully', {
         component: 'FeedService',
         uri: postResponse.uri,
-        cid: postResponse.cid
+        cid: postResponse.cid,
       });
 
       // Set comment filtering if specified
@@ -655,7 +680,7 @@ export class FeedService {
         try {
           logger.debug('Setting comment filter', {
             component: 'FeedService',
-            commentFilter
+            commentFilter,
           });
           await this.setCommentFilter(postResponse.uri, commentFilter);
           logger.debug('Comment filter set successfully', { component: 'FeedService' });
@@ -674,7 +699,7 @@ export class FeedService {
         feedSlug,
         errorMessage: error instanceof Error ? error.message : 'Unknown error',
         errorStack: error instanceof Error ? error.stack : undefined,
-        errorName: error instanceof Error ? error.name : undefined
+        errorName: error instanceof Error ? error.name : undefined,
       };
 
       // Log full error details
@@ -692,7 +717,7 @@ export class FeedService {
           status: apiError.response?.status,
           statusText: apiError.response?.statusText,
           data: apiError.response?.data,
-          headers: apiError.response?.headers
+          headers: apiError.response?.headers,
         });
       }
 
@@ -706,7 +731,9 @@ export class FeedService {
    * @param _videoPath - Path to the video file
    * @returns Aspect ratio object with width and height
    */
-  private static async getVideoAspectRatio(_videoPath: string): Promise<{ width: number; height: number }> {
+  private static async getVideoAspectRatio(
+    _videoPath: string
+  ): Promise<{ width: number; height: number }> {
     try {
       // For React Native, we'll use a default aspect ratio
       // In a real implementation, you might want to use a video metadata library
@@ -721,12 +748,15 @@ export class FeedService {
    * @param postUri - URI of the post
    * @param filter - Filter type (followers, mentioned, none)
    */
-  private static async setCommentFilter(postUri: string, filter: 'followers' | 'mentioned' | 'none'): Promise<void> {
+  private static async setCommentFilter(
+    postUri: string,
+    filter: 'followers' | 'mentioned' | 'none'
+  ): Promise<void> {
     try {
       logger.debug('Setting thread gate', {
         component: 'FeedService',
         postUri,
-        filter
+        filter,
       });
 
       // Extract the record key (rkey) from the URI using AtUri
@@ -740,19 +770,19 @@ export class FeedService {
       } catch (uriError: unknown) {
         logger.error('Failed to parse post URI', uriError, {
           component: 'FeedService',
-          postUri
+          postUri,
         });
         const errorMessage = uriError instanceof Error ? uriError.message : 'Could not parse URI';
         throw new Error(`Invalid post URI: ${errorMessage}`);
       }
-      
+
       // Create threadgate record based on filter
       // According to Bluesky docs:
       // - followerRule: allows replies from users who follow you
       // - followingRule: allows replies from users you follow
       // - mentionRule: allows replies from users mentioned in the post
       let allow: Array<{ $type: string }> = [];
-      
+
       switch (filter) {
         case 'followers':
           // "Only followers can comment" means users who follow you
@@ -765,39 +795,39 @@ export class FeedService {
           allow = []; // Empty array means no one can comment
           break;
       }
-      
+
       const record = {
         $type: 'app.bsky.feed.threadgate',
         post: postUri,
         createdAt: new Date().toISOString(),
-        allow
+        allow,
       };
-      
+
       logger.debug('Thread gate record prepared', {
         component: 'FeedService',
         rkey,
         allowRules: allow.length,
-        recordType: record.$type
+        recordType: record.$type,
       });
-      
+
       const { api } = await AtprotoCore.getApiClient();
       const userDid = await AtprotoCore.getCurrentUserDid();
       if (!userDid) {
         throw new Error('No authenticated user');
       }
-      
+
       await api.com.atproto.repo.createRecord({
         repo: userDid,
         collection: 'app.bsky.feed.threadgate',
         rkey: rkey,
-        record
+        record,
       });
-      
+
       logger.info('Thread gate created successfully', {
         component: 'FeedService',
         rkey,
         filter,
-        allowRules: allow.length
+        allowRules: allow.length,
       });
     } catch (error: unknown) {
       logger.error('Failed to set comment filter', error, {
@@ -805,7 +835,7 @@ export class FeedService {
         postUri,
         filter,
         errorMessage: error instanceof Error ? error.message : 'Unknown error',
-        errorStack: error instanceof Error ? error.stack : undefined
+        errorStack: error instanceof Error ? error.stack : undefined,
       });
       throw error;
     }
@@ -818,25 +848,29 @@ export class FeedService {
    * @param _limit - Number of comments per page (not used currently as API doesn't support it)
    * @returns Array of comments and next cursor
    */
-  static async getComments(postUri: string, cursor: string | null = null, _limit: number = 25): Promise<CommentsResponse> {
+  static async getComments(
+    postUri: string,
+    cursor: string | null = null,
+    _limit: number = 25
+  ): Promise<CommentsResponse> {
     await AtprotoCore.ensureSession();
     try {
       // Use Bluesky threading parameters
       // depth: how many levels of replies to fetch (6 is standard for full threading)
       // parentHeight: how many parent levels to include (0 = only direct replies to root post)
-      const params: { uri: string; depth: number; parentHeight: number; cursor?: string } = { 
+      const params: { uri: string; depth: number; parentHeight: number; cursor?: string } = {
         uri: postUri,
         depth: 6, // Fetch up to 6 levels of nested replies (Bluesky standard)
-        parentHeight: 0 // Only get direct replies to the root post
+        parentHeight: 0, // Only get direct replies to the root post
       };
       if (cursor) params.cursor = cursor;
-      
+
       const { api } = await AtprotoCore.getApiClient();
-      
+
       // Use getPostThread (V2 may not be available in all SDK versions)
       // The threading structure is preserved through parent/replies relationships
       const response = await api.app.bsky.feed.getPostThread(params);
-      
+
       // Log raw API response for debugging reply structure
       // This shows the actual API response structure before processing
       logger.debug('Raw API response for comments', {
@@ -845,11 +879,13 @@ export class FeedService {
         postUri,
         rawResponse: JSON.stringify(response.data, null, 2),
       });
-      
-      
+
       // Function to recursively process thread posts with proper typing
       // Preserves Bluesky's threading structure with parent/child relationships
-      const processThreadViewPost = (post: ThreadPost, parent: Comment | null = null): Comment | null => {
+      const processThreadViewPost = (
+        post: ThreadPost,
+        parent: Comment | null = null
+      ): Comment | null => {
         if (!isThreadViewPost(post)) {
           return null;
         }
@@ -864,7 +900,7 @@ export class FeedService {
           likeCount: post.post.likeCount,
           replyCount: post.post.replyCount,
           replies: [],
-          parent: parent || null // Preserve parent reference for threading
+          parent: parent || null, // Preserve parent reference for threading
         };
 
         // Process replies if they exist, passing current post as parent
@@ -886,7 +922,7 @@ export class FeedService {
       // Get the thread from response
       const thread = response.data.thread as ThreadPost;
       let comments: Comment[] = [];
-      
+
       // Process replies at the root level (top-level comments have no parent)
       if (isThreadViewPost(thread) && thread.replies) {
         comments = (thread.replies as ThreadPost[])
@@ -902,7 +938,7 @@ export class FeedService {
 
       return {
         comments,
-        cursor: (response.data as { cursor?: string | null }).cursor ?? null
+        cursor: (response.data as { cursor?: string | null }).cursor ?? null,
       };
     } catch (error: unknown) {
       return { comments: [], cursor: null };
@@ -916,17 +952,21 @@ export class FeedService {
    * @param limit - Number of likes per page
    * @returns Array of likes and next cursor
    */
-  static async getLikes(uri: string, cursor: string | null = null, limit: number = 25): Promise<LikesResponse> {
+  static async getLikes(
+    uri: string,
+    cursor: string | null = null,
+    limit: number = 25
+  ): Promise<LikesResponse> {
     await AtprotoCore.ensureSession();
     try {
       const params: { uri: string; limit: number; cursor?: string } = { uri, limit };
       if (cursor) params.cursor = cursor;
-      
+
       const { api } = await AtprotoCore.getApiClient();
       const response = await api.app.bsky.feed.getLikes(params);
-      return { 
-        likes: response.data.likes || [], 
-        cursor: response.data.cursor || null 
+      return {
+        likes: response.data.likes || [],
+        cursor: response.data.cursor || null,
       };
     } catch (error: unknown) {
       return { likes: [], cursor: null };
@@ -944,9 +984,9 @@ export class FeedService {
       const { api } = await AtprotoCore.getApiClient();
       const response = await api.app.bsky.feed.getPostThread({
         uri: uri,
-        depth: 0
+        depth: 0,
       });
-      
+
       const thread = response.data.thread as ThreadPost;
       if (isThreadViewPost(thread)) {
         return thread.post;
@@ -963,14 +1003,16 @@ export class FeedService {
    * @param uris - Array of post URIs to fetch
    * @returns Map of URI to post data (includes NotFoundPost and BlockedPost objects)
    */
-  static async getPosts(uris: string[]): Promise<Map<string, PostView | NotFoundPost | BlockedPost>> {
+  static async getPosts(
+    uris: string[]
+  ): Promise<Map<string, PostView | NotFoundPost | BlockedPost>> {
     const result = new Map<string, PostView | NotFoundPost | BlockedPost>();
     if (!uris.length) return result;
 
     try {
       await AtprotoCore.ensureSession();
       const { api } = await AtprotoCore.getApiClient();
-      
+
       // API accepts max 25 URIs per request
       const BATCH_SIZE = 25;
       const batches: string[][] = [];
@@ -980,9 +1022,8 @@ export class FeedService {
 
       // Fetch all batches in parallel
       const responses = await Promise.all(
-        batches.map(batch => 
-          api.app.bsky.feed.getPosts({ uris: batch })
-            .catch(() => ({ data: { posts: [] } }))
+        batches.map(batch =>
+          api.app.bsky.feed.getPosts({ uris: batch }).catch(() => ({ data: { posts: [] } }))
         )
       );
 
@@ -992,8 +1033,8 @@ export class FeedService {
           result.set(post.uri, post);
         }
       }
-
     } catch (error: unknown) {
+      // ignore errors
     }
 
     return result;
@@ -1007,36 +1048,36 @@ export class FeedService {
   static async deletePost(uri: string): Promise<boolean> {
     try {
       await AtprotoCore.ensureSession();
-      
+
       // Extract the record key (rkey) from the URI
       // URI format: at://did:plc:xxxx/app.bsky.feed.post/rkey
       const parts = uri.split('/');
       if (parts.length < 4) {
         throw new Error('Invalid post URI format');
       }
-      
+
       const did = parts[2];
       const rkey = parts[4];
-      
+
       // Get the current user's DID to ensure they own the post
       const userDid = await AtprotoCore.getCurrentUserDid();
       if (!userDid) {
         throw new Error('No authenticated user found');
       }
-      
+
       // Ensure the user owns the post
       if (did !== userDid) {
         throw new Error('Cannot delete a post that you do not own');
       }
-      
+
       // Delete the post
       const { api } = await AtprotoCore.getApiClient();
-      
+
       await api.app.bsky.feed.post.delete({
         repo: userDid,
-        rkey: rkey
+        rkey: rkey,
       });
-      
+
       return true;
     } catch (error: unknown) {
       return false;
@@ -1057,38 +1098,38 @@ export class FeedService {
       if (parts.length < 4) {
         throw new Error('Invalid post URI format');
       }
-      
+
       const did = parts[2];
       const rkey = parts[4];
-      
+
       // Get the current user's DID to ensure they own the post
       const userDid = await AtprotoCore.getCurrentUserDid();
       if (!userDid) {
         throw new Error('No authenticated user found');
       }
-      
+
       // Ensure the user owns the post
       if (did !== userDid) {
         throw new Error('Cannot mute comments on a post that you do not own');
       }
-      
+
       // Create a threadgate with no allow rules (effectively muting all comments)
       const record = {
         $type: 'app.bsky.feed.threadgate',
         post: postUri,
         createdAt: new Date().toISOString(),
-        allow: [] // Empty array means no one can comment
+        allow: [], // Empty array means no one can comment
       };
-      
+
       const { api } = await AtprotoCore.getApiClient();
-      
+
       await api.com.atproto.repo.createRecord({
         repo: userDid,
         collection: 'app.bsky.feed.threadgate',
         rkey: rkey,
-        record
+        record,
       });
-      
+
       return true;
     } catch (error: unknown) {
       return false;
@@ -1103,14 +1144,14 @@ export class FeedService {
    * @param feedContext - Optional feed context
    */
   static async sendVideoFeedback(
-    postUri: string, 
-    type: 'interested' | 'not_interested', 
+    postUri: string,
+    type: 'interested' | 'not_interested',
     sourceFeed?: string,
     feedContext?: string
   ): Promise<void> {
     try {
       await AtprotoCore.ensureSession();
-      
+
       // Get the current user's DID from OAuth session
       const userDid = await AtprotoCore.getCurrentUserDid();
       if (!userDid) {
@@ -1122,11 +1163,14 @@ export class FeedService {
       //           2. User's selected algorithmic feed provider
       //           3. null (no target, just store locally)
       let targetFeed: string | null = null;
-      
+
       // Import algorithmic feed providers to check if sourceFeed is one of them
-      const { ALGORITHMIC_FEED_PROVIDERS, useUserStore } = await import('../../../stores/userStore');
-      const algorithmicFeedUris: string[] = Object.values(ALGORITHMIC_FEED_PROVIDERS).map(p => p.uri);
-      
+      const { ALGORITHMIC_FEED_PROVIDERS, useUserStore } =
+        await import('../../../stores/userStore');
+      const algorithmicFeedUris: string[] = Object.values(ALGORITHMIC_FEED_PROVIDERS).map(
+        p => p.uri
+      );
+
       if (sourceFeed && algorithmicFeedUris.includes(sourceFeed)) {
         // Post came from an algorithmic feed - route interaction to that feed
         targetFeed = sourceFeed;
@@ -1151,43 +1195,43 @@ export class FeedService {
       // This communicates the preference to the feed generator
       if (targetFeed) {
         const { api } = await AtprotoCore.getApiClient();
-        
+
         // Map our feedback types to Bluesky's interaction events
         // app.bsky.feed.defs#requestMore = show more like this
         // app.bsky.feed.defs#requestLess = show less like this
-        const event = type === 'interested' 
-          ? 'app.bsky.feed.defs#requestMore' 
-          : 'app.bsky.feed.defs#requestLess';
-        
+        const event =
+          type === 'interested'
+            ? 'app.bsky.feed.defs#requestMore'
+            : 'app.bsky.feed.defs#requestLess';
+
         // Build the interaction object
         const interaction: { item: string; event: string; feedContext?: string } = {
           item: postUri,
           event: event,
         };
-        
+
         // Include feedContext if provided (helps feed generators track context)
         if (feedContext) {
           interaction.feedContext = feedContext;
         }
-        
+
         // Send the interaction to the Bluesky API
         await api.app.bsky.feed.sendInteractions({
           interactions: [interaction],
         });
-        
-        logger.debug('Sent feed interaction', { 
-          component: 'FeedService', 
-          postUri, 
-          event, 
-          targetFeed 
+
+        logger.debug('Sent feed interaction', {
+          component: 'FeedService',
+          postUri,
+          event,
+          targetFeed,
         });
       }
-      
     } catch (error: unknown) {
       // Log error but don't throw - interactions are best-effort
-      logger.warn('Failed to send feed interaction', { 
-        component: 'FeedService', 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      logger.warn('Failed to send feed interaction', {
+        component: 'FeedService',
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -1195,16 +1239,18 @@ export class FeedService {
   /**
    * Get stored video feedback for a post
    */
-  static async getVideoFeedback(postUri: string): Promise<{ type: 'interested' | 'not_interested'; timestamp: string; userDid: string } | null> {
+  static async getVideoFeedback(
+    postUri: string
+  ): Promise<{ type: 'interested' | 'not_interested'; timestamp: string; userDid: string } | null> {
     try {
       const feedbackKey = `video_feedback_${postUri}`;
       const feedbackStr = await storageHelpers.getItem(feedbackKey);
-      
+
       if (feedbackStr) {
         const feedbackData = JSON.parse(feedbackStr);
         return feedbackData;
       }
-      
+
       return null;
     } catch (error: unknown) {
       return null;
@@ -1228,17 +1274,19 @@ export class FeedService {
    * @param uri - Post URI
    * @returns Promise with engagement data
    */
-  static async getPostEngagement(uri: string): Promise<{ likes: Like[]; reposts: RepostView[]; replies: Comment[] }> {
+  static async getPostEngagement(
+    uri: string
+  ): Promise<{ likes: Like[]; reposts: RepostView[]; replies: Comment[] }> {
     try {
       const [likesResponse, commentsResponse] = await Promise.all([
         this.getLikes(uri, null, 100),
-        this.getComments(uri, null, 100)
+        this.getComments(uri, null, 100),
       ]);
-      
+
       return {
         likes: likesResponse.likes,
         reposts: [], // Repost data not directly available via API
-        replies: commentsResponse.comments
+        replies: commentsResponse.comments,
       };
     } catch (error: unknown) {
       return { likes: [], reposts: [], replies: [] };
@@ -1257,12 +1305,12 @@ export class FeedService {
       if (!uri || !uri.startsWith('at://')) {
         return null;
       }
-      
+
       const params = { feed: uri };
-      
+
       const { api } = await AtprotoCore.getApiClient();
       const response = await api.app.bsky.feed.getFeedGenerator(params);
-      
+
       return response.data as FeedGeneratorOutput;
     } catch (error: unknown) {
       if (error instanceof Error && error.message?.includes('feed must be a valid at-uri')) {
@@ -1283,17 +1331,17 @@ export class FeedService {
       if (!uri || !uri.startsWith('at://') || !uri.includes('/app.bsky.feed.generator/')) {
         return 0;
       }
-      
+
       // Get the feed generator details first
       const params = { feed: uri };
-      
+
       const { api } = await AtprotoCore.getApiClient();
       const generatorResponse = await api.app.bsky.feed.getFeedGenerator(params);
-      
+
       if (!generatorResponse.data?.view?.likeCount) {
         return 0;
       }
-      
+
       return generatorResponse.data.view.likeCount;
     } catch (error: unknown) {
       return 0;
@@ -1307,27 +1355,31 @@ export class FeedService {
    * @param _limit - Number of posts to fetch
    * @returns Feed generator details with posts
    */
-  static async getFeedGeneratorWithPosts(uri: string, cursor: string | null = null, _limit: number = 50): Promise<FeedGeneratorResponse> {
+  static async getFeedGeneratorWithPosts(
+    uri: string,
+    cursor: string | null = null,
+    _limit: number = 50
+  ): Promise<FeedGeneratorResponse> {
     await AtprotoCore.ensureSession();
     try {
       // Validate URI format
       if (!uri || !uri.startsWith('at://') || !uri.includes('/app.bsky.feed.generator/')) {
         return { generator: null, posts: [], cursor: null };
       }
-      
+
       // Get generator details
       const generatorParams = { feed: uri };
-      
+
       const { api } = await AtprotoCore.getApiClient();
       const generatorResponse = await api.app.bsky.feed.getFeedGenerator(generatorParams);
-      
+
       // Get feed posts
       const feedResponse = await this.getFeed(cursor, uri, {}, true);
-      
+
       return {
         generator: generatorResponse.data,
         posts: feedResponse.feed,
-        cursor: feedResponse.cursor
+        cursor: feedResponse.cursor,
       };
     } catch (error: unknown) {
       return { generator: null, posts: [], cursor: null };
@@ -1342,13 +1394,18 @@ export class FeedService {
    * @param sort - Sort order: 'top' for popular posts, 'latest' for most recent (default: 'latest')
    * @returns Array of video post results and next cursor
    */
-  static async searchHashtagVideosPaginated(hashtag: string, cursor: string | null = null, limit: number = 20, sort: 'top' | 'latest' = 'latest'): Promise<VideoSearchResponse> {
+  static async searchHashtagVideosPaginated(
+    hashtag: string,
+    cursor: string | null = null,
+    limit: number = 20,
+    sort: 'top' | 'latest' = 'latest'
+  ): Promise<VideoSearchResponse> {
     await AtprotoCore.ensureSession();
     try {
       // Search for posts with hashtag (include # in search query)
       const searchQuery = `#${hashtag}`;
       const { api } = await AtprotoCore.getApiClient();
-      
+
       // Build search params - only include sort if it's 'top'
       const params: { q: string; limit: number; cursor?: string; sort?: 'top' | 'latest' } = {
         q: searchQuery,
@@ -1360,20 +1417,20 @@ export class FeedService {
       if (sort === 'top') {
         params.sort = 'top';
       }
-      
+
       const response = await api.app.bsky.feed.searchPosts(params);
-      
+
       const posts = response?.data?.posts || [];
-      
+
       // Filter for video posts only and normalize structure
       const videoPosts = posts.filter((post: PostView) => {
         const embed = post.embed;
         if (!embed) return false;
-        
+
         // Check for video embeds
         return isVideoEmbed(embed) || isVideoEmbedInMedia(embed);
       });
-      
+
       // Normalize video structure for UI consumption
       const videos: ExtendedFeedViewPost[] = videoPosts.map((post: PostView) => ({
         post: {
@@ -1381,10 +1438,10 @@ export class FeedService {
         } as ExtendedPostView,
         uniqueKey: post.uri,
       }));
-      
-      return { 
-        videos, 
-        cursor: response?.data?.cursor ?? null 
+
+      return {
+        videos,
+        cursor: response?.data?.cursor ?? null,
       };
     } catch (error: unknown) {
       return { videos: [], cursor: null };
@@ -1401,7 +1458,7 @@ export class FeedService {
     await AtprotoCore.ensureSession();
     try {
       const { api } = await AtprotoCore.getApiClient();
-      
+
       // Build search query
       // If query is empty, search for popular hashtags by searching common terms
       // If query exists, search for posts with that hashtag pattern
@@ -1412,19 +1469,19 @@ export class FeedService {
         // For empty query, search for popular terms that often have hashtags
         searchQuery = 'video OR art OR music OR photography';
       }
-      
+
       const response = await api.app.bsky.feed.searchPosts({
         q: searchQuery,
         limit: 50, // Get more posts to extract more hashtags
       });
-      
+
       const posts = response?.data?.posts || [];
       const hashtagSet = new Set<string>();
-      
+
       // Extract hashtags from post text
       for (const post of posts) {
         const text = (post.record as PostRecord)?.text || '';
-        
+
         // Extract hashtags from text
         const hashtagRegex = /#([\w]+)/g;
         let match;
@@ -1438,7 +1495,7 @@ export class FeedService {
         }
         if (hashtagSet.size >= limit) break;
       }
-      
+
       return Array.from(hashtagSet).slice(0, limit);
     } catch (error: unknown) {
       logger.error('Error searching hashtag suggestions', error);
@@ -1453,7 +1510,11 @@ export class FeedService {
    * @param limit - Number of results per page
    * @returns Array of video post results and next cursor
    */
-  static async searchVideosPaginated(query: string, cursor: string | null = null, limit: number = 20): Promise<VideoSearchResponse> {
+  static async searchVideosPaginated(
+    query: string,
+    cursor: string | null = null,
+    limit: number = 20
+  ): Promise<VideoSearchResponse> {
     await AtprotoCore.ensureSession();
     try {
       // Use search posts endpoint for query-based search
@@ -1461,7 +1522,7 @@ export class FeedService {
         // Return empty results when no query is provided
         return { videos: [], cursor: null };
       }
-      
+
       // Search for posts with the query
       const { api } = await AtprotoCore.getApiClient();
       const params: { q: string; limit: number; cursor?: string } = {
@@ -1472,16 +1533,16 @@ export class FeedService {
         params.cursor = cursor;
       }
       const response = await api.app.bsky.feed.searchPosts(params);
-      
+
       const posts = response?.data?.posts || [];
-      
+
       // Filter for video posts only
       const videoPosts = posts.filter((post: PostView) => {
         const embed = post.embed;
         if (!embed) return false;
         return isVideoEmbed(embed) || isVideoEmbedInMedia(embed);
       });
-      
+
       // Normalize video structure for UI consumption
       const videos: ExtendedFeedViewPost[] = videoPosts.map((post: PostView) => ({
         post: {
@@ -1489,10 +1550,10 @@ export class FeedService {
         } as ExtendedPostView,
         uniqueKey: post.uri,
       }));
-      
+
       return {
         videos,
-        cursor: response?.data?.cursor ?? null
+        cursor: response?.data?.cursor ?? null,
       };
     } catch (error) {
       return { videos: [], cursor: null };
@@ -1517,21 +1578,21 @@ export class FeedService {
   ): Promise<FeedResponse> {
     try {
       // Filter out invalid URIs first
-      const validFeedUris = feedUris.filter(uri => 
-        uri && typeof uri === 'string' && (uri.startsWith('at://') || uri.startsWith('did:'))
+      const validFeedUris = feedUris.filter(
+        uri => uri && typeof uri === 'string' && (uri.startsWith('at://') || uri.startsWith('did:'))
       );
-      
+
       if (validFeedUris.length === 0) {
         logger.warn('No valid feed URIs provided to getMixedFeed', { component: 'FeedService' });
         return { feed: [], cursor: null };
       }
-      
+
       // Limit the number of feeds to fetch from
       const limitedFeedUris = validFeedUris.slice(0, maxFeeds);
-      
+
       // Parse cursor to get individual feed states
       let feedStates: { [feedUri: string]: string | null } = {};
-      
+
       if (cursor) {
         try {
           feedStates = JSON.parse(cursor);
@@ -1547,73 +1608,86 @@ export class FeedService {
       }
 
       // Fetch from feeds in parallel with better error handling
-      const feedPromises = limitedFeedUris.map(async (feedUri) => {
+      const feedPromises = limitedFeedUris.map(async feedUri => {
         try {
           const feedCursor = feedStates[feedUri] || null;
           // Distribute limit across feeds, ensuring each gets at least 10 posts
           const feedLimit = Math.max(10, Math.floor(limit / limitedFeedUris.length) + 10);
-          
-          const response = await this.getFeed(feedCursor, feedUri, {}, filterVideosOnly, feedLimit, 'custom');
-          
+
+          const response = await this.getFeed(
+            feedCursor,
+            feedUri,
+            {},
+            filterVideosOnly,
+            feedLimit,
+            'custom'
+          );
+
           return {
             posts: response?.feed || [],
             cursor: response?.cursor || null,
             feedUri,
-            success: true
+            success: true,
           };
         } catch (error) {
           // Log individual feed failures but don't fail the entire request
-          logger.warn('Failed to fetch from feed in mixed feed', { 
-            component: 'FeedService', 
-            feedUri, 
-            error: error instanceof Error ? error.message : 'Unknown error' 
+          logger.warn('Failed to fetch from feed in mixed feed', {
+            component: 'FeedService',
+            feedUri,
+            error: error instanceof Error ? error.message : 'Unknown error',
           });
           return {
             posts: [],
             cursor: null,
             feedUri,
-            success: false
+            success: false,
           };
         }
       });
 
       const feedResults = await Promise.all(feedPromises);
-      
+
       // Log success rate for debugging
       const successfulFeeds = feedResults.filter(r => r.success).length;
       if (successfulFeeds === 0) {
-        logger.error('All feeds failed in getMixedFeed', { component: 'FeedService', feedUris: limitedFeedUris });
+        logger.error('All feeds failed in getMixedFeed', {
+          component: 'FeedService',
+          feedUris: limitedFeedUris,
+        });
         return { feed: [], cursor: null };
       }
-      
+
       // Update feed states with new cursors (only for successful feeds)
       feedResults.forEach(result => {
         if (result.success && result.cursor !== null) {
           feedStates[result.feedUri] = result.cursor;
         }
       });
-      
+
       // Flatten and merge all feeds, preserving source feed information
-      let allPosts: (ExtendedFeedViewPost & { sourceFeed: string })[] = feedResults.flatMap(result => 
-        result.posts.map(post => ({
-          ...post,
-          sourceFeed: result.feedUri
-        }))
+      let allPosts: (ExtendedFeedViewPost & { sourceFeed: string })[] = feedResults.flatMap(
+        result =>
+          result.posts.map(post => ({
+            ...post,
+            sourceFeed: result.feedUri,
+          }))
       );
-      
+
       // Remove duplicates
-      allPosts = this.deduplicatePosts(allPosts) as (ExtendedFeedViewPost & { sourceFeed: string })[];
-      
+      allPosts = this.deduplicatePosts(allPosts) as (ExtendedFeedViewPost & {
+        sourceFeed: string;
+      })[];
+
       // Sort chronologically
       allPosts.sort((a, b) => {
         const aTime = new Date(a?.post?.indexedAt || 0).getTime();
         const bTime = new Date(b?.post?.indexedAt || 0).getTime();
         return bTime - aTime;
       });
-      
+
       // Apply limit
       const limitedPosts = allPosts.slice(0, limit);
-      
+
       // Create cursor from active feeds (only include feeds that have more data)
       const activeFeedStates: { [feedUri: string]: string | null } = {};
       feedResults.forEach(result => {
@@ -1621,12 +1695,13 @@ export class FeedService {
           activeFeedStates[result.feedUri] = result.cursor;
         }
       });
-      
-      const compositeCursor = Object.keys(activeFeedStates).length > 0 ? JSON.stringify(activeFeedStates) : null;
-      
+
+      const compositeCursor =
+        Object.keys(activeFeedStates).length > 0 ? JSON.stringify(activeFeedStates) : null;
+
       return {
         feed: limitedPosts,
-        cursor: compositeCursor
+        cursor: compositeCursor,
       };
     } catch (error) {
       logger.error('Error in getMixedFeed', { component: 'FeedService', error });
@@ -1671,15 +1746,17 @@ export class FeedService {
           break;
         }
 
-        const feedChunk: ExtendedFeedViewPost[] = (response?.data?.feed || []) as ExtendedFeedViewPost[];
+        const feedChunk: ExtendedFeedViewPost[] = (response?.data?.feed ||
+          []) as ExtendedFeedViewPost[];
         if (feedChunk.length === 0) {
           nextCursor = null;
           break;
         }
 
         // Keep only items that are reposts
-        const reposts = feedChunk.filter((item: ExtendedFeedViewPost) =>
-          item?.reason?.$type && String(item.reason.$type).includes('reasonRepost')
+        const reposts = feedChunk.filter(
+          (item: ExtendedFeedViewPost) =>
+            item?.reason?.$type && String(item.reason.$type).includes('reasonRepost')
         );
 
         // Within reposts, keep only those that contain video embeds using our efficient filter
@@ -1699,10 +1776,10 @@ export class FeedService {
           // Basic filtering - remove posts with obvious issues
           const post = item?.post;
           if (!post) return false;
-          
+
           // Filter out posts without required fields
           if (!post.uri || !post.cid || !post.author) return false;
-          
+
           return true;
         });
       }
@@ -1719,25 +1796,25 @@ export class FeedService {
   private static deduplicatePosts(posts: ExtendedFeedViewPost[]): ExtendedFeedViewPost[] {
     const seenUris = new Set<string>();
     const seenCids = new Set<string>();
-    
+
     return posts.filter(post => {
       const uri = post?.post?.uri;
       const cid = post?.post?.cid;
-      
+
       if (!uri || !cid) {
         return false;
       }
-      
+
       const uniqueId = `${uri}_${cid}`;
-      
+
       if (seenUris.has(uri) || seenCids.has(cid) || seenUris.has(uniqueId)) {
         return false;
       }
-      
+
       seenUris.add(uri);
       seenCids.add(cid);
       seenUris.add(uniqueId);
-      
+
       return true;
     });
   }
@@ -1752,35 +1829,38 @@ export class FeedService {
     await AtprotoCore.ensureSession();
     try {
       const params = { limit: limit, query: query };
-      
+
       const { api } = await AtprotoCore.getApiClient();
       const response = await api.app.bsky.unspecced.getPopularFeedGenerators(params);
-      
+
       // Return all feeds without filtering
       const allFeeds = response.data.feeds || [];
-      
+
       // Extract contentMode from API response (may be at feed.contentMode or feed.view?.contentMode)
       // If contentMode is missing, derive it from isExperimental flag
       const processedFeeds = allFeeds.map((feed: GeneratorView) => {
-        let contentMode = (feed as unknown as { contentMode?: string; view?: { contentMode?: string } }).contentMode || 
-                         (feed as unknown as { contentMode?: string; view?: { contentMode?: string } }).view?.contentMode;
-        
+        let contentMode =
+          (feed as unknown as { contentMode?: string; view?: { contentMode?: string } })
+            .contentMode ||
+          (feed as unknown as { contentMode?: string; view?: { contentMode?: string } }).view
+            ?.contentMode;
+
         // Fallback: if contentMode is missing but isExperimental exists, derive it
         const feedWithExperimental = feed as unknown as { isExperimental?: boolean };
         if (!contentMode && feedWithExperimental.isExperimental !== undefined) {
-          contentMode = feedWithExperimental.isExperimental 
+          contentMode = feedWithExperimental.isExperimental
             ? undefined // Non-video feed (no contentMode set)
             : 'app.bsky.feed.defs#contentModeVideo'; // Video-only feed
         }
-        
+
         const isVideoOnly = contentMode === 'app.bsky.feed.defs#contentModeVideo';
         return {
           ...feed,
           contentMode, // Preserve contentMode at top level for easy access
-          isExperimental: !isVideoOnly
+          isExperimental: !isVideoOnly,
         } as GeneratorView & { contentMode?: string; isExperimental: boolean };
       });
-      
+
       return processedFeeds;
     } catch (error: unknown) {
       return [];
@@ -1796,35 +1876,38 @@ export class FeedService {
     await AtprotoCore.ensureSession();
     try {
       const params = { limit: limit };
-      
+
       const { api } = await AtprotoCore.getApiClient();
       const response = await api.app.bsky.unspecced.getPopularFeedGenerators(params);
-      
+
       // Return all feeds without filtering
       const allFeeds = response.data.feeds || [];
-      
+
       // Extract contentMode from API response (may be at feed.contentMode or feed.view?.contentMode)
       // If contentMode is missing, derive it from isExperimental flag
       const processedFeeds = allFeeds.map((feed: GeneratorView) => {
-        let contentMode = (feed as unknown as { contentMode?: string; view?: { contentMode?: string } }).contentMode || 
-                         (feed as unknown as { contentMode?: string; view?: { contentMode?: string } }).view?.contentMode;
-        
+        let contentMode =
+          (feed as unknown as { contentMode?: string; view?: { contentMode?: string } })
+            .contentMode ||
+          (feed as unknown as { contentMode?: string; view?: { contentMode?: string } }).view
+            ?.contentMode;
+
         // Fallback: if contentMode is missing but isExperimental exists, derive it
         const feedWithExperimental = feed as unknown as { isExperimental?: boolean };
         if (!contentMode && feedWithExperimental.isExperimental !== undefined) {
-          contentMode = feedWithExperimental.isExperimental 
+          contentMode = feedWithExperimental.isExperimental
             ? undefined // Non-video feed (no contentMode set)
             : 'app.bsky.feed.defs#contentModeVideo'; // Video-only feed
         }
-        
+
         const isVideoOnly = contentMode === 'app.bsky.feed.defs#contentModeVideo';
         return {
           ...feed,
           contentMode, // Preserve contentMode at top level for easy access
-          isExperimental: !isVideoOnly
+          isExperimental: !isVideoOnly,
         } as GeneratorView & { contentMode?: string; isExperimental: boolean };
       });
-      
+
       return processedFeeds;
     } catch (error: unknown) {
       return [];
@@ -1836,24 +1919,26 @@ export class FeedService {
    * @param limit - Number of channels to return
    * @returns Array of feed generator objects
    */
-  static async getStaticChannels(limit: number = 10): Promise<(GeneratorView & { isExperimental: boolean; contentMode?: string })[]> {
+  static async getStaticChannels(
+    limit: number = 10
+  ): Promise<(GeneratorView & { isExperimental: boolean; contentMode?: string })[]> {
     try {
-      const { StaticChannelsService } = await import('../../APIService');
+      const { StaticChannelsService } = await import('../../OrbytAPIService');
       const channelDids = await StaticChannelsService.getChannels();
-      
+
       if (!channelDids || channelDids.length === 0) {
         return [];
       }
 
       // Directly fetch feed generators using the URIs
       const feedGenerators = await Promise.all(
-        channelDids.map(async (uri) => {
+        channelDids.map(async uri => {
           try {
             const { api } = await AtprotoCore.getApiClient();
             const response = await api.app.bsky.feed.getFeedGenerators({
-              feeds: [uri]
+              feeds: [uri],
             });
-            
+
             const feeds = response.data.feeds || [];
             if (feeds.length > 0) {
               return {
@@ -1869,7 +1954,12 @@ export class FeedService {
       );
 
       // Filter out null results and return up to the limit
-      return feedGenerators.filter((feed): feed is GeneratorView & { isExperimental: boolean; contentMode?: string } => feed !== null).slice(0, limit);
+      return feedGenerators
+        .filter(
+          (feed): feed is GeneratorView & { isExperimental: boolean; contentMode?: string } =>
+            feed !== null
+        )
+        .slice(0, limit);
     } catch (error: unknown) {
       return [];
     }

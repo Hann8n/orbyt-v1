@@ -10,11 +10,8 @@ interface CloseButtonProps {
 
 const CloseButton: React.FC<CloseButtonProps> = ({ onPress }) => {
   return (
-    <Pressable 
-      style={({ pressed }) => [
-        styles.closeButton,
-        pressed && styles.closeButtonPressed
-      ]} 
+    <Pressable
+      style={({ pressed }) => [styles.closeButton, pressed && styles.closeButtonPressed]}
       onPress={onPress}
     >
       {({ pressed }) => (

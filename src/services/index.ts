@@ -2,7 +2,7 @@
 
 // API Services
 export { AtprotoService } from './api/AtprotoService';
-export { default as APIService } from './APIService';
+export { default as OrbytAPIService } from './OrbytAPIService';
 
 // Auth Services
 export * from './auth';
@@ -12,16 +12,15 @@ export { default as FeedService } from './FeedService';
 export { feedService } from './FeedService';
 
 // Cache Services
-export { default as ChannelCache } from './cache/ChannelCache';
-export { default as ProfileCache } from './cache/ProfileCache';
+export { default as ChannelService } from './data/ChannelService';
+export { default as ProfileService } from './data/ProfileService';
 
 // Storage Services
 
 // Other Services
-export { ModerationService } from './api/moderation/ContentFilterService';
-export { default as VideoProcessingService } from './VideoProcessingService';
-export { default as VideoEditingService } from './VideoEditingService';
-
+export { ModerationService } from './moderation/ModerationService';
+export { default as VideoProcessingService } from './video/VideoProcessingService';
+export { default as VideoEditingService } from './video/VideoEditingService';
 
 // Types
-export * from './ModerationTypes';
+export * from './moderation/ModerationTypes';

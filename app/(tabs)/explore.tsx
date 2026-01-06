@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } from 'react';
-import { BORDER_RADIUS } from '../../src/utils/constants';
+import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../src/utils/constants';
 import {
   View,
   Text,
@@ -28,13 +28,13 @@ import AtprotoService from '../../src/services/api/AtprotoService';
 
 import { useRouter } from 'expo-router';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
-import ProfileCache, {
-  profileKeys,
+import ProfileService, {
   useFollowMutation,
-  prepopulateProfileCache,
-} from '../../src/services/cache/ProfileCache';
-import ChannelCache from '../../src/services/cache/ChannelCache';
-import type { CachedChannel } from '../../src/services/cache/ChannelCache';
+  prefetchProfile,
+  type CachedProfile,
+} from '../../src/services/data/ProfileService';
+import ChannelService from '../../src/services/data/ChannelService';
+import type { CachedChannel } from '../../src/services/data/ChannelService';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { Avatar, Icon } from '../../src/components/ui/UI';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -46,13 +46,13 @@ import { Colors } from '../../src/components/ui/UI';
 import { VerificationBadge } from '../../src/components/features/badging';
 import EmptyFeed from '../../src/components/features/feed/EmptyFeed';
 import { feedService } from '../../src/services/FeedService';
-import { getBottomNavBarHeight, isTablet } from '../../src/utils/helpers';
-import { extractVideoThumbnail } from '../../src/utils/helpers/video';
-import { formatHandle } from '../../src/utils/helpers';
+import { getBottomNavBarHeight, isTablet } from '../../src/utils/device/screen';
+import { extractVideoThumbnail } from '../../src/utils/video/helpers';
+import { formatHandle } from '../../src/utils/formatting/handles';
 import BlurredThumbnailBackground from '../../src/components/ui/BlurredThumbnailBackground';
-import { HeaderService, useHeaders } from '../../src/services/APIService';
+import { HeaderService, useHeaders, type Header } from '../../src/services/OrbytAPIService';
 import { useFeed } from '../../src/hooks/useFeed';
-import { ModerationService } from '../../src/services/api/moderation/ContentFilterService';
+import { ModerationService } from '../../src/services/moderation/ModerationService';
 import { useUserStore, useFeedSettings } from '../../src/stores/userStore';
 import { isCurrentUser } from '../../src/stores/profileInteractionStore';
 import { useFollowStore } from '../../src/stores/followStore';
@@ -63,22 +63,16 @@ import {
   getChannelAvatarUri,
   shouldShowChannelSlash,
   extractFeedSlug,
-} from '../../src/utils/orbytChannels';
-import { tabRefs } from '../../src/utils/tabRefs';
-import type { ExploreRef } from '../../src/utils/tabRefs';
+} from '../../src/utils/channels/orbyt';
+import { tabRefs } from '../../src/utils/navigation/tabRefs';
+import type { ExploreRef } from '../../src/utils/navigation/tabRefs';
 
-interface Profile {
-  did: string;
-  handle: string;
-  displayName?: string;
-  avatar?: string;
-  description?: string;
-  viewer?: {
-    following?: string;
-    followedBy?: string;
-  };
-  isFollowing?: boolean;
-}
+// Use CachedProfile as the canonical profile type (single source of truth)
+// Only extract the fields we need for the explore page
+type Profile = Pick<
+  CachedProfile,
+  'did' | 'handle' | 'displayName' | 'avatar' | 'description' | 'isFollowing' | 'verification'
+>;
 
 interface Channel {
   uri: string;
@@ -171,30 +165,20 @@ const navigateToProfile = (profile: Profile, queryClient: any, router: any) => {
   const handle = profile.handle.trim();
   if (!handle) return;
 
-  prepopulateProfileCache(
-    queryClient,
-    {
-      did: profile.did,
-      handle,
-      displayName: profile.displayName,
-      avatar: profile.avatar,
-      description: profile.description,
-    },
-    handle
-  );
-
-  queryClient
-    .prefetchQuery({
-      queryKey: profileKeys.detail(handle),
-      queryFn: () => ProfileCache.getProfile(handle),
-      staleTime: ProfileCache.cacheExpiry,
-    })
-    .finally(() => {
-      router.push({
-        pathname: '/profile/[did]',
-        params: { did: handle },
-      });
+  // Prefetch profile: sets partial data immediately + fetches full profile in background
+  prefetchProfile(queryClient, handle, {
+    did: profile.did,
+    handle,
+    displayName: profile.displayName,
+    avatar: profile.avatar,
+    description: profile.description,
+    verification: profile.verification,
+  }).finally(() => {
+    router.push({
+      pathname: '/profile/[did]',
+      params: { did: handle },
     });
+  });
 };
 
 // SearchSwipePager component
@@ -342,12 +326,18 @@ const ProfilesFeedRenderer = React.memo(
     isLoading,
     onProfilePress,
     bottomPadding = 0,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
   }: {
     searchResults: SearchResult[];
     onFollow: (profile: Profile) => void;
     isLoading?: boolean;
     onProfilePress?: (profile: Profile) => void;
     bottomPadding?: number;
+    hasNextPage?: boolean;
+    isFetchingNextPage?: boolean;
+    fetchNextPage?: () => void;
   }) => {
     const router = useRouter();
     const queryClient = useQueryClient();
@@ -397,6 +387,7 @@ const ProfilesFeedRenderer = React.memo(
                   {profile.handle && profile.handle.trim() && profile.handle.length > 0 && (
                     <VerificationBadge
                       handle={profile.handle.trim()}
+                      verification={profile.verification}
                       textSize={16}
                       textColor={Colors.white}
                     />
@@ -405,7 +396,7 @@ const ProfilesFeedRenderer = React.memo(
               </View>
             </Pressable>
             {!(
-              ProfileCache.getProfileFromCacheSync(profile.handle || '')?.isFollowing ??
+              ProfileService.getProfileFromCacheSync(profile.handle || '')?.isFollowing ??
               profile.isFollowing
             ) &&
               !isCurrentUser(profile.did, profile.handle, currentUser) && (
@@ -421,6 +412,16 @@ const ProfilesFeedRenderer = React.memo(
         contentContainerStyle={[styles.listContainer, { paddingBottom: bottomPadding + 20 }]}
         showsVerticalScrollIndicator={false}
         keyboardDismissMode="on-drag"
+        onEndReached={() => {
+          if (hasNextPage && !isFetchingNextPage && fetchNextPage) {
+            fetchNextPage();
+          }
+        }}
+        onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
+        maintainVisibleContentPosition={{
+          disabled: false,
+          autoscrollToTopThreshold: undefined,
+        }}
         ListEmptyComponent={() => (
           <View style={styles.emptyTabContent}>
             <Text style={styles.emptyTabText}>No people found</Text>
@@ -566,6 +567,7 @@ const VisitHistoryList = React.memo(
                         profileData.handle.length > 0 && (
                           <VerificationBadge
                             handle={profileData.handle.trim()}
+                            verification={profileData.verification}
                             textSize={16}
                             textColor={Colors.white}
                           />
@@ -574,7 +576,7 @@ const VisitHistoryList = React.memo(
                   </View>
                 </Pressable>
                 {!(
-                  ProfileCache.getProfileFromCacheSync(profileData.handle || '')?.isFollowing ??
+                  ProfileService.getProfileFromCacheSync(profileData.handle || '')?.isFollowing ??
                   profileData.isFollowing
                 ) &&
                   !isCurrentUser(profileData.did, profileData.handle, currentUser) && (
@@ -640,6 +642,9 @@ const SearchFeedRenderer = React.memo(
     visitHistory,
     onHistoryItemPress,
     bottomPadding = 0,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
   }: {
     feedOption: string;
     searchResults: SearchResult[];
@@ -650,6 +655,9 @@ const SearchFeedRenderer = React.memo(
     visitHistory?: Array<{ type: 'profile' | 'channel'; data: Profile | Channel }>;
     onHistoryItemPress?: (item: { type: 'profile' | 'channel'; data: Profile | Channel }) => void;
     bottomPadding?: number;
+    hasNextPage?: boolean;
+    isFetchingNextPage?: boolean;
+    fetchNextPage?: () => void;
   }) => {
     if (feedOption === 'recently-visited') {
       return (
@@ -670,6 +678,9 @@ const SearchFeedRenderer = React.memo(
           isLoading={isLoading}
           onProfilePress={onProfilePress}
           bottomPadding={bottomPadding}
+          hasNextPage={hasNextPage}
+          isFetchingNextPage={isFetchingNextPage}
+          fetchNextPage={fetchNextPage}
         />
       );
     } else if (feedOption === 'channels') {
@@ -1206,10 +1217,10 @@ const ExploreScreen: React.FC = () => {
     [followMutation]
   );
 
-  // Initialize current user for ProfileCache on mount - use store instead of API call
+  // Initialize current user for ProfileService on mount - use store instead of API call
   useEffect(() => {
     if (currentUser?.did) {
-      ProfileCache.setCurrentUserDid(currentUser.did);
+      ProfileService.setCurrentUserDid(currentUser.did);
     }
   }, [currentUser?.did]);
 
@@ -1218,7 +1229,7 @@ const ExploreScreen: React.FC = () => {
 
   // Process headers with image URLs
   const headers = useMemo(() => {
-    return fetchedHeaders.map(header => ({
+    return fetchedHeaders.map((header: Header) => ({
       ...header,
       imageUrl: HeaderService.getImageUrl(header.imageUrl),
     }));
@@ -1260,15 +1271,17 @@ const ExploreScreen: React.FC = () => {
   }, [debouncedQuery]);
 
   // Fetch search feed
-  const { feed: searchFeed, isLoading: isSearchLoading } = useFeed(
-    searchFeedOption || 'following',
-    undefined,
-    {
-      enabled: !!searchFeedOption,
-      staleTime: 30 * 1000,
-      refetchOnMount: false,
-    }
-  );
+  const {
+    feed: searchFeed,
+    isLoading: isSearchLoading,
+    hasNextPage: hasSearchNextPage,
+    isFetchingNextPage: isSearchFetchingNextPage,
+    fetchNextPage: fetchSearchNextPage,
+  } = useFeed(searchFeedOption || 'following', undefined, {
+    enabled: !!searchFeedOption,
+    staleTime: 30 * 1000,
+    refetchOnMount: false,
+  });
 
   const followStoreFollows = useFollowStore(state => state.follows);
 
@@ -1335,7 +1348,7 @@ const ExploreScreen: React.FC = () => {
         const handle = post.author.handle;
         const postText = (post as any).text || '';
         const did = (post.author as any).did || '';
-        const cachedProfile = handle ? ProfileCache.getProfileFromCacheSync(handle) : null;
+        const cachedProfile = handle ? ProfileService.getProfileFromCacheSync(handle) : null;
         const followStoreState = followStoreFollows?.get(did);
 
         results.push({
@@ -1350,6 +1363,8 @@ const ExploreScreen: React.FC = () => {
               followStoreState?.isFollowing ??
               cachedProfile?.isFollowing ??
               !!(post as any).viewer?.following,
+            // Extract verification from cache (already fetched) - avoids separate API calls
+            verification: cachedProfile?.verification,
           } as Profile,
           relevance: 10 - index,
         });
@@ -1669,7 +1684,7 @@ const ExploreScreen: React.FC = () => {
     []
   );
 
-  // Fetch orbyt channel details using ChannelCache
+  // Fetch orbyt channel details using ChannelService
   // Memoize getAllChannels() to avoid calling it on every render
   const orbytChannelUris = useMemo(() => getAllChannels().map(ch => ch.uri), []);
   const {
@@ -1680,9 +1695,9 @@ const ExploreScreen: React.FC = () => {
   } = useQuery({
     queryKey: ['orbytChannels', orbytChannelUris],
     queryFn: async () => {
-      // Use ChannelCache which handles caching, error handling, and avatar extraction
+      // Use ChannelService which handles caching, error handling, and avatar extraction
       // Use Promise.allSettled instead of Promise.all to prevent blocking on failures
-      const channelPromises = orbytChannelUris.map(uri => ChannelCache.getChannel(uri));
+      const channelPromises = orbytChannelUris.map(uri => ChannelService.getChannel(uri));
       const results = await Promise.allSettled(channelPromises);
 
       // Convert CachedChannel to Channel format, filtering out failures
@@ -1735,19 +1750,17 @@ const ExploreScreen: React.FC = () => {
       // Apply moderation to spotlight videos
       if (feed.length > 0) {
         try {
-          // Get agent and currentUser from userStore to pass to moderation
-          const { agent, currentUser } = useUserStore.getState();
+          // Get agent from userStore for moderation
+          const { agent } = useUserStore.getState();
 
           if (!agent) {
             // Fail-safe: filter out posts with sensitive labels when no agent
             feed = ModerationService.filterSensitiveByLabels(feed) as typeof feed;
           } else {
-            // Pass userDid to use React Query cache for faster moderation
             const moderationResult = await ModerationService.batchModeratePosts(
               feed,
               'contentList',
-              agent,
-              currentUser?.did ?? undefined
+              agent
             );
             feed = moderationResult.filteredPosts as typeof feed;
           }
@@ -1968,6 +1981,9 @@ const ExploreScreen: React.FC = () => {
                     visitHistory={visitHistory}
                     onHistoryItemPress={handleHistoryItemPress}
                     bottomPadding={getBottomNavBarHeight(insets)}
+                    hasNextPage={hasSearchNextPage}
+                    isFetchingNextPage={isSearchFetchingNextPage}
+                    fetchNextPage={fetchSearchNextPage}
                   />
                 )}
               />
@@ -2148,35 +2164,23 @@ const ExploreScreen: React.FC = () => {
                       if (profile.handle) {
                         const handle = profile.handle.trim();
                         if (handle && handle.trim()) {
-                          // Pre-populate cache with available profile data
-                          prepopulateProfileCache(
-                            queryClient,
-                            {
-                              did: profile.did,
-                              handle: handle.trim(),
-                              displayName: profile.displayName,
-                              avatar: profile.avatar,
-                              description: profile.description,
-                            },
-                            handle.trim()
-                          );
-
-                          // Still prefetch to get latest data, but navigation is instant
-                          queryClient
-                            .prefetchQuery({
-                              queryKey: profileKeys.detail(handle.trim()),
-                              queryFn: () => ProfileCache.getProfile(handle.trim()),
-                              staleTime: ProfileCache.cacheExpiry,
-                            })
-                            .finally(() => {
-                              const target = handle.trim();
-                              if (target) {
-                                router.push({
-                                  pathname: '/profile/[did]',
-                                  params: { did: target },
-                                });
-                              }
-                            });
+                          // Prefetch profile: sets partial data immediately + fetches full profile
+                          prefetchProfile(queryClient, handle.trim(), {
+                            did: profile.did,
+                            handle: handle.trim(),
+                            displayName: profile.displayName,
+                            avatar: profile.avatar,
+                            description: profile.description,
+                            verification: profile.verification,
+                          }).finally(() => {
+                            const target = handle.trim();
+                            if (target) {
+                              router.push({
+                                pathname: '/profile/[did]',
+                                params: { did: target },
+                              });
+                            }
+                          });
                         }
                       }
                     }}
@@ -2196,6 +2200,7 @@ const ExploreScreen: React.FC = () => {
                         {profile.handle && profile.handle.trim() && profile.handle.length > 0 && (
                           <VerificationBadge
                             handle={profile.handle.trim()}
+                            verification={profile.verification}
                             textSize={16}
                             textColor={Colors.white}
                           />
@@ -2204,7 +2209,7 @@ const ExploreScreen: React.FC = () => {
                     </View>
                   </Pressable>
                   {!(
-                    ProfileCache.getProfileFromCacheSync(profile.handle || '')?.isFollowing ??
+                    ProfileService.getProfileFromCacheSync(profile.handle || '')?.isFollowing ??
                     profile.isFollowing
                   ) &&
                     !isCurrentUser(profile.did, profile.handle, currentUser) && (

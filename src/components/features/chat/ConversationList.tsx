@@ -10,14 +10,14 @@ import { Avatar } from '../../ui/UI';
 import { Conversation } from '../../../services/ChatService';
 import ChatService from '../../../services/ChatService';
 import { formatRelativeDate } from '../../ui/RelativeDate';
-import { formatHandle } from '../../../utils/helpers';
+import { formatHandle } from '../../../utils/formatting/handles';
 import Icon, { Loading3FillIcon } from '../../ui/Icon';
 import { useChatStore } from '../../../stores/chatStore';
 import { useCurrentUser } from '../../../stores/userStore';
 import EmptyFeed from '../feed/EmptyFeed';
 import type { PostView } from '../../../services/api/types';
 import { isVideoEmbed, isVideoEmbedInMedia } from '../../../services/api/types';
-import { queryKeys } from '../../../utils/queryKeys';
+import { queryKeys } from '../../../utils/query/queryKeys';
 
 interface ConversationListProps {
   onConversationPress?: (conversation: Conversation) => void;
@@ -25,9 +25,7 @@ interface ConversationListProps {
 }
 
 // Divider component for conversations
-const ConversationDivider = () => (
-  <View style={styles.divider} />
-);
+const ConversationDivider = () => <View style={styles.divider} />;
 
 // Helper function to check if a post is a video post
 const isVideoPost = (post: PostView): boolean => {
@@ -36,31 +34,40 @@ const isVideoPost = (post: PostView): boolean => {
   return isVideoEmbed(embed) || isVideoEmbedInMedia(embed);
 };
 
-export default function ConversationList({ onConversationPress, bottomNavBarHeight = 0 }: ConversationListProps) {
+export default function ConversationList({
+  onConversationPress,
+  bottomNavBarHeight = 0,
+}: ConversationListProps) {
   const [refreshing, setRefreshing] = useState(false);
   const queryClient = useQueryClient();
   const { updateFromConversations } = useChatStore();
-  
+
   // Helper to get message text, checking cached post data for video
-  const getMessageText = useCallback((item: Conversation): string => {
-    if (item.lastMessageText) return item.lastMessageText;
-    
-    const lastMessage = item.lastMessage as any;
-    const hasEmbed = !!(lastMessage && 'embed' in lastMessage && lastMessage.embed);
-    
-    if (hasEmbed && lastMessage.embed?.record?.uri) {
-      // Check if post is already cached in React Query
-      const cachedPost = queryClient.getQueryData<PostView>(['embedded-post', lastMessage.embed.record.uri]);
-      if (cachedPost && 'uri' in cachedPost && 'cid' in cachedPost && isVideoPost(cachedPost)) {
-        return 'sent a video';
+  const getMessageText = useCallback(
+    (item: Conversation): string => {
+      if (item.lastMessageText) return item.lastMessageText;
+
+      const lastMessage = item.lastMessage as any;
+      const hasEmbed = !!(lastMessage && 'embed' in lastMessage && lastMessage.embed);
+
+      if (hasEmbed && lastMessage.embed?.record?.uri) {
+        // Check if post is already cached in React Query
+        const cachedPost = queryClient.getQueryData<PostView>([
+          'embedded-post',
+          lastMessage.embed.record.uri,
+        ]);
+        if (cachedPost && 'uri' in cachedPost && 'cid' in cachedPost && isVideoPost(cachedPost)) {
+          return 'sent a video';
+        }
+        // If not cached, default to "sent a post" (will update when post loads)
+        return 'sent a post';
       }
-      // If not cached, default to "sent a post" (will update when post loads)
-      return 'sent a post';
-    }
-    
-    return 'No messages yet';
-  }, [queryClient]);
-  
+
+      return 'No messages yet';
+    },
+    [queryClient]
+  );
+
   // Use existing hook from user store
   const { currentUser } = useCurrentUser();
   const currentUserDid = currentUser?.did || '';
@@ -90,95 +97,94 @@ export default function ConversationList({ onConversationPress, bottomNavBarHeig
     setRefreshing(true);
     await refetch();
     // Also invalidate the conversations-count cache to update bottom bar indicator
-    queryClient.invalidateQueries({ 
+    queryClient.invalidateQueries({
       queryKey: queryKeys.chat.conversations.count(),
-      refetchType: 'active'
+      refetchType: 'active',
     });
     setRefreshing(false);
   };
 
-  const handleConversationPress = useCallback((conversation: Conversation) => {
-    if (onConversationPress) {
-      onConversationPress(conversation);
-    } else {
-      router.push(`/chat/${conversation.id}`);
-    }
-  }, [onConversationPress]);
+  const handleConversationPress = useCallback(
+    (conversation: Conversation) => {
+      if (onConversationPress) {
+        onConversationPress(conversation);
+      } else {
+        router.push(`/chat/${conversation.id}`);
+      }
+    },
+    [onConversationPress]
+  );
 
-  const renderConversation = useCallback(({ item }: { item: Conversation }) => {
-    const otherMember = item.members.find(member => member.did !== currentUserDid) || item.members[0];
-    const messageText = getMessageText(item);
-    
-    return (
-      <Pressable
-        style={styles.conversationItem}
-        onPress={() => handleConversationPress(item)}
-      >
-        <View style={styles.avatarContainer}>
-          <Avatar
-            uri={otherMember.avatar}
-            type="profile"
-            size={50}
-            showRing={true}
-            style={styles.profileImage}
-          />
-          {item.unreadCount > 0 && (
-            <View style={styles.unreadIndicator} />
-          )}
-        </View>
-        <View style={styles.conversationInfo}>
-          <View style={styles.conversationHeader}>
-            <Text style={[
-              styles.conversationName,
-              item.unreadCount > 0 && styles.unreadConversationName
-            ]} numberOfLines={1}>
-              {formatHandle(otherMember?.handle)}
-            </Text>
-            {item.lastMessageCreatedAt && (
-              <Text style={styles.conversationTime}>
-                {formatRelativeDate(item.lastMessageCreatedAt)}
+  const renderConversation = useCallback(
+    ({ item }: { item: Conversation }) => {
+      const otherMember =
+        item.members.find(member => member.did !== currentUserDid) || item.members[0];
+      const messageText = getMessageText(item);
+
+      return (
+        <Pressable style={styles.conversationItem} onPress={() => handleConversationPress(item)}>
+          <View style={styles.avatarContainer}>
+            <Avatar
+              uri={otherMember.avatar}
+              type="profile"
+              size={50}
+              showRing={true}
+              style={styles.profileImage}
+            />
+            {item.unreadCount > 0 && <View style={styles.unreadIndicator} />}
+          </View>
+          <View style={styles.conversationInfo}>
+            <View style={styles.conversationHeader}>
+              <Text
+                style={[
+                  styles.conversationName,
+                  item.unreadCount > 0 && styles.unreadConversationName,
+                ]}
+                numberOfLines={1}
+              >
+                {formatHandle(otherMember?.handle)}
               </Text>
-            )}
+              {item.lastMessageCreatedAt && (
+                <Text style={styles.conversationTime}>
+                  {formatRelativeDate(item.lastMessageCreatedAt)}
+                </Text>
+              )}
+            </View>
+
+            <View style={styles.conversationFooter}>
+              <Text
+                style={[styles.lastMessage, item.unreadCount > 0 && styles.unreadMessage]}
+                numberOfLines={1}
+              >
+                {messageText}
+              </Text>
+            </View>
           </View>
-          
-          <View style={styles.conversationFooter}>
-            <Text 
-              style={[
-                styles.lastMessage,
-                item.unreadCount > 0 && styles.unreadMessage
-              ]}
-              numberOfLines={1}
-            >
-              {messageText}
-            </Text>
-          </View>
-        </View>
-      </Pressable>
-    );
-  }, [currentUserDid, handleConversationPress, getMessageText]);
+        </Pressable>
+      );
+    },
+    [currentUserDid, handleConversationPress, getMessageText]
+  );
 
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
       <View style={styles.emptyContent}>
-        <Icon 
-          name="inbox" 
-          size={48} 
-          color={Colors.gray} 
-        />
+        <Icon name="inbox" size={48} color={Colors.gray} />
         <Text style={styles.emptyText}>no conversations yet</Text>
       </View>
     </View>
   );
 
-
   // All hooks must be called before any conditional returns
   const keyExtractor = useCallback((item: Conversation) => item.id, []);
-  
+
   const contentContainerStyle = useMemo(() => {
-    return conversations.length === 0 ? styles.emptyContainer : {
-      paddingHorizontal: 15,
-      paddingBottom: bottomNavBarHeight + 5,
-    };
+    return conversations.length === 0
+      ? styles.emptyContainer
+      : {
+          paddingHorizontal: 15,
+          paddingBottom: bottomNavBarHeight + 5,
+        };
   }, [conversations.length, bottomNavBarHeight]);
 
   if (isLoading && conversations.length === 0) {
@@ -194,8 +200,8 @@ export default function ConversationList({ onConversationPress, bottomNavBarHeig
   if (error) {
     return (
       <View style={styles.errorContainer}>
-        <EmptyFeed 
-          type="no-connection" 
+        <EmptyFeed
+          type="no-connection"
           message="can't connect to chats"
           onRetry={() => refetch()}
         />

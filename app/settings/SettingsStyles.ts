@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { Colors } from '../../src/components/ui/UI';
-import { hexToRGBA } from '../../src/utils/formatting/colorUtils';
+import { hexToRGBA } from '../../src/utils/formatting/colors';
 import { BORDER_RADIUS } from '../../src/utils/constants';
 
 // Shared button styles for settings screens
@@ -35,7 +35,6 @@ export const settingsButtonStyles = StyleSheet.create({
     borderWidth: 0,
     borderColor: 'transparent',
   },
-
 
   // Action button style (unblock, unmute, etc.)
   actionButton: {
@@ -110,7 +109,6 @@ export const settingsButtonStyles = StyleSheet.create({
     overflow: 'hidden',
     minHeight: 44,
   },
-
 
   // Toggle button group style
   toggleButtonGroup: {

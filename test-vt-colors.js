@@ -1,13 +1,15 @@
-const hexToRgb = (hex) => {
+const hexToRgb = hex => {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return result ? {
-    r: parseInt(result[1], 16),
-    g: parseInt(result[2], 16),
-    b: parseInt(result[3], 16)
-  } : null;
+  return result
+    ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16),
+      }
+    : null;
 };
 
-const getLuminance = (rgb) => {
+const getLuminance = rgb => {
   const { r, g, b } = rgb;
   const [rs, gs, bs] = [r, g, b].map(c => {
     c = c / 255;
@@ -40,20 +42,32 @@ console.log('Virginia Tech Color Combinations:\n');
 // Test maroon as background
 console.log('1. Chicago Maroon as background:');
 console.log(`   Maroon + White: ${calculateContrast(chicagoMaroon, white).toFixed(2)}:1`);
-console.log(`   Maroon + Burnt Orange: ${calculateContrast(chicagoMaroon, burntOrange).toFixed(2)}:1`);
-console.log(`   Maroon + Impact Orange: ${calculateContrast(chicagoMaroon, impactOrange).toFixed(2)}:1`);
+console.log(
+  `   Maroon + Burnt Orange: ${calculateContrast(chicagoMaroon, burntOrange).toFixed(2)}:1`
+);
+console.log(
+  `   Maroon + Impact Orange: ${calculateContrast(chicagoMaroon, impactOrange).toFixed(2)}:1`
+);
 
 // Test orange as background
 console.log('\n2. Orange as background:');
 console.log(`   Burnt Orange + White: ${calculateContrast(burntOrange, white).toFixed(2)}:1`);
-console.log(`   Burnt Orange + Dark Text: ${calculateContrast(burntOrange, darkText).toFixed(2)}:1`);
+console.log(
+  `   Burnt Orange + Dark Text: ${calculateContrast(burntOrange, darkText).toFixed(2)}:1`
+);
 console.log(`   Impact Orange + White: ${calculateContrast(impactOrange, white).toFixed(2)}:1`);
-console.log(`   Impact Orange + Dark Text: ${calculateContrast(impactOrange, darkText).toFixed(2)}:1`);
+console.log(
+  `   Impact Orange + Dark Text: ${calculateContrast(impactOrange, darkText).toFixed(2)}:1`
+);
 
 // Test inverted
 console.log('\n3. Inverted (orange bg, maroon text):');
-console.log(`   Burnt Orange + Maroon: ${calculateContrast(burntOrange, chicagoMaroon).toFixed(2)}:1`);
-console.log(`   Impact Orange + Maroon: ${calculateContrast(impactOrange, chicagoMaroon).toFixed(2)}:1`);
+console.log(
+  `   Burnt Orange + Maroon: ${calculateContrast(burntOrange, chicagoMaroon).toFixed(2)}:1`
+);
+console.log(
+  `   Impact Orange + Maroon: ${calculateContrast(impactOrange, chicagoMaroon).toFixed(2)}:1`
+);
 
 // Check what passes
 console.log('\n4. WCAG 2.2 AA Compliant (4.5:1):');

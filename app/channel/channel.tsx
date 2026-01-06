@@ -1,12 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { BORDER_RADIUS } from '../../src/utils/constants';
-import {
-  View,
-  StyleSheet,
-  Dimensions,
-  Pressable,
-  Text,
-} from 'react-native';
+import { View, StyleSheet, Dimensions, Pressable, Text } from 'react-native';
 // Use plain FlashList via FeedRenderer; no adapter/converter
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
@@ -15,14 +9,20 @@ import TabNavigation, { TabOption } from '../../src/components/layout/header/Tab
 import FeedRenderer from '../../src/components/features/feed/FeedRenderer';
 import { Colors } from '../../src/components/ui/UI';
 
-import { useChannelColors, useChannel, useChannelColorsMutation, default as ChannelCache } from '../../src/services/cache/ChannelCache';
-import ProfileCache from '../../src/services/cache/ProfileCache';
-import { extractColorsFromImage } from '../../src/utils/formatting/colorUtils';
+import {
+  useChannelColors,
+  useChannel,
+  useChannelColorsMutation,
+  default as ChannelService,
+} from '../../src/services/data/ChannelService';
+import ProfileService from '../../src/services/data/ProfileService';
+import { extractColorsFromImage } from '../../src/utils/formatting/colors';
 import Icon, { Loading3FillIcon, BackArrowIcon } from '../../src/components/ui/Icon';
 import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '../../src/hooks';
-import { isOrbytChannel, getChannelByUri, channelToHashtag } from '../../src/utils/orbytChannels';
+import { isOrbytChannel, getChannelByUri, channelToHashtag } from '../../src/utils/channels/orbyt';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSharedValue } from 'react-native-reanimated';
+import type { ViewMode } from '../../src/types';
 
 interface ChannelScreenProps {}
 
@@ -36,7 +36,7 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
   // Get the channel URI from the route parameters (decode for safety)
   const uriParam = (params.id as string) || '';
   const uri = uriParam ? decodeURIComponent(uriParam) : '';
-  
+
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<0 | 1>(0); // 0 = top, 1 = latest
 
@@ -53,7 +53,7 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
     if (uri && channelData && channelData.isExperimental === undefined) {
       const invalidateAndRefetch = async () => {
         try {
-          await ChannelCache.invalidateChannel(uri);
+          await ChannelService.invalidateChannel(uri);
           refetchChannel();
         } catch (error) {
           console.error('Error invalidating channel cache:', error);
@@ -72,7 +72,7 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
   const overlayTop = (typeof insets?.top === 'number' ? insets.top : 0) + 5;
 
   // View mode state
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
 
   // Check if this is a category channel (hashtag feed) - postable Orbyt channels
   const isCategoryChannel = useMemo(() => {
@@ -86,12 +86,12 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
     if (!isCategoryChannel || !uri) {
       return { top: uri || '', latest: uri || '' };
     }
-    
+
     const hashtagOption = channelToHashtag(uri);
     if (!hashtagOption) {
       return { top: uri, latest: uri };
     }
-    
+
     return {
       top: `${hashtagOption}:top`,
       latest: `${hashtagOption}:latest`,
@@ -110,27 +110,33 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
 
   // Memoized query options - enabled when route focused and feedOption is available
   // For category channels, only enable the active tab
-  const queryOptions = useMemo(() => ({
-    enabled: Boolean(
-      isRouteFocused &&
-      feedOption &&
-      (feedOption.startsWith('hashtag:') || feedOption.startsWith('at://'))
-    ),
-  }), [isRouteFocused, feedOption]);
+  const queryOptions = useMemo(
+    () => ({
+      enabled: Boolean(
+        isRouteFocused &&
+        feedOption &&
+        (feedOption.startsWith('hashtag:') || feedOption.startsWith('at://'))
+      ),
+    }),
+    [isRouteFocused, feedOption]
+  );
 
   // Extract and save channel colors if needed
-  const extractAndSaveColors = useCallback(async (channelUri: string, avatarUrl: string) => {
-    try {
-      const colors = await extractColorsFromImage(avatarUrl);
-      colorsMutation.mutate({
-        uri: channelUri,
-        backgroundColor: colors.backgroundColor,
-        foregroundColor: colors.foregroundColor,
-      });
-    } catch (error) {
-      console.error('Error extracting/saving channel colors:', error);
-    }
-  }, [colorsMutation]);
+  const extractAndSaveColors = useCallback(
+    async (channelUri: string, avatarUrl: string) => {
+      try {
+        const colors = await extractColorsFromImage(avatarUrl);
+        colorsMutation.mutate({
+          uri: channelUri,
+          backgroundColor: colors.backgroundColor,
+          foregroundColor: colors.foregroundColor,
+        });
+      } catch (error) {
+        console.error('Error extracting/saving channel colors:', error);
+      }
+    },
+    [colorsMutation]
+  );
 
   // Extract colors when channel data is available
   useEffect(() => {
@@ -142,7 +148,7 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
   // Preload channel creator profile when channel data is available
   useEffect(() => {
     if (channelData?.creator?.handle) {
-      ProfileCache.getProfile(channelData.creator.handle).catch(error => {
+      ProfileService.getProfile(channelData.creator.handle).catch(error => {
         console.warn('Error preloading channel creator profile:', error);
       });
     }
@@ -153,7 +159,7 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
     if (uri && channelData && !channelData.subscriberCount) {
       const forceRefresh = async () => {
         try {
-          await ChannelCache.forceRefreshChannel(uri);
+          await ChannelService.forceRefreshChannel(uri);
           refetchChannel();
         } catch (error) {
           console.error('Error force refreshing channel:', error);
@@ -215,39 +221,55 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
   }, [refetchChannel]);
 
   // Handle position change for scroll tracking
-  const handlePositionChange = useCallback(() => {
-  }, []);
-
+  const handlePositionChange = useCallback(() => {}, []);
 
   const showErrorScreen = !!channelError && !refreshing;
 
   const renderErrorScreen = () => (
-    <View style={[styles.errorContainer, { backgroundColor: channelColors.backgroundColor || '#000' }]}> 
-      <Icon name="user-x" size={48} color={channelColors.textColor || '#fff'} style={styles.errorIcon} />
-      <Text style={[styles.errorText, { color: channelColors.textColor || '#fff' }]}>Channel Not Found</Text>
-      <Text style={styles.errorSubtext}>
-        {"We couldn't retrieve this channel information"}
+    <View
+      style={[styles.errorContainer, { backgroundColor: channelColors.backgroundColor || '#000' }]}
+    >
+      <Icon
+        name="user-x"
+        size={48}
+        color={channelColors.textColor || '#fff'}
+        style={styles.errorIcon}
+      />
+      <Text style={[styles.errorText, { color: channelColors.textColor || '#fff' }]}>
+        Channel Not Found
       </Text>
+      <Text style={styles.errorSubtext}>{"We couldn't retrieve this channel information"}</Text>
       <Pressable
         style={[styles.errorButton, { borderColor: (channelColors.textColor || '#fff') + '44' }]}
         onPress={onRefresh}
       >
-        <Text style={[styles.errorButtonText, { color: channelColors.textColor || '#fff' }]}>Try Again</Text>
+        <Text style={[styles.errorButtonText, { color: channelColors.textColor || '#fff' }]}>
+          Try Again
+        </Text>
       </Pressable>
       <Pressable
-        style={[styles.errorButton, styles.secondaryButton, { borderColor: (channelColors.textColor || '#fff') + '44' }]}
+        style={[
+          styles.errorButton,
+          styles.secondaryButton,
+          { borderColor: (channelColors.textColor || '#fff') + '44' },
+        ]}
         onPress={() => router.back()}
       >
-        <Text style={[styles.errorButtonText, { color: channelColors.textColor || '#fff' }]}>Go Back</Text>
+        <Text style={[styles.errorButtonText, { color: channelColors.textColor || '#fff' }]}>
+          Go Back
+        </Text>
       </Pressable>
     </View>
   );
 
   // Tab options for category channels
-  const tabOptions: TabOption[] = useMemo(() => [
-    { id: 'top', label: 'Trending' },
-    { id: 'latest', label: 'New' },
-  ], []);
+  const tabOptions: TabOption[] = useMemo(
+    () => [
+      { id: 'top', label: 'Trending' },
+      { id: 'latest', label: 'New' },
+    ],
+    []
+  );
 
   // Tab navigation component for category channels (passed as children to ChannelHeader)
   const tabNavigation = useMemo(() => {
@@ -257,7 +279,7 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
       <TabNavigation
         tabs={tabOptions}
         activeTab={activeTab === 0 ? 'top' : 'latest'}
-        onTabPress={(tabId) => setActiveTab(tabId === 'top' ? 0 : 1)}
+        onTabPress={tabId => setActiveTab(tabId === 'top' ? 0 : 1)}
         textColor={channelColors.textColor || Colors.white}
         backgroundColor="transparent"
         viewMode={viewMode}
@@ -290,12 +312,14 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
   const isLoading = isLoadingChannel && !channelDataForFeed;
 
   return (
-    <View style={[
-      styles.container, 
-      { 
-        backgroundColor: Colors.black, 
-      }
-    ]}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: Colors.black,
+        },
+      ]}
+    >
       {/* Overlay back button row to match profile screen */}
       <View style={[styles.overlayRow, { top: overlayTop }]}>
         <Pressable
@@ -305,60 +329,59 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           style={styles.overlayBackButton}
         >
-          <BackArrowIcon
-            size={30}
-            color={Colors.white}
-          />
+          <BackArrowIcon size={30} color={Colors.white} />
         </Pressable>
       </View>
 
       {showErrorScreen ? (
         renderErrorScreen()
+      ) : channelDataForFeed && feedOption ? (
+        <FeedRenderer
+          feedOption={feedOption}
+          userDid={channelDataForFeed?.did}
+          headerComponent={headerComponent}
+          backgroundColor={Colors.black}
+          secondaryColor={channelColors.textColor}
+          isProfileLoading={isLoadingChannel && !channelDataForFeed}
+          isRefreshing={refreshing}
+          onRefresh={onRefresh}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          onPositionChange={handlePositionChange}
+          onVerticalScroll={scrollY => {
+            // Map first 250px of scroll into 0 -> 1 progress (more gradual), same as profile
+            const clamped = Math.max(0, Math.min(1, scrollY / 250));
+            headerScrollProgress.value = clamped;
+          }}
+          queryOptions={queryOptions}
+          isVisible={isRouteFocused}
+          visibilityKey={
+            uri
+              ? `channel:${uri}:${isCategoryChannel ? (activeTab === 0 ? 'top' : 'latest') : ''}`
+              : undefined
+          }
+        />
       ) : (
-        channelDataForFeed && feedOption ? (
-          <FeedRenderer
-            feedOption={feedOption}
-            userDid={channelDataForFeed?.did}
-            headerComponent={headerComponent}
-            backgroundColor={Colors.black}
-            secondaryColor={channelColors.textColor}
-            isProfileLoading={isLoadingChannel && !channelDataForFeed}
-            isRefreshing={refreshing}
-            onRefresh={onRefresh}
-            viewMode={viewMode}
-            onViewModeChange={setViewMode}
-            onPositionChange={handlePositionChange}
-            onVerticalScroll={(scrollY) => {
-              // Map first 250px of scroll into 0 -> 1 progress (more gradual), same as profile
-              const clamped = Math.max(0, Math.min(1, scrollY / 250));
-              headerScrollProgress.value = clamped;
-            }}
-            queryOptions={queryOptions}
-            isVisible={isRouteFocused}
-            visibilityKey={uri ? `channel:${uri}:${isCategoryChannel ? (activeTab === 0 ? 'top' : 'latest') : ''}` : undefined}
-          />
-        ) : (
-          <FeedRenderer
-            feedOption=""
-            userDid={undefined}
-            headerComponent={headerComponent}
-            backgroundColor={Colors.black}
-            secondaryColor={channelColors.textColor}
-            isProfileLoading={isLoadingChannel && !channelDataForFeed}
-            isRefreshing={refreshing}
-            onRefresh={onRefresh}
-            viewMode={viewMode}
-            onViewModeChange={setViewMode}
-            onPositionChange={handlePositionChange}
-            onVerticalScroll={(scrollY) => {
-              const clamped = Math.max(0, Math.min(1, scrollY / 250));
-              headerScrollProgress.value = clamped;
-            }}
-            queryOptions={{ enabled: false }}
-            isVisible={isRouteFocused}
-            visibilityKey={uri ? `channel:${uri}` : undefined}
-          />
-        )
+        <FeedRenderer
+          feedOption=""
+          userDid={undefined}
+          headerComponent={headerComponent}
+          backgroundColor={Colors.black}
+          secondaryColor={channelColors.textColor}
+          isProfileLoading={isLoadingChannel && !channelDataForFeed}
+          isRefreshing={refreshing}
+          onRefresh={onRefresh}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          onPositionChange={handlePositionChange}
+          onVerticalScroll={scrollY => {
+            const clamped = Math.max(0, Math.min(1, scrollY / 250));
+            headerScrollProgress.value = clamped;
+          }}
+          queryOptions={{ enabled: false }}
+          isVisible={isRouteFocused}
+          visibilityKey={uri ? `channel:${uri}` : undefined}
+        />
       )}
       {isLoading && (
         <View style={styles.loadingOverlay}>
@@ -370,11 +393,11 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
 });
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    minHeight: '100%', 
+  container: {
+    flex: 1,
+    minHeight: '100%',
     backgroundColor: Colors.black,
-    overflow: 'hidden'
+    overflow: 'hidden',
   },
   headerContainer: {
     minHeight: 280,
@@ -383,7 +406,7 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
   },
   errorContainer: {
-    flex: 1, 
+    flex: 1,
     backgroundColor: Colors.black,
     justifyContent: 'center',
     alignItems: 'center',
@@ -458,5 +481,3 @@ const styles = StyleSheet.create({
 });
 
 export default Channel;
-
-

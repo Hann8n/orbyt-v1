@@ -1,31 +1,15 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import {
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-  Alert,
-  Platform,
-  TextInput,
-} from 'react-native';
+import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
 import Icon, { Loading3FillIcon } from '../../ui/Icon';
 import { SavedAccount } from '../../../stores/userStore';
-import { analyzeOAuthError } from '../../../utils/oauthErrorHandler';
-import ProfileCache, { useProfile, CachedProfile } from '../../../services/cache/ProfileCache';
-import { Colors, Avatar } from '../../ui/UI';
-import { hexToRGBA } from '../../../utils/formatting/colorUtils';
-import UI from '../../ui/UI';
+import { analyzeOAuthError } from '../../../utils/errors/oauth';
+import ProfileService, { useProfile, CachedProfile } from '../../../services/data/ProfileService';
+import { Colors } from '../../ui/UI';
 import AuthorItem from '../../ui/AuthorItem';
-import { useQueryClient } from '@tanstack/react-query';
 import VerticalListSheet from '../../ui/VerticalListSheet';
 import { useAccountManagement, useAuth } from '../../../stores/userStore';
-import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
-import { PDSDiscoveryService } from '../../../services/PDSDiscoveryService';
-import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import { safeDismiss, safePresent } from '../../../utils/truesheet/trueSheetUtils';
-import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
+import { safeDismiss, safePresent } from '../../../utils/components/truesheet/utils';
 import CustomPDSInputSheet from '../../ui/CustomPDSInputSheet';
 import { useVisibilityOverlay } from '../../../hooks';
 
@@ -47,40 +31,24 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
   onDismiss,
   onAccountSwitch,
   onAddAccount,
-  onLogout,
 }) => {
   useVisibilityOverlay(visible);
   const [accounts, setAccounts] = useState<AccountWithProfile[]>([]);
   const [loading, setLoading] = useState(false);
   const [switchingAccount, setSwitchingAccount] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
-  const [isAddingAccount, setIsAddingAccount] = useState(false);
   const [showUsernameInput, setShowUsernameInput] = useState(false);
-  const queryClient = useQueryClient();
-  
-  // Glass effect support - disabled for consistent black background
-  const shouldUseGlass = false;
-
+  const [_isAddingAccount, setIsAddingAccount] = useState(false);
 
   // User store hooks
-  const { 
-    savedAccounts, 
-    switchAccount, 
-    removeAccount,
-    activeAccountDid,
-  } = useAccountManagement();
-  
-  const { 
-    isAuthenticating, 
-    isSwitchingAccount,
-    signIn 
-  } = useAuth();
+  const { savedAccounts, switchAccount, removeAccount, activeAccountDid } = useAccountManagement();
 
+  const { isAuthenticating, isSwitchingAccount, signIn } = useAuth();
 
   // Get current active account from store DID to avoid stale isActive flags
   const inferredActive = accounts.find(acc => acc.did === activeAccountDid);
   const { data: activeProfile } = useProfile(inferredActive?.handle || null);
-  
+
   // Get custom colors for active account
   const customColors = activeProfile?.profileColors;
 
@@ -88,35 +56,36 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
     // Set accounts immediately with basic data to prevent sheet expansion
     const savedAccountsData = savedAccounts;
     setAccounts(savedAccountsData.map(account => ({ ...account })));
-    
+
     setLoading(true);
     try {
       // Enhance accounts with cached profile data asynchronously
       const accountsWithProfiles = await Promise.all(
-        savedAccountsData.map(async (account) => {
+        savedAccountsData.map(async account => {
           try {
             // Try to get cached profile data for each account (using DID)
             // First try to get from cache, then refresh if needed
-            let cachedProfile = await ProfileCache.getProfileByDid(account.did);
-            
+            let cachedProfile = await ProfileService.getProfileByDid(account.did);
+
             // If no cached data or cache is stale, try to refresh
             if (!cachedProfile) {
               try {
-                cachedProfile = await ProfileCache.refreshProfileByDid(account.did);
-              } catch (error) {
+                cachedProfile = await ProfileService.refreshProfileByDid(account.did);
+              } catch (error: unknown) {
+                // ignore
               }
             }
-            
+
             return {
               ...account,
-              cachedProfile,
+              cachedProfile: cachedProfile || undefined,
             };
           } catch (error) {
             return account;
           }
         })
       );
-      
+
       setAccounts(accountsWithProfiles);
     } catch (error) {
     } finally {
@@ -140,75 +109,72 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
     }
   }, [visible]);
 
-  const handleSwitchAccount = useCallback(async (account: AccountWithProfile) => {
-    if (account.did === activeAccountDid) {
-      return;
-    }
-
-    setSwitchingAccount(account.did);
-    // Proactively dismiss the sheet before switching to avoid a blank sheet during app refresh
-    try {
-      onDismiss();
-    } catch (e) {
-      // no-op safeguard
-    }
-    try {
-      // Use the user store to switch accounts with completion callback
-      await switchAccount(account.did, () => {
-        // This callback is called when all data is loaded
-        // Call the parent callback
-        onAccountSwitch(account);
-        
-        // Close the modal
-        onDismiss();
-      });
-      
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to switch account';
-      
-      // Use universal OAuth error analysis
-      const errorInfo = analyzeOAuthError(error);
-      
-      if (errorInfo.requiresReauth) {
-        // Dismiss the account switcher first
-        onDismiss();
-        
-        // Small delay to ensure modal is dismissed before showing alert
-        setTimeout(() => {
-          Alert.alert(
-            'Session Expired', 
-            `Your session for @${account.handle} has expired. You need to sign in again.`,
-            [
-              { text: 'Cancel', style: 'cancel' },
-              { 
-                text: 'Sign In', 
-                onPress: async () => {
-                  await signIn(account.originalIdentifier);
-                  await loadAccounts();
-                }
-              },
-            ]
-          );
-        }, 300);
-      } else {
-        Alert.alert('Error', 'Failed to switch account. Please try again.');
+  const handleSwitchAccount = useCallback(
+    async (account: AccountWithProfile) => {
+      if (account.did === activeAccountDid) {
+        return;
       }
-    } finally {
-      setSwitchingAccount(null);
-    }
-  }, [onAccountSwitch, onDismiss, switchAccount]);
 
-  const handleRemoveAccount = useCallback(async (account: AccountWithProfile) => {
-    
-    const isActiveAccount = account.did === activeAccountDid;
-    const alertMessage = isActiveAccount 
-      ? `Are you sure you want to remove ${account.displayName || account.handle}? This will sign you out.`
-      : `Are you sure you want to remove ${account.displayName || account.handle}?`;
-    
-    Alert.alert(
-      'Remove Account',
-      alertMessage,
-      [
+      setSwitchingAccount(account.did);
+      // Proactively dismiss the sheet before switching to avoid a blank sheet during app refresh
+      try {
+        onDismiss();
+      } catch (_e) {
+        // no-op safeguard
+      }
+      try {
+        // Use the user store to switch accounts with completion callback
+        await switchAccount(account.did, () => {
+          // This callback is called when all data is loaded
+          // Call the parent callback
+          onAccountSwitch(account);
+
+          // Close the modal
+          onDismiss();
+        });
+      } catch (error) {
+        // Use universal OAuth error analysis
+        const errorInfo = analyzeOAuthError(error);
+
+        if (errorInfo.requiresReauth) {
+          // Dismiss the account switcher first
+          onDismiss();
+
+          // Small delay to ensure modal is dismissed before showing alert
+          setTimeout(() => {
+            Alert.alert(
+              'Session Expired',
+              `Your session for @${account.handle} has expired. You need to sign in again.`,
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Sign In',
+                  onPress: async () => {
+                    await signIn(account.originalIdentifier);
+                    await loadAccounts();
+                  },
+                },
+              ]
+            );
+          }, 300);
+        } else {
+          Alert.alert('Error', 'Failed to switch account. Please try again.');
+        }
+      } finally {
+        setSwitchingAccount(null);
+      }
+    },
+    [onAccountSwitch, onDismiss, switchAccount]
+  );
+
+  const handleRemoveAccount = useCallback(
+    async (account: AccountWithProfile) => {
+      const isActiveAccount = account.did === activeAccountDid;
+      const alertMessage = isActiveAccount
+        ? `Are you sure you want to remove ${account.displayName || account.handle}? This will sign you out.`
+        : `Are you sure you want to remove ${account.displayName || account.handle}?`;
+
+      Alert.alert('Remove Account', alertMessage, [
         {
           text: 'Cancel',
           style: 'cancel',
@@ -219,7 +185,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
           onPress: async () => {
             try {
               await removeAccount(account.did);
-              
+
               // If this was the active account, the user will be signed out
               // so we should dismiss the modal
               if (isActiveAccount) {
@@ -228,54 +194,44 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
                 // For non-active accounts, just update the local UI state
                 setAccounts(prevAccounts => prevAccounts.filter(acc => acc.did !== account.did));
               }
-              
             } catch (error) {
-              
               // Use simple error handler
-              const { shouldShowError, getErrorMessage } = await import('../../../utils/errorHandler');
-              
+              const { shouldShowError, getErrorMessage } =
+                await import('../../../utils/errors/errorHandler');
+
               if (shouldShowError(error)) {
                 Alert.alert('Error', getErrorMessage(error));
               }
             }
           },
         },
-      ]
-    );
-  }, [removeAccount, activeAccountDid, onDismiss]);
+      ]);
+    },
+    [removeAccount, activeAccountDid, onDismiss]
+  );
 
   const handleBlueskyLogin = useCallback(async () => {
     setIsAddingAccount(true);
-    
-    try {
 
+    try {
       await signIn('https://bsky.social');
-      
+
       // Reload accounts to show the new one
       await loadAccounts();
-      
-
     } catch (error) {
       // Use simple error handler
-      const { isUserCancellation, getErrorMessage } = await import('../../../utils/errorHandler');
-      
+      const { isUserCancellation, getErrorMessage } =
+        await import('../../../utils/errors/errorHandler');
+
       // Don't show errors for user cancellation
       if (!isUserCancellation(error)) {
         const errorMessage = getErrorMessage(error);
-        Alert.alert(
-          'OAuth Sign-in Failed',
-          errorMessage,
-          [
-            { text: 'OK', style: 'cancel' }
-          ]
-        );
+        Alert.alert('OAuth Sign-in Failed', errorMessage, [{ text: 'OK', style: 'cancel' }]);
       }
-      
     } finally {
       setIsAddingAccount(false);
     }
   }, [signIn, loadAccounts]);
-
 
   const handleBlueskyAddAccount = useCallback(async () => {
     // Use TrueSheet global method to dismiss the main sheet first
@@ -284,7 +240,8 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
       // Wait for dismissal to complete before proceeding with OAuth
       await new Promise(resolve => setTimeout(resolve, 200));
       await handleBlueskyLogin();
-    } catch (e) {
+    } catch (error: unknown) {
+      // ignore
     }
   }, [handleBlueskyLogin]);
 
@@ -297,27 +254,29 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
       setShowUsernameInput(true); // Set state to true first
       // Then use TrueSheet global method to present the custom PDS input sheet
       await safePresent('custom-pds-input');
-    } catch (error) {
+    } catch (error: unknown) {
+      // ignore
     }
   }, []);
 
-  const handleCustomPDSSignIn = useCallback(async (identifier: string) => {
-    setIsAddingAccount(true);
-    
-    try {
+  const handleCustomPDSSignIn = useCallback(
+    async (identifier: string) => {
+      setIsAddingAccount(true);
 
-      await signIn(identifier);
-      
-      // Reload accounts to show the new one
-      await loadAccounts();
-      
-    } catch (error) {
-      // Re-throw the error so the CustomPDSInputSheet can handle it
-      throw error;
-    } finally {
-      setIsAddingAccount(false);
-    }
-  }, [signIn, loadAccounts]);
+      try {
+        await signIn(identifier);
+
+        // Reload accounts to show the new one
+        await loadAccounts();
+      } catch (error) {
+        // Re-throw the error so the CustomPDSInputSheet can handle it
+        throw error;
+      } finally {
+        setIsAddingAccount(false);
+      }
+    },
+    [signIn, loadAccounts]
+  );
 
   // Prepare list data including the add account options
   const listData = useMemo(() => {
@@ -340,122 +299,130 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
     return accountItems;
   }, [accounts, onAddAccount, editMode, savedAccounts.length]);
 
-  const renderAccountItem = useCallback(({ item }: { item: typeof listData[0] }) => {
-    if ((item as any).type === 'addButtons') {
-      return (
-        <View style={styles.addAccountSection}>
-          <Text style={styles.addAccountHeader}>Add Account</Text>
-          <View style={styles.addButtonsContainer}>
-            <Pressable
-              style={[
-                styles.addAccountButton,
-                styles.addAccountButtonHalf
-              ]}
-              onPress={handleBlueskyAddAccount}
-              disabled={isAuthenticating}
-            >
-              <View style={styles.buttonContent}>
-                {isAuthenticating ? (
-                  <Loading3FillIcon size={24} color={Colors.white} style={{ marginRight: 8 }} />
-                ) : (
-                  <Icon name="bluesky-icon" size={20} color={Colors.bluesky} style={{ marginRight: 8 }} />
-                )}
-                <Text style={styles.addAccountButtonText}>
-                  {isAuthenticating ? 'Signing in...' : 'Bluesky'}
-                </Text>
-              </View>
-            </Pressable>
+  const renderAccountItem = useCallback(
+    ({ item }: { item: (typeof listData)[0] }) => {
+      if ((item as any).type === 'addButtons') {
+        return (
+          <View style={styles.addAccountSection}>
+            <Text style={styles.addAccountHeader}>Add Account</Text>
+            <View style={styles.addButtonsContainer}>
+              <Pressable
+                style={[styles.addAccountButton, styles.addAccountButtonHalf]}
+                onPress={handleBlueskyAddAccount}
+                disabled={isAuthenticating}
+              >
+                <View style={styles.buttonContent}>
+                  {isAuthenticating ? (
+                    <Loading3FillIcon size={24} color={Colors.white} style={{ marginRight: 8 }} />
+                  ) : (
+                    <Icon
+                      name="bluesky-icon"
+                      size={20}
+                      color={Colors.bluesky}
+                      style={{ marginRight: 8 }}
+                    />
+                  )}
+                  <Text style={styles.addAccountButtonText}>
+                    {isAuthenticating ? 'Signing in...' : 'Bluesky'}
+                  </Text>
+                </View>
+              </Pressable>
 
-            <Pressable
-              style={[
-                styles.addAccountButton,
-                styles.addAccountButtonHalf
-              ]}
-              onPress={handleCustomPDSAddAccount}
-              disabled={isAuthenticating}
-            >
-              <View style={styles.buttonContent}>
-                <Icon name="at" size={20} color={Colors.white} style={{ marginRight: 8 }} />
-                <Text style={styles.addAccountButtonText}>
-                  Network
-                </Text>
-              </View>
-            </Pressable>
+              <Pressable
+                style={[styles.addAccountButton, styles.addAccountButtonHalf]}
+                onPress={handleCustomPDSAddAccount}
+                disabled={isAuthenticating}
+              >
+                <View style={styles.buttonContent}>
+                  <Icon name="at" size={20} color={Colors.white} style={{ marginRight: 8 }} />
+                  <Text style={styles.addAccountButtonText}>Network</Text>
+                </View>
+              </Pressable>
+            </View>
           </View>
-        </View>
-      );
-    }
+        );
+      }
 
+      const account = item.data as AccountWithProfile;
+      const isActive = account.did === activeAccountDid; // derive from store to avoid stale flags
+      const isSwitching = isSwitchingAccount && switchingAccount === account.did;
 
-    const account = item.data as AccountWithProfile;
-    const isActive = account.did === activeAccountDid; // derive from store to avoid stale flags
-    const isSwitching = isSwitchingAccount && switchingAccount === account.did;
-    
-    const displayName = account.cachedProfile?.displayName || account.displayName || account.handle;
-    const handle = account.cachedProfile?.handle || account.handle;
-    
-    if (isSwitching) {
-      return (
-        <View style={[styles.accountButton, styles.loadingContainer]}>
-          <Loading3FillIcon size={24} color={Colors.white} />
-          <Text style={styles.loadingText}>
-            Switching to <Text 
-              style={styles.loadingAccountName}
-              allowFontScaling={false}
-            >
-              {displayName}
+      const displayName =
+        account.cachedProfile?.displayName || account.displayName || account.handle;
+      const handle = account.cachedProfile?.handle || account.handle;
+
+      if (isSwitching) {
+        return (
+          <View style={[styles.accountButton, styles.loadingContainer]}>
+            <Loading3FillIcon size={24} color={Colors.white} />
+            <Text style={styles.loadingText}>
+              Switching to{' '}
+              <Text style={styles.loadingAccountName} allowFontScaling={false}>
+                {displayName}
+              </Text>
             </Text>
-          </Text>
+          </View>
+        );
+      }
+
+      return (
+        <View style={styles.accountButton}>
+          <AuthorItem
+            handle={handle}
+            displayName={displayName}
+            avatar={account.cachedProfile?.avatar}
+            size="large"
+            showRing={true}
+            showArrow={false}
+            showDeleteButton={editMode && savedAccounts.length > 1}
+            showCheckmark={isActive && !editMode}
+            onDeletePress={() => handleRemoveAccount(account)}
+            backgroundColor={Colors.darkGray}
+            onPress={() => {
+              if (!isActive && !editMode) {
+                // Only allow switching if there are multiple accounts
+                if (savedAccounts.length > 1) {
+                  handleSwitchAccount(account);
+                }
+              }
+            }}
+            style={isActive ? styles.activeAccountButton : undefined}
+          />
         </View>
       );
-    }
+    },
+    [
+      switchingAccount,
+      editMode,
+      customColors,
+      handleSwitchAccount,
+      handleRemoveAccount,
+      handleBlueskyAddAccount,
+      handleCustomPDSAddAccount,
+      isAuthenticating,
+      savedAccounts.length,
+      activeAccountDid,
+    ]
+  );
 
-    return (
-      <View style={styles.accountButton}>
-        <AuthorItem
-          handle={handle}
-          displayName={displayName}
-          avatar={account.cachedProfile?.avatar}
-          size="large"
-          showRing={true}
-          showArrow={false}
-          showDeleteButton={editMode && savedAccounts.length > 1}
-          showCheckmark={isActive && !editMode}
-          onDeletePress={() => handleRemoveAccount(account)}
-          backgroundColor={Colors.darkGray}
-          onPress={() => {
-            if (!isActive && !editMode) {
-              // Only allow switching if there are multiple accounts
-              if (savedAccounts.length > 1) {
-                handleSwitchAccount(account);
-              }
-            }
-          }}
-          style={isActive ? styles.activeAccountButton : undefined}
-        />
-      </View>
-    );
-  }, [switchingAccount, editMode, customColors, handleSwitchAccount, handleRemoveAccount, handleBlueskyAddAccount, handleCustomPDSAddAccount, isAuthenticating, savedAccounts.length, activeAccountDid]);
-
-  const keyExtractor = useCallback((item: typeof listData[0]) => {
+  const keyExtractor = useCallback((item: (typeof listData)[0]) => {
     const type = (item as any).type;
     if (type === 'addButtons') return 'addButtons';
     return item.data.id;
   }, []);
 
   // Custom header button for edit mode toggle (only show when there are multiple accounts)
-  const customHeaderButton = savedAccounts.length > 1 ? (
-    <Pressable
-      onPress={() => {
-        setEditMode(!editMode);
-      }}
-      style={styles.headerEditButton}
-    >
-      <Text style={styles.headerEditButtonText}>
-        {editMode ? 'Done' : 'Edit'}
-      </Text>
-    </Pressable>
-  ) : null;
+  const customHeaderButton =
+    savedAccounts.length > 1 ? (
+      <Pressable
+        onPress={() => {
+          setEditMode(!editMode);
+        }}
+        style={styles.headerEditButton}
+      >
+        <Text style={styles.headerEditButtonText}>{editMode ? 'Done' : 'Edit'}</Text>
+      </Pressable>
+    ) : null;
 
   return (
     <>
@@ -468,14 +435,13 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
         detents={['auto']}
         scrollable={false}
       >
-        
         {loading ? (
           <View style={styles.loadingContainer}>
             <Loading3FillIcon size={48} color={Colors.lightGray} />
           </View>
         ) : (
           <View style={styles.listContent}>
-            {listData.map((item) => (
+            {listData.map(item => (
               <React.Fragment key={keyExtractor(item)}>
                 {renderAccountItem({ item })}
               </React.Fragment>
@@ -483,16 +449,16 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
           </View>
         )}
       </VerticalListSheet>
-      
-       <CustomPDSInputSheet
-         visible={showUsernameInput}
-         onDismiss={async () => {
-           setShowUsernameInput(false);
-         }}
-         onSignIn={handleCustomPDSSignIn}
-         title="Network sign in"
-         name="custom-pds-input"
-       />
+
+      <CustomPDSInputSheet
+        visible={showUsernameInput}
+        onDismiss={async () => {
+          setShowUsernameInput(false);
+        }}
+        onSignIn={handleCustomPDSSignIn}
+        title="Network sign in"
+        name="custom-pds-input"
+      />
     </>
   );
 };
@@ -595,4 +561,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default AccountSwitcher; 
+export default AccountSwitcher;

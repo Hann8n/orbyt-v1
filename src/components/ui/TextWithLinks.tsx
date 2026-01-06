@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Text, Alert, Linking } from 'react-native';
 import { StyleSheet } from 'react-native';
 import { useMappingHelper } from '@shopify/flash-list';
-import type { RichTextFacet } from '../../utils/richTextParser';
+import type { RichTextFacet } from '../../utils/types/richText';
 
 interface TextPart {
   text: string;
@@ -13,7 +13,6 @@ interface TextPart {
   handle?: string;
   url?: string;
 }
-
 
 interface TextWithLinksProps {
   text: string;
@@ -30,7 +29,7 @@ const TextWithLinksBase: React.FC<TextWithLinksProps> = ({
   numberOfLines,
   onAuthorPress,
   onHashtagPress,
-  facets
+  facets,
 }) => {
   const [textParts, setTextParts] = useState<TextPart[]>([]);
   const { getMappingKey } = useMappingHelper();
@@ -54,17 +53,11 @@ const TextWithLinksBase: React.FC<TextWithLinksProps> = ({
       if (canOpen) {
         await Linking.openURL(mailtoUrl);
       } else {
-        Alert.alert(
-          "Cannot Open Email",
-          "No email app is configured on this device."
-        );
+        Alert.alert('Cannot Open Email', 'No email app is configured on this device.');
       }
     } catch (error: unknown) {
       console.error('Error handling email:', error);
-      Alert.alert(
-        "Error",
-        "Could not open email application. Please check your device settings."
-      );
+      Alert.alert('Error', 'Could not open email application. Please check your device settings.');
     }
   };
 
@@ -84,18 +77,24 @@ const TextWithLinksBase: React.FC<TextWithLinksProps> = ({
     for (const facet of sortedFacets) {
       // Add text before the facet
       if (facet.index.byteStart > lastIndex) {
-        const beforeText = decoder.decode(new TextEncoder().encode(text).slice(lastIndex, facet.index.byteStart));
+        const beforeText = decoder.decode(
+          new TextEncoder().encode(text).slice(lastIndex, facet.index.byteStart)
+        );
         if (beforeText) {
           parts.push({ text: beforeText });
         }
       }
 
       // Add the facet text
-      const facetText = decoder.decode(new TextEncoder().encode(text).slice(facet.index.byteStart, facet.index.byteEnd));
-      
+      const facetText = decoder.decode(
+        new TextEncoder().encode(text).slice(facet.index.byteStart, facet.index.byteEnd)
+      );
+
       // Determine the type of facet
       const linkFeature = facet.features.find(f => f.$type === 'app.bsky.richtext.facet#link');
-      const mentionFeature = facet.features.find(f => f.$type === 'app.bsky.richtext.facet#mention');
+      const mentionFeature = facet.features.find(
+        f => f.$type === 'app.bsky.richtext.facet#mention'
+      );
       const tagFeature = facet.features.find(f => f.$type === 'app.bsky.richtext.facet#tag');
 
       if (linkFeature && linkFeature.uri) {
@@ -143,7 +142,7 @@ const TextWithLinksBase: React.FC<TextWithLinksProps> = ({
       {textParts.map((part, index) => {
         // Use getMappingKey to generate optimized keys for FlashList recycling
         const mappingKey = getMappingKey(part.text, index);
-        
+
         if (part.isAuthor && part.handle) {
           return (
             <Text

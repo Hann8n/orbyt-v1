@@ -21,7 +21,7 @@ interface VideoPostDraftState {
 
 export const useVideoPostDraftStore = create<VideoPostDraftState>((set, get) => ({
   draft: null,
-  setDraft: (draftData) => {
+  setDraft: draftData => {
     const currentDraft = get().draft || {
       videoPath: null,
       segments: null,
@@ -43,8 +43,3 @@ export const useVideoPostDraftStore = create<VideoPostDraftState>((set, get) => 
   clearDraft: () => set({ draft: null }),
   getDraft: () => get().draft,
 }));
-
-
-
-
-

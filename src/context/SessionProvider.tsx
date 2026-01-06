@@ -42,7 +42,8 @@ export function SessionProvider({ children }: PropsWithChildren) {
         },
         session: isAuthenticated ? 'authenticated' : null,
         isLoading: isAuthenticating,
-      }}>
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

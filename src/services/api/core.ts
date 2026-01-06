@@ -23,11 +23,11 @@ export class AtprotoCore {
     try {
       const { useUserStore } = await import('../../stores/userStore');
       const userStore = useUserStore.getState();
-      
+
       if (userStore.agent && userStore.currentUser?.did) {
         return { did: userStore.currentUser.did, type: 'oauth' };
       }
-      
+
       throw new Error('No valid session found');
     } catch (error) {
       logger.error('Session check failed', error, { component: 'AtprotoCore' });
@@ -42,11 +42,11 @@ export class AtprotoCore {
     try {
       const { useUserStore } = await import('../../stores/userStore');
       const userStore = useUserStore.getState();
-      
+
       if (userStore.currentUser?.did) {
         return userStore.currentUser.did;
       }
-      
+
       logger.debug('No current user found', { component: 'AtprotoCore' });
       return null;
     } catch (error) {
@@ -65,16 +65,16 @@ export class AtprotoCore {
       // Import userStore to get the current agent
       const { useUserStore } = await import('../../stores/userStore');
       const userStore = useUserStore.getState();
-      
+
       // Check if session restoration is in progress
       if (userStore.isAuthenticating || userStore.isSwitchingAccount) {
         throw new Error('Session restoration in progress');
       }
-      
+
       if (userStore.agent) {
         return { api: userStore.agent.api, isOAuth: true };
       }
-      
+
       throw new Error('No API client available');
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';

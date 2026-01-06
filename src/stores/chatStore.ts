@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { storageAdapter } from '../utils/storage';
+import { storageAdapter } from '../utils/storage/storage';
 import { Message, Conversation, ProfileViewBasic } from '../services/ChatService';
-import { ChatMessage, convertMessagesToGiftedChat } from '../utils/chatHelpers';
+import { ChatMessage, convertMessagesToGiftedChat } from '../utils/chat/helpers';
 
 interface ChatState {
   // Cache messages by conversation ID
@@ -11,13 +11,13 @@ interface ChatState {
   conversationsCache: Conversation[];
   // Last fetch timestamp for conversations
   conversationsLastFetch: number | null;
-  
+
   // Actions
   setMessages: (conversationId: string, messages: Message[]) => void;
   addMessage: (conversationId: string, message: Message) => void;
   updateMessage: (conversationId: string, messageId: string, updates: Partial<Message>) => void;
   getMessages: (conversationId: string) => Message[];
-  
+
   // GiftedChat conversion methods - store as single source of truth
   getGiftedChatMessages: (
     conversationId: string,
@@ -25,14 +25,14 @@ interface ChatState {
     currentUserAvatar?: string,
     otherUser?: ProfileViewBasic
   ) => ChatMessage[];
-  
+
   setConversations: (conversations: Conversation[]) => void;
   updateConversation: (conversationId: string, updates: Partial<Conversation>) => void;
   getConversations: () => Conversation[];
-  
+
   // Update cache when new messages come from notifications
   updateFromConversations: (conversations: Conversation[]) => void;
-  
+
   // Clear cache
   clearCache: () => void;
   clearConversation: (conversationId: string) => void;
@@ -44,23 +44,23 @@ export const useChatStore = create<ChatState>()(
       messagesCache: {},
       conversationsCache: [],
       conversationsLastFetch: null,
-      
+
       setMessages: (conversationId, messages) => {
-        set((state) => ({
+        set(state => ({
           messagesCache: {
             ...state.messagesCache,
             [conversationId]: messages,
           },
         }));
       },
-      
+
       addMessage: (conversationId, message) => {
-        set((state) => {
+        set(state => {
           const existing = state.messagesCache[conversationId] || [];
           // Check if message already exists (avoid duplicates)
           const exists = existing.some(m => m.id === message.id);
           if (exists) return state;
-          
+
           // Add to beginning (newest first)
           return {
             messagesCache: {
@@ -70,13 +70,11 @@ export const useChatStore = create<ChatState>()(
           };
         });
       },
-      
+
       updateMessage: (conversationId, messageId, updates) => {
-        set((state) => {
+        set(state => {
           const messages = state.messagesCache[conversationId] || [];
-          const updated = messages.map(m => 
-            m.id === messageId ? { ...m, ...updates } : m
-          );
+          const updated = messages.map(m => (m.id === messageId ? { ...m, ...updates } : m));
           return {
             messagesCache: {
               ...state.messagesCache,
@@ -85,66 +83,68 @@ export const useChatStore = create<ChatState>()(
           };
         });
       },
-      
-      getMessages: (conversationId) => {
+
+      getMessages: conversationId => {
         return get().messagesCache[conversationId] || [];
       },
-      
+
       // Get messages in GiftedChat format - store as single source of truth
       getGiftedChatMessages: (conversationId, currentUserId, currentUserAvatar, otherUser) => {
         const messages = get().messagesCache[conversationId] || [];
         return convertMessagesToGiftedChat(messages, currentUserId, currentUserAvatar, otherUser);
       },
-      
-      setConversations: (conversations) => {
+
+      setConversations: conversations => {
         set({
           conversationsCache: conversations,
           conversationsLastFetch: Date.now(),
         });
       },
-      
+
       updateConversation: (conversationId, updates) => {
-        set((state) => {
+        set(state => {
           const updated = state.conversationsCache.map(conv =>
             conv.id === conversationId ? { ...conv, ...updates } : conv
           );
           return { conversationsCache: updated };
         });
       },
-      
+
       getConversations: () => {
         return get().conversationsCache;
       },
-      
+
       // When conversations are fetched (from polling or notifications),
       // update the cache with latest message info
-      updateFromConversations: (conversations) => {
+      updateFromConversations: conversations => {
         const state = get();
         const now = Date.now();
-        
+
         // Get current user DID to determine sent/received (lazy import to avoid circular deps)
         let currentUserDid: string | null = null;
         try {
           // Use dynamic import to avoid circular dependency
           const userStore = require('./userStore').useUserStore;
           currentUserDid = userStore.getState().currentUser?.did || null;
-        } catch {}
-        
+        } catch {
+          // ignore
+        }
+
         // Update conversations cache
         set({
           conversationsCache: conversations,
           conversationsLastFetch: now,
         });
-        
+
         // For each conversation, if we have a lastMessage, update the messages cache
-        conversations.forEach((conv) => {
+        conversations.forEach(conv => {
           if (conv.lastMessage && !('deleted' in conv.lastMessage)) {
             const lastMsg = conv.lastMessage as any;
             if (!lastMsg.sender || !lastMsg.sender.did) return;
-            
+
             const senderDid = lastMsg.sender.did;
             const isSent = currentUserDid ? senderDid === currentUserDid : false;
-            
+
             const message: Message = {
               id: lastMsg.id,
               rev: lastMsg.rev,
@@ -160,7 +160,7 @@ export const useChatStore = create<ChatState>()(
               createdAt: lastMsg.sentAt,
               senderDid: senderDid,
             };
-            
+
             // Add to cache if it's newer than what we have
             const cached = state.messagesCache[conv.id] || [];
             const exists = cached.some(m => m.id === message.id);
@@ -170,7 +170,7 @@ export const useChatStore = create<ChatState>()(
           }
         });
       },
-      
+
       clearCache: () => {
         set({
           messagesCache: {},
@@ -178,9 +178,9 @@ export const useChatStore = create<ChatState>()(
           conversationsLastFetch: null,
         });
       },
-      
-      clearConversation: (conversationId) => {
-        set((state) => {
+
+      clearConversation: conversationId => {
+        set(state => {
           const { [conversationId]: _, ...rest } = state.messagesCache;
           return { messagesCache: rest };
         });
@@ -189,7 +189,7 @@ export const useChatStore = create<ChatState>()(
     {
       name: 'chat-store',
       storage: createJSONStorage(() => storageAdapter),
-      partialize: (state) => ({
+      partialize: state => ({
         // Only persist messages cache and conversations
         messagesCache: state.messagesCache,
         conversationsCache: state.conversationsCache,
@@ -198,4 +198,3 @@ export const useChatStore = create<ChatState>()(
     }
   )
 );
-

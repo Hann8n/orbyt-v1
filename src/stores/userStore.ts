@@ -8,23 +8,23 @@ import { useEffect } from 'react';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 // Note: Using individual selectors instead of shallow comparison for better performance
-import { storageAdapter, storageHelpers } from '../utils/storage';
+import { storageAdapter, storageHelpers } from '../utils/storage/storage';
 import * as SecureStore from 'expo-secure-store';
 import { InteractionManager } from 'react-native';
 import { Agent } from '@atproto/api';
 import { AtProtoOAuthService, OAuthSession } from '../services/auth';
-import ProfileCache from '../services/cache/ProfileCache';
+import ProfileService from '../services/data/ProfileService';
 import { AtprotoService } from '../services/api/AtprotoService';
-import { isUserCancellation, getErrorMessage } from '../utils/errorHandler';
-import { analyzeOAuthError } from '../utils/oauthErrorHandler';
+import { isUserCancellation, getErrorMessage } from '../utils/errors/errorHandler';
+import { analyzeOAuthError } from '../utils/errors/oauth';
 import { logger } from '../utils/logger';
 
-import { ModerationService } from '../services/api/moderation/ContentFilterService';
+import { ModerationService } from '../services/moderation/ModerationService';
 import type { OrbytProfileRecord } from '../services/api/types';
-import { isOrbytChannel } from '../utils/orbytChannels';
-import { queryClient } from '../utils/queryClient';
+import { isOrbytChannel } from '../utils/channels/orbyt';
+import { queryClient } from '../utils/query/queryClient';
 import { usePostInteractionStore } from './postInteractionStore';
-import { queryKeys } from '../utils/queryKeys';
+import { queryKeys } from '../utils/query/queryKeys';
 
 // Note: FeedService is no longer needed here - React Query handles all feed caching
 
@@ -319,7 +319,7 @@ export const useUserStore = create<UserState>()(
           });
 
           // Cache the profile
-          await ProfileCache.cacheProfiles([userProfile]);
+          await ProfileService.cacheProfiles([userProfile]);
 
           // Initialize orbyt profile record (join date, baseline colors/channels)
           // Defer until after interactions complete to improve startup performance
@@ -419,7 +419,7 @@ export const useUserStore = create<UserState>()(
           });
 
           // Cache the profile
-          await ProfileCache.cacheProfiles([userProfile]);
+          await ProfileService.cacheProfiles([userProfile]);
 
           // Initialize orbyt profile record (join date, baseline colors/channels)
           // Defer until after interactions complete to improve startup performance
@@ -1376,8 +1376,8 @@ export const useUserStore = create<UserState>()(
           const moderationSettings = await ModerationService.fetchModerationSettings(agent);
 
           if (currentUser?.did) {
-            const { queryClient } = await import('../utils/queryClient');
-            const { queryKeys } = await import('../utils/queryKeys');
+            const { queryClient } = await import('../utils/query/queryClient');
+            const { queryKeys } = await import('../utils/query/queryKeys');
             queryClient.setQueryData(
               queryKeys.moderation.byUser(currentUser.did),
               moderationSettings
@@ -1715,10 +1715,10 @@ export const useProfileCacheSync = () => {
 
   useEffect(() => {
     if (currentUser?.did) {
-      ProfileCache.setCurrentUserDid(currentUser.did);
+      ProfileService.setCurrentUserDid(currentUser.did);
     }
     if (currentUser?.handle) {
-      ProfileCache.setCurrentUserHandle(currentUser.handle);
+      ProfileService.setCurrentUserHandle(currentUser.handle);
     }
   }, [currentUser?.did, currentUser?.handle]);
 
@@ -1731,7 +1731,7 @@ export const useProfilePrecache = () => {
 
   useEffect(() => {
     if (currentUser?.did) {
-      ProfileCache.precacheCurrentUserProfile();
+      ProfileService.precacheCurrentUserProfile();
     }
   }, [currentUser?.did]);
 };
@@ -1756,7 +1756,7 @@ export const useModeration = () => {
       return ModerationService.fetchModerationSettings(agent);
     },
     saveModerationSettings: async (
-      settings: import('../services/ModerationTypes').ModerationSettings
+      settings: import('../services/moderation/ModerationTypes').ModerationSettings
     ) => {
       if (!agent) {
         throw new Error('No agent available. Please ensure you are logged in.');

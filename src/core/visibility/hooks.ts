@@ -31,7 +31,7 @@ interface FeedVisibilityResult {
 
 /**
  * Simplified visibility hook leveraging FlashList 2.0's native viewability
- * 
+ *
  * Key optimizations:
  * - FlashList's onViewableItemsChanged runs on native thread (already optimized)
  * - Uses ref for immediate synchronous access
@@ -41,9 +41,9 @@ export function useFeedVisibility({
   isActive,
   viewabilityConfig,
 }: FeedVisibilityOptions): FeedVisibilityResult {
-  const appState = useVisibilityCoreStore((state) => state.appState);
-  const activeTab = useVisibilityCoreStore((state) => state.activeTab);
-  const activeRoute = useVisibilityCoreStore((state) => state.activeRoute);
+  const appState = useVisibilityCoreStore(state => state.appState);
+  const activeTab = useVisibilityCoreStore(state => state.activeTab);
+  const activeRoute = useVisibilityCoreStore(state => state.activeRoute);
   const isForeground = appState === 'active';
   // Video can play if: feed is active AND app is foreground AND (tab is active OR route is active)
   const canPlay = isActive && isForeground && (activeTab !== null || activeRoute !== null);
@@ -63,7 +63,7 @@ export function useFeedVisibility({
 
       for (const token of viewableItems) {
         if (!token.isViewable) continue;
-        
+
         const item = token.item as any;
         if (item?.endCard) continue;
 
@@ -81,19 +81,22 @@ export function useFeedVisibility({
 
       const selectedItem = bestItem || firstViewable;
       const nextIndex = typeof selectedItem?.index === 'number' ? selectedItem.index : -1;
-      
+
       // Only process if index changed
       if (nextIndex !== activeItemIndexRef.current) {
         // Update ref immediately (source of truth - no delay)
         activeItemIndexRef.current = nextIndex;
         // Increment counter to trigger FlashList re-render via extraData
-        setExtraDataCounter((prev) => prev + 1);
+        setExtraDataCounter(prev => prev + 1);
       }
     },
     [] // Stable callback - FlashList handles optimization
   );
 
-  const memoizedConfig = useMemo(() => viewabilityConfig ?? DEFAULT_VIEWABILITY_CONFIG, [viewabilityConfig]);
+  const memoizedConfig = useMemo(
+    () => viewabilityConfig ?? DEFAULT_VIEWABILITY_CONFIG,
+    [viewabilityConfig]
+  );
 
   // Use ref for immediate synchronous checks
   const isVideoVisible = useCallback((index: number) => {
@@ -122,7 +125,7 @@ export function useVisibilityOverlay(_isBlocking: boolean) {
  * Updates visibility store so videos can pause/resume based on route focus
  */
 export function useVisibilityRouteTracker(routeKey: string, _tabKey?: string) {
-  const setActiveRoute = useVisibilityCoreStore((state) => state.setActiveRoute);
+  const setActiveRoute = useVisibilityCoreStore(state => state.setActiveRoute);
   const isFocused = useIsFocused();
 
   useEffect(() => {
@@ -153,7 +156,7 @@ export function useVisibilityRouteTracker(routeKey: string, _tabKey?: string) {
  * Tracks route state from visibility store
  */
 export function useVisibilityRouteIsActive(routeKey: string | null | undefined) {
-  const activeRoute = useVisibilityCoreStore((state) => state.activeRoute);
+  const activeRoute = useVisibilityCoreStore(state => state.activeRoute);
   return Boolean(routeKey) && activeRoute === routeKey;
 }
 
@@ -162,6 +165,6 @@ export function useVisibilityRouteIsActive(routeKey: string | null | undefined) 
  * Tracks tab state from visibility store
  */
 export function useVisibilityTabIsActive(tabKey: string | null | undefined) {
-  const activeTab = useVisibilityCoreStore((state) => state.activeTab);
+  const activeTab = useVisibilityCoreStore(state => state.activeTab);
   return Boolean(tabKey) && activeTab === tabKey;
 }

@@ -8,4 +8,4 @@ export * from './components';
 export * from './services';
 export * from '../app/(tabs)';
 
-export * from './stores'; 
+export * from './stores';

@@ -5,12 +5,7 @@
 
 import { logger } from '../../../utils/logger';
 import { AtprotoCore } from '../core';
-import type {
-  ProfileViewBasic,
-  ProfileView,
-  FollowersResponse,
-  FollowingResponse,
-} from '../types';
+import type { ProfileViewBasic, ProfileView, FollowersResponse, FollowingResponse } from '../types';
 
 export class GraphService {
   /**
@@ -24,7 +19,7 @@ export class GraphService {
     const { AtprotoService } = await import('../AtprotoService');
     return AtprotoService.deduplicateRequest(cacheKey, async () => {
       const { api } = await AtprotoCore.getApiClient();
-      
+
       // Get the current user DID from userStore
       const { useUserStore } = await import('../../../stores/userStore');
       const userStore = useUserStore.getState();
@@ -32,18 +27,15 @@ export class GraphService {
         throw new Error('No OAuth session available');
       }
       const userDid = userStore.currentUser.did;
-      
+
       const record = {
         $type: 'app.bsky.graph.follow' as const,
         subject: did,
         createdAt: new Date().toISOString(),
       };
-      
+
       try {
-        const response = await api.app.bsky.graph.follow.create(
-          { repo: userDid }, 
-          record
-        );
+        const response = await api.app.bsky.graph.follow.create({ repo: userDid }, record);
         return response.uri;
       } catch (error: unknown) {
         throw error;
@@ -62,7 +54,7 @@ export class GraphService {
     const { AtprotoService } = await import('../AtprotoService');
     return AtprotoService.deduplicateRequest(cacheKey, async () => {
       const { api } = await AtprotoCore.getApiClient();
-      
+
       // Get the current user DID from userStore
       const { useUserStore } = await import('../../../stores/userStore');
       const userStore = useUserStore.getState();
@@ -70,29 +62,29 @@ export class GraphService {
         throw new Error('No OAuth session available');
       }
       const userDid = userStore.currentUser.did;
-      
+
       try {
         // Get the profile by DID to get the viewer.following
         const profileResponse = await api.app.bsky.actor.getProfile({ actor: did });
         if (!profileResponse.data.viewer?.following) {
           return false;
         }
-        
+
         // Extract the rkey from the follow URI
         // URI format: at://did:plc:xxxx/app.bsky.graph.follow/rkey
         const uriParts = profileResponse.data.viewer.following.split('/');
         const rkey = uriParts[uriParts.length - 1];
-        
+
         if (!rkey) {
           return false;
         }
-        
+
         // Delete the follow using the record key
         await api.app.bsky.graph.follow.delete({
           repo: userDid,
           rkey: rkey,
         });
-        
+
         return true;
       } catch (error: unknown) {
         return false;
@@ -117,11 +109,8 @@ export class GraphService {
       const { api } = await AtprotoCore.getApiClient();
       const userDid = await AtprotoCore.getCurrentUserDid();
       if (!userDid) throw new Error('No authenticated user');
-      
-      await api.app.bsky.graph.block.create(
-        { repo: userDid },
-        record
-      );
+
+      await api.app.bsky.graph.block.create({ repo: userDid }, record);
     } catch (error: unknown) {
       throw error;
     }
@@ -138,7 +127,7 @@ export class GraphService {
       const { api } = await AtprotoCore.getApiClient();
       const userDid = await AtprotoCore.getCurrentUserDid();
       if (!userDid) throw new Error('No authenticated user');
-      
+
       await api.app.bsky.graph.block.delete({
         repo: userDid,
         rkey: did,
@@ -156,13 +145,13 @@ export class GraphService {
   static async muteUser(did: string): Promise<boolean> {
     try {
       await AtprotoCore.ensureSession();
-      
+
       const { api } = await AtprotoCore.getApiClient();
-      
+
       await api.app.bsky.graph.muteActor({
-        actor: did
+        actor: did,
       });
-      
+
       return true;
     } catch (error: unknown) {
       return false;
@@ -177,13 +166,13 @@ export class GraphService {
   static async unmuteUser(did: string): Promise<boolean> {
     try {
       await AtprotoCore.ensureSession();
-      
+
       const { api } = await AtprotoCore.getApiClient();
-      
+
       await api.app.bsky.graph.unmuteActor({
-        actor: did
+        actor: did,
       });
-      
+
       return true;
     } catch (error: unknown) {
       return false;
@@ -202,9 +191,9 @@ export class GraphService {
       // Use the correct parameter name 'filter' instead of 'actor'
       const { api } = await AtprotoCore.getApiClient();
       const response = await api.app.bsky.graph.getBlocks({
-        limit: 50 // Use a reasonable limit since we need to search through the results
+        limit: 50, // Use a reasonable limit since we need to search through the results
       });
-      
+
       // Check if the given DID is in the blocks list
       return response.data.blocks.some((block: { did: string }) => block.did === did);
     } catch (error: unknown) {
@@ -219,16 +208,20 @@ export class GraphService {
    * @param limit - Number of followers to fetch
    * @returns Promise with followers data
    */
-  static async getFollowers(actor: string, cursor: string | null = null, limit: number = 100): Promise<FollowersResponse> {
+  static async getFollowers(
+    actor: string,
+    cursor: string | null = null,
+    limit: number = 100
+  ): Promise<FollowersResponse> {
     await AtprotoCore.ensureSession();
     try {
       const params: { actor: string; limit: number; cursor?: string } = { actor, limit };
       if (cursor) params.cursor = cursor;
       const { api } = await AtprotoCore.getApiClient();
       const response = await api.app.bsky.graph.getFollowers(params);
-      return { 
-        followers: (response.data.followers || []) as ProfileViewBasic[], 
-        cursor: response.data.cursor ?? null 
+      return {
+        followers: (response.data.followers || []) as ProfileViewBasic[],
+        cursor: response.data.cursor ?? null,
       };
     } catch (error: unknown) {
       return { followers: [], cursor: null };
@@ -242,16 +235,20 @@ export class GraphService {
    * @param limit - Number of following to fetch
    * @returns Promise with following data
    */
-  static async getFollowing(actor: string, cursor: string | null = null, limit: number = 100): Promise<FollowingResponse> {
+  static async getFollowing(
+    actor: string,
+    cursor: string | null = null,
+    limit: number = 100
+  ): Promise<FollowingResponse> {
     await AtprotoCore.ensureSession();
     try {
       const params: { actor: string; limit: number; cursor?: string } = { actor, limit };
       if (cursor) params.cursor = cursor;
       const { api } = await AtprotoCore.getApiClient();
       const response = await api.app.bsky.graph.getFollows(params);
-      return { 
-        following: (response.data.follows || []) as ProfileViewBasic[], 
-        cursor: response.data.cursor ?? null 
+      return {
+        following: (response.data.follows || []) as ProfileViewBasic[],
+        cursor: response.data.cursor ?? null,
       };
     } catch (error: unknown) {
       return { following: [], cursor: null };
@@ -267,14 +264,14 @@ export class GraphService {
     const allFollowers = [];
     let cursor = null;
     let hasMore = true;
-    
+
     while (hasMore) {
       const response = await this.getFollowers(actor, cursor, 100);
       allFollowers.push(...response.followers);
       cursor = response.cursor;
       hasMore = !!cursor;
     }
-    
+
     return allFollowers;
   }
 
@@ -287,14 +284,14 @@ export class GraphService {
     const allFollowing = [];
     let cursor = null;
     let hasMore = true;
-    
+
     while (hasMore) {
       const response = await this.getFollowing(actor, cursor, 100);
       allFollowing.push(...response.following);
       cursor = response.cursor;
       hasMore = !!cursor;
     }
-    
+
     return allFollowing;
   }
 
@@ -307,15 +304,15 @@ export class GraphService {
     try {
       const [followers, following] = await Promise.all([
         this.getAllFollowers(userDid),
-        this.getAllFollowing(userDid)
+        this.getAllFollowing(userDid),
       ]);
-      
+
       // Find mutual connections
       const followerDids = new Set(followers.map(f => f.did));
-      const mutualConnections = following.filter(followingUser => 
+      const mutualConnections = following.filter(followingUser =>
         followerDids.has(followingUser.did)
       );
-      
+
       return mutualConnections;
     } catch (error: unknown) {
       return [];
@@ -331,7 +328,7 @@ export class GraphService {
     try {
       const { api } = await AtprotoCore.getApiClient();
       const response = await api.app.bsky.graph.getBlocks({
-        limit: 100
+        limit: 100,
       });
       return response.data.blocks?.map((block: ProfileView) => block.did) || [];
     } catch (error: unknown) {
@@ -348,7 +345,7 @@ export class GraphService {
     try {
       const { api } = await AtprotoCore.getApiClient();
       const response = await api.app.bsky.graph.getMutes({
-        limit: 100
+        limit: 100,
       });
       return response.data.mutes?.map((mute: ProfileView) => mute.did) || [];
     } catch (error: unknown) {

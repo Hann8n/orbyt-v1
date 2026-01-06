@@ -13,7 +13,7 @@ import {
 import { Image } from 'expo-image';
 import type { FlatListProps } from 'react-native';
 import { Colors } from '../ui/UI';
-import { Header, useHeaders } from '../../services/APIService';
+import { Header, useHeaders } from '../../services/OrbytAPIService';
 import Animated, {
   useAnimatedScrollHandler,
   useAnimatedStyle,
@@ -29,10 +29,15 @@ interface HeaderBannerProps {
 }
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
-const HEADER_HEIGHT = screenHeight * 0.30; // Top 30% of the display height
+const HEADER_HEIGHT = screenHeight * 0.3; // Top 30% of the display height
 const HEADER_WIDTH = screenWidth; // Full width
 
-const HeaderBanner: React.FC<HeaderBannerProps> = ({ headers, onHeaderPress, height, backgroundColor = Colors.black }) => {
+const HeaderBanner: React.FC<HeaderBannerProps> = ({
+  headers,
+  onHeaderPress,
+  height,
+  backgroundColor = Colors.black,
+}) => {
   const AnimatedFlatList = useMemo(
     () => Animated.createAnimatedComponent(FlatList) as unknown as React.ComponentType<any>,
     []
@@ -48,8 +53,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({ headers, onHeaderPress, hei
       // Default behavior: open the destination URL
       const url = header?.destinationUrl;
       if (typeof url === 'string' && url.trim().length > 0) {
-        Linking.openURL(url).catch(err => {
-        });
+        Linking.openURL(url).catch(err => {});
       }
     }
   };
@@ -63,7 +67,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({ headers, onHeaderPress, hei
   // Reanimated scroll progress for smooth color interpolation
   const scrollX = useSharedValue(0);
   const onScroll = useAnimatedScrollHandler({
-    onScroll: (event) => {
+    onScroll: event => {
       scrollX.value = event.contentOffset.x;
     },
   });
@@ -76,16 +80,19 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({ headers, onHeaderPress, hei
     return [last, ...headers, first];
   }, [headers]);
 
-  const mapVirtualToReal = useCallback((virtualIndex: number): number => {
-    if (!headers || headers.length <= 1) return virtualIndex;
-    if (virtualIndex === 0) return headers.length - 1;
-    if (virtualIndex === headers.length + 1) return 0;
-    return virtualIndex - 1;
-  }, [headers]);
+  const mapVirtualToReal = useCallback(
+    (virtualIndex: number): number => {
+      if (!headers || headers.length <= 1) return virtualIndex;
+      if (virtualIndex === 0) return headers.length - 1;
+      if (virtualIndex === headers.length + 1) return 0;
+      return virtualIndex - 1;
+    },
+    [headers]
+  );
 
   // Build color stops per slide from text color preferences (loop-aware)
   const slideColors = useMemo(() => {
-    const realColors = headers.map((h) => {
+    const realColors = headers.map(h => {
       const titleCol = h.titleColor as string | undefined;
       const subCol = h.subtitleColor as string | undefined;
       return (titleCol || subCol || Colors.white) as string;
@@ -112,10 +119,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({ headers, onHeaderPress, hei
   });
 
   const [activeIndex, setActiveIndex] = useState<number>(0); // real index within headers
-  const viewabilityConfig = useMemo(
-    () => ({ viewAreaCoveragePercentThreshold: 60 }),
-    []
-  );
+  const viewabilityConfig = useMemo(() => ({ viewAreaCoveragePercentThreshold: 60 }), []);
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: Array<{ index?: number | null }> }) => {
       if (viewableItems && viewableItems.length > 0) {
@@ -129,13 +133,16 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({ headers, onHeaderPress, hei
     }
   ).current;
 
-  const keyExtractor = useCallback((item: Header, index: number) => {
-    // Ensure unique keys for duplicated boundary items
-    if (headers.length > 1 && (index === 0 || index === (loopedData.length - 1))) {
-      return `dup-${index}-${item.id}`;
-    }
-    return item.id;
-  }, [headers.length, loopedData.length]);
+  const keyExtractor = useCallback(
+    (item: Header, index: number) => {
+      // Ensure unique keys for duplicated boundary items
+      if (headers.length > 1 && (index === 0 || index === loopedData.length - 1)) {
+        return `dup-${index}-${item.id}`;
+      }
+      return item.id;
+    },
+    [headers.length, loopedData.length]
+  );
 
   // Auto-advance carousel when there are multiple headers
   useEffect(() => {
@@ -149,7 +156,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({ headers, onHeaderPress, hei
       })();
       try {
         listRef.current?.scrollToIndex({ index: nextVirtual, animated: true });
-      } catch (err) {
+      } catch (_err) {
         // Fallback if index not ready; use offset since getItemLayout is provided
         listRef.current?.scrollToOffset({ offset: HEADER_WIDTH * nextVirtual, animated: true });
       }
@@ -169,77 +176,75 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({ headers, onHeaderPress, hei
     }
   }, [headers]);
 
-  const renderItem = useCallback(
-    ({ item }: { item: Header }) => {
-      const header = item;
-      return (
-        <Pressable
-          key={header.id}
-          style={styles.headerItem}
-          onPress={() => handleHeaderPress(header)}
-        >
-          <Image
-            source={{ uri: header.imageUrl }}
-            style={styles.headerImage}
-            contentFit="cover"
-            transition={Platform.OS === 'android' ? 0 : undefined}
-            onError={() => {
-            }}
-          />
-          <View style={styles.headerOverlay}>
-            <View style={styles.textContainer}>
-              {(() => {
-                const titleEl = !!header.title && (
-                  <Text
-                    style={[
-                      styles.headerTitle,
-                      header.titleColor ? { color: header.titleColor as string } : null,
-                      header.titleFontFamily ? { fontFamily: header.titleFontFamily } : null,
-                      header.titleFontSize ? { fontSize: header.titleFontSize } : null,
-                      header.titleOpacity !== undefined ? { opacity: header.titleOpacity } : null,
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {header.title}
-                  </Text>
-                );
+  const renderItem = useCallback(({ item }: { item: Header }) => {
+    const header = item;
+    return (
+      <Pressable
+        key={header.id}
+        style={styles.headerItem}
+        onPress={() => handleHeaderPress(header)}
+      >
+        <Image
+          source={{ uri: header.imageUrl }}
+          style={styles.headerImage}
+          contentFit="cover"
+          transition={Platform.OS === 'android' ? 0 : undefined}
+          onError={() => {}}
+        />
+        <View style={styles.headerOverlay}>
+          <View style={styles.textContainer}>
+            {(() => {
+              const titleEl = !!header.title && (
+                <Text
+                  style={[
+                    styles.headerTitle,
+                    header.titleColor ? { color: header.titleColor as string } : null,
+                    header.titleFontFamily ? { fontFamily: header.titleFontFamily } : null,
+                    header.titleFontSize ? { fontSize: header.titleFontSize } : null,
+                    header.titleOpacity !== undefined ? { opacity: header.titleOpacity } : null,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {header.title}
+                </Text>
+              );
 
-                const subtitleText = header.subtitle;
-                const descriptionEl = !!subtitleText && (
-                  <Text
-                    style={[
-                      styles.headerSubtitle,
-                      header.subtitleColor ? { color: header.subtitleColor as string } : null,
-                      header.subtitleFontFamily ? { fontFamily: header.subtitleFontFamily } : null,
-                      header.subtitleFontSize ? { fontSize: header.subtitleFontSize } : null,
-                      header.subtitleOpacity !== undefined ? { opacity: header.subtitleOpacity } : null,
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {subtitleText}
-                  </Text>
-                );
+              const subtitleText = header.subtitle;
+              const descriptionEl = !!subtitleText && (
+                <Text
+                  style={[
+                    styles.headerSubtitle,
+                    header.subtitleColor ? { color: header.subtitleColor as string } : null,
+                    header.subtitleFontFamily ? { fontFamily: header.subtitleFontFamily } : null,
+                    header.subtitleFontSize ? { fontSize: header.subtitleFontSize } : null,
+                    header.subtitleOpacity !== undefined
+                      ? { opacity: header.subtitleOpacity }
+                      : null,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {subtitleText}
+                </Text>
+              );
 
-                const order = header.textOrder || 'subtitle-first';
-                return order === 'title-first' ? (
-                  <>
-                    {titleEl}
-                    {descriptionEl}
-                  </>
-                ) : (
-                  <>
-                    {descriptionEl}
-                    {titleEl}
-                  </>
-                );
-              })()}
-            </View>
+              const order = header.textOrder || 'subtitle-first';
+              return order === 'title-first' ? (
+                <>
+                  {titleEl}
+                  {descriptionEl}
+                </>
+              ) : (
+                <>
+                  {descriptionEl}
+                  {titleEl}
+                </>
+              );
+            })()}
           </View>
-        </Pressable>
-      );
-    },
-    []
-  );
+        </View>
+      </Pressable>
+    );
+  }, []);
 
   if (!isCarousel) {
     const header = headers[0];
@@ -256,8 +261,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({ headers, onHeaderPress, hei
               style={styles.headerImage}
               contentFit="cover"
               transition={Platform.OS === 'android' ? 0 : undefined}
-              onError={() => {
-              }}
+              onError={() => {}}
             />
             <View style={styles.headerOverlay}>
               <View style={styles.textContainer}>
@@ -276,23 +280,27 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({ headers, onHeaderPress, hei
                       {header.title}
                     </Text>
                   );
-  
+
                   const subtitleText = header.subtitle;
                   const descriptionEl = !!subtitleText && (
                     <Text
                       style={[
                         styles.headerSubtitle,
                         header.subtitleColor ? { color: header.subtitleColor as string } : null,
-                        header.subtitleFontFamily ? { fontFamily: header.subtitleFontFamily } : null,
+                        header.subtitleFontFamily
+                          ? { fontFamily: header.subtitleFontFamily }
+                          : null,
                         header.subtitleFontSize ? { fontSize: header.subtitleFontSize } : null,
-                        header.subtitleOpacity !== undefined ? { opacity: header.subtitleOpacity } : null,
+                        header.subtitleOpacity !== undefined
+                          ? { opacity: header.subtitleOpacity }
+                          : null,
                       ]}
                       numberOfLines={1}
                     >
                       {subtitleText}
                     </Text>
                   );
-  
+
                   const order = header.textOrder || 'subtitle-first';
                   return order === 'title-first' ? (
                     <>
@@ -329,12 +337,23 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({ headers, onHeaderPress, hei
         contentContainerStyle={styles.headersContainer}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
-        getItemLayout={(data: ArrayLike<Header> | null | undefined, index: number) => ({ length: HEADER_WIDTH, offset: HEADER_WIDTH * index, index })}
+        getItemLayout={(data: ArrayLike<Header> | null | undefined, index: number) => ({
+          length: HEADER_WIDTH,
+          offset: HEADER_WIDTH * index,
+          index,
+        })}
         onScroll={onScroll}
         scrollEventThrottle={16}
-        onScrollBeginDrag={() => { isUserDraggingRef.current = true; }}
-        onMomentumScrollEnd={() => { isUserDraggingRef.current = false; ensureClampedPosition(); }}
-        onScrollEndDrag={() => { isUserDraggingRef.current = false; }}
+        onScrollBeginDrag={() => {
+          isUserDraggingRef.current = true;
+        }}
+        onMomentumScrollEnd={() => {
+          isUserDraggingRef.current = false;
+          ensureClampedPosition();
+        }}
+        onScrollEndDrag={() => {
+          isUserDraggingRef.current = false;
+        }}
         initialScrollIndex={headers.length > 1 ? 1 : 0}
       />
       <View style={styles.paginationContainer}>

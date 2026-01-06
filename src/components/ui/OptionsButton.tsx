@@ -1,9 +1,18 @@
 import React, { useState } from 'react';
-import { View, Text, Pressable, Switch, ViewStyle, TextStyle, StyleSheet, StyleProp } from 'react-native';
+import {
+  View,
+  Text,
+  Pressable,
+  Switch,
+  ViewStyle,
+  TextStyle,
+  StyleSheet,
+  StyleProp,
+} from 'react-native';
 import Icon from './Icon';
 import { Colors } from './UI';
 import { BORDER_RADIUS } from '../../utils/constants';
-import { hexToRGBA } from '../../utils/formatting/colorUtils';
+import { hexToRGBA } from '../../utils/formatting/colors';
 
 // Define styles inline to avoid import path issues
 const buttonStyles = StyleSheet.create({
@@ -73,7 +82,7 @@ export const OptionsButton: React.FC<OptionsButtonProps> = ({
   rightContent,
   destructive = false,
   disabled = false,
-  selected = false,
+  selected: _selected = false,
   loading = false,
   style,
   textStyle,
@@ -108,36 +117,38 @@ export const OptionsButton: React.FC<OptionsButtonProps> = ({
   };
 
   const buttonContent = (
-    <View style={[
-      buttonStyles.menuOption,
-      { backgroundColor: getBackgroundColor() },
-      containerStyle,
-      style,
-    ]}>
+    <View
+      style={[
+        buttonStyles.menuOption,
+        { backgroundColor: getBackgroundColor() },
+        containerStyle,
+        style,
+      ]}
+    >
       {leftContent ? (
         leftContent
       ) : (
         <View style={{ flexDirection: 'column', flex: 1 }}>
-          <Text style={[
-            textStyles.menuOptionText,
-            { color: getTextColor() },
-            textStyle,
-          ]}>
+          <Text style={[textStyles.menuOptionText, { color: getTextColor() }, textStyle]}>
             {label}
           </Text>
           {subtitle && (
-            <Text style={[
-              textStyles.menuOptionSubtitle,
-              { color: pressed ? (destructive ? Colors.white : Colors.black) : Colors.gray }
-            ]}>
+            <Text
+              style={[
+                textStyles.menuOptionSubtitle,
+                { color: pressed ? (destructive ? Colors.white : Colors.black) : Colors.gray },
+              ]}
+            >
               {subtitle}
             </Text>
           )}
           {description && (
-            <Text style={[
-              textStyles.menuOptionSubtitle,
-              { color: pressed ? (destructive ? Colors.white : Colors.black) : Colors.gray }
-            ]}>
+            <Text
+              style={[
+                textStyles.menuOptionSubtitle,
+                { color: pressed ? (destructive ? Colors.white : Colors.black) : Colors.gray },
+              ]}
+            >
               {description}
             </Text>
           )}
@@ -175,8 +186,8 @@ export const OptionsButton: React.FC<OptionsButtonProps> = ({
 
     return (
       <View style={{ marginBottom: 0 }}>
-        <Pressable 
-          onPress={handlePress} 
+        <Pressable
+          onPress={handlePress}
           onPressIn={() => setPressed(true)}
           onPressOut={() => setPressed(false)}
           disabled={disabled || loading}
@@ -187,12 +198,7 @@ export const OptionsButton: React.FC<OptionsButtonProps> = ({
     );
   }
 
-  return (
-    <View style={{ marginBottom: 0 }}>
-      {buttonContent}
-    </View>
-  );
+  return <View style={{ marginBottom: 0 }}>{buttonContent}</View>;
 };
 
 export default OptionsButton;
-

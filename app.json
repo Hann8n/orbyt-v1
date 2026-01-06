@@ -17,9 +17,7 @@
         "NSMicrophoneUsageDescription": "This app needs access to your microphone for recording videos with sound",
         "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to select profile pictures and share photos",
         "NSPhotoLibraryAddUsageDescription": "This app needs permission to save photos to your photo library",
-        "LSApplicationQueriesSchemes": [
-          "mailto"
-        ]
+        "LSApplicationQueriesSchemes": ["mailto"]
       }
     },
     "scheme": "com.getorbyt",
@@ -29,10 +27,7 @@
         "backgroundColor": "#000000"
       },
       "package": "com.orbyt.app",
-      "permissions": [
-        "CAMERA",
-        "RECORD_AUDIO"
-      ]
+      "permissions": ["CAMERA", "RECORD_AUDIO"]
     },
     "web": {
       "favicon": "./src/assets/favicon.png"
@@ -80,14 +75,8 @@
           "android": {
             "targetSdkVersion": 36,
             "packagingOptions": {
-              "pickFirsts": [
-                "builddef.lst",
-                "**/builddef.lst"
-              ],
-              "excludes": [
-                "builddef.lst",
-                "**/builddef.lst"
-              ]
+              "pickFirsts": ["builddef.lst", "**/builddef.lst"],
+              "excludes": ["builddef.lst", "**/builddef.lst"]
             }
           }
         }

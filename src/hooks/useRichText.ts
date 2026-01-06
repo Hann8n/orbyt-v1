@@ -17,10 +17,10 @@ export function useRichText(text: string): [RichTextAPI, boolean] {
   useEffect(() => {
     // Create new RichText instance when text changes
     const rt = new RichTextAPI({ text: text || '' });
-    
+
     // Detect facets without resolution first (synchronous)
     rt.detectFacetsWithoutResolution();
-    
+
     setRichText(rt);
     setIsResolving(true);
 
@@ -51,10 +51,12 @@ export function useRichText(text: string): [RichTextAPI, boolean] {
  * @param richText - RichText instance from @atproto/api
  * @returns Array of text parts with formatting info
  */
-export function formatRichTextForDisplay(richText: RichTextAPI): Array<{ text: string; isSemiBold: boolean }> {
+export function formatRichTextForDisplay(
+  richText: RichTextAPI
+): Array<{ text: string; isSemiBold: boolean }> {
   const parts: Array<{ text: string; isSemiBold: boolean }> = [];
   const text = richText.text;
-  
+
   if (!text || !richText.facets || richText.facets.length === 0) {
     return [{ text: text || '', isSemiBold: false }];
   }
@@ -68,7 +70,7 @@ export function formatRichTextForDisplay(richText: RichTextAPI): Array<{ text: s
     if (facet.index.byteStart > lastByteIndex) {
       const beforeBytes = textBytes.slice(lastByteIndex, facet.index.byteStart);
       const beforeText = new TextDecoder().decode(beforeBytes);
-      
+
       if (beforeText) {
         parts.push({ text: beforeText, isSemiBold: false });
       }
@@ -77,16 +79,16 @@ export function formatRichTextForDisplay(richText: RichTextAPI): Array<{ text: s
     // Extract facet text using byte positions
     const facetBytes = textBytes.slice(facet.index.byteStart, facet.index.byteEnd);
     const facetText = new TextDecoder().decode(facetBytes);
-    
+
     // Check if this is a mention or hashtag (for semi-bold styling)
     const isMention = facet.features.some(f => f.$type === 'app.bsky.richtext.facet#mention');
     const isHashtag = facet.features.some(f => f.$type === 'app.bsky.richtext.facet#tag');
-    
+
     if (isMention || isHashtag) {
       // Split symbol from text for mentions/hashtags
       const symbol = facetText[0]; // @ or #
       const textAfterSymbol = facetText.slice(1);
-      
+
       if (symbol) {
         parts.push({ text: symbol, isSemiBold: false });
       }
@@ -111,4 +113,3 @@ export function formatRichTextForDisplay(richText: RichTextAPI): Array<{ text: s
 
   return parts.length > 0 ? parts : [{ text: text || '', isSemiBold: false }];
 }
-

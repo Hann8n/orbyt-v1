@@ -28,18 +28,18 @@ const scales = [
 
 async function convertSvgToPng(iconName, baseSize) {
   const svgPath = path.join(inputDir, `${iconName}.svg`);
-  
+
   if (!fs.existsSync(svgPath)) {
     console.error(`SVG file not found: ${svgPath}`);
     return;
   }
 
   const svgContent = fs.readFileSync(svgPath, 'utf8');
-  
+
   for (const { scale, suffix } of scales) {
     const size = baseSize * scale;
     const outputPath = path.join(outputDir, `${iconName}${suffix}.png`);
-    
+
     try {
       // Read SVG and convert to PNG at high resolution
       await sharp(Buffer.from(svgContent))
@@ -51,7 +51,7 @@ async function convertSvgToPng(iconName, baseSize) {
           compressionLevel: 9,
         })
         .toFile(outputPath);
-      
+
       console.log(`✓ Created ${iconName}${suffix}.png (${size}x${size})`);
     } catch (error) {
       console.error(`✗ Failed to create ${iconName}${suffix}.png:`, error.message);
@@ -61,11 +61,11 @@ async function convertSvgToPng(iconName, baseSize) {
 
 async function main() {
   console.log('Converting SVG icons to high-resolution PNGs at standard tab bar size...\n');
-  
+
   for (const icon of icons) {
     await convertSvgToPng(icon.name, icon.baseSize);
   }
-  
+
   console.log('\n✓ Conversion complete!');
   console.log(`PNG files saved to: ${outputDir}`);
 }

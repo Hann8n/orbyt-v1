@@ -4,10 +4,10 @@ import { logger } from '../../utils/logger';
 
 /**
  * OAuth service for AtProto authentication using official @atproto/oauth-client-expo package
- * 
+ *
  * This service provides a clean interface for OAuth authentication with AtProto,
  * using the official @atproto/oauth-client-expo package for session management.
- * 
+ *
  * Key features:
  * - Built-in Session Management
  * - Automatic token refresh
@@ -71,9 +71,9 @@ export class AtProtoOAuthService {
   async signIn(identifier: string): Promise<any> {
     try {
       const client = await this.createClient();
-      
+
       const result = await client.signIn(identifier);
-      
+
       // The new package returns the session directly, not wrapped in a status object
       if (result && result.sub) {
         return result;
@@ -92,11 +92,12 @@ export class AtProtoOAuthService {
     } catch (error) {
       // Check if this is a user cancellation - don't log at all
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      const isUserCancellation = errorMessage.includes('cancelled') || 
-                                errorMessage.includes('cancel') ||
-                                errorMessage.includes('user_cancelled') ||
-                                errorMessage.includes('User cancelled');
-      
+      const isUserCancellation =
+        errorMessage.includes('cancelled') ||
+        errorMessage.includes('cancel') ||
+        errorMessage.includes('user_cancelled') ||
+        errorMessage.includes('User cancelled');
+
       if (!isUserCancellation) {
         // Only log actual errors, not cancellations
         logger.error('Sign-in failed', error, { component: 'OAuthService', identifier });
@@ -111,16 +112,20 @@ export class AtProtoOAuthService {
   async restoreSession(did: string, pdsUrl?: string): Promise<any> {
     try {
       const client = await this.createClient();
-      
+
       const session = await client.restore(did);
-      
+
       if (session) {
         return session;
       } else {
         throw new Error('No session found for the provided DID');
       }
     } catch (error) {
-      logger.error('Restore session operation failed', error, { component: 'OAuthService', did, pdsUrl });
+      logger.error('Restore session operation failed', error, {
+        component: 'OAuthService',
+        did,
+        pdsUrl,
+      });
       throw error;
     }
   }
@@ -148,15 +153,18 @@ export class AtProtoOAuthService {
 
       // Create a temporary agent to test the session
       const agent = new Agent(session);
-      
+
       // Make a simple API call to verify the session is still valid
       await agent.api.app.bsky.actor.getProfile({
-        actor: session.sub
+        actor: session.sub,
       });
-      
+
       return true;
     } catch (error) {
-      logger.debug('Session health check failed', { component: 'OAuthService', error: error instanceof Error ? error.message : 'Unknown error' });
+      logger.debug('Session health check failed', {
+        component: 'OAuthService',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
       return false;
     }
   }
@@ -167,17 +175,17 @@ export class AtProtoOAuthService {
   async getValidSession(did: string, pdsUrl?: string, forceRefresh: boolean = false): Promise<any> {
     try {
       const client = await this.createClient();
-      
+
       // Try to restore session (with optional force refresh)
       const session = await client.restore(did, forceRefresh);
-      
+
       if (!session) {
         throw new Error('No session found for the provided DID');
       }
 
       // Validate session health
       const isHealthy = await this.validateSessionHealth(session);
-      
+
       if (!isHealthy) {
         // Try to refresh the session
         if (!forceRefresh) {
@@ -191,30 +199,36 @@ export class AtProtoOAuthService {
       return session;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      
+
       // Check if this is an expected session expiration error
-      const isSessionExpired = errorMessage.includes('deleted by another process') ||
-                               errorMessage.includes('TokenRefreshError') ||
-                               errorMessage.includes('Session expired') ||
-                               errorMessage.includes('No session found');
-      
+      const isSessionExpired =
+        errorMessage.includes('deleted by another process') ||
+        errorMessage.includes('TokenRefreshError') ||
+        errorMessage.includes('Session expired') ||
+        errorMessage.includes('No session found');
+
       if (isSessionExpired) {
         // Use DEBUG level for expected session expiration
-        logger.debug('Session expired or deleted', { 
-          component: 'OAuthService', 
-          did, 
-          pdsUrl, 
+        logger.debug('Session expired or deleted', {
+          component: 'OAuthService',
+          did,
+          pdsUrl,
           forceRefresh,
-          error: errorMessage 
+          error: errorMessage,
         });
         // Throw a specific error that can be handled gracefully
         const expiredError = new Error('Session expired');
         (expiredError as any).isSessionExpired = true;
         throw expiredError;
       }
-      
+
       // Log unexpected errors at ERROR level
-      logger.error('Failed to get valid session', error, { component: 'OAuthService', did, pdsUrl, forceRefresh });
+      logger.error('Failed to get valid session', error, {
+        component: 'OAuthService',
+        did,
+        pdsUrl,
+        forceRefresh,
+      });
       throw error;
     }
   }
@@ -246,5 +260,4 @@ export class AtProtoOAuthService {
       throw error;
     }
   }
-
 }

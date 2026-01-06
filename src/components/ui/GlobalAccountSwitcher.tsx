@@ -14,7 +14,9 @@ const GlobalAccountSwitcher: React.FC = () => {
       const handle = account?.handle || account?.cachedProfile?.handle || account?.did || 'unknown';
       logger.info('Account switched', { handle, did: account?.did });
     } catch (err) {
-      logger.error('Error in account switch callback:', err, { component: 'GlobalAccountSwitcher' });
+      logger.error('Error in account switch callback:', err, {
+        component: 'GlobalAccountSwitcher',
+      });
     }
   };
 

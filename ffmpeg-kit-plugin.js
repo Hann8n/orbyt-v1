@@ -6,19 +6,14 @@ const {
   withAppBuildGradle,
   withProjectBuildGradle,
 } = require('@expo/config-plugins');
-const {
-  mergeContents,
-} = require('@expo/config-plugins/build/utils/generateCode');
+const { mergeContents } = require('@expo/config-plugins/build/utils/generateCode');
 
 const withFfmpegKitIos = (config, { iosUrl }) => {
   return withDangerousMod(config, [
     'ios',
-    async (cfg) => {
+    async cfg => {
       const { platformProjectRoot } = cfg.modRequest;
-      const podspecPath = path.join(
-        platformProjectRoot,
-        'ffmpeg-kit-ios-full-gpl.podspec',
-      );
+      const podspecPath = path.join(platformProjectRoot, 'ffmpeg-kit-ios-full-gpl.podspec');
       const podspec = `
 Pod::Spec.new do |s|
     s.name             = 'ffmpeg-kit-ios-full-gpl'
@@ -60,9 +55,7 @@ end
             tag: 'ffmpeg-kit-custom-pod',
             src: podfileContent,
             newSrc: newPodEntry,
-            anchor: new RegExp(
-              `^\\s*${anchor.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`,
-            ),
+            anchor: new RegExp(`^\\s*${anchor.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`),
             offset: 1,
             comment: '#',
           }).contents;
@@ -74,18 +67,16 @@ end
               tag: 'ffmpeg-kit-custom-pod-fallback',
               src: podfileContent,
               newSrc: `  ${newPodEntry}`,
-              anchor: new RegExp(
-                `^\\s*${targetAnchor.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`,
-              ),
+              anchor: new RegExp(`^\\s*${targetAnchor.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`),
               offset: 1,
               comment: '#',
             }).contents;
             console.log(
-              `[ffmpeg-kit-plugin] Used fallback anchor "target '${appName}' do" for Podfile modification.`,
+              `[ffmpeg-kit-plugin] Used fallback anchor "target '${appName}' do" for Podfile modification.`
             );
           } else {
             console.warn(
-              `[ffmpeg-kit-plugin] Could not find "use_expo_modules!" or "target '${appName}' do" in Podfile. Custom pod for ffmpeg-kit may not be added correctly.`,
+              `[ffmpeg-kit-plugin] Could not find "use_expo_modules!" or "target '${appName}' do" in Podfile. Custom pod for ffmpeg-kit may not be added correctly.`
             );
           }
         }
@@ -97,16 +88,13 @@ end
 };
 
 const copyAndroidAar = (platformProjectRoot, projectRoot, androidLocalPath) => {
-  const source = path.resolve(
-    projectRoot,
-    androidLocalPath || 'patches/ffmpeg-kit-full-gpl.aar',
-  );
+  const source = path.resolve(projectRoot, androidLocalPath || 'patches/ffmpeg-kit-full-gpl.aar');
   const destDir = path.join(platformProjectRoot, 'libs');
   const dest = path.join(destDir, 'ffmpeg-kit-full-gpl.aar');
 
   if (!fs.existsSync(source)) {
     throw new Error(
-      `[ffmpeg-kit-plugin] Missing AAR at ${source}. Please place ffmpeg-kit-full-gpl.aar in the patches folder or configure androidLocalPath.`,
+      `[ffmpeg-kit-plugin] Missing AAR at ${source}. Please place ffmpeg-kit-full-gpl.aar in the patches folder or configure androidLocalPath.`
     );
   }
 
@@ -115,9 +103,8 @@ const copyAndroidAar = (platformProjectRoot, projectRoot, androidLocalPath) => {
   console.log(`[ffmpeg-kit-plugin] Copied ffmpeg-kit-full-gpl.aar to ${dest}`);
 };
 
-const removeDownloadBlock = (contents) => {
-  const downloadRegex =
-    /\/\/ Download AAR[\s\S]*?preBuild\.dependsOn\("downloadAar"\)\s*\}\s*/;
+const removeDownloadBlock = contents => {
+  const downloadRegex = /\/\/ Download AAR[\s\S]*?preBuild\.dependsOn\("downloadAar"\)\s*\}\s*/;
   return contents.replace(downloadRegex, '\n');
 };
 
@@ -125,14 +112,14 @@ const withFfmpegKitAndroid = (config, { androidLocalPath }) => {
   // Copy the local AAR file - the build.gradle modifications are handled by patch-package
   config = withDangerousMod(config, [
     'android',
-    async (cfg) => {
+    async cfg => {
       const { platformProjectRoot, projectRoot } = cfg.modRequest;
       copyAndroidAar(platformProjectRoot, projectRoot, androidLocalPath);
       return cfg;
     },
   ]);
 
-  config = withAppBuildGradle(config, (cfg) => {
+  config = withAppBuildGradle(config, cfg => {
     let buildGradle = cfg.modResults.contents;
 
     const appFlatDirLibsPath = '\\${projectDir}/../libs';
@@ -148,9 +135,9 @@ const withFfmpegKitAndroid = (config, { androidLocalPath }) => {
         new RegExp(
           `repositories\\s*\\{[\\s\\S]*?flatDir\\s*\\{[\\s\\S]*?dirs\\s*['"]${appFlatDirLibsPath.replace(
             /[$.]/g,
-            '\\\\$&',
-          )}['"]`,
-        ),
+            '\\\\$&'
+          )}['"]`
+        )
       )
     ) {
       buildGradle = mergeContents({
@@ -183,23 +170,19 @@ const withFfmpegKitAndroid = (config, { androidLocalPath }) => {
     return cfg;
   });
 
-  config = withProjectBuildGradle(config, (cfg) => {
+  config = withProjectBuildGradle(config, cfg => {
     let buildGradle = cfg.modResults.contents;
 
-    buildGradle = buildGradle.replace(
-      /^\s*ffmpegKitPackage\s*=\s*"full-gpl"\s*(\r?\n)?/m,
-      '',
-    );
+    buildGradle = buildGradle.replace(/^\s*ffmpegKitPackage\s*=\s*"full-gpl"\s*(\r?\n)?/m, '');
 
     const projectFlatDirLibsPath = '$rootDir/libs';
     const flatDirString = `        flatDir {\n            dirs "${projectFlatDirLibsPath}"\n        }`;
-    const allProjectsRepositoriesRegex =
-      /(allprojects\s*\{\s*repositories\s*\{)/;
+    const allProjectsRepositoriesRegex = /(allprojects\s*\{\s*repositories\s*\{)/;
     const existingFlatDirRegex = new RegExp(
       `allprojects\\s*\\{[\\s\\S]*?repositories\\s*\\{[\\s\\S]*?flatDir\\s*\\{[\\s\\S]*?dirs\\s*['"]${projectFlatDirLibsPath.replace(
         /[$.]/g,
-        '\\$&',
-      )}['"]`,
+        '\\$&'
+      )}['"]`
     );
 
     if (!buildGradle.match(existingFlatDirRegex)) {
@@ -226,19 +209,12 @@ module.exports = (config, options = {}) => {
 
   if (!iosUrl) {
     throw new Error(
-      'FFmpeg Kit plugin requires "iosUrl" option. Please provide the iOS download URL in your app.config.ts',
+      'FFmpeg Kit plugin requires "iosUrl" option. Please provide the iOS download URL in your app.config.ts'
     );
   }
 
   return withPlugins(config, [
-    (config) => withFfmpegKitIos(config, { iosUrl }),
-    (config) => withFfmpegKitAndroid(config, { androidLocalPath }),
+    config => withFfmpegKitIos(config, { iosUrl }),
+    config => withFfmpegKitAndroid(config, { androidLocalPath }),
   ]);
 };
-
-
-
-
-
-
-

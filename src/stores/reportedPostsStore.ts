@@ -9,21 +9,20 @@ interface ReportedPostsStore {
 
 export const useReportedPostsStore = create<ReportedPostsStore>((set, get) => ({
   reportedPostUris: new Set<string>(),
-  
+
   reportPost: (postUri: string) => {
-    set((state) => {
+    set(state => {
       const newSet = new Set(state.reportedPostUris);
       newSet.add(postUri);
       return { reportedPostUris: newSet };
     });
   },
-  
+
   isReported: (postUri: string) => {
     return get().reportedPostUris.has(postUri);
   },
-  
+
   clearReported: () => {
     set({ reportedPostUris: new Set<string>() });
   },
 }));
-

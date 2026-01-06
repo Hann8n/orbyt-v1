@@ -38,8 +38,8 @@ export const useProfileInteractionStore = create<ProfileInteractionState>((set, 
       return { profiles: next };
     });
   },
-  getFlags: (did) => get().profiles.get(did),
-  batchSetFlags: (updates) => {
+  getFlags: did => get().profiles.get(did),
+  batchSetFlags: updates => {
     set(state => {
       const next = new Map(state.profiles);
       updates.forEach(({ did, flags }) => {
@@ -56,7 +56,7 @@ export const useProfileInteractionStore = create<ProfileInteractionState>((set, 
 export const useProfileFlags = (did?: string, handle?: string) => {
   const flags = useProfileInteractionStore(state => (did ? state.profiles.get(did) : undefined));
   const storeSetFlags = useProfileInteractionStore(state => state.setFlags);
-  
+
   return {
     flags,
     setFlags: (next: Partial<ProfileFlags>) => {
@@ -66,7 +66,11 @@ export const useProfileFlags = (did?: string, handle?: string) => {
 };
 
 // Check if profile is the current user
-export const isCurrentUser = (profileDid?: string, profileHandle?: string, currentUser?: any): boolean => {
+export const isCurrentUser = (
+  profileDid?: string,
+  profileHandle?: string,
+  currentUser?: any
+): boolean => {
   if (!profileDid || !currentUser) return false;
   return profileDid === currentUser.did || profileHandle === currentUser.handle;
 };

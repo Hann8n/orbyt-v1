@@ -1,12 +1,6 @@
 import React, { useCallback, useMemo } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  RefreshControl,
-} from 'react-native';
+import { View, Text, StyleSheet, Pressable, RefreshControl } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -14,22 +8,38 @@ import AtprotoService from '../../../services/api/AtprotoService';
 import { Avatar, Icon } from '../../ui/UI';
 import { Loading3FillIcon } from '../../ui/Icon';
 import { VerificationBadge } from '../badging';
-import ProfileCache from '../../../services/cache/ProfileCache';
+import ProfileService from '../../../services/data/ProfileService';
 import { Colors, RetryButton } from '../../ui/UI';
 import UI from '../../ui/UI';
-import { formatHandle } from '../../../utils/helpers';
+import { formatHandle } from '../../../utils/formatting/handles';
 import { isCurrentUser } from '../../../stores/profileInteractionStore';
 import { useUserStore } from '../../../stores/userStore';
- 
-
 
 // Loading placeholder component for member items
 const MemberItemShimmer = () => (
   <View style={styles.memberItem}>
-    <View style={[styles.memberAvatar, { borderRadius: BORDER_RADIUS.LARGE, borderWidth: 0, borderColor: 'transparent', backgroundColor: Colors.mediumGray }]} />
+    <View
+      style={[
+        styles.memberAvatar,
+        {
+          borderRadius: BORDER_RADIUS.LARGE,
+          borderWidth: 0,
+          borderColor: 'transparent',
+          backgroundColor: Colors.mediumGray,
+        },
+      ]}
+    />
     <View style={styles.memberDetails}>
       <View style={styles.memberNameRow}>
-        <View style={{ width: '55%', height: 18, borderRadius: BORDER_RADIUS.SMALL, marginBottom: 0, backgroundColor: Colors.mediumGray }} />
+        <View
+          style={{
+            width: '55%',
+            height: 18,
+            borderRadius: BORDER_RADIUS.SMALL,
+            marginBottom: 0,
+            backgroundColor: Colors.mediumGray,
+          }}
+        />
       </View>
     </View>
   </View>
@@ -87,58 +97,54 @@ const MembersListView: React.FC<MembersListViewProps> = ({
   const currentUser = useUserStore(state => state.currentUser);
 
   // Query for channel members (using following list of the channel creator)
-  const {
-    data,
-    isLoading,
-    isFetchingNextPage,
-    fetchNextPage,
-    hasNextPage,
-    error,
-    refetch,
-  } = useInfiniteQuery({
-    queryKey: ['channelMembers', channelUri],
-    queryFn: async ({ pageParam }: { pageParam: string | null }) => {
-      // For now, we'll use the channel creator's following list
-      // In the future, this could be replaced with actual channel member API
-      
-      // Validate channel URI before calling getFeedGenerator
-      if (!channelUri || !channelUri.startsWith('at://')) {
-        throw new Error('Invalid channel URI');
-      }
-      
-      const channelDetails = await AtprotoService.getFeedGenerator(channelUri);
-      if (!channelDetails?.view?.creator?.did) {
-        throw new Error('Channel creator not found');
-      }
-      
-      const response = await AtprotoService.getFollowing(
-        channelDetails.view.creator.did,
-        pageParam,
-        50
-      );
-      
-      return {
-        members: response.following.map((follow) => ({
-          did: follow.did,
-          handle: follow.handle,
-          displayName: follow.displayName,
-          avatar: follow.avatar,
-          description: ('description' in follow && typeof follow.description === 'string' ? follow.description : undefined),
-          viewer: follow.viewer,
-          isFollowing: !!follow.viewer?.following,
-        })),
-        cursor: response.cursor,
-      };
-    },
-    getNextPageParam: (lastPage) => lastPage?.cursor ?? null,
-    initialPageParam: null as string | null,
-    enabled: !!channelUri && isVisible,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
+  const { data, isLoading, isFetchingNextPage, fetchNextPage, hasNextPage, error, refetch } =
+    useInfiniteQuery({
+      queryKey: ['channelMembers', channelUri],
+      queryFn: async ({ pageParam }: { pageParam: string | null }) => {
+        // For now, we'll use the channel creator's following list
+        // In the future, this could be replaced with actual channel member API
+
+        // Validate channel URI before calling getFeedGenerator
+        if (!channelUri || !channelUri.startsWith('at://')) {
+          throw new Error('Invalid channel URI');
+        }
+
+        const channelDetails = await AtprotoService.getFeedGenerator(channelUri);
+        if (!channelDetails?.view?.creator?.did) {
+          throw new Error('Channel creator not found');
+        }
+
+        const response = await AtprotoService.getFollowing(
+          channelDetails.view.creator.did,
+          pageParam,
+          50
+        );
+
+        return {
+          members: response.following.map(follow => ({
+            did: follow.did,
+            handle: follow.handle,
+            displayName: follow.displayName,
+            avatar: follow.avatar,
+            description:
+              'description' in follow && typeof follow.description === 'string'
+                ? follow.description
+                : undefined,
+            viewer: follow.viewer,
+            isFollowing: !!follow.viewer?.following,
+          })),
+          cursor: response.cursor,
+        };
+      },
+      getNextPageParam: lastPage => lastPage?.cursor ?? null,
+      initialPageParam: null as string | null,
+      enabled: !!channelUri && isVisible,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+    });
 
   // Flatten all members from all pages
   const members = useMemo(() => {
-    return data?.pages.flatMap((page) => page.members) || [];
+    return data?.pages.flatMap(page => page.members) || [];
   }, [data]);
 
   // Follow mutation
@@ -149,35 +155,38 @@ const MembersListView: React.FC<MembersListViewProps> = ({
     },
     onMutate: async ({ member }) => {
       // Optimistically update the UI
-      queryClient.setQueryData<{ pages: Array<{ members: Member[]; cursor: string | null }> }>(['channelMembers', channelUri], (oldData) => {
-        if (!oldData) return oldData;
-        
-        return {
-          ...oldData,
-          pages: oldData.pages.map((page) => ({
-            ...page,
-            members: page.members.map((m: Member) => 
-              m.did === member.did 
-                ? { ...m, isFollowing: true, viewer: { ...m.viewer, following: 'true' } }
-                : m
-            )
-          }))
-        };
-      });
+      queryClient.setQueryData<{ pages: Array<{ members: Member[]; cursor: string | null }> }>(
+        ['channelMembers', channelUri],
+        oldData => {
+          if (!oldData) return oldData;
+
+          return {
+            ...oldData,
+            pages: oldData.pages.map(page => ({
+              ...page,
+              members: page.members.map((m: Member) =>
+                m.did === member.did
+                  ? { ...m, isFollowing: true, viewer: { ...m.viewer, following: 'true' } }
+                  : m
+              ),
+            })),
+          };
+        }
+      );
     },
     onError: () => {
       // Revert optimistic update on error
       refetch();
     },
-    onSettled: async (member) => {
+    onSettled: async member => {
       if (member) {
         const freshProfile = await AtprotoService.getProfile(member.handle);
-        await ProfileCache.updateFollowingStatus(
-          member.handle, 
+        await ProfileService.updateFollowingStatus(
+          member.handle,
           !!freshProfile?.viewer?.following
         );
       }
-    }
+    },
   });
 
   // Unfollow mutation
@@ -188,74 +197,84 @@ const MembersListView: React.FC<MembersListViewProps> = ({
     },
     onMutate: async ({ member }) => {
       // Optimistically update the UI
-      queryClient.setQueryData<{ pages: Array<{ members: Member[]; cursor: string | null }> }>(['channelMembers', channelUri], (oldData) => {
-        if (!oldData) return oldData;
-        
-        return {
-          ...oldData,
-          pages: oldData.pages.map((page) => ({
-            ...page,
-            members: page.members.map((m: Member) => 
-              m.did === member.did 
-                ? { ...m, isFollowing: false, viewer: { ...m.viewer, following: undefined } }
-                : m
-            )
-          }))
-        };
-      });
+      queryClient.setQueryData<{ pages: Array<{ members: Member[]; cursor: string | null }> }>(
+        ['channelMembers', channelUri],
+        oldData => {
+          if (!oldData) return oldData;
+
+          return {
+            ...oldData,
+            pages: oldData.pages.map(page => ({
+              ...page,
+              members: page.members.map((m: Member) =>
+                m.did === member.did
+                  ? { ...m, isFollowing: false, viewer: { ...m.viewer, following: undefined } }
+                  : m
+              ),
+            })),
+          };
+        }
+      );
     },
     onError: () => {
       // Revert optimistic update on error
       refetch();
     },
-    onSettled: async (member) => {
+    onSettled: async member => {
       if (member) {
         const freshProfile = await AtprotoService.getProfile(member.handle);
-        await ProfileCache.updateFollowingStatus(
-          member.handle, 
+        await ProfileService.updateFollowingStatus(
+          member.handle,
           !!freshProfile?.viewer?.following
         );
       }
-    }
+    },
   });
 
   // Handle member press
-  const handleMemberPress = useCallback((member: Member) => {
-    if (onMemberPress) {
-      onMemberPress(member);
-    } else {
-      // Navigate to profile
-      const target = (member.handle || '').trim();
-      if (!target) return;
-      navigation.push(`/profile/${target}`);
-    }
-  }, [onMemberPress, navigation]);
+  const handleMemberPress = useCallback(
+    (member: Member) => {
+      if (onMemberPress) {
+        onMemberPress(member);
+      } else {
+        // Navigate to profile
+        const target = (member.handle || '').trim();
+        if (!target) return;
+        navigation.push(`/profile/${target}`);
+      }
+    },
+    [onMemberPress, navigation]
+  );
 
   // Handle follow/unfollow press
-  const handleFollowPress = useCallback((member: Member) => {
-    // Don't allow following the current user
-    if (isCurrentUser(member.did, member.handle, currentUser)) {
-      return;
-    }
-    
-    if (onFollowPress) {
-      onFollowPress(member);
-    } else {
-      // Default follow/unfollow behavior
-      if (member.isFollowing) {
-        unfollowMutation.mutate({ member });
-      } else {
-        followMutation.mutate({ member });
+  const handleFollowPress = useCallback(
+    (member: Member) => {
+      // Don't allow following the current user
+      if (isCurrentUser(member.did, member.handle, currentUser)) {
+        return;
       }
-    }
-  }, [onFollowPress, unfollowMutation, followMutation, currentUser]);
+
+      if (onFollowPress) {
+        onFollowPress(member);
+      } else {
+        // Default follow/unfollow behavior
+        if (member.isFollowing) {
+          unfollowMutation.mutate({ member });
+        } else {
+          followMutation.mutate({ member });
+        }
+      }
+    },
+    [onFollowPress, unfollowMutation, followMutation, currentUser]
+  );
 
   // Handle refresh
   const handleRefresh = useCallback(async () => {
     try {
       await refetch();
       onRefresh?.();
-    } catch (error) {
+    } catch (error: unknown) {
+      // ignore
     }
   }, [refetch, onRefresh]);
 
@@ -280,87 +299,85 @@ const MembersListView: React.FC<MembersListViewProps> = ({
     // This helps prevent the list from getting stuck
   }, []);
 
-
   // FlashList does not require manual ref handling for scroll-to-top here
 
   // Render member item
-  const renderMemberItem = useCallback(({ item: member }: { item: Member }) => {
-    const isCurrentUserProfile = isCurrentUser(member.did, member.handle, currentUser);
-    
-    return (
-      <Pressable
-        style={styles.memberItem}
-        onPress={() => handleMemberPress(member)}
-      >
-        <Avatar
-          uri={member.avatar}
-          type="profile"
-          size={40}
-          style={[styles.memberAvatar, { borderWidth: 0, borderColor: 'transparent' }]}
-        />
-        <View style={styles.memberDetails}>
-          <View style={styles.memberNameRow}>
-            <Text style={styles.memberName} numberOfLines={1}>
-              {member.displayName || formatHandle(member.handle)}
-            </Text>
-            <VerificationBadge
-              handle={member.handle}
-              textSize={14}
-              textColor={Colors.white}
-            />
+  const renderMemberItem = useCallback(
+    ({ item: member }: { item: Member }) => {
+      const isCurrentUserProfile = isCurrentUser(member.did, member.handle, currentUser);
+
+      return (
+        <Pressable style={styles.memberItem} onPress={() => handleMemberPress(member)}>
+          <Avatar
+            uri={member.avatar}
+            type="profile"
+            size={40}
+            style={[styles.memberAvatar, { borderWidth: 0, borderColor: 'transparent' }]}
+          />
+          <View style={styles.memberDetails}>
+            <View style={styles.memberNameRow}>
+              <Text style={styles.memberName} numberOfLines={1}>
+                {member.displayName || formatHandle(member.handle)}
+              </Text>
+              <VerificationBadge handle={member.handle} textSize={14} textColor={Colors.white} />
+            </View>
           </View>
-        </View>
-        {/* Follow button would be rendered here if needed - check prevents showing for current user */}
-        {onFollowPress && !isCurrentUserProfile && (
-          <Pressable
-            style={[styles.followButton, { borderColor: textColor }]}
-            onPress={() => handleFollowPress(member)}
-          >
-            <Text style={[styles.followButtonText, { color: textColor }]}>
-              {member.isFollowing ? 'Following' : 'Follow'}
-            </Text>
-          </Pressable>
-        )}
-      </Pressable>
-    );
-  }, [handleMemberPress, handleFollowPress, onFollowPress, currentUser, textColor]);
+          {/* Follow button would be rendered here if needed - check prevents showing for current user */}
+          {onFollowPress && !isCurrentUserProfile && (
+            <Pressable
+              style={[styles.followButton, { borderColor: textColor }]}
+              onPress={() => handleFollowPress(member)}
+            >
+              <Text style={[styles.followButtonText, { color: textColor }]}>
+                {member.isFollowing ? 'Following' : 'Follow'}
+              </Text>
+            </Pressable>
+          )}
+        </Pressable>
+      );
+    },
+    [handleMemberPress, handleFollowPress, onFollowPress, currentUser, textColor]
+  );
 
   // Render loading item
-  const renderLoadingItem = useCallback(() => (
-    <View style={styles.loadingItem}>
-      <Loading3FillIcon size={24} color={textColor} />
-      <Text style={[styles.loadingText, { color: textColor }]}>
-        Loading more members...
-      </Text>
-    </View>
-  ), [textColor]);
+  const renderLoadingItem = useCallback(
+    () => (
+      <View style={styles.loadingItem}>
+        <Loading3FillIcon size={24} color={textColor} />
+        <Text style={[styles.loadingText, { color: textColor }]}>Loading more members...</Text>
+      </View>
+    ),
+    [textColor]
+  );
 
   // Render empty state
-  const renderEmptyState = useCallback(() => (
-    <View style={styles.emptyContainer}>
-      <Icon name="users" size={48} color={hexToRGBA(textColor, 0.5)} />
-      <Text style={[styles.emptyTitle, { color: textColor }]}>
-        No members found
-      </Text>
-      <Text style={[styles.emptyDescription, { color: hexToRGBA(textColor, 0.67) }]}>
-        This channel doesn't have any members yet.
-      </Text>
-    </View>
-  ), [textColor]);
+  const renderEmptyState = useCallback(
+    () => (
+      <View style={styles.emptyContainer}>
+        <Icon name="users" size={48} color={hexToRGBA(textColor, 0.5)} />
+        <Text style={[styles.emptyTitle, { color: textColor }]}>No members found</Text>
+        <Text style={[styles.emptyDescription, { color: hexToRGBA(textColor, 0.67) }]}>
+          This channel doesn't have any members yet.
+        </Text>
+      </View>
+    ),
+    [textColor]
+  );
 
   // Render error state
-  const renderErrorState = useCallback(() => (
-    <View style={styles.errorContainer}>
-      <Icon name="alert-circle" size={48} color={UI.Colors.STATUS.ERROR} />
-      <Text style={[styles.errorTitle, { color: textColor }]}>
-        Failed to load members
-      </Text>
-      <Text style={[styles.errorDescription, { color: hexToRGBA(textColor, 0.67) }]}>
-        Please try again later.
-      </Text>
-      <RetryButton onPress={handleRefresh} />
-    </View>
-  ), [textColor, handleRefresh]);
+  const renderErrorState = useCallback(
+    () => (
+      <View style={styles.errorContainer}>
+        <Icon name="alert-circle" size={48} color={UI.Colors.STATUS.ERROR} />
+        <Text style={[styles.errorTitle, { color: textColor }]}>Failed to load members</Text>
+        <Text style={[styles.errorDescription, { color: hexToRGBA(textColor, 0.67) }]}>
+          Please try again later.
+        </Text>
+        <RetryButton onPress={handleRefresh} />
+      </View>
+    ),
+    [textColor, handleRefresh]
+  );
 
   if (error) {
     return (
@@ -384,7 +401,7 @@ const MembersListView: React.FC<MembersListViewProps> = ({
   const ListEl = ListComponent || FlashList;
 
   return (
-    <View style={[styles.container, { backgroundColor }]}> 
+    <View style={[styles.container, { backgroundColor }]}>
       <ListEl
         data={members}
         renderItem={renderMemberItem}
@@ -411,11 +428,7 @@ const MembersListView: React.FC<MembersListViewProps> = ({
         bounces={false}
         alwaysBounceVertical={false}
         removeClippedSubviews={false}
-
-        contentContainerStyle={[
-          styles.contentContainer,
-          members.length === 0 && { flex: 1 }
-        ]}
+        contentContainerStyle={[styles.contentContainer, members.length === 0 && { flex: 1 }]}
         style={styles.list}
       />
     </View>
@@ -426,7 +439,10 @@ const MembersListView: React.FC<MembersListViewProps> = ({
 const hexToRGBA = (hex: string, alpha: number): string => {
   hex = hex.replace('#', '');
   if (hex.length === 3) {
-    hex = hex.split('').map(c => c + c).join('');
+    hex = hex
+      .split('')
+      .map(c => c + c)
+      .join('');
   }
   const r = parseInt(hex.substring(0, 2), 16);
   const g = parseInt(hex.substring(2, 4), 16);
@@ -559,4 +575,3 @@ const styles = StyleSheet.create({
 });
 
 export default MembersListView;
-

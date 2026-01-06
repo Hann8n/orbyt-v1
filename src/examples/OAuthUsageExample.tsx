@@ -7,7 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, Pressable, Alert } from 'react-native';
 import { useOAuth } from '../hooks/useOAuth';
 import { useAccountManager } from '../hooks/useAccountManager';
-import { analyzeOAuthError, handleOAuthError } from '../utils/oauthErrorHandler';
+import { analyzeOAuthError, handleOAuthError } from '../utils/errors/oauth';
 
 export function OAuthUsageExample() {
   const { isAuthenticated, isAuthenticating, error, signIn, signOut, clearError } = useOAuth();
@@ -19,16 +19,12 @@ export function OAuthUsageExample() {
       await signIn(identifier || 'bsky.social');
     } catch (error) {
       const errorInfo = analyzeOAuthError(error);
-      
+
       if (errorInfo.requiresReauth) {
-        Alert.alert(
-          'Session Expired',
-          'Your session has expired. Please sign in again.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Sign In', onPress: () => handleSignIn() }
-          ]
-        );
+        Alert.alert('Session Expired', 'Your session has expired. Please sign in again.', [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Sign In', onPress: () => handleSignIn() },
+        ]);
       } else if (!errorInfo.isUserCancellation) {
         Alert.alert('Sign In Failed', errorInfo.userFriendlyMessage);
       }
@@ -40,14 +36,14 @@ export function OAuthUsageExample() {
       await switchAccount(accountDid);
     } catch (error) {
       const errorInfo = analyzeOAuthError(error);
-      
+
       if (errorInfo.requiresReauth) {
         Alert.alert(
           'Session Expired',
-          'This account\'s session has expired. Please sign in again.',
+          "This account's session has expired. Please sign in again.",
           [
             { text: 'Cancel', style: 'cancel' },
-            { text: 'Sign In', onPress: () => handleSignIn() }
+            { text: 'Sign In', onPress: () => handleSignIn() },
           ]
         );
       } else {
@@ -68,7 +64,7 @@ export function OAuthUsageExample() {
     return (
       <View style={{ padding: 20 }}>
         <Text>Welcome! You are signed in.</Text>
-        
+
         {accounts.length > 1 && (
           <View>
             <Text>Switch Account:</Text>
@@ -76,10 +72,10 @@ export function OAuthUsageExample() {
               <Pressable
                 key={account.did}
                 onPress={() => handleAccountSwitch(account.did)}
-                style={{ 
-                  padding: 10, 
+                style={{
+                  padding: 10,
                   backgroundColor: activeAccountDid === account.did ? '#007AFF' : '#F0F0F0',
-                  margin: 5 
+                  margin: 5,
                 }}
               >
                 <Text>{account.displayName || account.handle}</Text>
@@ -87,7 +83,7 @@ export function OAuthUsageExample() {
             ))}
           </View>
         )}
-        
+
         <Pressable onPress={signOut} style={{ padding: 10, backgroundColor: '#FF3B30' }}>
           <Text style={{ color: 'white' }}>Sign Out</Text>
         </Pressable>
@@ -98,7 +94,7 @@ export function OAuthUsageExample() {
   return (
     <View style={{ padding: 20 }}>
       <Text>Sign In to Bluesky</Text>
-      
+
       {error && (
         <View style={{ padding: 10, backgroundColor: '#FF3B30', margin: 10 }}>
           <Text style={{ color: 'white' }}>{error}</Text>
@@ -107,14 +103,14 @@ export function OAuthUsageExample() {
           </Pressable>
         </View>
       )}
-      
-      <Pressable 
-        onPress={handleSignIn} 
+
+      <Pressable
+        onPress={handleSignIn}
         disabled={isAuthenticating}
-        style={{ 
-          padding: 15, 
+        style={{
+          padding: 15,
           backgroundColor: isAuthenticating ? '#CCC' : '#007AFF',
-          margin: 10 
+          margin: 10,
         }}
       >
         <Text style={{ color: 'white', textAlign: 'center' }}>
@@ -127,13 +123,13 @@ export function OAuthUsageExample() {
 
 /**
  * Key improvements demonstrated:
- * 
+ *
  * 1. **Universal Error Handling**: Uses analyzeOAuthError() to categorize errors
  * 2. **Automatic Session Refresh**: OAuth service handles token refresh automatically
  * 3. **Better UX**: Specific error messages and appropriate user actions
  * 4. **Simplified Code**: Less boilerplate, more focused on business logic
  * 5. **Consistent Patterns**: Same error handling across all OAuth operations
- * 
+ *
  * The system now:
  * - Automatically detects session expiration
  * - Provides clear user feedback

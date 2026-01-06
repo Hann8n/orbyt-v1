@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'expo-router';
 import ListScreen from '../../src/components/ui/ListScreen';
 import AtprotoService from '../../src/services/api/AtprotoService';
 
@@ -11,10 +10,9 @@ interface BlockedUser {
 }
 
 const BlockedUsersScreen: React.FC = () => {
-  const navigation = useRouter();
   const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([]);
   const [loading, setLoading] = useState(true);
-  const [unblockingUsers, setUnblockingUsers] = useState<Set<string>>(new Set());
+  const [_unblockingUsers, setUnblockingUsers] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadBlockedUsers();
@@ -24,7 +22,7 @@ const BlockedUsersScreen: React.FC = () => {
     try {
       setLoading(true);
       const blockedDids = await AtprotoService.getBlockedUsersFromAPI();
-      
+
       // Convert string[] to BlockedUser objects
       const userPromises = blockedDids.map(async (did: string) => {
         try {
@@ -46,7 +44,7 @@ const BlockedUsersScreen: React.FC = () => {
           };
         }
       });
-      
+
       const users = await Promise.all(userPromises);
       setBlockedUsers(users);
     } catch (error) {
@@ -89,4 +87,4 @@ const BlockedUsersScreen: React.FC = () => {
   );
 };
 
-export default BlockedUsersScreen; 
+export default BlockedUsersScreen;

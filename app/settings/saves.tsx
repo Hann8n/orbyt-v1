@@ -12,7 +12,7 @@ const SavesScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <ListHeader 
+      <ListHeader
         mode="sheet"
         title="Your saves"
         showCloseButton
@@ -49,7 +49,3 @@ const styles = StyleSheet.create({
 });
 
 export default SavesScreen;
-
-
-
-

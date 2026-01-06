@@ -1,29 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Alert,
-  Platform,
-  ScrollView,
-  Linking,
-} from 'react-native';
+import { View, Text, StyleSheet, Alert, Platform, ScrollView, Linking } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import Constants from 'expo-constants';
 import Icon from '../../src/components/ui/Icon';
 import { Colors } from '../../src/components/ui/UI';
 import ListHeader from '../../src/components/ui/ListHeader';
 import { OptionsButton } from '../../src/components/ui/OptionsButton';
-import { useFeedSettings, useAuth, useCurrentUser, useUserStore, useAccountManagement } from '../../src/stores/userStore';
+import {
+  useFeedSettings,
+  useAuth,
+  useCurrentUser,
+  useUserStore,
+  useAccountManagement,
+} from '../../src/stores/userStore';
 import { settingsTextStyles, settingsLayoutStyles } from './SettingsStyles';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalModals';
-import ProfileCache from '../../src/services/cache/ProfileCache';
-import ChannelCache from '../../src/services/cache/ChannelCache';
- 
-
-
+import ProfileService from '../../src/services/data/ProfileService';
+import ChannelService from '../../src/services/data/ChannelService';
 
 declare let window: any;
 
@@ -36,7 +31,12 @@ const SettingsScreen: React.FC = () => {
   const [isNativeTabsEnabled, setIsNativeTabsEnabled] = useState(false);
   const [isProfileLinkCopied, setIsProfileLinkCopied] = useState(false);
   const { presentAccountSwitcher } = useGlobalAccountSwitcher();
-  const { getExperimentalFeedsEnabled, setExperimentalFeedsEnabled, getNativeTabsEnabled, setNativeTabsEnabled } = useFeedSettings();
+  const {
+    getExperimentalFeedsEnabled,
+    setExperimentalFeedsEnabled,
+    getNativeTabsEnabled,
+    setNativeTabsEnabled,
+  } = useFeedSettings();
   const { currentUser } = useCurrentUser();
   const { isDeveloper } = useUserStore();
   const { savedAccounts } = useAccountManagement();
@@ -58,33 +58,29 @@ const SettingsScreen: React.FC = () => {
 
   const handleLogout = async () => {
     if (isSubmitting) return;
-    
-    Alert.alert(
-      'Log out',
-      'Are you sure you want to log out?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
+
+    Alert.alert('Log out', 'Are you sure you want to log out?', [
+      {
+        text: 'Cancel',
+        style: 'cancel',
+      },
+      {
+        text: 'Log out',
+        style: 'default',
+        onPress: async () => {
+          setIsSubmitting(true);
+          try {
+            // Use userStore to handle logout without removing accounts (clearAllAccounts = false)
+            await onLogout(false);
+          } catch (error) {
+            console.error('error during logout:', error);
+            Alert.alert('Error', 'Failed to log out. Please try again.');
+          } finally {
+            setIsSubmitting(false);
+          }
         },
-        {
-          text: 'Log out',
-          style: 'default',
-          onPress: async () => {
-            setIsSubmitting(true);
-            try {
-              // Use userStore to handle logout without removing accounts (clearAllAccounts = false)
-              await onLogout(false);
-            } catch (error) {
-              console.error('error during logout:', error);
-              Alert.alert('Error', 'Failed to log out. Please try again.');
-            } finally {
-              setIsSubmitting(false);
-            }
-          },
-        },
-      ]
-    );
+      },
+    ]);
   };
 
   const handleRemoveAccount = async () => {
@@ -97,32 +93,28 @@ const SettingsScreen: React.FC = () => {
       : 'You will need to sign in again.';
     const confirmLabel = hasMultipleAccounts ? 'Remove accounts' : 'Remove account';
 
-    Alert.alert(
-      title,
-      message,
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
+    Alert.alert(title, message, [
+      {
+        text: 'Cancel',
+        style: 'cancel',
+      },
+      {
+        text: confirmLabel,
+        style: 'destructive',
+        onPress: async () => {
+          setIsSubmitting(true);
+          try {
+            // Use userStore to handle account removal (clearAllAccounts = true)
+            await onLogout(true);
+          } catch (error) {
+            console.error('error during account removal:', error);
+            Alert.alert('Error', 'Failed to remove account. Please try again.');
+          } finally {
+            setIsSubmitting(false);
+          }
         },
-        {
-          text: confirmLabel,
-          style: 'destructive',
-          onPress: async () => {
-            setIsSubmitting(true);
-            try {
-              // Use userStore to handle account removal (clearAllAccounts = true)
-              await onLogout(true);
-            } catch (error) {
-              console.error('error during account removal:', error);
-              Alert.alert('Error', 'Failed to remove account. Please try again.');
-            } finally {
-              setIsSubmitting(false);
-            }
-          },
-        },
-      ]
-    );
+      },
+    ]);
   };
 
   const handleCopyProfileLink = async () => {
@@ -145,13 +137,11 @@ const SettingsScreen: React.FC = () => {
     }
   };
 
-
-
   const handleToggleExperimentalFeeds = async (value: boolean) => {
     try {
       await setExperimentalFeedsEnabled(value);
       setIsExperimentalFeedsEnabled(value);
-      
+
       // Invalidate queries that depend on experimental feeds setting
       queryClient.invalidateQueries({ queryKey: ['suggestedFeeds'] });
       queryClient.invalidateQueries({ queryKey: ['unifiedSearch'] });
@@ -165,7 +155,7 @@ const SettingsScreen: React.FC = () => {
     // Optimistically update UI immediately
     const previousValue = isNativeTabsEnabled;
     setIsNativeTabsEnabled(value);
-    
+
     try {
       await setNativeTabsEnabled(value);
     } catch (error) {
@@ -191,14 +181,11 @@ const SettingsScreen: React.FC = () => {
           onPress: async () => {
             try {
               // Clear all caches
-              await Promise.all([
-                ProfileCache.clearCache(),
-                ChannelCache.clearCache(),
-              ]);
-              
+              await Promise.all([ProfileService.clearCache(), ChannelService.clearCache()]);
+
               // Clear React Query cache
               queryClient.clear();
-              
+
               Alert.alert('Success', 'App cache has been cleared successfully.');
             } catch (error) {
               console.error('Error clearing cache:', error);
@@ -220,9 +207,6 @@ const SettingsScreen: React.FC = () => {
 
   const appVersion = Constants.expoConfig?.version || '1.0.0';
 
-
-
-
   const settingsSections = [
     {
       title: '', // No title for profile section
@@ -232,23 +216,23 @@ const SettingsScreen: React.FC = () => {
           label: 'Your followers',
           icon: 'users',
           onPress: () => router.push('/settings/followers'),
-          showChevron: false
+          showChevron: false,
         },
         {
           id: 'following',
           label: 'People you follow',
           icon: 'user-plus',
           onPress: () => router.push('/settings/following'),
-          showChevron: false
+          showChevron: false,
         },
         {
           id: 'saves',
           label: 'Your saves',
           icon: 'bookmark',
           onPress: () => router.push('/settings/saves'),
-          showChevron: false
-        }
-      ]
+          showChevron: false,
+        },
+      ],
     },
     {
       title: 'Sharing',
@@ -258,9 +242,9 @@ const SettingsScreen: React.FC = () => {
           label: 'Copy your profile link',
           icon: 'link',
           onPress: handleCopyProfileLink,
-          showChevron: false
-        }
-      ]
+          showChevron: false,
+        },
+      ],
     },
     {
       title: 'Privacy',
@@ -269,15 +253,15 @@ const SettingsScreen: React.FC = () => {
           id: 'blocked-users',
           label: 'Blocked accounts',
           onPress: () => router.push('/settings/blocked'),
-          showChevron: false
+          showChevron: false,
         },
         {
           id: 'muted-users',
           label: 'Muted accounts',
           onPress: () => router.push('/settings/muted'),
-          showChevron: false
+          showChevron: false,
         },
-      ]
+      ],
     },
     {
       title: 'App Settings',
@@ -287,29 +271,37 @@ const SettingsScreen: React.FC = () => {
           label: 'Content filters',
           icon: 'filter',
           onPress: () => router.push('/settings/content-filters'),
-          showChevron: true
+          showChevron: true,
         },
         {
           id: 'algorithmic-feed',
           label: 'Your mix',
           icon: 'sparkles',
           onPress: () => router.push('/settings/algorithmic-feed'),
-          showChevron: true
+          showChevron: true,
         },
-        ...(isDeveloper ? [{
-          id: 'app-icon',
-          label: 'App icon',
-          icon: 'device-tv',
-          onPress: () => router.push('/settings/app-icon'),
-          showChevron: true
-        }] : []),
-        ...(__DEV__ ? [{
-          id: 'route-navigator',
-          label: 'Route Navigator',
-          icon: 'information-line',
-          onPress: () => router.push('/settings/route-navigator'),
-          showChevron: true
-        }] : []),
+        ...(isDeveloper
+          ? [
+              {
+                id: 'app-icon',
+                label: 'App icon',
+                icon: 'device-tv',
+                onPress: () => router.push('/settings/app-icon'),
+                showChevron: true,
+              },
+            ]
+          : []),
+        ...(__DEV__
+          ? [
+              {
+                id: 'route-navigator',
+                label: 'Route Navigator',
+                icon: 'information-line',
+                onPress: () => router.push('/settings/route-navigator'),
+                showChevron: true,
+              },
+            ]
+          : []),
         // {
         //   id: 'experimental-feeds',
         //   label: 'Experimental Feeds',
@@ -324,11 +316,11 @@ const SettingsScreen: React.FC = () => {
         //   onPress: () => handlePlaceholderAction('Data Usage'),
         //   showChevron: true
         // }
-      ]
+      ],
     },
     {
       title: 'Labs',
-      items: []
+      items: [],
     },
     {
       title: 'Troubleshooting',
@@ -337,15 +329,15 @@ const SettingsScreen: React.FC = () => {
           id: 'clear-cache',
           label: 'Clear cache',
           onPress: handleClearCache,
-          showChevron: false
+          showChevron: false,
         },
         {
           id: 'support',
           label: 'Support',
           onPress: () => handleOpenEmail('support@getorbyt.com'),
-          showChevron: true
+          showChevron: true,
         },
-      ]
+      ],
     },
     {
       title: 'About',
@@ -354,21 +346,21 @@ const SettingsScreen: React.FC = () => {
           id: 'website',
           label: 'Website',
           onPress: () => handleOpenLink('https://getorbyt.com'),
-          showChevron: true
+          showChevron: true,
         },
         {
           id: 'privacy',
           label: 'Privacy policy',
           onPress: () => handleOpenLink('https://getorbyt.com/privacy'),
-          showChevron: true
+          showChevron: true,
         },
         {
           id: 'terms',
           label: 'Terms of service',
           onPress: () => handleOpenLink('https://getorbyt.com/terms'),
-          showChevron: true
-        }
-      ]
+          showChevron: true,
+        },
+      ],
     },
     {
       title: 'Accounts',
@@ -383,43 +375,56 @@ const SettingsScreen: React.FC = () => {
             // Account switcher will show "Add Account" options by default if only one account
             setTimeout(() => presentAccountSwitcher(), 350);
           },
-          showChevron: false
+          showChevron: false,
         },
         {
           id: 'logout',
           label: 'Log out',
           onPress: handleLogout,
-          showChevron: false
+          showChevron: false,
         },
         {
           id: 'remove-account',
           label: savedAccounts.length > 1 ? 'Remove accounts' : 'Remove account',
           onPress: handleRemoveAccount,
           showChevron: false,
-          destructive: true
-        }
-      ]
+          destructive: true,
+        },
+      ],
     },
-
   ];
 
   // Build flat list data for FlashList
   type ListRow =
     | { kind: 'section-title'; id: string; title: string }
-    | { kind: 'setting'; id: string; label: string; showChevron?: boolean; onPress: () => void; destructive?: boolean }
-    | { kind: 'toggle'; id: string; label: string; subtitle?: string; value: boolean; onValueChange: (v: boolean) => void }
+    | {
+        kind: 'setting';
+        id: string;
+        label: string;
+        showChevron?: boolean;
+        onPress: () => void;
+        destructive?: boolean;
+      }
+    | {
+        kind: 'toggle';
+        id: string;
+        label: string;
+        subtitle?: string;
+        value: boolean;
+        onValueChange: (v: boolean) => void;
+      }
     | { kind: 'spacer'; id: string; height?: number }
     | { kind: 'footer'; id: string };
 
   const listData: ListRow[] = [];
 
-  settingsSections.forEach((section) => {
+  settingsSections.forEach(section => {
     // Only add section title if it's not empty
     if (section.title) {
       listData.push({ kind: 'section-title', id: `title-${section.title}`, title: section.title });
     }
 
-    section.items.forEach((item) => {
+    section.items.forEach(item => {
       listData.push({
         kind: 'setting',
         id: (item as any).id,
@@ -450,7 +455,6 @@ const SettingsScreen: React.FC = () => {
     }
   });
 
-
   // Add footer with version and built with love message
   listData.push({
     kind: 'footer',
@@ -459,7 +463,7 @@ const SettingsScreen: React.FC = () => {
 
   return (
     <View style={[settingsLayoutStyles.container, { backgroundColor: Colors.black }]}>
-      <ListHeader 
+      <ListHeader
         mode="sheet"
         title="Settings"
         showCloseButton
@@ -490,9 +494,11 @@ const SettingsScreen: React.FC = () => {
                   showChevron={item.showChevron}
                   destructive={item.destructive}
                   disabled={isSubmitting}
-                  rightIcon={item.id === 'copy-profile-link' && isProfileLinkCopied ? (
-                    <Icon name="check" size={24} color={Colors.lightGreen} />
-                  ) : undefined}
+                  rightIcon={
+                    item.id === 'copy-profile-link' && isProfileLinkCopied ? (
+                      <Icon name="check" size={24} color={Colors.lightGreen} />
+                    ) : undefined
+                  }
                 />
               );
             case 'toggle':
@@ -507,33 +513,26 @@ const SettingsScreen: React.FC = () => {
                 />
               );
             case 'spacer':
-              return (
-                <View key={key} style={{ height: item.height || 12 }} />
-              );
+              return <View key={key} style={{ height: item.height || 12 }} />;
             case 'footer':
               return (
                 <View key={key} style={styles.footer}>
                   <View style={styles.footerContent}>
                     <View style={styles.footerHeartContainer}>
-                      <Text style={styles.footerSubtext}>
-                        built with{' '}
-                      </Text>
+                      <Text style={styles.footerSubtext}>built with </Text>
                       <Icon name="heart" size={18} color={Colors.lightRed} />
-                      <Text style={styles.footerSubtext}>
-                        {' '}for the community
-                      </Text>
+                      <Text style={styles.footerSubtext}> for the community</Text>
                     </View>
                     <Text style={styles.versionText}>v{appVersion}</Text>
                   </View>
                 </View>
               );
-            
+
             default:
               return null;
           }
         })}
       </ScrollView>
-
     </View>
   );
 };

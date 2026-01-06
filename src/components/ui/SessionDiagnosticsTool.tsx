@@ -1,11 +1,5 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  Alert,
-} from 'react-native';
+import { View, Text, StyleSheet, Pressable, Alert } from 'react-native';
 import { BORDER_RADIUS } from '../../utils/constants';
 import { Colors } from './UI';
 import { useAuth, useAccountManagement } from '../../stores/userStore';
@@ -16,13 +10,9 @@ interface SessionDiagnosticsToolProps {
   onDismiss: () => void;
 }
 
-const SessionDiagnosticsTool: React.FC<SessionDiagnosticsToolProps> = ({
-  visible,
-  onDismiss,
-}) => {
+const SessionDiagnosticsTool: React.FC<SessionDiagnosticsToolProps> = ({ visible, onDismiss }) => {
   const { clearCorruptedSessions, savedAccounts } = useAccountManagement();
   const { signOut } = useAuth();
-
 
   const handleClearSessions = async () => {
     try {
@@ -56,10 +46,9 @@ const SessionDiagnosticsTool: React.FC<SessionDiagnosticsToolProps> = ({
       <View style={styles.container}>
         <View style={styles.infoContainer}>
           <Text style={styles.infoText}>
-            {savedAccounts.length > 0 
+            {savedAccounts.length > 0
               ? `You have ${savedAccounts.length} saved account${savedAccounts.length === 1 ? '' : 's'}`
-              : 'No saved accounts found'
-            }
+              : 'No saved accounts found'}
           </Text>
         </View>
 
@@ -70,11 +59,8 @@ const SessionDiagnosticsTool: React.FC<SessionDiagnosticsToolProps> = ({
           >
             <Text style={styles.actionButtonText}>Clear All Sessions</Text>
           </Pressable>
-          
-          <Pressable
-            style={[styles.actionButton, styles.signOutButton]}
-            onPress={handleSignOut}
-          >
+
+          <Pressable style={[styles.actionButton, styles.signOutButton]} onPress={handleSignOut}>
             <Text style={styles.actionButtonText}>Sign Out</Text>
           </Pressable>
         </View>

@@ -1,24 +1,15 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { BORDER_RADIUS } from '../../utils/constants';
-import {
-  View,
-  Text,
-  FlatList,
-  Pressable,
-  StyleSheet,
-  Platform,
-  Keyboard,
-} from 'react-native';
+import { View, Text, FlatList, Pressable, StyleSheet, Platform, Keyboard } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useInfiniteQuery, InfiniteData } from '@tanstack/react-query';
-import { queryKeys } from '../../utils/queryKeys';
+import { queryKeys } from '../../utils/query/queryKeys';
 import AtprotoService from '../../services/api/AtprotoService';
 import { Avatar } from './UI';
 import AuthorItem from './AuthorItem';
 import { Colors } from './UI';
 import { VerificationBadge } from '../features/badging';
 import { Loading3FillIcon } from './Icon';
-
 
 // Types
 interface UserProfile {
@@ -92,7 +83,6 @@ function getHashtagQuery(text: string, cursor: number) {
   return null;
 }
 
-
 // UserSearch overlay component (not a Modal)
 export function UserSearchModal({
   visible,
@@ -102,46 +92,49 @@ export function UserSearchModal({
   anchorPosition,
 }: UserSearchModalProps) {
   // Use the same search as ExploreScreen
-  const {
-    data,
-    isLoading,
-    isFetchingNextPage,
-    fetchNextPage,
-    hasNextPage,
-    error,
-    refetch,
-  } = useInfiniteQuery<
-    { profiles: UserProfile[]; cursor: string | null },
-    Error,
-    InfiniteData<{ profiles: UserProfile[]; cursor: string | null }, string | null>,
-    ReturnType<typeof queryKeys.search.profiles>,
-    string | null
-  >({
-    queryKey: queryKeys.search.profiles(searchQuery),
-    queryFn: async ({ pageParam }) => {
-      return AtprotoService.searchProfilesPaginated(searchQuery, pageParam as string | null);
-    },
-    getNextPageParam: (lastPage) => lastPage?.cursor ?? null,
-    initialPageParam: null,
-    enabled: !!searchQuery && searchQuery.length > 0 && visible,
-    staleTime: 30 * 1000,
-  });
+  const { data, isLoading, isFetchingNextPage, fetchNextPage, hasNextPage, error, refetch } =
+    useInfiniteQuery<
+      { profiles: UserProfile[]; cursor: string | null },
+      Error,
+      InfiniteData<{ profiles: UserProfile[]; cursor: string | null }, string | null>,
+      ReturnType<typeof queryKeys.search.profiles>,
+      string | null
+    >({
+      queryKey: queryKeys.search.profiles(searchQuery),
+      queryFn: async ({ pageParam }) => {
+        return AtprotoService.searchProfilesPaginated(searchQuery, pageParam as string | null);
+      },
+      getNextPageParam: lastPage => lastPage?.cursor ?? null,
+      initialPageParam: null,
+      enabled: !!searchQuery && searchQuery.length > 0 && visible,
+      staleTime: 30 * 1000,
+    });
 
-  const profiles = data?.pages.flatMap((page) => page.profiles) || [];
+  const profiles = data?.pages.flatMap(page => page.profiles) || [];
 
   if (!visible) return null;
 
   return (
-    <View style={[styles.overlay, anchorPosition ? { left: anchorPosition.x, top: anchorPosition.y } : null]} pointerEvents="box-none">
+    <View
+      style={[
+        styles.overlay,
+        anchorPosition ? { left: anchorPosition.x, top: anchorPosition.y } : null,
+      ]}
+      pointerEvents="box-none"
+    >
       <View style={styles.modal}>
         {isLoading ? (
           <View style={styles.centered}>
             <Loading3FillIcon size={48} color={Colors.white} />
           </View>
         ) : error ? (
-          <View style={styles.centered}><Text style={styles.errorText}>Error loading users</Text></View>
+          <View style={styles.centered}>
+            <Text style={styles.errorText}>Error loading users</Text>
+          </View>
         ) : profiles.length === 0 ? (
-          <View style={styles.centered}><Text style={styles.emptyText}>No users found</Text></View>
+          <View style={styles.centered}>
+            <Text style={styles.emptyText}>No users found</Text>
+          </View>
         ) : (
           <FlatList
             data={profiles}
@@ -204,19 +197,16 @@ export function RichTextSearchModal({
     queryFn: async ({ pageParam }) => {
       return AtprotoService.searchProfilesPaginated(searchQuery, pageParam as string | null);
     },
-    getNextPageParam: (lastPage) => lastPage?.cursor ?? null,
+    getNextPageParam: lastPage => lastPage?.cursor ?? null,
     initialPageParam: null,
     enabled: searchType === 'mention' && !!searchQuery && searchQuery.length > 0 && visible,
     staleTime: 30 * 1000,
   });
 
-  const users = userData?.pages.flatMap((page) => page.profiles) || [];
+  const users = userData?.pages.flatMap(page => page.profiles) || [];
 
   // Hashtag suggestions from API
-  const {
-    data: hashtagSuggestionsData,
-    isLoading: isLoadingHashtags,
-  } = useInfiniteQuery<
+  const { data: hashtagSuggestionsData, isLoading: isLoadingHashtags } = useInfiniteQuery<
     { hashtags: string[] },
     Error,
     InfiniteData<{ hashtags: string[] }, string | null>,
@@ -250,7 +240,9 @@ export function RichTextSearchModal({
             <Loading3FillIcon size={48} color={Colors.white} />
           </View>
         ) : users.length === 0 ? (
-          <View style={styles.centered}><Text style={styles.emptyText}>No users found</Text></View>
+          <View style={styles.centered}>
+            <Text style={styles.emptyText}>No users found</Text>
+          </View>
         ) : (
           <View style={styles.listContainer}>
             <FlatList
@@ -267,7 +259,13 @@ export function RichTextSearchModal({
                   hideHandleLine={false}
                   showArrow={false}
                   onPress={() => onSelectUser?.(item)}
-                  style={{ marginBottom: 0, paddingLeft: 0, paddingRight: 0, paddingTop: 10, paddingBottom: 10 }}
+                  style={{
+                    marginBottom: 0,
+                    paddingLeft: 0,
+                    paddingRight: 0,
+                    paddingTop: 10,
+                    paddingBottom: 10,
+                  }}
                 />
               )}
               onEndReached={() => {
@@ -287,43 +285,40 @@ export function RichTextSearchModal({
             />
           </View>
         )
-        ) : (
-          isLoadingHashtags ? (
-            <View style={styles.centered}>
-              <Loading3FillIcon size={48} color={Colors.white} />
-            </View>
-          ) : hashtagSuggestions.length === 0 ? (
-            <View style={styles.centered}><Text style={styles.emptyText}>No hashtags found</Text></View>
-          ) : (
-            <View style={styles.listContainer}>
-              <FlatList
-                data={hashtagSuggestions}
-                keyExtractor={item => item.tag}
-                renderItem={({ item }) => (
-                  <Pressable
-                    style={styles.hashtagItem}
-                    onPress={() => onSelectHashtag?.(item.tag)}
-                  >
-                    <Text style={styles.hashtagText}>
-                      <Text style={styles.hashtagSymbol}>#</Text>
-                      <Text style={styles.hashtagTag}>{item.tag}</Text>
-                    </Text>
-                  </Pressable>
-                )}
-                contentContainerStyle={styles.hashtagListContent}
-                keyboardShouldPersistTaps="handled"
-                style={styles.resultsList}
-                scrollEnabled={true}
-              />
-              <LinearGradient
-                colors={['transparent', Colors.black]}
-                locations={[0, 1]}
-                style={styles.fadeGradient}
-                pointerEvents="none"
-              />
-            </View>
-          )
-        )}
+      ) : isLoadingHashtags ? (
+        <View style={styles.centered}>
+          <Loading3FillIcon size={48} color={Colors.white} />
+        </View>
+      ) : hashtagSuggestions.length === 0 ? (
+        <View style={styles.centered}>
+          <Text style={styles.emptyText}>No hashtags found</Text>
+        </View>
+      ) : (
+        <View style={styles.listContainer}>
+          <FlatList
+            data={hashtagSuggestions}
+            keyExtractor={item => item.tag}
+            renderItem={({ item }) => (
+              <Pressable style={styles.hashtagItem} onPress={() => onSelectHashtag?.(item.tag)}>
+                <Text style={styles.hashtagText}>
+                  <Text style={styles.hashtagSymbol}>#</Text>
+                  <Text style={styles.hashtagTag}>{item.tag}</Text>
+                </Text>
+              </Pressable>
+            )}
+            contentContainerStyle={styles.hashtagListContent}
+            keyboardShouldPersistTaps="handled"
+            style={styles.resultsList}
+            scrollEnabled={true}
+          />
+          <LinearGradient
+            colors={['transparent', Colors.black]}
+            locations={[0, 1]}
+            style={styles.fadeGradient}
+            pointerEvents="none"
+          />
+        </View>
+      )}
     </View>
   );
 }
@@ -418,7 +413,7 @@ export function useRichTextSearchTrigger({
   useEffect(() => {
     if (!selection) return;
     const cursor = selection.start;
-    
+
     // If modal is visible and user types a space, dismiss it
     if (modalVisible && cursor > 0) {
       const charBeforeCursor = value[cursor - 1];
@@ -429,7 +424,7 @@ export function useRichTextSearchTrigger({
         return;
       }
     }
-    
+
     // Check for hashtag first (more specific pattern)
     const hashtag = getHashtagQuery(value, cursor);
     if (hashtag) {
@@ -439,7 +434,7 @@ export function useRichTextSearchTrigger({
       setModalVisible(true);
       return;
     }
-    
+
     // Check for mention
     const mention = getMentionQuery(value, cursor);
     if (mention && mention.query.length > 0) {
@@ -509,7 +504,7 @@ export function useRichTextSearchTrigger({
       selection,
       onSelectionChange,
       autoCorrect: false,
-      autoCapitalize: searchType === 'hashtag' ? 'none' as const : 'none' as const,
+      autoCapitalize: searchType === 'hashtag' ? ('none' as const) : ('none' as const),
     },
     richTextSearchModalProps: {
       visible: modalVisible,

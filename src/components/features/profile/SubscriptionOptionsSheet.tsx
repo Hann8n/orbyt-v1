@@ -16,40 +16,43 @@ const SubscriptionOptionsSheet: React.FC<SubscriptionOptionsSheetProps> = ({
   onDismiss,
   did,
 }) => {
-  const updatePreferences = useSubscriptionStore((state) => state.updatePreferences);
-  const unsubscribe = useSubscriptionStore((state) => state.unsubscribe);
-  const subscriptions = useSubscriptionStore((state) => state.subscriptions);
-  
+  const updatePreferences = useSubscriptionStore(state => state.updatePreferences);
+  const unsubscribe = useSubscriptionStore(state => state.unsubscribe);
+  const subscriptions = useSubscriptionStore(state => state.subscriptions);
+
   const preferences = useMemo(() => {
     if (!did) return DEFAULT_PREFERENCES;
     const prefs = subscriptions.get(did);
     return prefs ?? DEFAULT_PREFERENCES;
   }, [did, subscriptions]);
 
-  const handleTogglePreference = useCallback(async (key: 'post' | 'reply') => {
-    if (!did) return;
-    
-    const togglingOn = !preferences[key];
-    const newPreferences = {
-      ...preferences,
-      [key]: togglingOn,
-    };
+  const handleTogglePreference = useCallback(
+    async (key: 'post' | 'reply') => {
+      if (!did) return;
 
-    // Enforce "Posts" as required for "Replies"
-    // - If turning Replies on, ensure Posts is also on
-    // - If turning Posts off, also turn Replies off
-    if (key === 'reply' && togglingOn) {
-      newPreferences.post = true;
-    } else if (key === 'post' && !togglingOn && preferences.reply) {
-      newPreferences.reply = false;
-    }
-    
-    if (!newPreferences.post && !newPreferences.reply) {
-      await unsubscribe(did);
-    } else {
-      await updatePreferences(did, newPreferences);
-    }
-  }, [did, preferences, updatePreferences, unsubscribe]);
+      const togglingOn = !preferences[key];
+      const newPreferences = {
+        ...preferences,
+        [key]: togglingOn,
+      };
+
+      // Enforce "Posts" as required for "Replies"
+      // - If turning Replies on, ensure Posts is also on
+      // - If turning Posts off, also turn Replies off
+      if (key === 'reply' && togglingOn) {
+        newPreferences.post = true;
+      } else if (key === 'post' && !togglingOn && preferences.reply) {
+        newPreferences.reply = false;
+      }
+
+      if (!newPreferences.post && !newPreferences.reply) {
+        await unsubscribe(did);
+      } else {
+        await updatePreferences(did, newPreferences);
+      }
+    },
+    [did, preferences, updatePreferences, unsubscribe]
+  );
 
   return (
     <VerticalListSheet
@@ -86,4 +89,3 @@ const styles = StyleSheet.create({
 });
 
 export default SubscriptionOptionsSheet;
-

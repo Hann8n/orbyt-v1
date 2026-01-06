@@ -1,18 +1,23 @@
 import React, { memo, useMemo, useCallback, useState, useEffect } from 'react';
 import { StatusBar, Pressable, StyleSheet } from 'react-native';
-import Animated, { type SharedValue, useAnimatedStyle, interpolate, Extrapolate } from 'react-native-reanimated';
+import Animated, {
+  type SharedValue,
+  useAnimatedStyle,
+  interpolate,
+  Extrapolate,
+} from 'react-native-reanimated';
 import UniversalHeader, { HeaderContent } from './UniversalHeader';
-import { useProfile, getProfileColors } from '../../../services/cache/ProfileCache';
+import { useProfile, getProfileColors } from '../../../services/data/ProfileService';
 import { useProfileFlags } from '../../../stores/profileInteractionStore';
 import { useOrbytProfile } from '../../../hooks';
 import VerificationBadge from '../../features/badging/VerificationBadge';
 import BetaBadge from '../../features/badging/BetaBadge';
 import BetaInfoSheet from '../../features/badging/BetaInfoSheet';
 import VerificationInfoSheet from '../../features/badging/VerificationInfoSheet';
-import ProfileCache from '../../../services/cache/ProfileCache';
-import { getStatusBarStyle } from '../../../utils/formatting/colorUtils';
+import ProfileService from '../../../services/data/ProfileService';
+import { getStatusBarStyle } from '../../../utils/formatting/colors';
 import { RichText } from '@atproto/api';
-import { formatHandle } from '../../../utils/helpers';
+import { formatHandle } from '../../../utils/formatting/handles';
 import { useUserSubscription } from '../../../stores/subscriptionStore';
 
 interface ProfileHeaderProps {
@@ -62,8 +67,8 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   } = useProfile(handle);
 
   // Ensure profile data is immediately available from cache to prevent flashing
-  const profileData = profile || (handle ? ProfileCache.getProfileFromCacheSync(handle) : null);
-  
+  const profileData = profile || (handle ? ProfileService.getProfileFromCacheSync(handle) : null);
+
   // Get colors from profile data
   const profileColors = getProfileColors(profileData);
 
@@ -73,7 +78,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 
   // Fetch Orbyt profile record join date for this DID
   const { joinDate } = useOrbytProfile(profileData?.did);
-  
+
   // Create header content with custom description component
   const headerContent = useMemo((): HeaderContent => {
     if (!profileData) {
@@ -100,7 +105,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     })();
 
     // Parse description to generate rich text facets
-    const richText = profileData.description 
+    const richText = profileData.description
       ? (() => {
           const rt = new RichText({ text: profileData.description });
           rt.detectFacetsWithoutResolution();
@@ -136,7 +141,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       onAvatarPress,
     };
   }, [profileData, profileColors.textColor, joinDate, isBlocked, onAvatarPress]);
-
 
   // Get colors for description and tab navigation
   const dynamicColors = useMemo(() => {
@@ -178,10 +182,13 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     } as any;
   }, [headerScrollProgress]);
 
-
   return (
     <>
-      <StatusBar barStyle={statusBarStyle} backgroundColor={dynamicColors.backgroundColor} translucent={true} />
+      <StatusBar
+        barStyle={statusBarStyle}
+        backgroundColor={dynamicColors.backgroundColor}
+        translucent={true}
+      />
       <Animated.View style={headerAnimatedStyle}>
         <UniversalHeader
           content={headerContent}
@@ -225,5 +232,4 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   );
 };
 
-
-export default memo(ProfileHeader); 
+export default memo(ProfileHeader);

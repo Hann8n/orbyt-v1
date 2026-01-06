@@ -1,14 +1,6 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TextInput,
-  TouchableOpacity,
-} from 'react-native';
+import { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity } from 'react-native';
 import { useRouter, useSegments, usePathname } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ListHeader from '../../src/components/ui/ListHeader';
 import { Colors } from '../../src/components/ui/UI';
 import Icon from '../../src/components/ui/Icon';
@@ -24,30 +16,58 @@ const AVAILABLE_ROUTES = [
   { path: '/(tabs)/create', label: 'Create Tab', type: 'fullscreen' as RouteType },
   { path: '/(tabs)/activity', label: 'Activity Tab', type: 'fullscreen' as RouteType },
   { path: '/(tabs)/profile', label: 'Profile Tab', type: 'fullscreen' as RouteType },
-  
+
   // Modals - modal presentation
   { path: '/(modals)/feed', label: 'Feed Modal', type: 'modal' as RouteType },
-  
+
   // Auth - fullscreen
   { path: '/login', label: 'Login', type: 'fullscreen' as RouteType },
   { path: '/advanced-login', label: 'Advanced Login', type: 'fullscreen' as RouteType },
   { path: '/oauth/callback', label: 'OAuth Callback', type: 'fullscreen' as RouteType },
-  
+
   // Profile - fullscreen (except edit-profile which is modal)
-  { path: '/profile/[did]', label: 'Profile (with DID param)', requiresParam: true, paramKey: 'did', paramPlaceholder: 'did:plc:...', type: 'fullscreen' as RouteType },
+  {
+    path: '/profile/[did]',
+    label: 'Profile (with DID param)',
+    requiresParam: true,
+    paramKey: 'did',
+    paramPlaceholder: 'did:plc:...',
+    type: 'fullscreen' as RouteType,
+  },
   { path: '/edit-profile', label: 'Edit Profile', type: 'modal' as RouteType },
-  
+
   // Channel - fullscreen
   { path: '/channel/channel', label: 'Channel', type: 'fullscreen' as RouteType },
-  { path: '/channel/[id]', label: 'Channel (with ID)', requiresParam: true, paramKey: 'id', paramPlaceholder: 'channel-uri', type: 'fullscreen' as RouteType },
-  
+  {
+    path: '/channel/[id]',
+    label: 'Channel (with ID)',
+    requiresParam: true,
+    paramKey: 'id',
+    paramPlaceholder: 'channel-uri',
+    type: 'fullscreen' as RouteType,
+  },
+
   // Post - fullscreen
-  { path: '/post/[id]', label: 'Post (with ID)', requiresParam: true, paramKey: 'id', paramPlaceholder: 'post-uri', type: 'fullscreen' as RouteType },
+  {
+    path: '/post/[id]',
+    label: 'Post (with ID)',
+    requiresParam: true,
+    paramKey: 'id',
+    paramPlaceholder: 'post-uri',
+    type: 'fullscreen' as RouteType,
+  },
   { path: '/post/VideoPostScreen', label: 'Video Post Screen', type: 'fullscreen' as RouteType },
-  
+
   // Chat - fullscreen
-  { path: '/chat/[id]', label: 'Chat (with ID)', requiresParam: true, paramKey: 'id', paramPlaceholder: 'conversation-id', type: 'fullscreen' as RouteType },
-  
+  {
+    path: '/chat/[id]',
+    label: 'Chat (with ID)',
+    requiresParam: true,
+    paramKey: 'id',
+    paramPlaceholder: 'conversation-id',
+    type: 'fullscreen' as RouteType,
+  },
+
   // Settings - modal (stays in settings stack)
   { path: '/settings', label: 'Settings', type: 'settings' as RouteType },
   { path: '/settings/algorithmic-feed', label: 'Algorithmic Feed', type: 'settings' as RouteType },
@@ -60,7 +80,7 @@ const AVAILABLE_ROUTES = [
   { path: '/settings/hidden-posts', label: 'Hidden Posts', type: 'settings' as RouteType },
   { path: '/settings/muted', label: 'Muted Users', type: 'settings' as RouteType },
   { path: '/settings/saves', label: 'Saves', type: 'settings' as RouteType },
-  
+
   // Video - fullscreen
   { path: '/video-editor', label: 'Video Editor', type: 'fullscreen' as RouteType },
   { path: '/video-trimmer', label: 'Video Trimmer', type: 'fullscreen' as RouteType },
@@ -70,22 +90,22 @@ export default function RouteNavigatorScreen() {
   const router = useRouter();
   const segments = useSegments();
   const pathname = usePathname();
-  const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const [paramInputs, setParamInputs] = useState<Record<string, string>>({});
 
-  const filteredRoutes = AVAILABLE_ROUTES.filter(route =>
-    route.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    route.path.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredRoutes = AVAILABLE_ROUTES.filter(
+    route =>
+      route.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      route.path.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleNavigate = (route: typeof AVAILABLE_ROUTES[0]) => {
+  const handleNavigate = (route: (typeof AVAILABLE_ROUTES)[0]) => {
     if (route.requiresParam && route.paramKey) {
       const paramValue = paramInputs[route.path]?.trim();
       if (!paramValue) {
         return;
       }
-      
+
       // For fullscreen routes, use replace to close modal and open as fullscreen
       if (route.type === 'fullscreen') {
         // Replace entire stack to ensure route opens as fullscreen
@@ -127,7 +147,7 @@ export default function RouteNavigatorScreen() {
         backgroundColor={Colors.black}
         titleIndent={true}
       />
-      
+
       <View style={styles.infoContainer}>
         <Text style={styles.infoText}>Current Path: {pathname}</Text>
         <Text style={styles.infoText}>Segments: {segments.join(' > ')}</Text>
@@ -159,7 +179,7 @@ export default function RouteNavigatorScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {filteredRoutes.map((route) => (
+        {filteredRoutes.map(route => (
           <View key={route.path} style={styles.routeItem}>
             <TouchableOpacity
               style={styles.routeButton}
@@ -170,7 +190,16 @@ export default function RouteNavigatorScreen() {
                 <View style={styles.routeHeader}>
                   <Text style={styles.routeLabel}>{route.label}</Text>
                   {route.type && (
-                    <View style={[styles.typeBadge, route.type === 'fullscreen' ? styles.fullscreenBadge : route.type === 'modal' ? styles.modalBadge : styles.settingsBadge]}>
+                    <View
+                      style={[
+                        styles.typeBadge,
+                        route.type === 'fullscreen'
+                          ? styles.fullscreenBadge
+                          : route.type === 'modal'
+                            ? styles.modalBadge
+                            : styles.settingsBadge,
+                      ]}
+                    >
                       <Text style={styles.typeBadgeText}>{route.type}</Text>
                     </View>
                   )}
@@ -184,7 +213,7 @@ export default function RouteNavigatorScreen() {
                       placeholder={route.paramPlaceholder || `Enter ${route.paramKey}`}
                       placeholderTextColor={Colors.gray}
                       value={paramInputs[route.path] || ''}
-                      onChangeText={(value) => updateParamInput(route.path, value)}
+                      onChangeText={value => updateParamInput(route.path, value)}
                       autoCapitalize="none"
                       autoCorrect={false}
                       autoComplete="off"
@@ -199,7 +228,7 @@ export default function RouteNavigatorScreen() {
             </TouchableOpacity>
           </View>
         ))}
-        
+
         {filteredRoutes.length === 0 && (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>No routes found</Text>

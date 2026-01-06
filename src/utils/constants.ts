@@ -101,5 +101,6 @@ export const ICON_SIZES = {
 
 // Video Editor Messages
 export const VIDEO_EDITOR_MESSAGES = {
-  TRIM_NOT_AVAILABLE: 'Trim functionality is coming in a future update! You can currently:\n\n• Reorder clips by long pressing and dragging\n• Delete unwanted clips\n• Preview the final video\n\nFor now, consider re-recording shorter clips or editing the video after posting.',
+  TRIM_NOT_AVAILABLE:
+    'Trim functionality is coming in a future update! You can currently:\n\n• Reorder clips by long pressing and dragging\n• Delete unwanted clips\n• Preview the final video\n\nFor now, consider re-recording shorter clips or editing the video after posting.',
 } as const;

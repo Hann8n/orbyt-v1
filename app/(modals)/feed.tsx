@@ -15,7 +15,7 @@ const FeedScreen: React.FC = memo(() => {
   const params = useLocalSearchParams();
   useVisibilityRouteTracker('feed-modal');
   const isRouteFocused = useVisibilityRouteIsActive('feed-modal');
-  
+
   // Memoized route params extraction - includes initial index for scrolling to selected video
   const routeParams = useMemo(() => {
     const initialIndex = params.initialIndex ? parseInt(params.initialIndex as string, 10) : null;
@@ -32,11 +32,14 @@ const FeedScreen: React.FC = memo(() => {
     };
   }, [params]);
 
-  const modalQueryOptions = useMemo(() => ({
-    staleTime: 5 * 60 * 1000,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
-  }), []);
+  const modalQueryOptions = useMemo(
+    () => ({
+      staleTime: 5 * 60 * 1000,
+      refetchOnMount: false,
+      refetchOnWindowFocus: false,
+    }),
+    []
+  );
 
   const modalVisibilityKey = useMemo(() => {
     const keyParts = ['modal', routeParams.feedOption || 'feed'];
@@ -53,7 +56,9 @@ const FeedScreen: React.FC = memo(() => {
   const hashtag = hashtagWithSort ? hashtagWithSort.split(':')[0] : null;
   // Check if this is an orbyt channel hashtag (don't show header for orbyt channels)
   // Orbyt channel hashtags start with "orbyt-channel-" or "orbyt-"
-  const isOrbytChannelHashtag = hashtag ? (hashtag.startsWith('orbyt-channel-') || hashtag.startsWith('orbyt-')) : false;
+  const isOrbytChannelHashtag = hashtag
+    ? hashtag.startsWith('orbyt-channel-') || hashtag.startsWith('orbyt-')
+    : false;
 
   // Memoized close handler - use dismissTo for reliable modal dismissal
   const handleClose = useCallback(() => {
@@ -74,11 +79,14 @@ const FeedScreen: React.FC = memo(() => {
           handleClose();
         }}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        style={[styles.backButton, { top: (typeof insets?.top === 'number' ? insets.top : 0) + 15 }]}
+        style={[
+          styles.backButton,
+          { top: (typeof insets?.top === 'number' ? insets.top : 0) + 15 },
+        ]}
       >
         <BackArrowIcon size={30} color={Colors.white} />
       </Pressable>
-      
+
       <FeedRenderer
         feedOption={routeParams.feedOption}
         userDid={routeParams.userDid}
@@ -96,10 +104,15 @@ const FeedScreen: React.FC = memo(() => {
         visibilityKey={modalVisibilityKey}
         targetScrollIndex={routeParams.initialIndex}
       />
-      
+
       {/* Show hashtag header if this is a hashtag feed (but not for orbyt channels) */}
       {isHashtagFeed && hashtag && !isOrbytChannelHashtag && (
-        <Text style={[styles.hashtagHeader, { top: (typeof insets?.top === 'number' ? insets.top : 0) + 15 }]}>
+        <Text
+          style={[
+            styles.hashtagHeader,
+            { top: (typeof insets?.top === 'number' ? insets.top : 0) + 15 },
+          ]}
+        >
           #{hashtag}
         </Text>
       )}

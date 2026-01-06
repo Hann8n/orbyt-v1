@@ -9,19 +9,19 @@ import { useRef, useEffect, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { feedService, FeedOption, FeedItem } from '../services/FeedService';
 import { useUserStore } from '../stores/userStore';
-import { queryKeys } from '../utils/queryKeys';
+import { queryKeys } from '../utils/query/queryKeys';
 
 // Optimized feed configuration for smooth performance
 export const FEED_CONFIG = {
   // Cache and performance settings
-  STALE_TIME: 10 * 60 * 1000,    // 10 minutes stale time - increased to reduce unnecessary refreshes
-  GC_TIME: 60 * 60 * 1000,       // 60 minutes before garbage collection - increased to preserve video cache
-  RETRY_DELAY: 1000,             // Longer delay to reduce server load
-  MAX_RETRIES: 2,                // Reduced retries for faster failure handling
-  
+  STALE_TIME: 10 * 60 * 1000, // 10 minutes stale time - increased to reduce unnecessary refreshes
+  GC_TIME: 60 * 60 * 1000, // 60 minutes before garbage collection - increased to preserve video cache
+  RETRY_DELAY: 1000, // Longer delay to reduce server load
+  MAX_RETRIES: 2, // Reduced retries for faster failure handling
+
   // Scroll and prefetch settings
-  THROTTLE_MS: 150,              // Increased throttling for smoother scrolling
-  PREFETCH_THRESHOLD: 0.8,       // Higher threshold to reduce premature loading
+  THROTTLE_MS: 150, // Increased throttling for smoother scrolling
+  PREFETCH_THRESHOLD: 0.8, // Higher threshold to reduce premature loading
 } as const;
 
 interface UseFeedOptions {
@@ -47,11 +47,11 @@ interface UseFeedReturn {
   isProfileFeed: boolean;
   isPaused: boolean;
   dataUpdatedAt: number;
-  
+
   // Actions
   fetchNextPage: () => void;
   refetch: () => void;
-  
+
   // Removed onScroll - using FlashList's onEndReached
   isNearEnd: boolean;
 }
@@ -60,16 +60,11 @@ interface UseFeedReturn {
  * Comprehensive feed hook that handles data fetching and infinite scrolling
  */
 export function useFeed(
-  feedOption: FeedOption, 
-  userDid?: string, 
+  feedOption: FeedOption,
+  userDid?: string,
   options: UseFeedOptions = {}
 ): UseFeedReturn {
-  const {
-    enabled = true,
-    threshold = 0.8,
-    debounceMs = 100,
-    ...queryOptions
-  } = options;
+  const { enabled = true, threshold = 0.8, debounceMs = 100, ...queryOptions } = options;
 
   const queryClient = useQueryClient();
   // Use direct selector to prevent re-renders when other user data changes
@@ -79,19 +74,18 @@ export function useFeed(
 
   // Use current user's DID for user-specific feeds (following and your-mix), fallback to passed userDid for profile feeds
   // Both 'following' and 'your-mix' are user-specific and should include userDid in query key to ensure fresh data on account switch
-  const effectiveUserDid = (feedOption === 'following' || feedOption === 'your-mix')
-    ? currentUser?.did 
-    : userDid;
+  const effectiveUserDid =
+    feedOption === 'following' || feedOption === 'your-mix' ? currentUser?.did : userDid;
 
   // Track previous user DID to detect actual account changes (not just object reference changes)
   const previousUserDidRef = useRef<string | undefined>(currentUser?.did);
-  
+
   // Invalidate feed queries ONLY when user DID actually changes (account switch)
   // This prevents unnecessary invalidations when navigating between feeds
   useEffect(() => {
     const currentDid = currentUser?.did;
     const previousDid = previousUserDidRef.current;
-    
+
     // Only invalidate if:
     // 1. Account switch is complete
     // 2. We have a user DID
@@ -100,17 +94,17 @@ export function useFeed(
     if (currentDid && !isSwitchingAccount && agent && currentDid !== previousDid) {
       // Only invalidate user-specific feeds (following, your-mix) to preserve other feeds
       // The query key change (via effectiveUserDid) will automatically trigger a new fetch for the new user
-      queryClient.invalidateQueries({ 
+      queryClient.invalidateQueries({
         queryKey: queryKeys.feed.byUser('following', currentDid),
         exact: false,
-        refetchType: 'active'
+        refetchType: 'active',
       });
-      queryClient.invalidateQueries({ 
+      queryClient.invalidateQueries({
         queryKey: queryKeys.feed.byUser('your-mix', currentDid),
         exact: false,
-        refetchType: 'active'
+        refetchType: 'active',
       });
-      
+
       // Update ref to track the new DID
       previousUserDidRef.current = currentDid;
     } else if (currentDid && currentDid === previousDid) {
@@ -125,10 +119,8 @@ export function useFeed(
   // 3. Agent is available (API client ready)
   // 4. For user-specific feeds, we have a user DID
   const isUserSpecificFeed = feedOption === 'following' || feedOption === 'your-mix';
-  const queryEnabled = enabled 
-    && !isSwitchingAccount 
-    && !!agent 
-    && (!isUserSpecificFeed || !!effectiveUserDid);
+  const queryEnabled =
+    enabled && !isSwitchingAccount && !!agent && (!isUserSpecificFeed || !!effectiveUserDid);
 
   // Create optimized infinite query with centralized configuration
   // When effectiveUserDid changes, React Query treats this as a new query and fetches fresh data
@@ -141,7 +133,7 @@ export function useFeed(
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     refetchOnReconnect: false,
-    ...queryOptions
+    ...queryOptions,
   });
 
   // Flatten the pages for a single data array
@@ -184,19 +176,18 @@ export function useFeed(
     return result;
   }, [feedPages]);
 
-
   // Infinite scroll state
   const isNearEndRef = useRef(false);
 
   // Removed custom scroll handler - using FlashList's onEndReached
 
   // Determine if this is a profile feed
-  const isProfileFeed = (
-    feedOption === 'profile' || 
-    feedOption === 'likes' || 
-    feedOption === 'reposts' || 
-    (feedOption && feedOption.startsWith('at://'))
-  ) && Boolean(userDid);
+  const isProfileFeed =
+    (feedOption === 'profile' ||
+      feedOption === 'likes' ||
+      feedOption === 'reposts' ||
+      (feedOption && feedOption.startsWith('at://'))) &&
+    Boolean(userDid);
 
   return {
     // Data
@@ -210,11 +201,11 @@ export function useFeed(
     isProfileFeed: Boolean(isProfileFeed),
     isPaused: query.isPaused ?? false,
     dataUpdatedAt: query.dataUpdatedAt ?? 0,
-    
+
     // Actions
     fetchNextPage: query.fetchNextPage,
     refetch: query.refetch,
-    
+
     // Removed onScroll - using FlashList's onEndReached
     isNearEnd: isNearEndRef.current,
   };

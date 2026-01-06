@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../utils/constants';
 import { useQuery, useQueryClient, useInfiniteQuery, InfiniteData } from '@tanstack/react-query';
-import { queryKeys } from '../../utils/queryKeys';
-import { convertAtUriToBlueskyUrl } from '../../utils/blueskyLinks';
+import { queryKeys } from '../../utils/query/queryKeys';
+import { convertAtUriToBlueskyUrl } from '../../utils/links/bluesky';
 import {
   View,
   Text,
@@ -16,8 +16,8 @@ import {
   TextInput,
 } from 'react-native';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import { safeDismiss, safePresent } from '../../utils/truesheet/trueSheetUtils';
-import KeyboardAwareFooter from '../../utils/truesheet/KeyboardAwareFooter';
+import { safeDismiss, safePresent } from '../../utils/components/truesheet/utils';
+import KeyboardAwareFooter from '../../utils/components/truesheet/KeyboardAwareFooter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { Loading3FillIcon } from './Icon';
 import CloseButton from './CloseButton';
@@ -25,10 +25,10 @@ import CancelButton from './CancelButton';
 import AtprotoService from '../../services/api/AtprotoService';
 import { Colors } from './UI';
 import { Avatar } from './UI';
-import { hexToRGBA } from '../../utils/formatting/colorUtils';
+import { hexToRGBA } from '../../utils/formatting/colors';
 import { useGlobalShareSheet } from '../../hooks/useGlobalModals';
 import ChatService, { Conversation, RecordEmbed } from '../../services/ChatService';
-import { formatHandle } from '../../utils/helpers';
+import { formatHandle } from '../../utils/formatting/handles';
 import { useBookmarkStore } from '../../stores/bookmarkStore';
 import { useUserStore } from '../../stores/userStore';
 
@@ -54,7 +54,7 @@ const canBeMessaged = (profile: any): boolean => {
 const ShareSheet: React.FC<ShareSheetProps> = () => {
   const { getCurrentData, dismissShareSheet } = useGlobalShareSheet();
   const data = getCurrentData();
-  
+
   // Always render the TrueSheet component, but only show content when there's data
   const { postUri, postCid, authorDid, authorName, authorHandle } = data || {};
   const queryClient = useQueryClient();
@@ -65,16 +65,16 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
   const [showSearch, setShowSearch] = useState<boolean>(false);
   const searchInputRef = useRef<TextInput | null>(null);
   const sheetRef = useRef<TrueSheet>(null);
-  
+
   // Bookmark store
-  const isBookmarked = useBookmarkStore((state) => postUri ? state.isBookmarked(postUri) : false);
-  const addBookmark = useBookmarkStore((state) => state.addBookmark);
-  const removeBookmark = useBookmarkStore((state) => state.removeBookmark);
+  const isBookmarked = useBookmarkStore(state => (postUri ? state.isBookmarked(postUri) : false));
+  const addBookmark = useBookmarkStore(state => state.addBookmark);
+  const removeBookmark = useBookmarkStore(state => state.removeBookmark);
 
   // TrueSheet detents - v3 uses 'auto' or fractional numbers (0-1)
   const sheetDetents: ('auto' | number)[] = useMemo(() => ['auto'], []);
   const insets = useSafeAreaInsets();
-  
+
   // Calculate footer height as constant: cancelContainer paddingTop (8) + button minHeight (44)
   const footerHeight = 8 + 44;
 
@@ -87,7 +87,7 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
 
   // Get current user from store instead of API call
   const currentUser = useUserStore(state => state.currentUser);
-  
+
   // Check if the current user is the author - use store instead of API call
   useEffect(() => {
     if (authorDid) {
@@ -117,9 +117,9 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
   // Bookmark handler - instant optimistic update
   const handleBookmark = useCallback(() => {
     if (!postUri) return;
-    
+
     const newIsBookmarked = !isBookmarked;
-    
+
     // Instant optimistic update - no waiting
     if (newIsBookmarked) {
       // Use postCid if available, otherwise use empty string (will be fetched in background)
@@ -127,7 +127,7 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
     } else {
       removeBookmark(postUri);
     }
-    
+
     // Perform API call in background without blocking
     (async () => {
       try {
@@ -141,7 +141,7 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
             cid = '';
           }
         }
-        
+
         if (!cid) {
           // If we still don't have CID, try to revert
           if (newIsBookmarked) {
@@ -151,7 +151,7 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
           }
           return;
         }
-        
+
         if (newIsBookmarked) {
           await AtprotoService.createBookmark(postUri, cid);
         } else {
@@ -178,118 +178,115 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
         [
           {
             text: 'cancel',
-            style: 'cancel'
+            style: 'cancel',
           },
           {
             text: 'delete',
             style: 'destructive',
             onPress: async () => {
               if (!postUri) return;
-              
+
               // Optimistic update - dismiss sheet immediately
               dismissSheet();
-              
+
               // Invalidate queries immediately for responsive UI
-              queryClient.invalidateQueries({ 
+              queryClient.invalidateQueries({
                 queryKey: queryKeys.feed.all,
-                refetchType: 'active'
+                refetchType: 'active',
               });
-              
+
               // Perform deletion in background
               try {
                 const success = await AtprotoService.deletePost(postUri);
                 if (!success) {
                   // Re-invalidate on error to ensure UI is correct
-                  queryClient.invalidateQueries({ 
+                  queryClient.invalidateQueries({
                     queryKey: queryKeys.feed.all,
-                    refetchType: 'active'
+                    refetchType: 'active',
                   });
                   Alert.alert('error', 'failed to delete post. please try again.');
                 }
               } catch (error) {
                 // Re-invalidate on error to ensure UI is correct
-                queryClient.invalidateQueries({ 
+                queryClient.invalidateQueries({
                   queryKey: queryKeys.feed.all,
-                  refetchType: 'active'
+                  refetchType: 'active',
                 });
                 Alert.alert('error', 'failed to delete post. please try again.');
               }
-            }
-          }
+            },
+          },
         ]
       );
     } else {
       // For other users' content, show report option
-      Alert.alert(
-        'report content',
-        'please select a reason for reporting this content:',
-        [
-          {
-            text: 'cancel',
-            style: 'cancel'
-          },
-          {
-            text: 'spam',
-            onPress: () => reportContent('spam')
-          },
-          {
-            text: 'harmful content',
-            onPress: () => reportContent('violation')
-          },
-          {
-            text: 'misleading',
-            onPress: () => reportContent('misleading')
-          },
-          {
-            text: 'sexual content',
-            onPress: () => reportContent('sexual')
-          },
-          {
-            text: 'rude/offensive',
-            onPress: () => reportContent('rude')
-          },
-          {
-            text: 'other',
-            onPress: () => reportContent('other')
-          }
-        ]
-      );
+      Alert.alert('report content', 'please select a reason for reporting this content:', [
+        {
+          text: 'cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'spam',
+          onPress: () => reportContent('spam'),
+        },
+        {
+          text: 'harmful content',
+          onPress: () => reportContent('violation'),
+        },
+        {
+          text: 'misleading',
+          onPress: () => reportContent('misleading'),
+        },
+        {
+          text: 'sexual content',
+          onPress: () => reportContent('sexual'),
+        },
+        {
+          text: 'rude/offensive',
+          onPress: () => reportContent('rude'),
+        },
+        {
+          text: 'other',
+          onPress: () => reportContent('other'),
+        },
+      ]);
     }
   }, [dismissSheet, isCurrentUser, postUri, queryClient]);
 
   // Helper function to report content
-  const reportContent = useCallback(async (
-    reasonType: 'spam' | 'violation' | 'misleading' | 'sexual' | 'rude' | 'other'
-  ) => {
-    if (!postUri) return;
-    
-    // Optimistic update - mark as reported immediately and dismiss
-    const { useReportedPostsStore } = await import('../../stores/reportedPostsStore');
-    const store = useReportedPostsStore.getState();
-    store.reportPost(postUri);
-    dismissSheet();
-    
-    // Show success message immediately
-    Alert.alert('thank you', 'this content has been reported for review.');
-    
-    // Perform report in background
-    try {
-      const success = await AtprotoService.reportContent(postUri, reasonType);
-      if (!success) {
+  const reportContent = useCallback(
+    async (reasonType: 'spam' | 'violation' | 'misleading' | 'sexual' | 'rude' | 'other') => {
+      if (!postUri) return;
+
+      // Optimistic update - mark as reported immediately and dismiss
+      const { useReportedPostsStore } = await import('../../stores/reportedPostsStore');
+      const store = useReportedPostsStore.getState();
+      store.reportPost(postUri);
+      dismissSheet();
+
+      // Show success message immediately
+      Alert.alert('thank you', 'this content has been reported for review.');
+
+      // Perform report in background
+      try {
+        const success = await AtprotoService.reportContent(postUri, reasonType);
+        if (!success) {
+          // Revert optimistic update on error - remove from reported set
+          const newSet = new Set(store.reportedPostUris);
+          newSet.delete(postUri);
+          store.reportedPostUris = newSet;
+          Alert.alert('error', 'failed to submit report. please try again.');
+        }
+      } catch (error) {
         // Revert optimistic update on error - remove from reported set
         const newSet = new Set(store.reportedPostUris);
         newSet.delete(postUri);
         store.reportedPostUris = newSet;
         Alert.alert('error', 'failed to submit report. please try again.');
       }
-    } catch (error) {
-      // Revert optimistic update on error - remove from reported set
-      const newSet = new Set(store.reportedPostUris);
-      newSet.delete(postUri);
-      store.reportedPostUris = newSet;
-      Alert.alert('error', 'failed to submit report. please try again.');
-    }
-  }, [postUri, dismissSheet]);
+    },
+    [postUri, dismissSheet]
+  );
 
   // Share link handler
   const handleShare = useCallback(async () => {
@@ -297,13 +294,14 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
     try {
       // Convert AT URI to a web URL using the utility function
       const shareUrl = convertAtUriToBlueskyUrl(postUri);
-      
+
       await Share.share({
         message: Platform.OS === 'ios' ? '' : shareUrl,
         url: Platform.OS === 'ios' ? shareUrl : '',
         title: 'check out this post on bluesky',
       });
-    } catch (error) {
+    } catch (error: unknown) {
+      // ignore
     }
   }, [postUri, dismissSheet]);
 
@@ -316,9 +314,13 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
   });
 
   const conversations = conversationsData?.conversations || [];
-  
+
   // Search profiles when search query exists
-  const { data: searchData, fetchNextPage: fetchMoreProfiles, hasNextPage: hasMoreProfiles } = useInfiniteQuery<
+  const {
+    data: searchData,
+    fetchNextPage: fetchMoreProfiles,
+    hasNextPage: hasMoreProfiles,
+  } = useInfiniteQuery<
     { profiles: any[]; cursor: string | null },
     Error,
     InfiniteData<{ profiles: any[]; cursor: string | null }, string | null>,
@@ -329,7 +331,7 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
     queryFn: async ({ pageParam }) => {
       return AtprotoService.searchProfilesPaginated(searchQuery, pageParam as string | null);
     },
-    getNextPageParam: (lastPage) => lastPage?.cursor ?? null,
+    getNextPageParam: lastPage => lastPage?.cursor ?? null,
     initialPageParam: null,
     enabled: searchQuery.trim().length > 0,
   });
@@ -353,7 +355,7 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
       const q = searchQuery.toLowerCase();
       return name.toLowerCase().includes(q) || handle.toLowerCase().includes(q);
     });
-    
+
     // Add search profiles that aren't already in conversations
     const conversationDids = new Set(conversations.flatMap(c => c.members.map(m => m.did)));
     const newProfiles = searchResults
@@ -362,10 +364,9 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
         // Sort by canBeMessaged status (enabled first)
         return canBeMessaged(b) ? 1 : -1;
       });
-    
+
     return [...conversationMatches, ...newProfiles];
   }, [conversations, currentUserDid, searchQuery, searchResults]);
-
 
   // Auto-focus search input when search is shown
   useEffect(() => {
@@ -381,62 +382,65 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
   }, []);
 
   // Send video to selected conversation or create one with new profile
-  const handleSendToConversation = useCallback(async (item: any) => {
-    if (!postUri) {
-      Alert.alert('error', 'missing post information.');
-      return;
-    }
-
-    // Optimistic update - dismiss sheet immediately
-    setShowConversationPicker(false);
-    dismissSheet();
-    Alert.alert('sent', 'video sent successfully.');
-
-    // Perform send in background
-    (async () => {
-      try {
-        // Get CID if missing
-        let cid = postCid;
-        if (!cid) {
-          try {
-            const post = await AtprotoService.getPost(postUri);
-            cid = post?.cid || '';
-          } catch {
-            cid = '';
-          }
-        }
-
-        if (!cid) {
-          Alert.alert('error', 'unable to send post. missing post information.');
-          return;
-        }
-
-        // Check if item is a conversation or a new profile
-        let conversationId = item.id;
-        if (!conversationId) {
-          // New profile - create conversation first
-          const convo = await ChatService.createConversation({ recipientDid: item.did });
-          conversationId = convo.id;
-        }
-
-        const embed: RecordEmbed = {
-          $type: 'app.bsky.embed.record',
-          record: {
-            uri: postUri,
-            cid,
-          },
-        };
-
-        await ChatService.sendMessage({
-          conversationId,
-          text: '',
-          embed: embed,
-        });
-      } catch (error: any) {
-        Alert.alert('error', error.message || 'failed to send video. please try again.');
+  const handleSendToConversation = useCallback(
+    async (item: any) => {
+      if (!postUri) {
+        Alert.alert('error', 'missing post information.');
+        return;
       }
-    })();
-  }, [postUri, postCid, dismissSheet]);
+
+      // Optimistic update - dismiss sheet immediately
+      setShowConversationPicker(false);
+      dismissSheet();
+      Alert.alert('sent', 'video sent successfully.');
+
+      // Perform send in background
+      (async () => {
+        try {
+          // Get CID if missing
+          let cid = postCid;
+          if (!cid) {
+            try {
+              const post = await AtprotoService.getPost(postUri);
+              cid = post?.cid || '';
+            } catch {
+              cid = '';
+            }
+          }
+
+          if (!cid) {
+            Alert.alert('error', 'unable to send post. missing post information.');
+            return;
+          }
+
+          // Check if item is a conversation or a new profile
+          let conversationId = item.id;
+          if (!conversationId) {
+            // New profile - create conversation first
+            const convo = await ChatService.createConversation({ recipientDid: item.did });
+            conversationId = convo.id;
+          }
+
+          const embed: RecordEmbed = {
+            $type: 'app.bsky.embed.record',
+            record: {
+              uri: postUri,
+              cid,
+            },
+          };
+
+          await ChatService.sendMessage({
+            conversationId,
+            text: '',
+            embed: embed,
+          });
+        } catch (error: any) {
+          Alert.alert('error', error.message || 'failed to send video. please try again.');
+        }
+      })();
+    },
+    [postUri, postCid, dismissSheet]
+  );
 
   // Get menu options based on current state
   const getMenuOptions = () => {
@@ -447,7 +451,7 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
         icon: 'share',
         onPress: handleShare,
         color: Colors.neonPurple,
-        buttonColor: Colors.darkBlue
+        buttonColor: Colors.darkBlue,
       },
       {
         id: 'send',
@@ -455,7 +459,7 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
         icon: 'send-plane-fill',
         onPress: handleSend,
         color: Colors.green,
-        buttonColor: Colors.darkGreen
+        buttonColor: Colors.darkGreen,
       },
       {
         id: 'bookmark',
@@ -463,7 +467,7 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
         icon: 'bookmark-fill',
         onPress: handleBookmark,
         color: Colors.yellow,
-        buttonColor: Colors.darkYellow
+        buttonColor: Colors.darkYellow,
       },
       {
         id: 'report',
@@ -471,8 +475,8 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
         icon: isCurrentUser ? 'delete-2-fill' : 'report',
         onPress: async () => handleReportOrDelete(),
         color: Colors.red,
-        buttonColor: Colors.darkRed
-      }
+        buttonColor: Colors.darkRed,
+      },
     ];
 
     return options;
@@ -484,14 +488,15 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
   const fixedSpacing = 12;
 
   // Header component for TrueSheet header prop
-  const headerComponent = (authorName || authorHandle) && !showConversationPicker ? (
-    <View style={styles.headerContainer}>
-      <Text style={styles.headerTitle} numberOfLines={1}>
-        post by {authorHandle ? formatHandle(authorHandle) : authorName}
-      </Text>
-      <CloseButton onPress={dismissSheet} />
-    </View>
-  ) : undefined;
+  const headerComponent =
+    (authorName || authorHandle) && !showConversationPicker ? (
+      <View style={styles.headerContainer}>
+        <Text style={styles.headerTitle} numberOfLines={1}>
+          post by {authorHandle ? formatHandle(authorHandle) : authorName}
+        </Text>
+        <CloseButton onPress={dismissSheet} />
+      </View>
+    ) : undefined;
 
   // Don't render content if no data
   if (!data) {
@@ -504,14 +509,10 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
         onDidDismiss={handleDismiss}
         grabber={false}
       >
-        <View style={styles.content}>
-          {/* Empty content when no data or clear view mode */}
-        </View>
+        <View style={styles.content}>{/* Empty content when no data or clear view mode */}</View>
       </TrueSheet>
     );
   }
-
-
 
   return (
     <TrueSheet
@@ -523,31 +524,27 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
       grabber={false}
       header={headerComponent}
       footer={
-        showConversationPicker
-          ? undefined
-          : (
-            <View style={{ backgroundColor: Colors.black, paddingBottom: insets.bottom }}>
-              <KeyboardAwareFooter hideOnKeyboard={true} bottomPadding={0} style={{ backgroundColor: Colors.black }}>
-                <View 
-                  style={[styles.cancelContainer, { backgroundColor: Colors.black }]}
-                > 
-                  <CancelButton onPress={dismissSheet} />
-                </View>
-              </KeyboardAwareFooter>
-            </View>
-          )
+        showConversationPicker ? undefined : (
+          <View style={{ backgroundColor: Colors.black, paddingBottom: insets.bottom }}>
+            <KeyboardAwareFooter
+              hideOnKeyboard={true}
+              bottomPadding={0}
+              style={{ backgroundColor: Colors.black }}
+            >
+              <View style={[styles.cancelContainer, { backgroundColor: Colors.black }]}>
+                <CancelButton onPress={dismissSheet} />
+              </View>
+            </KeyboardAwareFooter>
+          </View>
+        )
       }
     >
       <View style={styles.content}>
-
         {/* Conversation picker */}
         {showConversationPicker ? (
           <View style={styles.pickerContainer}>
             <View style={styles.pickerHeader}>
-              <Pressable 
-                style={styles.backButton} 
-                onPress={() => setShowConversationPicker(false)}
-              >
+              <Pressable style={styles.backButton} onPress={() => setShowConversationPicker(false)}>
                 <Icon name="left_arrow_filled" size={20} color={Colors.white} />
               </Pressable>
               <Text style={styles.pickerTitle}>Send to</Text>
@@ -578,26 +575,25 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
                 renderItem={({ item }) => {
                   // Handle both conversations and search profiles
                   const isConversation = !!item.id;
-                  const profile = isConversation 
-                    ? (item.members.find((member: any) => member.did !== currentUserDid) || item.members[0])
+                  const profile = isConversation
+                    ? item.members.find((member: any) => member.did !== currentUserDid) ||
+                      item.members[0]
                     : item;
-                  
+
                   const isDisabled = !isConversation && !canBeMessaged(item);
-                  
+
                   return (
                     <Pressable
                       style={[styles.conversationItem, isDisabled && styles.disabledItem]}
                       onPress={() => handleSendToConversation(item)}
                       disabled={isDisabled}
                     >
-                      <Avatar
-                        uri={profile.avatar}
-                        type="profile"
-                        size={50}
-                        showRing={false}
-                      />
+                      <Avatar uri={profile.avatar} type="profile" size={50} showRing={false} />
                       <View style={styles.conversationInfo}>
-                        <Text style={[styles.conversationName, isDisabled && styles.disabledText]} numberOfLines={1}>
+                        <Text
+                          style={[styles.conversationName, isDisabled && styles.disabledText]}
+                          numberOfLines={1}
+                        >
                           {formatHandle(profile.handle) || 'user'}
                         </Text>
                       </View>
@@ -606,7 +602,7 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
                 }}
                 contentContainerStyle={[
                   styles.conversationList,
-                  filteredConversations.length === 0 && styles.conversationListEmpty
+                  filteredConversations.length === 0 && styles.conversationListEmpty,
                 ]}
                 keyboardShouldPersistTaps="handled"
                 onEndReached={() => {
@@ -626,28 +622,33 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
         ) : (
           /* Options */
           <View style={[styles.contentContainer, { paddingBottom: footerHeight + 20 }]}>
-            <ScrollView 
-              horizontal 
+            <ScrollView
+              horizontal
               showsHorizontalScrollIndicator={false}
               showsVerticalScrollIndicator={false}
               alwaysBounceHorizontal={true}
               alwaysBounceVertical={false}
               bounces={true}
-              contentContainerStyle={[styles.optionsContainer, { gap: fixedSpacing, paddingLeft: 20 }]}
+              contentContainerStyle={[
+                styles.optionsContainer,
+                { gap: fixedSpacing, paddingLeft: 20 },
+              ]}
             >
-              {menuOptions.map((option) => (
+              {menuOptions.map(option => (
                 <View key={option.id} style={styles.optionWrapper}>
                   <Pressable onPress={option.onPress}>
                     {({ pressed }) => {
                       const isSwapped = (option.id === 'bookmark' && isBookmarked) || pressed;
                       const iconColor = isSwapped ? option.buttonColor : option.color;
                       const backgroundColor = isSwapped ? option.color : option.buttonColor;
-                      
+
                       return (
-                        <View style={[
-                          styles.option,
-                          { backgroundColor, borderColor: hexToRGBA(option.color, 0.28) }
-                        ]}>
+                        <View
+                          style={[
+                            styles.option,
+                            { backgroundColor, borderColor: hexToRGBA(option.color, 0.28) },
+                          ]}
+                        >
                           <Icon name={option.icon} size={45} color={iconColor} />
                         </View>
                       );
@@ -726,7 +727,7 @@ const styles = StyleSheet.create({
     backgroundColor: hexToRGBA(Colors.gray, 0.12),
     overflow: 'hidden',
     borderWidth: 0,
-    borderColor: 'transparent'
+    borderColor: 'transparent',
   },
   iconButton: {
     alignItems: 'center',

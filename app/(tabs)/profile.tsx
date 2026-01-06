@@ -5,20 +5,30 @@ import { Image } from 'expo-image';
 import AtprotoService from '../../src/services/api/AtprotoService';
 // Use plain FlashList via FeedRenderer; no adapter/converter
 import FeedRenderer from '../../src/components/features/feed/FeedRenderer';
-import ProfileCache, { 
-  useProfile, 
+import ProfileService, {
+  useProfile,
   useProfileByDid,
   getProfileColors,
   profileKeys,
-  type CachedProfile
-} from '../../src/services/cache/ProfileCache';
+  type CachedProfile,
+} from '../../src/services/data/ProfileService';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
-import Icon, { BackArrowIcon, Loading3FillIcon, FollowIcon, MutualHeartIcon, BellFilledIcon, MoreFillIcon } from '../../src/components/ui/Icon';
+import Icon, {
+  BackArrowIcon,
+  Loading3FillIcon,
+  FollowIcon,
+  MutualHeartIcon,
+  BellFilledIcon,
+  MoreFillIcon,
+} from '../../src/components/ui/Icon';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { ProfileHeader, TabNavigation, TabOption } from '../../src/components/layout/header';
 import { useCurrentUser, useProfileCacheSync } from '../../src/stores/userStore';
-import { HeaderAction, HeaderActionButton } from '../../src/components/layout/header/UniversalHeader';
+import {
+  HeaderAction,
+  HeaderActionButton,
+} from '../../src/components/layout/header/UniversalHeader';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -31,13 +41,14 @@ import { Colors } from '../../src/components/ui/UI';
 import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalModals';
 import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '../../src/hooks';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFollowMutation } from '../../src/services/cache/ProfileCache';
-import { createQueryKeys } from '../../src/services/FeedService';
+import { useFollowMutation } from '../../src/services/data/ProfileService';
+import { queryKeys } from '../../src/utils/query/queryKeys';
 import { useSubscriptionStore } from '../../src/stores/subscriptionStore';
 import ProfileMenu from '../../src/components/features/profile/ProfileMenu';
 import SubscriptionOptionsSheet from '../../src/components/features/profile/SubscriptionOptionsSheet';
 import ChatService from '../../src/services/ChatService';
-import { tabRefs } from '../../src/utils/tabRefs';
+import { tabRefs } from '../../src/utils/navigation/tabRefs';
+import type { ViewMode } from '../../src/types';
 
 interface ProfileScreenProps {
   onLogout: (clearAllAccounts?: boolean) => Promise<void>;
@@ -47,13 +58,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const rawParams = useLocalSearchParams<{ handle?: string; did?: string }>();
-  
+
   // Route file is [did].tsx, but may receive handle or DID
   // Always resolve to DID - if we get a handle, fetch profile to get DID
   const rawIdentifier = rawParams.did || rawParams.handle;
   const isHandle = rawIdentifier && !rawIdentifier.startsWith('did:');
   const handleQuery = useProfile(isHandle ? rawIdentifier : null);
-  
+
   // Resolve to DID: use provided DID, or DID from handle lookup, or current user DID
   const providedDid = useMemo(() => {
     if (!rawIdentifier) return undefined;
@@ -61,13 +72,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     if (isHandle && handleQuery.data?.did) return handleQuery.data.did;
     return undefined;
   }, [rawIdentifier, isHandle, handleQuery.data?.did]);
-  
+
   // User store hooks
   const { currentUser } = useCurrentUser();
-  
+
   // Automatically sync ProfileCache with userStore
   useProfileCacheSync();
-  
+
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const { presentAccountSwitcher } = useGlobalAccountSwitcher();
@@ -91,7 +102,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
 
   // Always use DID - provided DID, or current user DID, or DID resolved from handle
   const targetDid = providedDid || currentUser?.did || null;
-  
+
   // Determine if we're viewing our own profile
   const isViewingOwnProfile = !rawIdentifier;
 
@@ -100,45 +111,55 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
 
   // Use existing ProfileCache functionality with immediate fallback for own profile
   // If we resolved DID from handle, use that profile data; otherwise use DID query
-  const cachedProfile: CachedProfile | null = didQuery.data || (isHandle ? handleQuery.data : null) || 
-    (isViewingOwnProfile && currentUser?.did && currentUser?.handle ? {
-      did: currentUser.did,
-      handle: currentUser.handle,
-      displayName: currentUser.displayName ?? undefined,
-      avatar: currentUser.avatar ?? undefined,
-      description: '',
-      isFollowing: false,
-      isFollowedBy: false,
-      lastUpdated: Date.now(),
-    } as CachedProfile : null);
-  
+  const cachedProfile: CachedProfile | null =
+    didQuery.data ||
+    (isHandle ? handleQuery.data : null) ||
+    (isViewingOwnProfile && currentUser?.did && currentUser?.handle
+      ? ({
+          did: currentUser.did,
+          handle: currentUser.handle,
+          displayName: currentUser.displayName ?? undefined,
+          avatar: currentUser.avatar ?? undefined,
+          description: '',
+          isFollowing: false,
+          isFollowedBy: false,
+          lastUpdated: Date.now(),
+        } as CachedProfile)
+      : null);
+
   const refetchProfile = didQuery.refetch || (isHandle ? handleQuery.refetch : undefined);
-  const isProfileLoading = (didQuery.isLoading || (isHandle && handleQuery.isLoading)) && !cachedProfile;
-  const isProfileFetchError = (didQuery.isError || (isHandle && handleQuery.isError));
-  
+  const isProfileLoading =
+    (didQuery.isLoading || (isHandle && handleQuery.isLoading)) && !cachedProfile;
+  const isProfileFetchError = didQuery.isError || (isHandle && handleQuery.isError);
+
   // Get colors from cached profile
   const profileColors = getProfileColors(cachedProfile);
 
   // Force shimmer state for testing
   const forceShimmer = false; // Force loading state
-  
-  const isProfileLoadingForced = forceShimmer || 
-    (isProfileLoading && !cachedProfile) || 
-    (!targetDid && !rawIdentifier);
+
+  const isProfileLoadingForced =
+    forceShimmer || (isProfileLoading && !cachedProfile) || (!targetDid && !rawIdentifier);
 
   // Tab state
   const [activeTab, setActiveTab] = useState<'profile' | 'reposts' | 'likes'>('profile');
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
 
   // Ensure profile data is immediately available from cache
   const profileData = cachedProfile;
-  const { flags } = useProfileFlags(profileData?.did ?? undefined, profileData?.handle ?? undefined);
+  const { flags } = useProfileFlags(
+    profileData?.did ?? undefined,
+    profileData?.handle ?? undefined
+  );
   const isBlocked = !!flags?.isBlocked;
-  
+
   // Memoized query options for profile feed
-  const queryOptions = useMemo(() => ({
-    enabled: Boolean(isRouteFocused && profileData?.did),
-  }), [isRouteFocused, profileData?.did]);
+  const queryOptions = useMemo(
+    () => ({
+      enabled: Boolean(isRouteFocused && profileData?.did),
+    }),
+    [isRouteFocused, profileData?.did]
+  );
 
   // Ensure profileData.did is defined for type safety
   const profileDid = profileData?.did ?? undefined;
@@ -149,7 +170,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   }, [profileData?.did, providedDid, activeTab]);
 
   // ProfileCache is now automatically synced via useProfileCacheSync hook
-  // Colors are extracted during profile fetch in ProfileCache.ts - no need to do it here
+  // Colors are extracted during profile fetch in ProfileService.ts - no need to do it here
 
   // Profile fetching is handled by React Query hooks
 
@@ -170,20 +191,22 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       // This ensures com.getorbyt.profile records (colors) are refetched
       if (profileData?.did) {
         // Use refreshProfileByDid which calls getProfileByDid - fetches records with colors
-        await ProfileCache.refreshProfileByDid(profileData.did);
+        await ProfileService.refreshProfileByDid(profileData.did);
         // Invalidate React Query cache so it picks up the refreshed data
         queryClient.invalidateQueries({ queryKey: profileKeys.detail(`did_${profileData.did}`) });
       } else if (profileData?.handle) {
         // Use refreshProfile which calls getProfile - fetches records with colors
-        await ProfileCache.refreshProfile(profileData.handle);
+        await ProfileService.refreshProfile(profileData.handle);
         // Invalidate React Query cache so it picks up the refreshed data
-        queryClient.invalidateQueries({ queryKey: profileKeys.detail(profileData.handle.toLowerCase()) });
+        queryClient.invalidateQueries({
+          queryKey: profileKeys.detail(profileData.handle.toLowerCase()),
+        });
       }
-      
+
       // Always refetch profile data so React Query cache is updated
       await refetchProfile();
     } catch (error) {
-      setProfileError("Failed to refresh profile.");
+      setProfileError('Failed to refresh profile.');
     } finally {
       // Reset refreshing state after a delay to show the refresh animation
       setTimeout(() => {
@@ -197,7 +220,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       setRefreshing(true);
 
       // Clear ProfileCache and call onLogout
-      ProfileCache.clearCache();
+      ProfileService.clearCache();
       await onLogout(clearAllAccounts);
     } catch (error) {
     } finally {
@@ -207,58 +230,76 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
 
   const isOwnProfileView = useMemo(() => {
     if (isViewingOwnProfile) return true;
-    
+
     // Simple: check if the profile being viewed belongs to the current user
-    const currentDid = ProfileCache.getCurrentUserDid();
+    const currentDid = ProfileService.getCurrentUserDid();
     return currentDid && profileData?.did && currentDid === profileData.did;
   }, [isViewingOwnProfile, profileData?.did]);
 
+  const tabOptions: TabOption[] = useMemo(
+    () => [
+      { id: 'profile', label: 'videos' },
+      { id: 'reposts', label: 'reposts' },
+      ...(isOwnProfileView ? [{ id: 'likes', label: 'likes' }] : []),
+    ],
+    [isOwnProfileView]
+  );
 
-  const tabOptions: TabOption[] = useMemo(() => [
-    { id: 'profile', label: 'videos' },
-    { id: 'reposts', label: 'reposts' },
-    ...(isOwnProfileView ? [{ id: 'likes', label: 'likes' }] : []),
-  ], [isOwnProfileView]);
-
-  const showErrorScreen = useMemo(() => 
-    (isProfileFetchError || profileError) && !refreshing,
+  const showErrorScreen = useMemo(
+    () => (isProfileFetchError || profileError) && !refreshing,
     [isProfileFetchError, profileError, refreshing]
   );
 
   const renderErrorScreen = useMemo(() => {
     return (
-    <View style={[styles.errorContainer, { backgroundColor: profileColors.backgroundColor || '#000' }]}> 
-      <Icon name="user-x" size={48} color={profileColors.textColor || '#fff'} style={styles.errorIcon} />
-      <Text style={[styles.errorText, { color: profileColors.textColor || '#fff' }]}>Profile Not Found</Text>
-      <Text style={styles.errorSubtext}>
-        {rawIdentifier && isHandle ?
-          `We couldn't find a profile for @${rawIdentifier}` :
-          profileError || "We couldn't retrieve your profile information"}
-      </Text>
-      <Pressable
-        style={({ pressed }) => [
-          styles.errorButton,
-          { borderColor: profileColors.textColor + '44' },
-          pressed && { opacity: 0.7 }
+      <View
+        style={[
+          styles.errorContainer,
+          { backgroundColor: profileColors.backgroundColor || '#000' },
         ]}
-        onPress={onRefresh}
       >
-        <Text style={[styles.errorButtonText, { color: profileColors.textColor || '#fff' }]}>Try Again</Text>
-      </Pressable>
-      {rawIdentifier && (
+        <Icon
+          name="user-x"
+          size={48}
+          color={profileColors.textColor || '#fff'}
+          style={styles.errorIcon}
+        />
+        <Text style={[styles.errorText, { color: profileColors.textColor || '#fff' }]}>
+          Profile Not Found
+        </Text>
+        <Text style={styles.errorSubtext}>
+          {rawIdentifier && isHandle
+            ? `We couldn't find a profile for @${rawIdentifier}`
+            : profileError || "We couldn't retrieve your profile information"}
+        </Text>
         <Pressable
           style={({ pressed }) => [
             styles.errorButton,
-            styles.secondaryButton,
             { borderColor: profileColors.textColor + '44' },
-            pressed && { opacity: 0.7 }
+            pressed && { opacity: 0.7 },
           ]}
-          onPress={() => router.back()}
+          onPress={onRefresh}
         >
-          <Text style={[styles.errorButtonText, { color: profileColors.textColor || '#fff' }]}>Go Back</Text>
+          <Text style={[styles.errorButtonText, { color: profileColors.textColor || '#fff' }]}>
+            Try Again
+          </Text>
         </Pressable>
-      )}
-    </View>
+        {rawIdentifier && (
+          <Pressable
+            style={({ pressed }) => [
+              styles.errorButton,
+              styles.secondaryButton,
+              { borderColor: profileColors.textColor + '44' },
+              pressed && { opacity: 0.7 },
+            ]}
+            onPress={() => router.back()}
+          >
+            <Text style={[styles.errorButtonText, { color: profileColors.textColor || '#fff' }]}>
+              Go Back
+            </Text>
+          </Pressable>
+        )}
+      </View>
     );
   }, [
     profileColors.backgroundColor,
@@ -279,19 +320,19 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const [fullscreenImageUri, setFullscreenImageUri] = useState<string | null>(null);
 
   const followMutation = useFollowMutation();
-  
+
   // Read subscription state from store (for cross-component sharing)
-  const isSubscribed = useSubscriptionStore((state) => 
+  const isSubscribed = useSubscriptionStore(state =>
     profileData?.did ? state.isSubscribed(profileData.did) : false
   );
-  
+
   // Read follow state directly from profileData (React Query cache - single source of truth)
   const isFollowing = profileData?.isFollowing ?? false;
 
   // Get raw profile response to access chat fields from getProfile
   // This includes associated.chat.allowIncoming and chat.activitySubscription
   const { data: rawProfile } = useQuery({
-    queryKey: createQueryKeys.profiles.detail(profileData?.handle || profileData?.did || ''),
+    queryKey: queryKeys.profiles.detail(profileData?.handle || profileData?.did || ''),
     queryFn: () => {
       if (profileData?.did) {
         return AtprotoService.getProfileByDid(profileData.did);
@@ -320,7 +361,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
         return false;
     }
   }, [rawProfile]);
-  
+
   useEffect(() => {
     if (!profileData?.did || isOwnProfileView) {
       setCanMessage(null);
@@ -354,7 +395,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       });
       router.push({
         pathname: '/chat/[id]',
-        params: { id: conversation.id }
+        params: { id: conversation.id },
       });
     } catch {
       router.push('/chat');
@@ -371,24 +412,24 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     try {
       if (isBlocked) {
         await AtprotoService.unblockUser(profileData.did);
-        queryClient.invalidateQueries({ queryKey: createQueryKeys.blocks.status(profileData.did) });
+        queryClient.invalidateQueries({ queryKey: queryKeys.blocks.status(profileData.did) });
         return;
       }
-      
+
       const newFollowingState = !isFollowing;
-      
+
       // Update React Query cache IMMEDIATELY (synchronous, instant UI update)
       // This is the source of truth the component reads from
       const handleKey = profileKeys.detail(profileData.handle);
       const didKey = profileKeys.detail(`did_${profileData.did}`);
-      
-      queryClient.setQueryData<CachedProfile>(handleKey, (old) => 
+
+      queryClient.setQueryData<CachedProfile>(handleKey, old =>
         old ? { ...old, isFollowing: newFollowingState } : old
       );
-      queryClient.setQueryData<CachedProfile>(didKey, (old) => 
+      queryClient.setQueryData<CachedProfile>(didKey, old =>
         old ? { ...old, isFollowing: newFollowingState } : old
       );
-      
+
       // Trigger mutation (which will also update cache in onMutate and handle errors)
       followMutation.mutate({
         handle: profileData.handle,
@@ -421,16 +462,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const headerScrollProgress = useSharedValue(0);
 
   // Update scroll progress on UI thread (worklet directive required for runOnUI)
-  const handleVerticalScroll = useCallback(
-    (scrollY: number) => {
-      runOnUI((y: number) => {
-        'worklet';
-        // Map first 250px of scroll into 0 -> 1 progress
-        headerScrollProgress.value = Math.max(0, Math.min(1, y / 250));
-      })(scrollY);
-    },
-    [],
-  );
+  const handleVerticalScroll = useCallback((scrollY: number) => {
+    runOnUI((y: number) => {
+      'worklet';
+      // Map first 250px of scroll into 0 -> 1 progress
+      headerScrollProgress.value = Math.max(0, Math.min(1, y / 250));
+    })(scrollY);
+  }, []);
 
   // Animated styles automatically run on UI thread (worklet directive optional in Reanimated 4)
   const overlayAnimatedStyle = useAnimatedStyle(() => {
@@ -443,7 +481,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   // Back icon color: gradually transition from header text color to white based on scroll
   const baseBackTextColor = useMemo(
     () => (dynamicColors ? dynamicColors.textColor : profileColors.textColor) || Colors.white,
-    [dynamicColors, profileColors.textColor],
+    [dynamicColors, profileColors.textColor]
   );
 
   // Animated opacity for text-colored icon (fades out on scroll)
@@ -478,9 +516,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     let label = isBlocked ? 'Unblock' : 'follow';
     let icon: string | undefined = undefined;
     let customIcon: React.ReactNode | undefined = isBlocked ? undefined : (
-      <FollowIcon 
-        size={14} 
-        color={(dynamicColors ? dynamicColors.textColor : profileColors.textColor) || Colors.white} 
+      <FollowIcon
+        size={14}
+        color={(dynamicColors ? dynamicColors.textColor : profileColors.textColor) || Colors.white}
       />
     );
 
@@ -488,9 +526,12 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       label = '';
       icon = undefined;
       customIcon = (
-        <MutualHeartIcon 
-          size={20} 
-          color={(dynamicColors ? dynamicColors.backgroundColor : profileColors.backgroundColor) || Colors.black} 
+        <MutualHeartIcon
+          size={20}
+          color={
+            (dynamicColors ? dynamicColors.backgroundColor : profileColors.backgroundColor) ||
+            Colors.black
+          }
         />
       );
     } else if (!isBlocked && isFollowing) {
@@ -514,11 +555,15 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
         id: 'subscription',
         label: '',
         customIcon: (
-          <BellFilledIcon 
-            size={20} 
-            color={isSubscribed
-              ? (dynamicColors ? dynamicColors.backgroundColor : profileColors.backgroundColor) || Colors.black
-              : (dynamicColors ? dynamicColors.textColor : profileColors.textColor) || Colors.white} 
+          <BellFilledIcon
+            size={20}
+            color={
+              isSubscribed
+                ? (dynamicColors ? dynamicColors.backgroundColor : profileColors.backgroundColor) ||
+                  Colors.black
+                : (dynamicColors ? dynamicColors.textColor : profileColors.textColor) ||
+                  Colors.white
+            }
           />
         ),
         onPress: async () => {
@@ -561,12 +606,14 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   ]);
 
   return (
-    <View style={[
-      styles.container,
-      {
-        backgroundColor: profileColors.backgroundColor,
-      }
-    ]}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: profileColors.backgroundColor,
+        },
+      ]}
+    >
       {/* Overlay actions row (back, follow, bell, edit) */}
       <View style={[styles.overlayRow, { top: overlayTop }]}>
         {showBackButton ? (
@@ -579,16 +626,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
           >
             <View style={styles.backIconContainer}>
               <Animated.View style={[StyleSheet.absoluteFillObject, backIconPrimaryStyle]}>
-                <BackArrowIcon
-                  size={30}
-                  color={baseBackTextColor}
-                />
+                <BackArrowIcon size={30} color={baseBackTextColor} />
               </Animated.View>
               <Animated.View style={[StyleSheet.absoluteFillObject, backIconSecondaryStyle]}>
-                <BackArrowIcon
-                  size={30}
-                  color={Colors.white}
-                />
+                <BackArrowIcon size={30} color={Colors.white} />
               </Animated.View>
             </View>
           </Pressable>
@@ -598,25 +639,31 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
 
         <Animated.View style={[styles.overlayRightSection, overlayAnimatedStyle]}>
           {/* Menu button - same icon and sizing as UniversalHeader */}
-          <Pressable
-            onPress={handleMenuPress}
-            style={styles.overlayMenuButton}
-          >
-            <MoreFillIcon 
-              size={24} 
-              color={(dynamicColors ? dynamicColors.textColor : profileColors.textColor) || Colors.white} 
+          <Pressable onPress={handleMenuPress} style={styles.overlayMenuButton}>
+            <MoreFillIcon
+              size={24}
+              color={
+                (dynamicColors ? dynamicColors.textColor : profileColors.textColor) || Colors.white
+              }
             />
           </Pressable>
 
           {/* Header actions rendered with the same ActionButton component as UniversalHeader */}
           {headerActions.length > 0 && (
             <View style={styles.overlayActionsContainer}>
-              {headerActions.map((action) => (
+              {headerActions.map(action => (
                 <HeaderActionButton
                   key={action.id}
                   action={action}
-                  textColor={(dynamicColors ? dynamicColors.textColor : profileColors.textColor) || Colors.white}
-                  backgroundColor={(dynamicColors ? dynamicColors.backgroundColor : profileColors.backgroundColor) || Colors.black}
+                  textColor={
+                    (dynamicColors ? dynamicColors.textColor : profileColors.textColor) ||
+                    Colors.white
+                  }
+                  backgroundColor={
+                    (dynamicColors
+                      ? dynamicColors.backgroundColor
+                      : profileColors.backgroundColor) || Colors.black
+                  }
                 />
               ))}
             </View>
@@ -627,55 +674,62 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       {showErrorScreen ? (
         renderErrorScreen
       ) : (
-            <FeedRenderer
-              ref={(r) => { tabRefs.profile = r; }}
-              feedOption={
-                activeTab === 'profile' ? 'profile' :
-                activeTab === 'reposts' ? 'reposts' : 'likes'
-              }
-              userDid={profileDid}
-              queryOptions={queryOptions}
-              headerComponent={(
-                <View style={styles.headerContainer} pointerEvents="box-none">
-                  <ProfileHeader
-                    handle={profileData?.handle || null}
-                    showBackButton={false}
-                    isOwnProfile={!!isOwnProfileView}
-                    onLogout={handleLogout}
-                    onSwitchAccount={presentAccountSwitcher}
-                    forceLoading={isProfileLoadingForced}
-                    applySafeArea={true}
-                    onColorsChange={setDynamicColors}
-                    headerScrollProgress={headerScrollProgress}
-                    contentFadeDisabled={viewMode === 'grid'}
-                    dimOverlayDisabled={viewMode === 'grid'}
-                    onAvatarPress={profileData?.avatar ? () => setFullscreenImageUri(profileData.avatar || null) : undefined}
-                  >
-                    <TabNavigation
-                      key={`tab-nav-${dynamicColors?.textColor || profileColors.textColor}`}
-                      tabs={tabOptions}
-                      activeTab={activeTab}
-                      onTabPress={(tabId) => setActiveTab(tabId as 'profile' | 'reposts' | 'likes')}
-                      textColor={dynamicColors ? dynamicColors.textColor : profileColors.textColor}
-                      backgroundColor="transparent"
-                      viewMode={viewMode}
-                      onViewModeChange={(mode: 'list' | 'grid') => setViewMode(mode)}
-                      showViewToggle={true}
-                    />
-                  </ProfileHeader>
-                </View>
-              )}
-              backgroundColor={dynamicColors ? dynamicColors.backgroundColor : profileColors.backgroundColor}
-              secondaryColor={dynamicColors ? dynamicColors.textColor : profileColors.textColor}
-              isProfileLoading={!!(isProfileLoading && !profileData)}
-              isRefreshing={refreshing}
-              onRefresh={onRefresh}
-              viewMode={viewMode}
-              onViewModeChange={setViewMode}
-              isVisible={isRouteFocused}
-              visibilityKey={profileVisibilityKey}
-              onVerticalScroll={handleVerticalScroll}
-          />
+        <FeedRenderer
+          ref={r => {
+            tabRefs.profile = r;
+          }}
+          feedOption={
+            activeTab === 'profile' ? 'profile' : activeTab === 'reposts' ? 'reposts' : 'likes'
+          }
+          userDid={profileDid}
+          queryOptions={queryOptions}
+          headerComponent={
+            <View style={styles.headerContainer} pointerEvents="box-none">
+              <ProfileHeader
+                handle={profileData?.handle || null}
+                showBackButton={false}
+                isOwnProfile={!!isOwnProfileView}
+                onLogout={handleLogout}
+                onSwitchAccount={presentAccountSwitcher}
+                forceLoading={isProfileLoadingForced}
+                applySafeArea={true}
+                onColorsChange={setDynamicColors}
+                headerScrollProgress={headerScrollProgress}
+                contentFadeDisabled={viewMode === 'grid'}
+                dimOverlayDisabled={viewMode === 'grid'}
+                onAvatarPress={
+                  profileData?.avatar
+                    ? () => setFullscreenImageUri(profileData.avatar || null)
+                    : undefined
+                }
+              >
+                <TabNavigation
+                  key={`tab-nav-${dynamicColors?.textColor || profileColors.textColor}`}
+                  tabs={tabOptions}
+                  activeTab={activeTab}
+                  onTabPress={tabId => setActiveTab(tabId as 'profile' | 'reposts' | 'likes')}
+                  textColor={dynamicColors ? dynamicColors.textColor : profileColors.textColor}
+                  backgroundColor="transparent"
+                  viewMode={viewMode}
+                  onViewModeChange={(mode: ViewMode) => setViewMode(mode)}
+                  showViewToggle={true}
+                />
+              </ProfileHeader>
+            </View>
+          }
+          backgroundColor={
+            dynamicColors ? dynamicColors.backgroundColor : profileColors.backgroundColor
+          }
+          secondaryColor={dynamicColors ? dynamicColors.textColor : profileColors.textColor}
+          isProfileLoading={!!(isProfileLoading && !profileData)}
+          isRefreshing={refreshing}
+          onRefresh={onRefresh}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          isVisible={isRouteFocused}
+          visibilityKey={profileVisibilityKey}
+          onVerticalScroll={handleVerticalScroll}
+        />
       )}
       {isLoading && (
         <View style={styles.loadingOverlay}>
@@ -711,10 +765,14 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       >
         <Pressable style={styles.modalOverlay} onPress={() => setFullscreenImageUri(null)}>
           {fullscreenImageUri && (
-            <Image source={{ uri: fullscreenImageUri }} style={styles.fullscreenImage} contentFit="contain" />
+            <Image
+              source={{ uri: fullscreenImageUri }}
+              style={styles.fullscreenImage}
+              contentFit="contain"
+            />
           )}
-          <Pressable 
-            style={[styles.closeButton, { top: overlayTop }]} 
+          <Pressable
+            style={[styles.closeButton, { top: overlayTop }]}
             onPress={() => setFullscreenImageUri(null)}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
@@ -730,16 +788,16 @@ export default ProfileScreen;
 
 // Optimized StyleSheet creation outside component
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    minHeight: '100%', 
-    overflow: 'hidden'
+  container: {
+    flex: 1,
+    minHeight: '100%',
+    overflow: 'hidden',
   },
   headerContainer: {
     backgroundColor: 'transparent',
   },
   errorContainer: {
-    flex: 1, 
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
@@ -747,14 +805,14 @@ const styles = StyleSheet.create({
   },
   errorIcon: {
     marginBottom: 16,
-    opacity: 0.8
+    opacity: 0.8,
   },
   errorText: {
     textAlign: 'center',
     marginVertical: 8,
   },
   errorSubtext: {
-    color: Colors.lightGray, 
+    color: Colors.lightGray,
     fontSize: 16,
     fontFamily: 'Firma-Medium',
     textAlign: 'center',
@@ -854,4 +912,3 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 });
-

@@ -1,4 +1,3 @@
-import React from 'react';
 import { Stack } from 'expo-router';
 
 export default function ModalsLayout() {
@@ -12,8 +11,8 @@ export default function ModalsLayout() {
         animation: 'slide_from_bottom',
       }}
     >
-      <Stack.Screen 
-        name="feed" 
+      <Stack.Screen
+        name="feed"
         options={{
           headerShown: false,
           presentation: 'modal',

@@ -1,14 +1,13 @@
-import React from 'react';
 import { Stack } from 'expo-router';
 
 export default function SettingsLayout() {
   return (
-    <Stack 
-      screenOptions={{ 
+    <Stack
+      screenOptions={{
         headerShown: false,
         presentation: 'modal',
-        animation: 'slide_from_bottom'
-      }} 
+        animation: 'slide_from_bottom',
+      }}
     />
   );
 }

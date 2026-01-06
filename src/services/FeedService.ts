@@ -6,16 +6,21 @@
  */
 
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
-import type { ModerationDecision } from './ModerationTypes';
-import { ModerationService } from './api/moderation/ContentFilterService';
+import { InteractionManager } from 'react-native';
+import type { ModerationDecision } from './moderation/ModerationTypes';
+import { ModerationService } from './moderation/ModerationService';
 import { logger } from '../utils/logger';
 import { useUserStore } from '../stores/userStore';
 import { QUERY_CONSTANTS } from '../utils/constants';
-import { queryKeys } from '../utils/queryKeys';
+import { queryKeys } from '../utils/query/queryKeys';
 import type {
   ExtendedFeedViewPost,
   FeedResponse,
+  ProfileViewBasic,
+  GeneratorView,
 } from './api/types';
+import { isOrbytChannel, channelToHashtag, getChannelByUri } from '../utils/channels/orbyt';
+import type { FeedOption } from '../types';
 
 // Import AtprotoService with error handling for circular dependency issues
 let AtprotoService: any = null;
@@ -31,7 +36,6 @@ try {
   };
 }
 
-
 // Re-export API types for convenience
 export type { ExtendedFeedViewPost as FeedItem, ExtendedPostView as Post } from './api/types';
 
@@ -44,7 +48,8 @@ export type FeedItemWithModeration = ExtendedFeedViewPost & {
 // API Response type matching AtprotoService return types
 export type APIResponse = FeedResponse;
 
-export type FeedOption = 'profile' | 'following' | 'likes' | 'reposts' | 'search' | 'hashtag' | string;
+// Re-export FeedOption for convenience (defined in types/index.ts)
+export type { FeedOption } from '../types';
 
 // Configuration constants
 const FEED_CONFIG = {
@@ -79,71 +84,15 @@ class SearchFeedState {
 // Singleton for search state only
 const searchFeedState = new SearchFeedState();
 
-// Query keys factory - consolidated from the old queryKeys.ts
-const createQueryKeys = {
-  comments: {
-    all: ['comments'] as const,
-    byPost: (postUri: string) => [...createQueryKeys.comments.all, postUri] as const,
-    infinite: () => [...createQueryKeys.comments.all, 'infinite'] as const,
-    infiniteByPost: (postUri: string) => [...createQueryKeys.comments.infinite(), postUri] as const,
-  },
-  likes: {
-    all: ['likes'] as const,
-    byPost: (postUri: string) => [...createQueryKeys.likes.all, postUri] as const,
-    infinite: () => [...createQueryKeys.likes.all, 'infinite'] as const,
-    infiniteByPost: (postUri: string) => [...createQueryKeys.likes.infinite(), postUri] as const,
-  },
-  profiles: {
-    all: ['profiles'] as const,
-    lists: () => [...createQueryKeys.profiles.all, 'list'] as const,
-    list: (filters: string) => [...createQueryKeys.profiles.lists(), { filters }] as const,
-    details: () => [...createQueryKeys.profiles.all, 'detail'] as const,
-    detail: (handle: string) => [...createQueryKeys.profiles.details(), handle] as const,
-    refresh: (handle: string) => [...createQueryKeys.profiles.detail(handle), 'refresh', Date.now()] as const,
-  },
-  blocks: {
-    all: ['blocks'] as const,
-    status: (did: string) => [...createQueryKeys.blocks.all, did] as const,
-  },
-  mutes: {
-    all: ['mutes'] as const,
-    status: (did: string) => [...createQueryKeys.mutes.all, did] as const,
-  },
-  feed: {
-    all: ['feed'] as const,
-    byOption: (feedOption: string) => [...createQueryKeys.feed.all, feedOption] as const,
-    byUser: (feedOption: string, userDid?: string) => 
-      userDid 
-        ? [...createQueryKeys.feed.byOption(feedOption), userDid] as const
-        : createQueryKeys.feed.byOption(feedOption),
-    infinite: (feedOption: string, userDid?: string) => 
-      [...createQueryKeys.feed.byUser(feedOption, userDid), 'infinite'] as const,
-    batch: (feedOption: string, userDid?: string) => 
-      [...createQueryKeys.feed.byUser(feedOption, userDid), 'batch'] as const,
-    search: (query: string) => [...createQueryKeys.feed.all, 'search', query] as const,
-  },
-  feeds: {
-    all: ['feeds'] as const,
-    search: (query: string) => [...createQueryKeys.feeds.all, 'search', query] as const,
-    details: () => [...createQueryKeys.feeds.all, 'detail'] as const,
-    detail: (uri: string) => [...createQueryKeys.feeds.details(), uri] as const,
-    infinite: (uri: string) => [...createQueryKeys.feeds.detail(uri), 'infinite'] as const,
-  },
-  search: {
-    all: ['search'] as const,
-    unified: (query: string) => [...createQueryKeys.search.all, 'unified', query] as const,
-    profiles: (query: string) => [...createQueryKeys.search.all, 'profiles', query] as const,
-    feeds: (query: string) => [...createQueryKeys.search.all, 'feeds', query] as const,
-  }
-};
-
 // Core feed fetching logic
 class FeedService {
-
   /**
    * Helper function to merge, deduplicate, and sort posts chronologically
    */
-  private mergeAndDeduplicatePosts(posts: ExtendedFeedViewPost[], limit: number): ExtendedFeedViewPost[] {
+  private mergeAndDeduplicatePosts(
+    posts: ExtendedFeedViewPost[],
+    limit: number
+  ): ExtendedFeedViewPost[] {
     // Remove duplicates
     const seen = new Set<string>();
     const uniquePosts = posts.filter(post => {
@@ -153,16 +102,18 @@ class FeedService {
       seen.add(post.post.uri);
       return true;
     });
-    
+
     // Sort chronologically
     uniquePosts.sort((a, b) => {
-      const aIndexedAt = (a.post as any)?.indexedAt;
-      const bIndexedAt = (b.post as any)?.indexedAt;
+      const aIndexedAt =
+        'indexedAt' in a.post ? (a.post as { indexedAt?: string }).indexedAt : undefined;
+      const bIndexedAt =
+        'indexedAt' in b.post ? (b.post as { indexedAt?: string }).indexedAt : undefined;
       const aTime = aIndexedAt ? new Date(aIndexedAt).getTime() : 0;
       const bTime = bIndexedAt ? new Date(bIndexedAt).getTime() : 0;
       return bTime - aTime;
     });
-    
+
     // Apply limit
     return uniquePosts.slice(0, limit);
   }
@@ -173,14 +124,11 @@ class FeedService {
    * This normalization is only used when making API calls, not for caching or routing
    */
   private normalizeFeedOptionForAPI(feedOption: FeedOption): FeedOption {
-    // Import here to avoid circular dependency issues
-    const { isOrbytChannel, channelToHashtag, getChannelByUri } = require('../utils/orbytChannels');
-    
     // If it's already a hashtag or not an Orbyt channel URI, return as-is
     if (feedOption.startsWith('hashtag:') || !feedOption.startsWith('at://')) {
       return feedOption;
     }
-    
+
     // Convert local Orbyt channel URIs (at://local.orbyt.channel/{slug}) to hashtag format
     // Skip channels that aren't postable (like "latest" and "popular-now") - they should use feed generators
     if (isOrbytChannel(feedOption)) {
@@ -189,7 +137,7 @@ class FeedService {
       if (channel?.isPostable === false) {
         return feedOption; // Don't normalize - keep as feed generator
       }
-      
+
       // Convert local URIs to hashtag format for API calls
       // This only affects local.orbyt.channel URIs, not feed generator URIs
       if (feedOption.startsWith('at://local.orbyt.channel/')) {
@@ -197,7 +145,7 @@ class FeedService {
         return hashtagOption || feedOption;
       }
     }
-    
+
     return feedOption;
   }
 
@@ -205,7 +153,7 @@ class FeedService {
     if (feedOption.startsWith('at://')) {
       return feedOption;
     }
-    
+
     switch (feedOption) {
       case 'profile':
         return null; // Handle specially with user-specific logic
@@ -229,15 +177,16 @@ class FeedService {
     try {
       const limit = FEED_CONFIG.defaultLimit;
       let response;
-      
+
       // Normalize feed option only for API calls (converts local URIs to hashtags)
       const feedOptionForAPI = this.normalizeFeedOptionForAPI(feedOption);
-      
+
       // Handle different feed types (using normalized feed option for API calls)
       if (feedOptionForAPI === 'likes' && userDid) {
         response = await AtprotoService.getFeed(cursor, userDid, {}, true, limit, 'likes');
       } else if (feedOptionForAPI === 'reposts' && userDid) {
-        response = await (AtprotoService as any).getRepostedVideos(userDid, cursor, limit);
+        // getRepostedVideos is a static method on AtprotoService
+        response = await AtprotoService.getRepostedVideos(userDid, cursor, limit);
       } else if (feedOptionForAPI === 'profile' && userDid) {
         response = await AtprotoService.getFeed(cursor, userDid, {}, true, limit, 'authorVideos');
       } else if (feedOptionForAPI === 'profile' && !userDid) {
@@ -266,23 +215,24 @@ class FeedService {
         // Parallelize imports to reduce latency
         const [userStoreModule, orbytChannelsModule] = await Promise.all([
           import('../stores/userStore'),
-          import('../utils/orbytChannels')
+          import('../utils/channels/orbyt'),
         ]);
-        
+
         // Get subscribed channels and algorithmic feed provider from user store
-        const { subscribedChannels, algorithmicFeedProvider } = userStoreModule.useUserStore.getState();
-        
+        const { subscribedChannels, algorithmicFeedProvider } =
+          userStoreModule.useUserStore.getState();
+
         // If no channels subscribed AND no algorithmic feed, return empty feed
         const hasChannels = subscribedChannels && subscribedChannels.length > 0;
         const hasAlgorithmic = !!algorithmicFeedProvider;
-        
+
         if (!hasChannels && !hasAlgorithmic) {
           return { feed: [], cursor: null };
         }
-        
+
         // Import orbyt channel utilities
         const { channelToHashtag, getChannelByUri } = orbytChannelsModule;
-        
+
         // Parse cursor state for pagination across multiple feeds
         let cursorState: { [key: string]: string | null } = {};
         if (cursor) {
@@ -292,7 +242,7 @@ class FeedService {
             cursorState = {};
           }
         }
-        
+
         // Prepare feed sources - convert channels to appropriate format
         interface FeedSource {
           uri: string;
@@ -300,9 +250,9 @@ class FeedService {
           hashtag?: string;
           sort?: 'top' | 'latest';
         }
-        
+
         const feedSources: FeedSource[] = [];
-        
+
         // Add algorithmic feed provider if set
         if (algorithmicFeedProvider) {
           feedSources.push({
@@ -310,11 +260,11 @@ class FeedService {
             type: 'algorithmic',
           });
         }
-        
+
         // Add channel feeds
         if (hasChannels) {
           const maxFeeds = Math.min(subscribedChannels.length, FEED_CONFIG.maxFeedsPerFetch);
-          
+
           for (const channel of subscribedChannels.slice(0, maxFeeds)) {
             if (channel.uri.startsWith('hashtag:')) {
               // Already in hashtag format
@@ -374,53 +324,63 @@ class FeedService {
             }
           }
         }
-        
+
         // Calculate fetch limit per feed for better distribution
         // Give algorithmic feed a larger share to keep content fresh
         const algorithmicCount = feedSources.filter(s => s.type === 'algorithmic').length;
         const channelCount = feedSources.length - algorithmicCount;
         const algorithmicLimit = algorithmicCount > 0 ? Math.ceil(limit * 0.4) : 0; // 40% for algorithmic
-        const channelLimit = channelCount > 0 ? Math.ceil((limit - algorithmicLimit) / channelCount) : 0;
-        
+        const channelLimit =
+          channelCount > 0 ? Math.ceil((limit - algorithmicLimit) / channelCount) : 0;
+
         // Fetch from all feed sources in parallel with timeout protection
         // Use Promise.allSettled to avoid blocking on slow feeds
         const FEED_FETCH_TIMEOUT = 10000; // 10 seconds per feed
-        
-        const feedPromises = feedSources.map(async (source) => {
+
+        const feedPromises = feedSources.map(async source => {
           const timeoutPromise = new Promise<never>((_, reject) => {
             setTimeout(() => reject(new Error('Feed fetch timeout')), FEED_FETCH_TIMEOUT);
           });
-          
+
           try {
             const sourceCursor = cursorState[source.uri] || null;
-            const itemsPerFeed = source.type === 'algorithmic' ? algorithmicLimit : Math.max(10, channelLimit);
-            
-            const fetchPromise = source.type === 'hashtag'
-              ? AtprotoService.searchHashtagVideosPaginated(
-                  source.hashtag!,
-                  sourceCursor,
-                  itemsPerFeed,
-                  source.sort || 'latest'
-                ).then((hashtagResponse: { videos?: ExtendedFeedViewPost[]; cursor?: string | null }) => ({
-                  feed: hashtagResponse.videos || [],
-                  cursor: hashtagResponse.cursor || null,
-                  sourceUri: source.uri,
-                  success: true,
-                }))
-              : AtprotoService.getFeed(
-                  sourceCursor,
-                  source.uri,
-                  {},
-                  true, // filter videos only
-                  itemsPerFeed,
-                  'custom'
-                ).then((feedResponse: { feed?: ExtendedFeedViewPost[]; cursor?: string | null }) => ({
-                  feed: feedResponse?.feed || [],
-                  cursor: feedResponse?.cursor || null,
-                  sourceUri: source.uri,
-                  success: true,
-                }));
-            
+            const itemsPerFeed =
+              source.type === 'algorithmic' ? algorithmicLimit : Math.max(10, channelLimit);
+
+            const fetchPromise =
+              source.type === 'hashtag'
+                ? AtprotoService.searchHashtagVideosPaginated(
+                    source.hashtag!,
+                    sourceCursor,
+                    itemsPerFeed,
+                    source.sort || 'latest'
+                  ).then(
+                    (hashtagResponse: {
+                      videos?: ExtendedFeedViewPost[];
+                      cursor?: string | null;
+                    }) => ({
+                      feed: hashtagResponse.videos || [],
+                      cursor: hashtagResponse.cursor || null,
+                      sourceUri: source.uri,
+                      success: true,
+                    })
+                  )
+                : AtprotoService.getFeed(
+                    sourceCursor,
+                    source.uri,
+                    {},
+                    true, // filter videos only
+                    itemsPerFeed,
+                    'custom'
+                  ).then(
+                    (feedResponse: { feed?: ExtendedFeedViewPost[]; cursor?: string | null }) => ({
+                      feed: feedResponse?.feed || [],
+                      cursor: feedResponse?.cursor || null,
+                      sourceUri: source.uri,
+                      success: true,
+                    })
+                  );
+
             return await Promise.race([fetchPromise, timeoutPromise]);
           } catch (error) {
             logger.warn('Failed to fetch feed for your-mix', { sourceUri: source.uri, error });
@@ -432,25 +392,32 @@ class FeedService {
             };
           }
         });
-        
+
         // Use allSettled instead of all to avoid blocking on slow feeds
         // This allows fast feeds to return results even if some feeds are slow
         const feedResults = await Promise.allSettled(feedPromises);
-        
+
         // Extract successful results from Promise.allSettled
+        interface FeedResult {
+          feed: ExtendedFeedViewPost[];
+          cursor: string | null;
+          sourceUri: string;
+          success: boolean;
+        }
         const successfulResults = feedResults
-          .filter((result): result is PromiseFulfilledResult<{ feed: any[]; cursor: string | null; sourceUri: string; success: boolean }> => 
-            result.status === 'fulfilled' && result.value.success
+          .filter(
+            (result): result is PromiseFulfilledResult<FeedResult> =>
+              result.status === 'fulfilled' && result.value.success
           )
           .map(result => result.value);
-        
+
         // Update cursor state for successful feeds
         successfulResults.forEach(result => {
           if (result.success) {
             cursorState[result.sourceUri] = result.cursor;
           }
         });
-        
+
         // Merge all feeds into single array with source tracking
         const allPosts = successfulResults.flatMap(result =>
           result.feed.map(post => ({
@@ -458,18 +425,23 @@ class FeedService {
             sourceFeed: result.sourceUri,
           }))
         );
-        
+
         // Merge, deduplicate, and sort chronologically (newest first)
         const mergedPosts = this.mergeAndDeduplicatePosts(allPosts, limit);
-        
+
         // Create composite cursor for pagination
-        const compositeCursor = Object.keys(cursorState).length > 0 ? JSON.stringify(cursorState) : null;
-        
+        const compositeCursor =
+          Object.keys(cursorState).length > 0 ? JSON.stringify(cursorState) : null;
+
         response = {
           feed: mergedPosts,
           cursor: compositeCursor,
         };
-      } else if (feedOptionForAPI === 'profile' || feedOptionForAPI === 'likes' || feedOptionForAPI === 'reposts') {
+      } else if (
+        feedOptionForAPI === 'profile' ||
+        feedOptionForAPI === 'likes' ||
+        feedOptionForAPI === 'reposts'
+      ) {
         return { feed: [], cursor: null };
       } else if (feedOptionForAPI.startsWith('search:')) {
         const searchQuery = feedOptionForAPI.substring(7);
@@ -479,17 +451,21 @@ class FeedService {
 
         try {
           const [profilesResponse, channelsResponse] = await Promise.all([
-            AtprotoService.searchProfilesPaginated(searchQuery, cursor as string | null),
-            AtprotoService.searchPopularFeeds(searchQuery, 15)
+            AtprotoService.searchProfilesPaginated(
+              searchQuery,
+              cursor as string | null,
+              FEED_CONFIG.maxPostsPerFetch
+            ),
+            AtprotoService.searchPopularFeeds(searchQuery, 15),
           ]);
 
           const feedItems: ExtendedFeedViewPost[] = [];
-          
-          profilesResponse.profiles.forEach((profile: any) => {
+
+          profilesResponse.profiles.forEach((profile: ProfileViewBasic) => {
             feedItems.push({
               post: {
                 uri: `at://${profile.did}/profile`,
-                cid: profile.cid || '',
+                cid: '',
                 author: {
                   did: profile.did,
                   handle: profile.handle,
@@ -497,12 +473,12 @@ class FeedService {
                   avatar: profile.avatar,
                 },
                 viewer: profile.viewer,
-              } as any,
+              } as ExtendedFeedViewPost['post'],
               uniqueKey: profile.did,
             });
           });
 
-          channelsResponse.forEach((channel: any) => {
+          channelsResponse.forEach((channel: GeneratorView) => {
             feedItems.push({
               post: {
                 uri: channel.uri,
@@ -510,8 +486,8 @@ class FeedService {
                 author: channel.creator,
                 text: channel.displayName,
                 avatar: channel.avatar,
-                contentMode: channel.contentMode, // Already extracted by AtprotoService
-              } as any,
+                contentMode: (channel as any).contentMode, // Already extracted by AtprotoService
+              } as unknown as ExtendedFeedViewPost['post'],
               uniqueKey: channel.uri,
             });
           });
@@ -534,7 +510,7 @@ class FeedService {
         // Parse sort parameter (default to 'latest' if not specified)
         let hashtag = hashtagWithSort.trim();
         let sort: 'top' | 'latest' = 'latest';
-        
+
         const sortMatch = hashtag.match(/^(.+):(top|latest)$/);
         if (sortMatch) {
           hashtag = sortMatch[1];
@@ -558,6 +534,11 @@ class FeedService {
             cursor: response.cursor,
           };
         } catch (error) {
+          logger.error('Failed to fetch hashtag feed', error, {
+            component: 'FeedService',
+            hashtag,
+            sort,
+          });
           return { feed: [], cursor: null };
         }
       } else if (feedOptionForAPI === 'search') {
@@ -568,7 +549,9 @@ class FeedService {
       } else {
         // Handle custom feed URIs (external feed generators and non-postable Orbyt channels)
         // Use original feedOption for feed generator URIs, not the normalized one
-        const feedLink = feedOption.startsWith('at://') ? feedOption : this.getFeedLink(feedOptionForAPI);
+        const feedLink = feedOption.startsWith('at://')
+          ? feedOption
+          : this.getFeedLink(feedOptionForAPI);
         if (!feedLink) {
           return { feed: [], cursor: null };
         }
@@ -578,25 +561,31 @@ class FeedService {
       // Apply moderation to the fetched posts
       if (response && response.feed && response.feed.length > 0) {
         try {
-          // Get agent and currentUser from userStore to pass to moderation
-          const { agent, currentUser } = useUserStore.getState();
-          
+          // Get agent from userStore for moderation
+          const { agent } = useUserStore.getState();
+
           if (!agent) {
-            logger.warn('No agent available for moderation, applying basic label-based filtering', { component: 'FeedService' });
+            logger.warn('No agent available for moderation, applying basic label-based filtering', {
+              component: 'FeedService',
+            });
             // Fail-safe: filter out posts with sensitive labels when no agent
             response.feed = ModerationService.filterSensitiveByLabels(response.feed);
           } else {
             // Pass userDid to use React Query cache for faster moderation
-            const moderatedFeed = await ModerationService.batchModeratePosts(response.feed, 'contentList', agent, currentUser?.did ?? undefined);
+            const moderatedFeed = await ModerationService.batchModeratePosts(
+              response.feed,
+              'contentList',
+              agent
+            );
             response.feed = moderatedFeed.filteredPosts;
           }
         } catch (error) {
           // Fail-safe: if moderation fails, apply basic label-based filtering
-          logger.error('Error applying moderation to feed, applying basic label filtering', error, { 
+          logger.error('Error applying moderation to feed, applying basic label filtering', error, {
             component: 'FeedService',
-            feedLength: response.feed?.length || 0
+            feedLength: response.feed?.length || 0,
           });
-          
+
           // Basic fail-safe: filter out posts with sensitive labels
           response.feed = ModerationService.filterSensitiveByLabels(response.feed || []);
         }
@@ -604,6 +593,11 @@ class FeedService {
 
       return response || { feed: [], cursor: null };
     } catch (error) {
+      logger.error('Failed to fetch feed', error, {
+        component: 'FeedService',
+        feedOption,
+        userDid,
+      });
       return { feed: [], cursor: null };
     }
   }
@@ -613,7 +607,7 @@ class FeedService {
   // Query configuration
   createInfiniteQuery(feedOption: FeedOption, userDid?: string, queryOptions: any = {}) {
     const queryClient = useQueryClient();
-    
+
     return useInfiniteQuery({
       queryKey: queryKeys.feed.infinite(feedOption, userDid),
       queryFn: async ({ pageParam }) => {
@@ -623,9 +617,7 @@ class FeedService {
         // Extract unique author handles from this page for batch prefetching
         const authorHandles = Array.from(
           new Set(
-            feedData.feed
-              .map(item => item.post?.author?.handle)
-              .filter((h): h is string => !!h)
+            feedData.feed.map(item => item.post?.author?.handle).filter((h): h is string => !!h)
           )
         );
 
@@ -633,35 +625,33 @@ class FeedService {
         // Fire and forget - don't await, let it populate cache
         if (authorHandles.length > 0) {
           // Defer prefetching until after interactions complete
-          const { InteractionManager } = require('react-native');
           InteractionManager.runAfterInteractions(() => {
             // Import ProfileCache dynamically to avoid circular dependency
-            import('./cache/ProfileCache').then(({ default: ProfileCache, profileKeys }) => {
-              ProfileCache.batchGetProfiles(authorHandles)
-                .then(profiles => {
-                  // Prepopulate individual profile query keys for instant cache hits
-                  profiles.forEach(profile => {
-                    if (profile?.handle) {
-                      queryClient.setQueryData(
-                        profileKeys.detail(profile.handle),
-                        profile
-                      );
-                    }
+            import('./data/ProfileService')
+              .then(({ default: ProfileService, profileKeys }) => {
+                ProfileService.batchGetProfiles(authorHandles)
+                  .then(profiles => {
+                    // Prepopulate individual profile query keys for instant cache hits
+                    profiles.forEach(profile => {
+                      if (profile?.handle) {
+                        queryClient.setQueryData(profileKeys.detail(profile.handle), profile);
+                      }
+                    });
+                  })
+                  .catch(() => {
+                    // Silently fail - feed still renders, individual fetches will work as fallback
                   });
-                })
-                .catch(() => {
-                  // Silently fail - feed still renders, individual fetches will work as fallback
-                });
-            }).catch(() => {
-              // Failed to load ProfileCache, skip prefetch
-            });
+              })
+              .catch(() => {
+                // Failed to load ProfileCache, skip prefetch
+              });
           });
         }
 
         return feedData;
       },
       initialPageParam: null,
-      getNextPageParam: (lastPage) => lastPage.cursor,
+      getNextPageParam: lastPage => lastPage.cursor,
       staleTime: queryOptions.staleTime ?? FEED_CONFIG.staleTime,
       gcTime: queryOptions.cacheTime ?? FEED_CONFIG.cacheTime,
       refetchOnWindowFocus: queryOptions.refetchOnWindowFocus ?? false,
@@ -669,11 +659,10 @@ class FeedService {
       refetchOnReconnect: queryOptions.refetchOnReconnect ?? true,
       // Use placeholderData to maintain previous data during refetch
       // This prevents the feed from clearing and losing scroll position
-      placeholderData: (previousData) => previousData,
-      ...queryOptions
+      placeholderData: previousData => previousData,
+      ...queryOptions,
     });
   }
-
 
   // Search results state management (only used for search feeds)
   setCurrentFeed = searchFeedState.setSearchResults.bind(searchFeedState);
@@ -684,4 +673,4 @@ class FeedService {
 // Export singleton instance
 export const feedService = new FeedService();
 export default feedService;
-export { FEED_CONFIG, createQueryKeys };
+export { FEED_CONFIG };

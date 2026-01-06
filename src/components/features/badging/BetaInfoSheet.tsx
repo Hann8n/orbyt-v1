@@ -1,17 +1,14 @@
 import React, { useMemo, useRef, useEffect } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format, parseISO, isValid } from 'date-fns';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import { safeDismiss, safePresent } from '../../../utils/truesheet/trueSheetUtils';
+import { safeDismiss, safePresent } from '../../../utils/components/truesheet/utils';
 import { Colors } from '../../ui/UI';
-import { BORDER_RADIUS } from '../../../utils/constants';
-import { hexToRGBA } from '../../../utils/formatting/colorUtils';
-import Icon from '../../ui/Icon';
 import CloseButton from '../../ui/CloseButton';
 import CancelButton from '../../ui/CancelButton';
 import BetaBadge from './BetaBadge';
-import KeyboardAwareFooter from '../../../utils/truesheet/KeyboardAwareFooter';
+import KeyboardAwareFooter from '../../../utils/components/truesheet/KeyboardAwareFooter';
 
 interface BetaInfoSheetProps {
   visible: boolean;
@@ -24,7 +21,7 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
   const bottomSheetRef = useRef<TrueSheet>(null);
   const sheetDetents: ('auto' | number)[] = useMemo(() => ['auto'], []);
   const insets = useSafeAreaInsets();
-  
+
   // Calculate footer height as constant: cancelContainer paddingTop (8) + button minHeight (44)
   const footerHeight = 8 + 44;
 
@@ -66,10 +63,12 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
       header={headerComponent}
       footer={
         <View style={{ backgroundColor: Colors.black, paddingBottom: insets.bottom }}>
-          <KeyboardAwareFooter hideOnKeyboard={true} bottomPadding={0} style={{ backgroundColor: Colors.black }}>
-            <View 
-              style={[styles.cancelContainer, { backgroundColor: Colors.black }]}
-            > 
+          <KeyboardAwareFooter
+            hideOnKeyboard={true}
+            bottomPadding={0}
+            style={{ backgroundColor: Colors.black }}
+          >
+            <View style={[styles.cancelContainer, { backgroundColor: Colors.black }]}>
               <CancelButton onPress={onDismiss} text="Close" />
             </View>
           </KeyboardAwareFooter>
@@ -80,16 +79,15 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
         {/* Info Container */}
         <View style={styles.infoContainer}>
           <Text style={styles.infoText}>
-            <Text style={styles.highlightedText}>{handle}</Text> joined during the Orbyt beta. Beta users helped test early features and shape the experience.
+            <Text style={styles.highlightedText}>{handle}</Text> joined during the Orbyt beta. Beta
+            users helped test early features and shape the experience.
           </Text>
         </View>
 
         {/* Join Date */}
         {formattedDate && (
           <View style={styles.statusDateContainer}>
-            <Text style={styles.statusText}>
-              Joined on {formattedDate}
-            </Text>
+            <Text style={styles.statusText}>Joined on {formattedDate}</Text>
           </View>
         )}
       </View>

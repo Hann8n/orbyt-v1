@@ -1,20 +1,47 @@
 import React, { memo, useCallback, useMemo, useState } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import { View, StyleSheet, Pressable, Text, Alert, StatusBar, useWindowDimensions } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  Pressable,
+  Text,
+  Alert,
+  StatusBar,
+  useWindowDimensions,
+} from 'react-native';
 import { Image } from 'expo-image';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useRouter } from 'expo-router';
 import UniversalHeader, { HeaderContent, CustomActionLayout } from './UniversalHeader';
-import { useChannelColors } from '../../../services/cache/ChannelCache';
-import Icon, { PlusIcon, CheckIcon, ListViewIcon, GridViewIcon, Loading3FillIcon } from '../../ui/Icon';
-import { hexToRGBA, darkenColor, getStatusBarStyle, isColorDark } from '../../../utils/formatting/colorUtils';
+import { useChannelColors } from '../../../services/data/ChannelService';
+import Icon, {
+  PlusIcon,
+  CheckIcon,
+  ListViewIcon,
+  GridViewIcon,
+  Loading3FillIcon,
+} from '../../ui/Icon';
+import type { ViewMode } from '../../../types';
+import {
+  hexToRGBA,
+  darkenColor,
+  getStatusBarStyle,
+  isColorDark,
+} from '../../../utils/formatting/colors';
 import { Colors } from '../../ui/UI';
 import { useSubscribedChannels } from '../../../hooks/useSubscribedChannels';
-import { isOrbytChannel, getChannelByUri, shouldShowChannelSlash } from '../../../utils/orbytChannels';
+import {
+  isOrbytChannel,
+  getChannelByUri,
+  shouldShowChannelSlash,
+} from '../../../utils/channels/orbyt';
 import { RichText } from '@atproto/api';
-import Animated, { type SharedValue, useAnimatedStyle, interpolate, Extrapolate } from 'react-native-reanimated';
- 
-
+import Animated, {
+  type SharedValue,
+  useAnimatedStyle,
+  interpolate,
+  Extrapolate,
+} from 'react-native-reanimated';
 
 interface ChannelData {
   id: string;
@@ -43,15 +70,13 @@ interface ChannelHeaderProps {
   children?: React.ReactNode;
   applySafeArea?: boolean;
   headerStyle?: any;
-  viewMode?: 'list' | 'grid';
-  onViewModeChange?: (mode: 'list' | 'grid') => void;
+  viewMode?: ViewMode;
+  onViewModeChange?: (mode: ViewMode) => void;
   showViewToggle?: boolean;
   headerScrollProgress?: SharedValue<number>;
   contentFadeDisabled?: boolean;
   dimOverlayDisabled?: boolean;
 }
-
-
 
 // Subscribe button component
 const SubscribeButton: React.FC<{
@@ -60,12 +85,23 @@ const SubscribeButton: React.FC<{
   backgroundColor: string;
   accentColor: string;
   channelColor?: string;
-  viewMode?: 'list' | 'grid';
-  onViewModeChange?: (mode: 'list' | 'grid') => void;
+  viewMode?: ViewMode;
+  onViewModeChange?: (mode: ViewMode) => void;
   showViewToggle?: boolean;
   containerStyle?: any;
-}> = ({ channel, textColor, backgroundColor, accentColor, channelColor, viewMode = 'list', onViewModeChange, showViewToggle = false, containerStyle }) => {
-  const { subscribedChannels, subscribeToChannel, unsubscribeFromChannel } = useSubscribedChannels();
+}> = ({
+  channel,
+  textColor,
+  backgroundColor,
+  accentColor,
+  channelColor,
+  viewMode = 'list',
+  onViewModeChange,
+  showViewToggle = false,
+  containerStyle,
+}) => {
+  const { subscribedChannels, subscribeToChannel, unsubscribeFromChannel } =
+    useSubscribedChannels();
   const [isSubscribing, setIsSubscribing] = useState(false);
   const { width: screenWidth } = useWindowDimensions();
   const isWideScreen = screenWidth > 768;
@@ -117,7 +153,7 @@ const SubscribeButton: React.FC<{
         } catch (error) {
           alertShown = false;
         }
-        
+
         // If alert failed to show, subscribe directly
         if (!alertShown) {
           try {
@@ -139,7 +175,7 @@ const SubscribeButton: React.FC<{
 
       try {
         setIsSubscribing(true);
-        
+
         if (isSubscribed) {
           await unsubscribeFromChannel(channel.uri!);
         } else {
@@ -166,7 +202,7 @@ const SubscribeButton: React.FC<{
   // Use channelColor for channels, fallback to textColor
   const subscribeColor = channelColor || textColor;
   const glassTint = isSubscribed ? hexToRGBA(subscribeColor, 1) : hexToRGBA('#FFFFFF', 0.08);
-  
+
   // Calculate appropriate text color for subscribed state based on background brightness
   const subscribedTextColor = useMemo(() => {
     if (!isSubscribed) return '#FFFFFF';
@@ -202,50 +238,44 @@ const SubscribeButton: React.FC<{
               isInteractive
             />
           )}
-          <View pointerEvents="none" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          <View
+            pointerEvents="none"
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+          >
             {isSubscribing ? (
               <Loading3FillIcon size={24} color={isSubscribed ? subscribedTextColor : '#FFFFFF'} />
             ) : (
               <>
-                <Text style={[styles.subscribeButtonText, { color: isSubscribed ? subscribedTextColor : '#FFFFFF' }]}>
+                <Text
+                  style={[
+                    styles.subscribeButtonText,
+                    { color: isSubscribed ? subscribedTextColor : '#FFFFFF' },
+                  ]}
+                >
                   {isSubscribed ? 'Subscribed' : 'Subscribe'}
                 </Text>
                 {isSubscribed ? (
-                  <CheckIcon 
-                    size={16} 
-                    color={subscribedTextColor} 
-                    strokeWidth={2.0}
-                  />
+                  <CheckIcon size={16} color={subscribedTextColor} strokeWidth={2.0} />
                 ) : (
-                  <PlusIcon 
-                    size={12} 
-                    color="#FFFFFF" 
-                    strokeWidth={2.0}
-                  />
+                  <PlusIcon size={12} color="#FFFFFF" strokeWidth={2.0} />
                 )}
               </>
             )}
           </View>
         </View>
       </Pressable>
-      
+
       {showViewToggle && onViewModeChange && (
         <View style={styles.viewToggleContainer}>
-          <Pressable
-            onPress={() => onViewModeChange('grid')}
-            style={styles.viewToggleButton}
-          >
-            <GridViewIcon 
-              color={viewMode === 'grid' ? textColor : hexToRGBA(textColor, 0.6)} 
+          <Pressable onPress={() => onViewModeChange('grid')} style={styles.viewToggleButton}>
+            <GridViewIcon
+              color={viewMode === 'grid' ? textColor : hexToRGBA(textColor, 0.6)}
               size={20}
             />
           </Pressable>
-          <Pressable
-            onPress={() => onViewModeChange('list')}
-            style={styles.viewToggleButton}
-          >
-            <ListViewIcon 
-              color={viewMode === 'list' ? textColor : hexToRGBA(textColor, 0.6)} 
+          <Pressable onPress={() => onViewModeChange('list')} style={styles.viewToggleButton}>
+            <ListViewIcon
+              color={viewMode === 'list' ? textColor : hexToRGBA(textColor, 0.6)}
               size={20}
             />
           </Pressable>
@@ -293,7 +323,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
       const b = parseInt(color.substring(4, 6), 16);
       return (r * 299 + g * 587 + b * 114) / 1000;
     })();
-    
+
     // If brightness is above 80, darken it further
     if (brightness > 80) {
       return darkenColor(bgColor, 0.3);
@@ -352,11 +382,13 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
       };
     }
 
-    const handleCreatorPress = channel.creator?.handle ? () => {
-      const clean = channel.creator!.handle.trim();
-      if (!clean) return;
-      navigation.push(`/profile/${clean}`);
-    } : undefined;
+    const handleCreatorPress = channel.creator?.handle
+      ? () => {
+          const clean = channel.creator!.handle.trim();
+          if (!clean) return;
+          navigation.push(`/profile/${clean}`);
+        }
+      : undefined;
 
     // Create experimental badge if channel is experimental
     const experimentalBadge = channel.isExperimental ? (
@@ -372,14 +404,12 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
         {shouldShowChannelSlash(channel.uri || '') && (
           <Text style={[styles.title, styles.orbytSlash, { color: channelColor }]}>/</Text>
         )}
-        <Text style={[styles.title, { color: safeTextColor }]}>
-          {channel.name}
-        </Text>
+        <Text style={[styles.title, { color: safeTextColor }]}>{channel.name}</Text>
       </View>
     ) : undefined;
 
     // Parse description to generate rich text facets
-    const richText = channel.description 
+    const richText = channel.description
       ? (() => {
           const rt = new RichText({ text: channel.description });
           rt.detectFacetsWithoutResolution();
@@ -391,7 +421,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
       avatar: channel.avatar,
       title: channel.name,
       customTitle: customTitle,
-      subtitle: isOrbyt ? undefined : (channel.creator?.handle ? channel.creator.handle : undefined),
+      subtitle: isOrbyt ? undefined : channel.creator?.handle ? channel.creator.handle : undefined,
       description: richText?.text,
       facets: richText?.facets,
       badge: experimentalBadge,
@@ -400,7 +430,6 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
       hideAvatar: isOrbyt,
     };
   }, [channel, navigation, safeTextColor, isOrbyt]);
-
 
   // Determine status bar style based on background color brightness
   const statusBarStyle = useMemo(() => {
@@ -437,30 +466,46 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   }, [headerScrollProgress, dimOverlayDisabled]);
 
   // Create children with subscribe button and other content
-  const headerChildren = useMemo(() => (
-    <>
-      {channel && (
-        <SubscribeButton
-          channel={channel}
-          textColor={safeTextColor}
-          backgroundColor={safeBackgroundColor}
-          accentColor={channelColors.accentColor || '#000000'}
-          channelColor={isOrbyt && channel.uri ? getChannelByUri(channel.uri)?.channelColor : undefined}
-          viewMode={viewMode}
-          onViewModeChange={onViewModeChange}
-          showViewToggle={showViewToggle}
-          containerStyle={hasTabs ? styles.subscribeContainerWithTabs : undefined}
-        />
-      )}
-      {children}
-    </>
-  ), [channel, safeTextColor, safeBackgroundColor, children, channelColors.accentColor, showViewToggle, onViewModeChange, viewMode, isOrbyt, hasTabs]);
+  const headerChildren = useMemo(
+    () => (
+      <>
+        {channel && (
+          <SubscribeButton
+            channel={channel}
+            textColor={safeTextColor}
+            backgroundColor={safeBackgroundColor}
+            accentColor={channelColors.accentColor || '#000000'}
+            channelColor={
+              isOrbyt && channel.uri ? getChannelByUri(channel.uri)?.channelColor : undefined
+            }
+            viewMode={viewMode}
+            onViewModeChange={onViewModeChange}
+            showViewToggle={showViewToggle}
+            containerStyle={hasTabs ? styles.subscribeContainerWithTabs : undefined}
+          />
+        )}
+        {children}
+      </>
+    ),
+    [
+      channel,
+      safeTextColor,
+      safeBackgroundColor,
+      children,
+      channelColors.accentColor,
+      showViewToggle,
+      onViewModeChange,
+      viewMode,
+      isOrbyt,
+      hasTabs,
+    ]
+  );
 
   // For Orbyt channels, use channelGIF as primary avatar/background, fallback to avatar
   // Memoize to prevent flickering when feed changes
   const backgroundImage = useMemo(() => {
     if (!isOrbyt || !channel?.uri) return undefined;
-    
+
     // Get Orbyt channel config to check for channelGIF
     const orbytChannel = getChannelByUri(channel.uri);
     if (orbytChannel?.channelGIF) {
@@ -471,14 +516,18 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
       const uri = resolvedAsset.localUri || resolvedAsset.uri;
       return uri;
     }
-    
+
     // Fallback to regular avatar if no channelGIF
     return channel.avatar;
   }, [isOrbyt, channel?.uri, channel?.avatar]);
 
   return (
     <>
-      <StatusBar barStyle={statusBarStyle} backgroundColor={safeBackgroundColor} translucent={true} />
+      <StatusBar
+        barStyle={statusBarStyle}
+        backgroundColor={safeBackgroundColor}
+        translucent={true}
+      />
       <Animated.View style={headerAnimatedStyle}>
         <UniversalHeader
           content={headerContent}
@@ -600,4 +649,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default memo(ChannelHeader); 
+export default memo(ChannelHeader);

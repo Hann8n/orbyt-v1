@@ -2,6 +2,7 @@ import React, { memo, useState } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, StyleSheet, Pressable, Text } from 'react-native';
 import { ListViewIcon, GridViewIcon, DownSmallFillIcon } from '../../ui/Icon';
+import type { ViewMode } from '../../../types';
 import { Colors } from '../../ui/UI';
 import VerticalListSheet, { VerticalListButton } from '../../ui/VerticalListSheet';
 
@@ -19,8 +20,8 @@ interface TabNavigationProps {
   backgroundColor?: string;
   accentColor?: string; // Add accent color for vibrant tab styling
   style?: any;
-  viewMode?: 'list' | 'grid';
-  onViewModeChange?: (mode: 'list' | 'grid') => void;
+  viewMode?: ViewMode;
+  onViewModeChange?: (mode: ViewMode) => void;
   showViewToggle?: boolean;
   variant?: 'header' | 'comments'; // New prop to distinguish between header and comments styles
   dropdown?: boolean; // New prop to show as dropdown instead of tabs
@@ -42,7 +43,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
 }) => {
   const [dropdownVisible, setDropdownVisible] = useState(false);
 
-  const handleViewModeChange = (mode: 'list' | 'grid') => {
+  const handleViewModeChange = (mode: ViewMode) => {
     if (onViewModeChange) {
       onViewModeChange(mode);
     }
@@ -62,14 +63,20 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
     return (
       <>
         <View style={[styles.tabContainer, variantStyle, { backgroundColor }, style]}>
-          <Pressable
-            style={styles.dropdownButton}
-            onPress={() => setDropdownVisible(true)}
-          >
-            <Text style={[styles.dropdownText, { color: activeTabColor, fontFamily: 'Firma-SemiBold', fontSize: variant === 'header' ? 18 : 16 }]}>
+          <Pressable style={styles.dropdownButton} onPress={() => setDropdownVisible(true)}>
+            <Text
+              style={[
+                styles.dropdownText,
+                {
+                  color: activeTabColor,
+                  fontFamily: 'Firma-SemiBold',
+                  fontSize: variant === 'header' ? 18 : 16,
+                },
+              ]}
+            >
               {activeTabLabel}
             </Text>
-          <DownSmallFillIcon size={20} color={Colors.gray} />
+            <DownSmallFillIcon size={20} color={Colors.gray} />
           </Pressable>
 
           {/* View toggle area */}
@@ -79,24 +86,24 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
                 <Pressable
                   style={[
                     styles.viewToggleButton,
-                    viewMode === 'grid' && styles.activeViewToggleButton
+                    viewMode === 'grid' && styles.activeViewToggleButton,
                   ]}
                   onPress={() => handleViewModeChange('grid')}
                 >
-                  <GridViewIcon 
-                    color={viewMode === 'grid' ? activeTabColor : hexToRGBA(textColor, 0.70)} 
+                  <GridViewIcon
+                    color={viewMode === 'grid' ? activeTabColor : hexToRGBA(textColor, 0.7)}
                     size={20}
                   />
                 </Pressable>
                 <Pressable
                   style={[
                     styles.viewToggleButton,
-                    viewMode === 'list' && styles.activeViewToggleButton
+                    viewMode === 'list' && styles.activeViewToggleButton,
                   ]}
                   onPress={() => handleViewModeChange('list')}
                 >
-                  <ListViewIcon 
-                    color={viewMode === 'list' ? activeTabColor : hexToRGBA(textColor, 0.70)} 
+                  <ListViewIcon
+                    color={viewMode === 'list' ? activeTabColor : hexToRGBA(textColor, 0.7)}
                     size={20}
                   />
                 </Pressable>
@@ -114,7 +121,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
           cancelButtonText="Cancel"
         >
           <View style={styles.optionsContainer}>
-            {tabs.map((tab) => (
+            {tabs.map(tab => (
               <VerticalListButton
                 key={tab.id}
                 label={tab.label}
@@ -137,7 +144,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
   return (
     <View style={[styles.tabContainer, variantStyle, { backgroundColor }, style]}>
       <View style={styles.tabsRow}>
-        {tabs.map((tab) => (
+        {tabs.map(tab => (
           <Pressable
             key={tab.id}
             onPress={() => onTabPress(tab.id)}
@@ -151,10 +158,10 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
             <Text
               style={[
                 styles.tabText,
-                { 
-                  color: activeTab === tab.id ? activeTabColor : hexToRGBA(textColor, 0.70),
+                {
+                  color: activeTab === tab.id ? activeTabColor : hexToRGBA(textColor, 0.7),
                   fontFamily: variant === 'header' ? 'Firma-Black' : 'Firma-Black',
-                  fontSize: variant === 'header' ? 18 : 16
+                  fontSize: variant === 'header' ? 18 : 16,
                 },
                 activeTab === tab.id && styles.activeTabText,
                 tab.disabled && styles.disabledTabText,
@@ -165,7 +172,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
           </Pressable>
         ))}
       </View>
-      
+
       {/* Always render the view toggle area to maintain consistent spacing */}
       <View style={styles.viewToggleArea}>
         {showViewToggle && onViewModeChange && (
@@ -173,24 +180,24 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
             <Pressable
               style={[
                 styles.viewToggleButton,
-                viewMode === 'grid' && styles.activeViewToggleButton
+                viewMode === 'grid' && styles.activeViewToggleButton,
               ]}
               onPress={() => handleViewModeChange('grid')}
             >
-              <GridViewIcon 
-                color={viewMode === 'grid' ? activeTabColor : hexToRGBA(textColor, 0.70)} 
+              <GridViewIcon
+                color={viewMode === 'grid' ? activeTabColor : hexToRGBA(textColor, 0.7)}
                 size={20}
               />
             </Pressable>
             <Pressable
               style={[
                 styles.viewToggleButton,
-                viewMode === 'list' && styles.activeViewToggleButton
+                viewMode === 'list' && styles.activeViewToggleButton,
               ]}
               onPress={() => handleViewModeChange('list')}
             >
-              <ListViewIcon 
-                color={viewMode === 'list' ? activeTabColor : hexToRGBA(textColor, 0.70)} 
+              <ListViewIcon
+                color={viewMode === 'list' ? activeTabColor : hexToRGBA(textColor, 0.7)}
                 size={20}
               />
             </Pressable>
@@ -205,7 +212,10 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
 const hexToRGBA = (hex: string, alpha: number): string => {
   hex = hex.replace('#', '');
   if (hex.length === 3) {
-    hex = hex.split('').map(c => c + c).join('');
+    hex = hex
+      .split('')
+      .map(c => c + c)
+      .join('');
   }
   const r = parseInt(hex.substring(0, 2), 16);
   const g = parseInt(hex.substring(2, 4), 16);
@@ -297,4 +307,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default memo(TabNavigation); 
+export default memo(TabNavigation);

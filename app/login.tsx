@@ -1,31 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { BORDER_RADIUS } from '../src/utils/constants';
-import {
-  View,
-  Pressable,
-  Text,
-  StyleSheet,
-  Alert,
-  Platform,
-  ScrollView,
-  Linking,
-  TextInput,
-} from 'react-native';
+import { View, Pressable, Text, StyleSheet, Alert, Platform, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Icon, { BackArrowIcon, PlusIcon, AtLineIcon, Loading3FillIcon } from '../src/components/ui/Icon';
+import Icon, { Loading3FillIcon } from '../src/components/ui/Icon';
 import { Colors } from '../src/components/ui/UI';
 import AuthorItem from '../src/components/ui/AuthorItem';
 import { useRouter, Link } from 'expo-router';
 import { SavedAccount } from '../src/stores/userStore';
 import { useAuth, useAccountManagement } from '../src/stores/userStore';
-import { useGlobalAccountSwitcher } from '../src/hooks/useGlobalModals';
-import { PDSDiscoveryService } from '../src/services/PDSDiscoveryService';
-import { isUserCancellation, getErrorMessage, shouldShowError } from '../src/utils/errorHandler';
-import { hexToRGBA } from '../src/utils/formatting/colorUtils';
+import { isUserCancellation, getErrorMessage } from '../src/utils/errors/errorHandler';
 
 interface LoginScreenProps {
   onLogin?: (handle: string) => Promise<void>;
@@ -33,27 +19,16 @@ interface LoginScreenProps {
 }
 
 export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenProps = {}) {
-  const DEBUG = __DEV__ && false;
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const { presentAccountSwitcher } = useGlobalAccountSwitcher();
   const [oauthError, setOAuthError] = useState<string | null>(null);
 
   // User store hooks
-  const { 
-    isAuthenticating, 
-    authError, 
-    signIn, 
-    clearAuthError 
-  } = useAuth();
-  
-  const { 
-    savedAccounts, 
-    switchAccount,
-    loadSavedAccounts,
-    checkAccountSessionValidity
-  } = useAccountManagement();
+  const { signIn, clearAuthError } = useAuth();
+
+  const { savedAccounts, switchAccount, loadSavedAccounts, checkAccountSessionValidity } =
+    useAccountManagement();
 
   const hasSavedAccounts = savedAccounts.length > 0;
 
@@ -64,14 +39,14 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
 
     try {
       await signIn('https://bsky.social');
-      
+
       // Reload accounts to show the new one
       await loadSavedAccounts();
-      
+
       if (onLogin) {
         await onLogin('oauth-success');
       }
-      
+
       // Navigate after signing in - Stack.Protected will handle routing
       router.replace('/(tabs)');
     } catch (error) {
@@ -79,59 +54,13 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
       if (isUserCancellation(error)) {
         return;
       }
-      
+
       const errorMessage = getErrorMessage(error);
       console.error('[LoginScreen] OAuth login failed:', errorMessage);
       setOAuthError(errorMessage);
-      
+
       // Show error with app password fallback option
-      Alert.alert(
-        'Sign-in Failed',
-        errorMessage,
-        [
-          { text: 'OK', style: 'cancel' },
-        ]
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleCreateAccountOAuth = async () => {
-    setIsLoading(true);
-    setOAuthError(null);
-    clearAuthError();
-
-    try {
-      // Trigger OAuth flow for account creation
-      await signIn('https://bsky.social');
-      
-      // Reload accounts to show the new one
-      await loadSavedAccounts();
-      
-      if (onLogin) {
-        await onLogin('oauth-success');
-      }
-      
-      // Navigate after signing in - Stack.Protected will handle routing
-      router.replace('/(tabs)');
-    } catch (error) {
-      // Don't show errors for user cancellation
-      if (isUserCancellation(error)) {
-        return;
-      }
-      
-      const errorMessage = getErrorMessage(error);
-      console.error('[LoginScreen] OAuth account creation failed:', errorMessage);
-      setOAuthError(errorMessage);
-      
-      Alert.alert(
-        'Account Creation Failed',
-        errorMessage,
-        [
-          { text: 'OK', style: 'cancel' },
-        ]
-      );
+      Alert.alert('Sign-in Failed', errorMessage, [{ text: 'OK', style: 'cancel' }]);
     } finally {
       setIsLoading(false);
     }
@@ -151,47 +80,41 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
     checkSavedAccounts();
   }, []);
 
-  const handleAccountSwitch = async (account: SavedAccount) => {
-    if (onAccountSwitch) {
-      await onAccountSwitch(account);
-    }
-  };
-
   const handleSavedAccountLogin = async (account: SavedAccount) => {
     setIsLoading(true);
-    
+
     try {
       // First check if the account has a valid session
       const hasValidSession = await checkAccountSessionValidity(account.did);
-      
+
       if (!hasValidSession) {
         setIsLoading(false);
-        
+
         Alert.alert(
-          'Session Expired', 
+          'Session Expired',
           `Your session for @${account.handle} has expired. You need to sign in again.`,
           [
             { text: 'Cancel', style: 'cancel' },
-            { 
-              text: 'Sign In', 
+            {
+              text: 'Sign In',
               onPress: async () => {
                 // Use the account's original identifier for re-authentication
                 await signIn(account.originalIdentifier);
                 await loadSavedAccounts();
-              }
+              },
             },
           ]
         );
         return;
       }
-      
+
       // Session is valid, proceed with account switch
       await switchAccount(account.did);
-      
+
       if (onAccountSwitch) {
         await onAccountSwitch(account);
       }
-      
+
       // Navigate after switching account - Stack.Protected will handle routing
       router.replace('/(tabs)');
     } catch (error) {
@@ -202,68 +125,68 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
         stack: error instanceof Error ? error.stack : undefined,
         accountHandle: account.handle,
         accountDid: account.did,
-        originalIdentifier: account.originalIdentifier
+        originalIdentifier: account.originalIdentifier,
       });
-      
-      const isUserCancellation = errorMessage.includes('cancelled') || 
-                                errorMessage.includes('user_cancelled');
-      
+
+      const isUserCancellation =
+        errorMessage.includes('cancelled') || errorMessage.includes('user_cancelled');
+
       if (!isUserCancellation) {
         // Check if this is a session corruption issue
-        if (errorMessage.includes('Session expired') || 
-            errorMessage.includes('Unable to restore session') || 
-            errorMessage.includes('oauth_reauth_required') ||
-            errorMessage.includes('No session available')) {
-          
+        if (
+          errorMessage.includes('Session expired') ||
+          errorMessage.includes('Unable to restore session') ||
+          errorMessage.includes('oauth_reauth_required') ||
+          errorMessage.includes('No session available')
+        ) {
           Alert.alert(
-            'Session Issue', 
+            'Session Issue',
             `There's an issue with the saved session for @${account.handle}. This can happen after app updates or device changes.`,
             [
               { text: 'Cancel', style: 'cancel' },
-              { 
-                text: 'Sign In', 
+              {
+                text: 'Sign In',
                 onPress: async () => {
                   // Use the account's original identifier for re-authentication
                   await signIn(account.originalIdentifier);
                   await loadSavedAccounts();
-                }
+                },
               },
             ]
           );
-        } else if (errorMessage.includes('Network') || 
-                  errorMessage.includes('fetch') || 
-                  errorMessage.includes('ENOTFOUND') ||
-                  errorMessage.includes('ETIMEDOUT')) {
-          
+        } else if (
+          errorMessage.includes('Network') ||
+          errorMessage.includes('fetch') ||
+          errorMessage.includes('ENOTFOUND') ||
+          errorMessage.includes('ETIMEDOUT')
+        ) {
           // Network error
           Alert.alert(
-            'Network Error', 
+            'Network Error',
             `Unable to connect to the server. Please check your internet connection and try again.`,
             [{ text: 'OK' }]
           );
-        } else if (errorMessage.includes('rate limit') || 
-                  errorMessage.includes('Rate Limit')) {
-          
+        } else if (errorMessage.includes('rate limit') || errorMessage.includes('Rate Limit')) {
           // Rate limit error
           Alert.alert(
-            'Rate Limit Exceeded', 
+            'Rate Limit Exceeded',
             `Too many login attempts. Please wait a few minutes and try again.`,
             [{ text: 'OK' }]
           );
         } else {
           // Show detailed error information for debugging
           Alert.alert(
-            'Account Switch Failed', 
+            'Account Switch Failed',
             `Failed to switch to @${account.handle}.\n\nError: ${errorMessage}\n\nPlease try signing in again.`,
             [
               { text: 'Cancel', style: 'cancel' },
-              { 
-                text: 'Sign In', 
+              {
+                text: 'Sign In',
                 onPress: async () => {
                   // Use the account's original identifier for re-authentication
                   await signIn(account.originalIdentifier);
                   await loadSavedAccounts();
-                }
+                },
               },
             ]
           );
@@ -274,9 +197,6 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
     }
   };
 
-
-
-
   const renderSavedAccounts = () => (
     <View style={styles.savedAccountsContainer}>
       <View style={styles.headerSection}>
@@ -285,10 +205,10 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
           Select an account to continue or sign in with a new one
         </Text>
       </View>
-      
+
       <View style={styles.accountsSection}>
-        <ScrollView 
-          style={styles.accountsList} 
+        <ScrollView
+          style={styles.accountsList}
           contentContainerStyle={styles.accountsListContent}
           showsVerticalScrollIndicator={false}
           bounces={true}
@@ -307,7 +227,7 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
               showArrow={true}
               style={[
                 index === 0 && styles.firstAccountItem,
-                index === savedAccounts.length - 1 && styles.lastAccountItem
+                index === savedAccounts.length - 1 && styles.lastAccountItem,
               ]}
             />
           ))}
@@ -318,33 +238,35 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
 
   const renderLoginButtons = () => {
     const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
-    
+
     const signInButtonContent = (
       <View style={styles.buttonContent} pointerEvents="none">
         {isLoading ? (
           <>
-            <Loading3FillIcon 
-              size={24} 
-              color={Colors.black} 
-              style={{ marginRight: 8 }} 
-            />
-            <Text style={styles.blueskyButtonText}>
-              Signing in...
-            </Text>
+            <Loading3FillIcon size={24} color={Colors.black} style={{ marginRight: 8 }} />
+            <Text style={styles.blueskyButtonText}>Signing in...</Text>
           </>
         ) : (
           <>
-            <Icon name="bluesky-icon" size={24} color={Colors.bluesky} style={{ marginRight: 12 }} />
-            <Text style={styles.blueskyButtonText}>
-              Sign in with Bluesky
-            </Text>
+            <Icon
+              name="bluesky-icon"
+              size={24}
+              color={Colors.bluesky}
+              style={{ marginRight: 12 }}
+            />
+            <Text style={styles.blueskyButtonText}>Sign in with Bluesky</Text>
           </>
         )}
       </View>
     );
-    
+
     return (
-      <View style={[styles.loginButtonsContainer, { paddingBottom: typeof insets?.bottom === 'number' ? insets.bottom + 16 : 16 }]}>
+      <View
+        style={[
+          styles.loginButtonsContainer,
+          { paddingBottom: typeof insets?.bottom === 'number' ? insets.bottom + 16 : 16 },
+        ]}
+      >
         {/* Sign in button */}
         <Pressable
           style={[styles.liquidGlassButton, !useLiquidGlass && styles.whiteButton]}
@@ -367,13 +289,26 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
         </Pressable>
 
         {/* Advanced login link */}
-        <View style={[styles.manualSignInLink, { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' }]}>
-          <Text style={[styles.termsText, { color: Colors.lightGray }]}>
-            On another network?{' '}
-          </Text>
+        <View
+          style={[
+            styles.manualSignInLink,
+            { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' },
+          ]}
+        >
+          <Text style={[styles.termsText, { color: Colors.lightGray }]}>On another network? </Text>
           <Link href="/advanced-login" asChild>
             <Pressable disabled={isLoading}>
-              <Text style={[styles.termsText, { color: Colors.lightGray, textDecorationLine: 'underline', fontFamily: 'Firma-SemiBold' }, isLoading && styles.customPDSButtonDisabled]}>
+              <Text
+                style={[
+                  styles.termsText,
+                  {
+                    color: Colors.lightGray,
+                    textDecorationLine: 'underline',
+                    fontFamily: 'Firma-SemiBold',
+                  },
+                  isLoading && styles.customPDSButtonDisabled,
+                ]}
+              >
                 sign in here
               </Text>
             </Pressable>
@@ -397,23 +332,31 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
 
   const renderContent = () => (
     <View
-      style={[styles.container, { 
-        paddingTop: typeof insets?.top === 'number' ? insets.top : 0,
-        paddingBottom: typeof insets?.bottom === 'number' ? insets.bottom : 0,
-        justifyContent: hasSavedAccounts ? 'space-between' : 'flex-end'
-      }]}
+      style={[
+        styles.container,
+        {
+          paddingTop: typeof insets?.top === 'number' ? insets.top : 0,
+          paddingBottom: typeof insets?.bottom === 'number' ? insets.bottom : 0,
+          justifyContent: hasSavedAccounts ? 'space-between' : 'flex-end',
+        },
+      ]}
     >
       {/* Logo and App Name */}
       {!hasSavedAccounts && (
         <View style={styles.logoContainer}>
           <View style={styles.logoBackground}>
             <LinearGradient
-              colors={['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 1)', 'rgba(0, 0, 0, 1)', 'rgba(0, 0, 0, 0)']}
+              colors={[
+                'rgba(0, 0, 0, 0)',
+                'rgba(0, 0, 0, 1)',
+                'rgba(0, 0, 0, 1)',
+                'rgba(0, 0, 0, 0)',
+              ]}
               locations={[0, 0.1, 0.9, 1]}
               style={styles.logoGradient}
             >
-              <Image 
-                source={require('../src/assets/orbyt-logo-padded.png')} 
+              <Image
+                source={require('../src/assets/orbyt-logo-padded.png')}
                 style={styles.logoImage}
                 contentFit="contain"
                 tintColor={Colors.white}
@@ -436,7 +379,9 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
             {renderLoginButtons()}
           </View>
         </>
-      ) : renderManualLogin()}
+      ) : (
+        renderManualLogin()
+      )}
     </View>
   );
 
@@ -591,7 +536,6 @@ const styles = StyleSheet.create({
   accountsListContent: {
     paddingTop: 8,
   },
-
 
   manualLoginButton: {
     flexDirection: 'row',
@@ -763,6 +707,4 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
     marginTop: 4,
   },
-  
-
 });

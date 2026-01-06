@@ -10,18 +10,14 @@ interface CancelButtonProps {
 
 const CancelButton: React.FC<CancelButtonProps> = ({ onPress, text = 'Cancel' }) => {
   return (
-    <Pressable 
-      style={({ pressed }) => [
-        styles.cancelButton,
-        pressed && styles.cancelButtonPressed
-      ]} 
+    <Pressable
+      style={({ pressed }) => [styles.cancelButton, pressed && styles.cancelButtonPressed]}
       onPress={onPress}
     >
       {({ pressed }) => (
-        <Text style={[
-          styles.cancelButtonText,
-          pressed && styles.cancelButtonTextPressed
-        ]}>{text}</Text>
+        <Text style={[styles.cancelButtonText, pressed && styles.cancelButtonTextPressed]}>
+          {text}
+        </Text>
       )}
     </Pressable>
   );

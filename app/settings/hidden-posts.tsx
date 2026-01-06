@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import Icon, { Loading3FillIcon } from '../../src/components/ui/Icon';
 import ListHeader from '../../src/components/ui/ListHeader';
 import { Colors, Avatar } from '../../src/components/ui/UI';
-import { ModerationService } from '../../src/services/api/moderation/ContentFilterService';
+import { ModerationService } from '../../src/services/moderation/ModerationService';
 import { useUserStoreState } from '../../src/stores/userStore';
 import { useModerationSettings } from '../../src/hooks/useModerationSettings';
 import { logger } from '../../src/utils/logger';
@@ -41,7 +41,7 @@ const HiddenPostsScreen: React.FC = () => {
     try {
       setLoading(true);
       const hiddenPostUris = moderationSettings?.hiddenPosts || [];
-      
+
       // Convert URIs to HiddenPost objects with mock data
       const postObjects = hiddenPostUris.map((uri, index) => ({
         id: `post-${index}`,
@@ -55,10 +55,13 @@ const HiddenPostsScreen: React.FC = () => {
         text: 'Hidden post content...',
         createdAt: new Date().toISOString(),
       }));
-      
+
       setHiddenPosts(postObjects);
     } catch (error) {
-      logger.error('Error loading hidden posts', error, { component: 'HiddenPostsScreen', action: 'loadHiddenPosts' });
+      logger.error('Error loading hidden posts', error, {
+        component: 'HiddenPostsScreen',
+        action: 'loadHiddenPosts',
+      });
     } finally {
       setLoading(false);
     }
@@ -67,19 +70,29 @@ const HiddenPostsScreen: React.FC = () => {
   const handleUnhidePost = async (postId: string) => {
     try {
       setUnhidingPosts(prev => new Set(prev).add(postId));
-      
+
       // Get current settings and remove the post
       if (!moderationSettings) return;
-      
+
       const postToUnhide = hiddenPosts.find(p => p.id === postId);
       if (postToUnhide) {
-        const updatedPosts = moderationSettings.hiddenPosts.filter((uri: string) => uri !== postToUnhide.uri);
+        const updatedPosts = moderationSettings.hiddenPosts.filter(
+          (uri: string) => uri !== postToUnhide.uri
+        );
         const updatedSettings = { ...moderationSettings, hiddenPosts: updatedPosts };
-        await ModerationService.saveModerationSettings(updatedSettings, agent ?? undefined, currentUser?.did ?? undefined);
+        await ModerationService.saveModerationSettings(
+          updatedSettings,
+          agent ?? undefined,
+          currentUser?.did ?? undefined
+        );
         setHiddenPosts(prev => prev.filter(post => post.id !== postId));
       }
     } catch (error) {
-      logger.error('Error unhiding post', error, { component: 'HiddenPostsScreen', action: 'handleUnhidePost', postId });
+      logger.error('Error unhiding post', error, {
+        component: 'HiddenPostsScreen',
+        action: 'handleUnhidePost',
+        postId,
+      });
     } finally {
       setUnhidingPosts(prev => {
         const newSet = new Set(prev);
@@ -97,17 +110,10 @@ const HiddenPostsScreen: React.FC = () => {
         <View style={styles.postInfo}>
           <View style={styles.authorInfo}>
             <View style={styles.avatarContainer}>
-              <Avatar
-                uri={item.author.avatar}
-                type="profile"
-                size={32}
-                ringColor="transparent"
-              />
+              <Avatar uri={item.author.avatar} type="profile" size={32} ringColor="transparent" />
             </View>
             <View style={styles.authorDetails}>
-              <Text style={styles.authorName}>
-                {item.author.displayName || 'Unknown User'}
-              </Text>
+              <Text style={styles.authorName}>{item.author.displayName || 'Unknown User'}</Text>
               <Text style={styles.authorHandle}>@{item.author.handle}</Text>
             </View>
           </View>
@@ -116,10 +122,7 @@ const HiddenPostsScreen: React.FC = () => {
           </Text>
         </View>
         <Pressable
-          style={[
-            styles.unhideButton,
-            isUnhiding && styles.unhideButtonDisabled
-          ]}
+          style={[styles.unhideButton, isUnhiding && styles.unhideButtonDisabled]}
           onPress={() => handleUnhidePost(item.id)}
           disabled={isUnhiding}
         >
@@ -168,7 +171,7 @@ const HiddenPostsScreen: React.FC = () => {
 
       <FlatList
         data={hiddenPosts}
-        keyExtractor={(item) => item.id}
+        keyExtractor={item => item.id}
         renderItem={renderPostItem}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
@@ -177,7 +180,8 @@ const HiddenPostsScreen: React.FC = () => {
             <Icon name="eye-closed" size={48} color={Colors.lightGray} />
             <Text style={styles.emptyTitle}>no hidden posts</Text>
             <Text style={styles.emptyDescription}>
-              you haven't hidden any posts yet. hidden posts won't appear in your feed, but you can unhide them here.
+              you haven't hidden any posts yet. hidden posts won't appear in your feed, but you can
+              unhide them here.
             </Text>
           </View>
         }
@@ -191,7 +195,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.black,
   },
-  
+
   listContainer: {
     flexGrow: 1,
     paddingHorizontal: 20,
@@ -304,4 +308,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default HiddenPostsScreen; 
+export default HiddenPostsScreen;

@@ -1,17 +1,17 @@
 /**
  * Error Boundary Component
- * 
+ *
  * Catches JavaScript errors anywhere in the child component tree,
  * logs those errors, and displays a fallback UI instead of crashing.
- * 
+ *
  * Modern implementation for React Native 2025 with React Query integration support.
- * 
+ *
  * Note: Error boundaries must be class components (React limitation).
  * They catch errors in:
  * - Render methods
  * - Lifecycle methods
  * - Constructors of the whole tree below them
- * 
+ *
  * They do NOT catch errors in:
  * - Event handlers (use try/catch)
  * - Async code (use try/catch or React Query error handling)
@@ -48,7 +48,7 @@ interface ErrorBoundaryState {
 
 /**
  * Base Error Boundary Component
- * 
+ *
  * Usage:
  * ```tsx
  * <ErrorBoundary level="feature" onReset={handleReset}>
@@ -171,16 +171,18 @@ interface ErrorFallbackProps {
 // Go Back Button Component - matches RetryButton styling
 const GoBackButton: React.FC<{ onPress: () => void }> = ({ onPress }) => {
   const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
-  
+
   const buttonContent = (
     <View style={goBackButtonStyles.buttonContent} pointerEvents="none">
-      <Text style={[goBackButtonStyles.text]} pointerEvents="none">Go Back</Text>
+      <Text style={[goBackButtonStyles.text]} pointerEvents="none">
+        Go Back
+      </Text>
     </View>
   );
-  
+
   return (
-    <Pressable 
-      style={[goBackButtonStyles.button, !useLiquidGlass && goBackButtonStyles.whiteButton]} 
+    <Pressable
+      style={[goBackButtonStyles.button, !useLiquidGlass && goBackButtonStyles.whiteButton]}
       onPress={onPress}
     >
       {useLiquidGlass ? (
@@ -242,7 +244,7 @@ const ErrorFallback: React.FC<ErrorFallbackProps> = ({
 }) => {
   const router = useRouter();
   const segments = useSegments();
-  
+
   // Check if we can go back (not at root)
   const canGoBack = segments.length > 0 && !(segments.length === 1 && segments[0] === '(tabs)');
   const getTitle = () => {
@@ -254,7 +256,7 @@ const ErrorFallback: React.FC<ErrorFallbackProps> = ({
       case 'root':
         return 'The app encountered an unexpected error. Please try restarting the app.';
       case 'feature':
-        return 'We couldn\'t load this feature.';
+        return "We couldn't load this feature.";
       case 'component':
         return 'This component encountered an error. Please try again.';
       default:
@@ -263,7 +265,14 @@ const ErrorFallback: React.FC<ErrorFallbackProps> = ({
   };
 
   const getDeviceInfo = () => {
-    const platform = Platform.OS === 'ios' ? 'iOS' : Platform.OS === 'android' ? 'Android' : Platform.OS === 'web' ? 'Web' : Platform.OS;
+    const platform =
+      Platform.OS === 'ios'
+        ? 'iOS'
+        : Platform.OS === 'android'
+          ? 'Android'
+          : Platform.OS === 'web'
+            ? 'Web'
+            : Platform.OS;
     const appType = `Orbyt for ${platform}`;
     const osVersion = Device.osVersion || 'Unknown';
     const modelName = Device.modelName || 'Unknown';
@@ -281,7 +290,7 @@ const ErrorFallback: React.FC<ErrorFallbackProps> = ({
   const getEmailBody = () => {
     const deviceInfo = getDeviceInfo();
     const errorMessage = error?.message || 'Unknown error';
-    
+
     return `What were you doing when you encountered the error?
 
 
@@ -299,14 +308,14 @@ ${deviceInfo}`;
         <Text style={styles.emoji}>:(</Text>
         <Text style={styles.title}>{getTitle()}</Text>
         <Text style={styles.message}>{getMessage()}</Text>
-        
+
         <Pressable
           onPress={async () => {
             const email = 'support@getorbyt.com';
             const subject = encodeURIComponent('Orbyt App Error Report');
             const body = encodeURIComponent(getEmailBody());
             const mailtoUrl = `mailto:${email}?subject=${subject}&body=${body}`;
-            
+
             try {
               const canOpen = await Linking.canOpenURL(`mailto:${email}`);
               if (canOpen) {

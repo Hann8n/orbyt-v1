@@ -5,14 +5,13 @@ import { useRouter } from 'expo-router';
 import { Avatar } from './UI';
 import VerificationBadge from '../features/badging/VerificationBadge';
 import Icon, { FollowIcon, CheckIcon } from './Icon';
-import { hexToRGBA } from '../../utils/formatting/colorUtils';
+import { hexToRGBA } from '../../utils/formatting/colors';
 import { Colors } from './UI';
 import UI from './UI';
 
-import { useProfile, useFollowMutation, prepopulateProfileCache } from '../../services/cache/ProfileCache';
-import { formatHandle } from '../../utils/helpers';
+import { useProfile, useFollowMutation, prefetchProfile } from '../../services/data/ProfileService';
+import { formatHandle } from '../../utils/formatting/handles';
 import { useQueryClient } from '@tanstack/react-query';
- 
 
 interface AuthorItemProps {
   handle: string;
@@ -29,8 +28,18 @@ interface AuthorItemProps {
   showFollowButton?: boolean;
   isFollowing?: boolean;
   onFollowPress?: () => void;
-  nameFontWeight?: 'Firma-Regular' | 'Firma-Medium' | 'Firma-SemiBold' | 'Firma-Bold' | 'Firma-Black';
-  handleFontWeight?: 'Firma-Regular' | 'Firma-Medium' | 'Firma-SemiBold' | 'Firma-Bold' | 'Firma-Black';
+  nameFontWeight?:
+    | 'Firma-Regular'
+    | 'Firma-Medium'
+    | 'Firma-SemiBold'
+    | 'Firma-Bold'
+    | 'Firma-Black';
+  handleFontWeight?:
+    | 'Firma-Regular'
+    | 'Firma-Medium'
+    | 'Firma-SemiBold'
+    | 'Firma-Bold'
+    | 'Firma-Black';
   handleColor?: string;
   hideHandleLine?: boolean;
   hideDisplayName?: boolean;
@@ -64,7 +73,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
 }) => {
   const router = useRouter();
   const queryClient = useQueryClient();
-  
+
   // Size configuration
   const sizeConfig = {
     small: {
@@ -94,7 +103,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   const actualDisplayName = formatHandle(handle) || 'Unknown';
   const actualAvatar = avatar || undefined;
 
-  // Get following status from ProfileCache using the hook
+  // Get following status from ProfileService using the hook
   const { data: cachedProfile } = useProfile(handle);
   const actualIsFollowing = cachedProfile?.isFollowing ?? isFollowing;
 
@@ -106,16 +115,16 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
     } else if (handle) {
       const clean = handle.trim();
       if (!clean) return;
-      
-      // Pre-populate profile cache with available data
+
+      // Prefetch profile with partial data for instant UI + full data in background
       if (queryClient) {
-        prepopulateProfileCache(queryClient, {
+        prefetchProfile(queryClient, clean, {
           handle: clean,
           displayName,
           avatar,
-        }, clean);
+        });
       }
-      
+
       // Navigate back first to dismiss any modal/sheet, then navigate to profile
       router.back();
       setTimeout(() => {
@@ -134,33 +143,27 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
 
   return (
     <Pressable
-      style={[
-        styles.container,
-        { backgroundColor: backgroundColor || Colors.darkGray },
-        style,
-      ]}
+      style={[styles.container, { backgroundColor: backgroundColor || Colors.darkGray }, style]}
       onPress={handlePress}
     >
       <View style={styles.accountButtonContent}>
         <View style={styles.avatarContainer}>
-          <Avatar
-            uri={actualAvatar}
-            type="profile"
-            size={config.avatarSize}
-            showRing={showRing}
-          />
+          <Avatar uri={actualAvatar} type="profile" size={config.avatarSize} showRing={showRing} />
         </View>
         <View style={styles.accountInfoContainer}>
           <View style={styles.nameRow}>
             {!hideDisplayName && (
-              <Text style={[ 
-                styles.accountDisplayName,
-                { 
-                  color: textColor || Colors.white,
-                  fontSize: customFontSize || config.nameFontSize,
-                  fontFamily: nameFontWeight,
-                }
-              ]} numberOfLines={1}>
+              <Text
+                style={[
+                  styles.accountDisplayName,
+                  {
+                    color: textColor || Colors.white,
+                    fontSize: customFontSize || config.nameFontSize,
+                    fontFamily: nameFontWeight,
+                  },
+                ]}
+                numberOfLines={1}
+              >
                 {actualDisplayName}
               </Text>
             )}
@@ -182,7 +185,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
                 backgroundColor: textColor || Colors.white,
                 borderWidth: 0,
                 borderColor: 'transparent',
-              }
+              },
             ]}
             onPress={handleFollowPress}
           >
@@ -193,24 +196,19 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
             )}
           </Pressable>
         ) : showDeleteButton ? (
-          <Pressable
-            style={styles.deleteButton}
-            onPress={onDeletePress}
-          >
+          <Pressable style={styles.deleteButton} onPress={onDeletePress}>
             <Icon name="delete-2-fill" size={16} color={UI.Colors.STATUS.ERROR} />
           </Pressable>
         ) : showCheckmark ? (
           <View style={styles.checkmarkButton}>
             <CheckIcon size={16} color={Colors.lightGreen} strokeWidth={2} />
           </View>
-        ) : showArrow && (
-          <View style={styles.accountArrow}>
-            <Icon 
-              name="chevron-right" 
-              size={20} 
-              color={Colors.gray} 
-            />
-          </View>
+        ) : (
+          showArrow && (
+            <View style={styles.accountArrow}>
+              <Icon name="chevron-right" size={20} color={Colors.gray} />
+            </View>
+          )
         )}
       </View>
     </Pressable>
@@ -303,4 +301,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default AuthorItem; 
+export default AuthorItem;

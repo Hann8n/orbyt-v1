@@ -19,10 +19,9 @@ import { SvgXml } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import Icon, { Loading3FillIcon } from './Icon';
-import { hexToRGBA, isColorDark, getContrastRatio } from '../../utils/formatting/colorUtils';
-import Typography, { TypographyText } from '../../utils/helpers/typography';
+import { hexToRGBA, isColorDark, getContrastRatio } from '../../utils/formatting/colors';
+import Typography, { TypographyText } from '../../utils/components/typography';
 import { BORDER_RADIUS } from '../../utils/constants';
-
 
 // ============================================================================
 // SIMPLIFIED COLOR SYSTEM (12 Core Colors)
@@ -44,26 +43,26 @@ export const Colors = {
   purple: '#8B5CF6',
   orange: '#FF6B35',
   gray: '#818896', // Base gray
-  
+
   // Gray Shades (lightest to darkest)
   lightGray: '#ccd7e9',
   mediumGray: '#3E414B',
   darkGray: '#181c22',
   mutedGray: '#9a9eb9', // Muted blue-gray
-  
+
   // Blue/Purple Shades
   lightBlue: '#00E5FF', // Bright cyan
   darkBlue: '#20004C', // New dark purple
-  
+
   // Green Shades
   lightGreen: '#00FFA3', // Bright mint green
   darkGreen: '#021C14', // New dark green
   badgeGreen: '#00B894', // Slightly darker green for badges and indicators
-  
+
   // Red Shades
   lightRed: '#FF6B9D', // Pink-red
   darkRed: '#3C000D', // New dark red
-  
+
   // Yellow/Orange Shades
   lightYellow: '#FFEB3B', // Bright yellow
   darkYellow: '#2A2000', // Dark yellow (matches hue of other dark colors)
@@ -78,7 +77,7 @@ export const Colors = {
   sunsetOrange: '#FF4500', // Bright orange
   bluesky: '#0385ff', // Bluesky brand color
   blurple: '#4528ea', // Blurple color
-  
+
   // Feedback button colors
   interestedLight: '#d77e12', // Light orange
   interestedDark: '#260e00', // Dark orange
@@ -87,7 +86,6 @@ export const Colors = {
   dislikeBackground: '#050945', // Deep navy for "less" background
   dislikeIconBlue: '#37a8ff', // Electric blue for "less" icon
 
-  
   // Overlay Colors
   overlayBlack50: 'rgba(0, 0, 0, 0.5)',
   overlayBlack60: 'rgba(0, 0, 0, 0.6)',
@@ -99,21 +97,21 @@ export const Colors = {
 
   INTERACTIVE: {
     HEART: {
-      ACTIVE: '#FE4359',     // red
-      INACTIVE: '#ccd7e9',   // gray
+      ACTIVE: '#FE4359', // red
+      INACTIVE: '#ccd7e9', // gray
     },
     REPOST: {
-      ACTIVE: '#00D4AA',     // green
-      INACTIVE: '#FFFFFF',   // white
+      ACTIVE: '#00D4AA', // green
+      INACTIVE: '#FFFFFF', // white
     },
-    COMMENT: '#FFFFFF',      // white
+    COMMENT: '#FFFFFF', // white
   },
 
   STATUS: {
-    SUCCESS: '#00D4AA',      // green
-    ERROR: '#FE4359',        // red
-    WARNING: '#FFD700',      // yellow
-    INFO: '#6366F1',         // blue
+    SUCCESS: '#00D4AA', // green
+    ERROR: '#FE4359', // red
+    WARNING: '#FFD700', // yellow
+    INFO: '#6366F1', // blue
   },
 
   PROFILE: {
@@ -141,13 +139,7 @@ export const meetsContrastGuidelines = (color1: string, color2: string): boolean
 // ============================================================================
 
 // Button Variants
-export type ButtonVariant = 
-  | 'primary' 
-  | 'secondary' 
-  | 'outline' 
-  | 'ghost' 
-  | 'danger' 
-  | 'success';
+export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'success';
 
 export type ButtonSize = 'small' | 'medium' | 'large';
 
@@ -196,10 +188,10 @@ export const Button: React.FC<ButtonProps> = ({
         backgroundColor: Colors.lightGray,
         borderColor: Colors.lightGray,
       },
-              secondary: {
-          backgroundColor: Colors.mediumGray,
-          borderColor: Colors.gray,
-        },
+      secondary: {
+        backgroundColor: Colors.mediumGray,
+        borderColor: Colors.gray,
+      },
       outline: {
         backgroundColor: 'transparent',
         borderColor: Colors.lightGray,
@@ -255,27 +247,35 @@ export const Button: React.FC<ButtonProps> = ({
   };
 
   return (
-    <Pressable
-      style={[getButtonStyle(), style]}
-      onPress={onPress}
-      disabled={disabled || loading}
-    >
+    <Pressable style={[getButtonStyle(), style]} onPress={onPress} disabled={disabled || loading}>
       {loading ? (
-        <Loading3FillIcon 
-          size={24} 
-          color={variant === 'outline' ? Colors.lightGray : Colors.white} 
+        <Loading3FillIcon
+          size={24}
+          color={variant === 'outline' ? Colors.lightGray : Colors.white}
         />
       ) : (
         <>
           <Text style={[getTextStyle(), textStyle]}>{title}</Text>
           {icon && iconPosition === 'left' && (
             <React.Suspense fallback={<View style={{ width: 16, height: 16 }} />}>
-              <Icon name={icon} size={16} color={getTextStyle().color as string} style={{ marginLeft: 8 }} strokeWidth={2.5} />
+              <Icon
+                name={icon}
+                size={16}
+                color={getTextStyle().color as string}
+                style={{ marginLeft: 8 }}
+                strokeWidth={2.5}
+              />
             </React.Suspense>
           )}
           {icon && iconPosition === 'right' && (
             <React.Suspense fallback={<View style={{ width: 16, height: 16 }} />}>
-              <Icon name={icon} size={16} color={getTextStyle().color as string} style={{ marginLeft: 8 }} strokeWidth={2.5} />
+              <Icon
+                name={icon}
+                size={16}
+                color={getTextStyle().color as string}
+                style={{ marginLeft: 8 }}
+                strokeWidth={2.5}
+              />
             </React.Suspense>
           )}
         </>
@@ -293,16 +293,18 @@ interface RetryButtonProps {
 
 export const RetryButton: React.FC<RetryButtonProps> = ({ onPress, style, textStyle }) => {
   const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
-  
+
   const buttonContent = (
     <View style={retryButtonStyles.buttonContent} pointerEvents="none">
-      <Text style={[retryButtonStyles.text, textStyle]} pointerEvents="none">Retry</Text>
+      <Text style={[retryButtonStyles.text, textStyle]} pointerEvents="none">
+        Retry
+      </Text>
     </View>
   );
-  
+
   return (
-    <Pressable 
-      style={[retryButtonStyles.button, !useLiquidGlass && retryButtonStyles.whiteButton, style]} 
+    <Pressable
+      style={[retryButtonStyles.button, !useLiquidGlass && retryButtonStyles.whiteButton, style]}
       onPress={onPress}
     >
       {useLiquidGlass ? (
@@ -358,7 +360,6 @@ const retryButtonStyles = StyleSheet.create({
 
 // Icon Component
 
-
 // Avatar Component
 export type AvatarType = 'profile' | 'channel' | 'user';
 
@@ -395,7 +396,7 @@ export const Avatar: React.FC<AvatarProps> = ({
 }) => {
   const defaultFallbackIcon = type === 'channel' ? 'device-tv' : 'user';
   const iconSize = fallbackIconSize || Math.max(size * 0.6, 20);
-  
+
   const getBorderRadius = () => {
     switch (type) {
       case 'channel':
@@ -416,7 +417,7 @@ export const Avatar: React.FC<AvatarProps> = ({
   const ringWidth = shouldShowRing ? (size >= 100 ? 3.0 : 2.0) : 0;
   // No separation when no ring - separation only exists between image and ring
   const separation = 0;
-  const innerSize = size - (ringWidth * 2) - (separation * 2);
+  const innerSize = size - ringWidth * 2 - separation * 2;
   const innerBorderRadius = type === 'channel' ? size * 0.25 : innerSize * 0.5;
 
   const containerStyle: ViewStyle = {
@@ -424,7 +425,9 @@ export const Avatar: React.FC<AvatarProps> = ({
     height: size,
     borderRadius,
     borderWidth: shouldShowRing ? ringWidth : 0,
-    borderColor: shouldShowRing ? (ringColor || (profileColors?.textColor || Colors.lightGray)) : 'transparent',
+    borderColor: shouldShowRing
+      ? ringColor || profileColors?.textColor || Colors.lightGray
+      : 'transparent',
     padding: separation,
     justifyContent: 'center',
     alignItems: 'center',
@@ -439,21 +442,24 @@ export const Avatar: React.FC<AvatarProps> = ({
   };
 
   // Normalize style: avoid accidentally passing strings which React treats as children
-  const styleSanitized = typeof style === 'object' || typeof style === 'undefined' ? (style as StyleProp<ViewStyle>) : undefined;
+  const styleSanitized =
+    typeof style === 'object' || typeof style === 'undefined'
+      ? (style as StyleProp<ViewStyle>)
+      : undefined;
 
   if (uri) {
     // Detect if URI is a GIF by checking file extension
     const isGif = uri.toLowerCase().endsWith('.gif') || uri.includes('.gif?');
-    
+
     return (
-      <View style={[containerStyle, styleSanitized]}> 
+      <View style={[containerStyle, styleSanitized]}>
         <Image
           source={{ uri }}
           style={imageStyle}
           contentFit="cover"
           blurRadius={blurRadius || 0}
           cachePolicy="memory-disk"
-          priority={type === 'channel' && isGif ? "low" : "normal"}
+          priority={type === 'channel' && isGif ? 'low' : 'normal'}
           transition={200}
           allowDownscaling={true}
           recyclingKey={uri}
@@ -467,23 +473,27 @@ export const Avatar: React.FC<AvatarProps> = ({
     // Import Icon component dynamically to avoid circular dependency
     const { default: Icon } = require('./Icon');
     return (
-      <View style={[containerStyle, styleSanitized, { 
-        backgroundColor: profileColors?.backgroundColor || Colors.darkGray,
-        borderWidth: 0, // Remove border for colored backgrounds
-        padding: 0, // Remove padding for colored backgrounds
-      }]}>
-        <View style={{
-          width: size,
-          height: size,
-          borderRadius,
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}>
-          <Icon 
-            name={fallbackIcon} 
-            size={iconSize} 
-            color={fallbackIconColor} 
-          />
+      <View
+        style={[
+          containerStyle,
+          styleSanitized,
+          {
+            backgroundColor: profileColors?.backgroundColor || Colors.darkGray,
+            borderWidth: 0, // Remove border for colored backgrounds
+            padding: 0, // Remove padding for colored backgrounds
+          },
+        ]}
+      >
+        <View
+          style={{
+            width: size,
+            height: size,
+            borderRadius,
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+        >
+          <Icon name={fallbackIcon} size={iconSize} color={fallbackIconColor} />
         </View>
       </View>
     );
@@ -491,7 +501,7 @@ export const Avatar: React.FC<AvatarProps> = ({
 
   // Use default avatar image if no uri is provided
   return (
-    <View style={[containerStyle, styleSanitized]}> 
+    <View style={[containerStyle, styleSanitized]}>
       <Image
         source={require('../../assets/Default-avatar.png')}
         style={imageStyle}
@@ -570,29 +580,15 @@ export const Modal: React.FC<ModalProps> = ({
   style,
 }) => {
   return (
-    <RNModal
-      animationType="fade"
-      transparent={true}
-      visible={visible}
-      onRequestClose={onClose}
-    >
-      <Pressable 
-        style={styles.modalBackdrop} 
-        onPress={onClose}
-      >
-        <Pressable onPress={(e) => e.stopPropagation()}>
+    <RNModal animationType="fade" transparent={true} visible={visible} onRequestClose={onClose}>
+      <Pressable style={styles.modalBackdrop} onPress={onClose}>
+        <Pressable onPress={e => e.stopPropagation()}>
           <Card style={[styles.modalContainer, style]}>
-            {title && (
-              <Text style={styles.modalTitle}>{title}</Text>
-            )}
-            {subtitle && (
-              <Text style={styles.modalSubtitle}>{subtitle}</Text>
-            )}
-            
-            <View style={styles.modalContent}>
-              {children}
-            </View>
-            
+            {title && <Text style={styles.modalTitle}>{title}</Text>}
+            {subtitle && <Text style={styles.modalSubtitle}>{subtitle}</Text>}
+
+            <View style={styles.modalContent}>{children}</View>
+
             {actions.length > 0 && (
               <View style={styles.modalActions}>
                 {actions.map((action, index) => (
@@ -632,83 +628,75 @@ interface InputProps {
   nativeID?: string;
 }
 
-export const Input: React.FC<InputProps> = React.memo(({
-  value,
-  onChangeText,
-  placeholder,
-  secureTextEntry = false,
-  keyboardType = 'default',
-  autoCapitalize = 'sentences',
-  autoCorrect = true,
-  multiline = false,
-  numberOfLines = 1,
-  style,
-  textStyle,
-  error,
-  icon,
-  onIconPress,
-  nativeID,
-}) => {
-  // Determine textContentType and autoComplete based on keyboardType
-  const textContentType = secureTextEntry 
-    ? 'password' 
-    : keyboardType === 'email-address' 
-    ? 'emailAddress' 
-    : keyboardType === 'phone-pad'
-    ? 'telephoneNumber'
-    : 'none';
-  
-  const autoComplete = secureTextEntry
-    ? 'password'
-    : keyboardType === 'email-address'
-    ? 'email'
-    : keyboardType === 'phone-pad'
-    ? 'tel'
-    : 'off';
+export const Input: React.FC<InputProps> = React.memo(
+  ({
+    value,
+    onChangeText,
+    placeholder,
+    secureTextEntry = false,
+    keyboardType = 'default',
+    autoCapitalize = 'sentences',
+    autoCorrect = true,
+    multiline = false,
+    numberOfLines = 1,
+    style,
+    textStyle,
+    error,
+    icon,
+    onIconPress,
+    nativeID,
+  }) => {
+    // Determine textContentType and autoComplete based on keyboardType
+    const textContentType = secureTextEntry
+      ? 'password'
+      : keyboardType === 'email-address'
+        ? 'emailAddress'
+        : keyboardType === 'phone-pad'
+          ? 'telephoneNumber'
+          : 'none';
 
-  return (
-    <View style={[styles.inputContainer, style]}>
-      <View style={styles.inputWrapper}>
-        {icon && (
-          <Pressable
-            style={styles.inputIcon}
-            onPress={onIconPress}
-            disabled={!onIconPress}
-          >
-            <React.Suspense fallback={<View style={{ width: 20, height: 20 }} />}>
-              <Icon name={icon} size={20} color={Colors.gray} />
-            </React.Suspense>
-          </Pressable>
-        )}
-        <TextInput
-          nativeID={nativeID}
-          style={[
-            styles.input,
-            textStyle,
-            icon && styles.inputWithIcon,
-          ]}
-          value={value}
-          onChangeText={onChangeText}
-          placeholder={placeholder}
-          placeholderTextColor={Colors.lightGray}
-          secureTextEntry={secureTextEntry}
-          keyboardType={keyboardType}
-          autoCapitalize={autoCapitalize}
-          autoCorrect={autoCorrect}
-          autoComplete={autoComplete}
-          textContentType={textContentType}
-          importantForAutofill="yes"
-          multiline={multiline}
-          numberOfLines={numberOfLines}
-          caretHidden={false}
-        />
+    const autoComplete = secureTextEntry
+      ? 'password'
+      : keyboardType === 'email-address'
+        ? 'email'
+        : keyboardType === 'phone-pad'
+          ? 'tel'
+          : 'off';
+
+    return (
+      <View style={[styles.inputContainer, style]}>
+        <View style={styles.inputWrapper}>
+          {icon && (
+            <Pressable style={styles.inputIcon} onPress={onIconPress} disabled={!onIconPress}>
+              <React.Suspense fallback={<View style={{ width: 20, height: 20 }} />}>
+                <Icon name={icon} size={20} color={Colors.gray} />
+              </React.Suspense>
+            </Pressable>
+          )}
+          <TextInput
+            nativeID={nativeID}
+            style={[styles.input, textStyle, icon && styles.inputWithIcon]}
+            value={value}
+            onChangeText={onChangeText}
+            placeholder={placeholder}
+            placeholderTextColor={Colors.lightGray}
+            secureTextEntry={secureTextEntry}
+            keyboardType={keyboardType}
+            autoCapitalize={autoCapitalize}
+            autoCorrect={autoCorrect}
+            autoComplete={autoComplete}
+            textContentType={textContentType}
+            importantForAutofill="yes"
+            multiline={multiline}
+            numberOfLines={numberOfLines}
+            caretHidden={false}
+          />
+        </View>
+        {error && <Text style={styles.inputError}>{error}</Text>}
       </View>
-      {error && (
-        <Text style={styles.inputError}>{error}</Text>
-      )}
-    </View>
-  );
-});
+    );
+  }
+);
 
 // Loading Component
 interface LoadingProps {
@@ -728,9 +716,7 @@ export const Loading: React.FC<LoadingProps> = ({
   return (
     <View style={[styles.loadingContainer, style]}>
       <Loading3FillIcon size={iconSize} color={color} />
-      {text && (
-        <Text style={styles.loadingText}>{text}</Text>
-      )}
+      {text && <Text style={styles.loadingText}>{text}</Text>}
     </View>
   );
 };
@@ -771,12 +757,7 @@ interface BadgeProps {
   style?: ViewStyle;
 }
 
-export const Badge: React.FC<BadgeProps> = ({
-  text,
-  variant,
-  size,
-  style,
-}) => {
+export const Badge: React.FC<BadgeProps> = ({ text, variant, size, style }) => {
   const getBadgeStyle = (): ViewStyle => {
     const baseStyle: ViewStyle = {
       borderRadius: BORDER_RADIUS.MEDIUM,
@@ -847,14 +828,14 @@ const styles = StyleSheet.create({
     width: '85%',
     maxWidth: 400,
   },
-      modalTitle: {
-      color: Colors.white,
+  modalTitle: {
+    color: Colors.white,
     fontSize: 20,
     fontFamily: 'Firma-Bold',
     marginBottom: 8,
   },
-      modalSubtitle: {
-      color: Colors.lightGray,
+  modalSubtitle: {
+    color: Colors.lightGray,
     fontSize: 16,
     fontFamily: 'Firma-Regular',
     marginBottom: 16,
@@ -882,9 +863,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     minHeight: 48,
   },
-      input: {
-      flex: 1,
-      color: Colors.white,
+  input: {
+    flex: 1,
+    color: Colors.white,
     fontSize: 16,
     fontFamily: 'Firma-Regular',
     paddingVertical: 12,
@@ -931,7 +912,7 @@ export const CommonStyles = StyleSheet.create({
   absolute: {
     position: 'absolute',
   },
-  
+
   // Flex utilities
   flexRow: {
     flexDirection: 'row',
@@ -946,7 +927,7 @@ export const CommonStyles = StyleSheet.create({
   flex1: {
     flex: 1,
   },
-  
+
   // Overlay utilities
   overlayDark: {
     ...StyleSheet.absoluteFillObject,
@@ -956,7 +937,7 @@ export const CommonStyles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: Colors.overlayWhite10,
   },
-  
+
   // Common spacing
   padding: {
     padding: 16,
@@ -1001,5 +982,5 @@ export default {
   Typography,
 };
 
-export { default as Icon } from './Icon'; 
+export { default as Icon } from './Icon';
 export { TypographyText };

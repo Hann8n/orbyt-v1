@@ -1,17 +1,15 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Pressable,
   Alert,
-  ScrollView,
   TextInput,
   Dimensions,
   Platform,
   PanResponder,
   Keyboard,
-  KeyboardAvoidingView,
   StatusBar,
   AppState,
 } from 'react-native';
@@ -22,18 +20,20 @@ import { useVideoPlayer, VideoView, VideoPlayer } from 'expo-video';
 import * as FileSystem from 'expo-file-system';
 import { File, Directory, Paths } from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
-import { resolveVideoPath, debugVideoPath, VideoPathInfo } from '../src/utils/videoPath';
-import { BackArrowIcon, ArrowRightFillIcon, Loading3FillIcon, CloseFillIcon } from '../src/components/ui/Icon';
+import { resolveVideoPath, debugVideoPath, VideoPathInfo } from '../src/utils/video/path';
+import { Loading3FillIcon, CloseFillIcon } from '../src/components/ui/Icon';
 import { Colors } from '../src/components/ui/UI';
 import { BORDER_RADIUS } from '../src/utils/constants';
-import VideoEditingService, { TextOverlayOptions, BackgroundMusicOptions } from '../src/services/VideoEditingService';
-import VideoProcessingService from '../src/services/VideoProcessingService';
+import VideoEditingService, {
+  TextOverlayOptions,
+  BackgroundMusicOptions,
+} from '../src/services/video/VideoEditingService';
+import VideoProcessingService from '../src/services/video/VideoProcessingService';
 import VerticalListSheet, { VerticalListButton } from '../src/components/ui/VerticalListSheet';
 import BottomToolBar from '../src/components/ui/BottomToolBar';
-import { TextOverlay } from '../src/types';
-import { getBottomNavBarHeight, isSmallScreen } from '../src/utils/helpers';
+import { getBottomNavBarHeight, isSmallScreen } from '../src/utils/device/screen';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ASPECT_RATIO = 9 / 16;
 const VIDEO_WIDTH = SCREEN_WIDTH;
 const VIDEO_HEIGHT = VIDEO_WIDTH / ASPECT_RATIO;
@@ -70,9 +70,6 @@ interface EditableTextOverlayProps {
   onDragEnd: (id: string) => void;
   onTap: (id: string) => void;
   onTextChange: (id: string, text: string) => void;
-  onUpdate: (updates: Partial<TextOverlayEdit>) => void;
-  onDelete: (id: string) => void;
-  onDone: () => void;
 }
 
 const EditableTextOverlay: React.FC<EditableTextOverlayProps> = ({
@@ -86,9 +83,6 @@ const EditableTextOverlay: React.FC<EditableTextOverlayProps> = ({
   onDragEnd,
   onTap,
   onTextChange,
-  onUpdate,
-  onDelete,
-  onDone,
 }) => {
   const textInputRef = useRef<TextInput>(null);
   const dragStartPositions = useRef<{ x: number; y: number } | null>(null);
@@ -108,7 +102,7 @@ const EditableTextOverlay: React.FC<EditableTextOverlayProps> = ({
     () =>
       PanResponder.create({
         onStartShouldSetPanResponder: () => !isEditing,
-        onMoveShouldSetPanResponder: (evt, gestureState) => {
+        onMoveShouldSetPanResponder: (_evt, gestureState) => {
           if (isEditing) return false;
           return Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5;
         },
@@ -122,7 +116,7 @@ const EditableTextOverlay: React.FC<EditableTextOverlayProps> = ({
             }
           }, 200);
         },
-        onPanResponderMove: (evt, gestureState) => {
+        onPanResponderMove: (_evt, gestureState) => {
           if (isEditing) return;
           if (Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5) {
             hasMoved.current = true;
@@ -131,8 +125,14 @@ const EditableTextOverlay: React.FC<EditableTextOverlayProps> = ({
               tapTimeout.current = null;
             }
             if (dragStartPositions.current) {
-              const newX = Math.max(0, Math.min(SCREEN_WIDTH - 50, dragStartPositions.current.x + gestureState.dx));
-              const newY = Math.max(0, Math.min(VIDEO_HEIGHT - 30, dragStartPositions.current.y + gestureState.dy));
+              const newX = Math.max(
+                0,
+                Math.min(SCREEN_WIDTH - 50, dragStartPositions.current.x + gestureState.dx)
+              );
+              const newY = Math.max(
+                0,
+                Math.min(VIDEO_HEIGHT - 30, dragStartPositions.current.y + gestureState.dy)
+              );
               onDragMove(overlay.id, newX, newY);
               if (!isDragging) {
                 onDragStart(overlay.id);
@@ -154,7 +154,17 @@ const EditableTextOverlay: React.FC<EditableTextOverlayProps> = ({
           }
         },
       }),
-    [overlay.id, previewX, previewY, isDragging, isEditing, onDragStart, onDragMove, onDragEnd, onTap]
+    [
+      overlay.id,
+      previewX,
+      previewY,
+      isDragging,
+      isEditing,
+      onDragStart,
+      onDragMove,
+      onDragEnd,
+      onTap,
+    ]
   );
 
   const displayText = overlay.text.trim() || 'Tap to edit';
@@ -184,7 +194,7 @@ const EditableTextOverlay: React.FC<EditableTextOverlayProps> = ({
             },
           ]}
           value={overlay.text}
-          onChangeText={(text) => onTextChange(overlay.id, text)}
+          onChangeText={text => onTextChange(overlay.id, text)}
           placeholder="Enter text"
           placeholderTextColor={Colors.lightGray}
           multiline
@@ -229,76 +239,57 @@ const EditableTextOverlay: React.FC<EditableTextOverlayProps> = ({
   );
 };
 
-
-const POSITION_PRESETS = [
-  { label: 'Center', x: '(w-text_w)/2', y: '(h-text_h)/2' },
-  { label: 'Top Left', x: '10', y: '10' },
-  { label: 'Top Right', x: 'w-text_w-10', y: '10' },
-  { label: 'Bottom Left', x: '10', y: 'h-text_h-10' },
-  { label: 'Bottom Right', x: 'w-text_w-10', y: 'h-text_h-10' },
-  { label: 'Top Center', x: '(w-text_w)/2', y: '10' },
-  { label: 'Bottom Center', x: '(w-text_w)/2', y: 'h-text_h-10' },
-];
-
-
 const VideoEditorScreen: React.FC = () => {
   const params = useLocalSearchParams();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const playerRef = useRef<VideoPlayer | null>(null);
-  
+
   // Get video path or segments from params (same as post screen)
   const videoPath = params.videoPath as string | undefined;
   const segmentsParam = params.segments as string | undefined;
-  
+
   // Background merging state (same as post screen)
   const [isMerging, setIsMerging] = useState(false);
-  const [mergingProgress, setMergingProgress] = useState(0);
   const [mergedVideoPath, setMergedVideoPath] = useState<string | null>(null);
-  const [mergingError, setMergingError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
   const [videoLoading, setVideoLoading] = useState(true);
   const [videoError, setVideoError] = useState<string | null>(null);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  
+
   // Text overlay state
   const [textOverlays, setTextOverlays] = useState<TextOverlayEdit[]>([]);
   const [editingOverlayId, setEditingOverlayId] = useState<string | null>(null);
-  const [showTextOverlaySheet, setShowTextOverlaySheet] = useState(false);
   const [draggingOverlayId, setDraggingOverlayId] = useState<string | null>(null);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
-  
+  const [keyboardHeight] = useState(0);
+
   // Background music state
   const [musicPath, setMusicPath] = useState<string | null>(null);
-  const [videoVolume, setVideoVolume] = useState(1.0);
-  const [musicVolume, setMusicVolume] = useState(1.0);
+  const [videoVolume] = useState(1.0);
+  const [musicVolume] = useState(1.0);
   const [showMusicSheet, setShowMusicSheet] = useState(false);
-  
+
   // Volume control state
-  const [masterVolume, setMasterVolume] = useState(1.0);
-  
+  const [masterVolume] = useState(1.0);
+
   // Temporary files to clean up
   const tempFilesRef = useRef<string[]>([]);
 
   // Handle background merging if segments are provided (same as post screen)
   useEffect(() => {
     if (!segmentsParam || mergedVideoPath) return; // Already merged or no segments
-    
+
     const mergeSegments = async () => {
       try {
         setIsMerging(true);
-        setMergingError(null);
-        setMergingProgress(0);
-        
+
         // Parse segments from params
         const segments = JSON.parse(segmentsParam);
-        
+
         if (!segments || segments.length === 0) {
           throw new Error('No video segments provided');
         }
-        
+
         // Convert to ProcessingVideoSegment format
         const processingSegments = segments.map((segment: any) => ({
           startTime: segment.startTime,
@@ -306,21 +297,16 @@ const VideoEditorScreen: React.FC = () => {
           video: segment.video,
           sourceType: segment.sourceType,
         }));
-        
+
         // Merge segments in background using InteractionManager
         const { InteractionManager } = require('react-native');
         await InteractionManager.runAfterInteractions(async () => {
-          setMergingProgress(25);
-          
           const mergedVideo = await VideoProcessingService.mergeSegments(processingSegments);
-          
-          setMergingProgress(100);
           setMergedVideoPath(mergedVideo.path);
           setIsMerging(false);
         });
       } catch (error: any) {
         console.error('[VideoEditor] Error merging segments:', error);
-        setMergingError(error.message || 'Failed to merge video segments');
         setIsMerging(false);
         Alert.alert(
           'Merging Failed',
@@ -329,12 +315,12 @@ const VideoEditorScreen: React.FC = () => {
             {
               text: 'Go Back',
               onPress: () => router.back(),
-            }
+            },
           ]
         );
       }
     };
-    
+
     mergeSegments();
   }, [segmentsParam, mergedVideoPath, router]);
 
@@ -343,7 +329,7 @@ const VideoEditorScreen: React.FC = () => {
 
   // Resolved video path info (same as post screen)
   const [videoPathInfo, setVideoPathInfo] = useState<VideoPathInfo | null>(null);
-  
+
   // Resolve video path on mount or when activeVideoPath changes (same as post screen)
   useEffect(() => {
     const resolveVideo = async () => {
@@ -358,16 +344,16 @@ const VideoEditorScreen: React.FC = () => {
 
       // Debug the incoming path
       debugVideoPath('VideoEditor received', activeVideoPath);
-      
+
       try {
         setVideoLoading(true);
         setVideoError(null);
-        
+
         // Use the utility to resolve the path (handles iCloud, normalization, validation)
         const pathInfo = await resolveVideoPath(activeVideoPath);
-        
+
         setVideoPathInfo(pathInfo);
-        
+
         if (!pathInfo.exists) {
           setVideoError('Video file not found');
         }
@@ -386,7 +372,7 @@ const VideoEditorScreen: React.FC = () => {
   const videoUri = videoPathInfo?.uri || '';
 
   // Simple video player - auto-plays when source is set (same as post screen)
-  const player = useVideoPlayer(videoUri ? { uri: videoUri } : null, (p) => {
+  const player = useVideoPlayer(videoUri ? { uri: videoUri } : null, p => {
     p.loop = true;
     p.volume = masterVolume;
     playerRef.current = p;
@@ -400,15 +386,6 @@ const VideoEditorScreen: React.FC = () => {
     });
   }, [player, videoUri]);
 
-  // Track playback progress (same as post screen)
-  useEffect(() => {
-    if (!player) return;
-    const interval = setInterval(() => {
-      setCurrentTime(player.currentTime || 0);
-    }, 100);
-    return () => clearInterval(interval);
-  }, [player]);
-
   // Sync play/pause state (same as post screen)
   useEffect(() => {
     if (!player) return;
@@ -420,12 +397,12 @@ const VideoEditorScreen: React.FC = () => {
     if (player) {
       player.volume = masterVolume;
     }
-  }, [player, masterVolume]);
+  }, [player]);
 
   // Cleanup temporary files
   useEffect(() => {
     return () => {
-      tempFilesRef.current.forEach(async (file) => {
+      tempFilesRef.current.forEach(async file => {
         try {
           const normalizedPath = file.replace('file://', '');
           const tempFile = new File(normalizedPath);
@@ -445,27 +422,27 @@ const VideoEditorScreen: React.FC = () => {
       const timestamp = Date.now();
       const random = Math.random().toString(36).substring(7);
       const fileName = `video_edit_${timestamp}_${random}.mp4`;
-      
+
       // Use new FileSystem API like VideoProcessingService
       const tempDir = new Directory(Paths.cache, `video_edit_${timestamp}`);
       await tempDir.create({ intermediates: true });
-      
+
       const outputFile = new File(tempDir, fileName);
       let tempPath = outputFile.uri;
-      
+
       // Remove file:// prefix
       tempPath = tempPath.replace(/^file:\/\//, '');
-      
+
       // Ensure absolute path for iOS
       if (Platform.OS === 'ios' && !tempPath.startsWith('/')) {
         tempPath = '/' + tempPath;
       }
-      
+
       // Validate path has directory structure
-      if (!tempPath.includes('/') || tempPath.endsWith(fileName) && !tempPath.includes('/')) {
+      if (!tempPath.includes('/') || (tempPath.endsWith(fileName) && !tempPath.includes('/'))) {
         throw new Error(`Invalid temp path generated: ${tempPath}`);
       }
-      
+
       tempFilesRef.current.push(tempPath);
       return tempPath;
     } catch (error) {
@@ -473,25 +450,25 @@ const VideoEditorScreen: React.FC = () => {
       const timestamp = Date.now();
       const random = Math.random().toString(36).substring(7);
       const fileName = `video_edit_${timestamp}_${random}.mp4`;
-      
+
       let tempDir = (FileSystem as any).cacheDirectory || (FileSystem as any).documentDirectory;
       if (!tempDir) {
         throw new Error('Unable to determine temporary directory');
       }
-      
+
       tempDir = tempDir.replace(/^file:\/\//, '');
       const normalizedDir = tempDir.endsWith('/') ? tempDir : `${tempDir}/`;
       let tempPath = `${normalizedDir}${fileName}`;
-      
+
       // Ensure absolute path for iOS
       if (Platform.OS === 'ios' && !tempPath.startsWith('/')) {
         tempPath = '/' + tempPath;
       }
-      
+
       if (!tempPath.includes('/') || tempPath === fileName) {
         throw new Error(`Invalid temp path generated: ${tempPath}`);
       }
-      
+
       tempFilesRef.current.push(tempPath);
       return tempPath;
     }
@@ -519,26 +496,25 @@ const VideoEditorScreen: React.FC = () => {
 
   // Update text overlay text
   const handleTextChange = useCallback((id: string, text: string) => {
-    setTextOverlays(prev => prev.map(o => 
-      o.id === id ? { ...o, text } : o
-    ));
+    setTextOverlays(prev => prev.map(o => (o.id === id ? { ...o, text } : o)));
   }, []);
 
   // Update text overlay properties
   const handleOverlayUpdate = useCallback((id: string, updates: Partial<TextOverlayEdit>) => {
-    setTextOverlays(prev => prev.map(o => 
-      o.id === id ? { ...o, ...updates } : o
-    ));
+    setTextOverlays(prev => prev.map(o => (o.id === id ? { ...o, ...updates } : o)));
   }, []);
 
   // Delete text overlay
-  const handleDeleteTextOverlay = useCallback((id: string) => {
-    setTextOverlays(prev => prev.filter(o => o.id !== id));
-    if (editingOverlayId === id) {
-      setEditingOverlayId(null);
-      Keyboard.dismiss();
-    }
-  }, [editingOverlayId]);
+  const handleDeleteTextOverlay = useCallback(
+    (id: string) => {
+      setTextOverlays(prev => prev.filter(o => o.id !== id));
+      if (editingOverlayId === id) {
+        setEditingOverlayId(null);
+        Keyboard.dismiss();
+      }
+    },
+    [editingOverlayId]
+  );
 
   // Done editing
   const handleDoneEditing = useCallback(() => {
@@ -547,7 +523,9 @@ const VideoEditorScreen: React.FC = () => {
   }, []);
 
   // Get currently editing overlay
-  const editingOverlay = editingOverlayId ? textOverlays.find(o => o.id === editingOverlayId) : null;
+  const editingOverlay = editingOverlayId
+    ? textOverlays.find(o => o.id === editingOverlayId)
+    : null;
 
   // Handle drag events for text overlays
   const handleDragStart = useCallback((id: string) => {
@@ -555,47 +533,22 @@ const VideoEditorScreen: React.FC = () => {
   }, []);
 
   const handleDragMove = useCallback((id: string, x: number, y: number) => {
-    setTextOverlays(prev => prev.map(o => 
-      o.id === id 
-        ? { ...o, position: { x, y } }
-        : o
-    ));
+    setTextOverlays(prev => prev.map(o => (o.id === id ? { ...o, position: { x, y } } : o)));
   }, []);
 
-  const handleDragEnd = useCallback((id: string) => {
+  const handleDragEnd = useCallback(() => {
     setDraggingOverlayId(null);
   }, []);
-
-
-  // Save text overlay
-  const handleSaveTextOverlay = useCallback(() => {
-    if (!editingOverlay) return;
-    
-    if (editingOverlay.text.trim() === '') {
-      Alert.alert('Error', 'Text cannot be empty');
-      return;
-    }
-    
-    setTextOverlays(prev => {
-      const existingIndex = prev.findIndex(o => o.id === editingOverlay.id);
-      if (existingIndex >= 0) {
-        const updated = [...prev];
-        updated[existingIndex] = editingOverlay;
-        return updated;
-      }
-      return [...prev, editingOverlay];
-    });
-    
-    setEditingOverlayId(null);
-    setShowTextOverlaySheet(false);
-  }, [editingOverlay]);
 
   // Select background music
   const handleSelectMusic = useCallback(async () => {
     try {
       const permissionResult = await MediaLibrary.requestPermissionsAsync();
       if (!permissionResult.granted) {
-        Alert.alert('Permission required', 'Please grant access to your media library to select music.');
+        Alert.alert(
+          'Permission required',
+          'Please grant access to your media library to select music.'
+        );
         return;
       }
 
@@ -613,7 +566,7 @@ const VideoEditorScreen: React.FC = () => {
       // In a full implementation, show a picker
       const selectedAsset = assets.assets[0];
       const assetInfo = await MediaLibrary.getAssetInfoAsync(selectedAsset.id);
-      
+
       if (assetInfo.localUri) {
         setMusicPath(assetInfo.localUri);
         setShowMusicSheet(false);
@@ -626,20 +579,13 @@ const VideoEditorScreen: React.FC = () => {
     }
   }, []);
 
-  // Remove background music
-  const handleRemoveMusic = useCallback(() => {
-    setMusicPath(null);
-    setMusicVolume(1.0);
-    setVideoVolume(1.0);
-  }, []);
-
   // Apply all edits
   const handleApplyEdits = useCallback(async () => {
     if (isProcessing || !activeVideoPath) return;
-    
+
     setIsProcessing(true);
     setVideoLoading(true);
-    
+
     try {
       let workingPath = activeVideoPath.replace('file://', '');
 
@@ -648,34 +594,36 @@ const VideoEditorScreen: React.FC = () => {
         for (let i = 0; i < textOverlays.length; i++) {
           const overlay = textOverlays[i];
           const outputPath = await getTempFilePath();
-          
+
           // Convert position to FFmpeg format (strings like '(w-text_w)/2' or numeric pixels)
-          const xPos = typeof overlay.position.x === 'number' 
-            ? overlay.position.x.toString() 
-            : overlay.position.x;
-          const yPos = typeof overlay.position.y === 'number'
-            ? overlay.position.y.toString()
-            : overlay.position.y;
-          
+          const xPos =
+            typeof overlay.position.x === 'number'
+              ? overlay.position.x.toString()
+              : overlay.position.x;
+          const yPos =
+            typeof overlay.position.y === 'number'
+              ? overlay.position.y.toString()
+              : overlay.position.y;
+
           const options: TextOverlayOptions = {
             x: xPos,
             y: yPos,
             size: overlay.size,
             color: overlay.color,
           };
-          
+
           const resultPath = await VideoEditingService.addTextOverlay(
             workingPath,
             outputPath,
             overlay.text,
             options
           );
-          
+
           // Update working path for next overlay
           workingPath = resultPath.replace('file://', '');
         }
       }
-      
+
       // Step 2: Add background music (if selected)
       if (musicPath) {
         const outputPath = await getTempFilePath();
@@ -683,17 +631,17 @@ const VideoEditorScreen: React.FC = () => {
           videoVolume,
           musicVolume,
         };
-        
+
         const resultPath = await VideoEditingService.addBackgroundMusic(
           workingPath,
           musicPath.replace('file://', ''),
           outputPath,
           musicOptions
         );
-        
+
         workingPath = resultPath.replace('file://', '');
       }
-      
+
       // Step 3: Adjust volume (if changed from default)
       if (masterVolume !== 1.0) {
         const outputPath = await getTempFilePath();
@@ -702,19 +650,19 @@ const VideoEditorScreen: React.FC = () => {
           outputPath,
           masterVolume
         );
-        
+
         workingPath = resultPath.replace('file://', '');
       }
-      
+
       // Update merged video path
       const finalPath = workingPath.startsWith('file://') ? workingPath : `file://${workingPath}`;
       setMergedVideoPath(finalPath);
-      
+
       // Reset video player
       if (player) {
         player.currentTime = 0;
       }
-      
+
       Alert.alert('Success', 'Video edits applied successfully!');
     } catch (error: any) {
       console.error('Error applying edits:', error);
@@ -723,7 +671,16 @@ const VideoEditorScreen: React.FC = () => {
       setIsProcessing(false);
       setVideoLoading(false);
     }
-  }, [textOverlays, musicPath, videoVolume, musicVolume, masterVolume, activeVideoPath, getTempFilePath, player]);
+  }, [
+    textOverlays,
+    musicPath,
+    videoVolume,
+    musicVolume,
+    masterVolume,
+    activeVideoPath,
+    getTempFilePath,
+    player,
+  ]);
 
   // Check if there are pending edits
   const hasPendingEdits = textOverlays.length > 0 || musicPath !== null || masterVolume !== 1.0;
@@ -738,62 +695,32 @@ const VideoEditorScreen: React.FC = () => {
       return;
     }
 
-    const normalizedPath = activeVideoPath.startsWith('file://') ? activeVideoPath : `file://${activeVideoPath}`;
+    const normalizedPath = activeVideoPath.startsWith('file://')
+      ? activeVideoPath
+      : `file://${activeVideoPath}`;
     router.push({
       pathname: '/post/[id]',
-      params: { id: 'new', videoPath: normalizedPath }
+      params: { id: 'new', videoPath: normalizedPath },
     });
   };
 
-  // Custom slider component
-  const Slider = ({ value, onValueChange, min = 0, max = 1, step = 0.01 }: {
-    value: number;
-    onValueChange: (value: number) => void;
-    min?: number;
-    max?: number;
-    step?: number;
-  }) => {
-    const percentage = ((value - min) / (max - min)) * 100;
-    const trackWidth = SCREEN_WIDTH - 60 - 45; // Container width minus padding and value width
-    
-    return (
-      <View style={styles.sliderContainer}>
-        <Pressable
-          style={styles.sliderTrack}
-          onPress={(e) => {
-            const { locationX } = e.nativeEvent;
-            const newValue = min + (locationX / trackWidth) * (max - min);
-            onValueChange(Math.max(min, Math.min(max, newValue)));
-          }}
-        >
-          <View style={[styles.sliderFill, { width: `${percentage}%` }]} />
-          <View
-            style={[
-              styles.sliderThumb,
-              { left: `${percentage}%`, marginLeft: -8 }
-            ]}
-          />
-        </Pressable>
-        <Text style={styles.sliderValue}>{Math.round(value * 100)}%</Text>
-      </View>
-    );
-  };
-
-
   const bottomNavBarHeight = getBottomNavBarHeight(insets);
 
-  const handleToolAction = useCallback((action: string) => {
-    switch (action) {
-      case 'text':
-        handleAddTextOverlay();
-        break;
-      case 'audio':
-        setShowMusicSheet(true);
-        break;
-      default:
-        break;
-    }
-  }, [handleAddTextOverlay]);
+  const handleToolAction = useCallback(
+    (action: string) => {
+      switch (action) {
+        case 'text':
+          handleAddTextOverlay();
+          break;
+        case 'audio':
+          setShowMusicSheet(true);
+          break;
+        default:
+          break;
+      }
+    },
+    [handleAddTextOverlay]
+  );
 
   const isSmallDevice = isSmallScreen();
 
@@ -817,14 +744,14 @@ const VideoEditorScreen: React.FC = () => {
     <SafeAreaView style={styles.container}>
       <StatusBar hidden={true} />
       {/* Header buttons - matches create screen */}
-      <Pressable 
+      <Pressable
         style={({ pressed }) => [
           styles.backButton,
           {
             top: isSmallDevice ? 5 : insets.top + 4,
             left: 4,
           },
-          pressed && { opacity: 0.7 }
+          pressed && { opacity: 0.7 },
         ]}
         onPress={handleBack}
       >
@@ -833,12 +760,14 @@ const VideoEditorScreen: React.FC = () => {
 
       {/* Video Preview Container - matches cameraContainer from create.tsx */}
       <View style={styles.videoContainer}>
-        <Pressable
-          onPress={() => setIsPlaying(!isPlaying)}
-          style={styles.videoWrapper}
-        >
+        <Pressable onPress={() => setIsPlaying(!isPlaying)} style={styles.videoWrapper}>
           {videoUri && player && (
-            <VideoView player={player} style={styles.video} contentFit="contain" nativeControls={false} />
+            <VideoView
+              player={player}
+              style={styles.video}
+              contentFit="contain"
+              nativeControls={false}
+            />
           )}
           {(videoLoading || isMerging) && (
             <View style={styles.loadingOverlay}>
@@ -851,11 +780,11 @@ const VideoEditorScreen: React.FC = () => {
             </View>
           )}
           {/* Text Overlay Previews */}
-          {textOverlays.map((overlay) => {
+          {textOverlays.map(overlay => {
             // Calculate preview position from FFmpeg expressions or use numeric values
             let previewX = SCREEN_WIDTH / 2;
             let previewY = VIDEO_HEIGHT / 2;
-            
+
             if (typeof overlay.position.x === 'number') {
               previewX = overlay.position.x;
             } else if (typeof overlay.position.x === 'string') {
@@ -864,7 +793,7 @@ const VideoEditorScreen: React.FC = () => {
               else if (overlay.position.x === 'w-text_w-10') previewX = SCREEN_WIDTH - 100;
               else if (overlay.position.x === '10') previewX = 10;
             }
-            
+
             if (typeof overlay.position.y === 'number') {
               previewY = overlay.position.y;
             } else if (typeof overlay.position.y === 'string') {
@@ -872,7 +801,7 @@ const VideoEditorScreen: React.FC = () => {
               else if (overlay.position.y === 'h-text_h-10') previewY = VIDEO_HEIGHT - 50;
               else if (overlay.position.y === '10') previewY = 10;
             }
-            
+
             return (
               <EditableTextOverlay
                 key={overlay.id}
@@ -886,9 +815,6 @@ const VideoEditorScreen: React.FC = () => {
                 onDragEnd={handleDragEnd}
                 onTap={handleTapTextOverlay}
                 onTextChange={handleTextChange}
-                onUpdate={(updates) => handleOverlayUpdate(overlay.id, updates)}
-                onDelete={() => handleDeleteTextOverlay(overlay.id)}
-                onDone={handleDoneEditing}
               />
             );
           })}
@@ -898,13 +824,16 @@ const VideoEditorScreen: React.FC = () => {
               <Text style={styles.playIndicatorText}>▶</Text>
             </View>
           )}
-          
         </Pressable>
 
         {/* Apply Changes Button - positioned absolutely */}
         {hasPendingEdits && (
           <Pressable
-            style={[styles.applyButton, { bottom: bottomNavBarHeight + 20 }, isProcessing && styles.applyButtonDisabled]}
+            style={[
+              styles.applyButton,
+              { bottom: bottomNavBarHeight + 20 },
+              isProcessing && styles.applyButtonDisabled,
+            ]}
             onPress={handleApplyEdits}
             disabled={isProcessing}
           >
@@ -917,23 +846,15 @@ const VideoEditorScreen: React.FC = () => {
         )}
       </View>
 
-
       {/* Music Selection Sheet */}
       <VerticalListSheet
         visible={showMusicSheet}
         onDismiss={() => setShowMusicSheet(false)}
         title="Select Background Music"
       >
-        <VerticalListButton
-          label="Choose from Library"
-          onPress={handleSelectMusic}
-        />
-        <VerticalListButton
-          label="Cancel"
-          onPress={() => setShowMusicSheet(false)}
-        />
+        <VerticalListButton label="Choose from Library" onPress={handleSelectMusic} />
+        <VerticalListButton label="Cancel" onPress={() => setShowMusicSheet(false)} />
       </VerticalListSheet>
-
 
       {/* Text Overlay Controls - appears above keyboard when editing */}
       {editingOverlay && keyboardHeight > 0 && (
@@ -942,21 +863,29 @@ const VideoEditorScreen: React.FC = () => {
             {/* Size controls */}
             <Pressable
               style={styles.controlButton}
-              onPress={() => handleOverlayUpdate(editingOverlay.id, { size: Math.max(12, editingOverlay.size - 4) })}
+              onPress={() =>
+                handleOverlayUpdate(editingOverlay.id, {
+                  size: Math.max(12, editingOverlay.size - 4),
+                })
+              }
             >
               <Text style={styles.controlButtonText}>−</Text>
             </Pressable>
             <Text style={styles.controlValue}>{editingOverlay.size}</Text>
             <Pressable
               style={styles.controlButton}
-              onPress={() => handleOverlayUpdate(editingOverlay.id, { size: Math.min(72, editingOverlay.size + 4) })}
+              onPress={() =>
+                handleOverlayUpdate(editingOverlay.id, {
+                  size: Math.min(72, editingOverlay.size + 4),
+                })
+              }
             >
               <Text style={styles.controlButtonText}>+</Text>
             </Pressable>
-            
+
             {/* Color picker */}
             <View style={styles.colorRow}>
-              {TEXT_COLORS.map((color) => (
+              {TEXT_COLORS.map(color => (
                 <Pressable
                   key={color.value}
                   style={[
@@ -968,7 +897,7 @@ const VideoEditorScreen: React.FC = () => {
                 />
               ))}
             </View>
-            
+
             {/* Delete */}
             <Pressable
               style={styles.deleteControlButton}
@@ -976,12 +905,9 @@ const VideoEditorScreen: React.FC = () => {
             >
               <CloseFillIcon size={20} color={Colors.white} />
             </Pressable>
-            
+
             {/* Done */}
-            <Pressable
-              style={styles.doneControlButton}
-              onPress={handleDoneEditing}
-            >
+            <Pressable style={styles.doneControlButton} onPress={handleDoneEditing}>
               <Text style={styles.doneControlText}>Done</Text>
             </Pressable>
           </View>

@@ -9,7 +9,12 @@ import { Avatar, Icon } from '../../src/components/ui/UI';
 import { BORDER_RADIUS } from '../../src/utils/constants';
 import ListHeader from '../../src/components/ui/ListHeader';
 import VerticalListSheet, { VerticalListButton } from '../../src/components/ui/VerticalListSheet';
-import { isOrbytChannel, getChannelByUri, getChannelAvatarUri, shouldShowChannelSlash } from '../../src/utils/orbytChannels';
+import {
+  isOrbytChannel,
+  getChannelByUri,
+  getChannelAvatarUri,
+  shouldShowChannelSlash,
+} from '../../src/utils/channels/orbyt';
 
 interface ChannelUser {
   did: string;
@@ -26,11 +31,8 @@ interface ChannelUser {
 export default function ChannelManagementScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  
-  const {
-    subscribedChannels: channels,
-    unsubscribeFromChannel,
-  } = useSubscribedChannels();
+
+  const { subscribedChannels: channels, unsubscribeFromChannel } = useSubscribedChannels();
 
   const [selectedChannel, setSelectedChannel] = useState<ChannelUser | null>(null);
   const [isSheetVisible, setIsSheetVisible] = useState(false);
@@ -41,14 +43,14 @@ export default function ChannelManagementScreen() {
     // Filter out built-in channels as a safety measure
     const BUILT_IN_CHANNELS = ['following', 'your-mix'];
     const filteredChannels = channels.filter(ch => !BUILT_IN_CHANNELS.includes(ch.uri));
-    
-    return filteredChannels.map((channel) => {
+
+    return filteredChannels.map(channel => {
       const avatar = getChannelAvatarUri(channel.uri, channel.avatar);
-      
+
       // Check if this is an Orbyt channel
       const isOrbyt = channel.isOrbytChannel ?? isOrbytChannel(channel.uri);
       const orbytChannel = isOrbyt ? getChannelByUri(channel.uri) : undefined;
-      
+
       return {
         did: channel.uri,
         handle: channel.uri.split('/').pop() || '',
@@ -74,21 +76,20 @@ export default function ChannelManagementScreen() {
     }
   }, []);
 
-
   const handleViewChannel = useCallback(() => {
     if (selectedChannel?.uri) {
       setIsSheetVisible(false);
       setSelectedChannel(null);
       router.push({
         pathname: '/channel/[id]',
-        params: { id: selectedChannel.uri }
+        params: { id: selectedChannel.uri },
       });
     }
   }, [selectedChannel, router]);
 
   const handleUnsubscribe = useCallback(async () => {
     if (!selectedChannel?.uri) return;
-    
+
     Alert.alert(
       'Unsubscribe from Channel',
       `Are you sure you want to unsubscribe from "${selectedChannel.displayName}"?`,
@@ -105,8 +106,8 @@ export default function ChannelManagementScreen() {
               console.error('Error unsubscribing from channel:', error);
               Alert.alert('Error', 'Failed to unsubscribe from channel. Please try again.');
             }
-          }
-        }
+          },
+        },
       ]
     );
   }, [selectedChannel, unsubscribeFromChannel]);
@@ -118,77 +119,80 @@ export default function ChannelManagementScreen() {
     }, 100);
   }, [router]);
 
-  const renderChannelItem = useCallback(({ item }: { 
-    item: ChannelUser; 
-  }) => {
-    return (
-      <Pressable
-        style={styles.channelItem}
-        onPress={() => handleChannelPress(item)}
-      >
-        <Avatar 
-          uri={item.avatar} 
-          type="channel" 
-          size={40} 
-          ringColor="transparent" 
-          style={styles.channelAvatar}
-          fallbackIcon="tv"
-          fallbackIconSize={24}
-          fallbackIconColor={Colors.lightGray}
+  const renderChannelItem = useCallback(
+    ({ item }: { item: ChannelUser }) => {
+      return (
+        <Pressable style={styles.channelItem} onPress={() => handleChannelPress(item)}>
+          <Avatar
+            uri={item.avatar}
+            type="channel"
+            size={40}
+            ringColor="transparent"
+            style={styles.channelAvatar}
+            fallbackIcon="tv"
+            fallbackIconSize={24}
+            fallbackIconColor={Colors.lightGray}
+          />
+          <View style={styles.channelContent}>
+            {item.isOrbytChannel ? (
+              <View style={styles.orbytChannelName}>
+                {item.uri && shouldShowChannelSlash(item.uri) && (
+                  <Text style={[styles.orbytSlash, { color: item.channelColor || '#FFD700' }]}>
+                    /
+                  </Text>
+                )}
+                <Text style={styles.displayName} numberOfLines={1}>
+                  {item.displayName || item.handle || 'Unknown channel'}
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.channelNameRow}>
+                <Text style={styles.displayName} numberOfLines={1}>
+                  {item.displayName || item.handle || 'Unknown channel'}
+                </Text>
+              </View>
+            )}
+            {item.description && (
+              <Text style={styles.description} numberOfLines={2}>
+                {item.description}
+              </Text>
+            )}
+          </View>
+        </Pressable>
+      );
+    },
+    [handleChannelPress]
+  );
+
+  const renderEmpty = useCallback(
+    () => (
+      <View style={styles.emptyContainer}>
+        <Icon name="tv" size={48} color={Colors.lightGray} style={styles.emptyIcon} />
+        <Text style={styles.emptyTitle}>No channels yet</Text>
+        <Text style={styles.emptySubtitle}>Explore channels to subscribe to them</Text>
+        <Pressable style={styles.exploreButton} onPress={handleExplorePress}>
+          <Text style={styles.exploreButtonText}>Explore Channels</Text>
+        </Pressable>
+      </View>
+    ),
+    [handleExplorePress]
+  );
+
+  const renderListHeader = useCallback(
+    () => (
+      <View>
+        <ListHeader
+          mode="sheet"
+          title="channels"
+          showCloseButton
+          onClosePress={() => router.back()}
+          applySafeAreaTop={false}
+          style={{ marginHorizontal: -5 }}
         />
-        <View style={styles.channelContent}>
-          {item.isOrbytChannel ? (
-            <View style={styles.orbytChannelName}>
-              {item.uri && shouldShowChannelSlash(item.uri) && (
-                <Text style={[styles.orbytSlash, { color: item.channelColor || '#FFD700' }]}>/</Text>
-              )}
-              <Text style={styles.displayName} numberOfLines={1}>
-                {item.displayName || item.handle || 'Unknown channel'}
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.channelNameRow}>
-              <Text style={styles.displayName} numberOfLines={1}>
-                {item.displayName || item.handle || 'Unknown channel'}
-              </Text>
-            </View>
-          )}
-          {item.description && (
-            <Text style={styles.description} numberOfLines={2}>
-              {item.description}
-            </Text>
-          )}
-        </View>
-      </Pressable>
-    );
-  }, [handleChannelPress]);
-
-  const renderEmpty = useCallback(() => (
-    <View style={styles.emptyContainer}>
-      <Icon name="tv" size={48} color={Colors.lightGray} style={styles.emptyIcon} />
-      <Text style={styles.emptyTitle}>No channels yet</Text>
-      <Text style={styles.emptySubtitle}>Explore channels to subscribe to them</Text>
-      <Pressable
-        style={styles.exploreButton}
-        onPress={handleExplorePress}
-      >
-        <Text style={styles.exploreButtonText}>Explore Channels</Text>
-      </Pressable>
-    </View>
-  ), [handleExplorePress]);
-
-  const renderListHeader = useCallback(() => (
-    <View>
-      <ListHeader 
-        mode="sheet"
-        title="channels"
-        showCloseButton
-        onClosePress={() => router.back()}
-        applySafeAreaTop={false}
-        style={{ marginHorizontal: -5 }}
-      />
-    </View>
-  ), [router]);
+      </View>
+    ),
+    [router]
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: Colors.black }]}>
@@ -199,12 +203,9 @@ export default function ChannelManagementScreen() {
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={renderListHeader}
         ListEmptyComponent={renderEmpty}
-        contentContainerStyle={[
-          styles.listContainer,
-          { paddingBottom: insets.bottom + 20 }
-        ]}
+        contentContainerStyle={[styles.listContainer, { paddingBottom: insets.bottom + 20 }]}
       />
-      
+
       <VerticalListSheet
         visible={isSheetVisible}
         onDismiss={() => {
@@ -215,16 +216,8 @@ export default function ChannelManagementScreen() {
         showCancelButton={true}
       >
         <View style={styles.sheetContent}>
-          {selectedChannel && (
-            <VerticalListButton
-              label="View"
-              onPress={handleViewChannel}
-            />
-          )}
-          <VerticalListButton
-            label="Unsubscribe"
-            onPress={handleUnsubscribe}
-          />
+          {selectedChannel && <VerticalListButton label="View" onPress={handleViewChannel} />}
+          <VerticalListButton label="Unsubscribe" onPress={handleUnsubscribe} />
         </View>
       </VerticalListSheet>
     </View>

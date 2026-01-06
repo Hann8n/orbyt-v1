@@ -5,9 +5,7 @@
 
 import { logger } from '../../../utils/logger';
 import { AtprotoCore } from '../core';
-import type {
-  UploadLimitsResponse,
-} from '../types';
+import type { UploadLimitsResponse } from '../types';
 
 export class VideoService {
   /**
@@ -18,9 +16,9 @@ export class VideoService {
     try {
       await AtprotoCore.ensureSession();
       const { api } = await AtprotoCore.getApiClient();
-      
+
       const response = await api.app.bsky.video.getUploadLimits();
-      
+
       return {
         canUpload: response.data.canUpload ?? true,
         remainingDailyVideos: response.data.remainingDailyVideos,

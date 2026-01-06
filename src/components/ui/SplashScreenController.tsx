@@ -20,7 +20,7 @@ export function SplashScreenController() {
           // Ignore errors - splash screen might already be hidden
         });
       }, 100);
-      
+
       return () => clearTimeout(timer);
     }
     return undefined;

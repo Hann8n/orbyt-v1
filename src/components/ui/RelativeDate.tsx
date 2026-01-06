@@ -1,13 +1,13 @@
 import React from 'react';
 import { Text, StyleSheet } from 'react-native';
-import { 
-  differenceInMinutes, 
-  differenceInHours, 
-  differenceInDays, 
-  format, 
+import {
+  differenceInMinutes,
+  differenceInHours,
+  differenceInDays,
+  format,
   getYear,
   isValid,
-  parseISO
+  parseISO,
 } from 'date-fns';
 import { Colors } from '../ui/UI';
 
@@ -23,12 +23,10 @@ interface RelativeDateProps {
  */
 const RelativeDate: React.FC<RelativeDateProps> = ({ dateString, style, showTime = false }) => {
   if (!dateString) return null;
-  
+
   const formattedDate = formatRelativeDate(dateString, showTime);
-  
-  return (
-    <Text style={[styles.dateText, style]}>{formattedDate}</Text>
-  );
+
+  return <Text style={[styles.dateText, style]}>{formattedDate}</Text>;
 };
 
 /**
@@ -39,39 +37,39 @@ const RelativeDate: React.FC<RelativeDateProps> = ({ dateString, style, showTime
  * @param showTime - Whether to show the time for older dates (currently unused, kept for API compatibility)
  * @returns Formatted relative date string
  */
-export const formatRelativeDate = (dateString?: string, showTime: boolean = false): string => {
+export const formatRelativeDate = (dateString?: string, _showTime: boolean = false): string => {
   if (!dateString) return '';
-  
+
   const date = parseISO(dateString);
   if (!isValid(date)) return '';
-  
+
   const now = new Date();
   const diffMins = differenceInMinutes(now, date);
-  
+
   // Less than a minute
   if (diffMins < 1) {
     return 'now';
   }
-  
+
   // Less than an hour
   if (diffMins < 60) {
     return `${diffMins}m`;
   }
-  
+
   const diffHours = differenceInHours(now, date);
-  
+
   // Less than a day
   if (diffHours < 24) {
     return `${diffHours}h`;
   }
-  
+
   const diffDays = differenceInDays(now, date);
-  
+
   // Less than a week
   if (diffDays < 7) {
     return `${diffDays}d`;
   }
-  
+
   // After 1 week, use Month Day (Mar 7) if less than a year, MM/DD/YY (03/07/23) if over a year ago
   // If over a year ago, use MM/DD/YY format
   if (diffDays >= 365) {
@@ -89,19 +87,19 @@ export const formatRelativeDate = (dateString?: string, showTime: boolean = fals
  */
 export const formatPostDate = (dateString?: string): string => {
   if (!dateString) return '';
-  
+
   const date = parseISO(dateString);
   if (!isValid(date)) return '';
-  
+
   const now = new Date();
   const year = getYear(date);
   const currentYear = getYear(now);
-  
+
   // If the post is from a different year, include the year
   if (year !== currentYear) {
     return format(date, 'MMM d, yyyy');
   }
-  
+
   return format(date, 'MMM d');
 };
 

@@ -30,4 +30,4 @@ export { ErrorBoundary } from './ErrorBoundary';
 export { QueryErrorBoundary } from './QueryErrorBoundary';
 
 // Default export for the entire UI system
-export { default as UI } from './UI'; 
+export { default as UI } from './UI';

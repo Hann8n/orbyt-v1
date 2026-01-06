@@ -1,5 +1,6 @@
 import { Agent } from '@atproto/api';
 import type { ConvoView, MessageView as APIMessageView } from './api/types';
+import { logger } from '../utils/logger';
 
 const CHAT_SERVICE_DID = 'did:web:api.bsky.chat';
 
@@ -145,7 +146,7 @@ export interface RemoveReactionParams {
 
 export interface UpdateReadParams {
   conversationId: string;
-  readAt: string;
+  messageId: string; // The message ID to mark as read up to
 }
 
 export interface MuteConversationParams {
@@ -154,13 +155,10 @@ export interface MuteConversationParams {
 }
 
 class ChatService {
-  constructor() {
-  }
-
   private async getAgent(): Promise<Agent> {
     const { useUserStore } = await import('../stores/userStore');
     const userStore = useUserStore.getState();
-    
+
     if (!userStore.agent) {
       throw new Error('No OAuth agent available');
     }
@@ -177,17 +175,17 @@ class ChatService {
   async getConversation(conversationId: string): Promise<Conversation> {
     try {
       const agent = await this.getAgent();
-      
-      
-      const response = await agent.api.chat.bsky.convo.getConvo({
-        convoId: conversationId,
-      }, {
-        headers: {
-          'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat`,
-        },
-      });
 
-      
+      const response = await agent.api.chat.bsky.convo.getConvo(
+        {
+          convoId: conversationId,
+        },
+        {
+          headers: {
+            'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat`,
+          },
+        }
+      );
 
       if (!response.data) {
         throw new Error('Failed to get conversation');
@@ -195,6 +193,10 @@ class ChatService {
 
       return await this.mapConversationFromAPI(response.data.convo || response.data);
     } catch (error: unknown) {
+      logger.error('Failed to get conversation', error, {
+        component: 'ChatService',
+        conversationId,
+      });
       throw error;
     }
   }
@@ -206,24 +208,32 @@ class ChatService {
   async getConversationForMembers(members: string[]): Promise<Conversation | null> {
     try {
       const agent = await this.getAgent();
-      
-      
-      const response = await agent.api.chat.bsky.convo.getConvoForMembers({
-        members: members,
-      }, {
-        headers: {
-          'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat`,
-        },
-      });
 
-      
+      const response = await agent.api.chat.bsky.convo.getConvoForMembers(
+        {
+          members: members,
+        },
+        {
+          headers: {
+            'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat`,
+          },
+        }
+      );
 
       if (!response.data || !response.data.convo) {
+        logger.debug('No conversation found for members', {
+          component: 'ChatService',
+          memberCount: members.length,
+        });
         return null;
       }
 
       return await this.mapConversationFromAPI(response.data.convo);
     } catch (error: unknown) {
+      logger.error('Failed to get conversation for members', error, {
+        component: 'ChatService',
+        memberCount: members.length,
+      });
       throw error;
     }
   }
@@ -235,28 +245,31 @@ class ChatService {
   async getConversationLog(cursor?: string): Promise<{ logs: unknown[]; cursor: string | null }> {
     try {
       const agent = await this.getAgent();
-      
-      
-      const response = await agent.api.chat.bsky.convo.getLog({
-        ...(cursor && { cursor }),
-      }, {
-        headers: {
-          'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat`,
-        },
-      });
 
-      
+      const response = await agent.api.chat.bsky.convo.getLog(
+        {
+          ...(cursor && { cursor }),
+        },
+        {
+          headers: {
+            'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat`,
+          },
+        }
+      );
 
       if (!response.data) {
         return { logs: [], cursor: null };
       }
 
-      const data = response.data as any;
-      return { 
-        logs: data.logs || [], 
-        cursor: data.cursor || null 
+      const data = response.data as { logs?: unknown[]; cursor?: string | null };
+      return {
+        logs: data.logs || [],
+        cursor: data.cursor || null,
       };
     } catch (error: unknown) {
+      logger.error('Failed to get conversation log', error, {
+        component: 'ChatService',
+      });
       throw error;
     }
   }
@@ -270,8 +283,7 @@ class ChatService {
   async sendMessage(params: SendMessageParams): Promise<Message> {
     try {
       const agent = await this.getAgent();
-      
-      
+
       const messageData: {
         text: string;
         facets?: Facet[];
@@ -288,23 +300,28 @@ class ChatService {
         messageData.embed = params.embed;
       }
 
-      const response = await agent.api.chat.bsky.convo.sendMessage({
-        convoId: params.conversationId,
-        message: messageData,
-      }, {
-        headers: {
-          'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat`,
+      const response = await agent.api.chat.bsky.convo.sendMessage(
+        {
+          convoId: params.conversationId,
+          message: messageData,
         },
-      });
-
-      
+        {
+          headers: {
+            'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat`,
+          },
+        }
+      );
 
       if (!response.data) {
         throw new Error('Failed to send message');
       }
 
-      return await this.mapMessageFromAPI(response.data as any);
+      return await this.mapMessageFromAPI(response.data as APIMessageView);
     } catch (error: unknown) {
+      logger.error('Failed to send message', error, {
+        component: 'ChatService',
+        conversationId: params.conversationId,
+      });
       throw error;
     }
   }
@@ -316,23 +333,28 @@ class ChatService {
   async deleteMessageForSelf(conversationId: string, messageId: string): Promise<void> {
     try {
       const agent = await this.getAgent();
-      
-      
-      const response = await agent.api.chat.bsky.convo.deleteMessageForSelf({
-        convoId: conversationId,
-        messageId: messageId,
-      }, {
-        headers: {
-          'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat`,
-        },
-      });
 
-      
+      const response = await agent.api.chat.bsky.convo.deleteMessageForSelf(
+        {
+          convoId: conversationId,
+          messageId: messageId,
+        },
+        {
+          headers: {
+            'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat`,
+          },
+        }
+      );
 
       if (!response.data) {
         throw new Error('Failed to delete message');
       }
     } catch (error: unknown) {
+      logger.error('Failed to delete message', error, {
+        component: 'ChatService',
+        conversationId,
+        messageId,
+      });
       throw error;
     }
   }
@@ -346,22 +368,29 @@ class ChatService {
   async addReaction(params: AddReactionParams): Promise<void> {
     try {
       const agent = await this.getAgent();
-      
-      
-      const response = await agent.api.chat.bsky.convo.addReaction({
-        convoId: params.conversationId,
-        messageId: params.messageId,
-        value: params.reactionValue,
-      }, {
-        headers: {
-          'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat`,
+
+      const response = await agent.api.chat.bsky.convo.addReaction(
+        {
+          convoId: params.conversationId,
+          messageId: params.messageId,
+          value: params.reactionValue,
         },
-      });
+        {
+          headers: {
+            'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat`,
+          },
+        }
+      );
 
       if (!response.data) {
         throw new Error('Failed to add reaction');
       }
     } catch (error: unknown) {
+      logger.error('Failed to add reaction', error, {
+        component: 'ChatService',
+        conversationId: params.conversationId,
+        messageId: params.messageId,
+      });
       throw error;
     }
   }
@@ -373,22 +402,29 @@ class ChatService {
   async removeReaction(params: RemoveReactionParams): Promise<void> {
     try {
       const agent = await this.getAgent();
-      
-      
-      const response = await agent.api.chat.bsky.convo.removeReaction({
-        convoId: params.conversationId,
-        messageId: params.messageId,
-        value: params.reactionValue,
-      }, {
-        headers: {
-          'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat`,
+
+      const response = await agent.api.chat.bsky.convo.removeReaction(
+        {
+          convoId: params.conversationId,
+          messageId: params.messageId,
+          value: params.reactionValue,
         },
-      });
+        {
+          headers: {
+            'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat`,
+          },
+        }
+      );
 
       if (!response.data) {
         throw new Error('Failed to remove reaction');
       }
     } catch (error: unknown) {
+      logger.error('Failed to remove reaction', error, {
+        component: 'ChatService',
+        conversationId: params.conversationId,
+        messageId: params.messageId,
+      });
       throw error;
     }
   }
@@ -405,21 +441,20 @@ class ChatService {
       const { useUserStore } = await import('../stores/userStore');
       const userStore = useUserStore.getState();
       const currentUserDid = userStore.currentUser?.did;
-      
+
       if (!currentUserDid) {
         throw new Error('No authenticated user');
       }
-      
+
       // Include current user in members if not already present
       const allMembers = members.includes(currentUserDid) ? members : [currentUserDid, ...members];
-      
-      
+
       const conversation = await this.getConversationForMembers(allMembers);
-      
+
       if (!conversation) {
         throw new Error('Failed to create conversation');
       }
-      
+
       return conversation;
     } catch (error: unknown) {
       throw error;
@@ -433,22 +468,26 @@ class ChatService {
   async acceptConversation(conversationId: string): Promise<void> {
     try {
       const agent = await this.getAgent();
-      
-      
-      const response = await agent.api.chat.bsky.convo.acceptConvo({
-        convoId: conversationId,
-      }, {
-        headers: {
-          'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat`,
-        },
-      });
 
-      
+      const response = await agent.api.chat.bsky.convo.acceptConvo(
+        {
+          convoId: conversationId,
+        },
+        {
+          headers: {
+            'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat`,
+          },
+        }
+      );
 
       if (!response.data) {
         throw new Error('Failed to accept conversation');
       }
     } catch (error: unknown) {
+      logger.error('Failed to accept conversation', error, {
+        component: 'ChatService',
+        conversationId,
+      });
       throw error;
     }
   }
@@ -460,22 +499,26 @@ class ChatService {
   async leaveConversation(conversationId: string): Promise<void> {
     try {
       const agent = await this.getAgent();
-      
-      
-      const response = await agent.api.chat.bsky.convo.leaveConvo({
-        convoId: conversationId,
-      }, {
-        headers: {
-          'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat`,
-        },
-      });
 
-      
+      const response = await agent.api.chat.bsky.convo.leaveConvo(
+        {
+          convoId: conversationId,
+        },
+        {
+          headers: {
+            'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat`,
+          },
+        }
+      );
 
       if (!response.data) {
         throw new Error('Failed to leave conversation');
       }
     } catch (error: unknown) {
+      logger.error('Failed to leave conversation', error, {
+        component: 'ChatService',
+        conversationId,
+      });
       throw error;
     }
   }
@@ -487,34 +530,44 @@ class ChatService {
   async muteConversation(params: MuteConversationParams): Promise<void> {
     try {
       const agent = await this.getAgent();
-      
-      
+
       if (params.muted) {
-        const response = await agent.api.chat.bsky.convo.muteConvo({
-          convoId: params.conversationId,
-        }, {
-          headers: {
-            'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat`,
+        const response = await agent.api.chat.bsky.convo.muteConvo(
+          {
+            convoId: params.conversationId,
           },
-        });
-        
+          {
+            headers: {
+              'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat`,
+            },
+          }
+        );
+
         if (!response.data) {
           throw new Error('Failed to mute conversation');
         }
       } else {
-        const response = await agent.api.chat.bsky.convo.unmuteConvo({
-          convoId: params.conversationId,
-        }, {
-          headers: {
-            'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat`,
+        const response = await agent.api.chat.bsky.convo.unmuteConvo(
+          {
+            convoId: params.conversationId,
           },
-        });
-        
+          {
+            headers: {
+              'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat`,
+            },
+          }
+        );
+
         if (!response.data) {
           throw new Error('Failed to unmute conversation');
         }
       }
     } catch (error: unknown) {
+      logger.error('Failed to mute/unmute conversation', error, {
+        component: 'ChatService',
+        conversationId: params.conversationId,
+        muted: params.muted,
+      });
       throw error;
     }
   }
@@ -526,21 +579,28 @@ class ChatService {
   async updateReadStatus(params: UpdateReadParams): Promise<void> {
     try {
       const agent = await this.getAgent();
-      
-      
-      const response = await agent.api.chat.bsky.convo.updateRead({
-        convoId: params.conversationId,
-        messageId: params.readAt,
-      }, {
-        headers: {
-          'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat`,
+
+      const response = await agent.api.chat.bsky.convo.updateRead(
+        {
+          convoId: params.conversationId,
+          messageId: params.messageId,
         },
-      });
+        {
+          headers: {
+            'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat`,
+          },
+        }
+      );
 
       if (!response.data) {
         throw new Error('Failed to update read status');
       }
     } catch (error: unknown) {
+      logger.error('Failed to update read status', error, {
+        component: 'ChatService',
+        conversationId: params.conversationId,
+        messageId: params.messageId,
+      });
       throw error;
     }
   }
@@ -551,34 +611,39 @@ class ChatService {
    * Get all conversations (for conversation list)
    * API: chat.bsky.convo.listConvos
    */
-  async getConversations(cursor?: string): Promise<{ conversations: Conversation[]; cursor: string | null }> {
+  async getConversations(
+    cursor?: string
+  ): Promise<{ conversations: Conversation[]; cursor: string | null }> {
     try {
       const agent = await this.getAgent();
-      
-      
-      const response = await agent.api.chat.bsky.convo.listConvos({
-        limit: 50,
-        ...(cursor && { cursor }),
-      }, {
-        headers: {
-          'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat`,
-        },
-      });
 
-      
+      const response = await agent.api.chat.bsky.convo.listConvos(
+        {
+          limit: 50,
+          ...(cursor && { cursor }),
+        },
+        {
+          headers: {
+            'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat`,
+          },
+        }
+      );
 
       if (!response.data) {
         return { conversations: [], cursor: null };
       }
 
-      const json = response.data as any;
+      const json = response.data as { convos?: ConvoView[]; cursor?: string | null };
       const conversations = await Promise.all((json.convos || []).map(this.mapConversationFromAPI));
 
-      return { 
-        conversations, 
-        cursor: json.cursor || null 
+      return {
+        conversations,
+        cursor: json.cursor || null,
       };
     } catch (error: unknown) {
+      logger.error('Failed to get conversations', error, {
+        component: 'ChatService',
+      });
       throw error;
     }
   }
@@ -587,37 +652,48 @@ class ChatService {
    * Get messages for a conversation (for chat screen)
    * API: chat.bsky.convo.getMessages
    */
-  async getMessages(conversationId: string, cursor?: string): Promise<{ messages: Message[]; cursor: string | null }> {
+  async getMessages(
+    conversationId: string,
+    cursor?: string
+  ): Promise<{ messages: Message[]; cursor: string | null }> {
     try {
       const agent = await this.getAgent();
-      
-      
-      const response = await agent.api.chat.bsky.convo.getMessages({
-        convoId: conversationId,
-        limit: 50,
-        ...(cursor && { cursor }),
-      }, {
-        headers: {
-          'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat`,
-        },
-      });
 
-      
+      const response = await agent.api.chat.bsky.convo.getMessages(
+        {
+          convoId: conversationId,
+          limit: 50,
+          ...(cursor && { cursor }),
+        },
+        {
+          headers: {
+            'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat`,
+          },
+        }
+      );
 
       if (!response.data) {
         return { messages: [], cursor: null };
       }
 
-      const json = response.data as any;
+      const json = response.data as {
+        logs?: APIMessageView[];
+        messages?: APIMessageView[];
+        cursor?: string | null;
+      };
       // Handle different possible response structures
       const logs = json.logs || json.messages || [];
       const messages = await Promise.all(logs.map(this.mapMessageFromAPI));
 
-      return { 
-        messages, 
-        cursor: json.cursor || null 
+      return {
+        messages,
+        cursor: json.cursor || null,
       };
     } catch (error: unknown) {
+      logger.error('Failed to get messages', error, {
+        component: 'ChatService',
+        conversationId,
+      });
       throw error;
     }
   }
@@ -629,7 +705,7 @@ class ChatService {
     try {
       // First try to find existing conversation
       const existingConvo = await this.getConversationForMembers([params.recipientDid]);
-      
+
       if (existingConvo) {
         return existingConvo;
       }
@@ -637,11 +713,11 @@ class ChatService {
       // If no existing conversation, create one using getConvoForMembers
       // This endpoint can create a conversation if it doesn't exist
       const newConvo = await this.getConversationForMembers([params.recipientDid]);
-      
+
       if (!newConvo) {
         throw new Error('Failed to create conversation');
       }
-      
+
       return newConvo;
     } catch (error: unknown) {
       throw error;
@@ -654,13 +730,16 @@ class ChatService {
   async isChatServiceAvailable(): Promise<boolean> {
     try {
       const agent = await this.getAgent();
-      
-      const response = await agent.api.chat.bsky.convo.getLog({}, {
-        headers: {
-          'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat`,
-        },
-      });
-      
+
+      const response = await agent.api.chat.bsky.convo.getLog(
+        {},
+        {
+          headers: {
+            'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat`,
+          },
+        }
+      );
+
       // If we get any response (even empty), the service is available
       return !!response.data;
     } catch (error) {
@@ -678,22 +757,30 @@ class ChatService {
       const { useUserStore } = await import('../stores/userStore');
       const userStore = useUserStore.getState();
       const currentUserDid = userStore.currentUser?.did;
-      
-      const response = await agent.api.chat.bsky.convo.getConvoAvailability({
-        members: currentUserDid ? [currentUserDid, userDid] : [userDid],
-      }, {
-        headers: {
-          'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat`,
+
+      const response = await agent.api.chat.bsky.convo.getConvoAvailability(
+        {
+          members: currentUserDid ? [currentUserDid, userDid] : [userDid],
         },
-      });
+        {
+          headers: {
+            'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat`,
+          },
+        }
+      );
 
       if (!response.data) {
         return false;
       }
 
-      const json = response.data as any;
+      const json = response.data as { canChat?: boolean };
       return json.canChat === true;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      logger.debug('Failed to check conversation availability', {
+        component: 'ChatService',
+        userDid,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
       return false;
     }
   }
@@ -706,27 +793,34 @@ class ChatService {
     try {
       // Get the latest message ID from the conversation
       const messages = await this.getMessages(conversationId);
-      
+
       if (messages.messages.length > 0) {
         // Get the latest message ID (first message in the array since they're sorted by date desc)
         const latestMessageId = messages.messages[0].id;
-        
+
         await this.updateReadStatus({
           conversationId,
-          readAt: latestMessageId,
+          messageId: latestMessageId,
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Don't throw - this is a non-critical operation
+      logger.debug('Failed to mark conversation as read', {
+        component: 'ChatService',
+        conversationId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
     }
   }
 
   // Data mapping methods
 
-  private mapConversationFromAPI = async (apiConv: ConvoView & { createdAt?: string }): Promise<Conversation> => {
+  private mapConversationFromAPI = async (
+    apiConv: ConvoView & { createdAt?: string }
+  ): Promise<Conversation> => {
     // Properly map members - they should be an array of objects with did, handle, displayName, etc.
     const members = Array.isArray(apiConv.members)
-      ? apiConv.members.map((member) => {
+      ? apiConv.members.map(member => {
           if (!member) return member as ProfileViewBasic;
           // Normalize deleted accounts coming through as missing.invalid
           if (member.handle === 'missing.invalid') {
@@ -739,7 +833,7 @@ class ChatService {
           return member as ProfileViewBasic;
         })
       : [];
-    
+
     return {
       id: apiConv.id,
       rev: apiConv.rev,
@@ -772,30 +866,36 @@ class ChatService {
     const { useUserStore } = await import('../stores/userStore');
     const userStore = useUserStore.getState();
     const currentUserDid = userStore.currentUser?.did || '';
-    
+
     // Check if it's a MessageView (has text) or DeletedMessageView
     const isMessageView = 'text' in apiMsg && typeof (apiMsg as any).text === 'string';
     const msg = apiMsg as any;
     const sender = msg.sender || {};
     const senderDid = sender.did || '';
     const sentAt = msg.sentAt || '';
-    
+
     return {
       id: apiMsg.id,
       rev: apiMsg.rev,
-      text: isMessageView ? (msg.text || '') : '',
+      text: isMessageView ? msg.text || '' : '',
       facets: isMessageView ? (msg.facets as Facet[] | undefined) : undefined,
-      embed: isMessageView && msg.embed && msg.embed.$type === 'app.bsky.embed.record' ? (msg.embed as RecordEmbed) : undefined,
-      reactions: isMessageView && Array.isArray(msg.reactions) ? msg.reactions.map((r: any) => ({
-        value: r.value || '',
-        sender: {
-          did: r.sender?.did || '',
-          handle: r.sender?.handle || '',
-          displayName: r.sender?.displayName,
-          avatar: r.sender?.avatar,
-        },
-        createdAt: r.createdAt || '',
-      })) : undefined,
+      embed:
+        isMessageView && msg.embed && msg.embed.$type === 'app.bsky.embed.record'
+          ? (msg.embed as RecordEmbed)
+          : undefined,
+      reactions:
+        isMessageView && Array.isArray(msg.reactions)
+          ? msg.reactions.map((r: any) => ({
+              value: r.value || '',
+              sender: {
+                did: r.sender?.did || '',
+                handle: r.sender?.handle || '',
+                displayName: r.sender?.displayName,
+                avatar: r.sender?.avatar,
+              },
+              createdAt: r.createdAt || '',
+            }))
+          : undefined,
       sender: {
         did: senderDid,
         handle: sender.handle || '',

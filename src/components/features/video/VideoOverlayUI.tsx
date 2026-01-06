@@ -1,20 +1,31 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import Animated, { type SharedValue, useSharedValue, useAnimatedStyle, withSpring, withTiming, withSequence, Easing, interpolate } from 'react-native-reanimated';
+import Animated, {
+  type SharedValue,
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  withSequence,
+  Easing,
+  interpolate,
+} from 'react-native-reanimated';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import {
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-  useWindowDimensions,
-} from 'react-native';
+import { View, Text, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '../../ui/UI';
-import { isTablet, isSmallScreen, getBottomNavBarHeight } from '../../../utils/helpers';
-import { HeartFillIcon, ChatFillIcon, RefreshFillIcon, MoreFillIcon, AddCircleLineIcon, CheckCircleFillIcon } from '../../ui/Icon';
+import { isTablet, isSmallScreen, getBottomNavBarHeight } from '../../../utils/device/screen';
+import {
+  HeartFillIcon,
+  ChatFillIcon,
+  RefreshFillIcon,
+  MoreFillIcon,
+  AddCircleLineIcon,
+  CheckCircleFillIcon,
+} from '../../ui/Icon';
 import { isCurrentUser } from '../../../stores/profileInteractionStore';
 import { Avatar } from '../../ui/UI';
-import { formatNumber, formatHandle } from '../../../utils/helpers';
+import { formatNumber } from '../../../utils/formatting/numbers';
+import { formatHandle } from '../../../utils/formatting/handles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
 import { VerificationBadge } from '../badging';
@@ -23,9 +34,9 @@ import { useRouter, useSegments } from 'expo-router';
 import { useFollowContext } from '../../../context/FollowContext';
 import { useTabBarHeight } from '../../../context/TabBarContext';
 import { useQueryClient } from '@tanstack/react-query';
-import { prepopulateProfileCache } from '../../../services/cache/ProfileCache';
+import { prefetchProfile } from '../../../services/data/ProfileService';
 import type { ExtendedPostView, PostRecord } from '../../../services/api/types';
-import type { RichTextFacet } from '../../../utils/richTextParser';
+import type { RichTextFacet } from '../../../utils/types/richText';
 import { useFeedSettings } from '../../../stores/userStore';
 
 // Use proper API types
@@ -82,7 +93,9 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   const baseBottomNavBarHeight = measuredTabBarHeight ?? calculatedBottomNavBarHeight;
   const { nativeTabsEnabled } = useFeedSettings();
   // Add extra height when using native tabs (native tabs are slightly taller)
-  const bottomNavBarHeight = nativeTabsEnabled ? baseBottomNavBarHeight + 10 : baseBottomNavBarHeight;
+  const bottomNavBarHeight = nativeTabsEnabled
+    ? baseBottomNavBarHeight + 10
+    : baseBottomNavBarHeight;
   const { width } = useWindowDimensions();
   const { presentShareSheet } = useGlobalShareSheet();
   const { presentCommentSection } = useGlobalCommentSection();
@@ -90,17 +103,18 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   const segments = useSegments();
   const hasTabBar = Array.isArray(segments) && segments[0] === '(tabs)';
   const queryClient = useQueryClient();
-  
+
   // Overlay state
   const [isOverlayCollapsed, setIsOverlayCollapsed] = useState(true);
 
   // Memoize expensive calculations to prevent rerenders
   const author = useMemo(() => post.author || {}, [post.author]);
   const record = useMemo(() => post.record as PostRecord | undefined, [post.record]);
-  const profilePicUrl = useMemo(() => 
-    author.avatar && author.avatar.startsWith('http')
-      ? author.avatar
-      : 'https://via.placeholder.com/40',
+  const profilePicUrl = useMemo(
+    () =>
+      author.avatar && author.avatar.startsWith('http')
+        ? author.avatar
+        : 'https://via.placeholder.com/40',
     [author.avatar]
   );
 
@@ -122,34 +136,49 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   );
 
   // Modal-aware navigation to AuthorProfile (works inside FeedModal or regular screens)
-  const navigateToAuthorProfile = useCallback((rawHandle?: string | null, authorData?: { did?: string; handle?: string; displayName?: string; avatar?: string }) => {
-    const cleanHandle = (rawHandle || '').trim();
-    if (!cleanHandle) return;
-    
-    // Pre-populate profile cache with available author data
-    if (authorData && queryClient) {
-      prepopulateProfileCache(queryClient, {
-        did: authorData.did,
-        handle: authorData.handle || cleanHandle,
-        displayName: authorData.displayName,
-        avatar: authorData.avatar,
-      }, cleanHandle);
-    }
-    
-    navigation.push(`/profile/${cleanHandle}`);
-  }, [navigation, queryClient]);
+  const navigateToAuthorProfile = useCallback(
+    (
+      rawHandle?: string | null,
+      authorData?: { did?: string; handle?: string; displayName?: string; avatar?: string }
+    ) => {
+      const cleanHandle = (rawHandle || '').trim();
+      if (!cleanHandle) return;
+
+      // Prefetch profile with partial data for instant UI + full data in background
+      if (queryClient) {
+        prefetchProfile(
+          queryClient,
+          cleanHandle,
+          authorData
+            ? {
+                did: authorData.did,
+                handle: authorData.handle || cleanHandle,
+                displayName: authorData.displayName,
+                avatar: authorData.avatar,
+              }
+            : undefined
+        );
+      }
+
+      navigation.push(`/profile/${cleanHandle}`);
+    },
+    [navigation, queryClient]
+  );
 
   // Navigation to hashtag feed
-  const navigateToHashtagFeed = useCallback((hashtag: string) => {
-    navigation.push({
-      pathname: '/(modals)/feed',
-      params: {
-        feedOption: `hashtag:${hashtag}`,
-        backgroundColor: '#000000',
-        searchQuery: `#${hashtag}`,
-      }
-    });
-  }, [navigation]);
+  const navigateToHashtagFeed = useCallback(
+    (hashtag: string) => {
+      navigation.push({
+        pathname: '/(modals)/feed',
+        params: {
+          feedOption: `hashtag:${hashtag}`,
+          backgroundColor: '#000000',
+          searchQuery: `#${hashtag}`,
+        },
+      });
+    },
+    [navigation]
+  );
 
   // Handle author press
   const handleAuthorPress = useCallback(() => {
@@ -188,7 +217,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
       transform: [{ scale: likeScale.value }],
     };
   });
-  
+
   const uiCalculations = useMemo(() => {
     return {
       contentPadding: Math.round(Math.max(8, Math.min(14, width * 0.025))),
@@ -197,18 +226,21 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
       authorAvatarSize: Math.round(Math.max(46, Math.min(64, width * 0.12))),
     };
   }, [width]);
-  
+
   const { contentPadding, actionIconSize, authorAvatarSize } = uiCalculations;
 
   // Memoize icon rendering to prevent unnecessary recreations
-  const renderLikeIcon = useCallback(() => (
-    <Animated.View style={likeAnimatedStyle}>
-      <HeartFillIcon 
-        size={isTabletDevice ? Math.max(actionIconSize, 34) : actionIconSize} 
-        color={isLiked ? Colors.INTERACTIVE.HEART.ACTIVE : Colors.white} 
-      />
-    </Animated.View>
-  ), [likeAnimatedStyle, isTabletDevice, actionIconSize, isLiked]);
+  const renderLikeIcon = useCallback(
+    () => (
+      <Animated.View style={likeAnimatedStyle}>
+        <HeartFillIcon
+          size={isTabletDevice ? Math.max(actionIconSize, 34) : actionIconSize}
+          color={isLiked ? Colors.INTERACTIVE.HEART.ACTIVE : Colors.white}
+        />
+      </Animated.View>
+    ),
+    [likeAnimatedStyle, isTabletDevice, actionIconSize, isLiked]
+  );
 
   // Repost animation: quick tilt (wiggle) + slight scale pulse
   const repostScale = useSharedValue(1);
@@ -219,25 +251,31 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
     const rotateValue = repostRotate.value;
     const rotateStr = rotateValue === 0 ? '0rad' : `${rotateValue}rad`;
     return {
-      transform: [
-        { rotate: rotateStr },
-        { scale: repostScale.value },
-      ],
+      transform: [{ rotate: rotateStr }, { scale: repostScale.value }],
     };
   });
 
-  const renderRepostIcon = useCallback(() => (
-    <Animated.View style={repostAnimatedStyle}>
-      <RefreshFillIcon 
-        size={isTabletDevice ? Math.max(actionIconSize, 34) : actionIconSize} 
-        color={isReposted ? Colors.INTERACTIVE.REPOST.ACTIVE : Colors.INTERACTIVE.REPOST.INACTIVE} 
-      />
-    </Animated.View>
-  ), [repostAnimatedStyle, isTabletDevice, actionIconSize, isReposted]);
+  const renderRepostIcon = useCallback(
+    () => (
+      <Animated.View style={repostAnimatedStyle}>
+        <RefreshFillIcon
+          size={isTabletDevice ? Math.max(actionIconSize, 34) : actionIconSize}
+          color={isReposted ? Colors.INTERACTIVE.REPOST.ACTIVE : Colors.INTERACTIVE.REPOST.INACTIVE}
+        />
+      </Animated.View>
+    ),
+    [repostAnimatedStyle, isTabletDevice, actionIconSize, isReposted]
+  );
 
-  const commentIcon = useMemo(() => (
-    <ChatFillIcon size={isTabletDevice ? Math.max(actionIconSize, 34) : actionIconSize} color={Colors.INTERACTIVE.COMMENT} />
-  ), [isTabletDevice, actionIconSize]);
+  const commentIcon = useMemo(
+    () => (
+      <ChatFillIcon
+        size={isTabletDevice ? Math.max(actionIconSize, 34) : actionIconSize}
+        color={Colors.INTERACTIVE.COMMENT}
+      />
+    ),
+    [isTabletDevice, actionIconSize]
+  );
 
   // Follow state and mutation (lifted: follow state comes from parent, mutation from context)
   const { followMutation, currentUser } = useFollowContext();
@@ -271,28 +309,33 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   const { badgeSize, offset, hitBoxSize, hitBoxOffset } = followBadgeMetrics;
 
   // Memoize dynamic styles to prevent style object recreation
-  const overlayContentStyle = useMemo(() => [
-    styles.overlayContentContainer,
-    { padding: contentPadding },
-    isModal
-      ? { bottom: 0 }
-      : hasTabBar && (isSmallScreenDevice || isTabletDevice)
-        ? { bottom: bottomNavBarHeight }
-        : {},
-  ], [contentPadding, isModal, isSmallScreenDevice, isTabletDevice, bottomNavBarHeight, hasTabBar]);
+  const overlayContentStyle = useMemo(
+    () => [
+      styles.overlayContentContainer,
+      { padding: contentPadding },
+      isModal
+        ? { bottom: 0 }
+        : hasTabBar && (isSmallScreenDevice || isTabletDevice)
+          ? { bottom: bottomNavBarHeight }
+          : {},
+    ],
+    [contentPadding, isModal, isSmallScreenDevice, isTabletDevice, bottomNavBarHeight, hasTabBar]
+  );
 
   // Use animated opacity instead of conditional rendering to prevent unmounting
   // This reduces jank when switching between videos
   const overlayOpacityShared = useSharedValue(isVisible ? 1 : 0);
-  
+
   // Update shared value when prop changes - matches scrubber timer transition
   useEffect(() => {
-    overlayOpacityShared.set(withTiming(isVisible ? 1 : 0, {
-      duration: 60,
-      easing: Easing.out(Easing.ease),
-    }));
+    overlayOpacityShared.set(
+      withTiming(isVisible ? 1 : 0, {
+        duration: 60,
+        easing: Easing.out(Easing.ease),
+      })
+    );
   }, [isVisible, overlayOpacityShared]);
-  
+
   // Explicit worklet directive ensures this runs on UI thread for optimal performance
   // Smoothly fade out overlay when scrubbing, fade in when scrubbing stops
   const overlayAnimatedStyle = useAnimatedStyle(() => {
@@ -301,283 +344,274 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
     // Smoothly interpolate overlay opacity based on scrubbing animation
     // When seekingAnimationSV is 0 (not scrubbing), opacity is 1
     // When seekingAnimationSV is >= 0.2, opacity fades to 0
-    const scrubbingOpacity = seekingAnimationSV 
+    const scrubbingOpacity = seekingAnimationSV
       ? interpolate(seekingAnimationSV.get(), [0, 0.2, 1], [1, 0, 0], 'clamp')
       : 1;
     return {
       opacity: baseOpacity * scrubbingOpacity,
     };
   }, [seekingAnimationSV]);
-  
-  const overlayPointerEvents = isVisible ? 'box-none' as const : 'none' as const;
+
+  const overlayPointerEvents = isVisible ? ('box-none' as const) : ('none' as const);
 
   return (
     <>
-      <Animated.View 
-        style={[styles.overlayContainer, overlayAnimatedStyle]} 
+      <Animated.View
+        style={[styles.overlayContainer, overlayAnimatedStyle]}
         pointerEvents={overlayPointerEvents}
       >
-      <View 
-        style={overlayContentStyle} 
-        pointerEvents="box-none"
-      >
-        <View style={styles.infoColumn} pointerEvents="box-none">
-          {/* Repost indicator - repost icon + name text */}
-          {post.repostedBy && (
-            <View style={styles.repostIndicatorBox}>
-              <Pressable 
-                style={styles.repostIndicatorContainer}
-                onPress={handleRepostAuthorPress}
-              >
-                <View style={{ opacity: 0.8 }}>
-                  <RefreshFillIcon 
-                    size={isTabletDevice ? 26 : 24}
-                    color={Colors.lightGray}
-                  />
-                </View>
-                <Text style={[
-                  isTabletDevice
-                    ? styles.repostIndicatorTextTablet
-                    : styles.repostIndicatorText,
-                  { opacity: 0.8 }
-                ]}>
-                  {`reposted by ${formatHandle(post.repostedBy?.handle || '')}`}
-                </Text>
-              </Pressable>
-            </View>
-          )}
-          
-          {/* Description container */}
-          {record?.text && (
-            <View style={styles.descriptionContainer}>
-              {hasLongText ? (
-                <Pressable onPress={toggleCollapsed}>
+        <View style={overlayContentStyle} pointerEvents="box-none">
+          <View style={styles.infoColumn} pointerEvents="box-none">
+            {/* Repost indicator - repost icon + name text */}
+            {post.repostedBy && (
+              <View style={styles.repostIndicatorBox}>
+                <Pressable
+                  style={styles.repostIndicatorContainer}
+                  onPress={handleRepostAuthorPress}
+                >
+                  <View style={{ opacity: 0.8 }}>
+                    <RefreshFillIcon size={isTabletDevice ? 26 : 24} color={Colors.lightGray} />
+                  </View>
+                  <Text
+                    style={[
+                      isTabletDevice
+                        ? styles.repostIndicatorTextTablet
+                        : styles.repostIndicatorText,
+                      { opacity: 0.8 },
+                    ]}
+                  >
+                    {`reposted by ${formatHandle(post.repostedBy?.handle || '')}`}
+                  </Text>
+                </Pressable>
+              </View>
+            )}
+
+            {/* Description container */}
+            {record?.text && (
+              <View style={styles.descriptionContainer}>
+                {hasLongText ? (
+                  <Pressable onPress={toggleCollapsed}>
+                    <TextWithAuthorLinks
+                      text={record.text}
+                      style={styles.descriptionText}
+                      numberOfLines={isOverlayCollapsed ? 2 : undefined}
+                      onAuthorPress={navigateToAuthorProfile}
+                      onHashtagPress={navigateToHashtagFeed}
+                      facets={record.facets as RichTextFacet[] | undefined}
+                    />
+                  </Pressable>
+                ) : (
                   <TextWithAuthorLinks
                     text={record.text}
                     style={styles.descriptionText}
-                    numberOfLines={isOverlayCollapsed ? 2 : undefined}
                     onAuthorPress={navigateToAuthorProfile}
                     onHashtagPress={navigateToHashtagFeed}
                     facets={record.facets as RichTextFacet[] | undefined}
                   />
-                </Pressable>
-              ) : (
-                <TextWithAuthorLinks
-                  text={record.text}
-                  style={styles.descriptionText}
-                  onAuthorPress={navigateToAuthorProfile}
-                  onHashtagPress={navigateToHashtagFeed}
-                  facets={record.facets as RichTextFacet[] | undefined}
-                />
-              )}
-            </View>
-          )}
-          
-          {/* Author info */}
-          <Pressable
-            style={styles.authorInfoContainer}
-            onPress={handleAuthorPress}
-          >
-            <View style={{ position: 'relative', overflow: 'visible' }}>
-              <Avatar
-                uri={profilePicUrl}
-                type="profile"
-                size={authorAvatarSize}
-                style={[
-                  isTabletDevice
-                    ? styles.profilePictureTablet
-                    : styles.profilePicture
-                ]}
-              />
-              {/* Follow badge overlay: show + when not following, show check briefly after follow */}
-              {hasProfile && !isFollowing && !showFollowConfirmation && !hasFollowedForPost && !isCurrentUserProfile && (
-                <Pressable
-                  onPress={() => {
-                    if (!post.author?.handle) return;
-                    // Optimistically show checkmark immediately
-                    setShowFollowConfirmation(true);
-                    setHasFollowedForPost(true);
-                    // Trigger server follow
-                    try {
-                      followMutation.mutate({ handle: post.author.handle, isFollowing: true });
-                    } catch (err) {
-                      // If mutation fails, hide the checkmark
-                      setShowFollowConfirmation(false);
-                      setHasFollowedForPost(false);
-                    }
-                  }}
-                  disabled={followMutation.isPending}
-                  hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-                  style={[
-                    styles.followBadge,
-                    { 
-                      right: -offset - hitBoxOffset, 
-                      top: -offset - hitBoxOffset 
-                    },
-                    { width: hitBoxSize, height: hitBoxSize },
-                  ]}
-                >
-                  <AddCircleLineIcon size={badgeSize} color={Colors.black} />
-                </Pressable>
-              )}
-              {showFollowConfirmation && !isCurrentUserProfile && (
-                <View
-                  pointerEvents="none"
-                  style={[
-                    styles.followBadge,
-                    { right: -offset, top: -offset },
-                    { width: badgeSize, height: badgeSize },
-                  ]}
-                >
-                  <CheckCircleFillIcon size={badgeSize} color="#01f5b3" />
-                </View>
-              )}
-            </View>
-            <View style={styles.authorTextContainer}>
-              <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                <Text 
-                  style={[
-                    styles.baseText,
-                    isTabletDevice
-                      ? styles.authorNameTablet
-                      : styles.authorName
-                  ]}
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                >
-                  {formatHandle(author.handle)}
-                </Text>
-                {author.handle && <VerificationBadge 
-                  handle={author.handle} 
-                  textSize={isTabletDevice ? 16 : 14} 
-                  autoPosition={true}
-                  textColor={Colors.white}
-                />}
+                )}
               </View>
-              {channelSlug ? (
-                <Pressable 
-                  style={styles.sourceIndicatorContainer}
-                  onPress={onChannelPress}
-                >
-                  <Text style={[
-                    isTabletDevice
-                      ? styles.sourceTextTablet
-                      : styles.sourceText,
-                    { 
-                      color: Colors.white,
-                      opacity: 0.70
-                    }
-                  ]}>
-                    /{channelSlug}
-                  </Text>
-                </Pressable>
-              ) : null}
-            </View>
-          </Pressable>
-        </View>
-        
-        {/* Action buttons */}
-        <View style={styles.actionsContainer} pointerEvents="box-none">
-          <Pressable 
-            style={[
-              styles.baseActionButton,
-              isTabletDevice
-                ? styles.actionButtonTablet
-                : styles.actionButton
-            ]} 
-            onPress={handleSharePress}
-          >
-            <View style={styles.iconContainer}>
-              <MoreFillIcon size={isTabletDevice ? Math.max(actionIconSize - 6, 24) : actionIconSize - 6} color={Colors.white} />
-            </View>
-          </Pressable>
+            )}
 
-          <Pressable 
-            style={[
-              styles.baseActionButton,
-              isTabletDevice
-                ? styles.actionButtonTablet
-                : styles.actionButton,
-              isRepostPending && styles.actionButtonDisabled
-            ]} 
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              // Different animation than heart: wiggle (tilt) + slight scale
-              if (!isReposted) {
-                repostScale.value = withSequence(
-                  withTiming(1.08, { duration: 120 }),
-                  withTiming(1.0, { duration: 120 })
-                );
-                repostRotate.value = withSequence(
-                  withTiming(0.20, { duration: 90 }), // ~11.5deg
-                  withTiming(-0.12, { duration: 90 }), // ~-7deg
-                  withTiming(0, { duration: 90 })
-                );
-              } else {
-                // On undo, ensure we reset any lingering transforms
-                repostScale.value = withTiming(1, { duration: 100 });
-                repostRotate.value = withTiming(0, { duration: 100 });
-              }
-              onRepost?.();
-            }}
-            disabled={isRepostPending}
-          >
-            {renderRepostIcon()}
-            <Text style={isTabletDevice ? styles.actionTextTablet : styles.actionText}>{formatNumber(repostCount)}</Text>
-          </Pressable>
-          
-          <Pressable 
-            style={[
-              styles.baseActionButton,
-              isTabletDevice
-                ? styles.actionButtonTablet
-                : styles.actionButton
-            ]} 
-            onPress={() => {
-              presentCommentSection({
-                post,
-                totalLikes: likeCount,
-                totalComments: post.replyCount || 0,
-                isLiked,
-                postedAt: (post.record?.createdAt || post.indexedAt) as string | undefined,
-                onToggleLike: onLike,
-                isLikePending,
-              });
-            }}
-          >
-            {commentIcon}
-            <Text style={isTabletDevice ? styles.actionTextTablet : styles.actionText}>{formatNumber(post.replyCount || 0)}</Text>
-          </Pressable>
-          
-          <Pressable 
-            style={[
-              styles.baseActionButton,
-              isTabletDevice
-                ? styles.actionButtonTablet
-                : styles.actionButton,
-              isLikePending && styles.actionButtonDisabled
-            ]} 
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              // Animate only on like; if unliking mid-animation, reset scale
-              if (!isLiked) {
-                likeScale.value = withSpring(1.2, { damping: 12, stiffness: 220 }, () => {
-                  likeScale.value = withSpring(1);
+            {/* Author info */}
+            <Pressable style={styles.authorInfoContainer} onPress={handleAuthorPress}>
+              <View style={{ position: 'relative', overflow: 'visible' }}>
+                <Avatar
+                  uri={profilePicUrl}
+                  type="profile"
+                  size={authorAvatarSize}
+                  style={[isTabletDevice ? styles.profilePictureTablet : styles.profilePicture]}
+                />
+                {/* Follow badge overlay: show + when not following, show check briefly after follow */}
+                {hasProfile &&
+                  !isFollowing &&
+                  !showFollowConfirmation &&
+                  !hasFollowedForPost &&
+                  !isCurrentUserProfile && (
+                    <Pressable
+                      onPress={() => {
+                        if (!post.author?.handle) return;
+                        // Optimistically show checkmark immediately
+                        setShowFollowConfirmation(true);
+                        setHasFollowedForPost(true);
+                        // Trigger server follow
+                        try {
+                          followMutation.mutate({ handle: post.author.handle, isFollowing: true });
+                        } catch (_err) {
+                          // If mutation fails, hide the checkmark
+                          setShowFollowConfirmation(false);
+                          setHasFollowedForPost(false);
+                        }
+                      }}
+                      disabled={followMutation.isPending}
+                      hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                      style={[
+                        styles.followBadge,
+                        {
+                          right: -offset - hitBoxOffset,
+                          top: -offset - hitBoxOffset,
+                        },
+                        { width: hitBoxSize, height: hitBoxSize },
+                      ]}
+                    >
+                      <AddCircleLineIcon size={badgeSize} color={Colors.black} />
+                    </Pressable>
+                  )}
+                {showFollowConfirmation && !isCurrentUserProfile && (
+                  <View
+                    pointerEvents="none"
+                    style={[
+                      styles.followBadge,
+                      { right: -offset, top: -offset },
+                      { width: badgeSize, height: badgeSize },
+                    ]}
+                  >
+                    <CheckCircleFillIcon size={badgeSize} color="#01f5b3" />
+                  </View>
+                )}
+              </View>
+              <View style={styles.authorTextContainer}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text
+                    style={[
+                      styles.baseText,
+                      isTabletDevice ? styles.authorNameTablet : styles.authorName,
+                    ]}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {formatHandle(author.handle)}
+                  </Text>
+                  {author.handle && (
+                    <VerificationBadge
+                      handle={author.handle}
+                      textSize={isTabletDevice ? 16 : 14}
+                      autoPosition={true}
+                      textColor={Colors.white}
+                    />
+                  )}
+                </View>
+                {channelSlug ? (
+                  <Pressable style={styles.sourceIndicatorContainer} onPress={onChannelPress}>
+                    <Text
+                      style={[
+                        isTabletDevice ? styles.sourceTextTablet : styles.sourceText,
+                        {
+                          color: Colors.white,
+                          opacity: 0.7,
+                        },
+                      ]}
+                    >
+                      /{channelSlug}
+                    </Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            </Pressable>
+          </View>
+
+          {/* Action buttons */}
+          <View style={styles.actionsContainer} pointerEvents="box-none">
+            <Pressable
+              style={[
+                styles.baseActionButton,
+                isTabletDevice ? styles.actionButtonTablet : styles.actionButton,
+              ]}
+              onPress={handleSharePress}
+            >
+              <View style={styles.iconContainer}>
+                <MoreFillIcon
+                  size={isTabletDevice ? Math.max(actionIconSize - 6, 24) : actionIconSize - 6}
+                  color={Colors.white}
+                />
+              </View>
+            </Pressable>
+
+            <Pressable
+              style={[
+                styles.baseActionButton,
+                isTabletDevice ? styles.actionButtonTablet : styles.actionButton,
+                isRepostPending && styles.actionButtonDisabled,
+              ]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                // Different animation than heart: wiggle (tilt) + slight scale
+                if (!isReposted) {
+                  repostScale.value = withSequence(
+                    withTiming(1.08, { duration: 120 }),
+                    withTiming(1.0, { duration: 120 })
+                  );
+                  repostRotate.value = withSequence(
+                    withTiming(0.2, { duration: 90 }), // ~11.5deg
+                    withTiming(-0.12, { duration: 90 }), // ~-7deg
+                    withTiming(0, { duration: 90 })
+                  );
+                } else {
+                  // On undo, ensure we reset any lingering transforms
+                  repostScale.value = withTiming(1, { duration: 100 });
+                  repostRotate.value = withTiming(0, { duration: 100 });
+                }
+                onRepost?.();
+              }}
+              disabled={isRepostPending}
+            >
+              {renderRepostIcon()}
+              <Text style={isTabletDevice ? styles.actionTextTablet : styles.actionText}>
+                {formatNumber(repostCount)}
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={[
+                styles.baseActionButton,
+                isTabletDevice ? styles.actionButtonTablet : styles.actionButton,
+              ]}
+              onPress={() => {
+                presentCommentSection({
+                  post,
+                  totalLikes: likeCount,
+                  totalComments: post.replyCount || 0,
+                  isLiked,
+                  postedAt: (post.record?.createdAt || post.indexedAt) as string | undefined,
+                  onToggleLike: onLike,
+                  isLikePending,
                 });
-              } else {
-                // ensure we cancel any lingering animation when unliking
-                likeScale.value = withSpring(1);
-              }
-              onLike?.();
-            }}
-            disabled={isLikePending}
-          >
-            {renderLikeIcon()}
-            <Text style={isTabletDevice ? styles.actionTextTablet : styles.actionText}>{formatNumber(likeCount)}</Text>
-          </Pressable>
+              }}
+            >
+              {commentIcon}
+              <Text style={isTabletDevice ? styles.actionTextTablet : styles.actionText}>
+                {formatNumber(post.replyCount || 0)}
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={[
+                styles.baseActionButton,
+                isTabletDevice ? styles.actionButtonTablet : styles.actionButton,
+                isLikePending && styles.actionButtonDisabled,
+              ]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                // Animate only on like; if unliking mid-animation, reset scale
+                if (!isLiked) {
+                  likeScale.value = withSpring(1.2, { damping: 12, stiffness: 220 }, () => {
+                    likeScale.value = withSpring(1);
+                  });
+                } else {
+                  // ensure we cancel any lingering animation when unliking
+                  likeScale.value = withSpring(1);
+                }
+                onLike?.();
+              }}
+              disabled={isLikePending}
+            >
+              {renderLikeIcon()}
+              <Text style={isTabletDevice ? styles.actionTextTablet : styles.actionText}>
+                {formatNumber(likeCount)}
+              </Text>
+            </Pressable>
+          </View>
         </View>
-      </View>
-    </Animated.View>
+      </Animated.View>
     </>
   );
 };
@@ -820,10 +854,10 @@ const styles = StyleSheet.create({
 const arePropsEqual = (prevProps: VideoOverlayUIProps, nextProps: VideoOverlayUIProps) => {
   // Always re-render if visibility changes (needed for opacity transition)
   if (prevProps.isVisible !== nextProps.isVisible) return false;
-  
+
   // Compare post URI (most important identifier)
   if (prevProps.post?.uri !== nextProps.post?.uri) return false;
-  
+
   // Compare interaction states
   if (prevProps.isLiked !== nextProps.isLiked) return false;
   if (prevProps.isReposted !== nextProps.isReposted) return false;
@@ -831,14 +865,14 @@ const arePropsEqual = (prevProps: VideoOverlayUIProps, nextProps: VideoOverlayUI
   if (prevProps.repostCount !== nextProps.repostCount) return false;
   if (prevProps.isLikePending !== nextProps.isLikePending) return false;
   if (prevProps.isRepostPending !== nextProps.isRepostPending) return false;
-  
+
   // Compare modal state
   if (prevProps.isModal !== nextProps.isModal) return false;
-  
+
   // Compare feed options
   if (prevProps.feedOption !== nextProps.feedOption) return false;
   if (prevProps.sourceFeed !== nextProps.sourceFeed) return false;
-  
+
   // If all critical props are the same, skip re-render
   return true;
 };

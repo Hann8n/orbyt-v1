@@ -9,8 +9,8 @@ import AtprotoService from '../../../services/api/AtprotoService';
 import { Avatar } from '../../ui/UI';
 import { VerificationBadge } from '../badging';
 import { useRouter } from 'expo-router';
-import ProfileCache, { useFollowMutation } from '../../../services/cache/ProfileCache';
-import { formatHandle } from '../../../utils/helpers';
+import ProfileService, { useFollowMutation } from '../../../services/data/ProfileService';
+import { formatHandle } from '../../../utils/formatting/handles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 // Use require for static RN asset to avoid TS module typing issues
 const UFOGif = require('../../../assets/UFO5504.gif');
@@ -44,15 +44,15 @@ interface SuggestedUser {
   };
 }
 
-const EmptyFeed: React.FC<EmptyFeedProps> = ({ 
-  secondaryColor, 
+const EmptyFeed: React.FC<EmptyFeedProps> = ({
+  secondaryColor,
   message,
   type = 'no-videos',
   profileColors,
   onRetry,
   isProfileFeed = false,
   viewableAreaHeight,
-  feedOption
+  feedOption,
 }) => {
   const navigation = useRouter();
   const [suggestedUsers, setSuggestedUsers] = useState<SuggestedUser[]>([]);
@@ -95,55 +95,57 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
       case 'no-connection':
         return {
           icon: 'alert-circle',
-          defaultMessage: "can't connect to feed"
+          defaultMessage: "can't connect to feed",
         };
       case 'error':
         return {
           icon: 'alert-circle',
-          defaultMessage: "something went wrong"
+          defaultMessage: 'something went wrong',
         };
       case 'no-following':
         return {
           icon: 'user-plus',
-          defaultMessage: "follow accounts to see their posts here"
+          defaultMessage: 'follow accounts to see their posts here',
         };
       case 'end':
         const endMessage = () => {
           switch (feedOption) {
             case 'following':
-              return "";
+              return '';
             case 'your-mix':
               return "that's all from your channels";
             case 'discover':
-              return "explore more content";
+              return 'explore more content';
             default:
               return "that's all for now";
           }
         };
         return {
           icon: 'video-movies-vintage-tv-1',
-          defaultMessage: endMessage()
+          defaultMessage: endMessage(),
         };
       case 'no-videos':
       default:
         return {
           icon: isProfileFeed ? 'telescope' : 'interface-essential-search-binocular',
-          defaultMessage: getNoVideosMessage()
+          defaultMessage: getNoVideosMessage(),
         };
     }
   };
 
   const { icon, defaultMessage } = getIconAndMessage();
   const displayMessage = message || defaultMessage;
-  
+
   // Icon can still vary by theme, but message text should always use brand secondary color
-  const iconColor = profileColors ? profileColors.textColor : (secondaryColor || Colors.lightGray);
+  const iconColor = profileColors ? profileColors.textColor : secondaryColor || Colors.lightGray;
   const textColor = Colors.lightGray;
 
   // Render suggested user item using explore screen UI pattern
   const renderSuggestedUser = ({ item }: { item: SuggestedUser }) => {
-    const isFollowing = ProfileCache.getProfileFromCacheSync(item.handle || '')?.isFollowing ?? !!item.viewer?.following;
-    
+    const isFollowing =
+      ProfileService.getProfileFromCacheSync(item.handle || '')?.isFollowing ??
+      !!item.viewer?.following;
+
     return (
       <View style={styles.profileItem}>
         <View style={styles.profileTouchable}>
@@ -155,14 +157,14 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
             style={styles.profileImage}
           />
           <View style={styles.profileContent}>
-            <View style={{flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0}}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0 }}>
               <Text style={styles.displayName} numberOfLines={1} ellipsizeMode="tail">
                 {item.displayName || formatHandle(item.handle) || 'Unknown user'}
               </Text>
               {item.handle && item.handle.trim() && item.handle.length > 0 && (
-                <VerificationBadge 
-                  handle={item.handle.trim()} 
-                  textSize={14} 
+                <VerificationBadge
+                  handle={item.handle.trim()}
+                  textSize={14}
                   textColor={Colors.white}
                 />
               )}
@@ -173,9 +175,9 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
           <Pressable
             style={styles.followButton}
             onPress={() => {
-              followMutation.mutate({ 
-                handle: item.handle, 
-                isFollowing: !isFollowing
+              followMutation.mutate({
+                handle: item.handle,
+                isFollowing: !isFollowing,
               });
             }}
           >
@@ -196,7 +198,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
   // Show suggested users for following feed with no videos
   if (shouldShowSuggestions && suggestedUsers.length > 0) {
     return (
-      <View 
+      <View
         style={[
           styles.emptyContainer,
           viewableAreaHeight
@@ -207,7 +209,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
                   : Dimensions.get('window').height - insets.top - insets.bottom,
                 paddingTop: insets.top,
                 paddingBottom: insets.bottom,
-              }
+              },
         ]}
       >
         <View style={[styles.contentContainer, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -215,19 +217,15 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
             <Image source={TVStaticGif} style={styles.ufoGif} contentFit="contain" />
           </View>
           {displayMessage && (
-            <Text style={[styles.emptyText, { color: textColor }]}>
-              {displayMessage}
-            </Text>
+            <Text style={[styles.emptyText, { color: textColor }]}>{displayMessage}</Text>
           )}
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>
-              suggested accounts
-            </Text>
+            <Text style={styles.sectionTitle}>suggested accounts</Text>
           </View>
           <FlatList
             data={suggestedUsers}
             renderItem={renderSuggestedUser}
-            keyExtractor={(item) => item.did}
+            keyExtractor={item => item.did}
             scrollEnabled={false}
             style={styles.suggestionsList}
             contentContainerStyle={styles.listContainer}
@@ -241,38 +239,36 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
     // For following feed, show the "follow accounts" UI with suggestions
     if (feedOption === 'following' && shouldShowSuggestions && suggestedUsers.length > 0) {
       return (
-        <View 
+        <View
           style={[
             styles.emptyContainer,
             { justifyContent: 'center' },
-            viewableAreaHeight ? { height: viewableAreaHeight } : {}
+            viewableAreaHeight ? { height: viewableAreaHeight } : {},
           ]}
         >
-          <View style={[styles.contentContainer, { justifyContent: 'center', alignItems: 'center' }]}>
+          <View
+            style={[styles.contentContainer, { justifyContent: 'center', alignItems: 'center' }]}
+          >
             <View style={styles.iconContainer}>
-              <Image 
-                source={TVStaticGif} 
-                style={styles.ufoGif} 
-                contentFit="contain" 
+              <Image
+                source={TVStaticGif}
+                style={styles.ufoGif}
+                contentFit="contain"
                 cachePolicy="memory-disk"
                 priority="low"
                 allowDownscaling={true}
               />
             </View>
             {displayMessage && (
-              <Text style={[styles.emptyText, { color: textColor }]}> 
-                {displayMessage}
-              </Text>
+              <Text style={[styles.emptyText, { color: textColor }]}>{displayMessage}</Text>
             )}
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>
-                suggested accounts
-              </Text>
+              <Text style={styles.sectionTitle}>suggested accounts</Text>
             </View>
             <FlatList
               data={suggestedUsers}
               renderItem={renderSuggestedUser}
-              keyExtractor={(item) => item.did}
+              keyExtractor={item => item.did}
               scrollEnabled={false}
               style={styles.suggestionsList}
               contentContainerStyle={styles.listContainer}
@@ -281,72 +277,65 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
         </View>
       );
     }
-    
+
     return (
-      <View 
+      <View
         style={[
           styles.emptyContainer,
           { justifyContent: 'center' },
-          viewableAreaHeight ? { height: viewableAreaHeight } : {}
+          viewableAreaHeight ? { height: viewableAreaHeight } : {},
         ]}
       >
-          <View style={[styles.contentContainer, { justifyContent: 'center' }]}>
-            <View style={styles.iconContainer}>
-              <Image 
-                source={LivingGif} 
-                style={styles.ufoGif} 
-                contentFit="contain" 
-                cachePolicy="memory-disk"
-                priority="low"
-                allowDownscaling={true}
-              />
-            </View>
-          <Text style={[styles.emptyText, { color: textColor }]}> 
-            {displayMessage}
-          </Text>
+        <View style={[styles.contentContainer, { justifyContent: 'center' }]}>
+          <View style={styles.iconContainer}>
+            <Image
+              source={LivingGif}
+              style={styles.ufoGif}
+              contentFit="contain"
+              cachePolicy="memory-disk"
+              priority="low"
+              allowDownscaling={true}
+            />
+          </View>
+          <Text style={[styles.emptyText, { color: textColor }]}>{displayMessage}</Text>
         </View>
       </View>
     );
   }
-  
+
   return (
-    <View 
+    <View
       style={[
         styles.emptyContainer,
         viewableAreaHeight ? { height: viewableAreaHeight } : undefined,
       ]}
     >
       <View style={[styles.contentContainer, shouldOffsetTop && { paddingTop: topThirdOffset }]}>
-          <View style={styles.iconContainer}>
-            {(isProfileFeed || (feedOption && feedOption.startsWith('hashtag:'))) && type === 'no-videos' ? (
-              <Image 
-                source={UFOGif} 
-                style={styles.ufoGif} 
-                contentFit="contain" 
-                cachePolicy="memory-disk"
-                priority="low"
-                allowDownscaling={true}
-              />
-            ) : isYourMixFeed && type === 'no-videos' ? (
-              <Image 
-                source={TVStaticGif} 
-                style={styles.ufoGif} 
-                contentFit="contain" 
-                cachePolicy="memory-disk"
-                priority="low"
-                allowDownscaling={true}
-              />
-            ) : (
-              <Icon 
-                name={icon} 
-                size={72} 
-                color={iconColor} 
-              />
-            )}
-          </View>
-        <Text style={[styles.emptyText, { color: textColor }]}>
-          {displayMessage}
-        </Text>
+        <View style={styles.iconContainer}>
+          {(isProfileFeed || (feedOption && feedOption.startsWith('hashtag:'))) &&
+          type === 'no-videos' ? (
+            <Image
+              source={UFOGif}
+              style={styles.ufoGif}
+              contentFit="contain"
+              cachePolicy="memory-disk"
+              priority="low"
+              allowDownscaling={true}
+            />
+          ) : isYourMixFeed && type === 'no-videos' ? (
+            <Image
+              source={TVStaticGif}
+              style={styles.ufoGif}
+              contentFit="contain"
+              cachePolicy="memory-disk"
+              priority="low"
+              allowDownscaling={true}
+            />
+          ) : (
+            <Icon name={icon} size={72} color={iconColor} />
+          )}
+        </View>
+        <Text style={[styles.emptyText, { color: textColor }]}>{displayMessage}</Text>
         {isYourMixFeed && type === 'no-videos' && (
           <Pressable
             style={styles.addChannelsButton}
@@ -475,7 +464,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Firma-SemiBold',
   },
-
 });
 
 export default React.memo(EmptyFeed);

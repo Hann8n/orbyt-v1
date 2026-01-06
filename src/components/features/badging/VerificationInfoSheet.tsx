@@ -1,29 +1,24 @@
 // filepath: /Users/jack/Orbyt/components/VerificationInfoSheet.tsx
 import React, { useRef, useEffect, useMemo } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import {
-  View,
-  Text,
-  StyleSheet,
-} from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { format, parseISO, isValid } from 'date-fns';
-import ProfileCache from '../../../services/cache/ProfileCache';
+import ProfileService from '../../../services/data/ProfileService';
 import { Colors } from '../../ui/UI';
 import AtprotoService from '../../../services/api/AtprotoService';
 import { useRouter } from 'expo-router';
 import { Loading3FillIcon } from '../../ui/Icon';
 import CloseButton from '../../ui/CloseButton';
 import CancelButton from '../../ui/CancelButton';
-import KeyboardAwareFooter from '../../../utils/truesheet/KeyboardAwareFooter';
+import KeyboardAwareFooter from '../../../utils/components/truesheet/KeyboardAwareFooter';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import { safeDismiss, safePresent } from '../../../utils/truesheet/trueSheetUtils';
+import { safeDismiss, safePresent } from '../../../utils/components/truesheet/utils';
 import VerificationBadge from './VerificationBadge';
 
 // Import AuthorItem directly - preload to avoid size calculation issues
 import AuthorItem from '../../ui/AuthorItem';
- 
 
 interface VerificationInfoSheetProps {
   visible: boolean;
@@ -61,13 +56,13 @@ const VerifiedByShimmer = () => (
 const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
   visible,
   handle,
-  onDismiss
+  onDismiss,
 }) => {
   const bottomSheetRef = useRef<TrueSheet>(null);
   const navigation = useRouter();
   const sheetDetents: ('auto' | number)[] = useMemo(() => ['auto'], []);
   const insets = useSafeAreaInsets();
-  
+
   // Calculate footer height as constant: cancelContainer paddingTop (20) + button minHeight (44)
   const footerHeight = 20 + 44;
 
@@ -78,13 +73,13 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
     queryFn: async () => {
       try {
         // First try to get from cache synchronously
-        const cachedProfile = ProfileCache.getProfileFromCacheSync(handle);
+        const cachedProfile = ProfileService.getProfileFromCacheSync(handle);
         if (cachedProfile) {
           return cachedProfile;
         }
-        
+
         // If not in cache, fetch it
-        const result = await ProfileCache.getProfile(handle);
+        const result = await ProfileService.getProfile(handle);
         return result || null;
       } catch (error) {
         return null;
@@ -92,7 +87,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
     },
     enabled: !!handle, // Preload when handle is available, not just when visible
     staleTime: 60000, // 1 minute
-    refetchOnWindowFocus: false
+    refetchOnWindowFocus: false,
   });
 
   // Use verification data from profile - no separate query needed
@@ -102,7 +97,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
   // Get the verifier DID from the valid verification's issuer
   const validVerification = verification?.verifications?.find(v => v.isValid);
   const verifierDid = validVerification?.issuer || verification?.verifiedBy;
-  
+
   // Fetch issuer profile using cached data if available
   // Preload this data even when sheet is not visible to avoid size calculation issues
   const { data: issuerProfile, isLoading: isIssuerLoading } = useQuery({
@@ -112,7 +107,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
         // Try to get profile by DID using cached data first
         if (verifierDid) {
           // Try to get from cache first
-          const cachedProfile = ProfileCache.getProfileFromCacheSync(verifierDid);
+          const cachedProfile = ProfileService.getProfileFromCacheSync(verifierDid);
           if (cachedProfile) {
             return cachedProfile;
           }
@@ -127,12 +122,16 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
     },
     enabled: !!verifierDid, // Preload when verifierDid is available, not just when visible
     staleTime: 60000,
-    refetchOnWindowFocus: false
+    refetchOnWindowFocus: false,
   });
 
   // Determine verification status using cache fields
-  const isTrustedVerifier = verification?.trustedVerifierStatus === 'valid' || verification?.trustedVerifierStatus === 'active';
-    (verification?.verifications && verification.verifications.length > 0 && verification.verifications.some(v => v.isValid));
+  const isTrustedVerifier =
+    verification?.trustedVerifierStatus === 'valid' ||
+    verification?.trustedVerifierStatus === 'active';
+  verification?.verifications &&
+    verification.verifications.length > 0 &&
+    verification.verifications.some(v => v.isValid);
 
   // Handle bottom sheet visibility
   useEffect(() => {
@@ -153,10 +152,12 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
       grabber={false}
       footer={
         <View style={{ backgroundColor: Colors.black, paddingBottom: insets.bottom }}>
-          <KeyboardAwareFooter hideOnKeyboard={true} bottomPadding={0} style={{ backgroundColor: Colors.black }}>
-            <View 
-              style={[styles.cancelContainer, { backgroundColor: Colors.black }]}
-            > 
+          <KeyboardAwareFooter
+            hideOnKeyboard={true}
+            bottomPadding={0}
+            style={{ backgroundColor: Colors.black }}
+          >
+            <View style={[styles.cancelContainer, { backgroundColor: Colors.black }]}>
               <CancelButton onPress={onDismiss} text="Close" />
             </View>
           </KeyboardAwareFooter>
@@ -185,12 +186,14 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
         {isLoading ? (
           <Loading3FillIcon size={24} color={Colors.lightGray} style={styles.loadingIndicator} />
         ) : verification ? (
-          isTrustedVerifier ? renderTrustedVerifierContent() : renderVerifiedAccountContent()
+          isTrustedVerifier ? (
+            renderTrustedVerifierContent()
+          ) : (
+            renderVerifiedAccountContent()
+          )
         ) : (
           <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>
-              Could not load verification information
-            </Text>
+            <Text style={styles.errorText}>Could not load verification information</Text>
           </View>
         )}
       </View>
@@ -205,21 +208,24 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
         <View style={styles.infoContainer}>
           <Text style={styles.infoText}>
             <Text>{profile?.displayName || handle}</Text>
-            <Text> is a trusted verifier on the atmosphere. Trusted verifiers can verify other accounts on the network.</Text>
+            <Text>
+              {' '}
+              is a trusted verifier on the atmosphere. Trusted verifiers can verify other accounts
+              on the network.
+            </Text>
           </Text>
         </View>
-          
+
         {/* Verification Date */}
-        {verification?.verifications?.[0]?.createdAt && (() => {
-          const date = parseISO(verification.verifications[0].createdAt);
-          return isValid(date) ? (
-            <View style={styles.statusDateContainer}>
-              <Text style={styles.statusText}>
-                Since {format(date, 'MMM d, yyyy')}
-              </Text>
-            </View>
-          ) : null;
-        })()}
+        {verification?.verifications?.[0]?.createdAt &&
+          (() => {
+            const date = parseISO(verification.verifications[0].createdAt);
+            return isValid(date) ? (
+              <View style={styles.statusDateContainer}>
+                <Text style={styles.statusText}>Since {format(date, 'MMM d, yyyy')}</Text>
+              </View>
+            ) : null;
+          })()}
       </>
     );
   }
@@ -229,16 +235,17 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
     // Get verification details from the first valid verification in the array
     // Get verifier handle from profile or verification data
     const actualIssuerHandle = issuerProfile?.handle || verification?.verifierHandle;
-    
+
     // Determine official status
     const isOfficialVerification = verification?.isOfficial || false;
-    
+
     return (
       <>
         {/* Info Container */}
         <View style={styles.infoContainer}>
           <Text style={styles.infoText}>
-            A verification badge indicates this is an authentic account representing the person or organization it claims to be.
+            A verification badge indicates this is an authentic account representing the person or
+            organization it claims to be.
           </Text>
         </View>
 
@@ -248,22 +255,26 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
           // Determine if we should show the author item
           const hasValidData = !isIssuerLoading && (issuerProfile || actualIssuerHandle);
           const shouldShow = hasValidData || (isIssuerLoading && verifierDid); // Show shimmer only while loading with valid verifierDid
-          
+
           if (!shouldShow) {
             return null; // Don't show anything if we don't have data and loading failed
           }
-          
+
           const authorHandle = issuerProfile?.handle || actualIssuerHandle || verifierDid || '';
-          const authorDisplayName = issuerProfile?.displayName || 
-            actualIssuerHandle || 
-            (isOfficialVerification ? 'bluesky' : 
-              (verifierDid ? `verifier (${verifierDid.slice(0, 8)}...)` : 'verifier'));
-          
+          const authorDisplayName =
+            issuerProfile?.displayName ||
+            actualIssuerHandle ||
+            (isOfficialVerification
+              ? 'bluesky'
+              : verifierDid
+                ? `verifier (${verifierDid.slice(0, 8)}...)`
+                : 'verifier');
+
           // Only render if we have a valid handle
           if (!authorHandle && !isIssuerLoading) {
             return null;
           }
-          
+
           return (
             <>
               <Text style={styles.verifiedByLabel}>verified by:</Text>
@@ -279,10 +290,10 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
                   onPress={() => {
                     const target = authorHandle.trim();
                     if (!target) return;
-                    
+
                     // Navigate to the verifier's profile, not the current profile
                     navigation.push(`/profile/${target}`);
-                    
+
                     // Dismiss the sheet after navigation starts
                     setTimeout(() => {
                       onDismiss();
@@ -294,8 +305,6 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
             </>
           );
         })()}
-
-
       </>
     );
   }

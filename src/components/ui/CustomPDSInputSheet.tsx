@@ -1,17 +1,9 @@
 import React, { useState, useCallback } from 'react';
 import { BORDER_RADIUS } from '../../utils/constants';
-import {
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-  TextInput,
-  Linking,
-} from 'react-native';
+import { View, Text, Pressable, StyleSheet, TextInput, Linking } from 'react-native';
 import Icon, { Loading3FillIcon } from './Icon';
 import { Colors } from './UI';
 import VerticalListSheet from './VerticalListSheet';
-import { PDSDiscoveryService } from '../../services/PDSDiscoveryService';
 
 interface CustomPDSInputSheetProps {
   visible: boolean;
@@ -25,8 +17,8 @@ const CustomPDSInputSheet: React.FC<CustomPDSInputSheetProps> = ({
   visible,
   onDismiss,
   onSignIn,
-  title = "Custom Login",
-  name = "custom-pds-input",
+  title = 'Custom Login',
+  name = 'custom-pds-input',
 }) => {
   const [username, setUsername] = useState('');
   const [pdsError, setPdsError] = useState<string | null>(null);
@@ -35,7 +27,7 @@ const CustomPDSInputSheet: React.FC<CustomPDSInputSheetProps> = ({
 
   const handleUsernameLogin = useCallback(async () => {
     const trimmedUsername = username.trim();
-    
+
     if (!trimmedUsername) {
       setPdsError('Please enter your username or handle');
       return;
@@ -50,26 +42,25 @@ const CustomPDSInputSheet: React.FC<CustomPDSInputSheetProps> = ({
     setPdsError(null);
     setIsAddingAccount(true);
     setIsValidatingPds(true);
-    
+
     try {
-      // Prepare identifier and let @atproto/oauth-client-expo handle the rest
-      const identifier = await PDSDiscoveryService.prepareIdentifier(trimmedUsername);
-      
-      await onSignIn(identifier);
-      
+      // @atproto/oauth-client-expo handles identifier normalization (handles, emails, URLs)
+      await onSignIn(trimmedUsername);
+
       // Close the sheet on success
       onDismiss();
     } catch (error) {
       // Check if this is a user cancellation vs actual error
       const errorMessage = error instanceof Error ? error.message : 'OAuth sign-in failed';
-      const isUserCancellation = errorMessage.includes('cancelled') || 
-                                errorMessage.includes('Authentication was cancelled') ||
-                                errorMessage.includes('user_cancelled');
-      
+      const isUserCancellation =
+        errorMessage.includes('cancelled') ||
+        errorMessage.includes('Authentication was cancelled') ||
+        errorMessage.includes('user_cancelled');
+
       if (!isUserCancellation) {
         // More specific error messages based on common issues
         let userFriendlyMessage = `Could not connect to ${trimmedUsername}`;
-        
+
         if (errorMessage.includes('network') || errorMessage.includes('timeout')) {
           userFriendlyMessage = `Network error connecting to ${trimmedUsername}. Please check your internet connection and try again.`;
         } else if (errorMessage.includes('not found') || errorMessage.includes('404')) {
@@ -77,7 +68,7 @@ const CustomPDSInputSheet: React.FC<CustomPDSInputSheetProps> = ({
         } else if (errorMessage.includes('invalid') || errorMessage.includes('malformed')) {
           userFriendlyMessage = `Invalid handle format: ${trimmedUsername}. Please enter a valid handle (e.g., user.domain.com).`;
         }
-        
+
         setPdsError(userFriendlyMessage);
       }
     } finally {
@@ -110,7 +101,7 @@ const CustomPDSInputSheet: React.FC<CustomPDSInputSheetProps> = ({
             <Text style={styles.errorText}>{pdsError}</Text>
           </View>
         )}
-        
+
         <View style={styles.inputContainer}>
           <Icon name="at" size={28} color={Colors.black} style={styles.inputIcon} />
           <TextInput
@@ -119,7 +110,7 @@ const CustomPDSInputSheet: React.FC<CustomPDSInputSheetProps> = ({
             placeholder="username"
             placeholderTextColor={Colors.gray}
             value={username}
-            onChangeText={(text) => {
+            onChangeText={text => {
               setUsername(text);
               if (pdsError) setPdsError(null); // Clear error when user starts typing
             }}
@@ -135,11 +126,11 @@ const CustomPDSInputSheet: React.FC<CustomPDSInputSheetProps> = ({
             autoFocus
           />
         </View>
-        
+
         <Pressable
           style={[
             styles.loginButton,
-            (username.trim() && !isAddingAccount && !isValidatingPds) && styles.loginButtonActive,
+            username.trim() && !isAddingAccount && !isValidatingPds && styles.loginButtonActive,
           ]}
           onPress={handleUsernameLogin}
           disabled={!username.trim() || isAddingAccount || isValidatingPds}
@@ -153,24 +144,33 @@ const CustomPDSInputSheet: React.FC<CustomPDSInputSheetProps> = ({
             </View>
           ) : (
             <View style={styles.buttonContentRow}>
-              <Text style={[
-                styles.loginButtonText,
-                (username.trim() && !isAddingAccount && !isValidatingPds) && styles.loginButtonTextActive
-              ]}>Sign me in</Text>
-              <Icon 
-                name="right_arrow_filled" 
-                size={24} 
-                color={(username.trim() && !isAddingAccount && !isValidatingPds) ? Colors.darkGray : Colors.gray} 
+              <Text
+                style={[
+                  styles.loginButtonText,
+                  username.trim() &&
+                    !isAddingAccount &&
+                    !isValidatingPds &&
+                    styles.loginButtonTextActive,
+                ]}
+              >
+                Sign me in
+              </Text>
+              <Icon
+                name="right_arrow_filled"
+                size={24}
+                color={
+                  username.trim() && !isAddingAccount && !isValidatingPds
+                    ? Colors.darkGray
+                    : Colors.gray
+                }
               />
             </View>
           )}
         </Pressable>
-        
+
         <View style={styles.termsContainer}>
-          <Text style={styles.termsText}>
-            By signing in you are agreeing to the
-          </Text>
-          <Text 
+          <Text style={styles.termsText}>By signing in you are agreeing to the</Text>
+          <Text
             style={styles.termsLink}
             onPress={() => Linking.openURL('https://getorbyt.com/terms.html')}
           >

@@ -27,33 +27,33 @@ export class ActorService {
         logger.debug('No user DID available', { component: 'ActorService' });
         throw new Error('No session available');
       }
-      
+
       // Then get the API client
       const apiClient = await AtprotoCore.getApiClient();
       if (!apiClient || !apiClient.api) {
         throw new Error('No API client available');
       }
-      
+
       const { api } = apiClient;
-      
+
       // Getting profile for DID using session
       const response = await api.app.bsky.actor.getProfile({ actor: userDid });
-      
+
       // Cache the profile data
       if (response?.data) {
         // Successfully retrieved user profile
       }
-      
+
       return response.data as ProfileViewDetailed;
     } catch (error: unknown) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Error getting current user', error, { component: 'ActorService' });
-      
+
       // Session error handling - cache is managed by userStore now
       if (errorMsg.includes('session') || errorMsg.includes('auth') || errorMsg.includes('token')) {
         logger.debug('Session error detected', { component: 'ActorService' });
       }
-      
+
       throw error;
     }
   }
@@ -69,7 +69,7 @@ export class ActorService {
       const { api } = await AtprotoCore.getApiClient();
       const response = await api.app.bsky.actor.searchActors({
         term: query,
-        limit: 20
+        limit: 20,
       });
       return (response.data.actors || []) as ProfileViewBasic[];
     } catch (error: unknown) {
@@ -84,26 +84,30 @@ export class ActorService {
    * @param limit - Number of results per page
    * @returns Array of profile results and next cursor
    */
-  static async searchProfilesPaginated(query: string, cursor: string | null = null, limit: number = 20): Promise<ProfileSearchResponse> {
+  static async searchProfilesPaginated(
+    query: string,
+    cursor: string | null = null,
+    limit: number = 20
+  ): Promise<ProfileSearchResponse> {
     await AtprotoCore.ensureSession();
     try {
       const params: { term: string; limit: number; cursor?: string } = { term: query, limit };
       if (cursor) params.cursor = cursor;
-      
+
       // Use the correct API endpoint with proper namespace
       const { api } = await AtprotoCore.getApiClient();
       const response = await api.app.bsky.actor.searchActors(params);
-      
+
       // Extract the cursor for pagination
       const nextCursor = response.data.cursor ?? null;
-      
+
       // Map ProfileView to ProfileViewBasic (they're compatible, just need to assert)
       const profiles: ProfileViewBasic[] = (response.data.actors || []) as ProfileViewBasic[];
-      
+
       // Return profiles with cursor
       return {
         profiles,
-        cursor: nextCursor
+        cursor: nextCursor,
       };
     } catch (error) {
       return { profiles: [], cursor: null };
@@ -122,7 +126,7 @@ export class ActorService {
       const response = await api.app.bsky.actor.getProfile({
         actor: did,
       });
-      
+
       // The profile response already includes verification data
       // No need for separate API calls - verification data is included in the profile
       return response.data as ProfileView;
@@ -143,7 +147,7 @@ export class ActorService {
       const response = await api.app.bsky.actor.getProfile({
         actor: handle,
       });
-      
+
       // The profile response already includes verification data
       // No need for separate API calls - verification data is included in the profile
       return response.data as ProfileView;
@@ -156,11 +160,13 @@ export class ActorService {
    * Batch fetch multiple actor profiles efficiently
    * Uses Bluesky's native batch endpoint to fetch up to 25 profiles per request
    * Automatically deduplicates and chunks requests into batches of 25
-   * 
+   *
    * @param handles - Array of actor handles to fetch
    * @returns Array of actor profiles
    */
-  static async getProfilesInBatch(handles: string[]): Promise<(ProfileView | ProfileViewDetailed)[]> {
+  static async getProfilesInBatch(
+    handles: string[]
+  ): Promise<(ProfileView | ProfileViewDetailed)[]> {
     if (!handles || handles.length === 0) {
       return [];
     }
@@ -168,14 +174,12 @@ export class ActorService {
     try {
       await AtprotoCore.ensureSession();
       const { api } = await AtprotoCore.getApiClient();
-      
+
       // Deduplicate and normalize handles
-      const uniqueHandles = Array.from(new Set(
-        handles
-          .map(h => h?.toLowerCase())
-          .filter(h => !!h && typeof h === 'string')
-      ));
-      
+      const uniqueHandles = Array.from(
+        new Set(handles.map(h => h?.toLowerCase()).filter(h => !!h && typeof h === 'string'))
+      );
+
       if (uniqueHandles.length === 0) {
         return [];
       }
@@ -183,12 +187,15 @@ export class ActorService {
       // Single handle optimization
       if (uniqueHandles.length === 1) {
         try {
-          const profile = await api.app.bsky.actor.getProfile({ 
-            actor: uniqueHandles[0] 
+          const profile = await api.app.bsky.actor.getProfile({
+            actor: uniqueHandles[0],
           });
           return [profile.data as ProfileView];
         } catch (error: unknown) {
-          logger.warn(`Failed to fetch profile ${uniqueHandles[0]}:`, { component: 'ActorService', error });
+          logger.warn(`Failed to fetch profile ${uniqueHandles[0]}:`, {
+            component: 'ActorService',
+            error,
+          });
           return [];
         }
       }
@@ -196,14 +203,15 @@ export class ActorService {
       // Batch into chunks of 25 (API limit)
       const BATCH_SIZE = 25;
       const batches: string[][] = [];
-      
+
       for (let i = 0; i < uniqueHandles.length; i += BATCH_SIZE) {
         batches.push(uniqueHandles.slice(i, i + BATCH_SIZE));
       }
 
       // Fetch all batches in parallel
       const batchPromises = batches.map(batch =>
-        api.app.bsky.actor.getProfiles({ actors: batch })
+        api.app.bsky.actor
+          .getProfiles({ actors: batch })
           .then(response => (response?.data?.profiles || []) as ProfileView[])
           .catch((error: unknown) => {
             logger.warn(`Failed to fetch batch of profiles:`, { component: 'ActorService', error });
@@ -255,52 +263,52 @@ export class ActorService {
   }): Promise<ProfileViewDetailed> {
     try {
       await AtprotoCore.ensureSession();
-      
+
       // Use the correct upsertProfile method as per Bluesky documentation
       const { api } = await AtprotoCore.getApiClient();
-      await api.upsertProfile((existingProfile) => {
+      await api.upsertProfile(existingProfile => {
         const existing = existingProfile as ProfileViewDetailed | undefined;
-        const profile: ProfileViewDetailed = existing ?? {
-          did: '',
-          handle: '',
-          displayName: undefined,
-          description: undefined,
-          avatar: undefined,
-        } as ProfileViewDetailed;
-        
+        const profile: ProfileViewDetailed =
+          existing ??
+          ({
+            did: '',
+            handle: '',
+            displayName: undefined,
+            description: undefined,
+            avatar: undefined,
+          } as ProfileViewDetailed);
+
         // Update display name if provided
         if (updates.displayName !== undefined) {
           profile.displayName = updates.displayName;
         }
-        
+
         // Update description if provided
         if (updates.description !== undefined) {
           profile.description = updates.description;
         }
-        
+
         // Handle avatar upload if provided
         if (updates.avatar) {
           // The avatar will be uploaded separately and set via the blob reference
           // We'll handle this in the main function
         }
-        
+
         return profile as unknown as Record<string, unknown>;
       });
-      
+
       // Handle avatar upload separately if provided
       if (updates.avatar) {
         try {
-          
           // Check if this is a CDN URL (existing avatar) - we can't re-upload these
           if (updates.avatar.startsWith('https://') && updates.avatar.includes('cdn.bsky.app')) {
-            
             // Don't proceed with upload for existing avatars - profile already updated
             // Return the updated profile by fetching it
             return await this.getCurrentUser();
           }
-          
+
           let imageBlob: Blob;
-          
+
           if (updates.avatar.startsWith('data:')) {
             // Handle base64 data URL
             const response = await fetch(updates.avatar);
@@ -313,28 +321,27 @@ export class ActorService {
             throw new Error('Unsupported avatar format');
           }
 
-
           // Upload the image to Bluesky
           const { api } = await AtprotoCore.getApiClient();
           const uploadResult = await api.uploadBlob(imageBlob, {
-            encoding: 'image/jpeg'
+            encoding: 'image/jpeg',
           });
 
-
           // Update profile with the new avatar
-          await api.upsertProfile((existingProfile) => {
+          await api.upsertProfile(existingProfile => {
             const existing = existingProfile as ProfileViewDetailed | undefined;
-            const profile: ProfileViewDetailed = existing ?? {
-              did: '',
-              handle: '',
-              displayName: undefined,
-              description: undefined,
-              avatar: undefined,
-            } as ProfileViewDetailed;
+            const profile: ProfileViewDetailed =
+              existing ??
+              ({
+                did: '',
+                handle: '',
+                displayName: undefined,
+                description: undefined,
+                avatar: undefined,
+              } as ProfileViewDetailed);
             profile.avatar = uploadResult.data.blob.ref.$link;
             return profile as unknown as Record<string, unknown>;
           });
-          
         } catch (error) {
           throw new Error('Failed to upload avatar image');
         }
@@ -352,12 +359,14 @@ export class ActorService {
    * @param imageUri - URI of the image to upload (file:// or data:)
    * @returns Blob reference for the uploaded image
    */
-  static async uploadImage(imageUri: string): Promise<{ ref: { $link: string }; mimeType: string; size: number }> {
+  static async uploadImage(
+    imageUri: string
+  ): Promise<{ ref: { $link: string }; mimeType: string; size: number }> {
     try {
       await AtprotoCore.ensureSession();
-      
+
       let imageBlob: Blob;
-      
+
       if (imageUri.startsWith('data:')) {
         // Handle base64 data URL
         const response = await fetch(imageUri);
@@ -373,7 +382,7 @@ export class ActorService {
       // Upload the image to Bluesky
       const { api } = await AtprotoCore.getApiClient();
       const uploadResult = await api.uploadBlob(imageBlob, {
-        encoding: 'image/jpeg'
+        encoding: 'image/jpeg',
       });
 
       return uploadResult.data.blob;
@@ -422,7 +431,9 @@ export class ActorService {
     await AtprotoCore.ensureSession();
     try {
       const { api } = await AtprotoCore.getApiClient();
-      await api.app.bsky.actor.putPreferences({ preferences: Array.isArray(preferences) ? preferences : [preferences] });
+      await api.app.bsky.actor.putPreferences({
+        preferences: Array.isArray(preferences) ? preferences : [preferences],
+      });
       return true;
     } catch (error: unknown) {
       return false;

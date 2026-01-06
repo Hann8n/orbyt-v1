@@ -27,11 +27,11 @@ async function convertSvgToPng() {
   }
 
   const svgContent = fs.readFileSync(inputFile, 'utf8');
-  
+
   for (const { scale, suffix } of scales) {
     const size = baseSize * scale;
     const outputPath = path.join(outputDir, `CaptureButton_Normal${suffix}.png`);
-    
+
     try {
       // Read SVG and convert to PNG at high resolution
       await sharp(Buffer.from(svgContent))
@@ -43,7 +43,7 @@ async function convertSvgToPng() {
           compressionLevel: 9,
         })
         .toFile(outputPath);
-      
+
       console.log(`✓ Created CaptureButton_Normal${suffix}.png (${size}x${size})`);
     } catch (error) {
       console.error(`✗ Failed to create CaptureButton_Normal${suffix}.png:`, error.message);
@@ -53,9 +53,9 @@ async function convertSvgToPng() {
 
 async function main() {
   console.log('Converting capture button SVG to high-resolution PNGs...\n');
-  
+
   await convertSvgToPng();
-  
+
   console.log('\n✓ Conversion complete!');
   console.log(`PNG files saved to: ${outputDir}`);
 }
