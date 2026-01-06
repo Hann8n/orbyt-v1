@@ -123,7 +123,7 @@ function RootNavigator() {
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: Colors.black },
-          animation: 'fade',
+          animation: 'slide_from_right',
         }}
       >
         {/* Protected routes - require authentication */}
