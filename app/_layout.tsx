@@ -55,6 +55,7 @@ Appearance.setColorScheme('dark');
 
 // Handle location variable error for React Native
 if (typeof global !== 'undefined' && !global.location) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (global as any).location = {
     href: '',
     origin: '',
@@ -118,7 +119,13 @@ function RootNavigator() {
           pointerEvents="none"
         />
       )}
-      <Stack screenOptions={{ headerShown: false }}>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: Colors.black },
+          animation: 'fade',
+        }}
+      >
         {/* Protected routes - require authentication */}
         <Stack.Protected guard={!!session}>
           <Stack.Screen name="(tabs)" />

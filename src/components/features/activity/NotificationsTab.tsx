@@ -340,7 +340,7 @@ const NotificationItem = React.memo<{
   navigation: ReturnType<typeof useRouter>;
   queryClient: ReturnType<typeof useQueryClient>;
   postDataMap: PostDataMap;
-  moderationSettings: any; // ModerationSettings from useModerationSettings
+  moderationSettings: import('../../../services/moderation/ModerationTypes').ModerationSettings;
 }>(
   ({ item, navigation, queryClient, postDataMap, moderationSettings }) => {
     const { reason, author, indexedAt, uri } = item;
@@ -666,6 +666,7 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_props, ref) => {
     ref,
     () => ({
       scrollToTop: () => {
+        // LegendList uses scrollToOffset (compatible with FlatList/FlashList API)
         legendListRef.current?.scrollToOffset({ offset: 0, animated: true });
       },
     }),

@@ -13,7 +13,6 @@ import ProfileService, {
   type CachedProfile,
 } from '../../src/services/data/ProfileService';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useNavigation, useIsFocused } from '@react-navigation/native';
 import Icon, {
   BackArrowIcon,
   Loading3FillIcon,
@@ -350,20 +349,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     setCanMessage(canMessageFromProfile ? true : false);
   }, [profileData?.did, isOwnProfileView, canMessageFromProfile]);
 
-  // Handle tab press for scroll-to-top using React Navigation's tabPress event
-  const navigation = useNavigation();
-  const isFocused = useIsFocused();
-  useEffect(() => {
-    // @ts-ignore - tabPress event exists but types may not be complete
-    const unsubscribe = navigation.addListener?.('tabPress', () => {
-      // Only handle if this screen is focused (tab was already active)
-      if (isFocused && tabRefs.profile) {
-        tabRefs.profile.scrollToTop();
-      }
-    });
-
-    return unsubscribe;
-  }, [navigation, isFocused]);
+  // Tab press handling is now centralized in CustomBottomTabBar - no need for duplicate listener
 
   const handleMessagePress = useCallback(async () => {
     if (!profileData?.did) return;

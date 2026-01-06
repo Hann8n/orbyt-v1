@@ -158,38 +158,22 @@ const CustomBottomTabBar: React.FC<CustomBottomTabBarProps> = ({
   // Responsive gap: smaller for thinner phones, larger for iPad
   const tabGap = useMemo(() => (width < 450 ? 35 : 40), [width]);
 
-  // Get active route name from navigation state (optimized)
-  const activeRouteName = useMemo(() => {
-    if (!state || !state.routes || state.index === undefined) {
-      return '';
-    }
-    const route = state.routes[state.index];
-    return route?.name || '';
-  }, [state]);
-
-  // Debounce refs for rapid tab switching
-  const lastPressTimeRef = useRef<number>(0);
+  // Haptic feedback ref (non-blocking)
   const pendingHapticRef = useRef<boolean>(false);
+
+  // Memoize current route name for performance
+  const currentRouteName = useMemo(() => state?.routes?.[state.index]?.name || '', [state]);
 
   const isTabActive = useCallback(
     (tab: TabConfig): boolean => {
-      return activeRouteName === tab.routeName;
+      return currentRouteName === tab.routeName;
     },
-    [activeRouteName]
+    [currentRouteName]
   );
 
   const handleTabPress = useCallback(
     (tab: TabConfig) => {
-      const now = Date.now();
-      const timeSinceLastPress = now - lastPressTimeRef.current;
-      lastPressTimeRef.current = now;
-
-      // Debounce rapid presses (throttle to 100ms minimum)
-      if (timeSinceLastPress < 100) {
-        return;
-      }
-
-      // Trigger haptics asynchronously (non-blocking)
+      // Trigger haptics asynchronously (non-blocking, fire and forget)
       if (!pendingHapticRef.current) {
         pendingHapticRef.current = true;
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).finally(() => {
@@ -197,61 +181,66 @@ const CustomBottomTabBar: React.FC<CustomBottomTabBarProps> = ({
         });
       }
 
-      // Check if this tab is already active using navigation state (faster than segments)
-      const isActive = activeRouteName === tab.routeName;
+      // Check if this tab is already active
+      const isActive = isTabActive(tab);
 
       if (isActive) {
         // Tab is already active - trigger scroll-to-top and other tab-specific actions
-        // Use requestAnimationFrame to defer heavy operations off the main thread
-        requestAnimationFrame(() => {
-          switch (tab.iconType) {
-            case 'home':
-              // Home tab: refresh and scroll to top
-              if (tabRefs.home) {
-                tabRefs.home.refresh?.();
-                tabRefs.home.scrollToTop();
+        // Execute immediately without requestAnimationFrame for faster response
+        switch (tab.iconType) {
+          case 'home':
+            // Home tab: refresh and scroll to top
+            if (tabRefs.home) {
+              tabRefs.home.refresh?.();
+              tabRefs.home.scrollToTop();
+            }
+            break;
+          case 'explore':
+            // Explore tab: dismiss search if active, otherwise scroll to top
+            if (tabRefs.explore) {
+              if (tabRefs.explore.isSearchActive?.()) {
+                tabRefs.explore.dismissSearch?.();
+              } else {
+                tabRefs.explore.scrollToTop();
               }
-              break;
-            case 'explore':
-              // Explore tab: dismiss search if active, otherwise scroll to top
-              if (tabRefs.explore) {
-                if (tabRefs.explore.isSearchActive?.()) {
-                  tabRefs.explore.dismissSearch?.();
-                } else {
-                  tabRefs.explore.scrollToTop();
-                }
-              }
-              break;
-            case 'activity':
-              // Activity tab: scroll to top
-              if (tabRefs.activity) {
-                tabRefs.activity.scrollToTop();
-              }
-              break;
-            case 'profile':
-              // Profile tab: scroll to top
-              if (tabRefs.profile) {
-                tabRefs.profile.scrollToTop();
-              }
-              break;
-            case 'create':
-              // Create tab: navigate to root route using router
-              router.push('/create');
-              break;
-          }
-        });
+            }
+            break;
+          case 'activity':
+            // Activity tab: scroll to top
+            if (tabRefs.activity) {
+              tabRefs.activity.scrollToTop();
+            }
+            break;
+          case 'profile':
+            // Profile tab: scroll to top
+            if (tabRefs.profile) {
+              tabRefs.profile.scrollToTop();
+            }
+            break;
+          case 'create':
+            // Create tab: navigate to root route using router
+            router.push('/create');
+            break;
+        }
       } else {
-        // Tab is not active - navigate immediately (React Navigation handles this efficiently)
+        // Tab is not active - navigate immediately for fastest switching
         if (tab.iconType === 'create') {
           router.push('/create');
         } else {
-          // Use React Navigation's optimized navigate for tab switching
-          // This keeps screens mounted and switches instantly
-          navigation.navigate(tab.routeName);
+          // Use jumpTo for faster tab switching (optimized for tab navigators)
+          // This is faster than navigate for tab switching
+          const tabNavigation = navigation as typeof navigation & {
+            jumpTo?: (name: string) => void;
+          };
+          if (tabNavigation.jumpTo) {
+            tabNavigation.jumpTo(tab.routeName);
+          } else {
+            navigation.navigate(tab.routeName);
+          }
         }
       }
     },
-    [activeRouteName, navigation, router]
+    [isTabActive, navigation, router]
   );
 
   const handleLongPress = useCallback(
@@ -269,36 +258,43 @@ const CustomBottomTabBar: React.FC<CustomBottomTabBarProps> = ({
     [presentAccountSwitcher]
   );
 
-  // Check if we're on explore or activity page for black background
-  const isExploreOrActivityActive = useMemo(() => {
-    return activeRouteName === 'explore' || activeRouteName === 'activity';
-  }, [activeRouteName]);
+  const renderTabIcon = useCallback(
+    (tab: TabConfig, isActive: boolean) => {
+      const color = isActive ? tintColor : inactiveTintColor;
 
-  const renderTabIcon = (tab: TabConfig, isActive: boolean) => {
-    const color = isActive ? tintColor : inactiveTintColor;
+      switch (tab.iconType) {
+        case 'home':
+          return <HomeIcon size={tabIconSize} color={color} />;
+        case 'explore':
+          return (
+            <ExploreIcon size={tabIconSize} color={color} style={{ transform: [{ scaleX: -1 }] }} />
+          );
+        case 'create':
+          return <CaptureIcon captureSize={captureSize} captureInner={captureInner} />;
+        case 'activity':
+          return (
+            <View style={{ position: 'relative' }}>
+              <NotificationIcon size={tabIconSize} color={color} />
+              <NotificationIndicator hasUnread={hasUnread} size="small" position="top-right" />
+            </View>
+          );
+        case 'profile':
+          return <ProfileTabIcon color={color} focused={isActive} tabIconSize={tabIconSize} />;
+        default:
+          return null;
+      }
+    },
+    [tintColor, inactiveTintColor, tabIconSize, captureSize, captureInner, hasUnread]
+  );
 
-    switch (tab.iconType) {
-      case 'home':
-        return <HomeIcon size={tabIconSize} color={color} />;
-      case 'explore':
-        return (
-          <ExploreIcon size={tabIconSize} color={color} style={{ transform: [{ scaleX: -1 }] }} />
-        );
-      case 'create':
-        return <CaptureIcon captureSize={captureSize} captureInner={captureInner} />;
-      case 'activity':
-        return (
-          <View style={{ position: 'relative' }}>
-            <NotificationIcon size={tabIconSize} color={color} />
-            <NotificationIndicator hasUnread={hasUnread} size="small" position="top-right" />
-          </View>
-        );
-      case 'profile':
-        return <ProfileTabIcon color={color} focused={isActive} tabIconSize={tabIconSize} />;
-      default:
-        return null;
-    }
-  };
+  // Memoize backgroundColor calculation
+  const backgroundColor = useMemo(
+    () =>
+      currentRouteName === 'explore' || currentRouteName === 'activity'
+        ? Colors.black
+        : 'transparent',
+    [currentRouteName]
+  );
 
   return (
     <View
@@ -306,7 +302,7 @@ const CustomBottomTabBar: React.FC<CustomBottomTabBarProps> = ({
         styles.container,
         {
           height: tabBarHeight,
-          backgroundColor: isExploreOrActivityActive ? Colors.black : 'transparent',
+          backgroundColor,
         },
       ]}
       onLayout={handleLayout}

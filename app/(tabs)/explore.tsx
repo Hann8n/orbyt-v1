@@ -35,7 +35,6 @@ import Reanimated, {
 import AtprotoService from '../../src/services/api/AtprotoService';
 
 import { useRouter, type Router } from 'expo-router';
-import { useNavigation, useIsFocused } from '@react-navigation/native';
 import ProfileService, {
   useFollowMutation,
   prefetchProfile,
@@ -1683,10 +1682,12 @@ const ExploreScreen: React.FC = () => {
   }, [isSearching]);
 
   // Set up tabRefs for double tap scroll to top
+  // Tab press handling is now centralized in CustomBottomTabBar - no need for duplicate listener
   useLayoutEffect(() => {
     tabRefs.explore = {
       scrollToTop: () => {
-        flashListRef.current?.scrollToOffset({ offset: 0, animated: true });
+        // Use FlashList's native scrollToTop method for better performance
+        flashListRef.current?.scrollToTop({ animated: true });
       },
       dismissSearch: () => {
         setSearchQuery('');
@@ -1704,20 +1705,6 @@ const ExploreScreen: React.FC = () => {
       tabRefs.explore = null;
     };
   }, [isSearching]);
-
-  // Handle tab press for scroll-to-top using React Navigation's tabPress event
-  const navigation = useNavigation();
-  const isFocused = useIsFocused();
-  useEffect(() => {
-    // @ts-ignore - tabPress event exists but types may not be complete
-    const unsubscribe = navigation.addListener?.('tabPress', () => {
-      if (isFocused && tabRefs.explore) {
-        tabRefs.explore.scrollToTop();
-      }
-    });
-
-    return unsubscribe;
-  }, [navigation, isFocused]);
 
   // Optimized viewabilityConfig
   const viewabilityConfig = useMemo(

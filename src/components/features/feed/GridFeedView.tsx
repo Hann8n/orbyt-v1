@@ -10,6 +10,7 @@ import {
   type ImageStyle,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  type RefreshControlProps,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useWindowDimensions } from 'react-native';
@@ -39,8 +40,7 @@ const VideoGridItem: React.FC<{
   const thumbnailUrl = extractVideoThumbnail(item.post.embed);
 
   // Get shouldBlur flag from feed item (computed at feed level)
-  const feedItem = item as any;
-  const shouldBlur = feedItem.shouldBlur ?? false;
+  const shouldBlur = item.shouldBlur ?? false;
 
   const handlePress = useCallback(() => onPress(index), [onPress, index]);
 
@@ -151,8 +151,8 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
             // Empty state uses ScrollView
             scrollViewRef.current.scrollTo({ y: 0, animated: true });
           } else if (flashListRef.current) {
-            // Grid content uses FlashList
-            flashListRef.current.scrollToOffset({ offset: 0, animated: true });
+            // Grid content uses FlashList - use native scrollToTop for better performance
+            flashListRef.current.scrollToTop({ animated: true });
           }
         },
       }),
@@ -286,7 +286,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
             contentContainerStyle={styles.scrollViewContent}
             showsVerticalScrollIndicator={false}
             bounces={true}
-            refreshControl={refreshControl as any}
+            refreshControl={refreshControl as React.ReactElement<RefreshControlProps> | undefined}
             onScroll={handleScroll}
             scrollEventThrottle={16}
           >
@@ -348,7 +348,9 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
                     <View style={styles.headerWrapper}>{headerComponent}</View>
                   ) : null
                 }
-                refreshControl={refreshControl as any}
+                refreshControl={
+                  refreshControl as React.ReactElement<RefreshControlProps> | undefined
+                }
                 onScroll={handleScroll}
                 scrollEventThrottle={16}
                 scrollEnabled={true}

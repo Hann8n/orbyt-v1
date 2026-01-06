@@ -9,7 +9,6 @@ import {
 } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
-import { useNavigation, useIsFocused } from '@react-navigation/native';
 
 import { queryKeys } from '../../src/utils/query/queryKeys';
 import { APP_CONSTANTS } from '../../src/utils/constants';
@@ -21,7 +20,7 @@ import { tabRefs } from '../../src/utils/navigation/tabRefs';
 import type { ScrollToTopRef } from '../../src/utils/navigation/tabRefs';
 import { useUserStore } from '../../src/stores/userStore';
 
-interface HomeScreenProps {}
+type HomeScreenProps = Record<string, never>;
 
 const HomeScreen = memo(
   forwardRef<HomeScreenRef, HomeScreenProps>((_props, ref) => {
@@ -81,6 +80,7 @@ const HomeScreen = memo(
     );
 
     // Store home screen ref in tabRefs for tab navigation
+    // Tab press handling is now centralized in CustomBottomTabBar - no need for duplicate listener
     useEffect(() => {
       tabRefs.home = {
         scrollToTop: () => feedPagerRef.current?.scrollToTop(),
@@ -90,23 +90,6 @@ const HomeScreen = memo(
         tabRefs.home = null;
       };
     }, [triggerRefresh]);
-
-    // Handle tab press for scroll-to-top using React Navigation's tabPress event
-    const navigation = useNavigation();
-    const isFocused = useIsFocused();
-    useEffect(() => {
-      // @ts-ignore - tabPress event exists but types may not be complete
-      const unsubscribe = navigation.addListener?.('tabPress', () => {
-        // Only handle if this screen is focused (tab was already active)
-        if (isFocused && tabRefs.home) {
-          // Refresh and scroll to top when home tab is pressed while focused
-          tabRefs.home.refresh();
-          tabRefs.home.scrollToTop();
-        }
-      });
-
-      return unsubscribe;
-    }, [navigation, isFocused]);
 
     return (
       <View style={styles.container}>

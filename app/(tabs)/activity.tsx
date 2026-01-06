@@ -1,8 +1,11 @@
 import React, { useState, useCallback, useEffect, useRef, useLayoutEffect } from 'react';
-import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { tabRefs } from '../../src/utils/navigation/tabRefs';
 import { View, Text, StyleSheet, StatusBar, Pressable } from 'react-native';
-import PagerView from 'react-native-pager-view';
+import PagerView, {
+  type PagerViewOnPageScrollEvent,
+  type PagerViewOnPageSelectedEvent,
+  type PageScrollStateChangedNativeEvent,
+} from 'react-native-pager-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors } from '../../src/components/ui/UI';
@@ -73,7 +76,7 @@ const ActivitySwipePager = ({
   // Handle page scroll from PagerView - update indicator directly from SDK
   // This fires synchronously during scroll, no state batching
   const handlePageScroll = useCallback(
-    (event: any) => {
+    (event: PagerViewOnPageScrollEvent) => {
       const { position, offset } = event.nativeEvent;
       const progress = position + offset;
       const roundedPosition = Math.round(progress);
@@ -102,7 +105,7 @@ const ActivitySwipePager = ({
 
   // Handle page selection from PagerView - final confirmation after transition completes
   const handlePageSelected = useCallback(
-    (event: any) => {
+    (event: PagerViewOnPageSelectedEvent) => {
       if (!hasAppliedInitialIndexRef.current) return;
 
       const nextIndex = event.nativeEvent.position;
@@ -129,7 +132,7 @@ const ActivitySwipePager = ({
   );
 
   // Handle scroll state changes from PagerView
-  const handlePageScrollStateChanged = useCallback((event: any) => {
+  const handlePageScrollStateChanged = useCallback((event: PageScrollStateChangedNativeEvent) => {
     const state = event.nativeEvent.pageScrollState;
     // Track when user starts/stops scrolling
     if (state === 'dragging' || state === 'settling') {
@@ -191,21 +194,7 @@ const ActivityScreen: React.FC = () => {
     }
     return null;
   }, []);
-
-  // Handle tab press for scroll-to-top using React Navigation's tabPress event
-  const navigation = useNavigation();
-  const isFocused = useIsFocused();
-  useEffect(() => {
-    // @ts-ignore - tabPress event exists but types may not be complete
-    const unsubscribe = navigation.addListener?.('tabPress', () => {
-      // Only handle if this screen is focused (tab was already active)
-      if (isFocused && tabRefs.activity) {
-        tabRefs.activity.scrollToTop();
-      }
-    });
-
-    return unsubscribe;
-  }, [navigation, isFocused]);
+  // Tab press handling is now centralized in CustomBottomTabBar - no need for duplicate listener
 
   // Get indicator style using PagerView's scroll progress - matches FeedPager exactly
   const getIndicatorStyle = useCallback(

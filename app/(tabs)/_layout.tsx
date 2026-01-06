@@ -1,4 +1,4 @@
-import { View, StyleSheet, Platform } from 'react-native';
+import { Platform } from 'react-native';
 import { Tabs } from 'expo-router';
 import { NativeTabs, Icon, Label, Badge } from 'expo-router/unstable-native-tabs';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
@@ -62,34 +62,80 @@ export default function TabsLayout() {
     );
   }
 
-  // Use Expo Router's Tabs component with custom tabBar for optimized routing
+  // Use Expo Router's Tabs component following the guide pattern
   return (
-    <View style={styles.container}>
-      <Tabs
-        screenOptions={{
-          headerShown: false,
-          tabBarStyle: { display: 'none' }, // Hide default tab bar, we use custom one
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: customTintColor,
+        tabBarInactiveTintColor: customInactiveTintColor,
+        tabBarBadgeStyle: {
+          backgroundColor: Colors.badgeGreen,
+          color: '#fff',
+        },
+        tabBarStyle: Platform.select({
+          ios: {
+            // Use a transparent background on iOS to show the blur effect
+            position: 'absolute',
+          },
+          default: {},
+        }),
+        // Performance optimizations for faster tab switching
+        lazy: true, // Lazy load screens for better initial performance
+        freezeOnBlur: false, // Keep screens active for instant switching
+      }}
+      tabBar={props => (
+        <CustomBottomTabBar
+          {...props}
+          tintColor={customTintColor}
+          inactiveTintColor={customInactiveTintColor}
+        />
+      )}
+    >
+      <Tabs.Screen
+        name="index"
+        options={{
+          href: '/(tabs)/',
         }}
-        tabBar={props => (
-          <CustomBottomTabBar
-            {...props}
-            tintColor={customTintColor}
-            inactiveTintColor={customInactiveTintColor}
-          />
-        )}
-      >
-        <Tabs.Screen name="index" options={{ href: '/(tabs)/' }} />
-        <Tabs.Screen name="explore" />
-        <Tabs.Screen name="activity" />
-        <Tabs.Screen name="profile" />
-      </Tabs>
-    </View>
+      />
+
+      <Tabs.Screen
+        name="explore"
+        options={{
+          tabBarStyle: {
+            ...Platform.select({
+              ios: {
+                position: 'absolute',
+              },
+              default: {},
+            }),
+            backgroundColor: Colors.black,
+          },
+        }}
+      />
+
+      <Tabs.Screen
+        name="activity"
+        options={{
+          tabBarBadge:
+            totalUnreadCount > 0
+              ? totalUnreadCount > 99
+                ? '99+'
+                : totalUnreadCount.toString()
+              : undefined,
+          tabBarStyle: {
+            ...Platform.select({
+              ios: {
+                position: 'absolute',
+              },
+              default: {},
+            }),
+            backgroundColor: Colors.black,
+          },
+        }}
+      />
+
+      <Tabs.Screen name="profile" options={{}} />
+    </Tabs>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.black,
-  },
-});
