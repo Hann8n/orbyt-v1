@@ -9,6 +9,7 @@ import React, {
 import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../../utils/constants';
 import { View, Text, StyleSheet, Pressable, RefreshControl } from 'react-native';
 import { Image } from 'expo-image';
+import { BlurView } from 'expo-blur';
 import { LegendList, LegendListRef } from '@legendapp/list';
 import type { ScrollToTopRef } from '../../../utils/navigation/tabRefs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -72,8 +73,20 @@ const NotificationDivider = () => <View style={styles.divider} />;
 // Post kind type
 type PostKind = 'video' | 'image' | 'external' | 'record' | 'text';
 
-// Notification types that relate to posts (memoized for performance)
-const POST_ACTION_TYPES = [
+// Post action notification reasons
+type PostActionReason =
+  | 'like'
+  | 'repost'
+  | 'like-via-repost'
+  | 'repost-via-repost'
+  | 'reply'
+  | 'quote'
+  | 'mention'
+  | 'post'
+  | 'subscribed-post';
+
+// Notification types that relate to posts
+const POST_ACTION_TYPES: readonly PostActionReason[] = [
   'like',
   'repost',
   'like-via-repost',
@@ -85,35 +98,23 @@ const POST_ACTION_TYPES = [
   'subscribed-post',
 ] as const;
 
-// Helper to get embed from post data (handles different structures)
+// Type alias for post data map
+type PostDataMap = Map<string, PostView | ExtendedPostView | ExtendedFeedViewPost>;
+
+// Helper to get embed from post data
 const getEmbed = (
-  postData:
-    | PostView
-    | ExtendedPostView
-    | ExtendedFeedViewPost
-    | { embed?: unknown; record?: { embed?: unknown } }
-    | null
-    | undefined
-) => {
+  postData: PostView | ExtendedPostView | ExtendedFeedViewPost | null | undefined
+): PostView['embed'] | undefined => {
   if (!postData) return undefined;
   if ('embed' in postData && postData.embed) return postData.embed;
-  if (
-    'record' in postData &&
-    postData.record &&
-    typeof postData.record === 'object' &&
-    'embed' in postData.record
-  ) {
-    return (postData.record as { embed?: unknown }).embed;
-  }
   return undefined;
 };
 
 // Determine post kind from embed
-const getPostKind = (embed: unknown): PostKind => {
+const getPostKind = (embed: PostView['embed'] | null | undefined): PostKind => {
   if (!embed || typeof embed !== 'object') return 'text';
 
-  const embedObj = embed as { $type?: string };
-  const type = embedObj.$type;
+  const type = embed.$type;
 
   if (type === 'app.bsky.embed.video' || type === 'app.bsky.embed.video#view') {
     return 'video';
@@ -146,37 +147,18 @@ const getPostKind = (embed: unknown): PostKind => {
 };
 
 // Get thumbnail based on post kind (only for videos)
-const getThumbnailByKind = (embed: unknown, kind: PostKind): string | null => {
+const getThumbnailByKind = (
+  embed: PostView['embed'] | null | undefined,
+  kind: PostKind
+): string | null => {
   if (!embed || typeof embed !== 'object') return null;
-
-  const embedObj = embed as {
-    $type?: string;
-    thumbnail?: string;
-    media?: { thumbnail?: string };
-    record?: { embeds?: unknown[]; value?: { embed?: unknown } };
-  };
-
-  // For record embeds, check if it's a nested video
-  if (kind === 'record') {
-    const nestedEmbed =
-      embedObj.record?.embeds?.[0] ||
-      (embedObj.record?.value as { embed?: unknown } | undefined)?.embed;
-    if (nestedEmbed) {
-      const nestedKind = getPostKind(nestedEmbed);
-      if (nestedKind === 'video') {
-        return getThumbnailByKind(nestedEmbed, nestedKind);
-      }
-    }
-    return null;
-  }
-
   if (kind !== 'video') return null;
 
-  if (embedObj.$type === 'app.bsky.embed.video' || embedObj.$type === 'app.bsky.embed.video#view') {
+  if (embed.$type === 'app.bsky.embed.video' || embed.$type === 'app.bsky.embed.video#view') {
     const videoEmbed = embed as VideoView;
     return videoEmbed.thumbnail || extractVideoThumbnail(embed) || null;
   }
-  if (embedObj.$type === 'app.bsky.embed.recordWithMedia#view' && embedObj.media) {
+  if (embed.$type === 'app.bsky.embed.recordWithMedia#view') {
     const recordWithMedia = embed as RecordWithMediaView;
     const mediaEmbed = recordWithMedia.media;
     if (mediaEmbed && 'thumbnail' in mediaEmbed) {
@@ -187,46 +169,99 @@ const getThumbnailByKind = (embed: unknown, kind: PostKind): string | null => {
   return null;
 };
 
+// Efficiently check if thumbnail should be blurred based on labels from API data
+// Checks labels directly from notification/post data without calling moderation service
+const shouldBlurThumbnail = (
+  notification: Notification,
+  postData: PostView | ExtendedPostView | ExtendedFeedViewPost | null | undefined
+): boolean => {
+  // Labels that blur media (based on LabelValueDefinition.blurs: 'media')
+  const mediaBlurLabels = ['porn', 'sexual', 'nudity', 'nsfl', 'gore'];
+
+  // Helper to extract label values from labels array
+  const getLabelValues = (labels: unknown): string[] => {
+    if (!labels || !Array.isArray(labels)) return [];
+    return labels
+      .map(label => {
+        if (typeof label === 'string') return label.toLowerCase();
+        if (
+          label &&
+          typeof label === 'object' &&
+          label !== null &&
+          'val' in label &&
+          typeof label.val === 'string'
+        ) {
+          return label.val.toLowerCase();
+        }
+        return null;
+      })
+      .filter((val): val is string => val !== null);
+  };
+
+  // Check labels from post data (for quote/mention notifications or fetched posts)
+  if (postData && typeof postData === 'object' && postData !== null && 'labels' in postData) {
+    const labelValues = getLabelValues(postData.labels);
+    if (labelValues.some(val => mediaBlurLabels.some(blurLabel => val.includes(blurLabel)))) {
+      return true;
+    }
+  }
+
+  // Check labels from notification.post (for quote/mention notifications)
+  if (
+    'post' in notification &&
+    notification.post &&
+    typeof notification.post === 'object' &&
+    notification.post !== null &&
+    'labels' in notification.post
+  ) {
+    const labelValues = getLabelValues(notification.post.labels);
+    if (labelValues.some(val => mediaBlurLabels.some(blurLabel => val.includes(blurLabel)))) {
+      return true;
+    }
+  }
+
+  // Check labels from notification itself
+  if (notification.labels) {
+    const labelValues = getLabelValues(notification.labels);
+    if (labelValues.some(val => mediaBlurLabels.some(blurLabel => val.includes(blurLabel)))) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
 // Get the root post URI from any notification
-// Handles all notification types uniformly by extracting the relevant URI
 const getPostUri = (notification: Notification): string | null => {
   const uri = 'uri' in notification ? notification.uri : undefined;
-  const post =
-    'post' in notification ? (notification as Notification & { post?: PostView }).post : undefined;
-  const record =
-    'record' in notification
-      ? (
-          notification as Notification & {
-            record?: {
-              embed?: unknown;
-              reply?: { root?: { uri?: string } };
-              subject?: { uri?: string };
-            };
-          }
-        ).record
-      : undefined;
+  const post = 'post' in notification ? notification.post : undefined;
+  const record = 'record' in notification ? notification.record : undefined;
 
   // subscribed-post: uri is the post URI
   if (notification.reason === 'subscribed-post') return uri || null;
 
   // reply: root post is in record.reply.root.uri
-  if (record?.reply?.root?.uri) return record.reply.root.uri;
+  if (record && typeof record === 'object' && 'reply' in record) {
+    const reply = (record as { reply?: { root?: { uri?: string } } }).reply;
+    if (reply?.root?.uri) return reply.root.uri;
+  }
 
-  // like/repost/like-via-repost/repost-via-repost: subject URI (may be post or repost record)
-  if (record?.subject?.uri) return record.subject.uri;
+  // like/repost/like-via-repost/repost-via-repost: subject URI
+  if (record && typeof record === 'object' && 'subject' in record) {
+    const subject = (record as { subject?: { uri?: string } }).subject;
+    if (subject?.uri) return subject.uri;
+  }
 
   // quote/mention: post field contains the post
-  if (post?.uri) return post.uri;
+  if (post && typeof post === 'object' && 'uri' in post) {
+    return (post as PostView).uri;
+  }
 
   return null;
 };
 
 // Resolve a URI to the root post URI (handles repost records automatically)
-// Note: This function just checks the pattern - actual resolution happens in fetchPostData
-const resolveRootPostUri = (
-  uri: string,
-  _postDataMap: Map<string, PostView | ExtendedPostView | ExtendedFeedViewPost>
-): string | null => {
+const resolveRootPostUri = (uri: string): string | null => {
   // If it's a repost record URI, we can't resolve it from PostView alone
   // The actual resolution happens in fetchPostData by fetching the record
   if (uri.includes('app.bsky.feed.repost')) {
@@ -235,49 +270,34 @@ const resolveRootPostUri = (
   return uri;
 };
 
-// Extract post data from notification - matches Bluesky's pattern
-// Uses notification.post when available (has view embeds with thumbnails)
-// For subscribed-post, prefer fetched post (has view embed with thumbnails), fallback to record (raw embed)
+// Extract post data from notification
 const getPostDataFromNotification = (
   notification: Notification,
-  postDataMap: Map<string, PostView | ExtendedPostView | ExtendedFeedViewPost>
+  postDataMap: PostDataMap
 ): PostView | ExtendedPostView | ExtendedFeedViewPost | null => {
-  // Check if notification has post property (for quote/mention notifications)
-  const post =
-    'post' in notification ? (notification as Notification & { post?: PostView }).post : undefined;
-  const record =
-    'record' in notification
-      ? (
-          notification as Notification & {
-            record?: {
-              embed?: unknown;
-              reply?: { root?: { uri?: string } };
-              subject?: { uri?: string };
-            };
-          }
-        ).record
-      : undefined;
-
   // Quote/mention notifications include post data with view embeds
-  if (post) return post;
+  if ('post' in notification && notification.post) {
+    return notification.post as PostView;
+  }
 
   // For subscribed-post, prefer fetched post data (has view embed with thumbnails)
-  // Fallback to record if fetch not available yet
   if (notification.reason === 'subscribed-post') {
     const postUri = getPostUri(notification);
     if (postUri) {
-      const rootPostUri = resolveRootPostUri(postUri, postDataMap);
+      const rootPostUri = resolveRootPostUri(postUri);
       const fetchedPost = rootPostUri ? postDataMap.get(rootPostUri) : null;
       if (fetchedPost) return fetchedPost;
     }
     // Fallback: use record (raw embed, no thumbnails)
-    if (record) {
+    if ('record' in notification && notification.record) {
       return {
         uri: notification.uri,
         cid: notification.cid,
-        author: notification.author as PostView['author'],
-        record: record as PostView['record'],
-        embed: record.embed as PostView['embed'],
+        author: notification.author,
+        record: notification.record as PostView['record'],
+        embed: ('embed' in notification.record ? notification.record.embed : undefined) as
+          | PostView['embed']
+          | undefined,
         indexedAt: notification.indexedAt,
       } as PostView;
     }
@@ -287,33 +307,25 @@ const getPostDataFromNotification = (
   // For others, get from fetched postDataMap
   const postUri = getPostUri(notification);
   if (!postUri) return null;
-  const rootPostUri = resolveRootPostUri(postUri, postDataMap);
+  const rootPostUri = resolveRootPostUri(postUri);
   return rootPostUri ? (postDataMap.get(rootPostUri) ?? null) : null;
-};
-
-// Check if post is deleted using $type field (matches official Bluesky app)
-const isPostDeleted = (
-  postData: PostView | ExtendedPostView | ExtendedFeedViewPost | null | undefined
-): boolean => {
-  if (!postData) return true;
-  return AtprotoService.isNotFoundPost(postData);
 };
 
 // Fetch post data, handling repost records
 const fetchPostData = async (
   postUri: string,
   existingPostData: PostView | ExtendedPostView | ExtendedFeedViewPost | null | undefined,
-  postDataMap: Map<string, PostView | ExtendedPostView | ExtendedFeedViewPost>
+  _postDataMap: PostDataMap
 ): Promise<{
   postData: PostView | ExtendedPostView | ExtendedFeedViewPost;
   rootPostUri: string;
 } | null> => {
   if (existingPostData) {
-    const rootPostUri = resolveRootPostUri(postUri, postDataMap) || postUri;
+    const rootPostUri = resolveRootPostUri(postUri) || postUri;
     return { postData: existingPostData, rootPostUri };
   }
 
-  let rootPostUri = resolveRootPostUri(postUri, postDataMap) || postUri;
+  let rootPostUri = resolveRootPostUri(postUri) || postUri;
 
   // If postUri is a repost record, fetch it first to get root post URI
   if (postUri.includes('app.bsky.feed.repost')) {
@@ -355,51 +367,42 @@ const NotificationItem = React.memo<{
   item: Notification;
   navigation: ReturnType<typeof useRouter>;
   queryClient: ReturnType<typeof useQueryClient>;
-  postDataMap: Map<string, PostView | ExtendedPostView | ExtendedFeedViewPost>;
+  postDataMap: PostDataMap;
 }>(
   ({ item, navigation, queryClient, postDataMap }) => {
     const { reason, author, indexedAt, uri } = item;
     const { presentCommentSection } = useGlobalCommentSection();
 
     // All notification types that relate to posts
-    const isPostAction = POST_ACTION_TYPES.includes(reason as any);
+    const isPostAction = POST_ACTION_TYPES.includes(reason as PostActionReason);
     const postData = isPostAction ? getPostDataFromNotification(item, postDataMap) : null;
     const embed = postData ? getEmbed(postData) : null;
     const postKind = embed ? getPostKind(embed) : 'text';
-    const thumbnail = embed ? getThumbnailByKind(embed, postKind) : null;
-    const isVideo = postKind === 'video';
+
+    // Extract thumbnail: prefer postData embed, fallback to notification record embed for immediate display
+    let thumbnail = embed ? getThumbnailByKind(embed, postKind) : null;
+    let isVideo = postKind === 'video';
+    if (!thumbnail && isPostAction && !postData) {
+      // Fallback: try to extract thumbnail from notification record embed
+      const recordEmbed =
+        'record' in item && item.record && typeof item.record === 'object' && 'embed' in item.record
+          ? (item.record as { embed?: PostView['embed'] }).embed
+          : undefined;
+      if (recordEmbed) {
+        const recordKind = getPostKind(recordEmbed);
+        thumbnail = getThumbnailByKind(recordEmbed, recordKind);
+        if (!isVideo) {
+          isVideo = recordKind === 'video';
+        }
+      }
+    }
     const postTypeLabel = isVideo ? 'video' : 'post';
 
-    // Check if post might be a video (for reserving space before post data loads)
-    // Check notification record embed as a hint - this helps prevent layout shifts
-    const mightBeVideo =
-      isPostAction &&
-      !postData &&
-      (() => {
-        const recordEmbed = item.record?.embed;
-        if (!recordEmbed || typeof recordEmbed !== 'object') return false;
+    // Always reserve space for thumbnail if it's a post action and it's a video
+    const shouldShowThumbnailContainer = isPostAction && isVideo;
 
-        const embedObj = recordEmbed as { $type?: string; media?: { $type?: string } };
-        const embedType = embedObj.$type;
-        // Check for video embed types
-        if (embedType === 'app.bsky.embed.video' || embedType === 'app.bsky.embed.video#view') {
-          return true;
-        }
-        // Check for recordWithMedia that might contain video
-        if (
-          embedType === 'app.bsky.embed.recordWithMedia' ||
-          embedType === 'app.bsky.embed.recordWithMedia#view'
-        ) {
-          const mediaType = embedObj.media?.$type;
-          return mediaType === 'app.bsky.embed.video' || mediaType === 'app.bsky.embed.video#view';
-        }
-        return false;
-      })();
-
-    // Always reserve space for thumbnail if it's a post action and either:
-    // 1. It's confirmed to be a video, OR
-    // 2. Post data hasn't loaded yet but record embed suggests it might be a video
-    const shouldShowThumbnailContainer = isPostAction && (isVideo || mightBeVideo);
+    // Check if thumbnail should be blurred based on labels from API data
+    const shouldBlur = shouldBlurThumbnail(item, postData);
 
     const actionText = useMemo(() => {
       const actions: Record<string, string> = {
@@ -450,16 +453,22 @@ const NotificationItem = React.memo<{
     // Navigate to video post in feed
     const navigateToVideoPost = useCallback(
       (postData: PostView | ExtendedPostView | ExtendedFeedViewPost) => {
-        const embed = getEmbed(postData);
-        const postView = postData as PostView;
+        // Handle ExtendedFeedViewPost which has post property
+        const postView =
+          'post' in postData
+            ? (postData as ExtendedFeedViewPost).post
+            : (postData as PostView | ExtendedPostView);
+        const embed = getEmbed(postView);
         feedService.setCurrentFeed([
           {
             post: {
               uri: postView.uri || item.uri,
               cid: postView.cid || item.cid,
               author: postView.author || author,
-              record: postView.record || (item.record as PostView['record']),
-              embed: embed as PostView['embed'],
+              record:
+                postView.record ||
+                ('record' in item ? (item.record as PostView['record']) : undefined),
+              embed: embed,
               replyCount: postView.replyCount || 0,
               repostCount: postView.repostCount || 0,
               likeCount: postView.likeCount || 0,
@@ -597,7 +606,7 @@ const NotificationItem = React.memo<{
           <Avatar
             uri={author?.avatar}
             type="profile"
-            size={50}
+            size={55}
             showRing={true}
             style={styles.profileImage}
           />
@@ -631,6 +640,14 @@ const NotificationItem = React.memo<{
                     // Silently fail - image just won't display
                   }}
                 />
+                {shouldBlur && (
+                  <BlurView
+                    intensity={80}
+                    tint="dark"
+                    style={styles.thumbnailBlurOverlay}
+                    experimentalBlurMethod="dimezisBlurView"
+                  />
+                )}
               </>
             ) : (
               <View style={styles.thumbnailPlaceholder} />
@@ -750,11 +767,10 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_props, ref) => {
     const uris = new Set<string>();
 
     for (const notification of allNotifications) {
-      if (!POST_ACTION_TYPES.includes(notification.reason as any)) continue;
+      if (!POST_ACTION_TYPES.includes(notification.reason as PostActionReason)) continue;
 
       // Quote/mention include post data with view embeds - no fetch needed
-      if ('post' in notification && (notification as Notification & { post?: PostView }).post)
-        continue;
+      if ('post' in notification && notification.post) continue;
 
       const postUri = getPostUri(notification);
       if (postUri) uris.add(postUri);
@@ -764,10 +780,10 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_props, ref) => {
   }, [allNotifications]);
 
   // Batch fetch all posts, automatically resolving repost records to root posts
-  const { data: postDataMap = new Map() } = useQuery({
+  const { data: postDataMap = new Map() } = useQuery<PostDataMap>({
     queryKey: ['notification-posts-batch', postUrisToFetch.join(',')],
     queryFn: async () => {
-      const result = new Map<string, any>();
+      const result: PostDataMap = new Map();
       const repostUris: string[] = [];
       const postUris: string[] = [];
 
@@ -783,7 +799,11 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_props, ref) => {
       // Fetch regular posts
       if (postUris.length > 0) {
         const posts = await AtprotoService.getPosts(postUris);
-        posts.forEach((post, uri) => result.set(uri, post));
+        posts.forEach((post, uri) => {
+          if (post) {
+            result.set(uri, post as PostView);
+          }
+        });
       }
 
       // Fetch repost records and resolve to root posts
@@ -818,7 +838,7 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_props, ref) => {
               if (repostValue?.subject?.uri) {
                 rootPostUris.push(repostValue.subject.uri);
               }
-            } catch (error) {
+            } catch {
               // Silently fail for individual repost records
             }
           }
@@ -826,9 +846,13 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_props, ref) => {
           // Fetch root posts
           if (rootPostUris.length > 0) {
             const rootPosts = await AtprotoService.getPosts(rootPostUris);
-            rootPosts.forEach((post, uri) => result.set(uri, post));
+            rootPosts.forEach((post, uri) => {
+              if (post) {
+                result.set(uri, post as PostView);
+              }
+            });
           }
-        } catch (error) {
+        } catch {
           // Silently fail
         }
       }
@@ -840,22 +864,10 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_props, ref) => {
     gcTime: 10 * 60 * 1000,
   });
 
-  // Filter out notifications about deleted posts - use stable reference
+  // Use notifications directly from API without filtering
   const notifications = useMemo(() => {
-    if (postDataMap.size === 0) {
-      // If postDataMap is empty, return all notifications (posts haven't loaded yet)
-      return allNotifications;
-    }
-
-    return allNotifications.filter(notification => {
-      const isPostAction = POST_ACTION_TYPES.includes(notification.reason as any);
-      if (!isPostAction) return true; // Keep non-post notifications
-
-      const postData = getPostDataFromNotification(notification, postDataMap);
-      // Filter out if post is deleted
-      return !isPostDeleted(postData);
-    });
-  }, [allNotifications, postDataMap]);
+    return allNotifications;
+  }, [allNotifications]);
 
   // Use stable reference for postDataMap to prevent unnecessary re-renders
   const postDataMapRef = useRef(postDataMap);
@@ -864,7 +876,7 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_props, ref) => {
   }, [postDataMap]);
 
   const renderNotificationContent = useCallback(
-    ({ item }: { item: any }) => {
+    ({ item }: { item: Notification }) => {
       return (
         <NotificationItem
           item={item}
@@ -877,27 +889,34 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_props, ref) => {
     [navigation, queryClient]
   );
 
-  const keyExtractor = useCallback((item: any) => {
+  const keyExtractor = useCallback((item: Notification) => {
     return item.uri || `notification-${item.indexedAt || Math.random()}`;
   }, []);
 
   // Get item type for better recycling optimization - optimized to check record embed first
   const getItemType = useCallback(
-    (item: any): string => {
-      const isPostAction = POST_ACTION_TYPES.includes(item.reason as any);
+    (item: Notification): string => {
+      const isPostAction = POST_ACTION_TYPES.includes(item.reason as PostActionReason);
       if (!isPostAction) return 'non-post';
 
       // Check record embed first (faster, no map lookup needed)
-      const recordEmbed = item.record?.embed;
-      if (recordEmbed) {
-        const embedType = recordEmbed.$type;
-        if (embedType === 'app.bsky.embed.video' || embedType === 'app.bsky.embed.video#view') {
-          return 'post-video';
-        }
-        if (embedType === 'app.bsky.embed.recordWithMedia') {
-          const mediaType = recordEmbed.media?.$type;
-          if (mediaType === 'app.bsky.embed.video' || mediaType === 'app.bsky.embed.video#view') {
+      if (
+        'record' in item &&
+        item.record &&
+        typeof item.record === 'object' &&
+        'embed' in item.record
+      ) {
+        const recordEmbed = (item.record as { embed?: PostView['embed'] }).embed;
+        if (recordEmbed && typeof recordEmbed === 'object') {
+          const embedType = recordEmbed.$type;
+          if (embedType === 'app.bsky.embed.video' || embedType === 'app.bsky.embed.video#view') {
             return 'post-video';
+          }
+          if (embedType === 'app.bsky.embed.recordWithMedia#view') {
+            const mediaType = (recordEmbed as RecordWithMediaView).media?.$type;
+            if (mediaType === 'app.bsky.embed.video' || mediaType === 'app.bsky.embed.video#view') {
+              return 'post-video';
+            }
           }
         }
       }
@@ -917,25 +936,35 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_props, ref) => {
 
   // Estimate item size for better initial rendering - optimized to check record embed first
   const getEstimatedItemSize = useCallback(
-    (_index: number, item: any): number => {
+    (_index: number, item: Notification): number => {
       // Base size: padding (24px) + avatar (50px) + text content (~40px) = ~114px
       const baseSize = 114;
 
       // Check if item has video thumbnail - use record embed first (faster, no map lookup)
-      const isPostAction = POST_ACTION_TYPES.includes(item.reason as any);
+      const isPostAction = POST_ACTION_TYPES.includes(item.reason as PostActionReason);
 
       if (isPostAction) {
         // Check record embed first (no map lookup needed, faster)
-        const recordEmbed = item.record?.embed;
-        if (recordEmbed) {
-          const embedType = recordEmbed.$type;
-          if (embedType === 'app.bsky.embed.video' || embedType === 'app.bsky.embed.video#view') {
-            return baseSize + 80;
-          }
-          if (embedType === 'app.bsky.embed.recordWithMedia') {
-            const mediaType = recordEmbed.media?.$type;
-            if (mediaType === 'app.bsky.embed.video' || mediaType === 'app.bsky.embed.video#view') {
+        if (
+          'record' in item &&
+          item.record &&
+          typeof item.record === 'object' &&
+          'embed' in item.record
+        ) {
+          const recordEmbed = (item.record as { embed?: PostView['embed'] }).embed;
+          if (recordEmbed && typeof recordEmbed === 'object') {
+            const embedType = recordEmbed.$type;
+            if (embedType === 'app.bsky.embed.video' || embedType === 'app.bsky.embed.video#view') {
               return baseSize + 80;
+            }
+            if (embedType === 'app.bsky.embed.recordWithMedia#view') {
+              const mediaType = (recordEmbed as RecordWithMediaView).media?.$type;
+              if (
+                mediaType === 'app.bsky.embed.video' ||
+                mediaType === 'app.bsky.embed.video#view'
+              ) {
+                return baseSize + 80;
+              }
             }
           }
         }
@@ -981,7 +1010,7 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_props, ref) => {
       ref={legendListRef}
       style={styles.listContainer}
       contentContainerStyle={{
-        paddingHorizontal: 15,
+        paddingHorizontal: 10,
         paddingBottom: bottomNavBarHeight + 5,
       }}
       data={notifications}
@@ -1036,17 +1065,17 @@ const styles = StyleSheet.create({
   notificationItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    paddingVertical: 12,
+    paddingVertical: 10,
   },
   divider: {
     height: 1,
     backgroundColor: Colors.darkGray,
-    marginLeft: 62, // Align with content (50px avatar + 12px margin)
-    marginRight: -15, // Extend to right edge, ignoring 15px padding
+    marginLeft: 65, // Align with content (60px avatar + 12px margin)
+    marginRight: -10, // Extend to right edge, ignoring 10px padding
   },
   profileImage: {
-    width: 50,
-    height: 50,
+    width: 55,
+    height: 55,
     borderRadius: BORDER_RADIUS.FULL,
     marginRight: 12,
   },
@@ -1073,12 +1102,19 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: Colors.darkGray,
   },
+  thumbnailBlurOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 2,
+  },
   authorName: {
     color: Colors.white,
     fontSize: 18,
     marginBottom: 2,
-    fontFamily: 'Firma-Bold',
-    fontWeight: 'bold',
+    fontFamily: 'Firma-Black',
   },
   actionRow: {
     flexDirection: 'row',
@@ -1087,12 +1123,12 @@ const styles = StyleSheet.create({
   },
   actionText: {
     color: Colors.mutedGray,
-    fontSize: 16,
+    fontSize: 16.5,
     fontFamily: 'Firma-Medium',
   },
   timeText: {
     color: Colors.gray,
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: 'Firma-Regular',
     marginLeft: 4,
   },
@@ -1115,7 +1151,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 15,
+    paddingHorizontal: 10,
     paddingVertical: 60,
   },
   emptyContent: {

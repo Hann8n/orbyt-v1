@@ -127,7 +127,7 @@ export default function ConversationList({
             <Avatar
               uri={otherMember.avatar}
               type="profile"
-              size={50}
+              size={55}
               showRing={true}
               style={styles.profileImage}
             />
@@ -182,7 +182,7 @@ export default function ConversationList({
     return conversations.length === 0
       ? styles.emptyContainer
       : {
-          paddingHorizontal: 15,
+          paddingHorizontal: 10,
           paddingBottom: bottomNavBarHeight + 5,
         };
   }, [conversations.length, bottomNavBarHeight]);
@@ -240,20 +240,20 @@ const styles = StyleSheet.create({
   conversationItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    paddingVertical: 12,
+    paddingVertical: 10,
   },
   divider: {
     height: 1,
     backgroundColor: Colors.darkGray,
-    marginLeft: 62, // Align with content (50px avatar + 12px margin)
-    marginRight: -15, // Extend to right edge, ignoring 15px padding
+    marginLeft: 65, // Align with content (55px avatar + 12px margin - adjusted)
+    marginRight: -10, // Extend to right edge, ignoring 10px padding
   },
   avatarContainer: {
     position: 'relative',
   },
   profileImage: {
-    width: 50,
-    height: 50,
+    width: 55,
+    height: 55,
     borderRadius: BORDER_RADIUS.FULL,
     marginRight: 12,
   },
@@ -283,8 +283,8 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 18,
     marginBottom: 2,
-    fontFamily: 'Firma-Bold',
-    fontWeight: 'bold',
+    fontFamily: 'Firma-Black',
+    fontWeight: '800',
     marginRight: 4,
   },
   unreadConversationName: {
@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
   },
   conversationTime: {
     color: Colors.gray,
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: 'Firma-Regular',
     marginLeft: 4,
   },
@@ -303,7 +303,7 @@ const styles = StyleSheet.create({
   },
   lastMessage: {
     color: Colors.mutedGray,
-    fontSize: 16,
+    fontSize: 16.5,
     fontFamily: 'Firma-Medium',
   },
   unreadMessage: {
@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 15,
+    paddingHorizontal: 10,
   },
   emptyContent: {
     alignItems: 'center',

@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
   },
   headerSection: {
     backgroundColor: Colors.black,
-    paddingHorizontal: 15,
+    paddingHorizontal: 10,
     paddingBottom: 0,
     paddingTop: 0,
   },
