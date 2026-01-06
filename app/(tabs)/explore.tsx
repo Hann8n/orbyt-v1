@@ -53,7 +53,7 @@ import { VerificationBadge } from '../../src/components/features/badging';
 import EmptyFeed from '../../src/components/features/feed/EmptyFeed';
 import { feedService } from '../../src/services/FeedService';
 import { getBottomNavBarHeight, isTablet } from '../../src/utils/device/screen';
-import { extractVideoThumbnail } from '../../src/utils/video/helpers';
+import { getVideoView } from '../../src/utils/video/helpers';
 import { formatHandle } from '../../src/utils/formatting/handles';
 import BlurredThumbnailBackground from '../../src/components/ui/BlurredThumbnailBackground';
 import { HeaderService, useHeaders, type Header } from '../../src/services/OrbytAPIService';
@@ -2132,7 +2132,8 @@ const ExploreScreen: React.FC = () => {
                     }}
                     renderItem={({ item: video }) => {
                       const videoData = video.post || video;
-                      const thumbnailUrl = extractVideoThumbnail(videoData?.embed);
+                      const videoView = getVideoView(videoData?.embed);
+                      const thumbnailUrl = videoView?.thumbnail || null;
                       // Use shouldBlur flag from feed item (computed at feed level)
                       const shouldBlur = (video as ExtendedFeedViewPost).shouldBlur ?? false;
 

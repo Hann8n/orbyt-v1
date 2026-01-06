@@ -7,8 +7,8 @@ import React, { useRef, useMemo } from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 
 import VideoCard, { VideoCardRef } from '../video/VideoCard';
-import { extractVideoEmbedAndUrl } from '../../../utils/video/helpers';
-import type { ExtendedPostView, ExtendedFeedViewPost } from '../../../services/api/types';
+import type { ExtendedPostView, ExtendedFeedViewPost, PostView } from '../../../services/api/types';
+import { getVideoView } from '../../../utils/video/helpers';
 import { Colors } from '../../ui/UI';
 
 // VideoCard's Post type
@@ -65,7 +65,13 @@ const VideoItem: React.FC<VideoItemProps> = ({
 
   // Simplified calculations - no memoization needed for simple operations
   const itemHeight = height || SCREEN_HEIGHT;
-  const { videoEmbed, videoUrl } = extractVideoEmbedAndUrl(post);
+
+  // Extract video embed and URL using getVideoView helper + direct property access
+  const embed = 'embed' in post ? (post.embed as PostView['embed']) : undefined;
+  const videoView = getVideoView(embed);
+  const videoEmbed = videoView;
+  const videoUrl = videoView?.playlist || null;
+
   const hasVideo = !!videoUrl;
 
   // Convert shouldBlur flag to ModerationDecision format for VideoCard

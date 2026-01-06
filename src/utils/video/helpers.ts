@@ -5,17 +5,35 @@
 
 import { Platform } from 'react-native';
 import type { VideoSource } from 'expo-video';
+import type {
+  ExtendedPostView,
+  ExtendedFeedViewPost,
+  PostView,
+  VideoView,
+  RecordWithMediaView,
+} from '../../services/api/types';
+import { isVideoEmbed, isVideoEmbedInMedia } from '../../services/api/types';
 
 /**
  * Creates a properly configured VideoSource object for HLS streaming.
  * Automatically detects HLS streams and sets appropriate contentType.
  * Enables caching on Android (iOS doesn't support HLS caching per expo-video docs).
  * Adaptive bitrate is handled automatically by the native HLS player.
+ *
+ * @param videoUrl - The video URL to create a source for, may be null
+ * @returns VideoSource object configured for HLS playback, or null if URL is invalid or not HLS
+ *
+ * @example
+ * ```typescript
+ * const source = createVideoSource(videoView.playlist);
+ * if (source) {
+ *   <Video source={source} />
+ * }
+ * ```
  */
 export function createVideoSource(videoUrl: string | null): VideoSource | null {
   if (!videoUrl) return null;
 
-  // Enforce HLS-only playback
   const isHLS =
     videoUrl.includes('.m3u8') ||
     /[?&]format=m3u8/i.test(videoUrl) ||
@@ -26,84 +44,90 @@ export function createVideoSource(videoUrl: string | null): VideoSource | null {
   return {
     uri: videoUrl,
     contentType: 'hls',
-    // Enable caching on Android for better performance (iOS limitation: can't cache HLS)
-    // Per expo-video docs: "Due to platform limitations, the cache cannot be used with HLS video sources on iOS"
     useCaching: Platform.OS === 'android',
   };
 }
 
-export interface VideoEmbed {
-  $type: string;
-  playlist?: string | string[];
-  media?: VideoEmbed;
-  aspectRatio?: {
-    width: number;
-    height: number;
-  };
+/**
+ * Normalizes ExtendedPostView | ExtendedFeedViewPost to ExtendedPostView.
+ * The API returns both formats - this helper ensures consistent access to post data.
+ *
+ * @param post - Post data that may be in ExtendedPostView or ExtendedFeedViewPost format
+ * @returns Normalized ExtendedPostView (extracts post property if needed)
+ *
+ * @example
+ * ```typescript
+ * const normalized = normalizePostView(feedItem);
+ * const author = normalized.author;
+ * ```
+ */
+export function normalizePostView(post: ExtendedPostView | ExtendedFeedViewPost): ExtendedPostView {
+  return 'post' in post ? post.post : post;
 }
 
 /**
- * Helper function to get the actual video embed object from any embed type
+ * Extracts VideoView from embed when we know it's a video embed.
+ * Returns null if not a video embed.
+ * This eliminates duplication of type guard + extraction pattern across components.
+ *
+ * @param embed - Post embed that may contain video, may be null or undefined
+ * @returns VideoView if embed contains video, null otherwise
+ *
+ * @example
+ * ```typescript
+ * const videoView = getVideoView(post.embed);
+ * if (videoView) {
+ *   const playlist = videoView.playlist;
+ *   const thumbnail = videoView.thumbnail;
+ * }
+ * ```
  */
-function getActualVideoEmbed(embed: any): any | null {
+export function getVideoView(embed: PostView['embed'] | null | undefined): VideoView | null {
   if (!embed) return null;
 
-  if (embed.$type === 'app.bsky.embed.recordWithMedia#view') {
-    const recordEmbed = embed as VideoEmbed;
-    if (recordEmbed.media?.$type?.includes('video')) {
-      return recordEmbed.media;
-    }
-    return null;
+  if (isVideoEmbed(embed)) {
+    return embed;
   }
 
-  if (embed.$type?.includes('video')) {
-    return embed;
+  if (isVideoEmbedInMedia(embed)) {
+    return (embed as RecordWithMediaView).media as VideoView;
   }
 
   return null;
 }
 
 /**
- * Extracts the video URL from a post embed object.
- * Prefers HLS (.m3u8) for best iOS streaming support.
+ * Extracts all metadata from a VideoView in a single call.
+ * Returns null if the embed is not a video embed.
+ *
+ * @param embed - Post embed that may contain video
+ * @returns Object with playlist URL, thumbnail URL, and aspect ratio, or null if not a video embed
+ *
+ * @example
+ * ```typescript
+ * const metadata = getVideoMetadata(post.embed);
+ * if (metadata) {
+ *   const { playlist, thumbnail, aspectRatio } = metadata;
+ *   // Use video metadata
+ * }
+ * ```
  */
-export function extractVideoUrl(embed: any): string | null {
-  const videoEmbed = getActualVideoEmbed(embed);
-  if (!videoEmbed) return null;
+export function getVideoMetadata(embed: PostView['embed'] | null | undefined): {
+  playlist: string | null;
+  thumbnail: string | null;
+  aspectRatio: { width: number; height: number } | null;
+} | null {
+  const videoView = getVideoView(embed);
+  if (!videoView) return null;
 
-  // Handle array of playlists - prefer HLS
-  if (Array.isArray(videoEmbed.playlist)) {
-    const entries = videoEmbed.playlist.filter(Boolean) as string[];
-    if (entries.length === 0) return null;
-
-    // HLS-only: require .m3u8 entry
-    const hls = entries.find(u => u.toLowerCase().includes('.m3u8') || /[?&]format=m3u8/i.test(u));
-    if (hls) return hls;
-
-    // No HLS available
-    return null;
-  }
-
-  // Single value playlist: only accept HLS-like URLs
-  const single = videoEmbed.playlist as string | null;
-  if (!single) return null;
-  const isHlsSingle = single.toLowerCase().includes('.m3u8') || /[?&]format=m3u8/i.test(single);
-  return isHlsSingle ? single : null;
-}
-
-/**
- * Extracts the video thumbnail URL from a post embed object.
- */
-export function extractVideoThumbnail(embed: any): string | null {
-  const videoEmbed = getActualVideoEmbed(embed);
-  return videoEmbed?.thumbnail || null;
-}
-
-/**
- * Extract video embed and URL from a post in a single operation
- */
-export function extractVideoEmbedAndUrl(post: any): { videoEmbed: any; videoUrl: string | null } {
-  const videoEmbed = post?.embed ? getActualVideoEmbed(post.embed) : null;
-  const videoUrl = extractVideoUrl(videoEmbed);
-  return { videoEmbed, videoUrl };
+  return {
+    playlist: videoView.playlist || null,
+    thumbnail: videoView.thumbnail || null,
+    aspectRatio: videoView.aspectRatio
+      ? {
+          width: videoView.aspectRatio.width,
+          height: videoView.aspectRatio.height,
+        }
+      : null,
+  };
 }

@@ -543,7 +543,21 @@ class FeedService {
         if (!feedLink) {
           return { feed: [], cursor: null };
         }
-        response = await AtprotoService.getFeed(cursor, feedLink, {}, true, limit, 'custom');
+
+        // Check ChannelCache to see if this is a video-only feed generator
+        // If so, skip client-side filtering (API already returns video-only content)
+        const { default: ChannelService } = await import('./cache/ChannelCache');
+        const cached = ChannelService.getChannelFromCacheSync(feedLink);
+        const isVideoOnlyGenerator = cached?.isExperimental === false;
+
+        response = await AtprotoService.getFeed(
+          cursor,
+          feedLink,
+          {},
+          !isVideoOnlyGenerator, // Skip filtering if video-only generator
+          limit,
+          'custom'
+        );
       }
 
       return response || { feed: [], cursor: null };

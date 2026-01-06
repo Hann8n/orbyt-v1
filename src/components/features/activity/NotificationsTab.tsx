@@ -26,7 +26,6 @@ import { getBottomNavBarHeight } from '../../../utils/device/screen';
 import { formatHandle } from '../../../utils/formatting/handles';
 import { feedService } from '../../../services/FeedService';
 import { formatRelativeDate } from '../../ui/RelativeDate';
-import { extractVideoThumbnail } from '../../../utils/video/helpers';
 import { useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 import { useUserStore } from '../../../stores/userStore';
 import BlurredThumbnailBackground from '../../ui/BlurredThumbnailBackground';
@@ -38,9 +37,10 @@ import type {
   PostView,
   ExtendedPostView,
   ExtendedFeedViewPost,
-  VideoView,
   RecordWithMediaView,
 } from '../../../services/api/types';
+import { isVideoEmbed, isVideoEmbedInMedia } from '../../../services/api/types';
+import { getVideoView } from '../../../utils/video/helpers';
 
 // Import radar.gif for empty notifications state
 const RadarGif = require('../../../assets/radar.gif');
@@ -115,18 +115,16 @@ const getEmbed = (
 const getPostKind = (embed: PostView['embed'] | null | undefined): PostKind => {
   if (!embed || typeof embed !== 'object') return 'text';
 
-  const type = embed.$type;
-
-  if (type === 'app.bsky.embed.video' || type === 'app.bsky.embed.video#view') {
+  // Use type guards for video embeds
+  if (isVideoEmbed(embed) || isVideoEmbedInMedia(embed)) {
     return 'video';
   }
+
+  const type = embed.$type;
 
   if (type === 'app.bsky.embed.recordWithMedia#view') {
     const recordWithMedia = embed as RecordWithMediaView;
     const mediaType = recordWithMedia.media?.$type;
-    if (mediaType === 'app.bsky.embed.video' || mediaType === 'app.bsky.embed.video#view') {
-      return 'video';
-    }
     if (mediaType === 'app.bsky.embed.images' || mediaType === 'app.bsky.embed.images#view') {
       return 'image';
     }
@@ -147,27 +145,14 @@ const getPostKind = (embed: PostView['embed'] | null | undefined): PostKind => {
   return 'text';
 };
 
-// Get thumbnail based on post kind (only for videos)
+// Get thumbnail based on post kind (only for videos) - use getVideoView helper + direct property access
 const getThumbnailByKind = (
   embed: PostView['embed'] | null | undefined,
   kind: PostKind
 ): string | null => {
-  if (!embed || typeof embed !== 'object') return null;
   if (kind !== 'video') return null;
-
-  if (embed.$type === 'app.bsky.embed.video' || embed.$type === 'app.bsky.embed.video#view') {
-    const videoEmbed = embed as VideoView;
-    return videoEmbed.thumbnail || extractVideoThumbnail(embed) || null;
-  }
-  if (embed.$type === 'app.bsky.embed.recordWithMedia#view') {
-    const recordWithMedia = embed as RecordWithMediaView;
-    const mediaEmbed = recordWithMedia.media;
-    if (mediaEmbed && 'thumbnail' in mediaEmbed) {
-      return (mediaEmbed as VideoView).thumbnail || extractVideoThumbnail(embed) || null;
-    }
-  }
-
-  return null;
+  const videoView = getVideoView(embed);
+  return videoView?.thumbnail || null;
 };
 
 // Helper to construct a PostView-like object from notification/post data for moderation
@@ -900,15 +885,9 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_props, ref) => {
       ) {
         const recordEmbed = (item.record as { embed?: PostView['embed'] }).embed;
         if (recordEmbed && typeof recordEmbed === 'object') {
-          const embedType = recordEmbed.$type;
-          if (embedType === 'app.bsky.embed.video' || embedType === 'app.bsky.embed.video#view') {
+          // Use type guards for video embeds
+          if (isVideoEmbed(recordEmbed) || isVideoEmbedInMedia(recordEmbed)) {
             return 'post-video';
-          }
-          if (embedType === 'app.bsky.embed.recordWithMedia#view') {
-            const mediaType = (recordEmbed as RecordWithMediaView).media?.$type;
-            if (mediaType === 'app.bsky.embed.video' || mediaType === 'app.bsky.embed.video#view') {
-              return 'post-video';
-            }
           }
         }
       }
@@ -945,18 +924,9 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_props, ref) => {
         ) {
           const recordEmbed = (item.record as { embed?: PostView['embed'] }).embed;
           if (recordEmbed && typeof recordEmbed === 'object') {
-            const embedType = recordEmbed.$type;
-            if (embedType === 'app.bsky.embed.video' || embedType === 'app.bsky.embed.video#view') {
+            // Use type guards for video embeds
+            if (isVideoEmbed(recordEmbed) || isVideoEmbedInMedia(recordEmbed)) {
               return baseSize + 80;
-            }
-            if (embedType === 'app.bsky.embed.recordWithMedia#view') {
-              const mediaType = (recordEmbed as RecordWithMediaView).media?.$type;
-              if (
-                mediaType === 'app.bsky.embed.video' ||
-                mediaType === 'app.bsky.embed.video#view'
-              ) {
-                return baseSize + 80;
-              }
             }
           }
         }

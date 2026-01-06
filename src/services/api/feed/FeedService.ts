@@ -192,7 +192,12 @@ export class FeedService {
         }));
 
         // Filter for video posts at API level if requested
-        if (filterVideosOnly) {
+        // Skip filtering if:
+        // 1. filterVideosOnly is false
+        // 2. feedType is 'authorVideos' (API already filters with 'posts_with_video')
+        const shouldFilter = filterVideosOnly && feedType !== 'authorVideos';
+
+        if (shouldFilter) {
           feedData = feedData.filter(post => {
             const embed = post.post.embed;
             if (!embed) {
@@ -421,6 +426,30 @@ export class FeedService {
   }
 
   /**
+   * Converts upload blob response to BlobRef format required by Bluesky API.
+   * The uploadBlob API returns `{ data: { blob: BlobRef } }` where BlobRef is a class instance,
+   * but the actual runtime structure may differ. This helper performs the necessary type
+   * assertion to satisfy TypeScript while maintaining runtime compatibility.
+   *
+   * @param blob - Blob data from com.atproto.repo.uploadBlob response
+   *               The actual response structure is `{ ref: { $link: string }, mimeType: string, size: number }`
+   *               but TypeScript expects `BlobRef` class instance
+   * @returns BlobRef compatible with app.bsky.embed.video structure
+   *
+   * @internal This type assertion is necessary because the upload response
+   * blob structure matches BlobRef at runtime but TypeScript types don't
+   * overlap directly. The API returns a BlobRef class, but the serialized form
+   * has a different structure that needs casting.
+   */
+  private static toBlobRef(blob: {
+    ref: { $link: string };
+    mimeType: string;
+    size: number;
+  }): import('@atproto/lexicon').BlobRef {
+    return blob as unknown as import('@atproto/lexicon').BlobRef;
+  }
+
+  /**
    * Create a new post with video content using Bluesky's video service
    * @param text - The post text
    * @param videoPath - Path to the video file
@@ -575,15 +604,13 @@ export class FeedService {
         tags.push(`orbyt-channel-${feedSlug}`);
       }
 
-      // Create the post with video embed
-      // data.blob from upload response is compatible with BlobRef
       const postRecord: PostRecord = {
         $type: 'app.bsky.feed.post',
         text: richText.text,
         createdAt: new Date().toISOString(),
         embed: {
           $type: 'app.bsky.embed.video',
-          video: data.blob as unknown as import('@atproto/lexicon').BlobRef,
+          video: this.toBlobRef(data.blob),
           aspectRatio,
         },
         tags: tags,

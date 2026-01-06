@@ -33,11 +33,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../../ui/UI';
 import { Loading3FillIcon, HeartFillIcon } from '../../ui/Icon';
 import BlurredThumbnailBackground from '../../ui/BlurredThumbnailBackground';
-import {
-  extractVideoUrl,
-  extractVideoThumbnail,
-  createVideoSource,
-} from '../../../utils/video/helpers';
+import { normalizePostView, createVideoSource, getVideoView } from '../../../utils/video/helpers';
 import VideoOverlayUI from './VideoOverlayUI';
 import { useFocusEffect } from 'expo-router';
 import { useGlobalCommentSection } from '../../../hooks/useGlobalModals';
@@ -47,13 +43,8 @@ import { getChannelBySlug } from '../../../utils/channels/orbyt';
 import { VideoScrubber } from './VideoScrubber';
 import { logger } from '../../../utils/logger';
 import { useOverlayVisibility } from '../../../context/FeedIndicatorContext';
-import type {
-  ExtendedPostView,
-  ExtendedFeedViewPost,
-  VideoView,
-} from '../../../services/api/types';
+import type { ExtendedPostView, ExtendedFeedViewPost } from '../../../services/api/types';
 import type { ModerationDecision } from '../../../services/moderation/ModerationTypes';
-import { isVideoEmbed } from '../../../services/api/types';
 
 // Use proper API types - normalize to always work with ExtendedPostView
 type Post = ExtendedPostView | ExtendedFeedViewPost;
@@ -109,7 +100,7 @@ const VideoCard = memo(
 
       // Normalize post - extract ExtendedPostView from ExtendedFeedViewPost if needed
       const postView: ExtendedPostView = React.useMemo(() => {
-        return 'post' in post ? post.post : post;
+        return normalizePostView(post);
       }, [post]);
 
       // Enhanced video state management with automatic recycling
@@ -179,16 +170,14 @@ const VideoCard = memo(
       const heartPositionX = useSharedValue(0);
       const heartPositionY = useSharedValue(0);
 
-      // Get video URL and thumbnail using shared utilities
-      const videoUrl = extractVideoUrl(postView.embed);
-      const posterUrl = extractVideoThumbnail(postView.embed);
+      // Get video URL, thumbnail, and aspect ratio using getVideoView helper + direct property access
+      const videoView = getVideoView(postView.embed);
+      const videoUrl = videoView?.playlist || null;
+      const posterUrl = videoView?.thumbnail || null;
+      const postAspectRatio = videoView?.aspectRatio;
 
       // Track dimensions
       const { width, height: screenHeight } = Dimensions.get('window');
-      // Use provided height or calculate based on 9:16 aspect ratio if post has aspectRatio
-      const embed = postView.embed;
-      const videoEmbed = embed && isVideoEmbed(embed) ? (embed as VideoView) : null;
-      const postAspectRatio = videoEmbed?.aspectRatio;
       const defaultAspectRatio = postAspectRatio
         ? postAspectRatio.width / postAspectRatio.height
         : 16 / 9;

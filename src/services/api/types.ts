@@ -277,19 +277,82 @@ export interface VideoSearchResponse {
   cursor: string | null;
 }
 
-// Type guards
+/**
+ * Type guard for ThreadViewPost.
+ * Checks if a thread post is a valid ThreadViewPost (not NotFoundPost or BlockedPost).
+ *
+ * @param post - The thread post to check, which may be ThreadViewPost, NotFoundPost, or BlockedPost
+ * @returns Type predicate indicating if post is a ThreadViewPost
+ *
+ * @example
+ * ```typescript
+ * const threadPost = await getThreadPost(uri);
+ * if (isThreadViewPost(threadPost)) {
+ *   // TypeScript knows threadPost is ThreadViewPost here
+ *   const author = threadPost.post.author;
+ * }
+ * ```
+ */
 export function isThreadViewPost(post: ThreadPost): post is ThreadViewPost {
   return sdkIsThreadViewPost(post);
 }
 
+/**
+ * Type guard for NotFoundPost.
+ * Checks if a thread post indicates the post was not found.
+ *
+ * @param post - The thread post to check, which may be ThreadViewPost, NotFoundPost, or BlockedPost
+ * @returns Type predicate indicating if post is a NotFoundPost
+ *
+ * @example
+ * ```typescript
+ * const threadPost = await getThreadPost(uri);
+ * if (isNotFoundPost(threadPost)) {
+ *   // TypeScript knows threadPost is NotFoundPost here
+ *   console.log('Post not found');
+ * }
+ * ```
+ */
 export function isNotFoundPost(post: ThreadPost): post is NotFoundPost {
   return sdkIsNotFoundPost(post);
 }
 
+/**
+ * Type guard for BlockedPost.
+ * Checks if a thread post indicates the post is blocked.
+ *
+ * @param post - The thread post to check, which may be ThreadViewPost, NotFoundPost, or BlockedPost
+ * @returns Type predicate indicating if post is a BlockedPost
+ *
+ * @example
+ * ```typescript
+ * const threadPost = await getThreadPost(uri);
+ * if (isBlockedPost(threadPost)) {
+ *   // TypeScript knows threadPost is BlockedPost here
+ *   console.log('Post is blocked');
+ * }
+ * ```
+ */
 export function isBlockedPost(post: ThreadPost): post is BlockedPost {
   return sdkIsBlockedPost(post);
 }
 
+/**
+ * Type guard for video embeds.
+ * Checks if an embed is of type `app.bsky.embed.video` or `app.bsky.embed.video#view`.
+ *
+ * @param embed - The embed object from a post, which may be null or undefined
+ * @returns Type predicate indicating if embed is a VideoView
+ *
+ * @example
+ * ```typescript
+ * const embed = post.embed;
+ * if (isVideoEmbed(embed)) {
+ *   // TypeScript knows embed is VideoView here
+ *   const playlist = embed.playlist;
+ * }
+ * ```
+ */
 export function isVideoEmbed(
   embed: FeedViewPost['post']['embed'] | null | undefined
 ): embed is VideoView & FeedViewPost['post']['embed'] {
@@ -297,6 +360,22 @@ export function isVideoEmbed(
   return embed.$type === 'app.bsky.embed.video' || embed.$type === 'app.bsky.embed.video#view';
 }
 
+/**
+ * Type guard for video embeds within recordWithMedia.
+ * Checks if an embed is of type `app.bsky.embed.recordWithMedia#view` and contains a video in the media field.
+ *
+ * @param embed - The embed object from a post, which may be null or undefined
+ * @returns Type predicate indicating if embed is a RecordWithMediaView containing a VideoView
+ *
+ * @example
+ * ```typescript
+ * const embed = post.embed;
+ * if (isVideoEmbedInMedia(embed)) {
+ *   // TypeScript knows embed is RecordWithMediaView with VideoView media here
+ *   const videoPlaylist = embed.media.playlist;
+ * }
+ * ```
+ */
 export function isVideoEmbedInMedia(
   embed: FeedViewPost['post']['embed'] | null | undefined
 ): embed is RecordWithMediaView & FeedViewPost['post']['embed'] {

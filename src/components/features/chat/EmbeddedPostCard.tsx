@@ -22,13 +22,9 @@ import MessageReactions from './MessageReactions';
 import { ReactionView } from '../../../services/ChatService';
 import { formatHandle } from '../../../utils/formatting/handles';
 import { useProfile } from '../../../services/data/ProfileService';
-import type {
-  PostView,
-  VideoView,
-  ImagesView,
-  RecordWithMediaView,
-} from '../../../services/api/types';
+import type { PostView, ImagesView, RecordWithMediaView } from '../../../services/api/types';
 import { isVideoEmbed, isVideoEmbedInMedia } from '../../../services/api/types';
+import { getVideoView } from '../../../utils/video/helpers';
 
 interface EmbeddedPostCardProps {
   postUri: string;
@@ -166,21 +162,10 @@ export default function EmbeddedPostCard({
       thumb?: string;
     };
 
-    // Video posts
-    if (
-      embedObj.$type === 'app.bsky.embed.video' ||
-      embedObj.$type === 'app.bsky.embed.video#view'
-    ) {
-      return (embed as VideoView).thumbnail || null;
-    } else if (embedObj.$type === 'app.bsky.embed.recordWithMedia#view') {
-      const recordWithMedia = embed as RecordWithMediaView;
-      if (
-        recordWithMedia.media &&
-        (recordWithMedia.media.$type === 'app.bsky.embed.video' ||
-          recordWithMedia.media.$type === 'app.bsky.embed.video#view')
-      ) {
-        return (recordWithMedia.media as VideoView).thumbnail || null;
-      }
+    // Video posts - use getVideoView helper + direct property access
+    const videoView = getVideoView(embed);
+    if (videoView) {
+      return videoView.thumbnail || null;
     }
 
     // Image posts - get first image
@@ -317,14 +302,9 @@ export default function EmbeddedPostCard({
 
               // Check if it's actually a video post
               const embed = postData.embed;
-              const isVideoEmbed =
-                embed?.$type === 'app.bsky.embed.video' ||
-                embed?.$type === 'app.bsky.embed.video#view' ||
-                (embed?.$type === 'app.bsky.embed.recordWithMedia#view' &&
-                  ((embed as RecordWithMediaView).media?.$type === 'app.bsky.embed.video' ||
-                    (embed as RecordWithMediaView).media?.$type === 'app.bsky.embed.video#view'));
-
-              if (!isVideoEmbed) return null;
+              if (!embed || (!isVideoEmbed(embed) && !isVideoEmbedInMedia(embed))) {
+                return null;
+              }
 
               return {
                 post: {
