@@ -32,7 +32,7 @@ import { VerificationBadge } from '../badging';
 import { useGlobalShareSheet, useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 import { useRouter, useSegments } from 'expo-router';
 import { useFollowContext } from '../../../context/FollowContext';
-import { useTabBarHeight } from '../../../context/TabBarContext';
+import { useTabBarHeight } from '../../../context/FeedIndicatorContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { prefetchProfile, useProfile } from '../../../services/data/ProfileService';
 import type { ExtendedPostView, PostRecord } from '../../../services/api/types';

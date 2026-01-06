@@ -4,6 +4,7 @@ import {
   View,
   Text,
   StyleSheet,
+  StyleProp,
   TextInput,
   Pressable,
   StatusBar,
@@ -11,12 +12,19 @@ import {
   Dimensions,
   FlatList,
   useWindowDimensions,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  ViewStyle,
 } from 'react-native';
 import { Image } from 'expo-image';
-import PagerView from 'react-native-pager-view';
+import PagerView, {
+  type PagerViewOnPageScrollEvent,
+  type PagerViewOnPageSelectedEvent,
+  type PageScrollStateChangedNativeEvent,
+} from 'react-native-pager-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList, FlashListRef } from '@shopify/flash-list';
-import Animated, {
+import Reanimated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
@@ -26,7 +34,7 @@ import Animated, {
 
 import AtprotoService from '../../src/services/api/AtprotoService';
 
-import { useRouter } from 'expo-router';
+import { useRouter, type Router } from 'expo-router';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import ProfileService, {
   useFollowMutation,
@@ -35,7 +43,7 @@ import ProfileService, {
 } from '../../src/services/data/ProfileService';
 import ChannelService from '../../src/services/data/ChannelService';
 import type { CachedChannel } from '../../src/services/data/ChannelService';
-import { useQueryClient, useQuery } from '@tanstack/react-query';
+import { useQueryClient, useQuery, type QueryClient } from '@tanstack/react-query';
 import { Avatar, Icon } from '../../src/components/ui/UI';
 import { LinearGradient } from 'expo-linear-gradient';
 import HeaderBanner from '../../src/components/ui/HeaderBanner';
@@ -94,11 +102,25 @@ interface Channel {
   isExperimental?: boolean; // Added for experimental feed badge (computed from contentMode)
 }
 
-interface SearchResult {
-  type: 'profile' | 'channel' | 'video';
-  data: Profile | Channel | any; // 'any' for video post
+type ProfileResult = {
+  type: 'profile';
+  data: Profile;
   relevance: number;
-}
+};
+
+type ChannelResult = {
+  type: 'channel';
+  data: Channel;
+  relevance: number;
+};
+
+type VideoResult = {
+  type: 'video';
+  data: ExtendedFeedViewPost;
+  relevance: number;
+};
+
+type SearchResult = ProfileResult | ChannelResult | VideoResult;
 
 interface SectionHeader {
   type: 'section-header';
@@ -106,10 +128,9 @@ interface SectionHeader {
   key: string;
 }
 
-// Add a new type for the spotlight videos section
 interface SpotlightVideosSection {
   type: 'spotlight-videos';
-  videos: any[];
+  videos: ExtendedFeedViewPost[];
   key: string;
 }
 
@@ -152,6 +173,11 @@ type ListItem =
   | HeaderSpacerItem
   | LoadingItem;
 
+const isProfileResult = (result: SearchResult): result is ProfileResult =>
+  result.type === 'profile';
+const isChannelResult = (result: SearchResult): result is ChannelResult =>
+  result.type === 'channel';
+
 // Search-related components
 const SEARCH_TAB_LABELS: { [key: string]: string } = {
   'recently-visited': 'Recently Visited',
@@ -160,7 +186,7 @@ const SEARCH_TAB_LABELS: { [key: string]: string } = {
 };
 
 // Helper function to navigate to profile
-const navigateToProfile = (profile: Profile, queryClient: any, router: any) => {
+const navigateToProfile = (profile: Profile, queryClient: QueryClient, router: Router) => {
   if (!profile.handle) return;
 
   const handle = profile.handle.trim();
@@ -238,7 +264,7 @@ const SearchSwipePager = ({
   }, [activeIndex]);
 
   const handlePageScroll = useCallback(
-    (event: any) => {
+    (event: PagerViewOnPageScrollEvent) => {
       const { position, offset } = event.nativeEvent;
       const progress = position + offset;
       const roundedPosition = Math.round(progress);
@@ -262,7 +288,7 @@ const SearchSwipePager = ({
   );
 
   const handlePageSelected = useCallback(
-    (event: any) => {
+    (event: PagerViewOnPageSelectedEvent) => {
       if (!hasAppliedInitialIndexRef.current) return;
 
       const nextIndex = event.nativeEvent.position;
@@ -286,7 +312,7 @@ const SearchSwipePager = ({
     [activeTab, pages, onActiveTabChange, onScrollProgressChange]
   );
 
-  const handlePageScrollStateChanged = useCallback((event: any) => {
+  const handlePageScrollStateChanged = useCallback((event: PageScrollStateChangedNativeEvent) => {
     const state = event.nativeEvent.pageScrollState;
     if (state === 'dragging' || state === 'settling') {
       isUserScrollingRef.current = true;
@@ -345,8 +371,8 @@ const ProfilesFeedRenderer = React.memo(
     const currentUser = useUserStore(state => state.currentUser);
 
     const profiles = searchResults
-      .filter((result): result is any => result.type === 'profile')
-      .map(result => result.data as Profile)
+      .filter(isProfileResult)
+      .map(result => result.data)
       .filter((profile, index, self) => index === self.findIndex(p => p.did === profile.did));
 
     if (isLoading) {
@@ -449,8 +475,8 @@ const ChannelsFeedRenderer = React.memo(
     const router = useRouter();
 
     const channels = searchResults
-      .filter((result): result is any => result.type === 'channel')
-      .map(result => result.data as Channel)
+      .filter(isChannelResult)
+      .map(result => result.data)
       .filter((channel, index, self) => index === self.findIndex(c => c.uri === channel.uri));
 
     if (isLoading) {
@@ -698,19 +724,6 @@ const SearchFeedRenderer = React.memo(
   }
 );
 
-// Simple loading components with Loading3FillIcon
-const ProfileLoading = () => (
-  <View style={[styles.profileItem, styles.loadingContainer]}>
-    <Loading3FillIcon size={24} color={Colors.white} />
-  </View>
-);
-
-const ChannelLoading = () => (
-  <View style={[styles.channelItem, styles.loadingContainer]}>
-    <Loading3FillIcon size={24} color={Colors.white} />
-  </View>
-);
-
 const SectionHeaderLoading = () => (
   <View style={[styles.sectionHeader, styles.loadingContainer]}>
     <Loading3FillIcon size={24} color={Colors.white} />
@@ -736,7 +749,10 @@ const HeaderSpacer = ({ computedHeaderHeight }: { computedHeaderHeight: number }
 };
 
 // Channel Name Component with Orbyt formatting
-const ChannelNameDisplay: React.FC<{ channel: Channel; style?: any }> = ({ channel, style }) => {
+const ChannelNameDisplay: React.FC<{ channel: Channel; style?: StyleProp<ViewStyle> }> = ({
+  channel,
+  style,
+}) => {
   const isOrbyt = isOrbytChannel(channel.uri);
   const orbytChannel = isOrbyt ? getChannelByUri(channel.uri) : undefined;
   const channelColor = orbytChannel?.channelColor || '#FFD700';
@@ -951,7 +967,7 @@ const HorizontalChannelItem = ({
 
 // Responsive Orbyt Channels Grid Component
 const OrbytChannelsGrid = React.memo(
-  ({ channels, router }: { channels: Channel[]; router: any }) => {
+  ({ channels, router }: { channels: Channel[]; router: Router }) => {
     const { width: windowWidth } = useWindowDimensions();
 
     // Responsive column calculation - similar to GridFeedView
@@ -975,11 +991,11 @@ const OrbytChannelsGrid = React.memo(
     const { padding, gap } = useMemo(() => {
       const w = windowWidth || Dimensions.get('window').width;
       if (isTablet() || w > 900) {
-        return { padding: 24, gap: 10 }; // Larger spacing for tablets
+        return { padding: 10, gap: 10 };
       } else if (w > 480) {
-        return { padding: 20, gap: 8 }; // Medium spacing
+        return { padding: 10, gap: 8 };
       } else {
-        return { padding: 20, gap: 7 }; // Default spacing for small screens
+        return { padding: 10, gap: 7 };
       }
     }, [windowWidth]);
 
@@ -1166,7 +1182,7 @@ const OrbytChannelsGrid = React.memo(
 );
 
 const ExploreScreen: React.FC = () => {
-  const flashListRef = useRef<FlashListRef<any> | null>(null);
+  const flashListRef = useRef<FlashListRef<ListItem> | null>(null);
   const currentUser = useUserStore(state => state.currentUser);
   const searchInputRef = useRef<TextInput | null>(null);
 
@@ -1188,6 +1204,7 @@ const ExploreScreen: React.FC = () => {
   // Reanimated values for smooth transitions
   const searchProgress = useSharedValue(0);
   const contentOpacity = useSharedValue(1);
+  const topGradientOpacity = useSharedValue(0);
 
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -1290,6 +1307,16 @@ const ExploreScreen: React.FC = () => {
   const followStoreFollows = useFollowStore(state => state.follows);
 
   // Process search results
+  type SearchFeedPost = ExtendedFeedViewPost['post'] & {
+    contentMode?: string;
+    text?: string;
+    description?: string;
+    likeCount?: number;
+    indexedAt?: string;
+    viewer?: { following?: string | null };
+    avatar?: string;
+  };
+
   const searchResults = useMemo(() => {
     if (!searchFeedOption || !searchFeed.length) {
       return [];
@@ -1298,8 +1325,8 @@ const ExploreScreen: React.FC = () => {
     const results: SearchResult[] = [];
 
     for (let index = 0; index < searchFeed.length; index++) {
-      const feedItem = searchFeed[index];
-      const post = feedItem.post;
+      const feedItem = searchFeed[index] as ExtendedFeedViewPost;
+      const post = feedItem.post as SearchFeedPost;
 
       // Check if this is a channel (feed generator)
       // Channels from search have uri that includes 'app.bsky.feed.generator'
@@ -1312,18 +1339,18 @@ const ExploreScreen: React.FC = () => {
         // post.avatar = channel.avatar
         // post.contentMode = channel.contentMode
         // post.author = channel.creator
-        const contentMode = (post as any).contentMode;
+        const contentMode = post.contentMode;
         results.push({
           type: 'channel' as const,
           data: {
             uri: post.uri,
             cid: post.cid,
-            did: (post.author as any)?.did || '',
-            displayName: (post as any).text || post.author?.displayName || 'Unknown channel',
-            description: (post as any).description || '',
+            did: post.author?.did || '',
+            displayName: post.text || post.author?.displayName || 'Unknown channel',
+            description: post.description || '',
             creator: post.author
               ? {
-                  did: (post.author as any).did || '',
+                  did: post.author.did || '',
                   handle: post.author.handle || '',
                   displayName: post.author.displayName || '',
                   avatar: post.author.avatar || '',
@@ -1332,9 +1359,9 @@ const ExploreScreen: React.FC = () => {
                   did: '',
                   handle: '',
                 },
-            avatar: (post as any).avatar || post.author?.avatar || '',
-            likeCount: (post as any).likeCount || 0,
-            indexedAt: (post as any).indexedAt || new Date().toISOString(),
+            avatar: post.avatar || post.author?.avatar || '',
+            likeCount: post.likeCount || 0,
+            indexedAt: post.indexedAt || new Date().toISOString(),
             contentMode,
           } as Channel & { contentMode?: string },
           relevance: 10 - index,
@@ -1350,8 +1377,8 @@ const ExploreScreen: React.FC = () => {
         (post.uri?.includes('/profile') || !post.uri?.includes('app.bsky.feed.generator'))
       ) {
         const handle = post.author.handle;
-        const postText = (post as any).text || '';
-        const did = (post.author as any).did || '';
+        const postText = post.text || '';
+        const did = post.author.did || '';
         const cachedProfile = handle ? ProfileService.getProfileFromCacheSync(handle) : null;
         const followStoreState = followStoreFollows?.get(did);
 
@@ -1366,7 +1393,7 @@ const ExploreScreen: React.FC = () => {
             isFollowing:
               followStoreState?.isFollowing ??
               cachedProfile?.isFollowing ??
-              !!(post as any).viewer?.following,
+              !!post.viewer?.following,
             // Extract verification from cache (already fetched) - avoids separate API calls
             verification: cachedProfile?.verification,
           } as Profile,
@@ -1377,8 +1404,17 @@ const ExploreScreen: React.FC = () => {
 
       // Check for embedded channels in posts
       if (post.embed?.$type === 'app.bsky.embed.record') {
-        const postText = (post as any).text || '';
-        const embedRecord = (post.embed as any)?.record;
+        const postText = post.text || '';
+        const embedRecord = (
+          post.embed as {
+            record?: {
+              uri?: string;
+              cid?: string;
+              contentMode?: string;
+              view?: { contentMode?: string };
+            };
+          }
+        )?.record;
         const isEmbedChannel = embedRecord?.uri?.includes('app.bsky.feed.generator');
 
         if (isEmbedChannel) {
@@ -1392,7 +1428,7 @@ const ExploreScreen: React.FC = () => {
               description: postText || '',
               creator: post.author
                 ? {
-                    did: (post.author as any).did || '',
+                    did: post.author.did || '',
                     handle: post.author.handle || '',
                     displayName: post.author.displayName || '',
                     avatar: post.author.avatar || '',
@@ -1401,7 +1437,7 @@ const ExploreScreen: React.FC = () => {
                     did: '',
                     handle: '',
                   },
-              indexedAt: (post as any).indexedAt || new Date().toISOString(),
+              indexedAt: post.indexedAt || new Date().toISOString(),
               contentMode,
             } as Channel & { contentMode?: string },
             relevance: 10 - index,
@@ -1623,6 +1659,10 @@ const ExploreScreen: React.FC = () => {
     };
   });
 
+  const topGradientAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: topGradientOpacity.value,
+  }));
+
   // Animate search state transitions
   useEffect(() => {
     if (isSearching) {
@@ -1792,12 +1832,20 @@ const ExploreScreen: React.FC = () => {
     return Math.round(Dimensions.get('window').height * ratio);
   }, [insets.top, headers]);
 
-  // Gradient should be visible when no banner is visible
-  const showTopGradient = useMemo(() => !isHeaderVisible, [isHeaderVisible]);
+  const handleExploreScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const y = event?.nativeEvent?.contentOffset?.y ?? 0;
+      // Start the fade slightly higher in the header and ease in gently
+      const start = 0;
+      const targetOpacity = Math.min(Math.max((y - start) / 200, 0), 0.55);
+      topGradientOpacity.value = targetOpacity;
+    },
+    [computedHeaderHeight, topGradientOpacity]
+  );
 
   // Create loading items for suggested content
   const loadingSuggestedItems = useMemo(() => {
-    const items = [];
+    const items: ListItem[] = [];
 
     // Add header spacer only when no header is visible
     if (!isHeaderVisible) {
@@ -1810,10 +1858,10 @@ const ExploreScreen: React.FC = () => {
     return items;
   }, [isHeaderVisible]);
 
-  const suggestionsList: any[] = (() => {
+  const suggestionsList: ListItem[] = (() => {
     // Show loading while loading
     if (isLoadingSpotlightFeed || isLoadingOrbytChannels) {
-      return loadingSuggestedItems as unknown as any[];
+      return loadingSuggestedItems;
     }
     if (spotlightFeedError || orbytChannelsError) {
       return [];
@@ -1849,24 +1897,34 @@ const ExploreScreen: React.FC = () => {
     return data;
   })();
 
-  const listData: any[] = suggestionsList;
+  const listData: ListItem[] = suggestionsList;
 
   return (
     <View style={[styles.container, Platform.OS === 'android' ? { paddingTop: 0 } : null]}>
       <StatusBar barStyle="light-content" backgroundColor={'transparent'} translucent={true} />
 
-      {showTopGradient && !isSearching && (
-        <View
+      {!isSearching && (
+        <Reanimated.View
+          pointerEvents="none"
           style={[
             styles.topGradient,
-            { top: 0, height: insets.top + 70 + 40, backgroundColor: Colors.black },
+            // Cover status bar + search bar (top offset 10 + height 48)
+            { top: 0, height: insets.top + 10 + 48 },
+            topGradientAnimatedStyle,
           ]}
-        />
+        >
+          <LinearGradient
+            colors={[Colors.black, 'transparent']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+        </Reanimated.View>
       )}
 
       {/* Search Bar */}
       <Pressable onPress={() => searchInputRef.current?.focus()} style={{ zIndex: 30 }}>
-        <Animated.View
+        <Reanimated.View
           style={[
             styles.searchContainer,
             {
@@ -1920,18 +1978,18 @@ const ExploreScreen: React.FC = () => {
               <Icon name="close-circle" size={22.5} color={Colors.darkGray} />
             </Pressable>
           )}
-        </Animated.View>
+        </Reanimated.View>
       </Pressable>
 
       {/* Search Results */}
-      <Animated.View
+      <Reanimated.View
         style={[StyleSheet.absoluteFill, searchResultsAnimatedStyle]}
         pointerEvents={isSearching ? 'auto' : 'none'}
       >
         {isSearching && (
           <>
             {/* Tab Navigation */}
-            <Animated.View
+            <Reanimated.View
               style={[
                 styles.searchTabsContainer,
                 {
@@ -1954,10 +2012,10 @@ const ExploreScreen: React.FC = () => {
                   </Pressable>
                 ))}
               </View>
-            </Animated.View>
+            </Reanimated.View>
 
             {/* Tab Content */}
-            <Animated.View
+            <Reanimated.View
               style={[
                 styles.searchContentWrapper,
                 { marginTop: insets.top + 65 + 36 },
@@ -1986,42 +2044,52 @@ const ExploreScreen: React.FC = () => {
                   />
                 )}
               />
-            </Animated.View>
+            </Reanimated.View>
           </>
         )}
-      </Animated.View>
+      </Reanimated.View>
 
       {/* Explore Content */}
-      <Animated.View
+      <Reanimated.View
         style={[StyleSheet.absoluteFill, exploreContentAnimatedStyle]}
         pointerEvents={!isSearching ? 'auto' : 'none'}
       >
-        <FlashList
+        <FlashList<ListItem>
           ref={flashListRef}
+          onScroll={handleExploreScroll}
           ListHeaderComponent={
             isHeaderVisible ? (
               <HeaderBanner headers={headers} height={computedHeaderHeight} />
             ) : null
           }
           data={listData}
-          keyExtractor={(item: any, index: number) => {
-            if (typeof item === 'string') return `shimmer-${index}`;
-            if (item && typeof item === 'object' && 'type' in item) {
-              const anyItem: any = item as any;
-              if (anyItem.type === 'section-header')
-                return anyItem.key || `${anyItem.title}-${index}`;
-              if (anyItem.type === 'spotlight-videos') return anyItem.key || `spotlight-${index}`;
-              if (anyItem.type === 'video-grid') return anyItem.key || `key-${index}`;
+          keyExtractor={(item, index) => {
+            switch (item.type) {
+              case 'section-header':
+                return item.key || `${item.title}-${index}`;
+              case 'spotlight-videos':
+                return item.key || `spotlight-${index}`;
+              case 'people-channels-section':
+                return item.key || `people-channels-${index}`;
+              case 'popular-channels-section':
+                return item.key || `popular-channels-${index}`;
+              case 'orbyt-channels-section':
+                return item.key || `orbyt-channels-${index}`;
+              case 'header-spacer':
+                return item.key || `header-spacer-${index}`;
+              case 'loading':
+                return item.key || `loading-${index}`;
+              case 'video':
+                return item.data.post?.uri || `video-${index}`;
+              case 'profile':
+                return item.data.did || item.data.handle || `profile-${index}`;
+              case 'channel':
+                return item.data.uri || item.data.cid || `channel-${index}`;
+              default:
+                return `item-${index}`;
             }
-            return `item-${index}`;
           }}
-          renderItem={(params: any) => {
-            const { item } = params;
-            if (typeof item === 'string') {
-              if (item === 'profile') return <ProfileLoading />;
-              if (item === 'channel') return <ChannelLoading />;
-              return null;
-            }
+          renderItem={({ item }) => {
             if (item.type === 'section-header') {
               if (!('title' in item) || !item.title) {
                 return <SectionHeaderLoading />;
@@ -2071,7 +2139,10 @@ const ExploreScreen: React.FC = () => {
                     horizontal
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.spotlightScrollContainer}
-                    keyExtractor={(video, index) => `spotlight-video-${video?.uri || index}`}
+                    keyExtractor={(video, index) => {
+                      const videoUri = video.post?.uri || (video as { uri?: string }).uri;
+                      return `spotlight-video-${videoUri || index}`;
+                    }}
                     renderItem={({ item: video }) => {
                       const videoData = video.post || video;
                       const thumbnailUrl = extractVideoThumbnail(videoData?.embed);
@@ -2095,9 +2166,7 @@ const ExploreScreen: React.FC = () => {
                                 };
                               });
                               feedService.setCurrentFeed(formattedFeed);
-                              const index = formattedFeed.findIndex(
-                                (v: any) => v.post.uri === videoUri
-                              );
+                              const index = formattedFeed.findIndex(v => v.post.uri === videoUri);
                               const finalIndex = index >= 0 ? index : 0;
                               router.push({
                                 pathname: '/(modals)/feed',
@@ -2144,14 +2213,6 @@ const ExploreScreen: React.FC = () => {
                   />
                 </View>
               );
-            }
-            if (
-              (item.type === 'profile' || item.type === 'channel' || item.type === 'video') &&
-              !('data' in item)
-            ) {
-              if (item.type === 'profile') return <ProfileLoading />;
-              if (item.type === 'channel') return <ChannelLoading />;
-              return null;
             }
             if (item.type === 'profile' && 'data' in item) {
               const profile = item.data as Profile;
@@ -2288,7 +2349,7 @@ const ExploreScreen: React.FC = () => {
             return null;
           }}
         />
-      </Animated.View>
+      </Reanimated.View>
     </View>
   );
 };
@@ -2369,7 +2430,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 10,
-    paddingHorizontal: 20,
+    paddingHorizontal: 10,
   },
   profileTouchable: {
     flexDirection: 'row',
@@ -2400,7 +2461,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 10,
-    paddingHorizontal: 20,
+    paddingHorizontal: 10,
   },
   channelImage: {
     marginRight: 12,
@@ -2539,7 +2600,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 10,
   },
   retryButton: {
     marginTop: 20,
@@ -2559,7 +2620,7 @@ const styles = StyleSheet.create({
   },
 
   sectionHeader: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 10,
     paddingTop: 15,
     paddingBottom: 8,
   },
@@ -2579,7 +2640,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
-    paddingHorizontal: 20,
+    paddingHorizontal: 10,
     borderBottomWidth: 0.5,
     borderBottomColor: Colors.gray,
   },
@@ -2599,7 +2660,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
-    paddingHorizontal: 20,
+    paddingHorizontal: 10,
     borderBottomWidth: 0.5,
     borderBottomColor: Colors.gray,
   },
@@ -2675,7 +2736,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 0,
   },
   spotlightScrollContainer: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 10,
     paddingRight: 40, // Extra padding on the right to allow scrolling off screen
   },
   spotlightVideoItem: {
@@ -2748,7 +2809,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    paddingHorizontal: 16,
+    paddingHorizontal: 10,
     paddingTop: 0,
   },
   indicatorContainer: {
@@ -2798,7 +2859,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
-    paddingHorizontal: 20,
+    paddingHorizontal: 10,
   },
   searchHistoryTitle: {
     fontFamily: 'Firma-Black',

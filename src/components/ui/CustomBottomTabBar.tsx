@@ -14,7 +14,7 @@ import { useGlobalAccountSwitcher } from '../../hooks/useGlobalModals';
 import { useUserStore } from '../../stores/userStore';
 import { useProfile } from '../../services/data/ProfileService';
 import { tabRefs } from '../../utils/navigation/tabRefs';
-import { useSetTabBarHeight } from '../../context/TabBarContext';
+import { useSetTabBarHeight } from '../../context/FeedIndicatorContext';
 
 interface TabConfig {
   name: string;

@@ -20,7 +20,7 @@ import { formatTime } from '../../../utils/formatting/time';
 import { isTablet, isSmallScreen, getBottomNavBarHeight } from '../../../utils/device/screen';
 import { Colors } from '../../ui/UI';
 import { useUIStore } from '../../../stores/uiStore';
-import { useTabBarHeight } from '../../../context/TabBarContext';
+import { useTabBarHeight } from '../../../context/FeedIndicatorContext';
 import { useFeedSettings } from '../../../stores/userStore';
 
 interface VideoScrubberProps {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -40,7 +40,7 @@ import { useVisibilityCoreStore } from '../src/core/visibility';
 import { queryClient } from '../src/utils/query/queryClient';
 import { QueryErrorBoundary } from '../src/components/ui/QueryErrorBoundary';
 import { SessionProvider, useSession } from '../src/context/SessionProvider';
-import { TabBarProvider } from '../src/context/TabBarContext';
+import { TabBarProvider } from '../src/context/FeedIndicatorContext';
 
 // Configure Reanimated logger to disable strict mode warnings
 configureReanimatedLogger({
@@ -227,7 +227,12 @@ export default function RootLayout() {
   const clearBookmarks = useBookmarkStore(state => state.clearBookmarks);
 
   const [isInitializing, setIsInitializing] = useState(true);
-  const [appIsReady, setAppIsReady] = useState(false);
+  // Fallback flag so we can force readiness after a timeout without setting state in effects
+  const [fallbackReady, setFallbackReady] = useState(false);
+  const appIsReady = useMemo(
+    () => fallbackReady || (fontsLoaded && !isInitializing),
+    [fallbackReady, fontsLoaded, isInitializing]
+  );
 
   // Set Android navigation bar to dark theme
   useEffect(() => {
@@ -333,13 +338,6 @@ export default function RootLayout() {
     return undefined;
   }, [appIsReady]);
 
-  // Determine when app is ready (fonts loaded, initialization complete)
-  useEffect(() => {
-    if (fontsLoaded && !isInitializing) {
-      setAppIsReady(true);
-    }
-  }, [fontsLoaded, isInitializing]);
-
   // Hide splash screen when app is ready
   useEffect(() => {
     if (appIsReady) {
@@ -352,7 +350,7 @@ export default function RootLayout() {
   // Timeout fallback to ensure splash screen doesn't stay forever
   useEffect(() => {
     const timeout = setTimeout(() => {
-      setAppIsReady(true);
+      setFallbackReady(true);
     }, 5000);
 
     return () => clearTimeout(timeout);
