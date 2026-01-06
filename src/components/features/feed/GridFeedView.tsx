@@ -37,7 +37,10 @@ const VideoGridItem: React.FC<{
   thumbnailStyle?: ImageStyle;
 }> = React.memo(({ item, index, onPress, style, itemStyle, thumbnailStyle }) => {
   const thumbnailUrl = extractVideoThumbnail(item.post.embed);
-  const shouldBlur = !!item.moderationDecision?.blur;
+  
+  // Get shouldBlur flag from feed item (computed at feed level)
+  const feedItem = item as any;
+  const shouldBlur = feedItem.shouldBlur ?? false;
 
   const handlePress = useCallback(() => onPress(index), [onPress, index]);
 
@@ -64,9 +67,9 @@ const VideoGridItem: React.FC<{
       )}
       {shouldBlur && (
         <BlurView
-          intensity={80}
+          intensity={100}
           tint="dark"
-          style={styles.warningOverlay}
+          style={styles.blurOverlay}
           experimentalBlurMethod="dimezisBlurView"
         />
       )}

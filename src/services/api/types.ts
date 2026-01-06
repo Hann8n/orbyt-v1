@@ -139,6 +139,9 @@ export type ExtendedPostView = PostView & {
 export type ExtendedFeedViewPost = FeedViewPost & {
   post: ExtendedPostView;
   uniqueKey?: string;
+  // Simple moderation flags computed at feed level for performance
+  shouldBlur?: boolean;
+  shouldFilter?: boolean;
 };
 
 export type ThreadPost = ThreadViewPost | NotFoundPost | BlockedPost;
@@ -353,7 +356,3 @@ export type CreateRecordResponse = {
 export type Post = ExtendedPostView;
 export type FeedItem = ExtendedFeedViewPost;
 
-// Type for feed items with moderation decision (used by UI)
-export interface FeedItemWithModeration extends ExtendedFeedViewPost {
-  moderationDecision?: import('../moderation/ModerationTypes').ModerationDecision;
-}

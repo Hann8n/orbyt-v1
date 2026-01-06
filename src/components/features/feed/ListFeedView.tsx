@@ -282,11 +282,19 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     const previousFeedLengthRef = useRef<number>(0);
     const previousFilteredLengthRef = useRef<number>(0);
 
-    // Filter feed to remove reported posts
+    // Filter feed to remove reported posts and filtered posts
+    // Moderation flags are already computed at feed level (in useFeed hook)
     const filteredFeed = useMemo(() => {
       return feed.filter(item => {
         if (item.endCard) return true;
-        return !reportedPostUris.has(item.post.uri);
+        const uri = item.post.uri;
+        // Filter out reported posts
+        if (reportedPostUris.has(uri)) return false;
+        // Filter out posts marked for filtering (flags computed in useFeed)
+        // Check if item has shouldFilter flag (from ExtendedFeedViewPost)
+        const feedItem = item as any;
+        if (feedItem.shouldFilter) return false;
+        return true;
       });
     }, [feed, reportedPostUris]);
 
@@ -353,7 +361,7 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
             animated: false,
             viewPosition: 0.5,
           });
-        } catch (error) {
+        } catch (_error) {
           // Handle scroll errors gracefully
         }
       },
@@ -449,6 +457,9 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           );
         }
 
+        // Get moderation flags from feed item (computed at feed level)
+        const shouldBlur = item.shouldBlur ?? false;
+
         return (
           <VideoItem
             post={item.post}
@@ -457,7 +468,7 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
             feedOption={feedOption as 'following' | 'discover'}
             isVisible={isVideoVisible}
             allowPlayback={isCentered && canPlayWithHeader}
-            moderationDecision={item.moderationDecision}
+            shouldBlur={shouldBlur}
             isModal={isModal}
             index={index}
           />
@@ -582,7 +593,7 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
                   animated: false,
                   viewPosition: 0.5,
                 });
-              } catch (error) {
+              } catch (_error) {
                 // Handle scroll errors gracefully
               }
             }

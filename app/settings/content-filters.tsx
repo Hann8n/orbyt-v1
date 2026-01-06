@@ -121,7 +121,6 @@ const ContentFiltersScreen: React.FC = () => {
         await saveModerationSettings(updatedSettings);
         setSettings(updatedSettings);
         // Reset moderation/feeds so all content re-evaluates with new rules
-        ModerationService.clearModerationCache();
         feedService.clearCurrentFeed();
         queryClient.invalidateQueries({ queryKey: queryKeys.feed.all });
         // React Query cache for moderation settings is invalidated by saveModerationSettings
@@ -157,7 +156,6 @@ const ContentFiltersScreen: React.FC = () => {
         await saveModerationSettings(updatedSettings);
         setSettings(updatedSettings);
         // Reset moderation/feeds so all content re-evaluates with new rules
-        ModerationService.clearModerationCache();
         feedService.clearCurrentFeed();
         queryClient.invalidateQueries({ queryKey: queryKeys.feed.all });
       }

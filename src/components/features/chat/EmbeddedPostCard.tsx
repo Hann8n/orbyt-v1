@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
@@ -13,6 +13,9 @@ import Icon from '../../ui/Icon';
 import BlurredThumbnailBackground from '../../ui/BlurredThumbnailBackground';
 import { AtprotoService } from '../../../services/api/AtprotoService';
 import { ModerationDecision } from '../../../services/moderation/ModerationTypes';
+import { computeModerationDecision } from '../../../utils/moderation/computeDecision';
+import { useModerationSettings } from '../../../hooks/useModerationSettings';
+import { useUserStore } from '../../../stores/userStore';
 import { feedService } from '../../../services/FeedService';
 import { openPostInBluesky } from '../../../utils/links/bluesky';
 import MessageReactions from './MessageReactions';
@@ -29,7 +32,7 @@ import { isVideoEmbed, isVideoEmbedInMedia } from '../../../services/api/types';
 interface EmbeddedPostCardProps {
   postUri: string;
   postCid: string;
-  moderationDecision?: ModerationDecision;
+  moderationDecision?: ModerationDecision; // Deprecated: computed inline now, kept for backward compatibility
   isCurrentUser?: boolean;
   // Optional chat reaction support
   reactions?: ReactionView[];
@@ -64,8 +67,29 @@ export default function EmbeddedPostCard({
     staleTime: QUERY_CONSTANTS.STALE_TIME_LONG, // 10 minutes - for slowly changing data
   });
 
-  // Get moderation decision (only from prop, PostView doesn't have moderationDecision)
-  const decision = moderationDecision;
+  // Get moderation settings for computing decision
+  const currentUser = useUserStore(state => state.currentUser);
+  const { settings } = useModerationSettings(currentUser?.did);
+
+  // Compute moderation decision inline (post is fetched separately, not from feed)
+  const decision = useMemo(() => {
+    // Use prop if provided (backward compatibility)
+    if (moderationDecision) {
+      return moderationDecision;
+    }
+
+    // Compute if post and settings are available
+    if (post && settings) {
+      try {
+        return computeModerationDecision(post, settings);
+      } catch {
+        return { filter: false, blur: false, informs: [] };
+      }
+    }
+
+    return { filter: false, blur: false, informs: [] };
+  }, [post, settings, moderationDecision]);
+
   const shouldBlur = decision?.blur || false;
   const shouldFilter = decision?.filter || false;
   const shouldShowContent = !shouldBlur || userChoseToView;

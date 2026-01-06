@@ -167,8 +167,10 @@ export interface UIFeedItem {
       handle?: string;
     };
   };
-  moderationDecision?: ModerationDecision;
   endCard?: boolean;
+  // Simple moderation flags computed at feed level for performance
+  shouldBlur?: boolean;
+  shouldFilter?: boolean;
 }
 
 // ============================================================================

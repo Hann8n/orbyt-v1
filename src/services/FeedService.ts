@@ -5,14 +5,8 @@
  * Takes advantage of v2's automatic sizing and maintainVisibleContentPosition
  */
 
-import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
-import { InteractionManager } from 'react-native';
-import type { ModerationDecision } from './moderation/ModerationTypes';
-import { ModerationService } from './moderation/ModerationService';
 import { logger } from '../utils/logger';
-import { useUserStore } from '../stores/userStore';
 import { QUERY_CONSTANTS } from '../utils/constants';
-import { queryKeys } from '../utils/query/queryKeys';
 import type {
   ExtendedFeedViewPost,
   FeedResponse,
@@ -26,7 +20,7 @@ import type { FeedOption } from '../types';
 let AtprotoService: any = null;
 try {
   AtprotoService = require('./api/AtprotoService').default;
-} catch (error) {
+} catch (_error) {
   // Fallback implementation
   AtprotoService = {
     getFeed: async () => ({ feed: [], cursor: null }),
@@ -39,11 +33,6 @@ try {
 // Re-export API types for convenience
 export type { ExtendedFeedViewPost as FeedItem, ExtendedPostView as Post } from './api/types';
 
-// Type alias for feed items with moderation (used by feed service)
-export type FeedItemWithModeration = ExtendedFeedViewPost & {
-  moderationDecision?: ModerationDecision;
-  sourceFeed?: string;
-};
 
 // API Response type matching AtprotoService return types
 export type APIResponse = FeedResponse;
@@ -496,7 +485,7 @@ class FeedService {
             feed: feedItems,
             cursor: profilesResponse.cursor,
           };
-        } catch (error) {
+        } catch (_error) {
           return { feed: [], cursor: null };
         }
       } else if (feedOptionForAPI.startsWith('hashtag:')) {
@@ -558,39 +547,6 @@ class FeedService {
         response = await AtprotoService.getFeed(cursor, feedLink, {}, true, limit, 'custom');
       }
 
-      // Apply moderation to the fetched posts
-      if (response && response.feed && response.feed.length > 0) {
-        try {
-          // Get agent from userStore for moderation
-          const { agent } = useUserStore.getState();
-
-          if (!agent) {
-            logger.warn('No agent available for moderation, applying basic label-based filtering', {
-              component: 'FeedService',
-            });
-            // Fail-safe: filter out posts with sensitive labels when no agent
-            response.feed = ModerationService.filterSensitiveByLabels(response.feed);
-          } else {
-            // Pass userDid to use React Query cache for faster moderation
-            const moderatedFeed = await ModerationService.batchModeratePosts(
-              response.feed,
-              'contentList',
-              agent
-            );
-            response.feed = moderatedFeed.filteredPosts;
-          }
-        } catch (error) {
-          // Fail-safe: if moderation fails, apply basic label-based filtering
-          logger.error('Error applying moderation to feed, applying basic label filtering', error, {
-            component: 'FeedService',
-            feedLength: response.feed?.length || 0,
-          });
-
-          // Basic fail-safe: filter out posts with sensitive labels
-          response.feed = ModerationService.filterSensitiveByLabels(response.feed || []);
-        }
-      }
-
       return response || { feed: [], cursor: null };
     } catch (error) {
       logger.error('Failed to fetch feed', error, {
@@ -604,64 +560,12 @@ class FeedService {
 
   // Removed custom infinite scroll - using FlashList's onEndReached instead
 
-  // Query configuration
-  createInfiniteQuery(feedOption: FeedOption, userDid?: string, queryOptions: any = {}) {
-    const queryClient = useQueryClient();
-
-    return useInfiniteQuery({
-      queryKey: queryKeys.feed.infinite(feedOption, userDid),
-      queryFn: async ({ pageParam }) => {
-        // Fetch feed data
-        const feedData = await this.fetchFeed(feedOption, userDid, pageParam as string);
-
-        // Extract unique author handles from this page for batch prefetching
-        const authorHandles = Array.from(
-          new Set(
-            feedData.feed.map(item => item.post?.author?.handle).filter((h): h is string => !!h)
-          )
-        );
-
-        // Batch prefetch all author profiles in background after interactions complete
-        // Fire and forget - don't await, let it populate cache
-        if (authorHandles.length > 0) {
-          // Defer prefetching until after interactions complete
-          InteractionManager.runAfterInteractions(() => {
-            // Import ProfileCache dynamically to avoid circular dependency
-            import('./data/ProfileService')
-              .then(({ default: ProfileService, profileKeys }) => {
-                ProfileService.batchGetProfiles(authorHandles)
-                  .then(profiles => {
-                    // Prepopulate individual profile query keys for instant cache hits
-                    profiles.forEach(profile => {
-                      if (profile?.handle) {
-                        queryClient.setQueryData(profileKeys.detail(profile.handle), profile);
-                      }
-                    });
-                  })
-                  .catch(() => {
-                    // Silently fail - feed still renders, individual fetches will work as fallback
-                  });
-              })
-              .catch(() => {
-                // Failed to load ProfileCache, skip prefetch
-              });
-          });
-        }
-
-        return feedData;
-      },
-      initialPageParam: null,
-      getNextPageParam: lastPage => lastPage.cursor,
-      staleTime: queryOptions.staleTime ?? FEED_CONFIG.staleTime,
-      gcTime: queryOptions.cacheTime ?? FEED_CONFIG.cacheTime,
-      refetchOnWindowFocus: queryOptions.refetchOnWindowFocus ?? false,
-      refetchOnMount: queryOptions.refetchOnMount ?? false,
-      refetchOnReconnect: queryOptions.refetchOnReconnect ?? true,
-      // Use placeholderData to maintain previous data during refetch
-      // This prevents the feed from clearing and losing scroll position
-      placeholderData: previousData => previousData,
-      ...queryOptions,
-    });
+  // Query configuration helper (hooks must be called in useFeed hook, not here)
+  // This method is kept for backwards compatibility but should not use hooks
+  createInfiniteQuery(_feedOption: FeedOption, _userDid?: string, _queryOptions: any = {}) {
+    throw new Error(
+      'createInfiniteQuery should not be called directly. Use the useFeed hook instead.'
+    );
   }
 
   // Search results state management (only used for search feeds)

@@ -31,6 +31,8 @@ import { useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 import { useUserStore } from '../../../stores/userStore';
 import BlurredThumbnailBackground from '../../ui/BlurredThumbnailBackground';
 import { queryKeys } from '../../../utils/query/queryKeys';
+import { useModerationSettings } from '../../../hooks/useModerationSettings';
+import { computeModerationDecision } from '../../../utils/moderation/computeDecision';
 import type {
   Notification,
   PostView,
@@ -39,7 +41,6 @@ import type {
   VideoView,
   RecordWithMediaView,
 } from '../../../services/api/types';
-import type { FeedItemWithModeration } from '../../../services/api/types';
 
 // Import radar.gif for empty notifications state
 const RadarGif = require('../../../assets/radar.gif');
@@ -169,66 +170,37 @@ const getThumbnailByKind = (
   return null;
 };
 
-// Efficiently check if thumbnail should be blurred based on labels from API data
-// Checks labels directly from notification/post data without calling moderation service
-const shouldBlurThumbnail = (
+// Helper to construct a PostView-like object from notification/post data for moderation
+const getPostViewForModeration = (
   notification: Notification,
   postData: PostView | ExtendedPostView | ExtendedFeedViewPost | null | undefined
-): boolean => {
-  // Labels that blur media (based on LabelValueDefinition.blurs: 'media')
-  const mediaBlurLabels = ['porn', 'sexual', 'nudity', 'nsfl', 'gore'];
-
-  // Helper to extract label values from labels array
-  const getLabelValues = (labels: unknown): string[] => {
-    if (!labels || !Array.isArray(labels)) return [];
-    return labels
-      .map(label => {
-        if (typeof label === 'string') return label.toLowerCase();
-        if (
-          label &&
-          typeof label === 'object' &&
-          label !== null &&
-          'val' in label &&
-          typeof label.val === 'string'
-        ) {
-          return label.val.toLowerCase();
-        }
-        return null;
-      })
-      .filter((val): val is string => val !== null);
-  };
-
-  // Check labels from post data (for quote/mention notifications or fetched posts)
-  if (postData && typeof postData === 'object' && postData !== null && 'labels' in postData) {
-    const labelValues = getLabelValues(postData.labels);
-    if (labelValues.some(val => mediaBlurLabels.some(blurLabel => val.includes(blurLabel)))) {
-      return true;
-    }
+): PostView | ExtendedPostView | ExtendedFeedViewPost | null => {
+  // Prefer fetched post data (has view embed with thumbnails)
+  if (postData) {
+    return postData;
   }
 
-  // Check labels from notification.post (for quote/mention notifications)
-  if (
-    'post' in notification &&
-    notification.post &&
-    typeof notification.post === 'object' &&
-    notification.post !== null &&
-    'labels' in notification.post
-  ) {
-    const labelValues = getLabelValues(notification.post.labels);
-    if (labelValues.some(val => mediaBlurLabels.some(blurLabel => val.includes(blurLabel)))) {
-      return true;
-    }
+  // Fallback: construct from notification data
+  if ('post' in notification && notification.post) {
+    return notification.post as PostView;
   }
 
-  // Check labels from notification itself
-  if (notification.labels) {
-    const labelValues = getLabelValues(notification.labels);
-    if (labelValues.some(val => mediaBlurLabels.some(blurLabel => val.includes(blurLabel)))) {
-      return true;
-    }
+  // Last resort: construct minimal PostView from notification
+  if ('record' in notification && notification.record) {
+    return {
+      uri: notification.uri,
+      cid: notification.cid,
+      author: notification.author,
+      record: notification.record as PostView['record'],
+      embed: ('embed' in notification.record ? notification.record.embed : undefined) as
+        | PostView['embed']
+        | undefined,
+      indexedAt: notification.indexedAt,
+      labels: notification.labels,
+    } as PostView;
   }
 
-  return false;
+  return null;
 };
 
 // Get the root post URI from any notification
@@ -368,8 +340,9 @@ const NotificationItem = React.memo<{
   navigation: ReturnType<typeof useRouter>;
   queryClient: ReturnType<typeof useQueryClient>;
   postDataMap: PostDataMap;
+  moderationSettings: any; // ModerationSettings from useModerationSettings
 }>(
-  ({ item, navigation, queryClient, postDataMap }) => {
+  ({ item, navigation, queryClient, postDataMap, moderationSettings }) => {
     const { reason, author, indexedAt, uri } = item;
     const { presentCommentSection } = useGlobalCommentSection();
 
@@ -401,8 +374,24 @@ const NotificationItem = React.memo<{
     // Always reserve space for thumbnail if it's a post action and it's a video
     const shouldShowThumbnailContainer = isPostAction && isVideo;
 
-    // Check if thumbnail should be blurred based on labels from API data
-    const shouldBlur = shouldBlurThumbnail(item, postData);
+    // Compute moderation decision using proper moderation service
+    const shouldBlur = useMemo(() => {
+      if (!isPostAction || !moderationSettings) {
+        return false;
+      }
+
+      const postViewForModeration = getPostViewForModeration(item, postData);
+      if (!postViewForModeration) {
+        return false;
+      }
+
+      try {
+        const decision = computeModerationDecision(postViewForModeration, moderationSettings);
+        return decision.blur;
+      } catch {
+        return false;
+      }
+    }, [isPostAction, moderationSettings, item, postData]);
 
     const actionText = useMemo(() => {
       const actions: Record<string, string> = {
@@ -475,11 +464,9 @@ const NotificationItem = React.memo<{
               indexedAt: postView.indexedAt || indexedAt || item.indexedAt,
             },
             uniqueKey: postView.uri || item.uri,
-            moderationDecision:
-              'moderationDecision' in postData
-                ? (postData as FeedItemWithModeration).moderationDecision
-                : undefined,
-          } as FeedItemWithModeration,
+            // Moderation flags (shouldBlur/shouldFilter) computed at feed level if using useFeed
+            // For notifications, moderation would need to be computed separately if needed
+          } as ExtendedFeedViewPost,
         ]);
         navigation.push({
           pathname: '/(modals)/feed',
@@ -692,6 +679,9 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_props, ref) => {
   // Get current user from store instead of API call
   const currentUser = useUserStore(state => state.currentUser);
 
+  // Get moderation settings for computing decisions
+  const { settings: moderationSettings } = useModerationSettings(currentUser?.did ?? undefined);
+
   // Initialize current user for ProfileCache on mount - use store instead of API call
   useEffect(() => {
     if (currentUser?.did && currentUser?.handle) {
@@ -883,10 +873,11 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_props, ref) => {
           navigation={navigation}
           queryClient={queryClient}
           postDataMap={postDataMapRef.current}
+          moderationSettings={moderationSettings}
         />
       );
     },
-    [navigation, queryClient]
+    [navigation, queryClient, moderationSettings]
   );
 
   const keyExtractor = useCallback((item: Notification) => {

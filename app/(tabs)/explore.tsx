@@ -39,7 +39,6 @@ import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { Avatar, Icon } from '../../src/components/ui/UI';
 import { LinearGradient } from 'expo-linear-gradient';
 import HeaderBanner from '../../src/components/ui/HeaderBanner';
-import { logger } from '../../src/utils/logger';
 
 import { SearchIcon, FollowIcon, Loading3FillIcon } from '../../src/components/ui/Icon';
 import { Colors } from '../../src/components/ui/UI';
@@ -52,8 +51,10 @@ import { formatHandle } from '../../src/utils/formatting/handles';
 import BlurredThumbnailBackground from '../../src/components/ui/BlurredThumbnailBackground';
 import { HeaderService, useHeaders, type Header } from '../../src/services/OrbytAPIService';
 import { useFeed } from '../../src/hooks/useFeed';
-import { ModerationService } from '../../src/services/moderation/ModerationService';
 import { useUserStore, useFeedSettings } from '../../src/stores/userStore';
+import { useModerationSettings } from '../../src/hooks/useModerationSettings';
+import { computeModerationDecision } from '../../src/utils/moderation/computeDecision';
+import type { ExtendedFeedViewPost } from '../../src/services/api/types';
 import { isCurrentUser } from '../../src/stores/profileInteractionStore';
 import { useFollowStore } from '../../src/stores/followStore';
 import {
@@ -1197,6 +1198,9 @@ const ExploreScreen: React.FC = () => {
 
   // Get experimental feeds setting and native tabs setting
   const { experimentalFeedsEnabled, nativeTabsEnabled } = useFeedSettings();
+  
+  // Get moderation settings for computing decisions
+  const { settings: moderationSettings } = useModerationSettings(currentUser?.did ?? undefined);
 
   // Calculate bottom padding - add extra when native tabs are enabled for better coverage
   const bottomPadding = nativeTabsEnabled
@@ -1747,32 +1751,27 @@ const ExploreScreen: React.FC = () => {
       );
       let feed = response.feed || [];
 
-      // Apply moderation to spotlight videos
-      if (feed.length > 0) {
-        try {
-          // Get agent from userStore for moderation
-          const { agent } = useUserStore.getState();
-
-          if (!agent) {
-            // Fail-safe: filter out posts with sensitive labels when no agent
-            feed = ModerationService.filterSensitiveByLabels(feed) as typeof feed;
-          } else {
-            const moderationResult = await ModerationService.batchModeratePosts(
-              feed,
-              'contentList',
-              agent
-            );
-            feed = moderationResult.filteredPosts as typeof feed;
+      // Compute moderation flags for spotlight feed items
+      // This feed doesn't go through useFeed, so we need to compute moderation here
+      if (moderationSettings) {
+        feed = feed.map((item: ExtendedFeedViewPost) => {
+          try {
+            const decision = computeModerationDecision(item, moderationSettings);
+            item.shouldBlur = decision.blur;
+            item.shouldFilter = decision.filter;
+          } catch {
+            item.shouldBlur = false;
+            item.shouldFilter = false;
           }
-        } catch (error) {
-          // Fail-safe: filter out posts with sensitive labels if moderation fails
-          logger.error(
-            'Error applying moderation to spotlight videos, applying basic filtering',
-            error,
-            { component: 'explore' }
-          );
-          feed = ModerationService.filterSensitiveByLabels(feed) as typeof feed;
-        }
+          return item;
+        });
+      } else {
+        // No settings loaded yet - use safe defaults
+        feed = feed.map((item: ExtendedFeedViewPost) => {
+          item.shouldBlur = false;
+          item.shouldFilter = false;
+          return item;
+        });
       }
 
       return feed;
@@ -2076,7 +2075,8 @@ const ExploreScreen: React.FC = () => {
                     renderItem={({ item: video }) => {
                       const videoData = video.post || video;
                       const thumbnailUrl = extractVideoThumbnail(videoData?.embed);
-                      const shouldBlur = !!video.moderationDecision?.blur;
+                      // Use shouldBlur flag from feed item (computed at feed level)
+                      const shouldBlur = (video as ExtendedFeedViewPost).shouldBlur ?? false;
 
                       return (
                         <Pressable
@@ -2085,12 +2085,13 @@ const ExploreScreen: React.FC = () => {
                             const videoData = video.post || video;
                             const videoUri = videoData.uri;
                             if (videoUri) {
-                              const formattedFeed = item.videos.map((v: any) => {
+                              const formattedFeed = item.videos.map((v: ExtendedFeedViewPost) => {
                                 const vData = v.post || v;
                                 return {
                                   post: vData,
                                   uniqueKey: vData.uri,
-                                  moderationDecision: v.moderationDecision,
+                                  shouldBlur: v.shouldBlur ?? false,
+                                  shouldFilter: v.shouldFilter ?? false,
                                 };
                               });
                               feedService.setCurrentFeed(formattedFeed);
@@ -2134,7 +2135,7 @@ const ExploreScreen: React.FC = () => {
                             {shouldBlur && (
                               <View style={styles.spotlightWarningOverlay}>
                                 <Text style={styles.spotlightWarningText}>
-                                  {video.moderationDecision?.reason || 'Content Warning'}
+                                  Content Warning
                                 </Text>
                               </View>
                             )}

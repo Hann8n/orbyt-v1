@@ -216,12 +216,19 @@ const VideoCard = memo(
 
       // Get moderation decision and derive all blur states in one place
       // Support both ExtendedPostView and ExtendedFeedViewPost
+      // Priority: 1) prop, 2) shouldBlur flag from ExtendedFeedViewPost, 3) legacy moderationDecision
       const decision: ModerationDecision | undefined =
         moderationDecision ||
-        ('moderationDecision' in post &&
-        post.moderationDecision &&
-        typeof post.moderationDecision === 'object' &&
-        'blur' in post.moderationDecision
+        ('shouldBlur' in post && typeof (post as ExtendedFeedViewPost).shouldBlur === 'boolean'
+          ? {
+              blur: (post as ExtendedFeedViewPost).shouldBlur ?? false,
+              filter: (post as ExtendedFeedViewPost).shouldFilter ?? false,
+              informs: [],
+            }
+          : 'moderationDecision' in post &&
+            post.moderationDecision &&
+            typeof post.moderationDecision === 'object' &&
+            'blur' in post.moderationDecision
           ? (post.moderationDecision as ModerationDecision)
           : undefined);
       const shouldBlur = decision?.blur || false;

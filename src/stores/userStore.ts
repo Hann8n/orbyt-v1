@@ -1105,7 +1105,6 @@ export const useUserStore = create<UserState>()(
           const { useProfileInteractionStore } = await import('./profileInteractionStore');
           useProfileInteractionStore.getState().clearAll();
 
-          ModerationService.clearModerationCache();
 
           // Note: All data caching is now handled by React Query
           // Custom caches (ProfileCache, ChannelCache, AtprotoService) have been removed
@@ -1742,16 +1741,6 @@ export const useModeration = () => {
   const currentUser = useUserStore(state => state.currentUser);
 
   return {
-    moderatePost: async (
-      post:
-        | import('../services/api/types').ExtendedFeedViewPost
-        | import('../services/api/types').ExtendedPostView,
-      context?: 'contentList' | 'contentView' | 'avatar' | 'banner'
-    ) => {
-      return ModerationService.moderatePost(post, context || 'contentList', agent);
-    },
-    moderateProfile: ModerationService.moderateProfile,
-    moderateNotification: ModerationService.moderateNotification,
     getModerationSettings: async () => {
       return ModerationService.fetchModerationSettings(agent);
     },
@@ -1767,6 +1756,5 @@ export const useModeration = () => {
         currentUser?.did ?? undefined
       );
     },
-    clearModerationCache: ModerationService.clearModerationCache,
   };
 };

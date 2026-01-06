@@ -8,7 +8,6 @@ import { View, StyleSheet, Dimensions } from 'react-native';
 
 import VideoCard, { VideoCardRef } from '../video/VideoCard';
 import { extractVideoEmbedAndUrl } from '../../../utils/video/helpers';
-import type { ModerationDecision } from '../../../services/moderation/ModerationTypes';
 import type { ExtendedPostView, ExtendedFeedViewPost } from '../../../services/api/types';
 import { Colors } from '../../ui/UI';
 
@@ -45,7 +44,7 @@ export interface VideoItemProps {
   height?: number;
   feedOption?: string;
   isVisible?: boolean;
-  moderationDecision?: ModerationDecision;
+  shouldBlur?: boolean; // Simple flag from parent (computed at feed level for performance)
   isModal?: boolean;
   index?: number;
   allowPlayback?: boolean;
@@ -57,9 +56,9 @@ const VideoItem: React.FC<VideoItemProps> = ({
   height,
   feedOption,
   isVisible = false,
-  moderationDecision,
+  shouldBlur = false, // Simple flag from parent (computed at feed level)
   isModal = false,
-  index = 0,
+  index: _index = 0,
   allowPlayback = true,
 }) => {
   const videoRef = useRef<VideoCardRef>(null);
@@ -68,6 +67,14 @@ const VideoItem: React.FC<VideoItemProps> = ({
   const itemHeight = height || SCREEN_HEIGHT;
   const { videoEmbed, videoUrl } = extractVideoEmbedAndUrl(post);
   const hasVideo = !!videoUrl;
+
+  // Convert shouldBlur flag to ModerationDecision format for VideoCard
+  const moderationDecision = useMemo(() => {
+    if (!shouldBlur) {
+      return { filter: false, blur: false, informs: [] };
+    }
+    return { filter: false, blur: true, informs: [] };
+  }, [shouldBlur]);
 
   // Memoize container style to prevent recreation on every render
   const containerStyle = useMemo(
@@ -163,8 +170,8 @@ const areEqual = (prevProps: VideoItemProps, nextProps: VideoItemProps) => {
     return false;
   }
 
-  // Compare moderation decision
-  if (prevProps.moderationDecision !== nextProps.moderationDecision) {
+  // Compare shouldBlur flag
+  if (prevProps.shouldBlur !== nextProps.shouldBlur) {
     return false;
   }
 

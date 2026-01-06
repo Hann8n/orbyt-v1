@@ -6,10 +6,14 @@
  */
 
 import { useRef, useEffect, useMemo } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
+import { InteractionManager } from 'react-native';
 import { feedService, FeedOption, FeedItem } from '../services/FeedService';
 import { useUserStore } from '../stores/userStore';
 import { queryKeys } from '../utils/query/queryKeys';
+import { computeModerationDecision } from '../utils/moderation/computeDecision';
+import { useModerationSettings } from './useModerationSettings';
+import type { ExtendedFeedViewPost } from '../services/api/types';
 
 // Optimized feed configuration for smooth performance
 export const FEED_CONFIG = {
@@ -64,13 +68,16 @@ export function useFeed(
   userDid?: string,
   options: UseFeedOptions = {}
 ): UseFeedReturn {
-  const { enabled = true, threshold = 0.8, debounceMs = 100, ...queryOptions } = options;
+  const { enabled = true, threshold: _threshold = 0.8, debounceMs: _debounceMs = 100, ...queryOptions } = options;
 
   const queryClient = useQueryClient();
   // Use direct selector to prevent re-renders when other user data changes
   const currentUser = useUserStore(state => state.currentUser);
   const isSwitchingAccount = useUserStore(state => state.isSwitchingAccount);
   const agent = useUserStore(state => state.agent);
+  
+  // Get moderation settings once for the entire feed
+  const { settings } = useModerationSettings(currentUser?.did);
 
   // Use current user's DID for user-specific feeds (following and your-mix), fallback to passed userDid for profile feeds
   // Both 'following' and 'your-mix' are user-specific and should include userDid in query key to ensure fresh data on account switch
@@ -124,15 +131,65 @@ export function useFeed(
 
   // Create optimized infinite query with centralized configuration
   // When effectiveUserDid changes, React Query treats this as a new query and fetches fresh data
-  const query = feedService.createInfiniteQuery(feedOption, effectiveUserDid ?? undefined, {
+  const query = useInfiniteQuery({
+    queryKey: queryKeys.feed.infinite(feedOption, effectiveUserDid ?? undefined),
+    queryFn: async ({ pageParam }) => {
+      // Fetch feed data
+      const feedData = await feedService.fetchFeed(
+        feedOption,
+        effectiveUserDid ?? undefined,
+        pageParam as string | null
+      );
+
+      // Extract unique author handles from this page for batch prefetching
+      const authorHandles = Array.from(
+        new Set(
+          feedData.feed.map(item => item.post?.author?.handle).filter((h): h is string => !!h)
+        )
+      );
+
+      // Batch prefetch all author profiles in background after interactions complete
+      // Fire and forget - don't await, let it populate cache
+      if (authorHandles.length > 0) {
+        // Defer prefetching until after interactions complete
+        InteractionManager.runAfterInteractions(() => {
+          // Import ProfileCache dynamically to avoid circular dependency
+          import('../services/data/ProfileService')
+            .then(({ default: ProfileService, profileKeys }) => {
+              ProfileService.batchGetProfiles(authorHandles)
+                .then(profiles => {
+                  // Prepopulate individual profile query keys for instant cache hits
+                  profiles.forEach(profile => {
+                    if (profile?.handle) {
+                      queryClient.setQueryData(profileKeys.detail(profile.handle), profile);
+                    }
+                  });
+                })
+                .catch(() => {
+                  // Silently fail - feed still renders, individual fetches will work as fallback
+                });
+            })
+            .catch(() => {
+              // Failed to load ProfileCache, skip prefetch
+            });
+        });
+      }
+
+      return feedData;
+    },
     enabled: queryEnabled,
-    staleTime: FEED_CONFIG.STALE_TIME,
-    gcTime: FEED_CONFIG.GC_TIME,
+    initialPageParam: null,
+    getNextPageParam: lastPage => lastPage.cursor,
+    staleTime: queryOptions.staleTime ?? FEED_CONFIG.STALE_TIME,
+    gcTime: queryOptions.cacheTime ?? FEED_CONFIG.GC_TIME,
     retry: FEED_CONFIG.MAX_RETRIES,
     retryDelay: FEED_CONFIG.RETRY_DELAY,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     refetchOnReconnect: false,
+    // Use placeholderData to maintain previous data during refetch
+    // This prevents the feed from clearing and losing scroll position
+    placeholderData: previousData => previousData,
     ...queryOptions,
   });
 
@@ -141,7 +198,7 @@ export function useFeed(
   // This ensures FlashList maintains scroll position when feed updates
   const feedPages = query.data?.pages ?? [];
 
-  // Deduplicate feed items and create stable array
+  // Deduplicate feed items, compute moderation flags, and create stable array
   // FlashList v2's maintainVisibleContentPosition handles new items gracefully
   // when keyExtractor returns stable keys (not including index)
   const feed = useMemo(() => {
@@ -169,12 +226,36 @@ export function useFeed(
         }
 
         seenKeys.add(key);
-        result.push(item);
+        
+        // Compute moderation flags once at feed level for performance
+        // Attach simple boolean flags to avoid per-component computation
+        const feedItem = item as ExtendedFeedViewPost;
+        let shouldBlur = false;
+        let shouldFilter = false;
+        
+        if (settings) {
+          try {
+            const decision = computeModerationDecision(feedItem, settings);
+            shouldBlur = decision.blur;
+            shouldFilter = decision.filter;
+          } catch {
+            // Fallback to safe defaults if computation fails
+            shouldBlur = false;
+            shouldFilter = false;
+          }
+        }
+        
+        // Create new object with moderation flags (immutable)
+        result.push({
+          ...feedItem,
+          shouldBlur,
+          shouldFilter,
+        });
       }
     }
 
     return result;
-  }, [feedPages]);
+  }, [feedPages, settings]);
 
   // Infinite scroll state
   const isNearEndRef = useRef(false);
@@ -223,12 +304,11 @@ export function useSearchFeed(
 ) {
   // Get search feed from global state
   const feed = feedService.getCurrentFeed();
-  const isNearEndRef = useRef(false);
 
   return {
     feed,
     // Removed onScroll - using FlashList's onEndReached
-    isNearEnd: isNearEndRef.current,
+    isNearEnd: false, // Deprecated - using onEndReached instead
     hasNextPage: !!hasNextPage,
     isFetchingNextPage: !!isFetchingNextPage,
     fetchNextPage: fetchNextPage || (() => {}),
