@@ -16,7 +16,13 @@
     "build:android-apk": "cd android && ./gradlew assembleRelease",
     "build:android-aab": "cd android && ./gradlew bundleRelease",
     "type-check": "tsc --noEmit",
-    "serve:docs": "npx serve docs -l 5173 --single"
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
+    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\"",
+    "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,json,md}\"",
+    "check": "yarn type-check && yarn lint && yarn format:check",
+    "serve:docs": "npx serve docs -l 5173 --single",
+    "prepare": "husky"
   },
   "dependencies": {
     "@atproto/api": "^0.16.3",
@@ -98,9 +104,19 @@
     "@babel/core": "^7.20.0",
     "@types/node": "*",
     "@types/react": "~19.1.10",
+    "@typescript-eslint/eslint-plugin": "^8.52.0",
+    "@typescript-eslint/parser": "^8.52.0",
     "babel-preset-expo": "~54.0.9",
+    "eslint": "^9.39.2",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-native": "^5.0.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
     "patch-package": "^8.0.0",
     "pod-install": "^1.0.7",
+    "prettier": "^3.7.4",
     "prop-types": "^15.8.1",
     "puppeteer": "^24.34.0",
     "serve": "^14.2.4",
@@ -120,5 +136,14 @@
         ]
       }
     }
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md}": [
+      "prettier --write"
+    ]
   }
 }
