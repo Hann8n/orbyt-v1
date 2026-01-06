@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useMemo, useState } from 'react';
+import React, { memo, useCallback, useMemo, useRef } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
@@ -9,17 +9,10 @@ import {
   StatusBar,
   useWindowDimensions,
 } from 'react-native';
-import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useRouter } from 'expo-router';
 import UniversalHeader, { HeaderContent, CustomActionLayout } from './UniversalHeader';
 import { useChannelColors } from '../../../services/data/ChannelService';
-import Icon, {
-  PlusIcon,
-  CheckIcon,
-  ListViewIcon,
-  GridViewIcon,
-  Loading3FillIcon,
-} from '../../ui/Icon';
+import Icon, { PlusIcon, CheckIcon, ListViewIcon, GridViewIcon } from '../../ui/Icon';
 import type { ViewMode } from '../../../types';
 import {
   hexToRGBA,
@@ -101,15 +94,14 @@ const SubscribeButton: React.FC<{
 }) => {
   const { subscribedChannels, subscribeToChannel, unsubscribeFromChannel } =
     useSubscribedChannels();
-  const [isSubscribing, setIsSubscribing] = useState(false);
+  const frozenHasFilledBackgroundRef = useRef<boolean | null>(null);
   const { width: screenWidth } = useWindowDimensions();
   const isWideScreen = screenWidth > 768;
 
-  // Direct subscription check - simplest possible
-  const isSubscribed = useMemo(() => {
-    if (!channel?.uri) return false;
-    return subscribedChannels.some(ch => ch.uri === channel.uri);
-  }, [subscribedChannels, channel?.uri]);
+  // Direct subscription check - simplest possible (no memo to satisfy React Compiler lint)
+  const isSubscribed =
+    !!channel?.uri &&
+    subscribedChannels.some(subscribedChannel => subscribedChannel.uri === channel.uri);
 
   const handleSubscribe = useCallback(async () => {
     try {
@@ -132,7 +124,6 @@ const SubscribeButton: React.FC<{
                 text: 'Subscribe',
                 onPress: async () => {
                   try {
-                    setIsSubscribing(true);
                     await subscribeToChannel({
                       uri: channel.uri!,
                       displayName: channel.name,
@@ -141,9 +132,7 @@ const SubscribeButton: React.FC<{
                       memberCount: channel.likeCount,
                     });
                   } catch (_error) {
-                    setIsSubscribing(false);
-                  } finally {
-                    setIsSubscribing(false);
+                    // Ignore subscribe errors in alert path for optimistic UX
                   }
                 },
               },
@@ -157,7 +146,6 @@ const SubscribeButton: React.FC<{
         // If alert failed to show, subscribe directly
         if (!alertShown) {
           try {
-            setIsSubscribing(true);
             await subscribeToChannel({
               uri: channel.uri!,
               displayName: channel.name,
@@ -166,17 +154,13 @@ const SubscribeButton: React.FC<{
               memberCount: channel.likeCount,
             });
           } catch (_subscribeError) {
-            setIsSubscribing(false);
-          } finally {
-            setIsSubscribing(false);
+            // Ignore subscribe errors in fallback path for optimistic UX
           }
         }
         return;
       }
 
       try {
-        setIsSubscribing(true);
-
         if (isSubscribed) {
           await unsubscribeFromChannel(channel.uri!);
         } else {
@@ -188,20 +172,16 @@ const SubscribeButton: React.FC<{
             memberCount: channel.likeCount,
           });
         }
-      } catch (_error) {
-        setIsSubscribing(false);
-      } finally {
-        setIsSubscribing(false);
+      } catch (_subscribeOrUnsubscribeError) {
+        // Swallow errors for optimistic UX; upstream handlers/logging can capture if needed
       }
     } catch (_error) {
-      setIsSubscribing(false);
+      // Ignore outer subscribe errors for optimistic UX; underlying store/logging can handle
     }
   }, [channel, isSubscribed, subscribeToChannel, unsubscribeFromChannel]);
 
-  const useGlass = isLiquidGlassAvailable();
   // Use channelColor for channels, fallback to textColor
   const subscribeColor = channelColor || textColor;
-  const glassTint = isSubscribed ? hexToRGBA(subscribeColor, 1) : hexToRGBA('#FFFFFF', 0.08);
 
   // Calculate appropriate text color for subscribed state based on background brightness
   const subscribedTextColor = useMemo(() => {
@@ -210,61 +190,76 @@ const SubscribeButton: React.FC<{
     return isColorDark(subscribeColor) ? '#FFFFFF' : '#000000';
   }, [isSubscribed, subscribeColor]);
 
+  const hasFilledBackground = isSubscribed;
+
+  const getButtonStyle = useCallback(
+    (pressed: boolean = false, _frozenValue: boolean | null = null) => {
+      // Always reflect the actual subscription state; pressed state only tweaks opacity
+      const showFilledState = hasFilledBackground;
+
+      return {
+        backgroundColor: showFilledState ? subscribeColor : 'rgba(255, 255, 255, 0.2)',
+        borderColor: 'transparent',
+        borderWidth: 0,
+        opacity: pressed ? 0.9 : 1,
+      };
+    },
+    [hasFilledBackground, subscribeColor]
+  );
+
+  const getContentColor = useCallback(
+    (_pressed: boolean = false, _frozenValue: boolean | null = null) => {
+      // Use the real active state to decide text color; pressed does not invert colors
+      const showFilledState = hasFilledBackground;
+      return showFilledState ? subscribedTextColor : '#FFFFFF';
+    },
+    [hasFilledBackground, subscribedTextColor]
+  );
+
   if (channel.isOwner) return null; // Don't show subscribe button for owners
 
   return (
     <View style={[styles.subscribeContainer, containerStyle]}>
       <Pressable
-        onPress={handleSubscribe}
-        disabled={isSubscribing}
         style={[styles.subscribeButtonTouch, isWideScreen && styles.subscribeButtonMax]}
+        onPressIn={() => {
+          frozenHasFilledBackgroundRef.current = hasFilledBackground;
+        }}
+        onPressOut={() => {
+          frozenHasFilledBackgroundRef.current = null;
+        }}
+        onPress={handleSubscribe}
       >
-        <View
-          style={[
-            styles.subscribeButton,
-            { flex: 1 },
-            useGlass
-              ? { backgroundColor: 'transparent', borderColor: 'transparent', borderWidth: 0 }
-              : {
-                  backgroundColor: isSubscribed ? subscribeColor : 'rgba(255, 255, 255, 0.2)',
-                  borderColor: 'transparent',
-                  borderWidth: 0,
-                },
-          ]}
-        >
-          {useGlass && (
-            <GlassView
-              style={styles.glassBackgroundFull}
-              glassEffectStyle="clear"
-              tintColor={glassTint}
-              isInteractive
-            />
-          )}
-          <View
-            pointerEvents="none"
-            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}
-          >
-            {isSubscribing ? (
-              <Loading3FillIcon size={24} color={isSubscribed ? subscribedTextColor : '#FFFFFF'} />
-            ) : (
-              <>
-                <Text
-                  style={[
-                    styles.subscribeButtonText,
-                    { color: isSubscribed ? subscribedTextColor : '#FFFFFF' },
-                  ]}
-                >
-                  {isSubscribed ? 'Subscribed' : 'Subscribe'}
-                </Text>
-                {isSubscribed ? (
-                  <CheckIcon size={16} color={subscribedTextColor} strokeWidth={2.0} />
-                ) : (
-                  <PlusIcon size={12} color="#FFFFFF" strokeWidth={2.0} />
-                )}
-              </>
-            )}
-          </View>
-        </View>
+        {({ pressed }) => {
+          const frozenValue = frozenHasFilledBackgroundRef.current;
+          const buttonStyle = getButtonStyle(pressed, frozenValue);
+          const contentColor = getContentColor(pressed, frozenValue);
+
+          return (
+            <View style={[styles.subscribeButton, { flex: 1 }, buttonStyle]}>
+              <View
+                pointerEvents="none"
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                }}
+              >
+                <>
+                  <Text style={[styles.subscribeButtonText, { color: contentColor }]}>
+                    {isSubscribed ? 'Subscribed' : 'Subscribe'}
+                  </Text>
+                  {isSubscribed ? (
+                    <CheckIcon size={16} color={contentColor} strokeWidth={2.0} />
+                  ) : (
+                    <PlusIcon size={12} color={contentColor} strokeWidth={2.0} />
+                  )}
+                </>
+              </View>
+            </View>
+          );
+        }}
       </Pressable>
 
       {showViewToggle && onViewModeChange && (
@@ -455,7 +450,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
       return { ...StyleSheet.absoluteFillObject, opacity: 0, pointerEvents: 'none' } as any;
     }
     // More gradual dim: start dimming at 40% progress, reach ~30% black opacity at max scroll
-    const overlayOpacity = interpolate(progress, [0, 0.4, 1], [0, 0, 0.3], Extrapolate.CLAMP);
+    const overlayOpacity = interpolate(progress, [0, 0.4, 1], [0, 0, 0.0], Extrapolate.CLAMP);
     return {
       ...StyleSheet.absoluteFillObject,
       backgroundColor: 'black',
@@ -586,10 +581,6 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     borderColor: 'transparent',
     gap: 6,
-  },
-  glassBackgroundFull: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 20,
   },
   subscribeButtonText: {
     fontFamily: 'Firma-Bold',
