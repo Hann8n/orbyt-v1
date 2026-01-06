@@ -6,8 +6,6 @@ import Animated, {
   withSpring,
   withTiming,
   withSequence,
-  Easing,
-  interpolate,
 } from 'react-native-reanimated';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, Text, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
@@ -47,6 +45,8 @@ export interface VideoOverlayUIProps {
   isVisible: boolean;
   isModal?: boolean;
   feedOption?: 'following' | 'discover';
+  // Optional composed shared opacity to tie overlay and scrubber together
+  overlayOpacitySV?: SharedValue<number>;
   sourceFeed?: string;
   onLike?: () => void;
   onRepost?: () => void;
@@ -61,7 +61,6 @@ export interface VideoOverlayUIProps {
   hasProfile?: boolean;
   channelSlug?: string | null;
   onChannelPress?: () => void;
-  seekingAnimationSV?: SharedValue<number>;
 }
 
 const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
@@ -69,6 +68,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   isVisible,
   isModal = false,
   feedOption,
+  overlayOpacitySV,
   sourceFeed,
   onLike,
   onRepost,
@@ -82,7 +82,6 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   hasProfile = false,
   channelSlug,
   onChannelPress,
-  seekingAnimationSV,
 }) => {
   const isTabletDevice = isTablet();
   const isSmallScreenDevice = isSmallScreen();
@@ -327,36 +326,16 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
     [contentPadding, isModal, isSmallScreenDevice, isTabletDevice, bottomNavBarHeight, hasTabBar]
   );
 
-  // Use animated opacity instead of conditional rendering to prevent unmounting
-  // This reduces jank when switching between videos
-  const overlayOpacityShared = useSharedValue(isVisible ? 1 : 0);
-
-  // Update shared value when prop changes - matches scrubber timer transition
-  useEffect(() => {
-    overlayOpacityShared.set(
-      withTiming(isVisible ? 1 : 0, {
-        duration: 60,
-        easing: Easing.out(Easing.ease),
-      })
-    );
-  }, [isVisible, overlayOpacityShared]);
-
   // Explicit worklet directive ensures this runs on UI thread for optimal performance
   // Smoothly fade out overlay when scrubbing, fade in when scrubbing stops
   const overlayAnimatedStyle = useAnimatedStyle(() => {
     'worklet';
-    const baseOpacity = overlayOpacityShared.get();
-    // Smoothly interpolate overlay opacity based on scrubbing animation
-    // When seekingAnimationSV is 0 (not scrubbing), opacity is 1
-    // When seekingAnimationSV is >= 0.2, opacity fades to 0
-    const scrubbingOpacity = seekingAnimationSV
-      ? interpolate(seekingAnimationSV.get(), [0, 0.2, 1], [1, 0, 0], 'clamp')
-      : 1;
-    return {
-      opacity: baseOpacity * scrubbingOpacity,
-    };
-  }, [seekingAnimationSV]);
+    // Opacity is driven by composed shared value from parent (overlay + item + scrub)
+    return { opacity: overlayOpacitySV ? overlayOpacitySV.value : 1 };
+  }, [overlayOpacitySV]);
 
+  // Pointer events based on per-item visibility - only visible item's overlay is interactive
+  // This ensures only the centered/visible card's overlay receives touch events
   const overlayPointerEvents = isVisible ? ('box-none' as const) : ('none' as const);
 
   return (

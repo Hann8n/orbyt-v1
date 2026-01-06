@@ -23,6 +23,8 @@ import Animated, {
   withSequence,
   withDelay,
   Easing,
+  useDerivedValue,
+  interpolate,
 } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
@@ -44,6 +46,7 @@ import { useProfile } from '../../../services/data/ProfileService';
 import { getChannelBySlug } from '../../../utils/channels/orbyt';
 import { VideoScrubber } from './VideoScrubber';
 import { logger } from '../../../utils/logger';
+import { useOverlayVisibility } from '../../../context/FeedIndicatorContext';
 import type {
   ExtendedPostView,
   ExtendedFeedViewPost,
@@ -806,6 +809,18 @@ const VideoCard = memo(
 
       // Scrubber for iOS only - overlays the video
       const seekingAnimationSV = useSharedValue(0);
+      // Compose a single shared opacity for overlay + scrubber
+      const overlayVisibility = useOverlayVisibility();
+      const itemVisibilitySV = useSharedValue(isVisible ? 1 : 0);
+      useEffect(() => {
+        itemVisibilitySV.value = withTiming(isVisible ? 1 : 0, { duration: 100 });
+      }, [isVisible, itemVisibilitySV]);
+      const uiOverlayOpacitySV = useDerivedValue(() => {
+        'worklet';
+        // Global scroll fade * per-item visibility * scrubbing fade
+        const scrubbing = interpolate(seekingAnimationSV.value, [0, 0.2, 1], [1, 0, 0], 'clamp');
+        return overlayVisibility.value * itemVisibilitySV.value * scrubbing;
+      });
 
       return (
         <View style={[styles.container, { height: cardHeight }]}>
@@ -885,6 +900,7 @@ const VideoCard = memo(
                   post={postView}
                   isVisible={isVisible}
                   isModal={isModal}
+                  overlayOpacitySV={uiOverlayOpacitySV}
                   feedOption={feedOption as 'following' | 'discover' | undefined}
                   sourceFeed={sourceFeed}
                   onLike={handleLike}
@@ -900,7 +916,6 @@ const VideoCard = memo(
                   hasProfile={hasProfile}
                   channelSlug={channelSlug}
                   onChannelPress={handleChannelPress}
-                  seekingAnimationSV={seekingAnimationSV}
                 />
               )}
 
@@ -910,7 +925,7 @@ const VideoCard = memo(
                   active={isVisible && !hasError}
                   player={player}
                   seekingAnimationSV={seekingAnimationSV}
-                  isVisible={isVisible}
+                  overlayOpacitySV={uiOverlayOpacitySV}
                 />
               )}
             </View>

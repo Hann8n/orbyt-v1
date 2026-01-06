@@ -11,6 +11,14 @@ type TabBarContextValue = {
    */
   tabBarVisibility: SharedValue<number>;
   setTabBarVisibility: (visibility: number) => void;
+  /**
+   * Overlay visibility shared value for video overlays (0 = hidden, 1 = visible).
+   * Controlled by FlashList viewability callbacks (runs on native thread).
+   * This is a Reanimated shared value for direct use in animated styles.
+   * Read-only on UI thread - updated from native thread via viewability callbacks.
+   */
+  overlayVisibility: SharedValue<number>;
+  setOverlayVisibility: (visibility: number) => void;
 };
 
 const TabBarContext = createContext<TabBarContextValue | null>(null);
@@ -18,6 +26,7 @@ const TabBarContext = createContext<TabBarContextValue | null>(null);
 export const TabBarProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [tabBarHeight, setTabBarHeight] = useState<number | null>(null);
   const tabBarVisibility = useSharedValue(1);
+  const overlayVisibility = useSharedValue(1);
 
   const handleSetTabBarHeight = useCallback((height: number) => {
     setTabBarHeight(height);
@@ -33,6 +42,17 @@ export const TabBarProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     [tabBarVisibility]
   );
 
+  const handleSetOverlayVisibility = useCallback(
+    (visibility: number) => {
+      const clamped = Math.max(0, Math.min(1, visibility));
+      // Reanimated shared values are intentionally mutated for UI-thread sync
+      // Updated from native thread via FlashList viewability callbacks
+      // eslint-disable-next-line react-hooks/immutability
+      overlayVisibility.value = clamped;
+    },
+    [overlayVisibility]
+  );
+
   return (
     <TabBarContext.Provider
       value={{
@@ -40,6 +60,8 @@ export const TabBarProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setTabBarHeight: handleSetTabBarHeight,
         tabBarVisibility,
         setTabBarVisibility: handleSetTabBarVisibility,
+        overlayVisibility,
+        setOverlayVisibility: handleSetOverlayVisibility,
       }}
     >
       {children}
@@ -71,4 +93,20 @@ export const useSetTabBarVisibility = () => {
     throw new Error('useSetTabBarVisibility must be used within TabBarProvider');
   }
   return context.setTabBarVisibility;
+};
+
+export const useOverlayVisibility = () => {
+  const context = useContext(TabBarContext);
+  if (!context) {
+    throw new Error('useOverlayVisibility must be used within TabBarProvider');
+  }
+  return context.overlayVisibility;
+};
+
+export const useSetOverlayVisibility = () => {
+  const context = useContext(TabBarContext);
+  if (!context) {
+    throw new Error('useSetOverlayVisibility must be used within TabBarProvider');
+  }
+  return context.setOverlayVisibility;
 };

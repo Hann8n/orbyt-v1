@@ -3,6 +3,7 @@ import type { ViewabilityConfig, ViewToken } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 
 import { useVisibilityCoreStore } from './visibilityStore';
+import { useSetOverlayVisibility } from '../../context/FeedIndicatorContext';
 
 /**
  * Optimized viewability config for FlashList 2.0
@@ -52,6 +53,7 @@ export function useFeedVisibility({
   const activeItemIndexRef = useRef<number>(-1);
   // Counter that increments when active item changes - used for FlashList's extraData prop
   const [extraDataCounter, setExtraDataCounter] = useState(0);
+  const setOverlayVisibility = useSetOverlayVisibility();
 
   // FlashList's onViewableItemsChanged runs on native thread - already optimized
   const onViewableItemsChanged = useCallback(
@@ -82,6 +84,11 @@ export function useFeedVisibility({
       const selectedItem = bestItem || firstViewable;
       const nextIndex = typeof selectedItem?.index === 'number' ? selectedItem.index : -1;
 
+      // Update overlay visibility: 1 if item is visible, 0 if not
+      // onViewableItemsChanged runs on native thread, but setOverlayVisibility safely updates shared value from JS thread
+      const isVisible = nextIndex >= 0;
+      setOverlayVisibility(isVisible ? 1 : 0);
+
       // Only process if index changed
       if (nextIndex !== activeItemIndexRef.current) {
         // Update ref immediately (source of truth - no delay)
@@ -90,7 +97,7 @@ export function useFeedVisibility({
         setExtraDataCounter(prev => prev + 1);
       }
     },
-    [] // Stable callback - FlashList handles optimization
+    [setOverlayVisibility] // Stable callback - FlashList handles optimization
   );
 
   const memoizedConfig = useMemo(

@@ -9,7 +9,6 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withTiming,
-  Easing,
 } from 'react-native-reanimated';
 import { scheduleOnUI, scheduleOnRN } from 'react-native-worklets';
 import { useSafeAreaFrame, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,7 +19,7 @@ import { formatTime } from '../../../utils/formatting/time';
 import { isTablet, isSmallScreen, getBottomNavBarHeight } from '../../../utils/device/screen';
 import { Colors } from '../../ui/UI';
 import { useUIStore } from '../../../stores/uiStore';
-import { useTabBarHeight } from '../../../context/FeedIndicatorContext';
+import { useTabBarHeight, useOverlayVisibility } from '../../../context/FeedIndicatorContext';
 import { useFeedSettings } from '../../../stores/userStore';
 
 interface VideoScrubberProps {
@@ -29,7 +28,8 @@ interface VideoScrubberProps {
   seekingAnimationSV: SharedValue<number>;
   scrollGesture?: NativeGesture;
   children?: React.ReactNode;
-  isVisible?: boolean; // Visibility for fade animation (matches overlay)
+  // Optional composed shared opacity to tie overlay and scrubber together
+  overlayOpacitySV?: SharedValue<number>;
 }
 
 // Memoize VideoScrubber to prevent unnecessary re-renders when props haven't changed
@@ -40,7 +40,7 @@ export const VideoScrubber = React.memo(
     seekingAnimationSV,
     scrollGesture,
     children,
-    isVisible = true,
+    overlayOpacitySV,
   }: VideoScrubberProps) => {
     const isIOS = Platform.OS === 'ios';
     const { width: screenWidth } = useSafeAreaFrame();
@@ -336,22 +336,13 @@ export const VideoScrubber = React.memo(
       };
     });
 
-    // Fade out with overlay - matches VideoOverlayUI fade behavior
-    const overlayOpacitySV = useSharedValue(isVisible ? 1 : 0);
-
-    useEffect(() => {
-      overlayOpacitySV.set(
-        withTiming(isVisible ? 1 : 0, {
-          duration: 60,
-          easing: Easing.out(Easing.ease),
-        })
-      );
-    }, [isVisible, overlayOpacitySV]);
-
+    // Use shared value from context - updated from FlashList viewability callbacks (native thread)
+    // If a composed shared opacity is provided, use it to tie with overlay; otherwise fallback to global value
+    const overlayVisibility = useOverlayVisibility();
     const scrubberOpacityStyle = useAnimatedStyle(() => {
       'worklet';
       return {
-        opacity: overlayOpacitySV.get(),
+        opacity: overlayOpacitySV ? overlayOpacitySV.value : overlayVisibility.value,
       };
     });
 
@@ -426,6 +417,7 @@ export const VideoScrubber = React.memo(
   },
   (prevProps, nextProps) => {
     // Custom comparison: only re-render if critical props change
+    // Note: isVisible prop is no longer used (overlay visibility comes from shared value)
     return (
       prevProps.active === nextProps.active &&
       prevProps.player === nextProps.player &&
