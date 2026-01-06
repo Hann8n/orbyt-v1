@@ -31,7 +31,7 @@ const HomeScreen = memo(
     const [isRefreshing, setIsRefreshing] = useState(false);
     const queryClient = useQueryClient();
     const currentUser = useUserStore(state => state.currentUser);
-    useVisibilityRouteTracker('home', 'index');
+    useVisibilityRouteTracker('home');
 
     const triggerRefresh = useCallback(async () => {
       // Refresh both feeds since home screen can show either 'following' or 'your-mix'

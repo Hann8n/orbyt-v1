@@ -82,7 +82,7 @@ export default function TabsLayout() {
         }),
         // Performance optimizations for faster tab switching
         lazy: true, // Lazy load screens for better initial performance
-        freezeOnBlur: false, // Keep screens active for instant switching
+        freezeOnBlur: true, // Freeze screens when not focused to prevent unnecessary re-renders
       }}
       tabBar={props => (
         <CustomBottomTabBar

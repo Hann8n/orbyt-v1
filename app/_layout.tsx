@@ -8,7 +8,7 @@ import {
   InteractionManager,
   Platform,
 } from 'react-native';
-import { Stack, useSegments } from 'expo-router';
+import { Stack } from 'expo-router';
 import {
   SafeAreaProvider,
   initialWindowMetrics,
@@ -186,11 +186,11 @@ function RootNavigator() {
   );
 }
 
-// Visibility hook for inline logic - tracks app state and active tab
+// Visibility hook for inline logic - tracks app state only
+// Tab/route tracking handled by useVisibilityRouteTracker in individual screens
+// With freezeOnBlur: true, route tracking via useIsFocused() correctly handles frozen tabs
 const useVisibilityTracking = () => {
   const setAppState = useVisibilityCoreStore(state => state.setAppState);
-  const setActiveTab = useVisibilityCoreStore(state => state.setActiveTab);
-  const segments = useSegments();
 
   useEffect(() => {
     const initialState = AppState.currentState;
@@ -202,22 +202,6 @@ const useVisibilityTracking = () => {
 
     return () => subscription.remove();
   }, [setAppState]);
-
-  // Track active tab from segments
-  useEffect(() => {
-    const normalizedSegments = Array.from(segments);
-    let activeTab: string | null = null;
-
-    // Extract tab name from segments: (tabs)/index -> 'index', (tabs)/explore -> 'explore', etc.
-    if (normalizedSegments.length >= 2 && normalizedSegments[0] === '(tabs)') {
-      activeTab = normalizedSegments[1];
-    } else if (normalizedSegments.length === 1 && normalizedSegments[0] === '(tabs)') {
-      // Default to 'index' if we're at tabs root
-      activeTab = 'index';
-    }
-
-    setActiveTab(activeTab);
-  }, [segments, setActiveTab]);
 };
 
 export default function RootLayout() {

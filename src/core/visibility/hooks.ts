@@ -43,11 +43,11 @@ export function useFeedVisibility({
   viewabilityConfig,
 }: FeedVisibilityOptions): FeedVisibilityResult {
   const appState = useVisibilityCoreStore(state => state.appState);
-  const activeTab = useVisibilityCoreStore(state => state.activeTab);
   const activeRoute = useVisibilityCoreStore(state => state.activeRoute);
   const isForeground = appState === 'active';
-  // Video can play if: feed is active AND app is foreground AND (tab is active OR route is active)
-  const canPlay = isActive && isForeground && (activeTab !== null || activeRoute !== null);
+  // Video can play if: feed is active AND app is foreground AND route is active
+  // With freezeOnBlur: true, route tracking via useIsFocused() correctly handles frozen tabs
+  const canPlay = isActive && isForeground && activeRoute !== null;
 
   // Ref for immediate synchronous access (no React state delay)
   const activeItemIndexRef = useRef<number>(-1);
@@ -130,8 +130,9 @@ export function useVisibilityOverlay(_isBlocking: boolean) {
 /**
  * Track when a route becomes active/inactive
  * Updates visibility store so videos can pause/resume based on route focus
+ * With freezeOnBlur: true, useIsFocused() correctly handles frozen tabs
  */
-export function useVisibilityRouteTracker(routeKey: string, _tabKey?: string) {
+export function useVisibilityRouteTracker(routeKey: string) {
   const setActiveRoute = useVisibilityCoreStore(state => state.setActiveRoute);
   const isFocused = useIsFocused();
 
@@ -165,13 +166,4 @@ export function useVisibilityRouteTracker(routeKey: string, _tabKey?: string) {
 export function useVisibilityRouteIsActive(routeKey: string | null | undefined) {
   const activeRoute = useVisibilityCoreStore(state => state.activeRoute);
   return Boolean(routeKey) && activeRoute === routeKey;
-}
-
-/**
- * Check if a specific tab is currently active
- * Tracks tab state from visibility store
- */
-export function useVisibilityTabIsActive(tabKey: string | null | undefined) {
-  const activeTab = useVisibilityCoreStore(state => state.activeTab);
-  return Boolean(tabKey) && activeTab === tabKey;
 }

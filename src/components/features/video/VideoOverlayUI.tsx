@@ -6,6 +6,7 @@ import Animated, {
   withSpring,
   withTiming,
   withSequence,
+  Easing,
 } from 'react-native-reanimated';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, Text, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
@@ -328,10 +329,17 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
 
   // Explicit worklet directive ensures this runs on UI thread for optimal performance
   // Smoothly fade out overlay when scrubbing, fade in when scrubbing stops
+  // Match feed pager fade animation for consistency
   const overlayAnimatedStyle = useAnimatedStyle(() => {
     'worklet';
     // Opacity is driven by composed shared value from parent (overlay + item + scrub)
-    return { opacity: overlayOpacitySV ? overlayOpacitySV.value : 1 };
+    const opacityValue = overlayOpacitySV ? overlayOpacitySV.value : 1;
+    return {
+      opacity: withTiming(opacityValue, {
+        duration: 150,
+        easing: Easing.out(Easing.ease),
+      }),
+    };
   }, [overlayOpacitySV]);
 
   // Pointer events based on per-item visibility - only visible item's overlay is interactive

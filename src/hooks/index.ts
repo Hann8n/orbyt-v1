@@ -12,5 +12,4 @@ export {
   useVisibilityOverlay,
   useVisibilityRouteTracker,
   useVisibilityRouteIsActive,
-  useVisibilityTabIsActive,
 } from '../core/visibility';

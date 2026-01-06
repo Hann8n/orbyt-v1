@@ -93,7 +93,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     return 'profile:self';
   }, [providedDid]);
 
-  useVisibilityRouteTracker(profileRouteKey, 'profile');
+  useVisibilityRouteTracker(profileRouteKey);
   const isRouteFocused = useVisibilityRouteIsActive(profileRouteKey);
 
   const queryClient = useQueryClient();

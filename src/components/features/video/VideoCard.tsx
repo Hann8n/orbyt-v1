@@ -1083,7 +1083,7 @@ const styles = StyleSheet.create({
   },
   dimmingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
     zIndex: 5,
     pointerEvents: 'none', // Allow touch events to pass through when not dimmed
   },

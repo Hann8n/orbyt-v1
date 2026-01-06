@@ -24,7 +24,7 @@ import { Colors } from '../../ui/UI';
 import FeedRenderer from './FeedRenderer';
 import { isSmallScreen, isTablet } from '../../../utils/device/screen';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useVisibilityTabIsActive } from '../../../core/visibility';
+import { useIsFocused } from '@react-navigation/native';
 import type { ListFeedViewRef } from '../../../types';
 import type { ScrollToTopRef } from '../../../utils/navigation/tabRefs';
 import { useFeedSettings } from '../../../stores/userStore';
@@ -68,7 +68,8 @@ const FeedPager = memo(
       // Refs to FeedRenderer instances, keyed by feedOption
       const feedRendererRefs = useRef<{ [key: string]: ListFeedViewRef | null }>({});
       const insets = useSafeAreaInsets();
-      const isTabActive = useVisibilityTabIsActive('index');
+      // With freezeOnBlur: true, useIsFocused() correctly reflects tab focus state
+      const isTabActive = useIsFocused();
       const router = useRouter();
       const { nativeTabsEnabled } = useFeedSettings();
       const setTabBarVisibility = useSetTabBarVisibility();
@@ -561,6 +562,11 @@ const styles = StyleSheet.create({
   feedIndicators: {
     flexDirection: 'row',
     alignItems: 'center',
+    shadowColor: Colors.lightGray,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2, // Android
   },
   indicatorItem: {
     paddingHorizontal: 4, // Reduced from 8 to 4 for tighter spacing
@@ -568,6 +574,11 @@ const styles = StyleSheet.create({
   createButton: {
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: Colors.lightGray,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2, // Android
   },
   pagerView: {
     flex: 1,
