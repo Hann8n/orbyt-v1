@@ -236,6 +236,17 @@ export default function RootLayout() {
   // Parallel initialization: fonts and auth state load simultaneously
   useEffect(() => {
     const initializeApp = async () => {
+      // Set video cache size FIRST, before any video players can be created
+      // This must happen before any components using expo-video mount
+      // Using default 1GB cache size (expo-video default)
+      try {
+        await setVideoCacheSizeAsync(1024 * 1024 * 1024); // 1GB (default)
+      } catch (error) {
+        // If this fails, it's non-critical - app will use default cache settings
+        // Log but don't block initialization
+        console.warn('Failed to set video cache size:', error);
+      }
+
       // Migrate AsyncStorage to MMKV (one-time migration)
       await migrateAsyncStorageToMMKV();
 
@@ -264,26 +275,6 @@ export default function RootLayout() {
 
     initializeApp();
   }, [initializeUserState, setFontsLoaded]);
-
-  // Initialize video cache after app is ready and interactions complete
-  // This prevents view hierarchy conflicts when videos are already active
-  useEffect(() => {
-    if (!appIsReady) return;
-
-    // Defer video cache initialization until after interactions complete
-    const interactionHandle = InteractionManager.runAfterInteractions(async () => {
-      try {
-        await setVideoCacheSizeAsync(500 * 1024 * 1024);
-      } catch (error) {
-        console.warn('Failed to set video cache size:', error);
-        // Non-critical error - app will continue to work with default cache settings
-      }
-    });
-
-    return () => {
-      interactionHandle.cancel();
-    };
-  }, [appIsReady]);
 
   // Load bookmarks when user is authenticated
   useEffect(() => {

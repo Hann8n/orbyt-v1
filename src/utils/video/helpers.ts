@@ -1,6 +1,6 @@
 /**
  * Video Utilities - Lean helpers for video playback
- * Uses native expo-video caching (500MB LRU)
+ * Uses native expo-video caching (1GB LRU default)
  */
 
 import { Platform } from 'react-native';
