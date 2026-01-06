@@ -141,6 +141,7 @@ const SubscribeButton: React.FC<{
                       memberCount: channel.likeCount,
                     });
                   } catch (_error) {
+                    setIsSubscribing(false);
                   } finally {
                     setIsSubscribing(false);
                   }
@@ -165,6 +166,7 @@ const SubscribeButton: React.FC<{
               memberCount: channel.likeCount,
             });
           } catch (_subscribeError) {
+            setIsSubscribing(false);
           } finally {
             setIsSubscribing(false);
           }
@@ -187,6 +189,7 @@ const SubscribeButton: React.FC<{
           });
         }
       } catch (_error) {
+        setIsSubscribing(false);
       } finally {
         setIsSubscribing(false);
       }
@@ -194,8 +197,6 @@ const SubscribeButton: React.FC<{
       setIsSubscribing(false);
     }
   }, [channel, isSubscribed, subscribeToChannel, unsubscribeFromChannel]);
-
-  if (channel.isOwner) return null; // Don't show subscribe button for owners
 
   const useGlass = isLiquidGlassAvailable();
   // Use channelColor for channels, fallback to textColor
@@ -208,6 +209,8 @@ const SubscribeButton: React.FC<{
     // Use white text for dark backgrounds, black for light backgrounds
     return isColorDark(subscribeColor) ? '#FFFFFF' : '#000000';
   }, [isSubscribed, subscribeColor]);
+
+  if (channel.isOwner) return null; // Don't show subscribe button for owners
 
   return (
     <View style={[styles.subscribeContainer, containerStyle]}>
@@ -288,7 +291,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   channel,
   showBackButton = false,
   onBackPress,
-  onEdit,
+  onEdit: _onEdit,
   onDelete,
   children,
   applySafeArea = false,
@@ -330,13 +333,6 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
     return bgColor;
   }, [channelColors.backgroundColor]);
 
-  // Handle edit action
-  const handleEdit = useCallback(() => {
-    if (channel?.id && onEdit) {
-      onEdit(channel.id);
-    }
-  }, [channel, onEdit]);
-
   // Handle delete action
   const handleDelete = useCallback(() => {
     if (channel?.id && onDelete) {
@@ -346,26 +342,27 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
 
   // Create custom action layouts (only for owner actions now)
   const customActions = useMemo((): CustomActionLayout[] => {
-    const actions: CustomActionLayout[] = [];
-
-    // Owner actions: Edit and Delete
+    // Owner actions: Delete
     if (channel && channel.isOwner) {
-      actions.push({
-        type: 'button' as const,
-        buttons: [
-          {
-            id: 'delete',
-            label: 'Delete',
-            icon: 'trash',
-            onPress: handleDelete,
-            variant: 'danger' as const,
-          },
-        ],
-      });
+      return [
+        {
+          type: 'button' as const,
+          buttons: [
+            {
+              id: 'delete',
+              label: 'Delete',
+              icon: 'trash',
+              onPress: handleDelete,
+              variant: 'danger' as const,
+            },
+          ],
+        },
+      ];
     }
 
-    return actions;
-  }, [channel, handleEdit, handleDelete]);
+    // No custom actions for non-owners
+    return [];
+  }, [channel, handleDelete]);
 
   // Check if this is an Orbyt channel
   const isOrbyt = useMemo(() => {

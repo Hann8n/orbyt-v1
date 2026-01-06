@@ -348,17 +348,20 @@ export function useUserSearchTrigger({
     if (!selection) return;
     const cursor = selection.start;
     const mention = getMentionQuery(value, cursor);
-    setTimeout(() => {
-      if (mention && mention.query.length > 0) {
+    if (mention && mention.query.length > 0) {
+      // Defer state updates to avoid synchronous setState warnings in effects
+      setTimeout(() => {
         setMentionQuery(mention.query);
         setMentionRange({ start: mention.start, end: mention.end });
         setModalVisible(true);
-      } else {
+      }, 0);
+    } else {
+      setTimeout(() => {
         setMentionQuery('');
         setMentionRange(null);
         setModalVisible(false);
-      }
-    }, 0);
+      }, 0);
+    }
   }, [value, selection]);
 
   // Insert selected handle at the mention position
@@ -451,14 +454,18 @@ export function useRichTextSearchTrigger({
     // Check for mention
     const mention = getMentionQuery(value, cursor);
     if (mention && mention.query.length > 0) {
-      setSearchQuery(mention.query);
-      setSearchRange({ start: mention.start, end: mention.end });
-      setSearchType('mention');
-      setModalVisible(true);
+      setTimeout(() => {
+        setSearchQuery(mention.query);
+        setSearchRange({ start: mention.start, end: mention.end });
+        setSearchType('mention');
+        setModalVisible(true);
+      }, 0);
     } else {
-      setSearchQuery('');
-      setSearchRange(null);
-      setModalVisible(false);
+      setTimeout(() => {
+        setSearchQuery('');
+        setSearchRange(null);
+        setModalVisible(false);
+      }, 0);
     }
   }, [value, selection, modalVisible]);
 

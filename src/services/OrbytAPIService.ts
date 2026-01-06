@@ -129,7 +129,7 @@ abstract class OrbytAPIService<T extends ApiResponse> {
       }
 
       return data;
-    } catch (error) {
+    } catch (_error) {
       // Return empty data as fallback
       return this.getEmptyData();
     }
@@ -229,13 +229,9 @@ class StaticChannelsService extends OrbytAPIService<ChannelsResponse> {
   }
 
   static async getChannels(): Promise<string[]> {
-    try {
-      const instance = new StaticChannelsService();
-      const data = await instance.fetchData();
-      return data.channels || [];
-    } catch (error) {
-      return [];
-    }
+    const instance = new StaticChannelsService();
+    const data = await instance.fetchData();
+    return data.channels || [];
   }
 
   static clearCache(): void {
@@ -259,7 +255,7 @@ export const useStaticChannels = () => {
     queryFn: async () => {
       try {
         return await StaticChannelsService.getChannels();
-      } catch (error) {
+      } catch (_error) {
         return [];
       }
     },

@@ -436,29 +436,25 @@ class ChatService {
    * Uses getConversationForMembers which can create conversations
    */
   async beginConversation(members: string[]): Promise<Conversation> {
-    try {
-      await this.getAgent();
-      const { useUserStore } = await import('../stores/userStore');
-      const userStore = useUserStore.getState();
-      const currentUserDid = userStore.currentUser?.did;
+    await this.getAgent();
+    const { useUserStore } = await import('../stores/userStore');
+    const userStore = useUserStore.getState();
+    const currentUserDid = userStore.currentUser?.did;
 
-      if (!currentUserDid) {
-        throw new Error('No authenticated user');
-      }
-
-      // Include current user in members if not already present
-      const allMembers = members.includes(currentUserDid) ? members : [currentUserDid, ...members];
-
-      const conversation = await this.getConversationForMembers(allMembers);
-
-      if (!conversation) {
-        throw new Error('Failed to create conversation');
-      }
-
-      return conversation;
-    } catch (error: unknown) {
-      throw error;
+    if (!currentUserDid) {
+      throw new Error('No authenticated user');
     }
+
+    // Include current user in members if not already present
+    const allMembers = members.includes(currentUserDid) ? members : [currentUserDid, ...members];
+
+    const conversation = await this.getConversationForMembers(allMembers);
+
+    if (!conversation) {
+      throw new Error('Failed to create conversation');
+    }
+
+    return conversation;
   }
 
   /**
@@ -702,26 +698,22 @@ class ChatService {
    * Create a conversation with a single recipient
    */
   async createConversation(params: CreateConversationParams): Promise<Conversation> {
-    try {
-      // First try to find existing conversation
-      const existingConvo = await this.getConversationForMembers([params.recipientDid]);
+    // First try to find existing conversation
+    const existingConvo = await this.getConversationForMembers([params.recipientDid]);
 
-      if (existingConvo) {
-        return existingConvo;
-      }
-
-      // If no existing conversation, create one using getConvoForMembers
-      // This endpoint can create a conversation if it doesn't exist
-      const newConvo = await this.getConversationForMembers([params.recipientDid]);
-
-      if (!newConvo) {
-        throw new Error('Failed to create conversation');
-      }
-
-      return newConvo;
-    } catch (error: unknown) {
-      throw error;
+    if (existingConvo) {
+      return existingConvo;
     }
+
+    // If no existing conversation, create one using getConvoForMembers
+    // This endpoint can create a conversation if it doesn't exist
+    const newConvo = await this.getConversationForMembers([params.recipientDid]);
+
+    if (!newConvo) {
+      throw new Error('Failed to create conversation');
+    }
+
+    return newConvo;
   }
 
   /**
@@ -742,7 +734,7 @@ class ChatService {
 
       // If we get any response (even empty), the service is available
       return !!response.data;
-    } catch (error) {
+    } catch (_error) {
       return false;
     }
   }

@@ -171,7 +171,7 @@ export async function generateChannelColorFromGIF(channelGIF: any): Promise<stri
     }
 
     return closestColor;
-  } catch (error) {
+  } catch (_error) {
     // Fallback to a default color if extraction fails
     return '#6366F1'; // Default purple-blue
   }
@@ -191,7 +191,7 @@ export async function initializeChannelColors(): Promise<void> {
         // Update the channel color in memory
         channel.channelColor = generatedColor;
       } catch (error) {
-        // Silently fail - keep existing color
+        // Silently fail - keep existing color, but log a warning for diagnostics
         logger.warn(`Failed to generate color for channel ${channel.slug}`, {
           component: 'orbytChannels',
           channelSlug: channel.slug,

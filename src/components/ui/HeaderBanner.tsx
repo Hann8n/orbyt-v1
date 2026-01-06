@@ -46,6 +46,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
       }>,
     []
   );
+  const AnimatedFlatListAny = AnimatedFlatList as any;
   const listRef = useRef<FlatList<Header> | null>(null);
   const isUserDraggingRef = useRef<boolean>(false);
   const virtualIndexRef = useRef<number>(1);
@@ -124,18 +125,19 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
 
   const [activeIndex, setActiveIndex] = useState<number>(0); // real index within headers
   const viewabilityConfig = useMemo(() => ({ viewAreaCoveragePercentThreshold: 60 }), []);
-  const onViewableItemsChanged = useRef<
-    ({ viewableItems }: { viewableItems: Array<{ index?: number | null }> }) => void
-  >(({ viewableItems }: { viewableItems: Array<{ index?: number | null }> }) => {
-    if (viewableItems && viewableItems.length > 0) {
-      const vi = viewableItems[0]?.index ?? 0;
-      if (typeof vi === 'number') {
-        virtualIndexRef.current = vi;
-        const real = mapVirtualToReal(vi);
-        setActiveIndex(real);
+  const onViewableItemsChanged = useCallback(
+    ({ viewableItems }: { viewableItems: Array<{ index?: number | null }> }) => {
+      if (viewableItems && viewableItems.length > 0) {
+        const vi = viewableItems[0]?.index ?? 0;
+        if (typeof vi === 'number') {
+          virtualIndexRef.current = vi;
+          const real = mapVirtualToReal(vi);
+          setActiveIndex(real);
+        }
       }
-    }
-  });
+    },
+    [mapVirtualToReal]
+  );
 
   const keyExtractor = useCallback(
     (item: Header, index: number) => {
@@ -335,7 +337,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
 
   return (
     <View style={[styles.container, height ? { height } : null, { backgroundColor }]}>
-      <AnimatedFlatList
+      <AnimatedFlatListAny
         ref={listRef as any}
         data={loopedData}
         keyExtractor={keyExtractor}

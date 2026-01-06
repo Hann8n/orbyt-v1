@@ -24,11 +24,7 @@ export const getActiveVideoPlayer = (): VideoPlayer | null => {
  * Tracks active video player from registry
  */
 export const GlobalVideoScrubber: React.FC = () => {
-  // iOS only
-  if (Platform.OS !== 'ios') {
-    return null;
-  }
-
+  const isIOS = Platform.OS === 'ios';
   const isVideoVisible = useUIStore(state => state.visibility.isVideoVisible ?? false);
   const [activePlayer, setActivePlayer] = useState<VideoPlayer | null>(activePlayerRef);
   const seekingAnimationSV = useSharedValue(0);
@@ -51,7 +47,7 @@ export const GlobalVideoScrubber: React.FC = () => {
     }
   }, [isVideoVisible, seekingAnimationSV]);
 
-  if (!activePlayer || !isVideoVisible) {
+  if (!isIOS || !activePlayer || !isVideoVisible) {
     return null;
   }
 

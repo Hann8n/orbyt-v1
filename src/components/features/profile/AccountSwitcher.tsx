@@ -71,7 +71,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
             if (!cachedProfile) {
               try {
                 cachedProfile = await ProfileService.refreshProfileByDid(account.did);
-              } catch (error: unknown) {
+              } catch (_error: unknown) {
                 // ignore
               }
             }
@@ -80,14 +80,15 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
               ...account,
               cachedProfile: cachedProfile || undefined,
             };
-          } catch (error) {
+          } catch (_error) {
             return account;
           }
         })
       );
 
       setAccounts(accountsWithProfiles);
-    } catch (error) {
+    } catch (_error) {
+      // no-op: account loading failures are handled per-account above
     } finally {
       setLoading(false);
     }
@@ -240,7 +241,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
       // Wait for dismissal to complete before proceeding with OAuth
       await new Promise(resolve => setTimeout(resolve, 200));
       await handleBlueskyLogin();
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       // ignore
     }
   }, [handleBlueskyLogin]);
@@ -254,7 +255,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
       setShowUsernameInput(true); // Set state to true first
       // Then use TrueSheet global method to present the custom PDS input sheet
       await safePresent('custom-pds-input');
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       // ignore
     }
   }, []);
@@ -268,9 +269,6 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
 
         // Reload accounts to show the new one
         await loadAccounts();
-      } catch (error) {
-        // Re-throw the error so the CustomPDSInputSheet can handle it
-        throw error;
       } finally {
         setIsAddingAccount(false);
       }

@@ -212,7 +212,7 @@ export default function ChatScreen({
   }, [otherUser]);
 
   // Check if current user initiated the conversation by checking if they sent the first message
-  const currentUserInitiated = (() => {
+  const currentUserInitiated = useMemo(() => {
     // Check messages array first
     if (messagesData?.messages && messagesData.messages.length > 0) {
       // Get the oldest message (last in the array since messages are sorted by date desc)
@@ -235,7 +235,7 @@ export default function ChatScreen({
 
     // If no messages at all, assume user is starting a new conversation (they initiated)
     return true;
-  })();
+  }, [conversationData, currentUserId, messagesData]);
 
   // Fetch profile information for the other user
   const { data: otherUserProfile, isLoading: isLoadingOtherUser } = useQuery({
@@ -259,6 +259,8 @@ export default function ChatScreen({
         currentUser?.avatar,
         otherUser
       );
+      // Keeping local state in sync with store-derived messages; safe to update when dependencies change.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMessages(giftedMessages);
     }
   }, [
@@ -767,7 +769,7 @@ export default function ChatScreen({
         </Pressable>
       );
     },
-    [currentUserId, selectedMessageId, handleEmojiSelect, handleReactionPress]
+    [currentUserId, selectedMessageId, handleEmojiSelect, handleReactionPress, messagesWithEmbeds]
   );
 
   // Memoize user object for GiftedChat

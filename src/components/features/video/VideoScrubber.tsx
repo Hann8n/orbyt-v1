@@ -42,11 +42,7 @@ export const VideoScrubber = React.memo(
     children,
     isVisible = true,
   }: VideoScrubberProps) => {
-    // iOS only - return null on other platforms
-    if (Platform.OS !== 'ios') {
-      return null;
-    }
-
+    const isIOS = Platform.OS === 'ios';
     const { width: screenWidth } = useSafeAreaFrame();
     const insets = useSafeAreaInsets();
     const segments = useSegments();
@@ -98,7 +94,7 @@ export const VideoScrubber = React.memo(
               currentTimeSV.set(currentTime);
             });
           }
-        } catch (error) {
+        } catch (_error) {
           // Silently ignore - scrubber never blocks
         }
       }
@@ -161,7 +157,7 @@ export const VideoScrubber = React.memo(
               });
             }
           }
-        } catch (error) {
+        } catch (_error) {
           // Silently ignore - scrubber never blocks or interferes
         }
       };
@@ -227,7 +223,7 @@ export const VideoScrubber = React.memo(
                 seekingAnimationSV.set(withTiming(0, { duration: 500 }));
               });
             }, 50);
-          } catch (error) {
+          } catch (_error) {
             // Silently ignore - scrubber never blocks or interferes with playback
           }
         });
@@ -379,6 +375,10 @@ export const VideoScrubber = React.memo(
       bottomNavBarHeight,
       nativeTabsEnabled,
     ]);
+
+    if (!isIOS) {
+      return null;
+    }
 
     return (
       <>
