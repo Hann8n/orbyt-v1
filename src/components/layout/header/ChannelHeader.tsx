@@ -9,7 +9,6 @@ import {
   StatusBar,
   useWindowDimensions,
 } from 'react-native';
-import { Image } from 'expo-image';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useRouter } from 'expo-router';
 import UniversalHeader, { HeaderContent, CustomActionLayout } from './UniversalHeader';
@@ -92,8 +91,8 @@ const SubscribeButton: React.FC<{
 }> = ({
   channel,
   textColor,
-  backgroundColor,
-  accentColor,
+  backgroundColor: _backgroundColor,
+  accentColor: _accentColor,
   channelColor,
   viewMode = 'list',
   onViewModeChange,
@@ -141,7 +140,7 @@ const SubscribeButton: React.FC<{
                       avatar: channel.avatar,
                       memberCount: channel.likeCount,
                     });
-                  } catch (error) {
+                  } catch (_error) {
                   } finally {
                     setIsSubscribing(false);
                   }
@@ -150,7 +149,7 @@ const SubscribeButton: React.FC<{
             ]
           );
           alertShown = true;
-        } catch (error) {
+        } catch (_error) {
           alertShown = false;
         }
 
@@ -165,7 +164,7 @@ const SubscribeButton: React.FC<{
               avatar: channel.avatar,
               memberCount: channel.likeCount,
             });
-          } catch (subscribeError) {
+          } catch (_subscribeError) {
           } finally {
             setIsSubscribing(false);
           }
@@ -187,11 +186,11 @@ const SubscribeButton: React.FC<{
             memberCount: channel.likeCount,
           });
         }
-      } catch (error) {
+      } catch (_error) {
       } finally {
         setIsSubscribing(false);
       }
-    } catch (error) {
+    } catch (_error) {
       setIsSubscribing(false);
     }
   }, [channel, isSubscribed, subscribeToChannel, unsubscribeFromChannel]);
@@ -370,8 +369,11 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
 
   // Check if this is an Orbyt channel
   const isOrbyt = useMemo(() => {
-    return channel?.uri ? isOrbytChannel(channel.uri) : false;
-  }, [channel?.uri]);
+    if (!channel?.uri) {
+      return false;
+    }
+    return isOrbytChannel(channel.uri);
+  }, [channel]);
 
   // Create header content
   const headerContent = useMemo((): HeaderContent => {
@@ -442,7 +444,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
     if (!isOrbyt || !channel?.uri) return false;
     const orbytChannel = getChannelByUri(channel.uri);
     return orbytChannel?.isPostable !== false; // Default to true, only false for non-postable channels
-  }, [isOrbyt, channel?.uri]);
+  }, [isOrbyt, channel]);
 
   // Animated styles driven by shared scroll progress (0 -> 1)
   const headerAnimatedStyle = useAnimatedStyle(() => {
@@ -519,7 +521,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
 
     // Fallback to regular avatar if no channelGIF
     return channel.avatar;
-  }, [isOrbyt, channel?.uri, channel?.avatar]);
+  }, [isOrbyt, channel]);
 
   return (
     <>

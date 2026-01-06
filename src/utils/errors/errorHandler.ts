@@ -1,4 +1,3 @@
-import { ERROR_MESSAGES } from '../constants';
 import type { AppError } from '../../types';
 import { logger } from '../logger';
 

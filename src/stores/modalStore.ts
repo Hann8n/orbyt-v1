@@ -4,7 +4,6 @@
  * Replaces manual state management in useGlobalModals hook
  */
 import { create } from 'zustand';
-import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { safeDismiss } from '../utils/components/truesheet/utils';
 
 // Types
@@ -46,7 +45,7 @@ interface ModalState {
   dismissShareSheet: (skipDismiss?: boolean) => void;
 }
 
-export const useModalStore = create<ModalState>((set, get) => ({
+export const useModalStore = create<ModalState>((set, _get) => ({
   // Account Switcher State
   accountSwitcherVisible: false,
 

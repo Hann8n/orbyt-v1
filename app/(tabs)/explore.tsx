@@ -1198,7 +1198,7 @@ const ExploreScreen: React.FC = () => {
 
   // Get experimental feeds setting and native tabs setting
   const { experimentalFeedsEnabled, nativeTabsEnabled } = useFeedSettings();
-  
+
   // Get moderation settings for computing decisions
   const { settings: moderationSettings } = useModerationSettings(currentUser?.did ?? undefined);
 
@@ -2134,9 +2134,7 @@ const ExploreScreen: React.FC = () => {
                             )}
                             {shouldBlur && (
                               <View style={styles.spotlightWarningOverlay}>
-                                <Text style={styles.spotlightWarningText}>
-                                  Content Warning
-                                </Text>
+                                <Text style={styles.spotlightWarningText}>Content Warning</Text>
                               </View>
                             )}
                           </View>

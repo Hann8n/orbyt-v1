@@ -226,11 +226,11 @@ const VideoCard = memo(
               informs: [],
             }
           : 'moderationDecision' in post &&
-            post.moderationDecision &&
-            typeof post.moderationDecision === 'object' &&
-            'blur' in post.moderationDecision
-          ? (post.moderationDecision as ModerationDecision)
-          : undefined);
+              post.moderationDecision &&
+              typeof post.moderationDecision === 'object' &&
+              'blur' in post.moderationDecision
+            ? (post.moderationDecision as ModerationDecision)
+            : undefined);
       const shouldBlur = decision?.blur || false;
       const shouldShowContent = !shouldBlur || userChoseToView;
       const isBlurred = shouldBlur && !shouldShowContent;

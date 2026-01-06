@@ -34,7 +34,7 @@ import { useChatStore } from '../../../stores/chatStore';
 import { ChatMessage } from '../../../utils/chat/helpers';
 import { useCurrentUser } from '../../../stores/userStore';
 import { useMessageReactions } from '../../../hooks/useMessageReactions';
-import ChatService from '../../../services/ChatService';
+import ChatService, { ReactionView } from '../../../services/ChatService';
 import { AtprotoService } from '../../../services/api/AtprotoService';
 import MessageReactions from './MessageReactions';
 import ChatActionsSheet from './ChatActionsSheet';
@@ -149,10 +149,10 @@ export default function ChatScreen({
   });
 
   // Get other user for message conversion
-  const otherUser = useMemo(() => {
-    if (!conversationData?.members?.length) return undefined;
-    return conversationData.members.find(member => member.did !== currentUserId);
-  }, [conversationData?.members, currentUserId]);
+  const otherUser =
+    conversationData?.members?.length && currentUserId
+      ? conversationData.members.find(member => member.did !== currentUserId)
+      : undefined;
 
   // Use unified reaction handling hook
   const { handleReactionToggle } = useMessageReactions({
@@ -212,7 +212,7 @@ export default function ChatScreen({
   }, [otherUser]);
 
   // Check if current user initiated the conversation by checking if they sent the first message
-  const currentUserInitiated = useMemo(() => {
+  const currentUserInitiated = (() => {
     // Check messages array first
     if (messagesData?.messages && messagesData.messages.length > 0) {
       // Get the oldest message (last in the array since messages are sorted by date desc)
@@ -235,7 +235,7 @@ export default function ChatScreen({
 
     // If no messages at all, assume user is starting a new conversation (they initiated)
     return true;
-  }, [messagesData?.messages, conversationData?.lastMessage, currentUserId]);
+  })();
 
   // Fetch profile information for the other user
   const { data: otherUserProfile, isLoading: isLoadingOtherUser } = useQuery({
@@ -313,8 +313,8 @@ export default function ChatScreen({
         // Update messages state directly (modern pattern)
         setMessages(previousMessages => [...newMessages, ...previousMessages]);
 
-        // Send the message via API
-        sendMessageMutation.mutate(message.text);
+        // Send the message via API (fallback to empty string if text is undefined)
+        sendMessageMutation.mutate(message.text ?? '');
       }
     },
     [sendMessageMutation]
@@ -373,7 +373,7 @@ export default function ChatScreen({
   }, []);
 
   const renderSend = useCallback(
-    (props: SendProps<ChatMessage>) => {
+    (props: SendProps) => {
       const hasText = props.text && props.text.trim().length > 0;
       const isDisabled = !hasText || sendMessageMutation.isPending;
       const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
@@ -448,7 +448,7 @@ export default function ChatScreen({
   );
 
   const renderInputToolbar = useCallback(
-    (props: InputToolbarProps<ChatMessage>) => {
+    (props: InputToolbarProps) => {
       // Only show accept/reject buttons if conversation status is not "accepted" (using API status directly)
       // AND the current user is the recipient (didn't initiate the conversation)
       const showAcceptReject = conversationData?.status !== 'accepted' && !currentUserInitiated;
@@ -628,10 +628,12 @@ export default function ChatScreen({
                 <View style={styles.inlineEmojiBarContent}>
                   {['👍', '❤️', '😂', '😮', '😢', '🙏'].map((emoji, idx, arr) => {
                     const currentUserReaction = message.reactions?.find(
-                      reaction => reaction.value === emoji && reaction.sender.did === currentUserId
+                      (reaction: ReactionView) =>
+                        reaction.value === emoji && reaction.sender.did === currentUserId
                     );
                     const otherUserReaction = message.reactions?.find(
-                      reaction => reaction.value === emoji && reaction.sender.did !== currentUserId
+                      (reaction: ReactionView) =>
+                        reaction.value === emoji && reaction.sender.did !== currentUserId
                     );
                     const hasCurrentUserReaction = !!currentUserReaction;
                     const hasOtherUserReaction = !!otherUserReaction;
@@ -712,10 +714,12 @@ export default function ChatScreen({
               <View style={styles.inlineEmojiBarContent}>
                 {['👍', '❤️', '😂', '😮', '😢', '🙏'].map((emoji, idx, arr) => {
                   const currentUserReaction = message.reactions?.find(
-                    reaction => reaction.value === emoji && reaction.sender.did === currentUserId
+                    (reaction: ReactionView) =>
+                      reaction.value === emoji && reaction.sender.did === currentUserId
                   );
                   const otherUserReaction = message.reactions?.find(
-                    reaction => reaction.value === emoji && reaction.sender.did !== currentUserId
+                    (reaction: ReactionView) =>
+                      reaction.value === emoji && reaction.sender.did !== currentUserId
                   );
                   const hasCurrentUserReaction = !!currentUserReaction;
                   const hasOtherUserReaction = !!otherUserReaction;

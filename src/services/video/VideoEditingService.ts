@@ -8,7 +8,7 @@ try {
   const ffmpegModule = require('ffmpeg-kit-react-native');
   FFmpegKit = ffmpegModule.FFmpegKit;
   ReturnCode = ffmpegModule.ReturnCode;
-} catch (error) {
+} catch (_error) {
   logger.warn('FFmpegKit not available - native module not linked', {
     component: 'VideoEditingService',
   });
@@ -17,7 +17,6 @@ try {
 // Audio volume constants
 const MIN_VOLUME = 0.0;
 const MAX_VOLUME = 2.0; // Allow boosting up to 200% for quiet audio
-const DEFAULT_VOLUME = 1.0;
 
 export interface TextOverlayOptions {
   x: string; // e.g., '(w-text_w)/2' for center, '10' for absolute position

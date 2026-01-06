@@ -2,7 +2,7 @@
  * SessionProvider - Expo Router compatible auth context
  * Wraps Zustand userStore to provide React Context API for Stack.Protected
  */
-import React, { createContext, useContext, type PropsWithChildren } from 'react';
+import { createContext, useContext, type PropsWithChildren } from 'react';
 import { useUserStore } from '../stores/userStore';
 
 const AuthContext = createContext<{

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Keyboard, Platform, StyleSheet, ViewStyle } from 'react-native';
 import Animated, {
   useSharedValue,

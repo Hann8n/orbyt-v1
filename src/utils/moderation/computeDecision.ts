@@ -3,7 +3,10 @@
  * Synchronous, no side effects - can be called inline in components
  */
 
-import type { ModerationDecision, ModerationSettings } from '../../services/moderation/ModerationTypes';
+import type {
+  ModerationDecision,
+  ModerationSettings,
+} from '../../services/moderation/ModerationTypes';
 import type { ExtendedPostView, ExtendedFeedViewPost } from '../../services/api/types';
 
 /**
@@ -66,7 +69,7 @@ function detectContentType(
 /**
  * Compute moderation decision for a post
  * Pure function - no side effects, synchronous
- * 
+ *
  * @param post - ExtendedPostView or ExtendedFeedViewPost
  * @param settings - ModerationSettings from useModerationSettings hook
  * @returns ModerationDecision
@@ -99,7 +102,7 @@ export function computeModerationDecision(
 
   // Get labels from post
   const labels = postView.labels || [];
-  
+
   // Extract text from post record
   const text =
     typeof postView.record === 'object' &&

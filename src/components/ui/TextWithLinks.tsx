@@ -123,6 +123,7 @@ const TextWithLinksBase: React.FC<TextWithLinksProps> = ({
 
   useEffect(() => {
     if (!text) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTextParts([]);
       return;
     }
@@ -130,9 +131,11 @@ const TextWithLinksBase: React.FC<TextWithLinksProps> = ({
     // Use facets-based parsing (AT Protocol standard)
     if (facets && facets.length > 0) {
       const parts = parseFacetsToTextParts(text, facets);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTextParts(parts);
     } else {
       // Fallback to plain text if no facets available
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTextParts([{ text }]);
     }
   }, [text, facets]);

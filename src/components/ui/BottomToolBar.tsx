@@ -88,7 +88,7 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
     return (
       <Pressable
         key={tool.id}
-        style={({ pressed }) => [...toolStyle, pressed && { opacity: 0.7 }]}
+        style={({ pressed }) => [...toolStyle, pressed ? { opacity: 0.7 } : null]}
         onPress={() => {
           if (!isDisabled) {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -102,8 +102,10 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
     );
   };
 
+  const isCreateMode = mode === 'create';
+
   // Original style for create mode
-  if (mode === 'create') {
+  if (isCreateMode) {
     return (
       <View style={[styles.safeArea, { height: bottomNavBarHeight }]}>
         <View
@@ -169,9 +171,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 10,
-  },
-  safeAreaSmall: {
-    backgroundColor: 'transparent',
   },
   // Original style for create mode
   containerCreate: {

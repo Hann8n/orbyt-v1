@@ -33,7 +33,6 @@ try {
 // Re-export API types for convenience
 export type { ExtendedFeedViewPost as FeedItem, ExtendedPostView as Post } from './api/types';
 
-
 // API Response type matching AtprotoService return types
 export type APIResponse = FeedResponse;
 

@@ -37,7 +37,7 @@ const VideoGridItem: React.FC<{
   thumbnailStyle?: ImageStyle;
 }> = React.memo(({ item, index, onPress, style, itemStyle, thumbnailStyle }) => {
   const thumbnailUrl = extractVideoThumbnail(item.post.embed);
-  
+
   // Get shouldBlur flag from feed item (computed at feed level)
   const feedItem = item as any;
   const shouldBlur = feedItem.shouldBlur ?? false;

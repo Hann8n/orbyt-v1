@@ -3,10 +3,7 @@ import { logger } from '../../utils/logger';
 import { queryClient } from '../../utils/query/queryClient';
 import { queryKeys } from '../../utils/query/queryKeys';
 import type { Agent } from '@atproto/api';
-import type {
-  ActorPreferences,
-  GetPreferencesOutput,
-} from '../api/types';
+import type { ActorPreferences, GetPreferencesOutput } from '../api/types';
 
 /**
  * Moderation Service for Bluesky content filtering
@@ -33,7 +30,6 @@ export class ModerationService {
     // Fall back to static cache (for backward compatibility)
     return this.currentSettings ?? this.createSafeDefaultSettings();
   }
-
 
   /**
    * Clear moderation settings cache (for account switching)
@@ -173,7 +169,6 @@ export class ModerationService {
       throw error;
     }
   }
-
 
   /**
    * Create safe default settings (fail-safe: hide sensitive content by default)

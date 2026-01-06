@@ -8,7 +8,7 @@ import { Colors } from '../../src/components/ui/UI';
 import UI from '../../src/components/ui/UI';
 import feedService from '../../src/services/FeedService';
 import { queryKeys } from '../../src/utils/query/queryKeys';
-import { ModerationService } from '../../src/services/moderation/ModerationService';
+// ModerationService is currently unused in this screen; keep import removed to satisfy strict TS checks
 import { ModerationSettings, LabelPreference } from '../../src/services/moderation/ModerationTypes';
 import { useModeration, useUserStoreState } from '../../src/stores/userStore';
 import { settingsButtonStyles, settingsLayoutStyles, settingsActiveStyles } from './SettingsStyles';
@@ -49,7 +49,10 @@ const ContentFiltersScreen: React.FC = () => {
   // Update local state when React Query settings change
   useEffect(() => {
     if (moderationSettings) {
+      // These state updates mirror server-provided settings locally.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSettings(moderationSettings);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAdultContentEnabled(moderationSettings.adultContentEnabled);
     }
   }, [moderationSettings]);
@@ -88,6 +91,7 @@ const ContentFiltersScreen: React.FC = () => {
   // Update content options when settings change
   useEffect(() => {
     if (settings) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setContentOptions(prev =>
         prev.map(option => ({
           ...option,

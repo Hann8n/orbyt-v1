@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { SvgXml } from 'react-native-svg';
 import { StyleProp, ViewStyle, View } from 'react-native';
 import Animated, {
@@ -9,7 +9,6 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { Image } from 'expo-image';
-import { logger } from '../../utils/logger';
 
 // Simple colors object to avoid circular dependency
 const Colors = {
@@ -25,7 +24,6 @@ const Colors = {
   orange: '#FF6B35',
   yellow: '#FFD700',
 };
-import AtprotoService from '../../services/api/AtprotoService';
 import { useProfile } from '../../services/data/ProfileService';
 
 // SVG content as strings - updated to match the actual icon files
@@ -38,9 +36,6 @@ const CHECK_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" heigh
 
 // Follow Check Circle Icon (green fill with white checkmark)
 const FOLLOW_CHECK_CIRCLE_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g id="follow_check_circle" fill="none"><circle cx="12" cy="12" r="10" fill="currentColor" stroke="#000" stroke-width="1"/><path d="M8 12.5l2.5 2.5l5.5-5.5" stroke="#000" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter" fill="none"/></g></svg>`;
-
-// Check Circle Fill Icon (background fill uses currentColor, check uses white) - DEPRECATED, use FOLLOW_CHECK_CIRCLE_ICON_SVG instead
-const CHECK_CIRCLE_FILL_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none"><circle cx="12" cy="12" r="10" fill="currentColor"/><path fill="#fff" d="M21.546 5.111a1.5 1.5 0 0 1 0 2.121L10.303 18.475a1.6 1.6 0 0 1-2.263 0L2.454 12.89a1.5 1.5 0 1 1 2.121-2.121l4.596 4.596L19.424 5.111a1.5 1.5 0 0 1 2.122 0"/></g></svg>`;
 
 const LIST_VIEW_ICON_SVG = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
   <!-- First video card -->
@@ -113,7 +108,7 @@ const BOOKMARK_FILL_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="2
 
 const TELESCOPE_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none" fill-rule="evenodd"><path fill="#fff" d="M16.611 3.353a2 2 0 0 1 2.649.6l.083.132l2.5 4.33a2 2 0 0 1-.6 2.649l-.132.083l-5.196 3c-.485.28-1.04.334-1.54.194l-.164-.054l2.708 6.32a1 1 0 0 1-1.786.891l-.052-.104L13 16.539l-2.08 4.855a1 1 0 0 1-1.879-.678l.04-.11l2.089-4.874l-1.817 1.05a2 2 0 0 1-2.017-.01l-.105.074l-.11.069l-1.732 1a2 2 0 0 1-2.649-.6l-.083-.132l-.5-.866a2 2 0 0 1 .6-2.649l.132-.083l1.732-1a2 2 0 0 1 .232-.115a2 2 0 0 1 .856-1.66l.144-.091l4.33-2.5a2 2 0 0 1 .232-.115a2 2 0 0 1 .856-1.66l.144-.091zM5.621 14.317l-1.732 1l.5.866l1.732-1zm5.562-4.366l-4.33 2.5l1.5 2.598l4.33-2.5zm6.428-4.866l-5.196 3l2.5 4.33l5.196-3z"/></g></svg>`;
 
-const BELL_LINE_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><title>notification_line</title><g id="notification_line" fill='none' fill-rule='evenodd'><path d='M24 0v24H0V0zM12.594 23.258l-.012.002-.071.035-.02.004-.014-.004-.071-.036c-.01-.003-.019 0-.024.006l-.004.01-.017.428.005.02.01.013.104.074.015.004.012-.004.104-.074.012-.016.004-.017-.017-.427c-.002-.01-.009-.017-.016-.018m.264-.113-.014.002-.184.093-.01.01-.003.011.018.43.005.012.008.008.201.092c.012.004.023 0 .029-.008l.004-.014-.034-.614c-.003-.012-.01-.02-.02-.022m-.715.002a.023.023 0 0 0-.027.006l-.006.014-.034.614c0 .012.007.02.017.024l.015-.002.201-.093.01-.008.003-.011.018-.43-.003-.012-.01-.01z'/><path fill='#09244BFF' d='M5 9a7 7 0 0 1 14 0v3.764l1.822 3.644A1.1 1.1 0 0 1 19.838 18h-3.964a4.002 4.002 0 0 1-7.748 0H4.162a1.1 1.1 0 0 1-.984-1.592L5 12.764zm5.268 9a2 2 0 0 0 3.464 0zM12 4a5 5 0 0 0-5 5v3.764a2 2 0 0 1-.211.894L5.619 16h12.763l-1.17-2.342a2.001 2.001 0 0 1-.212-.894V9a5 5 0 0 0-5-5'/></g></svg>`;
+// (legacy line bell and spotlight icons kept only in SVG set; not used directly)
 
 const BELL_RINGING_FILL_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><title>bell_ringing_fill</title><g id="bell_ringing_fill" fill='none' fill-rule='evenodd'><path d='M24 0v24H0V0zM12.594 23.258l-.012.002-.071.035-.02.004-.014-.004-.071-.036c-.01-.003-.019 0-.024.006l-.004.01-.017.428.005.02.01.013.104.074.015.004.012-.004.104-.074.012-.016.004-.017-.017-.427c-.002-.01-.009-.017-.016-.018m.264-.113-.014.002-.184.093-.01.01-.003.011.018.43.005.012.008.008.201.092c.012.004.023 0 .029-.008l.004-.014-.034-.614c-.003-.012-.01-.02-.02-.022m-.715.002a.023.023 0 0 0-.027.006l-.006.014-.034.614c0 .012.007.02.017.024l.015-.002.201-.093.01-.008.003-.011.018-.43-.003-.012-.01-.01z'/><path fill='#09244BFF' d='M6.972 3.777a1 1 0 1 0-1.258-1.554 10.038 10.038 0 0 0-2.602 3.19 1 1 0 1 0 1.776.919 8.038 8.038 0 0 1 2.084-2.555m11.314-1.554a1 1 0 1 0-1.258 1.554 8.038 8.038 0 0 1 2.09 2.568 1 1 0 1 0 1.778-.916 10.04 10.04 0 0 0-2.61-3.206M5 10a7 7 0 0 1 14 0v3.764l1.822 3.644A1.1 1.1 0 0 1 19.838 19H4.162a1.1 1.1 0 0 1-.984-1.592L5 13.764zm4 10h6a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2'/></g></svg>`;
 
@@ -134,8 +129,6 @@ const BLOCK_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" heigh
 const REPORT_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none" fill-rule="evenodd"><path fill="#fff" d="m12.702 2.195l7 2.625A2 2 0 0 1 21 6.693v5.363a9 9 0 0 1-4.975 8.05l-3.354 1.676a1.5 1.5 0 0 1-1.342 0l-3.354-1.677A9 9 0 0 1 3 12.055V6.694A2 2 0 0 1 4.298 4.82l7-2.625a2 2 0 0 1 1.404 0M12 14a1 1 0 1 0 0 2a1 1 0 0 0 0-2m0-7a1 1 0 0 0-.993.883L11 8v4a1 1 0 0 0 1.993.117L13 12V8a1 1 0 0 0-1-1"/></g></svg>`;
 
 const SEARCH_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none" fill-rule="evenodd"><path fill="#fff" d="M5.5 10a4.5 4.5 0 1 1 9 0a4.5 4.5 0 0 1-9 0M10 2.5a7.5 7.5 0 1 0 4.136 13.757l4.803 4.804a1.5 1.5 0 0 0 2.122-2.122l-4.804-4.803A7.5 7.5 0 0 0 10 2.5"/></g></svg>`;
-
-const SPOTLIGHT_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#fff" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.295 19.562L16 22m1-6l3.758 2.098M19 12.5l3.026-.598M7.61 6.3a3 3 0 0 0-3.92 1.3l-1.38 2.79a3 3 0 0 0 1.3 3.91l6.89 3.597a1 1 0 0 0 1.342-.447l3.106-6.211a1 1 0 0 0-.447-1.341zM8 9V2"/></svg>`;
 
 const BACK_ARROW_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none"><path fill="#fff" d="M3.283 10.94a1.5 1.5 0 0 0 0 2.12l5.656 5.658a1.5 1.5 0 1 0 2.122-2.122L7.965 13.5H19.5a1.5 1.5 0 0 0 0-3H7.965l3.096-3.096a1.5 1.5 0 1 0-2.122-2.121z"/></g></svg>`;
 
@@ -189,7 +182,7 @@ const DELETE_BACK_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24'
 export const PlusIcon: React.FC<{ size: number; color: string; strokeWidth: number }> = ({
   size,
   color,
-  strokeWidth,
+  strokeWidth: _strokeWidth,
 }) => {
   const svgXml = PLUS_ICON_SVG.replace(/#fff/g, color);
   return <SvgXml xml={svgXml} width={size} height={size} />;
@@ -209,7 +202,7 @@ export const AddCircleLineIcon: React.FC<{
 export const CheckIcon: React.FC<{ size: number; color: string; strokeWidth: number }> = ({
   size,
   color,
-  strokeWidth,
+  strokeWidth: _strokeWidth,
 }) => {
   const svgXml = CHECK_ICON_SVG.replace(/#fff/g, color);
   return <SvgXml xml={svgXml} width={size} height={size} />;
@@ -1279,257 +1272,250 @@ const Icon: React.FC<IconProps> = ({
   style,
   strokeWidth = 1.75,
 }) => {
-  try {
-    // Handle custom icons first
-    if (name === 'loading-3-fill') {
-      return <Loading3FillIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'user-3') {
-      return <UserIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'settings') {
-      return <SettingsIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'share') {
-      return <ShareIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'safe-shield-2-fill' || name === 'mingcute:safe-shield-2-fill') {
-      return <SafeShieldIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'history-anticlockwise-line' || name === 'mingcute:history-anticlockwise-line') {
-      return <HistoryAnticlockwiseIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'experimental-feeds') {
-      return <ExperimentalFeedsIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'muted-users' || name === 'volume-x') {
-      return <MutedUsersIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'sensitive-content' || name === 'contact') {
-      return <SensitiveContentIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'information-line' || name === 'info') {
-      return <InformationLineIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'chat-3-line' || name === 'chat_3_line') {
-      return <Chat3LineIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'warning-line' || name === 'warning_line') {
-      return <WarningLineIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'block') {
-      return <BlockIcon size={size} color={color} />;
-    }
-    if (name === 'report' || name === 'warning-box') {
-      return <ReportIcon size={size} color={color} />;
-    }
-    if (name === 'interested') {
-      return <InterestedIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'not_interested') {
-      return <NotInterestedIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'outlink' || name === 'external-link') {
-      return <OutlinkIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'logout') {
-      return <LogoutIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'eye-closed') {
-      return <EyeClosedIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'chevron-up') {
-      return <ChevronUpIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'chevron-down') {
-      return <ChevronDownIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'down-small-fill' || name === 'down_small_fill') {
-      return <DownSmallFillIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'message-delete') {
-      return <CloseFillIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'menu-fill' || name === 'drag-handle') {
-      return <MenuFillIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'checkmark' || name === 'check') {
-      return <CheckIcon size={size} color={color} strokeWidth={strokeWidth} />;
-    }
-    // check circle filled (defaults to black background if color is default white)
-    if (
-      name === 'check-circle-fill' ||
-      name === 'check-circle' ||
-      name === 'check-black' ||
-      name === 'check-circle-black' ||
-      name === 'checkmark-black'
-    ) {
-      const bgColor = color === Colors.white ? Colors.black : color;
-      return <CheckCircleFillIcon size={size} color={bgColor} style={style} />;
-    }
-    if (name === 'shield-off' || name === 'mingcute:shield-shape-line') {
-      return <ShieldOutlineIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'hidden') {
-      return <EyeFillIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'user-x') {
-      return <UserXFillIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'user-check') {
-      return <UserFollow2FillIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'volume-2') {
-      return <VolumeFillIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'volume') {
-      return <VolumeFillIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'volume-x') {
-      return <MutedUsersIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'close-circle') {
-      return <CloseCircleFillIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'videocam') {
-      return <VideoCamera2FillIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'bug') {
-      return <ExperimentalFeedsIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'chevron-right') {
-      return <ChevronRightIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'right_arrow_filled') {
-      return <ArrowRightFillIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'left_arrow_filled') {
-      return <ArrowLeftFillIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'arrow-up-fill' || name === 'arrow_up_fill') {
-      return <ArrowUpFillIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'send-plane-fill' || name === 'send-plane') {
-      return <SendPlaneFillIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'inbox-fill' || name === 'inbox') {
-      return <InboxIcon size={size} color={color} style={style} />;
-    }
-    // Use warning-line for warnings icon
-    if (name === 'warning' || name === 'warnings') {
-      return <WarningLineIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'comment-heart' || name === 'heart-comment') {
-      return <CommentHeartIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'link-fill' || name === 'link') {
-      return <LinkFillIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'paper-fill') {
-      return <PaperFillIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'shield-shape-fill') {
-      return <ShieldShapeFillIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'color-picker-fill') {
-      const svgXml = COLOR_PICKER_FILL_ICON_SVG.replace(/#fff/g, color);
-      return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
-    }
-    if (name === 'bluesky-icon') {
-      const svgXml = BLUESKY_ICON_SVG.replace(/#fff/g, color);
-      return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
-    }
-    if (name === 'gallery' || name === 'photo-album-fill') {
-      return <GalleryIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'flash' || name === 'flash-fill') {
-      return <FlashIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'camera-rotate' || name === 'camera-rotate-fill') {
-      return <CameraRotateIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'delete-back' || name === 'delete-back-fill') {
-      return <DeleteBackIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'music' || name === 'music-fill') {
-      return <MusicFillIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'text' || name === 'textbox-fill') {
-      return <TextboxFillIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'scissors' || name === 'scissors-fill' || name === 'trim') {
-      return <ScissorsFillIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'at' || name === 'at-line') {
-      return <AtLineIcon size={size} color={color} style={style} />;
-    }
-
-    if (name === 'explore') {
-      return <ExploreIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'search') {
-      return <SearchIcon size={size} color={color} style={style} />;
-    }
-
-    // Explicit mapping of remaining names to local SVGs only
-    // Common aliases routed to existing local icons
-    if (name === 'heart') return <HeartFillIcon size={size} color={color} />;
-    if (name === 'message') return <ChatFillIcon size={size} color={color} />;
-    // Use chat-3-line for comments icon
-    if (name === 'comment' || name === 'comments')
-      return <Chat3LineIcon size={size} color={color} style={style} />;
-    if (name === 'repeat') return <RefreshFillIcon size={size} color={color} />;
-    if (name === 'edit') return <ProfileEditIcon size={size} color={color} style={style} />;
-    if (name === 'article') return <PaperFillIcon size={size} color={color} style={style} />;
-    if (name === 'article-multiple')
-      return <DocumentsFillIcon size={size} color={color} style={style} />;
-    if (name === 'calendar') return <Calendar2FillIcon size={size} color={color} style={style} />;
-    if (name === 'eye') return <EyeFillIcon size={size} color={color} style={style} />;
-    if (name === 'close') return <CloseFillIcon size={size} color={color} style={style} />;
-    if (name === 'close-bold') return <CloseBoldIcon size={size} color={color} style={style} />;
-    if (name === 'section-x') return <CloseFillIcon size={size} color={color} style={style} />;
-    if (name === 'user') return <UserIcon size={size} color={color} style={style} />;
-    if (name === 'users') return <UserIcon size={size} color={color} style={style} />;
-    if (name === 'user-plus') return <PlusIcon size={size} color={color} strokeWidth={2.5} />;
-    if (name === 'plus') return <PlusIcon size={size} color={color} strokeWidth={2.5} />;
-    if (name === 'add-circle-line' || name === 'add_circle_line' || name === 'circle-plus') {
-      return <AddCircleLineIcon size={size} color={color} style={style} />;
-    }
-    if (name === 'minus-fill') return <MinusFillIcon size={size} color={color} style={style} />;
-    if (name === 'trash') return <TrashIcon size={size} color={color} style={style} />;
-    if (name === 'delete-2-fill')
-      return <Delete2FillIcon size={size} color={color} style={style} />;
-    if (name === 'download') return <DownloadIcon size={size} color={color} style={style} />;
-    if (name === 'download-line')
-      return <DownloadLineIcon size={size} color={color} style={style} />;
-    if (name === 'save' || name === 'save-2-fill' || name === 'save_2_fill')
-      return <Save2FillIcon size={size} color={color} style={style} />;
-    if (name === 'alert-circle') return <AlertCircleIcon size={size} color={color} style={style} />;
-    if (name === 'camera') return <VideoCamera2FillIcon size={size} color={color} style={style} />;
-    if (name === 'shuffle') return <ShuffleIcon size={size} color={color} style={style} />;
-    if (name === 'star-fill') {
-      const svgXml = STAR_FILL_ICON_SVG.replace(/currentColor/g, color);
-      return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
-    }
-    if (name === 'radio-button-on')
-      return <RadioButtonOnIcon size={size} color={color} style={style} />;
-    if (name === 'radio-button-off')
-      return <RadioButtonOffIcon size={size} color={color} style={style} />;
-    if (name === 'device-tv' || name === 'video-movies-vintage-tv-1')
-      return <TvIcon size={size} color={color} />;
-    if (name === 'interface-essential-satellite' || name === 'interface-essential-search-binocular')
-      return <TelescopeIcon size={size} color={color} style={style} />;
-    if (name === 'more-fill' || name === 'more-horizontal')
-      return <MoreFillIcon size={size} color={color} />;
-    if (name === 'bookmark' || name === 'bookmark-fill')
-      return <BookmarkFillIcon size={size} color={color} />;
-
-    // Icon not found - return null silently to avoid console spam
-    return null;
-  } catch (err) {
-    logger.error(`Error rendering icon ${name}`, err, { component: 'Icon', iconName: name });
-    return null;
+  // Handle custom icons first
+  if (name === 'loading-3-fill') {
+    return <Loading3FillIcon size={size} color={color} style={style} />;
   }
+  if (name === 'user-3') {
+    return <UserIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'settings') {
+    return <SettingsIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'share') {
+    return <ShareIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'safe-shield-2-fill' || name === 'mingcute:safe-shield-2-fill') {
+    return <SafeShieldIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'history-anticlockwise-line' || name === 'mingcute:history-anticlockwise-line') {
+    return <HistoryAnticlockwiseIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'experimental-feeds') {
+    return <ExperimentalFeedsIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'muted-users' || name === 'volume-x') {
+    return <MutedUsersIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'sensitive-content' || name === 'contact') {
+    return <SensitiveContentIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'information-line' || name === 'info') {
+    return <InformationLineIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'chat-3-line' || name === 'chat_3_line') {
+    return <Chat3LineIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'warning-line' || name === 'warning_line') {
+    return <WarningLineIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'block') {
+    return <BlockIcon size={size} color={color} />;
+  }
+  if (name === 'report' || name === 'warning-box') {
+    return <ReportIcon size={size} color={color} />;
+  }
+  if (name === 'interested') {
+    return <InterestedIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'not_interested') {
+    return <NotInterestedIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'outlink' || name === 'external-link') {
+    return <OutlinkIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'logout') {
+    return <LogoutIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'eye-closed') {
+    return <EyeClosedIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'chevron-up') {
+    return <ChevronUpIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'chevron-down') {
+    return <ChevronDownIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'down-small-fill' || name === 'down_small_fill') {
+    return <DownSmallFillIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'message-delete') {
+    return <CloseFillIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'menu-fill' || name === 'drag-handle') {
+    return <MenuFillIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'checkmark' || name === 'check') {
+    return <CheckIcon size={size} color={color} strokeWidth={strokeWidth} />;
+  }
+  // check circle filled (defaults to black background if color is default white)
+  if (
+    name === 'check-circle-fill' ||
+    name === 'check-circle' ||
+    name === 'check-black' ||
+    name === 'check-circle-black' ||
+    name === 'checkmark-black'
+  ) {
+    const bgColor = color === Colors.white ? Colors.black : color;
+    return <CheckCircleFillIcon size={size} color={bgColor} style={style} />;
+  }
+  if (name === 'shield-off' || name === 'mingcute:shield-shape-line') {
+    return <ShieldOutlineIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'hidden') {
+    return <EyeFillIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'user-x') {
+    return <UserXFillIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'user-check') {
+    return <UserFollow2FillIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'volume-2') {
+    return <VolumeFillIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'volume') {
+    return <VolumeFillIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'volume-x') {
+    return <MutedUsersIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'close-circle') {
+    return <CloseCircleFillIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'videocam') {
+    return <VideoCamera2FillIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'bug') {
+    return <ExperimentalFeedsIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'chevron-right') {
+    return <ChevronRightIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'right_arrow_filled') {
+    return <ArrowRightFillIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'left_arrow_filled') {
+    return <ArrowLeftFillIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'arrow-up-fill' || name === 'arrow_up_fill') {
+    return <ArrowUpFillIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'send-plane-fill' || name === 'send-plane') {
+    return <SendPlaneFillIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'inbox-fill' || name === 'inbox') {
+    return <InboxIcon size={size} color={color} style={style} />;
+  }
+  // Use warning-line for warnings icon
+  if (name === 'warning' || name === 'warnings') {
+    return <WarningLineIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'comment-heart' || name === 'heart-comment') {
+    return <CommentHeartIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'link-fill' || name === 'link') {
+    return <LinkFillIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'paper-fill') {
+    return <PaperFillIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'shield-shape-fill') {
+    return <ShieldShapeFillIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'color-picker-fill') {
+    const svgXml = COLOR_PICKER_FILL_ICON_SVG.replace(/#fff/g, color);
+    return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
+  }
+  if (name === 'bluesky-icon') {
+    const svgXml = BLUESKY_ICON_SVG.replace(/#fff/g, color);
+    return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
+  }
+  if (name === 'gallery' || name === 'photo-album-fill') {
+    return <GalleryIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'flash' || name === 'flash-fill') {
+    return <FlashIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'camera-rotate' || name === 'camera-rotate-fill') {
+    return <CameraRotateIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'delete-back' || name === 'delete-back-fill') {
+    return <DeleteBackIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'music' || name === 'music-fill') {
+    return <MusicFillIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'text' || name === 'textbox-fill') {
+    return <TextboxFillIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'scissors' || name === 'scissors-fill' || name === 'trim') {
+    return <ScissorsFillIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'at' || name === 'at-line') {
+    return <AtLineIcon size={size} color={color} style={style} />;
+  }
+
+  if (name === 'explore') {
+    return <ExploreIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'search') {
+    return <SearchIcon size={size} color={color} style={style} />;
+  }
+
+  // Explicit mapping of remaining names to local SVGs only
+  // Common aliases routed to existing local icons
+  if (name === 'heart') return <HeartFillIcon size={size} color={color} />;
+  if (name === 'message') return <ChatFillIcon size={size} color={color} />;
+  // Use chat-3-line for comments icon
+  if (name === 'comment' || name === 'comments')
+    return <Chat3LineIcon size={size} color={color} style={style} />;
+  if (name === 'repeat') return <RefreshFillIcon size={size} color={color} />;
+  if (name === 'edit') return <ProfileEditIcon size={size} color={color} style={style} />;
+  if (name === 'article') return <PaperFillIcon size={size} color={color} style={style} />;
+  if (name === 'article-multiple')
+    return <DocumentsFillIcon size={size} color={color} style={style} />;
+  if (name === 'calendar') return <Calendar2FillIcon size={size} color={color} style={style} />;
+  if (name === 'eye') return <EyeFillIcon size={size} color={color} style={style} />;
+  if (name === 'close') return <CloseFillIcon size={size} color={color} style={style} />;
+  if (name === 'close-bold') return <CloseBoldIcon size={size} color={color} style={style} />;
+  if (name === 'section-x') return <CloseFillIcon size={size} color={color} style={style} />;
+  if (name === 'user') return <UserIcon size={size} color={color} style={style} />;
+  if (name === 'users') return <UserIcon size={size} color={color} style={style} />;
+  if (name === 'user-plus') return <PlusIcon size={size} color={color} strokeWidth={2.5} />;
+  if (name === 'plus') return <PlusIcon size={size} color={color} strokeWidth={2.5} />;
+  if (name === 'add-circle-line' || name === 'add_circle_line' || name === 'circle-plus') {
+    return <AddCircleLineIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'minus-fill') return <MinusFillIcon size={size} color={color} style={style} />;
+  if (name === 'trash') return <TrashIcon size={size} color={color} style={style} />;
+  if (name === 'delete-2-fill') return <Delete2FillIcon size={size} color={color} style={style} />;
+  if (name === 'download') return <DownloadIcon size={size} color={color} style={style} />;
+  if (name === 'download-line') return <DownloadLineIcon size={size} color={color} style={style} />;
+  if (name === 'save' || name === 'save-2-fill' || name === 'save_2_fill')
+    return <Save2FillIcon size={size} color={color} style={style} />;
+  if (name === 'alert-circle') return <AlertCircleIcon size={size} color={color} style={style} />;
+  if (name === 'camera') return <VideoCamera2FillIcon size={size} color={color} style={style} />;
+  if (name === 'shuffle') return <ShuffleIcon size={size} color={color} style={style} />;
+  if (name === 'star-fill') {
+    const svgXml = STAR_FILL_ICON_SVG.replace(/currentColor/g, color);
+    return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
+  }
+  if (name === 'radio-button-on')
+    return <RadioButtonOnIcon size={size} color={color} style={style} />;
+  if (name === 'radio-button-off')
+    return <RadioButtonOffIcon size={size} color={color} style={style} />;
+  if (name === 'device-tv' || name === 'video-movies-vintage-tv-1')
+    return <TvIcon size={size} color={color} />;
+  if (name === 'interface-essential-satellite' || name === 'interface-essential-search-binocular')
+    return <TelescopeIcon size={size} color={color} style={style} />;
+  if (name === 'more-fill' || name === 'more-horizontal')
+    return <MoreFillIcon size={size} color={color} />;
+  if (name === 'bookmark' || name === 'bookmark-fill')
+    return <BookmarkFillIcon size={size} color={color} />;
+
+  // Icon not found - return null silently to avoid console spam
+  return null;
 };
 
 export default Icon;

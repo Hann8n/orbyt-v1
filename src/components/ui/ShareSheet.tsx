@@ -32,9 +32,6 @@ import { formatHandle } from '../../utils/formatting/handles';
 import { useBookmarkStore } from '../../stores/bookmarkStore';
 import { useUserStore } from '../../stores/userStore';
 
-// No props needed for global ShareSheet
-interface ShareSheetProps {}
-
 // Check if profile can receive messages based on chat settings
 const canBeMessaged = (profile: any): boolean => {
   const allowIncoming = profile.associated?.chat?.allowIncoming;
@@ -51,7 +48,7 @@ const canBeMessaged = (profile: any): boolean => {
   }
 };
 
-const ShareSheet: React.FC<ShareSheetProps> = () => {
+const ShareSheet: React.FC = () => {
   const { getCurrentData, dismissShareSheet } = useGlobalShareSheet();
   const data = getCurrentData();
 
@@ -157,7 +154,7 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
         } else {
           await AtprotoService.deleteBookmark(postUri);
         }
-      } catch (error) {
+      } catch (_error) {
         // Revert optimistic update on error
         if (newIsBookmarked) {
           removeBookmark(postUri);
@@ -206,7 +203,7 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
                   });
                   Alert.alert('error', 'failed to delete post. please try again.');
                 }
-              } catch (error) {
+              } catch (_error) {
                 // Re-invalidate on error to ensure UI is correct
                 queryClient.invalidateQueries({
                   queryKey: queryKeys.feed.all,
@@ -277,7 +274,7 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
           store.reportedPostUris = newSet;
           Alert.alert('error', 'failed to submit report. please try again.');
         }
-      } catch (error) {
+      } catch (_error) {
         // Revert optimistic update on error - remove from reported set
         const newSet = new Set(store.reportedPostUris);
         newSet.delete(postUri);
@@ -300,7 +297,7 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
         url: Platform.OS === 'ios' ? shareUrl : '',
         title: 'check out this post on bluesky',
       });
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       // ignore
     }
   }, [postUri, dismissSheet]);
@@ -434,8 +431,8 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
             text: '',
             embed: embed,
           });
-        } catch (error: any) {
-          Alert.alert('error', error.message || 'failed to send video. please try again.');
+        } catch (_error: any) {
+          Alert.alert('error', _error.message || 'failed to send video. please try again.');
         }
       })();
     },

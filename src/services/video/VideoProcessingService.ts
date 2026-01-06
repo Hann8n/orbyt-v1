@@ -1,4 +1,4 @@
-import { Platform, InteractionManager } from 'react-native';
+import { Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
 import { File, Directory, Paths } from 'expo-file-system';
@@ -19,7 +19,7 @@ try {
   ReturnCode = ffmpegModule.ReturnCode;
   // FFprobeKit may not be available in all versions, so it's optional
   FFprobeKit = ffmpegModule.FFprobeKit || null;
-} catch (error) {
+} catch (_error) {
   logger.warn('FFmpegKit not available - native module not linked', {
     component: 'VideoProcessingService',
   });
@@ -165,101 +165,97 @@ class VideoProcessingService {
     videoPath: string,
     asset?: ImagePicker.ImagePickerAsset
   ): Promise<VideoInfo> {
-    try {
-      // Get local URI from MediaLibrary if we have assetId (for iCloud videos)
-      const localUri = await this.getLocalVideoPath(videoPath, asset?.assetId);
-      let fileSize = asset?.fileSize || 0;
+    // Get local URI from MediaLibrary if we have assetId (for iCloud videos)
+    const localUri = await this.getLocalVideoPath(videoPath, asset?.assetId);
+    let fileSize = asset?.fileSize || 0;
 
-      // Use fileSize from MediaLibrary if available
-      if (!fileSize && asset?.assetId && Platform.OS === 'ios') {
-        try {
-          const assetInfo = await MediaLibrary.getAssetInfoAsync(asset.assetId, {
-            shouldDownloadFromNetwork: true,
-          });
-          if (assetInfo.localUri) {
-            const file = new File(assetInfo.localUri);
-            fileSize = file.size || 0;
-          }
-        } catch (mediaError) {
-          // Ignore error, use provided fileSize
+    // Use fileSize from MediaLibrary if available
+    if (!fileSize && asset?.assetId && Platform.OS === 'ios') {
+      try {
+        const assetInfo = await MediaLibrary.getAssetInfoAsync(asset.assetId, {
+          shouldDownloadFromNetwork: true,
+        });
+        if (assetInfo.localUri) {
+          const file = new File(assetInfo.localUri);
+          fileSize = file.size || 0;
         }
+      } catch (_mediaError) {
+        // Ignore error, use provided fileSize
       }
-
-      // Verify file exists
-      const file = await this.validateVideoFileExists(localUri);
-
-      // Use fileSize from MediaLibrary/FileSystem if not from ImagePickerAsset
-      const size = fileSize || file.size || 0;
-
-      // Extract metadata from ImagePickerAsset if available
-      let duration = asset?.duration
-        ? asset.duration > 1000
-          ? asset.duration / 1000
-          : asset.duration
-        : 10;
-      let width = asset?.width || 1080;
-      let height = asset?.height || 1920;
-      let frameRate = 30;
-      let codec = 'h264';
-
-      // Extract codec from mimeType if available
-      if (asset?.mimeType) {
-        if (asset.mimeType.includes('h264') || asset.mimeType.includes('avc')) {
-          codec = 'h264';
-        } else if (asset.mimeType.includes('h265') || asset.mimeType.includes('hevc')) {
-          codec = 'hevc';
-        } else if (asset.mimeType.includes('vp9')) {
-          codec = 'vp9';
-        } else if (asset.mimeType.includes('vp8')) {
-          codec = 'vp8';
-        }
-      }
-
-      // Extract frame rate from EXIF if available
-      if (asset?.exif) {
-        const exifFrameRate = asset.exif['VideoFrameRate'] || asset.exif['FrameRate'];
-        if (exifFrameRate) {
-          frameRate =
-            typeof exifFrameRate === 'number'
-              ? exifFrameRate
-              : parseFloat(String(exifFrameRate)) || 30;
-        }
-      }
-
-      // Note: VideoManager only supports merge functionality, not getVideoInfo
-      // We'll rely on asset info and fallback values for metadata
-
-      // Determine quality standard based on resolution
-      const qualityStandard = this.getQualityStandard(width, height);
-
-      // Calculate aspect ratio
-      const aspectRatio = this.calculateAspectRatio(width, height);
-
-      // Estimate bitrate based on file size and duration
-      const bitrate = size > 0 && duration > 0 ? (size * 8) / duration : 1000000; // bits per second
-
-      const videoInfo = {
-        path: localUri,
-        size,
-        sizeFormatted: this.formatFileSize(size),
-        duration,
-        durationFormatted: this.formatDuration(duration),
-        width,
-        height,
-        resolution: `${width}x${height}`,
-        qualityStandard,
-        aspectRatio,
-        bitrate,
-        bitrateFormatted: this.formatBitrate(bitrate),
-        frameRate,
-        codec,
-      };
-
-      // Removed debug log statement for production
-      return videoInfo;
-    } catch (error) {
-      throw error;
     }
+
+    // Verify file exists
+    const file = await this.validateVideoFileExists(localUri);
+
+    // Use fileSize from MediaLibrary/FileSystem if not from ImagePickerAsset
+    const size = fileSize || file.size || 0;
+
+    // Extract metadata from ImagePickerAsset if available
+    let duration = asset?.duration
+      ? asset.duration > 1000
+        ? asset.duration / 1000
+        : asset.duration
+      : 10;
+    let width = asset?.width || 1080;
+    let height = asset?.height || 1920;
+    let frameRate = 30;
+    let codec = 'h264';
+
+    // Extract codec from mimeType if available
+    if (asset?.mimeType) {
+      if (asset.mimeType.includes('h264') || asset.mimeType.includes('avc')) {
+        codec = 'h264';
+      } else if (asset.mimeType.includes('h265') || asset.mimeType.includes('hevc')) {
+        codec = 'hevc';
+      } else if (asset.mimeType.includes('vp9')) {
+        codec = 'vp9';
+      } else if (asset.mimeType.includes('vp8')) {
+        codec = 'vp8';
+      }
+    }
+
+    // Extract frame rate from EXIF if available
+    if (asset?.exif) {
+      const exifFrameRate = asset.exif['VideoFrameRate'] || asset.exif['FrameRate'];
+      if (exifFrameRate) {
+        frameRate =
+          typeof exifFrameRate === 'number'
+            ? exifFrameRate
+            : parseFloat(String(exifFrameRate)) || 30;
+      }
+    }
+
+    // Note: VideoManager only supports merge functionality, not getVideoInfo
+    // We'll rely on asset info and fallback values for metadata
+
+    // Determine quality standard based on resolution
+    const qualityStandard = this.getQualityStandard(width, height);
+
+    // Calculate aspect ratio
+    const aspectRatio = this.calculateAspectRatio(width, height);
+
+    // Estimate bitrate based on file size and duration
+    const bitrate = size > 0 && duration > 0 ? (size * 8) / duration : 1000000; // bits per second
+
+    const videoInfo = {
+      path: localUri,
+      size,
+      sizeFormatted: this.formatFileSize(size),
+      duration,
+      durationFormatted: this.formatDuration(duration),
+      width,
+      height,
+      resolution: `${width}x${height}`,
+      qualityStandard,
+      aspectRatio,
+      bitrate,
+      bitrateFormatted: this.formatBitrate(bitrate),
+      frameRate,
+      codec,
+    };
+
+    // Removed debug log statement for production
+    return videoInfo;
   }
 
   /**
@@ -269,8 +265,10 @@ class VideoProcessingService {
     videoPath: string,
     asset?: ImagePicker.ImagePickerAsset
   ): Promise<string> {
-    const assetId = asset?.assetId || (asset as any)?.id || null;
-    const resolved = await resolveVideoPath(videoPath, assetId);
+    const resolved = await resolveVideoPath(
+      videoPath,
+      asset?.assetId || (asset as any)?.id || null
+    );
     if (!resolved.uri) {
       throw new Error('Failed to standardize video path');
     }
@@ -290,7 +288,10 @@ class VideoProcessingService {
     assetId?: string | null
   ): Promise<string> {
     // First, standardize the path (handles iCloud downloads, sandbox copies, file:// prefix)
-    const standardizedPath = await this.standardizeVideoPath(videoPath);
+    const standardizedPath = await this.standardizeVideoPath(
+      videoPath,
+      assetId ? ({ assetId } as any) : undefined
+    );
     const localPath = standardizedPath.replace('file://', '');
 
     // Analyze properties from the standardized file
@@ -340,7 +341,7 @@ class VideoProcessingService {
       const resolutionOk = Math.max(props.width, props.height) <= 1920;
 
       return codecOk && frameRateOk && resolutionOk;
-    } catch (error) {
+    } catch (_error) {
       logger.warn('Failed to check video compatibility', { component: 'VideoProcessingService' });
       return false;
     }
@@ -523,8 +524,8 @@ class VideoProcessingService {
    */
   private static estimateFileSize(
     duration: number,
-    width: number,
-    height: number,
+    _width: number,
+    _height: number,
     bitrate: number
   ): number {
     // Estimate file size: (bitrate * duration) / 8 (bits to bytes)
@@ -549,7 +550,7 @@ class VideoProcessingService {
             const file = new File(assetInfo.localUri);
             return file.size || 0;
           }
-        } catch (mediaError) {
+        } catch (_mediaError) {
           // Fall through to FileSystem
         }
       }
@@ -559,7 +560,7 @@ class VideoProcessingService {
         return 0;
       }
       return file.size || 0;
-    } catch (error) {
+    } catch (_error) {
       logger.warn('Could not get file size', { component: 'VideoProcessingService' });
       return 0;
     }
@@ -708,7 +709,7 @@ class VideoProcessingService {
               height: 1920,
             };
           }
-        } catch (error) {
+        } catch (_error) {
           logger.warn(`Compression level ${level.name} failed`, {
             component: 'VideoProcessingService',
           });
@@ -726,8 +727,6 @@ class VideoProcessingService {
         });
 
         new File(compressedPath).copy(minimalFile);
-
-        const finalSize = await this.getFileSize(minimalFile.uri);
 
         // Clean up temp directory
         this.cleanupTempFiles(tempDir);
@@ -769,7 +768,7 @@ class VideoProcessingService {
         if (assetInfo.localUri) {
           localVideoPath = assetInfo.localUri;
         }
-      } catch (mediaError) {
+      } catch (_mediaError) {
         logger.warn('Failed to get asset from MediaLibrary, using provided path', {
           component: 'VideoProcessingService',
         });
@@ -947,7 +946,7 @@ class VideoProcessingService {
                     isHdr: detectHdr(colorPrimaries, colorTransfer),
                   };
                 }
-              } catch (parseError) {
+              } catch (_parseError) {
                 // JSON parse failed, fall through to metadata extraction
               }
             }
@@ -1241,7 +1240,7 @@ class VideoProcessingService {
         const mergedProps = await this.analyzeVideoProperties(mergedVideoPath);
         mergedWidth = mergedProps.width;
         mergedHeight = mergedProps.height;
-      } catch (error) {
+      } catch (_error) {
         // Fallback to finding highest resolution from segments
         for (const segment of segments) {
           const width = this.getVideoWidth(segment.video);
@@ -1444,7 +1443,7 @@ class VideoProcessingService {
   private static cleanupTempFiles(tempDir: Directory): void {
     try {
       tempDir.delete();
-    } catch (error) {
+    } catch (_error) {
       logger.warn('Failed to cleanup temp files', { component: 'VideoProcessingService' });
     }
   }

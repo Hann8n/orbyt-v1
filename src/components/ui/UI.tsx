@@ -6,17 +6,14 @@ import {
   StyleSheet,
   ViewStyle,
   TextStyle,
-  ScrollView,
   TextInput,
-  Alert,
   StyleProp,
   ImageStyle,
   Platform,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Modal as RNModal } from 'react-native';
-import { SvgXml } from 'react-native-svg';
-import { SafeAreaView } from 'react-native-safe-area-context';
+// SafeAreaView is imported elsewhere; no direct usage in this module
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import Icon, { Loading3FillIcon } from './Icon';
 import { hexToRGBA, isColorDark, getContrastRatio } from '../../utils/formatting/colors';
@@ -394,7 +391,6 @@ export const Avatar: React.FC<AvatarProps> = ({
   showRing = false,
   profileColors,
 }) => {
-  const defaultFallbackIcon = type === 'channel' ? 'device-tv' : 'user';
   const iconSize = fallbackIconSize || Math.max(size * 0.6, 20);
 
   const getBorderRadius = () => {
@@ -579,6 +575,8 @@ export const Modal: React.FC<ModalProps> = ({
   showCloseButton = true,
   style,
 }) => {
+  // Currently reserved for future header close button; read to satisfy type checker
+  void showCloseButton;
   return (
     <RNModal animationType="fade" transparent={true} visible={visible} onRequestClose={onClose}>
       <Pressable style={styles.modalBackdrop} onPress={onClose}>

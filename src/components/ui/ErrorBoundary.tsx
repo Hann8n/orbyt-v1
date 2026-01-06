@@ -238,7 +238,7 @@ const goBackButtonStyles = StyleSheet.create({
 
 const ErrorFallback: React.FC<ErrorFallbackProps> = ({
   error,
-  errorInfo,
+  errorInfo: _errorInfo,
   onReset,
   level = 'component',
 }) => {
@@ -341,7 +341,7 @@ ${deviceInfo}`;
                   `Unable to open email app. The support email and error details have been copied to your clipboard.`,
                   [{ text: 'OK' }]
                 );
-              } catch (clipboardError) {
+              } catch (_clipboardError) {
                 Alert.alert(
                   'Contact Support',
                   `Please email us at ${email} with the error details.`,

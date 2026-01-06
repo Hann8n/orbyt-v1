@@ -1,4 +1,3 @@
-import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';

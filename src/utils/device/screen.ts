@@ -93,7 +93,7 @@ export const getVideoCardHeight = (insets: { top: number; bottom: number }): num
  */
 export const getViewportDimensions = (
   isModal: boolean = false,
-  isHeaderFeed: boolean = false,
+  _isHeaderFeed: boolean = false,
   insets?: { top: number; bottom: number; left: number; right: number }
 ) => {
   const { width, height } = Dimensions.get('window');

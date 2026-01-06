@@ -1,4 +1,3 @@
-import * as FileSystem from 'expo-file-system';
 import ImageColors, { ImageColorsResult } from 'react-native-image-colors';
 
 // Minimal Colors object to avoid circular dependency
@@ -106,13 +105,6 @@ const getRelativeLuminance = (hex: string): number => {
     c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
 
   return 0.2126 * transform(r) + 0.7152 * transform(g) + 0.0722 * transform(b);
-};
-
-/**
- * Checks if two colors meet WCAG AA standard (contrast ratio of at least 4.5:1)
- */
-const meetsContrastGuidelines = (color1: string, color2: string): boolean => {
-  return getContrastRatio(color1, color2) >= 4.5;
 };
 
 /**
@@ -351,7 +343,7 @@ export async function extractColorsFromImage(imageUrl: string): Promise<{
     };
 
     return finalResult;
-  } catch (error) {
+  } catch (_error) {
     return {
       backgroundColor: Colors.darkGray,
       foregroundColor: Colors.white,
@@ -422,7 +414,7 @@ export async function batchExtractColorsFromImages(imageUrls: string[]): Promise
         }
 
         resolve(results);
-      } catch (error) {
+      } catch (_error) {
         // Return fallback colors for all images on error
         resolve(
           imageUrls.map(() => ({

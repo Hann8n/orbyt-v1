@@ -3,20 +3,19 @@
  * Demonstrates how to use the improved OAuth system with better error handling
  */
 
-import React, { useState, useEffect } from 'react';
+// React import not required with modern JSX transform
 import { View, Text, Pressable, Alert } from 'react-native';
 import { useOAuth } from '../hooks/useOAuth';
 import { useAccountManager } from '../hooks/useAccountManager';
-import { analyzeOAuthError, handleOAuthError } from '../utils/errors/oauth';
+import { analyzeOAuthError } from '../utils/errors/oauth';
 
 export function OAuthUsageExample() {
   const { isAuthenticated, isAuthenticating, error, signIn, signOut, clearError } = useOAuth();
-  const { accounts, activeAccountDid, switchAccount, removeAccount } = useAccountManager();
-  const [identifier, setIdentifier] = useState('');
+  const { accounts, activeAccountDid, switchAccount } = useAccountManager();
 
   const handleSignIn = async () => {
     try {
-      await signIn(identifier || 'bsky.social');
+      await signIn('bsky.social');
     } catch (error) {
       const errorInfo = analyzeOAuthError(error);
 
@@ -49,14 +48,6 @@ export function OAuthUsageExample() {
       } else {
         Alert.alert('Account Switch Failed', errorInfo.userFriendlyMessage);
       }
-    }
-  };
-
-  const handleRemoveAccount = async (accountDid: string) => {
-    try {
-      await removeAccount(accountDid);
-    } catch (error) {
-      handleOAuthError(error, 'remove account');
     }
   };
 

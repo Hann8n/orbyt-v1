@@ -1,6 +1,6 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { BORDER_RADIUS } from '../../utils/constants';
-import { View, Text, Pressable, StyleSheet, ViewStyle, TextStyle, StyleProp } from 'react-native';
+import { View, Text, StyleSheet, ViewStyle, TextStyle, StyleProp } from 'react-native';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { safeDismiss, safePresent } from '../../utils/components/truesheet/utils';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -311,7 +311,7 @@ export const VerticalListButton: React.FC<{
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
   rightIcon?: React.ReactNode;
-}> = ({ label, onPress, icon, disabled, danger, style, textStyle, rightIcon }) => {
+}> = ({ label, onPress, icon: _icon, disabled, danger, style, textStyle, rightIcon }) => {
   return (
     <OptionsButton
       label={label}

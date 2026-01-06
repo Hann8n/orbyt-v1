@@ -1105,7 +1105,6 @@ export const useUserStore = create<UserState>()(
           const { useProfileInteractionStore } = await import('./profileInteractionStore');
           useProfileInteractionStore.getState().clearAll();
 
-
           // Note: All data caching is now handled by React Query
           // Custom caches (ProfileCache, ChannelCache, AtprotoService) have been removed
         } catch (error) {

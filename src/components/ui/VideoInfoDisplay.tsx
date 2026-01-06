@@ -1,8 +1,7 @@
 import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import { BORDER_RADIUS } from '../../utils/constants';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { VideoInfo } from '../../services/video/VideoProcessingService';
-import Icon from './Icon';
 import { Colors } from './UI';
 
 interface VideoInfoDisplayProps {
@@ -11,13 +10,6 @@ interface VideoInfoDisplayProps {
 }
 
 const VideoInfoDisplay: React.FC<VideoInfoDisplayProps> = ({ videoInfo, style }) => {
-  const getCompressionColor = (ratio: number) => {
-    if (ratio <= 30) return '#4CAF50'; // Green for excellent compression
-    if (ratio <= 50) return '#8BC34A'; // Light green for good compression
-    if (ratio <= 70) return '#FFC107'; // Yellow for moderate compression
-    return '#FF9800'; // Orange for minimal compression
-  };
-
   return (
     <View style={[styles.videoSizeContainer, style]}>
       {/* Original Video Info */}

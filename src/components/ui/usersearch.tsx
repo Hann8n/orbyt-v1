@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { BORDER_RADIUS } from '../../utils/constants';
-import { View, Text, FlatList, Pressable, StyleSheet, Platform, Keyboard } from 'react-native';
+import { View, Text, FlatList, Pressable, StyleSheet, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useInfiniteQuery, InfiniteData } from '@tanstack/react-query';
 import { queryKeys } from '../../utils/query/queryKeys';
 import AtprotoService from '../../services/api/AtprotoService';
-import { Avatar } from './UI';
+// Avatar import removed – using AuthorItem instead
 import AuthorItem from './AuthorItem';
 import { Colors } from './UI';
-import { VerificationBadge } from '../features/badging';
+// VerificationBadge import removed – badges rendered via AuthorItem
 import { Loading3FillIcon } from './Icon';
 
 // Types
@@ -87,28 +87,35 @@ function getHashtagQuery(text: string, cursor: number) {
 export function UserSearchModal({
   visible,
   onSelect,
-  onRequestClose,
+  onRequestClose: _onRequestClose,
   searchQuery,
   anchorPosition,
 }: UserSearchModalProps) {
   // Use the same search as ExploreScreen
-  const { data, isLoading, isFetchingNextPage, fetchNextPage, hasNextPage, error, refetch } =
-    useInfiniteQuery<
-      { profiles: UserProfile[]; cursor: string | null },
-      Error,
-      InfiniteData<{ profiles: UserProfile[]; cursor: string | null }, string | null>,
-      ReturnType<typeof queryKeys.search.profiles>,
-      string | null
-    >({
-      queryKey: queryKeys.search.profiles(searchQuery),
-      queryFn: async ({ pageParam }) => {
-        return AtprotoService.searchProfilesPaginated(searchQuery, pageParam as string | null);
-      },
-      getNextPageParam: lastPage => lastPage?.cursor ?? null,
-      initialPageParam: null,
-      enabled: !!searchQuery && searchQuery.length > 0 && visible,
-      staleTime: 30 * 1000,
-    });
+  const {
+    data,
+    isLoading,
+    isFetchingNextPage,
+    fetchNextPage,
+    hasNextPage,
+    error,
+    refetch: _refetch,
+  } = useInfiniteQuery<
+    { profiles: UserProfile[]; cursor: string | null },
+    Error,
+    InfiniteData<{ profiles: UserProfile[]; cursor: string | null }, string | null>,
+    ReturnType<typeof queryKeys.search.profiles>,
+    string | null
+  >({
+    queryKey: queryKeys.search.profiles(searchQuery),
+    queryFn: async ({ pageParam }) => {
+      return AtprotoService.searchProfilesPaginated(searchQuery, pageParam as string | null);
+    },
+    getNextPageParam: lastPage => lastPage?.cursor ?? null,
+    initialPageParam: null,
+    enabled: !!searchQuery && searchQuery.length > 0 && visible,
+    staleTime: 30 * 1000,
+  });
 
   const profiles = data?.pages.flatMap(page => page.profiles) || [];
 
@@ -173,10 +180,10 @@ export function RichTextSearchModal({
   visible,
   onSelectUser,
   onSelectHashtag,
-  onRequestClose,
+  onRequestClose: _onRequestClose,
   searchQuery,
   searchType,
-  anchorPosition,
+  anchorPosition: _anchorPosition,
   containerStyle,
 }: RichTextSearchModalProps) {
   // User search query
@@ -224,7 +231,7 @@ export function RichTextSearchModal({
     staleTime: 30 * 1000,
   });
 
-  const hashtagSuggestions = React.useMemo(() => {
+  const hashtagSuggestions: HashtagSuggestion[] = React.useMemo(() => {
     if (searchType !== 'hashtag') return [];
     const hashtags = hashtagSuggestionsData?.pages[0]?.hashtags || [];
     return hashtags.map(tag => ({ tag }));
@@ -341,15 +348,17 @@ export function useUserSearchTrigger({
     if (!selection) return;
     const cursor = selection.start;
     const mention = getMentionQuery(value, cursor);
-    if (mention && mention.query.length > 0) {
-      setMentionQuery(mention.query);
-      setMentionRange({ start: mention.start, end: mention.end });
-      setModalVisible(true);
-    } else {
-      setMentionQuery('');
-      setMentionRange(null);
-      setModalVisible(false);
-    }
+    setTimeout(() => {
+      if (mention && mention.query.length > 0) {
+        setMentionQuery(mention.query);
+        setMentionRange({ start: mention.start, end: mention.end });
+        setModalVisible(true);
+      } else {
+        setMentionQuery('');
+        setMentionRange(null);
+        setModalVisible(false);
+      }
+    }, 0);
   }, [value, selection]);
 
   // Insert selected handle at the mention position
@@ -418,9 +427,11 @@ export function useRichTextSearchTrigger({
     if (modalVisible && cursor > 0) {
       const charBeforeCursor = value[cursor - 1];
       if (charBeforeCursor === ' ') {
-        setModalVisible(false);
-        setSearchQuery('');
-        setSearchRange(null);
+        setTimeout(() => {
+          setModalVisible(false);
+          setSearchQuery('');
+          setSearchRange(null);
+        }, 0);
         return;
       }
     }
@@ -428,10 +439,12 @@ export function useRichTextSearchTrigger({
     // Check for hashtag first (more specific pattern)
     const hashtag = getHashtagQuery(value, cursor);
     if (hashtag) {
-      setSearchQuery(hashtag.query);
-      setSearchRange({ start: hashtag.start, end: hashtag.end });
-      setSearchType('hashtag');
-      setModalVisible(true);
+      setTimeout(() => {
+        setSearchQuery(hashtag.query);
+        setSearchRange({ start: hashtag.start, end: hashtag.end });
+        setSearchType('hashtag');
+        setModalVisible(true);
+      }, 0);
       return;
     }
 

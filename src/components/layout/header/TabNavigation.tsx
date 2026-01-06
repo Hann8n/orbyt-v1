@@ -33,7 +33,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
   onTabPress,
   textColor = '#fff',
   backgroundColor = 'transparent',
-  accentColor, // Add accent color prop
+  accentColor: _accentColor, // Add accent color prop
   style,
   viewMode = 'list',
   onViewModeChange,

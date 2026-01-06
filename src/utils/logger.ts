@@ -14,29 +14,45 @@ interface LogContext {
 class Logger {
   private isDevelopment = __DEV__;
 
+  // Internal helper to exercise LogLevel type and centralize formatting
+  private log(level: LogLevel, message: string, context?: LogContext, errorDisplay?: any): void {
+    const prefix = level.toUpperCase();
+    const formatted = `[${prefix}]${this.formatContext(context)} ${message}`;
+
+    if (level === 'debug' || level === 'info') {
+      if (this.isDevelopment) {
+        console.log(formatted, errorDisplay ?? '');
+      }
+      return;
+    }
+
+    if (level === 'warn') {
+      console.warn(formatted, errorDisplay ?? '');
+      return;
+    }
+
+    console.error(formatted, errorDisplay ?? '');
+  }
+
   /**
    * Debug level logging - only shown in development
    */
   debug(message: string, context?: LogContext): void {
-    if (this.isDevelopment) {
-      console.log(`[DEBUG]${this.formatContext(context)} ${message}`);
-    }
+    this.log('debug', message, context);
   }
 
   /**
    * Info level logging - shown in development
    */
   info(message: string, context?: LogContext): void {
-    if (this.isDevelopment) {
-      console.log(`[INFO]${this.formatContext(context)} ${message}`);
-    }
+    this.log('info', message, context);
   }
 
   /**
    * Warning level logging - always shown
    */
   warn(message: string, context?: LogContext): void {
-    console.warn(`[WARN]${this.formatContext(context)} ${message}`);
+    this.log('warn', message, context);
   }
 
   /**
@@ -59,7 +75,7 @@ class Logger {
           // Fallback to simple string conversion if property enumeration fails
           try {
             errorDisplay = JSON.stringify(error);
-          } catch (e2) {
+          } catch (_e2) {
             errorDisplay = String(error);
           }
         }
@@ -74,7 +90,7 @@ class Logger {
         errorDisplay = '[Error object could not be stringified]';
       }
     }
-    console.error(`[ERROR]${this.formatContext(context)} ${message}`, errorDisplay);
+    this.log('error', message, context, errorDisplay);
   }
 
   /**

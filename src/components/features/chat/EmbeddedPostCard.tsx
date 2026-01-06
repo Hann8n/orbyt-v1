@@ -98,7 +98,7 @@ export default function EmbeddedPostCard({
   const reason = decision?.reason;
 
   // Get profile data to check if author is blocked (must be called before early returns)
-  const author = post?.author || {};
+  const author = (post?.author ?? {}) as PostView['author'];
   const { data: authorProfile } = useProfile(author.handle);
   const isAuthorBlocked = authorProfile?.isBlocked ?? false;
 

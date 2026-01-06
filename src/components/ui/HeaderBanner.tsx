@@ -11,9 +11,8 @@ import {
   FlatList,
 } from 'react-native';
 import { Image } from 'expo-image';
-import type { FlatListProps } from 'react-native';
 import { Colors } from '../ui/UI';
-import { Header, useHeaders } from '../../services/OrbytAPIService';
+import { Header } from '../../services/OrbytAPIService';
 import Animated, {
   useAnimatedScrollHandler,
   useAnimatedStyle,
@@ -39,30 +38,35 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
   backgroundColor = Colors.black,
 }) => {
   const AnimatedFlatList = useMemo(
-    () => Animated.createAnimatedComponent(FlatList) as unknown as React.ComponentType<any>,
+    () =>
+      Animated.createAnimatedComponent(FlatList) as unknown as React.ComponentType<{
+        data: Header[] | null | undefined;
+        renderItem: ({ item, index }: { item: Header; index: number }) => React.ReactElement | null;
+        keyExtractor: (item: Header, index: number) => string;
+      }>,
     []
   );
   const listRef = useRef<FlatList<Header> | null>(null);
   const isUserDraggingRef = useRef<boolean>(false);
   const virtualIndexRef = useRef<number>(1);
 
-  const handleHeaderPress = (header: Header) => {
-    if (onHeaderPress) {
-      onHeaderPress(header);
-    } else {
-      // Default behavior: open the destination URL
-      const url = header?.destinationUrl;
-      if (typeof url === 'string' && url.trim().length > 0) {
-        Linking.openURL(url).catch(err => {});
+  const handleHeaderPress = useCallback(
+    (header: Header) => {
+      if (onHeaderPress) {
+        onHeaderPress(header);
+      } else {
+        // Default behavior: open the destination URL
+        const url = header?.destinationUrl;
+        if (typeof url === 'string' && url.trim().length > 0) {
+          Linking.openURL(url).catch(() => {});
+        }
       }
-    }
-  };
+    },
+    [onHeaderPress]
+  );
 
-  if (!headers || headers.length === 0) {
-    return null;
-  }
-
-  const isCarousel = headers.length > 1;
+  const hasHeaders = useMemo(() => Array.isArray(headers) && headers.length > 0, [headers]);
+  const isCarousel = hasHeaders && headers.length > 1;
 
   // Reanimated scroll progress for smooth color interpolation
   const scrollX = useSharedValue(0);
@@ -74,34 +78,34 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
 
   // Build looped data for seamless wrap-around: [last, ...headers, first]
   const loopedData = useMemo(() => {
-    if (!headers || headers.length <= 1) return headers;
+    if (!hasHeaders || headers.length <= 1) return headers;
     const first = headers[0];
     const last = headers[headers.length - 1];
     return [last, ...headers, first];
-  }, [headers]);
+  }, [hasHeaders, headers]);
 
   const mapVirtualToReal = useCallback(
     (virtualIndex: number): number => {
-      if (!headers || headers.length <= 1) return virtualIndex;
+      if (!hasHeaders || headers.length <= 1) return virtualIndex;
       if (virtualIndex === 0) return headers.length - 1;
       if (virtualIndex === headers.length + 1) return 0;
       return virtualIndex - 1;
     },
-    [headers]
+    [hasHeaders, headers]
   );
 
   // Build color stops per slide from text color preferences (loop-aware)
   const slideColors = useMemo(() => {
-    const realColors = headers.map(h => {
+    const realColors = (headers || []).map(h => {
       const titleCol = h.titleColor as string | undefined;
       const subCol = h.subtitleColor as string | undefined;
       return (titleCol || subCol || Colors.white) as string;
     });
-    if (headers.length <= 1) return realColors;
+    if (!hasHeaders || headers.length <= 1) return realColors;
     const firstColor = realColors[0];
     const lastColor = realColors[realColors.length - 1];
     return [lastColor, ...realColors, firstColor];
-  }, [headers]);
+  }, [hasHeaders, headers]);
 
   const inputRange = useMemo(() => (loopedData || []).map((_, i) => i), [loopedData]);
   const colorAnimatedStyle = useAnimatedStyle(() => {
@@ -120,18 +124,18 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
 
   const [activeIndex, setActiveIndex] = useState<number>(0); // real index within headers
   const viewabilityConfig = useMemo(() => ({ viewAreaCoveragePercentThreshold: 60 }), []);
-  const onViewableItemsChanged = useRef(
-    ({ viewableItems }: { viewableItems: Array<{ index?: number | null }> }) => {
-      if (viewableItems && viewableItems.length > 0) {
-        const vi = viewableItems[0]?.index ?? 0;
-        if (typeof vi === 'number') {
-          virtualIndexRef.current = vi;
-          const real = mapVirtualToReal(vi);
-          setActiveIndex(real);
-        }
+  const onViewableItemsChanged = useRef<
+    ({ viewableItems }: { viewableItems: Array<{ index?: number | null }> }) => void
+  >(({ viewableItems }: { viewableItems: Array<{ index?: number | null }> }) => {
+    if (viewableItems && viewableItems.length > 0) {
+      const vi = viewableItems[0]?.index ?? 0;
+      if (typeof vi === 'number') {
+        virtualIndexRef.current = vi;
+        const real = mapVirtualToReal(vi);
+        setActiveIndex(real);
       }
     }
-  ).current;
+  });
 
   const keyExtractor = useCallback(
     (item: Header, index: number) => {
@@ -165,7 +169,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
   }, [isCarousel, headers.length]);
 
   const ensureClampedPosition = useCallback(() => {
-    if (!headers || headers.length <= 1) return;
+    if (!hasHeaders || headers.length <= 1) return;
     const vi = virtualIndexRef.current;
     if (vi === 0) {
       virtualIndexRef.current = headers.length; // real last at virtual index len
@@ -174,77 +178,84 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
       virtualIndexRef.current = 1;
       listRef.current?.scrollToIndex({ index: 1, animated: false });
     }
-  }, [headers]);
+  }, [hasHeaders, headers]);
 
-  const renderItem = useCallback(({ item }: { item: Header }) => {
-    const header = item;
-    return (
-      <Pressable
-        key={header.id}
-        style={styles.headerItem}
-        onPress={() => handleHeaderPress(header)}
-      >
-        <Image
-          source={{ uri: header.imageUrl }}
-          style={styles.headerImage}
-          contentFit="cover"
-          transition={Platform.OS === 'android' ? 0 : undefined}
-          onError={() => {}}
-        />
-        <View style={styles.headerOverlay}>
-          <View style={styles.textContainer}>
-            {(() => {
-              const titleEl = !!header.title && (
-                <Text
-                  style={[
-                    styles.headerTitle,
-                    header.titleColor ? { color: header.titleColor as string } : null,
-                    header.titleFontFamily ? { fontFamily: header.titleFontFamily } : null,
-                    header.titleFontSize ? { fontSize: header.titleFontSize } : null,
-                    header.titleOpacity !== undefined ? { opacity: header.titleOpacity } : null,
-                  ]}
-                  numberOfLines={1}
-                >
-                  {header.title}
-                </Text>
-              );
+  const renderItem = useCallback(
+    ({ item }: { item: Header }) => {
+      const header = item;
+      return (
+        <Pressable
+          key={header.id}
+          style={styles.headerItem}
+          onPress={() => handleHeaderPress(header)}
+        >
+          <Image
+            source={{ uri: header.imageUrl }}
+            style={styles.headerImage}
+            contentFit="cover"
+            transition={Platform.OS === 'android' ? 0 : undefined}
+            onError={() => {}}
+          />
+          <View style={styles.headerOverlay}>
+            <View style={styles.textContainer}>
+              {(() => {
+                const titleEl = !!header.title && (
+                  <Text
+                    style={[
+                      styles.headerTitle,
+                      header.titleColor ? { color: header.titleColor as string } : null,
+                      header.titleFontFamily ? { fontFamily: header.titleFontFamily } : null,
+                      header.titleFontSize ? { fontSize: header.titleFontSize } : null,
+                      header.titleOpacity !== undefined ? { opacity: header.titleOpacity } : null,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {header.title}
+                  </Text>
+                );
 
-              const subtitleText = header.subtitle;
-              const descriptionEl = !!subtitleText && (
-                <Text
-                  style={[
-                    styles.headerSubtitle,
-                    header.subtitleColor ? { color: header.subtitleColor as string } : null,
-                    header.subtitleFontFamily ? { fontFamily: header.subtitleFontFamily } : null,
-                    header.subtitleFontSize ? { fontSize: header.subtitleFontSize } : null,
-                    header.subtitleOpacity !== undefined
-                      ? { opacity: header.subtitleOpacity }
-                      : null,
-                  ]}
-                  numberOfLines={1}
-                >
-                  {subtitleText}
-                </Text>
-              );
+                const subtitleText = header.subtitle;
+                const descriptionEl = !!subtitleText && (
+                  <Text
+                    style={[
+                      styles.headerSubtitle,
+                      header.subtitleColor ? { color: header.subtitleColor as string } : null,
+                      header.subtitleFontFamily ? { fontFamily: header.subtitleFontFamily } : null,
+                      header.subtitleFontSize ? { fontSize: header.subtitleFontSize } : null,
+                      header.subtitleOpacity !== undefined
+                        ? { opacity: header.subtitleOpacity }
+                        : null,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {subtitleText}
+                  </Text>
+                );
 
-              const order = header.textOrder || 'subtitle-first';
-              return order === 'title-first' ? (
-                <>
-                  {titleEl}
-                  {descriptionEl}
-                </>
-              ) : (
-                <>
-                  {descriptionEl}
-                  {titleEl}
-                </>
-              );
-            })()}
+                const order = header.textOrder || 'subtitle-first';
+                return order === 'title-first' ? (
+                  <>
+                    {titleEl}
+                    {descriptionEl}
+                  </>
+                ) : (
+                  <>
+                    {descriptionEl}
+                    {titleEl}
+                  </>
+                );
+              })()}
+            </View>
           </View>
-        </View>
-      </Pressable>
-    );
-  }, []);
+        </Pressable>
+      );
+    },
+    [handleHeaderPress]
+  );
+
+  if (!hasHeaders) {
+    return null;
+  }
 
   if (!isCarousel) {
     const header = headers[0];
@@ -337,7 +348,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
         contentContainerStyle={styles.headersContainer}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
-        getItemLayout={(data: ArrayLike<Header> | null | undefined, index: number) => ({
+        getItemLayout={(_data: ArrayLike<Header> | null | undefined, index: number) => ({
           length: HEADER_WIDTH,
           offset: HEADER_WIDTH * index,
           index,

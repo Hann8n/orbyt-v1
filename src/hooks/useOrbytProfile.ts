@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import ProfileService from '../services/data/ProfileService';
-import type { OrbytProfileRecord } from '../types';
 import { useUserStore } from '../stores/userStore';
 
 /**
