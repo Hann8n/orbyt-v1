@@ -12,7 +12,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { prefetchProfile } from '../../../services/data/ProfileService';
+import { prefetchProfile, useProfile } from '../../../services/data/ProfileService';
 
 import AtprotoService from '../../../services/api/AtprotoService';
 import { queryKeys } from '../../../utils/query/queryKeys';
@@ -211,6 +211,10 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
       [comment?.author?.avatar]
     );
 
+    // Get profile data to check if author is blocked
+    const { data: authorProfile } = useProfile(comment?.author?.handle);
+    const isAuthorBlocked = authorProfile?.isBlocked ?? false;
+
     const commentText = useMemo(() => getCommentText(comment), [comment]);
 
     const facets = useMemo(() => getCommentFacets(comment), [comment]);
@@ -299,7 +303,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
             }
           }
         }
-      } catch (error) {
+      } catch (_error) {
         // Revert optimistic update on error
         setIsLiked(isLiked);
         setLikeCount(likeCount);
@@ -467,7 +471,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
               try {
                 // Note: Pin to profile functionality may not be available in ATProto API
                 Alert.alert('Info', 'Pin to profile feature is not yet available.');
-              } catch (error) {
+              } catch (_error) {
                 Alert.alert('Error', `Failed to pin ${postType}. Please try again.`);
               }
             },
@@ -485,7 +489,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                   queryKey: queryKeys.comments.byPost(rootUri || ''),
                   refetchType: 'active',
                 });
-              } catch (error) {
+              } catch (_error) {
                 Alert.alert('Error', `Failed to repost ${postType}. Please try again.`);
               }
             },
@@ -524,7 +528,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                         } else {
                           Alert.alert('Error', `Failed to delete ${postType}. Please try again.`);
                         }
-                      } catch (error) {
+                      } catch (_error) {
                         Alert.alert('Error', `Failed to delete ${postType}. Please try again.`);
                       }
                     },
@@ -554,7 +558,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                   queryKey: queryKeys.comments.byPost(rootUri || ''),
                   refetchType: 'active',
                 });
-              } catch (error) {
+              } catch (_error) {
                 Alert.alert('Error', `Failed to repost ${postType}. Please try again.`);
               }
             },
@@ -583,7 +587,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                         } else {
                           Alert.alert('Error', 'Failed to submit report. Please try again.');
                         }
-                      } catch (error) {
+                      } catch (_error) {
                         Alert.alert('Error', 'Failed to submit report. Please try again.');
                       }
                     },
@@ -601,7 +605,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                         } else {
                           Alert.alert('Error', 'Failed to submit report. Please try again.');
                         }
-                      } catch (error) {
+                      } catch (_error) {
                         Alert.alert('Error', 'Failed to submit report. Please try again.');
                       }
                     },
@@ -619,7 +623,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                         } else {
                           Alert.alert('Error', 'Failed to submit report. Please try again.');
                         }
-                      } catch (error) {
+                      } catch (_error) {
                         Alert.alert('Error', 'Failed to submit report. Please try again.');
                       }
                     },
@@ -637,7 +641,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                         } else {
                           Alert.alert('Error', 'Failed to submit report. Please try again.');
                         }
-                      } catch (error) {
+                      } catch (_error) {
                         Alert.alert('Error', 'Failed to submit report. Please try again.');
                       }
                     },
@@ -655,7 +659,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                         } else {
                           Alert.alert('Error', 'Failed to submit report. Please try again.');
                         }
-                      } catch (error) {
+                      } catch (_error) {
                         Alert.alert('Error', 'Failed to submit report. Please try again.');
                       }
                     },
@@ -673,7 +677,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                         } else {
                           Alert.alert('Error', 'Failed to submit report. Please try again.');
                         }
-                      } catch (error) {
+                      } catch (_error) {
                         Alert.alert('Error', 'Failed to submit report. Please try again.');
                       }
                     },
@@ -941,6 +945,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                   uri={authorAvatar}
                   type="profile"
                   size={level > 0 ? 30 : 40}
+                  blurRadius={isAuthorBlocked ? 30 : 0}
                   style={{
                     width: level > 0 ? 30 : 40,
                     height: level > 0 ? 30 : 40,

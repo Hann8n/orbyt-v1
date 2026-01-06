@@ -1,5 +1,3 @@
-declare let window: any;
-
 import React, { memo, useCallback, useMemo, useRef } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, StyleSheet, Pressable, Text } from 'react-native';
@@ -13,6 +11,7 @@ import Animated, {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { BackArrowIcon, MoreFillIcon, Loading3FillIcon } from '../../ui/Icon';
+import { OutlinkIcon } from '../../ui/Icon';
 import { useRouter } from 'expo-router';
 import { hexToRGBA } from '../../../utils/formatting/colors';
 import { Avatar } from '../../ui/UI';
@@ -42,6 +41,7 @@ export interface HeaderContent {
   customTitle?: React.ReactNode;
   subtitle?: string;
   subtitleSecondary?: string; // e.g., Joined date or secondary line
+  onSubtitleSecondaryPress?: () => void; // Handler for subtitle secondary press
   description?: string;
   facets?: RichTextFacet[];
   badge?: React.ReactNode;
@@ -127,6 +127,7 @@ const ActionButton = memo<{
       const baseStyle = {
         backgroundColor: showFilledState ? textColor : hexToRGBA(textColor, 0.2),
         borderColor: showFilledState ? textColor : hexToRGBA(textColor, 0.3),
+        opacity: action.disabled ? 0.4 : 1,
         ...((isEdit || isFollowButton || isSubscribeButton) && { borderWidth: 0 }),
       };
 
@@ -140,12 +141,21 @@ const ActionButton = memo<{
           return {
             backgroundColor: 'transparent',
             borderColor: 'transparent',
+            opacity: action.disabled ? 0.4 : 1,
           };
         default:
           return baseStyle;
       }
     },
-    [action.variant, textColor, backgroundColor, action.label, action.id, hasFilledBackground]
+    [
+      action.variant,
+      action.disabled,
+      textColor,
+      backgroundColor,
+      action.label,
+      action.id,
+      hasFilledBackground,
+    ]
   );
 
   const getContentColor = useCallback(
@@ -294,7 +304,7 @@ const ActionButton = memo<{
 export const HeaderActionButton = ActionButton;
 
 // Memoized custom action layout component
-const CustomActionLayout = memo<{
+const CustomActionLayoutComponent = memo<{
   layout: CustomActionLayout;
   textColor: string;
   backgroundColor: string;
@@ -510,6 +520,54 @@ const HeaderContentComponent = memo<{
                     )}
                     {content.onTitlePress ? ' ›' : ''}
                   </Text>
+                  {!!content.subtitleSecondary && (
+                    <Pressable
+                      onPress={content.onSubtitleSecondaryPress}
+                      disabled={!content.onSubtitleSecondaryPress}
+                    >
+                      <View
+                        style={[
+                          styles.subtitleSecondaryPill,
+                          { backgroundColor: hexToRGBA(textColor, 0.15) },
+                        ]}
+                      >
+                        <Text
+                          style={[styles.subtitleSecondary, { color: hexToRGBA(textColor, 0.8) }]}
+                          numberOfLines={1}
+                        >
+                          {(() => {
+                            // Split "Blocked by [list name]" to make list name bold
+                            const text = content.subtitleSecondary || '';
+                            const parts = text.split(/(Blocked by )/);
+                            if (parts.length === 3) {
+                              return (
+                                <>
+                                  <Text
+                                    style={[
+                                      styles.subtitleSecondaryRegular,
+                                      { color: hexToRGBA(textColor, 0.8) },
+                                    ]}
+                                  >
+                                    {parts[1]}
+                                  </Text>
+                                  <Text
+                                    style={[
+                                      styles.subtitleSecondaryBold,
+                                      { color: hexToRGBA(textColor, 0.8) },
+                                    ]}
+                                  >
+                                    {parts[2]}
+                                  </Text>
+                                </>
+                              );
+                            }
+                            return text;
+                          })()}
+                        </Text>
+                        <OutlinkIcon size={16} color={hexToRGBA(textColor, 0.8)} />
+                      </View>
+                    </Pressable>
+                  )}
                 </View>
               </Pressable>
             );
@@ -747,7 +805,7 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
 
             {/* Custom Action Layouts */}
             {customActions.map((layout, index) => (
-              <CustomActionLayout
+              <CustomActionLayoutComponent
                 key={`custom-action-${index}`}
                 layout={layout}
                 textColor={textColor}
@@ -975,11 +1033,30 @@ const styles = StyleSheet.create({
     fontFamily: 'Firma-Medium',
     fontSize: 18,
   },
-  subtitleSecondary: {
-    marginTop: 0,
+  subtitleSecondaryPill: {
+    marginTop: 4,
     marginBottom: 15,
-    fontFamily: 'Firma-Regular',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: BORDER_RADIUS.FULL,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  subtitleSecondary: {
     fontSize: 14,
+    letterSpacing: 0,
+  },
+  subtitleSecondaryRegular: {
+    fontFamily: 'Firma-Medium',
+    fontSize: 14,
+    letterSpacing: 0,
+  },
+  subtitleSecondaryBold: {
+    fontFamily: 'Firma-Bold',
+    fontSize: 14,
+    letterSpacing: 0,
   },
   description: {
     marginTop: 12,

@@ -11,6 +11,7 @@ import {
 } from '@tanstack/react-query';
 import { useMemo, useCallback } from 'react';
 import type { OrbytProfileRecord } from '../../types';
+import type { ProfileView, ProfileViewDetailed, ListViewBasic } from '../api/types';
 
 export interface CachedProfile {
   did: string;
@@ -21,6 +22,9 @@ export interface CachedProfile {
   isFollowing?: boolean;
   isFollowedBy?: boolean;
   isSubscribed?: boolean; // Activity subscription status
+  isBlocked?: boolean; // Moderation flag: user is blocked (from viewer.blocking or viewer.blockingByList)
+  blockingByList?: ListViewBasic; // List that blocks this user (if blocked by list)
+  isMuted?: boolean; // Moderation flag: user is muted (from viewer.muted)
   hasCustomColors?: boolean; // Flag to indicate if colors are custom or extracted
   profileColors?: {
     backgroundColor: string;
@@ -104,9 +108,10 @@ class ProfileService {
   /**
    * Transform Bsky API profile response to CachedProfile format
    * Uses pre-fetched orbyt profile record to avoid additional API call
+   * Extracts moderation flags (blocked/muted) directly from ProfileView.viewer
    */
   private static async transformApiProfile(
-    apiProfile: any,
+    apiProfile: ProfileView | ProfileViewDetailed,
     did?: string,
     orbytProfileRecord?: OrbytProfileRecord | null
   ): Promise<CachedProfile> {
@@ -141,6 +146,16 @@ class ProfileService {
     const isFollowing = apiProfile.viewer ? !!apiProfile.viewer.following : undefined;
     const isFollowedBy = apiProfile.viewer ? !!apiProfile.viewer.followedBy : undefined;
     const isSubscribed = apiProfile.viewer?.activitySubscription ? true : undefined;
+
+    // Extract moderation flags directly from ProfileView.viewer (Atproto types)
+    // viewer.blocking is a string (URI) if blocked directly, null/undefined otherwise
+    // viewer.blockingByList is a ListViewBasic if blocked by list, undefined otherwise
+    // viewer.muted is a boolean if muted, undefined otherwise
+    const isBlocked = apiProfile.viewer
+      ? !!(apiProfile.viewer.blocking || apiProfile.viewer.blockingByList)
+      : undefined;
+    const blockingByList = apiProfile.viewer?.blockingByList;
+    const isMuted = apiProfile.viewer?.muted ?? undefined;
 
     // Extract verification data
     let verification: CachedProfile['verification'] = { isVerified: false };
@@ -177,6 +192,9 @@ class ProfileService {
       isFollowing,
       isFollowedBy,
       isSubscribed,
+      isBlocked,
+      blockingByList,
+      isMuted,
       hasCustomColors,
       profileColors,
       orbytProfileRecord: record,
@@ -330,7 +348,7 @@ class ProfileService {
       this.saveProfileToCache(profile);
 
       return profile;
-    } catch (error) {
+    } catch (_error) {
       // Return stale cache if available
       const cached = this.getProfileFromCacheSyncByDid(did);
       return cached;
@@ -397,7 +415,7 @@ class ProfileService {
       }
 
       return [...cached, ...cachedProfiles];
-    } catch (error) {
+    } catch (_error) {
       // Return what we got from cache at least
       return cached;
     }
@@ -458,7 +476,7 @@ class ProfileService {
       }
 
       return [...cached, ...results];
-    } catch (error) {
+    } catch (_error) {
       return cached;
     }
   }
@@ -505,7 +523,7 @@ class ProfileService {
       this.saveProfileToCache(profile);
 
       return profile;
-    } catch (error) {
+    } catch (_error) {
       // Return stale cache if available
       const cached = this.getProfileFromCacheSync(handle);
       return cached;
@@ -611,6 +629,26 @@ class ProfileService {
   }
 
   /**
+   * Update the mute status for a profile
+   * Updates MMKV cache - React Query handles invalidation via mutations
+   */
+  static async updateMuteStatus(did: string, handle: string, isMuted: boolean): Promise<void> {
+    if (!did || !handle) return;
+
+    try {
+      const cachedProfile =
+        this.getProfileFromCacheSyncByDid(did) || this.getProfileFromCacheSync(handle);
+      if (cachedProfile) {
+        cachedProfile.isMuted = isMuted;
+        cachedProfile.lastUpdated = Date.now();
+        this.saveProfileToCache(cachedProfile);
+      }
+    } catch {
+      // Silently handle errors
+    }
+  }
+
+  /**
    * Update the verification status for a profile
    */
   static async updateVerification(
@@ -647,8 +685,12 @@ class ProfileService {
 
   /**
    * Apply a server-updated profile response into cache
+   * Extracts moderation flags (blocked/muted) from ProfileView.viewer
    */
-  static async applyServerProfile(handle: string, serverProfile: any): Promise<void> {
+  static async applyServerProfile(
+    handle: string,
+    serverProfile: ProfileView | ProfileViewDetailed
+  ): Promise<void> {
     if (!handle || !serverProfile) return;
 
     try {
@@ -662,6 +704,13 @@ class ProfileService {
         ? !!serverProfile.viewer.followedBy
         : cachedProfile?.isFollowedBy;
 
+      // Extract moderation flags directly from ProfileView.viewer (Atproto types)
+      const isBlocked = serverProfile.viewer
+        ? !!(serverProfile.viewer.blocking || serverProfile.viewer.blockingByList)
+        : cachedProfile?.isBlocked;
+      const blockingByList = serverProfile.viewer?.blockingByList ?? cachedProfile?.blockingByList;
+      const isMuted = serverProfile.viewer?.muted ?? cachedProfile?.isMuted;
+
       const merged: CachedProfile = {
         did: serverProfile.did || cachedProfile?.did || '',
         handle: serverProfile.handle || cachedProfile?.handle || normalizedHandle,
@@ -670,6 +719,9 @@ class ProfileService {
         description: serverProfile.description ?? cachedProfile?.description,
         isFollowing,
         isFollowedBy,
+        isBlocked,
+        blockingByList,
+        isMuted,
         // Preserve profileColors and other cached data that isn't in server response
         profileColors: cachedProfile?.profileColors,
         hasCustomColors: cachedProfile?.hasCustomColors,
@@ -736,7 +788,7 @@ class ProfileService {
       const normalizedHandle = handle.toLowerCase();
       const cacheKey = this.getCacheKey(normalizedHandle);
       storage.delete(cacheKey);
-    } catch (error) {
+    } catch (_error) {
       // Silently handle errors
     }
   }
@@ -750,7 +802,7 @@ class ProfileService {
     try {
       const cacheKey = this.getCacheKeyByDid(did);
       storage.delete(cacheKey);
-    } catch (error) {
+    } catch (_error) {
       // Silently handle errors
     }
   }
@@ -848,13 +900,13 @@ class ProfileService {
 
               // Fetch and cache the profile
               await this.getProfile(handle);
-            } catch (error: unknown) {
+            } catch (_error: unknown) {
               // ignore
             }
           })
         );
       }
-    } catch (error) {
+    } catch (_error) {
       // Silently handle errors during batch prefetch
     }
   }
@@ -1012,7 +1064,7 @@ export function useFollowMutation() {
         isFollowing,
         followUri,
       });
-    } catch (error) {
+    } catch (_error) {
       // Silently fail if store not available
     }
   };
@@ -1128,6 +1180,208 @@ export function useFollowMutation() {
 }
 
 /**
+ * Hook to block/unblock a profile with optimistic updates
+ */
+export function useBlockMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      did,
+      handle,
+      isBlocked,
+    }: {
+      did: string;
+      handle: string;
+      isBlocked: boolean;
+    }) => {
+      // Make the actual API call
+      if (isBlocked) {
+        await AtprotoService.blockUser(did);
+      } else {
+        await AtprotoService.unblockUser(did);
+      }
+
+      // Cache is already updated in onMutate, just return success
+      return { did, handle, isBlocked };
+    },
+    // When mutate is called:
+    onMutate: async ({ did, handle, isBlocked }) => {
+      // Normalize handle to lowercase to match query keys (useProfile uses lowercase)
+      const normalizedHandle = handle.toLowerCase();
+
+      // Cancel any outgoing refetches for both handle and DID-based queries
+      await queryClient.cancelQueries({ queryKey: profileKeys.detail(normalizedHandle) });
+      await queryClient.cancelQueries({ queryKey: profileKeys.detail(`did_${did}`) });
+
+      // Snapshot the previous values
+      const previousProfile = queryClient.getQueryData<CachedProfile>(
+        profileKeys.detail(normalizedHandle)
+      );
+      const previousProfileByDid = queryClient.getQueryData<CachedProfile>(
+        profileKeys.detail(`did_${did}`)
+      );
+
+      // Optimistically update React Query cache
+      // When manually blocking/unblocking, clear blockingByList (direct block only)
+      const updatedProfile = previousProfile
+        ? {
+            ...previousProfile,
+            isBlocked,
+            blockingByList: !isBlocked ? undefined : previousProfile.blockingByList,
+            lastUpdated: Date.now(),
+          }
+        : null;
+      const updatedProfileByDid = previousProfileByDid
+        ? {
+            ...previousProfileByDid,
+            isBlocked,
+            blockingByList: !isBlocked ? undefined : previousProfileByDid.blockingByList,
+            lastUpdated: Date.now(),
+          }
+        : null;
+
+      if (updatedProfile) {
+        queryClient.setQueryData(profileKeys.detail(normalizedHandle), updatedProfile);
+        // Immediately save to MMKV for persistence
+        ProfileService.saveProfileToCache(updatedProfile);
+      }
+
+      if (updatedProfileByDid) {
+        queryClient.setQueryData(profileKeys.detail(`did_${did}`), updatedProfileByDid);
+        // Immediately save to MMKV for persistence
+        ProfileService.saveProfileToCache(updatedProfileByDid);
+      }
+
+      return { previousProfile, previousProfileByDid, normalizedHandle };
+    },
+    // If mutation fails, use context returned from onMutate to roll back
+    onError: (_err, { handle, did }, context) => {
+      const normalizedHandle = handle.toLowerCase();
+      if (context?.previousProfile) {
+        queryClient.setQueryData(profileKeys.detail(normalizedHandle), context.previousProfile);
+      }
+
+      if (context?.previousProfileByDid) {
+        queryClient.setQueryData(profileKeys.detail(`did_${did}`), context.previousProfileByDid);
+      }
+    },
+    // Update cache after successful mutation to ensure persisted state
+    onSuccess: (_data, { handle, did }) => {
+      // Normalize handle to lowercase to match query keys (useProfile uses lowercase)
+      const normalizedHandle = handle.toLowerCase();
+
+      // Sync React Query cache from MMKV to ensure consistency (cache already updated in onMutate)
+      const handleKey = profileKeys.detail(normalizedHandle);
+      const didKey = profileKeys.detail(`did_${did}`);
+
+      const persistedProfile = ProfileService.getProfileFromCacheSync(handle);
+      const persistedProfileByDid = ProfileService.getProfileFromCacheSyncByDid(did);
+
+      // Ensure React Query cache matches persisted MMKV state
+      if (persistedProfile) {
+        queryClient.setQueryData(handleKey, persistedProfile);
+      }
+      if (persistedProfileByDid) {
+        queryClient.setQueryData(didKey, persistedProfileByDid);
+      }
+
+      // Invalidate feed queries immediately to refresh posts visibility
+      queryClient.invalidateQueries({ queryKey: ['feed'], refetchType: 'active' });
+
+      // Delay profile refetch to ensure server has processed (only inactive queries)
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: handleKey, refetchType: 'inactive' });
+        queryClient.invalidateQueries({ queryKey: didKey, refetchType: 'inactive' });
+      }, 2000);
+    },
+  });
+}
+
+/**
+ * Hook to mute/unmute a profile with optimistic updates
+ */
+export function useMuteMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      did,
+      handle,
+      isMuted,
+    }: {
+      did: string;
+      handle: string;
+      isMuted: boolean;
+    }) => {
+      // Make the actual API call
+      if (isMuted) {
+        await AtprotoService.muteUser(did);
+      } else {
+        await AtprotoService.unmuteUser(did);
+      }
+
+      // Update the cache with the new mute status
+      await ProfileService.updateMuteStatus(did, handle, isMuted);
+
+      return { did, handle, isMuted };
+    },
+    // When mutate is called:
+    onMutate: async ({ did, handle, isMuted }) => {
+      // Cancel any outgoing refetches for both handle and DID-based queries
+      await queryClient.cancelQueries({ queryKey: profileKeys.detail(handle) });
+      await queryClient.cancelQueries({ queryKey: profileKeys.detail(`did_${did}`) });
+
+      // Snapshot the previous values
+      const previousProfile = queryClient.getQueryData<CachedProfile>(profileKeys.detail(handle));
+      const previousProfileByDid = queryClient.getQueryData<CachedProfile>(
+        profileKeys.detail(`did_${did}`)
+      );
+
+      // Optimistically update React Query cache
+      if (previousProfile) {
+        queryClient.setQueryData(profileKeys.detail(handle), {
+          ...previousProfile,
+          isMuted,
+        });
+      }
+
+      if (previousProfileByDid) {
+        queryClient.setQueryData(profileKeys.detail(`did_${did}`), {
+          ...previousProfileByDid,
+          isMuted,
+        });
+      }
+
+      return { previousProfile, previousProfileByDid };
+    },
+    // If mutation fails, use context returned from onMutate to roll back
+    onError: (_err, { handle, did }, context) => {
+      if (context?.previousProfile) {
+        queryClient.setQueryData(profileKeys.detail(handle), context.previousProfile);
+      }
+
+      if (context?.previousProfileByDid) {
+        queryClient.setQueryData(profileKeys.detail(`did_${did}`), context.previousProfileByDid);
+      }
+    },
+    // Invalidate queries after successful mutation with delay to ensure server has processed
+    onSuccess: (_, { handle, did }) => {
+      // Invalidate feed queries immediately to refresh posts visibility
+      queryClient.invalidateQueries({ queryKey: ['feed'], refetchType: 'active' });
+
+      // Delay profile refetch to ensure server has processed the change
+      const handleKey = profileKeys.detail(handle);
+      const didKey = profileKeys.detail(`did_${did}`);
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: handleKey, refetchType: 'active' });
+        queryClient.invalidateQueries({ queryKey: didKey, refetchType: 'active' });
+      }, 500);
+    },
+  });
+}
+
+/**
  * Hook to update profile colors with React Query integration
  */
 
@@ -1180,7 +1434,7 @@ export function useProfileUpdateMutation() {
         // Immediately apply to local cache for fast UI reflection
         try {
           await ProfileService.applyServerProfile(handle, updatedProfile);
-        } catch (error) {
+        } catch (_error) {
           // Continue even if this fails
         }
       }
@@ -1271,6 +1525,13 @@ export function useProfileUpdateMutation() {
       const prev = queryClient.getQueryData<CachedProfile>(profileKeys.detail(handle));
       if (!prev) return; // Skip if no previous data
 
+      // Extract moderation flags from updatedProfile.viewer (Atproto types)
+      const isBlocked = updatedProfile?.viewer
+        ? !!(updatedProfile.viewer.blocking || updatedProfile.viewer.blockingByList)
+        : prev.isBlocked;
+      const blockingByList = updatedProfile?.viewer?.blockingByList ?? prev.blockingByList;
+      const isMuted = updatedProfile?.viewer?.muted ?? prev.isMuted;
+
       const merged: CachedProfile = {
         ...prev,
         did: updatedProfile?.did ?? prev.did,
@@ -1282,6 +1543,9 @@ export function useProfileUpdateMutation() {
         isFollowedBy: updatedProfile?.viewer
           ? !!updatedProfile.viewer.followedBy
           : prev.isFollowedBy,
+        isBlocked,
+        blockingByList,
+        isMuted,
         // Preserve custom colors flag if we updated colors
         hasCustomColors: updates.customColors ? true : prev.hasCustomColors,
         // Explicitly preserve profileColors to prevent them from being lost

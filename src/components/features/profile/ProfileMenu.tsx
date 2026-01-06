@@ -1,13 +1,11 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { queryKeys } from '../../../utils/query/queryKeys';
+import { useQueryClient } from '@tanstack/react-query';
 import { View, Text, StyleSheet, Share, Platform, Alert, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Icon from '../../ui/Icon';
 import KeyboardAwareFooter from '../../../utils/components/truesheet/KeyboardAwareFooter';
-import AtprotoService from '../../../services/api/AtprotoService';
 import { Colors } from '../../ui/UI';
 import CloseButton from '../../ui/CloseButton';
 import CancelButton from '../../ui/CancelButton';
@@ -16,7 +14,12 @@ import VerticalListSheet, { VerticalListButton } from '../../ui/VerticalListShee
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { safeDismiss, safePresent } from '../../../utils/components/truesheet/utils';
 import { useAuth, useAccountManagement } from '../../../stores/userStore';
-import { useProfileFlags } from '../../../stores/profileInteractionStore';
+import {
+  useProfile,
+  useBlockMutation,
+  useMuteMutation,
+} from '../../../services/data/ProfileService';
+import AtprotoService from '../../../services/api/AtprotoService';
 
 interface ProfileMenuProps {
   visible: boolean;
@@ -52,134 +55,101 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
   // Calculate footer height as constant: cancelContainer paddingTop (8) + button minHeight (44)
   const submenuFooterHeight = 8 + 44;
 
-  // Get profile data to determine if it's the current user
-  // This includes viewer.blocking, viewer.muted, and chat fields
-  const { data: profile } = useQuery({
-    queryKey: queryKeys.profiles.detail(handle),
-    queryFn: () => AtprotoService.getProfile(handle),
-    enabled: visible && !!handle,
-  });
+  // Get profile data using useProfile hook - returns CachedProfile with moderation flags
+  const { data: profile } = useProfile(visible && handle ? handle : null);
 
-  // Store-backed flags for this profile
-  const { flags, setFlags } = useProfileFlags(profile?.did, handle);
+  // Mutations for block/unblock and mute/unmute
+  const blockMutation = useBlockMutation();
+  const muteMutation = useMuteMutation();
 
-  // Use viewer fields from getProfile response instead of separate API calls
-  // viewer.blocking is a string (URI) if blocking, null/undefined otherwise
-  // viewer.muted is a boolean or undefined
-  const isBlockedFromProfile = !!profile?.viewer?.blocking;
-  const isMutedFromProfile = !!profile?.viewer?.muted;
-
-  const isBlocked = flags?.isBlocked ?? isBlockedFromProfile;
-  const isMuted = flags?.isMuted ?? isMutedFromProfile;
-
-  // flags are derived; no syncing effects needed
+  // Use moderation flags directly from CachedProfile (extracted from API viewer fields)
+  const isBlocked = profile?.isBlocked ?? false;
+  const isBlockedByList = !!profile?.blockingByList;
+  const isMuted = profile?.isMuted ?? false;
 
   // Block/unblock handler
-  const handleBlockToggle = useCallback(async () => {
-    if (!profile?.did) return;
+  const handleBlockToggle = useCallback(() => {
+    if (!profile?.did || !profile?.handle) return;
+    if (blockMutation.isPending) return; // Prevent duplicate calls
 
-    try {
-      setIsSubmitting(true);
-      // do not optimistically set blocked; wait for confirmation/API
-
-      if (isBlocked) {
-        // Ensure submenu is closed
-        safeDismiss('profile-menu-submenu');
-        await AtprotoService.unblockUser(profile.did);
-        // Invalidate profile query to refetch with updated viewer.blocking
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.profiles.detail(handle),
-          refetchType: 'active',
-        });
-        setFlags({ isBlocked: false });
-        onDismiss();
-      } else {
-        // Ensure submenu is closed before showing confirmation alert
-        safeDismiss('profile-menu-submenu');
-        Alert.alert(
-          'block user',
-          'are you sure you want to block this user? they will not be able to see your posts or interact with you.',
-          [
-            {
-              text: 'cancel',
-              style: 'cancel',
-            },
-            {
-              text: 'block',
-              style: 'destructive',
-              onPress: async () => {
-                await AtprotoService.blockUser(profile.did);
-                // Invalidate profile query to refetch with updated viewer.blocking
-                queryClient.invalidateQueries({
-                  queryKey: queryKeys.profiles.detail(handle),
-                  refetchType: 'active',
-                });
-                setFlags({ isBlocked: true });
-                onDismiss();
-              },
-            },
-          ]
-        );
-      }
-    } catch (error) {
-      Alert.alert('error', 'failed to update block status. please try again.');
-      // No optimistic update; nothing to rollback
-    } finally {
-      setIsSubmitting(false);
+    // If blocked by list, don't allow unblocking (user must unsubscribe from list)
+    if (isBlockedByList) {
+      return;
     }
-  }, [profile?.did, isBlocked, onDismiss, queryClient, handle, setFlags]);
+
+    if (isBlocked) {
+      // Ensure submenu is closed
+      safeDismiss('profile-menu-submenu');
+      blockMutation.mutate({
+        did: profile.did,
+        handle: profile.handle,
+        isBlocked: false,
+      });
+      onDismiss();
+    } else {
+      // Ensure submenu is closed before showing confirmation alert
+      safeDismiss('profile-menu-submenu');
+      Alert.alert(
+        'block user',
+        'are you sure you want to block this user? they will not be able to see your posts or interact with you.',
+        [
+          {
+            text: 'cancel',
+            style: 'cancel',
+          },
+          {
+            text: 'block',
+            style: 'destructive',
+            onPress: () => {
+              blockMutation.mutate({
+                did: profile.did,
+                handle: profile.handle,
+                isBlocked: true,
+              });
+              onDismiss();
+            },
+          },
+        ]
+      );
+    }
+  }, [profile?.did, profile?.handle, isBlocked, isBlockedByList, onDismiss, blockMutation]);
 
   // Mute/unmute handler
-  const handleMuteToggle = useCallback(async () => {
-    if (!profile?.did) return;
+  const handleMuteToggle = useCallback(() => {
+    if (!profile?.did || !profile?.handle) return;
+    if (muteMutation.isPending) return; // Prevent duplicate calls
 
-    try {
-      setIsSubmitting(true);
-      // optimistic update in store
-      setFlags({ isMuted: !isMuted });
-
-      if (isMuted) {
-        await AtprotoService.unmuteUser(profile.did);
-        // Invalidate profile query to refetch with updated viewer.muted
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.profiles.detail(handle),
-          refetchType: 'active',
-        });
-        setFlags({ isMuted: false });
-      } else {
-        Alert.alert(
-          'mute user',
-          'are you sure you want to mute this user? you will not see their posts in your timeline.',
-          [
-            {
-              text: 'cancel',
-              style: 'cancel',
+    if (isMuted) {
+      muteMutation.mutate({
+        did: profile.did,
+        handle: profile.handle,
+        isMuted: false,
+      });
+    } else {
+      Alert.alert(
+        'mute user',
+        'are you sure you want to mute this user? you will not see their posts in your timeline.',
+        [
+          {
+            text: 'cancel',
+            style: 'cancel',
+          },
+          {
+            text: 'mute',
+            style: 'destructive',
+            onPress: () => {
+              muteMutation.mutate({
+                did: profile.did,
+                handle: profile.handle,
+                isMuted: true,
+              });
+              onDismiss();
             },
-            {
-              text: 'mute',
-              style: 'destructive',
-              onPress: async () => {
-                await AtprotoService.muteUser(profile.did);
-                // Invalidate profile query to refetch with updated viewer.muted
-                queryClient.invalidateQueries({
-                  queryKey: queryKeys.profiles.detail(handle),
-                  refetchType: 'active',
-                });
-                setFlags({ isMuted: true });
-                onDismiss();
-              },
-            },
-          ]
-        );
-      }
-    } catch (error) {
-      Alert.alert('error', 'failed to update mute status. please try again.');
-      // rollback optimistic update
-      setFlags({ isMuted });
-    } finally {
-      setIsSubmitting(false);
+          },
+        ]
+      );
     }
-  }, [profile?.did, isMuted, onDismiss, queryClient, setFlags, handle]);
+  }, [profile?.did, profile?.handle, isMuted, onDismiss, muteMutation]);
 
   // Report handler
   const handleReport = useCallback(async () => {
@@ -231,7 +201,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
         } else {
           Alert.alert('error', 'failed to submit report. please try again.');
         }
-      } catch (error) {
+      } catch (_error) {
         Alert.alert('error', 'failed to submit report. please try again.');
       } finally {
         setIsSubmitting(false);
@@ -257,7 +227,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
       });
 
       onDismiss();
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       // ignore
     }
   }, [handle, onDismiss]);
@@ -273,7 +243,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
       } else {
         Alert.alert('error', 'unable to open profile. please check your internet connection.');
       }
-    } catch (error) {
+    } catch (_error) {
       Alert.alert('error', 'failed to open profile on bluesky.');
     }
   }, [handle, onDismiss]);
@@ -311,7 +281,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
 
             onDismiss();
             // Note: The actual logout navigation should be handled by the parent component
-          } catch (error) {
+          } catch (_error) {
             Alert.alert('error', 'failed to log out. please try again.');
           } finally {
             setIsSubmitting(false);
@@ -473,7 +443,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
                 safeDismiss('profile-menu-submenu');
                 handleBlockToggle();
               }}
-              disabled={isSubmitting}
+              disabled={isSubmitting || isBlockedByList}
             />
           </View>
         </View>

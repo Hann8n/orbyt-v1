@@ -18,7 +18,6 @@ export const convertAtUriToBlueskyUrl = (atUri: string): string => {
   const parts = atUri.replace('at://', '').split('/');
   if (parts.length >= 3) {
     const did = parts[0];
-    const collection = parts[1];
     const rkey = parts[2];
 
     // Format as a bsky.app URL
@@ -43,6 +42,30 @@ export const convertAtUriToProfileUrl = (atUri: string): string => {
   if (parts.length >= 1) {
     const did = parts[0];
     return `https://bsky.app/profile/${did}`;
+  }
+
+  return atUri;
+};
+
+/**
+ * Convert AT Protocol list URI to Bluesky web URL
+ * @param atUri - AT Protocol URI (e.g., at://did:plc:abc123/app.bsky.graph.list/xyz789)
+ * @returns Bluesky web URL (e.g., https://bsky.app/profile/did:plc:abc123/lists/xyz789)
+ */
+export const convertListUriToBlueskyUrl = (atUri: string): string => {
+  if (!atUri.startsWith('at://')) {
+    return atUri;
+  }
+
+  // Extract the necessary parts from the AT URI
+  // Format: at://did:plc:xxxx/app.bsky.graph.list/rkey
+  const parts = atUri.replace('at://', '').split('/');
+  if (parts.length >= 3) {
+    const did = parts[0];
+    const rkey = parts[2];
+
+    // Format as a bsky.app list URL
+    return `https://bsky.app/profile/${did}/lists/${rkey}`;
   }
 
   return atUri;
@@ -75,6 +98,37 @@ export const openPostInBluesky = async (
   } catch (error: unknown) {
     console.error('Error opening post in Bluesky:', error);
     const errorMessage = fallbackMessage || 'Failed to open post in Bluesky.';
+    Alert.alert('Error', errorMessage, [{ text: 'OK' }]);
+  }
+};
+
+/**
+ * Open a list in the Bluesky app with fallback to web
+ * @param listUri - AT Protocol URI or web URL
+ * @param fallbackMessage - Optional custom error message
+ */
+export const openListInBluesky = async (
+  listUri: string,
+  fallbackMessage?: string
+): Promise<void> => {
+  try {
+    // Convert to web URL
+    const webUrl = convertListUriToBlueskyUrl(listUri);
+
+    // Open the web URL directly (will open in browser or Bluesky app if available)
+    const canOpenWeb = await Linking.canOpenURL(webUrl);
+    if (canOpenWeb) {
+      await Linking.openURL(webUrl);
+      return;
+    }
+
+    // If it doesn't work, show error
+    const errorMessage =
+      fallbackMessage || 'Unable to open this list. Please check your internet connection.';
+    Alert.alert('Cannot Open List', errorMessage, [{ text: 'OK' }]);
+  } catch (error: unknown) {
+    console.error('Error opening list in Bluesky:', error);
+    const errorMessage = fallbackMessage || 'Failed to open list in Bluesky.';
     Alert.alert('Error', errorMessage, [{ text: 'OK' }]);
   }
 };

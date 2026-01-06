@@ -55,6 +55,11 @@ import type {
 import type { OutputSchema as GetPreferencesOutput } from '@atproto/api/dist/client/types/app/bsky/actor/getPreferences';
 
 // ============================================================================
+// Graph namespace types (app.bsky.graph.*)
+// ============================================================================
+import type { ListViewBasic } from '@atproto/api/dist/client/types/app/bsky/graph/defs';
+
+// ============================================================================
 // Embed namespace types (app.bsky.embed.*)
 // ============================================================================
 import type { View as VideoView } from '@atproto/api/dist/client/types/app/bsky/embed/video';
@@ -123,6 +128,7 @@ export type {
   ListRecordsOutput,
   GetPreferencesOutput,
   PutActivitySubscriptionOutput,
+  ListViewBasic,
 };
 
 // Re-export AtprotoRecord type for repo records
@@ -355,4 +361,3 @@ export type CreateRecordResponse = {
 // These make it easier for components to use API types
 export type Post = ExtendedPostView;
 export type FeedItem = ExtendedFeedViewPost;
-

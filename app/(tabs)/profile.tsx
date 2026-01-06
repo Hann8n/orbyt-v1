@@ -36,12 +36,11 @@ import Animated, {
   Extrapolate,
   runOnUI,
 } from 'react-native-reanimated';
-import { useProfileFlags } from '../../src/stores/profileInteractionStore';
 import { Colors } from '../../src/components/ui/UI';
 import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalModals';
 import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '../../src/hooks';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFollowMutation } from '../../src/services/data/ProfileService';
+import { useFollowMutation, useBlockMutation } from '../../src/services/data/ProfileService';
 import { queryKeys } from '../../src/utils/query/queryKeys';
 import { useSubscriptionStore } from '../../src/stores/subscriptionStore';
 import ProfileMenu from '../../src/components/features/profile/ProfileMenu';
@@ -135,23 +134,15 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   // Get colors from cached profile
   const profileColors = getProfileColors(cachedProfile);
 
-  // Force shimmer state for testing
-  const forceShimmer = false; // Force loading state
-
-  const isProfileLoadingForced =
-    forceShimmer || (isProfileLoading && !cachedProfile) || (!targetDid && !rawIdentifier);
-
   // Tab state
   const [activeTab, setActiveTab] = useState<'profile' | 'reposts' | 'likes'>('profile');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
 
   // Ensure profile data is immediately available from cache
   const profileData = cachedProfile;
-  const { flags } = useProfileFlags(
-    profileData?.did ?? undefined,
-    profileData?.handle ?? undefined
-  );
-  const isBlocked = !!flags?.isBlocked;
+  // Read block state directly from profileData (React Query cache - single source of truth)
+  const isBlocked = profileData?.isBlocked ?? false;
+  const isBlockedByList = !!profileData?.blockingByList;
 
   // Memoized query options for profile feed
   const queryOptions = useMemo(
@@ -205,7 +196,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
 
       // Always refetch profile data so React Query cache is updated
       await refetchProfile();
-    } catch (error) {
+    } catch (_error) {
       setProfileError('Failed to refresh profile.');
     } finally {
       // Reset refreshing state after a delay to show the refresh animation
@@ -214,19 +205,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       }, 2000);
     }
   }, [refetchProfile, profileData?.did, profileData?.handle, queryClient]);
-
-  const handleLogout = async (clearAllAccounts: boolean = false) => {
-    try {
-      setRefreshing(true);
-
-      // Clear ProfileCache and call onLogout
-      ProfileService.clearCache();
-      await onLogout(clearAllAccounts);
-    } catch (error) {
-    } finally {
-      setRefreshing(false);
-    }
-  };
 
   const isOwnProfileView = useMemo(() => {
     if (isViewingOwnProfile) return true;
@@ -320,6 +298,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const [fullscreenImageUri, setFullscreenImageUri] = useState<string | null>(null);
 
   const followMutation = useFollowMutation();
+  const blockMutation = useBlockMutation();
 
   // Read subscription state from store (for cross-component sharing)
   const isSubscribed = useSubscriptionStore(state =>
@@ -410,9 +389,17 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     if (!profileData?.did || !profileData?.handle) return;
 
     try {
+      // If blocked by list, don't allow unblocking (user must unsubscribe from list)
+      if (isBlockedByList) {
+        return;
+      }
+
       if (isBlocked) {
-        await AtprotoService.unblockUser(profileData.did);
-        queryClient.invalidateQueries({ queryKey: queryKeys.blocks.status(profileData.did) });
+        blockMutation.mutate({
+          did: profileData.did,
+          handle: profileData.handle,
+          isBlocked: false,
+        });
         return;
       }
 
@@ -438,7 +425,15 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     } catch {
       // no-op
     }
-  }, [profileData, isBlocked, followMutation, queryClient, isFollowing]);
+  }, [
+    profileData,
+    isBlocked,
+    isBlockedByList,
+    followMutation,
+    blockMutation,
+    queryClient,
+    isFollowing,
+  ]);
 
   const handleMenuPress = useCallback(() => {
     if (isOwnProfileView) {
@@ -548,6 +543,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       icon,
       customIcon,
       onPress: handleFollowUnfollow,
+      disabled: isBlockedByList, // Disable unblock button when blocked by list
     } as HeaderAction);
 
     if (isFollowing && !isBlocked && profileData.did) {
@@ -597,6 +593,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     profileData,
     isOwnProfileView,
     isBlocked,
+    isBlockedByList,
     handleFollowUnfollow,
     isSubscribed,
     isFollowing,
@@ -687,11 +684,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
             <View style={styles.headerContainer} pointerEvents="box-none">
               <ProfileHeader
                 handle={profileData?.handle || null}
-                showBackButton={false}
-                isOwnProfile={!!isOwnProfileView}
-                onLogout={handleLogout}
-                onSwitchAccount={presentAccountSwitcher}
-                forceLoading={isProfileLoadingForced}
                 applySafeArea={true}
                 onColorsChange={setDynamicColors}
                 headerScrollProgress={headerScrollProgress}

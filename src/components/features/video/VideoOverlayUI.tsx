@@ -34,7 +34,7 @@ import { useRouter, useSegments } from 'expo-router';
 import { useFollowContext } from '../../../context/FollowContext';
 import { useTabBarHeight } from '../../../context/TabBarContext';
 import { useQueryClient } from '@tanstack/react-query';
-import { prefetchProfile } from '../../../services/data/ProfileService';
+import { prefetchProfile, useProfile } from '../../../services/data/ProfileService';
 import type { ExtendedPostView, PostRecord } from '../../../services/api/types';
 import type { RichTextFacet } from '../../../utils/types/richText';
 import { useFeedSettings } from '../../../stores/userStore';
@@ -107,9 +107,19 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   // Overlay state
   const [isOverlayCollapsed, setIsOverlayCollapsed] = useState(true);
 
+  // Local UI state for confirmation badge (declared early to avoid hook order issues)
+  const [showFollowConfirmation, setShowFollowConfirmation] = useState(false);
+  // Track that we've already shown a follow confirmation for this post so the + badge doesn't return after timeout
+  const [hasFollowedForPost, setHasFollowedForPost] = useState(false);
+
   // Memoize expensive calculations to prevent rerenders
   const author = useMemo(() => post.author || {}, [post.author]);
   const record = useMemo(() => post.record as PostRecord | undefined, [post.record]);
+
+  // Get profile data to check if author is blocked
+  const { data: authorProfile } = useProfile(author.handle);
+  const isAuthorBlocked = authorProfile?.isBlocked ?? false;
+
   const profilePicUrl = useMemo(
     () =>
       author.avatar && author.avatar.startsWith('http')
@@ -281,11 +291,6 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   const { followMutation, currentUser } = useFollowContext();
   const isCurrentUserProfile = isCurrentUser(post.author?.did, post.author?.handle, currentUser);
 
-  // Local UI state for confirmation badge
-  const [showFollowConfirmation, setShowFollowConfirmation] = useState(false);
-  // Track that we've already shown a follow confirmation for this post so the + badge doesn't return after timeout
-  const [hasFollowedForPost, setHasFollowedForPost] = useState(false);
-
   // Auto-hide follow confirmation after a short delay to keep overlay lightweight
   useEffect(() => {
     if (!showFollowConfirmation) return;
@@ -420,6 +425,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                   type="profile"
                   size={authorAvatarSize}
                   style={[isTabletDevice ? styles.profilePictureTablet : styles.profilePicture]}
+                  blurRadius={isAuthorBlocked ? 30 : 0}
                 />
                 {/* Follow badge overlay: show + when not following, show check briefly after follow */}
                 {hasProfile &&
@@ -536,10 +542,12 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 // Different animation than heart: wiggle (tilt) + slight scale
                 if (!isReposted) {
+                  // eslint-disable-next-line react-hooks/immutability
                   repostScale.value = withSequence(
                     withTiming(1.08, { duration: 120 }),
                     withTiming(1.0, { duration: 120 })
                   );
+                  // eslint-disable-next-line react-hooks/immutability
                   repostRotate.value = withSequence(
                     withTiming(0.2, { duration: 90 }), // ~11.5deg
                     withTiming(-0.12, { duration: 90 }), // ~-7deg
@@ -547,7 +555,9 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                   );
                 } else {
                   // On undo, ensure we reset any lingering transforms
+
                   repostScale.value = withTiming(1, { duration: 100 });
+
                   repostRotate.value = withTiming(0, { duration: 100 });
                 }
                 onRepost?.();
@@ -593,11 +603,13 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 // Animate only on like; if unliking mid-animation, reset scale
                 if (!isLiked) {
+                  // eslint-disable-next-line react-hooks/immutability
                   likeScale.value = withSpring(1.2, { damping: 12, stiffness: 220 }, () => {
                     likeScale.value = withSpring(1);
                   });
                 } else {
                   // ensure we cancel any lingering animation when unliking
+
                   likeScale.value = withSpring(1);
                 }
                 onLike?.();

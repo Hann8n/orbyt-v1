@@ -94,6 +94,21 @@ export class FeedService {
             const apiResponse = await api.app.bsky.feed.getAuthorFeed(params);
             responseData = apiResponse.data;
           } catch (authorError: unknown) {
+            // Handle blocked actor gracefully - this is expected behavior, not an error
+            if (
+              authorError &&
+              typeof authorError === 'object' &&
+              'name' in authorError &&
+              (authorError.name === 'BlockedActorError' ||
+                (typeof authorError === 'object' &&
+                  'message' in authorError &&
+                  typeof authorError.message === 'string' &&
+                  authorError.message.includes('blocked actor')))
+            ) {
+              // Silently return empty feed for blocked actors
+              return { feed: [], cursor: null };
+            }
+            // Log other errors
             logger.error('Author feed error', authorError, { component: 'FeedService' });
             return { feed: [], cursor: null };
           }
@@ -190,7 +205,7 @@ export class FeedService {
         }
 
         return { feed: feedData, cursor: responseData.cursor ?? null };
-      } catch (error: unknown) {
+      } catch (_error: unknown) {
         retries--;
         if (retries === 0) {
           return { feed: [], cursor: null };
@@ -263,13 +278,9 @@ export class FeedService {
         subject: { uri, cid },
         createdAt: new Date().toISOString(),
       };
-      try {
-        const { api } = await AtprotoCore.getApiClient();
-        const response = await api.app.bsky.feed.like.create({ repo: userDid }, record);
-        return response.uri;
-      } catch (error: unknown) {
-        throw error;
-      }
+      const { api } = await AtprotoCore.getApiClient();
+      const response = await api.app.bsky.feed.like.create({ repo: userDid }, record);
+      return response.uri;
     });
   }
 
@@ -304,13 +315,9 @@ export class FeedService {
         subject: { uri, cid },
         createdAt: new Date().toISOString(),
       };
-      try {
-        const { api } = await AtprotoCore.getApiClient();
-        const response = await api.app.bsky.feed.repost.create({ repo: userDid }, record);
-        return response.uri;
-      } catch (error: unknown) {
-        throw error;
-      }
+      const { api } = await AtprotoCore.getApiClient();
+      const response = await api.app.bsky.feed.repost.create({ repo: userDid }, record);
+      return response.uri;
     });
   }
 
@@ -404,7 +411,7 @@ export class FeedService {
           $type: 'app.bsky.embed.images',
           images: uploadedImages,
         };
-      } catch (error) {
+      } catch (_error) {
         // Continue without images if there was an error
       }
     }
@@ -734,13 +741,9 @@ export class FeedService {
   private static async getVideoAspectRatio(
     _videoPath: string
   ): Promise<{ width: number; height: number }> {
-    try {
-      // For React Native, we'll use a default aspect ratio
-      // In a real implementation, you might want to use a video metadata library
-      return { width: 9, height: 16 }; // Default to 9:16 (portrait)
-    } catch (error) {
-      return { width: 9, height: 16 };
-    }
+    // For React Native, we'll use a default aspect ratio
+    // In a real implementation, you might want to use a video metadata library
+    return { width: 9, height: 16 }; // Default to 9:16 (portrait)
   }
 
   /**
@@ -940,7 +943,7 @@ export class FeedService {
         comments,
         cursor: (response.data as { cursor?: string | null }).cursor ?? null,
       };
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       return { comments: [], cursor: null };
     }
   }
@@ -968,7 +971,7 @@ export class FeedService {
         likes: response.data.likes || [],
         cursor: response.data.cursor || null,
       };
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       return { likes: [], cursor: null };
     }
   }
@@ -992,7 +995,7 @@ export class FeedService {
         return thread.post;
       }
       return null;
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       return null;
     }
   }
@@ -1033,7 +1036,7 @@ export class FeedService {
           result.set(post.uri, post);
         }
       }
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       // ignore errors
     }
 
@@ -1079,7 +1082,7 @@ export class FeedService {
       });
 
       return true;
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       return false;
     }
   }
@@ -1131,7 +1134,7 @@ export class FeedService {
       });
 
       return true;
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       return false;
     }
   }
@@ -1252,7 +1255,7 @@ export class FeedService {
       }
 
       return null;
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       return null;
     }
   }
@@ -1261,12 +1264,8 @@ export class FeedService {
    * Remove stored video feedback for a post
    */
   static async removeVideoFeedback(postUri: string): Promise<void> {
-    try {
-      const feedbackKey = `video_feedback_${postUri}`;
-      await storageHelpers.removeItem(feedbackKey);
-    } catch (error: unknown) {
-      throw error;
-    }
+    const feedbackKey = `video_feedback_${postUri}`;
+    await storageHelpers.removeItem(feedbackKey);
   }
 
   /**
@@ -1288,7 +1287,7 @@ export class FeedService {
         reposts: [], // Repost data not directly available via API
         replies: commentsResponse.comments,
       };
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       return { likes: [], reposts: [], replies: [] };
     }
   }
@@ -1312,9 +1311,8 @@ export class FeedService {
       const response = await api.app.bsky.feed.getFeedGenerator(params);
 
       return response.data as FeedGeneratorOutput;
-    } catch (error: unknown) {
-      if (error instanceof Error && error.message?.includes('feed must be a valid at-uri')) {
-      }
+    } catch (_error: unknown) {
+      // Ignore invalid feed URI errors
       return null;
     }
   }
@@ -1343,7 +1341,7 @@ export class FeedService {
       }
 
       return generatorResponse.data.view.likeCount;
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       return 0;
     }
   }
@@ -1381,7 +1379,7 @@ export class FeedService {
         posts: feedResponse.feed,
         cursor: feedResponse.cursor,
       };
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       return { generator: null, posts: [], cursor: null };
     }
   }
@@ -1443,7 +1441,7 @@ export class FeedService {
         videos,
         cursor: response?.data?.cursor ?? null,
       };
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       return { videos: [], cursor: null };
     }
   }
@@ -1555,7 +1553,7 @@ export class FeedService {
         videos,
         cursor: response?.data?.cursor ?? null,
       };
-    } catch (error) {
+    } catch (_error) {
       return { videos: [], cursor: null };
     }
   }
@@ -1742,7 +1740,7 @@ export class FeedService {
         try {
           const { api } = await AtprotoCore.getApiClient();
           response = await api.app.bsky.feed.getAuthorFeed(params);
-        } catch (err: unknown) {
+        } catch (_err: unknown) {
           break;
         }
 
@@ -1785,7 +1783,7 @@ export class FeedService {
       }
 
       return { feed: feedData, cursor: nextCursor };
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       return { feed: [], cursor: null };
     }
   }
@@ -1862,7 +1860,7 @@ export class FeedService {
       });
 
       return processedFeeds;
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       return [];
     }
   }
@@ -1909,7 +1907,7 @@ export class FeedService {
       });
 
       return processedFeeds;
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       return [];
     }
   }
@@ -1947,7 +1945,7 @@ export class FeedService {
               };
             }
             return null;
-          } catch (error) {
+          } catch (_error) {
             return null;
           }
         })
@@ -1960,7 +1958,7 @@ export class FeedService {
             feed !== null
         )
         .slice(0, limit);
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       return [];
     }
   }

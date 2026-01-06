@@ -91,6 +91,9 @@ export const OptionsButton: React.FC<OptionsButtonProps> = ({
   const [pressed, setPressed] = useState(false);
 
   const getBackgroundColor = () => {
+    if (disabled) {
+      return hexToRGBA(Colors.darkGray, 0.5);
+    }
     if (pressed) {
       if (destructive) return '#C04A58'; // Pastel red background when pressed
       return hexToRGBA(Colors.lightGray, 0.8);
@@ -100,6 +103,9 @@ export const OptionsButton: React.FC<OptionsButtonProps> = ({
   };
 
   const getTextColor = () => {
+    if (disabled) {
+      return hexToRGBA(Colors.white, 0.4);
+    }
     if (pressed) {
       if (destructive) return Colors.darkRed; // Dark red text when pressed
       return Colors.black;

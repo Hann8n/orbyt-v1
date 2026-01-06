@@ -21,6 +21,7 @@ import { openPostInBluesky } from '../../../utils/links/bluesky';
 import MessageReactions from './MessageReactions';
 import { ReactionView } from '../../../services/ChatService';
 import { formatHandle } from '../../../utils/formatting/handles';
+import { useProfile } from '../../../services/data/ProfileService';
 import type {
   PostView,
   VideoView,
@@ -69,7 +70,7 @@ export default function EmbeddedPostCard({
 
   // Get moderation settings for computing decision
   const currentUser = useUserStore(state => state.currentUser);
-  const { settings } = useModerationSettings(currentUser?.did);
+  const { settings } = useModerationSettings(currentUser?.did ?? undefined);
 
   // Compute moderation decision inline (post is fetched separately, not from feed)
   const decision = useMemo(() => {
@@ -95,6 +96,11 @@ export default function EmbeddedPostCard({
   const shouldShowContent = !shouldBlur || userChoseToView;
   const isBlurred = shouldBlur && !shouldShowContent;
   const reason = decision?.reason;
+
+  // Get profile data to check if author is blocked (must be called before early returns)
+  const author = post?.author || {};
+  const { data: authorProfile } = useProfile(author.handle);
+  const isAuthorBlocked = authorProfile?.isBlocked ?? false;
 
   // Handle user choosing to view content
   const handleViewContent = useCallback(() => {
@@ -408,14 +414,14 @@ export default function EmbeddedPostCard({
             isFetchingNextPage: 'false',
           },
         });
-      } catch (error: unknown) {
+      } catch (_error: unknown) {
         // ignore
       }
     } else {
       // For non-video posts, open in Bluesky app
       await openPostInBluesky(post.uri);
     }
-  }, [post?.uri, isVideo, moderationDecision, router, conversationMessages]);
+  }, [post, queryClient, isVideo, moderationDecision, router, conversationMessages]);
 
   // Format relative time
   const formatRelativeTime = (timestamp: string): string => {
@@ -474,7 +480,6 @@ export default function EmbeddedPostCard({
     );
   }
 
-  const author = post.author || {};
   // Ensure avatar URL is properly formatted
   const avatarUrl = author.avatar
     ? author.avatar.startsWith('http')
@@ -495,6 +500,7 @@ export default function EmbeddedPostCard({
             fallbackIcon="user"
             fallbackIconColor={Colors.white}
             style={styles.cleanAvatar}
+            blurRadius={isAuthorBlocked ? 30 : 0}
           />
           <Text style={styles.cleanAuthorName} numberOfLines={1}>
             {author.displayName || formatHandle(author.handle) || 'Unknown'}
@@ -584,6 +590,7 @@ export default function EmbeddedPostCard({
               showRing={false}
               fallbackIcon="user"
               fallbackIconColor={Colors.white}
+              blurRadius={isAuthorBlocked ? 30 : 0}
             />
           </View>
 

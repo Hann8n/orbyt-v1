@@ -3,7 +3,6 @@
  * Handles all social graph operations including follow, unfollow, block, mute, and relationship queries
  */
 
-import { logger } from '../../../utils/logger';
 import { AtprotoCore } from '../core';
 import type { ProfileViewBasic, ProfileView, FollowersResponse, FollowingResponse } from '../types';
 
@@ -34,12 +33,8 @@ export class GraphService {
         createdAt: new Date().toISOString(),
       };
 
-      try {
-        const response = await api.app.bsky.graph.follow.create({ repo: userDid }, record);
-        return response.uri;
-      } catch (error: unknown) {
-        throw error;
-      }
+      const response = await api.app.bsky.graph.follow.create({ repo: userDid }, record);
+      return response.uri;
     });
   }
 
@@ -86,7 +81,7 @@ export class GraphService {
         });
 
         return true;
-      } catch (error: unknown) {
+      } catch (_error: unknown) {
         return false;
       }
     });
@@ -105,15 +100,11 @@ export class GraphService {
       createdAt: new Date().toISOString(),
     };
 
-    try {
-      const { api } = await AtprotoCore.getApiClient();
-      const userDid = await AtprotoCore.getCurrentUserDid();
-      if (!userDid) throw new Error('No authenticated user');
+    const { api } = await AtprotoCore.getApiClient();
+    const userDid = await AtprotoCore.getCurrentUserDid();
+    if (!userDid) throw new Error('No authenticated user');
 
-      await api.app.bsky.graph.block.create({ repo: userDid }, record);
-    } catch (error: unknown) {
-      throw error;
-    }
+    await api.app.bsky.graph.block.create({ repo: userDid }, record);
   }
 
   /**
@@ -123,18 +114,31 @@ export class GraphService {
   static async unblockUser(did: string): Promise<void> {
     await AtprotoCore.ensureSession();
 
-    try {
-      const { api } = await AtprotoCore.getApiClient();
-      const userDid = await AtprotoCore.getCurrentUserDid();
-      if (!userDid) throw new Error('No authenticated user');
+    const { api } = await AtprotoCore.getApiClient();
+    const userDid = await AtprotoCore.getCurrentUserDid();
+    if (!userDid) throw new Error('No authenticated user');
 
-      await api.app.bsky.graph.block.delete({
-        repo: userDid,
-        rkey: did,
-      });
-    } catch (error: unknown) {
-      throw error;
+    // Get the profile to get the viewer.blocking URI
+    const profileResponse = await api.app.bsky.actor.getProfile({ actor: did });
+    if (!profileResponse.data.viewer?.blocking) {
+      // User is not blocked, nothing to do
+      return;
     }
+
+    // Extract the rkey from the block URI
+    // URI format: at://did:plc:xxxx/app.bsky.graph.block/rkey
+    const uriParts = profileResponse.data.viewer.blocking.split('/');
+    const rkey = uriParts[uriParts.length - 1];
+
+    if (!rkey) {
+      throw new Error('Could not extract rkey from block URI');
+    }
+
+    // Delete the block using the record key
+    await api.app.bsky.graph.block.delete({
+      repo: userDid,
+      rkey: rkey,
+    });
   }
 
   /**
@@ -153,7 +157,7 @@ export class GraphService {
       });
 
       return true;
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       return false;
     }
   }
@@ -174,7 +178,7 @@ export class GraphService {
       });
 
       return true;
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       return false;
     }
   }
@@ -196,7 +200,7 @@ export class GraphService {
 
       // Check if the given DID is in the blocks list
       return response.data.blocks.some((block: { did: string }) => block.did === did);
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       return false;
     }
   }
@@ -223,7 +227,7 @@ export class GraphService {
         followers: (response.data.followers || []) as ProfileViewBasic[],
         cursor: response.data.cursor ?? null,
       };
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       return { followers: [], cursor: null };
     }
   }
@@ -250,7 +254,7 @@ export class GraphService {
         following: (response.data.follows || []) as ProfileViewBasic[],
         cursor: response.data.cursor ?? null,
       };
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       return { following: [], cursor: null };
     }
   }
@@ -314,7 +318,7 @@ export class GraphService {
       );
 
       return mutualConnections;
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       return [];
     }
   }
@@ -331,7 +335,7 @@ export class GraphService {
         limit: 100,
       });
       return response.data.blocks?.map((block: ProfileView) => block.did) || [];
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       return [];
     }
   }
@@ -348,7 +352,7 @@ export class GraphService {
         limit: 100,
       });
       return response.data.mutes?.map((mute: ProfileView) => mute.did) || [];
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       return [];
     }
   }

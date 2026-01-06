@@ -106,6 +106,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   // Get following status from ProfileService using the hook
   const { data: cachedProfile } = useProfile(handle);
   const actualIsFollowing = cachedProfile?.isFollowing ?? isFollowing;
+  const isBlocked = cachedProfile?.isBlocked ?? false;
 
   const followMutation = useFollowMutation();
 
@@ -148,7 +149,13 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
     >
       <View style={styles.accountButtonContent}>
         <View style={styles.avatarContainer}>
-          <Avatar uri={actualAvatar} type="profile" size={config.avatarSize} showRing={showRing} />
+          <Avatar
+            uri={actualAvatar}
+            type="profile"
+            size={config.avatarSize}
+            showRing={showRing}
+            blurRadius={isBlocked ? 30 : 0}
+          />
         </View>
         <View style={styles.accountInfoContainer}>
           <View style={styles.nameRow}>
