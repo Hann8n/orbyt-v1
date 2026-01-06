@@ -28,12 +28,7 @@ import {
   shouldShowChannelSlash,
 } from '../../../utils/channels/orbyt';
 import { RichText } from '@atproto/api';
-import Animated, {
-  type SharedValue,
-  useAnimatedStyle,
-  interpolate,
-  Extrapolate,
-} from 'react-native-reanimated';
+import Animated, { type SharedValue, useAnimatedStyle, interpolate } from 'react-native-reanimated';
 
 interface ChannelData {
   id: string;
@@ -450,7 +445,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
       return { ...StyleSheet.absoluteFillObject, opacity: 0, pointerEvents: 'none' } as any;
     }
     // More gradual dim: start dimming at 40% progress, reach ~30% black opacity at max scroll
-    const overlayOpacity = interpolate(progress, [0, 0.4, 1], [0, 0, 0.0], Extrapolate.CLAMP);
+    const overlayOpacity = interpolate(progress, [0, 0.4, 1], [0, 0, 0], 'clamp');
     return {
       ...StyleSheet.absoluteFillObject,
       backgroundColor: 'black',
