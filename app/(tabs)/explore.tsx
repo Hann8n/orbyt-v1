@@ -28,12 +28,15 @@ import AtprotoService from '../../src/services/api/AtprotoService';
 
 import { useRouter } from 'expo-router';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
-import ProfileCache, { profileKeys, useFollowMutation, prepopulateProfileCache } from '../../src/services/cache/ProfileCache';
+import ProfileCache, {
+  profileKeys,
+  useFollowMutation,
+  prepopulateProfileCache,
+} from '../../src/services/cache/ProfileCache';
 import ChannelCache from '../../src/services/cache/ChannelCache';
 import type { CachedChannel } from '../../src/services/cache/ChannelCache';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { Avatar, Icon } from '../../src/components/ui/UI';
-import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { LinearGradient } from 'expo-linear-gradient';
 import HeaderBanner from '../../src/components/ui/HeaderBanner';
 import { logger } from '../../src/utils/logger';
@@ -53,10 +56,16 @@ import { ModerationService } from '../../src/services/api/moderation/ContentFilt
 import { useUserStore, useFeedSettings } from '../../src/stores/userStore';
 import { isCurrentUser } from '../../src/stores/profileInteractionStore';
 import { useFollowStore } from '../../src/stores/followStore';
-import { getAllChannels, isOrbytChannel, getChannelByUri, getChannelAvatarUri, shouldShowChannelSlash, extractFeedSlug } from '../../src/utils/orbytChannels';
+import {
+  getAllChannels,
+  isOrbytChannel,
+  getChannelByUri,
+  getChannelAvatarUri,
+  shouldShowChannelSlash,
+  extractFeedSlug,
+} from '../../src/utils/orbytChannels';
 import { tabRefs } from '../../src/utils/tabRefs';
 import type { ExploreRef } from '../../src/utils/tabRefs';
-
 
 interface Profile {
   did: string;
@@ -128,7 +137,7 @@ interface OrbytChannelsSection {
   key: string;
 }
 
-interface HeaderSpacer {
+interface HeaderSpacerItem {
   type: 'header-spacer';
   key: string;
 }
@@ -138,48 +147,54 @@ interface LoadingItem {
   key: string;
 }
 
-type ListItem = SearchResult | SectionHeader | SpotlightVideosSection | PeopleChannelsSection | PopularChannelsSection | OrbytChannelsSection | HeaderSpacer | LoadingItem;
-
-
-
-
+type ListItem =
+  | SearchResult
+  | SectionHeader
+  | SpotlightVideosSection
+  | PeopleChannelsSection
+  | PopularChannelsSection
+  | OrbytChannelsSection
+  | HeaderSpacerItem
+  | LoadingItem;
 
 // Search-related components
 const SEARCH_TAB_LABELS: { [key: string]: string } = {
   'recently-visited': 'Recently Visited',
-  'profiles': 'People',
-  'channels': 'Feeds',
+  profiles: 'People',
+  channels: 'Feeds',
 };
 
 // Helper function to navigate to profile
-const navigateToProfile = (
-  profile: Profile,
-  queryClient: any,
-  router: any
-) => {
+const navigateToProfile = (profile: Profile, queryClient: any, router: any) => {
   if (!profile.handle) return;
-  
+
   const handle = profile.handle.trim();
   if (!handle) return;
-  
-  prepopulateProfileCache(queryClient, {
-    did: profile.did,
-    handle,
-    displayName: profile.displayName,
-    avatar: profile.avatar,
-    description: profile.description,
-  }, handle);
-  
-  queryClient.prefetchQuery({
-    queryKey: profileKeys.detail(handle),
-    queryFn: () => ProfileCache.getProfile(handle),
-    staleTime: ProfileCache.cacheExpiry
-  }).finally(() => {
-    router.push({
-      pathname: '/profile/[did]',
-      params: { did: handle }
+
+  prepopulateProfileCache(
+    queryClient,
+    {
+      did: profile.did,
+      handle,
+      displayName: profile.displayName,
+      avatar: profile.avatar,
+      description: profile.description,
+    },
+    handle
+  );
+
+  queryClient
+    .prefetchQuery({
+      queryKey: profileKeys.detail(handle),
+      queryFn: () => ProfileCache.getProfile(handle),
+      staleTime: ProfileCache.cacheExpiry,
+    })
+    .finally(() => {
+      router.push({
+        pathname: '/profile/[did]',
+        params: { did: handle },
+      });
     });
-  });
 };
 
 // SearchSwipePager component
@@ -207,12 +222,12 @@ const SearchSwipePager = ({
   useLayoutEffect(() => {
     const currentPagesString = JSON.stringify(pages);
     const pagesChanged = currentPagesString !== previousPagesRef.current;
-    
+
     if (pagesChanged) {
       hasAppliedInitialIndexRef.current = false;
       previousPagesRef.current = currentPagesString;
     }
-    
+
     if (!hasAppliedInitialIndexRef.current && pages.length > 0) {
       const targetIndex = activeIndex >= 0 ? activeIndex : 0;
       currentPageRef.current = targetIndex;
@@ -237,44 +252,54 @@ const SearchSwipePager = ({
     }
   }, [activeIndex]);
 
-  const handlePageScroll = useCallback((event: any) => {
-    const { position, offset } = event.nativeEvent;
-    const progress = position + offset;
-    const roundedPosition = Math.round(progress);
-    
-    onScrollProgressChange?.(progress);
-    
-    if (roundedPosition !== currentPageRef.current && roundedPosition >= 0 && roundedPosition < pages.length) {
-      currentPageRef.current = roundedPosition;
-      const nextTab = pages[roundedPosition];
+  const handlePageScroll = useCallback(
+    (event: any) => {
+      const { position, offset } = event.nativeEvent;
+      const progress = position + offset;
+      const roundedPosition = Math.round(progress);
+
+      onScrollProgressChange?.(progress);
+
+      if (
+        roundedPosition !== currentPageRef.current &&
+        roundedPosition >= 0 &&
+        roundedPosition < pages.length
+      ) {
+        currentPageRef.current = roundedPosition;
+        const nextTab = pages[roundedPosition];
+        if (nextTab && nextTab !== activeTab) {
+          isUserGestureRef.current = true;
+          onActiveTabChange(nextTab);
+        }
+      }
+    },
+    [pages, activeTab, onActiveTabChange, onScrollProgressChange]
+  );
+
+  const handlePageSelected = useCallback(
+    (event: any) => {
+      if (!hasAppliedInitialIndexRef.current) return;
+
+      const nextIndex = event.nativeEvent.position;
+      const prevIndex = currentPageRef.current;
+
+      if (nextIndex !== prevIndex) {
+        currentPageRef.current = nextIndex;
+        onScrollProgressChange?.(nextIndex);
+      }
+
+      const nextTab = pages[nextIndex];
       if (nextTab && nextTab !== activeTab) {
         isUserGestureRef.current = true;
         onActiveTabChange(nextTab);
       }
-    }
-  }, [pages, activeTab, onActiveTabChange, onScrollProgressChange]);
 
-  const handlePageSelected = useCallback((event: any) => {
-    if (!hasAppliedInitialIndexRef.current) return;
-    
-    const nextIndex = event.nativeEvent.position;
-    const prevIndex = currentPageRef.current;
-    
-    if (nextIndex !== prevIndex) {
-      currentPageRef.current = nextIndex;
-      onScrollProgressChange?.(nextIndex);
-    }
-    
-    const nextTab = pages[nextIndex];
-    if (nextTab && nextTab !== activeTab) {
-      isUserGestureRef.current = true;
-      onActiveTabChange(nextTab);
-    }
-    
-    setTimeout(() => {
-      isUserGestureRef.current = false;
-    }, 100);
-  }, [activeTab, pages, onActiveTabChange, onScrollProgressChange]);
+      setTimeout(() => {
+        isUserGestureRef.current = false;
+      }, 100);
+    },
+    [activeTab, pages, onActiveTabChange, onScrollProgressChange]
+  );
 
   const handlePageScrollStateChanged = useCallback((event: any) => {
     const state = event.nativeEvent.pageScrollState;
@@ -299,7 +324,7 @@ const SearchSwipePager = ({
         scrollEnabled={true}
         pageMargin={0}
       >
-        {pages.map((page) => (
+        {pages.map(page => (
           <View key={page} style={styles.pagerPage}>
             {renderTabContent(page)}
           </View>
@@ -310,309 +335,356 @@ const SearchSwipePager = ({
 };
 
 // Profiles Feed Renderer
-const ProfilesFeedRenderer = React.memo(({ searchResults, onFollow, isLoading, onProfilePress, bottomPadding = 0 }: {
-  searchResults: SearchResult[];
-  onFollow: (profile: Profile) => void;
-  isLoading?: boolean;
-  onProfilePress?: (profile: Profile) => void;
-  bottomPadding?: number;
-}) => {
-  const router = useRouter();
-  const queryClient = useQueryClient();
-  const currentUser = useUserStore(state => state.currentUser);
+const ProfilesFeedRenderer = React.memo(
+  ({
+    searchResults,
+    onFollow,
+    isLoading,
+    onProfilePress,
+    bottomPadding = 0,
+  }: {
+    searchResults: SearchResult[];
+    onFollow: (profile: Profile) => void;
+    isLoading?: boolean;
+    onProfilePress?: (profile: Profile) => void;
+    bottomPadding?: number;
+  }) => {
+    const router = useRouter();
+    const queryClient = useQueryClient();
+    const currentUser = useUserStore(state => state.currentUser);
 
-  const profiles = searchResults
-    .filter((result): result is any => result.type === 'profile')
-    .map(result => result.data as Profile)
-    .filter((profile, index, self) => 
-      index === self.findIndex(p => p.did === profile.did)
-    );
+    const profiles = searchResults
+      .filter((result): result is any => result.type === 'profile')
+      .map(result => result.data as Profile)
+      .filter((profile, index, self) => index === self.findIndex(p => p.did === profile.did));
 
-  if (isLoading) {
+    if (isLoading) {
+      return (
+        <View style={[styles.loadingContainer, { flex: 1 }]}>
+          <Loading3FillIcon size={48} color={Colors.white} />
+        </View>
+      );
+    }
+
     return (
-      <View style={[styles.loadingContainer, { flex: 1 }]}>
-        <Loading3FillIcon size={48} color={Colors.white} />
-      </View>
+      <FlashList
+        data={profiles}
+        keyExtractor={profile => `profile-${profile.did || profile.handle}`}
+        renderItem={({ item: profile }) => (
+          <View style={styles.profileItem}>
+            <Pressable
+              style={styles.profileTouchable}
+              onPress={() => {
+                if (onProfilePress) {
+                  onProfilePress(profile);
+                } else {
+                  navigateToProfile(profile, queryClient, router);
+                }
+              }}
+            >
+              <Avatar
+                uri={profile.avatar}
+                type="profile"
+                size={48}
+                ringColor="transparent"
+                style={styles.profileImage}
+              />
+              <View style={styles.profileContent}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0 }}>
+                  <Text style={styles.displayName} numberOfLines={1} ellipsizeMode="tail">
+                    {formatHandle(profile.handle) || 'Unknown user'}
+                  </Text>
+                  {profile.handle && profile.handle.trim() && profile.handle.length > 0 && (
+                    <VerificationBadge
+                      handle={profile.handle.trim()}
+                      textSize={16}
+                      textColor={Colors.white}
+                    />
+                  )}
+                </View>
+              </View>
+            </Pressable>
+            {!(
+              ProfileCache.getProfileFromCacheSync(profile.handle || '')?.isFollowing ??
+              profile.isFollowing
+            ) &&
+              !isCurrentUser(profile.did, profile.handle, currentUser) && (
+                <Pressable
+                  style={({ pressed }) => [styles.followButton, pressed && { opacity: 0.8 }]}
+                  onPress={() => onFollow(profile)}
+                >
+                  <FollowIcon size={16} color={Colors.black} />
+                </Pressable>
+              )}
+          </View>
+        )}
+        contentContainerStyle={[styles.listContainer, { paddingBottom: bottomPadding + 20 }]}
+        showsVerticalScrollIndicator={false}
+        keyboardDismissMode="on-drag"
+        ListEmptyComponent={() => (
+          <View style={styles.emptyTabContent}>
+            <Text style={styles.emptyTabText}>No people found</Text>
+          </View>
+        )}
+      />
     );
   }
+);
 
-  return (
-    <FlashList
-      data={profiles}
-      keyExtractor={(profile) => `profile-${profile.did || profile.handle}`}
-      renderItem={({ item: profile }) => (
-        <View style={styles.profileItem}>
+// Channels Feed Renderer
+const ChannelsFeedRenderer = React.memo(
+  ({
+    searchResults,
+    isLoading,
+    onChannelPress,
+    bottomPadding = 0,
+  }: {
+    searchResults: SearchResult[];
+    isLoading?: boolean;
+    onChannelPress?: (channel: Channel) => void;
+    bottomPadding?: number;
+  }) => {
+    const router = useRouter();
+
+    const channels = searchResults
+      .filter((result): result is any => result.type === 'channel')
+      .map(result => result.data as Channel)
+      .filter((channel, index, self) => index === self.findIndex(c => c.uri === channel.uri));
+
+    if (isLoading) {
+      return (
+        <View style={[styles.loadingContainer, { flex: 1 }]}>
+          <Loading3FillIcon size={48} color={Colors.white} />
+        </View>
+      );
+    }
+
+    return (
+      <FlashList
+        data={channels}
+        keyExtractor={channel => `channel-${channel.uri || channel.cid}`}
+        renderItem={({ item: channel }) => (
           <Pressable
-            style={styles.profileTouchable}
+            style={styles.channelItem}
             onPress={() => {
-              if (onProfilePress) {
-                onProfilePress(profile);
+              if (onChannelPress) {
+                onChannelPress(channel);
               } else {
-                navigateToProfile(profile, queryClient, router);
+                if (channel.uri && channel.uri.trim()) {
+                  router.push({
+                    pathname: '/channel/[id]',
+                    params: { id: channel.uri.trim() },
+                  });
+                }
               }
             }}
           >
             <Avatar
-              uri={profile.avatar}
-              type="profile"
+              uri={getChannelAvatarUri(channel.uri, channel.avatar)}
+              type="channel"
               size={48}
               ringColor="transparent"
-              style={styles.profileImage}
+              style={styles.channelImage}
             />
-            <View style={styles.profileContent}>
-              <View style={{flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0}}>
-                <Text style={styles.displayName} numberOfLines={1} ellipsizeMode="tail">
-                  {formatHandle(profile.handle) || 'Unknown user'}
-                </Text>
-                {profile.handle && profile.handle.trim() && profile.handle.length > 0 && (
-                  <VerificationBadge 
-                    handle={profile.handle.trim()} 
-                    textSize={16} 
-                    textColor={Colors.white}
+            <View style={styles.channelContent}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <ChannelNameDisplay channel={channel} />
+                {channel.isExperimental && (
+                  <Icon
+                    name="bug"
+                    size={12}
+                    color={Colors.lightGreen}
+                    style={styles.experimentalIcon}
                   />
                 )}
               </View>
             </View>
           </Pressable>
-          {!(ProfileCache.getProfileFromCacheSync(profile.handle || '')?.isFollowing ?? profile.isFollowing) && !isCurrentUser(profile.did, profile.handle, currentUser) && (
-            <Pressable
-              style={({ pressed }) => [
-                styles.followButton,
-                pressed && { opacity: 0.8 }
-              ]}
-              onPress={() => onFollow(profile)}
-            >
-              <FollowIcon size={16} color={Colors.black} />
-            </Pressable>
-          )}
-        </View>
-      )}
-      contentContainerStyle={[styles.listContainer, { paddingBottom: bottomPadding + 20 }]}
-      showsVerticalScrollIndicator={false}
-      keyboardDismissMode="on-drag"
-      ListEmptyComponent={() => (
-        <View style={styles.emptyTabContent}>
-          <Text style={styles.emptyTabText}>No people found</Text>
-        </View>
-      )}
-    />
-  );
-});
-
-// Channels Feed Renderer
-const ChannelsFeedRenderer = React.memo(({ searchResults, isLoading, onChannelPress, bottomPadding = 0 }: { searchResults: SearchResult[]; isLoading?: boolean; onChannelPress?: (channel: Channel) => void; bottomPadding?: number }) => {
-  const router = useRouter();
-
-  const channels = searchResults
-    .filter((result): result is any => result.type === 'channel')
-    .map(result => result.data as Channel)
-    .filter((channel, index, self) => 
-      index === self.findIndex(c => c.uri === channel.uri)
-    );
-
-  if (isLoading) {
-    return (
-      <View style={[styles.loadingContainer, { flex: 1 }]}>
-        <Loading3FillIcon size={48} color={Colors.white} />
-      </View>
+        )}
+        contentContainerStyle={[styles.listContainer, { paddingBottom: bottomPadding + 20 }]}
+        showsVerticalScrollIndicator={false}
+        keyboardDismissMode="on-drag"
+        ListEmptyComponent={() => (
+          <View style={styles.emptyTabContent}>
+            <Text style={styles.emptyTabText}>No feeds found</Text>
+          </View>
+        )}
+      />
     );
   }
-
-  return (
-    <FlashList
-      data={channels}
-      keyExtractor={(channel) => `channel-${channel.uri || channel.cid}`}
-      renderItem={({ item: channel }) => (
-        <Pressable
-          style={styles.channelItem}
-          onPress={() => {
-            if (onChannelPress) {
-              onChannelPress(channel);
-            } else {
-              if (channel.uri && channel.uri.trim()) {
-                router.push({
-                  pathname: '/channel/[id]',
-                  params: { id: channel.uri.trim() }
-                });
-              }
-            }
-          }}
-        >
-          <Avatar
-            uri={getChannelAvatarUri(channel.uri, channel.avatar)}
-            type="channel"
-            size={48}
-            ringColor="transparent"
-            style={styles.channelImage}
-          />
-          <View style={styles.channelContent}>
-            <View style={{flexDirection: 'row', alignItems: 'center'}}>
-              <ChannelNameDisplay channel={channel} />
-              {channel.isExperimental && (
-                <Icon name="bug" size={12} color={Colors.lightGreen} style={styles.experimentalIcon} />
-              )}
-            </View>
-          </View>
-        </Pressable>
-      )}
-      contentContainerStyle={[styles.listContainer, { paddingBottom: bottomPadding + 20 }]}
-      showsVerticalScrollIndicator={false}
-      keyboardDismissMode="on-drag"
-      ListEmptyComponent={() => (
-        <View style={styles.emptyTabContent}>
-          <Text style={styles.emptyTabText}>No feeds found</Text>
-        </View>
-      )}
-    />
-  );
-});
+);
 
 // Visit History Component
-const VisitHistoryList = React.memo(({ 
-  visitHistory, 
-  onHistoryItemPress, 
-  onFollow,
-  bottomPadding = 0
-}: {
-  visitHistory: Array<{ type: 'profile' | 'channel'; data: Profile | Channel }>;
-  onHistoryItemPress: (item: { type: 'profile' | 'channel'; data: Profile | Channel }) => void;
-  onFollow: (profile: Profile) => void;
-  bottomPadding?: number;
-}) => {
-  const currentUser = useUserStore(state => state.currentUser);
-  return (
-    <FlashList
-      data={visitHistory}
-      keyExtractor={(item) => {
-        if (item.type === 'profile') {
-          return `history-profile-${(item.data as Profile).did}`;
-        } else {
-          return `history-channel-${(item.data as Channel).uri}`;
-        }
-      }}
-      renderItem={({ item }) => {
-        const isProfile = item.type === 'profile';
-        const profileData = isProfile ? (item.data as Profile) : null;
-        const channelData = !isProfile ? (item.data as Channel) : null;
-        
-        if (isProfile && profileData) {
-          return (
-            <View style={styles.profileItem}>
-              <Pressable
-                style={styles.profileTouchable}
-                onPress={() => onHistoryItemPress(item)}
-              >
+const VisitHistoryList = React.memo(
+  ({
+    visitHistory,
+    onHistoryItemPress,
+    onFollow,
+    bottomPadding = 0,
+  }: {
+    visitHistory: Array<{ type: 'profile' | 'channel'; data: Profile | Channel }>;
+    onHistoryItemPress: (item: { type: 'profile' | 'channel'; data: Profile | Channel }) => void;
+    onFollow: (profile: Profile) => void;
+    bottomPadding?: number;
+  }) => {
+    const currentUser = useUserStore(state => state.currentUser);
+    return (
+      <FlashList
+        data={visitHistory}
+        keyExtractor={item => {
+          if (item.type === 'profile') {
+            return `history-profile-${(item.data as Profile).did}`;
+          } else {
+            return `history-channel-${(item.data as Channel).uri}`;
+          }
+        }}
+        renderItem={({ item }) => {
+          const isProfile = item.type === 'profile';
+          const profileData = isProfile ? (item.data as Profile) : null;
+          const channelData = !isProfile ? (item.data as Channel) : null;
+
+          if (isProfile && profileData) {
+            return (
+              <View style={styles.profileItem}>
+                <Pressable style={styles.profileTouchable} onPress={() => onHistoryItemPress(item)}>
+                  <Avatar
+                    uri={profileData.avatar}
+                    type="profile"
+                    size={48}
+                    ringColor="transparent"
+                    style={styles.profileImage}
+                  />
+                  <View style={styles.profileContent}>
+                    <View
+                      style={{ flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0 }}
+                    >
+                      <Text style={styles.displayName} numberOfLines={1} ellipsizeMode="tail">
+                        {formatHandle(profileData.handle) || 'Unknown user'}
+                      </Text>
+                      {profileData.handle &&
+                        profileData.handle.trim() &&
+                        profileData.handle.length > 0 && (
+                          <VerificationBadge
+                            handle={profileData.handle.trim()}
+                            textSize={16}
+                            textColor={Colors.white}
+                          />
+                        )}
+                    </View>
+                  </View>
+                </Pressable>
+                {!(
+                  ProfileCache.getProfileFromCacheSync(profileData.handle || '')?.isFollowing ??
+                  profileData.isFollowing
+                ) &&
+                  !isCurrentUser(profileData.did, profileData.handle, currentUser) && (
+                    <Pressable
+                      style={({ pressed }) => [styles.followButton, pressed && { opacity: 0.8 }]}
+                      onPress={() => onFollow(profileData)}
+                    >
+                      <FollowIcon size={16} color={Colors.black} />
+                    </Pressable>
+                  )}
+              </View>
+            );
+          } else if (!isProfile && channelData) {
+            return (
+              <Pressable style={styles.channelItem} onPress={() => onHistoryItemPress(item)}>
                 <Avatar
-                  uri={profileData.avatar}
-                  type="profile"
+                  uri={getChannelAvatarUri(channelData.uri, channelData.avatar)}
+                  type="channel"
                   size={48}
                   ringColor="transparent"
-                  style={styles.profileImage}
+                  style={styles.channelImage}
                 />
-                <View style={styles.profileContent}>
-                  <View style={{flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0}}>
-                    <Text style={styles.displayName} numberOfLines={1} ellipsizeMode="tail">
-                      {formatHandle(profileData.handle) || 'Unknown user'}
-                    </Text>
-                    {profileData.handle && profileData.handle.trim() && profileData.handle.length > 0 && (
-                      <VerificationBadge 
-                        handle={profileData.handle.trim()} 
-                        textSize={16} 
-                        textColor={Colors.white}
+                <View style={styles.channelContent}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <ChannelNameDisplay channel={channelData} />
+                    {channelData.isExperimental && (
+                      <Icon
+                        name="bug"
+                        size={12}
+                        color={Colors.lightGreen}
+                        style={styles.experimentalIcon}
                       />
                     )}
                   </View>
                 </View>
               </Pressable>
-              {!(ProfileCache.getProfileFromCacheSync(profileData.handle || '')?.isFollowing ?? profileData.isFollowing) && !isCurrentUser(profileData.did, profileData.handle, currentUser) && (
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.followButton,
-                    pressed && { opacity: 0.8 }
-                  ]}
-                  onPress={() => onFollow(profileData)}
-                >
-                  <FollowIcon size={16} color={Colors.black} />
-                </Pressable>
-              )}
-            </View>
-          );
-        } else if (!isProfile && channelData) {
-          return (
-            <Pressable
-              style={styles.channelItem}
-              onPress={() => onHistoryItemPress(item)}
-            >
-              <Avatar
-                uri={getChannelAvatarUri(channelData.uri, channelData.avatar)}
-                type="channel"
-                size={48}
-                ringColor="transparent"
-                style={styles.channelImage}
-              />
-              <View style={styles.channelContent}>
-                <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                  <ChannelNameDisplay channel={channelData} />
-                  {channelData.isExperimental && (
-                    <Icon name="bug" size={12} color={Colors.lightGreen} style={styles.experimentalIcon} />
-                  )}
-                </View>
-              </View>
-            </Pressable>
-          );
-        }
-        return null;
-      }}
-      contentContainerStyle={[styles.listContainer, { paddingBottom: bottomPadding + 20 }]}
-      showsVerticalScrollIndicator={false}
-      keyboardDismissMode="on-drag"
-      ListEmptyComponent={() => (
-        <View style={styles.emptyTabContent}>
-          <Text style={styles.emptyTabText}>No recent visits</Text>
-        </View>
-      )}
-    />
-  );
-});
+            );
+          }
+          return null;
+        }}
+        contentContainerStyle={[styles.listContainer, { paddingBottom: bottomPadding + 20 }]}
+        showsVerticalScrollIndicator={false}
+        keyboardDismissMode="on-drag"
+        ListEmptyComponent={() => (
+          <View style={styles.emptyTabContent}>
+            <Text style={styles.emptyTabText}>No recent visits</Text>
+          </View>
+        )}
+      />
+    );
+  }
+);
 
 // Search Feed Renderer
-const SearchFeedRenderer = React.memo(({ feedOption, searchResults, onFollow, isLoading, onProfilePress, onChannelPress, visitHistory, onHistoryItemPress, bottomPadding = 0 }: {
-  feedOption: string;
-  searchResults: SearchResult[];
-  onFollow: (profile: Profile) => void;
-  isLoading?: boolean;
-  onProfilePress?: (profile: Profile) => void;
-  onChannelPress?: (channel: Channel) => void;
-  visitHistory?: Array<{ type: 'profile' | 'channel'; data: Profile | Channel }>;
-  onHistoryItemPress?: (item: { type: 'profile' | 'channel'; data: Profile | Channel }) => void;
-  bottomPadding?: number;
-}) => {
-  if (feedOption === 'recently-visited') {
-    return (
-      <VisitHistoryList
-        visitHistory={visitHistory || []}
-        onHistoryItemPress={onHistoryItemPress || (() => {})}
-        onFollow={onFollow}
-        bottomPadding={bottomPadding}
-      />
-    );
-  }
+const SearchFeedRenderer = React.memo(
+  ({
+    feedOption,
+    searchResults,
+    onFollow,
+    isLoading,
+    onProfilePress,
+    onChannelPress,
+    visitHistory,
+    onHistoryItemPress,
+    bottomPadding = 0,
+  }: {
+    feedOption: string;
+    searchResults: SearchResult[];
+    onFollow: (profile: Profile) => void;
+    isLoading?: boolean;
+    onProfilePress?: (profile: Profile) => void;
+    onChannelPress?: (channel: Channel) => void;
+    visitHistory?: Array<{ type: 'profile' | 'channel'; data: Profile | Channel }>;
+    onHistoryItemPress?: (item: { type: 'profile' | 'channel'; data: Profile | Channel }) => void;
+    bottomPadding?: number;
+  }) => {
+    if (feedOption === 'recently-visited') {
+      return (
+        <VisitHistoryList
+          visitHistory={visitHistory || []}
+          onHistoryItemPress={onHistoryItemPress || (() => {})}
+          onFollow={onFollow}
+          bottomPadding={bottomPadding}
+        />
+      );
+    }
 
-  if (feedOption === 'profiles') {
-    return (
-      <ProfilesFeedRenderer
-        searchResults={searchResults}
-        onFollow={onFollow}
-        isLoading={isLoading}
-        onProfilePress={onProfilePress}
-        bottomPadding={bottomPadding}
-      />
-    );
-  } else if (feedOption === 'channels') {
-    return <ChannelsFeedRenderer searchResults={searchResults} isLoading={isLoading} onChannelPress={onChannelPress} bottomPadding={bottomPadding} />;
+    if (feedOption === 'profiles') {
+      return (
+        <ProfilesFeedRenderer
+          searchResults={searchResults}
+          onFollow={onFollow}
+          isLoading={isLoading}
+          onProfilePress={onProfilePress}
+          bottomPadding={bottomPadding}
+        />
+      );
+    } else if (feedOption === 'channels') {
+      return (
+        <ChannelsFeedRenderer
+          searchResults={searchResults}
+          isLoading={isLoading}
+          onChannelPress={onChannelPress}
+          bottomPadding={bottomPadding}
+        />
+      );
+    }
+    return null;
   }
-  return null;
-});
+);
 
 // Simple loading components with Loading3FillIcon
 const ProfileLoading = () => (
@@ -651,7 +723,6 @@ const HeaderSpacer = ({ computedHeaderHeight }: { computedHeaderHeight: number }
   return <View style={{ height: computedHeaderHeight }} />;
 };
 
-
 // Channel Name Component with Orbyt formatting
 const ChannelNameDisplay: React.FC<{ channel: Channel; style?: any }> = ({ channel, style }) => {
   const isOrbyt = isOrbytChannel(channel.uri);
@@ -683,10 +754,7 @@ const ChannelNameDisplay: React.FC<{ channel: Channel; style?: any }> = ({ chann
 const PopularChannelItem = ({ channel, onPress }: { channel: Channel; onPress: () => void }) => {
   const avatarUri = getChannelAvatarUri(channel.uri, channel.avatar);
   return (
-    <Pressable
-      style={styles.channelItem}
-      onPress={onPress}
-    >
+    <Pressable style={styles.channelItem} onPress={onPress}>
       <Avatar
         uri={avatarUri}
         type="channel"
@@ -695,7 +763,7 @@ const PopularChannelItem = ({ channel, onPress }: { channel: Channel; onPress: (
         style={styles.channelImage}
       />
       <View style={styles.channelContent}>
-        <View style={{flexDirection: 'row', alignItems: 'center'}}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <ChannelNameDisplay channel={channel} />
           {channel.isExperimental && (
             <Icon name="bug" size={12} color={Colors.lightGreen} style={styles.experimentalIcon} />
@@ -707,7 +775,17 @@ const PopularChannelItem = ({ channel, onPress }: { channel: Channel; onPress: (
 };
 
 // Grid Channel Item Component with large square thumbnail
-const GridChannelItem = ({ channel, onPress, itemWidth, itemHeight }: { channel: Channel; onPress: () => void; itemWidth: number; itemHeight?: number }) => {
+const GridChannelItem = ({
+  channel,
+  onPress,
+  itemWidth,
+  itemHeight,
+}: {
+  channel: Channel;
+  onPress: () => void;
+  itemWidth: number;
+  itemHeight?: number;
+}) => {
   const avatarUri = getChannelAvatarUri(channel.uri, channel.avatar);
   const isOrbyt = isOrbytChannel(channel.uri);
   const orbytChannel = isOrbyt ? getChannelByUri(channel.uri) : undefined;
@@ -715,15 +793,14 @@ const GridChannelItem = ({ channel, onPress, itemWidth, itemHeight }: { channel:
   const thumbnailHeight = itemHeight || itemWidth; // Use itemHeight if provided, otherwise use itemWidth for square
 
   return (
-    <Pressable
-      style={[styles.gridChannelItem, { width: itemWidth }]}
-      onPress={onPress}
-    >
-      <View style={[
-        styles.gridChannelThumbnail, 
-        { height: thumbnailHeight },
-        itemHeight ? { aspectRatio: undefined } : {} // Remove aspectRatio when height is explicitly set
-      ]}>
+    <Pressable style={[styles.gridChannelItem, { width: itemWidth }]} onPress={onPress}>
+      <View
+        style={[
+          styles.gridChannelThumbnail,
+          { height: thumbnailHeight },
+          itemHeight ? { aspectRatio: undefined } : {}, // Remove aspectRatio when height is explicitly set
+        ]}
+      >
         {avatarUri ? (
           <Image
             source={{ uri: avatarUri }}
@@ -734,7 +811,12 @@ const GridChannelItem = ({ channel, onPress, itemWidth, itemHeight }: { channel:
             transition={200}
           />
         ) : (
-          <View style={[styles.gridChannelImage, { backgroundColor: Colors.darkGray, justifyContent: 'center', alignItems: 'center' }]}>
+          <View
+            style={[
+              styles.gridChannelImage,
+              { backgroundColor: Colors.darkGray, justifyContent: 'center', alignItems: 'center' },
+            ]}
+          >
             <Icon name="device-tv" size={thumbnailHeight * 0.4} color={Colors.gray} />
           </View>
         )}
@@ -748,7 +830,9 @@ const GridChannelItem = ({ channel, onPress, itemWidth, itemHeight }: { channel:
           {isOrbyt ? (
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               {shouldShowChannelSlash(channel.uri) && (
-                <Text style={[styles.gridChannelName, styles.orbytSlash, { color: channelColor }]}>/</Text>
+                <Text style={[styles.gridChannelName, styles.orbytSlash, { color: channelColor }]}>
+                  /
+                </Text>
               )}
               <Text style={styles.gridChannelName} numberOfLines={1}>
                 {channel.displayName || 'Unknown channel'}
@@ -766,14 +850,24 @@ const GridChannelItem = ({ channel, onPress, itemWidth, itemHeight }: { channel:
 };
 
 // Horizontal Channel Button Component for popular now and latest (full width, GIF on right, label bottom left)
-const HorizontalChannelItem = ({ channel, onPress, itemWidth, itemHeight }: { channel: Channel; onPress: () => void; itemWidth: number; itemHeight: number }) => {
+const HorizontalChannelItem = ({
+  channel,
+  onPress,
+  itemWidth,
+  itemHeight,
+}: {
+  channel: Channel;
+  onPress: () => void;
+  itemWidth: number;
+  itemHeight: number;
+}) => {
   const avatarUri = getChannelAvatarUri(channel.uri, channel.avatar);
   const isOrbyt = isOrbytChannel(channel.uri);
   const orbytChannel = isOrbyt ? getChannelByUri(channel.uri) : undefined;
   const channelColor = orbytChannel?.channelColor || '#FFD700';
   // Calculate max width for label: full width - left padding - right padding
   const labelMaxWidth = itemWidth - 16 - 16; // width - left padding - right padding
-  
+
   // Check if this is the popular now channel for special cropping
   const slug = extractFeedSlug(channel.uri || '');
   const isPopularNow = slug === 'popular-now';
@@ -782,11 +876,11 @@ const HorizontalChannelItem = ({ channel, onPress, itemWidth, itemHeight }: { ch
     <Pressable
       style={[
         styles.horizontalChannelButton,
-        { 
-          width: itemWidth, 
+        {
+          width: itemWidth,
           height: itemHeight,
           backgroundColor: channelColor,
-        }
+        },
       ]}
       onPress={onPress}
     >
@@ -802,7 +896,7 @@ const HorizontalChannelItem = ({ channel, onPress, itemWidth, itemHeight }: { ch
                 height: itemHeight * 2.5, // Make image much taller to crop more from bottom
                 alignSelf: 'flex-end', // Align to right
                 marginRight: -50, // Push further right
-              }
+              },
             ]}
             contentFit="cover"
             cachePolicy="memory-disk"
@@ -819,7 +913,7 @@ const HorizontalChannelItem = ({ channel, onPress, itemWidth, itemHeight }: { ch
           />
         )}
       </View>
-      
+
       {/* Label at bottom left - overlaying GIF */}
       <View style={[styles.horizontalChannelLabelContainer, { maxWidth: labelMaxWidth }]}>
         {isOrbyt ? (
@@ -844,231 +938,239 @@ const HorizontalChannelItem = ({ channel, onPress, itemWidth, itemHeight }: { ch
 // Search-related components moved to search.tsx
 
 // Responsive Orbyt Channels Grid Component
-const OrbytChannelsGrid = React.memo(({ channels, router }: { channels: Channel[]; router: any }) => {
-  const { width: windowWidth } = useWindowDimensions();
-  
-  // Responsive column calculation - similar to GridFeedView
-  const computedColumns = useMemo(() => {
-    const w = windowWidth || Dimensions.get('window').width;
-    let cols = 3; // default mobile
-    if (w > 1200 || isTablet()) {
-      cols = 6;
-    } else if (w > 900) {
-      cols = 5;
-    } else if (w > 480) {
-      cols = 4;
-    } else {
-      cols = 3;
-    }
-    // enforce minimum of 3
-    return Math.max(3, cols);
-  }, [windowWidth]);
-  
-  // Responsive padding and gap based on screen size
-  const { padding, gap } = useMemo(() => {
-    const w = windowWidth || Dimensions.get('window').width;
-    if (isTablet() || w > 900) {
-      return { padding: 24, gap: 10 }; // Larger spacing for tablets
-    } else if (w > 480) {
-      return { padding: 20, gap: 8 }; // Medium spacing
-    } else {
-      return { padding: 20, gap: 7 }; // Default spacing for small screens
-    }
-  }, [windowWidth]);
-  
-  // Calculate grid dimensions using native formulas
-  // W = container width, p = padding, g = gap
-  // availableWidth = W - 2*p
-  // itemWidth = (availableWidth - (columns - 1) * g) / columns
-  // specialWidth = (availableWidth - g) / 2 (for two items side-by-side)
-  const { itemWidth, fullWidth, specialWidth, buttonHeight } = useMemo(() => {
-    const screenWidth = windowWidth || Dimensions.get('window').width;
-    const availableWidth = screenWidth - (padding * 2); // W - 2*p
-    
-    // Grid item width: (W - 2*p - (columns - 1) * g) / columns
-    const calculatedItemWidth = Math.floor((availableWidth - (computedColumns - 1) * gap) / computedColumns);
-    const gridItemHeight = calculatedItemWidth; // Square items
-    
-    // Full width for stacked special items: availableWidth
-    const calculatedFullWidth = availableWidth;
-    
-    // Special width for side-by-side items: (availableWidth - g) / 2
-    const calculatedSpecialWidth = Math.floor((availableWidth - gap) / 2);
-    
-    // Reduced height for popular now and latest buttons (80% of grid item height)
-    const calculatedButtonHeight = Math.round(gridItemHeight * 0.8);
-    
-    return {
-      itemWidth: calculatedItemWidth,
-      fullWidth: calculatedFullWidth,
-      specialWidth: calculatedSpecialWidth,
-      buttonHeight: calculatedButtonHeight,
-    };
-  }, [windowWidth, padding, gap, computedColumns]);
+const OrbytChannelsGrid = React.memo(
+  ({ channels, router }: { channels: Channel[]; router: any }) => {
+    const { width: windowWidth } = useWindowDimensions();
 
-  const shouldShowSpecialInRow = useMemo(() => {
-    return computedColumns >= 4 || isTablet();
-  }, [computedColumns]);
+    // Responsive column calculation - similar to GridFeedView
+    const computedColumns = useMemo(() => {
+      const w = windowWidth || Dimensions.get('window').width;
+      let cols = 3; // default mobile
+      if (w > 1200 || isTablet()) {
+        cols = 6;
+      } else if (w > 900) {
+        cols = 5;
+      } else if (w > 480) {
+        cols = 4;
+      } else {
+        cols = 3;
+      }
+      // enforce minimum of 3
+      return Math.max(3, cols);
+    }, [windowWidth]);
 
-  const specialItemHeight = useMemo(() => {
-    return shouldShowSpecialInRow ? Math.round(buttonHeight * 0.9) : buttonHeight;
-  }, [shouldShowSpecialInRow, buttonHeight]);
-  
-  // Separate popular now and latest from other channels
-  const popularNowChannel = channels.find(ch => {
-    const slug = extractFeedSlug(ch.uri || '');
-    return slug === 'popular-now';
-  });
-  const latestChannel = channels.find(ch => {
-    const slug = extractFeedSlug(ch.uri || '');
-    return slug === 'latest';
-  });
-  const otherChannels = channels.filter(ch => {
-    const slug = extractFeedSlug(ch.uri || '');
-    return slug !== 'popular-now' && slug !== 'latest';
-  });
+    // Responsive padding and gap based on screen size
+    const { padding, gap } = useMemo(() => {
+      const w = windowWidth || Dimensions.get('window').width;
+      if (isTablet() || w > 900) {
+        return { padding: 24, gap: 10 }; // Larger spacing for tablets
+      } else if (w > 480) {
+        return { padding: 20, gap: 8 }; // Medium spacing
+      } else {
+        return { padding: 20, gap: 7 }; // Default spacing for small screens
+      }
+    }, [windowWidth]);
 
-  // Render special items header
-  const renderSpecialItems = () => {
-    if (!popularNowChannel && !latestChannel) return null;
+    // Calculate grid dimensions using native formulas
+    // W = container width, p = padding, g = gap
+    // availableWidth = W - 2*p
+    // itemWidth = (availableWidth - (columns - 1) * g) / columns
+    // specialWidth = (availableWidth - g) / 2 (for two items side-by-side)
+    const { itemWidth, fullWidth, specialWidth, buttonHeight } = useMemo(() => {
+      const screenWidth = windowWidth || Dimensions.get('window').width;
+      const availableWidth = screenWidth - padding * 2; // W - 2*p
 
-    if (shouldShowSpecialInRow) {
-      // Two items side-by-side using calculated specialWidth
-      return (
-        <View style={[styles.specialRow, { marginBottom: gap }]}>
-          {popularNowChannel && (
-            <View style={{ width: specialWidth }}>
-              <HorizontalChannelItem
-                channel={popularNowChannel}
-                itemWidth={specialWidth}
-                itemHeight={specialItemHeight}
-                onPress={() => {
-                  if (popularNowChannel.uri && popularNowChannel.uri.trim()) {
-                    router.push({
-                      pathname: '/channel/[id]',
-                      params: { id: popularNowChannel.uri.trim() }
-                    });
-                  }
-                }}
-              />
-            </View>
-          )}
-          {latestChannel && (
-            <View style={{ width: specialWidth, marginLeft: gap }}>
-              <HorizontalChannelItem
-                channel={latestChannel}
-                itemWidth={specialWidth}
-                itemHeight={specialItemHeight}
-                onPress={() => {
-                  if (latestChannel.uri && latestChannel.uri.trim()) {
-                    router.push({
-                      pathname: '/channel/[id]',
-                      params: { id: latestChannel.uri.trim() }
-                    });
-                  }
-                }}
-              />
-            </View>
-          )}
-        </View>
+      // Grid item width: (W - 2*p - (columns - 1) * g) / columns
+      const calculatedItemWidth = Math.floor(
+        (availableWidth - (computedColumns - 1) * gap) / computedColumns
       );
-    } else {
-      // Stacked items using fullWidth
-      return (
-        <View style={{ marginBottom: gap }}>
-          {popularNowChannel && (
-            <View style={{ width: fullWidth, marginBottom: gap }}>
-              <HorizontalChannelItem
-                channel={popularNowChannel}
-                itemWidth={fullWidth}
-                itemHeight={specialItemHeight}
-                onPress={() => {
-                  if (popularNowChannel.uri && popularNowChannel.uri.trim()) {
-                    router.push({
-                      pathname: '/channel/[id]',
-                      params: { id: popularNowChannel.uri.trim() }
-                    });
-                  }
-                }}
-              />
-            </View>
-          )}
-          {latestChannel && (
-            <View style={{ width: fullWidth }}>
-              <HorizontalChannelItem
-                channel={latestChannel}
-                itemWidth={fullWidth}
-                itemHeight={specialItemHeight}
-                onPress={() => {
-                  if (latestChannel.uri && latestChannel.uri.trim()) {
-                    router.push({
-                      pathname: '/channel/[id]',
-                      params: { id: latestChannel.uri.trim() }
-                    });
-                  }
-                }}
-              />
-            </View>
-          )}
-        </View>
-      );
-    }
-  };
-  
-  return (
-    <View style={[styles.channelsGridContainer, { paddingHorizontal: padding }]}>
-      {/* Render special items */}
-      {renderSpecialItems()}
-      
-      {/* Render grid items with proper width calculations */}
-      {otherChannels.length > 0 && (
-        <View style={styles.gridItemsContainer}>
-          {otherChannels.map((channel, index) => {
-            const isLastInRow = (index + 1) % computedColumns === 0;
-            return (
-              <View
-                key={`orbyt-channel-${channel.uri || channel.cid || index}`}
-                style={{
-                  width: itemWidth,
-                  marginRight: isLastInRow ? 0 : gap,
-                  marginBottom: gap,
-                }}
-              >
-                <GridChannelItem
-                  channel={channel}
-                  itemWidth={itemWidth}
+      const gridItemHeight = calculatedItemWidth; // Square items
+
+      // Full width for stacked special items: availableWidth
+      const calculatedFullWidth = availableWidth;
+
+      // Special width for side-by-side items: (availableWidth - g) / 2
+      const calculatedSpecialWidth = Math.floor((availableWidth - gap) / 2);
+
+      // Reduced height for popular now and latest buttons (80% of grid item height)
+      const calculatedButtonHeight = Math.round(gridItemHeight * 0.8);
+
+      return {
+        itemWidth: calculatedItemWidth,
+        fullWidth: calculatedFullWidth,
+        specialWidth: calculatedSpecialWidth,
+        buttonHeight: calculatedButtonHeight,
+      };
+    }, [windowWidth, padding, gap, computedColumns]);
+
+    const shouldShowSpecialInRow = useMemo(() => {
+      return computedColumns >= 4 || isTablet();
+    }, [computedColumns]);
+
+    const specialItemHeight = useMemo(() => {
+      return shouldShowSpecialInRow ? Math.round(buttonHeight * 0.9) : buttonHeight;
+    }, [shouldShowSpecialInRow, buttonHeight]);
+
+    // Separate popular now and latest from other channels
+    const popularNowChannel = channels.find(ch => {
+      const slug = extractFeedSlug(ch.uri || '');
+      return slug === 'popular-now';
+    });
+    const latestChannel = channels.find(ch => {
+      const slug = extractFeedSlug(ch.uri || '');
+      return slug === 'latest';
+    });
+    const otherChannels = channels.filter(ch => {
+      const slug = extractFeedSlug(ch.uri || '');
+      return slug !== 'popular-now' && slug !== 'latest';
+    });
+
+    // Render special items header
+    const renderSpecialItems = () => {
+      if (!popularNowChannel && !latestChannel) return null;
+
+      if (shouldShowSpecialInRow) {
+        // Two items side-by-side using calculated specialWidth
+        return (
+          <View style={[styles.specialRow, { marginBottom: gap }]}>
+            {popularNowChannel && (
+              <View style={{ width: specialWidth }}>
+                <HorizontalChannelItem
+                  channel={popularNowChannel}
+                  itemWidth={specialWidth}
+                  itemHeight={specialItemHeight}
                   onPress={() => {
-                    if (channel.uri && channel.uri.trim()) {
+                    if (popularNowChannel.uri && popularNowChannel.uri.trim()) {
                       router.push({
                         pathname: '/channel/[id]',
-                        params: { id: channel.uri.trim() }
+                        params: { id: popularNowChannel.uri.trim() },
                       });
                     }
                   }}
                 />
               </View>
-            );
-          })}
-        </View>
-      )}
-    </View>
-  );
-});
+            )}
+            {latestChannel && (
+              <View style={{ width: specialWidth, marginLeft: gap }}>
+                <HorizontalChannelItem
+                  channel={latestChannel}
+                  itemWidth={specialWidth}
+                  itemHeight={specialItemHeight}
+                  onPress={() => {
+                    if (latestChannel.uri && latestChannel.uri.trim()) {
+                      router.push({
+                        pathname: '/channel/[id]',
+                        params: { id: latestChannel.uri.trim() },
+                      });
+                    }
+                  }}
+                />
+              </View>
+            )}
+          </View>
+        );
+      } else {
+        // Stacked items using fullWidth
+        return (
+          <View style={{ marginBottom: gap }}>
+            {popularNowChannel && (
+              <View style={{ width: fullWidth, marginBottom: gap }}>
+                <HorizontalChannelItem
+                  channel={popularNowChannel}
+                  itemWidth={fullWidth}
+                  itemHeight={specialItemHeight}
+                  onPress={() => {
+                    if (popularNowChannel.uri && popularNowChannel.uri.trim()) {
+                      router.push({
+                        pathname: '/channel/[id]',
+                        params: { id: popularNowChannel.uri.trim() },
+                      });
+                    }
+                  }}
+                />
+              </View>
+            )}
+            {latestChannel && (
+              <View style={{ width: fullWidth }}>
+                <HorizontalChannelItem
+                  channel={latestChannel}
+                  itemWidth={fullWidth}
+                  itemHeight={specialItemHeight}
+                  onPress={() => {
+                    if (latestChannel.uri && latestChannel.uri.trim()) {
+                      router.push({
+                        pathname: '/channel/[id]',
+                        params: { id: latestChannel.uri.trim() },
+                      });
+                    }
+                  }}
+                />
+              </View>
+            )}
+          </View>
+        );
+      }
+    };
+
+    return (
+      <View style={[styles.channelsGridContainer, { paddingHorizontal: padding }]}>
+        {/* Render special items */}
+        {renderSpecialItems()}
+
+        {/* Render grid items with proper width calculations */}
+        {otherChannels.length > 0 && (
+          <View style={styles.gridItemsContainer}>
+            {otherChannels.map((channel, index) => {
+              const isLastInRow = (index + 1) % computedColumns === 0;
+              return (
+                <View
+                  key={`orbyt-channel-${channel.uri || channel.cid || index}`}
+                  style={{
+                    width: itemWidth,
+                    marginRight: isLastInRow ? 0 : gap,
+                    marginBottom: gap,
+                  }}
+                >
+                  <GridChannelItem
+                    channel={channel}
+                    itemWidth={itemWidth}
+                    onPress={() => {
+                      if (channel.uri && channel.uri.trim()) {
+                        router.push({
+                          pathname: '/channel/[id]',
+                          params: { id: channel.uri.trim() },
+                        });
+                      }
+                    }}
+                  />
+                </View>
+              );
+            })}
+          </View>
+        )}
+      </View>
+    );
+  }
+);
 
 const ExploreScreen: React.FC = () => {
   const flashListRef = useRef<FlashListRef<any> | null>(null);
   const currentUser = useUserStore(state => state.currentUser);
   const searchInputRef = useRef<TextInput | null>(null);
-  
+
   // Search state
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [debouncedQuery, setDebouncedQuery] = useState<string>('');
   const [isSearchFocused, setIsSearchFocused] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'recently-visited' | 'profiles' | 'channels'>('recently-visited');
-  const [visitHistory, setVisitHistory] = useState<Array<{
-    type: 'profile' | 'channel';
-    data: Profile | Channel;
-  }>>([]);
+  const [activeTab, setActiveTab] = useState<'recently-visited' | 'profiles' | 'channels'>(
+    'recently-visited'
+  );
+  const [visitHistory, setVisitHistory] = useState<
+    Array<{
+      type: 'profile' | 'channel';
+      data: Profile | Channel;
+    }>
+  >([]);
   const [indicatorScrollProgress, setIndicatorScrollProgress] = useState(0);
 
   // Reanimated values for smooth transitions
@@ -1077,30 +1179,33 @@ const ExploreScreen: React.FC = () => {
 
   const router = useRouter();
   const queryClient = useQueryClient();
-  
+
   // Use the follow mutation hook for proper cache management
   const followMutation = useFollowMutation();
   const insets = useSafeAreaInsets();
-  
+
   // Get experimental feeds setting and native tabs setting
   const { experimentalFeedsEnabled, nativeTabsEnabled } = useFeedSettings();
-  
+
   // Calculate bottom padding - add extra when native tabs are enabled for better coverage
-  const bottomPadding = nativeTabsEnabled 
-    ? getBottomNavBarHeight(insets) + 10 
+  const bottomPadding = nativeTabsEnabled
+    ? getBottomNavBarHeight(insets) + 10
     : getBottomNavBarHeight(insets);
 
   // Handle follow toggle with persistent cache
-  const handleFollow = useCallback((profile: Profile) => {
-    if (profile.handle) {
-      const handle = profile.handle;
-      followMutation.mutate({
-        handle,
-        isFollowing: !(profile.isFollowing ?? false),
-      });
-    }
-  }, [followMutation]);
-  
+  const handleFollow = useCallback(
+    (profile: Profile) => {
+      if (profile.handle) {
+        const handle = profile.handle;
+        followMutation.mutate({
+          handle,
+          isFollowing: !(profile.isFollowing ?? false),
+        });
+      }
+    },
+    [followMutation]
+  );
+
   // Initialize current user for ProfileCache on mount - use store instead of API call
   useEffect(() => {
     if (currentUser?.did) {
@@ -1109,21 +1214,15 @@ const ExploreScreen: React.FC = () => {
   }, [currentUser?.did]);
 
   // Fetch headers using TanStack Query
-  const {
-    data: fetchedHeaders = [],
-    isLoading: isLoadingHeaders,
-  } = useHeaders();
+  const { data: fetchedHeaders = [], isLoading: isLoadingHeaders } = useHeaders();
 
   // Process headers with image URLs
   const headers = useMemo(() => {
     return fetchedHeaders.map(header => ({
       ...header,
-      imageUrl: HeaderService.getImageUrl(header.imageUrl)
+      imageUrl: HeaderService.getImageUrl(header.imageUrl),
     }));
   }, [fetchedHeaders]);
-
-
-
 
   // Comment out video-related useEffect since videos are disabled
   // useEffect(() => {
@@ -1133,7 +1232,7 @@ const ExploreScreen: React.FC = () => {
   //       return videoResults.map((result: any) => result.data);
   //     });
   //     setAllVideos(allVideosFromPages);
-  //     
+  //
   //     const formattedFeed = allVideosFromPages.map(video => ({
   //       post: video,
   //       shouldCache: true,
@@ -1161,17 +1260,18 @@ const ExploreScreen: React.FC = () => {
   }, [debouncedQuery]);
 
   // Fetch search feed
-  const {
-    feed: searchFeed,
-    isLoading: isSearchLoading,
-  } = useFeed(searchFeedOption || 'following', undefined, {
-    enabled: !!searchFeedOption,
-    staleTime: 30 * 1000,
-    refetchOnMount: false,
-  });
+  const { feed: searchFeed, isLoading: isSearchLoading } = useFeed(
+    searchFeedOption || 'following',
+    undefined,
+    {
+      enabled: !!searchFeedOption,
+      staleTime: 30 * 1000,
+      refetchOnMount: false,
+    }
+  );
 
-  const followStoreFollows = useFollowStore((state) => state.follows);
-  
+  const followStoreFollows = useFollowStore(state => state.follows);
+
   // Process search results
   const searchResults = useMemo(() => {
     if (!searchFeedOption || !searchFeed.length) {
@@ -1179,15 +1279,15 @@ const ExploreScreen: React.FC = () => {
     }
 
     const results: SearchResult[] = [];
-    
+
     for (let index = 0; index < searchFeed.length; index++) {
       const feedItem = searchFeed[index];
       const post = feedItem.post;
-      
+
       // Check if this is a channel (feed generator)
       // Channels from search have uri that includes 'app.bsky.feed.generator'
       const isChannel = post.uri?.includes('app.bsky.feed.generator');
-      
+
       if (isChannel) {
         // Channel data structure from FeedService:
         // post.uri = channel.uri
@@ -1204,15 +1304,17 @@ const ExploreScreen: React.FC = () => {
             did: (post.author as any)?.did || '',
             displayName: (post as any).text || post.author?.displayName || 'Unknown channel',
             description: (post as any).description || '',
-            creator: post.author ? {
-              did: (post.author as any).did || '',
-              handle: post.author.handle || '',
-              displayName: post.author.displayName || '',
-              avatar: post.author.avatar || '',
-            } : {
-              did: '',
-              handle: '',
-            },
+            creator: post.author
+              ? {
+                  did: (post.author as any).did || '',
+                  handle: post.author.handle || '',
+                  displayName: post.author.displayName || '',
+                  avatar: post.author.avatar || '',
+                }
+              : {
+                  did: '',
+                  handle: '',
+                },
             avatar: (post as any).avatar || post.author?.avatar || '',
             likeCount: (post as any).likeCount || 0,
             indexedAt: (post as any).indexedAt || new Date().toISOString(),
@@ -1222,17 +1324,20 @@ const ExploreScreen: React.FC = () => {
         });
         continue;
       }
-      
+
       // Check if this is a profile
       // Profiles from search have post.uri = 'at://${profile.did}/profile' and post.author set
       // But we check for post.author first since that's the reliable indicator
-      if (post.author && (post.uri?.includes('/profile') || !post.uri?.includes('app.bsky.feed.generator'))) {
+      if (
+        post.author &&
+        (post.uri?.includes('/profile') || !post.uri?.includes('app.bsky.feed.generator'))
+      ) {
         const handle = post.author.handle;
         const postText = (post as any).text || '';
         const did = (post.author as any).did || '';
         const cachedProfile = handle ? ProfileCache.getProfileFromCacheSync(handle) : null;
         const followStoreState = followStoreFollows?.get(did);
-        
+
         results.push({
           type: 'profile' as const,
           data: {
@@ -1241,19 +1346,22 @@ const ExploreScreen: React.FC = () => {
             displayName: post.author.displayName || '',
             avatar: post.author.avatar || '',
             description: postText || '',
-            isFollowing: followStoreState?.isFollowing ?? cachedProfile?.isFollowing ?? !!(post as any).viewer?.following,
+            isFollowing:
+              followStoreState?.isFollowing ??
+              cachedProfile?.isFollowing ??
+              !!(post as any).viewer?.following,
           } as Profile,
           relevance: 10 - index,
         });
         continue;
       }
-      
+
       // Check for embedded channels in posts
       if (post.embed?.$type === 'app.bsky.embed.record') {
         const postText = (post as any).text || '';
         const embedRecord = (post.embed as any)?.record;
         const isEmbedChannel = embedRecord?.uri?.includes('app.bsky.feed.generator');
-        
+
         if (isEmbedChannel) {
           const contentMode = embedRecord?.contentMode || embedRecord?.view?.contentMode;
           results.push({
@@ -1263,15 +1371,17 @@ const ExploreScreen: React.FC = () => {
               cid: embedRecord?.cid || post.cid,
               displayName: postText || 'Unknown channel',
               description: postText || '',
-              creator: post.author ? {
-                did: (post.author as any).did || '',
-                handle: post.author.handle || '',
-                displayName: post.author.displayName || '',
-                avatar: post.author.avatar || '',
-              } : {
-                did: '',
-                handle: '',
-              },
+              creator: post.author
+                ? {
+                    did: (post.author as any).did || '',
+                    handle: post.author.handle || '',
+                    displayName: post.author.displayName || '',
+                    avatar: post.author.avatar || '',
+                  }
+                : {
+                    did: '',
+                    handle: '',
+                  },
               indexedAt: (post as any).indexedAt || new Date().toISOString(),
               contentMode,
             } as Channel & { contentMode?: string },
@@ -1281,8 +1391,8 @@ const ExploreScreen: React.FC = () => {
         }
       }
     }
-    
-    const filtered = results.filter((result) => {
+
+    const filtered = results.filter(result => {
       if (result.type === 'channel') {
         const channel = result.data as Channel & { contentMode?: string };
         const contentMode = channel.contentMode;
@@ -1299,7 +1409,7 @@ const ExploreScreen: React.FC = () => {
       }
       return true;
     });
-    
+
     return filtered;
   }, [searchFeedOption, searchFeed, experimentalFeedsEnabled, currentUser, followStoreFollows]);
 
@@ -1316,60 +1426,72 @@ const ExploreScreen: React.FC = () => {
     }
   }, []);
 
-  const saveToVisitHistory = useCallback(async (type: 'profile' | 'channel', data: Profile | Channel) => {
-    try {
-      const { storageHelpers } = await import('../../src/utils/storage');
-      const historyItem = {
-        type,
-        data,
-      };
-      
-      const newHistory = [
-        historyItem,
-        ...visitHistory.filter(item => {
-          if (type === 'profile') {
-            return (item.data as Profile).did !== (data as Profile).did;
-          } else {
-            return (item.data as Channel).uri !== (data as Channel).uri;
-          }
-        })
-      ].slice(0, 20);
-      
-      setVisitHistory(newHistory);
-      await storageHelpers.setItem('visitHistory', JSON.stringify(newHistory));
-    } catch (error) {
-      console.warn('Failed to save visit history:', error);
-    }
-  }, [visitHistory]);
+  const saveToVisitHistory = useCallback(
+    async (type: 'profile' | 'channel', data: Profile | Channel) => {
+      try {
+        const { storageHelpers } = await import('../../src/utils/storage');
+        const historyItem = {
+          type,
+          data,
+        };
 
-  const handleHistoryItemPress = useCallback((item: { type: 'profile' | 'channel'; data: Profile | Channel }) => {
-    if (item.type === 'profile') {
-      navigateToProfile(item.data as Profile, queryClient, router);
-    } else if (item.type === 'channel') {
-      const channel = item.data as Channel;
+        const newHistory = [
+          historyItem,
+          ...visitHistory.filter(item => {
+            if (type === 'profile') {
+              return (item.data as Profile).did !== (data as Profile).did;
+            } else {
+              return (item.data as Channel).uri !== (data as Channel).uri;
+            }
+          }),
+        ].slice(0, 20);
+
+        setVisitHistory(newHistory);
+        await storageHelpers.setItem('visitHistory', JSON.stringify(newHistory));
+      } catch (error) {
+        console.warn('Failed to save visit history:', error);
+      }
+    },
+    [visitHistory]
+  );
+
+  const handleHistoryItemPress = useCallback(
+    (item: { type: 'profile' | 'channel'; data: Profile | Channel }) => {
+      if (item.type === 'profile') {
+        navigateToProfile(item.data as Profile, queryClient, router);
+      } else if (item.type === 'channel') {
+        const channel = item.data as Channel;
+        if (channel.uri) {
+          router.push({
+            pathname: '/channel/[id]',
+            params: { id: channel.uri },
+          });
+        }
+      }
+    },
+    [queryClient, router]
+  );
+
+  const handleProfileNavigation = useCallback(
+    (profile: Profile) => {
+      saveToVisitHistory('profile', profile);
+      navigateToProfile(profile, queryClient, router);
+    },
+    [saveToVisitHistory, queryClient, router]
+  );
+
+  const handleChannelNavigation = useCallback(
+    (channel: Channel) => {
+      saveToVisitHistory('channel', channel);
       if (channel.uri) {
         router.push({
           pathname: '/channel/[id]',
-          params: { id: channel.uri }
+          params: { id: channel.uri },
         });
       }
-    }
-  }, [queryClient, router]);
-
-  const handleProfileNavigation = useCallback((profile: Profile) => {
-    saveToVisitHistory('profile', profile);
-    navigateToProfile(profile, queryClient, router);
-  }, [saveToVisitHistory, queryClient, router]);
-
-  const handleChannelNavigation = useCallback((channel: Channel) => {
-    saveToVisitHistory('channel', channel);
-    if (channel.uri) {
-      router.push({
-        pathname: '/channel/[id]',
-        params: { id: channel.uri }
-      });
-    }
-  }, [saveToVisitHistory, router]);
+    },
+    [saveToVisitHistory, router]
+  );
 
   useEffect(() => {
     loadVisitHistory();
@@ -1399,28 +1521,31 @@ const ExploreScreen: React.FC = () => {
     }
   }, [activeIndex]);
 
-  const getIndicatorStyle = useCallback((tabId: 'recently-visited' | 'profiles' | 'channels') => {
-    const tabIndex = pages.indexOf(tabId);
-    const isActive = tabId === activeTab;
-    
-    const baseProgress = indicatorScrollProgress;
-    let opacity = 0.75;
-    if (isActive) {
-      opacity = 1;
-    } else {
-      const distance = Math.abs(baseProgress - tabIndex);
-      opacity = Math.max(0.3, 1 - distance * 0.4);
-    }
-    
-    return {
-      color: isActive ? Colors.white : 'rgba(255, 255, 255, 0.75)',
-      fontSize: 20,
-      marginRight: 8,
-      fontWeight: 'bold' as const,
-      fontFamily: 'Firma-Black',
-      opacity,
-    };
-  }, [activeTab, pages, indicatorScrollProgress, activeIndex]);
+  const getIndicatorStyle = useCallback(
+    (tabId: 'recently-visited' | 'profiles' | 'channels') => {
+      const tabIndex = pages.indexOf(tabId);
+      const isActive = tabId === activeTab;
+
+      const baseProgress = indicatorScrollProgress;
+      let opacity = 0.75;
+      if (isActive) {
+        opacity = 1;
+      } else {
+        const distance = Math.abs(baseProgress - tabIndex);
+        opacity = Math.max(0.3, 1 - distance * 0.4);
+      }
+
+      return {
+        color: isActive ? Colors.white : 'rgba(255, 255, 255, 0.75)',
+        fontSize: 20,
+        marginRight: 8,
+        fontWeight: 'bold' as const,
+        fontFamily: 'Firma-Black',
+        opacity,
+      };
+    },
+    [activeTab, pages, indicatorScrollProgress, activeIndex]
+  );
 
   const handleIndicatorTap = useCallback((tabId: 'recently-visited' | 'profiles' | 'channels') => {
     setActiveTab(tabId);
@@ -1448,23 +1573,13 @@ const ExploreScreen: React.FC = () => {
     );
     return {
       shadowOpacity,
-      elevation: interpolate(
-        searchProgress.value,
-        [0, 1],
-        [5, 8],
-        Extrapolation.CLAMP
-      ),
+      elevation: interpolate(searchProgress.value, [0, 1], [5, 8], Extrapolation.CLAMP),
     };
   });
 
   const searchResultsAnimatedStyle = useAnimatedStyle(() => {
     const opacity = searchProgress.value;
-    const translateY = interpolate(
-      searchProgress.value,
-      [0, 1],
-      [-20, 0],
-      Extrapolation.CLAMP
-    );
+    const translateY = interpolate(searchProgress.value, [0, 1], [-20, 0], Extrapolation.CLAMP);
     return {
       opacity,
       transform: [{ translateY }],
@@ -1473,22 +1588,12 @@ const ExploreScreen: React.FC = () => {
   });
 
   const searchTabsAnimatedStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(
-      searchProgress.value,
-      [0, 0.5, 1],
-      [0, 0, 1],
-      Extrapolation.CLAMP
-    );
+    const opacity = interpolate(searchProgress.value, [0, 0.5, 1], [0, 0, 1], Extrapolation.CLAMP);
     return { opacity };
   });
 
   const searchContentAnimatedStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(
-      searchProgress.value,
-      [0, 0.5, 1],
-      [0, 0, 1],
-      Extrapolation.CLAMP
-    );
+    const opacity = interpolate(searchProgress.value, [0, 0.5, 1], [0, 0, 1], Extrapolation.CLAMP);
     return { opacity };
   });
 
@@ -1554,16 +1659,6 @@ const ExploreScreen: React.FC = () => {
 
     return unsubscribe;
   }, [navigation, isFocused]);
-  
-
-
-
-
-
-
-
-
-
 
   // Optimized viewabilityConfig
   const viewabilityConfig = useMemo(
@@ -1573,18 +1668,6 @@ const ExploreScreen: React.FC = () => {
     }),
     []
   );
-
-
-
-
-
-
-
-
-
-
-
-
 
   // Fetch orbyt channel details using ChannelCache
   // Memoize getAllChannels() to avoid calling it on every render
@@ -1601,7 +1684,7 @@ const ExploreScreen: React.FC = () => {
       // Use Promise.allSettled instead of Promise.all to prevent blocking on failures
       const channelPromises = orbytChannelUris.map(uri => ChannelCache.getChannel(uri));
       const results = await Promise.allSettled(channelPromises);
-      
+
       // Convert CachedChannel to Channel format, filtering out failures
       const cachedChannels: CachedChannel[] = [];
       for (const result of results) {
@@ -1609,19 +1692,21 @@ const ExploreScreen: React.FC = () => {
           cachedChannels.push(result.value);
         }
       }
-      
-      return cachedChannels.map((cachedChannel): Channel => ({
-        uri: cachedChannel.uri,
-        cid: cachedChannel.cid,
-        did: cachedChannel.did,
-        creator: cachedChannel.creator,
-        displayName: cachedChannel.displayName,
-        description: cachedChannel.description,
-        avatar: cachedChannel.avatar,
-        likeCount: cachedChannel.likeCount || 0,
-        indexedAt: cachedChannel.indexedAt,
-        isExperimental: cachedChannel.isExperimental || false,
-      }));
+
+      return cachedChannels.map(
+        (cachedChannel): Channel => ({
+          uri: cachedChannel.uri,
+          cid: cachedChannel.cid,
+          did: cachedChannel.did,
+          creator: cachedChannel.creator,
+          displayName: cachedChannel.displayName,
+          description: cachedChannel.description,
+          avatar: cachedChannel.avatar,
+          likeCount: cachedChannel.likeCount || 0,
+          indexedAt: cachedChannel.indexedAt,
+          isExperimental: cachedChannel.isExperimental || false,
+        })
+      );
     },
     enabled: orbytChannelUris.length > 0,
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -1637,36 +1722,51 @@ const ExploreScreen: React.FC = () => {
     queryKey: ['spotlightFeed'],
     queryFn: async () => {
       // Get custom spotlight feed
-      const response = await AtprotoService.getFeed(null, 'at://did:plc:l3l3fjuwhv4mh4ih5y7ewrue/app.bsky.feed.generator/aaaiu3akzsv6q', {}, true, 10, 'custom');
+      const response = await AtprotoService.getFeed(
+        null,
+        'at://did:plc:l3l3fjuwhv4mh4ih5y7ewrue/app.bsky.feed.generator/aaaiu3akzsv6q',
+        {},
+        true,
+        10,
+        'custom'
+      );
       let feed = response.feed || [];
-      
+
       // Apply moderation to spotlight videos
       if (feed.length > 0) {
         try {
           // Get agent and currentUser from userStore to pass to moderation
           const { agent, currentUser } = useUserStore.getState();
-          
+
           if (!agent) {
             // Fail-safe: filter out posts with sensitive labels when no agent
             feed = ModerationService.filterSensitiveByLabels(feed) as typeof feed;
           } else {
             // Pass userDid to use React Query cache for faster moderation
-            const moderationResult = await ModerationService.batchModeratePosts(feed, 'contentList', agent, currentUser?.did ?? undefined);
+            const moderationResult = await ModerationService.batchModeratePosts(
+              feed,
+              'contentList',
+              agent,
+              currentUser?.did ?? undefined
+            );
             feed = moderationResult.filteredPosts as typeof feed;
           }
         } catch (error) {
           // Fail-safe: filter out posts with sensitive labels if moderation fails
-          logger.error('Error applying moderation to spotlight videos, applying basic filtering', error, { component: 'explore' });
+          logger.error(
+            'Error applying moderation to spotlight videos, applying basic filtering',
+            error,
+            { component: 'explore' }
+          );
           feed = ModerationService.filterSensitiveByLabels(feed) as typeof feed;
         }
       }
-      
+
       return feed;
     },
     enabled: true,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
-
 
   // Collapsible header setup (custom for Explore)
   const isHeaderVisible = useMemo(
@@ -1681,24 +1781,20 @@ const ExploreScreen: React.FC = () => {
   }, [insets.top, headers]);
 
   // Gradient should be visible when no banner is visible
-  const showTopGradient = useMemo(
-    () => !isHeaderVisible,
-    [isHeaderVisible]
-  );
-
+  const showTopGradient = useMemo(() => !isHeaderVisible, [isHeaderVisible]);
 
   // Create loading items for suggested content
   const loadingSuggestedItems = useMemo(() => {
     const items = [];
-    
+
     // Add header spacer only when no header is visible
     if (!isHeaderVisible) {
       items.push({ type: 'header-spacer' as const, key: 'header-spacer-loading' });
     }
-    
+
     // Add loading indicator
     items.push({ type: 'loading' as const, key: 'loading-indicator' });
-    
+
     return items;
   }, [isHeaderVisible]);
 
@@ -1711,20 +1807,32 @@ const ExploreScreen: React.FC = () => {
       return [];
     }
     const data: ListItem[] = [];
-    
+
     // Add header spacer only when no header is visible
     if (!isHeaderVisible) {
       data.push({ type: 'header-spacer' as const, key: 'header-spacer' });
     }
-    
+
     if (spotlightFeed && spotlightFeed.length > 0) {
       data.push({ type: 'section-header' as const, title: 'spotlight', key: 'spotlight-header' });
-      data.push({ type: 'spotlight-videos' as const, videos: spotlightFeed, key: 'spotlight-videos' });
+      data.push({
+        type: 'spotlight-videos' as const,
+        videos: spotlightFeed,
+        key: 'spotlight-videos',
+      });
     }
     // Add Orbyt Channels section
     if (orbytChannelsData && orbytChannelsData.length > 0) {
-      data.push({ type: 'section-header' as const, title: 'channels', key: 'orbyt-channels-header' });
-      data.push({ type: 'orbyt-channels-section' as const, channels: orbytChannelsData, key: 'orbyt-channels' });
+      data.push({
+        type: 'section-header' as const,
+        title: 'channels',
+        key: 'orbyt-channels-header',
+      });
+      data.push({
+        type: 'orbyt-channels-section' as const,
+        channels: orbytChannelsData,
+        key: 'orbyt-channels',
+      });
     }
     return data;
   })();
@@ -1737,37 +1845,31 @@ const ExploreScreen: React.FC = () => {
 
       {showTopGradient && !isSearching && (
         <View
-          style={[styles.topGradient, { top: 0, height: insets.top + 70 + 40, backgroundColor: Colors.black }]}
+          style={[
+            styles.topGradient,
+            { top: 0, height: insets.top + 70 + 40, backgroundColor: Colors.black },
+          ]}
         />
       )}
 
-      
       {/* Search Bar */}
-      <Pressable
-        onPress={() => searchInputRef.current?.focus()}
-        style={{ zIndex: 30 }}
-      >
+      <Pressable onPress={() => searchInputRef.current?.focus()} style={{ zIndex: 30 }}>
         <Animated.View
           style={[
             styles.searchContainer,
-            Platform.OS === 'ios' && isLiquidGlassAvailable() && styles.searchContainerGlass,
             {
               top: insets.top + 10,
             },
             searchBarAnimatedStyle,
           ]}
         >
-          {Platform.OS === 'ios' && isLiquidGlassAvailable() && (
-            <GlassView
-              style={[StyleSheet.absoluteFill, { borderRadius: 8 }]}
-              glassEffectStyle="clear"
-              tintColor="white"
-              isInteractive
-            />
-          )}
           <View style={styles.searchBarContent} pointerEvents="box-none">
             <View style={styles.searchIconContainer}>
-              <SearchIcon size={24} color={Colors.black} style={{ transform: [{ scale: 1.2 }, { scaleX: -1 }] }} />
+              <SearchIcon
+                size={24}
+                color={Colors.black}
+                style={{ transform: [{ scale: 1.2 }, { scaleX: -1 }] }}
+              />
             </View>
             <TextInput
               ref={searchInputRef}
@@ -1827,19 +1929,19 @@ const ExploreScreen: React.FC = () => {
                 searchTabsAnimatedStyle,
               ]}
             >
-            <View style={styles.indicatorContainer}>
-              {pages.map((tabId) => (
-                <Pressable
-                  key={tabId}
-                  onPress={() => handleIndicatorTap(tabId)}
-                  style={styles.indicatorItem}
-                >
-                  <Text style={getIndicatorStyle(tabId)}>
-                    {SEARCH_TAB_LABELS[tabId] || tabId}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
+              <View style={styles.indicatorContainer}>
+                {pages.map(tabId => (
+                  <Pressable
+                    key={tabId}
+                    onPress={() => handleIndicatorTap(tabId)}
+                    style={styles.indicatorItem}
+                  >
+                    <Text style={getIndicatorStyle(tabId)}>
+                      {SEARCH_TAB_LABELS[tabId] || tabId}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
             </Animated.View>
 
             {/* Tab Content */}
@@ -1850,25 +1952,25 @@ const ExploreScreen: React.FC = () => {
                 searchContentAnimatedStyle,
               ]}
             >
-            <SearchSwipePager
-              activeTab={activeTab}
-              onActiveTabChange={setActiveTab}
-              onScrollProgressChange={setIndicatorScrollProgress}
-              pages={pages}
-              renderTabContent={(tabId) => (
-                <SearchFeedRenderer
-                  feedOption={tabId}
-                  searchResults={searchResults}
-                  onFollow={handleFollow}
-                  isLoading={isSearchLoading}
-                  onProfilePress={handleProfileNavigation}
-                  onChannelPress={handleChannelNavigation}
-                  visitHistory={visitHistory}
-                  onHistoryItemPress={handleHistoryItemPress}
-                  bottomPadding={getBottomNavBarHeight(insets)}
-                />
-              )}
-            />
+              <SearchSwipePager
+                activeTab={activeTab}
+                onActiveTabChange={setActiveTab}
+                onScrollProgressChange={setIndicatorScrollProgress}
+                pages={pages}
+                renderTabContent={tabId => (
+                  <SearchFeedRenderer
+                    feedOption={tabId}
+                    searchResults={searchResults}
+                    onFollow={handleFollow}
+                    isLoading={isSearchLoading}
+                    onProfilePress={handleProfileNavigation}
+                    onChannelPress={handleChannelNavigation}
+                    visitHistory={visitHistory}
+                    onHistoryItemPress={handleHistoryItemPress}
+                    bottomPadding={getBottomNavBarHeight(insets)}
+                  />
+                )}
+              />
             </Animated.View>
           </>
         )}
@@ -1886,291 +1988,301 @@ const ExploreScreen: React.FC = () => {
               <HeaderBanner headers={headers} height={computedHeaderHeight} />
             ) : null
           }
-
           data={listData}
-        keyExtractor={(item: any, index: number) => {
-          if (typeof item === 'string') return `shimmer-${index}`;
-          if (item && typeof item === 'object' && 'type' in item) {
-            const anyItem: any = item as any;
-            if (anyItem.type === 'section-header') return anyItem.key || `${anyItem.title}-${index}`;
-            if (anyItem.type === 'spotlight-videos') return anyItem.key || `spotlight-${index}`;
-            if (anyItem.type === 'video-grid') return anyItem.key || `key-${index}`;
-          }
-          return `item-${index}`;
-        }}
-        renderItem={(params: any) => {
-          const { item } = params;
-          if (typeof item === 'string') {
-            if (item === 'profile') return <ProfileLoading />;
-            if (item === 'channel') return <ChannelLoading />;
-            return null;
-          }
-          if (item.type === 'section-header') {
-            if (!('title' in item) || !item.title) {
-              return <SectionHeaderLoading />;
+          keyExtractor={(item: any, index: number) => {
+            if (typeof item === 'string') return `shimmer-${index}`;
+            if (item && typeof item === 'object' && 'type' in item) {
+              const anyItem: any = item as any;
+              if (anyItem.type === 'section-header')
+                return anyItem.key || `${anyItem.title}-${index}`;
+              if (anyItem.type === 'spotlight-videos') return anyItem.key || `spotlight-${index}`;
+              if (anyItem.type === 'video-grid') return anyItem.key || `key-${index}`;
             }
-            return (
-              <View style={styles.sectionHeader}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  {typeof item.title === 'string' && item.title.toLowerCase().includes('spotlight') ? (
-                    <Text style={styles.sectionTitle}>spotlight</Text>
-                  ) : (
-                    <Text style={styles.sectionTitle}>{item.title}</Text>
-                  )}
-                </View>
-              </View>
-            );
-          }
-          if (item.type === 'header-spacer') {
-            return <HeaderSpacer computedHeaderHeight={computedHeaderHeight} />;
-          }
-          if (item.type === 'loading') {
-            // Calculate available height: screen height - header - bottom nav
-            const screenHeight = Dimensions.get('window').height;
-            const bottomNavHeight = getBottomNavBarHeight(insets);
-            const availableHeight = screenHeight - computedHeaderHeight - bottomNavHeight;
-            
-            return (
-              <View style={[styles.loadingContainer, { minHeight: Math.max(availableHeight, 200) }]}>
-                <Loading3FillIcon size={48} color={Colors.white} />
-              </View>
-            );
-          }
-          if (item.type === 'spotlight-videos') {
-            // Check if this is a loading item (no videos property)
-            if (!('videos' in item)) {
-              return <SpotlightLoading />;
-            }
-            if (!Array.isArray(item.videos)) {
+            return `item-${index}`;
+          }}
+          renderItem={(params: any) => {
+            const { item } = params;
+            if (typeof item === 'string') {
+              if (item === 'profile') return <ProfileLoading />;
+              if (item === 'channel') return <ChannelLoading />;
               return null;
             }
-            return (
-              <View style={styles.spotlightContainer}>
-                <FlatList
-                  data={item.videos}
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.spotlightScrollContainer}
-                  keyExtractor={(video, index) => `spotlight-video-${video?.uri || index}`}
-                  renderItem={({ item: video }) => {
-                    const videoData = video.post || video;
-                    const thumbnailUrl = extractVideoThumbnail(videoData?.embed);
-                    const shouldBlur = !!video.moderationDecision?.blur;
-                    
-                    return (
-                    <Pressable
-                      style={styles.spotlightVideoItem}
-                      onPress={() => {
-                        const videoData = video.post || video;
-                        const videoUri = videoData.uri;
-                        if (videoUri) {
-                          const formattedFeed = item.videos.map((v: any) => {
-                            const vData = v.post || v;
-                            return {
-                              post: vData,
-                              uniqueKey: vData.uri,
-                              moderationDecision: v.moderationDecision,
-                            };
-                          });
-                          feedService.setCurrentFeed(formattedFeed);
-                          const index = formattedFeed.findIndex((v: any) => v.post.uri === videoUri);
-                          const finalIndex = index >= 0 ? index : 0;
-                          router.push({
-                            pathname: '/(modals)/feed',
-                            params: {
-                              initialIndex: finalIndex,
-                              initialUri: videoUri,
-                              feedOption: 'search',
-                              userDid: undefined,
-                              backgroundColor: 'transparent',
-                              secondaryColor: Colors.white,
-                              searchQuery: '',
-                              hasNextPage: 'false',
-                              isFetchingNextPage: 'false',
+            if (item.type === 'section-header') {
+              if (!('title' in item) || !item.title) {
+                return <SectionHeaderLoading />;
+              }
+              return (
+                <View style={styles.sectionHeader}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    {typeof item.title === 'string' &&
+                    item.title.toLowerCase().includes('spotlight') ? (
+                      <Text style={styles.sectionTitle}>spotlight</Text>
+                    ) : (
+                      <Text style={styles.sectionTitle}>{item.title}</Text>
+                    )}
+                  </View>
+                </View>
+              );
+            }
+            if (item.type === 'header-spacer') {
+              return <HeaderSpacer computedHeaderHeight={computedHeaderHeight} />;
+            }
+            if (item.type === 'loading') {
+              // Calculate available height: screen height - header - bottom nav
+              const screenHeight = Dimensions.get('window').height;
+              const bottomNavHeight = getBottomNavBarHeight(insets);
+              const availableHeight = screenHeight - computedHeaderHeight - bottomNavHeight;
+
+              return (
+                <View
+                  style={[styles.loadingContainer, { minHeight: Math.max(availableHeight, 200) }]}
+                >
+                  <Loading3FillIcon size={48} color={Colors.white} />
+                </View>
+              );
+            }
+            if (item.type === 'spotlight-videos') {
+              // Check if this is a loading item (no videos property)
+              if (!('videos' in item)) {
+                return <SpotlightLoading />;
+              }
+              if (!Array.isArray(item.videos)) {
+                return null;
+              }
+              return (
+                <View style={styles.spotlightContainer}>
+                  <FlatList
+                    data={item.videos}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.spotlightScrollContainer}
+                    keyExtractor={(video, index) => `spotlight-video-${video?.uri || index}`}
+                    renderItem={({ item: video }) => {
+                      const videoData = video.post || video;
+                      const thumbnailUrl = extractVideoThumbnail(videoData?.embed);
+                      const shouldBlur = !!video.moderationDecision?.blur;
+
+                      return (
+                        <Pressable
+                          style={styles.spotlightVideoItem}
+                          onPress={() => {
+                            const videoData = video.post || video;
+                            const videoUri = videoData.uri;
+                            if (videoUri) {
+                              const formattedFeed = item.videos.map((v: any) => {
+                                const vData = v.post || v;
+                                return {
+                                  post: vData,
+                                  uniqueKey: vData.uri,
+                                  moderationDecision: v.moderationDecision,
+                                };
+                              });
+                              feedService.setCurrentFeed(formattedFeed);
+                              const index = formattedFeed.findIndex(
+                                (v: any) => v.post.uri === videoUri
+                              );
+                              const finalIndex = index >= 0 ? index : 0;
+                              router.push({
+                                pathname: '/(modals)/feed',
+                                params: {
+                                  initialIndex: finalIndex,
+                                  initialUri: videoUri,
+                                  feedOption: 'search',
+                                  userDid: undefined,
+                                  backgroundColor: 'transparent',
+                                  secondaryColor: Colors.white,
+                                  searchQuery: '',
+                                  hasNextPage: 'false',
+                                  isFetchingNextPage: 'false',
+                                },
+                              });
                             }
+                          }}
+                        >
+                          <View style={styles.spotlightVideoThumbnailContainer}>
+                            <BlurredThumbnailBackground thumbnailUrl={thumbnailUrl} />
+                            {thumbnailUrl ? (
+                              <Image
+                                source={{ uri: thumbnailUrl }}
+                                style={styles.spotlightVideoThumbnail}
+                                contentFit="contain"
+                                cachePolicy="memory-disk"
+                                priority="normal"
+                                transition={200}
+                              />
+                            ) : (
+                              <View style={styles.spotlightVideoThumbnailPlaceholder}>
+                                <Icon name="videocam" size={16} color={Colors.gray} />
+                              </View>
+                            )}
+                            {shouldBlur && (
+                              <View style={styles.spotlightWarningOverlay}>
+                                <Text style={styles.spotlightWarningText}>
+                                  {video.moderationDecision?.reason || 'Content Warning'}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                        </Pressable>
+                      );
+                    }}
+                  />
+                </View>
+              );
+            }
+            if (
+              (item.type === 'profile' || item.type === 'channel' || item.type === 'video') &&
+              !('data' in item)
+            ) {
+              if (item.type === 'profile') return <ProfileLoading />;
+              if (item.type === 'channel') return <ChannelLoading />;
+              return null;
+            }
+            if (item.type === 'profile' && 'data' in item) {
+              const profile = item.data as Profile;
+              return (
+                <View style={styles.profileItem}>
+                  <Pressable
+                    style={styles.profileTouchable}
+                    onPress={() => {
+                      if (profile.handle) {
+                        const handle = profile.handle.trim();
+                        if (handle && handle.trim()) {
+                          // Pre-populate cache with available profile data
+                          prepopulateProfileCache(
+                            queryClient,
+                            {
+                              did: profile.did,
+                              handle: handle.trim(),
+                              displayName: profile.displayName,
+                              avatar: profile.avatar,
+                              description: profile.description,
+                            },
+                            handle.trim()
+                          );
+
+                          // Still prefetch to get latest data, but navigation is instant
+                          queryClient
+                            .prefetchQuery({
+                              queryKey: profileKeys.detail(handle.trim()),
+                              queryFn: () => ProfileCache.getProfile(handle.trim()),
+                              staleTime: ProfileCache.cacheExpiry,
+                            })
+                            .finally(() => {
+                              const target = handle.trim();
+                              if (target) {
+                                router.push({
+                                  pathname: '/profile/[did]',
+                                  params: { did: target },
+                                });
+                              }
+                            });
+                        }
+                      }
+                    }}
+                  >
+                    <Avatar
+                      uri={profile.avatar}
+                      type="profile"
+                      size={48}
+                      ringColor="transparent"
+                      style={styles.profileImage}
+                    />
+                    <View style={styles.profileContent}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Text style={styles.displayName} numberOfLines={1}>
+                          {formatHandle(profile.handle) || 'Unknown user'}
+                        </Text>
+                        {profile.handle && profile.handle.trim() && profile.handle.length > 0 && (
+                          <VerificationBadge
+                            handle={profile.handle.trim()}
+                            textSize={16}
+                            textColor={Colors.white}
+                          />
+                        )}
+                      </View>
+                    </View>
+                  </Pressable>
+                  {!(
+                    ProfileCache.getProfileFromCacheSync(profile.handle || '')?.isFollowing ??
+                    profile.isFollowing
+                  ) &&
+                    !isCurrentUser(profile.did, profile.handle, currentUser) && (
+                      <Pressable
+                        style={({ pressed }) => [styles.followButton, pressed && { opacity: 0.8 }]}
+                        onPress={() => handleFollow(profile)}
+                      >
+                        <FollowIcon size={16} color={Colors.black} />
+                      </Pressable>
+                    )}
+                </View>
+              );
+            }
+            if (item.type === 'popular-channels-section') {
+              if (!('channels' in item) || !Array.isArray(item.channels)) {
+                return <PopularChannelsLoading />;
+              }
+              return (
+                <View>
+                  {item.channels.map((channel: Channel, index: number) => (
+                    <PopularChannelItem
+                      key={`popular-channel-${channel.uri || channel.cid || index}-${index}`}
+                      channel={channel}
+                      onPress={() => {
+                        if (channel.uri && channel.uri.trim()) {
+                          // Navigate to channel using Expo Router
+                          router.push({
+                            pathname: '/channel/[id]',
+                            params: { id: channel.uri.trim() },
                           });
                         }
                       }}
-                    >
-                      <View style={styles.spotlightVideoThumbnailContainer}>
-                        <BlurredThumbnailBackground thumbnailUrl={thumbnailUrl} />
-                        {thumbnailUrl ? (
-                          <Image
-                            source={{ uri: thumbnailUrl }}
-                            style={styles.spotlightVideoThumbnail}
-                            contentFit="contain"
-                            cachePolicy="memory-disk"
-                            priority="normal"
-                            transition={200}
-                          />
-                        ) : (
-                          <View style={styles.spotlightVideoThumbnailPlaceholder}>
-                            <Icon name="videocam" size={16} color={Colors.gray} />
-                          </View>
-                        )}
-                        {shouldBlur && (
-                          <View style={styles.spotlightWarningOverlay}>
-                            <Text style={styles.spotlightWarningText}>
-                              {video.moderationDecision?.reason || 'Content Warning'}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                    </Pressable>
-                    );
-                  }}
-                />
-              </View>
-            );
-          }
-          if (
-            (item.type === 'profile' || item.type === 'channel' || item.type === 'video') &&
-            !("data" in item)
-          ) {
-            if (item.type === 'profile') return <ProfileLoading />;
-            if (item.type === 'channel') return <ChannelLoading />;
-            return null;
-          }
-          if (item.type === 'profile' && "data" in item) {
-            const profile = item.data as Profile;
-            return (
-              <View style={styles.profileItem}>
-                <Pressable
-                  style={styles.profileTouchable}
-                  onPress={() => {
-                    if (profile.handle) {
-                      const handle = profile.handle.trim();
-                      if (handle && handle.trim()) {
-                        // Pre-populate cache with available profile data
-                        prepopulateProfileCache(queryClient, {
-                          did: profile.did,
-                          handle: handle.trim(),
-                          displayName: profile.displayName,
-                          avatar: profile.avatar,
-                          description: profile.description,
-                        }, handle.trim());
-                        
-                        // Still prefetch to get latest data, but navigation is instant
-                        queryClient.prefetchQuery({
-                          queryKey: profileKeys.detail(handle.trim()),
-                          queryFn: () => ProfileCache.getProfile(handle.trim()),
-                          staleTime: ProfileCache.cacheExpiry
-                        }).finally(() => {
-                          const target = handle.trim();
-                          if (target) { 
-                            router.push({
-                              pathname: '/profile/[did]',
-                              params: { did: target }
-                            });
-                          }
-                        });
-                      }
-                    }
-                  }}
-                >
-                  <Avatar
-                    uri={profile.avatar}
-                    type="profile"
-                    size={48}
-                    ringColor="transparent"
-                    style={styles.profileImage}
-                  />
-                  <View style={styles.profileContent}>
-                    <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                      <Text style={styles.displayName} numberOfLines={1}>
-                        {formatHandle(profile.handle) || 'Unknown user'}
-                      </Text>
-                      {profile.handle && profile.handle.trim() && profile.handle.length > 0 && (
-                        <VerificationBadge 
-                          handle={profile.handle.trim()} 
-                          textSize={16} 
-                          textColor={Colors.white}
-                        />
-                      )}
-                    </View>
-                  </View>
-                </Pressable>
-                {!(ProfileCache.getProfileFromCacheSync(profile.handle || '')?.isFollowing ?? profile.isFollowing) && !isCurrentUser(profile.did, profile.handle, currentUser) && (
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.followButton,
-                      pressed && { opacity: 0.8 }
-                    ]}
-                    onPress={() => handleFollow(profile)}
-                  >
-                    <FollowIcon size={16} color={Colors.black} />
-                  </Pressable>
-                )}
-              </View>
-            );
-          }
-          if (item.type === 'popular-channels-section') {
-            if (!('channels' in item) || !Array.isArray(item.channels)) {
-              return <PopularChannelsLoading />;
-            }
-            return (
-              <View>
-                {item.channels.map((channel: Channel, index: number) => (
-                  <PopularChannelItem
-                    key={`popular-channel-${channel.uri || channel.cid || index}-${index}`}
-                    channel={channel}
-                    onPress={() => {
-                      if (channel.uri && channel.uri.trim()) {
-                        // Navigate to channel using Expo Router
-                        router.push({
-                        pathname: '/channel/[id]',
-                        params: { id: channel.uri.trim() }
-                      });
-                      }
-                    }}
-                  />
-                ))}
-              </View>
-            );
-          }
-          if (item.type === 'orbyt-channels-section') {
-            if (!('channels' in item) || !Array.isArray(item.channels)) {
-              return <PopularChannelsLoading />;
-            }
-            
-            return <OrbytChannelsGrid channels={item.channels} router={router} />;
-          }
-          return null;
-        }}
-        contentContainerStyle={[
-          styles.listContainer, 
-          { 
-            paddingBottom: bottomPadding
-          }
-        ]}
-        showsVerticalScrollIndicator={false}
-        bounces={true}
-        scrollEventThrottle={16}
-        onEndReached={() => {
-          // No pagination for explore content
-        }}
-        onEndReachedThreshold={0.5}
-        removeClippedSubviews={false}
-        viewabilityConfig={viewabilityConfig}
-        ListEmptyComponent={() => {
-          if (!(isLoadingSpotlightFeed || isLoadingOrbytChannels)) {
-            if (spotlightFeedError || orbytChannelsError) {
-              return (
-                <EmptyFeed 
-                  type="no-connection" 
-                  onRetry={() => {
-                    refetchSpotlightFeed();
-                    refetchOrbytChannels();
-                  }}
-                />
+                    />
+                  ))}
+                </View>
               );
             }
-            return (
-              <EmptyFeed type="no-videos" />
-            );
-          }
-          return null;
-        }}
+            if (item.type === 'orbyt-channels-section') {
+              if (!('channels' in item) || !Array.isArray(item.channels)) {
+                return <PopularChannelsLoading />;
+              }
+
+              return <OrbytChannelsGrid channels={item.channels} router={router} />;
+            }
+            return null;
+          }}
+          contentContainerStyle={[
+            styles.listContainer,
+            {
+              paddingBottom: bottomPadding,
+            },
+          ]}
+          showsVerticalScrollIndicator={false}
+          bounces={true}
+          scrollEventThrottle={16}
+          onEndReached={() => {
+            // No pagination for explore content
+          }}
+          onEndReachedThreshold={0.5}
+          removeClippedSubviews={false}
+          viewabilityConfig={viewabilityConfig}
+          ListEmptyComponent={() => {
+            if (!(isLoadingSpotlightFeed || isLoadingOrbytChannels)) {
+              if (spotlightFeedError || orbytChannelsError) {
+                return (
+                  <EmptyFeed
+                    type="no-connection"
+                    onRetry={() => {
+                      refetchSpotlightFeed();
+                      refetchOrbytChannels();
+                    }}
+                  />
+                );
+              }
+              return <EmptyFeed type="no-videos" />;
+            }
+            return null;
+          }}
         />
       </Animated.View>
     </View>
@@ -2300,8 +2412,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
   },
-  gridChannelItem: {
-  },
+  gridChannelItem: {},
   gridChannelThumbnail: {
     position: 'relative',
     width: '100%',
@@ -2453,8 +2564,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: 'Firma-SemiBold',
   },
-
-
 
   spotlightTitle: {
     color: Colors.orange,
@@ -2631,13 +2740,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Firma-Regular',
   },
 
-  searchContainerGlass: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 8,
-  },
-
   searchTabsContainer: {
     position: 'absolute',
     left: 0,
@@ -2734,11 +2836,6 @@ const styles = StyleSheet.create({
   searchContentWrapper: {
     flex: 1,
   },
-
 });
 
 export default ExploreScreen;
-
-
-
-

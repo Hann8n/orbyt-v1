@@ -2,7 +2,7 @@
 import 'event-target-polyfill';
 
 // Polyfill Intl.Segmenter for @atproto/lex-data (used by @atproto/api RichText)
-import '@formatjs/intl-segmenter/polyfill';
+import '@formatjs/intl-segmenter/polyfill.js';
 
 // Polyfill global.Buffer for node libraries that expect it (e.g., multiformats)
 // The 'buffer' package is included in package.json already.
