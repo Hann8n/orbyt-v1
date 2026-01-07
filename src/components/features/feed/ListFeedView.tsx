@@ -536,32 +536,26 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     // Snapping configuration - memoized to prevent recalculation (always compute)
     const snapToIntervalValue = useMemo(() => cardHeight + CONSTANTS.ITEM_MARGIN, [cardHeight]);
 
-    // Custom snap offsets - computed directly each render (simple enough to not need caching)
-    // Needed for TikTok-like snapping between header and footer
-    const topInset = viewportDimensions.effectiveInsets.top;
-    const hasHeader = Boolean(headerComponent);
+    // Custom snap offsets - memoized to prevent recalculation
+    // Use snapToInterval for small devices (full screen displays)
+    const topInset = useMemo(() => insets.top, [insets.top]);
+    const hasHeader = useMemo(() => Boolean(headerComponent), [headerComponent]);
 
-    // Calculate snap offsets directly (no caching to avoid setState in effects)
     const snapToOffsets = useMemo(() => {
-      if (isSmallDevice && !hasHeader) return null;
+      if (isSmallDevice) return null;
 
       const itemHeightWithMargin = cardHeight + CONSTANTS.ITEM_MARGIN;
-      const currentLength = listData.length;
-
-      // Helper: calculate offset for item at index
-      const getOffset = (i: number): number => {
-        if (hasHeader && headerHeight > 0 && cardHeight > 0) {
-          const base = Math.max(0, headerHeight - (!isSmallDevice ? topInset : 0));
-          return base + i * itemHeightWithMargin;
-        }
-        return i * itemHeightWithMargin - topInset;
-      };
-
-      // Compute all offsets
       const offsets: number[] = hasHeader ? [0] : [];
-      for (let i = 0; i < currentLength; i++) {
-        offsets.push(getOffset(i));
+
+      for (let i = 0; i < listData.length; i++) {
+        if (hasHeader && headerHeight > 0 && cardHeight > 0) {
+          const base = Math.max(0, headerHeight - topInset);
+          offsets.push(base + i * itemHeightWithMargin);
+        } else {
+          offsets.push(i * itemHeightWithMargin - topInset);
+        }
       }
+
       return offsets;
     }, [headerHeight, cardHeight, listData.length, topInset, isSmallDevice, hasHeader]);
 
