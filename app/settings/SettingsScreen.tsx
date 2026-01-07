@@ -19,7 +19,6 @@ import { useRouter } from 'expo-router';
 import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalModals';
 import ProfileService from '../../src/services/data/ProfileService';
 import ChannelService from '../../src/services/data/ChannelService';
-import { FeedService } from '../../src/services/api/feed/FeedService';
 
 const SettingsScreen: React.FC = () => {
   const router = useRouter();
@@ -198,39 +197,6 @@ const SettingsScreen: React.FC = () => {
     Linking.openURL(`mailto:${email}`).catch(() => {});
   };
 
-  const handleTestFeedInteractions = async () => {
-    Alert.alert(
-      'Test Feed Interactions',
-      'This will test the sendFeedInteractions API endpoint with a sample interaction.',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Test',
-          style: 'default',
-          onPress: async () => {
-            try {
-              const result = await FeedService.testSendFeedInteractions();
-              if (result.success) {
-                Alert.alert('Success', 'Feed interactions endpoint is working correctly!');
-              } else {
-                Alert.alert(
-                  'Test Failed',
-                  `Error: ${result.error}\n\nDetails: ${JSON.stringify(result.details || {}, null, 2)}`
-                );
-              }
-            } catch (error) {
-              const errorMessage = error instanceof Error ? error.message : String(error);
-              Alert.alert('Error', `Failed to test: ${errorMessage}`);
-            }
-          },
-        },
-      ]
-    );
-  };
-
   const appVersion = Constants.expoConfig?.version || '1.0.0';
 
   const settingsSections = [
@@ -358,16 +324,6 @@ const SettingsScreen: React.FC = () => {
     {
       title: 'Troubleshooting',
       items: [
-        ...(__DEV__
-          ? [
-              {
-                id: 'test-feed-interactions',
-                label: 'Test Feed Interactions API',
-                onPress: handleTestFeedInteractions,
-                showChevron: false,
-              },
-            ]
-          : []),
         {
           id: 'clear-cache',
           label: 'Clear cache',

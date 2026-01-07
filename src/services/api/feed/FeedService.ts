@@ -965,46 +965,6 @@ export class FeedService {
    * Accepts Interaction[] array directly from ATProto SDK types
    * @param interactions - Array of Interaction objects to send
    */
-  /**
-   * Test function to manually test sendFeedInteractions endpoint
-   * Can be called from settings or console for debugging
-   */
-  static async testSendFeedInteractions(): Promise<{
-    success: boolean;
-    error?: string;
-    details?: unknown;
-  }> {
-    try {
-      // Create a test interaction with a known post URI
-      const testInteraction: Interaction = {
-        $type: 'app.bsky.feed.defs#interaction',
-        item: 'at://did:plc:example/app.bsky.feed.post/example',
-        event: 'app.bsky.feed.defs#interactionSeen' as const,
-      };
-
-      await this.sendFeedInteractions([testInteraction]);
-      return { success: true };
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      const details: Record<string, unknown> = {};
-
-      // Check for XRPCError properties without using instanceof
-      if (error && typeof error === 'object') {
-        const err = error as Record<string, unknown>;
-        if ('status' in err) details.status = err.status;
-        if ('error' in err) details.error = err.error;
-        if ('message' in err) details.message = err.message;
-        if ('name' in err) details.name = err.name;
-      }
-
-      return {
-        success: false,
-        error: errorMessage,
-        details: Object.keys(details).length > 0 ? details : undefined,
-      };
-    }
-  }
-
   static async sendFeedInteractions(interactions: Interaction[]): Promise<void> {
     if (!interactions || interactions.length === 0) {
       return;
