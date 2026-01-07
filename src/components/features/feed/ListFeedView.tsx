@@ -181,10 +181,8 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     );
     const lastScrollOffset = useRef(0);
     const positionSaveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-    // Track current scroll offset to initialize blocking state correctly
+    // Track current scroll offset
     const currentScrollOffsetRef = useRef<number>(0);
-    // Track blocking state in ref to avoid state updates on every scroll
-    const isHeaderBlockingRef = useRef<boolean>(false);
     // Track requestAnimationFrame ID for header blocking updates
     const headerBlockingUpdateFrameRef = useRef<number | null>(null);
 
@@ -230,23 +228,26 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         isActive: Boolean(isVisible),
       });
 
-    // Track scroll-based blocking state in state (updated by scroll handler)
-    // Compute final blocking state in render from current conditions
-    const [scrollBasedBlocking, setScrollBasedBlocking] = useState(false);
+    // Track scroll-based blocking state (updated by scroll handler)
+    // Initialize to true if header exists (assume at top on mount)
+    const [scrollBasedBlocking, setScrollBasedBlocking] = useState(() => Boolean(headerComponent));
+    const prevHeaderComponentRef = useRef(headerComponent);
 
-    // Reset scroll offset when header component changes (ref updates are fine in effects)
+    // Reset scroll offset ref when header component changes (refs are safe in effects)
+    // State reset is handled in scroll handler to avoid setState in effect
     useEffect(() => {
-      if (!headerComponent) {
+      const prev = prevHeaderComponentRef.current;
+      prevHeaderComponentRef.current = headerComponent;
+      if (prev !== headerComponent) {
         currentScrollOffsetRef.current = 0;
       }
     }, [headerComponent]);
 
-    // Compute final blocking state directly in render (derived state)
+    // Compute final blocking state in render
     const isHeaderBlockingPlayback = useMemo(() => {
       if (!headerComponent || !isVisible || viewMode !== 'list') {
         return false;
       }
-      // Use scroll-based blocking from state (updated by scroll handler)
       return scrollBasedBlocking;
     }, [headerComponent, isVisible, viewMode, scrollBasedBlocking]);
 
@@ -360,16 +361,16 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         // Track current scroll offset for state initialization
         currentScrollOffsetRef.current = offsetY;
 
-        // Simplified header blocking: block if scroll is less than threshold from top
-        // Update state directly (allowed in event handlers, not effects)
-        if (headerComponent) {
+        // Update header blocking state: block if scroll is less than threshold from top
+        // Also handle header component changes (reset handled in scroll handler to avoid setState in effect)
+        if (!headerComponent) {
+          if (scrollBasedBlocking) {
+            setScrollBasedBlocking(false);
+          }
+        } else {
           const isBlocking = offsetY < CONSTANTS.HEADER_BLOCKING_THRESHOLD;
-
-          // Only update state if blocking state actually changed
           if (isBlocking !== scrollBasedBlocking) {
             setScrollBasedBlocking(isBlocking);
-            // Update ref for scroll handler comparisons (allowed in event handlers)
-            isHeaderBlockingRef.current = isBlocking;
           }
         }
 
