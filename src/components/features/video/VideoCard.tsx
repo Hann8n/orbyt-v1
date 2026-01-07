@@ -43,6 +43,7 @@ import { getChannelBySlug } from '../../../utils/channels/orbyt';
 import { VideoScrubber } from './VideoScrubber';
 import { logger } from '../../../utils/logger';
 import { useOverlayVisibility } from '../../../context/FeedIndicatorContext';
+import { hexToRGBA } from '../../../utils/formatting/colors';
 import type { ExtendedPostView, ExtendedFeedViewPost } from '../../../services/api/types';
 import type { ModerationDecision } from '../../../services/moderation/ModerationTypes';
 
@@ -359,7 +360,7 @@ const VideoCard = memo(
             return 0;
           },
         }),
-        [player, shouldPlayVideo, togglePlayback, seek]
+        [player, shouldPlayVideo, togglePlayback, seek, setVideoState, videoState.userPaused]
       );
 
       // Track previous shouldDisablePlayback to detect when overlay blocking is removed
@@ -670,6 +671,8 @@ const VideoCard = memo(
 
       // Handle long press to show comments
       const handleLongPress = useCallback(() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
         // Clear any pending single tap
         if (singleTapTimeoutRef.current) {
           clearTimeout(singleTapTimeoutRef.current);
@@ -695,6 +698,9 @@ const VideoCard = memo(
         overlayState.isLikePending,
         presentCommentSection,
         handleLike,
+        postView.replyCount,
+        postView.record,
+        postView.indexedAt,
       ]);
 
       // Cleanup timeout on unmount
@@ -819,7 +825,7 @@ const VideoCard = memo(
           <Pressable
             onPress={handleVideoTap}
             onLongPress={handleLongPress}
-            delayLongPress={400}
+            delayLongPress={200}
             style={styles.videoContainerPressable}
           >
             <View style={styles.videoContainer}>
@@ -864,7 +870,7 @@ const VideoCard = memo(
                     'transparent',
                   ]}
                   locations={[0, 0.4, 0.6, 1]}
-                  style={{ flex: 1 }}
+                  style={styles.gradientFill}
                   pointerEvents="none"
                   start={{ x: 0, y: 1 }}
                   end={{ x: 0, y: 0 }}
@@ -962,7 +968,7 @@ const styles = StyleSheet.create({
     width: '100%',
     position: 'relative',
     overflow: 'hidden',
-    backgroundColor: '#000000', // Fallback background color
+    backgroundColor: Colors.black, // Fallback background color
   },
   videoContainerPressable: {
     width: '100%',
@@ -995,13 +1001,13 @@ const styles = StyleSheet.create({
   },
 
   loadingText: {
-    color: 'white',
+    color: Colors.white,
     marginTop: 10,
     fontSize: 12,
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: hexToRGBA(Colors.black, 0.7),
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 5,
@@ -1070,9 +1076,12 @@ const styles = StyleSheet.create({
     bottom: 0,
     zIndex: 3,
   },
+  gradientFill: {
+    flex: 1,
+  },
   dimmingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: hexToRGBA(Colors.black, 0.4),
     zIndex: 5,
     pointerEvents: 'none', // Allow touch events to pass through when not dimmed
   },
