@@ -73,7 +73,7 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
         // The savedAccounts are now managed by the user store, so we don't need to fetch them here
         // unless we want to re-render the component to show them immediately after login.
         // For now, we'll rely on the user store's initial state.
-      } catch (error) {
+      } catch (_error) {
         // Silently handle error checking saved accounts
       }
     };
@@ -82,6 +82,8 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
 
   const handleSavedAccountLogin = async (account: SavedAccount) => {
     setIsLoading(true);
+    setOAuthError(null);
+    clearAuthError();
 
     try {
       // First check if the account has a valid session

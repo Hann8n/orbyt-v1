@@ -30,6 +30,8 @@ export function SessionProvider({ children }: PropsWithChildren) {
   // Get auth state from Zustand store
   const isAuthenticated = useUserStore(state => state.isAuthenticated);
   const isAuthenticating = useUserStore(state => state.isAuthenticating);
+  const isSwitchingAccount = useUserStore(state => state.isSwitchingAccount);
+  const activeAccountDid = useUserStore(state => state.activeAccountDid);
   const signIn = useUserStore(state => state.signIn);
   const signOut = useUserStore(state => state.signOut);
 
@@ -40,8 +42,9 @@ export function SessionProvider({ children }: PropsWithChildren) {
         signOut: () => {
           signOut(false);
         },
-        session: isAuthenticated ? 'authenticated' : null,
-        isLoading: isAuthenticating,
+        // Use active DID as session key so Stack.Protected stays mounted during switches
+        session: isAuthenticated && activeAccountDid ? activeAccountDid : null,
+        isLoading: isAuthenticating || isSwitchingAccount,
       }}
     >
       {children}

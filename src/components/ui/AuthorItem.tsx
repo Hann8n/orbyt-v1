@@ -1,10 +1,10 @@
 import React, { useCallback } from 'react';
 import { BORDER_RADIUS } from '../../utils/constants';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, StyleProp, ViewStyle } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Avatar } from './UI';
 import VerificationBadge from '../features/badging/VerificationBadge';
-import Icon, { FollowIcon, CheckIcon } from './Icon';
+import Icon, { FollowIcon, CheckIcon, Loading3FillIcon } from './Icon';
 import { hexToRGBA } from '../../utils/formatting/colors';
 import { Colors } from './UI';
 import UI from './UI';
@@ -22,7 +22,7 @@ interface AuthorItemProps {
   size?: 'small' | 'medium' | 'large';
   showArrow?: boolean;
   onPress?: () => void;
-  style?: any;
+  style?: StyleProp<ViewStyle>;
   showDate?: boolean;
   date?: string;
   showFollowButton?: boolean;
@@ -48,7 +48,40 @@ interface AuthorItemProps {
   showDeleteButton?: boolean;
   onDeletePress?: () => void;
   showCheckmark?: boolean;
+  showCheckmarkSpinner?: boolean;
 }
+
+interface StatusIconButtonProps {
+  variant?: 'success' | 'error';
+  size?: number;
+  children: React.ReactNode;
+}
+
+export const StatusIconButton: React.FC<StatusIconButtonProps> = ({
+  variant = 'success',
+  size = 32,
+  children,
+}) => {
+  const backgroundColor =
+    variant === 'success'
+      ? hexToRGBA(Colors.lightGreen, 0.1)
+      : hexToRGBA(UI.Colors.STATUS.ERROR, 0.1);
+
+  return (
+    <View
+      style={[
+        styles.statusIconButton,
+        {
+          width: size,
+          height: size,
+          backgroundColor,
+        },
+      ]}
+    >
+      {children}
+    </View>
+  );
+};
 
 const AuthorItem: React.FC<AuthorItemProps> = ({
   handle,
@@ -63,13 +96,14 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   showFollowButton = false,
   isFollowing = false,
   onFollowPress,
-  nameFontWeight = 'Firma-Bold',
+  nameFontWeight = 'Firma-Black',
   hideDisplayName,
   showRing,
   customFontSize,
   showDeleteButton = false,
   onDeletePress,
   showCheckmark = false,
+  showCheckmarkSpinner = false,
 }) => {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -80,22 +114,22 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
       avatarSize: 32,
       textSize: 12,
       badgeTextSize: 12,
-      nameFontSize: 13,
-      handleFontSize: 10,
+      nameFontSize: 14,
+      handleFontSize: 11,
     },
     medium: {
       avatarSize: 40,
       textSize: 14,
       badgeTextSize: 14,
-      nameFontSize: 15,
-      handleFontSize: 12,
+      nameFontSize: 16,
+      handleFontSize: 13,
     },
     large: {
       avatarSize: 48,
       textSize: 16,
       badgeTextSize: 16,
-      nameFontSize: 17,
-      handleFontSize: 14,
+      nameFontSize: 18,
+      handleFontSize: 15,
     },
   };
 
@@ -203,13 +237,19 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
             )}
           </Pressable>
         ) : showDeleteButton ? (
-          <Pressable style={styles.deleteButton} onPress={onDeletePress}>
-            <Icon name="delete-2-fill" size={16} color={UI.Colors.STATUS.ERROR} />
+          <Pressable onPress={onDeletePress}>
+            <StatusIconButton variant="error">
+              <Icon name="delete-2-fill" size={16} color={UI.Colors.STATUS.ERROR} />
+            </StatusIconButton>
           </Pressable>
+        ) : showCheckmarkSpinner ? (
+          <StatusIconButton variant="success">
+            <Loading3FillIcon size={20} color={Colors.lightGreen} />
+          </StatusIconButton>
         ) : showCheckmark ? (
-          <View style={styles.checkmarkButton}>
+          <StatusIconButton variant="success">
             <CheckIcon size={16} color={Colors.lightGreen} strokeWidth={2} />
-          </View>
+          </StatusIconButton>
         ) : (
           showArrow && (
             <View style={styles.accountArrow}>
@@ -252,9 +292,9 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   accountHandle: {
-    color: Colors.lightGray,
+    color: Colors.mutedGray,
     fontSize: 14,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Firma-Medium',
   },
   accountArrow: {
     marginLeft: 8,
@@ -290,17 +330,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
-  deleteButton: {
+  statusIconButton: {
     padding: 8,
-    backgroundColor: hexToRGBA(UI.Colors.STATUS.ERROR, 0.1),
-    borderRadius: BORDER_RADIUS.SMALL,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 8,
-  },
-  checkmarkButton: {
-    padding: 8,
-    backgroundColor: hexToRGBA(Colors.lightGreen, 0.1),
     borderRadius: BORDER_RADIUS.SMALL,
     justifyContent: 'center',
     alignItems: 'center',

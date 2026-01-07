@@ -7,6 +7,36 @@
 import type { ApiClient, Session } from './types';
 
 /**
+ * Small helper to wait until the userStore finishes auth/switching and exposes an agent.
+ * This prevents request spam and avoids throwing during session transitions.
+ */
+async function waitForAgent(timeoutMs: number = 6000): Promise<{ api: unknown } | null> {
+  const { useUserStore } = await import('../../stores/userStore');
+  const start = Date.now();
+
+  return new Promise(resolve => {
+    const checkAndResolve = (state = useUserStore.getState()) => {
+      if (state.agent) {
+        unsubscribe();
+        resolve({ api: state.agent.api });
+        return;
+      }
+
+      const elapsed = Date.now() - start;
+      const readyState = !state.isAuthenticating && !state.isSwitchingAccount;
+      if (readyState || elapsed >= timeoutMs) {
+        unsubscribe();
+        resolve(null);
+      }
+    };
+
+    const unsubscribe = useUserStore.subscribe(checkAndResolve);
+    // Immediate check in case agent already exists
+    checkAndResolve();
+  });
+}
+
+/**
  * Core service providing shared API client and session management
  * This is imported by namespace services instead of AtprotoService to avoid cycles
  */
@@ -17,19 +47,18 @@ export class AtprotoCore {
    * queries fire at once
    */
   static async ensureSession(): Promise<Session> {
-    // Since we now get the agent from userStore in getApiClient,
-    // this method just needs to verify that we have a valid session
     try {
-      const { useUserStore } = await import('../../stores/userStore').catch(error => {
-        // If dynamic import fails, throw a more descriptive error
-        throw new Error(
-          `Failed to import userStore: ${error instanceof Error ? error.message : String(error)}`
-        );
-      });
-      const userStore = useUserStore.getState();
+      const { useUserStore } = await import('../../stores/userStore');
+      const state = useUserStore.getState();
 
-      if (userStore.agent && userStore.currentUser?.did) {
-        return { did: userStore.currentUser.did, type: 'oauth' };
+      if (state.agent && state.currentUser?.did) {
+        return { did: state.currentUser.did, type: 'oauth' };
+      }
+
+      // Wait briefly if a session is being restored/switched
+      const waited = await waitForAgent();
+      if (waited && useUserStore.getState().currentUser?.did) {
+        return { did: useUserStore.getState().currentUser!.did!, type: 'oauth' };
       }
 
       throw new Error('No valid session found');
@@ -64,22 +93,17 @@ export class AtprotoCore {
    */
   static async getApiClient(): Promise<ApiClient> {
     try {
-      // Import userStore to get the current agent
-      const { useUserStore } = await import('../../stores/userStore').catch(error => {
-        // If dynamic import fails, throw a more descriptive error
-        throw new Error(
-          `Failed to import userStore: ${error instanceof Error ? error.message : String(error)}`
-        );
-      });
-      const userStore = useUserStore.getState();
+      const { useUserStore } = await import('../../stores/userStore');
+      const state = useUserStore.getState();
 
-      // Check if session restoration is in progress
-      if (userStore.isAuthenticating || userStore.isSwitchingAccount) {
-        throw new Error('Session restoration in progress');
+      if (state.agent) {
+        return { api: state.agent.api, isOAuth: true };
       }
 
-      if (userStore.agent) {
-        return { api: userStore.agent.api, isOAuth: true };
+      // Wait for the session to finish restoring/switching before failing
+      const waited = await waitForAgent();
+      if (waited) {
+        return { api: waited.api, isOAuth: true };
       }
 
       throw new Error('No API client available');

@@ -66,6 +66,8 @@ interface UserState {
   isAuthenticated: boolean;
   isAuthenticating: boolean;
   isSwitchingAccount: boolean; // Loading state for account switching
+  switchingToHandle: string | null;
+  switchingToAvatar?: string | null;
   authError: string | null;
 
   // Account management - using DIDs for all operations
@@ -238,6 +240,8 @@ export const useUserStore = create<UserState>()(
       isAuthenticated: false,
       isAuthenticating: false,
       isSwitchingAccount: false,
+      switchingToHandle: null,
+      switchingToAvatar: null,
       authError: null,
       savedAccounts: [],
       activeAccountDid: null,
@@ -364,6 +368,8 @@ export const useUserStore = create<UserState>()(
             currentUser: null,
             isAuthenticated: false,
             isAuthenticating: false,
+            switchingToHandle: null,
+            switchingToAvatar: null,
             authError: null,
             oauthSession: null,
             agent: undefined, // Use undefined to match API expectations
@@ -443,7 +449,8 @@ export const useUserStore = create<UserState>()(
             error instanceof Error ? error.message : 'Session restoration failed';
 
           // Check if this is a session expiration error from getValidSession
-          const isSessionExpired = (error as any)?.isSessionExpired || false;
+          const isSessionExpired =
+            (error as { isSessionExpired?: boolean })?.isSessionExpired ?? false;
 
           // Use universal OAuth error analysis
           const errorInfo = analyzeOAuthError(error);
@@ -483,9 +490,13 @@ export const useUserStore = create<UserState>()(
       // Account management actions
       switchAccount: async (did: string, onComplete?: () => void) => {
         try {
-          set({ isSwitchingAccount: true });
-
           const account = get().savedAccounts.find(acc => acc.did === did);
+          set({
+            isSwitchingAccount: true,
+            switchingToHandle: account?.handle || account?.did || null,
+            switchingToAvatar: account?.avatar || null,
+          });
+
           if (!account) {
             logger.error('Account not found for DID', { component: 'userStore', did });
             throw new Error('Account not found');
@@ -535,7 +546,7 @@ export const useUserStore = create<UserState>()(
 
             // Set isSwitchingAccount to false AFTER settings are loaded
             // This ensures feeds have correct settings before they start fetching
-            set({ isSwitchingAccount: false });
+            set({ isSwitchingAccount: false, switchingToHandle: null, switchingToAvatar: null });
 
             // Initialize orbyt profile record now that API client is ready
             // Defer until after interactions complete to improve account switch performance
@@ -561,6 +572,8 @@ export const useUserStore = create<UserState>()(
               oauthSession: null,
               agent: undefined,
               isSwitchingAccount: false,
+              switchingToHandle: null,
+              switchingToAvatar: null,
               activeAccountDid: null,
             });
 
@@ -577,7 +590,7 @@ export const useUserStore = create<UserState>()(
             onComplete();
           }
         } catch (error) {
-          set({ isSwitchingAccount: false });
+          set({ isSwitchingAccount: false, switchingToHandle: null, switchingToAvatar: null });
           throw error;
         }
       },

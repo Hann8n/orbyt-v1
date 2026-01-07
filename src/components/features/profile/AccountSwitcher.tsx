@@ -34,7 +34,6 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
 }) => {
   useVisibilityOverlay(visible);
   const [accounts, setAccounts] = useState<AccountWithProfile[]>([]);
-  const [loading, setLoading] = useState(false);
   const [switchingAccount, setSwitchingAccount] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [showUsernameInput, setShowUsernameInput] = useState(false);
@@ -47,17 +46,16 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
 
   // Get current active account from store DID to avoid stale isActive flags
   const inferredActive = accounts.find(acc => acc.did === activeAccountDid);
-  const { data: activeProfile } = useProfile(inferredActive?.handle || null);
-
-  // Get custom colors for active account
-  const customColors = activeProfile?.profileColors;
+  useProfile(inferredActive?.handle || null);
 
   const loadAccounts = useCallback(async () => {
-    // Set accounts immediately with basic data to prevent sheet expansion
     const savedAccountsData = savedAccounts;
-    setAccounts(savedAccountsData.map(account => ({ ...account })));
 
-    setLoading(true);
+    // Only seed basic accounts if we don't already have a list, to avoid flicker
+    if (accounts.length === 0) {
+      setAccounts(savedAccountsData.map(account => ({ ...account })));
+    }
+
     try {
       // Enhance accounts with cached profile data asynchronously
       const accountsWithProfiles = await Promise.all(
@@ -90,9 +88,9 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
     } catch (_error) {
       // no-op: account loading failures are handled per-account above
     } finally {
-      setLoading(false);
+      // no-op: loading state is not used in UI; kept for potential future enhancements
     }
-  }, [savedAccounts]);
+  }, [savedAccounts, accounts.length]);
 
   // Preload accounts when savedAccounts change (proactive loading)
   useEffect(() => {
@@ -116,21 +114,18 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
         return;
       }
 
-      setSwitchingAccount(account.did);
-      // Proactively dismiss the sheet before switching to avoid a blank sheet during app refresh
-      try {
-        onDismiss();
-      } catch (_e) {
-        // no-op safeguard
+      // Prevent starting another switch while one is in progress
+      if (isSwitchingAccount || isAuthenticating) {
+        return;
       }
+
+      setSwitchingAccount(account.did);
       try {
         // Use the user store to switch accounts with completion callback
         await switchAccount(account.did, () => {
           // This callback is called when all data is loaded
-          // Call the parent callback
           onAccountSwitch(account);
-
-          // Close the modal
+          // Close the account switcher once the new account is fully ready
           onDismiss();
         });
       } catch (error) {
@@ -165,7 +160,16 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
         setSwitchingAccount(null);
       }
     },
-    [onAccountSwitch, onDismiss, switchAccount]
+    [
+      onAccountSwitch,
+      onDismiss,
+      switchAccount,
+      activeAccountDid,
+      isSwitchingAccount,
+      isAuthenticating,
+      signIn,
+      loadAccounts,
+    ]
   );
 
   const handleRemoveAccount = useCallback(
@@ -276,30 +280,40 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
     [signIn, loadAccounts]
   );
 
+  type AccountListItem =
+    | {
+        type: 'account';
+        data: AccountWithProfile;
+      }
+    | {
+        type: 'addButtons';
+        data: null;
+      };
+
   // Prepare list data including the add account options
-  const listData = useMemo(() => {
-    const accountItems = accounts.map(account => ({
-      type: 'account' as const,
+  const listData: AccountListItem[] = useMemo(() => {
+    const accountItems: AccountListItem[] = accounts.map(account => ({
+      type: 'account',
       data: account,
     }));
 
     // Add the "Add Account" options when:
     // 1. There's only one account (show by default)
     // 2. OR when in edit mode and onAddAccount is provided (multiple accounts)
-    const shouldShowAddButtons = (savedAccounts.length <= 1 || editMode) && onAddAccount;
+    const shouldShowAddButtons = (savedAccounts.length <= 1 || editMode) && !!onAddAccount;
     if (shouldShowAddButtons) {
       accountItems.push({
-        type: 'addButtons' as const,
+        type: 'addButtons',
         data: null,
-      } as any);
+      });
     }
 
     return accountItems;
   }, [accounts, onAddAccount, editMode, savedAccounts.length]);
 
   const renderAccountItem = useCallback(
-    ({ item }: { item: (typeof listData)[0] }) => {
-      if ((item as any).type === 'addButtons') {
+    ({ item }: { item: AccountListItem }) => {
+      if (item.type === 'addButtons') {
         return (
           <View style={styles.addAccountSection}>
             <Text style={styles.addAccountHeader}>Add Account</Text>
@@ -341,27 +355,19 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
         );
       }
 
-      const account = item.data as AccountWithProfile;
+      const account = item.data;
       const isActive = account.did === activeAccountDid; // derive from store to avoid stale flags
-      const isSwitching = isSwitchingAccount && switchingAccount === account.did;
+      const isSwitchTarget = isSwitchingAccount && switchingAccount === account.did;
+      const currentAccountDid = switchingAccount || activeAccountDid;
+      const isCurrentAccount = account.did === currentAccountDid;
 
       const displayName =
         account.cachedProfile?.displayName || account.displayName || account.handle;
       const handle = account.cachedProfile?.handle || account.handle;
 
-      if (isSwitching) {
-        return (
-          <View style={[styles.accountButton, styles.loadingContainer]}>
-            <Loading3FillIcon size={24} color={Colors.white} />
-            <Text style={styles.loadingText}>
-              Switching to{' '}
-              <Text style={styles.loadingAccountName} allowFontScaling={false}>
-                {displayName}
-              </Text>
-            </Text>
-          </View>
-        );
-      }
+      // Only show a static check on the "current" account (latest selected)
+      // When a switch is in progress, the previous active account immediately loses the check
+      const shouldShowCheckmark = !editMode && isCurrentAccount && !isSwitchTarget;
 
       return (
         <View style={styles.accountButton}>
@@ -373,7 +379,8 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
             showRing={true}
             showArrow={false}
             showDeleteButton={editMode && savedAccounts.length > 1}
-            showCheckmark={isActive && !editMode}
+            showCheckmark={shouldShowCheckmark}
+            showCheckmarkSpinner={isSwitchTarget && !editMode}
             onDeletePress={() => handleRemoveAccount(account)}
             backgroundColor={Colors.darkGray}
             onPress={() => {
@@ -392,7 +399,6 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
     [
       switchingAccount,
       editMode,
-      customColors,
       handleSwitchAccount,
       handleRemoveAccount,
       handleBlueskyAddAccount,
@@ -400,11 +406,12 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
       isAuthenticating,
       savedAccounts.length,
       activeAccountDid,
+      isSwitchingAccount,
     ]
   );
 
-  const keyExtractor = useCallback((item: (typeof listData)[0]) => {
-    const type = (item as any).type;
+  const keyExtractor = useCallback((item: AccountListItem) => {
+    const type = item.type;
     if (type === 'addButtons') return 'addButtons';
     return item.data.id;
   }, []);
@@ -416,7 +423,11 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
         onPress={() => {
           setEditMode(!editMode);
         }}
-        style={styles.headerEditButton}
+        disabled={isSwitchingAccount || isAuthenticating}
+        style={[
+          styles.headerEditButton,
+          (isSwitchingAccount || isAuthenticating) && { opacity: 0.5 },
+        ]}
       >
         <Text style={styles.headerEditButtonText}>{editMode ? 'Done' : 'Edit'}</Text>
       </Pressable>
@@ -433,19 +444,11 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
         detents={['auto']}
         scrollable={false}
       >
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <Loading3FillIcon size={48} color={Colors.lightGray} />
-          </View>
-        ) : (
-          <View style={styles.listContent}>
-            {listData.map(item => (
-              <React.Fragment key={keyExtractor(item)}>
-                {renderAccountItem({ item })}
-              </React.Fragment>
-            ))}
-          </View>
-        )}
+        <View style={styles.listContent}>
+          {listData.map(item => (
+            <React.Fragment key={keyExtractor(item)}>{renderAccountItem({ item })}</React.Fragment>
+          ))}
+        </View>
       </VerticalListSheet>
 
       <CustomPDSInputSheet

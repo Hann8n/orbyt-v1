@@ -7,8 +7,19 @@ import { create } from 'zustand';
 import { safeDismiss } from '../utils/components/truesheet/utils';
 
 // Types
+export interface CommentSectionPost {
+  uri: string;
+  cid?: string;
+  indexedAt?: string;
+  author?: {
+    did: string;
+    handle: string;
+    displayName?: string;
+  };
+}
+
 export interface CommentSectionData {
-  post: any;
+  post: CommentSectionPost | undefined;
   totalLikes?: number;
   totalComments?: number;
   isLiked?: boolean;
@@ -54,7 +65,6 @@ export const useModalStore = create<ModalState>((set, _get) => ({
   },
 
   dismissAccountSwitcher: () => {
-    safeDismiss('account-switcher');
     set({ accountSwitcherVisible: false });
   },
 
