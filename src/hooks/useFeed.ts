@@ -5,7 +5,7 @@
  * Replaces: useFeedQuery.tsx, useInfiniteScroll.tsx
  */
 
-import { useRef, useEffect, useMemo } from 'react';
+import { useMemo, useEffect, useRef } from 'react';
 import { useQueryClient, useInfiniteQuery, type InfiniteData } from '@tanstack/react-query';
 import { InteractionManager } from 'react-native';
 import { feedService, FeedOption, FeedItem } from '../services/FeedService';
@@ -22,11 +22,6 @@ export const FEED_CONFIG = {
   GC_TIME: 60 * 60 * 1000, // 60 minutes before garbage collection - increased to preserve video cache
   RETRY_DELAY: 1000, // Longer delay to reduce server load
   MAX_RETRIES: 2, // Reduced retries for faster failure handling
-
-  // Scroll and prefetch settings
-  THROTTLE_MS: 150, // Increased throttling for smoother scrolling
-  PREFETCH_THRESHOLD: 0.8, // Higher threshold to reduce premature loading
-  PREFETCH_ITEMS_AHEAD: 20, // Number of items to keep queued ahead of current position
 } as const;
 
 interface UseFeedOptions {
@@ -35,9 +30,6 @@ interface UseFeedOptions {
   cacheTime?: number;
   refetchOnWindowFocus?: boolean;
   refetchOnMount?: boolean;
-  // Infinite scroll options
-  threshold?: number;
-  debounceMs?: number;
 }
 
 interface UseFeedReturn {
@@ -56,9 +48,6 @@ interface UseFeedReturn {
   // Actions
   fetchNextPage: () => void;
   refetch: () => void;
-
-  // Removed onScroll - using FlashList's onEndReached
-  isNearEnd: boolean;
 }
 
 /**
@@ -69,12 +58,7 @@ export function useFeed(
   userDid?: string,
   options: UseFeedOptions = {}
 ): UseFeedReturn {
-  const {
-    enabled = true,
-    threshold: _threshold = 0.8,
-    debounceMs: _debounceMs = 100,
-    ...queryOptions
-  } = options;
+  const { enabled = true, ...queryOptions } = options;
 
   const queryClient = useQueryClient();
   // Use direct selector to prevent re-renders when other user data changes
@@ -90,41 +74,8 @@ export function useFeed(
   const effectiveUserDid =
     feedOption === 'following' || feedOption === 'your-mix' ? currentUser?.did : userDid;
 
-  // Track previous user DID to detect actual account changes (not just object reference changes)
-  const previousUserDidRef = useRef<string | undefined>(currentUser?.did);
-
-  // Invalidate feed queries ONLY when user DID actually changes (account switch)
-  // This prevents unnecessary invalidations when navigating between feeds
-  useEffect(() => {
-    const currentDid = currentUser?.did;
-    const previousDid = previousUserDidRef.current;
-
-    // Only invalidate if:
-    // 1. Account switch is complete
-    // 2. We have a user DID
-    // 3. The DID actually changed (not just object reference)
-    // 4. Agent is available
-    if (currentDid && !isSwitchingAccount && agent && currentDid !== previousDid) {
-      // Only invalidate user-specific feeds (following, your-mix) to preserve other feeds
-      // The query key change (via effectiveUserDid) will automatically trigger a new fetch for the new user
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.feed.byUser('following', currentDid),
-        exact: false,
-        refetchType: 'active',
-      });
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.feed.byUser('your-mix', currentDid),
-        exact: false,
-        refetchType: 'active',
-      });
-
-      // Update ref to track the new DID
-      previousUserDidRef.current = currentDid;
-    } else if (currentDid && currentDid === previousDid) {
-      // Update ref even if DID didn't change (to track object reference updates)
-      previousUserDidRef.current = currentDid;
-    }
-  }, [currentUser?.did, isSwitchingAccount, agent, queryClient]);
+  // React Query automatically handles query key changes - when effectiveUserDid changes,
+  // it treats it as a new query and fetches fresh data. Old queries are cleaned up via gcTime.
 
   // Ensure query is enabled only when:
   // 1. Base enabled flag is true
@@ -136,19 +87,8 @@ export function useFeed(
     enabled && !isSwitchingAccount && !!agent && (!isUserSpecificFeed || !!effectiveUserDid);
 
   // Create optimized infinite query with centralized configuration
-  // When effectiveUserDid changes, React Query treats this as a new query and fetches fresh data
+  // When effectiveUserDid or feedOption changes, React Query treats this as a new query and fetches fresh data
   const queryKey = queryKeys.feed.infinite(feedOption, effectiveUserDid ?? undefined);
-
-  // Track previous feedOption to detect feed type changes (tab switches)
-  // When feedOption changes, disable placeholderData to clear old feed data immediately
-  const previousFeedOptionRef = useRef<FeedOption | undefined>(undefined);
-  const isFeedTypeChanged =
-    previousFeedOptionRef.current !== undefined && previousFeedOptionRef.current !== feedOption;
-
-  // Update ref synchronously after checking for changes (before query creation)
-  if (previousFeedOptionRef.current !== feedOption) {
-    previousFeedOptionRef.current = feedOption;
-  }
 
   const query = useInfiniteQuery<
     FeedResponse,
@@ -160,23 +100,47 @@ export function useFeed(
     queryKey,
     queryFn: async ({ pageParam }) => {
       // Fetch feed data
-      const feedData = await feedService.fetchFeed(
+      return await feedService.fetchFeed(
         feedOption,
         effectiveUserDid ?? undefined,
         (pageParam ?? undefined) as string | undefined
       );
+    },
+    enabled: queryEnabled,
+    initialPageParam: null,
+    getNextPageParam: lastPage => lastPage?.cursor ?? null,
+    staleTime: queryOptions.staleTime ?? FEED_CONFIG.STALE_TIME,
+    gcTime: queryOptions.cacheTime ?? FEED_CONFIG.GC_TIME,
+    retry: FEED_CONFIG.MAX_RETRIES,
+    retryDelay: FEED_CONFIG.RETRY_DELAY,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    // Use placeholderData to maintain previous data during refetch
+    // React Query automatically handles query key changes (feed switches) by creating new queries
+    placeholderData: previousData => previousData,
+    ...queryOptions,
+  });
 
-      // Extract unique author handles from this page for batch prefetching
+  // Track previous page count to prefetch profiles only for new pages
+  const previousPageCountRef = useRef(0);
+
+  // Prefetch author profiles when new pages are loaded
+  useEffect(() => {
+    const currentPageCount = query.data?.pages.length ?? 0;
+    if (currentPageCount > previousPageCountRef.current && query.data) {
+      // Extract unique author handles from the latest page for batch prefetching
+      const latestPage = query.data.pages[currentPageCount - 1];
       const authorHandles = Array.from(
         new Set(
-          feedData.feed.map(item => item.post?.author?.handle).filter((h): h is string => !!h)
+          latestPage?.feed
+            ?.map((item: ExtendedFeedViewPost) => item.post?.author?.handle)
+            .filter((h): h is string => !!h) ?? []
         )
       );
 
       // Batch prefetch all author profiles in background after interactions complete
-      // Fire and forget - don't await, let it populate cache
       if (authorHandles.length > 0) {
-        // Defer prefetching until after interactions complete
         InteractionManager.runAfterInteractions(() => {
           // Import ProfileCache dynamically to avoid circular dependency
           import('../services/data/ProfileService')
@@ -200,35 +164,14 @@ export function useFeed(
         });
       }
 
-      return feedData;
-    },
-    enabled: queryEnabled,
-    initialPageParam: null,
-    getNextPageParam: lastPage => lastPage?.cursor ?? null,
-    staleTime: queryOptions.staleTime ?? FEED_CONFIG.STALE_TIME,
-    gcTime: queryOptions.cacheTime ?? FEED_CONFIG.GC_TIME,
-    retry: FEED_CONFIG.MAX_RETRIES,
-    retryDelay: FEED_CONFIG.RETRY_DELAY,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
-    // Use placeholderData to maintain previous data during refetch of the SAME feed
-    // But NOT when switching between different feed types (tabs) - clear feed on tab switch
-    // This prevents the feed from clearing and losing scroll position during refetches,
-    // but ensures clean state when switching tabs
-    placeholderData: isFeedTypeChanged ? undefined : previousData => previousData,
-    ...queryOptions,
-  });
+      previousPageCountRef.current = currentPageCount;
+    }
+  }, [query.data?.pages.length, query.data, queryClient]);
 
-  // Deduplicate feed items, compute moderation flags, and create stable array
-  // FlashList v2's maintainVisibleContentPosition handles new items gracefully
-  // when keyExtractor returns stable keys (not including index)
+  // Flatten feed pages and add moderation flags
+  // useMemo ensures transformation only happens when data or settings change
   const feed = useMemo(() => {
-    // Flatten the pages for a single data array
-    // React Query's placeholderData keeps previous data during refetch
-    // This ensures FlashList maintains scroll position when feed updates
     const feedPages = query.data?.pages ?? [];
-
     if (!feedPages.length) {
       return [] as FeedItem[];
     }
@@ -236,6 +179,7 @@ export function useFeed(
     const seenKeys = new Set<string>();
     const result: FeedItem[] = [];
 
+    // Flatten pages and deduplicate items
     for (const page of feedPages) {
       const items = page?.feed ?? [];
       for (const item of items) {
@@ -254,8 +198,7 @@ export function useFeed(
 
         seenKeys.add(key);
 
-        // Compute moderation flags once at feed level for performance
-        // Attach simple boolean flags to avoid per-component computation
+        // Compute moderation flags
         const feedItem = item as ExtendedFeedViewPost;
         let shouldBlur = false;
         let shouldFilter = false;
@@ -272,7 +215,6 @@ export function useFeed(
           }
         }
 
-        // Create new object with moderation flags (immutable)
         result.push({
           ...feedItem,
           shouldBlur,
@@ -284,55 +226,7 @@ export function useFeed(
     return result;
   }, [query.data?.pages, settings]);
 
-  // Infinite scroll state
-  const isNearEndRef = useRef(false);
-  const prefetchTriggeredRef = useRef(false);
-
-  // Smart prefetching: Immediately prefetch after fast path (10 items) to reach ~20 items
-  // This only runs once after initial load if we're below threshold
-  useEffect(() => {
-    const totalItemsLoaded = feed.length;
-    const isInitialLoad = query.data?.pages.length === 1;
-
-    // Only auto-prefetch if:
-    // 1. This is the first page (initial load)
-    // 2. We have less than PREFETCH_ITEMS_AHEAD items
-    // 3. Has next page available
-    // 4. Not currently fetching
-    // 5. Haven't already triggered prefetch for this state
-    if (
-      isInitialLoad &&
-      totalItemsLoaded > 0 &&
-      totalItemsLoaded < FEED_CONFIG.PREFETCH_ITEMS_AHEAD &&
-      query.hasNextPage &&
-      !query.isFetchingNextPage &&
-      queryEnabled &&
-      !prefetchTriggeredRef.current
-    ) {
-      prefetchTriggeredRef.current = true;
-      // Immediately start background fetch (fire and forget)
-      // This ensures fast path (10 items) immediately gets next page to reach ~20 items
-      query.fetchNextPage().catch(() => {
-        // Silently handle errors - user can retry via scroll
-        prefetchTriggeredRef.current = false; // Reset on error to allow retry
-      });
-    }
-  }, [
-    feed.length,
-    query.data?.pages.length,
-    query.hasNextPage,
-    query.isFetchingNextPage,
-    queryEnabled,
-    query.fetchNextPage,
-    query,
-  ]);
-
-  // Reset prefetch flag when feed changes significantly (new feed option, etc.)
-  useEffect(() => {
-    prefetchTriggeredRef.current = false;
-  }, [feedOption, effectiveUserDid]);
-
-  // Removed custom scroll handler - using FlashList's onEndReached
+  // Removed custom prefetching - FlashList's onEndReached with React Query's fetchNextPage handles this natively
 
   // Determine if this is a profile feed
   const isProfileFeed =
@@ -358,9 +252,6 @@ export function useFeed(
     // Actions
     fetchNextPage: query.fetchNextPage,
     refetch: query.refetch,
-
-    // Removed onScroll - using FlashList's onEndReached
-    isNearEnd: isNearEndRef.current,
   };
 }
 
@@ -379,8 +270,6 @@ export function useSearchFeed(
 
   return {
     feed,
-    // Removed onScroll - using FlashList's onEndReached
-    isNearEnd: false, // Deprecated - using onEndReached instead
     hasNextPage: !!hasNextPage,
     isFetchingNextPage: !!isFetchingNextPage,
     fetchNextPage: fetchNextPage || (() => {}),

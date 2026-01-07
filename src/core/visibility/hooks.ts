@@ -5,6 +5,7 @@ import { useIsFocused } from '@react-navigation/native';
 import { useVisibilityCoreStore } from './visibilityStore';
 import { useSetOverlayVisibility } from '../../context/FeedIndicatorContext';
 import { seenVideoService } from '../../services/SeenVideoService';
+import type { UIFeedItem } from '../../types';
 
 /**
  * Optimized viewability config for FlashList 2.0
@@ -37,7 +38,7 @@ interface FeedVisibilityResult {
  * Key optimizations:
  * - FlashList's onViewableItemsChanged runs on native thread (already optimized)
  * - Uses ref for immediate synchronous access
- * - Uses extraData counter to trigger FlashList re-renders (cleaner than state)
+ * - Uses extraData counter to trigger FlashList re-renders when active item changes (needed for video playback)
  */
 export function useFeedVisibility({
   isActive,
@@ -53,6 +54,7 @@ export function useFeedVisibility({
   // Ref for immediate synchronous access (no React state delay)
   const activeItemIndexRef = useRef<number>(-1);
   // Counter that increments when active item changes - used for FlashList's extraData prop
+  // This is needed to trigger re-renders so videos start playing when active item changes
   const [extraDataCounter, setExtraDataCounter] = useState(0);
   const setOverlayVisibility = useSetOverlayVisibility();
 
@@ -67,7 +69,7 @@ export function useFeedVisibility({
       for (const token of viewableItems) {
         if (!token.isViewable) continue;
 
-        const item = token.item as any;
+        const item = token.item as UIFeedItem;
         if (item?.endCard) continue;
 
         if (!firstViewable) {
@@ -75,7 +77,8 @@ export function useFeedVisibility({
         }
 
         // Try to get viewablePercent (may not be available on all platforms)
-        const percent = (token as any)?.viewablePercent;
+        // ViewToken type doesn't include viewablePercent in types, but it exists at runtime
+        const percent = (token as ViewToken & { viewablePercent?: number })?.viewablePercent;
         if (typeof percent === 'number' && percent > bestPercent) {
           bestPercent = percent;
           bestItem = token;
@@ -113,6 +116,7 @@ export function useFeedVisibility({
         // Update ref immediately (source of truth - no delay)
         activeItemIndexRef.current = nextIndex;
         // Increment counter to trigger FlashList re-render via extraData
+        // This is essential for video playback - items need to re-render when active item changes
         setExtraDataCounter(prev => prev + 1);
       }
     },

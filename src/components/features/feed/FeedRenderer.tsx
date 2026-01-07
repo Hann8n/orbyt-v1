@@ -14,7 +14,6 @@ import EmptyFeed from './EmptyFeed';
 import { useFeed, useSearchFeed } from '../../../hooks/useFeed';
 import { Colors } from '../../ui/UI';
 import { feedService } from '../../../services/FeedService';
-import { QUERY_CONSTANTS } from '../../../utils/constants';
 import type { ListFeedViewRef, ViewMode } from '../../../types';
 import { FollowProvider } from '../../../context/FollowContext';
 import type {
@@ -38,7 +37,6 @@ interface FeedRendererProps {
   secondaryColor?: string;
 
   // Feed state
-  isProfileLoading?: boolean;
   isRefreshing?: boolean; // Optional - if not provided, FeedRenderer manages refresh state internally
   isVisible?: boolean;
   isModal?: boolean;
@@ -91,7 +89,6 @@ const FeedRenderer = memo(
         onRetryFeed,
         onRefresh: onRefreshCallback,
         queryOptions = {},
-        isProfileLoading,
         onPositionChange,
         isVisible = true,
         viewMode = 'list',
@@ -118,7 +115,7 @@ const FeedRenderer = memo(
       // Memoized feed type detection
       const isSearchFeed = useMemo(() => feedOption === 'search', [feedOption]);
 
-      // Memoized query options to prevent unnecessary hook recreations
+      // Memoized query options - useFeed handles defaults (staleTime, gcTime, etc.)
       const memoizedQueryOptions = useMemo(() => {
         const { enabled: providedEnabled, ...restOptions } = queryOptions ?? {};
 
@@ -129,7 +126,6 @@ const FeedRenderer = memo(
 
         return {
           enabled: computedEnabled,
-          staleTime: QUERY_CONSTANTS.STALE_TIME_LONG, // 10 minutes - for slowly changing data
           ...restOptions,
         };
       }, [queryOptions, isSearchFeed, isVisible, shouldPrefetch]);
@@ -167,7 +163,6 @@ const FeedRenderer = memo(
           feed: isSearchFeed ? searchFeedQuery.feed : feedQuery.feed,
           isLoading: isSearchFeed ? false : feedQuery.isLoading,
           isError: isSearchFeed ? false : feedQuery.isError,
-          error: isSearchFeed ? null : feedQuery.error,
           isFetching: isSearchFeed ? false : feedQuery.isFetching, // React Query's fetching state
           isFetchingNextPage: isSearchFeed
             ? searchFeedQuery.isFetchingNextPage
@@ -178,7 +173,6 @@ const FeedRenderer = memo(
           isPaused: isSearchFeed ? false : feedQuery.isPaused,
           isProfileFeed: isSearchFeed ? false : feedQuery.isProfileFeed,
           dataUpdatedAt: isSearchFeed ? 0 : feedQuery.dataUpdatedAt,
-          // Removed onScroll - using FlashList's onEndReached
         }),
         [
           isSearchFeed,
@@ -186,11 +180,9 @@ const FeedRenderer = memo(
           searchFeedQuery.isFetchingNextPage,
           searchFeedQuery.hasNextPage,
           searchFeedQuery.fetchNextPage,
-          // Removed onScroll dependency
           feedQuery.feed,
           feedQuery.isLoading,
           feedQuery.isError,
-          feedQuery.error,
           feedQuery.isFetching,
           feedQuery.isFetchingNextPage,
           feedQuery.hasNextPage,
@@ -199,7 +191,6 @@ const FeedRenderer = memo(
           feedQuery.isPaused,
           feedQuery.isProfileFeed,
           feedQuery.dataUpdatedAt,
-          // Removed onScroll dependency
         ]
       );
 
@@ -208,7 +199,6 @@ const FeedRenderer = memo(
         feed,
         isLoading,
         isError,
-        error,
         isFetching, // React Query's fetching state (includes refetching)
         isFetchingNextPage,
         hasNextPage,
@@ -217,16 +207,14 @@ const FeedRenderer = memo(
         isPaused,
         isProfileFeed,
         dataUpdatedAt,
-        // Removed onScroll - using FlashList's onEndReached
       } = feedData;
 
       // Memoized error state calculation
       const errorState = useMemo(
         () => ({
-          finalError: forceError ? new Error('Forced error for testing') : error,
           finalIsError: forceError || isError,
         }),
-        [forceError, error, isError]
+        [forceError, isError]
       );
 
       // Memoized callback for retry - prevents recreation on every render
@@ -346,10 +334,8 @@ const FeedRenderer = memo(
           feedOption,
           userDid,
           onLoadMore: handleLoadMore,
-          isFetchingNextPage,
           hasNextPage,
           onRetry: handleRetry,
-          isProfileLoading,
           isProfileFeed,
           onPositionChange: handlePositionChange,
           isVisible,
@@ -360,7 +346,6 @@ const FeedRenderer = memo(
           isModal,
           onScrubbingChange,
           dataUpdatedAt,
-          // Removed onScroll
           ListComponent,
           visibilityKey: resolvedVisibilityKey,
         }),
@@ -373,10 +358,8 @@ const FeedRenderer = memo(
           feedOption,
           userDid,
           handleLoadMore,
-          isFetchingNextPage,
           hasNextPage,
           handleRetry,
-          isProfileLoading,
           isProfileFeed,
           handlePositionChange,
           isVisible,
@@ -387,7 +370,6 @@ const FeedRenderer = memo(
           isModal,
           onScrubbingChange,
           dataUpdatedAt,
-          // Removed onScroll
           ListComponent,
           resolvedVisibilityKey,
         ]
@@ -402,7 +384,6 @@ const FeedRenderer = memo(
               {...commonProps}
               onGridItemPress={handleItemPress}
               isError={isSearchFeed ? false : errorState.finalIsError}
-              error={isSearchFeed ? null : errorState.finalError}
             />
           );
         }
@@ -411,9 +392,9 @@ const FeedRenderer = memo(
           <ListFeedView
             ref={listFeedViewRef}
             {...commonProps}
+            isFetchingNextPage={isFetchingNextPage}
             isLoading={isSearchFeed ? false : isLoading}
             isError={isSearchFeed ? false : errorState.finalIsError}
-            error={isSearchFeed ? null : errorState.finalError}
             visibilityKey={resolvedVisibilityKey}
             targetScrollIndex={propTargetScrollIndex}
           />
@@ -423,8 +404,8 @@ const FeedRenderer = memo(
         commonProps,
         isSearchFeed,
         errorState.finalIsError,
-        errorState.finalError,
         isLoading,
+        isFetchingNextPage,
         resolvedVisibilityKey,
         handleItemPress,
         propTargetScrollIndex,

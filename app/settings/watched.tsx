@@ -135,7 +135,6 @@ const WatchedScreen: React.FC = () => {
               : () => {} // Empty function instead of undefined
           }
           hasNextPage={hasNextPage ?? false}
-          isFetchingNextPage={isFetchingNextPage ?? false}
           isError={isError}
           onGridItemPress={handleGridItemPress}
         />

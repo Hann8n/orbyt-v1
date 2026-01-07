@@ -23,7 +23,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList, FlashListRef, type ListRenderItemInfo } from '@shopify/flash-list';
 import { useReportedPostsStore } from '../../../stores/reportedPostsStore';
-import { LayoutAnimation } from 'react-native';
 
 import EmptyFeed from './EmptyFeed';
 import { VideoItem } from './VideoItem';
@@ -141,14 +140,12 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       hasNextPage,
       isLoading,
       isError,
-      error,
       onRetry,
       onPositionChange,
       isVisible = true,
       viewMode,
       onViewModeChange,
       isModal = false,
-      isProfileLoading = false,
       onScroll,
       onVerticalScroll,
       forceError = false,
@@ -180,12 +177,8 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       }),
       []
     );
-    const lastScrollOffset = useRef(0);
-    const positionSaveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-    // Track current scroll offset
+    // Track current scroll offset for header blocking
     const currentScrollOffsetRef = useRef<number>(0);
-    // Track requestAnimationFrame ID for header blocking updates
-    const headerBlockingUpdateFrameRef = useRef<number | null>(null);
 
     // Device detection
     const isSmallDevice = useMemo(() => isSmallScreen() || isTablet(), []);
@@ -264,14 +257,13 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       [backgroundColor, secondaryColor]
     );
 
-    // Track reported posts for animated removal
+    // Track reported posts for filtering
     // Subscribe to the store to react to changes
     const reportedPostUris = useReportedPostsStore(state => state.reportedPostUris);
-    const previousFeedLengthRef = useRef<number>(0);
-    const previousFilteredLengthRef = useRef<number>(0);
 
     // Filter feed to remove reported posts and filtered posts
     // Moderation flags are already computed at feed level (in useFeed hook)
+    // FlashList's maintainVisibleContentPosition handles item changes smoothly - no LayoutAnimation needed
     const filteredFeed = useMemo(() => {
       return feed.filter(item => {
         if (item.endCard) return true;
@@ -284,35 +276,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         return true;
       });
     }, [feed, reportedPostUris]);
-
-    // Prepare layout animation when items are added or removed
-    useEffect(() => {
-      const currentLength = filteredFeed.length;
-      const previousLength = previousFilteredLengthRef.current;
-
-      // Only prepare animation if length changed (items added or removed)
-      // Skip on initial mount (previousLength === 0)
-      if (previousLength > 0 && currentLength !== previousLength) {
-        // Use React Native's LayoutAnimation for smooth transitions
-        LayoutAnimation.configureNext({
-          duration: 300,
-          create: {
-            type: LayoutAnimation.Types.easeInEaseOut,
-            property: LayoutAnimation.Properties.opacity,
-          },
-          update: {
-            type: LayoutAnimation.Types.easeInEaseOut,
-          },
-          delete: {
-            type: LayoutAnimation.Types.easeInEaseOut,
-            property: LayoutAnimation.Properties.opacity,
-          },
-        });
-      }
-
-      previousFilteredLengthRef.current = currentLength;
-      previousFeedLengthRef.current = feed.length;
-    }, [filteredFeed.length, feed.length]);
 
     // List data with end card
     // FlashList's maintainVisibleContentPosition will handle position preservation
@@ -334,7 +297,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     }, [filteredFeed, isLoading, isError, isFetchingNextPage, hasNextPage]);
 
     // Error handling
-    const effectiveError = forceError ? new Error('Forced error for testing') : error;
     const effectiveIsError = forceError || isError;
 
     // Scroll to index function
@@ -387,27 +349,15 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       [onScroll, onVerticalScroll, headerComponent, scrollBasedBlocking]
     );
 
-    // Momentum scroll end - save position (moved to background thread)
+    // Momentum scroll end - save position
+    // FlashList's maintainVisibleContentPosition handles position maintenance natively
     const onMomentumScrollEnd = useCallback(
       (e: NativeSyntheticEvent<NativeScrollEvent>) => {
         const offsetY = e.nativeEvent.contentOffset.y;
-        lastScrollOffset.current = offsetY;
-
-        // Move position saving to background thread to avoid blocking scroll
-        if (positionSaveTimeout.current) {
-          clearTimeout(positionSaveTimeout.current);
+        // Call position change callback if provided (for external tracking)
+        if (onPositionChange) {
+          onPositionChange(offsetY);
         }
-        positionSaveTimeout.current = setTimeout(() => {
-          InteractionManager.runAfterInteractions(() => {
-            if (
-              onPositionChange &&
-              Math.abs(offsetY - lastScrollOffset.current) >
-                SCROLL_CONSTANTS.POSITION_CHANGE_THRESHOLD
-            ) {
-              onPositionChange(offsetY);
-            }
-          });
-        }, APP_CONSTANTS.POSITION_SAVE_DELAY);
       },
       [onPositionChange]
     );
@@ -477,7 +427,8 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       return item.endCard ? 'end-card' : `${item.post.uri}:${item.post.cid}`;
     }, []);
 
-    // Stable overrideItemLayout callback to prevent recreation
+    // Stable overrideItemLayout callback to account for item margins
+    // Needed for proper snapping calculation - FlashList needs to know total height including margins
     const itemHeightWithMargin = cardHeight + CONSTANTS.ITEM_MARGIN;
     const overrideItemLayout = useCallback(
       (
@@ -493,20 +444,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       },
       [itemHeightWithMargin]
     );
-
-    // Cleanup timeout and animation frame refs to prevent memory leaks
-    useEffect(() => {
-      return () => {
-        if (positionSaveTimeout.current) {
-          clearTimeout(positionSaveTimeout.current);
-          positionSaveTimeout.current = null;
-        }
-        if (headerBlockingUpdateFrameRef.current !== null) {
-          cancelAnimationFrame(headerBlockingUpdateFrameRef.current);
-          headerBlockingUpdateFrameRef.current = null;
-        }
-      };
-    }, []);
 
     // FlashList's native viewability handles item detection automatically
     // maintainVisibleContentPosition preserves scroll position, so the visible item
@@ -600,6 +537,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     const snapToIntervalValue = useMemo(() => cardHeight + CONSTANTS.ITEM_MARGIN, [cardHeight]);
 
     // Custom snap offsets - computed directly each render (simple enough to not need caching)
+    // Needed for TikTok-like snapping between header and footer
     const topInset = viewportDimensions.effectiveInsets.top;
     const hasHeader = Boolean(headerComponent);
 
@@ -658,16 +596,13 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           refreshControl={refreshControl}
           backgroundColor={backgroundColor}
           secondaryColor={secondaryColor}
-          isProfileLoading={isProfileLoading}
           isProfileFeed={isHeaderFeed}
           feedOption={feedOption}
           userDid={userDid}
           onLoadMore={onLoadMore}
-          isFetchingNextPage={isFetchingNextPage}
           hasNextPage={hasNextPage}
           onGridItemPress={handleGridItemPress}
           isError={effectiveIsError}
-          error={effectiveError}
           onRetry={onRetry}
           ListComponent={ListComponent}
           onVerticalScroll={onVerticalScroll}
@@ -688,11 +623,10 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           keyExtractor={keyExtractor}
           getItemType={getItemType}
           extraData={extraData}
+          overrideItemLayout={overrideItemLayout}
           ListHeaderComponent={
             headerComponent ? <View onLayout={handleHeaderLayout}>{headerComponent}</View> : null
           }
-          // FlashList performance optimizations
-          overrideItemLayout={overrideItemLayout}
           // Snapping configuration
 
           pagingEnabled={false}
@@ -719,12 +653,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           showsVerticalScrollIndicator={false}
           bounces={true}
           directionalLockEnabled={true}
-          // FlashList v2: Maintain scroll position when content changes
-          // New videos are added to subsequent pages without disrupting current view
-          // disabled: false (default) ensures scroll position is preserved
-          // autoscrollToTopThreshold: undefined prevents auto-scrolling when new items are added at top
           maintainVisibleContentPosition={{
-            disabled: false,
             autoscrollToTopThreshold: undefined,
           }}
           // Pull to refresh

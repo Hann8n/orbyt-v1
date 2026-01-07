@@ -89,7 +89,6 @@ const FeedScreen = memo(() => {
         secondaryColor={routeParams.secondaryColor}
         isVisible={isRouteFocused} // Only play when this modal has focus
         isModal={true} // Mark as modal for optimized behavior
-        isProfileLoading={false}
         searchQuery={routeParams.searchQuery}
         hasNextPage={routeParams.hasNextPage}
         isFetchingNextPage={routeParams.isFetchingNextPage}

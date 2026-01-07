@@ -485,13 +485,16 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const headerScrollProgress = useSharedValue(0);
 
   // Update scroll progress on UI thread (worklet directive required for runOnUI)
-  const handleVerticalScroll = useCallback((scrollY: number) => {
-    runOnUI((y: number) => {
-      'worklet';
-      // Map first 250px of scroll into 0 -> 1 progress
-      headerScrollProgress.value = Math.max(0, Math.min(1, y / 250));
-    })(scrollY);
-  }, []);
+  const handleVerticalScroll = useCallback(
+    (scrollY: number) => {
+      runOnUI((y: number) => {
+        'worklet';
+        // Map first 250px of scroll into 0 -> 1 progress
+        headerScrollProgress.value = Math.max(0, Math.min(1, y / 250));
+      })(scrollY);
+    },
+    [headerScrollProgress]
+  );
 
   // Animated styles automatically run on UI thread
   const overlayAnimatedStyle = useAnimatedStyle(() => {
@@ -629,6 +632,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     dynamicColors,
     profileColors.backgroundColor,
     profileColors.textColor,
+    router,
   ]);
 
   return (
@@ -742,7 +746,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
             dynamicColors ? dynamicColors.backgroundColor : profileColors.backgroundColor
           }
           secondaryColor={dynamicColors ? dynamicColors.textColor : profileColors.textColor}
-          isProfileLoading={!!(isProfileLoading && !profileData)}
           isRefreshing={refreshing}
           onRefresh={onRefresh}
           viewMode={viewMode}
@@ -804,6 +807,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     </View>
   );
 });
+
+ProfileScreen.displayName = 'ProfileScreen';
 
 export default ProfileScreen;
 

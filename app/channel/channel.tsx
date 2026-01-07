@@ -24,9 +24,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSharedValue } from 'react-native-reanimated';
 import type { ViewMode } from '../../src/types';
 
-interface ChannelScreenProps {}
-
-const Channel: React.FC<ChannelScreenProps> = memo(() => {
+const Channel: React.FC = memo(() => {
   const router = useRouter();
   const params = useLocalSearchParams();
   useVisibilityRouteTracker('channel');
@@ -342,7 +340,6 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
           headerComponent={headerComponent}
           backgroundColor={Colors.black}
           secondaryColor={channelColors.textColor}
-          isProfileLoading={isLoadingChannel && !channelDataForFeed}
           isRefreshing={refreshing}
           onRefresh={onRefresh}
           viewMode={viewMode}
@@ -368,7 +365,6 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
           headerComponent={headerComponent}
           backgroundColor={Colors.black}
           secondaryColor={channelColors.textColor}
-          isProfileLoading={isLoadingChannel && !channelDataForFeed}
           isRefreshing={refreshing}
           onRefresh={onRefresh}
           viewMode={viewMode}
@@ -391,6 +387,8 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
     </View>
   );
 });
+
+Channel.displayName = 'Channel';
 
 const styles = StyleSheet.create({
   container: {

@@ -34,7 +34,6 @@ export interface ListFeedViewProps {
   hasNextPage?: boolean;
   isLoading: boolean;
   isError: boolean;
-  error?: Error | null;
   onRetry?: () => void;
   onPositionChange?: (position: number) => void;
   isVisible?: boolean;
@@ -43,7 +42,6 @@ export interface ListFeedViewProps {
   isModal?: boolean;
   isProfileFeed?: boolean;
   isRefreshing?: boolean;
-  isProfileLoading?: boolean;
   onScrubbingChange?: (isScrubbing: boolean) => void;
   onScroll?: (event: { nativeEvent: import('react-native').NativeScrollEvent }) => void;
   onVerticalScroll?: (scrollY: number) => void;

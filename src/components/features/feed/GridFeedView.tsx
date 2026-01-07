@@ -89,6 +89,8 @@ const VideoGridItem: React.FC<{
   );
 });
 
+VideoGridItem.displayName = 'VideoGridItem';
+
 const ITEM_MARGIN = 1; // Set divider thickness to 1 for both directions
 
 interface GridFeedViewProps {
@@ -97,16 +99,13 @@ interface GridFeedViewProps {
   refreshControl?: React.ReactElement;
   backgroundColor?: string;
   secondaryColor?: string;
-  isProfileLoading?: boolean;
   isProfileFeed?: boolean;
   feedOption: 'profile' | 'following' | 'likes' | 'reposts' | string;
   userDid?: string;
   onLoadMore: () => void; // Simplified callback for loading more content
-  isFetchingNextPage?: boolean;
   hasNextPage?: boolean;
   onGridItemPress?: (index: number) => void; // Callback for grid item tap
   isError?: boolean;
-  error?: Error | null;
   onRetry?: () => void;
   ListComponent?: React.ComponentType<unknown> | null; // Optional custom list component
   onVerticalScroll?: (scrollY: number) => void;
@@ -120,16 +119,13 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
       refreshControl,
       backgroundColor = '#000',
       secondaryColor = '#fff',
-      isProfileLoading: _isProfileLoading = false,
       isProfileFeed = false,
       feedOption,
       userDid,
       onLoadMore,
-      isFetchingNextPage: _isFetchingNextPage = false,
       hasNextPage = false,
       onGridItemPress,
       isError = false,
-      error: _error,
       onRetry,
       ListComponent,
       onVerticalScroll,
@@ -376,6 +372,8 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
     );
   }
 );
+
+GridFeedView.displayName = 'GridFeedView';
 
 const styles = StyleSheet.create({
   container: {
