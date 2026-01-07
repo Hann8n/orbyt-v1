@@ -113,13 +113,7 @@ type ChannelResult = {
   relevance: number;
 };
 
-type VideoResult = {
-  type: 'video';
-  data: ExtendedFeedViewPost;
-  relevance: number;
-};
-
-type SearchResult = ProfileResult | ChannelResult | VideoResult;
+type SearchResult = ProfileResult | ChannelResult;
 
 interface SectionHeader {
   type: 'section-header';
@@ -130,13 +124,6 @@ interface SectionHeader {
 interface SpotlightVideosSection {
   type: 'spotlight-videos';
   videos: ExtendedFeedViewPost[];
-  key: string;
-}
-
-interface PeopleChannelsSection {
-  type: 'people-channels-section';
-  profiles: Profile[];
-  channels: Channel[];
   key: string;
 }
 
@@ -166,7 +153,6 @@ type ListItem =
   | SearchResult
   | SectionHeader
   | SpotlightVideosSection
-  | PeopleChannelsSection
   | PopularChannelsSection
   | OrbytChannelsSection
   | HeaderSpacerItem
@@ -1199,6 +1185,7 @@ const ExploreScreen: React.FC = () => {
     }>
   >([]);
   const [indicatorScrollProgress, setIndicatorScrollProgress] = useState(0);
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Reanimated values for smooth transitions
   const searchProgress = useSharedValue(0);
@@ -1275,11 +1262,25 @@ const ExploreScreen: React.FC = () => {
 
   // Debounce search query
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+    if (searchQuery === '') {
+      setDebouncedQuery('');
+      debounceTimeoutRef.current = null;
+      return;
+    }
+    debounceTimeoutRef.current = setTimeout(() => {
       setDebouncedQuery(searchQuery);
+      debounceTimeoutRef.current = null;
     }, 500);
 
-    return () => clearTimeout(timeoutId);
+    return () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+        debounceTimeoutRef.current = null;
+      }
+    };
   }, [searchQuery]);
 
   // Search feed option
@@ -1590,12 +1591,11 @@ const ExploreScreen: React.FC = () => {
       }
 
       return {
-        color: isActive ? Colors.white : 'rgba(255, 255, 255, 0.75)',
+        color: isActive ? Colors.white : Colors.gray,
         fontSize: 20,
-        marginRight: 8,
-        fontWeight: 'bold' as const,
-        fontFamily: 'Firma-Black',
-        opacity,
+        fontWeight: isActive ? ('bold' as const) : ('600' as const),
+        fontFamily: isActive ? 'Firma-Bold' : 'Firma-SemiBold',
+        opacity: isActive ? 1 : opacity,
       };
     },
     [activeTab, pages, indicatorScrollProgress, activeIndex]
@@ -1606,11 +1606,15 @@ const ExploreScreen: React.FC = () => {
   }, []);
 
   const handleClearSearch = () => {
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+      debounceTimeoutRef.current = null;
+    }
+    searchInputRef.current?.setNativeProps({ text: '' });
     setSearchQuery('');
-    setDebouncedQuery(''); // Clear immediately
+    setDebouncedQuery('');
     setIsSearchFocused(false);
     searchInputRef.current?.blur();
-    // Instant clear - no animation delay
     searchProgress.value = 0;
     contentOpacity.value = 1;
   };
@@ -1938,10 +1942,7 @@ const ExploreScreen: React.FC = () => {
               onChangeText={setSearchQuery}
               onFocus={() => setIsSearchFocused(true)}
               onBlur={() => {
-                // Don't close search on blur if there's a query
-                if (searchQuery.length === 0) {
-                  setIsSearchFocused(false);
-                }
+                // Keep search visible even when blurred - don't auto-hide
               }}
               onSubmitEditing={() => {}}
               autoCapitalize="none"
@@ -2005,7 +2006,7 @@ const ExploreScreen: React.FC = () => {
             <Reanimated.View
               style={[
                 styles.searchContentWrapper,
-                { marginTop: insets.top + 65 + 36 },
+                { marginTop: insets.top + 65 + 44 },
                 searchContentAnimatedStyle,
               ]}
             >
@@ -2056,8 +2057,6 @@ const ExploreScreen: React.FC = () => {
                 return item.key || `${item.title}-${index}`;
               case 'spotlight-videos':
                 return item.key || `spotlight-${index}`;
-              case 'people-channels-section':
-                return item.key || `people-channels-${index}`;
               case 'popular-channels-section':
                 return item.key || `popular-channels-${index}`;
               case 'orbyt-channels-section':
@@ -2066,8 +2065,6 @@ const ExploreScreen: React.FC = () => {
                 return item.key || `header-spacer-${index}`;
               case 'loading':
                 return item.key || `loading-${index}`;
-              case 'video':
-                return item.data.post?.uri || `video-${index}`;
               case 'profile':
                 return item.data.did || item.data.handle || `profile-${index}`;
               case 'channel':
@@ -2418,7 +2415,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 10,
-    paddingHorizontal: 10,
+    paddingHorizontal: 15,
   },
   profileTouchable: {
     flexDirection: 'row',
@@ -2449,7 +2446,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 10,
-    paddingHorizontal: 10,
+    paddingHorizontal: 15,
   },
   channelImage: {
     marginRight: 12,
@@ -2797,18 +2794,21 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    paddingHorizontal: 10,
     paddingTop: 0,
   },
   indicatorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
-    paddingTop: 8,
-    paddingBottom: 0,
+    paddingHorizontal: 15,
+    paddingTop: 6,
+    paddingBottom: 8,
+    gap: 16,
+    backgroundColor: Colors.black,
   },
   indicatorItem: {
-    paddingHorizontal: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 0,
   },
   searchResultsContainer: {
     flex: 1,
