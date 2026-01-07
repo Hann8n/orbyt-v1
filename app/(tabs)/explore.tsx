@@ -885,6 +885,7 @@ const HorizontalChannelItem = ({
   // Check if this is the popular now channel for special cropping
   const slug = extractFeedSlug(channel.uri || '');
   const isPopularNow = slug === 'popular-now';
+  const isLatest = slug === 'latest';
 
   return (
     <Pressable
@@ -899,19 +900,33 @@ const HorizontalChannelItem = ({
       onPress={onPress}
     >
       {/* GIF fills entire button */}
-      <View style={styles.horizontalChannelThumbnail}>
+      <View
+        style={[
+          styles.horizontalChannelThumbnail,
+          isLatest && { alignItems: 'center', justifyContent: 'center' },
+        ]}
+      >
         {isPopularNow ? (
           <Image
             source={{ uri: avatarUri }}
             style={[
               styles.horizontalChannelImage,
               {
-                width: itemWidth * 0.7, // Smaller width
-                height: itemHeight * 2.5, // Make image much taller to crop more from bottom
-                alignSelf: 'flex-end', // Align to right
-                marginRight: -50, // Push further right
+                width: itemWidth * 0.7,
+                height: itemHeight * 2.5,
+                alignSelf: 'flex-end',
+                marginRight: -50,
               },
             ]}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+            priority="normal"
+            transition={200}
+          />
+        ) : isLatest ? (
+          <Image
+            source={{ uri: avatarUri }}
+            style={[styles.horizontalChannelImage, { borderRadius: 0 }]}
             contentFit="cover"
             cachePolicy="memory-disk"
             priority="normal"
