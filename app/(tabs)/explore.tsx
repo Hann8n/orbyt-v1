@@ -65,7 +65,7 @@ import type { ExtendedFeedViewPost } from '../../src/services/api/types';
 import { isCurrentUser } from '../../src/stores/profileInteractionStore';
 import { useFollowStore } from '../../src/stores/followStore';
 import {
-  getAllChannels,
+  getActiveChannels,
   isOrbytChannel,
   getChannelByUri,
   getChannelAvatarUri,
@@ -1738,8 +1738,8 @@ const ExploreScreen: React.FC = () => {
   );
 
   // Fetch orbyt channel details using ChannelService
-  // Memoize getAllChannels() to avoid calling it on every render
-  const orbytChannelUris = useMemo(() => getAllChannels().map(ch => ch.uri), []);
+  // Memoize getActiveChannels() to avoid calling it on every render - only show active channels in explore
+  const orbytChannelUris = useMemo(() => getActiveChannels().map(ch => ch.uri), []);
   const {
     data: orbytChannelsData,
     isLoading: isLoadingOrbytChannels,

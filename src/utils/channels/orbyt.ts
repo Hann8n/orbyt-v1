@@ -211,6 +211,7 @@ export interface OrbytChannel {
   channelGIF?: any; // Local GIF asset (require() result) for channel avatar/background
   showSlash?: boolean; // Whether to show the "/" prefix (default: true)
   isPostable?: boolean; // Whether users can post to this channel (default: true)
+  isActive?: boolean; // Whether channel is active and should appear in explore (default: true)
 }
 
 // Import channel GIFs
@@ -278,6 +279,7 @@ const BASE_ORBYT_CHANNELS: OrbytChannel[] = [
     description: 'celebrate the moments',
     channelColor: '#FF6B35', // Warm orange for holidays (matches app palette)
     channelGIF: HolidaysChannelGIF,
+    isActive: false, // Seasonal channel - deactivated when not in season
   },
   {
     uri: 'at://local.orbyt.channel/horror',
@@ -398,11 +400,21 @@ export function getAllChannels(): OrbytChannel[] {
 }
 
 /**
+ * Get only active channels (for display in explore and channel selection)
+ * @returns Array of active channel definitions
+ */
+export function getActiveChannels(): OrbytChannel[] {
+  return ORBYT_CHANNELS.filter(channel => channel.isActive !== false);
+}
+
+/**
  * Get channels that users can post to
  * @returns Array of postable channel definitions
  */
 export function getPostableChannels(): OrbytChannel[] {
-  return ORBYT_CHANNELS.filter(channel => channel.isPostable !== false);
+  return ORBYT_CHANNELS.filter(
+    channel => channel.isPostable !== false && channel.isActive !== false
+  );
 }
 
 /**
