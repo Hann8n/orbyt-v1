@@ -34,6 +34,7 @@ import { useChatStore } from '../../../stores/chatStore';
 import { ChatMessage } from '../../../utils/chat/helpers';
 import { useCurrentUser } from '../../../stores/userStore';
 import { useMessageReactions } from '../../../hooks/useMessageReactions';
+import { useProfile } from '../../../services/data/ProfileService';
 import ChatService, { ReactionView } from '../../../services/ChatService';
 import { AtprotoService } from '../../../services/api/AtprotoService';
 import MessageReactions from './MessageReactions';
@@ -60,6 +61,9 @@ export default function ChatScreen({
   const { currentUser } = useCurrentUser();
   const currentUserId = currentUser?.did || '1';
   const isUserReady = true; // Store is always ready
+
+  // Get profile data for live status
+  const { data: currentUserProfile } = useProfile(currentUser?.handle);
 
   // Inline emoji reaction state
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
@@ -506,7 +510,13 @@ export default function ChatScreen({
         <View style={styles.inputToolbar}>
           <View style={styles.inputToolbarContent}>
             <View style={styles.avatarContainer}>
-              <Avatar uri={currentUser?.avatar} type="profile" size={42} style={styles.avatar} />
+              <Avatar
+                uri={currentUser?.avatar}
+                type="profile"
+                size={42}
+                style={styles.avatar}
+                status={currentUserProfile?.status}
+              />
             </View>
             {props.renderComposer && props.renderComposer(props as any)}
             {props.renderSend && props.renderSend(props)}
@@ -520,6 +530,7 @@ export default function ChatScreen({
       rejectConversationMutation,
       acceptConversationMutation,
       currentUser?.avatar,
+      currentUserProfile?.status,
     ]
   );
 
@@ -542,6 +553,9 @@ export default function ChatScreen({
 
     return null;
   }, [otherUser, otherUserProfile, otherUserDid]);
+
+  // Get profile data for other user's live status
+  const { data: otherUserCachedProfile } = useProfile(otherUserForDisplay?.handle);
 
   const renderDay = useCallback((props: DayProps) => {
     const date = props.createdAt;
@@ -856,6 +870,7 @@ export default function ChatScreen({
                       size={45}
                       showRing={true}
                       style={styles.headerAvatar}
+                      status={otherUserCachedProfile?.status}
                     />
                     <Text style={styles.headerDisplayName} numberOfLines={1}>
                       {formatHandle(otherUserForDisplay.handle) || 'User'}

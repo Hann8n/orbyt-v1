@@ -9,9 +9,9 @@ import {
   QueryKey,
   UseQueryResult,
 } from '@tanstack/react-query';
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useEffect } from 'react';
 import type { OrbytProfileRecord } from '../../types';
-import type { ProfileView, ProfileViewDetailed, ListViewBasic } from '../api/types';
+import type { ProfileView, ProfileViewDetailed, ListViewBasic, StatusView } from '../api/types';
 
 export interface CachedProfile {
   did: string;
@@ -48,7 +48,81 @@ export interface CachedProfile {
       createdAt: string; // ISO date string
     }>;
   };
+  status?: StatusView; // Direct from API, no transformation
   lastUpdated: number; // timestamp
+}
+
+/**
+ * Check if a StatusView represents an active live status
+ * Trusts the API's isActive field - the API already handles expiration checks
+ *
+ * API schema:
+ * - status.status: REQUIRED, must be 'app.bsky.actor.status#live'
+ * - status.isActive: Only present if expiration was set (true = active, false = expired)
+ *
+ * Simple logic: Trust the API. If isActive is present, use it. Otherwise, status is active.
+ */
+export function isLiveStatus(status?: StatusView): boolean {
+  if (!status) return false;
+  if (status.status !== 'app.bsky.actor.status#live') return false;
+
+  // Trust API's isActive field - it's only present when expiration is set
+  // If present and false, status is expired. If present and true, status is active.
+  // If not present, status has no expiration and is active.
+  return status.isActive !== false;
+}
+
+/**
+ * Get the expiration time for a status (if it has one)
+ * Returns null if status has no expiration
+ * Useful for scheduling cache invalidation/refresh
+ */
+export function getStatusExpirationTime(status?: StatusView): number | null {
+  if (!status?.expiresAt) return null;
+
+  try {
+    return new Date(status.expiresAt).getTime();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Check if a cached profile has stale status
+ * Uses API's isActive field - if false, status is expired
+ */
+export function hasStaleStatus(profile: CachedProfile | null | undefined): boolean {
+  if (!profile?.status) return false;
+
+  // Trust API's isActive - if false, status is expired
+  if (profile.status.isActive === false) return true;
+
+  // If expiresAt exists and isActive not set, check if expires soon (within 5 min)
+  const expirationTime = getStatusExpirationTime(profile.status);
+  if (expirationTime && profile.status.isActive === undefined) {
+    const fiveMinutesFromNow = Date.now() + 5 * 60 * 1000;
+    return expirationTime <= fiveMinutesFromNow;
+  }
+
+  return false;
+}
+
+/**
+ * Calculate optimal staleTime for a profile based on status expiration
+ * If profile has a live status that expires, use shorter staleTime
+ * Otherwise use default PROFILE_CACHE_EXPIRY
+ */
+export function getProfileStaleTime(profile: CachedProfile | null | undefined): number {
+  if (!profile?.status) return PROFILE_CACHE_EXPIRY;
+
+  const expirationTime = getStatusExpirationTime(profile.status);
+  if (expirationTime) {
+    // Use status expiration time + 1 minute buffer, but at least 1 minute
+    const timeUntilExpiration = expirationTime - Date.now();
+    return Math.max(60 * 1000, timeUntilExpiration + 60 * 1000);
+  }
+
+  return PROFILE_CACHE_EXPIRY;
 }
 
 // React Query keys as a const to ensure type safety
@@ -104,6 +178,17 @@ class ProfileService {
   private static CACHE_KEY_PREFIX = 'profile_cache_';
   private static currentUserDid: string | null = null;
   private static currentUserHandle: string | null = null;
+
+  /**
+   * Test mode: Set to true to inject fake live status for all profiles
+   * This is for testing the live status feature UI
+   *
+   * To enable: Change `false` to `true` below
+   * When enabled, all profiles will show as live with test data including:
+   * - Live indicator on avatars
+   * - Live stream info in bottom sheet
+   * - Test stream title, description, thumbnail, and link
+   */
 
   /**
    * Transform Bsky API profile response to CachedProfile format
@@ -183,6 +268,9 @@ class ProfileService {
       }
     }
 
+    // Store status directly from API - no transformation needed
+    const status: StatusView | undefined = apiProfile.status;
+
     return {
       did: apiProfile.did,
       handle: apiProfile.handle,
@@ -199,6 +287,7 @@ class ProfileService {
       profileColors,
       orbytProfileRecord: record,
       verification,
+      status,
       lastUpdated: Date.now(),
     };
   }
@@ -932,11 +1021,22 @@ class ProfileService {
 export function useProfileByDid(
   did: string | null | undefined
 ): UseQueryResult<CachedProfile | null, Error> {
+  // Get cached profile to calculate dynamic staleTime based on status expiration
+  const cachedProfile = useMemo(() => {
+    if (!did) return null;
+    return ProfileService.getProfileFromCacheSyncByDid(did);
+  }, [did]);
+
+  // Calculate staleTime based on status expiration
+  const staleTime = useMemo(() => {
+    return getProfileStaleTime(cachedProfile);
+  }, [cachedProfile]);
+
   return useQuery<CachedProfile | null, Error>({
     queryKey: did ? profileKeys.detail(`did_${did}`) : ['profiles', 'detail', 'did_'],
     queryFn: async () => (did ? ProfileService.getProfileByDid(did) : null),
     enabled: !!did,
-    staleTime: PROFILE_CACHE_EXPIRY,
+    staleTime,
     gcTime: PROFILE_CACHE_EXPIRY * 2,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
@@ -1027,11 +1127,22 @@ export function useBatchProfilesByDid(
 export function useProfile(
   handle: string | null | undefined
 ): UseQueryResult<CachedProfile | null, Error> {
+  // Get cached profile to calculate dynamic staleTime based on status expiration
+  const cachedProfile = useMemo(() => {
+    if (!handle) return null;
+    return ProfileService.getProfileFromCacheSync(handle);
+  }, [handle]);
+
+  // Calculate staleTime based on status expiration
+  const staleTime = useMemo(() => {
+    return getProfileStaleTime(cachedProfile);
+  }, [cachedProfile]);
+
   return useQuery<CachedProfile | null, Error>({
     queryKey: handle ? profileKeys.detail(handle.toLowerCase()) : ['profiles', 'detail', ''],
     queryFn: async () => (handle ? ProfileService.getProfile(handle) : null),
     enabled: !!handle,
-    staleTime: PROFILE_CACHE_EXPIRY,
+    staleTime,
     gcTime: PROFILE_CACHE_EXPIRY * 2,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
@@ -1586,6 +1697,60 @@ export function useProfileInvalidation() {
     },
     [queryClient]
   );
+}
+
+/**
+ * Hook to monitor and invalidate profiles with expired status
+ * Trusts API's isActive field - invalidates immediately if false
+ * Schedules invalidation based on expiresAt if provided
+ *
+ * @param profile - The profile to monitor
+ * @param did - Optional DID for DID-based invalidation
+ */
+export function useStatusExpirationMonitor(
+  profile: CachedProfile | null | undefined,
+  did?: string | null
+) {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!profile?.status || profile.status.status !== 'app.bsky.actor.status#live') {
+      return undefined;
+    }
+
+    const invalidate = () => {
+      if (profile.handle) {
+        queryClient.invalidateQueries({ queryKey: profileKeys.detail(profile.handle) });
+      }
+      if (did || profile.did) {
+        queryClient.invalidateQueries({
+          queryKey: profileKeys.detail(`did_${did || profile.did}`),
+        });
+      }
+    };
+
+    // If API says status is inactive, invalidate immediately
+    if (profile.status.isActive === false) {
+      invalidate();
+      return undefined;
+    }
+
+    // If expiresAt exists, schedule invalidation
+    const expirationTime = getStatusExpirationTime(profile.status);
+    if (expirationTime) {
+      const timeUntilExpiration = expirationTime - Date.now() + 60 * 1000; // 1 min buffer
+
+      if (timeUntilExpiration <= 0) {
+        invalidate();
+        return undefined;
+      }
+
+      const timeoutId = setTimeout(invalidate, timeUntilExpiration);
+      return () => clearTimeout(timeoutId);
+    }
+
+    return undefined;
+  }, [profile, did, queryClient]);
 }
 
 /**

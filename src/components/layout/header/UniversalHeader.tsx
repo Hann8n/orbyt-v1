@@ -50,6 +50,7 @@ export interface HeaderContent {
   avatarStyle?: 'circle' | 'rounded-square';
   hideAvatar?: boolean;
   avatarBlurRadius?: number;
+  status?: import('../../../services/api/types').StatusView; // Status for live indicator
 }
 
 export interface CustomActionLayout {
@@ -478,6 +479,7 @@ const HeaderContentComponent = memo<{
               profileColors={{ backgroundColor, textColor, foregroundColor: textColor }}
               showRing={true}
               blurRadius={content.avatarBlurRadius}
+              status={content.status}
             />
           )}
         </Pressable>

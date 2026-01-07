@@ -12,7 +12,11 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { prefetchProfile, useProfile } from '../../../services/data/ProfileService';
+import {
+  prefetchProfile,
+  useProfile,
+  getProfileColors,
+} from '../../../services/data/ProfileService';
 
 import AtprotoService from '../../../services/api/AtprotoService';
 import { queryKeys } from '../../../utils/query/queryKeys';
@@ -214,6 +218,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
     // Get profile data to check if author is blocked
     const { data: authorProfile } = useProfile(comment?.author?.handle);
     const isAuthorBlocked = authorProfile?.isBlocked ?? false;
+    const profileColors = authorProfile ? getProfileColors(authorProfile) : undefined;
 
     const commentText = useMemo(() => getCommentText(comment), [comment]);
 
@@ -946,6 +951,8 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                   type="profile"
                   size={level > 0 ? 30 : 40}
                   blurRadius={isAuthorBlocked ? 30 : 0}
+                  status={authorProfile?.status}
+                  profileColors={profileColors}
                   style={{
                     width: level > 0 ? 30 : 40,
                     height: level > 0 ? 30 : 40,

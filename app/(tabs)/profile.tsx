@@ -18,6 +18,8 @@ import ProfileService, {
   useProfileByDid,
   getProfileColors,
   profileKeys,
+  isLiveStatus,
+  useStatusExpirationMonitor,
   type CachedProfile,
 } from '../../src/services/data/ProfileService';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -55,10 +57,10 @@ import { FEED_CONFIG } from '../../src/hooks/useFeed';
 import type { FeedResponse } from '../../src/services/api/types';
 import ProfileMenu from '../../src/components/features/profile/ProfileMenu';
 import SubscriptionOptionsSheet from '../../src/components/features/profile/SubscriptionOptionsSheet';
+import LiveStreamInfoSheet from '../../src/components/features/profile/LiveStreamInfoSheet';
 import ChatService from '../../src/services/ChatService';
 import { tabRefs } from '../../src/utils/navigation/tabRefs';
 import type { ViewMode } from '../../src/types';
-
 interface ProfileScreenProps {
   onLogout: (clearAllAccounts?: boolean) => Promise<void>;
 }
@@ -143,6 +145,12 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
 
   // Get colors from cached profile
   const profileColors = getProfileColors(cachedProfile);
+
+  // Check if live using helper function
+  const isLive = isLiveStatus(cachedProfile?.status);
+
+  // Monitor status expiration and invalidate cache when it expires
+  useStatusExpirationMonitor(cachedProfile, targetDid);
 
   // Tab state
   const [activeTab, setActiveTab] = useState<'profile' | 'reposts' | 'likes'>('profile');
@@ -304,6 +312,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   // Overlay action state (moved from ProfileHeader)
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showSubscriptionSheet, setShowSubscriptionSheet] = useState(false);
+  const [showLiveStreamSheet, setShowLiveStreamSheet] = useState(false);
   const [canMessage, setCanMessage] = useState<boolean | null>(null);
   const [fullscreenImageUri, setFullscreenImageUri] = useState<string | null>(null);
 
@@ -723,9 +732,11 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
                 contentFadeDisabled={viewMode === 'grid'}
                 dimOverlayDisabled={viewMode === 'grid'}
                 onAvatarPress={
-                  profileData?.avatar
-                    ? () => setFullscreenImageUri(profileData.avatar || null)
-                    : undefined
+                  isLive
+                    ? () => setShowLiveStreamSheet(true)
+                    : profileData?.avatar
+                      ? () => setFullscreenImageUri(profileData.avatar || null)
+                      : undefined
                 }
               >
                 <TabNavigation
@@ -780,6 +791,12 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
           did={profileData.did}
         />
       )}
+
+      <LiveStreamInfoSheet
+        visible={showLiveStreamSheet}
+        profile={cachedProfile}
+        onDismiss={() => setShowLiveStreamSheet(false)}
+      />
 
       <Modal
         visible={!!fullscreenImageUri}

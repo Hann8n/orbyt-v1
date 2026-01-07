@@ -31,6 +31,7 @@ import ChatService, { Conversation, RecordEmbed } from '../../services/ChatServi
 import { formatHandle } from '../../utils/formatting/handles';
 import { useBookmarkStore } from '../../stores/bookmarkStore';
 import { useUserStore } from '../../stores/userStore';
+import { useProfile } from '../../services/data/ProfileService';
 
 // Check if profile can receive messages based on chat settings
 const canBeMessaged = (profile: any): boolean => {
@@ -46,6 +47,49 @@ const canBeMessaged = (profile: any): boolean => {
     default:
       return false;
   }
+};
+
+// Conversation item component to use hooks
+const ConversationItem: React.FC<{
+  profile: any;
+  isDisabled: boolean;
+  onPress: () => void;
+}> = ({ profile, isDisabled, onPress }) => {
+  const { data: profileData } = useProfile(profile?.handle);
+  const profileColors = profileData?.profileColors;
+
+  return (
+    <Pressable
+      style={[styles.conversationItem, isDisabled && styles.disabledItem]}
+      onPress={onPress}
+      disabled={isDisabled}
+    >
+      <Avatar
+        uri={profile.avatar}
+        type="profile"
+        size={50}
+        showRing={false}
+        status={profileData?.status}
+        profileColors={
+          profileColors
+            ? {
+                backgroundColor: profileColors.backgroundColor,
+                foregroundColor: profileColors.foregroundColor,
+                textColor: profileColors.foregroundColor,
+              }
+            : undefined
+        }
+      />
+      <View style={styles.conversationInfo}>
+        <Text
+          style={[styles.conversationName, isDisabled && styles.disabledText]}
+          numberOfLines={1}
+        >
+          {formatHandle(profile.handle) || 'user'}
+        </Text>
+      </View>
+    </Pressable>
+  );
 };
 
 const ShareSheet: React.FC = () => {
@@ -580,21 +624,11 @@ const ShareSheet: React.FC = () => {
                   const isDisabled = !isConversation && !canBeMessaged(item);
 
                   return (
-                    <Pressable
-                      style={[styles.conversationItem, isDisabled && styles.disabledItem]}
+                    <ConversationItem
+                      profile={profile}
+                      isDisabled={isDisabled}
                       onPress={() => handleSendToConversation(item)}
-                      disabled={isDisabled}
-                    >
-                      <Avatar uri={profile.avatar} type="profile" size={50} showRing={false} />
-                      <View style={styles.conversationInfo}>
-                        <Text
-                          style={[styles.conversationName, isDisabled && styles.disabledText]}
-                          numberOfLines={1}
-                        >
-                          {formatHandle(profile.handle) || 'user'}
-                        </Text>
-                      </View>
-                    </Pressable>
+                    />
                   );
                 }}
                 contentContainerStyle={[

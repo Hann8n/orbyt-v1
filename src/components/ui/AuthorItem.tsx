@@ -189,6 +189,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
             size={config.avatarSize}
             showRing={showRing}
             blurRadius={isBlocked ? 30 : 0}
+            status={cachedProfile?.status}
           />
         </View>
         <View style={styles.accountInfoContainer}>

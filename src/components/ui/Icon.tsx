@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { SvgXml } from 'react-native-svg';
-import { StyleProp, ViewStyle, View } from 'react-native';
+import { StyleProp, ViewStyle } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -8,7 +8,6 @@ import Animated, {
   withTiming,
   Easing,
 } from 'react-native-reanimated';
-import { Image } from 'expo-image';
 
 // Simple colors object to avoid circular dependency
 const Colors = {
@@ -303,34 +302,32 @@ export const ProfileIcon: React.FC<{ size: number; color: string }> = ({ size, c
   // Use ProfileCache to get cached profile data
   const { data: profileData } = useProfile(currentUserHandle);
 
+  // Use Avatar component from UI.tsx
+  // Dynamically import to avoid circular dependency
+  const { Avatar } = require('./UI');
+
   // If we have cached profile data with an avatar, show the avatar
   if (profileData?.avatar) {
     // Use cached profile color for the ring, fallback to the passed color
     const ringColor = profileData.profileColors?.foregroundColor || color;
 
     return (
-      <View
-        style={{
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          overflow: 'hidden',
-          borderWidth: 2,
-          borderColor: ringColor,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Image
-          source={{ uri: profileData.avatar }}
-          style={{
-            width: size - 4, // Account for border width
-            height: size - 4, // Account for border width
-            borderRadius: (size - 4) / 2,
-          }}
-          contentFit="cover"
-        />
-      </View>
+      <Avatar
+        uri={profileData.avatar}
+        type="profile"
+        size={size}
+        showRing={true}
+        ringColor={ringColor}
+        profileColors={
+          profileData.profileColors
+            ? {
+                backgroundColor: profileData.profileColors.backgroundColor,
+                foregroundColor: profileData.profileColors.foregroundColor,
+                textColor: profileData.profileColors.foregroundColor,
+              }
+            : undefined
+        }
+      />
     );
   }
 

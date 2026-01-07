@@ -17,7 +17,7 @@ import AtprotoService from '../../../services/api/AtprotoService';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useInfiniteQuery, useQueryClient, useQuery } from '@tanstack/react-query';
 
-import ProfileService, { prefetchProfile } from '../../../services/data/ProfileService';
+import ProfileService, { prefetchProfile, useProfile } from '../../../services/data/ProfileService';
 import { Avatar, Colors } from '../../../components/ui/UI';
 import { Loading3FillIcon } from '../../../components/ui/Icon';
 import { VerificationBadge } from '../badging';
@@ -331,6 +331,9 @@ const NotificationItem = React.memo<{
     const { reason, author, indexedAt, uri } = item;
     const { presentCommentSection } = useGlobalCommentSection();
 
+    // Get profile data for live status
+    const { data: authorProfile } = useProfile(author?.handle);
+
     // All notification types that relate to posts
     const isPostAction = POST_ACTION_TYPES.includes(reason as PostActionReason);
     const postData = isPostAction ? getPostDataFromNotification(item, postDataMap) : null;
@@ -501,13 +504,30 @@ const NotificationItem = React.memo<{
 
         // Reply notifications: open comment section
         if (reason === 'reply' && uri) {
+          // Normalize post data - ExtendedFeedViewPost has post property
+          const postView =
+            'post' in finalPostData
+              ? (finalPostData as ExtendedFeedViewPost).post
+              : (finalPostData as PostView | ExtendedPostView);
+          const commentPost = {
+            uri: postView.uri,
+            cid: postView.cid,
+            indexedAt: postView.indexedAt,
+            author: postView.author
+              ? {
+                  did: postView.author.did,
+                  handle: postView.author.handle,
+                  displayName: postView.author.displayName,
+                }
+              : undefined,
+          };
           if (finalKind === 'video') {
             navigateToVideoPost(finalPostData);
             setTimeout(() => {
-              presentCommentSection({ post: finalPostData, scrollToCommentUri: uri });
+              presentCommentSection({ post: commentPost, scrollToCommentUri: uri });
             }, 500);
           } else {
-            presentCommentSection({ post: finalPostData, scrollToCommentUri: uri });
+            presentCommentSection({ post: commentPost, scrollToCommentUri: uri });
           }
         } else if (finalKind === 'video') {
           navigateToVideoPost(finalPostData);
@@ -581,6 +601,7 @@ const NotificationItem = React.memo<{
             size={55}
             showRing={true}
             style={styles.profileImage}
+            status={authorProfile?.status}
           />
         </Pressable>
         <Pressable onPress={handlePress} style={styles.notificationContent}>

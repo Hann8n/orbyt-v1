@@ -19,6 +19,8 @@ import Icon, { Loading3FillIcon } from './Icon';
 import { hexToRGBA, isColorDark, getContrastRatio } from '../../utils/formatting/colors';
 import Typography, { TypographyText } from '../../utils/components/typography';
 import { BORDER_RADIUS } from '../../utils/constants';
+import type { StatusView } from '../../services/api/types';
+import { isLiveStatus } from '../../services/data/ProfileService';
 
 // ============================================================================
 // SIMPLIFIED COLOR SYSTEM (12 Core Colors)
@@ -59,6 +61,7 @@ export const Colors = {
   // Red Shades
   lightRed: '#FF6B9D', // Pink-red
   darkRed: '#3C000D', // New dark red
+  liveRed: '#EB374F', // Slightly darker red for live badges
 
   // Yellow/Orange Shades
   lightYellow: '#FFEB3B', // Bright yellow
@@ -371,6 +374,7 @@ interface AvatarProps {
   fallbackIconSize?: number;
   ringColor?: string;
   showRing?: boolean; // Show ring border (default: false, no ring)
+  status?: StatusView; // Status from API - used to determine if live
   profileColors?: {
     backgroundColor: string;
     foregroundColor: string;
@@ -389,8 +393,11 @@ export const Avatar: React.FC<AvatarProps> = ({
   fallbackIconSize,
   ringColor,
   showRing = false,
+  status,
   profileColors,
 }) => {
+  // Check if status is live using helper function
+  const isLive = isLiveStatus(status);
   const iconSize = fallbackIconSize || Math.max(size * 0.6, 20);
 
   const getBorderRadius = () => {
@@ -408,27 +415,155 @@ export const Avatar: React.FC<AvatarProps> = ({
 
   const borderRadius = getBorderRadius();
   // Channel avatars never show borders
-  const shouldShowRing = type === 'channel' ? false : showRing;
+  // When live, automatically show ring in red
+  const shouldShowRing = type === 'channel' ? false : showRing || isLive;
   // Slightly thicker ring for larger avatars (profile screen)
-  const ringWidth = shouldShowRing ? (size >= 100 ? 3.0 : 2.0) : 0;
+  // Make ring thicker when live
+  const baseRingWidth = shouldShowRing ? (size >= 100 ? 3.0 : 2.0) : 0;
+  const ringWidth = isLive ? baseRingWidth * 1.5 : baseRingWidth; // 50% thicker when live
   // No separation when no ring - separation only exists between image and ring
   const separation = 0;
   const innerSize = size - ringWidth * 2 - separation * 2;
   const innerBorderRadius = type === 'channel' ? size * 0.25 : innerSize * 0.5;
+
+  // Determine ring color: red if live, otherwise use provided color or default
+  const finalRingColor = isLive
+    ? Colors.INTERACTIVE.HEART.ACTIVE
+    : ringColor || profileColors?.textColor || Colors.lightGray;
 
   const containerStyle: ViewStyle = {
     width: size,
     height: size,
     borderRadius,
     borderWidth: shouldShowRing ? ringWidth : 0,
-    borderColor: shouldShowRing
-      ? ringColor || profileColors?.textColor || Colors.lightGray
-      : 'transparent',
+    borderColor: shouldShowRing ? finalRingColor : 'transparent',
     padding: separation,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: shouldShowRing ? Colors.black : 'transparent',
-    overflow: 'hidden',
+    overflow: 'visible', // Changed to 'visible' to allow LIVE badge to show
+  };
+
+  // LIVE badge style - stepped scaling for consistent appearance at all sizes
+  const calculateLiveBadgeDimensions = (avatarSize: number) => {
+    // Use stepped sizing similar to VerificationBadge for consistency
+    let fontSize: number;
+    let paddingH: number;
+    let paddingV: number;
+    let borderRadius: number;
+    let letterSpacing: number;
+
+    if (avatarSize <= 24) {
+      fontSize = 7;
+      paddingH = 2;
+      paddingV = 1;
+      borderRadius = 3;
+      letterSpacing = 0.3;
+    } else if (avatarSize <= 32) {
+      fontSize = 8;
+      paddingH = 2.5;
+      paddingV = 1;
+      borderRadius = 3.5;
+      letterSpacing = 0.35;
+    } else if (avatarSize <= 40) {
+      fontSize = 9;
+      paddingH = 3;
+      paddingV = 1.5;
+      borderRadius = 4;
+      letterSpacing = 0.4;
+    } else if (avatarSize <= 48) {
+      fontSize = 10;
+      paddingH = 3.5;
+      paddingV = 1.5;
+      borderRadius = 4.5;
+      letterSpacing = 0.45;
+    } else if (avatarSize <= 56) {
+      fontSize = 11;
+      paddingH = 4;
+      paddingV = 2;
+      borderRadius = 5;
+      letterSpacing = 0.5;
+    } else if (avatarSize <= 64) {
+      fontSize = 12;
+      paddingH = 4.5;
+      paddingV = 2;
+      borderRadius = 5.5;
+      letterSpacing = 0.55;
+    } else if (avatarSize <= 80) {
+      fontSize = 13;
+      paddingH = 5;
+      paddingV = 2.5;
+      borderRadius = 6;
+      letterSpacing = 0.6;
+    } else if (avatarSize <= 100) {
+      fontSize = 14;
+      paddingH = 6;
+      paddingV = 3;
+      borderRadius = 7;
+      letterSpacing = 0.65;
+    } else {
+      // For very large avatars (100+)
+      fontSize = 15;
+      paddingH = 7;
+      paddingV = 3;
+      borderRadius = 8;
+      letterSpacing = 0.7;
+    }
+
+    return {
+      fontSize,
+      paddingH,
+      paddingV,
+      borderRadius,
+      letterSpacing,
+    };
+  };
+
+  const badgeDimensions = calculateLiveBadgeDimensions(size);
+
+  // Calculate badge bottom offset to center with ring
+  // Ring center at bottom is at ringWidth/2 from bottom
+  // Badge center should align with ring center
+  // Badge height = fontSize + paddingV * 2
+  // Badge center from bottom = bottom + (fontSize + paddingV * 2) / 2
+  // Setting: bottom + (fontSize + paddingV * 2) / 2 = ringWidth / 2
+  // Therefore: bottom = (ringWidth - fontSize - paddingV * 2) / 2
+  // Add size-based adjustment to bring badge closer on smaller avatars
+  const badgeHeight = badgeDimensions.fontSize + badgeDimensions.paddingV * 2;
+  const baseOffset = (ringWidth - badgeHeight) / 2;
+
+  // Adjust for smaller avatars to bring badge closer in
+  // Smaller avatars get additional offset to position badge closer to avatar edge
+  let sizeAdjustment = 0;
+  if (size <= 32) {
+    sizeAdjustment = 1.5; // Closer for very small avatars
+  } else if (size <= 40) {
+    sizeAdjustment = 1;
+  } else if (size <= 48) {
+    sizeAdjustment = 0.5;
+  }
+
+  const badgeBottomOffset = baseOffset + sizeAdjustment;
+
+  const liveBadgeStyle: ViewStyle = {
+    position: 'absolute',
+    bottom: badgeBottomOffset,
+    alignSelf: 'center',
+    backgroundColor: Colors.INTERACTIVE.HEART.ACTIVE,
+    paddingHorizontal: badgeDimensions.paddingH,
+    paddingVertical: badgeDimensions.paddingV,
+    borderRadius: badgeDimensions.borderRadius,
+    minWidth: badgeDimensions.fontSize * 2.8, // Proportional min width for "LIVE" text
+    alignItems: 'center',
+    justifyContent: 'center',
+  };
+
+  const liveBadgeTextStyle: TextStyle = {
+    color: Colors.white,
+    fontSize: badgeDimensions.fontSize,
+    fontFamily: 'Firma-Black',
+    fontWeight: '900',
+    letterSpacing: badgeDimensions.letterSpacing,
   };
 
   const imageStyle: ImageStyle = {
@@ -448,18 +583,25 @@ export const Avatar: React.FC<AvatarProps> = ({
     const isGif = uri.toLowerCase().endsWith('.gif') || uri.includes('.gif?');
 
     return (
-      <View style={[containerStyle, styleSanitized]}>
-        <Image
-          source={{ uri }}
-          style={imageStyle}
-          contentFit="cover"
-          blurRadius={blurRadius || 0}
-          cachePolicy="memory-disk"
-          priority={type === 'channel' && isGif ? 'low' : 'normal'}
-          transition={200}
-          allowDownscaling={true}
-          recyclingKey={uri}
-        />
+      <View style={[{ width: size, height: size }, styleSanitized]}>
+        <View style={containerStyle}>
+          <Image
+            source={{ uri }}
+            style={imageStyle}
+            contentFit="cover"
+            blurRadius={blurRadius || 0}
+            cachePolicy="memory-disk"
+            priority={type === 'channel' && isGif ? 'low' : 'normal'}
+            transition={200}
+            allowDownscaling={true}
+            recyclingKey={uri}
+          />
+        </View>
+        {isLive && (
+          <View style={liveBadgeStyle}>
+            <Text style={liveBadgeTextStyle}>LIVE</Text>
+          </View>
+        )}
       </View>
     );
   }
@@ -469,42 +611,56 @@ export const Avatar: React.FC<AvatarProps> = ({
     // Import Icon component dynamically to avoid circular dependency
     const { default: Icon } = require('./Icon');
     return (
-      <View
-        style={[
-          containerStyle,
-          styleSanitized,
-          {
-            backgroundColor: profileColors?.backgroundColor || Colors.darkGray,
-            borderWidth: 0, // Remove border for colored backgrounds
-            padding: 0, // Remove padding for colored backgrounds
-          },
-        ]}
-      >
+      <View style={[{ width: size, height: size }, styleSanitized]}>
         <View
-          style={{
-            width: size,
-            height: size,
-            borderRadius,
-            justifyContent: 'center',
-            alignItems: 'center',
-          }}
+          style={[
+            containerStyle,
+            {
+              backgroundColor: profileColors?.backgroundColor || Colors.darkGray,
+              borderWidth: shouldShowRing ? ringWidth : 0, // Keep border if live
+              borderColor: shouldShowRing ? finalRingColor : 'transparent',
+              padding: separation,
+            },
+          ]}
         >
-          <Icon name={fallbackIcon} size={iconSize} color={fallbackIconColor} />
+          <View
+            style={{
+              width: innerSize,
+              height: innerSize,
+              borderRadius: innerBorderRadius,
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+          >
+            <Icon name={fallbackIcon} size={iconSize} color={fallbackIconColor} />
+          </View>
         </View>
+        {isLive && (
+          <View style={liveBadgeStyle}>
+            <Text style={liveBadgeTextStyle}>LIVE</Text>
+          </View>
+        )}
       </View>
     );
   }
 
   // Use default avatar image if no uri is provided
   return (
-    <View style={[containerStyle, styleSanitized]}>
-      <Image
-        source={require('../../assets/Default-avatar.png')}
-        style={imageStyle}
-        contentFit="cover"
-        cachePolicy="memory"
-        priority="high"
-      />
+    <View style={[{ width: size, height: size }, styleSanitized]}>
+      <View style={containerStyle}>
+        <Image
+          source={require('../../assets/Default-avatar.png')}
+          style={imageStyle}
+          contentFit="cover"
+          cachePolicy="memory"
+          priority="high"
+        />
+      </View>
+      {isLive && (
+        <View style={liveBadgeStyle}>
+          <Text style={liveBadgeTextStyle}>LIVE</Text>
+        </View>
+      )}
     </View>
   );
 };

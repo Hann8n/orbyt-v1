@@ -749,8 +749,20 @@ const VideoCard = memo(
         queueInteraction(INTERACTIONREPLY_CONST);
 
         // Show comment section
+        const commentPost = {
+          uri: postView.uri,
+          cid: postView.cid,
+          indexedAt: postView.indexedAt,
+          author: postView.author
+            ? {
+                did: postView.author.did,
+                handle: postView.author.handle,
+                displayName: postView.author.displayName,
+              }
+            : undefined,
+        };
         presentCommentSection({
-          post,
+          post: commentPost,
           totalLikes: overlayState.likeCount,
           totalComments: postView.replyCount || 0,
           isLiked: overlayState.isLiked,

@@ -125,6 +125,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   // Get profile data to check if author is blocked
   const { data: authorProfile } = useProfile(author.handle);
   const isAuthorBlocked = authorProfile?.isBlocked ?? false;
+  const profileColors = authorProfile?.profileColors;
 
   const profilePicUrl = useMemo(
     () =>
@@ -430,6 +431,16 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                   size={authorAvatarSize}
                   style={[isTabletDevice ? styles.profilePictureTablet : styles.profilePicture]}
                   blurRadius={isAuthorBlocked ? 30 : 0}
+                  status={authorProfile?.status}
+                  profileColors={
+                    profileColors
+                      ? {
+                          backgroundColor: profileColors.backgroundColor,
+                          foregroundColor: profileColors.foregroundColor,
+                          textColor: profileColors.foregroundColor,
+                        }
+                      : undefined
+                  }
                 />
                 {/* Follow badge overlay: show + when not following, show check briefly after follow */}
                 {hasProfile &&

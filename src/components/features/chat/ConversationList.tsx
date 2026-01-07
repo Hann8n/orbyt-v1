@@ -14,6 +14,7 @@ import { formatHandle } from '../../../utils/formatting/handles';
 import Icon, { Loading3FillIcon } from '../../ui/Icon';
 import { useChatStore } from '../../../stores/chatStore';
 import { useCurrentUser } from '../../../stores/userStore';
+import { useProfile } from '../../../services/data/ProfileService';
 import EmptyFeed from '../feed/EmptyFeed';
 import type { PostView } from '../../../services/api/types';
 import { isVideoEmbed, isVideoEmbedInMedia } from '../../../services/api/types';
@@ -32,6 +33,54 @@ const isVideoPost = (post: PostView): boolean => {
   const embed = post?.embed;
   if (!embed) return false;
   return isVideoEmbed(embed) || isVideoEmbedInMedia(embed);
+};
+
+// Conversation item component to use hooks
+const ConversationItem: React.FC<{
+  otherMember: { avatar?: string; handle?: string; did?: string };
+  unreadCount: number;
+  messageText: string;
+  lastMessageCreatedAt?: string;
+  onPress: () => void;
+}> = ({ otherMember, unreadCount, messageText, lastMessageCreatedAt, onPress }) => {
+  const { data: profileData } = useProfile(otherMember?.handle);
+
+  return (
+    <Pressable style={styles.conversationItem} onPress={onPress}>
+      <View style={styles.avatarContainer}>
+        <Avatar
+          uri={otherMember.avatar}
+          type="profile"
+          size={55}
+          showRing={true}
+          style={styles.profileImage}
+          status={profileData?.status}
+        />
+        {unreadCount > 0 && <View style={styles.unreadIndicator} />}
+      </View>
+      <View style={styles.conversationInfo}>
+        <View style={styles.conversationHeader}>
+          <Text
+            style={[styles.conversationName, unreadCount > 0 && styles.unreadConversationName]}
+            numberOfLines={1}
+          >
+            {formatHandle(otherMember?.handle)}
+          </Text>
+          {lastMessageCreatedAt && (
+            <Text style={styles.conversationTime}>{formatRelativeDate(lastMessageCreatedAt)}</Text>
+          )}
+        </View>
+        <View style={styles.conversationFooter}>
+          <Text
+            style={[styles.lastMessage, unreadCount > 0 && styles.unreadMessage]}
+            numberOfLines={1}
+          >
+            {messageText}
+          </Text>
+        </View>
+      </View>
+    </Pressable>
+  );
 };
 
 export default function ConversationList({
@@ -122,45 +171,13 @@ export default function ConversationList({
       const messageText = getMessageText(item);
 
       return (
-        <Pressable style={styles.conversationItem} onPress={() => handleConversationPress(item)}>
-          <View style={styles.avatarContainer}>
-            <Avatar
-              uri={otherMember.avatar}
-              type="profile"
-              size={55}
-              showRing={true}
-              style={styles.profileImage}
-            />
-            {item.unreadCount > 0 && <View style={styles.unreadIndicator} />}
-          </View>
-          <View style={styles.conversationInfo}>
-            <View style={styles.conversationHeader}>
-              <Text
-                style={[
-                  styles.conversationName,
-                  item.unreadCount > 0 && styles.unreadConversationName,
-                ]}
-                numberOfLines={1}
-              >
-                {formatHandle(otherMember?.handle)}
-              </Text>
-              {item.lastMessageCreatedAt && (
-                <Text style={styles.conversationTime}>
-                  {formatRelativeDate(item.lastMessageCreatedAt)}
-                </Text>
-              )}
-            </View>
-
-            <View style={styles.conversationFooter}>
-              <Text
-                style={[styles.lastMessage, item.unreadCount > 0 && styles.unreadMessage]}
-                numberOfLines={1}
-              >
-                {messageText}
-              </Text>
-            </View>
-          </View>
-        </Pressable>
+        <ConversationItem
+          otherMember={otherMember}
+          unreadCount={item.unreadCount}
+          messageText={messageText}
+          lastMessageCreatedAt={item.lastMessageCreatedAt}
+          onPress={() => handleConversationPress(item)}
+        />
       );
     },
     [currentUserDid, handleConversationPress, getMessageText]

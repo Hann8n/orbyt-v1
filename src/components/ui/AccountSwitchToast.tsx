@@ -1,8 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Image } from 'expo-image';
 import { Loading3FillIcon } from './Icon';
-import { Colors } from './UI';
+import { Colors, Avatar } from './UI';
 
 interface AccountSwitchToastProps {
   handle?: string | null;
@@ -31,12 +30,9 @@ export const AccountSwitchToast: React.FC<AccountSwitchToastProps> = ({
           {avatarUri ? (
             <View style={styles.avatarWrapper}>
               <Loading3FillIcon size={40} color={Colors.black} style={styles.avatarSpinner} />
-              <Image
-                source={{ uri: avatarUri }}
-                style={styles.toastAvatar}
-                contentFit="cover"
-                cachePolicy="memory-disk"
-              />
+              <View style={styles.toastAvatarContainer}>
+                <Avatar uri={avatarUri} type="profile" size={28} showRing={false} />
+              </View>
             </View>
           ) : (
             <View style={{ width: 12 }} />
@@ -88,10 +84,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Firma-Bold',
     textAlign: 'center',
   },
-  toastAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+  toastAvatarContainer: {
     position: 'absolute',
     top: 6,
     left: 6,

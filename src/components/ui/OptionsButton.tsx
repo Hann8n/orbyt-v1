@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -90,6 +90,23 @@ export const OptionsButton: React.FC<OptionsButtonProps> = ({
 }) => {
   const [pressed, setPressed] = useState(false);
 
+  // Extract color from textStyle prop
+  const customTextColor = useMemo(() => {
+    if (!textStyle) return null;
+    if (Array.isArray(textStyle)) {
+      // Check all items in array, last one takes priority
+      for (let i = textStyle.length - 1; i >= 0; i--) {
+        const style = textStyle[i];
+        if (style && typeof style === 'object' && 'color' in style) {
+          return style.color as string;
+        }
+      }
+    } else if (typeof textStyle === 'object' && 'color' in textStyle) {
+      return textStyle.color as string;
+    }
+    return null;
+  }, [textStyle]);
+
   const getBackgroundColor = () => {
     if (disabled) {
       return hexToRGBA(Colors.darkGray, 0.5);
@@ -111,6 +128,10 @@ export const OptionsButton: React.FC<OptionsButtonProps> = ({
       return Colors.black;
     }
     if (destructive) return '#C04A58'; // Pastel red, darker than #d65b6a
+    // Use custom text color if provided
+    if (customTextColor) {
+      return customTextColor;
+    }
     return Colors.white;
   };
 
@@ -164,7 +185,14 @@ export const OptionsButton: React.FC<OptionsButtonProps> = ({
         rightContent
       ) : rightIcon ? (
         <View style={{ width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
-          {rightIcon}
+          {React.isValidElement(rightIcon) &&
+          rightIcon.props &&
+          typeof rightIcon.props === 'object' &&
+          'color' in rightIcon.props
+            ? React.cloneElement(rightIcon as React.ReactElement<{ color?: string }>, {
+                color: getTextColor(),
+              })
+            : rightIcon}
         </View>
       ) : showSwitch ? (
         <View style={{ justifyContent: 'center', alignItems: 'center' }}>

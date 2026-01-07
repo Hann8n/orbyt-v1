@@ -65,6 +65,8 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   // Fetch Orbyt profile record join date for this DID
   const { joinDate } = useOrbytProfile(profileData?.did);
 
+  // Extract live status
+
   // Handler to open the blocking list in Bluesky app
   const handleListPress = useCallback(async () => {
     if (blockingByList?.uri) {
@@ -136,6 +138,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         </>
       ) : undefined,
       avatarBlurRadius: isBlocked ? 30 : 0,
+      status: profileData?.status,
       onAvatarPress,
     };
   }, [

@@ -63,6 +63,7 @@ import type {
   ProfileViewBasic,
   ProfileViewDetailed,
   Preferences,
+  StatusView,
 } from '@atproto/api/dist/client/types/app/bsky/actor/defs';
 import type { OutputSchema as GetPreferencesOutput } from '@atproto/api/dist/client/types/app/bsky/actor/getPreferences';
 
@@ -122,6 +123,7 @@ export type {
   ProfileView,
   ProfileViewBasic,
   ProfileViewDetailed,
+  StatusView,
   Preferences as ActorPreferences,
   Like,
   Notification,
