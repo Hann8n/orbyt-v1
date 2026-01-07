@@ -408,8 +408,8 @@ const ProfilesFeedRenderer = React.memo(
               </View>
             </Pressable>
             {!(
-              ProfileService.getProfileFromCacheSync(profile.handle || '')?.isFollowing ??
-              profile.isFollowing
+              ProfileService.getProfileFromCacheSync(queryClient, profile.handle || '')
+                ?.isFollowing ?? profile.isFollowing
             ) &&
               !isCurrentUser(profile.did, profile.handle, currentUser) && (
                 <Pressable
@@ -540,6 +540,7 @@ const VisitHistoryList = React.memo(
     onFollow: (profile: Profile) => void;
     bottomPadding?: number;
   }) => {
+    const queryClient = useQueryClient();
     const currentUser = useUserStore(state => state.currentUser);
     return (
       <FlashList
@@ -588,8 +589,8 @@ const VisitHistoryList = React.memo(
                   </View>
                 </Pressable>
                 {!(
-                  ProfileService.getProfileFromCacheSync(profileData.handle || '')?.isFollowing ??
-                  profileData.isFollowing
+                  ProfileService.getProfileFromCacheSync(queryClient, profileData.handle || '')
+                    ?.isFollowing ?? profileData.isFollowing
                 ) &&
                   !isCurrentUser(profileData.did, profileData.handle, currentUser) && (
                     <Pressable
@@ -1379,7 +1380,9 @@ const ExploreScreen: React.FC = () => {
         const handle = post.author.handle;
         const postText = post.text || '';
         const did = post.author.did || '';
-        const cachedProfile = handle ? ProfileService.getProfileFromCacheSync(handle) : null;
+        const cachedProfile = handle
+          ? ProfileService.getProfileFromCacheSync(queryClient, handle)
+          : null;
         const followStoreState = followStoreFollows?.get(did);
 
         results.push({
@@ -2254,8 +2257,8 @@ const ExploreScreen: React.FC = () => {
                     </View>
                   </Pressable>
                   {!(
-                    ProfileService.getProfileFromCacheSync(profile.handle || '')?.isFollowing ??
-                    profile.isFollowing
+                    ProfileService.getProfileFromCacheSync(queryClient, profile.handle || '')
+                      ?.isFollowing ?? profile.isFollowing
                   ) &&
                     !isCurrentUser(profile.did, profile.handle, currentUser) && (
                       <Pressable

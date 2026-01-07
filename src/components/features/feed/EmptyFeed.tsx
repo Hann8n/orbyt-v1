@@ -9,7 +9,7 @@ import AtprotoService from '../../../services/api/AtprotoService';
 import { Avatar } from '../../ui/UI';
 import { VerificationBadge } from '../badging';
 import { useRouter } from 'expo-router';
-import ProfileService, { useFollowMutation } from '../../../services/data/ProfileService';
+import { useFollowMutation, useProfile } from '../../../services/data/ProfileService';
 import { formatHandle } from '../../../utils/formatting/handles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 // Use require for static RN asset to avoid TS module typing issues
@@ -107,7 +107,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
           icon: 'user-plus',
           defaultMessage: 'follow accounts to see their posts here',
         };
-      case 'end':
+      case 'end': {
         const endMessage = () => {
           switch (feedOption) {
             case 'following':
@@ -124,6 +124,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
           icon: 'video-movies-vintage-tv-1',
           defaultMessage: endMessage(),
         };
+      }
       case 'no-videos':
       default:
         return {
@@ -140,11 +141,10 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
   const iconColor = profileColors ? profileColors.textColor : secondaryColor || Colors.lightGray;
   const textColor = Colors.lightGray;
 
-  // Render suggested user item using explore screen UI pattern
-  const renderSuggestedUser = ({ item }: { item: SuggestedUser }) => {
-    const isFollowing =
-      ProfileService.getProfileFromCacheSync(item.handle || '')?.isFollowing ??
-      !!item.viewer?.following;
+  // Suggested user item component (must be a component to use hooks)
+  const SuggestedUserItem: React.FC<{ item: SuggestedUser }> = ({ item }) => {
+    const { data: profile } = useProfile(item.handle || null);
+    const isFollowing = profile?.isFollowing ?? !!item.viewer?.following;
 
     return (
       <View style={styles.profileItem}>
@@ -187,6 +187,11 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
       </View>
     );
   };
+
+  // Render suggested user item using explore screen UI pattern
+  const renderSuggestedUser = ({ item }: { item: SuggestedUser }) => (
+    <SuggestedUserItem item={item} />
+  );
 
   // Calculate top offset so content appears around the top third of the available area
   const containerHeight = viewableAreaHeight

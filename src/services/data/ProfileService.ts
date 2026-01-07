@@ -1,4 +1,3 @@
-import { storage } from '../../utils/storage/storage';
 import AtprotoService from '../api/AtprotoService';
 import { getStatusBarStyle, DEFAULT_PROFILE_COLORS } from '@/utils/formatting/colors';
 import {
@@ -175,7 +174,6 @@ export function getProfileColors(profile: CachedProfile | null | undefined): Pro
 export const PROFILE_CACHE_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
 class ProfileService {
-  private static CACHE_KEY_PREFIX = 'profile_cache_';
   private static currentUserDid: string | null = null;
   private static currentUserHandle: string | null = null;
 
@@ -292,22 +290,6 @@ class ProfileService {
     };
   }
 
-  /**
-   * Save profile to MMKV cache (synchronous)
-   */
-  static saveProfileToCache(profile: CachedProfile): void {
-    try {
-      const didKey = `${this.CACHE_KEY_PREFIX}did_${profile.did}`;
-      const handleKey = `${this.CACHE_KEY_PREFIX}${profile.handle.toLowerCase()}`;
-
-      const profileJson = JSON.stringify(profile);
-      storage.set(didKey, profileJson);
-      storage.set(handleKey, profileJson);
-    } catch {
-      // Silently fail
-    }
-  }
-
   // React Query integration
   static getQueryKey(handle: string): QueryKey {
     return profileKeys.detail(handle.toLowerCase());
@@ -316,6 +298,18 @@ class ProfileService {
   // Make CACHE_EXPIRY accessible for React Query hooks
   static get cacheExpiry(): number {
     return PROFILE_CACHE_EXPIRY;
+  }
+
+  /**
+   * Get profile from React Query cache synchronously
+   * @param queryClient - React Query client instance
+   * @param handle - Profile handle
+   * @returns Cached profile or null
+   */
+  static getProfileFromCacheSync(queryClient: QueryClient, handle: string): CachedProfile | null {
+    if (!handle) return null;
+    const queryKey = profileKeys.detail(handle.toLowerCase());
+    return queryClient.getQueryData<CachedProfile>(queryKey) ?? null;
   }
 
   /**
@@ -344,62 +338,6 @@ class ProfileService {
    */
   static getCurrentUserHandle(): string | null {
     return this.currentUserHandle;
-  }
-
-  /**
-   * Get a profile from MMKV cache by DID synchronously (for React Query placeholderData)
-   * Uses MMKV for instant synchronous reads
-   */
-  static getProfileFromCacheSyncByDid(did: string): CachedProfile | null {
-    if (!did) return null;
-
-    try {
-      const cacheKey = `${this.CACHE_KEY_PREFIX}did_${did}`;
-      const cached = storage.getString(cacheKey);
-      if (cached) {
-        const profile = JSON.parse(cached) as CachedProfile;
-        if (this.isCacheValid(profile)) {
-          return profile;
-        }
-      }
-    } catch {
-      // Silently fail
-    }
-    return null;
-  }
-
-  /**
-   * Get a profile from MMKV cache by handle synchronously (for React Query placeholderData)
-   * Uses MMKV for instant synchronous reads
-   */
-  static getProfileFromCacheSync(handle: string): CachedProfile | null {
-    if (!handle) return null;
-
-    try {
-      // Clean handle format
-      let cleanHandle = handle.trim().toLowerCase();
-      if (cleanHandle.includes('://') || cleanHandle.includes('/')) {
-        const parts = cleanHandle.split('/');
-        for (const part of parts) {
-          if (part.includes('.')) {
-            cleanHandle = part;
-            break;
-          }
-        }
-      }
-
-      const cacheKey = `${this.CACHE_KEY_PREFIX}${cleanHandle}`;
-      const cached = storage.getString(cacheKey);
-      if (cached) {
-        const profile = JSON.parse(cached) as CachedProfile;
-        if (this.isCacheValid(profile)) {
-          return profile;
-        }
-      }
-    } catch {
-      // Silently fail
-    }
-    return null;
   }
 
   /**
@@ -433,24 +371,21 @@ class ProfileService {
         did,
         records.orbytRecord as OrbytProfileRecord | null
       );
-      // Save to MMKV for sync reads (placeholderData)
-      this.saveProfileToCache(profile);
 
       return profile;
     } catch (_error) {
-      // Return stale cache if available
-      const cached = this.getProfileFromCacheSyncByDid(did);
-      return cached;
+      // Return null on error - React Query will handle retries
+      return null;
     }
   }
 
   /**
-   * Batch fetch and cache multiple profiles
-   * Checks cache first, only fetches missing profiles from API
+   * Batch fetch multiple profiles
    * More efficient than individual fetches for 2+ profiles
+   * React Query handles caching
    *
    * @param handles - Array of handles to fetch
-   * @returns Array of cached profiles
+   * @returns Array of profiles
    */
   static async batchGetProfiles(handles: string[]): Promise<CachedProfile[]> {
     if (!handles || handles.length === 0) {
@@ -461,30 +396,12 @@ class ProfileService {
       new Set(handles.map(h => h?.toLowerCase()).filter(h => !!h && typeof h === 'string'))
     );
 
-    // Check cache first
-    const cached: CachedProfile[] = [];
-    const needsFetch: string[] = [];
-
-    for (const handle of uniqueHandles) {
-      const cached_profile = await this.getProfileFromCache(handle);
-      if (cached_profile && this.isCacheValid(cached_profile)) {
-        cached.push(cached_profile);
-      } else {
-        needsFetch.push(handle);
-      }
-    }
-
-    // If all in cache, return early
-    if (needsFetch.length === 0) {
-      return cached;
-    }
-
-    // Fetch missing profiles in batch
+    // Fetch all profiles in batch
     try {
-      const profiles = await AtprotoService.getProfilesInBatch(needsFetch);
+      const profiles = await AtprotoService.getProfilesInBatch(uniqueHandles);
 
-      // Transform and cache each profile with records
-      const cachedProfiles: CachedProfile[] = [];
+      // Transform each profile with records
+      const results: CachedProfile[] = [];
       for (const profile of profiles) {
         if (profile?.handle && profile?.did) {
           try {
@@ -495,27 +412,26 @@ class ProfileService {
               profile.did,
               records.orbytRecord as OrbytProfileRecord | null
             );
-            this.saveProfileToCache(transformed);
-            cachedProfiles.push(transformed);
+            results.push(transformed);
           } catch {
             // Skip failed profiles
           }
         }
       }
 
-      return [...cached, ...cachedProfiles];
+      return results;
     } catch (_error) {
-      // Return what we got from cache at least
-      return cached;
+      return [];
     }
   }
 
   /**
    * Batch fetch profiles by DIDs
    * Useful when you have DIDs but not handles
+   * React Query handles caching
    *
    * @param dids - Array of DIDs to fetch
-   * @returns Array of cached profiles
+   * @returns Array of profiles
    */
   static async batchGetProfilesByDid(dids: string[]): Promise<CachedProfile[]> {
     if (!dids || dids.length === 0) {
@@ -524,25 +440,9 @@ class ProfileService {
 
     const uniqueDids = Array.from(new Set(dids.filter(d => !!d && typeof d === 'string')));
 
-    const cached: CachedProfile[] = [];
-    const needsFetch: string[] = [];
-
-    for (const did of uniqueDids) {
-      const cached_profile = this.getProfileFromCacheSyncByDid(did);
-      if (cached_profile && this.isCacheValid(cached_profile)) {
-        cached.push(cached_profile);
-      } else {
-        needsFetch.push(did);
-      }
-    }
-
-    if (needsFetch.length === 0) {
-      return cached;
-    }
-
     try {
       const profiles = await Promise.all(
-        needsFetch.map(did => AtprotoService.getProfileByDid(did).catch(() => null))
+        uniqueDids.map(did => AtprotoService.getProfileByDid(did).catch(() => null))
       );
 
       const results: CachedProfile[] = [];
@@ -556,7 +456,6 @@ class ProfileService {
               profile.did,
               records.orbytRecord as OrbytProfileRecord | null
             );
-            this.saveProfileToCache(transformed);
             results.push(transformed);
           } catch {
             // Skip failed profiles
@@ -564,9 +463,9 @@ class ProfileService {
         }
       }
 
-      return [...cached, ...results];
+      return results;
     } catch (_error) {
-      return cached;
+      return [];
     }
   }
 
@@ -608,14 +507,11 @@ class ProfileService {
         apiProfile.did,
         records.orbytRecord as OrbytProfileRecord | null
       );
-      // Save to MMKV for sync reads (placeholderData)
-      this.saveProfileToCache(profile);
 
       return profile;
     } catch (_error) {
-      // Return stale cache if available
-      const cached = this.getProfileFromCacheSync(handle);
-      return cached;
+      // Return null on error - React Query will handle retries
+      return null;
     }
   }
 
@@ -647,21 +543,14 @@ class ProfileService {
           if (!profile?.handle || !profile?.did) return;
 
           try {
-            // Check if already cached and valid
-            const cached = this.getProfileFromCacheSyncByDid(profile.did);
-            if (cached && this.isCacheValid(cached)) {
-              return;
-            }
-
-            // Transform and save
+            // Transform profile - React Query handles caching
             // Fetch records for colors
             const records = await AtprotoService.getProfileRecordsForDid(profile.did);
-            const transformed = await this.transformApiProfile(
+            await this.transformApiProfile(
               profile,
               profile.did,
               records.orbytRecord as OrbytProfileRecord | null
             );
-            this.saveProfileToCache(transformed);
           } catch {
             // Silently handle errors
           }
@@ -674,67 +563,36 @@ class ProfileService {
 
   /**
    * Update the following status for a profile
-   * Updates MMKV cache - React Query handles invalidation via mutations
+   * Note: This method is deprecated - React Query mutations handle cache updates
+   * Keeping for backwards compatibility but no longer updates cache
    */
   static async updateFollowingStatus(
-    handle: string,
-    isFollowing: boolean,
-    isFollowedBy?: boolean
+    _handle: string,
+    _isFollowing: boolean,
+    _isFollowedBy?: boolean
   ): Promise<void> {
-    if (!handle) return;
-
-    try {
-      const cachedProfile = this.getProfileFromCacheSync(handle);
-      if (cachedProfile) {
-        cachedProfile.isFollowing = isFollowing;
-        if (isFollowedBy !== undefined) {
-          cachedProfile.isFollowedBy = isFollowedBy;
-        }
-        cachedProfile.lastUpdated = Date.now();
-        this.saveProfileToCache(cachedProfile);
-      }
-    } catch {
-      // Silently handle errors
-    }
+    // Note: This method is deprecated - React Query mutations handle cache updates
+    // Keeping for backwards compatibility but no longer updates cache
   }
 
   /**
    * Update the subscription status for a profile
    * Updates MMKV cache - React Query handles invalidation via mutations
    */
-  static async updateSubscriptionStatus(did: string, isSubscribed: boolean): Promise<void> {
+  static async updateSubscriptionStatus(did: string, _isSubscribed: boolean): Promise<void> {
     if (!did) return;
 
-    try {
-      const cachedProfile = this.getProfileFromCacheSyncByDid(did);
-      if (cachedProfile) {
-        cachedProfile.isSubscribed = isSubscribed;
-        cachedProfile.lastUpdated = Date.now();
-        this.saveProfileToCache(cachedProfile);
-      }
-    } catch {
-      // Silently handle errors
-    }
+    // Note: This method is deprecated - React Query mutations handle cache updates
+    // Keeping for backwards compatibility but no longer updates cache
   }
 
   /**
    * Update the mute status for a profile
-   * Updates MMKV cache - React Query handles invalidation via mutations
+   * Note: This method is deprecated - React Query mutations handle cache updates
    */
-  static async updateMuteStatus(did: string, handle: string, isMuted: boolean): Promise<void> {
-    if (!did || !handle) return;
-
-    try {
-      const cachedProfile =
-        this.getProfileFromCacheSyncByDid(did) || this.getProfileFromCacheSync(handle);
-      if (cachedProfile) {
-        cachedProfile.isMuted = isMuted;
-        cachedProfile.lastUpdated = Date.now();
-        this.saveProfileToCache(cachedProfile);
-      }
-    } catch {
-      // Silently handle errors
-    }
+  static async updateMuteStatus(_did: string, _handle: string, _isMuted: boolean): Promise<void> {
+    // Note: This method is deprecated - React Query mutations handle cache updates
+    // Keeping for backwards compatibility but no longer updates cache
   }
 
   /**
@@ -742,7 +600,7 @@ class ProfileService {
    */
   static async updateVerification(
     handle: string,
-    verification: {
+    _verification: {
       isVerified: boolean;
       verifiedBy?: string;
       verifierHandle?: string;
@@ -760,21 +618,13 @@ class ProfileService {
   ): Promise<void> {
     if (!handle) return;
 
-    try {
-      const cachedProfile = this.getProfileFromCacheSync(handle);
-      if (cachedProfile) {
-        cachedProfile.verification = verification;
-        cachedProfile.lastUpdated = Date.now();
-        this.saveProfileToCache(cachedProfile);
-      }
-    } catch {
-      // Silently handle errors
-    }
+    // Note: This method is deprecated - React Query mutations handle cache updates
+    // Keeping for backwards compatibility but no longer updates cache
   }
 
   /**
    * Apply a server-updated profile response into cache
-   * Extracts moderation flags (blocked/muted) from ProfileView.viewer
+   * Note: This method is deprecated - React Query handles cache updates
    */
   static async applyServerProfile(
     handle: string,
@@ -783,43 +633,8 @@ class ProfileService {
     if (!handle || !serverProfile) return;
 
     try {
-      const normalizedHandle = (serverProfile.handle || handle).toLowerCase();
-      const cachedProfile = this.getProfileFromCacheSync(normalizedHandle);
-
-      const isFollowing = serverProfile.viewer
-        ? !!serverProfile.viewer.following
-        : cachedProfile?.isFollowing;
-      const isFollowedBy = serverProfile.viewer
-        ? !!serverProfile.viewer.followedBy
-        : cachedProfile?.isFollowedBy;
-
-      // Extract moderation flags directly from ProfileView.viewer (Atproto types)
-      const isBlocked = serverProfile.viewer
-        ? !!(serverProfile.viewer.blocking || serverProfile.viewer.blockingByList)
-        : cachedProfile?.isBlocked;
-      const blockingByList = serverProfile.viewer?.blockingByList ?? cachedProfile?.blockingByList;
-      const isMuted = serverProfile.viewer?.muted ?? cachedProfile?.isMuted;
-
-      const merged: CachedProfile = {
-        did: serverProfile.did || cachedProfile?.did || '',
-        handle: serverProfile.handle || cachedProfile?.handle || normalizedHandle,
-        displayName: serverProfile.displayName ?? cachedProfile?.displayName,
-        avatar: serverProfile.avatar ?? cachedProfile?.avatar,
-        description: serverProfile.description ?? cachedProfile?.description,
-        isFollowing,
-        isFollowedBy,
-        isBlocked,
-        blockingByList,
-        isMuted,
-        // Preserve profileColors and other cached data that isn't in server response
-        profileColors: cachedProfile?.profileColors,
-        hasCustomColors: cachedProfile?.hasCustomColors,
-        verification: cachedProfile?.verification,
-        orbytProfileRecord: cachedProfile?.orbytProfileRecord,
-        isSubscribed: cachedProfile?.isSubscribed,
-        lastUpdated: Date.now(),
-      };
-      this.saveProfileToCache(merged);
+      // Note: This method is deprecated - React Query handles cache updates
+      // Keeping for backwards compatibility but no longer updates cache
     } catch {
       // Silently handle errors
     }
@@ -837,79 +652,27 @@ class ProfileService {
   }
 
   /**
-   * Get a profile directly from the cache by handle (async wrapper for sync method)
-   */
-  private static async getProfileFromCache(handle: string): Promise<CachedProfile | null> {
-    return this.getProfileFromCacheSync(handle);
-  }
-
-  /**
-   * Check if cached data is still valid (not expired)
-   */
-  private static isCacheValid(profile: CachedProfile): boolean {
-    if (!profile) return false;
-    const now = Date.now();
-    return now - profile.lastUpdated < this.cacheExpiry;
-  }
-
-  /**
-   * Generate a consistent cache key for a DID
-   */
-  private static getCacheKeyByDid(did: string): string {
-    return `${this.CACHE_KEY_PREFIX}did_${did}`;
-  }
-
-  /**
-   * Generate a consistent cache key for a handle (legacy)
-   */
-  private static getCacheKey(handle: string): string {
-    return `${this.CACHE_KEY_PREFIX}${handle.toLowerCase()}`;
-  }
-
-  /**
    * Invalidate a specific profile in the cache
-   * Removes from MMKV for React Query to refetch
+   * Note: This method is deprecated - React Query handles cache invalidation
    */
-  static async invalidateProfile(handle: string): Promise<void> {
-    if (!handle) return;
-
-    try {
-      const normalizedHandle = handle.toLowerCase();
-      const cacheKey = this.getCacheKey(normalizedHandle);
-      storage.delete(cacheKey);
-    } catch (_error) {
-      // Silently handle errors
-    }
+  static async invalidateProfile(_handle: string): Promise<void> {
+    // Note: This method is deprecated - React Query handles cache invalidation
   }
 
   /**
    * Invalidate a specific profile in the cache by DID
+   * Note: This method is deprecated - React Query handles cache invalidation
    */
-  static async invalidateProfileByDid(did: string): Promise<void> {
-    if (!did) return;
-
-    try {
-      const cacheKey = this.getCacheKeyByDid(did);
-      storage.delete(cacheKey);
-    } catch (_error) {
-      // Silently handle errors
-    }
+  static async invalidateProfileByDid(_did: string): Promise<void> {
+    // Note: This method is deprecated - React Query handles cache invalidation
   }
 
   /**
    * Clear all cached profiles
+   * Note: This method is deprecated - React Query handles cache management
    */
   static async clearCache(): Promise<void> {
-    try {
-      const allKeys = storage.getAllKeys();
-      allKeys.forEach(key => {
-        if (key.startsWith(this.CACHE_KEY_PREFIX)) {
-          storage.delete(key);
-        }
-      });
-    } catch {
-      // Silently fail
-    }
+    // Note: This method is deprecated - React Query handles cache management
   }
 
   /**
@@ -963,31 +726,16 @@ class ProfileService {
         return;
       }
 
-      // Filter out already cached profiles
-      const uncachedHandles = handlesToPrefetch.filter(handle => {
-        const cached = this.getProfileFromCacheSync(handle);
-        return !cached || !this.isCacheValid(cached);
-      });
-
-      if (uncachedHandles.length === 0) {
-        return;
-      }
-
       // Process handles in smaller batches to avoid overwhelming the API
+      // React Query handles caching, so we just prefetch all handles
       const batchSize = 5;
-      for (let i = 0; i < uncachedHandles.length; i += batchSize) {
-        const batch = uncachedHandles.slice(i, i + batchSize);
+      for (let i = 0; i < handlesToPrefetch.length; i += batchSize) {
+        const batch = handlesToPrefetch.slice(i, i + batchSize);
 
         await Promise.allSettled(
           batch.map(async handle => {
             try {
-              // Check if already cached first
-              const cached = this.getProfileFromCacheSync(handle);
-              if (cached && this.isCacheValid(cached)) {
-                return; // Already cached and valid
-              }
-
-              // Fetch and cache the profile
+              // Prefetch the profile - React Query will cache it
               await this.getProfile(handle);
             } catch (_error: unknown) {
               // ignore
@@ -1016,21 +764,20 @@ class ProfileService {
 
 /**
  * Hook to fetch and subscribe to profile data by DID (preferred method)
- * Uses placeholderData for instant UI from MMKV cache
+ * React Query cache provides instant data on subsequent renders
  */
 export function useProfileByDid(
   did: string | null | undefined
 ): UseQueryResult<CachedProfile | null, Error> {
-  // Get cached profile to calculate dynamic staleTime based on status expiration
-  const cachedProfile = useMemo(() => {
-    if (!did) return null;
-    return ProfileService.getProfileFromCacheSyncByDid(did);
-  }, [did]);
+  const queryClient = useQueryClient();
 
-  // Calculate staleTime based on status expiration
+  // Calculate staleTime based on status expiration from React Query cache
   const staleTime = useMemo(() => {
+    if (!did) return PROFILE_CACHE_EXPIRY;
+    // Read from React Query cache to calculate staleTime
+    const cachedProfile = queryClient.getQueryData<CachedProfile>(profileKeys.detail(`did_${did}`));
     return getProfileStaleTime(cachedProfile);
-  }, [cachedProfile]);
+  }, [did, queryClient]);
 
   return useQuery<CachedProfile | null, Error>({
     queryKey: did ? profileKeys.detail(`did_${did}`) : ['profiles', 'detail', 'did_'],
@@ -1041,12 +788,6 @@ export function useProfileByDid(
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     refetchOnReconnect: false,
-    // Use placeholderData for instant UI - reads from MMKV synchronously
-    // Always use cached version to ensure colors are present during refetches
-    placeholderData: () => {
-      if (!did) return null;
-      return ProfileService.getProfileFromCacheSyncByDid(did);
-    },
   });
 }
 
@@ -1122,21 +863,22 @@ export function useBatchProfilesByDid(
 
 /**
  * Hook to fetch and subscribe to profile data by handle
- * Uses placeholderData for instant UI from MMKV cache
+ * React Query cache provides instant data on subsequent renders
  */
 export function useProfile(
   handle: string | null | undefined
 ): UseQueryResult<CachedProfile | null, Error> {
-  // Get cached profile to calculate dynamic staleTime based on status expiration
-  const cachedProfile = useMemo(() => {
-    if (!handle) return null;
-    return ProfileService.getProfileFromCacheSync(handle);
-  }, [handle]);
+  const queryClient = useQueryClient();
 
-  // Calculate staleTime based on status expiration
+  // Calculate staleTime based on status expiration from React Query cache
   const staleTime = useMemo(() => {
+    if (!handle) return PROFILE_CACHE_EXPIRY;
+    // Read from React Query cache to calculate staleTime
+    const cachedProfile = queryClient.getQueryData<CachedProfile>(
+      profileKeys.detail(handle.toLowerCase())
+    );
     return getProfileStaleTime(cachedProfile);
-  }, [cachedProfile]);
+  }, [handle, queryClient]);
 
   return useQuery<CachedProfile | null, Error>({
     queryKey: handle ? profileKeys.detail(handle.toLowerCase()) : ['profiles', 'detail', ''],
@@ -1147,12 +889,6 @@ export function useProfile(
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     refetchOnReconnect: false,
-    // Use placeholderData for instant UI - reads from MMKV synchronously
-    // Always use cached version to ensure colors are present during refetches
-    placeholderData: () => {
-      if (!handle) return null;
-      return ProfileService.getProfileFromCacheSync(handle);
-    },
   });
 }
 
@@ -1354,14 +1090,10 @@ export function useBlockMutation() {
 
       if (updatedProfile) {
         queryClient.setQueryData(profileKeys.detail(normalizedHandle), updatedProfile);
-        // Immediately save to MMKV for persistence
-        ProfileService.saveProfileToCache(updatedProfile);
       }
 
       if (updatedProfileByDid) {
         queryClient.setQueryData(profileKeys.detail(`did_${did}`), updatedProfileByDid);
-        // Immediately save to MMKV for persistence
-        ProfileService.saveProfileToCache(updatedProfileByDid);
       }
 
       return { previousProfile, previousProfileByDid, normalizedHandle };
@@ -1382,20 +1114,10 @@ export function useBlockMutation() {
       // Normalize handle to lowercase to match query keys (useProfile uses lowercase)
       const normalizedHandle = handle.toLowerCase();
 
-      // Sync React Query cache from MMKV to ensure consistency (cache already updated in onMutate)
+      // React Query cache is already updated in onMutate
+      // No need to sync from MMKV since we're using React Query only
       const handleKey = profileKeys.detail(normalizedHandle);
       const didKey = profileKeys.detail(`did_${did}`);
-
-      const persistedProfile = ProfileService.getProfileFromCacheSync(handle);
-      const persistedProfileByDid = ProfileService.getProfileFromCacheSyncByDid(did);
-
-      // Ensure React Query cache matches persisted MMKV state
-      if (persistedProfile) {
-        queryClient.setQueryData(handleKey, persistedProfile);
-      }
-      if (persistedProfileByDid) {
-        queryClient.setQueryData(didKey, persistedProfileByDid);
-      }
 
       // Invalidate feed queries immediately to refresh posts visibility
       queryClient.invalidateQueries({ queryKey: ['feed'], refetchType: 'active' });
@@ -1432,8 +1154,7 @@ export function useMuteMutation() {
         await AtprotoService.unmuteUser(did);
       }
 
-      // Update the cache with the new mute status
-      await ProfileService.updateMuteStatus(did, handle, isMuted);
+      // Note: Cache updates are handled by React Query mutations
 
       return { did, handle, isMuted };
     },
@@ -1542,12 +1263,7 @@ export function useProfileUpdateMutation() {
       ) {
         updatedProfile = await AtprotoService.updateProfile(profileUpdates);
 
-        // Immediately apply to local cache for fast UI reflection
-        try {
-          await ProfileService.applyServerProfile(handle, updatedProfile);
-        } catch (_error) {
-          // Continue even if this fails
-        }
+        // Note: Cache updates are handled by React Query
       }
 
       return { handle, updatedProfile, updatedColors: !!updates.customColors };
@@ -1605,8 +1321,6 @@ export function useProfileUpdateMutation() {
             },
             lastUpdated: Date.now(),
           };
-          // Save to MMKV cache
-          ProfileService.saveProfileToCache(updated);
           // Update React Query cache immediately - don't invalidate to avoid refetch before server has processed
           queryClient.setQueryData(profileKeys.detail(handle), updated);
           // Also update DID-based query if we have the DID
@@ -1692,7 +1406,7 @@ export function useProfileInvalidation() {
 
   return useCallback(
     async (handle: string) => {
-      await ProfileService.invalidateProfile(handle);
+      // Invalidate React Query cache
       queryClient.invalidateQueries({ queryKey: profileKeys.detail(handle) });
     },
     [queryClient]
@@ -1821,11 +1535,6 @@ export async function prefetchProfile(
           profileKeys.detail(cleanHandle),
           partialCachedProfile as CachedProfile
         );
-
-        // Also save to MMKV for sync reads
-        if (partialCachedProfile.did) {
-          ProfileService.saveProfileToCache(partialCachedProfile as CachedProfile);
-        }
       }
     }
   }

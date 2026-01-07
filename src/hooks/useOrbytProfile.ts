@@ -1,21 +1,22 @@
 import { useMemo } from 'react';
-import ProfileService from '../services/data/ProfileService';
+import { useProfileByDid } from '../services/data/ProfileService';
 import { useUserStore } from '../stores/userStore';
 
 /**
  * Load the com.getorbyt.profile record for any DID (or current user when DID is omitted).
- * Simple hook that reads directly from cached profile data.
+ * Reads from React Query cache.
  */
 export function useOrbytProfile(did?: string) {
   const currentUser = useUserStore(state => state.currentUser);
   const targetDid = did ?? currentUser?.did ?? null;
 
-  // Read directly from cached profile - data is already fetched with profile using listRecords
+  // Read from React Query cache - data is already fetched with profile using listRecords
+  const { data: cachedProfile } = useProfileByDid(targetDid);
+
   const record = useMemo(() => {
     if (!targetDid) return null;
-    const cachedProfile = ProfileService.getProfileFromCacheSyncByDid(targetDid);
     return cachedProfile?.orbytProfileRecord ?? null;
-  }, [targetDid]);
+  }, [targetDid, cachedProfile]);
 
   return {
     record,

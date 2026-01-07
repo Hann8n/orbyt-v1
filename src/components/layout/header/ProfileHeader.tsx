@@ -14,7 +14,6 @@ import VerificationBadge from '../../features/badging/VerificationBadge';
 import BetaBadge from '../../features/badging/BetaBadge';
 import BetaInfoSheet from '../../features/badging/BetaInfoSheet';
 import VerificationInfoSheet from '../../features/badging/VerificationInfoSheet';
-import ProfileService from '../../../services/data/ProfileService';
 import { getStatusBarStyle } from '../../../utils/formatting/colors';
 import { RichText } from '@atproto/api';
 import { formatHandle } from '../../../utils/formatting/handles';
@@ -46,11 +45,11 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   const [showVerificationInfo, setShowVerificationInfo] = useState(false);
   const [showBetaInfo, setShowBetaInfo] = useState(false);
 
-  // Use profile data and colors from cache
+  // Use profile data and colors from React Query cache
   const { data: profile } = useProfile(handle);
 
-  // Ensure profile data is immediately available from cache to prevent flashing
-  const profileData = profile || (handle ? ProfileService.getProfileFromCacheSync(handle) : null);
+  // React Query cache provides instant data on subsequent renders
+  const profileData = profile;
 
   // Get colors from profile data
   const profileColors = getProfileColors(profileData);

@@ -3,11 +3,9 @@ import React, { useRef, useEffect, useMemo } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, Text, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useQuery } from '@tanstack/react-query';
 import { format, parseISO, isValid } from 'date-fns';
-import ProfileService from '../../../services/data/ProfileService';
+import { useProfile, useProfileByDid } from '../../../services/data/ProfileService';
 import { Colors } from '../../ui/UI';
-import AtprotoService from '../../../services/api/AtprotoService';
 import { useRouter } from 'expo-router';
 import { Loading3FillIcon } from '../../ui/Icon';
 import CloseButton from '../../ui/CloseButton';
@@ -68,27 +66,8 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
 
   // Get profile info - use cached data if available
   // Verification data is included in profile response, so we only need one query
-  const { data: profile, isLoading: isProfileLoading } = useQuery({
-    queryKey: ['profile', handle],
-    queryFn: async () => {
-      try {
-        // First try to get from cache synchronously
-        const cachedProfile = ProfileService.getProfileFromCacheSync(handle);
-        if (cachedProfile) {
-          return cachedProfile;
-        }
-
-        // If not in cache, fetch it
-        const result = await ProfileService.getProfile(handle);
-        return result || null;
-      } catch (error) {
-        return null;
-      }
-    },
-    enabled: !!handle, // Preload when handle is available, not just when visible
-    staleTime: 60000, // 1 minute
-    refetchOnWindowFocus: false,
-  });
+  // Use React Query hook for profile data
+  const { data: profile, isLoading: isProfileLoading } = useProfile(handle);
 
   // Use verification data from profile - no separate query needed
   const verification = profile?.verification as VerificationData | null | undefined;
@@ -98,40 +77,14 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
   const validVerification = verification?.verifications?.find(v => v.isValid);
   const verifierDid = validVerification?.issuer || verification?.verifiedBy;
 
-  // Fetch issuer profile using cached data if available
+  // Fetch issuer profile using React Query hook
   // Preload this data even when sheet is not visible to avoid size calculation issues
-  const { data: issuerProfile, isLoading: isIssuerLoading } = useQuery({
-    queryKey: ['issuer-profile', verifierDid],
-    queryFn: async () => {
-      try {
-        // Try to get profile by DID using cached data first
-        if (verifierDid) {
-          // Try to get from cache first
-          const cachedProfile = ProfileService.getProfileFromCacheSync(verifierDid);
-          if (cachedProfile) {
-            return cachedProfile;
-          }
-          // If not in cache, fetch it
-          const profile = await AtprotoService.getVerifierProfile(verifierDid);
-          if (profile) return profile;
-        }
-        return null;
-      } catch (error) {
-        return null;
-      }
-    },
-    enabled: !!verifierDid, // Preload when verifierDid is available, not just when visible
-    staleTime: 60000,
-    refetchOnWindowFocus: false,
-  });
+  const { data: issuerProfile, isLoading: isIssuerLoading } = useProfileByDid(verifierDid);
 
   // Determine verification status using cache fields
   const isTrustedVerifier =
     verification?.trustedVerifierStatus === 'valid' ||
     verification?.trustedVerifierStatus === 'active';
-  verification?.verifications &&
-    verification.verifications.length > 0 &&
-    verification.verifications.some(v => v.isValid);
 
   // Handle bottom sheet visibility
   useEffect(() => {
