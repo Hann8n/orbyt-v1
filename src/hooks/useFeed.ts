@@ -45,7 +45,7 @@ interface UseFeedReturn {
   feed: FeedItem[];
   isLoading: boolean;
   isError: boolean;
-  error: any;
+  error: Error | null;
   isFetching: boolean; // React Query's fetching state (includes refetching)
   isFetchingNextPage: boolean;
   hasNextPage: boolean;
@@ -136,18 +136,19 @@ export function useFeed(
     enabled && !isSwitchingAccount && !!agent && (!isUserSpecificFeed || !!effectiveUserDid);
 
   // Create optimized infinite query with centralized configuration
-  // When feedOption or effectiveUserDid changes, React Query treats this as a new query and fetches fresh data
+  // When effectiveUserDid changes, React Query treats this as a new query and fetches fresh data
   const queryKey = queryKeys.feed.infinite(feedOption, effectiveUserDid ?? undefined);
 
-  // Track previous feedOption to detect feed type changes
+  // Track previous feedOption to detect feed type changes (tab switches)
+  // When feedOption changes, disable placeholderData to clear old feed data immediately
   const previousFeedOptionRef = useRef<FeedOption | undefined>(undefined);
   const isFeedTypeChanged =
     previousFeedOptionRef.current !== undefined && previousFeedOptionRef.current !== feedOption;
 
-  // Update ref after checking for changes
-  useEffect(() => {
+  // Update ref synchronously after checking for changes (before query creation)
+  if (previousFeedOptionRef.current !== feedOption) {
     previousFeedOptionRef.current = feedOption;
-  }, [feedOption]);
+  }
 
   const query = useInfiniteQuery<
     FeedResponse,
@@ -211,21 +212,23 @@ export function useFeed(
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     refetchOnReconnect: false,
-    // Keep previous data when refetching the same feed type (smooth refetch experience)
-    // Clear feed when switching between different feed types (prevents showing wrong feed while loading)
+    // Use placeholderData to maintain previous data during refetch of the SAME feed
+    // But NOT when switching between different feed types (tabs) - clear feed on tab switch
+    // This prevents the feed from clearing and losing scroll position during refetches,
+    // but ensures clean state when switching tabs
     placeholderData: isFeedTypeChanged ? undefined : previousData => previousData,
     ...queryOptions,
   });
-
-  // Flatten the pages for a single data array
-  // React Query's placeholderData keeps previous data during refetch
-  // This ensures FlashList maintains scroll position when feed updates
-  const feedPages = query.data?.pages ?? [];
 
   // Deduplicate feed items, compute moderation flags, and create stable array
   // FlashList v2's maintainVisibleContentPosition handles new items gracefully
   // when keyExtractor returns stable keys (not including index)
   const feed = useMemo(() => {
+    // Flatten the pages for a single data array
+    // React Query's placeholderData keeps previous data during refetch
+    // This ensures FlashList maintains scroll position when feed updates
+    const feedPages = query.data?.pages ?? [];
+
     if (!feedPages.length) {
       return [] as FeedItem[];
     }
@@ -279,7 +282,7 @@ export function useFeed(
     }
 
     return result;
-  }, [feedPages, settings]);
+  }, [query.data?.pages, settings]);
 
   // Infinite scroll state
   const isNearEndRef = useRef(false);
@@ -321,6 +324,7 @@ export function useFeed(
     query.isFetchingNextPage,
     queryEnabled,
     query.fetchNextPage,
+    query,
   ]);
 
   // Reset prefetch flag when feed changes significantly (new feed option, etc.)

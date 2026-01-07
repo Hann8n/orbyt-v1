@@ -18,6 +18,7 @@ import {
   ScaledSize,
   InteractionManager,
   LayoutChangeEvent,
+  type RefreshControlProps,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList, FlashListRef, type ListRenderItemInfo } from '@shopify/flash-list';
@@ -719,12 +720,17 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           bounces={true}
           directionalLockEnabled={true}
           // FlashList v2: Maintain scroll position when content changes
+          // New videos are added to subsequent pages without disrupting current view
+          // disabled: false (default) ensures scroll position is preserved
+          // autoscrollToTopThreshold: undefined prevents auto-scrolling when new items are added at top
           maintainVisibleContentPosition={{
             disabled: false,
             autoscrollToTopThreshold: undefined,
           }}
           // Pull to refresh
-          refreshControl={refreshControl as any}
+          refreshControl={
+            refreshControl ? (refreshControl as React.ReactElement<RefreshControlProps>) : undefined
+          }
           // Prevent horizontal interference
           alwaysBounceVertical={false}
           alwaysBounceHorizontal={false}

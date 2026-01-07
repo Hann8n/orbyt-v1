@@ -132,7 +132,7 @@ const FeedRenderer = memo(
           staleTime: QUERY_CONSTANTS.STALE_TIME_LONG, // 10 minutes - for slowly changing data
           ...restOptions,
         };
-      }, [queryOptions, isSearchFeed, isVisible, shouldPrefetch, feedOption]);
+      }, [queryOptions, isSearchFeed, isVisible, shouldPrefetch]);
 
       // Regular feed hook with memoized options
       const feedQuery = useFeed(feedOption, userDid, memoizedQueryOptions);
@@ -242,40 +242,6 @@ const FeedRenderer = memo(
         }
       }, [hasNextPage, isFetchingNextPage, isVisible, fetchNextPage]);
 
-      // Early return for error states
-      if (errorState.finalIsError && !isSearchFeed) {
-        return (
-          <View style={[styles.errorContainer, { backgroundColor }]}>
-            <EmptyFeed
-              type="error"
-              secondaryColor={secondaryColor}
-              profileColors={
-                secondaryColor ? { backgroundColor, textColor: secondaryColor } : undefined
-              }
-              onRetry={handleRetry}
-              feedOption={feedOption}
-            />
-          </View>
-        );
-      }
-
-      // Offline state
-      if (isPaused && !isSearchFeed) {
-        return (
-          <View style={[styles.errorContainer, { backgroundColor }]}>
-            <EmptyFeed
-              type="no-connection"
-              secondaryColor={secondaryColor}
-              profileColors={
-                secondaryColor ? { backgroundColor, textColor: secondaryColor } : undefined
-              }
-              onRetry={handleRetry}
-              feedOption={feedOption}
-            />
-          </View>
-        );
-      }
-
       // Simple position change handler - forwards to parent only
       // Pagination is handled by FlashList's onEndReached (via onLoadMore -> handleLoadMore)
       // This avoids conflicting pagination triggers and ensures new content is added to next page
@@ -324,6 +290,51 @@ const FeedRenderer = memo(
         refetch,
       ]);
 
+      // Unified handler for grid and horizontal item presses
+      // Opens feed modal and scrolls to selected video using FlashList's native scrollToIndex
+      const navigation = useRouter();
+
+      const handleItemPress = useCallback(
+        (index: number) => {
+          if (viewMode === 'grid' && index >= 0 && index < feed.length) {
+            // Set the current feed so the modal can use it
+            feedService.setCurrentFeed(feed);
+
+            // Navigate to feed modal with initial index
+            navigation.push({
+              pathname: '/(modals)/feed',
+              params: {
+                feedOption: feedOption || 'search',
+                userDid,
+                backgroundColor: backgroundColor || Colors.black,
+                secondaryColor: secondaryColor || Colors.white,
+                initialIndex: index.toString(),
+              },
+            });
+          }
+        },
+        [viewMode, feed, feedOption, userDid, backgroundColor, secondaryColor, navigation]
+      );
+
+      // Refs for forwarding to ListFeedView and GridFeedView
+      const listFeedViewRef = useRef<ListFeedViewRef>(null);
+      const gridFeedViewRef = useRef<ListFeedViewRef>(null);
+
+      // Forward ref methods
+      useImperativeHandle(
+        ref,
+        () => ({
+          scrollToTop: () => {
+            if (viewMode === 'list') {
+              listFeedViewRef.current?.scrollToTop();
+            } else if (viewMode === 'grid') {
+              gridFeedViewRef.current?.scrollToTop();
+            }
+          },
+        }),
+        [viewMode]
+      );
+
       // Memoized common props to prevent recreation on every render
       const commonProps = useMemo(
         () => ({
@@ -367,7 +378,7 @@ const FeedRenderer = memo(
           handleRetry,
           isProfileLoading,
           isProfileFeed,
-          onPositionChange,
+          handlePositionChange,
           isVisible,
           viewMode,
           onViewModeChange,
@@ -380,60 +391,6 @@ const FeedRenderer = memo(
           ListComponent,
           resolvedVisibilityKey,
         ]
-      );
-
-      // Unified handler for grid and horizontal item presses
-      // Opens feed modal and scrolls to selected video using FlashList's native scrollToIndex
-      const navigation = useRouter();
-
-      const handleItemPress = useCallback(
-        (index: number) => {
-          if (viewMode === 'grid' && index >= 0 && index < feed.length) {
-            // Set the current feed so the modal can use it
-            feedService.setCurrentFeed(feed);
-
-            // Navigate to feed modal with initial index
-            navigation.push({
-              pathname: '/(modals)/feed',
-              params: {
-                feedOption: feedOption || 'search',
-                userDid,
-                backgroundColor: backgroundColor || Colors.black,
-                secondaryColor: secondaryColor || Colors.white,
-                initialIndex: index.toString(),
-              },
-            });
-          }
-        },
-        [
-          viewMode,
-          feed.length,
-          feed,
-          feedOption,
-          userDid,
-          backgroundColor,
-          secondaryColor,
-          navigation,
-        ]
-      );
-
-      // Refs for forwarding to ListFeedView and GridFeedView
-      const listFeedViewRef = useRef<ListFeedViewRef>(null);
-      const gridFeedViewRef = useRef<ListFeedViewRef>(null);
-
-      // Forward ref methods
-      useImperativeHandle(
-        ref,
-        () => ({
-          scrollToTop: () => {
-            if (viewMode === 'list') {
-              listFeedViewRef.current?.scrollToTop();
-            } else if (viewMode === 'grid') {
-              gridFeedViewRef.current?.scrollToTop();
-            }
-          },
-        }),
-        [viewMode]
       );
 
       // Memoized view selection to prevent unnecessary re-renders
@@ -467,11 +424,45 @@ const FeedRenderer = memo(
         isSearchFeed,
         errorState.finalIsError,
         errorState.finalError,
-        feed,
+        isLoading,
         resolvedVisibilityKey,
         handleItemPress,
         propTargetScrollIndex,
       ]);
+
+      // Early return for error states
+      if (errorState.finalIsError && !isSearchFeed) {
+        return (
+          <View style={[styles.errorContainer, { backgroundColor }]}>
+            <EmptyFeed
+              type="error"
+              secondaryColor={secondaryColor}
+              profileColors={
+                secondaryColor ? { backgroundColor, textColor: secondaryColor } : undefined
+              }
+              onRetry={handleRetry}
+              feedOption={feedOption}
+            />
+          </View>
+        );
+      }
+
+      // Offline state
+      if (isPaused && !isSearchFeed) {
+        return (
+          <View style={[styles.errorContainer, { backgroundColor }]}>
+            <EmptyFeed
+              type="no-connection"
+              secondaryColor={secondaryColor}
+              profileColors={
+                secondaryColor ? { backgroundColor, textColor: secondaryColor } : undefined
+              }
+              onRetry={handleRetry}
+              feedOption={feedOption}
+            />
+          </View>
+        );
+      }
 
       return (
         <FollowProvider>
