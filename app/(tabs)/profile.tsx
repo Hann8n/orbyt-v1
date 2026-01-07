@@ -1,6 +1,14 @@
 import React, { useEffect, useState, useCallback, useMemo, memo } from 'react';
 import { BORDER_RADIUS } from '../../src/utils/constants';
-import { View, Text, StyleSheet, Pressable, Dimensions, Modal } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  Dimensions,
+  Modal,
+  InteractionManager,
+} from 'react-native';
 import { Image } from 'expo-image';
 import AtprotoService from '../../src/services/api/AtprotoService';
 // Use plain FlashList via FeedRenderer; no adapter/converter
@@ -21,7 +29,7 @@ import Icon, {
   BellFilledIcon,
   MoreFillIcon,
 } from '../../src/components/ui/Icon';
-import { useQueryClient, useQuery } from '@tanstack/react-query';
+import { useQueryClient, useQuery, type InfiniteData } from '@tanstack/react-query';
 import { ProfileHeader, TabNavigation, TabOption } from '../../src/components/layout/header';
 import { useCurrentUser, useProfileCacheSync } from '../../src/stores/userStore';
 import {
@@ -42,6 +50,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFollowMutation, useBlockMutation } from '../../src/services/data/ProfileService';
 import { queryKeys } from '../../src/utils/query/queryKeys';
 import { useSubscriptionStore } from '../../src/stores/subscriptionStore';
+import { feedService } from '../../src/services/FeedService';
+import { FEED_CONFIG } from '../../src/hooks/useFeed';
+import type { FeedResponse } from '../../src/services/api/types';
 import ProfileMenu from '../../src/components/features/profile/ProfileMenu';
 import SubscriptionOptionsSheet from '../../src/components/features/profile/SubscriptionOptionsSheet';
 import ChatService from '../../src/services/ChatService';
@@ -348,6 +359,37 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     // Use chat availability from getProfile response
     setCanMessage(canMessageFromProfile ? true : false);
   }, [profileData?.did, isOwnProfileView, canMessageFromProfile]);
+
+  // Prefetch reposts feed in background after profile loads
+  useEffect(() => {
+    if (!profileDid || !isRouteFocused || isProfileLoading) return;
+
+    InteractionManager.runAfterInteractions(() => {
+      const repostsQueryKey = queryKeys.feed.infinite('reposts', profileDid);
+      if (!queryClient.getQueryData(repostsQueryKey)) {
+        queryClient
+          .prefetchInfiniteQuery<
+            FeedResponse,
+            Error,
+            InfiniteData<FeedResponse, string | null>,
+            ReturnType<typeof queryKeys.feed.infinite>,
+            string | null
+          >({
+            queryKey: repostsQueryKey,
+            queryFn: ({ pageParam }) =>
+              feedService.fetchFeed(
+                'reposts',
+                profileDid,
+                (pageParam ?? undefined) as string | undefined
+              ),
+            initialPageParam: null,
+            getNextPageParam: (lastPage: FeedResponse) => lastPage?.cursor ?? null,
+            staleTime: FEED_CONFIG.STALE_TIME,
+          })
+          .catch(() => {});
+      }
+    });
+  }, [profileDid, isRouteFocused, isProfileLoading, queryClient]);
 
   // Tab press handling is now centralized in CustomBottomTabBar - no need for duplicate listener
 

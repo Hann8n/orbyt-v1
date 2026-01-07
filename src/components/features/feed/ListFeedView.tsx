@@ -719,9 +719,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           bounces={true}
           directionalLockEnabled={true}
           // FlashList v2: Maintain scroll position when content changes
-          // New videos are added to subsequent pages without disrupting current view
-          // disabled: false (default) ensures scroll position is preserved
-          // autoscrollToTopThreshold: undefined prevents auto-scrolling when new items are added at top
           maintainVisibleContentPosition={{
             disabled: false,
             autoscrollToTopThreshold: undefined,

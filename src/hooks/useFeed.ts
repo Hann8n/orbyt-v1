@@ -136,7 +136,19 @@ export function useFeed(
     enabled && !isSwitchingAccount && !!agent && (!isUserSpecificFeed || !!effectiveUserDid);
 
   // Create optimized infinite query with centralized configuration
-  // When effectiveUserDid changes, React Query treats this as a new query and fetches fresh data
+  // When feedOption or effectiveUserDid changes, React Query treats this as a new query and fetches fresh data
+  const queryKey = queryKeys.feed.infinite(feedOption, effectiveUserDid ?? undefined);
+
+  // Track previous feedOption to detect feed type changes
+  const previousFeedOptionRef = useRef<FeedOption | undefined>(undefined);
+  const isFeedTypeChanged =
+    previousFeedOptionRef.current !== undefined && previousFeedOptionRef.current !== feedOption;
+
+  // Update ref after checking for changes
+  useEffect(() => {
+    previousFeedOptionRef.current = feedOption;
+  }, [feedOption]);
+
   const query = useInfiniteQuery<
     FeedResponse,
     Error,
@@ -144,7 +156,7 @@ export function useFeed(
     ReturnType<typeof queryKeys.feed.infinite>,
     string | null
   >({
-    queryKey: queryKeys.feed.infinite(feedOption, effectiveUserDid ?? undefined),
+    queryKey,
     queryFn: async ({ pageParam }) => {
       // Fetch feed data
       const feedData = await feedService.fetchFeed(
@@ -199,9 +211,9 @@ export function useFeed(
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     refetchOnReconnect: false,
-    // Use placeholderData to maintain previous data during refetch
-    // This prevents the feed from clearing and losing scroll position
-    placeholderData: previousData => previousData,
+    // Keep previous data when refetching the same feed type (smooth refetch experience)
+    // Clear feed when switching between different feed types (prevents showing wrong feed while loading)
+    placeholderData: isFeedTypeChanged ? undefined : previousData => previousData,
     ...queryOptions,
   });
 
