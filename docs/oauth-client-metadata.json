@@ -6,7 +6,7 @@
   "tos_uri": "https://getorbyt.com/terms.html",
   "policy_uri": "https://getorbyt.com/privacy.html",
   "redirect_uris": ["com.getorbyt:/oauth/callback"],
-  "scope": "atproto transition:generic transition:chat.bsky",
+  "scope": "atproto repo:* rpc:*?aud=did:web:api.bsky.app#bsky_appview transition:generic transition:chat.bsky",
   "grant_types": ["authorization_code", "refresh_token"],
   "response_types": ["code"],
   "token_endpoint_auth_method": "none",
