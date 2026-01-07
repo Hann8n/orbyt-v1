@@ -15,7 +15,6 @@ import { useUserStore } from '../../stores/userStore';
 import { useProfile } from '../../services/data/ProfileService';
 import { tabRefs } from '../../utils/navigation/tabRefs';
 import { useSetTabBarHeight } from '../../context/FeedIndicatorContext';
-import { hexToRGBA } from '../../utils/formatting/colors';
 
 interface TabConfig {
   name: string;
@@ -37,24 +36,27 @@ const CREATE_TAB: TabConfig = { name: 'create', routeName: 'create', iconType: '
 
 // ProfileTabIcon component - matches old implementation
 const ProfileTabIcon = React.memo(
-  ({ color, focused, tabIconSize }: { color: string; focused: boolean; tabIconSize: number }) => {
+  ({ color, tabIconSize, isActive }: { color: string; tabIconSize: number; isActive: boolean }) => {
     const currentUserHandle = useUserStore(state => state.currentUser?.handle);
     const savedAccountsLength = useUserStore(state => state.savedAccounts.length);
     const { data: profileData } = useProfile(currentUserHandle);
 
     const hasMultipleAccounts = savedAccountsLength > 1;
 
+    const opacity = isActive ? 1 : 0.6;
+
     return (
       <>
         {!hasMultipleAccounts ? (
           <UserIcon size={tabIconSize} color={color} />
         ) : (
-          <View style={iconStyles.relativeContainer}>
+          <View style={{ opacity }}>
             <Avatar
               uri={profileData?.avatar}
               type="profile"
               size={tabIconSize}
               showRing={true}
+              status={profileData?.status}
               profileColors={
                 profileData?.profileColors
                   ? {
@@ -64,19 +66,8 @@ const ProfileTabIcon = React.memo(
                     }
                   : undefined
               }
-              ringColor={profileData?.profileColors?.foregroundColor || color}
+              ringColor={color}
             />
-            {!focused && (
-              <View
-                style={[
-                  iconStyles.absoluteFill,
-                  {
-                    borderRadius: tabIconSize / 2,
-                    backgroundColor: hexToRGBA(Colors.gray, 0.5),
-                  },
-                ]}
-              />
-            )}
           </View>
         )}
       </>
@@ -320,7 +311,7 @@ const CustomBottomTabBar: React.FC<CustomBottomTabBarProps> = ({
             </View>
           );
         case 'profile':
-          return <ProfileTabIcon color={color} focused={isActive} tabIconSize={tabIconSize} />;
+          return <ProfileTabIcon color={color} tabIconSize={tabIconSize} isActive={isActive} />;
         default:
           return null;
       }
@@ -415,13 +406,6 @@ const CustomBottomTabBar: React.FC<CustomBottomTabBarProps> = ({
 const iconStyles = StyleSheet.create({
   relativeContainer: {
     position: 'relative',
-  },
-  absoluteFill: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
   },
   captureOuter: {
     borderWidth: 1.5,

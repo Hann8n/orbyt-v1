@@ -187,6 +187,7 @@ class ProfileService {
    * - Live stream info in bottom sheet
    * - Test stream title, description, thumbnail, and link
    */
+  private static TEST_MODE_LIVE_STATUS = false; // Set to false to disable test mode
 
   /**
    * Transform Bsky API profile response to CachedProfile format
@@ -267,7 +268,15 @@ class ProfileService {
     }
 
     // Store status directly from API - no transformation needed
-    const status: StatusView | undefined = apiProfile.status;
+    // In test mode, inject fake live status for all profiles (overrides existing status)
+    let status: StatusView | undefined = apiProfile.status;
+    if (this.TEST_MODE_LIVE_STATUS) {
+      status = {
+        status: 'app.bsky.actor.status#live',
+        isActive: true,
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(), // 1 hour from now
+      } as StatusView;
+    }
 
     return {
       did: apiProfile.did,
