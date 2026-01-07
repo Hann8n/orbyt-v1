@@ -146,14 +146,26 @@ const TextWithLinksBase: React.FC<TextWithLinksProps> = ({
         const mappingKey = getMappingKey(part.text, index);
 
         if (part.isAuthor && part.handle) {
+          // Split @ symbol from the text for mentions
+          const symbol = part.text[0] === '@' ? '@' : '';
+          const textAfterSymbol = symbol ? part.text.slice(1) : part.text;
+
           return (
             <Text
               key={mappingKey}
-              style={[style, styles.authorLink]}
               onPress={() => onAuthorPress(part.handle!)}
               suppressHighlighting={true}
             >
-              {part.text}
+              {symbol && (
+                <Text key={`${mappingKey}-symbol`} style={style}>
+                  {symbol}
+                </Text>
+              )}
+              {textAfterSymbol && (
+                <Text key={`${mappingKey}-text`} style={[style, styles.authorLink]}>
+                  {textAfterSymbol}
+                </Text>
+              )}
             </Text>
           );
         }
@@ -170,14 +182,26 @@ const TextWithLinksBase: React.FC<TextWithLinksProps> = ({
           );
         }
         if (part.isHashtag) {
+          // Split # symbol from the text for hashtags
+          const symbol = part.text[0] === '#' ? '#' : '';
+          const textAfterSymbol = symbol ? part.text.slice(1) : part.text;
+
           return (
             <Text
               key={mappingKey}
-              style={[style, styles.link]}
               onPress={() => onHashtagPress?.(part.text.replace('#', ''))}
               suppressHighlighting={true}
             >
-              {part.text}
+              {symbol && (
+                <Text key={`${mappingKey}-symbol`} style={style}>
+                  {symbol}
+                </Text>
+              )}
+              {textAfterSymbol && (
+                <Text key={`${mappingKey}-text`} style={[style, styles.hashtagLink]}>
+                  {textAfterSymbol}
+                </Text>
+              )}
             </Text>
           );
         }
@@ -205,6 +229,9 @@ const styles = StyleSheet.create({
     fontFamily: 'Firma-Medium',
   },
   authorLink: {
+    fontFamily: 'Firma-SemiBold',
+  },
+  hashtagLink: {
     fontFamily: 'Firma-SemiBold',
   },
 });

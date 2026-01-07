@@ -102,14 +102,15 @@ const FeedScreen = memo(() => {
 
       {/* Show hashtag header if this is a hashtag feed (but not for orbyt channels) */}
       {isHashtagFeed && hashtag && !isOrbytChannelHashtag && (
-        <Text
+        <View
           style={[
-            styles.hashtagHeader,
+            styles.hashtagHeaderContainer,
             { top: (typeof insets?.top === 'number' ? insets.top : 0) + 15 },
           ]}
         >
-          #{hashtag}
-        </Text>
+          <Text style={styles.hashtagSymbol}>#</Text>
+          <Text style={styles.hashtagText}>{hashtag}</Text>
+        </View>
       )}
     </View>
   );
@@ -130,16 +131,27 @@ const styles = StyleSheet.create({
     zIndex: 20, // Higher z-index to ensure it's above hashtag header
   },
 
-  hashtagHeader: {
+  hashtagHeaderContainer: {
     position: 'absolute',
     left: 70, // Account for back button area (20 + 30 icon + 20 spacing)
     right: 70, // Match left padding to center the text
-    textAlign: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 100, // High z-index to ensure it's above feed content
+  },
+  hashtagSymbol: {
     fontSize: 18,
     color: Colors.white,
-    fontFamily: 'Firma-Bold',
-    zIndex: 100, // High z-index to ensure it's above feed content
-    includeFontPadding: false, // Remove default font padding for precise alignment
+    fontFamily: 'Firma-Regular',
+    includeFontPadding: false,
+    lineHeight: 30, // Match icon height for vertical alignment
+  },
+  hashtagText: {
+    fontSize: 18,
+    color: Colors.white,
+    fontFamily: 'Firma-SemiBold',
+    includeFontPadding: false,
     lineHeight: 30, // Match icon height for vertical alignment
   },
 });
