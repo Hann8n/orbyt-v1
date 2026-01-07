@@ -451,12 +451,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     })(scrollY);
   }, []);
 
-  // Animated styles automatically run on UI thread (worklet directive optional in Reanimated 4)
+  // Animated styles automatically run on UI thread
   const overlayAnimatedStyle = useAnimatedStyle(() => {
     const progress = headerScrollProgress.value;
-    // Smooth fade: start fading at 30%, complete fade by 80%
-    const opacity = interpolate(progress, [0, 0.3, 0.8], [1, 1, 0], Extrapolate.CLAMP);
-    return { opacity };
+    // Fade out as user scrolls down
+    return {
+      opacity: interpolate(progress, [0, 0.3, 0.8], [1, 1, 0], Extrapolate.CLAMP),
+    };
   });
 
   // Back icon color: gradually transition from header text color to white based on scroll

@@ -174,11 +174,10 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       return { ...StyleSheet.absoluteFillObject, opacity: 0, pointerEvents: 'none' } as any;
     }
     // More gradual dim: start dimming at 40% progress, reach 30% black opacity at max scroll
-    const overlayOpacity = interpolate(progress, [0, 0.4, 1], [0, 0, 0.3], Extrapolate.CLAMP);
     return {
       ...StyleSheet.absoluteFillObject,
       backgroundColor: 'black',
-      opacity: overlayOpacity,
+      opacity: interpolate(progress, [0, 0.4, 1], [0, 0, 0.3], Extrapolate.CLAMP),
       pointerEvents: 'none',
     } as any;
   }, [headerScrollProgress]);
