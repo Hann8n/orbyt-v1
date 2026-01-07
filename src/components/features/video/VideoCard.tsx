@@ -15,6 +15,7 @@ import * as Haptics from 'expo-haptics';
 
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { AtprotoService } from '../../../services/api/AtprotoService';
+import { FeedService } from '../../../services/api/feed/FeedService';
 import { View, Text, Dimensions, Pressable, StyleSheet, Platform } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -41,10 +42,20 @@ import { usePostInteractionStore } from '../../../stores/postInteractionStore';
 import { useProfile } from '../../../services/data/ProfileService';
 import { getChannelBySlug } from '../../../utils/channels/orbyt';
 import { VideoScrubber } from './VideoScrubber';
-import { logger } from '../../../utils/logger';
 import { useOverlayVisibility } from '../../../context/FeedIndicatorContext';
 import { hexToRGBA } from '../../../utils/formatting/colors';
-import type { ExtendedPostView, ExtendedFeedViewPost } from '../../../services/api/types';
+import type {
+  ExtendedPostView,
+  ExtendedFeedViewPost,
+  Interaction,
+} from '../../../services/api/types';
+import {
+  INTERACTIONSEEN as INTERACTIONSEEN_CONST,
+  INTERACTIONLIKE as INTERACTIONLIKE_CONST,
+  INTERACTIONREPOST as INTERACTIONREPOST_CONST,
+  INTERACTIONREPLY as INTERACTIONREPLY_CONST,
+  INTERACTIONSHARE as INTERACTIONSHARE_CONST,
+} from '../../../services/api/types';
 import type { ModerationDecision } from '../../../services/moderation/ModerationTypes';
 
 // Use proper API types - normalize to always work with ExtendedPostView
@@ -76,6 +87,8 @@ export interface VideoCardProps {
   showOverlay?: boolean;
   feedOption?: string;
   sourceFeed?: string;
+  feedContext?: string; // Context from feed generator
+  reqId?: string; // Unique identifier per request
   isModal?: boolean;
 }
 
@@ -92,6 +105,8 @@ const VideoCard = memo(
         showOverlay = true,
         feedOption,
         sourceFeed,
+        feedContext,
+        reqId,
         isModal = false,
       },
       ref
@@ -170,6 +185,59 @@ const VideoCard = memo(
       const heartOpacity = useSharedValue(0);
       const heartPositionX = useSharedValue(0);
       const heartPositionY = useSharedValue(0);
+
+      // Interaction tracking - queue interactions and send in batches
+      const interactionQueueRef = useRef<Interaction[]>([]);
+      const sendInteractionsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+      const seenInteractionSentRef = useRef<boolean>(false);
+
+      // Queue an interaction for batching
+      const queueInteraction = useCallback(
+        (event: NonNullable<Interaction['event']>) => {
+          const interaction: Interaction = {
+            $type: 'app.bsky.feed.defs#interaction',
+            item: postView.uri,
+            event: event,
+          };
+
+          // Use feedContext if provided, otherwise infer from sourceFeed if it's a feed generator
+          // This matches Bluesky's behavior of "inferrable interactions" - see:
+          // https://github.com/bluesky-social/social-app/commit/69989d9e7e51b4a8f85cee0e7a5b6f5c9d8a1b2c3
+          if (feedContext) {
+            interaction.feedContext = feedContext;
+          } else if (
+            sourceFeed &&
+            sourceFeed.startsWith('at://') &&
+            sourceFeed.includes('app.bsky.feed.generator')
+          ) {
+            // Infer feedContext from sourceFeed if it's a feed generator URI
+            interaction.feedContext = sourceFeed;
+          }
+          if (reqId) {
+            interaction.reqId = reqId;
+          }
+
+          interactionQueueRef.current.push(interaction);
+
+          // Clear existing timeout
+          if (sendInteractionsTimeoutRef.current) {
+            clearTimeout(sendInteractionsTimeoutRef.current);
+          }
+
+          // Send batched interactions after 1.5 seconds of inactivity
+          sendInteractionsTimeoutRef.current = setTimeout(() => {
+            const interactionsToSend = [...interactionQueueRef.current];
+            interactionQueueRef.current = [];
+
+            if (interactionsToSend.length > 0) {
+              FeedService.sendFeedInteractions(interactionsToSend).catch(() => {});
+            }
+
+            sendInteractionsTimeoutRef.current = null;
+          }, 1500);
+        },
+        [postView.uri, feedContext, sourceFeed, reqId]
+      );
 
       // Get video URL, thumbnail, and aspect ratio using getVideoView helper + direct property access
       const videoView = getVideoView(postView.embed);
@@ -478,6 +546,8 @@ const VideoCard = memo(
               likeCount: newLikeCount,
               likeUri,
             });
+            // Track interaction
+            queueInteraction(INTERACTIONLIKE_CONST);
           } else {
             if (!overlayState.likeUri) throw new Error('No like URI found');
             await AtprotoService.deleteLike(overlayState.likeUri);
@@ -489,11 +559,7 @@ const VideoCard = memo(
               likeUri: undefined,
             });
           }
-        } catch (error) {
-          logger.error('Like action failed', error, {
-            component: 'VideoCard',
-            action: 'handleLike',
-          });
+        } catch (_error) {
           // Revert optimistic update
           setOverlayState(prev => ({
             ...prev,
@@ -540,11 +606,9 @@ const VideoCard = memo(
             likeCount: newLikeCount,
             likeUri,
           });
-        } catch (error) {
-          logger.error('Like action failed', error, {
-            component: 'VideoCard',
-            action: 'handleLike',
-          });
+          // Track interaction
+          queueInteraction(INTERACTIONLIKE_CONST);
+        } catch (_error) {
           // Revert optimistic update
           setOverlayState(prev => ({
             ...prev,
@@ -681,6 +745,9 @@ const VideoCard = memo(
         // Clear double tap tracking
         lastTapRef.current = null;
 
+        // Track interaction
+        queueInteraction(INTERACTIONREPLY_CONST);
+
         // Show comment section
         presentCommentSection({
           post,
@@ -701,6 +768,7 @@ const VideoCard = memo(
         postView.replyCount,
         postView.record,
         postView.indexedAt,
+        queueInteraction,
       ]);
 
       // Cleanup timeout on unmount
@@ -740,6 +808,8 @@ const VideoCard = memo(
               repostCount: newRepostCount,
               repostUri,
             });
+            // Track interaction
+            queueInteraction(INTERACTIONREPOST_CONST);
           } else {
             if (!overlayState.repostUri) throw new Error('No repost URI found');
             await AtprotoService.deleteRepost(overlayState.repostUri);
@@ -751,11 +821,7 @@ const VideoCard = memo(
               repostUri: undefined,
             });
           }
-        } catch (error) {
-          logger.error('Repost action failed', error, {
-            component: 'VideoCard',
-            action: 'handleRepost',
-          });
+        } catch (_error) {
           // Revert optimistic update
           setOverlayState(prev => ({
             ...prev,
@@ -792,6 +858,36 @@ const VideoCard = memo(
           navigation.push(`/channel/${encodedUri}`);
         }
       }, [channelUri, navigation]);
+
+      // Track interactionSeen when video becomes visible
+      useEffect(() => {
+        if (isVisible && !seenInteractionSentRef.current) {
+          seenInteractionSentRef.current = true;
+          queueInteraction(INTERACTIONSEEN_CONST);
+        }
+      }, [isVisible, queueInteraction]);
+
+      // Send remaining interactions on unmount
+      useEffect(() => {
+        return () => {
+          if (sendInteractionsTimeoutRef.current) {
+            clearTimeout(sendInteractionsTimeoutRef.current);
+            sendInteractionsTimeoutRef.current = null;
+          }
+
+          // Send any remaining queued interactions
+          if (interactionQueueRef.current.length > 0) {
+            const interactionsToSend = [...interactionQueueRef.current];
+            interactionQueueRef.current = [];
+            FeedService.sendFeedInteractions(interactionsToSend).catch(() => {});
+          }
+        };
+      }, []);
+
+      // Reset seen interaction flag when post changes
+      useEffect(() => {
+        seenInteractionSentRef.current = false;
+      }, [postView.uri]);
 
       // Video Status Reporting - use post URI for simple tracking
       useEffect(() => {
@@ -898,9 +994,12 @@ const VideoCard = memo(
                   overlayOpacitySV={uiOverlayOpacitySV}
                   feedOption={feedOption as 'following' | 'discover' | undefined}
                   sourceFeed={sourceFeed}
+                  feedContext={feedContext}
+                  reqId={reqId}
                   onLike={handleLike}
                   onRepost={handleRepost}
                   onSourcePress={handleSourcePress}
+                  onShareInteraction={() => queueInteraction(INTERACTIONSHARE_CONST)}
                   isLiked={overlayState.isLiked}
                   isReposted={overlayState.isReposted}
                   likeCount={overlayState.likeCount}

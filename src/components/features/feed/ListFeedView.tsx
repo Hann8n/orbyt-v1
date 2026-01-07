@@ -391,7 +391,12 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         return (
           <VideoItem
             post={item.post}
-            feedItem={item}
+            feedItem={{
+              post: item.post,
+              sourceFeed: item.sourceFeed,
+              feedContext: item.feedContext,
+              reqId: item.reqId,
+            }}
             height={cardHeight}
             feedOption={feedOption as 'following' | 'discover'}
             isVisible={isVideoVisible}

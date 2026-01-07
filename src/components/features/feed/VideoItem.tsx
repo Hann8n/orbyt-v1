@@ -35,6 +35,8 @@ export type Post =
 export interface FeedItem {
   post: Post;
   sourceFeed?: string;
+  feedContext?: string; // Context from feed generator
+  reqId?: string; // Unique identifier per request
 }
 
 // Simplified Video Item Component for immediate playback
@@ -108,6 +110,8 @@ const VideoItem: React.FC<VideoItemProps> = ({
         showOverlay={true}
         feedOption={feedOption}
         sourceFeed={feedItem?.sourceFeed}
+        feedContext={feedItem?.feedContext}
+        reqId={feedItem?.reqId}
         isModal={isModal}
       />
     </View>

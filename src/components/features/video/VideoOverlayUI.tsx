@@ -49,9 +49,12 @@ export interface VideoOverlayUIProps {
   // Optional composed shared opacity to tie overlay and scrubber together
   overlayOpacitySV?: SharedValue<number>;
   sourceFeed?: string;
+  feedContext?: string; // Context from feed generator
+  reqId?: string; // Unique identifier per request
   onLike?: () => void;
   onRepost?: () => void;
   onSourcePress?: () => void;
+  onShareInteraction?: () => void; // Callback to track share interaction
   isLiked?: boolean;
   isReposted?: boolean;
   likeCount?: number;
@@ -71,8 +74,11 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   feedOption,
   overlayOpacitySV,
   sourceFeed,
+  feedContext: _feedContext,
+  reqId: _reqId,
   onLike,
   onRepost,
+  onShareInteraction,
   isLiked = false,
   isReposted = false,
   likeCount = 0,
@@ -208,6 +214,9 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
 
   // Handle share button press
   const handleSharePress = useCallback(() => {
+    // Track share interaction
+    onShareInteraction?.();
+
     presentShareSheet({
       postUri: post.uri,
       postCid: post.cid,
@@ -217,7 +226,15 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
       feedOption: feedOption,
       sourceFeed,
     });
-  }, [post.uri, post.cid, post.author, feedOption, sourceFeed, presentShareSheet]);
+  }, [
+    post.uri,
+    post.cid,
+    post.author,
+    feedOption,
+    sourceFeed,
+    presentShareSheet,
+    onShareInteraction,
+  ]);
 
   // Memoize UI calculations to prevent recalculation on every render
   const likeScale = useSharedValue(1);

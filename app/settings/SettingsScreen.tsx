@@ -19,6 +19,7 @@ import { useRouter } from 'expo-router';
 import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalModals';
 import ProfileService from '../../src/services/data/ProfileService';
 import ChannelService from '../../src/services/data/ChannelService';
+import { FeedService } from '../../src/services/api/feed/FeedService';
 
 const SettingsScreen: React.FC = () => {
   const router = useRouter();
@@ -47,8 +48,8 @@ const SettingsScreen: React.FC = () => {
         const nativeTabsEnabled = await getNativeTabsEnabled();
         setIsExperimentalFeedsEnabled(experimentalFeedsEnabled);
         setIsNativeTabsEnabled(nativeTabsEnabled);
-      } catch (error) {
-        console.error('Error loading settings:', error);
+      } catch (_error) {
+        // Intentionally ignore setting load failures
       }
     };
     loadSettings();
@@ -70,8 +71,7 @@ const SettingsScreen: React.FC = () => {
           try {
             // Use userStore to handle logout without removing accounts (clearAllAccounts = false)
             await onLogout(false);
-          } catch (error) {
-            console.error('error during logout:', error);
+          } catch (_error) {
             Alert.alert('Error', 'Failed to log out. Please try again.');
           } finally {
             setIsSubmitting(false);
@@ -104,8 +104,7 @@ const SettingsScreen: React.FC = () => {
           try {
             // Use userStore to handle account removal (clearAllAccounts = true)
             await onLogout(true);
-          } catch (error) {
-            console.error('error during account removal:', error);
+          } catch (_error) {
             Alert.alert('Error', 'Failed to remove account. Please try again.');
           } finally {
             setIsSubmitting(false);
@@ -129,9 +128,8 @@ const SettingsScreen: React.FC = () => {
       setTimeout(() => {
         setIsProfileLinkCopied(false);
       }, 4000);
-    } catch (error) {
-      console.error('Error copying profile link:', error);
-      Alert.alert('Error', 'Failed to copy profile link. Please try again.');
+    } catch (_error) {
+      // Ignore clipboard errors
     }
   };
 
@@ -143,8 +141,7 @@ const SettingsScreen: React.FC = () => {
       // Invalidate queries that depend on experimental feeds setting
       queryClient.invalidateQueries({ queryKey: ['suggestedFeeds'] });
       queryClient.invalidateQueries({ queryKey: ['unifiedSearch'] });
-    } catch (error) {
-      console.error('error saving experimental feeds setting:', error);
+    } catch (_error) {
       Alert.alert('error', 'failed to save setting. please try again.');
     }
   };
@@ -156,10 +153,9 @@ const SettingsScreen: React.FC = () => {
 
     try {
       await setNativeTabsEnabled(value);
-    } catch (error) {
+    } catch (_error) {
       // Revert on error
       setIsNativeTabsEnabled(previousValue);
-      console.error('error saving native tabs setting:', error);
       Alert.alert('error', 'failed to save setting. please try again.');
     }
   };
@@ -185,9 +181,8 @@ const SettingsScreen: React.FC = () => {
               queryClient.clear();
 
               Alert.alert('Success', 'App cache has been cleared successfully.');
-            } catch (error) {
-              console.error('Error clearing cache:', error);
-              Alert.alert('Error', 'Failed to clear cache. Please try again.');
+            } catch (_error) {
+              // Ignore cache clear failures
             }
           },
         },
@@ -196,11 +191,44 @@ const SettingsScreen: React.FC = () => {
   };
 
   const handleOpenLink = (url: string) => {
-    Linking.openURL(url).catch(err => console.error('Error opening link:', err));
+    Linking.openURL(url).catch(() => {});
   };
 
   const handleOpenEmail = (email: string) => {
-    Linking.openURL(`mailto:${email}`).catch(err => console.error('Error opening email:', err));
+    Linking.openURL(`mailto:${email}`).catch(() => {});
+  };
+
+  const handleTestFeedInteractions = async () => {
+    Alert.alert(
+      'Test Feed Interactions',
+      'This will test the sendFeedInteractions API endpoint with a sample interaction.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Test',
+          style: 'default',
+          onPress: async () => {
+            try {
+              const result = await FeedService.testSendFeedInteractions();
+              if (result.success) {
+                Alert.alert('Success', 'Feed interactions endpoint is working correctly!');
+              } else {
+                Alert.alert(
+                  'Test Failed',
+                  `Error: ${result.error}\n\nDetails: ${JSON.stringify(result.details || {}, null, 2)}`
+                );
+              }
+            } catch (error) {
+              const errorMessage = error instanceof Error ? error.message : String(error);
+              Alert.alert('Error', `Failed to test: ${errorMessage}`);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const appVersion = Constants.expoConfig?.version || '1.0.0';
@@ -330,6 +358,16 @@ const SettingsScreen: React.FC = () => {
     {
       title: 'Troubleshooting',
       items: [
+        ...(__DEV__
+          ? [
+              {
+                id: 'test-feed-interactions',
+                label: 'Test Feed Interactions API',
+                onPress: handleTestFeedInteractions,
+                showChevron: false,
+              },
+            ]
+          : []),
         {
           id: 'clear-cache',
           label: 'Clear cache',

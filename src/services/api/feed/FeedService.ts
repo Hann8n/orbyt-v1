@@ -5,7 +5,6 @@
 
 import { RichText, AtUri } from '@atproto/api';
 import { Platform } from 'react-native';
-import { logger } from '../../../utils/logger';
 import { storageHelpers } from '../../../utils/storage/storage';
 import { AtprotoCore } from '../core';
 import type {
@@ -34,6 +33,7 @@ import type {
   RepostView,
   GeneratorView,
   CreateRecordResponse,
+  Interaction,
 } from '../types';
 import {
   isThreadViewPost,
@@ -44,6 +44,9 @@ import {
 } from '../types';
 
 export class FeedService {
+  // Tracks whether app.bsky.feed.sendInteractions is supported by the current PDS/AppView
+  // null = unknown (try once), true = supported, false = known unsupported (skip quietly)
+  private static interactionsSupported: boolean | null = null;
   /**
    * Get feed content - optimized for video-only feeds with maximum batch loading
    *
@@ -108,8 +111,6 @@ export class FeedService {
               // Silently return empty feed for blocked actors
               return { feed: [], cursor: null };
             }
-            // Log other errors
-            logger.error('Author feed error', authorError, { component: 'FeedService' });
             return { feed: [], cursor: null };
           }
         } else if (feedType === 'likes') {
@@ -123,8 +124,7 @@ export class FeedService {
 
             const apiResponse = await api.app.bsky.feed.getActorLikes(params);
             responseData = apiResponse.data;
-          } catch (likesError: unknown) {
-            logger.error('Likes feed error', likesError, { component: 'FeedService' });
+          } catch (_likesError: unknown) {
             return { feed: [], cursor: null };
           }
         } else {
@@ -145,13 +145,11 @@ export class FeedService {
 
           // Validate feed URI format before making the request
           if (!feed) {
-            logger.warn('No feed specified, returning empty feed', { component: 'FeedService' });
             return { feed: [], cursor: null };
           }
 
           // Validate AT-URI format
           if (!feed.startsWith('at://') && !feed.startsWith('did:')) {
-            logger.warn(`Invalid feed URI format: ${feed}`, { component: 'FeedService' });
             return { feed: [], cursor: null };
           }
 
@@ -165,13 +163,10 @@ export class FeedService {
             const apiResponse = await api.app.bsky.feed.getFeed(params);
             responseData = apiResponse.data;
           } catch (customFeedError: unknown) {
-            logger.error('Custom feed error', customFeedError, { component: 'FeedService' });
-            // Check if it's a feed validation error
             if (
               customFeedError instanceof Error &&
               customFeedError.message.includes('feed must be a valid at-uri')
             ) {
-              logger.warn(`Invalid feed URI: ${feed}`, { component: 'FeedService' });
               return { feed: [], cursor: null };
             }
             return { feed: [], cursor: null };
@@ -180,12 +175,13 @@ export class FeedService {
 
         // Ensure the response has the expected data structure
         if (!responseData || !responseData.feed) {
-          logger.warn('Unexpected feed response format', { component: 'FeedService' });
           return { feed: [], cursor: null };
         }
 
         let feedData: ExtendedFeedViewPost[] = responseData.feed.map((post: FeedViewPost) => ({
           ...post,
+          feedContext: post.feedContext, // Preserve feedContext from feed generator
+          reqId: post.reqId, // Preserve reqId from feed generator
           post: {
             ...post.post,
           } as ExtendedPostView,
@@ -468,25 +464,11 @@ export class FeedService {
     await AtprotoCore.ensureSession();
 
     try {
-      logger.info('Starting video post creation', {
-        component: 'FeedService',
-        videoPath: videoPath?.substring(0, 50) + '...',
-        textLength: text?.length || 0,
-        contentWarnings,
-        commentFilter,
-        feedSlug,
-      });
-
       // Validate video file
       if (!videoPath || !videoPath.startsWith('file://')) {
-        logger.error('Invalid video path', new Error('Invalid video path'), {
-          component: 'FeedService',
-          videoPath,
-        });
         throw new Error('Invalid video path');
       }
 
-      logger.debug('Fetching video file', { component: 'FeedService' });
       // Upload video directly to PDS
       let videoBlob: Blob;
       try {
@@ -497,31 +479,12 @@ export class FeedService {
           );
         }
         videoBlob = await videoResponse.blob();
-
-        logger.info('Video blob created', {
-          component: 'FeedService',
-          blobSize: videoBlob.size,
-          blobType: videoBlob.type,
-          videoPath: videoPath.substring(0, 100) + '...',
-        });
       } catch (fetchError: unknown) {
         const errorMessage = fetchError instanceof Error ? fetchError.message : 'Unknown error';
-        const errorStack = fetchError instanceof Error ? fetchError.stack : undefined;
-        logger.error('Failed to fetch/create video blob', fetchError, {
-          component: 'FeedService',
-          videoPath: videoPath.substring(0, 100) + '...',
-          errorMessage,
-          errorStack,
-        });
         throw new Error(`Failed to create video blob: ${errorMessage}`);
       }
 
       const { api } = await AtprotoCore.getApiClient();
-      logger.debug('Uploading video blob to PDS', {
-        component: 'FeedService',
-        blobSize: videoBlob.size,
-        blobType: videoBlob.type,
-      });
 
       let blobData: { data: { blob: { ref: { $link: string }; mimeType: string; size: number } } };
       try {
@@ -531,59 +494,17 @@ export class FeedService {
       } catch (uploadError: unknown) {
         const errorMessage =
           uploadError instanceof Error ? uploadError.message : 'Network request failed';
-        const errorStack = uploadError instanceof Error ? uploadError.stack : undefined;
-        const errorResponse =
-          uploadError && typeof uploadError === 'object' && 'response' in uploadError
-            ? uploadError.response
-            : undefined;
-        const errorData =
-          uploadError && typeof uploadError === 'object' && 'data' in uploadError
-            ? uploadError.data
-            : undefined;
-        const errorStatus =
-          uploadError && typeof uploadError === 'object' && 'status' in uploadError
-            ? uploadError.status
-            : undefined;
-        const errorStatusText =
-          uploadError && typeof uploadError === 'object' && 'statusText' in uploadError
-            ? uploadError.statusText
-            : undefined;
-        logger.error('Failed to upload video blob to PDS', uploadError, {
-          component: 'FeedService',
-          blobSize: videoBlob.size,
-          blobType: videoBlob.type,
-          errorMessage,
-          errorStack,
-          errorResponse,
-          errorData,
-          errorStatus,
-          errorStatusText,
-        });
         throw new Error(`Failed to upload video blob: ${errorMessage}`);
       }
 
       const { data } = blobData;
 
-      logger.info('Video blob uploaded successfully', {
-        component: 'FeedService',
-        blobRef: data.blob.ref?.$link,
-        blobSize: data.blob.size,
-        blobMimeType: data.blob.mimeType,
-      });
-
       // Get video aspect ratio
-      logger.debug('Getting video aspect ratio', { component: 'FeedService' });
       const aspectRatio = await this.getVideoAspectRatio(videoPath);
-      logger.debug('Video aspect ratio', { component: 'FeedService', aspectRatio });
 
       // Use official RichText API to detect facets
-      logger.debug('Processing rich text', { component: 'FeedService' });
       const richText = new RichText({ text: text || '' });
       await richText.detectFacets(api);
-      logger.debug('Rich text processed', {
-        component: 'FeedService',
-        facetsCount: richText.facets?.length || 0,
-      });
 
       // Determine platform tag
       let platformTag: string;
@@ -621,22 +542,11 @@ export class FeedService {
       // Map UI labels to valid Bluesky self-label values
       // Only these values are valid for self-labeling: porn, sexual, nudity, graphic-media, !no-unauthenticated
       if (contentWarnings && contentWarnings.length > 0) {
-        logger.debug('Processing content warnings', {
-          component: 'FeedService',
-          inputWarnings: contentWarnings,
-        });
-
         const validLabels = contentWarnings
           .map(warning => {
             // Remove 'other:' prefix if present (custom warnings aren't valid for self-labeling)
             const cleanWarning = warning.startsWith('other:') ? null : warning;
-            if (!cleanWarning) {
-              logger.debug('Filtered out custom warning', {
-                component: 'FeedService',
-                warning,
-              });
-              return null;
-            }
+            if (!cleanWarning) return null;
 
             // Map UI label IDs to valid Bluesky self-label values
             const labelMap: Record<string, string> = {
@@ -647,22 +557,9 @@ export class FeedService {
             };
 
             const mappedLabel = labelMap[cleanWarning] || null;
-            if (!mappedLabel) {
-              logger.warn('Unknown content warning label', {
-                component: 'FeedService',
-                warning: cleanWarning,
-              });
-            }
-
             return mappedLabel;
           })
           .filter((label): label is string => label !== null);
-
-        logger.info('Content warnings mapped', {
-          component: 'FeedService',
-          inputWarnings: contentWarnings,
-          validLabels,
-        });
 
         if (validLabels.length > 0) {
           // Self-labels should be an array of selfLabel objects
@@ -674,87 +571,23 @@ export class FeedService {
               val: label,
             })),
           };
-          logger.debug('Self-labels added to post record', {
-            component: 'FeedService',
-            labels: postRecord.labels,
-            validLabels,
-          });
-        } else {
-          logger.warn('No valid labels after mapping', {
-            component: 'FeedService',
-            inputWarnings: contentWarnings,
-          });
         }
       }
 
-      logger.info('Post record prepared', {
-        component: 'FeedService',
-        recordType: postRecord.$type,
-        hasText: !!postRecord.text,
-        hasEmbed: !!postRecord.embed,
-        hasLabels: !!postRecord.labels,
-        labelsCount:
-          postRecord.labels && '$type' in postRecord.labels && 'values' in postRecord.labels
-            ? postRecord.labels.values.length
-            : 0,
-        tags: postRecord.tags,
-      });
-
       // Create the post
-      logger.debug('Sending post to API', { component: 'FeedService' });
       const postResponse = await api.post(postRecord);
-      logger.info('Post created successfully', {
-        component: 'FeedService',
-        uri: postResponse.uri,
-        cid: postResponse.cid,
-      });
 
       // Set comment filtering if specified
       if (commentFilter && commentFilter !== 'all') {
         try {
-          logger.debug('Setting comment filter', {
-            component: 'FeedService',
-            commentFilter,
-          });
           await this.setCommentFilter(postResponse.uri, commentFilter);
-          logger.debug('Comment filter set successfully', { component: 'FeedService' });
-        } catch (error) {
-          logger.error('Failed to set comment filter', error, { component: 'FeedService' });
+        } catch (_error) {
+          // Comment filter is best-effort; ignore failures
         }
       }
 
       return postResponse;
     } catch (error: unknown) {
-      const errorDetails = {
-        component: 'FeedService',
-        videoPath: videoPath?.substring(0, 50) + '...',
-        contentWarnings,
-        commentFilter,
-        feedSlug,
-        errorMessage: error instanceof Error ? error.message : 'Unknown error',
-        errorStack: error instanceof Error ? error.stack : undefined,
-        errorName: error instanceof Error ? error.name : undefined,
-      };
-
-      // Log full error details
-      if (error instanceof Error) {
-        logger.error('Video upload failed', error, errorDetails);
-      } else {
-        logger.error('Video upload failed', new Error(String(error)), errorDetails);
-      }
-
-      // If it's an API error, try to extract more details
-      if (error && typeof error === 'object' && 'response' in error) {
-        const apiError = error as any;
-        logger.error('API error details', new Error('API Error'), {
-          component: 'FeedService',
-          status: apiError.response?.status,
-          statusText: apiError.response?.statusText,
-          data: apiError.response?.data,
-          headers: apiError.response?.headers,
-        });
-      }
-
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       throw new Error(`Video upload failed: ${errorMessage}`);
     }
@@ -783,12 +616,6 @@ export class FeedService {
     filter: 'followers' | 'mentioned' | 'none'
   ): Promise<void> {
     try {
-      logger.debug('Setting thread gate', {
-        component: 'FeedService',
-        postUri,
-        filter,
-      });
-
       // Extract the record key (rkey) from the URI using AtUri
       let rkey: string;
       try {
@@ -798,10 +625,6 @@ export class FeedService {
           throw new Error('Could not extract rkey from URI');
         }
       } catch (uriError: unknown) {
-        logger.error('Failed to parse post URI', uriError, {
-          component: 'FeedService',
-          postUri,
-        });
         const errorMessage = uriError instanceof Error ? uriError.message : 'Could not parse URI';
         throw new Error(`Invalid post URI: ${errorMessage}`);
       }
@@ -833,13 +656,6 @@ export class FeedService {
         allow,
       };
 
-      logger.debug('Thread gate record prepared', {
-        component: 'FeedService',
-        rkey,
-        allowRules: allow.length,
-        recordType: record.$type,
-      });
-
       const { api } = await AtprotoCore.getApiClient();
       const userDid = await AtprotoCore.getCurrentUserDid();
       if (!userDid) {
@@ -852,22 +668,9 @@ export class FeedService {
         rkey: rkey,
         record,
       });
-
-      logger.info('Thread gate created successfully', {
-        component: 'FeedService',
-        rkey,
-        filter,
-        allowRules: allow.length,
-      });
     } catch (error: unknown) {
-      logger.error('Failed to set comment filter', error, {
-        component: 'FeedService',
-        postUri,
-        filter,
-        errorMessage: error instanceof Error ? error.message : 'Unknown error',
-        errorStack: error instanceof Error ? error.stack : undefined,
-      });
-      throw error;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(errorMessage);
     }
   }
 
@@ -900,15 +703,6 @@ export class FeedService {
       // Use getPostThread (V2 may not be available in all SDK versions)
       // The threading structure is preserved through parent/replies relationships
       const response = await api.app.bsky.feed.getPostThread(params);
-
-      // Log raw API response for debugging reply structure
-      // This shows the actual API response structure before processing
-      logger.debug('Raw API response for comments', {
-        component: 'FeedService',
-        action: 'getComments',
-        postUri,
-        rawResponse: JSON.stringify(response.data, null, 2),
-      });
 
       // Function to recursively process thread posts with proper typing
       // Preserves Bluesky's threading structure with parent/child relationships
@@ -1167,7 +961,114 @@ export class FeedService {
   }
 
   /**
+   * Send feed interactions directly to the Bluesky API
+   * Accepts Interaction[] array directly from ATProto SDK types
+   * @param interactions - Array of Interaction objects to send
+   */
+  /**
+   * Test function to manually test sendFeedInteractions endpoint
+   * Can be called from settings or console for debugging
+   */
+  static async testSendFeedInteractions(): Promise<{
+    success: boolean;
+    error?: string;
+    details?: unknown;
+  }> {
+    try {
+      // Create a test interaction with a known post URI
+      const testInteraction: Interaction = {
+        $type: 'app.bsky.feed.defs#interaction',
+        item: 'at://did:plc:example/app.bsky.feed.post/example',
+        event: 'app.bsky.feed.defs#interactionSeen' as const,
+      };
+
+      await this.sendFeedInteractions([testInteraction]);
+      return { success: true };
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const details: Record<string, unknown> = {};
+
+      // Check for XRPCError properties without using instanceof
+      if (error && typeof error === 'object') {
+        const err = error as Record<string, unknown>;
+        if ('status' in err) details.status = err.status;
+        if ('error' in err) details.error = err.error;
+        if ('message' in err) details.message = err.message;
+        if ('name' in err) details.name = err.name;
+      }
+
+      return {
+        success: false,
+        error: errorMessage,
+        details: Object.keys(details).length > 0 ? details : undefined,
+      };
+    }
+  }
+
+  static async sendFeedInteractions(interactions: Interaction[]): Promise<void> {
+    if (!interactions || interactions.length === 0) {
+      return;
+    }
+
+    // If we've previously confirmed the endpoint is not supported, skip quietly
+    if (FeedService.interactionsSupported === false) return;
+
+    try {
+      await AtprotoCore.ensureSession();
+
+      const { api } = await AtprotoCore.getApiClient();
+
+      const hasSendInteractionsMethod =
+        typeof api?.app?.bsky?.feed?.sendInteractions === 'function';
+
+      // Send interactions directly to Bluesky's API
+      if (!hasSendInteractionsMethod) {
+        throw new Error('sendInteractions method not available on API client');
+      }
+
+      // Call sendInteractions - procedures use (data, opts) where data is the input and opts contains qp
+      // The SDK implementation: _client.call('app.bsky.feed.sendInteractions', opts?.qp, data, opts)
+      // So we pass { interactions } as data, and {} as opts (which means opts.qp is undefined, so query params are empty)
+      await api.app.bsky.feed.sendInteractions({ interactions });
+
+      // Mark endpoint as supported once we have a successful call
+      FeedService.interactionsSupported = true;
+    } catch (error: unknown) {
+      // Check if the error is XRPCNotSupported (404) - this is expected when:
+      // 1. The PDS doesn't support this endpoint (older PDS versions)
+      // 2. The feed generator doesn't support interactions
+      // Since interactions are best-effort, we should handle 404s silently
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const hasXRPCErrorProperties =
+        error && typeof error === 'object' && 'status' in error && 'error' in error;
+      const statusCode =
+        hasXRPCErrorProperties && 'status' in error
+          ? (error as { status?: unknown }).status
+          : undefined;
+      const is404 = statusCode === 404;
+      const isXRPCNotSupportedMessage =
+        hasXRPCErrorProperties && errorMessage === 'XRPCNotSupported';
+      const includesNotSupported = errorMessage.includes('NotSupported');
+      const equalsXRPCNotSupported = errorMessage === 'XRPCNotSupported';
+      const isNotSupported =
+        is404 || isXRPCNotSupportedMessage || includesNotSupported || equalsXRPCNotSupported;
+
+      // Silently handle 404/NotSupported errors - these are expected when:
+      // - PDS doesn't support the endpoint
+      // - Feed generator doesn't accept interactions
+      // - Session not fully authenticated yet (initial app load)
+      // Interactions are best-effort and failures shouldn't spam logs
+      if (isNotSupported) {
+        // Remember that this endpoint is not supported so we can skip future attempts
+        FeedService.interactionsSupported = false;
+        return;
+      }
+    }
+  }
+
+  /**
    * Send video feedback to feed generators
+   * @deprecated Use sendFeedInteractions with Interaction[] directly instead
    * @param postUri - URI of the post
    * @param type - Feedback type (interested or not_interested)
    * @param sourceFeed - Optional source feed URI
@@ -1249,20 +1150,9 @@ export class FeedService {
         await api.app.bsky.feed.sendInteractions({
           interactions: [interaction],
         });
-
-        logger.debug('Sent feed interaction', {
-          component: 'FeedService',
-          postUri,
-          event,
-          targetFeed,
-        });
       }
-    } catch (error: unknown) {
-      // Log error but don't throw - interactions are best-effort
-      logger.warn('Failed to send feed interaction', {
-        component: 'FeedService',
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
+    } catch (_error: unknown) {
+      // Interactions are best-effort; swallow errors
     }
   }
 
@@ -1522,8 +1412,7 @@ export class FeedService {
       }
 
       return Array.from(hashtagSet).slice(0, limit);
-    } catch (error: unknown) {
-      logger.error('Error searching hashtag suggestions', error);
+    } catch (_error: unknown) {
       return [];
     }
   }
@@ -1608,7 +1497,6 @@ export class FeedService {
       );
 
       if (validFeedUris.length === 0) {
-        logger.warn('No valid feed URIs provided to getMixedFeed', { component: 'FeedService' });
         return { feed: [], cursor: null };
       }
 
@@ -1621,8 +1509,7 @@ export class FeedService {
       if (cursor) {
         try {
           feedStates = JSON.parse(cursor);
-        } catch (error) {
-          logger.warn('Failed to parse cursor for mixed feed', { component: 'FeedService', error });
+        } catch (_error) {
           feedStates = {};
         }
       } else {
@@ -1654,13 +1541,7 @@ export class FeedService {
             feedUri,
             success: true,
           };
-        } catch (error) {
-          // Log individual feed failures but don't fail the entire request
-          logger.warn('Failed to fetch from feed in mixed feed', {
-            component: 'FeedService',
-            feedUri,
-            error: error instanceof Error ? error.message : 'Unknown error',
-          });
+        } catch (_error) {
           return {
             posts: [],
             cursor: null,
@@ -1675,10 +1556,6 @@ export class FeedService {
       // Log success rate for debugging
       const successfulFeeds = feedResults.filter(r => r.success).length;
       if (successfulFeeds === 0) {
-        logger.error('All feeds failed in getMixedFeed', {
-          component: 'FeedService',
-          feedUris: limitedFeedUris,
-        });
         return { feed: [], cursor: null };
       }
 
@@ -1728,8 +1605,7 @@ export class FeedService {
         feed: limitedPosts,
         cursor: compositeCursor,
       };
-    } catch (error) {
-      logger.error('Error in getMixedFeed', { component: 'FeedService', error });
+    } catch (_error) {
       return { feed: [], cursor: null };
     }
   }

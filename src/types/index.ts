@@ -157,6 +157,9 @@ export interface UIFeedItem {
     };
   };
   uniqueKey?: string;
+  sourceFeed?: string; // Source feed URI
+  feedContext?: string; // Context from feed generator (from FeedViewPost)
+  reqId?: string; // Unique identifier per request (from FeedViewPost)
   reason?: {
     $type?: string;
     by?: {

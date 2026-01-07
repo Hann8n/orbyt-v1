@@ -4,7 +4,6 @@
  * This module is imported by namespace services to avoid circular dependencies
  */
 
-import { logger } from '../../utils/logger';
 import type { ApiClient, Session } from './types';
 
 /**
@@ -21,7 +20,12 @@ export class AtprotoCore {
     // Since we now get the agent from userStore in getApiClient,
     // this method just needs to verify that we have a valid session
     try {
-      const { useUserStore } = await import('../../stores/userStore');
+      const { useUserStore } = await import('../../stores/userStore').catch(error => {
+        // If dynamic import fails, throw a more descriptive error
+        throw new Error(
+          `Failed to import userStore: ${error instanceof Error ? error.message : String(error)}`
+        );
+      });
       const userStore = useUserStore.getState();
 
       if (userStore.agent && userStore.currentUser?.did) {
@@ -30,8 +34,8 @@ export class AtprotoCore {
 
       throw new Error('No valid session found');
     } catch (error) {
-      logger.error('Session check failed', error, { component: 'AtprotoCore' });
-      throw error;
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(errorMsg);
     }
   }
 
@@ -47,10 +51,8 @@ export class AtprotoCore {
         return userStore.currentUser.did;
       }
 
-      logger.debug('No current user found', { component: 'AtprotoCore' });
       return null;
-    } catch (error) {
-      logger.error('Error getting current user DID', error, { component: 'AtprotoCore' });
+    } catch (_error) {
       return null;
     }
   }
@@ -63,7 +65,12 @@ export class AtprotoCore {
   static async getApiClient(): Promise<ApiClient> {
     try {
       // Import userStore to get the current agent
-      const { useUserStore } = await import('../../stores/userStore');
+      const { useUserStore } = await import('../../stores/userStore').catch(error => {
+        // If dynamic import fails, throw a more descriptive error
+        throw new Error(
+          `Failed to import userStore: ${error instanceof Error ? error.message : String(error)}`
+        );
+      });
       const userStore = useUserStore.getState();
 
       // Check if session restoration is in progress
@@ -78,8 +85,6 @@ export class AtprotoCore {
       throw new Error('No API client available');
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      // Only log unexpected errors at ERROR level
-      logger.error('Error getting API client', error, { component: 'AtprotoCore' });
       throw new Error(errorMsg);
     }
   }
