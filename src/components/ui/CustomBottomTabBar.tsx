@@ -43,34 +43,39 @@ const ProfileTabIcon = React.memo(
 
     const hasMultipleAccounts = savedAccountsLength > 1;
 
+    // Dim avatar and ring together via wrapper opacity
     const opacity = isActive ? 1 : 0.6;
 
+    // Use profile color for ring (opacity handles dimming)
+    const ringColor =
+      profileData?.profileColors?.foregroundColor ||
+      profileData?.profileColors?.lighterColor ||
+      Colors.white;
+
+    if (!hasMultipleAccounts) {
+      return <UserIcon size={tabIconSize} color={color} />;
+    }
+
     return (
-      <>
-        {!hasMultipleAccounts ? (
-          <UserIcon size={tabIconSize} color={color} />
-        ) : (
-          <View style={{ opacity }}>
-            <Avatar
-              uri={profileData?.avatar}
-              type="profile"
-              size={tabIconSize}
-              showRing={true}
-              status={profileData?.status}
-              profileColors={
-                profileData?.profileColors
-                  ? {
-                      backgroundColor: profileData.profileColors.backgroundColor,
-                      textColor: profileData.profileColors.foregroundColor || color,
-                      foregroundColor: profileData.profileColors.foregroundColor || color,
-                    }
-                  : undefined
-              }
-              ringColor={color}
-            />
-          </View>
-        )}
-      </>
+      <View style={{ opacity }}>
+        <Avatar
+          uri={profileData?.avatar}
+          type="profile"
+          size={tabIconSize}
+          showRing={true}
+          status={profileData?.status}
+          profileColors={
+            profileData?.profileColors
+              ? {
+                  backgroundColor: profileData.profileColors.backgroundColor,
+                  textColor: profileData.profileColors.foregroundColor || color,
+                  foregroundColor: profileData.profileColors.foregroundColor || color,
+                }
+              : undefined
+          }
+          ringColor={ringColor}
+        />
+      </View>
     );
   }
 );
