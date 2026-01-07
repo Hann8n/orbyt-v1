@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback, memo } from 'react';
+import { useMemo, useCallback, memo } from 'react';
 import { View, StyleSheet, Pressable, Text } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../src/components/ui/UI';
 import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '../../src/hooks';
 
-const FeedScreen: React.FC = memo(() => {
+const FeedScreen = memo(() => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
@@ -60,14 +60,9 @@ const FeedScreen: React.FC = memo(() => {
     ? hashtag.startsWith('orbyt-channel-') || hashtag.startsWith('orbyt-')
     : false;
 
-  // Memoized close handler - use dismissTo for reliable modal dismissal
+  // Memoized close handler
   const handleClose = useCallback(() => {
-    // Use dismissTo to dismiss modal stack back to tabs
-    if (router.dismissTo) {
-      router.dismissTo('/(tabs)');
-    } else {
-      router.back();
-    }
+    router.back();
   }, [router]);
 
   return (
@@ -119,6 +114,8 @@ const FeedScreen: React.FC = memo(() => {
     </View>
   );
 });
+
+FeedScreen.displayName = 'FeedScreen';
 
 // Optimized StyleSheet creation outside component
 const styles = StyleSheet.create({

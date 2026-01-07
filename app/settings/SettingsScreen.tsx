@@ -20,8 +20,6 @@ import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalModals';
 import ProfileService from '../../src/services/data/ProfileService';
 import ChannelService from '../../src/services/data/ChannelService';
 
-declare let window: any;
-
 const SettingsScreen: React.FC = () => {
   const router = useRouter();
   const onLogout = useAuth().signOut;
@@ -232,6 +230,13 @@ const SettingsScreen: React.FC = () => {
           onPress: () => router.push('/settings/saves'),
           showChevron: false,
         },
+        {
+          id: 'watched',
+          label: 'Watched videos',
+          icon: 'eye',
+          onPress: () => router.push('/settings/watched'),
+          showChevron: false,
+        },
       ],
     },
     {
@@ -395,6 +400,15 @@ const SettingsScreen: React.FC = () => {
   ];
 
   // Build flat list data for FlashList
+  type SettingItem = {
+    id: string;
+    label: string;
+    onPress: () => void;
+    showChevron?: boolean;
+    icon?: string;
+    destructive?: boolean;
+  };
+
   type ListRow =
     | { kind: 'section-title'; id: string; title: string }
     | {
@@ -424,14 +438,14 @@ const SettingsScreen: React.FC = () => {
       listData.push({ kind: 'section-title', id: `title-${section.title}`, title: section.title });
     }
 
-    section.items.forEach(item => {
+    section.items.forEach((item: SettingItem) => {
       listData.push({
         kind: 'setting',
-        id: (item as any).id,
-        label: (item as any).label,
-        showChevron: (item as any).showChevron,
-        onPress: (item as any).onPress,
-        destructive: (item as any).destructive,
+        id: item.id,
+        label: item.label,
+        showChevron: item.showChevron,
+        onPress: item.onPress,
+        destructive: item.destructive,
       });
     });
 
@@ -538,40 +552,6 @@ const SettingsScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    marginHorizontal: -5,
-    borderBottomWidth: 0,
-    borderBottomColor: 'transparent',
-    backgroundColor: Colors.black,
-  },
-  backButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    color: Colors.white,
-    fontSize: 22,
-    fontFamily: 'Firma-Bold',
-    fontWeight: '700',
-  },
-  headerRight: {
-    width: 40,
-  },
-  content: {
-    flex: 1,
-  },
-  optionsContainer: {
-    flexDirection: 'column',
-    gap: 12,
-    marginHorizontal: 0,
-  },
   footer: {
     marginTop: 12,
     marginBottom: 8,

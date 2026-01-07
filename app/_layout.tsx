@@ -41,6 +41,9 @@ import { queryClient } from '../src/utils/query/queryClient';
 import { QueryErrorBoundary } from '../src/components/ui/QueryErrorBoundary';
 import { SessionProvider, useSession } from '../src/context/SessionProvider';
 import { TabBarProvider } from '../src/context/FeedIndicatorContext';
+import { seenVideoService } from '../src/services/SeenVideoService';
+import { storage } from '../src/utils/storage/storage';
+import { logger } from '../src/utils/logger';
 
 // Configure Reanimated logger to disable strict mode warnings
 configureReanimatedLogger({
@@ -129,7 +132,15 @@ function RootNavigator() {
         {/* Protected routes - require authentication */}
         <Stack.Protected guard={!!session}>
           <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="(modals)" />
+          <Stack.Screen
+            name="(modals)/feed"
+            options={{
+              headerShown: false,
+              presentation: 'fullScreenModal',
+              gestureEnabled: true,
+              animation: 'fade',
+            }}
+          />
           <Stack.Screen
             name="create"
             options={{
@@ -292,6 +303,39 @@ export default function RootLayout() {
 
     return () => handle.cancel();
   }, [isAuthenticated, appIsReady, loadBookmarks, clearBookmarks]);
+
+  // Initialize seen video service and subscribe to user changes
+  useEffect(() => {
+    // Initialize with current user
+    const currentUser = useUserStore.getState().currentUser;
+    seenVideoService.setUserDid(currentUser?.did ?? null);
+
+    // Subscribe to user changes (account switching)
+    const unsubscribe = useUserStore.subscribe(state => {
+      const currentUser = state.currentUser;
+      seenVideoService.setUserDid(currentUser?.did ?? null);
+    });
+
+    // Run cleanup on app start (defer to avoid blocking startup)
+    InteractionManager.runAfterInteractions(async () => {
+      try {
+        // Check last cleanup time (store in MMKV)
+        const lastCleanupKey = 'seen_videos_last_cleanup';
+        const lastCleanup = storage.getNumber(lastCleanupKey) ?? 0;
+        const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+
+        if (lastCleanup < sevenDaysAgo) {
+          const deleted = await seenVideoService.cleanupOldEntries(30); // 30 day retention
+          storage.set(lastCleanupKey, Date.now());
+          logger?.info?.(`Cleaned up ${deleted} old seen video entries`);
+        }
+      } catch (error) {
+        logger?.warn?.('Failed to cleanup seen videos', { error });
+      }
+    });
+
+    return unsubscribe;
+  }, []);
 
   // Prefetch feed in background after app is fully ready and interactions complete
   useEffect(() => {

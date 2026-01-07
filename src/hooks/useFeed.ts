@@ -26,6 +26,7 @@ export const FEED_CONFIG = {
   // Scroll and prefetch settings
   THROTTLE_MS: 150, // Increased throttling for smoother scrolling
   PREFETCH_THRESHOLD: 0.8, // Higher threshold to reduce premature loading
+  PREFETCH_ITEMS_AHEAD: 20, // Number of items to keep queued ahead of current position
 } as const;
 
 interface UseFeedOptions {
@@ -270,6 +271,50 @@ export function useFeed(
 
   // Infinite scroll state
   const isNearEndRef = useRef(false);
+  const prefetchTriggeredRef = useRef(false);
+
+  // Smart prefetching: Immediately prefetch after fast path (10 items) to reach ~20 items
+  // This only runs once after initial load if we're below threshold
+  useEffect(() => {
+    const totalItemsLoaded = feed.length;
+    const isInitialLoad = query.data?.pages.length === 1;
+
+    // Only auto-prefetch if:
+    // 1. This is the first page (initial load)
+    // 2. We have less than PREFETCH_ITEMS_AHEAD items
+    // 3. Has next page available
+    // 4. Not currently fetching
+    // 5. Haven't already triggered prefetch for this state
+    if (
+      isInitialLoad &&
+      totalItemsLoaded > 0 &&
+      totalItemsLoaded < FEED_CONFIG.PREFETCH_ITEMS_AHEAD &&
+      query.hasNextPage &&
+      !query.isFetchingNextPage &&
+      queryEnabled &&
+      !prefetchTriggeredRef.current
+    ) {
+      prefetchTriggeredRef.current = true;
+      // Immediately start background fetch (fire and forget)
+      // This ensures fast path (10 items) immediately gets next page to reach ~20 items
+      query.fetchNextPage().catch(() => {
+        // Silently handle errors - user can retry via scroll
+        prefetchTriggeredRef.current = false; // Reset on error to allow retry
+      });
+    }
+  }, [
+    feed.length,
+    query.data?.pages.length,
+    query.hasNextPage,
+    query.isFetchingNextPage,
+    queryEnabled,
+    query.fetchNextPage,
+  ]);
+
+  // Reset prefetch flag when feed changes significantly (new feed option, etc.)
+  useEffect(() => {
+    prefetchTriggeredRef.current = false;
+  }, [feedOption, effectiveUserDid]);
 
   // Removed custom scroll handler - using FlashList's onEndReached
 

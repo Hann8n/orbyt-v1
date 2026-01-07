@@ -52,7 +52,7 @@ const ContentFiltersScreen: React.FC = () => {
       // These state updates mirror server-provided settings locally.
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setSettings(moderationSettings);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+
       setAdultContentEnabled(moderationSettings.adultContentEnabled);
     }
   }, [moderationSettings]);
@@ -181,7 +181,7 @@ const ContentFiltersScreen: React.FC = () => {
         showCloseButton
         onClosePress={() => router.back()}
         applySafeAreaTop={false}
-        style={{ marginHorizontal: -5 }}
+        style={styles.headerMargin}
       />
 
       <ScrollView
@@ -191,7 +191,7 @@ const ContentFiltersScreen: React.FC = () => {
       >
         {/* Content Type Settings */}
         <View style={settingsLayoutStyles.section}>
-          <View style={{ marginBottom: 12, paddingHorizontal: 5 }}>
+          <View style={styles.optionContainer}>
             {adultContentEnabled && (
               <OptionsButton
                 label="sensitive content"
@@ -206,12 +206,12 @@ const ContentFiltersScreen: React.FC = () => {
             const isAdult = ['nsfw'].includes(option.id);
             if (isAdult && !adultContentEnabled) return null;
             return (
-              <View key={option.id} style={{ marginBottom: 12, paddingHorizontal: 5 }}>
+              <View key={option.id} style={styles.optionContainer}>
                 <OptionsButton
                   label={option.label}
-                  containerStyle={{ alignItems: 'center' }}
+                  containerStyle={styles.optionButtonContainer}
                   rightContent={
-                    <View style={[styles.toggleButtonsContainer, { justifyContent: 'center' }]}>
+                    <View style={styles.toggleButtonsContainer}>
                       <View style={settingsButtonStyles.toggleButtonGroup}>
                         <Pressable
                           style={[
@@ -282,7 +282,7 @@ const ContentFiltersScreen: React.FC = () => {
             );
           })}
         </View>
-        <View style={{ marginTop: 4, paddingHorizontal: 5 }}>
+        <View style={styles.externalLinkContainer}>
           <OptionsButton
             label="adjust on bsky.app"
             subtitle="open Bluesky content settings"
@@ -299,17 +299,28 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
-  menuOptionLeft: {
-    flexDirection: 'column',
-    flex: 1,
+  headerMargin: {
+    marginHorizontal: -5,
+  },
+  optionContainer: {
+    marginBottom: 12,
+    paddingHorizontal: 5,
+  },
+  optionButtonContainer: {
+    alignItems: 'center',
   },
   toggleButtonsContainer: {
     marginTop: 0,
     alignItems: 'center',
     alignSelf: 'center',
+    justifyContent: 'center',
   },
   toggleButtonLast: {
     borderRightWidth: 0,
+  },
+  externalLinkContainer: {
+    marginTop: 4,
+    paddingHorizontal: 5,
   },
 });
 

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Text, Alert, Linking } from 'react-native';
-import { StyleSheet } from 'react-native';
+import { Text, Alert, Linking, StyleSheet, TextStyle } from 'react-native';
 import { useMappingHelper } from '@shopify/flash-list';
 import type { RichTextFacet } from '../../utils/types/richText';
 
@@ -16,7 +15,7 @@ interface TextPart {
 
 interface TextWithLinksProps {
   text: string;
-  style: any;
+  style?: TextStyle | TextStyle[];
   numberOfLines?: number;
   onAuthorPress: (handle: string) => void;
   onHashtagPress?: (hashtag: string) => void;
@@ -131,11 +130,11 @@ const TextWithLinksBase: React.FC<TextWithLinksProps> = ({
     // Use facets-based parsing (AT Protocol standard)
     if (facets && facets.length > 0) {
       const parts = parseFacetsToTextParts(text, facets);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+
       setTextParts(parts);
     } else {
       // Fallback to plain text if no facets available
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+
       setTextParts([{ text }]);
     }
   }, [text, facets]);

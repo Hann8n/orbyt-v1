@@ -4,6 +4,7 @@ import { useIsFocused } from '@react-navigation/native';
 
 import { useVisibilityCoreStore } from './visibilityStore';
 import { useSetOverlayVisibility } from '../../context/FeedIndicatorContext';
+import { seenVideoService } from '../../services/SeenVideoService';
 
 /**
  * Optimized viewability config for FlashList 2.0
@@ -88,6 +89,24 @@ export function useFeedVisibility({
       // onViewableItemsChanged runs on native thread, but setOverlayVisibility safely updates shared value from JS thread
       const isVisible = nextIndex >= 0;
       setOverlayVisibility(isVisible ? 1 : 0);
+
+      // Track visible video URIs for seen video tracking
+      // Extract visible video URIs with proper type safety
+      const visibleUris = viewableItems
+        .map(token => token.item)
+        .filter((item): item is { post?: { uri?: string }; endCard?: boolean } => item != null)
+        .filter(item => !item?.endCard)
+        .map(item => item.post?.uri)
+        .filter((uri): uri is string => Boolean(uri) && typeof uri === 'string');
+
+      // Write immediately and synchronously - MMKV handles efficiency
+      // No batching needed - MMKV writes are fast enough (microseconds)
+      // markAsSeen now handles errors internally, so we don't need try-catch here
+      visibleUris.forEach(uri => {
+        if (uri) {
+          seenVideoService.markAsSeen(uri);
+        }
+      });
 
       // Only process if index changed
       if (nextIndex !== activeItemIndexRef.current) {

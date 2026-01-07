@@ -10,11 +10,13 @@ import { QUERY_CONSTANTS } from '../utils/constants';
 import type {
   ExtendedFeedViewPost,
   FeedResponse,
+  VideoSearchResponse,
   ProfileViewBasic,
   GeneratorView,
 } from './api/types';
 import { isOrbytChannel, channelToHashtag, getChannelByUri } from '../utils/channels/orbyt';
 import type { FeedOption } from '../types';
+import { seenVideoService } from './SeenVideoService';
 
 // Import AtprotoService with error handling for circular dependency issues
 let AtprotoService: any = null;
@@ -38,6 +40,27 @@ export type APIResponse = FeedResponse;
 
 // Re-export FeedOption for convenience (defined in types/index.ts)
 export type { FeedOption } from '../types';
+
+// Type definitions for your-mix feed round-robin implementation
+interface FeedSource {
+  readonly uri: string;
+  readonly type: 'feed' | 'hashtag' | 'algorithmic';
+  readonly hashtag?: string;
+  readonly sort?: 'top' | 'latest';
+}
+
+interface YourMixCursor {
+  readonly sourceIndex: number;
+  readonly sourceCursors: readonly (string | null)[]; // All source cursors
+  readonly exhausted: readonly boolean[];
+}
+
+interface FeedFetchResult {
+  readonly feed: ExtendedFeedViewPost[];
+  readonly cursor: string | null;
+  readonly sourceUri: string;
+  readonly success: boolean;
+}
 
 // Configuration constants
 const FEED_CONFIG = {
@@ -75,35 +98,182 @@ const searchFeedState = new SearchFeedState();
 // Core feed fetching logic
 class FeedService {
   /**
-   * Helper function to merge, deduplicate, and sort posts chronologically
+   * Parse cursor for round-robin pagination
    */
-  private mergeAndDeduplicatePosts(
-    posts: ExtendedFeedViewPost[],
-    limit: number
-  ): ExtendedFeedViewPost[] {
-    // Remove duplicates
-    const seen = new Set<string>();
-    const uniquePosts = posts.filter(post => {
-      if (seen.has(post.post.uri)) {
-        return false;
+  private parseCursor(cursor: string | undefined, feedSourcesLength: number): YourMixCursor {
+    if (!cursor) {
+      return {
+        sourceIndex: 0,
+        sourceCursors: new Array(feedSourcesLength).fill(null),
+        exhausted: new Array(feedSourcesLength).fill(false),
+      };
+    }
+
+    try {
+      const parsed = JSON.parse(cursor);
+
+      if (
+        typeof parsed === 'object' &&
+        parsed !== null &&
+        typeof parsed.sourceIndex === 'number' &&
+        Array.isArray(parsed.exhausted) &&
+        Array.isArray(parsed.sourceCursors)
+      ) {
+        // Normalize arrays to match feedSources length
+        const sourceCursors: (string | null)[] = Array.from(parsed.sourceCursors)
+          .map((item: unknown) => (typeof item === 'string' ? item : null))
+          .slice(0, feedSourcesLength);
+        const exhausted: boolean[] = Array.from(parsed.exhausted)
+          .map((item: unknown) => typeof item === 'boolean' && item)
+          .slice(0, feedSourcesLength);
+
+        // Pad arrays if needed (e.g., user subscribed to more channels)
+        while (sourceCursors.length < feedSourcesLength) {
+          sourceCursors.push(null);
+        }
+        while (exhausted.length < feedSourcesLength) {
+          exhausted.push(false);
+        }
+
+        return {
+          sourceIndex: parsed.sourceIndex % feedSourcesLength,
+          sourceCursors,
+          exhausted,
+        };
       }
-      seen.add(post.post.uri);
-      return true;
+    } catch {
+      // Invalid cursor, start fresh
+    }
+
+    // Default: start from beginning
+    return {
+      sourceIndex: 0,
+      sourceCursors: new Array(feedSourcesLength).fill(null),
+      exhausted: new Array(feedSourcesLength).fill(false),
+    };
+  }
+
+  /**
+   * Fetch and filter from a single source (used when only one source is active)
+   */
+  private async fetchSingleSource(
+    source: FeedSource,
+    cursor: string | null,
+    limit: number,
+    currentUserDid: string | null
+  ): Promise<APIResponse> {
+    // Fetch more than limit to compensate for seen video filtering
+    const fetchLimit = Math.min(limit * 1.5, 75);
+
+    const result = await this.fetchFromSource(source, cursor, Math.ceil(fetchLimit));
+
+    // Filter seen videos (only for your-mix)
+    const filteredResults = seenVideoService.filterSeen(result.feed, currentUserDid);
+
+    // Apply limit after filtering
+    const limitedResults = filteredResults.slice(0, limit);
+
+    return {
+      feed: limitedResults,
+      cursor: result.cursor,
+    };
+  }
+
+  /**
+   * Extract cursor from potentially complex cursor format
+   * Handles: plain string cursor, JSON round-robin cursor, or old format
+   */
+  private extractSingleSourceCursor(
+    cursor: string | undefined,
+    sourceIndex: number
+  ): string | null {
+    if (!cursor) return null;
+
+    try {
+      const parsed = JSON.parse(cursor);
+      // Old round-robin format
+      if (parsed?.sourceCursors?.[sourceIndex]) {
+        return parsed.sourceCursors[sourceIndex];
+      }
+    } catch {
+      // Not JSON - treat as plain string cursor
+      return cursor;
+    }
+
+    return null;
+  }
+
+  /**
+   * Fetch from a single feed source with timeout protection
+   */
+  private async fetchFromSource(
+    source: FeedSource,
+    cursor: string | null,
+    limit: number
+  ): Promise<FeedFetchResult> {
+    const FEED_FETCH_TIMEOUT = 10000; // 10 seconds per feed
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Feed fetch timeout')), FEED_FETCH_TIMEOUT);
     });
 
-    // Sort chronologically
-    uniquePosts.sort((a, b) => {
-      const aIndexedAt =
-        'indexedAt' in a.post ? (a.post as { indexedAt?: string }).indexedAt : undefined;
-      const bIndexedAt =
-        'indexedAt' in b.post ? (b.post as { indexedAt?: string }).indexedAt : undefined;
-      const aTime = aIndexedAt ? new Date(aIndexedAt).getTime() : 0;
-      const bTime = bIndexedAt ? new Date(bIndexedAt).getTime() : 0;
-      return bTime - aTime;
-    });
+    try {
+      const fetchPromise =
+        source.type === 'hashtag'
+          ? AtprotoService.searchHashtagVideosPaginated(
+              source.hashtag!,
+              cursor,
+              limit,
+              source.sort || 'latest'
+            ).then(
+              (response: VideoSearchResponse): FeedFetchResult => ({
+                feed: response.videos, // Direct type: ExtendedFeedViewPost[]
+                cursor: response.cursor, // Direct type: string | null
+                sourceUri: source.uri,
+                success: true,
+              })
+            )
+          : source.type === 'algorithmic'
+            ? AtprotoService.getFeed(
+                cursor,
+                source.uri,
+                {},
+                false, // Algorithmic feeds already return video-only content
+                limit,
+                'custom'
+              ).then(
+                (response: FeedResponse): FeedFetchResult => ({
+                  feed: response.feed, // Direct type: ExtendedFeedViewPost[]
+                  cursor: response.cursor, // Direct type: string | null
+                  sourceUri: source.uri,
+                  success: true,
+                })
+              )
+            : AtprotoService.getFeed(
+                cursor,
+                source.uri,
+                {},
+                true, // Filter videos for regular feed generators
+                limit,
+                'custom'
+              ).then(
+                (response: FeedResponse): FeedFetchResult => ({
+                  feed: response.feed, // Direct type: ExtendedFeedViewPost[]
+                  cursor: response.cursor, // Direct type: string | null
+                  sourceUri: source.uri,
+                  success: true,
+                })
+              );
 
-    // Apply limit
-    return uniquePosts.slice(0, limit);
+      return await Promise.race([fetchPromise, timeoutPromise]);
+    } catch (error) {
+      logger.warn('Failed to fetch feed source', { sourceUri: source.uri, error });
+      return {
+        feed: [],
+        cursor: null,
+        sourceUri: source.uri,
+        success: false,
+      };
+    }
   }
 
   /**
@@ -221,24 +391,7 @@ class FeedService {
         // Import orbyt channel utilities
         const { channelToHashtag, getChannelByUri } = orbytChannelsModule;
 
-        // Parse cursor state for pagination across multiple feeds
-        let cursorState: { [key: string]: string | null } = {};
-        if (cursor) {
-          try {
-            cursorState = JSON.parse(cursor);
-          } catch {
-            cursorState = {};
-          }
-        }
-
         // Prepare feed sources - convert channels to appropriate format
-        interface FeedSource {
-          uri: string;
-          type: 'feed' | 'hashtag' | 'algorithmic';
-          hashtag?: string;
-          sort?: 'top' | 'latest';
-        }
-
         const feedSources: FeedSource[] = [];
 
         // Add algorithmic feed provider if set
@@ -313,117 +466,103 @@ class FeedService {
           }
         }
 
-        // Calculate fetch limit per feed for better distribution
-        // Give algorithmic feed a larger share to keep content fresh
-        const algorithmicCount = feedSources.filter(s => s.type === 'algorithmic').length;
-        const channelCount = feedSources.length - algorithmicCount;
-        const algorithmicLimit = algorithmicCount > 0 ? Math.ceil(limit * 0.4) : 0; // 40% for algorithmic
-        const channelLimit =
-          channelCount > 0 ? Math.ceil((limit - algorithmicLimit) / channelCount) : 0;
+        // Safety check: if no feed sources, return empty
+        if (feedSources.length === 0) {
+          return { feed: [], cursor: null };
+        }
 
-        // Fetch from all feed sources in parallel with timeout protection
-        // Use Promise.allSettled to avoid blocking on slow feeds
-        const FEED_FETCH_TIMEOUT = 10000; // 10 seconds per feed
+        // Get current user for seen video filtering
+        const currentUser = userStoreModule.useUserStore.getState().currentUser;
+        const currentUserDid = currentUser?.did ?? null;
 
-        const feedPromises = feedSources.map(async source => {
-          const timeoutPromise = new Promise<never>((_, reject) => {
-            setTimeout(() => reject(new Error('Feed fetch timeout')), FEED_FETCH_TIMEOUT);
-          });
+        // Parse cursor to determine active sources
+        const cursorState = this.parseCursor(cursor, feedSources.length);
+        const activeSources = cursorState.exhausted.filter(e => !e).length;
+
+        // Optimization: if only one source (start) or one remains active (after exhaustion), use direct fetch
+        if (feedSources.length === 1 || activeSources === 1) {
+          const sourceIndex =
+            feedSources.length === 1 ? 0 : cursorState.exhausted.findIndex(e => !e);
+
+          if (sourceIndex !== -1) {
+            const singleSource = feedSources[sourceIndex];
+            const sourceCursor =
+              feedSources.length === 1
+                ? this.extractSingleSourceCursor(cursor, 0)
+                : cursorState.sourceCursors[sourceIndex];
+
+            return await this.fetchSingleSource(singleSource, sourceCursor, limit, currentUserDid);
+          }
+        }
+
+        // Round-robin fetching strategy for multiple active sources
+        const BATCH_SIZE = 20; // Items per source per round
+
+        // Results accumulator
+        const results: ExtendedFeedViewPost[] = [];
+        const seenUris = new Set<string>(); // Per-fetch deduplication
+        const exhausted = [...cursorState.exhausted]; // Mutable copy
+        const sourceCursors: (string | null)[] = [...cursorState.sourceCursors];
+
+        // Round-robin until limit reached or all exhausted
+        let currentIndex = cursorState.sourceIndex;
+
+        while (results.length < limit && !exhausted.every(e => e)) {
+          // Skip exhausted sources
+          while (exhausted[currentIndex]) {
+            currentIndex = (currentIndex + 1) % feedSources.length;
+          }
+
+          const source = feedSources[currentIndex];
+          const sourceCursor = sourceCursors[currentIndex];
 
           try {
-            const sourceCursor = cursorState[source.uri] || null;
-            const itemsPerFeed =
-              source.type === 'algorithmic' ? algorithmicLimit : Math.max(10, channelLimit);
+            const batch = await this.fetchFromSource(source, sourceCursor, BATCH_SIZE);
 
-            const fetchPromise =
-              source.type === 'hashtag'
-                ? AtprotoService.searchHashtagVideosPaginated(
-                    source.hashtag!,
-                    sourceCursor,
-                    itemsPerFeed,
-                    source.sort || 'latest'
-                  ).then(
-                    (hashtagResponse: {
-                      videos?: ExtendedFeedViewPost[];
-                      cursor?: string | null;
-                    }) => ({
-                      feed: hashtagResponse.videos || [],
-                      cursor: hashtagResponse.cursor || null,
-                      sourceUri: source.uri,
-                      success: true,
-                    })
-                  )
-                : AtprotoService.getFeed(
-                    sourceCursor,
-                    source.uri,
-                    {},
-                    true, // filter videos only
-                    itemsPerFeed,
-                    'custom'
-                  ).then(
-                    (feedResponse: { feed?: ExtendedFeedViewPost[]; cursor?: string | null }) => ({
-                      feed: feedResponse?.feed || [],
-                      cursor: feedResponse?.cursor || null,
-                      sourceUri: source.uri,
-                      success: true,
-                    })
-                  );
+            // Process batch
+            for (const post of batch.feed) {
+              const uri = post.post?.uri;
+              if (uri && !seenUris.has(uri)) {
+                seenUris.add(uri);
+                results.push(post);
+                if (results.length >= limit) break;
+              }
+            }
 
-            return await Promise.race([fetchPromise, timeoutPromise]);
+            // Update cursor for this source
+            if (batch.cursor) {
+              sourceCursors[currentIndex] = batch.cursor;
+            } else {
+              exhausted[currentIndex] = true;
+              sourceCursors[currentIndex] = null;
+            }
           } catch (error) {
-            logger.warn('Failed to fetch feed for your-mix', { sourceUri: source.uri, error });
-            return {
-              feed: [],
-              cursor: null,
-              sourceUri: source.uri,
-              success: false,
-            };
+            logger.warn('Round-robin fetch failed', { sourceUri: source.uri, error });
+            // Mark as exhausted on error to avoid retrying
+            exhausted[currentIndex] = true;
+            sourceCursors[currentIndex] = null;
           }
-        });
 
-        // Use allSettled instead of all to avoid blocking on slow feeds
-        // This allows fast feeds to return results even if some feeds are slow
-        const feedResults = await Promise.allSettled(feedPromises);
-
-        // Extract successful results from Promise.allSettled
-        interface FeedResult {
-          feed: ExtendedFeedViewPost[];
-          cursor: string | null;
-          sourceUri: string;
-          success: boolean;
+          // Move to next source
+          currentIndex = (currentIndex + 1) % feedSources.length;
         }
-        const successfulResults = feedResults
-          .filter(
-            (result): result is PromiseFulfilledResult<FeedResult> =>
-              result.status === 'fulfilled' && result.value.success
-          )
-          .map(result => result.value);
 
-        // Update cursor state for successful feeds
-        successfulResults.forEach(result => {
-          if (result.success) {
-            cursorState[result.sourceUri] = result.cursor;
-          }
-        });
+        // Apply limit (no sorting - order doesn't matter for performance)
+        const limitedResults = results.slice(0, limit);
 
-        // Merge all feeds into single array with source tracking
-        const allPosts = successfulResults.flatMap(result =>
-          result.feed.map(post => ({
-            ...post,
-            sourceFeed: result.sourceUri,
-          }))
-        );
+        // Filter seen videos (only for your-mix)
+        const filteredResults = seenVideoService.filterSeen(limitedResults, currentUserDid);
 
-        // Merge, deduplicate, and sort chronologically (newest first)
-        const mergedPosts = this.mergeAndDeduplicatePosts(allPosts, limit);
-
-        // Create composite cursor for pagination
-        const compositeCursor =
-          Object.keys(cursorState).length > 0 ? JSON.stringify(cursorState) : null;
+        // Create new cursor - persist all source cursors for proper pagination
+        const newCursor: YourMixCursor = {
+          sourceIndex: currentIndex,
+          sourceCursors: [...sourceCursors],
+          exhausted,
+        };
 
         response = {
-          feed: mergedPosts,
-          cursor: compositeCursor,
+          feed: filteredResults,
+          cursor: JSON.stringify(newCursor),
         };
       } else if (
         feedOptionForAPI === 'profile' ||
@@ -532,6 +671,12 @@ class FeedService {
       } else if (feedOptionForAPI === 'search') {
         return {
           feed: searchFeedState.getSearchResults(),
+          cursor: null,
+        };
+      } else if (feedOptionForAPI === 'watched') {
+        // Watched videos use the current feed set via setCurrentFeed
+        return {
+          feed: searchFeedState.getSearchResults(), // Reuse search state for watched videos
           cursor: null,
         };
       } else {

@@ -22,7 +22,7 @@ export const QUERY_CONSTANTS = {
   RETRY_COUNT: 1,
   STALE_TIME: 5 * 60 * 1000, // 5 minutes - default for most queries
   GC_TIME: 30 * 60 * 1000, // 30 minutes
-  END_REACHED_THRESHOLD: 0.8,
+  END_REACHED_THRESHOLD: 0.5, // Lowered to trigger prefetching earlier (was 0.8)
   // Granular stale times for different data types
   STALE_TIME_SHORT: 10 * 1000, // 10 seconds - for frequently changing data (chat, notifications)
   STALE_TIME_MEDIUM: 60 * 1000, // 1 minute - for moderately changing data (unread counts)
