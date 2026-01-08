@@ -920,7 +920,6 @@ const styles = StyleSheet.create({
   actionText: {
     fontFamily: 'Firma-SemiBold',
     textAlign: 'center',
-    fontWeight: '600',
     fontSize: 17,
   },
   glassContainer: {
@@ -1025,7 +1024,6 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: 'Firma-Black',
-    fontWeight: 'bold',
     fontSize: 30,
     flexShrink: 1,
   },

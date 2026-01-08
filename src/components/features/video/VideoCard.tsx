@@ -927,8 +927,8 @@ const VideoCard = memo(
 
       return (
         <View style={[styles.container, { height: cardHeight }]}>
-          {/* Blurred thumbnail background - iOS only (expensive on Android) */}
-          {Platform.OS === 'ios' && <BlurredThumbnailBackground thumbnailUrl={posterUrl} />}
+          {/* Blurred thumbnail background - optimized for both platforms */}
+          <BlurredThumbnailBackground thumbnailUrl={posterUrl} />
           {/* Unified Video and Overlay Container */}
           <Pressable
             onPress={handleVideoTap}

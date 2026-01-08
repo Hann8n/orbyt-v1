@@ -20,8 +20,7 @@ import { FlashList, FlashListRef } from '@shopify/flash-list';
 import type { ListFeedViewRef } from '../../../types';
 import { Colors } from '../../ui/UI';
 import { feedService } from '../../../services/FeedService';
-import { isVideoEmbed, isVideoEmbedInMedia } from '../../../services/api/types';
-import type { RecordWithMediaView, VideoView } from '../../../services/api/types';
+import { getVideoView } from '../../../utils/video/helpers';
 import { BlurView } from 'expo-blur';
 import { QUERY_CONSTANTS } from '../../../utils/constants';
 import type { UIFeedItem } from '../../../types';
@@ -38,18 +37,9 @@ const VideoGridItem: React.FC<{
   itemStyle?: ViewStyle;
   thumbnailStyle?: ImageStyle;
 }> = React.memo(({ item, index, onPress, style, itemStyle, thumbnailStyle }) => {
-  // Extract thumbnail using type guards + direct property access
-  const embed = item.post.embed;
-  let thumbnailUrl: string | null = null;
-
-  if (embed) {
-    if (isVideoEmbed(embed)) {
-      thumbnailUrl = (embed as VideoView).thumbnail || null;
-    } else if (isVideoEmbedInMedia(embed)) {
-      const recordWithMedia = embed as RecordWithMediaView;
-      thumbnailUrl = (recordWithMedia.media as VideoView).thumbnail || null;
-    }
-  }
+  // Extract thumbnail using getVideoView helper
+  const videoView = getVideoView(item.post.embed);
+  const thumbnailUrl = videoView?.thumbnail || null;
 
   // Get shouldBlur flag from feed item (computed at feed level)
   const shouldBlur = item.shouldBlur ?? false;

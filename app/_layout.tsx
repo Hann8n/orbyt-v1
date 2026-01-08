@@ -236,10 +236,9 @@ export default function RootLayout() {
     [fallbackReady, fontsLoaded, isInitializing]
   );
 
-  // Set Android navigation bar to dark theme
+  // Set Android navigation bar button style (light)
   useEffect(() => {
     if (Platform.OS === 'android') {
-      NavigationBar.setBackgroundColorAsync(Colors.black).catch(() => {});
       NavigationBar.setButtonStyleAsync('light').catch(() => {});
     }
   }, []);

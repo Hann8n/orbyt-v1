@@ -1,13 +1,14 @@
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
+import { memo } from 'react';
 
 interface BlurredThumbnailBackgroundProps {
   thumbnailUrl: string | null;
   recyclingKey?: string;
 }
 
-export default function BlurredThumbnailBackground({
+const BlurredThumbnailBackground = memo(function BlurredThumbnailBackground({
   thumbnailUrl,
   recyclingKey,
 }: BlurredThumbnailBackgroundProps) {
@@ -21,18 +22,20 @@ export default function BlurredThumbnailBackground({
         contentFit="cover"
         recyclingKey={recyclingKey}
         cachePolicy="disk"
-        transition={200}
       />
       <BlurView
         intensity={100}
-        tint="systemChromeMaterialDark"
+        tint={Platform.OS === 'android' ? 'dark' : 'systemChromeMaterialDark'}
         style={styles.blur}
         experimentalBlurMethod="dimezisBlurView"
+        {...(Platform.OS === 'android' && { blurReductionFactor: 3 })}
       />
       <View style={styles.overlay} />
     </View>
   );
-}
+});
+
+export default BlurredThumbnailBackground;
 
 const styles = StyleSheet.create({
   container: {
@@ -41,11 +44,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   background: {
-    width: '200%',
-    height: '200%',
-    position: 'absolute',
-    top: '-50%',
-    left: '-50%',
+    ...StyleSheet.absoluteFillObject,
   },
   blur: {
     ...StyleSheet.absoluteFillObject,
