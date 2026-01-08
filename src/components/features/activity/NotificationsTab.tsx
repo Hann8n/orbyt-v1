@@ -102,6 +102,13 @@ const POST_ACTION_TYPES: readonly PostActionReason[] = [
 // Type alias for post data map
 type PostDataMap = Map<string, PostView | ExtendedPostView | ExtendedFeedViewPost>;
 
+// Fixed sizes per item type (padding 20px + avatar 55px + content ~39px = 114px base)
+const ITEM_SIZES = {
+  'non-post': 114,
+  'post-video': 194, // base + 80px thumbnail
+  'post-text': 114,
+} as const;
+
 // Helper to get embed from post data
 const getEmbed = (
   postData: PostView | ExtendedPostView | ExtendedFeedViewPost | null | undefined
@@ -143,16 +150,6 @@ const getPostKind = (embed: PostView['embed'] | null | undefined): PostKind => {
   }
 
   return 'text';
-};
-
-// Get thumbnail based on post kind (only for videos) - use getVideoView helper + direct property access
-const getThumbnailByKind = (
-  embed: PostView['embed'] | null | undefined,
-  kind: PostKind
-): string | null => {
-  if (kind !== 'video') return null;
-  const videoView = getVideoView(embed);
-  return videoView?.thumbnail || null;
 };
 
 // Helper to construct a PostView-like object from notification/post data for moderation
@@ -218,12 +215,9 @@ const getPostUri = (notification: Notification): string | null => {
 };
 
 // Resolve a URI to the root post URI (handles repost records automatically)
-const resolveRootPostUri = (uri: string): string | null => {
-  // If it's a repost record URI, we can't resolve it from PostView alone
-  // The actual resolution happens in fetchPostData by fetching the record
-  if (uri.includes('app.bsky.feed.repost')) {
-    return null; // Will be resolved in fetchPostData
-  }
+// Repost URIs are now stored directly in postDataMap, so we can use them as-is
+const resolveRootPostUri = (uri: string, _postDataMap?: PostDataMap): string | null => {
+  // Repost URIs are stored directly in the map now, so return as-is for lookup
   return uri;
 };
 
@@ -241,8 +235,13 @@ const getPostDataFromNotification = (
   if (notification.reason === 'subscribed-post') {
     const postUri = getPostUri(notification);
     if (postUri) {
-      const rootPostUri = resolveRootPostUri(postUri);
-      const fetchedPost = rootPostUri ? postDataMap.get(rootPostUri) : null;
+      // Try direct lookup first
+      let fetchedPost = postDataMap.get(postUri);
+      if (!fetchedPost) {
+        // Try resolving to root URI and lookup
+        const rootPostUri = resolveRootPostUri(postUri, postDataMap);
+        fetchedPost = rootPostUri ? (postDataMap.get(rootPostUri) ?? null) : null;
+      }
       if (fetchedPost) return fetchedPost;
     }
     // Fallback: use record (raw embed, no thumbnails)
@@ -264,8 +263,14 @@ const getPostDataFromNotification = (
   // For others, get from fetched postDataMap
   const postUri = getPostUri(notification);
   if (!postUri) return null;
-  const rootPostUri = resolveRootPostUri(postUri);
-  return rootPostUri ? (postDataMap.get(rootPostUri) ?? null) : null;
+  // Try direct lookup first
+  let fetchedPost = postDataMap.get(postUri);
+  if (!fetchedPost) {
+    // Try resolving to root URI and lookup
+    const rootPostUri = resolveRootPostUri(postUri, postDataMap);
+    fetchedPost = rootPostUri ? (postDataMap.get(rootPostUri) ?? null) : null;
+  }
+  return fetchedPost ?? null;
 };
 
 // Fetch post data, handling repost records
@@ -336,27 +341,16 @@ const NotificationItem = React.memo<{
 
     // All notification types that relate to posts
     const isPostAction = POST_ACTION_TYPES.includes(reason as PostActionReason);
+
+    // Get post data - getPostDataFromNotification handles 'post' field (quote/mention) which has view embeds with thumbnails
+    // For other notifications, it fetches from postDataMap
     const postData = isPostAction ? getPostDataFromNotification(item, postDataMap) : null;
     const embed = postData ? getEmbed(postData) : null;
-    const postKind = embed ? getPostKind(embed) : 'text';
 
-    // Extract thumbnail: prefer postData embed, fallback to notification record embed for immediate display
-    let thumbnail = embed ? getThumbnailByKind(embed, postKind) : null;
-    let isVideo = postKind === 'video';
-    if (!thumbnail && isPostAction && !postData) {
-      // Fallback: try to extract thumbnail from notification record embed
-      const recordEmbed =
-        'record' in item && item.record && typeof item.record === 'object' && 'embed' in item.record
-          ? (item.record as { embed?: PostView['embed'] }).embed
-          : undefined;
-      if (recordEmbed) {
-        const recordKind = getPostKind(recordEmbed);
-        thumbnail = getThumbnailByKind(recordEmbed, recordKind);
-        if (!isVideo) {
-          isVideo = recordKind === 'video';
-        }
-      }
-    }
+    // Extract thumbnail directly from video embed - simple and direct, let expo-image handle the rest
+    const videoView = embed ? getVideoView(embed) : null;
+    const thumbnail = videoView?.thumbnail || null;
+    const isVideo = !!videoView;
     const postTypeLabel = isVideo ? 'video' : 'post';
 
     // Always reserve space for thumbnail if it's a post action and it's a video
@@ -574,15 +568,7 @@ const NotificationItem = React.memo<{
       } catch {
         if (author?.handle) navigateToProfile(author.handle, author);
       }
-    }, [
-      isPostAction,
-      item,
-      postData,
-      postDataMap,
-      author?.handle,
-      navigateToProfile,
-      navigateToVideoPost,
-    ]);
+    }, [isPostAction, item, postData, postDataMap, author, navigateToProfile, navigateToVideoPost]);
 
     const handleAvatarPress = useCallback(() => {
       if (author?.handle) navigateToProfile(author.handle);
@@ -605,10 +591,7 @@ const NotificationItem = React.memo<{
           />
         </Pressable>
         <Pressable onPress={handlePress} style={styles.notificationContent}>
-          <Pressable
-            onPress={handleNamePress}
-            style={{ flexDirection: 'row', alignItems: 'center' }}
-          >
+          <Pressable onPress={handleNamePress} style={styles.nameRow}>
             <Text style={styles.authorName}>{formatHandle(author.handle) || 'Unknown user'}</Text>
             {author.handle && (
               <VerificationBadge handle={author.handle} textSize={14} textColor={Colors.white} />
@@ -628,10 +611,7 @@ const NotificationItem = React.memo<{
                   source={{ uri: thumbnail }}
                   style={styles.thumbnailVideo}
                   contentFit="contain"
-                  cachePolicy="memory-disk"
-                  onError={() => {
-                    // Silently fail - image just won't display
-                  }}
+                  transition={200}
                 />
                 {shouldBlur && (
                   <BlurView
@@ -663,6 +643,7 @@ const NotificationItem = React.memo<{
     return true; // Props are equal, skip re-render
   }
 );
+NotificationItem.displayName = 'NotificationItem';
 
 const NotificationsTab = forwardRef<ScrollToTopRef>((_props, ref) => {
   const legendListRef = useRef<LegendListRef>(null);
@@ -778,7 +759,7 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_props, ref) => {
 
   // Batch fetch all posts, automatically resolving repost records to root posts
   const { data: postDataMap = new Map() } = useQuery<PostDataMap>({
-    queryKey: ['notification-posts-batch', postUrisToFetch.join(',')],
+    queryKey: ['notification-posts-batch', postUrisToFetch.sort().join(',')],
     queryFn: async () => {
       const result: PostDataMap = new Map();
       const repostUris: string[] = [];
@@ -811,6 +792,7 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_props, ref) => {
 
           const { api } = apiClient;
           const rootPostUris: string[] = [];
+          const repostToRootMap = new Map<string, string>();
 
           for (const repostUri of repostUris) {
             try {
@@ -827,13 +809,9 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_props, ref) => {
                 | { subject?: { uri?: string } }
                 | undefined;
 
-              result.set(repostUri, {
-                record: repostRecord.data.value,
-                uri: repostUri,
-              } as PostView);
-
               if (repostValue?.subject?.uri) {
                 rootPostUris.push(repostValue.subject.uri);
+                repostToRootMap.set(repostUri, repostValue.subject.uri);
               }
             } catch {
               // Silently fail for individual repost records
@@ -845,7 +823,14 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_props, ref) => {
             const rootPosts = await AtprotoService.getPosts(rootPostUris);
             rootPosts.forEach((post, uri) => {
               if (post) {
+                // Store root post with its URI
                 result.set(uri, post as PostView);
+                // Also store with repost URI as key for direct lookup
+                for (const [repostUri, rootUri] of repostToRootMap.entries()) {
+                  if (rootUri === uri) {
+                    result.set(repostUri, post as PostView);
+                  }
+                }
               }
             });
           }
@@ -866,12 +851,6 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_props, ref) => {
     return allNotifications;
   }, [allNotifications]);
 
-  // Use stable reference for postDataMap to prevent unnecessary re-renders
-  const postDataMapRef = useRef(postDataMap);
-  useEffect(() => {
-    postDataMapRef.current = postDataMap;
-  }, [postDataMap]);
-
   const renderNotificationContent = useCallback(
     ({ item }: { item: Notification }) => {
       return (
@@ -879,93 +858,49 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_props, ref) => {
           item={item}
           navigation={navigation}
           queryClient={queryClient}
-          postDataMap={postDataMapRef.current}
+          postDataMap={postDataMap}
           moderationSettings={moderationSettings}
         />
       );
     },
-    [navigation, queryClient, moderationSettings]
+    [navigation, queryClient, moderationSettings, postDataMap]
   );
 
   const keyExtractor = useCallback((item: Notification) => {
     return item.uri || `notification-${item.indexedAt || Math.random()}`;
   }, []);
 
-  // Get item type for better recycling optimization - optimized to check record embed first
-  const getItemType = useCallback(
-    (item: Notification): string => {
-      const isPostAction = POST_ACTION_TYPES.includes(item.reason as PostActionReason);
-      if (!isPostAction) return 'non-post';
+  // Get item type for better recycling optimization - only uses synchronous data
+  const getItemType = useCallback((item: Notification): string => {
+    const isPostAction = POST_ACTION_TYPES.includes(item.reason as PostActionReason);
+    if (!isPostAction) return 'non-post';
 
-      // Check record embed first (faster, no map lookup needed)
-      if (
-        'record' in item &&
-        item.record &&
-        typeof item.record === 'object' &&
-        'embed' in item.record
-      ) {
-        const recordEmbed = (item.record as { embed?: PostView['embed'] }).embed;
-        if (recordEmbed && typeof recordEmbed === 'object') {
-          // Use type guards for video embeds
-          if (isVideoEmbed(recordEmbed) || isVideoEmbedInMedia(recordEmbed)) {
-            return 'post-video';
-          }
+    // Check record embed (synchronous, always available)
+    if (
+      'record' in item &&
+      item.record &&
+      typeof item.record === 'object' &&
+      'embed' in item.record
+    ) {
+      const recordEmbed = (item.record as { embed?: PostView['embed'] }).embed;
+      if (recordEmbed && typeof recordEmbed === 'object') {
+        // Use type guards for video embeds
+        if (isVideoEmbed(recordEmbed) || isVideoEmbedInMedia(recordEmbed)) {
+          return 'post-video';
         }
       }
+    }
 
-      // Fallback to post data if available
-      const postData = getPostDataFromNotification(item, postDataMap);
-      if (postData) {
-        const embed = getEmbed(postData);
-        const postKind = embed ? getPostKind(embed) : 'text';
-        return postKind === 'video' ? 'post-video' : 'post-text';
-      }
+    return 'post-text'; // Default for post actions
+  }, []);
 
-      return 'post-loading';
+  // overrideItemLayout sets fixed size per type for stable layout
+  const overrideItemLayout = useCallback(
+    (layout: { span?: number }, item: Notification) => {
+      const itemType = getItemType(item);
+      layout.span = ITEM_SIZES[itemType as keyof typeof ITEM_SIZES] ?? 114;
     },
-    [postDataMap]
-  );
-
-  // Estimate item size for better initial rendering - optimized to check record embed first
-  const getEstimatedItemSize = useCallback(
-    (_index: number, item: Notification): number => {
-      // Base size: padding (24px) + avatar (50px) + text content (~40px) = ~114px
-      const baseSize = 114;
-
-      // Check if item has video thumbnail - use record embed first (faster, no map lookup)
-      const isPostAction = POST_ACTION_TYPES.includes(item.reason as PostActionReason);
-
-      if (isPostAction) {
-        // Check record embed first (no map lookup needed, faster)
-        if (
-          'record' in item &&
-          item.record &&
-          typeof item.record === 'object' &&
-          'embed' in item.record
-        ) {
-          const recordEmbed = (item.record as { embed?: PostView['embed'] }).embed;
-          if (recordEmbed && typeof recordEmbed === 'object') {
-            // Use type guards for video embeds
-            if (isVideoEmbed(recordEmbed) || isVideoEmbedInMedia(recordEmbed)) {
-              return baseSize + 80;
-            }
-          }
-        }
-
-        // Fallback to post data if available
-        const postData = getPostDataFromNotification(item, postDataMap);
-        if (postData) {
-          const embed = getEmbed(postData);
-          const postKind = embed ? getPostKind(embed) : 'text';
-          if (postKind === 'video') {
-            return baseSize + 80;
-          }
-        }
-      }
-
-      return baseSize;
-    },
-    [postDataMap]
+    [getItemType]
   );
 
   if (isError) {
@@ -992,21 +927,21 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_props, ref) => {
     <LegendList
       ref={legendListRef}
       style={styles.listContainer}
-      contentContainerStyle={{
-        paddingHorizontal: 10,
-        paddingBottom: bottomNavBarHeight + 5,
-      }}
+      contentContainerStyle={[
+        styles.listContentContainer,
+        { paddingBottom: bottomNavBarHeight + 5 },
+      ]}
       data={notifications}
       renderItem={renderNotificationContent}
       keyExtractor={keyExtractor}
       ItemSeparatorComponent={NotificationDivider}
       recycleItems={true}
       getItemType={getItemType}
-      getEstimatedItemSize={getEstimatedItemSize}
+      overrideItemLayout={overrideItemLayout}
       extraData={notifications.length}
-      drawDistance={200}
-      initialContainerPoolRatio={4}
-      estimatedItemSize={130}
+      drawDistance={250}
+      initialContainerPoolRatio={6}
+      estimatedItemSize={114}
       refreshControl={
         <RefreshControl
           refreshing={isRefetching && !isFetchingNextPage}
@@ -1025,7 +960,7 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_props, ref) => {
           fetchNextPage();
         }
       }}
-      onEndReachedThreshold={0.5}
+      onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
       showsVerticalScrollIndicator={false}
       ListEmptyComponent={!isLoading ? <EmptyNotifications /> : null}
       ListFooterComponent={
@@ -1038,12 +973,20 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_props, ref) => {
     />
   );
 });
+NotificationsTab.displayName = 'NotificationsTab';
 
 export default NotificationsTab;
 
 const styles = StyleSheet.create({
   listContainer: {
     flex: 1,
+  },
+  listContentContainer: {
+    paddingHorizontal: 10,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   notificationItem: {
     flexDirection: 'row',
