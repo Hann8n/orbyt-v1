@@ -173,11 +173,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   // Ensure profileData.did is defined for type safety
   const profileDid = profileData?.did ?? undefined;
 
-  const profileVisibilityKey = useMemo(() => {
-    const did = profileData?.did || providedDid || 'profile';
-    return `profile:${did}:${activeTab}`;
-  }, [profileData?.did, providedDid, activeTab]);
-
   // ProfileCache is now automatically synced via useProfileCacheSync hook
   // Colors are extracted during profile fetch in ProfileService.ts - no need to do it here
 
@@ -762,7 +757,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
           viewMode={viewMode}
           onViewModeChange={setViewMode}
           isVisible={isRouteFocused}
-          visibilityKey={profileVisibilityKey}
           onVerticalScroll={handleVerticalScroll}
         />
       )}

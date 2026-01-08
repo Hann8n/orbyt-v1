@@ -218,9 +218,6 @@ const Channel: React.FC = memo(() => {
     }
   }, [refetchChannel]);
 
-  // Handle position change for scroll tracking
-  const handlePositionChange = useCallback(() => {}, []);
-
   const showErrorScreen = !!channelError && !refreshing;
 
   const renderErrorScreen = () => (
@@ -344,7 +341,6 @@ const Channel: React.FC = memo(() => {
           onRefresh={onRefresh}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
-          onPositionChange={handlePositionChange}
           onVerticalScroll={scrollY => {
             // Map first 250px of scroll into 0 -> 1 progress (more gradual), same as profile
             const clamped = Math.max(0, Math.min(1, scrollY / 250));
@@ -352,11 +348,6 @@ const Channel: React.FC = memo(() => {
           }}
           queryOptions={queryOptions}
           isVisible={isRouteFocused}
-          visibilityKey={
-            uri
-              ? `channel:${uri}:${isCategoryChannel ? (activeTab === 0 ? 'top' : 'latest') : ''}`
-              : undefined
-          }
         />
       ) : (
         <FeedRenderer
@@ -369,14 +360,12 @@ const Channel: React.FC = memo(() => {
           onRefresh={onRefresh}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
-          onPositionChange={handlePositionChange}
           onVerticalScroll={scrollY => {
             const clamped = Math.max(0, Math.min(1, scrollY / 250));
             headerScrollProgress.value = clamped;
           }}
           queryOptions={{ enabled: false }}
           isVisible={isRouteFocused}
-          visibilityKey={uri ? `channel:${uri}` : undefined}
         />
       )}
       {isLoading && (

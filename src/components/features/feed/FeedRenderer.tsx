@@ -50,7 +50,6 @@ interface FeedRendererProps {
   onRefresh?: () => void | Promise<void>; // Called when user pulls to refresh
   onPositionChange?: (position: number) => void;
   onVerticalScroll?: (scrollY: number) => void;
-  onScrubbingChange?: (isScrubbing: boolean) => void;
 
   // Search-specific props
   searchQuery?: string;
@@ -70,7 +69,6 @@ interface FeedRendererProps {
   // Debug flag
   forceError?: boolean;
   ListComponent?: React.ComponentType<unknown> | null; // Optional custom list component for integration with collapsible tabs
-  visibilityKey?: string;
   shouldPrefetch?: boolean;
   targetScrollIndex?: number | null; // Initial index to scroll to when opening feed
 }
@@ -96,22 +94,17 @@ const FeedRenderer = memo(
         onVerticalScroll,
         isRefreshing, // No default - undefined means FeedRenderer manages state internally
         isModal = false,
-        onScrubbingChange,
         // Search props
         hasNextPage: searchHasNextPage,
         isFetchingNextPage: searchIsFetchingNextPage,
         fetchNextPage: searchFetchNextPage,
         forceError = false,
         ListComponent,
-        visibilityKey,
         shouldPrefetch = false,
         targetScrollIndex: propTargetScrollIndex,
       },
       ref
     ) => {
-      // Resolve visibility key for feed tracking
-      const resolvedVisibilityKey =
-        visibilityKey || (userDid ? `${feedOption}:${userDid}` : feedOption);
       // Memoized feed type detection
       const isSearchFeed = useMemo(() => feedOption === 'search', [feedOption]);
 
@@ -230,16 +223,6 @@ const FeedRenderer = memo(
         }
       }, [hasNextPage, isFetchingNextPage, isVisible, fetchNextPage]);
 
-      // Simple position change handler - forwards to parent only
-      // Pagination is handled by FlashList's onEndReached (via onLoadMore -> handleLoadMore)
-      // This avoids conflicting pagination triggers and ensures new content is added to next page
-      const handlePositionChange = useCallback(
-        (position: number) => {
-          onPositionChange?.(position);
-        },
-        [onPositionChange]
-      );
-
       // Determine effective refreshing state
       // Priority: 1) Parent-provided isRefreshing, 2) React Query's isFetching
       // Exclude "fetch next page" so infinite scroll doesn't constantly show pull-to-refresh
@@ -337,17 +320,15 @@ const FeedRenderer = memo(
           hasNextPage,
           onRetry: handleRetry,
           isProfileFeed,
-          onPositionChange: handlePositionChange,
+          onPositionChange,
           isVisible,
           viewMode,
           onViewModeChange,
           onVerticalScroll,
           isRefreshing: effectiveRefreshing,
           isModal,
-          onScrubbingChange,
           dataUpdatedAt,
           ListComponent,
-          visibilityKey: resolvedVisibilityKey,
         }),
         [
           feed,
@@ -361,17 +342,15 @@ const FeedRenderer = memo(
           hasNextPage,
           handleRetry,
           isProfileFeed,
-          handlePositionChange,
+          onPositionChange,
           isVisible,
           viewMode,
           onViewModeChange,
           onVerticalScroll,
           effectiveRefreshing,
           isModal,
-          onScrubbingChange,
           dataUpdatedAt,
           ListComponent,
-          resolvedVisibilityKey,
         ]
       );
 
@@ -395,7 +374,6 @@ const FeedRenderer = memo(
             isFetchingNextPage={isFetchingNextPage}
             isLoading={isSearchFeed ? false : isLoading}
             isError={isSearchFeed ? false : errorState.finalIsError}
-            visibilityKey={resolvedVisibilityKey}
             targetScrollIndex={propTargetScrollIndex}
           />
         );
@@ -406,7 +384,6 @@ const FeedRenderer = memo(
         errorState.finalIsError,
         isLoading,
         isFetchingNextPage,
-        resolvedVisibilityKey,
         handleItemPress,
         propTargetScrollIndex,
       ]);

@@ -19,6 +19,7 @@ const FeedScreen = memo(() => {
   // Memoized route params extraction - includes initial index for scrolling to selected video
   const routeParams = useMemo(() => {
     const initialIndex = params.initialIndex ? parseInt(params.initialIndex as string, 10) : null;
+    const validInitialIndex = initialIndex !== null && !isNaN(initialIndex) ? initialIndex : null;
     return {
       feed: params.feed as string,
       feedOption: params.feedOption as string,
@@ -28,7 +29,7 @@ const FeedScreen = memo(() => {
       searchQuery: params.searchQuery as string,
       hasNextPage: params.hasNextPage === 'true',
       isFetchingNextPage: params.isFetchingNextPage === 'true',
-      initialIndex: isNaN(initialIndex as number) ? null : initialIndex,
+      initialIndex: validInitialIndex,
     };
   }, [params]);
 
@@ -40,14 +41,6 @@ const FeedScreen = memo(() => {
     }),
     []
   );
-
-  const modalVisibilityKey = useMemo(() => {
-    const keyParts = ['modal', routeParams.feedOption || 'feed'];
-    if (routeParams.userDid) {
-      keyParts.push(routeParams.userDid);
-    }
-    return keyParts.join(':');
-  }, [routeParams.feedOption, routeParams.userDid]);
 
   // Check if this is a hashtag feed
   const isHashtagFeed = routeParams.feedOption?.startsWith('hashtag:');
@@ -92,10 +85,7 @@ const FeedScreen = memo(() => {
         searchQuery={routeParams.searchQuery}
         hasNextPage={routeParams.hasNextPage}
         isFetchingNextPage={routeParams.isFetchingNextPage}
-        fetchNextPage={() => {}}
         queryOptions={modalQueryOptions}
-        ListComponent={undefined}
-        visibilityKey={modalVisibilityKey}
         targetScrollIndex={routeParams.initialIndex}
       />
 

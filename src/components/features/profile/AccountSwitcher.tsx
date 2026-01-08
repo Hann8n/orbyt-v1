@@ -11,7 +11,6 @@ import VerticalListSheet from '../../ui/VerticalListSheet';
 import { useAccountManagement, useAuth } from '../../../stores/userStore';
 import { safeDismiss, safePresent } from '../../../utils/components/truesheet/utils';
 import CustomPDSInputSheet from '../../ui/CustomPDSInputSheet';
-import { useVisibilityOverlay } from '../../../hooks';
 
 interface AccountSwitcherProps {
   visible: boolean;
@@ -32,7 +31,6 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
   onAccountSwitch,
   onAddAccount,
 }) => {
-  useVisibilityOverlay(visible);
   const [accounts, setAccounts] = useState<AccountWithProfile[]>([]);
   const [switchingAccount, setSwitchingAccount] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);

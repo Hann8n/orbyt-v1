@@ -42,12 +42,10 @@ export interface ListFeedViewProps {
   isModal?: boolean;
   isProfileFeed?: boolean;
   isRefreshing?: boolean;
-  onScrubbingChange?: (isScrubbing: boolean) => void;
   onScroll?: (event: { nativeEvent: import('react-native').NativeScrollEvent }) => void;
   onVerticalScroll?: (scrollY: number) => void;
   forceError?: boolean;
   ListComponent?: React.ComponentType<unknown> | null;
-  visibilityKey?: string;
   targetScrollIndex?: number | null;
   dataUpdatedAt?: number;
 }

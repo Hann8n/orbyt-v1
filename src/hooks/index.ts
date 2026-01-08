@@ -9,7 +9,6 @@ export { useOrbytProfile } from './useOrbytProfile';
 export { useModerationSettings } from './useModerationSettings';
 export {
   useFeedVisibility,
-  useVisibilityOverlay,
   useVisibilityRouteTracker,
   useVisibilityRouteIsActive,
 } from '../core/visibility';

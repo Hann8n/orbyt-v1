@@ -1,7 +1,2 @@
-export {
-  useFeedVisibility,
-  useVisibilityOverlay,
-  useVisibilityRouteTracker,
-  useVisibilityRouteIsActive,
-} from './hooks';
+export { useFeedVisibility, useVisibilityRouteTracker, useVisibilityRouteIsActive } from './hooks';
 export { useVisibilityCoreStore } from './visibilityStore';

@@ -380,10 +380,10 @@ const FeedPager = memo(
       }, [screenWidth, screenHeight, indicatorFontSize]);
 
       // Render individual feed with comprehensive memoization
-      // Visibility uses currentFeedIndex state (synced with PagerView's page tracking)
+      // Visibility: feed is visible when tab is focused and it's the current page
+      // With freezeOnBlur: true, useIsFocused() correctly handles frozen tabs
       const renderFeed = useCallback(
         ({ item: feedOption, index }: { item: FeedOption; index: number }) => {
-          // Use state for visibility - triggers re-render when page changes (synced with PagerView via handlePageSelected)
           const isVisible = isTabActive && index === currentFeedIndex;
           const isNeighbor = isTabActive && Math.abs(currentFeedIndex - index) === 1;
 
@@ -396,14 +396,10 @@ const FeedPager = memo(
               feedOption={String(feedOption)}
               onRetryFeed={handleRetryFeed}
               queryOptions={baseQueryOptions}
-              // Pass visibility state to control video playback and fetching - consistent with ListFeedView
-              // When feed becomes visible, isVisible changes trigger visibility detection in ListFeedView
-              // FlashList's maintainVisibleContentPosition preserves scroll position
               isVisible={isVisible}
               isRefreshing={isRefreshing}
               forceError={forceError}
               shouldPrefetch={isNeighbor}
-              visibilityKey={feedOption}
               onVerticalScroll={handleVerticalScroll}
             />
           );

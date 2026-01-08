@@ -8,6 +8,13 @@ import { seenVideoService } from '../../services/SeenVideoService';
 import type { UIFeedItem } from '../../types';
 
 /**
+ * Extended ViewToken type that includes viewablePercent (available at runtime but not in types)
+ */
+interface ExtendedViewToken extends ViewToken {
+  viewablePercent?: number;
+}
+
+/**
  * Optimized viewability config for FlashList 2.0
  * Leverages FlashList's native viewability tracking (runs on native thread)
  * Lower threshold for faster detection on older devices
@@ -76,9 +83,9 @@ export function useFeedVisibility({
           firstViewable = token;
         }
 
-        // Try to get viewablePercent (may not be available on all platforms)
-        // ViewToken type doesn't include viewablePercent in types, but it exists at runtime
-        const percent = (token as ViewToken & { viewablePercent?: number })?.viewablePercent;
+        // viewablePercent is available at runtime on most platforms for better item selection
+        const extendedToken = token as ExtendedViewToken;
+        const percent = extendedToken.viewablePercent;
         if (typeof percent === 'number' && percent > bestPercent) {
           bestPercent = percent;
           bestItem = token;
@@ -86,7 +93,7 @@ export function useFeedVisibility({
       }
 
       const selectedItem = bestItem || firstViewable;
-      const nextIndex = typeof selectedItem?.index === 'number' ? selectedItem.index : -1;
+      const nextIndex = selectedItem?.index ?? -1;
 
       // Update overlay visibility: 1 if item is visible, 0 if not
       // onViewableItemsChanged runs on native thread, but setOverlayVisibility safely updates shared value from JS thread
@@ -94,13 +101,11 @@ export function useFeedVisibility({
       setOverlayVisibility(isVisible ? 1 : 0);
 
       // Track visible video URIs for seen video tracking
-      // Extract visible video URIs with proper type safety
       const visibleUris = viewableItems
-        .map(token => token.item)
-        .filter((item): item is { post?: { uri?: string }; endCard?: boolean } => item != null)
-        .filter(item => !item?.endCard)
+        .map(token => token.item as UIFeedItem | null)
+        .filter((item): item is UIFeedItem => item != null && !item.endCard)
         .map(item => item.post?.uri)
-        .filter((uri): uri is string => Boolean(uri) && typeof uri === 'string');
+        .filter((uri): uri is string => typeof uri === 'string' && uri.length > 0);
 
       // Write immediately and synchronously - MMKV handles efficiency
       // No batching needed - MMKV writes are fast enough (microseconds)
@@ -144,13 +149,6 @@ export function useFeedVisibility({
 }
 
 /**
- * Simplified overlay hook - removed (no longer needed with native controls)
- */
-export function useVisibilityOverlay(_isBlocking: boolean) {
-  // No-op - overlays handled by VideoCard directly
-}
-
-/**
  * Track when a route becomes active/inactive
  * Updates visibility store so videos can pause/resume based on route focus
  * With freezeOnBlur: true, useIsFocused() correctly handles frozen tabs
@@ -186,7 +184,7 @@ export function useVisibilityRouteTracker(routeKey: string) {
  * Check if a specific route is currently active
  * Tracks route state from visibility store
  */
-export function useVisibilityRouteIsActive(routeKey: string | null | undefined) {
+export function useVisibilityRouteIsActive(routeKey: string | null | undefined): boolean {
   const activeRoute = useVisibilityCoreStore(state => state.activeRoute);
-  return Boolean(routeKey) && activeRoute === routeKey;
+  return Boolean(routeKey && activeRoute === routeKey);
 }
