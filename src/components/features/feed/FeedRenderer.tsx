@@ -100,7 +100,7 @@ const FeedRenderer = memo(
         fetchNextPage: searchFetchNextPage,
         forceError = false,
         ListComponent,
-        shouldPrefetch = false,
+        shouldPrefetch: _shouldPrefetch = false, // Unused - queries stay enabled always to avoid refetch trigger
         targetScrollIndex: propTargetScrollIndex,
       },
       ref
@@ -109,19 +109,19 @@ const FeedRenderer = memo(
       const isSearchFeed = useMemo(() => feedOption === 'search', [feedOption]);
 
       // Memoized query options - useFeed handles defaults (staleTime, gcTime, etc.)
+      // Keep query enabled always to avoid refetch trigger when visibility changes
+      // Visibility is handled separately for video playback and infinite scroll
       const memoizedQueryOptions = useMemo(() => {
         const { enabled: providedEnabled, ...restOptions } = queryOptions ?? {};
 
         const computedEnabled =
-          typeof providedEnabled === 'boolean'
-            ? providedEnabled
-            : !isSearchFeed && (isVisible || shouldPrefetch);
+          typeof providedEnabled === 'boolean' ? providedEnabled : !isSearchFeed; // Always enabled for non-search feeds, regardless of visibility
 
         return {
           enabled: computedEnabled,
           ...restOptions,
         };
-      }, [queryOptions, isSearchFeed, isVisible, shouldPrefetch]);
+      }, [queryOptions, isSearchFeed]);
 
       // Regular feed hook with memoized options
       const feedQuery = useFeed(feedOption, userDid, memoizedQueryOptions);
@@ -457,7 +457,7 @@ const areEqual = (prevProps: FeedRendererProps, nextProps: FeedRendererProps) =>
   if (prevProps.secondaryColor !== nextProps.secondaryColor) return false;
   if (prevProps.userDid !== nextProps.userDid) return false;
   if (prevProps.forceError !== nextProps.forceError) return false;
-  if (prevProps.shouldPrefetch !== nextProps.shouldPrefetch) return false;
+  // shouldPrefetch removed from comparison - no longer used (queries stay enabled always)
 
   // Shallow comparison for query options - check each property individually
   const prevQueryOpts = prevProps.queryOptions;
