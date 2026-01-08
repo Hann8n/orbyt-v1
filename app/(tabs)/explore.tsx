@@ -79,7 +79,14 @@ import type { ExploreRef } from '../../src/utils/navigation/tabRefs';
 // Only extract the fields we need for the explore page
 type Profile = Pick<
   CachedProfile,
-  'did' | 'handle' | 'displayName' | 'avatar' | 'description' | 'isFollowing' | 'verification'
+  | 'did'
+  | 'handle'
+  | 'displayName'
+  | 'avatar'
+  | 'description'
+  | 'isFollowing'
+  | 'verification'
+  | 'status'
 >;
 
 interface Channel {
@@ -390,6 +397,7 @@ const ProfilesFeedRenderer = React.memo(
                 size={48}
                 ringColor="transparent"
                 style={styles.profileImage}
+                status={profile.status}
               />
               <View style={styles.profileContent}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0 }}>
@@ -567,6 +575,11 @@ const VisitHistoryList = React.memo(
                     size={48}
                     ringColor="transparent"
                     style={styles.profileImage}
+                    status={
+                      profileData.status ||
+                      ProfileService.getProfileFromCacheSync(queryClient, profileData.handle)
+                        ?.status
+                    }
                   />
                   <View style={styles.profileContent}>
                     <View
@@ -1412,8 +1425,9 @@ const ExploreScreen: React.FC = () => {
               followStoreState?.isFollowing ??
               cachedProfile?.isFollowing ??
               !!post.viewer?.following,
-            // Extract verification from cache (already fetched) - avoids separate API calls
-            verification: cachedProfile?.verification,
+            // Extract verification and status directly from API response (ProfileViewBasic includes both)
+            verification: post.author.verification ?? cachedProfile?.verification,
+            status: post.author.status ?? cachedProfile?.status,
           } as Profile,
           relevance: 10 - index,
         });
