@@ -44,13 +44,9 @@ import { queryKeys } from '../../../utils/query/queryKeys';
 
 interface ChatScreenProps {
   conversationId: string;
-  recipientDid?: string;
 }
 
-export default function ChatScreen({
-  conversationId,
-  recipientDid: _recipientDid,
-}: ChatScreenProps) {
+export default function ChatScreen({ conversationId }: ChatScreenProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
@@ -99,7 +95,7 @@ export default function ChatScreen({
   const {
     data: messagesData,
     isLoading,
-    error: _error,
+    error: messagesError,
     refetch: refetchMessages,
   } = useQuery({
     queryKey: queryKeys.chat.messages.infinite(conversationId),
@@ -139,7 +135,7 @@ export default function ChatScreen({
         refetchType: 'active',
       });
     },
-    onError: (_error: any) => {
+    onError: () => {
       // Remove optimistic message on error
       if (optimisticMessageIdRef.current) {
         setMessages(previousMessages =>
@@ -160,7 +156,6 @@ export default function ChatScreen({
   // Use unified reaction handling hook
   const { handleReactionToggle } = useMessageReactions({
     conversationId,
-    messages,
     setMessages,
     currentUserId,
     currentUser: currentUser
@@ -185,7 +180,7 @@ export default function ChatScreen({
         refetchType: 'active',
       });
     },
-    onError: (_error: any) => {
+    onError: () => {
       Alert.alert('Error', 'Failed to accept conversation');
     },
   });
@@ -204,7 +199,7 @@ export default function ChatScreen({
       });
       router.back();
     },
-    onError: (_error: any) => {
+    onError: () => {
       Alert.alert('Error', 'Failed to reject conversation');
     },
   });
@@ -297,7 +292,7 @@ export default function ChatScreen({
             refetchType: 'active',
           });
         })
-        .catch(_error => {
+        .catch(() => {
           // Non-critical operation, just log the error
         });
     }
@@ -319,18 +314,11 @@ export default function ChatScreen({
     [sendMessageMutation]
   );
 
-  // Unified reaction handlers using the hook
+  // Wrapper to hide emoji bar after selection
   const handleEmojiSelect = useCallback(
     (emoji: string, messageId: string) => {
       handleReactionToggle(emoji, messageId);
-      setSelectedMessageId(null); // Hide the emoji bar
-    },
-    [handleReactionToggle]
-  );
-
-  const handleReactionPress = useCallback(
-    (messageId: string, emoji: string, _isCurrentUserReacted: boolean) => {
-      handleReactionToggle(emoji, messageId);
+      setSelectedMessageId(null);
     },
     [handleReactionToggle]
   );
@@ -511,7 +499,7 @@ export default function ChatScreen({
                 status={currentUserProfile?.status}
               />
             </View>
-            {props.renderComposer && props.renderComposer(props as any)}
+            {props.renderComposer && props.renderComposer(props as ComposerProps)}
             {props.renderSend && props.renderSend(props)}
           </View>
         </View>
@@ -618,9 +606,7 @@ export default function ChatScreen({
                 reactions={isSelected ? [] : message.reactions}
                 currentUserId={currentUserId}
                 messageId={String(message._id)}
-                onReactionPress={(emoji, isCurrentUserReacted) =>
-                  handleReactionPress(String(message._id), emoji, isCurrentUserReacted)
-                }
+                onReactionPress={emoji => handleReactionToggle(emoji, String(message._id))}
                 onLongPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                   setSelectedMessageId(String(message._id));
@@ -770,15 +756,13 @@ export default function ChatScreen({
               messageId={String(message._id)}
               reactions={message.reactions}
               currentUserId={currentUserId}
-              onReactionPress={(emoji, isCurrentUserReacted) =>
-                handleReactionPress(String(message._id), emoji, isCurrentUserReacted)
-              }
+              onReactionPress={emoji => handleReactionToggle(emoji, String(message._id))}
             />
           )}
         </Pressable>
       );
     },
-    [currentUserId, selectedMessageId, handleEmojiSelect, handleReactionPress, messagesWithEmbeds]
+    [currentUserId, selectedMessageId, handleEmojiSelect, handleReactionToggle, messagesWithEmbeds]
   );
 
   // Memoize user object for GiftedChat
@@ -808,7 +792,7 @@ export default function ChatScreen({
     );
   }
 
-  if (_error) {
+  if (messagesError) {
     return (
       <View style={styles.container}>
         <View style={styles.errorContainer}>

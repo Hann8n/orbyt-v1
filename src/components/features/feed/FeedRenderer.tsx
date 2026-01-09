@@ -388,6 +388,18 @@ const FeedRenderer = memo(
         propTargetScrollIndex,
       ]);
 
+      // Memoize profile colors for EmptyFeed
+      const profileColors = useMemo(
+        () =>
+          secondaryColor
+            ? {
+                backgroundColor: backgroundColor || '#000',
+                textColor: secondaryColor,
+              }
+            : undefined,
+        [backgroundColor, secondaryColor]
+      );
+
       // Early return for error states
       if (errorState.finalIsError && !isSearchFeed) {
         return (
@@ -395,9 +407,7 @@ const FeedRenderer = memo(
             <EmptyFeed
               type="error"
               secondaryColor={secondaryColor}
-              profileColors={
-                secondaryColor ? { backgroundColor, textColor: secondaryColor } : undefined
-              }
+              profileColors={profileColors}
               onRetry={handleRetry}
               feedOption={feedOption}
             />
@@ -412,9 +422,7 @@ const FeedRenderer = memo(
             <EmptyFeed
               type="no-connection"
               secondaryColor={secondaryColor}
-              profileColors={
-                secondaryColor ? { backgroundColor, textColor: secondaryColor } : undefined
-              }
+              profileColors={profileColors}
               onRetry={handleRetry}
               feedOption={feedOption}
             />

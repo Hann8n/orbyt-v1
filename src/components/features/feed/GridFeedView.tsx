@@ -133,6 +133,18 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
       (feedOption && feedOption.startsWith('at://'))
     );
 
+    // Use profile colors when available
+    const profileColors = useMemo(
+      () =>
+        secondaryColor
+          ? {
+              backgroundColor: backgroundColor || '#000',
+              textColor: secondaryColor,
+            }
+          : undefined,
+      [backgroundColor, secondaryColor]
+    );
+
     // Initialize infinite scroll hook with cursor-based loading
     // Infinite scroll functionality removed - should be handled by parent component
 
@@ -293,9 +305,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
               <EmptyFeed
                 type="error"
                 secondaryColor={secondaryColor}
-                profileColors={
-                  secondaryColor ? { backgroundColor, textColor: secondaryColor } : undefined
-                }
+                profileColors={profileColors}
                 onRetry={onRetry}
                 isProfileFeed={isProfileFeed || isHeaderFeed}
                 viewableAreaHeight={emptyComponentHeight}
@@ -305,9 +315,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
               <EmptyFeed
                 type={feedOption === 'following' ? 'no-following' : 'no-videos'}
                 secondaryColor={secondaryColor}
-                profileColors={
-                  secondaryColor ? { backgroundColor, textColor: secondaryColor } : undefined
-                }
+                profileColors={profileColors}
                 isProfileFeed={isProfileFeed || isHeaderFeed}
                 viewableAreaHeight={emptyComponentHeight}
                 feedOption={feedOption}

@@ -137,14 +137,14 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
   const { icon, defaultMessage } = getIconAndMessage();
   const displayMessage = message || defaultMessage;
 
-  // Icon can still vary by theme, but message text should always use brand secondary color
+  // Use profile colors if available, otherwise fall back to secondaryColor or default
   const iconColor = profileColors ? profileColors.textColor : secondaryColor || Colors.lightGray;
-  const textColor = Colors.lightGray;
+  const textColor = profileColors ? profileColors.textColor : secondaryColor || Colors.lightGray;
 
   // Suggested user item component (must be a component to use hooks)
   const SuggestedUserItem: React.FC<{ item: SuggestedUser }> = ({ item }) => {
     const { data: profile } = useProfile(item.handle || null);
-    const isFollowing = profile?.isFollowing ?? !!item.viewer?.following;
+    const isFollowing = !!profile?.viewer?.following || !!item.viewer?.following;
 
     return (
       <View style={styles.profileItem}>

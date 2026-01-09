@@ -8,7 +8,6 @@ import { queryKeys } from '../utils/query/queryKeys';
 
 interface UseMessageReactionsProps {
   conversationId: string;
-  messages: ChatMessage[];
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
   currentUserId: string;
   currentUser?: { handle?: string; avatar?: string };
@@ -20,7 +19,6 @@ interface UseMessageReactionsProps {
  */
 export function useMessageReactions({
   conversationId,
-  messages,
   setMessages,
   currentUserId,
   currentUser,
@@ -71,86 +69,49 @@ export function useMessageReactions({
    */
   const handleReactionToggle = useCallback(
     (emoji: string, messageId: string) => {
-      const targetMessage = messages.find(msg => String(msg._id) === messageId);
-      const isCurrentUserReacted = targetMessage?.reactions?.some(
-        reaction => reaction.value === emoji && reaction.sender.did === currentUserId
-      );
+      setMessages(prev => {
+        const targetMessage = prev.find(msg => String(msg._id) === messageId);
+        const isCurrentUserReacted = targetMessage?.reactions?.some(
+          reaction => reaction.value === emoji && reaction.sender.did === currentUserId
+        );
 
-      // Save previous state for rollback
-      const previousMessages = messages;
-
-      if (isCurrentUserReacted) {
-        // Optimistically remove reaction
-        setMessages(prev =>
-          prev.map(m => {
+        if (isCurrentUserReacted) {
+          // Optimistically remove reaction
+          const updated = prev.map(m => {
             if (String(m._id) !== messageId) return m;
             const nextReactions = (m.reactions || []).filter(
               r => !(r.value === emoji && r.sender.did === currentUserId)
             );
             return { ...m, reactions: nextReactions } as ChatMessage;
-          })
-        );
+          });
+          removeReactionMutation.mutate({ messageId, emoji });
+          return updated;
+        } else {
+          // Optimistically add reaction
+          const optimisticReaction: ReactionView = {
+            value: emoji,
+            sender: {
+              did: currentUserId,
+              ...(currentUser?.handle && { handle: currentUser.handle }),
+              ...(formatHandle(currentUser?.handle) && {
+                displayName: formatHandle(currentUser?.handle),
+              }),
+              ...(currentUser?.avatar && { avatar: currentUser.avatar }),
+            } as ReactionViewSender,
+            createdAt: new Date().toISOString(),
+          };
 
-        removeReactionMutation.mutate(
-          { messageId, emoji },
-          {
-            onError: () => {
-              // Rollback on error
-              setMessages(previousMessages);
-            },
-            onSettled: () => {
-              // Refresh to sync with server
-              queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
-            },
-          }
-        );
-      } else {
-        // Optimistically add reaction
-        const optimisticReaction: ReactionView = {
-          value: emoji,
-          sender: {
-            did: currentUserId,
-            ...(currentUser?.handle && { handle: currentUser.handle }),
-            ...(formatHandle(currentUser?.handle) && {
-              displayName: formatHandle(currentUser?.handle),
-            }),
-            ...(currentUser?.avatar && { avatar: currentUser.avatar }),
-          } as ReactionViewSender,
-          createdAt: new Date().toISOString(),
-        };
-
-        setMessages(prev =>
-          prev.map(m => {
+          const updated = prev.map(m => {
             if (String(m._id) !== messageId) return m;
             const nextReactions = [...(m.reactions || []), optimisticReaction];
             return { ...m, reactions: nextReactions } as ChatMessage;
-          })
-        );
-
-        addReactionMutation.mutate(
-          { messageId, emoji },
-          {
-            onError: () => {
-              // Rollback on error
-              setMessages(previousMessages);
-            },
-            onSettled: () => {
-              queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
-            },
-          }
-        );
-      }
+          });
+          addReactionMutation.mutate({ messageId, emoji });
+          return updated;
+        }
+      });
     },
-    [
-      messages,
-      currentUserId,
-      currentUser,
-      setMessages,
-      addReactionMutation,
-      removeReactionMutation,
-      conversationId,
-      queryClient,
-    ]
+    [currentUserId, currentUser, setMessages, addReactionMutation, removeReactionMutation]
   );
 
   return { handleReactionToggle };

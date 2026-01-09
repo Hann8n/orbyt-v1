@@ -86,7 +86,10 @@ const ListEmptyComponent = memo<ListEmptyComponentProps>(
             { backgroundColor: backgroundColor || Colors.black },
           ]}
         >
-          <Loading3FillIcon size={48} color={secondaryColor || Colors.white} />
+          <Loading3FillIcon
+            size={48}
+            color={profileColors?.textColor || secondaryColor || Colors.white}
+          />
         </View>
       );
     }
@@ -679,6 +682,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           // Content container styling
           contentContainerStyle={[
             styles.contentContainer,
+            { backgroundColor: backgroundColor || 'transparent' },
             feed.length > 0 && {
               paddingBottom: viewportDimensions.bottomNavBarHeight,
             },
@@ -700,7 +704,7 @@ const styles = StyleSheet.create({
     minHeight: SCREEN_HEIGHT,
   },
   contentContainer: {
-    backgroundColor: Colors.black,
+    backgroundColor: 'transparent',
   },
 });
 
