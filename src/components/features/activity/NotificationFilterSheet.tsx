@@ -197,11 +197,9 @@ const NotificationFilterContent: React.FC<{
       <Pressable
         onPress={handleClear}
         disabled={!hasFilters}
-        style={[styles.clearButton, !hasFilters && styles.clearButtonDisabled]}
+        style={[styles.clearButton, { opacity: !hasFilters ? 0.6 : 1 }]}
       >
-        <Text style={[styles.clearButtonText, !hasFilters && styles.clearButtonTextDisabled]}>
-          clear
-        </Text>
+        <Text style={styles.clearButtonText}>clear</Text>
       </Pressable>
     );
   }, [handleClear, localSelected.length]);
@@ -374,18 +372,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.darkGray,
     borderRadius: BORDER_RADIUS.MEDIUM,
   },
-  clearButtonDisabled: {
-    opacity: 0.4,
-  },
   clearButtonText: {
     color: Colors.white,
     fontSize: 16,
     fontWeight: '600',
     fontFamily: 'Firma-SemiBold',
-  },
-  clearButtonTextDisabled: {
-    color: Colors.lightGray,
-    opacity: 0.6,
   },
   scrollContent: {
     paddingBottom: 12,

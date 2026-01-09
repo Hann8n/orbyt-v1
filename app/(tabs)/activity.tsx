@@ -272,7 +272,12 @@ const ActivityScreen: React.FC = () => {
           {filterButtonOpacity > 0.3 && (
             <Pressable
               onPress={() => setShowFilterSheet(true)}
-              style={[styles.filterButton, { opacity: filterButtonOpacity }]}
+              style={[
+                styles.filterButton,
+                {
+                  opacity: filterButtonOpacity,
+                },
+              ]}
               disabled={filterButtonOpacity < 1}
             >
               <Text style={styles.filterButtonText}>filter</Text>
