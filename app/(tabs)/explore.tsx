@@ -38,8 +38,8 @@ import { useRouter, type Router } from 'expo-router';
 import ProfileService, {
   useFollowMutation,
   prefetchProfile,
-  type CachedProfile,
 } from '../../src/services/data/ProfileService';
+import type { ProfileViewWithOrbyt } from '../../src/services/api/types';
 import ChannelService from '../../src/services/data/ChannelService';
 import type { CachedChannel } from '../../src/services/data/ChannelService';
 import { useQueryClient, useQuery, type QueryClient } from '@tanstack/react-query';
@@ -75,18 +75,11 @@ import {
 import { tabRefs } from '../../src/utils/navigation/tabRefs';
 import type { ExploreRef } from '../../src/utils/navigation/tabRefs';
 
-// Use CachedProfile as the canonical profile type (single source of truth)
+// Use ProfileViewWithOrbyt as the canonical profile type (single source of truth)
 // Only extract the fields we need for the explore page
 type Profile = Pick<
-  CachedProfile,
-  | 'did'
-  | 'handle'
-  | 'displayName'
-  | 'avatar'
-  | 'description'
-  | 'isFollowing'
-  | 'verification'
-  | 'status'
+  ProfileViewWithOrbyt,
+  'did' | 'handle' | 'displayName' | 'avatar' | 'description' | 'viewer' | 'verification' | 'status'
 >;
 
 interface Channel {
@@ -415,10 +408,7 @@ const ProfilesFeedRenderer = React.memo(
                 </View>
               </View>
             </Pressable>
-            {!(
-              ProfileService.getProfileFromCacheSync(queryClient, profile.handle || '')
-                ?.isFollowing ?? profile.isFollowing
-            ) &&
+            {!profile.viewer?.following &&
               !isCurrentUser(profile.did, profile.handle, currentUser) && (
                 <Pressable
                   style={({ pressed }) => [styles.followButton, pressed && { opacity: 0.8 }]}
@@ -548,7 +538,6 @@ const VisitHistoryList = React.memo(
     onFollow: (profile: Profile) => void;
     bottomPadding?: number;
   }) => {
-    const queryClient = useQueryClient();
     const currentUser = useUserStore(state => state.currentUser);
     return (
       <FlashList
@@ -575,11 +564,7 @@ const VisitHistoryList = React.memo(
                     size={48}
                     ringColor="transparent"
                     style={styles.profileImage}
-                    status={
-                      profileData.status ||
-                      ProfileService.getProfileFromCacheSync(queryClient, profileData.handle)
-                        ?.status
-                    }
+                    status={profileData.status}
                   />
                   <View style={styles.profileContent}>
                     <View
@@ -601,10 +586,7 @@ const VisitHistoryList = React.memo(
                     </View>
                   </View>
                 </Pressable>
-                {!(
-                  ProfileService.getProfileFromCacheSync(queryClient, profileData.handle || '')
-                    ?.isFollowing ?? profileData.isFollowing
-                ) &&
+                {!profileData.viewer?.following &&
                   !isCurrentUser(profileData.did, profileData.handle, currentUser) && (
                     <Pressable
                       style={({ pressed }) => [styles.followButton, pressed && { opacity: 0.8 }]}
@@ -1246,7 +1228,7 @@ const ExploreScreen: React.FC = () => {
         const handle = profile.handle;
         followMutation.mutate({
           handle,
-          isFollowing: !(profile.isFollowing ?? false),
+          isFollowing: !profile.viewer?.following,
         });
       }
     },
@@ -1405,12 +1387,8 @@ const ExploreScreen: React.FC = () => {
         post.author &&
         (post.uri?.includes('/profile') || !post.uri?.includes('app.bsky.feed.generator'))
       ) {
-        const handle = post.author.handle;
         const postText = post.text || '';
         const did = post.author.did || '';
-        const cachedProfile = handle
-          ? ProfileService.getProfileFromCacheSync(queryClient, handle)
-          : null;
         const followStoreState = followStoreFollows?.get(did);
 
         results.push({
@@ -1421,13 +1399,14 @@ const ExploreScreen: React.FC = () => {
             displayName: post.author.displayName || '',
             avatar: post.author.avatar || '',
             description: postText || '',
-            isFollowing:
-              followStoreState?.isFollowing ??
-              cachedProfile?.isFollowing ??
-              !!post.viewer?.following,
+            viewer: {
+              following: followStoreState?.isFollowing
+                ? 'at://placeholder'
+                : post.viewer?.following,
+            },
             // Extract verification and status directly from API response (ProfileViewBasic includes both)
-            verification: post.author.verification ?? cachedProfile?.verification,
-            status: post.author.status ?? cachedProfile?.status,
+            verification: post.author.verification,
+            status: post.author.status,
           } as Profile,
           relevance: 10 - index,
         });
@@ -2285,10 +2264,7 @@ const ExploreScreen: React.FC = () => {
                       </View>
                     </View>
                   </Pressable>
-                  {!(
-                    ProfileService.getProfileFromCacheSync(queryClient, profile.handle || '')
-                      ?.isFollowing ?? profile.isFollowing
-                  ) &&
+                  {!profile.viewer?.following &&
                     !isCurrentUser(profile.did, profile.handle, currentUser) && (
                       <Pressable
                         style={({ pressed }) => [styles.followButton, pressed && { opacity: 0.8 }]}

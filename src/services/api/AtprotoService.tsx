@@ -35,6 +35,7 @@ import type {
   ProfileView,
   ProfileViewBasic,
   ProfileViewDetailed,
+  ProfileViewWithOrbyt,
   NotFoundPost,
   BlockedPost,
   Like,
@@ -547,18 +548,18 @@ class AtprotoService {
   }
 
   /**
-   * Get profile by DID with caching for performance
+   * Get profile by DID with orbyt record - always fetches com.getorbyt.profile in parallel
    * Delegates to ActorService
    */
-  static async getProfileByDid(did: string): Promise<ProfileView | null> {
+  static async getProfileByDid(did: string): Promise<ProfileViewWithOrbyt | null> {
     return ActorService.getProfileByDid(did);
   }
 
   /**
-   * Get profile by handle with caching for performance (legacy)
+   * Get profile by handle with orbyt record - always fetches com.getorbyt.profile in parallel
    * Delegates to ActorService
    */
-  static async getProfile(handle: string): Promise<ProfileView | null> {
+  static async getProfile(handle: string): Promise<ProfileViewWithOrbyt | null> {
     return ActorService.getProfile(handle);
   }
 
@@ -566,9 +567,7 @@ class AtprotoService {
    * Batch fetch multiple actor profiles efficiently
    * Delegates to ActorService
    */
-  static async getProfilesInBatch(
-    handles: string[]
-  ): Promise<(ProfileView | ProfileViewDetailed)[]> {
+  static async getProfilesInBatch(handles: string[]): Promise<ProfileViewWithOrbyt[]> {
     return ActorService.getProfilesInBatch(handles);
   }
 

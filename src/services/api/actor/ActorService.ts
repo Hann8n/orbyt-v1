@@ -12,6 +12,8 @@ import type {
   ProfileSearchResponse,
   ActorPreferences,
   GetPreferencesOutput,
+  ProfileViewWithOrbyt,
+  OrbytProfileRecord,
 } from '../types';
 
 export class ActorService {
@@ -72,7 +74,7 @@ export class ActorService {
         limit: 20,
       });
       return (response.data.actors || []) as ProfileViewBasic[];
-    } catch (error: unknown) {
+    } catch {
       return [];
     }
   }
@@ -109,38 +111,49 @@ export class ActorService {
         profiles,
         cursor: nextCursor,
       };
-    } catch (error) {
+    } catch (_error) {
       return { profiles: [], cursor: null };
     }
   }
 
   /**
-   * Get profile by DID with caching for performance
+   * Get profile by DID with orbyt record - always fetches com.getorbyt.profile in parallel
    * @param did - User DID
-   * @returns Profile data
+   * @returns Profile data with orbyt record attached
    */
-  static async getProfileByDid(did: string): Promise<ProfileView | null> {
+  static async getProfileByDid(did: string): Promise<ProfileViewWithOrbyt | null> {
     // React Query handles caching - no custom cache needed
     const { api } = await AtprotoCore.getApiClient();
     try {
-      const response = await api.app.bsky.actor.getProfile({
-        actor: did,
-      });
+      // Fetch profile and orbyt record in parallel
+      const { RepoService } = await import('../repo/RepoService');
 
-      // The profile response already includes verification data
-      // No need for separate API calls - verification data is included in the profile
-      return response.data as ProfileView;
-    } catch (error: unknown) {
+      const [profileResponse, orbytRecordResult] = await Promise.all([
+        api.app.bsky.actor.getProfile({
+          actor: did,
+        }),
+        RepoService.getOrbytProfileRecordForDid(did).catch(() => null),
+      ]);
+
+      const profile = profileResponse.data as ProfileView;
+      const orbytRecord = (orbytRecordResult as OrbytProfileRecord | null) || null;
+
+      // Return ProfileView with orbyt record attached
+      return {
+        ...profile,
+        orbytRecord,
+      };
+    } catch (_error: unknown) {
       return null;
     }
   }
 
   /**
-   * Get profile by handle with caching for performance (legacy)
+   * Get profile by handle with orbyt record - always fetches com.getorbyt.profile in parallel
    * @param handle - User handle
-   * @returns Profile data
+   * @returns Profile data with orbyt record attached
    */
-  static async getProfile(handle: string): Promise<ProfileView | null> {
+  static async getProfile(handle: string): Promise<ProfileViewWithOrbyt | null> {
     // React Query handles caching - no custom cache needed
     const { api } = await AtprotoCore.getApiClient();
     try {
@@ -148,25 +161,40 @@ export class ActorService {
         actor: handle,
       });
 
-      // The profile response already includes verification data
-      // No need for separate API calls - verification data is included in the profile
-      return response.data as ProfileView;
-    } catch (error: unknown) {
+      const profile = response.data as ProfileView;
+
+      // Fetch orbyt record for the profile's DID
+      if (profile.did) {
+        const { RepoService } = await import('../repo/RepoService');
+        const orbytRecord = (await RepoService.getOrbytProfileRecordForDid(profile.did).catch(
+          () => null
+        )) as OrbytProfileRecord | null;
+
+        return {
+          ...profile,
+          orbytRecord: orbytRecord || null,
+        };
+      }
+
+      return {
+        ...profile,
+        orbytRecord: null,
+      };
+    } catch (_error: unknown) {
       return null;
     }
   }
 
   /**
-   * Batch fetch multiple actor profiles efficiently
+   * Batch fetch multiple actor profiles efficiently with orbyt records
    * Uses Bluesky's native batch endpoint to fetch up to 25 profiles per request
    * Automatically deduplicates and chunks requests into batches of 25
+   * Fetches orbyt records in parallel for all profiles
    *
    * @param handles - Array of actor handles to fetch
-   * @returns Array of actor profiles
+   * @returns Array of actor profiles with orbyt records attached
    */
-  static async getProfilesInBatch(
-    handles: string[]
-  ): Promise<(ProfileView | ProfileViewDetailed)[]> {
+  static async getProfilesInBatch(handles: string[]): Promise<ProfileViewWithOrbyt[]> {
     if (!handles || handles.length === 0) {
       return [];
     }
@@ -184,13 +212,11 @@ export class ActorService {
         return [];
       }
 
-      // Single handle optimization
+      // Single handle optimization - use getProfile which already fetches orbyt record
       if (uniqueHandles.length === 1) {
         try {
-          const profile = await api.app.bsky.actor.getProfile({
-            actor: uniqueHandles[0],
-          });
-          return [profile.data as ProfileView];
+          const profile = await this.getProfile(uniqueHandles[0]);
+          return profile ? [profile] : [];
         } catch (error: unknown) {
           logger.warn(`Failed to fetch profile ${uniqueHandles[0]}:`, {
             component: 'ActorService',
@@ -219,11 +245,34 @@ export class ActorService {
           })
       );
 
-      const results = await Promise.all(batchPromises);
+      const profileResults = await Promise.all(batchPromises);
+      const profiles = profileResults.flat();
 
-      // Flatten results
-      return results.flat();
-    } catch (error) {
+      // Fetch orbyt records in parallel for all profiles
+      const { RepoService } = await import('../repo/RepoService');
+      const orbytRecordPromises = profiles.map(profile =>
+        profile?.did
+          ? RepoService.getOrbytProfileRecordForDid(profile.did)
+              .catch(() => null)
+              .then(record => ({ profile, orbytRecord: record as OrbytProfileRecord | null }))
+          : Promise.resolve({ profile, orbytRecord: null as OrbytProfileRecord | null })
+      );
+
+      const results = await Promise.allSettled(orbytRecordPromises);
+
+      // Combine profiles with orbyt records
+      const profilesWithOrbyt: ProfileViewWithOrbyt[] = [];
+      for (const result of results) {
+        if (result.status === 'fulfilled' && result.value.profile) {
+          profilesWithOrbyt.push({
+            ...(result.value.profile as ProfileView),
+            orbytRecord: result.value.orbytRecord || null,
+          } as ProfileViewWithOrbyt);
+        }
+      }
+
+      return profilesWithOrbyt;
+    } catch (error: unknown) {
       logger.error('Error in getProfilesInBatch:', error);
       return [];
     }
@@ -242,7 +291,7 @@ export class ActorService {
         actor: did,
       });
       return response.data as ProfileView;
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       return null;
     }
   }
@@ -261,97 +310,93 @@ export class ActorService {
       textColor: string;
     };
   }): Promise<ProfileViewDetailed> {
-    try {
-      await AtprotoCore.ensureSession();
+    await AtprotoCore.ensureSession();
 
-      // Use the correct upsertProfile method as per Bluesky documentation
-      const { api } = await AtprotoCore.getApiClient();
-      await api.upsertProfile(existingProfile => {
-        const existing = existingProfile as ProfileViewDetailed | undefined;
-        const profile: ProfileViewDetailed =
-          existing ??
-          ({
-            did: '',
-            handle: '',
-            displayName: undefined,
-            description: undefined,
-            avatar: undefined,
-          } as ProfileViewDetailed);
+    // Use the correct upsertProfile method as per Bluesky documentation
+    const { api } = await AtprotoCore.getApiClient();
+    await api.upsertProfile(existingProfile => {
+      const existing = existingProfile as ProfileViewDetailed | undefined;
+      const profile: ProfileViewDetailed =
+        existing ??
+        ({
+          did: '',
+          handle: '',
+          displayName: undefined,
+          description: undefined,
+          avatar: undefined,
+        } as ProfileViewDetailed);
 
-        // Update display name if provided
-        if (updates.displayName !== undefined) {
-          profile.displayName = updates.displayName;
-        }
-
-        // Update description if provided
-        if (updates.description !== undefined) {
-          profile.description = updates.description;
-        }
-
-        // Handle avatar upload if provided
-        if (updates.avatar) {
-          // The avatar will be uploaded separately and set via the blob reference
-          // We'll handle this in the main function
-        }
-
-        return profile as unknown as Record<string, unknown>;
-      });
-
-      // Handle avatar upload separately if provided
-      if (updates.avatar) {
-        try {
-          // Check if this is a CDN URL (existing avatar) - we can't re-upload these
-          if (updates.avatar.startsWith('https://') && updates.avatar.includes('cdn.bsky.app')) {
-            // Don't proceed with upload for existing avatars - profile already updated
-            // Return the updated profile by fetching it
-            return await this.getCurrentUser();
-          }
-
-          let imageBlob: Blob;
-
-          if (updates.avatar.startsWith('data:')) {
-            // Handle base64 data URL
-            const response = await fetch(updates.avatar);
-            imageBlob = await response.blob();
-          } else if (updates.avatar.startsWith('file://')) {
-            // Handle file URI
-            const response = await fetch(updates.avatar);
-            imageBlob = await response.blob();
-          } else {
-            throw new Error('Unsupported avatar format');
-          }
-
-          // Upload the image to Bluesky
-          const { api } = await AtprotoCore.getApiClient();
-          const uploadResult = await api.uploadBlob(imageBlob, {
-            encoding: 'image/jpeg',
-          });
-
-          // Update profile with the new avatar
-          await api.upsertProfile(existingProfile => {
-            const existing = existingProfile as ProfileViewDetailed | undefined;
-            const profile: ProfileViewDetailed =
-              existing ??
-              ({
-                did: '',
-                handle: '',
-                displayName: undefined,
-                description: undefined,
-                avatar: undefined,
-              } as ProfileViewDetailed);
-            profile.avatar = uploadResult.data.blob.ref.$link;
-            return profile as unknown as Record<string, unknown>;
-          });
-        } catch (error) {
-          throw new Error('Failed to upload avatar image');
-        }
+      // Update display name if provided
+      if (updates.displayName !== undefined) {
+        profile.displayName = updates.displayName;
       }
 
-      // Return the updated profile
-      return await this.getCurrentUser();
-    } catch (error: unknown) {
-      throw error;
+      // Update description if provided
+      if (updates.description !== undefined) {
+        profile.description = updates.description;
+      }
+
+      // Handle avatar upload if provided
+      if (updates.avatar) {
+        // The avatar will be uploaded separately and set via the blob reference
+        // We'll handle this in the main function
+      }
+
+      return profile as unknown as Record<string, unknown>;
+    });
+
+    // Handle avatar upload separately if provided
+    if (updates.avatar) {
+      try {
+        // Check if this is a CDN URL (existing avatar) - we can't re-upload these
+        if (updates.avatar.startsWith('https://') && updates.avatar.includes('cdn.bsky.app')) {
+          // Don't proceed with upload for existing avatars - profile already updated
+          // Return the updated profile by fetching it
+          return await this.getCurrentUser();
+        }
+
+        let imageBlob: Blob;
+
+        if (updates.avatar.startsWith('data:')) {
+          // Handle base64 data URL
+          const response = await fetch(updates.avatar);
+          imageBlob = await response.blob();
+        } else if (updates.avatar.startsWith('file://')) {
+          // Handle file URI
+          const response = await fetch(updates.avatar);
+          imageBlob = await response.blob();
+        } else {
+          throw new Error('Unsupported avatar format');
+        }
+
+        // Upload the image to Bluesky
+        const { api } = await AtprotoCore.getApiClient();
+        const uploadResult = await api.uploadBlob(imageBlob, {
+          encoding: 'image/jpeg',
+        });
+
+        // Update profile with the new avatar
+        await api.upsertProfile(existingProfile => {
+          const existing = existingProfile as ProfileViewDetailed | undefined;
+          const profile: ProfileViewDetailed =
+            existing ??
+            ({
+              did: '',
+              handle: '',
+              displayName: undefined,
+              description: undefined,
+              avatar: undefined,
+            } as ProfileViewDetailed);
+          profile.avatar = uploadResult.data.blob.ref.$link;
+          return profile as unknown as Record<string, unknown>;
+        });
+      } catch (_error) {
+        throw new Error('Failed to upload avatar image');
+      }
     }
+
+    // Return the updated profile
+    return await this.getCurrentUser();
   }
 
   /**
@@ -362,33 +407,29 @@ export class ActorService {
   static async uploadImage(
     imageUri: string
   ): Promise<{ ref: { $link: string }; mimeType: string; size: number }> {
-    try {
-      await AtprotoCore.ensureSession();
+    await AtprotoCore.ensureSession();
 
-      let imageBlob: Blob;
+    let imageBlob: Blob;
 
-      if (imageUri.startsWith('data:')) {
-        // Handle base64 data URL
-        const response = await fetch(imageUri);
-        imageBlob = await response.blob();
-      } else if (imageUri.startsWith('file://')) {
-        // Handle file URI
-        const response = await fetch(imageUri);
-        imageBlob = await response.blob();
-      } else {
-        throw new Error('Unsupported image format');
-      }
-
-      // Upload the image to Bluesky
-      const { api } = await AtprotoCore.getApiClient();
-      const uploadResult = await api.uploadBlob(imageBlob, {
-        encoding: 'image/jpeg',
-      });
-
-      return uploadResult.data.blob;
-    } catch (error: unknown) {
-      throw error;
+    if (imageUri.startsWith('data:')) {
+      // Handle base64 data URL
+      const response = await fetch(imageUri);
+      imageBlob = await response.blob();
+    } else if (imageUri.startsWith('file://')) {
+      // Handle file URI
+      const response = await fetch(imageUri);
+      imageBlob = await response.blob();
+    } else {
+      throw new Error('Unsupported image format');
     }
+
+    // Upload the image to Bluesky
+    const { api } = await AtprotoCore.getApiClient();
+    const uploadResult = await api.uploadBlob(imageBlob, {
+      encoding: 'image/jpeg',
+    });
+
+    return uploadResult.data.blob;
   }
 
   /**
@@ -401,7 +442,7 @@ export class ActorService {
     try {
       const response = await api.app.bsky.actor.getSuggestions({ limit });
       return (response.data.actors || []) as ProfileViewBasic[];
-    } catch (error: unknown) {
+    } catch {
       return [];
     }
   }
@@ -417,7 +458,7 @@ export class ActorService {
       const response = await api.app.bsky.actor.getPreferences();
       const output: GetPreferencesOutput = response.data;
       return output.preferences as ActorPreferences;
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       return null;
     }
   }
@@ -435,7 +476,7 @@ export class ActorService {
         preferences: Array.isArray(preferences) ? preferences : [preferences],
       });
       return true;
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       return false;
     }
   }

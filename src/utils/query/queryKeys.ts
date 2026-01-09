@@ -127,7 +127,7 @@ export const queryKeys = {
     all: ['notifications'] as const,
     count: () => [...queryKeys.notifications.all, 'count'] as const,
     lists: () => [...queryKeys.notifications.all, 'list'] as const,
-    list: (filterReasons?: import('../services/api/types').NotificationReason[]) =>
+    list: (filterReasons?: import('../../services/api/types').NotificationReason[]) =>
       filterReasons && filterReasons.length > 0
         ? ([
             ...queryKeys.notifications.lists(),

@@ -7,7 +7,7 @@ import { Colors } from '../../ui/UI';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { UserSearchModal } from '../../ui/usersearch';
 import { useUserStore } from '../../../stores/userStore';
-import { useProfile, getProfileColors } from '../../../services/data/ProfileService';
+import { useProfile } from '../../../services/data/ProfileService';
 
 interface CommentInputFooterProps {
   value: string;
@@ -57,11 +57,10 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   const isSendDisabled = isPosting || !hasText || charCount > maxLength;
   const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
 
-  // Get current user profile for live status and profile colors
+  // Get current user profile for live status
   const { currentUser } = useUserStore();
   const currentUserHandle = currentUser?.handle || null;
   const { data: currentUserProfile } = useProfile(currentUserHandle);
-  const profileColors = currentUserProfile ? getProfileColors(currentUserProfile) : undefined;
 
   return (
     <View style={styles.footerContainer}>
@@ -74,7 +73,6 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
               size={42}
               style={styles.avatar}
               status={currentUserProfile?.status}
-              profileColors={profileColors}
             />
           </View>
           <View style={styles.inputWrapper}>

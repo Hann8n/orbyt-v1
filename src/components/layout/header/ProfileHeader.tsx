@@ -7,7 +7,8 @@ import Animated, {
   Extrapolate,
 } from 'react-native-reanimated';
 import UniversalHeader, { HeaderContent } from './UniversalHeader';
-import { useProfile, getProfileColors } from '../../../services/data/ProfileService';
+import { useProfile } from '../../../services/data/ProfileService';
+import { getProfileColors } from '../../../utils/formatting/colors';
 import { useProfileFlags } from '../../../stores/profileInteractionStore';
 import { useOrbytProfile } from '../../../hooks';
 import VerificationBadge from '../../features/badging/VerificationBadge';
@@ -55,11 +56,13 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   const profileColors = getProfileColors(profileData);
 
   // Block status and flags (used for avatar blur only; actions moved to ProfileScreen)
-  // Use moderation flags directly from CachedProfile (extracted from API viewer fields)
+  // Use moderation flags directly from ProfileView viewer fields
   // Fallback to store flags for optimistic updates during mutations
   const { flags } = useProfileFlags(profileData?.did, profileData?.handle);
-  const isBlocked = profileData?.isBlocked ?? flags?.isBlocked ?? false;
-  const blockingByList = profileData?.blockingByList;
+  const isBlocked =
+    !!(profileData?.viewer?.blocking || profileData?.viewer?.blockingByList) ||
+    (flags?.isBlocked ?? false);
+  const blockingByList = profileData?.viewer?.blockingByList;
 
   // Fetch Orbyt profile record join date for this DID
   const { joinDate } = useOrbytProfile(profileData?.did);
@@ -205,7 +208,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
           reserveTopForOverlayButtons={true}
           contentScrollProgress={contentFadeDisabled ? undefined : headerScrollProgress}
           style={{ opacity: 1 }}
-          contentStyle={[headerStyle]}
+          contentStyle={headerStyle}
           showShadowGradient={false}
         >
           {/* Hide tabs when blocked */}

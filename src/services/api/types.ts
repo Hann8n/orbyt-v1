@@ -93,7 +93,15 @@ import type { OutputSchema as PutActivitySubscriptionOutput } from '@atproto/api
 // ============================================================================
 // Chat namespace types (chat.bsky.convo.*)
 // ============================================================================
-import type { ConvoView, MessageView } from '@atproto/api/dist/client/types/chat/bsky/convo/defs';
+import type {
+  ConvoView,
+  MessageView,
+  DeletedMessageView,
+  MessageViewSender,
+  ReactionView,
+  ReactionViewSender,
+  MessageAndReactionView,
+} from '@atproto/api/dist/client/types/chat/bsky/convo/defs';
 
 // ============================================================================
 // Repo namespace types (com.atproto.repo.*)
@@ -146,6 +154,11 @@ export type {
   BookmarkView,
   ConvoView,
   MessageView,
+  DeletedMessageView,
+  MessageViewSender,
+  ReactionView,
+  ReactionViewSender,
+  MessageAndReactionView,
   VideoView,
   ImagesView,
   RecordWithMediaView,
@@ -486,3 +499,9 @@ export type CreateRecordResponse = {
 // These make it easier for components to use API types
 export type Post = ExtendedPostView;
 export type FeedItem = ExtendedFeedViewPost;
+
+// Extended ProfileView that includes the com.getorbyt.profile record
+// This ensures the orbyt record is always fetched with profile data
+export type ProfileViewWithOrbyt = ProfileView & {
+  orbytRecord?: OrbytProfileRecord | null;
+};

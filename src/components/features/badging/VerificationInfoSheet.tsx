@@ -24,16 +24,13 @@ interface VerificationInfoSheetProps {
   onDismiss: () => void;
 }
 
-// Define type for verification data to better handle the structure
+// Define type for verification data to match VerificationState from @atproto/api
+// This matches the actual VerificationState structure from ProfileView
 interface VerificationData {
-  verifications?: Array<{ issuer: string; uri: string; isValid: boolean; createdAt: string }>;
-  status?: string;
-  verifiedBy?: string;
-  verifierHandle?: string;
-  verifiedAt?: string;
-  trustedVerifierStatus?: string;
-  isOfficial?: boolean;
-  isVerified?: boolean;
+  $type?: 'app.bsky.actor.defs#verificationState';
+  verifications?: Array<{ issuer: string; uri: string; isValid: boolean; createdAt?: string }>;
+  verifiedStatus?: 'valid' | 'invalid' | 'none' | string;
+  trustedVerifierStatus?: 'valid' | 'invalid' | 'none' | string;
 }
 
 // Loading placeholder component for verified by profile
@@ -75,16 +72,15 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
 
   // Get the verifier DID from the valid verification's issuer
   const validVerification = verification?.verifications?.find(v => v.isValid);
-  const verifierDid = validVerification?.issuer || verification?.verifiedBy;
+  const verifierDid = validVerification?.issuer;
 
   // Fetch issuer profile using React Query hook
   // Preload this data even when sheet is not visible to avoid size calculation issues
   const { data: issuerProfile, isLoading: isIssuerLoading } = useProfileByDid(verifierDid);
 
   // Determine verification status using cache fields
-  const isTrustedVerifier =
-    verification?.trustedVerifierStatus === 'valid' ||
-    verification?.trustedVerifierStatus === 'active';
+  // trustedVerifierStatus is 'valid' | 'invalid' | 'none' per API
+  const isTrustedVerifier = verification?.trustedVerifierStatus === 'valid';
 
   // Handle bottom sheet visibility
   useEffect(() => {
@@ -186,11 +182,8 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
   // Render verified account info
   function renderVerifiedAccountContent() {
     // Get verification details from the first valid verification in the array
-    // Get verifier handle from profile or verification data
-    const actualIssuerHandle = issuerProfile?.handle || verification?.verifierHandle;
-
-    // Determine official status
-    const isOfficialVerification = verification?.isOfficial || false;
+    // Get verifier handle from issuer profile
+    const actualIssuerHandle = issuerProfile?.handle;
 
     return (
       <>
@@ -217,11 +210,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
           const authorDisplayName =
             issuerProfile?.displayName ||
             actualIssuerHandle ||
-            (isOfficialVerification
-              ? 'bluesky'
-              : verifierDid
-                ? `verifier (${verifierDid.slice(0, 8)}...)`
-                : 'verifier');
+            (verifierDid ? `verifier (${verifierDid.slice(0, 8)}...)` : 'verifier');
 
           // Only render if we have a valid handle
           if (!authorHandle && !isIssuerLoading) {

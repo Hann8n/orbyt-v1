@@ -10,18 +10,17 @@ import {
   InteractionManager,
 } from 'react-native';
 import { Image } from 'expo-image';
-import AtprotoService from '../../src/services/api/AtprotoService';
 // Use plain FlashList via FeedRenderer; no adapter/converter
 import FeedRenderer from '../../src/components/features/feed/FeedRenderer';
 import ProfileService, {
   useProfile,
   useProfileByDid,
-  getProfileColors,
   profileKeys,
   isLiveStatus,
   useStatusExpirationMonitor,
-  type CachedProfile,
 } from '../../src/services/data/ProfileService';
+import { getProfileColors } from '../../src/utils/formatting/colors';
+import type { ProfileViewWithOrbyt } from '../../src/services/api/types';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Icon, {
   BackArrowIcon,
@@ -31,7 +30,7 @@ import Icon, {
   BellFilledIcon,
   MoreFillIcon,
 } from '../../src/components/ui/Icon';
-import { useQueryClient, useQuery, type InfiniteData } from '@tanstack/react-query';
+import { useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import { ProfileHeader, TabNavigation, TabOption } from '../../src/components/layout/header';
 import { useCurrentUser, useProfileCacheSync } from '../../src/stores/userStore';
 import {
@@ -120,9 +119,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   // Always fetch by DID (handle query is only used to resolve handle to DID)
   const didQuery = useProfileByDid(targetDid);
 
-  // Use existing ProfileCache functionality with immediate fallback for own profile
-  // If we resolved DID from handle, use that profile data; otherwise use DID query
-  const cachedProfile: CachedProfile | null =
+  // Use profile data from query with fallback for own profile
+  const profileData: ProfileViewWithOrbyt | null =
     didQuery.data ||
     (isHandle ? handleQuery.data : null) ||
     (isViewingOwnProfile && currentUser?.did && currentUser?.handle
@@ -132,35 +130,31 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
           displayName: currentUser.displayName ?? undefined,
           avatar: currentUser.avatar ?? undefined,
           description: '',
-          isFollowing: false,
-          isFollowedBy: false,
-          lastUpdated: Date.now(),
-        } as CachedProfile)
+          viewer: {},
+        } as ProfileViewWithOrbyt)
       : null);
 
   const refetchProfile = didQuery.refetch || (isHandle ? handleQuery.refetch : undefined);
   const isProfileLoading =
-    (didQuery.isLoading || (isHandle && handleQuery.isLoading)) && !cachedProfile;
+    (didQuery.isLoading || (isHandle && handleQuery.isLoading)) && !profileData;
   const isProfileFetchError = didQuery.isError || (isHandle && handleQuery.isError);
 
-  // Get colors from cached profile
-  const profileColors = getProfileColors(cachedProfile);
+  // Get colors from profile data
+  const profileColors = getProfileColors(profileData);
 
   // Check if live using helper function
-  const isLive = isLiveStatus(cachedProfile?.status);
+  const isLive = isLiveStatus(profileData?.status);
 
   // Monitor status expiration and invalidate cache when it expires
-  useStatusExpirationMonitor(cachedProfile, targetDid);
+  useStatusExpirationMonitor(profileData, targetDid);
 
   // Tab state
   const [activeTab, setActiveTab] = useState<'profile' | 'reposts' | 'likes'>('profile');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
 
-  // Ensure profile data is immediately available from cache
-  const profileData = cachedProfile;
-  // Read block state directly from profileData (React Query cache - single source of truth)
-  const isBlocked = profileData?.isBlocked ?? false;
-  const isBlockedByList = !!profileData?.blockingByList;
+  // Read block state directly from profileData viewer fields (React Query cache - single source of truth)
+  const isBlocked = !!(profileData?.viewer?.blocking || profileData?.viewer?.blockingByList);
+  const isBlockedByList = !!profileData?.viewer?.blockingByList;
 
   // Memoized query options for profile feed
   const queryOptions = useMemo(
@@ -191,8 +185,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
         // Subscriptions are non-critical; ignore errors
       }
 
-      // Explicitly refresh profile data using the same functions as initial load
-      // This ensures com.getorbyt.profile records (colors) are refetched
+      // Explicitly refresh profile data - this fetches com.getorbyt.profile records (colors) automatically
       if (profileData?.did) {
         // Use refreshProfileByDid which calls getProfileByDid - fetches records with colors
         await ProfileService.refreshProfileByDid(profileData.did);
@@ -297,13 +290,12 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     router,
   ]);
 
-  const isLoading = isProfileLoading && !cachedProfile;
+  const isLoading = isProfileLoading && !profileData;
 
   // Overlay action state (moved from ProfileHeader)
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showSubscriptionSheet, setShowSubscriptionSheet] = useState(false);
   const [showLiveStreamSheet, setShowLiveStreamSheet] = useState(false);
-  const [canMessage, setCanMessage] = useState<boolean | null>(null);
   const [fullscreenImageUri, setFullscreenImageUri] = useState<string | null>(null);
 
   const followMutation = useFollowMutation();
@@ -314,50 +306,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     profileData?.did ? state.isSubscribed(profileData.did) : false
   );
 
-  // Read follow state directly from profileData (React Query cache - single source of truth)
-  const isFollowing = profileData?.isFollowing ?? false;
+  // Read follow state directly from profileData viewer (React Query cache - single source of truth)
+  const isFollowing = !!profileData?.viewer?.following;
 
-  // Get raw profile response to access chat fields from getProfile
-  // This includes associated.chat.allowIncoming and chat.activitySubscription
-  const { data: rawProfile } = useQuery({
-    queryKey: queryKeys.profiles.detail(profileData?.handle || profileData?.did || ''),
-    queryFn: () => {
-      if (profileData?.did) {
-        return AtprotoService.getProfileByDid(profileData.did);
-      } else if (profileData?.handle) {
-        return AtprotoService.getProfile(profileData.handle);
-      }
-      return null;
-    },
-    enabled: !!profileData?.did && !isOwnProfileView,
-  });
-
-  // Message availability from getProfile response
-  // associated.chat.allowIncoming can be 'none', 'all', 'following', or undefined
-  const canMessageFromProfile = useMemo(() => {
-    if (!rawProfile) return false;
-    const allowIncoming = rawProfile.associated?.chat?.allowIncoming;
-    switch (allowIncoming) {
-      case 'none':
-        return false;
-      case 'all':
-        return true;
-      case 'following':
-      case undefined:
-        return Boolean(rawProfile.viewer?.followedBy);
-      default:
-        return false;
-    }
-  }, [rawProfile]);
-
-  useEffect(() => {
-    if (!profileData?.did || isOwnProfileView) {
-      setCanMessage(null);
-      return;
-    }
-    // Use chat availability from getProfile response
-    setCanMessage(canMessageFromProfile ? true : false);
-  }, [profileData?.did, isOwnProfileView, canMessageFromProfile]);
+  // ProfileViewWithOrbyt already includes all ProfileView fields including associated.chat
 
   // Prefetch reposts feed in background after profile loads
   useEffect(() => {
@@ -437,11 +389,31 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       const handleKey = profileKeys.detail(profileData.handle);
       const didKey = profileKeys.detail(`did_${profileData.did}`);
 
-      queryClient.setQueryData<CachedProfile>(handleKey, old =>
-        old ? { ...old, isFollowing: newFollowingState } : old
+      queryClient.setQueryData<ProfileViewWithOrbyt>(handleKey, old =>
+        old
+          ? {
+              ...old,
+              viewer: {
+                ...old.viewer,
+                following: newFollowingState
+                  ? old.viewer?.following || 'at://placeholder'
+                  : undefined,
+              },
+            }
+          : old
       );
-      queryClient.setQueryData<CachedProfile>(didKey, old =>
-        old ? { ...old, isFollowing: newFollowingState } : old
+      queryClient.setQueryData<ProfileViewWithOrbyt>(didKey, old =>
+        old
+          ? {
+              ...old,
+              viewer: {
+                ...old.viewer,
+                following: newFollowingState
+                  ? old.viewer?.following || 'at://placeholder'
+                  : undefined,
+              },
+            }
+          : old
       );
 
       // Trigger mutation (which will also update cache in onMutate and handle errors)
@@ -537,7 +509,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       ];
     }
 
-    const isFollowedBy = !!profileData.isFollowedBy;
+    const isFollowedBy = !!profileData.viewer?.followedBy;
 
     let label = isBlocked ? 'Unblock' : 'follow';
     let icon: string | undefined = undefined;
@@ -769,7 +741,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
         isOwnProfile={!!isOwnProfileView}
         onLogout={handleLogoutFromMenu}
         onSwitchAccount={presentAccountSwitcher}
-        canMessage={canMessage === null ? undefined : canMessage === true}
+        chatSettings={profileData?.associated?.chat ?? undefined}
+        viewerFollowedBy={Boolean(profileData?.viewer?.followedBy)}
         onMessagePress={handleMessagePress}
       />
 
@@ -783,7 +756,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
 
       <LiveStreamInfoSheet
         visible={showLiveStreamSheet}
-        profile={cachedProfile}
+        profile={profileData}
         onDismiss={() => setShowLiveStreamSheet(false)}
       />
 

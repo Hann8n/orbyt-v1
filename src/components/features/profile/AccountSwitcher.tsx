@@ -4,7 +4,8 @@ import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
 import Icon, { Loading3FillIcon } from '../../ui/Icon';
 import { SavedAccount } from '../../../stores/userStore';
 import { analyzeOAuthError } from '../../../utils/errors/oauth';
-import ProfileService, { useProfile, CachedProfile } from '../../../services/data/ProfileService';
+import ProfileService, { useProfile } from '../../../services/data/ProfileService';
+import type { ProfileViewWithOrbyt } from '../../../services/api/types';
 import { Colors } from '../../ui/UI';
 import AuthorItem from '../../ui/AuthorItem';
 import VerticalListSheet from '../../ui/VerticalListSheet';
@@ -22,7 +23,7 @@ interface AccountSwitcherProps {
 
 // Extended interface to include cached profile data
 interface AccountWithProfile extends SavedAccount {
-  cachedProfile?: CachedProfile;
+  cachedProfile?: ProfileViewWithOrbyt;
 }
 
 const AccountSwitcher: React.FC<AccountSwitcherProps> = ({

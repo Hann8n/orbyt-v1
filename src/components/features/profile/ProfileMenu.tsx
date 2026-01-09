@@ -20,6 +20,7 @@ import {
   useMuteMutation,
 } from '../../../services/data/ProfileService';
 import AtprotoService from '../../../services/api/AtprotoService';
+import type { ProfileAssociatedChat } from '@atproto/api/dist/client/types/app/bsky/actor/defs';
 
 interface ProfileMenuProps {
   visible: boolean;
@@ -28,7 +29,8 @@ interface ProfileMenuProps {
   isOwnProfile?: boolean;
   onLogout?: (clearAllAccounts?: boolean) => Promise<void>;
   onSwitchAccount?: () => void;
-  canMessage?: boolean | null;
+  chatSettings?: ProfileAssociatedChat;
+  viewerFollowedBy?: boolean;
   onMessagePress?: () => void;
 }
 
@@ -40,7 +42,8 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
 
   onLogout,
   onSwitchAccount,
-  canMessage = null,
+  chatSettings,
+  viewerFollowedBy = false,
   onMessagePress,
 }) => {
   const queryClient = useQueryClient();
@@ -55,17 +58,17 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
   // Calculate footer height as constant: cancelContainer paddingTop (8) + button minHeight (44)
   const submenuFooterHeight = 8 + 44;
 
-  // Get profile data using useProfile hook - returns CachedProfile with moderation flags
+  // Get profile data using useProfile hook - returns ProfileViewWithOrbyt with moderation flags
   const { data: profile } = useProfile(visible && handle ? handle : null);
 
   // Mutations for block/unblock and mute/unmute
   const blockMutation = useBlockMutation();
   const muteMutation = useMuteMutation();
 
-  // Use moderation flags directly from CachedProfile (extracted from API viewer fields)
-  const isBlocked = profile?.isBlocked ?? false;
-  const isBlockedByList = !!profile?.blockingByList;
-  const isMuted = profile?.isMuted ?? false;
+  // Use moderation flags directly from ProfileView viewer fields
+  const isBlocked = !!(profile?.viewer?.blocking || profile?.viewer?.blockingByList);
+  const isBlockedByList = !!profile?.viewer?.blockingByList;
+  const isMuted = profile?.viewer?.muted ?? false;
 
   // Block/unblock handler
   const handleBlockToggle = useCallback(() => {
@@ -291,6 +294,22 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
     ]);
   }, [onDismiss, queryClient, onLogout, signOut, removeAccount]);
 
+  // Determine if messaging is available based on chat settings
+  const canMessage = (() => {
+    if (!chatSettings) return false;
+    const allowIncoming = chatSettings.allowIncoming;
+    switch (allowIncoming) {
+      case 'none':
+        return false;
+      case 'all':
+        return true;
+      case 'following':
+        return viewerFollowedBy;
+      default:
+        return false;
+    }
+  })();
+
   // Determine menu options based on profile type
   const getMenuOptions = () => {
     if (isOwnProfile) {
@@ -321,7 +340,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
       const options = [];
 
       // Add message option if available
-      if (canMessage === true && onMessagePress) {
+      if (canMessage && onMessagePress) {
         options.push({
           id: 'message',
           label: 'message',

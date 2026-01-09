@@ -10,13 +10,13 @@ export function useOrbytProfile(did?: string) {
   const currentUser = useUserStore(state => state.currentUser);
   const targetDid = did ?? currentUser?.did ?? null;
 
-  // Read from React Query cache - data is already fetched with profile using listRecords
-  const { data: cachedProfile } = useProfileByDid(targetDid);
+  // Read from React Query cache - data is already fetched with profile
+  const { data: profile } = useProfileByDid(targetDid);
 
   const record = useMemo(() => {
     if (!targetDid) return null;
-    return cachedProfile?.orbytProfileRecord ?? null;
-  }, [targetDid, cachedProfile]);
+    return profile?.orbytRecord ?? null;
+  }, [targetDid, profile]);
 
   return {
     record,

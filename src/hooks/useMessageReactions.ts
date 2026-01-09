@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import ChatService from '../services/ChatService';
 import { ChatMessage } from '../utils/chat/helpers';
-import { ReactionView } from '../services/ChatService';
+import { ReactionView, ReactionViewSender } from '../services/ChatService';
 import { formatHandle } from '../utils/formatting/handles';
 import { queryKeys } from '../utils/query/queryKeys';
 
@@ -110,10 +110,12 @@ export function useMessageReactions({
           value: emoji,
           sender: {
             did: currentUserId,
-            handle: currentUser?.handle || '',
-            displayName: formatHandle(currentUser?.handle) || 'You',
-            avatar: currentUser?.avatar,
-          },
+            ...(currentUser?.handle && { handle: currentUser.handle }),
+            ...(formatHandle(currentUser?.handle) && {
+              displayName: formatHandle(currentUser?.handle),
+            }),
+            ...(currentUser?.avatar && { avatar: currentUser.avatar }),
+          } as ReactionViewSender,
           createdAt: new Date().toISOString(),
         };
 
@@ -147,6 +149,7 @@ export function useMessageReactions({
       addReactionMutation,
       removeReactionMutation,
       conversationId,
+      queryClient,
     ]
   );
 

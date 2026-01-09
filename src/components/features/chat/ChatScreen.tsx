@@ -36,7 +36,6 @@ import { useCurrentUser } from '../../../stores/userStore';
 import { useMessageReactions } from '../../../hooks/useMessageReactions';
 import { useProfile } from '../../../services/data/ProfileService';
 import ChatService, { ReactionView } from '../../../services/ChatService';
-import { AtprotoService } from '../../../services/api/AtprotoService';
 import MessageReactions from './MessageReactions';
 import ChatActionsSheet from './ChatActionsSheet';
 import EmbeddedPostCard from './EmbeddedPostCard';
@@ -241,13 +240,7 @@ export default function ChatScreen({
     return true;
   }, [conversationData, currentUserId, messagesData]);
 
-  // Fetch profile information for the other user
-  const { data: otherUserProfile, isLoading: isLoadingOtherUser } = useQuery({
-    queryKey: ['profile', otherUserDid],
-    queryFn: () => AtprotoService.getProfile(otherUserDid!),
-    enabled:
-      !!otherUserDid && !conversationData?.members?.find(m => m.did === otherUserDid)?.displayName,
-  });
+  // Note: Profile fetching for other user is handled below using useProfile hook
 
   // Update messages from store when data changes - store as single source of truth
   useEffect(() => {
@@ -536,6 +529,11 @@ export default function ChatScreen({
 
   const renderAvatar = useCallback(() => null, []);
 
+  // Get profile data for other user's live status
+  // Fetch by handle if we have it from conversation members
+  const otherUserHandle = otherUser?.handle;
+  const { data: otherUserProfile, isLoading: isLoadingOtherUser } = useProfile(otherUserHandle);
+
   // Get the other user (not the current user) from the conversation
   // Prefer conversation members, fallback to profile query
   const otherUserForDisplay = useMemo(() => {
@@ -553,9 +551,6 @@ export default function ChatScreen({
 
     return null;
   }, [otherUser, otherUserProfile, otherUserDid]);
-
-  // Get profile data for other user's live status
-  const { data: otherUserCachedProfile } = useProfile(otherUserForDisplay?.handle);
 
   const renderDay = useCallback((props: DayProps) => {
     const date = props.createdAt;
@@ -870,7 +865,7 @@ export default function ChatScreen({
                       size={45}
                       showRing={true}
                       style={styles.headerAvatar}
-                      status={otherUserCachedProfile?.status}
+                      status={otherUserProfile?.status}
                     />
                     <Text style={styles.headerDisplayName} numberOfLines={1}>
                       {formatHandle(otherUserForDisplay.handle) || 'User'}

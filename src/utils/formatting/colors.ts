@@ -126,6 +126,42 @@ export const DEFAULT_PROFILE_COLORS = {
 };
 
 /**
+ * Type for profile colors
+ */
+export interface ProfileColorScheme {
+  backgroundColor: string;
+  foregroundColor: string;
+  textColor: string;
+  primaryColor: string;
+  secondaryColor: string;
+  statusBarStyle: 'light' | 'dark';
+}
+
+/**
+ * Get profile colors from ProfileViewWithOrbyt
+ * Reads colors from orbytRecord.colors or uses defaults
+ */
+export function getProfileColors(
+  profile:
+    | { orbytRecord?: { colors?: { backgroundColor: string; textColor: string } | null } | null }
+    | null
+    | undefined
+): ProfileColorScheme {
+  const colors = profile?.orbytRecord?.colors;
+  const backgroundColor = colors?.backgroundColor || DEFAULT_PROFILE_COLORS.backgroundColor;
+  const textColor = colors?.textColor || DEFAULT_PROFILE_COLORS.foregroundColor;
+
+  return {
+    backgroundColor,
+    foregroundColor: textColor,
+    textColor,
+    primaryColor: backgroundColor,
+    secondaryColor: textColor,
+    statusBarStyle: getStatusBarStyle(backgroundColor),
+  };
+}
+
+/**
  * Enhances color saturation to make it more vibrant
  */
 function enhanceColorSaturation(hex: string, saturationBoost: number = 1.3): string {

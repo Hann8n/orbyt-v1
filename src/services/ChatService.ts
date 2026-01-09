@@ -1,6 +1,24 @@
 import { Agent } from '@atproto/api';
-import type { ConvoView, MessageView as APIMessageView } from './api/types';
+import type {
+  ConvoView,
+  MessageView,
+  DeletedMessageView,
+  MessageViewSender,
+  ReactionView,
+  ReactionViewSender,
+  MessageAndReactionView,
+} from './api/types';
 import { logger } from '../utils/logger';
+
+// Re-export API types for use in other files
+export type {
+  MessageView,
+  DeletedMessageView,
+  MessageViewSender,
+  ReactionView,
+  ReactionViewSender,
+  MessageAndReactionView,
+};
 
 const CHAT_SERVICE_DID = 'did:web:api.bsky.chat';
 
@@ -43,50 +61,6 @@ export interface ProfileViewBasic {
   displayName?: string;
   avatar?: string;
   chatDisabled?: boolean;
-}
-
-export interface MessageView {
-  id: string;
-  rev: string;
-  text: string;
-  facets?: Facet[];
-  embed?: RecordEmbed;
-  reactions?: ReactionView[];
-  sender: MessageViewSender;
-  sentAt: string;
-}
-
-export interface DeletedMessageView {
-  id: string;
-  rev: string;
-  deleted: true;
-  sender: MessageViewSender;
-  sentAt: string;
-}
-
-export interface MessageViewSender {
-  did: string;
-  handle: string;
-  displayName?: string;
-  avatar?: string;
-}
-
-export interface ReactionView {
-  value: string;
-  sender: ReactionViewSender;
-  createdAt: string;
-}
-
-export interface ReactionViewSender {
-  did: string;
-  handle: string;
-  displayName?: string;
-  avatar?: string;
-}
-
-export interface MessageAndReactionView {
-  message: MessageView | DeletedMessageView;
-  reaction: ReactionView;
 }
 
 export interface Facet {
@@ -316,7 +290,7 @@ class ChatService {
         throw new Error('Failed to send message');
       }
 
-      return await this.mapMessageFromAPI(response.data as APIMessageView);
+      return await this.mapMessageFromAPI(response.data as MessageView);
     } catch (error: unknown) {
       logger.error('Failed to send message', error, {
         component: 'ChatService',
@@ -673,8 +647,8 @@ class ChatService {
       }
 
       const json = response.data as {
-        logs?: APIMessageView[];
-        messages?: APIMessageView[];
+        logs?: MessageView[];
+        messages?: MessageView[];
         cursor?: string | null;
       };
       // Handle different possible response structures
@@ -854,7 +828,7 @@ class ChatService {
     };
   };
 
-  private mapMessageFromAPI = async (apiMsg: APIMessageView): Promise<Message> => {
+  private mapMessageFromAPI = async (apiMsg: MessageView): Promise<Message> => {
     const { useUserStore } = await import('../stores/userStore');
     const userStore = useUserStore.getState();
     const currentUserDid = userStore.currentUser?.did || '';
@@ -877,23 +851,30 @@ class ChatService {
           : undefined,
       reactions:
         isMessageView && Array.isArray(msg.reactions)
-          ? msg.reactions.map((r: any) => ({
-              value: r.value || '',
-              sender: {
-                did: r.sender?.did || '',
-                handle: r.sender?.handle || '',
-                displayName: r.sender?.displayName,
-                avatar: r.sender?.avatar,
-              },
-              createdAt: r.createdAt || '',
-            }))
+          ? msg.reactions.map((r: ReactionView) => {
+              const sender = r.sender as ReactionViewSender & {
+                handle?: string;
+                displayName?: string;
+                avatar?: string;
+              };
+              return {
+                value: r.value || '',
+                sender: {
+                  did: sender?.did || '',
+                  ...(sender?.handle && { handle: sender.handle }),
+                  ...(sender?.displayName && { displayName: sender.displayName }),
+                  ...(sender?.avatar && { avatar: sender.avatar }),
+                },
+                createdAt: r.createdAt || '',
+              };
+            })
           : undefined,
       sender: {
         did: senderDid,
-        handle: sender.handle || '',
-        displayName: sender.displayName,
-        avatar: sender.avatar,
-      },
+        ...(sender.handle && { handle: sender.handle }),
+        ...(sender.displayName && { displayName: sender.displayName }),
+        ...(sender.avatar && { avatar: sender.avatar }),
+      } as MessageViewSender,
       sentAt,
       conversationId: msg.convoId || msg.conversationId || '',
       sent: senderDid === currentUserDid,

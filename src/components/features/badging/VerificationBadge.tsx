@@ -15,10 +15,15 @@ interface VerificationBadgeProps {
   autoPosition?: boolean; // New prop to automatically calculate positioning based on text size
   customMargin?: number; // New prop to override auto-calculated margin
   verification?: {
-    isVerified?: boolean;
-    trustedVerifierStatus?: string;
-    status?: string;
-  }; // Optional verification data from profile - if provided, avoids separate query
+    verifiedStatus?: 'valid' | 'invalid' | 'none' | string;
+    trustedVerifierStatus?: 'valid' | 'invalid' | 'none' | string;
+    verifications?: Array<{
+      issuer: string;
+      uri: string;
+      isValid: boolean;
+      createdAt?: string;
+    }>;
+  }; // Optional verification data from profile (VerificationState) - if provided, avoids separate query
 }
 
 /**
@@ -97,26 +102,25 @@ const VerificationBadge: React.FC<VerificationBadgeProps> = ({
   const center = badgeSize / 2;
   const radius = (badgeSize - 4) / 2; // Leave some padding
 
+  // Get profile data using useProfile hook (uses same cache as other components)
+  // Always call the hook unconditionally, but pass null if verification data is provided
+  // Must call hook before any early returns to satisfy React Hooks rules
+  const { data: profile } = useProfile(verification ? null : handle);
+
   // Safety check for handle
   if (!handle || typeof handle !== 'string' || handle.trim().length === 0) {
     return null;
   }
 
-  // Get profile data using useProfile hook (uses same cache as other components)
-  // Only fetch if verification data not provided
-  const { data: profile } = useProfile(verification ? null : handle);
-
   // Use provided verification data or get from profile
   const verificationData = verification || profile?.verification;
 
-  // Determine verification status and type
-  const isVerified = verificationData?.isVerified || false;
-  const isTrustedVerifier =
-    verificationData?.trustedVerifierStatus === 'valid' ||
-    verificationData?.trustedVerifierStatus === 'active';
+  // Check verification status using actual API types from VerificationState
+  const isVerified = verificationData?.verifiedStatus === 'valid';
+  const isTrustedVerifier = verificationData?.trustedVerifierStatus === 'valid';
 
-  // If not verified, don't render anything
-  if (!isVerified) return null;
+  // If not verified (neither verifiedStatus nor trustedVerifierStatus is valid), don't render
+  if (!isVerified && !isTrustedVerifier) return null;
 
   // Determine badge type
   const actualBadgeType =

@@ -14,11 +14,11 @@ import Icon from '../../ui/Icon';
 import { Colors } from '../../ui/UI';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { formatHandle } from '../../../utils/formatting/handles';
-import type { CachedProfile } from '../../../services/data/ProfileService';
+import type { ProfileViewWithOrbyt } from '../../../services/api/types';
 
 interface LiveStreamInfoSheetProps {
   visible: boolean;
-  profile: CachedProfile | null;
+  profile: ProfileViewWithOrbyt | null;
   onDismiss: () => void;
 }
 

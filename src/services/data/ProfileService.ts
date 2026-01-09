@@ -1,5 +1,4 @@
 import AtprotoService from '../api/AtprotoService';
-import { getStatusBarStyle, DEFAULT_PROFILE_COLORS } from '@/utils/formatting/colors';
 import {
   useQuery,
   useMutation,
@@ -9,47 +8,13 @@ import {
   UseQueryResult,
 } from '@tanstack/react-query';
 import { useMemo, useCallback, useEffect } from 'react';
-import type { OrbytProfileRecord } from '../../types';
-import type { ProfileView, ProfileViewDetailed, ListViewBasic, StatusView } from '../api/types';
-
-export interface CachedProfile {
-  did: string;
-  handle: string;
-  displayName?: string;
-  avatar?: string;
-  description?: string;
-  isFollowing?: boolean;
-  isFollowedBy?: boolean;
-  isSubscribed?: boolean; // Activity subscription status
-  isBlocked?: boolean; // Moderation flag: user is blocked (from viewer.blocking or viewer.blockingByList)
-  blockingByList?: ListViewBasic; // List that blocks this user (if blocked by list)
-  isMuted?: boolean; // Moderation flag: user is muted (from viewer.muted)
-  hasCustomColors?: boolean; // Flag to indicate if colors are custom or extracted
-  profileColors?: {
-    backgroundColor: string;
-    foregroundColor: string;
-    statusBarStyle: 'light' | 'dark';
-    lighterColor?: string; // Pre-calculated lighter color for performance
-  };
-  orbytProfileRecord?: OrbytProfileRecord | null; // Full com.getorbyt.profile record
-  verification?: {
-    isVerified: boolean;
-    verifiedBy?: string; // DID of the verifier
-    verifierHandle?: string; // Handle of the verifier
-    verifiedAt?: string; // ISO date string
-    isOfficial?: boolean; // Whether this is an official Bluesky verification
-    status?: string; // Verification status (valid, etc.)
-    trustedVerifierStatus?: string; // Trusted verifier status (active, none)
-    verifications?: Array<{
-      issuer: string; // DID of the verifier
-      uri: string; // Verification URI
-      isValid: boolean; // Whether the verification is valid
-      createdAt: string; // ISO date string
-    }>;
-  };
-  status?: StatusView; // Direct from API, no transformation
-  lastUpdated: number; // timestamp
-}
+import type {
+  ProfileViewWithOrbyt,
+  StatusView,
+  ProfileView,
+  ExtendedFeedViewPost,
+  ProfileViewBasic,
+} from '../api/types';
 
 /**
  * Check if a StatusView represents an active live status
@@ -87,10 +52,10 @@ export function getStatusExpirationTime(status?: StatusView): number | null {
 }
 
 /**
- * Check if a cached profile has stale status
+ * Check if a profile has stale status
  * Uses API's isActive field - if false, status is expired
  */
-export function hasStaleStatus(profile: CachedProfile | null | undefined): boolean {
+export function hasStaleStatus(profile: ProfileViewWithOrbyt | null | undefined): boolean {
   if (!profile?.status) return false;
 
   // Trust API's isActive - if false, status is expired
@@ -111,7 +76,7 @@ export function hasStaleStatus(profile: CachedProfile | null | undefined): boole
  * If profile has a live status that expires, use shorter staleTime
  * Otherwise use default PROFILE_CACHE_EXPIRY
  */
-export function getProfileStaleTime(profile: CachedProfile | null | undefined): number {
+export function getProfileStaleTime(profile: ProfileViewWithOrbyt | null | undefined): number {
   if (!profile?.status) return PROFILE_CACHE_EXPIRY;
 
   const expirationTime = getStatusExpirationTime(profile.status);
@@ -134,41 +99,8 @@ export const profileKeys = {
   refresh: (handle: string) => [...profileKeys.detail(handle), 'refresh', Date.now()] as const,
 } as const;
 
-// Type for profile colors
-export interface ProfileColorScheme {
-  backgroundColor: string;
-  foregroundColor: string;
-  textColor: string;
-  primaryColor: string;
-  secondaryColor: string;
-  statusBarStyle: 'light' | 'dark';
-}
-
-// Helper to calculate brightness of a color
-function getBrightness(hex: string): number {
-  const color = hex.replace('#', '');
-  const r = parseInt(color.substring(0, 2), 16);
-  const g = parseInt(color.substring(2, 4), 16);
-  const b = parseInt(color.substring(4, 6), 16);
-  return (r * 299 + g * 587 + b * 114) / 1000;
-}
-
-// Helper to get the lighter color between two colors
-function getLighterColor(color1: string, color2: string): string {
-  return getBrightness(color1) > getBrightness(color2) ? color1 : color2;
-}
-
-// Helper to extract colors from profile data
-export function getProfileColors(profile: CachedProfile | null | undefined): ProfileColorScheme {
-  return {
-    backgroundColor: profile?.profileColors?.backgroundColor || '#000000',
-    foregroundColor: profile?.profileColors?.foregroundColor || '#CFD6E8',
-    textColor: profile?.profileColors?.foregroundColor || '#CFD6E8',
-    primaryColor: profile?.profileColors?.backgroundColor || '#000000',
-    secondaryColor: profile?.profileColors?.foregroundColor || '#CFD6E8',
-    statusBarStyle: profile?.profileColors?.statusBarStyle || 'light',
-  };
-}
+// Note: getProfileColors has been moved to src/utils/formatting/colors.ts
+// Import it from there instead of using this file
 
 // Make cache expiry public but readonly
 export const PROFILE_CACHE_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
@@ -176,128 +108,6 @@ export const PROFILE_CACHE_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours in millisec
 class ProfileService {
   private static currentUserDid: string | null = null;
   private static currentUserHandle: string | null = null;
-
-  /**
-   * Test mode: Set to true to inject fake live status for all profiles
-   * This is for testing the live status feature UI
-   *
-   * To enable: Change `false` to `true` below
-   * When enabled, all profiles will show as live with test data including:
-   * - Live indicator on avatars
-   * - Live stream info in bottom sheet
-   * - Test stream title, description, thumbnail, and link
-   */
-  private static TEST_MODE_LIVE_STATUS = false; // Set to false to disable test mode
-
-  /**
-   * Transform Bsky API profile response to CachedProfile format
-   * Uses pre-fetched orbyt profile record to avoid additional API call
-   * Extracts moderation flags (blocked/muted) directly from ProfileView.viewer
-   */
-  private static async transformApiProfile(
-    apiProfile: ProfileView | ProfileViewDetailed,
-    did?: string,
-    orbytProfileRecord?: OrbytProfileRecord | null
-  ): Promise<CachedProfile> {
-    const targetDid = did || apiProfile.did;
-    let record: OrbytProfileRecord | null = orbytProfileRecord ?? null;
-
-    // If record wasn't pre-fetched, fetch it now using listRecords (fallback for handle-based fetches)
-    if (record === undefined) {
-      const records = await AtprotoService.getProfileRecordsForDid(targetDid);
-      record = records.orbytRecord as OrbytProfileRecord | null;
-    }
-
-    // Extract colors from record - always set profileColors (defaults if no custom colors)
-    const hasCustomColors = !!(record?.colors?.backgroundColor && record?.colors?.textColor);
-    const baseColors = hasCustomColors
-      ? {
-          backgroundColor: record!.colors!.backgroundColor,
-          foregroundColor: record!.colors!.textColor,
-          statusBarStyle: getStatusBarStyle(record!.colors!.backgroundColor),
-        }
-      : DEFAULT_PROFILE_COLORS;
-
-    // Calculate lighter color once for performance
-    const lighterColor = getLighterColor(baseColors.backgroundColor, baseColors.foregroundColor);
-
-    const profileColors = {
-      ...baseColors,
-      lighterColor,
-    };
-
-    // Extract relationship data from viewer
-    const isFollowing = apiProfile.viewer ? !!apiProfile.viewer.following : undefined;
-    const isFollowedBy = apiProfile.viewer ? !!apiProfile.viewer.followedBy : undefined;
-    const isSubscribed = apiProfile.viewer?.activitySubscription ? true : undefined;
-
-    // Extract moderation flags directly from ProfileView.viewer (Atproto types)
-    // viewer.blocking is a string (URI) if blocked directly, null/undefined otherwise
-    // viewer.blockingByList is a ListViewBasic if blocked by list, undefined otherwise
-    // viewer.muted is a boolean if muted, undefined otherwise
-    const isBlocked = apiProfile.viewer
-      ? !!(apiProfile.viewer.blocking || apiProfile.viewer.blockingByList)
-      : undefined;
-    const blockingByList = apiProfile.viewer?.blockingByList;
-    const isMuted = apiProfile.viewer?.muted ?? undefined;
-
-    // Extract verification data
-    let verification: CachedProfile['verification'] = { isVerified: false };
-    if (apiProfile.verification) {
-      const isVerified =
-        apiProfile.verification.verifiedStatus === 'valid' ||
-        apiProfile.verification.trustedVerifierStatus === 'valid' ||
-        (apiProfile.verification.verifications &&
-          apiProfile.verification.verifications.length > 0 &&
-          apiProfile.verification.verifications.some((v: any) => v.isValid));
-
-      if (isVerified) {
-        verification = {
-          isVerified: true,
-          status: apiProfile.verification.verifiedStatus || 'valid',
-          trustedVerifierStatus: apiProfile.verification.trustedVerifierStatus || 'none',
-          verifications: apiProfile.verification.verifications || [],
-          verifiedBy: apiProfile.verification.verifications?.[0]?.issuer || 'bsky.app',
-          verifierHandle:
-            apiProfile.verification.trustedVerifierStatus === 'valid' ? 'Verifier' : 'bsky.app',
-          verifiedAt:
-            apiProfile.verification.verifications?.[0]?.createdAt || new Date().toISOString(),
-          isOfficial: apiProfile.verification.trustedVerifierStatus !== 'valid',
-        };
-      }
-    }
-
-    // Store status directly from API - no transformation needed
-    // In test mode, inject fake live status for all profiles (overrides existing status)
-    let status: StatusView | undefined = apiProfile.status;
-    if (this.TEST_MODE_LIVE_STATUS) {
-      status = {
-        status: 'app.bsky.actor.status#live',
-        isActive: true,
-        expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(), // 1 hour from now
-      } as StatusView;
-    }
-
-    return {
-      did: apiProfile.did,
-      handle: apiProfile.handle,
-      displayName: apiProfile.displayName,
-      avatar: apiProfile.avatar,
-      description: apiProfile.description,
-      isFollowing,
-      isFollowedBy,
-      isSubscribed,
-      isBlocked,
-      blockingByList,
-      isMuted,
-      hasCustomColors,
-      profileColors,
-      orbytProfileRecord: record,
-      verification,
-      status,
-      lastUpdated: Date.now(),
-    };
-  }
 
   // React Query integration
   static getQueryKey(handle: string): QueryKey {
@@ -313,12 +123,15 @@ class ProfileService {
    * Get profile from React Query cache synchronously
    * @param queryClient - React Query client instance
    * @param handle - Profile handle
-   * @returns Cached profile or null
+   * @returns Profile or null
    */
-  static getProfileFromCacheSync(queryClient: QueryClient, handle: string): CachedProfile | null {
+  static getProfileFromCacheSync(
+    queryClient: QueryClient,
+    handle: string
+  ): ProfileViewWithOrbyt | null {
     if (!handle) return null;
     const queryKey = profileKeys.detail(handle.toLowerCase());
-    return queryClient.getQueryData<CachedProfile>(queryKey) ?? null;
+    return queryClient.getQueryData<ProfileViewWithOrbyt>(queryKey) ?? null;
   }
 
   /**
@@ -350,38 +163,21 @@ class ProfileService {
   }
 
   /**
-   * Get a profile by DID - simplified to use Bsky API directly
-   * React Query handles caching, this just fetches and transforms
-   * Fetches profile data and both records together using listRecords
+   * Get a profile by DID - uses native API with orbyt record included
+   * React Query handles caching, this just fetches from API
    */
-  static async getProfileByDid(did: string): Promise<CachedProfile | null> {
+  static async getProfileByDid(did: string): Promise<ProfileViewWithOrbyt | null> {
     if (!did) return null;
 
     // Validate that input is actually a DID (starts with "did:")
-    // If it's a handle, return null to prevent fetching with wrong method and overwriting colors
     if (!did.startsWith('did:')) {
       // This is a handle, not a DID - return null (caller should use getProfile with handle instead)
-      // Returning null prevents fetching with wrong identifier which would overwrite colors with defaults
       return null;
     }
 
     try {
-      // Fetch profile data (for viewer/verification) and both records in parallel
-      const [apiProfile, records] = await Promise.all([
-        AtprotoService.getProfileByDid(did),
-        AtprotoService.getProfileRecordsForDid(did),
-      ]);
-
-      if (!apiProfile) return null;
-
-      // Transform API response to CachedProfile with pre-fetched records
-      const profile = await this.transformApiProfile(
-        apiProfile,
-        did,
-        records.orbytRecord as OrbytProfileRecord | null
-      );
-
-      return profile;
+      // AtprotoService.getProfileByDid already fetches orbyt record in parallel
+      return await AtprotoService.getProfileByDid(did);
     } catch (_error) {
       // Return null on error - React Query will handle retries
       return null;
@@ -392,11 +188,12 @@ class ProfileService {
    * Batch fetch multiple profiles
    * More efficient than individual fetches for 2+ profiles
    * React Query handles caching
+   * Orbyt records are fetched in parallel by AtprotoService.getProfilesInBatch
    *
    * @param handles - Array of handles to fetch
-   * @returns Array of profiles
+   * @returns Array of profiles with orbyt records
    */
-  static async batchGetProfiles(handles: string[]): Promise<CachedProfile[]> {
+  static async batchGetProfiles(handles: string[]): Promise<ProfileViewWithOrbyt[]> {
     if (!handles || handles.length === 0) {
       return [];
     }
@@ -405,30 +202,9 @@ class ProfileService {
       new Set(handles.map(h => h?.toLowerCase()).filter(h => !!h && typeof h === 'string'))
     );
 
-    // Fetch all profiles in batch
+    // AtprotoService.getProfilesInBatch already fetches orbyt records in parallel
     try {
-      const profiles = await AtprotoService.getProfilesInBatch(uniqueHandles);
-
-      // Transform each profile with records
-      const results: CachedProfile[] = [];
-      for (const profile of profiles) {
-        if (profile?.handle && profile?.did) {
-          try {
-            // Fetch records for colors
-            const records = await AtprotoService.getProfileRecordsForDid(profile.did);
-            const transformed = await this.transformApiProfile(
-              profile,
-              profile.did,
-              records.orbytRecord as OrbytProfileRecord | null
-            );
-            results.push(transformed);
-          } catch {
-            // Skip failed profiles
-          }
-        }
-      }
-
-      return results;
+      return await AtprotoService.getProfilesInBatch(uniqueHandles);
     } catch (_error) {
       return [];
     }
@@ -440,9 +216,9 @@ class ProfileService {
    * React Query handles caching
    *
    * @param dids - Array of DIDs to fetch
-   * @returns Array of profiles
+   * @returns Array of profiles with orbyt records
    */
-  static async batchGetProfilesByDid(dids: string[]): Promise<CachedProfile[]> {
+  static async batchGetProfilesByDid(dids: string[]): Promise<ProfileViewWithOrbyt[]> {
     if (!dids || dids.length === 0) {
       return [];
     }
@@ -450,39 +226,22 @@ class ProfileService {
     const uniqueDids = Array.from(new Set(dids.filter(d => !!d && typeof d === 'string')));
 
     try {
+      // AtprotoService.getProfileByDid already includes orbyt records
       const profiles = await Promise.all(
         uniqueDids.map(did => AtprotoService.getProfileByDid(did).catch(() => null))
       );
 
-      const results: CachedProfile[] = [];
-      for (const profile of profiles) {
-        if (profile?.handle && profile?.did) {
-          try {
-            // Fetch records for colors
-            const records = await AtprotoService.getProfileRecordsForDid(profile.did);
-            const transformed = await this.transformApiProfile(
-              profile,
-              profile.did,
-              records.orbytRecord as OrbytProfileRecord | null
-            );
-            results.push(transformed);
-          } catch {
-            // Skip failed profiles
-          }
-        }
-      }
-
-      return results;
+      return profiles.filter((p): p is ProfileViewWithOrbyt => p !== null);
     } catch (_error) {
       return [];
     }
   }
 
   /**
-   * Get a profile by handle - simplified to use Bsky API directly
-   * React Query handles caching, this just fetches and transforms
+   * Get a profile by handle - uses native API with orbyt record included
+   * React Query handles caching, this just fetches from API
    */
-  static async getProfile(handle: string): Promise<CachedProfile | null> {
+  static async getProfile(handle: string): Promise<ProfileViewWithOrbyt | null> {
     if (!handle) return null;
 
     try {
@@ -503,21 +262,8 @@ class ProfileService {
         return null;
       }
 
-      // Fetch profile from API using Bsky SDK
-      const apiProfile = await AtprotoService.getProfile(cleanHandle);
-      if (!apiProfile) return null;
-
-      // Fetch records in parallel with profile data (for colors)
-      const records = await AtprotoService.getProfileRecordsForDid(apiProfile.did);
-
-      // Transform API response to CachedProfile with pre-fetched records
-      const profile = await this.transformApiProfile(
-        apiProfile,
-        apiProfile.did,
-        records.orbytRecord as OrbytProfileRecord | null
-      );
-
-      return profile;
+      // AtprotoService.getProfile already fetches orbyt record in parallel
+      return await AtprotoService.getProfile(cleanHandle);
     } catch (_error) {
       // Return null on error - React Query will handle retries
       return null;
@@ -527,47 +273,24 @@ class ProfileService {
   /**
    * Force refresh a profile by DID - just call getProfileByDid (cache is managed by React Query)
    */
-  static async refreshProfileByDid(did: string): Promise<CachedProfile | null> {
+  static async refreshProfileByDid(did: string): Promise<ProfileViewWithOrbyt | null> {
     return this.getProfileByDid(did);
   }
 
   /**
    * Force refresh a profile by handle - just call getProfile (cache is managed by React Query)
    */
-  static async refreshProfile(handle: string): Promise<CachedProfile | null> {
+  static async refreshProfile(handle: string): Promise<ProfileViewWithOrbyt | null> {
     return this.getProfile(handle);
   }
 
   /**
    * Pre-cache a list of profiles from API responses
-   * Transforms and saves profiles to MMKV for instant access
+   * React Query handles caching automatically
    */
-  static async cacheProfiles(profiles: any[]): Promise<void> {
-    if (!profiles || profiles.length === 0) return;
-
-    try {
-      // Process profiles in parallel
-      await Promise.all(
-        profiles.map(async profile => {
-          if (!profile?.handle || !profile?.did) return;
-
-          try {
-            // Transform profile - React Query handles caching
-            // Fetch records for colors
-            const records = await AtprotoService.getProfileRecordsForDid(profile.did);
-            await this.transformApiProfile(
-              profile,
-              profile.did,
-              records.orbytRecord as OrbytProfileRecord | null
-            );
-          } catch {
-            // Silently handle errors
-          }
-        })
-      );
-    } catch {
-      // Silently handle errors
-    }
+  static async cacheProfiles(_profiles: ProfileViewBasic[]): Promise<void> {
+    // React Query handles caching automatically - no manual caching needed
+    // This method is kept for backwards compatibility but does nothing
   }
 
   /**
@@ -606,22 +329,20 @@ class ProfileService {
 
   /**
    * Update the verification status for a profile
+   * @deprecated This method is deprecated - React Query mutations handle cache updates
+   * Keeping for backwards compatibility but no longer updates cache
+   * Uses actual VerificationState structure from @atproto/api
    */
   static async updateVerification(
     handle: string,
     _verification: {
-      isVerified: boolean;
-      verifiedBy?: string;
-      verifierHandle?: string;
-      verifiedAt?: string;
-      isOfficial?: boolean;
-      status?: string;
-      trustedVerifierStatus?: string;
+      verifiedStatus?: 'valid' | 'invalid' | 'none' | string;
+      trustedVerifierStatus?: 'valid' | 'invalid' | 'none' | string;
       verifications?: Array<{
         issuer: string;
         uri: string;
         isValid: boolean;
-        createdAt: string;
+        createdAt?: string;
       }>;
     }
   ): Promise<void> {
@@ -636,17 +357,11 @@ class ProfileService {
    * Note: This method is deprecated - React Query handles cache updates
    */
   static async applyServerProfile(
-    handle: string,
-    serverProfile: ProfileView | ProfileViewDetailed
+    _handle: string,
+    _serverProfile: ProfileViewWithOrbyt
   ): Promise<void> {
-    if (!handle || !serverProfile) return;
-
-    try {
-      // Note: This method is deprecated - React Query handles cache updates
-      // Keeping for backwards compatibility but no longer updates cache
-    } catch {
-      // Silently handle errors
-    }
+    // React Query handles cache updates automatically
+    // This method is kept for backwards compatibility but does nothing
   }
 
   /**
@@ -698,7 +413,7 @@ class ProfileService {
    * from feed items and prefetches them in one operation
    * @param feedItems - Array of feed items containing author and repostedBy data
    */
-  static async batchPrefetchFromFeed(feedItems: any[]): Promise<void> {
+  static async batchPrefetchFromFeed(feedItems: ExtendedFeedViewPost[]): Promise<void> {
     if (!feedItems || feedItems.length === 0) return;
 
     try {
@@ -715,14 +430,16 @@ class ProfileService {
           uniqueHandles.add(item.post.repostedBy.handle.toLowerCase());
         }
 
-        // Handle direct author structure (for search results and notifications)
-        if (item.author?.handle) {
-          uniqueHandles.add(item.author.handle.toLowerCase());
-        }
-
-        // Handle notification structure
-        if (item.reason?.by?.handle) {
-          uniqueHandles.add(item.reason.by.handle.toLowerCase());
+        // Handle reason structure (reposts, pins)
+        if (
+          item.reason &&
+          '$type' in item.reason &&
+          item.reason.$type === 'app.bsky.feed.defs#reasonRepost'
+        ) {
+          const repostReason = item.reason as { by?: { handle?: string } };
+          if (repostReason.by?.handle) {
+            uniqueHandles.add(repostReason.by.handle.toLowerCase());
+          }
         }
       });
 
@@ -777,18 +494,20 @@ class ProfileService {
  */
 export function useProfileByDid(
   did: string | null | undefined
-): UseQueryResult<CachedProfile | null, Error> {
+): UseQueryResult<ProfileViewWithOrbyt | null, Error> {
   const queryClient = useQueryClient();
 
   // Calculate staleTime based on status expiration from React Query cache
   const staleTime = useMemo(() => {
     if (!did) return PROFILE_CACHE_EXPIRY;
     // Read from React Query cache to calculate staleTime
-    const cachedProfile = queryClient.getQueryData<CachedProfile>(profileKeys.detail(`did_${did}`));
+    const cachedProfile = queryClient.getQueryData<ProfileViewWithOrbyt>(
+      profileKeys.detail(`did_${did}`)
+    );
     return getProfileStaleTime(cachedProfile);
   }, [did, queryClient]);
 
-  return useQuery<CachedProfile | null, Error>({
+  return useQuery<ProfileViewWithOrbyt | null, Error>({
     queryKey: did ? profileKeys.detail(`did_${did}`) : ['profiles', 'detail', 'did_'],
     queryFn: async () => (did ? ProfileService.getProfileByDid(did) : null),
     enabled: !!did,
@@ -809,7 +528,7 @@ export function useProfileByDid(
  */
 export function useBatchProfiles(
   handles: (string | null | undefined)[]
-): UseQueryResult<CachedProfile[], Error> {
+): UseQueryResult<ProfileViewWithOrbyt[], Error> {
   const validHandles = useMemo(() => {
     return Array.from(
       new Set(handles.filter((h): h is string => !!h).map(h => h.toLowerCase()))
@@ -821,7 +540,7 @@ export function useBatchProfiles(
     [validHandles]
   );
 
-  return useQuery<CachedProfile[], Error>({
+  return useQuery<ProfileViewWithOrbyt[], Error>({
     queryKey,
     queryFn: async () => {
       if (validHandles.length === 0) return [];
@@ -845,7 +564,7 @@ export function useBatchProfiles(
  */
 export function useBatchProfilesByDid(
   dids: (string | null | undefined)[]
-): UseQueryResult<CachedProfile[], Error> {
+): UseQueryResult<ProfileViewWithOrbyt[], Error> {
   const validDids = useMemo(() => {
     return Array.from(new Set(dids.filter((d): d is string => !!d))).sort();
   }, [dids]);
@@ -855,7 +574,7 @@ export function useBatchProfilesByDid(
     [validDids]
   );
 
-  return useQuery<CachedProfile[], Error>({
+  return useQuery<ProfileViewWithOrbyt[], Error>({
     queryKey,
     queryFn: async () => {
       if (validDids.length === 0) return [];
@@ -876,20 +595,20 @@ export function useBatchProfilesByDid(
  */
 export function useProfile(
   handle: string | null | undefined
-): UseQueryResult<CachedProfile | null, Error> {
+): UseQueryResult<ProfileViewWithOrbyt | null, Error> {
   const queryClient = useQueryClient();
 
   // Calculate staleTime based on status expiration from React Query cache
   const staleTime = useMemo(() => {
     if (!handle) return PROFILE_CACHE_EXPIRY;
     // Read from React Query cache to calculate staleTime
-    const cachedProfile = queryClient.getQueryData<CachedProfile>(
+    const cachedProfile = queryClient.getQueryData<ProfileViewWithOrbyt>(
       profileKeys.detail(handle.toLowerCase())
     );
     return getProfileStaleTime(cachedProfile);
   }, [handle, queryClient]);
 
-  return useQuery<CachedProfile | null, Error>({
+  return useQuery<ProfileViewWithOrbyt | null, Error>({
     queryKey: handle ? profileKeys.detail(handle.toLowerCase()) : ['profiles', 'detail', ''],
     queryFn: async () => (handle ? ProfileService.getProfile(handle) : null),
     enabled: !!handle,
@@ -964,7 +683,9 @@ export function useFollowMutation() {
       await queryClient.cancelQueries({ queryKey: profileKeys.detail(handle) });
 
       // Snapshot the previous values FIRST (before async operations)
-      const previousProfile = queryClient.getQueryData<CachedProfile>(profileKeys.detail(handle));
+      const previousProfile = queryClient.getQueryData<ProfileViewWithOrbyt>(
+        profileKeys.detail(handle)
+      );
       const did = previousProfile?.did;
 
       // Update follow store IMMEDIATELY (synchronously) before any async work
@@ -986,7 +707,7 @@ export function useFollowMutation() {
       }
 
       const previousProfileByDid = resolvedDid
-        ? queryClient.getQueryData<CachedProfile>(profileKeys.detail(`did_${resolvedDid}`))
+        ? queryClient.getQueryData<ProfileViewWithOrbyt>(profileKeys.detail(`did_${resolvedDid}`))
         : null;
 
       // Optimistically update React Query cache
@@ -995,16 +716,36 @@ export function useFollowMutation() {
       if (previousProfile) {
         queryClient.setQueryData(profileKeys.detail(handle), {
           ...previousProfile,
-          isFollowing,
-          ...(isFollowedBy !== undefined ? { isFollowedBy } : {}),
+          viewer: {
+            ...previousProfile.viewer,
+            following: isFollowing
+              ? previousProfile.viewer?.following || 'at://placeholder'
+              : undefined,
+            followedBy:
+              isFollowedBy !== undefined
+                ? isFollowedBy
+                  ? 'at://placeholder'
+                  : undefined
+                : previousProfile.viewer?.followedBy,
+          },
         });
       }
 
       if (previousProfileByDid) {
         queryClient.setQueryData(profileKeys.detail(`did_${resolvedDid}`), {
           ...previousProfileByDid,
-          isFollowing,
-          ...(isFollowedBy !== undefined ? { isFollowedBy } : {}),
+          viewer: {
+            ...previousProfileByDid.viewer,
+            following: isFollowing
+              ? previousProfileByDid.viewer?.following || 'at://placeholder'
+              : undefined,
+            followedBy:
+              isFollowedBy !== undefined
+                ? isFollowedBy
+                  ? 'at://placeholder'
+                  : undefined
+                : previousProfileByDid.viewer?.followedBy,
+          },
         });
       }
 
@@ -1025,7 +766,8 @@ export function useFollowMutation() {
 
       // Revert follow store state
       if (context?.did && context?.previousProfile) {
-        updateFollowState(context.did, handle, context.previousProfile.isFollowing ?? false);
+        const wasFollowing = !!context.previousProfile.viewer?.following;
+        updateFollowState(context.did, handle, wasFollowing);
       }
     },
     // Always refetch after error or success to ensure cache consistency
@@ -1071,10 +813,10 @@ export function useBlockMutation() {
       await queryClient.cancelQueries({ queryKey: profileKeys.detail(`did_${did}`) });
 
       // Snapshot the previous values
-      const previousProfile = queryClient.getQueryData<CachedProfile>(
+      const previousProfile = queryClient.getQueryData<ProfileViewWithOrbyt>(
         profileKeys.detail(normalizedHandle)
       );
-      const previousProfileByDid = queryClient.getQueryData<CachedProfile>(
+      const previousProfileByDid = queryClient.getQueryData<ProfileViewWithOrbyt>(
         profileKeys.detail(`did_${did}`)
       );
 
@@ -1083,17 +825,25 @@ export function useBlockMutation() {
       const updatedProfile = previousProfile
         ? {
             ...previousProfile,
-            isBlocked,
-            blockingByList: !isBlocked ? undefined : previousProfile.blockingByList,
-            lastUpdated: Date.now(),
+            viewer: {
+              ...previousProfile.viewer,
+              blocking: isBlocked
+                ? previousProfile.viewer?.blocking || 'at://placeholder'
+                : undefined,
+              blockingByList: !isBlocked ? undefined : previousProfile.viewer?.blockingByList,
+            },
           }
         : null;
       const updatedProfileByDid = previousProfileByDid
         ? {
             ...previousProfileByDid,
-            isBlocked,
-            blockingByList: !isBlocked ? undefined : previousProfileByDid.blockingByList,
-            lastUpdated: Date.now(),
+            viewer: {
+              ...previousProfileByDid.viewer,
+              blocking: isBlocked
+                ? previousProfileByDid.viewer?.blocking || 'at://placeholder'
+                : undefined,
+              blockingByList: !isBlocked ? undefined : previousProfileByDid.viewer?.blockingByList,
+            },
           }
         : null;
 
@@ -1174,8 +924,10 @@ export function useMuteMutation() {
       await queryClient.cancelQueries({ queryKey: profileKeys.detail(`did_${did}`) });
 
       // Snapshot the previous values
-      const previousProfile = queryClient.getQueryData<CachedProfile>(profileKeys.detail(handle));
-      const previousProfileByDid = queryClient.getQueryData<CachedProfile>(
+      const previousProfile = queryClient.getQueryData<ProfileViewWithOrbyt>(
+        profileKeys.detail(handle)
+      );
+      const previousProfileByDid = queryClient.getQueryData<ProfileViewWithOrbyt>(
         profileKeys.detail(`did_${did}`)
       );
 
@@ -1183,14 +935,20 @@ export function useMuteMutation() {
       if (previousProfile) {
         queryClient.setQueryData(profileKeys.detail(handle), {
           ...previousProfile,
-          isMuted,
+          viewer: {
+            ...previousProfile.viewer,
+            muted: isMuted,
+          },
         });
       }
 
       if (previousProfileByDid) {
         queryClient.setQueryData(profileKeys.detail(`did_${did}`), {
           ...previousProfileByDid,
-          isMuted,
+          viewer: {
+            ...previousProfileByDid.viewer,
+            muted: isMuted,
+          },
         });
       }
 
@@ -1280,30 +1038,29 @@ export function useProfileUpdateMutation() {
     onMutate: async ({ handle, updates }) => {
       await queryClient.cancelQueries({ queryKey: profileKeys.detail(handle) });
 
-      const previousProfile = queryClient.getQueryData<CachedProfile>(profileKeys.detail(handle));
+      const previousProfile = queryClient.getQueryData<ProfileViewWithOrbyt>(
+        profileKeys.detail(handle)
+      );
 
       // Optimistically update the query cache
       if (previousProfile) {
-        const optimistic: CachedProfile = {
+        const optimistic: ProfileViewWithOrbyt = {
           ...previousProfile,
           ...(updates.displayName !== undefined ? { displayName: updates.displayName } : {}),
           ...(updates.description !== undefined ? { description: updates.description } : {}),
           ...(updates.avatar !== undefined ? { avatar: updates.avatar } : {}),
           ...(updates.customColors
             ? {
-                hasCustomColors: true, // Mark as having custom colors
-                profileColors: {
-                  backgroundColor: updates.customColors.backgroundColor,
-                  foregroundColor: updates.customColors.textColor,
-                  statusBarStyle: getStatusBarStyle(updates.customColors.backgroundColor),
-                  lighterColor: getLighterColor(
-                    updates.customColors.backgroundColor,
-                    updates.customColors.textColor
-                  ),
+                orbytRecord: {
+                  ...previousProfile.orbytRecord,
+                  $type: 'com.getorbyt.profile',
+                  colors: {
+                    backgroundColor: updates.customColors.backgroundColor,
+                    textColor: updates.customColors.textColor,
+                  },
                 },
               }
             : {}),
-          lastUpdated: Date.now(),
         };
         queryClient.setQueryData(profileKeys.detail(handle), optimistic);
       }
@@ -1311,38 +1068,28 @@ export function useProfileUpdateMutation() {
       return { previousProfile };
     },
     onSuccess: ({ updatedProfile, updatedColors }, { handle, updates }) => {
-      // If colors were updated, save to cache immediately
+      // If colors were updated, update orbyt record in cache
       if (updatedColors) {
-        const prev = queryClient.getQueryData<CachedProfile>(profileKeys.detail(handle));
+        const prev = queryClient.getQueryData<ProfileViewWithOrbyt>(profileKeys.detail(handle));
         if (prev && updates.customColors) {
-          // Update the cached profile with new colors
-          const updated: CachedProfile = {
+          // Update the profile with new colors in orbyt record
+          const updated: ProfileViewWithOrbyt = {
             ...prev,
-            hasCustomColors: true,
-            profileColors: {
-              backgroundColor: updates.customColors.backgroundColor,
-              foregroundColor: updates.customColors.textColor,
-              statusBarStyle: getStatusBarStyle(updates.customColors.backgroundColor),
-              lighterColor: getLighterColor(
-                updates.customColors.backgroundColor,
-                updates.customColors.textColor
-              ),
+            orbytRecord: {
+              ...prev.orbytRecord,
+              $type: 'com.getorbyt.profile',
+              colors: {
+                backgroundColor: updates.customColors.backgroundColor,
+                textColor: updates.customColors.textColor,
+              },
             },
-            lastUpdated: Date.now(),
           };
-          // Update React Query cache immediately - don't invalidate to avoid refetch before server has processed
+          // Update React Query cache immediately
           queryClient.setQueryData(profileKeys.detail(handle), updated);
           // Also update DID-based query if we have the DID
           if (prev.did) {
             queryClient.setQueryData(profileKeys.detail(`did_${prev.did}`), updated);
           }
-
-          // Note: We don't invalidate here because:
-          // 1. We've already saved the new colors to cache
-          // 2. We've updated React Query cache optimistically
-          // 3. The server needs time to process the update
-          // 4. Invalidating immediately would trigger a refetch that might get stale data
-          // The cache will be refreshed naturally on next navigation or manual refresh
         } else {
           // Fallback: invalidate to trigger refetch
           queryClient.invalidateQueries({ queryKey: profileKeys.detail(handle) });
@@ -1356,38 +1103,14 @@ export function useProfileUpdateMutation() {
       if (!updatedProfile) return; // Skip if no profile was updated
 
       // Merge server-updated fields into the query cache immediately
-      const prev = queryClient.getQueryData<CachedProfile>(profileKeys.detail(handle));
+      const prev = queryClient.getQueryData<ProfileViewWithOrbyt>(profileKeys.detail(handle));
       if (!prev) return; // Skip if no previous data
 
-      // Extract moderation flags from updatedProfile.viewer (Atproto types)
-      const isBlocked = updatedProfile?.viewer
-        ? !!(updatedProfile.viewer.blocking || updatedProfile.viewer.blockingByList)
-        : prev.isBlocked;
-      const blockingByList = updatedProfile?.viewer?.blockingByList ?? prev.blockingByList;
-      const isMuted = updatedProfile?.viewer?.muted ?? prev.isMuted;
-
-      const merged: CachedProfile = {
+      // Merge updated profile data
+      const merged: ProfileViewWithOrbyt = {
         ...prev,
-        did: updatedProfile?.did ?? prev.did,
-        handle: updatedProfile?.handle ?? prev.handle,
-        displayName: updatedProfile?.displayName ?? prev.displayName,
-        avatar: updatedProfile?.avatar ?? prev.avatar,
-        description: updatedProfile?.description ?? prev.description,
-        isFollowing: updatedProfile?.viewer ? !!updatedProfile.viewer.following : prev.isFollowing,
-        isFollowedBy: updatedProfile?.viewer
-          ? !!updatedProfile.viewer.followedBy
-          : prev.isFollowedBy,
-        isBlocked,
-        blockingByList,
-        isMuted,
-        // Preserve custom colors flag if we updated colors
-        hasCustomColors: updates.customColors ? true : prev.hasCustomColors,
-        // Explicitly preserve profileColors to prevent them from being lost
-        profileColors: prev.profileColors,
-        orbytProfileRecord: prev.orbytProfileRecord,
-        verification: prev.verification,
-        isSubscribed: prev.isSubscribed,
-        lastUpdated: Date.now(),
+        ...(updatedProfile as ProfileView),
+        orbytRecord: prev.orbytRecord, // Preserve orbyt record
       };
       queryClient.setQueryData(profileKeys.detail(handle), merged);
 
@@ -1431,7 +1154,7 @@ export function useProfileInvalidation() {
  * @param did - Optional DID for DID-based invalidation
  */
 export function useStatusExpirationMonitor(
-  profile: CachedProfile | null | undefined,
+  profile: ProfileViewWithOrbyt | null | undefined,
   did?: string | null
 ) {
   const queryClient = useQueryClient();
@@ -1505,7 +1228,8 @@ export async function prefetchProfile(
     displayName?: string;
     avatar?: string;
     description?: string;
-    verification?: CachedProfile['verification'];
+    verification?: ProfileViewWithOrbyt['verification'];
+    status?: ProfileViewWithOrbyt['status'];
   }
 ): Promise<void> {
   if (!identifier || !queryClient) return;
@@ -1517,32 +1241,27 @@ export async function prefetchProfile(
   const cleanHandle = isDid ? null : cleanIdentifier.toLowerCase();
   const did = isDid ? cleanIdentifier : partialProfile?.did;
 
-  // Step 1: Set partial data immediately for instant UI (if provided and cache is stale/missing)
+  // Step 1: Set partial data immediately for instant UI (if provided and cache is missing)
   if (partialProfile && cleanHandle) {
-    const existing = queryClient.getQueryData<CachedProfile>(profileKeys.detail(cleanHandle));
-    const isStale = existing && Date.now() - existing.lastUpdated > PROFILE_CACHE_EXPIRY;
+    const existing = queryClient.getQueryData<ProfileViewWithOrbyt>(
+      profileKeys.detail(cleanHandle)
+    );
 
-    if (!existing || isStale) {
-      const partialCachedProfile: Partial<CachedProfile> = {
-        did: did || existing?.did || '',
+    if (!existing) {
+      const partialProfileData: Partial<ProfileViewWithOrbyt> = {
+        did: did || '',
         handle: cleanHandle,
-        displayName: partialProfile.displayName || existing?.displayName,
-        avatar: partialProfile.avatar || existing?.avatar,
-        description: partialProfile.description || existing?.description,
-        verification: partialProfile.verification || existing?.verification,
-        lastUpdated: Date.now(),
-        // Preserve existing relationship data if available
-        isFollowing: existing?.isFollowing,
-        isFollowedBy: existing?.isFollowedBy,
-        isSubscribed: existing?.isSubscribed,
-        profileColors: existing?.profileColors,
-        hasCustomColors: existing?.hasCustomColors,
+        displayName: partialProfile.displayName,
+        avatar: partialProfile.avatar,
+        description: partialProfile.description,
+        verification: partialProfile.verification,
+        status: partialProfile.status,
       };
 
-      if (partialCachedProfile.did || partialCachedProfile.handle) {
+      if (partialProfileData.did || partialProfileData.handle) {
         queryClient.setQueryData(
           profileKeys.detail(cleanHandle),
-          partialCachedProfile as CachedProfile
+          partialProfileData as ProfileViewWithOrbyt
         );
       }
     }
