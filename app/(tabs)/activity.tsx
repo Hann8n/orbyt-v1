@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef, useLayoutEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useLayoutEffect, useMemo } from 'react';
 import { tabRefs } from '../../src/utils/navigation/tabRefs';
 import { View, Text, StyleSheet, StatusBar, Pressable } from 'react-native';
 import PagerView, {
@@ -9,9 +9,12 @@ import PagerView, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors } from '../../src/components/ui/UI';
+import { BORDER_RADIUS } from '../../src/utils/constants';
 import NotificationsTab from '../../src/components/features/activity/NotificationsTab';
 import ChatsTab from '../../src/components/features/activity/ChatsTab';
+import NotificationFilterSheet from '../../src/components/features/activity/NotificationFilterSheet';
 import { useUnreadCount } from '../../src/hooks/useUnreadCount';
+import type { NotificationReason } from '../../src/services/api/types';
 
 // Tab labels
 const TAB_LABELS: { [key: string]: string } = {
@@ -32,7 +35,7 @@ const ActivitySwipePager = ({
   onScrollProgressChange?: (progress: number) => void;
 }) => {
   const pagerViewRef = useRef<PagerView>(null);
-  const pages: Array<'notifications' | 'chats'> = ['notifications', 'chats'];
+  const pages = useMemo<Array<'notifications' | 'chats'>>(() => ['notifications', 'chats'], []);
   const activeIndex = pages.indexOf(activeTab);
 
   // Track scroll progress from PagerView's onPageScroll for indicator animation
@@ -173,27 +176,32 @@ const ActivityScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'notifications' | 'chats'>('notifications');
   // State to trigger indicator re-renders during scroll (doesn't affect feeds) - matches FeedPager
   const [indicatorScrollProgress, setIndicatorScrollProgress] = useState(0);
+  const [showFilterSheet, setShowFilterSheet] = useState(false);
+  const [filterReasons, setFilterReasons] = useState<NotificationReason[] | undefined>(undefined);
   const insets = useSafeAreaInsets();
   const { notificationsCount, messagesCount } = useUnreadCount();
 
-  const pages: Array<'notifications' | 'chats'> = ['notifications', 'chats'];
-  const activeIndex = pages.indexOf(activeTab);
+  const pages = useMemo<Array<'notifications' | 'chats'>>(() => ['notifications', 'chats'], []);
 
   // Tab content renderer
-  const renderTabContent = useCallback((tabId: 'notifications' | 'chats') => {
-    if (tabId === 'notifications') {
-      return (
-        <NotificationsTab
-          ref={r => {
-            tabRefs.activity = r;
-          }}
-        />
-      );
-    } else if (tabId === 'chats') {
-      return <ChatsTab />;
-    }
-    return null;
-  }, []);
+  const renderTabContent = useCallback(
+    (tabId: 'notifications' | 'chats') => {
+      if (tabId === 'notifications') {
+        return (
+          <NotificationsTab
+            ref={r => {
+              tabRefs.activity = r;
+            }}
+            filterReasons={filterReasons}
+          />
+        );
+      } else if (tabId === 'chats') {
+        return <ChatsTab />;
+      }
+      return null;
+    },
+    [filterReasons]
+  );
   // Tab press handling is now centralized in CustomBottomTabBar - no need for duplicate listener
 
   // Get indicator style using PagerView's scroll progress - matches FeedPager exactly
@@ -227,13 +235,16 @@ const ActivityScreen: React.FC = () => {
         opacity,
       };
     },
-    [activeTab, pages, indicatorScrollProgress, activeIndex]
+    [activeTab, pages, indicatorScrollProgress]
   );
 
   // Handle indicator tap
   const handleIndicatorTap = useCallback((tabId: 'notifications' | 'chats') => {
     setActiveTab(tabId);
   }, []);
+
+  // Use same opacity as notifications indicator
+  const filterButtonOpacity = getIndicatorStyle('notifications').opacity;
 
   return (
     <View style={styles.container}>
@@ -249,29 +260,24 @@ const ActivityScreen: React.FC = () => {
                 onPress={() => handleIndicatorTap(tabId)}
                 style={styles.indicatorItem}
               >
-                <View style={{ position: 'relative', paddingRight: 2, paddingTop: 2 }}>
+                <View style={styles.badgeContainer}>
                   <Text style={getIndicatorStyle(tabId)}>{TAB_LABELS[tabId] || tabId}</Text>
                   {(tabId === 'notifications'
                     ? Number(notificationsCount) > 0
-                    : Number(messagesCount) > 0) && (
-                    <View
-                      style={{
-                        position: 'absolute',
-                        top: 0,
-                        right: 0,
-                        width: 12,
-                        height: 12,
-                        borderRadius: 6,
-                        backgroundColor: Colors.badgeGreen,
-                        borderWidth: 2,
-                        borderColor: Colors.black,
-                      }}
-                    />
-                  )}
+                    : Number(messagesCount) > 0) && <View style={styles.badge} />}
                 </View>
               </Pressable>
             ))}
           </View>
+          {filterButtonOpacity > 0.3 && (
+            <Pressable
+              onPress={() => setShowFilterSheet(true)}
+              style={[styles.filterButton, { opacity: filterButtonOpacity }]}
+              disabled={filterButtonOpacity < 1}
+            >
+              <Text style={styles.filterButtonText}>filter</Text>
+            </Pressable>
+          )}
         </View>
       </View>
 
@@ -281,6 +287,14 @@ const ActivityScreen: React.FC = () => {
         onActiveTabChange={setActiveTab}
         renderTabContent={renderTabContent}
         onScrollProgressChange={setIndicatorScrollProgress}
+      />
+
+      {/* Filter Sheet */}
+      <NotificationFilterSheet
+        visible={showFilterSheet}
+        selectedReasons={filterReasons}
+        onDismiss={() => setShowFilterSheet(false)}
+        onFilterChange={setFilterReasons}
       />
     </View>
   );
@@ -299,22 +313,58 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingBottom: 0,
     paddingTop: 0,
+    zIndex: 1,
   },
   tabSection: {
     marginTop: 0,
-    alignItems: 'flex-start',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
   },
   indicatorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
-    alignSelf: 'flex-start',
     paddingTop: 4,
     paddingBottom: 4,
     minHeight: 48,
+    flex: 1,
   },
   indicatorItem: {
     paddingHorizontal: 4,
+  },
+  filterButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 50,
+    height: 32,
+    backgroundColor: Colors.darkGray,
+    borderRadius: BORDER_RADIUS.MEDIUM,
+  },
+  filterButtonText: {
+    color: Colors.white,
+    fontSize: 16,
+    fontWeight: '600',
+    fontFamily: 'Firma-SemiBold',
+  },
+  badgeContainer: {
+    position: 'relative',
+    paddingRight: 2,
+    paddingTop: 2,
+  },
+  badge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: Colors.badgeGreen,
+    borderWidth: 2,
+    borderColor: Colors.black,
   },
   activityContainer: {
     flex: 1,

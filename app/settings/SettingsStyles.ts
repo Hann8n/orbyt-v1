@@ -15,8 +15,6 @@ export const settingsButtonStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderWidth: 2,
-    borderColor: hexToRGBA(Colors.gray, 0.28),
     overflow: 'hidden',
   },
 
@@ -33,13 +31,13 @@ export const settingsButtonStyles = StyleSheet.create({
     justifyContent: 'space-between',
     overflow: 'hidden',
     borderWidth: 0,
-    borderColor: 'transparent',
+    borderColor: Colors.transparent,
   },
 
   // Action button style (unblock, unmute, etc.)
   actionButton: {
     borderWidth: 0,
-    borderColor: 'transparent',
+    borderColor: Colors.transparent,
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: BORDER_RADIUS.FULL,
@@ -62,8 +60,6 @@ export const settingsButtonStyles = StyleSheet.create({
     backgroundColor: hexToRGBA(Colors.gray, 0.12),
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: hexToRGBA(Colors.gray, 0.28),
   },
 
   // Edit button style
@@ -72,8 +68,6 @@ export const settingsButtonStyles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: BORDER_RADIUS.MEDIUM,
     backgroundColor: Colors.darkGray,
-    borderWidth: 1,
-    borderColor: Colors.mediumGray,
   },
 
   // Category/Sort button style
@@ -83,8 +77,6 @@ export const settingsButtonStyles = StyleSheet.create({
     marginRight: 8,
     borderRadius: BORDER_RADIUS.MEDIUM,
     backgroundColor: Colors.darkGray,
-    borderWidth: 1,
-    borderColor: Colors.gray,
   },
 
   // Category button style (larger)
@@ -94,8 +86,6 @@ export const settingsButtonStyles = StyleSheet.create({
     marginRight: 8,
     borderRadius: BORDER_RADIUS.LARGE,
     backgroundColor: Colors.darkGray,
-    borderWidth: 2,
-    borderColor: Colors.gray,
   },
 
   // Logout button style - matches cancel button pattern
@@ -115,8 +105,6 @@ export const settingsButtonStyles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: Colors.darkGray,
     borderRadius: BORDER_RADIUS.MEDIUM,
-    borderWidth: 1,
-    borderColor: Colors.mediumGray,
     flexShrink: 0,
     width: 180,
     overflow: 'hidden',
@@ -129,8 +117,6 @@ export const settingsButtonStyles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRightWidth: 1,
-    borderRightColor: Colors.mediumGray,
   },
 
   // Card item style (for lists)
@@ -471,15 +457,12 @@ export const settingsLayoutStyles = StyleSheet.create({
 export const settingsActiveStyles = StyleSheet.create({
   // Active filter button
   filterButtonActive: {
-    backgroundColor: Colors.darkGray,
-    borderColor: Colors.lightGray,
-    borderWidth: 2,
+    backgroundColor: Colors.lightGray,
   },
 
   // Active category button
   categoryButtonActive: {
     backgroundColor: Colors.lightGray,
-    borderColor: Colors.white,
   },
 
   // Active category button text
@@ -491,7 +474,6 @@ export const settingsActiveStyles = StyleSheet.create({
   // Active edit button
   editButtonActive: {
     backgroundColor: Colors.darkGray,
-    borderColor: Colors.mediumGray,
   },
 
   // Active edit button text
@@ -502,7 +484,6 @@ export const settingsActiveStyles = StyleSheet.create({
   // Active toggle button
   toggleButtonActive: {
     backgroundColor: Colors.lightGreen,
-    borderRightColor: Colors.lightGreen,
   },
 
   // Disabled button

@@ -264,11 +264,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
             : profileError || "We couldn't retrieve your profile information"}
         </Text>
         <Pressable
-          style={({ pressed }) => [
-            styles.errorButton,
-            { borderColor: profileColors.textColor + '44' },
-            pressed && { opacity: 0.7 },
-          ]}
+          style={({ pressed }) => [styles.errorButton, pressed && { opacity: 0.7 }]}
           onPress={onRefresh}
         >
           <Text style={[styles.errorButtonText, { color: profileColors.textColor || '#fff' }]}>
@@ -280,7 +276,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
             style={({ pressed }) => [
               styles.errorButton,
               styles.secondaryButton,
-              { borderColor: profileColors.textColor + '44' },
               pressed && { opacity: 0.7 },
             ]}
             onPress={() => router.back()}
@@ -831,7 +826,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   headerContainer: {
-    backgroundColor: 'transparent',
+    backgroundColor: Colors.transparent,
   },
   errorContainer: {
     flex: 1,
@@ -863,7 +858,6 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.MEDIUM,
     paddingVertical: 12,
     paddingHorizontal: 20,
-    borderWidth: 1,
     marginTop: 20,
     minWidth: 150,
   },
@@ -884,8 +878,7 @@ const styles = StyleSheet.create({
     zIndex: 9999,
   },
   secondaryButton: {
-    backgroundColor: 'transparent',
-    borderColor: Colors.mediumGray,
+    backgroundColor: Colors.transparent,
   },
   overlayRow: {
     position: 'absolute',
@@ -931,7 +924,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.95)',
+    backgroundColor: Colors.overlayBlack95,
     justifyContent: 'center',
     alignItems: 'center',
   },

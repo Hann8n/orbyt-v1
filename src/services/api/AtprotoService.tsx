@@ -25,6 +25,7 @@ import type {
   ProfileSearchResponse,
   BookmarksResponse,
   NotificationsResponse,
+  NotificationReason,
   FollowersResponse,
   FollowingResponse,
   UploadLimitsResponse,
@@ -78,10 +79,7 @@ class AtprotoService {
    * Deduplicate API requests to prevent multiple identical calls
    * Made public so namespace services can access it if needed
    */
-  static async deduplicateRequest<T extends unknown>(
-    key: string,
-    requestFn: () => Promise<T>
-  ): Promise<T> {
+  static async deduplicateRequest<T>(key: string, requestFn: () => Promise<T>): Promise<T> {
     const now = Date.now();
 
     // Check if we have a recent identical request
@@ -495,7 +493,7 @@ class AtprotoService {
         comments,
         cursor: (response.data as { cursor?: string | null }).cursor ?? null,
       };
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       return { comments: [], cursor: null };
     }
   }
@@ -523,7 +521,7 @@ class AtprotoService {
         likes: response.data.likes || [],
         cursor: response.data.cursor || null,
       };
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       return { likes: [], cursor: null };
     }
   }
@@ -636,7 +634,7 @@ class AtprotoService {
         return thread.post;
       }
       return null;
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       return null;
     }
   }
@@ -698,7 +696,7 @@ class AtprotoService {
           result.set(post.uri, post);
         }
       }
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       // ignore errors
     }
 
@@ -829,7 +827,7 @@ class AtprotoService {
       }
 
       return null;
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       return null;
     }
   }
@@ -838,23 +836,23 @@ class AtprotoService {
    * Remove stored video feedback for a post
    */
   static async removeVideoFeedback(postUri: string): Promise<void> {
-    try {
-      const feedbackKey = `video_feedback_${postUri}`;
-      await storageHelpers.removeItem(feedbackKey);
-    } catch (error: unknown) {
-      throw error;
-    }
+    const feedbackKey = `video_feedback_${postUri}`;
+    await storageHelpers.removeItem(feedbackKey);
   }
 
   /**
    * List notifications for the current user
    * Delegates to NotificationService
+   * @param cursor - Pagination cursor
+   * @param limit - Number of notifications to fetch
+   * @param reasons - Optional array of notification reasons to filter (server-side)
    */
   static async listNotifications(
     cursor: string | null = null,
-    limit = 50
+    limit = 50,
+    reasons?: NotificationReason[]
   ): Promise<NotificationsResponse> {
-    return NotificationService.listNotifications(cursor, limit);
+    return NotificationService.listNotifications(cursor, limit, reasons);
   }
 
   /**
@@ -907,7 +905,7 @@ class AtprotoService {
       });
 
       return true;
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       return false;
     }
   }
@@ -981,7 +979,7 @@ class AtprotoService {
       });
 
       return true;
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       return false;
     }
   }
@@ -1129,7 +1127,7 @@ class AtprotoService {
       });
 
       return processedFeeds;
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       return [];
     }
   }
@@ -1176,7 +1174,7 @@ class AtprotoService {
       });
 
       return processedFeeds;
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       return [];
     }
   }
@@ -1200,9 +1198,8 @@ class AtprotoService {
       const response = await api.app.bsky.feed.getFeedGenerator(params);
 
       return response.data as FeedGeneratorOutput;
-    } catch (error: unknown) {
-      if (error instanceof Error && error.message?.includes('feed must be a valid at-uri')) {
-      }
+    } catch (_error: unknown) {
+      // Invalid feed URI - return null
       return null;
     }
   }
@@ -1316,7 +1313,7 @@ class AtprotoService {
         videos,
         cursor: response?.data?.cursor ?? null,
       };
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       return { videos: [], cursor: null };
     }
   }
@@ -1428,7 +1425,7 @@ class AtprotoService {
         videos,
         cursor: response?.data?.cursor ?? null,
       };
-    } catch (error) {
+    } catch (_error) {
       return { videos: [], cursor: null };
     }
   }

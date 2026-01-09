@@ -5,18 +5,25 @@
 
 import { logger } from '../../../utils/logger';
 import { AtprotoCore } from '../core';
-import type { NotificationsResponse, PutActivitySubscriptionOutput, ProfileView } from '../types';
+import type {
+  NotificationsResponse,
+  NotificationReason,
+  PutActivitySubscriptionOutput,
+  ProfileView,
+} from '../types';
 
 export class NotificationService {
   /**
    * List notifications for the current user
    * @param cursor - Pagination cursor
    * @param limit - Number of notifications to fetch
+   * @param reasons - Optional array of notification reasons to filter (server-side)
    * @returns Promise with notifications data
    */
   static async listNotifications(
     cursor: string | null = null,
-    limit = 50
+    limit = 50,
+    reasons?: NotificationReason[]
   ): Promise<NotificationsResponse> {
     await AtprotoCore.ensureSession();
     try {
@@ -35,11 +42,15 @@ export class NotificationService {
         throw new Error('Invalid API client');
       }
 
-      const params: { cursor?: string; limit: number } = {
+      const params: { cursor?: string; limit: number; reasons?: string[] } = {
         limit,
       };
       if (cursor !== null) {
         params.cursor = cursor;
+      }
+      if (reasons && reasons.length > 0) {
+        // NotificationReason is a subset of string, so this cast is safe
+        params.reasons = reasons as string[];
       }
 
       const response = await api.app.bsky.notification.listNotifications(params);
@@ -78,7 +89,7 @@ export class NotificationService {
       await api.app.bsky.notification.updateSeen({
         seenAt: new Date().toISOString(),
       });
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       // Non-critical operation, fail silently
     }
   }

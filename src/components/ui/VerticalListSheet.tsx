@@ -51,6 +51,10 @@ interface VerticalListSheetProps {
    * Custom bottom padding for content (overrides default calculation)
    */
   contentBottomPadding?: number;
+  /**
+   * Custom footer component (replaces default cancel button)
+   */
+  customFooter?: React.ReactNode;
 }
 
 const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
@@ -69,24 +73,21 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
   footerTopPadding,
   scrollable = true,
   contentBottomPadding,
+  customFooter,
 }) => {
   const bottomSheetRef = useRef<TrueSheet>(null);
   const insets = useSafeAreaInsets();
 
-  // Calculate footer height as constant based on structure:
-  // cancelContainer paddingTop (footerTopPadding ?? 8) + button minHeight (44px)
-  const footerHeight = showCancelButton ? (footerTopPadding ?? 8) + 44 : 0;
+  // Calculate footer height for minimal content padding
+  // Footer handles its own safe area padding, so we only need footer height
+  const hasFooter = showCancelButton || customFooter;
+  const footerHeight = hasFooter ? (footerTopPadding ?? 8) + 44 : 0;
 
-  // Content padding accounts for footer height to prevent content from being hidden
-  // For sheets with cancel button: use calculated footer height
-  // For sheets without cancel button: use safe area bottom + small padding
-  // Or use custom padding if provided
+  // Content padding - minimal padding to avoid footer overlap
+  // TrueSheet handles spacing, but we add minimal padding for footer height
+  // Components can opt-out with contentBottomPadding={0} if they handle their own padding
   const contentPaddingBottom =
-    contentBottomPadding !== undefined
-      ? contentBottomPadding
-      : showCancelButton
-        ? footerHeight
-        : insets.bottom + 12;
+    contentBottomPadding !== undefined ? contentBottomPadding : hasFooter ? footerHeight : 0;
 
   // Handle bottom sheet visibility
   useEffect(() => {
@@ -151,14 +152,13 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
       scrollable={scrollable}
       header={headerComponent}
       footer={
-        showCancelButton ? (
-          <View style={{ backgroundColor: Colors.black, paddingBottom: insets.bottom }}>
-            <View
-              style={[
-                styles.cancelContainer,
-                { backgroundColor: Colors.black, paddingTop: footerTopPadding ?? 8 },
-              ]}
-            >
+        customFooter ? (
+          <View style={[styles.footerContainer, { paddingBottom: insets.bottom }]}>
+            {customFooter}
+          </View>
+        ) : showCancelButton ? (
+          <View style={[styles.footerContainer, { paddingBottom: insets.bottom }]}>
+            <View style={[styles.cancelContainer, { paddingTop: footerTopPadding ?? 8 }]}>
               <CancelButton onPress={onDismiss} text={cancelButtonText} />
             </View>
           </View>
@@ -221,67 +221,12 @@ const styles = StyleSheet.create({
   contentContainer: {
     flex: 1,
   },
+  footerContainer: {
+    backgroundColor: Colors.black,
+  },
   cancelContainer: {
     alignItems: 'center',
     paddingTop: 8,
-  },
-  listButton: {
-    borderRadius: BORDER_RADIUS.LARGE,
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    marginHorizontal: 12,
-    marginBottom: 12,
-    backgroundColor: Colors.darkGray,
-    overflow: 'hidden',
-    borderWidth: 0,
-    borderColor: 'transparent',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  listButtonDanger: {
-    backgroundColor: Colors.red,
-    borderColor: 'transparent',
-    borderWidth: 0,
-  },
-  listButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  listButtonText: {
-    color: Colors.white,
-    fontFamily: 'Firma-SemiBold',
-    fontSize: 18,
-  },
-  listButtonTextDanger: {
-    color: Colors.black,
-  },
-  checkboxButtonRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    marginHorizontal: 12,
-    marginBottom: 12,
-    backgroundColor: Colors.darkGray,
-    borderRadius: BORDER_RADIUS.LARGE,
-  },
-  checkboxButtonContent: {
-    flex: 1,
-    marginRight: 16,
-  },
-  checkboxButtonLabel: {
-    color: Colors.lightGray,
-    fontSize: 18,
-    fontFamily: 'Firma-SemiBold',
-  },
-  checkboxButtonDescription: {
-    color: Colors.lightGray,
-    fontSize: 14,
-    fontFamily: 'Firma-Regular',
-    marginTop: 4,
   },
   checkboxButtonCheckbox: {
     width: 22,
@@ -295,6 +240,9 @@ const styles = StyleSheet.create({
   checkboxButtonCheckboxSelected: {
     backgroundColor: Colors.white,
     borderColor: Colors.white,
+  },
+  listButtonMargin: {
+    marginHorizontal: 12,
   },
 });
 
@@ -319,7 +267,7 @@ export const VerticalListButton: React.FC<{
       disabled={disabled}
       destructive={danger}
       rightIcon={rightIcon}
-      style={[{ marginHorizontal: 12 }, style]}
+      style={[styles.listButtonMargin, style]}
       textStyle={textStyle}
     />
   );
@@ -347,7 +295,7 @@ export const VerticalListCheckboxButton: React.FC<{
           {checked && <Icon name="checkmark" size={16} color={Colors.black} />}
         </View>
       }
-      style={[{ marginHorizontal: 12 }, style]}
+      style={[styles.listButtonMargin, style]}
     />
   );
 };

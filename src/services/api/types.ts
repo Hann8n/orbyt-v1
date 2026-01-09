@@ -87,7 +87,7 @@ import type { BookmarkView } from '@atproto/api/dist/client/types/app/bsky/bookm
 // ============================================================================
 // Notification namespace types (app.bsky.notification.*)
 // ============================================================================
-import type { OutputSchema as ListNotificationsOutput } from '@atproto/api/dist/client/types/app/bsky/notification/listNotifications';
+import type { Notification } from '@atproto/api/dist/client/types/app/bsky/notification/listNotifications';
 import type { OutputSchema as PutActivitySubscriptionOutput } from '@atproto/api/dist/client/types/app/bsky/notification/putActivitySubscription';
 
 // ============================================================================
@@ -108,7 +108,23 @@ import type {
 // Type aliases for cleaner usage (following React Native TypeScript best practices)
 // ============================================================================
 type Like = GetLikesOutput['likes'][number];
-type Notification = ListNotificationsOutput['notifications'][number];
+
+// Extract notification reason type from Notification (excluding string fallback)
+export type NotificationReason = Extract<
+  Notification['reason'],
+  | 'like'
+  | 'repost'
+  | 'follow'
+  | 'mention'
+  | 'reply'
+  | 'quote'
+  | 'starterpack-joined'
+  | 'verified'
+  | 'unverified'
+  | 'like-via-repost'
+  | 'repost-via-repost'
+  | 'subscribed-post'
+>;
 
 // Re-export commonly used SDK types
 export type {

@@ -1,6 +1,14 @@
 import React, { memo, useCallback, useMemo, useRef } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import { View, StyleSheet, Pressable, Text } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  Pressable,
+  Text,
+  ViewStyle,
+  TextStyle,
+  TextLayoutEventData,
+} from 'react-native';
 import { ImageBackground } from 'expo-image';
 import Animated, {
   type SharedValue,
@@ -80,8 +88,8 @@ export interface UniversalHeaderProps {
   isLoading?: boolean;
   skeleton?: React.ReactNode;
   children?: React.ReactNode;
-  style?: any;
-  contentStyle?: any;
+  style?: ViewStyle;
+  contentStyle?: ViewStyle;
   applySafeArea?: boolean;
   showShadowGradient?: boolean;
   minHeight?: number;
@@ -111,15 +119,6 @@ const ActionButton = memo<{
 
   const getButtonStyle = useCallback(
     (pressed: boolean = false, frozenValue: boolean | null = null) => {
-      const label = (action.label || '').toLowerCase();
-      const isEdit = action.id === 'edit' || label.includes('edit');
-      const isFollowButton =
-        action.id === 'follow' ||
-        label === 'follow' ||
-        label === 'following' ||
-        label === 'mutuals';
-      const isSubscribeButton = action.id === 'subscription';
-
       // Use frozen value if provided (during press), otherwise use current value
       const baselineFilled = frozenValue !== null ? frozenValue : hasFilledBackground;
       // When pressed, show opposite state by inverting baseline; when not pressed, use current value
@@ -127,9 +126,7 @@ const ActionButton = memo<{
 
       const baseStyle = {
         backgroundColor: showFilledState ? textColor : hexToRGBA(textColor, 0.2),
-        borderColor: showFilledState ? textColor : hexToRGBA(textColor, 0.3),
         opacity: action.disabled ? 0.4 : 1,
-        ...((isEdit || isFollowButton || isSubscribeButton) && { borderWidth: 0 }),
       };
 
       switch (action.variant) {
@@ -141,22 +138,13 @@ const ActionButton = memo<{
         case 'secondary':
           return {
             backgroundColor: 'transparent',
-            borderColor: 'transparent',
             opacity: action.disabled ? 0.4 : 1,
           };
         default:
           return baseStyle;
       }
     },
-    [
-      action.variant,
-      action.disabled,
-      textColor,
-      backgroundColor,
-      action.label,
-      action.id,
-      hasFilledBackground,
-    ]
+    [action.variant, action.disabled, textColor, hasFilledBackground]
   );
 
   const getContentColor = useCallback(
@@ -217,28 +205,19 @@ const ActionButton = memo<{
       }
 
       if (action.label) {
+        const textStyle =
+          action.variant === 'secondary' || action.id === 'save'
+            ? styles.actionTextBold
+            : styles.actionText;
         return (
           <View style={styles.actionContent} pointerEvents="none">
-            <Text
-              style={[
-                styles.actionText,
-                {
-                  color: contentColor,
-                  fontFamily:
-                    action.variant === 'secondary' || action.id === 'save'
-                      ? 'Firma-Bold'
-                      : 'Firma-SemiBold',
-                },
-              ]}
-            >
-              {action.label}
-            </Text>
+            <Text style={[textStyle, { color: contentColor }]}>{action.label}</Text>
             {action.customIcon ? (
               React.isValidElement(action.customIcon) &&
               action.customIcon.props &&
               typeof action.customIcon.props === 'object' &&
               'color' in action.customIcon.props ? (
-                React.cloneElement(action.customIcon as React.ReactElement<any>, {
+                React.cloneElement(action.customIcon as React.ReactElement<{ color?: string }>, {
                   color: contentColor,
                 })
               ) : (
@@ -259,7 +238,7 @@ const ActionButton = memo<{
             action.customIcon.props &&
             typeof action.customIcon.props === 'object' &&
             'color' in action.customIcon.props ? (
-              React.cloneElement(action.customIcon as React.ReactElement<any>, {
+              React.cloneElement(action.customIcon as React.ReactElement<{ color?: string }>, {
                 color: contentColor,
               })
             ) : (
@@ -300,6 +279,7 @@ const ActionButton = memo<{
     </Pressable>
   );
 });
+ActionButton.displayName = 'ActionButton';
 
 // Re-exported for use in overlay layouts (e.g., profile screen) to keep visuals 1:1
 export const HeaderActionButton = ActionButton;
@@ -375,21 +355,21 @@ const CustomActionLayoutComponent = memo<{
     </View>
   );
 });
+CustomActionLayoutComponent.displayName = 'CustomActionLayoutComponent';
 
 // Inline title that places badges exactly at the end of the last line
 const InlineTitleWithBadges: React.FC<{
   title: string;
-  titleStyle: any;
+  titleStyle: TextStyle;
   badges?: React.ReactNode[];
 }> = ({ title, titleStyle, badges = [] }) => {
   const [lines, setLines] = React.useState<
     Array<{ x: number; y: number; width: number; height: number }>
   >([]);
 
-  const handleTextLayout = useCallback((e: any) => {
+  const handleTextLayout = useCallback((e: { nativeEvent: TextLayoutEventData }) => {
     const l = e?.nativeEvent?.lines || [];
-    if (l.length)
-      setLines(l.map((ln: any) => ({ x: ln.x, y: ln.y, width: ln.width, height: ln.height })));
+    if (l.length) setLines(l.map(ln => ({ x: ln.x, y: ln.y, width: ln.width, height: ln.height })));
   }, []);
 
   const last = lines.length ? lines[lines.length - 1] : null;
@@ -407,10 +387,11 @@ const InlineTitleWithBadges: React.FC<{
           pointerEvents="box-none"
           style={[
             styles.inlineBadgesContainer,
-            { left: badgeLeft, top: badgeTop, height: last.height, justifyContent: 'center' },
+            styles.inlineBadgesContainerCentered,
+            { left: badgeLeft, top: badgeTop, height: last.height },
           ]}
         >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 0 }}>
+          <View style={styles.inlineBadgesRow}>
             {badges.map((node, idx) => (
               <React.Fragment key={`badge-${idx}`}>{node}</React.Fragment>
             ))}
@@ -488,14 +469,14 @@ const HeaderContentComponent = memo<{
       <View
         style={[
           styles.textContainer,
-          !customDescription && !content.description && { marginBottom: 0 },
+          !customDescription && !content.description && styles.textContainerNoMargin,
         ]}
       >
         <Pressable style={styles.titleRow} onPress={content.onTitlePress}>
           {content.customTitle ? (
             <View style={styles.titleRow}>
               {content.customTitle}
-              {content.badge && <View style={{ marginLeft: 6 }}>{content.badge}</View>}
+              {content.badge && <View style={styles.badgeMargin}>{content.badge}</View>}
             </View>
           ) : (
             <InlineTitleWithBadges
@@ -514,7 +495,7 @@ const HeaderContentComponent = memo<{
 
             return (
               <Pressable style={styles.subtitleRow} onPress={content.onTitlePress}>
-                <View style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                <View style={styles.subtitleColumn}>
                   <Text style={[styles.subtitle, { color: textColor }]} numberOfLines={1}>
                     {subtitleBase}
                     {subtitleSuffix && (
@@ -589,6 +570,7 @@ const HeaderContentComponent = memo<{
     </View>
   );
 });
+HeaderContentComponent.displayName = 'HeaderContentComponent';
 
 // Main universal header component
 const UniversalHeader: React.FC<UniversalHeaderProps> = ({
@@ -713,7 +695,8 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
           child.type &&
           typeof child.type === 'function' &&
           (child.type.name === 'TextWithLinks' ||
-            (child.props as any)?.style?.fontFamily === 'Firma-Regular')
+            (child.props as { style?: { fontFamily?: string } })?.style?.fontFamily ===
+              'Firma-Regular')
       );
     }
 
@@ -723,7 +706,8 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
       children.type &&
       typeof children.type === 'function' &&
       (children.type.name === 'TextWithLinks' ||
-        (children.props as any)?.style?.fontFamily === 'Firma-Regular')
+        (children.props as { style?: { fontFamily?: string } })?.style?.fontFamily ===
+          'Firma-Regular')
     ) {
       return children;
     }
@@ -742,7 +726,8 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
           !child.type ||
           typeof child.type !== 'function' ||
           (child.type.name !== 'TextWithLinks' &&
-            (child.props as any)?.style?.fontFamily !== 'Firma-Regular')
+            (child.props as { style?: { fontFamily?: string } })?.style?.fontFamily !==
+              'Firma-Regular')
       );
     }
 
@@ -751,7 +736,8 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
       children.type &&
       typeof children.type === 'function' &&
       (children.type.name === 'TextWithLinks' ||
-        (children.props as any)?.style?.fontFamily === 'Firma-Regular')
+        (children.props as { style?: { fontFamily?: string } })?.style?.fontFamily ===
+          'Firma-Regular')
     ) {
       return null;
     }
@@ -861,7 +847,7 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     position: 'relative',
     width: '100%',
-    backgroundColor: 'transparent',
+    backgroundColor: Colors.transparent,
     minHeight: 120,
     overflow: 'visible',
     flexDirection: 'column',
@@ -900,7 +886,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
     shadowColor: Colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -922,20 +907,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 17,
   },
-  glassContainer: {
-    borderRadius: BORDER_RADIUS.FULL,
-    justifyContent: 'center',
-    alignItems: 'center',
+  actionTextBold: {
+    fontFamily: 'Firma-Bold',
+    textAlign: 'center',
+    fontSize: 17,
   },
-  glassTouchable: {
-    borderRadius: BORDER_RADIUS.FULL,
-    flexDirection: 'row',
-    alignItems: 'center',
+  inlineBadgesContainerCentered: {
     justifyContent: 'center',
-    borderWidth: 0,
-    borderColor: 'transparent',
-    width: '100%',
-    height: '100%',
   },
   customActionsLayout: {
     flexDirection: 'row',
@@ -987,14 +965,6 @@ const styles = StyleSheet.create({
   avatarRoundedSquare: {
     borderRadius: BORDER_RADIUS.LARGE,
   },
-  avatarImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: BORDER_RADIUS.FULL,
-  },
-  avatarImageRoundedSquare: {
-    borderRadius: BORDER_RADIUS.LARGE,
-  },
   textContainer: {
     width: '100%',
     alignSelf: 'flex-start',
@@ -1013,14 +983,26 @@ const styles = StyleSheet.create({
   inlineBadgesContainer: {
     position: 'absolute',
   },
+  inlineBadgesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 0,
+  },
+  badgeMargin: {
+    marginLeft: 6,
+  },
+  textContainerNoMargin: {
+    marginBottom: 0,
+  },
+  subtitleColumn: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+  },
   subtitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     alignSelf: 'flex-start',
-  },
-  chevronContainer: {
-    marginLeft: 4,
   },
   title: {
     fontFamily: 'Firma-Black',

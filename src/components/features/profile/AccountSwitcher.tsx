@@ -323,13 +323,13 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
               >
                 <View style={styles.buttonContent}>
                   {isAuthenticating ? (
-                    <Loading3FillIcon size={24} color={Colors.white} style={{ marginRight: 8 }} />
+                    <Loading3FillIcon size={24} color={Colors.white} style={styles.iconSpacing} />
                   ) : (
                     <Icon
                       name="bluesky-icon"
                       size={20}
                       color={Colors.bluesky}
-                      style={{ marginRight: 8 }}
+                      style={styles.iconSpacing}
                     />
                   )}
                   <Text style={styles.addAccountButtonText}>
@@ -344,7 +344,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
                 disabled={isAuthenticating}
               >
                 <View style={styles.buttonContent}>
-                  <Icon name="at" size={20} color={Colors.white} style={{ marginRight: 8 }} />
+                  <Icon name="at" size={20} color={Colors.white} style={styles.iconSpacing} />
                   <Text style={styles.addAccountButtonText}>Network</Text>
                 </View>
               </Pressable>
@@ -424,7 +424,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
         disabled={isSwitchingAccount || isAuthenticating}
         style={[
           styles.headerEditButton,
-          (isSwitchingAccount || isAuthenticating) && { opacity: 0.5 },
+          (isSwitchingAccount || isAuthenticating) && styles.headerEditButtonDisabled,
         ]}
       >
         <Text style={styles.headerEditButtonText}>{editMode ? 'Done' : 'Edit'}</Text>
@@ -469,34 +469,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 50,
+    height: 32,
+    backgroundColor: Colors.darkGray,
+    borderRadius: BORDER_RADIUS.MEDIUM,
   },
   headerEditButtonText: {
-    color: Colors.lightGray,
+    color: Colors.white,
     fontSize: 16,
     fontWeight: '600',
     fontFamily: 'Firma-SemiBold',
-  },
-  loadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingVertical: 8,
-  },
-  loadingText: {
-    color: Colors.white,
-    fontSize: 16,
-    fontFamily: 'Firma-Medium',
-    marginLeft: 12,
-    lineHeight: 18,
-    includeFontPadding: false,
-  },
-  loadingAccountName: {
-    color: Colors.white,
-    fontFamily: 'Firma-Bold',
-    fontWeight: 'bold',
-    lineHeight: 18,
-    includeFontPadding: false,
   },
   listContent: {
     paddingHorizontal: 12,
@@ -533,19 +514,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     overflow: 'hidden',
     borderWidth: 0,
-    borderColor: 'transparent',
+    borderColor: Colors.transparent,
   },
   addAccountButtonHalf: {
     flex: 1,
     marginBottom: 0,
   },
-  addAccountIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: BORDER_RADIUS.MEDIUM,
-    backgroundColor: Colors.lightGray,
-    justifyContent: 'center',
-    alignItems: 'center',
+  iconSpacing: {
+    marginRight: 8,
+  },
+  headerEditButtonDisabled: {
+    opacity: 0.5,
   },
   buttonContent: {
     flexDirection: 'row',

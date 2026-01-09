@@ -89,9 +89,11 @@ export const Colors = {
   // Overlay Colors
   overlayBlack50: 'rgba(0, 0, 0, 0.5)',
   overlayBlack60: 'rgba(0, 0, 0, 0.6)',
+  overlayBlack95: 'rgba(0, 0, 0, 0.95)',
   overlayWhite10: 'rgba(255, 255, 255, 0.1)',
   overlayWhite30: 'rgba(255, 255, 255, 0.3)',
   overlayWhite80: 'rgba(255, 255, 255, 0.8)',
+  transparent: 'transparent',
 
   // Legacy alias blocks removed. Use direct colors from this object instead.
 
@@ -174,7 +176,6 @@ export const Button: React.FC<ButtonProps> = ({
       alignItems: 'center',
       justifyContent: 'center',
       borderRadius: BORDER_RADIUS.MEDIUM,
-      borderWidth: 1,
     };
 
     const sizeStyles: Record<ButtonSize, ViewStyle> = {
@@ -186,27 +187,21 @@ export const Button: React.FC<ButtonProps> = ({
     const variantStyles: Record<ButtonVariant, ViewStyle> = {
       primary: {
         backgroundColor: Colors.lightGray,
-        borderColor: Colors.lightGray,
       },
       secondary: {
         backgroundColor: Colors.mediumGray,
-        borderColor: Colors.gray,
       },
       outline: {
         backgroundColor: 'transparent',
-        borderColor: Colors.lightGray,
       },
       ghost: {
         backgroundColor: 'transparent',
-        borderColor: 'transparent',
       },
       danger: {
         backgroundColor: Colors.red,
-        borderColor: Colors.red,
       },
       success: {
         backgroundColor: Colors.green,
-        borderColor: Colors.green,
       },
     };
 
@@ -257,23 +252,23 @@ export const Button: React.FC<ButtonProps> = ({
         <>
           <Text style={[getTextStyle(), textStyle]}>{title}</Text>
           {icon && iconPosition === 'left' && (
-            <React.Suspense fallback={<View style={{ width: 16, height: 16 }} />}>
+            <React.Suspense fallback={<View style={styles.iconFallback} />}>
               <Icon
                 name={icon}
                 size={16}
                 color={getTextStyle().color as string}
-                style={{ marginLeft: 8 }}
+                style={styles.iconMargin}
                 strokeWidth={2.5}
               />
             </React.Suspense>
           )}
           {icon && iconPosition === 'right' && (
-            <React.Suspense fallback={<View style={{ width: 16, height: 16 }} />}>
+            <React.Suspense fallback={<View style={styles.iconFallback} />}>
               <Icon
                 name={icon}
                 size={16}
                 color={getTextStyle().color as string}
-                style={{ marginLeft: 8 }}
+                style={styles.iconMargin}
                 strokeWidth={2.5}
               />
             </React.Suspense>
@@ -436,13 +431,22 @@ export const Avatar: React.FC<AvatarProps> = ({
     height: size,
     borderRadius,
     borderWidth: shouldShowRing ? ringWidth : 0,
-    borderColor: shouldShowRing ? finalRingColor : 'transparent',
+    borderColor: shouldShowRing ? finalRingColor : Colors.transparent,
     padding: separation,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: shouldShowRing ? Colors.black : 'transparent',
+    backgroundColor: shouldShowRing ? Colors.black : Colors.transparent,
     overflow: 'visible', // Changed to 'visible' to allow LIVE badge to show
   };
+
+  // Style for fallback icon container with profile colors
+  const fallbackContainerStyle: ViewStyle = React.useMemo(
+    () => ({
+      ...containerStyle,
+      backgroundColor: profileColors?.backgroundColor || Colors.darkGray,
+    }),
+    [containerStyle, profileColors?.backgroundColor]
+  );
 
   // LIVE badge style - stepped scaling for consistent appearance at all sizes
   const calculateLiveBadgeDimensions = (avatarSize: number) => {
@@ -612,25 +616,16 @@ export const Avatar: React.FC<AvatarProps> = ({
     const { default: Icon } = require('./Icon');
     return (
       <View style={[{ width: size, height: size }, styleSanitized]}>
-        <View
-          style={[
-            containerStyle,
-            {
-              backgroundColor: profileColors?.backgroundColor || Colors.darkGray,
-              borderWidth: shouldShowRing ? ringWidth : 0, // Keep border if live
-              borderColor: shouldShowRing ? finalRingColor : 'transparent',
-              padding: separation,
-            },
-          ]}
-        >
+        <View style={fallbackContainerStyle}>
           <View
-            style={{
-              width: innerSize,
-              height: innerSize,
-              borderRadius: innerBorderRadius,
-              justifyContent: 'center',
-              alignItems: 'center',
-            }}
+            style={[
+              {
+                width: innerSize,
+                height: innerSize,
+                borderRadius: innerBorderRadius,
+              },
+              styles.centerContent,
+            ]}
           >
             <Icon name={fallbackIcon} size={iconSize} color={fallbackIconColor} />
           </View>
@@ -689,14 +684,8 @@ export const Card: React.FC<CardProps> = ({
           borderRadius: BORDER_RADIUS.MEDIUM,
           padding,
           margin,
-          borderWidth: 1,
-          borderColor: Colors.gray,
-          shadowColor: Colors.lightGray,
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 8,
-          elevation: 3,
         },
+        styles.cardBorder,
         style,
       ]}
     >
@@ -751,7 +740,7 @@ export const Modal: React.FC<ModalProps> = ({
                     title={action.label}
                     onPress={action.onPress}
                     variant={action.variant || 'primary'}
-                    style={index > 0 ? { marginLeft: 8 } : undefined}
+                    style={index > 0 ? styles.modalActionMargin : undefined}
                   />
                 ))}
               </View>
@@ -782,75 +771,75 @@ interface InputProps {
   nativeID?: string;
 }
 
-export const Input: React.FC<InputProps> = React.memo(
-  ({
-    value,
-    onChangeText,
-    placeholder,
-    secureTextEntry = false,
-    keyboardType = 'default',
-    autoCapitalize = 'sentences',
-    autoCorrect = true,
-    multiline = false,
-    numberOfLines = 1,
-    style,
-    textStyle,
-    error,
-    icon,
-    onIconPress,
-    nativeID,
-  }) => {
-    // Determine textContentType and autoComplete based on keyboardType
-    const textContentType = secureTextEntry
-      ? 'password'
-      : keyboardType === 'email-address'
-        ? 'emailAddress'
-        : keyboardType === 'phone-pad'
-          ? 'telephoneNumber'
-          : 'none';
+const InputComponent: React.FC<InputProps> = ({
+  value,
+  onChangeText,
+  placeholder,
+  secureTextEntry = false,
+  keyboardType = 'default',
+  autoCapitalize = 'sentences',
+  autoCorrect = true,
+  multiline = false,
+  numberOfLines = 1,
+  style,
+  textStyle,
+  error,
+  icon,
+  onIconPress,
+  nativeID,
+}) => {
+  // Determine textContentType and autoComplete based on keyboardType
+  const textContentType = secureTextEntry
+    ? 'password'
+    : keyboardType === 'email-address'
+      ? 'emailAddress'
+      : keyboardType === 'phone-pad'
+        ? 'telephoneNumber'
+        : 'none';
 
-    const autoComplete = secureTextEntry
-      ? 'password'
-      : keyboardType === 'email-address'
-        ? 'email'
-        : keyboardType === 'phone-pad'
-          ? 'tel'
-          : 'off';
+  const autoComplete = secureTextEntry
+    ? 'password'
+    : keyboardType === 'email-address'
+      ? 'email'
+      : keyboardType === 'phone-pad'
+        ? 'tel'
+        : 'off';
 
-    return (
-      <View style={[styles.inputContainer, style]}>
-        <View style={styles.inputWrapper}>
-          {icon && (
-            <Pressable style={styles.inputIcon} onPress={onIconPress} disabled={!onIconPress}>
-              <React.Suspense fallback={<View style={{ width: 20, height: 20 }} />}>
-                <Icon name={icon} size={20} color={Colors.gray} />
-              </React.Suspense>
-            </Pressable>
-          )}
-          <TextInput
-            nativeID={nativeID}
-            style={[styles.input, textStyle, icon && styles.inputWithIcon]}
-            value={value}
-            onChangeText={onChangeText}
-            placeholder={placeholder}
-            placeholderTextColor={Colors.lightGray}
-            secureTextEntry={secureTextEntry}
-            keyboardType={keyboardType}
-            autoCapitalize={autoCapitalize}
-            autoCorrect={autoCorrect}
-            autoComplete={autoComplete}
-            textContentType={textContentType}
-            importantForAutofill="yes"
-            multiline={multiline}
-            numberOfLines={numberOfLines}
-            caretHidden={false}
-          />
-        </View>
-        {error && <Text style={styles.inputError}>{error}</Text>}
+  return (
+    <View style={[styles.inputContainer, style]}>
+      <View style={styles.inputWrapper}>
+        {icon && (
+          <Pressable style={styles.inputIcon} onPress={onIconPress} disabled={!onIconPress}>
+            <React.Suspense fallback={<View style={styles.iconFallbackLarge} />}>
+              <Icon name={icon} size={20} color={Colors.gray} />
+            </React.Suspense>
+          </Pressable>
+        )}
+        <TextInput
+          nativeID={nativeID}
+          style={[styles.input, textStyle, icon && styles.inputWithIcon]}
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor={Colors.lightGray}
+          secureTextEntry={secureTextEntry}
+          keyboardType={keyboardType}
+          autoCapitalize={autoCapitalize}
+          autoCorrect={autoCorrect}
+          autoComplete={autoComplete}
+          textContentType={textContentType}
+          importantForAutofill="yes"
+          multiline={multiline}
+          numberOfLines={numberOfLines}
+          caretHidden={false}
+        />
       </View>
-    );
-  }
-);
+      {error && <Text style={styles.inputError}>{error}</Text>}
+    </View>
+  );
+};
+InputComponent.displayName = 'Input';
+export const Input = React.memo(InputComponent);
 
 // Loading Component
 interface LoadingProps {
@@ -1051,65 +1040,32 @@ const styles = StyleSheet.create({
     fontFamily: 'Firma-Medium',
     marginTop: 12,
   },
-});
-
-// ============================================================================
-// COMMON STYLE UTILITIES
-// ============================================================================
-
-/**
- * Common style patterns to avoid duplication across components
- */
-export const CommonStyles = StyleSheet.create({
-  // Position utilities
-  absoluteFill: StyleSheet.absoluteFillObject,
-  absolute: {
-    position: 'absolute',
+  iconFallback: {
+    width: 16,
+    height: 16,
   },
-
-  // Flex utilities
-  flexRow: {
-    flexDirection: 'row',
+  iconFallbackLarge: {
+    width: 20,
+    height: 20,
   },
-  flexColumn: {
-    flexDirection: 'column',
+  iconMargin: {
+    marginLeft: 8,
   },
-  flexCenter: {
+  centerContent: {
     justifyContent: 'center',
     alignItems: 'center',
   },
-  flex1: {
-    flex: 1,
+  cardBorder: {
+    borderWidth: 1,
+    borderColor: Colors.gray,
+    shadowColor: Colors.lightGray,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
-
-  // Overlay utilities
-  overlayDark: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: Colors.overlayBlack50,
-  },
-  overlayLight: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: Colors.overlayWhite10,
-  },
-
-  // Common spacing
-  padding: {
-    padding: 16,
-  },
-  paddingHorizontal: {
-    paddingHorizontal: 16,
-  },
-  paddingVertical: {
-    paddingVertical: 16,
-  },
-  margin: {
-    margin: 16,
-  },
-  marginHorizontal: {
-    marginHorizontal: 16,
-  },
-  marginVertical: {
-    marginVertical: 16,
+  modalActionMargin: {
+    marginLeft: 8,
   },
 });
 
@@ -1128,7 +1084,6 @@ export default {
   Divider,
   Badge,
   Avatar,
-  CommonStyles,
   hexToRGBA,
   isColorDark,
   getContrastRatio,

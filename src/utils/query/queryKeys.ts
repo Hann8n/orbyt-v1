@@ -127,9 +127,12 @@ export const queryKeys = {
     all: ['notifications'] as const,
     count: () => [...queryKeys.notifications.all, 'count'] as const,
     lists: () => [...queryKeys.notifications.all, 'list'] as const,
-    list: (cursor?: string) =>
-      cursor
-        ? ([...queryKeys.notifications.lists(), cursor] as const)
+    list: (filterReasons?: import('../services/api/types').NotificationReason[]) =>
+      filterReasons && filterReasons.length > 0
+        ? ([
+            ...queryKeys.notifications.lists(),
+            { reasons: filterReasons.sort().join(',') },
+          ] as const)
         : ([...queryKeys.notifications.lists()] as const),
   },
 

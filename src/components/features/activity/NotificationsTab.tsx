@@ -32,15 +32,20 @@ import BlurredThumbnailBackground from '../../ui/BlurredThumbnailBackground';
 import { queryKeys } from '../../../utils/query/queryKeys';
 import { useModerationSettings } from '../../../hooks/useModerationSettings';
 import { computeModerationDecision } from '../../../utils/moderation/computeDecision';
+import type { ModerationSettings } from '../../../services/moderation/ModerationTypes';
 import type {
   Notification,
+  NotificationReason,
   PostView,
-  ExtendedPostView,
   ExtendedFeedViewPost,
   RecordWithMediaView,
+  ProfileView,
+  PostRecord,
 } from '../../../services/api/types';
 import { isVideoEmbed, isVideoEmbedInMedia } from '../../../services/api/types';
 import { getVideoView } from '../../../utils/video/helpers';
+import type { Record as RepostRecord } from '@atproto/api/dist/client/types/app/bsky/feed/repost';
+import { isNotFoundPost, isBlockedPost } from '@atproto/api/dist/client/types/app/bsky/feed/defs';
 
 // Import radar.gif for empty notifications state
 const RadarGif = require('../../../assets/radar.gif');
@@ -74,8 +79,10 @@ const NotificationDivider = () => <View style={styles.divider} />;
 // Post kind type
 type PostKind = 'video' | 'image' | 'external' | 'record' | 'text';
 
-// Post action notification reasons
-type PostActionReason =
+// Notification types that relate to posts
+// Using Notification.reason type directly from API
+type PostActionReason = Extract<
+  Notification['reason'],
   | 'like'
   | 'repost'
   | 'like-via-repost'
@@ -83,10 +90,9 @@ type PostActionReason =
   | 'reply'
   | 'quote'
   | 'mention'
-  | 'post'
-  | 'subscribed-post';
+  | 'subscribed-post'
+>;
 
-// Notification types that relate to posts
 const POST_ACTION_TYPES: readonly PostActionReason[] = [
   'like',
   'repost',
@@ -95,24 +101,15 @@ const POST_ACTION_TYPES: readonly PostActionReason[] = [
   'reply',
   'quote',
   'mention',
-  'post',
   'subscribed-post',
 ] as const;
 
-// Type alias for post data map
-type PostDataMap = Map<string, PostView | ExtendedPostView | ExtendedFeedViewPost>;
+// Type alias for post data map - uses API types directly
+// Matches AtprotoService.getPosts() return type
+type PostDataMap = Map<string, PostView>;
 
-// Fixed sizes per item type (padding 20px + avatar 55px + content ~39px = 114px base)
-const ITEM_SIZES = {
-  'non-post': 114,
-  'post-video': 194, // base + 80px thumbnail
-  'post-text': 114,
-} as const;
-
-// Helper to get embed from post data
-const getEmbed = (
-  postData: PostView | ExtendedPostView | ExtendedFeedViewPost | null | undefined
-): PostView['embed'] | undefined => {
+// Helper to get embed from post data - uses API types directly
+const getEmbed = (postData: PostView | null | undefined): PostView['embed'] | undefined => {
   if (!postData) return undefined;
   if ('embed' in postData && postData.embed) return postData.embed;
   return undefined;
@@ -153,33 +150,44 @@ const getPostKind = (embed: PostView['embed'] | null | undefined): PostKind => {
 };
 
 // Helper to construct a PostView-like object from notification/post data for moderation
+// Uses API types directly - Notification.post is typed as PostView in the API
 const getPostViewForModeration = (
   notification: Notification,
-  postData: PostView | ExtendedPostView | ExtendedFeedViewPost | null | undefined
-): PostView | ExtendedPostView | ExtendedFeedViewPost | null => {
+  postData: PostView | null | undefined
+): PostView | null => {
   // Prefer fetched post data (has view embed with thumbnails)
   if (postData) {
     return postData;
   }
 
-  // Fallback: construct from notification data
-  if ('post' in notification && notification.post) {
-    return notification.post as PostView;
-  }
-
-  // Last resort: construct minimal PostView from notification
-  if ('record' in notification && notification.record) {
-    return {
+  // Construct minimal PostView from notification record
+  // Note: notification.record may not have all PostView fields, but we use what's available
+  if ('record' in notification && notification.record && typeof notification.record === 'object') {
+    const record = notification.record as PostRecord & {
+      embed?: PostView['embed'];
+    };
+    // Convert ProfileView to ProfileViewBasic (extract only basic fields)
+    const authorBasic = {
+      did: notification.author.did,
+      handle: notification.author.handle,
+      displayName: notification.author.displayName,
+      avatar: notification.author.avatar,
+      $type: notification.author.$type,
+    };
+    // Construct PostView with all required fields
+    const postView: PostView = {
       uri: notification.uri,
       cid: notification.cid,
-      author: notification.author,
-      record: notification.record as PostView['record'],
-      embed: ('embed' in notification.record ? notification.record.embed : undefined) as
-        | PostView['embed']
-        | undefined,
+      author: authorBasic as PostView['author'],
+      record: record as PostView['record'],
+      embed: record.embed,
       indexedAt: notification.indexedAt,
       labels: notification.labels,
-    } as PostView;
+      replyCount: 0,
+      repostCount: 0,
+      likeCount: 0,
+    };
+    return postView;
   }
 
   return null;
@@ -187,107 +195,95 @@ const getPostViewForModeration = (
 
 // Get the root post URI from any notification
 const getPostUri = (notification: Notification): string | null => {
-  const uri = 'uri' in notification ? notification.uri : undefined;
-  const post = 'post' in notification ? notification.post : undefined;
-  const record = 'record' in notification ? notification.record : undefined;
+  const uri = notification.uri;
+  const record = notification.record;
 
   // subscribed-post: uri is the post URI
   if (notification.reason === 'subscribed-post') return uri || null;
 
   // reply: root post is in record.reply.root.uri
   if (record && typeof record === 'object' && 'reply' in record) {
-    const reply = (record as { reply?: { root?: { uri?: string } } }).reply;
-    if (reply?.root?.uri) return reply.root.uri;
+    const postRecord = record as PostRecord & {
+      reply?: { root?: { uri?: string } };
+    };
+    if (postRecord.reply?.root?.uri) return postRecord.reply.root.uri;
   }
 
   // like/repost/like-via-repost/repost-via-repost: subject URI
   if (record && typeof record === 'object' && 'subject' in record) {
-    const subject = (record as { subject?: { uri?: string } }).subject;
-    if (subject?.uri) return subject.uri;
-  }
-
-  // quote/mention: post field contains the post
-  if (post && typeof post === 'object' && 'uri' in post) {
-    return (post as PostView).uri;
+    const repostRecord = record as RepostRecord;
+    if (repostRecord.subject?.uri) return repostRecord.subject.uri;
   }
 
   return null;
 };
 
-// Resolve a URI to the root post URI (handles repost records automatically)
-// Repost URIs are now stored directly in postDataMap, so we can use them as-is
-const resolveRootPostUri = (uri: string, _postDataMap?: PostDataMap): string | null => {
-  // Repost URIs are stored directly in the map now, so return as-is for lookup
-  return uri;
-};
-
-// Extract post data from notification
+// Extract post data from notification - uses API types directly
 const getPostDataFromNotification = (
   notification: Notification,
   postDataMap: PostDataMap
-): PostView | ExtendedPostView | ExtendedFeedViewPost | null => {
-  // Quote/mention notifications include post data with view embeds
-  if ('post' in notification && notification.post) {
-    return notification.post as PostView;
-  }
-
+): PostView | undefined => {
   // For subscribed-post, prefer fetched post data (has view embed with thumbnails)
   if (notification.reason === 'subscribed-post') {
     const postUri = getPostUri(notification);
     if (postUri) {
-      // Try direct lookup first
-      let fetchedPost = postDataMap.get(postUri);
-      if (!fetchedPost) {
-        // Try resolving to root URI and lookup
-        const rootPostUri = resolveRootPostUri(postUri, postDataMap);
-        fetchedPost = rootPostUri ? (postDataMap.get(rootPostUri) ?? null) : null;
-      }
+      // Try direct lookup
+      const fetchedPost = postDataMap.get(postUri);
       if (fetchedPost) return fetchedPost;
     }
     // Fallback: use record (raw embed, no thumbnails)
-    if ('record' in notification && notification.record) {
-      return {
+    if (
+      'record' in notification &&
+      notification.record &&
+      typeof notification.record === 'object'
+    ) {
+      const record = notification.record as PostRecord & {
+        embed?: PostView['embed'];
+      };
+      // Convert ProfileView to ProfileViewBasic (extract only basic fields)
+      const authorBasic = {
+        did: notification.author.did,
+        handle: notification.author.handle,
+        displayName: notification.author.displayName,
+        avatar: notification.author.avatar,
+        $type: notification.author.$type,
+      };
+      // Construct PostView with all required fields
+      const postView: PostView = {
         uri: notification.uri,
         cid: notification.cid,
-        author: notification.author,
-        record: notification.record as PostView['record'],
-        embed: ('embed' in notification.record ? notification.record.embed : undefined) as
-          | PostView['embed']
-          | undefined,
+        author: authorBasic as PostView['author'],
+        record: record as PostView['record'],
+        embed: record.embed,
         indexedAt: notification.indexedAt,
-      } as PostView;
+        replyCount: 0,
+        repostCount: 0,
+        likeCount: 0,
+      };
+      return postView;
     }
-    return null;
+    return undefined;
   }
 
   // For others, get from fetched postDataMap
   const postUri = getPostUri(notification);
-  if (!postUri) return null;
-  // Try direct lookup first
-  let fetchedPost = postDataMap.get(postUri);
-  if (!fetchedPost) {
-    // Try resolving to root URI and lookup
-    const rootPostUri = resolveRootPostUri(postUri, postDataMap);
-    fetchedPost = rootPostUri ? (postDataMap.get(rootPostUri) ?? null) : null;
-  }
-  return fetchedPost ?? null;
+  if (!postUri) return undefined;
+  return postDataMap.get(postUri);
 };
 
-// Fetch post data, handling repost records
+// Fetch post data, handling repost records - uses API types directly
 const fetchPostData = async (
   postUri: string,
-  existingPostData: PostView | ExtendedPostView | ExtendedFeedViewPost | null | undefined,
-  _postDataMap: PostDataMap
+  existingPostData: PostView | null | undefined
 ): Promise<{
-  postData: PostView | ExtendedPostView | ExtendedFeedViewPost;
+  postData: PostView;
   rootPostUri: string;
 } | null> => {
   if (existingPostData) {
-    const rootPostUri = resolveRootPostUri(postUri) || postUri;
-    return { postData: existingPostData, rootPostUri };
+    return { postData: existingPostData, rootPostUri: postUri };
   }
 
-  let rootPostUri = resolveRootPostUri(postUri) || postUri;
+  let rootPostUri = postUri;
 
   // If postUri is a repost record, fetch it first to get root post URI
   if (postUri.includes('app.bsky.feed.repost')) {
@@ -297,14 +293,12 @@ const fetchPostData = async (
         const { api } = apiClient;
         const uriMatch = postUri.match(/at:\/\/([^/]+)\/app\.bsky\.feed\.repost\/(.+)/);
         if (uriMatch) {
-          const repostRecord = await api.com.atproto.repo.getRecord({
+          const repostRecordResponse = await api.com.atproto.repo.getRecord({
             repo: uriMatch[1],
             collection: 'app.bsky.feed.repost',
             rkey: uriMatch[2],
           });
-          const repostValue = repostRecord?.data?.value as
-            | { subject?: { uri?: string } }
-            | undefined;
+          const repostValue = repostRecordResponse?.data?.value as RepostRecord | undefined;
           if (repostValue?.subject?.uri) {
             rootPostUri = repostValue.subject.uri;
             const postData = await AtprotoService.getPost(rootPostUri);
@@ -325,13 +319,15 @@ const fetchPostData = async (
 };
 
 // Notification item component - memoized for performance
-const NotificationItem = React.memo<{
+type NotificationItemProps = {
   item: Notification;
   navigation: ReturnType<typeof useRouter>;
   queryClient: ReturnType<typeof useQueryClient>;
   postDataMap: PostDataMap;
-  moderationSettings: import('../../../services/moderation/ModerationTypes').ModerationSettings;
-}>(
+  moderationSettings: ModerationSettings;
+};
+
+const NotificationItem = React.memo<NotificationItemProps>(
   ({ item, navigation, queryClient, postDataMap, moderationSettings }) => {
     const { reason, author, indexedAt, uri } = item;
     const { presentCommentSection } = useGlobalCommentSection();
@@ -344,7 +340,7 @@ const NotificationItem = React.memo<{
 
     // Get post data - getPostDataFromNotification handles 'post' field (quote/mention) which has view embeds with thumbnails
     // For other notifications, it fetches from postDataMap
-    const postData = isPostAction ? getPostDataFromNotification(item, postDataMap) : null;
+    const postData = isPostAction ? getPostDataFromNotification(item, postDataMap) : undefined;
     const embed = postData ? getEmbed(postData) : null;
 
     // Extract thumbnail directly from video embed - simple and direct, let expo-image handle the rest
@@ -396,7 +392,7 @@ const NotificationItem = React.memo<{
 
     // Navigate to profile
     const navigateToProfile = useCallback(
-      (handle: string, authorData?: { did?: string; displayName?: string; avatar?: string }) => {
+      (handle: string, authorData?: ProfileView) => {
         const trimmed = handle.trim();
         if (!trimmed) return;
 
@@ -423,29 +419,24 @@ const NotificationItem = React.memo<{
 
     // Navigate to video post in feed
     const navigateToVideoPost = useCallback(
-      (postData: PostView | ExtendedPostView | ExtendedFeedViewPost) => {
-        // Handle ExtendedFeedViewPost which has post property
-        const postView =
-          'post' in postData
-            ? (postData as ExtendedFeedViewPost).post
-            : (postData as PostView | ExtendedPostView);
-        const embed = getEmbed(postView);
+      (postData: PostView) => {
+        const embed = getEmbed(postData);
         feedService.setCurrentFeed([
           {
             post: {
-              uri: postView.uri || item.uri,
-              cid: postView.cid || item.cid,
-              author: postView.author || author,
+              uri: postData.uri || item.uri,
+              cid: postData.cid || item.cid,
+              author: postData.author || author,
               record:
-                postView.record ||
-                ('record' in item ? (item.record as PostView['record']) : undefined),
+                postData.record ||
+                ('record' in item && item.record ? (item.record as PostView['record']) : undefined),
               embed: embed,
-              replyCount: postView.replyCount || 0,
-              repostCount: postView.repostCount || 0,
-              likeCount: postView.likeCount || 0,
-              indexedAt: postView.indexedAt || indexedAt || item.indexedAt,
+              replyCount: postData.replyCount || 0,
+              repostCount: postData.repostCount || 0,
+              likeCount: postData.likeCount || 0,
+              indexedAt: postData.indexedAt || indexedAt || item.indexedAt,
             },
-            uniqueKey: postView.uri || item.uri,
+            uniqueKey: postData.uri || item.uri,
             // Moderation flags (shouldBlur/shouldFilter) computed at feed level if using useFeed
             // For notifications, moderation would need to be computed separately if needed
           } as ExtendedFeedViewPost,
@@ -479,7 +470,7 @@ const NotificationItem = React.memo<{
       }
 
       try {
-        const result = await fetchPostData(postUri, postData, postDataMap);
+        const result = await fetchPostData(postUri, postData);
         if (!result) {
           if (author?.handle) navigateToProfile(author.handle, author);
           return;
@@ -498,20 +489,24 @@ const NotificationItem = React.memo<{
 
         // Reply notifications: open comment section
         if (reason === 'reply' && uri) {
-          // Normalize post data - ExtendedFeedViewPost has post property
-          const postView =
-            'post' in finalPostData
-              ? (finalPostData as ExtendedFeedViewPost).post
-              : (finalPostData as PostView | ExtendedPostView);
-          const commentPost = {
-            uri: postView.uri,
-            cid: postView.cid,
-            indexedAt: postView.indexedAt,
-            author: postView.author
+          const commentPost: {
+            uri: string;
+            cid?: string;
+            indexedAt?: string;
+            author?: {
+              did: string;
+              handle: string;
+              displayName?: string;
+            };
+          } = {
+            uri: finalPostData.uri,
+            cid: finalPostData.cid,
+            indexedAt: finalPostData.indexedAt,
+            author: finalPostData.author
               ? {
-                  did: postView.author.did,
-                  handle: postView.author.handle,
-                  displayName: postView.author.displayName,
+                  did: finalPostData.author.did,
+                  handle: finalPostData.author.handle,
+                  displayName: finalPostData.author.displayName,
                 }
               : undefined,
           };
@@ -541,7 +536,7 @@ const NotificationItem = React.memo<{
       if (!postUri) return;
 
       try {
-        const result = await fetchPostData(postUri, postData, postDataMap);
+        const result = await fetchPostData(postUri, postData);
         if (!result) {
           if (author?.handle) navigateToProfile(author.handle, author);
           return;
@@ -568,7 +563,7 @@ const NotificationItem = React.memo<{
       } catch {
         if (author?.handle) navigateToProfile(author.handle, author);
       }
-    }, [isPostAction, item, postData, postDataMap, author, navigateToProfile, navigateToVideoPost]);
+    }, [isPostAction, item, postData, author, navigateToProfile, navigateToVideoPost]);
 
     const handleAvatarPress = useCallback(() => {
       if (author?.handle) navigateToProfile(author.handle);
@@ -645,334 +640,360 @@ const NotificationItem = React.memo<{
 );
 NotificationItem.displayName = 'NotificationItem';
 
-const NotificationsTab = forwardRef<ScrollToTopRef>((_props, ref) => {
-  const legendListRef = useRef<LegendListRef>(null);
+interface NotificationsTabProps {
+  filterReasons?: NotificationReason[];
+}
 
-  // Expose scrollToTop method
-  useImperativeHandle(
-    ref,
-    () => ({
-      scrollToTop: () => {
-        // LegendList uses scrollToOffset (compatible with FlatList/FlashList API)
-        legendListRef.current?.scrollToOffset({ offset: 0, animated: true });
+const NotificationsTab = forwardRef<ScrollToTopRef, NotificationsTabProps>(
+  ({ filterReasons }, ref) => {
+    const legendListRef = useRef<LegendListRef>(null);
+
+    // Expose scrollToTop method
+    useImperativeHandle(
+      ref,
+      () => ({
+        scrollToTop: () => {
+          // LegendList uses scrollToOffset (compatible with FlatList/FlashList API)
+          legendListRef.current?.scrollToOffset({ offset: 0, animated: true });
+        },
+      }),
+      []
+    );
+    const navigation = useRouter();
+    const queryClient = useQueryClient();
+    const insets = useSafeAreaInsets();
+    const bottomNavBarHeight = getBottomNavBarHeight(insets);
+
+    // Get current user from store instead of API call
+    const currentUser = useUserStore(state => state.currentUser);
+
+    // Get moderation settings for computing decisions
+    const { settings: moderationSettings } = useModerationSettings(currentUser?.did ?? undefined);
+
+    // Initialize current user for ProfileCache on mount - use store instead of API call
+    useEffect(() => {
+      if (currentUser?.did && currentUser?.handle) {
+        ProfileService.setCurrentUserHandle(currentUser.handle);
+      }
+    }, [currentUser?.did, currentUser?.handle]);
+
+    // Mark notifications as seen when the tab is focused
+    useFocusEffect(
+      useCallback(() => {
+        // Update seen status when notifications tab is focused
+        AtprotoService.updateNotificationSeen()
+          .then(() => {
+            // Invalidate unread count query after successfully marking as seen
+            queryClient.invalidateQueries({
+              queryKey: queryKeys.notifications.count(),
+              refetchType: 'active',
+            });
+          })
+          .catch(() => {
+            // Silently fail - seen status update is not critical
+            // Still try to refresh the count in case it changed
+            queryClient.invalidateQueries({
+              queryKey: queryKeys.notifications.count(),
+              refetchType: 'active',
+            });
+          });
+      }, [queryClient])
+    );
+
+    // Improved infinite query implementation - includes all notification types
+    // Include filterReasons in query key so it refetches when filter changes
+    const {
+      data,
+      fetchNextPage,
+      hasNextPage,
+      isLoading,
+      isError,
+      refetch,
+      isRefetching,
+      isFetchingNextPage,
+    } = useInfiniteQuery({
+      queryKey: queryKeys.notifications.list(filterReasons),
+      queryFn: async ({ pageParam }) => {
+        const response = await AtprotoService.listNotifications(
+          pageParam as string | null,
+          50,
+          filterReasons
+        );
+        return response;
       },
-    }),
-    []
-  );
-  const navigation = useRouter();
-  const queryClient = useQueryClient();
-  const insets = useSafeAreaInsets();
-  const bottomNavBarHeight = getBottomNavBarHeight(insets);
+      initialPageParam: null as string | null,
+      getNextPageParam: lastPage => lastPage.cursor,
+      staleTime: QUERY_CONSTANTS.STALE_TIME_MEDIUM, // 1 minute - for moderately changing data
+      gcTime: 60 * 60 * 1000, // 60 minutes - increased to prevent aggressive cache clearing, matches feed components
+      // Prevent automatic refetches that could clear data - let LegendList handle recycling
+      refetchOnWindowFocus: false,
+      refetchOnMount: true, // Allow refresh on mount since placeholderData prevents disappearing items
+      refetchOnReconnect: false,
+      // Use placeholderData to maintain previous data during refetch - prevents items from disappearing
+      placeholderData: previousData => previousData,
+    });
 
-  // Get current user from store instead of API call
-  const currentUser = useUserStore(state => state.currentUser);
+    // Flatten notifications from all pages
+    const allNotifications = useMemo(() => {
+      return data?.pages.flatMap(page => page.notifications) || [];
+    }, [data]);
 
-  // Get moderation settings for computing decisions
-  const { settings: moderationSettings } = useModerationSettings(currentUser?.did ?? undefined);
-
-  // Initialize current user for ProfileCache on mount - use store instead of API call
-  useEffect(() => {
-    if (currentUser?.did && currentUser?.handle) {
-      ProfileService.setCurrentUserHandle(currentUser.handle);
-    }
-  }, [currentUser?.did, currentUser?.handle]);
-
-  // Mark notifications as seen when the tab is focused
-  useFocusEffect(
-    useCallback(() => {
-      // Update seen status when notifications tab is focused
-      AtprotoService.updateNotificationSeen()
-        .then(() => {
-          // Invalidate unread count query after successfully marking as seen
-          queryClient.invalidateQueries({
-            queryKey: queryKeys.notifications.count(),
-            refetchType: 'active',
-          });
-        })
-        .catch(() => {
-          // Silently fail - seen status update is not critical
-          // Still try to refresh the count in case it changed
-          queryClient.invalidateQueries({
-            queryKey: queryKeys.notifications.count(),
-            refetchType: 'active',
-          });
+    // Batch prefetch all author profiles for better performance
+    useEffect(() => {
+      if (allNotifications.length > 0) {
+        // Extract all unique profiles from notifications and batch prefetch them
+        ProfileService.batchPrefetchFromFeed(allNotifications).catch(() => {
+          // Silently fail - prefetch is not critical
         });
-    }, [queryClient])
-  );
+      }
+    }, [allNotifications]);
 
-  // Improved infinite query implementation - includes all notification types
-  const {
-    data,
-    fetchNextPage,
-    hasNextPage,
-    isLoading,
-    isError,
-    refetch,
-    isRefetching,
-    isFetchingNextPage,
-  } = useInfiniteQuery({
-    queryKey: queryKeys.notifications.list(),
-    queryFn: async ({ pageParam }) => {
-      const response = await AtprotoService.listNotifications(pageParam as string | null);
-      return response;
-    },
-    initialPageParam: null as string | null,
-    getNextPageParam: lastPage => lastPage.cursor,
-    staleTime: QUERY_CONSTANTS.STALE_TIME_MEDIUM, // 1 minute - for moderately changing data
-    gcTime: 5 * 60 * 1000, // 5 minutes
-  });
+    // Extract post URIs that need fetching - matches Bluesky's pattern
+    // Quote/mention include post data with view embeds (thumbnails) - no fetch needed
+    // Subscribed-post has raw embed (no thumbnails) - fetch to get view embed with thumbnails
+    // Others (like/repost/reply) need fetching
+    const postUrisToFetch = useMemo(() => {
+      const uris = new Set<string>();
 
-  // Flatten notifications from all pages
-  const allNotifications = useMemo(() => {
-    return data?.pages.flatMap(page => page.notifications) || [];
-  }, [data]);
+      for (const notification of allNotifications) {
+        if (!POST_ACTION_TYPES.includes(notification.reason as PostActionReason)) continue;
 
-  // Batch prefetch all author profiles for better performance
-  useEffect(() => {
-    if (allNotifications.length > 0) {
-      // Extract all unique profiles from notifications and batch prefetch them
-      ProfileService.batchPrefetchFromFeed(allNotifications).catch(() => {
-        // Silently fail - prefetch is not critical
-      });
-    }
-  }, [allNotifications]);
+        const postUri = getPostUri(notification);
+        if (postUri) uris.add(postUri);
+      }
 
-  // Extract post URIs that need fetching - matches Bluesky's pattern
-  // Quote/mention include post data with view embeds (thumbnails) - no fetch needed
-  // Subscribed-post has raw embed (no thumbnails) - fetch to get view embed with thumbnails
-  // Others (like/repost/reply) need fetching
-  const postUrisToFetch = useMemo(() => {
-    const uris = new Set<string>();
+      return Array.from(uris);
+    }, [allNotifications]);
 
-    for (const notification of allNotifications) {
-      if (!POST_ACTION_TYPES.includes(notification.reason as PostActionReason)) continue;
+    // Batch fetch all posts, automatically resolving repost records to root posts
+    const { data: postDataMap = new Map() } = useQuery<PostDataMap>({
+      queryKey: ['notification-posts-batch', postUrisToFetch.sort().join(',')],
+      queryFn: async () => {
+        const result: PostDataMap = new Map();
+        const repostUris: string[] = [];
+        const postUris: string[] = [];
 
-      // Quote/mention include post data with view embeds - no fetch needed
-      if ('post' in notification && notification.post) continue;
-
-      const postUri = getPostUri(notification);
-      if (postUri) uris.add(postUri);
-    }
-
-    return Array.from(uris);
-  }, [allNotifications]);
-
-  // Batch fetch all posts, automatically resolving repost records to root posts
-  const { data: postDataMap = new Map() } = useQuery<PostDataMap>({
-    queryKey: ['notification-posts-batch', postUrisToFetch.sort().join(',')],
-    queryFn: async () => {
-      const result: PostDataMap = new Map();
-      const repostUris: string[] = [];
-      const postUris: string[] = [];
-
-      // Separate repost records from regular posts
-      for (const uri of postUrisToFetch) {
-        if (uri.includes('app.bsky.feed.repost')) {
-          repostUris.push(uri);
-        } else {
-          postUris.push(uri);
+        // Separate repost records from regular posts
+        for (const uri of postUrisToFetch) {
+          if (uri.includes('app.bsky.feed.repost')) {
+            repostUris.push(uri);
+          } else {
+            postUris.push(uri);
+          }
         }
-      }
 
-      // Fetch regular posts
-      if (postUris.length > 0) {
-        const posts = await AtprotoService.getPosts(postUris);
-        posts.forEach((post, uri) => {
-          if (post) {
-            result.set(uri, post as PostView);
-          }
-        });
-      }
-
-      // Fetch repost records and resolve to root posts
-      if (repostUris.length > 0) {
-        try {
-          const apiClient = await AtprotoService.getApiClient();
-          if (!apiClient) return result;
-
-          const { api } = apiClient;
-          const rootPostUris: string[] = [];
-          const repostToRootMap = new Map<string, string>();
-
-          for (const repostUri of repostUris) {
-            try {
-              const uriMatch = repostUri.match(/at:\/\/([^/]+)\/app\.bsky\.feed\.repost\/(.+)/);
-              if (!uriMatch) continue;
-
-              const repostRecord = await api.com.atproto.repo.getRecord({
-                repo: uriMatch[1],
-                collection: 'app.bsky.feed.repost',
-                rkey: uriMatch[2],
-              });
-
-              const repostValue = repostRecord?.data?.value as
-                | { subject?: { uri?: string } }
-                | undefined;
-
-              if (repostValue?.subject?.uri) {
-                rootPostUris.push(repostValue.subject.uri);
-                repostToRootMap.set(repostUri, repostValue.subject.uri);
-              }
-            } catch {
-              // Silently fail for individual repost records
+        // Fetch regular posts - AtprotoService.getPosts returns Map<string, PostView | NotFoundPost | BlockedPost>
+        // We filter to only include PostView (skip NotFoundPost and BlockedPost)
+        if (postUris.length > 0) {
+          const posts = await AtprotoService.getPosts(postUris);
+          posts.forEach((post, uri) => {
+            // Only include valid PostView (exclude NotFoundPost and BlockedPost)
+            if (
+              post &&
+              !isNotFoundPost(post) &&
+              !isBlockedPost(post) &&
+              'author' in post &&
+              'cid' in post
+            ) {
+              // TypeScript now knows post is PostView after type guards and property checks
+              result.set(uri, post as PostView);
             }
-          }
+          });
+        }
 
-          // Fetch root posts
-          if (rootPostUris.length > 0) {
-            const rootPosts = await AtprotoService.getPosts(rootPostUris);
-            rootPosts.forEach((post, uri) => {
-              if (post) {
-                // Store root post with its URI
-                result.set(uri, post as PostView);
-                // Also store with repost URI as key for direct lookup
-                for (const [repostUri, rootUri] of repostToRootMap.entries()) {
-                  if (rootUri === uri) {
-                    result.set(repostUri, post as PostView);
+        // Fetch repost records and resolve to root posts
+        if (repostUris.length > 0) {
+          try {
+            const apiClient = await AtprotoService.getApiClient();
+            if (!apiClient) return result;
+
+            const { api } = apiClient;
+            const rootPostUris: string[] = [];
+            const repostToRootMap = new Map<string, string>();
+
+            for (const repostUri of repostUris) {
+              try {
+                const uriMatch = repostUri.match(/at:\/\/([^/]+)\/app\.bsky\.feed\.repost\/(.+)/);
+                if (!uriMatch) continue;
+
+                const repostRecordResponse = await api.com.atproto.repo.getRecord({
+                  repo: uriMatch[1],
+                  collection: 'app.bsky.feed.repost',
+                  rkey: uriMatch[2],
+                });
+
+                const repostValue = repostRecordResponse?.data?.value as RepostRecord | undefined;
+
+                if (repostValue?.subject?.uri) {
+                  rootPostUris.push(repostValue.subject.uri);
+                  repostToRootMap.set(repostUri, repostValue.subject.uri);
+                }
+              } catch {
+                // Silently fail for individual repost records
+              }
+            }
+
+            // Fetch root posts - filter to only include PostView
+            if (rootPostUris.length > 0) {
+              const rootPosts = await AtprotoService.getPosts(rootPostUris);
+              rootPosts.forEach((post, uri) => {
+                // Only include valid PostView (exclude NotFoundPost and BlockedPost)
+                if (
+                  post &&
+                  !isNotFoundPost(post) &&
+                  !isBlockedPost(post) &&
+                  'author' in post &&
+                  'cid' in post
+                ) {
+                  // TypeScript now knows post is PostView after type guards and property checks
+                  const postView = post as PostView;
+                  // Store root post with its URI
+                  result.set(uri, postView);
+                  // Also store with repost URI as key for direct lookup
+                  for (const [repostUri, rootUri] of repostToRootMap.entries()) {
+                    if (rootUri === uri) {
+                      result.set(repostUri, postView);
+                    }
                   }
                 }
-              }
-            });
+              });
+            }
+          } catch {
+            // Silently fail
           }
-        } catch {
-          // Silently fail
+        }
+
+        return result;
+      },
+      enabled: postUrisToFetch.length > 0,
+      staleTime: QUERY_CONSTANTS.STALE_TIME_LONG, // 10 minutes - for slowly changing data
+      gcTime: 10 * 60 * 1000,
+    });
+
+    // Use notifications directly from API without filtering
+
+    // Memoized callback for loading more notifications - prevents unnecessary re-renders
+    const handleLoadMore = useCallback(() => {
+      if (hasNextPage && !isFetchingNextPage) {
+        fetchNextPage();
+      }
+    }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+    const renderNotificationContent = useCallback(
+      ({ item }: { item: Notification }) => {
+        return (
+          <NotificationItem
+            item={item}
+            navigation={navigation}
+            queryClient={queryClient}
+            postDataMap={postDataMap}
+            moderationSettings={moderationSettings}
+          />
+        );
+      },
+      [navigation, queryClient, moderationSettings, postDataMap]
+    );
+
+    const keyExtractor = useCallback((item: Notification) => {
+      return item.uri || `notification-${item.indexedAt || Math.random()}`;
+    }, []);
+
+    // Get item type for better recycling optimization - only uses synchronous data
+    const getItemType = useCallback((item: Notification): string => {
+      const isPostAction = POST_ACTION_TYPES.includes(item.reason as PostActionReason);
+      if (!isPostAction) return 'non-post';
+
+      // Check record embed (synchronous, always available)
+      if (
+        'record' in item &&
+        item.record &&
+        typeof item.record === 'object' &&
+        'embed' in item.record
+      ) {
+        const recordEmbed =
+          'record' in item &&
+          item.record &&
+          typeof item.record === 'object' &&
+          'embed' in item.record
+            ? (item.record as { embed?: PostView['embed'] }).embed
+            : undefined;
+        if (recordEmbed && typeof recordEmbed === 'object') {
+          // Use type guards for video embeds
+          if (isVideoEmbed(recordEmbed) || isVideoEmbedInMedia(recordEmbed)) {
+            return 'post-video';
+          }
         }
       }
 
-      return result;
-    },
-    enabled: postUrisToFetch.length > 0,
-    staleTime: QUERY_CONSTANTS.STALE_TIME_LONG, // 10 minutes - for slowly changing data
-    gcTime: 10 * 60 * 1000,
-  });
+      return 'post-text'; // Default for post actions
+    }, []);
 
-  // Use notifications directly from API without filtering
-  const notifications = useMemo(() => {
-    return allNotifications;
-  }, [allNotifications]);
-
-  const renderNotificationContent = useCallback(
-    ({ item }: { item: Notification }) => {
+    if (isError) {
       return (
-        <NotificationItem
-          item={item}
-          navigation={navigation}
-          queryClient={queryClient}
-          postDataMap={postDataMap}
-          moderationSettings={moderationSettings}
-        />
+        <View style={styles.errorContainer}>
+          <EmptyFeed
+            type="no-connection"
+            message="can't connect to notifications"
+            onRetry={() => refetch()}
+          />
+        </View>
       );
-    },
-    [navigation, queryClient, moderationSettings, postDataMap]
-  );
-
-  const keyExtractor = useCallback((item: Notification) => {
-    return item.uri || `notification-${item.indexedAt || Math.random()}`;
-  }, []);
-
-  // Get item type for better recycling optimization - only uses synchronous data
-  const getItemType = useCallback((item: Notification): string => {
-    const isPostAction = POST_ACTION_TYPES.includes(item.reason as PostActionReason);
-    if (!isPostAction) return 'non-post';
-
-    // Check record embed (synchronous, always available)
-    if (
-      'record' in item &&
-      item.record &&
-      typeof item.record === 'object' &&
-      'embed' in item.record
-    ) {
-      const recordEmbed = (item.record as { embed?: PostView['embed'] }).embed;
-      if (recordEmbed && typeof recordEmbed === 'object') {
-        // Use type guards for video embeds
-        if (isVideoEmbed(recordEmbed) || isVideoEmbedInMedia(recordEmbed)) {
-          return 'post-video';
-        }
-      }
     }
 
-    return 'post-text'; // Default for post actions
-  }, []);
+    if (isLoading && allNotifications.length === 0) {
+      return (
+        <View style={styles.listContainer}>
+          <NotificationLoading />
+        </View>
+      );
+    }
 
-  // overrideItemLayout sets fixed size per type for stable layout
-  const overrideItemLayout = useCallback(
-    (layout: { span?: number }, item: Notification) => {
-      const itemType = getItemType(item);
-      layout.span = ITEM_SIZES[itemType as keyof typeof ITEM_SIZES] ?? 114;
-    },
-    [getItemType]
-  );
-
-  if (isError) {
     return (
-      <View style={styles.errorContainer}>
-        <EmptyFeed
-          type="no-connection"
-          message="can't connect to notifications"
-          onRetry={() => refetch()}
-        />
-      </View>
-    );
-  }
-
-  if (isLoading && notifications.length === 0) {
-    return (
-      <View style={styles.listContainer}>
-        <NotificationLoading />
-      </View>
-    );
-  }
-
-  return (
-    <LegendList
-      ref={legendListRef}
-      style={styles.listContainer}
-      contentContainerStyle={[
-        styles.listContentContainer,
-        { paddingBottom: bottomNavBarHeight + 5 },
-      ]}
-      data={notifications}
-      renderItem={renderNotificationContent}
-      keyExtractor={keyExtractor}
-      ItemSeparatorComponent={NotificationDivider}
-      recycleItems={true}
-      getItemType={getItemType}
-      overrideItemLayout={overrideItemLayout}
-      extraData={notifications.length}
-      drawDistance={250}
-      initialContainerPoolRatio={6}
-      estimatedItemSize={114}
-      refreshControl={
-        <RefreshControl
-          refreshing={isRefetching && !isFetchingNextPage}
-          onRefresh={async () => {
-            try {
-              await refetch();
-            } catch {
-              // Silently fail - error is handled by React Query
-            }
-          }}
-          tintColor={Colors.white}
-        />
-      }
-      onEndReached={() => {
-        if (hasNextPage && !isFetchingNextPage) {
-          fetchNextPage();
+      <LegendList
+        ref={legendListRef}
+        style={styles.listContainer}
+        contentContainerStyle={[
+          styles.listContentContainer,
+          { paddingBottom: bottomNavBarHeight + 5 },
+        ]}
+        data={allNotifications}
+        renderItem={renderNotificationContent}
+        keyExtractor={keyExtractor}
+        ItemSeparatorComponent={NotificationDivider}
+        recycleItems={true}
+        getItemType={getItemType}
+        drawDistance={250}
+        initialContainerPoolRatio={6}
+        estimatedItemSize={114}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefetching && !isFetchingNextPage}
+            onRefresh={async () => {
+              try {
+                await refetch();
+              } catch {
+                // Silently fail - error is handled by React Query
+              }
+            }}
+            tintColor={Colors.white}
+          />
         }
-      }}
-      onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
-      showsVerticalScrollIndicator={false}
-      ListEmptyComponent={!isLoading ? <EmptyNotifications /> : null}
-      ListFooterComponent={
-        isFetchingNextPage ? (
-          <View style={styles.loadingMoreContainer}>
-            <Loading3FillIcon size={24} color={Colors.white} />
-          </View>
-        ) : null
-      }
-    />
-  );
-});
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
+        maintainVisibleContentPosition={true}
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={!isLoading ? <EmptyNotifications /> : null}
+        ListFooterComponent={
+          isFetchingNextPage ? (
+            <View style={styles.loadingMoreContainer}>
+              <Loading3FillIcon size={24} color={Colors.white} />
+            </View>
+          ) : null
+        }
+      />
+    );
+  }
+);
 NotificationsTab.displayName = 'NotificationsTab';
 
 export default NotificationsTab;
