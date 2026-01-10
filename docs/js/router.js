@@ -188,18 +188,10 @@ function loadScripts(scriptElements) {
         newScript.setAttribute(attr.name, attr.value);
       });
 
-      // Handle inline scripts
-      if (script.textContent) {
-        newScript.textContent = script.textContent;
-        document.body.appendChild(newScript);
-        resolve();
-        return;
-      }
-
       // Handle external scripts (module or regular)
-      if (script.src) {
-        const src = script.getAttribute('src');
-
+      // Per HTML spec: if src is present, load external file and ignore inline content
+      const src = script.getAttribute('src');
+      if (src) {
         // Check if already loaded
         const existing = Array.from(document.querySelectorAll('script[src]')).find(
           script => script.getAttribute('src') === src
@@ -217,7 +209,13 @@ function loadScripts(scriptElements) {
         };
         newScript.src = src; // Base tag will handle relative path resolution
         document.body.appendChild(newScript);
+      } else if (script.textContent) {
+        // Handle inline scripts (only if no src attribute)
+        newScript.textContent = script.textContent;
+        document.body.appendChild(newScript);
+        resolve();
       } else {
+        // Script with no src and no content - resolve immediately
         resolve();
       }
     });
