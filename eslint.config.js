@@ -96,6 +96,7 @@ module.exports = [
       '*.config.js',
       'babel.config.js',
       'metro.config.js',
+      'docs/**',
     ],
   },
 ];

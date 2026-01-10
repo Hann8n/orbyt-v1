@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>404 - Page Not Found | Orbyt</title>
+    <title>Loading... | Orbyt</title>
     
     <!-- Favicon setup -->
     <link rel="apple-touch-icon" sizes="180x180" href="favicon_io/apple-touch-icon.png">
@@ -13,8 +13,8 @@
     <link rel="manifest" href="favicon_io/site.webmanifest">
     
     <!-- Theme colors for mobile browsers -->
-    <meta name="theme-color" content="#ffffff">
-    <meta name="msapplication-TileColor" content="#ffffff">
+    <meta name="theme-color" content="#000000">
+    <meta name="msapplication-TileColor" content="#000000">
     <style>
         @font-face {
             font-family: 'Firma-Black';
@@ -45,6 +45,49 @@
             position: relative;
             overflow-x: hidden;
             overflow-y: auto;
+            margin: 0;
+            padding: 0;
+        }
+        
+        /* Router content container */
+        #router-content {
+            width: 100%;
+            min-height: 100vh;
+        }
+        
+        /* Loading state */
+        #router-loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            z-index: 9999;
+        }
+        
+        /* Error state */
+        #router-error,
+        #router-404 {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-family: 'Firma-Regular', -apple-system, BlinkMacSystemFont, sans-serif;
+            flex-direction: column;
+            gap: 20px;
+            z-index: 9999;
         }
 
 
@@ -247,42 +290,10 @@
     </style>
 </head>
 <body>
-
-
-
-    <div class="container">
-        <div class="error-content">
-            <div class="error-number">404</div>
-            <p class="error-message">
-                There's nothing to see here...
-            </p>
-            
-            <div class="navigation-buttons">
-                <a href="/" class="nav-button">
-                    go home
-                </a>
-            </div>
-        </div>
-
-        <div class="separator">
-            <svg viewBox="0 0 200 20" preserveAspectRatio="none">
-                <path d="M0,10 Q2.5,4 5,10 T10,10 T15,10 T20,10 T25,10 T30,10 T35,10 T40,10 T45,10 T50,10 T55,10 T60,10 T65,10 T70,10 T75,10 T80,10 T85,10 T90,10 T95,10 T100,10 T105,10 T110,10 T115,10 T120,10 T125,10 T130,10 T135,10 T140,10 T145,10 T150,10 T155,10 T160,10 T165,10 T170,10 T175,10 T180,10 T185,10 T190,10 T195,10 T200,10" 
-                      stroke="#551DEF" 
-                      stroke-width="2.5" 
-                      fill="none" 
-                      stroke-linecap="round"
-                      vector-effect="non-scaling-stroke"/>
-            </svg>
-        </div>
-
-        <div class="footer">
-            <a href="https://bsky.app/profile/getorbyt.com">bluesky</a>
-            <a href="https://discord.gg/8gNQPFygnF">discord</a>
-            <a href="/terms.html">terms</a>
-            <a href="/privacy.html">privacy</a>
-        </div>
-    </div>
+    <!-- Router content will be loaded here -->
+    <div id="router-content"></div>
     
-
+    <!-- Router script -->
+    <script type="module" src="js/router.js"></script>
 </body>
 </html>
