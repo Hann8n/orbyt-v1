@@ -152,7 +152,7 @@ function updateProfileDisplay(profile) {
 
   // Update page title
   const displayName = profile.displayName || profile.handle;
-  document.title = `${displayName}'s bytes`;
+  document.title = `${displayName} on orbyt`;
 
   // Update meta tags for SEO and social sharing
   updateMetaTags(profile, displayName);
@@ -171,7 +171,7 @@ function updateMetaTags(profile, displayName) {
     ogTitle.setAttribute('property', 'og:title');
     document.head.appendChild(ogTitle);
   }
-  ogTitle.setAttribute('content', `@${displayName}'s bytes`);
+  ogTitle.setAttribute('content', `@${displayName} on orbyt`);
 
   // Update og:description
   let ogDescription = document.querySelector('meta[property="og:description"]');
@@ -199,7 +199,7 @@ function updateMetaTags(profile, displayName) {
     twitterTitle.setAttribute('property', 'twitter:title');
     document.head.appendChild(twitterTitle);
   }
-  twitterTitle.setAttribute('content', `@${displayName}'s bytes`);
+  twitterTitle.setAttribute('content', `@${displayName} on orbyt`);
 
   let twitterDescription = document.querySelector('meta[property="twitter:description"]');
   if (!twitterDescription) {

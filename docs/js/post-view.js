@@ -689,7 +689,7 @@ function renderPost(postData, authorProfile) {
       aspectRatio: videoData.aspectRatio,
     });
 
-    // Set video attributes for autoplay and looping (Byte/TikTok style)
+    // Set video attributes for autoplay and looping (TikTok style)
     videoEl.setAttribute('autoplay', '');
     videoEl.setAttribute('loop', '');
     videoEl.setAttribute('playsinline', '');
@@ -703,7 +703,7 @@ function renderPost(postData, authorProfile) {
       const thumb = new Image();
       thumb.onload = function () {
         thumb.onload = null;
-        // Call postResizer after poster loads (matches original Byte.co pattern)
+        // Call postResizer after poster loads (matches original pattern)
         postResizer();
       };
       thumb.onerror = function () {
@@ -1049,7 +1049,7 @@ function initResponsiveVideo() {
 }
 
 /**
- * postResizer function - alias for compatibility with original Byte.co pattern
+ * postResizer function - alias for compatibility with original pattern
  */
 function postResizer() {
   initResponsiveVideo();
