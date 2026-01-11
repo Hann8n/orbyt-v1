@@ -563,11 +563,9 @@ function initRouter() {
   const route = parseRoute(pathname);
 
   // Only initialize router if we're on 404.html (handled by GitHub Pages)
-  // OR if we're on a routed path but the file doesn't exist
-  // Check if we're actually on the 404 page by looking at the page structure
-  const is404Page =
-    document.body.querySelector('#router-content') !== null ||
-    (pathname !== '/' && !pathname.endsWith('.html') && !pathname.includes('.'));
+  // Check if we're on the 404 page by looking for the router-content element
+  // This element only exists in 404.html, not in other pages (index.html, terms.html, etc.)
+  const is404Page = document.body.querySelector('#router-content') !== null;
 
   if (is404Page) {
     // We're on 404.html - handle routing
@@ -576,9 +574,7 @@ function initRouter() {
       navigate(pathname);
     } else {
       // Not a routed path - show 404
-      if (pathname !== '/' && !pathname.endsWith('.html') && !pathname.includes('.')) {
-        show404();
-      }
+      show404();
     }
 
     // Handle browser back/forward buttons
