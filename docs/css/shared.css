@@ -1,20 +1,7 @@
-@font-face {
-  font-family: "BR Firma";
-  font-weight: 400;
-}
-@font-face {
-  font-family: "BR Firma";
-  font-weight: 700;
-}
-@font-face {
-  font-family: "BR Firma";
-  font-weight: 900;
-}
-
 body {
   background: #000;
   color: #B1BACF;
-  font-family: 'BR Firma', sans-serif;
+  font-family: 'Figtree', sans-serif;
   line-height: 28px;
 }
 

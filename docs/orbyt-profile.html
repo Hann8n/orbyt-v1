@@ -47,6 +47,23 @@
         background-color: #ccd7e9 !important;
         color: black !important;
       }
+      .install-button .svg-button {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        flex-shrink: 0;
+        margin-left: 8px;
+        transition: transform 0.2s ease;
+      }
+      .install-button:hover .svg-button {
+        transform: translateX(2px);
+      }
+      .install-button .svg-button path {
+        stroke: black !important;
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
       @media screen and (max-width: 540px) {
         header .logo-text {
           font-size: 32px;
