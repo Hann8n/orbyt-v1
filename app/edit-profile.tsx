@@ -1,4 +1,12 @@
-import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import React, {
+  useState,
+  useCallback,
+  useMemo,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  startTransition,
+} from 'react';
 import {
   View,
   Text,
@@ -383,27 +391,41 @@ const EditProfileScreen: React.FC = () => {
     text: useSharedValue(1),
   };
 
+  // Store refs to SharedValues to avoid immutability issues in callbacks
+  // SharedValues are stable references, but the array/object containers are recreated each render
+  const colorFlexValuesRef = useRef(colorFlexValues);
+  const customFlexValuesRef = useRef(customFlexValues);
+
+  // Update refs after render to always point to current containers
+  // (SharedValue objects inside are stable, but containers are recreated)
+  useLayoutEffect(() => {
+    colorFlexValuesRef.current = colorFlexValues;
+    customFlexValuesRef.current = customFlexValues;
+  });
+
   // Mutation
   const profileUpdateMutation = useProfileUpdateMutation();
 
   // Get colors directly from cached profile data (more efficient than separate hook)
   const defaultColors = useMemo(() => {
-    const colors = profileData?.profileColors;
-    if (!colors?.backgroundColor || !colors?.foregroundColor) {
+    const colors = profileData?.orbytRecord?.colors;
+    if (!colors?.backgroundColor || !colors?.textColor) {
       return undefined;
     }
     return {
       backgroundColor: colors.backgroundColor,
-      textColor: colors.foregroundColor, // foregroundColor is the text color
+      textColor: colors.textColor,
     };
-  }, [profileData?.profileColors?.backgroundColor, profileData?.profileColors?.foregroundColor]);
+  }, [profileData?.orbytRecord?.colors]);
 
   // Initialize form when component mounts and profile data is available
   useEffect(() => {
     if (profileData && !hasInitializedColors.current) {
-      setEditDisplayName(profileData.displayName || '');
-      setEditDescription(profileData.description || '');
-      setEditAvatar(undefined);
+      startTransition(() => {
+        setEditDisplayName(profileData.displayName || '');
+        setEditDescription(profileData.description || '');
+        setEditAvatar(undefined);
+      });
 
       // Check if default colors match a preset
       if (defaultColors) {
@@ -423,53 +445,61 @@ const EditProfileScreen: React.FC = () => {
 
         if (normalMatch) {
           const matchIndex = predefinedColors.indexOf(normalMatch);
-          setSelectedColorIndex(matchIndex);
-          setInvertedStates({ [matchIndex]: false });
-          setCustomColors({
-            backgroundColor: normalMatch.backgroundColor,
-            textColor: normalMatch.textColor,
+          startTransition(() => {
+            setSelectedColorIndex(matchIndex);
+            setInvertedStates({ [matchIndex]: false });
+            setCustomColors({
+              backgroundColor: normalMatch.backgroundColor,
+              textColor: normalMatch.textColor,
+            });
           });
           // Set flex values for this specific color
-          const flexValues = colorFlexValues[matchIndex];
+          const flexValues = colorFlexValuesRef.current[matchIndex];
           if (flexValues) {
             flexValues.background.value = 3;
             flexValues.text.value = 1;
           }
         } else if (invertedMatch) {
           const matchIndex = predefinedColors.indexOf(invertedMatch);
-          setSelectedColorIndex(matchIndex);
-          setInvertedStates({ [matchIndex]: true });
-          // Store the actual reversed colors (from defaultColors) - these are what the user has saved
-          setCustomColors({
-            backgroundColor: defaultColors.backgroundColor,
-            textColor: defaultColors.textColor,
+          startTransition(() => {
+            setSelectedColorIndex(matchIndex);
+            setInvertedStates({ [matchIndex]: true });
+            // Store the actual reversed colors (from defaultColors) - these are what the user has saved
+            setCustomColors({
+              backgroundColor: defaultColors.backgroundColor,
+              textColor: defaultColors.textColor,
+            });
           });
           // Set flex values to inverted state (bottom box is larger)
-          const flexValues = colorFlexValues[matchIndex];
+          const flexValues = colorFlexValuesRef.current[matchIndex];
           if (flexValues) {
             flexValues.background.value = 1;
             flexValues.text.value = 3;
           }
         } else {
           // Custom colors - no preset match
-          setSelectedColorIndex(null);
-          setInvertedStates({});
           const originalColors = {
             backgroundColor: defaultColors.backgroundColor,
             textColor: defaultColors.textColor,
           };
-          setCustomColors(originalColors);
-          setOriginalCustomColors(originalColors); // Store original custom colors
-          setHasCustomColors(true);
-          customFlexValues.background.value = 3;
-          customFlexValues.text.value = 1;
+          startTransition(() => {
+            setSelectedColorIndex(null);
+            setInvertedStates({});
+            setCustomColors(originalColors);
+            setOriginalCustomColors(originalColors); // Store original custom colors
+            setHasCustomColors(true);
+          });
+          customFlexValuesRef.current.background.value = 3;
+          customFlexValuesRef.current.text.value = 1;
         }
       } else {
-        setSelectedColorIndex(0); // First color (black)
-        setInvertedStates({});
-        setCustomColors(null);
-        setHasCustomColors(false);
-        const flexValues = colorFlexValues[0];
+        startTransition(() => {
+          setSelectedColorIndex(0); // First color (black)
+          setInvertedStates({});
+          setCustomColors(null);
+          setHasCustomColors(false);
+        });
+        const flexValues = colorFlexValuesRef.current[0];
         if (flexValues) {
           flexValues.background.value = 3;
           flexValues.text.value = 1;
@@ -478,7 +508,7 @@ const EditProfileScreen: React.FC = () => {
 
       hasInitializedColors.current = true;
     }
-  }, [profileData, defaultColors, colorFlexValues, predefinedColors]);
+  }, [profileData, defaultColors, predefinedColors]);
 
   // Calculate and set scroll position when color picker is laid out
   const handleColorPickerLayout = useCallback(() => {
@@ -549,7 +579,7 @@ const EditProfileScreen: React.FC = () => {
               if (!result.canceled && result.assets && result.assets[0] && result.assets[0].uri) {
                 setEditAvatar(result.assets[0].uri || undefined);
               }
-            } catch (error) {
+            } catch (_error) {
               Alert.alert('Error', 'Failed to open camera. Please try again.');
             }
           },
@@ -568,7 +598,7 @@ const EditProfileScreen: React.FC = () => {
               if (!result.canceled && result.assets && result.assets[0] && result.assets[0].uri) {
                 setEditAvatar(result.assets[0].uri || undefined);
               }
-            } catch (error) {
+            } catch (_error) {
               Alert.alert('Error', 'Failed to open photo library. Please try again.');
             }
           },
@@ -578,7 +608,7 @@ const EditProfileScreen: React.FC = () => {
           style: 'cancel',
         },
       ]);
-    } catch (error) {
+    } catch (_error) {
       Alert.alert('Error', 'Failed to open image picker. Please try again.');
     }
   }, []);
@@ -589,13 +619,6 @@ const EditProfileScreen: React.FC = () => {
       const isAlreadySelected = selectedColorIndex === colorIndex;
       const isCustom = colorIndex === null;
       const stateKey = isCustom ? -1 : colorIndex;
-      const currentFlexValues = isCustom ? customFlexValues : colorFlexValues[colorIndex];
-      const previousFlexValues =
-        selectedColorIndex === null
-          ? customFlexValues
-          : selectedColorIndex !== null
-            ? colorFlexValues[selectedColorIndex]
-            : null;
 
       if (isAlreadySelected) {
         // Invert colors - toggle inverted state
@@ -612,20 +635,28 @@ const EditProfileScreen: React.FC = () => {
           textColor: currentBg,
         });
 
-        if (currentFlexValues) {
-          currentFlexValues.background.value = withSpring(newInverted ? 1 : 3);
-          currentFlexValues.text.value = withSpring(newInverted ? 3 : 1);
+        if (isCustom) {
+          customFlexValuesRef.current.background.value = withSpring(newInverted ? 1 : 3);
+          customFlexValuesRef.current.text.value = withSpring(newInverted ? 3 : 1);
+        } else if (colorIndex !== null && colorFlexValuesRef.current[colorIndex]) {
+          colorFlexValuesRef.current[colorIndex].background.value = withSpring(newInverted ? 1 : 3);
+          colorFlexValuesRef.current[colorIndex].text.value = withSpring(newInverted ? 3 : 1);
         }
       } else {
         // Animate previous box back to normal if it was inverted
-        if (
-          previousFlexValues &&
-          invertedStates[selectedColorIndex === null ? -1 : selectedColorIndex]
-        ) {
+        if (invertedStates[selectedColorIndex === null ? -1 : selectedColorIndex]) {
           const prevStateKey = selectedColorIndex === null ? -1 : selectedColorIndex;
           setInvertedStates(prev => ({ ...prev, [prevStateKey]: false }));
-          previousFlexValues.background.value = withSpring(3);
-          previousFlexValues.text.value = withSpring(1);
+          if (selectedColorIndex === null) {
+            customFlexValuesRef.current.background.value = withSpring(3);
+            customFlexValuesRef.current.text.value = withSpring(1);
+          } else if (
+            selectedColorIndex !== null &&
+            colorFlexValuesRef.current[selectedColorIndex]
+          ) {
+            colorFlexValuesRef.current[selectedColorIndex].background.value = withSpring(3);
+            colorFlexValuesRef.current[selectedColorIndex].text.value = withSpring(1);
+          }
         }
 
         // Select new color
@@ -638,49 +669,60 @@ const EditProfileScreen: React.FC = () => {
           textColor: wasInverted ? colorsToUse.backgroundColor : colorsToUse.textColor,
         });
 
-        if (currentFlexValues) {
-          currentFlexValues.background.value = withSpring(wasInverted ? 1 : 3);
-          currentFlexValues.text.value = withSpring(wasInverted ? 3 : 1);
+        if (isCustom) {
+          customFlexValuesRef.current.background.value = withSpring(wasInverted ? 1 : 3);
+          customFlexValuesRef.current.text.value = withSpring(wasInverted ? 3 : 1);
+        } else if (colorIndex !== null && colorFlexValuesRef.current[colorIndex]) {
+          colorFlexValuesRef.current[colorIndex].background.value = withSpring(wasInverted ? 1 : 3);
+          colorFlexValuesRef.current[colorIndex].text.value = withSpring(wasInverted ? 3 : 1);
         }
       }
     },
-    [
-      selectedColorIndex,
-      invertedStates,
-      customColors,
-      colorFlexValues,
-      customFlexValues,
-      originalCustomColors,
-    ]
+    [selectedColorIndex, invertedStates, customColors, originalCustomColors]
   );
 
   // Handle save
   const handleSave = useCallback(async () => {
-    if (!profileData?.handle) return;
+    if (!profileData?.handle) {
+      return;
+    }
 
     try {
       // Create updates object
-      const updates: any = {};
+      const updates: {
+        displayName?: string;
+        description?: string;
+        avatar?: string;
+        customColors?: {
+          backgroundColor: string;
+          textColor: string;
+        };
+      } = {};
 
-      if (editDisplayName !== profileData.displayName) {
+      // Check displayName
+      const displayNameChanged = editDisplayName !== profileData.displayName;
+      if (displayNameChanged) {
         updates.displayName = editDisplayName || undefined;
       }
 
-      if (editDescription !== profileData.description) {
+      // Check description
+      const descriptionChanged = editDescription !== profileData.description;
+      if (descriptionChanged) {
         updates.description = editDescription || undefined;
       }
 
+      // Check avatar
       if (editAvatar) {
         updates.avatar = editAvatar;
       }
 
-      // Only include custom colors if they're different from default
-      if (
+      // Check custom colors
+      const shouldIncludeColors =
         customColors &&
         (!defaultColors ||
           customColors.backgroundColor !== defaultColors.backgroundColor ||
-          customColors.textColor !== defaultColors.textColor)
-      ) {
+          customColors.textColor !== defaultColors.textColor);
+      if (shouldIncludeColors) {
         updates.customColors = customColors;
       }
 
@@ -693,7 +735,7 @@ const EditProfileScreen: React.FC = () => {
       }
 
       router.back();
-    } catch (error) {
+    } catch (_error) {
       Alert.alert('Error', 'Failed to update profile. Please try again.');
     }
   }, [

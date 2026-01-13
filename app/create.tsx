@@ -43,7 +43,7 @@ import { Colors } from '../src/components/ui/UI';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
-import { showEditor, isValidFile, type Spec } from 'react-native-video-trim';
+import { showEditor, isValidFile, type Spec } from 'react-native-clip-trim';
 import { SegmentManager, type Segment } from '../src/utils/video/segmentManager';
 import { useUserStore } from '../src/stores/userStore';
 
@@ -227,7 +227,7 @@ const CreateScreen: React.FC = () => {
     }
   }, [recordingStartTime]);
 
-  // Set up event listeners for react-native-video-trim using Spec API
+  // Set up event listeners for react-native-clip-trim using Spec API
   useEffect(() => {
     const VideoTrimModule = NativeModules.VideoTrim as Spec;
 
@@ -280,7 +280,7 @@ const CreateScreen: React.FC = () => {
         (event: any) => {
           if (event.name === 'onFinishTrimming') {
             // Extract data from event (old architecture includes name property)
-            const { name, ...data } = event;
+            const { name: _name, ...data } = event;
             handleTrimmingComplete(data);
           } else if (event.name === 'onError') {
             Alert.alert('Error', event.message || 'Failed to trim video');
@@ -661,7 +661,7 @@ const CreateScreen: React.FC = () => {
             autoplay: true,
             fullScreenModalIOS: true,
           });
-        } catch (error) {
+        } catch (_error) {
           Alert.alert('Error', 'Failed to open video trimmer');
           setIsLoadingFromGallery(false);
           setIsProcessing(false);

@@ -1029,8 +1029,6 @@ export function useProfileUpdateMutation() {
         updates.avatar !== undefined
       ) {
         updatedProfile = await AtprotoService.updateProfile(profileUpdates);
-
-        // Note: Cache updates are handled by React Query
       }
 
       return { handle, updatedProfile, updatedColors: !!updates.customColors };
@@ -1062,65 +1060,78 @@ export function useProfileUpdateMutation() {
               }
             : {}),
         };
+
         queryClient.setQueryData(profileKeys.detail(handle), optimistic);
       }
 
       return { previousProfile };
     },
     onSuccess: ({ updatedProfile, updatedColors }, { handle, updates }) => {
-      // If colors were updated, update orbyt record in cache
-      if (updatedColors) {
-        const prev = queryClient.getQueryData<ProfileViewWithOrbyt>(profileKeys.detail(handle));
-        if (prev && updates.customColors) {
-          // Update the profile with new colors in orbyt record
-          const updated: ProfileViewWithOrbyt = {
-            ...prev,
-            orbytRecord: {
-              ...prev.orbytRecord,
-              $type: 'com.getorbyt.profile',
-              colors: {
-                backgroundColor: updates.customColors.backgroundColor,
-                textColor: updates.customColors.textColor,
+      try {
+        // If colors were updated, update orbyt record in cache
+        if (updatedColors) {
+          const prev = queryClient.getQueryData<ProfileViewWithOrbyt>(profileKeys.detail(handle));
+
+          if (prev && updates.customColors) {
+            // Update the profile with new colors in orbyt record
+            const updated: ProfileViewWithOrbyt = {
+              ...prev,
+              orbytRecord: {
+                ...prev.orbytRecord,
+                $type: 'com.getorbyt.profile',
+                colors: {
+                  backgroundColor: updates.customColors.backgroundColor,
+                  textColor: updates.customColors.textColor,
+                },
               },
-            },
-          };
-          // Update React Query cache immediately
-          queryClient.setQueryData(profileKeys.detail(handle), updated);
-          // Also update DID-based query if we have the DID
-          if (prev.did) {
-            queryClient.setQueryData(profileKeys.detail(`did_${prev.did}`), updated);
+            };
+
+            // Update React Query cache immediately
+            queryClient.setQueryData(profileKeys.detail(handle), updated);
+            // Also update DID-based query if we have the DID
+            if (prev.did) {
+              queryClient.setQueryData(profileKeys.detail(`did_${prev.did}`), updated);
+            }
+          } else {
+            // Fallback: invalidate to trigger refetch
+            queryClient.invalidateQueries({ queryKey: profileKeys.detail(handle) });
+            if (prev?.did) {
+              queryClient.invalidateQueries({ queryKey: profileKeys.detail(`did_${prev.did}`) });
+            }
           }
-        } else {
-          // Fallback: invalidate to trigger refetch
-          queryClient.invalidateQueries({ queryKey: profileKeys.detail(handle) });
-          if (prev?.did) {
-            queryClient.invalidateQueries({ queryKey: profileKeys.detail(`did_${prev.did}`) });
-          }
+          return;
         }
-        return;
+
+        if (!updatedProfile) {
+          return; // Skip if no profile was updated
+        }
+
+        // Merge server-updated fields into the query cache immediately
+        const prev = queryClient.getQueryData<ProfileViewWithOrbyt>(profileKeys.detail(handle));
+
+        if (!prev) {
+          return; // Skip if no previous data
+        }
+
+        // Merge updated profile data
+        const merged: ProfileViewWithOrbyt = {
+          ...prev,
+          ...(updatedProfile as ProfileView),
+          orbytRecord: prev.orbytRecord, // Preserve orbyt record
+        };
+
+        queryClient.setQueryData(profileKeys.detail(handle), merged);
+
+        // Also invalidate DID-based queries if we know the DID
+        if (prev.did) {
+          queryClient.invalidateQueries({ queryKey: profileKeys.detail(`did_${prev.did}`) });
+        }
+
+        // Still invalidate to ensure freshness against server
+        queryClient.invalidateQueries({ queryKey: profileKeys.detail(handle) });
+      } catch {
+        // Silently handle errors
       }
-
-      if (!updatedProfile) return; // Skip if no profile was updated
-
-      // Merge server-updated fields into the query cache immediately
-      const prev = queryClient.getQueryData<ProfileViewWithOrbyt>(profileKeys.detail(handle));
-      if (!prev) return; // Skip if no previous data
-
-      // Merge updated profile data
-      const merged: ProfileViewWithOrbyt = {
-        ...prev,
-        ...(updatedProfile as ProfileView),
-        orbytRecord: prev.orbytRecord, // Preserve orbyt record
-      };
-      queryClient.setQueryData(profileKeys.detail(handle), merged);
-
-      // Also invalidate DID-based queries if we know the DID
-      if (prev.did) {
-        queryClient.invalidateQueries({ queryKey: profileKeys.detail(`did_${prev.did}`) });
-      }
-
-      // Still invalidate to ensure freshness against server
-      queryClient.invalidateQueries({ queryKey: profileKeys.detail(handle) });
     },
     onError: (_error, { handle }, context) => {
       if (context?.previousProfile) {

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useCallback } from 'react';
 import { Alert, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { NativeEventEmitter, NativeModules } from 'react-native';
-import { showEditor, isValidFile, type Spec } from 'react-native-video-trim';
+import { showEditor, isValidFile, type Spec } from 'react-native-clip-trim';
 import { resolveVideoPath } from '../src/utils/video/path';
 import { useVideoTrimStore } from '../src/stores/videoTrimStore';
 import VideoProcessingService from '../src/services/video/VideoProcessingService';
@@ -46,8 +46,8 @@ const VideoTrimmerScreen: React.FC = () => {
         try {
           const videoInfo = await VideoProcessingService.getVideoInfo(outputPath);
           finalDuration = videoInfo.duration;
-        } catch (error) {
-          console.warn('Failed to get video info, using duration from trimmer:', error);
+        } catch {
+          // Use duration from trimmer if video info fetch fails
         }
 
         // Save to videoTrimStore for create.tsx to pick up
@@ -58,16 +58,17 @@ const VideoTrimmerScreen: React.FC = () => {
 
         // Navigate back to create screen
         router.back();
-      } catch (error: any) {
-        console.error('Error handling trim completion:', error);
-        Alert.alert('Error', error.message || 'Failed to process trimmed video');
+      } catch (error: unknown) {
+        const errorMessage =
+          error instanceof Error ? error.message : 'Failed to process trimmed video';
+        Alert.alert('Error', errorMessage);
         router.back();
       }
     },
     [setPendingTrim, router]
   );
 
-  // Set up event listeners for react-native-video-trim using Spec API
+  // Set up event listeners for react-native-clip-trim using Spec API
   useEffect(() => {
     const NativeVideoTrim = NativeModules.VideoTrim as unknown as Spec &
       Partial<import('react-native').NativeModule>;
@@ -75,13 +76,10 @@ const VideoTrimmerScreen: React.FC = () => {
     // Use the new Spec API if available, otherwise fall back to old architecture
     if (NativeVideoTrim && typeof NativeVideoTrim.onFinishTrimming === 'function') {
       listeners.current.onFinishTrimming = NativeVideoTrim.onFinishTrimming(handleTrimmingComplete);
-      listeners.current.onError = NativeVideoTrim.onError(
-        ({ message, errorCode }: { message?: string; errorCode?: string }) => {
-          console.error('Trimming error:', message, errorCode);
-          Alert.alert('Error', message || 'Failed to trim video');
-          router.back();
-        }
-      );
+      listeners.current.onError = NativeVideoTrim.onError(({ message }: { message?: string }) => {
+        Alert.alert('Error', message || 'Failed to trim video');
+        router.back();
+      });
     } else {
       // Fallback to old architecture
       const eventEmitter = new NativeEventEmitter(
@@ -92,16 +90,15 @@ const VideoTrimmerScreen: React.FC = () => {
         (event: { name?: string; [key: string]: unknown }) => {
           if (event.name === 'onFinishTrimming') {
             // Extract data from event (old architecture includes name property)
-            const { name, ...data } = event;
+            const { name: _name, ...data } = event;
             handleTrimmingComplete(data as Parameters<typeof handleTrimmingComplete>[0]);
           }
         }
       );
       listeners.current.onError = eventEmitter.addListener(
         'VideoTrim',
-        (event: { name?: string; message?: string; errorCode?: string }) => {
+        (event: { name?: string; message?: string }) => {
           if (event.name === 'onError') {
-            console.error('Trimming error:', event.message, event.errorCode);
             Alert.alert('Error', event.message || 'Failed to trim video');
             router.back();
           }
@@ -123,15 +120,7 @@ const VideoTrimmerScreen: React.FC = () => {
     };
   }, [handleTrimmingComplete, router]);
 
-  // Open the trimmer when component mounts
-  useEffect(() => {
-    if (params.videoPath && !hasOpenedEditor.current) {
-      hasOpenedEditor.current = true;
-      openTrimmer();
-    }
-  }, [params.videoPath]);
-
-  const openTrimmer = async () => {
+  const openTrimmer = useCallback(async () => {
     if (!params.videoPath) {
       Alert.alert('Error', 'No video path provided');
       router.back();
@@ -141,7 +130,7 @@ const VideoTrimmerScreen: React.FC = () => {
     try {
       // Resolve video path (handles iCloud downloads, path normalization)
       const pathInfo = await resolveVideoPath(params.videoPath, params.assetId || null);
-      const normalizedUri = pathInfo.localPath; // Remove file:// prefix for react-native-video-trim
+      const normalizedUri = pathInfo.localPath; // Remove file:// prefix for react-native-clip-trim
 
       // Validate file and get actual video duration
       const validationResult = await isValidFile(normalizedUri);
@@ -187,14 +176,21 @@ const VideoTrimmerScreen: React.FC = () => {
         autoplay: true,
         fullScreenModalIOS: true, // Use fullscreen modal on iOS to prevent view issues
       });
-    } catch (error) {
-      console.error('Error opening trimmer:', error);
+    } catch {
       Alert.alert('Error', 'Failed to open video trimmer');
       router.back();
     }
-  };
+  }, [params.videoPath, params.assetId, params.maxDuration, params.currentDuration, router]);
 
-  // Since react-native-video-trim shows a native full-screen editor,
+  // Open the trimmer when component mounts
+  useEffect(() => {
+    if (params.videoPath && !hasOpenedEditor.current) {
+      hasOpenedEditor.current = true;
+      openTrimmer();
+    }
+  }, [params.videoPath, openTrimmer]);
+
+  // Since react-native-clip-trim shows a native full-screen editor,
   // we don't render any UI. The editor handles its own UI.
   return null;
 };

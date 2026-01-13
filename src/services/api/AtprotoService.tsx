@@ -1,6 +1,5 @@
 import { AtpAgent } from '@atproto/api';
 import { storageHelpers } from '../../utils/storage/storage';
-import { logger } from '../../utils/logger';
 import { AtprotoCore } from './core';
 import { FeedService } from './feed/FeedService';
 import { ActorService } from './actor/ActorService';
@@ -207,50 +206,42 @@ class AtprotoService {
    * @returns Promise with conversations data
    */
   static async getConversations(cursor: string | null = null): Promise<ConversationsResponse> {
-    try {
-      const apiClient = await this.getApiClient();
+    const apiClient = await this.getApiClient();
 
-      // Handle case where no session is available or restoration is in progress
-      if (!apiClient) {
-        return { conversations: [], cursor: null };
-      }
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        'x-bsky-service': 'did:web:api.bsky.chat',
-      };
-
-      // Get the current agent from userStore
-      const { useUserStore } = await import('../../stores/userStore');
-      const userStore = useUserStore.getState();
-
-      if (!userStore.agent) {
-        logger.debug('No OAuth session available for conversations', {
-          component: 'AtprotoService',
-        });
-        return { conversations: [], cursor: null };
-      }
-
-      const params = new URLSearchParams({ limit: '50' });
-      if (cursor) {
-        params.append('cursor', cursor);
-      }
-      const response = await fetch(
-        `${CHAT_SERVICE_URL}/xrpc/chat.bsky.convo.listConversations?${params.toString()}`,
-        { headers }
-      );
-      if (response.status === 501) {
-        return { conversations: [], cursor: null };
-      }
-      if (!response.ok) {
-        throw new Error(`HTTP error ${response.status}`);
-      }
-      const json = await response.json();
-      return { conversations: json.convos || [], cursor: json.cursor || null };
-    } catch (error: unknown) {
-      logger.error('Error fetching conversations', error, { component: 'AtprotoService' });
-      throw error;
+    // Handle case where no session is available or restoration is in progress
+    if (!apiClient) {
+      return { conversations: [], cursor: null };
     }
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      'x-bsky-service': 'did:web:api.bsky.chat',
+    };
+
+    // Get the current agent from userStore
+    const { useUserStore } = await import('../../stores/userStore');
+    const userStore = useUserStore.getState();
+
+    if (!userStore.agent) {
+      return { conversations: [], cursor: null };
+    }
+
+    const params = new URLSearchParams({ limit: '50' });
+    if (cursor) {
+      params.append('cursor', cursor);
+    }
+    const response = await fetch(
+      `${CHAT_SERVICE_URL}/xrpc/chat.bsky.convo.listConversations?${params.toString()}`,
+      { headers }
+    );
+    if (response.status === 501) {
+      return { conversations: [], cursor: null };
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error ${response.status}`);
+    }
+    const json = await response.json();
+    return { conversations: json.convos || [], cursor: json.cursor || null };
   }
 
   /**
@@ -263,38 +254,30 @@ class AtprotoService {
     convoId: string,
     cursor: string | null = null
   ): Promise<MessagesResponse> {
-    try {
-      await this.ensureSession();
-      const params = new URLSearchParams({ convoId, limit: '50' });
-      if (cursor) {
-        params.append('cursor', cursor);
-      }
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        'x-bsky-service': 'did:web:api.bsky.chat',
-      };
-
-      // For OAuth, authentication is handled automatically by the agent
-      const response = await fetch(
-        `${CHAT_SERVICE_URL}/xrpc/chat.bsky.convo.getMessages?${params.toString()}`,
-        { headers }
-      );
-      if (response.status === 501) {
-        logger.warn('Service not implemented (HTTP 501), returning empty messages', {
-          component: 'AtprotoService',
-        });
-        return { messages: [], cursor: null };
-      }
-      if (!response.ok) {
-        throw new Error(`HTTP error ${response.status}`);
-      }
-      const json = await response.json();
-      return { messages: json.logs, cursor: json.cursor || null };
-    } catch (error: unknown) {
-      logger.error('Error fetching messages', error, { component: 'AtprotoService' });
-      throw error;
+    await this.ensureSession();
+    const params = new URLSearchParams({ convoId, limit: '50' });
+    if (cursor) {
+      params.append('cursor', cursor);
     }
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      'x-bsky-service': 'did:web:api.bsky.chat',
+    };
+
+    // For OAuth, authentication is handled automatically by the agent
+    const response = await fetch(
+      `${CHAT_SERVICE_URL}/xrpc/chat.bsky.convo.getMessages?${params.toString()}`,
+      { headers }
+    );
+    if (response.status === 501) {
+      return { messages: [], cursor: null };
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error ${response.status}`);
+    }
+    const json = await response.json();
+    return { messages: json.logs, cursor: json.cursor || null };
   }
 
   /**
@@ -424,15 +407,6 @@ class AtprotoService {
       // Use getPostThread (V2 may not be available in all SDK versions)
       // The threading structure is preserved through parent/replies relationships
       const response = await api.app.bsky.feed.getPostThread(params);
-
-      // Log raw API response for debugging reply structure
-      // This shows the actual API response structure before processing
-      logger.debug('Raw API response for comments', {
-        component: 'AtprotoService',
-        action: 'getComments',
-        postUri,
-        rawResponse: JSON.stringify(response.data, null, 2),
-      });
 
       // Function to recursively process thread posts with proper typing
       // Preserves Bluesky's threading structure with parent/child relationships
@@ -793,20 +767,9 @@ class AtprotoService {
         await api.app.bsky.feed.sendInteractions({
           interactions: [interaction],
         });
-
-        logger.debug('Sent feed interaction', {
-          component: 'AtprotoService',
-          postUri,
-          event,
-          targetFeed,
-        });
       }
-    } catch (error: unknown) {
-      // Log error but don't throw - interactions are best-effort
-      logger.warn('Failed to send feed interaction', {
-        component: 'AtprotoService',
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
+    } catch {
+      // Silently fail - interactions are best-effort
     }
   }
 
@@ -1005,7 +968,11 @@ class AtprotoService {
     description?: string | null;
     avatar?: string | null;
   }): Promise<ProfileViewDetailed> {
-    return ActorService.updateProfile(updates);
+    return ActorService.updateProfile({
+      displayName: updates.displayName ?? undefined,
+      description: updates.description ?? undefined,
+      avatar: updates.avatar ?? undefined,
+    });
   }
 
   /**
@@ -1357,8 +1324,7 @@ class AtprotoService {
       }
 
       return Array.from(hashtagSet).slice(0, limit);
-    } catch (error: unknown) {
-      logger.error('Error searching hashtag suggestions', error);
+    } catch {
       return [];
     }
   }
@@ -1434,7 +1400,6 @@ class AtprotoService {
       );
 
       if (validFeedUris.length === 0) {
-        logger.warn('No valid feed URIs provided to getMixedFeed', { component: 'AtprotoService' });
         return { feed: [], cursor: null };
       }
 
@@ -1447,11 +1412,7 @@ class AtprotoService {
       if (cursor) {
         try {
           feedStates = JSON.parse(cursor);
-        } catch (error) {
-          logger.warn('Failed to parse cursor for mixed feed', {
-            component: 'AtprotoService',
-            error,
-          });
+        } catch {
           feedStates = {};
         }
       } else {
@@ -1483,13 +1444,8 @@ class AtprotoService {
             feedUri,
             success: true,
           };
-        } catch (error) {
-          // Log individual feed failures but don't fail the entire request
-          logger.warn('Failed to fetch from feed in mixed feed', {
-            component: 'AtprotoService',
-            feedUri,
-            error: error instanceof Error ? error.message : 'Unknown error',
-          });
+        } catch {
+          // Silently handle individual feed failures
           return {
             posts: [],
             cursor: null,
@@ -1501,13 +1457,8 @@ class AtprotoService {
 
       const feedResults = await Promise.all(feedPromises);
 
-      // Log success rate for debugging
       const successfulFeeds = feedResults.filter(r => r.success).length;
       if (successfulFeeds === 0) {
-        logger.error('All feeds failed in getMixedFeed', {
-          component: 'AtprotoService',
-          feedUris: limitedFeedUris,
-        });
         return { feed: [], cursor: null };
       }
 
@@ -1560,8 +1511,7 @@ class AtprotoService {
         feed: limitedPosts,
         cursor: compositeCursor,
       };
-    } catch (error) {
-      logger.error('Error in getMixedFeed', { component: 'AtprotoService', error });
+    } catch {
       return { feed: [], cursor: null };
     }
   }
@@ -1673,8 +1623,13 @@ class AtprotoService {
   }): Promise<boolean> {
     try {
       const userDid = await this.getCurrentUserDid();
-      if (!userDid) return false;
+
+      if (!userDid) {
+        return false;
+      }
+
       const apiClient = await this.getApiClient();
+
       if (!apiClient) {
         return false;
       }
@@ -1682,6 +1637,7 @@ class AtprotoService {
 
       // Read existing
       let existing: OrbytProfileRecord | null = null;
+
       try {
         const rec = await api.com.atproto.repo.getRecord({
           repo: userDid,
@@ -1691,7 +1647,7 @@ class AtprotoService {
         const output: GetRecordOutput = rec.data;
         existing = (output.value as OrbytProfileRecord) || null;
       } catch {
-        // ignore errors
+        // No existing record found (this is OK for first-time creation)
       }
 
       const nowIso = new Date().toISOString();
@@ -1726,9 +1682,9 @@ class AtprotoService {
           record: nextRecord,
         });
       }
+
       return true;
-    } catch (error) {
-      logger.error('Error upserting com.getorbyt.profile', error, { component: 'AtprotoService' });
+    } catch {
       return false;
     }
   }

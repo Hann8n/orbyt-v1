@@ -3,7 +3,6 @@
  * Handles all actor/profile-related API operations including profile retrieval, search, and updates
  */
 
-import { logger } from '../../../utils/logger';
 import { AtprotoCore } from '../core';
 import type {
   ProfileView,
@@ -16,6 +15,75 @@ import type {
   OrbytProfileRecord,
 } from '../types';
 import type { AppBskyActorProfile } from '@atproto/api';
+import { BlobRef } from '@atproto/lexicon';
+import { CID } from 'multiformats/cid';
+
+/**
+ * Converts JSON blob objects (from getRecord) to BlobRef instances.
+ * When manually fetching records via getRecord, blobs come as JSON objects
+ * like { $type: "blob", ref: { $link: "..." }, mimeType: "...", size: ... }.
+ * The validator requires BlobRef instances, so we need to convert them.
+ */
+function convertJsonBlobToBlobRef(blob: unknown): BlobRef | null {
+  if (!blob) return null;
+  if (blob instanceof BlobRef) return blob;
+
+  const blobObj = blob as {
+    $type?: string;
+    ref?: { $link?: string } | CID;
+    mimeType?: string;
+    size?: number;
+  };
+
+  // Try asBlobRef first (handles various formats)
+  const converted = BlobRef.asBlobRef(blobObj);
+  if (converted) return converted;
+
+  // Manual conversion for { ref: { $link: string } } format from getRecord
+  if (
+    blobObj.ref &&
+    typeof blobObj.ref === 'object' &&
+    '$link' in blobObj.ref &&
+    typeof blobObj.ref.$link === 'string'
+  ) {
+    const cid = CID.parse(blobObj.ref.$link);
+    return new BlobRef(cid, blobObj.mimeType || 'application/octet-stream', blobObj.size ?? -1);
+  }
+
+  // Handle direct CID format
+  if (blobObj.ref instanceof CID && blobObj.mimeType) {
+    return new BlobRef(blobObj.ref, blobObj.mimeType, blobObj.size ?? -1);
+  }
+
+  return null;
+}
+
+/**
+ * Converts blob fields (avatar, banner) in a profile record from JSON to BlobRef instances.
+ * This is necessary when manually fetching profiles via getRecord, as the API returns
+ * blobs as JSON objects but the validator requires BlobRef instances.
+ */
+function convertProfileBlobsToBlobRefs(
+  profile: AppBskyActorProfile.Record
+): AppBskyActorProfile.Record {
+  const converted: AppBskyActorProfile.Record = { ...profile };
+
+  if (converted.avatar) {
+    const blobRef = convertJsonBlobToBlobRef(converted.avatar);
+    if (blobRef) {
+      converted.avatar = blobRef;
+    }
+  }
+
+  if (converted.banner) {
+    const blobRef = convertJsonBlobToBlobRef(converted.banner);
+    if (blobRef) {
+      converted.banner = blobRef;
+    }
+  }
+
+  return converted;
+}
 
 export class ActorService {
   /**
@@ -23,42 +91,29 @@ export class ActorService {
    * @returns Current user's detailed profile
    */
   static async getCurrentUser(): Promise<ProfileViewDetailed> {
-    try {
-      // First try to get the current user DID
-      const userDid = await AtprotoCore.getCurrentUserDid();
-      if (!userDid) {
-        logger.debug('No user DID available', { component: 'ActorService' });
-        throw new Error('No session available');
-      }
-
-      // Then get the API client
-      const apiClient = await AtprotoCore.getApiClient();
-      if (!apiClient || !apiClient.api) {
-        throw new Error('No API client available');
-      }
-
-      const { api } = apiClient;
-
-      // Getting profile for DID using session
-      const response = await api.app.bsky.actor.getProfile({ actor: userDid });
-
-      // Cache the profile data
-      if (response?.data) {
-        // Successfully retrieved user profile
-      }
-
-      return response.data as ProfileViewDetailed;
-    } catch (error: unknown) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      logger.error('Error getting current user', error, { component: 'ActorService' });
-
-      // Session error handling - cache is managed by userStore now
-      if (errorMsg.includes('session') || errorMsg.includes('auth') || errorMsg.includes('token')) {
-        logger.debug('Session error detected', { component: 'ActorService' });
-      }
-
-      throw error;
+    // First try to get the current user DID
+    const userDid = await AtprotoCore.getCurrentUserDid();
+    if (!userDid) {
+      throw new Error('No session available');
     }
+
+    // Then get the API client
+    const apiClient = await AtprotoCore.getApiClient();
+    if (!apiClient || !apiClient.api) {
+      throw new Error('No API client available');
+    }
+
+    const { api } = apiClient;
+
+    // Getting profile for DID using session
+    const response = await api.app.bsky.actor.getProfile({ actor: userDid });
+
+    // Cache the profile data
+    if (response?.data) {
+      // Successfully retrieved user profile
+    }
+
+    return response.data as ProfileViewDetailed;
   }
 
   /**
@@ -218,11 +273,7 @@ export class ActorService {
         try {
           const profile = await this.getProfile(uniqueHandles[0]);
           return profile ? [profile] : [];
-        } catch (error: unknown) {
-          logger.warn(`Failed to fetch profile ${uniqueHandles[0]}:`, {
-            component: 'ActorService',
-            error,
-          });
+        } catch {
           return [];
         }
       }
@@ -240,8 +291,7 @@ export class ActorService {
         api.app.bsky.actor
           .getProfiles({ actors: batch })
           .then(response => (response?.data?.profiles || []) as ProfileView[])
-          .catch((error: unknown) => {
-            logger.warn(`Failed to fetch batch of profiles:`, { component: 'ActorService', error });
+          .catch(() => {
             return [] as ProfileView[];
           })
       );
@@ -273,8 +323,7 @@ export class ActorService {
       }
 
       return profilesWithOrbyt;
-    } catch (error: unknown) {
-      logger.error('Error in getProfilesInBatch:', error);
+    } catch {
       return [];
     }
   }
@@ -312,23 +361,54 @@ export class ActorService {
     };
   }): Promise<ProfileViewDetailed> {
     await AtprotoCore.ensureSession();
-
     // Use the correct upsertProfile method as per Bluesky documentation
     const { api } = await AtprotoCore.getApiClient();
+
+    // Manually fetch the existing profile record to ensure we have all fields for merging
+    // The API's upsertProfile may pass undefined if validation fails, so we fetch it ourselves
+    let manuallyFetchedProfile: AppBskyActorProfile.Record | undefined;
+    try {
+      const repo = await AtprotoCore.getCurrentUserDid();
+      if (repo) {
+        const existingRecordResponse = await api.com.atproto.repo
+          .getRecord({
+            repo,
+            collection: 'app.bsky.actor.profile',
+            rkey: 'self',
+          })
+          .catch(() => undefined);
+
+        if (existingRecordResponse?.data?.value) {
+          manuallyFetchedProfile = existingRecordResponse.data.value as AppBskyActorProfile.Record;
+        }
+      }
+    } catch {
+      // Fallback to API callback if manual fetch fails
+    }
     await api.upsertProfile((existingProfile: AppBskyActorProfile.Record | undefined) => {
-      const existing: AppBskyActorProfile.Record = existingProfile || {};
+      // Use manually fetched profile if API callback provides undefined, otherwise use API's version
+      // This ensures we always have the existing data to merge with
+      let profileToUse = existingProfile || manuallyFetchedProfile;
 
-      // Update display name if provided
-      if (updates.displayName !== undefined) {
-        existing.displayName = updates.displayName;
+      // Convert blob fields (avatar, banner) to BlobRef instances if they're JSON objects
+      // The manually fetched profile has blobs as JSON, but the validator requires BlobRef instances
+      if (profileToUse) {
+        profileToUse = convertProfileBlobsToBlobRefs(profileToUse);
       }
 
-      // Update description if provided
-      if (updates.description !== undefined) {
-        existing.description = updates.description;
-      }
+      // Start with existing profile or empty object, ensuring we preserve all fields
+      const existing: AppBskyActorProfile.Record = profileToUse
+        ? { ...profileToUse } // Spread to preserve all fields
+        : { $type: 'app.bsky.actor.profile' }; // New profile needs $type
 
-      return existing;
+      // Build the updated record by spreading existing and only updating provided fields
+      const updated: AppBskyActorProfile.Record = {
+        ...existing, // Preserve ALL existing fields
+        ...(updates.displayName !== undefined && { displayName: updates.displayName }),
+        ...(updates.description !== undefined && { description: updates.description }),
+      };
+
+      return updated;
     });
 
     // Handle avatar upload separately if provided
@@ -356,20 +436,116 @@ export class ActorService {
         }
 
         // Upload the image to Bluesky
-        const { api } = await AtprotoCore.getApiClient();
-        const uploadResult = await api.uploadBlob(imageBlob, {
+        const { api: apiForUpload } = await AtprotoCore.getApiClient();
+        const uploadResult = await apiForUpload.uploadBlob(imageBlob, {
           encoding: 'image/jpeg',
         });
 
+        // Capture the blob value BEFORE the callback to avoid closure issues
+        const uploadedBlob = uploadResult.data.blob;
+        if (!uploadedBlob) {
+          throw new Error('Upload result does not contain a blob reference');
+        }
+
+        // Manually fetch the existing profile record to ensure we have all fields for merging
+        // The API's upsertProfile may pass undefined if validation fails, so we fetch it ourselves
+        let manuallyFetchedProfileForAvatar: AppBskyActorProfile.Record | undefined;
+        try {
+          const repo = await AtprotoCore.getCurrentUserDid();
+          if (repo) {
+            const existingRecordResponse = await apiForUpload.com.atproto.repo
+              .getRecord({
+                repo,
+                collection: 'app.bsky.actor.profile',
+                rkey: 'self',
+              })
+              .catch(() => undefined);
+
+            if (existingRecordResponse?.data?.value) {
+              manuallyFetchedProfileForAvatar = existingRecordResponse.data
+                .value as AppBskyActorProfile.Record;
+            }
+          }
+        } catch {
+          // Fallback to API callback if manual fetch fails
+        }
         // Update profile with the new avatar
-        // Extract the blob data in the correct format for the profile record
-        const blobRef = uploadResult.data.blob;
-        await api.upsertProfile((existingProfile: AppBskyActorProfile.Record | undefined) => {
-          const existing: AppBskyActorProfile.Record = existingProfile || {};
-          existing.avatar = blobRef;
-          return existing;
-        });
-      } catch (_error) {
+        // Note: The avatar field expects a BlobRef instance
+        await apiForUpload.upsertProfile(
+          (existingProfile: AppBskyActorProfile.Record | undefined) => {
+            // Use manually fetched profile if API callback provides undefined, otherwise use API's version
+            let profileToUse = existingProfile || manuallyFetchedProfileForAvatar;
+
+            // Convert blob fields (avatar, banner) to BlobRef instances if they're JSON objects
+            // The manually fetched profile has blobs as JSON, but the validator requires BlobRef instances
+            if (profileToUse) {
+              profileToUse = convertProfileBlobsToBlobRefs(profileToUse);
+            }
+
+            // Preserve all existing fields
+            const existing: AppBskyActorProfile.Record = profileToUse
+              ? { ...profileToUse }
+              : { $type: 'app.bsky.actor.profile' };
+            // Ensure we have a proper BlobRef instance (validator requires instanceof BlobRef)
+            let blobRef: BlobRef;
+
+            // Check if it's already a BlobRef instance
+            if (uploadedBlob instanceof BlobRef) {
+              blobRef = uploadedBlob;
+            } else if (uploadedBlob && typeof uploadedBlob === 'object') {
+              // Try asBlobRef first (handles both typed and untyped formats)
+              const converted = BlobRef.asBlobRef(uploadedBlob);
+              if (converted) {
+                blobRef = converted;
+              } else {
+                // If asBlobRef fails, manually construct BlobRef from API response format
+                // The API returns { ref: { $link: string }, mimeType: string, size: number }
+                // We need to parse the CID from ref.$link and construct a BlobRef instance
+                const blobObj = uploadedBlob as {
+                  ref?: { $link?: string } | CID;
+                  mimeType?: string;
+                  size?: number;
+                };
+
+                if (
+                  blobObj.ref &&
+                  typeof blobObj.ref === 'object' &&
+                  '$link' in blobObj.ref &&
+                  typeof blobObj.ref.$link === 'string'
+                ) {
+                  // Parse CID from the $link string
+                  const cid = CID.parse(blobObj.ref.$link);
+                  const mimeType = blobObj.mimeType || 'application/octet-stream';
+                  const size = blobObj.size ?? -1;
+
+                  // Construct BlobRef instance
+                  blobRef = new BlobRef(cid, mimeType, size);
+                } else if (blobObj.ref instanceof CID && blobObj.mimeType) {
+                  // Already has a CID, construct directly
+                  blobRef = new BlobRef(blobObj.ref, blobObj.mimeType, blobObj.size ?? -1);
+                } else {
+                  throw new Error(
+                    'Failed to convert uploaded blob to BlobRef instance. ' +
+                      'Invalid blob structure: expected ref.$link (string) or ref (CID), mimeType, and size.'
+                  );
+                }
+              }
+            } else {
+              throw new Error(
+                'Invalid blob reference from upload: expected BlobRef instance or valid blob object'
+              );
+            }
+
+            // Create updated record preserving all fields
+            const updated: AppBskyActorProfile.Record = {
+              ...existing, // Preserve ALL existing fields
+              avatar: blobRef, // Update only avatar
+            };
+
+            return updated;
+          }
+        );
+      } catch {
         throw new Error('Failed to upload avatar image');
       }
     }
@@ -381,11 +557,9 @@ export class ActorService {
   /**
    * Upload an image and return the blob reference
    * @param imageUri - URI of the image to upload (file:// or data:)
-   * @returns Blob reference for the uploaded image
+   * @returns BlobRef instance for the uploaded image
    */
-  static async uploadImage(
-    imageUri: string
-  ): Promise<{ ref: { $link: string }; mimeType: string; size: number }> {
+  static async uploadImage(imageUri: string): Promise<BlobRef> {
     await AtprotoCore.ensureSession();
 
     let imageBlob: Blob;

@@ -7238,6 +7238,11 @@ react-is@^19.1.0:
   resolved "https://registry.yarnpkg.com/react-is/-/react-is-19.2.3.tgz#eec2feb69c7fb31f77d0b5c08c10ae1c88886b29"
   integrity sha512-qJNJfu81ByyabuG7hPFEbXqNcWSU3+eVus+KJs+0ncpGfMyYdvSmxiJxbWR65lYi1I+/0HBcliO029gc4F+PnA==
 
+react-native-clip-trim@^6.1.0-beta.1:
+  version "6.1.0-beta.1"
+  resolved "https://registry.yarnpkg.com/react-native-clip-trim/-/react-native-clip-trim-6.1.0-beta.1.tgz#6ae2b24f7c3107a08b6a61e4bbb4294f956302eb"
+  integrity sha512-sZLg0K75tpJW2nC4v4C3hGYGY6pGzOcLVom0SZ3wqwHrCdGVPW0PNFjU1o4AZj0ZRYMtN5kuARM2hTLiWEOYew==
+
 react-native-compressor@^1.13.0:
   version "1.14.0"
   resolved "https://registry.yarnpkg.com/react-native-compressor/-/react-native-compressor-1.14.0.tgz#b5078ef4f973916e64932b0deb653c09609ee2b4"
@@ -7329,9 +7334,6 @@ react-native-url-polyfill@^3.0.0:
   integrity sha512-aA5CiuUCUb/lbrliVCJ6lZ17/RpNJzvTO/C7gC/YmDQhTUoRD5q5HlJfwLWcxz4VgAhHwXKzhxH+wUN24tAdqg==
   dependencies:
     whatwg-url-without-unicode "8.0.0-3"
-
-"react-native-video-trim@file:../react-native-video-trim":
-  version "6.1.0-beta.1"
 
 react-native-video-trimmer-ui@^0.3.6:
   version "0.3.6"

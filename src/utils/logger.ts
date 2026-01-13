@@ -19,19 +19,43 @@ class Logger {
     const prefix = level.toUpperCase();
     const formatted = `[${prefix}]${this.formatContext(context)} ${message}`;
 
+    // Extract all context data (excluding component and action which are already formatted)
+    const contextData = context ? { ...context } : {};
+    if (context?.component) delete contextData.component;
+    if (context?.action) delete contextData.action;
+
+    // Format context data for output
+    const hasContextData = Object.keys(contextData).length > 0;
+
     if (level === 'debug' || level === 'info') {
       if (this.isDevelopment) {
-        console.log(formatted, errorDisplay ?? '');
+        if (hasContextData) {
+          // Output formatted message and context data separately for better readability
+          console.log(formatted);
+          console.log(JSON.stringify(contextData, null, 2));
+        } else {
+          console.log(formatted, errorDisplay ?? '');
+        }
       }
       return;
     }
 
     if (level === 'warn') {
-      console.warn(formatted, errorDisplay ?? '');
+      if (hasContextData) {
+        console.warn(formatted);
+        console.warn(JSON.stringify(contextData, null, 2), errorDisplay ?? '');
+      } else {
+        console.warn(formatted, errorDisplay ?? '');
+      }
       return;
     }
 
-    console.error(formatted, errorDisplay ?? '');
+    if (hasContextData) {
+      console.error(formatted);
+      console.error(JSON.stringify(contextData, null, 2), errorDisplay ?? '');
+    } else {
+      console.error(formatted, errorDisplay ?? '');
+    }
   }
 
   /**
