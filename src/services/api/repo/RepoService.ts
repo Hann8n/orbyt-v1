@@ -22,27 +22,23 @@ export class RepoService {
   static async uploadVideo(
     videoPath: string
   ): Promise<{ ref: { $link: string }; mimeType: string; size: number }> {
-    try {
-      await AtprotoCore.ensureSession();
+    await AtprotoCore.ensureSession();
 
-      if (!videoPath.startsWith('file://')) {
-        throw new Error('Unsupported video format');
-      }
-
-      // Fetch the video file
-      const response = await fetch(videoPath);
-      const videoBlob = await response.blob();
-
-      // Upload the video to Bluesky
-      const { api } = await AtprotoCore.getApiClient();
-      const uploadResult = await api.uploadBlob(videoBlob, {
-        encoding: 'video/mp4',
-      });
-
-      return uploadResult.data.blob;
-    } catch (error: unknown) {
-      throw error;
+    if (!videoPath.startsWith('file://')) {
+      throw new Error('Unsupported video format');
     }
+
+    // Fetch the video file
+    const response = await fetch(videoPath);
+    const videoBlob = await response.blob();
+
+    // Upload the video to Bluesky
+    const { api } = await AtprotoCore.getApiClient();
+    const uploadResult = await api.uploadBlob(videoBlob, {
+      encoding: 'video/mp4',
+    });
+
+    return uploadResult.data.blob;
   }
 
   /**
@@ -252,18 +248,46 @@ export class RepoService {
     }
   }
 
+  // Migration version - increment this to trigger re-sync for all users
+  // v1: Initial Orbyt API migration (Jan 2026) - ensures all profiles are indexed
+  private static readonly MIGRATION_VERSION = 1;
+  private static readonly MIGRATION_KEY_PREFIX = 'orbyt_profile_migration_v';
+
   /**
-   * Initialize "com.getorbyt.profile" on first login if missing
+   * Initialize "com.getorbyt.profile" on first login if missing,
+   * or touch existing record if migration is needed (triggers Jetstream re-index)
    */
   static async initOrbytProfileIfNeeded(): Promise<void> {
     try {
-      const existing = await this.getOrbytProfileRecord();
-      if (existing) return;
-
       const userDid = await AtprotoCore.getCurrentUserDid();
       if (!userDid) return;
 
-      // No legacy migration; initialize without colors by default
+      // Check if migration already done for this user
+      const migrationKey = `${this.MIGRATION_KEY_PREFIX}${this.MIGRATION_VERSION}_${userDid}`;
+      const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+      const migrationDone = await AsyncStorage.getItem(migrationKey);
+
+      const existing = (await this.getOrbytProfileRecord()) as OrbytProfileRecord | null;
+
+      if (existing && migrationDone) {
+        // Record exists and migration done - nothing to do
+        return;
+      }
+
+      if (existing && !migrationDone) {
+        // Record exists but migration not done - touch it to trigger re-index
+        // Just update updatedAt, preserving all other fields
+        await this.upsertOrbytProfileRecord({});
+        await AsyncStorage.setItem(migrationKey, 'true');
+        logger.debug('Orbyt profile migration: touched existing record', {
+          component: 'RepoService',
+          did: userDid,
+          version: this.MIGRATION_VERSION,
+        });
+        return;
+      }
+
+      // No existing record - create new one
       let colors: { backgroundColor: string; textColor: string } | null = null;
 
       // Pull current subscribed channels from userStore (filter built-ins)
@@ -272,7 +296,6 @@ export class RepoService {
         const { useUserStore } = await import('../../../stores/userStore');
         const channels = useUserStore.getState().subscribedChannels || [];
         const allUris = channels.map((c: SubscribedChannel) => c.uri).filter(Boolean);
-        // Filter out built-in channels
         const BUILT_IN_CHANNELS = ['following', 'your-mix'];
         subscribedChannels = allUris.filter((uri: string) => !BUILT_IN_CHANNELS.includes(uri));
       } catch {
@@ -285,7 +308,6 @@ export class RepoService {
         const { useUserStore, ALGORITHMIC_FEED_PROVIDERS } =
           await import('../../../stores/userStore');
         const provider = useUserStore.getState().algorithmicFeedProvider;
-        // Use current value or default to Bluesky Video
         algorithmicFeedProvider = provider ?? ALGORITHMIC_FEED_PROVIDERS.BLUESKY_VIDEO.uri;
       } catch {
         // ignore
@@ -296,6 +318,14 @@ export class RepoService {
         colors,
         subscribedChannels,
         algorithmicFeedProvider,
+      });
+
+      // Mark migration as done
+      await AsyncStorage.setItem(migrationKey, 'true');
+      logger.debug('Orbyt profile migration: created new record', {
+        component: 'RepoService',
+        did: userDid,
+        version: this.MIGRATION_VERSION,
       });
     } catch {
       // best-effort only

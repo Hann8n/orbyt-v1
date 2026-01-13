@@ -43,8 +43,6 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
 
   onLogout,
   onSwitchAccount,
-  chatSettings,
-  viewerFollowedBy = false,
   onMessagePress: _onMessagePress,
 }) => {
   const queryClient = useQueryClient();
@@ -294,22 +292,6 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
       },
     ]);
   }, [onDismiss, queryClient, onLogout, signOut, removeAccount]);
-
-  // Determine if messaging is available based on chat settings
-  const _canMessage = (() => {
-    if (!chatSettings) return false;
-    const allowIncoming = chatSettings.allowIncoming;
-    switch (allowIncoming) {
-      case 'none':
-        return false;
-      case 'all':
-        return true;
-      case 'following':
-        return viewerFollowedBy;
-      default:
-        return false;
-    }
-  })();
 
   // Determine menu options based on profile type
   const getMenuOptions = () => {

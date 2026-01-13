@@ -12,10 +12,10 @@ import type {
   ActorPreferences,
   GetPreferencesOutput,
   ProfileViewWithOrbyt,
-  OrbytProfileRecord,
 } from '../types';
 import type { AppBskyActorProfile } from '@atproto/api';
 import { BlobRef } from '@atproto/lexicon';
+// @ts-expect-error - multiformats/cid has type resolution issues with package.json exports
 import { CID } from 'multiformats/cid';
 
 /**
@@ -173,65 +173,21 @@ export class ActorService {
   }
 
   /**
-   * Get profile by DID with orbyt record - always fetches com.getorbyt.profile in parallel
+   * Get profile by DID
+   * Note: Colors/isBeta now come from useOrbytColors hook (Orbyt API), not PDS
    * @param did - User DID
-   * @returns Profile data with orbyt record attached
+   * @returns Profile data
    */
   static async getProfileByDid(did: string): Promise<ProfileViewWithOrbyt | null> {
-    // React Query handles caching - no custom cache needed
     const { api } = await AtprotoCore.getApiClient();
     try {
-      // Fetch profile and orbyt record in parallel
-      const { RepoService } = await import('../repo/RepoService');
-
-      const [profileResponse, orbytRecordResult] = await Promise.all([
-        api.app.bsky.actor.getProfile({
-          actor: did,
-        }),
-        RepoService.getOrbytProfileRecordForDid(did).catch(() => null),
-      ]);
-
-      const profile = profileResponse.data as ProfileView;
-      const orbytRecord = (orbytRecordResult as OrbytProfileRecord | null) || null;
-
-      // Return ProfileView with orbyt record attached
-      return {
-        ...profile,
-        orbytRecord,
-      };
-    } catch (_error: unknown) {
-      return null;
-    }
-  }
-
-  /**
-   * Get profile by handle with orbyt record - always fetches com.getorbyt.profile in parallel
-   * @param handle - User handle
-   * @returns Profile data with orbyt record attached
-   */
-  static async getProfile(handle: string): Promise<ProfileViewWithOrbyt | null> {
-    // React Query handles caching - no custom cache needed
-    const { api } = await AtprotoCore.getApiClient();
-    try {
-      const response = await api.app.bsky.actor.getProfile({
-        actor: handle,
+      const profileResponse = await api.app.bsky.actor.getProfile({
+        actor: did,
       });
 
-      const profile = response.data as ProfileView;
+      const profile = profileResponse.data as ProfileView;
 
-      // Fetch orbyt record for the profile's DID
-      if (profile.did) {
-        const { RepoService } = await import('../repo/RepoService');
-        const orbytRecord = (await RepoService.getOrbytProfileRecordForDid(profile.did).catch(
-          () => null
-        )) as OrbytProfileRecord | null;
-
-        return {
-          ...profile,
-          orbytRecord: orbytRecord || null,
-        };
-      }
-
+      // orbytRecord is now null - colors come from useOrbytColors hook
       return {
         ...profile,
         orbytRecord: null,
@@ -242,13 +198,38 @@ export class ActorService {
   }
 
   /**
-   * Batch fetch multiple actor profiles efficiently with orbyt records
+   * Get profile by handle
+   * Note: Colors/isBeta now come from useOrbytColors hook (Orbyt API), not PDS
+   * @param handle - User handle
+   * @returns Profile data
+   */
+  static async getProfile(handle: string): Promise<ProfileViewWithOrbyt | null> {
+    const { api } = await AtprotoCore.getApiClient();
+    try {
+      const response = await api.app.bsky.actor.getProfile({
+        actor: handle,
+      });
+
+      const profile = response.data as ProfileView;
+
+      // orbytRecord is now null - colors come from useOrbytColors hook
+      return {
+        ...profile,
+        orbytRecord: null,
+      };
+    } catch (_error: unknown) {
+      return null;
+    }
+  }
+
+  /**
+   * Batch fetch multiple actor profiles efficiently
    * Uses Bluesky's native batch endpoint to fetch up to 25 profiles per request
    * Automatically deduplicates and chunks requests into batches of 25
-   * Fetches orbyt records in parallel for all profiles
+   * Note: Colors/isBeta now come from useOrbytColors hook (Orbyt API), not PDS
    *
    * @param handles - Array of actor handles to fetch
-   * @returns Array of actor profiles with orbyt records attached
+   * @returns Array of actor profiles
    */
   static async getProfilesInBatch(handles: string[]): Promise<ProfileViewWithOrbyt[]> {
     if (!handles || handles.length === 0) {
@@ -268,7 +249,7 @@ export class ActorService {
         return [];
       }
 
-      // Single handle optimization - use getProfile which already fetches orbyt record
+      // Single handle optimization
       if (uniqueHandles.length === 1) {
         try {
           const profile = await this.getProfile(uniqueHandles[0]);
@@ -299,30 +280,11 @@ export class ActorService {
       const profileResults = await Promise.all(batchPromises);
       const profiles = profileResults.flat();
 
-      // Fetch orbyt records in parallel for all profiles
-      const { RepoService } = await import('../repo/RepoService');
-      const orbytRecordPromises = profiles.map(profile =>
-        profile?.did
-          ? RepoService.getOrbytProfileRecordForDid(profile.did)
-              .catch(() => null)
-              .then(record => ({ profile, orbytRecord: record as OrbytProfileRecord | null }))
-          : Promise.resolve({ profile, orbytRecord: null as OrbytProfileRecord | null })
-      );
-
-      const results = await Promise.allSettled(orbytRecordPromises);
-
-      // Combine profiles with orbyt records
-      const profilesWithOrbyt: ProfileViewWithOrbyt[] = [];
-      for (const result of results) {
-        if (result.status === 'fulfilled' && result.value.profile) {
-          profilesWithOrbyt.push({
-            ...(result.value.profile as ProfileView),
-            orbytRecord: result.value.orbytRecord || null,
-          } as ProfileViewWithOrbyt);
-        }
-      }
-
-      return profilesWithOrbyt;
+      // Convert to ProfileViewWithOrbyt (orbytRecord is null - colors come from useOrbytColors)
+      return profiles.map(profile => ({
+        ...profile,
+        orbytRecord: null,
+      }));
     } catch {
       return [];
     }

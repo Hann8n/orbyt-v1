@@ -2,7 +2,7 @@
 
 // API Services
 export { AtprotoService } from './api/AtprotoService';
-export { default as OrbytAPIService } from './OrbytAPIService';
+export { default as OrbytBannerService } from './OrbytBannerService';
 
 // Auth Services
 export * from './auth';

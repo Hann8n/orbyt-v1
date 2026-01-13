@@ -266,6 +266,8 @@ export const useStaticChannels = () => {
   });
 };
 
-export default OrbytAPIService;
+// Export abstract class as OrbytBannerService for backwards compatibility
+const OrbytBannerService = OrbytAPIService;
+export default OrbytBannerService;
 export { HeaderService, StaticChannelsService };
 export type { Header };

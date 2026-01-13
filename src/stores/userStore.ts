@@ -25,8 +25,28 @@ import { isOrbytChannel } from '../utils/channels/orbyt';
 import { queryClient } from '../utils/query/queryClient';
 import { usePostInteractionStore } from './postInteractionStore';
 import { queryKeys } from '../utils/query/queryKeys';
+import { prefetchOrbytColors, loadPersistedColors } from '../hooks/useOrbytColors';
 
 // Note: FeedService is no longer needed here - React Query handles all feed caching
+
+/**
+ * Prefetch Orbyt colors for a user and their following (non-blocking)
+ * Called after sign in or session restore to warm the cache
+ */
+async function prefetchColorsForUser(userDid: string): Promise<void> {
+  try {
+    const { GraphService } = await import('../services/api/graph/GraphService');
+    const followingResponse = await GraphService.getFollowing(userDid, null, 100);
+    const followingDids = followingResponse.following.map(f => f.did);
+    const dids = [userDid, ...followingDids].slice(0, 100);
+    await prefetchOrbytColors(dids);
+  } catch (error) {
+    logger.warn('Failed to prefetch Orbyt colors', {
+      component: 'userStore',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+}
 
 // Account types
 export interface SavedAccount {
@@ -322,12 +342,12 @@ export const useUserStore = create<UserState>()(
             savedAccounts: updatedAccounts,
           });
 
-          // Cache the profile
-          await ProfileService.cacheProfiles([userProfile]);
-
           // Initialize orbyt profile record (join date, baseline colors/channels)
           // Defer until after interactions complete to improve startup performance
           deferOrbytProfileInit('signIn');
+
+          // Prefetch Orbyt colors for current user and followed users (non-blocking)
+          prefetchColorsForUser(session.sub);
         } catch (error) {
           // Handle user cancellation silently
           if (isUserCancellation(error)) {
@@ -388,6 +408,9 @@ export const useUserStore = create<UserState>()(
         try {
           set({ isAuthenticating: true, authError: null });
 
+          // Load persisted colors immediately for instant profile display
+          await loadPersistedColors(did);
+
           const oauthService = AtProtoOAuthService.getInstance();
 
           // Use the improved session validation with automatic refresh
@@ -424,12 +447,12 @@ export const useUserStore = create<UserState>()(
             oauthSession: session,
           });
 
-          // Cache the profile
-          await ProfileService.cacheProfiles([userProfile]);
-
           // Initialize orbyt profile record (join date, baseline colors/channels)
           // Defer until after interactions complete to improve startup performance
           deferOrbytProfileInit('restoreSession');
+
+          // Prefetch Orbyt colors for current user and followed users (non-blocking)
+          prefetchColorsForUser(session.sub);
 
           // Load and clean subscribed channels after session restore
           // This ensures built-in channels are removed from both state and profile record

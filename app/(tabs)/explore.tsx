@@ -56,7 +56,7 @@ import { getBottomNavBarHeight, isTablet } from '../../src/utils/device/screen';
 import { getVideoView } from '../../src/utils/video/helpers';
 import { formatHandle } from '../../src/utils/formatting/handles';
 import BlurredThumbnailBackground from '../../src/components/ui/BlurredThumbnailBackground';
-import { HeaderService, useHeaders, type Header } from '../../src/services/OrbytAPIService';
+import { HeaderService, useHeaders, type Header } from '../../src/services/OrbytBannerService';
 import { useFeed } from '../../src/hooks/useFeed';
 import { useUserStore, useFeedSettings } from '../../src/stores/userStore';
 import { useModerationSettings } from '../../src/hooks/useModerationSettings';

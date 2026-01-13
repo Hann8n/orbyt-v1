@@ -13,6 +13,7 @@ import { NotificationIndicator } from './NotificationIndicator';
 import { useGlobalAccountSwitcher } from '../../hooks/useGlobalModals';
 import { useUserStore } from '../../stores/userStore';
 import { useProfile } from '../../services/data/ProfileService';
+import { useOrbytColors } from '../../hooks/useOrbytColors';
 import { tabRefs } from '../../utils/navigation/tabRefs';
 import { useSetTabBarHeight } from '../../context/FeedIndicatorContext';
 import { getProfileColors } from '../../utils/formatting/colors';
@@ -38,17 +39,19 @@ const CREATE_TAB: TabConfig = { name: 'create', routeName: 'create', iconType: '
 // ProfileTabIcon component - matches old implementation
 const ProfileTabIcon = React.memo(
   ({ color, tabIconSize, isActive }: { color: string; tabIconSize: number; isActive: boolean }) => {
+    const currentUserDid = useUserStore(state => state.currentUser?.did);
     const currentUserHandle = useUserStore(state => state.currentUser?.handle);
     const savedAccountsLength = useUserStore(state => state.savedAccounts.length);
     const { data: profileData } = useProfile(currentUserHandle);
+    const { data: orbytColors } = useOrbytColors(currentUserDid);
 
     const hasMultipleAccounts = savedAccountsLength > 1;
 
     // Dim avatar and ring together via wrapper opacity
     const opacity = isActive ? 1 : 0.6;
 
-    // Use profile color for ring (opacity handles dimming)
-    const profileColors = getProfileColors(profileData);
+    // Use colors from Orbyt API
+    const profileColors = getProfileColors(orbytColors);
     const ringColor = profileColors.foregroundColor || Colors.white;
 
     if (!hasMultipleAccounts) {

@@ -10,7 +10,7 @@ import UniversalHeader, { HeaderContent } from './UniversalHeader';
 import { useProfile } from '../../../services/data/ProfileService';
 import { getProfileColors } from '../../../utils/formatting/colors';
 import { useProfileFlags } from '../../../stores/profileInteractionStore';
-import { useOrbytProfile } from '../../../hooks';
+import { useOrbytColors } from '../../../hooks/useOrbytColors';
 import VerificationBadge from '../../features/badging/VerificationBadge';
 import BetaBadge from '../../features/badging/BetaBadge';
 import BetaInfoSheet from '../../features/badging/BetaInfoSheet';
@@ -30,6 +30,8 @@ interface ProfileHeaderProps {
   contentFadeDisabled?: boolean;
   dimOverlayDisabled?: boolean;
   onAvatarPress?: () => void;
+  /** Beta status from Orbyt API */
+  isBeta?: boolean;
 }
 
 const ProfileHeader: React.FC<ProfileHeaderProps> = ({
@@ -42,18 +44,21 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   contentFadeDisabled = false,
   dimOverlayDisabled = false,
   onAvatarPress,
+  isBeta = false,
 }) => {
   const [showVerificationInfo, setShowVerificationInfo] = useState(false);
   const [showBetaInfo, setShowBetaInfo] = useState(false);
 
-  // Use profile data and colors from React Query cache
+  // Use profile data from React Query cache
   const { data: profile } = useProfile(handle);
-
-  // React Query cache provides instant data on subsequent renders
   const profileData = profile;
 
-  // Get colors from profile data
-  const profileColors = getProfileColors(profileData);
+  // Get colors from Orbyt API
+  const { data: orbytColors } = useOrbytColors(profileData?.did);
+
+  // Get colors from Orbyt API (primary) or defaults
+  const profileColors = getProfileColors(orbytColors);
+  const joinDate = orbytColors?.joinedAt;
 
   // Block status and flags (used for avatar blur only; actions moved to ProfileScreen)
   // Use moderation flags directly from ProfileView viewer fields
@@ -63,11 +68,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     !!(profileData?.viewer?.blocking || profileData?.viewer?.blockingByList) ||
     (flags?.isBlocked ?? false);
   const blockingByList = profileData?.viewer?.blockingByList;
-
-  // Fetch Orbyt profile record join date for this DID
-  const { joinDate } = useOrbytProfile(profileData?.did);
-
-  // Extract live status
 
   // Handler to open the blocking list in Bluesky app
   const handleListPress = useCallback(async () => {
@@ -91,18 +91,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     const subtitleSecondary: string | undefined = blockingByList
       ? `Blocked by ${blockingByList.name}`
       : undefined;
-
-    // Determine beta user by join date cutoff
-    const betaCutoff = new Date('2026-01-24T00:00:00.000Z');
-    const isBeta = (() => {
-      try {
-        if (!joinDate) return false;
-        const d = new Date(joinDate);
-        return d.getTime() < betaCutoff.getTime();
-      } catch {
-        return false;
-      }
-    })();
 
     // Parse description to generate rich text facets
     const richText = profileData.description
@@ -146,7 +134,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   }, [
     profileData,
     profileColors.textColor,
-    joinDate,
+    isBeta,
     isBlocked,
     blockingByList,
     handleListPress,

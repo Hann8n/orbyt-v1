@@ -1784,7 +1784,7 @@ export class FeedService {
     limit: number = 10
   ): Promise<(GeneratorView & { isExperimental: boolean; contentMode?: string })[]> {
     try {
-      const { StaticChannelsService } = await import('../../OrbytAPIService');
+      const { StaticChannelsService } = await import('../../OrbytBannerService');
       const channelDids = await StaticChannelsService.getChannels();
 
       if (!channelDids || channelDids.length === 0) {

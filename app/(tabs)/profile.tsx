@@ -20,6 +20,7 @@ import ProfileService, {
   useStatusExpirationMonitor,
 } from '../../src/services/data/ProfileService';
 import { getProfileColors } from '../../src/utils/formatting/colors';
+import { useOrbytColors, invalidateOrbytColors } from '../../src/hooks/useOrbytColors';
 import type { ProfileViewWithOrbyt } from '../../src/services/api/types';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Icon, {
@@ -119,6 +120,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   // Always fetch by DID (handle query is only used to resolve handle to DID)
   const didQuery = useProfileByDid(targetDid);
 
+  // Fetch colors from Orbyt API (separate from profile data)
+  const { data: orbytColors, refetch: refetchOrbytColors } = useOrbytColors(targetDid);
+
   // Use profile data from query with fallback for own profile
   const profileData: ProfileViewWithOrbyt | null =
     didQuery.data ||
@@ -139,8 +143,11 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     (didQuery.isLoading || (isHandle && handleQuery.isLoading)) && !profileData;
   const isProfileFetchError = didQuery.isError || (isHandle && handleQuery.isError);
 
-  // Get colors from profile data
-  const profileColors = getProfileColors(profileData);
+  // Get colors from Orbyt API (primary) or profile data (fallback)
+  const profileColors = getProfileColors(orbytColors || profileData);
+
+  // Beta status from Orbyt API
+  const isBeta = orbytColors?.isBeta ?? false;
 
   // Check if live using helper function
   const isLive = isLiveStatus(profileData?.status);
@@ -185,16 +192,18 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
         // Subscriptions are non-critical; ignore errors
       }
 
-      // Explicitly refresh profile data - this fetches com.getorbyt.profile records (colors) automatically
+      // Force refresh colors from Orbyt API (skip for own profile - cache has fresh data after edit)
+      if (targetDid && !isViewingOwnProfile) {
+        invalidateOrbytColors(targetDid);
+        await refetchOrbytColors();
+      }
+
+      // Refresh profile data
       if (profileData?.did) {
-        // Use refreshProfileByDid which calls getProfileByDid - fetches records with colors
         await ProfileService.refreshProfileByDid(profileData.did);
-        // Invalidate React Query cache so it picks up the refreshed data
         queryClient.invalidateQueries({ queryKey: profileKeys.detail(`did_${profileData.did}`) });
       } else if (profileData?.handle) {
-        // Use refreshProfile which calls getProfile - fetches records with colors
         await ProfileService.refreshProfile(profileData.handle);
-        // Invalidate React Query cache so it picks up the refreshed data
         queryClient.invalidateQueries({
           queryKey: profileKeys.detail(profileData.handle.toLowerCase()),
         });
@@ -210,7 +219,15 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
         setRefreshing(false);
       }, 2000);
     }
-  }, [refetchProfile, profileData?.did, profileData?.handle, queryClient]);
+  }, [
+    refetchProfile,
+    refetchOrbytColors,
+    targetDid,
+    isViewingOwnProfile,
+    profileData?.did,
+    profileData?.handle,
+    queryClient,
+  ]);
 
   const isOwnProfileView = useMemo(() => {
     if (isViewingOwnProfile) return true;
@@ -693,6 +710,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
                 headerScrollProgress={headerScrollProgress}
                 contentFadeDisabled={viewMode === 'grid'}
                 dimOverlayDisabled={viewMode === 'grid'}
+                isBeta={isBeta}
                 onAvatarPress={
                   isLive
                     ? () => setShowLiveStreamSheet(true)

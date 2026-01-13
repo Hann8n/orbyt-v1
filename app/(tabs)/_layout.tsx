@@ -4,20 +4,20 @@ import { NativeTabs, Icon, Label, Badge } from 'expo-router/unstable-native-tabs
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
 
 import { useUserStore, useFeedSettings } from '../../src/stores/userStore';
-import { useProfile } from '../../src/services/data/ProfileService';
 import { Colors } from '../../src/components/ui/UI';
 import CustomBottomTabBar from '../../src/components/ui/CustomBottomTabBar';
 import { useUnreadCount } from '../../src/hooks/useUnreadCount';
+import { useOrbytColors } from '../../src/hooks/useOrbytColors';
 import { getProfileColors } from '../../src/utils/formatting/colors';
 
 export default function TabsLayout() {
-  const currentUserHandle = useUserStore(state => state.currentUser?.handle);
-  const { data: profileData } = useProfile(currentUserHandle);
+  const currentUserDid = useUserStore(state => state.currentUser?.did);
+  const { data: orbytColors } = useOrbytColors(currentUserDid);
   const { nativeTabsEnabled } = useFeedSettings();
   const { totalUnreadCount } = useUnreadCount();
 
-  // Native tabs: use light color from user colors
-  const profileColors = getProfileColors(profileData);
+  // Native tabs: use colors from Orbyt API
+  const profileColors = getProfileColors(orbytColors);
   const nativeTintColor = profileColors.foregroundColor || Colors.white;
 
   // Custom JavaScript tabs: use white

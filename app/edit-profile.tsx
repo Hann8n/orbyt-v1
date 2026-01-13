@@ -40,6 +40,11 @@ import { hexToRGBA } from '../src/utils/formatting/colors';
 import { BORDER_RADIUS } from '../src/utils/constants';
 import { useCurrentUser } from '../src/stores/userStore';
 import { splitHandleSuffix } from '../src/utils/formatting/handles';
+import {
+  useOrbytColors,
+  setAndPersistColors,
+  getCachedOrbytColors,
+} from '../src/hooks/useOrbytColors';
 
 export interface ProfileColorOption {
   backgroundColor: string;
@@ -126,6 +131,7 @@ const EditProfileScreen: React.FC = () => {
 
   // Fetch profile data - use cache directly, no refetch
   const { data: profileData } = useProfile(userHandle);
+  const { data: orbytColors } = useOrbytColors(currentUser?.did);
   const [isAboutFocused, setIsAboutFocused] = useState(false);
   const [isDisplayNameFocused, setIsDisplayNameFocused] = useState(false);
 
@@ -475,17 +481,16 @@ const EditProfileScreen: React.FC = () => {
   // Mutation
   const profileUpdateMutation = useProfileUpdateMutation();
 
-  // Get colors directly from cached profile data (more efficient than separate hook)
+  // Get colors from Orbyt API
   const defaultColors = useMemo(() => {
-    const colors = profileData?.orbytRecord?.colors;
-    if (!colors?.backgroundColor || !colors?.textColor) {
+    if (!orbytColors?.backgroundColor || !orbytColors?.textColor) {
       return undefined;
     }
     return {
-      backgroundColor: colors.backgroundColor,
-      textColor: colors.textColor,
+      backgroundColor: orbytColors.backgroundColor,
+      textColor: orbytColors.textColor,
     };
-  }, [profileData?.orbytRecord?.colors]);
+  }, [orbytColors]);
 
   // Initialize form when component mounts and profile data is available
   useEffect(() => {
@@ -744,6 +749,18 @@ const EditProfileScreen: React.FC = () => {
           handle: profileData.handle,
           updates,
         });
+
+        // Set colors locally in cache and persist - Jetstream takes ~1 min to index
+        // This ensures immediate UI update without waiting for API
+        if (currentUser?.did && updates.customColors) {
+          const existingData = getCachedOrbytColors(currentUser.did);
+          await setAndPersistColors(currentUser.did, {
+            textColor: updates.customColors.textColor,
+            backgroundColor: updates.customColors.backgroundColor,
+            joinedAt: existingData?.joinedAt ?? new Date().toISOString(),
+            isBeta: existingData?.isBeta ?? false,
+          });
+        }
       }
 
       router.back();
@@ -759,6 +776,7 @@ const EditProfileScreen: React.FC = () => {
     defaultColors,
     profileUpdateMutation,
     router,
+    currentUser,
   ]);
 
   // Handle dismiss

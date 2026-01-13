@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Colors } from '../ui/UI';
-import { Header } from '../../services/OrbytAPIService';
+import { Header } from '../../services/OrbytBannerService';
 import Animated, {
   useAnimatedScrollHandler,
   useAnimatedStyle,
