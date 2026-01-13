@@ -15,6 +15,7 @@ import type {
   ProfileViewWithOrbyt,
   OrbytProfileRecord,
 } from '../types';
+import type { AppBskyActorProfile } from '@atproto/api';
 
 export class ActorService {
   /**
@@ -314,8 +315,8 @@ export class ActorService {
 
     // Use the correct upsertProfile method as per Bluesky documentation
     const { api } = await AtprotoCore.getApiClient();
-    await api.upsertProfile((existingProfile: any) => {
-      let existing: Record<string, any> = existingProfile || {};
+    await api.upsertProfile((existingProfile: AppBskyActorProfile.Record | undefined) => {
+      const existing: AppBskyActorProfile.Record = existingProfile || {};
 
       // Update display name if provided
       if (updates.displayName !== undefined) {
@@ -361,9 +362,11 @@ export class ActorService {
         });
 
         // Update profile with the new avatar
-        await api.upsertProfile((existingProfile: any) => {
-          let existing: Record<string, any> = existingProfile || {};
-          existing.avatar = uploadResult.data.blob;
+        // Extract the blob data in the correct format for the profile record
+        const blobRef = uploadResult.data.blob;
+        await api.upsertProfile((existingProfile: AppBskyActorProfile.Record | undefined) => {
+          const existing: AppBskyActorProfile.Record = existingProfile || {};
+          existing.avatar = blobRef;
           return existing;
         });
       } catch (_error) {
