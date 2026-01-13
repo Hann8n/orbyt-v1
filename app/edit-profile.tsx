@@ -48,6 +48,15 @@ export interface ProfileColorOption {
 
 const ABOUT_MAX_LENGTH = 256;
 
+// Color picker layout constants (must match styles)
+const COLOR_SQUARE_WIDTH = 44;
+const COLOR_PICKER_GAP = 4;
+const COLOR_PICKER_PADDING = 20;
+const COLOR_DIVIDER_WIDTH = 2;
+const COLOR_DIVIDER_MARGIN = 8;
+const COLOR_DIVIDER_TOTAL_WIDTH = COLOR_DIVIDER_WIDTH + COLOR_DIVIDER_MARGIN * 2;
+const COLOR_ITEM_WIDTH = COLOR_SQUARE_WIDTH + COLOR_PICKER_GAP;
+
 // Animated Color Square Component
 interface AnimatedColorSquareProps {
   colorOption: ProfileColorOption;
@@ -58,62 +67,57 @@ interface AnimatedColorSquareProps {
   onPress: () => void;
 }
 
-const AnimatedColorSquare: React.FC<AnimatedColorSquareProps> = ({
-  colorOption,
-  isSelected,
-  currentColors,
-  backgroundFlex,
-  textFlex,
-  onPress,
-}) => {
-  const backgroundAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      flex: backgroundFlex.value,
-    };
-  });
+const AnimatedColorSquare: React.FC<AnimatedColorSquareProps> = React.memo(
+  ({ colorOption, isSelected, currentColors, backgroundFlex, textFlex, onPress }) => {
+    const backgroundAnimatedStyle = useAnimatedStyle(() => {
+      return {
+        flex: backgroundFlex.value,
+      };
+    });
 
-  const textAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      flex: textFlex.value,
-    };
-  });
+    const textAnimatedStyle = useAnimatedStyle(() => {
+      return {
+        flex: textFlex.value,
+      };
+    });
 
-  // Determine colors to display for the color box itself.
-  // We intentionally always use the preset colors here so that toggling
-  // inversion does not swap the visual colors inside the box; only the
-  // proportions (flex) change.
-  const displayBackgroundColor = colorOption.backgroundColor;
-  const displayTextColor = colorOption.textColor;
+    // Determine colors to display for the color box itself.
+    // We intentionally always use the preset colors here so that toggling
+    // inversion does not swap the visual colors inside the box; only the
+    // proportions (flex) change.
+    const displayBackgroundColor = colorOption.backgroundColor;
+    const displayTextColor = colorOption.textColor;
 
-  return (
-    <View style={styles.colorSquareContainer}>
-      <Pressable
-        style={[
-          styles.colorSquare,
-          {
-            borderColor: isSelected ? currentColors.textColor : 'transparent',
-            borderWidth: isSelected ? 3 : 0,
-          },
-        ]}
-        onPress={onPress}
-      >
-        {/* Background color section */}
-        <Animated.View
+    return (
+      <View style={styles.colorSquareContainer}>
+        <Pressable
           style={[
-            styles.colorSection,
-            backgroundAnimatedStyle,
-            { backgroundColor: displayBackgroundColor },
+            styles.colorSquare,
+            {
+              borderColor: isSelected ? currentColors.textColor : 'transparent',
+              borderWidth: isSelected ? 3 : 0,
+            },
           ]}
-        />
+          onPress={onPress}
+        >
+          {/* Background color section */}
+          <Animated.View
+            style={[
+              styles.colorSection,
+              backgroundAnimatedStyle,
+              { backgroundColor: displayBackgroundColor },
+            ]}
+          />
 
-        {/* Text color section */}
-        <Animated.View
-          style={[styles.colorSection, textAnimatedStyle, { backgroundColor: displayTextColor }]}
-        />
-      </Pressable>
-    </View>
-  );
-};
+          {/* Text color section */}
+          <Animated.View
+            style={[styles.colorSection, textAnimatedStyle, { backgroundColor: displayTextColor }]}
+          />
+        </Pressable>
+      </View>
+    );
+  }
+);
 
 const EditProfileScreen: React.FC = () => {
   const router = useRouter();
@@ -123,6 +127,7 @@ const EditProfileScreen: React.FC = () => {
   // Fetch profile data - use cache directly, no refetch
   const { data: profileData } = useProfile(userHandle);
   const [isAboutFocused, setIsAboutFocused] = useState(false);
+  const [isDisplayNameFocused, setIsDisplayNameFocused] = useState(false);
 
   // Handle formatting: detach ".bsky.social" or ".orbyt.video" suffix if present so we can
   // render the suffix separately in the UI (bottom-right of the section).
@@ -164,6 +169,10 @@ const EditProfileScreen: React.FC = () => {
   const hasInitializedColors = useRef(false);
   // Ref for color picker ScrollView to scroll to selected color
   const colorPickerScrollViewRef = useRef<ScrollView>(null);
+  // Ref to track if we've done the initial scroll (no animation)
+  const hasDoneInitialScroll = useRef(false);
+  // Ref to track previous selectedColorIndex to detect user changes
+  const previousSelectedColorIndex = useRef<number | null | undefined>(undefined);
 
   // Predefined color options - just the pairings
   const predefinedColors: ProfileColorOption[] = useMemo(
@@ -403,6 +412,66 @@ const EditProfileScreen: React.FC = () => {
     customFlexValuesRef.current = customFlexValues;
   });
 
+  // Helper function to update flex values for a color
+  const updateFlexValues = useCallback(
+    (colorIndex: number | null, inverted: boolean, animated: boolean = false) => {
+      const flexValues =
+        colorIndex === null ? customFlexValuesRef.current : colorFlexValuesRef.current[colorIndex];
+
+      if (!flexValues) return;
+
+      const backgroundValue = inverted ? 1 : 3;
+      const textValue = inverted ? 3 : 1;
+
+      if (animated) {
+        flexValues.background.value = withSpring(backgroundValue);
+        flexValues.text.value = withSpring(textValue);
+      } else {
+        flexValues.background.value = backgroundValue;
+        flexValues.text.value = textValue;
+      }
+    },
+    []
+  );
+
+  // Helper function to find color match (normal or inverted)
+  const findColorMatch = useCallback(
+    (colors: { backgroundColor: string; textColor: string }) => {
+      // Check for normal match and track index during find
+      for (let i = 0; i < predefinedColors.length; i++) {
+        const preset = predefinedColors[i];
+        if (
+          preset.backgroundColor === colors.backgroundColor &&
+          preset.textColor === colors.textColor
+        ) {
+          return {
+            match: preset,
+            index: i,
+            inverted: false,
+          };
+        }
+      }
+
+      // Check for inverted match and track index during find
+      for (let i = 0; i < predefinedColors.length; i++) {
+        const preset = predefinedColors[i];
+        if (
+          preset.backgroundColor === colors.textColor &&
+          preset.textColor === colors.backgroundColor
+        ) {
+          return {
+            match: preset,
+            index: i,
+            inverted: true,
+          };
+        }
+      }
+
+      return null;
+    },
+    [predefinedColors]
+  );
+
   // Mutation
   const profileUpdateMutation = useProfileUpdateMutation();
 
@@ -429,53 +498,17 @@ const EditProfileScreen: React.FC = () => {
 
       // Check if default colors match a preset
       if (defaultColors) {
-        // First check for normal match
-        const normalMatch = predefinedColors.find(
-          preset =>
-            preset.backgroundColor === defaultColors.backgroundColor &&
-            preset.textColor === defaultColors.textColor
-        );
-
-        // Then check for inverted match
-        const invertedMatch = predefinedColors.find(
-          preset =>
-            preset.backgroundColor === defaultColors.textColor &&
-            preset.textColor === defaultColors.backgroundColor
-        );
-
-        if (normalMatch) {
-          const matchIndex = predefinedColors.indexOf(normalMatch);
+        const match = findColorMatch(defaultColors);
+        if (match) {
           startTransition(() => {
-            setSelectedColorIndex(matchIndex);
-            setInvertedStates({ [matchIndex]: false });
-            setCustomColors({
-              backgroundColor: normalMatch.backgroundColor,
-              textColor: normalMatch.textColor,
-            });
-          });
-          // Set flex values for this specific color
-          const flexValues = colorFlexValuesRef.current[matchIndex];
-          if (flexValues) {
-            flexValues.background.value = 3;
-            flexValues.text.value = 1;
-          }
-        } else if (invertedMatch) {
-          const matchIndex = predefinedColors.indexOf(invertedMatch);
-          startTransition(() => {
-            setSelectedColorIndex(matchIndex);
-            setInvertedStates({ [matchIndex]: true });
-            // Store the actual reversed colors (from defaultColors) - these are what the user has saved
+            setSelectedColorIndex(match.index);
+            setInvertedStates({ [match.index]: match.inverted });
             setCustomColors({
               backgroundColor: defaultColors.backgroundColor,
               textColor: defaultColors.textColor,
             });
           });
-          // Set flex values to inverted state (bottom box is larger)
-          const flexValues = colorFlexValuesRef.current[matchIndex];
-          if (flexValues) {
-            flexValues.background.value = 1;
-            flexValues.text.value = 3;
-          }
+          updateFlexValues(match.index, match.inverted, false);
         } else {
           // Custom colors - no preset match
           const originalColors = {
@@ -489,8 +522,7 @@ const EditProfileScreen: React.FC = () => {
             setOriginalCustomColors(originalColors); // Store original custom colors
             setHasCustomColors(true);
           });
-          customFlexValuesRef.current.background.value = 3;
-          customFlexValuesRef.current.text.value = 1;
+          updateFlexValues(null, false, false);
         }
       } else {
         startTransition(() => {
@@ -499,54 +531,55 @@ const EditProfileScreen: React.FC = () => {
           setCustomColors(null);
           setHasCustomColors(false);
         });
-        const flexValues = colorFlexValuesRef.current[0];
-        if (flexValues) {
-          flexValues.background.value = 3;
-          flexValues.text.value = 1;
-        }
+        updateFlexValues(0, false, false);
       }
 
       hasInitializedColors.current = true;
     }
-  }, [profileData, defaultColors, predefinedColors]);
+  }, [profileData, defaultColors, findColorMatch, updateFlexValues]);
 
-  // Calculate and set scroll position when color picker is laid out
-  const handleColorPickerLayout = useCallback(() => {
-    if (
-      !colorPickerScrollViewRef.current ||
-      !hasInitializedColors.current ||
-      (selectedColorIndex === null && !hasCustomColors)
-    ) {
+  // Scroll to selected color - no animation on initial load, animated for user selections
+  useEffect(() => {
+    if (!hasInitializedColors.current || !colorPickerScrollViewRef.current) {
       return;
     }
 
-    const colorWidth = 44;
-    const gap = 4; // Match the gap in colorPickerContainer style
-    const itemWidth = colorWidth + gap;
-    const dividerWidth = 2;
-    const dividerMargin = 8;
-    const dividerTotalWidth = dividerWidth + dividerMargin * 2;
-    const padding = 20; // Match paddingHorizontal in colorPickerContainer
+    // Skip if selection hasn't changed (for user selections)
+    if (hasDoneInitialScroll.current && previousSelectedColorIndex.current === selectedColorIndex) {
+      return;
+    }
+
     const screenWidth = Dimensions.get('window').width;
 
+    // Calculate center X position of selected color
     let colorCenterX: number;
-
     if (selectedColorIndex === null) {
       // Custom color is at the start
-      colorCenterX = padding + colorWidth / 2;
+      colorCenterX = COLOR_PICKER_PADDING + COLOR_SQUARE_WIDTH / 2;
     } else {
       // Account for custom color box and divider if shown
-      const customColorOffset = hasCustomColors ? itemWidth + dividerTotalWidth : 0;
-      colorCenterX = customColorOffset + selectedColorIndex * itemWidth + padding + colorWidth / 2;
+      const customColorOffset = hasCustomColors ? COLOR_ITEM_WIDTH + COLOR_DIVIDER_TOTAL_WIDTH : 0;
+      colorCenterX =
+        customColorOffset +
+        selectedColorIndex * COLOR_ITEM_WIDTH +
+        COLOR_PICKER_PADDING +
+        COLOR_SQUARE_WIDTH / 2;
     }
 
     // Center the color box in the visible area
-    // Subtract half the screen width to center it
     const scrollPosition = Math.max(0, colorCenterX - screenWidth / 2);
 
-    colorPickerScrollViewRef.current.scrollTo({
-      x: scrollPosition,
-      animated: false,
+    // Determine if this should be animated (only after initial scroll is done)
+    const shouldAnimate = hasDoneInitialScroll.current;
+
+    // Use requestAnimationFrame to ensure layout is complete
+    requestAnimationFrame(() => {
+      colorPickerScrollViewRef.current?.scrollTo({
+        x: scrollPosition,
+        animated: shouldAnimate,
+      });
+      hasDoneInitialScroll.current = true;
+      previousSelectedColorIndex.current = selectedColorIndex;
     });
   }, [selectedColorIndex, hasCustomColors]);
 
@@ -635,28 +668,13 @@ const EditProfileScreen: React.FC = () => {
           textColor: currentBg,
         });
 
-        if (isCustom) {
-          customFlexValuesRef.current.background.value = withSpring(newInverted ? 1 : 3);
-          customFlexValuesRef.current.text.value = withSpring(newInverted ? 3 : 1);
-        } else if (colorIndex !== null && colorFlexValuesRef.current[colorIndex]) {
-          colorFlexValuesRef.current[colorIndex].background.value = withSpring(newInverted ? 1 : 3);
-          colorFlexValuesRef.current[colorIndex].text.value = withSpring(newInverted ? 3 : 1);
-        }
+        updateFlexValues(colorIndex, newInverted, true);
       } else {
         // Animate previous box back to normal if it was inverted
-        if (invertedStates[selectedColorIndex === null ? -1 : selectedColorIndex]) {
-          const prevStateKey = selectedColorIndex === null ? -1 : selectedColorIndex;
+        const prevStateKey = selectedColorIndex === null ? -1 : selectedColorIndex;
+        if (invertedStates[prevStateKey]) {
           setInvertedStates(prev => ({ ...prev, [prevStateKey]: false }));
-          if (selectedColorIndex === null) {
-            customFlexValuesRef.current.background.value = withSpring(3);
-            customFlexValuesRef.current.text.value = withSpring(1);
-          } else if (
-            selectedColorIndex !== null &&
-            colorFlexValuesRef.current[selectedColorIndex]
-          ) {
-            colorFlexValuesRef.current[selectedColorIndex].background.value = withSpring(3);
-            colorFlexValuesRef.current[selectedColorIndex].text.value = withSpring(1);
-          }
+          updateFlexValues(selectedColorIndex, false, true);
         }
 
         // Select new color
@@ -669,16 +687,10 @@ const EditProfileScreen: React.FC = () => {
           textColor: wasInverted ? colorsToUse.backgroundColor : colorsToUse.textColor,
         });
 
-        if (isCustom) {
-          customFlexValuesRef.current.background.value = withSpring(wasInverted ? 1 : 3);
-          customFlexValuesRef.current.text.value = withSpring(wasInverted ? 3 : 1);
-        } else if (colorIndex !== null && colorFlexValuesRef.current[colorIndex]) {
-          colorFlexValuesRef.current[colorIndex].background.value = withSpring(wasInverted ? 1 : 3);
-          colorFlexValuesRef.current[colorIndex].text.value = withSpring(wasInverted ? 3 : 1);
-        }
+        updateFlexValues(colorIndex, wasInverted, true);
       }
     },
-    [selectedColorIndex, invertedStates, customColors, originalCustomColors]
+    [selectedColorIndex, invertedStates, customColors, originalCustomColors, updateFlexValues]
   );
 
   // Handle save
@@ -754,6 +766,13 @@ const EditProfileScreen: React.FC = () => {
     router.back();
   }, [router]);
 
+  // Helper to dismiss keyboard and reset focus states
+  const dismissKeyboardAndFocus = useCallback(() => {
+    Keyboard.dismiss();
+    setIsAboutFocused(false);
+    setIsDisplayNameFocused(false);
+  }, []);
+
   // Get current colors for display
   const currentColors = useMemo(() => {
     if (customColors) {
@@ -775,8 +794,10 @@ const EditProfileScreen: React.FC = () => {
             onPress={() => {
               if (isAboutFocused) {
                 setEditDescription(profileData?.description || '');
-                setIsAboutFocused(false);
-                Keyboard.dismiss();
+                dismissKeyboardAndFocus();
+              } else if (isDisplayNameFocused) {
+                setEditDisplayName(profileData?.displayName || '');
+                dismissKeyboardAndFocus();
               } else {
                 handleDismiss();
               }
@@ -784,7 +805,7 @@ const EditProfileScreen: React.FC = () => {
             style={styles.cancelButton}
           >
             <Text style={[styles.cancelButtonText, { color: Colors.white }]}>
-              {isAboutFocused ? 'Back' : 'Cancel'}
+              {isAboutFocused || isDisplayNameFocused ? 'Back' : 'Cancel'}
             </Text>
           </Pressable>
 
@@ -820,8 +841,9 @@ const EditProfileScreen: React.FC = () => {
                 if (aboutOverBy > 0) {
                   return;
                 }
-                setIsAboutFocused(false);
-                Keyboard.dismiss();
+                dismissKeyboardAndFocus();
+              } else if (isDisplayNameFocused) {
+                dismissKeyboardAndFocus();
               } else {
                 handleSave();
               }
@@ -847,7 +869,7 @@ const EditProfileScreen: React.FC = () => {
                     isAboutFocused && aboutOverBy > 0 && { color: hexToRGBA(Colors.black, 0.25) },
                   ]}
                 >
-                  {isAboutFocused ? 'Done' : 'Save'}
+                  {isAboutFocused || isDisplayNameFocused ? 'Done' : 'Save'}
                 </Text>
               )}
             </View>
@@ -858,11 +880,11 @@ const EditProfileScreen: React.FC = () => {
         <View style={styles.colorPickerSection}>
           <ScrollView
             ref={colorPickerScrollViewRef}
-            onLayout={handleColorPickerLayout}
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.colorPickerContainer}
             style={styles.colorPickerScrollView}
+            keyboardShouldPersistTaps="always"
           >
             {/* Custom Color Box - shown only when user has custom colors not matching presets */}
             {hasCustomColors && originalCustomColors && (
@@ -921,10 +943,10 @@ const EditProfileScreen: React.FC = () => {
             style={styles.content}
             contentContainerStyle={{ flexGrow: 1 }}
             showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
+            keyboardShouldPersistTaps="always"
           >
-            {/* Username & Avatar & Display Name Sections */}
-            {!isAboutFocused && (
+            {/* Username & Avatar Sections */}
+            {!isAboutFocused && !isDisplayNameFocused && (
               <Animated.View
                 layout={Layout.springify().duration(280)}
                 entering={FadeIn.duration(280).easing(Easing.out(Easing.ease))}
@@ -1026,48 +1048,69 @@ const EditProfileScreen: React.FC = () => {
                     { backgroundColor: hexToRGBA(currentColors.textColor, 0.12) },
                   ]}
                 />
-
-                {/* Display Name Section */}
-                <View style={styles.section}>
-                  <Text
-                    style={[
-                      styles.sectionTitle,
-                      {
-                        color: hexToRGBA(currentColors.textColor, 0.8),
-                        // Slightly tighter margin than default to visually
-                        // match the username header-to-value spacing.
-                        marginBottom: 2,
-                      },
-                    ]}
-                  >
-                    DISPLAY NAME
-                  </Text>
-                  <TextInput
-                    nativeID="edit-profile-display-name-input"
-                    style={[
-                      styles.largeInput,
-                      {
-                        color: currentColors.textColor,
-                        backgroundColor: 'transparent',
-                        borderColor: 'transparent',
-                      },
-                    ]}
-                    value={editDisplayName}
-                    onChangeText={setEditDisplayName}
-                    placeholder="Name"
-                    placeholderTextColor={hexToRGBA(currentColors.textColor, 0.3)}
-                    scrollEnabled
-                    maxLength={65}
-                    autoComplete="name"
-                    textContentType="name"
-                    importantForAutofill="yes"
-                    caretHidden={false}
-                  />
-                </View>
               </Animated.View>
             )}
 
+            {/* Display Name Section */}
             {!isAboutFocused && (
+              <Animated.View
+                layout={Layout.springify().duration(280)}
+                style={[styles.section, isDisplayNameFocused && styles.expandedSection]}
+              >
+                <Pressable
+                  onPress={() => {
+                    if (!isDisplayNameFocused) {
+                      setIsDisplayNameFocused(true);
+                      setIsAboutFocused(false);
+                    }
+                  }}
+                >
+                  <Animated.View entering={FadeIn.duration(150).easing(Easing.out(Easing.ease))}>
+                    <Text
+                      style={[
+                        styles.sectionTitle,
+                        {
+                          color: hexToRGBA(currentColors.textColor, 0.8),
+                          // Slightly tighter margin than default to visually
+                          // match the username header-to-value spacing.
+                          marginBottom: 2,
+                        },
+                      ]}
+                    >
+                      DISPLAY NAME
+                    </Text>
+                    <TextInput
+                      nativeID="edit-profile-display-name-input"
+                      style={[
+                        styles.largeInput,
+                        {
+                          color: currentColors.textColor,
+                          backgroundColor: 'transparent',
+                          borderColor: 'transparent',
+                        },
+                        isDisplayNameFocused && { flex: 1 },
+                      ]}
+                      value={editDisplayName}
+                      onChangeText={setEditDisplayName}
+                      placeholder="Name"
+                      placeholderTextColor={hexToRGBA(currentColors.textColor, 0.3)}
+                      scrollEnabled
+                      maxLength={65}
+                      autoComplete="name"
+                      textContentType="name"
+                      importantForAutofill="yes"
+                      caretHidden={false}
+                      onFocus={() => {
+                        setIsDisplayNameFocused(true);
+                        setIsAboutFocused(false);
+                      }}
+                    />
+                  </Animated.View>
+                </Pressable>
+              </Animated.View>
+            )}
+
+            {!isAboutFocused && !isDisplayNameFocused && (
               <View
                 style={[
                   styles.divider,
@@ -1077,40 +1120,62 @@ const EditProfileScreen: React.FC = () => {
             )}
 
             {/* About Section */}
-            <Animated.View
-              layout={Layout.springify().duration(280)}
-              style={[styles.section, isAboutFocused && styles.aboutExpandedSection]}
-            >
-              <Animated.View entering={FadeIn.duration(150).easing(Easing.out(Easing.ease))}>
-                <Text
-                  style={[styles.sectionTitle, { color: hexToRGBA(currentColors.textColor, 0.8) }]}
-                >
-                  ABOUT
-                </Text>
-                <TextInput
-                  nativeID="edit-profile-about-input"
-                  style={[
-                    styles.textArea,
-                    {
-                      color: currentColors.textColor,
-                    },
-                    isAboutFocused && { flex: 1 },
-                  ]}
-                  value={editDescription}
-                  onChangeText={setEditDescription}
-                  placeholder="Tell us about yourself"
-                  placeholderTextColor={hexToRGBA(currentColors.textColor, 0.3)}
-                  multiline
-                  autoComplete="off"
-                  textContentType="none"
-                  importantForAutofill="no"
-                  caretHidden={false}
-                  onFocus={() => {
-                    setIsAboutFocused(true);
+            {!isDisplayNameFocused && (
+              <Animated.View
+                layout={Layout.springify().duration(280)}
+                style={[
+                  styles.section,
+                  styles.aboutSectionContainer,
+                  isAboutFocused && styles.expandedSection,
+                ]}
+              >
+                <Pressable
+                  onPress={() => {
+                    if (!isAboutFocused) {
+                      setIsAboutFocused(true);
+                      setIsDisplayNameFocused(false);
+                    }
                   }}
-                />
+                  style={styles.aboutContentWrapper}
+                >
+                  <Animated.View
+                    entering={FadeIn.duration(150).easing(Easing.out(Easing.ease))}
+                    style={{ flex: 1 }}
+                  >
+                    <Text
+                      style={[
+                        styles.sectionTitle,
+                        { color: hexToRGBA(currentColors.textColor, 0.8) },
+                      ]}
+                    >
+                      ABOUT
+                    </Text>
+                    <TextInput
+                      nativeID="edit-profile-about-input"
+                      style={[
+                        styles.textArea,
+                        {
+                          color: currentColors.textColor,
+                        },
+                      ]}
+                      value={editDescription}
+                      onChangeText={setEditDescription}
+                      placeholder="Tell us about yourself"
+                      placeholderTextColor={hexToRGBA(currentColors.textColor, 0.3)}
+                      multiline
+                      autoComplete="off"
+                      textContentType="none"
+                      importantForAutofill="no"
+                      caretHidden={false}
+                      onFocus={() => {
+                        setIsAboutFocused(true);
+                        setIsDisplayNameFocused(false);
+                      }}
+                    />
+                  </Animated.View>
+                </Pressable>
               </Animated.View>
-            </Animated.View>
+            )}
           </ScrollView>
         </SafeAreaView>
       </View>
@@ -1208,7 +1273,14 @@ const styles = StyleSheet.create({
   section: {
     marginTop: 0,
   },
-  aboutExpandedSection: {
+  aboutSectionContainer: {
+    minHeight: 200,
+    flexGrow: 1,
+  },
+  expandedSection: {
+    flex: 1,
+  },
+  aboutContentWrapper: {
     flex: 1,
   },
   usernameSection: {
@@ -1321,6 +1393,7 @@ const styles = StyleSheet.create({
     minHeight: 100,
     textAlignVertical: 'top',
     backgroundColor: 'transparent',
+    flex: 1,
   },
 });
 
