@@ -31,7 +31,7 @@ Orbyt is a video app built for Bluesky using React Native and Expo. This is a mo
 - **Avoid `any` types** - use proper types or `unknown` when necessary
 - Define interfaces for complex objects
 - Use type inference where appropriate
-- Enable strict mode is enabled in tsconfig.json
+- Strict mode is enabled in tsconfig.json
 - Use proper return types for functions
 
 ### React and React Native
