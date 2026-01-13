@@ -43,8 +43,8 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
   const headerComponent = (
     <View style={styles.headerContainer}>
       <View style={styles.headerLeft}>
-        <BetaBadge textSize={20} color={Colors.white} opacity={0.7} customMargin={0} />
-        <Text style={[styles.headerTitle, { marginLeft: 4 }]} numberOfLines={1}>
+        <BetaBadge size={24} color={Colors.white} opacity={0.7} customMargin={0} />
+        <Text style={[styles.headerTitle, styles.headerTitleMargin]} numberOfLines={1}>
           Beta User
         </Text>
       </View>
@@ -132,9 +132,12 @@ const styles = StyleSheet.create({
   },
   highlightedText: {
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: Colors.white,
     opacity: 1,
     fontFamily: 'Firma-SemiBold',
+  },
+  headerTitleMargin: {
+    marginLeft: 4,
   },
   statusDateContainer: {
     marginBottom: 20,

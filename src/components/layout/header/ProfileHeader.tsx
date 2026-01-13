@@ -1,5 +1,5 @@
 import React, { memo, useMemo, useCallback, useState, useEffect } from 'react';
-import { StatusBar, Pressable, StyleSheet, View } from 'react-native';
+import { StatusBar, Pressable, StyleSheet, View, ViewStyle } from 'react-native';
 import Animated, {
   type SharedValue,
   useAnimatedStyle,
@@ -24,7 +24,7 @@ interface ProfileHeaderProps {
   handle: string | null;
   children?: React.ReactNode;
   applySafeArea?: boolean;
-  headerStyle?: any;
+  headerStyle?: ViewStyle;
   onColorsChange?: (colors: { backgroundColor: string; textColor: string }) => void;
   headerScrollProgress?: SharedValue<number>;
   contentFadeDisabled?: boolean;
@@ -124,11 +124,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       facets: isBlocked ? undefined : richText?.facets,
       badge: profileData.handle ? (
         <>
-          {isBeta && (
-            <Pressable onPress={() => setShowBetaInfo(true)}>
-              <BetaBadge textSize={24} color={profileColors.textColor} opacity={0.55} />
-            </Pressable>
-          )}
           <VerificationBadge
             handle={profileData.handle}
             textSize={24}
@@ -137,6 +132,11 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
             onPress={() => setShowVerificationInfo(true)}
             verification={profileData.verification}
           />
+          {isBeta && (
+            <Pressable onPress={() => setShowBetaInfo(true)}>
+              <BetaBadge textSize={20} color={profileColors.textColor} opacity={0.6} scale={0.8} />
+            </Pressable>
+          )}
         </>
       ) : undefined,
       avatarBlurRadius: isBlocked ? 30 : 0,
@@ -176,7 +176,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   const dimOverlayStyle = useAnimatedStyle(() => {
     const progress = headerScrollProgress?.value ?? 0;
     if (dimOverlayDisabled) {
-      return { ...StyleSheet.absoluteFillObject, opacity: 0, pointerEvents: 'none' } as any;
+      return { ...StyleSheet.absoluteFillObject, opacity: 0, pointerEvents: 'none' };
     }
     // More gradual dim: start dimming at 40% progress, reach 30% black opacity at max scroll
     return {
@@ -184,7 +184,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       backgroundColor: 'black',
       opacity: interpolate(progress, [0, 0.4, 1], [0, 0, 0.3], Extrapolate.CLAMP),
       pointerEvents: 'none',
-    } as any;
+    };
   }, [headerScrollProgress]);
 
   return (
@@ -207,7 +207,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
           applySafeArea={applySafeArea}
           reserveTopForOverlayButtons={true}
           contentScrollProgress={contentFadeDisabled ? undefined : headerScrollProgress}
-          style={{ opacity: 1 }}
           contentStyle={headerStyle}
           showShadowGradient={false}
         >

@@ -373,7 +373,7 @@ const InlineTitleWithBadges: React.FC<{
   }, []);
 
   const last = lines.length ? lines[lines.length - 1] : null;
-  const spacing = 0; // spacing is controlled by VerificationBadge
+  const spacing = -2; // spacing between text and badges (negative to bring closer)
   const badgeTop = last ? last.y : 0; // align container to line top
   const badgeLeft = last ? last.x + last.width + spacing : 0;
 
@@ -997,7 +997,7 @@ const styles = StyleSheet.create({
   inlineBadgesRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 0,
+    gap: 1,
   },
   badgeMargin: {
     marginLeft: 6,
