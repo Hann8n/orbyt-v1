@@ -35,7 +35,7 @@ const ActivitySwipePager = ({
   onScrollProgressChange?: (progress: number) => void;
 }) => {
   const pagerViewRef = useRef<PagerView>(null);
-  const pages = useMemo<Array<'notifications' | 'chats'>>(() => ['notifications', 'chats'], []);
+  const pages = useMemo<Array<'notifications' | 'chats'>>(() => ['notifications'], []);
   const activeIndex = pages.indexOf(activeTab);
 
   // Track scroll progress from PagerView's onPageScroll for indicator animation
@@ -181,7 +181,7 @@ const ActivityScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const { notificationsCount, messagesCount } = useUnreadCount();
 
-  const pages = useMemo<Array<'notifications' | 'chats'>>(() => ['notifications', 'chats'], []);
+  const pages = useMemo<Array<'notifications' | 'chats'>>(() => ['notifications'], []);
 
   // Tab content renderer
   const renderTabContent = useCallback(

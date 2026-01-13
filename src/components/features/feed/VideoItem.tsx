@@ -17,7 +17,7 @@ type VideoCardPost = ExtendedPostView | ExtendedFeedViewPost;
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // Types
-// Post can be ExtendedPostView, ExtendedFeedViewPost, or the simplified post structure from FeedItem
+// Post can be ExtendedPostView, ExtendedFeedViewPost, or simplified post structure
 export type Post =
   | ExtendedPostView
   | ExtendedFeedViewPost
@@ -32,17 +32,10 @@ export type Post =
       };
     };
 
-export interface FeedItem {
-  post: Post;
-  sourceFeed?: string;
-  feedContext?: string; // Context from feed generator
-  reqId?: string; // Unique identifier per request
-}
-
 // Simplified Video Item Component for immediate playback
 export interface VideoItemProps {
   post: Post;
-  feedItem?: FeedItem;
+  feedItem?: ExtendedFeedViewPost; // Preferred - contains feedContext and reqId natively
   height?: number;
   feedOption?: string;
   isVisible?: boolean;
@@ -85,8 +78,9 @@ const VideoItem: React.FC<VideoItemProps> = ({
   }, [shouldBlur]);
 
   // Memoize container style to prevent recreation on every render
+  // No margins - using FlashList ItemSeparatorComponent for spacing
   const containerStyle = useMemo(
-    () => [styles.videoContainer, { height: itemHeight, marginVertical: 3 }],
+    () => [styles.videoContainer, { height: itemHeight }],
     [itemHeight]
   );
 
@@ -103,15 +97,13 @@ const VideoItem: React.FC<VideoItemProps> = ({
       <VideoCard
         ref={videoRef}
         post={{ ...post, embed: videoEmbed } as VideoCardPost}
+        feedItem={feedItem}
         isVisible={isVisible}
         shouldDisablePlayback={!allowPlayback}
         height={itemHeight}
         moderationDecision={moderationDecision}
         showOverlay={true}
         feedOption={feedOption}
-        sourceFeed={feedItem?.sourceFeed}
-        feedContext={feedItem?.feedContext}
-        reqId={feedItem?.reqId}
         isModal={isModal}
       />
     </View>
@@ -130,49 +122,45 @@ const styles = StyleSheet.create({
   },
 });
 
-// Custom comparison function for better memoization
-// Only rerender if props that actually affect rendering change
+// Helper to extract stable post identifiers
+const getPostUri = (post: Post): string | undefined => {
+  if ('uri' in post) return post.uri;
+  if ('post' in post && typeof post.post === 'object' && post.post !== null && 'uri' in post.post) {
+    return (post.post as { uri: string }).uri;
+  }
+  return undefined;
+};
+
+const getPostCid = (post: Post): string | undefined => {
+  if ('cid' in post) return post.cid;
+  if ('post' in post && typeof post.post === 'object' && post.post !== null && 'cid' in post.post) {
+    return (post.post as { cid: string }).cid;
+  }
+  return undefined;
+};
+
+// Custom comparison function for memoization
+// Compares by value (URI/CID + optional feed properties) rather than post object reference
 const areEqual = (prevProps: VideoItemProps, nextProps: VideoItemProps) => {
-  // Compare primitive values
+  // Compare primitives
   if (
     prevProps.height !== nextProps.height ||
     prevProps.feedOption !== nextProps.feedOption ||
     prevProps.isVisible !== nextProps.isVisible ||
     prevProps.isModal !== nextProps.isModal ||
     prevProps.allowPlayback !== nextProps.allowPlayback ||
-    prevProps.index !== nextProps.index
+    prevProps.index !== nextProps.index ||
+    prevProps.shouldBlur !== nextProps.shouldBlur
   ) {
     return false;
   }
 
-  // Compare post URI and CID (stable identifiers)
-  // Handle ExtendedPostView (has uri directly), ExtendedFeedViewPost (has post.uri), or simplified post structure
-  const getPostUri = (post: Post): string | undefined => {
-    if ('uri' in post) return post.uri;
-    if (
-      'post' in post &&
-      typeof post.post === 'object' &&
-      post.post !== null &&
-      'uri' in post.post
-    ) {
-      return (post.post as { uri: string }).uri;
-    }
-    return undefined;
-  };
+  // Compare feedItem by post URI (stable identifier) instead of object reference
+  if (prevProps.feedItem?.post?.uri !== nextProps.feedItem?.post?.uri) {
+    return false;
+  }
 
-  const getPostCid = (post: Post): string | undefined => {
-    if ('cid' in post) return post.cid;
-    if (
-      'post' in post &&
-      typeof post.post === 'object' &&
-      post.post !== null &&
-      'cid' in post.post
-    ) {
-      return (post.post as { cid: string }).cid;
-    }
-    return undefined;
-  };
-
+  // Compare post by stable identifiers (URI/CID) instead of object reference
   if (
     getPostUri(prevProps.post) !== getPostUri(nextProps.post) ||
     getPostCid(prevProps.post) !== getPostCid(nextProps.post)
@@ -180,17 +168,6 @@ const areEqual = (prevProps: VideoItemProps, nextProps: VideoItemProps) => {
     return false;
   }
 
-  // Compare shouldBlur flag
-  if (prevProps.shouldBlur !== nextProps.shouldBlur) {
-    return false;
-  }
-
-  // Compare feedItem sourceFeed
-  if (prevProps.feedItem?.sourceFeed !== nextProps.feedItem?.sourceFeed) {
-    return false;
-  }
-
-  // If all checks pass, props are equal - skip rerender
   return true;
 };
 

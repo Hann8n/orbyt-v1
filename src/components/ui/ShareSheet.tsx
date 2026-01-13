@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../utils/constants';
 import { useQuery, useQueryClient, useInfiniteQuery, InfiniteData } from '@tanstack/react-query';
 import { queryKeys } from '../../utils/query/queryKeys';
-import { convertAtUriToBlueskyUrl } from '../../utils/links/bluesky';
+import { convertAtUriToOrbytUrl } from '../../utils/links/bluesky';
 import {
   View,
   Text,
@@ -25,16 +25,18 @@ import CancelButton from './CancelButton';
 import AtprotoService from '../../services/api/AtprotoService';
 import { Colors } from './UI';
 import { Avatar } from './UI';
-import { hexToRGBA } from '../../utils/formatting/colors';
+import { hexToRGBA, getProfileColors } from '../../utils/formatting/colors';
 import { useGlobalShareSheet } from '../../hooks/useGlobalModals';
 import ChatService, { Conversation, RecordEmbed } from '../../services/ChatService';
 import { formatHandle } from '../../utils/formatting/handles';
 import { useBookmarkStore } from '../../stores/bookmarkStore';
 import { useUserStore } from '../../stores/userStore';
 import { useProfile } from '../../services/data/ProfileService';
+import type { ProfileViewBasic } from '../../services/api/types';
 
 // Check if profile can receive messages based on chat settings
-const canBeMessaged = (profile: any): boolean => {
+// Accepts ProfileViewBasic which may have associated/viewer properties
+const canBeMessaged = (profile: ProfileViewBasic): boolean => {
   const allowIncoming = profile.associated?.chat?.allowIncoming;
   switch (allowIncoming) {
     case 'none':
@@ -51,12 +53,12 @@ const canBeMessaged = (profile: any): boolean => {
 
 // Conversation item component to use hooks
 const ConversationItem: React.FC<{
-  profile: any;
+  profile: ProfileViewBasic;
   isDisabled: boolean;
   onPress: () => void;
 }> = ({ profile, isDisabled, onPress }) => {
   const { data: profileData } = useProfile(profile?.handle);
-  const profileColors = profileData?.profileColors;
+  const profileColors = getProfileColors(profileData);
 
   return (
     <Pressable
@@ -334,7 +336,7 @@ const ShareSheet: React.FC = () => {
     if (!postUri) return;
     try {
       // Convert AT URI to a web URL using the utility function
-      const shareUrl = convertAtUriToBlueskyUrl(postUri);
+      const shareUrl = convertAtUriToOrbytUrl(postUri, authorHandle, authorDid);
 
       await Share.share({
         message: Platform.OS === 'ios' ? '' : shareUrl,
@@ -344,7 +346,7 @@ const ShareSheet: React.FC = () => {
     } catch (_error: unknown) {
       // ignore
     }
-  }, [postUri, dismissSheet]);
+  }, [postUri, authorHandle, authorDid, dismissSheet]);
 
   // Fetch conversations for send picker
   const { data: conversationsData, isLoading: conversationsLoading } = useQuery({
@@ -362,9 +364,9 @@ const ShareSheet: React.FC = () => {
     fetchNextPage: fetchMoreProfiles,
     hasNextPage: hasMoreProfiles,
   } = useInfiniteQuery<
-    { profiles: any[]; cursor: string | null },
+    { profiles: ProfileViewBasic[]; cursor: string | null },
     Error,
-    InfiniteData<{ profiles: any[]; cursor: string | null }, string | null>,
+    InfiniteData<{ profiles: ProfileViewBasic[]; cursor: string | null }, string | null>,
     ReturnType<typeof queryKeys.search.profiles>,
     string | null
   >({
@@ -424,7 +426,8 @@ const ShareSheet: React.FC = () => {
 
   // Send video to selected conversation or create one with new profile
   const handleSendToConversation = useCallback(
-    async (item: any) => {
+    async (item: Conversation | ProfileViewBasic) => {
+      const isConversation = 'id' in item;
       if (!postUri) {
         Alert.alert('error', 'missing post information.');
         return;
@@ -455,8 +458,10 @@ const ShareSheet: React.FC = () => {
           }
 
           // Check if item is a conversation or a new profile
-          let conversationId = item.id;
-          if (!conversationId) {
+          let conversationId: string;
+          if (isConversation) {
+            conversationId = item.id;
+          } else {
             // New profile - create conversation first
             const convo = await ChatService.createConversation({ recipientDid: item.did });
             conversationId = convo.id;
@@ -475,8 +480,10 @@ const ShareSheet: React.FC = () => {
             text: '',
             embed: embed,
           });
-        } catch (_error: any) {
-          Alert.alert('error', _error.message || 'failed to send video. please try again.');
+        } catch (_error: unknown) {
+          const errorMessage =
+            _error instanceof Error ? _error.message : 'failed to send video. please try again.';
+          Alert.alert('error', errorMessage);
         }
       })();
     },
@@ -612,16 +619,23 @@ const ShareSheet: React.FC = () => {
             ) : (
               <FlatList
                 data={filteredConversations}
-                keyExtractor={(item, idx) => item.id || item.did || `search-${idx}`}
+                keyExtractor={(item, idx) => {
+                  if ('id' in item) {
+                    return item.id;
+                  }
+                  return item.did || `search-${idx}`;
+                }}
                 renderItem={({ item }) => {
                   // Handle both conversations and search profiles
-                  const isConversation = !!item.id;
-                  const profile = isConversation
-                    ? item.members.find((member: any) => member.did !== currentUserDid) ||
-                      item.members[0]
+                  const itemIsConversation = 'id' in item;
+                  const profile: ProfileViewBasic = itemIsConversation
+                    ? item.members.find(
+                        (member: ProfileViewBasic) => member.did !== currentUserDid
+                      ) || item.members[0]
                     : item;
 
-                  const isDisabled = !isConversation && !canBeMessaged(item);
+                  const isDisabled =
+                    !itemIsConversation && !canBeMessaged(item as ProfileViewBasic);
 
                   return (
                     <ConversationItem

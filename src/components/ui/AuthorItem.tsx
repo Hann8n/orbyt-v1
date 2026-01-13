@@ -137,10 +137,11 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   const actualDisplayName = formatHandle(handle) || 'Unknown';
   const actualAvatar = avatar || undefined;
 
-  // Get following status from ProfileService using the hook
+  // Get following & block status from ProfileService using the hook
   const { data: cachedProfile } = useProfile(handle);
-  const actualIsFollowing = cachedProfile?.isFollowing ?? isFollowing;
-  const isBlocked = cachedProfile?.isBlocked ?? false;
+  const actualIsFollowing =
+    cachedProfile?.viewer?.following || cachedProfile?.viewer?.followedBy ? true : isFollowing;
+  const isBlocked = !!(cachedProfile?.viewer?.blocking || cachedProfile?.viewer?.blockingByList);
 
   const followMutation = useFollowMutation();
 

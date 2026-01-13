@@ -96,7 +96,9 @@ export default function EmbeddedPostCard({
   // Get profile data to check if author is blocked (must be called before early returns)
   const author = (post?.author ?? {}) as PostView['author'];
   const { data: authorProfile } = useProfile(author.handle);
-  const isAuthorBlocked = authorProfile?.isBlocked ?? false;
+  const isAuthorBlocked = !!(
+    authorProfile?.viewer?.blocking || authorProfile?.viewer?.blockingByList
+  );
 
   // Handle user choosing to view content
   const handleViewContent = useCallback(() => {

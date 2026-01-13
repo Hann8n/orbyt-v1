@@ -15,6 +15,7 @@ import { useUserStore } from '../../stores/userStore';
 import { useProfile } from '../../services/data/ProfileService';
 import { tabRefs } from '../../utils/navigation/tabRefs';
 import { useSetTabBarHeight } from '../../context/FeedIndicatorContext';
+import { getProfileColors } from '../../utils/formatting/colors';
 
 interface TabConfig {
   name: string;
@@ -47,10 +48,8 @@ const ProfileTabIcon = React.memo(
     const opacity = isActive ? 1 : 0.6;
 
     // Use profile color for ring (opacity handles dimming)
-    const ringColor =
-      profileData?.profileColors?.foregroundColor ||
-      profileData?.profileColors?.lighterColor ||
-      Colors.white;
+    const profileColors = getProfileColors(profileData);
+    const ringColor = profileColors.foregroundColor || Colors.white;
 
     if (!hasMultipleAccounts) {
       return <UserIcon size={tabIconSize} color={color} />;
@@ -64,15 +63,11 @@ const ProfileTabIcon = React.memo(
           size={tabIconSize}
           showRing={true}
           status={profileData?.status}
-          profileColors={
-            profileData?.profileColors
-              ? {
-                  backgroundColor: profileData.profileColors.backgroundColor,
-                  textColor: profileData.profileColors.foregroundColor || color,
-                  foregroundColor: profileData.profileColors.foregroundColor || color,
-                }
-              : undefined
-          }
+          profileColors={{
+            backgroundColor: profileColors.backgroundColor,
+            textColor: profileColors.foregroundColor || color,
+            foregroundColor: profileColors.foregroundColor || color,
+          }}
           ringColor={ringColor}
         />
       </View>

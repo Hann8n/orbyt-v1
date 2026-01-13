@@ -37,6 +37,7 @@ import { prefetchProfile, useProfile } from '../../../services/data/ProfileServi
 import type { ExtendedPostView, PostRecord } from '../../../services/api/types';
 import type { RichTextFacet } from '../../../utils/types/richText';
 import { useFeedSettings } from '../../../stores/userStore';
+import { getProfileColors } from '../../../utils/formatting/colors';
 
 // Use proper API types
 type Post = ExtendedPostView;
@@ -48,12 +49,8 @@ export interface VideoOverlayUIProps {
   feedOption?: 'following' | 'discover';
   // Optional composed shared opacity to tie overlay and scrubber together
   overlayOpacitySV?: SharedValue<number>;
-  sourceFeed?: string;
-  feedContext?: string; // Context from feed generator
-  reqId?: string; // Unique identifier per request
   onLike?: () => void;
   onRepost?: () => void;
-  onSourcePress?: () => void;
   onShareInteraction?: () => void; // Callback to track share interaction
   isLiked?: boolean;
   isReposted?: boolean;
@@ -73,9 +70,6 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   isModal = false,
   feedOption,
   overlayOpacitySV,
-  sourceFeed,
-  feedContext: _feedContext,
-  reqId: _reqId,
   onLike,
   onRepost,
   onShareInteraction,
@@ -113,10 +107,8 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   // Overlay state
   const [isOverlayCollapsed, setIsOverlayCollapsed] = useState(true);
 
-  // Local UI state for confirmation badge (declared early to avoid hook order issues)
+  // Local UI state for confirmation badge (brief checkmark animation after follow)
   const [showFollowConfirmation, setShowFollowConfirmation] = useState(false);
-  // Track that we've already shown a follow confirmation for this post so the + badge doesn't return after timeout
-  const [hasFollowedForPost, setHasFollowedForPost] = useState(false);
 
   // Memoize expensive calculations to prevent rerenders
   const author = useMemo(() => post.author || {}, [post.author]);
@@ -124,8 +116,10 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
 
   // Get profile data to check if author is blocked
   const { data: authorProfile } = useProfile(author.handle);
-  const isAuthorBlocked = authorProfile?.isBlocked ?? false;
-  const profileColors = authorProfile?.profileColors;
+  const isAuthorBlocked = !!(
+    authorProfile?.viewer?.blocking || authorProfile?.viewer?.blockingByList
+  );
+  const profileColors = getProfileColors(authorProfile);
 
   const profilePicUrl = useMemo(
     () =>
@@ -142,7 +136,6 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   // Reset text state when post changes
   useEffect(() => {
     setIsOverlayCollapsed(true);
-    // Also reset follow confirmation when the post changes so it doesn't leak between items
     setShowFollowConfirmation(false);
   }, [post?.uri, record?.text]);
 
@@ -225,17 +218,8 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
       authorName: post.author?.displayName,
       authorHandle: post.author?.handle,
       feedOption: feedOption,
-      sourceFeed,
     });
-  }, [
-    post.uri,
-    post.cid,
-    post.author,
-    feedOption,
-    sourceFeed,
-    presentShareSheet,
-    onShareInteraction,
-  ]);
+  }, [post.uri, post.cid, post.author, feedOption, presentShareSheet, onShareInteraction]);
 
   // Memoize UI calculations to prevent recalculation on every render
   const likeScale = useSharedValue(1);
@@ -443,40 +427,37 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                   }
                 />
                 {/* Follow badge overlay: show + when not following, show check briefly after follow */}
-                {hasProfile &&
-                  !isFollowing &&
-                  !showFollowConfirmation &&
-                  !hasFollowedForPost &&
-                  !isCurrentUserProfile && (
-                    <Pressable
-                      onPress={() => {
-                        if (!post.author?.handle) return;
-                        // Optimistically show checkmark immediately
-                        setShowFollowConfirmation(true);
-                        setHasFollowedForPost(true);
-                        // Trigger server follow
-                        try {
-                          followMutation.mutate({ handle: post.author.handle, isFollowing: true });
-                        } catch (_err) {
-                          // If mutation fails, hide the checkmark
-                          setShowFollowConfirmation(false);
-                          setHasFollowedForPost(false);
-                        }
-                      }}
-                      disabled={followMutation.isPending}
-                      hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-                      style={[
-                        styles.followBadge,
+                {hasProfile && !isFollowing && !showFollowConfirmation && !isCurrentUserProfile && (
+                  <Pressable
+                    onPress={() => {
+                      if (!post.author?.handle) return;
+                      // Optimistically show checkmark immediately
+                      setShowFollowConfirmation(true);
+                      // Trigger server follow (mutation updates follow store immediately)
+                      followMutation.mutate(
+                        { handle: post.author.handle, isFollowing: true },
                         {
-                          right: -offset - hitBoxOffset,
-                          top: -offset - hitBoxOffset,
-                        },
-                        { width: hitBoxSize, height: hitBoxSize },
-                      ]}
-                    >
-                      <AddCircleLineIcon size={badgeSize} color={Colors.black} />
-                    </Pressable>
-                  )}
+                          onError: () => {
+                            // Reset confirmation if mutation fails
+                            setShowFollowConfirmation(false);
+                          },
+                        }
+                      );
+                    }}
+                    disabled={followMutation.isPending}
+                    hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                    style={[
+                      styles.followBadge,
+                      {
+                        right: -offset - hitBoxOffset,
+                        top: -offset - hitBoxOffset,
+                      },
+                      { width: hitBoxSize, height: hitBoxSize },
+                    ]}
+                  >
+                    <AddCircleLineIcon size={badgeSize} color={Colors.black} />
+                  </Pressable>
+                )}
                 {showFollowConfirmation && !isCurrentUserProfile && (
                   <View
                     pointerEvents="none"
@@ -898,7 +879,6 @@ const arePropsEqual = (prevProps: VideoOverlayUIProps, nextProps: VideoOverlayUI
 
   // Compare feed options
   if (prevProps.feedOption !== nextProps.feedOption) return false;
-  if (prevProps.sourceFeed !== nextProps.sourceFeed) return false;
 
   // If all critical props are the same, skip re-render
   return true;

@@ -41,14 +41,15 @@ import {
   QUERY_CONSTANTS,
   FEED_TYPES,
 } from '../../../utils/constants';
-import type { UIFeedItem, ListFeedViewProps, ListFeedViewRef } from '../../../types';
+import type { FeedListItem, EndCardItem, ListFeedViewProps, ListFeedViewRef } from '../../../types';
+import type { ExtendedFeedViewPost } from '../../../services/api/types';
 import { useFeedVisibility } from '../../../hooks';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // Constants
 const CONSTANTS = {
-  ITEM_MARGIN: 6, // 3px top + 3px bottom
+  SEPARATOR_HEIGHT: 5, // Height of black separator between items
   HEADER_HEIGHT_TABS: 280,
   HEADER_BLOCKING_THRESHOLD: 250, // Header blocks playback if scroll is less than 250px from top
 } as const;
@@ -165,7 +166,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     const listHeightRef = useRef<number>(0);
 
     // Refs
-    const flashListRef = useRef<FlashListRef<UIFeedItem>>(null);
+    const flashListRef = useRef<FlashListRef<FeedListItem>>(null);
 
     // Removed cache optimization to avoid setState in effects
     // Computing offsets directly is fast enough for the use case
@@ -269,13 +270,14 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     // FlashList's maintainVisibleContentPosition handles item changes smoothly - no LayoutAnimation needed
     const filteredFeed = useMemo(() => {
       return feed.filter(item => {
-        if (item.endCard) return true;
-        const uri = item.post.uri;
+        if ('endCard' in item && item.endCard) return true;
+        const feedItem = item as ExtendedFeedViewPost;
+        const uri = feedItem.post.uri;
         // Filter out reported posts
         if (reportedPostUris.has(uri)) return false;
         // Filter out posts marked for filtering (flags computed in useFeed)
         // Check if item has shouldFilter flag (from ExtendedFeedViewPost)
-        if (item.shouldFilter) return false;
+        if (feedItem.shouldFilter) return false;
         return true;
       });
     }, [feed, reportedPostUris]);
@@ -293,7 +295,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           {
             post: { uri: 'end-card', cid: 'end-card' },
             endCard: true,
-          } as UIFeedItem,
+          } as EndCardItem,
         ];
       }
       return filteredFeed;
@@ -367,7 +369,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     // Render item function - optimized to reduce dependencies and rerenders
     const renderItem = useCallback(
-      ({ item, index }: ListRenderItemInfo<UIFeedItem>) => {
+      ({ item, index }: ListRenderItemInfo<FeedListItem>) => {
         const canPlayWithHeader = canPlay && !isHeaderBlockingPlayback;
         // Use ref directly for immediate access (no React state delay)
         const isCentered = index === activeItemIndexRef.current;
@@ -376,7 +378,8 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         // allowPlayback controls actual playback based on canPlay state
         const isVideoVisible = isCentered && !isHeaderBlockingPlayback;
 
-        if (item.endCard) {
+        // Type guard for endCard
+        if ('endCard' in item && item.endCard) {
           return (
             <EmptyFeed
               type="end"
@@ -388,18 +391,15 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           );
         }
 
+        // item is ExtendedFeedViewPost here
+        const feedItem = item as ExtendedFeedViewPost;
         // Get moderation flags from feed item (computed at feed level)
-        const shouldBlur = item.shouldBlur ?? false;
+        const shouldBlur = feedItem.shouldBlur ?? false;
 
         return (
           <VideoItem
-            post={item.post}
-            feedItem={{
-              post: item.post,
-              sourceFeed: item.sourceFeed,
-              feedContext: item.feedContext,
-              reqId: item.reqId,
-            }}
+            feedItem={feedItem}
+            post={feedItem.post}
             height={cardHeight}
             feedOption={feedOption as 'following' | 'discover'}
             isVisible={isVideoVisible}
@@ -423,35 +423,41 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     );
 
     // Item type for FlashList recycling optimization
-    const getItemType = useCallback((item: UIFeedItem) => {
-      if (item.endCard) return 'endCard';
-      if (item.post?.embed?.$type === 'app.bsky.embed.record#view') return 'video';
+    const getItemType = useCallback((item: FeedListItem) => {
+      if ('endCard' in item && item.endCard) return 'endCard';
+      // item is ExtendedFeedViewPost here
+      const feedItem = item as ExtendedFeedViewPost;
+      if (feedItem.post?.embed?.$type === 'app.bsky.embed.record#view') return 'video';
       return 'default';
     }, []);
 
     // Key extractor with stable keys (no index) for FlashList v2 maintainVisibleContentPosition
     // Index-based keys cause issues when new items are added because existing items get new keys
-    const keyExtractor = useCallback((item: UIFeedItem, _index: number) => {
-      return item.endCard ? 'end-card' : `${item.post.uri}:${item.post.cid}`;
+    const keyExtractor = useCallback((item: FeedListItem, _index: number) => {
+      if ('endCard' in item && item.endCard) return 'end-card';
+      return `${item.post.uri}:${item.post.cid}`;
     }, []);
 
-    // Stable overrideItemLayout callback to account for item margins
-    // Needed for proper snapping calculation - FlashList needs to know total height including margins
-    const itemHeightWithMargin = cardHeight + CONSTANTS.ITEM_MARGIN;
+    // Stable overrideItemLayout callback - no margins needed, using ItemSeparatorComponent instead
     const overrideItemLayout = useCallback(
       (
         layout: { span?: number },
-        _item: UIFeedItem,
+        _item: FeedListItem,
         _index: number,
         _maxColumns: number,
         _extraData?: unknown
       ) => {
-        // Account for item margin added to VideoCard
         // FlashList docs: layout.span is the only property we modify
-        layout.span = itemHeightWithMargin;
+        layout.span = cardHeight;
       },
-      [itemHeightWithMargin]
+      [cardHeight]
     );
+
+    // Separator component for black gaps between items
+    // Must be a component function, not a JSX element
+    const ItemSeparator = useCallback(() => {
+      return <View style={{ height: CONSTANTS.SEPARATOR_HEIGHT, backgroundColor: Colors.black }} />;
+    }, []);
 
     // FlashList's native viewability handles item detection automatically
     // maintainVisibleContentPosition preserves scroll position, so the visible item
@@ -542,7 +548,10 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     );
 
     // Snapping configuration - memoized to prevent recalculation (always compute)
-    const snapToIntervalValue = useMemo(() => cardHeight + CONSTANTS.ITEM_MARGIN, [cardHeight]);
+    // FlashList's ItemSeparatorComponent adds spacing between items, so we need to account for it
+    // Total spacing from start of one item to start of next = cardHeight + separatorHeight
+    const itemSpacing = useMemo(() => cardHeight + CONSTANTS.SEPARATOR_HEIGHT, [cardHeight]);
+    const snapToIntervalValue = useMemo(() => itemSpacing, [itemSpacing]);
 
     // Custom snap offsets - memoized to prevent recalculation
     // Use snapToInterval for small devices (full screen displays)
@@ -552,20 +561,27 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     const snapToOffsets = useMemo(() => {
       if (isSmallDevice) return null;
 
-      const itemHeightWithMargin = cardHeight + CONSTANTS.ITEM_MARGIN;
       const offsets: number[] = hasHeader ? [0] : [];
 
       for (let i = 0; i < listData.length; i++) {
         if (hasHeader && headerHeight > 0 && cardHeight > 0) {
           const base = Math.max(0, headerHeight - topInset);
-          offsets.push(base + i * itemHeightWithMargin);
+          offsets.push(base + i * itemSpacing);
         } else {
-          offsets.push(i * itemHeightWithMargin - topInset);
+          offsets.push(i * itemSpacing - topInset);
         }
       }
 
       return offsets;
-    }, [headerHeight, cardHeight, listData.length, topInset, isSmallDevice, hasHeader]);
+    }, [
+      headerHeight,
+      cardHeight,
+      listData.length,
+      topInset,
+      isSmallDevice,
+      hasHeader,
+      itemSpacing,
+    ]);
 
     // Stable layout callbacks to prevent recreation (always compute)
     const handleListLayout = useCallback((e: LayoutChangeEvent) => {
@@ -591,9 +607,14 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     // Grid view rendering
     if (viewMode === 'grid') {
+      // Filter out endCard items for grid view (only ExtendedFeedViewPost needed)
+      const gridFeed = feed.filter((item): item is ExtendedFeedViewPost => {
+        return !('endCard' in item && item.endCard);
+      });
+
       return (
         <GridFeedView
-          feed={feed}
+          feed={gridFeed}
           headerComponent={headerComponent}
           refreshControl={refreshControl}
           backgroundColor={backgroundColor}
@@ -627,7 +648,16 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           extraData={extraData}
           overrideItemLayout={overrideItemLayout}
           ListHeaderComponent={
-            headerComponent ? <View onLayout={handleHeaderLayout}>{headerComponent}</View> : null
+            headerComponent ? (
+              <View onLayout={handleHeaderLayout}>
+                {headerComponent}
+                {listData.length > 0 && !('endCard' in listData[0] && listData[0].endCard) && (
+                  <View
+                    style={{ height: CONSTANTS.SEPARATOR_HEIGHT, backgroundColor: Colors.black }}
+                  />
+                )}
+              </View>
+            ) : null
           }
           // Snapping configuration
 
@@ -679,6 +709,8 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
               onRetry={onRetry}
             />
           }
+          // Item separator for black gaps between cards
+          ItemSeparatorComponent={ItemSeparator}
           // Content container styling
           contentContainerStyle={[
             styles.contentContainer,

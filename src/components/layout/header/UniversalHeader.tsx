@@ -481,7 +481,7 @@ const HeaderContentComponent = memo<{
           ) : (
             <InlineTitleWithBadges
               title={content.title}
-              titleStyle={[styles.title, { color: textColor }]}
+              titleStyle={{ ...styles.title, color: textColor }}
               badges={[content.badge as React.ReactNode]}
             />
           )}
@@ -604,20 +604,25 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
     }
   }, [onBackPress, router]);
 
-  const headerStyle = useMemo(() => {
+  const headerStyle = useMemo((): ViewStyle[] => {
     const baseTopPadding = 12;
     const overlayExtraPadding = reserveTopForOverlayButtons ? 48 : 0;
     const safeAreaTop = applySafeArea ? insets.top : 0;
 
-    return [
+    const baseStyles: ViewStyle[] = [
       styles.header,
       {
         backgroundColor: backgroundImage ? 'transparent' : backgroundColor,
         paddingTop: safeAreaTop + baseTopPadding + overlayExtraPadding,
       },
-      minHeight && { minHeight },
-      style,
     ];
+    if (minHeight) {
+      baseStyles.push({ minHeight });
+    }
+    if (style) {
+      baseStyles.push(style);
+    }
+    return baseStyles;
   }, [
     backgroundColor,
     backgroundImage,
@@ -745,16 +750,22 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
     return children;
   }, [children]);
 
-  const contentContainerStyle = useMemo(
-    () => [
-      styles.content,
-      contentPosition === 'center' && styles.contentCenter,
-      contentPosition === 'bottom' && styles.contentBottom,
-      contentPosition === 'space-between' && styles.contentSpaceBetween,
-      contentStyle,
-    ],
-    [contentPosition, contentStyle]
-  );
+  const contentContainerStyle = useMemo((): ViewStyle[] => {
+    const baseStyles: ViewStyle[] = [styles.content];
+    if (contentPosition === 'center') {
+      baseStyles.push(styles.contentCenter);
+    }
+    if (contentPosition === 'bottom') {
+      baseStyles.push(styles.contentBottom);
+    }
+    if (contentPosition === 'space-between') {
+      baseStyles.push(styles.contentSpaceBetween);
+    }
+    if (contentStyle) {
+      baseStyles.push(contentStyle);
+    }
+    return baseStyles;
+  }, [contentPosition, contentStyle]);
 
   // Optional animated style to fade out header content (text/image/tabs) with shared scroll progress
   const contentAnimatedStyle = useAnimatedStyle(() => {

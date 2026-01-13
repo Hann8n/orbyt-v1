@@ -44,6 +44,7 @@ import { getChannelBySlug } from '../../../utils/channels/orbyt';
 import { VideoScrubber } from './VideoScrubber';
 import { useOverlayVisibility } from '../../../context/FeedIndicatorContext';
 import { hexToRGBA } from '../../../utils/formatting/colors';
+import { useFollowStore } from '../../../stores/followStore';
 import type {
   ExtendedPostView,
   ExtendedFeedViewPost,
@@ -77,6 +78,7 @@ export interface VideoCardRef {
 
 export interface VideoCardProps {
   post: Post;
+  feedItem?: ExtendedFeedViewPost; // Contains feedContext and reqId natively
   isVisible: boolean;
   onVideoStatus?: (uri: string, status: string) => void;
   height?: number;
@@ -86,9 +88,6 @@ export interface VideoCardProps {
   // Overlay props
   showOverlay?: boolean;
   feedOption?: string;
-  sourceFeed?: string;
-  feedContext?: string; // Context from feed generator
-  reqId?: string; // Unique identifier per request
   isModal?: boolean;
 }
 
@@ -97,6 +96,7 @@ const VideoCard = memo(
     (
       {
         post,
+        feedItem,
         isVisible,
         onVideoStatus,
         height,
@@ -104,13 +104,13 @@ const VideoCard = memo(
         shouldDisablePlayback = false,
         showOverlay = true,
         feedOption,
-        sourceFeed,
-        feedContext,
-        reqId,
         isModal = false,
       },
       ref
     ) => {
+      // Access feedContext and reqId from feedItem (native properties from FeedViewPost)
+      const feedContext = feedItem?.feedContext;
+      const reqId = feedItem?.reqId;
       const { presentCommentSection } = useGlobalCommentSection();
       const { updatePostInteraction, getPostInteraction } = usePostInteractionStore();
 
@@ -151,8 +151,14 @@ const VideoCard = memo(
       ); // Auto-resets when post.uri or feed context changes
 
       // Lightweight follow state per post, hoisted out of overlay
+      // Use passive optimistic flag: check both profile cache AND follow store
       const { data: cachedProfile } = useProfile(postView.author?.handle);
-      const isFollowing = cachedProfile?.isFollowing ?? false;
+      const authorDid = cachedProfile?.did || postView.author?.did;
+      const followStoreState = useFollowStore(state =>
+        authorDid ? state.follows.get(authorDid) : undefined
+      );
+      // Combine both sources: profile cache OR optimistic follow store state
+      const isFollowing = !!(cachedProfile?.viewer?.following || followStoreState?.isFollowing);
       const hasProfile = !!cachedProfile;
 
       // Extract channel slug from post tags - simple match, no lookups
@@ -200,18 +206,9 @@ const VideoCard = memo(
             event: event,
           };
 
-          // Use feedContext if provided, otherwise infer from sourceFeed if it's a feed generator
-          // This matches Bluesky's behavior of "inferrable interactions" - see:
-          // https://github.com/bluesky-social/social-app/commit/69989d9e7e51b4a8f85cee0e7a5b6f5c9d8a1b2c3
+          // Use feedContext from feedItem if provided (native property from FeedViewPost)
           if (feedContext) {
             interaction.feedContext = feedContext;
-          } else if (
-            sourceFeed &&
-            sourceFeed.startsWith('at://') &&
-            sourceFeed.includes('app.bsky.feed.generator')
-          ) {
-            // Infer feedContext from sourceFeed if it's a feed generator URI
-            interaction.feedContext = sourceFeed;
           }
           if (reqId) {
             interaction.reqId = reqId;
@@ -236,7 +233,7 @@ const VideoCard = memo(
             sendInteractionsTimeoutRef.current = null;
           }, 1500);
         },
-        [postView.uri, feedContext, sourceFeed, reqId]
+        [postView.uri, feedContext, reqId]
       );
 
       // Get video URL, thumbnail, and aspect ratio using getVideoView helper + direct property access
@@ -856,14 +853,6 @@ const VideoCard = memo(
 
       const navigation = useRouter();
 
-      const handleSourcePress = useCallback(() => {
-        if (sourceFeed && sourceFeed.startsWith('at://')) {
-          // Navigate to channel page
-          const encodedUri = encodeURIComponent(sourceFeed);
-          navigation.push(`/channel/${encodedUri}`);
-        }
-      }, [sourceFeed, navigation]);
-
       const handleChannelPress = useCallback(() => {
         if (channelUri) {
           const encodedUri = encodeURIComponent(channelUri);
@@ -1005,12 +994,8 @@ const VideoCard = memo(
                   isModal={isModal}
                   overlayOpacitySV={uiOverlayOpacitySV}
                   feedOption={feedOption as 'following' | 'discover' | undefined}
-                  sourceFeed={sourceFeed}
-                  feedContext={feedContext}
-                  reqId={reqId}
                   onLike={handleLike}
                   onRepost={handleRepost}
-                  onSourcePress={handleSourcePress}
                   onShareInteraction={() => queueInteraction(INTERACTIONSHARE_CONST)}
                   isLiked={overlayState.isLiked}
                   isReposted={overlayState.isReposted}

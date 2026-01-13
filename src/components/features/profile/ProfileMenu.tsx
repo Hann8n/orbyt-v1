@@ -21,6 +21,7 @@ import {
 } from '../../../services/data/ProfileService';
 import AtprotoService from '../../../services/api/AtprotoService';
 import type { ProfileAssociatedChat } from '@atproto/api/dist/client/types/app/bsky/actor/defs';
+import { getOrbytProfileUrl } from '../../../utils/links/bluesky';
 
 interface ProfileMenuProps {
   visible: boolean;
@@ -44,7 +45,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
   onSwitchAccount,
   chatSettings,
   viewerFollowedBy = false,
-  onMessagePress,
+  onMessagePress: _onMessagePress,
 }) => {
   const queryClient = useQueryClient();
   const { signOut } = useAuth();
@@ -221,7 +222,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
   // Share handler
   const handleShare = useCallback(async () => {
     try {
-      const profileUrl = `https://bsky.app/profile/${handle}`;
+      const profileUrl = getOrbytProfileUrl(handle, profile?.did);
 
       await Share.share({
         message: Platform.OS === 'ios' ? '' : profileUrl,
@@ -233,7 +234,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
     } catch (_error: unknown) {
       // ignore
     }
-  }, [handle, onDismiss]);
+  }, [handle, profile?.did, onDismiss]);
 
   // Open on Bluesky handler
   const handleOpenOnBluesky = useCallback(async () => {
@@ -295,7 +296,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
   }, [onDismiss, queryClient, onLogout, signOut, removeAccount]);
 
   // Determine if messaging is available based on chat settings
-  const canMessage = (() => {
+  const _canMessage = (() => {
     if (!chatSettings) return false;
     const allowIncoming = chatSettings.allowIncoming;
     switch (allowIncoming) {
@@ -339,19 +340,19 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
     } else {
       const options = [];
 
-      // Add message option if available
-      if (canMessage && onMessagePress) {
-        options.push({
-          id: 'message',
-          label: 'message',
-          icon: 'inbox',
-          onPress: () => {
-            onDismiss();
-            onMessagePress();
-          },
-          color: Colors.lightGray,
-        });
-      }
+      // Add message option if available (disabled)
+      // if (canMessage && onMessagePress) {
+      //   options.push({
+      //     id: 'message',
+      //     label: 'message',
+      //     icon: 'inbox',
+      //     onPress: () => {
+      //       onDismiss();
+      //       onMessagePress();
+      //     },
+      //     color: Colors.lightGray,
+      //   });
+      // }
 
       // Add other options
       options.push(

@@ -132,3 +132,42 @@ export const openListInBluesky = async (
     Alert.alert('Error', errorMessage, [{ text: 'OK' }]);
   }
 };
+
+/**
+ * Get Orbyt profile URL
+ * @param handle - User handle (optional)
+ * @param did - User DID (optional, used as fallback if handle is not available)
+ * @returns Orbyt profile URL (e.g., https://getorbyt.com/@handle.bsky.social or https://getorbyt.com/@did:plc:abc123)
+ */
+export const getOrbytProfileUrl = (handle?: string, did?: string): string => {
+  const identifier = handle || did;
+  if (!identifier) {
+    return '';
+  }
+  return `https://getorbyt.com/@${identifier}`;
+};
+
+/**
+ * Convert AT Protocol URI to Orbyt web URL
+ * @param atUri - AT Protocol URI (e.g., at://did:plc:abc123/app.bsky.feed.post/xyz789)
+ * @param handle - User handle (optional, preferred over DID)
+ * @param did - User DID (optional, used as fallback if handle is not available)
+ * @returns Orbyt web URL (e.g., https://getorbyt.com/@handle.bsky.social/xyz789 or https://getorbyt.com/@did:plc:abc123/xyz789)
+ */
+export const convertAtUriToOrbytUrl = (atUri: string, handle?: string, did?: string): string => {
+  if (!atUri.startsWith('at://')) {
+    return atUri;
+  }
+
+  // Extract the necessary parts from the AT URI
+  const parts = atUri.replace('at://', '').split('/');
+  if (parts.length >= 3) {
+    const rkey = parts[2];
+    const identifier = handle || did || parts[0]; // Fallback to DID from URI if neither provided
+
+    // Format as a getorbyt.com URL
+    return `https://getorbyt.com/@${identifier}/${rkey}`;
+  }
+
+  return atUri;
+};

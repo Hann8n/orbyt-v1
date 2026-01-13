@@ -22,7 +22,7 @@ export type ViewMode = 'list' | 'grid';
  * @usage src/components/features/feed/ListFeedView.tsx:144
  */
 export interface ListFeedViewProps {
-  feed: UIFeedItem[];
+  feed: FeedListItem[];
   headerComponent?: React.ReactNode;
   refreshControl?: React.ReactElement;
   backgroundColor?: string;
@@ -100,13 +100,15 @@ export interface ListFeedViewRef {
 }
 
 // ============================================================================
-// Feed Types (UI-specific, not API types)
+// Feed Types
 // ============================================================================
 
 /**
  * @namespace Feed
- * Feed-related UI types (different from API FeedItem which is ExtendedFeedViewPost)
+ * Feed-related UI types - uses native @atproto/api types directly
  */
+
+import type { ExtendedFeedViewPost } from '../services/api/types';
 
 /**
  * Feed option type for UI navigation
@@ -124,53 +126,19 @@ export type FeedOption =
   | string;
 
 /**
- * Feed item type for UI components (has endCard and UI-specific properties)
- * Different from API FeedItem (ExtendedFeedViewPost)
- * Renamed to UIFeedItem to avoid conflicts with API FeedItem type
- * @usage src/components/features/feed/ListFeedView.tsx:50,512,521
- * @usage src/components/features/feed/GridFeedView.tsx:30,37,80,189,303
+ * Minimal type for end-of-feed card (only used in ListFeedView)
+ * @usage src/components/features/feed/ListFeedView.tsx
  */
-export interface UIFeedItem {
-  post: {
-    embed?: {
-      $type: string;
-      mime?: string;
-      playlist?: string | string[];
-      media?: {
-        $type: string;
-        playlist?: string | string[];
-      };
-    };
-    uri: string;
-    cid: string;
-    author?: {
-      avatar?: string;
-      displayName?: string;
-      handle?: string;
-    };
-    repostedBy?: {
-      avatar?: string;
-      displayName?: string;
-      handle?: string;
-    };
-  };
-  uniqueKey?: string;
-  sourceFeed?: string; // Source feed URI
-  feedContext?: string; // Context from feed generator (from FeedViewPost)
-  reqId?: string; // Unique identifier per request (from FeedViewPost)
-  reason?: {
-    $type?: string;
-    by?: {
-      avatar?: string;
-      displayName?: string;
-      handle?: string;
-    };
-  };
-  endCard?: boolean;
-  // Simple moderation flags computed at feed level for performance
-  shouldBlur?: boolean;
-  shouldFilter?: boolean;
+export interface EndCardItem {
+  post: { uri: 'end-card'; cid: 'end-card' };
+  endCard: true;
 }
+
+/**
+ * Feed list item type - uses native ExtendedFeedViewPost directly, union with EndCardItem for end-of-feed indicator
+ * @usage src/components/features/feed/ListFeedView.tsx
+ */
+export type FeedListItem = ExtendedFeedViewPost | EndCardItem;
 
 // ============================================================================
 // Error Types
@@ -198,4 +166,4 @@ export interface AppError {
 import type { ModerationDecision } from '../services/moderation/ModerationTypes';
 export type { ModerationDecision };
 
-export type { OrbytProfileRecord } from '../services/api/types';
+export type { OrbytProfileRecord, ExtendedFeedViewPost } from '../services/api/types';

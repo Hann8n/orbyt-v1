@@ -8,6 +8,7 @@ import {
   Alert,
   StatusBar,
   useWindowDimensions,
+  type ViewStyle,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import UniversalHeader, { HeaderContent, CustomActionLayout } from './UniversalHeader';
@@ -56,7 +57,7 @@ interface ChannelHeaderProps {
   onDelete?: (channelId: string) => void;
   children?: React.ReactNode;
   applySafeArea?: boolean;
-  headerStyle?: any;
+  headerStyle?: ViewStyle;
   viewMode?: ViewMode;
   onViewModeChange?: (mode: ViewMode) => void;
   showViewToggle?: boolean;
@@ -75,7 +76,7 @@ const SubscribeButton: React.FC<{
   viewMode?: ViewMode;
   onViewModeChange?: (mode: ViewMode) => void;
   showViewToggle?: boolean;
-  containerStyle?: any;
+  containerStyle?: ViewStyle;
 }> = ({
   channel,
   textColor,
@@ -442,16 +443,28 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   const dimOverlayStyle = useAnimatedStyle(() => {
     const progress = headerScrollProgress?.value ?? 0;
     if (dimOverlayDisabled) {
-      return { ...StyleSheet.absoluteFillObject, opacity: 0, pointerEvents: 'none' } as any;
+      return {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        opacity: 0,
+        pointerEvents: 'none',
+      };
     }
     // More gradual dim: start dimming at 40% progress, reach ~30% black opacity at max scroll
     const overlayOpacity = interpolate(progress, [0, 0.4, 1], [0, 0, 0], 'clamp');
     return {
-      ...StyleSheet.absoluteFillObject,
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
       backgroundColor: 'black',
       opacity: overlayOpacity,
       pointerEvents: 'none',
-    } as any;
+    };
   }, [headerScrollProgress, dimOverlayDisabled]);
 
   // Create children with subscribe button and other content
@@ -531,7 +544,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
           applySafeArea={applySafeArea}
           reserveTopForOverlayButtons={true}
           style={{ opacity: 1 }}
-          contentStyle={[headerStyle]}
+          contentStyle={headerStyle}
           minHeight={isOrbyt ? 450 : undefined}
           contentPosition={isOrbyt ? 'bottom' : 'top'}
           hasTabs={hasTabs}

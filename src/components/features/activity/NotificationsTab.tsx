@@ -741,10 +741,21 @@ const NotificationsTab = forwardRef<ScrollToTopRef, NotificationsTabProps>(
     // Batch prefetch all author profiles for better performance
     useEffect(() => {
       if (allNotifications.length > 0) {
-        // Extract all unique profiles from notifications and batch prefetch them
-        ProfileService.batchPrefetchFromFeed(allNotifications).catch(() => {
-          // Silently fail - prefetch is not critical
+        // Extract all unique handles from notifications and batch prefetch them
+        const uniqueHandles = new Set<string>();
+        allNotifications.forEach(notification => {
+          if (notification.author?.handle) {
+            uniqueHandles.add(notification.author.handle.toLowerCase());
+          }
         });
+        const handlesToPrefetch = Array.from(uniqueHandles).filter(
+          handle => handle && handle.trim() !== ''
+        );
+        if (handlesToPrefetch.length > 0) {
+          ProfileService.batchGetProfiles(handlesToPrefetch).catch(() => {
+            // Silently fail - prefetch is not critical
+          });
+        }
       }
     }, [allNotifications]);
 

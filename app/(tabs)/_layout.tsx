@@ -8,6 +8,7 @@ import { useProfile } from '../../src/services/data/ProfileService';
 import { Colors } from '../../src/components/ui/UI';
 import CustomBottomTabBar from '../../src/components/ui/CustomBottomTabBar';
 import { useUnreadCount } from '../../src/hooks/useUnreadCount';
+import { getProfileColors } from '../../src/utils/formatting/colors';
 
 export default function TabsLayout() {
   const currentUserHandle = useUserStore(state => state.currentUser?.handle);
@@ -16,10 +17,8 @@ export default function TabsLayout() {
   const { totalUnreadCount } = useUnreadCount();
 
   // Native tabs: use light color from user colors
-  const nativeTintColor =
-    profileData?.profileColors?.lighterColor ||
-    profileData?.profileColors?.foregroundColor ||
-    Colors.white;
+  const profileColors = getProfileColors(profileData);
+  const nativeTintColor = profileColors.foregroundColor || Colors.white;
 
   // Custom JavaScript tabs: use white
   const customTintColor = Colors.white;

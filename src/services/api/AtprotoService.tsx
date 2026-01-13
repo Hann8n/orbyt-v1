@@ -992,29 +992,20 @@ class AtprotoService {
   }
 
   /**
-   * Update profile information
-   * Delegates to ActorService
+   * Update profile information using Bluesky's upsertProfile pattern.
+   * Delegates to ActorService.
+   *
+   * Field semantics:
+   * - undefined: Don't change this field
+   * - null: Explicitly clear this field
+   * - "value": Set to this value
    */
   static async updateProfile(updates: {
-    displayName?: string;
-    description?: string;
-    avatar?: string; // Base64 encoded image or file URI
-    customColors?: {
-      backgroundColor: string;
-      textColor: string;
-    };
+    displayName?: string | null;
+    description?: string | null;
+    avatar?: string | null;
   }): Promise<ProfileViewDetailed> {
     return ActorService.updateProfile(updates);
-  }
-
-  /**
-   * Upload an image and return the blob reference
-   * Delegates to ActorService
-   */
-  static async uploadImage(
-    imageUri: string
-  ): Promise<{ ref: { $link: string }; mimeType: string; size: number }> {
-    return ActorService.uploadImage(imageUri);
   }
 
   /**

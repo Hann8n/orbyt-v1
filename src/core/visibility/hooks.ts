@@ -5,7 +5,7 @@ import { useIsFocused } from '@react-navigation/native';
 import { useVisibilityCoreStore } from './visibilityStore';
 import { useSetOverlayVisibility } from '../../context/FeedIndicatorContext';
 import { seenVideoService } from '../../services/SeenVideoService';
-import type { UIFeedItem } from '../../types';
+import type { FeedListItem } from '../../types';
 
 /**
  * Extended ViewToken type that includes viewablePercent (available at runtime but not in types)
@@ -76,8 +76,8 @@ export function useFeedVisibility({
       for (const token of viewableItems) {
         if (!token.isViewable) continue;
 
-        const item = token.item as UIFeedItem;
-        if (item?.endCard) continue;
+        const item = token.item as FeedListItem;
+        if ('endCard' in item && item.endCard) continue;
 
         if (!firstViewable) {
           firstViewable = token;
@@ -102,9 +102,16 @@ export function useFeedVisibility({
 
       // Track visible video URIs for seen video tracking
       const visibleUris = viewableItems
-        .map(token => token.item as UIFeedItem | null)
-        .filter((item): item is UIFeedItem => item != null && !item.endCard)
-        .map(item => item.post?.uri)
+        .map(token => token.item as FeedListItem | null)
+        .filter((item): item is FeedListItem => {
+          if (!item) return false;
+          if ('endCard' in item && item.endCard) return false;
+          return true;
+        })
+        .map(item => {
+          if ('endCard' in item) return null;
+          return item.post?.uri;
+        })
         .filter((uri): uri is string => typeof uri === 'string' && uri.length > 0);
 
       // Write immediately and synchronously - MMKV handles efficiency

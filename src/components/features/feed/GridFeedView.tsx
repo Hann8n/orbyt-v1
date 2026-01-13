@@ -23,14 +23,14 @@ import { feedService } from '../../../services/FeedService';
 import { getVideoView } from '../../../utils/video/helpers';
 import { BlurView } from 'expo-blur';
 import { QUERY_CONSTANTS } from '../../../utils/constants';
-import type { UIFeedItem } from '../../../types';
+import type { ExtendedFeedViewPost } from '../../../services/api/types';
 import { isTablet, getBottomNavBarHeight } from '../../../utils/device/screen';
 import EmptyFeed from './EmptyFeed';
 import BlurredThumbnailBackground from '../../ui/BlurredThumbnailBackground';
 
 // Memoized shared video item component
 const VideoGridItem: React.FC<{
-  item: UIFeedItem;
+  item: ExtendedFeedViewPost;
   index: number;
   onPress: (index: number) => void;
   style?: ViewStyle | ViewStyle[];
@@ -84,7 +84,7 @@ VideoGridItem.displayName = 'VideoGridItem';
 const ITEM_MARGIN = 1; // Set divider thickness to 1 for both directions
 
 interface GridFeedViewProps {
-  feed: UIFeedItem[];
+  feed: ExtendedFeedViewPost[];
   headerComponent?: React.ReactNode;
   refreshControl?: React.ReactElement;
   backgroundColor?: string;
@@ -150,7 +150,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
 
     // Refs for scrolling
     const scrollViewRef = useRef<ScrollView>(null);
-    const flashListRef = useRef<FlashListRef<UIFeedItem>>(null);
+    const flashListRef = useRef<FlashListRef<ExtendedFeedViewPost>>(null);
 
     // Expose scrollToTop method
     useImperativeHandle(
@@ -211,7 +211,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
 
     // Render each grid item - optimized with background processing
     const renderGridItem = useCallback(
-      ({ item, index }: { item: UIFeedItem; index: number }) => {
+      ({ item, index }: { item: ExtendedFeedViewPost; index: number }) => {
         // Calculate if this is the last column or last row for spacing
         const isLastColumn = (index + 1) % numColumns === 0;
         const isLastRow =
@@ -334,7 +334,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
                 key={`grid-${feedOption}-${userDid || 'default'}-cols-${numColumns}`}
                 data={feed}
                 renderItem={renderGridItem}
-                keyExtractor={(item: UIFeedItem) => {
+                keyExtractor={(item: ExtendedFeedViewPost) => {
                   // Use URI and CID for stable keys to prevent recycling issues
                   if (item.post?.cid && item.post?.uri) {
                     return `${item.post.uri}:${item.post.cid}`;

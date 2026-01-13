@@ -19,6 +19,7 @@ import { useRouter } from 'expo-router';
 import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalModals';
 import ProfileService from '../../src/services/data/ProfileService';
 import ChannelService from '../../src/services/data/ChannelService';
+import { getOrbytProfileUrl } from '../../src/utils/links/bluesky';
 
 const SettingsScreen: React.FC = () => {
   const router = useRouter();
@@ -114,13 +115,16 @@ const SettingsScreen: React.FC = () => {
   };
 
   const handleCopyProfileLink = async () => {
-    if (!currentUser?.handle) {
+    if (!currentUser?.handle && !currentUser?.did) {
       Alert.alert('Error', 'Unable to get your profile information.');
       return;
     }
 
     try {
-      const profileUrl = `https://bsky.app/profile/${currentUser.handle}`;
+      const profileUrl = getOrbytProfileUrl(
+        currentUser?.handle || undefined,
+        currentUser?.did || undefined
+      );
       await Clipboard.setStringAsync(profileUrl);
       setIsProfileLinkCopied(true);
       // Reset the copied state after 4 seconds
