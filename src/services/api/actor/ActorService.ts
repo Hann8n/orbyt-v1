@@ -314,35 +314,20 @@ export class ActorService {
 
     // Use the correct upsertProfile method as per Bluesky documentation
     const { api } = await AtprotoCore.getApiClient();
-    await api.upsertProfile(existingProfile => {
-      const existing = existingProfile as ProfileViewDetailed | undefined;
-      const profile: ProfileViewDetailed =
-        existing ??
-        ({
-          did: '',
-          handle: '',
-          displayName: undefined,
-          description: undefined,
-          avatar: undefined,
-        } as ProfileViewDetailed);
+    await api.upsertProfile((existingProfile: any) => {
+      let existing: Record<string, any> = existingProfile || {};
 
       // Update display name if provided
       if (updates.displayName !== undefined) {
-        profile.displayName = updates.displayName;
+        existing.displayName = updates.displayName;
       }
 
       // Update description if provided
       if (updates.description !== undefined) {
-        profile.description = updates.description;
+        existing.description = updates.description;
       }
 
-      // Handle avatar upload if provided
-      if (updates.avatar) {
-        // The avatar will be uploaded separately and set via the blob reference
-        // We'll handle this in the main function
-      }
-
-      return profile as unknown as Record<string, unknown>;
+      return existing;
     });
 
     // Handle avatar upload separately if provided
@@ -376,19 +361,10 @@ export class ActorService {
         });
 
         // Update profile with the new avatar
-        await api.upsertProfile(existingProfile => {
-          const existing = existingProfile as ProfileViewDetailed | undefined;
-          const profile: ProfileViewDetailed =
-            existing ??
-            ({
-              did: '',
-              handle: '',
-              displayName: undefined,
-              description: undefined,
-              avatar: undefined,
-            } as ProfileViewDetailed);
-          profile.avatar = uploadResult.data.blob.ref.$link;
-          return profile as unknown as Record<string, unknown>;
+        await api.upsertProfile((existingProfile: any) => {
+          let existing: Record<string, any> = existingProfile || {};
+          existing.avatar = uploadResult.data.blob;
+          return existing;
         });
       } catch (_error) {
         throw new Error('Failed to upload avatar image');
