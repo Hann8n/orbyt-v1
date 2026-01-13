@@ -93,6 +93,7 @@ src/
 ### Path Aliases
 
 The project uses TypeScript path aliases:
+
 - `@/*` maps to `src/*`
 - `@stores/*` maps to `src/stores/*`
 
