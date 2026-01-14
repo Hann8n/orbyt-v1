@@ -986,11 +986,11 @@ const styles = StyleSheet.create({
   headerAvatarText: {
     color: Colors.white,
     fontSize: 16,
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
   },
   headerDisplayName: {
     fontSize: 16,
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
     color: Colors.white,
     textAlign: 'center',
   },
@@ -1025,7 +1025,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     color: Colors.lightGray,
     marginTop: 20,
     textAlign: 'center',
@@ -1053,7 +1053,7 @@ const styles = StyleSheet.create({
   },
   daySeparatorText: {
     fontSize: 12,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     color: Colors.gray,
     marginHorizontal: 12,
     textTransform: 'uppercase',
@@ -1107,7 +1107,7 @@ const styles = StyleSheet.create({
     paddingBottom: 9,
     paddingLeft: 0,
     textAlignVertical: 'top',
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     fontSize: 18,
     lineHeight: 24,
   },
@@ -1337,7 +1337,7 @@ const styles = StyleSheet.create({
   },
   actionButtonText: {
     fontSize: 16,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     color: Colors.white,
   },
   acceptButtonText: {

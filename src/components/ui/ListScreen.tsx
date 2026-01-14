@@ -305,13 +305,13 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 16,
     marginBottom: 2,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     flexShrink: 1,
   },
   handleText: {
     color: Colors.lightGray,
     fontSize: 14,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
   },
   followButton: {
     width: 32,
@@ -342,14 +342,14 @@ const styles = StyleSheet.create({
   emptyTitle: {
     color: Colors.white,
     fontSize: 20,
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
     marginBottom: 8,
     textAlign: 'center',
   },
   emptySubtitle: {
     color: Colors.lightGray,
     fontSize: 16,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     textAlign: 'center',
     lineHeight: 22,
   },
@@ -362,7 +362,7 @@ const styles = StyleSheet.create({
   loadingText: {
     color: Colors.lightGray,
     fontSize: 16,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     marginTop: 16,
   },
   errorContainer: {

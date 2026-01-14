@@ -180,8 +180,8 @@ const HiddenPostsScreen: React.FC = () => {
             <Icon name="eye-closed" size={48} color={Colors.lightGray} />
             <Text style={styles.emptyTitle}>no hidden posts</Text>
             <Text style={styles.emptyDescription}>
-              you haven't hidden any posts yet. hidden posts won't appear in your feed, but you can
-              unhide them here.
+              you haven{"'"}t hidden any posts yet. hidden posts won{"'"}t appear in your feed, but
+              you can unhide them here.
             </Text>
           </View>
         }
@@ -231,18 +231,18 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 14,
     fontWeight: '600',
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
   authorHandle: {
     color: Colors.lightGray,
     fontSize: 12,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     marginTop: 1,
   },
   postText: {
     color: Colors.white,
     fontSize: 14,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     lineHeight: 18,
   },
   unhideButton: {
@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 15,
     fontWeight: '600',
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     marginLeft: 6,
   },
   loadingContainer: {
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
   loadingText: {
     color: Colors.lightGray,
     fontSize: 16,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     marginTop: 12,
   },
   emptyContainer: {
@@ -295,14 +295,14 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 20,
     fontWeight: '600',
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     marginTop: 16,
     marginBottom: 8,
   },
   emptyDescription: {
     color: Colors.lightGray,
     fontSize: 16,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     textAlign: 'center',
     lineHeight: 22,
   },

@@ -257,7 +257,7 @@ const styles = StyleSheet.create({
   destructiveActionText: {
     color: Colors.darkGray,
     fontSize: 18,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
   loadingIndicator: {
     marginLeft: 8,

@@ -22,18 +22,14 @@ export class BookmarkService {
       await AtprotoCore.ensureSession();
       const { api } = await AtprotoCore.getApiClient();
 
-      try {
-        await api.app.bsky.bookmark.createBookmark({
-          uri,
-          cid,
-        });
+      await api.app.bsky.bookmark.createBookmark({
+        uri,
+        cid,
+      });
 
-        // The bookmark is successfully created. We don't need the bookmark URI
-        // since deleteBookmark uses the post URI. Return the post URI for consistency.
-        return uri;
-      } catch (error: unknown) {
-        throw error;
-      }
+      // The bookmark is successfully created. We don't need the bookmark URI
+      // since deleteBookmark uses the post URI. Return the post URI for consistency.
+      return uri;
     });
   }
 
@@ -49,14 +45,10 @@ export class BookmarkService {
       await AtprotoCore.ensureSession();
       const { api } = await AtprotoCore.getApiClient();
 
-      try {
-        // The deleteBookmark API expects the post URI (same as createBookmark)
-        await api.app.bsky.bookmark.deleteBookmark({
-          uri: postUri,
-        });
-      } catch (error: unknown) {
-        throw error;
-      }
+      // The deleteBookmark API expects the post URI (same as createBookmark)
+      await api.app.bsky.bookmark.deleteBookmark({
+        uri: postUri,
+      });
     });
   }
 

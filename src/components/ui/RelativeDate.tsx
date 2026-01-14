@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
   dateText: {
     color: Colors.lightGray,
     fontSize: 13,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
   },
 });
 

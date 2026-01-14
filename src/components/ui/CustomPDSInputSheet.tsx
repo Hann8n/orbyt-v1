@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
     color: Colors.black,
     fontSize: 20,
     height: '100%',
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     letterSpacing: 0.25,
   },
   loginButton: {
@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
   loginButtonText: {
     color: Colors.gray,
     fontSize: 18,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
   loginButtonTextActive: {
     color: Colors.darkGray,
@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
   errorText: {
     color: Colors.red,
     fontSize: 14,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     textAlign: 'center',
   },
   termsContainer: {
@@ -259,13 +259,13 @@ const styles = StyleSheet.create({
   termsText: {
     color: Colors.lightGray,
     fontSize: 16,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     lineHeight: 20,
   },
   termsLink: {
     color: Colors.lightGray,
     fontSize: 16,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     textDecorationLine: 'underline',
     lineHeight: 20,
   },

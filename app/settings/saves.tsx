@@ -44,7 +44,7 @@ const styles = StyleSheet.create({
   errorText: {
     color: Colors.white,
     fontSize: 16,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
   },
 });
 

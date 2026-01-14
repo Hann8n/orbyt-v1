@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
   toastText: {
     color: Colors.black,
     fontSize: 17,
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
     textAlign: 'center',
   },
   toastAvatarContainer: {

@@ -341,7 +341,7 @@ const styles = StyleSheet.create({
   filterOptionLabel: {
     color: Colors.white,
     fontSize: 18,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     flex: 1,
   },
   checkbox: {
@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 16,
     fontWeight: '600',
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
   scrollContent: {
     paddingBottom: 12,

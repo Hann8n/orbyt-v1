@@ -263,14 +263,14 @@ const styles = StyleSheet.create({
   orbytSlash: {
     fontSize: 16,
     marginBottom: 2,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     marginRight: 0,
   },
   displayName: {
     color: Colors.white,
     fontSize: 16,
     marginBottom: 2,
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
     flexShrink: 1,
   },
   defaultBadge: {
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
   description: {
     color: Colors.lightGray,
     fontSize: 14,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
   },
   emptyContainer: {
     flex: 1,
@@ -297,14 +297,14 @@ const styles = StyleSheet.create({
   emptyTitle: {
     color: Colors.white,
     fontSize: 20,
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
     marginBottom: 8,
     textAlign: 'center',
   },
   emptySubtitle: {
     color: Colors.lightGray,
     fontSize: 16,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 24,
@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
   exploreButtonText: {
     color: '#000000',
     fontSize: 16,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
   sheetContent: {
     paddingHorizontal: 12,

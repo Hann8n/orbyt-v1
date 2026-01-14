@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 18,
     marginBottom: 2,
-    fontFamily: 'Firma-Black',
+    fontFamily: 'Figtree-Black',
     fontWeight: '800',
     marginRight: 4,
   },
@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
   conversationTime: {
     color: Colors.gray,
     fontSize: 14,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     marginLeft: 4,
   },
   conversationFooter: {
@@ -321,11 +321,11 @@ const styles = StyleSheet.create({
   lastMessage: {
     color: Colors.mutedGray,
     fontSize: 16.5,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
   },
   unreadMessage: {
     color: Colors.white,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     fontWeight: '600',
   },
   emptyContainer: {
@@ -342,7 +342,7 @@ const styles = StyleSheet.create({
     color: Colors.lightGray,
     fontSize: 16,
     textAlign: 'center',
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     marginTop: 16,
   },
   errorContainer: {

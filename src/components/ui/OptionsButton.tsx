@@ -36,13 +36,13 @@ const textStyles = StyleSheet.create({
   menuOptionText: {
     color: Colors.white,
     fontSize: 18,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
   menuOptionSubtitle: {
     color: Colors.gray,
     fontSize: 12,
     fontWeight: '400',
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     marginTop: 4,
   },
 });

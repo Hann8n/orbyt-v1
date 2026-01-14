@@ -21,12 +21,12 @@ const SCALE = Math.max(0.9, Math.min(1.2, rawScale * deviceAdjustment));
 export type FontWeightToken = 'regular' | 'medium' | 'semibold' | 'bold' | 'black' | 'boldItalic';
 
 export const FontFamily: Record<FontWeightToken, string> = {
-  regular: 'Firma-Regular',
-  medium: 'Firma-Medium',
-  semibold: 'Firma-SemiBold',
-  bold: 'Firma-Bold',
-  black: 'Firma-Black',
-  boldItalic: 'Firma-BoldItalic',
+  regular: 'Figtree-Regular',
+  medium: 'Figtree-Medium',
+  semibold: 'Figtree-SemiBold',
+  bold: 'Figtree-Bold',
+  black: 'Figtree-Black',
+  boldItalic: 'Figtree-BoldItalic',
 };
 
 // Scale helper

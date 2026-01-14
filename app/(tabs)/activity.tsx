@@ -231,7 +231,7 @@ const ActivityScreen: React.FC = () => {
         fontSize: indicatorBaseFontSize,
         marginRight: 8,
         fontWeight: 'bold' as const,
-        fontFamily: 'Firma-Black',
+        fontFamily: 'Figtree-Black',
         opacity,
       };
     },
@@ -353,7 +353,7 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 16,
     fontWeight: '600',
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
   badgeContainer: {
     position: 'relative',

@@ -88,13 +88,13 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 8,
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
   },
   modalSubtitle: {
     color: 'rgba(255, 255, 255, 0.7)',
     fontSize: 14,
     marginBottom: 16,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
   },
   childrenContainer: {
     marginBottom: 16,
@@ -117,10 +117,10 @@ const styles = StyleSheet.create({
   actionButtonText: {
     color: Colors.white,
     fontSize: 16,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
   },
   primaryButtonText: {
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
   },
 });
 

@@ -35,7 +35,7 @@ const MutedUsersScreen: React.FC = () => {
             displayName: profile?.displayName,
             avatar: profile?.avatar,
           };
-        } catch (error) {
+        } catch (_error) {
           // If we can't get profile info, use basic info
           return {
             did,

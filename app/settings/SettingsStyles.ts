@@ -160,14 +160,14 @@ export const settingsTextStyles = StyleSheet.create({
     color: Colors.lightGray,
     fontSize: 18,
     fontWeight: '600',
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
 
   // Menu option text - matches VerticalListSheet pattern
   menuOptionText: {
     color: Colors.white,
     fontSize: 18,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
 
   // Menu option subtitle
@@ -175,7 +175,7 @@ export const settingsTextStyles = StyleSheet.create({
     color: Colors.gray,
     fontSize: 12,
     fontWeight: '400',
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     marginTop: 4,
   },
 
@@ -183,7 +183,7 @@ export const settingsTextStyles = StyleSheet.create({
   actionButtonText: {
     color: Colors.white,
     fontSize: 15,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     fontWeight: '600',
     textAlign: 'center',
   },
@@ -193,7 +193,7 @@ export const settingsTextStyles = StyleSheet.create({
     color: Colors.gray,
     fontSize: 16,
     fontWeight: '600',
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     paddingHorizontal: 30,
     paddingVertical: 12,
     letterSpacing: 0.5,
@@ -204,7 +204,7 @@ export const settingsTextStyles = StyleSheet.create({
     color: Colors.white,
     fontSize: 20,
     fontWeight: '600',
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     marginBottom: 8,
   },
 
@@ -212,7 +212,7 @@ export const settingsTextStyles = StyleSheet.create({
   sectionDescription: {
     color: Colors.gray,
     fontSize: 14,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     lineHeight: 20,
   },
 
@@ -220,7 +220,7 @@ export const settingsTextStyles = StyleSheet.create({
   statsText: {
     color: Colors.lightGray,
     fontSize: 14,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     textAlign: 'center',
   },
 
@@ -228,7 +228,7 @@ export const settingsTextStyles = StyleSheet.create({
   loadingText: {
     color: Colors.lightGray,
     fontSize: 16,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     marginTop: 12,
   },
 
@@ -237,7 +237,7 @@ export const settingsTextStyles = StyleSheet.create({
     color: Colors.white,
     fontSize: 20,
     fontWeight: '600',
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     marginTop: 16,
     marginBottom: 8,
   },
@@ -246,7 +246,7 @@ export const settingsTextStyles = StyleSheet.create({
   emptyDescription: {
     color: Colors.lightGray,
     fontSize: 16,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     textAlign: 'center',
     lineHeight: 22,
   },
@@ -255,14 +255,14 @@ export const settingsTextStyles = StyleSheet.create({
   filterButtonText: {
     color: Colors.white,
     fontSize: 12,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
   },
 
   // Category button text
   categoryButtonText: {
     color: Colors.white,
     fontSize: 15,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     letterSpacing: 0.3,
   },
 
@@ -272,7 +272,7 @@ export const settingsTextStyles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     textAlign: 'center',
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
 
   // Edit button text
@@ -280,14 +280,14 @@ export const settingsTextStyles = StyleSheet.create({
     color: Colors.white,
     fontSize: 14,
     fontWeight: '600',
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
 
   // User display name
   userDisplayName: {
     color: Colors.white,
     fontSize: 16,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     marginBottom: 2,
   },
 
@@ -295,7 +295,7 @@ export const settingsTextStyles = StyleSheet.create({
   userHandle: {
     color: Colors.lightGray,
     fontSize: 14,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
   },
 
   // Channel name
@@ -303,7 +303,7 @@ export const settingsTextStyles = StyleSheet.create({
     color: Colors.white,
     fontSize: 16,
     fontWeight: '600',
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     marginBottom: 4,
   },
 
@@ -311,7 +311,7 @@ export const settingsTextStyles = StyleSheet.create({
   channelDescription: {
     color: Colors.lightGray,
     fontSize: 14,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     marginBottom: 4,
   },
 
@@ -319,7 +319,7 @@ export const settingsTextStyles = StyleSheet.create({
   memberCount: {
     color: Colors.gray,
     fontSize: 12,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
   },
 });
 
@@ -413,7 +413,7 @@ export const settingsLayoutStyles = StyleSheet.create({
     flex: 1,
     color: Colors.white,
     fontSize: 16,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     paddingVertical: 12,
     paddingLeft: 12,
   },
@@ -468,7 +468,7 @@ export const settingsActiveStyles = StyleSheet.create({
   // Active category button text
   categoryButtonTextActive: {
     color: Colors.black,
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
   },
 
   // Active edit button

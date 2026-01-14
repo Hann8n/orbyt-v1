@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
   infoText: {
     color: Colors.lightGray,
     fontSize: 14,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     textAlign: 'center',
   },
   actionsContainer: {
@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
   actionButtonText: {
     color: Colors.white,
     fontSize: 16,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
 });
 

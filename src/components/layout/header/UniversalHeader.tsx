@@ -701,7 +701,7 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
           typeof child.type === 'function' &&
           (child.type.name === 'TextWithLinks' ||
             (child.props as { style?: { fontFamily?: string } })?.style?.fontFamily ===
-              'Firma-Regular')
+              'Figtree-Regular')
       );
     }
 
@@ -712,7 +712,7 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
       typeof children.type === 'function' &&
       (children.type.name === 'TextWithLinks' ||
         (children.props as { style?: { fontFamily?: string } })?.style?.fontFamily ===
-          'Firma-Regular')
+          'Figtree-Regular')
     ) {
       return children;
     }
@@ -732,7 +732,7 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
           typeof child.type !== 'function' ||
           (child.type.name !== 'TextWithLinks' &&
             (child.props as { style?: { fontFamily?: string } })?.style?.fontFamily !==
-              'Firma-Regular')
+              'Figtree-Regular')
       );
     }
 
@@ -742,7 +742,7 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
       typeof children.type === 'function' &&
       (children.type.name === 'TextWithLinks' ||
         (children.props as { style?: { fontFamily?: string } })?.style?.fontFamily ===
-          'Firma-Regular')
+          'Figtree-Regular')
     ) {
       return null;
     }
@@ -914,12 +914,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   actionText: {
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     textAlign: 'center',
     fontSize: 17,
   },
   actionTextBold: {
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
     textAlign: 'center',
     fontSize: 17,
   },
@@ -1016,14 +1016,14 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   title: {
-    fontFamily: 'Firma-Black',
+    fontFamily: 'Figtree-Black',
     fontSize: 30,
     flexShrink: 1,
   },
   subtitle: {
     marginTop: 0,
     marginBottom: 15,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     fontSize: 18,
   },
   subtitleSecondaryPill: {
@@ -1042,12 +1042,12 @@ const styles = StyleSheet.create({
     letterSpacing: 0,
   },
   subtitleSecondaryRegular: {
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     fontSize: 14,
     letterSpacing: 0,
   },
   subtitleSecondaryBold: {
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
     fontSize: 14,
     letterSpacing: 0,
   },
@@ -1055,7 +1055,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     flexShrink: 1,
     flexWrap: 'wrap',
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     fontSize: 17,
   },
   content: {

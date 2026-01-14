@@ -472,14 +472,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '500',
     textAlign: 'left',
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     paddingLeft: 8,
   },
   submenuText: {
     color: Colors.white,
     textAlign: 'center',
     paddingLeft: 0,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
   submenuOption: {
     backgroundColor: Colors.darkRed,
@@ -500,7 +500,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     textAlign: 'left',
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
     flex: 1,
   },
   cancelContainer: {

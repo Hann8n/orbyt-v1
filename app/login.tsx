@@ -306,7 +306,7 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
                   {
                     color: Colors.lightGray,
                     textDecorationLine: 'underline',
-                    fontFamily: 'Firma-SemiBold',
+                    fontFamily: 'Figtree-SemiBold',
                   },
                   isLoading && styles.customPDSButtonDisabled,
                 ]}
@@ -429,7 +429,7 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 42,
     fontWeight: 'bold',
-    fontFamily: 'CriteriaCF-ExtraBold',
+    fontFamily: 'Figtree-Black',
     textAlign: 'center',
   },
   formContainer: {
@@ -469,7 +469,7 @@ const styles = StyleSheet.create({
   blueskyButtonText: {
     color: Colors.black,
     fontSize: 18,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
   customPDSButton: {
     alignSelf: 'center',
@@ -485,7 +485,7 @@ const styles = StyleSheet.create({
   manualSignInLinkText: {
     color: Colors.lightGray,
     fontSize: 16,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     textDecorationLine: 'none',
   },
   customPDSButtonDisabled: {
@@ -494,7 +494,7 @@ const styles = StyleSheet.create({
   customPDSButtonText: {
     color: Colors.gray,
     fontSize: 16,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     textDecorationLine: 'none',
   },
   savedAccountsContainer: {
@@ -507,14 +507,14 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 28,
     fontWeight: 'bold',
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
     marginBottom: 8,
     textAlign: 'left',
   },
   chooseAccountSubtitle: {
     color: Colors.lightGray,
     fontSize: 16,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     textAlign: 'left',
     lineHeight: 22,
   },
@@ -530,7 +530,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 12,
     textAlign: 'center',
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
   },
   accountsList: {
     flex: 1,
@@ -554,7 +554,7 @@ const styles = StyleSheet.create({
     color: Colors.lightGray,
     fontSize: 18,
     fontWeight: '600',
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
   backToAccountsButton: {
     flexDirection: 'row',
@@ -573,7 +573,7 @@ const styles = StyleSheet.create({
     color: Colors.lightGray,
     fontSize: 18,
     fontWeight: '600',
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
   loadingContainer: {
     flexDirection: 'row',
@@ -585,7 +585,7 @@ const styles = StyleSheet.create({
   loadingText: {
     color: Colors.white,
     fontSize: 16,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     marginLeft: 12,
   },
   buttonLoadingContainer: {
@@ -597,12 +597,12 @@ const styles = StyleSheet.create({
     color: Colors.black,
     fontSize: 18,
     fontWeight: '600',
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     marginLeft: 12,
   },
   loadingAccountName: {
     color: Colors.white,
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
     fontWeight: 'bold',
   },
 
@@ -615,7 +615,7 @@ const styles = StyleSheet.create({
   errorText: {
     color: '#ff4444',
     fontSize: 14,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     textAlign: 'center',
   },
   oauthInfoContainer: {
@@ -624,7 +624,7 @@ const styles = StyleSheet.create({
   oauthInfoText: {
     color: Colors.gray,
     fontSize: 14,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -638,12 +638,12 @@ const styles = StyleSheet.create({
   createAccountText: {
     color: Colors.lightGray,
     fontSize: 14,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
   },
   createAccountLinkText: {
     color: Colors.lightGray,
     fontSize: 14,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     textDecorationLine: 'underline',
   },
   buttonContent: {
@@ -673,7 +673,7 @@ const styles = StyleSheet.create({
   dividerText: {
     color: Colors.lightGray,
     fontSize: 14,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     marginHorizontal: 16,
   },
   pdsButton: {
@@ -697,14 +697,14 @@ const styles = StyleSheet.create({
   termsText: {
     color: Colors.gray,
     fontSize: 15,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     textAlign: 'left',
     lineHeight: 21,
   },
   termsLink: {
     color: Colors.lightGray,
     fontSize: 15,
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
     fontWeight: 'bold',
     textDecorationLine: 'underline',
     marginTop: 4,

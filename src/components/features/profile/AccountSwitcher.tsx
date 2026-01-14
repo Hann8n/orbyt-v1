@@ -478,7 +478,7 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 16,
     fontWeight: '600',
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
   listContent: {
     paddingHorizontal: 12,
@@ -499,7 +499,7 @@ const styles = StyleSheet.create({
     color: Colors.gray,
     fontSize: 16,
 
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     paddingHorizontal: 10,
     paddingVertical: 12,
     letterSpacing: 0.5,
@@ -536,7 +536,7 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 18,
     fontWeight: '600',
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
 });
 

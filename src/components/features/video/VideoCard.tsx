@@ -1127,14 +1127,14 @@ const styles = StyleSheet.create({
   },
   blurTitle: {
     fontSize: 20,
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
     color: Colors.white,
     marginBottom: 12,
     textAlign: 'center',
   },
   blurText: {
     fontSize: 15,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     color: Colors.lightGray,
     textAlign: 'center',
     lineHeight: 22,
@@ -1162,7 +1162,7 @@ const styles = StyleSheet.create({
   viewButtonText: {
     color: Colors.black,
     fontSize: 15,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     fontWeight: '600',
   },
   shadowGradient: {

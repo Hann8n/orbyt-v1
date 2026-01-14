@@ -1233,7 +1233,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   cancelButtonText: {
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
     fontSize: 17,
   },
   saveButton: {
@@ -1261,19 +1261,19 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   saveButtonText: {
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
     fontSize: 17,
     color: Colors.black,
     fontWeight: '600',
   },
   aboutHeaderCounter: {
     marginHorizontal: 8,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     fontSize: 14,
     color: Colors.white,
   },
   aboutHeaderCurrent: {
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     fontSize: 16,
   },
   aboutHeaderCurrentOver: {
@@ -1306,7 +1306,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   sectionTitle: {
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     fontSize: 12,
     fontWeight: '500',
     marginBottom: 6,
@@ -1314,22 +1314,22 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   largeText: {
-    fontFamily: 'Firma-Black',
+    fontFamily: 'Figtree-Black',
     fontSize: 26,
     lineHeight: 32,
   },
   handleAt: {
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     fontWeight: '400',
     fontSize: 30,
     lineHeight: 32,
   },
   handleSuffix: {
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     fontSize: 18,
   },
   largeInput: {
-    fontFamily: 'Firma-Black',
+    fontFamily: 'Figtree-Black',
     fontSize: 32,
     lineHeight: 40,
     borderWidth: 0,
@@ -1365,7 +1365,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   uploadButtonText: {
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
     fontSize: 15,
     fontWeight: '600',
     textAlign: 'center',
@@ -1405,7 +1405,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   textArea: {
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     fontSize: 16,
     marginTop: 0,
     minHeight: 100,

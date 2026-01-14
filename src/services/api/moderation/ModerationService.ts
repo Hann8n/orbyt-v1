@@ -63,7 +63,7 @@ export class ModerationService {
           ) {
             cid = thread.post.cid;
           }
-        } catch (error: unknown) {
+        } catch (_error: unknown) {
           // ignore
         }
 
@@ -95,7 +95,7 @@ export class ModerationService {
       });
 
       return true;
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       return false;
     }
   }

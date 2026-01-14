@@ -738,7 +738,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     textAlign: 'left',
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
     flex: 1,
   },
   contentContainer: {
@@ -797,7 +797,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     marginTop: 12,
     textAlign: 'center',
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
   },
   optionDisabled: {
     opacity: 0.5,
@@ -827,7 +827,7 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 20,
     fontWeight: 'bold',
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
   },
   backButton: {
     width: 44,
@@ -856,7 +856,7 @@ const styles = StyleSheet.create({
   emptyText: {
     color: Colors.lightGray,
     fontSize: 15,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
   },
   searchInput: {
     marginHorizontal: 8,
@@ -866,7 +866,7 @@ const styles = StyleSheet.create({
     color: Colors.white,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     fontSize: 17,
   },
   conversationList: {
@@ -898,7 +898,7 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 17,
     fontWeight: '600',
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     marginBottom: 2,
   },
   disabledText: {
@@ -907,7 +907,7 @@ const styles = StyleSheet.create({
   conversationHandle: {
     color: Colors.lightGray,
     fontSize: 15,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
   },
 });
 

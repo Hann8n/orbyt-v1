@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
   emptyText: {
     color: 'rgba(255, 255, 255, 0.7)',
     fontSize: 16,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     marginTop: 0,
     textAlign: 'center',
   },
@@ -399,7 +399,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
     fontWeight: 'bold',
     color: Colors.white,
   },
@@ -440,7 +440,7 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 16,
     marginBottom: 2,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     flexShrink: 1,
   },
   followButton: {
@@ -467,7 +467,7 @@ const styles = StyleSheet.create({
   addChannelsButtonText: {
     color: '#000000',
     fontSize: 16,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
 });
 

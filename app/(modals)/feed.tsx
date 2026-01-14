@@ -132,14 +132,14 @@ const styles = StyleSheet.create({
   hashtagSymbol: {
     fontSize: 18,
     color: Colors.white,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     includeFontPadding: false,
     lineHeight: 30, // Match icon height for vertical alignment
   },
   hashtagText: {
     fontSize: 18,
     color: Colors.white,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     includeFontPadding: false,
     lineHeight: 30, // Match icon height for vertical alignment
   },

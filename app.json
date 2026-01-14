@@ -38,7 +38,19 @@
       "backgroundColor": "#000000"
     },
     "plugins": [
-      "expo-font",
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "./src/assets/fonts/Figtree-Regular.ttf",
+            "./src/assets/fonts/Figtree-Medium.ttf",
+            "./src/assets/fonts/Figtree-SemiBold.ttf",
+            "./src/assets/fonts/Figtree-Bold.ttf",
+            "./src/assets/fonts/Figtree-BoldItalic.ttf",
+            "./src/assets/fonts/Figtree-Black.ttf"
+          ]
+        }
+      ],
       [
         "@mozzius/expo-dynamic-app-icon",
         {

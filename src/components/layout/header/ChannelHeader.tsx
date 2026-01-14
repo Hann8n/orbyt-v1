@@ -591,7 +591,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   subscribeButtonText: {
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
     fontSize: 15,
     fontWeight: '600',
   },
@@ -604,12 +604,12 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   likeCountNumber: {
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
     fontSize: 14,
     fontWeight: 'bold',
   },
   likeCountLabel: {
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     fontSize: 14,
     marginTop: 2,
   },
@@ -636,13 +636,13 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   title: {
-    fontFamily: 'Firma-Black',
+    fontFamily: 'Figtree-Black',
     fontWeight: 'bold',
     fontSize: 28,
     flexShrink: 1,
   },
   orbytSlash: {
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     marginRight: 0,
   },
 });

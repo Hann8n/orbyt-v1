@@ -237,7 +237,7 @@ const ChannelSelector: React.FC<{
                     styles.orbytSlash,
                     {
                       color: orbytChannel?.channelColor || '#FFD700',
-                      fontFamily: 'Firma-SemiBold',
+                      fontFamily: 'Figtree-SemiBold',
                     },
                   ]}
                 >
@@ -246,7 +246,7 @@ const ChannelSelector: React.FC<{
               )
             );
           })()}
-          <Text style={[styles.channelSelectorName, { fontFamily: 'Firma-Bold' }]}>
+          <Text style={[styles.channelSelectorName, { fontFamily: 'Figtree-Bold' }]}>
             {selectedChannel.displayName.toLowerCase()}
           </Text>
         </View>
@@ -1151,7 +1151,11 @@ const VideoPostScreen: React.FC = () => {
   // Sync play/pause state
   useEffect(() => {
     if (!player) return;
-    isPlaying ? player.play() : player.pause();
+    if (isPlaying) {
+      player.play();
+    } else {
+      player.pause();
+    }
   }, [player, isPlaying]);
 
   // Handle keyboard visibility for input spacing
@@ -1407,14 +1411,14 @@ const VideoPostScreen: React.FC = () => {
                           styles.orbytSlash,
                           {
                             color: channel.channelColor || '#FFD700',
-                            fontFamily: 'Firma-SemiBold',
+                            fontFamily: 'Figtree-SemiBold',
                           },
                         ]}
                       >
                         /
                       </Text>
                     )}
-                    <Text style={[styles.channelListButtonText, { fontFamily: 'Firma-Bold' }]}>
+                    <Text style={[styles.channelListButtonText, { fontFamily: 'Figtree-Bold' }]}>
                       {channel.displayName.toLowerCase()}
                     </Text>
                   </View>
@@ -1614,7 +1618,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     color: Colors.lightGray,
     fontSize: 18,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
   headerButton: {
     position: 'absolute',
@@ -1692,7 +1696,7 @@ const styles = StyleSheet.create({
   textOverlay: {
     color: Colors.lightGray,
     fontSize: 22,
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
     textAlign: 'center',
     textShadowColor: Colors.overlayBlack50,
     textShadowOffset: { width: 1, height: 1 },
@@ -1752,7 +1756,7 @@ const styles = StyleSheet.create({
   timeText: {
     color: Colors.lightGray,
     fontSize: 12,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
   },
   descriptionSection: {
     padding: 15,
@@ -1772,11 +1776,11 @@ const styles = StyleSheet.create({
   loadingText: {
     color: Colors.lightGray,
     fontSize: 14,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
   },
   descriptionInput: {
     color: Colors.lightGray,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     fontSize: 16,
     minHeight: 80,
     maxHeight: 150,
@@ -1798,7 +1802,7 @@ const styles = StyleSheet.create({
   sectionHeaderTitle: {
     color: Colors.lightGray,
     fontSize: 18,
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
     marginBottom: 12,
   },
   sectionSelector: {
@@ -1816,12 +1820,12 @@ const styles = StyleSheet.create({
   sectionSelectorText: {
     color: Colors.lightGray,
     fontSize: 16,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
   sectionSubtitle: {
     color: Colors.lightGray,
     fontSize: 14,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     marginBottom: 15,
   },
   optionRow: {
@@ -1833,10 +1837,10 @@ const styles = StyleSheet.create({
   optionText: {
     color: Colors.lightGray,
     fontSize: 16,
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
   },
   orbytSlash: {
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     marginRight: 0,
   },
   channelInfo: {
@@ -1846,7 +1850,7 @@ const styles = StyleSheet.create({
   channelDescription: {
     color: Colors.lightGray,
     fontSize: 14,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     marginTop: 2,
   },
   checkbox: {
@@ -1897,7 +1901,7 @@ const styles = StyleSheet.create({
     color: Colors.lightGray,
     marginTop: 5,
     marginBottom: 10,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     fontSize: 18,
   },
   floatingPostButton: {
@@ -1959,7 +1963,7 @@ const styles = StyleSheet.create({
   postButtonText: {
     color: Colors.black,
     fontSize: 18,
-    fontFamily: 'Firma-Black',
+    fontFamily: 'Figtree-Black',
   },
   floatingPostButtonDisabled: {
     opacity: 0.5,
@@ -1970,7 +1974,7 @@ const styles = StyleSheet.create({
   floatingButtonLoadingText: {
     color: Colors.lightGray,
     fontSize: 16,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
 
   radioContainer: {
@@ -2089,7 +2093,7 @@ const styles = StyleSheet.create({
   },
   channelListButtonText: {
     color: Colors.lightGray,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     fontSize: 18,
   },
   listButtonContent: {
@@ -2101,7 +2105,7 @@ const styles = StyleSheet.create({
   sheetSectionHeader: {
     color: Colors.lightGray,
     fontSize: 14,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     marginBottom: 12,
     marginHorizontal: 12,
     marginTop: 4,
@@ -2120,7 +2124,7 @@ const styles = StyleSheet.create({
   sheetOptionText: {
     color: Colors.lightGray,
     fontSize: 18,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     flex: 1,
   },
   sheetInputContainer: {
@@ -2137,19 +2141,19 @@ const styles = StyleSheet.create({
   },
   descriptionInputPreview: {
     color: Colors.lightGray,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     fontSize: 15,
     lineHeight: 22,
   },
   descriptionInputPreviewNormal: {
     color: Colors.lightGray,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     fontSize: 15,
     lineHeight: 22,
   },
   descriptionInputPreviewSemiBold: {
     color: Colors.lightGray,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     fontSize: 15,
     lineHeight: 22,
   },
@@ -2182,7 +2186,7 @@ const styles = StyleSheet.create({
   descriptionModalTitle: {
     color: Colors.lightGray,
     fontSize: 18,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
   descriptionModalDoneButton: {
     paddingVertical: 0,
@@ -2194,7 +2198,7 @@ const styles = StyleSheet.create({
   descriptionModalDoneText: {
     color: Colors.lightGray,
     fontSize: 18,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
   },
   descriptionModalDoneTextDisabled: {
     color: Colors.red,
@@ -2213,7 +2217,7 @@ const styles = StyleSheet.create({
   },
   descriptionModalInput: {
     color: 'transparent',
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     fontSize: 15,
     textAlignVertical: 'top',
     includeFontPadding: false,
@@ -2234,7 +2238,7 @@ const styles = StyleSheet.create({
   },
   descriptionInputOverlayText: {
     color: Colors.lightGray,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     fontSize: 15,
     textAlignVertical: 'top',
     includeFontPadding: false,
@@ -2243,12 +2247,12 @@ const styles = StyleSheet.create({
   },
   descriptionInputOverlayNormal: {
     color: Colors.lightGray,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     fontSize: 15,
   },
   descriptionInputOverlaySemiBold: {
     color: Colors.lightGray,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     fontSize: 15,
   },
   descriptionPreview: {
@@ -2264,17 +2268,17 @@ const styles = StyleSheet.create({
   descriptionPreviewText: {
     color: Colors.lightGray,
     fontSize: 16,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     textAlignVertical: 'top',
   },
   descriptionPreviewNormal: {
     color: Colors.lightGray,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     fontSize: 16,
   },
   descriptionPreviewSemiBold: {
     color: Colors.lightGray,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     fontSize: 16,
   },
   searchResultsContainer: {
@@ -2306,7 +2310,7 @@ const styles = StyleSheet.create({
   channelSelectorPlaceholderText: {
     color: Colors.lightGray,
     fontSize: 18,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
   },
   channelSelectorNameContainer: {
     flexDirection: 'row',
@@ -2316,7 +2320,7 @@ const styles = StyleSheet.create({
   channelSelectorName: {
     color: Colors.white,
     fontSize: 18,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
   },
 });
 

@@ -561,7 +561,7 @@ const styles = StyleSheet.create({
   footerSubtext: {
     color: Colors.gray,
     fontSize: 12,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     textAlign: 'center',
   },
   footerHeartContainer: {
@@ -573,7 +573,7 @@ const styles = StyleSheet.create({
   versionText: {
     color: Colors.mediumGray,
     fontSize: 12,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     textAlign: 'center',
   },
 });

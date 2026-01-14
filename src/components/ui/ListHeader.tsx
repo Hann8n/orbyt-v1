@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
   title: {
     flex: 1,
     textAlign: 'center',
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
   },
   titleRoot: {
     fontSize: 22,
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
     textAlign: 'left',
     fontSize: 24,
     fontWeight: 'bold',
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
   },
   titleSheetIndent: {
     marginLeft: 8,

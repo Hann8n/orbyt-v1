@@ -5,15 +5,13 @@
 import { useEffect } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
 import { useSession } from '../../context/SessionProvider';
-import { useAppStore } from '../../stores/appStore';
 
 export function SplashScreenController() {
   const { isLoading } = useSession();
-  const fontsLoaded = useAppStore(state => state.fontsLoaded);
 
   useEffect(() => {
-    // Hide splash when both fonts are loaded and auth state is determined
-    if (!isLoading && fontsLoaded) {
+    // Hide splash when auth state is determined
+    if (!isLoading) {
       // Small delay to ensure layout is ready
       const timer = setTimeout(() => {
         SplashScreen.hideAsync().catch(() => {
@@ -24,7 +22,7 @@ export function SplashScreenController() {
       return () => clearTimeout(timer);
     }
     return undefined;
-  }, [isLoading, fontsLoaded]);
+  }, [isLoading]);
 
   return null;
 }

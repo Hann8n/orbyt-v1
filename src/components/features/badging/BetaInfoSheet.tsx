@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     textAlign: 'left',
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
   },
   infoContainer: {
     marginBottom: 20,
@@ -128,13 +128,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 22,
     textAlign: 'left',
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
   },
   highlightedText: {
     fontWeight: '600',
     color: Colors.white,
     opacity: 1,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
   headerTitleMargin: {
     marginLeft: 4,
@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
   statusText: {
     color: Colors.lightGray,
     fontSize: 14,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     textAlign: 'center',
   },
   cancelContainer: {

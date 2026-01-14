@@ -273,7 +273,7 @@ const MembersListView: React.FC<MembersListViewProps> = ({
     try {
       await refetch();
       onRefresh?.();
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       // ignore
     }
   }, [refetch, onRefresh]);
@@ -357,7 +357,7 @@ const MembersListView: React.FC<MembersListViewProps> = ({
         <Icon name="users" size={48} color={hexToRGBA(textColor, 0.5)} />
         <Text style={[styles.emptyTitle, { color: textColor }]}>No members found</Text>
         <Text style={[styles.emptyDescription, { color: hexToRGBA(textColor, 0.67) }]}>
-          This channel doesn't have any members yet.
+          This channel doesn{"'"}t have any members yet.
         </Text>
       </View>
     ),
@@ -496,12 +496,12 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 16,
     marginBottom: 0,
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
     flexShrink: 1,
   },
   memberDescription: {
     fontSize: 13,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     lineHeight: 18,
   },
   followButton: {
@@ -516,7 +516,7 @@ const styles = StyleSheet.create({
   followButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
   loadingItem: {
     flexDirection: 'row',
@@ -526,7 +526,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 14,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     marginLeft: 8,
   },
   emptyContainer: {
@@ -539,14 +539,14 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '600',
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     marginTop: 16,
     marginBottom: 8,
     textAlign: 'center',
   },
   emptyDescription: {
     fontSize: 14,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -560,14 +560,14 @@ const styles = StyleSheet.create({
   errorTitle: {
     fontSize: 18,
     fontWeight: '600',
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     marginTop: 16,
     marginBottom: 8,
     textAlign: 'center',
   },
   errorDescription: {
     fontSize: 14,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 24,

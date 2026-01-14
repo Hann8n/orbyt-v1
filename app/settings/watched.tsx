@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
   errorText: {
     color: Colors.lightGray,
     fontSize: 16,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
   },
   loadingContainer: {
     flex: 1,
@@ -182,14 +182,14 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 20,
     fontWeight: '600',
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     marginTop: 16,
     marginBottom: 8,
   },
   emptyDescription: {
     color: Colors.lightGray,
     fontSize: 16,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     textAlign: 'center',
     lineHeight: 22,
   },

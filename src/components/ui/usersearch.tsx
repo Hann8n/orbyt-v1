@@ -611,12 +611,12 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 15,
     fontWeight: 'bold',
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
   handle: {
     color: Colors.lightGray,
     fontSize: 13,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
   },
   centered: {
     alignItems: 'center',
@@ -644,17 +644,17 @@ const styles = StyleSheet.create({
   hashtagText: {
     color: Colors.white,
     fontSize: 17,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
   },
   hashtagSymbol: {
     color: Colors.white,
     fontSize: 17,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
   },
   hashtagTag: {
     color: Colors.white,
     fontSize: 17,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
   hashtagListContent: {
     paddingHorizontal: 0,

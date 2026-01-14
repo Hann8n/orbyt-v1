@@ -232,7 +232,7 @@ const goBackButtonStyles = StyleSheet.create({
   text: {
     color: Colors.black,
     fontSize: 16,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
 });
 
@@ -389,7 +389,7 @@ const styles = StyleSheet.create({
   },
   emoji: {
     fontSize: 32,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     color: Colors.white,
     textAlign: 'left',
     marginBottom: 8,
@@ -397,7 +397,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 32,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     color: Colors.white,
     textAlign: 'left',
     marginBottom: 12,
@@ -406,7 +406,7 @@ const styles = StyleSheet.create({
   },
   message: {
     fontSize: 16,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     color: Colors.gray,
     textAlign: 'left',
     marginBottom: 24,
@@ -437,7 +437,7 @@ const styles = StyleSheet.create({
   },
   supportLinkText: {
     fontSize: 16,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     color: Colors.lightGray,
     textAlign: 'left',
     textDecorationLine: 'underline',

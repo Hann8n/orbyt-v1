@@ -890,7 +890,7 @@ const styles = StyleSheet.create({
   dateText: {
     color: Colors.gray,
     fontSize: 15,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
   },
   actionButton: {
     padding: 0,
@@ -923,7 +923,7 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 17,
     textAlign: 'center',
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
 
   likeItem: {

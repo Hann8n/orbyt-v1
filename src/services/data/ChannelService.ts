@@ -137,7 +137,7 @@ class ChannelService {
           return parsed;
         }
       }
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       // ignore
     }
 
@@ -348,7 +348,7 @@ class ChannelService {
 
       this.notifyChannelUpdated(normalizedUri);
       return cacheObject;
-    } catch (error) {
+    } catch (_error) {
       return null;
     }
   }
@@ -398,7 +398,7 @@ class ChannelService {
           // Notify subscribers of a channel update
           this.notifyChannelUpdated(normalizedUri);
         }
-      } catch (error) {
+      } catch (_error) {
         // Silently handle errors
       }
     });
@@ -451,7 +451,7 @@ class ChannelService {
                     statusBarStyle: 'light' as const,
                   };
                 }
-              } catch (error: unknown) {
+              } catch (_error: unknown) {
                 // ignore
               }
 
@@ -488,7 +488,7 @@ class ChannelService {
             })
           );
         }
-      } catch (error) {
+      } catch (_error) {
         // Silently handle errors during batch caching
       }
     });
@@ -549,13 +549,13 @@ class ChannelService {
 
                 // Fetch and cache the channel
                 await this.getChannel(uri);
-              } catch (error: unknown) {
+              } catch (_error: unknown) {
                 // ignore
               }
             })
           );
         }
-      } catch (error) {
+      } catch (_error) {
         // Silently handle errors during batch prefetch
       }
     });
@@ -585,7 +585,7 @@ class ChannelService {
 
       // Notify subscribers
       this.notifyChannelUpdated(normalizedUri);
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       // ignore
     }
   }

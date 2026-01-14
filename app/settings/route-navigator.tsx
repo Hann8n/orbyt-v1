@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
   infoText: {
     color: Colors.white,
     fontSize: 12,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     marginBottom: 4,
   },
   searchContainer: {
@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
     flex: 1,
     color: Colors.white,
     fontSize: 16,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
   },
   scrollView: {
     flex: 1,
@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
   routeLabel: {
     color: Colors.white,
     fontSize: 16,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     flex: 1,
   },
   typeBadge: {
@@ -324,13 +324,13 @@ const styles = StyleSheet.create({
   typeBadgeText: {
     color: Colors.white,
     fontSize: 10,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     textTransform: 'uppercase',
   },
   routePath: {
     color: Colors.gray,
     fontSize: 12,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     marginBottom: 8,
   },
   paramContainer: {
@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.black,
     color: Colors.white,
     fontSize: 14,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     padding: 12,
     borderRadius: 10,
     borderWidth: 1,
@@ -353,6 +353,6 @@ const styles = StyleSheet.create({
   emptyText: {
     color: Colors.gray,
     fontSize: 16,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
   },
 });

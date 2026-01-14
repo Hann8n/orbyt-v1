@@ -69,7 +69,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
                 styles.dropdownText,
                 {
                   color: activeTabColor,
-                  fontFamily: 'Firma-SemiBold',
+                  fontFamily: 'Figtree-SemiBold',
                   fontSize: variant === 'header' ? 18 : 16,
                 },
               ]}
@@ -160,7 +160,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
                 styles.tabText,
                 {
                   color: activeTab === tab.id ? activeTabColor : hexToRGBA(textColor, 0.7),
-                  fontFamily: variant === 'header' ? 'Firma-Black' : 'Firma-Black',
+                  fontFamily: variant === 'header' ? 'Figtree-Black' : 'Figtree-Black',
                   fontSize: variant === 'header' ? 18 : 16,
                 },
                 activeTab === tab.id && styles.activeTabText,

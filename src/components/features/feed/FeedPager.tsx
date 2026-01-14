@@ -457,7 +457,7 @@ const FeedPager = memo(
             color: isActive ? Colors.white : 'rgba(255, 255, 255, 0.75)',
             fontSize: indicatorBaseFontSize,
             marginRight: 8,
-            fontFamily: 'Firma-Black',
+            fontFamily: 'Figtree-Black',
             opacity,
           };
         },

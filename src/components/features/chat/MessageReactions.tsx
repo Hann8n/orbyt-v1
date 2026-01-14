@@ -24,7 +24,10 @@ export default function MessageReactions({
   onReactionPress,
 }: MessageReactionsProps) {
   // Animation values for each reaction
-  const animationValues = React.useRef(new Map<string, Animated.Value>()).current;
+  const [animationValues, setAnimationValues] = React.useState<Map<string, Animated.Value>>(
+    () => new Map()
+  );
+  const fallbackAnimValue = React.useMemo(() => new Animated.Value(1), []);
 
   // Group reactions by emoji and count them
   const groupedReactions: GroupedReaction[] = React.useMemo(() => {
@@ -61,12 +64,19 @@ export default function MessageReactions({
 
   // Initialize animation values for new reactions
   React.useEffect(() => {
-    groupedReactions.forEach(reaction => {
-      if (!animationValues.has(reaction.emoji)) {
-        animationValues.set(reaction.emoji, new Animated.Value(1));
-      }
+    setAnimationValues(prev => {
+      let next = prev;
+      groupedReactions.forEach(reaction => {
+        if (!next.has(reaction.emoji)) {
+          if (next === prev) {
+            next = new Map(prev);
+          }
+          next.set(reaction.emoji, new Animated.Value(1));
+        }
+      });
+      return next;
     });
-  }, [groupedReactions, animationValues]);
+  }, [groupedReactions]);
 
   // Animate reaction press with haptic feedback
   const animateReaction = (emoji: string) => {
@@ -99,7 +109,7 @@ export default function MessageReactions({
     <View style={styles.reactionsContainer}>
       <View style={styles.reactionsContent}>
         {groupedReactions.map((reaction, index) => {
-          const animValue = animationValues.get(reaction.emoji) || new Animated.Value(1);
+          const animValue = animationValues.get(reaction.emoji) ?? fallbackAnimValue;
           const isFirst = index === 0;
           const isLast = index === groupedReactions.length - 1;
 
@@ -232,7 +242,7 @@ const styles = StyleSheet.create({
   },
   count: {
     fontSize: 11,
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
     color: 'rgba(255, 255, 255, 0.8)',
     marginLeft: 3,
     lineHeight: 13,

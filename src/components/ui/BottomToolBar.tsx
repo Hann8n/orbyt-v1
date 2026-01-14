@@ -92,7 +92,9 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
         onPress={() => {
           if (!isDisabled) {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            onToolPress && onToolPress(tool.id);
+            if (onToolPress) {
+              onToolPress(tool.id);
+            }
           }
         }}
         disabled={isDisabled}
@@ -234,7 +236,7 @@ const styles = StyleSheet.create({
   nextButtonText: {
     color: Colors.black,
     fontSize: 17,
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
     fontWeight: '600',
     includeFontPadding: false,
   },

@@ -61,12 +61,12 @@ const styles = StyleSheet.create({
   videoSizeText: {
     color: Colors.white,
     fontSize: 14,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
   },
   compressionNote: {
     color: Colors.lightYellow,
     fontSize: 12,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     marginTop: 4,
     marginLeft: 28,
   },
@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
   videoInfoLabel: {
     color: Colors.lightGray,
     fontSize: 13,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     marginBottom: 4,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
   videoInfoValue: {
     color: Colors.white,
     fontSize: 16,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
   compressionStatusSection: {
     marginBottom: 15,
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
   compressionOptionsTitle: {
     color: Colors.white,
     fontSize: 14,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     marginBottom: 8,
   },
   compressionOption: {
@@ -126,12 +126,12 @@ const styles = StyleSheet.create({
   compressionOptionLabel: {
     color: Colors.white,
     fontSize: 14,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
   },
   compressionOptionQuality: {
     color: Colors.lightGreen,
     fontSize: 12,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
   },
   compressionOptionDetails: {
     flexDirection: 'row',
@@ -140,12 +140,12 @@ const styles = StyleSheet.create({
   compressionOptionSize: {
     color: Colors.lightGray,
     fontSize: 12,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
   },
   compressionOptionTime: {
     color: Colors.lightGray,
     fontSize: 12,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
   },
   compressButton: {
     flexDirection: 'row',
@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
   compressButtonText: {
     color: Colors.white,
     fontSize: 14,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
   },
 });
 

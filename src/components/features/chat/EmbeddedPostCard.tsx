@@ -725,7 +725,7 @@ const styles = StyleSheet.create({
   textPostAuthor: {
     fontSize: 16,
     fontWeight: 'bold',
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
     color: Colors.white,
     marginBottom: 2,
   },
@@ -750,7 +750,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.lightGray,
     marginLeft: 4,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
   },
   blueskyLogoContainer: {
     position: 'absolute',
@@ -808,12 +808,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.lightGray,
     marginLeft: 6,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
   },
   relativeTime: {
     fontSize: 13,
     color: Colors.lightGray,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     marginLeft: 'auto',
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
     paddingHorizontal: 8,
@@ -826,7 +826,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     paddingHorizontal: 16,
     marginBottom: 12,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
   },
   cleanImageContainer: {
     position: 'relative',
@@ -878,7 +878,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: Colors.bluesky,
     marginLeft: 4,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
   },
   // Image within text post styles
   textPostImageContainer: {
@@ -970,7 +970,7 @@ const styles = StyleSheet.create({
   errorText: {
     color: Colors.lightGray,
     fontSize: 14,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     textAlign: 'center',
   },
 });

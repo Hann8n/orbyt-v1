@@ -199,7 +199,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     textAlign: 'left',
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
     flex: 1,
   },
   closeButtonSpacer: {
@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 22,
     textAlign: 'left',
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
   },
   contentContainer: {
     flex: 1,

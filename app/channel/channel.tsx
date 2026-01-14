@@ -408,12 +408,12 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 16,
     textAlign: 'center',
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
   },
   errorSubtext: {
     color: Colors.lightGray,
     fontSize: 16,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     textAlign: 'center',
     marginBottom: 24,
     maxWidth: '80%',
@@ -432,7 +432,7 @@ const styles = StyleSheet.create({
   errorButtonText: {
     color: Colors.white,
     fontSize: 16,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
   secondaryButton: {
     backgroundColor: 'transparent',

@@ -215,7 +215,7 @@ export const Button: React.FC<ButtonProps> = ({
 
   const getTextStyle = (): TextStyle => {
     const baseStyle: TextStyle = {
-      fontFamily: 'Firma-Medium',
+      fontFamily: 'Figtree-Medium',
       fontWeight: '600',
     };
 
@@ -349,7 +349,7 @@ const retryButtonStyles = StyleSheet.create({
   text: {
     color: Colors.black,
     fontSize: 16,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
 });
 
@@ -565,7 +565,7 @@ export const Avatar: React.FC<AvatarProps> = ({
   const liveBadgeTextStyle: TextStyle = {
     color: Colors.white,
     fontSize: badgeDimensions.fontSize,
-    fontFamily: 'Firma-Black',
+    fontFamily: 'Figtree-Black',
     fontWeight: '900',
     letterSpacing: badgeDimensions.letterSpacing,
   };
@@ -931,7 +931,7 @@ export const Badge: React.FC<BadgeProps> = ({ text, variant, size, style }) => {
 
   const getTextStyle = (): TextStyle => {
     const baseStyle: TextStyle = {
-      fontFamily: 'Firma-Medium',
+      fontFamily: 'Figtree-Medium',
       fontWeight: '600',
       color: Colors.white,
     };
@@ -974,13 +974,13 @@ const styles = StyleSheet.create({
   modalTitle: {
     color: Colors.white,
     fontSize: 20,
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
     marginBottom: 8,
   },
   modalSubtitle: {
     color: Colors.lightGray,
     fontSize: 16,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     marginBottom: 16,
   },
   modalContent: {
@@ -1010,7 +1010,7 @@ const styles = StyleSheet.create({
     flex: 1,
     color: Colors.white,
     fontSize: 16,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     paddingVertical: 12,
   },
   inputWithIcon: {
@@ -1022,7 +1022,7 @@ const styles = StyleSheet.create({
   inputError: {
     color: Colors.red,
     fontSize: 14,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     marginTop: 4,
     marginLeft: 4,
   },
@@ -1037,7 +1037,7 @@ const styles = StyleSheet.create({
   loadingText: {
     color: Colors.lightGray,
     fontSize: 16,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     marginTop: 12,
   },
   iconFallback: {

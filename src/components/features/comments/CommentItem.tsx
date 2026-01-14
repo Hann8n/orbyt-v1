@@ -974,7 +974,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
                       color: Colors.white,
                       fontSize: 16,
                       marginBottom: 2,
-                      fontFamily: 'Firma-Bold',
+                      fontFamily: 'Figtree-Bold',
                     }}
                   >
                     {authorName}
@@ -1020,7 +1020,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
                     color: Colors.lightGray,
                     fontSize: 15,
                     marginTop: 2,
-                    fontFamily: 'Firma-Regular',
+                    fontFamily: 'Figtree-Regular',
                   }}
                   onAuthorPress={handleAuthorPress}
                   onHashtagPress={handleHashtagPress}
@@ -1104,7 +1104,7 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 12,
     fontWeight: 'bold',
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
   },
   commentThreadContainer: {
     marginBottom: 2,
@@ -1138,13 +1138,13 @@ const styles = StyleSheet.create({
   parentChyronArrow: {
     color: Colors.gray,
     fontSize: 12,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     marginRight: 4,
   },
   parentChyronText: {
     color: Colors.gray,
     fontSize: 12,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     maxWidth: 120,
   },
   commentMetaContainer: {
@@ -1155,7 +1155,7 @@ const styles = StyleSheet.create({
   commentTimestamp: {
     fontSize: 12,
     color: Colors.gray,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     marginRight: 12,
   },
   replyButton: {
@@ -1165,7 +1165,7 @@ const styles = StyleSheet.create({
   replyButtonText: {
     fontSize: 12,
     color: Colors.lightGray,
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
   },
   commentActionsContainer: {
     alignItems: 'center',
@@ -1182,7 +1182,7 @@ const styles = StyleSheet.create({
   likeCount: {
     color: Colors.lightGray,
     fontSize: 12.5,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     marginTop: 2,
     textAlign: 'center',
     textShadowColor: 'rgba(0, 0, 0, 0.15)',
@@ -1207,21 +1207,21 @@ const styles = StyleSheet.create({
   },
   linkPreviewTitle: {
     color: Colors.white,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     fontSize: 13,
     marginBottom: 4,
     lineHeight: 18,
   },
   linkPreviewDescription: {
     color: Colors.lightGray,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     fontSize: 12,
     lineHeight: 16,
     marginBottom: 4,
   },
   linkPreviewUrl: {
     color: Colors.gray,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     fontSize: 12,
     lineHeight: 16,
   },
@@ -1236,7 +1236,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: Colors.gray,
     fontWeight: 'bold',
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
   },
 });
 

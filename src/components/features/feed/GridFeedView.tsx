@@ -431,7 +431,7 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 10,
     flex: 1,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
   },
   repostIndicator: {
     position: 'absolute',
@@ -445,7 +445,7 @@ const styles = StyleSheet.create({
   repostText: {
     color: Colors.white,
     fontSize: 9,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
   },
   footerLoader: {
     paddingVertical: 20,
@@ -490,7 +490,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 20,
     fontWeight: '600',
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     lineHeight: 22,
     paddingHorizontal: 20,
   },
@@ -516,7 +516,7 @@ const styles = StyleSheet.create({
   showAnywayButtonText: {
     color: Colors.white,
     fontSize: 15,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     fontWeight: '600',
     textAlign: 'center',
   },

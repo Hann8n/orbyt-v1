@@ -214,13 +214,13 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     textAlign: 'left',
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
   },
   titleText: {
     color: Colors.white,
     fontSize: 18,
     fontWeight: 'bold',
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
     marginBottom: 8,
     paddingHorizontal: 15,
   },
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 22,
     textAlign: 'left',
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     marginBottom: 20,
     paddingHorizontal: 15,
   },
@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
   chipText: {
     color: Colors.white,
     fontSize: 13,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
   },
   liveBadge: {
     position: 'absolute',
@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
   liveBadgeText: {
     color: Colors.white,
     fontSize: 15,
-    fontFamily: 'Firma-Black',
+    fontFamily: 'Figtree-Black',
     fontWeight: '900',
     letterSpacing: 0.7,
   },
@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
   errorText: {
     color: Colors.lightGray,
     fontSize: 16,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     marginBottom: 20,
     textAlign: 'center',
   },

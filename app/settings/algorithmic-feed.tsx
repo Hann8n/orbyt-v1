@@ -443,7 +443,7 @@ const styles = StyleSheet.create({
   infoText: {
     color: Colors.gray,
     fontSize: 14,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     lineHeight: 20,
   },
   footerSection: {
@@ -454,7 +454,7 @@ const styles = StyleSheet.create({
   footerText: {
     color: Colors.gray,
     fontSize: 13,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     lineHeight: 18,
     fontStyle: 'italic',
   },
@@ -466,7 +466,7 @@ const styles = StyleSheet.create({
   channelsSectionTitle: {
     color: Colors.white,
     fontSize: 18,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
   channelsList: {
     marginTop: 0,
@@ -494,19 +494,19 @@ const styles = StyleSheet.create({
   channelLabel: {
     color: Colors.white,
     fontSize: 14,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     marginBottom: 2,
   },
   orbytSlash: {
     fontSize: 14,
     marginBottom: 2,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     marginRight: 0,
   },
   channelDescription: {
     color: Colors.lightGray,
     fontSize: 14,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
   },
   subscribeButton: {
     flexDirection: 'row',
@@ -524,7 +524,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
   },
   subscribeButtonText: {
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     fontSize: 12,
     fontWeight: '500',
   },
@@ -540,14 +540,14 @@ const styles = StyleSheet.create({
   emptyTitle: {
     color: Colors.white,
     fontSize: 20,
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
     marginBottom: 8,
     textAlign: 'center',
   },
   emptySubtitle: {
     color: Colors.lightGray,
     fontSize: 16,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 24,
@@ -563,7 +563,7 @@ const styles = StyleSheet.create({
   exploreButtonText: {
     color: '#000000',
     fontSize: 16,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
   sheetContent: {
     paddingHorizontal: 12,

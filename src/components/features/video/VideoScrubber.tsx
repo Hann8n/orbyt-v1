@@ -438,17 +438,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '600',
     color: Colors.white,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
   timeTextLarge: {
     fontSize: 36,
     fontVariant: ['tabular-nums'],
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
   timeTextSeparator: {
     fontSize: 18,
     opacity: 0.8,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
   },
   timeTextMuted: {
     opacity: 0.8,

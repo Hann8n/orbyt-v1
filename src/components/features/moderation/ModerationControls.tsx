@@ -21,6 +21,15 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible }) => {
   const [loading, setLoading] = useState(isLoadingSettings);
   const [stats, setStats] = useState<any>(null);
 
+  const loadStats = async () => {
+    try {
+      // Stats feature is not currently implemented
+      setStats(null);
+    } catch (_error: unknown) {
+      // ignore
+    }
+  };
+
   useEffect(() => {
     if (visible) {
       loadStats();
@@ -31,15 +40,6 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible }) => {
   useEffect(() => {
     setLoading(isLoadingSettings);
   }, [isLoadingSettings]);
-
-  const loadStats = async () => {
-    try {
-      // Stats feature is not currently implemented
-      setStats(null);
-    } catch (error: unknown) {
-      // ignore
-    }
-  };
 
   if (!visible) return null;
 
@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
   loadingText: {
     color: Colors.gray,
     fontSize: 16,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
   },
   section: {
     marginTop: 24,
@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
     color: Colors.gray,
     fontSize: 14,
     fontWeight: '600',
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     marginBottom: 8,
     paddingHorizontal: 20,
     textTransform: 'uppercase',
@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
   sectionDescription: {
     color: Colors.lightGray,
     fontSize: 12,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     marginBottom: 12,
     paddingHorizontal: 20,
   },
@@ -196,12 +196,12 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 16,
     fontWeight: '500',
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
   },
   settingItemDescription: {
     color: Colors.lightGray,
     fontSize: 12,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     marginTop: 2,
   },
   preferenceIndicator: {
@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
   preferenceText: {
     fontSize: 12,
     fontWeight: '600',
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     marginLeft: 4,
   },
   toggleButtonGroup: {
@@ -240,12 +240,12 @@ const styles = StyleSheet.create({
   toggleButtonText: {
     fontSize: 13,
     fontWeight: '500',
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     color: Colors.lightGray,
   },
   toggleButtonTextActive: {
     color: Colors.black,
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
     fontWeight: '700',
   },
   toggleButtonLast: {
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
   infoText: {
     color: Colors.lightGray,
     fontSize: 12,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     marginLeft: 12,
     lineHeight: 18,
   },
@@ -318,14 +318,14 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 24,
     fontWeight: 'bold',
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
     textAlign: 'center',
   },
   statLabel: {
     color: Colors.lightGray,
     fontSize: 12,
     marginTop: 5,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     textAlign: 'center',
     lineHeight: 16,
   },
@@ -352,13 +352,13 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 14,
     fontWeight: '500',
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     marginLeft: 6,
   },
   webSettingsDescription: {
     color: Colors.lightGray,
     fontSize: 12,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     textAlign: 'center',
     lineHeight: 16,
     marginBottom: 8,

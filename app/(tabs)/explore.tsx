@@ -1605,7 +1605,7 @@ const ExploreScreen: React.FC = () => {
         color: isActive ? Colors.white : Colors.gray,
         fontSize: 20,
         fontWeight: isActive ? ('bold' as const) : ('600' as const),
-        fontFamily: isActive ? 'Firma-Bold' : 'Firma-SemiBold',
+        fontFamily: isActive ? 'Figtree-Bold' : 'Figtree-SemiBold',
         opacity: isActive ? 1 : opacity,
       };
     },
@@ -2407,7 +2407,7 @@ const styles = StyleSheet.create({
     flex: 1,
     color: 'black',
     fontSize: 20,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     padding: 0,
     ...(Platform.OS === 'android' && {
       paddingVertical: 0,
@@ -2442,13 +2442,13 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 17,
     marginBottom: 2,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     flexShrink: 1,
   },
   handleText: {
     color: Colors.lightGray,
     fontSize: 16,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
   },
   channelItem: {
     flexDirection: 'row',
@@ -2500,7 +2500,7 @@ const styles = StyleSheet.create({
   gridChannelName: {
     color: Colors.white,
     fontSize: 16,
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
   },
   horizontalChannelButton: {
     marginBottom: 0,
@@ -2533,44 +2533,44 @@ const styles = StyleSheet.create({
   horizontalChannelLabel: {
     color: Colors.white,
     fontSize: 22,
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
   },
   channelContent: {
     flex: 1,
     justifyContent: 'center',
   },
   orbytSlash: {
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     marginRight: 0,
   },
   channelName: {
     color: Colors.white,
     fontSize: 17,
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
     flexShrink: 1,
   },
   channelCreator: {
     color: Colors.lightGray,
     fontSize: 16,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     marginBottom: 2,
   },
   channelStats: {
     color: Colors.lightGray,
     fontSize: 11,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
   },
   noResults: {
     color: Colors.lightGray,
     textAlign: 'center',
     fontSize: 16,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
   },
   noResultsSubtext: {
     color: Colors.lightGray,
     textAlign: 'center',
     fontSize: 14,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     marginTop: 5,
   },
   initialStateContainer: {
@@ -2581,7 +2581,7 @@ const styles = StyleSheet.create({
   initialStateText: {
     color: Colors.lightGray,
     fontSize: 16,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
   },
   emptyContainer: {
     flex: 1,
@@ -2605,7 +2605,7 @@ const styles = StyleSheet.create({
   retryButtonText: {
     color: Colors.lightGray,
     fontSize: 16,
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
   },
   loadingMoreContainer: {
     padding: 20,
@@ -2620,13 +2620,13 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: Colors.white,
     fontSize: 18,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
 
   spotlightTitle: {
     color: Colors.orange,
     fontSize: 24,
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
   },
 
   feedItem: {
@@ -2688,19 +2688,19 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 14,
     marginBottom: 4,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     flexShrink: 1,
   },
   videoAuthor: {
     color: Colors.lightGray,
     fontSize: 12,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     marginBottom: 2,
   },
   videoStats: {
     color: Colors.gray,
     fontSize: 11,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
   },
   videoWarningOverlay: {
     position: 'absolute',
@@ -2716,7 +2716,7 @@ const styles = StyleSheet.create({
   videoWarningText: {
     color: Colors.white,
     fontSize: 12,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     textAlign: 'center',
     paddingHorizontal: 8,
   },
@@ -2772,14 +2772,14 @@ const styles = StyleSheet.create({
   spotlightWarningText: {
     color: Colors.white,
     fontSize: 10,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     textAlign: 'center',
     paddingHorizontal: 8,
   },
   spotlightVideoTitle: {
     color: Colors.white,
     fontSize: 11,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     lineHeight: 14,
   },
 
@@ -2795,7 +2795,7 @@ const styles = StyleSheet.create({
   emptyTabText: {
     color: Colors.gray,
     fontSize: 16,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
   },
 
   searchTabsContainer: {
@@ -2858,7 +2858,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   searchHistoryTitle: {
-    fontFamily: 'Firma-Black',
+    fontFamily: 'Figtree-Black',
     fontSize: 18,
   },
   clearHistoryButton: {
@@ -2866,7 +2866,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   clearHistoryText: {
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     fontSize: 14,
     fontWeight: '500',
   },
@@ -2877,14 +2877,14 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
   },
   emptyHistoryText: {
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     fontSize: 16,
   },
   historyList: {
     flex: 1,
   },
   historyTime: {
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     fontSize: 12,
     color: 'rgba(255, 255, 255, 0.5)',
     alignSelf: 'center',

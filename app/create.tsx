@@ -1131,7 +1131,7 @@ const styles = StyleSheet.create({
   warningText: {
     color: Colors.lightGray,
     fontSize: 18,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     textAlign: 'center',
     marginBottom: 24,
     lineHeight: 24,
@@ -1158,7 +1158,7 @@ const styles = StyleSheet.create({
   buttonText: {
     color: Colors.black,
     fontSize: 16,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
   cameraContainer: {
     flex: 1,
@@ -1236,11 +1236,11 @@ const styles = StyleSheet.create({
   durationOptionText: {
     color: Colors.white,
     fontSize: 14,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
   },
   durationOptionTextSelected: {
     color: Colors.white,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
   durationOptionTextDisabled: {
     opacity: 0.5,

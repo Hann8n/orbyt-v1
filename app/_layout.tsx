@@ -17,7 +17,6 @@ import {
 import { QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
-import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import * as NavigationBar from 'expo-navigation-bar';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
@@ -26,11 +25,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 // Keep local imports where they are; no file moves
 import { Colors } from '../src/components/ui/UI';
-import { useAppStore } from '../src/stores/appStore';
 import { useUserStore } from '../src/stores/userStore';
 import { migrateAsyncStorageToMMKV } from '../src/utils/storage';
 import { useBookmarkStore } from '../src/stores/bookmarkStore';
-import { CommonErrorHandlers } from '../src/utils/errors/errorHandler';
 import { feedService } from '../src/services/FeedService';
 import { queryKeys } from '../src/utils/query/queryKeys';
 import ShareSheet from '../src/components/ui/ShareSheet';
@@ -216,10 +213,6 @@ const useVisibilityTracking = () => {
 };
 
 export default function RootLayout() {
-  // Use individual selectors to prevent unnecessary re-renders
-  const fontsLoaded = useAppStore(state => state.fontsLoaded);
-  const setFontsLoaded = useAppStore(state => state.setFontsLoaded);
-
   // Inline visibility tracking
   useVisibilityTracking();
 
@@ -232,8 +225,8 @@ export default function RootLayout() {
   // Fallback flag so we can force readiness after a timeout without setting state in effects
   const [fallbackReady, setFallbackReady] = useState(false);
   const appIsReady = useMemo(
-    () => fallbackReady || (fontsLoaded && !isInitializing),
-    [fallbackReady, fontsLoaded, isInitializing]
+    () => fallbackReady || !isInitializing,
+    [fallbackReady, isInitializing]
   );
 
   // Set Android navigation bar button style (light)
@@ -260,31 +253,14 @@ export default function RootLayout() {
       // Migrate AsyncStorage to MMKV (one-time migration)
       await migrateAsyncStorageToMMKV();
 
-      // Run font loading and user initialization in parallel
-      const [fontsResult] = await Promise.allSettled([
-        Font.loadAsync({
-          'Firma-Regular': require('../src/assets/fonts/Firma-Regular.otf'),
-          'Firma-Medium': require('../src/assets/fonts/Firma-Medium.otf'),
-          'Firma-SemiBold': require('../src/assets/fonts/Firma-SemiBold.otf'),
-          'Firma-Bold': require('../src/assets/fonts/Firma-Bold.otf'),
-          'Firma-BoldItalic': require('../src/assets/fonts/Firma-BoldItalic.otf'),
-          'Firma-Black': require('../src/assets/fonts/Firma-Black.otf'),
-          'CriteriaCF-ExtraBold': require('../src/assets/fonts/CriteriaCF-ExtraBold.otf'),
-        }),
-        initializeUserState(),
-      ]);
-
-      // Set fonts loaded regardless of success
-      setFontsLoaded(true);
-      if (fontsResult.status === 'rejected') {
-        CommonErrorHandlers.cache(fontsResult.reason);
-      }
+      // Initialize user state
+      await initializeUserState();
 
       setIsInitializing(false);
     };
 
     initializeApp();
-  }, [initializeUserState, setFontsLoaded]);
+  }, [initializeUserState]);
 
   // Load bookmarks when user is authenticated
   useEffect(() => {
@@ -381,8 +357,8 @@ export default function RootLayout() {
     return () => clearTimeout(timeout);
   }, []);
 
-  // Show nothing while loading fonts and initializing - splash screen will be visible
-  if (isInitializing || !fontsLoaded) {
+  // Show nothing while initializing - splash screen will be visible
+  if (isInitializing) {
     return null;
   }
 
@@ -438,7 +414,7 @@ const styles = StyleSheet.create({
   toastText: {
     color: Colors.black,
     fontSize: 17,
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
     textAlign: 'center',
   },
   toastAvatar: {

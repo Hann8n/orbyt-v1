@@ -1072,7 +1072,7 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 18,
     marginBottom: 2,
-    fontFamily: 'Firma-Black',
+    fontFamily: 'Figtree-Black',
   },
   actionRow: {
     flexDirection: 'row',
@@ -1082,12 +1082,12 @@ const styles = StyleSheet.create({
   actionText: {
     color: Colors.mutedGray,
     fontSize: 16.5,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
   },
   timeText: {
     color: Colors.gray,
     fontSize: 14,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     marginLeft: 4,
   },
   errorContainer: {
@@ -1125,6 +1125,6 @@ const styles = StyleSheet.create({
     color: Colors.lightGray,
     fontSize: 16,
     textAlign: 'center',
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
   },
 });

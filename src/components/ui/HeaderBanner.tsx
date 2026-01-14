@@ -427,13 +427,13 @@ const styles = StyleSheet.create({
   headerTitle: {
     color: Colors.white,
     fontSize: 24,
-    fontFamily: 'Firma-Black',
+    fontFamily: 'Figtree-Black',
     marginBottom: 2,
   },
   headerSubtitle: {
     color: Colors.lightGray,
     fontSize: 18,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
   paginationContainer: {
     position: 'absolute',

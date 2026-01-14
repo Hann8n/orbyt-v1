@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -88,6 +88,9 @@ const EditableTextOverlay: React.FC<EditableTextOverlayProps> = ({
   const dragStartPositions = useRef<{ x: number; y: number } | null>(null);
   const hasMoved = useRef(false);
   const tapTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [panHandlers, setPanHandlers] = useState<
+    ReturnType<typeof PanResponder.create>['panHandlers'] | null
+  >(null);
 
   // Focus input when editing starts
   useEffect(() => {
@@ -98,74 +101,76 @@ const EditableTextOverlay: React.FC<EditableTextOverlayProps> = ({
     }
   }, [isEditing]);
 
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => !isEditing,
-        onMoveShouldSetPanResponder: (_evt, gestureState) => {
-          if (isEditing) return false;
-          return Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5;
-        },
-        onPanResponderGrant: () => {
-          if (isEditing) return;
-          dragStartPositions.current = { x: previewX, y: previewY };
-          hasMoved.current = false;
-          tapTimeout.current = setTimeout(() => {
-            if (!hasMoved.current) {
-              onTap(overlay.id);
-            }
-          }, 200);
-        },
-        onPanResponderMove: (_evt, gestureState) => {
-          if (isEditing) return;
-          if (Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5) {
-            hasMoved.current = true;
-            if (tapTimeout.current) {
-              clearTimeout(tapTimeout.current);
-              tapTimeout.current = null;
-            }
-            if (dragStartPositions.current) {
-              const newX = Math.max(
-                0,
-                Math.min(SCREEN_WIDTH - 50, dragStartPositions.current.x + gestureState.dx)
-              );
-              const newY = Math.max(
-                0,
-                Math.min(VIDEO_HEIGHT - 30, dragStartPositions.current.y + gestureState.dy)
-              );
-              onDragMove(overlay.id, newX, newY);
-              if (!isDragging) {
-                onDragStart(overlay.id);
-              }
-            }
+  useEffect(() => {
+    const responder = PanResponder.create({
+      onStartShouldSetPanResponder: () => !isEditing,
+      onMoveShouldSetPanResponder: (_evt, gestureState) => {
+        if (isEditing) return false;
+        return Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5;
+      },
+      onPanResponderGrant: () => {
+        if (isEditing) return;
+        dragStartPositions.current = { x: previewX, y: previewY };
+        hasMoved.current = false;
+        tapTimeout.current = setTimeout(() => {
+          if (!hasMoved.current) {
+            onTap(overlay.id);
           }
-        },
-        onPanResponderRelease: () => {
-          if (isEditing) return;
+        }, 200);
+      },
+      onPanResponderMove: (_evt, gestureState) => {
+        if (isEditing) return;
+        if (Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5) {
+          hasMoved.current = true;
           if (tapTimeout.current) {
             clearTimeout(tapTimeout.current);
             tapTimeout.current = null;
           }
-          if (hasMoved.current) {
-            dragStartPositions.current = null;
-            onDragEnd(overlay.id);
-          } else {
-            onTap(overlay.id);
+          if (dragStartPositions.current) {
+            const newX = Math.max(
+              0,
+              Math.min(SCREEN_WIDTH - 50, dragStartPositions.current.x + gestureState.dx)
+            );
+            const newY = Math.max(
+              0,
+              Math.min(VIDEO_HEIGHT - 30, dragStartPositions.current.y + gestureState.dy)
+            );
+            onDragMove(overlay.id, newX, newY);
+            if (!isDragging) {
+              onDragStart(overlay.id);
+            }
           }
-        },
-      }),
-    [
-      overlay.id,
-      previewX,
-      previewY,
-      isDragging,
-      isEditing,
-      onDragStart,
-      onDragMove,
-      onDragEnd,
-      onTap,
-    ]
-  );
+        }
+      },
+      onPanResponderRelease: () => {
+        if (isEditing) return;
+        if (tapTimeout.current) {
+          clearTimeout(tapTimeout.current);
+          tapTimeout.current = null;
+        }
+        if (hasMoved.current) {
+          dragStartPositions.current = null;
+          onDragEnd(overlay.id);
+        } else {
+          onTap(overlay.id);
+        }
+      },
+    });
+
+    setPanHandlers(responder.panHandlers);
+  }, [
+    overlay.id,
+    previewX,
+    previewY,
+    isDragging,
+    isEditing,
+    onDragStart,
+    onDragMove,
+    onDragEnd,
+    onTap,
+  ]);
+
+  const activePanHandlers = panHandlers ?? {};
 
   const displayText = overlay.text.trim() || 'Tap to edit';
   const isEmpty = !overlay.text.trim();
@@ -190,7 +195,7 @@ const EditableTextOverlay: React.FC<EditableTextOverlayProps> = ({
             {
               fontSize: overlay.size,
               color: overlay.color,
-              fontFamily: overlay.fontFamily || 'Firma-Bold',
+              fontFamily: overlay.fontFamily || 'Figtree-Bold',
             },
           ]}
           value={overlay.text}
@@ -211,7 +216,7 @@ const EditableTextOverlay: React.FC<EditableTextOverlayProps> = ({
 
   return (
     <View
-      {...panResponder.panHandlers}
+      {...activePanHandlers}
       style={[
         styles.textOverlayPreview,
         {
@@ -228,7 +233,7 @@ const EditableTextOverlay: React.FC<EditableTextOverlayProps> = ({
           {
             fontSize: overlay.size,
             color: overlay.color,
-            fontFamily: overlay.fontFamily || 'Firma-Bold',
+            fontFamily: overlay.fontFamily || 'Figtree-Bold',
           },
           isEmpty && styles.textOverlayPreviewTextEmpty,
         ]}
@@ -389,7 +394,11 @@ const VideoEditorScreen: React.FC = () => {
   // Sync play/pause state (same as post screen)
   useEffect(() => {
     if (!player) return;
-    isPlaying ? player.play() : player.pause();
+    if (isPlaying) {
+      player.play();
+    } else {
+      player.pause();
+    }
   }, [player, isPlaying]);
 
   // Update volume when masterVolume changes
@@ -445,7 +454,7 @@ const VideoEditorScreen: React.FC = () => {
 
       tempFilesRef.current.push(tempPath);
       return tempPath;
-    } catch (error) {
+    } catch (_error) {
       // Fallback to old API if new API fails
       const timestamp = Date.now();
       const random = Math.random().toString(36).substring(7);
@@ -1002,7 +1011,7 @@ const styles = StyleSheet.create({
   mergingText: {
     color: Colors.white,
     fontSize: 14,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     marginTop: 12,
   },
   textOverlayPreview: {
@@ -1033,7 +1042,7 @@ const styles = StyleSheet.create({
   },
   textOverlayInput: {
     color: Colors.white,
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
     padding: 4,
     minWidth: 100,
     textAlign: 'left',
@@ -1065,12 +1074,12 @@ const styles = StyleSheet.create({
   controlButtonText: {
     color: Colors.white,
     fontSize: 18,
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
   },
   controlValue: {
     color: Colors.white,
     fontSize: 14,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     minWidth: 30,
     textAlign: 'center',
   },
@@ -1107,7 +1116,7 @@ const styles = StyleSheet.create({
   doneControlText: {
     color: Colors.white,
     fontSize: 14,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
   playIndicator: {
     position: 'absolute',
@@ -1161,7 +1170,7 @@ const styles = StyleSheet.create({
   sliderValue: {
     color: Colors.white,
     fontSize: 14,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
     minWidth: 45,
     textAlign: 'right',
   },
@@ -1181,7 +1190,7 @@ const styles = StyleSheet.create({
   applyButtonText: {
     color: Colors.white,
     fontSize: 16,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
   editSheetContent: {
     flex: 1,
@@ -1192,7 +1201,7 @@ const styles = StyleSheet.create({
   editFieldLabel: {
     color: Colors.white,
     fontSize: 14,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     marginBottom: 8,
   },
   textInput: {
@@ -1201,7 +1210,7 @@ const styles = StyleSheet.create({
     padding: 12,
     color: Colors.white,
     fontSize: 16,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     minHeight: 48,
   },
   positionPresets: {
@@ -1223,7 +1232,7 @@ const styles = StyleSheet.create({
   presetButtonText: {
     color: Colors.lightGray,
     fontSize: 14,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
   },
   presetButtonTextSelected: {
     color: Colors.white,
@@ -1248,7 +1257,7 @@ const styles = StyleSheet.create({
   colorCheckmark: {
     color: Colors.white,
     fontSize: 20,
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
@@ -1263,7 +1272,7 @@ const styles = StyleSheet.create({
   saveButtonText: {
     color: Colors.white,
     fontSize: 16,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
   closeButton: {
     width: 30,

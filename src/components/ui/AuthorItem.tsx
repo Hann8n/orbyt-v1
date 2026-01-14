@@ -29,17 +29,17 @@ interface AuthorItemProps {
   isFollowing?: boolean;
   onFollowPress?: () => void;
   nameFontWeight?:
-    | 'Firma-Regular'
-    | 'Firma-Medium'
-    | 'Firma-SemiBold'
-    | 'Firma-Bold'
-    | 'Firma-Black';
+    | 'Figtree-Regular'
+    | 'Figtree-Medium'
+    | 'Figtree-SemiBold'
+    | 'Figtree-Bold'
+    | 'Figtree-Black';
   handleFontWeight?:
-    | 'Firma-Regular'
-    | 'Firma-Medium'
-    | 'Firma-SemiBold'
-    | 'Firma-Bold'
-    | 'Firma-Black';
+    | 'Figtree-Regular'
+    | 'Figtree-Medium'
+    | 'Figtree-SemiBold'
+    | 'Figtree-Bold'
+    | 'Figtree-Black';
   handleColor?: string;
   hideHandleLine?: boolean;
   hideDisplayName?: boolean;
@@ -96,7 +96,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   showFollowButton = false,
   isFollowing = false,
   onFollowPress,
-  nameFontWeight = 'Firma-Black',
+  nameFontWeight = 'Figtree-Black',
   hideDisplayName,
   showRing,
   customFontSize,
@@ -290,13 +290,13 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 18,
     fontWeight: 'bold',
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
     marginBottom: 2,
   },
   accountHandle: {
     color: Colors.mutedGray,
     fontSize: 14,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
   },
   accountArrow: {
     marginLeft: 8,
@@ -328,7 +328,7 @@ const styles = StyleSheet.create({
   },
   followButtonText: {
     fontSize: 15,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     fontWeight: '600',
     textAlign: 'center',
   },

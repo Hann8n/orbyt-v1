@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     textAlign: 'left',
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Figtree-Bold',
   },
   loadingIndicator: {
     marginVertical: 40,
@@ -289,17 +289,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 22,
     textAlign: 'left',
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
   },
   highlightedText: {
     color: Colors.white,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
   },
   verifiedByLabel: {
     color: Colors.gray,
     fontSize: 14,
     fontWeight: '600',
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
     marginBottom: 8,
     marginTop: 8,
     paddingHorizontal: 15,
@@ -355,7 +355,7 @@ const styles = StyleSheet.create({
   statusText: {
     color: Colors.lightGray,
     fontSize: 14,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     textAlign: 'center',
   },
   errorContainer: {
@@ -365,7 +365,7 @@ const styles = StyleSheet.create({
   errorText: {
     color: Colors.lightGray,
     fontSize: 16,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Figtree-Regular',
     marginBottom: 20,
     textAlign: 'center',
   },

@@ -226,13 +226,13 @@ const TextWithLinksBase: React.FC<TextWithLinksProps> = ({
 const styles = StyleSheet.create({
   link: {
     textDecorationLine: 'underline',
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Figtree-Medium',
   },
   authorLink: {
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
   hashtagLink: {
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Figtree-SemiBold',
   },
 });
 
