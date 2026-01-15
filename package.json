@@ -26,9 +26,9 @@
     "version:increment": "npx tsx scripts/update-version.ts increment",
     "version:reset": "npx tsx scripts/update-version.ts reset",
     "version:get": "npx tsx scripts/update-version.ts get",
-    "update": "yarn version:increment && eas update --channel production",
-    "update:preview": "yarn version:increment && eas update --channel preview",
-    "update:development": "yarn version:increment && eas update --channel development"
+    "update": "yarn version:increment && npx eas-cli update --channel production --message",
+    "update:preview": "yarn version:increment && npx eas-cli update --channel preview --message",
+    "update:development": "yarn version:increment && npx eas-cli update --channel development --message"
   },
   "dependencies": {
     "@atproto/api": "^0.16.3",
