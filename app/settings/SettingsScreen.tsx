@@ -1,7 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Alert, Platform, ScrollView, Linking } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Alert,
+  Platform,
+  ScrollView,
+  Linking,
+  TouchableOpacity,
+} from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import Constants from 'expo-constants';
+import * as Updates from 'expo-updates';
 import Icon from '../../src/components/ui/Icon';
 import { Colors } from '../../src/components/ui/UI';
 import ListHeader from '../../src/components/ui/ListHeader';
@@ -202,6 +212,40 @@ const SettingsScreen: React.FC = () => {
   };
 
   const appVersion = Constants.expoConfig?.version || '1.0.0';
+
+  const handleVersionPress = () => {
+    if (__DEV__) {
+      Alert.alert('Version Info', 'Updates are disabled in development mode.');
+      return;
+    }
+
+    try {
+      const updateId = Updates.updateId || 'N/A';
+      const channel = Updates.channel || 'N/A';
+      const groupId =
+        (Constants.manifest2?.metadata as { updateGroup?: string })?.updateGroup || 'N/A';
+
+      // Format: Update ID (Channel)
+      const formattedInfo = updateId !== 'N/A' ? `${updateId} (${channel})` : 'N/A';
+      const message = `${formattedInfo}\n\nGroup ID: ${groupId}`;
+
+      Alert.alert('Update Information', message, [
+        {
+          text: 'Copy Update ID',
+          onPress: async () => {
+            await Clipboard.setStringAsync(updateId);
+            Alert.alert('Copied', 'Update ID copied to clipboard');
+          },
+        },
+        {
+          text: 'OK',
+          style: 'default',
+        },
+      ]);
+    } catch (_error) {
+      Alert.alert('Error', 'Unable to get update information.');
+    }
+  };
 
   const settingsSections = [
     {
@@ -535,7 +579,9 @@ const SettingsScreen: React.FC = () => {
                       <Icon name="heart" size={18} color={Colors.lightRed} />
                       <Text style={styles.footerSubtext}> for the community</Text>
                     </View>
-                    <Text style={styles.versionText}>v{appVersion}</Text>
+                    <TouchableOpacity onPress={handleVersionPress} activeOpacity={0.7}>
+                      <Text style={styles.versionText}>v{appVersion}</Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
               );
