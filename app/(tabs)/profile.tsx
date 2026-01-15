@@ -127,16 +127,17 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const profileData: ProfileViewWithOrbyt | null =
     didQuery.data ||
     (isHandle ? handleQuery.data : null) ||
-    (isViewingOwnProfile && currentUser?.did && currentUser?.handle
-      ? ({
-          did: currentUser.did,
-          handle: currentUser.handle,
-          displayName: currentUser.displayName ?? undefined,
-          avatar: currentUser.avatar ?? undefined,
-          description: '',
-          viewer: {},
-        } as ProfileViewWithOrbyt)
-      : null);
+      (isViewingOwnProfile && currentUser?.did && currentUser?.handle
+        ? ({
+            did: currentUser.did,
+            handle: currentUser.handle,
+            displayName: currentUser.displayName ?? undefined,
+            avatar: currentUser.avatar ?? undefined,
+            banner: currentUser.banner ?? undefined,
+            description: '',
+            viewer: {},
+          } as ProfileViewWithOrbyt)
+        : null);
 
   const refetchProfile = didQuery.refetch || (isHandle ? handleQuery.refetch : undefined);
   const isProfileLoading =
@@ -493,20 +494,27 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     };
   });
 
-  // Back icon color: gradually transition from header text color to white based on scroll
+  // Back icon color: white if banner exists, otherwise gradually transition from header text color to white based on scroll
+  const hasBanner = !!profileData?.banner;
   const baseBackTextColor = useMemo(
-    () => (dynamicColors ? dynamicColors.textColor : profileColors.textColor) || Colors.white,
-    [dynamicColors, profileColors.textColor]
+    () => hasBanner ? Colors.white : ((dynamicColors ? dynamicColors.textColor : profileColors.textColor) || Colors.white),
+    [hasBanner, dynamicColors, profileColors.textColor]
   );
 
-  // Animated opacity for text-colored icon (fades out on scroll)
+  // Animated opacity for text-colored icon (fades out on scroll, or always hidden if banner)
   const backIconPrimaryStyle = useAnimatedStyle(() => {
+    if (hasBanner) {
+      return { opacity: 0 }; // Always hidden when banner exists
+    }
     const progress = headerScrollProgress.value;
     return { opacity: interpolate(progress, [0, 1], [1, 0], Extrapolate.CLAMP) };
   });
 
-  // Animated opacity for white icon (fades in on scroll)
+  // Animated opacity for white icon (fades in on scroll, or always visible if banner)
   const backIconSecondaryStyle = useAnimatedStyle(() => {
+    if (hasBanner) {
+      return { opacity: 1 }; // Always visible when banner exists
+    }
     const progress = headerScrollProgress.value;
     return { opacity: interpolate(progress, [0, 1], [0, 1], Extrapolate.CLAMP) };
   });
@@ -660,9 +668,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
           <Pressable onPress={handleMenuPress} style={styles.overlayMenuButton}>
             <MoreFillIcon
               size={24}
-              color={
-                (dynamicColors ? dynamicColors.textColor : profileColors.textColor) || Colors.white
-              }
+              color={Colors.white}
             />
           </Pressable>
 
@@ -733,9 +739,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
               </ProfileHeader>
             </View>
           }
-          backgroundColor={
-            dynamicColors ? dynamicColors.backgroundColor : profileColors.backgroundColor
-          }
+          backgroundColor={Colors.black}
           secondaryColor={dynamicColors ? dynamicColors.textColor : profileColors.textColor}
           isRefreshing={refreshing}
           onRefresh={onRefresh}

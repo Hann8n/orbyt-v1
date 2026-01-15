@@ -33,12 +33,14 @@ interface AuthorItemProps {
     | 'Figtree-Medium'
     | 'Figtree-SemiBold'
     | 'Figtree-Bold'
+    | 'Figtree-ExtraBold'
     | 'Figtree-Black';
   handleFontWeight?:
     | 'Figtree-Regular'
     | 'Figtree-Medium'
     | 'Figtree-SemiBold'
     | 'Figtree-Bold'
+    | 'Figtree-ExtraBold'
     | 'Figtree-Black';
   handleColor?: string;
   hideHandleLine?: boolean;

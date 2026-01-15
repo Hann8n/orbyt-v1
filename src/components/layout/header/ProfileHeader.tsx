@@ -1,11 +1,13 @@
 import React, { memo, useMemo, useCallback, useState, useEffect } from 'react';
-import { StatusBar, Pressable, StyleSheet, View, ViewStyle } from 'react-native';
+import { StatusBar, Pressable, StyleSheet, View, ViewStyle, Dimensions } from 'react-native';
+import { Image } from 'expo-image';
 import Animated, {
   type SharedValue,
   useAnimatedStyle,
   interpolate,
   Extrapolate,
 } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import UniversalHeader, { HeaderContent } from './UniversalHeader';
 import { useProfile } from '../../../services/data/ProfileService';
 import { getProfileColors } from '../../../utils/formatting/colors';
@@ -48,6 +50,11 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 }) => {
   const [showVerificationInfo, setShowVerificationInfo] = useState(false);
   const [showBetaInfo, setShowBetaInfo] = useState(false);
+  const insets = useSafeAreaInsets();
+  
+  // Calculate banner height based on 3:1 aspect ratio (1500x500)
+  const screenWidth = Dimensions.get('window').width;
+  const bannerHeight = screenWidth / 3;
 
   // Use profile data from React Query cache
   const { data: profile } = useProfile(handle);
@@ -59,6 +66,9 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   // Get colors from Orbyt API (primary) or defaults
   const profileColors = getProfileColors(orbytColors);
   const joinDate = orbytColors?.joinedAt;
+
+  // Extract banner URL from profile data
+  const bannerUrl = profileData?.banner || undefined;
 
   // Block status and flags (used for avatar blur only; actions moved to ProfileScreen)
   // Use moderation flags directly from ProfileView viewer fields
@@ -152,9 +162,8 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 
   // Determine status bar style based on background color brightness
   const statusBarStyle = useMemo(() => {
-    const style = getStatusBarStyle(profileColors.backgroundColor);
-    return style === 'light' ? 'light-content' : 'dark-content';
-  }, [profileColors.backgroundColor]);
+    return 'light-content'; // Always use light status bar
+  }, []);
 
   // Notify parent of color changes
   useEffect(() => {
@@ -183,26 +192,67 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         translucent={true}
       />
       <View>
-        <UniversalHeader
-          content={headerContent}
-          actions={[]}
-          customActions={[]}
-          showBackButton={false}
-          onBackPress={undefined}
-          backgroundColor={dynamicColors.backgroundColor}
-          textColor={dynamicColors.textColor}
-          isLoading={false}
-          applySafeArea={applySafeArea}
-          reserveTopForOverlayButtons={true}
-          contentScrollProgress={contentFadeDisabled ? undefined : headerScrollProgress}
-          contentStyle={headerStyle}
-          showShadowGradient={false}
+        <View
+          style={[
+            styles.profileContentWrapper,
+            {
+              backgroundColor: dynamicColors.backgroundColor,
+              marginTop: applySafeArea && bannerUrl ? -insets.top : 0,
+              paddingTop: applySafeArea && bannerUrl ? insets.top : 0,
+            },
+          ]}
         >
-          {/* Hide tabs when blocked */}
-          {!isBlocked && children}
-        </UniversalHeader>
-        {/* Dim overlay above background as user scrolls */}
-        <Animated.View style={dimOverlayStyle} />
+          {/* Banner at top of card */}
+          {bannerUrl && (
+            <>
+              <View style={styles.bannerContainer} pointerEvents="none">
+                <Image
+                  source={{ uri: bannerUrl }}
+                  style={[styles.bannerImage, { height: bannerHeight }]}
+                  contentFit="cover"
+                  cachePolicy="memory-disk"
+                  transition={200}
+                />
+              </View>
+              {/* Divider between banner and card */}
+              <View
+                style={[
+                  styles.bannerDivider,
+                  { backgroundColor: profileColors.foregroundColor },
+                ]}
+              />
+            </>
+          )}
+          <UniversalHeader
+            content={headerContent}
+            actions={[]}
+            customActions={[]}
+            showBackButton={false}
+            onBackPress={undefined}
+            backgroundColor={dynamicColors.backgroundColor}
+            textColor={dynamicColors.textColor}
+            isLoading={false}
+            applySafeArea={applySafeArea && !bannerUrl}
+            reserveTopForOverlayButtons={true}
+            contentScrollProgress={contentFadeDisabled ? undefined : headerScrollProgress}
+            contentStyle={headerStyle}
+            style={
+              bannerUrl
+                ? {
+                    paddingTop: 20 + 50, // 20px spacing + 50px for half avatar
+                  }
+                : undefined
+            }
+            hasBanner={!!bannerUrl}
+            bannerHeight={bannerUrl ? bannerHeight : undefined}
+            showShadowGradient={false}
+          >
+            {/* Hide tabs when blocked */}
+            {!isBlocked && children}
+          </UniversalHeader>
+          {/* Dim overlay above background as user scrolls */}
+          <Animated.View style={dimOverlayStyle} />
+        </View>
       </View>
 
       {profileData?.handle && (
@@ -224,5 +274,22 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     </>
   );
 };
+
+const styles = StyleSheet.create({
+  bannerContainer: {
+    width: '100%',
+    overflow: 'hidden',
+  },
+  bannerImage: {
+    width: '100%',
+  },
+  bannerDivider: {
+    width: '100%',
+    height: 3, // Match avatar ring thickness (3px for profile avatars >= 100px)
+  },
+  profileContentWrapper: {
+    overflow: 'hidden',
+  },
+});
 
 export default memo(ProfileHeader);

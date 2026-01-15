@@ -1000,6 +1000,7 @@ export function useProfileUpdateMutation() {
         displayName?: string;
         description?: string;
         avatar?: string;
+        banner?: string;
         customColors?: {
           backgroundColor: string;
           textColor: string;
@@ -1019,6 +1020,7 @@ export function useProfileUpdateMutation() {
         displayName: updates.displayName,
         description: updates.description,
         avatar: updates.avatar,
+        banner: updates.banner,
       };
 
       // Only call updateProfile if there are non-color updates
@@ -1026,7 +1028,8 @@ export function useProfileUpdateMutation() {
       if (
         updates.displayName !== undefined ||
         updates.description !== undefined ||
-        updates.avatar !== undefined
+        updates.avatar !== undefined ||
+        updates.banner !== undefined
       ) {
         updatedProfile = await AtprotoService.updateProfile(profileUpdates);
       }
@@ -1047,6 +1050,7 @@ export function useProfileUpdateMutation() {
           ...(updates.displayName !== undefined ? { displayName: updates.displayName } : {}),
           ...(updates.description !== undefined ? { description: updates.description } : {}),
           ...(updates.avatar !== undefined ? { avatar: updates.avatar } : {}),
+          ...(updates.banner !== undefined ? { banner: updates.banner || undefined } : {}),
           ...(updates.customColors
             ? {
                 orbytRecord: {

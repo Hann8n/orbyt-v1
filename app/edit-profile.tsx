@@ -33,6 +33,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as ImagePicker from 'expo-image-picker';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
+import { Image } from 'expo-image';
 import { Colors, Avatar } from '../src/components/ui/UI';
 import { Loading3FillIcon } from '../src/components/ui/Icon';
 import { useProfileUpdateMutation, useProfile } from '../src/services/data/ProfileService';
@@ -146,6 +147,7 @@ const EditProfileScreen: React.FC = () => {
   const [editDisplayName, setEditDisplayName] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editAvatar, setEditAvatar] = useState<string | undefined>(undefined);
+  const [editBanner, setEditBanner] = useState<string | undefined>(undefined);
 
   // About length tracking
   const aboutCount = editDescription?.length || 0;
@@ -499,6 +501,7 @@ const EditProfileScreen: React.FC = () => {
         setEditDisplayName(profileData.displayName || '');
         setEditDescription(profileData.description || '');
         setEditAvatar(undefined);
+        setEditBanner(undefined);
       });
 
       // Check if default colors match a preset
@@ -587,6 +590,76 @@ const EditProfileScreen: React.FC = () => {
       previousSelectedColorIndex.current = selectedColorIndex;
     });
   }, [selectedColorIndex, hasCustomColors]);
+
+  // Handle banner selection
+  const handleBannerPress = useCallback(async () => {
+    try {
+      const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
+      const { status: libraryStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (cameraStatus !== 'granted' || libraryStatus !== 'granted') {
+        Alert.alert(
+          'Permission Required',
+          'Camera and photo library access are required to change your banner.'
+        );
+        return;
+      }
+
+      Alert.alert('Change Banner', 'Choose how you want to update your banner', [
+        {
+          text: 'Camera',
+          onPress: async () => {
+            try {
+              const result = await ImagePicker.launchCameraAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [3, 1],
+                quality: 0.8,
+              });
+
+              if (!result.canceled && result.assets && result.assets[0] && result.assets[0].uri) {
+                setEditBanner(result.assets[0].uri || undefined);
+              }
+            } catch (_error) {
+              Alert.alert('Error', 'Failed to open camera. Please try again.');
+            }
+          },
+        },
+        {
+          text: 'Photo Library',
+          onPress: async () => {
+            try {
+              const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [3, 1],
+                quality: 0.8,
+              });
+
+              if (!result.canceled && result.assets && result.assets[0] && result.assets[0].uri) {
+                setEditBanner(result.assets[0].uri || undefined);
+              }
+            } catch (_error) {
+              Alert.alert('Error', 'Failed to open photo library. Please try again.');
+            }
+          },
+        },
+        {
+          text: 'Remove Banner',
+          style: 'destructive',
+          onPress: () => {
+            setEditBanner('');
+          },
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+      ]);
+    } catch (_error) {
+      Alert.alert('Error', 'Failed to open image picker. Please try again.');
+    }
+  }, []);
 
   // Handle avatar selection
   const handleAvatarPress = useCallback(async () => {
@@ -733,6 +806,11 @@ const EditProfileScreen: React.FC = () => {
         updates.avatar = editAvatar;
       }
 
+      // Check banner
+      if (editBanner !== undefined) {
+        updates.banner = editBanner || undefined;
+      }
+
       // Check custom colors
       const shouldIncludeColors =
         customColors &&
@@ -772,6 +850,7 @@ const EditProfileScreen: React.FC = () => {
     editDisplayName,
     editDescription,
     editAvatar,
+    editBanner,
     customColors,
     defaultColors,
     profileUpdateMutation,
@@ -1017,6 +1096,74 @@ const EditProfileScreen: React.FC = () => {
                   style={[
                     styles.divider,
                     { backgroundColor: hexToRGBA(currentColors.textColor, 0.2) },
+                  ]}
+                />
+
+                {/* Banner Section */}
+                <View style={styles.section}>
+                  <Text
+                    style={[
+                      styles.sectionTitle,
+                      { color: hexToRGBA(currentColors.textColor, 0.8), marginBottom: 12 },
+                    ]}
+                  >
+                    BANNER
+                  </Text>
+                  <Pressable
+                    onPress={handleBannerPress}
+                    style={[
+                      styles.bannerContainer,
+                      {
+                        backgroundColor: hexToRGBA(currentColors.textColor, 0.1),
+                        borderColor: hexToRGBA(currentColors.textColor, 0.2),
+                      },
+                    ]}
+                  >
+                    {(editBanner || profileData?.banner) && (
+                      <Image
+                        source={{ uri: editBanner || profileData?.banner }}
+                        style={styles.bannerImage}
+                        contentFit="cover"
+                      />
+                    )}
+                    {!editBanner && !profileData?.banner && (
+                      <View style={styles.bannerPlaceholder}>
+                        <Text
+                          style={[
+                            styles.bannerPlaceholderText,
+                            { color: hexToRGBA(currentColors.textColor, 0.5) },
+                          ]}
+                        >
+                          Tap to add banner
+                        </Text>
+                      </View>
+                    )}
+                    <View style={styles.bannerOverlay}>
+                      <View
+                        style={[
+                          styles.uploadButton,
+                          {
+                            backgroundColor: hexToRGBA(currentColors.textColor, 0.9),
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.uploadButtonText,
+                            { color: currentColors.backgroundColor },
+                          ]}
+                        >
+                          {editBanner || profileData?.banner ? 'Change' : 'Upload'}
+                        </Text>
+                      </View>
+                    </View>
+                  </Pressable>
+                </View>
+
+                <View
+                  style={[
+                    styles.divider,
+                    { backgroundColor: hexToRGBA(currentColors.textColor, 0.12) },
                   ]}
                 />
 
@@ -1343,6 +1490,36 @@ const styles = StyleSheet.create({
     height: 2,
     marginVertical: 20,
     marginHorizontal: -20,
+  },
+  bannerContainer: {
+    width: '100%',
+    height: 150,
+    borderRadius: BORDER_RADIUS.MEDIUM,
+    borderWidth: 1,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  bannerImage: {
+    width: '100%',
+    height: '100%',
+  },
+  bannerPlaceholder: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bannerPlaceholderText: {
+    fontFamily: 'Figtree-Medium',
+    fontSize: 16,
+  },
+  bannerOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 12,
+    alignItems: 'flex-end',
   },
   avatarContainer: {
     flexDirection: 'row',

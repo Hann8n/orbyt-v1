@@ -317,6 +317,7 @@ export class ActorService {
     displayName?: string;
     description?: string;
     avatar?: string; // Base64 encoded image or file URI
+    banner?: string; // Base64 encoded image or file URI
     customColors?: {
       backgroundColor: string;
       textColor: string;
@@ -509,6 +510,179 @@ export class ActorService {
         );
       } catch {
         throw new Error('Failed to upload avatar image');
+      }
+    }
+
+    // Handle banner upload separately if provided
+    if (updates.banner !== undefined) {
+      try {
+        // If banner is null/empty string, remove it
+        if (!updates.banner) {
+          const { api: apiForBanner } = await AtprotoCore.getApiClient();
+          let manuallyFetchedProfileForBanner: AppBskyActorProfile.Record | undefined;
+          try {
+            const repo = await AtprotoCore.getCurrentUserDid();
+            if (repo) {
+              const existingRecordResponse = await apiForBanner.com.atproto.repo
+                .getRecord({
+                  repo,
+                  collection: 'app.bsky.actor.profile',
+                  rkey: 'self',
+                })
+                .catch(() => undefined);
+
+              if (existingRecordResponse?.data?.value) {
+                manuallyFetchedProfileForBanner = existingRecordResponse.data
+                  .value as AppBskyActorProfile.Record;
+              }
+            }
+          } catch {
+            // Fallback to API callback if manual fetch fails
+          }
+
+          await apiForBanner.upsertProfile(
+            (existingProfile: AppBskyActorProfile.Record | undefined) => {
+              let profileToUse = existingProfile || manuallyFetchedProfileForBanner;
+
+              if (profileToUse) {
+                profileToUse = convertProfileBlobsToBlobRefs(profileToUse);
+              }
+
+              const existing: AppBskyActorProfile.Record = profileToUse
+                ? { ...profileToUse }
+                : { $type: 'app.bsky.actor.profile' };
+
+              // Remove banner by setting it to undefined
+              const updated: AppBskyActorProfile.Record = {
+                ...existing,
+              };
+              delete updated.banner;
+
+              return updated;
+            }
+          );
+        } else {
+          // Check if this is a CDN URL (existing banner) - we can't re-upload these
+          if (updates.banner.startsWith('https://') && updates.banner.includes('cdn.bsky.app')) {
+            // Don't proceed with upload for existing banners - profile already updated
+            // Return the updated profile by fetching it
+            return await this.getCurrentUser();
+          }
+
+          let imageBlob: Blob;
+
+          if (updates.banner.startsWith('data:')) {
+            // Handle base64 data URL
+            const response = await fetch(updates.banner);
+            imageBlob = await response.blob();
+          } else if (updates.banner.startsWith('file://')) {
+            // Handle file URI
+            const response = await fetch(updates.banner);
+            imageBlob = await response.blob();
+          } else {
+            throw new Error('Unsupported banner format');
+          }
+
+          // Upload the image to Bluesky
+          const { api: apiForUpload } = await AtprotoCore.getApiClient();
+          const uploadResult = await apiForUpload.uploadBlob(imageBlob, {
+            encoding: 'image/jpeg',
+          });
+
+          // Capture the blob value BEFORE the callback to avoid closure issues
+          const uploadedBlob = uploadResult.data.blob;
+          if (!uploadedBlob) {
+            throw new Error('Upload result does not contain a blob reference');
+          }
+
+          // Manually fetch the existing profile record to ensure we have all fields for merging
+          let manuallyFetchedProfileForBanner: AppBskyActorProfile.Record | undefined;
+          try {
+            const repo = await AtprotoCore.getCurrentUserDid();
+            if (repo) {
+              const existingRecordResponse = await apiForUpload.com.atproto.repo
+                .getRecord({
+                  repo,
+                  collection: 'app.bsky.actor.profile',
+                  rkey: 'self',
+                })
+                .catch(() => undefined);
+
+              if (existingRecordResponse?.data?.value) {
+                manuallyFetchedProfileForBanner = existingRecordResponse.data
+                  .value as AppBskyActorProfile.Record;
+              }
+            }
+          } catch {
+            // Fallback to API callback if manual fetch fails
+          }
+
+          // Update profile with the new banner
+          await apiForUpload.upsertProfile(
+            (existingProfile: AppBskyActorProfile.Record | undefined) => {
+              let profileToUse = existingProfile || manuallyFetchedProfileForBanner;
+
+              if (profileToUse) {
+                profileToUse = convertProfileBlobsToBlobRefs(profileToUse);
+              }
+
+              const existing: AppBskyActorProfile.Record = profileToUse
+                ? { ...profileToUse }
+                : { $type: 'app.bsky.actor.profile' };
+
+              // Ensure we have a proper BlobRef instance
+              let blobRef: BlobRef;
+
+              if (uploadedBlob instanceof BlobRef) {
+                blobRef = uploadedBlob;
+              } else if (uploadedBlob && typeof uploadedBlob === 'object') {
+                const converted = BlobRef.asBlobRef(uploadedBlob);
+                if (converted) {
+                  blobRef = converted;
+                } else {
+                  const blobObj = uploadedBlob as {
+                    ref?: { $link?: string } | CID;
+                    mimeType?: string;
+                    size?: number;
+                  };
+
+                  if (
+                    blobObj.ref &&
+                    typeof blobObj.ref === 'object' &&
+                    '$link' in blobObj.ref &&
+                    typeof blobObj.ref.$link === 'string'
+                  ) {
+                    const cid = CID.parse(blobObj.ref.$link);
+                    const mimeType = blobObj.mimeType || 'application/octet-stream';
+                    const size = blobObj.size ?? -1;
+                    blobRef = new BlobRef(cid, mimeType, size);
+                  } else if (blobObj.ref instanceof CID && blobObj.mimeType) {
+                    blobRef = new BlobRef(blobObj.ref, blobObj.mimeType, blobObj.size ?? -1);
+                  } else {
+                    throw new Error(
+                      'Failed to convert uploaded banner blob to BlobRef instance. ' +
+                        'Invalid blob structure: expected ref.$link (string) or ref (CID), mimeType, and size.'
+                    );
+                  }
+                }
+              } else {
+                throw new Error(
+                  'Invalid blob reference from upload: expected BlobRef instance or valid blob object'
+                );
+              }
+
+              // Create updated record preserving all fields
+              const updated: AppBskyActorProfile.Record = {
+                ...existing,
+                banner: blobRef,
+              };
+
+              return updated;
+            }
+          );
+        }
+      } catch {
+        throw new Error('Failed to upload banner image');
       }
     }
 

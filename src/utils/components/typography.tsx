@@ -18,13 +18,14 @@ const deviceAdjustment = (() => {
 
 const SCALE = Math.max(0.9, Math.min(1.2, rawScale * deviceAdjustment));
 
-export type FontWeightToken = 'regular' | 'medium' | 'semibold' | 'bold' | 'black' | 'boldItalic';
+export type FontWeightToken = 'regular' | 'medium' | 'semibold' | 'bold' | 'extrabold' | 'black' | 'boldItalic';
 
 export const FontFamily: Record<FontWeightToken, string> = {
   regular: 'Figtree-Regular',
   medium: 'Figtree-Medium',
   semibold: 'Figtree-SemiBold',
   bold: 'Figtree-Bold',
+  extrabold: 'Figtree-ExtraBold',
   black: 'Figtree-Black',
   boldItalic: 'Figtree-BoldItalic',
 };

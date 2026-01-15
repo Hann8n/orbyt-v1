@@ -10,6 +10,7 @@ import {
   TextLayoutEventData,
 } from 'react-native';
 import { ImageBackground } from 'expo-image';
+import { BlurView } from 'expo-blur';
 import Animated, {
   type SharedValue,
   useAnimatedStyle,
@@ -97,6 +98,8 @@ export interface UniversalHeaderProps {
   hasTabs?: boolean; // Indicates if tab navigation is present (for hashtag feeds)
   reserveTopForOverlayButtons?: boolean; // Adds extra top padding so overlay buttons don't overlap content
   contentScrollProgress?: SharedValue<number>; // Optional shared value to fade header content (text/avatar/tabs) on scroll
+  hasBanner?: boolean; // Indicates if a banner is present above the header (for avatar positioning)
+  bannerHeight?: number; // Height of the banner for avatar positioning
 }
 
 // Memoized action button component for performance
@@ -149,13 +152,9 @@ const ActionButton = memo<{
 
   const getContentColor = useCallback(
     (pressed: boolean = false, frozenValue: boolean | null = null) => {
-      // Use frozen value if provided (during press), otherwise use current value
-      const baselineFilled = frozenValue !== null ? frozenValue : hasFilledBackground;
-      // When pressed, show opposite state by inverting baseline
-      const showFilledState = pressed ? !baselineFilled : hasFilledBackground;
-      return showFilledState ? backgroundColor : textColor;
+      return '#FFFFFF'; // Always white
     },
-    [textColor, backgroundColor, hasFilledBackground]
+    []
   );
 
   const getButtonSize = useCallback(() => {
@@ -166,11 +165,11 @@ const ActionButton = memo<{
     if (isFollowButton && action.label) {
       switch (size) {
         case 'small':
-          return { width: 84, height: 32, borderRadius: 100 }; // 40 + 8 + 40
+          return { width: 84, height: 28, borderRadius: 100 }; // 40 + 8 + 40
         case 'large':
-          return { width: 120, height: 48, borderRadius: 100 }; // 56 + 8 + 56
+          return { width: 120, height: 42, borderRadius: 100 }; // 56 + 8 + 56
         default:
-          return { width: 108, height: 44, borderRadius: 100 }; // 50 + 8 + 50
+          return { width: 108, height: 38, borderRadius: 100 }; // 50 + 8 + 50
       }
     }
 
@@ -178,21 +177,21 @@ const ActionButton = memo<{
     if (!action.label) {
       switch (size) {
         case 'small':
-          return { width: 40, height: 32, borderRadius: 100 };
+          return { width: 36, height: 28, borderRadius: 100 };
         case 'large':
-          return { width: 56, height: 48, borderRadius: 100 };
+          return { width: 50, height: 42, borderRadius: 100 };
         default:
-          return { width: 50, height: 44, borderRadius: 100 };
+          return { width: 46, height: 38, borderRadius: 100 };
       }
     }
 
     switch (size) {
       case 'small':
-        return { paddingHorizontal: 12, paddingVertical: 6, minWidth: 70, height: 32 };
+        return { paddingHorizontal: 12, paddingVertical: 6, minWidth: 70, height: 28 };
       case 'large':
-        return { paddingHorizontal: 24, paddingVertical: 12, minWidth: 110, height: 48 };
+        return { paddingHorizontal: 24, paddingVertical: 12, minWidth: 110, height: 42 };
       default:
-        return { paddingHorizontal: 16, paddingVertical: 8, minWidth: 90, height: 44 };
+        return { paddingHorizontal: 16, paddingVertical: 8, minWidth: 90, height: 38 };
     }
   }, [size, action.label, action.id]);
 
@@ -257,7 +256,9 @@ const ActionButton = memo<{
     <Pressable
       style={({ pressed }) => {
         const frozenValue = frozenHasFilledBackgroundRef.current;
-        return [styles.actionButton, getButtonStyle(pressed, frozenValue), getButtonSize()];
+        const buttonStyle = getButtonStyle(pressed, frozenValue);
+        const sizeStyle = getButtonSize();
+        return [styles.actionButton, sizeStyle];
       }}
       onPressIn={() => {
         // Freeze the current state when press starts
@@ -274,7 +275,19 @@ const ActionButton = memo<{
     >
       {({ pressed }) => {
         const frozenValue = frozenHasFilledBackgroundRef.current;
-        return renderContent(pressed, frozenValue);
+        const buttonStyle = getButtonStyle(pressed, frozenValue);
+        const sizeStyle = getButtonSize();
+        
+        return (
+          <>
+            <BlurView
+              intensity={80}
+              style={StyleSheet.absoluteFill}
+              experimentalBlurMethod="dimezisBlurView"
+            />
+            {renderContent(pressed, frozenValue)}
+          </>
+        );
       }}
     </Pressable>
   );
@@ -408,7 +421,9 @@ const HeaderContentComponent = memo<{
   textColor: string;
   backgroundColor: string;
   customDescription?: React.ReactNode;
-}>(({ content, textColor, backgroundColor, customDescription }) => {
+  hasBanner?: boolean;
+  bannerHeight?: number;
+}>(({ content, textColor, backgroundColor, customDescription, hasBanner, bannerHeight }) => {
   const router = useRouter();
 
   const navigateToAuthorProfile = useCallback(
@@ -443,7 +458,17 @@ const HeaderContentComponent = memo<{
 
   return (
     <View style={styles.contentContainer}>
-      <View style={styles.avatarContainer}>
+      <View
+        style={[
+          styles.avatarContainer,
+          hasBanner && bannerHeight
+            ? {
+                marginTop: -70 - 60 + 20, // -70px to reach divide (paddingTop) - 60px (half avatar) to center on divide + 20px to shift down
+                marginBottom: 16, // Fixed spacing below avatar
+              }
+            : undefined,
+        ]}
+      >
         <Pressable
           style={[
             styles.avatar,
@@ -470,6 +495,7 @@ const HeaderContentComponent = memo<{
         style={[
           styles.textContainer,
           !customDescription && !content.description && styles.textContainerNoMargin,
+          hasBanner && { marginTop: 0 }, // Remove extra margin when banner is present
         ]}
       >
         <Pressable style={styles.titleRow} onPress={content.onTitlePress}>
@@ -592,6 +618,8 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
   hasTabs = false,
   reserveTopForOverlayButtons = false,
   contentScrollProgress,
+  hasBanner = false,
+  bannerHeight,
 }) => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -827,6 +855,8 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
           textColor={textColor}
           backgroundColor={backgroundColor}
           customDescription={customDescription}
+          hasBanner={hasBanner}
+          bannerHeight={bannerHeight}
         />
 
         {/* Additional Children */}
@@ -903,6 +933,7 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 2,
     alignSelf: 'center',
+    overflow: 'hidden',
   },
   actionContent: {
     flexDirection: 'row',

@@ -22,6 +22,7 @@ import * as NavigationBar from 'expo-navigation-bar';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
 import { setVideoCacheSizeAsync } from 'expo-video';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Updates from 'expo-updates';
 
 // Keep local imports where they are; no file moves
 import { Colors } from '../src/components/ui/UI';
@@ -234,6 +235,34 @@ export default function RootLayout() {
     if (Platform.OS === 'android') {
       NavigationBar.setButtonStyleAsync('light').catch(() => {});
     }
+  }, []);
+
+  // Check for OTA updates on app load
+  useEffect(() => {
+    const checkForUpdates = async () => {
+      if (__DEV__) {
+        // Updates are disabled in development mode
+        return;
+      }
+
+      try {
+        const update = await Updates.checkForUpdateAsync();
+
+        if (update.isAvailable) {
+          await Updates.fetchUpdateAsync();
+          // Reload the app to apply the update
+          // Note: This will only happen on the next app launch after the update is downloaded
+          // To apply immediately, you can call Updates.reloadAsync() here, but it will
+          // interrupt the user's current session
+          logger?.info?.('OTA update downloaded and will be applied on next app restart');
+        }
+      } catch (error) {
+        // Log but don't block app initialization if update check fails
+        logger?.warn?.('Failed to check for OTA updates', { error });
+      }
+    };
+
+    checkForUpdates();
   }, []);
 
   // Parallel initialization: fonts and auth state load simultaneously

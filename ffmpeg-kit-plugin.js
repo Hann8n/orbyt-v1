@@ -89,8 +89,16 @@ end
 
 const copyAndroidAar = (platformProjectRoot, projectRoot, androidLocalPath) => {
   const source = path.resolve(projectRoot, androidLocalPath || 'patches/ffmpeg-kit-full-gpl.aar');
-  const destDir = path.join(platformProjectRoot, 'libs');
-  const dest = path.join(destDir, 'ffmpeg-kit-full-gpl.aar');
+  const destDir = path.join(
+    platformProjectRoot,
+    'libs',
+    'maven',
+    'com',
+    'arthenica',
+    'ffmpeg-kit-full-gpl',
+    '6.0.2'
+  );
+  const dest = path.join(destDir, 'ffmpeg-kit-full-gpl-6.0.2.aar');
 
   if (!fs.existsSync(source)) {
     throw new Error(
@@ -122,38 +130,14 @@ const withFfmpegKitAndroid = (config, { androidLocalPath }) => {
   config = withAppBuildGradle(config, cfg => {
     let buildGradle = cfg.modResults.contents;
 
-    const appFlatDirLibsPath = '\\${projectDir}/../libs';
-    const appFlatDirRepo = `
-    repositories {
-        flatDir {
-            dirs "${appFlatDirLibsPath}"
-        }
-    }`;
-
-    if (
-      !buildGradle.match(
-        new RegExp(
-          `repositories\\s*\\{[\\s\\S]*?flatDir\\s*\\{[\\s\\S]*?dirs\\s*['"]${appFlatDirLibsPath.replace(
-            /[$.]/g,
-            '\\\\$&'
-          )}['"]`
-        )
-      )
-    ) {
-      buildGradle = mergeContents({
-        tag: 'ffmpeg-kit-app-flatdir-repo',
-        src: buildGradle,
-        newSrc: appFlatDirRepo,
-        anchor: /android\s*\{/,
-        offset: 1,
-        comment: '//',
-      }).contents;
-    }
+    // Use local Maven repository (already configured in root build.gradle)
+    // No need to add repositories here as they're inherited from allprojects
 
     const newDependencies = `
-    implementation(name: 'ffmpeg-kit-full-gpl', ext: 'aar')
+    // Resolve from local Maven repo, force AAR packaging
+    implementation('com.arthenica:ffmpeg-kit-full-gpl:6.0.2@aar')
     implementation 'com.arthenica:smart-exception-java:0.2.1'`;
-    if (!buildGradle.includes("name: 'ffmpeg-kit-full-gpl', ext: 'aar'")) {
+    if (!buildGradle.includes("com.arthenica:ffmpeg-kit-full-gpl:6.0.2@aar")) {
       buildGradle = mergeContents({
         tag: 'ffmpeg-kit-dependencies',
         src: buildGradle,
@@ -175,27 +159,7 @@ const withFfmpegKitAndroid = (config, { androidLocalPath }) => {
 
     buildGradle = buildGradle.replace(/^\s*ffmpegKitPackage\s*=\s*"full-gpl"\s*(\r?\n)?/m, '');
 
-    const projectFlatDirLibsPath = '$rootDir/libs';
-    const flatDirString = `        flatDir {\n            dirs "${projectFlatDirLibsPath}"\n        }`;
-    const allProjectsRepositoriesRegex = /(allprojects\s*\{\s*repositories\s*\{)/;
-    const existingFlatDirRegex = new RegExp(
-      `allprojects\\s*\\{[\\s\\S]*?repositories\\s*\\{[\\s\\S]*?flatDir\\s*\\{[\\s\\S]*?dirs\\s*['"]${projectFlatDirLibsPath.replace(
-        /[$.]/g,
-        '\\$&'
-      )}['"]`
-    );
-
-    if (!buildGradle.match(existingFlatDirRegex)) {
-      const match = buildGradle.match(allProjectsRepositoriesRegex);
-      if (match) {
-        const insertionPoint = match.index + match[0].length;
-        buildGradle =
-          buildGradle.substring(0, insertionPoint) +
-          '\n' +
-          flatDirString +
-          buildGradle.substring(insertionPoint);
-      }
-    }
+    // Maven repository is already configured in build.gradle
 
     cfg.modResults.contents = buildGradle;
     return cfg;
