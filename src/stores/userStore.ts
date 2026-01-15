@@ -80,6 +80,7 @@ interface UserState {
     displayName?: string; // Matches ProfileView.displayName (string | undefined)
     avatar?: string; // Matches ProfileView.avatar (string | undefined)
     originalIdentifier: string; // The identifier used during initial authentication
+    emailConfirmed?: boolean; // Email confirmation status from API (only set if email scope is available)
   } | null;
 
   // Authentication state
@@ -114,6 +115,9 @@ interface UserState {
   developerListUri: string;
   developerMembersCache: string[]; // Cached DIDs from the developer list
   developerCacheTimestamp: number | null;
+
+  // Email verification modal state
+  showEmailVerificationModal: boolean;
 
   // Actions
   // Authentication
@@ -179,6 +183,9 @@ interface UserState {
   setAuthError: (error: string | null) => void;
   clearAuthError: () => void;
 
+  // Email verification modal management
+  setShowEmailVerificationModal: (show: boolean) => void;
+
   // Data invalidation
   invalidateAllUserData: () => Promise<void>;
   clearAllCaches: () => Promise<void>;
@@ -237,6 +244,14 @@ const getUserScopedKey = (baseKey: string, did: string): string => {
   return `${baseKey}_${sanitizedDid}`;
 };
 
+// Helper to check if email verification is required
+// Returns true if user has email but it's not confirmed
+export const isEmailVerificationRequired = (currentUser: UserState['currentUser']): boolean => {
+  if (!currentUser) return false;
+  const hasEmail = currentUser.emailConfirmed !== undefined;
+  return hasEmail && currentUser.emailConfirmed === false;
+};
+
 // Helper to defer orbyt profile initialization (non-critical, improves startup performance)
 const deferOrbytProfileInit = (context: string = 'userStore') => {
   InteractionManager.runAfterInteractions(async () => {
@@ -285,6 +300,9 @@ export const useUserStore = create<UserState>()(
       developerMembersCache: [],
       developerCacheTimestamp: null,
 
+      // Email verification modal state
+      showEmailVerificationModal: false,
+
       // Authentication actions
       signIn: async (identifier: string) => {
         try {
@@ -296,12 +314,21 @@ export const useUserStore = create<UserState>()(
           // Create agent from session
           const agent = new Agent(session);
 
-          // Get user profile
-          const profile = await agent.api.app.bsky.actor.getProfile({
-            actor: session.sub,
-          });
+          // Get user profile and email verification status in parallel
+          const [profile, sessionInfo] = await Promise.all([
+            agent.api.app.bsky.actor.getProfile({
+              actor: session.sub,
+            }),
+            agent.api.com.atproto.server.getSession(),
+          ]);
 
           const userProfile = profile.data;
+          // Only set emailConfirmed if email exists (has scope). Leave undefined if no email scope.
+          // Use API field name directly: emailConfirmed
+          const emailConfirmed =
+            sessionInfo.data.email !== undefined && sessionInfo.data.email !== null
+              ? sessionInfo.data.emailConfirmed
+              : undefined;
 
           // Create account object
           const account: SavedAccount = {
@@ -332,6 +359,7 @@ export const useUserStore = create<UserState>()(
               displayName: userProfile.displayName, // Use API structure directly
               avatar: userProfile.avatar, // Use API structure directly
               originalIdentifier: identifier,
+              emailConfirmed,
             },
             isAuthenticated: true,
             isAuthenticating: false,
@@ -341,6 +369,19 @@ export const useUserStore = create<UserState>()(
             oauthSession: session,
             savedAccounts: updatedAccounts,
           });
+
+          // Show email verification modal once on initial login for unverified users
+          const newCurrentUser: UserState['currentUser'] = {
+            did: session.sub,
+            handle: userProfile.handle,
+            displayName: userProfile.displayName,
+            avatar: userProfile.avatar,
+            originalIdentifier: identifier,
+            emailConfirmed,
+          };
+          if (isEmailVerificationRequired(newCurrentUser)) {
+            set({ showEmailVerificationModal: true });
+          }
 
           // Initialize orbyt profile record (join date, baseline colors/channels)
           // Defer until after interactions complete to improve startup performance
@@ -419,12 +460,21 @@ export const useUserStore = create<UserState>()(
           // Create agent from session
           const agent = new Agent(session);
 
-          // Get user profile - use the session's sub (DID) as the actor
-          const profile = await agent.api.app.bsky.actor.getProfile({
-            actor: session.sub,
-          });
+          // Get user profile and email verification status in parallel
+          const [profile, sessionInfo] = await Promise.all([
+            agent.api.app.bsky.actor.getProfile({
+              actor: session.sub,
+            }),
+            agent.api.com.atproto.server.getSession(),
+          ]);
 
           const userProfile = profile.data;
+          // Only set emailConfirmed if email exists (has scope). Leave undefined if no email scope.
+          // Use API field name directly: emailConfirmed
+          const emailConfirmed =
+            sessionInfo.data.email !== undefined && sessionInfo.data.email !== null
+              ? sessionInfo.data.emailConfirmed
+              : undefined;
 
           // Get original identifier from account
           const accounts = get().savedAccounts;
@@ -439,6 +489,7 @@ export const useUserStore = create<UserState>()(
               displayName: userProfile.displayName, // Use API structure directly
               avatar: userProfile.avatar, // Use API structure directly
               originalIdentifier: originalIdentifier,
+              emailConfirmed,
             },
             isAuthenticated: true,
             isAuthenticating: false,
@@ -446,6 +497,21 @@ export const useUserStore = create<UserState>()(
             agent: agent,
             oauthSession: session,
           });
+
+          // Show email verification modal once on initial login for unverified users
+          // Only show on first-time restore (not account switch) - check if we already have an active account
+          const newCurrentUser: UserState['currentUser'] = {
+            did: session.sub,
+            handle: userProfile.handle,
+            displayName: userProfile.displayName,
+            avatar: userProfile.avatar,
+            originalIdentifier: originalIdentifier,
+            emailConfirmed,
+          };
+          const existingActiveAccount = get().activeAccountDid;
+          if (existingActiveAccount === null && isEmailVerificationRequired(newCurrentUser)) {
+            set({ showEmailVerificationModal: true });
+          }
 
           // Initialize orbyt profile record (join date, baseline colors/channels)
           // Defer until after interactions complete to improve startup performance
@@ -1114,6 +1180,9 @@ export const useUserStore = create<UserState>()(
       setAuthenticating: authenticating => set({ isAuthenticating: authenticating }),
       setAuthError: error => set({ authError: error }),
       clearAuthError: () => set({ authError: null }),
+
+      // Email verification modal management
+      setShowEmailVerificationModal: show => set({ showEmailVerificationModal: show }),
 
       // Data invalidation actions
       invalidateAllUserData: async () => {

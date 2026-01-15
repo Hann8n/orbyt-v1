@@ -33,6 +33,7 @@ import { queryKeys } from '../src/utils/query/queryKeys';
 import ShareSheet from '../src/components/ui/ShareSheet';
 import CommentSection from '../src/components/features/comments/CommentSection';
 import GlobalAccountSwitcher from '../src/components/ui/GlobalAccountSwitcher';
+import EmailVerificationModal from '../src/components/ui/EmailVerificationModal';
 import { useVisibilityCoreStore } from '../src/core/visibility';
 import { queryClient } from '../src/utils/query/queryClient';
 import { QueryErrorBoundary } from '../src/components/ui/QueryErrorBoundary';
@@ -89,11 +90,41 @@ const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 
 // Global modals component
 const GlobalModals: React.FC = () => {
+  const isAuthenticated = useUserStore(state => state.isAuthenticated);
+  const currentUser = useUserStore(state => state.currentUser);
+  const showEmailVerificationModal = useUserStore(state => state.showEmailVerificationModal);
+  const setShowEmailVerificationModal = useUserStore(state => state.setShowEmailVerificationModal);
+
+  // Reset modal flag when user/DID changes (account switch) or email gets verified
+  const prevDid = React.useRef(currentUser?.did);
+
+  useEffect(() => {
+    if (prevDid.current !== currentUser?.did) {
+      prevDid.current = currentUser?.did;
+      setShowEmailVerificationModal(false);
+    }
+
+    if (currentUser?.emailConfirmed === true) {
+      // Reset flag if email gets confirmed
+      setShowEmailVerificationModal(false);
+    }
+  }, [currentUser?.emailConfirmed, currentUser?.did, setShowEmailVerificationModal]);
+
+  const handleCloseEmailModal = () => {
+    setShowEmailVerificationModal(false);
+  };
+
   return (
     <>
       <ShareSheet />
       <CommentSection />
       <GlobalAccountSwitcher />
+      {isAuthenticated && (
+        <EmailVerificationModal
+          visible={showEmailVerificationModal}
+          onClose={handleCloseEmailModal}
+        />
+      )}
     </>
   );
 };
@@ -103,6 +134,7 @@ function RootNavigator() {
   const { session } = useSession();
   const insets = useSafeAreaInsets();
   const isAuthenticated = useUserStore(state => state.isAuthenticated);
+  const currentUser = useUserStore(state => state.currentUser);
 
   return (
     <View style={styles.rootView}>
@@ -138,13 +170,25 @@ function RootNavigator() {
               animation: 'fade',
             }}
           />
-          <Stack.Screen
-            name="create"
-            options={{
-              animation: 'fade',
-              animationDuration: 200,
-            }}
-          />
+          {/* Protected create route - require email confirmation if email exists */}
+          {/* Allow access if: emailConfirmed is true OR emailConfirmed is undefined (no email scope) */}
+          {/* Block access if: emailConfirmed is explicitly false */}
+          {/* Use API field name directly: emailConfirmed */}
+          <Stack.Protected
+            guard={
+              currentUser?.emailConfirmed === undefined
+                ? true // No email scope - allow access
+                : currentUser?.emailConfirmed !== false // Allow if confirmed, block if explicitly false
+            }
+          >
+            <Stack.Screen
+              name="create"
+              options={{
+                animation: 'fade',
+                animationDuration: 200,
+              }}
+            />
+          </Stack.Protected>
           <Stack.Screen name="video-editor" />
           <Stack.Screen name="video-trimmer" />
           <Stack.Screen

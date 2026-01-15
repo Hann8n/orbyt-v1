@@ -500,7 +500,12 @@ const FeedPager = memo(
                 ))}
               </View>
               {nativeTabsEnabled && (
-                <Pressable onPress={() => router.push('/create')} style={styles.createButton}>
+                <Pressable
+                  onPress={() => {
+                    router.push('/create');
+                  }}
+                  style={styles.createButton}
+                >
                   <SvgXml xml={CAMERA_2_FILL_ICON_SVG} width={24} height={24} />
                 </Pressable>
               )}

@@ -7,6 +7,7 @@ import { RichText, AtUri } from '@atproto/api';
 import { Platform } from 'react-native';
 import { storageHelpers } from '../../../utils/storage/storage';
 import { AtprotoCore } from '../core';
+import { logger } from '../../../utils/logger';
 import type {
   FeedResponse,
   FeedParams,
@@ -462,6 +463,33 @@ export class FeedService {
     feedSlug?: string
   ): Promise<CreateRecordResponse> {
     await AtprotoCore.ensureSession();
+
+    // Check email confirmation before allowing video post
+    // Use userStore as source of truth (uses API field name directly: emailConfirmed)
+    try {
+      const { useUserStore } = await import('../../../stores/userStore');
+      const currentUser = useUserStore.getState().currentUser;
+
+      // Block if emailConfirmed is explicitly false (has email but not confirmed)
+      // Allow if true (confirmed) or undefined (no email scope)
+      // Use API field name directly: emailConfirmed
+      if (currentUser?.emailConfirmed === false) {
+        throw new Error(
+          'Email verification required. Please verify your email address before posting videos.'
+        );
+      }
+      // Allow access if emailConfirmed is true or undefined
+    } catch (error) {
+      // Re-throw verification errors
+      if (error instanceof Error && error.message.includes('Email verification required')) {
+        throw error;
+      }
+      // Log and continue on import errors (don't block on service errors)
+      logger.warn('Failed to check email confirmation status', {
+        component: 'FeedService',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
 
     try {
       // Validate video file

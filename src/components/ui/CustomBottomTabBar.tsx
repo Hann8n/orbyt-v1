@@ -11,7 +11,7 @@ import { Colors, Avatar } from './UI';
 import { useUnreadCount } from '../../hooks/useUnreadCount';
 import { NotificationIndicator } from './NotificationIndicator';
 import { useGlobalAccountSwitcher } from '../../hooks/useGlobalModals';
-import { useUserStore } from '../../stores/userStore';
+import { useUserStore, isEmailVerificationRequired } from '../../stores/userStore';
 import { useProfile } from '../../services/data/ProfileService';
 import { useOrbytColors } from '../../hooks/useOrbytColors';
 import { tabRefs } from '../../utils/navigation/tabRefs';
@@ -129,6 +129,8 @@ const CustomBottomTabBar: React.FC<CustomBottomTabBarProps> = ({
   const { hasUnread } = useUnreadCount();
   const { presentAccountSwitcher } = useGlobalAccountSwitcher();
   const setTabBarHeight = useSetTabBarHeight();
+  const currentUser = useUserStore(state => state.currentUser);
+  const setShowEmailVerificationModal = useUserStore(state => state.setShowEmailVerificationModal);
 
   const tabIconSize = useMemo(() => Math.round(Math.max(26, Math.min(36, width * 0.085))), [width]);
   const captureSize = useMemo(() => Math.round(tabIconSize * 1.15), [tabIconSize]);
@@ -225,8 +227,12 @@ const CustomBottomTabBar: React.FC<CustomBottomTabBarProps> = ({
             }
             break;
           case 'create':
-            // Create tab: navigate to root route using router
-            router.push('/create');
+            // Check if email verification is required before navigating
+            if (isEmailVerificationRequired(currentUser)) {
+              setShowEmailVerificationModal(true);
+            } else {
+              router.push('/create');
+            }
             break;
         }
       } else {
@@ -235,7 +241,12 @@ const CustomBottomTabBar: React.FC<CustomBottomTabBarProps> = ({
         navigationPendingRef.current = true;
 
         if (tab.iconType === 'create') {
-          router.push('/create');
+          // Check if email verification is required before navigating
+          if (isEmailVerificationRequired(currentUser)) {
+            setShowEmailVerificationModal(true);
+          } else {
+            router.push('/create');
+          }
           // Reset guard after navigation (create uses router, not navigation)
           setTimeout(() => {
             navigationPendingRef.current = false;
@@ -258,7 +269,7 @@ const CustomBottomTabBar: React.FC<CustomBottomTabBarProps> = ({
         }
       }
     },
-    [navigation, router, state]
+    [navigation, router, state, currentUser, setShowEmailVerificationModal]
   );
 
   const handleLongPress = useCallback(
