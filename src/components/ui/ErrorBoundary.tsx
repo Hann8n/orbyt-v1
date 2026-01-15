@@ -24,12 +24,12 @@ import { View, Text, StyleSheet, Linking, Pressable, Alert, Platform } from 'rea
 import { useRouter, useSegments } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import * as Device from 'expo-device';
-import Constants from 'expo-constants';
 import { logger } from '../../utils/logger';
 import { Colors, RetryButton } from './UI';
 import { BORDER_RADIUS } from '../../utils/constants';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
 import { GlassView } from 'expo-glass-effect';
+import { getFormattedVersion } from '../../utils/version';
 
 export interface ErrorBoundaryProps {
   children: ReactNode;
@@ -276,7 +276,7 @@ const ErrorFallback: React.FC<ErrorFallbackProps> = ({
     const appType = `Orbyt for ${platform}`;
     const osVersion = Device.osVersion || 'Unknown';
     const modelName = Device.modelName || 'Unknown';
-    const appVersion = Constants.expoConfig?.version || 'Unknown';
+    const appVersion = getFormattedVersion();
 
     return [
       appType,

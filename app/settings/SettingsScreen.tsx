@@ -13,6 +13,7 @@ import * as Clipboard from 'expo-clipboard';
 import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
 import Icon from '../../src/components/ui/Icon';
+import { getBuildVersion, getUpdateVersion, getFormattedVersion } from '../../src/utils/version';
 import { Colors } from '../../src/components/ui/UI';
 import ListHeader from '../../src/components/ui/ListHeader';
 import { OptionsButton } from '../../src/components/ui/OptionsButton';
@@ -211,7 +212,9 @@ const SettingsScreen: React.FC = () => {
     Linking.openURL(`mailto:${email}`).catch(() => {});
   };
 
-  const appVersion = Constants.expoConfig?.version || '1.0.0';
+  const formattedVersion = getFormattedVersion();
+  const buildVersion = getBuildVersion();
+  const updateVersion = getUpdateVersion();
 
   const handleVersionPress = () => {
     if (__DEV__) {
@@ -225,11 +228,22 @@ const SettingsScreen: React.FC = () => {
       const groupId =
         (Constants.manifest2?.metadata as { updateGroup?: string })?.updateGroup || 'N/A';
 
-      // Format: Update ID (Channel)
-      const formattedInfo = updateId !== 'N/A' ? `${updateId} (${channel})` : 'N/A';
-      const message = `${formattedInfo}\n\nGroup ID: ${groupId}`;
+      // Build detailed version message
+      const buildInfo = `Build Version: ${buildVersion}`;
+      const updateInfo = updateVersion ? `Update Version: ${updateVersion}` : 'Update Version: N/A';
+      const updateDetails = `Update ID: ${updateId}\nChannel: ${channel}`;
+      const groupInfo = `Group ID: ${groupId}`;
 
-      Alert.alert('Update Information', message, [
+      const message = `${buildInfo}\n${updateInfo}\n\n${updateDetails}\n${groupInfo}`;
+
+      Alert.alert('Version Information', message, [
+        {
+          text: 'Copy Version',
+          onPress: async () => {
+            await Clipboard.setStringAsync(formattedVersion);
+            Alert.alert('Copied', 'Version copied to clipboard');
+          },
+        },
         {
           text: 'Copy Update ID',
           onPress: async () => {
@@ -580,7 +594,7 @@ const SettingsScreen: React.FC = () => {
                       <Text style={styles.footerSubtext}> for the community</Text>
                     </View>
                     <TouchableOpacity onPress={handleVersionPress} activeOpacity={0.7}>
-                      <Text style={styles.versionText}>v{appVersion}</Text>
+                      <Text style={styles.versionText}>v{formattedVersion}</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
