@@ -128,6 +128,15 @@
         "projectId": "67a8dfaf-4d9a-4d5d-bf99-1df4e4619bc8"
       }
     },
-    "owner": "orbyt"
+    "owner": "orbyt",
+    "updates": {
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0,
+      "url": "https://u.expo.dev/67a8dfaf-4d9a-4d5d-bf99-1df4e4619bc8"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    }
   }
 }

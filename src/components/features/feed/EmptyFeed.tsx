@@ -247,7 +247,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
         <View
           style={[
             styles.emptyContainer,
-            { justifyContent: 'center' },
+            { justifyContent: 'center', backgroundColor: Colors.black },
             viewableAreaHeight ? { height: viewableAreaHeight } : {},
           ]}
         >
@@ -265,7 +265,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
               />
             </View>
             {displayMessage && (
-              <Text style={[styles.emptyText, { color: textColor }]}>{displayMessage}</Text>
+              <Text style={[styles.emptyText, { color: Colors.white }]}>{displayMessage}</Text>
             )}
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>suggested accounts</Text>
@@ -287,7 +287,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
       <View
         style={[
           styles.emptyContainer,
-          { justifyContent: 'center' },
+          { justifyContent: 'center', backgroundColor: Colors.black },
           viewableAreaHeight ? { height: viewableAreaHeight } : {},
         ]}
       >
@@ -302,7 +302,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
               allowDownscaling={true}
             />
           </View>
-          <Text style={[styles.emptyText, { color: textColor }]}>{displayMessage}</Text>
+          <Text style={[styles.emptyText, { color: Colors.white }]}>{displayMessage}</Text>
         </View>
       </View>
     );

@@ -1,12 +1,13 @@
 {
   "cli": {
-    "version": "16.17.4",
+    "version": ">=16.17.4",
     "appVersionSource": "remote"
   },
   "build": {
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "channel": "development",
       "ios": {
         "resourceClass": "m-medium"
       },
@@ -16,6 +17,7 @@
     },
     "preview": {
       "distribution": "internal",
+      "channel": "preview",
       "env": {
         "EXPO_PUBLIC_APP_CONFIG": "app.dev.json"
       }
@@ -23,6 +25,7 @@
     "production": {
       "autoIncrement": true,
       "distribution": "store",
+      "channel": "production",
       "env": {
         "EXPO_PUBLIC_APP_CONFIG": "app.prod.json"
       }
@@ -44,7 +47,7 @@
       "extends": "production",
       "distribution": "store",
       "android": {
-        "buildType": "aab"
+        "buildType": "app-bundle"
       },
       "env": {
         "EXPO_PUBLIC_APP_CONFIG": "app.prod.json"

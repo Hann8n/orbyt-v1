@@ -384,7 +384,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
             <EmptyFeed
               type="end"
               secondaryColor={secondaryColor}
-              profileColors={profileColors}
               viewableAreaHeight={cardHeight}
               feedOption={feedOption}
             />
