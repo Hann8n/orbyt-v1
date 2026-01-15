@@ -22,7 +22,7 @@ import ProfileService, {
 import { getProfileColors } from '../../src/utils/formatting/colors';
 import { useOrbytColors, invalidateOrbytColors } from '../../src/hooks/useOrbytColors';
 import type { ProfileViewWithOrbyt } from '../../src/services/api/types';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useSegments } from 'expo-router';
 import Icon, {
   BackArrowIcon,
   Loading3FillIcon,
@@ -468,6 +468,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const overlayTop = (typeof insets?.top === 'number' ? insets.top : 0) + 5;
 
   const showBackButton = !!rawIdentifier;
+  const segments = useSegments();
+  // Check if we're in a modal (not in tabs) - if we have rawIdentifier and we're not in (tabs), it's a modal
+  const isModal = showBackButton && !segments.includes('(tabs)');
 
   // Shared scroll progress for header animation (0 = top, 1 = fully faded/dimmed)
   const headerScrollProgress = useSharedValue(0);
@@ -643,10 +646,22 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
             style={styles.overlayBackButton}
           >
             <View style={styles.backIconContainer}>
-              <Animated.View style={[StyleSheet.absoluteFillObject, backIconPrimaryStyle]}>
+              <Animated.View
+                style={[
+                  StyleSheet.absoluteFillObject,
+                  backIconPrimaryStyle,
+                  isModal && { transform: [{ rotate: '90deg' }] },
+                ]}
+              >
                 <BackArrowIcon size={30} color={baseBackTextColor} />
               </Animated.View>
-              <Animated.View style={[StyleSheet.absoluteFillObject, backIconSecondaryStyle]}>
+              <Animated.View
+                style={[
+                  StyleSheet.absoluteFillObject,
+                  backIconSecondaryStyle,
+                  isModal && { transform: [{ rotate: '90deg' }] },
+                ]}
+              >
                 <BackArrowIcon size={30} color={Colors.white} />
               </Animated.View>
             </View>

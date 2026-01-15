@@ -36,7 +36,7 @@ import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Colors, Avatar } from '../src/components/ui/UI';
 import { Loading3FillIcon } from '../src/components/ui/Icon';
 import { useProfileUpdateMutation, useProfile } from '../src/services/data/ProfileService';
-import { hexToRGBA } from '../src/utils/formatting/colors';
+import { hexToRGBA, blendColors } from '../src/utils/formatting/colors';
 import { BORDER_RADIUS } from '../src/utils/constants';
 import { useCurrentUser } from '../src/stores/userStore';
 import { splitHandleSuffix } from '../src/utils/formatting/handles';
@@ -1016,7 +1016,13 @@ const EditProfileScreen: React.FC = () => {
                 <View
                   style={[
                     styles.divider,
-                    { backgroundColor: hexToRGBA(currentColors.textColor, 0.2) },
+                    {
+                      backgroundColor: blendColors(
+                        currentColors.backgroundColor,
+                        currentColors.textColor,
+                        0.2
+                      ),
+                    },
                   ]}
                 />
 
@@ -1047,7 +1053,11 @@ const EditProfileScreen: React.FC = () => {
                         style={[
                           styles.uploadButton,
                           {
-                            backgroundColor: hexToRGBA(currentColors.textColor, 0.15),
+                            backgroundColor: blendColors(
+                              currentColors.backgroundColor,
+                              currentColors.textColor,
+                              0.15
+                            ),
                           },
                         ]}
                         onPress={handleAvatarPress}
@@ -1063,7 +1073,13 @@ const EditProfileScreen: React.FC = () => {
                 <View
                   style={[
                     styles.divider,
-                    { backgroundColor: hexToRGBA(currentColors.textColor, 0.12) },
+                    {
+                      backgroundColor: blendColors(
+                        currentColors.backgroundColor,
+                        currentColors.textColor,
+                        0.12
+                      ),
+                    },
                   ]}
                 />
               </Animated.View>
@@ -1132,7 +1148,13 @@ const EditProfileScreen: React.FC = () => {
               <View
                 style={[
                   styles.divider,
-                  { backgroundColor: hexToRGBA(currentColors.textColor, 0.12) },
+                  {
+                    backgroundColor: blendColors(
+                      currentColors.backgroundColor,
+                      currentColors.textColor,
+                      0.12
+                    ),
+                  },
                 ]}
               />
             )}

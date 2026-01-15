@@ -21,7 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { BackArrowIcon, MoreFillIcon, Loading3FillIcon } from '../../ui/Icon';
 import { OutlinkIcon } from '../../ui/Icon';
 import { useRouter } from 'expo-router';
-import { hexToRGBA } from '../../../utils/formatting/colors';
+import { hexToRGBA, blendColors } from '../../../utils/formatting/colors';
 import { Avatar } from '../../ui/UI';
 import { Colors } from '../../ui/UI';
 import { splitHandleSuffix } from '../../../utils/formatting/handles';
@@ -125,7 +125,7 @@ const ActionButton = memo<{
       const showFilledState = pressed ? !baselineFilled : hasFilledBackground;
 
       const baseStyle = {
-        backgroundColor: showFilledState ? textColor : hexToRGBA(textColor, 0.2),
+        backgroundColor: showFilledState ? textColor : blendColors(backgroundColor, textColor, 0.2),
         opacity: action.disabled ? 0.4 : 1,
       };
 
@@ -133,7 +133,9 @@ const ActionButton = memo<{
         case 'danger':
           return {
             ...baseStyle,
-            backgroundColor: pressed ? hexToRGBA('#ff4444', 0.4) : hexToRGBA('#ff4444', 0.2),
+            backgroundColor: pressed
+              ? blendColors(backgroundColor, '#ff4444', 0.4)
+              : blendColors(backgroundColor, '#ff4444', 0.2),
           };
         case 'secondary':
           return {
@@ -144,7 +146,7 @@ const ActionButton = memo<{
           return baseStyle;
       }
     },
-    [action.variant, action.disabled, textColor, hasFilledBackground]
+    [action.variant, action.disabled, textColor, backgroundColor, hasFilledBackground]
   );
 
   const getContentColor = useCallback(

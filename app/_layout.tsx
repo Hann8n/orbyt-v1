@@ -155,7 +155,15 @@ function RootNavigator() {
             }}
           />
           <Stack.Screen name="channel/[id]" />
-          <Stack.Screen name="profile/[did]" />
+          <Stack.Screen
+            name="profile/[did]"
+            options={{
+              headerShown: false,
+              presentation: 'fullScreenModal',
+              gestureEnabled: true,
+              animation: 'slide_from_right',
+            }}
+          />
           <Stack.Screen name="chat" />
           <Stack.Screen
             name="settings"

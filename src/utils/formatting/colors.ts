@@ -19,6 +19,27 @@ export const hexToRGBA = (hex: string, alpha: number): string => {
 };
 
 /**
+ * Blends two hex colors together to create a solid color
+ * @param color1 First hex color (e.g., '#FFFFFF')
+ * @param color2 Second hex color (e.g., '#000000')
+ * @param ratio Blend ratio (0-1), where 0 = color1, 1 = color2
+ * @returns Blended hex color string
+ */
+export const blendColors = (color1: string, color2: string, ratio: number = 0.5): string => {
+  'worklet';
+  const r = Math.round(
+    parseInt(color1.slice(1, 3), 16) * (1 - ratio) + parseInt(color2.slice(1, 3), 16) * ratio
+  );
+  const g = Math.round(
+    parseInt(color1.slice(3, 5), 16) * (1 - ratio) + parseInt(color2.slice(3, 5), 16) * ratio
+  );
+  const b = Math.round(
+    parseInt(color1.slice(5, 7), 16) * (1 - ratio) + parseInt(color2.slice(5, 7), 16) * ratio
+  );
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+};
+
+/**
  * Checks if a color is dark (for determining text color)
  */
 export const isColorDark = (hex: string): boolean => {

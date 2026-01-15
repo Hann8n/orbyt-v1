@@ -16,7 +16,12 @@ import { Modal as RNModal } from 'react-native';
 // SafeAreaView is imported elsewhere; no direct usage in this module
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import Icon, { Loading3FillIcon } from './Icon';
-import { hexToRGBA, isColorDark, getContrastRatio } from '../../utils/formatting/colors';
+import {
+  hexToRGBA,
+  isColorDark,
+  getContrastRatio,
+  blendColors,
+} from '../../utils/formatting/colors';
 import Typography, { TypographyText } from '../../utils/components/typography';
 import { BORDER_RADIUS } from '../../utils/constants';
 import type { StatusView } from '../../services/api/types';
@@ -1085,6 +1090,7 @@ export default {
   Badge,
   Avatar,
   hexToRGBA,
+  blendColors,
   isColorDark,
   getContrastRatio,
   meetsContrastGuidelines,

@@ -17,6 +17,7 @@ import Icon, { PlusIcon, CheckIcon, ListViewIcon, GridViewIcon } from '../../ui/
 import type { ViewMode } from '../../../types';
 import {
   hexToRGBA,
+  blendColors,
   darkenColor,
   getStatusBarStyle,
   isColorDark,
@@ -77,6 +78,7 @@ const SubscribeButton: React.FC<{
   onViewModeChange?: (mode: ViewMode) => void;
   showViewToggle?: boolean;
   containerStyle?: ViewStyle;
+  isOrbyt?: boolean;
 }> = ({
   channel,
   textColor,
@@ -87,6 +89,7 @@ const SubscribeButton: React.FC<{
   onViewModeChange,
   showViewToggle = false,
   containerStyle,
+  isOrbyt = false,
 }) => {
   const { subscribedChannels, subscribeToChannel, unsubscribeFromChannel } =
     useSubscribedChannels();
@@ -193,14 +196,18 @@ const SubscribeButton: React.FC<{
       // Always reflect the actual subscription state; pressed state only tweaks opacity
       const showFilledState = hasFilledBackground;
 
+      // On Orbyt pages, use black and white for blending
+      const blendBg = isOrbyt ? Colors.black : _backgroundColor;
+      const blendFg = isOrbyt ? Colors.white : '#FFFFFF';
+
       return {
-        backgroundColor: showFilledState ? subscribeColor : 'rgba(255, 255, 255, 0.2)',
+        backgroundColor: showFilledState ? subscribeColor : blendColors(blendBg, blendFg, 0.2),
         borderColor: 'transparent',
         borderWidth: 0,
         opacity: pressed ? 0.9 : 1,
       };
     },
-    [hasFilledBackground, subscribeColor]
+    [hasFilledBackground, subscribeColor, _backgroundColor, isOrbyt]
   );
 
   const getContentColor = useCallback(
@@ -484,6 +491,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
             onViewModeChange={onViewModeChange}
             showViewToggle={showViewToggle}
             containerStyle={hasTabs ? styles.subscribeContainerWithTabs : undefined}
+            isOrbyt={isOrbyt}
           />
         )}
         {children}
