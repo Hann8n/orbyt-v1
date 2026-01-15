@@ -2,7 +2,7 @@
   "expo": {
     "name": "orbyt",
     "slug": "byte-app",
-    "version": "1.0.8",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./src/assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -10,6 +10,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.getorbyt.app",
+      "buildNumber": "14",
       "icon": "./src/assets/AppIcons/iOS/orbyt.png",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -27,6 +28,7 @@
         "backgroundColor": "#000000"
       },
       "package": "com.orbyt.app",
+      "versionCode": 14,
       "permissions": ["CAMERA", "RECORD_AUDIO"]
     },
     "web": {
@@ -127,7 +129,7 @@
       "eas": {
         "projectId": "67a8dfaf-4d9a-4d5d-bf99-1df4e4619bc8"
       },
-      "updateVersion": "2026.01.15.4"
+      "updateVersion": "2026.01.15.1"
     },
     "owner": "orbyt",
     "updates": {
