@@ -135,6 +135,7 @@ function RootNavigator() {
   const insets = useSafeAreaInsets();
   const isAuthenticated = useUserStore(state => state.isAuthenticated);
   const currentUser = useUserStore(state => state.currentUser);
+  const modalProfileEnabled = useUserStore(state => state.modalProfileEnabled);
 
   return (
     <View style={styles.rootView}>
@@ -203,7 +204,7 @@ function RootNavigator() {
             name="profile/[did]"
             options={{
               headerShown: false,
-              presentation: 'fullScreenModal',
+              presentation: modalProfileEnabled ? 'modal' : 'card',
               gestureEnabled: true,
               animation: 'slide_from_right',
             }}

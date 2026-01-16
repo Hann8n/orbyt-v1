@@ -33,7 +33,7 @@ import Icon, {
 } from '../../src/components/ui/Icon';
 import { useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import { ProfileHeader, TabNavigation, TabOption } from '../../src/components/layout/header';
-import { useCurrentUser, useProfileCacheSync } from '../../src/stores/userStore';
+import { useCurrentUser, useProfileCacheSync, useFeedSettings } from '../../src/stores/userStore';
 import {
   HeaderAction,
   HeaderActionButton,
@@ -86,6 +86,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
 
   // User store hooks
   const { currentUser } = useCurrentUser();
+  const { modalProfileEnabled } = useFeedSettings();
 
   // Automatically sync ProfileCache with userStore
   useProfileCacheSync();
@@ -465,12 +466,29 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     }
   }, [onLogout]);
 
-  const overlayTop = (typeof insets?.top === 'number' ? insets.top : 0) + 5;
-
   const showBackButton = !!rawIdentifier;
   const segments = useSegments();
-  // Check if we're in a modal (not in tabs) - if we have rawIdentifier and we're not in (tabs), it's a modal
-  const isModal = showBackButton && !segments.includes('(tabs)');
+
+  // Labs feature: Modal profile behavior - computed once and reused
+  const { isModal, overlayTop, headerPaddingTop, actionButtonsTop } = useMemo(() => {
+    if (!modalProfileEnabled) {
+      const defaultTop = (insets?.top ?? 0) + 5;
+      return {
+        isModal: false,
+        overlayTop: defaultTop,
+        headerPaddingTop: undefined,
+        actionButtonsTop: defaultTop,
+      };
+    }
+    const isModal = !!rawIdentifier && !segments.includes('(tabs)');
+    const defaultTop = (insets?.top ?? 0) + 5;
+    return {
+      isModal,
+      overlayTop: isModal ? 5 : defaultTop,
+      headerPaddingTop: isModal ? 24 : !rawIdentifier ? defaultTop + 4 : undefined,
+      actionButtonsTop: isModal ? 20 : defaultTop,
+    };
+  }, [modalProfileEnabled, rawIdentifier, segments, insets?.top]);
 
   // Shared scroll progress for header animation (0 = top, 1 = fully faded/dimmed)
   const headerScrollProgress = useSharedValue(0);
@@ -635,9 +653,61 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
         },
       ]}
     >
+      {/* Grab handle for modal */}
+      {isModal && (
+        <Pressable
+          style={[
+            styles.grabHandle,
+            {
+              top: 5,
+            },
+          ]}
+          hitSlop={{ top: 10, bottom: 10, left: 20, right: 20 }}
+        >
+          <View style={styles.grabHandleContainer}>
+            <Animated.View
+              style={[
+                StyleSheet.absoluteFillObject,
+                backIconPrimaryStyle,
+                styles.grabHandleBarWrapper,
+              ]}
+            >
+              <View
+                style={[
+                  styles.grabHandleBar,
+                  {
+                    backgroundColor:
+                      (dynamicColors ? dynamicColors.textColor : profileColors.textColor) ||
+                      Colors.white,
+                    opacity: 0.5,
+                  },
+                ]}
+              />
+            </Animated.View>
+            <Animated.View
+              style={[
+                StyleSheet.absoluteFillObject,
+                backIconSecondaryStyle,
+                styles.grabHandleBarWrapper,
+              ]}
+            >
+              <View
+                style={[
+                  styles.grabHandleBar,
+                  {
+                    backgroundColor: Colors.white,
+                    opacity: 0.5,
+                  },
+                ]}
+              />
+            </Animated.View>
+          </View>
+        </Pressable>
+      )}
+
       {/* Overlay actions row (back, follow, bell, edit) */}
-      <View style={[styles.overlayRow, { top: overlayTop }]}>
-        {showBackButton ? (
+      <View style={[styles.overlayRow, { top: actionButtonsTop }]}>
+        {showBackButton && !isModal ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Back"
@@ -650,7 +720,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
                 style={[
                   StyleSheet.absoluteFillObject,
                   backIconPrimaryStyle,
-                  isModal && { transform: [{ rotate: '90deg' }] },
+                  isModal && { transform: [{ rotate: '-90deg' }] },
                 ]}
               >
                 <BackArrowIcon size={30} color={baseBackTextColor} />
@@ -659,7 +729,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
                 style={[
                   StyleSheet.absoluteFillObject,
                   backIconSecondaryStyle,
-                  isModal && { transform: [{ rotate: '90deg' }] },
+                  isModal && { transform: [{ rotate: '-90deg' }] },
                 ]}
               >
                 <BackArrowIcon size={30} color={Colors.white} />
@@ -716,11 +786,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
           }
           userDid={profileDid}
           queryOptions={queryOptions}
+          isModal={isModal}
           headerComponent={
             <View style={styles.headerContainer} pointerEvents="box-none">
               <ProfileHeader
                 handle={profileData?.handle || null}
-                applySafeArea={true}
+                applySafeArea={!isModal}
+                headerStyle={headerPaddingTop ? { paddingTop: headerPaddingTop } : undefined}
                 onColorsChange={setDynamicColors}
                 headerScrollProgress={headerScrollProgress}
                 contentFadeDisabled={viewMode === 'grid'}
@@ -752,8 +824,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
             dynamicColors ? dynamicColors.backgroundColor : profileColors.backgroundColor
           }
           secondaryColor={dynamicColors ? dynamicColors.textColor : profileColors.textColor}
-          isRefreshing={refreshing}
-          onRefresh={onRefresh}
+          isRefreshing={isModal ? false : refreshing}
+          onRefresh={isModal ? undefined : onRefresh}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
           isVisible={isRouteFocused}
@@ -808,7 +880,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
             />
           )}
           <Pressable
-            style={[styles.closeButton, { top: overlayTop }]}
+            style={[styles.closeButton, { top: isModal ? 5 : overlayTop }]}
             onPress={() => setFullscreenImageUri(null)}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
@@ -946,5 +1018,30 @@ const styles = StyleSheet.create({
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  grabHandle: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 25,
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+  },
+  grabHandleContainer: {
+    width: 42,
+    height: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  grabHandleBarWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  grabHandleBar: {
+    width: 42,
+    height: 4,
+    borderRadius: 2,
   },
 });

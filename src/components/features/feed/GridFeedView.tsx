@@ -99,6 +99,7 @@ interface GridFeedViewProps {
   onRetry?: () => void;
   ListComponent?: React.ComponentType<unknown> | null; // Optional custom list component
   onVerticalScroll?: (scrollY: number) => void;
+  isModal?: boolean;
 }
 
 const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
@@ -107,6 +108,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
       feed,
       headerComponent,
       refreshControl,
+      isModal = false,
       backgroundColor = '#000',
       secondaryColor = '#fff',
       isProfileFeed = false,
@@ -296,7 +298,11 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
             contentContainerStyle={styles.scrollViewContent}
             showsVerticalScrollIndicator={false}
             bounces={true}
-            refreshControl={refreshControl as React.ReactElement<RefreshControlProps> | undefined}
+            refreshControl={
+              isModal || !refreshControl
+                ? undefined
+                : (refreshControl as React.ReactElement<RefreshControlProps>)
+            }
             onScroll={handleScroll}
             scrollEventThrottle={16}
           >
@@ -355,7 +361,9 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
                   ) : null
                 }
                 refreshControl={
-                  refreshControl as React.ReactElement<RefreshControlProps> | undefined
+                  isModal || !refreshControl
+                    ? undefined
+                    : (refreshControl as React.ReactElement<RefreshControlProps>)
                 }
                 onScroll={handleScroll}
                 scrollEventThrottle={16}

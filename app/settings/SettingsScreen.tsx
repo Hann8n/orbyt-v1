@@ -10,7 +10,6 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
 import Icon from '../../src/components/ui/Icon';
 import { getBuildVersion, getUpdateVersion, getFormattedVersion } from '../../src/utils/version';
@@ -38,6 +37,7 @@ const SettingsScreen: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isExperimentalFeedsEnabled, setIsExperimentalFeedsEnabled] = useState(true);
   const [isNativeTabsEnabled, setIsNativeTabsEnabled] = useState(false);
+  const [isModalProfileEnabled, setIsModalProfileEnabled] = useState(false);
   const [isProfileLinkCopied, setIsProfileLinkCopied] = useState(false);
   const { presentAccountSwitcher } = useGlobalAccountSwitcher();
   const {
@@ -45,6 +45,8 @@ const SettingsScreen: React.FC = () => {
     setExperimentalFeedsEnabled,
     getNativeTabsEnabled,
     setNativeTabsEnabled,
+    getModalProfileEnabled,
+    setModalProfileEnabled,
   } = useFeedSettings();
   const { currentUser } = useCurrentUser();
   const { savedAccounts } = useAccountManagement();
@@ -55,14 +57,16 @@ const SettingsScreen: React.FC = () => {
       try {
         const experimentalFeedsEnabled = await getExperimentalFeedsEnabled();
         const nativeTabsEnabled = await getNativeTabsEnabled();
+        const modalProfileEnabled = await getModalProfileEnabled();
         setIsExperimentalFeedsEnabled(experimentalFeedsEnabled);
         setIsNativeTabsEnabled(nativeTabsEnabled);
+        setIsModalProfileEnabled(modalProfileEnabled);
       } catch (_error) {
         // Intentionally ignore setting load failures
       }
     };
     loadSettings();
-  }, [getExperimentalFeedsEnabled, getNativeTabsEnabled]);
+  }, [getExperimentalFeedsEnabled, getNativeTabsEnabled, getModalProfileEnabled]);
 
   const handleLogout = async () => {
     if (isSubmitting) return;
@@ -172,6 +176,20 @@ const SettingsScreen: React.FC = () => {
     }
   };
 
+  const handleToggleModalProfile = async (value: boolean) => {
+    // Optimistically update UI immediately
+    const previousValue = isModalProfileEnabled;
+    setIsModalProfileEnabled(value);
+
+    try {
+      await setModalProfileEnabled(value);
+    } catch (_error) {
+      // Revert on error
+      setIsModalProfileEnabled(previousValue);
+      Alert.alert('error', 'failed to save setting. please try again.');
+    }
+  };
+
   const handleClearCache = async () => {
     Alert.alert(
       'Clear app cache',
@@ -223,16 +241,13 @@ const SettingsScreen: React.FC = () => {
     try {
       const updateId = Updates.updateId || 'N/A';
       const channel = Updates.channel || 'N/A';
-      const groupId =
-        (Constants.manifest2?.metadata as { updateGroup?: string })?.updateGroup || 'N/A';
 
       // Build detailed version message
       const buildInfo = `Build Version: ${buildVersion}`;
       const updateInfo = updateVersion ? `Update Version: ${updateVersion}` : 'Update Version: N/A';
       const updateDetails = `Update ID: ${updateId}\nChannel: ${channel}`;
-      const groupInfo = `Group ID: ${groupId}`;
 
-      const message = `${buildInfo}\n${updateInfo}\n\n${updateDetails}\n${groupInfo}`;
+      const message = `${buildInfo}\n${updateInfo}\n\n${updateDetails}`;
 
       Alert.alert('Version Information', message, [
         {
@@ -339,7 +354,7 @@ const SettingsScreen: React.FC = () => {
           onPress: () => router.push('/settings/algorithmic-feed'),
           showChevron: true,
         },
-        ...(!__DEV__ && Updates.channel === 'developer'
+        ...(!__DEV__ && (Updates.channel === 'development' || Updates.channel === 'preview')
           ? [
               {
                 id: 'app-icon',
@@ -519,6 +534,14 @@ const SettingsScreen: React.FC = () => {
         subtitle: 'Use native navigation bar',
         value: isNativeTabsEnabled,
         onValueChange: handleToggleNativeTabs,
+      });
+      listData.push({
+        kind: 'toggle',
+        id: 'modal-profile',
+        label: 'Modal profile',
+        subtitle: 'Native modal with pull-to-dismiss',
+        value: isModalProfileEnabled,
+        onValueChange: handleToggleModalProfile,
       });
     }
   });

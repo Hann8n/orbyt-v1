@@ -8,7 +8,7 @@ import { useEffect } from 'react';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 // Note: Using individual selectors instead of shallow comparison for better performance
-import { storageAdapter, storageHelpers } from '../utils/storage/storage';
+import { storageAdapter, storageHelpers, storage } from '../utils/storage/storage';
 import * as SecureStore from 'expo-secure-store';
 import { InteractionManager } from 'react-native';
 import { Agent } from '@atproto/api';
@@ -103,6 +103,7 @@ interface UserState {
   experimentalFeedsEnabled: boolean;
   feedDebugOverlayEnabled: boolean;
   nativeTabsEnabled: boolean; // Experimental: Use native tabs instead of custom JavaScript tab bar
+  modalProfileEnabled: boolean; // Labs: Enable modal profile presentation with pull-to-dismiss
 
   // Algorithmic feed provider - scoped by DID
   algorithmicFeedProvider: string | null; // Feed URI or null for none
@@ -162,6 +163,8 @@ interface UserState {
   getFeedDebugOverlayEnabled: () => Promise<boolean>;
   setNativeTabsEnabled: (enabled: boolean) => Promise<void>;
   getNativeTabsEnabled: () => Promise<boolean>;
+  setModalProfileEnabled: (enabled: boolean) => Promise<void>;
+  getModalProfileEnabled: () => Promise<boolean>;
 
   // Algorithmic feed provider
   setAlgorithmicFeedProvider: (uri: string | null) => Promise<void>;
@@ -250,6 +253,24 @@ const deferOrbytProfileInit = (context: string = 'userStore') => {
   });
 };
 
+// Helper to check if we're on a development channel (safely handles when Updates is not available)
+const isDevelopmentChannel = (): boolean => {
+  try {
+    // Dynamic require to avoid issues if expo-updates is not available (e.g., during build)
+
+    const Updates = require('expo-updates');
+    const channel = Updates?.channel;
+    // Enable dev features on 'development' or 'preview' channels
+    return channel === 'development' || channel === 'preview';
+  } catch {
+    // If expo-updates is not available, default to false
+    return false;
+  }
+};
+
+// Helper to get storage key for boolean flags (scoped by user DID)
+const getFlagKey = (keyBase: string, did: string | null) => (did ? `${keyBase}_${did}` : keyBase);
+
 // Create the unified user store with persistence
 export const useUserStore = create<UserState>()(
   persist(
@@ -267,10 +288,11 @@ export const useUserStore = create<UserState>()(
       oauthSession: null,
       agent: undefined,
 
-      // Feed settings
-      experimentalFeedsEnabled: true,
-      feedDebugOverlayEnabled: false,
+      // Feed settings - enable dev features on development channels
+      experimentalFeedsEnabled: isDevelopmentChannel(),
+      feedDebugOverlayEnabled: false, // Keep disabled by default, user can enable manually
       nativeTabsEnabled: false, // Default to custom JavaScript tab bar
+      modalProfileEnabled: false, // Labs feature - disabled by default
 
       // Algorithmic feed provider - default to Bluesky Video (thevids)
       algorithmicFeedProvider: ALGORITHMIC_FEED_PROVIDERS.BLUESKY_VIDEO.uri,
@@ -999,98 +1021,43 @@ export const useUserStore = create<UserState>()(
         }
       },
 
-      // Feed settings actions
+      // Feed settings actions - simplified boolean flag methods
       setExperimentalFeedsEnabled: async (enabled: boolean) => {
-        try {
-          const currentUser = get().currentUser;
-          const key = currentUser?.did
-            ? `experimental_feeds_enabled_${currentUser.did}`
-            : 'experimental_feeds_enabled';
-          await storageHelpers.setItem(key, enabled.toString());
-          set({ experimentalFeedsEnabled: enabled });
-        } catch (error) {
-          logger.error('Error setting experimental feeds enabled', error, {
-            component: 'userStore',
-          });
-          throw error;
-        }
+        storage.set(
+          getFlagKey('experimental_feeds_enabled', get().currentUser?.did ?? null),
+          enabled
+        );
+        set({ experimentalFeedsEnabled: enabled });
       },
-
+      getExperimentalFeedsEnabled: async () =>
+        storage.getBoolean(
+          getFlagKey('experimental_feeds_enabled', get().currentUser?.did ?? null)
+        ) ?? true,
       setFeedDebugOverlayEnabled: async (enabled: boolean) => {
-        try {
-          const currentUser = get().currentUser;
-          const key = currentUser?.did
-            ? `feed_debug_overlay_enabled_${currentUser.did}`
-            : 'feed_debug_overlay_enabled';
-          await storageHelpers.setItem(key, enabled.toString());
-          set({ feedDebugOverlayEnabled: enabled });
-        } catch (error) {
-          logger.error('Error setting feed debug overlay enabled', error, {
-            component: 'userStore',
-          });
-          throw error;
-        }
+        storage.set(
+          getFlagKey('feed_debug_overlay_enabled', get().currentUser?.did ?? null),
+          enabled
+        );
+        set({ feedDebugOverlayEnabled: enabled });
       },
-
-      getExperimentalFeedsEnabled: async () => {
-        try {
-          const currentUser = get().currentUser;
-          const key = currentUser?.did
-            ? `experimental_feeds_enabled_${currentUser.did}`
-            : 'experimental_feeds_enabled';
-          const value = await storageHelpers.getItem(key);
-          return value === null ? true : value === 'true';
-        } catch (error) {
-          logger.error('Error getting experimental feeds enabled', error, {
-            component: 'userStore',
-          });
-          return true;
-        }
-      },
-
-      getFeedDebugOverlayEnabled: async () => {
-        try {
-          const currentUser = get().currentUser;
-          const key = currentUser?.did
-            ? `feed_debug_overlay_enabled_${currentUser.did}`
-            : 'feed_debug_overlay_enabled';
-          const value = await storageHelpers.getItem(key);
-          return value === 'true';
-        } catch (error) {
-          logger.error('Error getting feed debug overlay enabled', error, {
-            component: 'userStore',
-          });
-          return false;
-        }
-      },
-
+      getFeedDebugOverlayEnabled: async () =>
+        storage.getBoolean(
+          getFlagKey('feed_debug_overlay_enabled', get().currentUser?.did ?? null)
+        ) ?? false,
       setNativeTabsEnabled: async (enabled: boolean) => {
-        try {
-          const currentUser = get().currentUser;
-          const key = currentUser?.did
-            ? `native_tabs_enabled_${currentUser.did}`
-            : 'native_tabs_enabled';
-          await storageHelpers.setItem(key, enabled.toString());
-          set({ nativeTabsEnabled: enabled });
-        } catch (error) {
-          logger.error('Error setting native tabs enabled', error, { component: 'userStore' });
-          throw error;
-        }
+        storage.set(getFlagKey('native_tabs_enabled', get().currentUser?.did ?? null), enabled);
+        set({ nativeTabsEnabled: enabled });
       },
-
-      getNativeTabsEnabled: async () => {
-        try {
-          const currentUser = get().currentUser;
-          const key = currentUser?.did
-            ? `native_tabs_enabled_${currentUser.did}`
-            : 'native_tabs_enabled';
-          const value = await storageHelpers.getItem(key);
-          return value === null ? false : value === 'true';
-        } catch (error) {
-          logger.error('Error getting native tabs enabled', error, { component: 'userStore' });
-          return false;
-        }
+      getNativeTabsEnabled: async () =>
+        storage.getBoolean(getFlagKey('native_tabs_enabled', get().currentUser?.did ?? null)) ??
+        false,
+      setModalProfileEnabled: async (enabled: boolean) => {
+        storage.set(getFlagKey('modal_profile_enabled', get().currentUser?.did ?? null), enabled);
+        set({ modalProfileEnabled: enabled });
       },
+      getModalProfileEnabled: async () =>
+        storage.getBoolean(getFlagKey('modal_profile_enabled', get().currentUser?.did ?? null)) ??
+        false,
 
       // Algorithmic feed provider actions
       setAlgorithmicFeedProvider: async (uri: string | null) => {
@@ -1416,6 +1383,7 @@ export const useUserStore = create<UserState>()(
           const experimentalFeedsEnabled = await get().getExperimentalFeedsEnabled();
           const feedDebugOverlayEnabled = await get().getFeedDebugOverlayEnabled();
           const nativeTabsEnabled = await get().getNativeTabsEnabled();
+          const modalProfileEnabled = await get().getModalProfileEnabled();
 
           // Record-first backfill: Load algorithmic feed provider from profile record first
           let algorithmicFeedProvider: string | null = null;
@@ -1461,6 +1429,7 @@ export const useUserStore = create<UserState>()(
             experimentalFeedsEnabled,
             feedDebugOverlayEnabled,
             nativeTabsEnabled,
+            modalProfileEnabled,
             algorithmicFeedProvider,
           });
         } catch (error) {
@@ -1672,23 +1641,29 @@ export const useFeedSettings = () => {
   const experimentalFeedsEnabled = useUserStore(state => state.experimentalFeedsEnabled);
   const feedDebugOverlayEnabled = useUserStore(state => state.feedDebugOverlayEnabled);
   const nativeTabsEnabled = useUserStore(state => state.nativeTabsEnabled);
+  const modalProfileEnabled = useUserStore(state => state.modalProfileEnabled);
   const setExperimentalFeedsEnabled = useUserStore(state => state.setExperimentalFeedsEnabled);
   const setFeedDebugOverlayEnabled = useUserStore(state => state.setFeedDebugOverlayEnabled);
   const setNativeTabsEnabled = useUserStore(state => state.setNativeTabsEnabled);
+  const setModalProfileEnabled = useUserStore(state => state.setModalProfileEnabled);
   const getExperimentalFeedsEnabled = useUserStore(state => state.getExperimentalFeedsEnabled);
   const getFeedDebugOverlayEnabled = useUserStore(state => state.getFeedDebugOverlayEnabled);
   const getNativeTabsEnabled = useUserStore(state => state.getNativeTabsEnabled);
+  const getModalProfileEnabled = useUserStore(state => state.getModalProfileEnabled);
 
   return {
     experimentalFeedsEnabled,
     feedDebugOverlayEnabled,
     nativeTabsEnabled,
+    modalProfileEnabled,
     setExperimentalFeedsEnabled,
     setFeedDebugOverlayEnabled,
     setNativeTabsEnabled,
+    setModalProfileEnabled,
     getExperimentalFeedsEnabled,
     getFeedDebugOverlayEnabled,
     getNativeTabsEnabled,
+    getModalProfileEnabled,
   };
 };
 

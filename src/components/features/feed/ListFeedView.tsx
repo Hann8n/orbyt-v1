@@ -554,7 +554,8 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     // Custom snap offsets - memoized to prevent recalculation
     // Use snapToInterval for small devices (full screen displays)
-    const topInset = useMemo(() => insets.top, [insets.top]);
+    // Exclude safe area when in modal mode
+    const topInset = useMemo(() => (isModal ? 0 : insets.top), [insets.top, isModal]);
     const hasHeader = useMemo(() => Boolean(headerComponent), [headerComponent]);
 
     const snapToOffsets = useMemo(() => {
@@ -687,9 +688,11 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           maintainVisibleContentPosition={{
             autoscrollToTopThreshold: undefined,
           }}
-          // Pull to refresh
+          // Pull to refresh - disabled in modal mode
           refreshControl={
-            refreshControl ? (refreshControl as React.ReactElement<RefreshControlProps>) : undefined
+            isModal || !refreshControl
+              ? undefined
+              : (refreshControl as React.ReactElement<RefreshControlProps>)
           }
           // Prevent horizontal interference
           alwaysBounceVertical={false}

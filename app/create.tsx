@@ -809,8 +809,8 @@ const CreateScreen: React.FC = () => {
 
     // Only navigate if component is still mounted
     if (isMountedRef.current) {
-      // Route to video editor if developer, otherwise go straight to post screen
-      if (!__DEV__ && Updates.channel === 'developer') {
+      // Route to video editor if on development channel, otherwise go straight to post screen
+      if (!__DEV__ && Updates.channel === 'development') {
         // For developers: pass segments to video-editor (same as post screen)
         if (videoSegments.length === 1) {
           router.push({

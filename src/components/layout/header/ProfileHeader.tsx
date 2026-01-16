@@ -193,9 +193,9 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
           textColor={dynamicColors.textColor}
           isLoading={false}
           applySafeArea={applySafeArea}
-          reserveTopForOverlayButtons={true}
+          reserveTopForOverlayButtons={!headerStyle}
           contentScrollProgress={contentFadeDisabled ? undefined : headerScrollProgress}
-          contentStyle={headerStyle}
+          style={headerStyle}
           showShadowGradient={false}
         >
           {/* Hide tabs when blocked */}

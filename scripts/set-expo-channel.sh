@@ -7,12 +7,16 @@ set -e
 
 # Get the build configuration (Debug or Release)
 CONFIGURATION="${CONFIGURATION:-Release}"
+# Get the build action (build, install, etc.)
+ACTION="${ACTION:-build}"
 
-# Determine channel based on configuration
-if [ "$CONFIGURATION" = "Debug" ]; then
-  CHANNEL="development"
+# Determine channel based on build action
+# Archive builds (ACTION=install) should use preview
+# All other builds from Xcode should use development
+if [ "$ACTION" = "install" ]; then
+  CHANNEL="preview"
 else
-  CHANNEL="production"
+  CHANNEL="development"
 fi
 
 # Path to Expo.plist
@@ -29,4 +33,4 @@ fi
 /usr/libexec/PlistBuddy -c "Add :EXUpdatesRequestHeaders:expo-channel-name string $CHANNEL" "$EXPO_PLIST" 2>/dev/null || \
 /usr/libexec/PlistBuddy -c "Set :EXUpdatesRequestHeaders:expo-channel-name $CHANNEL" "$EXPO_PLIST"
 
-echo "✅ Set Expo update channel to: $CHANNEL (Configuration: $CONFIGURATION)"
+echo "✅ Set Expo update channel to: $CHANNEL (Configuration: $CONFIGURATION, Action: $ACTION)"
