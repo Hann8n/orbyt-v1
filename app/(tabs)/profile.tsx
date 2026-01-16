@@ -466,29 +466,23 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     }
   }, [onLogout]);
 
-  const showBackButton = !!rawIdentifier;
   const segments = useSegments();
+  const defaultTop = (insets?.top ?? 0) + 5;
 
   // Labs feature: Modal profile behavior - computed once and reused
-  const { isModal, overlayTop, headerPaddingTop, actionButtonsTop } = useMemo(() => {
-    if (!modalProfileEnabled) {
-      const defaultTop = (insets?.top ?? 0) + 5;
+  const { isModal, overlayTop, headerPaddingTop, actionButtonsTop, showBackButton } =
+    useMemo(() => {
+      const isModal = modalProfileEnabled && !!rawIdentifier && !segments.includes('(tabs)');
+      const showBackButton = !!rawIdentifier && !isModal;
+
       return {
-        isModal: false,
-        overlayTop: defaultTop,
-        headerPaddingTop: undefined,
-        actionButtonsTop: defaultTop,
+        isModal,
+        overlayTop: isModal ? 5 : defaultTop,
+        headerPaddingTop: isModal ? 24 : modalProfileEnabled ? defaultTop + 4 : undefined,
+        actionButtonsTop: isModal ? 20 : defaultTop,
+        showBackButton,
       };
-    }
-    const isModal = !!rawIdentifier && !segments.includes('(tabs)');
-    const defaultTop = (insets?.top ?? 0) + 5;
-    return {
-      isModal,
-      overlayTop: isModal ? 5 : defaultTop,
-      headerPaddingTop: isModal ? 24 : !rawIdentifier ? defaultTop + 4 : undefined,
-      actionButtonsTop: isModal ? 20 : defaultTop,
-    };
-  }, [modalProfileEnabled, rawIdentifier, segments, insets?.top]);
+    }, [modalProfileEnabled, rawIdentifier, segments, defaultTop]);
 
   // Shared scroll progress for header animation (0 = top, 1 = fully faded/dimmed)
   const headerScrollProgress = useSharedValue(0);
@@ -707,7 +701,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
 
       {/* Overlay actions row (back, follow, bell, edit) */}
       <View style={[styles.overlayRow, { top: actionButtonsTop }]}>
-        {showBackButton && !isModal ? (
+        {showBackButton ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Back"
@@ -716,22 +710,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
             style={styles.overlayBackButton}
           >
             <View style={styles.backIconContainer}>
-              <Animated.View
-                style={[
-                  StyleSheet.absoluteFillObject,
-                  backIconPrimaryStyle,
-                  isModal && { transform: [{ rotate: '-90deg' }] },
-                ]}
-              >
+              <Animated.View style={[StyleSheet.absoluteFillObject, backIconPrimaryStyle]}>
                 <BackArrowIcon size={30} color={baseBackTextColor} />
               </Animated.View>
-              <Animated.View
-                style={[
-                  StyleSheet.absoluteFillObject,
-                  backIconSecondaryStyle,
-                  isModal && { transform: [{ rotate: '-90deg' }] },
-                ]}
-              >
+              <Animated.View style={[StyleSheet.absoluteFillObject, backIconSecondaryStyle]}>
                 <BackArrowIcon size={30} color={Colors.white} />
               </Animated.View>
             </View>
