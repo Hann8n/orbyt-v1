@@ -30,7 +30,8 @@
     "version:get": "npx tsx scripts/update-version.ts get",
     "update": "yarn version:increment && npx eas-cli update --channel production --message",
     "update:preview": "yarn version:increment && npx eas-cli update --channel preview --message",
-    "update:development": "yarn version:increment && npx eas-cli update --channel development --message"
+    "update:development": "yarn version:increment && npx eas-cli update --channel development --message",
+    "update:all": "npx tsx scripts/push-update-all-channels.ts"
   },
   "dependencies": {
     "@atproto/api": "^0.16.3",
