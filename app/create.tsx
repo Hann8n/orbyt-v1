@@ -45,7 +45,7 @@ import * as Haptics from 'expo-haptics';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { showEditor, isValidFile, type Spec } from 'react-native-clip-trim';
 import { SegmentManager, type Segment } from '../src/utils/video/segmentManager';
-import { useUserStore } from '../src/stores/userStore';
+import * as Updates from 'expo-updates';
 
 // Duration options in seconds
 const DURATION_OPTIONS = [
@@ -113,7 +113,6 @@ const CreateScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const bottomNavBarHeight = getBottomNavBarHeight(insets);
   const listenerSubscription = useRef<Record<string, EventSubscription>>({});
-  const { isDeveloper } = useUserStore();
 
   // Track screen dimensions for camera updates on orientation change
   const [screenDims, setScreenDims] = useState(() => Dimensions.get('window'));
@@ -811,7 +810,7 @@ const CreateScreen: React.FC = () => {
     // Only navigate if component is still mounted
     if (isMountedRef.current) {
       // Route to video editor if developer, otherwise go straight to post screen
-      if (isDeveloper) {
+      if (!__DEV__ && Updates.channel === 'developer') {
         // For developers: pass segments to video-editor (same as post screen)
         if (videoSegments.length === 1) {
           router.push({
@@ -849,7 +848,7 @@ const CreateScreen: React.FC = () => {
         }
       }
     }
-  }, [router, isProcessing, stopRecording, isDeveloper]);
+  }, [router, isProcessing, stopRecording]);
 
   // Render content based on the state of permissions and device availability
   const renderContent = () => {

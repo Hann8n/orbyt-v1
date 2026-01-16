@@ -110,12 +110,6 @@ interface UserState {
   // Subscribed channels - scoped by DID
   subscribedChannels: SubscribedChannel[];
 
-  // Developer access - gated by Bluesky list membership
-  isDeveloper: boolean;
-  developerListUri: string;
-  developerMembersCache: string[]; // Cached DIDs from the developer list
-  developerCacheTimestamp: number | null;
-
   // Email verification modal state
   showEmailVerificationModal: boolean;
 
@@ -161,10 +155,6 @@ interface UserState {
   ) => Promise<void>;
   batchUnsubscribeFromChannels: (uris: string[]) => Promise<void>;
 
-  // Developer access management
-  refreshDeveloperAccess: () => Promise<void>;
-  checkDeveloperAccess: () => boolean;
-
   // Feed settings
   setExperimentalFeedsEnabled: (enabled: boolean) => Promise<void>;
   setFeedDebugOverlayEnabled: (enabled: boolean) => Promise<void>;
@@ -207,7 +197,6 @@ const STORAGE_KEYS = {
   ACCOUNTS: 'saved_accounts',
   ACTIVE_ACCOUNT: 'active_account_did',
   SUBSCRIBED_CHANNELS: 'subscribed_channels',
-  DEVELOPER_MEMBERS: 'developer_members_cache',
   ALGORITHMIC_FEED_PROVIDER: 'algorithmic_feed_provider',
 } as const;
 
@@ -224,11 +213,6 @@ export const ALGORITHMIC_FEED_PROVIDERS = {
     description: 'Personalized video recommendations by spacecowboy17',
   },
 } as const;
-
-// Developer list URI - the Bluesky list that defines developer access
-const DEVELOPER_LIST_URI =
-  'at://did:plc:2xrqztnmzlckb3xfuuukupso/app.bsky.graph.list/3lzjpulbx4e2r';
-const DEVELOPER_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
 // Built-in channels that are always available but never in subscribed channels
 const BUILT_IN_CHANNELS = ['following', 'your-mix'];
@@ -293,12 +277,6 @@ export const useUserStore = create<UserState>()(
 
       // Subscribed channels
       subscribedChannels: [],
-
-      // Developer access
-      isDeveloper: false,
-      developerListUri: DEVELOPER_LIST_URI,
-      developerMembersCache: [],
-      developerCacheTimestamp: null,
 
       // Email verification modal state
       showEmailVerificationModal: false,
@@ -526,7 +504,6 @@ export const useUserStore = create<UserState>()(
           Promise.all([
             get().loadUserSpecificSettings(session.sub),
             get().loadSubscribedChannels(session.sub),
-            get().refreshDeveloperAccess(),
           ]).catch(error => {
             logger.warn('Failed to load some user settings after session restore', {
               component: 'userStore',
@@ -625,7 +602,6 @@ export const useUserStore = create<UserState>()(
             await Promise.all([
               get().loadUserSpecificSettings(did),
               get().loadSubscribedChannels(did),
-              get().refreshDeveloperAccess(),
             ]).catch(error => {
               logger.warn('Failed to load some user settings', {
                 component: 'userStore',
@@ -1376,13 +1352,6 @@ export const useUserStore = create<UserState>()(
                 activeAccountDid: null,
               });
             } else {
-              // Defer developer access check - not critical for startup
-              InteractionManager.runAfterInteractions(() => {
-                get()
-                  .refreshDeveloperAccess()
-                  .catch(() => {});
-              });
-
               // Initialize subscription store in background after interactions complete
               InteractionManager.runAfterInteractions(async () => {
                 try {
@@ -1565,79 +1534,6 @@ export const useUserStore = create<UserState>()(
           set({ subscribedChannels: [] });
         }
       },
-
-      // Developer access management
-      refreshDeveloperAccess: async () => {
-        try {
-          const { agent, currentUser, developerListUri, developerCacheTimestamp } = get();
-
-          if (!agent || !currentUser?.did) {
-            logger.warn('No agent or current user for developer access check', {
-              component: 'userStore',
-            });
-            set({ isDeveloper: false });
-            return;
-          }
-
-          // Check if cache is still valid (24 hours)
-          const now = Date.now();
-          if (developerCacheTimestamp && now - developerCacheTimestamp < DEVELOPER_CACHE_TTL) {
-            // Use cached data
-            const cachedMembers = get().developerMembersCache;
-            const isDeveloper = cachedMembers.includes(currentUser.did);
-            set({ isDeveloper });
-            return;
-          }
-
-          // Fetch fresh data from the developer list
-          const allMembers: string[] = [];
-          let cursor: string | undefined;
-
-          do {
-            try {
-              const response = await agent.api.app.bsky.graph.getList({
-                list: developerListUri,
-                limit: 100,
-                cursor,
-              });
-
-              const members = response.data.items.map(
-                (item: { subject: { did: string } }) => item.subject.did
-              );
-              allMembers.push(...members);
-              cursor = response.data.cursor;
-            } catch (error) {
-              logger.error('Error fetching developer list', error, { component: 'userStore' });
-              // On error, use cached data if available, otherwise deny access
-              const cachedMembers = get().developerMembersCache;
-              const isDeveloper =
-                cachedMembers.length > 0 ? cachedMembers.includes(currentUser.did) : false;
-              set({ isDeveloper });
-              return;
-            }
-          } while (cursor);
-
-          // Update cache
-          await storageHelpers.setItem(STORAGE_KEYS.DEVELOPER_MEMBERS, JSON.stringify(allMembers));
-
-          // Check if current user is in the developer list
-          const isDeveloper = allMembers.includes(currentUser.did);
-
-          set({
-            isDeveloper,
-            developerMembersCache: allMembers,
-            developerCacheTimestamp: now,
-          });
-        } catch (error) {
-          logger.error('Error refreshing developer access', error, { component: 'userStore' });
-          // On error, deny access by default
-          set({ isDeveloper: false });
-        }
-      },
-
-      checkDeveloperAccess: () => {
-        return get().isDeveloper;
-      },
     }),
     {
       name: 'user-store',
@@ -1654,9 +1550,6 @@ export const useUserStore = create<UserState>()(
         subscribedChannels: state.subscribedChannels.filter(
           ch => !BUILT_IN_CHANNELS.includes(ch.uri)
         ),
-        isDeveloper: state.isDeveloper,
-        developerMembersCache: state.developerMembersCache,
-        developerCacheTimestamp: state.developerCacheTimestamp,
       }),
       onRehydrateStorage: () => state => {
         // Clean up any built-in channels from persisted state on rehydration

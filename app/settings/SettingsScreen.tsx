@@ -21,7 +21,6 @@ import {
   useFeedSettings,
   useAuth,
   useCurrentUser,
-  useUserStore,
   useAccountManagement,
 } from '../../src/stores/userStore';
 import { settingsTextStyles, settingsLayoutStyles } from './SettingsStyles';
@@ -48,7 +47,6 @@ const SettingsScreen: React.FC = () => {
     setNativeTabsEnabled,
   } = useFeedSettings();
   const { currentUser } = useCurrentUser();
-  const { isDeveloper } = useUserStore();
   const { savedAccounts } = useAccountManagement();
 
   // Load settings on mount
@@ -341,7 +339,7 @@ const SettingsScreen: React.FC = () => {
           onPress: () => router.push('/settings/algorithmic-feed'),
           showChevron: true,
         },
-        ...(isDeveloper
+        ...(!__DEV__ && Updates.channel === 'developer'
           ? [
               {
                 id: 'app-icon',
