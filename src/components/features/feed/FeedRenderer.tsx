@@ -4,7 +4,15 @@
  * Enhanced with React.memo, useCallback, useMemo for performance
  */
 
-import React, { useCallback, useMemo, memo, forwardRef, useImperativeHandle, useRef } from 'react';
+import React, {
+  useCallback,
+  useMemo,
+  memo,
+  forwardRef,
+  useImperativeHandle,
+  useRef,
+  useEffect,
+} from 'react';
 import { View, StyleSheet, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 
@@ -156,7 +164,8 @@ const FeedRenderer = memo(
           feed: isSearchFeed ? searchFeedQuery.feed : feedQuery.feed,
           isLoading: isSearchFeed ? false : feedQuery.isLoading,
           isError: isSearchFeed ? false : feedQuery.isError,
-          isFetching: isSearchFeed ? false : feedQuery.isFetching, // React Query's fetching state
+          isFetching: isSearchFeed ? false : feedQuery.isFetching, // React Query's fetching state (includes refetching)
+          isRefetching: isSearchFeed ? false : feedQuery.isRefetching, // React Query's refetching state (distinguishes refetch from initial load)
           isFetchingNextPage: isSearchFeed
             ? searchFeedQuery.isFetchingNextPage
             : feedQuery.isFetchingNextPage,
@@ -177,6 +186,7 @@ const FeedRenderer = memo(
           feedQuery.isLoading,
           feedQuery.isError,
           feedQuery.isFetching,
+          feedQuery.isRefetching,
           feedQuery.isFetchingNextPage,
           feedQuery.hasNextPage,
           feedQuery.fetchNextPage,
@@ -193,6 +203,7 @@ const FeedRenderer = memo(
         isLoading,
         isError,
         isFetching, // React Query's fetching state (includes refetching)
+        isRefetching, // React Query's refetching state (distinguishes refetch from initial load)
         isFetchingNextPage,
         hasNextPage,
         fetchNextPage,
@@ -201,6 +212,24 @@ const FeedRenderer = memo(
         isProfileFeed,
         dataUpdatedAt,
       } = feedData;
+
+      // Simplified auto-reset scroll when feed is invalidated
+      useEffect(() => {
+        // Reset scroll when refetch completes (not initial load, not pagination)
+        if (!isRefetching && !isFetchingNextPage && !isLoading && dataUpdatedAt > 0) {
+          // Small delay to ensure data is rendered
+          const timeoutId = setTimeout(() => {
+            if (viewMode === 'list') {
+              listFeedViewRef.current?.scrollToTop();
+            } else if (viewMode === 'grid') {
+              gridFeedViewRef.current?.scrollToTop();
+            }
+          }, 100);
+
+          return () => clearTimeout(timeoutId);
+        }
+        return undefined;
+      }, [isRefetching, isFetchingNextPage, isLoading, dataUpdatedAt, viewMode]);
 
       // Memoized error state calculation
       const errorState = useMemo(

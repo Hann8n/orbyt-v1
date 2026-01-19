@@ -39,6 +39,7 @@ interface UseFeedReturn {
   isError: boolean;
   error: Error | null;
   isFetching: boolean; // React Query's fetching state (includes refetching)
+  isRefetching: boolean; // React Query's refetching state (distinguishes refetch from initial load)
   isFetchingNextPage: boolean;
   hasNextPage: boolean;
   isProfileFeed: boolean;
@@ -243,6 +244,7 @@ export function useFeed(
     isError: query.isError,
     error: query.error,
     isFetching: query.isFetching, // React Query's built-in fetching state (includes refetching)
+    isRefetching: query.isRefetching, // React Query's refetching state (distinguishes refetch from initial load)
     isFetchingNextPage: query.isFetchingNextPage,
     hasNextPage: query.hasNextPage ?? false,
     isProfileFeed: Boolean(isProfileFeed),
