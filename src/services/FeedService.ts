@@ -41,18 +41,12 @@ export type APIResponse = FeedResponse;
 // Re-export FeedOption for convenience (defined in types/index.ts)
 export type { FeedOption } from '../types';
 
-// Type definitions for your-mix feed round-robin implementation
+// Type definitions for your-mix feed implementation
 interface FeedSource {
   readonly uri: string;
   readonly type: 'feed' | 'hashtag' | 'algorithmic';
   readonly hashtag?: string;
   readonly sort?: 'top' | 'latest';
-}
-
-interface YourMixCursor {
-  readonly sourceIndex: number;
-  readonly sourceCursors: readonly (string | null)[]; // All source cursors
-  readonly exhausted: readonly boolean[];
 }
 
 interface FeedFetchResult {
@@ -98,62 +92,6 @@ const searchFeedState = new SearchFeedState();
 // Core feed fetching logic
 class FeedService {
   /**
-   * Parse cursor for round-robin pagination
-   */
-  private parseCursor(cursor: string | undefined, feedSourcesLength: number): YourMixCursor {
-    if (!cursor) {
-      return {
-        sourceIndex: 0,
-        sourceCursors: new Array(feedSourcesLength).fill(null),
-        exhausted: new Array(feedSourcesLength).fill(false),
-      };
-    }
-
-    try {
-      const parsed = JSON.parse(cursor);
-
-      if (
-        typeof parsed === 'object' &&
-        parsed !== null &&
-        typeof parsed.sourceIndex === 'number' &&
-        Array.isArray(parsed.exhausted) &&
-        Array.isArray(parsed.sourceCursors)
-      ) {
-        // Normalize arrays to match feedSources length
-        const sourceCursors: (string | null)[] = Array.from(parsed.sourceCursors)
-          .map((item: unknown) => (typeof item === 'string' ? item : null))
-          .slice(0, feedSourcesLength);
-        const exhausted: boolean[] = Array.from(parsed.exhausted)
-          .map((item: unknown) => typeof item === 'boolean' && item)
-          .slice(0, feedSourcesLength);
-
-        // Pad arrays if needed (e.g., user subscribed to more channels)
-        while (sourceCursors.length < feedSourcesLength) {
-          sourceCursors.push(null);
-        }
-        while (exhausted.length < feedSourcesLength) {
-          exhausted.push(false);
-        }
-
-        return {
-          sourceIndex: parsed.sourceIndex % feedSourcesLength,
-          sourceCursors,
-          exhausted,
-        };
-      }
-    } catch {
-      // Invalid cursor, start fresh
-    }
-
-    // Default: start from beginning
-    return {
-      sourceIndex: 0,
-      sourceCursors: new Array(feedSourcesLength).fill(null),
-      exhausted: new Array(feedSourcesLength).fill(false),
-    };
-  }
-
-  /**
    * Fetch and filter from a single source (used when only one source is active)
    */
   private async fetchSingleSource(
@@ -177,30 +115,6 @@ class FeedService {
       feed: limitedResults,
       cursor: result.cursor,
     };
-  }
-
-  /**
-   * Extract cursor from potentially complex cursor format
-   * Handles: plain string cursor, JSON round-robin cursor, or old format
-   */
-  private extractSingleSourceCursor(
-    cursor: string | undefined,
-    sourceIndex: number
-  ): string | null {
-    if (!cursor) return null;
-
-    try {
-      const parsed = JSON.parse(cursor);
-      // Old round-robin format
-      if (parsed?.sourceCursors?.[sourceIndex]) {
-        return parsed.sourceCursors[sourceIndex];
-      }
-    } catch {
-      // Not JSON - treat as plain string cursor
-      return cursor;
-    }
-
-    return null;
   }
 
   /**
@@ -475,94 +389,121 @@ class FeedService {
         const currentUser = userStoreModule.useUserStore.getState().currentUser;
         const currentUserDid = currentUser?.did ?? null;
 
-        // Parse cursor to determine active sources
-        const cursorState = this.parseCursor(cursor, feedSources.length);
-        const activeSources = cursorState.exhausted.filter(e => !e).length;
-
-        // Optimization: if only one source (start) or one remains active (after exhaustion), use direct fetch
-        if (feedSources.length === 1 || activeSources === 1) {
-          const sourceIndex =
-            feedSources.length === 1 ? 0 : cursorState.exhausted.findIndex(e => !e);
-
-          if (sourceIndex !== -1) {
-            const singleSource = feedSources[sourceIndex];
-            const sourceCursor =
-              feedSources.length === 1
-                ? this.extractSingleSourceCursor(cursor, 0)
-                : cursorState.sourceCursors[sourceIndex];
-
-            return await this.fetchSingleSource(singleSource, sourceCursor, limit, currentUserDid);
-          }
-        }
-
-        // Round-robin fetching strategy for multiple active sources
-        const BATCH_SIZE = 20; // Items per source per round
-
-        // Results accumulator
-        const results: ExtendedFeedViewPost[] = [];
-        const seenUris = new Set<string>(); // Per-fetch deduplication
-        const exhausted = [...cursorState.exhausted]; // Mutable copy
-        const sourceCursors: (string | null)[] = [...cursorState.sourceCursors];
-
-        // Round-robin until limit reached or all exhausted
-        let currentIndex = cursorState.sourceIndex;
-
-        while (results.length < limit && !exhausted.every(e => e)) {
-          // Skip exhausted sources
-          while (exhausted[currentIndex]) {
-            currentIndex = (currentIndex + 1) % feedSources.length;
-          }
-
-          const source = feedSources[currentIndex];
-          const sourceCursor = sourceCursors[currentIndex];
-
-          try {
-            const batch = await this.fetchFromSource(source, sourceCursor, BATCH_SIZE);
-
-            // Process batch
-            for (const post of batch.feed) {
-              const uri = post.post?.uri;
-              if (uri && !seenUris.has(uri)) {
-                seenUris.add(uri);
-                results.push(post);
-                if (results.length >= limit) break;
+        // Optimization: if only one source, use direct fetch
+        if (feedSources.length === 1) {
+          const singleSource = feedSources[0];
+          // Parse simple cursor format or use null
+          let sourceCursor: string | null = null;
+          if (cursor) {
+            try {
+              const parsed = JSON.parse(cursor);
+              if (typeof parsed === 'object' && parsed !== null && parsed[singleSource.uri]) {
+                sourceCursor = parsed[singleSource.uri];
               }
+            } catch {
+              // Invalid cursor, start fresh
             }
-
-            // Update cursor for this source
-            if (batch.cursor) {
-              sourceCursors[currentIndex] = batch.cursor;
-            } else {
-              exhausted[currentIndex] = true;
-              sourceCursors[currentIndex] = null;
-            }
-          } catch (error) {
-            logger.warn('Round-robin fetch failed', { sourceUri: source.uri, error });
-            // Mark as exhausted on error to avoid retrying
-            exhausted[currentIndex] = true;
-            sourceCursors[currentIndex] = null;
           }
-
-          // Move to next source
-          currentIndex = (currentIndex + 1) % feedSources.length;
+          return await this.fetchSingleSource(singleSource, sourceCursor, limit, currentUserDid);
         }
 
-        // Apply limit (no sorting - order doesn't matter for performance)
-        const limitedResults = results.slice(0, limit);
+        // Parse cursor to get source cursors map
+        let sourceCursors: { [sourceUri: string]: string | null } = {};
+        if (cursor) {
+          try {
+            const parsed = JSON.parse(cursor);
+            if (typeof parsed === 'object' && parsed !== null) {
+              sourceCursors = parsed;
+            }
+          } catch {
+            // Invalid cursor, start fresh
+          }
+        }
 
-        // Filter seen videos (only for your-mix)
-        const filteredResults = seenVideoService.filterSeen(limitedResults, currentUserDid);
+        // Filter out exhausted sources (null cursor means exhausted after a fetch attempt)
+        // On first load (undefined), sources are active and should be fetched
+        const activeSources = feedSources.filter(source => sourceCursors[source.uri] !== null);
 
-        // Create new cursor - persist all source cursors for proper pagination
-        const newCursor: YourMixCursor = {
-          sourceIndex: currentIndex,
-          sourceCursors: [...sourceCursors],
-          exhausted,
-        };
+        // If no active sources, return empty feed
+        if (activeSources.length === 0) {
+          return { feed: [], cursor: null };
+        }
+
+        // Calculate fetch size per source to account for seen video filtering
+        // Fetch 1.5x limit distributed across sources to ensure enough results after filtering
+        const fetchSizePerSource = Math.max(Math.ceil((limit * 1.5) / activeSources.length), 10);
+
+        // Fetch from all active sources in parallel
+        const feedPromises = activeSources.map(async source => {
+          const sourceCursor = sourceCursors[source.uri] ?? null;
+          return this.fetchFromSource(source, sourceCursor, fetchSizePerSource);
+        });
+
+        const feedResults = await Promise.allSettled(feedPromises);
+
+        // Process results and collect successful fetches
+        const successfulResults: FeedFetchResult[] = [];
+
+        feedResults.forEach((result, index) => {
+          if (result.status === 'fulfilled' && result.value.success) {
+            const fetchResult = result.value;
+            successfulResults.push(fetchResult);
+            // Update cursor for successful sources
+            if (fetchResult.cursor) {
+              sourceCursors[fetchResult.sourceUri] = fetchResult.cursor;
+            } else {
+              // Mark as exhausted (null cursor)
+              sourceCursors[fetchResult.sourceUri] = null;
+            }
+          } else {
+            // Mark failed sources as exhausted
+            const source = activeSources[index];
+            if (source) {
+              sourceCursors[source.uri] = null;
+            }
+          }
+        });
+
+        // Flatten all results
+        let allPosts: ExtendedFeedViewPost[] = successfulResults.flatMap(result => result.feed);
+
+        // Deduplicate across all sources by URI
+        const seenUris = new Set<string>();
+        allPosts = allPosts.filter(post => {
+          const uri = post.post?.uri;
+          if (uri && !seenUris.has(uri)) {
+            seenUris.add(uri);
+            return true;
+          }
+          return false;
+        });
+
+        // Filter seen videos BEFORE limiting (ensures we get enough results)
+        // This must happen before sorting/limiting to account for seen video filtering
+        allPosts = seenVideoService.filterSeen(allPosts, currentUserDid);
+
+        // Sort chronologically by indexedAt (newest first)
+        allPosts.sort((a, b) => {
+          const aTime = new Date(a?.post?.indexedAt || 0).getTime();
+          const bTime = new Date(b?.post?.indexedAt || 0).getTime();
+          return bTime - aTime;
+        });
+
+        // Apply limit after sorting and filtering
+        const limitedPosts = allPosts.slice(0, limit);
+
+        // Create cursor from active sources (only include sources with valid cursors)
+        // Filter out exhausted sources (null cursors) directly from sourceCursors
+        const activeFeedStates = Object.fromEntries(
+          Object.entries(sourceCursors).filter(([_, cursor]) => cursor !== null)
+        );
+
+        const newCursor =
+          Object.keys(activeFeedStates).length > 0 ? JSON.stringify(activeFeedStates) : null;
 
         response = {
-          feed: filteredResults,
-          cursor: JSON.stringify(newCursor),
+          feed: limitedPosts,
+          cursor: newCursor,
         };
       } else if (
         feedOptionForAPI === 'profile' ||
