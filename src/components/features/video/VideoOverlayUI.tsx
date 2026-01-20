@@ -38,6 +38,7 @@ import type { ExtendedPostView, PostRecord } from '../../../services/api/types';
 import type { RichTextFacet } from '../../../utils/types/richText';
 import { useFeedSettings } from '../../../stores/userStore';
 import { getProfileColors } from '../../../utils/formatting/colors';
+import { useFollowStore } from '../../../stores/followStore';
 
 // Use proper API types
 type Post = ExtendedPostView;
@@ -84,8 +85,9 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   channelSlug,
   onChannelPress,
 }) => {
-  const isTabletDevice = isTablet();
-  const isSmallScreenDevice = isSmallScreen();
+  // Memoize device checks (cheap but called every render)
+  const isTabletDevice = useMemo(() => isTablet(), []);
+  const isSmallScreenDevice = useMemo(() => isSmallScreen(), []);
   const insets = useSafeAreaInsets();
   const measuredTabBarHeight = useTabBarHeight();
   const calculatedBottomNavBarHeight = getBottomNavBarHeight(insets);
@@ -116,10 +118,11 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
 
   // Get profile data to check if author is blocked
   const { data: authorProfile } = useProfile(author.handle);
-  const isAuthorBlocked = !!(
-    authorProfile?.viewer?.blocking || authorProfile?.viewer?.blockingByList
+  const isAuthorBlocked = useMemo(
+    () => !!(authorProfile?.viewer?.blocking || authorProfile?.viewer?.blockingByList),
+    [authorProfile?.viewer?.blocking, authorProfile?.viewer?.blockingByList]
   );
-  const profileColors = getProfileColors(authorProfile);
+  const profileColors = useMemo(() => getProfileColors(authorProfile), [authorProfile]);
 
   const profilePicUrl = useMemo(
     () =>
@@ -190,21 +193,29 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
     [navigation]
   );
 
+  // Consolidated handle extraction helper
+  const extractHandle = useCallback(
+    (
+      handle: string | null | undefined,
+      authorData?: { did?: string; handle?: string; displayName?: string; avatar?: string }
+    ) => {
+      const cleanHandle = handle?.trim();
+      if (cleanHandle) {
+        navigateToAuthorProfile(cleanHandle, authorData);
+      }
+    },
+    [navigateToAuthorProfile]
+  );
+
   // Handle author press
   const handleAuthorPress = useCallback(() => {
-    const handle = author.handle?.trim();
-    if (handle && typeof handle === 'string' && handle.trim() !== '') {
-      navigateToAuthorProfile(handle, author);
-    }
-  }, [author, navigateToAuthorProfile]);
+    extractHandle(author.handle, author);
+  }, [author, extractHandle]);
 
   // Handle repost author press
   const handleRepostAuthorPress = useCallback(() => {
-    const handle = post.repostedBy?.handle?.trim();
-    if (handle && typeof handle === 'string' && handle.trim() !== '') {
-      navigateToAuthorProfile(handle, post.repostedBy);
-    }
-  }, [post.repostedBy, navigateToAuthorProfile]);
+    extractHandle(post.repostedBy?.handle, post.repostedBy);
+  }, [post.repostedBy, extractHandle]);
 
   // Handle share button press
   const handleSharePress = useCallback(() => {
@@ -241,17 +252,40 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
 
   const { contentPadding, actionIconSize, authorAvatarSize } = uiCalculations;
 
+  // Memoize icon size calculation (reused multiple times)
+  const effectiveIconSize = useMemo(
+    () => (isTabletDevice ? Math.max(actionIconSize, 34) : actionIconSize),
+    [isTabletDevice, actionIconSize]
+  );
+  const shareIconSize = useMemo(
+    () => (isTabletDevice ? Math.max(actionIconSize - 6, 24) : actionIconSize - 6),
+    [isTabletDevice, actionIconSize]
+  );
+
+  // Memoize formatted values to prevent recalculation
+  const formattedAuthorHandle = useMemo(() => formatHandle(author.handle), [author.handle]);
+  const formattedRepostHandle = useMemo(
+    () => formatHandle(post.repostedBy?.handle || ''),
+    [post.repostedBy?.handle]
+  );
+  const formattedLikeCount = useMemo(() => formatNumber(likeCount), [likeCount]);
+  const formattedRepostCount = useMemo(() => formatNumber(repostCount), [repostCount]);
+  const formattedCommentCount = useMemo(
+    () => formatNumber(post.replyCount || 0),
+    [post.replyCount]
+  );
+
   // Memoize icon rendering to prevent unnecessary recreations
   const renderLikeIcon = useCallback(
     () => (
       <Animated.View style={likeAnimatedStyle}>
         <HeartFillIcon
-          size={isTabletDevice ? Math.max(actionIconSize, 34) : actionIconSize}
+          size={effectiveIconSize}
           color={isLiked ? Colors.INTERACTIVE.HEART.ACTIVE : Colors.white}
         />
       </Animated.View>
     ),
-    [likeAnimatedStyle, isTabletDevice, actionIconSize, isLiked]
+    [likeAnimatedStyle, effectiveIconSize, isLiked]
   );
 
   // Repost animation: quick tilt (wiggle) + slight scale pulse
@@ -271,27 +305,106 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
     () => (
       <Animated.View style={repostAnimatedStyle}>
         <RefreshFillIcon
-          size={isTabletDevice ? Math.max(actionIconSize, 34) : actionIconSize}
+          size={effectiveIconSize}
           color={isReposted ? Colors.INTERACTIVE.REPOST.ACTIVE : Colors.INTERACTIVE.REPOST.INACTIVE}
         />
       </Animated.View>
     ),
-    [repostAnimatedStyle, isTabletDevice, actionIconSize, isReposted]
+    [repostAnimatedStyle, effectiveIconSize, isReposted]
   );
 
   const commentIcon = useMemo(
-    () => (
-      <ChatFillIcon
-        size={isTabletDevice ? Math.max(actionIconSize, 34) : actionIconSize}
-        color={Colors.INTERACTIVE.COMMENT}
-      />
-    ),
-    [isTabletDevice, actionIconSize]
+    () => <ChatFillIcon size={effectiveIconSize} color={Colors.INTERACTIVE.COMMENT} />,
+    [effectiveIconSize]
   );
 
-  // Follow state and mutation (lifted: follow state comes from parent, mutation from context)
+  // Follow state and mutation - subscribe directly to follow store for this author
   const { followMutation, currentUser } = useFollowContext();
-  const isCurrentUserProfile = isCurrentUser(post.author?.did, post.author?.handle, currentUser);
+  const authorDid = useMemo(
+    () => author.did || authorProfile?.did,
+    [author.did, authorProfile?.did]
+  );
+
+  // Efficiently subscribe to only this author's isFollowing boolean in the store
+  // Selecting just the boolean ensures re-renders only when follow state changes
+  const storeIsFollowing = useFollowStore(state =>
+    authorDid ? state.follows.get(authorDid)?.isFollowing : undefined
+  );
+
+  // Combine prop (fallback) with store state (source of truth)
+  const actualIsFollowing = storeIsFollowing ?? isFollowing;
+
+  const isCurrentUserProfile = useMemo(
+    () => isCurrentUser(post.author?.did, post.author?.handle, currentUser),
+    [post.author?.did, post.author?.handle, currentUser]
+  );
+
+  // Extract inline handlers to prevent recreation on every render
+  const handleLikePress = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // Animate only on like; if unliking mid-animation, reset scale
+    if (!isLiked) {
+      // eslint-disable-next-line react-hooks/immutability
+      likeScale.value = withSpring(1.2, { damping: 12, stiffness: 220 }, () => {
+        likeScale.value = withSpring(1);
+      });
+    } else {
+      // ensure we cancel any lingering animation when unliking
+      likeScale.value = withSpring(1);
+    }
+    onLike?.();
+  }, [isLiked, onLike, likeScale]);
+
+  const handleRepostPress = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // Different animation than heart: wiggle (tilt) + slight scale
+    if (!isReposted) {
+      // eslint-disable-next-line react-hooks/immutability
+      repostScale.value = withSequence(
+        withTiming(1.08, { duration: 120 }),
+        withTiming(1.0, { duration: 120 })
+      );
+      // eslint-disable-next-line react-hooks/immutability
+      repostRotate.value = withSequence(
+        withTiming(0.2, { duration: 90 }), // ~11.5deg
+        withTiming(-0.12, { duration: 90 }), // ~-7deg
+        withTiming(0, { duration: 90 })
+      );
+    } else {
+      // On undo, ensure we reset any lingering transforms
+      repostScale.value = withTiming(1, { duration: 100 });
+      repostRotate.value = withTiming(0, { duration: 100 });
+    }
+    onRepost?.();
+  }, [isReposted, onRepost, repostScale, repostRotate]);
+
+  const handleCommentPress = useCallback(() => {
+    presentCommentSection({
+      post,
+      totalLikes: likeCount,
+      totalComments: post.replyCount || 0,
+      isLiked,
+      postedAt: (post.record?.createdAt || post.indexedAt) as string | undefined,
+      onToggleLike: onLike,
+      isLikePending,
+    });
+  }, [post, likeCount, isLiked, onLike, isLikePending, presentCommentSection]);
+
+  const handleFollowPress = useCallback(() => {
+    if (!post.author?.handle) return;
+    // Optimistically show checkmark immediately
+    setShowFollowConfirmation(true);
+    // Trigger server follow (mutation updates follow store immediately)
+    followMutation.mutate(
+      { handle: post.author.handle, isFollowing: true },
+      {
+        onError: () => {
+          // Reset confirmation if mutation fails
+          setShowFollowConfirmation(false);
+        },
+      }
+    );
+  }, [post.author?.handle, followMutation]);
 
   // Auto-hide follow confirmation after a short delay to keep overlay lightweight
   useEffect(() => {
@@ -363,7 +476,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                   style={styles.repostIndicatorContainer}
                   onPress={handleRepostAuthorPress}
                 >
-                  <View style={{ opacity: 0.8 }}>
+                  <View style={styles.repostIconWrapper}>
                     <RefreshFillIcon size={isTabletDevice ? 26 : 24} color={Colors.lightGray} />
                   </View>
                   <Text
@@ -371,10 +484,10 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                       isTabletDevice
                         ? styles.repostIndicatorTextTablet
                         : styles.repostIndicatorText,
-                      { opacity: 0.8 },
+                      styles.repostTextOpacity,
                     ]}
                   >
-                    {`reposted by ${formatHandle(post.repostedBy?.handle || '')}`}
+                    {`reposted by ${formattedRepostHandle}`}
                   </Text>
                 </Pressable>
               </View>
@@ -407,8 +520,8 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
             )}
 
             {/* Author info */}
-            <Pressable style={styles.authorInfoContainer} onPress={handleAuthorPress}>
-              <View style={{ position: 'relative', overflow: 'visible' }}>
+            <View style={styles.authorInfoContainer}>
+              <View style={styles.avatarContainer}>
                 <Avatar
                   uri={profilePicUrl}
                   type="profile"
@@ -427,37 +540,26 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                   }
                 />
                 {/* Follow badge overlay: show + when not following, show check briefly after follow */}
-                {hasProfile && !isFollowing && !showFollowConfirmation && !isCurrentUserProfile && (
-                  <Pressable
-                    onPress={() => {
-                      if (!post.author?.handle) return;
-                      // Optimistically show checkmark immediately
-                      setShowFollowConfirmation(true);
-                      // Trigger server follow (mutation updates follow store immediately)
-                      followMutation.mutate(
-                        { handle: post.author.handle, isFollowing: true },
+                {hasProfile &&
+                  !actualIsFollowing &&
+                  !showFollowConfirmation &&
+                  !isCurrentUserProfile && (
+                    <Pressable
+                      onPress={handleFollowPress}
+                      disabled={followMutation.isPending}
+                      hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                      style={[
+                        styles.followBadge,
                         {
-                          onError: () => {
-                            // Reset confirmation if mutation fails
-                            setShowFollowConfirmation(false);
-                          },
-                        }
-                      );
-                    }}
-                    disabled={followMutation.isPending}
-                    hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-                    style={[
-                      styles.followBadge,
-                      {
-                        right: -offset - hitBoxOffset,
-                        top: -offset - hitBoxOffset,
-                      },
-                      { width: hitBoxSize, height: hitBoxSize },
-                    ]}
-                  >
-                    <AddCircleLineIcon size={badgeSize} color={Colors.black} />
-                  </Pressable>
-                )}
+                          right: -offset - hitBoxOffset,
+                          top: -offset - hitBoxOffset,
+                        },
+                        { width: hitBoxSize, height: hitBoxSize },
+                      ]}
+                    >
+                      <AddCircleLineIcon size={badgeSize} color={Colors.black} />
+                    </Pressable>
+                  )}
                 {showFollowConfirmation && !isCurrentUserProfile && (
                   <View
                     pointerEvents="none"
@@ -472,22 +574,24 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                 )}
               </View>
               <View style={styles.authorTextContainer}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Text
-                    style={[
-                      styles.baseText,
-                      isTabletDevice ? styles.authorNameTablet : styles.authorName,
-                    ]}
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
-                  >
-                    {formatHandle(author.handle)}
-                  </Text>
+                <View style={styles.authorNameRow}>
+                  <Pressable onPress={handleAuthorPress}>
+                    <Text
+                      style={[
+                        styles.baseText,
+                        isTabletDevice ? styles.authorNameTablet : styles.authorName,
+                      ]}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {formattedAuthorHandle}
+                    </Text>
+                  </Pressable>
                   {author.handle && (
                     <VerificationBadge
                       handle={author.handle}
-                      textSize={isTabletDevice ? 16 : 14}
-                      autoPosition={true}
+                      size={isTabletDevice ? 22 : 20}
+                      customMargin={2}
                       textColor={Colors.white}
                     />
                   )}
@@ -497,10 +601,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                     <Text
                       style={[
                         isTabletDevice ? styles.sourceTextTablet : styles.sourceText,
-                        {
-                          color: Colors.white,
-                          opacity: 0.7,
-                        },
+                        styles.sourceTextOpacity,
                       ]}
                     >
                       /{channelSlug}
@@ -508,7 +609,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                   </Pressable>
                 ) : null}
               </View>
-            </Pressable>
+            </View>
           </View>
 
           {/* Action buttons */}
@@ -521,10 +622,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
               onPress={handleSharePress}
             >
               <View style={styles.iconContainer}>
-                <MoreFillIcon
-                  size={isTabletDevice ? Math.max(actionIconSize - 6, 24) : actionIconSize - 6}
-                  color={Colors.white}
-                />
+                <MoreFillIcon size={shareIconSize} color={Colors.white} />
               </View>
             </Pressable>
 
@@ -534,35 +632,12 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                 isTabletDevice ? styles.actionButtonTablet : styles.actionButton,
                 isRepostPending && styles.actionButtonDisabled,
               ]}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                // Different animation than heart: wiggle (tilt) + slight scale
-                if (!isReposted) {
-                  // eslint-disable-next-line react-hooks/immutability
-                  repostScale.value = withSequence(
-                    withTiming(1.08, { duration: 120 }),
-                    withTiming(1.0, { duration: 120 })
-                  );
-                  // eslint-disable-next-line react-hooks/immutability
-                  repostRotate.value = withSequence(
-                    withTiming(0.2, { duration: 90 }), // ~11.5deg
-                    withTiming(-0.12, { duration: 90 }), // ~-7deg
-                    withTiming(0, { duration: 90 })
-                  );
-                } else {
-                  // On undo, ensure we reset any lingering transforms
-
-                  repostScale.value = withTiming(1, { duration: 100 });
-
-                  repostRotate.value = withTiming(0, { duration: 100 });
-                }
-                onRepost?.();
-              }}
+              onPress={handleRepostPress}
               disabled={isRepostPending}
             >
               {renderRepostIcon()}
               <Text style={isTabletDevice ? styles.actionTextTablet : styles.actionText}>
-                {formatNumber(repostCount)}
+                {formattedRepostCount}
               </Text>
             </Pressable>
 
@@ -571,21 +646,11 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                 styles.baseActionButton,
                 isTabletDevice ? styles.actionButtonTablet : styles.actionButton,
               ]}
-              onPress={() => {
-                presentCommentSection({
-                  post,
-                  totalLikes: likeCount,
-                  totalComments: post.replyCount || 0,
-                  isLiked,
-                  postedAt: (post.record?.createdAt || post.indexedAt) as string | undefined,
-                  onToggleLike: onLike,
-                  isLikePending,
-                });
-              }}
+              onPress={handleCommentPress}
             >
               {commentIcon}
               <Text style={isTabletDevice ? styles.actionTextTablet : styles.actionText}>
-                {formatNumber(post.replyCount || 0)}
+                {formattedCommentCount}
               </Text>
             </Pressable>
 
@@ -595,26 +660,12 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                 isTabletDevice ? styles.actionButtonTablet : styles.actionButton,
                 isLikePending && styles.actionButtonDisabled,
               ]}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                // Animate only on like; if unliking mid-animation, reset scale
-                if (!isLiked) {
-                  // eslint-disable-next-line react-hooks/immutability
-                  likeScale.value = withSpring(1.2, { damping: 12, stiffness: 220 }, () => {
-                    likeScale.value = withSpring(1);
-                  });
-                } else {
-                  // ensure we cancel any lingering animation when unliking
-
-                  likeScale.value = withSpring(1);
-                }
-                onLike?.();
-              }}
+              onPress={handleLikePress}
               disabled={isLikePending}
             >
               {renderLikeIcon()}
               <Text style={isTabletDevice ? styles.actionTextTablet : styles.actionText}>
-                {formatNumber(likeCount)}
+                {formattedLikeCount}
               </Text>
             </Pressable>
           </View>
@@ -676,7 +727,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   repostIndicatorBox: {
-    backgroundColor: 'transparent',
+    backgroundColor: Colors.transparent,
     borderRadius: BORDER_RADIUS.SMALL,
     marginBottom: 0,
     alignSelf: 'flex-start',
@@ -693,15 +744,7 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 15,
     fontFamily: 'Figtree-Regular',
-    textShadowColor: 'rgba(0, 0, 0, 0.15)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  showMoreText: {
-    color: 'rgba(255, 255, 255, 0.75)',
-    fontSize: 14,
-    fontFamily: 'Figtree-Regular',
-    textShadowColor: 'rgba(40, 22, 22, 0.15)',
+    textShadowColor: Colors.overlayBlack15,
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
@@ -713,14 +756,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 2,
   },
+  avatarContainer: {
+    position: 'relative',
+    overflow: 'visible',
+  },
   profilePicture: {
     width: 50,
     height: 50,
-    borderRadius: BORDER_RADIUS.FULL,
-  },
-  profilePictureSmallScreen: {
-    width: 46,
-    height: 46,
     borderRadius: BORDER_RADIUS.FULL,
   },
   profilePictureTablet: {
@@ -733,22 +775,19 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 20,
   },
+  authorNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   baseText: {
     color: Colors.white,
     fontWeight: 'bold',
     fontFamily: 'Figtree-Medium',
-    textShadowColor: 'rgba(0, 0, 0, 0.15)',
+    textShadowColor: Colors.overlayBlack15,
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
   authorName: {
-    fontSize: 15,
-    fontFamily: 'Figtree-SemiBold',
-    lineHeight: 21,
-    includeFontPadding: false,
-    flexShrink: 1,
-  },
-  authorNameSmallScreen: {
     fontSize: 15,
     fontFamily: 'Figtree-SemiBold',
     lineHeight: 21,
@@ -769,10 +808,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
   },
   sourceText: {
-    fontSize: 15,
-    fontFamily: 'Figtree-Medium',
-  },
-  sourceTextSmallScreen: {
     fontSize: 15,
     fontFamily: 'Figtree-Medium',
   },
@@ -801,9 +836,6 @@ const styles = StyleSheet.create({
   actionButton: {
     marginVertical: 4,
   },
-  actionButtonSmallScreen: {
-    marginVertical: 3,
-  },
   actionButtonTablet: {
     marginVertical: 5,
     width: 44,
@@ -823,7 +855,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     width: '100%',
     minWidth: 45,
-    textShadowColor: 'rgba(0, 0, 0, 0.15)',
+    textShadowColor: Colors.overlayBlack15,
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
@@ -836,7 +868,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     width: '100%',
     minWidth: 45,
-    textShadowColor: 'rgba(0, 0, 0, 0.15)',
+    textShadowColor: Colors.overlayBlack15,
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
@@ -845,15 +877,25 @@ const styles = StyleSheet.create({
     zIndex: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'transparent',
+    backgroundColor: Colors.transparent,
     elevation: 6, // Android elevation
-    shadowColor: '#000', // iOS shadow
+    shadowColor: Colors.black, // iOS shadow
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
   },
   actionButtonDisabled: {
     // Removed opacity transparency effect
+  },
+  repostIconWrapper: {
+    opacity: 0.8,
+  },
+  repostTextOpacity: {
+    opacity: 0.8,
+  },
+  sourceTextOpacity: {
+    color: Colors.white,
+    opacity: 0.7,
   },
 });
 

@@ -92,6 +92,7 @@ export const Colors = {
   dislikeIconBlue: '#37a8ff', // Electric blue for "less" icon
 
   // Overlay Colors
+  overlayBlack15: 'rgba(0, 0, 0, 0.15)',
   overlayBlack50: 'rgba(0, 0, 0, 0.5)',
   overlayBlack60: 'rgba(0, 0, 0, 0.6)',
   overlayBlack95: 'rgba(0, 0, 0, 0.95)',
