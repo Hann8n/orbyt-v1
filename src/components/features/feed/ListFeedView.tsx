@@ -536,10 +536,33 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     const itemSpacing = useMemo(() => cardHeight + CONSTANTS.SEPARATOR_HEIGHT, [cardHeight]);
     const snapToIntervalValue = useMemo(() => itemSpacing, [itemSpacing]);
 
-    // Custom snap offsets - memoized to prevent recalculation
-    // Use snapToInterval for small devices (full screen displays)
-    // Exclude safe area when in modal mode
-    const topInset = useMemo(() => (isModal ? 0 : insets.top), [insets.top, isModal]);
+    // Header-feed specific top inset policy for snapping
+    // - Header feeds:
+    //   - Modal OR small/tablet devices -> snap items to the very top (ignore top safe area)
+    //   - Taller non-modal root/header feeds -> snap just below the status bar safe area
+    // - Non-header feeds keep existing behavior (small devices ignore inset to stay full-screen)
+    const headerSnapTopInset = useMemo(() => {
+      if (!isHeaderFeed) {
+        return null;
+      }
+
+      if (isModal || isSmallDevice) {
+        return 0;
+      }
+
+      return insets.top;
+    }, [isHeaderFeed, isModal, isSmallDevice, insets.top]);
+
+    const nonHeaderSnapTopInset = useMemo(
+      () => (isSmallDevice ? 0 : insets.top),
+      [isSmallDevice, insets.top]
+    );
+
+    const snapTopInset = useMemo(
+      () => (headerSnapTopInset !== null ? headerSnapTopInset : nonHeaderSnapTopInset),
+      [headerSnapTopInset, nonHeaderSnapTopInset]
+    );
+
     const hasHeader = useMemo(() => Boolean(headerComponent), [headerComponent]);
 
     const snapToOffsets = useMemo(() => {
@@ -553,9 +576,11 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         if (hasHeader && headerHeight > 0 && cardHeight > 0) {
           // Header height from onLayout already includes all padding (including safe area)
           // Use full headerHeight to ensure we scroll past the entire header
-          offsets.push(headerHeight + i * itemSpacing);
+          // For header feeds, adjust by snapTopInset so first card lands where desired
+          const baseOffset = headerHeight + i * itemSpacing;
+          offsets.push(baseOffset - (isHeaderFeed ? snapTopInset : 0));
         } else {
-          offsets.push(i * itemSpacing - topInset);
+          offsets.push(i * itemSpacing - snapTopInset);
         }
       }
 
@@ -564,10 +589,11 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       headerHeight,
       cardHeight,
       listData.length,
-      topInset,
+      snapTopInset,
       isSmallDevice,
       hasHeader,
       itemSpacing,
+      isHeaderFeed,
     ]);
 
     // Stable layout callbacks to prevent recreation (always compute)
