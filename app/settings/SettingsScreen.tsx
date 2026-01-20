@@ -355,17 +355,13 @@ const SettingsScreen: React.FC = () => {
           onPress: () => router.push('/settings/algorithmic-feed'),
           showChevron: true,
         },
-        ...(!__DEV__ && (Updates.channel === 'development' || Updates.channel === 'preview')
-          ? [
-              {
-                id: 'app-icon',
-                label: 'App icon',
-                icon: 'device-tv',
-                onPress: () => router.push('/settings/app-icon'),
-                showChevron: true,
-              },
-            ]
-          : []),
+        {
+          id: 'app-icon',
+          label: 'App icon',
+          icon: 'device-tv',
+          onPress: () => router.push('/settings/app-icon'),
+          showChevron: true,
+        },
         ...(__DEV__
           ? [
               {

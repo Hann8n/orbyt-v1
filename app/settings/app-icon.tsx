@@ -14,6 +14,7 @@ type AppIconKey = 'orBYTE' | null;
 const ICON_OPTIONS: {
   id: string;
   label: string;
+  subtitle?: string;
   iconKey: AppIconKey;
   preview: any;
 }[] = [
@@ -25,7 +26,8 @@ const ICON_OPTIONS: {
   },
   {
     id: 'orBYTE',
-    label: 'Beta',
+    label: 'Beta Badge',
+    subtitle: 'thanks for supporting orbyt! <3',
     iconKey: 'orBYTE',
     preview: require('../../src/assets/AppIcons/iOS/orBYTE.png'),
   },
@@ -78,7 +80,10 @@ const AppIconSettingsScreen: React.FC = () => {
             disabled={isSubmitting}
             leftContent={
               <View style={styles.row}>
-                <Text style={settingsTextStyles.menuOptionText}>{option.label}</Text>
+                <View style={styles.textContainer}>
+                  <Text style={settingsTextStyles.menuOptionText}>{option.label}</Text>
+                  {option.subtitle && <Text style={styles.subtitleText}>{option.subtitle}</Text>}
+                </View>
                 <View style={styles.previewContainer}>
                   <Image
                     source={option.preview}
@@ -116,6 +121,12 @@ const styles = StyleSheet.create({
   },
   textContainer: {
     flex: 1,
+  },
+  subtitleText: {
+    color: Colors.gray,
+    fontSize: 12,
+    fontFamily: 'Figtree-Regular',
+    marginTop: 4,
   },
 });
 
