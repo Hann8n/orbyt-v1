@@ -554,8 +554,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 6,
     elevation: 4, // Android
-    backgroundColor: Colors.black,
-    opacity: 0,
+    backgroundColor: Colors.transparent,
+    // Opacity is controlled by controlsAnimatedStyle
   },
   indicatorContainer: {
     flexDirection: 'row',

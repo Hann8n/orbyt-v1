@@ -724,7 +724,6 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     backgroundColor: Colors.black,
-    opacity: 0,
   },
 });
 

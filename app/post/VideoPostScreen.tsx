@@ -2028,7 +2028,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    opacity: 1,
   },
   channelListButtonText: {
     color: Colors.lightGray,
@@ -2096,13 +2095,11 @@ const styles = StyleSheet.create({
   },
   descriptionModalOverlay: {
     flex: 1,
-    backgroundColor: Colors.black,
-    opacity: 0.85,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
   },
   descriptionModalContentWrapper: {
     flex: 1,
-    backgroundColor: Colors.black,
-    opacity: 0.95,
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
     justifyContent: 'flex-start',
   },
   descriptionModalHeader: {
