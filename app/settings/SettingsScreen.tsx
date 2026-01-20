@@ -29,6 +29,7 @@ import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalModals';
 import ProfileService from '../../src/services/data/ProfileService';
 import ChannelService from '../../src/services/data/ChannelService';
 import { getOrbytProfileUrl } from '../../src/utils/links/bluesky';
+import { isSmallScreen } from '../../src/utils/device/screen';
 
 const SettingsScreen: React.FC = () => {
   const router = useRouter();
@@ -535,14 +536,17 @@ const SettingsScreen: React.FC = () => {
         value: isNativeTabsEnabled,
         onValueChange: handleToggleNativeTabs,
       });
-      listData.push({
-        kind: 'toggle',
-        id: 'modal-profile',
-        label: 'Modal profile',
-        subtitle: 'Native modal with pull-to-dismiss',
-        value: isModalProfileEnabled,
-        onValueChange: handleToggleModalProfile,
-      });
+      // Only show modal profile toggle on non-full screen devices
+      if (!isSmallScreen()) {
+        listData.push({
+          kind: 'toggle',
+          id: 'modal-profile',
+          label: 'Modal profile',
+          subtitle: 'Native modal with pull-to-dismiss',
+          value: isModalProfileEnabled,
+          onValueChange: handleToggleModalProfile,
+        });
+      }
     }
   });
 
