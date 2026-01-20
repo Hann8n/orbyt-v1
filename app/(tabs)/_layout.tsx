@@ -61,6 +61,16 @@ export default function TabsLayout() {
     );
   }
 
+  const blackAbsoluteTabBarStyle = {
+    ...Platform.select({
+      ios: {
+        position: 'absolute' as const,
+      },
+      default: {},
+    }),
+    backgroundColor: Colors.black,
+  };
+
   // Use Expo Router's Tabs component following the guide pattern
   return (
     <Tabs
@@ -101,15 +111,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="explore"
         options={{
-          tabBarStyle: {
-            ...Platform.select({
-              ios: {
-                position: 'absolute',
-              },
-              default: {},
-            }),
-            backgroundColor: Colors.black,
-          },
+          tabBarStyle: blackAbsoluteTabBarStyle,
         }}
       />
 
@@ -122,15 +124,7 @@ export default function TabsLayout() {
                 ? '99+'
                 : totalUnreadCount.toString()
               : undefined,
-          tabBarStyle: {
-            ...Platform.select({
-              ios: {
-                position: 'absolute',
-              },
-              default: {},
-            }),
-            backgroundColor: Colors.black,
-          },
+          tabBarStyle: blackAbsoluteTabBarStyle,
         }}
       />
 

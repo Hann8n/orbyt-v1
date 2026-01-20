@@ -129,6 +129,14 @@ const GlobalModals: React.FC = () => {
   );
 };
 
+const canAccessCreate = (emailConfirmed: boolean | undefined | null) =>
+  emailConfirmed === undefined || emailConfirmed !== false;
+
+const modalSlideUpOptions = {
+  presentation: 'modal' as const,
+  animation: 'slide_from_bottom' as const,
+};
+
 // RootNavigator - handles route protection using Stack.Protected
 function RootNavigator() {
   const { session } = useSession();
@@ -175,13 +183,7 @@ function RootNavigator() {
           {/* Allow access if: emailConfirmed is true OR emailConfirmed is undefined (no email scope) */}
           {/* Block access if: emailConfirmed is explicitly false */}
           {/* Use API field name directly: emailConfirmed */}
-          <Stack.Protected
-            guard={
-              currentUser?.emailConfirmed === undefined
-                ? true // No email scope - allow access
-                : currentUser?.emailConfirmed !== false // Allow if confirmed, block if explicitly false
-            }
-          >
+          <Stack.Protected guard={canAccessCreate(currentUser?.emailConfirmed ?? null)}>
             <Stack.Screen
               name="create"
               options={{
@@ -210,20 +212,8 @@ function RootNavigator() {
             }}
           />
           <Stack.Screen name="chat" />
-          <Stack.Screen
-            name="settings"
-            options={{
-              presentation: 'modal',
-              animation: 'slide_from_bottom',
-            }}
-          />
-          <Stack.Screen
-            name="edit-profile"
-            options={{
-              presentation: 'modal',
-              animation: 'slide_from_bottom',
-            }}
-          />
+          <Stack.Screen name="settings" options={modalSlideUpOptions} />
+          <Stack.Screen name="edit-profile" options={modalSlideUpOptions} />
         </Stack.Protected>
 
         {/* Public routes - accessible without authentication */}
