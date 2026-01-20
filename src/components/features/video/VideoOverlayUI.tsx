@@ -522,23 +522,28 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
             {/* Author info */}
             <View style={styles.authorInfoContainer}>
               <View style={styles.avatarContainer}>
-                <Avatar
-                  uri={profilePicUrl}
-                  type="profile"
-                  size={authorAvatarSize}
-                  style={[isTabletDevice ? styles.profilePictureTablet : styles.profilePicture]}
-                  blurRadius={isAuthorBlocked ? 30 : 0}
-                  status={authorProfile?.status}
-                  profileColors={
-                    profileColors
-                      ? {
-                          backgroundColor: profileColors.backgroundColor,
-                          foregroundColor: profileColors.foregroundColor,
-                          textColor: profileColors.foregroundColor,
-                        }
-                      : undefined
-                  }
-                />
+                <Pressable
+                  onPress={handleAuthorPress}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Avatar
+                    uri={profilePicUrl}
+                    type="profile"
+                    size={authorAvatarSize}
+                    style={[isTabletDevice ? styles.profilePictureTablet : styles.profilePicture]}
+                    blurRadius={isAuthorBlocked ? 30 : 0}
+                    status={authorProfile?.status}
+                    profileColors={
+                      profileColors
+                        ? {
+                            backgroundColor: profileColors.backgroundColor,
+                            foregroundColor: profileColors.foregroundColor,
+                            textColor: profileColors.foregroundColor,
+                          }
+                        : undefined
+                    }
+                  />
+                </Pressable>
                 {/* Follow badge overlay: show + when not following, show check briefly after follow */}
                 {hasProfile &&
                   !actualIsFollowing &&
