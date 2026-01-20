@@ -145,7 +145,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       isLoading,
       isError,
       onRetry,
-      onPositionChange,
       isVisible = true,
       viewMode,
       onViewModeChange,
@@ -354,19 +353,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       [onScroll, onVerticalScroll, headerComponent, scrollBasedBlocking]
     );
 
-    // Momentum scroll end - save position
-    // FlashList's maintainVisibleContentPosition handles position maintenance natively
-    const onMomentumScrollEnd = useCallback(
-      (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-        const offsetY = e.nativeEvent.contentOffset.y;
-        // Call position change callback if provided (for external tracking)
-        if (onPositionChange) {
-          onPositionChange(offsetY);
-        }
-      },
-      [onPositionChange]
-    );
-
     // Render item function - optimized to reduce dependencies and rerenders
     const renderItem = useCallback(
       ({ item, index }: ListRenderItemInfo<FeedListItem>) => {
@@ -415,9 +401,9 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         canPlay,
         isModal,
         secondaryColor,
-        profileColors,
         isHeaderBlockingPlayback,
         activeItemIndexRef, // Stable ref, included for completeness
+        // profileColors removed - unnecessary dependency
       ]
     );
 
@@ -675,7 +661,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           scrollEventThrottle={APP_CONSTANTS.SCROLL_THROTTLE}
           // Event handlers
           onScroll={onScrollNative}
-          onMomentumScrollEnd={onMomentumScrollEnd}
           onEndReached={onLoadMore}
           onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
           onViewableItemsChanged={onViewableItemsChanged}
@@ -738,7 +723,8 @@ const styles = StyleSheet.create({
     minHeight: SCREEN_HEIGHT,
   },
   contentContainer: {
-    backgroundColor: 'transparent',
+    backgroundColor: Colors.black,
+    opacity: 0,
   },
 });
 

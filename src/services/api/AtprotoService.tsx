@@ -1,4 +1,5 @@
 import { AtpAgent } from '@atproto/api';
+import type { BlobRef } from '@atproto/api';
 import { storageHelpers } from '../../utils/storage/storage';
 import { AtprotoCore } from './core';
 import { FeedService } from './feed/FeedService';
@@ -354,9 +355,21 @@ class AtprotoService {
     videoPath: string,
     contentWarnings?: string[],
     commentFilter?: 'all' | 'followers' | 'mentioned' | 'none',
-    feedSlug?: string
+    feedSlug?: string,
+    onProgress?: (progress: number) => void,
+    jobId?: string,
+    videoBlob?: BlobRef
   ): Promise<CreateRecordResponse> {
-    return FeedService.createVideoPost(text, videoPath, contentWarnings, commentFilter, feedSlug);
+    return FeedService.createVideoPost(
+      text,
+      videoPath,
+      contentWarnings,
+      commentFilter,
+      feedSlug,
+      onProgress,
+      jobId,
+      videoBlob
+    );
   }
 
   /**
@@ -379,98 +392,18 @@ class AtprotoService {
 
   /**
    * Get comments for a post with pagination support
+   * Delegates to FeedService
    * @param postUri - The URI of the post
    * @param cursor - Pagination cursor
-   * @param limit - Number of comments per page (not used currently as API doesn't support it)
-   * @param depth - How many levels of replies to include (default 2 for parent comments and their replies)
+   * @param limit - Number of comments per page
    * @returns Array of comments and next cursor
    */
   static async getComments(
     postUri: string,
     cursor: string | null = null,
-    _limit: number = 25
+    limit: number = 25
   ): Promise<CommentsResponse> {
-    await this.ensureSession();
-    try {
-      // Use Bluesky threading parameters
-      // depth: how many levels of replies to fetch (6 is standard for full threading)
-      // parentHeight: how many parent levels to include (0 = only direct replies to root post)
-      const params: { uri: string; depth: number; parentHeight: number; cursor?: string } = {
-        uri: postUri,
-        depth: 6, // Fetch up to 6 levels of nested replies (Bluesky standard)
-        parentHeight: 0, // Only get direct replies to the root post
-      };
-      if (cursor) params.cursor = cursor;
-
-      const { api } = await this.getApiClient();
-
-      // Use getPostThread (V2 may not be available in all SDK versions)
-      // The threading structure is preserved through parent/replies relationships
-      const response = await api.app.bsky.feed.getPostThread(params);
-
-      // Function to recursively process thread posts with proper typing
-      // Preserves Bluesky's threading structure with parent/child relationships
-      const processThreadViewPost = (
-        post: ThreadPost,
-        parent: Comment | null = null
-      ): Comment | null => {
-        if (!isThreadViewPost(post)) {
-          return null;
-        }
-
-        const result: Comment = {
-          uri: post.post.uri,
-          cid: post.post.cid,
-          author: post.post.author,
-          record: post.post.record as PostRecord,
-          indexedAt: post.post.indexedAt,
-          viewer: post.post.viewer,
-          likeCount: post.post.likeCount,
-          replyCount: post.post.replyCount,
-          replies: [],
-          parent: parent || null, // Preserve parent reference for threading
-        };
-
-        // Process replies if they exist, passing current post as parent
-        if (post.replies && Array.isArray(post.replies)) {
-          result.replies = (post.replies as ThreadPost[])
-            .map((reply: ThreadPost) => {
-              // Type guard to ensure it's a valid ThreadPost
-              if (isThreadViewPost(reply)) return processThreadViewPost(reply, result);
-              if (checkIsNotFoundPost(reply)) return null;
-              if (checkIsBlockedPost(reply)) return null;
-              return null;
-            })
-            .filter((reply): reply is Comment => reply !== null);
-        }
-
-        return result;
-      };
-
-      // Get the thread from response
-      const thread = response.data.thread as ThreadPost;
-      let comments: Comment[] = [];
-
-      // Process replies at the root level (top-level comments have no parent)
-      if (isThreadViewPost(thread) && thread.replies) {
-        comments = (thread.replies as ThreadPost[])
-          .map((reply: ThreadPost) => {
-            // Type guard to ensure it's a valid ThreadPost
-            if (isThreadViewPost(reply)) return processThreadViewPost(reply, null);
-            if (checkIsNotFoundPost(reply)) return null;
-            if (checkIsBlockedPost(reply)) return null;
-            return null;
-          })
-          .filter((reply): reply is Comment => reply !== null);
-      }
-
-      return {
-        comments,
-        cursor: (response.data as { cursor?: string | null }).cursor ?? null,
-      };
-    } catch (_error: unknown) {
-      return { comments: [], cursor: null };
-    }
+    return FeedService.getComments(postUri, cursor, limit);
   }
 
   /**
@@ -686,7 +619,7 @@ class AtprotoService {
 
   /**
    * Send video feedback (show more/show less) to the appropriate feed provider
-   * Uses the app.bsky.feed.sendInteractions API to communicate preferences to feed generators
+   * Delegates to FeedService
    * @param postUri - The post URI to send feedback for
    * @param type - Type of feedback: 'interested' (show more) or 'not_interested' (show less)
    * @param sourceFeed - Optional source feed URI where the post came from (for accurate interaction routing)
@@ -698,79 +631,7 @@ class AtprotoService {
     sourceFeed?: string,
     feedContext?: string
   ): Promise<void> {
-    try {
-      await this.ensureSession();
-
-      // Get the current user's DID from OAuth session
-      const userDid = await this.getCurrentUserDid();
-      if (!userDid) {
-        throw new Error('No authenticated user found');
-      }
-
-      // Determine target feed for the interaction
-      // Priority: 1. sourceFeed (if post came from an algorithmic feed)
-      //           2. User's selected algorithmic feed provider
-      //           3. null (no target, just store locally)
-      let targetFeed: string | null = null;
-
-      // Import algorithmic feed providers to check if sourceFeed is one of them
-      const { ALGORITHMIC_FEED_PROVIDERS, useUserStore } = await import('../../stores/userStore');
-      const algorithmicFeedUris: string[] = Object.values(ALGORITHMIC_FEED_PROVIDERS).map(
-        p => p.uri
-      );
-
-      if (sourceFeed && algorithmicFeedUris.includes(sourceFeed)) {
-        // Post came from an algorithmic feed - route interaction to that feed
-        targetFeed = sourceFeed;
-      } else {
-        // Fall back to user's selected algorithmic feed provider
-        const { algorithmicFeedProvider } = useUserStore.getState();
-        targetFeed = algorithmicFeedProvider;
-      }
-
-      // Store feedback in local storage for persistence/history
-      const feedbackKey = `video_feedback_${postUri}`;
-      const feedbackData = {
-        postUri,
-        type,
-        timestamp: new Date().toISOString(),
-        userDid: userDid,
-        targetFeed: targetFeed,
-      };
-      await storageHelpers.setItem(feedbackKey, JSON.stringify(feedbackData));
-
-      // If we have a target feed, send the interaction to Bluesky's API
-      // This communicates the preference to the feed generator
-      if (targetFeed) {
-        const { api } = await this.getApiClient();
-
-        // Map our feedback types to Bluesky's interaction events
-        // app.bsky.feed.defs#requestMore = show more like this
-        // app.bsky.feed.defs#requestLess = show less like this
-        const event =
-          type === 'interested'
-            ? 'app.bsky.feed.defs#requestMore'
-            : 'app.bsky.feed.defs#requestLess';
-
-        // Build the interaction object
-        const interaction: { item: string; event: string; feedContext?: string } = {
-          item: postUri,
-          event: event,
-        };
-
-        // Include feedContext if provided (helps feed generators track context)
-        if (feedContext) {
-          interaction.feedContext = feedContext;
-        }
-
-        // Send the interaction to the Bluesky API
-        await api.app.bsky.feed.sendInteractions({
-          interactions: [interaction],
-        });
-      }
-    } catch {
-      // Silently fail - interactions are best-effort
-    }
+    return FeedService.sendVideoFeedback(postUri, type, sourceFeed, feedContext);
   }
 
   /**
@@ -1138,27 +999,12 @@ class AtprotoService {
 
   /**
    * Get feed generator details by URI
+   * Delegates to FeedService
    * @param uri - Feed generator URI
    * @returns Feed generator details
    */
   static async getFeedGenerator(uri: string): Promise<FeedGeneratorOutput | null> {
-    await this.ensureSession();
-    try {
-      // Validate URI format
-      if (!uri || !uri.startsWith('at://')) {
-        return null;
-      }
-
-      const params = { feed: uri };
-
-      const { api } = await this.getApiClient();
-      const response = await api.app.bsky.feed.getFeedGenerator(params);
-
-      return response.data as FeedGeneratorOutput;
-    } catch (_error: unknown) {
-      // Invalid feed URI - return null
-      return null;
-    }
+    return FeedService.getFeedGenerator(uri);
   }
 
   /**

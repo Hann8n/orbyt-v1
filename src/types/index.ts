@@ -35,7 +35,6 @@ export interface ListFeedViewProps {
   isLoading: boolean;
   isError: boolean;
   onRetry?: () => void;
-  onPositionChange?: (position: number) => void;
   isVisible?: boolean;
   viewMode?: ViewMode;
   onViewModeChange?: (mode: ViewMode) => void;

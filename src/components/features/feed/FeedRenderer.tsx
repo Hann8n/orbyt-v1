@@ -56,11 +56,9 @@ interface FeedRendererProps {
   // Callbacks
   onRetryFeed?: () => void;
   onRefresh?: () => void | Promise<void>; // Called when user pulls to refresh
-  onPositionChange?: (position: number) => void;
   onVerticalScroll?: (scrollY: number) => void;
 
   // Search-specific props
-  searchQuery?: string;
   hasNextPage?: boolean;
   isFetchingNextPage?: boolean;
   fetchNextPage?: () => void;
@@ -77,7 +75,6 @@ interface FeedRendererProps {
   // Debug flag
   forceError?: boolean;
   ListComponent?: React.ComponentType<unknown> | null; // Optional custom list component for integration with collapsible tabs
-  shouldPrefetch?: boolean;
   targetScrollIndex?: number | null; // Initial index to scroll to when opening feed
 }
 
@@ -95,7 +92,6 @@ const FeedRenderer = memo(
         onRetryFeed,
         onRefresh: onRefreshCallback,
         queryOptions = {},
-        onPositionChange,
         isVisible = true,
         viewMode = 'list',
         onViewModeChange,
@@ -108,7 +104,6 @@ const FeedRenderer = memo(
         fetchNextPage: searchFetchNextPage,
         forceError = false,
         ListComponent,
-        shouldPrefetch: _shouldPrefetch = false, // Unused - queries stay enabled always to avoid refetch trigger
         targetScrollIndex: propTargetScrollIndex,
       },
       ref
@@ -134,10 +129,16 @@ const FeedRenderer = memo(
       // Regular feed hook with memoized options
       const feedQuery = useFeed(feedOption, userDid, memoizedQueryOptions);
 
+      // Track if current refetch was user-initiated (pull-to-refresh or forced refresh)
+      const isUserInitiatedRefetchRef = useRef(false);
+
       // Unified refresh handler - leverages React Query's built-in refetch
       // This is called when user pulls to refresh
       const handleRefresh = useCallback(async () => {
         if (isSearchFeed) return;
+
+        // Mark as user-initiated refresh
+        isUserInitiatedRefetchRef.current = true;
 
         // Always refetch the feed using React Query
         // This ensures pull-to-refresh actually fetches fresh data
@@ -174,7 +175,6 @@ const FeedRenderer = memo(
           refetch: isSearchFeed ? () => {} : feedQuery.refetch,
           isPaused: isSearchFeed ? false : feedQuery.isPaused,
           isProfileFeed: isSearchFeed ? false : feedQuery.isProfileFeed,
-          dataUpdatedAt: isSearchFeed ? 0 : feedQuery.dataUpdatedAt,
         }),
         [
           isSearchFeed,
@@ -193,7 +193,6 @@ const FeedRenderer = memo(
           feedQuery.refetch,
           feedQuery.isPaused,
           feedQuery.isProfileFeed,
-          feedQuery.dataUpdatedAt,
         ]
       );
 
@@ -210,34 +209,42 @@ const FeedRenderer = memo(
         refetch,
         isPaused,
         isProfileFeed,
-        dataUpdatedAt,
       } = feedData;
 
-      // Simplified auto-reset scroll when feed is invalidated
+      // Track forced refresh state from isRefreshing prop (invalidateQueries)
+      // When isRefreshing is true, mark any subsequent refetch as user-initiated
       useEffect(() => {
-        // Reset scroll when refetch completes (not initial load, not pagination)
-        if (!isRefetching && !isFetchingNextPage && !isLoading && dataUpdatedAt > 0) {
-          // Small delay to ensure data is rendered
-          const timeoutId = setTimeout(() => {
-            if (viewMode === 'list') {
-              listFeedViewRef.current?.scrollToTop();
-            } else if (viewMode === 'grid') {
-              gridFeedViewRef.current?.scrollToTop();
-            }
-          }, 100);
-
-          return () => clearTimeout(timeoutId);
+        if (isRefreshing === true && isRefreshing !== undefined) {
+          // Parent is forcing refresh - mark any refetch as user-initiated
+          isUserInitiatedRefetchRef.current = true;
         }
-        return undefined;
-      }, [isRefetching, isFetchingNextPage, isLoading, dataUpdatedAt, viewMode]);
+      }, [isRefreshing]);
 
-      // Memoized error state calculation
-      const errorState = useMemo(
-        () => ({
-          finalIsError: forceError || isError,
-        }),
-        [forceError, isError]
-      );
+      // Reset scroll ONLY when user-initiated refetch completes
+      // This preserves scroll position for background refetches and feed switches
+      const prevRefetchingRef = useRef(isRefetching);
+      useEffect(() => {
+        // Only reset if:
+        // 1. Refetch just completed (was true, now false)
+        // 2. It was user-initiated (pull-to-refresh or forced refresh)
+        // 3. Not paginating or initial loading
+        if (
+          prevRefetchingRef.current &&
+          !isRefetching &&
+          isUserInitiatedRefetchRef.current &&
+          !isFetchingNextPage &&
+          !isLoading &&
+          feed.length > 0
+        ) {
+          (viewMode === 'list' ? listFeedViewRef : gridFeedViewRef).current?.scrollToTop();
+          // Reset flag after scroll reset
+          isUserInitiatedRefetchRef.current = false;
+        }
+        prevRefetchingRef.current = isRefetching;
+      }, [isRefetching, isFetchingNextPage, isLoading, feed.length, viewMode]);
+
+      // Calculate error state (inline - simple enough to not need memoization)
+      const finalIsError = forceError || isError;
 
       // Memoized callback for retry - prevents recreation on every render
       const handleRetry = useCallback(() => {
@@ -349,14 +356,12 @@ const FeedRenderer = memo(
           hasNextPage,
           onRetry: handleRetry,
           isProfileFeed,
-          onPositionChange,
           isVisible,
           viewMode,
           onViewModeChange,
           onVerticalScroll,
           isRefreshing: effectiveRefreshing,
           isModal,
-          dataUpdatedAt,
           ListComponent,
         }),
         [
@@ -371,14 +376,12 @@ const FeedRenderer = memo(
           hasNextPage,
           handleRetry,
           isProfileFeed,
-          onPositionChange,
           isVisible,
           viewMode,
           onViewModeChange,
           onVerticalScroll,
           effectiveRefreshing,
           isModal,
-          dataUpdatedAt,
           ListComponent,
         ]
       );
@@ -391,7 +394,7 @@ const FeedRenderer = memo(
               ref={gridFeedViewRef}
               {...commonProps}
               onGridItemPress={handleItemPress}
-              isError={isSearchFeed ? false : errorState.finalIsError}
+              isError={isSearchFeed ? false : finalIsError}
             />
           );
         }
@@ -402,7 +405,7 @@ const FeedRenderer = memo(
             {...commonProps}
             isFetchingNextPage={isFetchingNextPage}
             isLoading={isSearchFeed ? false : isLoading}
-            isError={isSearchFeed ? false : errorState.finalIsError}
+            isError={isSearchFeed ? false : finalIsError}
             targetScrollIndex={propTargetScrollIndex}
           />
         );
@@ -410,7 +413,7 @@ const FeedRenderer = memo(
         viewMode,
         commonProps,
         isSearchFeed,
-        errorState.finalIsError,
+        finalIsError,
         isLoading,
         isFetchingNextPage,
         handleItemPress,
@@ -430,7 +433,7 @@ const FeedRenderer = memo(
       );
 
       // Early return for error states
-      if (errorState.finalIsError && !isSearchFeed) {
+      if (finalIsError && !isSearchFeed) {
         return (
           <View style={[styles.errorContainer, { backgroundColor }]}>
             <EmptyFeed
@@ -494,7 +497,6 @@ const areEqual = (prevProps: FeedRendererProps, nextProps: FeedRendererProps) =>
   if (prevProps.secondaryColor !== nextProps.secondaryColor) return false;
   if (prevProps.userDid !== nextProps.userDid) return false;
   if (prevProps.forceError !== nextProps.forceError) return false;
-  // shouldPrefetch removed from comparison - no longer used (queries stay enabled always)
 
   // Shallow comparison for query options - check each property individually
   const prevQueryOpts = prevProps.queryOptions;

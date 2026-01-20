@@ -13,6 +13,10 @@ interface VisibilityState {
   [key: string]: boolean;
 }
 
+interface ProgressState {
+  [key: string]: number;
+}
+
 interface UIState {
   // Loading states
   loading: LoadingState;
@@ -26,6 +30,13 @@ interface UIState {
   getVisibility: (key: string) => boolean;
   toggleVisibility: (key: string) => void;
   clearAllVisibility: () => void;
+
+  // Progress states (for uploads, downloads, etc.)
+  progress: ProgressState;
+  setProgress: (key: string, progress: number) => void;
+  getProgress: (key: string) => number;
+  clearProgress: (key: string) => void;
+  clearAllProgress: () => void;
 }
 
 export const useUIStore = create<UIState>((set, get) => ({
@@ -67,6 +78,37 @@ export const useUIStore = create<UIState>((set, get) => ({
 
   clearAllVisibility: () => {
     set({ visibility: {} });
+  },
+
+  // Progress states
+  progress: {},
+
+  setProgress: (key: string, progress: number) => {
+    set(state => {
+      const clampedProgress = Math.max(0, Math.min(100, progress));
+      const currentProgress = state.progress[key] ?? 0;
+      // Only update if new progress is greater than or equal to current
+      // This prevents progress from jumping backwards, which confuses users
+      const newProgress = Math.max(currentProgress, clampedProgress);
+      return {
+        progress: { ...state.progress, [key]: newProgress },
+      };
+    });
+  },
+
+  getProgress: (key: string) => {
+    return get().progress[key] ?? 0;
+  },
+
+  clearProgress: (key: string) => {
+    set(state => {
+      const { [key]: _, ...rest } = state.progress;
+      return { progress: rest };
+    });
+  },
+
+  clearAllProgress: () => {
+    set({ progress: {} });
   },
 }));
 

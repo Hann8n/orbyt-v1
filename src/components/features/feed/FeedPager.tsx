@@ -146,6 +146,8 @@ const FeedPager = memo(
 
           hasAppliedInitialIndexRef.current = true;
         }
+        // pageScrollProgress is a shared value - not needed in dependencies
+        // eslint-disable-next-line react-hooks/exhaustive-deps
       }, [feedOptions, initialFeed, onFeedChange]);
 
       // Compute current feed option using PagerView's tracked page
@@ -166,7 +168,8 @@ const FeedPager = memo(
           return pendingInitialIndex >= 0 ? pendingInitialIndex : 0;
         }
         return 0;
-      }, [hasAppliedInitialIndexRef.current, feedOptions.length, pendingInitialIndex]);
+        // hasAppliedInitialIndexRef.current is a ref - not a valid dependency
+      }, [feedOptions.length, pendingInitialIndex]);
 
       // Animated style for feed bar - runs on UI thread
       const feedBarAnimatedStyle = useAnimatedStyle(() => {
@@ -199,7 +202,7 @@ const FeedPager = memo(
 
           if (immediate) {
             // Reanimated shared value update
-            // eslint-disable-next-line react-hooks/immutability
+
             feedBarTranslateY.value = translateYValue;
           } else {
             feedBarTranslateY.value = withTiming(translateYValue, {
@@ -226,7 +229,7 @@ const FeedPager = memo(
 
       // Handle page change from PagerView - final confirmation after transition completes
       const handlePageSelected = useCallback(
-        (event: any) => {
+        (event: { nativeEvent: { position: number } }) => {
           if (!hasAppliedInitialIndexRef.current) return;
 
           const nextIndex = event.nativeEvent.position;
@@ -235,7 +238,7 @@ const FeedPager = memo(
           // Ensure refs are in sync (should already be updated by onPageScroll, but confirm)
           if (nextIndex !== prevIndex) {
             currentPageRef.current = nextIndex;
-            // eslint-disable-next-line react-hooks/immutability
+
             pageScrollProgress.value = nextIndex;
             setCurrentFeedIndex(nextIndex);
             setIndicatorScrollProgress(nextIndex);
@@ -253,6 +256,8 @@ const FeedPager = memo(
             onFeedChange?.(newFeedOption);
           }
         },
+        // pageScrollProgress is a shared value - not needed in dependencies
+        // eslint-disable-next-line react-hooks/exhaustive-deps
         [feedOptions, onFeedChange, animateFeedBar, setTabBarVisibility]
       );
 
@@ -277,13 +282,13 @@ const FeedPager = memo(
 
       // Handle page scroll from PagerView - use native props directly
       const handlePageScroll = useCallback(
-        (event: any) => {
+        (event: { nativeEvent: { position: number; offset: number } }) => {
           const { position, offset } = event.nativeEvent;
           const progress = position + offset;
           const roundedPosition = Math.round(progress);
 
           // Update shared value directly from native event
-          // eslint-disable-next-line react-hooks/immutability
+
           pageScrollProgress.value = progress;
 
           // Update visibility immediately during scroll
@@ -317,7 +322,7 @@ const FeedPager = memo(
           if (Math.abs(delta) < 10) {
             return;
           }
-          // eslint-disable-next-line react-hooks/immutability
+
           lastScrollYRef.current = scrollY;
 
           // Simple rule: hide if scrolling down, show if scrolling up or near top
@@ -339,7 +344,7 @@ const FeedPager = memo(
           if (targetIndex >= 0 && targetIndex !== currentPageRef.current) {
             pagerViewRef.current?.setPage(targetIndex);
             // Reset scroll tracking and reengage overlay immediately when tapping indicator
-            // eslint-disable-next-line react-hooks/immutability
+
             lastScrollYRef.current = 0;
             animateFeedBar(true, true);
             setTabBarVisibility(1);
@@ -385,7 +390,6 @@ const FeedPager = memo(
       const renderFeed = useCallback(
         ({ item: feedOption, index }: { item: FeedOption; index: number }) => {
           const isVisible = isTabActive && index === currentFeedIndex;
-          const isNeighbor = isTabActive && Math.abs(currentFeedIndex - index) === 1;
 
           return (
             <FeedRenderer
@@ -399,7 +403,6 @@ const FeedPager = memo(
               isVisible={isVisible}
               isRefreshing={isRefreshing}
               forceError={forceError}
-              shouldPrefetch={isNeighbor}
               onVerticalScroll={handleVerticalScroll}
             />
           );
@@ -478,9 +481,8 @@ const FeedPager = memo(
           <Animated.View
             style={[
               styles.feedSwitcher,
-              {
-                top: applySafeArea ? 12 + insets.top : 12,
-              },
+              // Dynamic top position based on safe area
+              { top: applySafeArea ? 12 + insets.top : 12 },
               feedBarAnimatedStyle,
               controlsAnimatedStyle,
             ]}
@@ -552,7 +554,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 6,
     elevation: 4, // Android
-    backgroundColor: 'transparent',
+    backgroundColor: Colors.black,
+    opacity: 0,
   },
   indicatorContainer: {
     flexDirection: 'row',

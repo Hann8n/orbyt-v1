@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { queryKeys } from '../../src/utils/query/queryKeys';
 import { APP_CONSTANTS } from '../../src/utils/constants';
@@ -19,6 +20,7 @@ import { Colors } from '../../src/components/ui/UI';
 import { tabRefs } from '../../src/utils/navigation/tabRefs';
 import type { ScrollToTopRef } from '../../src/utils/navigation/tabRefs';
 import { useUserStore } from '../../src/stores/userStore';
+import { VideoUploadBanner } from '../../src/components/ui/VideoUploadBanner';
 
 type HomeScreenProps = Record<string, never>;
 
@@ -31,6 +33,7 @@ const HomeScreen = memo(
     const [isRefreshing, setIsRefreshing] = useState(false);
     const queryClient = useQueryClient();
     const currentUser = useUserStore(state => state.currentUser);
+    const insets = useSafeAreaInsets();
     useVisibilityRouteTracker('home');
 
     const triggerRefresh = useCallback(async () => {
@@ -93,6 +96,7 @@ const HomeScreen = memo(
 
     return (
       <View style={styles.container}>
+        <VideoUploadBanner topInset={insets.top} applySafeArea={true} />
         <FeedPager
           ref={feedPagerRef}
           initialFeed={currentFeed}

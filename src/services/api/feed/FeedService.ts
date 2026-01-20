@@ -4,6 +4,7 @@
  */
 
 import { RichText, AtUri } from '@atproto/api';
+import { BlobRef } from '@atproto/api';
 import { Platform } from 'react-native';
 import { storageHelpers } from '../../../utils/storage/storage';
 import { AtprotoCore } from '../core';
@@ -43,6 +44,7 @@ import {
   isVideoEmbed,
   isVideoEmbedInMedia,
 } from '../types';
+import { REQUESTMORE, REQUESTLESS } from '@atproto/api/dist/client/types/app/bsky/feed/defs';
 
 export class FeedService {
   // Tracks whether app.bsky.feed.sendInteractions is supported by the current PDS/AppView
@@ -424,25 +426,21 @@ export class FeedService {
 
   /**
    * Converts upload blob response to BlobRef format required by Bluesky API.
-   * The uploadBlob API returns `{ data: { blob: BlobRef } }` where BlobRef is a class instance,
-   * but the actual runtime structure may differ. This helper performs the necessary type
-   * assertion to satisfy TypeScript while maintaining runtime compatibility.
+   * Handles both BlobRef instances (from video service) and blob objects (from uploadBlob).
    *
-   * @param blob - Blob data from com.atproto.repo.uploadBlob response
-   *               The actual response structure is `{ ref: { $link: string }, mimeType: string, size: number }`
-   *               but TypeScript expects `BlobRef` class instance
+   * @param blob - Blob data, either:
+   *               - BlobRef instance (from video service)
+   *               - Blob object: `{ ref: { $link: string }, mimeType: string, size: number }`
    * @returns BlobRef compatible with app.bsky.embed.video structure
-   *
-   * @internal This type assertion is necessary because the upload response
-   * blob structure matches BlobRef at runtime but TypeScript types don't
-   * overlap directly. The API returns a BlobRef class, but the serialized form
-   * has a different structure that needs casting.
    */
-  private static toBlobRef(blob: {
-    ref: { $link: string };
-    mimeType: string;
-    size: number;
-  }): import('@atproto/lexicon').BlobRef {
+  private static toBlobRef(
+    blob: BlobRef | { ref: { $link: string }; mimeType: string; size: number }
+  ): import('@atproto/lexicon').BlobRef {
+    // If already a BlobRef instance (from video service), return as-is
+    if (blob instanceof BlobRef) {
+      return blob as unknown as import('@atproto/lexicon').BlobRef;
+    }
+    // Otherwise cast the blob object format
     return blob as unknown as import('@atproto/lexicon').BlobRef;
   }
 
@@ -460,7 +458,10 @@ export class FeedService {
     videoPath: string,
     contentWarnings?: string[],
     commentFilter?: 'all' | 'followers' | 'mentioned' | 'none',
-    feedSlug?: string
+    feedSlug?: string,
+    onProgress?: (progress: number) => void,
+    jobId?: string,
+    videoBlob?: BlobRef
   ): Promise<CreateRecordResponse> {
     await AtprotoCore.ensureSession();
 
@@ -497,35 +498,25 @@ export class FeedService {
         throw new Error('Invalid video path');
       }
 
-      // Upload video directly to PDS
-      let videoBlob: Blob;
-      try {
-        const videoResponse = await fetch(videoPath);
-        if (!videoResponse.ok) {
-          throw new Error(
-            `Failed to fetch video: ${videoResponse.status} ${videoResponse.statusText}`
-          );
-        }
-        videoBlob = await videoResponse.blob();
-      } catch (fetchError: unknown) {
-        const errorMessage = fetchError instanceof Error ? fetchError.message : 'Unknown error';
-        throw new Error(`Failed to create video blob: ${errorMessage}`);
-      }
-
       const { api } = await AtprotoCore.getApiClient();
+      const { VideoService } = await import('../video/VideoService');
 
-      let blobData: { data: { blob: { ref: { $link: string }; mimeType: string; size: number } } };
-      try {
-        blobData = await api.com.atproto.repo.uploadBlob(videoBlob, {
-          encoding: 'video/mp4',
-        });
-      } catch (uploadError: unknown) {
-        const errorMessage =
-          uploadError instanceof Error ? uploadError.message : 'Network request failed';
-        throw new Error(`Failed to upload video blob: ${errorMessage}`);
+      // Use Bluesky video service for upload and processing
+      // If videoBlob is provided, use it directly (job was already waited for)
+      // If jobId is provided without blob, job is being tracked - don't wait again
+      // Otherwise, upload and wait for processing
+      let processedVideoBlob: BlobRef;
+      if (videoBlob) {
+        // Blob already available - no need to wait
+        processedVideoBlob = videoBlob;
+      } else if (jobId) {
+        // Job ID provided but no blob - job is being tracked elsewhere
+        // This should not happen in normal flow, but handle it gracefully
+        processedVideoBlob = await VideoService.waitForJob(jobId);
+      } else {
+        // No jobId or blob - full upload and wait flow
+        processedVideoBlob = await VideoService.uploadVideoAndWait(videoPath, onProgress);
       }
-
-      const { data } = blobData;
 
       // Get video aspect ratio
       const aspectRatio = await this.getVideoAspectRatio(videoPath);
@@ -559,7 +550,7 @@ export class FeedService {
         createdAt: new Date().toISOString(),
         embed: {
           $type: 'app.bsky.embed.video',
-          video: this.toBlobRef(data.blob),
+          video: this.toBlobRef(processedVideoBlob),
           aspectRatio,
         },
         tags: tags,
@@ -602,7 +593,11 @@ export class FeedService {
         }
       }
 
-      // Create the post
+      // Create the post - report progress at 95% before creating
+      if (onProgress) {
+        onProgress(95);
+      }
+
       const postResponse = await api.post(postRecord);
 
       // Set comment filtering if specified
@@ -612,6 +607,11 @@ export class FeedService {
         } catch (_error) {
           // Comment filter is best-effort; ignore failures
         }
+      }
+
+      // Report completion
+      if (onProgress) {
+        onProgress(100);
       }
 
       return postResponse;
@@ -1113,18 +1113,13 @@ export class FeedService {
       // If we have a target feed, send the interaction to Bluesky's API
       // This communicates the preference to the feed generator
       if (targetFeed) {
-        const { api } = await AtprotoCore.getApiClient();
+        // Map our feedback types to Bluesky's interaction events using SDK constants
+        // REQUESTMORE = show more like this, REQUESTLESS = show less like this
+        const event = type === 'interested' ? REQUESTMORE : REQUESTLESS;
 
-        // Map our feedback types to Bluesky's interaction events
-        // app.bsky.feed.defs#requestMore = show more like this
-        // app.bsky.feed.defs#requestLess = show less like this
-        const event =
-          type === 'interested'
-            ? 'app.bsky.feed.defs#requestMore'
-            : 'app.bsky.feed.defs#requestLess';
-
-        // Build the interaction object
-        const interaction: { item: string; event: string; feedContext?: string } = {
+        // Build the interaction object using proper Interaction type from @atproto/api
+        const interaction: Interaction = {
+          $type: 'app.bsky.feed.defs#interaction',
           item: postUri,
           event: event,
         };
@@ -1134,10 +1129,9 @@ export class FeedService {
           interaction.feedContext = feedContext;
         }
 
-        // Send the interaction to the Bluesky API
-        await api.app.bsky.feed.sendInteractions({
-          interactions: [interaction],
-        });
+        // Send the interaction using FeedService's sendFeedInteractions method
+        // This ensures consistent error handling and deduplication
+        await FeedService.sendFeedInteractions([interaction]);
       }
     } catch (_error: unknown) {
       // Interactions are best-effort; swallow errors

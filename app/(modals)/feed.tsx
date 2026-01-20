@@ -26,7 +26,6 @@ const FeedScreen = memo(() => {
       userDid: params.userDid as string,
       backgroundColor: params.backgroundColor as string,
       secondaryColor: params.secondaryColor as string,
-      searchQuery: params.searchQuery as string,
       hasNextPage: params.hasNextPage === 'true',
       isFetchingNextPage: params.isFetchingNextPage === 'true',
       initialIndex: validInitialIndex,
@@ -82,7 +81,6 @@ const FeedScreen = memo(() => {
         secondaryColor={routeParams.secondaryColor}
         isVisible={isRouteFocused} // Only play when this modal has focus
         isModal={true} // Mark as modal for optimized behavior
-        searchQuery={routeParams.searchQuery}
         hasNextPage={routeParams.hasNextPage}
         isFetchingNextPage={routeParams.isFetchingNextPage}
         queryOptions={modalQueryOptions}

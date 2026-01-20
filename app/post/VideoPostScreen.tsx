@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { BORDER_RADIUS } from '../../src/utils/constants';
 import {
   View,
@@ -85,7 +85,7 @@ const VideoPreviewContent: React.FC<{
   isMerging: boolean;
   videoError: string | null;
   textOverlays: TextOverlay[];
-  containerStyle?: any;
+  containerStyle?: import('react-native').ViewStyle;
 }> = ({
   thumbnailPath,
   videoUri,
@@ -122,8 +122,8 @@ const VideoPreviewContent: React.FC<{
         </View>
       )}
       {videoError && (
-        <View style={[styles.loadingOverlay, { zIndex: 3, backgroundColor: Colors.darkGray }]}>
-          <Text style={{ color: Colors.lightGray, fontSize: 16 }}>{videoError}</Text>
+        <View style={[styles.loadingOverlay, styles.errorOverlay]}>
+          <Text style={styles.errorText}>{videoError}</Text>
         </View>
       )}
       {!videoLoading &&
@@ -138,7 +138,10 @@ const VideoPreviewContent: React.FC<{
               {
                 left: overlay.position.x,
                 top: overlay.position.y,
-                transform: [{ scaleX: overlay.scale ?? 1 }, { scaleY: overlay.scale ?? 1 }] as any,
+                transform: [
+                  { scaleX: overlay.scale ?? 1 },
+                  { scaleY: overlay.scale ?? 1 },
+                ] as Array<{ scaleX: number } | { scaleY: number }>,
               },
             ]}
           >
@@ -165,8 +168,8 @@ const DescriptionPreview: React.FC<{
   formattedRichText: Array<{ text: string; isSemiBold: boolean }>;
   onPress: () => void;
 }> = ({ description, formattedRichText, onPress }) => (
-  <View style={[styles.descriptionSection, { paddingBottom: 0 }]}>
-    <Text style={[styles.sectionHeaderTitle, { marginBottom: 4 }]}>Description</Text>
+  <View style={[styles.descriptionSection, styles.descriptionSectionNoPadding]}>
+    <Text style={[styles.sectionHeaderTitle, styles.sectionHeaderTitleSmall]}>Description</Text>
     <Pressable onPress={onPress} style={styles.descriptionInputTouchable}>
       {description ? (
         <Text style={styles.descriptionInputPreview} numberOfLines={3}>
@@ -235,9 +238,9 @@ const ChannelSelector: React.FC<{
                   style={[
                     styles.channelSelectorName,
                     styles.orbytSlash,
+                    styles.channelSelectorNameSemiBold,
                     {
                       color: orbytChannel?.channelColor || '#FFD700',
-                      fontFamily: 'Figtree-SemiBold',
                     },
                   ]}
                 >
@@ -246,7 +249,7 @@ const ChannelSelector: React.FC<{
               )
             );
           })()}
-          <Text style={[styles.channelSelectorName, { fontFamily: 'Figtree-Bold' }]}>
+          <Text style={[styles.channelSelectorName, styles.channelSelectorNameBold]}>
             {selectedChannel.displayName.toLowerCase()}
           </Text>
         </View>
@@ -391,7 +394,21 @@ const DescriptionInputModal: React.FC<{
   setDescription: (text: string) => void;
   setDescriptionSelection: (selection: { start: number; end: number }) => void;
   onClose: () => void;
-  richTextSearchModalProps: any;
+  richTextSearchModalProps: {
+    visible: boolean;
+    onSelectUser?: (user: {
+      did: string;
+      handle: string;
+      displayName?: string;
+      avatar?: string;
+    }) => void;
+    onSelectHashtag?: (hashtag: string) => void;
+    onRequestClose: () => void;
+    searchQuery: string;
+    searchType: 'mention' | 'hashtag';
+    anchorPosition?: { x: number; y: number };
+    containerStyle?: import('react-native').ViewStyle;
+  };
   insets: { top: number };
 }> = ({
   visible,
@@ -407,9 +424,12 @@ const DescriptionInputModal: React.FC<{
     <View style={styles.descriptionModalContainer}>
       <View style={styles.descriptionModalOverlay}>
         <View style={[styles.descriptionModalContentWrapper, { paddingTop: insets.top }]}>
+          {/* Dynamic paddingTop based on safe area insets */}
           <View style={styles.descriptionModalHeader}>
             <View style={styles.descriptionModalHeaderSpacer} />
-            <Text style={[styles.sectionHeaderTitle, { marginBottom: 0 }]}>Description</Text>
+            <Text style={[styles.sectionHeaderTitle, styles.descriptionModalHeaderTitle]}>
+              Description
+            </Text>
             <Pressable
               onPress={onClose}
               style={[
@@ -417,6 +437,7 @@ const DescriptionInputModal: React.FC<{
                 description.length > 300 && styles.descriptionModalDoneButtonDisabled,
               ]}
               disabled={description.length > 300}
+              accessibilityLabel={description.length > 300 ? 'Description too long' : 'Done'}
             >
               <Text
                 style={[
@@ -524,7 +545,10 @@ const VideoPostScreen: React.FC = () => {
     }
   }, [thumbnailPath]);
 
-  const textOverlays = (params.textOverlays as any) || [];
+  const textOverlays = useMemo(
+    () => (params.textOverlays as unknown as TextOverlay[] | undefined) || [],
+    [params.textOverlays]
+  );
   const router = useRouter();
 
   // Draft store
@@ -588,6 +612,7 @@ const VideoPostScreen: React.FC = () => {
       duration: 300,
       easing: Easing.out(Easing.ease),
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fadeAnimatedStyle = useAnimatedStyle(() => ({
@@ -613,7 +638,7 @@ const VideoPostScreen: React.FC = () => {
     if (currentUser?.handle) {
       ProfileService.setCurrentUserHandle(currentUser.handle);
     }
-  }, [currentUser?.did]);
+  }, [currentUser?.handle, currentUser?.did]);
 
   // Restore draft state when component mounts or videoPath changes
   useEffect(() => {
@@ -628,7 +653,15 @@ const VideoPostScreen: React.FC = () => {
         setSelectedChannel(draft.selectedChannel || null);
       }
     }
-  }, [videoPath, getDraft]);
+  }, [
+    videoPath,
+    getDraft,
+    setDescription,
+    setSelectedContentWarnings,
+    setOtherWarning,
+    setCommentFilter,
+    setSelectedChannel,
+  ]);
 
   // Save draft state whenever it changes (with debouncing to prevent infinite loops)
   const prevDraftRef = useRef<string>('');
@@ -672,6 +705,7 @@ const VideoPostScreen: React.FC = () => {
     otherWarning,
     commentFilter,
     selectedChannel,
+    setDraft,
   ]);
 
   // Handle background merging if segments are provided
@@ -690,17 +724,24 @@ const VideoPostScreen: React.FC = () => {
         }
 
         // Convert to ProcessingVideoSegment format
-        const processingSegments = segments.map((segment: any) => ({
-          startTime: segment.startTime,
-          duration: segment.duration,
-          video: segment.video,
-          sourceType: segment.sourceType,
-        }));
+        // Segments come from params as JSON string, parsed to unknown structure
+        // Cast to VideoSegment[] - mergeSegments will handle type validation at runtime
+        // Type matches VideoProcessingService.VideoSegment but segments from params are untyped
+        type VideoSegmentInput = {
+          startTime: number;
+          duration: number;
+          video: { uri: string } | { uri: string; [key: string]: unknown };
+          sourceType?: 'camera' | 'gallery';
+        };
+        const processingSegments = segments as VideoSegmentInput[];
 
         // Merge segments in background using InteractionManager
+
         const { InteractionManager } = require('react-native');
         await InteractionManager.runAfterInteractions(async () => {
-          const mergedVideo = await VideoProcessingService.mergeSegments(processingSegments);
+          // Type assertion needed because segments from params don't have full ImagePickerAsset type
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const mergedVideo = await VideoProcessingService.mergeSegments(processingSegments as any);
 
           setMergedVideoPath(mergedVideo.path);
           setIsMerging(false);
@@ -710,12 +751,13 @@ const VideoPostScreen: React.FC = () => {
             mergedPath: mergedVideo.path,
           });
         });
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         logger.error('Background merging failed', error, { component: 'VideoPostScreen' });
         setIsMerging(false);
         Alert.alert(
           'Merging Failed',
-          error.message || 'Failed to merge video segments. Please try again.',
+          errorMessage || 'Failed to merge video segments. Please try again.',
           [
             {
               text: 'Go Back',
@@ -772,7 +814,7 @@ const VideoPostScreen: React.FC = () => {
     return () => {
       interactionHandle.cancel();
     };
-  }, [videoPath]);
+  }, [activeVideoPath]);
 
   // removed legacy expo-av handlers (not used with expo-video)
 
@@ -879,76 +921,150 @@ const VideoPostScreen: React.FC = () => {
           : null,
       });
 
-      // Simulate upload progress with realistic stages
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return prev;
-          }
-          // Slower progress for video processing
-          return prev + 5;
-        });
-      }, 300);
-
       // Extract slug from channel URI to ensure it matches what the backend expects
       const channelSlug = selectedChannel
         ? extractFeedSlug(selectedChannel.uri) || undefined
         : undefined;
 
-      logger.debug('Calling createVideoPost', {
-        component: 'VideoPostScreen',
-        description: description?.substring(0, 100) + (description?.length > 100 ? '...' : ''),
-        videoPath: videoPathToUpload?.substring(0, 50) + '...',
+      // Access UI store directly to set upload state
+      const { useUIStore } = await import('../../src/stores/uiStore');
+      const { storage } = await import('../../src/utils/storage/storage');
+
+      const UPLOAD_KEY = 'video-upload';
+
+      // Start upload process and navigate immediately
+      const { VideoService } = await import('../../src/services/api/video/VideoService');
+
+      // Store upload state for tracking
+      useUIStore.getState().setLoading(UPLOAD_KEY, true);
+
+      // Start video upload to get job ID
+      // Progress callback handles all progress reporting from uploadVideo (10-40%)
+      const uploadResult = await VideoService.uploadVideo(videoPathToUpload, progress => {
+        useUIStore.getState().setProgress(UPLOAD_KEY, progress);
+        setUploadProgress(progress);
+      });
+      // uploadVideo completes at 40% - no need to set explicitly (store ensures monotonic increase)
+
+      // Store post metadata in closure for background completion
+      const postMetadata = {
+        description,
+        videoPath: videoPathToUpload,
         contentWarnings: allContentWarnings.length > 0 ? allContentWarnings : undefined,
         commentFilter: (commentFilter || 'all') as 'all' | 'followers' | 'mentioned' | 'none',
         channelSlug,
-      });
+      };
 
-      // Create the video post using AtprotoService
-      const result = await AtprotoService.createVideoPost(
-        description,
-        videoPathToUpload,
-        allContentWarnings.length > 0 ? allContentWarnings : undefined,
-        (commentFilter || 'all') as 'all' | 'followers' | 'mentioned' | 'none',
-        channelSlug // Pass channel slug for tagging (extracted from URI)
-      );
+      // Extract and store thumbnail if not already available
+      if (!thumbnailPath) {
+        try {
+          const extractedThumbnail =
+            await VideoProcessingService.extractFirstFrame(videoPathToUpload);
+          storage.set('video-upload-thumbnail', extractedThumbnail);
+          logger.info('Thumbnail extracted for upload banner', {
+            component: 'VideoPostScreen',
+            thumbnailPath: extractedThumbnail,
+          });
+        } catch (error) {
+          logger.warn('Failed to extract thumbnail for upload banner', {
+            component: 'VideoPostScreen',
+            error,
+          });
+          // Continue without thumbnail - not critical
+        }
+      } else {
+        storage.set('video-upload-thumbnail', thumbnailPath);
+      }
 
-      logger.info('Video post created successfully', {
-        component: 'VideoPostScreen',
-        uri: result?.uri,
-        cid: result?.cid,
-      });
-
-      // Complete the progress
-      setUploadProgress(100);
-
-      // Small delay to show completion
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Clear draft since post was successful
-      clearDraft();
-
-      // Close the current screen and navigate back to main
+      // Navigate to home screen immediately
       router.replace('/(tabs)');
-    } catch (error: any) {
+
+      // Continue upload in background - complete the post creation after video processing
+      (async () => {
+        try {
+          // Wait for video processing to complete - progress reported by waitForJob (40-90%)
+          const processedBlob = await VideoService.waitForJob(uploadResult.jobId, progress => {
+            useUIStore.getState().setProgress(UPLOAD_KEY, progress);
+          });
+          // waitForJob completes at 90% - no need to set explicitly (store ensures monotonic increase)
+
+          // Pass the blob directly to avoid duplicate waitForJob call
+          const result = await AtprotoService.createVideoPost(
+            postMetadata.description,
+            postMetadata.videoPath,
+            postMetadata.contentWarnings,
+            postMetadata.commentFilter,
+            postMetadata.channelSlug,
+            // Progress callback for post creation phase (90-100%)
+            // createVideoPost reports: 95% when starting post creation, 100% when complete
+            progress => {
+              useUIStore.getState().setProgress(UPLOAD_KEY, progress);
+            },
+            uploadResult.jobId,
+            processedBlob // Pass blob to avoid duplicate waitForJob
+          );
+
+          logger.info('Video post created successfully', {
+            component: 'VideoPostScreen',
+            uri: result?.uri,
+            cid: result?.cid,
+          });
+
+          // Progress already set to 100% by createVideoPost - no need to set again
+
+          // Mark as complete (will auto-dismiss after 10 seconds via VideoUploadBanner)
+          setTimeout(() => {
+            useUIStore.getState().setLoading(UPLOAD_KEY, false);
+            useUIStore.getState().clearProgress(UPLOAD_KEY);
+            storage.delete('video-upload-thumbnail');
+          }, 10000);
+
+          // Clear draft since post was successful
+          clearDraft();
+        } catch (error: unknown) {
+          logger.error('Background video post upload failed', error, {
+            component: 'VideoPostScreen',
+          });
+
+          // Reset upload state on error
+          useUIStore.getState().setLoading(UPLOAD_KEY, false);
+          useUIStore.getState().clearProgress(UPLOAD_KEY);
+          storage.delete('video-upload-thumbnail');
+
+          Alert.alert('Upload Failed', 'Your video upload failed. Please try again.', [
+            { text: 'OK' },
+          ]);
+        } finally {
+          setIsPosting(false);
+          setUploadProgress(0);
+        }
+      })();
+    } catch (error: unknown) {
+      const errorObj = error as {
+        message?: string;
+        stack?: string;
+        name?: string;
+        response?: unknown;
+        data?: unknown;
+      };
       logger.error('Video post upload failed', error, {
         component: 'VideoPostScreen',
-        errorMessage: error?.message,
-        errorStack: error?.stack,
-        errorName: error?.name,
-        errorResponse: error?.response,
-        errorData: error?.data,
+        errorMessage: errorObj?.message,
+        errorStack: errorObj?.stack,
+        errorName: errorObj?.name,
+        errorResponse: errorObj?.response,
+        errorData: errorObj?.data,
         selectedContentWarnings,
         allContentWarnings,
         otherWarning: otherWarning.trim() || null,
       });
 
+      const errorMessage = error instanceof Error ? error.message : '';
       // For upload failures, assume issue and offer retry
-      if (error.message?.includes('Video upload failed') || error.message?.includes('timeout')) {
+      if (errorMessage?.includes('Video upload failed') || errorMessage?.includes('timeout')) {
         Alert.alert(
           'Upload Failed',
-          `It looks like there was an issue while uploading your video.\n\nWould you like to try again?`,
+          'It looks like there was an issue while uploading your video.\n\nWould you like to try again?',
           [
             {
               text: 'Close',
@@ -963,13 +1079,13 @@ const VideoPostScreen: React.FC = () => {
             },
           ]
         );
-      } else if (error.message?.includes('unauthorized')) {
+      } else if (errorMessage?.includes('unauthorized')) {
         Alert.alert(
           'Authentication Failed',
           'Your session has expired. Please log out and log back in.',
           [{ text: 'OK' }]
         );
-      } else if (error.message?.includes('Video compression failed')) {
+      } else if (errorMessage?.includes('Video compression failed')) {
         Alert.alert(
           'Compression Failed',
           'Failed to compress your video. Please try again with a shorter video or check your device storage.',
@@ -1056,11 +1172,12 @@ const VideoPostScreen: React.FC = () => {
         component: 'VideoPostScreen',
         assetId: asset.id,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Failed to download video', error, { component: 'VideoPostScreen' });
       Alert.alert(
         'Download Failed',
-        error.message || 'Failed to save video to your photo library. Please try again.',
+        errorMessage || 'Failed to save video to your photo library. Please try again.',
         [{ text: 'OK' }]
       );
     } finally {
@@ -1182,7 +1299,7 @@ const VideoPostScreen: React.FC = () => {
         setDescriptionSelection({ start: description.length, end: description.length });
       }, 100);
     }
-  }, [showDescriptionInputModal]);
+  }, [showDescriptionInputModal, description.length]);
 
   // Fixed container size with 9:16 aspect ratio
   const containerWidth = VIDEO_WIDTH;
@@ -1220,35 +1337,25 @@ const VideoPostScreen: React.FC = () => {
       <Animated.View
         style={[
           styles.headerButton,
-          {
-            top: isSmallDevice ? 5 : insets.top + 4,
-            left: 4,
-          },
+          { top: isSmallDevice ? 5 : insets.top + 4, left: 4 },
           headerFadeAnimatedStyle,
         ]}
       >
-        <Pressable
-          onPress={handleCancel}
-          style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
-        >
+        <Pressable onPress={handleCancel} style={styles.headerButtonCenter}>
           <BackArrowIcon size={32} color={Colors.white} />
         </Pressable>
       </Animated.View>
       <Animated.View
         style={[
           styles.headerButton,
-          {
-            top: isSmallDevice ? 5 : insets.top + 4,
-            right: 4,
-            left: undefined,
-          },
+          { top: isSmallDevice ? 5 : insets.top + 4, right: 4 },
           headerFadeAnimatedStyle,
         ]}
       >
         <Pressable
           onPress={handleDownload}
           disabled={isDownloading || isMerging || !activeVideoPath}
-          style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+          style={styles.headerButtonCenter}
         >
           {isDownloading ? (
             <Loading3FillIcon size={32} color={Colors.white} />
@@ -1403,22 +1510,22 @@ const VideoPostScreen: React.FC = () => {
                 disabled={selectedChannel?.uri === channelUri}
               >
                 <View style={styles.listButtonContent}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={styles.channelSelectorRow}>
                     {shouldShowChannelSlash(channel.uri) && (
                       <Text
                         style={[
                           styles.channelListButtonText,
                           styles.orbytSlash,
+                          styles.channelSelectorNameSemiBold,
                           {
                             color: channel.channelColor || '#FFD700',
-                            fontFamily: 'Figtree-SemiBold',
                           },
                         ]}
                       >
                         /
                       </Text>
                     )}
-                    <Text style={[styles.channelListButtonText, { fontFamily: 'Figtree-Bold' }]}>
+                    <Text style={[styles.channelListButtonText, styles.channelSelectorNameBold]}>
                       {channel.displayName.toLowerCase()}
                     </Text>
                   </View>
@@ -1440,8 +1547,8 @@ const VideoPostScreen: React.FC = () => {
           {/* Left: Info Side */}
           <View style={styles.landscapeInfoSide}>
             <ScrollView
-              style={{ flex: 1 }}
-              contentContainerStyle={[styles.landscapeInfoScroll, { paddingBottom: 40 }]}
+              style={styles.landscapeScrollContent}
+              contentContainerStyle={[styles.landscapeInfoScroll, styles.landscapeScrollPadding]}
             >
               {/* Header Buttons */}
               <View style={styles.landscapeButtonsContainer}>
@@ -1508,7 +1615,7 @@ const VideoPostScreen: React.FC = () => {
                 isMerging={isMerging}
                 videoError={videoError}
                 textOverlays={textOverlays}
-                containerStyle={{ width: '100%', aspectRatio: ASPECT_RATIO, maxHeight: '90%' }}
+                containerStyle={styles.landscapeVideoContainer}
               />
             </View>
           </View>
@@ -1609,17 +1716,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.black,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 4,
-  },
-  headerTitle: {
-    color: Colors.lightGray,
-    fontSize: 18,
-    fontFamily: 'Figtree-SemiBold',
-  },
   headerButton: {
     position: 'absolute',
     zIndex: 1000,
@@ -1630,10 +1726,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.overlayBlack50,
-  },
-  postButton: {
-    backgroundColor: Colors.darkGray,
-    paddingHorizontal: 15,
   },
   contentContainer: {
     flex: 1,
@@ -1653,10 +1745,6 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     borderRadius: BORDER_RADIUS.SMALL,
   },
-  video: {
-    width: '100%',
-    height: '100%',
-  },
   poster: {
     position: 'absolute',
     top: 0,
@@ -1674,7 +1762,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: '100%',
     height: '100%',
-    backgroundColor: 'transparent',
+    backgroundColor: Colors.black,
   },
   loadingOverlay: {
     position: 'absolute',
@@ -1685,7 +1773,50 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 2,
-    backgroundColor: 'transparent',
+    backgroundColor: Colors.black,
+  },
+  errorOverlay: {
+    zIndex: 3,
+    backgroundColor: Colors.darkGray,
+  },
+  errorText: {
+    color: Colors.lightGray,
+    fontSize: 16,
+  },
+  descriptionSectionNoPadding: {
+    paddingBottom: 0,
+  },
+  sectionHeaderTitleSmall: {
+    marginBottom: 4,
+  },
+  descriptionModalHeaderTitle: {
+    marginBottom: 0,
+  },
+  channelSelectorNameSemiBold: {
+    fontFamily: 'Figtree-SemiBold',
+  },
+  channelSelectorNameBold: {
+    fontFamily: 'Figtree-Bold',
+  },
+  channelSelectorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerButtonCenter: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  landscapeScrollContent: {
+    flex: 1,
+  },
+  landscapeScrollPadding: {
+    paddingBottom: 40,
+  },
+  landscapeVideoContainer: {
+    width: '100%',
+    aspectRatio: 9 / 16,
+    maxHeight: '90%',
   },
   textOverlayContainer: {
     position: 'absolute',
@@ -1703,90 +1834,14 @@ const styles = StyleSheet.create({
     textShadowRadius: 3,
     padding: 4,
   },
-  playPauseButton: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    marginLeft: -25,
-    marginTop: -25,
-    width: 50,
-    height: 50,
-    borderRadius: BORDER_RADIUS.MEDIUM,
-    backgroundColor: Colors.overlayBlack60,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1,
-  },
-  editButton: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    width: 40,
-    height: 40,
-    borderRadius: BORDER_RADIUS.LARGE,
-    backgroundColor: Colors.overlayBlack50,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1,
-  },
-  progressContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: 15,
-    paddingBottom: 15,
-    zIndex: 1,
-  },
-  progressBarBackground: {
-    height: 4,
-    backgroundColor: Colors.overlayWhite30,
-    borderRadius: BORDER_RADIUS.SMALL,
-    overflow: 'hidden',
-  },
-  progressBar: {
-    height: 4,
-    backgroundColor: Colors.darkGray,
-  },
-  timeContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 5,
-  },
-  timeText: {
-    color: Colors.lightGray,
-    fontSize: 12,
-    fontFamily: 'Figtree-Regular',
-  },
   descriptionSection: {
     padding: 15,
     paddingBottom: 0,
   },
-  authorItemStyle: {
-    marginBottom: 4,
-    marginLeft: 5,
-    paddingLeft: 0,
-  },
-
   loadingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-  },
-  loadingText: {
-    color: Colors.lightGray,
-    fontSize: 14,
-    fontFamily: 'Figtree-Medium',
-  },
-  descriptionInput: {
-    color: Colors.lightGray,
-    fontFamily: 'Figtree-Regular',
-    fontSize: 16,
-    minHeight: 80,
-    maxHeight: 150,
-    textAlignVertical: 'top',
-    paddingBottom: 20,
-    marginTop: -8,
   },
   section: {
     padding: 15,
@@ -1805,53 +1860,9 @@ const styles = StyleSheet.create({
     fontFamily: 'Figtree-Bold',
     marginBottom: 12,
   },
-  sectionSelector: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: Colors.darkGray,
-    borderRadius: BORDER_RADIUS.LARGE,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-  },
-  sectionSelectorContent: {
-    flex: 1,
-  },
-  sectionSelectorText: {
-    color: Colors.lightGray,
-    fontSize: 16,
-    fontFamily: 'Figtree-SemiBold',
-  },
-  sectionSubtitle: {
-    color: Colors.lightGray,
-    fontSize: 14,
-    fontFamily: 'Figtree-Regular',
-    marginBottom: 15,
-  },
-  optionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-  },
-  optionText: {
-    color: Colors.lightGray,
-    fontSize: 16,
-    fontFamily: 'Figtree-Bold',
-  },
   orbytSlash: {
     fontFamily: 'Figtree-SemiBold',
     marginRight: 0,
-  },
-  channelInfo: {
-    flex: 1,
-    marginRight: 10,
-  },
-  channelDescription: {
-    color: Colors.lightGray,
-    fontSize: 14,
-    fontFamily: 'Figtree-Regular',
-    marginTop: 2,
   },
   checkbox: {
     width: 22,
@@ -1862,36 +1873,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  commentCheckbox: {
-    width: 22,
-    height: 22,
-    borderRadius: BORDER_RADIUS.FULL,
-    borderWidth: 2,
-    borderColor: Colors.lightGray,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   checkboxSelected: {
     backgroundColor: Colors.white,
     borderColor: Colors.white,
-  },
-  radioButton: {
-    width: 22,
-    height: 22,
-    borderRadius: BORDER_RADIUS.MEDIUM,
-    borderWidth: 2,
-    borderColor: Colors.lightGray,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  radioButtonSelected: {
-    borderColor: Colors.lightGray,
-  },
-  radioButtonInner: {
-    width: 12,
-    height: 12,
-    borderRadius: BORDER_RADIUS.SMALL,
-    backgroundColor: Colors.darkGray,
   },
   otherWarningInput: {
     borderBottomWidth: 1,
@@ -1903,22 +1887,6 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     fontFamily: 'Figtree-Regular',
     fontSize: 18,
-  },
-  floatingPostButton: {
-    position: 'absolute',
-    bottom: 20,
-    left: 20,
-    right: 20,
-    backgroundColor: Colors.lightGray,
-    height: 60,
-    borderRadius: BORDER_RADIUS.LARGE,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: Colors.lightGray,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
   },
   floatingPostButtonContainer: {
     position: 'absolute',
@@ -1971,22 +1939,6 @@ const styles = StyleSheet.create({
   landscapePostButtonDisabled: {
     opacity: 0.5,
   },
-  floatingButtonLoadingText: {
-    color: Colors.lightGray,
-    fontSize: 16,
-    fontFamily: 'Figtree-SemiBold',
-  },
-
-  radioContainer: {
-    position: 'relative',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  radioCheckmark: {
-    position: 'absolute',
-    top: 3,
-    left: 3,
-  },
   landscapeContainer: {
     flex: 1,
     flexDirection: 'row',
@@ -2020,19 +1972,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minWidth: 0,
     padding: 0,
-  },
-  landscapePostButton: {
-    marginTop: 24,
-    backgroundColor: Colors.lightGray,
-    height: 60,
-    borderRadius: BORDER_RADIUS.LARGE,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: Colors.lightGray,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
   },
   landscapePostButtonContainer: {
     marginTop: 24,
@@ -2085,7 +2024,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.darkGray,
     overflow: 'hidden',
     borderWidth: 0,
-    borderColor: 'transparent',
+    borderColor: Colors.black,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -2101,14 +2040,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     flex: 1,
-  },
-  sheetSectionHeader: {
-    color: Colors.lightGray,
-    fontSize: 14,
-    fontFamily: 'Figtree-Regular',
-    marginBottom: 12,
-    marginHorizontal: 12,
-    marginTop: 4,
   },
   sheetOptionRow: {
     flexDirection: 'row',
@@ -2165,11 +2096,13 @@ const styles = StyleSheet.create({
   },
   descriptionModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    backgroundColor: Colors.black,
+    opacity: 0.85,
   },
   descriptionModalContentWrapper: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    backgroundColor: Colors.black,
+    opacity: 0.95,
     justifyContent: 'flex-start',
   },
   descriptionModalHeader: {
@@ -2182,11 +2115,6 @@ const styles = StyleSheet.create({
   },
   descriptionModalHeaderSpacer: {
     width: 60,
-  },
-  descriptionModalTitle: {
-    color: Colors.lightGray,
-    fontSize: 18,
-    fontFamily: 'Figtree-SemiBold',
   },
   descriptionModalDoneButton: {
     paddingVertical: 0,
@@ -2216,7 +2144,8 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   descriptionModalInput: {
-    color: 'transparent',
+    // Text is transparent - overlay shows formatted rich text (mentions/hashtags)
+    color: Colors.transparent,
     fontFamily: 'Figtree-Regular',
     fontSize: 15,
     textAlignVertical: 'top',
@@ -2254,35 +2183,6 @@ const styles = StyleSheet.create({
     color: Colors.lightGray,
     fontFamily: 'Figtree-SemiBold',
     fontSize: 15,
-  },
-  descriptionPreview: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    pointerEvents: 'none',
-    paddingVertical: 0,
-    paddingHorizontal: 0,
-  },
-  descriptionPreviewText: {
-    color: Colors.lightGray,
-    fontSize: 16,
-    fontFamily: 'Figtree-Regular',
-    textAlignVertical: 'top',
-  },
-  descriptionPreviewNormal: {
-    color: Colors.lightGray,
-    fontFamily: 'Figtree-Regular',
-    fontSize: 16,
-  },
-  descriptionPreviewSemiBold: {
-    color: Colors.lightGray,
-    fontFamily: 'Figtree-SemiBold',
-    fontSize: 16,
-  },
-  searchResultsContainer: {
-    flex: 1,
   },
   searchModalContainer: {
     flex: 1,
