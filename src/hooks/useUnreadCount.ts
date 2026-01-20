@@ -27,8 +27,8 @@ export const useUnreadCount = () => {
     ...queryOptions,
   });
 
-  // Get unread messages count
-  const { data: messagesData } = useQuery({
+  // Get unread messages count - DISABLED: Chat features are disabled
+  const { data: _messagesData } = useQuery({
     queryKey: queryKeys.chat.conversations.count(),
     queryFn: async () => {
       const response = await ChatService.getConversations();
@@ -38,10 +38,11 @@ export const useUnreadCount = () => {
       return response.conversations.reduce((total, conv) => total + conv.unreadCount, 0);
     },
     ...queryOptions,
+    enabled: false, // Chat features disabled - prevent API calls
   });
 
   const notificationsCount = notificationsData || 0;
-  const messagesCount = messagesData || 0;
+  const messagesCount = 0; // Chat features disabled - always return 0
   const totalUnreadCount = notificationsCount + messagesCount;
 
   return {
