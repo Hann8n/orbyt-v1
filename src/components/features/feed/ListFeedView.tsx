@@ -45,8 +45,6 @@ import type { FeedListItem, EndCardItem, ListFeedViewProps, ListFeedViewRef } fr
 import type { ExtendedFeedViewPost } from '../../../services/api/types';
 import { useFeedVisibility } from '../../../hooks';
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-
 // Constants
 const CONSTANTS = {
   SEPARATOR_HEIGHT: 5, // Height of black separator between items
@@ -545,14 +543,17 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     const hasHeader = useMemo(() => Boolean(headerComponent), [headerComponent]);
 
     const snapToOffsets = useMemo(() => {
-      if (isSmallDevice) return null;
+      // Always use snapToOffsets when there's a header to properly account for header height
+      // snapToInterval doesn't account for headers, so it causes scroll issues
+      if (!hasHeader && isSmallDevice) return null;
 
       const offsets: number[] = hasHeader ? [0] : [];
 
       for (let i = 0; i < listData.length; i++) {
         if (hasHeader && headerHeight > 0 && cardHeight > 0) {
-          const base = Math.max(0, headerHeight - topInset);
-          offsets.push(base + i * itemSpacing);
+          // Header height from onLayout already includes all padding (including safe area)
+          // Use full headerHeight to ensure we scroll past the entire header
+          offsets.push(headerHeight + i * itemSpacing);
         } else {
           offsets.push(i * itemSpacing - topInset);
         }
@@ -720,7 +721,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    minHeight: SCREEN_HEIGHT,
+    minHeight: Dimensions.get('window').height,
   },
   contentContainer: {
     backgroundColor: Colors.black,

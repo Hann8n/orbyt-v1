@@ -5,8 +5,6 @@
 import * as Device from 'expo-device';
 import { Dimensions } from 'react-native';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-
 // Define screen size breakpoints for unified snapping
 const SMALL_SCREEN_WIDTH = 375; // iPhone SE, small Android devices
 const SMALL_SCREEN_HEIGHT = 667; // iPhone SE height
@@ -18,7 +16,8 @@ const TABLET_MIN_SIZE = 600; // Minimum size to be considered a tablet
  * Uses expo-device for more accurate device info if available
  */
 export const isSmallScreen = (): boolean => {
-  return SCREEN_WIDTH <= SMALL_SCREEN_WIDTH || SCREEN_HEIGHT <= SMALL_SCREEN_HEIGHT;
+  const { width, height } = Dimensions.get('window');
+  return width <= SMALL_SCREEN_WIDTH || height <= SMALL_SCREEN_HEIGHT;
 };
 
 /**
@@ -31,7 +30,8 @@ export const isTablet = (): boolean => {
     return true;
   }
   // Fallback to screen size heuristic
-  return Math.min(SCREEN_WIDTH, SCREEN_HEIGHT) >= TABLET_MIN_SIZE;
+  const { width, height } = Dimensions.get('window');
+  return Math.min(width, height) >= TABLET_MIN_SIZE;
 };
 
 /**
@@ -39,17 +39,18 @@ export const isTablet = (): boolean => {
  * Useful for devices like iPhone 14 Pro Max, Samsung Galaxy S23 Ultra, etc.
  */
 export const isTallScreen = (): boolean => {
-  const aspectRatio = SCREEN_HEIGHT / SCREEN_WIDTH;
+  const { width, height } = Dimensions.get('window');
+  const aspectRatio = height / width;
   return aspectRatio > 2.1; // Tall devices have aspect ratio > 2.1
 };
 
 /**
  * Get screen dimensions
  */
-export const getScreenDimensions = () => ({
-  width: SCREEN_WIDTH,
-  height: SCREEN_HEIGHT,
-});
+export const getScreenDimensions = () => {
+  const { width, height } = Dimensions.get('window');
+  return { width, height };
+};
 
 /**
  * Constants for layout calculations
@@ -79,11 +80,12 @@ export const getBottomNavBarHeight = (insets: { bottom: number }): number => {
  * Uses the bottomNavBarHeight calculation for consistency
  */
 export const getVideoCardHeight = (insets: { top: number; bottom: number }): number => {
+  const { height } = Dimensions.get('window');
   if (isSmallScreen()) {
-    return SCREEN_HEIGHT;
+    return height;
   } else {
     const navHeight = getBottomNavBarHeight(insets) + 20; // 20px additional padding
-    return SCREEN_HEIGHT - navHeight - insets.top;
+    return height - navHeight - insets.top;
   }
 };
 
@@ -112,21 +114,5 @@ export const getViewportDimensions = (
     effectiveInsets,
     bottomNavBarHeight,
     isFullScreen: useFullScreen,
-  };
-};
-
-/**
- * Get device info for debugging and optimization
- */
-export const getDeviceInfo = async () => {
-  return {
-    deviceType: await Device.getDeviceTypeAsync(),
-    modelName: Device.modelName,
-    osName: Device.osName,
-    osVersion: Device.osVersion,
-    screen: getScreenDimensions(),
-    isSmall: isSmallScreen(),
-    isTablet: isTablet(),
-    isTall: isTallScreen(),
   };
 };
