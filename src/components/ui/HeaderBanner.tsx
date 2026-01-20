@@ -206,7 +206,6 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
                     style={[
                       styles.headerTitle,
                       header.titleColor ? { color: header.titleColor as string } : null,
-                      header.titleFontFamily ? { fontFamily: header.titleFontFamily } : null,
                       header.titleFontSize ? { fontSize: header.titleFontSize } : null,
                       header.titleOpacity !== undefined ? { opacity: header.titleOpacity } : null,
                     ]}
@@ -222,7 +221,6 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
                     style={[
                       styles.headerSubtitle,
                       header.subtitleColor ? { color: header.subtitleColor as string } : null,
-                      header.subtitleFontFamily ? { fontFamily: header.subtitleFontFamily } : null,
                       header.subtitleFontSize ? { fontSize: header.subtitleFontSize } : null,
                       header.subtitleOpacity !== undefined
                         ? { opacity: header.subtitleOpacity }
@@ -284,7 +282,6 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
                       style={[
                         styles.headerTitle,
                         header.titleColor ? { color: header.titleColor as string } : null,
-                        header.titleFontFamily ? { fontFamily: header.titleFontFamily } : null,
                         header.titleFontSize ? { fontSize: header.titleFontSize } : null,
                         header.titleOpacity !== undefined ? { opacity: header.titleOpacity } : null,
                       ]}
@@ -300,9 +297,6 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
                       style={[
                         styles.headerSubtitle,
                         header.subtitleColor ? { color: header.subtitleColor as string } : null,
-                        header.subtitleFontFamily
-                          ? { fontFamily: header.subtitleFontFamily }
-                          : null,
                         header.subtitleFontSize ? { fontSize: header.subtitleFontSize } : null,
                         header.subtitleOpacity !== undefined
                           ? { opacity: header.subtitleOpacity }
@@ -420,7 +414,7 @@ const styles = StyleSheet.create({
   textContainer: {
     flex: 1,
     justifyContent: 'flex-end',
-    paddingLeft: 20,
+    paddingLeft: 10,
     paddingRight: 16,
     paddingBottom: 10,
   },
