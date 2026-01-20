@@ -8,6 +8,8 @@ import { Colors } from '../../src/components/ui/UI';
 import ListHeader from '../../src/components/ui/ListHeader';
 import { settingsTextStyles, settingsLayoutStyles } from './SettingsStyles';
 import { OptionsButton } from '../../src/components/ui/OptionsButton';
+import { useCurrentUser } from '../../src/stores/userStore';
+import { useOrbytColors } from '../../src/hooks/useOrbytColors';
 
 type AppIconKey = 'orBYTE' | null;
 
@@ -36,6 +38,9 @@ const ICON_OPTIONS: {
 const AppIconSettingsScreen: React.FC = () => {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { currentUser } = useCurrentUser();
+  const { data: orbytColors } = useOrbytColors(currentUser?.did ?? null);
+  const isBeta = orbytColors?.isBeta ?? false;
 
   const handleSelectIcon = useCallback(
     async (iconKey: AppIconKey) => {
@@ -72,7 +77,7 @@ const AppIconSettingsScreen: React.FC = () => {
       />
 
       <View style={{ flex: 1 }}>
-        {ICON_OPTIONS.map(option => (
+        {ICON_OPTIONS.filter(option => option.id !== 'orBYTE' || isBeta).map(option => (
           <OptionsButton
             key={option.id}
             label={option.label}
