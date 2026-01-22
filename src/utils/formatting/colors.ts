@@ -116,7 +116,7 @@ export const getContrastRatio = (color1: string, color2: string): number => {
  * Calculates relative luminance of a color according to WCAG standards
  * @param hex Hex color string
  */
-const getRelativeLuminance = (hex: string): number => {
+export const getRelativeLuminance = (hex: string): number => {
   const color = hex.replace('#', '');
   const r = parseInt(color.substring(0, 2), 16) / 255;
   const g = parseInt(color.substring(2, 4), 16) / 255;
@@ -127,6 +127,13 @@ const getRelativeLuminance = (hex: string): number => {
 
   return 0.2126 * transform(r) + 0.7152 * transform(g) + 0.0722 * transform(b);
 };
+
+/**
+ * Returns the lighter of two hex colors (higher relative luminance).
+ * Used for native tab bar tint so icons stay visible on any profile theme.
+ */
+export const pickLighterHex = (a: string, b: string): string =>
+  getRelativeLuminance(a) >= getRelativeLuminance(b) ? a : b;
 
 /**
  * Determines the appropriate status bar style based on background color

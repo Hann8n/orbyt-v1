@@ -8,7 +8,7 @@ import { Colors } from '../../src/components/ui/UI';
 import CustomBottomTabBar from '../../src/components/ui/CustomBottomTabBar';
 import { useUnreadCount } from '../../src/hooks/useUnreadCount';
 import { useOrbytColors } from '../../src/hooks/useOrbytColors';
-import { getProfileColors } from '../../src/utils/formatting/colors';
+import { getProfileColors, pickLighterHex } from '../../src/utils/formatting/colors';
 
 export default function TabsLayout() {
   const currentUserDid = useUserStore(state => state.currentUser?.did);
@@ -16,9 +16,12 @@ export default function TabsLayout() {
   const { nativeTabsEnabled } = useFeedSettings();
   const { totalUnreadCount } = useUnreadCount();
 
-  // Native tabs: use colors from Orbyt API
+  // Native tabs: use lighter of Orbyt text/background so icons stay visible
   const profileColors = getProfileColors(orbytColors);
-  const nativeTintColor = profileColors.foregroundColor || Colors.white;
+  const nativeTintColor =
+    orbytColors?.textColor && orbytColors?.backgroundColor
+      ? pickLighterHex(orbytColors.textColor, orbytColors.backgroundColor)
+      : profileColors.foregroundColor || Colors.white;
 
   // Custom JavaScript tabs: use white
   const customTintColor = Colors.white;
