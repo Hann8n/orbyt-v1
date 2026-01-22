@@ -428,7 +428,6 @@ const styles = StyleSheet.create({
   appName: {
     color: Colors.white,
     fontSize: 42,
-    fontWeight: 'bold',
     fontFamily: 'Figtree-Black',
     textAlign: 'center',
   },
