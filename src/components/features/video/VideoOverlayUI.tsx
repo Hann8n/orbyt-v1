@@ -520,11 +520,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
             )}
 
             {/* Author info */}
-            <View
-              style={styles.authorInfoContainer}
-              onStartShouldSetResponder={() => true}
-              onResponderTerminationRequest={() => false}
-            >
+            <View style={styles.authorInfoContainer}>
               <View style={styles.avatarContainer}>
                 <Pressable
                   onPress={handleAuthorPress}
