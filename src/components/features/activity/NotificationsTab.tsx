@@ -601,12 +601,13 @@ const NotificationItem = React.memo<NotificationItemProps>(
           <Pressable onPress={handleThumbnailPress} style={styles.thumbnailContainer}>
             {thumbnail ? (
               <>
-                <BlurredThumbnailBackground thumbnailUrl={thumbnail} />
+                <BlurredThumbnailBackground thumbnailUrl={thumbnail} recyclingKey={uri} />
                 <Image
                   source={{ uri: thumbnail }}
                   style={styles.thumbnailVideo}
                   contentFit="contain"
-                  transition={200}
+                  recyclingKey={uri}
+                  transition={0}
                 />
                 {shouldBlur && (
                   <BlurView
@@ -629,12 +630,7 @@ const NotificationItem = React.memo<NotificationItemProps>(
     // Custom comparison for memo - return true if props are equal (skip re-render)
     if (prevProps.item.uri !== nextProps.item.uri) return false;
     if (prevProps.item.indexedAt !== nextProps.item.indexedAt) return false;
-    if (prevProps.postDataMap !== nextProps.postDataMap) {
-      // Only re-render if postDataMap changed AND it affects this item
-      const prevPostData = getPostDataFromNotification(prevProps.item, prevProps.postDataMap);
-      const nextPostData = getPostDataFromNotification(nextProps.item, nextProps.postDataMap);
-      if (prevPostData !== nextPostData) return false;
-    }
+    if (prevProps.postDataMap !== nextProps.postDataMap) return false;
     return true; // Props are equal, skip re-render
   }
 );
@@ -909,36 +905,6 @@ const NotificationsTab = forwardRef<ScrollToTopRef, NotificationsTabProps>(
       return item.uri || `notification-${item.indexedAt || Math.random()}`;
     }, []);
 
-    // Get item type for better recycling optimization - only uses synchronous data
-    const getItemType = useCallback((item: Notification): string => {
-      const isPostAction = POST_ACTION_TYPES.includes(item.reason as PostActionReason);
-      if (!isPostAction) return 'non-post';
-
-      // Check record embed (synchronous, always available)
-      if (
-        'record' in item &&
-        item.record &&
-        typeof item.record === 'object' &&
-        'embed' in item.record
-      ) {
-        const recordEmbed =
-          'record' in item &&
-          item.record &&
-          typeof item.record === 'object' &&
-          'embed' in item.record
-            ? (item.record as { embed?: PostView['embed'] }).embed
-            : undefined;
-        if (recordEmbed && typeof recordEmbed === 'object') {
-          // Use type guards for video embeds
-          if (isVideoEmbed(recordEmbed) || isVideoEmbedInMedia(recordEmbed)) {
-            return 'post-video';
-          }
-        }
-      }
-
-      return 'post-text'; // Default for post actions
-    }, []);
-
     if (isError) {
       return (
         <View style={styles.errorContainer}>
@@ -968,13 +934,10 @@ const NotificationsTab = forwardRef<ScrollToTopRef, NotificationsTabProps>(
           { paddingBottom: bottomNavBarHeight + 5 },
         ]}
         data={allNotifications}
+        extraData={postDataMap}
         renderItem={renderNotificationContent}
         keyExtractor={keyExtractor}
         ItemSeparatorComponent={NotificationDivider}
-        recycleItems={true}
-        getItemType={getItemType}
-        drawDistance={250}
-        initialContainerPoolRatio={6}
         estimatedItemSize={114}
         refreshControl={
           <RefreshControl
@@ -991,7 +954,6 @@ const NotificationsTab = forwardRef<ScrollToTopRef, NotificationsTabProps>(
         }
         onEndReached={handleLoadMore}
         onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
-        maintainVisibleContentPosition={true}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={!isLoading ? <EmptyNotifications /> : null}
         ListFooterComponent={
@@ -1051,8 +1013,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.darkGray,
   },
   thumbnailVideo: {
-    width: '100%',
-    height: '100%',
+    width: 45,
+    height: 80,
     zIndex: 1,
   },
   thumbnailPlaceholder: {
