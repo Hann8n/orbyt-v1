@@ -172,7 +172,7 @@ const CustomPDSInputSheet: React.FC<CustomPDSInputSheetProps> = ({
           <Text style={styles.termsText}>By signing in you are agreeing to the</Text>
           <Text
             style={styles.termsLink}
-            onPress={() => Linking.openURL('https://getorbyt.com/terms.html')}
+            onPress={() => Linking.openURL('https://getorbyt.com/terms')}
           >
             orbyt terms of use
           </Text>
