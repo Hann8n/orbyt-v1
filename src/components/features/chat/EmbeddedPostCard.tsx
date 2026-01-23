@@ -1,7 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
@@ -25,6 +24,7 @@ import { useProfile } from '../../../services/data/ProfileService';
 import type { PostView, ImagesView, RecordWithMediaView } from '../../../services/api/types';
 import { isVideoEmbed, isVideoEmbedInMedia } from '../../../services/api/types';
 import { getVideoView } from '../../../utils/video/helpers';
+import { SafeBlurView } from '../../ui/SafeBlurView';
 
 interface EmbeddedPostCardProps {
   postUri: string;
@@ -501,12 +501,7 @@ export default function EmbeddedPostCard({
             {/* Main image */}
             <Image source={{ uri: thumbnailUrl }} style={styles.cleanImage} contentFit="contain" />
             {isBlurred && (
-              <BlurView
-                intensity={80}
-                tint="dark"
-                style={styles.cleanBlurOverlay}
-                experimentalBlurMethod="dimezisBlurView"
-              />
+              <SafeBlurView intensity={80} tint="dark" style={styles.cleanBlurOverlay} />
             )}
             {isBlurred && (
               <View style={styles.cleanWarningOverlay}>
@@ -576,14 +571,7 @@ export default function EmbeddedPostCard({
             />
           </View>
 
-          {isBlurred && (
-            <BlurView
-              intensity={80}
-              tint="dark"
-              style={styles.blurOverlay}
-              experimentalBlurMethod="dimezisBlurView"
-            />
-          )}
+          {isBlurred && <SafeBlurView intensity={80} tint="dark" style={styles.blurOverlay} />}
           {isBlurred && (
             <View style={styles.contentWarningOverlay}>
               <View style={styles.warningMessage}>

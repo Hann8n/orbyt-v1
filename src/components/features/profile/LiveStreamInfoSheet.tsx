@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, Linking } from 'react-native';
 import { Image } from 'expo-image';
-import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format, parseISO, isValid, isToday, isTomorrow } from 'date-fns';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
@@ -15,6 +14,7 @@ import { Colors } from '../../ui/UI';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { formatHandle } from '../../../utils/formatting/handles';
 import type { ProfileViewWithOrbyt } from '../../../services/api/types';
+import { SafeBlurView } from '../../ui/SafeBlurView';
 
 interface LiveStreamInfoSheetProps {
   visible: boolean;
@@ -158,9 +158,9 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
                 </View>
                 {expirationText && (
                   <View style={styles.chipsContainer}>
-                    <BlurView intensity={80} tint="dark" style={styles.chip}>
+                    <SafeBlurView intensity={80} tint="dark" style={styles.chip}>
                       <Text style={styles.chipText}>{expirationText}</Text>
-                    </BlurView>
+                    </SafeBlurView>
                   </View>
                 )}
               </View>

@@ -21,12 +21,12 @@ import type { ListFeedViewRef } from '../../../types';
 import { Colors } from '../../ui/UI';
 import { feedService } from '../../../services/FeedService';
 import { getVideoView } from '../../../utils/video/helpers';
-import { BlurView } from 'expo-blur';
 import { QUERY_CONSTANTS } from '../../../utils/constants';
 import type { ExtendedFeedViewPost } from '../../../services/api/types';
 import { isTablet, getBottomNavBarHeight } from '../../../utils/device/screen';
 import EmptyFeed from './EmptyFeed';
 import BlurredThumbnailBackground from '../../ui/BlurredThumbnailBackground';
+import { SafeBlurView } from '../../ui/SafeBlurView';
 
 // Memoized shared video item component
 const VideoGridItem: React.FC<{
@@ -67,14 +67,7 @@ const VideoGridItem: React.FC<{
           transition={200}
         />
       )}
-      {shouldBlur && (
-        <BlurView
-          intensity={100}
-          tint="dark"
-          style={styles.blurOverlay}
-          experimentalBlurMethod="dimezisBlurView"
-        />
-      )}
+      {shouldBlur && <SafeBlurView intensity={100} tint="dark" style={styles.blurOverlay} />}
     </Pressable>
   );
 });

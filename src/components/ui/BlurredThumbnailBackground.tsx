@@ -1,7 +1,7 @@
 import { View, StyleSheet, Platform } from 'react-native';
 import { Image } from 'expo-image';
-import { BlurView } from 'expo-blur';
 import { memo } from 'react';
+import { SafeBlurView } from './SafeBlurView';
 
 interface BlurredThumbnailBackgroundProps {
   thumbnailUrl: string | null;
@@ -23,11 +23,10 @@ const BlurredThumbnailBackground = memo(function BlurredThumbnailBackground({
         recyclingKey={recyclingKey}
         cachePolicy="disk"
       />
-      <BlurView
+      <SafeBlurView
         intensity={100}
         tint={Platform.OS === 'android' ? 'dark' : 'systemChromeMaterialDark'}
         style={styles.blur}
-        experimentalBlurMethod="dimezisBlurView"
         {...(Platform.OS === 'android' && { blurReductionFactor: 3 })}
       />
       <View style={styles.overlay} />

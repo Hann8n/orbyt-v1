@@ -27,7 +27,7 @@ import Animated, {
   useDerivedValue,
   interpolate,
 } from 'react-native-reanimated';
-import { BlurView } from 'expo-blur';
+import { SafeBlurView } from '../../ui/SafeBlurView';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -1025,12 +1025,7 @@ const VideoCard = memo(
           {/* Content Warning Overlay - blur with message */}
           {isBlurred && (
             <>
-              <BlurView
-                intensity={100}
-                tint="dark"
-                style={styles.contentWarningBlur}
-                experimentalBlurMethod="dimezisBlurView"
-              />
+              <SafeBlurView intensity={100} tint="dark" style={styles.contentWarningBlur} />
               <View style={styles.contentWarningOverlay}>
                 <View style={styles.blurMessage}>
                   <Text style={styles.blurTitle}>Sensitive Content</Text>

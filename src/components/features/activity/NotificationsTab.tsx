@@ -9,7 +9,6 @@ import React, {
 import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../../utils/constants';
 import { View, Text, StyleSheet, Pressable, RefreshControl } from 'react-native';
 import { Image } from 'expo-image';
-import { BlurView } from 'expo-blur';
 import { LegendList, LegendListRef } from '@legendapp/list';
 import type { ScrollToTopRef } from '../../../utils/navigation/tabRefs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -46,6 +45,7 @@ import { isVideoEmbed, isVideoEmbedInMedia } from '../../../services/api/types';
 import { getVideoView } from '../../../utils/video/helpers';
 import type { Record as RepostRecord } from '@atproto/api/dist/client/types/app/bsky/feed/repost';
 import { isNotFoundPost, isBlockedPost } from '@atproto/api/dist/client/types/app/bsky/feed/defs';
+import { SafeBlurView } from '../../ui/SafeBlurView';
 
 // Import radar.gif for empty notifications state
 const RadarGif = require('../../../assets/radar.gif');
@@ -610,12 +610,7 @@ const NotificationItem = React.memo<NotificationItemProps>(
                   transition={0}
                 />
                 {shouldBlur && (
-                  <BlurView
-                    intensity={80}
-                    tint="dark"
-                    style={styles.thumbnailBlurOverlay}
-                    experimentalBlurMethod="dimezisBlurView"
-                  />
+                  <SafeBlurView intensity={80} tint="dark" style={styles.thumbnailBlurOverlay} />
                 )}
               </>
             ) : (
