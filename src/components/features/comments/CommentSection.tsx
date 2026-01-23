@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -130,7 +130,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     end: 0,
   });
   const inputRef = useRef<TextInput>(null);
-  const [isInputFocused, setIsInputFocused] = useState(false);
 
   const [replyContext, setReplyContext] = useState<{
     authorName: string;
@@ -384,7 +383,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
   // Track reported comments for animated removal
   const reportedPostUris = useReportedPostsStore(state => state.reportedPostUris);
-  const reportedUrisArray = useMemo(() => Array.from(reportedPostUris), [reportedPostUris.size]);
   const previousCommentsLengthRef = useRef<number>(0);
 
   const flattenedComments = useMemo<Comment[]>(() => {
@@ -413,7 +411,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       addComments(comments);
     }
     return flat;
-  }, [comments, deletedComments, reportedPostUris, reportedUrisArray]);
+  }, [comments, deletedComments, reportedPostUris]);
 
   // Prepare layout animation when comments are removed
   useEffect(() => {
@@ -552,28 +550,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
   const router = useRouter();
 
-  const LikeRow = memo(({ like }: { like: Like }) => {
-    const handlePress = () => {
-      onDismiss?.();
-      setTimeout(() => router.push(`/profile/${like.actor.handle}`), 100);
-    };
-
-    return (
-      <AuthorItem
-        handle={like.actor.handle}
-        displayName={like.actor.displayName}
-        avatar={like.actor.avatar}
-        size="medium"
-        showArrow={false}
-        backgroundColor="transparent"
-        hideHandleLine={true}
-        customFontSize={16}
-        onPress={handlePress}
-        style={styles.likeItem}
-      />
-    );
-  });
-
   const renderCommentItem = useCallback<ListRenderItem<Comment>>(
     ({ item }) => {
       const level = item.parent ? 1 : 0;
@@ -592,8 +568,28 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   );
 
   const renderLikeItem = useCallback<ListRenderItem<Like>>(
-    ({ item }) => <LikeRow like={item} />,
-    []
+    ({ item }) => {
+      const handlePress = () => {
+        onDismiss?.();
+        setTimeout(() => router.push(`/profile/${item.actor.handle}`), 100);
+      };
+
+      return (
+        <AuthorItem
+          handle={item.actor.handle}
+          displayName={item.actor.displayName}
+          avatar={item.actor.avatar}
+          size="medium"
+          showArrow={false}
+          backgroundColor="transparent"
+          hideHandleLine={true}
+          customFontSize={16}
+          onPress={handlePress}
+          style={styles.likeItem}
+        />
+      );
+    },
+    [onDismiss, router]
   );
 
   const commentKeyExtractor = useCallback(
@@ -647,22 +643,10 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     : 'Say something nice...';
 
   const handleInputFocus = useCallback(() => {
-    setIsInputFocused(true);
+    // TrueSheet's native footer handles keyboard automatically
+    // Resize to full height to ensure footer remains visible when keyboard appears
     sheetRef.current?.resize(1);
   }, []);
-
-  const handleInputBlur = useCallback(() => {
-    setIsInputFocused(false);
-  }, []);
-
-  const handleDetentChange = useCallback(
-    (e: { nativeEvent: { index: number } }) => {
-      if (isInputFocused && e.nativeEvent.index === 0) {
-        sheetRef.current?.resize(1);
-      }
-    },
-    [isInputFocused]
-  );
 
   const ComposerFooter = useMemo(() => {
     return (
@@ -691,7 +675,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         userSearchModalProps={userSearchModalProps}
         mentionInputProps={mentionInputProps}
         onFocus={handleInputFocus}
-        onBlur={handleInputBlur}
       />
     );
   }, [
@@ -707,7 +690,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     userSearchModalProps,
     mentionInputProps,
     handleInputFocus,
-    handleInputBlur,
   ]);
 
   const headerComponent = useMemo(
@@ -781,7 +763,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         detents={scrollToCommentUri ? [1] : [0.5, 1]}
         backgroundColor={Colors.black}
         onDidDismiss={handleClose}
-        onDetentChange={handleDetentChange}
         scrollable
         grabber={false}
         header={headerComponent}
@@ -935,7 +916,7 @@ const styles = StyleSheet.create({
 
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.95)',
+    backgroundColor: Colors.overlayBlack95,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -948,7 +929,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 60,
     left: 24,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: Colors.overlayBlack70,
     borderRadius: BORDER_RADIUS.LARGE,
     padding: 12,
   },

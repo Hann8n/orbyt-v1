@@ -15,7 +15,6 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
   ScaledSize,
-  InteractionManager,
   LayoutChangeEvent,
   Platform,
   type RefreshControlProps,
@@ -301,7 +300,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     // Error handling
     const effectiveIsError = forceError || isError;
 
-    // Scroll to index function
+    // Scroll to index function - simplified, no delays needed
     const scrollToIndex = useCallback(
       (targetIndex: number) => {
         if (!flashListRef.current || targetIndex < 0 || targetIndex >= listData.length) return;
@@ -452,64 +451,42 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       (index: number) => {
         if (viewMode === 'grid' && onViewModeChange && index >= 0 && index < feed.length) {
           onViewModeChange('list');
-
-          // Move to background thread
-          InteractionManager.runAfterInteractions(() => {
-            setTimeout(() => {
-              scrollToIndex(index);
-            }, APP_CONSTANTS.GRID_TO_LIST_DELAY);
-          });
+          // Use FlashList's scrollToIndex directly - no delays needed
+          scrollToIndex(index);
         }
       },
       [feed.length, viewMode, onViewModeChange, scrollToIndex]
     );
 
-    // Handle targetScrollIndex prop - scrolls to target on initial mount only
-    const hasScrolledToTargetRef = useRef(false);
-    useEffect(() => {
+    // Calculate initialScrollIndex from targetScrollIndex for FlashList's built-in prop
+    // This avoids any scrolling animation or jumps - FlashList handles it natively
+    const initialScrollIndex = useMemo(() => {
       if (
         targetScrollIndex !== null &&
         targetScrollIndex !== undefined &&
         viewMode === 'list' &&
-        listData.length > 0 &&
-        !hasScrolledToTargetRef.current &&
-        flashListRef.current
+        listData.length > 0
       ) {
-        const targetIndex = Math.max(0, Math.min(targetScrollIndex, listData.length - 1));
-        // Move to background thread
-        InteractionManager.runAfterInteractions(() => {
-          setTimeout(() => {
-            flashListRef.current?.scrollToIndex({
-              index: targetIndex,
+        return Math.max(0, Math.min(targetScrollIndex, listData.length - 1));
+      }
+      return undefined;
+    }, [targetScrollIndex, viewMode, listData.length]);
+
+    // Orientation change handling - use FlashList's scrollToIndex directly
+    const handleOrientationChange = useCallback(
+      (_event: { window: ScaledSize }) => {
+        const currentActiveIndex = activeItemIndexRef.current;
+        if (flashListRef.current && feed.length > 0 && currentActiveIndex >= 0) {
+          try {
+            flashListRef.current.scrollToIndex({
+              index: currentActiveIndex,
               animated: false,
               viewPosition: 0.5,
             });
-            hasScrolledToTargetRef.current = true;
-          }, APP_CONSTANTS.GRID_TO_LIST_DELAY);
-        });
-      }
-    }, [targetScrollIndex, viewMode, listData.length]);
-
-    // Orientation change handling - moved to background thread
-    const handleOrientationChange = useCallback(
-      (_event: { window: ScaledSize }) => {
-        // Move to background thread to avoid blocking UI
-        InteractionManager.runAfterInteractions(() => {
-          setTimeout(() => {
-            const currentActiveIndex = activeItemIndexRef.current;
-            if (flashListRef.current && feed.length > 0 && currentActiveIndex >= 0) {
-              try {
-                flashListRef.current.scrollToIndex({
-                  index: currentActiveIndex,
-                  animated: false,
-                  viewPosition: 0.5,
-                });
-              } catch (_error) {
-                // Handle scroll errors gracefully
-              }
-            }
-          }, APP_CONSTANTS.ORIENTATION_CHANGE_DELAY);
-        });
+          } catch (_error) {
+            // Handle scroll errors gracefully
+          }
+        }
       },
       [activeItemIndexRef, feed]
     );
@@ -538,20 +515,20 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     // Header-feed specific top inset policy for snapping
     // - Header feeds:
-    //   - Modal OR small/tablet devices -> snap items to the very top (ignore top safe area)
-    //   - Taller non-modal root/header feeds -> snap just below the status bar safe area
+    //   - Small/tablet devices -> snap items to the very top (ignore top safe area)
+    //   - Taller root/header feeds -> snap just below the status bar safe area
     // - Non-header feeds keep existing behavior (small devices ignore inset to stay full-screen)
     const headerSnapTopInset = useMemo(() => {
       if (!isHeaderFeed) {
         return null;
       }
 
-      if (isModal || isSmallDevice) {
+      if (isSmallDevice) {
         return 0;
       }
 
       return insets.top;
-    }, [isHeaderFeed, isModal, isSmallDevice, insets.top]);
+    }, [isHeaderFeed, isSmallDevice, insets.top]);
 
     const nonHeaderSnapTopInset = useMemo(
       () => (isSmallDevice ? 0 : insets.top),
@@ -660,6 +637,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           getItemType={getItemType}
           extraData={extraData}
           overrideItemLayout={overrideItemLayout}
+          initialScrollIndex={initialScrollIndex}
           ListHeaderComponent={
             headerComponent ? (
               <View onLayout={handleHeaderLayout}>

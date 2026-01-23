@@ -1,5 +1,15 @@
 import React, { memo } from 'react';
-import { View, Text, Pressable, TextInput, StyleSheet, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  Pressable,
+  TextInput,
+  StyleSheet,
+  Platform,
+  type NativeSyntheticEvent,
+  type TargetedEvent,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import Icon from '../../ui/Icon';
 import UI from '../../ui/UI';
@@ -9,11 +19,38 @@ import { UserSearchModal } from '../../ui/usersearch';
 import { useUserStore } from '../../../stores/userStore';
 import { useProfile } from '../../../services/data/ProfileService';
 
+interface UserSearchModalProps {
+  visible: boolean;
+  onSelect: (user: { did: string; handle: string; displayName?: string; avatar?: string }) => void;
+  onRequestClose: () => void;
+  searchQuery: string;
+  anchorPosition?: { x: number; y: number };
+}
+
+interface TextInputSelectionChangeEventData extends TargetedEvent {
+  selection: {
+    start: number;
+    end: number;
+  };
+}
+
+type TextInputSelectionChangeEvent = NativeSyntheticEvent<TextInputSelectionChangeEventData>;
+
+interface MentionInputProps {
+  ref?: React.RefObject<TextInput | null>;
+  value: string;
+  onChangeText: (text: string) => void;
+  selection: { start: number; end: number };
+  onSelectionChange?: (e: TextInputSelectionChangeEvent) => void;
+  autoCorrect?: boolean;
+  autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
+}
+
 interface CommentInputFooterProps {
   value: string;
   onChangeText: (text: string) => void;
   inputSelection: { start: number; end: number };
-  onSelectionChange: (e: any) => void;
+  onSelectionChange: (e: TextInputSelectionChangeEvent) => void;
   placeholder?: string;
   onSubmit: () => void;
   onCancelReply?: () => void;
@@ -27,10 +64,9 @@ interface CommentInputFooterProps {
   maxLength?: number;
   inputRef?: React.RefObject<TextInput | null>;
   currentUserAvatar?: string | null;
-  userSearchModalProps?: any;
-  mentionInputProps?: any;
+  userSearchModalProps?: UserSearchModalProps;
+  mentionInputProps?: Partial<MentionInputProps>;
   onFocus?: () => void;
-  onBlur?: () => void;
 }
 
 const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
@@ -49,7 +85,6 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   userSearchModalProps,
   mentionInputProps,
   onFocus,
-  onBlur,
 }) => {
   const charCount = value.length;
   const hasText = value.trim().length > 0;
@@ -62,8 +97,14 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   const currentUserHandle = currentUser?.handle || null;
   const { data: currentUserProfile } = useProfile(currentUserHandle);
 
+  // Get safe area insets for minimal bottom padding
+  // TrueSheet handles keyboard positioning natively, so we only need minimal padding
+  const insets = useSafeAreaInsets();
+  // Use minimal padding - TrueSheet will handle keyboard offset automatically
+  const bottomPadding = Platform.OS === 'ios' ? Math.min(8, insets.bottom) : 8;
+
   return (
-    <View style={styles.footerContainer}>
+    <View style={[styles.footerContainer, { paddingBottom: bottomPadding }]}>
       <View style={styles.inputContainer}>
         <View style={styles.inputRow}>
           <View style={styles.avatarContainer}>
@@ -91,90 +132,54 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
               ref={inputRef}
               maxLength={maxLength + 25}
               keyboardType="default"
-              returnKeyType="default"
+              returnKeyType="send"
               blurOnSubmit={false}
-              autoCorrect={true}
-              autoCapitalize="sentences"
               autoComplete="off"
               textContentType="none"
               importantForAutofill="no"
               textAlignVertical="top"
               caretHidden={false}
               onFocus={onFocus}
-              onBlur={onBlur}
             />
           </View>
           <View style={styles.sendColumn}>
-            {replyContext ? (
-              <>
-                {hasText && !isSendDisabled ? (
-                  <Pressable
-                    style={[styles.sendButton, !useLiquidGlass && styles.sendButtonFallback]}
-                    onPress={onSubmit}
-                    hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
-                    accessible={true}
-                    accessibilityRole="button"
-                    accessibilityLabel="Send comment"
-                  >
-                    {useLiquidGlass ? (
-                      <>
-                        <GlassView
-                          style={styles.glassBackground}
-                          glassEffectStyle="clear"
-                          tintColor="rgba(255, 255, 255, 1)"
-                          isInteractive
-                        />
-                        <View style={styles.sendButtonContent} pointerEvents="none">
-                          <Icon name="arrow-up-fill" size={22} color={Colors.black} />
-                        </View>
-                      </>
-                    ) : (
+            {hasText && !isSendDisabled ? (
+              <Pressable
+                style={[styles.sendButton, !useLiquidGlass && styles.sendButtonFallback]}
+                onPress={onSubmit}
+                hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+                accessible={true}
+                accessibilityRole="button"
+                accessibilityLabel="Send comment"
+              >
+                {useLiquidGlass ? (
+                  <>
+                    <GlassView
+                      style={styles.glassBackground}
+                      glassEffectStyle="clear"
+                      tintColor="rgba(255, 255, 255, 1)"
+                      isInteractive
+                    />
+                    <View style={styles.sendButtonContent} pointerEvents="none">
                       <Icon name="arrow-up-fill" size={22} color={Colors.black} />
-                    )}
-                  </Pressable>
-                ) : !hasText ? (
-                  <Pressable
-                    style={[styles.sendButton, styles.cancelReplyButton]}
-                    onPress={onCancelReply}
-                    hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
-                    accessible={true}
-                    accessibilityRole="button"
-                    accessibilityLabel="Cancel reply"
-                  >
-                    <Icon name="close" size={18} color={Colors.lightGray} />
-                  </Pressable>
-                ) : null}
-              </>
-            ) : (
-              <>
-                {hasText && !isSendDisabled && (
-                  <Pressable
-                    style={[styles.sendButton, !useLiquidGlass && styles.sendButtonFallback]}
-                    onPress={onSubmit}
-                    hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
-                    accessible={true}
-                    accessibilityRole="button"
-                    accessibilityLabel="Send comment"
-                  >
-                    {useLiquidGlass ? (
-                      <>
-                        <GlassView
-                          style={styles.glassBackground}
-                          glassEffectStyle="clear"
-                          tintColor="rgba(255, 255, 255, 1)"
-                          isInteractive
-                        />
-                        <View style={styles.sendButtonContent} pointerEvents="none">
-                          <Icon name="arrow-up-fill" size={22} color={Colors.black} />
-                        </View>
-                      </>
-                    ) : (
-                      <Icon name="arrow-up-fill" size={22} color={Colors.black} />
-                    )}
-                  </Pressable>
+                    </View>
+                  </>
+                ) : (
+                  <Icon name="arrow-up-fill" size={22} color={Colors.black} />
                 )}
-              </>
-            )}
+              </Pressable>
+            ) : replyContext && !hasText ? (
+              <Pressable
+                style={[styles.sendButton, styles.cancelReplyButton]}
+                onPress={onCancelReply}
+                hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+                accessible={true}
+                accessibilityRole="button"
+                accessibilityLabel="Cancel reply"
+              >
+                <Icon name="close" size={18} color={Colors.lightGray} />
+              </Pressable>
+            ) : null}
             {showCharCount && (
               <Text
                 style={[
@@ -202,7 +207,6 @@ const styles = StyleSheet.create({
   footerContainer: {
     backgroundColor: Colors.black,
     width: '100%',
-    paddingBottom: 8,
   },
   inputContainer: {
     paddingHorizontal: 16,
@@ -229,16 +233,16 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'transparent',
+    backgroundColor: Colors.transparent,
     borderRadius: BORDER_RADIUS.LARGE,
     borderWidth: 0,
-    borderColor: 'transparent',
+    borderColor: Colors.transparent,
     position: 'relative',
   },
   textInput: {
-    backgroundColor: 'transparent',
+    backgroundColor: Colors.transparent,
     color: Colors.white,
-    borderColor: 'transparent',
+    borderColor: Colors.transparent,
     flex: 1,
     minHeight: 42,
     maxHeight: 120,
@@ -287,7 +291,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cancelReplyButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: Colors.overlayWhite10,
   },
   charCountBelow: {
     marginTop: 6,
