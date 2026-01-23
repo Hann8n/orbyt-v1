@@ -17,6 +17,7 @@ import {
   ScaledSize,
   InteractionManager,
   LayoutChangeEvent,
+  Platform,
   type RefreshControlProps,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -677,7 +678,11 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           snapToOffsets={snapToOffsets ?? undefined}
           snapToInterval={snapToOffsets ? undefined : snapToIntervalValue}
           snapToAlignment={snapToOffsets ? undefined : ('center' as const)}
-          decelerationRate={SCROLL_CONSTANTS.DECELERATION_RATE_IOS}
+          decelerationRate={
+            Platform.OS === 'ios'
+              ? SCROLL_CONSTANTS.DECELERATION_RATE_IOS
+              : SCROLL_CONSTANTS.DECELERATION_RATE_ANDROID
+          }
           // Disable fast scrolling to prevent scrolling past multiple items
           disableIntervalMomentum={true}
           scrollEventThrottle={APP_CONSTANTS.SCROLL_THROTTLE}

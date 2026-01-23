@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BORDER_RADIUS } from '../../utils/constants';
+import { BORDER_RADIUS, SCROLL_CONSTANTS } from '../../utils/constants';
 import {
   View,
   Text,
@@ -340,7 +340,11 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         snapToAlignment="start"
-        decelerationRate="fast"
+        decelerationRate={
+          Platform.OS === 'ios'
+            ? SCROLL_CONSTANTS.DECELERATION_RATE_IOS
+            : SCROLL_CONSTANTS.DECELERATION_RATE_ANDROID
+        }
         contentContainerStyle={styles.headersContainer}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
