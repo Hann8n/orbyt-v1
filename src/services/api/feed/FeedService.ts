@@ -52,6 +52,7 @@ export class FeedService {
   private static interactionsSupported: boolean | null = null;
   /**
    * Get feed content - optimized for video-only feeds with maximum batch loading
+   * Uses @atproto/api directly - React Query handles retries
    *
    * @param cursor - Pagination cursor
    * @param feedLink - Link to the feed
@@ -69,157 +70,145 @@ export class FeedService {
     limit: number = 100,
     feedType?: FeedType
   ): Promise<FeedResponse> {
-    let retries = 3;
+    try {
+      const apiClient = await AtprotoCore.getApiClient();
 
-    while (retries > 0) {
-      try {
-        const apiClient = await AtprotoCore.getApiClient();
+      // Handle case where no session is available
+      if (!apiClient) {
+        return { feed: [], cursor: null };
+      }
 
-        // Handle case where no session is available
-        if (!apiClient) {
+      const { api } = apiClient;
+
+      let responseData: GetAuthorFeedOutput | GetFeedOutput | GetActorLikesOutput;
+
+      // Unified feed handling based on feedType
+      if (feedType === 'author' || feedType === 'authorVideos') {
+        // Author feed - use author filter
+        const authorFilter = feedType === 'authorVideos' ? 'posts_with_video' : 'posts_with_media';
+        try {
+          const params = {
+            actor: feedLink || '',
+            limit: limit,
+            cursor: cursor || undefined,
+            filter: authorFilter as AuthorFilter,
+          };
+
+          const apiResponse = await api.app.bsky.feed.getAuthorFeed(params);
+          responseData = apiResponse.data;
+        } catch (authorError: unknown) {
+          // Handle blocked actor gracefully - this is expected behavior, not an error
+          if (
+            authorError &&
+            typeof authorError === 'object' &&
+            'name' in authorError &&
+            (authorError.name === 'BlockedActorError' ||
+              (typeof authorError === 'object' &&
+                'message' in authorError &&
+                typeof authorError.message === 'string' &&
+                authorError.message.includes('blocked actor')))
+          ) {
+            // Silently return empty feed for blocked actors
+            return { feed: [], cursor: null };
+          }
           return { feed: [], cursor: null };
         }
-
-        const { api } = apiClient;
-
-        let responseData: GetAuthorFeedOutput | GetFeedOutput | GetActorLikesOutput;
-
-        // Unified feed handling based on feedType
-        if (feedType === 'author' || feedType === 'authorVideos') {
-          // Author feed - use author filter
-          const authorFilter =
-            feedType === 'authorVideos' ? 'posts_with_video' : 'posts_with_media';
-          try {
-            const params = {
-              actor: feedLink || '',
-              limit: limit,
-              cursor: cursor || undefined,
-              filter: authorFilter as AuthorFilter,
-            };
-
-            const apiResponse = await api.app.bsky.feed.getAuthorFeed(params);
-            responseData = apiResponse.data;
-          } catch (authorError: unknown) {
-            // Handle blocked actor gracefully - this is expected behavior, not an error
-            if (
-              authorError &&
-              typeof authorError === 'object' &&
-              'name' in authorError &&
-              (authorError.name === 'BlockedActorError' ||
-                (typeof authorError === 'object' &&
-                  'message' in authorError &&
-                  typeof authorError.message === 'string' &&
-                  authorError.message.includes('blocked actor')))
-            ) {
-              // Silently return empty feed for blocked actors
-              return { feed: [], cursor: null };
-            }
-            return { feed: [], cursor: null };
-          }
-        } else if (feedType === 'likes') {
-          // Liked posts feed
-          try {
-            const params = {
-              actor: feedLink || '',
-              limit: limit,
-              cursor: cursor || undefined,
-            };
-
-            const apiResponse = await api.app.bsky.feed.getActorLikes(params);
-            responseData = apiResponse.data;
-          } catch (_likesError: unknown) {
-            return { feed: [], cursor: null };
-          }
-        } else {
-          // Custom feed handling
-          let feed = feedLink || '';
-
-          // Handle both ATProto URI format and direct URLs
-          if (feed && feed.includes('/profile/')) {
-            // Convert from URL format to AT protocol URI if needed
-            const parts = feed.split('/profile/');
-            if (parts.length > 1) {
-              const didAndFeed = parts[1].split('/feed/');
-              if (didAndFeed.length > 1) {
-                feed = `at://did:plc:${didAndFeed[0]}/app.bsky.feed.generator/${didAndFeed[1]}`;
-              }
-            }
-          }
-
-          // Validate feed URI format before making the request
-          if (!feed) {
-            return { feed: [], cursor: null };
-          }
-
-          // Validate AT-URI format
-          if (!feed.startsWith('at://') && !feed.startsWith('did:')) {
-            return { feed: [], cursor: null };
-          }
-
+      } else if (feedType === 'likes') {
+        // Liked posts feed
+        try {
           const params = {
-            feed,
+            actor: feedLink || '',
             limit: limit,
             cursor: cursor || undefined,
           };
 
-          try {
-            const apiResponse = await api.app.bsky.feed.getFeed(params);
-            responseData = apiResponse.data;
-          } catch (customFeedError: unknown) {
-            if (
-              customFeedError instanceof Error &&
-              customFeedError.message.includes('feed must be a valid at-uri')
-            ) {
-              return { feed: [], cursor: null };
+          const apiResponse = await api.app.bsky.feed.getActorLikes(params);
+          responseData = apiResponse.data;
+        } catch (_likesError: unknown) {
+          return { feed: [], cursor: null };
+        }
+      } else {
+        // Custom feed handling
+        let feed = feedLink || '';
+
+        // Handle both ATProto URI format and direct URLs
+        if (feed && feed.includes('/profile/')) {
+          // Convert from URL format to AT protocol URI if needed
+          const parts = feed.split('/profile/');
+          if (parts.length > 1) {
+            const didAndFeed = parts[1].split('/feed/');
+            if (didAndFeed.length > 1) {
+              feed = `at://did:plc:${didAndFeed[0]}/app.bsky.feed.generator/${didAndFeed[1]}`;
             }
-            return { feed: [], cursor: null };
           }
         }
 
-        // Ensure the response has the expected data structure
-        if (!responseData || !responseData.feed) {
+        // Validate feed URI format before making the request
+        if (!feed) {
           return { feed: [], cursor: null };
         }
 
-        let feedData: ExtendedFeedViewPost[] = responseData.feed.map((post: FeedViewPost) => ({
-          ...post,
-          feedContext: post.feedContext, // Preserve feedContext from feed generator
-          reqId: post.reqId, // Preserve reqId from feed generator
-          post: {
-            ...post.post,
-          } as ExtendedPostView,
-        }));
-
-        // Filter for video posts at API level if requested
-        // Skip filtering if:
-        // 1. filterVideosOnly is false
-        // 2. feedType is 'authorVideos' (API already filters with 'posts_with_video')
-        const shouldFilter = filterVideosOnly && feedType !== 'authorVideos';
-
-        if (shouldFilter) {
-          feedData = feedData.filter(post => {
-            const embed = post.post.embed;
-            if (!embed) {
-              return false;
-            }
-
-            // Only include posts with video embeds
-            return isVideoEmbed(embed) || isVideoEmbedInMedia(embed);
-          });
-        }
-
-        return { feed: feedData, cursor: responseData.cursor ?? null };
-      } catch (_error: unknown) {
-        retries--;
-        if (retries === 0) {
+        // Validate AT-URI format
+        if (!feed.startsWith('at://') && !feed.startsWith('did:')) {
           return { feed: [], cursor: null };
         }
-        // Wait before retrying
-        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        const params = {
+          feed,
+          limit: limit,
+          cursor: cursor || undefined,
+        };
+
+        try {
+          const apiResponse = await api.app.bsky.feed.getFeed(params);
+          responseData = apiResponse.data;
+        } catch (customFeedError: unknown) {
+          if (
+            customFeedError instanceof Error &&
+            customFeedError.message.includes('feed must be a valid at-uri')
+          ) {
+            return { feed: [], cursor: null };
+          }
+          return { feed: [], cursor: null };
+        }
       }
-    }
 
-    return { feed: [], cursor: null };
+      // Ensure the response has the expected data structure
+      if (!responseData || !responseData.feed) {
+        return { feed: [], cursor: null };
+      }
+
+      let feedData: ExtendedFeedViewPost[] = responseData.feed.map((post: FeedViewPost) => ({
+        ...post,
+        feedContext: post.feedContext, // Preserve feedContext from feed generator
+        reqId: post.reqId, // Preserve reqId from feed generator
+        post: {
+          ...post.post,
+        } as ExtendedPostView,
+      }));
+
+      // Filter for video posts at API level if requested
+      // Skip filtering if:
+      // 1. filterVideosOnly is false
+      // 2. feedType is 'authorVideos' (API already filters with 'posts_with_video')
+      const shouldFilter = filterVideosOnly && feedType !== 'authorVideos';
+
+      if (shouldFilter) {
+        feedData = feedData.filter(post => {
+          const embed = post.post.embed;
+          if (!embed) {
+            return false;
+          }
+
+          // Only include posts with video embeds
+          return isVideoEmbed(embed) || isVideoEmbedInMedia(embed);
+        });
+      }
+
+      return { feed: feedData, cursor: responseData.cursor ?? null };
+    } catch (_error: unknown) {
+      return { feed: [], cursor: null };
+    }
   }
 
   /**

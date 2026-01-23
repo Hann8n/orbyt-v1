@@ -12,21 +12,57 @@ import type {
   FeedResponse,
   VideoSearchResponse,
   ProfileViewBasic,
+  ProfileSearchResponse,
   GeneratorView,
 } from './api/types';
 import { isOrbytChannel, channelToHashtag, getChannelByUri } from '../utils/channels/orbyt';
 import type { FeedOption } from '../types';
 import { seenVideoService } from './SeenVideoService';
+import { useUserStore } from '../stores/userStore';
+
+// Type definition for AtprotoService methods used by FeedService
+interface AtprotoServiceInterface {
+  getFeed: (
+    cursor: string | null,
+    feedLink: string | null,
+    feedVariables: Record<string, unknown>,
+    filterVideosOnly: boolean,
+    limit: number,
+    feedType?: string
+  ) => Promise<FeedResponse>;
+  searchHashtagVideosPaginated: (
+    hashtag: string,
+    cursor: string | null,
+    limit: number,
+    sort: 'top' | 'latest'
+  ) => Promise<VideoSearchResponse>;
+  getRepostedVideos: (actor: string, cursor: string | null, limit: number) => Promise<FeedResponse>;
+  getBookmarks: (
+    cursor?: string,
+    limit?: number
+  ) => Promise<{
+    bookmarks: ExtendedFeedViewPost[];
+    cursor: string | null;
+  }>;
+  searchProfilesPaginated: (
+    query: string,
+    cursor: string | null,
+    limit: number
+  ) => Promise<ProfileSearchResponse>;
+  searchPopularFeeds: (query: string, limit: number) => Promise<GeneratorView[]>;
+}
 
 // Import AtprotoService with error handling for circular dependency issues
-let AtprotoService: any = null;
+let AtprotoService: AtprotoServiceInterface;
 try {
-  AtprotoService = require('./api/AtprotoService').default;
+  AtprotoService = require('./api/AtprotoService').default as AtprotoServiceInterface;
 } catch (_error) {
   // Fallback implementation
   AtprotoService = {
     getFeed: async () => ({ feed: [], cursor: null }),
-    getMixedFeed: async () => ({ feed: [], cursor: null }),
+    searchHashtagVideosPaginated: async () => ({ videos: [], cursor: null }),
+    getRepostedVideos: async () => ({ feed: [], cursor: null }),
+    getBookmarks: async () => ({ bookmarks: [], cursor: null }),
     searchProfilesPaginated: async () => ({ profiles: [], cursor: null }),
     searchPopularFeeds: async () => [],
   };
@@ -92,6 +128,89 @@ const searchFeedState = new SearchFeedState();
 // Core feed fetching logic
 class FeedService {
   /**
+   * Get feed sources for "your-mix" feed
+   * Pre-computed to avoid dynamic imports during fetch
+   */
+  private getYourMixSources(): FeedSource[] {
+    const { subscribedChannels, algorithmicFeedProvider } = useUserStore.getState();
+    const feedSources: FeedSource[] = [];
+
+    // Add algorithmic feed provider if set
+    if (algorithmicFeedProvider) {
+      feedSources.push({
+        uri: algorithmicFeedProvider,
+        type: 'algorithmic',
+      });
+    }
+
+    // Add channel feeds
+    if (subscribedChannels && subscribedChannels.length > 0) {
+      const maxFeeds = Math.min(subscribedChannels.length, FEED_CONFIG.maxFeedsPerFetch);
+
+      for (const channel of subscribedChannels.slice(0, maxFeeds)) {
+        if (channel.uri.startsWith('hashtag:')) {
+          // Already in hashtag format
+          const hashtagWithSort = channel.uri.substring(8);
+          const parts = hashtagWithSort.split(':');
+          const hashtag = parts[0];
+          const sort = parts[1] === 'top' ? 'top' : 'latest';
+          feedSources.push({
+            uri: channel.uri,
+            type: 'hashtag',
+            hashtag,
+            sort,
+          });
+        } else if (channel.uri.startsWith('at://local.orbyt.channel/')) {
+          // Local Orbyt channels - convert postable ones to hashtag
+          const orbytChannel = getChannelByUri(channel.uri);
+          if (orbytChannel?.isPostable !== false) {
+            const hashtagFormat = channelToHashtag(channel.uri);
+            if (hashtagFormat) {
+              const hashtag = hashtagFormat.substring(8);
+              feedSources.push({
+                uri: channel.uri,
+                type: 'hashtag',
+                hashtag,
+                sort: 'latest',
+              });
+              continue;
+            }
+          }
+          // Non-postable or conversion failed - treat as feed URI
+          feedSources.push({
+            uri: channel.uri,
+            type: 'feed',
+          });
+        } else if (channel.uri.startsWith('at://')) {
+          // Regular feed generator URI
+          const orbytChannel = getChannelByUri(channel.uri);
+          if (orbytChannel && orbytChannel.isPostable !== false) {
+            // Postable Orbyt channel - try to convert to hashtag
+            const hashtagFormat = channelToHashtag(channel.uri);
+            if (hashtagFormat) {
+              const hashtag = hashtagFormat.substring(8);
+              feedSources.push({
+                uri: channel.uri,
+                type: 'hashtag',
+                hashtag,
+                sort: 'latest',
+              });
+              continue;
+            }
+          }
+          // Non-postable or non-Orbyt - use as feed generator
+          feedSources.push({
+            uri: channel.uri,
+            type: 'feed',
+          });
+        }
+      }
+    }
+
+    return feedSources;
+  }
+
+  /**
    * Fetch and filter from a single source (used when only one source is active)
    */
   private async fetchSingleSource(
@@ -118,67 +237,59 @@ class FeedService {
   }
 
   /**
-   * Fetch from a single feed source with timeout protection
+   * Fetch from a single feed source
+   * React Query handles retries - no timeout needed
    */
   private async fetchFromSource(
     source: FeedSource,
     cursor: string | null,
     limit: number
   ): Promise<FeedFetchResult> {
-    const FEED_FETCH_TIMEOUT = 10000; // 10 seconds per feed
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error('Feed fetch timeout')), FEED_FETCH_TIMEOUT);
-    });
-
     try {
-      const fetchPromise =
-        source.type === 'hashtag'
-          ? AtprotoService.searchHashtagVideosPaginated(
-              source.hashtag!,
-              cursor,
-              limit,
-              source.sort || 'latest'
-            ).then(
-              (response: VideoSearchResponse): FeedFetchResult => ({
-                feed: response.videos, // Direct type: ExtendedFeedViewPost[]
-                cursor: response.cursor, // Direct type: string | null
-                sourceUri: source.uri,
-                success: true,
-              })
-            )
-          : source.type === 'algorithmic'
-            ? AtprotoService.getFeed(
-                cursor,
-                source.uri,
-                {},
-                false, // Algorithmic feeds already return video-only content
-                limit,
-                'custom'
-              ).then(
-                (response: FeedResponse): FeedFetchResult => ({
-                  feed: response.feed, // Direct type: ExtendedFeedViewPost[]
-                  cursor: response.cursor, // Direct type: string | null
-                  sourceUri: source.uri,
-                  success: true,
-                })
-              )
-            : AtprotoService.getFeed(
-                cursor,
-                source.uri,
-                {},
-                true, // Filter videos for regular feed generators
-                limit,
-                'custom'
-              ).then(
-                (response: FeedResponse): FeedFetchResult => ({
-                  feed: response.feed, // Direct type: ExtendedFeedViewPost[]
-                  cursor: response.cursor, // Direct type: string | null
-                  sourceUri: source.uri,
-                  success: true,
-                })
-              );
-
-      return await Promise.race([fetchPromise, timeoutPromise]);
+      if (source.type === 'hashtag') {
+        const response = await AtprotoService.searchHashtagVideosPaginated(
+          source.hashtag!,
+          cursor,
+          limit,
+          source.sort || 'latest'
+        );
+        return {
+          feed: response.videos,
+          cursor: response.cursor,
+          sourceUri: source.uri,
+          success: true,
+        };
+      } else if (source.type === 'algorithmic') {
+        const response = await AtprotoService.getFeed(
+          cursor,
+          source.uri,
+          {},
+          false, // Algorithmic feeds already return video-only content
+          limit,
+          'custom'
+        );
+        return {
+          feed: response.feed,
+          cursor: response.cursor,
+          sourceUri: source.uri,
+          success: true,
+        };
+      } else {
+        const response = await AtprotoService.getFeed(
+          cursor,
+          source.uri,
+          {},
+          true, // Filter videos for regular feed generators
+          limit,
+          'custom'
+        );
+        return {
+          feed: response.feed,
+          cursor: response.cursor,
+          sourceUri: source.uri,
+          success: true,
+        };
+      }
     } catch (error) {
       logger.warn('Failed to fetch feed source', { sourceUri: source.uri, error });
       return {
@@ -255,12 +366,26 @@ class FeedService {
 
       // Handle different feed types (using normalized feed option for API calls)
       if (feedOptionForAPI === 'likes' && userDid) {
-        response = await AtprotoService.getFeed(cursor, userDid, {}, true, limit, 'likes');
+        response = await AtprotoService.getFeed(
+          cursor ?? null,
+          userDid ?? null,
+          {},
+          true,
+          limit,
+          'likes'
+        );
       } else if (feedOptionForAPI === 'reposts' && userDid) {
         // getRepostedVideos is a static method on AtprotoService
-        response = await AtprotoService.getRepostedVideos(userDid, cursor, limit);
+        response = await AtprotoService.getRepostedVideos(userDid, cursor ?? null, limit);
       } else if (feedOptionForAPI === 'profile' && userDid) {
-        response = await AtprotoService.getFeed(cursor, userDid, {}, true, limit, 'authorVideos');
+        response = await AtprotoService.getFeed(
+          cursor ?? null,
+          userDid ?? null,
+          {},
+          true,
+          limit,
+          'authorVideos'
+        );
       } else if (feedOptionForAPI === 'profile' && !userDid) {
         return { feed: [], cursor: null };
       } else if (feedOptionForAPI === 'likes' && !userDid) {
@@ -282,114 +407,28 @@ class FeedService {
         if (!feedLink) {
           return { feed: [], cursor: null };
         }
-        response = await AtprotoService.getFeed(cursor, feedLink, {}, false, limit, 'custom');
+        response = await AtprotoService.getFeed(
+          cursor ?? null,
+          feedLink,
+          {},
+          false,
+          limit,
+          'custom'
+        );
       } else if (feedOptionForAPI === 'your-mix') {
-        // Parallelize imports to reduce latency
-        const [userStoreModule, orbytChannelsModule] = await Promise.all([
-          import('../stores/userStore'),
-          import('../utils/channels/orbyt'),
-        ]);
+        // Get feed sources (pre-computed, no dynamic imports)
+        const feedSources = this.getYourMixSources();
 
-        // Get subscribed channels and algorithmic feed provider from user store
-        const { subscribedChannels, algorithmicFeedProvider } =
-          userStoreModule.useUserStore.getState();
-
-        // If no channels subscribed AND no algorithmic feed, return empty feed
-        const hasChannels = subscribedChannels && subscribedChannels.length > 0;
-        const hasAlgorithmic = !!algorithmicFeedProvider;
-
-        if (!hasChannels && !hasAlgorithmic) {
-          return { feed: [], cursor: null };
-        }
-
-        // Import orbyt channel utilities
-        const { channelToHashtag, getChannelByUri } = orbytChannelsModule;
-
-        // Prepare feed sources - convert channels to appropriate format
-        const feedSources: FeedSource[] = [];
-
-        // Add algorithmic feed provider if set
-        if (algorithmicFeedProvider) {
-          feedSources.push({
-            uri: algorithmicFeedProvider,
-            type: 'algorithmic',
-          });
-        }
-
-        // Add channel feeds
-        if (hasChannels) {
-          const maxFeeds = Math.min(subscribedChannels.length, FEED_CONFIG.maxFeedsPerFetch);
-
-          for (const channel of subscribedChannels.slice(0, maxFeeds)) {
-            if (channel.uri.startsWith('hashtag:')) {
-              // Already in hashtag format
-              const hashtagWithSort = channel.uri.substring(8);
-              const parts = hashtagWithSort.split(':');
-              const hashtag = parts[0];
-              const sort = parts[1] === 'top' ? 'top' : 'latest';
-              feedSources.push({
-                uri: channel.uri,
-                type: 'hashtag',
-                hashtag,
-                sort,
-              });
-            } else if (channel.uri.startsWith('at://local.orbyt.channel/')) {
-              // Local Orbyt channels - convert postable ones to hashtag
-              const orbytChannel = getChannelByUri(channel.uri);
-              if (orbytChannel?.isPostable !== false) {
-                const hashtagFormat = channelToHashtag(channel.uri);
-                if (hashtagFormat) {
-                  const hashtag = hashtagFormat.substring(8);
-                  feedSources.push({
-                    uri: channel.uri,
-                    type: 'hashtag',
-                    hashtag,
-                    sort: 'latest',
-                  });
-                  continue;
-                }
-              }
-              // Non-postable or conversion failed - treat as feed URI
-              feedSources.push({
-                uri: channel.uri,
-                type: 'feed',
-              });
-            } else if (channel.uri.startsWith('at://')) {
-              // Regular feed generator URI
-              const orbytChannel = getChannelByUri(channel.uri);
-              if (orbytChannel && orbytChannel.isPostable !== false) {
-                // Postable Orbyt channel - try to convert to hashtag
-                const hashtagFormat = channelToHashtag(channel.uri);
-                if (hashtagFormat) {
-                  const hashtag = hashtagFormat.substring(8);
-                  feedSources.push({
-                    uri: channel.uri,
-                    type: 'hashtag',
-                    hashtag,
-                    sort: 'latest',
-                  });
-                  continue;
-                }
-              }
-              // Non-postable or non-Orbyt - use as feed generator
-              feedSources.push({
-                uri: channel.uri,
-                type: 'feed',
-              });
-            }
-          }
-        }
-
-        // Safety check: if no feed sources, return empty
+        // If no feed sources, return empty
         if (feedSources.length === 0) {
           return { feed: [], cursor: null };
         }
 
         // Get current user for seen video filtering
-        const currentUser = userStoreModule.useUserStore.getState().currentUser;
+        const currentUser = useUserStore.getState().currentUser;
         const currentUserDid = currentUser?.did ?? null;
 
-        // Optimization: if only one source, use direct fetch
+        // If only one source, use direct fetch
         if (feedSources.length === 1) {
           const singleSource = feedSources[0];
           // Parse simple cursor format or use null
@@ -407,99 +446,70 @@ class FeedService {
           return await this.fetchSingleSource(singleSource, sourceCursor, limit, currentUserDid);
         }
 
-        // Parse cursor to get source cursors map
-        let sourceCursors: { [sourceUri: string]: string | null } = {};
+        // Parse cursor to get source index and cursor
+        let sourceIndex = 0;
+        let sourceCursor: string | null = null;
         if (cursor) {
           try {
             const parsed = JSON.parse(cursor);
             if (typeof parsed === 'object' && parsed !== null) {
-              sourceCursors = parsed;
+              sourceIndex = parsed.index ?? 0;
+              sourceCursor = parsed.cursor ?? null;
             }
           } catch {
             // Invalid cursor, start fresh
           }
         }
 
-        // Filter out exhausted sources (null cursor means exhausted after a fetch attempt)
-        // On first load (undefined), sources are active and should be fetched
-        const activeSources = feedSources.filter(source => sourceCursors[source.uri] !== null);
+        // Fetch sequentially from sources until we have enough posts
+        const allPosts: ExtendedFeedViewPost[] = [];
+        const seenUris = new Set<string>();
+        let currentIndex = sourceIndex;
+        let currentCursor = sourceCursor;
 
-        // If no active sources, return empty feed
-        if (activeSources.length === 0) {
-          return { feed: [], cursor: null };
+        while (allPosts.length < limit && currentIndex < feedSources.length) {
+          const source = feedSources[currentIndex];
+          const result = await this.fetchFromSource(source, currentCursor, limit);
+
+          if (result.success && result.feed.length > 0) {
+            // Add new posts (deduplicate by URI)
+            for (const post of result.feed) {
+              const uri = post.post?.uri;
+              if (uri && !seenUris.has(uri)) {
+                seenUris.add(uri);
+                allPosts.push(post);
+              }
+            }
+
+            // Update cursor for this source
+            currentCursor = result.cursor;
+          }
+
+          // If this source is exhausted or we have enough posts, move to next source
+          if (!currentCursor || allPosts.length >= limit) {
+            currentIndex++;
+            currentCursor = null;
+          }
         }
 
-        // Calculate fetch size per source to account for seen video filtering
-        // Fetch 1.5x limit distributed across sources to ensure enough results after filtering
-        const fetchSizePerSource = Math.max(Math.ceil((limit * 1.5) / activeSources.length), 10);
-
-        // Fetch from all active sources in parallel
-        const feedPromises = activeSources.map(async source => {
-          const sourceCursor = sourceCursors[source.uri] ?? null;
-          return this.fetchFromSource(source, sourceCursor, fetchSizePerSource);
-        });
-
-        const feedResults = await Promise.allSettled(feedPromises);
-
-        // Process results and collect successful fetches
-        const successfulResults: FeedFetchResult[] = [];
-
-        feedResults.forEach((result, index) => {
-          if (result.status === 'fulfilled' && result.value.success) {
-            const fetchResult = result.value;
-            successfulResults.push(fetchResult);
-            // Update cursor for successful sources
-            if (fetchResult.cursor) {
-              sourceCursors[fetchResult.sourceUri] = fetchResult.cursor;
-            } else {
-              // Mark as exhausted (null cursor)
-              sourceCursors[fetchResult.sourceUri] = null;
-            }
-          } else {
-            // Mark failed sources as exhausted
-            const source = activeSources[index];
-            if (source) {
-              sourceCursors[source.uri] = null;
-            }
-          }
-        });
-
-        // Flatten all results
-        let allPosts: ExtendedFeedViewPost[] = successfulResults.flatMap(result => result.feed);
-
-        // Deduplicate across all sources by URI
-        const seenUris = new Set<string>();
-        allPosts = allPosts.filter(post => {
-          const uri = post.post?.uri;
-          if (uri && !seenUris.has(uri)) {
-            seenUris.add(uri);
-            return true;
-          }
-          return false;
-        });
-
-        // Filter seen videos BEFORE limiting (ensures we get enough results)
-        // This must happen before sorting/limiting to account for seen video filtering
-        allPosts = seenVideoService.filterSeen(allPosts, currentUserDid);
+        // Filter seen videos
+        const filteredPosts = seenVideoService.filterSeen(allPosts, currentUserDid);
 
         // Sort chronologically by indexedAt (newest first)
-        allPosts.sort((a, b) => {
+        filteredPosts.sort((a, b) => {
           const aTime = new Date(a?.post?.indexedAt || 0).getTime();
           const bTime = new Date(b?.post?.indexedAt || 0).getTime();
           return bTime - aTime;
         });
 
-        // Apply limit after sorting and filtering
-        const limitedPosts = allPosts.slice(0, limit);
+        // Apply limit
+        const limitedPosts = filteredPosts.slice(0, limit);
 
-        // Create cursor from active sources (only include sources with valid cursors)
-        // Filter out exhausted sources (null cursors) directly from sourceCursors
-        const activeFeedStates = Object.fromEntries(
-          Object.entries(sourceCursors).filter(([_, cursor]) => cursor !== null)
-        );
-
+        // Create cursor for next fetch
         const newCursor =
-          Object.keys(activeFeedStates).length > 0 ? JSON.stringify(activeFeedStates) : null;
+          currentIndex < feedSources.length
+            ? JSON.stringify({ index: currentIndex, cursor: currentCursor })
+            : null;
 
         response = {
           feed: limitedPosts,
@@ -554,7 +564,7 @@ class FeedService {
                 author: channel.creator,
                 text: channel.displayName,
                 avatar: channel.avatar,
-                contentMode: (channel as any).contentMode, // Already extracted by AtprotoService
+                contentMode: (channel as GeneratorView & { contentMode?: string }).contentMode, // Already extracted by AtprotoService
               } as unknown as ExtendedFeedViewPost['post'],
               uniqueKey: channel.uri,
             });
@@ -592,7 +602,7 @@ class FeedService {
         try {
           const response = await AtprotoService.searchHashtagVideosPaginated(
             hashtag,
-            cursor as string | null,
+            (cursor as string | null) ?? null,
             FEED_CONFIG.maxPostsPerFetch,
             sort
           );
@@ -637,7 +647,7 @@ class FeedService {
         const isVideoOnlyGenerator = cached?.isExperimental === false;
 
         response = await AtprotoService.getFeed(
-          cursor,
+          cursor ?? null,
           feedLink,
           {},
           !isVideoOnlyGenerator, // Skip filtering if video-only generator
@@ -661,7 +671,11 @@ class FeedService {
 
   // Query configuration helper (hooks must be called in useFeed hook, not here)
   // This method is kept for backwards compatibility but should not use hooks
-  createInfiniteQuery(_feedOption: FeedOption, _userDid?: string, _queryOptions: any = {}) {
+  createInfiniteQuery(
+    _feedOption: FeedOption,
+    _userDid?: string,
+    _queryOptions: Record<string, unknown> = {}
+  ) {
     throw new Error(
       'createInfiniteQuery should not be called directly. Use the useFeed hook instead.'
     );

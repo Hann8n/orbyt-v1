@@ -5,15 +5,12 @@
  * Replaces: useFeedQuery.tsx, useInfiniteScroll.tsx
  */
 
-import { useMemo, useEffect, useRef } from 'react';
-import { useQueryClient, useInfiniteQuery, type InfiniteData } from '@tanstack/react-query';
-import { InteractionManager } from 'react-native';
+import { useMemo } from 'react';
+import { useInfiniteQuery, type InfiniteData } from '@tanstack/react-query';
 import { feedService, FeedOption, FeedItem } from '../services/FeedService';
 import { useUserStore } from '../stores/userStore';
 import { queryKeys } from '../utils/query/queryKeys';
-import { computeModerationDecision } from '../utils/moderation/computeDecision';
-import { useModerationSettings } from './useModerationSettings';
-import type { ExtendedFeedViewPost, FeedResponse } from '../services/api/types';
+import type { FeedResponse } from '../services/api/types';
 
 // Optimized feed configuration for smooth performance
 export const FEED_CONFIG = {
@@ -61,14 +58,10 @@ export function useFeed(
 ): UseFeedReturn {
   const { enabled = true, ...queryOptions } = options;
 
-  const queryClient = useQueryClient();
   // Use direct selector to prevent re-renders when other user data changes
   const currentUser = useUserStore(state => state.currentUser);
   const isSwitchingAccount = useUserStore(state => state.isSwitchingAccount);
   const agent = useUserStore(state => state.agent);
-
-  // Get moderation settings once for the entire feed
-  const { settings } = useModerationSettings(currentUser?.did ?? undefined);
 
   // Use current user's DID for user-specific feeds (following and your-mix), fallback to passed userDid for profile feeds
   // Both 'following' and 'your-mix' are user-specific and should include userDid in query key to ensure fresh data on account switch
@@ -91,141 +84,51 @@ export function useFeed(
   // When effectiveUserDid or feedOption changes, React Query treats this as a new query and fetches fresh data
   const queryKey = queryKeys.feed.infinite(feedOption, effectiveUserDid ?? undefined);
 
-  const query = useInfiniteQuery<
-    FeedResponse,
-    Error,
-    InfiniteData<FeedResponse, string | null>,
-    ReturnType<typeof queryKeys.feed.infinite>,
-    string | null
-  >({
+  const query = useInfiniteQuery({
     queryKey,
-    queryFn: async ({ pageParam }) => {
-      // Fetch feed data
+    queryFn: async ({ pageParam }: { pageParam: string | null }) => {
+      // Fetch feed data - pageParam type inferred from initialPageParam
       return await feedService.fetchFeed(
         feedOption,
         effectiveUserDid ?? undefined,
-        (pageParam ?? undefined) as string | undefined
+        pageParam ?? undefined
       );
     },
     enabled: queryEnabled,
-    initialPageParam: null,
-    getNextPageParam: lastPage => lastPage?.cursor ?? null,
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage: FeedResponse) => lastPage?.cursor ?? null,
     staleTime: queryOptions.staleTime ?? FEED_CONFIG.STALE_TIME,
     gcTime: queryOptions.cacheTime ?? FEED_CONFIG.GC_TIME,
     retry: FEED_CONFIG.MAX_RETRIES,
     retryDelay: FEED_CONFIG.RETRY_DELAY,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
+    refetchOnWindowFocus: queryOptions.refetchOnWindowFocus ?? false,
+    refetchOnMount: queryOptions.refetchOnMount ?? false,
     refetchOnReconnect: false,
     // Use placeholderData to maintain previous data during refetch
     // React Query automatically handles query key changes (feed switches) by creating new queries
-    placeholderData: previousData => previousData,
-    ...queryOptions,
-  });
+    placeholderData: (
+      previousData: InfiniteData<FeedResponse, string | null> | undefined
+    ): InfiniteData<FeedResponse, string | null> | undefined => previousData,
+  } as Parameters<typeof useInfiniteQuery>[0]);
 
-  // Track previous page count to prefetch profiles only for new pages
-  const previousPageCountRef = useRef(0);
-
-  // Prefetch author profiles when new pages are loaded
-  useEffect(() => {
-    const currentPageCount = query.data?.pages.length ?? 0;
-    if (currentPageCount > previousPageCountRef.current && query.data) {
-      // Extract unique author handles from the latest page for batch prefetching
-      const latestPage = query.data.pages[currentPageCount - 1];
-      const authorHandles = Array.from(
-        new Set(
-          latestPage?.feed
-            ?.map((item: ExtendedFeedViewPost) => item.post?.author?.handle)
-            .filter((h): h is string => !!h) ?? []
-        )
-      );
-
-      // Batch prefetch all author profiles in background after interactions complete
-      if (authorHandles.length > 0) {
-        InteractionManager.runAfterInteractions(() => {
-          // Import ProfileCache dynamically to avoid circular dependency
-          import('../services/data/ProfileService')
-            .then(({ default: ProfileService, profileKeys }) => {
-              ProfileService.batchGetProfiles(authorHandles)
-                .then(profiles => {
-                  // Prepopulate individual profile query keys for instant cache hits
-                  profiles.forEach(profile => {
-                    if (profile?.handle) {
-                      queryClient.setQueryData(profileKeys.detail(profile.handle), profile);
-                    }
-                  });
-                })
-                .catch(() => {
-                  // Silently fail - feed still renders, individual fetches will work as fallback
-                });
-            })
-            .catch(() => {
-              // Failed to load ProfileCache, skip prefetch
-            });
-        });
-      }
-
-      previousPageCountRef.current = currentPageCount;
-    }
-  }, [query.data?.pages.length, query.data, queryClient]);
-
-  // Flatten feed pages and add moderation flags
-  // useMemo ensures transformation only happens when data or settings change
+  // Flatten feed pages - React Query handles deduplication via queryKey
+  // Moderation computation deferred to render time for better performance
   const feed = useMemo(() => {
-    const feedPages = query.data?.pages ?? [];
-    if (!feedPages.length) {
+    if (!query.data?.pages) {
       return [] as FeedItem[];
     }
 
-    const seenKeys = new Set<string>();
-    const result: FeedItem[] = [];
-
-    // Flatten pages and deduplicate items
-    for (const page of feedPages) {
-      const items = page?.feed ?? [];
-      for (const item of items) {
-        const uri = item?.post?.uri;
-        const cid = item?.post?.cid;
-
-        if (!uri) {
-          continue;
-        }
-
-        // Use same key format as keyExtractor for consistency
-        const key = cid ? `${uri}:${cid}` : uri;
-        if (seenKeys.has(key)) {
-          continue;
-        }
-
-        seenKeys.add(key);
-
-        // Compute moderation flags
-        const feedItem = item as ExtendedFeedViewPost;
-        let shouldBlur = false;
-        let shouldFilter = false;
-
-        if (settings) {
-          try {
-            const decision = computeModerationDecision(feedItem, settings);
-            shouldBlur = decision.blur;
-            shouldFilter = decision.filter;
-          } catch {
-            // Fallback to safe defaults if computation fails
-            shouldBlur = false;
-            shouldFilter = false;
-          }
-        }
-
-        result.push({
-          ...feedItem,
-          shouldBlur,
-          shouldFilter,
-        });
+    // Simply flatten pages - no deduplication needed (React Query handles it)
+    // No moderation computation here - components will compute on render
+    const flattened: FeedItem[] = [];
+    for (const page of query.data.pages) {
+      const feedResponse = page as FeedResponse;
+      if (feedResponse?.feed && Array.isArray(feedResponse.feed)) {
+        flattened.push(...(feedResponse.feed as FeedItem[]));
       }
     }
-
-    return result;
-  }, [query.data?.pages, settings]);
+    return flattened;
+  }, [query.data]);
 
   // Removed custom prefetching - FlashList's onEndReached with React Query's fetchNextPage handles this natively
 
