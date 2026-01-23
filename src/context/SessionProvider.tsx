@@ -30,6 +30,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
   // Get auth state from Zustand store
   const isAuthenticated = useUserStore(state => state.isAuthenticated);
   const isAuthenticating = useUserStore(state => state.isAuthenticating);
+  const isInitializingAuth = useUserStore(state => state.isInitializingAuth);
   const isSwitchingAccount = useUserStore(state => state.isSwitchingAccount);
   const activeAccountDid = useUserStore(state => state.activeAccountDid);
   const signIn = useUserStore(state => state.signIn);
@@ -44,7 +45,8 @@ export function SessionProvider({ children }: PropsWithChildren) {
         },
         // Use active DID as session key so Stack.Protected stays mounted during switches
         session: isAuthenticated && activeAccountDid ? activeAccountDid : null,
-        isLoading: isAuthenticating || isSwitchingAccount,
+        // Include initial auth loading state - this controls splash screen visibility
+        isLoading: isInitializingAuth || isAuthenticating || isSwitchingAccount,
       }}
     >
       {children}

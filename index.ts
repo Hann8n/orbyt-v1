@@ -1,3 +1,6 @@
+// Import polyfills before anything else
+import '@atproto/oauth-client-expo/dist/polyfill';
+
 // Apply required polyfills for @atproto/oauth-client-expo
 import 'event-target-polyfill';
 

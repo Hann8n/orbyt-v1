@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -38,6 +38,7 @@ import { useVisibilityCoreStore } from '../src/core/visibility';
 import { queryClient } from '../src/utils/query/queryClient';
 import { QueryErrorBoundary } from '../src/components/ui/QueryErrorBoundary';
 import { SessionProvider, useSession } from '../src/context/SessionProvider';
+import { SplashScreenController } from '../src/components/ui/SplashScreenController';
 import { TabBarProvider } from '../src/context/FeedIndicatorContext';
 import { seenVideoService } from '../src/services/SeenVideoService';
 import { storage } from '../src/utils/storage/storage';
@@ -164,7 +165,7 @@ function RootNavigator() {
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: Colors.black },
-          animation: 'slide_from_right',
+          animation: 'fade',
         }}
       >
         {/* Protected routes - require authentication */}
@@ -264,14 +265,6 @@ export default function RootLayout() {
   const loadBookmarks = useBookmarkStore(state => state.loadBookmarks);
   const clearBookmarks = useBookmarkStore(state => state.clearBookmarks);
 
-  const [isInitializing, setIsInitializing] = useState(true);
-  // Fallback flag so we can force readiness after a timeout without setting state in effects
-  const [fallbackReady, setFallbackReady] = useState(false);
-  const appIsReady = useMemo(
-    () => fallbackReady || !isInitializing,
-    [fallbackReady, isInitializing]
-  );
-
   // Set Android navigation bar button style (light)
   useEffect(() => {
     if (Platform.OS === 'android') {
@@ -279,7 +272,8 @@ export default function RootLayout() {
     }
   }, []);
 
-  // Parallel initialization: fonts and auth state load simultaneously
+  // Initialize app - run in parallel, don't block rendering
+  // Splash screen is controlled by SessionProvider.isLoading (auth state only)
   useEffect(() => {
     const initializeApp = async () => {
       // Set video cache size FIRST, before any video players can be created
@@ -296,10 +290,8 @@ export default function RootLayout() {
       // Migrate AsyncStorage to MMKV (one-time migration)
       await migrateAsyncStorageToMMKV();
 
-      // Initialize user state
+      // Initialize user state - this sets isInitializingAuth which controls splash screen
       await initializeUserState();
-
-      setIsInitializing(false);
     };
 
     initializeApp();
@@ -312,15 +304,13 @@ export default function RootLayout() {
       return;
     }
 
-    if (!appIsReady) return;
-
     // Defer until interactions complete (service already checks authentication state)
     const handle = InteractionManager.runAfterInteractions(() => {
       loadBookmarks().catch(() => {});
     });
 
     return () => handle.cancel();
-  }, [isAuthenticated, appIsReady, loadBookmarks, clearBookmarks]);
+  }, [isAuthenticated, loadBookmarks, clearBookmarks]);
 
   // Initialize seen video service and subscribe to user changes
   useEffect(() => {
@@ -355,10 +345,8 @@ export default function RootLayout() {
     return unsubscribe;
   }, []);
 
-  // Prefetch feed in background after app is fully ready and interactions complete
+  // Prefetch feed in background after interactions complete
   useEffect(() => {
-    if (!appIsReady) return undefined;
-
     const currentUser = useUserStore.getState().currentUser;
     if (currentUser?.did) {
       // Defer feed prefetching until after interactions complete
@@ -380,34 +368,12 @@ export default function RootLayout() {
       };
     }
     return undefined;
-  }, [appIsReady]);
-
-  // Hide splash screen when app is ready
-  useEffect(() => {
-    if (appIsReady) {
-      SplashScreen.hideAsync().catch(() => {
-        // Ignore errors - splash screen might already be hidden
-      });
-    }
-  }, [appIsReady]);
-
-  // Timeout fallback to ensure splash screen doesn't stay forever
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      setFallbackReady(true);
-    }, 5000);
-
-    return () => clearTimeout(timeout);
-  }, []);
-
-  // Show nothing while initializing - splash screen will be visible
-  if (isInitializing) {
-    return null;
-  }
+  }, [isAuthenticated]);
 
   return (
     <AppProviders>
       <SessionProvider>
+        <SplashScreenController />
         <QueryErrorBoundary level="root">
           <RootNavigator />
         </QueryErrorBoundary>

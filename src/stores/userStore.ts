@@ -12,7 +12,8 @@ import { storageAdapter, storageHelpers, storage } from '../utils/storage/storag
 import * as SecureStore from 'expo-secure-store';
 import { InteractionManager } from 'react-native';
 import { Agent } from '@atproto/api';
-import { AtProtoOAuthService, OAuthSession } from '../services/auth';
+import { AtProtoOAuthService } from '../services/auth';
+import type { OAuthSession } from '@atproto/oauth-client';
 import ProfileService from '../services/data/ProfileService';
 import { AtprotoService } from '../services/api/AtprotoService';
 import { isUserCancellation, getErrorMessage } from '../utils/errors/errorHandler';
@@ -86,6 +87,7 @@ interface UserState {
   // Authentication state
   isAuthenticated: boolean;
   isAuthenticating: boolean;
+  isInitializingAuth: boolean; // Loading state for initial auth state restoration
   isSwitchingAccount: boolean; // Loading state for account switching
   switchingToHandle: string | null;
   switchingToAvatar?: string | null;
@@ -279,6 +281,7 @@ export const useUserStore = create<UserState>()(
       currentUser: null,
       isAuthenticated: false,
       isAuthenticating: false,
+      isInitializingAuth: true, // Start as true - will be set to false after initial auth state is loaded
       isSwitchingAccount: false,
       switchingToHandle: null,
       switchingToAvatar: null,
@@ -309,15 +312,16 @@ export const useUserStore = create<UserState>()(
           set({ isAuthenticating: true, authError: null });
 
           const oauthService = AtProtoOAuthService.getInstance();
-          const session = await oauthService.signIn(identifier);
+          const client = await oauthService.getClient();
+          const session = await client.signIn(identifier);
 
-          // Create agent from session
+          // Create agent from session - Agent accepts OAuthSession directly
           const agent = new Agent(session);
 
           // Get user profile and email verification status in parallel
           const [profile, sessionInfo] = await Promise.all([
             agent.api.app.bsky.actor.getProfile({
-              actor: session.sub,
+              actor: session.did,
             }),
             agent.api.com.atproto.server.getSession(),
           ]);
@@ -332,29 +336,29 @@ export const useUserStore = create<UserState>()(
 
           // Create account object
           const account: SavedAccount = {
-            id: session.sub,
+            id: session.did,
             handle: userProfile.handle,
-            did: session.sub,
+            did: session.did,
             displayName: userProfile.displayName || userProfile.handle,
             avatar: userProfile.avatar,
             lastUsed: Date.now(),
-            originalIdentifier: identifier || session.sub,
+            originalIdentifier: identifier || session.did,
           };
 
           // Update saved accounts list
           const updatedAccounts = [
             account,
-            ...get().savedAccounts.filter(a => a.did !== session.sub),
+            ...get().savedAccounts.filter(a => a.did !== session.did),
           ];
 
           // Persist to SecureStore
           await SecureStore.setItemAsync(STORAGE_KEYS.ACCOUNTS, JSON.stringify(updatedAccounts));
-          await SecureStore.setItemAsync(STORAGE_KEYS.ACTIVE_ACCOUNT, session.sub);
+          await SecureStore.setItemAsync(STORAGE_KEYS.ACTIVE_ACCOUNT, session.did);
 
           // Update state
           set({
             currentUser: {
-              did: session.sub,
+              did: session.did,
               handle: userProfile.handle,
               displayName: userProfile.displayName, // Use API structure directly
               avatar: userProfile.avatar, // Use API structure directly
@@ -365,14 +369,14 @@ export const useUserStore = create<UserState>()(
             isAuthenticating: false,
             authError: null,
             agent: agent,
-            activeAccountDid: session.sub,
+            activeAccountDid: session.did,
             oauthSession: session,
             savedAccounts: updatedAccounts,
           });
 
           // Show email verification modal once on initial login for unverified users
           const newCurrentUser: UserState['currentUser'] = {
-            did: session.sub,
+            did: session.did,
             handle: userProfile.handle,
             displayName: userProfile.displayName,
             avatar: userProfile.avatar,
@@ -388,7 +392,7 @@ export const useUserStore = create<UserState>()(
           deferOrbytProfileInit('signIn');
 
           // Prefetch Orbyt colors for current user and followed users (non-blocking)
-          prefetchColorsForUser(session.sub);
+          prefetchColorsForUser(session.did);
         } catch (error) {
           // Handle user cancellation silently
           if (isUserCancellation(error)) {
@@ -409,20 +413,37 @@ export const useUserStore = create<UserState>()(
         try {
           set({ isAuthenticating: true });
 
+          const currentDid = get().activeAccountDid;
+          const oauthService = AtProtoOAuthService.getInstance();
+
+          // If we have an active account, revoke its session
+          // The package manages sessions internally, so we use revoke() to properly clean up
+          if (currentDid) {
+            try {
+              const client = await oauthService.getClient();
+              await client.revoke(currentDid);
+            } catch (error) {
+              // Log but don't fail - session may already be invalid
+              logger.warn('Failed to revoke session during sign out', {
+                component: 'userStore',
+                did: currentDid,
+                error: error instanceof Error ? error.message : 'Unknown error',
+              });
+            }
+          }
+
           // Clear all user data
           await get().invalidateAllUserData();
 
-          // Sign out from OAuth service
-          const oauthService = AtProtoOAuthService.getInstance();
-          await oauthService.signOut();
+          // Only clear the OAuth client instance if clearing all accounts
+          // For single account sign out, keep the client so other accounts remain accessible
+          if (clearAllAccounts) {
+            oauthService.clearClient();
+            await SecureStore.deleteItemAsync(STORAGE_KEYS.ACCOUNTS);
+          }
 
           // Clear active account - user has logged out
           await SecureStore.deleteItemAsync(STORAGE_KEYS.ACTIVE_ACCOUNT);
-
-          // Clear all accounts if requested
-          if (clearAllAccounts) {
-            await SecureStore.deleteItemAsync(STORAGE_KEYS.ACCOUNTS);
-          }
 
           // Reset state
           set({
@@ -453,17 +474,16 @@ export const useUserStore = create<UserState>()(
           await loadPersistedColors(did);
 
           const oauthService = AtProtoOAuthService.getInstance();
+          const client = await oauthService.getClient();
+          const session = await client.restore(did);
 
-          // Use the improved session validation with automatic refresh
-          const session = await oauthService.getValidSession(did);
-
-          // Create agent from session
+          // Create agent from session - Agent accepts OAuthSession directly
           const agent = new Agent(session);
 
           // Get user profile and email verification status in parallel
           const [profile, sessionInfo] = await Promise.all([
             agent.api.app.bsky.actor.getProfile({
-              actor: session.sub,
+              actor: session.did,
             }),
             agent.api.com.atproto.server.getSession(),
           ]);
@@ -484,7 +504,7 @@ export const useUserStore = create<UserState>()(
           // Update state
           set({
             currentUser: {
-              did: session.sub,
+              did: session.did,
               handle: userProfile.handle,
               displayName: userProfile.displayName, // Use API structure directly
               avatar: userProfile.avatar, // Use API structure directly
@@ -501,7 +521,7 @@ export const useUserStore = create<UserState>()(
           // Show email verification modal once on initial login for unverified users
           // Only show on first-time restore (not account switch) - check if we already have an active account
           const newCurrentUser: UserState['currentUser'] = {
-            did: session.sub,
+            did: session.did,
             handle: userProfile.handle,
             displayName: userProfile.displayName,
             avatar: userProfile.avatar,
@@ -518,14 +538,14 @@ export const useUserStore = create<UserState>()(
           deferOrbytProfileInit('restoreSession');
 
           // Prefetch Orbyt colors for current user and followed users (non-blocking)
-          prefetchColorsForUser(session.sub);
+          prefetchColorsForUser(session.did);
 
           // Load and clean subscribed channels after session restore
           // This ensures built-in channels are removed from both state and profile record
           // Already non-blocking (Promise.all not awaited), so no need to defer further
           Promise.all([
-            get().loadUserSpecificSettings(session.sub),
-            get().loadSubscribedChannels(session.sub),
+            get().loadUserSpecificSettings(session.did),
+            get().loadSubscribedChannels(session.did),
           ]).catch(error => {
             logger.warn('Failed to load some user settings after session restore', {
               component: 'userStore',
@@ -536,14 +556,10 @@ export const useUserStore = create<UserState>()(
           const errorMessage =
             error instanceof Error ? error.message : 'Session restoration failed';
 
-          // Check if this is a session expiration error from getValidSession
-          const isSessionExpired =
-            (error as { isSessionExpired?: boolean })?.isSessionExpired ?? false;
-
-          // Use universal OAuth error analysis
+          // Use universal OAuth error analysis - package throws appropriate errors
           const errorInfo = analyzeOAuthError(error);
 
-          if (errorInfo.requiresReauth || isSessionExpired) {
+          if (errorInfo.requiresReauth) {
             // Session expiration is expected behavior, log as warning (not error)
             logger.warn('Session expired, re-authentication required', {
               component: 'userStore',
@@ -590,7 +606,7 @@ export const useUserStore = create<UserState>()(
             throw new Error('Account not found');
           }
 
-          // Clear all caches before switching
+          // Clear all caches before switching - this ensures no stale data from previous account
           await get().clearAllCaches();
 
           // Update account statuses
@@ -603,7 +619,9 @@ export const useUserStore = create<UserState>()(
           await SecureStore.setItemAsync(STORAGE_KEYS.ACCOUNTS, JSON.stringify(accounts));
           await SecureStore.setItemAsync(STORAGE_KEYS.ACTIVE_ACCOUNT, did);
 
-          // Try to restore session for the new account
+          // Restore session for the new account
+          // The OAuth client package handles session switching internally via restore()
+          // No need to manually clear the client - it manages multiple sessions by DID
           try {
             await get().restoreSession(did);
 
@@ -747,7 +765,8 @@ export const useUserStore = create<UserState>()(
           // If this is the active account, clean up the OAuth session first
           if (isActiveAccount) {
             const oauthService = AtProtoOAuthService.getInstance();
-            await oauthService.removeSession(did);
+            const client = await oauthService.getClient();
+            await client.revoke(did);
           }
 
           // Remove from saved accounts
@@ -1215,10 +1234,11 @@ export const useUserStore = create<UserState>()(
           }
 
           const oauthService = AtProtoOAuthService.getInstance();
+          const client = await oauthService.getClient();
 
-          // Use the improved session validation
+          // Use the package's restore method for validation
           try {
-            const session = await oauthService.getValidSession(did);
+            const session = await client.restore(did);
             return !!session;
           } catch (error) {
             logger.debug('Session validation failed for DID', {
@@ -1236,9 +1256,28 @@ export const useUserStore = create<UserState>()(
 
       clearCorruptedSessions: async () => {
         try {
-          // Clear OAuth sessions
+          const currentDid = get().activeAccountDid;
           const oauthService = AtProtoOAuthService.getInstance();
-          await oauthService.signOut();
+
+          // Try to revoke the current session if we have one
+          // This is a best-effort cleanup for corrupted sessions
+          if (currentDid) {
+            try {
+              const client = await oauthService.getClient();
+              await client.revoke(currentDid);
+            } catch (error) {
+              // If revoke fails (session already corrupted), that's okay
+              logger.debug('Could not revoke corrupted session', {
+                component: 'userStore',
+                did: currentDid,
+                error: error instanceof Error ? error.message : 'Unknown error',
+              });
+            }
+          }
+
+          // Clear OAuth client instance to force recreation on next use
+          // This is acceptable for corrupted sessions as we need a fresh client
+          oauthService.clearClient();
 
           // Clear secure storage items related to sessions
           try {
@@ -1278,6 +1317,9 @@ export const useUserStore = create<UserState>()(
 
       // Initialization actions
       initializeUserState: async () => {
+        // Set loading state at start
+        set({ isInitializingAuth: true });
+
         try {
           // Load saved accounts
           await get().loadSavedAccounts();
@@ -1341,6 +1383,9 @@ export const useUserStore = create<UserState>()(
             agent: undefined,
             activeAccountDid: null,
           });
+        } finally {
+          // Always set loading to false when done
+          set({ isInitializingAuth: false });
         }
       },
 
