@@ -340,7 +340,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         snapToAlignment="start"
-        decelerationRate={Platform.OS === 'ios' ? 'fast' : 0.98}
+        decelerationRate="fast"
         contentContainerStyle={styles.headersContainer}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}

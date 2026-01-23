@@ -12,7 +12,6 @@ import {
   View,
   Dimensions,
   StyleSheet,
-  Platform,
   NativeSyntheticEvent,
   NativeScrollEvent,
   ScaledSize,
@@ -678,11 +677,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           snapToOffsets={snapToOffsets ?? undefined}
           snapToInterval={snapToOffsets ? undefined : snapToIntervalValue}
           snapToAlignment={snapToOffsets ? undefined : ('center' as const)}
-          decelerationRate={
-            Platform.OS === 'ios'
-              ? SCROLL_CONSTANTS.DECELERATION_RATE_IOS
-              : SCROLL_CONSTANTS.DECELERATION_RATE_ANDROID
-          }
+          decelerationRate={SCROLL_CONSTANTS.DECELERATION_RATE_IOS}
           // Disable fast scrolling to prevent scrolling past multiple items
           disableIntervalMomentum={true}
           scrollEventThrottle={APP_CONSTANTS.SCROLL_THROTTLE}
