@@ -10,14 +10,15 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.getorbyt.app",
-      "buildNumber": "21",
+      "buildNumber": "24",
+      "developmentTeam": "D8VXFBV8SJ",
       "icon": "./src/assets/AppIcons/iOS/orbyt.png",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSCameraUsageDescription": "This app needs access to your camera to take photos and record videos",
-        "NSMicrophoneUsageDescription": "This app needs access to your microphone for recording videos with sound",
-        "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to select profile pictures and share photos",
-        "NSPhotoLibraryAddUsageDescription": "This app needs permission to save photos to your photo library",
+        "NSCameraUsageDescription": "We need camera access to record videos for posts and take profile photos (e.g. on Create or when updating your avatar).",
+        "NSMicrophoneUsageDescription": "We need microphone access to record audio with your videos (e.g. when you tap record on Create).",
+        "NSPhotoLibraryUsageDescription": "We need access to your photo library to select videos for posts and photos for your profile (e.g. gallery on Create or when updating your avatar).",
+        "NSPhotoLibraryAddUsageDescription": "We need permission to save your videos to the camera roll (e.g. when you tap Save after making a video).",
         "LSApplicationQueriesSchemes": ["mailto"]
       }
     },
@@ -28,7 +29,7 @@
         "backgroundColor": "#000000"
       },
       "package": "com.orbyt.app",
-      "versionCode": 21,
+      "versionCode": 24,
       "permissions": ["CAMERA", "RECORD_AUDIO"]
     },
     "web": {
@@ -71,16 +72,16 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera",
-          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone",
+          "cameraPermission": "We need camera access to record videos for posts and take profile photos (e.g. on Create or when updating your avatar).",
+          "microphonePermission": "We need microphone access to record audio with your videos (e.g. when you tap record on Create).",
           "recordAudioAndroid": true
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "This app needs access to your photo library to select profile pictures and share photos.",
-          "cameraPermission": "This app needs access to your camera to take photos for your profile picture."
+          "photosPermission": "We need access to your photo library to select videos for posts and photos for your profile (e.g. gallery on Create or when updating your avatar).",
+          "cameraPermission": "We need camera access to record videos for posts and take profile photos (e.g. on Create or when updating your avatar)."
         }
       ],
       [

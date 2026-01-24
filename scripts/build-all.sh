@@ -263,6 +263,18 @@ if [[ "$PLATFORM" == "ios" || "$PLATFORM" == "all" ]]; then
   echo "  Scheme: $SCHEME_NAME"
   echo ""
 
+  # Ensure CocoaPods are installed (required when using workspace)
+  if [ "$USE_WORKSPACE" = true ] && [ -f "ios/Podfile" ]; then
+    echo "  Running pod install..."
+    (cd ios && pod install)
+    if [ $? -ne 0 ]; then
+      echo "❌ pod install failed. Fix the errors above and try again."
+      exit 1
+    fi
+    echo "  ✅ pod install complete"
+    echo ""
+  fi
+
   # Use Xcode's default Archives location so it appears in Organizer
   # Format: ~/Library/Developer/Xcode/Archives/YYYY-MM-DD/AppName YYYY-MM-DD HH.MM.SS.xcarchive
   ARCHIVES_DIR="$HOME/Library/Developer/Xcode/Archives"
@@ -287,6 +299,15 @@ if [[ "$PLATFORM" == "ios" || "$PLATFORM" == "all" ]]; then
   echo "  Note: Archives require valid code signing setup."
   BUILD_LOG="/tmp/build_output_$$.log"
   
+  # DEVELOPMENT_TEAM: use env var, or expo.ios.developmentTeam from app.json
+  TEAM_ID="${DEVELOPMENT_TEAM}"
+  if [ -z "$TEAM_ID" ]; then
+    TEAM_ID=$(node -p "require('./app.json').expo?.ios?.developmentTeam || ''" 2>/dev/null | tr -d '\n' || true)
+  fi
+  [ "$TEAM_ID" = "undefined" ] && TEAM_ID=""
+  BUILD_SETTINGS="CODE_SIGN_STYLE=Automatic"
+  [ -n "$TEAM_ID" ] && BUILD_SETTINGS="DEVELOPMENT_TEAM=$TEAM_ID $BUILD_SETTINGS"
+  
   # Build command with best practices:
   # - Use workspace if available (required for CocoaPods)
   # - Allow provisioning updates for automatic signing
@@ -301,7 +322,7 @@ if [[ "$PLATFORM" == "ios" || "$PLATFORM" == "all" ]]; then
       -archivePath "$ARCHIVE_PATH" \
       -allowProvisioningUpdates \
       -allowProvisioningDeviceRegistration \
-      CODE_SIGN_STYLE=Automatic \
+      $BUILD_SETTINGS \
       > "$BUILD_LOG" 2>&1 &
   else
     xcodebuild archive \
@@ -312,7 +333,7 @@ if [[ "$PLATFORM" == "ios" || "$PLATFORM" == "all" ]]; then
       -archivePath "$ARCHIVE_PATH" \
       -allowProvisioningUpdates \
       -allowProvisioningDeviceRegistration \
-      CODE_SIGN_STYLE=Automatic \
+      $BUILD_SETTINGS \
       > "$BUILD_LOG" 2>&1 &
   fi
   
