@@ -10,7 +10,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.getorbyt.app",
-      "buildNumber": "20",
+      "buildNumber": "21",
       "icon": "./src/assets/AppIcons/iOS/orbyt.png",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -28,7 +28,7 @@
         "backgroundColor": "#000000"
       },
       "package": "com.orbyt.app",
-      "versionCode": 20,
+      "versionCode": 21,
       "permissions": ["CAMERA", "RECORD_AUDIO"]
     },
     "web": {

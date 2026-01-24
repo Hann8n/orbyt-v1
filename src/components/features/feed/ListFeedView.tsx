@@ -512,6 +512,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     // Total spacing from start of one item to start of next = cardHeight + separatorHeight
     const itemSpacing = useMemo(() => cardHeight + CONSTANTS.SEPARATOR_HEIGHT, [cardHeight]);
     const snapToIntervalValue = useMemo(() => itemSpacing, [itemSpacing]);
+    const hasHeader = useMemo(() => Boolean(headerComponent), [headerComponent]);
 
     // Header-feed specific top inset policy for snapping
     // - Header feeds:
@@ -523,12 +524,9 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         return null;
       }
 
-      if (isSmallDevice) {
-        return 0;
-      }
-
+      if (isSmallDevice || (isModal && hasHeader)) return 0;
       return insets.top;
-    }, [isHeaderFeed, isSmallDevice, insets.top]);
+    }, [isHeaderFeed, isSmallDevice, isModal, hasHeader, insets.top]);
 
     const nonHeaderSnapTopInset = useMemo(
       () => (isSmallDevice ? 0 : insets.top),
@@ -539,8 +537,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       () => (headerSnapTopInset !== null ? headerSnapTopInset : nonHeaderSnapTopInset),
       [headerSnapTopInset, nonHeaderSnapTopInset]
     );
-
-    const hasHeader = useMemo(() => Boolean(headerComponent), [headerComponent]);
 
     const snapToOffsets = useMemo(() => {
       // Always use snapToOffsets when there's a header to properly account for header height
