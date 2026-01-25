@@ -122,6 +122,7 @@ const VideoItem: React.FC<VideoItemProps> = ({
         showOverlay={true}
         feedOption={feedOption}
         isModal={isModal}
+        index={index}
       />
     </View>
   );

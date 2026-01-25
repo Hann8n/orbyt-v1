@@ -43,6 +43,8 @@ import { getProfileColors } from '../../../utils/formatting/colors';
 import { getChannelBySlug } from '../../../utils/channels/orbyt';
 import { VideoScrubber } from './VideoScrubber';
 import { useOverlayVisibility } from '../../../context/FeedIndicatorContext';
+import { useFeedScroll } from '../../../context/FeedScrollContext';
+import { seenVideoService } from '../../../services/SeenVideoService';
 import { hexToRGBA } from '../../../utils/formatting/colors';
 import { useFollowStore } from '../../../stores/followStore';
 import type {
@@ -61,6 +63,11 @@ import type { ModerationDecision } from '../../../services/moderation/Moderation
 
 // Use proper API types - normalize to always work with ExtendedPostView
 type Post = ExtendedPostView | ExtendedFeedViewPost;
+
+/** Full opacity when percent-visible ≥ this. Larger = bigger "centered" area at 100% opacity. */
+const OVERLAY_DEAD_ZONE = 0.9;
+/** In the fade zone: (raw/deadZone)^exp. >1 = fade out faster. */
+const OVERLAY_FADE_EXPONENT = 2;
 
 // Types
 export interface VideoCardRef {
@@ -83,12 +90,13 @@ export interface VideoCardProps {
   onVideoStatus?: (uri: string, status: string) => void;
   height?: number;
   shouldDisablePlayback?: boolean;
-  isPlaying?: boolean;
   moderationDecision?: ModerationDecision;
   // Overlay props
   showOverlay?: boolean;
   feedOption?: string;
   isModal?: boolean;
+  /** Item index in the list; used with FeedScrollContext to compute percent visible from scroll+layout. */
+  index?: number;
 }
 
 const VideoCard = memo(
@@ -105,6 +113,7 @@ const VideoCard = memo(
         showOverlay = true,
         feedOption,
         isModal = false,
+        index,
       },
       ref
     ) => {
@@ -862,13 +871,16 @@ const VideoCard = memo(
         }
       }, [channelUri, navigation]);
 
-      // Track interactionSeen when video becomes visible
+      // Track interactionSeen and markAsSeen when video becomes visible
       useEffect(() => {
-        if (isVisible && !seenInteractionSentRef.current) {
-          seenInteractionSentRef.current = true;
-          queueInteraction(INTERACTIONSEEN_CONST);
+        if (isVisible) {
+          if (!seenInteractionSentRef.current) {
+            seenInteractionSentRef.current = true;
+            queueInteraction(INTERACTIONSEEN_CONST);
+          }
+          seenVideoService.markAsSeen(postView.uri);
         }
-      }, [isVisible, queueInteraction]);
+      }, [isVisible, queueInteraction, postView.uri]);
 
       // Send remaining interactions on unmount
       useEffect(() => {
@@ -901,21 +913,38 @@ const VideoCard = memo(
         }
       }, [shouldPlayVideo, postView.uri, onVideoStatus]);
 
-      // Scrubber for iOS only - overlays the video
       const seekingAnimationSV = useSharedValue(0);
-      // Compose a single shared opacity for overlay + scrubber
       const overlayVisibility = useOverlayVisibility();
-      const itemVisibilitySV = useSharedValue(isVisible ? 1 : 0);
-      useEffect(() => {
-        itemVisibilitySV.value = withTiming(isVisible ? 1 : 0, { duration: 100 });
-      }, [isVisible, itemVisibilitySV]);
-
+      const feedScroll = useFeedScroll();
+      const scrollOffsetYSV = feedScroll?.scrollOffsetYSV;
+      const headerH = feedScroll?.headerHeight ?? 0;
+      const viewportH = feedScroll?.viewportHeight ?? 0;
+      const itemSp = feedScroll?.itemSpacing ?? 0;
+      const idx = index ?? 0;
       const uiOverlayOpacitySV = useDerivedValue(() => {
         'worklet';
-        // Global scroll fade * per-item visibility * scrubbing fade
         const scrubbing = interpolate(seekingAnimationSV.value, [0, 0.2, 1], [1, 0, 0], 'clamp');
-        return overlayVisibility.value * itemVisibilitySV.value * scrubbing;
-      });
+        let p: number;
+        if (!scrollOffsetYSV) {
+          p = 1;
+        } else {
+          const scrollY = scrollOffsetYSV.value;
+          const itemTop = headerH + idx * itemSp;
+          const itemBottom = itemTop + cardHeight;
+          const viewportBottom = scrollY + viewportH;
+          const overlap = Math.max(
+            0,
+            Math.min(itemBottom, viewportBottom) - Math.max(itemTop, scrollY)
+          );
+          const raw = cardHeight > 0 ? Math.min(1, Math.max(0, overlap / cardHeight)) : 1;
+          if (raw >= OVERLAY_DEAD_ZONE) {
+            p = 1;
+          } else {
+            p = Math.pow(raw / OVERLAY_DEAD_ZONE, OVERLAY_FADE_EXPONENT);
+          }
+        }
+        return overlayVisibility.value * p * scrubbing;
+      }, [scrollOffsetYSV, headerH, viewportH, itemSp, idx, cardHeight]);
 
       return (
         <View style={[styles.container, { height: cardHeight }]}>

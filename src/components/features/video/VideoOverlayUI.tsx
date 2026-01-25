@@ -6,7 +6,6 @@ import Animated, {
   withSpring,
   withTiming,
   withSequence,
-  Easing,
 } from 'react-native-reanimated';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, Text, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
@@ -417,15 +416,6 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
     );
   }, [post.author?.handle, followMutation]);
 
-  // Auto-hide follow confirmation after a short delay to keep overlay lightweight
-  useEffect(() => {
-    if (!showFollowConfirmation) return;
-    const timeoutId = setTimeout(() => {
-      setShowFollowConfirmation(false);
-    }, 6000);
-    return () => clearTimeout(timeoutId);
-  }, [showFollowConfirmation]);
-
   // Precompute follow badge metrics
   const followBadgeMetrics = useMemo(() => {
     const badgeSize = Math.round(authorAvatarSize * 0.42);
@@ -453,16 +443,12 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
     [contentPadding, isModal, isSmallScreenDevice, isTabletDevice, bottomNavBarHeight, hasTabBar]
   );
 
-  // Fade overlay with scroll/scrub; withTiming gives snappy hide when scrolling
+  // Opacity from composed overlayOpacitySV (itemVisibility + overlayVisibility + scrubbing)
+  // No extra withTiming - composed value already animates via itemVisibilitySV in VideoCard
   const overlayAnimatedStyle = useAnimatedStyle(() => {
     'worklet';
     const opacityValue = overlayOpacitySV ? overlayOpacitySV.value : 1;
-    return {
-      opacity: withTiming(opacityValue, {
-        duration: 100,
-        easing: Easing.out(Easing.ease),
-      }),
-    };
+    return { opacity: opacityValue };
   }, [overlayOpacitySV]);
 
   // Pointer events based on per-item visibility - only visible item's overlay is interactive
@@ -869,7 +855,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     width: '100%',
     minWidth: 45,
-    textShadowColor: 'rgba(0, 0, 0, 0.35)',
+    textShadowColor: Colors.overlayBlack35,
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 1,
   },
@@ -882,7 +868,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     width: '100%',
     minWidth: 45,
-    textShadowColor: 'rgba(0, 0, 0, 0.35)',
+    textShadowColor: Colors.overlayBlack35,
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 1,
   },

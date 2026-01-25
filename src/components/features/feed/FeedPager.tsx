@@ -9,7 +9,15 @@ import {
   forwardRef,
   useImperativeHandle,
 } from 'react';
-import { View, Text, StyleSheet, Dimensions, StatusBar, Pressable } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  Dimensions,
+  StatusBar,
+  Pressable,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import PagerView from 'react-native-pager-view';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
@@ -17,6 +25,7 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
   Easing,
+  type SharedValue,
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { SvgXml } from 'react-native-svg';
@@ -28,7 +37,11 @@ import { useIsFocused } from '@react-navigation/native';
 import type { ListFeedViewRef } from '../../../types';
 import type { ScrollToTopRef } from '../../../utils/navigation/tabRefs';
 import { useFeedSettings } from '../../../stores/userStore';
-import { useSetTabBarVisibility, useTabBarVisibility } from '../../../context/FeedIndicatorContext';
+import {
+  useSetTabBarVisibility,
+  useTabBarVisibility,
+  useSetOverlayVisibility,
+} from '../../../context/FeedIndicatorContext';
 
 // Define the feed options type
 export type FeedOption = string;
@@ -51,6 +64,46 @@ interface FeedPagerProps {
   indicatorFontSize?: number;
 }
 
+interface FeedIndicatorItemProps {
+  feedIndex: number;
+  indicatorBaseFontSize: number;
+  pageScrollProgress: SharedValue<number>;
+  label: string;
+  onPress: () => void;
+  pressableStyle?: StyleProp<ViewStyle>;
+}
+
+const FeedIndicatorItem = memo(function FeedIndicatorItem({
+  feedIndex,
+  indicatorBaseFontSize,
+  pageScrollProgress,
+  label,
+  onPress,
+  pressableStyle,
+}: FeedIndicatorItemProps) {
+  const animatedStyle = useAnimatedStyle(() => {
+    'worklet';
+    const baseProgress = pageScrollProgress.value;
+    const isActive = Math.round(baseProgress) === feedIndex;
+    const distance = Math.abs(baseProgress - feedIndex);
+    const opacity = isActive ? 1 : Math.max(0.3, 1 - distance * 0.4);
+    const color = isActive ? Colors.white : 'rgba(255, 255, 255, 0.75)';
+    return {
+      color,
+      fontSize: indicatorBaseFontSize,
+      marginRight: 8,
+      fontFamily: 'Figtree-Black',
+      opacity,
+    };
+  }, [feedIndex, indicatorBaseFontSize]);
+
+  return (
+    <Pressable onPress={onPress} style={pressableStyle}>
+      <Animated.Text style={animatedStyle}>{label}</Animated.Text>
+    </Pressable>
+  );
+});
+
 const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
   {
     initialFeed = 'following',
@@ -71,7 +124,13 @@ const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
   const router = useRouter();
   const { nativeTabsEnabled } = useFeedSettings();
   const setTabBarVisibility = useSetTabBarVisibility();
+  const setOverlayVisibility = useSetOverlayVisibility();
   const tabBarVisibility = useTabBarVisibility();
+
+  const showBarAndOverlay = useCallback(() => {
+    setTabBarVisibility(1);
+    setOverlayVisibility(1);
+  }, [setTabBarVisibility, setOverlayVisibility]);
 
   // Memoized screen dimensions handling
   const [screenDims, setScreenDims] = useState(() => Dimensions.get('window'));
@@ -108,10 +167,9 @@ const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
 
   // Use PagerView's page tracking directly - updated via onPageSelected
   const currentPageRef = useRef(0);
-  // Track scroll progress from PagerView's native onPageScroll - Reanimated shared value for UI thread
+  // Track scroll progress from PagerView's native onPageScroll - Reanimated shared value for UI thread.
+  // FeedIndicatorItem reads it via useAnimatedStyle (no setState on onPageScroll).
   const pageScrollProgress = useSharedValue(0);
-  // State to trigger indicator re-renders during scroll (derived from shared value)
-  const [indicatorScrollProgress, setIndicatorScrollProgress] = useState(0);
 
   // Always show 'following' first, then 'your-mix'
   const feedOptions = useMemo(() => {
@@ -133,7 +191,6 @@ const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
       // Reanimated shared value update
 
       pageScrollProgress.value = targetIndex;
-      setIndicatorScrollProgress(targetIndex);
 
       onFeedChange?.(feedOptions[targetIndex]);
 
@@ -216,14 +273,14 @@ const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
   useEffect(() => {
     if (hasAppliedInitialIndexRef.current) {
       animateFeedBar(true, true);
-      setTabBarVisibility(1);
+      showBarAndOverlay();
     }
-  }, [currentFeedIndex, animateFeedBar, setTabBarVisibility]);
+  }, [currentFeedIndex, animateFeedBar, showBarAndOverlay]);
 
   // Ensure controls are visible when pager mounts
   useEffect(() => {
-    setTabBarVisibility(1);
-  }, [setTabBarVisibility]);
+    showBarAndOverlay();
+  }, [showBarAndOverlay]);
 
   // Handle page change from PagerView - final confirmation after transition completes
   const handlePageSelected = useCallback(
@@ -239,13 +296,11 @@ const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
 
         pageScrollProgress.value = nextIndex;
         setCurrentFeedIndex(nextIndex);
-        setIndicatorScrollProgress(nextIndex);
 
         // Reset scroll tracking and reengage overlay when switching feeds
-
         lastScrollYRef.current = 0;
         animateFeedBar(true, true);
-        setTabBarVisibility(1);
+        showBarAndOverlay();
       }
 
       // Notify parent of feed change (only on final selection, not during scroll)
@@ -256,7 +311,7 @@ const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
     },
     // pageScrollProgress is a shared value - not needed in dependencies
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [feedOptions, onFeedChange, animateFeedBar, setTabBarVisibility]
+    [feedOptions, onFeedChange, animateFeedBar, showBarAndOverlay]
   );
 
   // Handle retry for each feed
@@ -299,14 +354,11 @@ const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
         setCurrentFeedIndex(roundedPosition);
       }
 
-      // Update indicator progress
-      setIndicatorScrollProgress(progress);
-
       // Show overlay during pager scroll
       animateFeedBar(true);
-      setTabBarVisibility(1);
+      showBarAndOverlay();
     },
-    [animateFeedBar, feedOptions.length, pageScrollProgress, setTabBarVisibility]
+    [animateFeedBar, feedOptions.length, pageScrollProgress, showBarAndOverlay]
   );
 
   // Use FlashList native scroll directly - simple threshold-based visibility
@@ -330,11 +382,6 @@ const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
     [setTabBarVisibility]
   );
 
-  // Handle scroll state changes from PagerView
-  const handlePageScrollStateChanged = useCallback(() => {
-    // Feed bar stays visible, no special handling needed
-  }, []);
-
   // Handle feed indicator tap
   const handleIndicatorTap = useCallback(
     (feedOption: FeedOption) => {
@@ -342,13 +389,12 @@ const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
       if (targetIndex >= 0 && targetIndex !== currentPageRef.current) {
         pagerViewRef.current?.setPage(targetIndex);
         // Reset scroll tracking and reengage overlay immediately when tapping indicator
-
         lastScrollYRef.current = 0;
         animateFeedBar(true, true);
-        setTabBarVisibility(1);
+        showBarAndOverlay();
       }
     },
-    [feedOptions, animateFeedBar, setTabBarVisibility]
+    [feedOptions, animateFeedBar, showBarAndOverlay]
   );
 
   // Memoized query options for feed rendering
@@ -428,40 +474,6 @@ const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
     [feedOptions]
   );
 
-  // Get indicator style using PagerView's scroll progress directly from SDK
-  const getIndicatorStyle = useCallback(
-    (feedOption: FeedOption) => {
-      const feedIndex = feedOptions.findIndex(option => option === feedOption);
-      const isActive = feedOption === currentFeedOption;
-
-      // Use state directly for smooth real-time updates during scroll (not ref)
-      const baseProgress = hasAppliedInitialIndexRef.current
-        ? indicatorScrollProgress
-        : feedOptions.findIndex(option => option === initialFeed) >= 0
-          ? feedOptions.findIndex(option => option === initialFeed)
-          : 0;
-
-      // Calculate opacity based on distance from current position
-      let opacity = 0.75; // Default inactive opacity
-      if (isActive) {
-        opacity = 1;
-      } else {
-        // Gradual opacity based on PagerView's scroll progress (real-time from state)
-        const distance = Math.abs(baseProgress - feedIndex);
-        opacity = Math.max(0.3, 1 - distance * 0.4);
-      }
-
-      return {
-        color: isActive ? Colors.white : 'rgba(255, 255, 255, 0.75)',
-        fontSize: indicatorBaseFontSize,
-        marginRight: 8,
-        fontFamily: 'Figtree-Black',
-        opacity,
-      };
-    },
-    [currentFeedOption, feedOptions, initialFeed, indicatorBaseFontSize, indicatorScrollProgress]
-  );
-
   return (
     <GestureHandlerRootView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.black} />
@@ -477,16 +489,16 @@ const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
       >
         <View style={styles.indicatorContainer}>
           <View style={styles.feedIndicators}>
-            {feedOptions.map(feedOption => (
-              <Pressable
+            {feedOptions.map((feedOption, index) => (
+              <FeedIndicatorItem
                 key={feedOption}
+                feedIndex={index}
+                indicatorBaseFontSize={indicatorBaseFontSize}
+                pageScrollProgress={pageScrollProgress}
+                label={FEED_LABELS[feedOption] || feedOption}
                 onPress={() => handleIndicatorTap(feedOption)}
-                style={styles.indicatorItem}
-              >
-                <Text style={getIndicatorStyle(feedOption)}>
-                  {FEED_LABELS[feedOption] || feedOption}
-                </Text>
-              </Pressable>
+                pressableStyle={styles.indicatorItem}
+              />
             ))}
           </View>
           {nativeTabsEnabled && (
@@ -509,7 +521,6 @@ const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
         initialPage={initialPageIndex}
         onPageSelected={handlePageSelected}
         onPageScroll={handlePageScroll}
-        onPageScrollStateChanged={handlePageScrollStateChanged}
         scrollEnabled={true}
         overdrag={false}
         pageMargin={0}

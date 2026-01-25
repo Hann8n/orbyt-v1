@@ -20,9 +20,10 @@ import {
   type RefreshControlProps,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSharedValue } from 'react-native-reanimated';
 import { FlashList, FlashListRef, type ListRenderItemInfo } from '@shopify/flash-list';
 import { useReportedPostsStore } from '../../../stores/reportedPostsStore';
-
+import { FeedScrollProvider } from '../../../context/FeedScrollContext';
 import EmptyFeed from './EmptyFeed';
 import { VideoItem } from './VideoItem';
 import GridFeedView from './GridFeedView';
@@ -151,10 +152,12 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     // Layout state
     const [headerHeight, setHeaderHeight] = useState(0);
-    const listHeightRef = useRef<number>(0);
 
     // Refs
     const flashListRef = useRef<FlashListRef<FeedListItem>>(null);
+
+    // Scroll offset for percent-visible: written in onScroll, read in VideoCard worklet to compute overlap/viewport.
+    const scrollOffsetYSV = useSharedValue(0);
 
     // Expose scrollToTop method
     useImperativeHandle(
@@ -290,34 +293,28 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       [listData.length]
     );
 
-    // Scroll handling - optimized to reduce work on scroll thread
+    // Scroll: centerIndexSV/scrollProgressSV writes are non-blocking (Reanimated syncs to UI).
+    // VideoCard's useDerivedValue reads them in a worklet—overlay opacity stays on UI thread.
+    // setScrollBasedBlocking is the only setState and is gated (only when crossing threshold).
     const onScrollNative = useCallback(
       (e: NativeSyntheticEvent<NativeScrollEvent>) => {
         const offsetY = e.nativeEvent.contentOffset.y;
 
-        // Update header blocking state: block if scroll is less than threshold from top
-        // Also handle header component changes (reset handled in scroll handler to avoid setState in effect)
+        // Header blocking: setState only when crossing threshold.
         if (!headerComponent) {
-          if (scrollBasedBlocking) {
-            setScrollBasedBlocking(false);
-          }
+          if (scrollBasedBlocking) setScrollBasedBlocking(false);
         } else {
           const isBlocking = offsetY < CONSTANTS.HEADER_BLOCKING_THRESHOLD;
-          if (isBlocking !== scrollBasedBlocking) {
-            setScrollBasedBlocking(isBlocking);
-          }
+          if (isBlocking !== scrollBasedBlocking) setScrollBasedBlocking(isBlocking);
         }
 
-        // Forward vertical scroll offset to parent (for header animations, etc.)
-        if (onVerticalScroll) {
-          onVerticalScroll(offsetY);
-        }
-        // Call external onScroll if provided (but don't block scroll thread)
-        if (onScroll) {
-          onScroll(e);
-        }
+        // eslint-disable-next-line react-hooks/immutability -- Reanimated SharedValue.value is intended to be mutated in callbacks
+        scrollOffsetYSV.value = offsetY;
+
+        if (onVerticalScroll) onVerticalScroll(offsetY);
+        if (onScroll) onScroll(e);
       },
-      [onScroll, onVerticalScroll, headerComponent, scrollBasedBlocking]
+      [onScroll, onVerticalScroll, headerComponent, scrollBasedBlocking, scrollOffsetYSV]
     );
 
     // Render item function - optimized to reduce dependencies and rerenders
@@ -513,15 +510,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       isHeaderFeed,
     ]);
 
-    // Stable layout callbacks to prevent recreation (always compute)
-    const handleListLayout = useCallback((e: LayoutChangeEvent) => {
-      const h = Math.round(e.nativeEvent.layout.height);
-      if (h > 0 && h !== listHeightRef.current) {
-        listHeightRef.current = h;
-        // No state update needed - just track for comparison
-      }
-    }, []);
-
     const handleHeaderLayout = useCallback(
       (e: LayoutChangeEvent) => {
         const h = Math.round(e.nativeEvent.layout.height);
@@ -533,6 +521,18 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         }
       },
       [headerHeight]
+    );
+
+    // Memoize context value to avoid unnecessary re-renders of list consumers when layout/scroll haven't changed.
+    // Must be before the grid early return so hooks run in the same order every render.
+    const feedScrollValue = useMemo(
+      () => ({
+        scrollOffsetYSV,
+        headerHeight,
+        viewportHeight: viewportDimensions.height,
+        itemSpacing,
+      }),
+      [scrollOffsetYSV, headerHeight, viewportDimensions.height, itemSpacing]
     );
 
     // Grid view rendering
@@ -565,87 +565,86 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     // Main render
     return (
-      <View
-        style={[styles.container, { backgroundColor: backgroundColor || Colors.black }]}
-        onLayout={handleListLayout}
-      >
-        <FlashList
-          ref={flashListRef}
-          data={listData}
-          renderItem={renderItem}
-          keyExtractor={keyExtractor}
-          getItemType={getItemType}
-          initialScrollIndex={initialScrollIndex}
-          ListHeaderComponent={
-            headerComponent ? (
-              <View onLayout={handleHeaderLayout}>
-                {headerComponent}
-                <View
-                  style={{ height: CONSTANTS.SEPARATOR_HEIGHT, backgroundColor: Colors.black }}
-                />
-              </View>
-            ) : null
-          }
-          // Snapping configuration
+      <FeedScrollProvider value={feedScrollValue}>
+        <View style={[styles.container, { backgroundColor: backgroundColor || Colors.black }]}>
+          <FlashList
+            ref={flashListRef}
+            data={listData}
+            renderItem={renderItem}
+            keyExtractor={keyExtractor}
+            getItemType={getItemType}
+            initialScrollIndex={initialScrollIndex}
+            ListHeaderComponent={
+              headerComponent ? (
+                <View onLayout={handleHeaderLayout}>
+                  {headerComponent}
+                  <View
+                    style={{ height: CONSTANTS.SEPARATOR_HEIGHT, backgroundColor: Colors.black }}
+                  />
+                </View>
+              ) : null
+            }
+            // Snapping configuration
 
-          pagingEnabled={false}
-          snapToOffsets={snapToOffsets ?? undefined}
-          snapToInterval={snapToOffsets ? undefined : snapToIntervalValue}
-          snapToAlignment={snapToOffsets ? undefined : ('center' as const)}
-          decelerationRate={
-            Platform.OS === 'ios'
-              ? SCROLL_CONSTANTS.DECELERATION_RATE_IOS
-              : SCROLL_CONSTANTS.DECELERATION_RATE_ANDROID
-          }
-          // Disable fast scrolling to prevent scrolling past multiple items
-          disableIntervalMomentum={true}
-          scrollEventThrottle={APP_CONSTANTS.SCROLL_THROTTLE}
-          // Event handlers
-          onScroll={onScrollNative}
-          onEndReached={onLoadMore}
-          onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
-          onViewableItemsChanged={onViewableItemsChanged}
-          viewabilityConfig={viewabilityConfig}
-          // Scroll behavior
-          scrollEnabled={true}
-          showsVerticalScrollIndicator={false}
-          bounces={true}
-          directionalLockEnabled={true}
-          maintainVisibleContentPosition={{
-            autoscrollToTopThreshold: undefined,
-          }}
-          // Pull to refresh - disabled in modal mode
-          refreshControl={
-            isModal || !refreshControl
-              ? undefined
-              : (refreshControl as React.ReactElement<RefreshControlProps>)
-          }
-          // Prevent horizontal interference
-          alwaysBounceVertical={false}
-          alwaysBounceHorizontal={false}
-          // Empty state components - extracted to memoized component
-          ListEmptyComponent={
-            <ListEmptyComponent
-              isLoading={isLoading}
-              effectiveIsError={effectiveIsError}
-              feedOption={feedOption}
-              secondaryColor={secondaryColor}
-              profileColors={profileColors}
-              isHeaderFeed={isHeaderFeed}
-              emptyComponentHeight={emptyComponentHeight}
-              onRetry={onRetry}
-            />
-          }
-          // Item separator for black gaps between cards
-          ItemSeparatorComponent={ItemSeparator}
-          contentContainerStyle={[
-            styles.contentContainer,
-            feed.length > 0 && {
-              paddingBottom: viewportDimensions.bottomNavBarHeight,
-            },
-          ]}
-        />
-      </View>
+            pagingEnabled={false}
+            snapToOffsets={snapToOffsets ?? undefined}
+            snapToInterval={snapToOffsets ? undefined : snapToIntervalValue}
+            snapToAlignment={snapToOffsets ? undefined : ('center' as const)}
+            decelerationRate={
+              Platform.OS === 'ios'
+                ? SCROLL_CONSTANTS.DECELERATION_RATE_IOS
+                : SCROLL_CONSTANTS.DECELERATION_RATE_ANDROID
+            }
+            // Disable fast scrolling to prevent scrolling past multiple items
+            disableIntervalMomentum={true}
+            scrollEventThrottle={APP_CONSTANTS.SCROLL_THROTTLE}
+            // Event handlers
+            onScroll={onScrollNative}
+            onEndReached={onLoadMore}
+            onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
+            onViewableItemsChanged={onViewableItemsChanged}
+            viewabilityConfig={viewabilityConfig}
+            // Scroll behavior
+            scrollEnabled={true}
+            showsVerticalScrollIndicator={false}
+            bounces={true}
+            directionalLockEnabled={true}
+            maintainVisibleContentPosition={{
+              autoscrollToTopThreshold: undefined,
+            }}
+            // Pull to refresh - disabled in modal mode
+            refreshControl={
+              isModal || !refreshControl
+                ? undefined
+                : (refreshControl as React.ReactElement<RefreshControlProps>)
+            }
+            // Prevent horizontal interference
+            alwaysBounceVertical={false}
+            alwaysBounceHorizontal={false}
+            // Empty state components - extracted to memoized component
+            ListEmptyComponent={
+              <ListEmptyComponent
+                isLoading={isLoading}
+                effectiveIsError={effectiveIsError}
+                feedOption={feedOption}
+                secondaryColor={secondaryColor}
+                profileColors={profileColors}
+                isHeaderFeed={isHeaderFeed}
+                emptyComponentHeight={emptyComponentHeight}
+                onRetry={onRetry}
+              />
+            }
+            // Item separator for black gaps between cards
+            ItemSeparatorComponent={ItemSeparator}
+            contentContainerStyle={[
+              styles.contentContainer,
+              feed.length > 0 && {
+                paddingBottom: viewportDimensions.bottomNavBarHeight,
+              },
+            ]}
+          />
+        </View>
+      </FeedScrollProvider>
     );
   }
 );

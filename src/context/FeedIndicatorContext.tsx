@@ -13,9 +13,7 @@ type TabBarContextValue = {
   setTabBarVisibility: (visibility: number) => void;
   /**
    * Overlay visibility shared value for video overlays (0 = hidden, 1 = visible).
-   * Controlled by FlashList viewability callbacks (runs on native thread).
-   * This is a Reanimated shared value for direct use in animated styles.
-   * Read-only on UI thread - updated from native thread via viewability callbacks.
+   * Set from FlashList viewability and FeedPager on feed change/scroll.
    */
   overlayVisibility: SharedValue<number>;
   setOverlayVisibility: (visibility: number) => void;
@@ -45,8 +43,6 @@ export const TabBarProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const handleSetOverlayVisibility = useCallback(
     (visibility: number) => {
       const clamped = Math.max(0, Math.min(1, visibility));
-      // Reanimated shared values are intentionally mutated for UI-thread sync
-      // Updated from native thread via FlashList viewability callbacks
       // eslint-disable-next-line react-hooks/immutability
       overlayVisibility.value = clamped;
     },

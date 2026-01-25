@@ -1,27 +1,20 @@
-import { useCallback, useMemo, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import type { ViewabilityConfig, ViewToken } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 
 import { useVisibilityCoreStore } from './visibilityStore';
 import { useSetOverlayVisibility } from '../../context/FeedIndicatorContext';
-import { seenVideoService } from '../../services/SeenVideoService';
 import type { FeedListItem } from '../../types';
 
-/**
- * Optimized viewability config for FlashList 2.0
- * Leverages FlashList's native viewability tracking (runs on native thread)
- * Lower threshold for faster detection on older devices
- */
-const DEFAULT_VIEWABILITY_CONFIG: ViewabilityConfig = {
-  itemVisiblePercentThreshold: 35, // Slightly lower for earlier engagement; 30 may flicker near 50/50
-  minimumViewTime: 0, // No delay - detect immediately
+const VIEWABILITY_CONFIG: ViewabilityConfig = {
+  itemVisiblePercentThreshold: 50,
+  minimumViewTime: 0,
   waitForInteraction: false,
 };
 
 interface FeedVisibilityOptions {
   feedKey: string;
   isActive: boolean;
-  viewabilityConfig?: ViewabilityConfig;
 }
 
 interface FeedVisibilityResult {
@@ -38,7 +31,6 @@ interface FeedVisibilityResult {
 export function useFeedVisibility({
   feedKey,
   isActive,
-  viewabilityConfig,
 }: FeedVisibilityOptions): FeedVisibilityResult {
   const appState = useVisibilityCoreStore(state => state.appState);
   const activeRoute = useVisibilityCoreStore(state => state.activeRoute);
@@ -49,6 +41,7 @@ export function useFeedVisibility({
   const canPlay = isActive && isForeground && activeRoute !== null;
 
   const setOverlayVisibility = useSetOverlayVisibility();
+  const lastOverlayRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     if (!isActive) return;
@@ -57,50 +50,29 @@ export function useFeedVisibility({
 
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-      // First viewable, non–end-card item (FlashList ViewToken has no viewablePercent)
-      let firstViewable: ViewToken | null = null;
-      for (const token of viewableItems) {
-        if (!token.isViewable) continue;
-        const item = token.item as FeedListItem;
-        if ('endCard' in item && item.endCard) continue;
-        firstViewable = token;
-        break;
-      }
+      const token = viewableItems.find(t => {
+        const it = t.item as FeedListItem & { endCard?: boolean };
+        return t.isViewable && !(it && 'endCard' in it && it.endCard);
+      });
+      const nextIndex = typeof token?.index === 'number' ? token.index : -1;
 
-      const nextIndex = firstViewable?.index ?? -1;
-
-      setLastViewableIndex(feedKey, nextIndex);
+      const lastViewable = useVisibilityCoreStore.getState().lastViewableIndexByFeed[feedKey] ?? -1;
+      if (nextIndex !== lastViewable) setLastViewableIndex(feedKey, nextIndex);
 
       if (isActive) {
-        setOverlayVisibility(nextIndex >= 0 ? 1 : 0);
-        const visibleUris = viewableItems
-          .map(token => token.item as FeedListItem | null)
-          .filter((item): item is FeedListItem => {
-            if (!item) return false;
-            if ('endCard' in item && item.endCard) return false;
-            return true;
-          })
-          .map(item => {
-            if ('endCard' in item) return null;
-            return item.post?.uri;
-          })
-          .filter((uri): uri is string => typeof uri === 'string' && uri.length > 0);
-        visibleUris.forEach(uri => {
-          if (uri) seenVideoService.markAsSeen(uri);
-        });
+        const nextOverlay = nextIndex >= 0 ? 1 : 0;
+        if (lastOverlayRef.current !== nextOverlay) {
+          lastOverlayRef.current = nextOverlay;
+          setOverlayVisibility(nextOverlay);
+        }
       }
     },
     [feedKey, isActive, setLastViewableIndex, setOverlayVisibility]
   );
 
-  const memoizedConfig = useMemo(
-    () => viewabilityConfig ?? DEFAULT_VIEWABILITY_CONFIG,
-    [viewabilityConfig]
-  );
-
   return {
     onViewableItemsChanged,
-    viewabilityConfig: memoizedConfig,
+    viewabilityConfig: VIEWABILITY_CONFIG,
     canPlay,
   };
 }

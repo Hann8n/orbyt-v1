@@ -93,6 +93,7 @@ export const Colors = {
 
   // Overlay Colors
   overlayBlack15: 'rgba(0, 0, 0, 0.15)',
+  overlayBlack35: 'rgba(0, 0, 0, 0.35)',
   overlayBlack50: 'rgba(0, 0, 0, 0.5)',
   overlayBlack60: 'rgba(0, 0, 0, 0.6)',
   overlayBlack70: 'rgba(0, 0, 0, 0.7)',
