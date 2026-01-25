@@ -175,9 +175,9 @@ function RootNavigator() {
             name="(modals)/feed"
             options={{
               headerShown: false,
-              presentation: 'fullScreenModal',
+              presentation: 'card',
               gestureEnabled: true,
-              animation: 'fade',
+              animation: 'slide_from_right',
             }}
           />
           {/* Protected create route - require email confirmation if email exists */}
@@ -202,7 +202,13 @@ function RootNavigator() {
               gestureEnabled: false,
             }}
           />
-          <Stack.Screen name="channel/[id]" />
+          <Stack.Screen
+            name="channel/[id]"
+            options={{
+              presentation: 'card',
+              animation: 'slide_from_right',
+            }}
+          />
           <Stack.Screen
             name="profile/[did]"
             options={{

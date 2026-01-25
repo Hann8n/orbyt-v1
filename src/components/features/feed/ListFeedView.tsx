@@ -60,7 +60,6 @@ interface ListEmptyComponentProps {
   profileColors?: { backgroundColor: string; textColor: string };
   isHeaderFeed: boolean;
   emptyComponentHeight: number;
-  backgroundColor?: string;
   onRetry?: () => void;
 }
 
@@ -73,17 +72,11 @@ const ListEmptyComponent = memo<ListEmptyComponentProps>(
     profileColors,
     isHeaderFeed,
     emptyComponentHeight,
-    backgroundColor,
     onRetry,
   }) => {
     if (isLoading) {
       return (
-        <View
-          style={[
-            styles.centeredLoadingContainer,
-            { backgroundColor: backgroundColor || Colors.black },
-          ]}
-        >
+        <View style={[styles.centeredLoadingContainer, { backgroundColor: Colors.black }]}>
           <Loading3FillIcon
             size={48}
             color={profileColors?.textColor || secondaryColor || Colors.white}
@@ -118,7 +111,6 @@ const ListEmptyComponent = memo<ListEmptyComponentProps>(
       prevProps.profileColors === nextProps.profileColors &&
       prevProps.isHeaderFeed === nextProps.isHeaderFeed &&
       prevProps.emptyComponentHeight === nextProps.emptyComponentHeight &&
-      prevProps.backgroundColor === nextProps.backgroundColor &&
       prevProps.onRetry === nextProps.onRetry
     );
   }
@@ -638,11 +630,9 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
             headerComponent ? (
               <View onLayout={handleHeaderLayout}>
                 {headerComponent}
-                {listData.length > 0 && !('endCard' in listData[0] && listData[0].endCard) && (
-                  <View
-                    style={{ height: CONSTANTS.SEPARATOR_HEIGHT, backgroundColor: Colors.black }}
-                  />
-                )}
+                <View
+                  style={{ height: CONSTANTS.SEPARATOR_HEIGHT, backgroundColor: Colors.black }}
+                />
               </View>
             ) : null
           }
@@ -693,16 +683,13 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
               profileColors={profileColors}
               isHeaderFeed={isHeaderFeed}
               emptyComponentHeight={emptyComponentHeight}
-              backgroundColor={backgroundColor}
               onRetry={onRetry}
             />
           }
           // Item separator for black gaps between cards
           ItemSeparatorComponent={ItemSeparator}
-          // Content container styling
           contentContainerStyle={[
             styles.contentContainer,
-            { backgroundColor: backgroundColor || 'transparent' },
             feed.length > 0 && {
               paddingBottom: viewportDimensions.bottomNavBarHeight,
             },

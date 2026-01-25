@@ -308,10 +308,12 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
     );
   }
 
+  const isNoVideos = type === 'no-videos';
   return (
     <View
       style={[
         styles.emptyContainer,
+        isNoVideos && { backgroundColor: Colors.black },
         viewableAreaHeight ? { height: viewableAreaHeight } : undefined,
       ]}
     >
@@ -337,10 +339,12 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
               allowDownscaling={true}
             />
           ) : (
-            <Icon name={icon} size={72} color={iconColor} />
+            <Icon name={icon} size={72} color={isNoVideos ? Colors.lightGray : iconColor} />
           )}
         </View>
-        <Text style={[styles.emptyText, { color: textColor }]}>{displayMessage}</Text>
+        <Text style={[styles.emptyText, { color: isNoVideos ? Colors.lightGray : textColor }]}>
+          {displayMessage}
+        </Text>
         {isYourMixFeed && type === 'no-videos' && (
           <Pressable
             style={styles.addChannelsButton}
