@@ -41,7 +41,6 @@ import type {
   Like,
   GeneratorView,
   ExtendedFeedViewPost,
-  ExtendedPostView,
   PostRecord,
   ActorPreferences,
   FeedGeneratorOutput,
@@ -57,8 +56,6 @@ import {
   isThreadViewPost,
   isNotFoundPost as checkIsNotFoundPost,
   isBlockedPost as checkIsBlockedPost,
-  isVideoEmbed,
-  isVideoEmbedInMedia,
 } from './types';
 
 const SERVICE_URL = 'https://bsky.social';
@@ -1060,12 +1057,7 @@ class AtprotoService {
   }
 
   /**
-   * Search for video posts with hashtag support
-   * @param hashtag - Hashtag to search for (without #)
-   * @param cursor - Pagination cursor
-   * @param limit - Number of results per page
-   * @param sort - Sort order: 'top' for popular posts, 'latest' for most recent (default: 'latest')
-   * @returns Array of video post results and next cursor
+   * Search for video posts with hashtag support. Delegates to FeedService (includes moderation batch).
    */
   static async searchHashtagVideosPaginated(
     hashtag: string,
@@ -1073,52 +1065,7 @@ class AtprotoService {
     limit: number = 20,
     sort: 'top' | 'latest' = 'latest'
   ): Promise<VideoSearchResponse> {
-    await this.ensureSession();
-    try {
-      // Search for posts with hashtag (include # in search query)
-      const searchQuery = `#${hashtag}`;
-      const { api } = await this.getApiClient();
-
-      // Build search params - only include sort if it's 'top'
-      const params: { q: string; limit: number; cursor?: string; sort?: 'top' | 'latest' } = {
-        q: searchQuery,
-        limit,
-      };
-      if (cursor) {
-        params.cursor = cursor;
-      }
-      if (sort === 'top') {
-        params.sort = 'top';
-      }
-
-      const response = await api.app.bsky.feed.searchPosts(params);
-
-      const posts = response?.data?.posts || [];
-
-      // Filter for video posts only and normalize structure
-      const videoPosts = posts.filter((post: PostView) => {
-        const embed = post.embed;
-        if (!embed) return false;
-
-        // Check for video embeds
-        return isVideoEmbed(embed) || isVideoEmbedInMedia(embed);
-      });
-
-      // Normalize video structure for UI consumption
-      const videos: ExtendedFeedViewPost[] = videoPosts.map((post: PostView) => ({
-        post: {
-          ...post,
-        } as ExtendedPostView,
-        uniqueKey: post.uri,
-      }));
-
-      return {
-        videos,
-        cursor: response?.data?.cursor ?? null,
-      };
-    } catch (_error: unknown) {
-      return { videos: [], cursor: null };
-    }
+    return FeedService.searchHashtagVideosPaginated(hashtag, cursor, limit, sort);
   }
 
   /**
@@ -1176,60 +1123,14 @@ class AtprotoService {
   }
 
   /**
-   * Search for video posts with query support
-   * @param query - Search query
-   * @param cursor - Pagination cursor
-   * @param limit - Number of results per page
-   * @returns Array of video post results and next cursor
+   * Search for video posts with query support. Delegates to FeedService (includes moderation batch).
    */
   static async searchVideosPaginated(
     query: string,
     cursor: string | null = null,
     limit: number = 20
   ): Promise<VideoSearchResponse> {
-    await this.ensureSession();
-    try {
-      // Use search posts endpoint for query-based search
-      if (!query || !query.trim()) {
-        // Return empty results when no query is provided
-        return { videos: [], cursor: null };
-      }
-
-      // Search for posts with the query
-      const { api } = await this.getApiClient();
-      const params: { q: string; limit: number; cursor?: string } = {
-        q: query,
-        limit,
-      };
-      if (cursor) {
-        params.cursor = cursor;
-      }
-      const response = await api.app.bsky.feed.searchPosts(params);
-
-      const posts = response?.data?.posts || [];
-
-      // Filter for video posts only
-      const videoPosts = posts.filter((post: PostView) => {
-        const embed = post.embed;
-        if (!embed) return false;
-        return isVideoEmbed(embed) || isVideoEmbedInMedia(embed);
-      });
-
-      // Normalize video structure for UI consumption
-      const videos: ExtendedFeedViewPost[] = videoPosts.map((post: PostView) => ({
-        post: {
-          ...post,
-        } as ExtendedPostView,
-        uniqueKey: post.uri,
-      }));
-
-      return {
-        videos,
-        cursor: response?.data?.cursor ?? null,
-      };
-    } catch (_error) {
-      return { videos: [], cursor: null };
-    }
+    return FeedService.searchVideosPaginated(query, cursor, limit);
   }
 
   static async getMixedFeed(

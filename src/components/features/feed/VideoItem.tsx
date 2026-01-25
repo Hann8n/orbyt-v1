@@ -41,7 +41,6 @@ export interface VideoItemProps {
   feedOption?: string;
   canPlay?: boolean;
   isHeaderBlockingPlayback?: boolean;
-  shouldBlur?: boolean; // Simple flag from parent (computed at feed level for performance)
   isModal?: boolean;
   index?: number;
 }
@@ -53,7 +52,6 @@ const VideoItem: React.FC<VideoItemProps> = ({
   feedOption,
   canPlay = false,
   isHeaderBlockingPlayback = false,
-  shouldBlur = false,
   isModal = false,
   index = 0,
 }) => {
@@ -77,14 +75,6 @@ const VideoItem: React.FC<VideoItemProps> = ({
   const videoUrl = videoView?.playlist || null;
 
   const hasVideo = !!videoUrl;
-
-  // Convert shouldBlur flag to ModerationDecision format for VideoCard
-  const moderationDecision = useMemo(() => {
-    if (!shouldBlur) {
-      return { filter: false, blur: false, informs: [] };
-    }
-    return { filter: false, blur: true, informs: [] };
-  }, [shouldBlur]);
 
   // Memoize container style to prevent recreation on every render
   // No margins - using FlashList ItemSeparatorComponent for spacing
@@ -119,7 +109,6 @@ const VideoItem: React.FC<VideoItemProps> = ({
         isVisible={isVisible}
         shouldDisablePlayback={!allowPlayback}
         height={itemHeight}
-        moderationDecision={moderationDecision}
         showOverlay={true}
         feedOption={feedOption}
         isModal={isModal}
@@ -168,16 +157,12 @@ const areEqual = (prevProps: VideoItemProps, nextProps: VideoItemProps) => {
     prevProps.canPlay !== nextProps.canPlay ||
     prevProps.isHeaderBlockingPlayback !== nextProps.isHeaderBlockingPlayback ||
     prevProps.isModal !== nextProps.isModal ||
-    prevProps.index !== nextProps.index ||
-    prevProps.shouldBlur !== nextProps.shouldBlur
+    prevProps.index !== nextProps.index
   ) {
     return false;
   }
-
-  // Compare feedItem by post URI (stable identifier) instead of object reference
-  if (prevProps.feedItem?.post?.uri !== nextProps.feedItem?.post?.uri) {
-    return false;
-  }
+  if (prevProps.feedItem !== nextProps.feedItem) return false;
+  if (prevProps.feedItem?.post?.uri !== nextProps.feedItem?.post?.uri) return false;
 
   // Compare post by stable identifiers (URI/CID) instead of object reference
   if (

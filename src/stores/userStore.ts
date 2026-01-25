@@ -1172,6 +1172,10 @@ export const useUserStore = create<UserState>()(
           const { useProfileInteractionStore } = await import('./profileInteractionStore');
           useProfileInteractionStore.getState().clearAll();
 
+          // Clear moderation prefs/labelDefs so next account gets fresh data
+          const { useModerationStore } = await import('./moderationStore');
+          useModerationStore.getState().clearModeration();
+
           // Note: All data caching is now handled by React Query
           // Custom caches (ProfileCache, ChannelCache, AtprotoService) have been removed
         } catch (error) {
@@ -1458,15 +1462,16 @@ export const useUserStore = create<UserState>()(
 
           const currentUser = get().currentUser;
           const agent = get().agent;
-          const moderationSettings = await ModerationService.fetchModerationSettings(agent);
-
-          if (currentUser?.did) {
+          const modResult = await ModerationService.getModerationPrefsAndLabelDefs(agent);
+          if (modResult && currentUser?.did) {
             const { queryClient } = await import('../utils/query/queryClient');
             const { queryKeys } = await import('../utils/query/queryKeys');
-            queryClient.setQueryData(
-              queryKeys.moderation.byUser(currentUser.did),
-              moderationSettings
-            );
+            const { useModerationStore } = await import('./moderationStore');
+            queryClient.setQueryData(queryKeys.moderation.byUser(currentUser.did), modResult);
+            useModerationStore.getState().setModeration({
+              moderationPrefs: modResult.moderationPrefs,
+              labelDefs: modResult.labelDefs,
+            });
           }
 
           // Update state with user-specific settings
@@ -1758,20 +1763,15 @@ export const useModeration = () => {
   const currentUser = useUserStore(state => state.currentUser);
 
   return {
-    getModerationSettings: async () => {
-      return ModerationService.fetchModerationSettings(agent);
+    getModerationPrefs: async () => {
+      const r = await ModerationService.getModerationPrefsAndLabelDefs(agent);
+      return r?.moderationPrefs ?? null;
     },
-    saveModerationSettings: async (
-      settings: import('../services/moderation/ModerationTypes').ModerationSettings
-    ) => {
+    saveModerationPrefs: async (prefs: import('@atproto/api').ModerationPrefs) => {
       if (!agent) {
         throw new Error('No agent available. Please ensure you are logged in.');
       }
-      return ModerationService.saveModerationSettings(
-        settings,
-        agent,
-        currentUser?.did ?? undefined
-      );
+      return ModerationService.saveModerationPrefs(prefs, agent, currentUser?.did ?? undefined);
     },
   };
 };

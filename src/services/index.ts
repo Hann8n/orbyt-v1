@@ -21,6 +21,3 @@ export { default as ProfileService } from './data/ProfileService';
 export { ModerationService } from './moderation/ModerationService';
 export { default as VideoProcessingService } from './video/VideoProcessingService';
 export { default as VideoEditingService } from './video/VideoEditingService';
-
-// Types
-export * from './moderation/ModerationTypes';

@@ -12,7 +12,7 @@
  * - Direct imports provide better IDE autocomplete and type checking
  * - The paths are stable and match the package's generated structure
  */
-import type { Agent } from '@atproto/api';
+import type { Agent, ModerationUI } from '@atproto/api';
 
 // ============================================================================
 // Runtime imports (type guards - these must be functions, not types)
@@ -204,9 +204,10 @@ export type ExtendedPostView = PostView & {
 export type ExtendedFeedViewPost = FeedViewPost & {
   post: ExtendedPostView;
   uniqueKey?: string;
-  // Simple moderation flags computed at feed level for performance
-  shouldBlur?: boolean;
   shouldFilter?: boolean;
+  contentListUI?: ModerationUI;
+  contentMediaUI?: ModerationUI;
+  avatarUI?: ModerationUI;
 };
 
 export type ThreadPost = ThreadViewPost | NotFoundPost | BlockedPost;

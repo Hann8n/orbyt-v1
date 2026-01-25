@@ -162,7 +162,4 @@ export interface AppError {
 // Re-exported Types
 // ============================================================================
 
-import type { ModerationDecision } from '../services/moderation/ModerationTypes';
-export type { ModerationDecision };
-
 export type { OrbytProfileRecord, ExtendedFeedViewPost } from '../services/api/types';

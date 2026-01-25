@@ -18,7 +18,7 @@ export class ModerationService {
     uri: string,
     reasonType: string | 'spam' | 'violation' | 'misleading' | 'sexual' | 'rude' | 'other',
     reason?: string,
-    _labelerDid?: string
+    labelerDid?: string
   ): Promise<boolean> {
     try {
       await AtprotoCore.ensureSession();
@@ -30,7 +30,6 @@ export class ModerationService {
       // Convert simple reason types to full namespace format if needed
       let fullReasonType = reasonType;
       if (!reasonType.includes('#')) {
-        // Map simple reason types to full namespace format
         const reasonMap: Record<string, string> = {
           spam: 'com.atproto.moderation.defs#reasonSpam',
           violation: 'com.atproto.moderation.defs#reasonViolation',
@@ -45,16 +44,9 @@ export class ModerationService {
       // Determine if we're reporting a post or user
       if (uri.includes('app.bsky.feed.post')) {
         try {
-          // Try to get the post to extract its CID
           const { api } = await AtprotoCore.getApiClient();
-          const postResponse = await api.app.bsky.feed.getPostThread({
-            uri,
-            depth: 0,
-          });
-
+          const postResponse = await api.app.bsky.feed.getPostThread({ uri, depth: 0 });
           const thread = postResponse.data.thread;
-
-          // Type guard for ThreadViewPost
           if (
             thread &&
             thread.$type === 'app.bsky.feed.defs#threadViewPost' &&
@@ -66,33 +58,33 @@ export class ModerationService {
         } catch (_error: unknown) {
           // ignore
         }
-
-        // Set the subject for a post
-        subject = {
-          $type: 'com.atproto.repo.strongRef' as const,
-          uri,
-          ...(cid && { cid }),
-        };
+        subject = { $type: 'com.atproto.repo.strongRef' as const, uri, ...(cid && { cid }) };
       } else if (uri.startsWith('did:')) {
-        // We're reporting a user
         subject = { $type: 'com.atproto.admin.defs#repoRef' as const, did: uri };
       } else {
-        // Default to repo strongRef for other content types
-        subject = {
-          $type: 'com.atproto.repo.strongRef' as const,
-          uri,
-        };
+        subject = { $type: 'com.atproto.repo.strongRef' as const, uri };
       }
 
-      // Get the API client
-      const { api } = await AtprotoCore.getApiClient();
+      const subjectPayload = subject as { $type: string; uri?: string; cid?: string; did?: string };
 
-      // Create the moderation report
-      await api.com.atproto.moderation.createReport({
-        reasonType: fullReasonType,
-        subject: subject as { $type: string; uri?: string; cid?: string; did?: string },
-        reason,
-      });
+      if (labelerDid) {
+        const { useUserStore } = await import('../../../stores/userStore');
+        const agent = useUserStore.getState().agent;
+        if (!agent) return false;
+        const client = agent.withProxy('atproto_labeler', labelerDid);
+        await client.createModerationReport({
+          reasonType: fullReasonType,
+          subject: subjectPayload,
+          reason,
+        });
+      } else {
+        const { api } = await AtprotoCore.getApiClient();
+        await api.com.atproto.moderation.createReport({
+          reasonType: fullReasonType,
+          subject: subjectPayload,
+          reason,
+        });
+      }
 
       return true;
     } catch (_error: unknown) {

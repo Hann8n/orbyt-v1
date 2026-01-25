@@ -29,9 +29,15 @@ import { useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 import { useUserStore } from '../../../stores/userStore';
 import BlurredThumbnailBackground from '../../ui/BlurredThumbnailBackground';
 import { queryKeys } from '../../../utils/query/queryKeys';
+import {
+  moderateNotification,
+  moderatePost,
+  AppBskyFeedDefs,
+  type ModerationOpts,
+  type AppBskyFeedRepost,
+} from '@atproto/api';
+import { getModerationOpts, useModerationStore } from '../../../stores/moderationStore';
 import { useModerationSettings } from '../../../hooks/useModerationSettings';
-import { computeModerationDecision } from '../../../utils/moderation/computeDecision';
-import type { ModerationSettings } from '../../../services/moderation/ModerationTypes';
 import type {
   Notification,
   NotificationReason,
@@ -43,8 +49,6 @@ import type {
 } from '../../../services/api/types';
 import { isVideoEmbed, isVideoEmbedInMedia } from '../../../services/api/types';
 import { getVideoView } from '../../../utils/video/helpers';
-import type { Record as RepostRecord } from '@atproto/api/dist/client/types/app/bsky/feed/repost';
-import { isNotFoundPost, isBlockedPost } from '@atproto/api/dist/client/types/app/bsky/feed/defs';
 import { SafeBlurView } from '../../ui/SafeBlurView';
 
 // Import radar.gif for empty notifications state
@@ -149,50 +153,6 @@ const getPostKind = (embed: PostView['embed'] | null | undefined): PostKind => {
   return 'text';
 };
 
-// Helper to construct a PostView-like object from notification/post data for moderation
-// Uses API types directly - Notification.post is typed as PostView in the API
-const getPostViewForModeration = (
-  notification: Notification,
-  postData: PostView | null | undefined
-): PostView | null => {
-  // Prefer fetched post data (has view embed with thumbnails)
-  if (postData) {
-    return postData;
-  }
-
-  // Construct minimal PostView from notification record
-  // Note: notification.record may not have all PostView fields, but we use what's available
-  if ('record' in notification && notification.record && typeof notification.record === 'object') {
-    const record = notification.record as PostRecord & {
-      embed?: PostView['embed'];
-    };
-    // Convert ProfileView to ProfileViewBasic (extract only basic fields)
-    const authorBasic = {
-      did: notification.author.did,
-      handle: notification.author.handle,
-      displayName: notification.author.displayName,
-      avatar: notification.author.avatar,
-      $type: notification.author.$type,
-    };
-    // Construct PostView with all required fields
-    const postView: PostView = {
-      uri: notification.uri,
-      cid: notification.cid,
-      author: authorBasic as PostView['author'],
-      record: record as PostView['record'],
-      embed: record.embed,
-      indexedAt: notification.indexedAt,
-      labels: notification.labels,
-      replyCount: 0,
-      repostCount: 0,
-      likeCount: 0,
-    };
-    return postView;
-  }
-
-  return null;
-};
-
 // Get the root post URI from any notification
 const getPostUri = (notification: Notification): string | null => {
   const uri = notification.uri;
@@ -211,7 +171,7 @@ const getPostUri = (notification: Notification): string | null => {
 
   // like/repost/like-via-repost/repost-via-repost: subject URI
   if (record && typeof record === 'object' && 'subject' in record) {
-    const repostRecord = record as RepostRecord;
+    const repostRecord = record as AppBskyFeedRepost.Record;
     if (repostRecord.subject?.uri) return repostRecord.subject.uri;
   }
 
@@ -298,7 +258,9 @@ const fetchPostData = async (
             collection: 'app.bsky.feed.repost',
             rkey: uriMatch[2],
           });
-          const repostValue = repostRecordResponse?.data?.value as RepostRecord | undefined;
+          const repostValue = repostRecordResponse?.data?.value as
+            | AppBskyFeedRepost.Record
+            | undefined;
           if (repostValue?.subject?.uri) {
             rootPostUri = repostValue.subject.uri;
             const postData = await AtprotoService.getPost(rootPostUri);
@@ -318,58 +280,39 @@ const fetchPostData = async (
   return { postData, rootPostUri };
 };
 
-// Notification item component - memoized for performance
+type EnrichedNotification = Notification & { shouldFilter?: boolean };
+
 type NotificationItemProps = {
-  item: Notification;
+  item: EnrichedNotification;
   navigation: ReturnType<typeof useRouter>;
   queryClient: ReturnType<typeof useQueryClient>;
   postDataMap: PostDataMap;
-  moderationSettings: ModerationSettings;
+  moderationOpts: ModerationOpts | null;
 };
 
 const NotificationItem = React.memo<NotificationItemProps>(
-  ({ item, navigation, queryClient, postDataMap, moderationSettings }) => {
+  ({ item, navigation, queryClient, postDataMap, moderationOpts }) => {
     const { reason, author, indexedAt, uri } = item;
     const { presentCommentSection } = useGlobalCommentSection();
-
-    // Get profile data for live status
     const { data: authorProfile } = useProfile(author?.handle);
-
-    // All notification types that relate to posts
     const isPostAction = POST_ACTION_TYPES.includes(reason as PostActionReason);
-
-    // Get post data - getPostDataFromNotification handles 'post' field (quote/mention) which has view embeds with thumbnails
-    // For other notifications, it fetches from postDataMap
     const postData = isPostAction ? getPostDataFromNotification(item, postDataMap) : undefined;
     const embed = postData ? getEmbed(postData) : null;
-
-    // Extract thumbnail directly from video embed - simple and direct, let expo-image handle the rest
     const videoView = embed ? getVideoView(embed) : null;
     const thumbnail = videoView?.thumbnail || null;
     const isVideo = !!videoView;
     const postTypeLabel = isVideo ? 'video' : 'post';
-
-    // Always reserve space for thumbnail if it's a post action and it's a video
     const shouldShowThumbnailContainer = isPostAction && isVideo;
 
-    // Compute moderation decision using proper moderation service
-    const shouldBlur = useMemo(() => {
-      if (!isPostAction || !moderationSettings) {
-        return false;
-      }
-
-      const postViewForModeration = getPostViewForModeration(item, postData);
-      if (!postViewForModeration) {
-        return false;
-      }
-
-      try {
-        const decision = computeModerationDecision(postViewForModeration, moderationSettings);
-        return decision.blur;
-      } catch {
-        return false;
-      }
-    }, [isPostAction, moderationSettings, item, postData]);
+    // moderateNotification only covers author; run moderatePost on the referenced post for thumbnail. Blur on any moderation (warn or hide).
+    const mod =
+      thumbnail && postData && moderationOpts ? moderatePost(postData, moderationOpts) : null;
+    const cl = mod?.ui('contentList');
+    const cm = mod?.ui('contentMedia');
+    const shouldBlurThumbnail =
+      !!thumbnail &&
+      (!mod ||
+        !!(cl?.blur || cm?.blur || cl?.filter || cm?.filter || cl?.noOverride || cm?.noOverride));
 
     const actionText = useMemo(() => {
       const actions: Record<string, string> = {
@@ -417,10 +360,10 @@ const NotificationItem = React.memo<NotificationItemProps>(
       [navigation, queryClient]
     );
 
-    // Navigate to video post in feed
     const navigateToVideoPost = useCallback(
       (postData: PostView) => {
         const embed = getEmbed(postData);
+        const postMod = moderationOpts ? moderatePost(postData, moderationOpts) : null;
         feedService.setCurrentFeed([
           {
             post: {
@@ -437,8 +380,8 @@ const NotificationItem = React.memo<NotificationItemProps>(
               indexedAt: postData.indexedAt || indexedAt || item.indexedAt,
             },
             uniqueKey: postData.uri || item.uri,
-            // Moderation flags (shouldBlur/shouldFilter) computed at feed level if using useFeed
-            // For notifications, moderation would need to be computed separately if needed
+            contentListUI: postMod?.ui('contentList'),
+            contentMediaUI: postMod?.ui('contentMedia'),
           } as ExtendedFeedViewPost,
         ]);
         navigation.push({
@@ -454,7 +397,7 @@ const NotificationItem = React.memo<NotificationItemProps>(
           },
         });
       },
-      [navigation, author, indexedAt, item]
+      [navigation, author, indexedAt, item, moderationOpts]
     );
 
     const handlePress = async () => {
@@ -602,14 +545,16 @@ const NotificationItem = React.memo<NotificationItemProps>(
             {thumbnail ? (
               <>
                 <BlurredThumbnailBackground thumbnailUrl={thumbnail} recyclingKey={uri} />
-                <Image
-                  source={{ uri: thumbnail }}
-                  style={styles.thumbnailVideo}
-                  contentFit="contain"
-                  recyclingKey={uri}
-                  transition={0}
-                />
-                {shouldBlur && (
+                {!shouldBlurThumbnail && (
+                  <Image
+                    source={{ uri: thumbnail }}
+                    style={styles.thumbnailVideo}
+                    contentFit="contain"
+                    recyclingKey={uri}
+                    transition={0}
+                  />
+                )}
+                {shouldBlurThumbnail && (
                   <SafeBlurView intensity={80} tint="dark" style={styles.thumbnailBlurOverlay} />
                 )}
               </>
@@ -620,13 +565,6 @@ const NotificationItem = React.memo<NotificationItemProps>(
         )}
       </View>
     );
-  },
-  (prevProps, nextProps) => {
-    // Custom comparison for memo - return true if props are equal (skip re-render)
-    if (prevProps.item.uri !== nextProps.item.uri) return false;
-    if (prevProps.item.indexedAt !== nextProps.item.indexedAt) return false;
-    if (prevProps.postDataMap !== nextProps.postDataMap) return false;
-    return true; // Props are equal, skip re-render
   }
 );
 NotificationItem.displayName = 'NotificationItem';
@@ -658,8 +596,8 @@ const NotificationsTab = forwardRef<ScrollToTopRef, NotificationsTabProps>(
     // Get current user from store instead of API call
     const currentUser = useUserStore(state => state.currentUser);
 
-    // Get moderation settings for computing decisions
-    const { settings: moderationSettings } = useModerationSettings(currentUser?.did ?? undefined);
+    // Load moderation prefs so getModerationOpts can build ModerationOpts for moderateNotification
+    useModerationSettings(currentUser?.did ?? undefined);
 
     // Initialize current user for ProfileCache on mount - use store instead of API call
     useEffect(() => {
@@ -729,6 +667,24 @@ const NotificationsTab = forwardRef<ScrollToTopRef, NotificationsTabProps>(
       return data?.pages.flatMap(page => page.notifications) || [];
     }, [data]);
 
+    const moderationPrefs = useModerationStore(s => s.moderationPrefs);
+
+    const enrichedNotifications = useMemo((): EnrichedNotification[] => {
+      const opts = getModerationOpts(currentUser?.did ?? undefined);
+      if (!opts) return allNotifications.map(n => ({ ...n, shouldFilter: false }));
+      return allNotifications.map(n => ({
+        ...n,
+        shouldFilter: moderateNotification(n, opts).ui('contentList').filter,
+      }));
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- moderationPrefs signals store so we recompute when prefs load
+    }, [allNotifications, currentUser?.did, moderationPrefs]);
+
+    const filteredNotifications = useMemo(
+      () => enrichedNotifications.filter(n => !n.shouldFilter),
+      [enrichedNotifications]
+    );
+    const moderationOpts = getModerationOpts(currentUser?.did ?? undefined);
+
     // Batch prefetch all author profiles for better performance
     useEffect(() => {
       if (allNotifications.length > 0) {
@@ -792,8 +748,8 @@ const NotificationsTab = forwardRef<ScrollToTopRef, NotificationsTabProps>(
             // Only include valid PostView (exclude NotFoundPost and BlockedPost)
             if (
               post &&
-              !isNotFoundPost(post) &&
-              !isBlockedPost(post) &&
+              !AppBskyFeedDefs.isNotFoundPost(post) &&
+              !AppBskyFeedDefs.isBlockedPost(post) &&
               'author' in post &&
               'cid' in post
             ) {
@@ -824,7 +780,9 @@ const NotificationsTab = forwardRef<ScrollToTopRef, NotificationsTabProps>(
                   rkey: uriMatch[2],
                 });
 
-                const repostValue = repostRecordResponse?.data?.value as RepostRecord | undefined;
+                const repostValue = repostRecordResponse?.data?.value as
+                  | AppBskyFeedRepost.Record
+                  | undefined;
 
                 if (repostValue?.subject?.uri) {
                   rootPostUris.push(repostValue.subject.uri);
@@ -842,8 +800,8 @@ const NotificationsTab = forwardRef<ScrollToTopRef, NotificationsTabProps>(
                 // Only include valid PostView (exclude NotFoundPost and BlockedPost)
                 if (
                   post &&
-                  !isNotFoundPost(post) &&
-                  !isBlockedPost(post) &&
+                  !AppBskyFeedDefs.isNotFoundPost(post) &&
+                  !AppBskyFeedDefs.isBlockedPost(post) &&
                   'author' in post &&
                   'cid' in post
                 ) {
@@ -882,21 +840,21 @@ const NotificationsTab = forwardRef<ScrollToTopRef, NotificationsTabProps>(
     }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
     const renderNotificationContent = useCallback(
-      ({ item }: { item: Notification }) => {
+      ({ item }: { item: EnrichedNotification }) => {
         return (
           <NotificationItem
             item={item}
             navigation={navigation}
             queryClient={queryClient}
             postDataMap={postDataMap}
-            moderationSettings={moderationSettings}
+            moderationOpts={moderationOpts}
           />
         );
       },
-      [navigation, queryClient, moderationSettings, postDataMap]
+      [navigation, queryClient, postDataMap, moderationOpts]
     );
 
-    const keyExtractor = useCallback((item: Notification) => {
+    const keyExtractor = useCallback((item: EnrichedNotification) => {
       return item.uri || `notification-${item.indexedAt || Math.random()}`;
     }, []);
 
@@ -928,8 +886,8 @@ const NotificationsTab = forwardRef<ScrollToTopRef, NotificationsTabProps>(
           styles.listContentContainer,
           { paddingBottom: bottomNavBarHeight + 5 },
         ]}
-        data={allNotifications}
-        extraData={postDataMap}
+        data={filteredNotifications}
+        extraData={postDataMap.size}
         renderItem={renderNotificationContent}
         keyExtractor={keyExtractor}
         ItemSeparatorComponent={NotificationDivider}

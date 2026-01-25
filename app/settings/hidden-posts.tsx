@@ -26,21 +26,21 @@ interface HiddenPost {
 const HiddenPostsScreen: React.FC = () => {
   const router = useRouter();
   const { agent, currentUser } = useUserStoreState();
-  const { settings: moderationSettings } = useModerationSettings(currentUser?.did ?? undefined);
+  const { moderationPrefs } = useModerationSettings(currentUser?.did ?? undefined);
   const [hiddenPosts, setHiddenPosts] = useState<HiddenPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [unhidingPosts, setUnhidingPosts] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    if (moderationSettings) {
+    if (moderationPrefs) {
       loadHiddenPosts();
     }
-  }, [moderationSettings]);
+  }, [moderationPrefs]);
 
   const loadHiddenPosts = async () => {
     try {
       setLoading(true);
-      const hiddenPostUris = moderationSettings?.hiddenPosts || [];
+      const hiddenPostUris = moderationPrefs?.hiddenPosts ?? [];
 
       // Convert URIs to HiddenPost objects with mock data
       const postObjects = hiddenPostUris.map((uri, index) => ({
@@ -70,18 +70,14 @@ const HiddenPostsScreen: React.FC = () => {
   const handleUnhidePost = async (postId: string) => {
     try {
       setUnhidingPosts(prev => new Set(prev).add(postId));
-
-      // Get current settings and remove the post
-      if (!moderationSettings) return;
+      if (!moderationPrefs) return;
 
       const postToUnhide = hiddenPosts.find(p => p.id === postId);
       if (postToUnhide) {
-        const updatedPosts = moderationSettings.hiddenPosts.filter(
-          (uri: string) => uri !== postToUnhide.uri
-        );
-        const updatedSettings = { ...moderationSettings, hiddenPosts: updatedPosts };
-        await ModerationService.saveModerationSettings(
-          updatedSettings,
+        const updatedPosts = moderationPrefs.hiddenPosts.filter(uri => uri !== postToUnhide.uri);
+        const updated: typeof moderationPrefs = { ...moderationPrefs, hiddenPosts: updatedPosts };
+        await ModerationService.saveModerationPrefs(
+          updated,
           agent ?? undefined,
           currentUser?.did ?? undefined
         );

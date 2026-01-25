@@ -7,6 +7,7 @@ import { useUserStore, useFeedSettings } from '../../src/stores/userStore';
 import { Colors } from '../../src/components/ui/UI';
 import CustomBottomTabBar from '../../src/components/ui/CustomBottomTabBar';
 import { useUnreadCount } from '../../src/hooks/useUnreadCount';
+import { useModerationSettings } from '../../src/hooks/useModerationSettings';
 import { useOrbytColors } from '../../src/hooks/useOrbytColors';
 import { getProfileColors, pickLighterHex } from '../../src/utils/formatting/colors';
 
@@ -15,6 +16,9 @@ export default function TabsLayout() {
   const { data: orbytColors } = useOrbytColors(currentUserDid);
   const { nativeTabsEnabled } = useFeedSettings();
   const { totalUnreadCount } = useUnreadCount();
+
+  // Populate moderation store so FeedService/NotificationsTab have opts; failproof pass-through when null
+  useModerationSettings(currentUserDid ?? undefined);
 
   // Native tabs: use lighter of Orbyt text/background so icons stay visible
   const profileColors = getProfileColors(orbytColors);

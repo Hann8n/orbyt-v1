@@ -1,5 +1,4 @@
 import React, {
-  useState,
   useRef,
   forwardRef,
   useImperativeHandle,
@@ -13,7 +12,6 @@ import { useEvent } from 'expo';
 import { useVideoPlayer, VideoView as ExpoVideoView } from 'expo-video';
 import * as Haptics from 'expo-haptics';
 
-import { BORDER_RADIUS } from '../../../utils/constants';
 import { AtprotoService } from '../../../services/api/AtprotoService';
 import { FeedService } from '../../../services/api/feed/FeedService';
 import { View, Text, Dimensions, Pressable, StyleSheet, Platform } from 'react-native';
@@ -28,7 +26,6 @@ import Animated, {
   interpolate,
 } from 'react-native-reanimated';
 import { SafeBlurView } from '../../ui/SafeBlurView';
-import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Image } from 'expo-image';
 import { Colors } from '../../ui/UI';
 import { Loading3FillIcon, HeartFillIcon } from '../../ui/Icon';
@@ -59,8 +56,6 @@ import {
   INTERACTIONREPLY as INTERACTIONREPLY_CONST,
   INTERACTIONSHARE as INTERACTIONSHARE_CONST,
 } from '../../../services/api/types';
-import type { ModerationDecision } from '../../../services/moderation/ModerationTypes';
-
 // Use proper API types - normalize to always work with ExtendedPostView
 type Post = ExtendedPostView | ExtendedFeedViewPost;
 
@@ -90,7 +85,6 @@ export interface VideoCardProps {
   onVideoStatus?: (uri: string, status: string) => void;
   height?: number;
   shouldDisablePlayback?: boolean;
-  moderationDecision?: ModerationDecision;
   // Overlay props
   showOverlay?: boolean;
   feedOption?: string;
@@ -108,7 +102,6 @@ const VideoCard = memo(
         isVisible,
         onVideoStatus,
         height,
-        moderationDecision,
         shouldDisablePlayback = false,
         showOverlay = true,
         feedOption,
@@ -292,64 +285,15 @@ const VideoCard = memo(
       // Derive error state directly from playerStatus (no need to duplicate in state)
       const hasError = playerStatus === 'error';
 
-      // Simplified content warning state
-      const [userChoseToView, setUserChoseToView] = useState(false);
-
-      // Get moderation decision and derive all blur states in one place
-      // Support both ExtendedPostView and ExtendedFeedViewPost
-      // Priority: 1) prop, 2) shouldBlur flag from ExtendedFeedViewPost, 3) legacy moderationDecision
-      const decision: ModerationDecision | undefined =
-        moderationDecision ||
-        ('shouldBlur' in post && typeof (post as ExtendedFeedViewPost).shouldBlur === 'boolean'
-          ? {
-              blur: (post as ExtendedFeedViewPost).shouldBlur ?? false,
-              filter: (post as ExtendedFeedViewPost).shouldFilter ?? false,
-              informs: [],
-            }
-          : 'moderationDecision' in post &&
-              post.moderationDecision &&
-              typeof post.moderationDecision === 'object' &&
-              'blur' in post.moderationDecision
-            ? (post.moderationDecision as ModerationDecision)
-            : undefined);
-      const shouldBlur = decision?.blur || false;
-      const shouldShowContent = !shouldBlur || userChoseToView;
-      const isBlurred = shouldBlur && !shouldShowContent;
-      const hasWarning = shouldBlur;
-      const reason = decision?.reason;
-
-      // Format warning labels for display
-      const getWarningDescription = useCallback(() => {
-        if (!reason) {
-          return 'This video may contain sensitive content';
-        }
-        // Split comma-separated labels, remove "content" from each label, and join with "&"
-        const labels = reason.split(',').map((l: string) => {
-          // Remove "content" or "Content" from the end of each label
-          return l
-            .trim()
-            .replace(/\s+[Cc]ontent\s*$/, '')
-            .trim();
-        });
-        const formattedLabels =
-          labels.length > 1
-            ? labels.slice(0, -1).join(', ') + ' & ' + labels[labels.length - 1]
-            : labels[0];
-        // Convert to lowercase but preserve NSFW in uppercase
-        const labelLower = formattedLabels.toLowerCase().replace(/nsfw/g, 'NSFW');
-        return `This video may contain ${labelLower} content`;
-      }, [reason]);
-
-      // Handle user choosing to view content
-      const handleViewContent = useCallback(() => {
-        setUserChoseToView(true);
-      }, []);
-
-      // Only reset userChoseToView when post changes - videoState is handled by useRecyclingState
-      useEffect(() => {
-        setUserChoseToView(false);
-        // No need to reset videoState - handled automatically by useRecyclingState
-      }, [postView.uri]);
+      // Moderation: block when no batch data, or when batch says filter/noOverride/blur. One overlay: "Content blocked by settings".
+      const contentListUI = feedItem?.contentListUI;
+      const contentMediaUI = feedItem?.contentMediaUI;
+      const hasModerationFromBatch = contentListUI != null || contentMediaUI != null;
+      const isBlocked = !hasModerationFromBatch;
+      const shouldBlur = !!(contentListUI?.blur || contentMediaUI?.blur);
+      const noOverride = !!(contentListUI?.noOverride || contentMediaUI?.noOverride);
+      const isFiltered = !!(contentListUI?.filter || contentMediaUI?.filter);
+      const cannotShowMedia = isBlocked || noOverride || isFiltered || shouldBlur;
 
       // Animated style for heart animation - runs on UI thread
       const heartAnimatedStyle = useAnimatedStyle(() => {
@@ -364,25 +308,26 @@ const VideoCard = memo(
 
       // Isolated video playback logic - only depends on this video's state
       const shouldPlayVideo =
+        !cannotShowMedia &&
         !shouldDisablePlayback &&
         !hasError &&
         !videoState.userPaused &&
-        !(hasWarning && !shouldShowContent) &&
-        isVisible && // Use visibility instead of external shouldPlay prop
+        isVisible &&
         !!videoUrl;
 
       // Simple dim state: dim when video cannot play, clear when it can
       const isDimmed = !shouldPlayVideo;
 
-      const shouldLoadVideo = !(hasWarning && !shouldShowContent) && !!videoSource;
+      const shouldLoadVideo = !cannotShowMedia && !!videoSource;
+
+      // Use post URI or CID as unique recycling key to prevent image reuse from other videos
+      // when no thumbnail has loaded yet (FlashList/expo-image recycling). Same fix as GridFeedView.
+      const recyclingKey = postView?.uri || postView?.cid || `item-${index ?? 0}`;
 
       // Simplified video playback control functions
       const togglePlayback = useCallback(
         (shouldPlay?: boolean) => {
-          // Block interaction when content should remain hidden or playback is disabled
-          if ((hasWarning && !shouldShowContent) || shouldDisablePlayback) {
-            return;
-          }
+          if (cannotShowMedia || shouldDisablePlayback) return;
 
           // Guard against toggling when an error has occurred
           if (hasError) {
@@ -398,7 +343,7 @@ const VideoCard = memo(
             return { ...prev, userPaused: nextPaused };
           });
         },
-        [hasWarning, shouldShowContent, shouldDisablePlayback, hasError, setVideoState]
+        [cannotShowMedia, shouldDisablePlayback, hasError, setVideoState]
       );
 
       // togglePlayback handles all play/pause logic directly
@@ -948,9 +893,10 @@ const VideoCard = memo(
 
       return (
         <View style={[styles.container, { height: cardHeight }]}>
-          {/* Blurred thumbnail background - optimized for both platforms */}
-          <BlurredThumbnailBackground thumbnailUrl={posterUrl} />
-          {/* Unified Video and Overlay Container */}
+          <BlurredThumbnailBackground
+            thumbnailUrl={isBlocked ? null : (posterUrl ?? null)}
+            recyclingKey={recyclingKey}
+          />
           <Pressable
             onPress={handleVideoTap}
             onLongPress={handleLongPress}
@@ -958,14 +904,16 @@ const VideoCard = memo(
             style={styles.videoContainerPressable}
           >
             <View style={styles.videoContainer}>
-              {/* Sharp poster layer - always present so there's no flashing; video renders over it */}
-              {!!posterUrl && (
-                <Image source={{ uri: posterUrl }} contentFit="contain" style={styles.poster} />
+              {!!posterUrl && !cannotShowMedia && (
+                <Image
+                  source={{ uri: posterUrl }}
+                  contentFit="contain"
+                  style={styles.poster}
+                  recyclingKey={recyclingKey}
+                />
               )}
 
-              {/* Video Player - expo-video VideoView */}
-              {/* Always render VideoView when source is available (no content warning) to start loading earlier for faster playback */}
-              {!!videoSource && !(hasWarning && !shouldShowContent) && player && (
+              {!!videoSource && !cannotShowMedia && player && (
                 <ExpoVideoView
                   player={player}
                   style={styles.videoPlayer}
@@ -979,7 +927,7 @@ const VideoCard = memo(
               {/* Buffering indicator removed per request */}
 
               {/* Loading indicator only shown when needed */}
-              {!shouldLoadVideo && !isBlurred && (
+              {!shouldLoadVideo && !cannotShowMedia && (
                 <View style={styles.loadingOverlay}>
                   <Loading3FillIcon size={48} color="white" />
                   <Text style={styles.loadingText}>No HLS stream available</Text>
@@ -1035,28 +983,16 @@ const VideoCard = memo(
             </View>
           </Pressable>
 
-          {/* Content Warning Overlay - blur with message */}
-          {isBlurred && (
+          {cannotShowMedia && (
             <>
               <SafeBlurView intensity={100} tint="dark" style={styles.contentWarningBlur} />
               <View style={styles.contentWarningOverlay}>
                 <View style={styles.blurMessage}>
-                  <Text style={styles.blurTitle}>Sensitive Content</Text>
-                  <Text style={styles.blurText}>{getWarningDescription()}</Text>
+                  <Text style={styles.blurTitle}>Content blocked</Text>
+                  <Text style={styles.blurText}>
+                    This content is hidden by your safety settings
+                  </Text>
                 </View>
-                <Pressable onPress={handleViewContent} style={styles.viewButton}>
-                  {Platform.OS === 'ios' && isLiquidGlassAvailable() ? (
-                    <GlassView
-                      style={styles.glassBackground}
-                      glassEffectStyle="clear"
-                      tintColor="rgba(255, 255, 255, 1)"
-                      isInteractive
-                    />
-                  ) : null}
-                  <View style={styles.buttonContent} pointerEvents="none">
-                    <Text style={styles.viewButtonText}>See video</Text>
-                  </View>
-                </Pressable>
               </View>
             </>
           )}
@@ -1146,32 +1082,6 @@ const styles = StyleSheet.create({
     color: Colors.lightGray,
     textAlign: 'center',
     lineHeight: 22,
-  },
-  viewButton: {
-    position: 'absolute',
-    bottom: 80,
-    backgroundColor: Colors.white,
-    borderRadius: BORDER_RADIUS.FULL,
-    overflow: 'hidden',
-    minWidth: 120,
-  },
-  glassBackground: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: BORDER_RADIUS.FULL,
-  },
-  buttonContent: {
-    position: 'relative',
-    zIndex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  viewButtonText: {
-    color: Colors.black,
-    fontSize: 15,
-    fontFamily: 'Figtree-SemiBold',
-    fontWeight: '600',
   },
   dimmingOverlay: {
     ...StyleSheet.absoluteFillObject,

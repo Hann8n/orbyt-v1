@@ -253,20 +253,12 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     // Subscribe to the store to react to changes
     const reportedPostUris = useReportedPostsStore(state => state.reportedPostUris);
 
-    // Filter feed to remove reported posts and filtered posts
-    // Moderation flags are already computed at feed level (in useFeed hook)
-    // FlashList's maintainVisibleContentPosition handles item changes smoothly - no LayoutAnimation needed
+    // Filter out reported posts only; moderation-blocked items are already excluded by FeedService.applyModerationBatch
     const filteredFeed = useMemo(() => {
       return feed.filter(item => {
         if ('endCard' in item && item.endCard) return true;
         const feedItem = item as ExtendedFeedViewPost;
-        const uri = feedItem.post.uri;
-        // Filter out reported posts
-        if (reportedPostUris.has(uri)) return false;
-        // Filter out posts marked for filtering (flags computed in useFeed)
-        // Check if item has shouldFilter flag (from ExtendedFeedViewPost)
-        if (feedItem.shouldFilter) return false;
-        return true;
+        return !reportedPostUris.has(feedItem.post.uri);
       });
     }, [feed, reportedPostUris]);
 
@@ -355,10 +347,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           );
         }
 
-        // item is ExtendedFeedViewPost here
         const feedItem = item as ExtendedFeedViewPost;
-        const shouldBlur = feedItem.shouldBlur ?? false;
-
         return (
           <VideoItem
             feedItem={feedItem}
@@ -367,7 +356,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
             feedOption={feedOption as 'following' | 'discover'}
             canPlay={canPlay}
             isHeaderBlockingPlayback={isHeaderBlockingPlayback}
-            shouldBlur={shouldBlur}
             isModal={isModal}
             index={index}
           />
@@ -548,8 +536,8 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     // Grid view rendering
     if (viewMode === 'grid') {
-      // Filter out endCard items for grid view (only ExtendedFeedViewPost needed)
-      const gridFeed = feed.filter((item): item is ExtendedFeedViewPost => {
+      // filteredFeed (reported excluded; batch excludes blocked); drop endCard for grid
+      const gridFeed = filteredFeed.filter((item): item is ExtendedFeedViewPost => {
         return !('endCard' in item && item.endCard);
       });
 

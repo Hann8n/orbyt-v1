@@ -59,8 +59,6 @@ import BlurredThumbnailBackground from '../../src/components/ui/BlurredThumbnail
 import { HeaderService, useHeaders, type Header } from '../../src/services/OrbytBannerService';
 import { useFeed } from '../../src/hooks/useFeed';
 import { useUserStore, useFeedSettings } from '../../src/stores/userStore';
-import { useModerationSettings } from '../../src/hooks/useModerationSettings';
-import { computeModerationDecision } from '../../src/utils/moderation/computeDecision';
 import type { ExtendedFeedViewPost } from '../../src/services/api/types';
 import { isCurrentUser } from '../../src/stores/profileInteractionStore';
 import { useFollowStore } from '../../src/stores/followStore';
@@ -1213,9 +1211,6 @@ const ExploreScreen: React.FC = () => {
   // Get experimental feeds setting and native tabs setting
   const { experimentalFeedsEnabled, nativeTabsEnabled } = useFeedSettings();
 
-  // Get moderation settings for computing decisions
-  const { settings: moderationSettings } = useModerationSettings(currentUser?.did ?? undefined);
-
   // Calculate bottom padding - add extra when native tabs are enabled for better coverage
   const bottomPadding = nativeTabsEnabled
     ? getBottomNavBarHeight(insets) + 10
@@ -1782,7 +1777,7 @@ const ExploreScreen: React.FC = () => {
   } = useQuery({
     queryKey: ['spotlightFeed'],
     queryFn: async () => {
-      // Get custom spotlight feed
+      // Get custom spotlight feed (FeedService.getFeed runs moderation batch; items have contentListUI, contentMediaUI, shouldFilter)
       const response = await AtprotoService.getFeed(
         null,
         'at://did:plc:l3l3fjuwhv4mh4ih5y7ewrue/app.bsky.feed.generator/aaaiu3akzsv6q',
@@ -1791,32 +1786,7 @@ const ExploreScreen: React.FC = () => {
         10,
         'custom'
       );
-      let feed = response.feed || [];
-
-      // Compute moderation flags for spotlight feed items
-      // This feed doesn't go through useFeed, so we need to compute moderation here
-      if (moderationSettings) {
-        feed = feed.map((item: ExtendedFeedViewPost) => {
-          try {
-            const decision = computeModerationDecision(item, moderationSettings);
-            item.shouldBlur = decision.blur;
-            item.shouldFilter = decision.filter;
-          } catch {
-            item.shouldBlur = false;
-            item.shouldFilter = false;
-          }
-          return item;
-        });
-      } else {
-        // No settings loaded yet - use safe defaults
-        feed = feed.map((item: ExtendedFeedViewPost) => {
-          item.shouldBlur = false;
-          item.shouldFilter = false;
-          return item;
-        });
-      }
-
-      return feed;
+      return response.feed || [];
     },
     enabled: true,
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -2139,11 +2109,11 @@ const ExploreScreen: React.FC = () => {
                       return `spotlight-video-${videoUri || index}`;
                     }}
                     renderItem={({ item: video }) => {
-                      const videoData = video.post || video;
+                      const v = video as ExtendedFeedViewPost;
+                      const videoData = v.post || video;
                       const videoView = getVideoView(videoData?.embed);
                       const thumbnailUrl = videoView?.thumbnail || null;
-                      // Use shouldBlur flag from feed item (computed at feed level)
-                      const shouldBlur = (video as ExtendedFeedViewPost).shouldBlur ?? false;
+                      const shouldBlur = !!(v.contentListUI?.blur || v.contentMediaUI?.blur);
 
                       return (
                         <Pressable
@@ -2152,15 +2122,11 @@ const ExploreScreen: React.FC = () => {
                             const videoData = video.post || video;
                             const videoUri = videoData.uri;
                             if (videoUri) {
-                              const formattedFeed = item.videos.map((v: ExtendedFeedViewPost) => {
-                                const vData = v.post || v;
-                                return {
-                                  post: vData,
-                                  uniqueKey: vData.uri,
-                                  shouldBlur: v.shouldBlur ?? false,
-                                  shouldFilter: v.shouldFilter ?? false,
-                                };
-                              });
+                              const formattedFeed = item.videos.map((v: ExtendedFeedViewPost) => ({
+                                ...v,
+                                post: v.post || v,
+                                uniqueKey: v.post?.uri || v.uniqueKey,
+                              }));
                               feedService.setCurrentFeed(formattedFeed);
                               const index = formattedFeed.findIndex(v => v.post.uri === videoUri);
                               const finalIndex = index >= 0 ? index : 0;

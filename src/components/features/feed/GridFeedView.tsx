@@ -37,12 +37,9 @@ const VideoGridItem: React.FC<{
   itemStyle?: ViewStyle;
   thumbnailStyle?: ImageStyle;
 }> = React.memo(({ item, index, onPress, style, itemStyle, thumbnailStyle }) => {
-  // Extract thumbnail using getVideoView helper
   const videoView = getVideoView(item.post.embed);
   const thumbnailUrl = videoView?.thumbnail || null;
-
-  // Get shouldBlur flag from feed item (computed at feed level)
-  const shouldBlur = item.shouldBlur ?? false;
+  const shouldBlur = !!(item.contentListUI?.blur || item.contentMediaUI?.blur);
 
   const handlePress = useCallback(() => onPress(index), [onPress, index]);
 
@@ -51,13 +48,12 @@ const VideoGridItem: React.FC<{
       ? thumbnailUrl
       : null;
 
-  // Use post URI or CID as unique recycling key to prevent image flashing during scroll
   const recyclingKey = item.post?.uri || item.post?.cid || `item-${index}`;
 
   return (
     <Pressable style={[styles.gridItem, style, itemStyle]} onPress={handlePress}>
       <BlurredThumbnailBackground thumbnailUrl={validThumbnailUrl} recyclingKey={recyclingKey} />
-      {validThumbnailUrl && (
+      {validThumbnailUrl && !shouldBlur && (
         <Image
           source={{ uri: validThumbnailUrl }}
           style={[styles.thumbnail, thumbnailStyle]}
@@ -398,8 +394,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
     borderRadius: 0,
-    backgroundColor: Colors.black, // Changed back to black
-    // All margins for dividers are set dynamically in renderGridItem
+    backgroundColor: Colors.black,
   },
   thumbnail: {
     width: '100%',

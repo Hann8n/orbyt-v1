@@ -3,8 +3,9 @@
  * Handles all feed-related API operations including posts, likes, reposts, comments, and feed generation
  */
 
-import { RichText, AtUri } from '@atproto/api';
+import { RichText, AtUri, moderatePost } from '@atproto/api';
 import { BlobRef } from '@atproto/api';
+import { getModerationOpts } from '../../../stores/moderationStore';
 import { Platform } from 'react-native';
 import { storageHelpers } from '../../../utils/storage/storage';
 import { AtprotoCore } from '../core';
@@ -204,6 +205,8 @@ export class FeedService {
         });
       }
 
+      feedData = await this.applyModerationBatch(feedData);
+
       return { feed: feedData, cursor: responseData.cursor ?? null };
     } catch (_error: unknown) {
       return { feed: [], cursor: null };
@@ -249,6 +252,35 @@ export class FeedService {
     }
 
     return videoPosts;
+  }
+
+  /**
+   * Apply moderation batch to items with a post. Single place for moderatePost + ui(context).
+   * No network: uses labels already on post and getModerationOpts from store.
+   * Excludes items where mod.ui('contentList').filter is true (e.g. NSFW with "hide") so
+   * they never reach list, grid, or spotlight — sorted out on load as content is received.
+   * When opts is null (prefs not yet loaded), passes items through unchanged so feeds
+   * are never empty; downstream treats missing contentListUI/contentMediaUI as no blur/filter.
+   */
+  private static async applyModerationBatch<T extends { post: PostView }>(
+    items: T[]
+  ): Promise<T[]> {
+    if (items.length === 0) return items;
+    const userDid = await AtprotoCore.getCurrentUserDid();
+    const opts = getModerationOpts(userDid ?? undefined);
+    if (!opts) return items;
+    const mapped = items.map(item => {
+      const mod = moderatePost(item.post, opts);
+      return {
+        ...item,
+        contentListUI: mod.ui('contentList'),
+        contentMediaUI: mod.ui('contentMedia'),
+        avatarUI: mod.ui('avatar'),
+        shouldFilter: mod.ui('contentList').filter,
+      };
+    }) as (T & { shouldFilter?: boolean })[];
+    // Exclude items that should be hidden (e.g. NSFW with "hide") — never render, never blur
+    return mapped.filter(i => !i.shouldFilter) as T[];
   }
 
   /**
@@ -1324,8 +1356,10 @@ export class FeedService {
         uniqueKey: post.uri,
       }));
 
+      const moderated = await this.applyModerationBatch(videos);
+
       return {
-        videos,
+        videos: moderated,
         cursor: response?.data?.cursor ?? null,
       };
     } catch (_error: unknown) {
@@ -1435,8 +1469,10 @@ export class FeedService {
         uniqueKey: post.uri,
       }));
 
+      const moderated = await this.applyModerationBatch(videos);
+
       return {
-        videos,
+        videos: moderated,
         cursor: response?.data?.cursor ?? null,
       };
     } catch (_error) {
@@ -1641,19 +1677,17 @@ export class FeedService {
 
       let feedData = collected.slice(0, limit);
 
-      // Apply basic moderation filtering
+      // Basic structural filter (uri, cid, author)
       if (feedData.length > 0) {
         feedData = feedData.filter(item => {
-          // Basic filtering - remove posts with obvious issues
           const post = item?.post;
           if (!post) return false;
-
-          // Filter out posts without required fields
           if (!post.uri || !post.cid || !post.author) return false;
-
           return true;
         });
       }
+
+      feedData = await this.applyModerationBatch(feedData);
 
       return { feed: feedData, cursor: nextCursor };
     } catch (_error: unknown) {

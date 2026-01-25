@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, StyleSheet, ScrollView, Pressable, Alert, Linking } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
@@ -6,10 +6,9 @@ import ListHeader from '../../src/components/ui/ListHeader';
 import Icon from '../../src/components/ui/Icon';
 import { Colors } from '../../src/components/ui/UI';
 import UI from '../../src/components/ui/UI';
+import type { LabelPreference, ModerationPrefs } from '@atproto/api';
 import feedService from '../../src/services/FeedService';
 import { queryKeys } from '../../src/utils/query/queryKeys';
-// ModerationService is currently unused in this screen; keep import removed to satisfy strict TS checks
-import { ModerationSettings, LabelPreference } from '../../src/services/moderation/ModerationTypes';
 import { useModeration, useUserStoreState } from '../../src/stores/userStore';
 import { settingsButtonStyles, settingsLayoutStyles, settingsActiveStyles } from './SettingsStyles';
 import { OptionsButton } from '../../src/components/ui/OptionsButton';
@@ -23,17 +22,50 @@ interface ContentTypeOption {
   preference: LabelPreference;
 }
 
+const BASE_CONTENT_OPTIONS: Omit<ContentTypeOption, 'preference'>[] = [
+  { id: 'porn', label: 'NSFW', description: 'Not safe for work content', icon: '' },
+  {
+    id: 'sexual',
+    label: 'Suggestive Content',
+    description: 'Suggestive or provocative content',
+    icon: '',
+  },
+  {
+    id: 'nudity',
+    label: 'Artistic Nudity',
+    description: 'Nude or partially nude content',
+    icon: '',
+  },
+  {
+    id: 'graphic-media',
+    label: 'Graphic Media',
+    description: 'Violent or graphic content',
+    icon: '',
+  },
+];
+
 const ContentFiltersScreen: React.FC = () => {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { saveModerationSettings } = useModeration();
+  const { saveModerationPrefs } = useModeration();
   const { agent, isAuthenticated, currentUser } = useUserStoreState();
 
-  // Use React Query hook for moderation settings (account-scoped)
-  const { settings: moderationSettings } = useModerationSettings(currentUser?.did ?? undefined);
+  const { moderationPrefs } = useModerationSettings(currentUser?.did ?? undefined);
 
-  const [settings, setSettings] = useState<ModerationSettings | null>(null);
-  const [adultContentEnabled, setAdultContentEnabled] = useState(false);
+  // Local draft after user edits; null until first edit. Effective = draft ?? server.
+  const [settings, setSettings] = useState<ModerationPrefs | null>(null);
+  const effective = settings ?? moderationPrefs;
+
+  const adultContentEnabled = (effective?.adultContentEnabled ?? false) as boolean;
+
+  const contentOptions = useMemo(
+    () =>
+      BASE_CONTENT_OPTIONS.map(opt => ({
+        ...opt,
+        preference: (effective?.labels?.[opt.id] ?? 'hide') as LabelPreference,
+      })),
+    [effective]
+  );
 
   // Check if agent is available
   useEffect(() => {
@@ -46,63 +78,7 @@ const ContentFiltersScreen: React.FC = () => {
     }
   }, [agent, isAuthenticated]);
 
-  // Update local state when React Query settings change
-  useEffect(() => {
-    if (moderationSettings) {
-      // These state updates mirror server-provided settings locally.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSettings(moderationSettings);
-
-      setAdultContentEnabled(moderationSettings.adultContentEnabled);
-    }
-  }, [moderationSettings]);
-
-  const [contentOptions, setContentOptions] = useState<ContentTypeOption[]>([
-    {
-      id: 'nsfw',
-      label: 'NSFW',
-      description: 'Not safe for work content',
-      icon: '',
-      preference: 'hide',
-    },
-    {
-      id: 'suggestive',
-      label: 'Suggestive Content',
-      description: 'Suggestive or provocative content',
-      icon: '',
-      preference: 'warn',
-    },
-    {
-      id: 'nudity',
-      label: 'Artistic Nudity',
-      description: 'Nude or partially nude content',
-      icon: '',
-      preference: 'warn',
-    },
-    {
-      id: 'gore',
-      label: 'Graphic Media',
-      description: 'Violent or graphic content',
-      icon: '',
-      preference: 'warn',
-    },
-  ]);
-
-  // Update content options when settings change
-  useEffect(() => {
-    if (settings) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setContentOptions(prev =>
-        prev.map(option => ({
-          ...option,
-          preference: settings.labels[option.id] || option.preference,
-        }))
-      );
-    }
-  }, [settings]);
-
   const updateContentPreference = async (contentId: string, preference: LabelPreference) => {
-    // Check if user is authenticated
     if (!isAuthenticated || !agent) {
       Alert.alert(
         'Authentication Required',
@@ -111,24 +87,17 @@ const ContentFiltersScreen: React.FC = () => {
       );
       return;
     }
-
-    setContentOptions(options => options.map(o => (o.id === contentId ? { ...o, preference } : o)));
+    const base = settings ?? moderationPrefs;
+    if (!base) return;
+    const updated: ModerationPrefs = {
+      ...base,
+      labels: { ...base.labels, [contentId]: preference },
+    };
+    setSettings(updated);
     try {
-      if (settings) {
-        const updatedSettings: ModerationSettings = {
-          ...settings,
-          labels: {
-            ...settings.labels,
-            [contentId]: preference,
-          },
-        };
-        await saveModerationSettings(updatedSettings);
-        setSettings(updatedSettings);
-        // Reset moderation/feeds so all content re-evaluates with new rules
-        feedService.clearCurrentFeed();
-        queryClient.invalidateQueries({ queryKey: queryKeys.feed.all });
-        // React Query cache for moderation settings is invalidated by saveModerationSettings
-      }
+      await saveModerationPrefs(updated);
+      feedService.clearCurrentFeed();
+      queryClient.invalidateQueries({ queryKey: queryKeys.feed.all });
     } catch (e) {
       console.error('Error saving content preference:', e);
       Alert.alert(
@@ -140,7 +109,6 @@ const ContentFiltersScreen: React.FC = () => {
   };
 
   const updateAdultContent = async (value: boolean) => {
-    // Check if user is authenticated
     if (!isAuthenticated || !agent) {
       Alert.alert(
         'Authentication Required',
@@ -149,20 +117,14 @@ const ContentFiltersScreen: React.FC = () => {
       );
       return;
     }
-
-    setAdultContentEnabled(value);
+    const base = settings ?? moderationPrefs;
+    if (!base) return;
+    const updated: ModerationPrefs = { ...base, adultContentEnabled: value };
+    setSettings(updated);
     try {
-      if (settings) {
-        const updatedSettings: ModerationSettings = {
-          ...settings,
-          adultContentEnabled: value,
-        };
-        await saveModerationSettings(updatedSettings);
-        setSettings(updatedSettings);
-        // Reset moderation/feeds so all content re-evaluates with new rules
-        feedService.clearCurrentFeed();
-        queryClient.invalidateQueries({ queryKey: queryKeys.feed.all });
-      }
+      await saveModerationPrefs(updated);
+      feedService.clearCurrentFeed();
+      queryClient.invalidateQueries({ queryKey: queryKeys.feed.all });
     } catch (e) {
       console.error('Error saving adult content preference:', e);
       Alert.alert(
@@ -203,7 +165,7 @@ const ContentFiltersScreen: React.FC = () => {
           </View>
 
           {contentOptions.map(option => {
-            const isAdult = ['nsfw'].includes(option.id);
+            const isAdult = option.id === 'porn';
             if (isAdult && !adultContentEnabled) return null;
             return (
               <View key={option.id} style={styles.optionContainer}>

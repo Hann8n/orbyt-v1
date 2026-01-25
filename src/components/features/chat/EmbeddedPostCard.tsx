@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,10 +10,9 @@ import { Colors } from '../../ui/UI';
 import { Avatar } from '../../ui/UI';
 import Icon from '../../ui/Icon';
 import BlurredThumbnailBackground from '../../ui/BlurredThumbnailBackground';
+import { moderatePost } from '@atproto/api';
 import { AtprotoService } from '../../../services/api/AtprotoService';
-import { ModerationDecision } from '../../../services/moderation/ModerationTypes';
-import { computeModerationDecision } from '../../../utils/moderation/computeDecision';
-import { useModerationSettings } from '../../../hooks/useModerationSettings';
+import { getModerationOpts } from '../../../stores/moderationStore';
 import { useUserStore } from '../../../stores/userStore';
 import { feedService } from '../../../services/FeedService';
 import { openPostInBluesky } from '../../../utils/links/bluesky';
@@ -29,7 +28,6 @@ import { SafeBlurView } from '../../ui/SafeBlurView';
 interface EmbeddedPostCardProps {
   postUri: string;
   postCid: string;
-  moderationDecision?: ModerationDecision; // Deprecated: computed inline now, kept for backward compatibility
   isCurrentUser?: boolean;
   // Optional chat reaction support
   reactions?: ReactionView[];
@@ -44,7 +42,6 @@ interface EmbeddedPostCardProps {
 export default function EmbeddedPostCard({
   postUri,
   postCid: _postCid,
-  moderationDecision,
   isCurrentUser = false,
   reactions,
   currentUserId,
@@ -56,42 +53,54 @@ export default function EmbeddedPostCard({
   const router = useRouter();
   const queryClient = useQueryClient();
   const [userChoseToView, setUserChoseToView] = useState(false);
+  const currentUser = useUserStore(state => state.currentUser);
 
-  // Fetch post data
-  const { data: post, isLoading } = useQuery({
-    queryKey: ['embedded-post', postUri],
-    queryFn: () => AtprotoService.getPost(postUri),
+  // Fetch post and run moderatePost in queryFn; attach contentListUI, contentMediaUI, avatarUI, shouldFilter
+  const { data, isLoading } = useQuery({
+    queryKey: ['embedded-post', postUri, currentUser?.did],
+    queryFn: async () => {
+      const post = await AtprotoService.getPost(postUri);
+      const userDid = useUserStore.getState().currentUser?.did;
+      const opts = getModerationOpts(userDid ?? undefined);
+      if (post && opts) {
+        const mod = moderatePost(post, opts);
+        return {
+          post,
+          contentListUI: mod.ui('contentList'),
+          contentMediaUI: mod.ui('contentMedia'),
+          avatarUI: mod.ui('avatar'),
+          shouldFilter: mod.ui('contentList').filter,
+        };
+      }
+      return {
+        post: post ?? null,
+        contentListUI: undefined,
+        contentMediaUI: undefined,
+        avatarUI: undefined,
+        shouldFilter: false,
+      };
+    },
     staleTime: QUERY_CONSTANTS.STALE_TIME_LONG, // 10 minutes - for slowly changing data
   });
 
-  // Get moderation settings for computing decision
-  const currentUser = useUserStore(state => state.currentUser);
-  const { settings } = useModerationSettings(currentUser?.did ?? undefined);
-
-  // Compute moderation decision inline (post is fetched separately, not from feed)
-  const decision = useMemo(() => {
-    // Use prop if provided (backward compatibility)
-    if (moderationDecision) {
-      return moderationDecision;
-    }
-
-    // Compute if post and settings are available
-    if (post && settings) {
-      try {
-        return computeModerationDecision(post, settings);
-      } catch {
-        return { filter: false, blur: false, informs: [] };
-      }
-    }
-
-    return { filter: false, blur: false, informs: [] };
-  }, [post, settings, moderationDecision]);
-
-  const shouldBlur = decision?.blur || false;
-  const shouldFilter = decision?.filter || false;
-  const shouldShowContent = !shouldBlur || userChoseToView;
-  const isBlurred = shouldBlur && !shouldShowContent;
-  const reason = decision?.reason;
+  const post = data?.post;
+  const contentListUI = data?.contentListUI;
+  const contentMediaUI = data?.contentMediaUI;
+  const shouldFilter = data?.shouldFilter ?? false;
+  const shouldBlur = !!(contentListUI?.blur || contentMediaUI?.blur);
+  const noOverride = !!(contentListUI?.noOverride || contentMediaUI?.noOverride);
+  const shouldShowContent = noOverride ? false : !shouldBlur || userChoseToView;
+  const isBlocked = !!shouldFilter; // hide: never show media, no opt-in
+  const isBlurred = shouldBlur && !shouldShowContent; // warn: no unblurred media until opt-in
+  const cannotShowMedia = isBlocked || isBlurred;
+  const firstBlur = contentListUI?.blurs?.[0] ?? contentMediaUI?.blurs?.[0];
+  const reason =
+    firstBlur &&
+    typeof firstBlur === 'object' &&
+    'label' in firstBlur &&
+    (firstBlur as { label?: { val?: string } }).label?.val
+      ? (firstBlur as { label: { val: string } }).label.val
+      : undefined;
 
   // Get profile data to check if author is blocked (must be called before early returns)
   const author = (post?.author ?? {}) as PostView['author'];
@@ -266,6 +275,8 @@ export default function EmbeddedPostCard({
   const handlePostPress = useCallback(async () => {
     if (!post?.uri) return;
 
+    const opts = getModerationOpts(useUserStore.getState().currentUser?.did ?? undefined);
+
     // For video posts, open in Orbyt app using the existing feed modal
     if (isVideo) {
       try {
@@ -279,19 +290,25 @@ export default function EmbeddedPostCard({
           // Use cached data first, only fetch missing posts
           const videoPosts = await Promise.all(
             embedUris.map(async embedUri => {
-              // Try to get from cache first
-              const cachedPost = queryClient.getQueryData<PostView>(['embedded-post', embedUri]);
+              // Try to get from cache first (may be { post } or raw PostView)
+              const cached = queryClient.getQueryData<{ post?: PostView } | PostView>([
+                'embedded-post',
+                embedUri,
+              ]);
+              const postData =
+                cached && typeof cached === 'object' && 'uri' in cached
+                  ? (cached as PostView)
+                  : (cached as { post?: PostView })?.post;
 
-              let postData = cachedPost;
+              let resolved: PostView | null = postData ?? null;
 
               // Only fetch if not in cache
-              if (!postData) {
+              if (!resolved) {
                 try {
                   const fetchedPost = await AtprotoService.getPost(embedUri);
-                  // Cache it for future use
                   if (fetchedPost) {
                     queryClient.setQueryData(['embedded-post', embedUri], fetchedPost);
-                    postData = fetchedPost;
+                    resolved = fetchedPost;
                   } else {
                     return null;
                   }
@@ -300,32 +317,32 @@ export default function EmbeddedPostCard({
                 }
               }
 
-              if (!postData) return null;
+              if (!resolved) return null;
 
               // Check if it's actually a video post
-              const embed = postData.embed;
+              const embed = resolved.embed;
               if (!embed || (!isVideoEmbed(embed) && !isVideoEmbedInMedia(embed))) {
                 return null;
               }
 
+              const mod = opts ? moderatePost(resolved, opts) : null;
               return {
                 post: {
-                  uri: postData.uri,
-                  cid: postData.cid,
-                  author: postData.author,
-                  record: postData.record,
-                  embed: postData.embed,
-                  replyCount: postData.replyCount,
-                  repostCount: postData.repostCount,
-                  likeCount: postData.likeCount,
-                  indexedAt: postData.indexedAt,
+                  uri: resolved.uri,
+                  cid: resolved.cid,
+                  author: resolved.author,
+                  record: resolved.record,
+                  embed: resolved.embed,
+                  replyCount: resolved.replyCount,
+                  repostCount: resolved.repostCount,
+                  likeCount: resolved.likeCount,
+                  indexedAt: resolved.indexedAt,
                 },
-                uniqueKey: postData.uri,
-                moderationDecision:
-                  'moderationDecision' in postData
-                    ? (postData as PostView & { moderationDecision?: ModerationDecision })
-                        .moderationDecision
-                    : undefined,
+                uniqueKey: resolved.uri,
+                contentListUI: mod?.ui('contentList'),
+                contentMediaUI: mod?.ui('contentMedia'),
+                avatarUI: mod?.ui('avatar'),
+                shouldFilter: mod?.ui('contentList').filter ?? false,
               };
             })
           );
@@ -363,6 +380,7 @@ export default function EmbeddedPostCard({
           return;
         }
 
+        const mod = opts ? moderatePost(postData, opts) : null;
         const feedItem = {
           post: {
             uri: postData.uri,
@@ -376,10 +394,10 @@ export default function EmbeddedPostCard({
             indexedAt: postData.indexedAt,
           },
           uniqueKey: postData.uri,
-          moderationDecision:
-            'moderationDecision' in post
-              ? (post as PostView & { moderationDecision?: ModerationDecision }).moderationDecision
-              : undefined,
+          contentListUI: mod?.ui('contentList'),
+          contentMediaUI: mod?.ui('contentMedia'),
+          avatarUI: mod?.ui('avatar'),
+          shouldFilter: mod?.ui('contentList').filter ?? false,
         };
 
         feedService.setCurrentFeed([feedItem]);
@@ -403,7 +421,7 @@ export default function EmbeddedPostCard({
       // For non-video posts, open in Bluesky app
       await openPostInBluesky(post.uri);
     }
-  }, [post, queryClient, isVideo, moderationDecision, router, conversationMessages]);
+  }, [post, queryClient, isVideo, router, conversationMessages]);
 
   // Format relative time
   const formatRelativeTime = (timestamp: string): string => {
@@ -496,14 +514,18 @@ export default function EmbeddedPostCard({
 
         {showImage && thumbnailUrl && (
           <View style={styles.cleanImageContainer}>
-            {/* Blurred thumbnail background */}
             <BlurredThumbnailBackground thumbnailUrl={thumbnailUrl} />
-            {/* Main image */}
-            <Image source={{ uri: thumbnailUrl }} style={styles.cleanImage} contentFit="contain" />
+            {!cannotShowMedia && (
+              <Image
+                source={{ uri: thumbnailUrl }}
+                style={styles.cleanImage}
+                contentFit="contain"
+              />
+            )}
             {isBlurred && (
               <SafeBlurView intensity={80} tint="dark" style={styles.cleanBlurOverlay} />
             )}
-            {isBlurred && (
+            {isBlurred && !noOverride && (
               <View style={styles.cleanWarningOverlay}>
                 <Pressable onPress={handleViewContent}>
                   <View style={styles.cleanViewButton}>
@@ -539,12 +561,20 @@ export default function EmbeddedPostCard({
   // Render post content based on type
   const renderPostContent = () => {
     if (isVideo) {
+      if (isBlocked) {
+        return (
+          <View style={styles.videoThumbnailContainer}>
+            <View style={styles.contentHiddenOverlay}>
+              <Text style={styles.warningTitle}>Content hidden</Text>
+              <Text style={styles.warningText}>This content is hidden by your safety settings</Text>
+            </View>
+          </View>
+        );
+      }
       return (
         <View style={styles.videoThumbnailContainer}>
-          {/* Blurred thumbnail background */}
           <BlurredThumbnailBackground thumbnailUrl={thumbnailUrl} />
-          {/* Main thumbnail */}
-          {thumbnailUrl && (
+          {thumbnailUrl && !cannotShowMedia && (
             <Image
               source={{ uri: thumbnailUrl }}
               style={styles.videoThumbnail}
@@ -552,7 +582,6 @@ export default function EmbeddedPostCard({
             />
           )}
 
-          {/* Black gradient from bottom */}
           <LinearGradient
             colors={['transparent', 'rgba(0, 0, 0, 0.5)']}
             style={styles.videoGradient}
@@ -579,11 +608,13 @@ export default function EmbeddedPostCard({
                 <Text style={styles.warningText}>
                   {reason || 'This content may not be appropriate for all viewers.'}
                 </Text>
-                <Pressable onPress={handleViewContent}>
-                  <View style={styles.viewButton}>
-                    <Text style={styles.viewButtonText}>Show Content</Text>
-                  </View>
-                </Pressable>
+                {!noOverride && (
+                  <Pressable onPress={handleViewContent}>
+                    <View style={styles.viewButton}>
+                      <Text style={styles.viewButtonText}>Show Content</Text>
+                    </View>
+                  </Pressable>
+                )}
               </View>
             </View>
           )}
@@ -591,9 +622,8 @@ export default function EmbeddedPostCard({
       );
     }
 
-    // All non-video post types use the unified card with different parameters
     if (isImage) {
-      return renderUnifiedPostCard(postText || undefined, true);
+      return renderUnifiedPostCard(postText || undefined, !isBlocked);
     }
 
     if (isExternalLink && externalLinkInfo) {
@@ -606,9 +636,8 @@ export default function EmbeddedPostCard({
       return renderUnifiedPostCard(quotedText, false);
     }
 
-    // Fallback for posts with thumbnails
     if (thumbnailUrl) {
-      return renderUnifiedPostCard(postText || 'Post', true);
+      return renderUnifiedPostCard(postText || 'Post', !isBlocked);
     }
 
     // Text-only post fallback
@@ -903,6 +932,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: BORDER_RADIUS.MEDIUM,
+  },
+  contentHiddenOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    padding: 16,
   },
   warningMessage: {
     padding: 16,
