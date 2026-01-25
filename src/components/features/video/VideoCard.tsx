@@ -30,7 +30,6 @@ import Animated, {
 import { SafeBlurView } from '../../ui/SafeBlurView';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../../ui/UI';
 import { Loading3FillIcon, HeartFillIcon } from '../../ui/Icon';
 import BlurredThumbnailBackground from '../../ui/BlurredThumbnailBackground';
@@ -258,7 +257,7 @@ const VideoCard = memo(
       const postAspectRatio = videoView?.aspectRatio;
 
       // Track dimensions
-      const { width, height: screenHeight } = Dimensions.get('window');
+      const { width } = Dimensions.get('window');
       const defaultAspectRatio = postAspectRatio
         ? postAspectRatio.width / postAspectRatio.height
         : 16 / 9;
@@ -958,26 +957,6 @@ const VideoCard = memo(
                 </View>
               )}
 
-              {/* Static shadow gradient - always rendered to prevent flashing */}
-              <View
-                style={[styles.shadowGradient, { height: screenHeight * 0.8 }]}
-                pointerEvents="none"
-              >
-                <LinearGradient
-                  colors={[
-                    'rgba(0, 0, 0, 0.5)',
-                    'rgba(0, 0, 0, 0.2)',
-                    'rgba(0, 0, 0, 0.05)',
-                    'transparent',
-                  ]}
-                  locations={[0, 0.4, 0.6, 1]}
-                  style={styles.gradientFill}
-                  pointerEvents="none"
-                  start={{ x: 0, y: 1 }}
-                  end={{ x: 0, y: 0 }}
-                />
-              </View>
-
               {/* Simple dimming overlay - only rendered when video cannot play */}
               {isDimmed && <View style={styles.dimmingOverlay} pointerEvents="none" />}
 
@@ -1164,16 +1143,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: 'Figtree-SemiBold',
     fontWeight: '600',
-  },
-  shadowGradient: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 3,
-  },
-  gradientFill: {
-    flex: 1,
   },
   dimmingOverlay: {
     ...StyleSheet.absoluteFillObject,

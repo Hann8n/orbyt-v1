@@ -3,7 +3,6 @@ import { View, StyleSheet, Pressable, useWindowDimensions, LayoutChangeEvent } f
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { getBottomNavBarHeight } from '../../utils/device/screen';
 import { HomeIcon, ExploreIcon, NotificationIcon, UserIcon } from './Icon';
@@ -353,11 +352,6 @@ const CustomBottomTabBar: React.FC<CustomBottomTabBarProps> = ({
       ]}
       onLayout={handleLayout}
     >
-      <LinearGradient
-        colors={['transparent', 'rgba(0, 0, 0, 0.30)']}
-        style={styles.gradient}
-        pointerEvents="none"
-      />
       <View
         style={[
           styles.tabBar,
@@ -444,13 +438,6 @@ const styles = StyleSheet.create({
     zIndex: 100,
     shadowOpacity: 0,
     elevation: 0,
-  },
-  gradient: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
   },
   tabBar: {
     flexDirection: 'row',
