@@ -21,7 +21,6 @@ import Icon, { Loading3FillIcon, BackArrowIcon } from '../../src/components/ui/I
 import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '../../src/hooks';
 import { isOrbytChannel, getChannelByUri, channelToHashtag } from '../../src/utils/channels/orbyt';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useSharedValue } from 'react-native-reanimated';
 import type { ViewMode } from '../../src/types';
 
 const Channel: React.FC = memo(() => {
@@ -63,9 +62,6 @@ const Channel: React.FC = memo(() => {
 
   const { colors: channelColors } = useChannelColors(uri || '');
   const colorsMutation = useChannelColorsMutation();
-
-  // Shared scroll progress for header fade/dim (0 = top, 1 = fully faded)
-  const headerScrollProgress = useSharedValue(0);
 
   const overlayTop = (typeof insets?.top === 'number' ? insets.top : 0) + 5;
 
@@ -295,7 +291,6 @@ const Channel: React.FC = memo(() => {
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         showViewToggle={!isCategoryChannel} // Hide view toggle in ChannelHeader when tabs are shown
-        headerScrollProgress={headerScrollProgress}
         contentFadeDisabled={viewMode === 'grid'}
         dimOverlayDisabled={viewMode === 'grid'}
       >
@@ -341,11 +336,6 @@ const Channel: React.FC = memo(() => {
           onRefresh={onRefresh}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
-          onVerticalScroll={scrollY => {
-            // Map first 250px of scroll into 0 -> 1 progress (more gradual), same as profile
-            const clamped = Math.max(0, Math.min(1, scrollY / 250));
-            headerScrollProgress.value = clamped;
-          }}
           queryOptions={queryOptions}
           isVisible={isRouteFocused}
         />
@@ -360,10 +350,6 @@ const Channel: React.FC = memo(() => {
           onRefresh={onRefresh}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
-          onVerticalScroll={scrollY => {
-            const clamped = Math.max(0, Math.min(1, scrollY / 250));
-            headerScrollProgress.value = clamped;
-          }}
           queryOptions={{ enabled: false }}
           isVisible={isRouteFocused}
         />

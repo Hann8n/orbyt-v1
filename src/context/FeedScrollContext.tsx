@@ -6,12 +6,15 @@ import type { SharedValue } from 'react-native-reanimated';
  * - scrollOffsetYSV: contentOffset.y, updated in onScroll.
  * - headerHeight, viewportHeight, itemSpacing: used in VideoCard to compute
  *   overlap = viewport ∩ item, percentVisible = overlap / itemHeight.
+ * - contentScrollProgressSV: 0..1 derived from scrollOffsetYSV over HEADER_FADE_DISTANCE; used by
+ *   UniversalHeader and ProfileHeader/ChannelHeader for content fade and dim overlay.
  */
 export interface FeedScrollContextValue {
   scrollOffsetYSV: SharedValue<number>;
   headerHeight: number;
   viewportHeight: number;
   itemSpacing: number;
+  contentScrollProgressSV?: SharedValue<number>;
 }
 
 const FeedScrollContext = createContext<FeedScrollContextValue | null>(null);

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo, memo } from 'react';
-import { BORDER_RADIUS } from '../../src/utils/constants';
+import { BORDER_RADIUS, SCROLL_CONSTANTS } from '../../src/utils/constants';
 import {
   View,
   Text,
@@ -43,7 +43,6 @@ import Animated, {
   useAnimatedStyle,
   interpolate,
   Extrapolate,
-  runOnUI,
 } from 'react-native-reanimated';
 import { Colors } from '../../src/components/ui/UI';
 import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalModals';
@@ -484,17 +483,16 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       };
     }, [modalProfileEnabled, rawIdentifier, segments, defaultTop]);
 
-  // Shared scroll progress for header animation (0 = top, 1 = fully faded/dimmed)
+  // Shared scroll progress for overlay (back/menu) animation. Written from onVerticalScroll; read in useAnimatedStyle on UI thread.
   const headerScrollProgress = useSharedValue(0);
 
-  // Update scroll progress on UI thread (worklet directive required for runOnUI)
   const handleVerticalScroll = useCallback(
     (scrollY: number) => {
-      runOnUI((y: number) => {
-        'worklet';
-        // Map first 250px of scroll into 0 -> 1 progress
-        headerScrollProgress.value = Math.max(0, Math.min(1, y / 250));
-      })(scrollY);
+      // One SharedValue write (Reanimated syncs to UI). Avoids runOnUI bridge per scroll event.
+      headerScrollProgress.value = Math.max(
+        0,
+        Math.min(1, scrollY / SCROLL_CONSTANTS.HEADER_FADE_DISTANCE)
+      );
     },
     [headerScrollProgress]
   );
@@ -776,7 +774,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
                 applySafeArea={!isModal}
                 headerStyle={headerPaddingTop ? { paddingTop: headerPaddingTop } : undefined}
                 onColorsChange={setDynamicColors}
-                headerScrollProgress={headerScrollProgress}
                 contentFadeDisabled={viewMode === 'grid'}
                 dimOverlayDisabled={viewMode === 'grid'}
                 isBeta={isBeta}

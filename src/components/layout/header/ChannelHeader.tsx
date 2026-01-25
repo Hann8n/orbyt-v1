@@ -30,7 +30,8 @@ import {
   shouldShowChannelSlash,
 } from '../../../utils/channels/orbyt';
 import { RichText } from '@atproto/api';
-import Animated, { type SharedValue, useAnimatedStyle, interpolate } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, interpolate } from 'react-native-reanimated';
+import { useFeedScroll } from '../../../context/FeedScrollContext';
 
 interface ChannelData {
   id: string;
@@ -62,7 +63,6 @@ interface ChannelHeaderProps {
   viewMode?: ViewMode;
   onViewModeChange?: (mode: ViewMode) => void;
   showViewToggle?: boolean;
-  headerScrollProgress?: SharedValue<number>;
   contentFadeDisabled?: boolean;
   dimOverlayDisabled?: boolean;
 }
@@ -297,11 +297,13 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   viewMode = 'list',
   onViewModeChange,
   showViewToggle = false,
-  headerScrollProgress,
   contentFadeDisabled = false,
   dimOverlayDisabled = false,
 }) => {
   const navigation = useRouter();
+
+  const feedScroll = useFeedScroll();
+  const contentScrollProgressSV = feedScroll?.contentScrollProgressSV;
 
   // Get channel colors from cache
   const { colors: channelColors } = useChannelColors(channel?.id || channel?.uri);
@@ -448,7 +450,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   }, []);
 
   const dimOverlayStyle = useAnimatedStyle(() => {
-    const progress = headerScrollProgress?.value ?? 0;
+    const progress = contentScrollProgressSV?.value ?? 0;
     if (dimOverlayDisabled) {
       return {
         position: 'absolute',
@@ -472,7 +474,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
       opacity: overlayOpacity,
       pointerEvents: 'none',
     };
-  }, [headerScrollProgress, dimOverlayDisabled]);
+  }, [contentScrollProgressSV, dimOverlayDisabled]);
 
   // Create children with subscribe button and other content
   const headerChildren = useMemo(
@@ -556,7 +558,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
           minHeight={isOrbyt ? 450 : undefined}
           contentPosition={isOrbyt ? 'bottom' : 'top'}
           hasTabs={hasTabs}
-          contentScrollProgress={contentFadeDisabled ? undefined : headerScrollProgress}
+          contentScrollProgress={contentFadeDisabled ? undefined : contentScrollProgressSV}
         >
           {headerChildren}
         </UniversalHeader>

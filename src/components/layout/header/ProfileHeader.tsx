@@ -1,12 +1,8 @@
 import React, { memo, useMemo, useCallback, useState, useEffect } from 'react';
 import { StatusBar, Pressable, StyleSheet, View, ViewStyle } from 'react-native';
-import Animated, {
-  type SharedValue,
-  useAnimatedStyle,
-  interpolate,
-  Extrapolate,
-} from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, interpolate, Extrapolate } from 'react-native-reanimated';
 import UniversalHeader, { HeaderContent } from './UniversalHeader';
+import { useFeedScroll } from '../../../context/FeedScrollContext';
 import { useProfile } from '../../../services/data/ProfileService';
 import { getProfileColors } from '../../../utils/formatting/colors';
 import { useProfileFlags } from '../../../stores/profileInteractionStore';
@@ -26,7 +22,6 @@ interface ProfileHeaderProps {
   applySafeArea?: boolean;
   headerStyle?: ViewStyle;
   onColorsChange?: (colors: { backgroundColor: string; textColor: string }) => void;
-  headerScrollProgress?: SharedValue<number>;
   contentFadeDisabled?: boolean;
   dimOverlayDisabled?: boolean;
   onAvatarPress?: () => void;
@@ -40,7 +35,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   applySafeArea = false,
   headerStyle,
   onColorsChange,
-  headerScrollProgress,
   contentFadeDisabled = false,
   dimOverlayDisabled = false,
   onAvatarPress,
@@ -48,6 +42,9 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 }) => {
   const [showVerificationInfo, setShowVerificationInfo] = useState(false);
   const [showBetaInfo, setShowBetaInfo] = useState(false);
+
+  const feedScroll = useFeedScroll();
+  const contentScrollProgressSV = feedScroll?.contentScrollProgressSV;
 
   // Use profile data from React Query cache
   const { data: profile } = useProfile(handle);
@@ -162,7 +159,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   }, [dynamicColors, onColorsChange]);
 
   const dimOverlayStyle = useAnimatedStyle(() => {
-    const progress = headerScrollProgress?.value ?? 0;
+    const progress = contentScrollProgressSV?.value ?? 0;
     if (dimOverlayDisabled) {
       return { ...StyleSheet.absoluteFillObject, opacity: 0, pointerEvents: 'none' };
     }
@@ -173,7 +170,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       opacity: interpolate(progress, [0, 0.4, 1], [0, 0, 0.3], Extrapolate.CLAMP),
       pointerEvents: 'none',
     };
-  }, [headerScrollProgress]);
+  }, [contentScrollProgressSV]);
 
   return (
     <>
@@ -194,7 +191,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
           isLoading={false}
           applySafeArea={applySafeArea}
           reserveTopForOverlayButtons={!headerStyle}
-          contentScrollProgress={contentFadeDisabled ? undefined : headerScrollProgress}
+          contentScrollProgress={contentFadeDisabled ? undefined : contentScrollProgressSV}
           style={headerStyle}
           showShadowGradient={false}
         >

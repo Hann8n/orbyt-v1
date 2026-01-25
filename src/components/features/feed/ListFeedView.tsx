@@ -20,7 +20,7 @@ import {
   type RefreshControlProps,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useSharedValue } from 'react-native-reanimated';
+import { useSharedValue, useDerivedValue } from 'react-native-reanimated';
 import {
   FlashList,
   FlashListRef,
@@ -522,6 +522,12 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       [headerHeight]
     );
 
+    const fadeDist = hasHeader ? SCROLL_CONSTANTS.HEADER_FADE_DISTANCE : 0;
+    const contentScrollProgressSV = useDerivedValue(() => {
+      'worklet';
+      return fadeDist > 0 ? Math.max(0, Math.min(1, scrollOffsetYSV.value / fadeDist)) : 0;
+    }, [scrollOffsetYSV, fadeDist]);
+
     // Memoize context value to avoid unnecessary re-renders of list consumers when layout/scroll haven't changed.
     // Must be before the grid early return so hooks run in the same order every render.
     const feedScrollValue = useMemo(
@@ -530,8 +536,15 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         headerHeight,
         viewportHeight: viewportDimensions.height,
         itemSpacing,
+        contentScrollProgressSV,
       }),
-      [scrollOffsetYSV, headerHeight, viewportDimensions.height, itemSpacing]
+      [
+        scrollOffsetYSV,
+        headerHeight,
+        viewportDimensions.height,
+        itemSpacing,
+        contentScrollProgressSV,
+      ]
     );
 
     // Grid view rendering
