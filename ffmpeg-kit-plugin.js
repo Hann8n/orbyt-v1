@@ -173,8 +173,11 @@ module.exports = (config, options = {}) => {
     );
   }
 
-  return withPlugins(config, [
-    config => withFfmpegKitIos(config, { iosUrl }),
-    config => withFfmpegKitAndroid(config, { androidLocalPath }),
-  ]);
+  const plugins = [config => withFfmpegKitIos(config, { iosUrl })];
+  // Only configure Android full-gpl when androidLocalPath is provided.
+  // When omitted, Android uses ffmpeg-kit-https from Maven (smaller size).
+  if (androidLocalPath) {
+    plugins.push(config => withFfmpegKitAndroid(config, { androidLocalPath }));
+  }
+  return withPlugins(config, plugins);
 };

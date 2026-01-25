@@ -157,6 +157,14 @@ if [[ "$PLATFORM" == "android" || "$PLATFORM" == "all" ]]; then
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo "Step 4: Building Android AAB"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  bash "$SCRIPT_DIR/ensure-android-keystore-props.sh" || exit 1
+  if [ ! -f "$PROJECT_DIR/android/keystore.properties" ]; then
+    echo "❌ android/keystore.properties not found. Release AAB requires .env with:"
+    echo "   ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD"
+    echo "   Optional: ANDROID_KEYSTORE_PATH (default: .backup/orbyt-upload-key.keystore)"
+    echo "   Copy .env.example to .env and fill in your keystore credentials."
+    exit 1
+  fi
   if [ -d "android" ]; then
   cd android
   echo "  Building (this may take several minutes)..."

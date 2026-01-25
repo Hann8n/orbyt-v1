@@ -10,7 +10,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.getorbyt.app",
-      "buildNumber": "24",
+      "buildNumber": "34",
       "developmentTeam": "D8VXFBV8SJ",
       "icon": "./src/assets/AppIcons/iOS/orbyt.png",
       "infoPlist": {
@@ -29,7 +29,7 @@
         "backgroundColor": "#000000"
       },
       "package": "com.orbyt.app",
-      "versionCode": 24,
+      "versionCode": 34,
       "permissions": ["CAMERA", "RECORD_AUDIO"]
     },
     "web": {
@@ -92,6 +92,7 @@
           },
           "android": {
             "targetSdkVersion": 36,
+            "buildArchs": ["arm64-v8a"],
             "packagingOptions": {
               "pickFirsts": ["builddef.lst", "**/builddef.lst"],
               "excludes": ["builddef.lst", "**/builddef.lst"]
@@ -100,6 +101,7 @@
         }
       ],
       "./with-android-large-heap.js",
+      "./with-android-signing.js",
       "expo-asset",
       "expo-background-task",
       "expo-secure-store",
@@ -108,8 +110,7 @@
       [
         "./ffmpeg-kit-plugin.js",
         {
-          "iosUrl": "https://github.com/NooruddinLakhani/ffmpeg-kit-ios-full-gpl/archive/refs/tags/latest.zip",
-          "androidLocalPath": "./patches/ffmpeg-kit-full-gpl.aar"
+          "iosUrl": "https://github.com/NooruddinLakhani/ffmpeg-kit-ios-full-gpl/archive/refs/tags/latest.zip"
         }
       ],
       [

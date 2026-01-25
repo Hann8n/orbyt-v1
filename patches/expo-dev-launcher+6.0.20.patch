@@ -1,12 +1,48 @@
+diff --git a/node_modules/expo-dev-launcher/expo-dev-launcher.podspec b/node_modules/expo-dev-launcher/expo-dev-launcher.podspec
+index ffcac95..a388aa5 100644
+--- a/node_modules/expo-dev-launcher/expo-dev-launcher.podspec
++++ b/node_modules/expo-dev-launcher/expo-dev-launcher.podspec
+@@ -11,6 +11,9 @@ end
+ 
+ reactNativeTargetVersion = reactNativeVersion.split('.')[1].to_i
+ 
++# RN 0.81+ with prebuilt does not link RCTPackagerConnection; exclude the interceptor to avoid undefined symbol.
++rn81_or_newer = (Gem::Version.new(reactNativeVersion) >= Gem::Version.new('0.81.0')) rescue false
++
+ Pod::Spec.new do |s|
+   s.name           = 'expo-dev-launcher'
+   s.version        = package['version']
+@@ -57,6 +60,9 @@ Pod::Spec.new do |s|
+   if new_arch_enabled
+     other_c_flags += ' -DRN_FABRIC_ENABLED -DRCT_NEW_ARCH_ENABLED'
+   end
++  if rn81_or_newer
++    other_c_flags += ' -DEX_DEV_LAUNCHER_SKIP_PACKAGER_INTERCEPTOR=1'
++  end
+ 
+   s.xcconfig = {
+     'GCC_PREPROCESSOR_DEFINITIONS' => "EX_DEV_LAUNCHER_VERSION=#{s.version}",
+@@ -119,7 +125,10 @@ Pod::Spec.new do |s|
+ 
+   s.subspec 'Unsafe' do |unsafe|
+     unsafe.source_files = 'ios/Unsafe/**/*.{h,m,mm,swift,cpp}'
+-    unsafe.compiler_flags = '-x objective-c++ -std=c++20 -fno-objc-arc' # Disable Automatic Reference Counting
++    if rn81_or_newer
++      unsafe.exclude_files = ['ios/Unsafe/RCTPackagerConnection+EXDevLauncherPackagerConnectionInterceptor.h', 'ios/Unsafe/RCTPackagerConnection+EXDevLauncherPackagerConnectionInterceptor.m']
++    end
++    unsafe.compiler_flags = '-x objective-c++ -std=c++20 -fno-objc-arc' # Disable Automatic Reference Counting; RN 0.81+ excludes PackagerConnection interceptor via exclude_files
+   end
+ 
+   s.subspec 'Main' do |main|
 diff --git a/node_modules/expo-dev-launcher/ios/EXDevLauncherController.m b/node_modules/expo-dev-launcher/ios/EXDevLauncherController.m
-index 0fc0dd9..a9f6f74 100644
+index 0fc0dd9..08d566e 100644
 --- a/node_modules/expo-dev-launcher/ios/EXDevLauncherController.m
 +++ b/node_modules/expo-dev-launcher/ios/EXDevLauncherController.m
 @@ -13,7 +13,9 @@
  #import <EXDevLauncher/EXDevLauncherManifestParser.h>
  #import <EXDevLauncher/EXDevLauncherRCTDevSettings.h>
  #import <EXDevLauncher/EXDevLauncherUpdatesHelper.h>
-+#if __has_include(<React/RCTPackagerConnection.h>)
++#if !defined(EX_DEV_LAUNCHER_SKIP_PACKAGER_INTERCEPTOR) && __has_include(<React/RCTPackagerConnection.h>)
  #import <EXDevLauncher/RCTPackagerConnection+EXDevLauncherPackagerConnectionInterceptor.h>
 +#endif
  
