@@ -716,16 +716,16 @@ const EditProfileScreen: React.FC = () => {
         };
       } = {};
 
-      // Check displayName
-      const displayNameChanged = editDisplayName !== profileData.displayName;
+      // Check displayName — allow empty string to clear (no name)
+      const displayNameChanged = (profileData.displayName ?? '') !== editDisplayName;
       if (displayNameChanged) {
-        updates.displayName = editDisplayName || undefined;
+        updates.displayName = editDisplayName;
       }
 
-      // Check description
-      const descriptionChanged = editDescription !== profileData.description;
+      // Check description — allow empty string to clear (no about)
+      const descriptionChanged = (profileData.description ?? '') !== editDescription;
       if (descriptionChanged) {
-        updates.description = editDescription || undefined;
+        updates.description = editDescription;
       }
 
       // Check avatar
