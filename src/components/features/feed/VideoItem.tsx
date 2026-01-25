@@ -3,10 +3,11 @@
  * Updated for unified snapping system
  */
 
-import React, { useRef, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 
-import VideoCard, { VideoCardRef } from '../video/VideoCard';
+import { useVisibilityCoreStore } from '../../../core/visibility';
+import VideoCard from '../video/VideoCard';
 import type { ExtendedPostView, ExtendedFeedViewPost, PostView } from '../../../services/api/types';
 import { getVideoView } from '../../../utils/video/helpers';
 import { Colors } from '../../ui/UI';
@@ -18,7 +19,7 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // Types
 // Post can be ExtendedPostView, ExtendedFeedViewPost, or simplified post structure
-export type Post =
+type Post =
   | ExtendedPostView
   | ExtendedFeedViewPost
   | {
@@ -38,11 +39,11 @@ export interface VideoItemProps {
   feedItem?: ExtendedFeedViewPost; // Preferred - contains feedContext and reqId natively
   height?: number;
   feedOption?: string;
-  isVisible?: boolean;
+  canPlay?: boolean;
+  isHeaderBlockingPlayback?: boolean;
   shouldBlur?: boolean; // Simple flag from parent (computed at feed level for performance)
   isModal?: boolean;
   index?: number;
-  allowPlayback?: boolean;
 }
 
 const VideoItem: React.FC<VideoItemProps> = ({
@@ -50,13 +51,21 @@ const VideoItem: React.FC<VideoItemProps> = ({
   feedItem,
   height,
   feedOption,
-  isVisible = false,
-  shouldBlur = false, // Simple flag from parent (computed at feed level)
+  canPlay = false,
+  isHeaderBlockingPlayback = false,
+  shouldBlur = false,
   isModal = false,
-  index: _index = 0,
-  allowPlayback = true,
+  index = 0,
 }) => {
-  const videoRef = useRef<VideoCardRef>(null);
+  // Overlay when viewable for this feed (frozen+overlay on inactive); play only when active feed.
+  // Boolean selector (isActiveFeed) avoids subscribing to activeFeedKey string; fewer rerenders when switching feeds.
+  const isActiveFeed = useVisibilityCoreStore(s => s.activeFeedKey === (feedOption ?? ''));
+  const lastViewable = useVisibilityCoreStore(
+    s => s.lastViewableIndexByFeed[feedOption ?? ''] ?? -1
+  );
+  const isViewable = lastViewable === index;
+  const isVisible = isViewable && !isHeaderBlockingPlayback;
+  const allowPlayback = isViewable && isActiveFeed && canPlay && !isHeaderBlockingPlayback;
 
   // Simplified calculations - no memoization needed for simple operations
   const itemHeight = height || SCREEN_HEIGHT;
@@ -64,7 +73,6 @@ const VideoItem: React.FC<VideoItemProps> = ({
   // Extract video embed and URL using getVideoView helper + direct property access
   const embed = 'embed' in post ? (post.embed as PostView['embed']) : undefined;
   const videoView = getVideoView(embed);
-  const videoEmbed = videoView;
   const videoUrl = videoView?.playlist || null;
 
   const hasVideo = !!videoUrl;
@@ -84,6 +92,16 @@ const VideoItem: React.FC<VideoItemProps> = ({
     [itemHeight]
   );
 
+  // Memoize merged post so VideoCard's memo can skip when uri/cid/video unchanged (FlashList recycling)
+  const postUri = getPostUri(post) ?? '';
+  const postCid = getPostCid(post) ?? '';
+  const normalizedPost = useMemo(
+    () => ({ ...post, embed: videoView }) as VideoCardPost,
+    // Deps by stable identity (uri/cid/video) for FlashList recycling; post/videoView used in callback
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [postUri, postCid, videoUrl]
+  );
+
   // Early return if no video
   if (!hasVideo) {
     return null;
@@ -95,8 +113,7 @@ const VideoItem: React.FC<VideoItemProps> = ({
   return (
     <View style={containerStyle}>
       <VideoCard
-        ref={videoRef}
-        post={{ ...post, embed: videoEmbed } as VideoCardPost}
+        post={normalizedPost}
         feedItem={feedItem}
         isVisible={isVisible}
         shouldDisablePlayback={!allowPlayback}
@@ -141,14 +158,14 @@ const getPostCid = (post: Post): string | undefined => {
 
 // Custom comparison function for memoization
 // Compares by value (URI/CID + optional feed properties) rather than post object reference
+// isVisible and allowPlayback are derived from store in the component; areEqual only compares props
 const areEqual = (prevProps: VideoItemProps, nextProps: VideoItemProps) => {
-  // Compare primitives
   if (
     prevProps.height !== nextProps.height ||
     prevProps.feedOption !== nextProps.feedOption ||
-    prevProps.isVisible !== nextProps.isVisible ||
+    prevProps.canPlay !== nextProps.canPlay ||
+    prevProps.isHeaderBlockingPlayback !== nextProps.isHeaderBlockingPlayback ||
     prevProps.isModal !== nextProps.isModal ||
-    prevProps.allowPlayback !== nextProps.allowPlayback ||
     prevProps.index !== nextProps.index ||
     prevProps.shouldBlur !== nextProps.shouldBlur
   ) {

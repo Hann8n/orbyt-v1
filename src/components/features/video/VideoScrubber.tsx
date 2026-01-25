@@ -112,10 +112,12 @@ const VideoScrubberComponent = ({
     }
   }, [player, currentTimeSV, seekProgressSV]);
 
-  // Read-only duration sync - never affects player
-  const { status: playerStatus } = useEvent(player as VideoPlayer | undefined, 'statusChange', {
-    status: player?.status ?? 'idle',
-  });
+  // Read-only duration sync - never affects player. useEvent requires a non-undefined emitter.
+  const { status: playerStatus } = useEvent(
+    player ?? ({ addListener: () => () => {} } as unknown as VideoPlayer),
+    'statusChange',
+    { status: player?.status ?? 'idle' }
+  );
 
   useEffect(() => {
     if (!player || !active) return;

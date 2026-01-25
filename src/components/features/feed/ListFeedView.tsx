@@ -42,7 +42,7 @@ import {
 } from '../../../utils/constants';
 import type { FeedListItem, EndCardItem, ListFeedViewProps, ListFeedViewRef } from '../../../types';
 import type { ExtendedFeedViewPost } from '../../../services/api/types';
-import { useFeedVisibility } from '../../../hooks';
+import { useFeedVisibility, useVisibilityCoreStore } from '../../../core/visibility';
 
 // Constants
 const CONSTANTS = {
@@ -156,9 +156,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     // Refs
     const flashListRef = useRef<FlashListRef<FeedListItem>>(null);
 
-    // Removed cache optimization to avoid setState in effects
-    // Computing offsets directly is fast enough for the use case
-
     // Expose scrollToTop method
     useImperativeHandle(
       ref,
@@ -169,8 +166,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       }),
       []
     );
-    // Track current scroll offset for header blocking
-    const currentScrollOffsetRef = useRef<number>(0);
 
     // Device detection
     const isSmallDevice = useMemo(() => isSmallScreen() || isTablet(), []);
@@ -187,17 +182,13 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     // Viewport calculations
     const viewportDimensions = useMemo(() => {
-      const { width, height } = Dimensions.get('window');
+      const { height } = Dimensions.get('window');
       const bottomNavBarHeight = getBottomNavBarHeight(insets);
-
       const viewportHeight = isSmallDevice ? height : height - bottomNavBarHeight - insets.top;
-
       return {
-        width,
         height: viewportHeight,
         effectiveInsets: insets,
         bottomNavBarHeight,
-        isFullScreen: isSmallDevice,
       };
     }, [isSmallDevice, insets]);
 
@@ -209,25 +200,14 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       return getVideoCardHeight(viewportDimensions.effectiveInsets);
     }, [viewportDimensions.height, viewportDimensions.effectiveInsets, isSmallDevice]);
 
-    const { onViewableItemsChanged, viewabilityConfig, activeItemIndexRef, extraData, canPlay } =
-      useFeedVisibility({
-        isActive: Boolean(isVisible),
-      });
+    const { onViewableItemsChanged, viewabilityConfig, canPlay } = useFeedVisibility({
+      feedKey: feedOption,
+      isActive: Boolean(isVisible),
+    });
 
     // Track scroll-based blocking state (updated by scroll handler)
     // Initialize to true if header exists (assume at top on mount)
     const [scrollBasedBlocking, setScrollBasedBlocking] = useState(() => Boolean(headerComponent));
-    const prevHeaderComponentRef = useRef(headerComponent);
-
-    // Reset scroll offset ref when header component changes (refs are safe in effects)
-    // State reset is handled in scroll handler to avoid setState in effect
-    useEffect(() => {
-      const prev = prevHeaderComponentRef.current;
-      prevHeaderComponentRef.current = headerComponent;
-      if (prev !== headerComponent) {
-        currentScrollOffsetRef.current = 0;
-      }
-    }, [headerComponent]);
 
     // Compute final blocking state in render
     const isHeaderBlockingPlayback = useMemo(() => {
@@ -314,8 +294,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     const onScrollNative = useCallback(
       (e: NativeSyntheticEvent<NativeScrollEvent>) => {
         const offsetY = e.nativeEvent.contentOffset.y;
-        // Track current scroll offset for state initialization
-        currentScrollOffsetRef.current = offsetY;
 
         // Update header blocking state: block if scroll is less than threshold from top
         // Also handle header component changes (reset handled in scroll handler to avoid setState in effect)
@@ -343,19 +321,13 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     );
 
     // Render item function - optimized to reduce dependencies and rerenders
+    // VideoItem derives isVisible from store (activeFeedKey+lastViewableIndexByFeed) and allowPlayback from isVisible&&canPlay
     const renderItem = useCallback(
       ({ item, index, target }: ListRenderItemInfo<FeedListItem>) => {
         // FlashList may call renderItem with target='Measurement' for layout; skip heavy work (video, images)
         if (target === 'Measurement') {
           return <View style={{ height: cardHeight }} />;
         }
-        const canPlayWithHeader = canPlay && !isHeaderBlockingPlayback;
-        // Use ref directly for immediate access (no React state delay)
-        const isCentered = index === activeItemIndexRef.current;
-        // Video is "visible" for tracking if centered - maintains tracking even when feed is inactive
-        // Dim video when header is blocking (treat as non-visible for dimming, but still tracked)
-        // allowPlayback controls actual playback based on canPlay state
-        const isVideoVisible = isCentered && !isHeaderBlockingPlayback;
 
         // Type guard for endCard
         if ('endCard' in item && item.endCard) {
@@ -371,7 +343,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
         // item is ExtendedFeedViewPost here
         const feedItem = item as ExtendedFeedViewPost;
-        // Get moderation flags from feed item (computed at feed level)
         const shouldBlur = feedItem.shouldBlur ?? false;
 
         return (
@@ -380,24 +351,15 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
             post={feedItem.post}
             height={cardHeight}
             feedOption={feedOption as 'following' | 'discover'}
-            isVisible={isVideoVisible}
-            allowPlayback={isCentered && canPlayWithHeader}
+            canPlay={canPlay}
+            isHeaderBlockingPlayback={isHeaderBlockingPlayback}
             shouldBlur={shouldBlur}
             isModal={isModal}
             index={index}
           />
         );
       },
-      [
-        cardHeight,
-        feedOption,
-        canPlay,
-        isModal,
-        secondaryColor,
-        isHeaderBlockingPlayback,
-        activeItemIndexRef, // Stable ref, included for completeness
-        // profileColors removed - unnecessary dependency
-      ]
+      [cardHeight, feedOption, canPlay, isModal, secondaryColor, isHeaderBlockingPlayback]
     );
 
     // Item type for FlashList recycling optimization
@@ -453,14 +415,15 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       return undefined;
     }, [targetScrollIndex, viewMode, listData.length]);
 
-    // Orientation change handling - use FlashList's scrollToIndex directly
+    // Only adjust scroll when this feed is the active pager page; use this feed's own viewable index
     const handleOrientationChange = useCallback(
       (_event: { window: ScaledSize }) => {
-        const currentActiveIndex = activeItemIndexRef.current;
-        if (flashListRef.current && feed.length > 0 && currentActiveIndex >= 0) {
+        const { activeFeedKey, lastViewableIndexByFeed } = useVisibilityCoreStore.getState();
+        const idx = lastViewableIndexByFeed[feedOption] ?? -1;
+        if (flashListRef.current && feed.length > 0 && activeFeedKey === feedOption && idx >= 0) {
           try {
             flashListRef.current.scrollToIndex({
-              index: currentActiveIndex,
+              index: idx,
               animated: false,
               viewPosition: 0.5,
             });
@@ -469,7 +432,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           }
         }
       },
-      [activeItemIndexRef, feed]
+      [feedOption, feed.length]
     );
 
     useEffect(() => {
@@ -612,7 +575,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           renderItem={renderItem}
           keyExtractor={keyExtractor}
           getItemType={getItemType}
-          extraData={extraData}
           initialScrollIndex={initialScrollIndex}
           ListHeaderComponent={
             headerComponent ? (

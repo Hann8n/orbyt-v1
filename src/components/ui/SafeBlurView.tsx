@@ -1,4 +1,4 @@
-import React from 'react';
+import { memo } from 'react';
 import { Platform, type ViewProps } from 'react-native';
 import { BlurView, type BlurViewProps } from 'expo-blur';
 import * as Device from 'expo-device';
@@ -19,7 +19,7 @@ export type SafeBlurViewProps = Omit<BlurViewProps, 'experimentalBlurMethod'> & 
   style?: ViewProps['style'];
 };
 
-export function SafeBlurView(props: SafeBlurViewProps) {
+function SafeBlurViewComponent(props: SafeBlurViewProps) {
   const experimentalBlurMethod =
     Platform.OS === 'android'
       ? Device.isDevice
@@ -42,3 +42,5 @@ export function SafeBlurView(props: SafeBlurViewProps) {
     />
   );
 }
+
+export const SafeBlurView = memo(SafeBlurViewComponent);
