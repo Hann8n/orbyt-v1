@@ -5,7 +5,6 @@
  * Replaces: useFeedQuery.tsx, useInfiniteScroll.tsx
  */
 
-import { useMemo } from 'react';
 import { useInfiniteQuery, type InfiniteData } from '@tanstack/react-query';
 import { feedService, FeedOption, FeedItem } from '../services/FeedService';
 import { useUserStore } from '../stores/userStore';
@@ -24,7 +23,8 @@ export const FEED_CONFIG = {
 interface UseFeedOptions {
   enabled?: boolean;
   staleTime?: number;
-  cacheTime?: number;
+  /** Maps to useInfiniteQuery's gcTime (React Query v5; cacheTime was removed) */
+  gcTime?: number;
   refetchOnWindowFocus?: boolean;
   refetchOnMount?: boolean;
 }
@@ -98,7 +98,7 @@ export function useFeed(
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage: FeedResponse) => lastPage?.cursor ?? null,
     staleTime: queryOptions.staleTime ?? FEED_CONFIG.STALE_TIME,
-    gcTime: queryOptions.cacheTime ?? FEED_CONFIG.GC_TIME,
+    gcTime: queryOptions.gcTime ?? FEED_CONFIG.GC_TIME,
     retry: FEED_CONFIG.MAX_RETRIES,
     retryDelay: FEED_CONFIG.RETRY_DELAY,
     refetchOnWindowFocus: queryOptions.refetchOnWindowFocus ?? false,
@@ -109,26 +109,9 @@ export function useFeed(
     placeholderData: (
       previousData: InfiniteData<FeedResponse, string | null> | undefined
     ): InfiniteData<FeedResponse, string | null> | undefined => previousData,
-  } as Parameters<typeof useInfiniteQuery>[0]);
-
-  // Flatten feed pages - React Query handles deduplication via queryKey
-  // Moderation computation deferred to render time for better performance
-  const feed = useMemo(() => {
-    if (!query.data?.pages) {
-      return [] as FeedItem[];
-    }
-
-    // Simply flatten pages - no deduplication needed (React Query handles it)
-    // No moderation computation here - components will compute on render
-    const flattened: FeedItem[] = [];
-    for (const page of query.data.pages) {
-      const feedResponse = page as FeedResponse;
-      if (feedResponse?.feed && Array.isArray(feedResponse.feed)) {
-        flattened.push(...(feedResponse.feed as FeedItem[]));
-      }
-    }
-    return flattened;
-  }, [query.data]);
+    // Flatten pages into a single feed array; getNextPageParam still receives raw lastPage
+    select: data => (data?.pages ?? []).flatMap(p => (p as FeedResponse)?.feed ?? []) as FeedItem[],
+  });
 
   // Removed custom prefetching - FlashList's onEndReached with React Query's fetchNextPage handles this natively
 
@@ -141,11 +124,11 @@ export function useFeed(
     Boolean(userDid);
 
   return {
-    // Data
-    feed,
+    // Data (select flattens data.pages → FeedItem[])
+    feed: (query.data ?? []) as FeedItem[],
     isLoading: query.isLoading,
     isError: query.isError,
-    error: query.error,
+    error: (query.error ?? null) as Error | null,
     isFetching: query.isFetching, // React Query's built-in fetching state (includes refetching)
     isRefetching: query.isRefetching, // React Query's refetching state (distinguishes refetch from initial load)
     isFetchingNextPage: query.isFetchingNextPage,

@@ -30,8 +30,7 @@ import type {
   FeedGeneratorOutput,
   VideoSearchResponse,
   GetAuthorFeedOutput,
-  GetFeedOutput,
-  GetActorLikesOutput,
+  RawFeedApiOutput,
   RepostView,
   GeneratorView,
   CreateRecordResponse,
@@ -80,7 +79,7 @@ export class FeedService {
 
       const { api } = apiClient;
 
-      let responseData: GetAuthorFeedOutput | GetFeedOutput | GetActorLikesOutput;
+      let responseData: RawFeedApiOutput;
 
       // Unified feed handling based on feedType
       if (feedType === 'author' || feedType === 'authorVideos') {

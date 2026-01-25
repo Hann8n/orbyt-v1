@@ -63,11 +63,11 @@ interface FeedRendererProps {
   isFetchingNextPage?: boolean;
   fetchNextPage?: () => void;
 
-  // Query options
+  // Query options (gcTime = React Query v5; replaces legacy cacheTime)
   queryOptions?: {
     enabled?: boolean;
     staleTime?: number;
-    cacheTime?: number;
+    gcTime?: number;
     refetchOnWindowFocus?: boolean;
     refetchOnMount?: boolean;
   };
@@ -511,7 +511,7 @@ const areEqual = (prevProps: FeedRendererProps, nextProps: FeedRendererProps) =>
     // Both defined - compare properties
     if (prevQueryOpts.enabled !== nextQueryOpts.enabled) return false;
     if (prevQueryOpts.staleTime !== nextQueryOpts.staleTime) return false;
-    if (prevQueryOpts.cacheTime !== nextQueryOpts.cacheTime) return false;
+    if (prevQueryOpts.gcTime !== nextQueryOpts.gcTime) return false;
     if (prevQueryOpts.refetchOnWindowFocus !== nextQueryOpts.refetchOnWindowFocus) return false;
     if (prevQueryOpts.refetchOnMount !== nextQueryOpts.refetchOnMount) return false;
   }

@@ -344,7 +344,11 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     // Render item function - optimized to reduce dependencies and rerenders
     const renderItem = useCallback(
-      ({ item, index }: ListRenderItemInfo<FeedListItem>) => {
+      ({ item, index, target }: ListRenderItemInfo<FeedListItem>) => {
+        // FlashList may call renderItem with target='Measurement' for layout; skip heavy work (video, images)
+        if (target === 'Measurement') {
+          return <View style={{ height: cardHeight }} />;
+        }
         const canPlayWithHeader = canPlay && !isHeaderBlockingPlayback;
         // Use ref directly for immediate access (no React state delay)
         const isCentered = index === activeItemIndexRef.current;
@@ -411,21 +415,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       if ('endCard' in item && item.endCard) return 'end-card';
       return `${item.post.uri}:${item.post.cid}`;
     }, []);
-
-    // Stable overrideItemLayout callback - no margins needed, using ItemSeparatorComponent instead
-    const overrideItemLayout = useCallback(
-      (
-        layout: { span?: number },
-        _item: FeedListItem,
-        _index: number,
-        _maxColumns: number,
-        _extraData?: unknown
-      ) => {
-        // FlashList docs: layout.span is the only property we modify
-        layout.span = cardHeight;
-      },
-      [cardHeight]
-    );
 
     // Separator component for black gaps between items
     // Must be a component function, not a JSX element
@@ -624,7 +613,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           keyExtractor={keyExtractor}
           getItemType={getItemType}
           extraData={extraData}
-          overrideItemLayout={overrideItemLayout}
           initialScrollIndex={initialScrollIndex}
           ListHeaderComponent={
             headerComponent ? (

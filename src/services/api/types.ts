@@ -211,7 +211,10 @@ export type ExtendedFeedViewPost = FeedViewPost & {
 
 export type ThreadPost = ThreadViewPost | NotFoundPost | BlockedPost;
 
-// Feed response types
+// Raw app.bsky.feed API outputs (getFeed, getAuthorFeed, getActorLikes); normalized to FeedResponse
+export type RawFeedApiOutput = GetFeedOutput | GetAuthorFeedOutput | GetActorLikesOutput;
+
+// Feed response types: app-normalized shape extending RawFeedApiOutput with ExtendedFeedViewPost
 export interface FeedResponse {
   feed: ExtendedFeedViewPost[];
   cursor: string | null;
