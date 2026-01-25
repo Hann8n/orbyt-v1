@@ -13,7 +13,8 @@ const VIEWABILITY_CONFIG: ViewabilityConfig = {
 };
 
 interface FeedVisibilityOptions {
-  feedKey: string;
+  feedOption: string;
+  userDid?: string;
   isActive: boolean;
 }
 
@@ -21,17 +22,24 @@ interface FeedVisibilityResult {
   onViewableItemsChanged: ({ viewableItems }: { viewableItems: ViewToken[] }) => void;
   viewabilityConfig: ViewabilityConfig;
   canPlay: boolean;
+  feedKey: string;
 }
 
 /**
  * Visibility hook: both feeds render side-by-side; each feed is independent (own scroll, own cursor).
  * - setActiveFeedKey: which pager page is in view (only that feed's videos play).
  * - setLastViewableIndex(feedKey): per-feed viewable index.
+ * - feedKey: scope profile/likes/reposts by userDid so multiple instances (e.g. two profiles) stay independent.
  */
 export function useFeedVisibility({
-  feedKey,
+  feedOption,
+  userDid,
   isActive,
 }: FeedVisibilityOptions): FeedVisibilityResult {
+  const feedKey =
+    (feedOption === 'profile' || feedOption === 'likes' || feedOption === 'reposts') && userDid
+      ? `${feedOption}:${userDid}`
+      : feedOption;
   const appState = useVisibilityCoreStore(state => state.appState);
   const activeRoute = useVisibilityCoreStore(state => state.activeRoute);
   const setActiveFeedKey = useVisibilityCoreStore(state => state.setActiveFeedKey);
@@ -74,6 +82,7 @@ export function useFeedVisibility({
     onViewableItemsChanged,
     viewabilityConfig: VIEWABILITY_CONFIG,
     canPlay,
+    feedKey,
   };
 }
 

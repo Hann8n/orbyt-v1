@@ -39,6 +39,8 @@ export interface VideoItemProps {
   feedItem?: ExtendedFeedViewPost; // Preferred - contains feedContext and reqId natively
   height?: number;
   feedOption?: string;
+  /** Scoped key for visibility (e.g. profile:did). */
+  feedKey?: string;
   canPlay?: boolean;
   isHeaderBlockingPlayback?: boolean;
   isModal?: boolean;
@@ -50,19 +52,15 @@ const VideoItem: React.FC<VideoItemProps> = ({
   feedItem,
   height,
   feedOption,
+  feedKey,
   canPlay = false,
   isHeaderBlockingPlayback = false,
   isModal = false,
   index = 0,
 }) => {
-  // Overlay when viewable for this feed (frozen+overlay on inactive); play only when active feed.
-  // Boolean selector (isActiveFeed) avoids subscribing to activeFeedKey string; fewer rerenders when switching feeds.
-  // isViewable: selector returns true only when this item's index matches—only the old and new
-  // viewable items re-render on scroll, not all mounted VideoItems.
-  const isActiveFeed = useVisibilityCoreStore(s => s.activeFeedKey === (feedOption ?? ''));
-  const isViewable = useVisibilityCoreStore(
-    s => (s.lastViewableIndexByFeed[feedOption ?? ''] ?? -1) === index
-  );
+  const key = feedKey ?? feedOption ?? '';
+  const isActiveFeed = useVisibilityCoreStore(s => s.activeFeedKey === key);
+  const isViewable = useVisibilityCoreStore(s => (s.lastViewableIndexByFeed[key] ?? -1) === index);
   const isVisible = isViewable && !isHeaderBlockingPlayback;
   const allowPlayback = isViewable && isActiveFeed && canPlay && !isHeaderBlockingPlayback;
 
@@ -154,6 +152,7 @@ const areEqual = (prevProps: VideoItemProps, nextProps: VideoItemProps) => {
   if (
     prevProps.height !== nextProps.height ||
     prevProps.feedOption !== nextProps.feedOption ||
+    prevProps.feedKey !== nextProps.feedKey ||
     prevProps.canPlay !== nextProps.canPlay ||
     prevProps.isHeaderBlockingPlayback !== nextProps.isHeaderBlockingPlayback ||
     prevProps.isModal !== nextProps.isModal ||

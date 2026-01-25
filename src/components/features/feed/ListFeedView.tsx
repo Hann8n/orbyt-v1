@@ -220,8 +220,9 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       return getVideoCardHeight(viewportDimensions.effectiveInsets);
     }, [viewportDimensions.height, viewportDimensions.effectiveInsets, isSmallDevice]);
 
-    const { onViewableItemsChanged, viewabilityConfig, canPlay } = useFeedVisibility({
-      feedKey: feedOption,
+    const { onViewableItemsChanged, viewabilityConfig, canPlay, feedKey } = useFeedVisibility({
+      feedOption,
+      userDid,
       isActive: Boolean(isVisible),
     });
 
@@ -354,6 +355,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
             post={feedItem.post}
             height={cardHeight}
             feedOption={feedOption as 'following' | 'discover'}
+            feedKey={feedKey}
             canPlay={canPlay}
             isHeaderBlockingPlayback={isHeaderBlockingPlayback}
             isModal={isModal}
@@ -361,7 +363,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           />
         );
       },
-      [cardHeight, feedOption, canPlay, isModal, secondaryColor, isHeaderBlockingPlayback]
+      [cardHeight, feedOption, feedKey, canPlay, isModal, secondaryColor, isHeaderBlockingPlayback]
     );
 
     // Item type for FlashList recycling optimization
@@ -415,8 +417,8 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     const handleOrientationChange = useCallback(
       (_event: { window: ScaledSize }) => {
         const { activeFeedKey, lastViewableIndexByFeed } = useVisibilityCoreStore.getState();
-        const idx = lastViewableIndexByFeed[feedOption] ?? -1;
-        if (flashListRef.current && feed.length > 0 && activeFeedKey === feedOption && idx >= 0) {
+        const idx = lastViewableIndexByFeed[feedKey] ?? -1;
+        if (flashListRef.current && feed.length > 0 && activeFeedKey === feedKey && idx >= 0) {
           try {
             flashListRef.current.scrollToIndex({
               index: idx,
@@ -428,7 +430,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           }
         }
       },
-      [feedOption, feed.length]
+      [feedKey, feed.length]
     );
 
     useEffect(() => {
