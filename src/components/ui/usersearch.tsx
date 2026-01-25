@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { BORDER_RADIUS } from '../../utils/constants';
+import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../utils/constants';
 import { View, Text, FlatList, Pressable, StyleSheet, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useInfiniteQuery, InfiniteData } from '@tanstack/react-query';
@@ -162,7 +162,7 @@ export function UserSearchModal({
             onEndReached={() => {
               if (hasNextPage && !isFetchingNextPage) fetchNextPage();
             }}
-            onEndReachedThreshold={0.5}
+            onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
             keyboardShouldPersistTaps="handled"
             style={{ maxHeight: 260 }}
           />
@@ -278,7 +278,7 @@ export function RichTextSearchModal({
               onEndReached={() => {
                 if (hasMoreUsers && !isFetchingMoreUsers) fetchMoreUsers();
               }}
-              onEndReachedThreshold={0.5}
+              onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
               keyboardShouldPersistTaps="handled"
               style={styles.resultsList}
               contentContainerStyle={styles.resultsListContent}

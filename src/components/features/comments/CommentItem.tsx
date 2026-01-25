@@ -382,13 +382,26 @@ const CommentItem: React.FC<CommentItemProps> = ({
     [navigation, onDismiss, queryClient]
   );
 
+  // Supports: (handle, did, authorData) from chyron/parent press, and (handle, { did }) from TextWithLinks/Atproto RichText.
   const handleAuthorPress = useCallback(
     (
       handle: string,
-      did?: string | null,
+      didOrData?: string | null | { did?: string },
       authorData?: { did?: string; handle?: string; displayName?: string; avatar?: string }
     ) => {
-      navigateToAuthorProfile(handle, did, authorData);
+      const rawDid =
+        typeof didOrData === 'object' && didOrData && 'did' in didOrData
+          ? (didOrData as { did?: string }).did
+          : typeof didOrData === 'string' || didOrData === null
+            ? didOrData
+            : undefined;
+      const auth =
+        typeof didOrData === 'object' &&
+        didOrData &&
+        ('handle' in didOrData || 'displayName' in didOrData || 'avatar' in didOrData)
+          ? (didOrData as { did?: string; handle?: string; displayName?: string; avatar?: string })
+          : authorData;
+      navigateToAuthorProfile(handle, rawDid ?? undefined, auth);
     },
     [navigateToAuthorProfile]
   );

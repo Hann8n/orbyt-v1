@@ -1,241 +1,106 @@
-import React, { useState, useEffect } from 'react';
-import { Text, Alert, Linking, StyleSheet, TextStyle } from 'react-native';
-import { useMappingHelper } from '@shopify/flash-list';
-import type { RichTextFacet } from '../../utils/types/richText';
+import React, { useMemo } from 'react';
+import { Text, Linking, StyleSheet, TextStyle } from 'react-native';
+import { RichText } from '@atproto/api';
 
-interface TextPart {
-  text: string;
-  isAuthor?: boolean;
-  isUrl?: boolean;
-  isEmail?: boolean;
-  isHashtag?: boolean;
-  handle?: string;
-  url?: string;
-}
-
-interface TextWithLinksProps {
+export interface TextWithLinksProps {
   text: string;
   style?: TextStyle | TextStyle[];
   numberOfLines?: number;
-  onAuthorPress: (handle: string) => void;
-  onHashtagPress?: (hashtag: string) => void;
-  facets?: RichTextFacet[];
+  /** Called for @mention taps. handle: did or handle; data.did when from facet. */
+  onAuthorPress: (handle: string, data?: { did?: string }) => void;
+  onHashtagPress?: (tag: string) => void;
+  /** Called for link taps. If omitted, opens url with Linking.openURL. */
+  onLinkPress?: (uri: string) => void;
+  /** AT Protocol facets; if not provided, RichText.detectFacetsWithoutResolution is used. */
+  facets?: Array<{
+    index: { byteStart: number; byteEnd: number };
+    features: Array<{ $type: string; uri?: string; did?: string; tag?: string }>;
+  }>;
 }
 
-const TextWithLinksBase: React.FC<TextWithLinksProps> = ({
+function TextWithLinksBase({
   text,
   style,
   numberOfLines,
   onAuthorPress,
   onHashtagPress,
+  onLinkPress,
   facets,
-}) => {
-  const [textParts, setTextParts] = useState<TextPart[]>([]);
-  const { getMappingKey } = useMappingHelper();
-
-  const handleUrlPress = async (url: string) => {
-    const normalizedUrl = url.startsWith('http') ? url : `https://${url}`;
-    try {
-      const canOpen = await Linking.canOpenURL(normalizedUrl);
-      if (canOpen) {
-        await Linking.openURL(normalizedUrl);
-      }
-    } catch (error) {
-      console.error('Error opening URL:', error);
+}: TextWithLinksProps) {
+  const rt = useMemo(() => {
+    const r = new RichText({ text: text || '', facets });
+    if (!facets?.length) {
+      r.detectFacetsWithoutResolution();
     }
-  };
-
-  const handleEmailPress = async (email: string) => {
-    const mailtoUrl = `mailto:${email}`;
-    try {
-      const canOpen = await Linking.canOpenURL(mailtoUrl);
-      if (canOpen) {
-        await Linking.openURL(mailtoUrl);
-      } else {
-        Alert.alert('Cannot Open Email', 'No email app is configured on this device.');
-      }
-    } catch (error: unknown) {
-      console.error('Error handling email:', error);
-      Alert.alert('Error', 'Could not open email application. Please check your device settings.');
-    }
-  };
-
-  // Parse facets into text parts (new method using proper AT Protocol facets)
-  const parseFacetsToTextParts = (text: string, facets: RichTextFacet[]): TextPart[] => {
-    if (!facets || facets.length === 0) {
-      return [{ text }];
-    }
-
-    const parts: TextPart[] = [];
-    const decoder = new TextDecoder();
-    let lastIndex = 0;
-
-    // Sort facets by byte start position
-    const sortedFacets = [...facets].sort((a, b) => a.index.byteStart - b.index.byteStart);
-
-    for (const facet of sortedFacets) {
-      // Add text before the facet
-      if (facet.index.byteStart > lastIndex) {
-        const beforeText = decoder.decode(
-          new TextEncoder().encode(text).slice(lastIndex, facet.index.byteStart)
-        );
-        if (beforeText) {
-          parts.push({ text: beforeText });
-        }
-      }
-
-      // Add the facet text
-      const facetText = decoder.decode(
-        new TextEncoder().encode(text).slice(facet.index.byteStart, facet.index.byteEnd)
-      );
-
-      // Determine the type of facet
-      const linkFeature = facet.features.find(f => f.$type === 'app.bsky.richtext.facet#link');
-      const mentionFeature = facet.features.find(
-        f => f.$type === 'app.bsky.richtext.facet#mention'
-      );
-      const tagFeature = facet.features.find(f => f.$type === 'app.bsky.richtext.facet#tag');
-
-      if (linkFeature && linkFeature.uri) {
-        parts.push({ text: facetText, isUrl: true, url: linkFeature.uri });
-      } else if (mentionFeature && mentionFeature.did) {
-        parts.push({ text: facetText, isAuthor: true, handle: mentionFeature.did });
-      } else if (tagFeature && tagFeature.tag) {
-        parts.push({ text: facetText, isHashtag: true });
-      } else {
-        parts.push({ text: facetText });
-      }
-
-      lastIndex = facet.index.byteEnd;
-    }
-
-    // Add remaining text after the last facet
-    if (lastIndex < new TextEncoder().encode(text).length) {
-      const remainingText = decoder.decode(new TextEncoder().encode(text).slice(lastIndex));
-      if (remainingText) {
-        parts.push({ text: remainingText });
-      }
-    }
-
-    return parts;
-  };
-
-  useEffect(() => {
-    if (!text) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setTextParts([]);
-      return;
-    }
-
-    // Use facets-based parsing (AT Protocol standard)
-    if (facets && facets.length > 0) {
-      const parts = parseFacetsToTextParts(text, facets);
-
-      setTextParts(parts);
-    } else {
-      // Fallback to plain text if no facets available
-
-      setTextParts([{ text }]);
-    }
+    return r;
   }, [text, facets]);
+
+  const handleLinkPress = (uri: string) => {
+    if (onLinkPress) {
+      onLinkPress(uri);
+    } else {
+      const normalized = uri.startsWith('http') ? uri : `https://${uri}`;
+      Linking.openURL(normalized).catch(() => {});
+    }
+  };
 
   return (
     <Text style={style} numberOfLines={numberOfLines}>
-      {textParts.map((part, index) => {
-        // Use getMappingKey to generate optimized keys for FlashList recycling
-        const mappingKey = getMappingKey(part.text, index);
-
-        if (part.isAuthor && part.handle) {
-          // Split @ symbol from the text for mentions
-          const symbol = part.text[0] === '@' ? '@' : '';
-          const textAfterSymbol = symbol ? part.text.slice(1) : part.text;
-
+      {Array.from(rt.segments()).map((segment, i) => {
+        if (segment.isLink() && segment.link?.uri) {
           return (
             <Text
-              key={mappingKey}
-              onPress={() => onAuthorPress(part.handle!)}
-              suppressHighlighting={true}
-            >
-              {symbol && (
-                <Text key={`${mappingKey}-symbol`} style={style}>
-                  {symbol}
-                </Text>
-              )}
-              {textAfterSymbol && (
-                <Text key={`${mappingKey}-text`} style={[style, styles.authorLink]}>
-                  {textAfterSymbol}
-                </Text>
-              )}
-            </Text>
-          );
-        }
-        if (part.isUrl) {
-          return (
-            <Text
-              key={mappingKey}
+              key={`${i}-link`}
               style={[style, styles.link]}
-              onPress={() => handleUrlPress(part.url || part.text)}
-              suppressHighlighting={true}
+              onPress={() => handleLinkPress(segment.link!.uri!)}
+              suppressHighlighting
             >
-              {part.text}
+              {segment.text}
             </Text>
           );
         }
-        if (part.isHashtag) {
-          // Split # symbol from the text for hashtags
-          const symbol = part.text[0] === '#' ? '#' : '';
-          const textAfterSymbol = symbol ? part.text.slice(1) : part.text;
-
+        if (segment.isMention() && segment.mention?.did) {
           return (
             <Text
-              key={mappingKey}
-              onPress={() => onHashtagPress?.(part.text.replace('#', ''))}
-              suppressHighlighting={true}
+              key={`${i}-mention`}
+              style={[style, styles.mention]}
+              onPress={() => onAuthorPress(segment.mention!.did!, { did: segment.mention!.did })}
+              suppressHighlighting
             >
-              {symbol && (
-                <Text key={`${mappingKey}-symbol`} style={style}>
-                  {symbol}
-                </Text>
-              )}
-              {textAfterSymbol && (
-                <Text key={`${mappingKey}-text`} style={[style, styles.hashtagLink]}>
-                  {textAfterSymbol}
-                </Text>
-              )}
+              {segment.text}
             </Text>
           );
         }
-        if (part.isEmail) {
+        if (segment.isTag() && segment.tag?.tag && onHashtagPress) {
           return (
             <Text
-              key={mappingKey}
-              style={[style, styles.link]}
-              onPress={() => handleEmailPress(part.text)}
-              suppressHighlighting={true}
+              key={`${i}-tag`}
+              style={[style, styles.tag]}
+              onPress={() => onHashtagPress(segment.tag!.tag!)}
+              suppressHighlighting
             >
-              {part.text}
+              {segment.text}
             </Text>
           );
         }
-        return <Text key={mappingKey}>{part.text}</Text>;
+        return <Text key={`${i}-plain`}>{segment.text}</Text>;
       })}
     </Text>
   );
-};
+}
 
 const styles = StyleSheet.create({
   link: {
     textDecorationLine: 'underline',
     fontFamily: 'Figtree-Medium',
   },
-  authorLink: {
+  mention: {
     fontFamily: 'Figtree-SemiBold',
   },
-  hashtagLink: {
+  tag: {
     fontFamily: 'Figtree-SemiBold',
   },
 });
 
-// Also export a simpler version that only handles author mentions (alias for backward compatibility)
 export const TextWithLinks = React.memo(TextWithLinksBase);
 export const TextWithAuthorLinks = TextWithLinks;

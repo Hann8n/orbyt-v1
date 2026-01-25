@@ -655,7 +655,7 @@ const ShareSheet: React.FC = () => {
                     fetchMoreProfiles();
                   }
                 }}
-                onEndReachedThreshold={0.5}
+                onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
                 ListEmptyComponent={
                   <View style={styles.emptyContainer}>
                     <Text style={styles.emptyText}>No results</Text>

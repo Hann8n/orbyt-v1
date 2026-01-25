@@ -443,7 +443,16 @@ class FeedService {
               // Invalid cursor, start fresh
             }
           }
-          return await this.fetchSingleSource(singleSource, sourceCursor, limit, currentUserDid);
+          const resp = await this.fetchSingleSource(
+            singleSource,
+            sourceCursor,
+            limit,
+            currentUserDid
+          );
+          return {
+            feed: resp.feed,
+            cursor: resp.cursor ? JSON.stringify({ [singleSource.uri]: resp.cursor }) : null,
+          };
         }
 
         // Parse cursor to get source index and cursor
@@ -471,7 +480,7 @@ class FeedService {
           const source = feedSources[currentIndex];
           const result = await this.fetchFromSource(source, currentCursor, limit);
 
-          if (result.success && result.feed.length > 0) {
+          if (result.success) {
             // Add new posts (deduplicate by URI)
             for (const post of result.feed) {
               const uri = post.post?.uri;
@@ -480,15 +489,20 @@ class FeedService {
                 allPosts.push(post);
               }
             }
-
-            // Update cursor for this source
             currentCursor = result.cursor;
-          }
-
-          // If this source is exhausted or we have enough posts, move to next source
-          if (!currentCursor || allPosts.length >= limit) {
+          } else {
+            // Fetch failed - advance to next source
             currentIndex++;
             currentCursor = null;
+            continue;
+          }
+
+          if (!currentCursor) {
+            // Source exhausted - advance to next source
+            currentIndex++;
+            currentCursor = null;
+          } else if (allPosts.length >= limit) {
+            break;
           }
         }
 

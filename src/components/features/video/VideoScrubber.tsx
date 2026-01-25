@@ -179,21 +179,19 @@ const VideoScrubberComponent = ({
     }
   );
 
-  // Update current time display from shared value (for both seeking and normal playback)
+  // Update current time display from shared value (for both seeking and normal playback).
+  // Only call setCurrentSeekTime when scrubber is visible (seekingAnimationSV >= 0.2) to avoid
+  // rerenders during normal playback while scrolling—the time label is hidden when scrubber is hidden.
   useAnimatedReaction(
     () => {
       const isSeeking = isSeekingSV.get();
-      if (isSeeking) {
-        // When seeking, use seek progress
-        return Math.round(seekProgressSV.get());
-      } else {
-        // When not seeking, use current time
-        return Math.round(currentTimeSV.get());
-      }
+      const time = isSeeking ? Math.round(seekProgressSV.get()) : Math.round(currentTimeSV.get());
+      const seekingAnim = seekingAnimationSV.get();
+      return [time, seekingAnim] as const;
     },
-    (time, prevTime) => {
-      // Update if time changed
-      if (time !== prevTime && time >= 0) {
+    ([time, seekingAnim], prev) => {
+      const prevTime = prev?.[0];
+      if (time !== prevTime && time >= 0 && seekingAnim >= 0.2) {
         scheduleOnRN(setCurrentSeekTime, time);
       }
     }

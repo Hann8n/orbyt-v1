@@ -21,7 +21,12 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSharedValue } from 'react-native-reanimated';
-import { FlashList, FlashListRef, type ListRenderItemInfo } from '@shopify/flash-list';
+import {
+  FlashList,
+  FlashListRef,
+  type ListRenderItemInfo,
+  RenderTargetOptions,
+} from '@shopify/flash-list';
 import { useReportedPostsStore } from '../../../stores/reportedPostsStore';
 import { FeedScrollProvider } from '../../../context/FeedScrollContext';
 import EmptyFeed from './EmptyFeed';
@@ -118,6 +123,18 @@ const ListEmptyComponent = memo<ListEmptyComponentProps>(
 );
 
 ListEmptyComponent.displayName = 'ListEmptyComponent';
+
+// ViewHolder passes leadingItem/trailingItem; accept for FlashList v2 compat, ignore for static bar.
+const ItemSeparator = memo(
+  ({
+    leadingItem: _leadingItem,
+    trailingItem: _trailingItem,
+  }: {
+    leadingItem?: FeedListItem;
+    trailingItem?: FeedListItem;
+  }) => <View style={{ height: CONSTANTS.SEPARATOR_HEIGHT, backgroundColor: Colors.black }} />
+);
+ItemSeparator.displayName = 'ItemSeparator';
 
 const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
   (
@@ -321,8 +338,8 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     // VideoItem derives isVisible from store (activeFeedKey+lastViewableIndexByFeed) and allowPlayback from isVisible&&canPlay
     const renderItem = useCallback(
       ({ item, index, target }: ListRenderItemInfo<FeedListItem>) => {
-        // FlashList may call renderItem with target='Measurement' for layout; skip heavy work (video, images)
-        if (target === 'Measurement') {
+        // FlashList may call renderItem with target=Measurement for layout; skip heavy work (video, images)
+        if (target === RenderTargetOptions.Measurement) {
           return <View style={{ height: cardHeight }} />;
         }
 
@@ -373,12 +390,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     const keyExtractor = useCallback((item: FeedListItem, _index: number) => {
       if ('endCard' in item && item.endCard) return 'end-card';
       return `${item.post.uri}:${item.post.cid}`;
-    }, []);
-
-    // Separator component for black gaps between items
-    // Must be a component function, not a JSX element
-    const ItemSeparator = useCallback(() => {
-      return <View style={{ height: CONSTANTS.SEPARATOR_HEIGHT, backgroundColor: Colors.black }} />;
     }, []);
 
     // FlashList's native viewability handles item detection automatically
@@ -609,9 +620,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
             showsVerticalScrollIndicator={false}
             bounces={true}
             directionalLockEnabled={true}
-            maintainVisibleContentPosition={{
-              autoscrollToTopThreshold: undefined,
-            }}
             // Pull to refresh - disabled in modal mode
             refreshControl={
               isModal || !refreshControl

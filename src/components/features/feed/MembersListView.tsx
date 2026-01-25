@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
-import { BORDER_RADIUS } from '../../../utils/constants';
+import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../../utils/constants';
 import { View, Text, StyleSheet, Pressable, RefreshControl } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
@@ -420,7 +420,7 @@ const MembersListView: React.FC<MembersListViewProps> = ({
           />
         }
         onEndReached={handleEndReached}
-        onEndReachedThreshold={0.5}
+        onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
         onScrollBeginDrag={handleScrollBeginDrag}
         onScrollEndDrag={handleScrollEndDrag}
         onMomentumScrollEnd={handleMomentumScrollEnd}

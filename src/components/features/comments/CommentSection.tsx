@@ -35,7 +35,7 @@ import { HeartFillIcon, MoreFillIcon, CloseFillIcon, Loading3FillIcon } from '..
 import RelativeDate from '../../ui/RelativeDate';
 import AuthorItem from '../../ui/AuthorItem';
 import { useUserSearchTrigger } from '../../ui/usersearch';
-import { BORDER_RADIUS } from '../../../utils/constants';
+import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../../utils/constants';
 import { formatNumber } from '../../../utils/formatting/numbers';
 import { formatHandle } from '../../../utils/formatting/handles';
 import CommentInputFooter from './CommentInputFooter';
@@ -77,7 +77,6 @@ interface CommentSectionProps {
 
 const COMMENT_ITEM_ESTIMATE = 150;
 const LIKE_ITEM_ESTIMATE = 72;
-const END_REACHED_THRESHOLD = 0.45;
 const MAX_COMMENT_LENGTH = 300;
 
 const CommentSection: React.FC<CommentSectionProps> = ({
@@ -782,7 +781,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               nestedScrollEnabled
               scrollEventThrottle={16}
               onEndReached={onEndReachedComments}
-              onEndReachedThreshold={END_REACHED_THRESHOLD}
+              onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
               overrideItemLayout={layout => {
                 layout.span = COMMENT_ITEM_ESTIMATE;
               }}
@@ -803,7 +802,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               nestedScrollEnabled
               scrollEventThrottle={16}
               onEndReached={onEndReachedLikes}
-              onEndReachedThreshold={END_REACHED_THRESHOLD}
+              onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
               overrideItemLayout={layout => {
                 layout.span = LIKE_ITEM_ESTIMATE;
               }}

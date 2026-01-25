@@ -59,11 +59,12 @@ const VideoItem: React.FC<VideoItemProps> = ({
 }) => {
   // Overlay when viewable for this feed (frozen+overlay on inactive); play only when active feed.
   // Boolean selector (isActiveFeed) avoids subscribing to activeFeedKey string; fewer rerenders when switching feeds.
+  // isViewable: selector returns true only when this item's index matches—only the old and new
+  // viewable items re-render on scroll, not all mounted VideoItems.
   const isActiveFeed = useVisibilityCoreStore(s => s.activeFeedKey === (feedOption ?? ''));
-  const lastViewable = useVisibilityCoreStore(
-    s => s.lastViewableIndexByFeed[feedOption ?? ''] ?? -1
+  const isViewable = useVisibilityCoreStore(
+    s => (s.lastViewableIndexByFeed[feedOption ?? ''] ?? -1) === index
   );
-  const isViewable = lastViewable === index;
   const isVisible = isViewable && !isHeaderBlockingPlayback;
   const allowPlayback = isViewable && isActiveFeed && canPlay && !isHeaderBlockingPlayback;
 

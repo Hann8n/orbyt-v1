@@ -2321,7 +2321,7 @@ const ExploreScreen: React.FC = () => {
           onEndReached={() => {
             // No pagination for explore content
           }}
-          onEndReachedThreshold={0.5}
+          onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
           removeClippedSubviews={false}
           viewabilityConfig={viewabilityConfig}
           ListEmptyComponent={() => {

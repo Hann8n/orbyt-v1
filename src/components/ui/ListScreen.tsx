@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
-import { BORDER_RADIUS } from '../../utils/constants';
+import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../utils/constants';
 import { Colors } from './UI';
 import { Avatar, Icon } from './UI';
 import { Loading3FillIcon } from './Icon';
@@ -262,7 +262,7 @@ const ListScreen: React.FC<ListScreenProps> = ({
             onEndReached();
           }
         }}
-        onEndReachedThreshold={0.5}
+        onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
         ListEmptyComponent={renderEmpty}
         contentContainerStyle={[styles.listContainer, { paddingBottom: insets.bottom + 20 }]}
       />
