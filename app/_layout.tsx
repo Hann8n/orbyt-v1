@@ -40,6 +40,7 @@ import { QueryErrorBoundary } from '../src/components/ui/QueryErrorBoundary';
 import { SessionProvider, useSession } from '../src/context/SessionProvider';
 import { SplashScreenController } from '../src/components/ui/SplashScreenController';
 import { TabBarProvider } from '../src/context/FeedIndicatorContext';
+import { OverlayLayoutProvider } from '../src/context/OverlayLayoutContext';
 import { seenVideoService } from '../src/services/SeenVideoService';
 import { storage } from '../src/utils/storage/storage';
 import { logger } from '../src/utils/logger';
@@ -81,7 +82,9 @@ const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children }) => 
       <QueryClientProvider client={queryClient}>
         <GestureHandlerRootView style={styles.gestureHandler}>
           <KeyboardProvider>
-            <TabBarProvider>{children}</TabBarProvider>
+            <TabBarProvider>
+              <OverlayLayoutProvider>{children}</OverlayLayoutProvider>
+            </TabBarProvider>
           </KeyboardProvider>
         </GestureHandlerRootView>
       </QueryClientProvider>
@@ -401,58 +404,5 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-  },
-  toastWrapper: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    alignItems: 'center',
-    paddingHorizontal: 12,
-  },
-  toast: {
-    backgroundColor: Colors.white,
-    borderRadius: 999,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    minHeight: 46,
-    maxWidth: undefined,
-    alignSelf: 'center',
-    shadowColor: Colors.black,
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 6 },
-  },
-  toastText: {
-    color: Colors.black,
-    fontSize: 17,
-    fontFamily: 'Figtree-Bold',
-    textAlign: 'center',
-  },
-  toastAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    position: 'absolute',
-    top: 6,
-    left: 6,
-  },
-  avatarWrapper: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  avatarSpinner: {
-    position: 'absolute',
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.65)',
   },
 });

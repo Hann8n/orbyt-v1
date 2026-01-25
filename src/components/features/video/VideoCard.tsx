@@ -40,6 +40,7 @@ import { useFocusEffect } from 'expo-router';
 import { useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 import { usePostInteractionStore } from '../../../stores/postInteractionStore';
 import { useProfile } from '../../../services/data/ProfileService';
+import { getProfileColors } from '../../../utils/formatting/colors';
 import { getChannelBySlug } from '../../../utils/channels/orbyt';
 import { VideoScrubber } from './VideoScrubber';
 import { useOverlayVisibility } from '../../../context/FeedIndicatorContext';
@@ -151,7 +152,8 @@ const VideoCard = memo(
       ); // Auto-resets when post.uri or feed context changes
 
       // Lightweight follow state per post, hoisted out of overlay
-      // Use passive optimistic flag: check both profile cache AND follow store
+      // Single useProfile for this card; derive isAuthorBlocked, profileColors, authorDid, authorProfileStatus
+      // and pass to VideoOverlayUI to avoid duplicate useProfile there (FlashList deduplication)
       const { data: cachedProfile } = useProfile(postView.author?.handle);
       const authorDid = cachedProfile?.did || postView.author?.did;
       const followStoreState = useFollowStore(state =>
@@ -160,6 +162,19 @@ const VideoCard = memo(
       // Combine both sources: profile cache OR optimistic follow store state
       const isFollowing = !!(cachedProfile?.viewer?.following || followStoreState?.isFollowing);
       const hasProfile = !!cachedProfile;
+
+      // Single object for overlay (avoids 4 separate props and duplicate useProfile in VideoOverlayUI)
+      const authorProfileOverlay = React.useMemo(
+        () => ({
+          isAuthorBlocked: !!(
+            cachedProfile?.viewer?.blocking || cachedProfile?.viewer?.blockingByList
+          ),
+          profileColors: getProfileColors(cachedProfile),
+          authorDid,
+          authorProfileStatus: cachedProfile?.status,
+        }),
+        [cachedProfile, authorDid]
+      );
 
       // Extract channel slug from post tags - simple match, no lookups
       const channelSlug = React.useMemo(() => {
@@ -428,44 +443,27 @@ const VideoCard = memo(
         [player, shouldPlayVideo, togglePlayback, seek, setVideoState, videoState.userPaused]
       );
 
-      // Track previous shouldDisablePlayback to detect when overlay blocking is removed
+      // Single effect: auto-resume when (a) overlay blocking is removed, or (b) video becomes visible.
+      // Replaces separate prevShouldDisablePlaybackRef/prevIsVisibleRef effects.
       const prevShouldDisablePlaybackRef = useRef(shouldDisablePlayback);
-      // Track previous visibility to detect when video becomes visible
       const prevIsVisibleRef = useRef(isVisible);
-
-      // Auto-resume when playback is re-enabled (e.g., overlay is removed)
-      // This ensures videos resume automatically when overlay blocking is removed
       useEffect(() => {
         const wasBlocked = prevShouldDisablePlaybackRef.current;
+        const wasVisible = prevIsVisibleRef.current;
         const isNowUnblocked = !shouldDisablePlayback && wasBlocked;
+        const becameVisible = !wasVisible && isVisible;
 
-        // When overlay blocking is removed and video should be visible, ensure it can resume
-        if (isNowUnblocked && isVisible && !hasError) {
-          // Clear userPaused to allow video to resume
-          // This handles the case where overlay blocked playback and is now removed
-          if (videoState.userPaused) {
+        if (videoState.userPaused && !hasError) {
+          if (isNowUnblocked && isVisible) {
+            setVideoState(prev => ({ ...prev, userPaused: false }));
+          } else if (becameVisible && !shouldDisablePlayback) {
             setVideoState(prev => ({ ...prev, userPaused: false }));
           }
         }
 
         prevShouldDisablePlaybackRef.current = shouldDisablePlayback;
-      }, [shouldDisablePlayback, isVisible, hasError, videoState.userPaused, setVideoState]);
-
-      // Auto-resume when video becomes visible (e.g., scrolling to next video after returning to a feed)
-      // This fixes the issue where the next video doesn't autoplay after returning to a feed,
-      // while still allowing manual pause to work correctly.
-      useEffect(() => {
-        const wasVisible = prevIsVisibleRef.current;
-        const becameVisible = !wasVisible && isVisible;
-
-        // When video becomes visible and can play, clear userPaused to allow autoplay
-        // This handles the case where userPaused was set due to screen blur or backgrounding.
-        if (becameVisible && !shouldDisablePlayback && !hasError && videoState.userPaused) {
-          setVideoState(prev => ({ ...prev, userPaused: false }));
-        }
-
         prevIsVisibleRef.current = isVisible;
-      }, [isVisible, shouldDisablePlayback, hasError, videoState.userPaused, setVideoState]);
+      }, [shouldDisablePlayback, isVisible, hasError, videoState.userPaused, setVideoState]);
 
       // Simplified focus effect - pause on blur, resume on focus if needed
       useFocusEffect(
@@ -575,6 +573,7 @@ const VideoCard = memo(
         postView.cid,
         setOverlayState,
         updatePostInteraction,
+        queueInteraction,
       ]);
 
       // Like-only handler for double tap (doesn't unlike)
@@ -623,6 +622,7 @@ const VideoCard = memo(
         postView.cid,
         setOverlayState,
         updatePostInteraction,
+        queueInteraction,
       ]);
 
       // Double tap to like animation - runs on UI thread with Reanimated
@@ -768,14 +768,16 @@ const VideoCard = memo(
           isLikePending: overlayState.isLikePending,
         });
       }, [
-        post,
         overlayState.likeCount,
         overlayState.isLiked,
         overlayState.isLikePending,
         presentCommentSection,
         handleLike,
-        postView.replyCount,
+        postView.author,
+        postView.cid,
         postView.record,
+        postView.replyCount,
+        postView.uri,
         postView.indexedAt,
         queueInteraction,
       ]);
@@ -849,6 +851,7 @@ const VideoCard = memo(
         postView.cid,
         setOverlayState,
         updatePostInteraction,
+        queueInteraction,
       ]);
 
       const navigation = useRouter();
@@ -907,6 +910,7 @@ const VideoCard = memo(
       useEffect(() => {
         itemVisibilitySV.value = withTiming(isVisible ? 1 : 0, { duration: 100 });
       }, [isVisible, itemVisibilitySV]);
+
       const uiOverlayOpacitySV = useDerivedValue(() => {
         'worklet';
         // Global scroll fade * per-item visibility * scrubbing fade
@@ -977,7 +981,7 @@ const VideoCard = memo(
               {/* Simple dimming overlay - only rendered when video cannot play */}
               {isDimmed && <View style={styles.dimmingOverlay} pointerEvents="none" />}
 
-              {/* Double tap heart animation - using Reanimated for UI thread */}
+              {/* Double tap heart animation */}
               <Animated.View
                 style={[styles.heartAnimationContainer, heartAnimatedStyle]}
                 pointerEvents="none"
@@ -1007,6 +1011,7 @@ const VideoCard = memo(
                   hasProfile={hasProfile}
                   channelSlug={channelSlug}
                   onChannelPress={handleChannelPress}
+                  authorProfileOverlay={authorProfileOverlay}
                 />
               )}
 

@@ -12,7 +12,11 @@ import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, Text, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '../../ui/UI';
-import { isTablet, isSmallScreen, getBottomNavBarHeight } from '../../../utils/device/screen';
+import { isTablet, isSmallScreen } from '../../../utils/device/screen';
+import {
+  useOverlayLayout,
+  OVERLAY_LAYOUT_FALLBACK_BOTTOM_NAV,
+} from '../../../context/OverlayLayoutContext';
 import {
   HeartFillIcon,
   ChatFillIcon,
@@ -25,22 +29,18 @@ import { isCurrentUser } from '../../../stores/profileInteractionStore';
 import { Avatar } from '../../ui/UI';
 import { formatNumber } from '../../../utils/formatting/numbers';
 import { formatHandle } from '../../../utils/formatting/handles';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
 import { VerificationBadge } from '../badging';
 import { useGlobalShareSheet, useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 import { useRouter, useSegments } from 'expo-router';
 import { useFollowContext } from '../../../context/FollowContext';
-import { useTabBarHeight } from '../../../context/FeedIndicatorContext';
 import { useQueryClient } from '@tanstack/react-query';
-import { prefetchProfile, useProfile } from '../../../services/data/ProfileService';
-import type { ExtendedPostView, PostRecord } from '../../../services/api/types';
+import { prefetchProfile } from '../../../services/data/ProfileService';
+import type { ExtendedPostView, PostRecord, StatusView } from '../../../services/api/types';
 import type { RichTextFacet } from '../../../utils/types/richText';
-import { useFeedSettings } from '../../../stores/userStore';
-import { getProfileColors } from '../../../utils/formatting/colors';
+import type { ProfileColorScheme } from '../../../utils/formatting/colors';
 import { useFollowStore } from '../../../stores/followStore';
 
-// Use proper API types
 type Post = ExtendedPostView;
 
 export interface VideoOverlayUIProps {
@@ -63,6 +63,13 @@ export interface VideoOverlayUIProps {
   hasProfile?: boolean;
   channelSlug?: string | null;
   onChannelPress?: () => void;
+  /** From VideoCard's useProfile (avoids duplicate useProfile in overlay). */
+  authorProfileOverlay?: {
+    isAuthorBlocked: boolean;
+    profileColors: ProfileColorScheme | null | undefined;
+    authorDid: string | null | undefined;
+    authorProfileStatus: StatusView | null | undefined;
+  };
 }
 
 const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
@@ -84,20 +91,20 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   hasProfile = false,
   channelSlug,
   onChannelPress,
+  authorProfileOverlay,
 }) => {
-  // Memoize device checks (cheap but called every render)
-  const isTabletDevice = useMemo(() => isTablet(), []);
-  const isSmallScreenDevice = useMemo(() => isSmallScreen(), []);
-  const insets = useSafeAreaInsets();
-  const measuredTabBarHeight = useTabBarHeight();
-  const calculatedBottomNavBarHeight = getBottomNavBarHeight(insets);
-  // Use measured height if available, otherwise fall back to calculated height
-  const baseBottomNavBarHeight = measuredTabBarHeight ?? calculatedBottomNavBarHeight;
-  const { nativeTabsEnabled } = useFeedSettings();
-  // Add extra height when using native tabs (native tabs are slightly taller)
-  const bottomNavBarHeight = nativeTabsEnabled
-    ? baseBottomNavBarHeight + 10
-    : baseBottomNavBarHeight;
+  const {
+    isAuthorBlocked = false,
+    profileColors: profileColorsProp,
+    authorDid: authorDidProp,
+    authorProfileStatus,
+  } = authorProfileOverlay ?? {};
+  const overlayLayout = useOverlayLayout();
+  const isTabletDevice = overlayLayout?.isTablet ?? isTablet();
+  const isSmallScreenDevice = overlayLayout?.isSmallScreen ?? isSmallScreen();
+  const bottomNavBarHeight =
+    overlayLayout?.bottomNavBarHeight ?? OVERLAY_LAYOUT_FALLBACK_BOTTOM_NAV;
+
   const { width } = useWindowDimensions();
   const { presentShareSheet } = useGlobalShareSheet();
   const { presentCommentSection } = useGlobalCommentSection();
@@ -116,13 +123,9 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   const author = useMemo(() => post.author || {}, [post.author]);
   const record = useMemo(() => post.record as PostRecord | undefined, [post.record]);
 
-  // Get profile data to check if author is blocked
-  const { data: authorProfile } = useProfile(author.handle);
-  const isAuthorBlocked = useMemo(
-    () => !!(authorProfile?.viewer?.blocking || authorProfile?.viewer?.blockingByList),
-    [authorProfile?.viewer?.blocking, authorProfile?.viewer?.blockingByList]
-  );
-  const profileColors = useMemo(() => getProfileColors(authorProfile), [authorProfile]);
+  // isAuthorBlocked, profileColors, authorDid, authorProfileStatus from VideoCard's single useProfile
+  const profileColors = profileColorsProp ?? undefined;
+  const authorDid = authorDidProp ?? author.did;
 
   const profilePicUrl = useMemo(
     () =>
@@ -301,6 +304,18 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
     };
   });
 
+  // Reset Reanimated shared values when cell is recycled (FlashList) so previous item's
+  // like/repost press animation does not show on the new post (see FlashList + Reanimated guide)
+  useEffect(() => {
+    // Reanimated shared values are intentionally mutated for FlashList recycle reset
+    // eslint-disable-next-line react-hooks/immutability
+    likeScale.value = 1;
+    // eslint-disable-next-line react-hooks/immutability
+    repostScale.value = 1;
+    // eslint-disable-next-line react-hooks/immutability
+    repostRotate.value = 0;
+  }, [post?.uri, likeScale, repostScale, repostRotate]);
+
   const renderRepostIcon = useCallback(
     () => (
       <Animated.View style={repostAnimatedStyle}>
@@ -320,10 +335,6 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
 
   // Follow state and mutation - subscribe directly to follow store for this author
   const { followMutation, currentUser } = useFollowContext();
-  const authorDid = useMemo(
-    () => author.did || authorProfile?.did,
-    [author.did, authorProfile?.did]
-  );
 
   // Efficiently subscribe to only this author's isFollowing boolean in the store
   // Selecting just the boolean ensures re-renders only when follow state changes
@@ -442,16 +453,13 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
     [contentPadding, isModal, isSmallScreenDevice, isTabletDevice, bottomNavBarHeight, hasTabBar]
   );
 
-  // Explicit worklet directive ensures this runs on UI thread for optimal performance
-  // Smoothly fade out overlay when scrubbing, fade in when scrubbing stops
-  // Match feed pager fade animation for consistency
+  // Fade overlay with scroll/scrub; withTiming gives snappy hide when scrolling
   const overlayAnimatedStyle = useAnimatedStyle(() => {
     'worklet';
-    // Opacity is driven by composed shared value from parent (overlay + item + scrub)
     const opacityValue = overlayOpacitySV ? overlayOpacitySV.value : 1;
     return {
       opacity: withTiming(opacityValue, {
-        duration: 150,
+        duration: 100,
         easing: Easing.out(Easing.ease),
       }),
     };
@@ -532,7 +540,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                     size={authorAvatarSize}
                     style={[isTabletDevice ? styles.profilePictureTablet : styles.profilePicture]}
                     blurRadius={isAuthorBlocked ? 30 : 0}
-                    status={authorProfile?.status}
+                    status={authorProfileStatus ?? undefined}
                     profileColors={
                       profileColors
                         ? {
@@ -905,15 +913,12 @@ const styles = StyleSheet.create({
 });
 
 // Custom comparison function to prevent unnecessary re-renders
-// Only re-render if critical props change
+// Only re-render if critical props change (isFollowing/hasProfile/channelSlug affect follow badge and channel indicator)
 const arePropsEqual = (prevProps: VideoOverlayUIProps, nextProps: VideoOverlayUIProps) => {
-  // Always re-render if visibility changes (needed for opacity transition)
   if (prevProps.isVisible !== nextProps.isVisible) return false;
-
-  // Compare post URI (most important identifier)
   if (prevProps.post?.uri !== nextProps.post?.uri) return false;
 
-  // Compare interaction states
+  // Interaction states
   if (prevProps.isLiked !== nextProps.isLiked) return false;
   if (prevProps.isReposted !== nextProps.isReposted) return false;
   if (prevProps.likeCount !== nextProps.likeCount) return false;
@@ -921,13 +926,16 @@ const arePropsEqual = (prevProps: VideoOverlayUIProps, nextProps: VideoOverlayUI
   if (prevProps.isLikePending !== nextProps.isLikePending) return false;
   if (prevProps.isRepostPending !== nextProps.isRepostPending) return false;
 
-  // Compare modal state
-  if (prevProps.isModal !== nextProps.isModal) return false;
+  // Follow badge and channel indicator
+  if (prevProps.isFollowing !== nextProps.isFollowing) return false;
+  if (prevProps.hasProfile !== nextProps.hasProfile) return false;
+  if (prevProps.channelSlug !== nextProps.channelSlug) return false;
 
-  // Compare feed options
+  if (prevProps.authorProfileOverlay !== nextProps.authorProfileOverlay) return false;
+
+  if (prevProps.isModal !== nextProps.isModal) return false;
   if (prevProps.feedOption !== nextProps.feedOption) return false;
 
-  // If all critical props are the same, skip re-render
   return true;
 };
 

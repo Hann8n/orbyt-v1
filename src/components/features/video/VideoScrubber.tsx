@@ -11,16 +11,19 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { scheduleOnUI, scheduleOnRN } from 'react-native-worklets';
-import { useSafeAreaFrame, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaFrame } from 'react-native-safe-area-context';
 import { useEvent } from 'expo';
 import { type VideoPlayer } from 'expo-video';
 import { useSegments } from 'expo-router';
 import { formatTime } from '../../../utils/formatting/time';
-import { isTablet, isSmallScreen, getBottomNavBarHeight } from '../../../utils/device/screen';
+import { isTablet, isSmallScreen } from '../../../utils/device/screen';
 import { Colors } from '../../ui/UI';
 import { useUIStore } from '../../../stores/uiStore';
-import { useTabBarHeight, useOverlayVisibility } from '../../../context/FeedIndicatorContext';
-import { useFeedSettings } from '../../../stores/userStore';
+import { useOverlayVisibility } from '../../../context/FeedIndicatorContext';
+import {
+  useOverlayLayout,
+  OVERLAY_LAYOUT_FALLBACK_BOTTOM_NAV,
+} from '../../../context/OverlayLayoutContext';
 
 interface VideoScrubberProps {
   active: boolean;
@@ -43,16 +46,14 @@ const VideoScrubberComponent = ({
 }: VideoScrubberProps) => {
   const isIOS = Platform.OS === 'ios';
   const { width: screenWidth } = useSafeAreaFrame();
-  const insets = useSafeAreaInsets();
   const segments = useSegments();
-  const isTabletDevice = isTablet();
-  const isSmallScreenDevice = isSmallScreen();
-  const measuredTabBarHeight = useTabBarHeight();
-  const calculatedBottomNavBarHeight = getBottomNavBarHeight(insets);
-  const bottomNavBarHeight = measuredTabBarHeight ?? calculatedBottomNavBarHeight;
+  const overlayLayout = useOverlayLayout();
+  const isTabletDevice = overlayLayout?.isTablet ?? isTablet();
+  const isSmallScreenDevice = overlayLayout?.isSmallScreen ?? isSmallScreen();
+  const bottomNavBarHeight =
+    overlayLayout?.bottomNavBarHeight ?? OVERLAY_LAYOUT_FALLBACK_BOTTOM_NAV;
   const hasTabBar = Array.isArray(segments) && segments[0] === '(tabs)';
   const isModal = !hasTabBar;
-  const { nativeTabsEnabled } = useFeedSettings();
 
   const setScrubbingState = useUIStore(state => state.setVisibility);
   const currentTimeSV = useSharedValue(0);
@@ -163,7 +164,7 @@ const VideoScrubberComponent = ({
       }
     };
 
-    // Lower frequency sync (30fps) - scrubber is non-primary, never blocks playback
+    // 30fps sync for smooth scrub bar during playback
     const interval = setInterval(syncProgress, 33);
     return () => clearInterval(interval);
   }, [player, active, isSeekingSV, currentTimeSV]);
@@ -359,26 +360,12 @@ const VideoScrubberComponent = ({
     };
   });
 
-  // Calculate bottom offset using same logic as VideoOverlayUI
-  // Add extra height when using native tabs
+  // Calculate bottom offset; bottomNavBarHeight from OverlayLayoutContext already includes +10 when native tabs enabled
   const scrubberBottomOffset = useMemo(() => {
-    if (isModal) {
-      return 0;
-    }
-    if (hasTabBar && (isSmallScreenDevice || isTabletDevice)) {
-      const baseHeight = bottomNavBarHeight;
-      // Add extra padding when native tabs are enabled (native tabs are slightly taller)
-      return nativeTabsEnabled ? baseHeight + 10 : baseHeight;
-    }
+    if (isModal) return 0;
+    if (hasTabBar && (isSmallScreenDevice || isTabletDevice)) return bottomNavBarHeight;
     return 0;
-  }, [
-    isModal,
-    hasTabBar,
-    isSmallScreenDevice,
-    isTabletDevice,
-    bottomNavBarHeight,
-    nativeTabsEnabled,
-  ]);
+  }, [isModal, hasTabBar, isSmallScreenDevice, isTabletDevice, bottomNavBarHeight]);
 
   if (!isIOS) {
     return null;
