@@ -9,7 +9,7 @@ import {
   StyleSheet,
   StyleProp,
 } from 'react-native';
-import Icon from './Icon';
+import Icon, { OutlinkIcon } from './Icon';
 import { Colors } from './UI';
 import { BORDER_RADIUS } from '../../utils/constants';
 import { hexToRGBA } from '../../utils/formatting/colors';
@@ -47,11 +47,15 @@ const textStyles = StyleSheet.create({
   },
 });
 
+export type OptionsButtonLinkType = 'internal' | 'external' | 'none';
+
 interface OptionsButtonProps {
   label: string;
   subtitle?: string;
   description?: string;
   onPress?: () => void;
+  /** Auto-sets icon: internal = chevron, external = arrow-up-outlink, none = no icon */
+  linkType?: OptionsButtonLinkType;
   showChevron?: boolean;
   showSwitch?: boolean;
   switchValue?: boolean;
@@ -73,6 +77,7 @@ export const OptionsButton: React.FC<OptionsButtonProps> = ({
   subtitle,
   description,
   onPress,
+  linkType,
   showChevron = false,
   showSwitch = false,
   switchValue = false,
@@ -143,6 +148,18 @@ export const OptionsButton: React.FC<OptionsButtonProps> = ({
     return Colors.lightGray;
   };
 
+  const effective = (() => {
+    if (showSwitch) return { showChevron: false, rightIcon: undefined as React.ReactNode };
+    if (rightIcon != null) return { showChevron: false, rightIcon };
+    if (linkType === 'internal') return { showChevron: true, rightIcon: undefined };
+    if (linkType === 'external')
+      return { showChevron: false, rightIcon: <OutlinkIcon size={24} color={getChevronColor()} /> };
+    if (linkType === 'none') return { showChevron: false, rightIcon: undefined };
+    return { showChevron, rightIcon: rightIcon ?? undefined };
+  })();
+  const effectiveShowChevron = effective.showChevron;
+  const effectiveRightIcon = effective.rightIcon;
+
   const buttonContent = (
     <View
       style={[
@@ -183,20 +200,19 @@ export const OptionsButton: React.FC<OptionsButtonProps> = ({
       )}
       {rightContent ? (
         rightContent
-      ) : rightIcon ? (
+      ) : effectiveRightIcon != null ? (
         <View style={{ width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
-          {React.isValidElement(rightIcon)
+          {React.isValidElement(effectiveRightIcon)
             ? React.cloneElement(
-                rightIcon as React.ReactElement<{ color?: string; size?: number }>,
+                effectiveRightIcon as React.ReactElement<{ color?: string; size?: number }>,
                 {
-                  // Always use chevron color when showChevron is true to match the arrow
-                  color: showChevron
+                  color: effectiveShowChevron
                     ? getChevronColor()
-                    : ((rightIcon.props as { color?: string })?.color ?? getTextColor()),
-                  size: (rightIcon.props as { size?: number })?.size ?? 24,
+                    : ((effectiveRightIcon.props as { color?: string })?.color ?? getTextColor()),
+                  size: (effectiveRightIcon.props as { size?: number })?.size ?? 24,
                 }
               )
-            : rightIcon}
+            : effectiveRightIcon}
         </View>
       ) : showSwitch ? (
         <View style={{ justifyContent: 'center', alignItems: 'center' }}>
@@ -208,7 +224,7 @@ export const OptionsButton: React.FC<OptionsButtonProps> = ({
             ios_backgroundColor={Colors.mediumGray}
           />
         </View>
-      ) : showChevron ? (
+      ) : effectiveShowChevron ? (
         <View style={{ width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
           <Icon name="right_arrow_filled" size={24} color={getChevronColor()} />
         </View>

@@ -237,28 +237,28 @@ const SettingsScreen: React.FC = () => {
           label: 'Your followers',
           icon: 'users',
           onPress: () => router.push('/settings/followers'),
-          showChevron: false,
+          linkType: 'internal',
         },
         {
           id: 'following',
           label: 'People you follow',
           icon: 'user-plus',
           onPress: () => router.push('/settings/following'),
-          showChevron: false,
+          linkType: 'internal',
         },
         {
           id: 'saves',
           label: 'Your saves',
           icon: 'bookmark',
           onPress: () => router.push('/settings/saves'),
-          showChevron: false,
+          linkType: 'internal',
         },
         {
           id: 'watched',
           label: 'Watched videos',
           icon: 'eye',
           onPress: () => router.push('/settings/watched'),
-          showChevron: false,
+          linkType: 'internal',
         },
       ],
     },
@@ -270,7 +270,7 @@ const SettingsScreen: React.FC = () => {
           label: 'Copy your profile link',
           icon: 'link',
           onPress: handleCopyProfileLink,
-          showChevron: false,
+          linkType: 'none',
         },
       ],
     },
@@ -281,13 +281,13 @@ const SettingsScreen: React.FC = () => {
           id: 'blocked-users',
           label: 'Blocked accounts',
           onPress: () => router.push('/settings/blocked'),
-          showChevron: false,
+          linkType: 'internal',
         },
         {
           id: 'muted-users',
           label: 'Muted accounts',
           onPress: () => router.push('/settings/muted'),
-          showChevron: false,
+          linkType: 'internal',
         },
       ],
     },
@@ -299,14 +299,14 @@ const SettingsScreen: React.FC = () => {
           label: 'Your mix',
           icon: 'sparkles',
           onPress: () => router.push('/settings/algorithmic-feed'),
-          showChevron: true,
+          linkType: 'internal',
         },
         {
           id: 'app-icon',
           label: 'App icon',
           icon: 'device-tv',
           onPress: () => router.push('/settings/app-icon'),
-          showChevron: true,
+          linkType: 'internal',
         },
         ...(__DEV__
           ? [
@@ -315,7 +315,7 @@ const SettingsScreen: React.FC = () => {
                 label: 'Route Navigator',
                 icon: 'information-line',
                 onPress: () => router.push('/settings/route-navigator'),
-                showChevron: true,
+                linkType: 'internal',
               },
             ]
           : []),
@@ -324,8 +324,7 @@ const SettingsScreen: React.FC = () => {
           label: 'Content filters',
           icon: 'external-link',
           onPress: () => handleOpenLink('https://bsky.app/moderation'),
-          showChevron: true,
-          rightIcon: <Icon name="external-link" size={24} />,
+          linkType: 'external',
         },
         // {
         //   id: 'data-usage',
@@ -347,13 +346,13 @@ const SettingsScreen: React.FC = () => {
           id: 'clear-cache',
           label: 'Clear cache',
           onPress: handleClearCache,
-          showChevron: false,
+          linkType: 'none',
         },
         {
           id: 'support',
           label: 'Support',
           onPress: () => handleOpenEmail('support@getorbyt.com'),
-          showChevron: true,
+          linkType: 'none',
         },
       ],
     },
@@ -364,19 +363,19 @@ const SettingsScreen: React.FC = () => {
           id: 'website',
           label: 'Website',
           onPress: () => handleOpenLink('https://getorbyt.com'),
-          showChevron: true,
+          linkType: 'external',
         },
         {
           id: 'privacy',
           label: 'Privacy policy',
           onPress: () => handleOpenLink('https://getorbyt.com/privacy'),
-          showChevron: true,
+          linkType: 'external',
         },
         {
           id: 'terms',
           label: 'Terms of service',
           onPress: () => handleOpenLink('https://getorbyt.com/terms'),
-          showChevron: true,
+          linkType: 'external',
         },
       ],
     },
@@ -393,19 +392,19 @@ const SettingsScreen: React.FC = () => {
             // Account switcher will show "Add Account" options by default if only one account
             setTimeout(() => presentAccountSwitcher(), 350);
           },
-          showChevron: false,
+          linkType: 'none',
         },
         {
           id: 'logout',
           label: 'Log out',
           onPress: handleLogout,
-          showChevron: false,
+          linkType: 'none',
         },
         {
           id: 'remove-account',
           label: savedAccounts.length > 1 ? 'Remove accounts' : 'Remove account',
           onPress: handleRemoveAccount,
-          showChevron: false,
+          linkType: 'none',
           destructive: true,
         },
       ],
@@ -417,7 +416,7 @@ const SettingsScreen: React.FC = () => {
     id: string;
     label: string;
     onPress: () => void;
-    showChevron?: boolean;
+    linkType?: 'internal' | 'external' | 'none';
     icon?: string;
     rightIcon?: React.ReactNode;
     destructive?: boolean;
@@ -429,7 +428,7 @@ const SettingsScreen: React.FC = () => {
         kind: 'setting';
         id: string;
         label: string;
-        showChevron?: boolean;
+        linkType?: 'internal' | 'external' | 'none';
         onPress: () => void;
         rightIcon?: React.ReactNode;
         destructive?: boolean;
@@ -453,12 +452,12 @@ const SettingsScreen: React.FC = () => {
       listData.push({ kind: 'section-title', id: `title-${section.title}`, title: section.title });
     }
 
-    section.items.forEach((item: SettingItem) => {
+    (section.items as SettingItem[]).forEach((item: SettingItem) => {
       listData.push({
         kind: 'setting',
         id: item.id,
         label: item.label,
-        showChevron: item.showChevron,
+        linkType: item.linkType,
         onPress: item.onPress,
         rightIcon: item.rightIcon,
         destructive: item.destructive,
@@ -524,7 +523,7 @@ const SettingsScreen: React.FC = () => {
                   key={key}
                   label={item.label}
                   onPress={item.onPress}
-                  showChevron={item.showChevron}
+                  linkType={item.linkType}
                   destructive={item.destructive}
                   disabled={isSubmitting}
                   rightIcon={

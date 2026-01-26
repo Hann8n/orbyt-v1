@@ -721,15 +721,15 @@ export const SensitiveContentIcon: React.FC<{
   return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
 };
 
-// Custom Outlink Icon component
-const OUTLINK_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none" fill-rule="evenodd"><path fill="#fff" d="M21 4a1 1 0 0 0-1-1h-5a1 1 0 1 0 0 2h2.586l-2.11 2.11a6 6 0 0 1 1.415 1.413L19 6.414V9a1 1 0 1 0 2 0zm-5.523 3.11A5.97 5.97 0 0 0 12 6H5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-7c0-1.296-.41-2.496-1.11-3.477l-6.183 6.184a1 1 0 0 1-1.414-1.414z"/></g></svg>`;
+// Custom Outlink Icon component (arrow up / arrow_right_up_fill, no Ming Cute watermark)
+const OUTLINK_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><path fill='#09244BFF' d='M18 4.5A1.5 1.5 0 0 1 19.5 6v8a1.5 1.5 0 0 1-3 0V9.621l-9.097 9.097a1.5 1.5 0 0 1-2.12-2.122L14.377 7.5H10a1.5 1.5 0 1 1 0-3h8Z'/></svg>`;
 
 export const OutlinkIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
 }> = ({ size, color, style }) => {
-  const svgXml = OUTLINK_ICON_SVG.replace(/#fff/g, color);
+  const svgXml = OUTLINK_ICON_SVG.replace(/#09244BFF/g, color);
   return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
 };
 
