@@ -142,7 +142,7 @@ export default function AdvancedLoginScreen() {
           >
             {isAddingAccount || isValidatingPds ? (
               <View style={styles.buttonContent}>
-                <Loading3FillIcon size={24} color={Colors.white} style={{ marginRight: 8 }} />
+                <Loading3FillIcon size={24} color={Colors.gray} style={{ marginRight: 8 }} />
                 <Text style={styles.loginButtonText}>
                   {isValidatingPds ? 'Connecting...' : 'Signing in...'}
                 </Text>
