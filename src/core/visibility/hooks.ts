@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type { ViewabilityConfig, ViewToken } from 'react-native';
-import { useIsFocused } from '@react-navigation/native';
-
 import { useVisibilityCoreStore } from './visibilityStore';
 import { useSetOverlayVisibility } from '../../context/FeedIndicatorContext';
 import type { FeedListItem } from '../../types';
@@ -100,29 +98,17 @@ export function useFeedVisibility({
  */
 export function useVisibilityRouteTracker(routeKey: string) {
   const setActiveRoute = useVisibilityCoreStore(state => state.setActiveRoute);
-  const isFocused = useIsFocused();
 
   useEffect(() => {
     if (!routeKey) return;
-
-    if (isFocused) {
-      setActiveRoute(routeKey);
-      return () => {
-        // Clear route when component unmounts or loses focus
-        const currentRoute = useVisibilityCoreStore.getState().activeRoute;
-        if (currentRoute === routeKey) {
-          setActiveRoute(null);
-        }
-      };
-    } else {
-      // Route is not focused - clear if it was the active route
+    setActiveRoute(routeKey);
+    return () => {
       const currentRoute = useVisibilityCoreStore.getState().activeRoute;
       if (currentRoute === routeKey) {
         setActiveRoute(null);
       }
-      return undefined;
-    }
-  }, [isFocused, routeKey, setActiveRoute]);
+    };
+  }, [routeKey, setActiveRoute]);
 }
 
 /**

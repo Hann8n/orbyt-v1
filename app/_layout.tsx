@@ -9,6 +9,7 @@ import {
   Platform,
 } from 'react-native';
 import { Stack, usePathname } from 'expo-router';
+import { DarkTheme, ThemeProvider } from '@react-navigation/native';
 import {
   SafeAreaProvider,
   initialWindowMetrics,
@@ -381,14 +382,16 @@ export default function RootLayout() {
   }, [isAuthenticated]);
 
   return (
-    <AppProviders>
-      <SessionProvider>
-        <SplashScreenController />
-        <QueryErrorBoundary level="root">
-          <RootNavigator />
-        </QueryErrorBoundary>
-      </SessionProvider>
-    </AppProviders>
+    <ThemeProvider value={DarkTheme}>
+      <AppProviders>
+        <SessionProvider>
+          <SplashScreenController />
+          <QueryErrorBoundary level="root">
+            <RootNavigator />
+          </QueryErrorBoundary>
+        </SessionProvider>
+      </AppProviders>
+    </ThemeProvider>
   );
 }
 

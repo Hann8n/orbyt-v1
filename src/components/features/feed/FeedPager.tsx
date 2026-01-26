@@ -33,7 +33,6 @@ import { Colors } from '../../ui/UI';
 import FeedRenderer from './FeedRenderer';
 import { isSmallScreen, isTablet } from '../../../utils/device/screen';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useIsFocused } from '@react-navigation/native';
 import type { ListFeedViewRef } from '../../../types';
 import type { ScrollToTopRef } from '../../../utils/navigation/tabRefs';
 import { useFeedSettings } from '../../../stores/userStore';
@@ -119,8 +118,6 @@ const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
   // Refs to FeedRenderer instances, keyed by feedOption
   const feedRendererRefs = useRef<{ [key: string]: ListFeedViewRef | null }>({});
   const insets = useSafeAreaInsets();
-  // With freezeOnBlur: true, useIsFocused() correctly reflects tab focus state
-  const isTabActive = useIsFocused();
   const router = useRouter();
   const { nativeTabsEnabled } = useFeedSettings();
   const setTabBarVisibility = useSetTabBarVisibility();
@@ -442,7 +439,7 @@ const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
         feedOption={String(feedOption)}
         onRetryFeed={handleRetryFeed}
         queryOptions={baseQueryOptions}
-        isVisible={isTabActive && index === currentFeedIndex}
+        isVisible={index === currentFeedIndex}
         isRefreshing={isRefreshing}
         forceError={forceError}
         onVerticalScroll={handleVerticalScroll}
@@ -452,7 +449,6 @@ const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
       currentFeedIndex,
       handleRetryFeed,
       baseQueryOptions,
-      isTabActive,
       isRefreshing,
       forceError,
       handleVerticalScroll,

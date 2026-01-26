@@ -1,7 +1,8 @@
 import { Platform } from 'react-native';
 import { Tabs } from 'expo-router';
-import { NativeTabs, Icon, Label, Badge } from 'expo-router/unstable-native-tabs';
+import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
+import { DarkTheme } from '@react-navigation/native';
 
 import { useUserStore, useFeedSettings } from '../../src/stores/userStore';
 import { Colors } from '../../src/components/ui/UI';
@@ -43,26 +44,34 @@ export default function TabsLayout() {
         disableTransparentOnScrollEdge={true}
       >
         <NativeTabs.Trigger name="index">
-          <Icon src={require('../../src/assets/tab-icons/png/home_5_fill.png')} />
-          <Label hidden={useLiquidGlass}>Home</Label>
+          <NativeTabs.Trigger.Icon
+            src={require('../../src/assets/tab-icons/png/home_5_fill.png')}
+          />
+          <NativeTabs.Trigger.Label hidden={useLiquidGlass}>Home</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
 
         <NativeTabs.Trigger name="explore" {...(useLiquidGlass && { role: 'search' })}>
-          <Icon src={require('../../src/assets/tab-icons/png/search_2_fill.png')} />
-          <Label hidden={useLiquidGlass}>Explore</Label>
+          <NativeTabs.Trigger.Icon
+            src={require('../../src/assets/tab-icons/png/search_2_fill.png')}
+          />
+          <NativeTabs.Trigger.Label hidden={useLiquidGlass}>Explore</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
 
         <NativeTabs.Trigger name="activity">
-          <Icon src={require('../../src/assets/tab-icons/png/flash_fill.png')} />
-          <Label hidden={useLiquidGlass}>Activity</Label>
+          <NativeTabs.Trigger.Icon src={require('../../src/assets/tab-icons/png/flash_fill.png')} />
+          <NativeTabs.Trigger.Label hidden={useLiquidGlass}>Activity</NativeTabs.Trigger.Label>
           {totalUnreadCount > 0 && (
-            <Badge>{totalUnreadCount > 99 ? '99+' : totalUnreadCount.toString()}</Badge>
+            <NativeTabs.Trigger.Badge>
+              {totalUnreadCount > 99 ? '99+' : totalUnreadCount.toString()}
+            </NativeTabs.Trigger.Badge>
           )}
         </NativeTabs.Trigger>
 
         <NativeTabs.Trigger name="profile">
-          <Icon src={require('../../src/assets/tab-icons/png/user_3_fill.png')} />
-          <Label hidden={useLiquidGlass}>Profile</Label>
+          <NativeTabs.Trigger.Icon
+            src={require('../../src/assets/tab-icons/png/user_3_fill.png')}
+          />
+          <NativeTabs.Trigger.Label hidden={useLiquidGlass}>Profile</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
       </NativeTabs>
     );
@@ -81,6 +90,7 @@ export default function TabsLayout() {
   // Use Expo Router's Tabs component following the guide pattern
   return (
     <Tabs
+      theme={DarkTheme}
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: customTintColor,

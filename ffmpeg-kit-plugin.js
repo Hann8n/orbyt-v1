@@ -46,7 +46,9 @@ end
       const podfilePath = path.join(platformProjectRoot, 'Podfile');
       let podfileContent = fs.readFileSync(podfilePath, 'utf-8');
 
-      const newPodEntry = `pod 'ffmpeg-kit-ios-full-gpl', :podspec => './ffmpeg-kit-ios-full-gpl.podspec'`;
+      const newPodEntry = `pod 'ffmpeg-kit-ios-full-gpl', :podspec => './ffmpeg-kit-ios-full-gpl.podspec'
+# ffmpeg-kit-plugin: pre-declare with modular_headers so VideoTrim (Swift) can import it when using static libs
+pod 'ffmpeg-kit-react-native', :path => '../node_modules/ffmpeg-kit-react-native', :modular_headers => true`;
 
       if (!podfileContent.includes(newPodEntry)) {
         const anchor = `use_expo_modules!`;
@@ -82,6 +84,7 @@ end
         }
         fs.writeFileSync(podfilePath, podfileContent);
       }
+
       return cfg;
     },
   ]);
