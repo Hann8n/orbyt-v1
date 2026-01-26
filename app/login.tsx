@@ -12,6 +12,7 @@ import { useRouter, Link } from 'expo-router';
 import { SavedAccount } from '../src/stores/userStore';
 import { useAuth, useAccountManagement } from '../src/stores/userStore';
 import { isUserCancellation, getErrorMessage } from '../src/utils/errors/errorHandler';
+import { hexToRGBA } from '../src/utils/formatting/colors';
 
 interface LoginScreenProps {
   onLogin?: (handle: string) => Promise<void>;
@@ -56,7 +57,6 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
       }
 
       const errorMessage = getErrorMessage(error);
-      console.error('[LoginScreen] OAuth login failed:', errorMessage);
       setOAuthError(errorMessage);
 
       // Show error with app password fallback option
@@ -122,13 +122,6 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
     } catch (error) {
       setIsLoading(false);
       const errorMessage = error instanceof Error ? error.message : 'Account switch failed';
-      console.error('[LoginScreen] Account switch failed with error:', {
-        error: errorMessage,
-        stack: error instanceof Error ? error.stack : undefined,
-        accountHandle: account.handle,
-        accountDid: account.did,
-        originalIdentifier: account.originalIdentifier,
-      });
 
       const isUserCancellation =
         errorMessage.includes('cancelled') || errorMessage.includes('user_cancelled');
@@ -222,6 +215,7 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
             <AuthorItem
               key={account.did}
               handle={account.handle}
+              did={account.did}
               displayName={account.displayName || account.handle || 'User'}
               avatar={account.avatar}
               onPress={() => handleSavedAccountLogin(account)}
@@ -291,12 +285,7 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
         </Pressable>
 
         {/* Advanced login link */}
-        <View
-          style={[
-            styles.manualSignInLink,
-            { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' },
-          ]}
-        >
+        <View style={styles.manualSignInLink}>
           <Text style={[styles.termsText, { color: Colors.lightGray }]}>On another network? </Text>
           <Link href="/advanced-login" asChild>
             <Pressable disabled={isLoading}>
@@ -409,7 +398,7 @@ const styles = StyleSheet.create({
   logoBackground: {
     borderRadius: 25,
     overflow: 'hidden',
-    shadowColor: '#000',
+    shadowColor: Colors.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -470,31 +459,8 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: 'Figtree-SemiBold',
   },
-  customPDSButton: {
-    alignSelf: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    marginTop: 8,
-  },
-  manualSignInLink: {
-    alignSelf: 'center',
-    paddingVertical: 8,
-    marginTop: 8,
-  },
-  manualSignInLinkText: {
-    color: Colors.lightGray,
-    fontSize: 16,
-    fontFamily: 'Figtree-Regular',
-    textDecorationLine: 'none',
-  },
   customPDSButtonDisabled: {
     opacity: 0.5,
-  },
-  customPDSButtonText: {
-    color: Colors.gray,
-    fontSize: 16,
-    fontFamily: 'Figtree-Regular',
-    textDecorationLine: 'none',
   },
   savedAccountsContainer: {
     width: '100%',
@@ -523,14 +489,6 @@ const styles = StyleSheet.create({
   accountsSection: {
     flex: 1,
   },
-  savedAccountsTitle: {
-    color: Colors.white,
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 12,
-    textAlign: 'center',
-    fontFamily: 'Figtree-Bold',
-  },
   accountsList: {
     flex: 1,
   },
@@ -538,112 +496,17 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
 
-  manualLoginButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 24,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderRadius: BORDER_RADIUS.LARGE,
-    backgroundColor: Colors.darkGray,
-  },
-
-  manualLoginText: {
-    color: Colors.lightGray,
-    fontSize: 18,
-    fontWeight: '600',
-    fontFamily: 'Figtree-SemiBold',
-  },
-  backToAccountsButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 24,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderRadius: BORDER_RADIUS.LARGE,
-    backgroundColor: Colors.darkGray,
-  },
-  backIcon: {
-    marginRight: 12,
-  },
-  backToAccountsText: {
-    color: Colors.lightGray,
-    fontSize: 18,
-    fontWeight: '600',
-    fontFamily: 'Figtree-SemiBold',
-  },
-  loadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingVertical: 8,
-  },
-  loadingText: {
-    color: Colors.white,
-    fontSize: 16,
-    fontFamily: 'Figtree-Medium',
-    marginLeft: 12,
-  },
-  buttonLoadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  buttonLoadingText: {
-    color: Colors.black,
-    fontSize: 18,
-    fontWeight: '600',
-    fontFamily: 'Figtree-SemiBold',
-    marginLeft: 12,
-  },
-  loadingAccountName: {
-    color: Colors.white,
-    fontFamily: 'Figtree-Bold',
-    fontWeight: 'bold',
-  },
-
   errorContainer: {
     marginBottom: 16,
     padding: 12,
-    backgroundColor: 'rgba(255, 68, 68, 0.1)',
+    backgroundColor: hexToRGBA(Colors.red, 0.1),
     borderRadius: BORDER_RADIUS.SMALL,
   },
   errorText: {
-    color: '#ff4444',
+    color: Colors.red,
     fontSize: 14,
     fontFamily: 'Figtree-Medium',
     textAlign: 'center',
-  },
-  oauthInfoContainer: {
-    marginBottom: 24,
-  },
-  oauthInfoText: {
-    color: Colors.gray,
-    fontSize: 14,
-    fontFamily: 'Figtree-Regular',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-
-  createAccountLink: {
-    marginTop: 16,
-    alignSelf: 'center',
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  createAccountText: {
-    color: Colors.lightGray,
-    fontSize: 14,
-    fontFamily: 'Figtree-Regular',
-  },
-  createAccountLinkText: {
-    color: Colors.lightGray,
-    fontSize: 14,
-    fontFamily: 'Figtree-SemiBold',
-    textDecorationLine: 'underline',
   },
   buttonContent: {
     flexDirection: 'row',
@@ -675,24 +538,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Figtree-Medium',
     marginHorizontal: 16,
   },
-  pdsButton: {
-    backgroundColor: Colors.darkGray,
-    marginTop: 12,
-  },
-  pdsButtonText: {
-    color: Colors.white,
-  },
-  termsContainer: {
-    marginTop: 0,
-    paddingLeft: 15,
-  },
-  termsContainerBottom: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingLeft: 39,
-  },
   termsText: {
     color: Colors.gray,
     fontSize: 15,
@@ -700,12 +545,9 @@ const styles = StyleSheet.create({
     textAlign: 'left',
     lineHeight: 21,
   },
-  termsLink: {
-    color: Colors.lightGray,
-    fontSize: 15,
-    fontFamily: 'Figtree-Bold',
-    fontWeight: 'bold',
-    textDecorationLine: 'underline',
-    marginTop: 4,
+  manualSignInLink: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
   },
 });

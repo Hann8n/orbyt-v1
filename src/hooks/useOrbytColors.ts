@@ -8,6 +8,7 @@
  * - Persistence of current user's colors for instant load on app open
  */
 import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import OrbytColorsService, { type OrbytColorData } from '../services/OrbytColorsService';
 import { queryClient } from '../utils/query/queryClient';
@@ -30,10 +31,17 @@ const STALE_TIME = 15 * 60 * 1000;
  * @returns React Query result with color data
  */
 export function useOrbytColors(did: string | null | undefined) {
+  // Get cached data synchronously for immediate availability
+  const initialData = useMemo(() => {
+    if (!did) return undefined;
+    return queryClient.getQueryData<OrbytColorData | null>(orbytColorKeys.color(did));
+  }, [did]);
+
   return useQuery<OrbytColorData | null, Error>({
     queryKey: did ? orbytColorKeys.color(did) : ['orbytColors', 'disabled'],
     queryFn: () => (did ? OrbytColorsService.fetchColors(did) : null),
     enabled: !!did,
+    initialData,
     staleTime: STALE_TIME,
     gcTime: STALE_TIME * 2, // Keep in cache for 30 minutes
     refetchOnWindowFocus: false,

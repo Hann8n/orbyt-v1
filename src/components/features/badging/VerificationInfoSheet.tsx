@@ -225,16 +225,20 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
               ) : (
                 <AuthorItem
                   handle={authorHandle}
+                  did={issuerProfile?.did || verifierDid}
                   displayName={authorDisplayName}
                   avatar={issuerProfile?.avatar}
                   size="large"
                   showArrow={true}
                   onPress={() => {
-                    const target = authorHandle.trim();
-                    if (!target) return;
+                    const targetDid = (issuerProfile?.did || verifierDid)?.trim();
+                    if (!targetDid) return;
 
                     // Navigate to the verifier's profile, not the current profile
-                    navigation.push(`/profile/${target}`);
+                    navigation.push({
+                      pathname: '/profile/[did]',
+                      params: { did: targetDid },
+                    });
 
                     // Dismiss the sheet after navigation starts
                     setTimeout(() => {

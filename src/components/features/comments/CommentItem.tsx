@@ -333,51 +333,33 @@ const CommentItem: React.FC<CommentItemProps> = ({
   // Modal-aware navigation to AuthorProfile (works inside FeedModal or regular screens)
   const navigateToAuthorProfile = useCallback(
     (
-      rawHandle?: string | null,
       rawDid?: string | null,
       authorData?: { did?: string; handle?: string; displayName?: string; avatar?: string }
     ) => {
-      const cleanHandle = (rawHandle || '').trim();
-      const cleanDid = (rawDid || '').trim();
+      const cleanDid = (rawDid || authorData?.did || '').trim();
 
-      if (!cleanHandle && !cleanDid) {
+      if (!cleanDid) {
         return;
       }
 
       // Prefetch profile: sets partial data immediately + fetches full profile
-      if (queryClient && (cleanHandle || cleanDid)) {
-        const targetHandle = cleanHandle || authorData?.handle;
-        if (targetHandle) {
-          prefetchProfile(
-            queryClient,
-            targetHandle,
-            authorData
-              ? {
-                  did: cleanDid || authorData?.did,
-                  handle: targetHandle,
-                  displayName: authorData?.displayName,
-                  avatar: authorData?.avatar,
-                }
-              : undefined
-          );
-        }
+      if (queryClient && authorData) {
+        prefetchProfile(queryClient, cleanDid, {
+          did: cleanDid,
+          handle: authorData.handle,
+          displayName: authorData.displayName,
+          avatar: authorData.avatar,
+        });
       }
 
       // Always dismiss the sheet first if provided
       onDismiss?.();
 
-      // Navigate to profile using Expo Router - prefer DID if available, otherwise use handle
-      if (cleanDid) {
-        navigation.push({
-          pathname: '/profile/[did]',
-          params: cleanHandle ? { did: cleanDid, handle: cleanHandle } : { did: cleanDid },
-        });
-      } else if (cleanHandle) {
-        navigation.push({
-          pathname: '/profile/[did]',
-          params: { did: cleanHandle },
-        });
-      }
+      // Navigate to profile using DID only
+      navigation.push({
+        pathname: '/profile/[did]',
+        params: { did: cleanDid },
+      });
     },
     [navigation, onDismiss, queryClient]
   );
@@ -385,7 +367,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
   // Supports: (handle, did, authorData) from chyron/parent press, and (handle, { did }) from TextWithLinks/Atproto RichText.
   const handleAuthorPress = useCallback(
     (
-      handle: string,
+      _handle: string,
       didOrData?: string | null | { did?: string },
       authorData?: { did?: string; handle?: string; displayName?: string; avatar?: string }
     ) => {
@@ -401,7 +383,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
         ('handle' in didOrData || 'displayName' in didOrData || 'avatar' in didOrData)
           ? (didOrData as { did?: string; handle?: string; displayName?: string; avatar?: string })
           : authorData;
-      navigateToAuthorProfile(handle, rawDid ?? undefined, auth);
+      navigateToAuthorProfile(rawDid ?? auth?.did ?? undefined, auth);
     },
     [navigateToAuthorProfile]
   );
@@ -421,18 +403,12 @@ const CommentItem: React.FC<CommentItemProps> = ({
   );
 
   const handleAuthorAvatarPress = useCallback(() => {
-    let handle = null;
-    let authorData = null;
+    const authorData = comment?.author;
+    const did = authorData?.did;
 
-    if (comment?.author?.handle) {
-      handle = comment.author.handle.trim();
-      authorData = comment.author;
-    }
-
-    if (handle && typeof handle === 'string' && handle.trim() !== '') {
+    if (did) {
       navigateToAuthorProfile(
-        handle,
-        authorData?.did,
+        did,
         authorData
           ? {
               did: authorData.did,
@@ -708,20 +684,30 @@ const CommentItem: React.FC<CommentItemProps> = ({
         },
       ]);
     }
-  }, [uri, cid, isCurrentUserComment, rootUri, queryClient, level, comment?.parent, authorName]);
+  }, [
+    uri,
+    cid,
+    isCurrentUserComment,
+    rootUri,
+    queryClient,
+    level,
+    comment?.parent,
+    authorName,
+    markCommentAsDeleted,
+  ]);
 
   // BLUESKY_CDN constant removed - not used
 
   // Shimmer Image Component
 
-  const LinkThumbnail: React.FC<{
+  const LinkThumbnailComponent: React.FC<{
     external: {
       uri: string;
       thumb?: string | { ref: { $link: string } };
       title?: string;
       description?: string;
     };
-  }> = React.memo(({ external }) => {
+  }> = ({ external }) => {
     if (!external?.uri || !/^https?:\/\//.test(external.uri)) return null;
 
     const handlePress = () => {
@@ -756,7 +742,9 @@ const CommentItem: React.FC<CommentItemProps> = ({
         </View>
       </Pressable>
     );
-  });
+  };
+  LinkThumbnailComponent.displayName = 'LinkThumbnail';
+  const LinkThumbnail = React.memo(LinkThumbnailComponent);
 
   const renderImages = (hasText: boolean) => {
     const embed = getCommentEmbed(comment);
@@ -1108,7 +1096,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 6,
     right: 6,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: Colors.overlayBlack70,
     paddingVertical: 4,
     paddingHorizontal: 8,
     borderRadius: BORDER_RADIUS.MEDIUM,
@@ -1121,13 +1109,13 @@ const styles = StyleSheet.create({
   },
   commentThreadContainer: {
     marginBottom: 2,
-    backgroundColor: 'transparent',
+    backgroundColor: Colors.transparent,
   },
   commentItemContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     paddingHorizontal: 0,
-    backgroundColor: 'transparent',
+    backgroundColor: Colors.transparent,
     marginBottom: 2,
     position: 'relative',
   },
@@ -1145,7 +1133,7 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     paddingHorizontal: 8,
     paddingVertical: 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: Colors.overlayWhite10,
     borderRadius: BORDER_RADIUS.SMALL,
   },
   parentChyronArrow: {

@@ -153,21 +153,21 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   // Modal-aware navigation to AuthorProfile (works inside FeedModal or regular screens)
   const navigateToAuthorProfile = useCallback(
     (
-      rawHandle?: string | null,
+      rawDid?: string | null,
       authorData?: { did?: string; handle?: string; displayName?: string; avatar?: string }
     ) => {
-      const cleanHandle = (rawHandle || '').trim();
-      if (!cleanHandle) return;
+      const cleanDid = (rawDid || authorData?.did || '').trim();
+      if (!cleanDid) return;
 
       // Prefetch profile with partial data for instant UI + full data in background
       if (queryClient) {
         prefetchProfile(
           queryClient,
-          cleanHandle,
+          cleanDid,
           authorData
             ? {
-                did: authorData.did,
-                handle: authorData.handle || cleanHandle,
+                did: cleanDid,
+                handle: authorData.handle,
                 displayName: authorData.displayName,
                 avatar: authorData.avatar,
               }
@@ -175,7 +175,10 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
         );
       }
 
-      navigation.push(`/profile/${cleanHandle}`);
+      navigation.push({
+        pathname: '/profile/[did]',
+        params: { did: cleanDid },
+      });
     },
     [navigation, queryClient]
   );
@@ -201,9 +204,9 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
       handle: string | null | undefined,
       authorData?: { did?: string; handle?: string; displayName?: string; avatar?: string }
     ) => {
-      const cleanHandle = handle?.trim();
-      if (cleanHandle) {
-        navigateToAuthorProfile(cleanHandle, authorData);
+      const cleanDid = authorData?.did || handle?.trim();
+      if (cleanDid) {
+        navigateToAuthorProfile(cleanDid, authorData);
       }
     },
     [navigateToAuthorProfile]

@@ -2,7 +2,6 @@ import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../utils/constants';
 import { useQuery, useQueryClient, useInfiniteQuery, InfiniteData } from '@tanstack/react-query';
 import { queryKeys } from '../../utils/query/queryKeys';
-import { convertAtUriToOrbytUrl } from '../../utils/links/bluesky';
 import {
   View,
   Text,
@@ -211,6 +210,41 @@ const ShareSheet: React.FC = () => {
     })();
   }, [postUri, postCid, isBookmarked, addBookmark, removeBookmark]);
 
+  // Helper function to report content
+  const reportContent = useCallback(
+    async (reasonType: 'spam' | 'violation' | 'misleading' | 'sexual' | 'rude' | 'other') => {
+      if (!postUri) return;
+
+      // Optimistic update - mark as reported immediately and dismiss
+      const { useReportedPostsStore } = await import('../../stores/reportedPostsStore');
+      const store = useReportedPostsStore.getState();
+      store.reportPost(postUri);
+      dismissSheet();
+
+      // Show success message immediately
+      Alert.alert('thank you', 'this content has been reported for review.');
+
+      // Perform report in background
+      try {
+        const success = await AtprotoService.reportContent(postUri, reasonType);
+        if (!success) {
+          // Revert optimistic update on error - remove from reported set
+          const newSet = new Set(store.reportedPostUris);
+          newSet.delete(postUri);
+          store.reportedPostUris = newSet;
+          Alert.alert('error', 'failed to submit report. please try again.');
+        }
+      } catch (_error) {
+        // Revert optimistic update on error - remove from reported set
+        const newSet = new Set(store.reportedPostUris);
+        newSet.delete(postUri);
+        store.reportedPostUris = newSet;
+        Alert.alert('error', 'failed to submit report. please try again.');
+      }
+    },
+    [postUri, dismissSheet]
+  );
+
   // Report or delete post handler
   const handleReportOrDelete = useCallback(() => {
     // For current user, show delete option
@@ -294,49 +328,23 @@ const ShareSheet: React.FC = () => {
         },
       ]);
     }
-  }, [dismissSheet, isCurrentUser, postUri, queryClient]);
-
-  // Helper function to report content
-  const reportContent = useCallback(
-    async (reasonType: 'spam' | 'violation' | 'misleading' | 'sexual' | 'rude' | 'other') => {
-      if (!postUri) return;
-
-      // Optimistic update - mark as reported immediately and dismiss
-      const { useReportedPostsStore } = await import('../../stores/reportedPostsStore');
-      const store = useReportedPostsStore.getState();
-      store.reportPost(postUri);
-      dismissSheet();
-
-      // Show success message immediately
-      Alert.alert('thank you', 'this content has been reported for review.');
-
-      // Perform report in background
-      try {
-        const success = await AtprotoService.reportContent(postUri, reasonType);
-        if (!success) {
-          // Revert optimistic update on error - remove from reported set
-          const newSet = new Set(store.reportedPostUris);
-          newSet.delete(postUri);
-          store.reportedPostUris = newSet;
-          Alert.alert('error', 'failed to submit report. please try again.');
-        }
-      } catch (_error) {
-        // Revert optimistic update on error - remove from reported set
-        const newSet = new Set(store.reportedPostUris);
-        newSet.delete(postUri);
-        store.reportedPostUris = newSet;
-        Alert.alert('error', 'failed to submit report. please try again.');
-      }
-    },
-    [postUri, dismissSheet]
-  );
+  }, [dismissSheet, isCurrentUser, postUri, queryClient, reportContent]);
 
   // Share link handler
   const handleShare = useCallback(async () => {
     if (!postUri) return;
     try {
-      // Convert AT URI to a web URL using the utility function
-      const shareUrl = convertAtUriToOrbytUrl(postUri, authorHandle, authorDid);
+      // Extract rkey from AT URI: at://did:plc:abc123/app.bsky.feed.post/rkey
+      const parts = postUri.replace('at://', '').split('/');
+      const rkey = parts.length >= 3 ? parts[2] : '';
+      if (!rkey) return;
+
+      // Use DID if handle ends with .invalid, otherwise use handle
+      const identifier =
+        authorHandle && !authorHandle.endsWith('.invalid') ? authorHandle : authorDid;
+      if (!identifier) return;
+
+      const shareUrl = `https://getorbyt.com/@${identifier}/${rkey}`;
 
       await Share.share({
         message: Platform.OS === 'ios' ? '' : shareUrl,
@@ -346,7 +354,7 @@ const ShareSheet: React.FC = () => {
     } catch (_error: unknown) {
       // ignore
     }
-  }, [postUri, authorHandle, authorDid, dismissSheet]);
+  }, [postUri, authorHandle, authorDid]);
 
   // Fetch conversations for send picker
   const { data: conversationsData, isLoading: conversationsLoading } = useQuery({
@@ -356,7 +364,10 @@ const ShareSheet: React.FC = () => {
     staleTime: QUERY_CONSTANTS.STALE_TIME_SHORT,
   });
 
-  const conversations = conversationsData?.conversations || [];
+  // Memoize conversations to prevent unnecessary re-renders
+  const conversations = useMemo(() => {
+    return conversationsData?.conversations || [];
+  }, [conversationsData?.conversations]);
 
   // Search profiles when search query exists
   const {
@@ -711,17 +722,6 @@ const ShareSheet: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  bottomSheetBackground: {
-    backgroundColor: Colors.black,
-    // Square top corners - no border radius
-    borderTopLeftRadius: 0,
-    borderTopRightRadius: 0,
-  },
-  handleIndicator: {
-    backgroundColor: Colors.gray,
-    width: 40,
-    height: 5,
-  },
   content: {
     paddingHorizontal: 12,
     paddingTop: 8,
@@ -746,11 +746,6 @@ const styles = StyleSheet.create({
     marginLeft: -12,
     marginRight: -12,
   },
-  divider: {
-    height: 1,
-    backgroundColor: Colors.gray,
-    marginVertical: 15,
-  },
   optionsContainer: {
     flexDirection: 'row',
     justifyContent: 'flex-start',
@@ -772,21 +767,7 @@ const styles = StyleSheet.create({
     backgroundColor: hexToRGBA(Colors.gray, 0.12),
     overflow: 'hidden',
     borderWidth: 0,
-    borderColor: 'transparent',
-  },
-  iconButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 56,
-    height: 56,
-    borderRadius: BORDER_RADIUS.FULL,
-  },
-  reportOption: {
-    backgroundColor: Colors.red,
-  },
-  clearViewOptionActive: {
-    backgroundColor: Colors.white,
-    borderColor: Colors.white,
+    borderColor: Colors.transparent,
   },
   cancelContainer: {
     alignItems: 'center',
@@ -798,12 +779,6 @@ const styles = StyleSheet.create({
     marginTop: 12,
     textAlign: 'center',
     fontFamily: 'Figtree-Medium',
-  },
-  optionDisabled: {
-    opacity: 0.5,
-  },
-  optionTextDisabled: {
-    opacity: 0.5,
   },
   pickerContainer: {
     flex: 1,
@@ -903,11 +878,6 @@ const styles = StyleSheet.create({
   },
   disabledText: {
     color: Colors.lightGray,
-  },
-  conversationHandle: {
-    color: Colors.lightGray,
-    fontSize: 15,
-    fontFamily: 'Figtree-Medium',
   },
 });
 

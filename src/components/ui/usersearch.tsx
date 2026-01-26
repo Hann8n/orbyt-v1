@@ -1,6 +1,16 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../utils/constants';
-import { View, Text, FlatList, Pressable, StyleSheet, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Platform,
+  type StyleProp,
+  type ViewStyle,
+  type TextInput,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useInfiniteQuery, InfiniteData } from '@tanstack/react-query';
 import { queryKeys } from '../../utils/query/queryKeys';
@@ -52,7 +62,7 @@ interface RichTextSearchModalProps {
   searchQuery: string;
   searchType: 'mention' | 'hashtag';
   anchorPosition?: AnchorPosition;
-  containerStyle?: any;
+  containerStyle?: StyleProp<ViewStyle>;
 }
 
 // Helper: extract @mention query from text and cursor position
@@ -149,6 +159,7 @@ export function UserSearchModal({
             renderItem={({ item }) => (
               <AuthorItem
                 handle={item.handle}
+                did={item.did}
                 displayName={item.displayName}
                 avatar={item.avatar}
                 textColor={Colors.white}
@@ -217,10 +228,10 @@ export function RichTextSearchModal({
     { hashtags: string[] },
     Error,
     InfiniteData<{ hashtags: string[] }, string | null>,
-    any[],
+    readonly ['hashtagSuggestions', string],
     string | null
   >({
-    queryKey: ['hashtagSuggestions', searchQuery],
+    queryKey: ['hashtagSuggestions', searchQuery] as const,
     queryFn: async () => {
       const hashtags = await AtprotoService.searchHashtagSuggestions(searchQuery, 10);
       return { hashtags };
@@ -258,6 +269,7 @@ export function RichTextSearchModal({
               renderItem={({ item }) => (
                 <AuthorItem
                   handle={item.handle}
+                  did={item.did}
                   displayName={item.displayName}
                   avatar={item.avatar}
                   textColor={Colors.white}
@@ -341,7 +353,7 @@ export function useUserSearchTrigger({
   const [modalVisible, setModalVisible] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
   const [mentionRange, setMentionRange] = useState<{ start: number; end: number } | null>(null);
-  const inputRef = useRef<any>(null);
+  const inputRef = useRef<TextInput | null>(null);
 
   // Watch value/selection for @ mention
   useEffect(() => {
@@ -419,7 +431,7 @@ export function useRichTextSearchTrigger({
   const [searchQuery, setSearchQuery] = useState('');
   const [searchType, setSearchType] = useState<'mention' | 'hashtag'>('mention');
   const [searchRange, setSearchRange] = useState<{ start: number; end: number } | null>(null);
-  const inputRef = useRef<any>(null);
+  const inputRef = useRef<TextInput | null>(null);
 
   // Watch value/selection for @ mention or # hashtag
   useEffect(() => {
@@ -549,14 +561,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     pointerEvents: 'box-none',
   },
-  richTextSearchOverlay: {
-    position: 'relative',
-    width: '100%',
-    marginTop: 8,
-    zIndex: 1000,
-    elevation: 10,
-    pointerEvents: 'box-none',
-  },
   richTextSearchContainer: {
     backgroundColor: Colors.black,
     width: '100%',
@@ -595,28 +599,6 @@ const styles = StyleSheet.create({
     elevation: 8,
     width: '100%',
     maxHeight: 200,
-  },
-  item: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderBottomWidth: 0.5,
-    borderBottomColor: Colors.darkGray,
-  },
-  avatar: {
-    marginRight: 12,
-  },
-  displayName: {
-    color: Colors.white,
-    fontSize: 15,
-    fontWeight: 'bold',
-    fontFamily: 'Figtree-SemiBold',
-  },
-  handle: {
-    color: Colors.lightGray,
-    fontSize: 13,
-    fontFamily: 'Figtree-Regular',
   },
   centered: {
     alignItems: 'center',

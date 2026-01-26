@@ -3,7 +3,7 @@ import { StatusBar, Pressable, StyleSheet, View, ViewStyle } from 'react-native'
 import Animated, { useAnimatedStyle, interpolate, Extrapolate } from 'react-native-reanimated';
 import UniversalHeader, { HeaderContent } from './UniversalHeader';
 import { useFeedScroll } from '../../../context/FeedScrollContext';
-import { useProfile } from '../../../services/data/ProfileService';
+import type { ProfileViewWithOrbyt } from '../../../services/api/types';
 import { getProfileColors } from '../../../utils/formatting/colors';
 import { useProfileFlags } from '../../../stores/profileInteractionStore';
 import { useOrbytColors } from '../../../hooks/useOrbytColors';
@@ -17,7 +17,6 @@ import { formatHandle } from '../../../utils/formatting/handles';
 import { openListInBluesky } from '../../../utils/links/bluesky';
 
 interface ProfileHeaderProps {
-  handle: string | null;
   children?: React.ReactNode;
   applySafeArea?: boolean;
   headerStyle?: ViewStyle;
@@ -25,12 +24,13 @@ interface ProfileHeaderProps {
   contentFadeDisabled?: boolean;
   dimOverlayDisabled?: boolean;
   onAvatarPress?: () => void;
-  /** Beta status from Orbyt API */
-  isBeta?: boolean;
+  /** DID to fetch colors for */
+  did: string | null;
+  /** Profile data */
+  profileData: ProfileViewWithOrbyt | null;
 }
 
 const ProfileHeader: React.FC<ProfileHeaderProps> = ({
-  handle,
   children,
   applySafeArea = false,
   headerStyle,
@@ -38,7 +38,8 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   contentFadeDisabled = false,
   dimOverlayDisabled = false,
   onAvatarPress,
-  isBeta = false,
+  did,
+  profileData,
 }) => {
   const [showVerificationInfo, setShowVerificationInfo] = useState(false);
   const [showBetaInfo, setShowBetaInfo] = useState(false);
@@ -46,16 +47,15 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   const feedScroll = useFeedScroll();
   const contentScrollProgressSV = feedScroll?.contentScrollProgressSV;
 
-  // Use profile data from React Query cache
-  const { data: profile } = useProfile(handle);
-  const profileData = profile;
-
-  // Get colors from Orbyt API
-  const { data: orbytColors } = useOrbytColors(profileData?.did);
+  // Get colors from Orbyt API using passed did
+  const { data: orbytColors } = useOrbytColors(did);
 
   // Get colors from Orbyt API (primary) or defaults
   const profileColors = getProfileColors(orbytColors);
   const joinDate = orbytColors?.joinedAt;
+
+  // Beta status from Orbyt API
+  const isBeta = orbytColors?.isBeta ?? false;
 
   // Block status and flags (used for avatar blur only; actions moved to ProfileScreen)
   // Use moderation flags directly from ProfileView viewer fields

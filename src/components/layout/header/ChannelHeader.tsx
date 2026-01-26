@@ -383,9 +383,12 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
 
     const handleCreatorPress = channel.creator?.handle
       ? () => {
-          const clean = channel.creator!.handle.trim();
-          if (!clean) return;
-          navigation.push(`/profile/${clean}`);
+          const did = channel.creator!.did?.trim();
+          if (!did) return;
+          navigation.push({
+            pathname: '/profile/[did]',
+            params: { did },
+          });
         }
       : undefined;
 
@@ -606,23 +609,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  likeCountContainer: {
-    alignItems: 'flex-start',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginLeft: 4,
-  },
-  likeCountNumber: {
-    fontFamily: 'Figtree-Bold',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  likeCountLabel: {
-    fontFamily: 'Figtree-SemiBold',
-    fontSize: 14,
-    marginTop: 2,
-  },
   viewToggleContainer: {
     flexDirection: 'row',
     alignItems: 'center',

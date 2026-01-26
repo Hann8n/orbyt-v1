@@ -5,6 +5,7 @@ import ListScreen from '../../src/components/ui/ListScreen';
 import AtprotoService from '../../src/services/api/AtprotoService';
 import { prefetchProfile } from '../../src/services/data/ProfileService';
 import { useCurrentUser } from '../../src/stores/userStore';
+import type { ProfileViewBasic, FollowersResponse } from '../../src/services/api/types';
 
 const FollowersScreen: React.FC = () => {
   const navigation = useRouter();
@@ -21,12 +22,11 @@ const FollowersScreen: React.FC = () => {
         const response = await AtprotoService.getFollowers(currentUser.did, pageParam, 50);
 
         return {
-          followers: response.followers.map((follower: any) => ({
+          followers: response.followers.map((follower: ProfileViewBasic) => ({
             did: follower.did,
             handle: follower.handle,
             displayName: follower.displayName,
             avatar: follower.avatar,
-            description: follower.description,
             viewer: follower.viewer,
             isFollowing: !!follower.viewer?.following,
           })),
@@ -42,27 +42,36 @@ const FollowersScreen: React.FC = () => {
   // Flatten all followers from all pages
   const followers = useMemo(() => {
     if (!data?.pages) return [];
-    return data.pages.flatMap((page: any) => page.followers || []);
+    return data.pages.flatMap((page: FollowersResponse) => page.followers || []);
   }, [data]);
 
   const handleProfilePress = useCallback(
-    (handle: string) => {
-      if (handle && handle.trim()) {
-        const target = handle.trim();
-        // Prefetch profile (no partial data needed here)
-        prefetchProfile(queryClient, target).finally(() => {
-          let rootNav: any = navigation as any;
-          while (rootNav?.getParent?.()) {
-            rootNav = rootNav.getParent();
-          }
+    (did: string) => {
+      if (did && did.trim()) {
+        const targetDid = did.trim();
+        // Find profile data to get handle for prefetch
+        const profile = followers.find(p => p.did === targetDid);
+        // Prefetch profile with partial data
+        prefetchProfile(
+          queryClient,
+          targetDid,
+          profile
+            ? {
+                did: profile.did,
+                handle: profile.handle,
+                displayName: profile.displayName,
+                avatar: profile.avatar,
+              }
+            : undefined
+        ).finally(() => {
           navigation.push({
             pathname: '/profile/[did]',
-            params: { did: target },
+            params: { did: targetDid },
           });
         });
       }
     },
-    [navigation, queryClient]
+    [navigation, queryClient, followers]
   );
 
   return (

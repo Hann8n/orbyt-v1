@@ -58,18 +58,17 @@ export const queryKeys = {
   },
 
   // Profile queries (merged from ProfileService and FeedService)
+  // All profile cache keys use DID as identifier (not handle)
   profiles: {
     all: profilesBase,
-    detail: (handle: string) => [...profilesBase, 'detail', handle] as const,
-    byDid: (did: string) => [...profilesBase, 'did', did] as const,
+    detail: (did: string) => [...profilesBase, 'detail', did] as const,
     lists: () => [...profilesBase, 'list'] as const,
     list: (filters?: string) =>
       filters
         ? ([...profilesBase, 'list', { filters }] as const)
         : ([...profilesBase, 'list'] as const),
     details: () => [...profilesBase, 'detail'] as const,
-    refresh: (handle: string) =>
-      [...profilesBase, 'detail', handle, 'refresh', Date.now()] as const,
+    refresh: (did: string) => [...profilesBase, 'detail', did, 'refresh', Date.now()] as const,
   },
 
   // Orbyt profile queries

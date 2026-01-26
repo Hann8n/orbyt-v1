@@ -841,7 +841,12 @@ export default function ChatScreen({ conversationId }: ChatScreenProps) {
                 <View style={styles.headerCenter}>
                   <Pressable
                     style={styles.headerUserInfo}
-                    onPress={() => router.push(`/profile/${otherUserForDisplay.did}`)}
+                    onPress={() =>
+                      router.push({
+                        pathname: '/profile/[did]',
+                        params: { did: otherUserForDisplay.did },
+                      })
+                    }
                   >
                     <Avatar
                       uri={otherUserForDisplay.avatar}

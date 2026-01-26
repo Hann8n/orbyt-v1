@@ -2,7 +2,6 @@ import { Platform } from 'react-native';
 import { Tabs } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
-import { DarkTheme } from '@react-navigation/native';
 
 import { useUserStore, useFeedSettings } from '../../src/stores/userStore';
 import { Colors } from '../../src/components/ui/UI';
@@ -90,7 +89,6 @@ export default function TabsLayout() {
   // Use Expo Router's Tabs component following the guide pattern
   return (
     <Tabs
-      theme={DarkTheme}
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: customTintColor,
@@ -112,7 +110,8 @@ export default function TabsLayout() {
       }}
       tabBar={props => (
         <CustomBottomTabBar
-          {...props}
+          state={props.state as any}
+          navigation={props.navigation as any}
           tintColor={customTintColor}
           inactiveTintColor={customInactiveTintColor}
         />

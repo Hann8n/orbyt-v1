@@ -336,8 +336,8 @@ const NotificationItem = React.memo<NotificationItemProps>(
 
     // Navigate to profile
     const navigateToProfile = useCallback(
-      (handle: string, authorData?: ProfileView) => {
-        const trimmed = handle.trim();
+      (did: string, authorData?: ProfileView) => {
+        const trimmed = did.trim();
         if (!trimmed) return;
 
         // Prefetch profile: sets partial data immediately + fetches full profile
@@ -348,14 +348,22 @@ const NotificationItem = React.memo<NotificationItemProps>(
             authorData
               ? {
                   did: authorData.did,
-                  handle: trimmed,
+                  handle: authorData.handle,
                   displayName: authorData.displayName,
                   avatar: authorData.avatar,
                 }
               : undefined
-          ).finally(() => navigation.push(`/profile/${trimmed}`));
+          ).finally(() => {
+            navigation.push({
+              pathname: '/profile/[did]',
+              params: { did: trimmed },
+            });
+          });
         } else {
-          navigation.push(`/profile/${trimmed}`);
+          navigation.push({
+            pathname: '/profile/[did]',
+            params: { did: trimmed },
+          });
         }
       },
       [navigation, queryClient]
@@ -386,20 +394,20 @@ const NotificationItem = React.memo<NotificationItemProps>(
 
     const handlePress = async () => {
       if (!isPostAction) {
-        if (author?.handle) navigateToProfile(author.handle, author);
+        if (author?.did) navigateToProfile(author.did, author);
         return;
       }
 
       const postUri = getPostUri(item);
       if (!postUri) {
-        if (author?.handle) navigateToProfile(author.handle, author);
+        if (author?.did) navigateToProfile(author.did, author);
         return;
       }
 
       try {
         const result = await fetchPostData(postUri, postData);
         if (!result) {
-          if (author?.handle) navigateToProfile(author.handle, author);
+          if (author?.did) navigateToProfile(author.did, author);
           return;
         }
 
@@ -407,7 +415,7 @@ const NotificationItem = React.memo<NotificationItemProps>(
 
         // If post is missing, navigate to profile
         if (!finalPostData) {
-          if (author?.handle) navigateToProfile(author.handle, author);
+          if (author?.did) navigateToProfile(author.did, author);
           return;
         }
 
@@ -465,7 +473,7 @@ const NotificationItem = React.memo<NotificationItemProps>(
       try {
         const result = await fetchPostData(postUri, postData);
         if (!result) {
-          if (author?.handle) navigateToProfile(author.handle, author);
+          if (author?.did) navigateToProfile(author.did, author);
           return;
         }
 
@@ -473,7 +481,7 @@ const NotificationItem = React.memo<NotificationItemProps>(
 
         // If post is missing, navigate to profile
         if (!finalPostData) {
-          if (author?.handle) navigateToProfile(author.handle, author);
+          if (author?.did) navigateToProfile(author.did, author);
           return;
         }
 
@@ -488,17 +496,17 @@ const NotificationItem = React.memo<NotificationItemProps>(
           await openPostInBluesky(rootPostUri);
         }
       } catch {
-        if (author?.handle) navigateToProfile(author.handle, author);
+        if (author?.did) navigateToProfile(author.did, author);
       }
     }, [isPostAction, item, postData, author, navigateToProfile, navigateToVideoPost]);
 
     const handleAvatarPress = useCallback(() => {
-      if (author?.handle) navigateToProfile(author.handle);
-    }, [author?.handle, navigateToProfile]);
+      if (author?.did) navigateToProfile(author.did, author);
+    }, [navigateToProfile, author]);
 
     const handleNamePress = useCallback(() => {
-      if (author?.handle) navigateToProfile(author.handle);
-    }, [author?.handle, navigateToProfile]);
+      if (author?.did) navigateToProfile(author.did, author);
+    }, [navigateToProfile, author]);
 
     return (
       <View style={styles.notificationItem}>

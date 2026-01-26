@@ -90,13 +90,14 @@ export function getProfileStaleTime(profile: ProfileViewWithOrbyt | null | undef
 }
 
 // React Query keys as a const to ensure type safety
+// All profile cache keys use DID as identifier (not handle)
 export const profileKeys = {
   all: ['profiles'] as const,
   lists: () => [...profileKeys.all, 'list'] as const,
   list: (filters: string) => [...profileKeys.lists(), { filters }] as const,
   details: () => [...profileKeys.all, 'detail'] as const,
-  detail: (handle: string) => [...profileKeys.details(), handle] as const,
-  refresh: (handle: string) => [...profileKeys.detail(handle), 'refresh', Date.now()] as const,
+  detail: (did: string) => [...profileKeys.details(), did] as const,
+  refresh: (did: string) => [...profileKeys.detail(did), 'refresh', Date.now()] as const,
 } as const;
 
 // Note: getProfileColors has been moved to src/utils/formatting/colors.ts
@@ -110,8 +111,8 @@ class ProfileService {
   private static currentUserHandle: string | null = null;
 
   // React Query integration
-  static getQueryKey(handle: string): QueryKey {
-    return profileKeys.detail(handle.toLowerCase());
+  static getQueryKey(did: string): QueryKey {
+    return profileKeys.detail(did);
   }
 
   // Make CACHE_EXPIRY accessible for React Query hooks
@@ -122,15 +123,15 @@ class ProfileService {
   /**
    * Get profile from React Query cache synchronously
    * @param queryClient - React Query client instance
-   * @param handle - Profile handle
+   * @param did - Profile DID
    * @returns Profile or null
    */
   static getProfileFromCacheSync(
     queryClient: QueryClient,
-    handle: string
+    did: string
   ): ProfileViewWithOrbyt | null {
-    if (!handle) return null;
-    const queryKey = profileKeys.detail(handle.toLowerCase());
+    if (!did) return null;
+    const queryKey = profileKeys.detail(did);
     return queryClient.getQueryData<ProfileViewWithOrbyt>(queryKey) ?? null;
   }
 
@@ -271,40 +272,12 @@ class ProfileService {
   }
 
   /**
-   * Force refresh a profile by DID - just call getProfileByDid (cache is managed by React Query)
-   */
-  static async refreshProfileByDid(did: string): Promise<ProfileViewWithOrbyt | null> {
-    return this.getProfileByDid(did);
-  }
-
-  /**
-   * Force refresh a profile by handle - just call getProfile (cache is managed by React Query)
-   */
-  static async refreshProfile(handle: string): Promise<ProfileViewWithOrbyt | null> {
-    return this.getProfile(handle);
-  }
-
-  /**
    * Pre-cache a list of profiles from API responses
    * React Query handles caching automatically
    */
   static async cacheProfiles(_profiles: ProfileViewBasic[]): Promise<void> {
     // React Query handles caching automatically - no manual caching needed
     // This method is kept for backwards compatibility but does nothing
-  }
-
-  /**
-   * Update the following status for a profile
-   * Note: This method is deprecated - React Query mutations handle cache updates
-   * Keeping for backwards compatibility but no longer updates cache
-   */
-  static async updateFollowingStatus(
-    _handle: string,
-    _isFollowing: boolean,
-    _isFollowedBy?: boolean
-  ): Promise<void> {
-    // Note: This method is deprecated - React Query mutations handle cache updates
-    // Keeping for backwards compatibility but no longer updates cache
   }
 
   /**
@@ -501,14 +474,12 @@ export function useProfileByDid(
   const staleTime = useMemo(() => {
     if (!did) return PROFILE_CACHE_EXPIRY;
     // Read from React Query cache to calculate staleTime
-    const cachedProfile = queryClient.getQueryData<ProfileViewWithOrbyt>(
-      profileKeys.detail(`did_${did}`)
-    );
+    const cachedProfile = queryClient.getQueryData<ProfileViewWithOrbyt>(profileKeys.detail(did));
     return getProfileStaleTime(cachedProfile);
   }, [did, queryClient]);
 
   return useQuery<ProfileViewWithOrbyt | null, Error>({
-    queryKey: did ? profileKeys.detail(`did_${did}`) : ['profiles', 'detail', 'did_'],
+    queryKey: did ? profileKeys.detail(did) : ['profiles', 'detail', ''],
     queryFn: async () => (did ? ProfileService.getProfileByDid(did) : null),
     enabled: !!did,
     staleTime,
@@ -591,6 +562,7 @@ export function useBatchProfilesByDid(
 
 /**
  * Hook to fetch and subscribe to profile data by handle
+ * Note: Fetches by handle (for display/search) but caches by DID from response
  * React Query cache provides instant data on subsequent renders
  */
 export function useProfile(
@@ -598,21 +570,21 @@ export function useProfile(
 ): UseQueryResult<ProfileViewWithOrbyt | null, Error> {
   const queryClient = useQueryClient();
 
-  // Calculate staleTime based on status expiration from React Query cache
-  const staleTime = useMemo(() => {
-    if (!handle) return PROFILE_CACHE_EXPIRY;
-    // Read from React Query cache to calculate staleTime
-    const cachedProfile = queryClient.getQueryData<ProfileViewWithOrbyt>(
-      profileKeys.detail(handle.toLowerCase())
-    );
-    return getProfileStaleTime(cachedProfile);
-  }, [handle, queryClient]);
-
   return useQuery<ProfileViewWithOrbyt | null, Error>({
-    queryKey: handle ? profileKeys.detail(handle.toLowerCase()) : ['profiles', 'detail', ''],
-    queryFn: async () => (handle ? ProfileService.getProfile(handle) : null),
+    queryKey: handle
+      ? ['profiles', 'byHandle', handle.toLowerCase()]
+      : ['profiles', 'byHandle', ''],
+    queryFn: async () => {
+      if (!handle) return null;
+      const profile = await ProfileService.getProfile(handle);
+      // Cache by DID from response (API always provides DID)
+      if (profile?.did) {
+        queryClient.setQueryData(profileKeys.detail(profile.did), profile);
+      }
+      return profile;
+    },
     enabled: !!handle,
-    staleTime,
+    staleTime: PROFILE_CACHE_EXPIRY,
     gcTime: PROFILE_CACHE_EXPIRY * 2,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
@@ -669,9 +641,6 @@ export function useFollowMutation() {
         followUri = undefined;
       }
 
-      // Update the cache with the new following status
-      await ProfileService.updateFollowingStatus(handle, isFollowing, isFollowedBy);
-
       // Persist to follow store for navigation
       updateFollowState(profile.did, handle, isFollowing, followUri);
 
@@ -679,42 +648,27 @@ export function useFollowMutation() {
     },
     // When mutate is called:
     onMutate: async ({ handle, isFollowing, isFollowedBy }) => {
-      // Cancel any outgoing refetches for both handle and DID-based queries
-      await queryClient.cancelQueries({ queryKey: profileKeys.detail(handle) });
+      // Get profile to find DID (API always provides DID)
+      const profile = await ProfileService.getProfile(handle).catch(() => null);
+      const did = profile?.did;
+      if (!did) {
+        throw new Error('Profile not found or missing DID');
+      }
 
-      // Snapshot the previous values FIRST (before async operations)
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: profileKeys.detail(did) });
+
+      // Snapshot the previous value
       const previousProfile = queryClient.getQueryData<ProfileViewWithOrbyt>(
-        profileKeys.detail(handle)
+        profileKeys.detail(did)
       );
-      const did = previousProfile?.did;
 
       // Update follow store IMMEDIATELY (synchronously) before any async work
-      if (did) {
-        updateFollowState(did, handle, isFollowing);
-        await queryClient.cancelQueries({ queryKey: profileKeys.detail(`did_${did}`) });
-      }
-
-      // Get profile to find DID if not in cache (fallback)
-      const profile = did
-        ? previousProfile
-        : await ProfileService.getProfile(handle).catch(() => null);
-      const resolvedDid = did || profile?.did;
-
-      if (resolvedDid && !did) {
-        await queryClient.cancelQueries({ queryKey: profileKeys.detail(`did_${resolvedDid}`) });
-        // Update store if we just got the DID
-        updateFollowState(resolvedDid, handle, isFollowing);
-      }
-
-      const previousProfileByDid = resolvedDid
-        ? queryClient.getQueryData<ProfileViewWithOrbyt>(profileKeys.detail(`did_${resolvedDid}`))
-        : null;
+      updateFollowState(did, handle, isFollowing);
 
       // Optimistically update React Query cache
-      // Note: This may be redundant if called from profile screen (which updates cache in button handler),
-      // but it's needed for other places that use this mutation (e.g., explore screen)
       if (previousProfile) {
-        queryClient.setQueryData(profileKeys.detail(handle), {
+        queryClient.setQueryData(profileKeys.detail(did), {
           ...previousProfile,
           viewer: {
             ...previousProfile.viewer,
@@ -731,48 +685,26 @@ export function useFollowMutation() {
         });
       }
 
-      if (previousProfileByDid) {
-        queryClient.setQueryData(profileKeys.detail(`did_${resolvedDid}`), {
-          ...previousProfileByDid,
-          viewer: {
-            ...previousProfileByDid.viewer,
-            following: isFollowing
-              ? previousProfileByDid.viewer?.following || 'at://placeholder'
-              : undefined,
-            followedBy:
-              isFollowedBy !== undefined
-                ? isFollowedBy
-                  ? 'at://placeholder'
-                  : undefined
-                : previousProfileByDid.viewer?.followedBy,
-          },
-        });
-      }
-
-      return { previousProfile, previousProfileByDid, did: resolvedDid };
+      return { previousProfile, did };
     },
     // If mutation fails, use context returned from onMutate to roll back
-    onError: (_err, { handle }, context) => {
-      if (context?.previousProfile) {
-        queryClient.setQueryData(profileKeys.detail(handle), context.previousProfile);
-      }
-
-      if (context?.did && context?.previousProfileByDid) {
-        queryClient.setQueryData(
-          profileKeys.detail(`did_${context.did}`),
-          context.previousProfileByDid
-        );
+    onError: (_err, _variables, context) => {
+      if (context?.previousProfile && context?.did) {
+        queryClient.setQueryData(profileKeys.detail(context.did), context.previousProfile);
       }
 
       // Revert follow store state
       if (context?.did && context?.previousProfile) {
         const wasFollowing = !!context.previousProfile.viewer?.following;
-        updateFollowState(context.did, handle, wasFollowing);
+        updateFollowState(context.did, '', wasFollowing);
       }
     },
     // Always refetch after error or success to ensure cache consistency
-    onSettled: (_, __, { handle }) => {
-      queryClient.invalidateQueries({ queryKey: profileKeys.detail(handle) });
+    onSettled: (data, _error, _variables) => {
+      // Get DID from mutation result
+      if (data?.did) {
+        queryClient.invalidateQueries({ queryKey: profileKeys.detail(data.did) });
+      }
     },
   });
 }
@@ -804,87 +736,50 @@ export function useBlockMutation() {
       return { did, handle, isBlocked };
     },
     // When mutate is called:
-    onMutate: async ({ did, handle, isBlocked }) => {
-      // Normalize handle to lowercase to match query keys (useProfile uses lowercase)
-      const normalizedHandle = handle.toLowerCase();
+    onMutate: async ({ did, handle: _handle, isBlocked }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: profileKeys.detail(did) });
 
-      // Cancel any outgoing refetches for both handle and DID-based queries
-      await queryClient.cancelQueries({ queryKey: profileKeys.detail(normalizedHandle) });
-      await queryClient.cancelQueries({ queryKey: profileKeys.detail(`did_${did}`) });
-
-      // Snapshot the previous values
+      // Snapshot the previous value
       const previousProfile = queryClient.getQueryData<ProfileViewWithOrbyt>(
-        profileKeys.detail(normalizedHandle)
-      );
-      const previousProfileByDid = queryClient.getQueryData<ProfileViewWithOrbyt>(
-        profileKeys.detail(`did_${did}`)
+        profileKeys.detail(did)
       );
 
       // Optimistically update React Query cache
       // When manually blocking/unblocking, clear blockingByList (direct block only)
-      const updatedProfile = previousProfile
-        ? {
-            ...previousProfile,
-            viewer: {
-              ...previousProfile.viewer,
-              blocking: isBlocked
-                ? previousProfile.viewer?.blocking || 'at://placeholder'
-                : undefined,
-              blockingByList: !isBlocked ? undefined : previousProfile.viewer?.blockingByList,
-            },
-          }
-        : null;
-      const updatedProfileByDid = previousProfileByDid
-        ? {
-            ...previousProfileByDid,
-            viewer: {
-              ...previousProfileByDid.viewer,
-              blocking: isBlocked
-                ? previousProfileByDid.viewer?.blocking || 'at://placeholder'
-                : undefined,
-              blockingByList: !isBlocked ? undefined : previousProfileByDid.viewer?.blockingByList,
-            },
-          }
-        : null;
-
-      if (updatedProfile) {
-        queryClient.setQueryData(profileKeys.detail(normalizedHandle), updatedProfile);
+      if (previousProfile) {
+        queryClient.setQueryData(profileKeys.detail(did), {
+          ...previousProfile,
+          viewer: {
+            ...previousProfile.viewer,
+            blocking: isBlocked
+              ? previousProfile.viewer?.blocking || 'at://placeholder'
+              : undefined,
+            blockingByList: !isBlocked ? undefined : previousProfile.viewer?.blockingByList,
+          },
+        });
       }
 
-      if (updatedProfileByDid) {
-        queryClient.setQueryData(profileKeys.detail(`did_${did}`), updatedProfileByDid);
-      }
-
-      return { previousProfile, previousProfileByDid, normalizedHandle };
+      return { previousProfile, did };
     },
     // If mutation fails, use context returned from onMutate to roll back
-    onError: (_err, { handle, did }, context) => {
-      const normalizedHandle = handle.toLowerCase();
-      if (context?.previousProfile) {
-        queryClient.setQueryData(profileKeys.detail(normalizedHandle), context.previousProfile);
-      }
-
-      if (context?.previousProfileByDid) {
-        queryClient.setQueryData(profileKeys.detail(`did_${did}`), context.previousProfileByDid);
+    onError: (_err, { did: _did }, context) => {
+      if (context?.previousProfile && context?.did) {
+        queryClient.setQueryData(profileKeys.detail(context.did), context.previousProfile);
       }
     },
     // Update cache after successful mutation to ensure persisted state
-    onSuccess: (_data, { handle, did }) => {
-      // Normalize handle to lowercase to match query keys (useProfile uses lowercase)
-      const normalizedHandle = handle.toLowerCase();
-
+    onSuccess: (_data, { did }) => {
       // React Query cache is already updated in onMutate
-      // No need to sync from MMKV since we're using React Query only
-      const handleKey = profileKeys.detail(normalizedHandle);
-      const didKey = profileKeys.detail(`did_${did}`);
-
       // Invalidate feed queries immediately to refresh posts visibility
       queryClient.invalidateQueries({ queryKey: ['feed'], refetchType: 'active' });
 
       // Delay profile refetch to ensure server has processed (only inactive queries)
       setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: handleKey, refetchType: 'inactive' });
-        queryClient.invalidateQueries({ queryKey: didKey, refetchType: 'inactive' });
+        queryClient.invalidateQueries({
+          queryKey: profileKeys.detail(did),
+          refetchType: 'inactive',
+        });
       }, 2000);
     },
   });
@@ -918,22 +813,18 @@ export function useMuteMutation() {
       return { did, handle, isMuted };
     },
     // When mutate is called:
-    onMutate: async ({ did, handle, isMuted }) => {
-      // Cancel any outgoing refetches for both handle and DID-based queries
-      await queryClient.cancelQueries({ queryKey: profileKeys.detail(handle) });
-      await queryClient.cancelQueries({ queryKey: profileKeys.detail(`did_${did}`) });
+    onMutate: async ({ did, handle: _handle, isMuted }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: profileKeys.detail(did) });
 
-      // Snapshot the previous values
+      // Snapshot the previous value
       const previousProfile = queryClient.getQueryData<ProfileViewWithOrbyt>(
-        profileKeys.detail(handle)
-      );
-      const previousProfileByDid = queryClient.getQueryData<ProfileViewWithOrbyt>(
-        profileKeys.detail(`did_${did}`)
+        profileKeys.detail(did)
       );
 
       // Optimistically update React Query cache
       if (previousProfile) {
-        queryClient.setQueryData(profileKeys.detail(handle), {
+        queryClient.setQueryData(profileKeys.detail(did), {
           ...previousProfile,
           viewer: {
             ...previousProfile.viewer,
@@ -942,39 +833,22 @@ export function useMuteMutation() {
         });
       }
 
-      if (previousProfileByDid) {
-        queryClient.setQueryData(profileKeys.detail(`did_${did}`), {
-          ...previousProfileByDid,
-          viewer: {
-            ...previousProfileByDid.viewer,
-            muted: isMuted,
-          },
-        });
-      }
-
-      return { previousProfile, previousProfileByDid };
+      return { previousProfile, did };
     },
     // If mutation fails, use context returned from onMutate to roll back
-    onError: (_err, { handle, did }, context) => {
-      if (context?.previousProfile) {
-        queryClient.setQueryData(profileKeys.detail(handle), context.previousProfile);
-      }
-
-      if (context?.previousProfileByDid) {
-        queryClient.setQueryData(profileKeys.detail(`did_${did}`), context.previousProfileByDid);
+    onError: (_err, { did: _did }, context) => {
+      if (context?.previousProfile && context?.did) {
+        queryClient.setQueryData(profileKeys.detail(context.did), context.previousProfile);
       }
     },
     // Invalidate queries after successful mutation with delay to ensure server has processed
-    onSuccess: (_, { handle, did }) => {
+    onSuccess: (_, { did }) => {
       // Invalidate feed queries immediately to refresh posts visibility
       queryClient.invalidateQueries({ queryKey: ['feed'], refetchType: 'active' });
 
       // Delay profile refetch to ensure server has processed the change
-      const handleKey = profileKeys.detail(handle);
-      const didKey = profileKeys.detail(`did_${did}`);
       setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: handleKey, refetchType: 'active' });
-        queryClient.invalidateQueries({ queryKey: didKey, refetchType: 'active' });
+        queryClient.invalidateQueries({ queryKey: profileKeys.detail(did), refetchType: 'active' });
       }, 500);
     },
   });
@@ -1034,10 +908,17 @@ export function useProfileUpdateMutation() {
       return { handle, updatedProfile, updatedColors: !!updates.customColors };
     },
     onMutate: async ({ handle, updates }) => {
-      await queryClient.cancelQueries({ queryKey: profileKeys.detail(handle) });
+      // Get profile to find DID (API always provides DID)
+      const profile = await ProfileService.getProfile(handle).catch(() => null);
+      const did = profile?.did;
+      if (!did) {
+        throw new Error('Profile not found or missing DID');
+      }
+
+      await queryClient.cancelQueries({ queryKey: profileKeys.detail(did) });
 
       const previousProfile = queryClient.getQueryData<ProfileViewWithOrbyt>(
-        profileKeys.detail(handle)
+        profileKeys.detail(did)
       );
 
       // Optimistically update the query cache
@@ -1061,16 +942,19 @@ export function useProfileUpdateMutation() {
             : {}),
         };
 
-        queryClient.setQueryData(profileKeys.detail(handle), optimistic);
+        queryClient.setQueryData(profileKeys.detail(did), optimistic);
       }
 
-      return { previousProfile };
+      return { previousProfile, did };
     },
-    onSuccess: ({ updatedProfile, updatedColors }, { handle, updates }) => {
+    onSuccess: ({ updatedProfile, updatedColors }, { updates }, context) => {
       try {
+        const did = context?.did;
+        if (!did) return;
+
         // If colors were updated, update orbyt record in cache
         if (updatedColors) {
-          const prev = queryClient.getQueryData<ProfileViewWithOrbyt>(profileKeys.detail(handle));
+          const prev = queryClient.getQueryData<ProfileViewWithOrbyt>(profileKeys.detail(did));
 
           if (prev && updates.customColors) {
             // Update the profile with new colors in orbyt record
@@ -1087,17 +971,10 @@ export function useProfileUpdateMutation() {
             };
 
             // Update React Query cache immediately
-            queryClient.setQueryData(profileKeys.detail(handle), updated);
-            // Also update DID-based query if we have the DID
-            if (prev.did) {
-              queryClient.setQueryData(profileKeys.detail(`did_${prev.did}`), updated);
-            }
+            queryClient.setQueryData(profileKeys.detail(did), updated);
           } else {
             // Fallback: invalidate to trigger refetch
-            queryClient.invalidateQueries({ queryKey: profileKeys.detail(handle) });
-            if (prev?.did) {
-              queryClient.invalidateQueries({ queryKey: profileKeys.detail(`did_${prev.did}`) });
-            }
+            queryClient.invalidateQueries({ queryKey: profileKeys.detail(did) });
           }
           return;
         }
@@ -1107,7 +984,7 @@ export function useProfileUpdateMutation() {
         }
 
         // Merge server-updated fields into the query cache immediately
-        const prev = queryClient.getQueryData<ProfileViewWithOrbyt>(profileKeys.detail(handle));
+        const prev = queryClient.getQueryData<ProfileViewWithOrbyt>(profileKeys.detail(did));
 
         if (!prev) {
           return; // Skip if no previous data
@@ -1120,22 +997,17 @@ export function useProfileUpdateMutation() {
           orbytRecord: prev.orbytRecord, // Preserve orbyt record
         };
 
-        queryClient.setQueryData(profileKeys.detail(handle), merged);
-
-        // Also invalidate DID-based queries if we know the DID
-        if (prev.did) {
-          queryClient.invalidateQueries({ queryKey: profileKeys.detail(`did_${prev.did}`) });
-        }
+        queryClient.setQueryData(profileKeys.detail(did), merged);
 
         // Still invalidate to ensure freshness against server
-        queryClient.invalidateQueries({ queryKey: profileKeys.detail(handle) });
+        queryClient.invalidateQueries({ queryKey: profileKeys.detail(did) });
       } catch {
         // Silently handle errors
       }
     },
-    onError: (_error, { handle }, context) => {
-      if (context?.previousProfile) {
-        queryClient.setQueryData(profileKeys.detail(handle), context.previousProfile);
+    onError: (_error, _variables, context) => {
+      if (context?.previousProfile && context?.did) {
+        queryClient.setQueryData(profileKeys.detail(context.did), context.previousProfile);
       }
     },
   });
@@ -1148,9 +1020,9 @@ export function useProfileInvalidation() {
   const queryClient = useQueryClient();
 
   return useCallback(
-    async (handle: string) => {
+    async (did: string) => {
       // Invalidate React Query cache
-      queryClient.invalidateQueries({ queryKey: profileKeys.detail(handle) });
+      queryClient.invalidateQueries({ queryKey: profileKeys.detail(did) });
     },
     [queryClient]
   );
@@ -1176,13 +1048,9 @@ export function useStatusExpirationMonitor(
     }
 
     const invalidate = () => {
-      if (profile.handle) {
-        queryClient.invalidateQueries({ queryKey: profileKeys.detail(profile.handle) });
-      }
-      if (did || profile.did) {
-        queryClient.invalidateQueries({
-          queryKey: profileKeys.detail(`did_${did || profile.did}`),
-        });
+      const targetDid = did || profile.did;
+      if (targetDid) {
+        queryClient.invalidateQueries({ queryKey: profileKeys.detail(targetDid) });
       }
     };
 
@@ -1249,19 +1117,16 @@ export async function prefetchProfile(
   if (!cleanIdentifier) return;
 
   const isDid = cleanIdentifier.startsWith('did:');
-  const cleanHandle = isDid ? null : cleanIdentifier.toLowerCase();
   const did = isDid ? cleanIdentifier : partialProfile?.did;
 
   // Step 1: Set partial data immediately for instant UI (if provided and cache is missing)
-  if (partialProfile && cleanHandle) {
-    const existing = queryClient.getQueryData<ProfileViewWithOrbyt>(
-      profileKeys.detail(cleanHandle)
-    );
+  if (partialProfile && did) {
+    const existing = queryClient.getQueryData<ProfileViewWithOrbyt>(profileKeys.detail(did));
 
     if (!existing) {
       const partialProfileData: Partial<ProfileViewWithOrbyt> = {
-        did: did || '',
-        handle: cleanHandle,
+        did,
+        handle: partialProfile.handle,
         displayName: partialProfile.displayName,
         avatar: partialProfile.avatar,
         description: partialProfile.description,
@@ -1269,28 +1134,23 @@ export async function prefetchProfile(
         status: partialProfile.status,
       };
 
-      if (partialProfileData.did || partialProfileData.handle) {
-        queryClient.setQueryData(
-          profileKeys.detail(cleanHandle),
-          partialProfileData as ProfileViewWithOrbyt
-        );
-      }
+      queryClient.setQueryData(profileKeys.detail(did), partialProfileData as ProfileViewWithOrbyt);
     }
   }
 
   // Step 2: Prefetch full profile in background (always, to ensure complete data)
   if (isDid && did) {
     await queryClient.prefetchQuery({
-      queryKey: profileKeys.detail(`did_${did}`),
+      queryKey: profileKeys.detail(did),
       queryFn: () => ProfileService.getProfileByDid(did),
       staleTime: PROFILE_CACHE_EXPIRY,
     });
-  } else if (cleanHandle) {
-    await queryClient.prefetchQuery({
-      queryKey: profileKeys.detail(cleanHandle),
-      queryFn: () => ProfileService.getProfile(cleanHandle),
-      staleTime: PROFILE_CACHE_EXPIRY,
-    });
+  } else if (!isDid) {
+    // Fetch by handle, but cache by DID from response
+    const profile = await ProfileService.getProfile(cleanIdentifier);
+    if (profile?.did) {
+      queryClient.setQueryData(profileKeys.detail(profile.did), profile);
+    }
   }
 }
 

@@ -8,7 +8,6 @@ import AtprotoService from '../../../services/api/AtprotoService';
 import { Avatar, Icon } from '../../ui/UI';
 import { Loading3FillIcon } from '../../ui/Icon';
 import { VerificationBadge } from '../badging';
-import ProfileService from '../../../services/data/ProfileService';
 import { Colors, RetryButton } from '../../ui/UI';
 import UI from '../../ui/UI';
 import { formatHandle } from '../../../utils/formatting/handles';
@@ -178,14 +177,8 @@ const MembersListView: React.FC<MembersListViewProps> = ({
       // Revert optimistic update on error
       refetch();
     },
-    onSettled: async member => {
-      if (member) {
-        const freshProfile = await AtprotoService.getProfile(member.handle);
-        await ProfileService.updateFollowingStatus(
-          member.handle,
-          !!freshProfile?.viewer?.following
-        );
-      }
+    onSettled: async () => {
+      // React Query mutations handle cache updates automatically
     },
   });
 
@@ -220,14 +213,8 @@ const MembersListView: React.FC<MembersListViewProps> = ({
       // Revert optimistic update on error
       refetch();
     },
-    onSettled: async member => {
-      if (member) {
-        const freshProfile = await AtprotoService.getProfile(member.handle);
-        await ProfileService.updateFollowingStatus(
-          member.handle,
-          !!freshProfile?.viewer?.following
-        );
-      }
+    onSettled: async () => {
+      // React Query mutations handle cache updates automatically
     },
   });
 
@@ -237,10 +224,13 @@ const MembersListView: React.FC<MembersListViewProps> = ({
       if (onMemberPress) {
         onMemberPress(member);
       } else {
-        // Navigate to profile
-        const target = (member.handle || '').trim();
-        if (!target) return;
-        navigation.push(`/profile/${target}`);
+        // Navigate to profile using DID
+        const targetDid = member.did?.trim();
+        if (!targetDid) return;
+        navigation.push({
+          pathname: '/profile/[did]',
+          params: { did: targetDid },
+        });
       }
     },
     [onMemberPress, navigation]

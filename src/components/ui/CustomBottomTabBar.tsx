@@ -1,7 +1,7 @@
 import React, { memo, useMemo, useCallback, useRef } from 'react';
 import { View, StyleSheet, Pressable, useWindowDimensions, LayoutChangeEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { getBottomNavBarHeight } from '../../utils/device/screen';
@@ -110,10 +110,10 @@ const CaptureIcon = React.memo(
 
 CaptureIcon.displayName = 'CaptureIcon';
 
-interface CustomBottomTabBarProps extends BottomTabBarProps {
+type CustomBottomTabBarProps = Pick<BottomTabBarProps, 'state' | 'navigation'> & {
   tintColor?: string;
   inactiveTintColor?: string;
-}
+};
 
 const CustomBottomTabBar: React.FC<CustomBottomTabBarProps> = ({
   state,

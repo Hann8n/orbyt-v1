@@ -15,6 +15,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 interface AuthorItemProps {
   handle: string;
+  did?: string;
   displayName?: string;
   avatar?: string;
   textColor?: string;
@@ -85,6 +86,7 @@ export const StatusIconButton: React.FC<StatusIconButtonProps> = ({
 
 const AuthorItem: React.FC<AuthorItemProps> = ({
   handle,
+  did,
   displayName,
   avatar,
   textColor = '#FFFFFF',
@@ -148,14 +150,15 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   const handlePress = () => {
     if (onPress) {
       onPress();
-    } else if (handle) {
-      const clean = handle.trim();
-      if (!clean) return;
+    } else if (did) {
+      const cleanDid = did.trim();
+      if (!cleanDid) return;
 
       // Prefetch profile with partial data for instant UI + full data in background
       if (queryClient) {
-        prefetchProfile(queryClient, clean, {
-          handle: clean,
+        prefetchProfile(queryClient, cleanDid, {
+          did: cleanDid,
+          handle,
           displayName,
           avatar,
         });
@@ -164,7 +167,10 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
       // Navigate back first to dismiss any modal/sheet, then navigate to profile
       router.back();
       setTimeout(() => {
-        router.push(`/profile/${clean}`);
+        router.push({
+          pathname: '/profile/[did]',
+          params: { did: cleanDid },
+        });
       }, 100);
     }
   };
@@ -293,11 +299,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Figtree-Bold',
     marginBottom: 2,
   },
-  accountHandle: {
-    color: Colors.mutedGray,
-    fontSize: 14,
-    fontFamily: 'Figtree-Medium',
-  },
   accountArrow: {
     marginLeft: 8,
   },
@@ -325,12 +326,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3,
     elevation: 2,
-  },
-  followButtonText: {
-    fontSize: 15,
-    fontFamily: 'Figtree-SemiBold',
-    fontWeight: '600',
-    textAlign: 'center',
   },
   statusIconButton: {
     padding: 8,

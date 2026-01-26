@@ -67,7 +67,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
             // If no cached data or cache is stale, try to refresh
             if (!cachedProfile) {
               try {
-                cachedProfile = await ProfileService.refreshProfileByDid(account.did);
+                cachedProfile = await ProfileService.getProfileByDid(account.did);
               } catch (_error: unknown) {
                 // ignore
               }
@@ -372,6 +372,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
         <View style={styles.accountButton}>
           <AuthorItem
             handle={handle}
+            did={account.did}
             displayName={displayName}
             avatar={account.cachedProfile?.avatar}
             size="large"

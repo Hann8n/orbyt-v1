@@ -28,7 +28,6 @@ import { useRouter } from 'expo-router';
 import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalModals';
 import ProfileService from '../../src/services/data/ProfileService';
 import ChannelService from '../../src/services/data/ChannelService';
-import { getOrbytProfileUrl } from '../../src/utils/links/bluesky';
 import { isSmallScreen } from '../../src/utils/device/screen';
 
 const SettingsScreen: React.FC = () => {
@@ -135,10 +134,15 @@ const SettingsScreen: React.FC = () => {
     }
 
     try {
-      const profileUrl = getOrbytProfileUrl(
-        currentUser?.handle || undefined,
-        currentUser?.did || undefined
-      );
+      // Use DID if handle ends with .invalid, otherwise use handle
+      const handle = currentUser?.handle;
+      const identifier = handle && !handle.endsWith('.invalid') ? handle : currentUser?.did;
+      if (!identifier) {
+        Alert.alert('Error', 'Unable to get your profile information.');
+        return;
+      }
+
+      const profileUrl = `https://getorbyt.com/@${identifier}`;
       await Clipboard.setStringAsync(profileUrl);
       setIsProfileLinkCopied(true);
       // Reset the copied state after 4 seconds

@@ -13,20 +13,21 @@ import { hexToRGBA } from '../../../utils/formatting/colors';
 import VerticalListSheet, { VerticalListButton } from '../../ui/VerticalListSheet';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { safeDismiss, safePresent } from '../../../utils/components/truesheet/utils';
-import { useAuth, useAccountManagement } from '../../../stores/userStore';
+import { useAuth } from '../../../stores/userStore';
 import {
   useProfile,
+  useProfileByDid,
   useBlockMutation,
   useMuteMutation,
 } from '../../../services/data/ProfileService';
 import AtprotoService from '../../../services/api/AtprotoService';
 import type { ProfileAssociatedChat } from '@atproto/api/dist/client/types/app/bsky/actor/defs';
-import { getOrbytProfileUrl } from '../../../utils/links/bluesky';
 
 interface ProfileMenuProps {
   visible: boolean;
   onDismiss: () => void;
   handle: string;
+  did?: string; // DID from the profile being viewed (required for correct sharing)
   isOwnProfile?: boolean;
   onLogout?: (clearAllAccounts?: boolean) => Promise<void>;
   onSwitchAccount?: () => void;
@@ -39,6 +40,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
   visible,
   onDismiss,
   handle,
+  did,
   isOwnProfile = false,
 
   onLogout,
@@ -47,7 +49,6 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
 }) => {
   const queryClient = useQueryClient();
   const { signOut } = useAuth();
-  const { removeAccount } = useAccountManagement();
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const insets = useSafeAreaInsets();
 
@@ -57,8 +58,11 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
   // Calculate footer height as constant: cancelContainer paddingTop (8) + button minHeight (44)
   const submenuFooterHeight = 8 + 44;
 
-  // Get profile data using useProfile hook - returns ProfileViewWithOrbyt with moderation flags
-  const { data: profile } = useProfile(visible && handle ? handle : null);
+  // Get profile data - prefer useProfileByDid if DID is provided (more reliable for handle.invalid cases)
+  // Otherwise fallback to useProfile for backwards compatibility
+  const { data: profileByDid } = useProfileByDid(visible && did ? did : null);
+  const { data: profileByHandle } = useProfile(visible && !did && handle ? handle : null);
+  const profile = profileByDid || profileByHandle;
 
   // Mutations for block/unblock and mute/unmute
   const blockMutation = useBlockMutation();
@@ -153,6 +157,29 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
     }
   }, [profile?.did, profile?.handle, isMuted, onDismiss, muteMutation]);
 
+  // Helper function to report account
+  const reportAccount = useCallback(
+    async (reasonType: 'spam' | 'violation' | 'misleading' | 'sexual' | 'rude' | 'other') => {
+      if (!profile?.did) return;
+
+      setIsSubmitting(true);
+      try {
+        const success = await AtprotoService.reportContent(profile.did, reasonType);
+        if (success) {
+          Alert.alert('thank you', 'this account has been reported for review.');
+          onDismiss();
+        } else {
+          Alert.alert('error', 'failed to submit report. please try again.');
+        }
+      } catch (_error) {
+        Alert.alert('error', 'failed to submit report. please try again.');
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [profile?.did, onDismiss]
+  );
+
   // Report handler
   const handleReport = useCallback(async () => {
     if (!profile?.did) return;
@@ -187,30 +214,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
         onPress: () => reportAccount('other'),
       },
     ]);
-  }, [profile?.did]);
-
-  // Helper function to report account
-  const reportAccount = useCallback(
-    async (reasonType: 'spam' | 'violation' | 'misleading' | 'sexual' | 'rude' | 'other') => {
-      if (!profile?.did) return;
-
-      setIsSubmitting(true);
-      try {
-        const success = await AtprotoService.reportContent(profile.did, reasonType);
-        if (success) {
-          Alert.alert('thank you', 'this account has been reported for review.');
-          onDismiss();
-        } else {
-          Alert.alert('error', 'failed to submit report. please try again.');
-        }
-      } catch (_error) {
-        Alert.alert('error', 'failed to submit report. please try again.');
-      } finally {
-        setIsSubmitting(false);
-      }
-    },
-    [profile?.did, onDismiss]
-  );
+  }, [profile?.did, reportAccount]);
 
   // Report or Block handler - now presents submenu sheet using global API
   const handleReportOrBlock = useCallback(() => {
@@ -220,7 +224,12 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
   // Share handler
   const handleShare = useCallback(async () => {
     try {
-      const profileUrl = getOrbytProfileUrl(handle, profile?.did);
+      // Use DID prop directly (from profile screen) - this is the correct DID for the profile being viewed
+      // Use DID if handle ends with .invalid, otherwise use handle
+      const identifier = handle && !handle.endsWith('.invalid') ? handle : did;
+      if (!identifier) return;
+
+      const profileUrl = `https://getorbyt.com/@${identifier}`;
 
       await Share.share({
         message: Platform.OS === 'ios' ? '' : profileUrl,
@@ -232,7 +241,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
     } catch (_error: unknown) {
       // ignore
     }
-  }, [handle, profile?.did, onDismiss]);
+  }, [handle, did, onDismiss]);
 
   // Open on Bluesky handler
   const handleOpenOnBluesky = useCallback(async () => {
@@ -291,7 +300,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
         },
       },
     ]);
-  }, [onDismiss, queryClient, onLogout, signOut, removeAccount]);
+  }, [onDismiss, queryClient, onLogout, signOut]);
 
   // Determine menu options based on profile type
   const getMenuOptions = () => {

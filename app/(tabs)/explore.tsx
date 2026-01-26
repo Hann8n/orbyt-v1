@@ -170,15 +170,15 @@ const SEARCH_TAB_LABELS: { [key: string]: string } = {
 
 // Helper function to navigate to profile
 const navigateToProfile = (profile: Profile, queryClient: QueryClient, router: Router) => {
-  if (!profile.handle) return;
+  if (!profile.did) return;
 
-  const handle = profile.handle.trim();
-  if (!handle) return;
+  const did = profile.did.trim();
+  if (!did) return;
 
   // Prefetch profile: sets partial data immediately + fetches full profile in background
-  prefetchProfile(queryClient, handle, {
+  prefetchProfile(queryClient, did, {
     did: profile.did,
-    handle,
+    handle: profile.handle,
     displayName: profile.displayName,
     avatar: profile.avatar,
     description: profile.description,
@@ -186,7 +186,7 @@ const navigateToProfile = (profile: Profile, queryClient: QueryClient, router: R
   }).finally(() => {
     router.push({
       pathname: '/profile/[did]',
-      params: { did: handle },
+      params: { did },
     });
   });
 };
@@ -391,7 +391,7 @@ const ProfilesFeedRenderer = React.memo(
                 status={profile.status}
               />
               <View style={styles.profileContent}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0 }}>
+                <View style={styles.rowCenterFlex}>
                   <Text style={styles.displayName} numberOfLines={1} ellipsizeMode="tail">
                     {formatHandle(profile.handle) || 'Unknown user'}
                   </Text>
@@ -439,6 +439,7 @@ const ProfilesFeedRenderer = React.memo(
     );
   }
 );
+ProfilesFeedRenderer.displayName = 'ProfilesFeedRenderer';
 
 // Channels Feed Renderer
 const ChannelsFeedRenderer = React.memo(
@@ -462,7 +463,7 @@ const ChannelsFeedRenderer = React.memo(
 
     if (isLoading) {
       return (
-        <View style={[styles.loadingContainer, { flex: 1 }]}>
+        <View style={[styles.loadingContainer, styles.flexOne]}>
           <Loading3FillIcon size={48} color={Colors.white} />
         </View>
       );
@@ -492,11 +493,11 @@ const ChannelsFeedRenderer = React.memo(
               uri={getChannelAvatarUri(channel.uri, channel.avatar)}
               type="channel"
               size={48}
-              ringColor="transparent"
+              ringColor={Colors.transparent}
               style={styles.channelImage}
             />
             <View style={styles.channelContent}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={styles.rowCenter}>
                 <ChannelNameDisplay channel={channel} />
                 {channel.isExperimental && (
                   <Icon
@@ -522,6 +523,7 @@ const ChannelsFeedRenderer = React.memo(
     );
   }
 );
+ChannelsFeedRenderer.displayName = 'ChannelsFeedRenderer';
 
 // Visit History Component
 const VisitHistoryList = React.memo(
@@ -565,9 +567,7 @@ const VisitHistoryList = React.memo(
                     status={profileData.status}
                   />
                   <View style={styles.profileContent}>
-                    <View
-                      style={{ flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0 }}
-                    >
+                    <View style={styles.rowCenterFlex}>
                       <Text style={styles.displayName} numberOfLines={1} ellipsizeMode="tail">
                         {formatHandle(profileData.handle) || 'Unknown user'}
                       </Text>
@@ -606,7 +606,7 @@ const VisitHistoryList = React.memo(
                   style={styles.channelImage}
                 />
                 <View style={styles.channelContent}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={styles.rowCenter}>
                     <ChannelNameDisplay channel={channelData} />
                     {channelData.isExperimental && (
                       <Icon
@@ -635,6 +635,7 @@ const VisitHistoryList = React.memo(
     );
   }
 );
+VisitHistoryList.displayName = 'VisitHistoryList';
 
 // Search Feed Renderer
 const SearchFeedRenderer = React.memo(
@@ -702,6 +703,7 @@ const SearchFeedRenderer = React.memo(
     return null;
   }
 );
+SearchFeedRenderer.displayName = 'SearchFeedRenderer';
 
 const SectionHeaderLoading = () => (
   <View style={[styles.sectionHeader, styles.loadingContainer]}>
@@ -739,7 +741,7 @@ const ChannelNameDisplay: React.FC<{ channel: Channel; style?: StyleProp<ViewSty
   if (isOrbyt) {
     const showSlash = shouldShowChannelSlash(channel.uri);
     return (
-      <View style={[{ flexDirection: 'row', alignItems: 'center' }, style]}>
+      <View style={[styles.rowCenter, style]}>
         {showSlash && (
           <Text style={[styles.channelName, styles.orbytSlash, { color: channelColor }]}>/</Text>
         )}
@@ -770,7 +772,7 @@ const PopularChannelItem = ({ channel, onPress }: { channel: Channel; onPress: (
         style={styles.channelImage}
       />
       <View style={styles.channelContent}>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <View style={styles.rowCenter}>
           <ChannelNameDisplay channel={channel} />
           {channel.isExperimental && (
             <Icon name="bug" size={12} color={Colors.lightGreen} style={styles.experimentalIcon} />
@@ -821,7 +823,8 @@ const GridChannelItem = ({
           <View
             style={[
               styles.gridChannelImage,
-              { backgroundColor: Colors.darkGray, justifyContent: 'center', alignItems: 'center' },
+              styles.centerContent,
+              { backgroundColor: Colors.darkGray },
             ]}
           >
             <Icon name="device-tv" size={thumbnailHeight * 0.4} color={Colors.gray} />
@@ -829,13 +832,13 @@ const GridChannelItem = ({
         )}
         {/* Light gradient from bottom */}
         <LinearGradient
-          colors={['transparent', 'rgba(0, 0, 0, 0.5)']}
+          colors={[Colors.transparent, Colors.overlayBlack50]}
           style={styles.gridChannelGradient}
         />
         {/* Channel name overlay at bottom left */}
         <View style={styles.gridChannelNameOverlay}>
           {isOrbyt ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View style={styles.rowCenter}>
               {shouldShowChannelSlash(channel.uri) && (
                 <Text style={[styles.gridChannelName, styles.orbytSlash, { color: channelColor }]}>
                   /
@@ -893,22 +896,16 @@ const HorizontalChannelItem = ({
       onPress={onPress}
     >
       {/* GIF fills entire button */}
-      <View
-        style={[
-          styles.horizontalChannelThumbnail,
-          isLatest && { alignItems: 'center', justifyContent: 'center' },
-        ]}
-      >
+      <View style={[styles.horizontalChannelThumbnail, isLatest && styles.centerContent]}>
         {isPopularNow ? (
           <Image
             source={{ uri: avatarUri }}
             style={[
               styles.horizontalChannelImage,
+              styles.popularNowImage,
               {
                 width: itemWidth * 0.7,
                 height: itemHeight * 2.5,
-                alignSelf: 'flex-end',
-                marginRight: -50,
               },
             ]}
             contentFit="cover"
@@ -919,7 +916,7 @@ const HorizontalChannelItem = ({
         ) : isLatest ? (
           <Image
             source={{ uri: avatarUri }}
-            style={[styles.horizontalChannelImage, { borderRadius: 0 }]}
+            style={[styles.horizontalChannelImage, styles.latestImage]}
             contentFit="cover"
             cachePolicy="memory-disk"
             priority="normal"
@@ -930,7 +927,7 @@ const HorizontalChannelItem = ({
             uri={avatarUri}
             type="channel"
             size={Math.max(itemWidth, itemHeight)}
-            ringColor="transparent"
+            ringColor={Colors.transparent}
             style={styles.horizontalChannelImage}
           />
         )}
@@ -939,7 +936,7 @@ const HorizontalChannelItem = ({
       {/* Label at bottom left - overlaying GIF */}
       <View style={[styles.horizontalChannelLabelContainer, { maxWidth: labelMaxWidth }]}>
         {isOrbyt ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <View style={styles.rowCenter}>
             {shouldShowChannelSlash(channel.uri) && (
               <Text style={[styles.horizontalChannelLabel, styles.orbytSlash]}>/</Text>
             )}
@@ -1147,11 +1144,14 @@ const OrbytChannelsGrid = React.memo(
               return (
                 <View
                   key={`orbyt-channel-${channel.uri || channel.cid || index}`}
-                  style={{
-                    width: itemWidth,
-                    marginRight: isLastInRow ? 0 : gap,
-                    marginBottom: gap,
-                  }}
+                  style={[
+                    styles.gridChannelWrapper,
+                    {
+                      width: itemWidth,
+                      marginRight: isLastInRow ? 0 : gap,
+                      marginBottom: gap,
+                    },
+                  ]}
                 >
                   <GridChannelItem
                     channel={channel}
@@ -1174,6 +1174,7 @@ const OrbytChannelsGrid = React.memo(
     );
   }
 );
+OrbytChannelsGrid.displayName = 'OrbytChannelsGrid';
 
 const ExploreScreen: React.FC = () => {
   const flashListRef = useRef<FlashListRef<ListItem> | null>(null);
@@ -1482,8 +1483,8 @@ const ExploreScreen: React.FC = () => {
       if (history) {
         setVisitHistory(JSON.parse(history));
       }
-    } catch (error) {
-      console.warn('Failed to load visit history:', error);
+    } catch (_error) {
+      // Silently handle visit history load errors
     }
   }, []);
 
@@ -1509,8 +1510,8 @@ const ExploreScreen: React.FC = () => {
 
         setVisitHistory(newHistory);
         await storageHelpers.setItem('visitHistory', JSON.stringify(newHistory));
-      } catch (error) {
-        console.warn('Failed to save visit history:', error);
+      } catch (_error) {
+        // Silently handle visit history save errors
       }
     },
     [visitHistory]
@@ -1572,7 +1573,7 @@ const ExploreScreen: React.FC = () => {
     if (pages.length > 0 && !pages.includes(activeTab)) {
       setActiveTab(pages[0]);
     }
-  }, [pages]);
+  }, [pages, activeTab]);
 
   useEffect(() => {
     if (activeIndex >= 0) {
@@ -1604,7 +1605,7 @@ const ExploreScreen: React.FC = () => {
         opacity: isActive ? 1 : opacity,
       };
     },
-    [activeTab, pages, indicatorScrollProgress, activeIndex]
+    [activeTab, pages, indicatorScrollProgress]
   );
 
   const handleIndicatorTap = useCallback((tabId: 'recently-visited' | 'profiles' | 'channels') => {
@@ -1689,7 +1690,7 @@ const ExploreScreen: React.FC = () => {
         duration: 200,
       });
     }
-  }, [isSearching]);
+  }, [isSearching, searchProgress, contentOpacity]);
 
   // Set up tabRefs for double tap scroll to top
   // Tab press handling is now centralized in CustomBottomTabBar - no need for duplicate listener
@@ -1802,7 +1803,7 @@ const ExploreScreen: React.FC = () => {
     // This ensures consistent spacing during initial load to prevent spinner jump
     const ratio = Math.max(0.2, Math.min(0.5, headers?.[0]?.heightRatio ?? 0.35));
     return Math.round(Dimensions.get('window').height * ratio);
-  }, [insets.top, headers]);
+  }, [headers]);
 
   const handleExploreScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -1812,7 +1813,7 @@ const ExploreScreen: React.FC = () => {
       const targetOpacity = Math.min(Math.max((y - start) / 200, 0), 0.55);
       topGradientOpacity.value = targetOpacity;
     },
-    [computedHeaderHeight, topGradientOpacity]
+    [topGradientOpacity]
   );
 
   // Create loading items for suggested content
@@ -1872,8 +1873,8 @@ const ExploreScreen: React.FC = () => {
   const listData: ListItem[] = suggestionsList;
 
   return (
-    <View style={[styles.container, Platform.OS === 'android' ? { paddingTop: 0 } : null]}>
-      <StatusBar barStyle="light-content" backgroundColor={'transparent'} translucent={true} />
+    <View style={[styles.container, Platform.OS === 'android' && styles.androidPaddingTop]}>
+      <StatusBar barStyle="light-content" backgroundColor={Colors.transparent} translucent={true} />
 
       {!isSearching && (
         <Reanimated.View
@@ -1886,7 +1887,7 @@ const ExploreScreen: React.FC = () => {
           ]}
         >
           <LinearGradient
-            colors={[Colors.black, 'transparent']}
+            colors={[Colors.black, Colors.transparent]}
             start={{ x: 0, y: 0 }}
             end={{ x: 0, y: 1 }}
             style={StyleSheet.absoluteFill}
@@ -1895,7 +1896,7 @@ const ExploreScreen: React.FC = () => {
       )}
 
       {/* Search Bar */}
-      <Pressable onPress={() => searchInputRef.current?.focus()} style={{ zIndex: 30 }}>
+      <Pressable onPress={() => searchInputRef.current?.focus()} style={styles.searchBarPressable}>
         <Reanimated.View
           style={[
             styles.searchContainer,
@@ -1963,8 +1964,8 @@ const ExploreScreen: React.FC = () => {
                 styles.searchTabsContainer,
                 {
                   top: insets.top + 65,
-                  zIndex: 20,
                 },
+                styles.searchTabsZIndex,
                 searchTabsAnimatedStyle,
               ]}
             >
@@ -2183,25 +2184,22 @@ const ExploreScreen: React.FC = () => {
                   <Pressable
                     style={styles.profileTouchable}
                     onPress={() => {
-                      if (profile.handle) {
-                        const handle = profile.handle.trim();
-                        if (handle && handle.trim()) {
+                      if (profile.did) {
+                        const did = profile.did.trim();
+                        if (did) {
                           // Prefetch profile: sets partial data immediately + fetches full profile
-                          prefetchProfile(queryClient, handle.trim(), {
+                          prefetchProfile(queryClient, did, {
                             did: profile.did,
-                            handle: handle.trim(),
+                            handle: profile.handle,
                             displayName: profile.displayName,
                             avatar: profile.avatar,
                             description: profile.description,
                             verification: profile.verification,
                           }).finally(() => {
-                            const target = handle.trim();
-                            if (target) {
-                              router.push({
-                                pathname: '/profile/[did]',
-                                params: { did: target },
-                              });
-                            }
+                            router.push({
+                              pathname: '/profile/[did]',
+                              params: { did },
+                            });
                           });
                         }
                       }
@@ -2327,15 +2325,23 @@ const styles = StyleSheet.create({
     height: 100,
     zIndex: 5,
   },
-  topSafeOverlay: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    backgroundColor: Colors.black,
-    zIndex: 6,
+  flexOne: {
+    flex: 1,
   },
-
+  rowCenter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  rowCenterFlex: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    minWidth: 0,
+  },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   listContainer: {
     paddingHorizontal: 0,
     paddingBottom: 20,
@@ -2371,7 +2377,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    color: 'black',
+    color: Colors.black,
     fontSize: 20,
     fontFamily: 'Figtree-Medium',
     padding: 0,
@@ -2411,11 +2417,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Figtree-SemiBold',
     flexShrink: 1,
   },
-  handleText: {
-    color: Colors.lightGray,
-    fontSize: 16,
-    fontFamily: 'Figtree-Medium',
-  },
   channelItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2435,6 +2436,9 @@ const styles = StyleSheet.create({
   gridItemsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+  },
+  gridChannelWrapper: {
+    // Wrapper for grid channel items
   },
   gridChannelItem: {},
   gridChannelThumbnail: {
@@ -2515,69 +2519,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Figtree-Bold',
     flexShrink: 1,
   },
-  channelCreator: {
-    color: Colors.lightGray,
-    fontSize: 16,
-    fontFamily: 'Figtree-Medium',
-    marginBottom: 2,
-  },
-  channelStats: {
-    color: Colors.lightGray,
-    fontSize: 11,
-    fontFamily: 'Figtree-Regular',
-  },
-  noResults: {
-    color: Colors.lightGray,
-    textAlign: 'center',
-    fontSize: 16,
-    fontFamily: 'Figtree-Medium',
-  },
-  noResultsSubtext: {
-    color: Colors.lightGray,
-    textAlign: 'center',
-    fontSize: 14,
-    fontFamily: 'Figtree-Medium',
-    marginTop: 5,
-  },
-  initialStateContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  initialStateText: {
-    color: Colors.lightGray,
-    fontSize: 16,
-    fontFamily: 'Figtree-Medium',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 40,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-  },
-  retryButton: {
-    marginTop: 20,
-    backgroundColor: Colors.white,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: BORDER_RADIUS.LARGE,
-  },
-  retryButtonText: {
-    color: Colors.lightGray,
-    fontSize: 16,
-    fontFamily: 'Figtree-Bold',
-  },
-  loadingMoreContainer: {
-    padding: 20,
-    alignItems: 'center',
-  },
-
   sectionHeader: {
     paddingHorizontal: 10,
     paddingTop: 15,
@@ -2589,103 +2530,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Figtree-SemiBold',
   },
 
-  spotlightTitle: {
-    color: Colors.orange,
-    fontSize: 24,
-    fontFamily: 'Figtree-Bold',
-  },
-
-  feedItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    borderBottomWidth: 0.5,
-    borderBottomColor: Colors.gray,
-  },
-  feedImage: {
-    width: 40,
-    height: 40,
-    borderRadius: BORDER_RADIUS.MEDIUM,
-    marginRight: 12,
-    borderWidth: 0,
-    borderColor: 'transparent',
-  },
-  feedContent: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  videoItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    borderBottomWidth: 0.5,
-    borderBottomColor: Colors.gray,
-  },
-  videoThumbnailContainer: {
-    position: 'relative',
-    marginRight: 12,
-  },
-  videoThumbnail: {
-    width: 45,
-    height: 80, // 9:16 aspect ratio (45 * 16/9)
-    borderRadius: BORDER_RADIUS.SMALL,
-    borderWidth: 0,
-    borderColor: 'transparent',
-    overflow: 'hidden' as const,
-  },
-  videoThumbnailPlaceholder: {
-    width: 45,
-    height: 80,
-    borderRadius: BORDER_RADIUS.SMALL,
-    borderWidth: 0,
-    borderColor: 'transparent',
-    backgroundColor: Colors.darkGray,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  videoContent: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  videoTitle: {
-    color: Colors.white,
-    fontSize: 14,
-    marginBottom: 4,
-    fontFamily: 'Figtree-SemiBold',
-    flexShrink: 1,
-  },
-  videoAuthor: {
-    color: Colors.lightGray,
-    fontSize: 12,
-    fontFamily: 'Figtree-Regular',
-    marginBottom: 2,
-  },
-  videoStats: {
-    color: Colors.gray,
-    fontSize: 11,
-    fontFamily: 'Figtree-Regular',
-  },
-  videoWarningOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: BORDER_RADIUS.SMALL,
-  },
-  videoWarningText: {
-    color: Colors.white,
-    fontSize: 12,
-    fontFamily: 'Figtree-Medium',
-    textAlign: 'center',
-    paddingHorizontal: 8,
-  },
   experimentalIcon: {
     marginLeft: 4,
     alignSelf: 'center',
@@ -2730,7 +2574,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: Colors.overlayBlack70,
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 8,
@@ -2741,16 +2585,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Figtree-Medium',
     textAlign: 'center',
     paddingHorizontal: 8,
-  },
-  spotlightVideoTitle: {
-    color: Colors.white,
-    fontSize: 11,
-    fontFamily: 'Figtree-Medium',
-    lineHeight: 14,
-  },
-
-  peopleChannelsContainer: {
-    marginBottom: 10,
   },
   emptyTabContent: {
     flex: 1,
@@ -2794,15 +2628,12 @@ const styles = StyleSheet.create({
   pagerPage: {
     flex: 1,
   },
-  searchFeedPage: {
-    flex: 1,
-  },
 
   followButton: {
     width: 32,
     height: 32,
     borderWidth: 0,
-    borderColor: 'transparent',
+    borderColor: Colors.transparent,
     borderRadius: BORDER_RADIUS.SMALL,
     backgroundColor: Colors.lightGray,
     alignItems: 'center',
@@ -2811,57 +2642,28 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
 
-  // Search History Styles
-  searchHistoryContainer: {
-    flex: 1,
-    paddingTop: 10,
-  },
-  searchHistoryHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-    paddingHorizontal: 10,
-  },
-  searchHistoryTitle: {
-    fontFamily: 'Figtree-Black',
-    fontSize: 18,
-  },
-  clearHistoryButton: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-  },
-  clearHistoryText: {
-    fontFamily: 'Figtree-Regular',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  emptyHistoryContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  emptyHistoryText: {
-    fontFamily: 'Figtree-Regular',
-    fontSize: 16,
-  },
-  historyList: {
-    flex: 1,
-  },
-  historyTime: {
-    fontFamily: 'Figtree-Regular',
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.5)',
-    alignSelf: 'center',
-  },
-
   loadingContainer: {
     justifyContent: 'center',
     alignItems: 'center',
   },
   searchContentWrapper: {
     flex: 1,
+  },
+  androidPaddingTop: {
+    paddingTop: 0,
+  },
+  searchBarPressable: {
+    zIndex: 30,
+  },
+  searchTabsZIndex: {
+    zIndex: 20,
+  },
+  popularNowImage: {
+    alignSelf: 'flex-end',
+    marginRight: -50,
+  },
+  latestImage: {
+    borderRadius: 0,
   },
 });
 

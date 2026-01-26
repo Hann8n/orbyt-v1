@@ -414,12 +414,15 @@ const HeaderContentComponent = memo<{
   const router = useRouter();
 
   const navigateToAuthorProfile = useCallback(
-    (handle: string) => {
-      const clean = handle.trim();
-      // Require a dot to resemble a valid Bluesky handle (e.g., name.bsky.social)
-      if (!clean || !clean.includes('.')) return;
+    (did: string) => {
+      const clean = did.trim();
+      // Validate DID format
+      if (!clean || !clean.startsWith('did:')) return;
 
-      router.push(`/profile/${clean}`);
+      router.push({
+        pathname: '/profile/[did]',
+        params: { did: clean },
+      });
     },
     [router]
   );

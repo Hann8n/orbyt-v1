@@ -32,7 +32,7 @@ interface ListScreenProps {
   title: string;
   data: User[];
   isLoading: boolean;
-  error: any;
+  error: Error | null;
   onEndReached?: () => void;
   hasNextPage?: boolean;
   isFetchingNextPage?: boolean;
@@ -42,7 +42,7 @@ interface ListScreenProps {
   showFollowButton?: boolean;
   followButtonIcon?: string;
   followButtonAction?: 'follow' | 'unfollow' | 'unblock' | 'unmute';
-  onUserPress?: (handle: string) => void;
+  onUserPress?: (did: string) => void;
   onActionPress?: (user: User) => void;
 }
 
@@ -70,9 +70,9 @@ const ListScreen: React.FC<ListScreenProps> = ({
   const currentUser = useUserStore(state => state.currentUser);
 
   const handleUserPress = useCallback(
-    (handle: string) => {
+    (did: string) => {
       if (onUserPress) {
-        onUserPress(handle);
+        onUserPress(did);
       }
     },
     [onUserPress]
@@ -117,7 +117,7 @@ const ListScreen: React.FC<ListScreenProps> = ({
 
       return (
         <View style={styles.profileItem}>
-          <Pressable style={styles.profileTouchable} onPress={() => handleUserPress(item.handle)}>
+          <Pressable style={styles.profileTouchable} onPress={() => handleUserPress(item.did)}>
             <Avatar
               uri={item.avatar}
               type={item.isChannel ? 'channel' : 'profile'}
@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.FULL,
     marginRight: 12,
     borderWidth: 0,
-    borderColor: 'transparent',
+    borderColor: Colors.transparent,
   },
   profileContent: {
     flex: 1,
@@ -307,11 +307,6 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     fontFamily: 'Figtree-SemiBold',
     flexShrink: 1,
-  },
-  handleText: {
-    color: Colors.lightGray,
-    fontSize: 14,
-    fontFamily: 'Figtree-Medium',
   },
   followButton: {
     width: 32,

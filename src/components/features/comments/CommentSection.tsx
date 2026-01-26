@@ -584,12 +584,20 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     ({ item }) => {
       const handlePress = () => {
         onDismiss?.();
-        setTimeout(() => router.push(`/profile/${item.actor.handle}`), 100);
+        if (item.actor.did) {
+          setTimeout(() => {
+            router.push({
+              pathname: '/profile/[did]',
+              params: { did: item.actor.did },
+            });
+          }, 100);
+        }
       };
 
       return (
         <AuthorItem
           handle={item.actor.handle}
+          did={item.actor.did}
           displayName={item.actor.displayName}
           avatar={item.actor.avatar}
           size="medium"

@@ -5,6 +5,21 @@ import ListScreen from '../../src/components/ui/ListScreen';
 import AtprotoService from '../../src/services/api/AtprotoService';
 import { prefetchProfile } from '../../src/services/data/ProfileService';
 import { useCurrentUser } from '../../src/stores/userStore';
+import type { ProfileViewBasic } from '../../src/services/api/types';
+
+interface FollowingPage {
+  following: Array<{
+    did: string;
+    handle: string;
+    displayName?: string;
+    avatar?: string;
+    viewer?: {
+      following?: string;
+    };
+    isFollowing?: boolean;
+  }>;
+  cursor: string | null;
+}
 
 const FollowingScreen: React.FC = () => {
   const navigation = useRouter();
@@ -21,12 +36,11 @@ const FollowingScreen: React.FC = () => {
         const response = await AtprotoService.getFollowing(currentUser.did, pageParam, 50);
 
         return {
-          following: response.following.map((following: any) => ({
+          following: response.following.map((following: ProfileViewBasic) => ({
             did: following.did,
             handle: following.handle,
             displayName: following.displayName,
             avatar: following.avatar,
-            description: following.description,
             viewer: following.viewer,
             isFollowing: !!following.viewer?.following,
           })),
@@ -42,27 +56,36 @@ const FollowingScreen: React.FC = () => {
   // Flatten all following from all pages
   const following = useMemo(() => {
     if (!data?.pages) return [];
-    return data.pages.flatMap((page: any) => page.following || []);
+    return data.pages.flatMap((page: FollowingPage) => page.following || []);
   }, [data]);
 
   const handleProfilePress = useCallback(
-    (handle: string) => {
-      if (handle && handle.trim()) {
-        const target = handle.trim();
-        // Prefetch profile (no partial data needed here)
-        prefetchProfile(queryClient, target).finally(() => {
-          let rootNav: any = navigation as any;
-          while (rootNav?.getParent?.()) {
-            rootNav = rootNav.getParent();
-          }
+    (did: string) => {
+      if (did && did.trim()) {
+        const targetDid = did.trim();
+        // Find profile data to get handle for prefetch
+        const profile = following.find(p => p.did === targetDid);
+        // Prefetch profile with partial data
+        prefetchProfile(
+          queryClient,
+          targetDid,
+          profile
+            ? {
+                did: profile.did,
+                handle: profile.handle,
+                displayName: profile.displayName,
+                avatar: profile.avatar,
+              }
+            : undefined
+        ).finally(() => {
           navigation.push({
             pathname: '/profile/[did]',
-            params: { did: target },
+            params: { did: targetDid },
           });
         });
       }
     },
-    [navigation, queryClient]
+    [navigation, queryClient, following]
   );
 
   return (
