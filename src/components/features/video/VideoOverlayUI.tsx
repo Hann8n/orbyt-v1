@@ -420,8 +420,8 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   const followBadgeMetrics = useMemo(() => {
     const badgeSize = Math.round(authorAvatarSize * 0.42);
     const offset = Math.round(badgeSize * 0.25);
-    // Make hit box larger for easier tapping, but keep icon in same position
-    const hitBoxSize = Math.round(badgeSize * 1.4);
+    // Slight enlargement for tap; kept modest so it doesn't overlap avatar (avatar gets priority)
+    const hitBoxSize = Math.round(badgeSize * 1.2);
     // Adjust positioning so icon stays in same visual position
     const hitBoxOffset = Math.round((hitBoxSize - badgeSize) / 2);
     return { badgeSize, offset, hitBoxSize, hitBoxOffset };
@@ -469,6 +469,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                 <Pressable
                   style={styles.repostIndicatorContainer}
                   onPress={handleRepostAuthorPress}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 >
                   <View style={styles.repostIconWrapper}>
                     <RefreshFillIcon size={isTabletDevice ? 26 : 24} color={Colors.lightGray} />
@@ -518,7 +519,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
               <View style={styles.avatarContainer}>
                 <Pressable
                   onPress={handleAuthorPress}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                 >
                   <Avatar
                     uri={profilePicUrl}
@@ -546,7 +547,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                     <Pressable
                       onPress={handleFollowPress}
                       disabled={followMutation.isPending}
-                      hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                      hitSlop={{ top: 10, bottom: 4, left: 4, right: 10 }}
                       style={[
                         styles.followBadge,
                         {
@@ -574,7 +575,10 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
               </View>
               <View style={styles.authorTextContainer}>
                 <View style={styles.authorNameRow}>
-                  <Pressable onPress={handleAuthorPress}>
+                  <Pressable
+                    onPress={handleAuthorPress}
+                    hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                  >
                     <Text
                       style={[
                         styles.baseText,
@@ -596,7 +600,11 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                   )}
                 </View>
                 {channelSlug ? (
-                  <Pressable style={styles.sourceIndicatorContainer} onPress={onChannelPress}>
+                  <Pressable
+                    style={styles.sourceIndicatorContainer}
+                    onPress={onChannelPress}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  >
                     <Text
                       style={[
                         isTabletDevice ? styles.sourceTextTablet : styles.sourceText,
@@ -619,6 +627,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                 isTabletDevice ? styles.actionButtonTablet : styles.actionButton,
               ]}
               onPress={handleSharePress}
+              hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
             >
               <View style={styles.iconContainer}>
                 <MoreFillIcon size={shareIconSize} color={Colors.white} />
@@ -633,6 +642,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
               ]}
               onPress={handleRepostPress}
               disabled={isRepostPending}
+              hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
             >
               {renderRepostIcon()}
               <Text style={isTabletDevice ? styles.actionTextTablet : styles.actionText}>
@@ -646,6 +656,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                 isTabletDevice ? styles.actionButtonTablet : styles.actionButton,
               ]}
               onPress={handleCommentPress}
+              hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
             >
               {commentIcon}
               <Text style={isTabletDevice ? styles.actionTextTablet : styles.actionText}>
@@ -661,6 +672,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
               ]}
               onPress={handleLikePress}
               disabled={isLikePending}
+              hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
             >
               {renderLikeIcon()}
               <Text style={isTabletDevice ? styles.actionTextTablet : styles.actionText}>
@@ -683,7 +695,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     justifyContent: 'flex-end',
-    zIndex: 5,
+    zIndex: 12, // Above scrubber (z 10) so overlay hitboxes (avatar, username, actions) are always tappable
   },
   overlayContentContainer: {
     position: 'absolute',
