@@ -358,7 +358,7 @@ const SettingsScreen: React.FC = () => {
           icon: 'external-link',
           onPress: () => handleOpenLink('https://bsky.app/moderation'),
           showChevron: true,
-          rightIcon: <Icon name="external-link" size={20} color={Colors.gray} />,
+          rightIcon: <Icon name="external-link" size={24} />,
         },
         // {
         //   id: 'data-usage',

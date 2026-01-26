@@ -185,13 +185,17 @@ export const OptionsButton: React.FC<OptionsButtonProps> = ({
         rightContent
       ) : rightIcon ? (
         <View style={{ width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
-          {React.isValidElement(rightIcon) &&
-          rightIcon.props &&
-          typeof rightIcon.props === 'object' &&
-          'color' in rightIcon.props
-            ? React.cloneElement(rightIcon as React.ReactElement<{ color?: string }>, {
-                color: getTextColor(),
-              })
+          {React.isValidElement(rightIcon)
+            ? React.cloneElement(
+                rightIcon as React.ReactElement<{ color?: string; size?: number }>,
+                {
+                  // Always use chevron color when showChevron is true to match the arrow
+                  color: showChevron
+                    ? getChevronColor()
+                    : ((rightIcon.props as { color?: string })?.color ?? getTextColor()),
+                  size: (rightIcon.props as { size?: number })?.size ?? 24,
+                }
+              )
             : rightIcon}
         </View>
       ) : showSwitch ? (
