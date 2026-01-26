@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type { ViewabilityConfig, ViewToken } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import { useVisibilityCoreStore } from './visibilityStore';
 import { useSetOverlayVisibility } from '../../context/FeedIndicatorContext';
 import type { FeedListItem } from '../../types';
@@ -51,9 +52,12 @@ export function useFeedVisibility({
 
   useEffect(() => {
     if (!isActive) return;
+    // Set activeFeedKey when feed becomes active
+    // Include activeRoute in dependencies to ensure this runs when route becomes active
+    // (e.g., when returning to a screen from another tab)
     setActiveFeedKey(feedKey);
     setOverlayVisibility(1); // Show overlay when this list feed becomes active (e.g. modal from profile grid)
-  }, [isActive, feedKey, setActiveFeedKey, setOverlayVisibility]);
+  }, [isActive, feedKey, activeRoute, setActiveFeedKey, setOverlayVisibility]);
 
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
@@ -94,21 +98,25 @@ export function useFeedVisibility({
 /**
  * Track when a route becomes active/inactive
  * Updates visibility store so videos can pause/resume based on route focus
- * With freezeOnBlur: true, useIsFocused() correctly handles frozen tabs
+ * Uses useFocusEffect to integrate with freezeOnBlur: true - routes are only active when screen is focused
  */
 export function useVisibilityRouteTracker(routeKey: string) {
   const setActiveRoute = useVisibilityCoreStore(state => state.setActiveRoute);
 
-  useEffect(() => {
-    if (!routeKey) return;
-    setActiveRoute(routeKey);
-    return () => {
-      const currentRoute = useVisibilityCoreStore.getState().activeRoute;
-      if (currentRoute === routeKey) {
-        setActiveRoute(null);
-      }
-    };
-  }, [routeKey, setActiveRoute]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!routeKey) return;
+      // Set route as active when screen is focused
+      setActiveRoute(routeKey);
+      return () => {
+        // Clear route when screen loses focus (cleanup runs on blur/unmount)
+        const currentRoute = useVisibilityCoreStore.getState().activeRoute;
+        if (currentRoute === routeKey) {
+          setActiveRoute(null);
+        }
+      };
+    }, [routeKey, setActiveRoute])
+  );
 }
 
 /**
