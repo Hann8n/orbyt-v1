@@ -17,7 +17,7 @@ export function useModerationSettings(userDid?: string) {
     queryFn: async () => {
       const result = await ModerationService.getModerationPrefsAndLabelDefs(agent ?? undefined);
       if (result) {
-        useModerationStore.getState().setModeration({
+        useModerationStore.setState({
           moderationPrefs: result.moderationPrefs,
           labelDefs: result.labelDefs,
         });

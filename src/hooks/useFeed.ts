@@ -5,11 +5,14 @@
  * Replaces: useFeedQuery.tsx, useInfiniteScroll.tsx
  */
 
+import { useEffect, useRef } from 'react';
 import { useInfiniteQuery, type InfiniteData } from '@tanstack/react-query';
 import { feedService, FeedOption, FeedItem } from '../services/FeedService';
 import { useUserStore } from '../stores/userStore';
+import { useModerationStore } from '../stores/moderationStore';
 import { queryKeys } from '../utils/query/queryKeys';
 import type { FeedResponse } from '../services/api/types';
+import { logger } from '../utils/logger';
 
 // Optimized feed configuration for smooth performance
 export const FEED_CONFIG = {
@@ -62,11 +65,24 @@ export function useFeed(
   const currentUser = useUserStore(state => state.currentUser);
   const isSwitchingAccount = useUserStore(state => state.isSwitchingAccount);
   const agent = useUserStore(state => state.agent);
+  const modReady = useModerationStore(state => state.moderationPrefs != null);
+  const prevModReadyRef = useRef(false);
 
-  // Use current user's DID for user-specific feeds (following and your-mix), fallback to passed userDid for profile feeds
-  // Both 'following' and 'your-mix' are user-specific and should include userDid in query key to ensure fresh data on account switch
+  // User-specific feeds use currentUser; profile/likes/reposts use passed userDid
   const effectiveUserDid =
     feedOption === 'following' || feedOption === 'your-mix' ? currentUser?.did : userDid;
+
+  useEffect(() => {
+    if (modReady && !prevModReadyRef.current) {
+      prevModReadyRef.current = true;
+      logger.info('Feed queries enabled: moderation prefs ready', {
+        component: 'useFeed',
+        feedOption,
+        effectiveUserDid: effectiveUserDid ?? undefined,
+      });
+    }
+    if (!modReady) prevModReadyRef.current = false;
+  }, [modReady, feedOption, effectiveUserDid]);
 
   // React Query automatically handles query key changes - when effectiveUserDid changes,
   // it treats it as a new query and fetches fresh data. Old queries are cleaned up via gcTime.
@@ -76,9 +92,14 @@ export function useFeed(
   // 2. Account switch is complete (not switching)
   // 3. Agent is available (API client ready)
   // 4. For user-specific feeds, we have a user DID
+  // 5. Moderation prefs loaded (from MMKV or fetch) so applyModerationBatch can filter
   const isUserSpecificFeed = feedOption === 'following' || feedOption === 'your-mix';
   const queryEnabled =
-    enabled && !isSwitchingAccount && !!agent && (!isUserSpecificFeed || !!effectiveUserDid);
+    enabled &&
+    !isSwitchingAccount &&
+    !!agent &&
+    (!isUserSpecificFeed || !!effectiveUserDid) &&
+    modReady;
 
   // Create optimized infinite query with centralized configuration
   // When effectiveUserDid or feedOption changes, React Query treats this as a new query and fetches fresh data

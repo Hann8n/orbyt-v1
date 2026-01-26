@@ -533,6 +533,10 @@ export const useUserStore = create<UserState>()(
             set({ showEmailVerificationModal: true });
           }
 
+          // Hydrate moderation prefs from MMKV (sync ~1ms) so feeds can filter immediately
+          const { useModerationStore } = await import('./moderationStore');
+          useModerationStore.getState().hydrateFromCache(did);
+
           // Initialize orbyt profile record (join date, baseline colors/channels)
           // Defer until after interactions complete to improve startup performance
           deferOrbytProfileInit('restoreSession');
@@ -1174,7 +1178,9 @@ export const useUserStore = create<UserState>()(
 
           // Clear moderation prefs/labelDefs so next account gets fresh data
           const { useModerationStore } = await import('./moderationStore');
-          useModerationStore.getState().clearModeration();
+          useModerationStore
+            .getState()
+            .clearModeration(get().currentUser?.did ?? get().activeAccountDid ?? undefined);
 
           // Note: All data caching is now handled by React Query
           // Custom caches (ProfileCache, ChannelCache, AtprotoService) have been removed
@@ -1468,10 +1474,13 @@ export const useUserStore = create<UserState>()(
             const { queryKeys } = await import('../utils/query/queryKeys');
             const { useModerationStore } = await import('./moderationStore');
             queryClient.setQueryData(queryKeys.moderation.byUser(currentUser.did), modResult);
-            useModerationStore.getState().setModeration({
-              moderationPrefs: modResult.moderationPrefs,
-              labelDefs: modResult.labelDefs,
-            });
+            useModerationStore.getState().setModeration(
+              {
+                moderationPrefs: modResult.moderationPrefs,
+                labelDefs: modResult.labelDefs,
+              },
+              currentUser.did
+            );
           }
 
           // Update state with user-specific settings

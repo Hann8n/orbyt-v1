@@ -29,8 +29,6 @@ import { Colors } from '../src/components/ui/UI';
 import { useUserStore } from '../src/stores/userStore';
 import { migrateAsyncStorageToMMKV } from '../src/utils/storage';
 import { useBookmarkStore } from '../src/stores/bookmarkStore';
-import { feedService } from '../src/services/FeedService';
-import { queryKeys } from '../src/utils/query/queryKeys';
 import ShareSheet from '../src/components/ui/ShareSheet';
 import CommentSection from '../src/components/features/comments/CommentSection';
 import GlobalAccountSwitcher from '../src/components/ui/GlobalAccountSwitcher';
@@ -355,31 +353,6 @@ export default function RootLayout() {
 
     return unsubscribe;
   }, []);
-
-  // Prefetch feed in background after interactions complete
-  useEffect(() => {
-    const currentUser = useUserStore.getState().currentUser;
-    if (currentUser?.did) {
-      // Defer feed prefetching until after interactions complete
-      const interactionHandle = InteractionManager.runAfterInteractions(() => {
-        // Prefetch feed in background (non-blocking)
-        queryClient
-          .prefetchInfiniteQuery({
-            queryKey: queryKeys.feed.infinite('following', currentUser.did ?? ''),
-            queryFn: ({ pageParam }: { pageParam: string | null }) =>
-              feedService.fetchFeed('following', currentUser.did ?? '', pageParam ?? undefined),
-            initialPageParam: null as string | null,
-            getNextPageParam: (lastPage: { cursor?: string | null }) => lastPage.cursor ?? null,
-          })
-          .catch(() => {});
-      });
-
-      return () => {
-        interactionHandle.cancel();
-      };
-    }
-    return undefined;
-  }, [isAuthenticated]);
 
   return (
     <ThemeProvider value={DarkTheme}>
