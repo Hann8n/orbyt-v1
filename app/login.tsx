@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { Loading3FillIcon } from '../src/components/ui/Icon';
 import { Colors } from '../src/components/ui/UI';
 import AuthorItem from '../src/components/ui/AuthorItem';
-import { useRouter, Link } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { SavedAccount } from '../src/stores/userStore';
 import { useAuth, useAccountManagement } from '../src/stores/userStore';
 import { isUserCancellation, getErrorMessage } from '../src/utils/errors/errorHandler';
@@ -286,24 +286,15 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
 
         {/* Advanced login link */}
         <View style={styles.manualSignInLink}>
-          <Text style={[styles.termsText, { color: Colors.lightGray }]}>On another network? </Text>
-          <Link href="/advanced-login" asChild>
-            <Pressable disabled={isLoading}>
-              <Text
-                style={[
-                  styles.termsText,
-                  {
-                    color: Colors.lightGray,
-                    textDecorationLine: 'underline',
-                    fontFamily: 'Figtree-SemiBold',
-                  },
-                  isLoading && styles.customPDSButtonDisabled,
-                ]}
-              >
-                sign in here
-              </Text>
-            </Pressable>
-          </Link>
+          <Text style={styles.networkSignInText}>
+            On another network?{' '}
+            <Text
+              onPress={() => !isLoading && router.push('/advanced-login')}
+              style={[styles.networkSignInLink, isLoading && styles.customPDSButtonDisabled]}
+            >
+              sign in here
+            </Text>
+          </Text>
         </View>
       </View>
     );
@@ -546,8 +537,21 @@ const styles = StyleSheet.create({
     lineHeight: 21,
   },
   manualSignInLink: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    marginTop: 8,
+  },
+  networkSignInText: {
+    color: Colors.lightGray,
+    fontSize: 15,
+    fontFamily: 'Figtree-Regular',
+    textAlign: 'center',
+    lineHeight: 21,
+  },
+  networkSignInLink: {
+    color: Colors.lightGray,
+    textDecorationLine: 'underline',
+    fontFamily: 'Figtree-SemiBold',
   },
 });

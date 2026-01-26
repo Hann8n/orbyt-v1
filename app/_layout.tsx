@@ -229,7 +229,13 @@ function RootNavigator() {
         {/* Public routes - accessible without authentication */}
         <Stack.Protected guard={!session}>
           <Stack.Screen name="login" />
-          <Stack.Screen name="advanced-login" />
+          <Stack.Screen
+            name="advanced-login"
+            options={{
+              presentation: 'card',
+              animation: 'slide_from_right',
+            }}
+          />
         </Stack.Protected>
 
         {/* Always accessible routes */}
