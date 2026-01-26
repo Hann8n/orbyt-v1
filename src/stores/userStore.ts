@@ -102,7 +102,6 @@ interface UserState {
   agent?: Agent; // Matches API expectations (Agent | undefined)
 
   // User-specific settings - scoped by DID
-  experimentalFeedsEnabled: boolean;
   feedDebugOverlayEnabled: boolean;
   nativeTabsEnabled: boolean; // Experimental: Use native tabs instead of custom JavaScript tab bar
   modalProfileEnabled: boolean; // Labs: Enable modal profile presentation with pull-to-dismiss
@@ -159,9 +158,7 @@ interface UserState {
   batchUnsubscribeFromChannels: (uris: string[]) => Promise<void>;
 
   // Feed settings
-  setExperimentalFeedsEnabled: (enabled: boolean) => Promise<void>;
   setFeedDebugOverlayEnabled: (enabled: boolean) => Promise<void>;
-  getExperimentalFeedsEnabled: () => Promise<boolean>;
   getFeedDebugOverlayEnabled: () => Promise<boolean>;
   setNativeTabsEnabled: (enabled: boolean) => Promise<void>;
   getNativeTabsEnabled: () => Promise<boolean>;
@@ -255,21 +252,6 @@ const deferOrbytProfileInit = (context: string = 'userStore') => {
   });
 };
 
-// Helper to check if we're on a development channel (safely handles when Updates is not available)
-const isDevelopmentChannel = (): boolean => {
-  try {
-    // Dynamic require to avoid issues if expo-updates is not available (e.g., during build)
-
-    const Updates = require('expo-updates');
-    const channel = Updates?.channel;
-    // Enable dev features on 'development' or 'preview' channels
-    return channel === 'development' || channel === 'preview';
-  } catch {
-    // If expo-updates is not available, default to false
-    return false;
-  }
-};
-
 // Helper to get storage key for boolean flags (scoped by user DID)
 const getFlagKey = (keyBase: string, did: string | null) => (did ? `${keyBase}_${did}` : keyBase);
 
@@ -291,8 +273,7 @@ export const useUserStore = create<UserState>()(
       oauthSession: null,
       agent: undefined,
 
-      // Feed settings - enable dev features on development channels
-      experimentalFeedsEnabled: isDevelopmentChannel(),
+      // Feed settings
       feedDebugOverlayEnabled: false, // Keep disabled by default, user can enable manually
       nativeTabsEnabled: false, // Default to custom JavaScript tab bar
       modalProfileEnabled: false, // Labs feature - disabled by default
@@ -1045,17 +1026,6 @@ export const useUserStore = create<UserState>()(
       },
 
       // Feed settings actions - simplified boolean flag methods
-      setExperimentalFeedsEnabled: async (enabled: boolean) => {
-        storage.set(
-          getFlagKey('experimental_feeds_enabled', get().currentUser?.did ?? null),
-          enabled
-        );
-        set({ experimentalFeedsEnabled: enabled });
-      },
-      getExperimentalFeedsEnabled: async () =>
-        storage.getBoolean(
-          getFlagKey('experimental_feeds_enabled', get().currentUser?.did ?? null)
-        ) ?? true,
       setFeedDebugOverlayEnabled: async (enabled: boolean) => {
         storage.set(
           getFlagKey('feed_debug_overlay_enabled', get().currentUser?.did ?? null),
@@ -1435,7 +1405,6 @@ export const useUserStore = create<UserState>()(
       loadUserSpecificSettings: async (did: string) => {
         try {
           // Load user-specific feed settings
-          const experimentalFeedsEnabled = await get().getExperimentalFeedsEnabled();
           const feedDebugOverlayEnabled = await get().getFeedDebugOverlayEnabled();
           const nativeTabsEnabled = await get().getNativeTabsEnabled();
           const modalProfileEnabled = await get().getModalProfileEnabled();
@@ -1485,7 +1454,6 @@ export const useUserStore = create<UserState>()(
 
           // Update state with user-specific settings
           set({
-            experimentalFeedsEnabled,
             feedDebugOverlayEnabled,
             nativeTabsEnabled,
             modalProfileEnabled,
@@ -1570,7 +1538,6 @@ export const useUserStore = create<UserState>()(
         // Only persist non-sensitive data
         savedAccounts: state.savedAccounts,
         activeAccountDid: state.activeAccountDid,
-        experimentalFeedsEnabled: state.experimentalFeedsEnabled,
         feedDebugOverlayEnabled: state.feedDebugOverlayEnabled,
         nativeTabsEnabled: state.nativeTabsEnabled,
         algorithmicFeedProvider: state.algorithmicFeedProvider,
@@ -1697,29 +1664,23 @@ export const useUserStoreState = () => {
 
 // Hook for feed settings
 export const useFeedSettings = () => {
-  const experimentalFeedsEnabled = useUserStore(state => state.experimentalFeedsEnabled);
   const feedDebugOverlayEnabled = useUserStore(state => state.feedDebugOverlayEnabled);
   const nativeTabsEnabled = useUserStore(state => state.nativeTabsEnabled);
   const modalProfileEnabled = useUserStore(state => state.modalProfileEnabled);
-  const setExperimentalFeedsEnabled = useUserStore(state => state.setExperimentalFeedsEnabled);
   const setFeedDebugOverlayEnabled = useUserStore(state => state.setFeedDebugOverlayEnabled);
   const setNativeTabsEnabled = useUserStore(state => state.setNativeTabsEnabled);
   const setModalProfileEnabled = useUserStore(state => state.setModalProfileEnabled);
-  const getExperimentalFeedsEnabled = useUserStore(state => state.getExperimentalFeedsEnabled);
   const getFeedDebugOverlayEnabled = useUserStore(state => state.getFeedDebugOverlayEnabled);
   const getNativeTabsEnabled = useUserStore(state => state.getNativeTabsEnabled);
   const getModalProfileEnabled = useUserStore(state => state.getModalProfileEnabled);
 
   return {
-    experimentalFeedsEnabled,
     feedDebugOverlayEnabled,
     nativeTabsEnabled,
     modalProfileEnabled,
-    setExperimentalFeedsEnabled,
     setFeedDebugOverlayEnabled,
     setNativeTabsEnabled,
     setModalProfileEnabled,
-    getExperimentalFeedsEnabled,
     getFeedDebugOverlayEnabled,
     getNativeTabsEnabled,
     getModalProfileEnabled,

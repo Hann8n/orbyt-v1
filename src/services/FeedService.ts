@@ -676,17 +676,15 @@ class FeedService {
           return { feed: [], cursor: null };
         }
 
-        // Check ChannelCache to see if this is a video-only feed generator
-        // If so, skip client-side filtering (API already returns video-only content)
-        const { default: ChannelService } = await import('./cache/ChannelCache');
-        const cached = ChannelService.getChannelFromCacheSync(feedLink);
-        const isVideoOnlyGenerator = cached?.isExperimental === false;
+        // For reposts and likes feeds, we always apply filtering
+        // Other feeds may skip filtering if they're video-only generators
+        const shouldFilter = feedOptionForAPI === 'reposts' || feedOptionForAPI === 'likes';
 
         response = await AtprotoService.getFeed(
           cursor ?? null,
           feedLink,
           {},
-          !isVideoOnlyGenerator, // Skip filtering if video-only generator
+          shouldFilter, // Apply filtering for reposts and likes
           limit,
           'custom'
         );

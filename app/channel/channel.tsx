@@ -45,21 +45,6 @@ const Channel: React.FC = memo(() => {
     refetch: refetchChannel,
   } = useChannel(uri || '');
 
-  // Force refresh channel data to get experimental flag if not present
-  useEffect(() => {
-    if (uri && channelData && channelData.isExperimental === undefined) {
-      const invalidateAndRefetch = async () => {
-        try {
-          await ChannelService.invalidateChannel(uri);
-          refetchChannel();
-        } catch (error) {
-          console.error('Error invalidating channel cache:', error);
-        }
-      };
-      invalidateAndRefetch();
-    }
-  }, [uri, channelData, refetchChannel]);
-
   const { colors: channelColors } = useChannelColors(uri || '');
   const colorsMutation = useChannelColorsMutation();
 
@@ -186,7 +171,6 @@ const Channel: React.FC = memo(() => {
       avatar: channelData.avatar || '',
       likeCount,
       isOwner: false,
-      isExperimental: channelData.isExperimental,
       creator: channelData.creator || null,
     };
   }, [channelData, uri]);

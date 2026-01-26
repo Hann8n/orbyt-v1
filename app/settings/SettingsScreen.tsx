@@ -35,14 +35,11 @@ const SettingsScreen: React.FC = () => {
   const onLogout = useAuth().signOut;
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isExperimentalFeedsEnabled, setIsExperimentalFeedsEnabled] = useState(true);
   const [isNativeTabsEnabled, setIsNativeTabsEnabled] = useState(false);
   const [isModalProfileEnabled, setIsModalProfileEnabled] = useState(false);
   const [isProfileLinkCopied, setIsProfileLinkCopied] = useState(false);
   const { presentAccountSwitcher } = useGlobalAccountSwitcher();
   const {
-    getExperimentalFeedsEnabled,
-    setExperimentalFeedsEnabled,
     getNativeTabsEnabled,
     setNativeTabsEnabled,
     getModalProfileEnabled,
@@ -55,10 +52,8 @@ const SettingsScreen: React.FC = () => {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const experimentalFeedsEnabled = await getExperimentalFeedsEnabled();
         const nativeTabsEnabled = await getNativeTabsEnabled();
         const modalProfileEnabled = await getModalProfileEnabled();
-        setIsExperimentalFeedsEnabled(experimentalFeedsEnabled);
         setIsNativeTabsEnabled(nativeTabsEnabled);
         setIsModalProfileEnabled(modalProfileEnabled);
       } catch (_error) {
@@ -66,7 +61,7 @@ const SettingsScreen: React.FC = () => {
       }
     };
     loadSettings();
-  }, [getExperimentalFeedsEnabled, getNativeTabsEnabled, getModalProfileEnabled]);
+  }, [getNativeTabsEnabled, getModalProfileEnabled]);
 
   const handleLogout = async () => {
     if (isSubmitting) return;
@@ -151,19 +146,6 @@ const SettingsScreen: React.FC = () => {
       }, 4000);
     } catch (_error) {
       // Ignore clipboard errors
-    }
-  };
-
-  const handleToggleExperimentalFeeds = async (value: boolean) => {
-    try {
-      await setExperimentalFeedsEnabled(value);
-      setIsExperimentalFeedsEnabled(value);
-
-      // Invalidate queries that depend on experimental feeds setting
-      queryClient.invalidateQueries({ queryKey: ['suggestedFeeds'] });
-      queryClient.invalidateQueries({ queryKey: ['unifiedSearch'] });
-    } catch (_error) {
-      Alert.alert('error', 'failed to save setting. please try again.');
     }
   };
 
@@ -378,13 +360,6 @@ const SettingsScreen: React.FC = () => {
             ]
           : []),
         // {
-        //   id: 'experimental-feeds',
-        //   label: 'Experimental Feeds',
-        //   icon: 'lightbulb',
-        //   onPress: () => handlePlaceholderAction('Experimental Feeds'),
-        //   showChevron: true
-        // },
-        // {
         //   id: 'data-usage',
         //   label: 'Data Usage',
         //   icon: 'radio-signal',
@@ -520,14 +495,6 @@ const SettingsScreen: React.FC = () => {
     });
 
     if (section.title === 'Labs') {
-      listData.push({
-        kind: 'toggle',
-        id: 'experimental-feeds',
-        label: 'Experimental feeds',
-        subtitle: 'Show non-video feeds',
-        value: isExperimentalFeedsEnabled,
-        onValueChange: handleToggleExperimentalFeeds,
-      });
       listData.push({
         kind: 'toggle',
         id: 'native-tabs',

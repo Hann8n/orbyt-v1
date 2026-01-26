@@ -95,8 +95,6 @@ interface Channel {
   avatar?: string;
   likeCount?: number;
   indexedAt: string;
-  contentMode?: string; // Used to determine if feed is experimental (non-video)
-  isExperimental?: boolean; // Added for experimental feed badge (computed from contentMode)
 }
 
 type ProfileResult = {
@@ -499,14 +497,6 @@ const ChannelsFeedRenderer = React.memo(
             <View style={styles.channelContent}>
               <View style={styles.rowCenter}>
                 <ChannelNameDisplay channel={channel} />
-                {channel.isExperimental && (
-                  <Icon
-                    name="bug"
-                    size={12}
-                    color={Colors.lightGreen}
-                    style={styles.experimentalIcon}
-                  />
-                )}
               </View>
             </View>
           </Pressable>
@@ -608,14 +598,6 @@ const VisitHistoryList = React.memo(
                 <View style={styles.channelContent}>
                   <View style={styles.rowCenter}>
                     <ChannelNameDisplay channel={channelData} />
-                    {channelData.isExperimental && (
-                      <Icon
-                        name="bug"
-                        size={12}
-                        color={Colors.lightGreen}
-                        style={styles.experimentalIcon}
-                      />
-                    )}
                   </View>
                 </View>
               </Pressable>
@@ -774,9 +756,6 @@ const PopularChannelItem = ({ channel, onPress }: { channel: Channel; onPress: (
       <View style={styles.channelContent}>
         <View style={styles.rowCenter}>
           <ChannelNameDisplay channel={channel} />
-          {channel.isExperimental && (
-            <Icon name="bug" size={12} color={Colors.lightGreen} style={styles.experimentalIcon} />
-          )}
         </View>
       </View>
     </Pressable>
@@ -1209,8 +1188,7 @@ const ExploreScreen: React.FC = () => {
   const followMutation = useFollowMutation();
   const insets = useSafeAreaInsets();
 
-  // Get experimental feeds setting and native tabs setting
-  const { experimentalFeedsEnabled, nativeTabsEnabled } = useFeedSettings();
+  const { nativeTabsEnabled } = useFeedSettings();
 
   // Calculate bottom padding - add extra when native tabs are enabled for better coverage
   const bottomPadding = nativeTabsEnabled
@@ -1347,6 +1325,11 @@ const ExploreScreen: React.FC = () => {
         // post.contentMode = channel.contentMode
         // post.author = channel.creator
         const contentMode = post.contentMode;
+        // Note: Service layer already filters to video-only feeds, but double-check for safety
+        if (contentMode && contentMode !== 'app.bsky.feed.defs#contentModeVideo') {
+          continue;
+        }
+
         results.push({
           type: 'channel' as const,
           data: {
@@ -1455,14 +1438,6 @@ const ExploreScreen: React.FC = () => {
     }
 
     const filtered = results.filter(result => {
-      if (result.type === 'channel') {
-        const channel = result.data as Channel & { contentMode?: string };
-        const contentMode = channel.contentMode;
-        const isVideoOnly = contentMode === 'app.bsky.feed.defs#contentModeVideo';
-        if (!experimentalFeedsEnabled && !isVideoOnly) {
-          return false;
-        }
-      }
       if (result.type === 'profile') {
         const profile = result.data as Profile;
         if (isCurrentUser(profile.did, profile.handle, currentUser)) {
@@ -1473,7 +1448,7 @@ const ExploreScreen: React.FC = () => {
     });
 
     return filtered;
-  }, [searchFeedOption, searchFeed, experimentalFeedsEnabled, currentUser, followStoreFollows]);
+  }, [searchFeedOption, searchFeed, currentUser, followStoreFollows]);
 
   // Visit history management
   const loadVisitHistory = useCallback(async () => {
@@ -1761,7 +1736,6 @@ const ExploreScreen: React.FC = () => {
           avatar: cachedChannel.avatar,
           likeCount: cachedChannel.likeCount || 0,
           indexedAt: cachedChannel.indexedAt,
-          isExperimental: cachedChannel.isExperimental || false,
         })
       );
     },
@@ -2530,10 +2504,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Figtree-SemiBold',
   },
 
-  experimentalIcon: {
-    marginLeft: 4,
-    alignSelf: 'center',
-  },
   spotlightContainer: {
     marginBottom: 7,
     marginHorizontal: 0,

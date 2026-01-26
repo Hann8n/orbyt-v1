@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Pressable,
   Text,
-  Alert,
   StatusBar,
   useWindowDimensions,
   type ViewStyle,
@@ -13,7 +12,7 @@ import {
 import { useRouter } from 'expo-router';
 import UniversalHeader, { HeaderContent, CustomActionLayout } from './UniversalHeader';
 import { useChannelColors } from '../../../services/data/ChannelService';
-import Icon, { PlusIcon, CheckIcon, ListViewIcon, GridViewIcon } from '../../ui/Icon';
+import { PlusIcon, CheckIcon, ListViewIcon, GridViewIcon } from '../../ui/Icon';
 import type { ViewMode } from '../../../types';
 import {
   hexToRGBA,
@@ -42,7 +41,6 @@ interface ChannelData {
   likeCount?: number;
   isSubscribed?: boolean;
   isOwner?: boolean;
-  isExperimental?: boolean; // Added for experimental feed indicator
   creator?: {
     did: string;
     handle: string;
@@ -105,59 +103,6 @@ const SubscribeButton: React.FC<{
   const handleSubscribe = useCallback(async () => {
     try {
       if (!channel?.uri) return;
-
-      // Show warning for experimental feeds
-      if (channel.isExperimental && !isSubscribed) {
-        // Try to show alert, but fallback to direct subscription if Alert fails
-        let alertShown = false;
-        try {
-          Alert.alert(
-            'Experimental Feed',
-            'This feed is not designed for orbyt, and may result in poor performance.\n\nAre you sure you want to subscribe?',
-            [
-              {
-                text: 'Cancel',
-                style: 'cancel',
-              },
-              {
-                text: 'Subscribe',
-                onPress: async () => {
-                  try {
-                    await subscribeToChannel({
-                      uri: channel.uri!,
-                      displayName: channel.name,
-                      description: channel.description,
-                      avatar: channel.avatar,
-                      memberCount: channel.likeCount,
-                    });
-                  } catch (_error) {
-                    // Ignore subscribe errors in alert path for optimistic UX
-                  }
-                },
-              },
-            ]
-          );
-          alertShown = true;
-        } catch (_error) {
-          alertShown = false;
-        }
-
-        // If alert failed to show, subscribe directly
-        if (!alertShown) {
-          try {
-            await subscribeToChannel({
-              uri: channel.uri!,
-              displayName: channel.name,
-              description: channel.description,
-              avatar: channel.avatar,
-              memberCount: channel.likeCount,
-            });
-          } catch (_subscribeError) {
-            // Ignore subscribe errors in fallback path for optimistic UX
-          }
-        }
-        return;
-      }
 
       try {
         if (isSubscribed) {
@@ -392,11 +337,6 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
         }
       : undefined;
 
-    // Create experimental badge if channel is experimental
-    const experimentalBadge = channel.isExperimental ? (
-      <Icon name="bug" size={18} color={Colors.lightGreen} style={styles.experimentalIcon} />
-    ) : undefined;
-
     // Get Orbyt channel info for custom title
     const orbytChannel = isOrbyt && channel.uri ? getChannelByUri(channel.uri) : undefined;
     const channelColor = orbytChannel?.channelColor || '#FFD700';
@@ -426,7 +366,6 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
       subtitle: isOrbyt ? undefined : channel.creator?.handle ? channel.creator.handle : undefined,
       description: richText?.text,
       facets: richText?.facets,
-      badge: experimentalBadge,
       avatarStyle: 'rounded-square' as const,
       onTitlePress: handleCreatorPress,
       hideAvatar: isOrbyt,
@@ -620,11 +559,6 @@ const styles = StyleSheet.create({
   viewToggleButton: {
     padding: 6,
     borderRadius: BORDER_RADIUS.FULL,
-  },
-  experimentalIcon: {
-    marginLeft: 6,
-    alignSelf: 'center',
-    marginTop: 2,
   },
   orbytChannelTitle: {
     flexDirection: 'row',

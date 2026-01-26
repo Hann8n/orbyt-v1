@@ -30,7 +30,6 @@ export interface CachedChannel {
   likeCount?: number;
   subscriberCount?: number;
   indexedAt: string;
-  isExperimental?: boolean; // Added for experimental feed indicator
   isOrbytChannel?: boolean; // True if this is an Orbyt-managed channel (getorbyt.com feed)
   channelColors?: {
     backgroundColor: string;
@@ -290,16 +289,6 @@ class ChannelService {
       // Get subscriber count (number of likes on the feed generator post)
       const subscriberCount = channel.view?.likeCount || 0;
 
-      // Determine if this is an experimental (non-video) feed
-      const isVideoOnly = channel.view?.contentMode === 'app.bsky.feed.defs#contentModeVideo';
-      const isExperimental = !isVideoOnly;
-
-      // Debug logging
-      //   contentMode: channel.view?.contentMode,
-      //   isVideoOnly,
-      //   isExperimental
-      // });
-
       const channelUri = channel.view?.uri;
       if (!channelUri) {
         return null;
@@ -315,7 +304,6 @@ class ChannelService {
         likeCount: channel.view?.likeCount,
         subscriberCount,
         indexedAt: channel.view?.indexedAt,
-        isExperimental, // Add experimental flag
         isOrbytChannel: isOrbytChannel(channelUri), // Check if this is an Orbyt channel
         channelColors: channelColors
           ? {
@@ -673,7 +661,6 @@ class ChannelService {
       likeCount: 0, // Not applicable for hashtag channels
       subscriberCount: 0, // Not applicable for hashtag channels
       indexedAt: new Date().toISOString(),
-      isExperimental: false, // Orbyt channels are always video-only (hashtag feeds)
       isOrbytChannel: true,
       channelColors,
       lastUpdated: Date.now(),

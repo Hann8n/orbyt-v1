@@ -154,9 +154,6 @@ const SAFE_SHIELD_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24"
 // Mingcute History Anticlockwise Line Icon (updated SVG for Watch History)
 const HISTORY_ANTICLOCKWISE_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none"><path d="m12.594 23.258l-.012.002l-.071.035l-.02.004l-.014-.004l-.071-.036q-.016-.004-.024.006l-.004.01l-.017.428l.005.02l.01.013l.104.074l.015.004l.012-.004l.104-.074l.012-.016l.004-.017l-.017-.427q-.004-.016-.016-.018m.264-.113l-.014.002l-.184.093l-.01.01l-.003.011l.018.43l.005.012l.008.008l.201.092q.019.005.029-.008l.004-.014l-.034-.614q-.005-.019-.02-.022m-.715.002a.02.02 0 0 0-.027.006l-.006.014l-.034.614q.001.018.017.024l.015-.002l.201-.093l.01-.008l.003-.011l.018-.43l-.003-.012l-.01-.01z"/><path fill="#fff" d="M20.66 7c2.762 4.783 1.123 10.9-3.66 13.66c-4.123 2.38-9.233 1.491-12.335-1.86a1 1 0 0 1 1.468-1.358a8 8 0 1 0-2.06-6.524l1.281-.335c1.047-.273 1.818.97 1.108 1.787L4.21 14.957c-.568.652-1.665.43-1.892-.444A10 10 0 0 1 7 3.34C11.783.579 17.899 2.217 20.66 7M12 6a1 1 0 0 1 1 1v4.586l2.707 2.707a1 1 0 1 1-1.414 1.414l-3-3A1 1 0 0 1 11 12V7a1 1 0 0 1 1-1"/></g></svg>`;
 
-// Mingcute Experimental Feeds Icon (custom SVG provided)
-const EXPERIMENTAL_FEEDS_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" fill="none"/><g fill="none" fill-rule="evenodd"><path d="m12.594 23.258l-.012.002l-.071.035l-.02.004l-.014-.004l-.071-.036q-.016-.004-.024.006l-.004.01l-.017.428l.005.02l.01.013l.104.074l.015.004l.012-.004l.104-.074l.012-.016l.004-.017l-.017-.427q-.004-.016-.016-.018m.264-.113l-.014.002l-.184.093l-.01.01l-.003.011l.018.43l.005.012l.008.008l.201.092q.019.005.029-.008l.004-.014l-.034-.614q-.005-.019-.02-.022m-.715.002a.02.02 0 0 0-.027.006l-.006.014l-.034.614q.001.018.017.024l.015-.002l.201-.093l.01-.008l.003-.011l.018-.43l-.003-.012l-.01-.01z"/><path fill="#fff" d="M16 2a1 1 0 1 1 0 2v14a4 4 0 0 1-8 0V4a1 1 0 0 1 0-2zm-2 13h-2a1 1 0 1 0 0 2h2zm0-4h-2a1 1 0 0 0-.117 1.993L12 13h2zm0-4h-2a1 1 0 1 0 0 2h2z"/></g></svg>`;
-
 // Gallery Icon SVG
 const GALLERY_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><title>photo_album_2_fill</title><g id="photo_album_2_fill" fill='none' fill-rule='evenodd'><path d='M24 0v24H0V0zM12.593 23.258l-.011.002-.071.035-.02.004-.014-.004-.071-.035c-.01-.004-.019-.001-.024.005l-.004.01-.017.428.005.02.01.013.104.074.015.004.012-.004.104-.074.012-.016.004-.017-.017-.427c-.002-.01-.009-.017-.017-.018m.265-.113-.013.002-.185.093-.01.01-.003.011.018.43.005.012.008.007.201.093c.012.004.023 0 .029-.008l.004-.014-.034-.614c-.003-.012-.01-.02-.02-.022m-.715.002a.023.023 0 0 0-.027.006l-.006.014-.034.614c0 .012.007.02.017.024l.015-.002.201-.093.01-.008.004-.011.017-.43-.003-.012-.01-.01z'/><path fill='#09244BFF' d='M5 3a1 1 0 0 1 1-1h12a1 1 0 1 1 0 2H6a1 1 0 0 1-1-1m0 2a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm14 8.686V7H5v12h.929l8.308-8.308a1.25 1.25 0 0 1 1.768 0zM8.5 12a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3'/></g></svg>`;
 
@@ -657,16 +654,6 @@ export const HistoryAnticlockwiseIcon: React.FC<{
   style?: StyleProp<ViewStyle>;
 }> = ({ size, color, style }) => {
   const svgXml = HISTORY_ANTICLOCKWISE_ICON_SVG.replace(/#fff/g, color);
-  return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
-};
-
-// Custom Experimental Feeds Icon component
-export const ExperimentalFeedsIcon: React.FC<{
-  size: number;
-  color: string;
-  style?: StyleProp<ViewStyle>;
-}> = ({ size, color, style }) => {
-  const svgXml = EXPERIMENTAL_FEEDS_ICON_SVG.replace(/#fff/g, color);
   return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
 };
 
@@ -1330,9 +1317,6 @@ const Icon: React.FC<IconProps> = ({
   if (name === 'history-anticlockwise-line' || name === 'mingcute:history-anticlockwise-line') {
     return <HistoryAnticlockwiseIcon size={size} color={color} style={style} />;
   }
-  if (name === 'experimental-feeds') {
-    return <ExperimentalFeedsIcon size={size} color={color} style={style} />;
-  }
   if (name === 'muted-users' || name === 'volume-x') {
     return <MutedUsersIcon size={size} color={color} style={style} />;
   }
@@ -1424,9 +1408,6 @@ const Icon: React.FC<IconProps> = ({
   }
   if (name === 'videocam') {
     return <VideoCamera2FillIcon size={size} color={color} style={style} />;
-  }
-  if (name === 'bug') {
-    return <ExperimentalFeedsIcon size={size} color={color} style={style} />;
   }
   if (name === 'chevron-right') {
     return <ChevronRightIcon size={size} color={color} style={style} />;

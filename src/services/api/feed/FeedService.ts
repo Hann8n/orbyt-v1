@@ -1736,33 +1736,26 @@ export class FeedService {
       const { api } = await AtprotoCore.getApiClient();
       const response = await api.app.bsky.unspecced.getPopularFeedGenerators(params);
 
-      // Return all feeds without filtering
       const allFeeds = response.data.feeds || [];
 
-      // Extract contentMode from API response (may be at feed.contentMode or feed.view?.contentMode)
-      // If contentMode is missing, derive it from isExperimental flag
-      const processedFeeds = allFeeds.map((feed: GeneratorView) => {
-        let contentMode =
+      // Extract contentMode and filter to only include video-only feeds in a single pass
+      const processedFeeds: (GeneratorView & { contentMode?: string })[] = [];
+
+      for (const feed of allFeeds) {
+        const contentMode =
           (feed as unknown as { contentMode?: string; view?: { contentMode?: string } })
             .contentMode ||
           (feed as unknown as { contentMode?: string; view?: { contentMode?: string } }).view
             ?.contentMode;
 
-        // Fallback: if contentMode is missing but isExperimental exists, derive it
-        const feedWithExperimental = feed as unknown as { isExperimental?: boolean };
-        if (!contentMode && feedWithExperimental.isExperimental !== undefined) {
-          contentMode = feedWithExperimental.isExperimental
-            ? undefined // Non-video feed (no contentMode set)
-            : 'app.bsky.feed.defs#contentModeVideo'; // Video-only feed
+        // Only process and include video-only feeds
+        if (contentMode === 'app.bsky.feed.defs#contentModeVideo') {
+          processedFeeds.push({
+            ...feed,
+            contentMode, // Preserve contentMode at top level for easy access
+          } as GeneratorView & { contentMode?: string });
         }
-
-        const isVideoOnly = contentMode === 'app.bsky.feed.defs#contentModeVideo';
-        return {
-          ...feed,
-          contentMode, // Preserve contentMode at top level for easy access
-          isExperimental: !isVideoOnly,
-        } as GeneratorView & { contentMode?: string; isExperimental: boolean };
-      });
+      }
 
       return processedFeeds;
     } catch (_error: unknown) {
@@ -1783,33 +1776,26 @@ export class FeedService {
       const { api } = await AtprotoCore.getApiClient();
       const response = await api.app.bsky.unspecced.getPopularFeedGenerators(params);
 
-      // Return all feeds without filtering
       const allFeeds = response.data.feeds || [];
 
-      // Extract contentMode from API response (may be at feed.contentMode or feed.view?.contentMode)
-      // If contentMode is missing, derive it from isExperimental flag
-      const processedFeeds = allFeeds.map((feed: GeneratorView) => {
-        let contentMode =
+      // Extract contentMode and filter to only include video-only feeds in a single pass
+      const processedFeeds: (GeneratorView & { contentMode?: string })[] = [];
+
+      for (const feed of allFeeds) {
+        const contentMode =
           (feed as unknown as { contentMode?: string; view?: { contentMode?: string } })
             .contentMode ||
           (feed as unknown as { contentMode?: string; view?: { contentMode?: string } }).view
             ?.contentMode;
 
-        // Fallback: if contentMode is missing but isExperimental exists, derive it
-        const feedWithExperimental = feed as unknown as { isExperimental?: boolean };
-        if (!contentMode && feedWithExperimental.isExperimental !== undefined) {
-          contentMode = feedWithExperimental.isExperimental
-            ? undefined // Non-video feed (no contentMode set)
-            : 'app.bsky.feed.defs#contentModeVideo'; // Video-only feed
+        // Only process and include video-only feeds
+        if (contentMode === 'app.bsky.feed.defs#contentModeVideo') {
+          processedFeeds.push({
+            ...feed,
+            contentMode, // Preserve contentMode at top level for easy access
+          } as GeneratorView & { contentMode?: string });
         }
-
-        const isVideoOnly = contentMode === 'app.bsky.feed.defs#contentModeVideo';
-        return {
-          ...feed,
-          contentMode, // Preserve contentMode at top level for easy access
-          isExperimental: !isVideoOnly,
-        } as GeneratorView & { contentMode?: string; isExperimental: boolean };
-      });
+      }
 
       return processedFeeds;
     } catch (_error: unknown) {
@@ -1824,7 +1810,7 @@ export class FeedService {
    */
   static async getStaticChannels(
     limit: number = 10
-  ): Promise<(GeneratorView & { isExperimental: boolean; contentMode?: string })[]> {
+  ): Promise<(GeneratorView & { contentMode?: string })[]> {
     try {
       const { StaticChannelsService } = await import('../../OrbytBannerService');
       const channelDids = await StaticChannelsService.getChannels();
@@ -1844,10 +1830,7 @@ export class FeedService {
 
             const feeds = response.data.feeds || [];
             if (feeds.length > 0) {
-              return {
-                ...feeds[0],
-                isExperimental: false,
-              };
+              return feeds[0];
             }
             return null;
           } catch (_error) {
@@ -1857,12 +1840,7 @@ export class FeedService {
       );
 
       // Filter out null results and return up to the limit
-      return feedGenerators
-        .filter(
-          (feed): feed is GeneratorView & { isExperimental: boolean; contentMode?: string } =>
-            feed !== null
-        )
-        .slice(0, limit);
+      return feedGenerators.filter((feed): feed is GeneratorView => feed !== null).slice(0, limit);
     } catch (_error: unknown) {
       return [];
     }
