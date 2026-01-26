@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -35,33 +35,12 @@ const SettingsScreen: React.FC = () => {
   const onLogout = useAuth().signOut;
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isNativeTabsEnabled, setIsNativeTabsEnabled] = useState(false);
-  const [isModalProfileEnabled, setIsModalProfileEnabled] = useState(false);
   const [isProfileLinkCopied, setIsProfileLinkCopied] = useState(false);
   const { presentAccountSwitcher } = useGlobalAccountSwitcher();
-  const {
-    getNativeTabsEnabled,
-    setNativeTabsEnabled,
-    getModalProfileEnabled,
-    setModalProfileEnabled,
-  } = useFeedSettings();
+  const { nativeTabsEnabled, modalProfileEnabled, setNativeTabsEnabled, setModalProfileEnabled } =
+    useFeedSettings();
   const { currentUser } = useCurrentUser();
   const { savedAccounts } = useAccountManagement();
-
-  // Load settings on mount
-  useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        const nativeTabsEnabled = await getNativeTabsEnabled();
-        const modalProfileEnabled = await getModalProfileEnabled();
-        setIsNativeTabsEnabled(nativeTabsEnabled);
-        setIsModalProfileEnabled(modalProfileEnabled);
-      } catch (_error) {
-        // Intentionally ignore setting load failures
-      }
-    };
-    loadSettings();
-  }, [getNativeTabsEnabled, getModalProfileEnabled]);
 
   const handleLogout = async () => {
     if (isSubmitting) return;
@@ -150,29 +129,17 @@ const SettingsScreen: React.FC = () => {
   };
 
   const handleToggleNativeTabs = async (value: boolean) => {
-    // Optimistically update UI immediately
-    const previousValue = isNativeTabsEnabled;
-    setIsNativeTabsEnabled(value);
-
     try {
       await setNativeTabsEnabled(value);
     } catch (_error) {
-      // Revert on error
-      setIsNativeTabsEnabled(previousValue);
       Alert.alert('error', 'failed to save setting. please try again.');
     }
   };
 
   const handleToggleModalProfile = async (value: boolean) => {
-    // Optimistically update UI immediately
-    const previousValue = isModalProfileEnabled;
-    setIsModalProfileEnabled(value);
-
     try {
       await setModalProfileEnabled(value);
     } catch (_error) {
-      // Revert on error
-      setIsModalProfileEnabled(previousValue);
       Alert.alert('error', 'failed to save setting. please try again.');
     }
   };
@@ -504,7 +471,7 @@ const SettingsScreen: React.FC = () => {
         id: 'native-tabs',
         label: 'New tabs layout',
         subtitle: 'Use native navigation bar',
-        value: isNativeTabsEnabled,
+        value: nativeTabsEnabled,
         onValueChange: handleToggleNativeTabs,
       });
       // Only show modal profile toggle on non-full screen devices
@@ -514,7 +481,7 @@ const SettingsScreen: React.FC = () => {
           id: 'modal-profile',
           label: 'Modal profile',
           subtitle: 'Native modal with pull-to-dismiss',
-          value: isModalProfileEnabled,
+          value: modalProfileEnabled,
           onValueChange: handleToggleModalProfile,
         });
       }
