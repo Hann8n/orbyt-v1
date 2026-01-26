@@ -944,7 +944,7 @@ const VideoCard = memo(
           <Pressable
             onPress={handleVideoTap}
             onLongPress={handleLongPress}
-            delayLongPress={200}
+            delayLongPress={400}
             style={styles.videoContainerPressable}
           >
             <View style={styles.videoContainer}>

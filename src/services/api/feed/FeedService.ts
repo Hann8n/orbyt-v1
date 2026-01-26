@@ -262,9 +262,7 @@ export class FeedService {
    * When opts is null (prefs not yet loaded), passes items through unchanged so feeds
    * are never empty; downstream treats missing contentListUI/contentMediaUI as no blur/filter.
    */
-  private static async applyModerationBatch<T extends { post: PostView }>(
-    items: T[]
-  ): Promise<T[]> {
+  static async applyModerationBatch<T extends { post: PostView }>(items: T[]): Promise<T[]> {
     if (items.length === 0) return items;
     const userDid = await AtprotoCore.getCurrentUserDid();
     const opts = getModerationOpts(userDid ?? undefined);

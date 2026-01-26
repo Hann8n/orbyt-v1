@@ -36,6 +36,7 @@ import {
   type ModerationOpts,
   type AppBskyFeedRepost,
 } from '@atproto/api';
+import { FeedService as ApiFeedService } from '../../../services/api/feed/FeedService';
 import { getModerationOpts, useModerationStore } from '../../../stores/moderationStore';
 import { useModerationSettings } from '../../../hooks/useModerationSettings';
 import type {
@@ -361,29 +362,12 @@ const NotificationItem = React.memo<NotificationItemProps>(
     );
 
     const navigateToVideoPost = useCallback(
-      (postData: PostView) => {
-        const embed = getEmbed(postData);
-        const postMod = moderationOpts ? moderatePost(postData, moderationOpts) : null;
-        feedService.setCurrentFeed([
-          {
-            post: {
-              uri: postData.uri || item.uri,
-              cid: postData.cid || item.cid,
-              author: postData.author || author,
-              record:
-                postData.record ||
-                ('record' in item && item.record ? (item.record as PostView['record']) : undefined),
-              embed: embed,
-              replyCount: postData.replyCount || 0,
-              repostCount: postData.repostCount || 0,
-              likeCount: postData.likeCount || 0,
-              indexedAt: postData.indexedAt || indexedAt || item.indexedAt,
-            },
-            uniqueKey: postData.uri || item.uri,
-            contentListUI: postMod?.ui('contentList'),
-            contentMediaUI: postMod?.ui('contentMedia'),
-          } as ExtendedFeedViewPost,
+      async (postData: PostView) => {
+        const [feedItem] = await ApiFeedService.applyModerationBatch([
+          { post: postData, uniqueKey: postData.uri || item.uri },
         ]);
+        if (!feedItem) return;
+        feedService.setCurrentFeed([feedItem as ExtendedFeedViewPost]);
         navigation.push({
           pathname: '/(modals)/feed',
           params: {
@@ -397,7 +381,7 @@ const NotificationItem = React.memo<NotificationItemProps>(
           },
         });
       },
-      [navigation, author, indexedAt, item, moderationOpts]
+      [navigation, item]
     );
 
     const handlePress = async () => {
@@ -454,7 +438,7 @@ const NotificationItem = React.memo<NotificationItemProps>(
               : undefined,
           };
           if (finalKind === 'video') {
-            navigateToVideoPost(finalPostData);
+            await navigateToVideoPost(finalPostData);
             setTimeout(() => {
               presentCommentSection({ post: commentPost, scrollToCommentUri: uri });
             }, 500);
@@ -462,7 +446,7 @@ const NotificationItem = React.memo<NotificationItemProps>(
             presentCommentSection({ post: commentPost, scrollToCommentUri: uri });
           }
         } else if (finalKind === 'video') {
-          navigateToVideoPost(finalPostData);
+          await navigateToVideoPost(finalPostData);
         } else {
           const { openPostInBluesky } = await import('../../../utils/links/bluesky');
           await openPostInBluesky(rootPostUri);
@@ -498,7 +482,7 @@ const NotificationItem = React.memo<NotificationItemProps>(
 
         // Always navigate to root post (for video posts, use video feed)
         if (finalKind === 'video') {
-          navigateToVideoPost(finalPostData);
+          await navigateToVideoPost(finalPostData);
         } else {
           const { openPostInBluesky } = await import('../../../utils/links/bluesky');
           await openPostInBluesky(rootPostUri);

@@ -8,7 +8,7 @@ import {
   InteractionManager,
   Platform,
 } from 'react-native';
-import { Stack } from 'expo-router';
+import { Stack, usePathname } from 'expo-router';
 import {
   SafeAreaProvider,
   initialWindowMetrics,
@@ -94,6 +94,7 @@ const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 
 // Global modals component
 const GlobalModals: React.FC = () => {
+  const isFeedModal = usePathname() === '/(modals)/feed';
   const isAuthenticated = useUserStore(state => state.isAuthenticated);
   const currentUser = useUserStore(state => state.currentUser);
   const showEmailVerificationModal = useUserStore(state => state.showEmailVerificationModal);
@@ -121,7 +122,7 @@ const GlobalModals: React.FC = () => {
   return (
     <>
       <ShareSheet />
-      <CommentSection />
+      {!isFeedModal && <CommentSection />}
       <GlobalAccountSwitcher />
       {isAuthenticated && (
         <EmailVerificationModal
@@ -178,9 +179,9 @@ function RootNavigator() {
             name="(modals)/feed"
             options={{
               headerShown: false,
-              presentation: 'card',
+              presentation: 'fullScreenModal',
               gestureEnabled: true,
-              animation: 'slide_from_right',
+              animation: 'fade',
             }}
           />
           {/* Protected create route - require email confirmation if email exists */}

@@ -54,7 +54,8 @@ export function useFeedVisibility({
   useEffect(() => {
     if (!isActive) return;
     setActiveFeedKey(feedKey);
-  }, [isActive, feedKey, setActiveFeedKey]);
+    setOverlayVisibility(1); // Show overlay when this list feed becomes active (e.g. modal from profile grid)
+  }, [isActive, feedKey, setActiveFeedKey, setOverlayVisibility]);
 
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
@@ -69,9 +70,15 @@ export function useFeedVisibility({
 
       if (isActive) {
         const nextOverlay = nextIndex >= 0 ? 1 : 0;
-        if (lastOverlayRef.current !== nextOverlay) {
-          lastOverlayRef.current = nextOverlay;
-          setOverlayVisibility(nextOverlay);
+        // Only set overlay to 0 when transitioning from 1 (had viewable item) to none.
+        // When lastOverlayRef is undefined, viewability hasn't reported a viewable item yet;
+        // avoid setOverlayVisibility(0) so the overlay (comment button, etc.) stays visible.
+        if (nextOverlay === 1) {
+          lastOverlayRef.current = 1;
+          setOverlayVisibility(1);
+        } else if (lastOverlayRef.current === 1) {
+          lastOverlayRef.current = 0;
+          setOverlayVisibility(0);
         }
       }
     },

@@ -27,7 +27,8 @@ import { useUserStore } from '../../../stores/userStore';
 import { usePostInteractionStore } from '../../../stores/postInteractionStore';
 import { useCommentStore } from '../../../stores/commentStore';
 import { useReportedPostsStore } from '../../../stores/reportedPostsStore';
-import { useGlobalCommentSection, useGlobalShareSheet } from '../../../hooks/useGlobalModals';
+import { useModalStore } from '../../../stores/modalStore';
+import { useGlobalShareSheet } from '../../../hooks/useGlobalModals';
 
 import TabNavigation, { TabOption } from '../../layout/header/TabNavigation';
 import { Colors } from '../../ui/UI';
@@ -91,8 +92,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   onToggleLike: propOnToggleLike,
   isLikePending: propIsLikePending,
 }) => {
-  const { getCurrentData, dismissCommentSection } = useGlobalCommentSection();
-  const globalData = getCurrentData();
+  const globalData = useModalStore(state => state.commentSectionData);
+  const dismissCommentSection = useModalStore(state => state.dismissCommentSection);
 
   const { presentShareSheet } = useGlobalShareSheet();
 
@@ -543,8 +544,21 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   }, [onDismiss]);
 
   useEffect(() => {
-    if (visible && post) safePresent('comment-section');
-    else safeDismiss('comment-section');
+    if (visible && post) {
+      (async () => {
+        try {
+          if (sheetRef.current) {
+            await sheetRef.current.present();
+          } else {
+            await safePresent('comment-section');
+          }
+        } catch {
+          await safePresent('comment-section');
+        }
+      })();
+    } else {
+      safeDismiss('comment-section');
+    }
   }, [visible, post]);
 
   const router = useRouter();

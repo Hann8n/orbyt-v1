@@ -20,6 +20,7 @@ import ListFeedView from './ListFeedView';
 import GridFeedView from './GridFeedView';
 import EmptyFeed from './EmptyFeed';
 import { useFeed, useSearchFeed } from '../../../hooks/useFeed';
+import { useReportedPostsStore } from '../../../stores/reportedPostsStore';
 import { Colors } from '../../ui/UI';
 import { feedService } from '../../../services/FeedService';
 import type { ListFeedViewRef, ViewMode } from '../../../types';
@@ -198,7 +199,7 @@ const FeedRenderer = memo(
 
       // Destructure memoized data
       const {
-        feed,
+        feed: sourceFeed,
         isLoading,
         isError,
         isFetching, // React Query's fetching state (includes refetching)
@@ -210,6 +211,19 @@ const FeedRenderer = memo(
         isPaused,
         isProfileFeed,
       } = feedData;
+
+      // Display filter: reported only. Label/hide/mute/block are handled by applyModerationBatch (SDK moderatePost).
+      const reportedPostUris = useReportedPostsStore(state => state.reportedPostUris);
+      const feed = useMemo(
+        () =>
+          sourceFeed.filter(item => {
+            const uri = (item as { post?: { uri?: string } }).post?.uri;
+            if (!uri) return false;
+            if (reportedPostUris.has(uri)) return false;
+            return true;
+          }),
+        [sourceFeed, reportedPostUris]
+      );
 
       // Track forced refresh state from isRefreshing prop (invalidateQueries)
       // When isRefreshing is true, mark any subsequent refetch as user-initiated

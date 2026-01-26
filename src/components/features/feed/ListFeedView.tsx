@@ -27,7 +27,6 @@ import {
   type ListRenderItemInfo,
   RenderTargetOptions,
 } from '@shopify/flash-list';
-import { useReportedPostsStore } from '../../../stores/reportedPostsStore';
 import { FeedScrollProvider } from '../../../context/FeedScrollContext';
 import EmptyFeed from './EmptyFeed';
 import { VideoItem } from './VideoItem';
@@ -250,37 +249,24 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       [backgroundColor, secondaryColor]
     );
 
-    // Track reported posts for filtering
-    // Subscribe to the store to react to changes
-    const reportedPostUris = useReportedPostsStore(state => state.reportedPostUris);
-
-    // Filter out reported posts only; moderation-blocked items are already excluded by FeedService.applyModerationBatch
-    const filteredFeed = useMemo(() => {
-      return feed.filter(item => {
-        if ('endCard' in item && item.endCard) return true;
-        const feedItem = item as ExtendedFeedViewPost;
-        return !reportedPostUris.has(feedItem.post.uri);
-      });
-    }, [feed, reportedPostUris]);
-
-    // List data with end card
+    // List data with end card (feed is already filtered by FeedRenderer: reported + shouldFilter)
     // FlashList's maintainVisibleContentPosition will handle position preservation
     // Reanimated layout animations handle smooth removal of reported posts and addition of new items
     const listData = useMemo(() => {
       const shouldAppendEndCard =
-        !isLoading && !isError && !isFetchingNextPage && !hasNextPage && filteredFeed.length > 0;
+        !isLoading && !isError && !isFetchingNextPage && !hasNextPage && feed.length > 0;
 
       if (shouldAppendEndCard) {
         return [
-          ...filteredFeed,
+          ...feed,
           {
             post: { uri: 'end-card', cid: 'end-card' },
             endCard: true,
           } as EndCardItem,
         ];
       }
-      return filteredFeed;
-    }, [filteredFeed, isLoading, isError, isFetchingNextPage, hasNextPage]);
+      return feed;
+    }, [feed, isLoading, isError, isFetchingNextPage, hasNextPage]);
 
     // Error handling
     const effectiveIsError = forceError || isError;
@@ -549,13 +535,11 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       ]
     );
 
-    // Grid view rendering
+    // Grid view rendering (feed from FeedRenderer has no endCard; filter satisfies GridFeedView type)
     if (viewMode === 'grid') {
-      // filteredFeed (reported excluded; batch excludes blocked); drop endCard for grid
-      const gridFeed = filteredFeed.filter((item): item is ExtendedFeedViewPost => {
-        return !('endCard' in item && item.endCard);
-      });
-
+      const gridFeed = feed.filter(
+        (item): item is ExtendedFeedViewPost => !('endCard' in item && item.endCard)
+      );
       return (
         <GridFeedView
           feed={gridFeed}

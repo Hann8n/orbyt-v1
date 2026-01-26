@@ -3,6 +3,7 @@ import { View, StyleSheet, Pressable, Text } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import FeedRenderer from '../../src/components/features/feed/FeedRenderer';
+import CommentSection from '../../src/components/features/comments/CommentSection';
 
 import { BackArrowIcon } from '../../src/components/ui/Icon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -99,6 +100,7 @@ const FeedScreen = memo(() => {
           <Text style={styles.hashtagText}>{hashtag}</Text>
         </View>
       )}
+      <CommentSection />
     </View>
   );
 });

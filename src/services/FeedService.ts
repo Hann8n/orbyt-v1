@@ -18,6 +18,7 @@ import type {
 import { isOrbytChannel, channelToHashtag, getChannelByUri } from '../utils/channels/orbyt';
 import type { FeedOption } from '../types';
 import { seenVideoService } from './SeenVideoService';
+import { FeedService as ApiFeedService } from './api/feed/FeedService';
 import { useUserStore } from '../stores/userStore';
 
 // Type definition for AtprotoService methods used by FeedService
@@ -50,6 +51,8 @@ interface AtprotoServiceInterface {
     limit: number
   ) => Promise<ProfileSearchResponse>;
   searchPopularFeeds: (query: string, limit: number) => Promise<GeneratorView[]>;
+  getPosts: (uris: string[]) => Promise<Map<string, unknown>>;
+  isValidPost: (post: unknown) => boolean;
 }
 
 // Import AtprotoService with error handling for circular dependency issues
@@ -65,6 +68,8 @@ try {
     getBookmarks: async () => ({ bookmarks: [], cursor: null }),
     searchProfilesPaginated: async () => ({ profiles: [], cursor: null }),
     searchPopularFeeds: async () => [],
+    getPosts: async () => new Map(),
+    isValidPost: () => false,
   };
 }
 
@@ -399,7 +404,8 @@ class FeedService {
           post: bookmark,
           uniqueKey: bookmark.uri,
         }));
-        return { feed, cursor: bookmarksResponse.cursor };
+        const moderatedFeed = await ApiFeedService.applyModerationBatch(feed);
+        return { feed: moderatedFeed, cursor: bookmarksResponse.cursor };
       } else if (feedOptionForAPI === 'bookmarks' && !userDid) {
         return { feed: [], cursor: null };
       } else if (feedOptionForAPI === 'following') {
@@ -639,11 +645,27 @@ class FeedService {
           cursor: null,
         };
       } else if (feedOptionForAPI === 'watched') {
-        // Watched videos use the current feed set via setCurrentFeed
-        return {
-          feed: searchFeedState.getSearchResults(), // Reuse search state for watched videos
-          cursor: null,
-        };
+        if (!userDid) return { feed: [], cursor: null };
+        const seenVideos = seenVideoService.getSeenVideos(userDid);
+        const pageSize = 25;
+        const startIndex = cursor != null ? parseInt(cursor, 10) : 0;
+        if (isNaN(startIndex) || startIndex < 0 || startIndex >= seenVideos.length) {
+          return { feed: [], cursor: null };
+        }
+        const urisToFetch = seenVideos.slice(startIndex, startIndex + pageSize).map(v => v.uri);
+        if (urisToFetch.length === 0) return { feed: [], cursor: null };
+        const postsMap = await AtprotoService.getPosts(urisToFetch);
+        const validPosts: ExtendedFeedViewPost[] = [];
+        for (const uri of urisToFetch) {
+          const post = postsMap.get(uri);
+          if (post && AtprotoService.isValidPost(post)) {
+            validPosts.push({ post } as ExtendedFeedViewPost);
+          }
+        }
+        const feed = await ApiFeedService.applyModerationBatch(validPosts);
+        const nextIndex = startIndex + pageSize;
+        const nextCursor = nextIndex < seenVideos.length ? String(nextIndex) : null;
+        return { feed, cursor: nextCursor };
       } else {
         // Handle custom feed URIs (external feed generators and non-postable Orbyt channels)
         // Use original feedOption for feed generator URIs, not the normalized one

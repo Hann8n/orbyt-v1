@@ -10,9 +10,9 @@ import { Colors } from '../../ui/UI';
 import { Avatar } from '../../ui/UI';
 import Icon from '../../ui/Icon';
 import BlurredThumbnailBackground from '../../ui/BlurredThumbnailBackground';
-import { moderatePost } from '@atproto/api';
+import type { ModerationUI } from '@atproto/api';
 import { AtprotoService } from '../../../services/api/AtprotoService';
-import { getModerationOpts } from '../../../stores/moderationStore';
+import { FeedService as ApiFeedService } from '../../../services/api/feed/FeedService';
 import { useUserStore } from '../../../stores/userStore';
 import { feedService } from '../../../services/FeedService';
 import { openPostInBluesky } from '../../../utils/links/bluesky';
@@ -55,28 +55,41 @@ export default function EmbeddedPostCard({
   const [userChoseToView, setUserChoseToView] = useState(false);
   const currentUser = useUserStore(state => state.currentUser);
 
-  // Fetch post and run moderatePost in queryFn; attach contentListUI, contentMediaUI, avatarUI, shouldFilter
+  // Fetch post and run applyModerationBatch; attach contentListUI, contentMediaUI, avatarUI; filtered posts return shouldFilter
   const { data, isLoading } = useQuery({
     queryKey: ['embedded-post', postUri, currentUser?.did],
     queryFn: async () => {
       const post = await AtprotoService.getPost(postUri);
-      const userDid = useUserStore.getState().currentUser?.did;
-      const opts = getModerationOpts(userDid ?? undefined);
-      if (post && opts) {
-        const mod = moderatePost(post, opts);
+      if (!post) {
+        return {
+          post: null,
+          contentListUI: undefined,
+          contentMediaUI: undefined,
+          avatarUI: undefined,
+          shouldFilter: false,
+        };
+      }
+      const batch = (await ApiFeedService.applyModerationBatch([{ post }])) as {
+        post: PostView;
+        contentListUI?: ModerationUI;
+        contentMediaUI?: ModerationUI;
+        avatarUI?: ModerationUI;
+      }[];
+      const item = batch[0];
+      if (!item) {
         return {
           post,
-          contentListUI: mod.ui('contentList'),
-          contentMediaUI: mod.ui('contentMedia'),
-          avatarUI: mod.ui('avatar'),
-          shouldFilter: mod.ui('contentList').filter,
+          contentListUI: undefined,
+          contentMediaUI: undefined,
+          avatarUI: undefined,
+          shouldFilter: true,
         };
       }
       return {
-        post: post ?? null,
-        contentListUI: undefined,
-        contentMediaUI: undefined,
-        avatarUI: undefined,
+        post: item.post,
+        contentListUI: item.contentListUI,
+        contentMediaUI: item.contentMediaUI,
+        avatarUI: item.avatarUI,
         shouldFilter: false,
       };
     },
@@ -275,22 +288,17 @@ export default function EmbeddedPostCard({
   const handlePostPress = useCallback(async () => {
     if (!post?.uri) return;
 
-    const opts = getModerationOpts(useUserStore.getState().currentUser?.did ?? undefined);
-
     // For video posts, open in Orbyt app using the existing feed modal
     if (isVideo) {
       try {
         // If we have conversation messages, build a playlist of all video posts
         if (conversationMessages && conversationMessages.length > 0) {
-          // Get all embed URIs from messages
           const embedUris = conversationMessages
             .map(msg => msg.embed?.record?.uri)
             .filter((uri): uri is string => !!uri);
 
-          // Use cached data first, only fetch missing posts
-          const videoPosts = await Promise.all(
+          const resolvedPosts = await Promise.all(
             embedUris.map(async embedUri => {
-              // Try to get from cache first (may be { post } or raw PostView)
               const cached = queryClient.getQueryData<{ post?: PostView } | PostView>([
                 'embedded-post',
                 embedUri,
@@ -301,62 +309,32 @@ export default function EmbeddedPostCard({
                   : (cached as { post?: PostView })?.post;
 
               let resolved: PostView | null = postData ?? null;
-
-              // Only fetch if not in cache
               if (!resolved) {
                 try {
                   const fetchedPost = await AtprotoService.getPost(embedUri);
                   if (fetchedPost) {
                     queryClient.setQueryData(['embedded-post', embedUri], fetchedPost);
                     resolved = fetchedPost;
-                  } else {
-                    return null;
                   }
                 } catch {
-                  return null;
+                  // ignore
                 }
               }
-
               if (!resolved) return null;
-
-              // Check if it's actually a video post
               const embed = resolved.embed;
-              if (!embed || (!isVideoEmbed(embed) && !isVideoEmbedInMedia(embed))) {
-                return null;
-              }
-
-              const mod = opts ? moderatePost(resolved, opts) : null;
-              return {
-                post: {
-                  uri: resolved.uri,
-                  cid: resolved.cid,
-                  author: resolved.author,
-                  record: resolved.record,
-                  embed: resolved.embed,
-                  replyCount: resolved.replyCount,
-                  repostCount: resolved.repostCount,
-                  likeCount: resolved.likeCount,
-                  indexedAt: resolved.indexedAt,
-                },
-                uniqueKey: resolved.uri,
-                contentListUI: mod?.ui('contentList'),
-                contentMediaUI: mod?.ui('contentMedia'),
-                avatarUI: mod?.ui('avatar'),
-                shouldFilter: mod?.ui('contentList').filter ?? false,
-              };
+              if (!embed || (!isVideoEmbed(embed) && !isVideoEmbedInMedia(embed))) return null;
+              return resolved;
             })
           );
 
-          // Filter out nulls and reverse to match chat direction (oldest to newest)
-          const validVideoPosts = videoPosts
-            .filter((item): item is NonNullable<typeof item> => item !== null)
-            .reverse();
+          const valid = resolvedPosts.filter((p): p is PostView => p != null);
+          const toBatch = valid.map(p => ({ post: p, uniqueKey: p.uri }));
+          const moderated = await ApiFeedService.applyModerationBatch(toBatch);
+          const validVideoPosts = [...moderated].reverse();
           const currentIndex = validVideoPosts.findIndex(item => item.post.uri === post.uri);
 
-          // If we found videos, use the playlist; otherwise fall back to single post
           if (validVideoPosts.length > 0) {
             feedService.setCurrentFeed(validVideoPosts);
-
             router.push({
               pathname: '/(modals)/feed',
               params: {
@@ -374,34 +352,16 @@ export default function EmbeddedPostCard({
           }
         }
 
-        // Fallback: single post (original behavior)
+        // Fallback: single post
         const postData = await AtprotoService.getPost(post.uri);
-        if (!postData) {
-          return;
-        }
+        if (!postData) return;
 
-        const mod = opts ? moderatePost(postData, opts) : null;
-        const feedItem = {
-          post: {
-            uri: postData.uri,
-            cid: postData.cid,
-            author: postData.author,
-            record: postData.record,
-            embed: postData.embed,
-            replyCount: postData.replyCount,
-            repostCount: postData.repostCount,
-            likeCount: postData.likeCount,
-            indexedAt: postData.indexedAt,
-          },
-          uniqueKey: postData.uri,
-          contentListUI: mod?.ui('contentList'),
-          contentMediaUI: mod?.ui('contentMedia'),
-          avatarUI: mod?.ui('avatar'),
-          shouldFilter: mod?.ui('contentList').filter ?? false,
-        };
+        const [feedItem] = await ApiFeedService.applyModerationBatch([
+          { post: postData, uniqueKey: postData.uri },
+        ]);
+        if (!feedItem) return;
 
         feedService.setCurrentFeed([feedItem]);
-
         router.push({
           pathname: '/(modals)/feed',
           params: {
@@ -418,7 +378,6 @@ export default function EmbeddedPostCard({
         // ignore
       }
     } else {
-      // For non-video posts, open in Bluesky app
       await openPostInBluesky(post.uri);
     }
   }, [post, queryClient, isVideo, router, conversationMessages]);
