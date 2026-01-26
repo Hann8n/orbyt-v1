@@ -5,7 +5,7 @@
 
 import { RichText, AtUri, moderatePost } from '@atproto/api';
 import { BlobRef } from '@atproto/api';
-import { getModerationOpts } from '../../../stores/moderationStore';
+import { ModerationService } from '../../moderation/ModerationService';
 import { Platform } from 'react-native';
 import { storageHelpers } from '../../../utils/storage/storage';
 import { AtprotoCore } from '../core';
@@ -265,7 +265,7 @@ export class FeedService {
   static async applyModerationBatch<T extends { post: PostView }>(items: T[]): Promise<T[]> {
     if (items.length === 0) return items;
     const userDid = await AtprotoCore.getCurrentUserDid();
-    const opts = getModerationOpts(userDid ?? undefined);
+    const opts = ModerationService.getModerationOpts(userDid ?? undefined);
     if (!opts) return items;
     const mapped = items.map(item => {
       const mod = moderatePost(item.post, opts);

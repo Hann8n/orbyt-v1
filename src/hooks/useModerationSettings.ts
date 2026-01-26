@@ -2,7 +2,6 @@ import { useQuery } from '@tanstack/react-query';
 import { useUserStore } from '../stores/userStore';
 import { queryKeys } from '../utils/query/queryKeys';
 import { ModerationService } from '../services/moderation/ModerationService';
-import { useModerationStore } from '../stores/moderationStore';
 import { QUERY_CONSTANTS } from '../utils/constants';
 
 export function useModerationSettings(userDid?: string) {
@@ -16,14 +15,7 @@ export function useModerationSettings(userDid?: string) {
     queryKey: effectiveDid ? queryKeys.moderation.byUser(effectiveDid) : ['moderation', 'no-user'],
     queryFn: async () => {
       const result = await ModerationService.getModerationPrefsAndLabelDefs(agent ?? undefined);
-      if (result) {
-        useModerationStore.setState({
-          moderationPrefs: result.moderationPrefs,
-          labelDefs: result.labelDefs,
-        });
-        return result;
-      }
-      return null;
+      return result ?? null;
     },
     enabled: !!agent && !!effectiveDid && !isSwitchingAccount,
     staleTime: QUERY_CONSTANTS.STALE_TIME_LONG,

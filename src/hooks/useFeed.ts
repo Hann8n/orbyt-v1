@@ -9,7 +9,7 @@ import { useEffect, useRef } from 'react';
 import { useInfiniteQuery, type InfiniteData } from '@tanstack/react-query';
 import { feedService, FeedOption, FeedItem } from '../services/FeedService';
 import { useUserStore } from '../stores/userStore';
-import { useModerationStore } from '../stores/moderationStore';
+import { useModerationSettings } from './useModerationSettings';
 import { queryKeys } from '../utils/query/queryKeys';
 import type { FeedResponse } from '../services/api/types';
 import { logger } from '../utils/logger';
@@ -65,12 +65,14 @@ export function useFeed(
   const currentUser = useUserStore(state => state.currentUser);
   const isSwitchingAccount = useUserStore(state => state.isSwitchingAccount);
   const agent = useUserStore(state => state.agent);
-  const modReady = useModerationStore(state => state.moderationPrefs != null);
   const prevModReadyRef = useRef(false);
 
   // User-specific feeds use currentUser; profile/likes/reposts use passed userDid
   const effectiveUserDid =
     feedOption === 'following' || feedOption === 'your-mix' ? currentUser?.did : userDid;
+
+  const moderationData = useModerationSettings(effectiveUserDid || undefined);
+  const modReady = moderationData.moderationPrefs != null;
 
   useEffect(() => {
     if (modReady && !prevModReadyRef.current) {

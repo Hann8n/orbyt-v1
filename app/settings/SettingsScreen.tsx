@@ -328,13 +328,6 @@ const SettingsScreen: React.FC = () => {
       title: 'App Settings',
       items: [
         {
-          id: 'content-filters',
-          label: 'Content filters',
-          icon: 'filter',
-          onPress: () => router.push('/settings/content-filters'),
-          showChevron: true,
-        },
-        {
           id: 'algorithmic-feed',
           label: 'Your mix',
           icon: 'sparkles',
@@ -359,6 +352,14 @@ const SettingsScreen: React.FC = () => {
               },
             ]
           : []),
+        {
+          id: 'content-filters',
+          label: 'Content filters',
+          icon: 'external-link',
+          onPress: () => handleOpenLink('https://bsky.app/moderation'),
+          showChevron: true,
+          rightIcon: <Icon name="external-link" size={20} color={Colors.gray} />,
+        },
         // {
         //   id: 'data-usage',
         //   label: 'Data Usage',
@@ -451,6 +452,7 @@ const SettingsScreen: React.FC = () => {
     onPress: () => void;
     showChevron?: boolean;
     icon?: string;
+    rightIcon?: React.ReactNode;
     destructive?: boolean;
   };
 
@@ -462,6 +464,7 @@ const SettingsScreen: React.FC = () => {
         label: string;
         showChevron?: boolean;
         onPress: () => void;
+        rightIcon?: React.ReactNode;
         destructive?: boolean;
       }
     | {
@@ -490,6 +493,7 @@ const SettingsScreen: React.FC = () => {
         label: item.label,
         showChevron: item.showChevron,
         onPress: item.onPress,
+        rightIcon: item.rightIcon,
         destructive: item.destructive,
       });
     });
@@ -559,7 +563,9 @@ const SettingsScreen: React.FC = () => {
                   rightIcon={
                     item.id === 'copy-profile-link' && isProfileLinkCopied ? (
                       <Icon name="check" size={24} color={Colors.lightGreen} />
-                    ) : undefined
+                    ) : (
+                      item.rightIcon
+                    )
                   }
                 />
               );

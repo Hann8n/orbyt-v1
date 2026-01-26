@@ -514,9 +514,8 @@ export const useUserStore = create<UserState>()(
             set({ showEmailVerificationModal: true });
           }
 
-          // Hydrate moderation prefs from MMKV (sync ~1ms) so feeds can filter immediately
-          const { useModerationStore } = await import('./moderationStore');
-          useModerationStore.getState().hydrateFromCache(did);
+          // Moderation prefs are now loaded via React Query (useModerationSettings hook)
+          // No need to hydrate from MMKV - React Query handles caching
 
           // Initialize orbyt profile record (join date, baseline colors/channels)
           // Defer until after interactions complete to improve startup performance
@@ -1147,10 +1146,8 @@ export const useUserStore = create<UserState>()(
           useProfileInteractionStore.getState().clearAll();
 
           // Clear moderation prefs/labelDefs so next account gets fresh data
-          const { useModerationStore } = await import('./moderationStore');
-          useModerationStore
-            .getState()
-            .clearModeration(get().currentUser?.did ?? get().activeAccountDid ?? undefined);
+          // Moderation prefs are managed by React Query - invalidate cache on logout
+          queryClient.removeQueries({ queryKey: queryKeys.moderation.all });
 
           // Note: All data caching is now handled by React Query
           // Custom caches (ProfileCache, ChannelCache, AtprotoService) have been removed
@@ -1441,15 +1438,7 @@ export const useUserStore = create<UserState>()(
           if (modResult && currentUser?.did) {
             const { queryClient } = await import('../utils/query/queryClient');
             const { queryKeys } = await import('../utils/query/queryKeys');
-            const { useModerationStore } = await import('./moderationStore');
             queryClient.setQueryData(queryKeys.moderation.byUser(currentUser.did), modResult);
-            useModerationStore.getState().setModeration(
-              {
-                moderationPrefs: modResult.moderationPrefs,
-                labelDefs: modResult.labelDefs,
-              },
-              currentUser.did
-            );
           }
 
           // Update state with user-specific settings

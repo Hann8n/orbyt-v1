@@ -312,28 +312,87 @@ const VideoCard = memo(
           : undefined;
       const isBlurred = isWarn && !userChoseToView;
 
+      // Map label values to user-friendly warning messages
+      const LABEL_MESSAGE_MAP: Record<string, string> = {
+        // Global labels
+        porn: 'explicit sexual content',
+        sexual: 'sexually suggestive content',
+        nudity: 'nudity',
+        'graphic-media': 'graphic or violent content',
+        gore: 'graphic or violent content', // deprecated alias
+        // Common custom labels from Bluesky moderation service
+        'self-harm': 'content about self-harm',
+        sensitive: 'sensitive content',
+        extremist: 'extremist content',
+        intolerance: 'intolerant content',
+        threats: 'threatening content',
+        rude: 'rude or offensive content',
+        illicit: 'illicit content',
+        'security-concerns': 'potentially unsafe content',
+        'unsafe-link': 'unsafe links',
+        impersonation: 'impersonation',
+        misinformation: 'misinformation',
+        scam: 'scam content',
+        'engagement-farming': 'engagement farming content',
+        spam: 'spam',
+        unconfirmed: 'unconfirmed claims',
+        misleading: 'misleading content',
+        'inauthentic-account': 'content from an inauthentic account',
+        'sexually-suggestive-cartoon': 'sexually suggestive cartoon content',
+      };
+
       const warningDescription = useMemo(() => {
         const fallback = 'This video may not be appropriate for all viewers.';
         if (!reason) return fallback;
+
+        // Parse labels from reason (can be comma-separated)
         const labels = reason
           .split(',')
-          .map((l: string) =>
-            l
-              .trim()
-              .replace(/\s+[Cc]ontent\s*$/, '')
-              .trim()
-          )
+          .map((l: string) => l.trim())
           .filter((l: string) => !WARNING_HIDDEN_LABELS.includes(l));
+
         if (labels.length === 0) return fallback;
-        const formatted =
-          labels.length > 1
-            ? labels.slice(0, -1).join(', ') + ' & ' + labels[labels.length - 1]
-            : labels[0];
-        const labelLower = formatted
-          .toLowerCase()
-          .replace(/nsfw/g, 'NSFW')
-          .replace(/graphic-media/g, 'graphic media');
-        return `This video may contain ${labelLower}`;
+
+        // Map labels to user-friendly messages
+        const messages = labels
+          .map((label: string) => {
+            // Check exact match first
+            if (LABEL_MESSAGE_MAP[label]) {
+              return LABEL_MESSAGE_MAP[label];
+            }
+            // Check case-insensitive match
+            const lowerLabel = label.toLowerCase();
+            const matchedKey = Object.keys(LABEL_MESSAGE_MAP).find(
+              key => key.toLowerCase() === lowerLabel
+            );
+            if (matchedKey) {
+              return LABEL_MESSAGE_MAP[matchedKey];
+            }
+            // Fallback: format the label identifier nicely
+            return label
+              .split('-')
+              .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+              .join(' ')
+              .toLowerCase();
+          })
+          .filter((msg: string) => msg.length > 0);
+
+        if (messages.length === 0) return fallback;
+
+        // Format multiple labels
+        const formattedMessage =
+          messages.length > 1
+            ? messages.slice(0, -1).join(', ') + ', and ' + messages[messages.length - 1]
+            : messages[0];
+
+        // Special case: inauthentic account uses different sentence structure
+        if (
+          labels.some(l => l === 'inauthentic-account' || l.toLowerCase() === 'inauthentic-account')
+        ) {
+          return `This video may be from an inauthentic account.`;
+        }
+
+        return `This video may contain ${formattedMessage}.`;
       }, [reason]);
 
       const handleViewContent = useCallback(() => setUserChoseToView(true), []);

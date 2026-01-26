@@ -74,7 +74,6 @@ const AVAILABLE_ROUTES = [
   { path: '/settings/app-icon', label: 'App Icon', type: 'settings' as RouteType },
   { path: '/settings/blocked', label: 'Blocked Users', type: 'settings' as RouteType },
   { path: '/settings/channels', label: 'Channels', type: 'settings' as RouteType },
-  { path: '/settings/content-filters', label: 'Content Filters', type: 'settings' as RouteType },
   { path: '/settings/followers', label: 'Followers', type: 'settings' as RouteType },
   { path: '/settings/following', label: 'Following', type: 'settings' as RouteType },
   { path: '/settings/hidden-posts', label: 'Hidden Posts', type: 'settings' as RouteType },

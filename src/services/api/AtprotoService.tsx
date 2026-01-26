@@ -9,7 +9,7 @@ import { NotificationService } from './notification/NotificationService';
 import { BookmarkService } from './bookmark/BookmarkService';
 import { VideoService } from './video/VideoService';
 import { RepoService } from './repo/RepoService';
-import { ModerationService } from './moderation/ModerationService';
+import { ModerationService } from '../moderation/ModerationService';
 import type {
   FeedResponse,
   FeedParams,

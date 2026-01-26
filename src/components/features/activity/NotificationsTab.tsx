@@ -37,8 +37,8 @@ import {
   type AppBskyFeedRepost,
 } from '@atproto/api';
 import { FeedService as ApiFeedService } from '../../../services/api/feed/FeedService';
-import { getModerationOpts, useModerationStore } from '../../../stores/moderationStore';
 import { useModerationSettings } from '../../../hooks/useModerationSettings';
+import { ModerationService } from '../../../services/moderation/ModerationService';
 import type {
   Notification,
   NotificationReason,
@@ -659,23 +659,22 @@ const NotificationsTab = forwardRef<ScrollToTopRef, NotificationsTabProps>(
       return data?.pages.flatMap(page => page.notifications) || [];
     }, [data]);
 
-    const moderationPrefs = useModerationStore(s => s.moderationPrefs);
+    const moderationData = useModerationSettings(currentUser?.did || undefined);
 
     const enrichedNotifications = useMemo((): EnrichedNotification[] => {
-      const opts = getModerationOpts(currentUser?.did ?? undefined);
+      const opts = ModerationService.getModerationOpts(currentUser?.did ?? undefined);
       if (!opts) return allNotifications.map(n => ({ ...n, shouldFilter: false }));
       return allNotifications.map(n => ({
         ...n,
         shouldFilter: moderateNotification(n, opts).ui('contentList').filter,
       }));
-      // eslint-disable-next-line react-hooks/exhaustive-deps -- moderationPrefs signals store so we recompute when prefs load
-    }, [allNotifications, currentUser?.did, moderationPrefs]);
+    }, [allNotifications, currentUser?.did, moderationData.moderationPrefs]);
 
     const filteredNotifications = useMemo(
       () => enrichedNotifications.filter(n => !n.shouldFilter),
       [enrichedNotifications]
     );
-    const moderationOpts = getModerationOpts(currentUser?.did ?? undefined);
+    const moderationOpts = ModerationService.getModerationOpts(currentUser?.did ?? undefined);
 
     // Batch prefetch all author profiles for better performance
     useEffect(() => {
