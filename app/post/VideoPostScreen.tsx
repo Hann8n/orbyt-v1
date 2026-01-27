@@ -38,6 +38,7 @@ import BlurredThumbnailBackground from '../../src/components/ui/BlurredThumbnail
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextOverlay } from '../../src/types';
 import { resolveVideoPath, debugVideoPath, VideoPathInfo } from '../../src/utils/video/path';
+import { DEFAULT_BUFFER_OPTIONS } from '../../src/utils/video/helpers';
 
 import { Colors } from '../../src/components/ui/UI';
 import { isTablet, isSmallScreen } from '../../src/utils/device/screen';
@@ -98,12 +99,34 @@ const VideoPreviewContent: React.FC<{
 }) => {
   const thumbnailUrl = thumbnailPath || videoUri;
 
+  // Track first frame render to hide poster once video is visible
+  // Use videoUri as key to reset state when source changes
+  const videoUriKey = useMemo(() => videoUri, [videoUri]);
+  const [firstFrameRendered, setFirstFrameRendered] = useState(false);
+  const prevVideoUriKeyRef = useRef(videoUriKey);
+
+  // Reset state when videoUri changes
+  // This is a valid React pattern for resetting derived state when a prop changes
+  // The recommended alternative (key prop) isn't available for presentational child components
+  useEffect(() => {
+    if (prevVideoUriKeyRef.current !== videoUriKey) {
+      prevVideoUriKeyRef.current = videoUriKey;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setFirstFrameRendered(false);
+    }
+  }, [videoUriKey]);
+
+  // Callback to set first frame rendered state
+  const handleFirstFrameRender = useCallback(() => {
+    setFirstFrameRendered(true);
+  }, []);
+
   return (
     <View style={[styles.videoContainer, containerStyle]}>
       {thumbnailUrl && (
         <>
           <BlurredThumbnailBackground thumbnailUrl={thumbnailUrl} />
-          {!videoLoading && !isMerging && (
+          {!firstFrameRendered && (
             <Image source={{ uri: thumbnailUrl }} contentFit="contain" style={styles.poster} />
           )}
         </>
@@ -114,6 +137,8 @@ const VideoPreviewContent: React.FC<{
           style={styles.videoPlayer}
           contentFit="contain"
           nativeControls={false}
+          surfaceType={Platform.OS === 'android' ? 'textureView' : undefined}
+          onFirstFrameRender={handleFirstFrameRender}
         />
       )}
       {(videoLoading || isMerging) && (
@@ -723,26 +748,37 @@ const VideoPostScreen: React.FC = () => {
           throw new Error('No video segments provided');
         }
 
-        // Convert to ProcessingVideoSegment format
+        // Validate and convert segments to VideoSegment format
         // Segments come from params as JSON string, parsed to unknown structure
-        // Cast to VideoSegment[] - mergeSegments will handle type validation at runtime
-        // Type matches VideoProcessingService.VideoSegment but segments from params are untyped
-        type VideoSegmentInput = {
-          startTime: number;
-          duration: number;
-          video: { uri: string } | { uri: string; [key: string]: unknown };
-          sourceType?: 'camera' | 'gallery';
+        type ParsedSegment = {
+          startTime?: unknown;
+          duration?: unknown;
+          video?: unknown;
+          sourceType?: unknown;
         };
-        const processingSegments = segments as VideoSegmentInput[];
+
+        const processingSegments = (segments as ParsedSegment[]).map(segment => {
+          if (
+            typeof segment.startTime !== 'number' ||
+            typeof segment.duration !== 'number' ||
+            !segment.video ||
+            typeof segment.video !== 'object'
+          ) {
+            throw new Error('Invalid segment format');
+          }
+          return {
+            startTime: segment.startTime,
+            duration: segment.duration,
+            video: segment.video as { uri: string } | { uri: string; [key: string]: unknown },
+            sourceType: segment.sourceType as 'camera' | 'gallery' | undefined,
+          };
+        });
 
         // Merge segments in background using requestIdleCallback
-
         requestIdleCallback(
           async () => {
-            // Type assertion needed because segments from params don't have full ImagePickerAsset type
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const mergedVideo = await VideoProcessingService.mergeSegments(
-              processingSegments as any
+              processingSegments as Parameters<typeof VideoProcessingService.mergeSegments>[0]
             );
 
             setMergedVideoPath(mergedVideo.path);
@@ -1260,6 +1296,7 @@ const VideoPostScreen: React.FC = () => {
   const player = useVideoPlayer(videoUri ? { uri: videoUri } : null, p => {
     p.loop = true;
     p.volume = 1;
+    p.bufferOptions = DEFAULT_BUFFER_OPTIONS;
     playerRef.current = p;
   });
 
@@ -1330,6 +1367,16 @@ const VideoPostScreen: React.FC = () => {
     return () => sub?.remove();
   }, []);
 
+  // Memoize dynamic header styles to avoid inline style warnings
+  const statusBarGradientStyle = useMemo(
+    () => ({ height: isSmallDevice ? 54 : insets.top + 60 }),
+    [isSmallDevice, insets.top]
+  );
+  const headerButtonTopStyle = useMemo(
+    () => ({ top: isSmallDevice ? 5 : insets.top + 4 }),
+    [isSmallDevice, insets.top]
+  );
+
   // Render header (StatusBar, LinearGradient, header buttons) - shared between portrait and landscape
   const renderHeader = () => (
     <>
@@ -1337,13 +1384,14 @@ const VideoPostScreen: React.FC = () => {
       <LinearGradient
         colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.1)', 'transparent']}
         locations={[0, 0.7, 1]}
-        style={[styles.statusBarGradient, { height: isSmallDevice ? 54 : insets.top + 60 }]}
+        style={[styles.statusBarGradient, statusBarGradientStyle]}
         pointerEvents="none"
       />
       <Animated.View
         style={[
           styles.headerButton,
-          { top: isSmallDevice ? 5 : insets.top + 4, left: 4 },
+          styles.headerButtonLeft,
+          headerButtonTopStyle,
           headerFadeAnimatedStyle,
         ]}
       >
@@ -1354,7 +1402,8 @@ const VideoPostScreen: React.FC = () => {
       <Animated.View
         style={[
           styles.headerButton,
-          { top: isSmallDevice ? 5 : insets.top + 4, right: 4 },
+          styles.headerButtonRight,
+          headerButtonTopStyle,
           headerFadeAnimatedStyle,
         ]}
       >
@@ -1733,6 +1782,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: Colors.overlayBlack50,
   },
+  headerButtonLeft: {
+    left: 4,
+  },
+  headerButtonRight: {
+    right: 4,
+  },
   contentContainer: {
     flex: 1,
   },
@@ -2101,11 +2156,11 @@ const styles = StyleSheet.create({
   },
   descriptionModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    backgroundColor: Colors.overlayBlack85,
   },
   descriptionModalContentWrapper: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    backgroundColor: Colors.overlayBlack95,
     justifyContent: 'flex-start',
   },
   descriptionModalHeader: {

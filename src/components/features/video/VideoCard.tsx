@@ -33,7 +33,13 @@ import { Image } from 'expo-image';
 import { Colors } from '../../ui/UI';
 import { Loading3FillIcon, HeartFillIcon } from '../../ui/Icon';
 import BlurredThumbnailBackground from '../../ui/BlurredThumbnailBackground';
-import { normalizePostView, createVideoSource, getVideoView } from '../../../utils/video/helpers';
+import {
+  normalizePostView,
+  createVideoSource,
+  getVideoView,
+  DEFAULT_BUFFER_OPTIONS,
+  DEFAULT_SEEK_TOLERANCE_SCRUBBER,
+} from '../../../utils/video/helpers';
 import VideoOverlayUI from './VideoOverlayUI';
 import { useFocusEffect } from 'expo-router';
 import { useGlobalCommentSection } from '../../../hooks/useGlobalModals';
@@ -69,6 +75,35 @@ const OVERLAY_FADE_EXPONENT = 2;
 
 /** System moderation labels: do not show in user-facing warning text. */
 const WARNING_HIDDEN_LABELS = ['!hide', '!warn', '!no-unauthenticated'];
+
+/** Map label values to user-friendly warning messages */
+const LABEL_MESSAGE_MAP: Record<string, string> = {
+  // Global labels
+  porn: 'explicit sexual content',
+  sexual: 'sexually suggestive content',
+  nudity: 'nudity',
+  'graphic-media': 'graphic or violent content',
+  gore: 'graphic or violent content', // deprecated alias
+  // Common custom labels from Bluesky moderation service
+  'self-harm': 'content about self-harm',
+  sensitive: 'sensitive content',
+  extremist: 'extremist content',
+  intolerance: 'intolerant content',
+  threats: 'threatening content',
+  rude: 'rude or offensive content',
+  illicit: 'illicit content',
+  'security-concerns': 'potentially unsafe content',
+  'unsafe-link': 'unsafe links',
+  impersonation: 'impersonation',
+  misinformation: 'misinformation',
+  scam: 'scam content',
+  'engagement-farming': 'engagement farming content',
+  spam: 'spam',
+  unconfirmed: 'unconfirmed claims',
+  misleading: 'misleading content',
+  'inauthentic-account': 'content from an inauthentic account',
+  'sexually-suggestive-cartoon': 'sexually suggestive cartoon content',
+};
 
 // Types
 export interface VideoCardRef {
@@ -281,6 +316,8 @@ const VideoCard = memo(
         player.loop = true;
         player.muted = false;
         player.timeUpdateEventInterval = 0; // Explicit: no progress updates (overlay has no progress bar)
+        player.bufferOptions = DEFAULT_BUFFER_OPTIONS;
+        player.seekTolerance = DEFAULT_SEEK_TOLERANCE_SCRUBBER;
       });
 
       // Listen to player status changes using expo's useEvent hook
@@ -294,6 +331,13 @@ const VideoCard = memo(
       // Simplified content warning state (warn: opt-in to view; hide: no opt-in).
       // useRecyclingState resets when post changes, so no extra useEffect needed.
       const [userChoseToView, setUserChoseToView] = useRecyclingState(false, [postView.uri]);
+
+      // Track first frame render to hide poster once video is visible
+      // Resets when post or feed context changes (same keys as other recycling state)
+      const [firstFrameRendered, setFirstFrameRendered] = useRecyclingState(false, [
+        postView.uri,
+        feedOption,
+      ]);
 
       // Moderation: hide = no batch or filter/noOverride; warn = blur only with opt-in.
       const contentListUI = feedItem?.contentListUI;
@@ -311,35 +355,6 @@ const VideoCard = memo(
           ? (firstBlur as { label: { val?: string } }).label?.val
           : undefined;
       const isBlurred = isWarn && !userChoseToView;
-
-      // Map label values to user-friendly warning messages
-      const LABEL_MESSAGE_MAP: Record<string, string> = {
-        // Global labels
-        porn: 'explicit sexual content',
-        sexual: 'sexually suggestive content',
-        nudity: 'nudity',
-        'graphic-media': 'graphic or violent content',
-        gore: 'graphic or violent content', // deprecated alias
-        // Common custom labels from Bluesky moderation service
-        'self-harm': 'content about self-harm',
-        sensitive: 'sensitive content',
-        extremist: 'extremist content',
-        intolerance: 'intolerant content',
-        threats: 'threatening content',
-        rude: 'rude or offensive content',
-        illicit: 'illicit content',
-        'security-concerns': 'potentially unsafe content',
-        'unsafe-link': 'unsafe links',
-        impersonation: 'impersonation',
-        misinformation: 'misinformation',
-        scam: 'scam content',
-        'engagement-farming': 'engagement farming content',
-        spam: 'spam',
-        unconfirmed: 'unconfirmed claims',
-        misleading: 'misleading content',
-        'inauthentic-account': 'content from an inauthentic account',
-        'sexually-suggestive-cartoon': 'sexually suggestive cartoon content',
-      };
 
       const warningDescription = useMemo(() => {
         const fallback = 'This video may not be appropriate for all viewers.';
@@ -395,7 +410,7 @@ const VideoCard = memo(
         return `This video may contain ${formattedMessage}.`;
       }, [reason]);
 
-      const handleViewContent = useCallback(() => setUserChoseToView(true), []);
+      const handleViewContent = useCallback(() => setUserChoseToView(true), [setUserChoseToView]);
 
       // Animated style for heart animation - runs on UI thread
       const heartAnimatedStyle = useAnimatedStyle(() => {
@@ -1007,7 +1022,7 @@ const VideoCard = memo(
             style={styles.videoContainerPressable}
           >
             <View style={styles.videoContainer}>
-              {!!posterUrl && !cannotShowMedia && (
+              {!!posterUrl && !cannotShowMedia && !firstFrameRendered && (
                 <Image
                   source={{ uri: posterUrl }}
                   contentFit="contain"
@@ -1024,6 +1039,7 @@ const VideoCard = memo(
                   nativeControls={false}
                   playsInline
                   surfaceType={Platform.OS === 'android' ? 'textureView' : undefined}
+                  onFirstFrameRender={() => setFirstFrameRendered(true)}
                 />
               )}
 

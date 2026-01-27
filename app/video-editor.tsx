@@ -17,10 +17,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useVideoPlayer, VideoView, VideoPlayer } from 'expo-video';
-import * as FileSystem from 'expo-file-system';
 import { File, Directory, Paths } from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
 import { resolveVideoPath, debugVideoPath, VideoPathInfo } from '../src/utils/video/path';
+import { DEFAULT_BUFFER_OPTIONS } from '../src/utils/video/helpers';
 import { Loading3FillIcon, CloseFillIcon } from '../src/components/ui/Icon';
 import { Colors } from '../src/components/ui/UI';
 import { BORDER_RADIUS, APP_CONSTANTS } from '../src/utils/constants';
@@ -222,8 +222,8 @@ const EditableTextOverlay: React.FC<EditableTextOverlayProps> = ({
         {
           left: previewX,
           top: previewY,
-          opacity: isDragging ? 0.8 : 1,
         },
+        isDragging && styles.textOverlayPreviewDragging,
         isEmpty && styles.textOverlayPreviewEmpty,
       ]}
     >
@@ -289,19 +289,37 @@ const VideoEditorScreen: React.FC = () => {
         setIsMerging(true);
 
         // Parse segments from params
-        const segments = JSON.parse(segmentsParam);
+        const segments = JSON.parse(segmentsParam) as unknown;
 
-        if (!segments || segments.length === 0) {
+        if (!segments || !Array.isArray(segments) || segments.length === 0) {
           throw new Error('No video segments provided');
         }
 
-        // Convert to ProcessingVideoSegment format
-        const processingSegments = segments.map((segment: any) => ({
-          startTime: segment.startTime,
-          duration: segment.duration,
-          video: segment.video,
-          sourceType: segment.sourceType,
-        }));
+        // Type guard for segment structure
+        type ParsedSegment = {
+          startTime?: unknown;
+          duration?: unknown;
+          video?: unknown;
+          sourceType?: unknown;
+        };
+
+        // Convert to ProcessingVideoSegment format with proper type checking
+        const processingSegments = (segments as ParsedSegment[]).map(segment => {
+          if (
+            typeof segment.startTime !== 'number' ||
+            typeof segment.duration !== 'number' ||
+            !segment.video ||
+            typeof segment.video !== 'object'
+          ) {
+            throw new Error('Invalid segment format');
+          }
+          return {
+            startTime: segment.startTime,
+            duration: segment.duration,
+            video: segment.video as { uri: string } | { uri: string; [key: string]: unknown },
+            sourceType: segment.sourceType as 'camera' | 'gallery' | undefined,
+          };
+        });
 
         // Merge segments in background using requestIdleCallback
         requestIdleCallback(
@@ -312,19 +330,19 @@ const VideoEditorScreen: React.FC = () => {
           },
           { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
         );
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('[VideoEditor] Error merging segments:', error);
         setIsMerging(false);
-        Alert.alert(
-          'Merging Failed',
-          error.message || 'Failed to merge video segments. Please try again.',
-          [
-            {
-              text: 'Go Back',
-              onPress: () => router.back(),
-            },
-          ]
-        );
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : 'Failed to merge video segments. Please try again.';
+        Alert.alert('Merging Failed', errorMessage, [
+          {
+            text: 'Go Back',
+            onPress: () => router.back(),
+          },
+        ]);
       }
     };
 
@@ -382,6 +400,7 @@ const VideoEditorScreen: React.FC = () => {
   const player = useVideoPlayer(videoUri ? { uri: videoUri } : null, p => {
     p.loop = true;
     p.volume = masterVolume;
+    p.bufferOptions = DEFAULT_BUFFER_OPTIONS;
     playerRef.current = p;
   });
 
@@ -408,12 +427,13 @@ const VideoEditorScreen: React.FC = () => {
     if (player) {
       player.volume = masterVolume;
     }
-  }, [player]);
+  }, [player, masterVolume]);
 
   // Cleanup temporary files
   useEffect(() => {
+    const tempFiles = tempFilesRef.current;
     return () => {
-      tempFilesRef.current.forEach(async file => {
+      tempFiles.forEach(async file => {
         try {
           const normalizedPath = file.replace('file://', '');
           const tempFile = new File(normalizedPath);
@@ -457,12 +477,22 @@ const VideoEditorScreen: React.FC = () => {
       tempFilesRef.current.push(tempPath);
       return tempPath;
     } catch (_error) {
-      // Fallback to old API if new API fails
+      // Fallback to Paths API if new API fails
       const timestamp = Date.now();
       const random = Math.random().toString(36).substring(7);
       const fileName = `video_edit_${timestamp}_${random}.mp4`;
 
-      let tempDir = (FileSystem as any).cacheDirectory || (FileSystem as any).documentDirectory;
+      // Use Paths.cache as fallback (same as primary path)
+      let tempDir: string | null = null;
+      try {
+        const cacheDir = new Directory(Paths.cache);
+        if (cacheDir.exists) {
+          tempDir = cacheDir.uri;
+        }
+      } catch {
+        // If cache fails, we can't proceed
+      }
+
       if (!tempDir) {
         throw new Error('Unable to determine temporary directory');
       }
@@ -675,9 +705,11 @@ const VideoEditorScreen: React.FC = () => {
       }
 
       Alert.alert('Success', 'Video edits applied successfully!');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error applying edits:', error);
-      Alert.alert('Error', error.message || 'Failed to apply edits. Please try again.');
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to apply edits. Please try again.';
+      Alert.alert('Error', errorMessage);
     } finally {
       setIsProcessing(false);
       setVideoLoading(false);
@@ -691,6 +723,7 @@ const VideoEditorScreen: React.FC = () => {
     activeVideoPath,
     getTempFilePath,
     player,
+    isProcessing,
   ]);
 
   // Check if there are pending edits
@@ -778,6 +811,7 @@ const VideoEditorScreen: React.FC = () => {
               style={styles.video}
               contentFit="contain"
               nativeControls={false}
+              surfaceType={Platform.OS === 'android' ? 'textureView' : undefined}
             />
           )}
           {(videoLoading || isMerging) && (
@@ -786,8 +820,8 @@ const VideoEditorScreen: React.FC = () => {
             </View>
           )}
           {videoError && (
-            <View style={[styles.loadingOverlay, { zIndex: 3, backgroundColor: Colors.darkGray }]}>
-              <Text style={{ color: Colors.lightGray, fontSize: 16 }}>{videoError}</Text>
+            <View style={[styles.loadingOverlay, styles.errorOverlay]}>
+              <Text style={styles.errorText}>{videoError}</Text>
             </View>
           )}
           {/* Text Overlay Previews */}
@@ -949,14 +983,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  doneButton: {
-    position: 'absolute',
-    zIndex: 1000,
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   videoContainer: {
     flex: 1,
     position: 'relative',
@@ -985,41 +1011,20 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   errorOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: Colors.black,
     zIndex: 3,
+    backgroundColor: Colors.darkGray,
   },
   errorText: {
-    color: Colors.white,
-    fontSize: 16,
-    textAlign: 'center',
-  },
-  noVideoContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: Colors.black,
-  },
-  noVideoText: {
     color: Colors.lightGray,
     fontSize: 16,
-  },
-  mergingText: {
-    color: Colors.white,
-    fontSize: 14,
-    fontFamily: 'Figtree-Medium',
-    marginTop: 12,
   },
   textOverlayPreview: {
     position: 'absolute',
     zIndex: 1,
     padding: 8,
+  },
+  textOverlayPreviewDragging: {
+    opacity: 0.8,
   },
   textOverlayPreviewEmpty: {
     borderWidth: 1,
@@ -1028,7 +1033,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.SMALL,
   },
   textOverlayPreviewText: {
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowColor: Colors.overlayBlack75,
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 3,
   },
@@ -1037,7 +1042,7 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   textOverlayEditing: {
-    backgroundColor: 'transparent',
+    backgroundColor: Colors.transparent,
     minWidth: 120,
     maxWidth: SCREEN_WIDTH - 40,
     padding: 4,
@@ -1096,7 +1101,7 @@ const styles = StyleSheet.create({
     height: 28,
     borderRadius: 14,
     borderWidth: 2,
-    borderColor: 'transparent',
+    borderColor: Colors.transparent,
   },
   colorDotSelected: {
     borderColor: Colors.white,
@@ -1129,7 +1134,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: Colors.overlayBlack60,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1,
@@ -1138,43 +1143,6 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 24,
     marginLeft: 4,
-  },
-  sliderContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  sliderTrack: {
-    flex: 1,
-    height: 4,
-    backgroundColor: Colors.mediumGray,
-    borderRadius: 2,
-    position: 'relative',
-  },
-  sliderFill: {
-    height: '100%',
-    backgroundColor: Colors.purple,
-    borderRadius: 2,
-  },
-  sliderThumb: {
-    position: 'absolute',
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: Colors.white,
-    top: -6,
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 2,
-    elevation: 3,
-  },
-  sliderValue: {
-    color: Colors.white,
-    fontSize: 14,
-    fontFamily: 'Figtree-Medium',
-    minWidth: 45,
-    textAlign: 'right',
   },
   applyButton: {
     position: 'absolute',
@@ -1193,94 +1161,6 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 16,
     fontFamily: 'Figtree-SemiBold',
-  },
-  editSheetContent: {
-    flex: 1,
-  },
-  editField: {
-    marginBottom: 24,
-  },
-  editFieldLabel: {
-    color: Colors.white,
-    fontSize: 14,
-    fontFamily: 'Figtree-SemiBold',
-    marginBottom: 8,
-  },
-  textInput: {
-    backgroundColor: Colors.darkGray,
-    borderRadius: BORDER_RADIUS.MEDIUM,
-    padding: 12,
-    color: Colors.white,
-    fontSize: 16,
-    fontFamily: 'Figtree-Regular',
-    minHeight: 48,
-  },
-  positionPresets: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  presetButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: BORDER_RADIUS.MEDIUM,
-    backgroundColor: Colors.darkGray,
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  presetButtonSelected: {
-    backgroundColor: Colors.purple,
-    borderColor: Colors.purple,
-  },
-  presetButtonText: {
-    color: Colors.lightGray,
-    fontSize: 14,
-    fontFamily: 'Figtree-Medium',
-  },
-  presetButtonTextSelected: {
-    color: Colors.white,
-  },
-  colorPicker: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  colorSquare: {
-    width: 44,
-    height: 44,
-    borderRadius: BORDER_RADIUS.SMALL,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  colorSquareSelected: {
-    borderColor: Colors.white,
-  },
-  colorCheckmark: {
-    color: Colors.white,
-    fontSize: 20,
-    fontFamily: 'Figtree-Bold',
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  saveButton: {
-    backgroundColor: Colors.purple,
-    borderRadius: BORDER_RADIUS.LARGE,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  saveButtonText: {
-    color: Colors.white,
-    fontSize: 16,
-    fontFamily: 'Figtree-SemiBold',
-  },
-  closeButton: {
-    width: 30,
-    height: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });
 

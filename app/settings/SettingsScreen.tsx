@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import * as Updates from 'expo-updates';
+import { getCurrentVideoCacheSize, clearVideoCacheAsync } from 'expo-video';
 import Icon from '../../src/components/ui/Icon';
 import { getBuildVersion, getUpdateVersion, getFormattedVersion } from '../../src/utils/version';
 import { Colors } from '../../src/components/ui/UI';
@@ -36,9 +37,28 @@ const SettingsScreen: React.FC = () => {
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isProfileLinkCopied, setIsProfileLinkCopied] = useState(false);
+  const [videoCacheSizeBytes, setVideoCacheSizeBytes] = useState<number | null>(null);
   const { presentAccountSwitcher } = useGlobalAccountSwitcher();
   const { nativeTabsEnabled, modalProfileEnabled, setNativeTabsEnabled, setModalProfileEnabled } =
     useFeedSettings();
+
+  // Load video cache size on mount (read-only, safe to call anytime)
+  useEffect(() => {
+    try {
+      const size = getCurrentVideoCacheSize();
+      setVideoCacheSizeBytes(size);
+    } catch (_error) {
+      // Silently ignore - cache size display is optional
+    }
+  }, []);
+
+  // Format video cache size for display
+  const formatVideoCacheSize = (bytes: number | null): string => {
+    if (bytes === null || bytes === 0) return '0 MB';
+    const mb = bytes / (1024 * 1024);
+    if (mb < 1) return '< 1 MB';
+    return `${mb.toFixed(1)} MB`;
+  };
   const { currentUser } = useCurrentUser();
   const { savedAccounts } = useAccountManagement();
 
@@ -167,6 +187,35 @@ const SettingsScreen: React.FC = () => {
               Alert.alert('Success', 'App cache has been cleared successfully.');
             } catch (_error) {
               // Ignore cache clear failures
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleClearVideoCache = async () => {
+    Alert.alert(
+      'Clear video cache',
+      'This will clear all cached video data. Make sure you have closed all videos (leave feed/post/editor screens) before clearing. You may need to reload videos after clearing.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Clear Video Cache',
+          style: 'default',
+          onPress: async () => {
+            try {
+              await clearVideoCacheAsync();
+              setVideoCacheSizeBytes(0);
+              Alert.alert('Success', 'Video cache has been cleared successfully.');
+            } catch (_error) {
+              Alert.alert(
+                'Error',
+                'Failed to clear video cache. Make sure all videos are closed and try again.'
+              );
             }
           },
         },
@@ -334,6 +383,18 @@ const SettingsScreen: React.FC = () => {
           id: 'clear-cache',
           label: 'Clear cache',
           onPress: handleClearCache,
+          linkType: 'none',
+        },
+        {
+          id: 'video-cache-size',
+          label: `Video cache: ${formatVideoCacheSize(videoCacheSizeBytes)}`,
+          onPress: () => {}, // Read-only display
+          linkType: 'none',
+        },
+        {
+          id: 'clear-video-cache',
+          label: 'Clear video cache',
+          onPress: handleClearVideoCache,
           linkType: 'none',
         },
         {

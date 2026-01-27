@@ -197,36 +197,53 @@ const VideoScrubberComponent = ({
     }
   );
 
+  // Enable scrubbing mode for faster seeking during user interaction
+  const enableScrubbingMode = useCallback(() => {
+    if (!player) return;
+    try {
+      player.scrubbingModeOptions = { scrubbingModeEnabled: true };
+    } catch (_error) {
+      // Silently ignore - scrubber never blocks
+    }
+  }, [player]);
+
+  // Disable scrubbing mode after user interaction ends
+  const disableScrubbingMode = useCallback(() => {
+    if (!player) return;
+    try {
+      player.scrubbingModeOptions = { scrubbingModeEnabled: false };
+    } catch (_error) {
+      // Silently ignore - scrubber never blocks
+    }
+  }, [player]);
+
   // Non-blocking seek - never interferes with playback state
-  // Fire-and-forget operation that only sets position, never affects play/pause
+  // expo-video's currentTime setter is already non-blocking
   const seekTo = useCallback(
     (time: number) => {
       if (!player) return;
 
-      // Non-blocking async operation - never blocks core playback logic
-      requestAnimationFrame(() => {
-        try {
-          // Only set position - never touch play/pause state or other playback properties
-          player.currentTime = time;
+      try {
+        // expo-video's currentTime setter handles seeking internally with seekTolerance
+        player.currentTime = time;
 
-          // Update local UI state immediately (non-blocking)
+        // Update local UI state immediately (non-blocking)
+        scheduleOnUI(() => {
+          'worklet';
+          currentTimeSV.set(time);
+        });
+
+        // Clear seeking state after brief delay (non-blocking)
+        setTimeout(() => {
           scheduleOnUI(() => {
             'worklet';
-            currentTimeSV.set(time);
+            isSeekingSV.set(false);
+            seekingAnimationSV.set(withTiming(0, { duration: 500 }));
           });
-
-          // Clear seeking state after brief delay (non-blocking)
-          setTimeout(() => {
-            scheduleOnUI(() => {
-              'worklet';
-              isSeekingSV.set(false);
-              seekingAnimationSV.set(withTiming(0, { duration: 500 }));
-            });
-          }, 50);
-        } catch (_error) {
-          // Silently ignore - scrubber never blocks or interferes with playback
-        }
-      });
+        }, 50);
+      } catch (_error) {
+        // Silently ignore - scrubber never blocks or interferes with playback
+      }
     },
     [player, isSeekingSV, seekingAnimationSV, currentTimeSV]
   );
@@ -236,6 +253,8 @@ const VideoScrubberComponent = ({
     const gesture = Gesture.Pan()
       .onStart(() => {
         'worklet';
+        // Enable scrubbing mode for faster seeking during gesture
+        scheduleOnRN(enableScrubbingMode);
         // Only update local UI state - never affects playback
         seekProgressSV.set(currentTimeSV.get());
         isSeekingSV.set(true);
@@ -259,6 +278,8 @@ const VideoScrubberComponent = ({
         seekProgressSV.set(newTime);
         currentTimeSV.set(newTime);
 
+        // Disable scrubbing mode before seeking (per plan: disable in onEnd, then seek)
+        scheduleOnRN(disableScrubbingMode);
         // Non-blocking seek - fire and forget, never blocks playback
         scheduleOnRN(seekTo, newTime);
       });
@@ -278,6 +299,8 @@ const VideoScrubberComponent = ({
     seekProgressSV,
     seekTo,
     currentTimeSV,
+    enableScrubbingMode,
+    disableScrubbingMode,
   ]);
 
   // Optimize time style - add worklet directive for better performance

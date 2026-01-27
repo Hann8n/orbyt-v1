@@ -4,7 +4,7 @@
  */
 
 import { Platform } from 'react-native';
-import type { VideoSource } from 'expo-video';
+import type { VideoSource, BufferOptions, SeekTolerance } from 'expo-video';
 import type {
   ExtendedPostView,
   ExtendedFeedViewPost,
@@ -13,6 +13,30 @@ import type {
   RecordWithMediaView,
 } from '../../services/api/types';
 import { isVideoEmbed, isVideoEmbedInMedia } from '../../services/api/types';
+
+/**
+ * Default buffer options for video players.
+ * Used by VideoCard, VideoPostScreen, and video-editor to ensure consistent buffering behavior.
+ *
+ * - Android: 20s forward buffer (explicit)
+ * - iOS: 0s (auto-determined by system)
+ * - iOS: waitsToMinimizeStalling enabled for smoother playback
+ */
+export const DEFAULT_BUFFER_OPTIONS: BufferOptions = {
+  preferredForwardBufferDuration: Platform.OS === 'android' ? 20 : 0,
+  waitsToMinimizeStalling: true,
+  // Android-only fields omitted to use platform defaults
+};
+
+/**
+ * Default seek tolerance for scrubber-enabled video players.
+ * Used only by VideoCard (feed player with VideoScrubber).
+ * Larger tolerance (0.5s) allows faster seeking at the cost of precision.
+ */
+export const DEFAULT_SEEK_TOLERANCE_SCRUBBER: SeekTolerance = {
+  toleranceBefore: 0.5,
+  toleranceAfter: 0.5,
+};
 
 /**
  * Creates a properly configured VideoSource object for HLS streaming.
