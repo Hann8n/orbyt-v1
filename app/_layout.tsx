@@ -14,7 +14,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import * as NavigationBar from 'expo-navigation-bar';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
 import { setVideoCacheSizeAsync } from 'expo-video';
-import { LinearGradient } from 'expo-linear-gradient';
+import { LinearGradient } from '../src/components/ui/LinearGradient';
 
 // Keep local imports where they are; no file moves
 import { Colors } from '../src/components/ui/UI';

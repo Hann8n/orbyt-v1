@@ -44,7 +44,7 @@ import ChannelService from '../../src/services/data/ChannelService';
 import type { CachedChannel } from '../../src/services/data/ChannelService';
 import { useQueryClient, useQuery, type QueryClient } from '@tanstack/react-query';
 import { Avatar, Icon } from '../../src/components/ui/UI';
-import { LinearGradient } from 'expo-linear-gradient';
+import { LinearGradient } from '../../src/components/ui/LinearGradient';
 import HeaderBanner from '../../src/components/ui/HeaderBanner';
 
 import { SearchIcon, FollowIcon, Loading3FillIcon } from '../../src/components/ui/Icon';

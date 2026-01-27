@@ -11,7 +11,7 @@ import {
   type ViewStyle,
   type TextInput,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { LinearGradient } from './LinearGradient';
 import { useInfiniteQuery, InfiniteData } from '@tanstack/react-query';
 import { queryKeys } from '../../utils/query/queryKeys';
 import AtprotoService from '../../services/api/AtprotoService';

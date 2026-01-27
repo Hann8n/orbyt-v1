@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BORDER_RADIUS } from '../src/utils/constants';
 import { View, Pressable, Text, StyleSheet, Alert, Platform, ScrollView } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { LinearGradient } from '../src/components/ui/LinearGradient';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
