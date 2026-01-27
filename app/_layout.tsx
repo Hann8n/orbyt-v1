@@ -291,6 +291,10 @@ export default function RootLayout() {
   // Splash screen is controlled by SessionProvider.isLoading (auth state only)
   useEffect(() => {
     const initializeApp = async () => {
+      // Preload sprite sheet for TV static animation (non-blocking)
+      const { preloadSpriteSheet } = require('../src/components/ui/AnimatedTVStatic');
+      preloadSpriteSheet().catch(() => {});
+
       // Set video cache size FIRST, before any video players can be created
       // This must happen before any components using expo-video mount
       // Using default 1GB cache size (expo-video default)

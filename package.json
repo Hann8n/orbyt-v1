@@ -31,7 +31,8 @@
     "update": "yarn version:increment && npx eas-cli update --channel production --message",
     "update:preview": "yarn version:increment && npx eas-cli update --channel preview --message",
     "update:development": "yarn version:increment && npx eas-cli update --channel development --message",
-    "update:all": "npx tsx scripts/push-update-all-channels.ts"
+    "update:all": "npx tsx scripts/push-update-all-channels.ts",
+    "create:sprite-sheet": "npx tsx scripts/create-sprite-sheet.ts"
   },
   "dependencies": {
     "@atproto/api": "^0.18.16",
@@ -48,6 +49,7 @@
     "@react-navigation/native": "7.1.28",
     "@react-navigation/native-stack": "^7.3.16",
     "@shopify/flash-list": "2.0.2",
+    "@shopify/react-native-skia": "2.4.14",
     "@tanstack/react-query": "^5.90.20",
     "abortcontroller-polyfill": "^1.7.8",
     "buffer": "^6.0.3",

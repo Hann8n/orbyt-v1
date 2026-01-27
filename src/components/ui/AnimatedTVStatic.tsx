@@ -1,47 +1,37 @@
-import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, StyleProp, ViewStyle } from 'react-native';
-import { Image } from 'expo-image';
-import Animated, {
+import React, { useEffect } from 'react';
+import { StyleProp, ViewStyle, Image } from 'react-native';
+import { Canvas, Image as SkiaImage, useImage, Group, rect } from '@shopify/react-native-skia';
+import {
   useSharedValue,
-  useAnimatedReaction,
+  useDerivedValue,
   withTiming,
   withRepeat,
   withSequence,
   Easing,
-  runOnJS,
 } from 'react-native-reanimated';
 
-// Import all frame images
-const frames = [
-  require('../../assets/tv-static-no-signal/frame_000_no_bg_oi3g3rcw.png'),
-  require('../../assets/tv-static-no-signal/frame_001_no_bg_k3omvr2t.png'),
-  require('../../assets/tv-static-no-signal/frame_002_no_bg_ia9n7gi1.png'),
-  require('../../assets/tv-static-no-signal/frame_003_no_bg_puoiwils.png'),
-  require('../../assets/tv-static-no-signal/frame_004_no_bg_5ow7jorg.png'),
-  require('../../assets/tv-static-no-signal/frame_005_no_bg_xhdiekvk.png'),
-  require('../../assets/tv-static-no-signal/frame_006_no_bg_jcrwowf7.png'),
-  require('../../assets/tv-static-no-signal/frame_007_no_bg_yr7478pe.png'),
-  require('../../assets/tv-static-no-signal/frame_008_no_bg_dybh0etj.png'),
-  require('../../assets/tv-static-no-signal/frame_009_no_bg_vc1cic96.png'),
-  require('../../assets/tv-static-no-signal/frame_010_no_bg_6x3w6x02.png'),
-  require('../../assets/tv-static-no-signal/frame_011_no_bg_otm2zv8s.png'),
-  require('../../assets/tv-static-no-signal/frame_012_no_bg_2145ydjt.png'),
-  require('../../assets/tv-static-no-signal/frame_013_no_bg_8u9711iu.png'),
-  require('../../assets/tv-static-no-signal/frame_014_no_bg_stv9i9pc.png'),
-  require('../../assets/tv-static-no-signal/frame_015_no_bg_x3a5hqna.png'),
-  require('../../assets/tv-static-no-signal/frame_016_no_bg_9093uu57.png'),
-  require('../../assets/tv-static-no-signal/frame_017_no_bg_0yhwy1k8.png'),
-  require('../../assets/tv-static-no-signal/frame_018_no_bg_p0r2klwb.png'),
-  require('../../assets/tv-static-no-signal/frame_019_no_bg_iq28wjqb.png'),
-  require('../../assets/tv-static-no-signal/frame_020_no_bg_8q13lzl8.png'),
-  require('../../assets/tv-static-no-signal/frame_021_no_bg_6zxremup.png'),
-  require('../../assets/tv-static-no-signal/frame_022_no_bg_x1c434ww.png'),
-  require('../../assets/tv-static-no-signal/frame_023_no_bg_iy48dxc5.png'),
-  require('../../assets/tv-static-no-signal/frame_024_no_bg_m64699io.png'),
-];
+const SPRITE_SHEET = require('../../assets/tv-static-sprite-sheet.png');
 
-const TOTAL_FRAMES = frames.length;
-const FRAME_DURATION = 40; // milliseconds per frame (~25fps)
+const TOTAL_FRAMES = 25;
+const FRAMES_PER_ROW = 5;
+const FRAME_DURATION = 40; // ~25fps
+
+// Preload the sprite sheet using React Native's Image prefetch
+// This caches the image in memory for faster loading
+let preloadPromise: Promise<boolean> | null = null;
+
+export const preloadSpriteSheet = () => {
+  if (preloadPromise) return preloadPromise;
+
+  preloadPromise = Image.prefetch(Image.resolveAssetSource(SPRITE_SHEET).uri)
+    .then(() => true)
+    .catch(() => false);
+
+  return preloadPromise;
+};
+
+// Preload immediately when module loads
+preloadSpriteSheet();
 
 interface AnimatedTVStaticProps {
   size?: number;
@@ -55,62 +45,80 @@ const AnimatedTVStatic: React.FC<AnimatedTVStaticProps> = ({
   autoPlay = true,
 }) => {
   const frameIndex = useSharedValue(0);
-  const [currentFrameIndex, setCurrentFrameIndex] = useState(0);
+  const spriteSheet = useImage(SPRITE_SHEET);
+
+  // Calculate dimensions once, reuse in position calculations
+  const dimensions = useDerivedValue(() => {
+    'worklet';
+    if (!spriteSheet) return { frameSize: 0, scale: 1 };
+    const sheetSize = spriteSheet.width();
+    const frameSize = sheetSize / FRAMES_PER_ROW;
+    return { frameSize, scale: size / frameSize };
+  }, [spriteSheet, size]);
+
+  // Calculate position and size using cached dimensions
+  const imageX = useDerivedValue(() => {
+    'worklet';
+    if (!spriteSheet) return 0;
+    const idx = Math.round(frameIndex.value) % TOTAL_FRAMES;
+    const col = idx % FRAMES_PER_ROW;
+    return -col * dimensions.value.frameSize * dimensions.value.scale;
+  }, [frameIndex, spriteSheet, dimensions]);
+
+  const imageY = useDerivedValue(() => {
+    'worklet';
+    if (!spriteSheet) return 0;
+    const idx = Math.round(frameIndex.value) % TOTAL_FRAMES;
+    const row = Math.floor(idx / FRAMES_PER_ROW);
+    return -row * dimensions.value.frameSize * dimensions.value.scale;
+  }, [frameIndex, spriteSheet, dimensions]);
+
+  const imageWidth = useDerivedValue(() => {
+    'worklet';
+    if (!spriteSheet) return size;
+    return spriteSheet.width() * dimensions.value.scale;
+  }, [spriteSheet, size, dimensions]);
+
+  const imageHeight = useDerivedValue(() => {
+    'worklet';
+    if (!spriteSheet) return size;
+    return spriteSheet.width() * dimensions.value.scale;
+  }, [spriteSheet, size, dimensions]);
 
   useEffect(() => {
-    if (!autoPlay) return;
+    if (!autoPlay || !spriteSheet) return;
 
-    // Create animation that cycles through frames
+    // Start animation sequence - assign animation to shared value
+    // eslint-disable-next-line react-hooks/immutability
     frameIndex.value = withRepeat(
       withSequence(
         ...Array.from({ length: TOTAL_FRAMES }, (_, i) =>
-          withTiming(i, {
-            duration: FRAME_DURATION,
-            easing: Easing.linear,
-          })
+          withTiming(i, { duration: FRAME_DURATION, easing: Easing.linear })
         )
       ),
-      -1, // infinite repeat
-      false // don't reverse
+      -1,
+      false
     );
-  }, [autoPlay, frameIndex]);
+  }, [autoPlay, spriteSheet]);
 
-  // Sync animated value to React state using useAnimatedReaction
-  useAnimatedReaction(
-    () => Math.round(frameIndex.value) % TOTAL_FRAMES,
-    currentIndex => {
-      runOnJS(setCurrentFrameIndex)(currentIndex);
-    },
-    [frameIndex]
-  );
-
-  const currentFrame = frames[currentFrameIndex];
+  // Show a placeholder or first frame while loading
+  if (!spriteSheet) {
+    return <Canvas style={[{ width: size, height: size }, style]} />;
+  }
 
   return (
-    <View style={[{ width: size, height: size }, style]}>
-      <Animated.View style={[styles.container, { width: size, height: size }]}>
-        <Image
-          source={currentFrame}
-          style={[styles.image, { width: size, height: size }]}
-          contentFit="contain"
-          cachePolicy="memory-disk"
-          priority="low"
-          allowDownscaling={true}
+    <Canvas style={[{ width: size, height: size }, style]}>
+      <Group clip={rect(0, 0, size, size)}>
+        <SkiaImage
+          image={spriteSheet}
+          x={imageX}
+          y={imageY}
+          width={imageWidth}
+          height={imageHeight}
         />
-      </Animated.View>
-    </View>
+      </Group>
+    </Canvas>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  image: {
-    width: '100%',
-    height: '100%',
-  },
-});
 
 export default AnimatedTVStatic;

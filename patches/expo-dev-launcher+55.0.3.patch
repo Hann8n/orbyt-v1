@@ -1,0 +1,131 @@
+diff --git a/node_modules/expo-dev-launcher/ios/DevLauncherNetworkInterceptor.swift b/node_modules/expo-dev-launcher/ios/DevLauncherNetworkInterceptor.swift
+index 5a2f8b9..58bd395 100644
+--- a/node_modules/expo-dev-launcher/ios/DevLauncherNetworkInterceptor.swift
++++ b/node_modules/expo-dev-launcher/ios/DevLauncherNetworkInterceptor.swift
+@@ -9,17 +9,31 @@ var isHookInstalled = false
+ 
+ @objc(EXDevLauncherNetworkInterceptor)
+ public final class DevLauncherNetworkInterceptor: NSObject, ExpoRequestCdpInterceptorDelegate {
+-  private let metroConnection: RCTReconnectingWebSocket
++  private var metroConnection: AnyObject?
+ 
+   @objc
+   public init(bundleUrl: URL) {
+     assert(Thread.isMainThread)
+-    self.metroConnection = RCTReconnectingWebSocket(
+-      url: Self.createNetworkInspectorUrl(bundleUrl: bundleUrl),
+-      queue: .main)
+-    self.metroConnection.start()
+     super.init()
+     
++    // Use runtime checks to see if RCTReconnectingWebSocket is available
++    if let reconnectingWebSocketClass = NSClassFromString("RCTReconnectingWebSocket") as? NSObject.Type {
++      let url = Self.createNetworkInspectorUrl(bundleUrl: bundleUrl)
++      // Create instance using runtime methods
++      let initSel = NSSelectorFromString("initWithURL:queue:")
++      if reconnectingWebSocketClass.instancesRespond(to: initSel) {
++        typealias InitMethod = @convention(c) (AnyObject, Selector, URL, DispatchQueue) -> AnyObject
++        let initMethod = unsafeBitCast(reconnectingWebSocketClass.method(for: initSel), to: InitMethod.self)
++        let instance = reconnectingWebSocketClass.alloc()
++        self.metroConnection = initMethod(instance, initSel, url, .main)
++        
++        // Start the connection
++        if let connection = self.metroConnection, connection.responds(to: NSSelectorFromString("start")) {
++          connection.perform(NSSelectorFromString("start"))
++        }
++      }
++    }
++
+     if !isHookInstalled {
+       EXDevLauncherUtils.swizzleClassMethod(
+         selector: #selector(getter: URLSessionConfiguration.default),
+@@ -35,7 +49,9 @@ public final class DevLauncherNetworkInterceptor: NSObject, ExpoRequestCdpInterc
+   deinit {
+     assert(Thread.isMainThread)
+     ExpoRequestCdpInterceptor.shared.setDelegate(nil)
+-    self.metroConnection.stop()
++    if let connection = self.metroConnection, connection.responds(to: NSSelectorFromString("stop")) {
++      connection.perform(NSSelectorFromString("stop"))
++    }
+   }
+ 
+   private static func createNetworkInspectorUrl(bundleUrl: URL) -> URL {
+@@ -52,7 +68,9 @@ public final class DevLauncherNetworkInterceptor: NSObject, ExpoRequestCdpInterc
+   // MARK: ExpoRequestCdpInterceptorDelegate implementations
+ 
+   public func dispatch(_ event: String) {
+-    self.metroConnection.send(Data(event.utf8))
++    if let connection = self.metroConnection, connection.responds(to: NSSelectorFromString("send:")) {
++      connection.perform(NSSelectorFromString("send:"), with: Data(event.utf8))
++    }
+   }
+ }
+ 
+diff --git a/node_modules/expo-dev-launcher/ios/EXDevLauncherController.m b/node_modules/expo-dev-launcher/ios/EXDevLauncherController.m
+index 6b333a9..cc05b31 100644
+--- a/node_modules/expo-dev-launcher/ios/EXDevLauncherController.m
++++ b/node_modules/expo-dev-launcher/ios/EXDevLauncherController.m
+@@ -12,7 +12,6 @@
+ #import <EXDevLauncher/EXDevLauncherManifestParser.h>
+ #import <EXDevLauncher/EXDevLauncherRCTDevSettings.h>
+ #import <EXDevLauncher/EXDevLauncherUpdatesHelper.h>
+-#import <EXDevLauncher/RCTPackagerConnection+EXDevLauncherPackagerConnectionInterceptor.h>
+ 
+ 
+ #import <ReactAppDependencyProvider/RCTAppDependencyProvider.h>
+@@ -452,7 +451,15 @@ - (void)_initAppWithUrl:(NSURL *)appUrl bundleUrl:(NSURL *)bundleUrl manifest:(E
+ #if RCT_DEV
+     // Connect to the websocket, ignore downloaded update bundles
+     if (![bundleUrl.scheme isEqualToString:@"file"]) {
+-      [[RCTPackagerConnection sharedPackagerConnection] setSocketConnectionURL:bundleUrl];
++#if __has_include(<React/RCTPackagerConnection.h>)
++      Class packagerConnectionClass = NSClassFromString(@"RCTPackagerConnection");
++      if (packagerConnectionClass) {
++        id sharedConnection = [packagerConnectionClass performSelector:@selector(sharedPackagerConnection)];
++        if (sharedConnection && [sharedConnection respondsToSelector:@selector(setSocketConnectionURL:)]) {
++          [sharedConnection performSelector:@selector(setSocketConnectionURL:) withObject:bundleUrl];
++        }
++      }
++#endif
+     }
+     self.networkInterceptor = [[EXDevLauncherNetworkInterceptor alloc] initWithBundleUrl:bundleUrl];
+ #endif
+diff --git a/node_modules/expo-dev-launcher/ios/Unsafe/RCTPackagerConnection+EXDevLauncherPackagerConnectionInterceptor.h b/node_modules/expo-dev-launcher/ios/Unsafe/RCTPackagerConnection+EXDevLauncherPackagerConnectionInterceptor.h
+index 04097b3..37dd64b 100644
+--- a/node_modules/expo-dev-launcher/ios/Unsafe/RCTPackagerConnection+EXDevLauncherPackagerConnectionInterceptor.h
++++ b/node_modules/expo-dev-launcher/ios/Unsafe/RCTPackagerConnection+EXDevLauncherPackagerConnectionInterceptor.h
+@@ -1,5 +1,6 @@
+ // Copyright 2015-present 650 Industries. All rights reserved.
+ 
++#if __has_include(<React/RCTPackagerConnection.h>)
+ #import <React/RCTPackagerConnection.h>
+ 
+ #if RCT_DEV
+@@ -15,3 +16,4 @@ NS_ASSUME_NONNULL_BEGIN
+ NS_ASSUME_NONNULL_END
+ 
+ #endif
++#endif
+diff --git a/node_modules/expo-dev-launcher/ios/Unsafe/RCTPackagerConnection+EXDevLauncherPackagerConnectionInterceptor.m b/node_modules/expo-dev-launcher/ios/Unsafe/RCTPackagerConnection+EXDevLauncherPackagerConnectionInterceptor.m
+index abb3258..cf85b00 100644
+--- a/node_modules/expo-dev-launcher/ios/Unsafe/RCTPackagerConnection+EXDevLauncherPackagerConnectionInterceptor.m
++++ b/node_modules/expo-dev-launcher/ios/Unsafe/RCTPackagerConnection+EXDevLauncherPackagerConnectionInterceptor.m
+@@ -4,6 +4,12 @@
+  * This file is compiled without ARC - the memory needs to be managed by hand.
+  */
+ 
++#if __has_include(<React/RCTPackagerConnection.h>)
++#import <React/RCTPackagerConnection.h>
++
++// Only compile the category if RCTPackagerConnection class is actually available
++// We check this by verifying the class can be used
++#if defined(__OBJC__) && __has_feature(objc_class)
+ #import <EXDevLauncher/RCTPackagerConnection+EXDevLauncherPackagerConnectionInterceptor.h>
+ #import <EXDevLauncher/EXDevLauncherController.h>
+ 
+@@ -85,3 +91,5 @@ - (void)setSocketConnectionURL:(NSURL *)url
+ @end
+ 
+ #endif
++#endif
++#endif
