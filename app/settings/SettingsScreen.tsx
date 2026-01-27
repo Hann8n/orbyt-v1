@@ -308,17 +308,6 @@ const SettingsScreen: React.FC = () => {
           onPress: () => router.push('/settings/app-icon'),
           linkType: 'internal',
         },
-        ...(__DEV__
-          ? [
-              {
-                id: 'route-navigator',
-                label: 'Route Navigator',
-                icon: 'information-line',
-                onPress: () => router.push('/settings/route-navigator'),
-                linkType: 'internal',
-              },
-            ]
-          : []),
         {
           id: 'content-filters',
           label: 'Content filters',
