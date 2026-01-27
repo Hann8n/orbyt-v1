@@ -22,7 +22,6 @@ import {
   CameraRecordingOptions,
 } from 'expo-camera';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { useIsFocused } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import Animated, {
   useSharedValue,
@@ -90,7 +89,15 @@ const CreateScreen: React.FC = () => {
   const baseZoom = useSharedValue(0);
   const startZoom = useSharedValue(0);
 
-  const isFocused = useIsFocused();
+  // Use useFocusEffect from expo-router instead of useIsFocused from react-navigation
+  // This ensures compatibility with Expo Router's navigation system
+  const [isFocused, setIsFocused] = React.useState(false);
+  useFocusEffect(
+    React.useCallback(() => {
+      setIsFocused(true);
+      return () => setIsFocused(false);
+    }, [])
+  );
 
   // Initialize segment manager
   useEffect(() => {

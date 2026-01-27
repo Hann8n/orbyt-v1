@@ -39,7 +39,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextOverlay } from '../../src/types';
 import { resolveVideoPath, debugVideoPath, VideoPathInfo } from '../../src/utils/video/path';
 import { DEFAULT_BUFFER_OPTIONS } from '../../src/utils/video/helpers';
-
 import { Colors } from '../../src/components/ui/UI';
 import { isTablet, isSmallScreen } from '../../src/utils/device/screen';
 import { useCurrentUser } from '../../src/stores/userStore';

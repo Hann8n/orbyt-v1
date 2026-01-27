@@ -339,6 +339,11 @@ const VideoCard = memo(
         feedOption,
       ]);
 
+      // Callback for first frame render - wrapped in useCallback to ensure stable reference
+      const handleFirstFrameRender = useCallback(() => {
+        setFirstFrameRendered(true);
+      }, [setFirstFrameRendered]);
+
       // Moderation: hide = no batch or filter/noOverride; warn = blur only with opt-in.
       const contentListUI = feedItem?.contentListUI;
       const contentMediaUI = feedItem?.contentMediaUI;
@@ -1039,7 +1044,7 @@ const VideoCard = memo(
                   nativeControls={false}
                   playsInline
                   surfaceType={Platform.OS === 'android' ? 'textureView' : undefined}
-                  onFirstFrameRender={() => setFirstFrameRendered(true)}
+                  onFirstFrameRender={handleFirstFrameRender}
                 />
               )}
 
