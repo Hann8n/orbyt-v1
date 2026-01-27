@@ -13,7 +13,6 @@ import { KeyboardProvider } from 'react-native-keyboard-controller';
 import * as SplashScreen from 'expo-splash-screen';
 import * as NavigationBar from 'expo-navigation-bar';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
-import { setVideoCacheSizeAsync } from 'expo-video';
 import { LinearGradient } from '../src/components/ui/LinearGradient';
 
 // Keep local imports where they are; no file moves
@@ -287,17 +286,6 @@ export default function RootLayout() {
       // Preload sprite sheet for TV static animation (non-blocking)
       const { preloadSpriteSheet } = require('../src/components/ui/AnimatedTVStatic');
       preloadSpriteSheet().catch(() => {});
-
-      // Set video cache size FIRST, before any video players can be created
-      // This must happen before any components using expo-video mount
-      // Using default 1GB cache size (expo-video default)
-      try {
-        await setVideoCacheSizeAsync(1024 * 1024 * 1024); // 1GB (default)
-      } catch (error) {
-        // If this fails, it's non-critical - app will use default cache settings
-        // Log but don't block initialization
-        console.warn('Failed to set video cache size:', error);
-      }
 
       // Migrate AsyncStorage to MMKV (one-time migration)
       await migrateAsyncStorageToMMKV();

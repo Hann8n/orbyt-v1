@@ -104,7 +104,7 @@ const FEED_CONFIG = {
   maxSubscribedChannels: 50,
   defaultLimit: 50,
   staleTime: QUERY_CONSTANTS.STALE_TIME_LONG, // 10 minutes - for slowly changing data
-  cacheTime: 60 * 60 * 1000, // 60 minutes - increased to better preserve video cache
+  cacheTime: 60 * 60 * 1000, // 60 minutes - increased to reduce unnecessary refetching
 } as const;
 
 /**

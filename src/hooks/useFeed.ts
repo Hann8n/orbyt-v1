@@ -18,7 +18,7 @@ import { logger } from '../utils/logger';
 export const FEED_CONFIG = {
   // Cache and performance settings
   STALE_TIME: 10 * 60 * 1000, // 10 minutes stale time - increased to reduce unnecessary refreshes
-  GC_TIME: 60 * 60 * 1000, // 60 minutes before garbage collection - increased to preserve video cache
+  GC_TIME: 60 * 60 * 1000, // 60 minutes before garbage collection - increased to reduce unnecessary refetching
   RETRY_DELAY: 1000, // Longer delay to reduce server load
   MAX_RETRIES: 2, // Reduced retries for faster failure handling
 } as const;
