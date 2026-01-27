@@ -99,9 +99,10 @@ const AnimatedTVStatic: React.FC<AnimatedTVStaticProps> = ({
       -1,
       false
     );
-  }, [autoPlay, spriteSheet]);
+  }, [autoPlay, spriteSheet, frameIndex]);
 
   // Show a placeholder or first frame while loading
+  // All hooks must be called before any conditional returns
   if (!spriteSheet) {
     return <Canvas style={[{ width: size, height: size }, style]} />;
   }
