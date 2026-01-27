@@ -10,7 +10,6 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.getorbyt.app",
       "buildNumber": "34",
-      "developmentTeam": "D8VXFBV8SJ",
       "icon": "./src/assets/AppIcons/iOS/orbyt.png",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,

@@ -135,7 +135,8 @@
   "resolutions": {
     "react": "19.2.0",
     "@react-navigation/native": "7.1.28",
-    "@react-navigation/core": "7.14.0"
+    "@react-navigation/core": "7.14.0",
+    "expo-web-browser": "~55.0.2"
   },
   "expo": {
     "doctor": {

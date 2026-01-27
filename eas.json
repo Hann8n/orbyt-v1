@@ -9,7 +9,8 @@
       "distribution": "internal",
       "channel": "development",
       "ios": {
-        "resourceClass": "m-medium"
+        "resourceClass": "m-medium",
+        "developmentTeam": "D8VXFBV8SJ"
       },
       "env": {
         "EXPO_PUBLIC_APP_CONFIG": "app.dev.json"
@@ -40,7 +41,8 @@
       "extends": "preview",
       "ios": {
         "distribution": "internal",
-        "buildConfiguration": "Release"
+        "buildConfiguration": "Release",
+        "developmentTeam": "D8VXFBV8SJ"
       }
     },
     "beta": {

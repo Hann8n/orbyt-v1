@@ -4987,12 +4987,7 @@ expo-video@~55.0.2:
   resolved "https://registry.yarnpkg.com/expo-video/-/expo-video-55.0.2.tgz#f0ebdcf7614b0a520659fd4690737c301025ab35"
   integrity sha512-WXdWAfnwAJppP+ueWV4dmSMC27SO9f98Jy69s7VblPVZk71qrPSFEwvQN9P2EoAWoeK2FO1AdoeQm+E366tk/g==
 
-expo-web-browser@^15.0.8:
-  version "15.0.10"
-  resolved "https://registry.yarnpkg.com/expo-web-browser/-/expo-web-browser-15.0.10.tgz#ee7fb59b4f143f262c13c020433a83444181f1a3"
-  integrity sha512-fvDhW4bhmXAeWFNFiInmsGCK83PAqAcQaFyp/3pE/jbdKmFKoRCWr46uZGIfN4msLK/OODhaQ/+US7GSJNDHJg==
-
-expo-web-browser@~55.0.2:
+expo-web-browser@^15.0.8, expo-web-browser@~55.0.2:
   version "55.0.2"
   resolved "https://registry.yarnpkg.com/expo-web-browser/-/expo-web-browser-55.0.2.tgz#9ddae44a333ab539be57162236966de1ed0ecbd4"
   integrity sha512-LmJ3IgvFCVtYDJ5YIwpPnljYEzohckynHM7Swa5vaJ/Oj5WK1YQarJ5HiGlcrvZhS7O/j3ehEKCBfFpWEZdeYw==
