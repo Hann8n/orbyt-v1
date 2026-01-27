@@ -1,14 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo, memo } from 'react';
-import { BORDER_RADIUS, SCROLL_CONSTANTS } from '../../src/utils/constants';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  Dimensions,
-  Modal,
-  InteractionManager,
-} from 'react-native';
+import { BORDER_RADIUS, SCROLL_CONSTANTS, APP_CONSTANTS } from '../../src/utils/constants';
+import { View, Text, StyleSheet, Pressable, Dimensions, Modal } from 'react-native';
 import { Image } from 'expo-image';
 // Use plain FlashList via FeedRenderer; no adapter/converter
 import FeedRenderer from '../../src/components/features/feed/FeedRenderer';
@@ -309,31 +301,34 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   useEffect(() => {
     if (!profileDid || !isRouteFocused || isProfileLoading) return;
 
-    InteractionManager.runAfterInteractions(() => {
-      const repostsQueryKey = queryKeys.feed.infinite('reposts', profileDid);
-      if (!queryClient.getQueryData(repostsQueryKey)) {
-        queryClient
-          .prefetchInfiniteQuery<
-            FeedResponse,
-            Error,
-            InfiniteData<FeedResponse, string | null>,
-            ReturnType<typeof queryKeys.feed.infinite>,
-            string | null
-          >({
-            queryKey: repostsQueryKey,
-            queryFn: ({ pageParam }) =>
-              feedService.fetchFeed(
-                'reposts',
-                profileDid,
-                (pageParam ?? undefined) as string | undefined
-              ),
-            initialPageParam: null,
-            getNextPageParam: (lastPage: FeedResponse) => lastPage?.cursor ?? null,
-            staleTime: FEED_CONFIG.STALE_TIME,
-          })
-          .catch(() => {});
-      }
-    });
+    requestIdleCallback(
+      () => {
+        const repostsQueryKey = queryKeys.feed.infinite('reposts', profileDid);
+        if (!queryClient.getQueryData(repostsQueryKey)) {
+          queryClient
+            .prefetchInfiniteQuery<
+              FeedResponse,
+              Error,
+              InfiniteData<FeedResponse, string | null>,
+              ReturnType<typeof queryKeys.feed.infinite>,
+              string | null
+            >({
+              queryKey: repostsQueryKey,
+              queryFn: ({ pageParam }) =>
+                feedService.fetchFeed(
+                  'reposts',
+                  profileDid,
+                  (pageParam ?? undefined) as string | undefined
+                ),
+              initialPageParam: null,
+              getNextPageParam: (lastPage: FeedResponse) => lastPage?.cursor ?? null,
+              staleTime: FEED_CONFIG.STALE_TIME,
+            })
+            .catch(() => {});
+        }
+      },
+      { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
+    );
   }, [profileDid, isRouteFocused, isProfileLoading, queryClient]);
 
   // Tab press handling is now centralized in CustomBottomTabBar - no need for duplicate listener

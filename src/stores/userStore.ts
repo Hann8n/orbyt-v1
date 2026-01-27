@@ -10,7 +10,6 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 // Note: Using individual selectors instead of shallow comparison for better performance
 import { storageAdapter, storageHelpers, storage } from '../utils/storage/storage';
 import * as SecureStore from 'expo-secure-store';
-import { InteractionManager } from 'react-native';
 import { Agent } from '@atproto/api';
 import { AtProtoOAuthService } from '../services/auth';
 import type { OAuthSession } from '@atproto/oauth-client';
@@ -27,7 +26,7 @@ import { queryClient } from '../utils/query/queryClient';
 import { usePostInteractionStore } from './postInteractionStore';
 import { queryKeys } from '../utils/query/queryKeys';
 import { prefetchOrbytColors, loadPersistedColors } from '../hooks/useOrbytColors';
-import { ALGORITHMIC_FEED_PROVIDERS } from '../utils/constants';
+import { ALGORITHMIC_FEED_PROVIDERS, APP_CONSTANTS } from '../utils/constants';
 
 // Note: FeedService is no longer needed here - React Query handles all feed caching
 
@@ -227,16 +226,19 @@ export const isEmailVerificationRequired = (currentUser: UserState['currentUser'
 
 // Helper to defer orbyt profile initialization (non-critical, improves startup performance)
 const deferOrbytProfileInit = (context: string = 'userStore') => {
-  InteractionManager.runAfterInteractions(async () => {
-    try {
-      await AtprotoService.initOrbytProfileIfNeeded();
-    } catch (error) {
-      logger.debug(`Failed to initialize orbyt profile (${context})`, {
-        component: 'userStore',
-        error,
-      });
-    }
-  });
+  requestIdleCallback(
+    async () => {
+      try {
+        await AtprotoService.initOrbytProfileIfNeeded();
+      } catch (error) {
+        logger.debug(`Failed to initialize orbyt profile (${context})`, {
+          component: 'userStore',
+          error,
+        });
+      }
+    },
+    { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
+  );
 };
 
 // Helper to get storage key for boolean flags (scoped by user DID)
@@ -1326,14 +1328,17 @@ export const useUserStore = create<UserState>()(
               });
             } else {
               // Initialize subscription store in background after interactions complete
-              InteractionManager.runAfterInteractions(async () => {
-                try {
-                  const { useSubscriptionStore } = await import('./subscriptionStore');
-                  await useSubscriptionStore.getState().initialize();
-                } catch {
-                  // Silent failure - subscriptions are not critical
-                }
-              });
+              requestIdleCallback(
+                async () => {
+                  try {
+                    const { useSubscriptionStore } = await import('./subscriptionStore');
+                    await useSubscriptionStore.getState().initialize();
+                  } catch {
+                    // Silent failure - subscriptions are not critical
+                  }
+                },
+                { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
+              );
             }
           }
         } catch (error) {

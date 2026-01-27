@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { BORDER_RADIUS } from '../../src/utils/constants';
+import { BORDER_RADIUS, APP_CONSTANTS } from '../../src/utils/constants';
 import {
   View,
   Text,
@@ -735,22 +735,26 @@ const VideoPostScreen: React.FC = () => {
         };
         const processingSegments = segments as VideoSegmentInput[];
 
-        // Merge segments in background using InteractionManager
+        // Merge segments in background using requestIdleCallback
 
-        const { InteractionManager } = require('react-native');
-        await InteractionManager.runAfterInteractions(async () => {
-          // Type assertion needed because segments from params don't have full ImagePickerAsset type
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const mergedVideo = await VideoProcessingService.mergeSegments(processingSegments as any);
+        requestIdleCallback(
+          async () => {
+            // Type assertion needed because segments from params don't have full ImagePickerAsset type
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const mergedVideo = await VideoProcessingService.mergeSegments(
+              processingSegments as any
+            );
 
-          setMergedVideoPath(mergedVideo.path);
-          setIsMerging(false);
+            setMergedVideoPath(mergedVideo.path);
+            setIsMerging(false);
 
-          logger.info('Background merging completed', {
-            component: 'VideoPostScreen',
-            mergedPath: mergedVideo.path,
-          });
-        });
+            logger.info('Background merging completed', {
+              component: 'VideoPostScreen',
+              mergedPath: mergedVideo.path,
+            });
+          },
+          { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
+        );
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         logger.error('Background merging failed', error, { component: 'VideoPostScreen' });
@@ -780,39 +784,41 @@ const VideoPostScreen: React.FC = () => {
     // Use merged video path if available, otherwise use provided videoPath
     if (!activeVideoPath) return;
 
-    const { InteractionManager } = require('react-native');
-    const interactionHandle = InteractionManager.runAfterInteractions(async () => {
-      try {
-        setIsCompressing(true);
+    const interactionId = requestIdleCallback(
+      async () => {
+        try {
+          setIsCompressing(true);
 
-        // Automatically check upload limits and compress if needed
-        // This uses WhatsApp-like automatic compression in the background
-        const result = await VideoProcessingService.checkAndCompressVideoForUpload(
-          activeVideoPath,
-          undefined, // assetId not available here, path is already standardized
-          () => {}
-        );
+          // Automatically check upload limits and compress if needed
+          // This uses WhatsApp-like automatic compression in the background
+          const result = await VideoProcessingService.checkAndCompressVideoForUpload(
+            activeVideoPath,
+            undefined, // assetId not available here, path is already standardized
+            () => {}
+          );
 
-        // Update state based on compression result
-        if (result.wasCompressed) {
-          setCompressedVideoPath(result.processedVideo.path);
+          // Update state based on compression result
+          if (result.wasCompressed) {
+            setCompressedVideoPath(result.processedVideo.path);
 
-          logger.info('Video automatically compressed', {
-            component: 'VideoPostScreen',
-            originalSize: result.originalSize,
-            compressedSize: result.compressedSize,
-            reduction: `${((1 - result.compressedSize / result.originalSize) * 100).toFixed(1)}%`,
-          });
+            logger.info('Video automatically compressed', {
+              component: 'VideoPostScreen',
+              originalSize: result.originalSize,
+              compressedSize: result.compressedSize,
+              reduction: `${((1 - result.compressedSize / result.originalSize) * 100).toFixed(1)}%`,
+            });
+          }
+        } catch (error) {
+          console.error('Error checking and compressing video:', error);
+        } finally {
+          setIsCompressing(false);
         }
-      } catch (error) {
-        console.error('Error checking and compressing video:', error);
-      } finally {
-        setIsCompressing(false);
-      }
-    });
+      },
+      { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
+    );
 
     return () => {
-      interactionHandle.cancel();
+      cancelIdleCallback(interactionId);
     };
   }, [activeVideoPath]);
 

@@ -23,7 +23,7 @@ import * as MediaLibrary from 'expo-media-library';
 import { resolveVideoPath, debugVideoPath, VideoPathInfo } from '../src/utils/video/path';
 import { Loading3FillIcon, CloseFillIcon } from '../src/components/ui/Icon';
 import { Colors } from '../src/components/ui/UI';
-import { BORDER_RADIUS } from '../src/utils/constants';
+import { BORDER_RADIUS, APP_CONSTANTS } from '../src/utils/constants';
 import VideoEditingService, {
   TextOverlayOptions,
   BackgroundMusicOptions,
@@ -303,13 +303,15 @@ const VideoEditorScreen: React.FC = () => {
           sourceType: segment.sourceType,
         }));
 
-        // Merge segments in background using InteractionManager
-        const { InteractionManager } = require('react-native');
-        await InteractionManager.runAfterInteractions(async () => {
-          const mergedVideo = await VideoProcessingService.mergeSegments(processingSegments);
-          setMergedVideoPath(mergedVideo.path);
-          setIsMerging(false);
-        });
+        // Merge segments in background using requestIdleCallback
+        requestIdleCallback(
+          async () => {
+            const mergedVideo = await VideoProcessingService.mergeSegments(processingSegments);
+            setMergedVideoPath(mergedVideo.path);
+            setIsMerging(false);
+          },
+          { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
+        );
       } catch (error: any) {
         console.error('[VideoEditor] Error merging segments:', error);
         setIsMerging(false);

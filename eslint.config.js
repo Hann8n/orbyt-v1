@@ -33,6 +33,8 @@ module.exports = [
         clearInterval: 'readonly',
         requestAnimationFrame: 'readonly',
         cancelAnimationFrame: 'readonly',
+        requestIdleCallback: 'readonly',
+        cancelIdleCallback: 'readonly',
         require: 'readonly',
         module: 'readonly',
         exports: 'readonly',

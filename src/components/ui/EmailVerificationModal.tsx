@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, StyleSheet, Pressable, InteractionManager } from 'react-native';
+import { View, Text, TextInput, StyleSheet, Pressable } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -10,7 +10,7 @@ import { useUserStore } from '../../stores/userStore';
 import { EmailVerificationService } from '../../services/auth/EmailVerificationService';
 import VerticalListSheet from './VerticalListSheet';
 import { Colors } from './UI';
-import { BORDER_RADIUS } from '../../utils/constants';
+import { BORDER_RADIUS, APP_CONSTANTS } from '../../utils/constants';
 import { logger } from '../../utils/logger';
 import Icon, { Loading3FillIcon } from './Icon';
 
@@ -179,13 +179,16 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
       setToken('');
       setEmailSent(false);
 
-      // Use InteractionManager to ensure state update propagates before closing modal
+      // Use requestIdleCallback to ensure state update propagates before closing modal
       // This ensures route guards and other components see the updated emailConfirmed status
-      InteractionManager.runAfterInteractions(() => {
-        // Close modal after React has processed the state update
-        // This gives route guards time to re-evaluate with the new state
-        onClose();
-      });
+      requestIdleCallback(
+        () => {
+          // Close modal after React has processed the state update
+          // This gives route guards time to re-evaluate with the new state
+          onClose();
+        },
+        { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
+      );
     } catch (err) {
       // Handle specific error types from the API
       let errorMessage = 'Failed to verify email';

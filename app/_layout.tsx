@@ -1,13 +1,5 @@
 import React, { useEffect } from 'react';
-import {
-  View,
-  StyleSheet,
-  StatusBar,
-  Appearance,
-  AppState,
-  InteractionManager,
-  Platform,
-} from 'react-native';
+import { View, StyleSheet, StatusBar, Appearance, AppState, Platform } from 'react-native';
 import { Stack, usePathname } from 'expo-router';
 import { DarkTheme, ThemeProvider } from '@react-navigation/native';
 import {
@@ -43,6 +35,7 @@ import { OverlayLayoutProvider } from '../src/context/OverlayLayoutContext';
 import { seenVideoService } from '../src/services/SeenVideoService';
 import { storage } from '../src/utils/storage/storage';
 import { logger } from '../src/utils/logger';
+import { APP_CONSTANTS } from '../src/utils/constants';
 
 // Configure Reanimated logger to disable strict mode warnings
 configureReanimatedLogger({
@@ -324,11 +317,14 @@ export default function RootLayout() {
     }
 
     // Defer until interactions complete (service already checks authentication state)
-    const handle = InteractionManager.runAfterInteractions(() => {
-      loadBookmarks().catch(() => {});
-    });
+    const id = requestIdleCallback(
+      () => {
+        loadBookmarks().catch(() => {});
+      },
+      { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
+    );
 
-    return () => handle.cancel();
+    return () => cancelIdleCallback(id);
   }, [isAuthenticated, loadBookmarks, clearBookmarks]);
 
   // Initialize seen video service and subscribe to user changes
@@ -344,22 +340,25 @@ export default function RootLayout() {
     });
 
     // Run cleanup on app start (defer to avoid blocking startup)
-    InteractionManager.runAfterInteractions(async () => {
-      try {
-        // Check last cleanup time (store in MMKV)
-        const lastCleanupKey = 'seen_videos_last_cleanup';
-        const lastCleanup = storage.getNumber(lastCleanupKey) ?? 0;
-        const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    requestIdleCallback(
+      async () => {
+        try {
+          // Check last cleanup time (store in MMKV)
+          const lastCleanupKey = 'seen_videos_last_cleanup';
+          const lastCleanup = storage.getNumber(lastCleanupKey) ?? 0;
+          const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
 
-        if (lastCleanup < sevenDaysAgo) {
-          const deleted = await seenVideoService.cleanupOldEntries(30); // 30 day retention
-          storage.set(lastCleanupKey, Date.now());
-          logger?.info?.(`Cleaned up ${deleted} old seen video entries`);
+          if (lastCleanup < sevenDaysAgo) {
+            const deleted = await seenVideoService.cleanupOldEntries(30); // 30 day retention
+            storage.set(lastCleanupKey, Date.now());
+            logger?.info?.(`Cleaned up ${deleted} old seen video entries`);
+          }
+        } catch (error) {
+          logger?.warn?.('Failed to cleanup seen videos', { error });
         }
-      } catch (error) {
-        logger?.warn?.('Failed to cleanup seen videos', { error });
-      }
-    });
+      },
+      { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
+    );
 
     return unsubscribe;
   }, []);

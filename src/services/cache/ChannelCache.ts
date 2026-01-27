@@ -1,6 +1,6 @@
 import { storageHelpers } from '../../utils/storage';
-import { InteractionManager } from 'react-native';
 import AtprotoService from '../api/AtprotoService';
+import { APP_CONSTANTS } from '../../utils/constants';
 import { extractColorsFromImage, darkenColor } from '../../utils/formatting/colors';
 import { useQuery, useMutation, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { useCallback } from 'react';
@@ -352,44 +352,51 @@ class ChannelService {
   ): Promise<void> {
     if (!uri) return;
 
-    // Use InteractionManager to defer updates until interactions complete
-    return InteractionManager.runAfterInteractions(async () => {
-      try {
-        const normalizedUri = uri.toLowerCase();
+    // Use requestIdleCallback to defer updates until interactions complete
+    const id = requestIdleCallback(
+      async () => {
+        try {
+          const normalizedUri = uri.toLowerCase();
 
-        // Check memory cache first
-        let cachedChannel = this.memoryCache.get(normalizedUri);
+          // Check memory cache first
+          let cachedChannel = this.memoryCache.get(normalizedUri);
 
-        // If not in memory, check storage
-        if (!cachedChannel) {
-          cachedChannel = (await this.getChannelFromCache(normalizedUri)) || undefined;
+          // If not in memory, check storage
+          if (!cachedChannel) {
+            cachedChannel = (await this.getChannelFromCache(normalizedUri)) || undefined;
+          }
+
+          if (cachedChannel) {
+            // Create a new colors object to avoid direct reference mutation
+            cachedChannel.channelColors = {
+              backgroundColor,
+              foregroundColor: '#FFFFFF', // Always use white text for channels
+              accentColor: accentColor || cachedChannel.channelColors?.accentColor || '#00D4FF',
+              statusBarStyle: 'light', // Always use light status bar for channels
+            };
+
+            cachedChannel.lastUpdated = Date.now();
+
+            // Update both memory and storage
+            this.memoryCache.set(normalizedUri, { ...cachedChannel });
+            await storageHelpers.setItem(
+              this.getCacheKey(normalizedUri),
+              JSON.stringify(cachedChannel)
+            );
+
+            // Notify subscribers of a channel update
+            this.notifyChannelUpdated(normalizedUri);
+          }
+        } catch (_error) {
+          // Silently handle errors
         }
+      },
+      { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
+    );
 
-        if (cachedChannel) {
-          // Create a new colors object to avoid direct reference mutation
-          cachedChannel.channelColors = {
-            backgroundColor,
-            foregroundColor: '#FFFFFF', // Always use white text for channels
-            accentColor: accentColor || cachedChannel.channelColors?.accentColor || '#00D4FF',
-            statusBarStyle: 'light', // Always use light status bar for channels
-          };
-
-          cachedChannel.lastUpdated = Date.now();
-
-          // Update both memory and storage
-          this.memoryCache.set(normalizedUri, { ...cachedChannel });
-          await storageHelpers.setItem(
-            this.getCacheKey(normalizedUri),
-            JSON.stringify(cachedChannel)
-          );
-
-          // Notify subscribers of a channel update
-          this.notifyChannelUpdated(normalizedUri);
-        }
-      } catch (_error) {
-        // Silently handle errors
-      }
-    });
+    return {
+      cancel: () => cancelIdleCallback(id),
+    };
   }
 
   /**
@@ -399,87 +406,90 @@ class ChannelService {
   static async cacheChannels(channels: any[]): Promise<void> {
     if (!channels || channels.length === 0) return;
 
-    // Use InteractionManager to defer batch operations until interactions complete
-    return InteractionManager.runAfterInteractions(async () => {
-      try {
-        // Process channels with controlled concurrency in smaller batches
-        const batchSize = 3;
-        for (let i = 0; i < channels.length; i += batchSize) {
-          const batch = channels.slice(i, i + batchSize);
+    // Use requestIdleCallback to defer batch operations until interactions complete
+    requestIdleCallback(
+      async () => {
+        try {
+          // Process channels with controlled concurrency in smaller batches
+          const batchSize = 3;
+          for (let i = 0; i < channels.length; i += batchSize) {
+            const batch = channels.slice(i, i + batchSize);
 
-          await Promise.all(
-            batch.map(async channel => {
-              const uri = channel.uri;
-              if (!uri) return;
+            await Promise.all(
+              batch.map(async channel => {
+                const uri = channel.uri;
+                if (!uri) return;
 
-              const normalizedUri = uri.toLowerCase();
+                const normalizedUri = uri.toLowerCase();
 
-              // Skip if already in memory cache and valid
-              const memoryCached = this.memoryCache.get(normalizedUri);
-              if (memoryCached && this.isCacheValid(memoryCached)) {
-                return;
-              }
-
-              // Skip if already in AsyncStorage cache and valid
-              const cachedChannel = await this.getChannelFromCache(normalizedUri);
-              if (cachedChannel && this.isCacheValid(cachedChannel)) {
-                this.memoryCache.set(normalizedUri, cachedChannel);
-                return;
-              }
-
-              // Extract channel colors
-              let channelColors = undefined;
-              try {
-                if (channel.avatar) {
-                  const extractedColors = await extractColorsFromImage(channel.avatar);
-                  channelColors = {
-                    backgroundColor: extractedColors.backgroundColor,
-                    foregroundColor: '#FFFFFF', // Always use white text for channels
-                    accentColor: extractedColors.accentColor || '#000000', // Accent to black
-                    statusBarStyle: 'light' as const,
-                  };
+                // Skip if already in memory cache and valid
+                const memoryCached = this.memoryCache.get(normalizedUri);
+                if (memoryCached && this.isCacheValid(memoryCached)) {
+                  return;
                 }
-              } catch (_error: unknown) {
-                // ignore
-              }
 
-              const cacheObject: CachedChannel = {
-                uri: channel.uri,
-                cid: channel.cid,
-                did: channel.did,
-                creator: channel.creator,
-                displayName: channel.displayName,
-                description: channel.description,
-                avatar: channel.avatar,
-                likeCount: channel.likeCount,
-                indexedAt: channel.indexedAt,
-                channelColors: channelColors
-                  ? {
-                      backgroundColor: channelColors.backgroundColor,
-                      foregroundColor: channelColors.foregroundColor,
-                      accentColor: channelColors.accentColor,
-                      statusBarStyle: channelColors.statusBarStyle,
-                    }
-                  : undefined,
-                lastUpdated: Date.now(),
-              };
+                // Skip if already in AsyncStorage cache and valid
+                const cachedChannel = await this.getChannelFromCache(normalizedUri);
+                if (cachedChannel && this.isCacheValid(cachedChannel)) {
+                  this.memoryCache.set(normalizedUri, cachedChannel);
+                  return;
+                }
 
-              // Save to both memory and persistent cache
-              this.memoryCache.set(normalizedUri, cacheObject);
-              await storageHelpers.setItem(
-                this.getCacheKey(normalizedUri),
-                JSON.stringify(cacheObject)
-              );
+                // Extract channel colors
+                let channelColors = undefined;
+                try {
+                  if (channel.avatar) {
+                    const extractedColors = await extractColorsFromImage(channel.avatar);
+                    channelColors = {
+                      backgroundColor: extractedColors.backgroundColor,
+                      foregroundColor: '#FFFFFF', // Always use white text for channels
+                      accentColor: extractedColors.accentColor || '#000000', // Accent to black
+                      statusBarStyle: 'light' as const,
+                    };
+                  }
+                } catch (_error: unknown) {
+                  // ignore
+                }
 
-              // Notify subscribers of a channel update
-              this.notifyChannelUpdated(normalizedUri);
-            })
-          );
+                const cacheObject: CachedChannel = {
+                  uri: channel.uri,
+                  cid: channel.cid,
+                  did: channel.did,
+                  creator: channel.creator,
+                  displayName: channel.displayName,
+                  description: channel.description,
+                  avatar: channel.avatar,
+                  likeCount: channel.likeCount,
+                  indexedAt: channel.indexedAt,
+                  channelColors: channelColors
+                    ? {
+                        backgroundColor: channelColors.backgroundColor,
+                        foregroundColor: channelColors.foregroundColor,
+                        accentColor: channelColors.accentColor,
+                        statusBarStyle: channelColors.statusBarStyle,
+                      }
+                    : undefined,
+                  lastUpdated: Date.now(),
+                };
+
+                // Save to both memory and persistent cache
+                this.memoryCache.set(normalizedUri, cacheObject);
+                await storageHelpers.setItem(
+                  this.getCacheKey(normalizedUri),
+                  JSON.stringify(cacheObject)
+                );
+
+                // Notify subscribers of a channel update
+                this.notifyChannelUpdated(normalizedUri);
+              })
+            );
+          }
+        } catch (_error) {
+          // Silently handle errors during batch caching
         }
-      } catch (_error) {
-        // Silently handle errors during batch caching
-      }
-    });
+      },
+      { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
+    );
   }
 
   /**
@@ -491,62 +501,65 @@ class ChannelService {
   static async batchPrefetchFromFeed(feedItems: any[]): Promise<void> {
     if (!feedItems || feedItems.length === 0) return;
 
-    // Use InteractionManager to defer batch operations until interactions complete
-    return InteractionManager.runAfterInteractions(async () => {
-      try {
-        // Extract all unique URIs from feed items
-        const uniqueUris = new Set<string>();
+    // Use requestIdleCallback to defer batch operations until interactions complete
+    requestIdleCallback(
+      async () => {
+        try {
+          // Extract all unique URIs from feed items
+          const uniqueUris = new Set<string>();
 
-        feedItems.forEach(item => {
-          // Handle feed items with channel structure
-          if (item.uri) {
-            uniqueUris.add(item.uri.toLowerCase());
+          feedItems.forEach(item => {
+            // Handle feed items with channel structure
+            if (item.uri) {
+              uniqueUris.add(item.uri.toLowerCase());
+            }
+
+            // Handle search result structure
+            if (item.data?.uri) {
+              uniqueUris.add(item.data.uri.toLowerCase());
+            }
+
+            // Handle direct channel structure
+            if (item.channel?.uri) {
+              uniqueUris.add(item.channel.uri.toLowerCase());
+            }
+          });
+
+          // Convert to array and filter out empty URIs
+          const urisToPrefetch = Array.from(uniqueUris).filter(uri => uri && uri.trim() !== '');
+
+          if (urisToPrefetch.length === 0) {
+            return;
           }
 
-          // Handle search result structure
-          if (item.data?.uri) {
-            uniqueUris.add(item.data.uri.toLowerCase());
-          }
+          // Process URIs in smaller batches to avoid overwhelming the API
+          const batchSize = 5;
+          for (let i = 0; i < urisToPrefetch.length; i += batchSize) {
+            const batch = urisToPrefetch.slice(i, i + batchSize);
 
-          // Handle direct channel structure
-          if (item.channel?.uri) {
-            uniqueUris.add(item.channel.uri.toLowerCase());
-          }
-        });
+            await Promise.allSettled(
+              batch.map(async uri => {
+                try {
+                  // Check if already cached first
+                  const cached = this.getChannelFromCacheSync(uri);
+                  if (cached && this.isCacheValid(cached)) {
+                    return; // Already cached and valid
+                  }
 
-        // Convert to array and filter out empty URIs
-        const urisToPrefetch = Array.from(uniqueUris).filter(uri => uri && uri.trim() !== '');
-
-        if (urisToPrefetch.length === 0) {
-          return;
-        }
-
-        // Process URIs in smaller batches to avoid overwhelming the API
-        const batchSize = 5;
-        for (let i = 0; i < urisToPrefetch.length; i += batchSize) {
-          const batch = urisToPrefetch.slice(i, i + batchSize);
-
-          await Promise.allSettled(
-            batch.map(async uri => {
-              try {
-                // Check if already cached first
-                const cached = this.getChannelFromCacheSync(uri);
-                if (cached && this.isCacheValid(cached)) {
-                  return; // Already cached and valid
+                  // Fetch and cache the channel
+                  await this.getChannel(uri);
+                } catch (_error: unknown) {
+                  // ignore
                 }
-
-                // Fetch and cache the channel
-                await this.getChannel(uri);
-              } catch (_error: unknown) {
-                // ignore
-              }
-            })
-          );
+              })
+            );
+          }
+        } catch (_error) {
+          // Silently handle errors during batch prefetch
         }
-      } catch (_error) {
-        // Silently handle errors during batch prefetch
-      }
-    });
+      },
+      { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
+    );
   }
 
   /**

@@ -1,4 +1,5 @@
 import ImageColors, { ImageColorsResult } from 'react-native-image-colors';
+import { APP_CONSTANTS } from '../constants';
 
 // Minimal Colors object to avoid circular dependency
 const Colors = {
@@ -447,7 +448,7 @@ export async function extractColorsFromImage(imageUrl: string): Promise<{
 
 /**
  * Batch extract colors from multiple images
- * Uses InteractionManager to defer operations until after interactions complete
+ * Uses requestIdleCallback to defer operations until after interactions complete
  * @param imageUrls Array of image URLs to extract colors from
  * @returns Promise that resolves to array of color results
  */
@@ -464,59 +465,59 @@ export async function batchExtractColorsFromImages(imageUrls: string[]): Promise
     return [];
   }
 
-  // Import InteractionManager dynamically to avoid issues if not available
-  const { InteractionManager } = require('react-native');
-
   return new Promise(resolve => {
     // Defer batch color extraction until after interactions complete
-    InteractionManager.runAfterInteractions(async () => {
-      try {
-        // Process images in smaller batches to avoid overwhelming the system
-        const batchSize = 3;
-        const results: Array<{
-          backgroundColor: string;
-          foregroundColor: string;
-          textColor: string;
-          accentColor: string;
-          statusBarStyle: 'light' | 'dark';
-        }> = [];
+    requestIdleCallback(
+      async () => {
+        try {
+          // Process images in smaller batches to avoid overwhelming the system
+          const batchSize = 3;
+          const results: Array<{
+            backgroundColor: string;
+            foregroundColor: string;
+            textColor: string;
+            accentColor: string;
+            statusBarStyle: 'light' | 'dark';
+          }> = [];
 
-        for (let i = 0; i < imageUrls.length; i += batchSize) {
-          const batch = imageUrls.slice(i, i + batchSize);
-          const batchResults = await Promise.allSettled(
-            batch.map(url => extractColorsFromImage(url))
+          for (let i = 0; i < imageUrls.length; i += batchSize) {
+            const batch = imageUrls.slice(i, i + batchSize);
+            const batchResults = await Promise.allSettled(
+              batch.map(url => extractColorsFromImage(url))
+            );
+
+            // Collect successful results
+            batchResults.forEach(result => {
+              if (result.status === 'fulfilled') {
+                results.push(result.value);
+              } else {
+                // Add fallback color for failed extractions
+                results.push({
+                  backgroundColor: Colors.darkGray,
+                  foregroundColor: Colors.white,
+                  textColor: Colors.white,
+                  accentColor: '#FFFFFF',
+                  statusBarStyle: 'light' as const,
+                });
+              }
+            });
+          }
+
+          resolve(results);
+        } catch (_error) {
+          // Return fallback colors for all images on error
+          resolve(
+            imageUrls.map(() => ({
+              backgroundColor: Colors.darkGray,
+              foregroundColor: Colors.white,
+              textColor: Colors.white,
+              accentColor: '#FFFFFF',
+              statusBarStyle: 'light' as const,
+            }))
           );
-
-          // Collect successful results
-          batchResults.forEach(result => {
-            if (result.status === 'fulfilled') {
-              results.push(result.value);
-            } else {
-              // Add fallback color for failed extractions
-              results.push({
-                backgroundColor: Colors.darkGray,
-                foregroundColor: Colors.white,
-                textColor: Colors.white,
-                accentColor: '#FFFFFF',
-                statusBarStyle: 'light' as const,
-              });
-            }
-          });
         }
-
-        resolve(results);
-      } catch (_error) {
-        // Return fallback colors for all images on error
-        resolve(
-          imageUrls.map(() => ({
-            backgroundColor: Colors.darkGray,
-            foregroundColor: Colors.white,
-            textColor: Colors.white,
-            accentColor: '#FFFFFF',
-            statusBarStyle: 'light' as const,
-          }))
-        );
-      }
-    });
+      },
+      { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
+    );
   });
 }

@@ -7,6 +7,7 @@ export const APP_CONSTANTS = {
   ORIENTATION_CHANGE_DELAY: 100,
   INITIAL_SCROLL_DELAY: 50,
   GRID_TO_LIST_DELAY: 100,
+  IDLE_CALLBACK_TIMEOUT: 100, // Timeout for requestIdleCallback (replaces InteractionManager)
 } as const;
 
 // Border Radius Constants
