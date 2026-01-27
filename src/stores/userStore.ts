@@ -27,6 +27,7 @@ import { queryClient } from '../utils/query/queryClient';
 import { usePostInteractionStore } from './postInteractionStore';
 import { queryKeys } from '../utils/query/queryKeys';
 import { prefetchOrbytColors, loadPersistedColors } from '../hooks/useOrbytColors';
+import { ALGORITHMIC_FEED_PROVIDERS } from '../utils/constants';
 
 // Note: FeedService is no longer needed here - React Query handles all feed caching
 
@@ -202,20 +203,6 @@ const STORAGE_KEYS = {
   ALGORITHMIC_FEED_PROVIDER: 'algorithmic_feed_provider',
 } as const;
 
-// Available algorithmic feed providers
-export const ALGORITHMIC_FEED_PROVIDERS = {
-  BLUESKY_VIDEO: {
-    uri: 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/thevids',
-    displayName: 'For Your Consideration',
-    description: 'Built-in recommendations algorithm',
-  },
-  VIDEOS_FOR_YOU: {
-    uri: 'at://did:plc:3guzzweuqraryl3rdkimjamk/app.bsky.feed.generator/videos-for-you',
-    displayName: 'Videos For You',
-    description: 'Personalized video recommendations by spacecowboy17',
-  },
-} as const;
-
 // Built-in channels that are always available but never in subscribed channels
 const BUILT_IN_CHANNELS = ['following', 'your-mix'];
 
@@ -278,8 +265,8 @@ export const useUserStore = create<UserState>()(
       nativeTabsEnabled: false, // Default to custom JavaScript tab bar
       modalProfileEnabled: false, // Labs feature - disabled by default
 
-      // Algorithmic feed provider - default to Bluesky Video (thevids)
-      algorithmicFeedProvider: ALGORITHMIC_FEED_PROVIDERS.BLUESKY_VIDEO.uri,
+      // Algorithmic feed provider - default to Videos For You
+      algorithmicFeedProvider: ALGORITHMIC_FEED_PROVIDERS.VIDEOS_FOR_YOU.uri,
 
       // Subscribed channels
       subscribedChannels: [],

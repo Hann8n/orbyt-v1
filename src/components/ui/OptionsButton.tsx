@@ -65,7 +65,6 @@ interface OptionsButtonProps {
   rightContent?: React.ReactNode;
   destructive?: boolean;
   disabled?: boolean;
-  selected?: boolean;
   loading?: boolean;
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
@@ -87,7 +86,6 @@ export const OptionsButton: React.FC<OptionsButtonProps> = ({
   rightContent,
   destructive = false,
   disabled = false,
-  selected: _selected = false,
   loading = false,
   style,
   textStyle,
@@ -192,6 +190,7 @@ export const OptionsButton: React.FC<OptionsButtonProps> = ({
                 textStyles.menuOptionSubtitle,
                 { color: pressed ? (destructive ? Colors.white : Colors.black) : Colors.gray },
               ]}
+              numberOfLines={1}
             >
               {description}
             </Text>

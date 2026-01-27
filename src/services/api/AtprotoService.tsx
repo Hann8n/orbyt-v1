@@ -1392,7 +1392,8 @@ class AtprotoService {
       // Pull current algorithmic feed provider from userStore
       let algorithmicFeedProvider: string | null = null;
       try {
-        const { useUserStore, ALGORITHMIC_FEED_PROVIDERS } = await import('../../stores/userStore');
+        const { useUserStore } = await import('../../stores/userStore');
+        const { ALGORITHMIC_FEED_PROVIDERS } = await import('../../utils/constants');
         const provider = useUserStore.getState().algorithmicFeedProvider;
         // Use current value or default to Bluesky Video
         algorithmicFeedProvider = provider ?? ALGORITHMIC_FEED_PROVIDERS.BLUESKY_VIDEO.uri;

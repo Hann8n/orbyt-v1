@@ -55,6 +55,16 @@ export const FEED_TYPES = {
   REPOSTS: 'reposts',
 } as const;
 
+// Algorithmic feed provider URIs (display names/descriptions fetched from API)
+export const ALGORITHMIC_FEED_PROVIDERS = {
+  BLUESKY_VIDEO: {
+    uri: 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/thevids',
+  },
+  VIDEOS_FOR_YOU: {
+    uri: 'at://did:plc:3guzzweuqraryl3rdkimjamk/app.bsky.feed.generator/videos-for-you',
+  },
+} as const;
+
 // View Modes
 export const VIEW_MODES = {
   LIST: 'list',

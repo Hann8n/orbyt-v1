@@ -1102,8 +1102,8 @@ export class FeedService {
       let targetFeed: string | null = null;
 
       // Import algorithmic feed providers to check if sourceFeed is one of them
-      const { ALGORITHMIC_FEED_PROVIDERS, useUserStore } =
-        await import('../../../stores/userStore');
+      const { useUserStore } = await import('../../../stores/userStore');
+      const { ALGORITHMIC_FEED_PROVIDERS } = await import('../../../utils/constants');
       const algorithmicFeedUris: string[] = Object.values(ALGORITHMIC_FEED_PROVIDERS).map(
         p => p.uri
       );

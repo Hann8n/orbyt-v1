@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import ListHeader from '../../src/components/ui/ListHeader';
 import Icon, { Loading3FillIcon, PlusIcon } from '../../src/components/ui/Icon';
 import { Colors, Avatar } from '../../src/components/ui/UI';
-import { useAlgorithmicFeedProvider, ALGORITHMIC_FEED_PROVIDERS } from '../../src/stores/userStore';
+import { useAlgorithmicFeedProvider } from '../../src/stores/userStore';
 import { settingsLayoutStyles } from './SettingsStyles';
 import { OptionsButton } from '../../src/components/ui/OptionsButton';
 import { useSubscribedChannels } from '../../src/hooks/useSubscribedChannels';
@@ -17,8 +17,9 @@ import {
   getChannelAvatarUri,
   shouldShowChannelSlash,
 } from '../../src/utils/channels/orbyt';
-import { BORDER_RADIUS } from '../../src/utils/constants';
+import { BORDER_RADIUS, ALGORITHMIC_FEED_PROVIDERS } from '../../src/utils/constants';
 import { hexToRGBA, isColorDark } from '../../src/utils/formatting/colors';
+import { AtprotoService } from '../../src/services/api/AtprotoService';
 
 interface FeedProviderOption {
   id: string;
@@ -39,33 +40,11 @@ interface ChannelUser {
   uri?: string;
 }
 
-const FEED_OPTIONS: FeedProviderOption[] = [
-  {
-    id: 'bluesky-video',
-    uri: ALGORITHMIC_FEED_PROVIDERS.BLUESKY_VIDEO.uri,
-    displayName: ALGORITHMIC_FEED_PROVIDERS.BLUESKY_VIDEO.displayName,
-    description: ALGORITHMIC_FEED_PROVIDERS.BLUESKY_VIDEO.description,
-  },
-  {
-    id: 'videos-for-you',
-    uri: ALGORITHMIC_FEED_PROVIDERS.VIDEOS_FOR_YOU.uri,
-    displayName: ALGORITHMIC_FEED_PROVIDERS.VIDEOS_FOR_YOU.displayName,
-    description: ALGORITHMIC_FEED_PROVIDERS.VIDEOS_FOR_YOU.description,
-  },
-  {
-    id: 'none',
-    uri: null,
-    displayName: 'None',
-    description: 'Only show content from your subscriptions',
-  },
-];
-
 const AlgorithmicFeedScreen: React.FC = () => {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { algorithmicFeedProvider, setAlgorithmicFeedProvider } = useAlgorithmicFeedProvider();
   const [selectedUri, setSelectedUri] = useState<string | null>(algorithmicFeedProvider);
-  const [isSaving, setIsSaving] = useState(false);
   const {
     subscribedChannels: channels,
     subscribeToChannel,
@@ -76,6 +55,50 @@ const AlgorithmicFeedScreen: React.FC = () => {
   const [displayedTitle, setDisplayedTitle] = useState<string>('');
   const [subscribingChannels, setSubscribingChannels] = useState<Set<string>>(new Set());
 
+  // Fetch feed generator metadata from API
+  const { data: blueskyVideoData } = useQuery({
+    queryKey: ['feedGenerator', ALGORITHMIC_FEED_PROVIDERS.BLUESKY_VIDEO.uri],
+    queryFn: () => AtprotoService.getFeedGenerator(ALGORITHMIC_FEED_PROVIDERS.BLUESKY_VIDEO.uri),
+    staleTime: 60 * 60 * 1000, // Cache for 1 hour
+  });
+
+  const { data: videosForYouData } = useQuery({
+    queryKey: ['feedGenerator', ALGORITHMIC_FEED_PROVIDERS.VIDEOS_FOR_YOU.uri],
+    queryFn: () => AtprotoService.getFeedGenerator(ALGORITHMIC_FEED_PROVIDERS.VIDEOS_FOR_YOU.uri),
+    staleTime: 60 * 60 * 1000, // Cache for 1 hour
+  });
+
+  // Build feed options from API data
+  const feedOptions = useMemo((): FeedProviderOption[] => {
+    const options: FeedProviderOption[] = [];
+
+    // Add Bluesky Video Feed
+    options.push({
+      id: 'bluesky-video',
+      uri: ALGORITHMIC_FEED_PROVIDERS.BLUESKY_VIDEO.uri,
+      displayName: blueskyVideoData?.view?.displayName || 'Bluesky Video Feed',
+      description: blueskyVideoData?.view?.description || '',
+    });
+
+    // Add Videos For You
+    options.push({
+      id: 'videos-for-you',
+      uri: ALGORITHMIC_FEED_PROVIDERS.VIDEOS_FOR_YOU.uri,
+      displayName: videosForYouData?.view?.displayName || 'Videos For You',
+      description: videosForYouData?.view?.description || '',
+    });
+
+    // Add None option
+    options.push({
+      id: 'none',
+      uri: null,
+      displayName: 'None',
+      description: 'Only show content from your subscriptions',
+    });
+
+    return options;
+  }, [blueskyVideoData, videosForYouData]);
+
   // Sync with store when it changes
   useEffect(() => {
     setSelectedUri(algorithmicFeedProvider);
@@ -84,20 +107,18 @@ const AlgorithmicFeedScreen: React.FC = () => {
   const handleSelectProvider = async (uri: string | null) => {
     if (uri === selectedUri) return;
 
-    setIsSaving(true);
+    // Optimistic update - update UI immediately
     setSelectedUri(uri);
 
-    try {
-      await setAlgorithmicFeedProvider(uri);
-      // Invalidate feed queries to refresh with new provider
-      queryClient.invalidateQueries({ queryKey: ['feed', 'your-mix'] });
-    } catch (error) {
+    // Save in background
+    setAlgorithmicFeedProvider(uri).catch(error => {
       console.error('Error setting algorithmic feed provider:', error);
       // Revert on error
       setSelectedUri(algorithmicFeedProvider);
-    } finally {
-      setIsSaving(false);
-    }
+    });
+
+    // Invalidate feed queries to refresh with new provider
+    queryClient.invalidateQueries({ queryKey: ['feed', 'your-mix'] });
   };
 
   const isSelected = (uri: string | null) => {
@@ -147,7 +168,8 @@ const AlgorithmicFeedScreen: React.FC = () => {
     if (selectedChannel?.uri) {
       setIsSheetVisible(false);
       setSelectedChannel(null);
-      router.push({
+      // Use replace to ensure channel opens as fullscreen modal
+      router.replace({
         pathname: '/channel/[id]',
         params: { id: selectedChannel.uri },
       });
@@ -247,7 +269,7 @@ const AlgorithmicFeedScreen: React.FC = () => {
 
         {/* Feed Provider Options */}
         <View style={settingsLayoutStyles.section}>
-          {FEED_OPTIONS.map(option => {
+          {feedOptions.map(option => {
             const selected = isSelected(option.uri);
             return (
               <OptionsButton
@@ -255,15 +277,23 @@ const AlgorithmicFeedScreen: React.FC = () => {
                 label={option.displayName}
                 description={option.description}
                 onPress={() => handleSelectProvider(option.uri)}
-                disabled={isSaving}
-                selected={selected}
-                loading={isSaving && selected}
                 rightIcon={
-                  isSaving && selected ? (
-                    <Loading3FillIcon size={24} color={Colors.lightGreen} />
-                  ) : selected ? (
-                    <Icon name="check" size={24} color={Colors.lightGreen} />
-                  ) : undefined
+                  <View
+                    style={[
+                      {
+                        width: 22,
+                        height: 22,
+                        borderRadius: BORDER_RADIUS.SMALL,
+                        borderWidth: 2,
+                        borderColor: selected ? Colors.white : Colors.lightGray,
+                        backgroundColor: selected ? Colors.white : 'transparent',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                      },
+                    ]}
+                  >
+                    {selected && <Icon name="checkmark" size={16} color={Colors.black} />}
+                  </View>
                 }
               />
             );
@@ -466,7 +496,7 @@ const styles = StyleSheet.create({
   channelsSectionTitle: {
     color: Colors.white,
     fontSize: 18,
-    fontFamily: 'Figtree-SemiBold',
+    fontFamily: 'Figtree-Bold',
   },
   channelsList: {
     marginTop: 0,
@@ -494,13 +524,13 @@ const styles = StyleSheet.create({
   channelLabel: {
     color: Colors.white,
     fontSize: 14,
-    fontFamily: 'Figtree-SemiBold',
+    fontFamily: 'Figtree-Bold',
     marginBottom: 2,
   },
   orbytSlash: {
     fontSize: 14,
     marginBottom: 2,
-    fontFamily: 'Figtree-SemiBold',
+    fontFamily: 'Figtree-Bold',
     marginRight: 0,
   },
   channelDescription: {
@@ -526,7 +556,6 @@ const styles = StyleSheet.create({
   subscribeButtonText: {
     fontFamily: 'Figtree-SemiBold',
     fontSize: 12,
-    fontWeight: '500',
   },
   emptyContainer: {
     alignItems: 'center',
