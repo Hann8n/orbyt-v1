@@ -282,8 +282,8 @@ const FeedRenderer = memo(
       // Create RefreshControl automatically if not provided
       // This centralizes refresh logic and removes redundancy
       const effectiveRefreshControl = useMemo(() => {
-        // If refreshControl is explicitly provided, use it (for backward compatibility)
-        if (refreshControl) {
+        // If refreshControl is explicitly provided (including null to disable), use it
+        if (refreshControl !== undefined) {
           return refreshControl;
         }
 

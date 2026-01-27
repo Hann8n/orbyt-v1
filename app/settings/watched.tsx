@@ -17,6 +17,7 @@ const WatchedScreen: React.FC = () => {
         userDid={currentUser?.did ?? undefined}
         queryOptions={{ enabled: !!currentUser?.did }}
         viewMode="grid"
+        refreshControl={null}
         headerComponent={
           <ListHeader
             mode="sheet"

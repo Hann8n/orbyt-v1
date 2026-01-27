@@ -4,6 +4,7 @@ import { View, Text, StyleSheet, Dimensions, Pressable, FlatList } from 'react-n
 import { Image } from 'expo-image';
 import Icon from '../../ui/Icon';
 import { Colors, RetryButton } from '../../ui/UI';
+import AnimatedTVStatic from '../../ui/AnimatedTVStatic';
 import { useQuery } from '@tanstack/react-query';
 import AtprotoService from '../../../services/api/AtprotoService';
 import { Avatar } from '../../ui/UI';
@@ -13,7 +14,6 @@ import { useFollowMutation, useProfile } from '../../../services/data/ProfileSer
 import { formatHandle } from '../../../utils/formatting/handles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 // Use require for static RN asset to avoid TS module typing issues
-const UFOGif = require('../../../assets/UFO5504.gif');
 const LivingGif = require('../../../assets/livinga18.gif');
 const TVStaticGif = require('../../../assets/tv_static.gif');
 
@@ -128,7 +128,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
       case 'no-videos':
       default:
         return {
-          icon: isProfileFeed ? 'telescope' : 'interface-essential-search-binocular',
+          icon: 'interface-essential-search-binocular',
           defaultMessage: getNoVideosMessage(),
         };
     }
@@ -219,7 +219,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
       >
         <View style={[styles.contentContainer, { justifyContent: 'center', alignItems: 'center' }]}>
           <View style={styles.iconContainer}>
-            <Image source={TVStaticGif} style={styles.ufoGif} contentFit="contain" />
+            <Image source={TVStaticGif} style={styles.animatedGif} contentFit="contain" />
           </View>
           {displayMessage && (
             <Text style={[styles.emptyText, { color: textColor }]}>{displayMessage}</Text>
@@ -257,7 +257,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
             <View style={styles.iconContainer}>
               <Image
                 source={TVStaticGif}
-                style={styles.ufoGif}
+                style={styles.animatedGif}
                 contentFit="contain"
                 cachePolicy="memory-disk"
                 priority="low"
@@ -295,7 +295,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
           <View style={styles.iconContainer}>
             <Image
               source={LivingGif}
-              style={styles.ufoGif}
+              style={styles.animatedGif}
               contentFit="contain"
               cachePolicy="memory-disk"
               priority="low"
@@ -319,25 +319,8 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
     >
       <View style={[styles.contentContainer, shouldOffsetTop && { paddingTop: topThirdOffset }]}>
         <View style={styles.iconContainer}>
-          {(isProfileFeed || (feedOption && feedOption.startsWith('hashtag:'))) &&
-          type === 'no-videos' ? (
-            <Image
-              source={UFOGif}
-              style={styles.ufoGif}
-              contentFit="contain"
-              cachePolicy="memory-disk"
-              priority="low"
-              allowDownscaling={true}
-            />
-          ) : isYourMixFeed && type === 'no-videos' ? (
-            <Image
-              source={TVStaticGif}
-              style={styles.ufoGif}
-              contentFit="contain"
-              cachePolicy="memory-disk"
-              priority="low"
-              allowDownscaling={true}
-            />
+          {type === 'no-videos' ? (
+            <AnimatedTVStatic size={80} />
           ) : (
             <Icon name={icon} size={72} color={isNoVideos ? Colors.lightGray : iconColor} />
           )}
@@ -390,7 +373,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 16,
   },
-  ufoGif: {
+  animatedGif: {
     width: 80,
     height: 80,
   },

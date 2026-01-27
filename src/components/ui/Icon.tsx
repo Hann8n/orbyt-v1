@@ -106,8 +106,6 @@ const MORE_FILL_ICON_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" fill
 
 const BOOKMARK_FILL_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none"><path fill="white" d="M6 2a2 2 0 0 0-2 2v16a1 1 0 0 0 1.555.832L12 17.202l6.445 3.63A1 1 0 0 0 20 20V4a2 2 0 0 0-2-2z"/></g></svg>`;
 
-const TELESCOPE_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none" fill-rule="evenodd"><path fill="#fff" d="M16.611 3.353a2 2 0 0 1 2.649.6l.083.132l2.5 4.33a2 2 0 0 1-.6 2.649l-.132.083l-5.196 3c-.485.28-1.04.334-1.54.194l-.164-.054l2.708 6.32a1 1 0 0 1-1.786.891l-.052-.104L13 16.539l-2.08 4.855a1 1 0 0 1-1.879-.678l.04-.11l2.089-4.874l-1.817 1.05a2 2 0 0 1-2.017-.01l-.105.074l-.11.069l-1.732 1a2 2 0 0 1-2.649-.6l-.083-.132l-.5-.866a2 2 0 0 1 .6-2.649l.132-.083l1.732-1a2 2 0 0 1 .232-.115a2 2 0 0 1 .856-1.66l.144-.091l4.33-2.5a2 2 0 0 1 .232-.115a2 2 0 0 1 .856-1.66l.144-.091zM5.621 14.317l-1.732 1l.5.866l1.732-1zm5.562-4.366l-4.33 2.5l1.5 2.598l4.33-2.5zm6.428-4.866l-5.196 3l2.5 4.33l5.196-3z"/></g></svg>`;
-
 // (legacy line bell and spotlight icons kept only in SVG set; not used directly)
 
 const BELL_RINGING_FILL_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><title>bell_ringing_fill</title><g id="bell_ringing_fill" fill='none' fill-rule='evenodd'><path d='M24 0v24H0V0zM12.594 23.258l-.012.002-.071.035-.02.004-.014-.004-.071-.036c-.01-.003-.019 0-.024.006l-.004.01-.017.428.005.02.01.013.104.074.015.004.012-.004.104-.074.012-.016.004-.017-.017-.427c-.002-.01-.009-.017-.016-.018m.264-.113-.014.002-.184.093-.01.01-.003.011.018.43.005.012.008.008.201.092c.012.004.023 0 .029-.008l.004-.014-.034-.614c-.003-.012-.01-.02-.02-.022m-.715.002a.023.023 0 0 0-.027.006l-.006.014-.034.614c0 .012.007.02.017.024l.015-.002.201-.093.01-.008.003-.011.018-.43-.003-.012-.01-.01z'/><path fill='#09244BFF' d='M6.972 3.777a1 1 0 1 0-1.258-1.554 10.038 10.038 0 0 0-2.602 3.19 1 1 0 1 0 1.776.919 8.038 8.038 0 0 1 2.084-2.555m11.314-1.554a1 1 0 1 0-1.258 1.554 8.038 8.038 0 0 1 2.09 2.568 1 1 0 1 0 1.778-.916 10.04 10.04 0 0 0-2.61-3.206M5 10a7 7 0 0 1 14 0v3.764l1.822 3.644A1.1 1.1 0 0 1 19.838 19H4.162a1.1 1.1 0 0 1-.984-1.592L5 13.764zm4 10h6a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2'/></g></svg>`;
@@ -553,16 +551,6 @@ export const MutualHeartIcon: React.FC<{
   style?: StyleProp<ViewStyle>;
 }> = ({ size, color, style }) => {
   const svgXml = MUTUAL_HEART_ICON_SVG.replace(/#fff/g, color);
-  return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
-};
-
-// Custom Telescope Icon component
-export const TelescopeIcon: React.FC<{
-  size: number;
-  color: string;
-  style?: StyleProp<ViewStyle>;
-}> = ({ size, color, style }) => {
-  const svgXml = TELESCOPE_ICON_SVG.replace(/#fff/g, color);
   return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
 };
 
@@ -1528,7 +1516,7 @@ const Icon: React.FC<IconProps> = ({
   if (name === 'device-tv' || name === 'video-movies-vintage-tv-1')
     return <TvIcon size={size} color={color} />;
   if (name === 'interface-essential-satellite' || name === 'interface-essential-search-binocular')
-    return <TelescopeIcon size={size} color={color} style={style} />;
+    return <SearchIcon size={size} color={color} style={style} />;
   if (name === 'more-fill' || name === 'more-horizontal')
     return <MoreFillIcon size={size} color={color} />;
   if (name === 'bookmark' || name === 'bookmark-fill')
