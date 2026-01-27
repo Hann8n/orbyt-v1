@@ -15,6 +15,8 @@ import { BORDER_RADIUS } from '../../utils/constants';
 import { hexToRGBA } from '../../utils/formatting/colors';
 
 // Define styles inline to avoid import path issues
+const ROW_MIN_HEIGHT = 64; // paddingVertical 40 + standard right-slot 24
+
 const buttonStyles = StyleSheet.create({
   menuOption: {
     backgroundColor: Colors.darkGray,
@@ -23,6 +25,7 @@ const buttonStyles = StyleSheet.create({
     paddingHorizontal: 20,
     marginHorizontal: 10,
     marginBottom: 12,
+    minHeight: ROW_MIN_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

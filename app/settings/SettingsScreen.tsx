@@ -268,7 +268,6 @@ const SettingsScreen: React.FC = () => {
         {
           id: 'copy-profile-link',
           label: 'Copy your profile link',
-          icon: 'link',
           onPress: handleCopyProfileLink,
           linkType: 'none',
         },
@@ -517,7 +516,7 @@ const SettingsScreen: React.FC = () => {
                   disabled={isSubmitting}
                   rightIcon={
                     item.id === 'copy-profile-link' && isProfileLinkCopied ? (
-                      <Icon name="check" size={24} color={Colors.lightGreen} />
+                      <Icon name="check" size={18} color={Colors.lightGreen} />
                     ) : (
                       item.rightIcon
                     )
