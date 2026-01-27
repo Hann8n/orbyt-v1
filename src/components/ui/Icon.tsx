@@ -1,13 +1,14 @@
 import React, { useEffect } from 'react';
 import { SvgXml } from 'react-native-svg';
 import { StyleProp, ViewStyle } from 'react-native';
-import Animated, {
+import {
   useSharedValue,
-  useAnimatedStyle,
+  useDerivedValue,
   withRepeat,
   withTiming,
   Easing,
 } from 'react-native-reanimated';
+import { Canvas, Path } from '@shopify/react-native-skia';
 
 // Simple colors object to avoid circular dependency
 const Colors = {
@@ -374,7 +375,7 @@ export const ShareIcon: React.FC<{ size: number; color: string; style?: StylePro
   return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
 };
 
-// Custom Loading 3 Fill Icon component (spinning, thick ring) - using Reanimated for UI thread performance
+// Custom Loading 3 Fill Icon component (spinning, thick ring) - using Skia for native performance
 export const Loading3FillIcon: React.FC<{
   size: number;
   color: string;
@@ -383,42 +384,56 @@ export const Loading3FillIcon: React.FC<{
   const rotation = useSharedValue(0);
 
   useEffect(() => {
-    // Start infinite rotation animation on UI thread
     rotation.value = withRepeat(
       withTiming(360, {
         duration: 1000,
         easing: Easing.linear,
       }),
-      -1, // Infinite repetitions
-      false // Don't reverse
+      -1,
+      false
     );
   }, [rotation]);
 
-  // Animated style for rotation - runs on UI thread
-  const animatedStyle = useAnimatedStyle(() => {
-    'worklet';
-    return {
-      transform: [{ rotate: `${rotation.value}deg` }],
-    };
-  });
+  const center = size / 2;
+  const radius = center - 2;
+  const innerRadius = center - 6;
 
-  const xml = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-      <g fill="none" fill-rule="evenodd">
-        <path d="M12 4.5a7.5 7.5 0 1 0 0 15 7.5 7.5 0 0 0 0-15M1.5 12C1.5 6.201 6.201 1.5 12 1.5S22.5 6.201 22.5 12 17.799 22.5 12 22.5 1.5 17.799 1.5 12" fill="${color}" opacity=".1"/>
-        <path d="M12 4.5a7.458 7.458 0 0 0-5.187 2.083 1.5 1.5 0 0 1-2.075-2.166A10.458 10.458 0 0 1 12 1.5a1.5 1.5 0 0 1 0 3" fill="${color}"/>
-      </g>
-    </svg>
-  `;
+  const path = useDerivedValue(() => {
+    'worklet';
+    const angle = (rotation.value * Math.PI) / 180;
+    const startAngle = angle;
+    const endAngle = angle + (Math.PI * 2) / 3;
+    const x1 = center + radius * Math.cos(startAngle);
+    const y1 = center + radius * Math.sin(startAngle);
+    const x2 = center + radius * Math.cos(endAngle);
+    const y2 = center + radius * Math.sin(endAngle);
+    const x3 = center + innerRadius * Math.cos(endAngle);
+    const y3 = center + innerRadius * Math.sin(endAngle);
+    const x4 = center + innerRadius * Math.cos(startAngle);
+    const y4 = center + innerRadius * Math.sin(startAngle);
+    return `M ${x1} ${y1} A ${radius} ${radius} 0 0 1 ${x2} ${y2} L ${x3} ${y3} A ${innerRadius} ${innerRadius} 0 0 0 ${x4} ${y4} Z`;
+  }, [rotation, center, radius, innerRadius]);
+
+  const backgroundRing = useDerivedValue(() => {
+    'worklet';
+    const outerStartX = center + radius;
+    const outerStartY = center;
+    const outerPath = `M ${outerStartX} ${outerStartY} A ${radius} ${radius} 0 1 1 ${center - radius} ${center} A ${radius} ${radius} 0 1 1 ${outerStartX} ${outerStartY}`;
+    const innerStartX = center + innerRadius;
+    const innerStartY = center;
+    const innerPath = `M ${innerStartX} ${innerStartY} A ${innerRadius} ${innerRadius} 0 1 0 ${center - innerRadius} ${center} A ${innerRadius} ${innerRadius} 0 1 0 ${innerStartX} ${innerStartY}`;
+    return `${outerPath} ${innerPath}`;
+  }, [center, radius, innerRadius]);
 
   return (
-    <Animated.View style={[animatedStyle, style]}>
-      <SvgXml xml={xml} width={size} height={size} />
-    </Animated.View>
+    <Canvas style={[{ width: size, height: size }, style]}>
+      <Path path={backgroundRing} color={color} opacity={0.1} />
+      <Path path={path} color={color} />
+    </Canvas>
   );
 };
 
-// Custom Loading 3 Line Icon component (spinning, thin ring) - based on loading_3_line SVG
+// Custom Loading 3 Line Icon component (spinning, thin ring) - using Skia for native performance
 export const Loading3LineIcon: React.FC<{
   size: number;
   color: string;
@@ -437,28 +452,33 @@ export const Loading3LineIcon: React.FC<{
     );
   }, [rotation]);
 
-  const animatedStyle = useAnimatedStyle(() => {
-    'worklet';
-    return {
-      transform: [{ rotate: `${rotation.value}deg` }],
-    };
-  });
+  const center = size / 2;
+  const radius = center - 2;
 
-  const xml = `
-    <svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'>
-      <title>loading_3_line</title>
-      <g id="loading_3_line" fill="none" fill-rule="evenodd">
-        <path d='M24 0v24H0V0z'/>
-        <path d='M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16M2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10S2 17.523 2 12' fill="${color}" opacity=".1"/>
-        <path d='M12 4a7.958 7.958 0 0 0-5.533 2.222 1 1 0 1 1-1.384-1.444A9.958 9.958 0 0 1 12 2a1 1 0 1 1 0 2' fill="${color}"/>
-      </g>
-    </svg>
-  `;
+  const path = useDerivedValue(() => {
+    'worklet';
+    const angle = (rotation.value * Math.PI) / 180;
+    const startAngle = angle;
+    const endAngle = angle + Math.PI / 3;
+    const x1 = center + radius * Math.cos(startAngle);
+    const y1 = center + radius * Math.sin(startAngle);
+    const x2 = center + radius * Math.cos(endAngle);
+    const y2 = center + radius * Math.sin(endAngle);
+    return `M ${x1} ${y1} A ${radius} ${radius} 0 0 1 ${x2} ${y2}`;
+  }, [rotation, center, radius]);
+
+  const backgroundPath = useDerivedValue(() => {
+    'worklet';
+    const startX = center + radius;
+    const startY = center;
+    return `M ${startX} ${startY} A ${radius} ${radius} 0 1 1 ${center - radius} ${center} A ${radius} ${radius} 0 1 1 ${startX} ${startY}`;
+  }, [center, radius]);
 
   return (
-    <Animated.View style={[animatedStyle, style]}>
-      <SvgXml xml={xml} width={size} height={size} />
-    </Animated.View>
+    <Canvas style={[{ width: size, height: size }, style]}>
+      <Path path={backgroundPath} color={color} opacity={0.1} style="stroke" strokeWidth={1} />
+      <Path path={path} color={color} style="stroke" strokeWidth={2} strokeCap="round" />
+    </Canvas>
   );
 };
 

@@ -7,6 +7,7 @@ import Animated, {
   type SharedValue,
   useAnimatedReaction,
   useAnimatedStyle,
+  useDerivedValue,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
@@ -15,6 +16,7 @@ import { useSafeAreaFrame } from 'react-native-safe-area-context';
 import { useEvent } from 'expo';
 import { type VideoPlayer } from 'expo-video';
 import { useSegments } from 'expo-router';
+import { Canvas, Rect } from '@shopify/react-native-skia';
 import { formatTime } from '../../../utils/formatting/time';
 import { isTablet, isSmallScreen } from '../../../utils/device/screen';
 import { Colors } from '../../ui/UI';
@@ -317,40 +319,34 @@ const VideoScrubberComponent = ({
     };
   });
 
-  // Bar style - use local progress state directly
-  const barStyle = useAnimatedStyle(() => {
+  const progressWidthSV = useDerivedValue(() => {
     'worklet';
     const isSeeking = isSeekingSV.get();
-    const seekingAnim = seekingAnimationSV.get();
     const duration = durationSV.get();
-
-    // Early return for zero duration
-    if (duration === 0) {
-      return {
-        height: 3,
-        opacity: 0.5,
-        width: '0%',
-      };
-    }
-
-    // Use seek progress while seeking, otherwise use current time
+    if (duration === 0) return 0;
     const currentTime = isSeeking ? seekProgressSV.get() : currentTimeSV.get();
-    const progress = currentTime === 0 ? 0 : currentTime / duration;
+    return (currentTime / duration) * screenWidth;
+  }, [screenWidth, isSeekingSV, seekProgressSV, currentTimeSV, durationSV]);
 
-    return {
-      height: seekingAnim * 5 + 3, // Thicker when seeking
-      opacity: interpolate(seekingAnim, [0, 1], [0.5, 0.8]),
-      width: `${progress * 100}%`,
-    };
-  });
-
-  // Optimize track and children styles - add worklet directive
-  const trackStyle = useAnimatedStyle(() => {
+  const barHeightSV = useDerivedValue(() => {
     'worklet';
-    return {
-      height: seekingAnimationSV.get() * 5 + 3, // Thicker when seeking
-    };
-  });
+    const seekingAnim = seekingAnimationSV.get();
+    return seekingAnim * 5 + 3;
+  }, [seekingAnimationSV]);
+
+  const barOpacitySV = useDerivedValue(() => {
+    'worklet';
+    const seekingAnim = seekingAnimationSV.get();
+    return interpolate(seekingAnim, [0, 1], [0.5, 0.8]);
+  }, [seekingAnimationSV]);
+
+  const trackHeightSV = useDerivedValue(() => {
+    'worklet';
+    return seekingAnimationSV.get() * 5 + 3;
+  }, [seekingAnimationSV]);
+
+  const trackY = useDerivedValue(() => 34 - trackHeightSV.value, [trackHeightSV]);
+  const barY = useDerivedValue(() => 34 - barHeightSV.value, [barHeightSV]);
 
   const childrenStyle = useAnimatedStyle(() => {
     'worklet';
@@ -415,16 +411,30 @@ const VideoScrubberComponent = ({
       <GestureDetector gesture={scrubPanGesture}>
         <Animated.View
           style={[styles.scrubberContainer, { bottom: scrubberBottomOffset }]}
-          pointerEvents="box-none" // Allow taps to pass through to overlay buttons underneath
+          pointerEvents="box-none"
         >
           <Animated.View
             style={[styles.trackContainer, trackContainerOpacityStyle]}
             pointerEvents="auto"
           >
-            <Animated.View style={[styles.track, styles.trackBackground, trackStyle]} />
-            <Animated.View
-              style={[styles.progressBar, { backgroundColor: Colors.white }, barStyle]}
-            />
+            <Canvas style={StyleSheet.absoluteFill} pointerEvents="none">
+              <Rect
+                x={0}
+                y={trackY}
+                width={screenWidth}
+                height={trackHeightSV}
+                color={Colors.white}
+                opacity={0.2}
+              />
+              <Rect
+                x={0}
+                y={barY}
+                width={progressWidthSV}
+                height={barHeightSV}
+                color={Colors.white}
+                opacity={barOpacitySV}
+              />
+            </Canvas>
           </Animated.View>
           <Animated.View style={[childrenStyle, scrubberOpacityStyle]}>{children}</Animated.View>
         </Animated.View>
@@ -493,24 +503,5 @@ const styles = StyleSheet.create({
     paddingTop: 32, // Much larger touchable area above the bar for easier grabbing
     paddingBottom: 0, // No padding below - bar at absolute bottom
     height: 34, // Total height: 32px padding + 2px bar
-  },
-  track: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    width: '100%',
-    height: 3, // Slightly thicker for better visibility and easier grabbing
-  },
-  trackBackground: {
-    backgroundColor: Colors.white,
-    opacity: 0.2,
-  },
-  progressBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    height: 3, // Slightly thicker for better visibility and easier grabbing
-    zIndex: 2, // Ensure progress bar is above track
   },
 });

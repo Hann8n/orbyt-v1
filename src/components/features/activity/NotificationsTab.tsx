@@ -27,7 +27,7 @@ import { feedService } from '../../../services/FeedService';
 import { formatRelativeDate } from '../../ui/RelativeDate';
 import { useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 import { useUserStore } from '../../../stores/userStore';
-import BlurredThumbnailBackground from '../../ui/BlurredThumbnailBackground';
+import BlurredBackground from '../../ui/BlurredBackground';
 import { queryKeys } from '../../../utils/query/queryKeys';
 import {
   moderateNotification,
@@ -50,7 +50,6 @@ import type {
 } from '../../../services/api/types';
 import { isVideoEmbed, isVideoEmbedInMedia } from '../../../services/api/types';
 import { getVideoView } from '../../../utils/video/helpers';
-import { SafeBlurView } from '../../ui/SafeBlurView';
 
 // Import radar.gif for empty notifications state
 const RadarGif = require('../../../assets/radar.gif');
@@ -536,7 +535,7 @@ const NotificationItem = React.memo<NotificationItemProps>(
           <Pressable onPress={handleThumbnailPress} style={styles.thumbnailContainer}>
             {thumbnail ? (
               <>
-                <BlurredThumbnailBackground thumbnailUrl={thumbnail} recyclingKey={uri} />
+                <BlurredBackground thumbnailUrl={thumbnail} />
                 {!shouldBlurThumbnail && (
                   <Image
                     source={{ uri: thumbnail }}
@@ -545,9 +544,6 @@ const NotificationItem = React.memo<NotificationItemProps>(
                     recyclingKey={uri}
                     transition={0}
                   />
-                )}
-                {shouldBlurThumbnail && (
-                  <SafeBlurView intensity={80} tint="dark" style={styles.thumbnailBlurOverlay} />
                 )}
               </>
             ) : (
@@ -659,7 +655,7 @@ const NotificationsTab = forwardRef<ScrollToTopRef, NotificationsTabProps>(
       return data?.pages.flatMap(page => page.notifications) || [];
     }, [data]);
 
-    const moderationData = useModerationSettings(currentUser?.did || undefined);
+    useModerationSettings(currentUser?.did || undefined);
 
     const enrichedNotifications = useMemo((): EnrichedNotification[] => {
       const opts = ModerationService.getModerationOpts(currentUser?.did ?? undefined);
@@ -668,7 +664,7 @@ const NotificationsTab = forwardRef<ScrollToTopRef, NotificationsTabProps>(
         ...n,
         shouldFilter: moderateNotification(n, opts).ui('contentList').filter,
       }));
-    }, [allNotifications, currentUser?.did, moderationData.moderationPrefs]);
+    }, [allNotifications, currentUser?.did]);
 
     const filteredNotifications = useMemo(
       () => enrichedNotifications.filter(n => !n.shouldFilter),
@@ -965,14 +961,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     backgroundColor: Colors.darkGray,
-  },
-  thumbnailBlurOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 2,
   },
   authorName: {
     color: Colors.white,

@@ -9,7 +9,8 @@ import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../../utils/constants';
 import { Colors } from '../../ui/UI';
 import { Avatar } from '../../ui/UI';
 import Icon from '../../ui/Icon';
-import BlurredThumbnailBackground from '../../ui/BlurredThumbnailBackground';
+import BlurredBackground from '../../ui/BlurredBackground';
+import { hexToRGBA } from '../../../utils/formatting/colors';
 import type { ModerationUI } from '@atproto/api';
 import { AtprotoService } from '../../../services/api/AtprotoService';
 import { FeedService as ApiFeedService } from '../../../services/api/feed/FeedService';
@@ -23,7 +24,6 @@ import { useProfile } from '../../../services/data/ProfileService';
 import type { PostView, ImagesView, RecordWithMediaView } from '../../../services/api/types';
 import { isVideoEmbed, isVideoEmbedInMedia } from '../../../services/api/types';
 import { getVideoView } from '../../../utils/video/helpers';
-import { SafeBlurView } from '../../ui/SafeBlurView';
 
 interface EmbeddedPostCardProps {
   postUri: string;
@@ -473,16 +473,13 @@ export default function EmbeddedPostCard({
 
         {showImage && thumbnailUrl && (
           <View style={styles.cleanImageContainer}>
-            <BlurredThumbnailBackground thumbnailUrl={thumbnailUrl} />
+            <BlurredBackground thumbnailUrl={thumbnailUrl} />
             {!cannotShowMedia && (
               <Image
                 source={{ uri: thumbnailUrl }}
                 style={styles.cleanImage}
                 contentFit="contain"
               />
-            )}
-            {isBlurred && (
-              <SafeBlurView intensity={80} tint="dark" style={styles.cleanBlurOverlay} />
             )}
             {isBlurred && !noOverride && (
               <View style={styles.cleanWarningOverlay}>
@@ -532,7 +529,7 @@ export default function EmbeddedPostCard({
       }
       return (
         <View style={styles.videoThumbnailContainer}>
-          <BlurredThumbnailBackground thumbnailUrl={thumbnailUrl} />
+          <BlurredBackground thumbnailUrl={thumbnailUrl} />
           {thumbnailUrl && !cannotShowMedia && (
             <Image
               source={{ uri: thumbnailUrl }}
@@ -559,7 +556,6 @@ export default function EmbeddedPostCard({
             />
           </View>
 
-          {isBlurred && <SafeBlurView intensity={80} tint="dark" style={styles.blurOverlay} />}
           {isBlurred && (
             <View style={styles.contentWarningOverlay}>
               <View style={styles.warningMessage}>
@@ -633,21 +629,6 @@ const styles = StyleSheet.create({
   containerRight: {
     alignItems: 'flex-end',
   },
-  thumbnailContainer: {
-    position: 'relative',
-    width: 140,
-    height: 140,
-    borderRadius: BORDER_RADIUS.MEDIUM,
-    overflow: 'hidden',
-    backgroundColor: Colors.gray,
-  },
-  thumbnail: {
-    width: '100%',
-    height: '100%',
-  },
-  blurOverlay: {
-    ...StyleSheet.absoluteFillObject,
-  },
   authorOverlay: {
     position: 'absolute',
     bottom: 8,
@@ -675,67 +656,6 @@ const styles = StyleSheet.create({
     right: 0,
     height: 80,
     borderRadius: BORDER_RADIUS.MEDIUM,
-  },
-  // Text post styles
-  textPostContainer: {
-    width: 280,
-    backgroundColor: Colors.darkGray,
-    borderRadius: BORDER_RADIUS.MEDIUM,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  textPostContent: {
-    padding: 16,
-  },
-  textPostHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  textPostAvatar: {
-    marginRight: 12,
-  },
-  textPostAuthorInfo: {
-    flex: 1,
-  },
-  textPostAuthor: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    fontFamily: 'Figtree-Bold',
-    color: Colors.white,
-    marginBottom: 2,
-  },
-  textPostText: {
-    fontSize: 16,
-    color: Colors.white,
-    lineHeight: 20,
-    marginBottom: 8,
-  },
-  postStats: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-    marginBottom: 8,
-  },
-  statItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  statText: {
-    fontSize: 12,
-    color: Colors.lightGray,
-    marginLeft: 4,
-    fontFamily: 'Figtree-Medium',
-  },
-  blueskyLogoContainer: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    width: 28,
-    height: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   // Modern clean post styles
   cleanPostContainer: {
@@ -773,7 +693,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.05)',
+    borderTopColor: hexToRGBA(Colors.white, 0.05),
   },
   actionItem: {
     flexDirection: 'row',
@@ -791,7 +711,7 @@ const styles = StyleSheet.create({
     color: Colors.lightGray,
     fontFamily: 'Figtree-Medium',
     marginLeft: 'auto',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: hexToRGBA(Colors.white, 0.05),
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
@@ -817,74 +737,10 @@ const styles = StyleSheet.create({
     position: 'relative',
     zIndex: 1,
   },
-  cleanBlurOverlay: {
-    ...StyleSheet.absoluteFillObject,
-  },
   cleanWarningOverlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  cleanViewButton: {
-    backgroundColor: '#ffffff',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: BORDER_RADIUS.SMALL,
-  },
-  cleanViewButtonText: {
-    color: '#000',
-    fontWeight: 'bold',
-    fontSize: 12,
-  },
-  cleanFooter: {
-    paddingHorizontal: 12,
-    paddingBottom: 12,
-    paddingTop: 8,
-    alignItems: 'flex-end',
-  },
-  blueskyIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: BORDER_RADIUS.SMALL,
-  },
-  blueskyIndicatorText: {
-    fontSize: 10,
-    color: Colors.bluesky,
-    marginLeft: 4,
-    fontFamily: 'Figtree-Medium',
-  },
-  // Image within text post styles
-  textPostImageContainer: {
-    position: 'relative',
-    marginVertical: 8,
-    borderRadius: BORDER_RADIUS.SMALL,
-    overflow: 'hidden',
-  },
-  textPostImage: {
-    width: '100%',
-    height: 160,
-  },
-  textPostBlurOverlay: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  textPostWarningOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  textPostViewButton: {
-    backgroundColor: '#ffffff',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: BORDER_RADIUS.SMALL,
-  },
-  textPostViewButtonText: {
-    color: '#000',
-    fontWeight: 'bold',
-    fontSize: 12,
   },
   contentWarningOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -896,7 +752,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.9)',
+    backgroundColor: hexToRGBA(Colors.black, 0.9),
     padding: 16,
   },
   warningMessage: {
@@ -906,23 +762,23 @@ const styles = StyleSheet.create({
   warningTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#fff',
+    color: Colors.white,
     marginBottom: 8,
   },
   warningText: {
     fontSize: 12,
-    color: '#fff',
+    color: Colors.white,
     textAlign: 'center',
     marginBottom: 12,
   },
   viewButton: {
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.white,
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: BORDER_RADIUS.SMALL,
   },
   viewButtonText: {
-    color: '#000',
+    color: Colors.black,
     fontWeight: 'bold',
     fontSize: 12,
   },

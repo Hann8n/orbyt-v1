@@ -14,7 +14,8 @@ import { Colors } from '../../ui/UI';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { formatHandle } from '../../../utils/formatting/handles';
 import type { ProfileViewWithOrbyt } from '../../../services/api/types';
-import { SafeBlurView } from '../../ui/SafeBlurView';
+import { BlurView } from '../../ui/BlurView';
+import { hexToRGBA } from '../../../utils/formatting/colors';
 
 interface LiveStreamInfoSheetProps {
   visible: boolean;
@@ -69,7 +70,16 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
   }, []);
 
   // Extract embed information
-  const embed = status?.embed as any;
+  type ExternalEmbed = {
+    $type?: string;
+    external?: {
+      uri?: string;
+      title?: string;
+      description?: string;
+      thumb?: string;
+    };
+  };
+  const embed = (status?.embed as ExternalEmbed | undefined) ?? null;
   const embedUrl = embed?.external?.uri;
   const embedTitle = embed?.external?.title;
   const displayDescription = embed?.external?.description;
@@ -158,9 +168,9 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
                 </View>
                 {expirationText && (
                   <View style={styles.chipsContainer}>
-                    <SafeBlurView intensity={80} tint="dark" style={styles.chip}>
+                    <BlurView intensity={80} tint="dark" style={styles.chip}>
                       <Text style={styles.chipText}>{expirationText}</Text>
-                    </SafeBlurView>
+                    </BlurView>
                   </View>
                 )}
               </View>
@@ -249,7 +259,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    backgroundColor: hexToRGBA(Colors.black, 0.3),
     borderRadius: BORDER_RADIUS.MEDIUM,
   },
   chipsContainer: {

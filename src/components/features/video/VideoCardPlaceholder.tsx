@@ -1,6 +1,6 @@
 /**
  * Lightweight placeholder for off-screen video cards.
- * Poster + BlurredThumbnailBackground only. Content-warning lives in VideoCard when near.
+ * Poster + BlurredBackground only. Content-warning lives in VideoCard when near.
  * Used when isNearViewable is false to defer useVideoPlayer/ExpoVideoView.
  */
 
@@ -8,7 +8,7 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { Colors } from '../../ui/UI';
-import BlurredThumbnailBackground from '../../ui/BlurredThumbnailBackground';
+import BlurredBackground from '../../ui/BlurredBackground';
 import { getVideoView } from '../../../utils/video/helpers';
 import type { ExtendedPostView, ExtendedFeedViewPost, PostView } from '../../../services/api/types';
 
@@ -37,7 +37,7 @@ const VideoCardPlaceholder: React.FC<VideoCardPlaceholderProps> = ({
 
   return (
     <View style={[styles.container, { height: cardHeight }]}>
-      <BlurredThumbnailBackground thumbnailUrl={posterUrl} />
+      <BlurredBackground thumbnailUrl={posterUrl} />
       {!!posterUrl && (
         <Image source={{ uri: posterUrl }} contentFit="contain" style={styles.poster} />
       )}

@@ -34,7 +34,7 @@ import Icon, {
   Loading3FillIcon,
   DownSmallFillIcon,
 } from '../../src/components/ui/Icon';
-import BlurredThumbnailBackground from '../../src/components/ui/BlurredThumbnailBackground';
+import BlurredBackground from '../../src/components/ui/BlurredBackground';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextOverlay } from '../../src/types';
 import { resolveVideoPath, debugVideoPath, VideoPathInfo } from '../../src/utils/video/path';
@@ -124,7 +124,7 @@ const VideoPreviewContent: React.FC<{
     <View style={[styles.videoContainer, containerStyle]}>
       {thumbnailUrl && (
         <>
-          <BlurredThumbnailBackground thumbnailUrl={thumbnailUrl} />
+          <BlurredBackground thumbnailUrl={thumbnailUrl} />
           {!firstFrameRendered && (
             <Image source={{ uri: thumbnailUrl }} contentFit="contain" style={styles.poster} />
           )}

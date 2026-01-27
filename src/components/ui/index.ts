@@ -24,7 +24,7 @@ export { default as HeaderBanner } from './HeaderBanner';
 export { default as ListScreen } from './ListScreen';
 export { default as CustomPDSInputSheet } from './CustomPDSInputSheet';
 export { default as SessionDiagnosticsTool } from './SessionDiagnosticsTool';
-export { default as BlurredThumbnailBackground } from './BlurredThumbnailBackground';
+export { default as BlurredBackground } from './BlurredBackground';
 export { OptionsButton } from './OptionsButton';
 export { ErrorBoundary } from './ErrorBoundary';
 export { QueryErrorBoundary } from './QueryErrorBoundary';

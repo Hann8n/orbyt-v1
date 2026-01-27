@@ -25,8 +25,8 @@ import { QUERY_CONSTANTS } from '../../../utils/constants';
 import type { ExtendedFeedViewPost } from '../../../services/api/types';
 import { isTablet, getBottomNavBarHeight } from '../../../utils/device/screen';
 import EmptyFeed from './EmptyFeed';
-import BlurredThumbnailBackground from '../../ui/BlurredThumbnailBackground';
-import { SafeBlurView } from '../../ui/SafeBlurView';
+import BlurredBackground from '../../ui/BlurredBackground';
+import { hexToRGBA } from '../../../utils/formatting/colors';
 
 // Memoized shared video item component
 const VideoGridItem: React.FC<{
@@ -52,7 +52,7 @@ const VideoGridItem: React.FC<{
 
   return (
     <Pressable style={[styles.gridItem, style, itemStyle]} onPress={handlePress}>
-      <BlurredThumbnailBackground thumbnailUrl={validThumbnailUrl} recyclingKey={recyclingKey} />
+      <BlurredBackground thumbnailUrl={validThumbnailUrl} />
       {validThumbnailUrl && !shouldBlur && (
         <Image
           source={{ uri: validThumbnailUrl }}
@@ -63,7 +63,6 @@ const VideoGridItem: React.FC<{
           transition={200}
         />
       )}
-      {shouldBlur && <SafeBlurView intensity={100} tint="dark" style={styles.blurOverlay} />}
     </Pressable>
   );
 });
@@ -240,15 +239,8 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
             index={index}
             onPress={onPress}
             style={[{ width: itemWidth, height: itemHeight }, borderStyle]}
-            itemStyle={{
-              borderRadius: 0,
-              backgroundColor: 'transparent',
-              padding: 0,
-            }}
-            thumbnailStyle={{
-              borderRadius: 0,
-              backgroundColor: 'transparent',
-            }}
+            itemStyle={styles.gridItemOverride}
+            thumbnailStyle={styles.thumbnailOverride}
           />
         );
       },
@@ -383,7 +375,6 @@ const styles = StyleSheet.create({
   },
   headerWrapper: {
     width: '100%',
-    backgroundColor: 'transparent',
   },
   listContent: {
     flexGrow: 1,
@@ -413,7 +404,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(0,0,0,0.5)', // Add subtle background only behind author row
+    backgroundColor: hexToRGBA(Colors.black, 0.5),
     borderRadius: BORDER_RADIUS.SMALL,
     paddingHorizontal: 4,
     paddingVertical: 2,
@@ -433,7 +424,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: hexToRGBA(Colors.black, 0.6),
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderBottomLeftRadius: 4,
@@ -453,7 +444,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.95)',
+    backgroundColor: hexToRGBA(Colors.black, 0.95),
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,
@@ -466,17 +457,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   // removed topDivider to eliminate gap under header
-  blurOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
-    padding: 32,
-  },
   warningIcon: {
     // Centered by parent container
   },
@@ -491,13 +471,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   showAnywayButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: hexToRGBA(Colors.white, 0.2),
     borderRadius: BORDER_RADIUS.LARGE,
     paddingVertical: 8,
     paddingHorizontal: 12, // reduced for tighter fit
     marginTop: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: hexToRGBA(Colors.white, 0.3),
     shadowColor: Colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -515,6 +495,13 @@ const styles = StyleSheet.create({
     fontFamily: 'Figtree-Medium',
     fontWeight: '600',
     textAlign: 'center',
+  },
+  gridItemOverride: {
+    borderRadius: 0,
+    padding: 0,
+  },
+  thumbnailOverride: {
+    borderRadius: 0,
   },
 });
 

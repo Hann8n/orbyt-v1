@@ -55,7 +55,7 @@ import { feedService } from '../../src/services/FeedService';
 import { getBottomNavBarHeight, isTablet } from '../../src/utils/device/screen';
 import { getVideoView } from '../../src/utils/video/helpers';
 import { formatHandle } from '../../src/utils/formatting/handles';
-import BlurredThumbnailBackground from '../../src/components/ui/BlurredThumbnailBackground';
+import BlurredBackground from '../../src/components/ui/BlurredBackground';
 import { HeaderService, useHeaders, type Header } from '../../src/services/OrbytBannerService';
 import { useFeed } from '../../src/hooks/useFeed';
 import { useUserStore, useFeedSettings } from '../../src/stores/userStore';
@@ -2123,7 +2123,7 @@ const ExploreScreen: React.FC = () => {
                           }}
                         >
                           <View style={styles.spotlightVideoThumbnailContainer}>
-                            <BlurredThumbnailBackground thumbnailUrl={thumbnailUrl} />
+                            <BlurredBackground thumbnailUrl={thumbnailUrl} />
                             {thumbnailUrl ? (
                               <Image
                                 source={{ uri: thumbnailUrl }}

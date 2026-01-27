@@ -27,12 +27,12 @@ import Animated, {
   interpolate,
 } from 'react-native-reanimated';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import { SafeBlurView } from '../../ui/SafeBlurView';
+import { BlurView } from '../../ui/BlurView';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Image } from 'expo-image';
 import { Colors } from '../../ui/UI';
 import { Loading3FillIcon, HeartFillIcon } from '../../ui/Icon';
-import BlurredThumbnailBackground from '../../ui/BlurredThumbnailBackground';
+import BlurredBackground from '../../ui/BlurredBackground';
 import {
   normalizePostView,
   createVideoSource,
@@ -1016,10 +1016,7 @@ const VideoCard = memo(
 
       return (
         <View style={[styles.container, { height: cardHeight }]}>
-          <BlurredThumbnailBackground
-            thumbnailUrl={isBlocked ? null : (posterUrl ?? null)}
-            recyclingKey={recyclingKey}
-          />
+          <BlurredBackground thumbnailUrl={isBlocked ? null : (posterUrl ?? null)} />
           <Pressable
             onPress={handleVideoTap}
             onLongPress={handleLongPress}
@@ -1109,7 +1106,7 @@ const VideoCard = memo(
 
           {(cannotShowMedia || isBlurred) && (
             <>
-              <SafeBlurView intensity={100} tint="dark" style={styles.contentWarningBlur} />
+              <BlurView intensity={100} tint="dark" style={styles.contentWarningBlur} />
               <View style={styles.contentWarningOverlay}>
                 <View style={styles.blurMessage}>
                   <Text style={styles.blurTitle}>
