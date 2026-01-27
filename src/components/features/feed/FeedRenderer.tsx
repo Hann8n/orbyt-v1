@@ -176,6 +176,7 @@ const FeedRenderer = memo(
           refetch: isSearchFeed ? () => {} : feedQuery.refetch,
           isPaused: isSearchFeed ? false : feedQuery.isPaused,
           isProfileFeed: isSearchFeed ? false : feedQuery.isProfileFeed,
+          dataUpdatedAt: isSearchFeed ? 0 : feedQuery.dataUpdatedAt,
         }),
         [
           isSearchFeed,
@@ -194,6 +195,7 @@ const FeedRenderer = memo(
           feedQuery.refetch,
           feedQuery.isPaused,
           feedQuery.isProfileFeed,
+          feedQuery.dataUpdatedAt,
         ]
       );
 
@@ -210,6 +212,7 @@ const FeedRenderer = memo(
         refetch,
         isPaused,
         isProfileFeed,
+        dataUpdatedAt,
       } = feedData;
 
       // Display filter: reported only. Label/hide/mute/block are handled by applyModerationBatch (SDK moderatePost).
@@ -418,7 +421,9 @@ const FeedRenderer = memo(
             ref={listFeedViewRef}
             {...commonProps}
             isFetchingNextPage={isFetchingNextPage}
-            isLoading={isSearchFeed ? false : isLoading}
+            isLoading={
+              isSearchFeed ? false : isLoading || (feed.length === 0 && dataUpdatedAt === 0)
+            }
             isError={isSearchFeed ? false : finalIsError}
             targetScrollIndex={propTargetScrollIndex}
           />
@@ -429,6 +434,8 @@ const FeedRenderer = memo(
         isSearchFeed,
         finalIsError,
         isLoading,
+        feed,
+        dataUpdatedAt,
         isFetchingNextPage,
         handleItemPress,
         propTargetScrollIndex,
@@ -500,39 +507,4 @@ const styles = StyleSheet.create({
   },
 });
 
-// Performance comparison for memo
-const areEqual = (prevProps: FeedRendererProps, nextProps: FeedRendererProps) => {
-  // Critical props that affect rendering performance
-  if (prevProps.feedOption !== nextProps.feedOption) return false;
-  if (prevProps.isVisible !== nextProps.isVisible) return false;
-  if (prevProps.viewMode !== nextProps.viewMode) return false;
-  if (prevProps.isRefreshing !== nextProps.isRefreshing) return false;
-  if (prevProps.backgroundColor !== nextProps.backgroundColor) return false;
-  if (prevProps.secondaryColor !== nextProps.secondaryColor) return false;
-  if (prevProps.userDid !== nextProps.userDid) return false;
-  if (prevProps.forceError !== nextProps.forceError) return false;
-
-  // Shallow comparison for query options - check each property individually
-  const prevQueryOpts = prevProps.queryOptions;
-  const nextQueryOpts = nextProps.queryOptions;
-
-  // Handle undefined/null cases
-  if (!prevQueryOpts && !nextQueryOpts) {
-    // Both undefined/null - equal
-  } else if (!prevQueryOpts || !nextQueryOpts) {
-    return false; // One is undefined, other is not
-  } else {
-    // Both defined - compare properties
-    if (prevQueryOpts.enabled !== nextQueryOpts.enabled) return false;
-    if (prevQueryOpts.staleTime !== nextQueryOpts.staleTime) return false;
-    if (prevQueryOpts.gcTime !== nextQueryOpts.gcTime) return false;
-    if (prevQueryOpts.refetchOnWindowFocus !== nextQueryOpts.refetchOnWindowFocus) return false;
-    if (prevQueryOpts.refetchOnMount !== nextQueryOpts.refetchOnMount) return false;
-  }
-
-  return true;
-};
-
-// Note: forwardRef components need special memo handling
-const MemoizedFeedRenderer = memo(FeedRenderer, areEqual);
-export default MemoizedFeedRenderer;
+export default FeedRenderer;
