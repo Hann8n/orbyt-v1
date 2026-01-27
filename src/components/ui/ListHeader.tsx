@@ -121,7 +121,7 @@ const ListHeader: React.FC<ListHeaderProps> = ({
       <View style={styles.leftSection}>
         {left ??
           (showBackButton ? (
-            <Pressable onPress={onBackPress}>
+            <Pressable onPress={() => router.back()}>
               <BackArrowIcon size={28} color={textColor} />
             </Pressable>
           ) : (
