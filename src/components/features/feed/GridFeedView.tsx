@@ -11,9 +11,9 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   type RefreshControlProps,
+  useWindowDimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { FlashList, FlashListRef } from '@shopify/flash-list';
@@ -23,7 +23,8 @@ import { feedService } from '../../../services/FeedService';
 import { getVideoView } from '../../../utils/video/helpers';
 import { QUERY_CONSTANTS } from '../../../utils/constants';
 import type { ExtendedFeedViewPost } from '../../../services/api/types';
-import { isTablet, getBottomNavBarHeight } from '../../../utils/device/screen';
+import * as Device from 'expo-device';
+import { getBottomNavBarHeight } from '../../../utils/device/screen';
 import EmptyFeed from './EmptyFeed';
 import BlurredBackground from '../../ui/BlurredBackground';
 import { hexToRGBA } from '../../../utils/formatting/colors';
@@ -161,12 +162,14 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
 
     // Responsive grid columns and item size
     const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+    const isTablet =
+      Device.deviceType === Device.DeviceType.TABLET || Math.min(windowWidth, windowHeight) >= 600;
     // Breakpoints: ensure at least 3 columns; default 3 on mobile
     // Adjust as needed: 3 (<=480), 4 (<=900), 5 (<=1200), 6 (>1200 or tablets)
     const computedColumns = useMemo(() => {
       const w = windowWidth || Dimensions.get('window').width;
       let cols = 3; // default mobile
-      if (w > 1200 || isTablet()) {
+      if (w > 1200 || isTablet) {
         cols = 6;
       } else if (w > 900) {
         cols = 5;
@@ -177,7 +180,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
       }
       // enforce minimum of 3
       return Math.max(3, cols);
-    }, [windowWidth]);
+    }, [windowWidth, isTablet]);
 
     const numColumns = computedColumns;
     // With borders instead of margins, items can use full width divided by columns

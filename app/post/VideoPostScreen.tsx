@@ -40,7 +40,8 @@ import { TextOverlay } from '../../src/types';
 import { resolveVideoPath, debugVideoPath, VideoPathInfo } from '../../src/utils/video/path';
 import { DEFAULT_BUFFER_OPTIONS } from '../../src/utils/video/helpers';
 import { Colors } from '../../src/components/ui/UI';
-import { isTablet, isSmallScreen } from '../../src/utils/device/screen';
+import { useWindowDimensions } from 'react-native';
+import * as Device from 'expo-device';
 import { useCurrentUser } from '../../src/stores/userStore';
 import ProfileService from '../../src/services/data/ProfileService';
 import AtprotoService from '../../src/services/api/AtprotoService';
@@ -1355,7 +1356,10 @@ const VideoPostScreen: React.FC = () => {
 
   const [orientation, setOrientation] = useState(getOrientation());
   const insets = useSafeAreaInsets();
-  const isSmallDevice = isSmallScreen();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const isTablet =
+    Device.deviceType === Device.DeviceType.TABLET || Math.min(screenWidth, screenHeight) >= 600;
+  const isSmallDevice = screenWidth <= 375 || screenHeight <= 667;
 
   useEffect(() => {
     const onChange = ({ window }: { window: { width: number; height: number } }) => {
@@ -1593,7 +1597,7 @@ const VideoPostScreen: React.FC = () => {
   );
 
   // Layout for landscape mode
-  if (orientation === 'landscape' && isTablet()) {
+  if (orientation === 'landscape' && isTablet) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
         <StatusBar hidden={true} />

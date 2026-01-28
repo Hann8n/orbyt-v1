@@ -31,12 +31,9 @@ import { FeedScrollProvider } from '../../../context/FeedScrollContext';
 import EmptyFeed from './EmptyFeed';
 import { VideoItem } from './VideoItem';
 import GridFeedView from './GridFeedView';
-import {
-  isSmallScreen,
-  isTablet,
-  getVideoCardHeight,
-  getBottomNavBarHeight,
-} from '../../../utils/device/screen';
+import { useWindowDimensions } from 'react-native';
+import * as Device from 'expo-device';
+import { getVideoCardHeight, getBottomNavBarHeight } from '../../../utils/device/screen';
 import { Colors } from '../../ui/UI';
 import { Loading3FillIcon } from '../../ui/Icon';
 import {
@@ -187,7 +184,11 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     );
 
     // Device detection
-    const isSmallDevice = useMemo(() => isSmallScreen() || isTablet(), []);
+    const { width, height: screenHeight } = useWindowDimensions();
+    const isTablet =
+      Device.deviceType === Device.DeviceType.TABLET || Math.min(width, screenHeight) >= 600;
+    const isSmallScreen = width <= 375 || screenHeight <= 667;
+    const isCompactDevice = isTablet || isSmallScreen;
     const isHeaderFeed = useMemo(
       () =>
         feedOption === FEED_TYPES.PROFILE ||
@@ -203,21 +204,21 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     const viewportDimensions = useMemo(() => {
       const { height } = Dimensions.get('window');
       const bottomNavBarHeight = getBottomNavBarHeight(insets);
-      const viewportHeight = isSmallDevice ? height : height - bottomNavBarHeight - insets.top;
+      const viewportHeight = isCompactDevice ? height : height - bottomNavBarHeight - insets.top;
       return {
         height: viewportHeight,
         effectiveInsets: insets,
         bottomNavBarHeight,
       };
-    }, [isSmallDevice, insets]);
+    }, [isCompactDevice, insets]);
 
     // Card height calculation
     const cardHeight = useMemo(() => {
-      if (isSmallDevice) {
+      if (isCompactDevice) {
         return viewportDimensions.height;
       }
       return getVideoCardHeight(viewportDimensions.effectiveInsets);
-    }, [viewportDimensions.height, viewportDimensions.effectiveInsets, isSmallDevice]);
+    }, [viewportDimensions.height, viewportDimensions.effectiveInsets, isCompactDevice]);
 
     const { onViewableItemsChanged, viewabilityConfig, canPlay, feedKey } = useFeedVisibility({
       feedOption,
@@ -452,13 +453,13 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         return null;
       }
 
-      if (isSmallDevice || (isModal && hasHeader)) return 0;
+      if (isCompactDevice || (isModal && hasHeader)) return 0;
       return insets.top;
-    }, [isHeaderFeed, isSmallDevice, isModal, hasHeader, insets.top]);
+    }, [isHeaderFeed, isCompactDevice, isModal, hasHeader, insets.top]);
 
     const nonHeaderSnapTopInset = useMemo(
-      () => (isSmallDevice ? 0 : insets.top),
-      [isSmallDevice, insets.top]
+      () => (isCompactDevice ? 0 : insets.top),
+      [isCompactDevice, insets.top]
     );
 
     const snapTopInset = useMemo(
@@ -469,7 +470,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     const snapToOffsets = useMemo(() => {
       // Always use snapToOffsets when there's a header to properly account for header height
       // snapToInterval doesn't account for headers, so it causes scroll issues
-      if (!hasHeader && isSmallDevice) return null;
+      if (!hasHeader && isCompactDevice) return null;
 
       const offsets: number[] = hasHeader ? [0] : [];
 
@@ -491,7 +492,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       cardHeight,
       listData.length,
       snapTopInset,
-      isSmallDevice,
+      isCompactDevice,
       hasHeader,
       itemSpacing,
       isHeaderFeed,

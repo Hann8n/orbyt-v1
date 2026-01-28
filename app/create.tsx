@@ -37,7 +37,9 @@ import Icon, {
   ArrowRightFillIcon,
 } from '../src/components/ui/Icon';
 import BottomToolBar from '../src/components/ui/BottomToolBar';
-import { isSmallScreen, isTablet, getBottomNavBarHeight } from '../src/utils/device/screen';
+import { useWindowDimensions } from 'react-native';
+import * as Device from 'expo-device';
+import { getBottomNavBarHeight } from '../src/utils/device/screen';
 import { Colors } from '../src/components/ui/UI';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -140,9 +142,11 @@ const CreateScreen: React.FC = () => {
   const screenWidth = screenDims.width;
   const screenHeight = screenDims.height;
 
-  // Use existing utility to check if small screen or tablet
-  const isSmallDevice = isSmallScreen();
-  const isTabletDevice = isTablet();
+  // Device detection
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const isTabletDevice =
+    Device.deviceType === Device.DeviceType.TABLET || Math.min(windowWidth, windowHeight) >= 600;
+  const isSmallDevice = windowWidth <= 375 || windowHeight <= 667;
 
   // Camera key changes on dimension/orientation change to fix camera preview
   const cameraKey = `${Math.round(screenWidth)}x${Math.round(screenHeight)}-${isFrontCamera ? 'front' : 'back'}`;
@@ -968,7 +972,7 @@ const CreateScreen: React.FC = () => {
           <View
             style={[
               styles.centerButtonContainer,
-              { bottom: bottomNavBarHeight + (isSmallScreen() ? 40 : 50) },
+              { bottom: bottomNavBarHeight + (isSmallDevice ? 40 : 50) },
             ]}
           >
             <Pressable

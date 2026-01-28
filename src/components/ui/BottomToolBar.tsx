@@ -3,7 +3,8 @@ import { View, Pressable, StyleSheet, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { isSmallScreen, isTablet, getBottomNavBarHeight } from '../../utils/device/screen';
+import * as Device from 'expo-device';
+import { getBottomNavBarHeight } from '../../utils/device/screen';
 import Icon from './Icon';
 import { Colors } from './UI';
 
@@ -29,7 +30,7 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
   nextButtonDisabled = false,
 }) => {
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
 
   // Different tool configurations based on mode
   const getTools = () => {
@@ -51,7 +52,9 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
   };
 
   const tools = getTools();
-  const isSmallDevice = isSmallScreen() || isTablet();
+  const isTablet = Device.deviceType === Device.DeviceType.TABLET || Math.min(width, height) >= 600;
+  const isSmallScreen = width <= 375 || height <= 667;
+  const isSmallDevice = isSmallScreen || isTablet;
   const bottomNavBarHeight = getBottomNavBarHeight(insets);
   // Icon size for toolbar
   const iconSize = Math.round(Math.max(22, Math.min(28, width * 0.07)));

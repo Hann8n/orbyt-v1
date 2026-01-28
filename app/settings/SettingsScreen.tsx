@@ -28,7 +28,8 @@ import { useRouter } from 'expo-router';
 import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalModals';
 import ProfileService from '../../src/services/data/ProfileService';
 import ChannelService from '../../src/services/data/ChannelService';
-import { isSmallScreen } from '../../src/utils/device/screen';
+import { useWindowDimensions } from 'react-native';
+import * as Device from 'expo-device';
 
 const SettingsScreen: React.FC = () => {
   const router = useRouter();
@@ -41,6 +42,10 @@ const SettingsScreen: React.FC = () => {
     useFeedSettings();
   const { currentUser } = useCurrentUser();
   const { savedAccounts } = useAccountManagement();
+  const { width, height } = useWindowDimensions();
+  const isTablet = Device.deviceType === Device.DeviceType.TABLET || Math.min(width, height) >= 600;
+  const isSmallScreen = width <= 375 || height <= 667;
+  const isCompactDevice = isTablet || isSmallScreen;
 
   const handleLogout = async () => {
     if (isSubmitting) return;
@@ -461,8 +466,8 @@ const SettingsScreen: React.FC = () => {
         value: nativeTabsEnabled,
         onValueChange: handleToggleNativeTabs,
       });
-      // Only show modal profile toggle on non-full screen devices
-      if (!isSmallScreen()) {
+      // Only show modal profile toggle on iOS devices that don't require compact layout
+      if (Platform.OS === 'ios' && !isCompactDevice) {
         listData.push({
           kind: 'toggle',
           id: 'modal-profile',

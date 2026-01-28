@@ -31,7 +31,8 @@ import VideoEditingService, {
 import VideoProcessingService from '../src/services/video/VideoProcessingService';
 import VerticalListSheet, { VerticalListButton } from '../src/components/ui/VerticalListSheet';
 import BottomToolBar from '../src/components/ui/BottomToolBar';
-import { getBottomNavBarHeight, isSmallScreen } from '../src/utils/device/screen';
+import { useWindowDimensions } from 'react-native';
+import { getBottomNavBarHeight } from '../src/utils/device/screen';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ASPECT_RATIO = 9 / 16;
@@ -766,7 +767,8 @@ const VideoEditorScreen: React.FC = () => {
     [handleAddTextOverlay]
   );
 
-  const isSmallDevice = isSmallScreen();
+  const { width, height } = useWindowDimensions();
+  const isSmallDevice = width <= 375 || height <= 667;
 
   // Keep status bar hidden even when app returns from background
   useEffect(() => {

@@ -31,7 +31,8 @@ import { useRouter } from 'expo-router';
 import { SvgXml } from 'react-native-svg';
 import { Colors } from '../../ui/UI';
 import FeedRenderer from './FeedRenderer';
-import { isSmallScreen, isTablet } from '../../../utils/device/screen';
+import { useWindowDimensions } from 'react-native';
+import * as Device from 'expo-device';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ListFeedViewRef } from '../../../types';
 import type { ScrollToTopRef } from '../../../utils/navigation/tabRefs';
@@ -114,6 +115,9 @@ const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
   },
   ref
 ) {
+  const { width, height } = useWindowDimensions();
+  const isTablet = Device.deviceType === Device.DeviceType.TABLET || Math.min(width, height) >= 600;
+  const isSmallScreen = width <= 375 || height <= 667;
   const pagerViewRef = useRef<PagerView>(null);
   // Refs to FeedRenderer instances, keyed by feedOption
   const feedRendererRefs = useRef<{ [key: string]: ListFeedViewRef | null }>({});
@@ -417,12 +421,12 @@ const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
   // Dynamic base font size for channel indicators based on screen size
   const indicatorBaseFontSize = useMemo(() => {
     if (typeof indicatorFontSize === 'number' && indicatorFontSize > 0) return indicatorFontSize;
-    if (isTablet()) return 20;
-    if (isSmallScreen()) return 16;
+    if (isTablet) return 20;
+    if (isSmallScreen) return 16;
     const minDimension = Math.min(screenWidth, screenHeight);
     if (minDimension >= 420) return 18; // large phones/phablets
     return 16;
-  }, [screenWidth, screenHeight, indicatorFontSize]);
+  }, [screenWidth, screenHeight, indicatorFontSize, isTablet, isSmallScreen]);
 
   const feedSwitcherTopStyle = useMemo(
     () => ({ top: applySafeArea ? 12 + insets.top : 12 }),

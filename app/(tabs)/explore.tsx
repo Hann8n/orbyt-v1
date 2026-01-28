@@ -63,7 +63,8 @@ import { SearchIcon, Loading3FillIcon } from '../../src/components/ui/Icon';
 import { Colors } from '../../src/components/ui/UI';
 import EmptyFeed from '../../src/components/features/feed/EmptyFeed';
 import { feedService } from '../../src/services/FeedService';
-import { getBottomNavBarHeight, isTablet } from '../../src/utils/device/screen';
+import * as Device from 'expo-device';
+import { getBottomNavBarHeight } from '../../src/utils/device/screen';
 import { getVideoView } from '../../src/utils/video/helpers';
 import BlurredBackground from '../../src/components/ui/BlurredBackground';
 import { HeaderService, useHeaders, type Header } from '../../src/services/OrbytBannerService';
@@ -847,13 +848,15 @@ const HorizontalChannelItem = ({
 // Responsive Orbyt Channels Grid Component
 const OrbytChannelsGrid = React.memo(
   ({ channels, router }: { channels: Channel[]; router: Router }) => {
-    const { width: windowWidth } = useWindowDimensions();
+    const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+    const isTablet =
+      Device.deviceType === Device.DeviceType.TABLET || Math.min(windowWidth, windowHeight) >= 600;
 
     // Responsive column calculation - similar to GridFeedView
     const computedColumns = useMemo(() => {
       const w = windowWidth || Dimensions.get('window').width;
       let cols = 3; // default mobile
-      if (w > 1200 || isTablet()) {
+      if (w > 1200 || isTablet) {
         cols = 6;
       } else if (w > 900) {
         cols = 5;
@@ -864,19 +867,19 @@ const OrbytChannelsGrid = React.memo(
       }
       // enforce minimum of 3
       return Math.max(3, cols);
-    }, [windowWidth]);
+    }, [windowWidth, isTablet]);
 
     // Responsive padding and gap based on screen size
     const { padding, gap } = useMemo(() => {
       const w = windowWidth || Dimensions.get('window').width;
-      if (isTablet() || w > 900) {
+      if (isTablet || w > 900) {
         return { padding: 10, gap: 10 };
       } else if (w > 480) {
         return { padding: 10, gap: 8 };
       } else {
         return { padding: 10, gap: 7 };
       }
-    }, [windowWidth]);
+    }, [windowWidth, isTablet]);
 
     // Calculate grid dimensions using native formulas
     // W = container width, p = padding, g = gap
@@ -911,8 +914,8 @@ const OrbytChannelsGrid = React.memo(
     }, [windowWidth, padding, gap, computedColumns]);
 
     const shouldShowSpecialInRow = useMemo(() => {
-      return computedColumns >= 4 || isTablet();
-    }, [computedColumns]);
+      return computedColumns >= 4 || isTablet;
+    }, [computedColumns, isTablet]);
 
     const specialItemHeight = useMemo(() => {
       return shouldShowSpecialInRow ? Math.round(buttonHeight * 0.9) : buttonHeight;

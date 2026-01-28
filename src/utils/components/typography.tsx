@@ -1,5 +1,5 @@
 import { Dimensions } from 'react-native';
-import { isSmallScreen, isTablet, isTallScreen } from '../device/screen';
+import * as Device from 'expo-device';
 
 const { width, height } = Dimensions.get('window');
 
@@ -9,10 +9,15 @@ const BASE_HEIGHT = 844;
 
 // Compute a conservative, clamped scale to ensure readability across devices
 const rawScale = Math.min(width / BASE_WIDTH, height / BASE_HEIGHT);
+const aspectRatio = height / width;
+const isTallScreen = aspectRatio > 2.1;
+const isTablet = Device.deviceType === Device.DeviceType.TABLET || Math.min(width, height) >= 600;
+const isSmallScreen = width <= 375 || height <= 667;
+
 const deviceAdjustment = (() => {
-  if (isTablet()) return 1.12;
-  if (isSmallScreen()) return 0.94;
-  if (isTallScreen()) return 1.02;
+  if (isTablet) return 1.12;
+  if (isSmallScreen) return 0.94;
+  if (isTallScreen) return 1.02;
   return 1;
 })();
 

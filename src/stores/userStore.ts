@@ -27,8 +27,22 @@ import { usePostInteractionStore } from './postInteractionStore';
 import { queryKeys } from '../utils/query/queryKeys';
 import { prefetchOrbytColors, loadPersistedColors } from '../hooks/useOrbytColors';
 import { ALGORITHMIC_FEED_PROVIDERS, APP_CONSTANTS } from '../utils/constants';
+import { Platform, Dimensions } from 'react-native';
+import * as Device from 'expo-device';
 
 // Note: FeedService is no longer needed here - React Query handles all feed caching
+
+/**
+ * Get the default value for modalProfileEnabled based on device characteristics
+ * Enabled by default on iOS devices that don't require compact layout
+ */
+const getDefaultModalProfileEnabled = (): boolean => {
+  if (Platform.OS !== 'ios') return false;
+  const { width, height } = Dimensions.get('window');
+  const isTablet = Device.deviceType === Device.DeviceType.TABLET || Math.min(width, height) >= 600;
+  const isSmallScreen = width <= 375 || height <= 667;
+  return !(isTablet || isSmallScreen);
+};
 
 /**
  * Prefetch Orbyt colors for a user and their following (non-blocking)
@@ -265,7 +279,7 @@ export const useUserStore = create<UserState>()(
       // Feed settings
       feedDebugOverlayEnabled: false, // Keep disabled by default, user can enable manually
       nativeTabsEnabled: false, // Default to custom JavaScript tab bar
-      modalProfileEnabled: false, // Labs feature - disabled by default
+      modalProfileEnabled: getDefaultModalProfileEnabled(), // Enabled by default on iOS devices that don't require compact layout
 
       // Algorithmic feed provider - default to Videos For You
       algorithmicFeedProvider: ALGORITHMIC_FEED_PROVIDERS.VIDEOS_FOR_YOU.uri,
@@ -1036,7 +1050,7 @@ export const useUserStore = create<UserState>()(
       },
       getModalProfileEnabled: async () =>
         storage.getBoolean(getFlagKey('modal_profile_enabled', get().currentUser?.did ?? null)) ??
-        false,
+        getDefaultModalProfileEnabled(),
 
       // Algorithmic feed provider actions
       setAlgorithmicFeedProvider: async (uri: string | null) => {

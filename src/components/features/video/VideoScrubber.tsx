@@ -12,13 +12,13 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { scheduleOnUI, scheduleOnRN } from 'react-native-worklets';
-import { useSafeAreaFrame } from 'react-native-safe-area-context';
 import { useEvent } from 'expo';
 import { type VideoPlayer } from 'expo-video';
 import { useSegments } from 'expo-router';
 import { Canvas, Rect } from '@shopify/react-native-skia';
 import { formatTime } from '../../../utils/formatting/time';
-import { isTablet, isSmallScreen } from '../../../utils/device/screen';
+import { useWindowDimensions } from 'react-native';
+import * as Device from 'expo-device';
 import { Colors } from '../../ui/UI';
 import { useUIStore } from '../../../stores/uiStore';
 import { useOverlayVisibility } from '../../../context/FeedIndicatorContext';
@@ -47,11 +47,15 @@ const VideoScrubberComponent = ({
   overlayOpacitySV,
 }: VideoScrubberProps) => {
   const isIOS = Platform.OS === 'ios';
-  const { width: screenWidth } = useSafeAreaFrame();
   const segments = useSegments();
   const overlayLayout = useOverlayLayout();
-  const isTabletDevice = overlayLayout?.isTablet ?? isTablet();
-  const isSmallScreenDevice = overlayLayout?.isSmallScreen ?? isSmallScreen();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const isTabletDirect =
+    Device.deviceType === Device.DeviceType.TABLET || Math.min(screenWidth, screenHeight) >= 600;
+  const isSmallScreenDirect = screenWidth <= 375 || screenHeight <= 667;
+  const isCompactDeviceDirect = isTabletDirect || isSmallScreenDirect;
+  const isTabletDevice = overlayLayout?.isTablet ?? isTabletDirect;
+  const isCompactDeviceValue = overlayLayout?.isCompactDevice ?? isCompactDeviceDirect;
   const bottomNavBarHeight =
     overlayLayout?.bottomNavBarHeight ?? OVERLAY_LAYOUT_FALLBACK_BOTTOM_NAV;
   const hasTabBar = Array.isArray(segments) && segments[0] === '(tabs)';
@@ -380,9 +384,9 @@ const VideoScrubberComponent = ({
   // Calculate bottom offset; bottomNavBarHeight from OverlayLayoutContext already includes +10 when native tabs enabled
   const scrubberBottomOffset = useMemo(() => {
     if (isModal) return 0;
-    if (hasTabBar && (isSmallScreenDevice || isTabletDevice)) return bottomNavBarHeight;
+    if (hasTabBar && isCompactDeviceValue) return bottomNavBarHeight;
     return 0;
-  }, [isModal, hasTabBar, isSmallScreenDevice, isTabletDevice, bottomNavBarHeight]);
+  }, [isModal, hasTabBar, isCompactDeviceValue, isTabletDevice, bottomNavBarHeight]);
 
   if (!isIOS) {
     return null;

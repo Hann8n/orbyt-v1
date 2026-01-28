@@ -11,7 +11,7 @@ import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, Text, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '../../ui/UI';
-import { isTablet, isSmallScreen } from '../../../utils/device/screen';
+import * as Device from 'expo-device';
 import {
   useOverlayLayout,
   OVERLAY_LAYOUT_FALLBACK_BOTTOM_NAV,
@@ -99,8 +99,13 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
     authorProfileStatus,
   } = authorProfileOverlay ?? {};
   const overlayLayout = useOverlayLayout();
-  const isTabletDevice = overlayLayout?.isTablet ?? isTablet();
-  const isSmallScreenDevice = overlayLayout?.isSmallScreen ?? isSmallScreen();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const isTabletDirect =
+    Device.deviceType === Device.DeviceType.TABLET || Math.min(screenWidth, screenHeight) >= 600;
+  const isSmallScreenDirect = screenWidth <= 375 || screenHeight <= 667;
+  const isCompactDeviceDirect = isTabletDirect || isSmallScreenDirect;
+  const isTabletDevice = overlayLayout?.isTablet ?? isTabletDirect;
+  const isCompactDeviceValue = overlayLayout?.isCompactDevice ?? isCompactDeviceDirect;
   const bottomNavBarHeight =
     overlayLayout?.bottomNavBarHeight ?? OVERLAY_LAYOUT_FALLBACK_BOTTOM_NAV;
 
@@ -439,11 +444,11 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
       { padding: contentPadding },
       isModal
         ? { bottom: 0 }
-        : hasTabBar && (isSmallScreenDevice || isTabletDevice)
+        : hasTabBar && isCompactDeviceValue
           ? { bottom: bottomNavBarHeight }
           : {},
     ],
-    [contentPadding, isModal, isSmallScreenDevice, isTabletDevice, bottomNavBarHeight, hasTabBar]
+    [contentPadding, isModal, isCompactDeviceValue, isTabletDevice, bottomNavBarHeight, hasTabBar]
   );
 
   // Opacity from composed overlayOpacitySV (itemVisibility + overlayVisibility + scrubbing)
