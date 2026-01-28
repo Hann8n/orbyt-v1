@@ -36,7 +36,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ListFeedViewRef } from '../../../types';
 import type { ScrollToTopRef } from '../../../utils/navigation/tabRefs';
 import { useFeedSettings } from '../../../stores/userStore';
-import { useSetTabBarVisibility, useTabBarVisibility } from '../../../context/FeedIndicatorContext';
+import {
+  useSetTabBarVisibility,
+  useTabBarVisibility,
+  useSetOverlayVisibility,
+} from '../../../context/FeedIndicatorContext';
 
 // Define the feed options type
 export type FeedOption = string;
@@ -117,11 +121,13 @@ const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
   const router = useRouter();
   const { nativeTabsEnabled } = useFeedSettings();
   const setTabBarVisibility = useSetTabBarVisibility();
+  const setOverlayVisibility = useSetOverlayVisibility();
   const tabBarVisibility = useTabBarVisibility();
 
-  const showBar = useCallback(() => {
+  const showBarAndOverlay = useCallback(() => {
     setTabBarVisibility(1);
-  }, [setTabBarVisibility]);
+    setOverlayVisibility(1);
+  }, [setTabBarVisibility, setOverlayVisibility]);
 
   // Memoized screen dimensions handling
   const [screenDims, setScreenDims] = useState(() => Dimensions.get('window'));
@@ -260,18 +266,18 @@ const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
     [isFeedBarVisible, feedBarTranslateY]
   );
 
-  // Ensure tab bar is visible when feed changes
+  // Ensure overlay is visible when feed changes
   useEffect(() => {
     if (hasAppliedInitialIndexRef.current) {
       animateFeedBar(true, true);
-      showBar();
+      showBarAndOverlay();
     }
-  }, [currentFeedIndex, animateFeedBar, showBar]);
+  }, [currentFeedIndex, animateFeedBar, showBarAndOverlay]);
 
   // Ensure controls are visible when pager mounts
   useEffect(() => {
-    showBar();
-  }, [showBar]);
+    showBarAndOverlay();
+  }, [showBarAndOverlay]);
 
   // Handle page change from PagerView - final confirmation after transition completes
   const handlePageSelected = useCallback(
@@ -288,10 +294,10 @@ const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
         pageScrollProgress.value = nextIndex;
         setCurrentFeedIndex(nextIndex);
 
-        // Reset scroll tracking when switching feeds
+        // Reset scroll tracking and reengage overlay when switching feeds
         lastScrollYRef.current = 0;
         animateFeedBar(true, true);
-        showBar();
+        showBarAndOverlay();
       }
 
       // Notify parent of feed change (only on final selection, not during scroll)
@@ -302,7 +308,7 @@ const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
     },
     // pageScrollProgress is a shared value - not needed in dependencies
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [feedOptions, onFeedChange, animateFeedBar, showBar]
+    [feedOptions, onFeedChange, animateFeedBar, showBarAndOverlay]
   );
 
   // Handle retry for each feed
@@ -345,11 +351,11 @@ const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
         setCurrentFeedIndex(roundedPosition);
       }
 
-      // Show tab bar during pager scroll
+      // Show overlay during pager scroll
       animateFeedBar(true);
-      showBar();
+      showBarAndOverlay();
     },
-    [animateFeedBar, feedOptions.length, pageScrollProgress, showBar]
+    [animateFeedBar, feedOptions.length, pageScrollProgress, showBarAndOverlay]
   );
 
   // Use FlashList native scroll directly - simple threshold-based visibility
@@ -379,13 +385,13 @@ const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
       const targetIndex = feedOptions.findIndex(option => option === feedOption);
       if (targetIndex >= 0 && targetIndex !== currentPageRef.current) {
         pagerViewRef.current?.setPage(targetIndex);
-        // Reset scroll tracking when tapping indicator
+        // Reset scroll tracking and reengage overlay immediately when tapping indicator
         lastScrollYRef.current = 0;
         animateFeedBar(true, true);
-        showBar();
+        showBarAndOverlay();
       }
     },
-    [feedOptions, animateFeedBar, showBar]
+    [feedOptions, animateFeedBar, showBarAndOverlay]
   );
 
   // Memoized query options for feed rendering
