@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo, memo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef, memo } from 'react';
 import { BORDER_RADIUS, SCROLL_CONSTANTS, APP_CONSTANTS } from '../../src/utils/constants';
 import { View, Text, StyleSheet, Pressable, Dimensions, Modal } from 'react-native';
 import { Image } from 'expo-image';
@@ -78,6 +78,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     backgroundColor: string;
     textColor: string;
   } | null>(null);
+  const didLongPressMenuRef = useRef(false);
   // Use DID in route key to differentiate between own profile and author profiles
   const profileRouteKey = useMemo(() => {
     if (providedDid) {
@@ -396,12 +397,23 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   }, [profileData, isBlocked, isBlockedByList, followMutation, blockMutation, isFollowing]);
 
   const handleMenuPress = useCallback(() => {
+    // If a long-press fired, prevent the subsequent onPress from also running
+    if (didLongPressMenuRef.current) {
+      didLongPressMenuRef.current = false;
+      return;
+    }
+
     if (isOwnProfileView) {
       router.push('/settings');
     } else {
       setShowProfileMenu(true);
     }
   }, [isOwnProfileView, router]);
+
+  const handleMenuLongPress = useCallback(() => {
+    didLongPressMenuRef.current = true;
+    presentAccountSwitcher();
+  }, [presentAccountSwitcher]);
 
   const handleLogoutFromMenu = useCallback(async () => {
     if (onLogout) {
@@ -648,7 +660,12 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
 
         <Animated.View style={[styles.overlayRightSection, overlayAnimatedStyle]}>
           {/* Menu button - same icon and sizing as UniversalHeader */}
-          <Pressable onPress={handleMenuPress} style={styles.overlayMenuButton}>
+          <Pressable
+            onPress={handleMenuPress}
+            onLongPress={isOwnProfileView ? handleMenuLongPress : undefined}
+            delayLongPress={250}
+            style={styles.overlayMenuButton}
+          >
             <MoreFillIcon
               size={24}
               color={
