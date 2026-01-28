@@ -410,6 +410,11 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     }
   }, [isOwnProfileView, router]);
 
+  const handleMenuPressIn = useCallback(() => {
+    // `useRef` persists across navigation; clear at start of every gesture to avoid stale state.
+    didLongPressMenuRef.current = false;
+  }, []);
+
   const handleMenuLongPress = useCallback(() => {
     didLongPressMenuRef.current = true;
     presentAccountSwitcher();
@@ -662,6 +667,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
           {/* Menu button - same icon and sizing as UniversalHeader */}
           <Pressable
             onPress={handleMenuPress}
+            onPressIn={handleMenuPressIn}
             onLongPress={isOwnProfileView ? handleMenuLongPress : undefined}
             delayLongPress={250}
             style={styles.overlayMenuButton}
