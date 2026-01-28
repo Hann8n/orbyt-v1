@@ -10,10 +10,9 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import Constants from 'expo-constants';
 import * as Application from 'expo-application';
 import Icon from '../../src/components/ui/Icon';
-import { getBuildVersion, getFormattedVersion } from '../../src/utils/version';
+import { getBuildNumber, getBuildVersion, getFormattedVersion } from '../../src/utils/version';
 import { Colors } from '../../src/components/ui/UI';
 import ListHeader from '../../src/components/ui/ListHeader';
 import { OptionsButton } from '../../src/components/ui/OptionsButton';
@@ -183,51 +182,191 @@ const SettingsScreen: React.FC = () => {
     Linking.openURL(url).catch(() => {});
   };
 
-  const handleOpenEmail = (email: string) => {
-    Linking.openURL(`mailto:${email}`).catch(() => {});
+  const getDeviceInfo = async () => {
+    const platform =
+      Platform.OS === 'ios'
+        ? 'iOS'
+        : Platform.OS === 'android'
+          ? 'Android'
+          : Platform.OS === 'web'
+            ? 'Web'
+            : Platform.OS;
+    const appType = `Orbyt for ${platform}`;
+    const osVersion = Device.osVersion || 'Unknown';
+    const modelName = Device.modelName || 'Unknown';
+    const appVersion = getBuildVersion();
+    const buildNumber = getBuildNumber();
+    const environment = __DEV__ ? 'Debug' : 'Release';
+    const applicationId = Application.applicationId ?? 'N/A';
+    const applicationName = Application.applicationName ?? 'N/A';
+
+    const installationTime = await Application.getInstallationTimeAsync().catch(() => null);
+    const installationTimeText = installationTime ? installationTime.toISOString() : 'N/A';
+
+    const platformAppInfo: string[] = [];
+
+    if (Platform.OS === 'android') {
+      const androidId = (() => {
+        try {
+          return Application.getAndroidId();
+        } catch {
+          return null;
+        }
+      })();
+      platformAppInfo.push(`Android ID: ${androidId ?? 'N/A'}`);
+
+      const installReferrer = await Application.getInstallReferrerAsync().catch(() => null);
+      platformAppInfo.push(`Install Referrer: ${installReferrer ?? 'N/A'}`);
+
+      const lastUpdateTime = await Application.getLastUpdateTimeAsync().catch(() => null);
+      platformAppInfo.push(
+        `Last Update Time: ${lastUpdateTime ? lastUpdateTime.toISOString() : 'N/A'}`
+      );
+    }
+
+    if (Platform.OS === 'ios') {
+      const idForVendor = await Application.getIosIdForVendorAsync().catch(() => null);
+      platformAppInfo.push(`ID for Vendor: ${idForVendor ?? 'N/A'}`);
+
+      const releaseType = await Application.getIosApplicationReleaseTypeAsync().catch(() => null);
+      const releaseTypeLabel =
+        releaseType === null || releaseType === undefined
+          ? 'N/A'
+          : // Numeric enum reverse-mapping (e.g. 5 -> 'APP_STORE')
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (((Application as any).ApplicationReleaseType?.[releaseType] as string | undefined) ??
+            String(releaseType));
+      platformAppInfo.push(`iOS Release Type: ${releaseTypeLabel}`);
+
+      const apnsEnv = await Application.getIosPushNotificationServiceEnvironmentAsync().catch(
+        () => null
+      );
+      platformAppInfo.push(`APNs Environment: ${apnsEnv ?? 'N/A'}`);
+    }
+
+    return [
+      appType,
+      `Platform: ${platform}`,
+      `OS Version: ${osVersion}`,
+      `Device Model: ${modelName}`,
+      '',
+      `App Version: ${appVersion}`,
+      `Build Number: ${buildNumber}`,
+      `Environment: ${environment}`,
+      '',
+      `Application ID: ${applicationId}`,
+      `Application Name: ${applicationName}`,
+      '',
+      `Installation Time: ${installationTimeText}`,
+      ...(platformAppInfo.length ? ['', ...platformAppInfo] : []),
+    ].join('\n');
+  };
+
+  const handleOpenEmail = async (email: string) => {
+    try {
+      const deviceInfo = await getDeviceInfo();
+      const subject = encodeURIComponent('Orbyt Support Request');
+      const body = encodeURIComponent(
+        `
+
+
+
+----------------------------------------
+Device Information (do not edit below this line):
+${deviceInfo}`
+      );
+      const mailtoUrl = `mailto:${email}?subject=${subject}&body=${body}`;
+
+      const canOpen = await Linking.canOpenURL(`mailto:${email}`);
+      if (canOpen) {
+        await Linking.openURL(mailtoUrl);
+      } else {
+        // Fallback: Copy email body to clipboard
+        await Clipboard.setStringAsync(`${email}\n\n${deviceInfo}`);
+        Alert.alert(
+          'Email Copied',
+          'No email app is configured. The support email and device information have been copied to your clipboard.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (_error) {
+      // Fallback: Just open basic mailto
+      Linking.openURL(`mailto:${email}`).catch(() => {});
+    }
   };
 
   const formattedVersion = getFormattedVersion();
   const buildVersion = getBuildVersion();
 
-  const handleVersionPress = () => {
+  const handleVersionPress = async () => {
     try {
-      const fallbackNativeBuildVersion =
-        Platform.OS === 'ios'
-          ? Constants.expoConfig?.ios?.buildNumber
-          : Platform.OS === 'android'
-            ? Constants.expoConfig?.android?.versionCode?.toString()
-            : undefined;
-
-      const nativeAppVersion =
-        Application.nativeApplicationVersion ?? Constants.nativeAppVersion ?? buildVersion ?? 'N/A';
-      const nativeBuildVersion =
-        Application.nativeBuildVersion ??
-        Constants.nativeBuildVersion ??
-        fallbackNativeBuildVersion ??
-        'N/A';
+      const appVersion = buildVersion;
+      const buildNumber = getBuildNumber();
       const environment = __DEV__ ? 'Debug' : 'Release';
 
-      const platformBuildInfo =
-        Platform.OS === 'ios'
-          ? [`iOS Build Number: ${Constants.expoConfig?.ios?.buildNumber ?? 'N/A'}`]
-          : Platform.OS === 'android'
-            ? [`Android Version Code: ${Constants.expoConfig?.android?.versionCode ?? 'N/A'}`]
-            : [];
+      const applicationId = Application.applicationId ?? 'N/A';
+      const applicationName = Application.applicationName ?? 'N/A';
+
+      const installationTime = await Application.getInstallationTimeAsync().catch(() => null);
+      const installationTimeText = installationTime ? installationTime.toISOString() : 'N/A';
+
+      const platformAppInfo: string[] = [];
+
+      if (Platform.OS === 'android') {
+        const androidId = (() => {
+          try {
+            return Application.getAndroidId();
+          } catch {
+            return null;
+          }
+        })();
+        platformAppInfo.push(`Android ID: ${androidId ?? 'N/A'}`);
+
+        const installReferrer = await Application.getInstallReferrerAsync().catch(() => null);
+        platformAppInfo.push(`Install Referrer: ${installReferrer ?? 'N/A'}`);
+
+        const lastUpdateTime = await Application.getLastUpdateTimeAsync().catch(() => null);
+        platformAppInfo.push(
+          `Last Update Time: ${lastUpdateTime ? lastUpdateTime.toISOString() : 'N/A'}`
+        );
+      }
+
+      if (Platform.OS === 'ios') {
+        const idForVendor = await Application.getIosIdForVendorAsync().catch(() => null);
+        platformAppInfo.push(`ID for Vendor: ${idForVendor ?? 'N/A'}`);
+
+        const releaseType = await Application.getIosApplicationReleaseTypeAsync().catch(() => null);
+        const releaseTypeLabel =
+          releaseType === null || releaseType === undefined
+            ? 'N/A'
+            : // Numeric enum reverse-mapping (e.g. 5 -> 'APP_STORE')
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              (((Application as any).ApplicationReleaseType?.[releaseType] as string | undefined) ??
+              String(releaseType));
+        platformAppInfo.push(`iOS Release Type: ${releaseTypeLabel}`);
+
+        const apnsEnv = await Application.getIosPushNotificationServiceEnvironmentAsync().catch(
+          () => null
+        );
+        platformAppInfo.push(`APNs Environment: ${apnsEnv ?? 'N/A'}`);
+      }
 
       const message = [
-        `App Version: ${buildVersion}`,
+        `App Version: ${appVersion}`,
+        `Build Number: ${buildNumber}`,
         `Environment: ${environment}`,
         `Platform: ${Platform.OS}`,
         '',
-        `Native App Version: ${nativeAppVersion}`,
-        `Native Build Version: ${nativeBuildVersion}`,
-        ...platformBuildInfo,
+        `Application ID: ${applicationId}`,
+        `Application Name: ${applicationName}`,
+        '',
+        `Installation Time: ${installationTimeText}`,
+        ...(platformAppInfo.length ? ['', ...platformAppInfo] : []),
       ].join('\n');
 
       Alert.alert('Version Information', message, [
         {
-          text: 'Copy Version',
+          text: 'Copy',
           onPress: async () => {
             await Clipboard.setStringAsync(message);
             Alert.alert('Copied', 'Version copied to clipboard');
