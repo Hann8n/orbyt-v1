@@ -1,8 +1,10 @@
-/**
- * Universal OAuth Error Handler
- * Provides consistent error handling for OAuth authentication failures
- */
 import { logger } from '../logger';
+import {
+  TokenRevokedError,
+  TokenRefreshError,
+  TokenInvalidError,
+  AuthMethodUnsatisfiableError,
+} from '@atproto/oauth-client';
 
 export interface OAuthErrorInfo {
   isUserCancellation: boolean;
@@ -14,24 +16,30 @@ export interface OAuthErrorInfo {
   shouldRedirectToLogin: boolean;
 }
 
-/**
- * Analyzes OAuth errors and provides actionable information
- */
 export function analyzeOAuthError(error: unknown): OAuthErrorInfo {
   const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+  const isTokenRevoked = error instanceof TokenRevokedError;
+  const isTokenRefreshError = error instanceof TokenRefreshError;
+  const isTokenInvalid = error instanceof TokenInvalidError;
+  const isAuthMethodUnsatisfiable = error instanceof AuthMethodUnsatisfiableError;
 
   const isUserCancellation =
     errorMessage.includes('cancelled') ||
     errorMessage.includes('user_cancelled') ||
-    errorMessage.includes('User cancelled');
+    errorMessage.includes('User cancelled') ||
+    errorMessage.includes('Authentication cancelled');
 
   const requiresReauth =
+    isTokenRevoked ||
+    isTokenRefreshError ||
+    isTokenInvalid ||
+    isAuthMethodUnsatisfiable ||
     errorMessage.includes('oauth_reauth_required') ||
     errorMessage.includes('Session is invalid') ||
     errorMessage.includes('No session found') ||
     errorMessage.includes('Session expired') ||
-    errorMessage.includes('deleted by another process') ||
-    errorMessage.includes('TokenRefreshError');
+    errorMessage.includes('deleted by another process');
 
   const isNetworkError =
     errorMessage.includes('Network') ||
@@ -48,7 +56,6 @@ export function analyzeOAuthError(error: unknown): OAuthErrorInfo {
   const isSessionExpired =
     requiresReauth || errorMessage.includes('token') || errorMessage.includes('expired');
 
-  // Determine user-friendly message
   let userFriendlyMessage = 'Authentication failed. Please try again.';
 
   if (isUserCancellation) {
@@ -74,9 +81,6 @@ export function analyzeOAuthError(error: unknown): OAuthErrorInfo {
   };
 }
 
-/**
- * Handles OAuth errors with appropriate user feedback
- */
 export function handleOAuthError(
   error: unknown,
   context: string = 'authentication',
@@ -90,19 +94,15 @@ export function handleOAuthError(
     errorInfo,
   });
 
-  // Don't show alerts for user cancellations
   if (errorInfo.isUserCancellation) {
     return;
   }
 
-  // For session expiration, redirect to login if callback provided
   if (errorInfo.shouldRedirectToLogin && onRedirectToLogin) {
     onRedirectToLogin();
     return;
   }
 
-  // For other errors, you might want to show an alert or handle differently
-  // This is a generic handler - specific components should implement their own UI
   logger.warn(`[OAuthErrorHandler] ${context} error`, {
     component: 'OAuthErrorHandler',
     action: context,
@@ -110,9 +110,6 @@ export function handleOAuthError(
   });
 }
 
-/**
- * Creates a standardized error handler for OAuth operations
- */
 export function createOAuthErrorHandler(context: string, onRedirectToLogin?: () => void) {
   return (error: unknown) => {
     handleOAuthError(error, context, onRedirectToLogin);

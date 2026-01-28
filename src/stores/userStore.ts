@@ -386,8 +386,6 @@ export const useUserStore = create<UserState>()(
           const currentDid = get().activeAccountDid;
           const oauthService = AtProtoOAuthService.getInstance();
 
-          // If we have an active account, revoke its session
-          // The package manages sessions internally, so we use revoke() to properly clean up
           if (currentDid) {
             try {
               const client = await oauthService.getClient();
