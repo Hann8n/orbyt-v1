@@ -1,16 +1,15 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../utils/constants';
 import { Colors } from './UI';
-import { Avatar, Icon } from './UI';
-import { Loading3FillIcon } from './Icon';
+import { Icon } from './UI';
+import { Loading3FillIcon, FollowIcon, CheckIcon, MutualHeartIcon, MinusFillIcon } from './Icon';
 import ListHeader from './ListHeader';
-import { VerificationBadge } from '../features/badging';
+import AuthorItem from './AuthorItem';
 import { useFollowMutation } from '../../services/data/ProfileService';
-import { formatHandle } from '../../utils/formatting/handles';
 import { isCurrentUser } from '../../stores/profileInteractionStore';
 import { useUserStore } from '../../stores/userStore';
 
@@ -22,6 +21,7 @@ interface User {
   description?: string;
   viewer?: {
     following?: string;
+    followedBy?: string;
   };
   isFollowing?: boolean;
   isChannel?: boolean;
@@ -40,7 +40,6 @@ interface ListScreenProps {
   emptyTitle: string;
   emptySubtitle: string;
   showFollowButton?: boolean;
-  followButtonIcon?: string;
   followButtonAction?: 'follow' | 'unfollow' | 'unblock' | 'unmute';
   onUserPress?: (did: string) => void;
   onActionPress?: (user: User) => void;
@@ -58,14 +57,12 @@ const ListScreen: React.FC<ListScreenProps> = ({
   emptyTitle,
   emptySubtitle,
   showFollowButton = true,
-  followButtonIcon = 'user-plus',
   followButtonAction = 'follow',
   onUserPress,
   onActionPress,
 }) => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [actionUsers, setActionUsers] = useState<Set<string>>(new Set());
   const followMutation = useFollowMutation();
   const currentUser = useUserStore(state => state.currentUser);
 
@@ -78,7 +75,7 @@ const ListScreen: React.FC<ListScreenProps> = ({
     [onUserPress]
   );
 
-  const handleFollowAction = useCallback(
+  const handleFollowPress = useCallback(
     (user: User) => {
       if (user.handle) {
         // Handle follow/unfollow actions
@@ -93,18 +90,6 @@ const ListScreen: React.FC<ListScreenProps> = ({
           // Handle unblock/unmute actions
           onActionPress(user);
         }
-
-        // Add to action users set for visual feedback
-        setActionUsers(prev => new Set(prev).add(user.handle || user.did));
-
-        // Remove after 3 seconds
-        setTimeout(() => {
-          setActionUsers(prev => {
-            const newSet = new Set(prev);
-            newSet.delete(user.handle || user.did);
-            return newSet;
-          });
-        }, 3000);
       }
     },
     [followMutation, followButtonAction, onActionPress]
@@ -114,61 +99,46 @@ const ListScreen: React.FC<ListScreenProps> = ({
     ({ item }: { item: User }) => {
       const isCurrentUserProfile = isCurrentUser(item.did, item.handle, currentUser);
       const shouldShowFollowButton = showFollowButton && !isCurrentUserProfile;
+      const isFollowing = item.isFollowing || !!item.viewer?.following;
+      const isFollowedBy = !!item.viewer?.followedBy;
+      const isMutual = isFollowing && isFollowedBy;
 
       return (
-        <View style={styles.profileItem}>
-          <Pressable style={styles.profileTouchable} onPress={() => handleUserPress(item.did)}>
-            <Avatar
-              uri={item.avatar}
-              type={item.isChannel ? 'channel' : 'profile'}
-              size={40}
-              ringColor="transparent"
-              style={styles.profileImage}
-            />
-            <View style={styles.profileContent}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Text style={styles.displayName} numberOfLines={1}>
-                  {item.displayName ||
-                    formatHandle(item.handle) ||
-                    (item.isChannel ? 'Unknown channel' : 'Unknown user')}
-                </Text>
-                {item.handle && item.handle.trim() && item.handle.length > 0 && !item.isChannel && (
-                  <VerificationBadge
-                    handle={item.handle.trim()}
-                    textSize={14}
-                    textColor={Colors.white}
-                  />
-                )}
-              </View>
-            </View>
-          </Pressable>
+        <View style={styles.userItemContainer}>
+          <AuthorItem
+            handle={item.handle}
+            did={item.did}
+            displayName={item.displayName}
+            avatar={item.avatar}
+            size="large"
+            showArrow={false}
+            showFollowButton={false}
+            backgroundColor={Colors.transparent}
+            nameFontWeight="Figtree-SemiBold"
+            customFontSize={16}
+            style={styles.authorItem}
+            onPress={() => handleUserPress(item.did)}
+          />
           {shouldShowFollowButton && (
             <Pressable
-              style={[
-                styles.followButton,
-                actionUsers.has(item.handle || item.did) && styles.actionButton,
-              ]}
-              onPress={() => handleFollowAction(item)}
+              style={({ pressed }) => [styles.followButton, pressed && { opacity: 0.8 }]}
+              onPress={() => handleFollowPress(item)}
             >
-              {actionUsers.has(item.handle || item.did) ? (
-                <Icon name="checkmark" size={16} color={Colors.black} />
+              {followButtonAction === 'unblock' || followButtonAction === 'unmute' ? (
+                <MinusFillIcon size={16} color={Colors.black} />
+              ) : isMutual ? (
+                <MutualHeartIcon size={16} color={Colors.black} />
+              ) : isFollowing ? (
+                <CheckIcon size={16} color={Colors.black} strokeWidth={2} />
               ) : (
-                <Icon name={followButtonIcon} size={16} color={Colors.black} />
+                <FollowIcon size={16} color={Colors.black} />
               )}
             </Pressable>
           )}
         </View>
       );
     },
-    [
-      handleUserPress,
-      handleFollowAction,
-      showFollowButton,
-      followButtonIcon,
-      followButtonAction,
-      actionUsers,
-      currentUser,
-    ]
+    [handleUserPress, handleFollowPress, showFollowButton, followButtonAction, currentUser]
   );
 
   const renderEmpty = useCallback(
@@ -211,7 +181,8 @@ const ListScreen: React.FC<ListScreenProps> = ({
         showCloseButton
         onClosePress={() => router.back()}
         applySafeAreaTop={false}
-        style={{ marginHorizontal: -5 }}
+        backgroundColor={Colors.black}
+        titleIndent={true}
       />
     ),
     [title, router]
@@ -220,12 +191,12 @@ const ListScreen: React.FC<ListScreenProps> = ({
   if (isLoading) {
     return (
       <View style={[styles.container, { backgroundColor: Colors.black }]}>
+        {renderListHeader()}
         <FlashList
           data={[]}
           renderItem={() => null}
           keyExtractor={() => 'loading'}
           showsVerticalScrollIndicator={false}
-          ListHeaderComponent={renderListHeader}
           ListEmptyComponent={renderLoading}
           contentContainerStyle={[styles.listContainer, { paddingBottom: insets.bottom + 20 }]}
         />
@@ -236,12 +207,12 @@ const ListScreen: React.FC<ListScreenProps> = ({
   if (error) {
     return (
       <View style={[styles.container, { backgroundColor: Colors.black }]}>
+        {renderListHeader()}
         <FlashList
           data={[]}
           renderItem={() => null}
           keyExtractor={() => 'error'}
           showsVerticalScrollIndicator={false}
-          ListHeaderComponent={renderListHeader}
           ListEmptyComponent={renderError}
           contentContainerStyle={[styles.listContainer, { paddingBottom: insets.bottom + 20 }]}
         />
@@ -251,12 +222,12 @@ const ListScreen: React.FC<ListScreenProps> = ({
 
   return (
     <View style={[styles.container, { backgroundColor: Colors.black }]}>
+      {renderListHeader()}
       <FlashList
         data={data}
         renderItem={renderUser}
         keyExtractor={item => item.did}
         showsVerticalScrollIndicator={false}
-        ListHeaderComponent={renderListHeader}
         onEndReached={() => {
           if (hasNextPage && !isFetchingNextPage && onEndReached) {
             onEndReached();
@@ -277,51 +248,29 @@ const styles = StyleSheet.create({
   listContainer: {
     paddingTop: 0,
   },
-  profileItem: {
+  userItemContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
     paddingHorizontal: 20,
   },
-  profileTouchable: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  authorItem: {
     flex: 1,
-  },
-  profileImage: {
-    width: 40,
-    height: 40,
-    borderRadius: BORDER_RADIUS.FULL,
-    marginRight: 12,
-    borderWidth: 0,
-    borderColor: Colors.transparent,
-  },
-  profileContent: {
-    flex: 1,
-    minWidth: 0,
-    justifyContent: 'center',
-  },
-  displayName: {
-    color: Colors.white,
-    fontSize: 16,
-    marginBottom: 2,
-    fontFamily: 'Figtree-SemiBold',
-    flexShrink: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 0,
+    marginBottom: 0,
+    borderRadius: 0,
   },
   followButton: {
     width: 32,
     height: 32,
     borderWidth: 0,
-    borderColor: 'transparent',
+    borderColor: Colors.transparent,
     borderRadius: BORDER_RADIUS.SMALL,
     backgroundColor: Colors.lightGray,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
     marginLeft: 10,
-  },
-  actionButton: {
-    borderColor: Colors.red,
   },
   emptyContainer: {
     flex: 1,

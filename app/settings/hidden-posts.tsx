@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { BORDER_RADIUS } from '../../src/utils/constants';
 import { View, Text, FlatList, StyleSheet, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -31,13 +31,7 @@ const HiddenPostsScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [unhidingPosts, setUnhidingPosts] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    if (moderationPrefs) {
-      loadHiddenPosts();
-    }
-  }, [moderationPrefs]);
-
-  const loadHiddenPosts = async () => {
+  const loadHiddenPosts = useCallback(async () => {
     try {
       setLoading(true);
       const hiddenPostUris = moderationPrefs?.hiddenPosts ?? [];
@@ -65,7 +59,13 @@ const HiddenPostsScreen: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [moderationPrefs]);
+
+  useEffect(() => {
+    if (moderationPrefs) {
+      loadHiddenPosts();
+    }
+  }, [moderationPrefs, loadHiddenPosts]);
 
   const handleUnhidePost = async (postId: string) => {
     try {
@@ -144,7 +144,8 @@ const HiddenPostsScreen: React.FC = () => {
           showCloseButton
           onClosePress={() => router.back()}
           applySafeAreaTop={false}
-          style={{ marginHorizontal: -5 }}
+          backgroundColor={Colors.black}
+          titleIndent={true}
         />
         <View style={styles.loadingContainer}>
           <Loading3FillIcon size={48} color={Colors.white} />
@@ -162,7 +163,8 @@ const HiddenPostsScreen: React.FC = () => {
         showCloseButton
         onClosePress={() => router.back()}
         applySafeAreaTop={false}
-        style={{ marginHorizontal: -5 }}
+        backgroundColor={Colors.black}
+        titleIndent={true}
       />
 
       <FlatList

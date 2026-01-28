@@ -252,7 +252,8 @@ const AlgorithmicFeedScreen: React.FC = () => {
         showCloseButton
         onClosePress={() => router.back()}
         applySafeAreaTop={false}
-        style={{ marginHorizontal: -5 }}
+        backgroundColor={Colors.black}
+        titleIndent={true}
       />
 
       <ScrollView
@@ -475,18 +476,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Figtree-Regular',
     lineHeight: 20,
-  },
-  footerSection: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 20,
-  },
-  footerText: {
-    color: Colors.gray,
-    fontSize: 13,
-    fontFamily: 'Figtree-Regular',
-    lineHeight: 18,
-    fontStyle: 'italic',
   },
   channelsSectionHeader: {
     paddingHorizontal: 20,

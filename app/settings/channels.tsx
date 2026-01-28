@@ -178,30 +178,22 @@ export default function ChannelManagementScreen() {
     [handleExplorePress]
   );
 
-  const renderListHeader = useCallback(
-    () => (
-      <View>
-        <ListHeader
-          mode="sheet"
-          title="channels"
-          showCloseButton
-          onClosePress={() => router.back()}
-          applySafeAreaTop={false}
-          style={{ marginHorizontal: -5 }}
-        />
-      </View>
-    ),
-    [router]
-  );
-
   return (
     <View style={[styles.container, { backgroundColor: Colors.black }]}>
+      <ListHeader
+        mode="sheet"
+        title="channels"
+        showCloseButton
+        onClosePress={() => router.back()}
+        applySafeAreaTop={false}
+        backgroundColor={Colors.black}
+        titleIndent={true}
+      />
       <FlatList
         data={listData}
         renderItem={renderChannelItem}
         keyExtractor={(item, index) => item.uri || item.did || `channel-${index}`}
         showsVerticalScrollIndicator={false}
-        ListHeaderComponent={renderListHeader}
         ListEmptyComponent={renderEmpty}
         contentContainerStyle={[styles.listContainer, { paddingBottom: insets.bottom + 20 }]}
       />
@@ -239,10 +231,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     borderRadius: BORDER_RADIUS.MEDIUM,
   },
-  actionButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
   channelAvatar: {
     marginRight: 12,
   },
@@ -272,11 +260,6 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     fontFamily: 'Figtree-Bold',
     flexShrink: 1,
-  },
-  defaultBadge: {
-    marginLeft: 6,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   description: {
     color: Colors.lightGray,

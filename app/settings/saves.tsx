@@ -18,7 +18,8 @@ const SavesScreen: React.FC = () => {
         showCloseButton
         onClosePress={() => router.back()}
         applySafeAreaTop={false}
-        style={{ marginHorizontal: -5 }}
+        backgroundColor={Colors.black}
+        titleIndent={true}
       />
       <FeedRenderer
         feedOption="bookmarks"
@@ -35,17 +36,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.black,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorText: {
-    color: Colors.white,
-    fontSize: 16,
-    fontFamily: 'Figtree-Regular',
   },
 });
 

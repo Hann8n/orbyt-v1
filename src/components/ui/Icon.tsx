@@ -530,7 +530,7 @@ export const MinusFillIcon: React.FC<{
   color: string;
   style?: StyleProp<ViewStyle>;
 }> = ({ size, color, style }) => {
-  const svgXml = MINUS_FILL_ICON_SVG.replace(/#fff/g, color);
+  const svgXml = MINUS_FILL_ICON_SVG.replace(/#FFFFFFFF/gi, color).replace(/#fff/gi, color);
   return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
 };
 

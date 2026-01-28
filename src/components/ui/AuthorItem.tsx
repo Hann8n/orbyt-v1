@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, View, StyleProp, ViewStyle } from 'react-n
 import { useRouter } from 'expo-router';
 import { Avatar } from './UI';
 import VerificationBadge from '../features/badging/VerificationBadge';
-import Icon, { FollowIcon, CheckIcon, Loading3FillIcon } from './Icon';
+import Icon, { FollowIcon, CheckIcon, Loading3FillIcon, MutualHeartIcon } from './Icon';
 import { hexToRGBA } from '../../utils/formatting/colors';
 import { Colors } from './UI';
 import UI from './UI';
@@ -141,8 +141,9 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
 
   // Get following & block status from ProfileService using the hook
   const { data: cachedProfile } = useProfile(handle);
-  const actualIsFollowing =
-    cachedProfile?.viewer?.following || cachedProfile?.viewer?.followedBy ? true : isFollowing;
+  const actualIsFollowing = cachedProfile?.viewer?.following ? true : isFollowing;
+  const isFollowedBy = !!cachedProfile?.viewer?.followedBy;
+  const isMutual = actualIsFollowing && isFollowedBy;
   const isBlocked = !!(cachedProfile?.viewer?.blocking || cachedProfile?.viewer?.blockingByList);
 
   const followMutation = useFollowMutation();
@@ -238,7 +239,9 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
             ]}
             onPress={handleFollowPress}
           >
-            {actualIsFollowing ? (
+            {isMutual ? (
+              <MutualHeartIcon size={16} color={Colors.black} />
+            ) : actualIsFollowing ? (
               <CheckIcon size={16} color={Colors.black} strokeWidth={2} />
             ) : (
               <FollowIcon size={16} color={Colors.black} />
@@ -305,13 +308,6 @@ const styles = StyleSheet.create({
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  name: {
-    marginBottom: 1,
-  },
-  handle: {
-    // Font family is now controlled via props
-    fontWeight: '600',
   },
   followButton: {
     borderWidth: 0,

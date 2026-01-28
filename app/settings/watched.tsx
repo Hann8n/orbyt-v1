@@ -12,22 +12,21 @@ const WatchedScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
+      <ListHeader
+        mode="sheet"
+        title="Watched videos"
+        showCloseButton
+        onClosePress={() => router.back()}
+        applySafeAreaTop={false}
+        backgroundColor={Colors.black}
+        titleIndent={true}
+      />
       <FeedRenderer
         feedOption="watched"
         userDid={currentUser?.did ?? undefined}
         queryOptions={{ enabled: !!currentUser?.did }}
         viewMode="grid"
         refreshControl={null}
-        headerComponent={
-          <ListHeader
-            mode="sheet"
-            title="Watched videos"
-            showCloseButton
-            onClosePress={() => router.back()}
-            applySafeAreaTop={false}
-            style={styles.headerStyle}
-          />
-        }
         backgroundColor={Colors.black}
         secondaryColor={Colors.white}
       />
@@ -39,9 +38,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.black,
-  },
-  headerStyle: {
-    marginHorizontal: -5,
   },
 });
 

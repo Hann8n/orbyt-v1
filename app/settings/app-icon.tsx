@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Alert, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { setAppIcon } from '@mozzius/expo-dynamic-app-icon';
+import type { ImageSource } from 'expo-image';
 
 import { Colors } from '../../src/components/ui/UI';
 import ListHeader from '../../src/components/ui/ListHeader';
@@ -18,7 +19,7 @@ const ICON_OPTIONS: {
   label: string;
   subtitle?: string;
   iconKey: AppIconKey;
-  preview: any;
+  preview: ImageSource;
 }[] = [
   {
     id: 'default',
@@ -49,7 +50,7 @@ const AppIconSettingsScreen: React.FC = () => {
       try {
         setIsSubmitting(true);
         await setAppIcon(iconKey);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Error changing app icon:', error);
         const message =
           Platform.OS === 'android'
@@ -71,12 +72,11 @@ const AppIconSettingsScreen: React.FC = () => {
         showCloseButton
         onClosePress={() => router.back()}
         applySafeAreaTop={Platform.OS === 'android'}
-        style={{ marginHorizontal: -5 }}
         backgroundColor={Colors.black}
         titleIndent={true}
       />
 
-      <View style={{ flex: 1 }}>
+      <View style={styles.contentContainer}>
         {ICON_OPTIONS.filter(option => option.id !== 'orBYTE' || isBeta).map(option => (
           <OptionsButton
             key={option.id}
@@ -107,6 +107,9 @@ const AppIconSettingsScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
+  contentContainer: {
+    flex: 1,
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -61,9 +61,7 @@ const MutedUsersScreen: React.FC = () => {
   const handleUnmuteUser = async (user: MutedUser) => {
     try {
       setUnmutingUsers(prev => new Set(prev).add(user.did));
-      // Note: unmuteUser is not implemented yet in AtprotoService
-      // await AtprotoService.unmuteUser(user.did);
-      logger.info('Unmute functionality not implemented yet', { component: 'MutedUsersScreen' });
+      await AtprotoService.unmuteUser(user.did);
       setMutedUsers(prev => prev.filter(mutedUser => mutedUser.did !== user.did));
     } catch (error) {
       logger.error('Error unmuting user', error, {

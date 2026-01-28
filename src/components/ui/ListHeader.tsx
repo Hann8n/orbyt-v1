@@ -161,8 +161,7 @@ const styles = StyleSheet.create({
   },
   containerSheet: {
     paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 16,
+    paddingVertical: 16,
   },
   leftSection: {
     width: 44,
@@ -191,12 +190,6 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  iconButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   leftSpacer: {
     width: 40,
