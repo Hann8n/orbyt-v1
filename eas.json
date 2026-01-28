@@ -6,7 +6,6 @@
   "build": {
     "development": {
       "distribution": "internal",
-      "channel": "development",
       "ios": {
         "resourceClass": "m-medium",
         "developmentTeam": "D8VXFBV8SJ"
@@ -17,7 +16,6 @@
     },
     "preview": {
       "distribution": "internal",
-      "channel": "preview",
       "env": {
         "EXPO_PUBLIC_APP_CONFIG": "app.dev.json"
       }
@@ -25,7 +23,6 @@
     "production": {
       "autoIncrement": true,
       "distribution": "store",
-      "channel": "production",
       "env": {
         "EXPO_PUBLIC_APP_CONFIG": "app.prod.json"
       }

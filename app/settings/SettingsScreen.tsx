@@ -10,9 +10,10 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import * as Updates from 'expo-updates';
+import Constants from 'expo-constants';
+import * as Application from 'expo-application';
 import Icon from '../../src/components/ui/Icon';
-import { getBuildVersion, getUpdateVersion, getFormattedVersion } from '../../src/utils/version';
+import { getBuildVersion, getFormattedVersion } from '../../src/utils/version';
 import { Colors } from '../../src/components/ui/UI';
 import ListHeader from '../../src/components/ui/ListHeader';
 import { OptionsButton } from '../../src/components/ui/OptionsButton';
@@ -188,38 +189,48 @@ const SettingsScreen: React.FC = () => {
 
   const formattedVersion = getFormattedVersion();
   const buildVersion = getBuildVersion();
-  const updateVersion = getUpdateVersion();
 
   const handleVersionPress = () => {
-    if (__DEV__) {
-      Alert.alert('Version Info', 'Updates are disabled in development mode.');
-      return;
-    }
-
     try {
-      const updateId = Updates.updateId || 'N/A';
-      const channel = Updates.channel || 'N/A';
+      const fallbackNativeBuildVersion =
+        Platform.OS === 'ios'
+          ? Constants.expoConfig?.ios?.buildNumber
+          : Platform.OS === 'android'
+            ? Constants.expoConfig?.android?.versionCode?.toString()
+            : undefined;
 
-      // Build detailed version message
-      const buildInfo = `Build Version: ${buildVersion}`;
-      const updateInfo = updateVersion ? `Update Version: ${updateVersion}` : 'Update Version: N/A';
-      const updateDetails = `Update ID: ${updateId}\nChannel: ${channel}`;
+      const nativeAppVersion =
+        Application.nativeApplicationVersion ?? Constants.nativeAppVersion ?? buildVersion ?? 'N/A';
+      const nativeBuildVersion =
+        Application.nativeBuildVersion ??
+        Constants.nativeBuildVersion ??
+        fallbackNativeBuildVersion ??
+        'N/A';
+      const environment = __DEV__ ? 'Debug' : 'Release';
 
-      const message = `${buildInfo}\n${updateInfo}\n\n${updateDetails}`;
+      const platformBuildInfo =
+        Platform.OS === 'ios'
+          ? [`iOS Build Number: ${Constants.expoConfig?.ios?.buildNumber ?? 'N/A'}`]
+          : Platform.OS === 'android'
+            ? [`Android Version Code: ${Constants.expoConfig?.android?.versionCode ?? 'N/A'}`]
+            : [];
+
+      const message = [
+        `App Version: ${buildVersion}`,
+        `Environment: ${environment}`,
+        `Platform: ${Platform.OS}`,
+        '',
+        `Native App Version: ${nativeAppVersion}`,
+        `Native Build Version: ${nativeBuildVersion}`,
+        ...platformBuildInfo,
+      ].join('\n');
 
       Alert.alert('Version Information', message, [
         {
           text: 'Copy Version',
           onPress: async () => {
-            await Clipboard.setStringAsync(formattedVersion);
+            await Clipboard.setStringAsync(message);
             Alert.alert('Copied', 'Version copied to clipboard');
-          },
-        },
-        {
-          text: 'Copy Update ID',
-          onPress: async () => {
-            await Clipboard.setStringAsync(updateId);
-            Alert.alert('Copied', 'Update ID copied to clipboard');
           },
         },
         {
@@ -228,7 +239,7 @@ const SettingsScreen: React.FC = () => {
         },
       ]);
     } catch (_error) {
-      Alert.alert('Error', 'Unable to get update information.');
+      Alert.alert('Error', 'Unable to get version information.');
     }
   };
 

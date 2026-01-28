@@ -56,15 +56,6 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 npx tsx scripts/update-version.ts increment-build
 echo ""
 
-# Step 2.5: Set OTA update channel to preview for beta builds
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "Step 2.5: Configuring OTA update channel"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-export EXPO_PUBLIC_EAS_UPDATE_CHANNEL="preview"
-echo "  ✅ OTA update channel configured for: preview (beta testers)"
-echo "  📝 Note: To publish OTA updates, run: eas update --channel preview --message \"Your update message\""
-echo ""
-
 # Step 3: Ensure native directories exist
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "Step 3: Preparing native projects"

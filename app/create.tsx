@@ -46,7 +46,6 @@ import * as Haptics from 'expo-haptics';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { showEditor, isValidFile, type Spec } from 'react-native-clip-trim';
 import { SegmentManager, type Segment } from '../src/utils/video/segmentManager';
-import * as Updates from 'expo-updates';
 
 // Duration options in seconds
 const DURATION_OPTIONS = [
@@ -820,9 +819,8 @@ const CreateScreen: React.FC = () => {
 
     // Only navigate if component is still mounted
     if (isMountedRef.current) {
-      // Route to video editor if on development channel, otherwise go straight to post screen
-      if (!__DEV__ && Updates.channel === 'development') {
-        // For developers: pass segments to video-editor (same as post screen)
+      // In development, route to video editor for faster iteration; otherwise go straight to post.
+      if (__DEV__) {
         if (videoSegments.length === 1) {
           router.push({
             pathname: '/video-editor',
@@ -839,7 +837,6 @@ const CreateScreen: React.FC = () => {
           });
         }
       } else {
-        // For non-developers: pass segments to post screen (same as before)
         if (videoSegments.length === 1) {
           router.push({
             pathname: '/post/[id]',

@@ -189,7 +189,7 @@ function RootNavigator() {
               }}
             />
           </Stack.Protected>
-          <Stack.Screen name="video-editor" />
+          {__DEV__ && <Stack.Screen name="video-editor" />}
           <Stack.Screen name="video-trimmer" />
           <Stack.Screen
             name="post/[id]"

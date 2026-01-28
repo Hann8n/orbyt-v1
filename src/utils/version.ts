@@ -8,25 +8,10 @@ export function getBuildVersion(): string {
 }
 
 /**
- * Get the update version from app.json extra section
- */
-export function getUpdateVersion(): string | undefined {
-  return Constants.expoConfig?.extra?.updateVersion as string | undefined;
-}
-
-/**
- * Format the display version as "buildVersion (updateVersion)"
- * Falls back to just buildVersion if updateVersion is not available
+ * Format the display version for UI.
  */
 export function getFormattedVersion(): string {
-  const buildVersion = getBuildVersion();
-  const updateVersion = getUpdateVersion();
-
-  if (updateVersion) {
-    return `${buildVersion} (${updateVersion})`;
-  }
-
-  return buildVersion;
+  return getBuildVersion();
 }
 
 /**
@@ -34,19 +19,13 @@ export function getFormattedVersion(): string {
  */
 export function getVersionInfo(): {
   buildVersion: string;
-  updateVersion: string | undefined;
   formattedVersion: string;
-  runtimeVersion: string | undefined;
 } {
   const buildVersion = getBuildVersion();
-  const updateVersion = getUpdateVersion();
   const formattedVersion = getFormattedVersion();
-  const runtimeVersion = Constants.expoConfig?.runtimeVersion as string | undefined;
 
   return {
     buildVersion,
-    updateVersion,
     formattedVersion,
-    runtimeVersion,
   };
 }
