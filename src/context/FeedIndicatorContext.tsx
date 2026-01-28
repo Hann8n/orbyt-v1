@@ -13,7 +13,7 @@ type TabBarContextValue = {
   setTabBarVisibility: (visibility: number) => void;
   /**
    * Overlay visibility shared value for video overlays (0 = hidden, 1 = visible).
-   * Set from FlashList viewability and FeedPager on feed change/scroll.
+   * Controlled only by scroll-based viewability tracking (onViewableItemsChanged).
    */
   overlayVisibility: SharedValue<number>;
   setOverlayVisibility: (visibility: number) => void;

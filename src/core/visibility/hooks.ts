@@ -56,8 +56,8 @@ export function useFeedVisibility({
     // Include activeRoute in dependencies to ensure this runs when route becomes active
     // (e.g., when returning to a screen from another tab)
     setActiveFeedKey(feedKey);
-    setOverlayVisibility(1); // Show overlay when this list feed becomes active (e.g. modal from profile grid)
-  }, [isActive, feedKey, activeRoute, setActiveFeedKey, setOverlayVisibility]);
+    // Overlay visibility is only controlled by scroll (onViewableItemsChanged), not by blur/focus
+  }, [isActive, feedKey, activeRoute, setActiveFeedKey]);
 
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
