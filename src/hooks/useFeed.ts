@@ -12,7 +12,6 @@ import { useUserStore } from '../stores/userStore';
 import { useModerationSettings } from './useModerationSettings';
 import { queryKeys } from '../utils/query/queryKeys';
 import type { FeedResponse } from '../services/api/types';
-import { logger } from '../utils/logger';
 
 // Optimized feed configuration for smooth performance
 export const FEED_CONFIG = {
@@ -71,20 +70,18 @@ export function useFeed(
   const effectiveUserDid =
     feedOption === 'following' || feedOption === 'your-mix' ? currentUser?.did : userDid;
 
+  // React Query automatically deduplicates useModerationSettings calls with the same userDid
+  // Multiple feeds calling this will share the same query instance and network request
   const moderationData = useModerationSettings(effectiveUserDid || undefined);
   const modReady = moderationData.moderationPrefs != null;
 
   useEffect(() => {
-    if (modReady && !prevModReadyRef.current) {
+    if (modReady) {
       prevModReadyRef.current = true;
-      logger.info('Feed queries enabled: moderation prefs ready', {
-        component: 'useFeed',
-        feedOption,
-        effectiveUserDid: effectiveUserDid ?? undefined,
-      });
+    } else {
+      prevModReadyRef.current = false;
     }
-    if (!modReady) prevModReadyRef.current = false;
-  }, [modReady, feedOption, effectiveUserDid]);
+  }, [modReady]);
 
   // React Query automatically handles query key changes - when effectiveUserDid changes,
   // it treats it as a new query and fetches fresh data. Old queries are cleaned up via gcTime.

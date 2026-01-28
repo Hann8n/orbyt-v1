@@ -7,7 +7,6 @@ import { useUserStore, useFeedSettings } from '../../src/stores/userStore';
 import { Colors } from '../../src/components/ui/UI';
 import CustomBottomTabBar from '../../src/components/ui/CustomBottomTabBar';
 import { useUnreadCount } from '../../src/hooks/useUnreadCount';
-import { useModerationSettings } from '../../src/hooks/useModerationSettings';
 import { useOrbytColors } from '../../src/hooks/useOrbytColors';
 import { getProfileColors, pickLighterHex } from '../../src/utils/formatting/colors';
 
@@ -17,8 +16,8 @@ export default function TabsLayout() {
   const { nativeTabsEnabled } = useFeedSettings();
   const { totalUnreadCount } = useUnreadCount();
 
-  // Populate moderation store so FeedService/NotificationsTab have opts; failproof pass-through when null
-  useModerationSettings(currentUserDid ?? undefined);
+  // Note: Moderation settings are loaded by useFeed hooks as needed
+  // React Query automatically deduplicates multiple calls with the same userDid
 
   // Native tabs: use lighter of Orbyt text/background so icons stay visible
   const profileColors = getProfileColors(orbytColors);
@@ -110,8 +109,8 @@ export default function TabsLayout() {
       }}
       tabBar={props => (
         <CustomBottomTabBar
-          state={props.state as any}
-          navigation={props.navigation as any}
+          state={props.state}
+          navigation={props.navigation}
           tintColor={customTintColor}
           inactiveTintColor={customInactiveTintColor}
         />
