@@ -672,7 +672,7 @@ const HeaderSpacer = ({ computedHeaderHeight }: { computedHeaderHeight: number }
   return <View style={{ height: computedHeaderHeight }} />;
 };
 
-// Channel Name Component with Orbyt formatting
+// Channel Name Component with orbyt formatting
 const ChannelNameDisplay: React.FC<{ channel: Channel; style?: StyleProp<ViewStyle> }> = ({
   channel,
   style,
@@ -896,7 +896,7 @@ const HorizontalChannelItem = ({
 
 // Search-related components moved to search.tsx
 
-// Responsive Orbyt Channels Grid Component
+// Responsive orbyt Channels Grid Component
 const OrbytChannelsGrid = React.memo(
   ({ channels, router }: { channels: Channel[]; router: Router }) => {
     const { width: windowWidth, height: windowHeight } = useWindowDimensions();
@@ -1117,7 +1117,7 @@ const OrbytChannelsGrid = React.memo(
     );
   }
 );
-OrbytChannelsGrid.displayName = 'OrbytChannelsGrid';
+OrbytChannelsGrid.displayName = 'orbytChannelsGrid';
 
 const ExploreScreen: React.FC = () => {
   const flashListRef = useRef<FlashListRef<ListItem> | null>(null);
@@ -1756,7 +1756,7 @@ const ExploreScreen: React.FC = () => {
         key: 'spotlight-videos',
       });
     }
-    // Add Orbyt Channels section
+    // Add orbyt channels section
     if (orbytChannelsData && orbytChannelsData.length > 0) {
       data.push({
         type: 'section-header' as const,

@@ -189,7 +189,7 @@ class ProfileService {
    * Batch fetch multiple profiles
    * More efficient than individual fetches for 2+ profiles
    * React Query handles caching
-   * Orbyt records are fetched in parallel by AtprotoService.getProfilesInBatch
+   * orbyt records are fetched in parallel by AtprotoService.getProfilesInBatch
    *
    * @param handles - Array of handles to fetch
    * @returns Array of profiles with orbyt records

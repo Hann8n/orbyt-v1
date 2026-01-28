@@ -1,5 +1,5 @@
 /**
- * Centralized configuration for Orbyt channels
+ * Centralized configuration for orbyt channels
  * Add new channels here to make them available for posting
  */
 
@@ -228,7 +228,7 @@ const PetsChannelGIF = require('../../assets/channelGIFs/pets.gif');
 const FunnyChannelGIF = require('../../assets/channelGIFs/funny.gif');
 
 /**
- * Orbyt channel definitions
+ * orbyt channel definitions
  * Add new channels here - they will automatically appear in the channel selector
  */
 const BASE_ORBYT_CHANNELS: OrbytChannel[] = [
@@ -440,7 +440,7 @@ export function getChannelByUri(uri: string): OrbytChannel | undefined {
 }
 
 /**
- * Check if a feed URI belongs to getorbyt.com (is an Orbyt channel)
+ * Check if a feed URI belongs to getorbyt.com (is an orbyt channel)
  * @param uri - Feed generator URI or local channel URI to check
  * @returns true if the URI belongs to getorbyt.com
  */
@@ -460,14 +460,14 @@ export function isOrbytChannel(uri: string): boolean {
 /**
  * Get the feed type based on URI
  * @param uri - Feed generator URI
- * @returns 'channel' if it's an Orbyt channel, 'feed' if it's an external feed
+ * @returns 'channel' if it's an orbyt channel, 'feed' if it's an external feed
  */
 export function getFeedType(uri: string): 'channel' | 'feed' {
   return isOrbytChannel(uri) ? 'channel' : 'feed';
 }
 
 /**
- * Get the channel avatar URI, prioritizing channelGIF for Orbyt channels
+ * Get the channel avatar URI, prioritizing channelGIF for orbyt channels
  * @param uri - Channel URI
  * @param fallbackAvatar - Fallback avatar URI from channel data
  * @returns Avatar URI string or undefined

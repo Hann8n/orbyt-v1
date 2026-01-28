@@ -19,7 +19,7 @@ export default function TabsLayout() {
   // Note: Moderation settings are loaded by useFeed hooks as needed
   // React Query automatically deduplicates multiple calls with the same userDid
 
-  // Native tabs: use lighter of Orbyt text/background so icons stay visible
+  // Native tabs: use lighter of orbyt text/background so icons stay visible
   const profileColors = getProfileColors(orbytColors);
   const nativeTintColor =
     orbytColors?.textColor && orbytColors?.backgroundColor

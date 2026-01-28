@@ -47,14 +47,14 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   const feedScroll = useFeedScroll();
   const contentScrollProgressSV = feedScroll?.contentScrollProgressSV;
 
-  // Get colors from Orbyt API using passed did
+  // Get colors from orbyt API using passed did
   const { data: orbytColors } = useOrbytColors(did);
 
-  // Get colors from Orbyt API (primary) or defaults
+  // Get colors from orbyt API (primary) or defaults
   const profileColors = getProfileColors(orbytColors);
   const joinDate = orbytColors?.joinedAt;
 
-  // Beta status from Orbyt API
+  // Beta status from orbyt API
   const isBeta = orbytColors?.isBeta ?? false;
 
   // Block status and flags (used for avatar blur only; actions moved to ProfileScreen)

@@ -1,4 +1,4 @@
-// filepath: /Users/jack/Orbyt/components/VerificationInfoSheet.tsx
+// filepath: /Users/jack/orbyt/components/VerificationInfoSheet.tsx
 import React, { useRef, useEffect, useMemo } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, Text, StyleSheet } from 'react-native';

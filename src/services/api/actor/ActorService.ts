@@ -172,7 +172,7 @@ export class ActorService {
 
   /**
    * Get profile by DID
-   * Note: Colors/isBeta now come from useOrbytColors hook (Orbyt API), not PDS
+   * Note: Colors/isBeta now come from useOrbytColors hook (orbyt API), not PDS
    * @param did - User DID
    * @returns Profile data
    */
@@ -197,7 +197,7 @@ export class ActorService {
 
   /**
    * Get profile by handle
-   * Note: Colors/isBeta now come from useOrbytColors hook (Orbyt API), not PDS
+   * Note: Colors/isBeta now come from useOrbytColors hook (orbyt API), not PDS
    * @param handle - User handle
    * @returns Profile data
    */
@@ -224,7 +224,7 @@ export class ActorService {
    * Batch fetch multiple actor profiles efficiently
    * Uses Bluesky's native batch endpoint to fetch up to 25 profiles per request
    * Automatically deduplicates and chunks requests into batches of 25
-   * Note: Colors/isBeta now come from useOrbytColors hook (Orbyt API), not PDS
+   * Note: Colors/isBeta now come from useOrbytColors hook (orbyt API), not PDS
    *
    * @param handles - Array of actor handles to fetch
    * @returns Array of actor profiles

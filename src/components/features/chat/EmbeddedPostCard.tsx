@@ -284,11 +284,11 @@ export default function EmbeddedPostCard({
   const externalLinkInfo = post ? getExternalLinkInfo(post) : null;
   const quotedPostInfo = post ? getQuotedPostInfo(post) : null;
 
-  // Handle post tap - open in Bluesky app or Orbyt app for videos
+  // Handle post tap - open in Bluesky app or orbyt app for videos
   const handlePostPress = useCallback(async () => {
     if (!post?.uri) return;
 
-    // For video posts, open in Orbyt app using the existing feed modal
+    // For video posts, open in orbyt app using the existing feed modal
     if (isVideo) {
       try {
         // If we have conversation messages, build a playlist of all video posts

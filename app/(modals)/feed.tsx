@@ -48,7 +48,7 @@ const FeedScreen = memo(() => {
   // Extract hashtag without sort suffix (e.g., "art:top" -> "art")
   const hashtag = hashtagWithSort ? hashtagWithSort.split(':')[0] : null;
   // Check if this is an orbyt channel hashtag (don't show header for orbyt channels)
-  // Orbyt channel hashtags start with "orbyt-channel-" or "orbyt-"
+  // orbyt channel hashtags start with "orbyt-channel-" or "orbyt-"
   const isOrbytChannelHashtag = hashtag
     ? hashtag.startsWith('orbyt-channel-') || hashtag.startsWith('orbyt-')
     : false;

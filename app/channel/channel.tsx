@@ -52,7 +52,7 @@ const Channel: React.FC = memo(() => {
   // View mode state
   const [viewMode, setViewMode] = useState<ViewMode>('list');
 
-  // Check if this is a category channel (hashtag feed) - postable Orbyt channels
+  // Check if this is a category channel (hashtag feed) - postable orbyt channels
   const isCategoryChannel = useMemo(() => {
     if (!uri || !isOrbytChannel(uri)) return false;
     const channel = getChannelByUri(uri);
@@ -141,7 +141,7 @@ const Channel: React.FC = memo(() => {
 
     const likeCount = channelData.likeCount || 0;
 
-    // For Orbyt channels, ensure description comes from orbytChannels if not in cache
+    // For orbyt channels, ensure description comes from orbytChannels if not in cache
     let description = channelData.description || '';
     if (isOrbytChannel(uri)) {
       const orbytChannel = getChannelByUri(uri);

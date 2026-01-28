@@ -166,7 +166,7 @@ class FeedService {
             sort,
           });
         } else if (channel.uri.startsWith('at://local.orbyt.channel/')) {
-          // Local Orbyt channels - convert postable ones to hashtag
+          // Local orbyt channels - convert postable ones to hashtag
           const orbytChannel = getChannelByUri(channel.uri);
           if (orbytChannel?.isPostable !== false) {
             const hashtagFormat = channelToHashtag(channel.uri);
@@ -190,7 +190,7 @@ class FeedService {
           // Regular feed generator URI
           const orbytChannel = getChannelByUri(channel.uri);
           if (orbytChannel && orbytChannel.isPostable !== false) {
-            // Postable Orbyt channel - try to convert to hashtag
+            // Postable orbyt channel - try to convert to hashtag
             const hashtagFormat = channelToHashtag(channel.uri);
             if (hashtagFormat) {
               const hashtag = hashtagFormat.substring(8);
@@ -203,7 +203,7 @@ class FeedService {
               continue;
             }
           }
-          // Non-postable or non-Orbyt - use as feed generator
+          // Non-postable or non-orbyt - use as feed generator
           feedSources.push({
             uri: channel.uri,
             type: 'feed',
@@ -307,17 +307,17 @@ class FeedService {
   }
 
   /**
-   * Normalize feed option for API calls - convert local Orbyt channel URIs to hashtag format
+   * Normalize feed option for API calls - convert local orbyt channel URIs to hashtag format
    * Skips channels that should remain as feed generators (e.g., "latest" aggregates multiple hashtags)
    * This normalization is only used when making API calls, not for caching or routing
    */
   private normalizeFeedOptionForAPI(feedOption: FeedOption): FeedOption {
-    // If it's already a hashtag or not an Orbyt channel URI, return as-is
+    // If it's already a hashtag or not an orbyt channel URI, return as-is
     if (feedOption.startsWith('hashtag:') || !feedOption.startsWith('at://')) {
       return feedOption;
     }
 
-    // Convert local Orbyt channel URIs (at://local.orbyt.channel/{slug}) to hashtag format
+    // Convert local orbyt channel URIs (at://local.orbyt.channel/{slug}) to hashtag format
     // Skip channels that aren't postable (like "latest" and "popular-now") - they should use feed generators
     if (isOrbytChannel(feedOption)) {
       const channel = getChannelByUri(feedOption);
@@ -598,7 +598,7 @@ class FeedService {
           return { feed: [], cursor: null };
         }
       } else if (feedOptionForAPI.startsWith('hashtag:')) {
-        // Hashtag feeds (normalized local Orbyt channels use this format: hashtag:orbyt-channel-{slug})
+        // Hashtag feeds (normalized local orbyt channels use this format: hashtag:orbyt-channel-{slug})
         // May include sort parameter: hashtag:orbyt-channel-{slug}:top or hashtag:orbyt-channel-{slug}:latest
         const hashtagWithSort = feedOptionForAPI.substring(8); // Remove 'hashtag:' prefix
         if (!hashtagWithSort || hashtagWithSort.trim() === '') {
@@ -667,7 +667,7 @@ class FeedService {
         const nextCursor = nextIndex < seenVideos.length ? String(nextIndex) : null;
         return { feed, cursor: nextCursor };
       } else {
-        // Handle custom feed URIs (external feed generators and non-postable Orbyt channels)
+        // Handle custom feed URIs (external feed generators and non-postable orbyt channels)
         // Use original feedOption for feed generator URIs, not the normalized one
         const feedLink = feedOption.startsWith('at://')
           ? feedOption

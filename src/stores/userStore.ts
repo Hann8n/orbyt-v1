@@ -45,7 +45,7 @@ const getDefaultModalProfileEnabled = (): boolean => {
 };
 
 /**
- * Prefetch Orbyt colors for a user and their following (non-blocking)
+ * Prefetch orbyt colors for a user and their following (non-blocking)
  * Called after sign in or session restore to warm the cache
  */
 async function prefetchColorsForUser(userDid: string): Promise<void> {
@@ -56,7 +56,7 @@ async function prefetchColorsForUser(userDid: string): Promise<void> {
     const dids = [userDid, ...followingDids].slice(0, 100);
     await prefetchOrbytColors(dids);
   } catch (error) {
-    logger.warn('Failed to prefetch Orbyt colors', {
+    logger.warn('Failed to prefetch orbyt colors', {
       component: 'userStore',
       error: error instanceof Error ? error.message : 'Unknown error',
     });
@@ -81,7 +81,7 @@ export interface SubscribedChannel {
   description?: string;
   avatar?: string;
   memberCount?: number;
-  isOrbytChannel?: boolean; // True if this is an Orbyt-managed hashtag feed
+  isOrbytChannel?: boolean; // True if this is an orbyt-managed hashtag feed
   subscribedAt: number;
 }
 
@@ -375,7 +375,7 @@ export const useUserStore = create<UserState>()(
           // Defer until after interactions complete to improve startup performance
           deferOrbytProfileInit('signIn');
 
-          // Prefetch Orbyt colors for current user and followed users (non-blocking)
+          // Prefetch orbyt colors for current user and followed users (non-blocking)
           prefetchColorsForUser(session.did);
         } catch (error) {
           // Handle user cancellation silently
@@ -522,7 +522,7 @@ export const useUserStore = create<UserState>()(
           // Defer until after interactions complete to improve startup performance
           deferOrbytProfileInit('restoreSession');
 
-          // Prefetch Orbyt colors for current user and followed users (non-blocking)
+          // Prefetch orbyt colors for current user and followed users (non-blocking)
           prefetchColorsForUser(session.did);
 
           // Load and clean subscribed channels after session restore
@@ -1481,7 +1481,7 @@ export const useUserStore = create<UserState>()(
               ? (record as OrbytProfileRecord).subscribedChannels!
               : [];
 
-            // Record-first backfill: if no local channels, load from Orbyt profile record
+            // Record-first backfill: if no local channels, load from orbyt profile record
             if ((!savedChannels || savedChannels.length === 0) && remoteUris.length > 0) {
               // Filter out built-in channels from profile record
               const filteredUris = filterBuiltInChannels(remoteUris);

@@ -47,7 +47,7 @@ export default function ChannelManagementScreen() {
     return filteredChannels.map(channel => {
       const avatar = getChannelAvatarUri(channel.uri, channel.avatar);
 
-      // Check if this is an Orbyt channel
+      // Check if this is an orbyt channel
       const isOrbyt = channel.isOrbytChannel ?? isOrbytChannel(channel.uri);
       const orbytChannel = isOrbyt ? getChannelByUri(channel.uri) : undefined;
 

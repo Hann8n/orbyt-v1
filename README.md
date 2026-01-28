@@ -1,4 +1,4 @@
-![Orbyt Banner](src/assets/orbyt-banner.png)
+![orbyt banner](src/assets/orbyt-banner.png)
 
 # **orbyt**
 

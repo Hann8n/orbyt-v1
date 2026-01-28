@@ -167,7 +167,7 @@ export interface ProfileColorScheme {
 }
 
 /**
- * Orbyt API color data type (matches OrbytColorsService response)
+ * orbyt API color data type (matches OrbytColorsService response)
  */
 export interface OrbytAPIColorData {
   textColor: string;
@@ -177,7 +177,7 @@ export interface OrbytAPIColorData {
 }
 
 /**
- * Get profile colors from Orbyt API data or ProfileViewWithOrbyt (legacy)
+ * Get profile colors from orbyt API data or ProfileViewWithOrbyt (legacy)
  *
  * Supports two input formats:
  * 1. OrbytAPIColorData from useOrbytColors hook (preferred)

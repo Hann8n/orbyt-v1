@@ -71,7 +71,7 @@ export const queryKeys = {
     refresh: (did: string) => [...profilesBase, 'detail', did, 'refresh', Date.now()] as const,
   },
 
-  // Orbyt profile queries
+  // orbyt profile queries
   orbytProfile: {
     all: orbytProfileBase,
     byDid: (did: string) => [...orbytProfileBase, did] as const,

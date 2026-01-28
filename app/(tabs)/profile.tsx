@@ -102,7 +102,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   // Always fetch by DID (handle query is only used to resolve handle to DID)
   const didQuery = useProfileByDid(targetDid);
 
-  // Fetch colors from Orbyt API (separate from profile data)
+  // Fetch colors from orbyt API (separate from profile data)
   const { data: orbytColors, refetch: refetchOrbytColors } = useOrbytColors(targetDid);
 
   // Use profile data from query with fallback for own profile
@@ -134,7 +134,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const isProfileLoading = didQuery.isLoading && !profileData;
   const isProfileFetchError = didQuery.isError;
 
-  // Get colors from Orbyt API (primary) or profile data (fallback)
+  // Get colors from orbyt API (primary) or profile data (fallback)
   const profileColors = getProfileColors(orbytColors || profileData);
 
   // Check if live using helper function
@@ -180,7 +180,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
         // Subscriptions are non-critical; ignore errors
       }
 
-      // Force refresh colors from Orbyt API (skip for own profile - cache has fresh data after edit)
+      // Force refresh colors from orbyt API (skip for own profile - cache has fresh data after edit)
       if (targetDid && !isViewingOwnProfile) {
         invalidateOrbytColors(targetDid);
         await refetchOrbytColors();

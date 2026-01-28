@@ -49,7 +49,7 @@ const ProfileTabIcon = React.memo(
     // Dim avatar and ring together via wrapper opacity
     const opacity = isActive ? 1 : 0.6;
 
-    // Use colors from Orbyt API
+    // Use colors from orbyt API
     const profileColors = getProfileColors(orbytColors);
     const ringColor = profileColors.foregroundColor || Colors.white;
 

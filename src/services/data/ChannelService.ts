@@ -29,7 +29,7 @@ export interface CachedChannel {
   likeCount?: number;
   subscriberCount?: number;
   indexedAt: string;
-  isOrbytChannel?: boolean; // True if this is an Orbyt-managed channel (getorbyt.com feed)
+  isOrbytChannel?: boolean; // True if this is an orbyt-managed channel (getorbyt.com feed)
   channelColors?: {
     backgroundColor: string;
     foregroundColor: string;
@@ -109,32 +109,32 @@ class ChannelService {
       const slug = extractFeedSlug(uriOrFeed);
       if (!slug) return null;
 
-      // Look up Orbyt channel by slug
+      // Look up orbyt channel by slug
       const orbytChannel = getChannelBySlug(slug);
       if (!orbytChannel) return null;
 
-      // Create channel object from Orbyt channel config
+      // Create channel object from orbyt channel config
       return await this.createOrbytChannelCache(orbytChannel);
     }
 
-    // Handle hashtag feeds (legacy support for normalized Orbyt channels)
+    // Handle hashtag feeds (legacy support for normalized orbyt channels)
     if (uriOrFeed.startsWith('hashtag:')) {
       const slug = hashtagToChannelSlug(uriOrFeed);
       if (!slug) return null;
 
-      // Look up Orbyt channel by slug
+      // Look up orbyt channel by slug
       const orbytChannel = getChannelBySlug(slug);
       if (!orbytChannel) return null;
 
       return await this.createOrbytChannelCache(orbytChannel);
     }
 
-    // Handle feed generator URIs (both Orbyt and external)
+    // Handle feed generator URIs (both orbyt and external)
     if (!uriOrFeed.startsWith('at://')) {
       return null;
     }
 
-    // Fetch from API or Orbyt channel config
+    // Fetch from API or orbyt channel config
     return this.fetchAndCacheChannel(uriOrFeed);
   }
 
@@ -144,7 +144,7 @@ class ChannelService {
   private static async fetchAndCacheChannel(uri: string): Promise<CachedChannel | null> {
     if (!uri) return null;
 
-    // Check if this is an Orbyt channel - if so, get data from orbytChannels.ts
+    // Check if this is an orbyt channel - if so, get data from orbytChannels.ts
     const orbytChannel = getChannelByUri(uri);
     if (orbytChannel) {
       return await this.createOrbytChannelCache(orbytChannel);
@@ -214,7 +214,7 @@ class ChannelService {
         likeCount: channel.view?.likeCount,
         subscriberCount,
         indexedAt: channel.view?.indexedAt,
-        isOrbytChannel: isOrbytChannel(channelUri), // Check if this is an Orbyt channel
+        isOrbytChannel: isOrbytChannel(channelUri), // Check if this is an orbyt channel
         channelColors:
           this.readPersistedColors(channelUri) ||
           (channelColors
@@ -259,7 +259,7 @@ class ChannelService {
   }
 
   /**
-   * Create a cached channel object from Orbyt channel definition
+   * Create a cached channel object from orbyt channel definition
    * This allows us to use hashtag feeds instead of feed generators
    */
   private static async createOrbytChannelCache(
@@ -311,12 +311,12 @@ class ChannelService {
     // Create cache object - use URI for compatibility, but we'll use hashtag for feeds
     const cacheObject: CachedChannel = {
       uri: orbytChannel.uri,
-      cid: '', // Not needed for Orbyt channels
-      did: 'did:plc:2xrqztnmzlckb3xfuuukupso', // Default Orbyt DID
+      cid: '', // Not needed for orbyt channels
+      did: 'did:plc:2xrqztnmzlckb3xfuuukupso', // Default orbyt DID
       creator: {
         did: 'did:plc:2xrqztnmzlckb3xfuuukupso',
         handle: 'getorbyt.com',
-        displayName: 'Orbyt',
+        displayName: 'orbyt',
         avatar: undefined,
       },
       displayName: orbytChannel.displayName,

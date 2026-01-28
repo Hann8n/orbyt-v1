@@ -43,7 +43,7 @@ export class RepoService {
 
   /**
    * Get the orbyt profile record for the current user
-   * @returns Orbyt profile record or null
+   * @returns orbyt profile record or null
    */
   static async getOrbytProfileRecord(): Promise<unknown | null> {
     try {
@@ -79,7 +79,7 @@ export class RepoService {
   /**
    * Fetch the orbyt profile record for any DID by hitting that DID's PDS directly
    * @param did - DID to fetch record for
-   * @returns Orbyt profile record or null
+   * @returns orbyt profile record or null
    */
   static async getOrbytProfileRecordForDid(did: string): Promise<unknown | null> {
     try {
@@ -249,7 +249,7 @@ export class RepoService {
   }
 
   // Migration version - increment this to trigger re-sync for all users
-  // v1: Initial Orbyt API migration (Jan 2026) - ensures all profiles are indexed
+  // v1: Initial orbyt API migration (Jan 2026) - ensures all profiles are indexed
   private static readonly MIGRATION_VERSION = 1;
   private static readonly MIGRATION_KEY_PREFIX = 'orbyt_profile_migration_v';
 
@@ -279,7 +279,7 @@ export class RepoService {
         // Just update updatedAt, preserving all other fields
         await this.upsertOrbytProfileRecord({});
         await AsyncStorage.setItem(migrationKey, 'true');
-        logger.debug('Orbyt profile migration: touched existing record', {
+        logger.debug('orbyt profile migration: touched existing record', {
           component: 'RepoService',
           did: userDid,
           version: this.MIGRATION_VERSION,
@@ -322,7 +322,7 @@ export class RepoService {
 
       // Mark migration as done
       await AsyncStorage.setItem(migrationKey, 'true');
-      logger.debug('Orbyt profile migration: created new record', {
+      logger.debug('orbyt profile migration: created new record', {
         component: 'RepoService',
         did: userDid,
         version: this.MIGRATION_VERSION,

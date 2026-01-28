@@ -274,7 +274,7 @@ const ErrorFallback: React.FC<ErrorFallbackProps> = ({
           : Platform.OS === 'web'
             ? 'Web'
             : Platform.OS;
-    const appType = `Orbyt for ${platform}`;
+    const appType = `orbyt for ${platform}`;
     const osVersion = Device.osVersion || 'Unknown';
     const modelName = Device.modelName || 'Unknown';
     const appVersion = getFormattedVersion();
@@ -372,7 +372,7 @@ ${deviceInfo}`;
         <Pressable
           onPress={async () => {
             const email = 'support@getorbyt.com';
-            const subject = encodeURIComponent('Orbyt App Error Report');
+            const subject = encodeURIComponent('orbyt app error report');
             let emailBody: string;
 
             try {

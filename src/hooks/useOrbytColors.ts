@@ -1,5 +1,5 @@
 /**
- * useOrbytColors - React Query hook for fetching profile colors from Orbyt API
+ * useOrbytColors - React Query hook for fetching profile colors from orbyt API
  *
  * Provides:
  * - Single DID lookup with 15-minute stale time

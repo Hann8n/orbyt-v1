@@ -481,7 +481,7 @@ const EditProfileScreen: React.FC = () => {
   // Mutation
   const profileUpdateMutation = useProfileUpdateMutation();
 
-  // Get colors from Orbyt API
+  // Get colors from orbyt API
   const defaultColors = useMemo(() => {
     if (!orbytColors?.backgroundColor || !orbytColors?.textColor) {
       return undefined;

@@ -50,7 +50,7 @@ const ChannelItem: React.FC<ChannelItemProps> = ({
   const actualDisplayName = displayName || 'Unknown channel';
   const avatarUri = getChannelAvatarUri(uri, avatar);
 
-  // Orbyt channel formatting
+  // orbyt channel formatting
   const isOrbyt = isOrbytChannel(uri);
   const orbytChannel = isOrbyt ? getChannelByUri(uri) : undefined;
   const channelColor = orbytChannel?.channelColor || '#FFD700';

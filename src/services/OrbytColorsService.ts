@@ -1,5 +1,5 @@
 /**
- * OrbytColorsService - Handles fetching profile colors and beta status from the Orbyt API
+ * OrbytColorsService - Handles fetching profile colors and beta status from the orbyt API
  *
  * This service fetches colors from api.getorbyt.com instead of individual PDS endpoints.
  * Colors are indexed by Jetstream from com.getorbyt.profile records.
@@ -9,7 +9,7 @@ import { logger } from '../utils/logger';
 const API_BASE_URL = 'https://api.getorbyt.com';
 
 /**
- * Color data returned from the Orbyt API
+ * Color data returned from the orbyt API
  */
 export interface OrbytColorData {
   textColor: string;
@@ -19,7 +19,7 @@ export interface OrbytColorData {
 }
 
 /**
- * Service for fetching profile colors from the Orbyt API
+ * Service for fetching profile colors from the orbyt API
  */
 class OrbytColorsService {
   /**
@@ -65,14 +65,14 @@ class OrbytColorsService {
       }
 
       if (response.status === 401) {
-        logger.warn('Unauthorized: Check Orbyt API token', {
+        logger.warn('Unauthorized: Check orbyt API token', {
           component: 'OrbytColorsService',
         });
         return null;
       }
 
       if (!response.ok) {
-        logger.warn(`Orbyt API error: ${response.status}`, {
+        logger.warn(`orbyt API error: ${response.status}`, {
           component: 'OrbytColorsService',
           did,
         });
@@ -81,7 +81,7 @@ class OrbytColorsService {
 
       return (await response.json()) as OrbytColorData;
     } catch (error) {
-      logger.error('Failed to fetch colors from Orbyt API', error, {
+      logger.error('Failed to fetch colors from orbyt API', error, {
         component: 'OrbytColorsService',
         did,
       });
@@ -111,14 +111,14 @@ class OrbytColorsService {
       });
 
       if (response.status === 401) {
-        logger.warn('Unauthorized: Check Orbyt API token', {
+        logger.warn('Unauthorized: Check orbyt API token', {
           component: 'OrbytColorsService',
         });
         return {};
       }
 
       if (!response.ok) {
-        logger.warn(`Orbyt API batch error: ${response.status}`, {
+        logger.warn(`orbyt API batch error: ${response.status}`, {
           component: 'OrbytColorsService',
         });
         return {};
@@ -126,7 +126,7 @@ class OrbytColorsService {
 
       return (await response.json()) as Record<string, OrbytColorData | null>;
     } catch (error) {
-      logger.error('Failed to batch fetch colors from Orbyt API', error, {
+      logger.error('Failed to batch fetch colors from orbyt API', error, {
         component: 'OrbytColorsService',
       });
       return {};

@@ -141,7 +141,7 @@ const SubscribeButton: React.FC<{
       // Always reflect the actual subscription state; pressed state only tweaks opacity
       const showFilledState = hasFilledBackground;
 
-      // On Orbyt pages, use black and white for blending
+      // On orbyt pages, use black and white for blending
       const blendBg = isOrbyt ? Colors.black : _backgroundColor;
       const blendFg = isOrbyt ? Colors.white : '#FFFFFF';
 
@@ -309,7 +309,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
     return [];
   }, [channel, handleDelete]);
 
-  // Check if this is an Orbyt channel
+  // Check if this is an orbyt channel
   const isOrbyt = useMemo(() => {
     if (!channel?.uri) {
       return false;
@@ -337,7 +337,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
         }
       : undefined;
 
-    // Get Orbyt channel info for custom title
+    // Get orbyt channel info for custom title
     const orbytChannel = isOrbyt && channel.uri ? getChannelByUri(channel.uri) : undefined;
     const channelColor = orbytChannel?.channelColor || '#FFD700';
 
@@ -378,7 +378,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
     return style === 'light' ? 'light-content' : 'dark-content';
   }, [safeBackgroundColor]);
 
-  // Check if this is a category channel (hashtag feed) - postable Orbyt channels have tabs
+  // Check if this is a category channel (hashtag feed) - postable orbyt channels have tabs
   const hasTabs = useMemo(() => {
     if (!isOrbyt || !channel?.uri) return false;
     const orbytChannel = getChannelByUri(channel.uri);
@@ -455,12 +455,12 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
     ]
   );
 
-  // For Orbyt channels, use channelGIF as primary avatar/background, fallback to avatar
+  // For orbyt channels, use channelGIF as primary avatar/background, fallback to avatar
   // Memoize to prevent flickering when feed changes
   const backgroundImage = useMemo(() => {
     if (!isOrbyt || !channel?.uri) return undefined;
 
-    // Get Orbyt channel config to check for channelGIF
+    // Get orbyt channel config to check for channelGIF
     const orbytChannel = getChannelByUri(channel.uri);
     if (orbytChannel?.channelGIF) {
       // Convert require() result to URI using Asset.resolveAsync or direct require

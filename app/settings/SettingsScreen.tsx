@@ -191,7 +191,7 @@ const SettingsScreen: React.FC = () => {
           : Platform.OS === 'web'
             ? 'Web'
             : Platform.OS;
-    const appType = `Orbyt for ${platform}`;
+    const appType = `orbyt for ${platform}`;
     const osVersion = Device.osVersion || 'Unknown';
     const modelName = Device.modelName || 'Unknown';
     const appVersion = getBuildVersion();
@@ -265,7 +265,7 @@ const SettingsScreen: React.FC = () => {
   const handleOpenEmail = async (email: string) => {
     try {
       const deviceInfo = await getDeviceInfo();
-      const subject = encodeURIComponent('Orbyt Support Request');
+      const subject = encodeURIComponent('orbyt support request');
       const body = encodeURIComponent(
         `
 

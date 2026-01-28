@@ -79,7 +79,7 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
         {/* Info Container */}
         <View style={styles.infoContainer}>
           <Text style={styles.infoText}>
-            <Text style={styles.highlightedText}>{handle}</Text> joined during the Orbyt beta. Beta
+            <Text style={styles.highlightedText}>{handle}</Text> joined during the orbyt beta. Beta
             users helped test early features and shape the experience.
           </Text>
         </View>
