@@ -6,6 +6,7 @@ import { Image } from 'expo-image';
 import FeedRenderer from '../../src/components/features/feed/FeedRenderer';
 import ProfileService, {
   useProfileByDid,
+  useProfile,
   profileKeys,
   isLiveStatus,
   useStatusExpirationMonitor,
@@ -60,9 +61,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const insets = useSafeAreaInsets();
   const rawParams = useLocalSearchParams<{ did?: string }>();
 
-  // Route file is [did].tsx - only accepts DID
-  // Trust API always provides valid DID
-  const providedDid = rawParams.did;
+  // Route file is [did].tsx - param name is "did", but we accept either DID or handle
+  // and resolve handles to DIDs here (single place).
+  const providedIdentifier = rawParams.did;
+  const providedIsDid = !!providedIdentifier && providedIdentifier.startsWith('did:');
 
   // User store hooks
   const { currentUser } = useCurrentUser();
@@ -81,23 +83,28 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const didLongPressMenuRef = useRef(false);
   // Use DID in route key to differentiate between own profile and author profiles
   const profileRouteKey = useMemo(() => {
-    if (providedDid) {
-      return `profile:${providedDid}`;
+    if (providedIdentifier) {
+      return `profile:${providedIdentifier}`;
     }
     // Own profile tab: use default key
     return 'profile:self';
-  }, [providedDid]);
+  }, [providedIdentifier]);
 
   useVisibilityRouteTracker(profileRouteKey);
   const isRouteFocused = useVisibilityRouteIsActive(profileRouteKey);
 
   const queryClient = useQueryClient();
 
-  // Always use DID - provided DID, or current user DID
-  const targetDid = providedDid || currentUser?.did || null;
+  // If param is a handle, resolve it to a DID (cached by DID inside the hook).
+  const handleQuery = useProfile(!providedIsDid ? providedIdentifier : null);
+  const resolvedDidFromHandle = handleQuery.data?.did ?? null;
+
+  // Always use DID for the actual profile view
+  const targetDid =
+    (providedIsDid ? providedIdentifier : resolvedDidFromHandle) || currentUser?.did || null;
 
   // Determine if we're viewing our own profile
-  const isViewingOwnProfile = !providedDid;
+  const isViewingOwnProfile = !providedIdentifier;
 
   // Always fetch by DID (handle query is only used to resolve handle to DID)
   const didQuery = useProfileByDid(targetDid);
@@ -251,8 +258,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
           Profile Not Found
         </Text>
         <Text style={styles.errorSubtext}>
-          {providedDid
-            ? `We couldn't find a profile for ${providedDid}`
+          {providedIdentifier
+            ? `We couldn't find a profile for ${providedIdentifier}`
             : profileError || "We couldn't retrieve your profile information"}
         </Text>
         <Pressable
@@ -263,7 +270,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
             Try Again
           </Text>
         </Pressable>
-        {providedDid && (
+        {providedIdentifier && (
           <Pressable
             style={({ pressed }) => [
               styles.errorButton,
@@ -282,7 +289,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   }, [
     profileColors.backgroundColor,
     profileColors.textColor,
-    providedDid,
+    providedIdentifier,
     profileError,
     onRefresh,
     router,
@@ -431,8 +438,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
 
   // Labs feature: Modal profile behavior - computed once and reused
   const { isModal, headerPaddingTop, actionButtonsTop, showBackButton } = useMemo(() => {
-    const isModal = modalProfileEnabled && !!providedDid && !segments.includes('(tabs)');
-    const showBackButton = !!providedDid && !isModal;
+    const isModal = modalProfileEnabled && !!providedIdentifier && !segments.includes('(tabs)');
+    const showBackButton = !!providedIdentifier && !isModal;
 
     return {
       isModal,
@@ -440,7 +447,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       actionButtonsTop: isModal ? 20 : defaultTop,
       showBackButton,
     };
-  }, [modalProfileEnabled, providedDid, segments, defaultTop]);
+  }, [modalProfileEnabled, providedIdentifier, segments, defaultTop]);
 
   // Shared scroll progress for overlay (back/menu) animation. Written from onVerticalScroll; read in useAnimatedStyle on UI thread.
   const headerScrollProgress = useSharedValue(0);

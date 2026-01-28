@@ -581,13 +581,13 @@ const HeaderContentComponent = memo<{
   const router = useRouter();
 
   const navigateToAuthorProfile = useCallback(
-    (did: string) => {
-      const clean = did.trim();
-      // Validate DID format
-      if (!clean || !clean.startsWith('did:')) return;
+    (identifier: string) => {
+      const clean = (identifier || '').trim();
+      if (!clean) return;
 
       router.push({
         pathname: '/profile/[did]',
+        // Route param is named [did], but we allow handle too and resolve inside ProfileScreen.
         params: { did: clean },
       });
     },
