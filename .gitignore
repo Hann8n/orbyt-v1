@@ -47,3 +47,8 @@ docs/BYTE_FEATURE_PARITY_ANALYSIS.md
 
 # Android keystore credentials (never commit!)
 **/keystore.properties
+
+# Testing
+.reassure/
+coverage/
+.jest-cache/

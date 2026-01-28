@@ -88,6 +88,28 @@ module.exports = [
   },
   prettier,
   {
+    files: [
+      '**/*.test.{js,jsx,ts,tsx}',
+      '**/*.spec.{js,jsx,ts,tsx}',
+      '**/*.perf-test.{js,jsx,ts,tsx}',
+      '**/__tests__/**/*.{js,jsx,ts,tsx}',
+      'jest.setup.js',
+    ],
+    languageOptions: {
+      globals: {
+        jest: 'readonly',
+        describe: 'readonly',
+        it: 'readonly',
+        test: 'readonly',
+        expect: 'readonly',
+        beforeEach: 'readonly',
+        afterEach: 'readonly',
+        beforeAll: 'readonly',
+        afterAll: 'readonly',
+      },
+    },
+  },
+  {
     ignores: [
       'node_modules/**',
       'ios/**',
@@ -98,6 +120,7 @@ module.exports = [
       '*.config.js',
       'babel.config.js',
       'metro.config.js',
+      'jest.config.js',
       'docs/**',
     ],
   },
