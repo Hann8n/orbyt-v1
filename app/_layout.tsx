@@ -161,6 +161,7 @@ function RootNavigator() {
           headerShown: false,
           contentStyle: { backgroundColor: Colors.black },
           animation: 'fade',
+          freezeOnBlur: true, // Freeze screens when not focused to prevent unnecessary re-renders and ensure correct focus tracking
         }}
       >
         {/* Protected routes - require authentication */}
