@@ -12,6 +12,9 @@ import UI from './UI';
 import { useProfile, useFollowMutation, prefetchProfile } from '../../services/data/ProfileService';
 import { formatHandle } from '../../utils/formatting/handles';
 import { useQueryClient } from '@tanstack/react-query';
+import { itemSizeConfig, sharedItemStyles } from './ItemStyles';
+import { useUserStore } from '../../stores/userStore';
+import { isCurrentUser } from '../../stores/profileInteractionStore';
 
 interface AuthorItemProps {
   handle: string;
@@ -109,33 +112,9 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
 }) => {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const currentUser = useUserStore(state => state.currentUser);
 
-  // Size configuration
-  const sizeConfig = {
-    small: {
-      avatarSize: 32,
-      textSize: 12,
-      badgeTextSize: 12,
-      nameFontSize: 14,
-      handleFontSize: 11,
-    },
-    medium: {
-      avatarSize: 40,
-      textSize: 14,
-      badgeTextSize: 14,
-      nameFontSize: 16,
-      handleFontSize: 13,
-    },
-    large: {
-      avatarSize: 48,
-      textSize: 16,
-      badgeTextSize: 16,
-      nameFontSize: 18,
-      handleFontSize: 15,
-    },
-  };
-
-  const config = sizeConfig[size];
+  const config = itemSizeConfig[size];
   const actualDisplayName = formatHandle(handle) || 'Unknown';
   const actualAvatar = avatar || undefined;
 
@@ -145,6 +124,10 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   const isFollowedBy = !!cachedProfile?.viewer?.followedBy;
   const isMutual = actualIsFollowing && isFollowedBy;
   const isBlocked = !!(cachedProfile?.viewer?.blocking || cachedProfile?.viewer?.blockingByList);
+
+  // Automatically hide follow button for current user
+  const isCurrentUserProfile = isCurrentUser(did, handle, currentUser);
+  const shouldShowFollowButton = showFollowButton && !isCurrentUserProfile;
 
   const followMutation = useFollowMutation();
 
@@ -227,16 +210,9 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
             )}
           </View>
         </View>
-        {showFollowButton ? (
+        {shouldShowFollowButton ? (
           <Pressable
-            style={[
-              styles.followButton,
-              {
-                backgroundColor: textColor || Colors.white,
-                borderWidth: 0,
-                borderColor: 'transparent',
-              },
-            ]}
+            style={({ pressed }) => [styles.followButton, pressed && { opacity: 0.8 }]}
             onPress={handleFollowPress}
           >
             {isMutual ? (
@@ -274,55 +250,14 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderRadius: BORDER_RADIUS.LARGE,
-    marginBottom: 12,
-  },
-  accountButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  avatarContainer: {
-    marginRight: 8,
-  },
-  accountInfoContainer: {
-    flex: 1,
-    paddingLeft: 4,
-  },
-  accountDisplayName: {
-    color: Colors.white,
-    fontSize: 18,
-    fontWeight: 'bold',
-    fontFamily: 'Figtree-Bold',
-    marginBottom: 2,
-  },
-  accountArrow: {
-    marginLeft: 8,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  followButton: {
-    borderWidth: 0,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: BORDER_RADIUS.FULL,
-    minWidth: 80,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
-  },
+  container: sharedItemStyles.container,
+  accountButtonContent: sharedItemStyles.accountButtonContent,
+  avatarContainer: sharedItemStyles.avatarContainer,
+  accountInfoContainer: sharedItemStyles.accountInfoContainer,
+  accountDisplayName: sharedItemStyles.accountDisplayName,
+  accountArrow: sharedItemStyles.accountArrow,
+  nameRow: sharedItemStyles.nameRow,
+  followButton: sharedItemStyles.followButton,
   statusIconButton: {
     padding: 8,
     borderRadius: BORDER_RADIUS.SMALL,

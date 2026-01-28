@@ -20,6 +20,7 @@ export { default as ShareSheet } from './ShareSheet';
 export { default as RelativeDate } from './RelativeDate';
 export { default as VideoInfoDisplay } from './VideoInfoDisplay';
 export { default as AuthorItem } from './AuthorItem';
+export { default as ChannelItem } from './ChannelItem';
 export { default as HeaderBanner } from './HeaderBanner';
 export { default as ListScreen } from './ListScreen';
 export { default as CustomPDSInputSheet } from './CustomPDSInputSheet';

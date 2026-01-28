@@ -6,7 +6,7 @@ import { useRouter } from 'expo-router';
 import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../utils/constants';
 import { Colors } from './UI';
 import { Icon } from './UI';
-import { Loading3FillIcon, FollowIcon, CheckIcon, MutualHeartIcon, MinusFillIcon } from './Icon';
+import { Loading3FillIcon, MinusFillIcon } from './Icon';
 import ListHeader from './ListHeader';
 import AuthorItem from './AuthorItem';
 import { useFollowMutation } from '../../services/data/ProfileService';
@@ -100,8 +100,7 @@ const ListScreen: React.FC<ListScreenProps> = ({
       const isCurrentUserProfile = isCurrentUser(item.did, item.handle, currentUser);
       const shouldShowFollowButton = showFollowButton && !isCurrentUserProfile;
       const isFollowing = item.isFollowing || !!item.viewer?.following;
-      const isFollowedBy = !!item.viewer?.followedBy;
-      const isMutual = isFollowing && isFollowedBy;
+      const isActionButton = followButtonAction === 'unblock' || followButtonAction === 'unmute';
 
       return (
         <View style={styles.userItemContainer}>
@@ -112,27 +111,21 @@ const ListScreen: React.FC<ListScreenProps> = ({
             avatar={item.avatar}
             size="large"
             showArrow={false}
-            showFollowButton={false}
+            showFollowButton={shouldShowFollowButton && !isActionButton}
+            isFollowing={isFollowing}
+            onFollowPress={() => handleFollowPress(item)}
             backgroundColor={Colors.transparent}
             nameFontWeight="Figtree-SemiBold"
             customFontSize={16}
             style={styles.authorItem}
             onPress={() => handleUserPress(item.did)}
           />
-          {shouldShowFollowButton && (
+          {shouldShowFollowButton && isActionButton && (
             <Pressable
-              style={({ pressed }) => [styles.followButton, pressed && { opacity: 0.8 }]}
+              style={({ pressed }) => [styles.actionButton, pressed && { opacity: 0.8 }]}
               onPress={() => handleFollowPress(item)}
             >
-              {followButtonAction === 'unblock' || followButtonAction === 'unmute' ? (
-                <MinusFillIcon size={16} color={Colors.black} />
-              ) : isMutual ? (
-                <MutualHeartIcon size={16} color={Colors.black} />
-              ) : isFollowing ? (
-                <CheckIcon size={16} color={Colors.black} strokeWidth={2} />
-              ) : (
-                <FollowIcon size={16} color={Colors.black} />
-              )}
+              <MinusFillIcon size={16} color={Colors.black} />
             </Pressable>
           )}
         </View>
@@ -251,16 +244,15 @@ const styles = StyleSheet.create({
   userItemContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
   },
   authorItem: {
     flex: 1,
     paddingVertical: 10,
-    paddingHorizontal: 0,
+    paddingHorizontal: 20,
     marginBottom: 0,
     borderRadius: 0,
   },
-  followButton: {
+  actionButton: {
     width: 32,
     height: 32,
     borderWidth: 0,
@@ -270,7 +262,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
-    marginLeft: 10,
+    marginRight: 20,
   },
   emptyContainer: {
     flex: 1,

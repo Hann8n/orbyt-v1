@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } from 'react';
-import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../src/utils/constants';
+import { QUERY_CONSTANTS } from '../../src/utils/constants';
 import {
   View,
   Text,
@@ -46,15 +46,15 @@ import { useQueryClient, useQuery, type QueryClient } from '@tanstack/react-quer
 import { Avatar, Icon } from '../../src/components/ui/UI';
 import { LinearGradient } from '../../src/components/ui/LinearGradient';
 import HeaderBanner from '../../src/components/ui/HeaderBanner';
+import AuthorItem from '../../src/components/ui/AuthorItem';
+import ChannelItem from '../../src/components/ui/ChannelItem';
 
-import { SearchIcon, FollowIcon, Loading3FillIcon } from '../../src/components/ui/Icon';
+import { SearchIcon, Loading3FillIcon } from '../../src/components/ui/Icon';
 import { Colors } from '../../src/components/ui/UI';
-import { VerificationBadge } from '../../src/components/features/badging';
 import EmptyFeed from '../../src/components/features/feed/EmptyFeed';
 import { feedService } from '../../src/services/FeedService';
 import { getBottomNavBarHeight, isTablet } from '../../src/utils/device/screen';
 import { getVideoView } from '../../src/utils/video/helpers';
-import { formatHandle } from '../../src/utils/formatting/handles';
 import BlurredBackground from '../../src/components/ui/BlurredBackground';
 import { HeaderService, useHeaders, type Header } from '../../src/services/OrbytBannerService';
 import { useFeed } from '../../src/hooks/useFeed';
@@ -349,7 +349,6 @@ const ProfilesFeedRenderer = React.memo(
   }) => {
     const router = useRouter();
     const queryClient = useQueryClient();
-    const currentUser = useUserStore(state => state.currentUser);
 
     const profiles = searchResults
       .filter(isProfileResult)
@@ -358,7 +357,7 @@ const ProfilesFeedRenderer = React.memo(
 
     if (isLoading) {
       return (
-        <View style={[styles.loadingContainer, { flex: 1 }]}>
+        <View style={styles.loadingContainerFull}>
           <Loading3FillIcon size={48} color={Colors.white} />
         </View>
       );
@@ -368,10 +367,20 @@ const ProfilesFeedRenderer = React.memo(
       <FlashList
         data={profiles}
         keyExtractor={profile => `profile-${profile.did || profile.handle}`}
-        renderItem={({ item: profile }) => (
-          <View style={styles.profileItem}>
-            <Pressable
-              style={styles.profileTouchable}
+        renderItem={({ item: profile }) => {
+          const isFollowing = !!profile.viewer?.following;
+
+          return (
+            <AuthorItem
+              handle={profile.handle || ''}
+              did={profile.did}
+              displayName={profile.displayName}
+              avatar={profile.avatar}
+              size="large"
+              showArrow={false}
+              showFollowButton={!isFollowing}
+              isFollowing={isFollowing}
+              onFollowPress={() => onFollow(profile)}
               onPress={() => {
                 if (onProfilePress) {
                   onProfilePress(profile);
@@ -379,42 +388,13 @@ const ProfilesFeedRenderer = React.memo(
                   navigateToProfile(profile, queryClient, router);
                 }
               }}
-            >
-              <Avatar
-                uri={profile.avatar}
-                type="profile"
-                size={48}
-                ringColor="transparent"
-                style={styles.profileImage}
-                status={profile.status}
-              />
-              <View style={styles.profileContent}>
-                <View style={styles.rowCenterFlex}>
-                  <Text style={styles.displayName} numberOfLines={1} ellipsizeMode="tail">
-                    {formatHandle(profile.handle) || 'Unknown user'}
-                  </Text>
-                  {profile.handle && profile.handle.trim() && profile.handle.length > 0 && (
-                    <VerificationBadge
-                      handle={profile.handle.trim()}
-                      verification={profile.verification}
-                      textSize={16}
-                      textColor={Colors.white}
-                    />
-                  )}
-                </View>
-              </View>
-            </Pressable>
-            {!profile.viewer?.following &&
-              !isCurrentUser(profile.did, profile.handle, currentUser) && (
-                <Pressable
-                  style={({ pressed }) => [styles.followButton, pressed && { opacity: 0.8 }]}
-                  onPress={() => onFollow(profile)}
-                >
-                  <FollowIcon size={16} color={Colors.black} />
-                </Pressable>
-              )}
-          </View>
-        )}
+              backgroundColor={Colors.transparent}
+              textColor={Colors.white}
+              nameFontWeight="Figtree-SemiBold"
+              style={styles.authorItemStyle}
+            />
+          );
+        }}
         contentContainerStyle={[styles.listContainer, { paddingBottom: bottomPadding + 20 }]}
         showsVerticalScrollIndicator={false}
         keyboardDismissMode="on-drag"
@@ -472,8 +452,12 @@ const ChannelsFeedRenderer = React.memo(
         data={channels}
         keyExtractor={channel => `channel-${channel.uri || channel.cid}`}
         renderItem={({ item: channel }) => (
-          <Pressable
-            style={styles.channelItem}
+          <ChannelItem
+            uri={channel.uri}
+            displayName={channel.displayName}
+            avatar={channel.avatar}
+            size="large"
+            showArrow={false}
             onPress={() => {
               if (onChannelPress) {
                 onChannelPress(channel);
@@ -486,20 +470,11 @@ const ChannelsFeedRenderer = React.memo(
                 }
               }
             }}
-          >
-            <Avatar
-              uri={getChannelAvatarUri(channel.uri, channel.avatar)}
-              type="channel"
-              size={48}
-              ringColor={Colors.transparent}
-              style={styles.channelImage}
-            />
-            <View style={styles.channelContent}>
-              <View style={styles.rowCenter}>
-                <ChannelNameDisplay channel={channel} />
-              </View>
-            </View>
-          </Pressable>
+            backgroundColor={Colors.transparent}
+            textColor={Colors.white}
+            nameFontWeight="Figtree-Bold"
+            style={styles.channelItemStyle}
+          />
         )}
         contentContainerStyle={[styles.listContainer, { paddingBottom: bottomPadding + 20 }]}
         showsVerticalScrollIndicator={false}
@@ -528,7 +503,6 @@ const VisitHistoryList = React.memo(
     onFollow: (profile: Profile) => void;
     bottomPadding?: number;
   }) => {
-    const currentUser = useUserStore(state => state.currentUser);
     return (
       <FlashList
         data={visitHistory}
@@ -545,62 +519,40 @@ const VisitHistoryList = React.memo(
           const channelData = !isProfile ? (item.data as Channel) : null;
 
           if (isProfile && profileData) {
+            const isFollowing = !!profileData.viewer?.following;
+
             return (
-              <View style={styles.profileItem}>
-                <Pressable style={styles.profileTouchable} onPress={() => onHistoryItemPress(item)}>
-                  <Avatar
-                    uri={profileData.avatar}
-                    type="profile"
-                    size={48}
-                    ringColor="transparent"
-                    style={styles.profileImage}
-                    status={profileData.status}
-                  />
-                  <View style={styles.profileContent}>
-                    <View style={styles.rowCenterFlex}>
-                      <Text style={styles.displayName} numberOfLines={1} ellipsizeMode="tail">
-                        {formatHandle(profileData.handle) || 'Unknown user'}
-                      </Text>
-                      {profileData.handle &&
-                        profileData.handle.trim() &&
-                        profileData.handle.length > 0 && (
-                          <VerificationBadge
-                            handle={profileData.handle.trim()}
-                            verification={profileData.verification}
-                            textSize={16}
-                            textColor={Colors.white}
-                          />
-                        )}
-                    </View>
-                  </View>
-                </Pressable>
-                {!profileData.viewer?.following &&
-                  !isCurrentUser(profileData.did, profileData.handle, currentUser) && (
-                    <Pressable
-                      style={({ pressed }) => [styles.followButton, pressed && { opacity: 0.8 }]}
-                      onPress={() => onFollow(profileData)}
-                    >
-                      <FollowIcon size={16} color={Colors.black} />
-                    </Pressable>
-                  )}
-              </View>
+              <AuthorItem
+                handle={profileData.handle || ''}
+                did={profileData.did}
+                displayName={profileData.displayName}
+                avatar={profileData.avatar}
+                size="large"
+                showArrow={false}
+                showFollowButton={!isFollowing}
+                isFollowing={isFollowing}
+                onFollowPress={() => onFollow(profileData)}
+                onPress={() => onHistoryItemPress(item)}
+                backgroundColor={Colors.transparent}
+                textColor={Colors.white}
+                nameFontWeight="Figtree-SemiBold"
+                style={styles.authorItemStyle}
+              />
             );
           } else if (!isProfile && channelData) {
             return (
-              <Pressable style={styles.channelItem} onPress={() => onHistoryItemPress(item)}>
-                <Avatar
-                  uri={getChannelAvatarUri(channelData.uri, channelData.avatar)}
-                  type="channel"
-                  size={48}
-                  ringColor="transparent"
-                  style={styles.channelImage}
-                />
-                <View style={styles.channelContent}>
-                  <View style={styles.rowCenter}>
-                    <ChannelNameDisplay channel={channelData} />
-                  </View>
-                </View>
-              </Pressable>
+              <ChannelItem
+                uri={channelData.uri}
+                displayName={channelData.displayName}
+                avatar={channelData.avatar}
+                size="large"
+                showArrow={false}
+                onPress={() => onHistoryItemPress(item)}
+                backgroundColor={Colors.transparent}
+                textColor={Colors.white}
+                nameFontWeight="Figtree-Bold"
+                style={styles.channelItemStyle}
+              />
             );
           }
           return null;
@@ -2036,7 +1988,7 @@ const ExploreScreen: React.FC = () => {
               }
               return (
                 <View style={styles.sectionHeader}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={styles.sectionHeaderRow}>
                     {typeof item.title === 'string' &&
                     item.title.toLowerCase().includes('spotlight') ? (
                       <Text style={styles.sectionTitle}>spotlight</Text>
@@ -2153,65 +2105,45 @@ const ExploreScreen: React.FC = () => {
             }
             if (item.type === 'profile' && 'data' in item) {
               const profile = item.data as Profile;
+              const isFollowing = !!profile.viewer?.following;
+
               return (
-                <View style={styles.profileItem}>
-                  <Pressable
-                    style={styles.profileTouchable}
-                    onPress={() => {
-                      if (profile.did) {
-                        const did = profile.did.trim();
-                        if (did) {
-                          // Prefetch profile: sets partial data immediately + fetches full profile
-                          prefetchProfile(queryClient, did, {
-                            did: profile.did,
-                            handle: profile.handle,
-                            displayName: profile.displayName,
-                            avatar: profile.avatar,
-                            description: profile.description,
-                            verification: profile.verification,
-                          }).finally(() => {
-                            router.push({
-                              pathname: '/profile/[did]',
-                              params: { did },
-                            });
+                <AuthorItem
+                  handle={profile.handle || ''}
+                  did={profile.did}
+                  displayName={profile.displayName}
+                  avatar={profile.avatar}
+                  size="large"
+                  showArrow={false}
+                  showFollowButton={!isFollowing}
+                  isFollowing={isFollowing}
+                  onFollowPress={() => handleFollow(profile)}
+                  onPress={() => {
+                    if (profile.did) {
+                      const did = profile.did.trim();
+                      if (did) {
+                        // Prefetch profile: sets partial data immediately + fetches full profile
+                        prefetchProfile(queryClient, did, {
+                          did: profile.did,
+                          handle: profile.handle,
+                          displayName: profile.displayName,
+                          avatar: profile.avatar,
+                          description: profile.description,
+                          verification: profile.verification,
+                        }).finally(() => {
+                          router.push({
+                            pathname: '/profile/[did]',
+                            params: { did },
                           });
-                        }
+                        });
                       }
-                    }}
-                  >
-                    <Avatar
-                      uri={profile.avatar}
-                      type="profile"
-                      size={48}
-                      ringColor="transparent"
-                      style={styles.profileImage}
-                    />
-                    <View style={styles.profileContent}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <Text style={styles.displayName} numberOfLines={1}>
-                          {formatHandle(profile.handle) || 'Unknown user'}
-                        </Text>
-                        {profile.handle && profile.handle.trim() && profile.handle.length > 0 && (
-                          <VerificationBadge
-                            handle={profile.handle.trim()}
-                            verification={profile.verification}
-                            textSize={16}
-                            textColor={Colors.white}
-                          />
-                        )}
-                      </View>
-                    </View>
-                  </Pressable>
-                  {!profile.viewer?.following &&
-                    !isCurrentUser(profile.did, profile.handle, currentUser) && (
-                      <Pressable
-                        style={({ pressed }) => [styles.followButton, pressed && { opacity: 0.8 }]}
-                        onPress={() => handleFollow(profile)}
-                      >
-                        <FollowIcon size={16} color={Colors.black} />
-                      </Pressable>
-                    )}
-                </View>
+                    }
+                  }}
+                  backgroundColor={Colors.transparent}
+                  textColor={Colors.white}
+                  nameFontWeight="Figtree-SemiBold"
+                  style={styles.authorItemStyle}
+                />
               );
             }
             if (item.type === 'popular-channels-section') {
@@ -2306,12 +2238,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  rowCenterFlex: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    minWidth: 0,
-  },
   centerContent: {
     justifyContent: 'center',
     alignItems: 'center',
@@ -2365,35 +2291,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  profileItem: {
+  authorItemStyle: {
+    marginBottom: 0,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+  },
+  channelItem: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 10,
     paddingHorizontal: 15,
   },
-  profileTouchable: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  profileImage: {
-    marginRight: 12,
-  },
-  profileContent: {
-    flex: 1,
-    minWidth: 0,
-    justifyContent: 'center',
-  },
-  displayName: {
-    color: Colors.white,
-    fontSize: 17,
-    marginBottom: 2,
-    fontFamily: 'Figtree-SemiBold',
-    flexShrink: 1,
-  },
-  channelItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  channelItemStyle: {
+    marginBottom: 0,
     paddingVertical: 10,
     paddingHorizontal: 15,
   },
@@ -2498,6 +2408,10 @@ const styles = StyleSheet.create({
     paddingTop: 15,
     paddingBottom: 8,
   },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   sectionTitle: {
     color: Colors.white,
     fontSize: 18,
@@ -2599,22 +2513,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  followButton: {
-    width: 32,
-    height: 32,
-    borderWidth: 0,
-    borderColor: Colors.transparent,
-    borderRadius: BORDER_RADIUS.SMALL,
-    backgroundColor: Colors.lightGray,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-    marginLeft: 10,
-  },
-
   loadingContainer: {
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  loadingContainerFull: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    flex: 1,
   },
   searchContentWrapper: {
     flex: 1,
