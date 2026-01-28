@@ -22,7 +22,7 @@ const BetaBadge: React.FC<BetaBadgeProps> = ({
   style,
   autoPosition = true,
   customMargin,
-  accessibilityLabel = 'Beta user',
+  accessibilityLabel = 'Beta tester',
   scale = 1.0,
 }) => {
   // Match VerificationBadge sizing behavior

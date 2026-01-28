@@ -45,7 +45,7 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
       <View style={styles.headerLeft}>
         <BetaBadge size={24} color={Colors.white} opacity={0.7} customMargin={0} />
         <Text style={[styles.headerTitle, styles.headerTitleMargin]} numberOfLines={1}>
-          Beta User
+          Beta Tester
         </Text>
       </View>
       <CloseButton onPress={onDismiss} />
@@ -80,7 +80,7 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
         <View style={styles.infoContainer}>
           <Text style={styles.infoText}>
             <Text style={styles.highlightedText}>{handle}</Text> joined during the orbyt beta. Beta
-            users helped test early features and shape the experience.
+            testers helped test early features and shape the experience.
           </Text>
         </View>
 
