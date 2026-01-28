@@ -49,6 +49,7 @@ import type {
   OrbytProfileRecord,
   RepostView,
   CreateRecordResponse,
+  MessageView,
 } from './types';
 import type { SubscribedChannel } from '../../stores/userStore';
 import {
@@ -57,11 +58,9 @@ import {
   isBlockedPost as checkIsBlockedPost,
 } from './types';
 
-const SERVICE_URL = 'https://bsky.social';
-const CHAT_SERVICE_URL = 'https://api.bsky.chat';
+const CHAT_SERVICE_DID = 'did:web:api.bsky.chat';
 
 class AtprotoService {
-  static agent = new AtpAgent({ service: SERVICE_URL });
   // Cache resolved PDS endpoints per DID for cross-PDS reads
   private static _pdsEndpointCache = new Map<string, string>();
 
@@ -203,42 +202,22 @@ class AtprotoService {
    * @returns Promise with conversations data
    */
   static async getConversations(cursor: string | null = null): Promise<ConversationsResponse> {
-    const apiClient = await this.getApiClient();
-
-    // Handle case where no session is available or restoration is in progress
-    if (!apiClient) {
-      return { conversations: [], cursor: null };
-    }
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-      'x-bsky-service': 'did:web:api.bsky.chat',
-    };
-
-    // Get the current agent from userStore
-    const { useUserStore } = await import('../../stores/userStore');
-    const userStore = useUserStore.getState();
-
-    if (!userStore.agent) {
-      return { conversations: [], cursor: null };
-    }
-
-    const params = new URLSearchParams({ limit: '50' });
-    if (cursor) {
-      params.append('cursor', cursor);
-    }
-    const response = await fetch(
-      `${CHAT_SERVICE_URL}/xrpc/chat.bsky.convo.listConversations?${params.toString()}`,
-      { headers }
+    const { api } = await this.getApiClient();
+    const response = await api.chat.bsky.convo.listConvos(
+      {
+        limit: 50,
+        ...(cursor && { cursor }),
+      },
+      {
+        headers: {
+          'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat`,
+        },
+      }
     );
-    if (response.status === 501) {
-      return { conversations: [], cursor: null };
-    }
-    if (!response.ok) {
-      throw new Error(`HTTP error ${response.status}`);
-    }
-    const json = await response.json();
-    return { conversations: json.convos || [], cursor: json.cursor || null };
+    return {
+      conversations: response.data?.convos || [],
+      cursor: response.data?.cursor || null,
+    };
   }
 
   /**
@@ -251,30 +230,29 @@ class AtprotoService {
     convoId: string,
     cursor: string | null = null
   ): Promise<MessagesResponse> {
-    await this.ensureSession();
-    const params = new URLSearchParams({ convoId, limit: '50' });
-    if (cursor) {
-      params.append('cursor', cursor);
-    }
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-      'x-bsky-service': 'did:web:api.bsky.chat',
-    };
-
-    // For OAuth, authentication is handled automatically by the agent
-    const response = await fetch(
-      `${CHAT_SERVICE_URL}/xrpc/chat.bsky.convo.getMessages?${params.toString()}`,
-      { headers }
+    const { api } = await this.getApiClient();
+    const response = await api.chat.bsky.convo.getMessages(
+      {
+        convoId,
+        limit: 50,
+        ...(cursor && { cursor }),
+      },
+      {
+        headers: {
+          'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat`,
+        },
+      }
     );
-    if (response.status === 501) {
-      return { messages: [], cursor: null };
-    }
-    if (!response.ok) {
-      throw new Error(`HTTP error ${response.status}`);
-    }
-    const json = await response.json();
-    return { messages: json.logs, cursor: json.cursor || null };
+    // Handle both 'logs' and 'messages' response structures (API may return either)
+    const data = response.data as {
+      logs?: MessageView[];
+      messages?: MessageView[];
+      cursor?: string | null;
+    };
+    return {
+      messages: data?.logs || data?.messages || [],
+      cursor: data?.cursor || null,
+    };
   }
 
   /**
