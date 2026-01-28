@@ -414,7 +414,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
     setShowFollowConfirmation(true);
     // Trigger server follow (mutation updates follow store immediately)
     followMutation.mutate(
-      { handle: post.author.handle, isFollowing: true },
+      { did: post.author?.did, handle: post.author.handle, isFollowing: true },
       {
         onError: () => {
           // Reset confirmation if mutation fails
@@ -422,7 +422,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
         },
       }
     );
-  }, [post.author?.handle, followMutation]);
+  }, [post.author?.handle, post.author?.did, followMutation]);
 
   // Precompute follow badge metrics
   const followBadgeMetrics = useMemo(() => {
@@ -448,7 +448,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
           ? { bottom: bottomNavBarHeight }
           : {},
     ],
-    [contentPadding, isModal, isCompactDeviceValue, isTabletDevice, bottomNavBarHeight, hasTabBar]
+    [contentPadding, isModal, isCompactDeviceValue, bottomNavBarHeight, hasTabBar]
   );
 
   // Opacity from composed overlayOpacitySV (itemVisibility + overlayVisibility + scrubbing)

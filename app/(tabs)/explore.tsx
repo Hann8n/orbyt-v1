@@ -1115,6 +1115,7 @@ const ExploreScreen: React.FC = () => {
       if (profile.handle) {
         const handle = profile.handle;
         followMutation.mutate({
+          did: profile.did,
           handle,
           isFollowing: !profile.viewer?.following,
         });
@@ -1766,7 +1767,6 @@ const ExploreScreen: React.FC = () => {
           style={[
             styles.topGradient,
             {
-              top: 0,
               height: insets.top + 10 + 48,
             },
             topGradientAnimatedStyle,
@@ -2183,6 +2183,7 @@ const styles = StyleSheet.create({
 
   topGradient: {
     position: 'absolute',
+    top: 0,
     left: 0,
     right: 0,
     height: 100,

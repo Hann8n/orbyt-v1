@@ -163,9 +163,9 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
     if (onFollowPress) {
       onFollowPress();
     } else if (handle) {
-      followMutation.mutate({ handle, isFollowing: !actualIsFollowing });
+      followMutation.mutate({ did, handle, isFollowing: !actualIsFollowing });
     }
-  }, [onFollowPress, handle, followMutation, actualIsFollowing]);
+  }, [onFollowPress, handle, followMutation, actualIsFollowing, did]);
 
   return (
     <Pressable

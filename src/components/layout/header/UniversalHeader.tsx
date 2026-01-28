@@ -15,6 +15,11 @@ import Animated, {
   useAnimatedStyle,
   interpolate,
   Extrapolate,
+  useSharedValue,
+  withTiming,
+  interpolateColor,
+  useAnimatedReaction,
+  Easing,
 } from 'react-native-reanimated';
 import { LinearGradient } from '../../ui/LinearGradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -114,8 +119,46 @@ const ActionButton = memo<{
     return isFollowingState || isIconOnlyFollowingState || isSaveButton || isActiveSubscription;
   }, [action.label, action.id, action.active]);
 
+  // Animated progress value: 0 = not following, 1 = following
+  // Use timing animation with smooth easing for predictable, fluid transitions
+  const animationProgress = useSharedValue(hasFilledBackground ? 1 : 0);
+
+  // Sync animation progress when state changes
+  useAnimatedReaction(
+    () => hasFilledBackground,
+    isFilled => {
+      animationProgress.value = withTiming(isFilled ? 1 : 0, {
+        duration: 300,
+        easing: Easing.out(Easing.cubic), // Smooth, natural easing
+      });
+    },
+    [hasFilledBackground]
+  );
+
   // Freeze hasFilledBackground when press starts to prevent flash during async state updates
   const frozenHasFilledBackgroundRef = useRef<boolean | null>(null);
+
+  // Animated style for smooth background color transition
+  const animatedButtonStyle = useAnimatedStyle(() => {
+    'worklet';
+    const unfilledBg = blendColors(backgroundColor, textColor, 0.2);
+    const filledBg = textColor;
+    return {
+      backgroundColor: interpolateColor(animationProgress.value, [0, 1], [unfilledBg, filledBg]),
+      opacity: action.disabled ? 0.4 : 1,
+    };
+  }, [textColor, backgroundColor, action.disabled]);
+
+  // Content crossfade (UI thread): avoids animating Icon "color" prop via JS.
+  const unfilledContentOpacityStyle = useAnimatedStyle(() => {
+    'worklet';
+    return { opacity: 1 - animationProgress.value };
+  });
+
+  const filledContentOpacityStyle = useAnimatedStyle(() => {
+    'worklet';
+    return { opacity: animationProgress.value };
+  });
 
   const getButtonStyle = useCallback(
     (pressed: boolean = false, frozenValue: boolean | null = null) => {
@@ -255,9 +298,18 @@ const ActionButton = memo<{
     [action, getContentColor]
   );
 
-  return (
+  // Only apply animations for follow button, use regular styles for others
+  const isFollowButton = action.id === 'follow';
+  const shouldAnimate =
+    isFollowButton && action.variant !== 'danger' && action.variant !== 'secondary';
+
+  const buttonContent = (
     <Pressable
       style={({ pressed }) => {
+        if (shouldAnimate) {
+          // For animated buttons, only handle press feedback (styles come from Animated.View wrapper)
+          return [styles.pressableFill, { opacity: pressed ? 0.9 : 1 }];
+        }
         const frozenValue = frozenHasFilledBackgroundRef.current;
         return [styles.actionButton, getButtonStyle(pressed, frozenValue), getButtonSize()];
       }}
@@ -275,11 +327,126 @@ const ActionButton = memo<{
       disabled={action.disabled || action.loading}
     >
       {({ pressed }) => {
+        if (shouldAnimate) {
+          const textStyle =
+            action.variant === 'secondary' || action.id === 'save'
+              ? styles.actionTextBold
+              : styles.actionText;
+
+          // Render two layers (unfilled + filled) and crossfade between them on UI thread.
+          const unfilledColor = textColor;
+          const filledColor = backgroundColor;
+
+          const content = action.loading ? (
+            <Loading3FillIcon size={24} color={unfilledColor} />
+          ) : action.label ? (
+            <View style={styles.actionContent} pointerEvents="none">
+              <Text style={[textStyle, { color: unfilledColor }]}>{action.label}</Text>
+              {action.customIcon ? (
+                React.isValidElement(action.customIcon) &&
+                action.customIcon.props &&
+                typeof action.customIcon.props === 'object' &&
+                'color' in action.customIcon.props ? (
+                  React.cloneElement(action.customIcon as React.ReactElement<{ color?: string }>, {
+                    color: unfilledColor,
+                  })
+                ) : (
+                  action.customIcon
+                )
+              ) : action.icon ? (
+                <Icon name={action.icon} size={16} color={unfilledColor} strokeWidth={2.5} />
+              ) : null}
+            </View>
+          ) : (
+            <View style={styles.iconOnlyContent} pointerEvents="none">
+              {action.customIcon ? (
+                React.isValidElement(action.customIcon) &&
+                action.customIcon.props &&
+                typeof action.customIcon.props === 'object' &&
+                'color' in action.customIcon.props ? (
+                  React.cloneElement(action.customIcon as React.ReactElement<{ color?: string }>, {
+                    color: unfilledColor,
+                  })
+                ) : (
+                  action.customIcon
+                )
+              ) : action.icon ? (
+                <Icon name={action.icon} size={20} color={unfilledColor} strokeWidth={2.5} />
+              ) : null}
+            </View>
+          );
+
+          const contentFilled = action.loading ? (
+            <Loading3FillIcon size={24} color={filledColor} />
+          ) : action.label ? (
+            <View style={styles.actionContent} pointerEvents="none">
+              <Text style={[textStyle, { color: filledColor }]}>{action.label}</Text>
+              {action.customIcon ? (
+                React.isValidElement(action.customIcon) &&
+                action.customIcon.props &&
+                typeof action.customIcon.props === 'object' &&
+                'color' in action.customIcon.props ? (
+                  React.cloneElement(action.customIcon as React.ReactElement<{ color?: string }>, {
+                    color: filledColor,
+                  })
+                ) : (
+                  action.customIcon
+                )
+              ) : action.icon ? (
+                <Icon name={action.icon} size={16} color={filledColor} strokeWidth={2.5} />
+              ) : null}
+            </View>
+          ) : (
+            <View style={styles.iconOnlyContent} pointerEvents="none">
+              {action.customIcon ? (
+                React.isValidElement(action.customIcon) &&
+                action.customIcon.props &&
+                typeof action.customIcon.props === 'object' &&
+                'color' in action.customIcon.props ? (
+                  React.cloneElement(action.customIcon as React.ReactElement<{ color?: string }>, {
+                    color: filledColor,
+                  })
+                ) : (
+                  action.customIcon
+                )
+              ) : action.icon ? (
+                <Icon name={action.icon} size={20} color={filledColor} strokeWidth={2.5} />
+              ) : null}
+            </View>
+          );
+
+          return (
+            <View style={styles.followContentCrossfade} pointerEvents="none">
+              {/* Sizer keeps intrinsic layout (absolute layers don't contribute to measurement) */}
+              <View style={styles.followContentSizer} pointerEvents="none">
+                {content}
+              </View>
+              <Animated.View style={[styles.followContentLayer, unfilledContentOpacityStyle]}>
+                {content}
+              </Animated.View>
+              <Animated.View style={[styles.followContentLayer, filledContentOpacityStyle]}>
+                {contentFilled}
+              </Animated.View>
+            </View>
+          );
+        }
+
         const frozenValue = frozenHasFilledBackgroundRef.current;
         return renderContent(pressed, frozenValue);
       }}
     </Pressable>
   );
+
+  // Wrap in Animated.View only when animating, otherwise return Pressable directly
+  if (shouldAnimate) {
+    return (
+      <Animated.View style={[styles.actionButton, animatedButtonStyle, getButtonSize()]}>
+        {buttonContent}
+      </Animated.View>
+    );
+  }
+
+  return buttonContent;
 });
 ActionButton.displayName = 'ActionButton';
 
@@ -908,6 +1075,26 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 2,
     alignSelf: 'center',
+  },
+  pressableFill: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  followContentCrossfade: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  followContentSizer: {
+    opacity: 0,
+  },
+  followContentLayer: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   actionContent: {
     flexDirection: 'row',

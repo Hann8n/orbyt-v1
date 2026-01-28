@@ -157,7 +157,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
             style={styles.profileImage}
           />
           <View style={styles.profileContent}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0 }}>
+            <View style={styles.displayNameRow}>
               <Text style={styles.displayName} numberOfLines={1} ellipsizeMode="tail">
                 {item.displayName || formatHandle(item.handle) || 'Unknown user'}
               </Text>
@@ -176,6 +176,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
             style={styles.followButton}
             onPress={() => {
               followMutation.mutate({
+                did: item.did,
                 handle: item.handle,
                 isFollowing: !isFollowing,
               });
@@ -217,7 +218,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
               },
         ]}
       >
-        <View style={[styles.contentContainer, { justifyContent: 'center', alignItems: 'center' }]}>
+        <View style={[styles.contentContainer, styles.centerContent]}>
           <View style={styles.iconContainer}>
             <Image source={TVStaticGif} style={styles.animatedGif} contentFit="contain" />
           </View>
@@ -247,13 +248,12 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
         <View
           style={[
             styles.emptyContainer,
-            { justifyContent: 'center', backgroundColor: Colors.black },
+            styles.justifyCenter,
+            { backgroundColor: Colors.black },
             viewableAreaHeight ? { height: viewableAreaHeight } : {},
           ]}
         >
-          <View
-            style={[styles.contentContainer, { justifyContent: 'center', alignItems: 'center' }]}
-          >
+          <View style={[styles.contentContainer, styles.centerContent, styles.justifyCenter]}>
             <View style={styles.iconContainer}>
               <Image
                 source={TVStaticGif}
@@ -287,11 +287,12 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
       <View
         style={[
           styles.emptyContainer,
-          { justifyContent: 'center', backgroundColor: Colors.black },
+          styles.justifyCenter,
+          { backgroundColor: Colors.black },
           viewableAreaHeight ? { height: viewableAreaHeight } : {},
         ]}
       >
-        <View style={[styles.contentContainer, { justifyContent: 'center' }]}>
+        <View style={[styles.contentContainer, styles.justifyCenter]}>
           <View style={styles.iconContainer}>
             <Image
               source={LivingGif}
@@ -351,7 +352,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'flex-start',
-    backgroundColor: 'transparent',
+    backgroundColor: Colors.transparent,
   },
   contentContainer: {
     alignItems: 'center',
@@ -361,11 +362,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   emptyText: {
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: Colors.white,
+    opacity: 0.7,
     fontSize: 16,
     fontFamily: 'Figtree-SemiBold',
     marginTop: 0,
     textAlign: 'center',
+  },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  justifyCenter: {
+    justifyContent: 'center',
   },
   iconContainer: {
     width: '100%',
@@ -416,12 +425,18 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.LARGE,
     marginRight: 12,
     borderWidth: 0,
-    borderColor: 'transparent',
+    borderColor: Colors.transparent,
   },
   profileContent: {
     flex: 1,
     minWidth: 0,
     justifyContent: 'center',
+  },
+  displayNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    minWidth: 0,
   },
   displayName: {
     color: Colors.white,
@@ -434,7 +449,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderWidth: 0,
-    borderColor: 'transparent',
+    borderColor: Colors.transparent,
     borderRadius: BORDER_RADIUS.SMALL,
     backgroundColor: Colors.lightGray,
     alignItems: 'center',
@@ -448,11 +463,11 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 24,
     borderWidth: 0,
-    borderColor: 'transparent',
+    borderColor: Colors.transparent,
     marginTop: 24,
   },
   addChannelsButtonText: {
-    color: '#000000',
+    color: Colors.black,
     fontSize: 16,
     fontFamily: 'Figtree-SemiBold',
   },

@@ -618,57 +618,62 @@ export function useFollowMutation() {
 
   return useMutation({
     mutationFn: async ({
+      did,
       handle,
       isFollowing,
       isFollowedBy,
     }: {
+      did?: string;
       handle: string;
       isFollowing: boolean;
       isFollowedBy?: boolean;
     }) => {
-      // Get the profile to get the DID
-      const profile = await ProfileService.getProfile(handle);
-      if (!profile?.did) {
-        throw new Error('Profile not found or missing DID');
-      }
+      // Prefer DID when available to avoid extra lookups (keeps UX fully optimistic)
+      const resolvedDid =
+        did ||
+        (await ProfileService.getProfile(handle)
+          .then(p => p?.did)
+          .catch(() => undefined));
+      if (!resolvedDid) throw new Error('Profile not found or missing DID');
 
       // Make the actual API call
       let followUri: string | undefined;
       if (isFollowing) {
-        followUri = await AtprotoService.follow(profile.did);
+        followUri = await AtprotoService.follow(resolvedDid);
       } else {
-        await AtprotoService.unfollow(profile.did);
+        await AtprotoService.unfollow(resolvedDid);
         followUri = undefined;
       }
 
       // Persist to follow store for navigation
-      updateFollowState(profile.did, handle, isFollowing, followUri);
+      updateFollowState(resolvedDid, handle, isFollowing, followUri);
 
-      return { handle, isFollowing, isFollowedBy, did: profile.did, followUri };
+      return { handle, isFollowing, isFollowedBy, did: resolvedDid, followUri };
     },
     // When mutate is called:
-    onMutate: async ({ handle, isFollowing, isFollowedBy }) => {
-      // Get profile to find DID (API always provides DID)
-      const profile = await ProfileService.getProfile(handle).catch(() => null);
-      const did = profile?.did;
-      if (!did) {
-        throw new Error('Profile not found or missing DID');
+    onMutate: async ({ did, handle, isFollowing, isFollowedBy }) => {
+      // Prefer DID when provided so the optimistic update is immediate (no await needed)
+      let resolvedDid = did;
+      if (!resolvedDid) {
+        const profile = await ProfileService.getProfile(handle).catch(() => null);
+        resolvedDid = profile?.did;
       }
+      if (!resolvedDid) throw new Error('Profile not found or missing DID');
 
-      // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: profileKeys.detail(did) });
+      // Cancel any outgoing refetches (don't block optimistic UI on this)
+      void queryClient.cancelQueries({ queryKey: profileKeys.detail(resolvedDid) });
 
       // Snapshot the previous value
       const previousProfile = queryClient.getQueryData<ProfileViewWithOrbyt>(
-        profileKeys.detail(did)
+        profileKeys.detail(resolvedDid)
       );
 
       // Update follow store IMMEDIATELY (synchronously) before any async work
-      updateFollowState(did, handle, isFollowing);
+      updateFollowState(resolvedDid, handle, isFollowing);
 
       // Optimistically update React Query cache
       if (previousProfile) {
-        queryClient.setQueryData(profileKeys.detail(did), {
+        queryClient.setQueryData(profileKeys.detail(resolvedDid), {
           ...previousProfile,
           viewer: {
             ...previousProfile.viewer,
@@ -685,7 +690,7 @@ export function useFollowMutation() {
         });
       }
 
-      return { previousProfile, did };
+      return { previousProfile, did: resolvedDid };
     },
     // If mutation fails, use context returned from onMutate to roll back
     onError: (_err, _variables, context) => {
@@ -699,11 +704,13 @@ export function useFollowMutation() {
         updateFollowState(context.did, '', wasFollowing);
       }
     },
-    // Always refetch after error or success to ensure cache consistency
+    // Delay invalidation to ensure server has processed the change (prevents premature refetch)
     onSettled: (data, _error, _variables) => {
-      // Get DID from mutation result
       if (data?.did) {
-        queryClient.invalidateQueries({ queryKey: profileKeys.detail(data.did) });
+        // Delay refetch to ensure server has processed the follow/unfollow
+        setTimeout(() => {
+          queryClient.invalidateQueries({ queryKey: profileKeys.detail(data.did) });
+        }, 500);
       }
     },
   });

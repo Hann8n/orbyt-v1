@@ -83,6 +83,7 @@ const ListScreen: React.FC<ListScreenProps> = ({
           const isFollowing = followButtonAction === 'follow' ? true : false;
 
           followMutation.mutate({
+            did: user.did,
             handle: user.handle,
             isFollowing,
           });

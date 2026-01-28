@@ -105,18 +105,29 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const { data: orbytColors, refetch: refetchOrbytColors } = useOrbytColors(targetDid);
 
   // Use profile data from query with fallback for own profile
-  const profileData: ProfileViewWithOrbyt | null =
-    didQuery.data ||
-    (isViewingOwnProfile && currentUser?.did && currentUser?.handle
-      ? ({
-          did: currentUser.did,
-          handle: currentUser.handle,
-          displayName: currentUser.displayName ?? undefined,
-          avatar: currentUser.avatar ?? undefined,
-          description: '',
-          viewer: {},
-        } as ProfileViewWithOrbyt)
-      : null);
+  const fallbackProfileData = useMemo<ProfileViewWithOrbyt | null>(() => {
+    if (!isViewingOwnProfile) return null;
+    if (!currentUser?.did || !currentUser?.handle) return null;
+    return {
+      did: currentUser.did,
+      handle: currentUser.handle,
+      displayName: currentUser.displayName ?? undefined,
+      avatar: currentUser.avatar ?? undefined,
+      description: '',
+      viewer: {},
+    } as ProfileViewWithOrbyt;
+  }, [
+    isViewingOwnProfile,
+    currentUser?.did,
+    currentUser?.handle,
+    currentUser?.displayName,
+    currentUser?.avatar,
+  ]);
+
+  const profileData = useMemo<ProfileViewWithOrbyt | null>(
+    () => didQuery.data ?? fallbackProfileData,
+    [didQuery.data, fallbackProfileData]
+  );
 
   const refetchProfile = didQuery.refetch;
   const isProfileLoading = didQuery.isLoading && !profileData;
@@ -373,41 +384,16 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
 
       const newFollowingState = !isFollowing;
 
-      // Update React Query cache IMMEDIATELY (synchronous, instant UI update)
-      // This is the source of truth the component reads from
-      const didKey = profileKeys.detail(profileData.did);
-
-      queryClient.setQueryData<ProfileViewWithOrbyt>(didKey, old =>
-        old
-          ? {
-              ...old,
-              viewer: {
-                ...old.viewer,
-                following: newFollowingState
-                  ? old.viewer?.following || 'at://placeholder'
-                  : undefined,
-              },
-            }
-          : old
-      );
-
-      // Trigger mutation (which will also update cache in onMutate and handle errors)
+      // Trigger mutation (which handles optimistic updates in onMutate)
       followMutation.mutate({
+        did: profileData.did,
         handle: profileData.handle,
         isFollowing: newFollowingState,
       });
     } catch {
       // no-op
     }
-  }, [
-    profileData,
-    isBlocked,
-    isBlockedByList,
-    followMutation,
-    blockMutation,
-    queryClient,
-    isFollowing,
-  ]);
+  }, [profileData, isBlocked, isBlockedByList, followMutation, blockMutation, isFollowing]);
 
   const handleMenuPress = useCallback(() => {
     if (isOwnProfileView) {
