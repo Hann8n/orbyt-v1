@@ -42,7 +42,6 @@ import type {
   GeneratorView,
   ExtendedFeedViewPost,
   PostRecord,
-  ActorPreferences,
   FeedGeneratorOutput,
   GetRecordOutput,
   PutActivitySubscriptionOutput,
@@ -948,22 +947,6 @@ class AtprotoService {
     _limit: number = 50
   ): Promise<FeedGeneratorResponse> {
     return FeedService.getFeedGeneratorWithPosts(uri, cursor, _limit);
-  }
-
-  /**
-   * Get user's moderation preferences from Bluesky
-   * Delegates to ActorService
-   */
-  static async getModerationPreferences(): Promise<ActorPreferences | null> {
-    return ActorService.getModerationPreferences();
-  }
-
-  /**
-   * Update user's moderation preferences on Bluesky
-   * Delegates to ActorService
-   */
-  static async updateModerationPreferences(preferences: ActorPreferences): Promise<boolean> {
-    return ActorService.updateModerationPreferences(preferences);
   }
 
   /**

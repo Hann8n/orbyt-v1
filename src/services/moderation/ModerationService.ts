@@ -41,8 +41,11 @@ export class ModerationService {
   }
 
   /**
-   * Save ModerationPrefs to the API: merge into the raw preferences array
-   * and putPreferences. Preserves all preference types we do not manage.
+   * Save ModerationPrefs to the API: merges updated moderation preferences into
+   * the raw preferences array and calls putPreferences. The raw preferences array
+   * is required to preserve other preference types that are not managed by this service.
+   * agent.getPreferences() returns structured BskyPreferences with moderationPrefs
+   * extracted, but does not expose the raw array needed for merging.
    */
   static async saveModerationPrefs(
     prefs: ModerationPrefs,
@@ -52,6 +55,7 @@ export class ModerationService {
     if (!agent) throw new Error('No agent provided. Cannot save moderation prefs.');
 
     try {
+      // Use low-level API to get raw preferences array for merging (preserves other prefs)
       const res = await agent.api.app.bsky.actor.getPreferences();
       const raw = (res.data?.preferences ?? []) as Array<{ $type?: string; label?: string }>;
 

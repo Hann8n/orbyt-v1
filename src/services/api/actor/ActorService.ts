@@ -9,8 +9,6 @@ import type {
   ProfileViewBasic,
   ProfileViewDetailed,
   ProfileSearchResponse,
-  ActorPreferences,
-  GetPreferencesOutput,
   ProfileViewWithOrbyt,
 } from '../types';
 import type { AppBskyActorProfile } from '@atproto/api';
@@ -559,40 +557,6 @@ export class ActorService {
       return (response.data.actors || []) as ProfileViewBasic[];
     } catch {
       return [];
-    }
-  }
-
-  /**
-   * Get user's moderation preferences from Bluesky
-   * @returns Promise with moderation preferences
-   */
-  static async getModerationPreferences(): Promise<ActorPreferences | null> {
-    await AtprotoCore.ensureSession();
-    try {
-      const { api } = await AtprotoCore.getApiClient();
-      const response = await api.app.bsky.actor.getPreferences();
-      const output: GetPreferencesOutput = response.data;
-      return output.preferences as ActorPreferences;
-    } catch (_error: unknown) {
-      return null;
-    }
-  }
-
-  /**
-   * Update user's moderation preferences on Bluesky
-   * @param preferences - Full preferences object to update
-   * @returns Promise indicating success
-   */
-  static async updateModerationPreferences(preferences: ActorPreferences): Promise<boolean> {
-    await AtprotoCore.ensureSession();
-    try {
-      const { api } = await AtprotoCore.getApiClient();
-      await api.app.bsky.actor.putPreferences({
-        preferences: Array.isArray(preferences) ? preferences : [preferences],
-      });
-      return true;
-    } catch (_error: unknown) {
-      return false;
     }
   }
 }
