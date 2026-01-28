@@ -1507,8 +1507,7 @@ const ExploreScreen: React.FC = () => {
     setDebouncedQuery('');
     setIsSearchFocused(false);
     searchInputRef.current?.blur();
-    searchProgress.value = 0;
-    contentOpacity.value = 1;
+    // Let useEffect handle the animation when isSearching becomes false
   };
 
   const isSearching = isSearchFocused || debouncedQuery.length > 0;
@@ -1538,13 +1537,11 @@ const ExploreScreen: React.FC = () => {
   });
 
   const searchTabsAnimatedStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(searchProgress.value, [0, 0.5, 1], [0, 0, 1], Extrapolation.CLAMP);
-    return { opacity };
+    return { opacity: searchProgress.value };
   });
 
   const searchContentAnimatedStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(searchProgress.value, [0, 0.5, 1], [0, 0, 1], Extrapolation.CLAMP);
-    return { opacity };
+    return { opacity: searchProgress.value };
   });
 
   const exploreContentAnimatedStyle = useAnimatedStyle(() => {
