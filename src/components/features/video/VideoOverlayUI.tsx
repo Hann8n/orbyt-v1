@@ -533,7 +533,6 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                     uri={profilePicUrl}
                     type="profile"
                     size={authorAvatarSize}
-                    style={[isTabletDevice ? styles.profilePictureTablet : styles.profilePicture]}
                     blurRadius={isAuthorBlocked ? 30 : 0}
                     status={authorProfileStatus ?? undefined}
                     profileColors={
@@ -780,13 +779,9 @@ const styles = StyleSheet.create({
     overflow: 'visible',
   },
   profilePicture: {
-    width: 50,
-    height: 50,
     borderRadius: BORDER_RADIUS.FULL,
   },
   profilePictureTablet: {
-    width: 60,
-    height: 60,
     borderRadius: BORDER_RADIUS.FULL,
   },
   authorTextContainer: {
