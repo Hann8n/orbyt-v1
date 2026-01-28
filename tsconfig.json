@@ -26,5 +26,5 @@
   },
   "include": ["src/**/*", "app/**/*"],
   "exclude": ["node_modules", "dist", "src/navigation/**/*"],
-  "extends": "expo/tsconfig.base.json"
+  "extends": "expo/tsconfig.base"
 }
