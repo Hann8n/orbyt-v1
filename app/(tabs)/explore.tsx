@@ -1,4 +1,13 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+  useLayoutEffect,
+  useImperativeHandle,
+  forwardRef,
+} from 'react';
 import { QUERY_CONSTANTS } from '../../src/utils/constants';
 import {
   View,
@@ -20,7 +29,6 @@ import { Image } from 'expo-image';
 import PagerView, {
   type PagerViewOnPageScrollEvent,
   type PagerViewOnPageSelectedEvent,
-  type PageScrollStateChangedNativeEvent,
 } from 'react-native-pager-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList, FlashListRef } from '@shopify/flash-list';
@@ -30,6 +38,8 @@ import Reanimated, {
   withTiming,
   interpolate,
   Extrapolation,
+  runOnUI,
+  type SharedValue,
 } from 'react-native-reanimated';
 
 import AtprotoService from '../../src/services/api/AtprotoService';
@@ -189,120 +199,67 @@ const navigateToProfile = (profile: Profile, queryClient: QueryClient, router: R
   });
 };
 
-// SearchSwipePager component
-const SearchSwipePager = ({
-  activeTab,
-  onActiveTabChange,
-  renderTabContent,
-  onScrollProgressChange,
-  pages,
-}: {
-  activeTab: 'recently-visited' | 'profiles' | 'channels';
-  onActiveTabChange: (tab: 'recently-visited' | 'profiles' | 'channels') => void;
-  renderTabContent: (tabId: 'recently-visited' | 'profiles' | 'channels') => React.ReactNode;
-  onScrollProgressChange?: (progress: number) => void;
-  pages: Array<'recently-visited' | 'profiles' | 'channels'>;
-}) => {
+// SearchSwipePager ref interface
+export interface SearchSwipePagerRef {
+  setPage: (tabId: 'recently-visited' | 'profiles' | 'channels') => void;
+}
+
+// SearchSwipePager component - simplified, uses PagerView native API directly
+const SearchSwipePager = forwardRef<
+  SearchSwipePagerRef,
+  {
+    activeTab: 'recently-visited' | 'profiles' | 'channels';
+    onActiveTabChange: (tab: 'recently-visited' | 'profiles' | 'channels') => void;
+    renderTabContent: (tabId: 'recently-visited' | 'profiles' | 'channels') => React.ReactNode;
+    pageScrollProgress: SharedValue<number>;
+    pages: Array<'recently-visited' | 'profiles' | 'channels'>;
+  }
+>(({ activeTab, onActiveTabChange, renderTabContent, pageScrollProgress, pages }, ref) => {
   const pagerViewRef = useRef<PagerView>(null);
   const activeIndex = pages.indexOf(activeTab);
-  const currentPageRef = useRef(activeIndex);
-  const hasAppliedInitialIndexRef = useRef(false);
-  const previousPagesRef = useRef<string>(JSON.stringify(pages));
-  const isUserScrollingRef = useRef(false);
-  const isUserGestureRef = useRef(false);
 
-  useLayoutEffect(() => {
-    const currentPagesString = JSON.stringify(pages);
-    const pagesChanged = currentPagesString !== previousPagesRef.current;
+  // Expose setPage - update shared value immediately for instant indicator
+  useImperativeHandle(
+    ref,
+    () => ({
+      setPage: (tabId: 'recently-visited' | 'profiles' | 'channels') => {
+        const targetIndex = pages.indexOf(tabId);
+        if (targetIndex >= 0 && pagerViewRef.current) {
+          runOnUI(() => {
+            'worklet';
+            pageScrollProgress.value = targetIndex;
+          })();
+          pagerViewRef.current.setPage(targetIndex);
+        }
+      },
+    }),
+    [pages, pageScrollProgress]
+  );
 
-    if (pagesChanged) {
-      hasAppliedInitialIndexRef.current = false;
-      previousPagesRef.current = currentPagesString;
-    }
-
-    if (!hasAppliedInitialIndexRef.current && pages.length > 0) {
-      const targetIndex = activeIndex >= 0 ? activeIndex : 0;
-      currentPageRef.current = targetIndex;
-      onScrollProgressChange?.(targetIndex);
-      requestAnimationFrame(() => {
-        pagerViewRef.current?.setPage(targetIndex);
-      });
-      hasAppliedInitialIndexRef.current = true;
-    }
-  }, [activeIndex, pages, onScrollProgressChange]);
-
-  useEffect(() => {
-    if (hasAppliedInitialIndexRef.current && pagerViewRef.current && activeIndex >= 0) {
-      if (isUserScrollingRef.current || isUserGestureRef.current) {
-        return;
-      }
-      if (currentPageRef.current !== activeIndex) {
-        requestAnimationFrame(() => {
-          pagerViewRef.current?.setPage(activeIndex);
-        });
-      }
-    }
-  }, [activeIndex]);
-
+  // Update shared value from native scroll events
   const handlePageScroll = useCallback(
     (event: PagerViewOnPageScrollEvent) => {
       const { position, offset } = event.nativeEvent;
       const progress = position + offset;
-      const roundedPosition = Math.round(progress);
-
-      onScrollProgressChange?.(progress);
-
-      if (
-        roundedPosition !== currentPageRef.current &&
-        roundedPosition >= 0 &&
-        roundedPosition < pages.length
-      ) {
-        currentPageRef.current = roundedPosition;
-        const nextTab = pages[roundedPosition];
-        if (nextTab && nextTab !== activeTab) {
-          isUserGestureRef.current = true;
-          onActiveTabChange(nextTab);
-        }
-      }
+      runOnUI(() => {
+        'worklet';
+        pageScrollProgress.value = progress;
+      })();
     },
-    [pages, activeTab, onActiveTabChange, onScrollProgressChange]
+    [pageScrollProgress]
   );
 
+  // Update active tab when page selection completes (shared value already updated by handlePageScroll)
   const handlePageSelected = useCallback(
     (event: PagerViewOnPageSelectedEvent) => {
-      if (!hasAppliedInitialIndexRef.current) return;
-
-      const nextIndex = event.nativeEvent.position;
-      const prevIndex = currentPageRef.current;
-
-      if (nextIndex !== prevIndex) {
-        currentPageRef.current = nextIndex;
-        onScrollProgressChange?.(nextIndex);
+      const index = event.nativeEvent.position;
+      const tab = pages[index];
+      if (tab && tab !== activeTab) {
+        onActiveTabChange(tab);
       }
-
-      const nextTab = pages[nextIndex];
-      if (nextTab && nextTab !== activeTab) {
-        isUserGestureRef.current = true;
-        onActiveTabChange(nextTab);
-      }
-
-      setTimeout(() => {
-        isUserGestureRef.current = false;
-      }, 100);
     },
-    [activeTab, pages, onActiveTabChange, onScrollProgressChange]
+    [activeTab, pages, onActiveTabChange]
   );
-
-  const handlePageScrollStateChanged = useCallback((event: PageScrollStateChangedNativeEvent) => {
-    const state = event.nativeEvent.pageScrollState;
-    if (state === 'dragging' || state === 'settling') {
-      isUserScrollingRef.current = true;
-    } else if (state === 'idle') {
-      setTimeout(() => {
-        isUserScrollingRef.current = false;
-      }, 50);
-    }
-  }, []);
 
   return (
     <View style={styles.searchResultsContainer}>
@@ -312,7 +269,6 @@ const SearchSwipePager = ({
         initialPage={activeIndex >= 0 ? activeIndex : 0}
         onPageSelected={handlePageSelected}
         onPageScroll={handlePageScroll}
-        onPageScrollStateChanged={handlePageScrollStateChanged}
         scrollEnabled={true}
         pageMargin={0}
       >
@@ -324,7 +280,8 @@ const SearchSwipePager = ({
       </PagerView>
     </View>
   );
-};
+});
+SearchSwipePager.displayName = 'SearchSwipePager';
 
 // Profiles Feed Renderer
 const ProfilesFeedRenderer = React.memo(
@@ -1072,17 +1029,18 @@ const OrbytChannelsGrid = React.memo(
           <View style={styles.gridItemsContainer}>
             {otherChannels.map((channel, index) => {
               const isLastInRow = (index + 1) % computedColumns === 0;
+              const wrapperStyle = [
+                styles.gridChannelWrapper,
+                {
+                  width: itemWidth,
+                  marginRight: isLastInRow ? 0 : gap,
+                  marginBottom: gap,
+                },
+              ];
               return (
                 <View
                   key={`orbyt-channel-${channel.uri || channel.cid || index}`}
-                  style={[
-                    styles.gridChannelWrapper,
-                    {
-                      width: itemWidth,
-                      marginRight: isLastInRow ? 0 : gap,
-                      marginBottom: gap,
-                    },
-                  ]}
+                  style={wrapperStyle}
                 >
                   <GridChannelItem
                     channel={channel}
@@ -1111,6 +1069,7 @@ const ExploreScreen: React.FC = () => {
   const flashListRef = useRef<FlashListRef<ListItem> | null>(null);
   const currentUser = useUserStore(state => state.currentUser);
   const searchInputRef = useRef<TextInput | null>(null);
+  const searchPagerRef = useRef<SearchSwipePagerRef>(null);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -1125,13 +1084,13 @@ const ExploreScreen: React.FC = () => {
       data: Profile | Channel;
     }>
   >([]);
-  const [indicatorScrollProgress, setIndicatorScrollProgress] = useState(0);
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Reanimated values for smooth transitions
   const searchProgress = useSharedValue(0);
   const contentOpacity = useSharedValue(1);
   const topGradientOpacity = useSharedValue(0);
+  const indicatorScrollProgress = useSharedValue(0);
 
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -1494,49 +1453,48 @@ const ExploreScreen: React.FC = () => {
     return ['profiles', 'channels'];
   }, [debouncedQuery.length]);
 
-  const activeIndex = pages.indexOf(activeTab);
-
   useEffect(() => {
     if (pages.length > 0 && !pages.includes(activeTab)) {
       setActiveTab(pages[0]);
     }
   }, [pages, activeTab]);
 
-  useEffect(() => {
-    if (activeIndex >= 0) {
-      setIndicatorScrollProgress(activeIndex);
-    } else {
-      setIndicatorScrollProgress(0);
-    }
-  }, [activeIndex]);
+  // Simple animated indicator component
+  const IndicatorItem = ({
+    tabId,
+    onPress,
+  }: {
+    tabId: 'recently-visited' | 'profiles' | 'channels';
+    onPress: () => void;
+  }) => {
+    const tabIndex = pages.indexOf(tabId);
+    const label = SEARCH_TAB_LABELS[tabId] || tabId;
 
-  const getIndicatorStyle = useCallback(
-    (tabId: 'recently-visited' | 'profiles' | 'channels') => {
-      const tabIndex = pages.indexOf(tabId);
-      const isActive = tabId === activeTab;
-
-      const baseProgress = indicatorScrollProgress;
-      let opacity = 0.75;
-      if (isActive) {
-        opacity = 1;
-      } else {
-        const distance = Math.abs(baseProgress - tabIndex);
-        opacity = Math.max(0.3, 1 - distance * 0.4);
-      }
+    const animatedStyle = useAnimatedStyle(() => {
+      'worklet';
+      const progress = indicatorScrollProgress.value;
+      const isActive = Math.round(progress) === tabIndex;
+      const distance = Math.abs(progress - tabIndex);
+      const opacity = isActive ? 1 : Math.max(0.3, 1 - distance * 0.4);
 
       return {
         color: isActive ? Colors.white : Colors.gray,
         fontSize: 20,
         fontWeight: isActive ? ('bold' as const) : ('600' as const),
         fontFamily: isActive ? 'Figtree-Bold' : 'Figtree-SemiBold',
-        opacity: isActive ? 1 : opacity,
+        opacity,
       };
-    },
-    [activeTab, pages, indicatorScrollProgress]
-  );
+    }, [tabIndex]);
+
+    return (
+      <Pressable onPress={onPress} style={styles.indicatorItem}>
+        <Reanimated.Text style={animatedStyle}>{label}</Reanimated.Text>
+      </Pressable>
+    );
+  };
 
   const handleIndicatorTap = useCallback((tabId: 'recently-visited' | 'profiles' | 'channels') => {
-    setActiveTab(tabId);
+    searchPagerRef.current?.setPage(tabId);
   }, []);
 
   const handleClearSearch = () => {
@@ -1807,8 +1765,10 @@ const ExploreScreen: React.FC = () => {
           pointerEvents="none"
           style={[
             styles.topGradient,
-            // Cover status bar + search bar (top offset 10 + height 48)
-            { top: 0, height: insets.top + 10 + 48 },
+            {
+              top: 0,
+              height: insets.top + 10 + 48,
+            },
             topGradientAnimatedStyle,
           ]}
         >
@@ -1897,15 +1857,11 @@ const ExploreScreen: React.FC = () => {
             >
               <View style={styles.indicatorContainer}>
                 {pages.map(tabId => (
-                  <Pressable
+                  <IndicatorItem
                     key={tabId}
+                    tabId={tabId}
                     onPress={() => handleIndicatorTap(tabId)}
-                    style={styles.indicatorItem}
-                  >
-                    <Text style={getIndicatorStyle(tabId)}>
-                      {SEARCH_TAB_LABELS[tabId] || tabId}
-                    </Text>
-                  </Pressable>
+                  />
                 ))}
               </View>
             </Reanimated.View>
@@ -1919,9 +1875,10 @@ const ExploreScreen: React.FC = () => {
               ]}
             >
               <SearchSwipePager
+                ref={searchPagerRef}
                 activeTab={activeTab}
                 onActiveTabChange={setActiveTab}
-                onScrollProgressChange={setIndicatorScrollProgress}
+                pageScrollProgress={indicatorScrollProgress}
                 pages={pages}
                 renderTabContent={tabId => (
                   <SearchFeedRenderer
