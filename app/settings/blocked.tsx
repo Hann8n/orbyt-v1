@@ -80,7 +80,6 @@ const BlockedUsersScreen: React.FC = () => {
       emptyTitle="No blocked accounts"
       emptySubtitle="You haven't blocked any accounts yet. Blocked accounts won't be able to see your content or interact with you."
       showFollowButton={true}
-      followButtonIcon="minus-fill"
       followButtonAction="unblock"
       onActionPress={handleUnblockUser}
     />

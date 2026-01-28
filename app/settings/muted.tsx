@@ -88,7 +88,6 @@ const MutedUsersScreen: React.FC = () => {
       emptyTitle="No muted accounts"
       emptySubtitle="You haven't muted any accounts yet. Muted accounts' posts won't appear in your feed, but they can still see your content."
       showFollowButton={true}
-      followButtonIcon="minus-fill"
       followButtonAction="unmute"
       onActionPress={handleUnmuteUser}
     />

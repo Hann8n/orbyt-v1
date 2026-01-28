@@ -484,8 +484,8 @@ export default function EmbeddedPostCard({
             {isBlurred && !noOverride && (
               <View style={styles.cleanWarningOverlay}>
                 <Pressable onPress={handleViewContent}>
-                  <View style={styles.cleanViewButton}>
-                    <Text style={styles.cleanViewButtonText}>Show Content</Text>
+                  <View style={styles.viewButton}>
+                    <Text style={styles.viewButtonText}>Show Content</Text>
                   </View>
                 </Pressable>
               </View>

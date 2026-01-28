@@ -27,7 +27,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalModals';
 import ProfileService from '../../src/services/data/ProfileService';
-import ChannelService from '../../src/services/data/ChannelService';
 import { useWindowDimensions } from 'react-native';
 import * as Device from 'expo-device';
 
@@ -164,7 +163,7 @@ const SettingsScreen: React.FC = () => {
           onPress: async () => {
             try {
               // Clear all caches
-              await Promise.all([ProfileService.clearCache(), ChannelService.clearCache()]);
+              await Promise.all([ProfileService.clearCache()]);
 
               // Clear React Query cache
               queryClient.clear();

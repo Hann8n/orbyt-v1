@@ -83,6 +83,7 @@ import {
 } from '../../src/utils/channels/orbyt';
 import { tabRefs } from '../../src/utils/navigation/tabRefs';
 import type { ExploreRef } from '../../src/utils/navigation/tabRefs';
+import { useVisitHistory, type VisitHistoryEntry } from '../../src/hooks/useVisitHistory';
 
 // Use ProfileViewWithOrbyt as the canonical profile type (single source of truth)
 // Only extract the fields we need for the explore page
@@ -455,26 +456,30 @@ const VisitHistoryList = React.memo(
     onHistoryItemPress,
     onFollow,
     bottomPadding = 0,
+    profilesByDid,
+    channelsByUri,
   }: {
-    visitHistory: Array<{ type: 'profile' | 'channel'; data: Profile | Channel }>;
-    onHistoryItemPress: (item: { type: 'profile' | 'channel'; data: Profile | Channel }) => void;
+    visitHistory: VisitHistoryEntry[];
+    onHistoryItemPress: (item: VisitHistoryEntry) => void;
     onFollow: (profile: Profile) => void;
     bottomPadding?: number;
+    profilesByDid: Map<string, ProfileViewWithOrbyt>;
+    channelsByUri: Map<string, CachedChannel>;
   }) => {
     return (
       <FlashList
         data={visitHistory}
         keyExtractor={item => {
           if (item.type === 'profile') {
-            return `history-profile-${(item.data as Profile).did}`;
+            return `history-profile-${item.did}`;
           } else {
-            return `history-channel-${(item.data as Channel).uri}`;
+            return `history-channel-${item.uri}`;
           }
         }}
         renderItem={({ item }) => {
           const isProfile = item.type === 'profile';
-          const profileData = isProfile ? (item.data as Profile) : null;
-          const channelData = !isProfile ? (item.data as Channel) : null;
+          const profileData = isProfile ? profilesByDid.get(item.did) : null;
+          const channelData = !isProfile ? channelsByUri.get(item.uri) : null;
 
           if (isProfile && profileData) {
             const isFollowing = !!profileData.viewer?.following;
@@ -489,7 +494,7 @@ const VisitHistoryList = React.memo(
                 showArrow={false}
                 showFollowButton={!isFollowing}
                 isFollowing={isFollowing}
-                onFollowPress={() => onFollow(profileData)}
+                onFollowPress={() => onFollow(profileData as unknown as Profile)}
                 onPress={() => onHistoryItemPress(item)}
                 backgroundColor={Colors.transparent}
                 textColor={Colors.white}
@@ -497,12 +502,52 @@ const VisitHistoryList = React.memo(
                 style={styles.authorItemStyle}
               />
             );
-          } else if (!isProfile && channelData) {
+          }
+
+          if (isProfile && !profileData) {
+            return (
+              <AuthorItem
+                handle=""
+                did={item.did}
+                displayName="Loading…"
+                avatar={undefined}
+                size="large"
+                showArrow={false}
+                showFollowButton={false}
+                isFollowing={false}
+                onFollowPress={undefined}
+                onPress={() => onHistoryItemPress(item)}
+                backgroundColor={Colors.transparent}
+                textColor={Colors.white}
+                nameFontWeight="Figtree-SemiBold"
+                style={styles.authorItemStyle}
+              />
+            );
+          }
+
+          if (!isProfile && channelData) {
             return (
               <ChannelItem
                 uri={channelData.uri}
                 displayName={channelData.displayName}
                 avatar={channelData.avatar}
+                size="large"
+                showArrow={false}
+                onPress={() => onHistoryItemPress(item)}
+                backgroundColor={Colors.transparent}
+                textColor={Colors.white}
+                nameFontWeight="Figtree-Bold"
+                style={styles.channelItemStyle}
+              />
+            );
+          }
+
+          if (!isProfile && !channelData) {
+            return (
+              <ChannelItem
+                uri={item.uri}
+                displayName="Loading…"
+                avatar={undefined}
                 size="large"
                 showArrow={false}
                 onPress={() => onHistoryItemPress(item)}
@@ -540,6 +585,8 @@ const SearchFeedRenderer = React.memo(
     onChannelPress,
     visitHistory,
     onHistoryItemPress,
+    profilesByDid,
+    channelsByUri,
     bottomPadding = 0,
     hasNextPage,
     isFetchingNextPage,
@@ -551,8 +598,10 @@ const SearchFeedRenderer = React.memo(
     isLoading?: boolean;
     onProfilePress?: (profile: Profile) => void;
     onChannelPress?: (channel: Channel) => void;
-    visitHistory?: Array<{ type: 'profile' | 'channel'; data: Profile | Channel }>;
-    onHistoryItemPress?: (item: { type: 'profile' | 'channel'; data: Profile | Channel }) => void;
+    visitHistory?: VisitHistoryEntry[];
+    onHistoryItemPress?: (item: VisitHistoryEntry) => void;
+    profilesByDid?: Map<string, ProfileViewWithOrbyt>;
+    channelsByUri?: Map<string, CachedChannel>;
     bottomPadding?: number;
     hasNextPage?: boolean;
     isFetchingNextPage?: boolean;
@@ -565,6 +614,8 @@ const SearchFeedRenderer = React.memo(
           onHistoryItemPress={onHistoryItemPress || (() => {})}
           onFollow={onFollow}
           bottomPadding={bottomPadding}
+          profilesByDid={profilesByDid || new Map()}
+          channelsByUri={channelsByUri || new Map()}
         />
       );
     }
@@ -1081,12 +1132,12 @@ const ExploreScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'recently-visited' | 'profiles' | 'channels'>(
     'recently-visited'
   );
-  const [visitHistory, setVisitHistory] = useState<
-    Array<{
-      type: 'profile' | 'channel';
-      data: Profile | Channel;
-    }>
-  >([]);
+  const {
+    visitHistory,
+    addVisit,
+    profilesByDid: recentProfilesByDid,
+    channelsByUri: recentChannelsByUri,
+  } = useVisitHistory(currentUser?.did ?? null);
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Reanimated values for smooth transitions
@@ -1365,76 +1416,46 @@ const ExploreScreen: React.FC = () => {
     return filtered;
   }, [searchFeedOption, searchFeed, currentUser, followStoreFollows]);
 
-  // Visit history management
-  const loadVisitHistory = useCallback(async () => {
-    try {
-      const { storageHelpers } = await import('../../src/utils/storage');
-      const history = await storageHelpers.getItem('visitHistory');
-      if (history) {
-        setVisitHistory(JSON.parse(history));
-      }
-    } catch (_error) {
-      // Silently handle visit history load errors
-    }
-  }, []);
-
-  const saveToVisitHistory = useCallback(
-    async (type: 'profile' | 'channel', data: Profile | Channel) => {
-      try {
-        const { storageHelpers } = await import('../../src/utils/storage');
-        const historyItem = {
-          type,
-          data,
-        };
-
-        const newHistory = [
-          historyItem,
-          ...visitHistory.filter(item => {
-            if (type === 'profile') {
-              return (item.data as Profile).did !== (data as Profile).did;
-            } else {
-              return (item.data as Channel).uri !== (data as Channel).uri;
-            }
-          }),
-        ].slice(0, 20);
-
-        setVisitHistory(newHistory);
-        await storageHelpers.setItem('visitHistory', JSON.stringify(newHistory));
-      } catch (_error) {
-        // Silently handle visit history save errors
-      }
-    },
-    [visitHistory]
-  );
-
   const handleHistoryItemPress = useCallback(
-    (item: { type: 'profile' | 'channel'; data: Profile | Channel }) => {
+    (item: VisitHistoryEntry) => {
       if (item.type === 'profile') {
-        navigateToProfile(item.data as Profile, queryClient, router);
+        const did = item.did;
+        const hydrated = recentProfilesByDid.get(did);
+        navigateToProfile(
+          hydrated ??
+            ({
+              did,
+              handle: '',
+              displayName: '',
+              avatar: '',
+              description: '',
+            } as unknown as Profile),
+          queryClient,
+          router
+        );
       } else if (item.type === 'channel') {
-        const channel = item.data as Channel;
-        if (channel.uri) {
+        if (item.uri) {
           router.push({
             pathname: '/channel/[id]',
-            params: { id: channel.uri },
+            params: { id: item.uri },
           });
         }
       }
     },
-    [queryClient, router]
+    [queryClient, router, recentProfilesByDid]
   );
 
   const handleProfileNavigation = useCallback(
     (profile: Profile) => {
-      saveToVisitHistory('profile', profile);
+      addVisit('profile', profile);
       navigateToProfile(profile, queryClient, router);
     },
-    [saveToVisitHistory, queryClient, router]
+    [addVisit, queryClient, router]
   );
 
   const handleChannelNavigation = useCallback(
     (channel: Channel) => {
-      saveToVisitHistory('channel', channel);
+      addVisit('channel', channel);
       if (channel.uri) {
         router.push({
           pathname: '/channel/[id]',
@@ -1442,12 +1463,8 @@ const ExploreScreen: React.FC = () => {
         });
       }
     },
-    [saveToVisitHistory, router]
+    [addVisit, router]
   );
-
-  useEffect(() => {
-    loadVisitHistory();
-  }, [loadVisitHistory]);
 
   // Determine search pages
   const pages: Array<'recently-visited' | 'profiles' | 'channels'> = useMemo(() => {
@@ -1890,6 +1907,8 @@ const ExploreScreen: React.FC = () => {
                     onChannelPress={handleChannelNavigation}
                     visitHistory={visitHistory}
                     onHistoryItemPress={handleHistoryItemPress}
+                    profilesByDid={recentProfilesByDid}
+                    channelsByUri={recentChannelsByUri}
                     bottomPadding={getBottomNavBarHeight(insets)}
                     hasNextPage={hasSearchNextPage}
                     isFetchingNextPage={isSearchFetchingNextPage}

@@ -91,7 +91,6 @@ const FollowersScreen: React.FC = () => {
       emptyTitle="No followers yet"
       emptySubtitle="When people follow you, they'll appear here"
       showFollowButton={true}
-      followButtonIcon="user-plus"
       followButtonAction="follow"
       onUserPress={handleProfilePress}
     />

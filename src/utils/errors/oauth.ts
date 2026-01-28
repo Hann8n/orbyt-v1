@@ -1,10 +1,5 @@
 import { logger } from '../logger';
-import {
-  TokenRevokedError,
-  TokenRefreshError,
-  TokenInvalidError,
-  AuthMethodUnsatisfiableError,
-} from '@atproto/oauth-client';
+import { TokenRevokedError, TokenRefreshError, TokenInvalidError } from '@atproto/oauth-client';
 
 export interface OAuthErrorInfo {
   isUserCancellation: boolean;
@@ -22,7 +17,6 @@ export function analyzeOAuthError(error: unknown): OAuthErrorInfo {
   const isTokenRevoked = error instanceof TokenRevokedError;
   const isTokenRefreshError = error instanceof TokenRefreshError;
   const isTokenInvalid = error instanceof TokenInvalidError;
-  const isAuthMethodUnsatisfiable = error instanceof AuthMethodUnsatisfiableError;
 
   const isUserCancellation =
     errorMessage.includes('cancelled') ||
@@ -34,7 +28,6 @@ export function analyzeOAuthError(error: unknown): OAuthErrorInfo {
     isTokenRevoked ||
     isTokenRefreshError ||
     isTokenInvalid ||
-    isAuthMethodUnsatisfiable ||
     errorMessage.includes('oauth_reauth_required') ||
     errorMessage.includes('Session is invalid') ||
     errorMessage.includes('No session found') ||

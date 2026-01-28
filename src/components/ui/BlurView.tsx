@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, type ReactNode } from 'react';
 import { StyleSheet, type ViewStyle, Platform } from 'react-native';
 import { BlurView as ExpoBlurView } from 'expo-blur';
 import * as Device from 'expo-device';
@@ -7,9 +7,10 @@ export interface BlurViewProps {
   intensity?: number;
   tint?: 'light' | 'dark' | 'default' | 'systemChromeMaterialDark' | 'systemChromeMaterialLight';
   style?: ViewStyle | ViewStyle[];
+  children?: ReactNode;
 }
 
-function BlurViewComponent({ intensity = 100, tint, style }: BlurViewProps) {
+function BlurViewComponent({ intensity = 100, tint, style, children }: BlurViewProps) {
   const experimentalBlurMethod =
     Platform.OS === 'android'
       ? Device.isDevice
@@ -29,7 +30,9 @@ function BlurViewComponent({ intensity = 100, tint, style }: BlurViewProps) {
       tint={tint}
       style={finalStyle}
       {...(experimentalBlurMethod ? { experimentalBlurMethod } : undefined)}
-    />
+    >
+      {children}
+    </ExpoBlurView>
   );
 }
 

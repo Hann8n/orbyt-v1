@@ -13,7 +13,6 @@ import {
   useChannelColors,
   useChannel,
   useChannelColorsMutation,
-  default as ChannelService,
 } from '../../src/services/data/ChannelService';
 import ProfileService from '../../src/services/data/ProfileService';
 import { extractColorsFromImage } from '../../src/utils/formatting/colors';
@@ -134,19 +133,7 @@ const Channel: React.FC = memo(() => {
   }, [channelData?.creator?.handle]);
 
   // Force refresh channel data to get subscriber count if not available
-  useEffect(() => {
-    if (uri && channelData && !channelData.subscriberCount) {
-      const forceRefresh = async () => {
-        try {
-          await ChannelService.forceRefreshChannel(uri);
-          refetchChannel();
-        } catch (error) {
-          console.error('Error force refreshing channel:', error);
-        }
-      };
-      forceRefresh();
-    }
-  }, [uri, channelData, refetchChannel]);
+  // Note: Channel data is now fetched via React Query; avoid bespoke force-refresh helpers.
 
   // Prepare channel data for header
   const channelHeaderData = useMemo(() => {
@@ -358,7 +345,7 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     minHeight: 280,
-    backgroundColor: 'transparent',
+    backgroundColor: Colors.transparent,
     marginBottom: 0,
     paddingBottom: 0,
   },
@@ -405,7 +392,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Figtree-SemiBold',
   },
   secondaryButton: {
-    backgroundColor: 'transparent',
+    backgroundColor: Colors.transparent,
     borderColor: Colors.mediumGray,
   },
   loadingOverlay: {
