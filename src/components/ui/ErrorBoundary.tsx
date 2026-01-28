@@ -373,7 +373,30 @@ ${deviceInfo}`;
           onPress={async () => {
             const email = 'support@getorbyt.com';
             const subject = encodeURIComponent('Orbyt App Error Report');
-            const emailBody = await getEmailBody();
+            let emailBody: string;
+
+            try {
+              emailBody = await getEmailBody();
+            } catch (error) {
+              logger.error('Error building error report email body', error, {
+                component: 'ErrorBoundary',
+              });
+
+              // Still allow reporting if device info retrieval fails.
+              const errorMessage = error instanceof Error ? error.message : String(error);
+              emailBody = `
+
+
+
+----------------------------------------
+Error Message (do not edit below this line):
+${errorMessage}
+
+----------------------------------------
+Device Information:
+Unavailable (failed to retrieve)`;
+            }
+
             const body = encodeURIComponent(emailBody);
             const mailtoUrl = `mailto:${email}?subject=${subject}&body=${body}`;
 
