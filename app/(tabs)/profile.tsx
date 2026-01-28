@@ -427,19 +427,17 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const defaultTop = (insets?.top ?? 0) + 5;
 
   // Labs feature: Modal profile behavior - computed once and reused
-  const { isModal, overlayTop, headerPaddingTop, actionButtonsTop, showBackButton } =
-    useMemo(() => {
-      const isModal = modalProfileEnabled && !!providedDid && !segments.includes('(tabs)');
-      const showBackButton = !!providedDid && !isModal;
+  const { isModal, headerPaddingTop, actionButtonsTop, showBackButton } = useMemo(() => {
+    const isModal = modalProfileEnabled && !!providedDid && !segments.includes('(tabs)');
+    const showBackButton = !!providedDid && !isModal;
 
-      return {
-        isModal,
-        overlayTop: isModal ? 5 : defaultTop,
-        headerPaddingTop: isModal ? 24 : modalProfileEnabled ? defaultTop + 4 : undefined,
-        actionButtonsTop: isModal ? 20 : defaultTop,
-        showBackButton,
-      };
-    }, [modalProfileEnabled, providedDid, segments, defaultTop]);
+    return {
+      isModal,
+      headerPaddingTop: isModal ? 24 : modalProfileEnabled ? defaultTop + 4 : undefined,
+      actionButtonsTop: isModal ? 20 : defaultTop,
+      showBackButton,
+    };
+  }, [modalProfileEnabled, providedDid, segments, defaultTop]);
 
   // Shared scroll progress for overlay (back/menu) animation. Written from onVerticalScroll; read in useAnimatedStyle on UI thread.
   const headerScrollProgress = useSharedValue(0);
@@ -605,15 +603,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     >
       {/* Grab handle for modal */}
       {isModal && (
-        <Pressable
-          style={[
-            styles.grabHandle,
-            {
-              top: 5,
-            },
-          ]}
-          hitSlop={{ top: 10, bottom: 10, left: 20, right: 20 }}
-        >
+        <Pressable style={styles.grabHandle} hitSlop={{ top: 10, bottom: 10, left: 20, right: 20 }}>
           <View style={styles.grabHandleContainer}>
             <Animated.View
               style={[
@@ -625,11 +615,11 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
               <View
                 style={[
                   styles.grabHandleBar,
+                  styles.grabHandleBarPrimary,
                   {
                     backgroundColor:
                       (dynamicColors ? dynamicColors.textColor : profileColors.textColor) ||
                       Colors.white,
-                    opacity: 0.5,
                   },
                 ]}
               />
@@ -641,15 +631,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
                 styles.grabHandleBarWrapper,
               ]}
             >
-              <View
-                style={[
-                  styles.grabHandleBar,
-                  {
-                    backgroundColor: Colors.white,
-                    opacity: 0.5,
-                  },
-                ]}
-              />
+              <View style={[styles.grabHandleBar, styles.grabHandleBarSecondary]} />
             </Animated.View>
           </View>
         </Pressable>
@@ -817,13 +799,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
               contentFit="contain"
             />
           )}
-          <Pressable
-            style={[styles.closeButton, { top: isModal ? 5 : overlayTop }]}
-            onPress={() => setFullscreenImageUri(null)}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Icon name="close" size={30} color={Colors.white} />
-          </Pressable>
         </Pressable>
       </Modal>
     </View>
@@ -949,16 +924,9 @@ const styles = StyleSheet.create({
     height: '80%',
     borderRadius: BORDER_RADIUS.MEDIUM,
   },
-  closeButton: {
-    position: 'absolute',
-    left: 20,
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   grabHandle: {
     position: 'absolute',
+    top: 5,
     left: 0,
     right: 0,
     alignItems: 'center',
@@ -981,5 +949,12 @@ const styles = StyleSheet.create({
     width: 42,
     height: 4,
     borderRadius: 2,
+  },
+  grabHandleBarPrimary: {
+    opacity: 0.5,
+  },
+  grabHandleBarSecondary: {
+    backgroundColor: Colors.white,
+    opacity: 0.5,
   },
 });
