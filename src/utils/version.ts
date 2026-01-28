@@ -9,7 +9,7 @@ import { Platform } from 'react-native';
  * then fall back to config when not available (e.g. web).
  */
 export function getBuildVersion(): string {
-  return Application.nativeApplicationVersion ?? Constants.expoConfig?.version ?? '1.0.0';
+  return Application.nativeApplicationVersion ?? Constants.expoConfig?.version ?? '1.1.1';
 }
 
 /**

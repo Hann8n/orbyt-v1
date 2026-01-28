@@ -1,6 +1,6 @@
 {
   "name": "orbyt",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "main": "index.ts",
   "license": "GPL-3.0",
   "scripts": {
@@ -34,7 +34,7 @@
     "@atproto/oauth-client": "^0.5.3",
     "@atproto/oauth-client-expo": "0.0.7",
     "@babel/runtime": "^7.28.6",
-    "@expo/metro-runtime": "~55.0.2",
+    "@expo/metro-runtime": "~55.0.3",
     "@expo/vector-icons": "^15.0.3",
     "@formatjs/intl-segmenter": "^12.1.0",
     "@legendapp/list": "^2.0.19",
@@ -50,7 +50,7 @@
     "date-fns": "^4.1.0",
     "event-target-polyfill": "^0.0.4",
     "expo": "~55.0.0-preview.7",
-    "expo-application": "^7.0.8",
+    "expo-application": "~55.0.2",
     "expo-background-task": "~55.0.2",
     "expo-blur": "~55.0.2",
     "expo-build-properties": "~55.0.3",
@@ -67,7 +67,7 @@
     "expo-linking": "~55.0.3",
     "expo-media-library": "~55.0.2",
     "expo-navigation-bar": "~55.0.2",
-    "expo-router": "~55.0.0-beta.3",
+    "expo-router": "~55.0.0-beta.4",
     "expo-secure-store": "~55.0.2",
     "expo-splash-screen": "~55.0.2",
     "expo-video": "~55.0.2",
@@ -123,7 +123,7 @@
     "@react-navigation/native": "7.1.28",
     "@react-navigation/core": "7.14.0",
     "expo-web-browser": "~55.0.2",
-    "@expo/log-box": "55.0.2"
+    "@expo/log-box": "55.0.3"
   },
   "expo": {
     "doctor": {
