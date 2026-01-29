@@ -1,14 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import AtprotoService from '../services/api/AtprotoService';
-import ChatService from '../services/ChatService';
-import { useChatStore } from '../stores/chatStore';
 import { useUserStore } from '../stores/userStore';
 import { QUERY_CONSTANTS } from '../utils/constants';
 import { queryKeys } from '../utils/query/queryKeys';
 import type { Notification } from '../services/api/types';
 
 export const useUnreadCount = () => {
-  const { updateFromConversations } = useChatStore();
   const isAuthenticated = useUserStore(state => state.isAuthenticated);
 
   const queryOptions = {
@@ -27,22 +24,8 @@ export const useUnreadCount = () => {
     ...queryOptions,
   });
 
-  // Get unread messages count - DISABLED: Chat features are disabled
-  const { data: _messagesData } = useQuery({
-    queryKey: queryKeys.chat.conversations.count(),
-    queryFn: async () => {
-      const response = await ChatService.getConversations();
-      if (response.conversations) {
-        updateFromConversations(response.conversations);
-      }
-      return response.conversations.reduce((total, conv) => total + conv.unreadCount, 0);
-    },
-    ...queryOptions,
-    enabled: false, // Chat features disabled - prevent API calls
-  });
-
   const notificationsCount = notificationsData || 0;
-  const messagesCount = 0; // Chat features disabled - always return 0
+  const messagesCount = 0;
   const totalUnreadCount = notificationsCount + messagesCount;
 
   return {

@@ -14,7 +14,6 @@ export * from './formatting';
 export * from './device';
 export * from './video';
 export * from './channels';
-export * from './chat';
 export * from './links';
 export * from './errors';
 export * from './navigation';

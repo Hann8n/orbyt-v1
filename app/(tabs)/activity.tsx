@@ -11,7 +11,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../src/components/ui/UI';
 import { BORDER_RADIUS } from '../../src/utils/constants';
 import NotificationsTab from '../../src/components/features/activity/NotificationsTab';
-import ChatsTab from '../../src/components/features/activity/ChatsTab';
 import NotificationFilterSheet from '../../src/components/features/activity/NotificationFilterSheet';
 import { useUnreadCount } from '../../src/hooks/useUnreadCount';
 import type { NotificationReason } from '../../src/services/api/types';
@@ -19,7 +18,6 @@ import type { NotificationReason } from '../../src/services/api/types';
 // Tab labels
 const TAB_LABELS: { [key: string]: string } = {
   notifications: 'notifications',
-  chats: 'chats',
 };
 
 // Activity Swipeable Pager Component using react-native-pager-view
@@ -29,13 +27,13 @@ const ActivitySwipePager = ({
   renderTabContent,
   onScrollProgressChange,
 }: {
-  activeTab: 'notifications' | 'chats';
-  onActiveTabChange: (tab: 'notifications' | 'chats') => void;
-  renderTabContent: (tabId: 'notifications' | 'chats') => React.ReactNode;
+  activeTab: 'notifications';
+  onActiveTabChange: (tab: 'notifications') => void;
+  renderTabContent: (tabId: 'notifications') => React.ReactNode;
   onScrollProgressChange?: (progress: number) => void;
 }) => {
   const pagerViewRef = useRef<PagerView>(null);
-  const pages = useMemo<Array<'notifications' | 'chats'>>(() => ['notifications'], []);
+  const pages = useMemo<Array<'notifications'>>(() => ['notifications'], []);
   const activeIndex = pages.indexOf(activeTab);
 
   // Track scroll progress from PagerView's onPageScroll for indicator animation
@@ -173,19 +171,19 @@ const ActivitySwipePager = ({
 };
 
 const ActivityScreen: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'notifications' | 'chats'>('notifications');
+  const [activeTab, setActiveTab] = useState<'notifications'>('notifications');
   // State to trigger indicator re-renders during scroll (doesn't affect feeds) - matches FeedPager
   const [indicatorScrollProgress, setIndicatorScrollProgress] = useState(0);
   const [showFilterSheet, setShowFilterSheet] = useState(false);
   const [filterReasons, setFilterReasons] = useState<NotificationReason[] | undefined>(undefined);
   const insets = useSafeAreaInsets();
-  const { notificationsCount, messagesCount } = useUnreadCount();
+  const { notificationsCount } = useUnreadCount();
 
-  const pages = useMemo<Array<'notifications' | 'chats'>>(() => ['notifications'], []);
+  const pages = useMemo<Array<'notifications'>>(() => ['notifications'], []);
 
   // Tab content renderer
   const renderTabContent = useCallback(
-    (tabId: 'notifications' | 'chats') => {
+    (tabId: 'notifications') => {
       if (tabId === 'notifications') {
         return (
           <NotificationsTab
@@ -195,8 +193,6 @@ const ActivityScreen: React.FC = () => {
             filterReasons={filterReasons}
           />
         );
-      } else if (tabId === 'chats') {
-        return <ChatsTab />;
       }
       return null;
     },
@@ -206,7 +202,7 @@ const ActivityScreen: React.FC = () => {
 
   // Get indicator style using PagerView's scroll progress - matches FeedPager exactly
   const getIndicatorStyle = useCallback(
-    (tabId: 'notifications' | 'chats') => {
+    (tabId: 'notifications') => {
       const tabIndex = pages.indexOf(tabId);
       const isActive = tabId === activeTab;
 
@@ -239,7 +235,7 @@ const ActivityScreen: React.FC = () => {
   );
 
   // Handle indicator tap
-  const handleIndicatorTap = useCallback((tabId: 'notifications' | 'chats') => {
+  const handleIndicatorTap = useCallback((tabId: 'notifications') => {
     setActiveTab(tabId);
   }, []);
 
@@ -262,9 +258,7 @@ const ActivityScreen: React.FC = () => {
               >
                 <View style={styles.badgeContainer}>
                   <Text style={getIndicatorStyle(tabId)}>{TAB_LABELS[tabId] || tabId}</Text>
-                  {(tabId === 'notifications'
-                    ? Number(notificationsCount) > 0
-                    : Number(messagesCount) > 0) && <View style={styles.badge} />}
+                  {Number(notificationsCount) > 0 && <View style={styles.badge} />}
                 </View>
               </Pressable>
             ))}

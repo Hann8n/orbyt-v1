@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../utils/constants';
-import { useQuery, useQueryClient, useInfiniteQuery, InfiniteData } from '@tanstack/react-query';
+import { BORDER_RADIUS } from '../../utils/constants';
+import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../utils/query/queryKeys';
 import {
   View,
@@ -11,87 +11,21 @@ import {
   Platform,
   Alert,
   ScrollView,
-  FlatList,
-  TextInput,
 } from 'react-native';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { safeDismiss, safePresent } from '../../utils/components/truesheet/utils';
 import KeyboardAwareFooter from '../../utils/components/truesheet/KeyboardAwareFooter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Icon, { Loading3FillIcon } from './Icon';
+import Icon from './Icon';
 import CloseButton from './CloseButton';
 import CancelButton from './CancelButton';
 import AtprotoService from '../../services/api/AtprotoService';
 import { Colors } from './UI';
-import { Avatar } from './UI';
-import { hexToRGBA, getProfileColors } from '../../utils/formatting/colors';
+import { hexToRGBA } from '../../utils/formatting/colors';
 import { useGlobalShareSheet } from '../../hooks/useGlobalModals';
-import ChatService, { Conversation, RecordEmbed } from '../../services/ChatService';
 import { formatHandle } from '../../utils/formatting/handles';
 import { useBookmarkStore } from '../../stores/bookmarkStore';
 import { useUserStore } from '../../stores/userStore';
-import { useProfile } from '../../services/data/ProfileService';
-import type { ProfileViewBasic } from '../../services/api/types';
-
-// Check if profile can receive messages based on chat settings
-// Accepts ProfileViewBasic which may have associated/viewer properties
-const canBeMessaged = (profile: ProfileViewBasic): boolean => {
-  const allowIncoming = profile.associated?.chat?.allowIncoming;
-  switch (allowIncoming) {
-    case 'none':
-      return false;
-    case 'all':
-      return true;
-    case 'following':
-    case undefined:
-      return Boolean(profile.viewer?.followedBy);
-    default:
-      return false;
-  }
-};
-
-// Conversation item component to use hooks
-const ConversationItem: React.FC<{
-  profile: ProfileViewBasic;
-  isDisabled: boolean;
-  onPress: () => void;
-}> = ({ profile, isDisabled, onPress }) => {
-  const { data: profileData } = useProfile(profile?.handle);
-  const profileColors = getProfileColors(profileData);
-
-  return (
-    <Pressable
-      style={[styles.conversationItem, isDisabled && styles.disabledItem]}
-      onPress={onPress}
-      disabled={isDisabled}
-    >
-      <Avatar
-        uri={profile.avatar}
-        type="profile"
-        size={50}
-        showRing={false}
-        status={profileData?.status}
-        profileColors={
-          profileColors
-            ? {
-                backgroundColor: profileColors.backgroundColor,
-                foregroundColor: profileColors.foregroundColor,
-                textColor: profileColors.foregroundColor,
-              }
-            : undefined
-        }
-      />
-      <View style={styles.conversationInfo}>
-        <Text
-          style={[styles.conversationName, isDisabled && styles.disabledText]}
-          numberOfLines={1}
-        >
-          {formatHandle(profile.handle) || 'user'}
-        </Text>
-      </View>
-    </Pressable>
-  );
-};
 
 const ShareSheet: React.FC = () => {
   const { getCurrentData, dismissShareSheet } = useGlobalShareSheet();
@@ -101,11 +35,6 @@ const ShareSheet: React.FC = () => {
   const { postUri, postCid, authorDid, authorName, authorHandle } = data || {};
   const queryClient = useQueryClient();
   const [isCurrentUser, setIsCurrentUser] = useState<boolean>(false);
-  const [showConversationPicker, setShowConversationPicker] = useState<boolean>(false);
-  const [currentUserDid, setCurrentUserDid] = useState<string>('');
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [showSearch, setShowSearch] = useState<boolean>(false);
-  const searchInputRef = useRef<TextInput | null>(null);
   const sheetRef = useRef<TrueSheet>(null);
 
   // Bookmark store
@@ -134,7 +63,6 @@ const ShareSheet: React.FC = () => {
   useEffect(() => {
     if (authorDid) {
       const did = currentUser?.did || '';
-      setCurrentUserDid(did);
       setIsCurrentUser(did === authorDid);
     }
   }, [authorDid, currentUser?.did]);
@@ -144,9 +72,6 @@ const ShareSheet: React.FC = () => {
     // Clear the data state - skip dismiss since we're already in onDismiss callback
     dismissShareSheet(true);
     // Reset local UI state
-    setShowConversationPicker(false);
-    setShowSearch(false);
-    setSearchQuery('');
   }, [dismissShareSheet]);
 
   // Programmatic dismiss function for buttons
@@ -356,151 +281,6 @@ const ShareSheet: React.FC = () => {
     }
   }, [postUri, authorHandle, authorDid]);
 
-  // Fetch conversations for send picker
-  const { data: conversationsData, isLoading: conversationsLoading } = useQuery({
-    queryKey: queryKeys.chat.conversations.list(),
-    queryFn: () => ChatService.getConversations(),
-    enabled: showConversationPicker,
-    staleTime: QUERY_CONSTANTS.STALE_TIME_SHORT,
-  });
-
-  // Memoize conversations to prevent unnecessary re-renders
-  const conversations = useMemo(() => {
-    return conversationsData?.conversations || [];
-  }, [conversationsData?.conversations]);
-
-  // Search profiles when search query exists
-  const {
-    data: searchData,
-    fetchNextPage: fetchMoreProfiles,
-    hasNextPage: hasMoreProfiles,
-  } = useInfiniteQuery<
-    { profiles: ProfileViewBasic[]; cursor: string | null },
-    Error,
-    InfiniteData<{ profiles: ProfileViewBasic[]; cursor: string | null }, string | null>,
-    ReturnType<typeof queryKeys.search.profiles>,
-    string | null
-  >({
-    queryKey: queryKeys.search.profiles(searchQuery),
-    queryFn: async ({ pageParam }) => {
-      return AtprotoService.searchProfilesPaginated(searchQuery, pageParam as string | null);
-    },
-    getNextPageParam: lastPage => lastPage?.cursor ?? null,
-    initialPageParam: null,
-    enabled: searchQuery.trim().length > 0,
-  });
-
-  const searchResults = useMemo(() => {
-    if (!searchData?.pages) return [];
-    return searchData.pages.flatMap(page => page.profiles || []);
-  }, [searchData]);
-
-  // Smart sorting: conversations first (recent), then search results sorted by canBeMessaged
-  const filteredConversations = useMemo(() => {
-    if (!searchQuery.trim()) {
-      // Show recent conversations by default
-      return conversations;
-    }
-    // Show conversations matching search first, then new search profiles
-    const conversationMatches = conversations.filter((c: Conversation) => {
-      const otherMember = c.members.find(m => m.did !== currentUserDid) || c.members[0];
-      const name = otherMember?.displayName || '';
-      const handle = otherMember?.handle || '';
-      const q = searchQuery.toLowerCase();
-      return name.toLowerCase().includes(q) || handle.toLowerCase().includes(q);
-    });
-
-    // Add search profiles that aren't already in conversations
-    const conversationDids = new Set(conversations.flatMap(c => c.members.map(m => m.did)));
-    const newProfiles = searchResults
-      .filter(p => !conversationDids.has(p.did))
-      .sort((_a, b) => {
-        // Sort by canBeMessaged status (enabled first)
-        return canBeMessaged(b) ? 1 : -1;
-      });
-
-    return [...conversationMatches, ...newProfiles];
-  }, [conversations, currentUserDid, searchQuery, searchResults]);
-
-  // Auto-focus search input when search is shown
-  useEffect(() => {
-    if (showSearch) {
-      searchInputRef.current?.focus();
-    }
-  }, [showSearch]);
-
-  // Send video handler - opens conversation picker
-  const handleSend = useCallback(() => {
-    setShowConversationPicker(true);
-    setShowSearch(true);
-  }, []);
-
-  // Send video to selected conversation or create one with new profile
-  const handleSendToConversation = useCallback(
-    async (item: Conversation | ProfileViewBasic) => {
-      const isConversation = 'id' in item;
-      if (!postUri) {
-        Alert.alert('error', 'missing post information.');
-        return;
-      }
-
-      // Optimistic update - dismiss sheet immediately
-      setShowConversationPicker(false);
-      dismissSheet();
-      Alert.alert('sent', 'video sent successfully.');
-
-      // Perform send in background
-      (async () => {
-        try {
-          // Get CID if missing
-          let cid = postCid;
-          if (!cid) {
-            try {
-              const post = await AtprotoService.getPost(postUri);
-              cid = post?.cid || '';
-            } catch {
-              cid = '';
-            }
-          }
-
-          if (!cid) {
-            Alert.alert('error', 'unable to send post. missing post information.');
-            return;
-          }
-
-          // Check if item is a conversation or a new profile
-          let conversationId: string;
-          if (isConversation) {
-            conversationId = item.id;
-          } else {
-            // New profile - create conversation first
-            const convo = await ChatService.createConversation({ recipientDid: item.did });
-            conversationId = convo.id;
-          }
-
-          const embed: RecordEmbed = {
-            $type: 'app.bsky.embed.record',
-            record: {
-              uri: postUri,
-              cid,
-            },
-          };
-
-          await ChatService.sendMessage({
-            conversationId,
-            text: '',
-            embed: embed,
-          });
-        } catch (_error: unknown) {
-          const errorMessage =
-            _error instanceof Error ? _error.message : 'failed to send video. please try again.';
-          Alert.alert('error', errorMessage);
-        }
-      })();
-    },
-    [postUri, postCid, dismissSheet]
-  );
-
   // Get menu options based on current state
   const getMenuOptions = () => {
     const options = [
@@ -511,14 +291,6 @@ const ShareSheet: React.FC = () => {
         onPress: handleShare,
         color: Colors.neonPurple,
         buttonColor: Colors.darkBlue,
-      },
-      {
-        id: 'send',
-        label: 'Send',
-        icon: 'send-plane-fill',
-        onPress: handleSend,
-        color: Colors.green,
-        buttonColor: Colors.darkGreen,
       },
       {
         id: 'bookmark',
@@ -548,7 +320,7 @@ const ShareSheet: React.FC = () => {
 
   // Header component for TrueSheet header prop
   const headerComponent =
-    (authorName || authorHandle) && !showConversationPicker ? (
+    authorName || authorHandle ? (
       <View style={styles.headerContainer}>
         <Text style={styles.headerTitle} numberOfLines={1}>
           post by {authorHandle ? formatHandle(authorHandle) : authorName}
@@ -583,139 +355,58 @@ const ShareSheet: React.FC = () => {
       grabber={false}
       header={headerComponent}
       footer={
-        showConversationPicker ? undefined : (
-          <View style={{ backgroundColor: Colors.black, paddingBottom: insets.bottom }}>
-            <KeyboardAwareFooter
-              hideOnKeyboard={true}
-              bottomPadding={0}
-              style={{ backgroundColor: Colors.black }}
-            >
-              <View style={[styles.cancelContainer, { backgroundColor: Colors.black }]}>
-                <CancelButton onPress={dismissSheet} />
-              </View>
-            </KeyboardAwareFooter>
-          </View>
-        )
+        <View style={{ backgroundColor: Colors.black, paddingBottom: insets.bottom }}>
+          <KeyboardAwareFooter
+            hideOnKeyboard={true}
+            bottomPadding={0}
+            style={{ backgroundColor: Colors.black }}
+          >
+            <View style={[styles.cancelContainer, { backgroundColor: Colors.black }]}>
+              <CancelButton onPress={dismissSheet} />
+            </View>
+          </KeyboardAwareFooter>
+        </View>
       }
     >
       <View style={styles.content}>
-        {/* Conversation picker */}
-        {showConversationPicker ? (
-          <View style={styles.pickerContainer}>
-            <View style={styles.pickerHeader}>
-              <Pressable style={styles.backButton} onPress={() => setShowConversationPicker(false)}>
-                <Icon name="left_arrow_filled" size={20} color={Colors.white} />
-              </Pressable>
-              <Text style={styles.pickerTitle}>Send to</Text>
-              <View style={styles.headerSpacer} />
-            </View>
-            <TextInput
-              ref={searchInputRef}
-              nativeID="share-sheet-search-input"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder="Search people"
-              placeholderTextColor={Colors.lightGray}
-              style={styles.searchInput}
-              autoComplete="off"
-              textContentType="none"
-              importantForAutofill="no"
-              caretHidden={false}
-              autoFocus={true}
-            />
-            {conversationsLoading ? (
-              <View style={styles.loadingContainer}>
-                <Loading3FillIcon size={24} color={Colors.white} />
+        <View style={[styles.contentContainer, { paddingBottom: footerHeight + 20 }]}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            showsVerticalScrollIndicator={false}
+            alwaysBounceHorizontal={true}
+            alwaysBounceVertical={false}
+            bounces={true}
+            contentContainerStyle={[
+              styles.optionsContainer,
+              { gap: fixedSpacing, paddingLeft: 20 },
+            ]}
+          >
+            {menuOptions.map(option => (
+              <View key={option.id} style={styles.optionWrapper}>
+                <Pressable onPress={option.onPress}>
+                  {({ pressed }) => {
+                    const isSwapped = (option.id === 'bookmark' && isBookmarked) || pressed;
+                    const iconColor = isSwapped ? option.buttonColor : option.color;
+                    const backgroundColor = isSwapped ? option.color : option.buttonColor;
+
+                    return (
+                      <View
+                        style={[
+                          styles.option,
+                          { backgroundColor, borderColor: hexToRGBA(option.color, 0.28) },
+                        ]}
+                      >
+                        <Icon name={option.icon} size={45} color={iconColor} />
+                      </View>
+                    );
+                  }}
+                </Pressable>
+                <Text style={styles.optionText}>{option.label}</Text>
               </View>
-            ) : (
-              <FlatList
-                data={filteredConversations}
-                keyExtractor={(item, idx) => {
-                  if ('id' in item) {
-                    return item.id;
-                  }
-                  return item.did || `search-${idx}`;
-                }}
-                renderItem={({ item }) => {
-                  // Handle both conversations and search profiles
-                  const itemIsConversation = 'id' in item;
-                  const profile: ProfileViewBasic = itemIsConversation
-                    ? item.members.find(
-                        (member: ProfileViewBasic) => member.did !== currentUserDid
-                      ) || item.members[0]
-                    : item;
-
-                  const isDisabled =
-                    !itemIsConversation && !canBeMessaged(item as ProfileViewBasic);
-
-                  return (
-                    <ConversationItem
-                      profile={profile}
-                      isDisabled={isDisabled}
-                      onPress={() => handleSendToConversation(item)}
-                    />
-                  );
-                }}
-                contentContainerStyle={[
-                  styles.conversationList,
-                  filteredConversations.length === 0 && styles.conversationListEmpty,
-                ]}
-                keyboardShouldPersistTaps="handled"
-                onEndReached={() => {
-                  if (searchQuery.trim() && hasMoreProfiles && !conversationsLoading) {
-                    fetchMoreProfiles();
-                  }
-                }}
-                onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
-                ListEmptyComponent={
-                  <View style={styles.emptyContainer}>
-                    <Text style={styles.emptyText}>No results</Text>
-                  </View>
-                }
-              />
-            )}
-          </View>
-        ) : (
-          /* Options */
-          <View style={[styles.contentContainer, { paddingBottom: footerHeight + 20 }]}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              showsVerticalScrollIndicator={false}
-              alwaysBounceHorizontal={true}
-              alwaysBounceVertical={false}
-              bounces={true}
-              contentContainerStyle={[
-                styles.optionsContainer,
-                { gap: fixedSpacing, paddingLeft: 20 },
-              ]}
-            >
-              {menuOptions.map(option => (
-                <View key={option.id} style={styles.optionWrapper}>
-                  <Pressable onPress={option.onPress}>
-                    {({ pressed }) => {
-                      const isSwapped = (option.id === 'bookmark' && isBookmarked) || pressed;
-                      const iconColor = isSwapped ? option.buttonColor : option.color;
-                      const backgroundColor = isSwapped ? option.color : option.buttonColor;
-
-                      return (
-                        <View
-                          style={[
-                            styles.option,
-                            { backgroundColor, borderColor: hexToRGBA(option.color, 0.28) },
-                          ]}
-                        >
-                          <Icon name={option.icon} size={45} color={iconColor} />
-                        </View>
-                      );
-                    }}
-                  </Pressable>
-                  <Text style={styles.optionText}>{option.label}</Text>
-                </View>
-              ))}
-            </ScrollView>
-          </View>
-        )}
+            ))}
+          </ScrollView>
+        </View>
       </View>
     </TrueSheet>
   );
@@ -779,105 +470,6 @@ const styles = StyleSheet.create({
     marginTop: 12,
     textAlign: 'center',
     fontFamily: 'Figtree-Medium',
-  },
-  pickerContainer: {
-    flex: 1,
-    maxHeight: 400,
-    marginLeft: -12,
-    marginRight: -12,
-    paddingLeft: 20,
-    paddingRight: 20,
-  },
-  pickerHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 15,
-    paddingVertical: 15,
-    marginBottom: 4,
-    marginLeft: -12,
-    marginRight: -12,
-  },
-  pickerTitle: {
-    color: Colors.white,
-    fontSize: 20,
-    fontWeight: 'bold',
-    fontFamily: 'Figtree-Bold',
-  },
-  backButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: BORDER_RADIUS.MEDIUM,
-    backgroundColor: hexToRGBA(Colors.gray, 0.12),
-  },
-  headerSpacer: {
-    width: 44,
-    height: 44,
-  },
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 40,
-  },
-  emptyContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 40,
-  },
-  emptyText: {
-    color: Colors.lightGray,
-    fontSize: 15,
-    fontFamily: 'Figtree-Medium',
-  },
-  searchInput: {
-    marginHorizontal: 8,
-    marginBottom: 12,
-    borderRadius: BORDER_RADIUS.MEDIUM,
-    backgroundColor: hexToRGBA(Colors.gray, 0.12),
-    color: Colors.white,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontFamily: 'Figtree-Medium',
-    fontSize: 17,
-  },
-  conversationList: {
-    paddingHorizontal: 0,
-    paddingTop: 0,
-    paddingBottom: 16,
-    gap: 6,
-  },
-  conversationListEmpty: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  conversationItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 6,
-  },
-  disabledItem: {
-    opacity: 0.5,
-  },
-  conversationInfo: {
-    flex: 1,
-    minWidth: 0,
-    marginLeft: 12,
-  },
-  conversationName: {
-    color: Colors.white,
-    fontSize: 17,
-    fontWeight: '600',
-    fontFamily: 'Figtree-SemiBold',
-    marginBottom: 2,
-  },
-  disabledText: {
-    color: Colors.lightGray,
   },
 });
 

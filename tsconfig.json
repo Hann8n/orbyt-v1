@@ -20,8 +20,7 @@
     "baseUrl": ".",
     "paths": {
       "@stores/*": ["src/stores/*"],
-      "@/*": ["src/*"],
-      "react-native-gifted-chat": ["src/types/react-native-gifted-chat.d.ts"]
+      "@/*": ["src/*"]
     }
   },
   "include": ["src/**/*", "app/**/*"],

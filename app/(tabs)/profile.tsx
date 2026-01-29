@@ -49,7 +49,6 @@ import type { FeedResponse } from '../../src/services/api/types';
 import ProfileMenu from '../../src/components/features/profile/ProfileMenu';
 import SubscriptionOptionsSheet from '../../src/components/features/profile/SubscriptionOptionsSheet';
 import LiveStreamInfoSheet from '../../src/components/features/profile/LiveStreamInfoSheet';
-import ChatService from '../../src/services/ChatService';
 import { tabRefs } from '../../src/utils/navigation/tabRefs';
 import type { ViewMode } from '../../src/types';
 interface ProfileScreenProps {
@@ -351,22 +350,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   }, [profileDid, isRouteFocused, isProfileLoading, queryClient]);
 
   // Tab press handling is now centralized in CustomBottomTabBar - no need for duplicate listener
-
-  const handleMessagePress = useCallback(async () => {
-    if (!profileData?.did) return;
-
-    try {
-      const conversation = await ChatService.createConversation({
-        recipientDid: profileData.did,
-      });
-      router.push({
-        pathname: '/chat/[id]',
-        params: { id: conversation.id },
-      });
-    } catch {
-      router.push('/chat');
-    }
-  }, [profileData?.did, router]);
 
   // Default colors for edit sheet - always reflect current profile color state
   // Colors are now handled directly in ProfileCache, no need for separate state
@@ -784,7 +767,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
         onSwitchAccount={presentAccountSwitcher}
         chatSettings={profileData?.associated?.chat ?? undefined}
         viewerFollowedBy={Boolean(profileData?.viewer?.followedBy)}
-        onMessagePress={handleMessagePress}
       />
 
       {profileData?.did && (
