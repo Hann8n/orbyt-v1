@@ -214,7 +214,6 @@ function RootNavigator() {
               animation: 'slide_from_right',
             }}
           />
-          <Stack.Screen name="chat" />
           <Stack.Screen name="settings" options={modalSlideUpOptions} />
           <Stack.Screen name="edit-profile" options={modalSlideUpOptions} />
         </Stack.Protected>

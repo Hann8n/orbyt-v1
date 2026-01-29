@@ -392,6 +392,8 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
       showCancelButton={true}
       cancelButtonText="Cancel"
       name="profile-menu"
+      detents={[0.5]}
+      scrollable={false}
     >
       {/* Main menu options */}
       <View style={styles.optionsContainer}>

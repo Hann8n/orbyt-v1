@@ -184,7 +184,7 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
 
 const styles = StyleSheet.create({
   content: {
-    flex: 1,
+    // Removed flex: 1 to allow 'auto' detent to properly size to content
   },
   headerContainer: {
     flexDirection: 'row',
@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Figtree-Regular',
   },
   contentContainer: {
-    flex: 1,
+    // Removed flex: 1 to allow 'auto' detent to properly size to content
   },
   footerContainer: {
     backgroundColor: Colors.black,

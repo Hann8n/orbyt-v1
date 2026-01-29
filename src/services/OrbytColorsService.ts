@@ -1,8 +1,8 @@
 /**
- * OrbytColorsService - Handles fetching profile colors and beta status from the orbyt API
+ * OrbytColorsService - Fetches profile colors and beta status from orbyt API
  *
- * This service fetches colors from api.getorbyt.com instead of individual PDS endpoints.
  * Colors are indexed by Jetstream from com.getorbyt.profile records.
+ * The /v1/colors endpoints are public (read-only, non-sensitive data).
  */
 import { logger } from '../utils/logger';
 
@@ -23,30 +23,6 @@ export interface OrbytColorData {
  */
 class OrbytColorsService {
   /**
-   * Get the API token from environment variable
-   */
-  private static getToken(): string | null {
-    return process.env.EXPO_PUBLIC_ORBYT_API_TOKEN || null;
-  }
-
-  /**
-   * Build request headers with authentication
-   */
-  private static buildHeaders(): Record<string, string> {
-    const token = this.getToken();
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    };
-
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    return headers;
-  }
-
-  /**
    * Fetch colors for a single DID
    * @param did - The DID to fetch colors for
    * @returns Color data or null if not found
@@ -55,19 +31,9 @@ class OrbytColorsService {
     if (!did) return null;
 
     try {
-      const headers = this.buildHeaders();
-      const response = await fetch(`${API_BASE_URL}/v1/colors/${encodeURIComponent(did)}`, {
-        headers,
-      });
+      const response = await fetch(`${API_BASE_URL}/v1/colors/${encodeURIComponent(did)}`);
 
       if (response.status === 404) {
-        return null;
-      }
-
-      if (response.status === 401) {
-        logger.warn('Unauthorized: Check orbyt API token', {
-          component: 'OrbytColorsService',
-        });
         return null;
       }
 
@@ -103,19 +69,11 @@ class OrbytColorsService {
     const limitedDids = dids.slice(0, 100);
 
     try {
-      const headers = this.buildHeaders();
       const response = await fetch(`${API_BASE_URL}/v1/colors`, {
         method: 'POST',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ dids: limitedDids }),
       });
-
-      if (response.status === 401) {
-        logger.warn('Unauthorized: Check orbyt API token', {
-          component: 'OrbytColorsService',
-        });
-        return {};
-      }
 
       if (!response.ok) {
         logger.warn(`orbyt API batch error: ${response.status}`, {

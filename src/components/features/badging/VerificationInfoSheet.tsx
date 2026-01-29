@@ -119,7 +119,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
           <View style={styles.headerLeft}>
             <VerificationBadge
               handle={handle}
-              textSize={20}
+              size={24}
               badgeType="auto"
               textColor={Colors.white}
               customMargin={0}
@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
   },
   infoContainer: {
     marginBottom: 20,
-    paddingHorizontal: 15,
+    paddingHorizontal: 20,
   },
   infoText: {
     color: Colors.lightGray,
@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Figtree-SemiBold',
     marginBottom: 8,
     marginTop: 8,
-    paddingHorizontal: 15,
+    paddingHorizontal: 20,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },

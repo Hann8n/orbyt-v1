@@ -9,7 +9,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.getorbyt.app",
-      "buildNumber": "35",
+      "buildNumber": "37",
       "icon": "./src/assets/AppIcons/iOS/orbyt.png",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -27,7 +27,7 @@
         "backgroundColor": "#000000"
       },
       "package": "com.orbyt.app",
-      "versionCode": 35,
+      "versionCode": 37,
       "permissions": ["CAMERA", "RECORD_AUDIO"]
     },
     "web": {
@@ -72,7 +72,8 @@
         {
           "cameraPermission": "We need camera access to record videos for posts and take profile photos (e.g. on Create or when updating your avatar).",
           "microphonePermission": "We need microphone access to record audio with your videos (e.g. when you tap record on Create).",
-          "recordAudioAndroid": true
+          "recordAudioAndroid": true,
+          "enableBarcodeScanner": false
         }
       ],
       [
@@ -85,12 +86,18 @@
       [
         "expo-build-properties",
         {
+          "buildReactNativeFromSource": true,
+          "useHermesV1": true,
           "ios": {
             "deploymentTarget": "17.0"
           },
           "android": {
+            "compileSdkVersion": 36,
             "targetSdkVersion": 36,
+            "minSdkVersion": 24,
             "buildArchs": ["arm64-v8a"],
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
             "packagingOptions": {
               "pickFirsts": ["builddef.lst", "**/builddef.lst"],
               "excludes": ["builddef.lst", "**/builddef.lst"]

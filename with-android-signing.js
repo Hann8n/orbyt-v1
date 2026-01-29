@@ -39,6 +39,7 @@ module.exports = function withAndroidSigning(config) {
     }
 
     if (!c.includes('keystorePropertiesFile.exists() ? signingConfigs.release')) {
+      // SDK 55+ uses 'enableMinifyInReleaseBuilds' pattern
       c = c.replace(
         /(\r?\n\s+)signingConfig signingConfigs\.debug(\r?\n\s+def enableShrinkResources)/,
         '$1signingConfig keystorePropertiesFile.exists() ? signingConfigs.release : signingConfigs.debug$2'

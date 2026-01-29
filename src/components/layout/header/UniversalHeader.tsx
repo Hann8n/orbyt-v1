@@ -542,9 +542,8 @@ const InlineTitleWithBadges: React.FC<{
   }, []);
 
   const last = lines.length ? lines[lines.length - 1] : null;
-  const spacing = -2; // spacing between text and badges (negative to bring closer)
   const badgeTop = last ? last.y : 0; // align container to line top
-  const badgeLeft = last ? last.x + last.width + spacing : 0;
+  const badgeLeft = last ? last.x + last.width : 0;
 
   return (
     <View style={styles.inlineTitleContainer}>

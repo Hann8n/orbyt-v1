@@ -30,16 +30,16 @@
     "create:sprite-sheet": "npx tsx scripts/create-sprite-sheet.ts"
   },
   "dependencies": {
-    "@atproto/api": "^0.18.16",
-    "@atproto/oauth-client": "^0.5.3",
-    "@atproto/oauth-client-expo": "0.0.7",
+    "@atproto/api": "^0.18.18",
+    "@atproto/oauth-client": "^0.5.14",
+    "@atproto/oauth-client-expo": "^0.0.8",
     "@babel/runtime": "^7.28.6",
     "@expo/metro-runtime": "~55.0.3",
     "@expo/vector-icons": "^15.0.3",
     "@formatjs/intl-segmenter": "^12.1.0",
     "@legendapp/list": "^2.0.19",
-    "@lodev09/react-native-true-sheet": "3.7.3",
-    "@mozzius/expo-dynamic-app-icon": "^1.8.0",
+    "@lodev09/react-native-true-sheet": "^3.8.1",
+    "@mozzius/expo-dynamic-app-icon": "^1.8.1",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-navigation/native": "7.1.28",
     "@shopify/flash-list": "2.0.2",
@@ -62,7 +62,7 @@
     "expo-font": "~55.0.3",
     "expo-glass-effect": "~55.0.2",
     "expo-haptics": "~55.0.2",
-    "expo-image": "~55.0.2",
+    "expo-image": "~55.0.3",
     "expo-image-picker": "~55.0.2",
     "expo-linking": "~55.0.3",
     "expo-media-library": "~55.0.2",
@@ -96,10 +96,10 @@
   },
   "devDependencies": {
     "@babel/core": "^7.28.6",
-    "@types/node": "*",
-    "@types/react": "~19.2.2",
-    "@typescript-eslint/eslint-plugin": "^8.53.1",
-    "@typescript-eslint/parser": "^8.53.1",
+    "@types/node": "^25.1.0",
+    "@types/react": "~19.2.10",
+    "@typescript-eslint/eslint-plugin": "^8.54.0",
+    "@typescript-eslint/parser": "^8.54.0",
     "babel-plugin-module-resolver": "^5.0.2",
     "babel-preset-expo": "~55.0.0",
     "eslint": "^9.39.2",
@@ -118,11 +118,7 @@
   },
   "private": true,
   "resolutions": {
-    "react": "19.2.0",
-    "@react-navigation/native": "7.1.28",
-    "@react-navigation/core": "7.14.0",
-    "expo-web-browser": "~55.0.2",
-    "@expo/log-box": "55.0.3"
+    "hermes-compiler": "250829098.0.4"
   },
   "expo": {
     "doctor": {
