@@ -5,14 +5,19 @@ import { View, Text, StyleSheet, Share, Platform, Alert, Linking } from 'react-n
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Icon from '../../ui/Icon';
-import KeyboardAwareFooter from '../../../utils/components/truesheet/KeyboardAwareFooter';
 import { Colors } from '../../ui/UI';
 import CloseButton from '../../ui/CloseButton';
 import CancelButton from '../../ui/CancelButton';
 import { hexToRGBA } from '../../../utils/formatting/colors';
 import VerticalListSheet, { VerticalListButton } from '../../ui/VerticalListSheet';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import { safeDismiss, safePresent } from '../../../utils/components/truesheet/utils';
+import {
+  safeDismiss,
+  safePresent,
+  sheetStyles,
+  defaultSheetProps,
+  FOOTER_HEIGHT,
+} from '../../../utils/components/truesheet';
 import { useAuth } from '../../../stores/userStore';
 import {
   useProfile,
@@ -54,9 +59,6 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
 
   // TrueSheet refs for proper stacking
   const submenuSheetRef = useRef<TrueSheet>(null);
-
-  // Calculate footer height as constant: cancelContainer paddingTop (8) + button minHeight (44)
-  const submenuFooterHeight = 8 + 44;
 
   // Get profile data - prefer useProfileByDid if DID is provided (more reliable for handle.invalid cases)
   // Otherwise fallback to useProfile for backwards compatibility
@@ -367,7 +369,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
           icon: 'external-link',
           onPress: handleOpenOnBluesky,
           color: Colors.lightGray,
-          rightIcon: <Icon name="outlink" size={20} color={Colors.lightGray} />,
+          rightIcon: <Icon name="outlink" size={24} color={Colors.lightGray} />,
         },
         {
           id: 'reportOrBlock',
@@ -414,32 +416,27 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
         ref={submenuSheetRef}
         name="profile-menu-submenu"
         detents={['auto']}
-        backgroundColor={Colors.black}
+        {...defaultSheetProps}
         onDidDismiss={() => {
           /* no-op */
         }}
-        grabber={false}
         header={
-          <View style={styles.headerContainer}>
-            <Text style={styles.headerTitle} numberOfLines={1}>
+          <View style={sheetStyles.headerContainer}>
+            <Text style={sheetStyles.headerTitle} numberOfLines={1}>
               Report or Block
             </Text>
             <CloseButton onPress={() => safeDismiss('profile-menu-submenu')} />
           </View>
         }
         footer={
-          <KeyboardAwareFooter
-            hideOnKeyboard={true}
-            bottomPadding={insets.bottom}
-            style={{ backgroundColor: Colors.black }}
-          >
-            <View style={[styles.cancelContainer, { backgroundColor: Colors.black }]}>
+          <View style={[sheetStyles.footerContainer, { paddingBottom: insets.bottom }]}>
+            <View style={sheetStyles.cancelContainer}>
               <CancelButton onPress={() => safeDismiss('profile-menu-submenu')} />
             </View>
-          </KeyboardAwareFooter>
+          </View>
         }
       >
-        <View style={[styles.submenuContent, { paddingBottom: submenuFooterHeight }]}>
+        <View style={[styles.submenuContent, { paddingBottom: FOOTER_HEIGHT.standard }]}>
           {/* Submenu options */}
           <View style={styles.optionsContainer}>
             <VerticalListButton
@@ -497,25 +494,6 @@ const styles = StyleSheet.create({
   },
   submenuContent: {
     paddingHorizontal: 12,
-    paddingTop: 8,
-  },
-  headerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 20,
-  },
-  headerTitle: {
-    color: Colors.white,
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'left',
-    fontFamily: 'Figtree-Bold',
-    flex: 1,
-  },
-  cancelContainer: {
-    alignItems: 'center',
     paddingTop: 8,
   },
 });

@@ -4,8 +4,13 @@ import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format, parseISO, isValid, isToday, isTomorrow } from 'date-fns';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import { safeDismiss, safePresent } from '../../../utils/components/truesheet/utils';
-import KeyboardAwareFooter from '../../../utils/components/truesheet/KeyboardAwareFooter';
+import {
+  safeDismiss,
+  safePresent,
+  sheetStyles,
+  defaultSheetProps,
+  FOOTER_HEIGHT,
+} from '../../../utils/components/truesheet';
 import CloseButton from '../../ui/CloseButton';
 import CancelButton from '../../ui/CancelButton';
 import { VerticalListButton } from '../../ui/VerticalListSheet';
@@ -31,9 +36,6 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
   const bottomSheetRef = useRef<TrueSheet>(null);
   const insets = useSafeAreaInsets();
   const sheetDetents: ('auto' | number)[] = useMemo(() => ['auto'], []);
-
-  // Calculate footer height
-  const footerHeight = 20 + 44;
 
   const status = profile?.status;
 
@@ -124,13 +126,12 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
       ref={bottomSheetRef}
       name="live-stream-info-sheet"
       detents={sheetDetents}
-      backgroundColor={Colors.black}
+      {...defaultSheetProps}
       onDidDismiss={onDismiss}
-      grabber={false}
       header={
-        <View style={styles.headerContainer}>
-          <View style={styles.headerLeft}>
-            <Text style={styles.headerTitle} numberOfLines={1}>
+        <View style={sheetStyles.headerContainer}>
+          <View style={sheetStyles.headerLeft}>
+            <Text style={sheetStyles.headerTitle} numberOfLines={1}>
               {profile?.handle ? `${formatHandle(profile.handle)} is LIVE` : 'LIVE'}
             </Text>
           </View>
@@ -138,20 +139,14 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
         </View>
       }
       footer={
-        <View style={{ backgroundColor: Colors.black, paddingBottom: insets.bottom }}>
-          <KeyboardAwareFooter
-            hideOnKeyboard={true}
-            bottomPadding={0}
-            style={{ backgroundColor: Colors.black }}
-          >
-            <View style={[styles.cancelContainer, { backgroundColor: Colors.black }]}>
-              <CancelButton onPress={onDismiss} text="Close" />
-            </View>
-          </KeyboardAwareFooter>
+        <View style={[sheetStyles.footerContainer, { paddingBottom: insets.bottom }]}>
+          <View style={sheetStyles.cancelContainer}>
+            <CancelButton onPress={onDismiss} text="Close" />
+          </View>
         </View>
       }
     >
-      <View style={[styles.content, { paddingBottom: footerHeight }]}>
+      <View style={[sheetStyles.content, { paddingBottom: FOOTER_HEIGHT.standard }]}>
         {status ? (
           <>
             {/* Thumbnail */}
@@ -185,15 +180,15 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
               <VerticalListButton
                 label={`watch on ${getDomainFromUrl(displayUrl)}`}
                 onPress={() => handleOpenLink(displayUrl)}
-                rightIcon={<Icon name="external-link" size={16} color={Colors.black} />}
+                rightIcon={<Icon name="external-link" size={24} color={Colors.black} />}
                 style={{ backgroundColor: Colors.white }}
                 textStyle={{ color: Colors.black }}
               />
             )}
           </>
         ) : (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>Could not load live stream information</Text>
+          <View style={sheetStyles.errorContainer}>
+            <Text style={sheetStyles.errorText}>Could not load live stream information</Text>
           </View>
         )}
       </View>
@@ -202,30 +197,6 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
 };
 
 const styles = StyleSheet.create({
-  content: {
-    paddingHorizontal: 12,
-    paddingTop: 8,
-  },
-  headerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 20,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  headerTitle: {
-    color: Colors.white,
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'left',
-    fontFamily: 'Figtree-Bold',
-  },
   titleText: {
     color: Colors.white,
     fontSize: 18,
@@ -300,21 +271,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Figtree-Black',
     fontWeight: '900',
     letterSpacing: 0.7,
-  },
-  errorContainer: {
-    padding: 30,
-    alignItems: 'center',
-  },
-  errorText: {
-    color: Colors.lightGray,
-    fontSize: 16,
-    fontFamily: 'Figtree-Regular',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  cancelContainer: {
-    alignItems: 'center',
-    paddingTop: 20,
   },
 });
 

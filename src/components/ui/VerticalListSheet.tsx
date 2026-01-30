@@ -2,7 +2,13 @@ import React, { useRef, useEffect } from 'react';
 import { BORDER_RADIUS } from '../../utils/constants';
 import { View, Text, StyleSheet, ViewStyle, TextStyle, StyleProp } from 'react-native';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import { safeDismiss, safePresent } from '../../utils/components/truesheet/utils';
+import {
+  safeDismiss,
+  safePresent,
+  sheetStyles,
+  defaultSheetProps,
+  FOOTER_HEIGHT,
+} from '../../utils/components/truesheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from './Icon';
 import CloseButton from './CloseButton';
@@ -79,12 +85,10 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
   const insets = useSafeAreaInsets();
 
   // Calculate footer height for minimal content padding
-  // Footer handles its own safe area padding, so we only need footer height
   const hasFooter = showCancelButton || customFooter;
-  const footerHeight = hasFooter ? (footerTopPadding ?? 8) + 44 : 0;
+  const footerHeight = hasFooter ? FOOTER_HEIGHT.standard : FOOTER_HEIGHT.none;
 
   // Content padding - minimal padding to avoid footer overlap
-  // TrueSheet handles spacing, but we add minimal padding for footer height
   // Components can opt-out with contentBottomPadding={0} if they handle their own padding
   const contentPaddingBottom =
     contentBottomPadding !== undefined ? contentBottomPadding : hasFooter ? footerHeight : 0;
@@ -124,15 +128,15 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
 
   // Header component for TrueSheet header prop
   const headerComponent = (
-    <View style={styles.headerContainer}>
+    <View style={sheetStyles.headerContainer}>
       <Text
-        style={[styles.headerTitle, titleSize != null && { fontSize: titleSize }]}
+        style={[sheetStyles.headerTitle, titleSize != null && { fontSize: titleSize }]}
         numberOfLines={1}
       >
         {title}
       </Text>
       {hideCloseButton ? (
-        <View style={styles.closeButtonSpacer} />
+        <View style={sheetStyles.closeButtonSpacer} />
       ) : customHeaderButton ? (
         customHeaderButton
       ) : (
@@ -146,30 +150,29 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
       ref={bottomSheetRef}
       name={name}
       detents={detents}
-      backgroundColor={Colors.black}
+      {...defaultSheetProps}
       onDidDismiss={onDismiss}
-      grabber={false}
       scrollable={scrollable}
       header={headerComponent}
       footer={
         customFooter ? (
-          <View style={[styles.footerContainer, { paddingBottom: insets.bottom }]}>
+          <View style={[sheetStyles.footerContainer, { paddingBottom: insets.bottom }]}>
             {customFooter}
           </View>
         ) : showCancelButton ? (
-          <View style={[styles.footerContainer, { paddingBottom: insets.bottom }]}>
-            <View style={[styles.cancelContainer, { paddingTop: footerTopPadding ?? 8 }]}>
+          <View style={[sheetStyles.footerContainer, { paddingBottom: insets.bottom }]}>
+            <View style={[sheetStyles.cancelContainer, { paddingTop: footerTopPadding }]}>
               <CancelButton onPress={onDismiss} text={cancelButtonText} />
             </View>
           </View>
         ) : undefined
       }
     >
-      <View style={styles.content}>
+      <View style={sheetStyles.content}>
         {/* Description */}
         {description && (
-          <View style={styles.descriptionContainer}>
-            <Text style={styles.descriptionText}>{description}</Text>
+          <View style={sheetStyles.descriptionContainer}>
+            <Text style={sheetStyles.descriptionText}>{description}</Text>
           </View>
         )}
 
@@ -183,50 +186,8 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
 };
 
 const styles = StyleSheet.create({
-  content: {
-    // Removed flex: 1 to allow 'auto' detent to properly size to content
-  },
-  headerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 20,
-  },
-  headerTitle: {
-    color: Colors.white,
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'left',
-    fontFamily: 'Figtree-Bold',
-    flex: 1,
-  },
-  closeButtonSpacer: {
-    width: 30,
-    height: 30,
-  },
-  descriptionContainer: {
-    marginTop: 4,
-    marginBottom: 16,
-    paddingHorizontal: 15,
-  },
-  descriptionText: {
-    color: Colors.lightGray,
-    fontSize: 16,
-    lineHeight: 22,
-    textAlign: 'left',
-    fontFamily: 'Figtree-Regular',
-  },
   contentContainer: {
     // Removed flex: 1 to allow 'auto' detent to properly size to content
-  },
-  footerContainer: {
-    backgroundColor: Colors.black,
-  },
-  cancelContainer: {
-    alignItems: 'center',
-    paddingTop: 8,
   },
   checkboxButtonCheckbox: {
     width: 22,
@@ -242,7 +203,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.white,
   },
   listButtonMargin: {
-    marginHorizontal: 12,
+    marginHorizontal: 0, // Container already has 20px padding
   },
 });
 
