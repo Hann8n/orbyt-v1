@@ -42,6 +42,12 @@ configureReanimatedLogger({
   strict: false,
 });
 
+// Configure splash screen animation options
+SplashScreen.setOptions({
+  duration: 400,
+  fade: true,
+});
+
 // Prevent the splash screen from auto-hiding before we're ready
 SplashScreen.preventAutoHideAsync();
 
