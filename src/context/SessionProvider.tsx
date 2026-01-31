@@ -1,6 +1,9 @@
 /**
  * SessionProvider - Expo Router compatible auth context
  * Wraps Zustand userStore to provide React Context API for Stack.Protected
+ *
+ * Following Expo Router's recommended authentication pattern:
+ * https://docs.expo.dev/router/advanced/authentication/
  */
 import { createContext, useContext, type PropsWithChildren } from 'react';
 import { useUserStore } from '../stores/userStore';
@@ -29,9 +32,7 @@ export function useSession() {
 export function SessionProvider({ children }: PropsWithChildren) {
   // Get auth state from Zustand store
   const isAuthenticated = useUserStore(state => state.isAuthenticated);
-  const isAuthenticating = useUserStore(state => state.isAuthenticating);
   const isInitializingAuth = useUserStore(state => state.isInitializingAuth);
-  const isSwitchingAccount = useUserStore(state => state.isSwitchingAccount);
   const activeAccountDid = useUserStore(state => state.activeAccountDid);
   const signIn = useUserStore(state => state.signIn);
   const signOut = useUserStore(state => state.signOut);
@@ -43,10 +44,11 @@ export function SessionProvider({ children }: PropsWithChildren) {
         signOut: () => {
           signOut(false);
         },
-        // Use active DID as session key so Stack.Protected stays mounted during switches
+        // Use active DID as session key - Stack.Protected uses this for routing
         session: isAuthenticated && activeAccountDid ? activeAccountDid : null,
-        // Include initial auth loading state - this controls splash screen visibility
-        isLoading: isInitializingAuth || isAuthenticating || isSwitchingAccount,
+        // Only show splash during initial auth state restoration
+        // Sign-in and account switching have their own loading indicators
+        isLoading: isInitializingAuth,
       }}
     >
       {children}

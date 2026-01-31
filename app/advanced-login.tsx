@@ -10,14 +10,12 @@ import {
   Platform,
   Linking,
 } from 'react-native';
-import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { Loading3FillIcon } from '../src/components/ui/Icon';
 import { Colors } from '../src/components/ui/UI';
 import { useAuth, useAccountManagement } from '../src/stores/userStore';
 
 export default function AdvancedLoginScreen() {
-  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { signIn } = useAuth();
   const { loadSavedAccounts } = useAccountManagement();
@@ -51,9 +49,8 @@ export default function AdvancedLoginScreen() {
       // Reload accounts to show the new one
       await loadSavedAccounts();
 
-      // Navigate to home on success - use replace to avoid back navigation issues
-      // The app will automatically show the main screen when authentication state changes
-      router.replace('/(tabs)');
+      // Stack.Protected automatically redirects when session is set
+      // No manual navigation needed
     } catch (error) {
       // Check if this is a user cancellation vs actual error
       const errorMessage = error instanceof Error ? error.message : 'OAuth sign-in failed';
@@ -80,7 +77,7 @@ export default function AdvancedLoginScreen() {
       setIsAddingAccount(false);
       setIsValidatingPds(false);
     }
-  }, [username, signIn, router, loadSavedAccounts]);
+  }, [username, signIn, loadSavedAccounts]);
 
   return (
     <KeyboardAvoidingView

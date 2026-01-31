@@ -1,23 +1,106 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { BORDER_RADIUS } from '../src/utils/constants';
-import { View, Pressable, Text, StyleSheet, Alert, Platform, ScrollView } from 'react-native';
-import { LinearGradient } from '../src/components/ui/LinearGradient';
+import {
+  View,
+  Pressable,
+  Text,
+  StyleSheet,
+  Alert,
+  Platform,
+  ScrollView,
+  AppState,
+} from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Svg, Path, Rect } from 'react-native-svg';
+import { Svg, Path, Rect, Defs, Mask } from 'react-native-svg';
 import Icon, { Loading3FillIcon } from '../src/components/ui/Icon';
 import { Colors } from '../src/components/ui/UI';
 import AuthorItem from '../src/components/ui/AuthorItem';
-import { useRouter } from 'expo-router';
 import { SavedAccount } from '../src/stores/userStore';
 import { useAuth, useAccountManagement } from '../src/stores/userStore';
 import { isUserCancellation, getErrorMessage } from '../src/utils/errors/errorHandler';
 import { hexToRGBA } from '../src/utils/formatting/colors';
+import { useVideoPlayer, VideoView } from 'expo-video';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  Easing,
+} from 'react-native-reanimated';
+
+// Background video source (ping-pong loop for seamless playback)
+const backgroundVideo = require('../src/assets/login-background-loop.mp4');
 
 interface LoginScreenProps {
   onLogin?: (handle: string) => Promise<void>;
   onAccountSwitch?: (account: SavedAccount) => Promise<void>;
 }
+
+// Video background component using expo-video with fade-in
+const AnimatedBackground = () => {
+  const opacity = useSharedValue(0);
+  const isMounted = useRef(true);
+
+  const player = useVideoPlayer(backgroundVideo, player => {
+    player.loop = true;
+    player.muted = true;
+    player.play();
+  });
+
+  // Track mount state
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
+  // Fade in when component mounts
+  useEffect(() => {
+    opacity.value = withTiming(1, {
+      duration: 1000,
+      easing: Easing.out(Easing.ease),
+    });
+  }, [opacity]);
+
+  // Resume playback when app becomes active (background -> foreground)
+  // Check isMounted to avoid calling play() on a destroyed player during OAuth callback
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      if (nextAppState === 'active' && isMounted.current) {
+        player.play();
+      }
+    });
+
+    return () => subscription.remove();
+  }, [player]);
+
+  // Resume playback when screen regains focus (navigation)
+  // No cleanup needed - React Native Screens handles pausing when covered,
+  // and the player is destroyed on unmount anyway
+  useFocusEffect(
+    useCallback(() => {
+      player.play();
+    }, [player])
+  );
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
+  return (
+    <Animated.View style={[StyleSheet.absoluteFill, animatedStyle]}>
+      <VideoView
+        style={StyleSheet.absoluteFill}
+        player={player}
+        contentFit="cover"
+        nativeControls={false}
+        allowsPictureInPicture={false}
+      />
+    </Animated.View>
+  );
+};
 
 export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenProps = {}) {
   const router = useRouter();
@@ -48,8 +131,8 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
         await onLogin('oauth-success');
       }
 
-      // Navigate after signing in - Stack.Protected will handle routing
-      router.replace('/(tabs)');
+      // Stack.Protected automatically redirects when session is set
+      // No manual navigation needed
     } catch (error) {
       // Don't show errors for user cancellation
       if (isUserCancellation(error)) {
@@ -117,8 +200,8 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
         await onAccountSwitch(account);
       }
 
-      // Navigate after switching account - Stack.Protected will handle routing
-      router.replace('/(tabs)');
+      // Stack.Protected automatically redirects when session is set
+      // No manual navigation needed
     } catch (error) {
       setIsLoading(false);
       const errorMessage = error instanceof Error ? error.message : 'Account switch failed';
@@ -313,70 +396,88 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
   );
 
   const renderContent = () => (
-    <View
-      style={[
-        styles.container,
-        {
-          paddingTop: typeof insets?.top === 'number' ? insets.top : 0,
-          paddingBottom: typeof insets?.bottom === 'number' ? insets.bottom : 0,
-          justifyContent: hasSavedAccounts ? 'space-between' : 'flex-end',
-        },
-      ]}
-    >
-      {/* Logo and App Name */}
-      {!hasSavedAccounts && (
-        <View style={styles.logoContainer}>
-          <View style={styles.logoBackground}>
-            <LinearGradient
-              colors={[
-                'rgba(0, 0, 0, 0)',
-                'rgba(0, 0, 0, 1)',
-                'rgba(0, 0, 0, 1)',
-                'rgba(0, 0, 0, 0)',
-              ]}
-              locations={[0, 0.1, 0.9, 1]}
-              style={styles.logoGradient}
-            >
-              <Svg width={120} height={120} viewBox="65 65 894 894">
-                {/* Layer 1: Outline (bottom) */}
-                <Path
-                  fill="#f3f5fe"
-                  stroke="#f3f5fe"
-                  strokeWidth="65"
-                  strokeLinejoin="round"
-                  strokeLinecap="round"
-                  d="M349 129.3c-23.9 5.4-36.8 31.5-26.1 53.2 8 16.2 25.2 24.4 42.1 20.1 7.4-1.9 5.3-3.4 18.5 13.9 10.3 13.6 33.6 44.2 36.7 48.4 3.5 4.6 3.5 4.6-1.1 8.9-5.9 5.6-14.1 16.9-19 26-5 9.4-3.4 8.6-22.1 10.2-136.2 11.1-177 34.7-192.6 111.5-16.5 81.2-16.5 193.6.1 276.7 10.5 52.9 39.8 83.7 89.3 93.9 6 1.3 6 1.3 2.5 8.8-18.4 39.4-5.4 73.1 30 78.1 24.5 3.5 32.3-1.8 73.7-50 20.8-24.3 16.8-22.1 37-20.5 50.9 4.1 138.2 4.1 189 0 20.2-1.6 16.2-3.8 37 20.5 41.4 48.2 49.2 53.5 73.7 50 35.4-5 48.4-38.7 30-78.1-3.5-7.5-3.5-7.5 2.5-8.8 49.5-10.2 78.8-41 89.3-93.9 16.6-83.1 16.6-195.5.1-276.7C824 344.7 783.2 321.1 647 310c-18.7-1.6-17.1-.8-22.1-10.2-4.9-9.1-13.1-20.4-19-26-4.6-4.3-4.6-4.3-1.1-8.9 3.1-4.2 26.4-34.8 36.7-48.4 13.2-17.3 11.1-15.8 18.5-13.9 41.5 10.6 64.2-49.2 26.3-69.3-32-17.1-68 17.2-51.7 49.3 3.1 6.1 3.1 6.1-11.8 25.5-8.2 10.7-20 26-26.1 34.1-11.1 14.8-11.1 14.8-14.7 12.6-44.5-26.5-94.5-26.5-139 0-3.6 2.2-3.6 2.2-14.7-12.6-6.1-8.1-17.9-23.4-26.1-34.1-14.9-19.4-14.9-19.4-11.8-25.5 13.8-27.1-11.7-59.8-41.4-53.3Z"
-                />
-                {/* Layer 2: Body (middle) */}
-                <Path
-                  fill="#000"
-                  d="M349 129.3c-23.9 5.4-36.8 31.5-26.1 53.2 8 16.2 25.2 24.4 42.1 20.1 7.4-1.9 5.3-3.4 18.5 13.9 10.3 13.6 33.6 44.2 36.7 48.4 3.5 4.6 3.5 4.6-1.1 8.9-5.9 5.6-14.1 16.9-19 26-5 9.4-3.4 8.6-22.1 10.2-136.2 11.1-177 34.7-192.6 111.5-16.5 81.2-16.5 193.6.1 276.7 10.5 52.9 39.8 83.7 89.3 93.9 6 1.3 6 1.3 2.5 8.8-18.4 39.4-5.4 73.1 30 78.1 24.5 3.5 32.3-1.8 73.7-50 20.8-24.3 16.8-22.1 37-20.5 50.9 4.1 138.2 4.1 189 0 20.2-1.6 16.2-3.8 37 20.5 41.4 48.2 49.2 53.5 73.7 50 35.4-5 48.4-38.7 30-78.1-3.5-7.5-3.5-7.5 2.5-8.8 49.5-10.2 78.8-41 89.3-93.9 16.6-83.1 16.6-195.5.1-276.7C824 344.7 783.2 321.1 647 310c-18.7-1.6-17.1-.8-22.1-10.2-4.9-9.1-13.1-20.4-19-26-4.6-4.3-4.6-4.3-1.1-8.9 3.1-4.2 26.4-34.8 36.7-48.4 13.2-17.3 11.1-15.8 18.5-13.9 41.5 10.6 64.2-49.2 26.3-69.3-32-17.1-68 17.2-51.7 49.3 3.1 6.1 3.1 6.1-11.8 25.5-8.2 10.7-20 26-26.1 34.1-11.1 14.8-11.1 14.8-14.7 12.6-44.5-26.5-94.5-26.5-139 0-3.6 2.2-3.6 2.2-14.7-12.6-6.1-8.1-17.9-23.4-26.1-34.1-14.9-19.4-14.9-19.4-11.8-25.5 13.8-27.1-11.7-59.8-41.4-53.3m249.3 243.2C752 381.3 773.8 399.3 781.1 523c5.8 98.9-9.4 168.3-41.5 189.8-59.5 39.8-394.7 39.8-454.2 0-32.1-21.5-47.3-90.9-41.5-189.8 7.7-130.5 28.8-144.8 226.1-152.4 19.3-.8 104.3.5 128.3 1.9"
-                />
-                {/* Layer 3: Eyes (top) - Centered in screen (512, 550) */}
-                <Rect fill="#000" x="372" y="482" width="82" height="136" rx="41" ry="41" />
-                <Rect fill="#000" x="570" y="482" width="82" height="136" rx="41" ry="41" />
-              </Svg>
-              <Text style={styles.appName}>orbyt</Text>
-            </LinearGradient>
+    <View style={styles.backgroundImage}>
+      <AnimatedBackground />
+      <View
+        style={[
+          styles.container,
+          {
+            paddingTop: typeof insets?.top === 'number' ? insets.top : 0,
+            paddingBottom: typeof insets?.bottom === 'number' ? insets.bottom : 0,
+            justifyContent: hasSavedAccounts ? 'space-between' : 'flex-end',
+          },
+        ]}
+      >
+        {/* Logo and App Name */}
+        {!hasSavedAccounts && (
+          <View style={styles.logoContainer}>
+            <Svg width={120} height={120} viewBox="65 65 894 894">
+              <Defs>
+                {/* Mask: white = visible, gray = partial transparency, black = fully transparent */}
+                <Mask id="cutout-mask-75">
+                  {/* Start with full white rectangle (everything visible) */}
+                  <Rect x="65" y="65" width="894" height="894" fill="white" />
+                  {/* 90% cut out the body shape */}
+                  <Path
+                    fill="black"
+                    fillOpacity={0.9}
+                    fillRule="evenodd"
+                    d="M349 129.3c-23.9 5.4-36.8 31.5-26.1 53.2 8 16.2 25.2 24.4 42.1 20.1 7.4-1.9 5.3-3.4 18.5 13.9 10.3 13.6 33.6 44.2 36.7 48.4 3.5 4.6 3.5 4.6-1.1 8.9-5.9 5.6-14.1 16.9-19 26-5 9.4-3.4 8.6-22.1 10.2-136.2 11.1-177 34.7-192.6 111.5-16.5 81.2-16.5 193.6.1 276.7 10.5 52.9 39.8 83.7 89.3 93.9 6 1.3 6 1.3 2.5 8.8-18.4 39.4-5.4 73.1 30 78.1 24.5 3.5 32.3-1.8 73.7-50 20.8-24.3 16.8-22.1 37-20.5 50.9 4.1 138.2 4.1 189 0 20.2-1.6 16.2-3.8 37 20.5 41.4 48.2 49.2 53.5 73.7 50 35.4-5 48.4-38.7 30-78.1-3.5-7.5-3.5-7.5 2.5-8.8 49.5-10.2 78.8-41 89.3-93.9 16.6-83.1 16.6-195.5.1-276.7C824 344.7 783.2 321.1 647 310c-18.7-1.6-17.1-.8-22.1-10.2-4.9-9.1-13.1-20.4-19-26-4.6-4.3-4.6-4.3-1.1-8.9 3.1-4.2 26.4-34.8 36.7-48.4 13.2-17.3 11.1-15.8 18.5-13.9 41.5 10.6 64.2-49.2 26.3-69.3-32-17.1-68 17.2-51.7 49.3 3.1 6.1 3.1 6.1-11.8 25.5-8.2 10.7-20 26-26.1 34.1-11.1 14.8-11.1 14.8-14.7 12.6-44.5-26.5-94.5-26.5-139 0-3.6 2.2-3.6 2.2-14.7-12.6-6.1-8.1-17.9-23.4-26.1-34.1-14.9-19.4-14.9-19.4-11.8-25.5 13.8-27.1-11.7-59.8-41.4-53.3m249.3 243.2C752 381.3 773.8 399.3 781.1 523c5.8 98.9-9.4 168.3-41.5 189.8-59.5 39.8-394.7 39.8-454.2 0-32.1-21.5-47.3-90.9-41.5-189.8 7.7-130.5 28.8-144.8 226.1-152.4 19.3-.8 104.3.5 128.3 1.9Z"
+                  />
+                  {/* 90% cut out the eyes */}
+                  <Rect
+                    fill="black"
+                    fillOpacity={0.9}
+                    x="372"
+                    y="482"
+                    width="82"
+                    height="136"
+                    rx="41"
+                    ry="41"
+                  />
+                  <Rect
+                    fill="black"
+                    fillOpacity={0.9}
+                    x="570"
+                    y="482"
+                    width="82"
+                    height="136"
+                    rx="41"
+                    ry="41"
+                  />
+                </Mask>
+              </Defs>
+              {/* White outline with cutout mask applied */}
+              <Path
+                mask="url(#cutout-mask-75)"
+                fill="#f3f5fe"
+                stroke="#f3f5fe"
+                strokeWidth="65"
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                d="M349 129.3c-23.9 5.4-36.8 31.5-26.1 53.2 8 16.2 25.2 24.4 42.1 20.1 7.4-1.9 5.3-3.4 18.5 13.9 10.3 13.6 33.6 44.2 36.7 48.4 3.5 4.6 3.5 4.6-1.1 8.9-5.9 5.6-14.1 16.9-19 26-5 9.4-3.4 8.6-22.1 10.2-136.2 11.1-177 34.7-192.6 111.5-16.5 81.2-16.5 193.6.1 276.7 10.5 52.9 39.8 83.7 89.3 93.9 6 1.3 6 1.3 2.5 8.8-18.4 39.4-5.4 73.1 30 78.1 24.5 3.5 32.3-1.8 73.7-50 20.8-24.3 16.8-22.1 37-20.5 50.9 4.1 138.2 4.1 189 0 20.2-1.6 16.2-3.8 37 20.5 41.4 48.2 49.2 53.5 73.7 50 35.4-5 48.4-38.7 30-78.1-3.5-7.5-3.5-7.5 2.5-8.8 49.5-10.2 78.8-41 89.3-93.9 16.6-83.1 16.6-195.5.1-276.7C824 344.7 783.2 321.1 647 310c-18.7-1.6-17.1-.8-22.1-10.2-4.9-9.1-13.1-20.4-19-26-4.6-4.3-4.6-4.3-1.1-8.9 3.1-4.2 26.4-34.8 36.7-48.4 13.2-17.3 11.1-15.8 18.5-13.9 41.5 10.6 64.2-49.2 26.3-69.3-32-17.1-68 17.2-51.7 49.3 3.1 6.1 3.1 6.1-11.8 25.5-8.2 10.7-20 26-26.1 34.1-11.1 14.8-11.1 14.8-14.7 12.6-44.5-26.5-94.5-26.5-139 0-3.6 2.2-3.6 2.2-14.7-12.6-6.1-8.1-17.9-23.4-26.1-34.1-14.9-19.4-14.9-19.4-11.8-25.5 13.8-27.1-11.7-59.8-41.4-53.3Z"
+              />
+            </Svg>
+            <Text style={styles.appName}>orbyt</Text>
           </View>
-        </View>
-      )}
+        )}
 
-      {hasSavedAccounts ? (
-        <>
-          {renderSavedAccounts()}
-          <View>
-            <View style={styles.dividerContainer}>
-              <View style={styles.divider} />
-              <Text style={styles.dividerText}>or</Text>
-              <View style={styles.divider} />
+        {hasSavedAccounts ? (
+          <>
+            {renderSavedAccounts()}
+            <View>
+              <View style={styles.dividerContainer}>
+                <View style={styles.divider} />
+                <Text style={styles.dividerText}>or</Text>
+                <View style={styles.divider} />
+              </View>
+              {renderLoginButtons()}
             </View>
-            {renderLoginButtons()}
-          </View>
-        </>
-      ) : (
-        renderManualLogin()
-      )}
+          </>
+        ) : (
+          renderManualLogin()
+        )}
+      </View>
     </View>
   );
 
@@ -384,12 +485,17 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
 }
 
 const styles = StyleSheet.create({
+  backgroundImage: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
   container: {
     flex: 1,
     justifyContent: 'flex-end',
     paddingHorizontal: 24,
     paddingVertical: 20,
-    backgroundColor: Colors.black,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   logoContainer: {
     alignItems: 'center',
@@ -398,25 +504,6 @@ const styles = StyleSheet.create({
     top: '20%',
     left: 0,
     right: 0,
-  },
-  logoBackground: {
-    borderRadius: 25,
-    overflow: 'hidden',
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  logoGradient: {
-    paddingVertical: 30,
-    paddingHorizontal: 40,
-    alignItems: 'center',
-    borderRadius: 25,
-  },
-  logoImage: {
-    width: 120,
-    height: 120,
   },
   appName: {
     color: Colors.white,

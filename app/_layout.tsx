@@ -139,13 +139,25 @@ const modalSlideUpOptions = {
   animation: 'slide_from_bottom' as const,
 };
 
+// Initial route settings for Expo Router
+export const unstable_settings = {
+  // Ensure Stack.Protected redirects to login when unauthenticated
+  initialRouteName: '(tabs)',
+};
+
 // RootNavigator - handles route protection using Stack.Protected
+// Following Expo Router's recommended authentication pattern
 function RootNavigator() {
-  const { session } = useSession();
+  const { session, isLoading } = useSession();
   const insets = useSafeAreaInsets();
-  const isAuthenticated = useUserStore(state => state.isAuthenticated);
   const currentUser = useUserStore(state => state.currentUser);
   const modalProfileEnabled = useUserStore(state => state.modalProfileEnabled);
+
+  // Don't render navigation until auth state is determined
+  // This prevents the login screen from flashing before session is restored
+  if (isLoading) {
+    return null;
+  }
 
   return (
     <View style={styles.rootView}>
@@ -153,9 +165,9 @@ function RootNavigator() {
         barStyle="light-content"
         backgroundColor="transparent"
         translucent={Platform.OS === 'android'}
-        hidden={false}
+        hidden={true}
       />
-      {!isAuthenticated && (
+      {!session && (
         <LinearGradient
           colors={['transparent', Colors.black]}
           style={[styles.bottomGradient, { height: 45 + insets.bottom }]}
@@ -167,7 +179,7 @@ function RootNavigator() {
           headerShown: false,
           contentStyle: { backgroundColor: Colors.black },
           animation: 'fade',
-          freezeOnBlur: true, // Freeze screens when not focused to prevent unnecessary re-renders and ensure correct focus tracking
+          freezeOnBlur: true,
         }}
       >
         {/* Protected routes - require authentication */}
@@ -183,9 +195,6 @@ function RootNavigator() {
             }}
           />
           {/* Protected create route - require email confirmation if email exists */}
-          {/* Allow access if: emailConfirmed is true OR emailConfirmed is undefined (no email scope) */}
-          {/* Block access if: emailConfirmed is explicitly false */}
-          {/* Use API field name directly: emailConfirmed */}
           <Stack.Protected guard={canAccessCreate(currentUser?.emailConfirmed ?? null)}>
             <Stack.Screen
               name="create"
@@ -236,7 +245,7 @@ function RootNavigator() {
           />
         </Stack.Protected>
 
-        {/* Always accessible routes */}
+        {/* OAuth callback - always accessible for deep link handling */}
         <Stack.Screen
           name="oauth/callback"
           options={{
@@ -244,9 +253,8 @@ function RootNavigator() {
             gestureEnabled: false,
           }}
         />
-        <Stack.Screen name="index" />
       </Stack>
-      {isAuthenticated && <GlobalModals />}
+      {!!session && <GlobalModals />}
     </View>
   );
 }

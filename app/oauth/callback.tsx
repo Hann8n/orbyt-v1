@@ -1,17 +1,17 @@
-import { Redirect } from 'expo-router';
+import { View } from 'react-native';
 
 /**
  * OAuth callback route handler
  *
  * This route handles the OAuth callback from Bluesky authentication.
- * The @atproto/oauth-client-expo package processes the deep link automatically,
- * but on Android, Expo Router tries to navigate to this route first, causing
- * an "unmatched route" error.
+ * The @atproto/oauth-client-expo package processes the deep link automatically.
  *
- * This route simply redirects to home - the OAuth client handles the actual
- * callback processing via deep linking before this route is reached.
+ * This route renders nothing - the OAuth client handles the actual callback
+ * processing via deep linking, and Stack.Protected automatically navigates
+ * to the appropriate screen once the session is established.
  */
 export default function OAuthCallback() {
-  // Redirect to home - the OAuth client handles the callback via deep linking
-  return <Redirect href="/(tabs)" />;
+  // Render nothing - OAuth client processes the callback via deep linking
+  // Stack.Protected handles navigation once session is set
+  return <View />;
 }
