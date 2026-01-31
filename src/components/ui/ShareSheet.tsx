@@ -13,13 +13,8 @@ import {
   ScrollView,
 } from 'react-native';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import {
-  safeDismiss,
-  safePresent,
-  sheetStyles,
-  defaultSheetProps,
-  FOOTER_HEIGHT,
-} from '../../utils/components/truesheet';
+import { safeDismiss, safePresent } from '../../utils/components/truesheet/utils';
+import KeyboardAwareFooter from '../../utils/components/truesheet/KeyboardAwareFooter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from './Icon';
 import CloseButton from './CloseButton';
@@ -50,6 +45,9 @@ const ShareSheet: React.FC = () => {
   // TrueSheet detents - v3 uses 'auto' or fractional numbers (0-1)
   const sheetDetents: ('auto' | number)[] = useMemo(() => ['auto'], []);
   const insets = useSafeAreaInsets();
+
+  // Calculate footer height as constant: cancelContainer paddingTop (8) + button minHeight (44)
+  const footerHeight = 8 + 44;
 
   // Present sheet when data arrives
   useEffect(() => {
@@ -323,8 +321,8 @@ const ShareSheet: React.FC = () => {
   // Header component for TrueSheet header prop
   const headerComponent =
     authorName || authorHandle ? (
-      <View style={sheetStyles.headerContainer}>
-        <Text style={sheetStyles.headerTitle} numberOfLines={1}>
+      <View style={styles.headerContainer}>
+        <Text style={styles.headerTitle} numberOfLines={1}>
           post by {authorHandle ? formatHandle(authorHandle) : authorName}
         </Text>
         <CloseButton onPress={dismissSheet} />
@@ -338,12 +336,11 @@ const ShareSheet: React.FC = () => {
         ref={sheetRef}
         name="share-sheet"
         detents={sheetDetents}
-        {...defaultSheetProps}
+        backgroundColor={Colors.black}
         onDidDismiss={handleDismiss}
+        grabber={false}
       >
-        <View style={sheetStyles.content}>
-          {/* Empty content when no data or clear view mode */}
-        </View>
+        <View style={styles.content}>{/* Empty content when no data or clear view mode */}</View>
       </TrueSheet>
     );
   }
@@ -353,19 +350,26 @@ const ShareSheet: React.FC = () => {
       ref={sheetRef}
       name="share-sheet"
       detents={sheetDetents}
-      {...defaultSheetProps}
+      backgroundColor={Colors.black}
       onDidDismiss={handleDismiss}
+      grabber={false}
       header={headerComponent}
       footer={
-        <View style={[sheetStyles.footerContainer, { paddingBottom: insets.bottom }]}>
-          <View style={sheetStyles.cancelContainer}>
-            <CancelButton onPress={dismissSheet} />
-          </View>
+        <View style={{ backgroundColor: Colors.black, paddingBottom: insets.bottom }}>
+          <KeyboardAwareFooter
+            hideOnKeyboard={true}
+            bottomPadding={0}
+            style={{ backgroundColor: Colors.black }}
+          >
+            <View style={[styles.cancelContainer, { backgroundColor: Colors.black }]}>
+              <CancelButton onPress={dismissSheet} />
+            </View>
+          </KeyboardAwareFooter>
         </View>
       }
     >
-      <View style={sheetStyles.content}>
-        <View style={[styles.contentContainer, { paddingBottom: FOOTER_HEIGHT.standard + 20 }]}>
+      <View style={styles.content}>
+        <View style={[styles.contentContainer, { paddingBottom: footerHeight + 20 }]}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -409,6 +413,25 @@ const ShareSheet: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
+  content: {
+    paddingHorizontal: 12,
+    paddingTop: 8,
+  },
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 20,
+  },
+  headerTitle: {
+    color: Colors.white,
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'left',
+    fontFamily: 'Figtree-Bold',
+    flex: 1,
+  },
   contentContainer: {
     // Extend options row to sheet edges while preserving overall content padding
     marginLeft: -12,
@@ -436,6 +459,10 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 0,
     borderColor: Colors.transparent,
+  },
+  cancelContainer: {
+    alignItems: 'center',
+    paddingTop: 8,
   },
   optionText: {
     color: Colors.lightGray,

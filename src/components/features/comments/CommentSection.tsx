@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import { safeDismiss, safePresent, defaultSheetProps } from '../../../utils/components/truesheet';
+import { safeDismiss, safePresent } from '../../../utils/components/truesheet/utils';
 
 import AtprotoService from '../../../services/api/AtprotoService';
 import { queryKeys } from '../../../utils/query/queryKeys';
@@ -782,9 +782,10 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         ref={sheetRef}
         name="comment-section"
         detents={scrollToCommentUri ? [1] : [0.5, 1]}
-        {...defaultSheetProps}
+        backgroundColor={Colors.black}
         onDidDismiss={handleClose}
         scrollable
+        grabber={false}
         header={headerComponent}
         footer={activeTab === 'comments' ? ComposerFooter : undefined}
       >

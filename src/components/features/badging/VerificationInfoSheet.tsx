@@ -10,14 +10,9 @@ import { useRouter } from 'expo-router';
 import { Loading3FillIcon } from '../../ui/Icon';
 import CloseButton from '../../ui/CloseButton';
 import CancelButton from '../../ui/CancelButton';
+import KeyboardAwareFooter from '../../../utils/components/truesheet/KeyboardAwareFooter';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import {
-  safeDismiss,
-  safePresent,
-  sheetStyles,
-  defaultSheetProps,
-  FOOTER_HEIGHT,
-} from '../../../utils/components/truesheet';
+import { safeDismiss, safePresent } from '../../../utils/components/truesheet/utils';
 import VerificationBadge from './VerificationBadge';
 
 // Import AuthorItem directly - preload to avoid size calculation issues
@@ -63,6 +58,9 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
   const sheetDetents: ('auto' | number)[] = useMemo(() => ['auto'], []);
   const insets = useSafeAreaInsets();
 
+  // Calculate footer height as constant: cancelContainer paddingTop (20) + button minHeight (44)
+  const footerHeight = 20 + 44;
+
   // Get profile info - use cached data if available
   // Verification data is included in profile response, so we only need one query
   // Use React Query hook for profile data
@@ -98,11 +96,27 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
       ref={bottomSheetRef}
       name="verification-info-sheet"
       detents={sheetDetents}
-      {...defaultSheetProps}
+      backgroundColor={Colors.black}
       onDidDismiss={onDismiss}
-      header={
-        <View style={sheetStyles.headerContainer}>
-          <View style={sheetStyles.headerLeft}>
+      grabber={false}
+      footer={
+        <View style={{ backgroundColor: Colors.black, paddingBottom: insets.bottom }}>
+          <KeyboardAwareFooter
+            hideOnKeyboard={true}
+            bottomPadding={0}
+            style={{ backgroundColor: Colors.black }}
+          >
+            <View style={[styles.cancelContainer, { backgroundColor: Colors.black }]}>
+              <CancelButton onPress={onDismiss} text="Close" />
+            </View>
+          </KeyboardAwareFooter>
+        </View>
+      }
+    >
+      <View style={[styles.content, { paddingBottom: footerHeight }]}>
+        {/* Header with title, badge and close button */}
+        <View style={styles.headerContainer}>
+          <View style={styles.headerLeft}>
             <VerificationBadge
               handle={handle}
               size={24}
@@ -111,25 +125,13 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
               customMargin={0}
               verification={verification || undefined}
             />
-            <Text
-              style={[sheetStyles.headerTitle, sheetStyles.headerTitleWithIcon]}
-              numberOfLines={1}
-            >
+            <Text style={[styles.headerTitle, { marginLeft: 4 }]} numberOfLines={1}>
               {isTrustedVerifier ? 'Trusted Verifier' : 'Verified'}
             </Text>
           </View>
           <CloseButton onPress={onDismiss} />
         </View>
-      }
-      footer={
-        <View style={[sheetStyles.footerContainer, { paddingBottom: insets.bottom }]}>
-          <View style={sheetStyles.cancelContainer}>
-            <CancelButton onPress={onDismiss} text="Close" />
-          </View>
-        </View>
-      }
-    >
-      <View style={[sheetStyles.content, { paddingBottom: FOOTER_HEIGHT.standard }]}>
+
         {isLoading ? (
           <Loading3FillIcon size={24} color={Colors.lightGray} style={styles.loadingIndicator} />
         ) : verification ? (
@@ -139,8 +141,8 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
             renderVerifiedAccountContent()
           )
         ) : (
-          <View style={sheetStyles.errorContainer}>
-            <Text style={sheetStyles.errorText}>Could not load verification information</Text>
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>Could not load verification information</Text>
           </View>
         )}
       </View>
@@ -152,8 +154,8 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
     return (
       <>
         {/* Info Container */}
-        <View style={sheetStyles.infoContainer}>
-          <Text style={sheetStyles.infoText}>
+        <View style={styles.infoContainer}>
+          <Text style={styles.infoText}>
             <Text>{profile?.displayName || handle}</Text>
             <Text>
               {' '}
@@ -186,8 +188,8 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
     return (
       <>
         {/* Info Container */}
-        <View style={sheetStyles.infoContainer}>
-          <Text style={sheetStyles.infoText}>
+        <View style={styles.infoContainer}>
+          <Text style={styles.infoText}>
             A verification badge indicates this is an authentic account representing the person or
             organization it claims to be.
           </Text>
@@ -255,9 +257,47 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
 };
 
 const styles = StyleSheet.create({
+  content: {
+    paddingHorizontal: 12,
+    paddingTop: 8,
+  },
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 20,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  headerTitle: {
+    color: Colors.white,
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'left',
+    fontFamily: 'Figtree-Bold',
+  },
   loadingIndicator: {
     marginVertical: 40,
     alignSelf: 'center',
+  },
+  infoContainer: {
+    marginBottom: 20,
+    paddingHorizontal: 20,
+  },
+  infoText: {
+    color: Colors.lightGray,
+    fontSize: 16,
+    lineHeight: 22,
+    textAlign: 'left',
+    fontFamily: 'Figtree-Regular',
+  },
+  highlightedText: {
+    color: Colors.white,
+    fontFamily: 'Figtree-Medium',
   },
   verifiedByLabel: {
     color: Colors.gray,
@@ -321,6 +361,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Figtree-Regular',
     textAlign: 'center',
+  },
+  errorContainer: {
+    padding: 30,
+    alignItems: 'center',
+  },
+  errorText: {
+    color: Colors.lightGray,
+    fontSize: 16,
+    fontFamily: 'Figtree-Regular',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  cancelContainer: {
+    alignItems: 'center',
+    paddingTop: 20,
   },
 });
 

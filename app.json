@@ -10,7 +10,6 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.getorbyt.app",
       "buildNumber": "37",
-      "icon": "./src/assets/AppIcons/iOS/orbyt.png",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "We need camera access to record videos for posts and take profile photos (e.g. on Create or when updating your avatar).",

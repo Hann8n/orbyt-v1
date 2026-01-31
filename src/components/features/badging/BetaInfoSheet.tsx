@@ -3,17 +3,12 @@ import { View, Text, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format, parseISO, isValid } from 'date-fns';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import {
-  safeDismiss,
-  safePresent,
-  sheetStyles,
-  defaultSheetProps,
-  FOOTER_HEIGHT,
-} from '../../../utils/components/truesheet';
+import { safeDismiss, safePresent } from '../../../utils/components/truesheet/utils';
 import { Colors } from '../../ui/UI';
 import CloseButton from '../../ui/CloseButton';
 import CancelButton from '../../ui/CancelButton';
 import BetaBadge from './BetaBadge';
+import KeyboardAwareFooter from '../../../utils/components/truesheet/KeyboardAwareFooter';
 
 interface BetaInfoSheetProps {
   visible: boolean;
@@ -26,6 +21,9 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
   const bottomSheetRef = useRef<TrueSheet>(null);
   const sheetDetents: ('auto' | number)[] = useMemo(() => ['auto'], []);
   const insets = useSafeAreaInsets();
+
+  // Calculate footer height as constant: cancelContainer paddingTop (8) + button minHeight (44)
+  const footerHeight = 8 + 44;
 
   useEffect(() => {
     if (visible) {
@@ -43,10 +41,10 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
 
   // Header component for TrueSheet header prop
   const headerComponent = (
-    <View style={sheetStyles.headerContainer}>
-      <View style={sheetStyles.headerLeft}>
+    <View style={styles.headerContainer}>
+      <View style={styles.headerLeft}>
         <BetaBadge size={24} color={Colors.white} opacity={0.7} customMargin={0} />
-        <Text style={[sheetStyles.headerTitle, sheetStyles.headerTitleWithIcon]} numberOfLines={1}>
+        <Text style={[styles.headerTitle, styles.headerTitleMargin]} numberOfLines={1}>
           Beta Tester
         </Text>
       </View>
@@ -59,21 +57,28 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
       ref={bottomSheetRef}
       name="beta-info-sheet"
       detents={sheetDetents}
-      {...defaultSheetProps}
+      backgroundColor={Colors.black}
       onDidDismiss={onDismiss}
+      grabber={false}
       header={headerComponent}
       footer={
-        <View style={[sheetStyles.footerContainer, { paddingBottom: insets.bottom }]}>
-          <View style={sheetStyles.cancelContainer}>
-            <CancelButton onPress={onDismiss} text="Close" />
-          </View>
+        <View style={{ backgroundColor: Colors.black, paddingBottom: insets.bottom }}>
+          <KeyboardAwareFooter
+            hideOnKeyboard={true}
+            bottomPadding={0}
+            style={{ backgroundColor: Colors.black }}
+          >
+            <View style={[styles.cancelContainer, { backgroundColor: Colors.black }]}>
+              <CancelButton onPress={onDismiss} text="Close" />
+            </View>
+          </KeyboardAwareFooter>
         </View>
       }
     >
-      <View style={[sheetStyles.content, { paddingBottom: FOOTER_HEIGHT.standard }]}>
+      <View style={[styles.content, { paddingBottom: footerHeight }]}>
         {/* Info Container */}
-        <View style={sheetStyles.infoContainer}>
-          <Text style={sheetStyles.infoText}>
+        <View style={styles.infoContainer}>
+          <Text style={styles.infoText}>
             <Text style={styles.highlightedText}>{handle}</Text> joined during the orbyt beta. Beta
             testers helped test early features and shape the experience.
           </Text>
@@ -91,11 +96,48 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
 };
 
 const styles = StyleSheet.create({
+  content: {
+    paddingHorizontal: 12,
+    paddingTop: 8,
+  },
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 20,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  headerTitle: {
+    color: Colors.white,
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'left',
+    fontFamily: 'Figtree-Bold',
+  },
+  infoContainer: {
+    marginBottom: 20,
+    paddingHorizontal: 15,
+  },
+  infoText: {
+    color: Colors.lightGray,
+    fontSize: 16,
+    lineHeight: 22,
+    textAlign: 'left',
+    fontFamily: 'Figtree-Regular',
+  },
   highlightedText: {
     fontWeight: '600',
     color: Colors.white,
     opacity: 1,
     fontFamily: 'Figtree-SemiBold',
+  },
+  headerTitleMargin: {
+    marginLeft: 4,
   },
   statusDateContainer: {
     marginBottom: 20,
@@ -106,6 +148,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Figtree-Regular',
     textAlign: 'center',
+  },
+  cancelContainer: {
+    alignItems: 'center',
+    paddingTop: 8,
   },
 });
 
