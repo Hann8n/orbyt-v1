@@ -397,7 +397,7 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
 
   const renderContent = () => (
     <View style={styles.backgroundImage}>
-      <AnimatedBackground />
+      {!hasSavedAccounts && <AnimatedBackground />}
       <View
         style={[
           styles.container,
@@ -405,6 +405,7 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
             paddingTop: typeof insets?.top === 'number' ? insets.top : 0,
             paddingBottom: typeof insets?.bottom === 'number' ? insets.bottom : 0,
             justifyContent: hasSavedAccounts ? 'space-between' : 'flex-end',
+            backgroundColor: hasSavedAccounts ? Colors.black : 'rgba(0, 0, 0, 0.5)',
           },
         ]}
       >
