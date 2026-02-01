@@ -62,6 +62,7 @@ export const Colors = {
   lightGreen: '#00FFA3', // Bright mint green
   darkGreen: '#021C14', // New dark green
   badgeGreen: '#00B894', // Slightly darker green for badges and indicators
+  orbytGreen: '#01F5B3', // Orbyt brand green
 
   // Red Shades
   lightRed: '#FF6B9D', // Pink-red
@@ -436,18 +437,22 @@ export const Avatar: React.FC<AvatarProps> = ({
     ? Colors.INTERACTIVE.HEART.ACTIVE
     : ringColor || profileColors?.textColor || Colors.lightGray;
 
-  const containerStyle: ViewStyle = {
-    width: size,
-    height: size,
-    borderRadius,
-    borderWidth: shouldShowRing ? ringWidth : 0,
-    borderColor: shouldShowRing ? finalRingColor : Colors.transparent,
-    padding: separation,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: shouldShowRing ? Colors.black : Colors.transparent,
-    overflow: 'visible', // Changed to 'visible' to allow LIVE badge to show
-  };
+  // Memoize containerStyle to prevent unnecessary re-renders
+  const containerStyle: ViewStyle = React.useMemo(
+    () => ({
+      width: size,
+      height: size,
+      borderRadius,
+      borderWidth: shouldShowRing ? ringWidth : 0,
+      borderColor: shouldShowRing ? finalRingColor : Colors.transparent,
+      padding: separation,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: shouldShowRing ? Colors.black : Colors.transparent,
+      overflow: 'visible', // Changed to 'visible' to allow LIVE badge to show
+    }),
+    [size, borderRadius, shouldShowRing, ringWidth, finalRingColor, separation]
+  );
 
   // Style for fallback icon container with profile colors
   const fallbackContainerStyle: ViewStyle = React.useMemo(

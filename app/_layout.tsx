@@ -165,7 +165,7 @@ function RootNavigator() {
         barStyle="light-content"
         backgroundColor="transparent"
         translucent={Platform.OS === 'android'}
-        hidden={true}
+        hidden={false}
       />
       {!session && (
         <LinearGradient

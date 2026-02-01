@@ -1,65 +1,182 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, Alert, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Alert,
+  Platform,
+  ScrollView,
+  TouchableOpacity,
+  useWindowDimensions,
+} from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { setAppIcon } from '@mozzius/expo-dynamic-app-icon';
+import { setAppIcon, getAppIcon } from '@mozzius/expo-dynamic-app-icon';
 import type { ImageSource } from 'expo-image';
 
 import { Colors } from '../../src/components/ui/UI';
+import Icon from '../../src/components/ui/Icon';
 import ListHeader from '../../src/components/ui/ListHeader';
-import { settingsTextStyles, settingsLayoutStyles } from './SettingsStyles';
-import { OptionsButton } from '../../src/components/ui/OptionsButton';
+import { settingsLayoutStyles } from './SettingsStyles';
 import { useCurrentUser } from '../../src/stores/userStore';
 import { useOrbytColors } from '../../src/hooks/useOrbytColors';
+import { formatHandle } from '../../src/utils/formatting/handles';
 
-type AppIconKey = 'orBYTE' | null;
+type AppIconKey =
+  | 'orBYTE'
+  | 'planyt-green'
+  | 'planyt-blue'
+  | 'planyt-greyscale'
+  | 'planyt-greyscale-alt'
+  | 'planyt-yellow'
+  | 'planyt-purple'
+  | 'planyt-orange'
+  | 'planyt-red'
+  | null;
 
-const ICON_OPTIONS: {
+type IconOption = {
   id: string;
   label: string;
   subtitle?: string;
   iconKey: AppIconKey;
   preview: ImageSource;
-}[] = [
+  requiresBeta?: boolean;
+};
+
+type IconSection = {
+  title: string;
+  attribution?: {
+    handle: string;
+    did: string;
+  };
+  items: IconOption[];
+};
+
+const ICON_SECTIONS: IconSection[] = [
   {
-    id: 'default',
-    label: 'Default',
-    iconKey: null,
-    preview: require('../../src/assets/AppIcons/iOS/orbyt.png'),
+    title: '',
+    items: [
+      {
+        id: 'default',
+        label: 'Default',
+        iconKey: null,
+        preview: require('../../src/assets/AppIcons/iOS/orbyt.png'),
+      },
+      {
+        id: 'orBYTE',
+        label: 'Beta Badge',
+        iconKey: 'orBYTE',
+        preview: require('../../src/assets/AppIcons/iOS/orBYTE.png'),
+        requiresBeta: true,
+      },
+    ],
   },
   {
-    id: 'orBYTE',
-    label: 'Beta Badge',
-    subtitle: 'thanks for supporting orbyt! <3',
-    iconKey: 'orBYTE',
-    preview: require('../../src/assets/AppIcons/iOS/orBYTE.png'),
+    title: 'planyt',
+    attribution: {
+      handle: 'consciousbone.bsky.social',
+      did: 'did:plc:4pwo2detmolzrckvu4o4dhau',
+    },
+    items: [
+      {
+        id: 'planyt-red',
+        label: 'Red',
+        iconKey: 'planyt-red',
+        preview: require('../../src/assets/AppIcons/iOS/planyt/planyt-red.png'),
+      },
+      {
+        id: 'planyt-orange',
+        label: 'Orange',
+        iconKey: 'planyt-orange',
+        preview: require('../../src/assets/AppIcons/iOS/planyt/planyt-orange.png'),
+      },
+      {
+        id: 'planyt-yellow',
+        label: 'Yellow',
+        iconKey: 'planyt-yellow',
+        preview: require('../../src/assets/AppIcons/iOS/planyt/planyt-yellow.png'),
+      },
+      {
+        id: 'planyt-green',
+        label: 'Green',
+        iconKey: 'planyt-green',
+        preview: require('../../src/assets/AppIcons/iOS/planyt/planyt-green.png'),
+      },
+      {
+        id: 'planyt-blue',
+        label: 'Blue',
+        iconKey: 'planyt-blue',
+        preview: require('../../src/assets/AppIcons/iOS/planyt/planyt-blue.png'),
+      },
+      {
+        id: 'planyt-purple',
+        label: 'Purple',
+        iconKey: 'planyt-purple',
+        preview: require('../../src/assets/AppIcons/iOS/planyt/planyt-purple.png'),
+      },
+      {
+        id: 'planyt-greyscale',
+        label: 'Greyscale',
+        iconKey: 'planyt-greyscale',
+        preview: require('../../src/assets/AppIcons/iOS/planyt/planyt-greyscale.png'),
+      },
+      {
+        id: 'planyt-greyscale-alt',
+        label: 'Greyscale Alt',
+        iconKey: 'planyt-greyscale-alt',
+        preview: require('../../src/assets/AppIcons/iOS/planyt/planyt-greyscale-alt.png'),
+      },
+    ],
   },
 ];
+
+const GRID_PADDING = 20;
+const GRID_GAP = 12;
+const NUM_COLUMNS = 4;
 
 const AppIconSettingsScreen: React.FC = () => {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Use lazy initialization to get the current icon on mount without triggering effect warnings
+  const [currentIcon, setCurrentIcon] = useState<AppIconKey>(() => {
+    const iconName = getAppIcon();
+    // getAppIcon returns "DEFAULT" for the default icon, convert to null
+    return iconName === 'DEFAULT' ? null : (iconName as AppIconKey);
+  });
   const { currentUser } = useCurrentUser();
   const { data: orbytColors } = useOrbytColors(currentUser?.did ?? null);
   const isBeta = orbytColors?.isBeta ?? false;
+  const { width: screenWidth } = useWindowDimensions();
+
+  // Calculate icon size to fill available width
+  const availableWidth = screenWidth - GRID_PADDING * 2;
+  const totalGapWidth = GRID_GAP * (NUM_COLUMNS - 1);
+  const iconSize = Math.floor((availableWidth - totalGapWidth) / NUM_COLUMNS);
 
   const handleSelectIcon = useCallback(
-    async (iconKey: AppIconKey) => {
+    (iconKey: AppIconKey) => {
       if (isSubmitting) return;
 
-      try {
-        setIsSubmitting(true);
-        await setAppIcon(iconKey);
-      } catch (error: unknown) {
-        console.error('Error changing app icon:', error);
+      setIsSubmitting(true);
+
+      // setAppIcon returns false on error, or the icon name on success
+      const result = setAppIcon(iconKey);
+      console.log('setAppIcon result:', result, 'for iconKey:', iconKey);
+
+      if (result === false) {
         const message =
           Platform.OS === 'android'
             ? 'Changing the app icon may not be supported on all Android launchers.'
             : 'Unable to change the app icon. Please make sure this device supports alternate icons.';
         Alert.alert('icon change failed', message);
-      } finally {
-        setIsSubmitting(false);
+      } else {
+        // Verify the change actually succeeded by reading the current icon
+        const newIconName = getAppIcon();
+        const newIcon = newIconName === 'DEFAULT' ? null : (newIconName as AppIconKey);
+        setCurrentIcon(newIcon);
       }
+
+      setIsSubmitting(false);
     },
     [isSubmitting]
   );
@@ -76,32 +193,85 @@ const AppIconSettingsScreen: React.FC = () => {
         titleIndent={true}
       />
 
-      <View style={styles.contentContainer}>
-        {ICON_OPTIONS.filter(option => option.id !== 'orBYTE' || isBeta).map(option => (
-          <OptionsButton
-            key={option.id}
-            label={option.label}
-            onPress={() => handleSelectIcon(option.iconKey)}
-            disabled={isSubmitting}
-            leftContent={
-              <View style={styles.row}>
-                <View style={styles.textContainer}>
-                  <Text style={settingsTextStyles.menuOptionText}>{option.label}</Text>
-                  {option.subtitle && <Text style={styles.subtitleText}>{option.subtitle}</Text>}
+      <ScrollView
+        style={styles.contentContainer}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {ICON_SECTIONS.map(section => {
+          const filteredItems = section.items.filter(option => !option.requiresBeta || isBeta);
+          if (filteredItems.length === 0) return null;
+
+          return (
+            <View key={section.title || 'default-section'}>
+              {section.title ? (
+                <View style={settingsLayoutStyles.section}>
+                  <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitleText}>{section.title}</Text>
+                    {section.attribution && (
+                      <TouchableOpacity
+                        style={styles.attributionContainer}
+                        onPress={() =>
+                          router.push({
+                            pathname: '/profile/[did]',
+                            params: { did: section.attribution!.did },
+                          })
+                        }
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.attributionText}>by </Text>
+                        <Text style={styles.attributionHandle}>
+                          @{formatHandle(section.attribution.handle)}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
-                <View style={styles.previewContainer}>
-                  <Image
-                    source={option.preview}
-                    style={styles.previewImage}
-                    contentFit="contain"
-                    cachePolicy="memory"
-                  />
-                </View>
+              ) : null}
+              <View style={styles.iconGrid}>
+                {filteredItems.map(option => {
+                  const isSelected = option.iconKey === currentIcon;
+                  return (
+                    <TouchableOpacity
+                      key={option.id}
+                      style={[styles.iconItem, { width: iconSize }]}
+                      onPress={() => handleSelectIcon(option.iconKey)}
+                      disabled={isSubmitting}
+                      activeOpacity={0.7}
+                    >
+                      <View style={[styles.iconWrapper, { width: iconSize, height: iconSize }]}>
+                        <View style={[styles.iconPreview, { width: iconSize, height: iconSize }]}>
+                          <Image
+                            source={option.preview}
+                            style={styles.iconImage}
+                            contentFit="cover"
+                            cachePolicy="memory"
+                          />
+                        </View>
+                        {isSelected && (
+                          <View style={styles.selectedIndicator}>
+                            <View style={styles.checkmarkCircle}>
+                              <Icon name="checkmark" size={12} color={Colors.black} />
+                            </View>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={styles.iconLabel} numberOfLines={1}>
+                        {option.label}
+                      </Text>
+                      {option.subtitle && (
+                        <Text style={styles.iconSubtitle} numberOfLines={2}>
+                          {option.subtitle}
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
-            }
-          />
-        ))}
-      </View>
+            </View>
+          );
+        })}
+      </ScrollView>
     </View>
   );
 };
@@ -110,31 +280,86 @@ const styles = StyleSheet.create({
   contentContainer: {
     flex: 1,
   },
-  row: {
+  scrollContent: {
+    paddingBottom: 40,
+  },
+  sectionHeader: {
+    paddingHorizontal: GRID_PADDING,
+    paddingTop: 16,
+    paddingBottom: 12,
+  },
+  sectionTitleText: {
+    color: Colors.gray,
+    fontSize: 14,
+    fontWeight: '600',
+    fontFamily: 'Figtree-SemiBold',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  attributionContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
+    marginTop: 4,
   },
-  previewContainer: {
-    width: 52,
-    height: 52,
-    borderRadius: 15,
-    overflow: 'hidden',
-    marginLeft: 'auto',
-    backgroundColor: Colors.black,
-  },
-  previewImage: {
-    width: '100%',
-    height: '100%',
-  },
-  textContainer: {
-    flex: 1,
-  },
-  subtitleText: {
+  attributionText: {
     color: Colors.gray,
     fontSize: 12,
     fontFamily: 'Figtree-Regular',
-    marginTop: 4,
+  },
+  attributionHandle: {
+    color: Colors.orbytGreen,
+    fontSize: 12,
+    fontFamily: 'Figtree-SemiBold',
+  },
+  iconGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: GRID_PADDING,
+    gap: GRID_GAP,
+  },
+  iconItem: {
+    alignItems: 'center',
+  },
+  iconWrapper: {
+    position: 'relative',
+  },
+  iconPreview: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: Colors.darkGray,
+  },
+  selectedIndicator: {
+    position: 'absolute',
+    bottom: -4,
+    right: -4,
+  },
+  checkmarkCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: Colors.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: Colors.black,
+  },
+  iconImage: {
+    width: '100%',
+    height: '100%',
+  },
+  iconLabel: {
+    color: Colors.white,
+    fontSize: 11,
+    fontFamily: 'Figtree-Medium',
+    marginTop: 6,
+    textAlign: 'center',
+  },
+  iconSubtitle: {
+    color: Colors.gray,
+    fontSize: 9,
+    fontFamily: 'Figtree-Regular',
+    marginTop: 2,
+    textAlign: 'center',
   },
 });
 

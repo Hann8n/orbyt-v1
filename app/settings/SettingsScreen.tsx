@@ -454,13 +454,13 @@ ${deviceInfo}`
           onPress: () => router.push('/settings/algorithmic-feed'),
           linkType: 'internal',
         },
-        {
-          id: 'app-icon',
-          label: 'App icon',
-          icon: 'device-tv',
-          onPress: () => router.push('/settings/app-icon'),
-          linkType: 'internal',
-        },
+        // {
+        //   id: 'app-icon',
+        //   label: 'App icon',
+        //   icon: 'device-tv',
+        //   onPress: () => router.push('/settings/app-icon'),
+        //   linkType: 'internal',
+        // },
         {
           id: 'content-filters',
           label: 'Content filters',
