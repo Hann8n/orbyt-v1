@@ -1,6 +1,7 @@
 import React from 'react';
 import { ViewStyle } from 'react-native';
 import { Svg, Polygon, G } from 'react-native-svg';
+import { Colors } from '../../../theme';
 
 interface BetaBadgeProps {
   size?: number; // direct pixel size override
@@ -17,7 +18,7 @@ interface BetaBadgeProps {
 const BetaBadge: React.FC<BetaBadgeProps> = ({
   size,
   textSize,
-  color = '#FFFFFF',
+  color = Colors.neutral[50],
   opacity = 1.0,
   style,
   autoPosition = true,

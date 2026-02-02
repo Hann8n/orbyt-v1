@@ -83,7 +83,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   infoText: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 14,
     fontFamily: 'Figtree-Regular',
     textAlign: 'center',
@@ -101,13 +101,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   clearButton: {
-    backgroundColor: Colors.orange,
+    backgroundColor: Colors.orange[500],
   },
   signOutButton: {
-    backgroundColor: Colors.red,
+    backgroundColor: Colors.coral[500],
   },
   actionButtonText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 16,
     fontFamily: 'Figtree-SemiBold',
   },

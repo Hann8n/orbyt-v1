@@ -17,7 +17,8 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { useInfiniteQuery, useQueryClient, useQuery } from '@tanstack/react-query';
 
 import ProfileService, { prefetchProfile, useProfile } from '../../../services/data/ProfileService';
-import { Avatar, Colors } from '../../../components/ui/UI';
+import { Colors } from '../../../theme';
+import { Avatar } from '../../../components/ui/UI';
 import { Loading3FillIcon } from '../../../components/ui/Icon';
 import { VerificationBadge } from '../badging';
 import EmptyFeed from '../feed/EmptyFeed';
@@ -73,7 +74,7 @@ const EmptyNotifications = () => (
 
 const NotificationLoading = () => (
   <View style={styles.loadingContainer}>
-    <Loading3FillIcon size={48} color={Colors.white} />
+    <Loading3FillIcon size={48} color={Colors.neutral[50]} />
   </View>
 );
 
@@ -381,7 +382,7 @@ const NotificationItem = React.memo<NotificationItemProps>(
             feedOption: 'search',
             userDid: undefined,
             backgroundColor: 'transparent',
-            secondaryColor: Colors.white,
+            secondaryColor: Colors.neutral[50],
             searchQuery: '',
             hasNextPage: 'false',
             isFetchingNextPage: 'false',
@@ -523,7 +524,11 @@ const NotificationItem = React.memo<NotificationItemProps>(
           <Pressable onPress={handleNamePress} style={styles.nameRow}>
             <Text style={styles.authorName}>{formatHandle(author.handle) || 'Unknown user'}</Text>
             {author.handle && (
-              <VerificationBadge handle={author.handle} textSize={14} textColor={Colors.white} />
+              <VerificationBadge
+                handle={author.handle}
+                textSize={14}
+                textColor={Colors.neutral[50]}
+              />
             )}
           </Pressable>
           <View style={styles.actionRow}>
@@ -889,7 +894,7 @@ const NotificationsTab = forwardRef<ScrollToTopRef, NotificationsTabProps>(
                 // Silently fail - error is handled by React Query
               }
             }}
-            tintColor={Colors.white}
+            tintColor={Colors.neutral[50]}
           />
         }
         onEndReached={handleLoadMore}
@@ -899,7 +904,7 @@ const NotificationsTab = forwardRef<ScrollToTopRef, NotificationsTabProps>(
         ListFooterComponent={
           isFetchingNextPage ? (
             <View style={styles.loadingMoreContainer}>
-              <Loading3FillIcon size={24} color={Colors.white} />
+              <Loading3FillIcon size={24} color={Colors.neutral[50]} />
             </View>
           ) : null
         }
@@ -929,7 +934,7 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
     marginLeft: 65, // Align with content (60px avatar + 12px margin)
     marginRight: -10, // Extend to right edge, ignoring 10px padding
   },
@@ -950,7 +955,7 @@ const styles = StyleSheet.create({
     height: 80, // 9:16 aspect ratio (45/80 = 0.5625)
     borderRadius: BORDER_RADIUS.SMALL,
     overflow: 'hidden',
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
   },
   thumbnailVideo: {
     width: 45,
@@ -960,10 +965,10 @@ const styles = StyleSheet.create({
   thumbnailPlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
   },
   authorName: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 18,
     marginBottom: 2,
     fontFamily: 'Figtree-Black',
@@ -974,12 +979,12 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   actionText: {
-    color: Colors.mutedGray,
+    color: Colors.neutral[400],
     fontSize: 16.5,
     fontFamily: 'Figtree-Medium',
   },
   timeText: {
-    color: Colors.gray,
+    color: Colors.neutral[500],
     fontSize: 14,
     fontFamily: 'Figtree-Regular',
     marginLeft: 4,
@@ -1016,7 +1021,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   emptyText: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 16,
     textAlign: 'center',
     fontFamily: 'Figtree-Medium',

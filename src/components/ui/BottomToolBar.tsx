@@ -70,7 +70,7 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
     if (tool.id === 'flash' && isFlashDisabled) {
       iconColor = 'rgba(255, 255, 255, 0.75)';
     } else if (tool.id === 'flash' && flashActive) {
-      iconColor = Colors.yellow;
+      iconColor = Colors.amber[400];
     } else if (isDisabled) {
       iconColor = 'rgba(255, 255, 255, 0.70)';
     }
@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
   nextButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.neutral[50],
     borderRadius: 20,
     paddingVertical: 8,
     paddingHorizontal: 16,

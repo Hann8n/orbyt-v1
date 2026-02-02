@@ -7,7 +7,7 @@ import CommentSection from '../../src/components/features/comments/CommentSectio
 
 import { BackArrowIcon } from '../../src/components/ui/Icon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors } from '../../src/components/ui/UI';
+import { Colors } from '../../src/theme';
 import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '../../src/hooks';
 
 const FeedScreen = memo(() => {
@@ -72,7 +72,7 @@ const FeedScreen = memo(() => {
           { top: (typeof insets?.top === 'number' ? insets.top : 0) + 15 },
         ]}
       >
-        <BackArrowIcon size={30} color={Colors.white} />
+        <BackArrowIcon size={30} color={Colors.neutral[50]} />
       </Pressable>
 
       <FeedRenderer
@@ -131,14 +131,14 @@ const styles = StyleSheet.create({
   },
   hashtagSymbol: {
     fontSize: 18,
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontFamily: 'Figtree-Regular',
     includeFontPadding: false,
     lineHeight: 30, // Match icon height for vertical alignment
   },
   hashtagText: {
     fontSize: 18,
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontFamily: 'Figtree-SemiBold',
     includeFontPadding: false,
     lineHeight: 30, // Match icon height for vertical alignment

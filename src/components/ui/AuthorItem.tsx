@@ -68,7 +68,7 @@ export const StatusIconButton: React.FC<StatusIconButtonProps> = ({
 }) => {
   const backgroundColor =
     variant === 'success'
-      ? hexToRGBA(Colors.lightGreen, 0.1)
+      ? hexToRGBA(Colors.teal[300], 0.1)
       : hexToRGBA(UI.Colors.STATUS.ERROR, 0.1);
 
   return (
@@ -92,7 +92,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   did,
   displayName,
   avatar,
-  textColor = '#FFFFFF',
+  textColor = Colors.neutral[50],
   backgroundColor,
   size = 'medium',
   showArrow = true,
@@ -169,7 +169,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
 
   return (
     <Pressable
-      style={[styles.container, { backgroundColor: backgroundColor || Colors.darkGray }, style]}
+      style={[styles.container, { backgroundColor: backgroundColor || Colors.neutral[900] }, style]}
       onPress={handlePress}
     >
       <View style={styles.accountButtonContent}>
@@ -190,7 +190,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
                 style={[
                   styles.accountDisplayName,
                   {
-                    color: textColor || Colors.white,
+                    color: textColor || Colors.neutral[50],
                     fontSize: customFontSize || config.nameFontSize,
                     fontFamily: nameFontWeight,
                   },
@@ -204,7 +204,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
               <VerificationBadge
                 handle={handle}
                 textSize={config.badgeTextSize}
-                textColor={textColor || Colors.white}
+                textColor={textColor || Colors.neutral[50]}
                 verification={cachedProfile?.verification}
               />
             )}
@@ -231,16 +231,16 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
           </Pressable>
         ) : showCheckmarkSpinner ? (
           <StatusIconButton variant="success">
-            <Loading3FillIcon size={20} color={Colors.lightGreen} />
+            <Loading3FillIcon size={20} color={Colors.teal[300]} />
           </StatusIconButton>
         ) : showCheckmark ? (
           <StatusIconButton variant="success">
-            <CheckIcon size={16} color={Colors.lightGreen} strokeWidth={2} />
+            <CheckIcon size={16} color={Colors.teal[300]} strokeWidth={2} />
           </StatusIconButton>
         ) : (
           showArrow && (
             <View style={styles.accountArrow}>
-              <Icon name="chevron-right" size={20} color={Colors.gray} />
+              <Icon name="chevron-right" size={20} color={Colors.neutral[500]} />
             </View>
           )
         )}

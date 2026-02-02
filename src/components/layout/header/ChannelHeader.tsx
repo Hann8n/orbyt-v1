@@ -21,7 +21,7 @@ import {
   getStatusBarStyle,
   isColorDark,
 } from '../../../utils/formatting/colors';
-import { Colors } from '../../ui/UI';
+import { Colors } from '../../../theme';
 import { useSubscribedChannels } from '../../../hooks/useSubscribedChannels';
 import {
   isOrbytChannel,
@@ -129,9 +129,9 @@ const SubscribeButton: React.FC<{
 
   // Calculate appropriate text color for subscribed state based on background brightness
   const subscribedTextColor = useMemo(() => {
-    if (!isSubscribed) return '#FFFFFF';
+    if (!isSubscribed) return Colors.neutral[50];
     // Use white text for dark backgrounds, black for light backgrounds
-    return isColorDark(subscribeColor) ? '#FFFFFF' : '#000000';
+    return isColorDark(subscribeColor) ? Colors.neutral[50] : Colors.black;
   }, [isSubscribed, subscribeColor]);
 
   const hasFilledBackground = isSubscribed;
@@ -143,7 +143,7 @@ const SubscribeButton: React.FC<{
 
       // On orbyt pages, use black and white for blending
       const blendBg = isOrbyt ? Colors.black : _backgroundColor;
-      const blendFg = isOrbyt ? Colors.white : '#FFFFFF';
+      const blendFg = isOrbyt ? Colors.neutral[50] : Colors.neutral[50];
 
       return {
         backgroundColor: showFilledState ? subscribeColor : blendColors(blendBg, blendFg, 0.2),
@@ -159,7 +159,7 @@ const SubscribeButton: React.FC<{
     (_pressed: boolean = false, _frozenValue: boolean | null = null) => {
       // Use the real active state to decide text color; pressed does not invert colors
       const showFilledState = hasFilledBackground;
-      return showFilledState ? subscribedTextColor : '#FFFFFF';
+      return showFilledState ? subscribedTextColor : Colors.neutral[50];
     },
     [hasFilledBackground, subscribedTextColor]
   );
@@ -256,12 +256,12 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   // Ensure text color is always light for better readability on gradients
   const safeTextColor = useMemo(() => {
     // Force light text for channels to ensure readability on gradient backgrounds
-    return '#FFFFFF';
+    return Colors.neutral[50];
   }, []);
 
   // Ensure background color is properly contrasted and always darker
   const safeBackgroundColor = useMemo(() => {
-    const bgColor = channelColors.backgroundColor || '#000000';
+    const bgColor = channelColors.backgroundColor || Colors.black;
     // Calculate brightness
     const brightness = (() => {
       const color = bgColor.replace('#', '');
@@ -339,7 +339,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
 
     // Get orbyt channel info for custom title
     const orbytChannel = isOrbyt && channel.uri ? getChannelByUri(channel.uri) : undefined;
-    const channelColor = orbytChannel?.channelColor || '#FFD700';
+    const channelColor = orbytChannel?.channelColor || Colors.amber[400];
 
     const customTitle = isOrbyt ? (
       <View style={styles.orbytChannelTitle}>
@@ -427,7 +427,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
             channel={channel}
             textColor={safeTextColor}
             backgroundColor={safeBackgroundColor}
-            accentColor={channelColors.accentColor || '#000000'}
+            accentColor={channelColors.accentColor || Colors.black}
             channelColor={
               isOrbyt && channel.uri ? getChannelByUri(channel.uri)?.channelColor : undefined
             }

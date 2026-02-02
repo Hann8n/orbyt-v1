@@ -7,7 +7,7 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
-import { Colors } from '../../ui/UI';
+import { Colors } from '../../../theme';
 import BlurredBackground from '../../ui/BlurredBackground';
 import { getVideoView } from '../../../utils/video/helpers';
 import type { ExtendedPostView, ExtendedFeedViewPost, PostView } from '../../../services/api/types';

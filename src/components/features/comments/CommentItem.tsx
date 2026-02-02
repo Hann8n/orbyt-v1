@@ -18,7 +18,7 @@ import AtprotoService from '../../../services/api/AtprotoService';
 import { queryKeys } from '../../../utils/query/queryKeys';
 import { formatNumber } from '../../../utils/formatting/numbers';
 import { formatHandle } from '../../../utils/formatting/handles';
-import { Colors } from '../../ui/UI';
+import { Colors } from '../../../theme';
 import UI from '../../ui/UI';
 import { HeartFillIcon } from '../../ui/Icon';
 import { VerificationBadge } from '../badging';
@@ -190,7 +190,8 @@ const CommentItem: React.FC<CommentItemProps> = ({
   }, [shouldHighlight, highlightOpacity]);
 
   const highlightStyle = useAnimatedStyle(() => ({
-    backgroundColor: `rgba(129, 136, 150, ${highlightOpacity.value * 0.12})`,
+    // neutral.400 (#8891ab) with dynamic opacity for highlight effect
+    backgroundColor: `rgba(136, 145, 171, ${highlightOpacity.value * 0.12})`,
   }));
 
   const authorName = useMemo(
@@ -394,7 +395,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
         pathname: '/(modals)/feed',
         params: {
           feedOption: `hashtag:${hashtag}`,
-          backgroundColor: '#000000',
+          backgroundColor: Colors.black,
           searchQuery: `#${hashtag}`,
         },
       });
@@ -720,7 +721,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
       <Pressable
         onPress={handlePress}
         style={styles.linkPreviewContainer}
-        android_ripple={{ color: Colors.mediumGray }}
+        android_ripple={{ color: Colors.neutral[600] }}
       >
         <View style={styles.linkPreviewContent}>
           {external.title && (
@@ -972,7 +973,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
                 >
                   <Text
                     style={{
-                      color: Colors.white,
+                      color: Colors.neutral[50],
                       fontSize: 16,
                       marginBottom: 2,
                       fontFamily: 'Figtree-Bold',
@@ -985,8 +986,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
                   <VerificationBadge
                     handle={authorHandle}
                     textSize={16}
-                    textColor={Colors.white}
-                    autoPosition={true}
+                    textColor={Colors.neutral[50]}
                   />
                 )}
                 {/* Parent context chyron: Author Name → Parent Author Name */}
@@ -1018,7 +1018,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
                 <TextWithAuthorLinks
                   text={commentText}
                   style={{
-                    color: Colors.lightGray,
+                    color: Colors.neutral[200],
                     fontSize: 15,
                     marginTop: 2,
                     fontFamily: 'Figtree-Regular',
@@ -1044,7 +1044,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
               <Animated.View style={heartAnimatedStyle}>
                 <HeartFillIcon
                   size={20}
-                  color={isLiked ? Colors.INTERACTIVE.HEART.ACTIVE : Colors.gray}
+                  color={isLiked ? Colors.INTERACTIVE.HEART.ACTIVE : Colors.neutral[500]}
                 />
               </Animated.View>
             </Pressable>
@@ -1102,7 +1102,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.MEDIUM,
   },
   moreImagesText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 12,
     fontWeight: 'bold',
     fontFamily: 'Figtree-Bold',
@@ -1137,13 +1137,13 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.SMALL,
   },
   parentChyronArrow: {
-    color: Colors.gray,
+    color: Colors.neutral[500],
     fontSize: 12,
     fontFamily: 'Figtree-Regular',
     marginRight: 4,
   },
   parentChyronText: {
-    color: Colors.gray,
+    color: Colors.neutral[500],
     fontSize: 12,
     fontFamily: 'Figtree-Medium',
     maxWidth: 120,
@@ -1155,7 +1155,7 @@ const styles = StyleSheet.create({
   },
   commentTimestamp: {
     fontSize: 12,
-    color: Colors.gray,
+    color: Colors.neutral[500],
     fontFamily: 'Figtree-Regular',
     marginRight: 12,
   },
@@ -1165,7 +1165,7 @@ const styles = StyleSheet.create({
   },
   replyButtonText: {
     fontSize: 12,
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontFamily: 'Figtree-Bold',
   },
   commentActionsContainer: {
@@ -1181,12 +1181,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   likeCount: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 12.5,
     fontFamily: 'Figtree-SemiBold',
     marginTop: 2,
     textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.15)',
+    textShadowColor: Colors.overlayBlack15,
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
@@ -1194,7 +1194,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     borderWidth: 1,
-    borderColor: Colors.darkGray,
+    borderColor: Colors.neutral[900],
     borderRadius: BORDER_RADIUS.MEDIUM,
     marginTop: 8,
     marginBottom: 4,
@@ -1207,21 +1207,21 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   linkPreviewTitle: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontFamily: 'Figtree-SemiBold',
     fontSize: 13,
     marginBottom: 4,
     lineHeight: 18,
   },
   linkPreviewDescription: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontFamily: 'Figtree-Regular',
     fontSize: 12,
     lineHeight: 16,
     marginBottom: 4,
   },
   linkPreviewUrl: {
-    color: Colors.gray,
+    color: Colors.neutral[500],
     fontFamily: 'Figtree-Regular',
     fontSize: 12,
     lineHeight: 16,
@@ -1235,7 +1235,7 @@ const styles = StyleSheet.create({
   },
   linkPreviewIcon: {
     fontSize: 18,
-    color: Colors.gray,
+    color: Colors.neutral[500],
     fontWeight: 'bold',
     fontFamily: 'Figtree-Bold',
   },

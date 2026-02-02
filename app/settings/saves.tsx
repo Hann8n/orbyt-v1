@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router';
 import FeedRenderer from '../../src/components/features/feed/FeedRenderer';
 import { useCurrentUser } from '../../src/stores/userStore';
 import { View, StyleSheet } from 'react-native';
-import { Colors } from '../../src/components/ui/UI';
+import { Colors } from '../../src/theme';
 import ListHeader from '../../src/components/ui/ListHeader';
 
 const SavesScreen: React.FC = () => {

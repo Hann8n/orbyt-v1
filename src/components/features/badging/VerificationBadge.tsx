@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, ViewStyle } from 'react-native';
 import { Svg, Path, Defs, Mask, G } from 'react-native-svg';
 import { useProfile } from '../../../services/data/ProfileService';
+import { Colors } from '../../../theme';
 
 // Badge paths (designed for 24x24 viewBox)
 const SCALLOPED_BADGE_PATH =
@@ -40,7 +41,7 @@ const VerificationBadge: React.FC<VerificationBadgeProps> = ({
   customMargin,
   style,
   onPress,
-  textColor = '#FFFFFF',
+  textColor = Colors.neutral[50],
   borderColor,
   badgeType = 'auto',
   verification,

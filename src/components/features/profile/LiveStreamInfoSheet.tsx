@@ -10,7 +10,7 @@ import CloseButton from '../../ui/CloseButton';
 import CancelButton from '../../ui/CancelButton';
 import { VerticalListButton } from '../../ui/VerticalListSheet';
 import Icon from '../../ui/Icon';
-import { Colors } from '../../ui/UI';
+import { Colors } from '../../../theme';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { formatHandle } from '../../../utils/formatting/handles';
 import type { ProfileViewWithOrbyt } from '../../../services/api/types';
@@ -186,7 +186,7 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
                 label={`watch on ${getDomainFromUrl(displayUrl)}`}
                 onPress={() => handleOpenLink(displayUrl)}
                 rightIcon={<Icon name="external-link" size={16} color={Colors.black} />}
-                style={{ backgroundColor: Colors.white }}
+                style={{ backgroundColor: Colors.neutral[50] }}
                 textStyle={{ color: Colors.black }}
               />
             )}
@@ -220,14 +220,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 20,
     fontWeight: 'bold',
     textAlign: 'left',
     fontFamily: 'Figtree-Bold',
   },
   titleText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 18,
     fontWeight: 'bold',
     fontFamily: 'Figtree-Bold',
@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
   },
   descriptionText: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 16,
     lineHeight: 22,
     textAlign: 'left',
@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   chipText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 13,
     fontFamily: 'Figtree-Medium',
   },
@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 12,
     left: 12,
-    backgroundColor: Colors.liveRed,
+    backgroundColor: Colors.coral[500],
     paddingHorizontal: 7,
     paddingVertical: 3,
     borderRadius: 8,
@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   liveBadgeText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 15,
     fontFamily: 'Figtree-Black',
     fontWeight: '900',
@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   errorText: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 16,
     fontFamily: 'Figtree-Regular',
     marginBottom: 20,

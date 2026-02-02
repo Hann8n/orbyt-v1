@@ -6,7 +6,7 @@ import { showEditor, isValidFile, type Spec } from 'react-native-clip-trim';
 import { resolveVideoPath } from '../src/utils/video/path';
 import { useVideoTrimStore } from '../src/stores/videoTrimStore';
 import VideoProcessingService from '../src/services/video/VideoProcessingService';
-import { Colors } from '../src/components/ui/UI';
+import { Colors } from '../src/theme';
 
 const VideoTrimmerScreen: React.FC = () => {
   const params = useLocalSearchParams<{
@@ -170,7 +170,7 @@ const VideoTrimmerScreen: React.FC = () => {
         headerText: 'Trim Video',
         cancelButtonText: 'Cancel',
         saveButtonText: 'Done',
-        trimmerColor: Colors.blurple,
+        trimmerColor: Colors.purple[500],
         enableCancelTrimming: true,
         closeWhenFinish: true,
         autoplay: true,

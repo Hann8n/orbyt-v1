@@ -8,7 +8,7 @@ import PagerView, {
 } from 'react-native-pager-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Colors } from '../../src/components/ui/UI';
+import { Colors } from '../../src/theme';
 import { BORDER_RADIUS } from '../../src/utils/constants';
 import NotificationsTab from '../../src/components/features/activity/NotificationsTab';
 import NotificationFilterSheet from '../../src/components/features/activity/NotificationFilterSheet';
@@ -223,7 +223,7 @@ const ActivityScreen: React.FC = () => {
       const indicatorBaseFontSize = 22;
 
       return {
-        color: isActive ? Colors.white : 'rgba(255, 255, 255, 0.75)',
+        color: isActive ? Colors.neutral[50] : 'rgba(255, 255, 255, 0.75)',
         fontSize: indicatorBaseFontSize,
         marginRight: 8,
         fontWeight: 'bold' as const,
@@ -340,11 +340,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minWidth: 50,
     height: 32,
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
     borderRadius: BORDER_RADIUS.MEDIUM,
   },
   filterButtonText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 16,
     fontWeight: '600',
     fontFamily: 'Figtree-SemiBold',
@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: Colors.badgeGreen,
+    backgroundColor: Colors.teal[600],
     borderWidth: 2,
     borderColor: Colors.black,
   },

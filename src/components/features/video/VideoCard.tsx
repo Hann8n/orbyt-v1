@@ -30,7 +30,7 @@ import { BORDER_RADIUS } from '../../../utils/constants';
 import { BlurView } from '../../ui/BlurView';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Image } from 'expo-image';
-import { Colors } from '../../ui/UI';
+import { Colors } from '../../../theme';
 import { Loading3FillIcon, HeartFillIcon } from '../../ui/Icon';
 import BlurredBackground from '../../ui/BlurredBackground';
 import {
@@ -1181,7 +1181,7 @@ const styles = StyleSheet.create({
   },
 
   loadingText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     marginTop: 10,
     fontSize: 12,
   },
@@ -1212,21 +1212,21 @@ const styles = StyleSheet.create({
   blurTitle: {
     fontSize: 20,
     fontFamily: 'Figtree-Bold',
-    color: Colors.white,
+    color: Colors.neutral[50],
     marginBottom: 12,
     textAlign: 'center',
   },
   blurText: {
     fontSize: 15,
     fontFamily: 'Figtree-Regular',
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     textAlign: 'center',
     lineHeight: 22,
   },
   viewButton: {
     position: 'absolute',
     bottom: 80,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.neutral[50],
     borderRadius: BORDER_RADIUS.FULL,
     overflow: 'hidden',
     minWidth: 120,

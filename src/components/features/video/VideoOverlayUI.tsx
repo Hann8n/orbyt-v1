@@ -10,7 +10,7 @@ import Animated, {
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, Text, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { Colors } from '../../ui/UI';
+import { Colors } from '../../../theme';
 import * as Device from 'expo-device';
 import {
   useOverlayLayout,
@@ -195,7 +195,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
         pathname: '/(modals)/feed',
         params: {
           feedOption: `hashtag:${hashtag}`,
-          backgroundColor: '#000000',
+          backgroundColor: Colors.black,
           searchQuery: `#${hashtag}`,
         },
       });
@@ -291,7 +291,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
       <Animated.View style={likeAnimatedStyle}>
         <HeartFillIcon
           size={effectiveIconSize}
-          color={isLiked ? Colors.INTERACTIVE.HEART.ACTIVE : Colors.white}
+          color={isLiked ? Colors.INTERACTIVE.HEART.ACTIVE : Colors.neutral[50]}
         />
       </Animated.View>
     ),
@@ -480,7 +480,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                   hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 >
                   <View style={styles.repostIconWrapper}>
-                    <RefreshFillIcon size={isTabletDevice ? 26 : 24} color={Colors.lightGray} />
+                    <RefreshFillIcon size={isTabletDevice ? 26 : 24} color={Colors.neutral[200]} />
                   </View>
                   <Text
                     style={[
@@ -576,7 +576,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                       { width: badgeSize, height: badgeSize },
                     ]}
                   >
-                    <CheckCircleFillIcon size={badgeSize} color="#01f5b3" />
+                    <CheckCircleFillIcon size={badgeSize} color={Colors.brand.teal} />
                   </View>
                 )}
               </View>
@@ -602,7 +602,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                       handle={author.handle}
                       size={isTabletDevice ? 22 : 20}
                       customMargin={2}
-                      textColor={Colors.white}
+                      textColor={Colors.neutral[50]}
                     />
                   )}
                 </View>
@@ -637,7 +637,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
               hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
             >
               <View style={styles.iconContainer}>
-                <MoreFillIcon size={shareIconSize} color={Colors.white} />
+                <MoreFillIcon size={shareIconSize} color={Colors.neutral[50]} />
               </View>
             </Pressable>
 
@@ -729,7 +729,7 @@ const styles = StyleSheet.create({
     paddingRight: 4,
   },
   repostIndicatorText: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 14,
     fontFamily: 'Figtree-SemiBold',
     marginLeft: 6,
@@ -737,7 +737,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   repostIndicatorTextTablet: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 16,
     fontFamily: 'Figtree-SemiBold',
     marginLeft: 6,
@@ -753,13 +753,13 @@ const styles = StyleSheet.create({
   descriptionContainer: {
     marginBottom: 6,
     paddingRight: 10,
-    shadowColor: Colors.lightGray,
+    shadowColor: Colors.neutral[200],
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
   },
   descriptionText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 15,
     fontFamily: 'Figtree-Regular',
     textShadowColor: Colors.overlayBlack50,
@@ -769,7 +769,7 @@ const styles = StyleSheet.create({
   authorInfoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: Colors.lightGray,
+    shadowColor: Colors.neutral[200],
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
@@ -794,7 +794,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   baseText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontWeight: 'bold',
     fontFamily: 'Figtree-Medium',
     textShadowColor: Colors.overlayBlack50,
@@ -834,7 +834,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     marginLeft: 5,
     marginBottom: 0,
-    shadowColor: Colors.lightGray,
+    shadowColor: Colors.neutral[200],
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
@@ -862,7 +862,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   actionText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 12.5,
     fontWeight: 'bold',
     fontFamily: 'Figtree-Bold',
@@ -875,7 +875,7 @@ const styles = StyleSheet.create({
     textShadowRadius: 1,
   },
   actionTextTablet: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 15,
     fontWeight: 'bold',
     fontFamily: 'Figtree-Bold',
@@ -909,7 +909,7 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
   sourceTextOpacity: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     opacity: 0.7,
   },
 });

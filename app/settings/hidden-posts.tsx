@@ -4,7 +4,8 @@ import { View, Text, FlatList, StyleSheet, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import Icon, { Loading3FillIcon } from '../../src/components/ui/Icon';
 import ListHeader from '../../src/components/ui/ListHeader';
-import { Colors, Avatar } from '../../src/components/ui/UI';
+import { Colors } from '../../src/theme';
+import { Avatar } from '../../src/components/ui/UI';
 import { ModerationService } from '../../src/services/moderation/ModerationService';
 import { useUserStoreState } from '../../src/stores/userStore';
 import { useModerationSettings } from '../../src/hooks/useModerationSettings';
@@ -123,10 +124,10 @@ const HiddenPostsScreen: React.FC = () => {
           disabled={isUnhiding}
         >
           {isUnhiding ? (
-            <Loading3FillIcon size={24} color={Colors.white} />
+            <Loading3FillIcon size={24} color={Colors.neutral[50]} />
           ) : (
             <>
-              <Icon name="eye" size={16} color={Colors.white} />
+              <Icon name="eye" size={16} color={Colors.neutral[50]} />
               <Text style={styles.unhideButtonText}>Unhide</Text>
             </>
           )}
@@ -148,7 +149,7 @@ const HiddenPostsScreen: React.FC = () => {
           titleIndent={true}
         />
         <View style={styles.loadingContainer}>
-          <Loading3FillIcon size={48} color={Colors.white} />
+          <Loading3FillIcon size={48} color={Colors.neutral[50]} />
           <Text style={styles.loadingText}>Loading hidden posts...</Text>
         </View>
       </View>
@@ -175,7 +176,7 @@ const HiddenPostsScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Icon name="eye-closed" size={48} color={Colors.lightGray} />
+            <Icon name="eye-closed" size={48} color={Colors.neutral[200]} />
             <Text style={styles.emptyTitle}>no hidden posts</Text>
             <Text style={styles.emptyDescription}>
               you haven{"'"}t hidden any posts yet. hidden posts won{"'"}t appear in your feed, but
@@ -203,12 +204,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
     borderRadius: BORDER_RADIUS.MEDIUM,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: Colors.gray,
+    borderColor: Colors.neutral[500],
   },
   postInfo: {
     flex: 1,
@@ -226,19 +227,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   authorName: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 14,
     fontWeight: '600',
     fontFamily: 'Figtree-SemiBold',
   },
   authorHandle: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 12,
     fontFamily: 'Figtree-Regular',
     marginTop: 1,
   },
   postText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 14,
     fontFamily: 'Figtree-Regular',
     lineHeight: 18,
@@ -246,14 +247,14 @@ const styles = StyleSheet.create({
   unhideButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: BORDER_RADIUS.SMALL,
     minWidth: 100,
     height: 40,
     borderWidth: 1,
-    borderColor: Colors.lightGray,
+    borderColor: Colors.neutral[200],
     shadowColor: Colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -264,7 +265,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   unhideButtonText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 15,
     fontWeight: '600',
     fontFamily: 'Figtree-Medium',
@@ -272,12 +273,12 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
     justifyContent: 'center',
     alignItems: 'center',
   },
   loadingText: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 16,
     fontFamily: 'Figtree-Medium',
     marginTop: 12,
@@ -290,7 +291,7 @@ const styles = StyleSheet.create({
     paddingTop: 120,
   },
   emptyTitle: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 20,
     fontWeight: '600',
     fontFamily: 'Figtree-SemiBold',
@@ -298,7 +299,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   emptyDescription: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 16,
     fontFamily: 'Figtree-Regular',
     textAlign: 'center',

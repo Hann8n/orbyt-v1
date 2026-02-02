@@ -28,7 +28,7 @@ const ListHeader: React.FC<ListHeaderProps> = ({
   mode,
   title,
   backgroundColor = Colors.black,
-  textColor = Colors.white,
+  textColor = Colors.neutral[50],
   showBackButton = false,
   onBackPress,
   showCloseButton = false,

@@ -3,7 +3,7 @@ import AtprotoService from '../api/AtprotoService';
 import { extractColorsFromImage, darkenColor } from '../../utils/formatting/colors';
 import { useQuery, useMutation, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { useCallback } from 'react';
-import { Colors } from '../../components/ui/UI';
+import { Colors } from '../../theme';
 import {
   isOrbytChannel,
   getChannelByUri,
@@ -365,9 +365,9 @@ export function useChannelColors(uriOrFeed: string | null | undefined) {
       colors: {
         backgroundColor: Colors.black,
         foregroundColor: '#FFFFFF',
-        textColor: Colors.white,
+        textColor: Colors.neutral[50],
         primaryColor: '#000000',
-        secondaryColor: Colors.white,
+        secondaryColor: Colors.neutral[50],
         accentColor: '#000000',
         statusBarStyle: 'light' as const,
       },
@@ -388,9 +388,9 @@ export function useChannelColors(uriOrFeed: string | null | undefined) {
   const colors: ChannelColorScheme = {
     backgroundColor: channel?.channelColors?.backgroundColor || '#000000',
     foregroundColor: '#FFFFFF', // Always use white text for channels
-    textColor: Colors.white, // Always use white text for channels
+    textColor: Colors.neutral[50], // Always use white text for channels
     primaryColor: channel?.channelColors?.backgroundColor || '#000000',
-    secondaryColor: Colors.white, // Always use white text for channels
+    secondaryColor: Colors.neutral[50], // Always use white text for channels
     accentColor: channel?.channelColors?.accentColor || '#000000', // Accent to black
     statusBarStyle: 'light', // Always use light status bar for channels
   };

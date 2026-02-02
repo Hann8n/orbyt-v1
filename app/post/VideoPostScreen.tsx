@@ -39,7 +39,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextOverlay } from '../../src/types';
 import { resolveVideoPath, debugVideoPath, VideoPathInfo } from '../../src/utils/video/path';
 import { DEFAULT_BUFFER_OPTIONS } from '../../src/utils/video/helpers';
-import { Colors } from '../../src/components/ui/UI';
+import { Colors } from '../../src/theme';
 import { useWindowDimensions } from 'react-native';
 import * as Device from 'expo-device';
 import { useCurrentUser } from '../../src/stores/userStore';
@@ -143,7 +143,7 @@ const VideoPreviewContent: React.FC<{
       )}
       {(videoLoading || isMerging) && (
         <View style={styles.loadingOverlay}>
-          <Loading3FillIcon size={48} color={Colors.white} />
+          <Loading3FillIcon size={48} color={Colors.neutral[50]} />
         </View>
       )}
       {videoError && (
@@ -236,7 +236,7 @@ const ChannelSelector: React.FC<{
             size={52}
             ringColor={showRing ? undefined : 'transparent'}
             fallbackIcon="device-tv"
-            fallbackIconColor={Colors.lightGray}
+            fallbackIconColor={Colors.neutral[200]}
             fallbackIconSize={32}
           />
         ) : (
@@ -251,7 +251,7 @@ const ChannelSelector: React.FC<{
       {!selectedChannel ? (
         <View style={styles.channelSelectorPlaceholderContainer}>
           <Text style={styles.channelSelectorPlaceholderText}>Pick a channel</Text>
-          <DownSmallFillIcon size={20} color={Colors.gray} />
+          <DownSmallFillIcon size={20} color={Colors.neutral[500]} />
         </View>
       ) : (
         <View style={styles.channelSelectorNameContainer}>
@@ -265,7 +265,7 @@ const ChannelSelector: React.FC<{
                     styles.orbytSlash,
                     styles.channelSelectorNameSemiBold,
                     {
-                      color: orbytChannel?.channelColor || '#FFD700',
+                      color: orbytChannel?.channelColor || Colors.amber[400],
                     },
                   ]}
                 >
@@ -293,14 +293,14 @@ const CommentFilterSelector: React.FC<{
     <Text style={styles.sectionHeaderTitle}>Comments</Text>
     <Pressable style={styles.channelSelectorContainer} onPress={onPress}>
       <View style={styles.channelSelectorBox}>
-        <Icon name="chat-3-line" size={32} color={Colors.lightGray} />
+        <Icon name="chat-3-line" size={32} color={Colors.neutral[200]} />
       </View>
       {!commentFilter ? (
         <View style={styles.channelSelectorPlaceholderContainer}>
           <Text style={styles.channelSelectorPlaceholderText}>
             {getSelectedCommentFilterLabel()}
           </Text>
-          <DownSmallFillIcon size={20} color={Colors.gray} />
+          <DownSmallFillIcon size={20} color={Colors.neutral[500]} />
         </View>
       ) : (
         <View style={styles.channelSelectorNameContainer}>
@@ -322,14 +322,14 @@ const ContentWarningSelector: React.FC<{
     <Text style={styles.sectionHeaderTitle}>Warnings</Text>
     <Pressable style={styles.channelSelectorContainer} onPress={onPress}>
       <View style={styles.channelSelectorBox}>
-        <Icon name="warning-line" size={32} color={Colors.lightGray} />
+        <Icon name="warning-line" size={32} color={Colors.neutral[200]} />
       </View>
       {selectedContentWarnings.length === 0 && !otherWarning.trim() ? (
         <View style={styles.channelSelectorPlaceholderContainer}>
           <Text style={styles.channelSelectorPlaceholderText}>
             {getSelectedContentWarningsLabel()}
           </Text>
-          <DownSmallFillIcon size={20} color={Colors.gray} />
+          <DownSmallFillIcon size={20} color={Colors.neutral[500]} />
         </View>
       ) : (
         <View style={styles.channelSelectorNameContainer}>
@@ -489,15 +489,15 @@ const DescriptionInputModal: React.FC<{
                 }}
                 style={styles.descriptionModalInput}
                 placeholder="Add text & tags (optional)"
-                placeholderTextColor={Colors.mediumGray}
+                placeholderTextColor={Colors.neutral[600]}
                 multiline={true}
                 maxLength={300}
                 autoFocus={true}
                 textAlignVertical="top"
                 blurOnSubmit={false}
                 returnKeyType="default"
-                selectionColor={Colors.lightGray}
-                cursorColor={Colors.lightGray}
+                selectionColor={Colors.neutral[200]}
+                cursorColor={Colors.neutral[200]}
                 autoComplete="off"
                 textContentType="none"
                 importantForAutofill="no"
@@ -1399,7 +1399,7 @@ const VideoPostScreen: React.FC = () => {
         ]}
       >
         <Pressable onPress={handleCancel} style={styles.headerButtonCenter}>
-          <BackArrowIcon size={32} color={Colors.white} />
+          <BackArrowIcon size={32} color={Colors.neutral[50]} />
         </Pressable>
       </Animated.View>
       <Animated.View
@@ -1416,9 +1416,9 @@ const VideoPostScreen: React.FC = () => {
           style={styles.headerButtonCenter}
         >
           {isDownloading ? (
-            <Loading3FillIcon size={32} color={Colors.white} />
+            <Loading3FillIcon size={32} color={Colors.neutral[50]} />
           ) : (
-            <Icon name="save" size={32} color={Colors.white} />
+            <Icon name="save" size={32} color={Colors.neutral[50]} />
           )}
         </Pressable>
       </Animated.View>
@@ -1488,7 +1488,7 @@ const VideoPostScreen: React.FC = () => {
                 nativeID="video-post-warning-input"
                 style={styles.otherWarningInput}
                 placeholder="specify content warning"
-                placeholderTextColor={Colors.lightGray}
+                placeholderTextColor={Colors.neutral[200]}
                 value={otherWarning}
                 onChangeText={setOtherWarning}
                 autoFocus={true}
@@ -1576,7 +1576,7 @@ const VideoPostScreen: React.FC = () => {
                           styles.orbytSlash,
                           styles.channelSelectorNameSemiBold,
                           {
-                            color: channel.channelColor || '#FFD700',
+                            color: channel.channelColor || Colors.amber[400],
                           },
                         ]}
                       >
@@ -1611,7 +1611,7 @@ const VideoPostScreen: React.FC = () => {
               {/* Header Buttons */}
               <View style={styles.landscapeButtonsContainer}>
                 <Pressable onPress={handleCancel} style={styles.landscapeHeaderButton}>
-                  <BackArrowIcon size={32} color={Colors.white} />
+                  <BackArrowIcon size={32} color={Colors.neutral[50]} />
                 </Pressable>
                 <Pressable
                   onPress={handleDownload}
@@ -1619,9 +1619,9 @@ const VideoPostScreen: React.FC = () => {
                   style={styles.landscapeHeaderButton}
                 >
                   {isDownloading ? (
-                    <Loading3FillIcon size={30} color={Colors.white} />
+                    <Loading3FillIcon size={30} color={Colors.neutral[50]} />
                   ) : (
-                    <Icon name="save" size={30} color={Colors.white} />
+                    <Icon name="save" size={30} color={Colors.neutral[50]} />
                   )}
                 </Pressable>
               </View>
@@ -1841,10 +1841,10 @@ const styles = StyleSheet.create({
   },
   errorOverlay: {
     zIndex: 3,
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
   },
   errorText: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 16,
   },
   descriptionSectionNoPadding: {
@@ -1889,7 +1889,7 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   textOverlay: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 22,
     fontFamily: 'Figtree-Bold',
     textAlign: 'center',
@@ -1914,12 +1914,12 @@ const styles = StyleSheet.create({
   },
   sectionDivider: {
     height: 2,
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
     marginHorizontal: 15,
     marginVertical: 4,
   },
   sectionHeaderTitle: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 18,
     fontFamily: 'Figtree-Bold',
     marginBottom: 12,
@@ -1933,20 +1933,20 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: BORDER_RADIUS.SMALL,
     borderWidth: 2,
-    borderColor: Colors.lightGray,
+    borderColor: Colors.neutral[200],
     justifyContent: 'center',
     alignItems: 'center',
   },
   checkboxSelected: {
-    backgroundColor: Colors.white,
-    borderColor: Colors.white,
+    backgroundColor: Colors.neutral[50],
+    borderColor: Colors.neutral[50],
   },
   otherWarningInput: {
     borderBottomWidth: 1,
-    borderBottomColor: Colors.lightGray,
+    borderBottomColor: Colors.neutral[200],
     paddingVertical: 12,
     paddingHorizontal: 0,
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     marginTop: 5,
     marginBottom: 10,
     fontFamily: 'Figtree-Regular',
@@ -1962,8 +1962,8 @@ const styles = StyleSheet.create({
   floatingPostButtonHost: {
     height: 60,
     borderRadius: BORDER_RADIUS.FULL,
-    backgroundColor: Colors.lightGray,
-    shadowColor: Colors.lightGray,
+    backgroundColor: Colors.neutral[200],
+    shadowColor: Colors.neutral[200],
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
@@ -1974,7 +1974,7 @@ const styles = StyleSheet.create({
   floatingPostButtonGlass: {
     height: 60,
     borderRadius: BORDER_RADIUS.FULL,
-    shadowColor: Colors.lightGray,
+    shadowColor: Colors.neutral[200],
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
@@ -2045,8 +2045,8 @@ const styles = StyleSheet.create({
   landscapePostButtonHost: {
     height: 60,
     borderRadius: BORDER_RADIUS.FULL,
-    backgroundColor: Colors.lightGray,
-    shadowColor: Colors.lightGray,
+    backgroundColor: Colors.neutral[200],
+    shadowColor: Colors.neutral[200],
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
@@ -2057,7 +2057,7 @@ const styles = StyleSheet.create({
   landscapePostButtonGlass: {
     height: 60,
     borderRadius: BORDER_RADIUS.FULL,
-    shadowColor: Colors.lightGray,
+    shadowColor: Colors.neutral[200],
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
@@ -2085,7 +2085,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginHorizontal: 12,
     marginBottom: 12,
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
     overflow: 'hidden',
     borderWidth: 0,
     borderColor: Colors.black,
@@ -2094,7 +2094,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   channelListButtonText: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontFamily: 'Figtree-SemiBold',
     fontSize: 18,
   },
@@ -2112,11 +2112,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginHorizontal: 12,
     marginBottom: 12,
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
     borderRadius: BORDER_RADIUS.LARGE,
   },
   sheetOptionText: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 18,
     fontFamily: 'Figtree-SemiBold',
     flex: 1,
@@ -2134,25 +2134,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
   },
   descriptionInputPreview: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontFamily: 'Figtree-Regular',
     fontSize: 15,
     lineHeight: 22,
   },
   descriptionInputPreviewNormal: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontFamily: 'Figtree-Regular',
     fontSize: 15,
     lineHeight: 22,
   },
   descriptionInputPreviewSemiBold: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontFamily: 'Figtree-SemiBold',
     fontSize: 15,
     lineHeight: 22,
   },
   descriptionInputPlaceholder: {
-    color: Colors.mediumGray,
+    color: Colors.neutral[600],
   },
   descriptionModalContainer: {
     flex: 1,
@@ -2185,12 +2185,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   descriptionModalDoneText: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 18,
     fontFamily: 'Figtree-Medium',
   },
   descriptionModalDoneTextDisabled: {
-    color: Colors.red,
+    color: Colors.coral[500],
   },
   descriptionModalDoneButtonDisabled: {
     opacity: 0.5,
@@ -2227,7 +2227,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
   },
   descriptionInputOverlayText: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontFamily: 'Figtree-Regular',
     fontSize: 15,
     textAlignVertical: 'top',
@@ -2236,12 +2236,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
   },
   descriptionInputOverlayNormal: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontFamily: 'Figtree-Regular',
     fontSize: 15,
   },
   descriptionInputOverlaySemiBold: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontFamily: 'Figtree-SemiBold',
     fontSize: 15,
   },
@@ -2257,7 +2257,7 @@ const styles = StyleSheet.create({
   channelSelectorBox: {
     width: 52,
     height: 52,
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
     borderRadius: BORDER_RADIUS.SMALL,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2269,7 +2269,7 @@ const styles = StyleSheet.create({
     gap: 0,
   },
   channelSelectorPlaceholderText: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 18,
     fontFamily: 'Figtree-Medium',
   },
@@ -2279,7 +2279,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   channelSelectorName: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 18,
     fontFamily: 'Figtree-Medium',
   },

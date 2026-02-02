@@ -7,7 +7,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import ChannelHeader from '../../src/components/layout/header/ChannelHeader';
 import TabNavigation, { TabOption } from '../../src/components/layout/header/TabNavigation';
 import FeedRenderer from '../../src/components/features/feed/FeedRenderer';
-import { Colors } from '../../src/components/ui/UI';
+import { Colors } from '../../src/theme';
 
 import {
   useChannelColors,
@@ -242,7 +242,7 @@ const Channel: React.FC = memo(() => {
         tabs={tabOptions}
         activeTab={activeTab === 0 ? 'top' : 'latest'}
         onTabPress={tabId => setActiveTab(tabId === 'top' ? 0 : 1)}
-        textColor={channelColors.textColor || Colors.white}
+        textColor={channelColors.textColor || Colors.neutral[50]}
         backgroundColor="transparent"
         viewMode={viewMode}
         onViewModeChange={setViewMode}
@@ -290,7 +290,7 @@ const Channel: React.FC = memo(() => {
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           style={styles.overlayBackButton}
         >
-          <BackArrowIcon size={30} color={Colors.white} />
+          <BackArrowIcon size={30} color={Colors.neutral[50]} />
         </Pressable>
       </View>
 
@@ -327,7 +327,7 @@ const Channel: React.FC = memo(() => {
       )}
       {isLoading && (
         <View style={styles.loadingOverlay}>
-          <Loading3FillIcon size={48} color={Colors.white} />
+          <Loading3FillIcon size={48} color={Colors.neutral[50]} />
         </View>
       )}
     </View>
@@ -362,13 +362,13 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
   errorText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 16,
     textAlign: 'center',
     fontFamily: 'Figtree-Medium',
   },
   errorSubtext: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 16,
     fontFamily: 'Figtree-Medium',
     textAlign: 'center',
@@ -378,7 +378,7 @@ const styles = StyleSheet.create({
   errorButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
     borderRadius: BORDER_RADIUS.MEDIUM,
     paddingVertical: 12,
     paddingHorizontal: 20,
@@ -387,13 +387,13 @@ const styles = StyleSheet.create({
     minWidth: 150,
   },
   errorButtonText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 16,
     fontFamily: 'Figtree-SemiBold',
   },
   secondaryButton: {
     backgroundColor: Colors.transparent,
-    borderColor: Colors.mediumGray,
+    borderColor: Colors.neutral[600],
   },
   loadingOverlay: {
     position: 'absolute',

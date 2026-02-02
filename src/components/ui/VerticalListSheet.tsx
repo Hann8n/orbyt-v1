@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   headerTitle: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 20,
     fontWeight: 'bold',
     textAlign: 'left',
@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
   },
   descriptionText: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 16,
     lineHeight: 22,
     textAlign: 'left',
@@ -233,13 +233,13 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: BORDER_RADIUS.SMALL,
     borderWidth: 2,
-    borderColor: Colors.lightGray,
+    borderColor: Colors.neutral[200],
     justifyContent: 'center',
     alignItems: 'center',
   },
   checkboxButtonCheckboxSelected: {
-    backgroundColor: Colors.white,
-    borderColor: Colors.white,
+    backgroundColor: Colors.neutral[50],
+    borderColor: Colors.neutral[50],
   },
   listButtonMargin: {
     marginHorizontal: 12,

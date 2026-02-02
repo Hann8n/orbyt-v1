@@ -60,7 +60,7 @@ import AuthorItem from '../../src/components/ui/AuthorItem';
 import ChannelItem from '../../src/components/ui/ChannelItem';
 
 import { SearchIcon, Loading3FillIcon } from '../../src/components/ui/Icon';
-import { Colors } from '../../src/components/ui/UI';
+import { Colors } from '../../src/theme';
 import EmptyFeed from '../../src/components/features/feed/EmptyFeed';
 import { feedService } from '../../src/services/FeedService';
 import * as Device from 'expo-device';
@@ -317,7 +317,7 @@ const ProfilesFeedRenderer = React.memo(
     if (isLoading) {
       return (
         <View style={styles.loadingContainerFull}>
-          <Loading3FillIcon size={48} color={Colors.white} />
+          <Loading3FillIcon size={48} color={Colors.neutral[50]} />
         </View>
       );
     }
@@ -348,7 +348,7 @@ const ProfilesFeedRenderer = React.memo(
                 }
               }}
               backgroundColor={Colors.transparent}
-              textColor={Colors.white}
+              textColor={Colors.neutral[50]}
               nameFontWeight="Figtree-SemiBold"
               style={styles.authorItemStyle}
             />
@@ -401,7 +401,7 @@ const ChannelsFeedRenderer = React.memo(
     if (isLoading) {
       return (
         <View style={[styles.loadingContainer, styles.flexOne]}>
-          <Loading3FillIcon size={48} color={Colors.white} />
+          <Loading3FillIcon size={48} color={Colors.neutral[50]} />
         </View>
       );
     }
@@ -430,7 +430,7 @@ const ChannelsFeedRenderer = React.memo(
               }
             }}
             backgroundColor={Colors.transparent}
-            textColor={Colors.white}
+            textColor={Colors.neutral[50]}
             nameFontWeight="Figtree-Bold"
             style={styles.channelItemStyle}
           />
@@ -497,7 +497,7 @@ const VisitHistoryList = React.memo(
                 onFollowPress={() => onFollow(profileData as unknown as Profile)}
                 onPress={() => onHistoryItemPress(item)}
                 backgroundColor={Colors.transparent}
-                textColor={Colors.white}
+                textColor={Colors.neutral[50]}
                 nameFontWeight="Figtree-SemiBold"
                 style={styles.authorItemStyle}
               />
@@ -518,7 +518,7 @@ const VisitHistoryList = React.memo(
                 onFollowPress={undefined}
                 onPress={() => onHistoryItemPress(item)}
                 backgroundColor={Colors.transparent}
-                textColor={Colors.white}
+                textColor={Colors.neutral[50]}
                 nameFontWeight="Figtree-SemiBold"
                 style={styles.authorItemStyle}
               />
@@ -535,7 +535,7 @@ const VisitHistoryList = React.memo(
                 showArrow={false}
                 onPress={() => onHistoryItemPress(item)}
                 backgroundColor={Colors.transparent}
-                textColor={Colors.white}
+                textColor={Colors.neutral[50]}
                 nameFontWeight="Figtree-Bold"
                 style={styles.channelItemStyle}
               />
@@ -552,7 +552,7 @@ const VisitHistoryList = React.memo(
                 showArrow={false}
                 onPress={() => onHistoryItemPress(item)}
                 backgroundColor={Colors.transparent}
-                textColor={Colors.white}
+                textColor={Colors.neutral[50]}
                 nameFontWeight="Figtree-Bold"
                 style={styles.channelItemStyle}
               />
@@ -650,19 +650,19 @@ SearchFeedRenderer.displayName = 'SearchFeedRenderer';
 
 const SectionHeaderLoading = () => (
   <View style={[styles.sectionHeader, styles.loadingContainer]}>
-    <Loading3FillIcon size={24} color={Colors.white} />
+    <Loading3FillIcon size={24} color={Colors.neutral[50]} />
   </View>
 );
 
 const PopularChannelsLoading = () => (
   <View style={styles.loadingContainer}>
-    <Loading3FillIcon size={24} color={Colors.white} />
+    <Loading3FillIcon size={24} color={Colors.neutral[50]} />
   </View>
 );
 
 const SpotlightLoading = () => (
   <View style={[styles.spotlightContainer, styles.loadingContainer]}>
-    <Loading3FillIcon size={24} color={Colors.white} />
+    <Loading3FillIcon size={24} color={Colors.neutral[50]} />
   </View>
 );
 
@@ -679,7 +679,7 @@ const ChannelNameDisplay: React.FC<{ channel: Channel; style?: StyleProp<ViewSty
 }) => {
   const isOrbyt = isOrbytChannel(channel.uri);
   const orbytChannel = isOrbyt ? getChannelByUri(channel.uri) : undefined;
-  const channelColor = orbytChannel?.channelColor || '#FFD700';
+  const channelColor = orbytChannel?.channelColor || Colors.amber[400];
 
   if (isOrbyt) {
     const showSlash = shouldShowChannelSlash(channel.uri);
@@ -738,7 +738,7 @@ const GridChannelItem = ({
   const avatarUri = getChannelAvatarUri(channel.uri, channel.avatar);
   const isOrbyt = isOrbytChannel(channel.uri);
   const orbytChannel = isOrbyt ? getChannelByUri(channel.uri) : undefined;
-  const channelColor = orbytChannel?.channelColor || '#FFD700';
+  const channelColor = orbytChannel?.channelColor || Colors.amber[400];
   const thumbnailHeight = itemHeight || itemWidth; // Use itemHeight if provided, otherwise use itemWidth for square
 
   return (
@@ -764,10 +764,10 @@ const GridChannelItem = ({
             style={[
               styles.gridChannelImage,
               styles.centerContent,
-              { backgroundColor: Colors.darkGray },
+              { backgroundColor: Colors.neutral[900] },
             ]}
           >
-            <Icon name="device-tv" size={thumbnailHeight * 0.4} color={Colors.gray} />
+            <Icon name="device-tv" size={thumbnailHeight * 0.4} color={Colors.neutral[500]} />
           </View>
         )}
         {/* Light gradient from bottom */}
@@ -814,7 +814,7 @@ const HorizontalChannelItem = ({
   const avatarUri = getChannelAvatarUri(channel.uri, channel.avatar);
   const isOrbyt = isOrbytChannel(channel.uri);
   const orbytChannel = isOrbyt ? getChannelByUri(channel.uri) : undefined;
-  const channelColor = orbytChannel?.channelColor || '#FFD700';
+  const channelColor = orbytChannel?.channelColor || Colors.amber[400];
   // Calculate max width for label: full width - left padding - right padding
   const labelMaxWidth = itemWidth - 16 - 16; // width - left padding - right padding
 
@@ -1499,7 +1499,7 @@ const ExploreScreen: React.FC = () => {
       const opacity = isActive ? 1 : Math.max(0.3, 1 - distance * 0.4);
 
       return {
-        color: isActive ? Colors.white : Colors.gray,
+        color: isActive ? Colors.neutral[50] : Colors.neutral[500],
         fontSize: 20,
         fontWeight: isActive ? ('bold' as const) : ('600' as const),
         fontFamily: isActive ? 'Figtree-Bold' : 'Figtree-SemiBold',
@@ -1822,7 +1822,7 @@ const ExploreScreen: React.FC = () => {
               nativeID="explore-search-input"
               style={styles.searchInput}
               placeholder="search"
-              placeholderTextColor={Colors.gray}
+              placeholderTextColor={Colors.neutral[500]}
               value={searchQuery}
               onChangeText={setSearchQuery}
               onFocus={() => setIsSearchFocused(true)}
@@ -1848,7 +1848,7 @@ const ExploreScreen: React.FC = () => {
               style={styles.clearButton}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Icon name="close-circle" size={22.5} color={Colors.darkGray} />
+              <Icon name="close-circle" size={22.5} color={Colors.neutral[900]} />
             </Pressable>
           )}
         </Reanimated.View>
@@ -1988,7 +1988,7 @@ const ExploreScreen: React.FC = () => {
                 <View
                   style={[styles.loadingContainer, { minHeight: Math.max(availableHeight, 200) }]}
                 >
-                  <Loading3FillIcon size={48} color={Colors.white} />
+                  <Loading3FillIcon size={48} color={Colors.neutral[50]} />
                 </View>
               );
             }
@@ -2041,7 +2041,7 @@ const ExploreScreen: React.FC = () => {
                                   feedOption: 'search',
                                   userDid: undefined,
                                   backgroundColor: 'transparent',
-                                  secondaryColor: Colors.white,
+                                  secondaryColor: Colors.neutral[50],
                                   searchQuery: '',
                                   hasNextPage: 'false',
                                   isFetchingNextPage: 'false',
@@ -2063,7 +2063,7 @@ const ExploreScreen: React.FC = () => {
                               />
                             ) : (
                               <View style={styles.spotlightVideoThumbnailPlaceholder}>
-                                <Icon name="videocam" size={16} color={Colors.gray} />
+                                <Icon name="videocam" size={16} color={Colors.neutral[500]} />
                               </View>
                             )}
                             {shouldBlur && (
@@ -2116,7 +2116,7 @@ const ExploreScreen: React.FC = () => {
                     }
                   }}
                   backgroundColor={Colors.transparent}
-                  textColor={Colors.white}
+                  textColor={Colors.neutral[50]}
                   nameFontWeight="Figtree-SemiBold"
                   style={styles.authorItemStyle}
                 />
@@ -2230,7 +2230,7 @@ const styles = StyleSheet.create({
     right: 15,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.neutral[50],
     borderRadius: 8,
     paddingHorizontal: 15,
     height: 48,
@@ -2329,7 +2329,7 @@ const styles = StyleSheet.create({
     right: 12,
   },
   gridChannelName: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 16,
     fontFamily: 'Figtree-Bold',
   },
@@ -2362,7 +2362,7 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   horizontalChannelLabel: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 22,
     fontFamily: 'Figtree-Bold',
   },
@@ -2375,7 +2375,7 @@ const styles = StyleSheet.create({
     marginRight: 0,
   },
   channelName: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 17,
     fontFamily: 'Figtree-Bold',
     flexShrink: 1,
@@ -2390,7 +2390,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sectionTitle: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 18,
     fontFamily: 'Figtree-SemiBold',
   },
@@ -2425,7 +2425,7 @@ const styles = StyleSheet.create({
     width: 90,
     height: 160, // 9:16 aspect ratio (90 * 16/9)
     borderRadius: 8,
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -2441,7 +2441,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   spotlightWarningText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 10,
     fontFamily: 'Figtree-Medium',
     textAlign: 'center',
@@ -2454,7 +2454,7 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
   },
   emptyTabText: {
-    color: Colors.gray,
+    color: Colors.neutral[500],
     fontSize: 16,
     fontFamily: 'Figtree-Regular',
   },

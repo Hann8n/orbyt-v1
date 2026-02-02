@@ -10,7 +10,7 @@ import { useVisibilityCoreStore } from '../../../core/visibility';
 import VideoCard from '../video/VideoCard';
 import type { ExtendedPostView, ExtendedFeedViewPost, PostView } from '../../../services/api/types';
 import { getVideoView } from '../../../utils/video/helpers';
-import { Colors } from '../../ui/UI';
+import { Colors } from '../../../theme';
 
 // VideoCard's Post type
 type VideoCardPost = ExtendedPostView | ExtendedFeedViewPost;

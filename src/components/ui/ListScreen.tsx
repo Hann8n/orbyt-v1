@@ -138,7 +138,7 @@ const ListScreen: React.FC<ListScreenProps> = ({
   const renderEmpty = useCallback(
     () => (
       <View style={styles.emptyContainer}>
-        <Icon name={emptyIcon} size={48} color={Colors.lightGray} style={styles.emptyIcon} />
+        <Icon name={emptyIcon} size={48} color={Colors.neutral[200]} style={styles.emptyIcon} />
         <Text style={styles.emptyTitle}>{emptyTitle}</Text>
         <Text style={styles.emptySubtitle}>{emptySubtitle}</Text>
       </View>
@@ -149,7 +149,7 @@ const ListScreen: React.FC<ListScreenProps> = ({
   const renderLoading = useCallback(
     () => (
       <View style={styles.loadingContainer}>
-        <Loading3FillIcon size={48} color={Colors.lightGray} />
+        <Loading3FillIcon size={48} color={Colors.neutral[200]} />
         <Text style={styles.loadingText}>Loading {title.toLowerCase()}...</Text>
       </View>
     ),
@@ -159,7 +159,7 @@ const ListScreen: React.FC<ListScreenProps> = ({
   const renderError = useCallback(
     () => (
       <View style={styles.errorContainer}>
-        <Icon name="alert-circle" size={48} color={Colors.lightGray} style={styles.emptyIcon} />
+        <Icon name="alert-circle" size={48} color={Colors.neutral[200]} style={styles.emptyIcon} />
         <Text style={styles.emptyTitle}>Failed to load {title.toLowerCase()}</Text>
         <Text style={styles.emptySubtitle}>Please check your connection and try again</Text>
       </View>
@@ -259,7 +259,7 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     borderColor: Colors.transparent,
     borderRadius: BORDER_RADIUS.SMALL,
-    backgroundColor: Colors.lightGray,
+    backgroundColor: Colors.neutral[200],
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
@@ -277,14 +277,14 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
   emptyTitle: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 20,
     fontFamily: 'Figtree-Bold',
     marginBottom: 8,
     textAlign: 'center',
   },
   emptySubtitle: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 16,
     fontFamily: 'Figtree-Medium',
     textAlign: 'center',
@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
     paddingTop: 100,
   },
   loadingText: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 16,
     fontFamily: 'Figtree-Medium',
     marginTop: 16,

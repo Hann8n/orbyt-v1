@@ -31,7 +31,7 @@ import { useModalStore } from '../../../stores/modalStore';
 import { useGlobalShareSheet } from '../../../hooks/useGlobalModals';
 
 import TabNavigation, { TabOption } from '../../layout/header/TabNavigation';
-import { Colors } from '../../ui/UI';
+import { Colors } from '../../../theme';
 import { HeartFillIcon, MoreFillIcon, CloseFillIcon, Loading3FillIcon } from '../../ui/Icon';
 import RelativeDate from '../../ui/RelativeDate';
 import AuthorItem from '../../ui/AuthorItem';
@@ -623,7 +623,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     () =>
       commentsLoading ? (
         <View style={styles.loadingContainer}>
-          <Loading3FillIcon size={24} color={Colors.lightGray} />
+          <Loading3FillIcon size={24} color={Colors.neutral[200]} />
         </View>
       ) : (
         <View style={styles.emptyContainer}>
@@ -639,7 +639,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     () =>
       likesLoading ? (
         <View style={styles.loadingContainer}>
-          <Loading3FillIcon size={24} color={Colors.lightGray} />
+          <Loading3FillIcon size={24} color={Colors.neutral[200]} />
         </View>
       ) : (
         <View style={styles.emptyContainer}>
@@ -721,7 +721,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
             tabs={tabOptions}
             activeTab={activeTab}
             onTabPress={handleTabPress}
-            textColor={Colors.white}
+            textColor={Colors.neutral[50]}
             backgroundColor="transparent"
             variant="comments"
             style={styles.tabNavigation}
@@ -736,7 +736,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
             style={styles.actionButton}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <MoreFillIcon size={20} color={Colors.lightGray} />
+            <MoreFillIcon size={20} color={Colors.neutral[200]} />
           </Pressable>
 
           <Pressable
@@ -751,7 +751,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
                 color={
                   (onToggleLike ? headerVisualLiked : headerIsLiked)
                     ? Colors.INTERACTIVE.HEART.ACTIVE
-                    : Colors.gray
+                    : Colors.neutral[500]
                 }
               />
             </Animated.View>
@@ -851,7 +851,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
             />
           )}
           <Pressable style={styles.closeButton} onPress={() => setFullscreenImageUri(null)}>
-            <CloseFillIcon size={28} color={Colors.white} />
+            <CloseFillIcon size={28} color={Colors.neutral[50]} />
           </Pressable>
         </Pressable>
       </Modal>
@@ -890,7 +890,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   dateText: {
-    color: Colors.gray,
+    color: Colors.neutral[500],
     fontSize: 15,
     fontFamily: 'Figtree-Regular',
   },
@@ -922,7 +922,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   emptyText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 17,
     textAlign: 'center',
     fontFamily: 'Figtree-SemiBold',

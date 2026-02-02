@@ -16,7 +16,7 @@ import { APP_CONSTANTS } from '../../src/utils/constants';
 import { FeedPager } from '../../src/components';
 import { HomeScreenRef, FeedOption } from '../../src/types';
 import { useVisibilityRouteTracker } from '../../src/hooks';
-import { Colors } from '../../src/components/ui/UI';
+import { Colors } from '../../src/theme';
 import { tabRefs } from '../../src/utils/navigation/tabRefs';
 import type { ScrollToTopRef } from '../../src/utils/navigation/tabRefs';
 import { useUserStore } from '../../src/stores/userStore';

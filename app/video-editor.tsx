@@ -22,7 +22,7 @@ import * as MediaLibrary from 'expo-media-library';
 import { resolveVideoPath, debugVideoPath, VideoPathInfo } from '../src/utils/video/path';
 import { DEFAULT_BUFFER_OPTIONS } from '../src/utils/video/helpers';
 import { Loading3FillIcon, CloseFillIcon } from '../src/components/ui/Icon';
-import { Colors } from '../src/components/ui/UI';
+import { Colors } from '../src/theme';
 import { BORDER_RADIUS, APP_CONSTANTS } from '../src/utils/constants';
 import VideoEditingService, {
   TextOverlayOptions,
@@ -50,13 +50,13 @@ interface TextOverlayEdit {
 
 const TEXT_COLORS = [
   { name: 'White', value: 'white' },
-  { name: 'Black', value: 'black' },
-  { name: 'Red', value: '#FE4359' },
-  { name: 'Green', value: '#00D4AA' },
-  { name: 'Blue', value: '#6366F1' },
-  { name: 'Purple', value: '#8B5CF6' },
-  { name: 'Yellow', value: '#FFD700' },
-  { name: 'Orange', value: '#FF6B35' },
+  { name: 'Black', value: Colors.black },
+  { name: 'Red', value: Colors.coral[500] },
+  { name: 'Green', value: Colors.teal[500] },
+  { name: 'Blue', value: Colors.blue[500] },
+  { name: 'Purple', value: Colors.purple[500] },
+  { name: 'Yellow', value: Colors.amber[500] },
+  { name: 'Orange', value: Colors.orange[500] },
 ];
 
 // Editable Text Overlay Component
@@ -202,7 +202,7 @@ const EditableTextOverlay: React.FC<EditableTextOverlayProps> = ({
           value={overlay.text}
           onChangeText={text => onTextChange(overlay.id, text)}
           placeholder="Enter text"
-          placeholderTextColor={Colors.lightGray}
+          placeholderTextColor={Colors.neutral[200]}
           multiline
           autoFocus
           blurOnSubmit={false}
@@ -818,7 +818,7 @@ const VideoEditorScreen: React.FC = () => {
           )}
           {(videoLoading || isMerging) && (
             <View style={styles.loadingOverlay}>
-              <Loading3FillIcon size={48} color={Colors.white} />
+              <Loading3FillIcon size={48} color={Colors.neutral[50]} />
             </View>
           )}
           {videoError && (
@@ -885,7 +885,7 @@ const VideoEditorScreen: React.FC = () => {
             disabled={isProcessing}
           >
             {isProcessing ? (
-              <Loading3FillIcon size={24} color={Colors.white} />
+              <Loading3FillIcon size={24} color={Colors.neutral[50]} />
             ) : (
               <Text style={styles.applyButtonText}>Apply Changes</Text>
             )}
@@ -950,7 +950,7 @@ const VideoEditorScreen: React.FC = () => {
               style={styles.deleteControlButton}
               onPress={() => handleDeleteTextOverlay(editingOverlay.id)}
             >
-              <CloseFillIcon size={20} color={Colors.white} />
+              <CloseFillIcon size={20} color={Colors.neutral[50]} />
             </Pressable>
 
             {/* Done */}
@@ -1014,10 +1014,10 @@ const styles = StyleSheet.create({
   },
   errorOverlay: {
     zIndex: 3,
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
   },
   errorText: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 16,
   },
   textOverlayPreview: {
@@ -1030,7 +1030,7 @@ const styles = StyleSheet.create({
   },
   textOverlayPreviewEmpty: {
     borderWidth: 1,
-    borderColor: Colors.lightGray,
+    borderColor: Colors.neutral[200],
     borderStyle: 'dashed',
     borderRadius: BORDER_RADIUS.SMALL,
   },
@@ -1040,7 +1040,7 @@ const styles = StyleSheet.create({
     textShadowRadius: 3,
   },
   textOverlayPreviewTextEmpty: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontStyle: 'italic',
   },
   textOverlayEditing: {
@@ -1050,7 +1050,7 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   textOverlayInput: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontFamily: 'Figtree-Bold',
     padding: 4,
     minWidth: 100,
@@ -1062,7 +1062,7 @@ const styles = StyleSheet.create({
     right: 0,
     backgroundColor: Colors.black,
     borderTopWidth: 1,
-    borderTopColor: Colors.mediumGray,
+    borderTopColor: Colors.neutral[600],
     paddingVertical: 12,
     paddingHorizontal: 16,
     zIndex: 1000,
@@ -1076,17 +1076,17 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: BORDER_RADIUS.SMALL,
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
     justifyContent: 'center',
     alignItems: 'center',
   },
   controlButtonText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 18,
     fontFamily: 'Figtree-Bold',
   },
   controlValue: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 14,
     fontFamily: 'Figtree-Medium',
     minWidth: 30,
@@ -1106,13 +1106,13 @@ const styles = StyleSheet.create({
     borderColor: Colors.transparent,
   },
   colorDotSelected: {
-    borderColor: Colors.white,
+    borderColor: Colors.neutral[50],
   },
   deleteControlButton: {
     width: 32,
     height: 32,
     borderRadius: BORDER_RADIUS.SMALL,
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1120,10 +1120,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: BORDER_RADIUS.MEDIUM,
-    backgroundColor: Colors.purple,
+    backgroundColor: Colors.purple[500],
   },
   doneControlText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 14,
     fontFamily: 'Figtree-SemiBold',
   },
@@ -1142,7 +1142,7 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   playIndicatorText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 24,
     marginLeft: 4,
   },
@@ -1150,7 +1150,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 20,
     right: 20,
-    backgroundColor: Colors.purple,
+    backgroundColor: Colors.purple[500],
     borderRadius: BORDER_RADIUS.LARGE,
     paddingVertical: 16,
     alignItems: 'center',
@@ -1160,7 +1160,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   applyButtonText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 16,
     fontFamily: 'Figtree-SemiBold',
   },

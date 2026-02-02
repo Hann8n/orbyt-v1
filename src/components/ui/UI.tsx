@@ -26,115 +26,11 @@ import Typography, { TypographyText } from '../../utils/components/typography';
 import { BORDER_RADIUS } from '../../utils/constants';
 import type { StatusView } from '../../services/api/types';
 import { isLiveStatus } from '../../services/data/ProfileService';
+import { Colors, ColorScale, NeutralScale } from '../../theme';
 
-// ============================================================================
-// SIMPLIFIED COLOR SYSTEM (12 Core Colors)
-// ============================================================================
-
-/**
- * Streamlined color palette with 12 core colors that can be reused across all contexts
- * All colors are tested for WCAG AA compliance and proper contrast ratios
- */
-
-export const Colors = {
-  // Basic Colors
-  black: '#000000',
-  white: '#f3f5fe',
-  red: '#FE4359',
-  green: '#00D4AA',
-  blue: '#6366F1', // Vibrant purple-blue
-  yellow: '#FFD700', // Bright gold/yellow
-  purple: '#8B5CF6',
-  orange: '#FF6B35',
-  gray: '#818896', // Base gray
-
-  // Gray Shades (lightest to darkest)
-  lightGray: '#ccd7e9',
-  mediumGray: '#3E414B',
-  darkGray: '#181c22',
-  mutedGray: '#9a9eb9', // Muted blue-gray
-
-  // Blue/Purple Shades
-  lightBlue: '#00E5FF', // Bright cyan
-  darkBlue: '#20004C', // New dark purple
-
-  // Green Shades
-  lightGreen: '#00FFA3', // Bright mint green
-  darkGreen: '#021C14', // New dark green
-  badgeGreen: '#00B894', // Slightly darker green for badges and indicators
-  orbytGreen: '#01F5B3', // Orbyt brand green
-
-  // Red Shades
-  lightRed: '#FF6B9D', // Pink-red
-  darkRed: '#3C000D', // New dark red
-  liveRed: '#EB374F', // Slightly darker red for live badges
-
-  // Yellow/Orange Shades
-  lightYellow: '#FFEB3B', // Bright yellow
-  darkYellow: '#2A2000', // Dark yellow (matches hue of other dark colors)
-
-  // Additional vibrant colors
-  neonPink: '#FF0080', // Hot pink
-  neonPurple: '#ce3bff', // Neon purple
-  electricBlue: '#00BFFF', // Electric blue
-  vibrantTeal: '#00E6CC', // Bright teal
-  glowGreen: '#39FF14', // Neon green
-  cosmicPurple: '#9D4EDD', // Deep purple
-  sunsetOrange: '#FF4500', // Bright orange
-  bluesky: '#0385ff', // Bluesky brand color
-  blurple: '#4528ea', // Blurple color
-
-  // Feedback button colors
-  interestedLight: '#d77e12', // Light orange
-  interestedDark: '#260e00', // Dark orange
-  notInterestedLight: '#010c3f', // Light blue
-  notInterestedDark: '#000d3c', // Dark blue
-  dislikeBackground: '#050945', // Deep navy for "less" background
-  dislikeIconBlue: '#37a8ff', // Electric blue for "less" icon
-
-  // Overlay Colors
-  overlayBlack15: 'rgba(0, 0, 0, 0.15)',
-  overlayBlack35: 'rgba(0, 0, 0, 0.35)',
-  overlayBlack50: 'rgba(0, 0, 0, 0.5)',
-  overlayBlack60: 'rgba(0, 0, 0, 0.6)',
-  overlayBlack70: 'rgba(0, 0, 0, 0.7)',
-  overlayBlack75: 'rgba(0, 0, 0, 0.75)',
-  overlayBlack85: 'rgba(0, 0, 0, 0.85)',
-  overlayBlack95: 'rgba(0, 0, 0, 0.95)',
-  overlayWhite10: 'rgba(255, 255, 255, 0.1)',
-  overlayWhite30: 'rgba(255, 255, 255, 0.3)',
-  overlayWhite80: 'rgba(255, 255, 255, 0.8)',
-  transparent: 'transparent',
-
-  // Legacy alias blocks removed. Use direct colors from this object instead.
-
-  INTERACTIVE: {
-    HEART: {
-      ACTIVE: '#FE4359', // red
-      INACTIVE: '#ccd7e9', // gray
-    },
-    REPOST: {
-      ACTIVE: '#00D4AA', // green
-      INACTIVE: '#FFFFFF', // white
-    },
-    COMMENT: '#FFFFFF', // white
-  },
-
-  STATUS: {
-    SUCCESS: '#00D4AA', // green
-    ERROR: '#FE4359', // red
-    WARNING: '#FFD700', // yellow
-    INFO: '#6366F1', // blue
-  },
-
-  PROFILE: {
-    DEFAULT_RING: '#ccd7e9', // lightGray
-  },
-
-  SHIMMER: {
-    PRIMARY: ['#181c22', '#3E414B', '#181c22'], // darkGray → mediumGray → darkGray for improved contrast on dark backgrounds
-  },
-};
+// Re-export Colors for backward compatibility
+export { Colors };
+export type { ColorScale, NeutralScale };
 
 // ============================================================================
 // COLOR UTILITY FUNCTIONS

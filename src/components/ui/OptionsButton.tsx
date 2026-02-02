@@ -19,7 +19,7 @@ const ROW_MIN_HEIGHT = 64; // paddingVertical 40 + standard right-slot 24
 
 const buttonStyles = StyleSheet.create({
   menuOption: {
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900], // neutral.900 - with blue tint
     borderRadius: BORDER_RADIUS.LARGE,
     paddingVertical: 20,
     paddingHorizontal: 20,
@@ -37,12 +37,12 @@ const buttonStyles = StyleSheet.create({
 
 const textStyles = StyleSheet.create({
   menuOptionText: {
-    color: Colors.white,
+    color: Colors.neutral[50], // neutral.50 - Orbyt White
     fontSize: 18,
     fontFamily: 'Figtree-SemiBold',
   },
   menuOptionSubtitle: {
-    color: Colors.gray,
+    color: Colors.neutral[500], // neutral.500
     fontSize: 12,
     fontWeight: '400',
     fontFamily: 'Figtree-Regular',
@@ -115,38 +115,38 @@ export const OptionsButton: React.FC<OptionsButtonProps> = ({
 
   const getBackgroundColor = () => {
     if (disabled) {
-      return hexToRGBA(Colors.darkGray, 0.5);
+      return hexToRGBA(Colors.neutral[900], 0.5); // neutral.900 @ 50%
     }
     if (pressed) {
-      if (destructive) return '#C04A58'; // Pastel red background when pressed
-      return hexToRGBA(Colors.lightGray, 0.8);
+      if (destructive) return Colors.coral[400]; // coral.400 - brand coral
+      return hexToRGBA(Colors.neutral[200], 0.8); // neutral.200 @ 80%
     }
-    if (destructive) return Colors.darkRed;
-    return Colors.darkGray;
+    if (destructive) return Colors.coral[950]; // coral.950 - darkest coral
+    return Colors.neutral[900]; // neutral.900 - dark background with blue tint
   };
 
   const getTextColor = () => {
     if (disabled) {
-      return hexToRGBA(Colors.white, 0.4);
+      return hexToRGBA(Colors.neutral[50], 0.4); // neutral.50 @ 40%
     }
     if (pressed) {
-      if (destructive) return Colors.darkRed; // Dark red text when pressed
+      if (destructive) return Colors.coral[950]; // coral.950 - dark coral text when pressed
       return Colors.black;
     }
-    if (destructive) return '#C04A58'; // Pastel red, darker than #d65b6a
+    if (destructive) return Colors.coral[300]; // coral.300 - vibrant salmon-coral text
     // Use custom text color if provided
     if (customTextColor) {
       return customTextColor;
     }
-    return Colors.white;
+    return Colors.neutral[50]; // neutral.50 - Orbyt White
   };
 
   const getChevronColor = () => {
     if (pressed) {
-      if (destructive) return Colors.white;
+      if (destructive) return Colors.neutral[50]; // neutral.50 - Orbyt White
       return Colors.black;
     }
-    return Colors.lightGray;
+    return Colors.neutral[200]; // neutral.200 - light gray
   };
 
   const effective = (() => {
@@ -181,7 +181,13 @@ export const OptionsButton: React.FC<OptionsButtonProps> = ({
             <Text
               style={[
                 textStyles.menuOptionSubtitle,
-                { color: pressed ? (destructive ? Colors.white : Colors.black) : Colors.gray },
+                {
+                  color: pressed
+                    ? destructive
+                      ? Colors.neutral[50]
+                      : Colors.black
+                    : Colors.neutral[500],
+                },
               ]}
             >
               {subtitle}
@@ -191,7 +197,13 @@ export const OptionsButton: React.FC<OptionsButtonProps> = ({
             <Text
               style={[
                 textStyles.menuOptionSubtitle,
-                { color: pressed ? (destructive ? Colors.white : Colors.black) : Colors.gray },
+                {
+                  color: pressed
+                    ? destructive
+                      ? Colors.neutral[50]
+                      : Colors.black
+                    : Colors.neutral[500],
+                },
               ]}
               numberOfLines={1}
             >
@@ -221,9 +233,9 @@ export const OptionsButton: React.FC<OptionsButtonProps> = ({
           <Switch
             value={switchValue}
             onValueChange={onSwitchChange}
-            trackColor={{ false: Colors.mediumGray, true: Colors.lightGreen }}
-            thumbColor={switchValue ? Colors.white : Colors.lightGray}
-            ios_backgroundColor={Colors.mediumGray}
+            trackColor={{ false: Colors.neutral[600], true: Colors.teal[300] }} // neutral.600 / teal.300
+            thumbColor={switchValue ? Colors.neutral[50] : Colors.neutral[200]} // neutral.50 / neutral.200
+            ios_backgroundColor={Colors.neutral[600]} // neutral.600
           />
         </View>
       ) : effectiveShowChevron ? (

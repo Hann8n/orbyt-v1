@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { FlashList, FlashListRef } from '@shopify/flash-list';
 import type { ListFeedViewRef } from '../../../types';
-import { Colors } from '../../ui/UI';
+import { Colors } from '../../../theme';
 import { feedService } from '../../../services/FeedService';
 import { getVideoView } from '../../../utils/video/helpers';
 import { QUERY_CONSTANTS } from '../../../utils/constants';
@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.SMALL,
   },
   authorName: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 10,
     flex: 1,
     fontFamily: 'Figtree-Medium',
@@ -433,7 +433,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 4,
   },
   repostText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 9,
     fontFamily: 'Figtree-Regular',
   },
@@ -454,7 +454,7 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   warningText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 12,
     textAlign: 'center',
     fontWeight: '600',
@@ -464,7 +464,7 @@ const styles = StyleSheet.create({
     // Centered by parent container
   },
   blurText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 16,
     textAlign: 'center',
     marginBottom: 20,
@@ -474,13 +474,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   showAnywayButton: {
-    backgroundColor: hexToRGBA(Colors.white, 0.2),
+    backgroundColor: hexToRGBA(Colors.neutral[50], 0.2),
     borderRadius: BORDER_RADIUS.LARGE,
     paddingVertical: 8,
     paddingHorizontal: 12, // reduced for tighter fit
     marginTop: 8,
     borderWidth: 1,
-    borderColor: hexToRGBA(Colors.white, 0.3),
+    borderColor: hexToRGBA(Colors.neutral[50], 0.3),
     shadowColor: Colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -493,7 +493,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   showAnywayButtonText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 15,
     fontFamily: 'Figtree-Medium',
     fontWeight: '600',

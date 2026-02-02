@@ -58,21 +58,21 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: BORDER_RADIUS.SMALL,
     overflow: 'hidden',
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
     borderWidth: 2,
-    borderColor: Colors.white,
+    borderColor: Colors.neutral[50],
   },
   thumbnail: {
     width: '100%',
     height: '100%',
   },
   bannerText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 18,
     fontFamily: 'Figtree-SemiBold',
   },
   chyronText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 13,
     fontFamily: 'Figtree-Regular',
     opacity: 0.8,
@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     height: '100%',
-    backgroundColor: Colors.blurple,
+    backgroundColor: Colors.purple[500],
   },
 });
 

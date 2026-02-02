@@ -5,7 +5,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format, parseISO, isValid } from 'date-fns';
 import { useProfile, useProfileByDid } from '../../../services/data/ProfileService';
-import { Colors } from '../../ui/UI';
+import { Colors } from '../../../theme';
 import { useRouter } from 'expo-router';
 import { Loading3FillIcon } from '../../ui/Icon';
 import CloseButton from '../../ui/CloseButton';
@@ -37,12 +37,12 @@ interface VerificationData {
 const VerifiedByShimmer = () => (
   <View style={styles.issuerListItem}>
     <View style={styles.issuerContent}>
-      <View style={[styles.issuerAvatarShimmer, { backgroundColor: Colors.mediumGray }]} />
+      <View style={[styles.issuerAvatarShimmer, { backgroundColor: Colors.neutral[600] }]} />
       <View style={styles.issuerTextContainer}>
         <View style={styles.issuerNameRow}>
-          <View style={[styles.issuerNameShimmer, { backgroundColor: Colors.mediumGray }]} />
+          <View style={[styles.issuerNameShimmer, { backgroundColor: Colors.neutral[600] }]} />
         </View>
-        <View style={[styles.issuerHandleShimmer, { backgroundColor: Colors.mediumGray }]} />
+        <View style={[styles.issuerHandleShimmer, { backgroundColor: Colors.neutral[600] }]} />
       </View>
     </View>
   </View>
@@ -121,7 +121,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
               handle={handle}
               size={24}
               badgeType="auto"
-              textColor={Colors.white}
+              textColor={Colors.neutral[50]}
               customMargin={0}
               verification={verification || undefined}
             />
@@ -133,7 +133,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
         </View>
 
         {isLoading ? (
-          <Loading3FillIcon size={24} color={Colors.lightGray} style={styles.loadingIndicator} />
+          <Loading3FillIcon size={24} color={Colors.neutral[200]} style={styles.loadingIndicator} />
         ) : verification ? (
           isTrustedVerifier ? (
             renderTrustedVerifierContent()
@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 20,
     fontWeight: 'bold',
     textAlign: 'left',
@@ -289,18 +289,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   infoText: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 16,
     lineHeight: 22,
     textAlign: 'left',
     fontFamily: 'Figtree-Regular',
   },
   highlightedText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontFamily: 'Figtree-Medium',
   },
   verifiedByLabel: {
-    color: Colors.gray,
+    color: Colors.neutral[500],
     fontSize: 14,
     fontWeight: '600',
     fontFamily: 'Figtree-SemiBold',
@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statusText: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 14,
     fontFamily: 'Figtree-Regular',
     textAlign: 'center',
@@ -367,7 +367,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   errorText: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 16,
     fontFamily: 'Figtree-Regular',
     marginBottom: 20,

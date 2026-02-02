@@ -4,7 +4,7 @@ import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
 
 import { useUserStore, useFeedSettings } from '../../src/stores/userStore';
-import { Colors } from '../../src/components/ui/UI';
+import { Colors } from '../../src/theme';
 import CustomBottomTabBar from '../../src/components/ui/CustomBottomTabBar';
 import { useUnreadCount } from '../../src/hooks/useUnreadCount';
 import { useOrbytColors } from '../../src/hooks/useOrbytColors';
@@ -24,11 +24,11 @@ export default function TabsLayout() {
   const nativeTintColor =
     orbytColors?.textColor && orbytColors?.backgroundColor
       ? pickLighterHex(orbytColors.textColor, orbytColors.backgroundColor)
-      : profileColors.foregroundColor || Colors.white;
+      : profileColors.foregroundColor || Colors.neutral[50];
 
   // Custom JavaScript tabs: use white
-  const customTintColor = Colors.white;
-  const customInactiveTintColor = 'rgba(243, 245, 254, 0.60)'; // Colors.white at 60% opacity
+  const customTintColor = Colors.neutral[50];
+  const customInactiveTintColor = 'rgba(243, 245, 254, 0.60)'; // Colors.neutral[50] at 60% opacity
 
   // Check if liquid glass is available (needed for role="search" on newer iOS versions)
   const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
@@ -38,7 +38,7 @@ export default function TabsLayout() {
     return (
       <NativeTabs
         tintColor={nativeTintColor}
-        badgeBackgroundColor={Colors.badgeGreen}
+        badgeBackgroundColor={Colors.teal[600]}
         disableTransparentOnScrollEdge={true}
       >
         <NativeTabs.Trigger name="index">
@@ -93,7 +93,7 @@ export default function TabsLayout() {
         tabBarActiveTintColor: customTintColor,
         tabBarInactiveTintColor: customInactiveTintColor,
         tabBarBadgeStyle: {
-          backgroundColor: Colors.badgeGreen,
+          backgroundColor: Colors.teal[600],
           color: '#fff',
         },
         tabBarStyle: Platform.select({

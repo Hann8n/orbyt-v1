@@ -33,7 +33,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as ImagePicker from 'expo-image-picker';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
-import { Colors, Avatar } from '../src/components/ui/UI';
+import { Colors } from '../src/theme';
+import { Avatar } from '../src/components/ui/UI';
 import { Loading3FillIcon } from '../src/components/ui/Icon';
 import { useProfileUpdateMutation, useProfile } from '../src/services/data/ProfileService';
 import { hexToRGBA, blendColors } from '../src/utils/formatting/colors';

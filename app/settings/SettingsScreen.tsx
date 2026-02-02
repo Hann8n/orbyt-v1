@@ -13,7 +13,7 @@ import * as Clipboard from 'expo-clipboard';
 import * as Application from 'expo-application';
 import Icon from '../../src/components/ui/Icon';
 import { getBuildNumber, getBuildVersion, getFormattedVersion } from '../../src/utils/version';
-import { Colors } from '../../src/components/ui/UI';
+import { Colors } from '../../src/theme';
 import ListHeader from '../../src/components/ui/ListHeader';
 import { OptionsButton } from '../../src/components/ui/OptionsButton';
 import {
@@ -670,7 +670,7 @@ ${deviceInfo}`
                   disabled={isSubmitting}
                   rightIcon={
                     item.id === 'copy-profile-link' && isProfileLinkCopied ? (
-                      <Icon name="check" size={18} color={Colors.lightGreen} />
+                      <Icon name="check" size={18} color={Colors.teal[300]} />
                     ) : (
                       item.rightIcon
                     )
@@ -696,7 +696,7 @@ ${deviceInfo}`
                   <View style={styles.footerContent}>
                     <View style={styles.footerHeartContainer}>
                       <Text style={styles.footerSubtext}>built with </Text>
-                      <Icon name="heart" size={18} color={Colors.lightRed} />
+                      <Icon name="heart" size={18} color={Colors.coral[400]} />
                       <Text style={styles.footerSubtext}> for the community</Text>
                     </View>
                     <TouchableOpacity onPress={handleVersionPress} activeOpacity={0.7}>
@@ -725,7 +725,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   footerSubtext: {
-    color: Colors.gray,
+    color: Colors.neutral[500],
     fontSize: 12,
     fontFamily: 'Figtree-Regular',
     textAlign: 'center',
@@ -737,7 +737,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   versionText: {
-    color: Colors.mediumGray,
+    color: Colors.neutral[600],
     fontSize: 12,
     fontFamily: 'Figtree-Regular',
     textAlign: 'center',

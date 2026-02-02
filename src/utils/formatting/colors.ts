@@ -1,13 +1,6 @@
 import ImageColors, { ImageColorsResult } from 'react-native-image-colors';
 import { APP_CONSTANTS } from '../constants';
-
-// Minimal Colors object to avoid circular dependency
-const Colors = {
-  white: '#FFFFFF',
-  black: '#000000',
-  lightGray: '#ccd7e9',
-  darkGray: '#181c22',
-};
+import { Colors } from '../../theme';
 
 /**
  * Converts a hex color to RGBA format
@@ -150,7 +143,7 @@ export const getStatusBarStyle = (backgroundColor: string): 'light' | 'dark' => 
  */
 export const DEFAULT_PROFILE_COLORS = {
   backgroundColor: Colors.black,
-  foregroundColor: Colors.lightGray,
+  foregroundColor: Colors.neutral[200],
   statusBarStyle: 'light' as const,
 };
 
@@ -190,8 +183,8 @@ export function getProfileColors(
     | null
     | undefined
 ): ProfileColorScheme {
-  let backgroundColor = DEFAULT_PROFILE_COLORS.backgroundColor;
-  let textColor = DEFAULT_PROFILE_COLORS.foregroundColor;
+  let backgroundColor: string = DEFAULT_PROFILE_COLORS.backgroundColor;
+  let textColor: string = DEFAULT_PROFILE_COLORS.foregroundColor;
 
   if (colorData) {
     // Check if it's OrbytAPIColorData (has backgroundColor at top level)
@@ -419,7 +412,7 @@ export async function extractColorsFromImage(imageUrl: string): Promise<{
     }
 
     const result = await ImageColors.getColors(uri, {
-      fallback: Colors.lightGray,
+      fallback: Colors.neutral[200],
       cache: true,
       key: imageUrl,
     });
@@ -437,9 +430,9 @@ export async function extractColorsFromImage(imageUrl: string): Promise<{
     return finalResult;
   } catch (_error) {
     return {
-      backgroundColor: Colors.darkGray,
-      foregroundColor: Colors.white,
-      textColor: Colors.white,
+      backgroundColor: Colors.neutral[900],
+      foregroundColor: Colors.neutral[50],
+      textColor: Colors.neutral[50],
       accentColor: '#FFFFFF',
       statusBarStyle: 'light' as const,
     };
@@ -493,9 +486,9 @@ export async function batchExtractColorsFromImages(imageUrls: string[]): Promise
               } else {
                 // Add fallback color for failed extractions
                 results.push({
-                  backgroundColor: Colors.darkGray,
-                  foregroundColor: Colors.white,
-                  textColor: Colors.white,
+                  backgroundColor: Colors.neutral[900],
+                  foregroundColor: Colors.neutral[50],
+                  textColor: Colors.neutral[50],
                   accentColor: '#FFFFFF',
                   statusBarStyle: 'light' as const,
                 });
@@ -508,9 +501,9 @@ export async function batchExtractColorsFromImages(imageUrls: string[]): Promise
           // Return fallback colors for all images on error
           resolve(
             imageUrls.map(() => ({
-              backgroundColor: Colors.darkGray,
-              foregroundColor: Colors.white,
-              textColor: Colors.white,
+              backgroundColor: Colors.neutral[900],
+              foregroundColor: Colors.neutral[50],
+              textColor: Colors.neutral[50],
               accentColor: '#FFFFFF',
               statusBarStyle: 'light' as const,
             }))

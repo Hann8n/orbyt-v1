@@ -34,7 +34,7 @@ export const NotificationIndicator: React.FC<NotificationIndicatorProps> = ({
 
 const styles = StyleSheet.create({
   indicator: {
-    backgroundColor: Colors.green,
+    backgroundColor: Colors.teal[500],
     borderWidth: 2,
     borderColor: Colors.black,
     position: 'absolute',

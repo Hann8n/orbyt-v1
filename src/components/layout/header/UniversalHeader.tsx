@@ -28,7 +28,7 @@ import { OutlinkIcon } from '../../ui/Icon';
 import { useRouter } from 'expo-router';
 import { hexToRGBA, blendColors } from '../../../utils/formatting/colors';
 import { Avatar } from '../../ui/UI';
-import { Colors } from '../../ui/UI';
+import { Colors } from '../../../theme';
 import { splitHandleSuffix } from '../../../utils/formatting/handles';
 import { TextWithLinks } from '../../ui/TextWithLinks';
 import type { RichTextFacet } from '../../../utils/types/richText';
@@ -177,8 +177,8 @@ const ActionButton = memo<{
           return {
             ...baseStyle,
             backgroundColor: pressed
-              ? blendColors(backgroundColor, '#ff4444', 0.4)
-              : blendColors(backgroundColor, '#ff4444', 0.2),
+              ? blendColors(backgroundColor, Colors.coral[500], 0.4)
+              : blendColors(backgroundColor, Colors.coral[500], 0.2),
           };
         case 'secondary':
           return {
@@ -599,7 +599,7 @@ const HeaderContentComponent = memo<{
         pathname: '/(modals)/feed',
         params: {
           feedOption: `hashtag:${hashtag}`,
-          backgroundColor: '#000000',
+          backgroundColor: Colors.black,
           searchQuery: `#${hashtag}`,
         },
       });
@@ -750,8 +750,8 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
   customActions = [],
   showBackButton = false,
   onBackPress,
-  backgroundColor = '#000',
-  textColor = '#fff',
+  backgroundColor = Colors.black,
+  textColor = Colors.neutral[50],
   backgroundImage,
   children,
   style,

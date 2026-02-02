@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { Colors } from '../../src/components/ui/UI';
+import { Colors } from '../../src/theme';
 import { hexToRGBA } from '../../src/utils/formatting/colors';
 import { BORDER_RADIUS } from '../../src/utils/constants';
 
@@ -7,7 +7,7 @@ import { BORDER_RADIUS } from '../../src/utils/constants';
 export const settingsButtonStyles = StyleSheet.create({
   // Primary button style used across most settings screens
   primaryButton: {
-    backgroundColor: hexToRGBA(Colors.gray, 0.12),
+    backgroundColor: hexToRGBA(Colors.neutral[500], 0.12),
     borderRadius: BORDER_RADIUS.LARGE,
     paddingVertical: 20,
     paddingHorizontal: 20,
@@ -20,7 +20,7 @@ export const settingsButtonStyles = StyleSheet.create({
 
   // Menu option style (used in SettingsScreen, ContentFiltersScreen) - matches ShareSheet/VerticalListSheet pattern
   menuOption: {
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
     borderRadius: BORDER_RADIUS.LARGE,
     paddingVertical: 20,
     paddingHorizontal: 20,
@@ -44,7 +44,7 @@ export const settingsButtonStyles = StyleSheet.create({
     minWidth: 80,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: hexToRGBA(Colors.gray, 0.12),
+    backgroundColor: hexToRGBA(Colors.neutral[500], 0.12),
     shadowColor: Colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -57,7 +57,7 @@ export const settingsButtonStyles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: BORDER_RADIUS.LARGE,
-    backgroundColor: hexToRGBA(Colors.gray, 0.12),
+    backgroundColor: hexToRGBA(Colors.neutral[500], 0.12),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -67,7 +67,7 @@ export const settingsButtonStyles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: BORDER_RADIUS.MEDIUM,
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
   },
 
   // Category/Sort button style
@@ -76,7 +76,7 @@ export const settingsButtonStyles = StyleSheet.create({
     paddingVertical: 6,
     marginRight: 8,
     borderRadius: BORDER_RADIUS.MEDIUM,
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
   },
 
   // Category button style (larger)
@@ -85,12 +85,12 @@ export const settingsButtonStyles = StyleSheet.create({
     paddingVertical: 10,
     marginRight: 8,
     borderRadius: BORDER_RADIUS.LARGE,
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
   },
 
   // Logout button style - matches cancel button pattern
   logoutButton: {
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
     borderRadius: BORDER_RADIUS.FULL,
     paddingVertical: 12,
     paddingHorizontal: 20,
@@ -103,7 +103,7 @@ export const settingsButtonStyles = StyleSheet.create({
   // Toggle button group style
   toggleButtonGroup: {
     flexDirection: 'row',
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
     borderRadius: BORDER_RADIUS.MEDIUM,
     flexShrink: 0,
     width: 180,
@@ -121,35 +121,35 @@ export const settingsButtonStyles = StyleSheet.create({
 
   // Card item style (for lists)
   cardItem: {
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
     borderRadius: BORDER_RADIUS.MEDIUM,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: Colors.gray,
+    borderColor: Colors.neutral[500],
   },
 
   // Channel item style
   channelItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
     borderRadius: BORDER_RADIUS.MEDIUM,
     padding: 16,
     borderWidth: 1,
-    borderColor: Colors.mediumGray,
+    borderColor: Colors.neutral[600],
   },
 
   // Stats container style
   statsContainer: {
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
     marginHorizontal: 20,
     marginTop: 16,
     marginBottom: 8,
     borderRadius: BORDER_RADIUS.MEDIUM,
     padding: 16,
     borderWidth: 1,
-    borderColor: Colors.gray,
+    borderColor: Colors.neutral[500],
   },
 });
 
@@ -157,7 +157,7 @@ export const settingsButtonStyles = StyleSheet.create({
 export const settingsTextStyles = StyleSheet.create({
   // Primary button text
   primaryButtonText: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 18,
     fontWeight: '600',
     fontFamily: 'Figtree-SemiBold',
@@ -165,14 +165,14 @@ export const settingsTextStyles = StyleSheet.create({
 
   // Menu option text - matches VerticalListSheet pattern
   menuOptionText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 18,
     fontFamily: 'Figtree-SemiBold',
   },
 
   // Menu option subtitle
   menuOptionSubtitle: {
-    color: Colors.gray,
+    color: Colors.neutral[500],
     fontSize: 12,
     fontWeight: '400',
     fontFamily: 'Figtree-Regular',
@@ -181,7 +181,7 @@ export const settingsTextStyles = StyleSheet.create({
 
   // Action button text
   actionButtonText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 15,
     fontFamily: 'Figtree-SemiBold',
     fontWeight: '600',
@@ -190,7 +190,7 @@ export const settingsTextStyles = StyleSheet.create({
 
   // Section title text
   sectionTitle: {
-    color: Colors.gray,
+    color: Colors.neutral[500],
     fontSize: 16,
     fontWeight: '600',
     fontFamily: 'Figtree-SemiBold',
@@ -201,7 +201,7 @@ export const settingsTextStyles = StyleSheet.create({
 
   // Section title (larger)
   sectionTitleLarge: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 20,
     fontWeight: '600',
     fontFamily: 'Figtree-SemiBold',
@@ -210,7 +210,7 @@ export const settingsTextStyles = StyleSheet.create({
 
   // Section description
   sectionDescription: {
-    color: Colors.gray,
+    color: Colors.neutral[500],
     fontSize: 14,
     fontFamily: 'Figtree-Regular',
     lineHeight: 20,
@@ -218,7 +218,7 @@ export const settingsTextStyles = StyleSheet.create({
 
   // Stats text
   statsText: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 14,
     fontFamily: 'Figtree-Medium',
     textAlign: 'center',
@@ -226,7 +226,7 @@ export const settingsTextStyles = StyleSheet.create({
 
   // Loading text
   loadingText: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 16,
     fontFamily: 'Figtree-Medium',
     marginTop: 12,
@@ -234,7 +234,7 @@ export const settingsTextStyles = StyleSheet.create({
 
   // Empty state title
   emptyTitle: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 20,
     fontWeight: '600',
     fontFamily: 'Figtree-SemiBold',
@@ -244,7 +244,7 @@ export const settingsTextStyles = StyleSheet.create({
 
   // Empty state description
   emptyDescription: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 16,
     fontFamily: 'Figtree-Regular',
     textAlign: 'center',
@@ -253,14 +253,14 @@ export const settingsTextStyles = StyleSheet.create({
 
   // Filter button text
   filterButtonText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 12,
     fontFamily: 'Figtree-Medium',
   },
 
   // Category button text
   categoryButtonText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 15,
     fontFamily: 'Figtree-Medium',
     letterSpacing: 0.3,
@@ -268,7 +268,7 @@ export const settingsTextStyles = StyleSheet.create({
 
   // Logout button text - matches cancel button pattern
   logoutButtonText: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 15,
     fontWeight: '600',
     textAlign: 'center',
@@ -277,7 +277,7 @@ export const settingsTextStyles = StyleSheet.create({
 
   // Edit button text
   editButtonText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 14,
     fontWeight: '600',
     fontFamily: 'Figtree-SemiBold',
@@ -285,7 +285,7 @@ export const settingsTextStyles = StyleSheet.create({
 
   // User display name
   userDisplayName: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 16,
     fontFamily: 'Figtree-SemiBold',
     marginBottom: 2,
@@ -293,14 +293,14 @@ export const settingsTextStyles = StyleSheet.create({
 
   // User handle
   userHandle: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 14,
     fontFamily: 'Figtree-Regular',
   },
 
   // Channel name
   channelName: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 16,
     fontWeight: '600',
     fontFamily: 'Figtree-SemiBold',
@@ -309,7 +309,7 @@ export const settingsTextStyles = StyleSheet.create({
 
   // Channel description
   channelDescription: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 14,
     fontFamily: 'Figtree-Regular',
     marginBottom: 4,
@@ -317,7 +317,7 @@ export const settingsTextStyles = StyleSheet.create({
 
   // Member count
   memberCount: {
-    color: Colors.gray,
+    color: Colors.neutral[500],
     fontSize: 12,
     fontFamily: 'Figtree-Regular',
   },
@@ -400,10 +400,10 @@ export const settingsLayoutStyles = StyleSheet.create({
   searchInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
     borderRadius: BORDER_RADIUS.MEDIUM,
     borderWidth: 1,
-    borderColor: Colors.gray,
+    borderColor: Colors.neutral[500],
     paddingHorizontal: 16,
     marginBottom: 16,
   },
@@ -411,7 +411,7 @@ export const settingsLayoutStyles = StyleSheet.create({
   // Search input
   searchInput: {
     flex: 1,
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 16,
     fontFamily: 'Figtree-Regular',
     paddingVertical: 12,
@@ -457,12 +457,12 @@ export const settingsLayoutStyles = StyleSheet.create({
 export const settingsActiveStyles = StyleSheet.create({
   // Active filter button
   filterButtonActive: {
-    backgroundColor: Colors.lightGray,
+    backgroundColor: Colors.neutral[200],
   },
 
   // Active category button
   categoryButtonActive: {
-    backgroundColor: Colors.lightGray,
+    backgroundColor: Colors.neutral[200],
   },
 
   // Active category button text
@@ -473,17 +473,17 @@ export const settingsActiveStyles = StyleSheet.create({
 
   // Active edit button
   editButtonActive: {
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
   },
 
   // Active edit button text
   editButtonTextActive: {
-    color: Colors.lightGreen,
+    color: Colors.teal[300],
   },
 
   // Active toggle button
   toggleButtonActive: {
-    backgroundColor: Colors.lightGreen,
+    backgroundColor: Colors.teal[300],
   },
 
   // Disabled button
@@ -499,7 +499,7 @@ export const settingsAvatarStyles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: BORDER_RADIUS.MEDIUM,
-    backgroundColor: Colors.mediumGray,
+    backgroundColor: Colors.neutral[600],
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 8,
@@ -510,7 +510,7 @@ export const settingsAvatarStyles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: BORDER_RADIUS.LARGE,
-    backgroundColor: Colors.mediumGray,
+    backgroundColor: Colors.neutral[600],
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -521,7 +521,7 @@ export const settingsAvatarStyles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: BORDER_RADIUS.SMALL,
-    backgroundColor: Colors.mediumGray,
+    backgroundColor: Colors.neutral[600],
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,

@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Icon from '../../ui/Icon';
 import KeyboardAwareFooter from '../../../utils/components/truesheet/KeyboardAwareFooter';
-import { Colors } from '../../ui/UI';
+import { Colors } from '../../../theme';
 import CloseButton from '../../ui/CloseButton';
 import CancelButton from '../../ui/CancelButton';
 import { hexToRGBA } from '../../../utils/formatting/colors';
@@ -311,21 +311,21 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
           label: 'share',
           icon: 'share',
           onPress: handleShare,
-          color: Colors.lightGray,
+          color: Colors.neutral[200],
         },
         {
           id: 'switch',
           label: 'switch',
           icon: 'user-3',
           onPress: handleSwitchAccount,
-          color: Colors.lightGray,
+          color: Colors.neutral[200],
         },
         {
           id: 'logout',
           label: 'log out',
           icon: 'logout',
           onPress: handleLogout,
-          color: Colors.red,
+          color: Colors.coral[500],
         },
       ];
     } else {
@@ -341,7 +341,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
       //       onDismiss();
       //       onMessagePress();
       //     },
-      //     color: Colors.lightGray,
+      //     color: Colors.neutral[200],
       //   });
       // }
 
@@ -352,29 +352,29 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
           label: 'share',
           icon: 'share',
           onPress: handleShare,
-          color: Colors.lightGray,
+          color: Colors.neutral[200],
         },
         {
           id: 'mute',
           label: isMuted ? 'unmute' : 'mute',
           icon: isMuted ? 'volume-2' : 'volume-x',
           onPress: handleMuteToggle,
-          color: Colors.lightGray,
+          color: Colors.neutral[200],
         },
         {
           id: 'openOnBluesky',
           label: 'view on bluesky',
           icon: 'external-link',
           onPress: handleOpenOnBluesky,
-          color: Colors.lightGray,
-          rightIcon: <Icon name="outlink" size={20} color={Colors.lightGray} />,
+          color: Colors.neutral[200],
+          rightIcon: <Icon name="outlink" size={20} color={Colors.neutral[200]} />,
         },
         {
           id: 'reportOrBlock',
           label: 'report or block',
           icon: 'more-horizontal',
           onPress: handleReportOrBlock,
-          color: Colors.lightGray,
+          color: Colors.neutral[200],
         }
       );
 
@@ -471,7 +471,7 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   option: {
-    backgroundColor: hexToRGBA(Colors.gray, 0.12),
+    backgroundColor: hexToRGBA(Colors.neutral[500], 0.12),
     borderRadius: BORDER_RADIUS.LARGE,
     paddingVertical: 24,
     paddingHorizontal: 20,
@@ -479,7 +479,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   optionText: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 18,
     fontWeight: '500',
     textAlign: 'left',
@@ -487,13 +487,13 @@ const styles = StyleSheet.create({
     paddingLeft: 8,
   },
   submenuText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     textAlign: 'center',
     paddingLeft: 0,
     fontFamily: 'Figtree-SemiBold',
   },
   submenuOption: {
-    backgroundColor: Colors.darkRed,
+    backgroundColor: Colors.coral[950],
   },
   submenuContent: {
     paddingHorizontal: 12,
@@ -507,7 +507,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   headerTitle: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 20,
     fontWeight: 'bold',
     textAlign: 'left',

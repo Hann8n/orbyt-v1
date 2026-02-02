@@ -51,7 +51,7 @@ const ProfileTabIcon = React.memo(
 
     // Use colors from orbyt API
     const profileColors = getProfileColors(orbytColors);
-    const ringColor = profileColors.foregroundColor || Colors.white;
+    const ringColor = profileColors.foregroundColor || Colors.neutral[50];
 
     if (!hasMultipleAccounts) {
       return <UserIcon size={tabIconSize} color={color} />;
@@ -118,8 +118,8 @@ type CustomBottomTabBarProps = Pick<BottomTabBarProps, 'state' | 'navigation'> &
 const CustomBottomTabBar: React.FC<CustomBottomTabBarProps> = ({
   state,
   navigation,
-  tintColor = Colors.white,
-  inactiveTintColor = 'rgba(243, 245, 254, 0.60)', // Colors.white at 60% opacity
+  tintColor = Colors.neutral[50],
+  inactiveTintColor = 'rgba(243, 245, 254, 0.60)', // Colors.neutral[50] at 60% opacity
 }) => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -417,13 +417,13 @@ const iconStyles = StyleSheet.create({
   },
   captureOuter: {
     borderWidth: 1.5,
-    borderColor: Colors.white,
+    borderColor: Colors.neutral[50],
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'transparent',
   },
   captureInner: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.neutral[50],
   },
 });
 

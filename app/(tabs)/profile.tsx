@@ -36,7 +36,7 @@ import Animated, {
   interpolate,
   Extrapolate,
 } from 'react-native-reanimated';
-import { Colors } from '../../src/components/ui/UI';
+import { Colors } from '../../src/theme';
 import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalModals';
 import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '../../src/hooks';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -457,7 +457,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
 
   // Back icon color: gradually transition from header text color to white based on scroll
   const baseBackTextColor = useMemo(
-    () => (dynamicColors ? dynamicColors.textColor : profileColors.textColor) || Colors.white,
+    () => (dynamicColors ? dynamicColors.textColor : profileColors.textColor) || Colors.neutral[50],
     [dynamicColors, profileColors.textColor]
   );
 
@@ -495,7 +495,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     let customIcon: React.ReactNode | undefined = isBlocked ? undefined : (
       <FollowIcon
         size={14}
-        color={(dynamicColors ? dynamicColors.textColor : profileColors.textColor) || Colors.white}
+        color={
+          (dynamicColors ? dynamicColors.textColor : profileColors.textColor) || Colors.neutral[50]
+        }
       />
     );
 
@@ -540,7 +542,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
                 ? (dynamicColors ? dynamicColors.backgroundColor : profileColors.backgroundColor) ||
                   Colors.black
                 : (dynamicColors ? dynamicColors.textColor : profileColors.textColor) ||
-                  Colors.white
+                  Colors.neutral[50]
             }
           />
         ),
@@ -612,7 +614,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
                   {
                     backgroundColor:
                       (dynamicColors ? dynamicColors.textColor : profileColors.textColor) ||
-                      Colors.white,
+                      Colors.neutral[50],
                   },
                 ]}
               />
@@ -645,7 +647,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
                 <BackArrowIcon size={30} color={baseBackTextColor} />
               </Animated.View>
               <Animated.View style={[StyleSheet.absoluteFillObject, backIconSecondaryStyle]}>
-                <BackArrowIcon size={30} color={Colors.white} />
+                <BackArrowIcon size={30} color={Colors.neutral[50]} />
               </Animated.View>
             </View>
           </Pressable>
@@ -665,7 +667,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
             <MoreFillIcon
               size={24}
               color={
-                (dynamicColors ? dynamicColors.textColor : profileColors.textColor) || Colors.white
+                (dynamicColors ? dynamicColors.textColor : profileColors.textColor) ||
+                Colors.neutral[50]
               }
             />
           </Pressable>
@@ -679,7 +682,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
                   action={action}
                   textColor={
                     (dynamicColors ? dynamicColors.textColor : profileColors.textColor) ||
-                    Colors.white
+                    Colors.neutral[50]
                   }
                   backgroundColor={
                     (dynamicColors
@@ -752,7 +755,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       )}
       {isLoading && (
         <View style={styles.loadingOverlay}>
-          <Loading3FillIcon size={48} color={Colors.white} />
+          <Loading3FillIcon size={48} color={Colors.neutral[50]} />
         </View>
       )}
 
@@ -833,7 +836,7 @@ const styles = StyleSheet.create({
     marginVertical: 8,
   },
   errorSubtext: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 16,
     fontFamily: 'Figtree-Medium',
     textAlign: 'center',
@@ -843,7 +846,7 @@ const styles = StyleSheet.create({
   errorButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
     borderRadius: BORDER_RADIUS.MEDIUM,
     paddingVertical: 12,
     paddingHorizontal: 20,
@@ -851,7 +854,7 @@ const styles = StyleSheet.create({
     minWidth: 150,
   },
   errorButtonText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 16,
     fontFamily: 'Figtree-SemiBold',
   },
@@ -952,7 +955,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   grabHandleBarSecondary: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.neutral[50],
     opacity: 0.5,
   },
 });

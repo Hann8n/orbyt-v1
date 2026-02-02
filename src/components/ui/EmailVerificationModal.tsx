@@ -242,12 +242,12 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
         {emailSent ? (
           <View style={styles.tokenContainer}>
             <View style={styles.inputContainer}>
-              <Icon name="mail" size={24} color={Colors.lightGray} style={styles.inputIcon} />
+              <Icon name="mail" size={24} color={Colors.neutral[200]} style={styles.inputIcon} />
               <TextInput
                 nativeID="email-verification-token-input"
                 style={styles.input}
                 placeholder="XXXXX-XXXXX"
-                placeholderTextColor={Colors.gray}
+                placeholderTextColor={Colors.neutral[500]}
                 value={token}
                 onChangeText={text => {
                   const formatted = formatToken(text);
@@ -265,7 +265,7 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
               />
               {error && (
                 <Animated.View style={shakeStyle}>
-                  <Icon name="close" size={24} color={Colors.red} style={styles.errorIcon} />
+                  <Icon name="close" size={24} color={Colors.coral[500]} style={styles.errorIcon} />
                 </Animated.View>
               )}
             </View>
@@ -282,7 +282,11 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
             >
               {isVerifying ? (
                 <View style={styles.buttonContent}>
-                  <Loading3FillIcon size={24} color={Colors.white} style={{ marginRight: 8 }} />
+                  <Loading3FillIcon
+                    size={24}
+                    color={Colors.neutral[50]}
+                    style={{ marginRight: 8 }}
+                  />
                   <Text style={styles.verifyButtonText}>Verifying...</Text>
                 </View>
               ) : (
@@ -300,8 +304,8 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
                     size={24}
                     color={
                       token.trim().length === 11 && !isVerifying && !error
-                        ? Colors.darkGray
-                        : Colors.gray
+                        ? Colors.neutral[900]
+                        : Colors.neutral[500]
                     }
                   />
                 </View>
@@ -333,13 +337,17 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
             >
               {isSendingEmail ? (
                 <View style={styles.buttonContent}>
-                  <Loading3FillIcon size={24} color={Colors.white} style={{ marginRight: 8 }} />
+                  <Loading3FillIcon
+                    size={24}
+                    color={Colors.neutral[50]}
+                    style={{ marginRight: 8 }}
+                  />
                   <Text style={styles.sendButtonText}>Sending...</Text>
                 </View>
               ) : (
                 <View style={styles.buttonContentRow}>
                   <Text style={styles.sendButtonText}>Send Code</Text>
-                  <Icon name="right_arrow_filled" size={24} color={Colors.darkGray} />
+                  <Icon name="right_arrow_filled" size={24} color={Colors.neutral[900]} />
                 </View>
               )}
             </Pressable>
@@ -359,7 +367,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   descriptionText: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 16,
     lineHeight: 22,
     fontFamily: 'Figtree-Regular',
@@ -378,7 +386,7 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.neutral[50],
     borderRadius: BORDER_RADIUS.FULL,
     marginBottom: 4,
     paddingHorizontal: 20,
@@ -396,7 +404,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   sendButton: {
-    backgroundColor: Colors.lightGray,
+    backgroundColor: Colors.neutral[200],
     borderRadius: BORDER_RADIUS.FULL,
     paddingVertical: 20,
     paddingHorizontal: 20,
@@ -406,18 +414,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   sendButtonActive: {
-    backgroundColor: Colors.green,
+    backgroundColor: Colors.teal[500],
   },
   sendButtonDisabled: {
     opacity: 0.6,
   },
   sendButtonText: {
-    color: Colors.darkGray,
+    color: Colors.neutral[900],
     fontSize: 18,
     fontFamily: 'Figtree-SemiBold',
   },
   verifyButton: {
-    backgroundColor: Colors.lightGray,
+    backgroundColor: Colors.neutral[200],
     borderRadius: BORDER_RADIUS.FULL,
     paddingVertical: 20,
     paddingHorizontal: 20,
@@ -427,30 +435,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   verifyButtonActive: {
-    backgroundColor: Colors.green,
+    backgroundColor: Colors.teal[500],
   },
   verifyButtonDisabled: {
     opacity: 0.6,
   },
   verifyButtonText: {
-    color: Colors.gray,
+    color: Colors.neutral[500],
     fontSize: 18,
     fontFamily: 'Figtree-SemiBold',
   },
   verifyButtonTextActive: {
-    color: Colors.darkGray,
+    color: Colors.neutral[900],
   },
   resendButton: {
     paddingVertical: 12,
     alignItems: 'center',
   },
   resendButtonText: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 16,
     fontFamily: 'Figtree-Medium',
   },
   infoText: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 14,
     fontFamily: 'Figtree-Regular',
     lineHeight: 20,

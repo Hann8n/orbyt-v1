@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format, parseISO, isValid } from 'date-fns';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { safeDismiss, safePresent } from '../../../utils/components/truesheet/utils';
-import { Colors } from '../../ui/UI';
+import { Colors } from '../../../theme';
 import CloseButton from '../../ui/CloseButton';
 import CancelButton from '../../ui/CancelButton';
 import BetaBadge from './BetaBadge';
@@ -43,7 +43,7 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
   const headerComponent = (
     <View style={styles.headerContainer}>
       <View style={styles.headerLeft}>
-        <BetaBadge size={24} color={Colors.white} opacity={0.7} customMargin={0} />
+        <BetaBadge size={24} color={Colors.neutral[50]} opacity={0.7} customMargin={0} />
         <Text style={[styles.headerTitle, styles.headerTitleMargin]} numberOfLines={1}>
           Beta Tester
         </Text>
@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 20,
     fontWeight: 'bold',
     textAlign: 'left',
@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
   },
   infoText: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 16,
     lineHeight: 22,
     textAlign: 'left',
@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
   },
   highlightedText: {
     fontWeight: '600',
-    color: Colors.white,
+    color: Colors.neutral[50],
     opacity: 1,
     fontFamily: 'Figtree-SemiBold',
   },
@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statusText: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 14,
     fontFamily: 'Figtree-Regular',
     textAlign: 'center',

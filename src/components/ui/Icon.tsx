@@ -10,19 +10,19 @@ import {
 } from 'react-native-reanimated';
 import { Canvas, Path } from '@shopify/react-native-skia';
 
-// Simple colors object to avoid circular dependency
+// Simple colors object to avoid circular dependency - matches UI.tsx Colors
 const Colors = {
-  white: '#FFFFFF',
+  white: '#f3f5fe', // Orbyt White (neutral.50)
   black: '#000000',
-  gray: '#818896',
-  lightGray: '#ccd7e9',
-  darkGray: '#181c22',
-  red: '#FE4359',
-  green: '#00D4AA',
-  blue: '#6366F1',
-  purple: '#8B5CF6',
-  orange: '#FF6B35',
-  yellow: '#FFD700',
+  gray: '#636c88', // neutral.500
+  lightGray: '#d5daea', // neutral.200
+  darkGray: '#1a1e2e', // neutral.900
+  red: '#f5355a', // coral.500
+  green: '#00d69c', // teal.500
+  blue: '#2b7fff', // blue.500
+  purple: '#551def', // purple.500 (brand)
+  orange: '#ff6b35', // orange.500
+  yellow: '#FFD700', // amber - kept original for vibrancy
 };
 import { useProfile } from '../../services/data/ProfileService';
 import { getProfileColors } from '../../utils/formatting/colors';

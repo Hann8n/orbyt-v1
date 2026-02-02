@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     width: '80%',
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
     borderRadius: BORDER_RADIUS.MEDIUM,
     padding: 20,
     shadowColor: Colors.black,
@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   modalTitle: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 8,
@@ -112,10 +112,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   primaryButton: {
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
   },
   actionButtonText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 16,
     fontFamily: 'Figtree-Medium',
   },

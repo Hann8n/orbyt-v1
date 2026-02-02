@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useSubscribedChannels } from '../../src/hooks/useSubscribedChannels';
-import { Colors } from '../../src/components/ui/UI';
+import { Colors } from '../../src/theme';
 import { Avatar, Icon } from '../../src/components/ui/UI';
 import { BORDER_RADIUS } from '../../src/utils/constants';
 import ListHeader from '../../src/components/ui/ListHeader';
@@ -131,13 +131,15 @@ export default function ChannelManagementScreen() {
             style={styles.channelAvatar}
             fallbackIcon="tv"
             fallbackIconSize={24}
-            fallbackIconColor={Colors.lightGray}
+            fallbackIconColor={Colors.neutral[200]}
           />
           <View style={styles.channelContent}>
             {item.isOrbytChannel ? (
               <View style={styles.orbytChannelName}>
                 {item.uri && shouldShowChannelSlash(item.uri) && (
-                  <Text style={[styles.orbytSlash, { color: item.channelColor || '#FFD700' }]}>
+                  <Text
+                    style={[styles.orbytSlash, { color: item.channelColor || Colors.amber[400] }]}
+                  >
                     /
                   </Text>
                 )}
@@ -167,7 +169,7 @@ export default function ChannelManagementScreen() {
   const renderEmpty = useCallback(
     () => (
       <View style={styles.emptyContainer}>
-        <Icon name="tv" size={48} color={Colors.lightGray} style={styles.emptyIcon} />
+        <Icon name="tv" size={48} color={Colors.neutral[200]} style={styles.emptyIcon} />
         <Text style={styles.emptyTitle}>No channels yet</Text>
         <Text style={styles.emptySubtitle}>Explore channels to subscribe to them</Text>
         <Pressable style={styles.exploreButton} onPress={handleExplorePress}>
@@ -255,14 +257,14 @@ const styles = StyleSheet.create({
     marginRight: 0,
   },
   displayName: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 16,
     marginBottom: 2,
     fontFamily: 'Figtree-Bold',
     flexShrink: 1,
   },
   description: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 14,
     fontFamily: 'Figtree-Regular',
   },
@@ -278,14 +280,14 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
   emptyTitle: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 20,
     fontFamily: 'Figtree-Bold',
     marginBottom: 8,
     textAlign: 'center',
   },
   emptySubtitle: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 16,
     fontFamily: 'Figtree-Medium',
     textAlign: 'center',
@@ -293,7 +295,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   exploreButton: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.neutral[50],
     borderRadius: BORDER_RADIUS.FULL,
     paddingVertical: 16,
     paddingHorizontal: 24,
@@ -301,7 +303,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   exploreButtonText: {
-    color: '#000000',
+    color: Colors.black,
     fontSize: 16,
     fontFamily: 'Figtree-SemiBold',
   },

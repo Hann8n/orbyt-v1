@@ -15,7 +15,7 @@ import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Svg, Path, Rect, Defs, Mask } from 'react-native-svg';
 import Icon, { Loading3FillIcon } from '../src/components/ui/Icon';
-import { Colors } from '../src/components/ui/UI';
+import { Colors } from '../src/theme';
 import AuthorItem from '../src/components/ui/AuthorItem';
 import { SavedAccount } from '../src/stores/userStore';
 import { useAuth, useAccountManagement } from '../src/stores/userStore';
@@ -330,7 +330,7 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
             <Icon
               name="bluesky-icon"
               size={24}
-              color={Colors.bluesky}
+              color={Colors.blue[500]}
               style={{ marginRight: 12 }}
             />
             <Text style={styles.blueskyButtonText}>Sign in with Bluesky</Text>
@@ -448,11 +448,11 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
                   />
                 </Mask>
               </Defs>
-              {/* White outline with cutout mask applied */}
+              {/* Orbyt White outline with cutout mask applied (Colors.neutral[50] / #f3f5fe) */}
               <Path
                 mask="url(#cutout-mask-75)"
-                fill="#f3f5fe"
-                stroke="#f3f5fe"
+                fill={Colors.neutral[50]}
+                stroke={Colors.neutral[50]}
                 strokeWidth="65"
                 strokeLinejoin="round"
                 strokeLinecap="round"
@@ -507,7 +507,7 @@ const styles = StyleSheet.create({
     right: 0,
   },
   appName: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 42,
     fontFamily: 'Figtree-Black',
     textAlign: 'center',
@@ -544,7 +544,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.FULL,
   },
   whiteButton: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.neutral[50],
   },
   blueskyButtonText: {
     color: Colors.black,
@@ -561,7 +561,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   chooseAccountTitle: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 28,
     fontWeight: 'bold',
     fontFamily: 'Figtree-Bold',
@@ -569,7 +569,7 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   chooseAccountSubtitle: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 16,
     fontFamily: 'Figtree-Regular',
     textAlign: 'left',
@@ -591,11 +591,11 @@ const styles = StyleSheet.create({
   errorContainer: {
     marginBottom: 16,
     padding: 12,
-    backgroundColor: hexToRGBA(Colors.red, 0.1),
+    backgroundColor: hexToRGBA(Colors.coral[500], 0.1),
     borderRadius: BORDER_RADIUS.SMALL,
   },
   errorText: {
-    color: Colors.red,
+    color: Colors.coral[500],
     fontSize: 14,
     fontFamily: 'Figtree-Medium',
     textAlign: 'center',
@@ -621,17 +621,17 @@ const styles = StyleSheet.create({
   divider: {
     flex: 1,
     height: 1,
-    backgroundColor: Colors.gray,
+    backgroundColor: Colors.neutral[500],
     opacity: 0.3,
   },
   dividerText: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 14,
     fontFamily: 'Figtree-Medium',
     marginHorizontal: 16,
   },
   termsText: {
-    color: Colors.gray,
+    color: Colors.neutral[500],
     fontSize: 15,
     fontFamily: 'Figtree-Regular',
     textAlign: 'left',
@@ -644,14 +644,14 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   networkSignInText: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 15,
     fontFamily: 'Figtree-Regular',
     textAlign: 'center',
     lineHeight: 21,
   },
   networkSignInLink: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     textDecorationLine: 'underline',
     fontFamily: 'Figtree-SemiBold',
   },

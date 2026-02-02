@@ -11,7 +11,7 @@ import {
   FlatList,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { Colors } from '../ui/UI';
+import { Colors } from '../../theme';
 import { Header } from '../../services/OrbytBannerService';
 import Animated, {
   useAnimatedScrollHandler,
@@ -100,7 +100,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
     const realColors = (headers || []).map(h => {
       const titleCol = h.titleColor as string | undefined;
       const subCol = h.subtitleColor as string | undefined;
-      return (titleCol || subCol || Colors.white) as string;
+      return (titleCol || subCol || Colors.neutral[50]) as string;
     });
     if (!hasHeaders || headers.length <= 1) return realColors;
     const firstColor = realColors[0];
@@ -112,7 +112,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
   const colorAnimatedStyle = useAnimatedStyle(() => {
     // Avoid interpolation when there is only one slide
     if (!isCarousel) {
-      const firstColor = (slideColors && slideColors[0]) || Colors.white;
+      const firstColor = (slideColors && slideColors[0]) || Colors.neutral[50];
       return {
         backgroundColor: firstColor as any,
       };
@@ -423,13 +423,13 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   headerTitle: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 24,
     fontFamily: 'Figtree-Black',
     marginBottom: 2,
   },
   headerSubtitle: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 18,
     fontFamily: 'Figtree-SemiBold',
   },

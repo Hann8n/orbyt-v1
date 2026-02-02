@@ -142,7 +142,7 @@ export function UserSearchModal({
       <View style={styles.modal}>
         {isLoading ? (
           <View style={styles.centered}>
-            <Loading3FillIcon size={48} color={Colors.white} />
+            <Loading3FillIcon size={48} color={Colors.neutral[50]} />
           </View>
         ) : error ? (
           <View style={styles.centered}>
@@ -162,8 +162,8 @@ export function UserSearchModal({
                 did={item.did}
                 displayName={item.displayName}
                 avatar={item.avatar}
-                textColor={Colors.white}
-                backgroundColor={Colors.darkGray}
+                textColor={Colors.neutral[50]}
+                backgroundColor={Colors.neutral[900]}
                 size="medium"
                 hideHandleLine={true}
                 showArrow={false}
@@ -255,7 +255,7 @@ export function RichTextSearchModal({
       {searchType === 'mention' ? (
         isLoadingUsers ? (
           <View style={styles.centered}>
-            <Loading3FillIcon size={48} color={Colors.white} />
+            <Loading3FillIcon size={48} color={Colors.neutral[50]} />
           </View>
         ) : users.length === 0 ? (
           <View style={styles.centered}>
@@ -272,7 +272,7 @@ export function RichTextSearchModal({
                   did={item.did}
                   displayName={item.displayName}
                   avatar={item.avatar}
-                  textColor={Colors.white}
+                  textColor={Colors.neutral[50]}
                   backgroundColor={Colors.black}
                   size="large"
                   hideHandleLine={false}
@@ -306,7 +306,7 @@ export function RichTextSearchModal({
         )
       ) : isLoadingHashtags ? (
         <View style={styles.centered}>
-          <Loading3FillIcon size={48} color={Colors.white} />
+          <Loading3FillIcon size={48} color={Colors.neutral[50]} />
         </View>
       ) : hashtagSuggestions.length === 0 ? (
         <View style={styles.centered}>
@@ -587,7 +587,7 @@ const styles = StyleSheet.create({
     gap: 0,
   },
   modal: {
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
     borderRadius: BORDER_RADIUS.MEDIUM,
     marginHorizontal: 0,
     paddingVertical: 4,
@@ -606,11 +606,11 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   errorText: {
-    color: Colors.red,
+    color: Colors.coral[500],
     fontSize: 15,
   },
   emptyText: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 15,
   },
   hashtagItem: {
@@ -624,17 +624,17 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.black,
   },
   hashtagText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 17,
     fontFamily: 'Figtree-Regular',
   },
   hashtagSymbol: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 17,
     fontFamily: 'Figtree-Regular',
   },
   hashtagTag: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 17,
     fontFamily: 'Figtree-SemiBold',
   },

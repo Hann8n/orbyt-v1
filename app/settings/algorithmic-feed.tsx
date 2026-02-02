@@ -5,7 +5,8 @@ import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import ListHeader from '../../src/components/ui/ListHeader';
 import Icon, { Loading3FillIcon, PlusIcon } from '../../src/components/ui/Icon';
-import { Colors, Avatar } from '../../src/components/ui/UI';
+import { Colors } from '../../src/theme';
+import { Avatar } from '../../src/components/ui/UI';
 import { useAlgorithmicFeedProvider } from '../../src/stores/userStore';
 import { settingsLayoutStyles } from './SettingsStyles';
 import { OptionsButton } from '../../src/components/ui/OptionsButton';
@@ -286,8 +287,8 @@ const AlgorithmicFeedScreen: React.FC = () => {
                         height: 22,
                         borderRadius: BORDER_RADIUS.SMALL,
                         borderWidth: 2,
-                        borderColor: selected ? Colors.white : Colors.lightGray,
-                        backgroundColor: selected ? Colors.white : 'transparent',
+                        borderColor: selected ? Colors.neutral[50] : Colors.neutral[200],
+                        backgroundColor: selected ? Colors.neutral[50] : 'transparent',
                         justifyContent: 'center',
                         alignItems: 'center',
                       },
@@ -308,7 +309,7 @@ const AlgorithmicFeedScreen: React.FC = () => {
           </View>
           {listData.length === 0 ? (
             <View style={styles.emptyContainer}>
-              <Icon name="tv" size={48} color={Colors.lightGray} style={styles.emptyIcon} />
+              <Icon name="tv" size={48} color={Colors.neutral[200]} style={styles.emptyIcon} />
               <Text style={styles.emptyTitle}>No channels yet</Text>
               <Text style={styles.emptySubtitle}>Explore channels to subscribe to them</Text>
               <Pressable style={styles.exploreButton} onPress={handleExplorePress}>
@@ -324,16 +325,16 @@ const AlgorithmicFeedScreen: React.FC = () => {
 
                 const isSubscribed = channels.some(ch => ch.uri === channel.uri);
                 const isSubscribing = subscribingChannels.has(channel.uri || '');
-                const channelColor = channel.channelColor || Colors.lightGray;
+                const channelColor = channel.channelColor || Colors.neutral[200];
                 const useGlass = isLiquidGlassAvailable();
                 const glassTint = isSubscribed
                   ? hexToRGBA(channelColor, 1)
-                  : hexToRGBA('#FFFFFF', 0.08);
+                  : hexToRGBA(Colors.neutral[50], 0.08);
                 const subscribedTextColor = isSubscribed
                   ? isColorDark(channelColor)
-                    ? '#FFFFFF'
-                    : '#000000'
-                  : '#FFFFFF';
+                    ? Colors.neutral[50]
+                    : Colors.black
+                  : Colors.neutral[50];
 
                 return (
                   <Pressable
@@ -349,7 +350,7 @@ const AlgorithmicFeedScreen: React.FC = () => {
                       style={styles.channelAvatar}
                       fallbackIcon="tv"
                       fallbackIconSize={28}
-                      fallbackIconColor={Colors.lightGray}
+                      fallbackIconColor={Colors.neutral[200]}
                     />
                     <View style={styles.channelContent}>
                       <View style={styles.channelNameRow}>
@@ -417,20 +418,20 @@ const AlgorithmicFeedScreen: React.FC = () => {
                         {isSubscribing ? (
                           <Loading3FillIcon
                             size={14}
-                            color={isSubscribed ? subscribedTextColor : '#FFFFFF'}
+                            color={isSubscribed ? subscribedTextColor : Colors.neutral[50]}
                           />
                         ) : (
                           <>
                             <Text
                               style={[
                                 styles.subscribeButtonText,
-                                { color: isSubscribed ? subscribedTextColor : '#FFFFFF' },
+                                { color: isSubscribed ? subscribedTextColor : Colors.neutral[50] },
                               ]}
                             >
                               {isSubscribed ? 'Subscribed' : 'Subscribe'}
                             </Text>
                             {!isSubscribed && (
-                              <PlusIcon size={10} color="#FFFFFF" strokeWidth={2.0} />
+                              <PlusIcon size={10} color={Colors.neutral[50]} strokeWidth={2.0} />
                             )}
                           </>
                         )}
@@ -472,7 +473,7 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   infoText: {
-    color: Colors.gray,
+    color: Colors.neutral[500],
     fontSize: 14,
     fontFamily: 'Figtree-Regular',
     lineHeight: 20,
@@ -483,7 +484,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   channelsSectionTitle: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 18,
     fontFamily: 'Figtree-Bold',
   },
@@ -511,7 +512,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   channelLabel: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 14,
     fontFamily: 'Figtree-Bold',
     marginBottom: 2,
@@ -523,7 +524,7 @@ const styles = StyleSheet.create({
     marginRight: 0,
   },
   channelDescription: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 14,
     fontFamily: 'Figtree-Regular',
   },
@@ -556,14 +557,14 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
   emptyTitle: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 20,
     fontFamily: 'Figtree-Bold',
     marginBottom: 8,
     textAlign: 'center',
   },
   emptySubtitle: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 16,
     fontFamily: 'Figtree-Medium',
     textAlign: 'center',
@@ -571,7 +572,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   exploreButton: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.neutral[50],
     borderRadius: BORDER_RADIUS.FULL,
     paddingVertical: 16,
     paddingHorizontal: 24,
@@ -579,7 +580,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   exploreButtonText: {
-    color: '#000000',
+    color: Colors.black,
     fontSize: 16,
     fontFamily: 'Figtree-SemiBold',
   },

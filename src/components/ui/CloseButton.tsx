@@ -15,7 +15,7 @@ const CloseButton: React.FC<CloseButtonProps> = ({ onPress }) => {
       onPress={onPress}
     >
       {({ pressed }) => (
-        <Icon name="close" size={20} color={pressed ? Colors.black : Colors.white} />
+        <Icon name="close" size={20} color={pressed ? Colors.black : Colors.neutral[50]} />
       )}
     </Pressable>
   );
@@ -30,7 +30,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.MEDIUM,
   },
   closeButtonPressed: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.neutral[50],
   },
 });
 

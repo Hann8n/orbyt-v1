@@ -3,7 +3,8 @@ import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, Text, StyleSheet, Dimensions, Pressable, FlatList } from 'react-native';
 import { Image } from 'expo-image';
 import Icon from '../../ui/Icon';
-import { Colors, RetryButton } from '../../ui/UI';
+import { Colors } from '../../../theme';
+import { RetryButton } from '../../ui/UI';
 import AnimatedTVStatic from '../../ui/AnimatedTVStatic';
 import { useQuery } from '@tanstack/react-query';
 import AtprotoService from '../../../services/api/AtprotoService';
@@ -138,8 +139,8 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
   const displayMessage = message || defaultMessage;
 
   // Use profile colors if available, otherwise fall back to secondaryColor or default
-  const iconColor = profileColors ? profileColors.textColor : secondaryColor || Colors.lightGray;
-  const textColor = profileColors ? profileColors.textColor : secondaryColor || Colors.lightGray;
+  const iconColor = profileColors ? profileColors.textColor : secondaryColor || Colors.neutral[200];
+  const textColor = profileColors ? profileColors.textColor : secondaryColor || Colors.neutral[200];
 
   // Suggested user item component (must be a component to use hooks)
   const SuggestedUserItem: React.FC<{ item: SuggestedUser }> = ({ item }) => {
@@ -165,7 +166,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
                 <VerificationBadge
                   handle={item.handle.trim()}
                   textSize={14}
-                  textColor={Colors.white}
+                  textColor={Colors.neutral[50]}
                 />
               )}
             </View>
@@ -265,7 +266,9 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
               />
             </View>
             {displayMessage && (
-              <Text style={[styles.emptyText, { color: Colors.white }]}>{displayMessage}</Text>
+              <Text style={[styles.emptyText, { color: Colors.neutral[50] }]}>
+                {displayMessage}
+              </Text>
             )}
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>suggested accounts</Text>
@@ -303,7 +306,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
               allowDownscaling={true}
             />
           </View>
-          <Text style={[styles.emptyText, { color: Colors.white }]}>{displayMessage}</Text>
+          <Text style={[styles.emptyText, { color: Colors.neutral[50] }]}>{displayMessage}</Text>
         </View>
       </View>
     );
@@ -323,10 +326,10 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
           {type === 'no-videos' ? (
             <AnimatedTVStatic size={80} />
           ) : (
-            <Icon name={icon} size={72} color={isNoVideos ? Colors.lightGray : iconColor} />
+            <Icon name={icon} size={72} color={isNoVideos ? Colors.neutral[200] : iconColor} />
           )}
         </View>
-        <Text style={[styles.emptyText, { color: isNoVideos ? Colors.lightGray : textColor }]}>
+        <Text style={[styles.emptyText, { color: isNoVideos ? Colors.neutral[200] : textColor }]}>
           {displayMessage}
         </Text>
         {isYourMixFeed && type === 'no-videos' && (
@@ -362,8 +365,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   emptyText: {
-    color: Colors.white,
-    opacity: 0.7,
+    color: Colors.neutral[50],
     fontSize: 16,
     fontFamily: 'Figtree-SemiBold',
     marginTop: 0,
@@ -397,7 +399,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: 'Figtree-Bold',
     fontWeight: 'bold',
-    color: Colors.white,
+    color: Colors.neutral[50],
   },
   suggestionsList: {
     width: '100%',
@@ -439,7 +441,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   displayName: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 16,
     marginBottom: 2,
     fontFamily: 'Figtree-SemiBold',
@@ -451,14 +453,14 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     borderColor: Colors.transparent,
     borderRadius: BORDER_RADIUS.SMALL,
-    backgroundColor: Colors.lightGray,
+    backgroundColor: Colors.neutral[200],
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
     marginLeft: 10,
   },
   addChannelsButton: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.neutral[50],
     borderRadius: BORDER_RADIUS.FULL,
     paddingVertical: 16,
     paddingHorizontal: 24,

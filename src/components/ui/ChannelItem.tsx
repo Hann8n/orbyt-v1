@@ -35,7 +35,7 @@ const ChannelItem: React.FC<ChannelItemProps> = ({
   uri,
   displayName,
   avatar,
-  textColor = '#FFFFFF',
+  textColor = Colors.neutral[50],
   backgroundColor,
   size = 'medium',
   showArrow = true,
@@ -53,7 +53,7 @@ const ChannelItem: React.FC<ChannelItemProps> = ({
   // orbyt channel formatting
   const isOrbyt = isOrbytChannel(uri);
   const orbytChannel = isOrbyt ? getChannelByUri(uri) : undefined;
-  const channelColor = orbytChannel?.channelColor || '#FFD700';
+  const channelColor = orbytChannel?.channelColor || Colors.amber[400];
   const showSlash = isOrbyt && shouldShowChannelSlash(uri);
 
   const handlePress = () => {
@@ -69,7 +69,7 @@ const ChannelItem: React.FC<ChannelItemProps> = ({
 
   return (
     <Pressable
-      style={[styles.container, { backgroundColor: backgroundColor || Colors.darkGray }, style]}
+      style={[styles.container, { backgroundColor: backgroundColor || Colors.neutral[900] }, style]}
       onPress={handlePress}
     >
       <View style={styles.accountButtonContent}>
@@ -97,7 +97,7 @@ const ChannelItem: React.FC<ChannelItemProps> = ({
                   style={[
                     styles.channelName,
                     {
-                      color: textColor || Colors.white,
+                      color: textColor || Colors.neutral[50],
                       fontSize: customFontSize || config.nameFontSize,
                       fontFamily: nameFontWeight,
                     },
@@ -112,7 +112,7 @@ const ChannelItem: React.FC<ChannelItemProps> = ({
                 style={[
                   styles.channelName,
                   {
-                    color: textColor || Colors.white,
+                    color: textColor || Colors.neutral[50],
                     fontSize: customFontSize || config.nameFontSize,
                     fontFamily: nameFontWeight,
                   },
@@ -126,7 +126,7 @@ const ChannelItem: React.FC<ChannelItemProps> = ({
         </View>
         {showArrow && (
           <View style={styles.accountArrow}>
-            <Icon name="chevron-right" size={20} color={Colors.gray} />
+            <Icon name="chevron-right" size={20} color={Colors.neutral[500]} />
           </View>
         )}
       </View>

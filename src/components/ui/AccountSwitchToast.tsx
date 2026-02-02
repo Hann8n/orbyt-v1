@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   toast: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.neutral[50],
     borderRadius: 999,
     paddingVertical: 10,
     paddingHorizontal: 12,

@@ -1,5 +1,6 @@
 import { Dimensions } from 'react-native';
 import * as Device from 'expo-device';
+import { Colors } from '../../theme';
 
 const { width, height } = Dimensions.get('window');
 
@@ -110,7 +111,7 @@ export interface TypographyTextProps extends RNTextProps {
 export const TypographyText: React.FC<TypographyTextProps> = ({
   variant = 'body',
   weight,
-  color = '#FFFFFF',
+  color = Colors.neutral[50],
   align,
   style,
   children,

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useRouter } from 'expo-router';
 import { View, StyleSheet } from 'react-native';
-import { Colors } from '../../src/components/ui/UI';
+import { Colors } from '../../src/theme';
 import ListHeader from '../../src/components/ui/ListHeader';
 import FeedRenderer from '../../src/components/features/feed/FeedRenderer';
 import { useCurrentUser } from '../../src/stores/userStore';
@@ -28,7 +28,7 @@ const WatchedScreen: React.FC = () => {
         viewMode="grid"
         refreshControl={undefined}
         backgroundColor={Colors.black}
-        secondaryColor={Colors.white}
+        secondaryColor={Colors.neutral[50]}
       />
     </View>
   );

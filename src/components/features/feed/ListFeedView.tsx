@@ -34,7 +34,7 @@ import GridFeedView from './GridFeedView';
 import { useWindowDimensions } from 'react-native';
 import * as Device from 'expo-device';
 import { getVideoCardHeight, getBottomNavBarHeight } from '../../../utils/device/screen';
-import { Colors } from '../../ui/UI';
+import { Colors } from '../../../theme';
 import { Loading3FillIcon } from '../../ui/Icon';
 import {
   APP_CONSTANTS,
@@ -81,7 +81,7 @@ const ListEmptyComponent = memo<ListEmptyComponentProps>(
         <View style={[styles.centeredLoadingContainer, { backgroundColor: Colors.black }]}>
           <Loading3FillIcon
             size={48}
-            color={profileColors?.textColor || secondaryColor || Colors.white}
+            color={profileColors?.textColor || secondaryColor || Colors.neutral[50]}
           />
         </View>
       );

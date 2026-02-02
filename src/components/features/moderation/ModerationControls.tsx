@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
-import { Colors } from '../../ui/UI';
+import { Colors } from '../../../theme';
 import Icon from '../../ui/Icon';
 import { useUserStoreState } from '../../../stores/userStore';
 import { useModerationSettings } from '../../../hooks/useModerationSettings';
@@ -72,7 +72,7 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible }) => {
                 <View style={styles.settingItem}>
                   <View style={styles.settingItemLeft}>
                     <View style={styles.iconContainer}>
-                      <Icon name="block" size={24} color={Colors.white} />
+                      <Icon name="block" size={24} color={Colors.neutral[50]} />
                     </View>
                     <View style={styles.settingTextContainer}>
                       <Text style={styles.settingItemText}>hide blocked and muted users</Text>
@@ -95,7 +95,7 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible }) => {
                   // External moderation settings link is not currently available
                 }}
               >
-                <Icon name="external-link" size={24} color={Colors.white} />
+                <Icon name="external-link" size={24} color={Colors.neutral[50]} />
                 <Text style={styles.webSettingsTextButtonText}>adjust settings on bsky.app</Text>
               </Pressable>
             </View>
@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   loadingText: {
-    color: Colors.gray,
+    color: Colors.neutral[500],
     fontSize: 16,
     fontFamily: 'Figtree-Medium',
   },
@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
   sectionTitle: {
-    color: Colors.gray,
+    color: Colors.neutral[500],
     fontSize: 14,
     fontWeight: '600',
     fontFamily: 'Figtree-SemiBold',
@@ -143,18 +143,18 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   sectionDescription: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 12,
     fontFamily: 'Figtree-Regular',
     marginBottom: 12,
     paddingHorizontal: 20,
   },
   sectionContent: {
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
     marginHorizontal: 20,
     borderRadius: BORDER_RADIUS.MEDIUM,
     borderWidth: 1,
-    borderColor: Colors.mediumGray,
+    borderColor: Colors.neutral[600],
     overflow: 'hidden',
   },
   settingItem: {
@@ -164,13 +164,13 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 20,
     borderBottomWidth: 0.5,
-    borderBottomColor: Colors.mediumGray,
+    borderBottomColor: Colors.neutral[600],
   },
   contentOptionItem: {
     paddingVertical: 16,
     paddingHorizontal: 20,
     borderBottomWidth: 0.5,
-    borderBottomColor: Colors.mediumGray,
+    borderBottomColor: Colors.neutral[600],
   },
   lastItem: {
     borderBottomWidth: 0,
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: BORDER_RADIUS.SMALL,
-    backgroundColor: Colors.mediumGray,
+    backgroundColor: Colors.neutral[600],
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -193,13 +193,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   settingItemText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 16,
     fontWeight: '500',
     fontFamily: 'Figtree-Medium',
   },
   settingItemDescription: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 12,
     fontFamily: 'Figtree-Regular',
     marginTop: 2,
@@ -216,10 +216,10 @@ const styles = StyleSheet.create({
   },
   toggleButtonGroup: {
     flexDirection: 'row',
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
     borderRadius: BORDER_RADIUS.MEDIUM,
     borderWidth: 1,
-    borderColor: Colors.mediumGray,
+    borderColor: Colors.neutral[600],
     flex: 1,
     maxWidth: 300,
     overflow: 'hidden',
@@ -231,17 +231,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRightWidth: 1,
-    borderRightColor: Colors.mediumGray,
+    borderRightColor: Colors.neutral[600],
   },
   toggleButtonActive: {
-    backgroundColor: Colors.green,
-    borderRightColor: Colors.green,
+    backgroundColor: Colors.teal[500],
+    borderRightColor: Colors.teal[500],
   },
   toggleButtonText: {
     fontSize: 13,
     fontWeight: '500',
     fontFamily: 'Figtree-Medium',
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
   },
   toggleButtonTextActive: {
     color: Colors.black,
@@ -259,19 +259,19 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   disabledIcon: {
-    backgroundColor: Colors.mediumGray,
+    backgroundColor: Colors.neutral[600],
   },
   disabledText: {
-    color: Colors.gray,
+    color: Colors.neutral[500],
   },
   disabledToggleGroup: {
     opacity: 0.5,
   },
   disabledToggleButton: {
-    backgroundColor: Colors.mediumGray,
+    backgroundColor: Colors.neutral[600],
   },
   disabledToggleText: {
-    color: Colors.gray,
+    color: Colors.neutral[500],
   },
   infoSection: {
     marginTop: 24,
@@ -280,14 +280,14 @@ const styles = StyleSheet.create({
   infoContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
     borderRadius: BORDER_RADIUS.MEDIUM,
     padding: 16,
     borderWidth: 1,
-    borderColor: Colors.mediumGray,
+    borderColor: Colors.neutral[600],
   },
   infoText: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 12,
     fontFamily: 'Figtree-Regular',
     marginLeft: 12,
@@ -301,28 +301,28 @@ const styles = StyleSheet.create({
   },
   statItem: {
     width: '31%',
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
     padding: 15,
     borderRadius: BORDER_RADIUS.MEDIUM,
     marginBottom: 10,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: Colors.mediumGray,
+    borderColor: Colors.neutral[600],
   },
   statContent: {
     alignItems: 'center',
     justifyContent: 'center',
   },
   statValue: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 24,
     fontWeight: 'bold',
     fontFamily: 'Figtree-Bold',
     textAlign: 'center',
   },
   statLabel: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 12,
     marginTop: 5,
     fontFamily: 'Figtree-Regular',
@@ -349,14 +349,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   webSettingsTextButtonText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 14,
     fontWeight: '500',
     fontFamily: 'Figtree-Medium',
     marginLeft: 6,
   },
   webSettingsDescription: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 12,
     fontFamily: 'Figtree-Regular',
     textAlign: 'center',

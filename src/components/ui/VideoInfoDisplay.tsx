@@ -59,12 +59,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   videoSizeText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 14,
     fontFamily: 'Figtree-Medium',
   },
   compressionNote: {
-    color: Colors.lightYellow,
+    color: Colors.amber[200],
     fontSize: 12,
     fontFamily: 'Figtree-Regular',
     marginTop: 4,
@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   videoInfoLabel: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 13,
     fontFamily: 'Figtree-Regular',
     marginBottom: 4,
@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   videoInfoValue: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 16,
     fontFamily: 'Figtree-SemiBold',
   },
@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   compressionOptionsTitle: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 14,
     fontFamily: 'Figtree-SemiBold',
     marginBottom: 8,
@@ -124,12 +124,12 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   compressionOptionLabel: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 14,
     fontFamily: 'Figtree-Medium',
   },
   compressionOptionQuality: {
-    color: Colors.lightGreen,
+    color: Colors.teal[300],
     fontSize: 12,
     fontFamily: 'Figtree-Regular',
   },
@@ -138,12 +138,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   compressionOptionSize: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 12,
     fontFamily: 'Figtree-Regular',
   },
   compressionOptionTime: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 12,
     fontFamily: 'Figtree-Regular',
   },
@@ -151,14 +151,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.lightBlue,
+    backgroundColor: Colors.cyan[400],
     borderRadius: BORDER_RADIUS.SMALL,
     padding: 12,
     marginTop: 10,
     gap: 8,
   },
   compressButtonText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 14,
     fontFamily: 'Figtree-Medium',
   },

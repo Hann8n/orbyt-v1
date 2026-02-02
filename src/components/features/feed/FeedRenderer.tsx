@@ -21,7 +21,7 @@ import GridFeedView from './GridFeedView';
 import EmptyFeed from './EmptyFeed';
 import { useFeed, useSearchFeed } from '../../../hooks/useFeed';
 import { useReportedPostsStore } from '../../../stores/reportedPostsStore';
-import { Colors } from '../../ui/UI';
+import { Colors } from '../../../theme';
 import { feedService } from '../../../services/FeedService';
 import type { ListFeedViewRef, ViewMode } from '../../../types';
 import { FollowProvider } from '../../../context/FollowContext';
@@ -300,8 +300,8 @@ const FeedRenderer = memo(
           <RefreshControl
             refreshing={effectiveRefreshing}
             onRefresh={handleRefresh}
-            tintColor={secondaryColor || Colors.white}
-            colors={secondaryColor ? [secondaryColor] : [Colors.white]}
+            tintColor={secondaryColor || Colors.neutral[50]}
+            colors={secondaryColor ? [secondaryColor] : [Colors.neutral[50]]}
             progressBackgroundColor="transparent"
           />
         );
@@ -331,7 +331,7 @@ const FeedRenderer = memo(
                 feedOption: feedOption || 'search',
                 userDid,
                 backgroundColor: backgroundColor || Colors.black,
-                secondaryColor: secondaryColor || Colors.white,
+                secondaryColor: secondaryColor || Colors.neutral[50],
                 initialIndex: index.toString(),
               },
             });

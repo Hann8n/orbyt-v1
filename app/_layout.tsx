@@ -16,7 +16,7 @@ import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-rean
 import { LinearGradient } from '../src/components/ui/LinearGradient';
 
 // Keep local imports where they are; no file moves
-import { Colors } from '../src/components/ui/UI';
+import { Colors } from '../src/theme';
 import { useUserStore } from '../src/stores/userStore';
 import { migrateAsyncStorageToMMKV } from '../src/utils/storage';
 import { useBookmarkStore } from '../src/stores/bookmarkStore';

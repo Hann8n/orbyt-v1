@@ -224,7 +224,7 @@ const goBackButtonStyles = StyleSheet.create({
     alignItems: 'center',
   },
   whiteButton: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.neutral[50],
   },
   glassBackground: {
     ...StyleSheet.absoluteFillObject,
@@ -472,7 +472,7 @@ const styles = StyleSheet.create({
   emoji: {
     fontSize: 32,
     fontFamily: 'Figtree-SemiBold',
-    color: Colors.white,
+    color: Colors.neutral[50],
     textAlign: 'left',
     marginBottom: 8,
     lineHeight: 40,
@@ -480,7 +480,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontFamily: 'Figtree-SemiBold',
-    color: Colors.white,
+    color: Colors.neutral[50],
     textAlign: 'left',
     marginBottom: 12,
     lineHeight: 40,
@@ -489,7 +489,7 @@ const styles = StyleSheet.create({
   message: {
     fontSize: 16,
     fontFamily: 'Figtree-Regular',
-    color: Colors.gray,
+    color: Colors.neutral[500],
     textAlign: 'left',
     marginBottom: 24,
     lineHeight: 24,
@@ -520,7 +520,7 @@ const styles = StyleSheet.create({
   supportLinkText: {
     fontSize: 16,
     fontFamily: 'Figtree-SemiBold',
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     textAlign: 'left',
     textDecorationLine: 'underline',
   },

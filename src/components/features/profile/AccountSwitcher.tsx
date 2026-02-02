@@ -6,7 +6,7 @@ import { SavedAccount } from '../../../stores/userStore';
 import { analyzeOAuthError } from '../../../utils/errors/oauth';
 import ProfileService, { useProfile } from '../../../services/data/ProfileService';
 import type { ProfileViewWithOrbyt } from '../../../services/api/types';
-import { Colors } from '../../ui/UI';
+import { Colors } from '../../../theme';
 import AuthorItem from '../../ui/AuthorItem';
 import VerticalListSheet from '../../ui/VerticalListSheet';
 import { useAccountManagement, useAuth } from '../../../stores/userStore';
@@ -324,12 +324,16 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
               >
                 <View style={styles.buttonContent}>
                   {isAuthenticating ? (
-                    <Loading3FillIcon size={24} color={Colors.white} style={styles.iconSpacing} />
+                    <Loading3FillIcon
+                      size={24}
+                      color={Colors.neutral[50]}
+                      style={styles.iconSpacing}
+                    />
                   ) : (
                     <Icon
                       name="bluesky-icon"
                       size={20}
-                      color={Colors.bluesky}
+                      color={Colors.blue[500]}
                       style={styles.iconSpacing}
                     />
                   )}
@@ -345,7 +349,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
                 disabled={isAuthenticating}
               >
                 <View style={styles.buttonContent}>
-                  <Icon name="at" size={20} color={Colors.white} style={styles.iconSpacing} />
+                  <Icon name="at" size={20} color={Colors.neutral[50]} style={styles.iconSpacing} />
                   <Text style={styles.addAccountButtonText}>Network</Text>
                 </View>
               </Pressable>
@@ -382,7 +386,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
             showCheckmark={shouldShowCheckmark}
             showCheckmarkSpinner={isSwitchTarget && !editMode}
             onDeletePress={() => handleRemoveAccount(account)}
-            backgroundColor={Colors.darkGray}
+            backgroundColor={Colors.neutral[900]}
             onPress={() => {
               if (!isActive && !editMode) {
                 // Only allow switching if there are multiple accounts
@@ -472,11 +476,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minWidth: 50,
     height: 32,
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
     borderRadius: BORDER_RADIUS.MEDIUM,
   },
   headerEditButtonText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 16,
     fontWeight: '600',
     fontFamily: 'Figtree-SemiBold',
@@ -497,7 +501,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   addAccountHeader: {
-    color: Colors.gray,
+    color: Colors.neutral[500],
     fontSize: 16,
 
     fontFamily: 'Figtree-SemiBold',
@@ -510,7 +514,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   addAccountButton: {
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
     borderRadius: BORDER_RADIUS.LARGE,
     paddingVertical: 16,
     paddingHorizontal: 20,
@@ -534,7 +538,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   addAccountButtonText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 18,
     fontWeight: '600',
     fontFamily: 'Figtree-SemiBold',

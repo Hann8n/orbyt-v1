@@ -108,7 +108,7 @@ const CustomPDSInputSheet: React.FC<CustomPDSInputSheetProps> = ({
             nativeID="pds-username-input"
             style={styles.input}
             placeholder="username"
-            placeholderTextColor={Colors.gray}
+            placeholderTextColor={Colors.neutral[500]}
             value={username}
             onChangeText={text => {
               setUsername(text);
@@ -137,7 +137,7 @@ const CustomPDSInputSheet: React.FC<CustomPDSInputSheetProps> = ({
         >
           {isAddingAccount || isValidatingPds ? (
             <View style={styles.buttonContent}>
-              <Loading3FillIcon size={24} color={Colors.gray} style={{ marginRight: 8 }} />
+              <Loading3FillIcon size={24} color={Colors.neutral[500]} style={{ marginRight: 8 }} />
               <Text style={styles.loginButtonText}>
                 {isValidatingPds ? 'Connecting...' : 'Signing in...'}
               </Text>
@@ -160,8 +160,8 @@ const CustomPDSInputSheet: React.FC<CustomPDSInputSheetProps> = ({
                 size={24}
                 color={
                   username.trim() && !isAddingAccount && !isValidatingPds
-                    ? Colors.darkGray
-                    : Colors.gray
+                    ? Colors.neutral[900]
+                    : Colors.neutral[500]
                 }
               />
             </View>
@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.neutral[50],
     borderRadius: BORDER_RADIUS.FULL,
     marginBottom: 4,
     paddingHorizontal: 20,
@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.25,
   },
   loginButton: {
-    backgroundColor: Colors.lightGray,
+    backgroundColor: Colors.neutral[200],
     borderRadius: BORDER_RADIUS.FULL,
     paddingVertical: 20,
     paddingHorizontal: 20,
@@ -223,18 +223,18 @@ const styles = StyleSheet.create({
     minHeight: 64,
   },
   loginButtonActive: {
-    backgroundColor: Colors.green,
+    backgroundColor: Colors.teal[500],
   },
   loginButtonDisabled: {
     opacity: 0.5,
   },
   loginButtonText: {
-    color: Colors.gray,
+    color: Colors.neutral[500],
     fontSize: 18,
     fontFamily: 'Figtree-SemiBold',
   },
   loginButtonTextActive: {
-    color: Colors.darkGray,
+    color: Colors.neutral[900],
   },
   errorContainer: {
     marginBottom: 16,
@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.SMALL,
   },
   errorText: {
-    color: Colors.red,
+    color: Colors.coral[500],
     fontSize: 14,
     fontFamily: 'Figtree-Medium',
     textAlign: 'center',
@@ -257,13 +257,13 @@ const styles = StyleSheet.create({
     paddingLeft: 20,
   },
   termsText: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 16,
     fontFamily: 'Figtree-Regular',
     lineHeight: 20,
   },
   termsLink: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 16,
     fontFamily: 'Figtree-SemiBold',
     textDecorationLine: 'underline',

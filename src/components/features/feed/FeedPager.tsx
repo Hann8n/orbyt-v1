@@ -29,7 +29,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { SvgXml } from 'react-native-svg';
-import { Colors } from '../../ui/UI';
+import { Colors } from '../../../theme';
 import FeedRenderer from './FeedRenderer';
 import { useWindowDimensions } from 'react-native';
 import * as Device from 'expo-device';
@@ -52,6 +52,7 @@ const FEED_LABELS: { [key: string]: string } = {
   'your-mix': 'your mix',
 };
 
+// SVG uses Orbyt White for the camera icon fill (matches Colors.neutral[50] / Colors.neutral[50])
 const CAMERA_2_FILL_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='2 2 20 20'><g fill='none'><path fill='#f3f5fe' d='M14.793 3a1.5 1.5 0 0 1 .95.34l.11.1L17.415 5H20a2 2 0 0 1 1.995 1.85L22 7v12a2 2 0 0 1-1.85 1.995L20 21H4a2 2 0 0 1-1.995-1.85L2 19V7a2 2 0 0 1 1.85-1.995L4 5h2.586l1.56-1.56a1.5 1.5 0 0 1 .913-.433L9.207 3zM12 7.5a5 5 0 1 0 0 10 5 5 0 0 0 0-10m0 2a3 3 0 1 1 0 6 3 3 0 0 1 0-6'/></g></svg>`;
 
 interface FeedPagerProps {
@@ -87,7 +88,7 @@ const FeedIndicatorItem = memo(function FeedIndicatorItem({
     const isActive = Math.round(baseProgress) === feedIndex;
     const distance = Math.abs(baseProgress - feedIndex);
     const opacity = isActive ? 1 : Math.max(0.3, 1 - distance * 0.4);
-    const color = isActive ? Colors.white : 'rgba(255, 255, 255, 0.75)';
+    const color = isActive ? Colors.neutral[50] : 'rgba(255, 255, 255, 0.75)';
     return {
       color,
       fontSize: indicatorBaseFontSize,
@@ -563,7 +564,7 @@ const styles = StyleSheet.create({
   feedIndicators: {
     flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: Colors.lightGray,
+    shadowColor: Colors.neutral[200],
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
@@ -575,7 +576,7 @@ const styles = StyleSheet.create({
   createButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: Colors.lightGray,
+    shadowColor: Colors.neutral[200],
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,

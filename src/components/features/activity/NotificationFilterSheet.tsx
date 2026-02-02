@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import VerticalListSheet from '../../ui/VerticalListSheet';
 import CancelButton from '../../ui/CancelButton';
 import Icon from '../../ui/Icon';
-import { Colors } from '../../ui/UI';
+import { Colors } from '../../../theme';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import type { NotificationReason } from '../../../services/api/types';
 
@@ -332,14 +332,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginHorizontal: 12,
     marginBottom: 12,
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
     borderRadius: BORDER_RADIUS.LARGE,
   },
   filterOptionPressed: {
     opacity: 0.7,
   },
   filterOptionLabel: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 18,
     fontFamily: 'Figtree-SemiBold',
     flex: 1,
@@ -349,13 +349,13 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: BORDER_RADIUS.SMALL,
     borderWidth: 2,
-    borderColor: Colors.lightGray,
+    borderColor: Colors.neutral[200],
     justifyContent: 'center',
     alignItems: 'center',
   },
   checkboxSelected: {
-    backgroundColor: Colors.white,
-    borderColor: Colors.white,
+    backgroundColor: Colors.neutral[50],
+    borderColor: Colors.neutral[50],
   },
   footer: {
     alignItems: 'center',
@@ -369,11 +369,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minWidth: 50,
     height: 32,
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
     borderRadius: BORDER_RADIUS.MEDIUM,
   },
   clearButtonText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 16,
     fontWeight: '600',
     fontFamily: 'Figtree-SemiBold',

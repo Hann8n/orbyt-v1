@@ -1,6 +1,8 @@
+// Colors exported from theme for convenience
+export { Colors } from '../../theme';
+
 // Main UI system exports
 export {
-  Colors,
   Button,
   RetryButton,
   Card,

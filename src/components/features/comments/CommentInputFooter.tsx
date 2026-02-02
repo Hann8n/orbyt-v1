@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import Icon from '../../ui/Icon';
 import UI from '../../ui/UI';
-import { Colors } from '../../ui/UI';
+import { Colors } from '../../../theme';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { UserSearchModal } from '../../ui/usersearch';
 import { useUserStore } from '../../../stores/userStore';
@@ -126,7 +126,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
               onSelectionChange={onSelectionChange}
               style={styles.textInput}
               placeholder={placeholder}
-              placeholderTextColor={Colors.gray}
+              placeholderTextColor={Colors.neutral[500]}
               multiline
               editable={!isPosting}
               ref={inputRef}
@@ -177,7 +177,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                 accessibilityRole="button"
                 accessibilityLabel="Cancel reply"
               >
-                <Icon name="close" size={18} color={Colors.lightGray} />
+                <Icon name="close" size={18} color={Colors.neutral[200]} />
               </Pressable>
             ) : null}
             {showCharCount && (
@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
   },
   textInput: {
     backgroundColor: Colors.transparent,
-    color: Colors.white,
+    color: Colors.neutral[50],
     borderColor: Colors.transparent,
     flex: 1,
     minHeight: 42,
@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   sendButtonFallback: {
-    backgroundColor: Colors.lightGray,
+    backgroundColor: Colors.neutral[200],
   },
   glassBackground: {
     ...StyleSheet.absoluteFillObject,
@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
   },
   charCountBelow: {
     marginTop: 6,
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 11,
     textAlign: 'center',
     fontFamily: 'Figtree-Medium',
@@ -303,13 +303,13 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   charCountText: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 11,
     textAlign: 'center',
     fontFamily: 'Figtree-Medium',
   },
   charCountTextError: {
-    color: Colors.lightRed,
+    color: Colors.coral[300],
   },
   userSearchContainer: {
     position: 'absolute',

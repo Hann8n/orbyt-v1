@@ -51,7 +51,7 @@ export const sharedItemStyles = StyleSheet.create({
     paddingLeft: 4,
   },
   accountDisplayName: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 18,
     fontWeight: 'bold',
     fontFamily: 'Figtree-Bold',
@@ -70,7 +70,7 @@ export const sharedItemStyles = StyleSheet.create({
     borderWidth: 0,
     borderColor: Colors.transparent,
     borderRadius: BORDER_RADIUS.SMALL,
-    backgroundColor: Colors.lightGray,
+    backgroundColor: Colors.neutral[200],
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,

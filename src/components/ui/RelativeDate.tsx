@@ -9,7 +9,7 @@ import {
   isValid,
   parseISO,
 } from 'date-fns';
-import { Colors } from '../ui/UI';
+import { Colors } from '../../theme';
 
 interface RelativeDateProps {
   dateString?: string;
@@ -105,7 +105,7 @@ export const formatPostDate = (dateString?: string): string => {
 
 const styles = StyleSheet.create({
   dateText: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 13,
     fontFamily: 'Figtree-Regular',
   },

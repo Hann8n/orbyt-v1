@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { Loading3FillIcon } from '../src/components/ui/Icon';
-import { Colors } from '../src/components/ui/UI';
+import { Colors } from '../src/theme';
 import { useAuth, useAccountManagement } from '../src/stores/userStore';
 
 export default function AdvancedLoginScreen() {
@@ -110,7 +110,7 @@ export default function AdvancedLoginScreen() {
               nativeID="advanced-login-username-input"
               style={styles.input}
               placeholder="username"
-              placeholderTextColor={Colors.gray}
+              placeholderTextColor={Colors.neutral[500]}
               value={username}
               onChangeText={text => {
                 setUsername(text);
@@ -139,7 +139,11 @@ export default function AdvancedLoginScreen() {
           >
             {isAddingAccount || isValidatingPds ? (
               <View style={styles.buttonContent}>
-                <Loading3FillIcon size={24} color={Colors.gray} style={{ marginRight: 8 }} />
+                <Loading3FillIcon
+                  size={24}
+                  color={Colors.neutral[500]}
+                  style={{ marginRight: 8 }}
+                />
                 <Text style={styles.loginButtonText}>
                   {isValidatingPds ? 'Connecting...' : 'Signing in...'}
                 </Text>
@@ -162,8 +166,8 @@ export default function AdvancedLoginScreen() {
                   size={24}
                   color={
                     username.trim() && !isAddingAccount && !isValidatingPds
-                      ? Colors.darkGray
-                      : Colors.gray
+                      ? Colors.neutral[900]
+                      : Colors.neutral[500]
                   }
                 />
               </View>
@@ -197,7 +201,7 @@ const styles = StyleSheet.create({
     minHeight: 64,
   },
   headerTitle: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 32,
     fontFamily: 'Figtree-SemiBold',
     textAlign: 'left',
@@ -215,7 +219,7 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.neutral[50],
     borderRadius: BORDER_RADIUS.FULL,
     marginBottom: 4,
     paddingHorizontal: 20,
@@ -233,7 +237,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.25,
   },
   loginButton: {
-    backgroundColor: Colors.lightGray,
+    backgroundColor: Colors.neutral[200],
     borderRadius: BORDER_RADIUS.FULL,
     paddingVertical: 20,
     paddingHorizontal: 20,
@@ -248,15 +252,15 @@ const styles = StyleSheet.create({
     minHeight: 64,
   },
   loginButtonActive: {
-    backgroundColor: Colors.green,
+    backgroundColor: Colors.teal[500],
   },
   loginButtonText: {
-    color: Colors.gray,
+    color: Colors.neutral[500],
     fontSize: 18,
     fontFamily: 'Figtree-SemiBold',
   },
   loginButtonTextActive: {
-    color: Colors.darkGray,
+    color: Colors.neutral[900],
   },
   errorContainer: {
     marginBottom: 16,
@@ -265,7 +269,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.SMALL,
   },
   errorText: {
-    color: Colors.red,
+    color: Colors.coral[500],
     fontSize: 14,
     fontFamily: 'Figtree-Medium',
     textAlign: 'center',
@@ -279,13 +283,13 @@ const styles = StyleSheet.create({
     paddingLeft: 20,
   },
   termsText: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 16,
     fontFamily: 'Figtree-Regular',
     lineHeight: 20,
   },
   termsLink: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 16,
     fontFamily: 'Figtree-SemiBold',
     textDecorationLine: 'underline',

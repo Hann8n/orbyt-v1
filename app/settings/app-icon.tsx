@@ -14,7 +14,7 @@ import { useRouter } from 'expo-router';
 import { setAppIcon, getAppIcon } from '@mozzius/expo-dynamic-app-icon';
 import type { ImageSource } from 'expo-image';
 
-import { Colors } from '../../src/components/ui/UI';
+import { Colors } from '../../src/theme';
 import Icon from '../../src/components/ui/Icon';
 import ListHeader from '../../src/components/ui/ListHeader';
 import { settingsLayoutStyles } from './SettingsStyles';
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   sectionTitleText: {
-    color: Colors.gray,
+    color: Colors.neutral[500],
     fontSize: 14,
     fontWeight: '600',
     fontFamily: 'Figtree-SemiBold',
@@ -302,12 +302,12 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   attributionText: {
-    color: Colors.gray,
+    color: Colors.neutral[500],
     fontSize: 12,
     fontFamily: 'Figtree-Regular',
   },
   attributionHandle: {
-    color: Colors.orbytGreen,
+    color: Colors.teal[400],
     fontSize: 12,
     fontFamily: 'Figtree-SemiBold',
   },
@@ -326,7 +326,7 @@ const styles = StyleSheet.create({
   iconPreview: {
     borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
   },
   selectedIndicator: {
     position: 'absolute',
@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.neutral[50],
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
@@ -348,14 +348,14 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   iconLabel: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 11,
     fontFamily: 'Figtree-Medium',
     marginTop: 6,
     textAlign: 'center',
   },
   iconSubtitle: {
-    color: Colors.gray,
+    color: Colors.neutral[500],
     fontSize: 9,
     fontFamily: 'Figtree-Regular',
     marginTop: 2,

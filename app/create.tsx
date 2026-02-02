@@ -40,7 +40,7 @@ import BottomToolBar from '../src/components/ui/BottomToolBar';
 import { useWindowDimensions } from 'react-native';
 import * as Device from 'expo-device';
 import { getBottomNavBarHeight } from '../src/utils/device/screen';
-import { Colors } from '../src/components/ui/UI';
+import { Colors } from '../src/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
@@ -664,7 +664,7 @@ const CreateScreen: React.FC = () => {
             removeAfterSavedToPhoto: false,
             cancelButtonText: 'Cancel',
             saveButtonText: 'Done',
-            trimmerColor: Colors.blurple,
+            trimmerColor: Colors.purple[500],
             enableCancelTrimming: true,
             closeWhenFinish: true,
             autoplay: true,
@@ -868,7 +868,7 @@ const CreateScreen: React.FC = () => {
     if (!cameraPermission.granted) {
       return (
         <View style={styles.warningContainer}>
-          <Icon name="videocam" size={64} color={Colors.lightGray} style={styles.errorIcon} />
+          <Icon name="videocam" size={64} color={Colors.neutral[200]} style={styles.errorIcon} />
           <Text style={styles.warningText}>Please enable camera permissions</Text>
           <Pressable
             style={({ pressed }) => [styles.button, pressed && { opacity: 0.7 }]}
@@ -958,7 +958,9 @@ const CreateScreen: React.FC = () => {
               <Animated.View
                 style={[
                   styles.progressBarFill,
-                  { backgroundColor: selectedDuration === 6 ? '#09eb9a' : Colors.blurple },
+                  {
+                    backgroundColor: selectedDuration === 6 ? Colors.teal[500] : Colors.purple[500],
+                  },
                   animatedProgressStyle,
                 ]}
               />
@@ -1136,7 +1138,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.black,
   },
   warningText: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 18,
     fontFamily: 'Figtree-SemiBold',
     textAlign: 'center',
@@ -1150,7 +1152,7 @@ const styles = StyleSheet.create({
   button: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.neutral[50],
     borderRadius: BORDER_RADIUS.LARGE,
     paddingVertical: 14,
     paddingHorizontal: 24,
@@ -1196,7 +1198,7 @@ const styles = StyleSheet.create({
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: Colors.blurple,
+    backgroundColor: Colors.purple[500],
     borderRadius: 0,
     minHeight: 4, // Ensure minimum visible height on tablets
   },
@@ -1235,18 +1237,18 @@ const styles = StyleSheet.create({
     borderRadius: 15,
   },
   durationOptionSelected: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.neutral[50],
   },
   durationOptionSelectedGlass: {
     backgroundColor: 'rgba(255, 255, 255, 0.3)',
   },
   durationOptionText: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 14,
     fontFamily: 'Figtree-Medium',
   },
   durationOptionTextSelected: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontFamily: 'Figtree-SemiBold',
   },
   durationOptionTextDisabled: {
@@ -1278,13 +1280,13 @@ const styles = StyleSheet.create({
     height: 90,
     borderRadius: 47.5,
     borderWidth: 5,
-    borderColor: Colors.white,
+    borderColor: Colors.neutral[50],
     backgroundColor: 'transparent',
     justifyContent: 'center',
     alignItems: 'center',
   },
   recordButtonDisabled: {
-    borderColor: Colors.lightGray,
+    borderColor: Colors.neutral[200],
   },
   captureButtonInner: {
     width: 74,

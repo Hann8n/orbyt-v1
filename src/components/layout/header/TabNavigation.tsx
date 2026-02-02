@@ -3,7 +3,7 @@ import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, StyleSheet, Pressable, Text } from 'react-native';
 import { ListViewIcon, GridViewIcon, DownSmallFillIcon } from '../../ui/Icon';
 import type { ViewMode } from '../../../types';
-import { Colors } from '../../ui/UI';
+import { Colors } from '../../../theme';
 import VerticalListSheet, { VerticalListButton } from '../../ui/VerticalListSheet';
 
 export interface TabOption {
@@ -31,7 +31,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
   tabs,
   activeTab,
   onTabPress,
-  textColor = '#fff',
+  textColor = Colors.neutral[50],
   backgroundColor = 'transparent',
   accentColor: _accentColor, // Add accent color prop
   style,
@@ -50,7 +50,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
   };
 
   // Use the passed textColor for active tabs, fallback to white for better readability
-  const activeTabColor = textColor || '#FFFFFF';
+  const activeTabColor = textColor || Colors.neutral[50];
 
   // Get variant-specific styles
   const variantStyle = variant === 'comments' ? styles.commentsStyle : styles.headerStyle;
@@ -76,7 +76,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
             >
               {activeTabLabel}
             </Text>
-            <DownSmallFillIcon size={20} color={Colors.gray} />
+            <DownSmallFillIcon size={20} color={Colors.neutral[500]} />
           </Pressable>
 
           {/* View toggle area */}

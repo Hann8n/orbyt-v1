@@ -19,7 +19,7 @@ import { Canvas, Rect } from '@shopify/react-native-skia';
 import { formatTime } from '../../../utils/formatting/time';
 import { useWindowDimensions } from 'react-native';
 import * as Device from 'expo-device';
-import { Colors } from '../../ui/UI';
+import { Colors } from '../../../theme';
 import { useUIStore } from '../../../stores/uiStore';
 import { useOverlayVisibility } from '../../../context/FeedIndicatorContext';
 import {
@@ -427,7 +427,7 @@ const VideoScrubberComponent = ({
                 y={trackY}
                 width={screenWidth}
                 height={trackHeightSV}
-                color={Colors.white}
+                color={Colors.neutral[50]}
                 opacity={0.2}
               />
               <Rect
@@ -435,7 +435,7 @@ const VideoScrubberComponent = ({
                 y={barY}
                 width={progressWidthSV}
                 height={barHeightSV}
-                color={Colors.white}
+                color={Colors.neutral[50]}
                 opacity={barOpacitySV}
               />
             </Canvas>
@@ -478,7 +478,7 @@ const styles = StyleSheet.create({
   timeText: {
     textAlign: 'center',
     fontWeight: '600',
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontFamily: 'Figtree-SemiBold',
   },
   timeTextLarge: {
