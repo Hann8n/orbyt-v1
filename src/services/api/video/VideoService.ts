@@ -3,6 +3,8 @@
  * Handles all video-related API operations
  */
 
+import { Platform } from 'react-native';
+import { File } from 'expo-file-system';
 import { logger } from '../../../utils/logger';
 import { AtprotoCore } from '../core';
 import type { UploadLimitsResponse } from '../types';
@@ -93,17 +95,34 @@ export class VideoService {
 
       const token = serviceAuth.token;
 
-      // Get video file info - fetch works for both web and React Native
-      const videoResponse = await fetch(videoPath);
-      if (!videoResponse.ok) {
-        throw new Error(
-          `Failed to fetch video: ${videoResponse.status} ${videoResponse.statusText}`
-        );
-      }
+      // Get video file: on Android fetch(file://) often fails; Blob from ArrayBuffer is not supported.
+      // Send ArrayBuffer directly via XHR so server receives raw bytes and can detect content type.
+      // On iOS/web, fetch works and we send a Blob.
+      let uploadBody: Blob | ArrayBuffer;
+      let videoSize: number;
+      let videoName: string;
 
-      const videoFile = await videoResponse.blob();
-      const videoSize = videoFile.size;
-      const videoName = videoPath.split('/').pop() || 'video.mp4';
+      if (Platform.OS === 'android') {
+        const fileUri = videoPath.startsWith('file://') ? videoPath : `file://${videoPath}`;
+        const file = new File(fileUri);
+        if (!file.exists) {
+          throw new Error(`Video file not found: ${videoPath}`);
+        }
+        videoSize = file.size ?? 0;
+        videoName = file.name || videoPath.split('/').pop() || 'video.mp4';
+        uploadBody = await file.arrayBuffer();
+      } else {
+        const videoResponse = await fetch(videoPath);
+        if (!videoResponse.ok) {
+          throw new Error(
+            `Failed to fetch video: ${videoResponse.status} ${videoResponse.statusText}`
+          );
+        }
+        const blob = await videoResponse.blob();
+        videoSize = blob.size;
+        videoName = videoPath.split('/').pop() || 'video.mp4';
+        uploadBody = blob;
+      }
 
       // Upload to video service
       const uploadUrl = new URL('https://video.bsky.app/xrpc/app.bsky.video.uploadVideo');
@@ -162,7 +181,7 @@ export class VideoService {
           onProgress(10);
         }
 
-        xhr.send(videoFile);
+        xhr.send(uploadBody);
       });
 
       // Upload complete - ensure we're at least at 40% to transition to processing stage

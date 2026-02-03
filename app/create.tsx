@@ -1119,7 +1119,7 @@ const CreateScreen: React.FC = () => {
         flashActive={flash === 'on'}
         hasSegments={(segmentManagerRef.current?.getTotalDuration() ?? 0) > 0}
         isFrontCamera={isFrontCamera}
-        disableGalleryUpload={availableTime <= 0}
+        disableGalleryUpload={Platform.OS === 'android' || availableTime <= 0}
       />
     </SafeAreaView>
   );
