@@ -50,7 +50,10 @@ const ShareSheet: React.FC = () => {
   const sheetDetents: ('auto' | number)[] = useMemo(() => ['auto'], []);
   const insets = useSafeAreaInsets();
   const footerBottomPadding = Math.max(insets.bottom, FOOTER_BOTTOM_PADDING_MIN);
-  const [contentBottomPadding, wrapFooter] = useMeasuredFooterHeight(8 + 44);
+  const footerTop = 4;
+  const [contentBottomPadding, wrapFooter] = useMeasuredFooterHeight(
+    footerTop + 44 + footerBottomPadding
+  );
 
   // Present sheet when data arrives
   useEffect(() => {
@@ -284,7 +287,14 @@ const ShareSheet: React.FC = () => {
     }
   }, [postUri, authorHandle, authorDid]);
 
-  // Get menu options based on current state (vibrant accent colors for pop)
+  // Neon accent colors for share-sheet (electric glow)
+  const NEON = {
+    purple: '#c084fc',
+    amber: '#facc15',
+    coral: '#ff3366',
+  };
+
+  // Get menu options based on current state
   const getMenuOptions = () => {
     const options = [
       {
@@ -292,7 +302,7 @@ const ShareSheet: React.FC = () => {
         label: 'Share',
         icon: 'share',
         onPress: handleShare,
-        color: Colors.purple[300],
+        color: NEON.purple,
         buttonColor: Colors.purple[950],
       },
       {
@@ -300,7 +310,7 @@ const ShareSheet: React.FC = () => {
         label: isBookmarked ? 'Saved' : 'Save',
         icon: 'bookmark-fill',
         onPress: handleBookmark,
-        color: Colors.amber[300],
+        color: NEON.amber,
         buttonColor: Colors.amber[950],
       },
       {
@@ -308,7 +318,7 @@ const ShareSheet: React.FC = () => {
         label: isCurrentUser ? 'Delete' : 'Report',
         icon: isCurrentUser ? 'delete-2-fill' : 'report',
         onPress: async () => handleReportOrDelete(),
-        color: Colors.coral[400],
+        color: NEON.coral,
         buttonColor: Colors.coral[950],
       },
     ];
@@ -364,7 +374,12 @@ const ShareSheet: React.FC = () => {
             bottomPadding={0}
             style={{ backgroundColor: Colors.black }}
           >
-            <View style={[styles.cancelContainer, { backgroundColor: Colors.black }]}>
+            <View
+              style={[
+                styles.cancelContainer,
+                { backgroundColor: Colors.black, paddingTop: footerTop },
+              ]}
+            >
               <CancelButton onPress={dismissSheet} />
             </View>
           </KeyboardAwareFooter>
@@ -372,7 +387,7 @@ const ShareSheet: React.FC = () => {
       )}
     >
       <View style={styles.content}>
-        <View style={[styles.contentContainer, { paddingBottom: contentBottomPadding + 20 }]}>
+        <View style={[styles.contentContainer, { paddingBottom: contentBottomPadding }]}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -382,7 +397,8 @@ const ShareSheet: React.FC = () => {
             bounces={true}
             contentContainerStyle={[
               styles.optionsContainer,
-              { gap: fixedSpacing, paddingLeft: 20 },
+              styles.optionsContainerContent,
+              { gap: fixedSpacing },
             ]}
           >
             {menuOptions.map(option => (
@@ -397,13 +413,11 @@ const ShareSheet: React.FC = () => {
                       <View
                         style={[
                           styles.option,
+                          styles.optionShadow,
                           {
                             backgroundColor,
                             shadowColor: option.color,
                             shadowOffset: { width: 0, height: 0 },
-                            shadowOpacity: 0.45,
-                            shadowRadius: 10,
-                            elevation: 8,
                           },
                         ]}
                       >
@@ -455,6 +469,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
     flexWrap: 'nowrap',
   },
+  optionsContainerContent: {
+    paddingLeft: 20,
+  },
   optionWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -467,9 +484,13 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.MEDIUM,
     overflow: 'hidden',
   },
+  optionShadow: {
+    shadowOpacity: 0.9,
+    shadowRadius: 20,
+    elevation: 12,
+  },
   cancelContainer: {
     alignItems: 'center',
-    paddingTop: 8,
   },
   optionText: {
     color: Colors.neutral[200],

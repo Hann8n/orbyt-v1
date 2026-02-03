@@ -85,8 +85,9 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
   const insets = useSafeAreaInsets();
   const footerBottomPadding = Math.max(insets.bottom, FOOTER_BOTTOM_PADDING_MIN);
 
+  const footerTop = footerTopPadding ?? 4;
   const hasFooter = showCancelButton || customFooter;
-  const fallbackFooterHeight = hasFooter ? (footerTopPadding ?? 8) + 44 + footerBottomPadding : 0;
+  const fallbackFooterHeight = hasFooter ? footerTop + 44 + footerBottomPadding : 0;
   const [measuredFooterHeight, wrapFooter] = useMeasuredFooterHeight(fallbackFooterHeight);
 
   // Content padding so list isn't cut off by the footer (TrueSheet footer is position:absolute)
@@ -170,7 +171,7 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
           : showCancelButton
             ? wrapFooter(
                 <View style={[styles.footerContainer, { paddingBottom: footerBottomPadding }]}>
-                  <View style={[styles.cancelContainer, { paddingTop: footerTopPadding ?? 8 }]}>
+                  <View style={[styles.cancelContainer, { paddingTop: footerTop }]}>
                     <CancelButton onPress={onDismiss} text={cancelButtonText} />
                   </View>
                 </View>

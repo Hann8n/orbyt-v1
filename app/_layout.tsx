@@ -231,6 +231,15 @@ function RootNavigator() {
               animation: 'slide_from_right',
             }}
           />
+          <Stack.Screen
+            name="chat/[id]"
+            options={{
+              headerShown: false,
+              presentation: 'card',
+              gestureEnabled: true,
+              animation: 'slide_from_right',
+            }}
+          />
           <Stack.Screen name="settings" options={modalSlideUpOptions} />
           <Stack.Screen name="edit-profile" options={modalSlideUpOptions} />
         </Stack.Protected>

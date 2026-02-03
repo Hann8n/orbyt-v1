@@ -936,21 +936,20 @@ const styles = StyleSheet.create({
   },
   notificationItem: {
     flexDirection: 'row',
-    alignItems: 'stretch',
+    alignItems: 'center',
     paddingVertical: 10,
   },
   divider: {
     height: 1,
     backgroundColor: Colors.neutral[900],
-    marginLeft: 65, // Align with content (60px avatar + 12px margin)
-    marginRight: -10, // Extend to right edge, ignoring 10px padding
+    marginLeft: 65,
+    marginRight: -10,
   },
   profileImage: {
     width: 55,
     height: 55,
     borderRadius: BORDER_RADIUS.FULL,
     marginRight: 12,
-    alignSelf: 'flex-start',
   },
   avatarFill: {
     width: '100%',
@@ -958,7 +957,7 @@ const styles = StyleSheet.create({
   },
   notificationContent: {
     flex: 1,
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
     marginRight: 10,
   },
   thumbnailContainer: {

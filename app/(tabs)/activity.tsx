@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors } from '../../src/theme';
 import { BORDER_RADIUS } from '../../src/utils/constants';
+import ChatsTab from '../../src/components/features/activity/ChatsTab';
 import NotificationsTab from '../../src/components/features/activity/NotificationsTab';
 import NotificationFilterSheet from '../../src/components/features/activity/NotificationFilterSheet';
 import { useUnreadCount } from '../../src/hooks/useUnreadCount';
@@ -17,6 +18,7 @@ import type { NotificationReason } from '../../src/services/api/types';
 
 // Tab labels
 const TAB_LABELS: { [key: string]: string } = {
+  chats: 'chats',
   notifications: 'notifications',
 };
 
@@ -27,13 +29,13 @@ const ActivitySwipePager = ({
   renderTabContent,
   onScrollProgressChange,
 }: {
-  activeTab: 'notifications';
-  onActiveTabChange: (tab: 'notifications') => void;
-  renderTabContent: (tabId: 'notifications') => React.ReactNode;
+  activeTab: 'chats' | 'notifications';
+  onActiveTabChange: (tab: 'chats' | 'notifications') => void;
+  renderTabContent: (tabId: 'chats' | 'notifications') => React.ReactNode;
   onScrollProgressChange?: (progress: number) => void;
 }) => {
   const pagerViewRef = useRef<PagerView>(null);
-  const pages = useMemo<Array<'notifications'>>(() => ['notifications'], []);
+  const pages = useMemo<Array<'chats' | 'notifications'>>(() => ['chats', 'notifications'], []);
   const activeIndex = pages.indexOf(activeTab);
 
   // Track scroll progress from PagerView's onPageScroll for indicator animation
@@ -171,7 +173,7 @@ const ActivitySwipePager = ({
 };
 
 const ActivityScreen: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'notifications'>('notifications');
+  const [activeTab, setActiveTab] = useState<'chats' | 'notifications'>('notifications');
   // State to trigger indicator re-renders during scroll (doesn't affect feeds) - matches FeedPager
   const [indicatorScrollProgress, setIndicatorScrollProgress] = useState(0);
   const [showFilterSheet, setShowFilterSheet] = useState(false);
@@ -179,16 +181,25 @@ const ActivityScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const { notificationsCount } = useUnreadCount();
 
-  const pages = useMemo<Array<'notifications'>>(() => ['notifications'], []);
+  const pages = useMemo<Array<'chats' | 'notifications'>>(() => ['chats', 'notifications'], []);
 
-  // Tab content renderer
+  // Tab content renderer; assign tabRefs.activity to the active tab for scroll-to-top
   const renderTabContent = useCallback(
-    (tabId: 'notifications') => {
+    (tabId: 'chats' | 'notifications') => {
+      if (tabId === 'chats') {
+        return (
+          <ChatsTab
+            ref={r => {
+              if (activeTab === 'chats') tabRefs.activity = r;
+            }}
+          />
+        );
+      }
       if (tabId === 'notifications') {
         return (
           <NotificationsTab
             ref={r => {
-              tabRefs.activity = r;
+              if (activeTab === 'notifications') tabRefs.activity = r;
             }}
             filterReasons={filterReasons}
           />
@@ -196,13 +207,13 @@ const ActivityScreen: React.FC = () => {
       }
       return null;
     },
-    [filterReasons]
+    [filterReasons, activeTab]
   );
   // Tab press handling is now centralized in CustomBottomTabBar - no need for duplicate listener
 
   // Get indicator style using PagerView's scroll progress - matches FeedPager exactly
   const getIndicatorStyle = useCallback(
-    (tabId: 'notifications') => {
+    (tabId: 'chats' | 'notifications') => {
       const tabIndex = pages.indexOf(tabId);
       const isActive = tabId === activeTab;
 
@@ -235,11 +246,11 @@ const ActivityScreen: React.FC = () => {
   );
 
   // Handle indicator tap
-  const handleIndicatorTap = useCallback((tabId: 'notifications') => {
+  const handleIndicatorTap = useCallback((tabId: 'chats' | 'notifications') => {
     setActiveTab(tabId);
   }, []);
 
-  // Use same opacity as notifications indicator
+  // Show filter button only when on notifications tab; use notifications indicator opacity
   const filterButtonOpacity = getIndicatorStyle('notifications').opacity;
 
   return (
@@ -258,7 +269,9 @@ const ActivityScreen: React.FC = () => {
               >
                 <View style={styles.badgeContainer}>
                   <Text style={getIndicatorStyle(tabId)}>{TAB_LABELS[tabId] || tabId}</Text>
-                  {Number(notificationsCount) > 0 && <View style={styles.badge} />}
+                  {tabId === 'notifications' && Number(notificationsCount) > 0 && (
+                    <View style={styles.badge} />
+                  )}
                 </View>
               </Pressable>
             ))}
