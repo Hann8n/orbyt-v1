@@ -479,7 +479,6 @@ const NotificationItem = React.memo<NotificationItemProps>(
 
         const { postData: finalPostData, rootPostUri } = result;
 
-        // If post is missing, navigate to profile
         if (!finalPostData) {
           if (author?.did) navigateToProfile(author.did, author);
           return;
@@ -488,7 +487,6 @@ const NotificationItem = React.memo<NotificationItemProps>(
         const finalEmbed = getEmbed(finalPostData);
         const finalKind = finalEmbed ? getPostKind(finalEmbed) : 'text';
 
-        // Always navigate to root post (for video posts, use video feed)
         if (finalKind === 'video') {
           await navigateToVideoPost(finalPostData);
         } else {
@@ -508,29 +506,33 @@ const NotificationItem = React.memo<NotificationItemProps>(
       if (author?.did) navigateToProfile(author.did, author);
     }, [navigateToProfile, author]);
 
+    const nameHitSlop = { top: 8, bottom: 8, left: 8, right: 8 };
+
     return (
       <View style={styles.notificationItem}>
-        <Pressable onPress={handleAvatarPress}>
+        <Pressable onPress={handleAvatarPress} style={styles.profileImage}>
           <Avatar
             uri={author?.avatar}
             type="profile"
             size={55}
             showRing={true}
-            style={styles.profileImage}
+            style={styles.avatarFill}
             status={authorProfile?.status}
           />
         </Pressable>
         <Pressable onPress={handlePress} style={styles.notificationContent}>
-          <Pressable onPress={handleNamePress} style={styles.nameRow}>
-            <Text style={styles.authorName}>{formatHandle(author.handle) || 'Unknown user'}</Text>
-            {author.handle && (
-              <VerificationBadge
-                handle={author.handle}
-                textSize={14}
-                textColor={Colors.neutral[50]}
-              />
-            )}
-          </Pressable>
+          <View style={styles.nameRow}>
+            <Pressable onPress={handleNamePress} hitSlop={nameHitSlop} style={styles.namePressable}>
+              <Text style={styles.authorName}>{formatHandle(author.handle) || 'Unknown user'}</Text>
+              {author.handle && (
+                <VerificationBadge
+                  handle={author.handle}
+                  textSize={14}
+                  textColor={Colors.neutral[50]}
+                />
+              )}
+            </Pressable>
+          </View>
           <View style={styles.actionRow}>
             <Text style={styles.actionText}>{actionText}</Text>
             {indexedAt && <Text style={styles.timeText}>{formatRelativeDate(indexedAt)}</Text>}
@@ -927,9 +929,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  namePressable: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   notificationItem: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'stretch',
     paddingVertical: 10,
   },
   divider: {
@@ -943,6 +950,11 @@ const styles = StyleSheet.create({
     height: 55,
     borderRadius: BORDER_RADIUS.FULL,
     marginRight: 12,
+    alignSelf: 'flex-start',
+  },
+  avatarFill: {
+    width: '100%',
+    height: '100%',
   },
   notificationContent: {
     flex: 1,

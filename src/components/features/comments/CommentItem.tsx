@@ -189,10 +189,15 @@ const CommentItem: React.FC<CommentItemProps> = ({
     return undefined;
   }, [shouldHighlight, highlightOpacity]);
 
-  const highlightStyle = useAnimatedStyle(() => ({
+  const highlightStyle = useAnimatedStyle(() => {
     // neutral.400 (#8891ab) with dynamic opacity for highlight effect
-    backgroundColor: `rgba(136, 145, 171, ${highlightOpacity.value * 0.12})`,
-  }));
+    // Clamp alpha and avoid scientific notation (Reanimated rejects e.g. "6e-9")
+    const alpha = highlightOpacity.value * 0.12;
+    const safeAlpha = alpha < 0.0001 ? 0 : Math.min(1, alpha);
+    return {
+      backgroundColor: `rgba(136, 145, 171, ${safeAlpha})`,
+    };
+  });
 
   const authorName = useMemo(
     () => formatHandle(comment?.author?.handle || '') || 'Unknown',
