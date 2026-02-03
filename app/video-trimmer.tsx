@@ -25,6 +25,7 @@ const VideoTrimmerScreen: React.FC = () => {
     onError?: import('react-native').EmitterSubscription | (() => void) | { remove: () => void };
   }>({});
   const hasOpenedEditor = useRef(false);
+  const didSucceed = useRef(false);
   const setPendingTrim = useVideoTrimStore(state => state.setPendingTrim);
 
   const handleTrimmingComplete = useCallback(
@@ -38,10 +39,9 @@ const VideoTrimmerScreen: React.FC = () => {
       duration: number;
     }) => {
       try {
-        // Convert milliseconds to seconds
+        didSucceed.current = true;
         const trimmedDuration = duration / 1000;
 
-        // Get video info to ensure we have accurate duration
         let finalDuration = trimmedDuration;
         try {
           const videoInfo = await VideoProcessingService.getVideoInfo(outputPath);
@@ -50,13 +50,10 @@ const VideoTrimmerScreen: React.FC = () => {
           // Use duration from trimmer if video info fetch fails
         }
 
-        // Save to videoTrimStore for create.tsx to pick up
         setPendingTrim({
           videoPath: outputPath.startsWith('file://') ? outputPath : `file://${outputPath}`,
           duration: finalDuration,
         });
-
-        // Navigate back to create screen
         router.back();
       } catch (error: unknown) {
         const errorMessage =
@@ -68,20 +65,29 @@ const VideoTrimmerScreen: React.FC = () => {
     [setPendingTrim, router]
   );
 
-  // Set up event listeners for react-native-clip-trim using Spec API
+  const handleTrimError = useCallback(
+    (message?: string) => {
+      if (didSucceed.current) return;
+      if (message?.toLowerCase().includes('cancel')) {
+        router.back();
+        return;
+      }
+      Alert.alert('Error', message || 'Failed to trim video');
+      router.back();
+    },
+    [router]
+  );
+
   useEffect(() => {
     const NativeVideoTrim = NativeModules.VideoTrim as unknown as Spec &
       Partial<import('react-native').NativeModule>;
 
-    // Use the new Spec API if available, otherwise fall back to old architecture
     if (NativeVideoTrim && typeof NativeVideoTrim.onFinishTrimming === 'function') {
       listeners.current.onFinishTrimming = NativeVideoTrim.onFinishTrimming(handleTrimmingComplete);
-      listeners.current.onError = NativeVideoTrim.onError(({ message }: { message?: string }) => {
-        Alert.alert('Error', message || 'Failed to trim video');
-        router.back();
-      });
+      listeners.current.onError = NativeVideoTrim.onError(({ message }: { message?: string }) =>
+        handleTrimError(message)
+      );
     } else {
-      // Fallback to old architecture
       const eventEmitter = new NativeEventEmitter(
         NativeVideoTrim as import('react-native').NativeModule
       );
@@ -89,7 +95,6 @@ const VideoTrimmerScreen: React.FC = () => {
         'VideoTrim',
         (event: { name?: string; [key: string]: unknown }) => {
           if (event.name === 'onFinishTrimming') {
-            // Extract data from event (old architecture includes name property)
             const { name: _name, ...data } = event;
             handleTrimmingComplete(data as Parameters<typeof handleTrimmingComplete>[0]);
           }
@@ -98,10 +103,7 @@ const VideoTrimmerScreen: React.FC = () => {
       listeners.current.onError = eventEmitter.addListener(
         'VideoTrim',
         (event: { name?: string; message?: string }) => {
-          if (event.name === 'onError') {
-            Alert.alert('Error', event.message || 'Failed to trim video');
-            router.back();
-          }
+          if (event.name === 'onError') handleTrimError(event.message);
         }
       );
     }
@@ -118,7 +120,7 @@ const VideoTrimmerScreen: React.FC = () => {
         listeners.current.onError();
       }
     };
-  }, [handleTrimmingComplete, router]);
+  }, [handleTrimmingComplete, handleTrimError]);
 
   const openTrimmer = useCallback(async () => {
     if (!params.videoPath) {
@@ -160,7 +162,7 @@ const VideoTrimmerScreen: React.FC = () => {
 
       const effectiveMinDuration = 500; // 0.5 seconds minimum in milliseconds
 
-      // Show the video trimmer editor
+      didSucceed.current = false;
       showEditor(normalizedUri, {
         maxDuration: Platform.OS === 'ios' ? effectiveMaxDuration / 1000 : effectiveMaxDuration,
         minDuration: Platform.OS === 'ios' ? effectiveMinDuration / 1000 : effectiveMinDuration,
