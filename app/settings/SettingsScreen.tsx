@@ -615,15 +615,18 @@ ${deviceInfo}`
         value: nativeTabsEnabled,
         onValueChange: handleToggleNativeTabs,
       });
-      // Only show modal profile toggle on iOS devices that don't require compact layout
+      // Only show profile presentation toggle on iOS devices that don't require compact layout.
+      // When modal is the default, show "Classic Profile" (inverted); otherwise "Modal profile".
       if (Platform.OS === 'ios' && !isCompactDevice) {
+        const modalIsDefault = true; // modal is default on iOS non-compact
         listData.push({
           kind: 'toggle',
           id: 'modal-profile',
-          label: 'Modal profile',
-          subtitle: 'Native modal with pull-to-dismiss',
-          value: modalProfileEnabled,
-          onValueChange: handleToggleModalProfile,
+          label: modalIsDefault ? 'Classic Profile' : 'Modal profile',
+          subtitle: modalIsDefault ? 'Use card-style profile' : 'Native modal with pull-to-dismiss',
+          value: modalIsDefault ? !modalProfileEnabled : modalProfileEnabled,
+          onValueChange: (value: boolean) =>
+            handleToggleModalProfile(modalIsDefault ? !value : value),
         });
       }
     }

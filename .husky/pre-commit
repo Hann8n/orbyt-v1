@@ -1,1 +1,1 @@
-npx lint-staged
+cd "$(dirname "$0")/.." && node node_modules/lint-staged/bin/lint-staged.js
