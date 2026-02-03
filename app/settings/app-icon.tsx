@@ -161,7 +161,6 @@ const AppIconSettingsScreen: React.FC = () => {
 
       // setAppIcon returns false on error, or the icon name on success
       const result = setAppIcon(iconKey);
-      console.log('setAppIcon result:', result, 'for iconKey:', iconKey);
 
       if (result === false) {
         const message =
