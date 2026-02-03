@@ -610,20 +610,22 @@ ${deviceInfo}`
       listData.push({
         kind: 'toggle',
         id: 'native-tabs',
-        label: 'New tabs layout',
+        label: 'New tabs',
         subtitle: 'Use native navigation bar',
         value: nativeTabsEnabled,
         onValueChange: handleToggleNativeTabs,
       });
-      // Only show profile presentation toggle on iOS devices that don't require compact layout.
-      // When modal is the default, show "Classic Profile" (inverted); otherwise "Modal profile".
+      // Only show profile/channel presentation toggle on iOS devices that don't require compact layout.
+      // When modal is the default, show "Classic layout" (inverted); otherwise "Modal layout".
       if (Platform.OS === 'ios' && !isCompactDevice) {
         const modalIsDefault = true; // modal is default on iOS non-compact
         listData.push({
           kind: 'toggle',
           id: 'modal-profile',
-          label: modalIsDefault ? 'Classic Profile' : 'Modal profile',
-          subtitle: modalIsDefault ? 'Use card-style profile' : 'Native modal with pull-to-dismiss',
+          label: modalIsDefault ? 'Classic layout' : 'Modal layout',
+          subtitle: modalIsDefault
+            ? 'Card-style for profile and channel'
+            : 'Native modal with pull-to-dismiss',
           value: modalIsDefault ? !modalProfileEnabled : modalProfileEnabled,
           onValueChange: (value: boolean) =>
             handleToggleModalProfile(modalIsDefault ? !value : value),
