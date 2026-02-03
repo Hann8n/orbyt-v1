@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
+import type { FeedScrollContextReadyPayload } from '../../src/context/FeedScrollContext';
 import { BORDER_RADIUS } from '../../src/utils/constants';
 import { View, StyleSheet, Dimensions, Pressable, Text } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -48,20 +49,27 @@ const Channel: React.FC = memo(() => {
   const colorsMutation = useChannelColorsMutation();
 
   const defaultTop = (typeof insets?.top === 'number' ? insets.top : 0) + 5;
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [feedScrollContext, setFeedScrollContext] = useState<FeedScrollContextReadyPayload | null>(
+    null
+  );
+  const onScrollContextReady = useCallback(
+    (ctx: FeedScrollContextReadyPayload) => setFeedScrollContext(ctx),
+    []
+  );
+  const contentScrollProgressSV =
+    viewMode === 'list' ? feedScrollContext?.contentScrollProgressSV : undefined;
   const {
     isModal,
     headerPaddingTop,
     actionButtonsTop,
     showBackButton,
-    handleVerticalScroll,
     overlayAnimatedStyle,
     backIconPrimaryStyle,
     backIconSecondaryStyle,
-  } = useDetailScreenOverlay(uri, defaultTop);
+  } = useDetailScreenOverlay(uri, defaultTop, contentScrollProgressSV);
   const baseBackTextColor = channelColors.textColor || Colors.neutral[50];
   const channelFeedRef = useRef<ListFeedViewRef | null>(null);
-
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
   // Check if this is a category channel (hashtag feed) - postable orbyt channels
   const isCategoryChannel = useMemo(() => {
     if (!uri || !isOrbytChannel(uri)) return false;
@@ -341,10 +349,10 @@ const Channel: React.FC = memo(() => {
 
       {showErrorScreen ? (
         renderErrorScreen()
-      ) : channelDataForFeed && feedOption ? (
+      ) : (
         <FeedRenderer
           ref={channelFeedRef}
-          feedOption={feedOption}
+          feedOption={channelDataForFeed && feedOption ? feedOption : ''}
           userDid={channelDataForFeed?.did}
           headerComponent={headerComponent}
           backgroundColor={Colors.black}
@@ -353,26 +361,9 @@ const Channel: React.FC = memo(() => {
           onRefresh={isModal ? undefined : onRefresh}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
-          queryOptions={queryOptions}
+          queryOptions={channelDataForFeed && feedOption ? queryOptions : { enabled: false }}
           isVisible={isRouteFocused}
-          onVerticalScroll={handleVerticalScroll}
-          isModal={isModal}
-        />
-      ) : (
-        <FeedRenderer
-          ref={channelFeedRef}
-          feedOption=""
-          userDid={undefined}
-          headerComponent={headerComponent}
-          backgroundColor={Colors.black}
-          secondaryColor={channelColors.textColor}
-          isRefreshing={isModal ? false : refreshing}
-          onRefresh={isModal ? undefined : onRefresh}
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-          queryOptions={{ enabled: false }}
-          isVisible={isRouteFocused}
-          onVerticalScroll={handleVerticalScroll}
+          onScrollContextReady={onScrollContextReady}
           isModal={isModal}
         />
       )}

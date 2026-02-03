@@ -299,8 +299,6 @@ const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
         pageScrollProgress.value = nextIndex;
         setCurrentFeedIndex(nextIndex);
 
-        // Reset scroll tracking and reengage overlay when switching feeds
-        lastScrollYRef.current = 0;
         animateFeedBar(true, true);
         showBarAndOverlay();
       }
@@ -363,35 +361,12 @@ const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
     [animateFeedBar, feedOptions.length, pageScrollProgress, showBarAndOverlay]
   );
 
-  // Use FlashList native scroll directly - simple threshold-based visibility
-  const lastScrollYRef = useRef(0);
-  const handleVerticalScroll = useCallback(
-    (scrollY: number) => {
-      const lastY = lastScrollYRef.current;
-      const delta = scrollY - lastY;
-
-      // Only update if scroll changed significantly (threshold of 10px)
-      if (Math.abs(delta) < 10) {
-        return;
-      }
-
-      lastScrollYRef.current = scrollY;
-
-      // Simple rule: hide if scrolling down, show if scrolling up or near top
-      const shouldHide = delta > 0 && scrollY > 50;
-      setTabBarVisibility(shouldHide ? 0 : 1);
-    },
-    [setTabBarVisibility]
-  );
-
   // Handle feed indicator tap
   const handleIndicatorTap = useCallback(
     (feedOption: FeedOption) => {
       const targetIndex = feedOptions.findIndex(option => option === feedOption);
       if (targetIndex >= 0 && targetIndex !== currentPageRef.current) {
         pagerViewRef.current?.setPage(targetIndex);
-        // Reset scroll tracking and reengage overlay immediately when tapping indicator
-        lastScrollYRef.current = 0;
         animateFeedBar(true, true);
         showBarAndOverlay();
       }
@@ -447,17 +422,9 @@ const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
         isVisible={index === currentFeedIndex}
         isRefreshing={isRefreshing}
         forceError={forceError}
-        onVerticalScroll={handleVerticalScroll}
       />
     ),
-    [
-      currentFeedIndex,
-      handleRetryFeed,
-      baseQueryOptions,
-      isRefreshing,
-      forceError,
-      handleVerticalScroll,
-    ]
+    [currentFeedIndex, handleRetryFeed, baseQueryOptions, isRefreshing, forceError]
   );
 
   // Expose scrollToTop method

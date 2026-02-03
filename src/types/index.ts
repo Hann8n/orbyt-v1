@@ -4,6 +4,7 @@
  */
 
 import type React from 'react';
+import type { FeedScrollContextReadyPayload } from '../context/FeedScrollContext';
 
 // ============================================================================
 // UI Component Types
@@ -41,12 +42,14 @@ export interface ListFeedViewProps {
   isModal?: boolean;
   isProfileFeed?: boolean;
   isRefreshing?: boolean;
-  onScroll?: (event: { nativeEvent: import('react-native').NativeScrollEvent }) => void;
-  onVerticalScroll?: (scrollY: number) => void;
+  /** When list provides scroll context (list view only), called so parent can reuse contentScrollProgressSV. */
+  onScrollContextReady?: (ctx: FeedScrollContextReadyPayload) => void;
   forceError?: boolean;
   ListComponent?: React.ComponentType<unknown> | null;
   targetScrollIndex?: number | null;
   dataUpdatedAt?: number;
+  /** When provided, grid item tap calls this (e.g. open feed modal); required for grid tap to do anything. */
+  onGridItemPress?: (index: number) => void;
 }
 
 /**

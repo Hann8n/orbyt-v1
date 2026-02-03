@@ -8,18 +8,14 @@ import {
   ScrollView,
   type ViewStyle,
   type ImageStyle,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
   type RefreshControlProps,
   useWindowDimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
 import { FlashList, FlashListRef } from '@shopify/flash-list';
 import type { ListFeedViewRef } from '../../../types';
 import { Colors } from '../../../theme';
-import { feedService } from '../../../services/FeedService';
 import { getVideoView } from '../../../utils/video/helpers';
 import { QUERY_CONSTANTS } from '../../../utils/constants';
 import type { ExtendedFeedViewPost } from '../../../services/api/types';
@@ -87,7 +83,6 @@ interface GridFeedViewProps {
   isError?: boolean;
   onRetry?: () => void;
   ListComponent?: React.ComponentType<unknown> | null; // Optional custom list component
-  onVerticalScroll?: (scrollY: number) => void;
   isModal?: boolean;
 }
 
@@ -109,13 +104,9 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
       isError = false,
       onRetry,
       ListComponent,
-      onVerticalScroll,
     },
     ref
   ) => {
-    // Safe area removed for grid feed view
-    const navigation = useRouter();
-
     // Determine if this is a header feed (profile, channel, etc.)
     const isHeaderFeed: boolean = Boolean(
       feedOption === 'profile' ||
@@ -210,24 +201,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
         const isLastRow =
           Math.floor(index / numColumns) === Math.floor((feed.length - 1) / numColumns);
 
-        const onPress = () => {
-          if (onGridItemPress) {
-            onGridItemPress(index);
-            return;
-          }
-          feedService.setCurrentFeed(
-            feed as unknown as import('../../../services/api/types').ExtendedFeedViewPost[]
-          );
-          navigation.push({
-            pathname: '/(modals)/feed',
-            params: {
-              feedOption,
-              userDid,
-              backgroundColor,
-              secondaryColor,
-            },
-          });
-        };
+        const onPress = () => onGridItemPress?.(index);
 
         // Create border styles - only show borders on the inside of the grid
         const borderStyle = {
@@ -247,28 +221,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
           />
         );
       },
-      [
-        onGridItemPress,
-        feed,
-        numColumns,
-        itemWidth,
-        itemHeight,
-        navigation,
-        feedOption,
-        userDid,
-        backgroundColor,
-        secondaryColor,
-      ]
-    );
-
-    // Combine scroll handlers for infinite scroll and header scroll progress updates
-    const handleScroll = useCallback(
-      (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-        if (onVerticalScroll && event?.nativeEvent?.contentOffset) {
-          onVerticalScroll(event.nativeEvent.contentOffset.y || 0);
-        }
-      },
-      [onVerticalScroll]
+      [onGridItemPress, feed, numColumns, itemWidth, itemHeight]
     );
 
     // Use FlashList to render the grid with appropriate numColumns
@@ -287,8 +240,6 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
                 ? undefined
                 : (refreshControl as React.ReactElement<RefreshControlProps>)
             }
-            onScroll={handleScroll}
-            scrollEventThrottle={16}
           >
             {headerComponent && <View style={styles.headerWrapper}>{headerComponent}</View>}
             {isError ? (
@@ -349,8 +300,6 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
                     ? undefined
                     : (refreshControl as React.ReactElement<RefreshControlProps>)
                 }
-                onScroll={handleScroll}
-                scrollEventThrottle={16}
                 scrollEnabled={true}
                 onEndReached={hasNextPage ? onLoadMore : undefined}
                 onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}

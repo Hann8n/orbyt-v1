@@ -7,23 +7,31 @@ import {
   forwardRef,
   useImperativeHandle,
   memo,
+  type ComponentType,
+  type Ref,
 } from 'react';
 import {
   View,
   Dimensions,
   StyleSheet,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
   ScaledSize,
   LayoutChangeEvent,
   Platform,
+  useWindowDimensions,
   type RefreshControlProps,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useSharedValue, useDerivedValue } from 'react-native-reanimated';
+import Animated, {
+  useSharedValue,
+  useDerivedValue,
+  useAnimatedScrollHandler,
+  useAnimatedReaction,
+  runOnJS,
+} from 'react-native-reanimated';
 import {
   FlashList,
   FlashListRef,
+  type FlashListProps,
   type ListRenderItemInfo,
   RenderTargetOptions,
 } from '@shopify/flash-list';
@@ -31,7 +39,6 @@ import { FeedScrollProvider } from '../../../context/FeedScrollContext';
 import EmptyFeed from './EmptyFeed';
 import { VideoItem } from './VideoItem';
 import GridFeedView from './GridFeedView';
-import { useWindowDimensions } from 'react-native';
 import * as Device from 'expo-device';
 import { getVideoCardHeight, getBottomNavBarHeight } from '../../../utils/device/screen';
 import { Colors } from '../../../theme';
@@ -52,6 +59,11 @@ const CONSTANTS = {
   HEADER_HEIGHT_TABS: 280,
   HEADER_BLOCKING_THRESHOLD: 250, // Header blocks playback if scroll is less than 250px from top
 } as const;
+
+// Reanimated-wrapped FlashList so useAnimatedScrollHandler runs on UI thread. Do not use @shopify/flash-list's AnimatedFlashList (it uses RN Animated).
+const AnimatedFlashList = Animated.createAnimatedComponent(FlashList) as ComponentType<
+  FlashListProps<FeedListItem> & { ref?: Ref<FlashListRef<FeedListItem>> }
+>;
 
 // Memoized empty component to prevent recreation on every render
 interface ListEmptyComponentProps {
@@ -150,13 +162,13 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       onRetry,
       isVisible = true,
       viewMode,
-      onViewModeChange,
+      onViewModeChange: _onViewModeChange,
       isModal = false,
-      onScroll,
-      onVerticalScroll,
+      onScrollContextReady,
       forceError = false,
       ListComponent,
       targetScrollIndex,
+      onGridItemPress: onGridItemPressProp,
     },
     ref
   ) => {
@@ -165,12 +177,32 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     // Layout state
     const [headerHeight, setHeaderHeight] = useState(0);
+    // Track scroll-based blocking state (driven by useAnimatedReaction when crossing HEADER_BLOCKING_THRESHOLD)
+    const [scrollBasedBlocking, setScrollBasedBlocking] = useState(() => Boolean(headerComponent));
 
     // Refs
     const flashListRef = useRef<FlashListRef<FeedListItem>>(null);
 
-    // Scroll offset for percent-visible: written in onScroll, read in VideoCard worklet to compute overlap/viewport.
+    // Scroll offset for percent-visible: written in useAnimatedScrollHandler (UI thread), read in VideoCard worklet.
     const scrollOffsetYSV = useSharedValue(0);
+
+    // UI-thread scroll handler: updates scrollOffsetYSV only.
+    const scrollHandler = useAnimatedScrollHandler({
+      onScroll: event => {
+        scrollOffsetYSV.value = event.contentOffset.y;
+      },
+    });
+
+    // setScrollBasedBlocking via useAnimatedReaction so we only cross the JS bridge when the boolean flips (same pattern as ProfileHeader).
+    useAnimatedReaction(
+      () => scrollOffsetYSV.value < CONSTANTS.HEADER_BLOCKING_THRESHOLD,
+      (isBlocking, prev) => {
+        if (prev === null || isBlocking !== prev) {
+          runOnJS(setScrollBasedBlocking)(isBlocking);
+        }
+      },
+      [scrollOffsetYSV]
+    );
 
     // Expose scrollToTop method
     useImperativeHandle(
@@ -226,10 +258,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       isActive: Boolean(isVisible),
     });
 
-    // Track scroll-based blocking state (updated by scroll handler)
-    // Initialize to true if header exists (assume at top on mount)
-    const [scrollBasedBlocking, setScrollBasedBlocking] = useState(() => Boolean(headerComponent));
-
     // Compute final blocking state in render
     const isHeaderBlockingPlayback = useMemo(() => {
       if (!headerComponent || !isVisible || viewMode !== 'list') {
@@ -271,48 +299,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     // Error handling
     const effectiveIsError = forceError || isError;
-
-    // Scroll to index function - simplified, no delays needed
-    const scrollToIndex = useCallback(
-      (targetIndex: number) => {
-        if (!flashListRef.current || targetIndex < 0 || targetIndex >= listData.length) return;
-
-        try {
-          flashListRef.current.scrollToIndex({
-            index: targetIndex,
-            animated: false,
-            viewPosition: 0.5,
-          });
-        } catch (_error) {
-          // Handle scroll errors gracefully
-        }
-      },
-      [listData.length]
-    );
-
-    // Scroll: centerIndexSV/scrollProgressSV writes are non-blocking (Reanimated syncs to UI).
-    // VideoCard's useDerivedValue reads them in a worklet—overlay opacity stays on UI thread.
-    // setScrollBasedBlocking is the only setState and is gated (only when crossing threshold).
-    const onScrollNative = useCallback(
-      (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-        const offsetY = e.nativeEvent.contentOffset.y;
-
-        // Header blocking: setState only when crossing threshold.
-        if (!headerComponent) {
-          if (scrollBasedBlocking) setScrollBasedBlocking(false);
-        } else {
-          const isBlocking = offsetY < CONSTANTS.HEADER_BLOCKING_THRESHOLD;
-          if (isBlocking !== scrollBasedBlocking) setScrollBasedBlocking(isBlocking);
-        }
-
-        // eslint-disable-next-line react-hooks/immutability -- Reanimated SharedValue.value is intended to be mutated in callbacks
-        scrollOffsetYSV.value = offsetY;
-
-        if (onVerticalScroll) onVerticalScroll(offsetY);
-        if (onScroll) onScroll(e);
-      },
-      [onScroll, onVerticalScroll, headerComponent, scrollBasedBlocking, scrollOffsetYSV]
-    );
 
     // Render item function - optimized to reduce dependencies and rerenders
     // VideoItem derives isVisible from store (activeFeedKey+lastViewableIndexByFeed) and allowPlayback from isVisible&&canPlay
@@ -372,19 +358,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     // FlashList's native viewability handles item detection automatically
     // maintainVisibleContentPosition preserves scroll position, so the visible item
     // at that position will be detected by the viewability callback
-
-    // Unified item press handler for grid feeds
-    // Uses FlashList's native scrollToIndex when switching to list view
-    const handleGridItemPress = useCallback(
-      (index: number) => {
-        if (viewMode === 'grid' && onViewModeChange && index >= 0 && index < feed.length) {
-          onViewModeChange('list');
-          // Use FlashList's scrollToIndex directly - no delays needed
-          scrollToIndex(index);
-        }
-      },
-      [feed.length, viewMode, onViewModeChange, scrollToIndex]
-    );
 
     // Calculate initialScrollIndex from targetScrollIndex for FlashList's built-in prop
     // This avoids any scrolling animation or jumps - FlashList handles it natively
@@ -536,6 +509,12 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       ]
     );
 
+    useEffect(() => {
+      if (onScrollContextReady && contentScrollProgressSV != null) {
+        onScrollContextReady({ contentScrollProgressSV });
+      }
+    }, [onScrollContextReady, contentScrollProgressSV]);
+
     // Grid view rendering (feed from FeedRenderer has no endCard; filter satisfies GridFeedView type)
     if (viewMode === 'grid') {
       const gridFeed = feed.filter(
@@ -553,20 +532,18 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           userDid={userDid}
           onLoadMore={onLoadMore}
           hasNextPage={hasNextPage}
-          onGridItemPress={handleGridItemPress}
+          onGridItemPress={onGridItemPressProp}
           isError={effectiveIsError}
           onRetry={onRetry}
           ListComponent={ListComponent}
-          onVerticalScroll={onVerticalScroll}
         />
       );
     }
 
-    // Main render
     return (
       <FeedScrollProvider value={feedScrollValue}>
         <View style={[styles.container, { backgroundColor: backgroundColor || Colors.black }]}>
-          <FlashList
+          <AnimatedFlashList
             ref={flashListRef}
             data={listData}
             renderItem={renderItem}
@@ -597,8 +574,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
             // Disable fast scrolling to prevent scrolling past multiple items
             disableIntervalMomentum={true}
             scrollEventThrottle={APP_CONSTANTS.SCROLL_THROTTLE}
-            // Event handlers
-            onScroll={onScrollNative}
+            onScroll={scrollHandler}
             onEndReached={onLoadMore}
             onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
             onViewableItemsChanged={onViewableItemsChanged}

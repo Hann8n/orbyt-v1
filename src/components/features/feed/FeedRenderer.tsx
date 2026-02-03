@@ -17,7 +17,6 @@ import { View, StyleSheet, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import ListFeedView from './ListFeedView';
-import GridFeedView from './GridFeedView';
 import EmptyFeed from './EmptyFeed';
 import { useFeed, useSearchFeed } from '../../../hooks/useFeed';
 import { useReportedPostsStore } from '../../../stores/reportedPostsStore';
@@ -25,6 +24,7 @@ import { Colors } from '../../../theme';
 import { feedService } from '../../../services/FeedService';
 import type { ListFeedViewRef, ViewMode } from '../../../types';
 import { FollowProvider } from '../../../context/FollowContext';
+import type { FeedScrollContextReadyPayload } from '../../../context/FeedScrollContext';
 import type {
   ExtendedFeedViewPost as FeedItem,
   ExtendedPostView as Post,
@@ -57,7 +57,8 @@ interface FeedRendererProps {
   // Callbacks
   onRetryFeed?: () => void;
   onRefresh?: () => void | Promise<void>; // Called when user pulls to refresh
-  onVerticalScroll?: (scrollY: number) => void;
+  /** When list provides scroll context, called so parent can reuse contentScrollProgressSV for overlay. */
+  onScrollContextReady?: (ctx: FeedScrollContextReadyPayload) => void;
 
   // Search-specific props
   hasNextPage?: boolean;
@@ -96,7 +97,7 @@ const FeedRenderer = memo(
         isVisible = true,
         viewMode = 'list',
         onViewModeChange,
-        onVerticalScroll,
+        onScrollContextReady,
         isRefreshing, // No default - undefined means FeedRenderer manages state internally
         isModal = false,
         // Search props
@@ -253,12 +254,12 @@ const FeedRenderer = memo(
           !isLoading &&
           feed.length > 0
         ) {
-          (viewMode === 'list' ? listFeedViewRef : gridFeedViewRef).current?.scrollToTop();
+          listFeedViewRef.current?.scrollToTop();
           // Reset flag after scroll reset
           isUserInitiatedRefetchRef.current = false;
         }
         prevRefetchingRef.current = isRefetching;
-      }, [isRefetching, isFetchingNextPage, isLoading, feed.length, viewMode]);
+      }, [isRefetching, isFetchingNextPage, isLoading, feed.length]);
 
       // Calculate error state (inline - simple enough to not need memoization)
       const finalIsError = forceError || isError;
@@ -314,18 +315,13 @@ const FeedRenderer = memo(
         refetch,
       ]);
 
-      // Unified handler for grid and horizontal item presses
-      // Opens feed modal and scrolls to selected video using FlashList's native scrollToIndex
-      const navigation = useRouter();
-
-      const handleItemPress = useCallback(
+      // Grid item press: open feed modal at tapped index (profile/channel); ListFeedView uses this when provided
+      const router = useRouter();
+      const handleGridItemPress = useCallback(
         (index: number) => {
-          if (viewMode === 'grid' && index >= 0 && index < feed.length) {
-            // Set the current feed so the modal can use it
+          if (index >= 0 && index < feed.length) {
             feedService.setCurrentFeed(feed);
-
-            // Navigate to feed modal with initial index
-            navigation.push({
+            router.push({
               pathname: '/(modals)/feed',
               params: {
                 feedOption: feedOption || 'search',
@@ -337,26 +333,19 @@ const FeedRenderer = memo(
             });
           }
         },
-        [viewMode, feed, feedOption, userDid, backgroundColor, secondaryColor, navigation]
+        [feed, feedOption, userDid, backgroundColor, secondaryColor, router]
       );
 
-      // Refs for forwarding to ListFeedView and GridFeedView
+      // Single ref: ListFeedView chooses list vs grid internally and forwards scrollToTop
       const listFeedViewRef = useRef<ListFeedViewRef>(null);
-      const gridFeedViewRef = useRef<ListFeedViewRef>(null);
 
-      // Forward ref methods
+      // Forward ref methods (ListFeedView delegates to grid when in grid mode)
       useImperativeHandle(
         ref,
         () => ({
-          scrollToTop: () => {
-            if (viewMode === 'list') {
-              listFeedViewRef.current?.scrollToTop();
-            } else if (viewMode === 'grid') {
-              gridFeedViewRef.current?.scrollToTop();
-            }
-          },
+          scrollToTop: () => listFeedViewRef.current?.scrollToTop(),
         }),
-        [viewMode]
+        []
       );
 
       // Memoized common props to prevent recreation on every render
@@ -376,10 +365,11 @@ const FeedRenderer = memo(
           isVisible,
           viewMode,
           onViewModeChange,
-          onVerticalScroll,
+          onScrollContextReady,
           isRefreshing: effectiveRefreshing,
           isModal,
           ListComponent,
+          onGridItemPress: handleGridItemPress,
         }),
         [
           feed,
@@ -396,27 +386,17 @@ const FeedRenderer = memo(
           isVisible,
           viewMode,
           onViewModeChange,
-          onVerticalScroll,
+          onScrollContextReady,
           effectiveRefreshing,
           isModal,
           ListComponent,
+          handleGridItemPress,
         ]
       );
 
-      // Memoized view selection to prevent unnecessary re-renders
-      const feedView = useMemo(() => {
-        if (viewMode === 'grid') {
-          return (
-            <GridFeedView
-              ref={gridFeedViewRef}
-              {...commonProps}
-              onGridItemPress={handleItemPress}
-              isError={isSearchFeed ? false : finalIsError}
-            />
-          );
-        }
-
-        return (
+      // ListFeedView is the single place that chooses list vs grid (no duplicate branch here)
+      const feedView = useMemo(
+        () => (
           <ListFeedView
             ref={listFeedViewRef}
             {...commonProps}
@@ -427,19 +407,18 @@ const FeedRenderer = memo(
             isError={isSearchFeed ? false : finalIsError}
             targetScrollIndex={propTargetScrollIndex}
           />
-        );
-      }, [
-        viewMode,
-        commonProps,
-        isSearchFeed,
-        finalIsError,
-        isLoading,
-        feed,
-        dataUpdatedAt,
-        isFetchingNextPage,
-        handleItemPress,
-        propTargetScrollIndex,
-      ]);
+        ),
+        [
+          commonProps,
+          isSearchFeed,
+          finalIsError,
+          isLoading,
+          feed.length,
+          dataUpdatedAt,
+          isFetchingNextPage,
+          propTargetScrollIndex,
+        ]
+      );
 
       // Memoize profile colors for EmptyFeed
       const profileColors = useMemo(

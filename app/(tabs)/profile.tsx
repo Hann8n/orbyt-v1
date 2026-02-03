@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef, memo } from 'react';
+import type { FeedScrollContextReadyPayload } from '../../src/context/FeedScrollContext';
 import { BORDER_RADIUS, APP_CONSTANTS } from '../../src/utils/constants';
 import { View, Text, StyleSheet, Pressable, Dimensions, Modal } from 'react-native';
 import { Image } from 'expo-image';
@@ -410,16 +411,23 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   }, [onLogout]);
 
   const defaultTop = (insets?.top ?? 0) + 5;
+  const [feedScrollContext, setFeedScrollContext] = useState<FeedScrollContextReadyPayload | null>(
+    null
+  );
+  const onScrollContextReady = useCallback(
+    (ctx: FeedScrollContextReadyPayload) => setFeedScrollContext(ctx),
+    []
+  );
+  const contentScrollProgressSV = feedScrollContext?.contentScrollProgressSV;
   const {
     isModal,
     headerPaddingTop,
     actionButtonsTop,
     showBackButton,
-    handleVerticalScroll,
     overlayAnimatedStyle,
     backIconPrimaryStyle,
     backIconSecondaryStyle,
-  } = useDetailScreenOverlay(providedIdentifier, defaultTop);
+  } = useDetailScreenOverlay(providedIdentifier, defaultTop, contentScrollProgressSV);
 
   const baseBackTextColor = useMemo(
     () => (dynamicColors ? dynamicColors.textColor : profileColors.textColor) || Colors.neutral[50],
@@ -618,6 +626,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
                 did={targetDid || profileData?.did || null}
                 profileData={profileData}
                 applySafeArea={!isModal}
+                controlStatusBar={!isModal}
                 headerStyle={headerPaddingTop ? { paddingTop: headerPaddingTop } : undefined}
                 onColorsChange={setDynamicColors}
                 contentFadeDisabled={viewMode === 'grid'}
@@ -653,7 +662,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
           viewMode={viewMode}
           onViewModeChange={setViewMode}
           isVisible={isRouteFocused}
-          onVerticalScroll={handleVerticalScroll}
+          onScrollContextReady={onScrollContextReady}
         />
       )}
       {isLoading && (

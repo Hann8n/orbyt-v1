@@ -1,6 +1,13 @@
 import React, { memo, useMemo, useCallback, useState, useEffect } from 'react';
 import { StatusBar, Pressable, StyleSheet, View, ViewStyle } from 'react-native';
-import Animated, { useAnimatedStyle, interpolate, Extrapolate } from 'react-native-reanimated';
+import { useIsFocused } from '@react-navigation/native';
+import Animated, {
+  useAnimatedStyle,
+  useAnimatedReaction,
+  runOnJS,
+  interpolate,
+  Extrapolate,
+} from 'react-native-reanimated';
 import UniversalHeader, { HeaderContent } from './UniversalHeader';
 import { useFeedScroll } from '../../../context/FeedScrollContext';
 import type { ProfileViewWithOrbyt } from '../../../services/api/types';
@@ -16,6 +23,11 @@ import { RichText } from '@atproto/api';
 import { formatHandle } from '../../../utils/formatting/handles';
 import { openListInBluesky } from '../../../utils/links/bluesky';
 
+/**
+ * Renders StatusBar only when this screen is focused (React Navigation recommended pattern).
+ * When unfocused, the component unmounts and the root layout's StatusBar takes effect automatically.
+ */
+
 interface ProfileHeaderProps {
   children?: React.ReactNode;
   applySafeArea?: boolean;
@@ -24,6 +36,8 @@ interface ProfileHeaderProps {
   contentFadeDisabled?: boolean;
   dimOverlayDisabled?: boolean;
   onAvatarPress?: () => void;
+  /** When true, this header controls StatusBar (root profile or classic card). When false (modal), StatusBar is not part of this screen. Default true. */
+  controlStatusBar?: boolean;
   /** DID to fetch colors for */
   did: string | null;
   /** Profile data */
@@ -38,14 +52,29 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   contentFadeDisabled = false,
   dimOverlayDisabled = false,
   onAvatarPress,
+  controlStatusBar = true,
   did,
   profileData,
 }) => {
   const [showVerificationInfo, setShowVerificationInfo] = useState(false);
   const [showBetaInfo, setShowBetaInfo] = useState(false);
-
+  const isFocused = useIsFocused();
+  // Same scroll progress as header (contentScrollProgressSV); use profile status bar at top, app default when scrolled.
+  // Only runOnJS when the decision flips (not every frame) so we don't cross the bridge on every scroll tick.
+  const [useProfileStatusBar, setUseProfileStatusBar] = useState(true);
   const feedScroll = useFeedScroll();
   const contentScrollProgressSV = feedScroll?.contentScrollProgressSV;
+
+  useAnimatedReaction(
+    () => (contentScrollProgressSV?.value ?? 0) < 0.25,
+    (useProfile, prev) => {
+      'worklet';
+      if (prev === null || useProfile !== prev) {
+        runOnJS(setUseProfileStatusBar)(useProfile);
+      }
+    },
+    [contentScrollProgressSV]
+  );
 
   // Get colors from orbyt API using passed did
   const { data: orbytColors } = useOrbytColors(did);
@@ -147,11 +176,17 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     [profileColors.backgroundColor, profileColors.textColor]
   );
 
-  // Determine status bar style based on background color brightness
-  const statusBarStyle = useMemo(() => {
+  // Profile status bar: used when at top; when scrolled we use app default so status bar transitions with header
+  const profileStatusBarStyle = useMemo(() => {
+    if (!controlStatusBar) return 'light-content';
     const style = getStatusBarStyle(profileColors.backgroundColor);
     return style === 'light' ? 'light-content' : 'dark-content';
-  }, [profileColors.backgroundColor]);
+  }, [controlStatusBar, profileColors.backgroundColor]);
+
+  const effectiveBarStyle = useProfileStatusBar ? profileStatusBarStyle : 'light-content';
+  const effectiveBackgroundColor = useProfileStatusBar
+    ? dynamicColors.backgroundColor
+    : 'transparent';
 
   // Notify parent of color changes
   useEffect(() => {
@@ -174,11 +209,13 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 
   return (
     <>
-      <StatusBar
-        barStyle={statusBarStyle}
-        backgroundColor={dynamicColors.backgroundColor}
-        translucent={true}
-      />
+      {controlStatusBar && isFocused && (
+        <StatusBar
+          barStyle={effectiveBarStyle}
+          backgroundColor={effectiveBackgroundColor}
+          translucent={true}
+        />
+      )}
       <View>
         <UniversalHeader
           content={headerContent}
