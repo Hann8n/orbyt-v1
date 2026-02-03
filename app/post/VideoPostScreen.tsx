@@ -98,35 +98,16 @@ const VideoPreviewContent: React.FC<{
   containerStyle,
 }) => {
   const thumbnailUrl = thumbnailPath || videoUri;
-
-  // Track first frame render to hide poster once video is visible
-  // Use videoUri as key to reset state when source changes
-  const videoUriKey = useMemo(() => videoUri, [videoUri]);
   const [firstFrameRendered, setFirstFrameRendered] = useState(false);
-  const prevVideoUriKeyRef = useRef(videoUriKey);
-
-  // Reset state when videoUri changes
-  // This is a valid React pattern for resetting derived state when a prop changes
-  // The recommended alternative (key prop) isn't available for presentational child components
-  useEffect(() => {
-    if (prevVideoUriKeyRef.current !== videoUriKey) {
-      prevVideoUriKeyRef.current = videoUriKey;
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setFirstFrameRendered(false);
-    }
-  }, [videoUriKey]);
-
-  // Callback to set first frame rendered state
-  const handleFirstFrameRender = useCallback(() => {
-    setFirstFrameRendered(true);
-  }, []);
+  const [blurReady, setBlurReady] = useState(false);
+  const showPoster = !firstFrameRendered || !blurReady;
 
   return (
     <View style={[styles.videoContainer, containerStyle]}>
       {thumbnailUrl && (
         <>
-          <BlurredBackground thumbnailUrl={thumbnailUrl} />
-          {!firstFrameRendered && (
+          <BlurredBackground thumbnailUrl={thumbnailUrl} onBlurReady={() => setBlurReady(true)} />
+          {showPoster && (
             <Image source={{ uri: thumbnailUrl }} contentFit="contain" style={styles.poster} />
           )}
         </>
@@ -138,7 +119,7 @@ const VideoPreviewContent: React.FC<{
           contentFit="contain"
           nativeControls={false}
           surfaceType={Platform.OS === 'android' ? 'textureView' : undefined}
-          onFirstFrameRender={handleFirstFrameRender}
+          onFirstFrameRender={() => setFirstFrameRendered(true)}
         />
       )}
       {(videoLoading || isMerging) && (
@@ -1634,6 +1615,7 @@ const VideoPostScreen: React.FC = () => {
           <View style={styles.landscapeVideoSide}>
             <View style={styles.previewSection}>
               <VideoPreviewContent
+                key={videoUri}
                 thumbnailPath={thumbnailPath}
                 videoUri={videoUri}
                 player={player}
@@ -1668,6 +1650,7 @@ const VideoPostScreen: React.FC = () => {
           {/* Video Preview Section */}
           <View style={styles.previewSection}>
             <VideoPreviewContent
+              key={videoUri}
               thumbnailPath={thumbnailPath}
               videoUri={videoUri}
               player={player}

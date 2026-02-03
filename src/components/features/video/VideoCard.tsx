@@ -332,17 +332,21 @@ const VideoCard = memo(
       // useRecyclingState resets when post changes, so no extra useEffect needed.
       const [userChoseToView, setUserChoseToView] = useRecyclingState(false, [postView.uri]);
 
-      // Track first frame render to hide poster once video is visible
-      // Resets when post or feed context changes (same keys as other recycling state)
+      // Track first frame render and blur ready so we hide the poster only when both are done
+      // (avoids showing a blank area where the Skia blur hasn't loaded yet)
       const [firstFrameRendered, setFirstFrameRendered] = useRecyclingState(false, [
         postView.uri,
         feedOption,
       ]);
+      const [blurReady, setBlurReady] = useRecyclingState(false, [postView.uri, feedOption]);
 
-      // Callback for first frame render - wrapped in useCallback to ensure stable reference
       const handleFirstFrameRender = useCallback(() => {
         setFirstFrameRendered(true);
       }, [setFirstFrameRendered]);
+
+      const handleBlurReady = useCallback(() => {
+        setBlurReady(true);
+      }, [setBlurReady]);
 
       // Moderation: hide = explicit filter/noOverride from batch; warn = blur only with opt-in.
       // Failsafe: if the post has labels but we're missing batch result (e.g. search/spotlight), block to avoid showing un-evaluated labeled content.
@@ -1020,7 +1024,10 @@ const VideoCard = memo(
 
       return (
         <View style={[styles.container, { height: cardHeight }]}>
-          <BlurredBackground thumbnailUrl={cannotShowMedia ? null : (posterUrl ?? null)} />
+          <BlurredBackground
+            thumbnailUrl={cannotShowMedia ? null : (posterUrl ?? null)}
+            onBlurReady={handleBlurReady}
+          />
           <Pressable
             onPress={handleVideoTap}
             onLongPress={handleLongPress}
@@ -1028,7 +1035,7 @@ const VideoCard = memo(
             style={styles.videoContainerPressable}
           >
             <View style={styles.videoContainer}>
-              {!!posterUrl && !cannotShowMedia && !firstFrameRendered && (
+              {!!posterUrl && !cannotShowMedia && (!firstFrameRendered || !blurReady) && (
                 <Image
                   source={{ uri: posterUrl }}
                   contentFit="contain"

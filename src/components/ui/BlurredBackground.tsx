@@ -1,34 +1,45 @@
 import { StyleSheet } from 'react-native';
-import { memo } from 'react';
+import { memo, useEffect } from 'react';
 import { Canvas, Image, Blur, Rect, useImage, useCanvasSize } from '@shopify/react-native-skia';
 
 interface BlurredBackgroundProps {
   thumbnailUrl: string | null;
+  onBlurReady?: () => void;
 }
 
 const BlurredBackground = memo(function BlurredBackground({
   thumbnailUrl,
+  onBlurReady,
 }: BlurredBackgroundProps) {
   const image = useImage(thumbnailUrl);
   const { ref, size } = useCanvasSize();
+  const w = size.width;
+  const h = size.height;
+  const hasSize = w > 0 && h > 0;
+
+  useEffect(() => {
+    if (image && hasSize && onBlurReady) onBlurReady();
+  }, [image, hasSize, onBlurReady]);
 
   if (!thumbnailUrl) return null;
 
   return (
     <Canvas ref={ref} style={StyleSheet.absoluteFill} pointerEvents="none">
-      {image && size.width > 0 && size.height > 0 && (
+      {hasSize && (
         <>
-          <Image
-            image={image}
-            x={-size.width * 0.15}
-            y={-size.height * 0.15}
-            width={size.width * 1.3}
-            height={size.height * 1.3}
-            fit="cover"
-          >
-            <Blur blur={40} mode="clamp" />
-          </Image>
-          <Rect x={0} y={0} width={size.width} height={size.height} color="black" opacity={0.5} />
+          {image && (
+            <Image
+              image={image}
+              x={-w * 0.15}
+              y={-h * 0.15}
+              width={w * 1.3}
+              height={h * 1.3}
+              fit="cover"
+            >
+              <Blur blur={24} mode="clamp" />
+            </Image>
+          )}
+          <Rect x={0} y={0} width={w} height={h} color="black" opacity={0.5} />
         </>
       )}
     </Canvas>
