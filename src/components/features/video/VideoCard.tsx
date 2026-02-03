@@ -344,15 +344,19 @@ const VideoCard = memo(
         setFirstFrameRendered(true);
       }, [setFirstFrameRendered]);
 
-      // Moderation: hide = no batch or filter/noOverride; warn = blur only with opt-in.
+      // Moderation: hide = explicit filter/noOverride from batch; warn = blur only with opt-in.
+      // Failsafe: if the post has labels but we're missing batch result (e.g. search/spotlight), block to avoid showing un-evaluated labeled content.
       const contentListUI = feedItem?.contentListUI;
       const contentMediaUI = feedItem?.contentMediaUI;
       const hasModerationFromBatch = contentListUI != null || contentMediaUI != null;
-      const isBlocked = !hasModerationFromBatch;
+      const postHasLabels =
+        Array.isArray((postView as { labels?: unknown[] }).labels) &&
+        (postView as { labels: unknown[] }).labels.length > 0;
       const shouldBlur = !!(contentListUI?.blur || contentMediaUI?.blur);
       const noOverride = !!(contentListUI?.noOverride || contentMediaUI?.noOverride);
       const isFiltered = !!(contentListUI?.filter || contentMediaUI?.filter);
-      const cannotShowMedia = isBlocked || noOverride || isFiltered;
+      const cannotShowMedia =
+        noOverride || isFiltered || (!hasModerationFromBatch && postHasLabels);
       const isWarn = shouldBlur && !noOverride && !isFiltered;
       const firstBlur = contentListUI?.blurs?.[0] ?? contentMediaUI?.blurs?.[0];
       const reason =
@@ -1016,7 +1020,7 @@ const VideoCard = memo(
 
       return (
         <View style={[styles.container, { height: cardHeight }]}>
-          <BlurredBackground thumbnailUrl={isBlocked ? null : (posterUrl ?? null)} />
+          <BlurredBackground thumbnailUrl={cannotShowMedia ? null : (posterUrl ?? null)} />
           <Pressable
             onPress={handleVideoTap}
             onLongPress={handleLongPress}
