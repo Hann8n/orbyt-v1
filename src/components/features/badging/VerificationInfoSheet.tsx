@@ -12,7 +12,12 @@ import CloseButton from '../../ui/CloseButton';
 import CancelButton from '../../ui/CancelButton';
 import KeyboardAwareFooter from '../../../utils/components/truesheet/KeyboardAwareFooter';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import { safeDismiss, safePresent } from '../../../utils/components/truesheet/utils';
+import {
+  safeDismiss,
+  safePresent,
+  useMeasuredFooterHeight,
+  FOOTER_BOTTOM_PADDING_MIN,
+} from '../../../utils/components/truesheet';
 import VerificationBadge from './VerificationBadge';
 
 // Import AuthorItem directly - preload to avoid size calculation issues
@@ -57,9 +62,8 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
   const navigation = useRouter();
   const sheetDetents: ('auto' | number)[] = useMemo(() => ['auto'], []);
   const insets = useSafeAreaInsets();
-
-  // Calculate footer height as constant: cancelContainer paddingTop (20) + button minHeight (44)
-  const footerHeight = 20 + 44;
+  const footerBottomPadding = Math.max(insets.bottom, FOOTER_BOTTOM_PADDING_MIN);
+  const [contentBottomPadding, wrapFooter] = useMeasuredFooterHeight(20 + 44);
 
   // Get profile info - use cached data if available
   // Verification data is included in profile response, so we only need one query
@@ -99,8 +103,8 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
       backgroundColor={Colors.black}
       onDidDismiss={onDismiss}
       grabber={false}
-      footer={
-        <View style={{ backgroundColor: Colors.black, paddingBottom: insets.bottom }}>
+      footer={wrapFooter(
+        <View style={{ backgroundColor: Colors.black, paddingBottom: footerBottomPadding }}>
           <KeyboardAwareFooter
             hideOnKeyboard={true}
             bottomPadding={0}
@@ -111,9 +115,9 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
             </View>
           </KeyboardAwareFooter>
         </View>
-      }
+      )}
     >
-      <View style={[styles.content, { paddingBottom: footerHeight }]}>
+      <View style={[styles.content, { paddingBottom: contentBottomPadding }]}>
         {/* Header with title, badge and close button */}
         <View style={styles.headerContainer}>
           <View style={styles.headerLeft}>
@@ -294,10 +298,6 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     textAlign: 'left',
     fontFamily: 'Figtree-Regular',
-  },
-  highlightedText: {
-    color: Colors.neutral[50],
-    fontFamily: 'Figtree-Medium',
   },
   verifiedByLabel: {
     color: Colors.neutral[500],

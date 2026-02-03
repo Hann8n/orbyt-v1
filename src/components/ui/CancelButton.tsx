@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, Text, StyleSheet } from 'react-native';
 import { BORDER_RADIUS } from '../../utils/constants';
 import { Colors } from './UI';
+import { hexToRGBA } from '../../utils/formatting/colors';
 
 interface CancelButtonProps {
   onPress: () => void;
@@ -54,23 +55,23 @@ const styles = StyleSheet.create({
     borderColor: Colors.transparent,
   },
   cancelButtonPressed: {
-    backgroundColor: Colors.neutral[200],
+    backgroundColor: hexToRGBA(Colors.neutral[200], 0.8),
   },
   cancelButtonText: {
-    color: Colors.neutral[200],
+    color: Colors.neutral[50],
     fontSize: 15,
     fontWeight: '600',
     textAlign: 'center',
     fontFamily: 'Figtree-SemiBold',
   },
   cancelButtonTextPressed: {
-    color: Colors.neutral[900],
+    color: Colors.black,
   },
   primaryButton: {
     backgroundColor: Colors.neutral[50],
   },
   primaryButtonPressed: {
-    backgroundColor: Colors.neutral[200],
+    backgroundColor: hexToRGBA(Colors.neutral[200], 0.8),
   },
   primaryButtonText: {
     color: Colors.black,

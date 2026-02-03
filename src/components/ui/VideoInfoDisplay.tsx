@@ -1,6 +1,5 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { BORDER_RADIUS } from '../../utils/constants';
 import { VideoInfo } from '../../services/video/VideoProcessingService';
 import { Colors } from './UI';
 
@@ -53,23 +52,6 @@ const styles = StyleSheet.create({
     padding: 0,
     paddingBottom: 0,
   },
-  videoSizeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  videoSizeText: {
-    color: Colors.neutral[50],
-    fontSize: 14,
-    fontFamily: 'Figtree-Medium',
-  },
-  compressionNote: {
-    color: Colors.amber[200],
-    fontSize: 12,
-    fontFamily: 'Figtree-Regular',
-    marginTop: 4,
-    marginLeft: 28,
-  },
   videoInfoSection: {
     marginBottom: 0,
   },
@@ -95,72 +77,6 @@ const styles = StyleSheet.create({
     color: Colors.neutral[50],
     fontSize: 16,
     fontFamily: 'Figtree-SemiBold',
-  },
-  compressionStatusSection: {
-    marginBottom: 15,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.1)',
-  },
-  compressionOptionsSection: {
-    marginTop: 10,
-  },
-  compressionOptionsTitle: {
-    color: Colors.neutral[50],
-    fontSize: 14,
-    fontFamily: 'Figtree-SemiBold',
-    marginBottom: 8,
-  },
-  compressionOption: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: BORDER_RADIUS.SMALL,
-    padding: 12,
-    marginBottom: 8,
-  },
-  compressionOptionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  compressionOptionLabel: {
-    color: Colors.neutral[50],
-    fontSize: 14,
-    fontFamily: 'Figtree-Medium',
-  },
-  compressionOptionQuality: {
-    color: Colors.teal[300],
-    fontSize: 12,
-    fontFamily: 'Figtree-Regular',
-  },
-  compressionOptionDetails: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  compressionOptionSize: {
-    color: Colors.neutral[200],
-    fontSize: 12,
-    fontFamily: 'Figtree-Regular',
-  },
-  compressionOptionTime: {
-    color: Colors.neutral[200],
-    fontSize: 12,
-    fontFamily: 'Figtree-Regular',
-  },
-  compressButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.cyan[400],
-    borderRadius: BORDER_RADIUS.SMALL,
-    padding: 12,
-    marginTop: 10,
-    gap: 8,
-  },
-  compressButtonText: {
-    color: Colors.neutral[50],
-    fontSize: 14,
-    fontFamily: 'Figtree-Medium',
   },
 });
 

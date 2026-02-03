@@ -1063,7 +1063,7 @@ const VideoCard = memo(
                 style={[styles.heartAnimationContainer, heartAnimatedStyle]}
                 pointerEvents="none"
               >
-                <HeartFillIcon size={100} color={Colors.INTERACTIVE.HEART.ACTIVE} />
+                <HeartFillIcon size={100} color={Colors.coral[500]} />
               </Animated.View>
 
               {/* Integrated Overlay System using VideoOverlayUI */}

@@ -18,7 +18,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import { safeDismiss, safePresent } from '../../../utils/components/truesheet/utils';
+import {
+  safeDismiss,
+  safePresent,
+  useMeasuredFooterHeight,
+} from '../../../utils/components/truesheet';
 
 import AtprotoService from '../../../services/api/AtprotoService';
 import { queryKeys } from '../../../utils/query/queryKeys';
@@ -110,10 +114,15 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const scrollToCommentUri = globalData?.scrollToCommentUri;
 
   const insets = useSafeAreaInsets();
-  const listBottomPadding = 96 + (typeof insets?.bottom === 'number' ? insets.bottom : 0);
+  const [listBottomPadding, wrapFooter] = useMeasuredFooterHeight(96);
   const listContentStyle = useMemo(
-    () => [styles.listContent, { paddingBottom: listBottomPadding }],
-    [listBottomPadding]
+    () => [
+      styles.listContent,
+      {
+        paddingBottom: listBottomPadding + (typeof insets?.bottom === 'number' ? insets.bottom : 0),
+      },
+    ],
+    [listBottomPadding, insets?.bottom]
   );
 
   const sheetRef = useRef<TrueSheet>(null);
@@ -750,7 +759,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
                 size={26}
                 color={
                   (onToggleLike ? headerVisualLiked : headerIsLiked)
-                    ? Colors.INTERACTIVE.HEART.ACTIVE
+                    ? Colors.coral[500]
                     : Colors.neutral[500]
                 }
               />
@@ -784,10 +793,10 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         detents={scrollToCommentUri ? [1] : [0.5, 1]}
         backgroundColor={Colors.black}
         onDidDismiss={handleClose}
-        scrollable
         grabber={false}
+        scrollable={true}
         header={headerComponent}
-        footer={activeTab === 'comments' ? ComposerFooter : undefined}
+        footer={activeTab === 'comments' ? wrapFooter(ComposerFooter) : undefined}
       >
         <View style={styles.container}>
           {activeTab === 'comments' ? (
@@ -937,7 +946,7 @@ const styles = StyleSheet.create({
 
   modalOverlay: {
     flex: 1,
-    backgroundColor: Colors.overlayBlack95,
+    backgroundColor: Colors.overlay.black95,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -950,7 +959,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 60,
     left: 24,
-    backgroundColor: Colors.overlayBlack70,
+    backgroundColor: Colors.overlay.black70,
     borderRadius: BORDER_RADIUS.LARGE,
     padding: 12,
   },

@@ -1412,6 +1412,7 @@ const VideoPostScreen: React.FC = () => {
         title={getSelectedContentWarningsLabel()}
         name="post-content-warnings-sheet"
         detents={['auto']}
+        scrollable={true}
         showCancelButton={true}
         cancelButtonText="Close"
       >
@@ -1748,7 +1749,7 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.overlayBlack50,
+    backgroundColor: Colors.overlay.black50,
   },
   headerButtonLeft: {
     left: 4,
@@ -1858,7 +1859,7 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontFamily: 'Figtree-Bold',
     textAlign: 'center',
-    textShadowColor: Colors.overlayBlack50,
+    textShadowColor: Colors.overlay.black50,
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 3,
     padding: 4,
@@ -2124,11 +2125,11 @@ const styles = StyleSheet.create({
   },
   descriptionModalOverlay: {
     flex: 1,
-    backgroundColor: Colors.overlayBlack85,
+    backgroundColor: Colors.overlay.black85,
   },
   descriptionModalContentWrapper: {
     flex: 1,
-    backgroundColor: Colors.overlayBlack95,
+    backgroundColor: Colors.overlay.black95,
     justifyContent: 'flex-start',
   },
   descriptionModalHeader: {

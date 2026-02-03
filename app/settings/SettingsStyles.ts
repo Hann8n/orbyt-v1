@@ -88,7 +88,7 @@ export const settingsButtonStyles = StyleSheet.create({
     backgroundColor: Colors.neutral[900],
   },
 
-  // Logout button style - matches cancel button pattern
+  // Logout button style - matches cancel/option button pattern
   logoutButton: {
     backgroundColor: Colors.neutral[900],
     borderRadius: BORDER_RADIUS.FULL,
@@ -266,9 +266,9 @@ export const settingsTextStyles = StyleSheet.create({
     letterSpacing: 0.3,
   },
 
-  // Logout button text - matches cancel button pattern
+  // Logout button text - matches cancel/option button pattern
   logoutButtonText: {
-    color: Colors.neutral[200],
+    color: Colors.neutral[50],
     fontSize: 15,
     fontWeight: '600',
     textAlign: 'center',

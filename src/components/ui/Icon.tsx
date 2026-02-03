@@ -10,20 +10,7 @@ import {
 } from 'react-native-reanimated';
 import { Canvas, Path } from '@shopify/react-native-skia';
 
-// Simple colors object to avoid circular dependency - matches UI.tsx Colors
-const Colors = {
-  white: '#f3f5fe', // Orbyt White (neutral.50)
-  black: '#000000',
-  gray: '#636c88', // neutral.500
-  lightGray: '#d5daea', // neutral.200
-  darkGray: '#1a1e2e', // neutral.900
-  red: '#f5355a', // coral.500
-  green: '#00d69c', // teal.500
-  blue: '#2b7fff', // blue.500
-  purple: '#551def', // purple.500 (brand)
-  orange: '#ff6b35', // orange.500
-  yellow: '#FFD700', // amber - kept original for vibrancy
-};
+import { Colors } from '../../theme';
 import { useProfile } from '../../services/data/ProfileService';
 import { getProfileColors } from '../../utils/formatting/colors';
 
@@ -1164,7 +1151,7 @@ interface IconProps {
 const Icon: React.FC<IconProps> = ({
   name,
   size = 24,
-  color = Colors.white,
+  color = Colors.neutral[50],
   style,
   strokeWidth = 1.75,
 }) => {
@@ -1249,7 +1236,7 @@ const Icon: React.FC<IconProps> = ({
     name === 'check-circle-black' ||
     name === 'checkmark-black'
   ) {
-    const bgColor = color === Colors.white ? Colors.black : color;
+    const bgColor = color === Colors.neutral[50] ? Colors.black : color;
     return <CheckCircleFillIcon size={size} color={bgColor} style={style} />;
   }
   if (name === 'shield-off' || name === 'mingcute:shield-shape-line') {

@@ -13,6 +13,8 @@ interface LinearGradientProps {
   locations?: number[];
   start?: { x: number; y: number };
   end?: { x: number; y: number };
+  /** Enable dithering to reduce banding (recommended for smooth gradients) */
+  dither?: boolean;
   style?: StyleProp<ViewStyle>;
   pointerEvents?: 'none' | 'auto' | 'box-none' | 'box-only';
   children?: React.ReactNode;
@@ -27,6 +29,7 @@ export const LinearGradient: React.FC<LinearGradientProps> = ({
   locations,
   start = { x: 0, y: 0 },
   end = { x: 0, y: 1 },
+  dither = true,
   style,
   pointerEvents = 'auto',
   children,
@@ -81,7 +84,7 @@ export const LinearGradient: React.FC<LinearGradientProps> = ({
           pointerEvents="none"
         >
           {gradientWidth > 0 && gradientHeight > 0 && (
-            <Rect x={0} y={0} width={gradientWidth} height={gradientHeight}>
+            <Rect x={0} y={0} width={gradientWidth} height={gradientHeight} dither={dither}>
               <SkiaLinearGradient
                 start={vec(startX, startY)}
                 end={vec(endX, endY)}
@@ -101,7 +104,7 @@ export const LinearGradient: React.FC<LinearGradientProps> = ({
   return (
     <Canvas ref={ref} style={style} pointerEvents={pointerEvents}>
       {gradientWidth > 0 && gradientHeight > 0 && (
-        <Rect x={0} y={0} width={gradientWidth} height={gradientHeight}>
+        <Rect x={0} y={0} width={gradientWidth} height={gradientHeight} dither={dither}>
           <SkiaLinearGradient
             start={vec(startX, startY)}
             end={vec(endX, endY)}

@@ -93,7 +93,6 @@ const CustomPDSInputSheet: React.FC<CustomPDSInputSheetProps> = ({
       showCancelButton={false}
       name={name}
       scrollable={false}
-      contentBottomPadding={0}
     >
       <View style={styles.usernameInputContainer}>
         {pdsError && (
@@ -224,9 +223,6 @@ const styles = StyleSheet.create({
   },
   loginButtonActive: {
     backgroundColor: Colors.teal[500],
-  },
-  loginButtonDisabled: {
-    opacity: 0.5,
   },
   loginButtonText: {
     color: Colors.neutral[500],

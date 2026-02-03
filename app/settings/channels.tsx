@@ -207,6 +207,8 @@ export default function ChannelManagementScreen() {
           setSelectedChannel(null);
         }}
         title={displayedTitle || 'Channel Options'}
+        detents={['auto']}
+        scrollable={true}
         showCancelButton={true}
       >
         <View style={styles.sheetContent}>

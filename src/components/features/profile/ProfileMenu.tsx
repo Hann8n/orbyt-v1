@@ -1,5 +1,4 @@
 import React, { useState, useCallback, useRef } from 'react';
-import { BORDER_RADIUS } from '../../../utils/constants';
 import { useQueryClient } from '@tanstack/react-query';
 import { View, Text, StyleSheet, Share, Platform, Alert, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,10 +8,14 @@ import KeyboardAwareFooter from '../../../utils/components/truesheet/KeyboardAwa
 import { Colors } from '../../../theme';
 import CloseButton from '../../ui/CloseButton';
 import CancelButton from '../../ui/CancelButton';
-import { hexToRGBA } from '../../../utils/formatting/colors';
 import VerticalListSheet, { VerticalListButton } from '../../ui/VerticalListSheet';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import { safeDismiss, safePresent } from '../../../utils/components/truesheet/utils';
+import {
+  safeDismiss,
+  safePresent,
+  useMeasuredFooterHeight,
+  FOOTER_BOTTOM_PADDING_MIN,
+} from '../../../utils/components/truesheet';
 import { useAuth } from '../../../stores/userStore';
 import {
   useProfile,
@@ -54,9 +57,8 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
 
   // TrueSheet refs for proper stacking
   const submenuSheetRef = useRef<TrueSheet>(null);
-
-  // Calculate footer height as constant: cancelContainer paddingTop (8) + button minHeight (44)
-  const submenuFooterHeight = 8 + 44;
+  const submenuFooterBottomPadding = Math.max(insets.bottom, FOOTER_BOTTOM_PADDING_MIN);
+  const [submenuContentBottomPadding, wrapSubmenuFooter] = useMeasuredFooterHeight(8 + 44);
 
   // Get profile data - prefer useProfileByDid if DID is provided (more reliable for handle.invalid cases)
   // Otherwise fallback to useProfile for backwards compatibility
@@ -392,8 +394,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
       showCancelButton={true}
       cancelButtonText="Cancel"
       name="profile-menu"
-      detents={[0.5]}
-      scrollable={false}
+      detents={['auto']}
     >
       {/* Main menu options */}
       <View style={styles.optionsContainer}>
@@ -427,19 +428,19 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
             <CloseButton onPress={() => safeDismiss('profile-menu-submenu')} />
           </View>
         }
-        footer={
+        footer={wrapSubmenuFooter(
           <KeyboardAwareFooter
             hideOnKeyboard={true}
-            bottomPadding={insets.bottom}
+            bottomPadding={submenuFooterBottomPadding}
             style={{ backgroundColor: Colors.black }}
           >
             <View style={[styles.cancelContainer, { backgroundColor: Colors.black }]}>
               <CancelButton onPress={() => safeDismiss('profile-menu-submenu')} />
             </View>
           </KeyboardAwareFooter>
-        }
+        )}
       >
-        <View style={[styles.submenuContent, { paddingBottom: submenuFooterHeight }]}>
+        <View style={[styles.submenuContent, { paddingBottom: submenuContentBottomPadding }]}>
           {/* Submenu options */}
           <View style={styles.optionsContainer}>
             <VerticalListButton
@@ -469,31 +470,6 @@ const styles = StyleSheet.create({
   optionsContainer: {
     flexDirection: 'column',
     marginTop: 0,
-  },
-  option: {
-    backgroundColor: hexToRGBA(Colors.neutral[500], 0.12),
-    borderRadius: BORDER_RADIUS.LARGE,
-    paddingVertical: 24,
-    paddingHorizontal: 20,
-    borderWidth: 0,
-    borderColor: 'transparent',
-  },
-  optionText: {
-    color: Colors.neutral[200],
-    fontSize: 18,
-    fontWeight: '500',
-    textAlign: 'left',
-    fontFamily: 'Figtree-Medium',
-    paddingLeft: 8,
-  },
-  submenuText: {
-    color: Colors.neutral[50],
-    textAlign: 'center',
-    paddingLeft: 0,
-    fontFamily: 'Figtree-SemiBold',
-  },
-  submenuOption: {
-    backgroundColor: Colors.coral[950],
   },
   submenuContent: {
     paddingHorizontal: 12,

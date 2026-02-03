@@ -2,7 +2,12 @@ import React, { useRef, useEffect } from 'react';
 import { BORDER_RADIUS } from '../../utils/constants';
 import { View, Text, StyleSheet, ViewStyle, TextStyle, StyleProp } from 'react-native';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import { safeDismiss, safePresent } from '../../utils/components/truesheet/utils';
+import {
+  safeDismiss,
+  safePresent,
+  useMeasuredFooterHeight,
+  FOOTER_BOTTOM_PADDING_MIN,
+} from '../../utils/components/truesheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from './Icon';
 import CloseButton from './CloseButton';
@@ -44,7 +49,8 @@ interface VerticalListSheetProps {
    */
   footerTopPadding?: number;
   /**
-   * Enable scrollable content (default: true)
+   * Enable native scrollable content pinning (default: false).
+   * Only set true if the sheet's direct content is a ScrollView/FlatList; we usually use our own ScrollView inside a View.
    */
   scrollable?: boolean;
   /**
@@ -71,23 +77,26 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
   titleSize,
   hideCloseButton = false,
   footerTopPadding,
-  scrollable = true,
+  scrollable = false,
   contentBottomPadding,
   customFooter,
 }) => {
   const bottomSheetRef = useRef<TrueSheet>(null);
   const insets = useSafeAreaInsets();
+  const footerBottomPadding = Math.max(insets.bottom, FOOTER_BOTTOM_PADDING_MIN);
 
-  // Calculate footer height for minimal content padding
-  // Footer handles its own safe area padding, so we only need footer height
   const hasFooter = showCancelButton || customFooter;
-  const footerHeight = hasFooter ? (footerTopPadding ?? 8) + 44 : 0;
+  const fallbackFooterHeight = hasFooter ? (footerTopPadding ?? 8) + 44 + footerBottomPadding : 0;
+  const [measuredFooterHeight, wrapFooter] = useMeasuredFooterHeight(fallbackFooterHeight);
 
-  // Content padding - minimal padding to avoid footer overlap
-  // TrueSheet handles spacing, but we add minimal padding for footer height
-  // Components can opt-out with contentBottomPadding={0} if they handle their own padding
+  // Content padding so list isn't cut off by the footer (TrueSheet footer is position:absolute)
+  // Use measured footer height when available; allow override via contentBottomPadding
   const contentPaddingBottom =
-    contentBottomPadding !== undefined ? contentBottomPadding : hasFooter ? footerHeight : 0;
+    contentBottomPadding !== undefined
+      ? contentBottomPadding
+      : hasFooter
+        ? measuredFooterHeight
+        : 0;
 
   // Handle bottom sheet visibility
   useEffect(() => {
@@ -152,17 +161,21 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
       scrollable={scrollable}
       header={headerComponent}
       footer={
-        customFooter ? (
-          <View style={[styles.footerContainer, { paddingBottom: insets.bottom }]}>
-            {customFooter}
-          </View>
-        ) : showCancelButton ? (
-          <View style={[styles.footerContainer, { paddingBottom: insets.bottom }]}>
-            <View style={[styles.cancelContainer, { paddingTop: footerTopPadding ?? 8 }]}>
-              <CancelButton onPress={onDismiss} text={cancelButtonText} />
-            </View>
-          </View>
-        ) : undefined
+        customFooter
+          ? wrapFooter(
+              <View style={[styles.footerContainer, { paddingBottom: footerBottomPadding }]}>
+                {customFooter}
+              </View>
+            )
+          : showCancelButton
+            ? wrapFooter(
+                <View style={[styles.footerContainer, { paddingBottom: footerBottomPadding }]}>
+                  <View style={[styles.cancelContainer, { paddingTop: footerTopPadding ?? 8 }]}>
+                    <CancelButton onPress={onDismiss} text={cancelButtonText} />
+                  </View>
+                </View>
+              )
+            : undefined
       }
     >
       <View style={styles.content}>

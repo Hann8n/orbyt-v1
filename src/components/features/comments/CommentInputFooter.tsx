@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cancelReplyButton: {
-    backgroundColor: Colors.overlayWhite10,
+    backgroundColor: Colors.overlay.white10,
   },
   charCountBelow: {
     marginTop: 6,

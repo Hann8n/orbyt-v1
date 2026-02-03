@@ -446,9 +446,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.4)',
     marginLeft: 6,
   },
-  activeDot: {
-    backgroundColor: 'rgba(255,255,255,0.95)',
-  },
 });
 
 function areEqual(prev: HeaderBannerProps, next: HeaderBannerProps): boolean {

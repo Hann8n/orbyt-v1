@@ -4,7 +4,12 @@ import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format, parseISO, isValid, isToday, isTomorrow } from 'date-fns';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import { safeDismiss, safePresent } from '../../../utils/components/truesheet/utils';
+import {
+  safeDismiss,
+  safePresent,
+  useMeasuredFooterHeight,
+  FOOTER_BOTTOM_PADDING_MIN,
+} from '../../../utils/components/truesheet';
 import KeyboardAwareFooter from '../../../utils/components/truesheet/KeyboardAwareFooter';
 import CloseButton from '../../ui/CloseButton';
 import CancelButton from '../../ui/CancelButton';
@@ -31,9 +36,8 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
   const bottomSheetRef = useRef<TrueSheet>(null);
   const insets = useSafeAreaInsets();
   const sheetDetents: ('auto' | number)[] = useMemo(() => ['auto'], []);
-
-  // Calculate footer height
-  const footerHeight = 20 + 44;
+  const footerBottomPadding = Math.max(insets.bottom, FOOTER_BOTTOM_PADDING_MIN);
+  const [contentBottomPadding, wrapFooter] = useMeasuredFooterHeight(20 + 44);
 
   const status = profile?.status;
 
@@ -137,8 +141,8 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
           <CloseButton onPress={onDismiss} />
         </View>
       }
-      footer={
-        <View style={{ backgroundColor: Colors.black, paddingBottom: insets.bottom }}>
+      footer={wrapFooter(
+        <View style={{ backgroundColor: Colors.black, paddingBottom: footerBottomPadding }}>
           <KeyboardAwareFooter
             hideOnKeyboard={true}
             bottomPadding={0}
@@ -149,9 +153,9 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
             </View>
           </KeyboardAwareFooter>
         </View>
-      }
+      )}
     >
-      <View style={[styles.content, { paddingBottom: footerHeight }]}>
+      <View style={[styles.content, { paddingBottom: contentBottomPadding }]}>
         {status ? (
           <>
             {/* Thumbnail */}

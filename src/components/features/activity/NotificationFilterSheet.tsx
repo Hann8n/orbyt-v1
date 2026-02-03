@@ -1,10 +1,12 @@
 import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import VerticalListSheet from '../../ui/VerticalListSheet';
 import CancelButton from '../../ui/CancelButton';
 import Icon from '../../ui/Icon';
 import { Colors } from '../../../theme';
 import { BORDER_RADIUS } from '../../../utils/constants';
+import { FOOTER_BOTTOM_PADDING_MIN } from '../../../utils/components/truesheet';
 import type { NotificationReason } from '../../../services/api/types';
 
 // Valid notification reasons extracted from API type with user-friendly labels
@@ -145,6 +147,9 @@ const NotificationFilterContent: React.FC<{
   onClearButtonChange: (button: React.ReactNode) => void;
   onFooterChange: (footer: React.ReactNode) => void;
 }> = ({ selectedReasons, onFilterChange, onDismiss, onClearButtonChange, onFooterChange }) => {
+  const insets = useSafeAreaInsets();
+  const footerBottomPadding = Math.max(insets.bottom, FOOTER_BOTTOM_PADDING_MIN);
+
   // Initialize state from prop - will reset when parent component remounts with new key
   const [localSelected, setLocalSelected] = useState<NotificationReason[]>(
     () => selectedReasons || []
@@ -206,7 +211,7 @@ const NotificationFilterContent: React.FC<{
 
   const footer = useMemo(
     () => (
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: footerBottomPadding }]}>
         <CancelButton
           onPress={() => {
             // If all are selected or none are selected, pass undefined (no filter)
@@ -221,7 +226,7 @@ const NotificationFilterContent: React.FC<{
         />
       </View>
     ),
-    [localSelected, onFilterChange, onDismiss]
+    [localSelected, onFilterChange, onDismiss, footerBottomPadding]
   );
 
   // Update parent with clear button and footer
@@ -230,11 +235,14 @@ const NotificationFilterContent: React.FC<{
     onFooterChange(footer);
   }, [clearButton, footer, onClearButtonChange, onFooterChange]);
 
+  // Ensure scroll content has enough bottom padding so last options aren't cut off by footer
+  const scrollContentPaddingBottom = 12 + 8 + 44 + footerBottomPadding;
+
   return (
     <ScrollView
       nestedScrollEnabled
       showsVerticalScrollIndicator={false}
-      contentContainerStyle={styles.scrollContent}
+      contentContainerStyle={[styles.scrollContent, { paddingBottom: scrollContentPaddingBottom }]}
     >
       {ORDERED_FILTER_OPTIONS.map((item, index) => {
         if (item.type === 'grouped') {
@@ -304,10 +312,9 @@ const NotificationFilterSheet: React.FC<NotificationFilterSheetProps> = ({
       showCancelButton={false}
       hideCloseButton={false}
       customHeaderButton={clearButtonState}
-      detents={[0.9]}
+      detents={['auto']}
       scrollable={true}
       customFooter={footerState}
-      contentBottomPadding={0}
     >
       <NotificationFilterContent
         key={resetKey}
@@ -360,7 +367,7 @@ const styles = StyleSheet.create({
   footer: {
     alignItems: 'center',
     paddingTop: 8,
-    backgroundColor: Colors.black,
+    // No backgroundColor – gradient from VerticalListSheet shows through to match other sheets
   },
   clearButton: {
     paddingHorizontal: 12,

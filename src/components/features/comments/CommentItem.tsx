@@ -1049,7 +1049,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
               <Animated.View style={heartAnimatedStyle}>
                 <HeartFillIcon
                   size={20}
-                  color={isLiked ? Colors.INTERACTIVE.HEART.ACTIVE : Colors.neutral[500]}
+                  color={isLiked ? Colors.coral[500] : Colors.neutral[500]}
                 />
               </Animated.View>
             </Pressable>
@@ -1101,7 +1101,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 6,
     right: 6,
-    backgroundColor: Colors.overlayBlack70,
+    backgroundColor: Colors.overlay.black70,
     paddingVertical: 4,
     paddingHorizontal: 8,
     borderRadius: BORDER_RADIUS.MEDIUM,
@@ -1138,7 +1138,7 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     paddingHorizontal: 8,
     paddingVertical: 2,
-    backgroundColor: Colors.overlayWhite10,
+    backgroundColor: Colors.overlay.white10,
     borderRadius: BORDER_RADIUS.SMALL,
   },
   parentChyronArrow: {
@@ -1191,7 +1191,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Figtree-SemiBold',
     marginTop: 2,
     textAlign: 'center',
-    textShadowColor: Colors.overlayBlack15,
+    textShadowColor: Colors.overlay.black15,
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },

@@ -79,7 +79,7 @@ export const Colors = {
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // NEUTRAL SCALE (Cool-tinted grays - hue 229° from Orbyt White)
+  // NEUTRAL SCALE (#636982 mid greys; #171a21 middle default for dark neutrals)
   // ═══════════════════════════════════════════════════════════════════════════
   neutral: {
     0: '#f3f5fe', // ← Orbyt White (no pure white in app)
@@ -88,12 +88,12 @@ export const Colors = {
     200: '#d5daea',
     300: '#b4bcce',
     400: '#8891ab',
-    500: '#636c88',
-    600: '#4d5570',
-    700: '#3b4259',
-    800: '#282e42',
-    900: '#1a1e2e',
-    950: '#0d0f17',
+    500: '#636982', // ← Anchor grey (darker greys)
+    600: '#353b46',
+    700: '#262b34',
+    800: '#171a21', // ← Middle default for dark neutrals
+    900: '#111318',
+    950: '#0c0d10',
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -165,72 +165,17 @@ export const Colors = {
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // SEMANTIC ALIASES (Use these in components for consistent meaning)
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  // Primary actions
-  primary: '#551def', // purple.500
-  primaryLight: '#9b6aff', // purple.400 (vibrant)
-  primaryDark: '#4a14cc', // purple.600
-
-  // Accent
-  accent: '#01f5b3', // teal.400
-  accentLight: '#38ffc6', // teal.300 (vibrant)
-  accentDark: '#00d69c', // teal.500
-
-  // Feedback states
-  success: '#00d69c', // teal.500
-  successLight: '#e0fff5', // teal.50
-  warning: '#ffa500', // amber.500 (vibrant orange-gold)
-  warningLight: '#fffaeb', // amber.50
-  error: '#f5355a', // coral.500 (vibrant)
-  errorLight: '#fff0f2', // coral.50
-  info: '#2b7fff', // blue.500 (vibrant)
-  infoLight: '#f0f5ff', // blue.50
-
-  // Backgrounds
-  background: '#f3f5fe', // neutral.50 (Orbyt White)
-  surface: '#f3f5fe', // neutral.0 (Orbyt White)
-  surfaceElevated: '#e9ecf8', // neutral.100
-  surfaceDark: '#1a1e2e', // neutral.900
-  surfaceDarkElevated: '#282e42', // neutral.800
-
-  // Text
-  textPrimary: '#3b4259', // neutral.700
-  textSecondary: '#636c88', // neutral.500
-  textMuted: '#8891ab', // neutral.400
-  textInverse: '#f3f5fe', // neutral.50
-  textOnDark: '#e9ecf8', // neutral.100
-
-  // Borders
-  border: '#d5daea', // neutral.200
-  borderLight: '#e9ecf8', // neutral.100
-  borderDark: '#3b4259', // neutral.700
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // ESSENTIAL COLORS (commonly used base colors)
+  // ESSENTIAL & OVERLAYS (use scale above: neutral[N], purple[N], coral[N], etc.)
   // ═══════════════════════════════════════════════════════════════════════════
   black: '#000000',
-  white: '#f3f5fe', // Orbyt White (neutral.50)
 
-  // Legacy convenience aliases
-  lightGray: '#d5daea', // neutral.200
-  mediumGray: '#4d5570', // neutral.600
-  darkGray: '#1a1e2e', // neutral.900
-  gray: '#636c88', // neutral.500
-  red: '#f5355a', // coral.500 (error)
-  green: '#00d69c', // teal.500 (success)
-  yellow: '#ffa500', // amber.500 (warning)
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // OVERLAYS (with alpha)
-  // ═══════════════════════════════════════════════════════════════════════════
   overlay: {
     black15: 'rgba(0, 0, 0, 0.15)',
     black35: 'rgba(0, 0, 0, 0.35)',
     black50: 'rgba(0, 0, 0, 0.50)',
     black60: 'rgba(0, 0, 0, 0.60)',
     black70: 'rgba(0, 0, 0, 0.70)',
+    black75: 'rgba(0, 0, 0, 0.75)',
     black85: 'rgba(0, 0, 0, 0.85)',
     black95: 'rgba(0, 0, 0, 0.95)',
     white10: 'rgba(255, 255, 255, 0.10)',
@@ -238,50 +183,7 @@ export const Colors = {
     white80: 'rgba(255, 255, 255, 0.80)',
   },
 
-  // Legacy overlay aliases (for backward compatibility)
-  overlayBlack15: 'rgba(0, 0, 0, 0.15)',
-  overlayBlack35: 'rgba(0, 0, 0, 0.35)',
-  overlayBlack50: 'rgba(0, 0, 0, 0.5)',
-  overlayBlack60: 'rgba(0, 0, 0, 0.6)',
-  overlayBlack70: 'rgba(0, 0, 0, 0.7)',
-  overlayBlack75: 'rgba(0, 0, 0, 0.75)',
-  overlayBlack85: 'rgba(0, 0, 0, 0.85)',
-  overlayBlack95: 'rgba(0, 0, 0, 0.95)',
-  overlayWhite10: 'rgba(255, 255, 255, 0.1)',
-  overlayWhite30: 'rgba(255, 255, 255, 0.3)',
-  overlayWhite80: 'rgba(255, 255, 255, 0.8)',
   transparent: 'transparent',
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // COMPONENT-SPECIFIC COLORS
-  // ═══════════════════════════════════════════════════════════════════════════
-  INTERACTIVE: {
-    HEART: {
-      ACTIVE: '#f5355a', // coral.500 (vibrant)
-      INACTIVE: '#d5daea', // neutral.200
-    },
-    REPOST: {
-      ACTIVE: '#00d69c', // teal.500 (vibrant)
-      INACTIVE: '#f3f5fe', // Orbyt White
-    },
-    COMMENT: '#f3f5fe', // Orbyt White
-  },
-
-  STATUS: {
-    SUCCESS: '#00d69c', // teal.500 (vibrant)
-    ERROR: '#f5355a', // coral.500 (vibrant)
-    WARNING: '#ffa500', // amber.500 (vibrant)
-    INFO: '#551def', // purple.500
-    LIVE: '#f5355a', // coral.500 (vibrant)
-  },
-
-  PROFILE: {
-    DEFAULT_RING: '#d5daea', // neutral.200
-  },
-
-  SHIMMER: {
-    PRIMARY: ['#1a1e2e', '#282e42', '#1a1e2e'] as const, // neutral.900 → neutral.800 → neutral.900
-  },
 } as const;
 
 // Type helpers for color scales

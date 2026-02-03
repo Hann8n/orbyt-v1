@@ -291,7 +291,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
       <Animated.View style={likeAnimatedStyle}>
         <HeartFillIcon
           size={effectiveIconSize}
-          color={isLiked ? Colors.INTERACTIVE.HEART.ACTIVE : Colors.neutral[50]}
+          color={isLiked ? Colors.coral[500] : Colors.neutral[50]}
         />
       </Animated.View>
     ),
@@ -328,7 +328,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
       <Animated.View style={repostAnimatedStyle}>
         <RefreshFillIcon
           size={effectiveIconSize}
-          color={isReposted ? Colors.INTERACTIVE.REPOST.ACTIVE : Colors.INTERACTIVE.REPOST.INACTIVE}
+          color={isReposted ? Colors.teal[500] : Colors.neutral[50]}
         />
       </Animated.View>
     ),
@@ -336,7 +336,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   );
 
   const commentIcon = useMemo(
-    () => <ChatFillIcon size={effectiveIconSize} color={Colors.INTERACTIVE.COMMENT} />,
+    () => <ChatFillIcon size={effectiveIconSize} color={Colors.neutral[50]} />,
     [effectiveIconSize]
   );
 
@@ -762,7 +762,7 @@ const styles = StyleSheet.create({
     color: Colors.neutral[50],
     fontSize: 15,
     fontFamily: 'Figtree-Regular',
-    textShadowColor: Colors.overlayBlack50,
+    textShadowColor: Colors.overlay.black50,
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
@@ -778,12 +778,6 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'visible',
   },
-  profilePicture: {
-    borderRadius: BORDER_RADIUS.FULL,
-  },
-  profilePictureTablet: {
-    borderRadius: BORDER_RADIUS.FULL,
-  },
   authorTextContainer: {
     marginLeft: 8,
     flex: 1,
@@ -797,7 +791,7 @@ const styles = StyleSheet.create({
     color: Colors.neutral[50],
     fontWeight: 'bold',
     fontFamily: 'Figtree-Medium',
-    textShadowColor: Colors.overlayBlack50,
+    textShadowColor: Colors.overlay.black50,
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
@@ -841,7 +835,7 @@ const styles = StyleSheet.create({
   },
   baseActionButton: {
     alignItems: 'center',
-    shadowColor: Colors.overlayBlack50,
+    shadowColor: Colors.overlay.black50,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.3,
     shadowRadius: 1,
@@ -870,7 +864,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     width: '100%',
     minWidth: 45,
-    textShadowColor: Colors.overlayBlack35,
+    textShadowColor: Colors.overlay.black35,
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 1,
   },
@@ -883,7 +877,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     width: '100%',
     minWidth: 45,
-    textShadowColor: Colors.overlayBlack35,
+    textShadowColor: Colors.overlay.black35,
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 1,
   },

@@ -3,7 +3,12 @@ import { View, Text, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format, parseISO, isValid } from 'date-fns';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import { safeDismiss, safePresent } from '../../../utils/components/truesheet/utils';
+import {
+  safeDismiss,
+  safePresent,
+  useMeasuredFooterHeight,
+  FOOTER_BOTTOM_PADDING_MIN,
+} from '../../../utils/components/truesheet';
 import { Colors } from '../../../theme';
 import CloseButton from '../../ui/CloseButton';
 import CancelButton from '../../ui/CancelButton';
@@ -21,9 +26,8 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
   const bottomSheetRef = useRef<TrueSheet>(null);
   const sheetDetents: ('auto' | number)[] = useMemo(() => ['auto'], []);
   const insets = useSafeAreaInsets();
-
-  // Calculate footer height as constant: cancelContainer paddingTop (8) + button minHeight (44)
-  const footerHeight = 8 + 44;
+  const footerBottomPadding = Math.max(insets.bottom, FOOTER_BOTTOM_PADDING_MIN);
+  const [contentBottomPadding, wrapFooter] = useMeasuredFooterHeight(8 + 44);
 
   useEffect(() => {
     if (visible) {
@@ -61,8 +65,8 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
       onDidDismiss={onDismiss}
       grabber={false}
       header={headerComponent}
-      footer={
-        <View style={{ backgroundColor: Colors.black, paddingBottom: insets.bottom }}>
+      footer={wrapFooter(
+        <View style={{ backgroundColor: Colors.black, paddingBottom: footerBottomPadding }}>
           <KeyboardAwareFooter
             hideOnKeyboard={true}
             bottomPadding={0}
@@ -73,9 +77,9 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
             </View>
           </KeyboardAwareFooter>
         </View>
-      }
+      )}
     >
-      <View style={[styles.content, { paddingBottom: footerHeight }]}>
+      <View style={[styles.content, { paddingBottom: contentBottomPadding }]}>
         {/* Info Container */}
         <View style={styles.infoContainer}>
           <Text style={styles.infoText}>

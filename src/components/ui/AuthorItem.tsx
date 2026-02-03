@@ -7,7 +7,6 @@ import VerificationBadge from '../features/badging/VerificationBadge';
 import Icon, { FollowIcon, CheckIcon, Loading3FillIcon, MutualHeartIcon } from './Icon';
 import { hexToRGBA } from '../../utils/formatting/colors';
 import { Colors } from './UI';
-import UI from './UI';
 
 import { useProfile, useFollowMutation, prefetchProfile } from '../../services/data/ProfileService';
 import { formatHandle } from '../../utils/formatting/handles';
@@ -67,9 +66,7 @@ export const StatusIconButton: React.FC<StatusIconButtonProps> = ({
   children,
 }) => {
   const backgroundColor =
-    variant === 'success'
-      ? hexToRGBA(Colors.teal[300], 0.1)
-      : hexToRGBA(UI.Colors.STATUS.ERROR, 0.1);
+    variant === 'success' ? hexToRGBA(Colors.teal[300], 0.1) : hexToRGBA(Colors.coral[500], 0.1);
 
   return (
     <View
@@ -226,7 +223,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
         ) : showDeleteButton ? (
           <Pressable onPress={onDeletePress}>
             <StatusIconButton variant="error">
-              <Icon name="delete-2-fill" size={16} color={UI.Colors.STATUS.ERROR} />
+              <Icon name="delete-2-fill" size={16} color={Colors.coral[500]} />
             </StatusIconButton>
           </Pressable>
         ) : showCheckmarkSpinner ? (

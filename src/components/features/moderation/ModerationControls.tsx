@@ -142,13 +142,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  sectionDescription: {
-    color: Colors.neutral[200],
-    fontSize: 12,
-    fontFamily: 'Figtree-Regular',
-    marginBottom: 12,
-    paddingHorizontal: 20,
-  },
   sectionContent: {
     backgroundColor: Colors.neutral[900],
     marginHorizontal: 20,
@@ -165,15 +158,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderBottomWidth: 0.5,
     borderBottomColor: Colors.neutral[600],
-  },
-  contentOptionItem: {
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderBottomWidth: 0.5,
-    borderBottomColor: Colors.neutral[600],
-  },
-  lastItem: {
-    borderBottomWidth: 0,
   },
   settingItemLeft: {
     flexDirection: 'row',
@@ -204,136 +188,10 @@ const styles = StyleSheet.create({
     fontFamily: 'Figtree-Regular',
     marginTop: 2,
   },
-  preferenceIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  preferenceText: {
-    fontSize: 12,
-    fontWeight: '600',
-    fontFamily: 'Figtree-SemiBold',
-    marginLeft: 4,
-  },
-  toggleButtonGroup: {
-    flexDirection: 'row',
-    backgroundColor: Colors.neutral[900],
-    borderRadius: BORDER_RADIUS.MEDIUM,
-    borderWidth: 1,
-    borderColor: Colors.neutral[600],
-    flex: 1,
-    maxWidth: 300,
-    overflow: 'hidden',
-  },
-  toggleButton: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRightWidth: 1,
-    borderRightColor: Colors.neutral[600],
-  },
-  toggleButtonActive: {
-    backgroundColor: Colors.teal[500],
-    borderRightColor: Colors.teal[500],
-  },
-  toggleButtonText: {
-    fontSize: 13,
-    fontWeight: '500',
-    fontFamily: 'Figtree-Medium',
-    color: Colors.neutral[200],
-  },
-  toggleButtonTextActive: {
-    color: Colors.black,
-    fontFamily: 'Figtree-Bold',
-    fontWeight: '700',
-  },
-  toggleButtonLast: {
-    borderRightWidth: 0,
-  },
-  toggleButtonsContainer: {
-    marginTop: 12,
-    alignItems: 'center',
-  },
-  disabledItem: {
-    opacity: 0.5,
-  },
-  disabledIcon: {
-    backgroundColor: Colors.neutral[600],
-  },
-  disabledText: {
-    color: Colors.neutral[500],
-  },
-  disabledToggleGroup: {
-    opacity: 0.5,
-  },
-  disabledToggleButton: {
-    backgroundColor: Colors.neutral[600],
-  },
-  disabledToggleText: {
-    color: Colors.neutral[500],
-  },
-  infoSection: {
-    marginTop: 24,
-    paddingHorizontal: 20,
-  },
-  infoContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: Colors.neutral[900],
-    borderRadius: BORDER_RADIUS.MEDIUM,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: Colors.neutral[600],
-  },
-  infoText: {
-    color: Colors.neutral[200],
-    fontSize: 12,
-    fontFamily: 'Figtree-Regular',
-    marginLeft: 12,
-    lineHeight: 18,
-  },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-  },
-  statItem: {
-    width: '31%',
-    backgroundColor: Colors.neutral[900],
-    padding: 15,
-    borderRadius: BORDER_RADIUS.MEDIUM,
-    marginBottom: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: Colors.neutral[600],
-  },
-  statContent: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  statValue: {
-    color: Colors.neutral[50],
-    fontSize: 24,
-    fontWeight: 'bold',
-    fontFamily: 'Figtree-Bold',
-    textAlign: 'center',
-  },
-  statLabel: {
-    color: Colors.neutral[200],
-    fontSize: 12,
-    marginTop: 5,
-    fontFamily: 'Figtree-Regular',
-    textAlign: 'center',
-    lineHeight: 16,
-  },
-  debugOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 16,
     paddingHorizontal: 20,
   },
   webSettingsSection: {
@@ -354,14 +212,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     fontFamily: 'Figtree-Medium',
     marginLeft: 6,
-  },
-  webSettingsDescription: {
-    color: Colors.neutral[200],
-    fontSize: 12,
-    fontFamily: 'Figtree-Regular',
-    textAlign: 'center',
-    lineHeight: 16,
-    marginBottom: 8,
   },
 });
 

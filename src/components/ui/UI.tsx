@@ -93,10 +93,10 @@ export const Button: React.FC<ButtonProps> = ({
 
     const variantStyles: Record<ButtonVariant, ViewStyle> = {
       primary: {
-        backgroundColor: Colors.lightGray,
+        backgroundColor: Colors.neutral[200],
       },
       secondary: {
-        backgroundColor: Colors.mediumGray,
+        backgroundColor: Colors.neutral[600],
       },
       outline: {
         backgroundColor: 'transparent',
@@ -105,10 +105,10 @@ export const Button: React.FC<ButtonProps> = ({
         backgroundColor: 'transparent',
       },
       danger: {
-        backgroundColor: Colors.red,
+        backgroundColor: Colors.coral[500],
       },
       success: {
-        backgroundColor: Colors.green,
+        backgroundColor: Colors.teal[500],
       },
     };
 
@@ -133,12 +133,12 @@ export const Button: React.FC<ButtonProps> = ({
     };
 
     const variantStyles: Record<ButtonVariant, TextStyle> = {
-      primary: { color: Colors.white },
-      secondary: { color: Colors.white },
-      outline: { color: Colors.lightGray },
-      ghost: { color: Colors.white },
-      danger: { color: Colors.white },
-      success: { color: Colors.white },
+      primary: { color: Colors.neutral[50] },
+      secondary: { color: Colors.neutral[50] },
+      outline: { color: Colors.neutral[200] },
+      ghost: { color: Colors.neutral[50] },
+      danger: { color: Colors.neutral[50] },
+      success: { color: Colors.neutral[50] },
     };
 
     return {
@@ -153,7 +153,7 @@ export const Button: React.FC<ButtonProps> = ({
       {loading ? (
         <Loading3FillIcon
           size={24}
-          color={variant === 'outline' ? Colors.lightGray : Colors.white}
+          color={variant === 'outline' ? Colors.neutral[200] : Colors.neutral[50]}
         />
       ) : (
         <>
@@ -247,7 +247,7 @@ const retryButtonStyles = StyleSheet.create({
     alignItems: 'center',
   },
   whiteButton: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.neutral[50],
   },
   glassBackground: {
     ...StyleSheet.absoluteFillObject,
@@ -291,7 +291,7 @@ export const Avatar: React.FC<AvatarProps> = ({
   style,
   blurRadius,
   fallbackIcon,
-  fallbackIconColor = Colors.lightGray,
+  fallbackIconColor = Colors.neutral[200],
   fallbackIconSize,
   ringColor,
   showRing = false,
@@ -330,8 +330,8 @@ export const Avatar: React.FC<AvatarProps> = ({
 
   // Determine ring color: red if live, otherwise use provided color or default
   const finalRingColor = isLive
-    ? Colors.INTERACTIVE.HEART.ACTIVE
-    : ringColor || profileColors?.textColor || Colors.lightGray;
+    ? Colors.coral[500]
+    : ringColor || profileColors?.textColor || Colors.neutral[200];
 
   // Memoize containerStyle to prevent unnecessary re-renders
   const containerStyle: ViewStyle = React.useMemo(
@@ -354,7 +354,7 @@ export const Avatar: React.FC<AvatarProps> = ({
   const fallbackContainerStyle: ViewStyle = React.useMemo(
     () => ({
       ...containerStyle,
-      backgroundColor: profileColors?.backgroundColor || Colors.darkGray,
+      backgroundColor: profileColors?.backgroundColor || Colors.neutral[900],
     }),
     [containerStyle, profileColors?.backgroundColor]
   );
@@ -464,7 +464,7 @@ export const Avatar: React.FC<AvatarProps> = ({
     position: 'absolute',
     bottom: badgeBottomOffset,
     alignSelf: 'center',
-    backgroundColor: Colors.INTERACTIVE.HEART.ACTIVE,
+    backgroundColor: Colors.coral[500],
     paddingHorizontal: badgeDimensions.paddingH,
     paddingVertical: badgeDimensions.paddingV,
     borderRadius: badgeDimensions.borderRadius,
@@ -474,7 +474,7 @@ export const Avatar: React.FC<AvatarProps> = ({
   };
 
   const liveBadgeTextStyle: TextStyle = {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: badgeDimensions.fontSize,
     fontFamily: 'Figtree-Black',
     fontWeight: '900',
@@ -585,7 +585,7 @@ export const Card: React.FC<CardProps> = ({
   style,
   padding = 16,
   margin = 0,
-  backgroundColor = Colors.darkGray,
+  backgroundColor = Colors.neutral[900],
 }) => {
   return (
     <View
@@ -722,7 +722,7 @@ const InputComponent: React.FC<InputProps> = ({
         {icon && (
           <Pressable style={styles.inputIcon} onPress={onIconPress} disabled={!onIconPress}>
             <React.Suspense fallback={<View style={styles.iconFallbackLarge} />}>
-              <Icon name={icon} size={20} color={Colors.gray} />
+              <Icon name={icon} size={20} color={Colors.neutral[500]} />
             </React.Suspense>
           </Pressable>
         )}
@@ -732,7 +732,7 @@ const InputComponent: React.FC<InputProps> = ({
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor={Colors.lightGray}
+          placeholderTextColor={Colors.neutral[200]}
           secureTextEntry={secureTextEntry}
           keyboardType={keyboardType}
           autoCapitalize={autoCapitalize}
@@ -762,7 +762,7 @@ interface LoadingProps {
 
 export const Loading: React.FC<LoadingProps> = ({
   size = 'large',
-  color = Colors.lightGray,
+  color = Colors.neutral[200],
   text,
   style,
 }) => {
@@ -784,7 +784,7 @@ interface DividerProps {
 }
 
 export const Divider: React.FC<DividerProps> = ({
-  color = Colors.gray,
+  color = Colors.neutral[500],
   thickness = 1,
   margin = 16,
   style,
@@ -826,11 +826,11 @@ export const Badge: React.FC<BadgeProps> = ({ text, variant, size, style }) => {
     };
 
     const variantStyles: Record<BadgeProps['variant'], ViewStyle> = {
-      primary: { backgroundColor: Colors.lightGray },
-      secondary: { backgroundColor: Colors.mediumGray },
-      success: { backgroundColor: Colors.green },
-      error: { backgroundColor: Colors.red },
-      warning: { backgroundColor: Colors.yellow },
+      primary: { backgroundColor: Colors.neutral[200] },
+      secondary: { backgroundColor: Colors.neutral[600] },
+      success: { backgroundColor: Colors.teal[500] },
+      error: { backgroundColor: Colors.coral[500] },
+      warning: { backgroundColor: Colors.amber[500] },
     };
 
     return {
@@ -844,7 +844,7 @@ export const Badge: React.FC<BadgeProps> = ({ text, variant, size, style }) => {
     const baseStyle: TextStyle = {
       fontFamily: 'Figtree-Medium',
       fontWeight: '600',
-      color: Colors.white,
+      color: Colors.neutral[50],
     };
 
     const sizeStyles: Record<BadgeProps['size'], TextStyle> = {
@@ -874,7 +874,7 @@ const styles = StyleSheet.create({
   // Modal styles
   modalBackdrop: {
     flex: 1,
-    backgroundColor: Colors.overlayBlack60, // Changed from BACKDROP to BLACK_60
+    backgroundColor: Colors.overlay.black60,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -883,13 +883,13 @@ const styles = StyleSheet.create({
     maxWidth: 400,
   },
   modalTitle: {
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 20,
     fontFamily: 'Figtree-Bold',
     marginBottom: 8,
   },
   modalSubtitle: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 16,
     fontFamily: 'Figtree-Regular',
     marginBottom: 16,
@@ -910,16 +910,16 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.neutral[900],
     borderRadius: BORDER_RADIUS.MEDIUM,
     borderWidth: 1,
-    borderColor: Colors.gray,
+    borderColor: Colors.neutral[500],
     paddingHorizontal: 16,
     minHeight: 48,
   },
   input: {
     flex: 1,
-    color: Colors.white,
+    color: Colors.neutral[50],
     fontSize: 16,
     fontFamily: 'Figtree-Regular',
     paddingVertical: 12,
@@ -931,7 +931,7 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   inputError: {
-    color: Colors.red,
+    color: Colors.coral[500],
     fontSize: 14,
     fontFamily: 'Figtree-Regular',
     marginTop: 4,
@@ -946,7 +946,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   loadingText: {
-    color: Colors.lightGray,
+    color: Colors.neutral[200],
     fontSize: 16,
     fontFamily: 'Figtree-Medium',
     marginTop: 12,
@@ -968,8 +968,8 @@ const styles = StyleSheet.create({
   },
   cardBorder: {
     borderWidth: 1,
-    borderColor: Colors.gray,
-    shadowColor: Colors.lightGray,
+    borderColor: Colors.neutral[500],
+    shadowColor: Colors.neutral[200],
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,

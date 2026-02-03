@@ -1032,7 +1032,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.SMALL,
   },
   textOverlayPreviewText: {
-    textShadowColor: Colors.overlayBlack75,
+    textShadowColor: Colors.overlay.black75,
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 3,
   },
@@ -1133,7 +1133,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: Colors.overlayBlack60,
+    backgroundColor: Colors.overlay.black60,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1,

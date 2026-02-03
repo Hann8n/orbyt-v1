@@ -637,13 +637,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Figtree-Medium',
     marginHorizontal: 16,
   },
-  termsText: {
-    color: Colors.neutral[500],
-    fontSize: 15,
-    fontFamily: 'Figtree-Regular',
-    textAlign: 'left',
-    lineHeight: 21,
-  },
   manualSignInLink: {
     alignItems: 'center',
     justifyContent: 'center',

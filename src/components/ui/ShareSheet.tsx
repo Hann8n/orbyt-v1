@@ -13,7 +13,12 @@ import {
   ScrollView,
 } from 'react-native';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import { safeDismiss, safePresent } from '../../utils/components/truesheet/utils';
+import {
+  safeDismiss,
+  safePresent,
+  useMeasuredFooterHeight,
+  FOOTER_BOTTOM_PADDING_MIN,
+} from '../../utils/components/truesheet';
 import KeyboardAwareFooter from '../../utils/components/truesheet/KeyboardAwareFooter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from './Icon';
@@ -21,7 +26,6 @@ import CloseButton from './CloseButton';
 import CancelButton from './CancelButton';
 import AtprotoService from '../../services/api/AtprotoService';
 import { Colors } from './UI';
-import { hexToRGBA } from '../../utils/formatting/colors';
 import { useGlobalShareSheet } from '../../hooks/useGlobalModals';
 import { formatHandle } from '../../utils/formatting/handles';
 import { useBookmarkStore } from '../../stores/bookmarkStore';
@@ -45,9 +49,8 @@ const ShareSheet: React.FC = () => {
   // TrueSheet detents - v3 uses 'auto' or fractional numbers (0-1)
   const sheetDetents: ('auto' | number)[] = useMemo(() => ['auto'], []);
   const insets = useSafeAreaInsets();
-
-  // Calculate footer height as constant: cancelContainer paddingTop (8) + button minHeight (44)
-  const footerHeight = 8 + 44;
+  const footerBottomPadding = Math.max(insets.bottom, FOOTER_BOTTOM_PADDING_MIN);
+  const [contentBottomPadding, wrapFooter] = useMeasuredFooterHeight(8 + 44);
 
   // Present sheet when data arrives
   useEffect(() => {
@@ -281,7 +284,7 @@ const ShareSheet: React.FC = () => {
     }
   }, [postUri, authorHandle, authorDid]);
 
-  // Get menu options based on current state
+  // Get menu options based on current state (vibrant accent colors for pop)
   const getMenuOptions = () => {
     const options = [
       {
@@ -289,7 +292,7 @@ const ShareSheet: React.FC = () => {
         label: 'Share',
         icon: 'share',
         onPress: handleShare,
-        color: Colors.purple[400],
+        color: Colors.purple[300],
         buttonColor: Colors.purple[950],
       },
       {
@@ -297,7 +300,7 @@ const ShareSheet: React.FC = () => {
         label: isBookmarked ? 'Saved' : 'Save',
         icon: 'bookmark-fill',
         onPress: handleBookmark,
-        color: Colors.amber[400],
+        color: Colors.amber[300],
         buttonColor: Colors.amber[950],
       },
       {
@@ -305,7 +308,7 @@ const ShareSheet: React.FC = () => {
         label: isCurrentUser ? 'Delete' : 'Report',
         icon: isCurrentUser ? 'delete-2-fill' : 'report',
         onPress: async () => handleReportOrDelete(),
-        color: Colors.coral[500],
+        color: Colors.coral[400],
         buttonColor: Colors.coral[950],
       },
     ];
@@ -354,8 +357,8 @@ const ShareSheet: React.FC = () => {
       onDidDismiss={handleDismiss}
       grabber={false}
       header={headerComponent}
-      footer={
-        <View style={{ backgroundColor: Colors.black, paddingBottom: insets.bottom }}>
+      footer={wrapFooter(
+        <View style={{ backgroundColor: Colors.black, paddingBottom: footerBottomPadding }}>
           <KeyboardAwareFooter
             hideOnKeyboard={true}
             bottomPadding={0}
@@ -366,10 +369,10 @@ const ShareSheet: React.FC = () => {
             </View>
           </KeyboardAwareFooter>
         </View>
-      }
+      )}
     >
       <View style={styles.content}>
-        <View style={[styles.contentContainer, { paddingBottom: footerHeight + 20 }]}>
+        <View style={[styles.contentContainer, { paddingBottom: contentBottomPadding + 20 }]}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -394,7 +397,14 @@ const ShareSheet: React.FC = () => {
                       <View
                         style={[
                           styles.option,
-                          { backgroundColor, borderColor: hexToRGBA(option.color, 0.28) },
+                          {
+                            backgroundColor,
+                            shadowColor: option.color,
+                            shadowOffset: { width: 0, height: 0 },
+                            shadowOpacity: 0.45,
+                            shadowRadius: 10,
+                            elevation: 8,
+                          },
                         ]}
                       >
                         <Icon name={option.icon} size={45} color={iconColor} />
@@ -455,10 +465,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: BORDER_RADIUS.MEDIUM,
-    backgroundColor: hexToRGBA(Colors.neutral[500], 0.12),
     overflow: 'hidden',
-    borderWidth: 0,
-    borderColor: Colors.transparent,
   },
   cancelContainer: {
     alignItems: 'center',

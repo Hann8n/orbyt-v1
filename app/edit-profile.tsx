@@ -187,41 +187,41 @@ const EditProfileScreen: React.FC = () => {
       // Neutral/Universal
       {
         backgroundColor: Colors.black,
-        textColor: Colors.lightGray,
+        textColor: Colors.neutral[200],
       },
       // Primary - colored backgrounds with white text (ordered by hue - reverse rainbow order, red first)
       // Colors adjusted using HSL to be between original and brightened versions, ensuring WCAG AA compliance (4.5:1 contrast with white text)
       {
         backgroundColor: '#C6142E', // Red background (HSL: ~350°, ~85%, ~35%)
-        textColor: Colors.white,
+        textColor: Colors.neutral[50],
       },
       {
         backgroundColor: '#CC9900', // Yellow background (HSL: ~45°, ~100%, ~40% - vibrant yellow matching other primary colors, WCAG AA compliant)
-        textColor: Colors.white,
+        textColor: Colors.neutral[50],
       },
       {
         backgroundColor: '#3D9812', // Green background (HSL: ~105°, ~80%, ~32%)
-        textColor: Colors.white,
+        textColor: Colors.neutral[50],
       },
       {
         backgroundColor: '#0B9997', // Teal background (HSL: ~179°, ~88%, ~32%)
-        textColor: Colors.white,
+        textColor: Colors.neutral[50],
       },
       {
         backgroundColor: '#0E94C6', // Light blue background (HSL: ~195°, ~88%, ~42%)
-        textColor: Colors.white,
+        textColor: Colors.neutral[50],
       },
       {
         backgroundColor: '#0E46C6', // Blue background (HSL: ~220°, ~88%, ~42%)
-        textColor: Colors.white,
+        textColor: Colors.neutral[50],
       },
       {
         backgroundColor: '#5913C6', // Purple background (HSL: ~260°, ~88%, ~42%)
-        textColor: Colors.white,
+        textColor: Colors.neutral[50],
       },
       {
         backgroundColor: '#B713C6', // Pink background (HSL: ~295°, ~88%, ~42%)
-        textColor: Colors.white,
+        textColor: Colors.neutral[50],
       },
       // Complementary - colored backgrounds with complementary text colors (ordered by hue - reverse rainbow order, red first)
       {
@@ -799,7 +799,7 @@ const EditProfileScreen: React.FC = () => {
     }
     return {
       backgroundColor: defaultColors?.backgroundColor || Colors.black,
-      textColor: defaultColors?.textColor || Colors.white,
+      textColor: defaultColors?.textColor || Colors.neutral[50],
     };
   }, [customColors, defaultColors]);
 
@@ -823,7 +823,7 @@ const EditProfileScreen: React.FC = () => {
             }}
             style={styles.cancelButton}
           >
-            <Text style={[styles.cancelButtonText, { color: Colors.white }]}>
+            <Text style={[styles.cancelButtonText, { color: Colors.neutral[50] }]}>
               {isAboutFocused || isDisplayNameFocused ? 'Back' : 'Cancel'}
             </Text>
           </Pressable>
@@ -873,7 +873,10 @@ const EditProfileScreen: React.FC = () => {
               <GlassView
                 style={styles.glassBackground}
                 glassEffectStyle="clear"
-                tintColor={hexToRGBA(Colors.white, isAboutFocused && aboutOverBy > 0 ? 0.35 : 0.9)}
+                tintColor={hexToRGBA(
+                  Colors.neutral[50],
+                  isAboutFocused && aboutOverBy > 0 ? 0.35 : 0.9
+                )}
                 isInteractive
               />
             )}
@@ -1260,7 +1263,7 @@ const styles = StyleSheet.create({
     fontSize: 17,
   },
   saveButton: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.neutral[50],
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 20,
@@ -1293,14 +1296,14 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
     fontFamily: 'Figtree-SemiBold',
     fontSize: 14,
-    color: Colors.white,
+    color: Colors.neutral[50],
   },
   aboutHeaderCurrent: {
     fontFamily: 'Figtree-SemiBold',
     fontSize: 16,
   },
   aboutHeaderCurrentOver: {
-    color: Colors.red,
+    color: Colors.coral[500],
   },
   headerCenter: {
     flex: 1,

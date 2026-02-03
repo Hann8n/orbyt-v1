@@ -772,7 +772,7 @@ const GridChannelItem = ({
         )}
         {/* Light gradient from bottom */}
         <LinearGradient
-          colors={[Colors.transparent, Colors.overlayBlack50]}
+          colors={[Colors.transparent, Colors.overlay.black50]}
           style={styles.gridChannelGradient}
         />
         {/* Channel name overlay at bottom left */}
@@ -2435,7 +2435,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: Colors.overlayBlack70,
+    backgroundColor: Colors.overlay.black70,
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 8,
