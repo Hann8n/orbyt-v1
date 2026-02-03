@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef, memo } from 'react';
-import { BORDER_RADIUS, SCROLL_CONSTANTS, APP_CONSTANTS } from '../../src/utils/constants';
+import { BORDER_RADIUS, APP_CONSTANTS } from '../../src/utils/constants';
 import { View, Text, StyleSheet, Pressable, Dimensions, Modal } from 'react-native';
 import { Image } from 'expo-image';
 // Use plain FlashList via FeedRenderer; no adapter/converter
@@ -14,9 +14,8 @@ import ProfileService, {
 import { getProfileColors } from '../../src/utils/formatting/colors';
 import { useOrbytColors, invalidateOrbytColors } from '../../src/hooks/useOrbytColors';
 import type { ProfileViewWithOrbyt } from '../../src/services/api/types';
-import { useRouter, useLocalSearchParams, useSegments } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import Icon, {
-  BackArrowIcon,
   Loading3FillIcon,
   FollowIcon,
   MutualHeartIcon,
@@ -25,20 +24,16 @@ import Icon, {
 } from '../../src/components/ui/Icon';
 import { useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import { ProfileHeader, TabNavigation, TabOption } from '../../src/components/layout/header';
-import { useCurrentUser, useProfileCacheSync, useFeedSettings } from '../../src/stores/userStore';
+import DetailScreenOverlay from '../../src/components/layout/detail/DetailScreenOverlay';
+import { useCurrentUser, useProfileCacheSync } from '../../src/stores/userStore';
 import {
   HeaderAction,
   HeaderActionButton,
 } from '../../src/components/layout/header/UniversalHeader';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  interpolate,
-  Extrapolate,
-} from 'react-native-reanimated';
 import { Colors } from '../../src/theme';
 import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalModals';
 import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '../../src/hooks';
+import { useDetailScreenOverlay } from '../../src/hooks/useDetailScreenOverlay';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFollowMutation, useBlockMutation } from '../../src/services/data/ProfileService';
 import { queryKeys } from '../../src/utils/query/queryKeys';
@@ -65,9 +60,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const providedIdentifier = rawParams.did;
   const providedIsDid = !!providedIdentifier && providedIdentifier.startsWith('did:');
 
-  // User store hooks
   const { currentUser } = useCurrentUser();
-  const { modalProfileEnabled } = useFeedSettings();
 
   // Automatically sync ProfileCache with userStore
   useProfileCacheSync();
@@ -416,62 +409,26 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     }
   }, [onLogout]);
 
-  const segments = useSegments();
   const defaultTop = (insets?.top ?? 0) + 5;
+  const {
+    isModal,
+    headerPaddingTop,
+    actionButtonsTop,
+    showBackButton,
+    handleVerticalScroll,
+    overlayAnimatedStyle,
+    backIconPrimaryStyle,
+    backIconSecondaryStyle,
+  } = useDetailScreenOverlay(providedIdentifier, defaultTop);
 
-  // Labs feature: Modal profile behavior - computed once and reused
-  const { isModal, headerPaddingTop, actionButtonsTop, showBackButton } = useMemo(() => {
-    const isModal = modalProfileEnabled && !!providedIdentifier && !segments.includes('(tabs)');
-    const showBackButton = !!providedIdentifier && !isModal;
-
-    return {
-      isModal,
-      headerPaddingTop: isModal ? 24 : modalProfileEnabled ? defaultTop + 4 : undefined,
-      actionButtonsTop: isModal ? 20 : defaultTop,
-      showBackButton,
-    };
-  }, [modalProfileEnabled, providedIdentifier, segments, defaultTop]);
-
-  // Shared scroll progress for overlay (back/menu) animation. Written from onVerticalScroll; read in useAnimatedStyle on UI thread.
-  const headerScrollProgress = useSharedValue(0);
-
-  const handleVerticalScroll = useCallback(
-    (scrollY: number) => {
-      // One SharedValue write (Reanimated syncs to UI). Avoids runOnUI bridge per scroll event.
-      headerScrollProgress.value = Math.max(
-        0,
-        Math.min(1, scrollY / SCROLL_CONSTANTS.HEADER_FADE_DISTANCE)
-      );
-    },
-    [headerScrollProgress]
-  );
-
-  // Animated styles automatically run on UI thread
-  const overlayAnimatedStyle = useAnimatedStyle(() => {
-    const progress = headerScrollProgress.value;
-    // Fade out as user scrolls down
-    return {
-      opacity: interpolate(progress, [0, 0.3, 0.8], [1, 1, 0], Extrapolate.CLAMP),
-    };
-  });
-
-  // Back icon color: gradually transition from header text color to white based on scroll
   const baseBackTextColor = useMemo(
     () => (dynamicColors ? dynamicColors.textColor : profileColors.textColor) || Colors.neutral[50],
     [dynamicColors, profileColors.textColor]
   );
 
-  // Animated opacity for text-colored icon (fades out on scroll)
-  const backIconPrimaryStyle = useAnimatedStyle(() => {
-    const progress = headerScrollProgress.value;
-    return { opacity: interpolate(progress, [0, 1], [1, 0], Extrapolate.CLAMP) };
-  });
-
-  // Animated opacity for white icon (fades in on scroll)
-  const backIconSecondaryStyle = useAnimatedStyle(() => {
-    const progress = headerScrollProgress.value;
-    return { opacity: interpolate(progress, [0, 1], [0, 1], Extrapolate.CLAMP) };
-  });
+  const handleGrabHandlePress = useCallback(() => {
+    tabRefs.profile?.scrollToTop();
+  }, []);
 
   // Build header actions exactly as original ProfileHeader customActions
   const headerActions: HeaderAction[] = useMemo(() => {
@@ -596,105 +553,51 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
         },
       ]}
     >
-      {/* Grab handle for modal */}
-      {isModal && (
-        <Pressable style={styles.grabHandle} hitSlop={{ top: 10, bottom: 10, left: 20, right: 20 }}>
-          <View style={styles.grabHandleContainer}>
-            <Animated.View
-              style={[
-                StyleSheet.absoluteFillObject,
-                backIconPrimaryStyle,
-                styles.grabHandleBarWrapper,
-              ]}
-            >
-              <View
-                style={[
-                  styles.grabHandleBar,
-                  styles.grabHandleBarPrimary,
-                  {
-                    backgroundColor:
-                      (dynamicColors ? dynamicColors.textColor : profileColors.textColor) ||
-                      Colors.neutral[50],
-                  },
-                ]}
-              />
-            </Animated.View>
-            <Animated.View
-              style={[
-                StyleSheet.absoluteFillObject,
-                backIconSecondaryStyle,
-                styles.grabHandleBarWrapper,
-              ]}
-            >
-              <View style={[styles.grabHandleBar, styles.grabHandleBarSecondary]} />
-            </Animated.View>
-          </View>
+      <DetailScreenOverlay
+        isModal={isModal}
+        showBackButton={showBackButton}
+        actionButtonsTop={actionButtonsTop}
+        onBackPress={() => router.back()}
+        onGrabHandlePress={handleGrabHandlePress}
+        backIconColor={baseBackTextColor}
+        backIconPrimaryStyle={backIconPrimaryStyle}
+        backIconSecondaryStyle={backIconSecondaryStyle}
+        overlayAnimatedStyle={overlayAnimatedStyle}
+      >
+        <Pressable
+          onPress={handleMenuPress}
+          onPressIn={handleMenuPressIn}
+          onLongPress={isOwnProfileView ? handleMenuLongPress : undefined}
+          delayLongPress={250}
+          style={styles.overlayMenuButton}
+        >
+          <MoreFillIcon
+            size={24}
+            color={
+              (dynamicColors ? dynamicColors.textColor : profileColors.textColor) ||
+              Colors.neutral[50]
+            }
+          />
         </Pressable>
-      )}
-
-      {/* Overlay actions row (back, follow, bell, edit) */}
-      <View style={[styles.overlayRow, { top: actionButtonsTop }]}>
-        {showBackButton ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Back"
-            onPress={() => router.back()}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            style={styles.overlayBackButton}
-          >
-            <View style={styles.backIconContainer}>
-              <Animated.View style={[StyleSheet.absoluteFillObject, backIconPrimaryStyle]}>
-                <BackArrowIcon size={30} color={baseBackTextColor} />
-              </Animated.View>
-              <Animated.View style={[StyleSheet.absoluteFillObject, backIconSecondaryStyle]}>
-                <BackArrowIcon size={30} color={Colors.neutral[50]} />
-              </Animated.View>
-            </View>
-          </Pressable>
-        ) : (
-          <View style={styles.overlayBackSpacer} />
+        {headerActions.length > 0 && (
+          <View style={styles.overlayActionsContainer}>
+            {headerActions.map(action => (
+              <HeaderActionButton
+                key={action.id}
+                action={action}
+                textColor={
+                  (dynamicColors ? dynamicColors.textColor : profileColors.textColor) ||
+                  Colors.neutral[50]
+                }
+                backgroundColor={
+                  (dynamicColors ? dynamicColors.backgroundColor : profileColors.backgroundColor) ||
+                  Colors.black
+                }
+              />
+            ))}
+          </View>
         )}
-
-        <Animated.View style={[styles.overlayRightSection, overlayAnimatedStyle]}>
-          {/* Menu button - same icon and sizing as UniversalHeader */}
-          <Pressable
-            onPress={handleMenuPress}
-            onPressIn={handleMenuPressIn}
-            onLongPress={isOwnProfileView ? handleMenuLongPress : undefined}
-            delayLongPress={250}
-            style={styles.overlayMenuButton}
-          >
-            <MoreFillIcon
-              size={24}
-              color={
-                (dynamicColors ? dynamicColors.textColor : profileColors.textColor) ||
-                Colors.neutral[50]
-              }
-            />
-          </Pressable>
-
-          {/* Header actions rendered with the same ActionButton component as UniversalHeader */}
-          {headerActions.length > 0 && (
-            <View style={styles.overlayActionsContainer}>
-              {headerActions.map(action => (
-                <HeaderActionButton
-                  key={action.id}
-                  action={action}
-                  textColor={
-                    (dynamicColors ? dynamicColors.textColor : profileColors.textColor) ||
-                    Colors.neutral[50]
-                  }
-                  backgroundColor={
-                    (dynamicColors
-                      ? dynamicColors.backgroundColor
-                      : profileColors.backgroundColor) || Colors.black
-                  }
-                />
-              ))}
-            </View>
-          )}
-        </Animated.View>
-      </View>
+      </DetailScreenOverlay>
 
       {showErrorScreen ? (
         renderErrorScreen
@@ -872,37 +775,6 @@ const styles = StyleSheet.create({
   secondaryButton: {
     backgroundColor: Colors.transparent,
   },
-  overlayRow: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    zIndex: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-  },
-  overlayBackButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backIconContainer: {
-    width: 30,
-    height: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  overlayBackSpacer: {
-    width: 40,
-    height: 40,
-  },
-  overlayRightSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    columnGap: 8,
-  },
   overlayMenuButton: {
     width: 40,
     height: 40,
@@ -924,38 +796,5 @@ const styles = StyleSheet.create({
     width: '95%',
     height: '80%',
     borderRadius: BORDER_RADIUS.MEDIUM,
-  },
-  grabHandle: {
-    position: 'absolute',
-    top: 5,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 25,
-    paddingVertical: 8,
-    paddingHorizontal: 20,
-  },
-  grabHandleContainer: {
-    width: 42,
-    height: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  grabHandleBarWrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  grabHandleBar: {
-    width: 42,
-    height: 4,
-    borderRadius: 2,
-  },
-  grabHandleBarPrimary: {
-    opacity: 0.5,
-  },
-  grabHandleBarSecondary: {
-    backgroundColor: Colors.neutral[50],
-    opacity: 0.5,
   },
 });

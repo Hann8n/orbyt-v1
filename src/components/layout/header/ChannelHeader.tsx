@@ -10,7 +10,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import UniversalHeader, { HeaderContent, CustomActionLayout } from './UniversalHeader';
+import UniversalHeader, { HeaderContent } from './UniversalHeader';
 import { useChannelColors } from '../../../services/data/ChannelService';
 import { PlusIcon, CheckIcon, ListViewIcon, GridViewIcon } from '../../ui/Icon';
 import type { ViewMode } from '../../../types';
@@ -51,10 +51,6 @@ interface ChannelData {
 
 interface ChannelHeaderProps {
   channel: ChannelData | null;
-  showBackButton?: boolean;
-  onBackPress?: () => void;
-  onEdit?: (channelId: string) => void;
-  onDelete?: (channelId: string) => void;
   children?: React.ReactNode;
   applySafeArea?: boolean;
   headerStyle?: ViewStyle;
@@ -147,7 +143,7 @@ const SubscribeButton: React.FC<{
 
       return {
         backgroundColor: showFilledState ? subscribeColor : blendColors(blendBg, blendFg, 0.2),
-        borderColor: 'transparent',
+        borderColor: Colors.transparent,
         borderWidth: 0,
         opacity: pressed ? 0.9 : 1,
       };
@@ -184,16 +180,8 @@ const SubscribeButton: React.FC<{
           const contentColor = getContentColor(pressed, frozenValue);
 
           return (
-            <View style={[styles.subscribeButton, { flex: 1 }, buttonStyle]}>
-              <View
-                pointerEvents="none"
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 6,
-                }}
-              >
+            <View style={[styles.subscribeButton, styles.subscribeButtonInner, buttonStyle]}>
+              <View pointerEvents="none" style={styles.subscribeButtonContent}>
                 <>
                   <Text style={[styles.subscribeButtonText, { color: contentColor }]}>
                     {isSubscribed ? 'Subscribed' : 'Subscribe'}
@@ -232,10 +220,6 @@ const SubscribeButton: React.FC<{
 
 const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   channel,
-  showBackButton = false,
-  onBackPress,
-  onEdit: _onEdit,
-  onDelete,
   children,
   applySafeArea = false,
   headerStyle,
@@ -277,37 +261,6 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
     }
     return bgColor;
   }, [channelColors.backgroundColor]);
-
-  // Handle delete action
-  const handleDelete = useCallback(() => {
-    if (channel?.id && onDelete) {
-      onDelete(channel.id);
-    }
-  }, [channel, onDelete]);
-
-  // Create custom action layouts (only for owner actions now)
-  const customActions = useMemo((): CustomActionLayout[] => {
-    // Owner actions: Delete
-    if (channel && channel.isOwner) {
-      return [
-        {
-          type: 'button' as const,
-          buttons: [
-            {
-              id: 'delete',
-              label: 'Delete',
-              icon: 'trash',
-              onPress: handleDelete,
-              variant: 'danger' as const,
-            },
-          ],
-        },
-      ];
-    }
-
-    // No custom actions for non-owners
-    return [];
-  }, [channel, handleDelete]);
 
   // Check if this is an orbyt channel
   const isOrbyt = useMemo(() => {
@@ -386,10 +339,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   }, [isOrbyt, channel]);
 
   // Animated styles driven by shared scroll progress (0 -> 1)
-  const headerAnimatedStyle = useAnimatedStyle(() => {
-    // Keep container fully opaque; inner UniversalHeader handles content fade
-    return { opacity: 1 };
-  }, []);
+  const headerAnimatedStyle = useAnimatedStyle(() => styles.headerOpaque, []);
 
   const dimOverlayStyle = useAnimatedStyle(() => {
     const progress = contentScrollProgressSV?.value ?? 0;
@@ -485,17 +435,17 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
       <Animated.View style={headerAnimatedStyle}>
         <UniversalHeader
           content={headerContent}
-          actions={[]} // Hide default actions, use custom layout
-          customActions={customActions}
-          showBackButton={showBackButton}
-          onBackPress={onBackPress}
+          actions={[]}
+          customActions={[]}
+          showBackButton={false}
+          onBackPress={undefined}
           backgroundColor={safeBackgroundColor}
           textColor={safeTextColor}
           backgroundImage={backgroundImage}
           isLoading={false}
           applySafeArea={applySafeArea}
           reserveTopForOverlayButtons={true}
-          style={{ opacity: 1 }}
+          style={styles.headerOpaque}
           contentStyle={headerStyle}
           minHeight={isOrbyt ? 450 : undefined}
           contentPosition={isOrbyt ? 'bottom' : 'top'}
@@ -539,8 +489,20 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 0,
-    borderColor: 'transparent',
+    borderColor: Colors.transparent,
     gap: 6,
+  },
+  subscribeButtonInner: {
+    flex: 1,
+  },
+  subscribeButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  headerOpaque: {
+    opacity: 1,
   },
   subscribeButtonText: {
     fontFamily: 'Figtree-Bold',

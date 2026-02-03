@@ -216,7 +216,9 @@ function RootNavigator() {
           <Stack.Screen
             name="channel/[id]"
             options={{
-              presentation: 'card',
+              headerShown: false,
+              presentation: modalProfileEnabled ? 'modal' : 'card',
+              gestureEnabled: true,
               animation: 'slide_from_right',
             }}
           />

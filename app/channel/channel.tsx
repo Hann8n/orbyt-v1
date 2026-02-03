@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
 import { BORDER_RADIUS } from '../../src/utils/constants';
 import { View, StyleSheet, Dimensions, Pressable, Text } from 'react-native';
-// Use plain FlashList via FeedRenderer; no adapter/converter
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import ChannelHeader from '../../src/components/layout/header/ChannelHeader';
 import TabNavigation, { TabOption } from '../../src/components/layout/header/TabNavigation';
+import DetailScreenOverlay from '../../src/components/layout/detail/DetailScreenOverlay';
+import { HeaderActionButton } from '../../src/components/layout/header/UniversalHeader';
 import FeedRenderer from '../../src/components/features/feed/FeedRenderer';
 import { Colors } from '../../src/theme';
 
@@ -16,11 +17,12 @@ import {
 } from '../../src/services/data/ChannelService';
 import ProfileService from '../../src/services/data/ProfileService';
 import { extractColorsFromImage } from '../../src/utils/formatting/colors';
-import Icon, { Loading3FillIcon, BackArrowIcon } from '../../src/components/ui/Icon';
+import Icon, { Loading3FillIcon } from '../../src/components/ui/Icon';
 import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '../../src/hooks';
+import { useDetailScreenOverlay } from '../../src/hooks/useDetailScreenOverlay';
 import { isOrbytChannel, getChannelByUri, channelToHashtag } from '../../src/utils/channels/orbyt';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { ViewMode } from '../../src/types';
+import type { ListFeedViewRef, ViewMode } from '../../src/types';
 
 const Channel: React.FC = memo(() => {
   const router = useRouter();
@@ -29,14 +31,12 @@ const Channel: React.FC = memo(() => {
   const isRouteFocused = useVisibilityRouteIsActive('channel');
   const insets = useSafeAreaInsets();
 
-  // Get the channel URI from the route parameters (decode for safety)
   const uriParam = (params.id as string) || '';
   const uri = uriParam ? decodeURIComponent(uriParam) : '';
 
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<0 | 1>(0); // 0 = top, 1 = latest
+  const [activeTab, setActiveTab] = useState<0 | 1>(0);
 
-  // Use channel cache system
   const {
     data: channelData,
     isLoading: isLoadingChannel,
@@ -47,11 +47,21 @@ const Channel: React.FC = memo(() => {
   const { colors: channelColors } = useChannelColors(uri || '');
   const colorsMutation = useChannelColorsMutation();
 
-  const overlayTop = (typeof insets?.top === 'number' ? insets.top : 0) + 5;
+  const defaultTop = (typeof insets?.top === 'number' ? insets.top : 0) + 5;
+  const {
+    isModal,
+    headerPaddingTop,
+    actionButtonsTop,
+    showBackButton,
+    handleVerticalScroll,
+    overlayAnimatedStyle,
+    backIconPrimaryStyle,
+    backIconSecondaryStyle,
+  } = useDetailScreenOverlay(uri, defaultTop);
+  const baseBackTextColor = channelColors.textColor || Colors.neutral[50];
+  const channelFeedRef = useRef<ListFeedViewRef | null>(null);
 
-  // View mode state
   const [viewMode, setViewMode] = useState<ViewMode>('list');
-
   // Check if this is a category channel (hashtag feed) - postable orbyt channels
   const isCategoryChannel = useMemo(() => {
     if (!uri || !isOrbytChannel(uri)) return false;
@@ -162,10 +172,34 @@ const Channel: React.FC = memo(() => {
     };
   }, [channelData, uri]);
 
-  // Handle back press
   const handleBackPress = useCallback(() => {
     router.back();
   }, [router]);
+
+  const handleGrabHandlePress = useCallback(() => {
+    channelFeedRef.current?.scrollToTop();
+  }, []);
+
+  const handleDelete = useCallback(() => {
+    if (channelHeaderData?.id) {
+      router.back();
+    }
+  }, [channelHeaderData?.id, router]);
+
+  const headerActions = useMemo(() => {
+    if (channelHeaderData?.isOwner) {
+      return [
+        {
+          id: 'delete',
+          label: 'Delete',
+          icon: 'trash' as const,
+          onPress: handleDelete,
+          variant: 'danger' as const,
+        },
+      ];
+    }
+    return [];
+  }, [channelHeaderData?.isOwner, handleDelete]);
 
   // Handle refresh - refreshes both channel metadata and feed
   // FeedRenderer will handle feed refresh automatically when isRefreshing is true
@@ -256,12 +290,11 @@ const Channel: React.FC = memo(() => {
     <View style={styles.headerContainer} pointerEvents="box-none">
       <ChannelHeader
         channel={channelHeaderData}
-        showBackButton={false}
-        onBackPress={handleBackPress}
-        applySafeArea={true}
+        applySafeArea={!isModal}
+        headerStyle={headerPaddingTop ? { paddingTop: headerPaddingTop } : undefined}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
-        showViewToggle={!isCategoryChannel} // Hide view toggle in ChannelHeader when tabs are shown
+        showViewToggle={!isCategoryChannel}
         contentFadeDisabled={viewMode === 'grid'}
         dimOverlayDisabled={viewMode === 'grid'}
       >
@@ -281,48 +314,66 @@ const Channel: React.FC = memo(() => {
         },
       ]}
     >
-      {/* Overlay back button row to match profile screen */}
-      <View style={[styles.overlayRow, { top: overlayTop }]}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-          onPress={handleBackPress}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          style={styles.overlayBackButton}
-        >
-          <BackArrowIcon size={30} color={Colors.neutral[50]} />
-        </Pressable>
-      </View>
+      <DetailScreenOverlay
+        isModal={isModal}
+        showBackButton={showBackButton}
+        actionButtonsTop={actionButtonsTop}
+        onBackPress={handleBackPress}
+        onGrabHandlePress={handleGrabHandlePress}
+        backIconColor={baseBackTextColor}
+        backIconPrimaryStyle={backIconPrimaryStyle}
+        backIconSecondaryStyle={backIconSecondaryStyle}
+        overlayAnimatedStyle={overlayAnimatedStyle}
+      >
+        {headerActions.length > 0 && (
+          <View style={styles.overlayActionsContainer}>
+            {headerActions.map(action => (
+              <HeaderActionButton
+                key={action.id}
+                action={action}
+                textColor={channelColors.textColor || Colors.neutral[50]}
+                backgroundColor={channelColors.backgroundColor || Colors.black}
+              />
+            ))}
+          </View>
+        )}
+      </DetailScreenOverlay>
 
       {showErrorScreen ? (
         renderErrorScreen()
       ) : channelDataForFeed && feedOption ? (
         <FeedRenderer
+          ref={channelFeedRef}
           feedOption={feedOption}
           userDid={channelDataForFeed?.did}
           headerComponent={headerComponent}
           backgroundColor={Colors.black}
           secondaryColor={channelColors.textColor}
-          isRefreshing={refreshing}
-          onRefresh={onRefresh}
+          isRefreshing={isModal ? false : refreshing}
+          onRefresh={isModal ? undefined : onRefresh}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
           queryOptions={queryOptions}
           isVisible={isRouteFocused}
+          onVerticalScroll={handleVerticalScroll}
+          isModal={isModal}
         />
       ) : (
         <FeedRenderer
+          ref={channelFeedRef}
           feedOption=""
           userDid={undefined}
           headerComponent={headerComponent}
           backgroundColor={Colors.black}
           secondaryColor={channelColors.textColor}
-          isRefreshing={refreshing}
-          onRefresh={onRefresh}
+          isRefreshing={isModal ? false : refreshing}
+          onRefresh={isModal ? undefined : onRefresh}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
           queryOptions={{ enabled: false }}
           isVisible={isRouteFocused}
+          onVerticalScroll={handleVerticalScroll}
+          isModal={isModal}
         />
       )}
       {isLoading && (
@@ -406,21 +457,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 9999,
   },
-  overlayRow: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    zIndex: 20,
+  overlayActionsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-start',
-    paddingHorizontal: 20,
-  },
-  overlayBackButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
+    columnGap: 8,
   },
 });
 

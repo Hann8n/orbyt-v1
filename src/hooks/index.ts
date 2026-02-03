@@ -2,6 +2,7 @@
 export * from './useFeed';
 export * from './useSubscribedChannels';
 export * from './useGlobalModals';
+export { useDetailScreenOverlay } from './useDetailScreenOverlay';
 export { useAppStore, useAppInitialization } from '../stores/appStore';
 export { useOrbytProfile } from './useOrbytProfile';
 export { useModerationSettings } from './useModerationSettings';
