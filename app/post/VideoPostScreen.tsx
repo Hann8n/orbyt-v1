@@ -21,7 +21,6 @@ import Animated, {
   withTiming,
   Easing,
 } from 'react-native-reanimated';
-import { LinearGradient } from '../../src/components/ui/LinearGradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useVideoPlayer, VideoView, VideoPlayer } from 'expo-video';
@@ -1319,25 +1318,15 @@ const VideoPostScreen: React.FC = () => {
   }, []);
 
   // Memoize dynamic header styles to avoid inline style warnings
-  const statusBarGradientStyle = useMemo(
-    () => ({ height: isSmallDevice ? 54 : insets.top + 60 }),
-    [isSmallDevice, insets.top]
-  );
   const headerButtonTopStyle = useMemo(
     () => ({ top: isSmallDevice ? 5 : insets.top + 4 }),
     [isSmallDevice, insets.top]
   );
 
-  // Render header (StatusBar, LinearGradient, header buttons) - shared between portrait and landscape
+  // Render header (StatusBar transparent, header buttons keep safe area) - shared between portrait and landscape
   const renderHeader = () => (
     <>
-      <StatusBar hidden={true} />
-      <LinearGradient
-        colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.1)', 'transparent']}
-        locations={[0, 0.7, 1]}
-        style={[styles.statusBarGradient, statusBarGradientStyle]}
-        pointerEvents="none"
-      />
+      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
       <Animated.View
         style={[
           styles.headerButton,
@@ -1390,10 +1379,10 @@ const VideoPostScreen: React.FC = () => {
       <VerticalListSheet
         visible={showContentWarningsSheet}
         onDismiss={() => setShowContentWarningsSheet(false)}
-        title={getSelectedContentWarningsLabel()}
+        title="Warnings"
         name="post-content-warnings-sheet"
         detents={['auto']}
-        scrollable={true}
+        scrollable={false}
         showCancelButton={true}
         cancelButtonText="Close"
       >
@@ -1455,7 +1444,7 @@ const VideoPostScreen: React.FC = () => {
       <VerticalListSheet
         visible={showCommentSettingsSheet}
         onDismiss={() => setShowCommentSettingsSheet(false)}
-        title={getSelectedCommentFilterLabel()}
+        title="Comments"
         name="post-comment-settings-sheet"
         detents={['auto']}
         showCancelButton={true}
@@ -1549,7 +1538,7 @@ const VideoPostScreen: React.FC = () => {
   if (orientation === 'landscape' && isTablet) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
-        <StatusBar hidden={true} />
+        <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
         <Animated.View style={[styles.landscapeContainer, fadeAnimatedStyle]}>
           {/* Left: Info Side */}
           <View style={styles.landscapeInfoSide}>
@@ -1633,9 +1622,9 @@ const VideoPostScreen: React.FC = () => {
     );
   }
 
-  // Portrait layout: post button is outside KeyboardAvoidingView so it stays fixed when keyboard opens
+  // Portrait layout: content extends under transparent status bar; header buttons use safe area
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
       {renderHeader()}
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -1643,12 +1632,18 @@ const VideoPostScreen: React.FC = () => {
       >
         <Animated.ScrollView
           style={[styles.contentContainer, fadeAnimatedStyle]}
-          contentContainerStyle={[{ paddingBottom: 60 + Math.max(insets.bottom, 20) + 80 }]}
+          contentContainerStyle={[
+            styles.portraitScrollContent,
+            {
+              paddingTop: insets.top,
+              paddingBottom: 60 + Math.max(insets.bottom, 20) + 80,
+            },
+          ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Video Preview Section */}
-          <View style={styles.previewSection}>
+          {/* Video Preview - in flow, safe area from paddingTop */}
+          <View style={styles.portraitPreviewSection}>
             <VideoPreviewContent
               key={videoUri}
               thumbnailPath={thumbnailPath}
@@ -1662,16 +1657,12 @@ const VideoPostScreen: React.FC = () => {
             />
           </View>
 
-          {/* Spacer to account for absolutely positioned preview */}
-          <View style={{ height: containerHeight + 22 }} />
-
           <DescriptionPreview
             description={description}
             formattedRichText={formattedRichText}
             onPress={() => setShowDescriptionInputModal(true)}
           />
 
-          {/* Divider */}
           <View style={styles.sectionDivider} />
 
           <ChannelSelector
@@ -1743,9 +1734,16 @@ const styles = StyleSheet.create({
   contentContainer: {
     flex: 1,
   },
+  portraitScrollContent: {
+    paddingHorizontal: 0,
+  },
+  portraitPreviewSection: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
   previewSection: {
     position: 'absolute',
-    top: 22, // Align preview top with button center (button height 44 / 2 = 22)
+    top: 22,
     left: 0,
     right: 0,
     alignItems: 'center',
@@ -2014,13 +2012,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  statusBarGradient: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 5,
   },
   sheetContent: {
     paddingHorizontal: 0,

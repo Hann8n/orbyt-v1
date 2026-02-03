@@ -142,7 +142,7 @@ export function UserSearchModal({
       <View style={styles.modal}>
         {isLoading ? (
           <View style={styles.centered}>
-            <Loading3FillIcon size={48} color={Colors.neutral[50]} />
+            <Loading3FillIcon size={28} color={Colors.neutral[50]} />
           </View>
         ) : error ? (
           <View style={styles.centered}>
@@ -255,7 +255,7 @@ export function RichTextSearchModal({
       {searchType === 'mention' ? (
         isLoadingUsers ? (
           <View style={styles.centered}>
-            <Loading3FillIcon size={48} color={Colors.neutral[50]} />
+            <Loading3FillIcon size={28} color={Colors.neutral[50]} />
           </View>
         ) : users.length === 0 ? (
           <View style={styles.centered}>
@@ -306,7 +306,7 @@ export function RichTextSearchModal({
         )
       ) : isLoadingHashtags ? (
         <View style={styles.centered}>
-          <Loading3FillIcon size={48} color={Colors.neutral[50]} />
+          <Loading3FillIcon size={28} color={Colors.neutral[50]} />
         </View>
       ) : hashtagSuggestions.length === 0 ? (
         <View style={styles.centered}>

@@ -211,7 +211,7 @@ const NotificationFilterContent: React.FC<{
 
   const footer = useMemo(
     () => (
-      <View style={[styles.footer, { paddingBottom: footerBottomPadding }]}>
+      <View style={styles.footer}>
         <CancelButton
           onPress={() => {
             // If all are selected or none are selected, pass undefined (no filter)
@@ -226,7 +226,7 @@ const NotificationFilterContent: React.FC<{
         />
       </View>
     ),
-    [localSelected, onFilterChange, onDismiss, footerBottomPadding]
+    [localSelected, onFilterChange, onDismiss]
   );
 
   // Update parent with clear button and footer
