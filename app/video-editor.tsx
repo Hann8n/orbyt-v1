@@ -19,7 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useVideoPlayer, VideoView, VideoPlayer } from 'expo-video';
 import { File, Directory, Paths } from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
-import { resolveVideoPath, debugVideoPath, VideoPathInfo } from '../src/utils/video/path';
+import { resolveVideoPath, VideoPathInfo } from '../src/utils/video/path';
 import { DEFAULT_BUFFER_OPTIONS } from '../src/utils/video/helpers';
 import { Loading3FillIcon, CloseFillIcon } from '../src/components/ui/Icon';
 import { Colors } from '../src/theme';
@@ -367,9 +367,6 @@ const VideoEditorScreen: React.FC = () => {
         }
         return;
       }
-
-      // Debug the incoming path
-      debugVideoPath('VideoEditor received', activeVideoPath);
 
       try {
         setVideoLoading(true);

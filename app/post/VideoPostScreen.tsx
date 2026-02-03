@@ -37,7 +37,7 @@ import Icon, {
 import BlurredBackground from '../../src/components/ui/BlurredBackground';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextOverlay } from '../../src/types';
-import { resolveVideoPath, debugVideoPath, VideoPathInfo } from '../../src/utils/video/path';
+import { resolveVideoPath, VideoPathInfo } from '../../src/utils/video/path';
 import { DEFAULT_BUFFER_OPTIONS } from '../../src/utils/video/helpers';
 import { Colors } from '../../src/theme';
 import { useWindowDimensions } from 'react-native';
@@ -349,7 +349,9 @@ const PostButton: React.FC<{
   buttonStyle?: 'landscape' | 'portrait';
   width?: number;
 }> = ({ onPress, isPosting, isCompressing, uploadProgress, buttonStyle = 'portrait', width }) => {
-  const buttonWidth = buttonStyle === 'landscape' ? '100%' : width || SCREEN_WIDTH * 0.6;
+  const numericWidth =
+    buttonStyle === 'portrait' ? Math.max(width ?? SCREEN_WIDTH * 0.6, 200) : undefined;
+  const buttonWidth = buttonStyle === 'landscape' ? '100%' : numericWidth;
   const glassStyle =
     buttonStyle === 'landscape' ? styles.landscapePostButtonGlass : styles.floatingPostButtonGlass;
   const hostStyle =
@@ -911,8 +913,6 @@ const VideoPostScreen: React.FC = () => {
     // Path is already standardized and validated - trust it
     const videoPathToUse = compressedVideoPath || activeVideoPath;
 
-    // Description is optional for video posts
-
     // Collect all content warnings, including custom one if present (before try block for error handling)
     const allContentWarnings = [...selectedContentWarnings];
     if (otherWarning.trim()) {
@@ -928,23 +928,17 @@ const VideoPostScreen: React.FC = () => {
 
       // Save video to gallery FIRST (before upload) so user has it even if upload fails
       try {
-        // Request media library permissions
         const { status } = await MediaLibrary.requestPermissionsAsync();
         if (status === 'granted') {
-          // Resolve the video path to ensure it's accessible
           const pathInfo = await resolveVideoPath(videoPathToUpload);
-
           if (pathInfo.exists) {
-            // Save video to media library silently (don't block post flow if this fails)
             await MediaLibrary.createAssetAsync(pathInfo.uri);
-
             logger.info('Video saved to gallery before posting', {
               component: 'VideoPostScreen',
             });
           }
         }
       } catch (saveError) {
-        // Silently fail - don't interrupt the post flow if save fails
         logger.error('Failed to save video to gallery before posting', saveError, {
           component: 'VideoPostScreen',
         });
@@ -963,32 +957,22 @@ const VideoPostScreen: React.FC = () => {
           : null,
       });
 
-      // Extract slug from channel URI to ensure it matches what the backend expects
+      const { useUIStore } = await import('../../src/stores/uiStore');
+      const { storage } = await import('../../src/utils/storage/storage');
+      const UPLOAD_KEY = 'video-upload';
+      useUIStore.getState().setLoading(UPLOAD_KEY, true);
+
       const channelSlug = selectedChannel
         ? extractFeedSlug(selectedChannel.uri) || undefined
         : undefined;
 
-      // Access UI store directly to set upload state
-      const { useUIStore } = await import('../../src/stores/uiStore');
-      const { storage } = await import('../../src/utils/storage/storage');
-
-      const UPLOAD_KEY = 'video-upload';
-
-      // Start upload process and navigate immediately
       const { VideoService } = await import('../../src/services/api/video/VideoService');
 
-      // Store upload state for tracking
-      useUIStore.getState().setLoading(UPLOAD_KEY, true);
-
-      // Start video upload to get job ID
-      // Progress callback handles all progress reporting from uploadVideo (10-40%)
       const uploadResult = await VideoService.uploadVideo(videoPathToUpload, progress => {
         useUIStore.getState().setProgress(UPLOAD_KEY, progress);
         setUploadProgress(progress);
       });
-      // uploadVideo completes at 40% - no need to set explicitly (store ensures monotonic increase)
 
-      // Store post metadata in closure for background completion
       const postMetadata = {
         description,
         videoPath: videoPathToUpload,
@@ -997,7 +981,6 @@ const VideoPostScreen: React.FC = () => {
         channelSlug,
       };
 
-      // Extract and store thumbnail if not already available
       if (!thumbnailPath) {
         try {
           const extractedThumbnail =
@@ -1012,38 +995,30 @@ const VideoPostScreen: React.FC = () => {
             component: 'VideoPostScreen',
             error,
           });
-          // Continue without thumbnail - not critical
         }
       } else {
         storage.set('video-upload-thumbnail', thumbnailPath);
       }
 
-      // Navigate to home screen immediately
       router.replace('/(tabs)');
 
-      // Continue upload in background - complete the post creation after video processing
       (async () => {
         try {
-          // Wait for video processing to complete - progress reported by waitForJob (40-90%)
           const processedBlob = await VideoService.waitForJob(uploadResult.jobId, progress => {
             useUIStore.getState().setProgress(UPLOAD_KEY, progress);
           });
-          // waitForJob completes at 90% - no need to set explicitly (store ensures monotonic increase)
 
-          // Pass the blob directly to avoid duplicate waitForJob call
           const result = await AtprotoService.createVideoPost(
             postMetadata.description,
             postMetadata.videoPath,
             postMetadata.contentWarnings,
             postMetadata.commentFilter,
             postMetadata.channelSlug,
-            // Progress callback for post creation phase (90-100%)
-            // createVideoPost reports: 95% when starting post creation, 100% when complete
             progress => {
               useUIStore.getState().setProgress(UPLOAD_KEY, progress);
             },
             uploadResult.jobId,
-            processedBlob // Pass blob to avoid duplicate waitForJob
+            processedBlob
           );
 
           logger.info('Video post created successfully', {
@@ -1052,23 +1027,18 @@ const VideoPostScreen: React.FC = () => {
             cid: result?.cid,
           });
 
-          // Progress already set to 100% by createVideoPost - no need to set again
-
-          // Mark as complete (will auto-dismiss after 10 seconds via VideoUploadBanner)
           setTimeout(() => {
             useUIStore.getState().setLoading(UPLOAD_KEY, false);
             useUIStore.getState().clearProgress(UPLOAD_KEY);
             storage.delete('video-upload-thumbnail');
           }, 10000);
 
-          // Clear draft since post was successful
           clearDraft();
         } catch (error: unknown) {
           logger.error('Background video post upload failed', error, {
             component: 'VideoPostScreen',
           });
 
-          // Reset upload state on error
           useUIStore.getState().setLoading(UPLOAD_KEY, false);
           useUIStore.getState().clearProgress(UPLOAD_KEY);
           storage.delete('video-upload-thumbnail');
@@ -1262,9 +1232,6 @@ const VideoPostScreen: React.FC = () => {
         }
         return;
       }
-
-      // Debug the incoming path
-      debugVideoPath('VideoPostScreen received', activeVideoPath);
 
       try {
         setVideoLoading(true);
@@ -1683,7 +1650,7 @@ const VideoPostScreen: React.FC = () => {
     );
   }
 
-  // Portrait layout
+  // Portrait layout: post button is outside KeyboardAvoidingView so it stays fixed when keyboard opens
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       {renderHeader()}
@@ -1742,23 +1709,21 @@ const VideoPostScreen: React.FC = () => {
             onPress={() => setShowContentWarningsSheet(true)}
           />
         </Animated.ScrollView>
-
-        <View
-          style={[
-            styles.floatingPostButtonContainer,
-            { paddingBottom: Math.max(insets.bottom, 20) },
-          ]}
-        >
-          <PostButton
-            onPress={handlePost}
-            isPosting={isPosting}
-            isCompressing={isCompressing}
-            uploadProgress={uploadProgress}
-            buttonStyle="portrait"
-            width={SCREEN_WIDTH * 0.6}
-          />
-        </View>
       </KeyboardAvoidingView>
+
+      <View
+        style={[styles.floatingPostButtonContainer, { paddingBottom: Math.max(insets.bottom, 20) }]}
+        pointerEvents="box-none"
+      >
+        <PostButton
+          onPress={handlePost}
+          isPosting={isPosting}
+          isCompressing={isCompressing}
+          uploadProgress={uploadProgress}
+          buttonStyle="portrait"
+          width={screenWidth * 0.6}
+        />
+      </View>
 
       {renderModals()}
     </SafeAreaView>
