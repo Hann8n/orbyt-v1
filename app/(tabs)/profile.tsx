@@ -24,7 +24,7 @@ import Icon, {
 import { useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import { ProfileHeader, TabNavigation, TabOption } from '../../src/components/layout/header';
 import DetailScreenOverlay from '../../src/components/layout/detail/DetailScreenOverlay';
-import { useCurrentUser, useProfileCacheSync } from '../../src/stores/userStore';
+import { useCurrentUser, useProfileCacheSync, useFeedSettings } from '../../src/stores/userStore';
 import {
   HeaderAction,
   HeaderActionButton,
@@ -60,6 +60,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const providedIsDid = !!providedIdentifier && providedIdentifier.startsWith('did:');
 
   const { currentUser } = useCurrentUser();
+  const { modalProfileEnabled } = useFeedSettings();
 
   // Automatically sync ProfileCache with userStore
   useProfileCacheSync();
@@ -657,7 +658,26 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
         onLogout={handleLogoutFromMenu}
         onSwitchAccount={presentAccountSwitcher}
         chatSettings={profileData?.associated?.chat ?? undefined}
-        viewerFollowedBy={Boolean(profileData?.viewer?.followedBy)}
+        viewerFollowing={isFollowing}
+        onMessagePress={
+          profileData?.did
+            ? () => {
+                setShowProfileMenu(false);
+                const pushChat = () => {
+                  router.push({
+                    pathname: '/chat/[id]',
+                    params: { id: profileData.did, did: profileData.did },
+                  });
+                };
+                if (modalProfileEnabled) {
+                  router.dismissTo('/(tabs)/');
+                  setTimeout(pushChat, 0);
+                } else {
+                  pushChat();
+                }
+              }
+            : undefined
+        }
       />
 
       {profileData?.did && (

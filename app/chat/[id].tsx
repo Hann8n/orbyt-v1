@@ -995,15 +995,44 @@ const getReactionChipStyle = ({
   borderWidth: 1,
   borderColor: Colors.black,
 });
+const isDid = (id: string) => typeof id === 'string' && id.startsWith('did:');
+
 export default function ChatScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ id: string; did?: string }>();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
-  const convoId = params.id ?? '';
-  const otherDid = params.did ?? '';
+  const rawId = params.id ?? '';
+  const otherDid = params.did ?? rawId;
   const [inputText, setInputText] = useState('');
   const currentUserDid = useUserStore(s => s.currentUser?.did);
+
+  const openByDid = isDid(rawId);
+  const members = useMemo(
+    () => (currentUserDid && openByDid ? [currentUserDid, rawId].sort() : null),
+    [currentUserDid, openByDid, rawId]
+  );
+
+  const { data: convoByMembers, isFetched: convoByMembersFetched } = useQuery({
+    queryKey: [
+      ...queryKeys.chat.conversations.all,
+      'byMembers',
+      members?.[0] ?? '',
+      members?.[1] ?? '',
+    ] as const,
+    queryFn: () => ChatService.getConvoForMembers(members!),
+    enabled: !!members && members.length === 2,
+  });
+
+  const { data: convoById, isFetched: convoByIdFetched } = useQuery({
+    queryKey: queryKeys.chat.conversations.detail(rawId),
+    queryFn: () => ChatService.getConvo(rawId),
+    enabled: !!rawId && !openByDid,
+  });
+
+  const convo = openByDid ? convoByMembers : convoById;
+  const convoFetched = openByDid ? convoByMembersFetched : convoByIdFetched;
+  const convoId = openByDid ? (convo?.id ?? '') : rawId;
 
   const { data: profile } = useProfileByDid(otherDid || null);
   const otherRingProps = useAvatarProfileRing(otherDid || null);
@@ -1027,17 +1056,18 @@ export default function ChatScreen() {
   );
   const [showFullEmojiPicker, setShowFullEmojiPicker] = useState(false);
 
-  const { data: convo, isFetched: convoFetched } = useQuery({
-    queryKey: queryKeys.chat.conversations.detail(convoId),
-    queryFn: () => ChatService.getConvo(convoId),
-    enabled: !!convoId,
-  });
-
   const isInConvo = !!convo;
-  const hasLeftConvo = convoFetched && convo === null;
+  const hasLeftConvo = convoFetched && convo === null && !openByDid;
+  const noConvoYet = openByDid && convoFetched && !convo;
   const isConvoMuted = (convo as { muted?: boolean } | null)?.muted ?? false;
-  const convoStatus = (convo as { status?: 'request' | 'accepted' } | null)?.status;
-  const needsAccept = convoStatus === 'request';
+  const lastMsgSenderDid =
+    convo?.lastMessage && typeof convo.lastMessage === 'object' && 'sender' in convo.lastMessage
+      ? (convo.lastMessage as { sender?: { did?: string } }).sender?.did
+      : undefined;
+  const needsAccept =
+    (convo as { status?: string } | null)?.status === 'request' &&
+    lastMsgSenderDid != null &&
+    lastMsgSenderDid !== currentUserDid;
   const blockMutation = useBlockMutation();
   const isBlocked = !!(profile?.viewer?.blocking || profile?.viewer?.blockingByList);
   const isBlockedByList = !!profile?.viewer?.blockingByList;
@@ -1504,10 +1534,41 @@ export default function ChatScreen() {
     rawMessages
   );
 
-  if (!convoId) {
+  if (!convoId && !openByDid) {
     return (
       <View style={styles.container}>
         <Text style={styles.placeholder}>Invalid conversation</Text>
+      </View>
+    );
+  }
+
+  if (openByDid && !convoFetched) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.placeholder}>Loading…</Text>
+      </View>
+    );
+  }
+
+  if (noConvoYet) {
+    return (
+      <View style={styles.container}>
+        <View style={[styles.header, { paddingTop: headerTop }]}>
+          <View style={styles.headerLeft}>
+            <Pressable
+              onPress={handleBack}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={styles.backButton}
+              accessibilityRole="button"
+              accessibilityLabel="Back"
+            >
+              <BackArrowIcon size={30} color={Colors.neutral[50]} />
+            </Pressable>
+          </View>
+        </View>
+        <View style={styles.leftConvoPlaceholder}>
+          <Text style={styles.placeholder}>No conversation with this user yet</Text>
+        </View>
       </View>
     );
   }
