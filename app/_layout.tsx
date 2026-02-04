@@ -20,7 +20,7 @@ import { Colors } from '../src/theme';
 import { useUserStore } from '../src/stores/userStore';
 import { migrateAsyncStorageToMMKV } from '../src/utils/storage';
 import { useBookmarkStore } from '../src/stores/bookmarkStore';
-import ShareSheet from '../src/components/ui/ShareSheet';
+import { ShareSheet } from '../src/components/ui/share-sheet';
 import CommentSection from '../src/components/features/comments/CommentSection';
 import GlobalAccountSwitcher from '../src/components/ui/GlobalAccountSwitcher';
 import EmailVerificationModal from '../src/components/ui/EmailVerificationModal';

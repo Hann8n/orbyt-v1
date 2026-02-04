@@ -11,6 +11,7 @@ import {
   Alert,
   Modal,
   useWindowDimensions,
+  Linking,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
@@ -59,6 +60,7 @@ import { openPostInBluesky } from '../../src/utils/links/bluesky';
 import { getVideoView } from '../../src/utils/video/helpers';
 import { feedService } from '../../src/services/FeedService';
 import type { ExtendedFeedViewPost, PostView } from '../../src/services/api/types';
+import type { RichTextFacet } from '../../src/utils/types/richText';
 import EmojiPicker from 'react-native-emoji-chooser';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
@@ -137,6 +139,151 @@ const MESSAGE_GROUP_WINDOW_MINUTES = 5;
 type ChatListItem =
   | { type: 'message'; message: MessageItem; showTime: boolean; groupedWithPrevious: boolean }
   | { type: 'date'; dateKey: string; label: string };
+
+type ChatRichTextPart = {
+  text: string;
+  isSemiBold?: boolean;
+  kind?: 'mention' | 'hashtag' | 'link';
+  identifier?: string;
+  href?: string;
+};
+
+function formatChatRichTextParts(
+  text: string,
+  facets?: RichTextFacet[] | null
+): ChatRichTextPart[] {
+  if (!text) return [{ text: '', isSemiBold: false }];
+  if (!facets || facets.length === 0) return [{ text, isSemiBold: false }];
+
+  const parts: ChatRichTextPart[] = [];
+  const textBytes = new TextEncoder().encode(text);
+  let lastByteIndex = 0;
+  const sortedFacets = [...facets].sort((a, b) => a.index.byteStart - b.index.byteStart);
+
+  for (const facet of sortedFacets) {
+    const start = Math.max(0, Math.min(textBytes.length, facet.index.byteStart));
+    const end = Math.max(start, Math.min(textBytes.length, facet.index.byteEnd));
+
+    if (start > lastByteIndex) {
+      const beforeText = new TextDecoder().decode(textBytes.slice(lastByteIndex, start));
+      if (beforeText) parts.push({ text: beforeText, isSemiBold: false });
+    }
+
+    const facetText = new TextDecoder().decode(textBytes.slice(start, end));
+    const features = facet.features ?? [];
+    const mentionFeature = features.find(f => f.$type === 'app.bsky.richtext.facet#mention');
+    const hashtagFeature = features.find(f => f.$type === 'app.bsky.richtext.facet#tag');
+    const linkFeature = features.find(f => f.$type === 'app.bsky.richtext.facet#link');
+
+    const isMention = !!mentionFeature;
+    const isHashtag = !!hashtagFeature;
+    const isLink = !!linkFeature;
+
+    if (isMention || isHashtag) {
+      const symbol = facetText[0];
+      const textAfterSymbol = facetText.slice(1);
+      const base: Omit<ChatRichTextPart, 'text' | 'isSemiBold'> = {
+        kind: isMention ? 'mention' : 'hashtag',
+        identifier:
+          textAfterSymbol ||
+          (isMention
+            ? mentionFeature?.did || mentionFeature?.uri || ''
+            : hashtagFeature?.tag || ''),
+      };
+
+      if (symbol) parts.push({ text: symbol, isSemiBold: false, ...base });
+      if (textAfterSymbol) parts.push({ text: textAfterSymbol, isSemiBold: true, ...base });
+    } else if (isLink) {
+      const href = linkFeature?.uri || facetText;
+      parts.push({
+        text: facetText,
+        isSemiBold: false,
+        kind: 'link',
+        href,
+      });
+    } else {
+      parts.push({ text: facetText, isSemiBold: false });
+    }
+
+    lastByteIndex = end;
+  }
+
+  if (lastByteIndex < textBytes.length) {
+    const remainingText = new TextDecoder().decode(textBytes.slice(lastByteIndex));
+    if (remainingText) parts.push({ text: remainingText, isSemiBold: false });
+  }
+
+  return parts.length > 0 ? parts : [{ text, isSemiBold: false }];
+}
+
+function ChatMessageRichText({
+  text,
+  facets,
+  isFromMe,
+}: {
+  text: string;
+  facets?: RichTextFacet[] | null;
+  isFromMe: boolean;
+}) {
+  const router = useRouter();
+  const parts = useMemo(() => formatChatRichTextParts(text, facets), [text, facets]);
+
+  const handlePartPress = useCallback(
+    (part: ChatRichTextPart) => {
+      if (!part.kind) return;
+
+      if (part.kind === 'mention' && part.identifier) {
+        const clean = part.identifier.trim();
+        if (!clean) return;
+        router.push({
+          pathname: '/profile/[did]',
+          params: { did: clean },
+        });
+        return;
+      }
+
+      if (part.kind === 'hashtag' && part.identifier) {
+        const clean = part.identifier.replace(/^#/, '').trim();
+        if (!clean) return;
+        router.push({
+          pathname: '/(modals)/feed',
+          params: {
+            feedOption: `hashtag:${clean}`,
+            backgroundColor: Colors.black,
+            searchQuery: `#${clean}`,
+          },
+        });
+        return;
+      }
+
+      if (part.kind === 'link' && part.href) {
+        const raw = part.href.trim();
+        if (!raw) return;
+        const url = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+        Linking.openURL(url).catch(() => {});
+      }
+    },
+    [router]
+  );
+
+  return (
+    <Text style={[styles.messageText, isFromMe && styles.messageTextFromMe]}>
+      {parts.map((part, index) => (
+        <Text
+          key={index}
+          style={[
+            part.isSemiBold && styles.messageTextSemiBold,
+            part.kind === 'link' &&
+              (isFromMe ? styles.messageTextLinkFromMe : styles.messageTextLink),
+          ]}
+          onPress={part.kind ? () => handlePartPress(part) : undefined}
+        >
+          {part.text}
+        </Text>
+      ))}
+    </Text>
+  );
+}
 
 function getDateGroupLabel(sentAt: string): string {
   const date = parseISO(sentAt);
@@ -1172,37 +1319,45 @@ export default function ChatScreen() {
     convoId: '',
     latestMessageId: undefined,
   });
+  const updateReadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const previousConvoIdRef = useRef<string | null>(null);
   const shouldAnimateEnteringRef = useRef(false);
+
+  const UPDATE_READ_DEBOUNCE_MS = 1500;
 
   useEffect(() => {
     if (!convoId || convo === null) return;
     readSyncRef.current = { convoId, latestMessageId };
 
-    const markRead = () => {
-      ChatService.updateRead(convoId, latestMessageId)
+    if (updateReadTimeoutRef.current != null) {
+      clearTimeout(updateReadTimeoutRef.current);
+      updateReadTimeoutRef.current = null;
+    }
+
+    const markRead = (cid: string, mid: string | undefined) => {
+      ChatService.updateRead(cid, mid)
         .then(updatedConvo => {
-          queryClient.setQueryData(queryKeys.chat.conversations.detail(convoId), updatedConvo);
-          // Refetch both so chat list item, activity tab badge, and bottom nav stay in sync
-          void queryClient.refetchQueries({ queryKey: queryKeys.unread.summary() });
-          void queryClient.refetchQueries({ queryKey: queryKeys.chat.conversations.all });
+          queryClient.setQueryData(queryKeys.chat.conversations.detail(cid), updatedConvo);
+          queryClient.invalidateQueries({ queryKey: queryKeys.unread.summary() });
+          queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.all });
         })
         .catch(() => {});
     };
 
-    markRead();
+    updateReadTimeoutRef.current = setTimeout(() => {
+      updateReadTimeoutRef.current = null;
+      markRead(convoId, latestMessageId);
+    }, UPDATE_READ_DEBOUNCE_MS);
 
     return () => {
+      if (updateReadTimeoutRef.current != null) {
+        clearTimeout(updateReadTimeoutRef.current);
+        updateReadTimeoutRef.current = null;
+      }
       const { convoId: cid, latestMessageId: mid } = readSyncRef.current;
       if (cid) {
-        ChatService.updateRead(cid, mid)
-          .then(updatedConvo => {
-            queryClient.setQueryData(queryKeys.chat.conversations.detail(cid), updatedConvo);
-            void queryClient.refetchQueries({ queryKey: queryKeys.unread.summary() });
-            void queryClient.refetchQueries({ queryKey: queryKeys.chat.conversations.all });
-          })
-          .catch(() => {});
+        markRead(cid, mid);
       }
     };
   }, [convoId, convo, latestMessageId, queryClient]);
@@ -1307,6 +1462,8 @@ export default function ChatScreen() {
       const record =
         hasEmbed && msg.embed ? (msg.embed as { record?: EmbedRecordShape }).record : undefined;
       const hasVideoEmbed = !!record && !!getVideoViewFromRecordEmbeds(record.embeds);
+      const hasMessageText = msg.text != null && msg.text !== '';
+      const showVideoCaption = hasVideoEmbed && hasMessageText;
       const onLongPress = (e: { nativeEvent: { pageX: number; pageY: number } }) => {
         setReactionPickerMessageId(msg.id);
         setReactionPickerTouch({ x: e.nativeEvent.pageX, y: e.nativeEvent.pageY });
@@ -1326,10 +1483,12 @@ export default function ChatScreen() {
               hasVideoEmbed && styles.messageRowVideoEmbed,
             ]}
           >
-            {msg.text != null && msg.text !== '' && (
-              <Text style={[styles.messageText, isFromMe && styles.messageTextFromMe]}>
-                {msg.text}
-              </Text>
+            {hasMessageText && !hasVideoEmbed && (
+              <ChatMessageRichText
+                text={msg.text}
+                facets={(msg as { facets?: RichTextFacet[] | null }).facets ?? null}
+                isFromMe={!!isFromMe}
+              />
             )}
             {hasEmbed && msg.embed && (
               <ChatEmbeddedPost
@@ -1338,6 +1497,23 @@ export default function ChatScreen() {
                 onLongPress={onLongPress}
                 delayLongPress={400}
               />
+            )}
+            {showVideoCaption && (
+              <View
+                style={[
+                  styles.videoCaptionContainer,
+                  isFromMe
+                    ? styles.videoCaptionContainerFromMe
+                    : styles.videoCaptionContainerFromThem,
+                  isFromMe ? sentMessageAccentBorderStyle : otherMessageAccentBorderStyle,
+                ]}
+              >
+                <ChatMessageRichText
+                  text={msg.text}
+                  facets={(msg as { facets?: RichTextFacet[] | null }).facets ?? null}
+                  isFromMe={!!isFromMe}
+                />
+              </View>
             )}
             {(!msg.text || msg.text === '') && !hasEmbed && (
               <Text style={[styles.messageText, isFromMe && styles.messageTextFromMe]}>
@@ -1531,7 +1707,8 @@ export default function ChatScreen() {
       : undefined;
   const { show: showStreakInHeader, count: streakCount } = getActiveStreak(
     latestSentAt,
-    rawMessages
+    rawMessages,
+    currentUserDid ?? undefined
   );
 
   if (!convoId && !openByDid) {
@@ -2055,10 +2232,41 @@ const styles = StyleSheet.create({
     paddingLeft: 0,
     paddingRight: 0,
   },
+  videoCaptionContainer: {
+    width: CHAT_EMBED_VIDEO_WIDTH,
+    maxWidth: '85%',
+    marginTop: 6,
+    paddingVertical: 0,
+    paddingHorizontal: 0,
+    backgroundColor: Colors.transparent,
+    borderLeftWidth: 2,
+    borderRightWidth: 2,
+  },
+  videoCaptionContainerFromMe: {
+    alignSelf: 'flex-end',
+    paddingRight: 12,
+    borderLeftWidth: 0,
+  },
+  videoCaptionContainerFromThem: {
+    alignSelf: 'flex-start',
+    paddingLeft: 12,
+    borderRightWidth: 0,
+  },
   messageText: {
     color: Colors.neutral[50],
     fontSize: 16,
     fontFamily: 'Figtree-Regular',
+  },
+  messageTextSemiBold: {
+    fontFamily: 'Figtree-SemiBold',
+  },
+  messageTextLink: {
+    color: Colors.brand.teal,
+    textDecorationLine: 'underline',
+  },
+  messageTextLinkFromMe: {
+    color: Colors.brand.teal,
+    textDecorationLine: 'underline',
   },
   messageTextFromMe: {
     textAlign: 'right',

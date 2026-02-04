@@ -36,8 +36,19 @@ import { queryKeys } from '../../../utils/query/queryKeys';
 import { useUserStore } from '../../../stores/userStore';
 import { getActiveStreak } from '../../../utils/chat/streak';
 import { useAvatarProfileRing } from '../../../hooks/useOrbytColors';
+import type { ProfileViewBasic, RecordValue } from '../../../services/api/types';
 
 type ConvoView = ChatBskyConvoDefs.ConvoView;
+
+// Type for embed record viewRecord
+interface EmbedRecordViewRecord {
+  $type?: string;
+  author?: ProfileViewBasic;
+  value?: RecordValue;
+  notFound?: boolean;
+  blocked?: boolean;
+  detached?: boolean;
+}
 
 const EmptyChats = () => (
   <View style={styles.emptyContainer}>
@@ -54,9 +65,47 @@ const ChatsLoading = () => (
 const ChatDivider = () => <View style={styles.divider} />;
 
 /** Preview from listConvos lastMessage (API may omit $type; accept object with text). */
-function getLastMessagePreview(lastMessage: ConvoView['lastMessage']): string {
+function getLastMessagePreview(
+  lastMessage: ConvoView['lastMessage'],
+  currentUserDid: string | undefined
+): string {
   if (!lastMessage || typeof lastMessage !== 'object') return '';
-  if (ChatBskyConvoDefs.isMessageView(lastMessage)) return lastMessage.text ?? '';
+  if (ChatBskyConvoDefs.isMessageView(lastMessage)) {
+    // If the last message includes an embedded post, prefer a richer single-line preview.
+    const msg = lastMessage as ChatBskyConvoDefs.MessageView;
+    const senderDid = (msg as { sender?: { did?: string } }).sender?.did;
+    const isFromMe = !!currentUserDid && !!senderDid && senderDid === currentUserDid;
+    const embed = (msg as { embed?: unknown }).embed;
+    if (embed && typeof embed === 'object') {
+      const embedType = (embed as { $type?: string }).$type;
+      // MessageView embed in chat is app.bsky.embed.record#view (lexicon).
+      if (embedType === 'app.bsky.embed.record#view' && 'record' in embed) {
+        const record = (embed as { record?: EmbedRecordViewRecord }).record;
+        if (record && typeof record === 'object') {
+          const recordType = record.$type;
+          if (recordType === 'app.bsky.embed.record#viewRecord' && record.author && record.value) {
+            const authorHandleRaw = (record as { author?: { handle?: string } }).author?.handle;
+            const authorHandle = authorHandleRaw ? formatHandle(authorHandleRaw) : '';
+            const base = isFromMe ? 'You shared a post' : 'Shared a post';
+            return authorHandle ? `${base} by @${authorHandle}` : base;
+          }
+          // Unavailable record variants (notFound/blocked/detached)
+          if (
+            recordType === 'app.bsky.embed.record#viewNotFound' ||
+            recordType === 'app.bsky.embed.record#viewBlocked' ||
+            recordType === 'app.bsky.embed.record#viewDetached' ||
+            record.notFound === true ||
+            record.blocked === true ||
+            record.detached === true
+          ) {
+            return isFromMe ? 'You shared a post' : 'Shared a post';
+          }
+        }
+        return isFromMe ? 'You shared a post' : 'Shared a post';
+      }
+    }
+    return msg.text ?? '';
+  }
   if ('text' in lastMessage && typeof (lastMessage as { text?: string }).text === 'string') {
     return (lastMessage as { text: string }).text;
   }
@@ -90,7 +139,7 @@ const ConversationItem = React.memo<ConversationItemProps>(
     );
     const handle = other?.handle ?? '';
     const nameLabel = formatHandle(handle) || 'Unknown';
-    const preview = getLastMessagePreview(item.lastMessage);
+    const preview = getLastMessagePreview(item.lastMessage, currentUser?.did ?? undefined);
     const lastMsg = item.lastMessage;
     const sentAt =
       lastMsg &&
@@ -147,12 +196,16 @@ const ConversationItem = React.memo<ConversationItemProps>(
     const thisAccepting = isRequest && isAccepting;
     const thisDeclining = isRequest && isDeclining;
 
-    const cached = queryClient.getQueryData<{ messages?: Array<{ sentAt?: string }> }>(
-      queryKeys.chat.messages.byConversation(item.id ?? '')
+    const cached = queryClient.getQueryData<{
+      messages?: Array<{ sentAt?: string; sender?: { did?: string } }>;
+    }>(queryKeys.chat.messages.byConversation(item.id ?? ''));
+    const { show: showStreak, count: streak } = getActiveStreak(
+      sentAt,
+      cached?.messages ?? [],
+      currentUser?.did ?? undefined
     );
-    const { show: showStreak, count: streak } = getActiveStreak(sentAt, cached?.messages ?? []);
 
-    const ringProps = useAvatarProfileRing(other?.did ?? null);
+    const ringProps = useAvatarProfileRing(other?.did ?? undefined);
 
     return (
       <View style={styles.conversationItem}>
@@ -332,7 +385,7 @@ const ChatsTab = forwardRef<ScrollToTopRef>((_, ref) => {
     queryKey: queryKeys.chat.conversations.list(),
     queryFn: async ({ pageParam }) => ChatService.listConvos(pageParam as string | null),
     initialPageParam: null as string | null,
-    getNextPageParam: lastPage => lastPage.cursor ?? undefined,
+    getNextPageParam: lastPage => lastPage?.cursor ?? undefined,
     staleTime: QUERY_CONSTANTS.STALE_TIME_SHORT,
     gcTime: 60 * 60 * 1000,
     refetchInterval: 30000, // Auto-refresh list to stay in sync with indicator
@@ -343,7 +396,7 @@ const ChatsTab = forwardRef<ScrollToTopRef>((_, ref) => {
   });
 
   const conversations: ConvoView[] = useMemo(
-    () => data?.pages.flatMap(p => p.conversations) ?? [],
+    () => data?.pages?.flatMap(p => p?.conversations ?? []) ?? [],
     [data]
   );
 

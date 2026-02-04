@@ -54,6 +54,24 @@ interface CommentInputFooterProps {
   onSelectionChange: (e: TextInputSelectionChangeEvent) => void;
   placeholder?: string;
   onSubmit: () => void;
+  /**
+   * Show/hide the current user's avatar at the start of the input row.
+   * Useful for compact composers (e.g. share-sheet send message).
+   */
+  showAvatar?: boolean;
+  /**
+   * When true, show the send button even if the input is empty.
+   * Useful for "optional message" composers (e.g. sending a video embed).
+   */
+  showSendWhenEmpty?: boolean;
+  /**
+   * External disable for submit (e.g. no recipient selected).
+   */
+  isSubmitDisabled?: boolean;
+  /**
+   * Accessibility label for the submit button.
+   */
+  submitAccessibilityLabel?: string;
   onCancelReply?: () => void;
   replyContext?: {
     authorName: string;
@@ -68,6 +86,11 @@ interface CommentInputFooterProps {
   userSearchModalProps?: UserSearchModalProps;
   mentionInputProps?: Partial<MentionInputProps>;
   onFocus?: () => void;
+  /**
+   * Override bottom padding (e.g. safe area). Use when embedded in a sheet that
+   * should control padding externally to avoid double padding.
+   */
+  safeAreaBottom?: number;
 }
 
 const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
@@ -77,6 +100,10 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   onSelectionChange,
   placeholder = 'Say something nice...',
   onSubmit,
+  showAvatar = true,
+  showSendWhenEmpty = false,
+  isSubmitDisabled = false,
+  submitAccessibilityLabel = 'Send comment',
   onCancelReply,
   replyContext,
   isPosting = false,
@@ -86,11 +113,14 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   userSearchModalProps,
   mentionInputProps,
   onFocus,
+  safeAreaBottom: safeAreaBottomProp,
 }) => {
   const charCount = value.length;
   const hasText = value.trim().length > 0;
   const showCharCount = charCount >= 150;
-  const isSendDisabled = isPosting || !hasText || charCount > maxLength;
+  const shouldRenderSendButton = hasText || showSendWhenEmpty;
+  const isSendDisabled =
+    isPosting || isSubmitDisabled || (!hasText && !showSendWhenEmpty) || charCount > maxLength;
   const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
 
   // Get current user profile for live status
@@ -99,28 +129,31 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   const { data: currentUserProfile } = useProfile(currentUserHandle);
   const ringProps = useAvatarProfileRing(currentUser?.did ?? null);
 
-  // Get safe area insets for minimal bottom padding
+  // Get safe area insets for minimal bottom padding (when not overridden)
   // TrueSheet handles keyboard positioning natively, so we only need minimal padding
   const insets = useSafeAreaInsets();
-  // Use minimal padding - TrueSheet will handle keyboard offset automatically
-  const bottomPadding = Platform.OS === 'ios' ? Math.min(8, insets.bottom) : 8;
+  const defaultBottomPadding = Platform.OS === 'ios' ? Math.min(8, insets.bottom) : 8;
+  const bottomPadding =
+    safeAreaBottomProp !== undefined ? safeAreaBottomProp : defaultBottomPadding;
 
   return (
     <View style={[styles.footerContainer, { paddingBottom: bottomPadding }]}>
       <View style={styles.inputContainer}>
         <View style={styles.inputRow}>
-          <View style={styles.avatarContainer}>
-            <UI.Avatar
-              uri={currentUserAvatar ?? undefined}
-              type="profile"
-              size={42}
-              showRing={ringProps.showRing}
-              ringColor={ringProps.ringColor}
-              profileColors={ringProps.profileColors}
-              style={styles.avatar}
-              status={currentUserProfile?.status}
-            />
-          </View>
+          {showAvatar ? (
+            <View style={styles.avatarContainer}>
+              <UI.Avatar
+                uri={currentUserAvatar ?? undefined}
+                type="profile"
+                size={42}
+                showRing={ringProps.showRing}
+                ringColor={ringProps.ringColor}
+                profileColors={ringProps.profileColors}
+                style={styles.avatar}
+                status={currentUserProfile?.status}
+              />
+            </View>
+          ) : null}
           <View style={styles.inputWrapper}>
             <TextInput
               {...mentionInputProps}
@@ -148,14 +181,19 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
             />
           </View>
           <View style={styles.sendColumn}>
-            {hasText && !isSendDisabled ? (
+            {shouldRenderSendButton ? (
               <Pressable
-                style={[styles.sendButton, !useLiquidGlass && styles.sendButtonFallback]}
+                style={[
+                  styles.sendButton,
+                  !useLiquidGlass && styles.sendButtonFallback,
+                  isSendDisabled && styles.sendButtonDisabled,
+                ]}
                 onPress={onSubmit}
+                disabled={isSendDisabled}
                 hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
                 accessible={true}
                 accessibilityRole="button"
-                accessibilityLabel="Send comment"
+                accessibilityLabel={submitAccessibilityLabel}
               >
                 {useLiquidGlass ? (
                   <>
@@ -284,6 +322,9 @@ const styles = StyleSheet.create({
   },
   sendButtonFallback: {
     backgroundColor: Colors.neutral[200],
+  },
+  sendButtonDisabled: {
+    opacity: 0.6,
   },
   glassBackground: {
     ...StyleSheet.absoluteFillObject,

@@ -13,8 +13,6 @@ import { ModerationService } from '../moderation/ModerationService';
 import type {
   FeedResponse,
   FeedParams,
-  MessagesResponse,
-  ConversationsResponse,
   ThreadPost,
   FeedType,
   ApiClient,
@@ -49,7 +47,6 @@ import type {
   OrbytProfileRecord,
   RepostView,
   CreateRecordResponse,
-  MessageView,
 } from './types';
 import type { SubscribedChannel } from '../../stores/userStore';
 import {
@@ -57,8 +54,6 @@ import {
   isNotFoundPost as checkIsNotFoundPost,
   isBlockedPost as checkIsBlockedPost,
 } from './types';
-
-const CHAT_SERVICE_DID = 'did:web:api.bsky.chat';
 
 class AtprotoService {
   // Cache resolved PDS endpoints per DID for cross-PDS reads
@@ -196,64 +191,6 @@ class AtprotoService {
 
   // Unified getFeed method now handles all feed types
   // Removed redundant getAuthorVideos method
-
-  /**
-   * Fetch conversations for React Query
-   * @returns Promise with conversations data
-   */
-  static async getConversations(cursor: string | null = null): Promise<ConversationsResponse> {
-    const { api } = await this.getApiClient();
-    const response = await api.chat.bsky.convo.listConvos(
-      {
-        limit: 50,
-        ...(cursor && { cursor }),
-      },
-      {
-        headers: {
-          'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat`,
-        },
-      }
-    );
-    return {
-      conversations: response.data?.convos || [],
-      cursor: response.data?.cursor || null,
-    };
-  }
-
-  /**
-   * Fetch messages for a conversation
-   * @param convoId - The conversation ID
-   * @param cursor - Pagination cursor
-   * @returns Promise with messages data
-   */
-  static async getMessages(
-    convoId: string,
-    cursor: string | null = null
-  ): Promise<MessagesResponse> {
-    const { api } = await this.getApiClient();
-    const response = await api.chat.bsky.convo.getMessages(
-      {
-        convoId,
-        limit: 50,
-        ...(cursor && { cursor }),
-      },
-      {
-        headers: {
-          'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat`,
-        },
-      }
-    );
-    // Handle both 'logs' and 'messages' response structures (API may return either)
-    const data = response.data as {
-      logs?: MessageView[];
-      messages?: MessageView[];
-      cursor?: string | null;
-    };
-    return {
-      messages: data?.logs || data?.messages || [],
-      cursor: data?.cursor || null,
-    };
-  }
 
   /**
    * Like a post and return the URI

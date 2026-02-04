@@ -18,7 +18,8 @@ export {
 export { default as Icon } from './Icon';
 export { default as PopUpModal } from './PopUpModal';
 export { default as BottomToolBar } from './BottomToolBar';
-export { default as ShareSheet } from './ShareSheet';
+export { ShareSheet, SendToPicker } from './share-sheet';
+export type { SendToPickerProps } from './share-sheet';
 export { default as RelativeDate } from './RelativeDate';
 export { default as VideoInfoDisplay } from './VideoInfoDisplay';
 export { default as AuthorItem } from './AuthorItem';

@@ -24,30 +24,45 @@ export function analyzeOAuthError(error: unknown): OAuthErrorInfo {
     errorMessage.includes('User cancelled') ||
     errorMessage.includes('Authentication cancelled');
 
-  const requiresReauth =
-    isTokenRevoked ||
-    isTokenRefreshError ||
-    isTokenInvalid ||
-    errorMessage.includes('oauth_reauth_required') ||
-    errorMessage.includes('Session is invalid') ||
-    errorMessage.includes('No session found') ||
-    errorMessage.includes('Session expired') ||
-    errorMessage.includes('deleted by another process');
+  // Check for client metadata errors - these are network/config issues, not session expiration
+  const isClientMetadataError =
+    errorMessage.includes('invalid_client_metadata') ||
+    errorMessage.includes('Unable to obtain client metadata') ||
+    errorMessage.includes('Failed to load OAuth client configuration') ||
+    errorMessage.includes('Failed to fetch client metadata');
 
   const isNetworkError =
     errorMessage.includes('Network') ||
     errorMessage.includes('fetch') ||
     errorMessage.includes('ENOTFOUND') ||
     errorMessage.includes('ETIMEDOUT') ||
-    errorMessage.includes('network');
+    errorMessage.includes('network') ||
+    errorMessage.includes('ECONNREFUSED') ||
+    errorMessage.includes('timeout') ||
+    errorMessage.includes('AbortError') ||
+    isClientMetadataError; // Client metadata errors are network-related
+
+  // Only require reauth for actual session/token issues, not network errors
+  const requiresReauth =
+    !isNetworkError && // Don't require reauth for network errors
+    (isTokenRevoked ||
+      isTokenRefreshError ||
+      isTokenInvalid ||
+      errorMessage.includes('oauth_reauth_required') ||
+      errorMessage.includes('Session is invalid') ||
+      errorMessage.includes('No session found') ||
+      errorMessage.includes('Session expired') ||
+      errorMessage.includes('deleted by another process'));
 
   const isRateLimit =
     errorMessage.includes('rate limit') ||
     errorMessage.includes('Rate Limit') ||
     errorMessage.includes('too many');
 
+  // Session expired only if it's not a network error
   const isSessionExpired =
-    requiresReauth || errorMessage.includes('token') || errorMessage.includes('expired');
+    !isNetworkError &&
+    (requiresReauth || errorMessage.includes('token') || errorMessage.includes('expired'));
 
   let userFriendlyMessage = 'Authentication failed. Please try again.';
 

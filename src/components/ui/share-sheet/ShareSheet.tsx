@@ -1,7 +1,7 @@
-import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { BORDER_RADIUS } from '../../utils/constants';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { BORDER_RADIUS } from '../../../utils/constants';
 import { useQueryClient } from '@tanstack/react-query';
-import { queryKeys } from '../../utils/query/queryKeys';
+import { queryKeys } from '../../../utils/query/queryKeys';
 import {
   View,
   Text,
@@ -18,18 +18,19 @@ import {
   safePresent,
   useMeasuredFooterHeight,
   FOOTER_BOTTOM_PADDING_MIN,
-} from '../../utils/components/truesheet';
-import KeyboardAwareFooter from '../../utils/components/truesheet/KeyboardAwareFooter';
+} from '../../../utils/components/truesheet';
+import KeyboardAwareFooter from '../../../utils/components/truesheet/KeyboardAwareFooter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Icon from './Icon';
-import CloseButton from './CloseButton';
-import CancelButton from './CancelButton';
-import AtprotoService from '../../services/api/AtprotoService';
-import { Colors } from './UI';
-import { useGlobalShareSheet } from '../../hooks/useGlobalModals';
-import { formatHandle } from '../../utils/formatting/handles';
-import { useBookmarkStore } from '../../stores/bookmarkStore';
-import { useUserStore } from '../../stores/userStore';
+import Icon from '../Icon';
+import CloseButton from '../CloseButton';
+import CancelButton from '../CancelButton';
+import AtprotoService from '../../../services/api/AtprotoService';
+import { Colors } from '../UI';
+import { useGlobalShareSheet } from '../../../hooks/useGlobalModals';
+import { formatHandle } from '../../../utils/formatting/handles';
+import { useBookmarkStore } from '../../../stores/bookmarkStore';
+import { useUserStore } from '../../../stores/userStore';
+import SendToPicker from './SendToPicker';
 
 const ShareSheet: React.FC = () => {
   const { getCurrentData, dismissShareSheet } = useGlobalShareSheet();
@@ -39,6 +40,8 @@ const ShareSheet: React.FC = () => {
   const { postUri, postCid, authorDid, authorName, authorHandle } = data || {};
   const queryClient = useQueryClient();
   const [isCurrentUser, setIsCurrentUser] = useState<boolean>(false);
+  const [showConversationPicker, setShowConversationPicker] = useState<boolean>(false);
+  const [currentUserDid, setCurrentUserDid] = useState<string>('');
   const sheetRef = useRef<TrueSheet>(null);
 
   // Bookmark store
@@ -46,14 +49,11 @@ const ShareSheet: React.FC = () => {
   const addBookmark = useBookmarkStore(state => state.addBookmark);
   const removeBookmark = useBookmarkStore(state => state.removeBookmark);
 
-  // TrueSheet detents - v3 uses 'auto' or fractional numbers (0-1)
-  const sheetDetents: ('auto' | number)[] = useMemo(() => ['auto'], []);
   const insets = useSafeAreaInsets();
   const footerBottomPadding = Math.max(insets.bottom, FOOTER_BOTTOM_PADDING_MIN);
   const footerTop = 4;
-  const [contentBottomPadding, wrapFooter] = useMeasuredFooterHeight(
-    footerTop + 44 + footerBottomPadding
-  );
+  const footerFallbackHeight = footerTop + 44 + footerBottomPadding;
+  const [contentBottomPadding, wrapFooter] = useMeasuredFooterHeight(footerFallbackHeight);
 
   // Present sheet when data arrives
   useEffect(() => {
@@ -69,15 +69,15 @@ const ShareSheet: React.FC = () => {
   useEffect(() => {
     if (authorDid) {
       const did = currentUser?.did || '';
+      setCurrentUserDid(did);
       setIsCurrentUser(did === authorDid);
     }
   }, [authorDid, currentUser?.did]);
 
   // Handle dismiss from TrueSheet - fires when sheet is dismissed by any means
   const handleDismiss = useCallback(() => {
-    // Clear the data state - skip dismiss since we're already in onDismiss callback
     dismissShareSheet(true);
-    // Reset local UI state
+    setShowConversationPicker(false);
   }, [dismissShareSheet]);
 
   // Programmatic dismiss function for buttons
@@ -147,7 +147,7 @@ const ShareSheet: React.FC = () => {
       if (!postUri) return;
 
       // Optimistic update - mark as reported immediately and dismiss
-      const { useReportedPostsStore } = await import('../../stores/reportedPostsStore');
+      const { useReportedPostsStore } = await import('../../../stores/reportedPostsStore');
       const store = useReportedPostsStore.getState();
       store.reportPost(postUri);
       dismissSheet();
@@ -287,9 +287,23 @@ const ShareSheet: React.FC = () => {
     }
   }, [postUri, authorHandle, authorDid]);
 
+  const handleSend = useCallback(() => {
+    setShowConversationPicker(true);
+  }, []);
+
+  const handleSendToDismiss = useCallback(() => {
+    setShowConversationPicker(false);
+  }, []);
+
+  const handleSendToSent = useCallback(() => {
+    setShowConversationPicker(false);
+    dismissSheet();
+  }, [dismissSheet]);
+
   // Neon accent colors for share-sheet (electric glow)
   const NEON = {
     purple: '#c084fc',
+    green: '#22c55e',
     amber: '#facc15',
     coral: '#ff3366',
   };
@@ -304,6 +318,14 @@ const ShareSheet: React.FC = () => {
         onPress: handleShare,
         color: NEON.purple,
         buttonColor: Colors.purple[950],
+      },
+      {
+        id: 'send',
+        label: 'Send',
+        icon: 'send-plane-fill',
+        onPress: handleSend,
+        color: NEON.green,
+        buttonColor: Colors.teal[950],
       },
       {
         id: 'bookmark',
@@ -348,45 +370,45 @@ const ShareSheet: React.FC = () => {
       <TrueSheet
         ref={sheetRef}
         name="share-sheet"
-        detents={sheetDetents}
+        detents={['auto']}
         backgroundColor={Colors.black}
         onDidDismiss={handleDismiss}
         grabber={false}
       >
-        <View style={styles.content}>{/* Empty content when no data or clear view mode */}</View>
+        <View style={styles.contentContainer} />
       </TrueSheet>
     );
   }
 
   return (
-    <TrueSheet
-      ref={sheetRef}
-      name="share-sheet"
-      detents={sheetDetents}
-      backgroundColor={Colors.black}
-      onDidDismiss={handleDismiss}
-      grabber={false}
-      header={headerComponent}
-      footer={wrapFooter(
-        <View style={{ backgroundColor: Colors.black, paddingBottom: footerBottomPadding }}>
-          <KeyboardAwareFooter
-            hideOnKeyboard={true}
-            bottomPadding={0}
-            style={{ backgroundColor: Colors.black }}
-          >
-            <View
-              style={[
-                styles.cancelContainer,
-                { backgroundColor: Colors.black, paddingTop: footerTop },
-              ]}
+    <>
+      <TrueSheet
+        ref={sheetRef}
+        name="share-sheet"
+        detents={['auto']}
+        backgroundColor={Colors.black}
+        onDidDismiss={handleDismiss}
+        grabber={false}
+        header={headerComponent}
+        footer={wrapFooter(
+          <View style={{ backgroundColor: Colors.black, paddingBottom: footerBottomPadding }}>
+            <KeyboardAwareFooter
+              hideOnKeyboard={true}
+              bottomPadding={0}
+              style={{ backgroundColor: Colors.black }}
             >
-              <CancelButton onPress={dismissSheet} />
-            </View>
-          </KeyboardAwareFooter>
-        </View>
-      )}
-    >
-      <View style={styles.content}>
+              <View
+                style={[
+                  styles.cancelContainer,
+                  { backgroundColor: Colors.black, paddingTop: footerTop },
+                ]}
+              >
+                <CancelButton onPress={dismissSheet} />
+              </View>
+            </KeyboardAwareFooter>
+          </View>
+        )}
+      >
         <View style={[styles.contentContainer, { paddingBottom: contentBottomPadding }]}>
           <ScrollView
             horizontal
@@ -431,19 +453,28 @@ const ShareSheet: React.FC = () => {
             ))}
           </ScrollView>
         </View>
-      </View>
-    </TrueSheet>
+      </TrueSheet>
+
+      {/* Send-to picker: isolated child sheet with its own footer */}
+      {data && (
+        <SendToPicker
+          visible={showConversationPicker}
+          onDismiss={handleSendToDismiss}
+          onSent={handleSendToSent}
+          postUri={postUri!}
+          postCid={postCid}
+          currentUserDid={currentUserDid}
+        />
+      )}
+    </>
   );
 };
 
 const styles = StyleSheet.create({
-  content: {
-    paddingHorizontal: 12,
-    paddingTop: 8,
-  },
   headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 20,
@@ -457,6 +488,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contentContainer: {
+    paddingHorizontal: 12,
+    paddingTop: 8,
     // Extend options row to sheet edges while preserving overall content padding
     marginLeft: -12,
     marginRight: -12,

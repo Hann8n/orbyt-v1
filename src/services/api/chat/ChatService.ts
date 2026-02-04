@@ -3,28 +3,49 @@
  * All methods use the atproto-proxy header for bsky_chat.
  */
 
+import { retry } from '@atproto/common-web';
 import { AtprotoService } from '../AtprotoService';
+import { RichText } from '@atproto/api';
+import { XRPCError, ResponseType } from '@atproto/xrpc';
 import type { ConvoView, MessageView } from '../types';
+import type { OutputSchema as GetLogOutputSchema } from '@atproto/api/dist/client/types/chat/bsky/convo/getLog';
 
 const CHAT_SERVICE_DID = 'did:web:api.bsky.chat';
 
-/** Log event types from chat.bsky.convo.getLog (union of all convo log events) */
-export type ChatLogEntry = {
-  $type?: string;
-  rev?: string;
-  convoId?: string;
-  message?: MessageView | { id: string; rev: string; sender?: { did: string }; sentAt?: string };
-  reaction?: { value: string; sender?: { did: string }; createdAt?: string };
-};
+const RATE_LIMIT_DEFAULT_BACKOFF_MS = 5000;
+const RATE_LIMIT_MAX_RETRIES = 2;
 
-export interface ChatLogResponse {
-  cursor?: string;
-  logs: ChatLogEntry[];
-}
+/** Re-export getLog output shape from SDK for consumers (e.g. useChatLogPolling). */
+export type { GetLogOutputSchema };
 
 const chatOpts = () => ({
   headers: { 'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat` as const },
 });
+
+function parseRetryAfterMs(headers?: Record<string, string | undefined>): number {
+  const raw = headers?.['retry-after'] ?? headers?.['Retry-After'];
+  if (raw == null) return RATE_LIMIT_DEFAULT_BACKOFF_MS;
+  const n = parseInt(raw, 10);
+  if (!Number.isNaN(n) && n > 0) return Math.min(n * 1000, 60_000);
+  return RATE_LIMIT_DEFAULT_BACKOFF_MS;
+}
+
+/** Wrap a chat read call with 429 retry using the same retry() utility the SDK uses (e.g. agent upsertProfile). */
+function withRetry429<T>(fn: () => Promise<T>): Promise<T> {
+  let last429Headers: Record<string, string | undefined> | undefined;
+  return retry(fn, {
+    maxRetries: RATE_LIMIT_MAX_RETRIES,
+    retryable: e => {
+      if (e instanceof XRPCError && e.status === ResponseType.RateLimitExceeded) {
+        last429Headers = e.headers;
+        return true;
+      }
+      return false;
+    },
+    getWaitMs: () =>
+      last429Headers ? parseRetryAfterMs(last429Headers) : RATE_LIMIT_DEFAULT_BACKOFF_MS,
+  });
+}
 
 export interface ConversationsResponse {
   conversations: ConvoView[];
@@ -39,15 +60,17 @@ export interface MessagesResponse {
 export const ChatService = {
   /** chat.bsky.convo.listConvos */
   async listConvos(cursor: string | null = null): Promise<ConversationsResponse> {
-    const { api } = await AtprotoService.getApiClient();
-    const res = await api.chat.bsky.convo.listConvos(
-      { limit: 50, ...(cursor && { cursor }) },
-      chatOpts()
-    );
-    return {
-      conversations: res.data?.convos ?? [],
-      cursor: res.data?.cursor ?? null,
-    };
+    return withRetry429(async () => {
+      const { api } = await AtprotoService.getApiClient();
+      const res = await api.chat.bsky.convo.listConvos(
+        { limit: 50, ...(cursor && { cursor }) },
+        chatOpts()
+      );
+      return {
+        conversations: res.data?.convos ?? [],
+        cursor: res.data?.cursor ?? null,
+      };
+    });
   },
 
   /** chat.bsky.convo.getConvo */
@@ -73,15 +96,17 @@ export const ChatService = {
 
   /** chat.bsky.convo.getMessages */
   async getMessages(convoId: string, cursor: string | null = null): Promise<MessagesResponse> {
-    const { api } = await AtprotoService.getApiClient();
-    const res = await api.chat.bsky.convo.getMessages(
-      { convoId, limit: 50, ...(cursor && { cursor }) },
-      chatOpts()
-    );
-    return {
-      messages: (res.data?.messages ?? []) as MessagesResponse['messages'],
-      cursor: res.data?.cursor ?? null,
-    };
+    return withRetry429(async () => {
+      const { api } = await AtprotoService.getApiClient();
+      const res = await api.chat.bsky.convo.getMessages(
+        { convoId, limit: 50, ...(cursor && { cursor }) },
+        chatOpts()
+      );
+      return {
+        messages: (res.data?.messages ?? []) as MessagesResponse['messages'],
+        cursor: res.data?.cursor ?? null,
+      };
+    });
   },
 
   /**
@@ -93,22 +118,55 @@ export const ChatService = {
    * receive new messages, reactions, and convo events.
    * @see https://github.com/bluesky-social/atproto/blob/main/lexicons/chat/bsky/convo/getLog.json
    */
-  async getLog(cursor: string | null = null): Promise<ChatLogResponse> {
-    const { api } = await AtprotoService.getApiClient();
-    const res = await api.chat.bsky.convo.getLog(cursor ? { cursor } : undefined, chatOpts());
-    return {
-      cursor: res.data?.cursor ?? undefined,
-      logs: (res.data?.logs ?? []) as ChatLogEntry[],
-    };
+  async getLog(cursor: string | null = null): Promise<GetLogOutputSchema> {
+    return withRetry429(async () => {
+      const { api } = await AtprotoService.getApiClient();
+      const res = await api.chat.bsky.convo.getLog(cursor ? { cursor } : undefined, chatOpts());
+      return {
+        cursor: res.data?.cursor ?? undefined,
+        logs: res.data?.logs ?? [],
+      };
+    });
   },
 
   /** chat.bsky.convo.sendMessage */
-  async sendMessage(convoId: string, message: { text: string }): Promise<MessageView> {
+  async sendMessage(
+    convoId: string,
+    message: {
+      text: string;
+      facets?: MessageView['facets'];
+      embed?: { $type: string; record: { uri: string; cid: string } };
+    }
+  ): Promise<MessageView> {
     const { api } = await AtprotoService.getApiClient();
-    const res = await api.chat.bsky.convo.sendMessage(
-      { convoId, message: { text: message.text } },
-      chatOpts()
-    );
+    const msg: {
+      text: string;
+      facets?: MessageView['facets'];
+      embed?: { $type: string; record: { uri: string; cid: string } };
+    } = { text: message.text };
+
+    // Prefer caller-supplied facets; otherwise try to detect via RichText API.
+    if (message.facets && message.facets.length > 0) {
+      msg.facets = message.facets;
+    } else {
+      try {
+        const rt = new RichText({ text: message.text || '' });
+        await rt.detectFacets(api);
+        if (rt.facets && rt.facets.length > 0) {
+          msg.facets = rt.facets as MessageView['facets'];
+        }
+      } catch {
+        // Ignore facet detection failures; send plain text.
+      }
+    }
+
+    if (message.embed) {
+      msg.embed = {
+        $type: 'app.bsky.embed.record',
+        record: message.embed.record,
+      };
+    }
+    const res = await api.chat.bsky.convo.sendMessage({ convoId, message: msg }, chatOpts());
     return res.data as MessageView;
   },
 

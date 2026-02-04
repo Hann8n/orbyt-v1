@@ -8,7 +8,7 @@ export { UserSearchModal, useUserSearchTrigger } from './ui/usersearch';
 export { default as BottomToolBar } from './ui/BottomToolBar';
 export { default as ListHeader } from './ui/ListHeader';
 export { default as VerticalListSheet } from './ui/VerticalListSheet';
-export { default as ShareSheet } from './ui/ShareSheet';
+export { ShareSheet } from './ui/share-sheet';
 export { default as PopUpModal } from './ui/PopUpModal';
 export { TextWithLinks, TextWithAuthorLinks } from './ui/TextWithLinks';
 export { default as VideoInfoDisplay } from './ui/VideoInfoDisplay';

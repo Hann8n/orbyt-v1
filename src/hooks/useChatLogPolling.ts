@@ -13,24 +13,20 @@
 
 import { useEffect, useRef } from 'react';
 import type { QueryClient } from '@tanstack/react-query';
-import { ChatService, type ChatLogEntry } from '../services/api/chat/ChatService';
+import { ChatService } from '../services/api/chat/ChatService';
+import type { MessageView } from '@atproto/api/dist/client/types/chat/bsky/convo/defs';
 import { queryKeys } from '../utils/query/queryKeys';
 
-const POLL_INTERVAL_MS = 2500;
+const BASE_POLL_INTERVAL_MS = 5000;
+const MAX_POLL_INTERVAL_MS = 15000;
+const BACKOFF_MULTIPLIER = 2;
 
 const LOG_CREATE_MESSAGE = 'chat.bsky.convo.defs#logCreateMessage';
 const LOG_DELETE_MESSAGE = 'chat.bsky.convo.defs#logDeleteMessage';
 const LOG_ADD_REACTION = 'chat.bsky.convo.defs#logAddReaction';
 const LOG_REMOVE_REACTION = 'chat.bsky.convo.defs#logRemoveReaction';
 
-function isMessageView(m: ChatLogEntry['message']): m is {
-  id: string;
-  rev: string;
-  sender?: { did: string };
-  sentAt?: string;
-  text?: string;
-  reactions?: unknown[];
-} {
+function isMessageView(m: unknown): m is MessageView {
   return !!m && typeof (m as { id?: string }).id === 'string';
 }
 
@@ -42,6 +38,7 @@ function isMessageView(m: ChatLogEntry['message']): m is {
 export function useChatLogPolling(convoId: string | undefined, queryClient: QueryClient): void {
   const cursorRef = useRef<string | null>(null);
   const isMountedRef = useRef(true);
+  const currentDelayRef = useRef(BASE_POLL_INTERVAL_MS);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -52,6 +49,7 @@ export function useChatLogPolling(convoId: string | undefined, queryClient: Quer
 
   useEffect(() => {
     if (!convoId) return;
+    currentDelayRef.current = BASE_POLL_INTERVAL_MS;
 
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
@@ -61,7 +59,7 @@ export function useChatLogPolling(convoId: string | undefined, queryClient: Quer
         const key = queryKeys.chat.messages.byConversation(convoId);
         const prev = queryClient.getQueryData<{ messages: unknown[]; cursor: string | null }>(key);
         if (!prev?.messages || !Array.isArray(prev.messages)) {
-          timeoutId = setTimeout(poll, POLL_INTERVAL_MS);
+          timeoutId = setTimeout(poll, BASE_POLL_INTERVAL_MS);
           return;
         }
 
@@ -71,12 +69,17 @@ export function useChatLogPolling(convoId: string | undefined, queryClient: Quer
         let nextMessages = [...prev.messages] as Array<Record<string, unknown> & { id: string }>;
         let didChange = false;
 
-        for (const entry of logs as ChatLogEntry[]) {
-          if (entry.convoId !== convoId) continue;
+        for (const entry of logs) {
+          if (!('convoId' in entry) || entry.convoId !== convoId) continue;
 
           const type = entry.$type;
 
-          if (type === LOG_CREATE_MESSAGE && entry.message && isMessageView(entry.message)) {
+          if (
+            type === LOG_CREATE_MESSAGE &&
+            'message' in entry &&
+            entry.message &&
+            isMessageView(entry.message)
+          ) {
             const msg = entry.message as {
               id: string;
               rev: string;
@@ -97,6 +100,7 @@ export function useChatLogPolling(convoId: string | undefined, queryClient: Quer
             (type === LOG_DELETE_MESSAGE ||
               type === LOG_ADD_REACTION ||
               type === LOG_REMOVE_REACTION) &&
+            'message' in entry &&
             entry.message &&
             isMessageView(entry.message)
           ) {
@@ -119,6 +123,10 @@ export function useChatLogPolling(convoId: string | undefined, queryClient: Quer
         if (didChange) {
           queryClient.setQueryData(key, { ...prev, messages: nextMessages });
           queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.all });
+          currentDelayRef.current = BASE_POLL_INTERVAL_MS;
+        } else {
+          const next = Math.min(currentDelayRef.current * BACKOFF_MULTIPLIER, MAX_POLL_INTERVAL_MS);
+          currentDelayRef.current = next;
         }
 
         if (nextCursor != null) cursorRef.current = nextCursor;
@@ -127,7 +135,7 @@ export function useChatLogPolling(convoId: string | undefined, queryClient: Quer
       }
 
       if (isMountedRef.current) {
-        timeoutId = setTimeout(poll, POLL_INTERVAL_MS);
+        timeoutId = setTimeout(poll, currentDelayRef.current);
       }
     };
 

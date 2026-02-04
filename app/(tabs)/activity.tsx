@@ -19,7 +19,7 @@ import type { NotificationReason } from '../../src/services/api/types';
 // Tab labels
 const TAB_LABELS: { [key: string]: string } = {
   chats: 'chats',
-  notifications: 'notifications',
+  notifications: 'activity',
 };
 
 // Activity Swipeable Pager Component using react-native-pager-view
@@ -35,7 +35,7 @@ const ActivitySwipePager = ({
   onScrollProgressChange?: (progress: number) => void;
 }) => {
   const pagerViewRef = useRef<PagerView>(null);
-  const pages = useMemo<Array<'chats' | 'notifications'>>(() => ['chats', 'notifications'], []);
+  const pages = useMemo<Array<'chats' | 'notifications'>>(() => ['notifications', 'chats'], []);
   const activeIndex = pages.indexOf(activeTab);
 
   // Track scroll progress from PagerView's onPageScroll for indicator animation
@@ -181,7 +181,7 @@ const ActivityScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const { notificationsCount, messagesCount } = useUnreadCount();
 
-  const pages = useMemo<Array<'chats' | 'notifications'>>(() => ['chats', 'notifications'], []);
+  const pages = useMemo<Array<'chats' | 'notifications'>>(() => ['notifications', 'chats'], []);
 
   // Tab content renderer; assign tabRefs.activity to the active tab for scroll-to-top
   const renderTabContent = useCallback(
