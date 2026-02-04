@@ -1,5 +1,6 @@
 import React, {
   useCallback,
+  useEffect,
   useMemo,
   forwardRef,
   useImperativeHandle,
@@ -19,7 +20,13 @@ import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-q
 import { Colors } from '../../../theme';
 import { OptionsButton } from '../../../components/ui/OptionsButton';
 import { Avatar } from '../../../components/ui/UI';
-import { Loading3FillIcon } from '../../../components/ui/Icon';
+import {
+  FlameFillIcon,
+  FireFillIcon,
+  Loading3FillIcon,
+  MutedChatIcon,
+  ShareForwardFillIcon,
+} from '../../../components/ui/Icon';
 import { VerificationBadge } from '../badging';
 import EmptyFeed from '../feed/EmptyFeed';
 import { getBottomNavBarHeight } from '../../../utils/device/screen';
@@ -27,6 +34,7 @@ import { formatHandle } from '../../../utils/formatting/handles';
 import { formatRelativeDate } from '../../ui/RelativeDate';
 import { queryKeys } from '../../../utils/query/queryKeys';
 import { useUserStore } from '../../../stores/userStore';
+import { getActiveStreak } from '../../../utils/chat/streak';
 
 type ConvoView = ChatBskyConvoDefs.ConvoView;
 
@@ -73,6 +81,7 @@ type ConversationItemProps = {
 
 const ConversationItem = React.memo<ConversationItemProps>(
   ({ item, navigation, onAccept, onDecline, isAccepting, isDeclining }) => {
+    const queryClient = useQueryClient();
     const currentUser = useUserStore(s => s.currentUser);
     const other = useMemo(
       () => getOtherMember(item, currentUser?.did ?? undefined),
@@ -91,6 +100,12 @@ const ConversationItem = React.memo<ConversationItemProps>(
         : undefined;
     const unread = (item.unreadCount ?? 0) > 0;
     const isRequest = item.status === 'request';
+    const isMuted = item.muted ?? false;
+    const lastMessageSenderDid =
+      lastMsg && typeof lastMsg === 'object' && 'sender' in lastMsg
+        ? (lastMsg as { sender?: { did?: string } }).sender?.did
+        : undefined;
+    const isLastMessageFromMe = !!currentUser?.did && lastMessageSenderDid === currentUser.did;
 
     const handlePress = useCallback(() => {
       if (item.id && other?.did) {
@@ -131,9 +146,14 @@ const ConversationItem = React.memo<ConversationItemProps>(
     const thisAccepting = isRequest && isAccepting;
     const thisDeclining = isRequest && isDeclining;
 
+    const cached = queryClient.getQueryData<{ messages?: Array<{ sentAt?: string }> }>(
+      queryKeys.chat.messages.byConversation(item.id ?? '')
+    );
+    const { show: showStreak, count: streak } = getActiveStreak(sentAt, cached?.messages ?? []);
+
     return (
       <View style={styles.conversationItem}>
-        <View style={styles.topRow}>
+        <View style={styles.conversationItemRow}>
           <Pressable onPress={handleAvatarPress} style={styles.profileImage}>
             <Avatar
               uri={other?.avatar}
@@ -143,29 +163,82 @@ const ConversationItem = React.memo<ConversationItemProps>(
               style={styles.avatarFill}
             />
           </Pressable>
-          <Pressable onPress={handlePress} style={styles.nameAndPreview}>
+          <Pressable onPress={handlePress} style={styles.notificationContent}>
             <View style={styles.nameRow}>
               <Pressable
                 onPress={handleNamePress}
                 hitSlop={nameHitSlop}
                 style={styles.namePressable}
               >
-                <Text style={styles.name} numberOfLines={1}>
+                <Text
+                  style={[styles.authorName, isMuted && styles.authorNameMuted]}
+                  numberOfLines={1}
+                >
                   {nameLabel}
                 </Text>
                 {handle && (
                   <VerificationBadge handle={handle} textSize={14} textColor={Colors.neutral[50]} />
                 )}
               </Pressable>
-              {sentAt && <Text style={styles.time}>{formatRelativeDate(sentAt)}</Text>}
+              {isMuted && (
+                <View style={styles.mutedIconWrap} accessibilityLabel="Muted conversation">
+                  <MutedChatIcon size={18} color={Colors.neutral[500]} />
+                </View>
+              )}
             </View>
-            <View style={styles.previewRow}>
-              <Text style={[styles.preview, unread && styles.previewUnread]} numberOfLines={1}>
-                {preview || (isRequest ? 'Chat request' : 'Tap to open')}
-              </Text>
-              {unread && <View style={styles.unreadDot} />}
+            <View style={styles.actionRow}>
+              <View style={styles.actionTextAndTime}>
+                {unread && (
+                  <View style={styles.unreadDotWrap} accessibilityLabel="Unread messages">
+                    <View style={[styles.unreadDot, isMuted && styles.unreadDotMuted]} />
+                  </View>
+                )}
+                {isLastMessageFromMe && (
+                  <View
+                    style={styles.sentByMeIconWrap}
+                    accessibilityLabel="You sent the last message"
+                  >
+                    <ShareForwardFillIcon size={16} color={Colors.neutral[500]} />
+                  </View>
+                )}
+                <View style={styles.messagePreviewWrap}>
+                  <Text
+                    style={[
+                      styles.actionText,
+                      unread && !isMuted && styles.actionTextUnread,
+                      isMuted && styles.actionTextMuted,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {preview || (isRequest ? 'Chat request' : 'Tap to open')}
+                  </Text>
+                </View>
+                {sentAt && (
+                  <Text style={[styles.timeText, isMuted && styles.timeTextMuted]}>
+                    {formatRelativeDate(sentAt)}
+                  </Text>
+                )}
+              </View>
             </View>
           </Pressable>
+          {showStreak && (
+            <View style={styles.streakBadge}>
+              {streak < 7 ? (
+                <FlameFillIcon size={14} color={Colors.orange[500]} />
+              ) : (
+                <FireFillIcon size={14} color="#dc2626" />
+              )}
+              <Text
+                style={[
+                  styles.streakBadgeText,
+                  streak < 7 ? styles.streakBadgeTextFlame : styles.streakBadgeTextFire,
+                ]}
+                numberOfLines={1}
+              >
+                {streak}
+              </Text>
+            </View>
+          )}
         </View>
         {isRequest ? (
           <View style={styles.requestActions}>
@@ -203,8 +276,12 @@ const ConversationItem = React.memo<ConversationItemProps>(
 );
 ConversationItem.displayName = 'ConversationItem';
 
+const SCROLL_AT_TOP_THRESHOLD = 80;
+
 const ChatsTab = forwardRef<ScrollToTopRef>((_, ref) => {
   const listRef = useRef<LegendListRef>(null);
+  const scrollOffsetRef = useRef(0);
+  const previousFirstConvoIdRef = useRef<string | undefined>(undefined);
   const navigation = useRouter();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
@@ -221,8 +298,9 @@ const ChatsTab = forwardRef<ScrollToTopRef>((_, ref) => {
 
   const leaveConvoMutation = useMutation({
     mutationFn: (convoId: string) => ChatService.leaveConvo(convoId),
-    onSuccess: () => {
+    onSuccess: (_, convoId) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.detail(convoId) });
     },
   });
 
@@ -263,6 +341,21 @@ const ChatsTab = forwardRef<ScrollToTopRef>((_, ref) => {
     () => data?.pages.flatMap(p => p.conversations) ?? [],
     [data]
   );
+
+  const handleScroll = useCallback((e: { nativeEvent: { contentOffset: { y: number } } }) => {
+    scrollOffsetRef.current = e.nativeEvent.contentOffset.y;
+  }, []);
+
+  useEffect(() => {
+    const firstId = conversations[0]?.id;
+    if (firstId === undefined) return;
+    const prevFirstId = previousFirstConvoIdRef.current;
+    const atTop = scrollOffsetRef.current <= SCROLL_AT_TOP_THRESHOLD;
+    if (prevFirstId !== undefined && prevFirstId !== firstId && atTop) {
+      listRef.current?.scrollToOffset({ offset: 0, animated: true });
+    }
+    previousFirstConvoIdRef.current = firstId;
+  }, [conversations]);
 
   useFocusEffect(
     useCallback(() => {
@@ -329,6 +422,8 @@ const ChatsTab = forwardRef<ScrollToTopRef>((_, ref) => {
       keyExtractor={keyExtractor}
       ItemSeparatorComponent={ChatDivider}
       estimatedItemSize={80}
+      onScroll={handleScroll}
+      scrollEventThrottle={16}
       refreshControl={
         <RefreshControl
           refreshing={isUserRefreshing && isRefetching && !isFetchingNextPage}
@@ -358,16 +453,17 @@ const styles = StyleSheet.create({
   listContainer: { flex: 1 },
   listContentContainer: { paddingHorizontal: 10 },
   conversationItem: {
+    flexDirection: 'column',
     paddingVertical: 10,
   },
-  topRow: {
+  conversationItemRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   divider: {
     height: 1,
     backgroundColor: Colors.neutral[900],
-    marginLeft: 67,
+    marginLeft: 65,
     marginRight: -10,
   },
   profileImage: {
@@ -377,7 +473,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   avatarFill: { width: '100%', height: '100%' },
-  nameAndPreview: {
+  notificationContent: {
     flex: 1,
     justifyContent: 'center',
     marginRight: 10,
@@ -385,7 +481,6 @@ const styles = StyleSheet.create({
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 2,
   },
   namePressable: {
     alignSelf: 'flex-start',
@@ -394,36 +489,82 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     maxWidth: '100%',
   },
-  name: {
+  authorName: {
     color: Colors.neutral[50],
     fontSize: 18,
+    marginBottom: 2,
     fontFamily: 'Figtree-Black',
     marginRight: 4,
     flexShrink: 1,
   },
-  time: {
+  authorNameMuted: {
     color: Colors.neutral[500],
-    fontSize: 14,
-    fontFamily: 'Figtree-Regular',
-    marginLeft: 'auto',
   },
-  previewRow: { flexDirection: 'row', alignItems: 'center' },
-  preview: {
+  mutedIconWrap: {
+    marginLeft: 6,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+  },
+  actionTextAndTime: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    minWidth: 0,
+  },
+  messagePreviewWrap: {
+    flexShrink: 1,
+    minWidth: 0,
+    maxWidth: '100%',
+  },
+  actionText: {
     color: Colors.neutral[400],
     fontSize: 16.5,
     fontFamily: 'Figtree-Medium',
-    flex: 1,
   },
-  previewUnread: {
+  actionTextUnread: {
     color: Colors.neutral[50],
     fontFamily: 'Figtree-SemiBold',
+  },
+  actionTextMuted: {
+    color: Colors.neutral[500],
+  },
+  streakBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: BORDER_RADIUS.FULL,
+    backgroundColor: Colors.neutral[900],
+    gap: 4,
+  },
+  streakBadgeText: {
+    fontSize: 12,
+    fontFamily: 'Figtree-SemiBold',
+  },
+  streakBadgeTextFlame: {
+    color: Colors.orange[500],
+  },
+  streakBadgeTextFire: {
+    color: '#dc2626',
+  },
+  timeText: {
+    color: Colors.neutral[500],
+    fontSize: 14,
+    fontFamily: 'Figtree-Regular',
+    marginLeft: 4,
+  },
+  timeTextMuted: {
+    color: Colors.neutral[600],
   },
   requestActions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     marginTop: 10,
-    width: '100%',
+    paddingLeft: 67,
   },
   requestOptionButtonWrap: {
     flex: 1,
@@ -451,12 +592,30 @@ const styles = StyleSheet.create({
   requestOptionButtonAcceptText: {
     color: Colors.black,
   },
+  unreadDotWrap: {
+    width: 8,
+    height: 8,
+    marginRight: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'center',
+  },
   unreadDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: Colors.teal[600],
-    marginLeft: 6,
+  },
+  unreadDotMuted: {
+    backgroundColor: Colors.neutral[400],
+  },
+  sentByMeIconWrap: {
+    width: 16,
+    height: 16,
+    marginRight: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'center',
   },
   errorContainer: { flex: 1, padding: 20 },
   loadingMoreContainer: { padding: 20, alignItems: 'center' },

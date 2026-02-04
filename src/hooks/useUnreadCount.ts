@@ -25,8 +25,8 @@ export const useUnreadCount = () => {
       const notificationsCount = notifResponse.notifications.filter(
         (n: Notification) => !n.isRead
       ).length;
-      const messagesCount = (conversations as ConvoView[]).reduce(
-        (sum, c) => sum + c.unreadCount,
+      const messagesCount = (conversations as (ConvoView & { muted?: boolean })[]).reduce(
+        (sum, c) => sum + (c.muted ? 0 : (c.unreadCount ?? 0)),
         0
       );
       return { notificationsCount, messagesCount };

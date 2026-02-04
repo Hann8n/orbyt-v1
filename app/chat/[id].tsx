@@ -25,7 +25,7 @@ import {
 
 import BlurredBackground from '../../src/components/ui/BlurredBackground';
 import { FlashList } from '@shopify/flash-list';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { safeDismiss, safePresent } from '../../src/utils/components/truesheet/utils';
@@ -33,7 +33,12 @@ import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 
 import { Colors } from '../../src/theme';
 import { BORDER_RADIUS } from '../../src/utils/constants';
-import Icon, { BackArrowIcon, MoreFillIcon } from '../../src/components/ui/Icon';
+import Icon, {
+  BackArrowIcon,
+  FlameFillIcon,
+  FireFillIcon,
+  MoreFillIcon,
+} from '../../src/components/ui/Icon';
 import { Avatar } from '../../src/components/ui/UI';
 import { OptionsButton } from '../../src/components/ui/OptionsButton';
 import VerticalListSheet, { VerticalListButton } from '../../src/components/ui/VerticalListSheet';
@@ -42,6 +47,7 @@ import { useOrbytColors } from '../../src/hooks/useOrbytColors';
 import { getProfileColors, hexToRGBA, pickLighterHex } from '../../src/utils/formatting/colors';
 import { formatHandle } from '../../src/utils/formatting/handles';
 import { queryKeys } from '../../src/utils/query/queryKeys';
+import { getActiveStreak } from '../../src/utils/chat/streak';
 import { format, parseISO, isValid, isToday, isYesterday, differenceInMinutes } from 'date-fns';
 import { useProfileByDid, useBlockMutation } from '../../src/services/data/ProfileService';
 import { useChatLogPolling } from '../../src/hooks/useChatLogPolling';
@@ -347,19 +353,22 @@ const REACTION_CHIP_STYLE = {
   bgMine: Colors.neutral[700],
   countColor: Colors.neutral[500],
   countColorMine: Colors.neutral[50],
+  countColorOnColoredBg: Colors.black,
 } as const;
 
-/** Display reactions under a message; overlapping stack like face pile; accent for sent messages */
+/** Display reactions under a message. Color by reaction sender: my reaction = current user accent (fallback orbyt green); their reaction = other author accent (fallback grey). */
 function MessageReactions({
   reactions,
   currentUserDid,
   isFromMe,
-  accentColor,
+  sentAccentColor,
+  otherAccentColor,
 }: {
   reactions: ReactionShape[] | undefined;
   currentUserDid: string | undefined;
   isFromMe: boolean;
-  accentColor?: string;
+  sentAccentColor?: string;
+  otherAccentColor?: string;
 }) {
   const grouped = groupReactions(reactions, currentUserDid);
   if (grouped.length === 0) return null;
@@ -367,10 +376,10 @@ function MessageReactions({
     <View style={[styles.reactionsRow, isFromMe && styles.reactionsRowFromMe]}>
       {grouped.map(({ value, count, includesMe }, index) => {
         const isPill = count > 1;
-        const useAccent = isFromMe ? includesMe : true;
-        const bg = useAccent
-          ? (accentColor ?? REACTION_CHIP_STYLE.bgMine)
-          : REACTION_CHIP_STYLE.bgDefault;
+        const bg = includesMe
+          ? (sentAccentColor ?? Colors.brand.teal)
+          : (otherAccentColor ?? REACTION_CHIP_STYLE.bgDefault);
+        const isColoredBg = bg !== Colors.neutral[700] && bg !== Colors.neutral[800];
         const chipStyle = getReactionChipStyle({ isPill, index, bg });
         return (
           <View key={value} style={[styles.reactionChip, chipStyle]}>
@@ -379,9 +388,7 @@ function MessageReactions({
               <Text
                 style={[
                   styles.reactionCount,
-                  useAccent && accentColor
-                    ? styles.reactionCountOnAccent
-                    : includesMe && styles.reactionCountHighlight,
+                  isColoredBg ? styles.reactionCountOnAccent : undefined,
                 ]}
               >
                 {count}
@@ -400,7 +407,7 @@ const PICKER_HEIGHT_EST = 56;
 const PICKER_OFFSET_ABOVE = 12;
 const SCREEN_PADDING = 16;
 
-/** Overlay: positioned quick-reaction pill at touch; + opens full picker sheet */
+/** Overlay: positioned quick-reaction pill at touch; + opens full picker sheet. Selected = my reaction = current user accent (fallback orbyt green). */
 function ReactionOverlayModal({
   visible,
   touchPosition,
@@ -409,7 +416,7 @@ function ReactionOverlayModal({
   onOpenFullPicker,
   currentReactions,
   currentUserDid,
-  accentColor,
+  sentAccentColor,
 }: {
   visible: boolean;
   touchPosition: { x: number; y: number } | null;
@@ -418,7 +425,7 @@ function ReactionOverlayModal({
   onOpenFullPicker: () => void;
   currentReactions: ReactionShape[] | undefined;
   currentUserDid: string | undefined;
-  accentColor?: string;
+  sentAccentColor?: string;
 }) {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const position = useMemo(() => {
@@ -447,12 +454,20 @@ function ReactionOverlayModal({
   const hasReaction = (value: string) =>
     currentReactions?.some(r => r.value === value && r.sender?.did === currentUserDid) ?? false;
 
+  const quickEmojis = useMemo(() => {
+    const mine = (currentReactions ?? [])
+      .filter(r => r.sender?.did === currentUserDid)
+      .map(r => r.value ?? '')
+      .filter(Boolean);
+    return [...new Set([...mine, ...QUICK_REACTIONS])];
+  }, [currentReactions, currentUserDid]);
+
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onDismiss}>
       <View style={styles.reactionPickerBackdrop}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onDismiss} />
         <View style={[styles.reactionPickerContent, positionStyle]}>
-          {QUICK_REACTIONS.map(value => {
+          {quickEmojis.map(value => {
             const selected = hasReaction(value);
             return (
               <Pressable
@@ -461,11 +476,13 @@ function ReactionOverlayModal({
                   styles.reactionPickerButton,
                   {
                     backgroundColor: selected
-                      ? (accentColor ?? REACTION_CHIP_STYLE.bgMine)
+                      ? (sentAccentColor ?? Colors.brand.teal)
                       : REACTION_CHIP_STYLE.bgDefault,
                     borderColor: REACTION_CHIP_STYLE.borderColorDefault,
                   },
-                  selected && { borderColor: accentColor ?? REACTION_CHIP_STYLE.borderColorMine },
+                  selected && {
+                    borderColor: sentAccentColor ?? REACTION_CHIP_STYLE.borderColorMine,
+                  },
                   pressed && { opacity: 0.85 },
                 ]}
                 onPress={() => onSelect(value)}
@@ -584,21 +601,23 @@ const EMOJI_PICKER_THEME = {
   },
 };
 
-/** TrueSheet with full emoji picker; opened when user taps + on overlay */
+/** TrueSheet with full emoji picker; opened when user taps + on overlay. Chip color by reaction sender: my = sent accent (fallback teal), their = other accent (fallback grey). */
 function ReactionPickerSheet({
   visible,
   onDismiss,
   onSelect,
   currentReactions,
   currentUserDid,
-  accentColor,
+  sentAccentColor,
+  otherAccentColor,
 }: {
   visible: boolean;
   onDismiss: () => void;
   onSelect: (value: string) => void;
   currentReactions: ReactionShape[] | undefined;
   currentUserDid: string | undefined;
-  accentColor?: string;
+  sentAccentColor?: string;
+  otherAccentColor?: string;
 }) {
   const sheetRef = useRef<TrueSheet>(null);
   const { height: screenHeight } = useWindowDimensions();
@@ -649,6 +668,10 @@ function ReactionPickerSheet({
             <View style={styles.reactionSheetActiveChips}>
               {grouped.map(({ value, count, includesMe }) => {
                 const isPill = count > 1;
+                const bg = includesMe
+                  ? (sentAccentColor ?? Colors.brand.teal)
+                  : (otherAccentColor ?? REACTION_CHIP_STYLE.bgDefault);
+                const isColoredBg = bg !== Colors.neutral[700] && bg !== Colors.neutral[800];
                 return (
                   <Pressable
                     key={value}
@@ -663,14 +686,10 @@ function ReactionPickerSheet({
                         height: REACTION_SHEET_CHIP_SIZE,
                         borderRadius: REACTION_SHEET_CHIP_SIZE / 2,
                         paddingHorizontal: isPill ? 10 : 0,
-                        backgroundColor:
-                          accentColor ??
-                          (includesMe ? REACTION_CHIP_STYLE.bgMine : REACTION_CHIP_STYLE.bgDefault),
-                        borderColor:
-                          accentColor ??
-                          (includesMe
-                            ? REACTION_CHIP_STYLE.borderColorMine
-                            : REACTION_CHIP_STYLE.borderColorDefault),
+                        backgroundColor: bg,
+                        borderColor: includesMe
+                          ? (sentAccentColor ?? REACTION_CHIP_STYLE.borderColorMine)
+                          : REACTION_CHIP_STYLE.borderColorDefault,
                       },
                       pressed && { opacity: 0.8 },
                     ]}
@@ -680,7 +699,9 @@ function ReactionPickerSheet({
                       <Text
                         style={[
                           styles.reactionSheetActiveCount,
-                          includesMe && styles.reactionSheetActiveCountHighlight,
+                          isColoredBg
+                            ? styles.reactionSheetActiveCountOnColoredBg
+                            : includesMe && styles.reactionSheetActiveCountHighlight,
                         ]}
                       >
                         {count}
@@ -1001,12 +1022,14 @@ export default function ChatScreen() {
   );
   const [showFullEmojiPicker, setShowFullEmojiPicker] = useState(false);
 
-  const { data: convo } = useQuery({
+  const { data: convo, isFetched: convoFetched } = useQuery({
     queryKey: queryKeys.chat.conversations.detail(convoId),
     queryFn: () => ChatService.getConvo(convoId),
     enabled: !!convoId,
   });
 
+  const isInConvo = !!convo;
+  const hasLeftConvo = convoFetched && convo === null;
   const isConvoMuted = (convo as { muted?: boolean } | null)?.muted ?? false;
   const convoStatus = (convo as { status?: 'request' | 'accepted' } | null)?.status;
   const needsAccept = convoStatus === 'request';
@@ -1014,15 +1037,22 @@ export default function ChatScreen() {
   const isBlocked = !!(profile?.viewer?.blocking || profile?.viewer?.blockingByList);
   const isBlockedByList = !!profile?.viewer?.blockingByList;
 
-  const { data: messagesData } = useQuery({
+  const { data: messagesData, isLoading: messagesLoading } = useQuery({
     queryKey: queryKeys.chat.messages.byConversation(convoId),
     queryFn: () => ChatService.getMessages(convoId, null),
-    enabled: !!convoId,
-    refetchOnWindowFocus: false,
+    enabled: !!convoId && isInConvo,
+    refetchOnWindowFocus: true,
   });
 
-  // Merge new messages/reactions from getLog into cache so chats update in near real time
-  useChatLogPolling(convoId, queryClient);
+  useFocusEffect(
+    useCallback(() => {
+      if (convoId && isInConvo) {
+        queryClient.refetchQueries({ queryKey: queryKeys.chat.messages.byConversation(convoId) });
+      }
+    }, [convoId, isInConvo, queryClient])
+  );
+
+  useChatLogPolling(isInConvo ? convoId : undefined, queryClient);
 
   const sendMessageMutation = useMutation({
     mutationFn: (text: string) => ChatService.sendMessage(convoId, { text }),
@@ -1109,14 +1139,16 @@ export default function ChatScreen() {
   });
 
   useEffect(() => {
-    if (!convoId) return;
+    if (!convoId || convo === null) return;
     readSyncRef.current = { convoId, latestMessageId };
 
     const markRead = () => {
       ChatService.updateRead(convoId, latestMessageId)
-        .then(() => {
+        .then(updatedConvo => {
+          queryClient.setQueryData(queryKeys.chat.conversations.detail(convoId), updatedConvo);
+          // Refetch both so chat list item, activity tab badge, and bottom nav stay in sync
           void queryClient.refetchQueries({ queryKey: queryKeys.unread.summary() });
-          queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.all });
+          void queryClient.refetchQueries({ queryKey: queryKeys.chat.conversations.all });
         })
         .catch(() => {});
     };
@@ -1127,14 +1159,15 @@ export default function ChatScreen() {
       const { convoId: cid, latestMessageId: mid } = readSyncRef.current;
       if (cid) {
         ChatService.updateRead(cid, mid)
-          .then(() => {
+          .then(updatedConvo => {
+            queryClient.setQueryData(queryKeys.chat.conversations.detail(cid), updatedConvo);
             void queryClient.refetchQueries({ queryKey: queryKeys.unread.summary() });
-            queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.all });
+            void queryClient.refetchQueries({ queryKey: queryKeys.chat.conversations.all });
           })
           .catch(() => {});
       }
     };
-  }, [convoId, latestMessageId, queryClient]);
+  }, [convoId, convo, latestMessageId, queryClient]);
 
   // Bluesky getMessages returns newest first; we reverse to oldest-first so last index = newest (bottom with startRenderingFromBottom)
   const listData = useMemo(() => {
@@ -1262,7 +1295,8 @@ export default function ChatScreen() {
               reactions={(msg as MessageItem).reactions}
               currentUserDid={currentUserDid ?? undefined}
               isFromMe={!!isFromMe}
-              accentColor={isFromMe ? sentMessageAccentColor : otherUserAccentColor}
+              sentAccentColor={sentMessageAccentColor}
+              otherAccentColor={otherUserAccentColor}
             />
             {isFromMe && item.showTime && msg.sentAt && (
               <Text style={[styles.messageTime, styles.messageTimeFromMe]}>
@@ -1312,6 +1346,7 @@ export default function ChatScreen() {
     mutationFn: () => ChatService.leaveConvo(convoId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.detail(convoId) });
       setShowChatMenu(false);
       router.back();
     },
@@ -1423,13 +1458,22 @@ export default function ChatScreen() {
     );
   }, [reactionPickerMessageId, messagesData?.messages]);
 
-  const pickerMessageAccentColor =
-    pickerMessage?.sender?.did === currentUserDid ? sentMessageAccentColor : otherUserAccentColor;
-
   const canSend = !needsAccept && inputText.trim().length > 0 && !sendMessageMutation.isPending;
   const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
   const headerTop = insets.top + 4;
   const inputBottom = insets.bottom + 8;
+
+  const rawMessages = messagesData?.messages ?? [];
+  const latestSentAt =
+    rawMessages[0] &&
+    typeof rawMessages[0] === 'object' &&
+    (rawMessages[0] as { sentAt?: string }).sentAt
+      ? (rawMessages[0] as { sentAt: string }).sentAt
+      : undefined;
+  const { show: showStreakInHeader, count: streakCount } = getActiveStreak(
+    latestSentAt,
+    rawMessages
+  );
 
   if (!convoId) {
     return (
@@ -1439,18 +1483,43 @@ export default function ChatScreen() {
     );
   }
 
+  if (hasLeftConvo) {
+    return (
+      <View style={styles.container}>
+        <View style={[styles.header, { paddingTop: headerTop }]}>
+          <View style={styles.headerLeft}>
+            <Pressable
+              onPress={handleBack}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={styles.backButton}
+              accessibilityRole="button"
+              accessibilityLabel="Back"
+            >
+              <BackArrowIcon size={30} color={Colors.neutral[50]} />
+            </Pressable>
+          </View>
+        </View>
+        <View style={styles.leftConvoPlaceholder}>
+          <Text style={styles.placeholder}>You left this conversation</Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: headerTop }]}>
-        <Pressable
-          onPress={handleBack}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          style={styles.backButton}
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-        >
-          <BackArrowIcon size={30} color={Colors.neutral[50]} />
-        </Pressable>
+        <View style={styles.headerLeft}>
+          <Pressable
+            onPress={handleBack}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={styles.backButton}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+          >
+            <BackArrowIcon size={30} color={Colors.neutral[50]} />
+          </Pressable>
+        </View>
         <View style={[sharedItemStyles.accountButtonContent, styles.headerCenter]}>
           <Pressable
             onPress={handleViewProfile}
@@ -1473,15 +1542,36 @@ export default function ChatScreen() {
             />
           </Pressable>
         </View>
-        <Pressable
-          onPress={() => setShowChatMenu(true)}
-          style={styles.menuButton}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          accessibilityRole="button"
-          accessibilityLabel="Chat options"
-        >
-          <MoreFillIcon size={24} color={Colors.neutral[50]} />
-        </Pressable>
+        <View style={styles.headerRight}>
+          {showStreakInHeader && (
+            <View style={styles.headerStreakBadge}>
+              {streakCount < 7 ? (
+                <FlameFillIcon size={14} color={Colors.orange[500]} />
+              ) : (
+                <FireFillIcon size={14} color="#dc2626" />
+              )}
+              <Text
+                style={[
+                  styles.headerStreakBadgeText,
+                  streakCount < 7
+                    ? styles.headerStreakBadgeTextFlame
+                    : styles.headerStreakBadgeTextFire,
+                ]}
+              >
+                {streakCount}
+              </Text>
+            </View>
+          )}
+          <Pressable
+            onPress={() => setShowChatMenu(true)}
+            style={styles.menuButton}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel="Chat options"
+          >
+            <MoreFillIcon size={24} color={Colors.neutral[50]} />
+          </Pressable>
+        </View>
       </View>
 
       <ReactionOverlayModal
@@ -1499,7 +1589,7 @@ export default function ChatScreen() {
         onOpenFullPicker={() => setShowFullEmojiPicker(true)}
         currentReactions={pickerMessage?.reactions}
         currentUserDid={currentUserDid ?? undefined}
-        accentColor={pickerMessageAccentColor}
+        sentAccentColor={sentMessageAccentColor}
       />
 
       <ReactionPickerSheet
@@ -1517,7 +1607,8 @@ export default function ChatScreen() {
         }}
         currentReactions={pickerMessage?.reactions}
         currentUserDid={currentUserDid ?? undefined}
-        accentColor={pickerMessageAccentColor}
+        sentAccentColor={sentMessageAccentColor}
+        otherAccentColor={otherUserAccentColor}
       />
 
       <VerticalListSheet
@@ -1532,7 +1623,7 @@ export default function ChatScreen() {
         <View style={styles.menuOptionsContainer}>
           <VerticalListButton label="Go to profile" onPress={handleViewProfile} />
           <VerticalListButton
-            label={isConvoMuted ? 'Unmute conversation' : 'Mute conversation'}
+            label={isConvoMuted ? 'Unmute' : 'Mute conversation'}
             onPress={handleMuteToggle}
             disabled={muteConvoMutation.isPending}
           />
@@ -1609,7 +1700,7 @@ export default function ChatScreen() {
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
           >
-            {messagesData ? (
+            {!messagesLoading && messagesData && (messagesData.messages?.length ?? 0) === 0 ? (
               <View style={styles.empty}>
                 <Text style={styles.emptyText}>No messages yet</Text>
               </View>
@@ -1766,6 +1857,11 @@ const styles = StyleSheet.create({
   acceptBarOptionButtonText: {
     textAlign: 'center',
   },
+  headerLeft: {
+    width: 88,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
   backButton: {
     width: 44,
     height: 44,
@@ -1774,10 +1870,35 @@ const styles = StyleSheet.create({
   },
   headerCenter: {
     flex: 1,
-    marginHorizontal: 12,
     minWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  headerRight: {
+    width: 88,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+  headerStreakBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: BORDER_RADIUS.FULL,
+    backgroundColor: Colors.neutral[900],
+    gap: 4,
+  },
+  headerStreakBadgeText: {
+    fontSize: 12,
+    fontFamily: 'Figtree-SemiBold',
+  },
+  headerStreakBadgeTextFlame: {
+    color: Colors.orange[500],
+  },
+  headerStreakBadgeTextFire: {
+    color: '#dc2626',
   },
   menuButton: {
     width: 44,
@@ -1901,7 +2022,7 @@ const styles = StyleSheet.create({
     color: REACTION_CHIP_STYLE.countColorMine,
   },
   reactionCountOnAccent: {
-    color: REACTION_CHIP_STYLE.countColorMine,
+    color: REACTION_CHIP_STYLE.countColorOnColoredBg,
   },
   reactionPickerBackdrop: {
     flex: 1,
@@ -1967,6 +2088,9 @@ const styles = StyleSheet.create({
   },
   reactionSheetActiveCountHighlight: {
     color: REACTION_CHIP_STYLE.countColorMine,
+  },
+  reactionSheetActiveCountOnColoredBg: {
+    color: REACTION_CHIP_STYLE.countColorOnColoredBg,
   },
   reactionSheetActiveEmpty: {
     color: Colors.neutral[500],
@@ -2145,6 +2269,12 @@ const styles = StyleSheet.create({
   placeholder: {
     color: Colors.neutral[400],
     fontSize: 16,
+    padding: 20,
+  },
+  leftConvoPlaceholder: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
     padding: 20,
   },
 });

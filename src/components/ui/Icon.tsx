@@ -94,6 +94,11 @@ const MORE_FILL_ICON_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" fill
 
 const BOOKMARK_FILL_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none"><path fill="white" d="M6 2a2 2 0 0 0-2 2v16a1 1 0 0 0 1.555.832L12 17.202l6.445 3.63A1 1 0 0 0 20 20V4a2 2 0 0 0-2-2z"/></g></svg>`;
 
+// Streak icons: flame for &lt;7 days, fire for 7+ days
+const FLAME_FILL_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><title>flame_fill</title><g id="flame_fill" fill='none' fill-rule='evenodd'><path d='M24 0v24H0V0zM12.594 23.258l-.012.002-.071.035-.02.004-.014-.004-.071-.036c-.01-.003-.019 0-.024.006l-.004.01-.017.428.005.02.01.013.104.074.015.004.012-.004.104-.074.012-.016.004-.017-.017-.427c-.002-.01-.009-.017-.016-.018m.264-.113-.014.002-.184.093-.01.01-.003.011.018.43.005.012.008.008.201.092c.012.004.023 0 .029-.008l.004-.014-.034-.614c-.003-.012-.01-.02-.02-.022m-.715.002a.023.023 0 0 0-.027.006l-.006.014-.034.614c0 .012.007.02.017.024l.015-.002.201-.093.01-.008.003-.011.018-.43-.003-.012-.01-.01z'/><path fill='#09244BFF' d='M7.747 5.592a24.263 24.263 0 0 1 3.672-3.406 1 1 0 0 1 1.162 0 25.16 25.16 0 0 1 3.672 3.406C18.584 8.256 20 11.088 20 14a8 8 0 1 1-16 0c0-2.912 1.415-5.743 3.747-8.408M12.005 21a3.694 3.694 0 0 0 3.694-3.694c0-3.167-3.694-5.806-3.694-5.806S8.31 14.139 8.31 17.306A3.694 3.694 0 0 0 12.004 21Z'/></g></svg>`;
+
+const FIRE_FILL_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><title>fire_fill</title><g id="fire_fill" fill='none'><path d='M24 0v24H0V0zM12.593 23.258l-.011.002-.071.035-.02.004-.014-.004-.071-.035c-.01-.004-.019-.001-.024.005l-.004.01-.017.428.005.02.01.013.104.074.015.004.012-.004.104-.074.012-.016.004-.017-.017-.427c-.002-.01-.009-.017-.017-.018m.265-.113-.013.002-.185.093-.01.01-.003.011.018.43.005.012.008.007.201.093c.012.004.023 0 .029-.008l.004-.014-.034-.614c-.003-.012-.01-.02-.02-.022m-.715.002a.023.023 0 0 0-.027.006l-.006.014-.034.614c0 .012.007.02.017.024l.015-.002.201-.093.01-.008.004-.011.017-.43-.003-.012-.01-.01z'/><path fill='#09244BFF' d='m11.514 2.142-1.26-.755-.24 1.449C9.632 5.124 8.069 7.25 6.345 8.744 2.97 11.67 2.231 14.85 3.276 17.475c1 2.512 3.538 4.232 6.114 4.519l.596.066c-1.474-.901-2.42-3.006-2.09-4.579.326-1.546 1.438-2.994 3.574-4.33l1.077-.672.402 1.205c.237.712.647 1.284 1.064 1.865.2.28.403.563.589.864.643 1.045.813 2.207.398 3.36-.378 1.048-1.001 1.872-1.86 2.329l.97-.108c2.418-.269 4.193-1.096 5.346-2.479C20.599 18.144 21 16.379 21 14.5c0-1.75-.719-3.554-1.567-5.055-.994-1.758-2.291-3.218-3.707-4.633-.245.49-.226.688-.73 1.475a8.146 8.146 0 0 0-3.482-4.145'/></g></svg>`;
+
 const BELL_FILL_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none'><path fill='#09244BFF' d='M12 2a7 7 0 0 0-7 7v3.528a1 1 0 0 1-.105.447l-1.717 3.433A1.1 1.1 0 0 0 4.162 18h15.676a1.1 1.1 0 0 0 .984-1.592l-1.716-3.433a1 1 0 0 1-.106-.447V9a7 7 0 0 0-7-7m0 19a3.001 3.001 0 0 1-2.83-2h5.66A3.001 3.001 0 0 1 12 21'/></g></svg>`;
 
 const TV_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none" fill-rule="evenodd"><path fill="currentColor" d="M16.95 4.007a1 1 0 0 0-1.414-1.414l-3.89 3.889a.5.5 0 0 1-.707 0L8.464 4.007A1 1 0 0 0 7.05 5.42l1.414 1.414q.086.086.175.165H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-5.053a4 4 0 0 0 .174-.165zM5 9h14v10H5z"/></g></svg>`;
@@ -315,6 +320,18 @@ export const ChatFillIcon: React.FC<{ size: number; color: string }> = ({ size, 
 
 export const BookmarkFillIcon: React.FC<{ size: number; color: string }> = ({ size, color }) => {
   const svgXml = BOOKMARK_FILL_ICON_SVG.replace(/white/g, color);
+  return <SvgXml xml={svgXml} width={size} height={size} />;
+};
+
+/** Streak &lt;7 days */
+export const FlameFillIcon: React.FC<{ size: number; color: string }> = ({ size, color }) => {
+  const svgXml = FLAME_FILL_ICON_SVG.replace(/#09244BFF/g, color);
+  return <SvgXml xml={svgXml} width={size} height={size} />;
+};
+
+/** Streak 7+ days */
+export const FireFillIcon: React.FC<{ size: number; color: string }> = ({ size, color }) => {
+  const svgXml = FIRE_FILL_ICON_SVG.replace(/#09244BFF/g, color);
   return <SvgXml xml={svgXml} width={size} height={size} />;
 };
 
@@ -616,6 +633,30 @@ export const DeleteBackIcon: React.FC<{
   style?: StyleProp<ViewStyle>;
 }> = ({ size, color, style }) => {
   const svgXml = DELETE_BACK_ICON_SVG.replace(/#09244BFF/g, color);
+  return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
+};
+
+// Muted chat / notification off icon (chat.bsky.convo muted state)
+const MUTED_CHAT_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><title>notification_off_fill</title><g id="notification_off_fill" fill='none'><path d='M0 0h24v24H0z'/><path fill='#09244BFF' d='M14.83 19a3.001 3.001 0 0 1-5.66 0zM12 2a7 7 0 0 1 7 7v3.528a1 1 0 0 0 .106.447l1.716 3.433A1.1 1.1 0 0 1 19.838 18h-.424l1.071 1.071a1 1 0 0 1-1.414 1.414L3.515 4.93a1 1 0 1 1 1.414-1.414l1.392 1.392A6.99 6.99 0 0 1 12.001 2M5.023 8.427 14.596 18H4.162a1.1 1.1 0 0 1-.984-1.592l1.717-3.433A1 1 0 0 0 5 12.528V9c0-.193.008-.384.023-.573'/></g></svg>`;
+
+export const MutedChatIcon: React.FC<{
+  size: number;
+  color: string;
+  style?: StyleProp<ViewStyle>;
+}> = ({ size, color, style }) => {
+  const svgXml = MUTED_CHAT_ICON_SVG.replace(/#09244BFF/g, color);
+  return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
+};
+
+// Share / sent-by-me indicator (chat list: last message was sent by current user)
+const SHARE_FORWARD_FILL_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><title>share_forward_fill</title><g id="share_forward_fill" fill='none'><path d='M24 0v24H0V0zM12.593 23.258l-.011.002-.071.035-.02.004-.014-.004-.071-.035c-.01-.004-.019-.001-.024.005l-.004.01-.017.428.005.02.01.013.104.074.015.004.012-.004.104-.074.012-.016.004-.017-.017-.427c-.002-.01-.009-.017-.017-.018m.265-.113-.013.002-.185.093-.01.01-.003.011.018.43.005.012.008.007.201.093c.012.004.023 0 .029-.008l.004-.014-.034-.614c-.003-.012-.01-.02-.02-.022m-.715.002a.023.023 0 0 0-.027.006l-.006.014-.034.614c0 .012.007.02.017.024l.015-.002.201-.093.01-.008.004-.011.017-.43-.003-.012-.01-.01z'/><path fill='#09244BFF' d='m10.114 4.491-.203 3.144-.02.417-.09.01C5.363 8.582 2 12.366 2 17c0 .457.034.91.102 1.357.279 1.845.489 2.024 1.772.498a8.953 8.953 0 0 1 1.04-1.03 7.958 7.958 0 0 1 4.754-1.818l.226-.005.061 1.229.166 2.345c.08.804.926 1.353 1.704.914.352-.198.695-.41 1.04-.62 1.787-1.118 3.46-2.403 5.09-3.738.96-.8 1.8-1.558 2.516-2.248.33-.323.66-.646.979-.98.462-.484.508-1.285.024-1.792-1.114-1.165-2.688-2.624-4.647-4.172-1.588-1.242-3.23-2.402-4.97-3.421-.837-.477-1.667.177-1.743.972'/></g></svg>`;
+
+export const ShareForwardFillIcon: React.FC<{
+  size: number;
+  color: string;
+  style?: StyleProp<ViewStyle>;
+}> = ({ size, color, style }) => {
+  const svgXml = SHARE_FORWARD_FILL_ICON_SVG.replace(/#09244BFF/g, color);
   return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
 };
 

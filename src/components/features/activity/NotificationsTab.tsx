@@ -534,8 +534,14 @@ const NotificationItem = React.memo<NotificationItemProps>(
             </Pressable>
           </View>
           <View style={styles.actionRow}>
-            <Text style={styles.actionText}>{actionText}</Text>
-            {indexedAt && <Text style={styles.timeText}>{formatRelativeDate(indexedAt)}</Text>}
+            <View style={styles.actionTextAndTime}>
+              <View style={styles.actionTextWrap}>
+                <Text style={styles.actionText} numberOfLines={1}>
+                  {actionText}
+                </Text>
+              </View>
+              {indexedAt && <Text style={styles.timeText}>{formatRelativeDate(indexedAt)}</Text>}
+            </View>
           </View>
         </Pressable>
         {shouldShowThumbnailContainer && (
@@ -977,8 +983,18 @@ const styles = StyleSheet.create({
   },
   actionRow: {
     flexDirection: 'row',
-    alignItems: 'baseline',
-    flexWrap: 'wrap',
+    alignItems: 'flex-end',
+  },
+  actionTextAndTime: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    minWidth: 0,
+  },
+  actionTextWrap: {
+    flexShrink: 1,
+    minWidth: 0,
+    maxWidth: '100%',
   },
   actionText: {
     color: Colors.neutral[400],

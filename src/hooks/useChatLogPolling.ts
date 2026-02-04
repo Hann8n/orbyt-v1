@@ -23,9 +23,7 @@ const LOG_DELETE_MESSAGE = 'chat.bsky.convo.defs#logDeleteMessage';
 const LOG_ADD_REACTION = 'chat.bsky.convo.defs#logAddReaction';
 const LOG_REMOVE_REACTION = 'chat.bsky.convo.defs#logRemoveReaction';
 
-function isMessageView(
-  m: ChatLogEntry['message']
-): m is {
+function isMessageView(m: ChatLogEntry['message']): m is {
   id: string;
   rev: string;
   sender?: { did: string };
@@ -60,17 +58,15 @@ export function useChatLogPolling(convoId: string | undefined, queryClient: Quer
     const poll = async () => {
       if (!isMountedRef.current) return;
       try {
-        const { cursor: nextCursor, logs } = await ChatService.getLog(cursorRef.current);
-        if (!isMountedRef.current) return;
-
-        if (nextCursor != null) cursorRef.current = nextCursor;
-
         const key = queryKeys.chat.messages.byConversation(convoId);
         const prev = queryClient.getQueryData<{ messages: unknown[]; cursor: string | null }>(key);
         if (!prev?.messages || !Array.isArray(prev.messages)) {
           timeoutId = setTimeout(poll, POLL_INTERVAL_MS);
           return;
         }
+
+        const { cursor: nextCursor, logs } = await ChatService.getLog(cursorRef.current);
+        if (!isMountedRef.current) return;
 
         let nextMessages = [...prev.messages] as Array<Record<string, unknown> & { id: string }>;
         let didChange = false;
@@ -124,6 +120,8 @@ export function useChatLogPolling(convoId: string | undefined, queryClient: Quer
           queryClient.setQueryData(key, { ...prev, messages: nextMessages });
           queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.all });
         }
+
+        if (nextCursor != null) cursorRef.current = nextCursor;
       } catch {
         // Ignore errors (e.g. network); next poll will retry
       }
