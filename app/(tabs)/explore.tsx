@@ -59,6 +59,8 @@ import HeaderBanner from '../../src/components/ui/HeaderBanner';
 import AuthorItem from '../../src/components/ui/AuthorItem';
 import ChannelItem from '../../src/components/ui/ChannelItem';
 
+const CORNER_GRADIENT = require('../../src/assets/corner-gradient.png');
+
 import { SearchIcon, Loading3FillIcon } from '../../src/components/ui/Icon';
 import { Colors } from '../../src/theme';
 import EmptyFeed from '../../src/components/features/feed/EmptyFeed';
@@ -774,6 +776,12 @@ const GridChannelItem = ({
         <LinearGradient
           colors={[Colors.transparent, Colors.overlay.black50]}
           style={styles.gridChannelGradient}
+        />
+        {/* Corner gradient at bottom left */}
+        <Image
+          source={CORNER_GRADIENT}
+          style={styles.gridChannelCornerGradient}
+          contentFit="cover"
         />
         {/* Channel name overlay at bottom left */}
         <View style={styles.gridChannelNameOverlay}>
@@ -2321,6 +2329,14 @@ const styles = StyleSheet.create({
     right: 0,
     height: 80,
     borderRadius: 8,
+  },
+  gridChannelCornerGradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    width: 120,
+    height: 120,
+    transform: [{ scaleY: -1 }], // Flip vertically to move gradient from top-left to bottom-left
   },
   gridChannelNameOverlay: {
     position: 'absolute',

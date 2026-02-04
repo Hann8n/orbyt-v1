@@ -12,17 +12,10 @@ import {
   Modal,
   useWindowDimensions,
   Linking,
+  Keyboard,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
-
-import {
-  Canvas,
-  Rect,
-  LinearGradient as SkiaLinearGradient,
-  vec,
-  useCanvasSize,
-} from '@shopify/react-native-skia';
 
 import BlurredBackground from '../../src/components/ui/BlurredBackground';
 import { FlashList } from '@shopify/flash-list';
@@ -64,38 +57,7 @@ import type { RichTextFacet } from '../../src/utils/types/richText';
 import EmojiPicker from 'react-native-emoji-chooser';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
-/** Skia gradient overlay: transparent top → dark bottom, with children on top */
-function SkiaGradientOverlay({
-  style,
-  children,
-  pointerEvents = 'none',
-}: {
-  style: import('react-native').StyleProp<import('react-native').ViewStyle>;
-  children: React.ReactNode;
-  pointerEvents?: 'none' | 'auto' | 'box-none' | 'box-only';
-}) {
-  const { ref, size } = useCanvasSize();
-  const w = size.width;
-  const h = size.height;
-  return (
-    <View style={style} pointerEvents={pointerEvents}>
-      <Canvas ref={ref} style={StyleSheet.absoluteFill} pointerEvents="none">
-        {w > 0 && h > 0 && (
-          <Rect x={0} y={0} width={w} height={h} dither={true}>
-            <SkiaLinearGradient
-              start={vec(0, 0)}
-              end={vec(0, h)}
-              colors={['transparent', 'rgba(0,0,0,0.85)']}
-              positions={[0, 1]}
-              flags={1}
-            />
-          </Rect>
-        )}
-      </Canvas>
-      {children}
-    </View>
-  );
-}
+const EMBED_VIDEO_GRADIENT_SHIM = require('../../src/assets/embed-video-gradient-shim.png');
 
 /** Chat message item: full MessageView from API (id, rev, text, facets?, embed?, sender, sentAt, reactions?, etc.) */
 type MessageItem = MessageView & { sender?: { did: string } };
@@ -1051,9 +1013,14 @@ function ChatEmbeddedPost({
                 <Icon name="videocam" size={24} color={Colors.neutral[500]} />
               </View>
             )}
-            <SkiaGradientOverlay style={styles.embedVideoAuthorOverlay} pointerEvents="none">
+            <View style={styles.embedVideoAuthorOverlay} pointerEvents="none">
+              <Image
+                source={EMBED_VIDEO_GRADIENT_SHIM}
+                style={[StyleSheet.absoluteFill, styles.embedVideoGradientShim]}
+                contentFit="cover"
+              />
               <EmbedAuthor author={author} size={20} isFromMe={isFromMe} compact />
-            </SkiaGradientOverlay>
+            </View>
           </Pressable>
         </View>
       </View>
@@ -1696,7 +1663,9 @@ export default function ChatScreen() {
   const canSend = !needsAccept && inputText.trim().length > 0 && !sendMessageMutation.isPending;
   const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
   const headerTop = insets.top + 4;
-  const inputBottom = insets.bottom + 8;
+  const inputRowPaddingBottom = 8;
+  /** Distance from top of screen to KAV (header height). Used so KAV positions the footer correctly when keyboard opens. */
+  const keyboardVerticalOffset = headerTop + 56; // header content (~44) + paddingBottom (12)
 
   const rawMessages = messagesData?.messages ?? [];
   const latestSentAt =
@@ -1940,7 +1909,7 @@ export default function ChatScreen() {
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={0}
+        keyboardVerticalOffset={keyboardVerticalOffset}
       >
         {listData.length > 0 ? (
           <FlashList
@@ -1952,6 +1921,7 @@ export default function ChatScreen() {
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            onScrollBeginDrag={Keyboard.dismiss}
             maintainVisibleContentPosition={{
               startRenderingFromBottom: true,
               autoscrollToBottomThreshold: 100,
@@ -1962,6 +1932,7 @@ export default function ChatScreen() {
             style={styles.list}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
+            onScrollBeginDrag={Keyboard.dismiss}
           >
             {!messagesLoading && messagesData && (messagesData.messages?.length ?? 0) === 0 ? (
               <View style={styles.empty}>
@@ -1972,7 +1943,7 @@ export default function ChatScreen() {
         )}
 
         {needsAccept ? (
-          <View style={[styles.acceptBar, { paddingBottom: inputBottom }]}>
+          <View style={[styles.acceptBar, { paddingBottom: inputRowPaddingBottom }]}>
             <OptionsButton
               label={acceptConvoMutation.isPending ? 'Accepting…' : 'Accept'}
               onPress={() => acceptConvoMutation.mutate()}
@@ -2019,7 +1990,7 @@ export default function ChatScreen() {
             </View>
           </View>
         ) : (
-          <View style={[styles.inputRow, { paddingBottom: inputBottom }]}>
+          <View style={[styles.inputRow, { paddingBottom: inputRowPaddingBottom }]}>
             <View style={styles.inputWrapper}>
               <TextInput
                 style={styles.input}
@@ -2064,6 +2035,7 @@ export default function ChatScreen() {
           </View>
         )}
       </KeyboardAvoidingView>
+      <View style={{ height: insets.bottom, backgroundColor: Colors.black }} />
     </View>
   );
 }
@@ -2479,6 +2451,9 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
+    top: 0,
+    zIndex: 2,
+    overflow: 'hidden',
     paddingHorizontal: 8,
     paddingVertical: 8,
     borderBottomLeftRadius: CHAT_EMBED_VIDEO_RADIUS,
@@ -2486,6 +2461,10 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     alignItems: 'flex-start',
     minHeight: 36,
+  },
+  embedVideoGradientShim: {
+    transform: [{ scaleY: -1 }],
+    opacity: 1,
   },
   embedVideoCard: {
     overflow: 'hidden',

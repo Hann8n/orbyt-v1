@@ -9,7 +9,7 @@ import {
   TextStyle,
   TextLayoutEventData,
 } from 'react-native';
-import { ImageBackground } from 'expo-image';
+import { Image, ImageBackground } from 'expo-image';
 import Animated, {
   type SharedValue,
   useAnimatedStyle,
@@ -21,7 +21,6 @@ import Animated, {
   useAnimatedReaction,
   Easing,
 } from 'react-native-reanimated';
-import { LinearGradient } from '../../ui/LinearGradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { BackArrowIcon, MoreFillIcon, Loading3FillIcon } from '../../ui/Icon';
 import { OutlinkIcon } from '../../ui/Icon';
@@ -32,6 +31,8 @@ import { Colors } from '../../../theme';
 import { splitHandleSuffix } from '../../../utils/formatting/handles';
 import { TextWithLinks } from '../../ui/TextWithLinks';
 import type { RichTextFacet } from '../../../utils/types/richText';
+
+const GRADIENT_SHIM = require('../../../assets/embed-video-gradient-shim.png');
 
 // Types for the universal header system
 export interface HeaderAction {
@@ -833,6 +834,17 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
     [applySafeArea, insets.top, hasTabs]
   );
 
+  const shadowGradientStyle = useMemo(
+    () => [
+      styles.shadowGradient,
+      {
+        top: applySafeArea ? -insets.top : 0,
+        ...(hasTabs && { bottom: 70 }), // Stop before tab navigation
+      },
+    ],
+    [applySafeArea, insets.top, hasTabs]
+  );
+
   // Memoize background image component separately to prevent recreation on viewMode changes
   const backgroundImageComponent = useMemo(() => {
     if (!backgroundImage || !imageSource) return null;
@@ -848,13 +860,14 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
             transition={0}
           />
         </View>
-        {/* Dark overlay for text readability - fully black at bottom, lighter in center, fades to 10% at top */}
-        <LinearGradient
-          colors={['rgba(0, 0, 0, 0.1)', 'rgba(0, 0, 0, 0.3)', 'rgba(0, 0, 0, 1.0)']}
-          locations={[0, 0.5, 1]}
-          style={backgroundOverlayStyle}
-          pointerEvents="none"
-        />
+        {/* Dark overlay for text readability - shim gradient (dark at bottom) */}
+        <View style={backgroundOverlayStyle} pointerEvents="none">
+          <Image
+            source={GRADIENT_SHIM}
+            style={[StyleSheet.absoluteFill, styles.gradientShim]}
+            contentFit="cover"
+          />
+        </View>
       </>
     );
   }, [backgroundImage, imageSource, backgroundContainerStyle, backgroundOverlayStyle]);
@@ -1003,21 +1016,22 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
         {/* Additional Children */}
         {additionalChildren}
       </Animated.View>
-
-      {/* Black shadow gradient at bottom - under all UI */}
-      {showShadowGradient && (
-        <LinearGradient
-          colors={['transparent', 'rgba(0, 0, 0, 0.6)']}
-          style={styles.shadowGradient}
-          pointerEvents="none"
-        />
-      )}
     </>
   );
 
   return (
     <Animated.View style={headerStyle} pointerEvents="box-none" collapsable={false}>
       {backgroundImageComponent}
+      {/* Shadow gradient shim - always visible, positioned just above background image */}
+      {showShadowGradient && (
+        <View style={shadowGradientStyle} pointerEvents="none">
+          <Image
+            source={GRADIENT_SHIM}
+            style={[StyleSheet.absoluteFill, styles.gradientShim]}
+            contentFit="cover"
+          />
+        </View>
+      )}
       {headerContent}
     </Animated.View>
   );
@@ -1251,7 +1265,7 @@ const styles = StyleSheet.create({
   },
   content: {
     width: '100%',
-    zIndex: 1,
+    zIndex: 2,
     flex: 1,
   },
   contentCenter: {
@@ -1265,11 +1279,16 @@ const styles = StyleSheet.create({
   },
   shadowGradient: {
     position: 'absolute',
+    top: 0,
+    left: -20,
+    right: -20,
     bottom: 0,
-    left: 0,
-    right: 0,
-    height: '75%',
-    zIndex: 0,
+    zIndex: 1,
+    overflow: 'hidden',
+  },
+  gradientShim: {
+    transform: [{ scaleY: -1 }],
+    opacity: 1.0,
   },
   backgroundImageContainer: {
     position: 'absolute',
@@ -1293,6 +1312,7 @@ const styles = StyleSheet.create({
     right: -20,
     bottom: 0,
     zIndex: 1,
+    overflow: 'hidden',
   },
 });
 
