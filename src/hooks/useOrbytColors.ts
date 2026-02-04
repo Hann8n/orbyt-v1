@@ -1,17 +1,20 @@
 /**
- * useOrbytColors - React Query hook for fetching profile colors from orbyt API
+ * useOrbytColors - Profile colors from orbyt API (api.getorbyt.com)
  *
- * Provides:
- * - Single DID lookup with 15-minute stale time
- * - Batch prefetch utility for app initialization
- * - Cache invalidation for pull-to-refresh and edit flows
- * - Persistence of current user's colors for instant load on app open
+ * API: GET /v1/colors/:did → OrbytColorData | null (404 = no orbyt profile).
+ *      POST /v1/colors body { dids: string[] } → Record<did, OrbytColorData | null>.
+ * Data: { textColor, backgroundColor, joinedAt, isBeta }. Cached by DID in React Query.
+ *
+ * Colors are also attached to profiles when fetching (ActorService); useAvatarProfileRing
+ * reads from profile.orbytColors so lists get colors in one profile fetch.
  */
 import { useQuery } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import OrbytColorsService, { type OrbytColorData } from '../services/OrbytColorsService';
 import { queryClient } from '../utils/query/queryClient';
+import { getProfileColors, pickLighterHex } from '../utils/formatting/colors';
+import { useProfileByDid } from '../services/data/ProfileService';
 
 // Query key factory for orbyt colors
 export const orbytColorKeys = {
@@ -22,8 +25,8 @@ export const orbytColorKeys = {
 // Storage key for persisting current user's colors
 const CURRENT_USER_COLORS_KEY = 'orbyt_current_user_colors';
 
-// Stale time: 15 minutes
-const STALE_TIME = 15 * 60 * 1000;
+// Stale time: 5 min so cache refreshes sooner and other users' color changes propagate
+const STALE_TIME = 5 * 60 * 1000;
 
 /**
  * Hook to fetch colors for a single DID
@@ -43,7 +46,7 @@ export function useOrbytColors(did: string | null | undefined) {
     enabled: !!did,
     initialData,
     staleTime: STALE_TIME,
-    gcTime: STALE_TIME * 2, // Keep in cache for 30 minutes
+    gcTime: STALE_TIME * 2, // Keep in cache for 10 min after last read
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     refetchOnReconnect: false,
@@ -101,24 +104,38 @@ export async function loadPersistedColors(currentUserDid: string): Promise<void>
 }
 
 /**
- * Batch prefetch colors for multiple DIDs
- * Call this on app initialization to warm the cache
- * Persists current user's colors for instant load on next app open
- * @param dids - Array of DIDs to prefetch (max 100), first DID is assumed to be current user
+ * @deprecated Colors are now included when fetching profiles (ActorService). Use
+ * useAvatarProfileRing(did) which reads from profile.orbytColors. Kept for one-off
+ * prefetch at app init only (userStore).
+ */
+export function usePrefetchOrbytColors(dids: string[] | null | undefined): void {
+  const stableKey = useMemo(
+    () => (dids?.length ? [...new Set(dids)].slice(0, 100).sort().join(',') : ''),
+    [dids]
+  );
+  useEffect(() => {
+    if (!stableKey) return;
+    prefetchOrbytColors(stableKey.split(',')).catch(() => {});
+  }, [stableKey]);
+}
+
+/**
+ * Batch prefetch colors for multiple DIDs (one POST vs N GETs).
+ * Used at app init (userStore) and by usePrefetchOrbytColors when a list has DIDs.
  */
 export async function prefetchOrbytColors(dids: string[]): Promise<void> {
   if (!dids || dids.length === 0) return;
 
   const results = await OrbytColorsService.batchFetchColors(dids);
 
-  // Populate React Query cache for each DID
+  // Populate React Query cache for each DID (including null = no orbyt profile)
   Object.entries(results).forEach(([did, data]) => {
     queryClient.setQueryData(orbytColorKeys.color(did), data, {
       updatedAt: Date.now(),
     });
   });
 
-  // Persist current user's colors (first DID in array)
+  // Persist current user's colors when first DID is current user (e.g. app init)
   const currentUserDid = dids[0];
   const currentUserColors = results[currentUserDid];
   if (currentUserColors) {
@@ -150,6 +167,41 @@ export function invalidateAllOrbytColors(): void {
  */
 export function getCachedOrbytColors(did: string): OrbytColorData | null | undefined {
   return queryClient.getQueryData<OrbytColorData | null>(orbytColorKeys.color(did));
+}
+
+/** Props to pass to Avatar for profile ring (showRing + ringColor + profileColors) */
+export interface AvatarProfileRingProps {
+  showRing: boolean;
+  ringColor?: string;
+  profileColors?: {
+    backgroundColor: string;
+    foregroundColor: string;
+    textColor: string;
+  };
+}
+
+/**
+ * Hook that returns Avatar-ready profile ring props (ring color + profile colors).
+ * Uses profile data (profile.orbytColors) so colors come from the same fetch as the profile;
+ * no separate color requests for lists.
+ */
+export function useAvatarProfileRing(did: string | null | undefined): AvatarProfileRingProps {
+  const { data: profile } = useProfileByDid(did);
+  const orbytColors = profile?.orbytColors;
+  return useMemo(() => {
+    const profileColors = getProfileColors(orbytColors);
+    const ringColor =
+      pickLighterHex(profileColors.backgroundColor, profileColors.foregroundColor) || undefined;
+    return {
+      showRing: !!did,
+      ringColor,
+      profileColors: {
+        backgroundColor: profileColors.backgroundColor,
+        foregroundColor: profileColors.foregroundColor,
+        textColor: profileColors.foregroundColor,
+      },
+    };
+  }, [did, orbytColors]);
 }
 
 /**

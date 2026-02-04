@@ -9,6 +9,7 @@ import { Avatar } from '../../src/components/ui/UI';
 import { ModerationService } from '../../src/services/moderation/ModerationService';
 import { useUserStoreState } from '../../src/stores/userStore';
 import { useModerationSettings } from '../../src/hooks/useModerationSettings';
+import { useAvatarProfileRing } from '../../src/hooks/useOrbytColors';
 import { logger } from '../../src/utils/logger';
 
 interface HiddenPost {
@@ -23,6 +24,23 @@ interface HiddenPost {
   text?: string;
   createdAt: string;
 }
+
+/** Avatar with profile ring colors; must be a component to use useAvatarProfileRing */
+const HiddenPostAvatar: React.FC<{
+  author: HiddenPost['author'];
+}> = ({ author }) => {
+  const ringProps = useAvatarProfileRing(author.did ?? null);
+  return (
+    <Avatar
+      uri={author.avatar}
+      type="profile"
+      size={32}
+      showRing={ringProps.showRing}
+      ringColor={ringProps.ringColor}
+      profileColors={ringProps.profileColors}
+    />
+  );
+};
 
 const HiddenPostsScreen: React.FC = () => {
   const router = useRouter();
@@ -107,7 +125,7 @@ const HiddenPostsScreen: React.FC = () => {
         <View style={styles.postInfo}>
           <View style={styles.authorInfo}>
             <View style={styles.avatarContainer}>
-              <Avatar uri={item.author.avatar} type="profile" size={32} ringColor="transparent" />
+              <HiddenPostAvatar author={item.author} />
             </View>
             <View style={styles.authorDetails}>
               <Text style={styles.authorName}>{item.author.displayName || 'Unknown User'}</Text>

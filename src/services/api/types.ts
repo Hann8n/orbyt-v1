@@ -504,8 +504,8 @@ export type CreateRecordResponse = {
 export type Post = ExtendedPostView;
 export type FeedItem = ExtendedFeedViewPost;
 
-// Extended ProfileView that includes the com.getorbyt.profile record
-// This ensures the orbyt record is always fetched with profile data
+// Extended ProfileView that includes orbyt data (colors from api.getorbyt.com, fetched with profile)
 export type ProfileViewWithOrbyt = ProfileView & {
   orbytRecord?: OrbytProfileRecord | null;
+  orbytColors?: import('../OrbytColorsService').OrbytColorData | null;
 };

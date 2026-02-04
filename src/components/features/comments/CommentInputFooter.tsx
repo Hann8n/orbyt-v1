@@ -18,6 +18,7 @@ import { BORDER_RADIUS } from '../../../utils/constants';
 import { UserSearchModal } from '../../ui/usersearch';
 import { useUserStore } from '../../../stores/userStore';
 import { useProfile } from '../../../services/data/ProfileService';
+import { useAvatarProfileRing } from '../../../hooks/useOrbytColors';
 
 interface UserSearchModalProps {
   visible: boolean;
@@ -96,6 +97,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   const { currentUser } = useUserStore();
   const currentUserHandle = currentUser?.handle || null;
   const { data: currentUserProfile } = useProfile(currentUserHandle);
+  const ringProps = useAvatarProfileRing(currentUser?.did ?? null);
 
   // Get safe area insets for minimal bottom padding
   // TrueSheet handles keyboard positioning natively, so we only need minimal padding
@@ -112,6 +114,9 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
               uri={currentUserAvatar ?? undefined}
               type="profile"
               size={42}
+              showRing={ringProps.showRing}
+              ringColor={ringProps.ringColor}
+              profileColors={ringProps.profileColors}
               style={styles.avatar}
               status={currentUserProfile?.status}
             />

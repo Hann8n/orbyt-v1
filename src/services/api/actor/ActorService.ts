@@ -15,6 +15,7 @@ import type { AppBskyActorProfile } from '@atproto/api';
 import { BlobRef } from '@atproto/lexicon';
 // @ts-expect-error - multiformats/cid has type resolution issues with package.json exports
 import { CID } from 'multiformats/cid';
+import OrbytColorsService from '../../OrbytColorsService';
 
 /**
  * Converts JSON blob objects (from getRecord) to BlobRef instances.
@@ -171,24 +172,23 @@ export class ActorService {
   }
 
   /**
-   * Get profile by DID
-   * Note: Colors/isBeta now come from useOrbytColors hook (orbyt API), not PDS
+   * Get profile by DID (includes orbyt colors in one request for avatar rings)
    * @param did - User DID
-   * @returns Profile data
+   * @returns Profile data with orbytColors attached
    */
   static async getProfileByDid(did: string): Promise<ProfileViewWithOrbyt | null> {
     const { api } = await AtprotoCore.getApiClient();
     try {
-      const profileResponse = await api.app.bsky.actor.getProfile({
-        actor: did,
-      });
+      const [profileResponse, orbytColors] = await Promise.all([
+        api.app.bsky.actor.getProfile({ actor: did }),
+        OrbytColorsService.fetchColors(did),
+      ]);
 
       const profile = profileResponse.data as ProfileView;
-
-      // orbytRecord is now null - colors come from useOrbytColors hook
       return {
         ...profile,
         orbytRecord: null,
+        orbytColors: orbytColors ?? null,
       };
     } catch (_error: unknown) {
       return null;
@@ -196,10 +196,9 @@ export class ActorService {
   }
 
   /**
-   * Get profile by handle
-   * Note: Colors/isBeta now come from useOrbytColors hook (orbyt API), not PDS
+   * Get profile by handle (includes orbyt colors in one request for avatar rings)
    * @param handle - User handle
-   * @returns Profile data
+   * @returns Profile data with orbytColors attached
    */
   static async getProfile(handle: string): Promise<ProfileViewWithOrbyt | null> {
     const { api } = await AtprotoCore.getApiClient();
@@ -209,11 +208,11 @@ export class ActorService {
       });
 
       const profile = response.data as ProfileView;
-
-      // orbytRecord is now null - colors come from useOrbytColors hook
+      const orbytColors = profile.did ? await OrbytColorsService.fetchColors(profile.did) : null;
       return {
         ...profile,
         orbytRecord: null,
+        orbytColors: orbytColors ?? null,
       };
     } catch (_error: unknown) {
       return null;
@@ -224,7 +223,7 @@ export class ActorService {
    * Batch fetch multiple actor profiles efficiently
    * Uses Bluesky's native batch endpoint to fetch up to 25 profiles per request
    * Automatically deduplicates and chunks requests into batches of 25
-   * Note: Colors/isBeta now come from useOrbytColors hook (orbyt API), not PDS
+   * Note: Colors come from orbyt API (profile.orbytColors when fetched, or useOrbytColors)
    *
    * @param handles - Array of actor handles to fetch
    * @returns Array of actor profiles
@@ -278,10 +277,13 @@ export class ActorService {
       const profileResults = await Promise.all(batchPromises);
       const profiles = profileResults.flat();
 
-      // Convert to ProfileViewWithOrbyt (orbytRecord is null - colors come from useOrbytColors)
+      const dids = [...new Set(profiles.map(p => p.did).filter(Boolean))] as string[];
+      const colorMap = dids.length > 0 ? await OrbytColorsService.batchFetchColors(dids) : {};
+
       return profiles.map(profile => ({
         ...profile,
         orbytRecord: null,
+        orbytColors: (profile.did ? (colorMap[profile.did] ?? null) : null) ?? null,
       }));
     } catch {
       return [];

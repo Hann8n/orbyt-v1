@@ -30,6 +30,7 @@ import { useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 import { useUserStore } from '../../../stores/userStore';
 import BlurredBackground from '../../ui/BlurredBackground';
 import { queryKeys } from '../../../utils/query/queryKeys';
+import { useAvatarProfileRing } from '../../../hooks/useOrbytColors';
 import {
   moderateNotification,
   moderatePost,
@@ -296,6 +297,7 @@ const NotificationItem = React.memo<NotificationItemProps>(
     const { reason, author, indexedAt, uri } = item;
     const { presentCommentSection } = useGlobalCommentSection();
     const { data: authorProfile } = useProfile(author?.handle);
+    const ringProps = useAvatarProfileRing(author?.did ?? null);
     const isPostAction = POST_ACTION_TYPES.includes(reason as PostActionReason);
     const postData = isPostAction ? getPostDataFromNotification(item, postDataMap) : undefined;
     const embed = postData ? getEmbed(postData) : null;
@@ -515,7 +517,9 @@ const NotificationItem = React.memo<NotificationItemProps>(
             uri={author?.avatar}
             type="profile"
             size={55}
-            showRing={true}
+            showRing={ringProps.showRing}
+            ringColor={ringProps.ringColor}
+            profileColors={ringProps.profileColors}
             style={styles.avatarFill}
             status={authorProfile?.status}
           />

@@ -12,6 +12,7 @@ import { Avatar } from '../../ui/UI';
 import { VerificationBadge } from '../badging';
 import { useRouter } from 'expo-router';
 import { useFollowMutation, useProfile } from '../../../services/data/ProfileService';
+import { useAvatarProfileRing } from '../../../hooks/useOrbytColors';
 import { formatHandle } from '../../../utils/formatting/handles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 // Use require for static RN asset to avoid TS module typing issues
@@ -145,6 +146,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
   // Suggested user item component (must be a component to use hooks)
   const SuggestedUserItem: React.FC<{ item: SuggestedUser }> = ({ item }) => {
     const { data: profile } = useProfile(item.handle || null);
+    const ringProps = useAvatarProfileRing(item.did ?? null);
     const isFollowing = !!profile?.viewer?.following || !!item.viewer?.following;
 
     return (
@@ -154,7 +156,9 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
             uri={item.avatar}
             type="profile"
             size={40}
-            ringColor="transparent"
+            showRing={ringProps.showRing}
+            ringColor={ringProps.ringColor}
+            profileColors={ringProps.profileColors}
             style={styles.profileImage}
           />
           <View style={styles.profileContent}>

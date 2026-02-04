@@ -13,6 +13,7 @@ import Animated, {
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { prefetchProfile, useProfile } from '../../../services/data/ProfileService';
+import { useAvatarProfileRing } from '../../../hooks/useOrbytColors';
 
 import AtprotoService from '../../../services/api/AtprotoService';
 import { queryKeys } from '../../../utils/query/queryKeys';
@@ -218,6 +219,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
 
   // Get profile data to check if author is blocked
   const { data: authorProfile } = useProfile(comment?.author?.handle);
+  const ringProps = useAvatarProfileRing(comment?.author?.did ?? null);
   const isAuthorBlocked = !!(
     authorProfile?.viewer?.blocking || authorProfile?.viewer?.blockingByList
   );
@@ -810,7 +812,8 @@ const CommentItem: React.FC<CommentItemProps> = ({
               key={external.uri}
               style={[
                 styles.commentImageWrapper,
-                { width: '100%', aspectRatio: defaultAspectRatio },
+                styles.commentImageWrapperFullWidth,
+                { aspectRatio: defaultAspectRatio },
               ]}
               onPress={() => {
                 if (onImagePress) onImagePress(external.uri);
@@ -863,19 +866,11 @@ const CommentItem: React.FC<CommentItemProps> = ({
     }
 
     const getImageLayoutStyle = (index: number, totalImages: number) => {
-      if (totalImages === 1) {
-        return { width: '100%' as const, maxHeight: 300 };
-      } else if (totalImages === 2) {
-        return { width: '49%' as const, maxHeight: 200 };
-      } else if (totalImages === 3) {
-        if (index === 0) {
-          return { width: '100%' as const, maxHeight: 180 };
-        } else {
-          return { width: '49%' as const, maxHeight: 120 };
-        }
-      } else {
-        return { width: '49%' as const, maxHeight: 120 };
-      }
+      if (totalImages === 1) return styles.imageLayoutSingle;
+      if (totalImages === 2) return styles.imageLayoutDouble;
+      if (totalImages === 3)
+        return index === 0 ? styles.imageLayoutTripleFirst : styles.imageLayoutTripleRest;
+      return styles.imageLayoutQuad;
     };
 
     return (
@@ -902,7 +897,9 @@ const CommentItem: React.FC<CommentItemProps> = ({
                   styles.commentImageWrapper,
                   getImageLayoutStyle(idx, Math.min(embedImages.length, 4)),
                   { aspectRatio },
-                  idx % 2 === 0 ? { marginRight: '1%' } : { marginLeft: '1%' },
+                  idx % 2 === 0
+                    ? styles.commentImageWrapperMarginRight
+                    : styles.commentImageWrapperMarginLeft,
                 ]}
                 onPress={() => {
                   if (onImagePress && img.fullsize) {
@@ -934,40 +931,32 @@ const CommentItem: React.FC<CommentItemProps> = ({
     <View
       style={[
         styles.commentThreadContainer,
-        { marginLeft: 0, paddingLeft: 0 },
+        styles.commentThreadRoot,
         level > 0 && { marginLeft: 14 * level },
       ]}
     >
       <Pressable onLongPress={handleLongPress} delayLongPress={400}>
-        <Animated.View
-          style={[
-            styles.commentItemContainer,
-            { zIndex: 1, paddingVertical: 6, paddingHorizontal: 0, alignItems: 'center' },
-          ]}
-        >
+        <Animated.View style={[styles.commentItemContainer, styles.commentItemContainerInner]}>
           {/* Full-width highlight overlay */}
           {shouldHighlight && (
             <Animated.View style={[styles.highlightOverlay, highlightStyle]} pointerEvents="none" />
           )}
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start', flex: 1, zIndex: 1 }}>
+          <View style={styles.commentItemRow}>
             <Pressable onPress={handleAuthorAvatarPress}>
               <UI.Avatar
                 uri={authorAvatar}
                 type="profile"
                 size={level > 0 ? 30 : 40}
+                showRing={ringProps.showRing}
+                ringColor={ringProps.ringColor}
+                profileColors={ringProps.profileColors}
                 blurRadius={isAuthorBlocked ? 30 : 0}
                 status={authorProfile?.status}
-                style={{
-                  width: level > 0 ? 30 : 40,
-                  height: level > 0 ? 30 : 40,
-                  borderRadius: BORDER_RADIUS.LARGE,
-                  marginRight: 12,
-                  borderWidth: 0,
-                }}
+                style={[styles.commentAvatar, level > 0 && styles.commentAvatarNested]}
               />
             </Pressable>
-            <View style={{ flex: 1, justifyContent: 'center' }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
+            <View style={styles.commentItemBody}>
+              <View style={styles.commentItemAuthorRow}>
                 <Pressable
                   onPress={() => {
                     const authorData = comment?.author;
@@ -976,16 +965,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
                     }
                   }}
                 >
-                  <Text
-                    style={{
-                      color: Colors.neutral[50],
-                      fontSize: 16,
-                      marginBottom: 2,
-                      fontFamily: 'Figtree-Bold',
-                    }}
-                  >
-                    {authorName}
-                  </Text>
+                  <Text style={styles.commentAuthorName}>{authorName}</Text>
                 </Pressable>
                 {authorHandle && (
                   <VerificationBadge
@@ -1022,12 +1002,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
               {commentText ? (
                 <TextWithAuthorLinks
                   text={commentText}
-                  style={{
-                    color: Colors.neutral[200],
-                    fontSize: 15,
-                    marginTop: 2,
-                    fontFamily: 'Figtree-Regular',
-                  }}
+                  style={styles.commentText}
                   onAuthorPress={handleAuthorPress}
                   onHashtagPress={handleHashtagPress}
                   facets={
@@ -1092,6 +1067,35 @@ const styles = StyleSheet.create({
     position: 'relative',
     marginBottom: 4,
   },
+  commentImageWrapperFullWidth: {
+    width: '100%',
+  },
+  commentImageWrapperMarginRight: {
+    marginRight: '1%',
+  },
+  commentImageWrapperMarginLeft: {
+    marginLeft: '1%',
+  },
+  imageLayoutSingle: {
+    width: '100%',
+    maxHeight: 300,
+  },
+  imageLayoutDouble: {
+    width: '49%',
+    maxHeight: 200,
+  },
+  imageLayoutTripleFirst: {
+    width: '100%',
+    maxHeight: 180,
+  },
+  imageLayoutTripleRest: {
+    width: '49%',
+    maxHeight: 120,
+  },
+  imageLayoutQuad: {
+    width: '49%',
+    maxHeight: 120,
+  },
   commentImage: {
     width: '100%',
     height: 'auto',
@@ -1116,6 +1120,10 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     backgroundColor: Colors.transparent,
   },
+  commentThreadRoot: {
+    marginLeft: 0,
+    paddingLeft: 0,
+  },
   commentItemContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -1123,6 +1131,50 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.transparent,
     marginBottom: 2,
     position: 'relative',
+  },
+  commentItemContainerInner: {
+    zIndex: 1,
+    paddingVertical: 6,
+    paddingHorizontal: 0,
+    alignItems: 'center',
+  },
+  commentItemRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    flex: 1,
+    zIndex: 1,
+  },
+  commentAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: BORDER_RADIUS.LARGE,
+    marginRight: 12,
+    borderWidth: 0,
+  },
+  commentAvatarNested: {
+    width: 30,
+    height: 30,
+  },
+  commentItemBody: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  commentItemAuthorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  commentAuthorName: {
+    color: Colors.neutral[50],
+    fontSize: 16,
+    marginBottom: 2,
+    fontFamily: 'Figtree-Bold',
+  },
+  commentText: {
+    color: Colors.neutral[200],
+    fontSize: 15,
+    marginTop: 2,
+    fontFamily: 'Figtree-Regular',
   },
   highlightOverlay: {
     position: 'absolute',

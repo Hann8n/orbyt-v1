@@ -9,6 +9,7 @@ import { hexToRGBA } from '../../utils/formatting/colors';
 import { Colors } from './UI';
 
 import { useProfile, useFollowMutation, prefetchProfile } from '../../services/data/ProfileService';
+import { useAvatarProfileRing } from '../../hooks/useOrbytColors';
 import { formatHandle } from '../../utils/formatting/handles';
 import { useQueryClient } from '@tanstack/react-query';
 import { itemSizeConfig, sharedItemStyles } from './ItemStyles';
@@ -117,6 +118,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
 
   // Get following & block status from ProfileService using the hook
   const { data: cachedProfile } = useProfile(handle);
+  const ringProps = useAvatarProfileRing(did ?? null);
   const actualIsFollowing = cachedProfile?.viewer?.following ? true : isFollowing;
   const isFollowedBy = !!cachedProfile?.viewer?.followedBy;
   const isMutual = actualIsFollowing && isFollowedBy;
@@ -175,7 +177,9 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
             uri={actualAvatar}
             type="profile"
             size={config.avatarSize}
-            showRing={showRing}
+            showRing={showRing ?? ringProps.showRing}
+            ringColor={ringProps.ringColor}
+            profileColors={ringProps.profileColors}
             blurRadius={isBlocked ? 30 : 0}
             status={cachedProfile?.status}
           />

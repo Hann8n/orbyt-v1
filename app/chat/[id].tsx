@@ -43,8 +43,8 @@ import { Avatar } from '../../src/components/ui/UI';
 import { OptionsButton } from '../../src/components/ui/OptionsButton';
 import VerticalListSheet, { VerticalListButton } from '../../src/components/ui/VerticalListSheet';
 import { itemSizeConfig, sharedItemStyles } from '../../src/components/ui/ItemStyles';
-import { useOrbytColors } from '../../src/hooks/useOrbytColors';
-import { getProfileColors, hexToRGBA, pickLighterHex } from '../../src/utils/formatting/colors';
+import { hexToRGBA } from '../../src/utils/formatting/colors';
+import { useAvatarProfileRing } from '../../src/hooks/useOrbytColors';
 import { formatHandle } from '../../src/utils/formatting/handles';
 import { queryKeys } from '../../src/utils/query/queryKeys';
 import { getActiveStreak } from '../../src/utils/chat/streak';
@@ -289,6 +289,7 @@ function EmbedAuthor({
   isFromMe: boolean;
   compact?: boolean;
 }) {
+  const ringProps = useAvatarProfileRing(author?.did ?? null);
   if (!author) return null;
   const handle = formatHandle(author.handle) || author.did;
   return (
@@ -299,7 +300,14 @@ function EmbedAuthor({
         isFromMe && styles.embedAuthorRowFromMe,
       ]}
     >
-      <Avatar uri={author.avatar} type="profile" size={size} />
+      <Avatar
+        uri={author.avatar}
+        type="profile"
+        size={size}
+        showRing={ringProps.showRing}
+        ringColor={ringProps.ringColor}
+        profileColors={ringProps.profileColors}
+      />
       <Text
         style={[
           styles.embedAuthorHandle,
@@ -998,18 +1006,14 @@ export default function ChatScreen() {
   const currentUserDid = useUserStore(s => s.currentUser?.did);
 
   const { data: profile } = useProfileByDid(otherDid || null);
-  const { data: orbytColors } = useOrbytColors(otherDid || null);
-  const { data: currentUserOrbytColors } = useOrbytColors(currentUserDid ?? null);
-  const profileColors = getProfileColors(orbytColors);
-  const myProfileColors = getProfileColors(currentUserOrbytColors);
-  const sentMessageAccentColor = myProfileColors.foregroundColor || Colors.brand.teal;
+  const otherRingProps = useAvatarProfileRing(otherDid || null);
+  const currentUserRingProps = useAvatarProfileRing(currentUserDid ?? null);
+  const sentMessageAccentColor = currentUserRingProps.ringColor || Colors.brand.teal;
   const sentMessageAccentBorderStyle = useMemo(
     () => ({ borderRightColor: sentMessageAccentColor }),
     [sentMessageAccentColor]
   );
-  const otherUserAccentColor =
-    pickLighterHex(profileColors.backgroundColor, profileColors.foregroundColor) ||
-    Colors.neutral[700];
+  const otherUserAccentColor = otherRingProps.ringColor || Colors.neutral[700];
   const otherMessageAccentBorderStyle = useMemo(
     () => ({ borderLeftColor: otherUserAccentColor }),
     [otherUserAccentColor]
@@ -1556,13 +1560,9 @@ export default function ChatScreen() {
               uri={profile?.avatar}
               type="profile"
               size={headerConfig.avatarSize}
-              showRing
-              ringColor={otherUserAccentColor}
-              profileColors={{
-                backgroundColor: profileColors.backgroundColor,
-                foregroundColor: profileColors.foregroundColor,
-                textColor: profileColors.foregroundColor,
-              }}
+              showRing={otherRingProps.showRing}
+              ringColor={otherRingProps.ringColor}
+              profileColors={otherRingProps.profileColors}
               status={profile?.status}
             />
           </Pressable>
@@ -1923,7 +1923,7 @@ const styles = StyleSheet.create({
     color: Colors.orange[500],
   },
   headerStreakBadgeTextFire: {
-    color: '#dc2626',
+    color: Colors.coral[600],
   },
   menuButton: {
     width: 44,
@@ -2042,9 +2042,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: REACTION_CHIP_STYLE.countColor,
     fontFamily: 'Figtree-Medium',
-  },
-  reactionCountHighlight: {
-    color: REACTION_CHIP_STYLE.countColorMine,
   },
   reactionCountOnAccent: {
     color: REACTION_CHIP_STYLE.countColorOnColoredBg,

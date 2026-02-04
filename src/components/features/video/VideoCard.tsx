@@ -206,12 +206,13 @@ const VideoCard = memo(
       const hasProfile = !!cachedProfile;
 
       // Single object for overlay (avoids 4 separate props and duplicate useProfile in VideoOverlayUI)
+      // Use profile.orbytColors (from get-profile) so overlay avatar ring uses correct orbyt colors
       const authorProfileOverlay = React.useMemo(
         () => ({
           isAuthorBlocked: !!(
             cachedProfile?.viewer?.blocking || cachedProfile?.viewer?.blockingByList
           ),
-          profileColors: getProfileColors(cachedProfile),
+          profileColors: getProfileColors(cachedProfile?.orbytColors ?? cachedProfile),
           authorDid,
           authorProfileStatus: cachedProfile?.status,
         }),

@@ -35,6 +35,7 @@ import { formatRelativeDate } from '../../ui/RelativeDate';
 import { queryKeys } from '../../../utils/query/queryKeys';
 import { useUserStore } from '../../../stores/userStore';
 import { getActiveStreak } from '../../../utils/chat/streak';
+import { useAvatarProfileRing } from '../../../hooks/useOrbytColors';
 
 type ConvoView = ChatBskyConvoDefs.ConvoView;
 
@@ -151,6 +152,8 @@ const ConversationItem = React.memo<ConversationItemProps>(
     );
     const { show: showStreak, count: streak } = getActiveStreak(sentAt, cached?.messages ?? []);
 
+    const ringProps = useAvatarProfileRing(other?.did ?? null);
+
     return (
       <View style={styles.conversationItem}>
         <View style={styles.conversationItemRow}>
@@ -159,7 +162,9 @@ const ConversationItem = React.memo<ConversationItemProps>(
               uri={other?.avatar}
               type="profile"
               size={55}
-              showRing={true}
+              showRing={ringProps.showRing}
+              ringColor={ringProps.ringColor}
+              profileColors={ringProps.profileColors}
               style={styles.avatarFill}
             />
           </Pressable>
@@ -548,7 +553,7 @@ const styles = StyleSheet.create({
     color: Colors.orange[500],
   },
   streakBadgeTextFire: {
-    color: '#dc2626',
+    color: Colors.coral[600],
   },
   timeText: {
     color: Colors.neutral[500],
