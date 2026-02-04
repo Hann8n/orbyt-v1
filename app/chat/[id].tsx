@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -60,6 +60,7 @@ import { getVideoView } from '../../src/utils/video/helpers';
 import { feedService } from '../../src/services/FeedService';
 import type { ExtendedFeedViewPost, PostView } from '../../src/services/api/types';
 import EmojiPicker from 'react-native-emoji-chooser';
+import Animated, { FadeIn } from 'react-native-reanimated';
 
 /** Skia gradient overlay: transparent top → dark bottom, with children on top */
 function SkiaGradientOverlay({
@@ -1138,6 +1139,9 @@ export default function ChatScreen() {
     latestMessageId: undefined,
   });
 
+  const previousConvoIdRef = useRef<string | null>(null);
+  const shouldAnimateEnteringRef = useRef(false);
+
   useEffect(() => {
     if (!convoId || convo === null) return;
     readSyncRef.current = { convoId, latestMessageId };
@@ -1235,13 +1239,31 @@ export default function ChatScreen() {
     return items;
   }, [messagesData]);
 
+  if (convoId != null && convoId !== previousConvoIdRef.current) {
+    previousConvoIdRef.current = convoId;
+    // Animate only when we're actually loading (no cache); if we have data already, skip
+    shouldAnimateEnteringRef.current =
+      messagesLoading || (messagesData?.messages?.length ?? 0) === 0;
+  }
+
+  useLayoutEffect(() => {
+    if (listData.length === 0) return;
+    const t = setTimeout(() => {
+      shouldAnimateEnteringRef.current = false;
+    }, 1000);
+    return () => clearTimeout(t);
+  }, [listData.length]);
+
   const renderListItem = useCallback(
-    ({ item }: { item: ChatListItem }) => {
+    ({ item, index }: { item: ChatListItem; index: number }) => {
+      const shouldAnimate = shouldAnimateEnteringRef.current;
+      const staggerDelay = Math.min((listData.length - 1 - index) * 45, 720);
+      const entering = shouldAnimate ? FadeIn.duration(200).delay(staggerDelay) : undefined;
       if (item.type === 'date') {
         return (
-          <View style={styles.dateSeparator}>
+          <Animated.View entering={entering} style={styles.dateSeparator}>
             <Text style={styles.dateSeparatorText}>{item.label}</Text>
-          </View>
+          </Animated.View>
         );
       }
       const msg = item.message;
@@ -1256,58 +1278,61 @@ export default function ChatScreen() {
         setReactionPickerTouch({ x: e.nativeEvent.pageX, y: e.nativeEvent.pageY });
       };
       return (
-        <Pressable
-          onLongPress={onLongPress}
-          delayLongPress={400}
-          style={[
-            styles.messageRow,
-            isFromMe ? styles.messageRowFromMe : styles.messageRowFromThem,
-            isNewSender && styles.messageRowNewSender,
-            isFromMe && !hasEmbed && sentMessageAccentBorderStyle,
-            !isFromMe && !hasEmbed && otherMessageAccentBorderStyle,
-            hasEmbed && styles.messageRowEmbed,
-            hasVideoEmbed && styles.messageRowVideoEmbed,
-          ]}
-        >
-          {msg.text != null && msg.text !== '' && (
-            <Text style={[styles.messageText, isFromMe && styles.messageTextFromMe]}>
-              {msg.text}
-            </Text>
-          )}
-          {hasEmbed && msg.embed && (
-            <ChatEmbeddedPost
-              embed={msg.embed}
-              isFromMe={!!isFromMe}
-              onLongPress={onLongPress}
-              delayLongPress={400}
-            />
-          )}
-          {(!msg.text || msg.text === '') && !hasEmbed && (
-            <Text style={[styles.messageText, isFromMe && styles.messageTextFromMe]}>
-              {getMessagePreview(msg)}
-            </Text>
-          )}
-          <View style={[styles.messageMetaRow, isFromMe && styles.messageMetaRowFromMe]}>
-            {!isFromMe && item.showTime && msg.sentAt && (
-              <Text style={styles.messageTime}>{formatMessageTime(msg.sentAt)}</Text>
-            )}
-            <MessageReactions
-              reactions={(msg as MessageItem).reactions}
-              currentUserDid={currentUserDid ?? undefined}
-              isFromMe={!!isFromMe}
-              sentAccentColor={sentMessageAccentColor}
-              otherAccentColor={otherUserAccentColor}
-            />
-            {isFromMe && item.showTime && msg.sentAt && (
-              <Text style={[styles.messageTime, styles.messageTimeFromMe]}>
-                {formatMessageTime(msg.sentAt)}
+        <Animated.View entering={entering}>
+          <Pressable
+            onLongPress={onLongPress}
+            delayLongPress={400}
+            style={[
+              styles.messageRow,
+              isFromMe ? styles.messageRowFromMe : styles.messageRowFromThem,
+              isNewSender && styles.messageRowNewSender,
+              isFromMe && !hasEmbed && sentMessageAccentBorderStyle,
+              !isFromMe && !hasEmbed && otherMessageAccentBorderStyle,
+              hasEmbed && styles.messageRowEmbed,
+              hasVideoEmbed && styles.messageRowVideoEmbed,
+            ]}
+          >
+            {msg.text != null && msg.text !== '' && (
+              <Text style={[styles.messageText, isFromMe && styles.messageTextFromMe]}>
+                {msg.text}
               </Text>
             )}
-          </View>
-        </Pressable>
+            {hasEmbed && msg.embed && (
+              <ChatEmbeddedPost
+                embed={msg.embed}
+                isFromMe={!!isFromMe}
+                onLongPress={onLongPress}
+                delayLongPress={400}
+              />
+            )}
+            {(!msg.text || msg.text === '') && !hasEmbed && (
+              <Text style={[styles.messageText, isFromMe && styles.messageTextFromMe]}>
+                {getMessagePreview(msg)}
+              </Text>
+            )}
+            <View style={[styles.messageMetaRow, isFromMe && styles.messageMetaRowFromMe]}>
+              {!isFromMe && item.showTime && msg.sentAt && (
+                <Text style={styles.messageTime}>{formatMessageTime(msg.sentAt)}</Text>
+              )}
+              <MessageReactions
+                reactions={(msg as MessageItem).reactions}
+                currentUserDid={currentUserDid ?? undefined}
+                isFromMe={!!isFromMe}
+                sentAccentColor={sentMessageAccentColor}
+                otherAccentColor={otherUserAccentColor}
+              />
+              {isFromMe && item.showTime && msg.sentAt && (
+                <Text style={[styles.messageTime, styles.messageTimeFromMe]}>
+                  {formatMessageTime(msg.sentAt)}
+                </Text>
+              )}
+            </View>
+          </Pressable>
+        </Animated.View>
       );
     },
     [
+      listData.length,
       currentUserDid,
       sentMessageAccentColor,
       otherUserAccentColor,
