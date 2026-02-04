@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Pressable,
   TextInput,
-  KeyboardAvoidingView,
   Platform,
   ScrollView,
   Alert,
@@ -14,6 +13,7 @@ import {
   Linking,
   Keyboard,
 } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { Image } from 'expo-image';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 
@@ -1116,6 +1116,7 @@ export default function ChatScreen() {
   const params = useLocalSearchParams<{ id: string; did?: string }>();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
+  const inputRef = useRef<TextInput | null>(null);
   const rawId = params.id ?? '';
   const otherDid = params.did ?? rawId;
   const [inputText, setInputText] = useState('');
@@ -1199,6 +1200,16 @@ export default function ChatScreen() {
         queryClient.refetchQueries({ queryKey: queryKeys.chat.messages.byConversation(convoId) });
       }
     }, [convoId, isInConvo, queryClient])
+  );
+
+  // Dismiss keyboard when leaving the route
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        Keyboard.dismiss();
+        inputRef.current?.blur();
+      };
+    }, [])
   );
 
   useChatLogPolling(isInConvo ? convoId : undefined, queryClient);
@@ -1663,9 +1674,6 @@ export default function ChatScreen() {
   const canSend = !needsAccept && inputText.trim().length > 0 && !sendMessageMutation.isPending;
   const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
   const headerTop = insets.top + 4;
-  const inputRowPaddingBottom = 8;
-  /** Distance from top of screen to KAV (header height). Used so KAV positions the footer correctly when keyboard opens. */
-  const keyboardVerticalOffset = headerTop + 56; // header content (~44) + paddingBottom (12)
 
   const rawMessages = messagesData?.messages ?? [];
   const latestSentAt =
@@ -1906,11 +1914,7 @@ export default function ChatScreen() {
         </View>
       </VerticalListSheet>
 
-      <KeyboardAvoidingView
-        style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={keyboardVerticalOffset}
-      >
+      <KeyboardAvoidingView style={styles.keyboardView} behavior="padding">
         {listData.length > 0 ? (
           <FlashList
             data={listData}
@@ -1943,7 +1947,7 @@ export default function ChatScreen() {
         )}
 
         {needsAccept ? (
-          <View style={[styles.acceptBar, { paddingBottom: inputRowPaddingBottom }]}>
+          <View style={styles.acceptBar}>
             <OptionsButton
               label={acceptConvoMutation.isPending ? 'Accepting…' : 'Accept'}
               onPress={() => acceptConvoMutation.mutate()}
@@ -1990,9 +1994,10 @@ export default function ChatScreen() {
             </View>
           </View>
         ) : (
-          <View style={[styles.inputRow, { paddingBottom: inputRowPaddingBottom }]}>
+          <View style={styles.inputRow}>
             <View style={styles.inputWrapper}>
               <TextInput
+                ref={inputRef}
                 style={styles.input}
                 value={inputText}
                 onChangeText={setInputText}
@@ -2009,6 +2014,10 @@ export default function ChatScreen() {
             {canSend ? (
               <Pressable
                 style={[styles.sendButton, !useLiquidGlass && styles.sendButtonFallback]}
+                onPressIn={() => {
+                  // Keep focus anchored on the input so keyboard doesn't collapse
+                  inputRef.current?.focus();
+                }}
                 onPress={handleSend}
                 hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
                 accessible
@@ -2056,6 +2065,7 @@ const styles = StyleSheet.create({
   acceptBar: {
     paddingHorizontal: 10,
     paddingTop: 10,
+    paddingBottom: 8,
     gap: 10,
     borderTopWidth: 1,
     borderTopColor: Colors.neutral[800],
@@ -2489,6 +2499,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     paddingHorizontal: 16,
     paddingTop: 8,
+    paddingBottom: 8,
     borderTopWidth: 1,
     borderTopColor: Colors.neutral[800],
     backgroundColor: Colors.black,
