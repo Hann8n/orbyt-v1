@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,8 @@ import {
   ScrollView,
   RefreshControl,
   Alert,
+  Modal,
+  useWindowDimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
@@ -26,6 +28,8 @@ import BlurredBackground from '../../src/components/ui/BlurredBackground';
 import { LegendList } from '@legendapp/list';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { safeDismiss, safePresent } from '../../src/utils/components/truesheet/utils';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 
 import { Colors } from '../../src/theme';
@@ -35,7 +39,7 @@ import { Avatar } from '../../src/components/ui/UI';
 import VerticalListSheet, { VerticalListButton } from '../../src/components/ui/VerticalListSheet';
 import { itemSizeConfig, sharedItemStyles } from '../../src/components/ui/ItemStyles';
 import { useOrbytColors } from '../../src/hooks/useOrbytColors';
-import { getProfileColors } from '../../src/utils/formatting/colors';
+import { getProfileColors, hexToRGBA } from '../../src/utils/formatting/colors';
 import { formatHandle } from '../../src/utils/formatting/handles';
 import { queryKeys } from '../../src/utils/query/queryKeys';
 import { format, parseISO, isValid, isToday, isYesterday, differenceInMinutes } from 'date-fns';
@@ -44,11 +48,11 @@ import { ChatService } from '../../src/services/api/chat/ChatService';
 import AtprotoService from '../../src/services/api/AtprotoService';
 import { useUserStore } from '../../src/stores/userStore';
 import type { MessageView } from '../../src/services/api/types';
-import { useGlobalCommentSection } from '../../src/hooks/useGlobalModals';
-import type { CommentSectionPost } from '../../src/stores/modalStore';
+import { openPostInBluesky } from '../../src/utils/links/bluesky';
 import { getVideoView } from '../../src/utils/video/helpers';
 import { feedService } from '../../src/services/FeedService';
 import type { ExtendedFeedViewPost, PostView } from '../../src/services/api/types';
+import EmojiPicker from 'react-native-emoji-chooser';
 
 /** Skia gradient overlay: transparent top → dark bottom, with children on top */
 function SkiaGradientOverlay({
@@ -83,8 +87,40 @@ function SkiaGradientOverlay({
   );
 }
 
-/** Chat message item: full MessageView from API (id, rev, text, facets?, embed?, sender, sentAt, etc.) */
+/** Chat message item: full MessageView from API (id, rev, text, facets?, embed?, sender, sentAt, reactions?, etc.) */
 type MessageItem = MessageView & { sender?: { did: string } };
+
+/** Quick-reaction emojis (aligned with Bluesky chat defaults) */
+const QUICK_REACTIONS = ['❤️', '👍', '👀', '😢', '😂'] as const;
+
+/** Reaction shape from chat.bsky.convo messageView */
+type ReactionShape = { value: string; sender?: { did?: string }; createdAt?: string };
+
+/** Group reactions by emoji value: { value, count, includesMe } */
+function groupReactions(
+  reactions: ReactionShape[] | undefined,
+  currentUserDid: string | undefined
+): Array<{ value: string; count: number; includesMe: boolean }> {
+  if (!reactions?.length) return [];
+  const map = new Map<string, { count: number; includesMe: boolean }>();
+  for (const r of reactions) {
+    const v = r.value ?? '';
+    if (!v) continue;
+    const prev = map.get(v);
+    const isMe = !!currentUserDid && r.sender?.did === currentUserDid;
+    if (prev) {
+      prev.count += 1;
+      prev.includesMe = prev.includesMe || isMe;
+    } else {
+      map.set(v, { count: 1, includesMe: isMe });
+    }
+  }
+  return Array.from(map.entries()).map(([value, { count, includesMe }]) => ({
+    value,
+    count,
+    includesMe,
+  }));
+}
 
 /** Window in minutes for grouping consecutive messages from same sender */
 const MESSAGE_GROUP_WINDOW_MINUTES = 5;
@@ -152,6 +188,13 @@ const CHAT_EMBED_VIDEO_WIDTH = 150;
 const CHAT_EMBED_VIDEO_ASPECT = 9 / 16; // 9:16 card
 const CHAT_EMBED_VIDEO_RADIUS = 10; // slightly less round
 
+type EmbedImage = {
+  thumb?: string;
+  fullsize?: string;
+  alt?: string;
+  aspectRatio?: { width: number; height: number };
+};
+
 /** Get video view from record.embeds (post can have video in embeds[] or as recordWithMedia) */
 function getVideoViewFromRecordEmbeds(
   embeds: EmbedRecordShape['embeds']
@@ -172,6 +215,49 @@ function getVideoViewFromRecordEmbeds(
     }
   }
   return null;
+}
+
+/** Get images/GIFs from record.embeds (app.bsky.embed.images#view or recordWithMedia with images) */
+function getImagesFromRecordEmbeds(embeds: EmbedRecordShape['embeds']): EmbedImage[] {
+  const result: EmbedImage[] = [];
+  if (!embeds?.length) return result;
+  for (let i = 0; i < embeds.length; i++) {
+    const e = embeds[i] as {
+      $type?: string;
+      images?: EmbedImage[];
+      media?: { $type?: string; images?: EmbedImage[] };
+    };
+    if (e?.$type === 'app.bsky.embed.images' || e?.$type === 'app.bsky.embed.images#view') {
+      if (Array.isArray(e.images)) {
+        for (const img of e.images) {
+          if (img && (img.thumb || img.fullsize))
+            result.push({
+              thumb: img.thumb,
+              fullsize: img.fullsize,
+              alt: img.alt,
+              aspectRatio: img.aspectRatio,
+            });
+        }
+      }
+    } else if (e?.$type === 'app.bsky.embed.recordWithMedia#view' && e.media) {
+      const media = e.media as { $type?: string; images?: EmbedImage[] };
+      if (
+        (media.$type === 'app.bsky.embed.images' || media.$type === 'app.bsky.embed.images#view') &&
+        Array.isArray(media.images)
+      ) {
+        for (const img of media.images) {
+          if (img && (img.thumb || img.fullsize))
+            result.push({
+              thumb: img.thumb,
+              fullsize: img.fullsize,
+              alt: img.alt,
+              aspectRatio: img.aspectRatio,
+            });
+        }
+      }
+    }
+  }
+  return result;
 }
 
 function isEmbedRecordView(embed: MessageView['embed'] | null | undefined): boolean {
@@ -245,15 +331,407 @@ function EmbedDescription({
   );
 }
 
+/** Face-pile style overlap (px); smaller = more fanned out */
+const REACTION_OVERLAP = 5;
+const REACTION_CHIP_SIZE = 22;
+/** Larger chips in picker sheet header and overlay */
+const REACTION_SHEET_CHIP_SIZE = 40;
+
+/** Shared chip appearance (message row, overlay buttons, sheet header) */
+const REACTION_CHIP_STYLE = {
+  borderWidth: 0,
+  borderColorDefault: Colors.neutral[700],
+  borderColorMine: Colors.neutral[600],
+  bgDefault: Colors.neutral[800],
+  bgMine: Colors.neutral[700],
+  countColor: Colors.neutral[500],
+  countColorMine: Colors.neutral[50],
+} as const;
+
+/** Display reactions under a message; overlapping stack like face pile; accent for sent messages */
+function MessageReactions({
+  reactions,
+  currentUserDid,
+  isFromMe,
+  accentColor,
+}: {
+  reactions: ReactionShape[] | undefined;
+  currentUserDid: string | undefined;
+  isFromMe: boolean;
+  accentColor?: string;
+}) {
+  const grouped = groupReactions(reactions, currentUserDid);
+  if (grouped.length === 0) return null;
+  return (
+    <View style={[styles.reactionsRow, isFromMe && styles.reactionsRowFromMe]}>
+      {grouped.map(({ value, count, includesMe }, index) => {
+        const isPill = count > 1;
+        const bg = includesMe
+          ? (accentColor ?? REACTION_CHIP_STYLE.bgMine)
+          : REACTION_CHIP_STYLE.bgDefault;
+        const chipStyle = getReactionChipStyle({ isPill, index, bg });
+        return (
+          <View key={value} style={[styles.reactionChip, chipStyle]}>
+            <Text style={styles.reactionEmoji}>{value}</Text>
+            {count > 1 && (
+              <Text
+                style={[
+                  styles.reactionCount,
+                  includesMe && accentColor
+                    ? styles.reactionCountOnAccent
+                    : includesMe && styles.reactionCountHighlight,
+                ]}
+              >
+                {count}
+              </Text>
+            )}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+const REACTION_PICKER_SHEET_NAME = 'chat-reaction-picker';
+const PICKER_WIDTH_EST = 310;
+const PICKER_HEIGHT_EST = 56;
+const PICKER_OFFSET_ABOVE = 12;
+const SCREEN_PADDING = 16;
+
+/** Overlay: positioned quick-reaction pill at touch; + opens full picker sheet */
+function ReactionOverlayModal({
+  visible,
+  touchPosition,
+  onDismiss,
+  onSelect,
+  onOpenFullPicker,
+  currentReactions,
+  currentUserDid,
+  accentColor,
+}: {
+  visible: boolean;
+  touchPosition: { x: number; y: number } | null;
+  onDismiss: () => void;
+  onSelect: (value: string) => void;
+  onOpenFullPicker: () => void;
+  currentReactions: ReactionShape[] | undefined;
+  currentUserDid: string | undefined;
+  accentColor?: string;
+}) {
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const position = useMemo(() => {
+    if (!touchPosition) {
+      return { left: screenWidth / 2 - PICKER_WIDTH_EST / 2, top: 100 };
+    }
+    const left = Math.max(
+      SCREEN_PADDING,
+      Math.min(
+        screenWidth - PICKER_WIDTH_EST - SCREEN_PADDING,
+        touchPosition.x - PICKER_WIDTH_EST / 2
+      )
+    );
+    const preferredTop = touchPosition.y - PICKER_HEIGHT_EST - PICKER_OFFSET_ABOVE;
+    const top =
+      preferredTop < SCREEN_PADDING
+        ? touchPosition.y + PICKER_OFFSET_ABOVE
+        : Math.min(preferredTop, screenHeight - PICKER_HEIGHT_EST - SCREEN_PADDING);
+    return { left, top };
+  }, [touchPosition, screenWidth, screenHeight]);
+
+  const positionStyle = useMemo(
+    () => ({ left: position.left, top: position.top }),
+    [position.left, position.top]
+  );
+  const hasReaction = (value: string) =>
+    currentReactions?.some(r => r.value === value && r.sender?.did === currentUserDid) ?? false;
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onDismiss}>
+      <View style={styles.reactionPickerBackdrop}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onDismiss} />
+        <View style={[styles.reactionPickerContent, positionStyle]}>
+          {QUICK_REACTIONS.map(value => {
+            const selected = hasReaction(value);
+            return (
+              <Pressable
+                key={value}
+                style={({ pressed }) => [
+                  styles.reactionPickerButton,
+                  {
+                    backgroundColor: selected
+                      ? (accentColor ?? REACTION_CHIP_STYLE.bgMine)
+                      : REACTION_CHIP_STYLE.bgDefault,
+                    borderColor: REACTION_CHIP_STYLE.borderColorDefault,
+                  },
+                  selected && { borderColor: accentColor ?? REACTION_CHIP_STYLE.borderColorMine },
+                  pressed && { opacity: 0.85 },
+                ]}
+                onPress={() => onSelect(value)}
+              >
+                <Text style={styles.reactionPickerEmoji}>{value}</Text>
+              </Pressable>
+            );
+          })}
+          <Pressable
+            style={({ pressed }) => [
+              styles.reactionPickerButton,
+              styles.reactionPickerMoreButton,
+              {
+                backgroundColor: REACTION_CHIP_STYLE.bgDefault,
+                borderColor: REACTION_CHIP_STYLE.borderColorDefault,
+              },
+              pressed && { opacity: 0.85 },
+            ]}
+            onPressIn={onOpenFullPicker}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityLabel="More emoji"
+          >
+            <Icon name="plus" size={20} color={Colors.neutral[400]} />
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+/** Emoji picker theme matching app design system */
+const EMOJI_PICKER_THEME = {
+  light: {
+    toolbar: {
+      icon: { defaultColor: Colors.neutral[500], activeColor: Colors.brand.teal },
+      container: {
+        height: 0,
+        overflow: 'hidden' as const,
+        paddingVertical: 0,
+        paddingHorizontal: 0,
+      },
+    },
+    searchbar: {
+      container: {
+        backgroundColor: Colors.neutral[100],
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+      },
+      textInput: {
+        color: Colors.neutral[900],
+        backgroundColor: Colors.neutral[200],
+        fontFamily: 'Figtree-Regular',
+        fontSize: 16,
+        height: 40,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: BORDER_RADIUS.MEDIUM,
+      },
+      placeholderColor: Colors.neutral[500],
+    },
+    flatList: {
+      container: {
+        backgroundColor: Colors.neutral[50],
+        paddingBottom: 16,
+      },
+      section: {
+        header: {
+          color: Colors.neutral[600],
+          fontFamily: 'Figtree-SemiBold',
+          fontSize: 13,
+        },
+      },
+    },
+  },
+  dark: {
+    toolbar: {
+      icon: { defaultColor: Colors.neutral[500], activeColor: Colors.brand.teal },
+      container: {
+        height: 0,
+        overflow: 'hidden' as const,
+        paddingVertical: 0,
+        paddingHorizontal: 0,
+      },
+    },
+    searchbar: {
+      container: {
+        backgroundColor: Colors.neutral[900],
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+      },
+      textInput: {
+        color: Colors.neutral[50],
+        backgroundColor: Colors.neutral[800],
+        fontFamily: 'Figtree-Regular',
+        fontSize: 16,
+        height: 40,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: BORDER_RADIUS.MEDIUM,
+      },
+      placeholderColor: Colors.neutral[500],
+    },
+    flatList: {
+      container: {
+        backgroundColor: Colors.neutral[900],
+        paddingBottom: 16,
+      },
+      section: {
+        header: {
+          color: Colors.neutral[400],
+          fontFamily: 'Figtree-SemiBold',
+          fontSize: 13,
+        },
+      },
+    },
+  },
+};
+
+/** TrueSheet with full emoji picker; opened when user taps + on overlay */
+function ReactionPickerSheet({
+  visible,
+  onDismiss,
+  onSelect,
+  currentReactions,
+  currentUserDid,
+  accentColor,
+}: {
+  visible: boolean;
+  onDismiss: () => void;
+  onSelect: (value: string) => void;
+  currentReactions: ReactionShape[] | undefined;
+  currentUserDid: string | undefined;
+  accentColor?: string;
+}) {
+  const sheetRef = useRef<TrueSheet>(null);
+  const { height: screenHeight } = useWindowDimensions();
+  const grouped = useMemo(
+    () => groupReactions(currentReactions, currentUserDid),
+    [currentReactions, currentUserDid]
+  );
+  useEffect(() => {
+    if (visible) {
+      safePresent(REACTION_PICKER_SHEET_NAME).catch(() => {});
+    } else {
+      safeDismiss(REACTION_PICKER_SHEET_NAME).catch(() => {});
+    }
+  }, [visible]);
+
+  const handleSelect = useCallback(
+    (emoji: string) => {
+      onSelect(emoji);
+      safeDismiss(REACTION_PICKER_SHEET_NAME)
+        .then(onDismiss)
+        .catch(() => {});
+    },
+    [onSelect, onDismiss]
+  );
+
+  return (
+    <TrueSheet
+      ref={sheetRef}
+      name={REACTION_PICKER_SHEET_NAME}
+      detents={['auto']}
+      maxHeight={Math.round(screenHeight * 0.75)}
+      backgroundColor={Colors.neutral[900]}
+      onDidDismiss={onDismiss}
+      grabber
+      grabberOptions={{
+        width: 42,
+        height: 4,
+        topMargin: 8,
+        cornerRadius: 2,
+        color: 'rgba(243, 245, 254, 0.5)',
+        adaptive: false,
+      }}
+      insetAdjustment="never"
+      scrollable
+      header={
+        <View style={styles.reactionSheetHeader}>
+          {grouped.length > 0 ? (
+            <View style={styles.reactionSheetActiveChips}>
+              {grouped.map(({ value, count, includesMe }) => {
+                const isPill = count > 1;
+                return (
+                  <Pressable
+                    key={value}
+                    accessibilityRole="button"
+                    accessibilityLabel={`React with ${value}`}
+                    onPress={() => handleSelect(value)}
+                    style={({ pressed }) => [
+                      styles.reactionSheetActiveChip,
+                      {
+                        width: isPill ? undefined : REACTION_SHEET_CHIP_SIZE,
+                        minWidth: REACTION_SHEET_CHIP_SIZE,
+                        height: REACTION_SHEET_CHIP_SIZE,
+                        borderRadius: REACTION_SHEET_CHIP_SIZE / 2,
+                        paddingHorizontal: isPill ? 10 : 0,
+                        backgroundColor: includesMe
+                          ? (accentColor ?? REACTION_CHIP_STYLE.bgMine)
+                          : REACTION_CHIP_STYLE.bgDefault,
+                        borderColor: includesMe
+                          ? (accentColor ?? REACTION_CHIP_STYLE.borderColorMine)
+                          : REACTION_CHIP_STYLE.borderColorDefault,
+                      },
+                      pressed && { opacity: 0.8 },
+                    ]}
+                  >
+                    <Text style={styles.reactionSheetActiveEmoji}>{value}</Text>
+                    {count > 1 && (
+                      <Text
+                        style={[
+                          styles.reactionSheetActiveCount,
+                          includesMe && styles.reactionSheetActiveCountHighlight,
+                        ]}
+                      >
+                        {count}
+                      </Text>
+                    )}
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : (
+            <Text style={styles.reactionSheetActiveEmpty}>No reactions yet</Text>
+          )}
+        </View>
+      }
+    >
+      <View style={styles.reactionSheetContent}>
+        <EmojiPicker
+          onSelect={handleSelect}
+          mode="dark"
+          lang="en"
+          columnCount={6}
+          theme={EMOJI_PICKER_THEME}
+          searchBarProps={{
+            placeholder: 'Search emoji…',
+            placeholderTextColor: Colors.neutral[500],
+            style: {
+              fontFamily: 'Figtree-Regular',
+              fontSize: 16,
+              color: Colors.neutral[50],
+              backgroundColor: Colors.neutral[800],
+              height: 40,
+              paddingHorizontal: 12,
+              paddingVertical: 0,
+              textAlignVertical: 'center',
+              borderRadius: BORDER_RADIUS.MEDIUM,
+            },
+          }}
+        />
+      </View>
+    </TrueSheet>
+  );
+}
+
 function ChatEmbeddedPost({
   embed,
   isFromMe,
+  onLongPress,
+  delayLongPress = 400,
 }: {
   embed: NonNullable<MessageView['embed']>;
   isFromMe: boolean;
+  onLongPress?: (e: { nativeEvent: { pageX: number; pageY: number } }) => void;
+  delayLongPress?: number;
 }) {
   const router = useRouter();
-  const { presentCommentSection } = useGlobalCommentSection();
   const record = (embed as { record?: EmbedRecordShape }).record;
   if (!record || typeof record !== 'object') return null;
 
@@ -364,6 +842,8 @@ function ChatEmbeddedPost({
         <View style={[styles.embedVideoBlock, { width: CHAT_EMBED_VIDEO_WIDTH }]}>
           <Pressable
             onPress={onPressVideo}
+            onLongPress={onLongPress}
+            delayLongPress={delayLongPress}
             style={[
               styles.embedVideoCard,
               {
@@ -400,32 +880,88 @@ function ChatEmbeddedPost({
     );
   }
 
-  // Non-video (text/image/quote): inline content, aligns with message side
+  // Non-video (text/image/quote): open link in Bluesky app
   const onPressPost = () => {
     const uri = record.uri ?? '';
-    const did = record.author?.did ?? '';
-    if (!uri || !did) return;
-    presentCommentSection({
-      post: {
-        uri,
-        cid: record.cid,
-        author: { did, handle: record.author?.handle, displayName: record.author?.displayName },
-      } as CommentSectionPost,
-    });
+    if (!uri) return;
+    openPostInBluesky(uri);
   };
+
+  const embedImages = getImagesFromRecordEmbeds(record.embeds);
+  const hasImages = embedImages.length > 0;
+
+  const getClampedAspectRatio = (ar: number) => Math.max(0.5, Math.min(2.0, ar));
+  const CHAT_EMBED_IMAGE_SIZE = 80;
+  const CHAT_EMBED_IMAGE_SINGLE_MAX = 180;
 
   return (
     <Pressable
       onPress={onPressPost}
+      onLongPress={onLongPress}
+      delayLongPress={delayLongPress}
       style={[styles.embedContent, isFromMe && styles.embedContentFromMe]}
       android_ripple={{ color: Colors.neutral[700] }}
     >
+      {hasImages && (
+        <View style={[styles.embedImagesContainer, isFromMe && styles.embedImagesContainerFromMe]}>
+          {embedImages.slice(0, 4).map((img, idx) => {
+            const total = Math.min(embedImages.length, 4);
+            const aspectRatio = img.aspectRatio
+              ? getClampedAspectRatio(img.aspectRatio.width / img.aspectRatio.height)
+              : 1;
+            const isSingle = total === 1;
+            const w = isSingle
+              ? aspectRatio >= 1
+                ? CHAT_EMBED_IMAGE_SINGLE_MAX
+                : CHAT_EMBED_IMAGE_SINGLE_MAX * aspectRatio
+              : CHAT_EMBED_IMAGE_SIZE;
+            const h = isSingle
+              ? aspectRatio >= 1
+                ? CHAT_EMBED_IMAGE_SINGLE_MAX / aspectRatio
+                : CHAT_EMBED_IMAGE_SINGLE_MAX
+              : CHAT_EMBED_IMAGE_SIZE;
+            return (
+              <View
+                key={img.thumb || img.fullsize || idx}
+                style={[styles.embedImageWrap, { width: w, height: h }]}
+              >
+                <Image
+                  source={{ uri: img.thumb || img.fullsize }}
+                  style={StyleSheet.absoluteFill}
+                  contentFit="cover"
+                  accessible
+                  accessibilityLabel={img.alt || 'Embed image'}
+                />
+              </View>
+            );
+          })}
+        </View>
+      )}
       <EmbedAuthor author={author} size={24} isFromMe={isFromMe} />
       <EmbedDescription text={text} isFromMe={isFromMe} />
     </Pressable>
   );
 }
 
+const getReactionChipStyle = ({
+  isPill,
+  index,
+  bg,
+}: {
+  isPill: boolean;
+  index: number;
+  bg: string;
+}) => ({
+  width: isPill ? undefined : REACTION_CHIP_SIZE,
+  minWidth: REACTION_CHIP_SIZE,
+  height: REACTION_CHIP_SIZE,
+  paddingHorizontal: isPill ? 6 : 0,
+  borderRadius: REACTION_CHIP_SIZE / 2,
+  marginLeft: index === 0 ? 0 : -REACTION_OVERLAP,
+  backgroundColor: bg,
+  borderWidth: 1,
+  borderColor: Colors.black,
+});
 export default function ChatScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ id: string; did?: string }>();
@@ -442,8 +978,17 @@ export default function ChatScreen() {
   const profileColors = getProfileColors(orbytColors);
   const myProfileColors = getProfileColors(currentUserOrbytColors);
   const sentMessageAccentColor = myProfileColors.foregroundColor || Colors.brand.teal;
+  const sentMessageAccentBorderStyle = useMemo(
+    () => ({ borderRightColor: sentMessageAccentColor }),
+    [sentMessageAccentColor]
+  );
   const headerConfig = itemSizeConfig.large;
   const [showChatMenu, setShowChatMenu] = useState(false);
+  const [reactionPickerMessageId, setReactionPickerMessageId] = useState<string | null>(null);
+  const [reactionPickerTouch, setReactionPickerTouch] = useState<{ x: number; y: number } | null>(
+    null
+  );
+  const [showFullEmojiPicker, setShowFullEmojiPicker] = useState(false);
 
   const { data: convo } = useQuery({
     queryKey: queryKeys.chat.conversations.detail(convoId),
@@ -474,6 +1019,68 @@ export default function ChatScreen() {
         queryKey: queryKeys.chat.messages.byConversation(convoId),
       });
       queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.all });
+    },
+  });
+
+  const reactionMutation = useMutation({
+    mutationFn: async ({
+      messageId,
+      value,
+      add,
+    }: {
+      messageId: string;
+      value: string;
+      add: boolean;
+    }) =>
+      add
+        ? ChatService.addReaction(convoId, messageId, value)
+        : ChatService.removeReaction(convoId, messageId, value),
+    onMutate: async ({ messageId, value, add }) => {
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.chat.messages.byConversation(convoId),
+      });
+      const prev = queryClient.getQueryData<{ messages: MessageItem[]; cursor: string | null }>(
+        queryKeys.chat.messages.byConversation(convoId)
+      );
+      queryClient.setQueryData(
+        queryKeys.chat.messages.byConversation(convoId),
+        (old: { messages: MessageItem[]; cursor: string | null } | undefined) => {
+          if (!old?.messages) return old;
+          const messages = old.messages.map((msg: MessageItem) => {
+            if (msg.id !== messageId) return msg;
+            const reactions = [...(msg.reactions ?? [])];
+            if (add) {
+              reactions.push({
+                value,
+                sender: { did: currentUserDid ?? '' },
+                createdAt: new Date().toISOString(),
+              });
+            } else {
+              const i = reactions.findIndex(
+                (r: ReactionShape) => r.value === value && r.sender?.did === currentUserDid
+              );
+              if (i >= 0) reactions.splice(i, 1);
+            }
+            return { ...msg, reactions };
+          });
+          return { ...old, messages };
+        }
+      );
+      return { prev };
+    },
+    onError: (_err, _vars, context) => {
+      setReactionPickerMessageId(null);
+      if (context?.prev != null) {
+        queryClient.setQueryData(queryKeys.chat.messages.byConversation(convoId), context.prev);
+      }
+    },
+    onSuccess: () => {
+      setReactionPickerMessageId(null);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.chat.conversations.all,
+      });
     },
   });
 
@@ -529,7 +1136,8 @@ export default function ChatScreen() {
             Math.abs(differenceInMinutes(d1, d2)) <= MESSAGE_GROUP_WINDOW_MINUTES
           );
         })();
-      const showTime = !sameSenderAsNext || !nextWithinWindow;
+      const hasReactions = (msg.reactions ?? []).length > 0;
+      const showTime = !sameSenderAsNext || !nextWithinWindow || hasReactions;
 
       if (sentAt) {
         const dateKey = getDateKey(sentAt);
@@ -563,13 +1171,20 @@ export default function ChatScreen() {
       const isFromMe = msg.sender?.did === currentUserDid;
       const isNewSender = !item.groupedWithPrevious;
       const hasEmbed = isEmbedRecordView(msg.embed);
+      const onLongPress = (e: { nativeEvent: { pageX: number; pageY: number } }) => {
+        setReactionPickerMessageId(msg.id);
+        setReactionPickerTouch({ x: e.nativeEvent.pageX, y: e.nativeEvent.pageY });
+      };
       return (
-        <View
+        <Pressable
+          onLongPress={onLongPress}
+          delayLongPress={400}
           style={[
             styles.messageRow,
             isFromMe ? styles.messageRowFromMe : styles.messageRowFromThem,
             isNewSender && styles.messageRowNewSender,
-            isFromMe && { borderRightColor: sentMessageAccentColor },
+            isFromMe && !hasEmbed && sentMessageAccentBorderStyle,
+            hasEmbed && styles.messageRowEmbed,
           ]}
         >
           {msg.text != null && msg.text !== '' && (
@@ -577,21 +1192,39 @@ export default function ChatScreen() {
               {msg.text}
             </Text>
           )}
-          {hasEmbed && msg.embed && <ChatEmbeddedPost embed={msg.embed} isFromMe={!!isFromMe} />}
+          {hasEmbed && msg.embed && (
+            <ChatEmbeddedPost
+              embed={msg.embed}
+              isFromMe={!!isFromMe}
+              onLongPress={onLongPress}
+              delayLongPress={400}
+            />
+          )}
           {(!msg.text || msg.text === '') && !hasEmbed && (
             <Text style={[styles.messageText, isFromMe && styles.messageTextFromMe]}>
               {getMessagePreview(msg)}
             </Text>
           )}
-          {item.showTime && msg.sentAt && (
-            <Text style={[styles.messageTime, isFromMe && styles.messageTimeFromMe]}>
-              {formatMessageTime(msg.sentAt)}
-            </Text>
-          )}
-        </View>
+          <View style={[styles.messageMetaRow, isFromMe && styles.messageMetaRowFromMe]}>
+            {!isFromMe && item.showTime && msg.sentAt && (
+              <Text style={styles.messageTime}>{formatMessageTime(msg.sentAt)}</Text>
+            )}
+            <MessageReactions
+              reactions={(msg as MessageItem).reactions}
+              currentUserDid={currentUserDid ?? undefined}
+              isFromMe={!!isFromMe}
+              accentColor={sentMessageAccentColor}
+            />
+            {isFromMe && item.showTime && msg.sentAt && (
+              <Text style={[styles.messageTime, styles.messageTimeFromMe]}>
+                {formatMessageTime(msg.sentAt)}
+              </Text>
+            )}
+          </View>
+        </Pressable>
       );
     },
-    [currentUserDid, sentMessageAccentColor]
+    [currentUserDid, sentMessageAccentColor, sentMessageAccentBorderStyle]
   );
 
   const keyExtractor = useCallback((item: ChatListItem) => {
@@ -704,6 +1337,29 @@ export default function ChatScreen() {
     sendMessageMutation.mutate(text);
   }, [inputText, sendMessageMutation]);
 
+  const handleReactionSelect = useCallback(
+    (messageId: string, value: string) => {
+      const raw = messagesData?.messages ?? [];
+      const msg = raw.find((m: { id?: string }) => m.id === messageId) as MessageItem | undefined;
+      const reactions = msg?.reactions ?? [];
+      const hasReaction = reactions.some(
+        (r: ReactionShape) => r.value === value && r.sender?.did === currentUserDid
+      );
+      reactionMutation.mutate({ messageId, value, add: !hasReaction });
+    },
+    [messagesData?.messages, currentUserDid, reactionMutation]
+  );
+
+  const pickerMessage = useMemo(() => {
+    if (!reactionPickerMessageId) return null;
+    const raw = messagesData?.messages ?? [];
+    return (
+      (raw.find((m: { id?: string }) => m.id === reactionPickerMessageId) as
+        | MessageItem
+        | undefined) ?? null
+    );
+  }, [reactionPickerMessageId, messagesData?.messages]);
+
   const canSend = inputText.trim().length > 0 && !sendMessageMutation.isPending;
   const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
   const headerTop = insets.top + 4;
@@ -762,6 +1418,42 @@ export default function ChatScreen() {
         </Pressable>
       </View>
 
+      <ReactionOverlayModal
+        visible={!!reactionPickerMessageId && !showFullEmojiPicker}
+        touchPosition={reactionPickerTouch}
+        onDismiss={() => {
+          setReactionPickerMessageId(null);
+          setReactionPickerTouch(null);
+        }}
+        onSelect={value => {
+          if (reactionPickerMessageId) handleReactionSelect(reactionPickerMessageId, value);
+          setReactionPickerMessageId(null);
+          setReactionPickerTouch(null);
+        }}
+        onOpenFullPicker={() => setShowFullEmojiPicker(true)}
+        currentReactions={pickerMessage?.reactions}
+        currentUserDid={currentUserDid ?? undefined}
+        accentColor={sentMessageAccentColor}
+      />
+
+      <ReactionPickerSheet
+        visible={showFullEmojiPicker}
+        onDismiss={() => {
+          setShowFullEmojiPicker(false);
+          setReactionPickerMessageId(null);
+          setReactionPickerTouch(null);
+        }}
+        onSelect={value => {
+          if (reactionPickerMessageId) handleReactionSelect(reactionPickerMessageId, value);
+          setShowFullEmojiPicker(false);
+          setReactionPickerMessageId(null);
+          setReactionPickerTouch(null);
+        }}
+        currentReactions={pickerMessage?.reactions}
+        currentUserDid={currentUserDid ?? undefined}
+        accentColor={sentMessageAccentColor}
+      />
+
       <VerticalListSheet
         visible={showChatMenu}
         onDismiss={() => setShowChatMenu(false)}
@@ -807,12 +1499,18 @@ export default function ChatScreen() {
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             data={listData}
+            dataVersion={listData.length}
             renderItem={renderListItem}
             keyExtractor={keyExtractor}
             estimatedItemSize={56}
             keyboardShouldPersistTaps="handled"
             alignItemsAtEnd
-            maintainScrollAtEnd
+            maintainScrollAtEnd={{
+              onDataChange: true,
+              onLayout: true,
+              onItemLayout: true,
+            }}
+            maintainScrollAtEndThreshold={0.5}
             initialScrollIndex={listData.length - 1}
             onRefresh={refetchMessages}
             refreshing={isRefetching}
@@ -972,6 +1670,10 @@ const styles = StyleSheet.create({
     borderRightWidth: 2,
     borderRightColor: Colors.brand.teal,
   },
+  messageRowEmbed: {
+    borderLeftWidth: 0,
+    borderRightWidth: 0,
+  },
   messageText: {
     color: Colors.neutral[50],
     fontSize: 16,
@@ -984,11 +1686,123 @@ const styles = StyleSheet.create({
     color: Colors.neutral[500],
     fontSize: 12,
     fontFamily: 'Figtree-Regular',
-    marginTop: 2,
   },
   messageTimeFromMe: {
     color: Colors.neutral[600],
     textAlign: 'right',
+  },
+  messageMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 2,
+    alignSelf: 'flex-start',
+  },
+  messageMetaRowFromMe: {
+    alignSelf: 'flex-end',
+  },
+  reactionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  reactionsRowFromMe: {
+    alignSelf: 'flex-end',
+  },
+  reactionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+    borderWidth: REACTION_CHIP_STYLE.borderWidth,
+  },
+  reactionEmoji: {
+    fontSize: 12,
+  },
+  reactionCount: {
+    fontSize: 11,
+    color: REACTION_CHIP_STYLE.countColor,
+    fontFamily: 'Figtree-Medium',
+  },
+  reactionCountHighlight: {
+    color: REACTION_CHIP_STYLE.countColorMine,
+  },
+  reactionCountOnAccent: {
+    color: REACTION_CHIP_STYLE.countColorMine,
+  },
+  reactionPickerBackdrop: {
+    flex: 1,
+    backgroundColor: hexToRGBA(Colors.black, 0.4),
+  },
+  reactionPickerContent: {
+    position: 'absolute',
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 28,
+    backgroundColor: Colors.neutral[900],
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 12,
+  },
+  reactionPickerButton: {
+    width: REACTION_SHEET_CHIP_SIZE,
+    height: REACTION_SHEET_CHIP_SIZE,
+    borderRadius: REACTION_SHEET_CHIP_SIZE / 2,
+    borderWidth: REACTION_CHIP_STYLE.borderWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reactionPickerEmoji: {
+    fontSize: 24,
+  },
+  reactionPickerMoreButton: {
+    borderLeftWidth: 1,
+    borderLeftColor: REACTION_CHIP_STYLE.borderColorDefault,
+  },
+  reactionSheetHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.neutral[800],
+    backgroundColor: Colors.neutral[900],
+  },
+  reactionSheetActiveChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 10,
+  },
+  reactionSheetActiveChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: REACTION_CHIP_STYLE.borderWidth,
+    gap: 4,
+  },
+  reactionSheetActiveEmoji: {
+    fontSize: 20,
+  },
+  reactionSheetActiveCount: {
+    fontSize: 12,
+    color: REACTION_CHIP_STYLE.countColor,
+    fontFamily: 'Figtree-Medium',
+  },
+  reactionSheetActiveCountHighlight: {
+    color: REACTION_CHIP_STYLE.countColorMine,
+  },
+  reactionSheetActiveEmpty: {
+    color: Colors.neutral[500],
+    fontSize: 14,
+    fontFamily: 'Figtree-Regular',
+  },
+  reactionSheetContent: {
+    flex: 1,
+    minHeight: 360,
+    backgroundColor: Colors.neutral[900],
   },
   embedContent: {
     paddingVertical: 6,
@@ -999,6 +1813,20 @@ const styles = StyleSheet.create({
   embedContentFromMe: {
     alignSelf: 'flex-end',
     alignItems: 'flex-end',
+  },
+  embedImagesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+    marginBottom: 6,
+    alignSelf: 'flex-start',
+  },
+  embedImagesContainerFromMe: {
+    alignSelf: 'flex-end',
+  },
+  embedImageWrap: {
+    overflow: 'hidden',
+    borderRadius: 8,
   },
   embedAuthorRow: {
     flexDirection: 'row',
@@ -1092,7 +1920,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: Colors.neutral[900],
     backgroundColor: Colors.black,

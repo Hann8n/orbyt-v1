@@ -1,0 +1,27 @@
+diff --git a/node_modules/react-native-emoji-chooser/dist/index.js b/node_modules/react-native-emoji-chooser/dist/index.js
+index 135d3a9..2308e99 100644
+--- a/node_modules/react-native-emoji-chooser/dist/index.js
++++ b/node_modules/react-native-emoji-chooser/dist/index.js
+@@ -163,7 +163,7 @@ const EmojiPicker = ({ mode = 'light', columnCount = 6, lang = 'en', onSelect, t
+                 }
+                 return <react_native_1.Text style={[styles.sectionHeaderStyle, themeMode.flatList.section.header]}>{section.title}</react_native_1.Text>;
+             }}/>)}
+-      {renderToolbar()}
++      {null}
+     </react_native_1.View>);
+ };
+ exports.default = EmojiPicker;
+diff --git a/node_modules/react-native-emoji-chooser/tsconfig.json b/node_modules/react-native-emoji-chooser/tsconfig.json
+index 644c000..baee197 100644
+--- a/node_modules/react-native-emoji-chooser/tsconfig.json
++++ b/node_modules/react-native-emoji-chooser/tsconfig.json
+@@ -9,6 +9,6 @@
+     "strict": true,
+     "esModuleInterop": true
+   },
+-  "include": ["src/**/*"],
+-  "exclude": ["node_modules", "dist", "build", "example"]
++  "include": ["dist/**/*"],
++  "exclude": ["node_modules", "build", "example"]
+ }
+\ No newline at end of file
