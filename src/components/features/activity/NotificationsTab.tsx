@@ -607,19 +607,10 @@ const NotificationsTab = forwardRef<ScrollToTopRef, NotificationsTabProps>(
         // Update seen status when notifications tab is focused
         AtprotoService.updateNotificationSeen()
           .then(() => {
-            // Invalidate unread count query after successfully marking as seen
-            queryClient.invalidateQueries({
-              queryKey: queryKeys.notifications.count(),
-              refetchType: 'active',
-            });
+            void queryClient.refetchQueries({ queryKey: queryKeys.unread.summary() });
           })
           .catch(() => {
             // Silently fail - seen status update is not critical
-            // Still try to refresh the count in case it changed
-            queryClient.invalidateQueries({
-              queryKey: queryKeys.notifications.count(),
-              refetchType: 'active',
-            });
           });
       }, [queryClient])
     );

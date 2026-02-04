@@ -8,7 +8,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  RefreshControl,
   Alert,
   Modal,
   useWindowDimensions,
@@ -25,7 +24,7 @@ import {
 } from '@shopify/react-native-skia';
 
 import BlurredBackground from '../../src/components/ui/BlurredBackground';
-import { LegendList } from '@legendapp/list';
+import { FlashList } from '@shopify/flash-list';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
@@ -36,14 +35,16 @@ import { Colors } from '../../src/theme';
 import { BORDER_RADIUS } from '../../src/utils/constants';
 import Icon, { BackArrowIcon, MoreFillIcon } from '../../src/components/ui/Icon';
 import { Avatar } from '../../src/components/ui/UI';
+import { OptionsButton } from '../../src/components/ui/OptionsButton';
 import VerticalListSheet, { VerticalListButton } from '../../src/components/ui/VerticalListSheet';
 import { itemSizeConfig, sharedItemStyles } from '../../src/components/ui/ItemStyles';
 import { useOrbytColors } from '../../src/hooks/useOrbytColors';
-import { getProfileColors, hexToRGBA } from '../../src/utils/formatting/colors';
+import { getProfileColors, hexToRGBA, pickLighterHex } from '../../src/utils/formatting/colors';
 import { formatHandle } from '../../src/utils/formatting/handles';
 import { queryKeys } from '../../src/utils/query/queryKeys';
 import { format, parseISO, isValid, isToday, isYesterday, differenceInMinutes } from 'date-fns';
 import { useProfileByDid, useBlockMutation } from '../../src/services/data/ProfileService';
+import { useChatLogPolling } from '../../src/hooks/useChatLogPolling';
 import { ChatService } from '../../src/services/api/chat/ChatService';
 import AtprotoService from '../../src/services/api/AtprotoService';
 import { useUserStore } from '../../src/stores/userStore';
@@ -366,7 +367,8 @@ function MessageReactions({
     <View style={[styles.reactionsRow, isFromMe && styles.reactionsRowFromMe]}>
       {grouped.map(({ value, count, includesMe }, index) => {
         const isPill = count > 1;
-        const bg = includesMe
+        const useAccent = isFromMe ? includesMe : true;
+        const bg = useAccent
           ? (accentColor ?? REACTION_CHIP_STYLE.bgMine)
           : REACTION_CHIP_STYLE.bgDefault;
         const chipStyle = getReactionChipStyle({ isPill, index, bg });
@@ -377,7 +379,7 @@ function MessageReactions({
               <Text
                 style={[
                   styles.reactionCount,
-                  includesMe && accentColor
+                  useAccent && accentColor
                     ? styles.reactionCountOnAccent
                     : includesMe && styles.reactionCountHighlight,
                 ]}
@@ -661,12 +663,14 @@ function ReactionPickerSheet({
                         height: REACTION_SHEET_CHIP_SIZE,
                         borderRadius: REACTION_SHEET_CHIP_SIZE / 2,
                         paddingHorizontal: isPill ? 10 : 0,
-                        backgroundColor: includesMe
-                          ? (accentColor ?? REACTION_CHIP_STYLE.bgMine)
-                          : REACTION_CHIP_STYLE.bgDefault,
-                        borderColor: includesMe
-                          ? (accentColor ?? REACTION_CHIP_STYLE.borderColorMine)
-                          : REACTION_CHIP_STYLE.borderColorDefault,
+                        backgroundColor:
+                          accentColor ??
+                          (includesMe ? REACTION_CHIP_STYLE.bgMine : REACTION_CHIP_STYLE.bgDefault),
+                        borderColor:
+                          accentColor ??
+                          (includesMe
+                            ? REACTION_CHIP_STYLE.borderColorMine
+                            : REACTION_CHIP_STYLE.borderColorDefault),
                       },
                       pressed && { opacity: 0.8 },
                     ]}
@@ -874,7 +878,6 @@ function ChatEmbeddedPost({
               <EmbedAuthor author={author} size={20} isFromMe={isFromMe} compact />
             </SkiaGradientOverlay>
           </Pressable>
-          <EmbedDescription text={text} isFromMe={isFromMe} marginTop={8} />
         </View>
       </View>
     );
@@ -982,8 +985,16 @@ export default function ChatScreen() {
     () => ({ borderRightColor: sentMessageAccentColor }),
     [sentMessageAccentColor]
   );
+  const otherUserAccentColor =
+    pickLighterHex(profileColors.backgroundColor, profileColors.foregroundColor) ||
+    Colors.neutral[700];
+  const otherMessageAccentBorderStyle = useMemo(
+    () => ({ borderLeftColor: otherUserAccentColor }),
+    [otherUserAccentColor]
+  );
   const headerConfig = itemSizeConfig.large;
   const [showChatMenu, setShowChatMenu] = useState(false);
+  const [showReportOrBlockSheet, setShowReportOrBlockSheet] = useState(false);
   const [reactionPickerMessageId, setReactionPickerMessageId] = useState<string | null>(null);
   const [reactionPickerTouch, setReactionPickerTouch] = useState<{ x: number; y: number } | null>(
     null
@@ -997,19 +1008,21 @@ export default function ChatScreen() {
   });
 
   const isConvoMuted = (convo as { muted?: boolean } | null)?.muted ?? false;
+  const convoStatus = (convo as { status?: 'request' | 'accepted' } | null)?.status;
+  const needsAccept = convoStatus === 'request';
   const blockMutation = useBlockMutation();
   const isBlocked = !!(profile?.viewer?.blocking || profile?.viewer?.blockingByList);
   const isBlockedByList = !!profile?.viewer?.blockingByList;
 
-  const {
-    data: messagesData,
-    refetch: refetchMessages,
-    isRefetching,
-  } = useQuery({
+  const { data: messagesData } = useQuery({
     queryKey: queryKeys.chat.messages.byConversation(convoId),
     queryFn: () => ChatService.getMessages(convoId, null),
     enabled: !!convoId,
+    refetchOnWindowFocus: false,
   });
+
+  // Merge new messages/reactions from getLog into cache so chats update in near real time
+  useChatLogPolling(convoId, queryClient);
 
   const sendMessageMutation = useMutation({
     mutationFn: (text: string) => ChatService.sendMessage(convoId, { text }),
@@ -1084,15 +1097,46 @@ export default function ChatScreen() {
     },
   });
 
+  // Newest message id (getMessages returns newest first); pass to updateRead so server marks read up to this message
+  const latestMessageId = useMemo(() => {
+    const messages = (messagesData?.messages ?? []) as MessageItem[];
+    return messages[0]?.id;
+  }, [messagesData?.messages]);
+
+  const readSyncRef = useRef<{ convoId: string; latestMessageId: string | undefined }>({
+    convoId: '',
+    latestMessageId: undefined,
+  });
+
   useEffect(() => {
     if (!convoId) return;
-    ChatService.updateRead(convoId)
-      .then(() => {
-        queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.all });
-      })
-      .catch(() => {});
-  }, [convoId, queryClient]);
+    readSyncRef.current = { convoId, latestMessageId };
 
+    const markRead = () => {
+      ChatService.updateRead(convoId, latestMessageId)
+        .then(() => {
+          void queryClient.refetchQueries({ queryKey: queryKeys.unread.summary() });
+          queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.all });
+        })
+        .catch(() => {});
+    };
+
+    markRead();
+
+    return () => {
+      const { convoId: cid, latestMessageId: mid } = readSyncRef.current;
+      if (cid) {
+        ChatService.updateRead(cid, mid)
+          .then(() => {
+            void queryClient.refetchQueries({ queryKey: queryKeys.unread.summary() });
+            queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.all });
+          })
+          .catch(() => {});
+      }
+    };
+  }, [convoId, latestMessageId, queryClient]);
+
+  // Bluesky getMessages returns newest first; we reverse to oldest-first so last index = newest (bottom with startRenderingFromBottom)
   const listData = useMemo(() => {
     const raw = (messagesData?.messages ?? []) as MessageItem[];
     const messages = [...raw].reverse(); // oldest first, newest last
@@ -1171,6 +1215,9 @@ export default function ChatScreen() {
       const isFromMe = msg.sender?.did === currentUserDid;
       const isNewSender = !item.groupedWithPrevious;
       const hasEmbed = isEmbedRecordView(msg.embed);
+      const record =
+        hasEmbed && msg.embed ? (msg.embed as { record?: EmbedRecordShape }).record : undefined;
+      const hasVideoEmbed = !!record && !!getVideoViewFromRecordEmbeds(record.embeds);
       const onLongPress = (e: { nativeEvent: { pageX: number; pageY: number } }) => {
         setReactionPickerMessageId(msg.id);
         setReactionPickerTouch({ x: e.nativeEvent.pageX, y: e.nativeEvent.pageY });
@@ -1184,7 +1231,9 @@ export default function ChatScreen() {
             isFromMe ? styles.messageRowFromMe : styles.messageRowFromThem,
             isNewSender && styles.messageRowNewSender,
             isFromMe && !hasEmbed && sentMessageAccentBorderStyle,
+            !isFromMe && !hasEmbed && otherMessageAccentBorderStyle,
             hasEmbed && styles.messageRowEmbed,
+            hasVideoEmbed && styles.messageRowVideoEmbed,
           ]}
         >
           {msg.text != null && msg.text !== '' && (
@@ -1213,7 +1262,7 @@ export default function ChatScreen() {
               reactions={(msg as MessageItem).reactions}
               currentUserDid={currentUserDid ?? undefined}
               isFromMe={!!isFromMe}
-              accentColor={sentMessageAccentColor}
+              accentColor={isFromMe ? sentMessageAccentColor : otherUserAccentColor}
             />
             {isFromMe && item.showTime && msg.sentAt && (
               <Text style={[styles.messageTime, styles.messageTimeFromMe]}>
@@ -1224,7 +1273,13 @@ export default function ChatScreen() {
         </Pressable>
       );
     },
-    [currentUserDid, sentMessageAccentColor, sentMessageAccentBorderStyle]
+    [
+      currentUserDid,
+      sentMessageAccentColor,
+      otherUserAccentColor,
+      sentMessageAccentBorderStyle,
+      otherMessageAccentBorderStyle,
+    ]
   );
 
   const keyExtractor = useCallback((item: ChatListItem) => {
@@ -1259,6 +1314,14 @@ export default function ChatScreen() {
       queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.all });
       setShowChatMenu(false);
       router.back();
+    },
+  });
+
+  const acceptConvoMutation = useMutation({
+    mutationFn: () => ChatService.acceptConvo(convoId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.detail(convoId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.all });
     },
   });
 
@@ -1360,7 +1423,10 @@ export default function ChatScreen() {
     );
   }, [reactionPickerMessageId, messagesData?.messages]);
 
-  const canSend = inputText.trim().length > 0 && !sendMessageMutation.isPending;
+  const pickerMessageAccentColor =
+    pickerMessage?.sender?.did === currentUserDid ? sentMessageAccentColor : otherUserAccentColor;
+
+  const canSend = !needsAccept && inputText.trim().length > 0 && !sendMessageMutation.isPending;
   const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
   const headerTop = insets.top + 4;
   const inputBottom = insets.bottom + 8;
@@ -1397,7 +1463,7 @@ export default function ChatScreen() {
               type="profile"
               size={headerConfig.avatarSize}
               showRing
-              ringColor={profileColors.foregroundColor || Colors.neutral[200]}
+              ringColor={otherUserAccentColor}
               profileColors={{
                 backgroundColor: profileColors.backgroundColor,
                 foregroundColor: profileColors.foregroundColor,
@@ -1433,7 +1499,7 @@ export default function ChatScreen() {
         onOpenFullPicker={() => setShowFullEmojiPicker(true)}
         currentReactions={pickerMessage?.reactions}
         currentUserDid={currentUserDid ?? undefined}
-        accentColor={sentMessageAccentColor}
+        accentColor={pickerMessageAccentColor}
       />
 
       <ReactionPickerSheet
@@ -1451,7 +1517,7 @@ export default function ChatScreen() {
         }}
         currentReactions={pickerMessage?.reactions}
         currentUserDid={currentUserDid ?? undefined}
-        accentColor={sentMessageAccentColor}
+        accentColor={pickerMessageAccentColor}
       />
 
       <VerticalListSheet
@@ -1488,45 +1554,60 @@ export default function ChatScreen() {
         </View>
       </VerticalListSheet>
 
+      <VerticalListSheet
+        visible={showReportOrBlockSheet}
+        onDismiss={() => setShowReportOrBlockSheet(false)}
+        title="Report or block"
+        showCancelButton
+        cancelButtonText="Cancel"
+        name="chat-report-or-block"
+        detents={['auto']}
+      >
+        <View style={styles.menuOptionsContainer}>
+          <VerticalListButton
+            label={isBlocked ? 'Unblock account' : 'Block account'}
+            onPress={() => {
+              setShowReportOrBlockSheet(false);
+              handleBlockToggle();
+            }}
+            disabled={blockMutation.isPending || isBlockedByList}
+          />
+          <VerticalListButton
+            label="Report conversation"
+            onPress={() => {
+              setShowReportOrBlockSheet(false);
+              handleReportConversation();
+            }}
+            disabled={isReportSubmitting}
+          />
+        </View>
+      </VerticalListSheet>
+
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={0}
       >
         {listData.length > 0 ? (
-          <LegendList
+          <FlashList
+            data={listData}
+            renderItem={renderListItem}
+            keyExtractor={keyExtractor}
+            getItemType={(item: ChatListItem) => (item.type === 'date' ? 'date' : 'message')}
             style={styles.list}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
-            data={listData}
-            dataVersion={listData.length}
-            renderItem={renderListItem}
-            keyExtractor={keyExtractor}
-            estimatedItemSize={56}
             keyboardShouldPersistTaps="handled"
-            alignItemsAtEnd
-            maintainScrollAtEnd={{
-              onDataChange: true,
-              onLayout: true,
-              onItemLayout: true,
+            maintainVisibleContentPosition={{
+              startRenderingFromBottom: true,
+              autoscrollToBottomThreshold: 100,
             }}
-            maintainScrollAtEndThreshold={0.5}
-            initialScrollIndex={listData.length - 1}
-            onRefresh={refetchMessages}
-            refreshing={isRefetching}
           />
         ) : (
           <ScrollView
             style={styles.list}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
-            refreshControl={
-              <RefreshControl
-                refreshing={isRefetching}
-                onRefresh={refetchMessages}
-                tintColor={Colors.neutral[50]}
-              />
-            }
           >
             {messagesData ? (
               <View style={styles.empty}>
@@ -1536,49 +1617,98 @@ export default function ChatScreen() {
           </ScrollView>
         )}
 
-        <View style={[styles.inputRow, { paddingBottom: inputBottom }]}>
-          <View style={styles.inputWrapper}>
-            <TextInput
-              style={styles.input}
-              value={inputText}
-              onChangeText={setInputText}
-              placeholder="Message"
-              placeholderTextColor={Colors.neutral[500]}
-              multiline
-              maxLength={1000}
-              editable={!sendMessageMutation.isPending}
-              textAlignVertical="top"
-              returnKeyType="send"
-              blurOnSubmit={false}
+        {needsAccept ? (
+          <View style={[styles.acceptBar, { paddingBottom: inputBottom }]}>
+            <OptionsButton
+              label={acceptConvoMutation.isPending ? 'Accepting…' : 'Accept'}
+              onPress={() => acceptConvoMutation.mutate()}
+              disabled={acceptConvoMutation.isPending || leaveConvoMutation.isPending}
+              linkType="none"
+              style={styles.acceptBarOptionButton}
+              containerStyle={[
+                styles.acceptBarOptionButtonInner,
+                styles.acceptBarOptionButtonCenter,
+                styles.acceptBarButtonAcceptBg,
+              ]}
+              textStyle={[styles.acceptBarOptionButtonText, styles.acceptBarButtonAcceptText]}
             />
+            <View style={styles.acceptBarRowActions}>
+              <View style={styles.acceptBarOptionButtonWrap}>
+                <OptionsButton
+                  label="Report or block"
+                  onPress={() => setShowReportOrBlockSheet(true)}
+                  disabled={acceptConvoMutation.isPending || leaveConvoMutation.isPending}
+                  destructive
+                  linkType="none"
+                  style={styles.acceptBarOptionButton}
+                  containerStyle={[
+                    styles.acceptBarOptionButtonInner,
+                    styles.acceptBarOptionButtonCenter,
+                  ]}
+                  textStyle={styles.acceptBarOptionButtonText}
+                />
+              </View>
+              <View style={styles.acceptBarOptionButtonWrap}>
+                <OptionsButton
+                  label={leaveConvoMutation.isPending ? 'Declining…' : 'Decline'}
+                  onPress={() => leaveConvoMutation.mutate()}
+                  disabled={acceptConvoMutation.isPending || leaveConvoMutation.isPending}
+                  linkType="none"
+                  style={styles.acceptBarOptionButton}
+                  containerStyle={[
+                    styles.acceptBarOptionButtonInner,
+                    styles.acceptBarOptionButtonCenter,
+                  ]}
+                  textStyle={styles.acceptBarOptionButtonText}
+                />
+              </View>
+            </View>
           </View>
-          {canSend ? (
-            <Pressable
-              style={[styles.sendButton, !useLiquidGlass && styles.sendButtonFallback]}
-              onPress={handleSend}
-              hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
-              accessible
-              accessibilityRole="button"
-              accessibilityLabel="Send message"
-            >
-              {useLiquidGlass ? (
-                <>
-                  <GlassView
-                    style={styles.sendButtonGlass}
-                    glassEffectStyle="clear"
-                    tintColor="rgba(255, 255, 255, 1)"
-                    isInteractive
-                  />
-                  <View style={styles.sendButtonContent} pointerEvents="none">
-                    <Icon name="arrow-up-fill" size={22} color={Colors.black} />
-                  </View>
-                </>
-              ) : (
-                <Icon name="arrow-up-fill" size={22} color={Colors.black} />
-              )}
-            </Pressable>
-          ) : null}
-        </View>
+        ) : (
+          <View style={[styles.inputRow, { paddingBottom: inputBottom }]}>
+            <View style={styles.inputWrapper}>
+              <TextInput
+                style={styles.input}
+                value={inputText}
+                onChangeText={setInputText}
+                placeholder="Message"
+                placeholderTextColor={Colors.neutral[500]}
+                multiline
+                maxLength={1000}
+                editable={!sendMessageMutation.isPending}
+                textAlignVertical="top"
+                returnKeyType="send"
+                blurOnSubmit={false}
+              />
+            </View>
+            {canSend ? (
+              <Pressable
+                style={[styles.sendButton, !useLiquidGlass && styles.sendButtonFallback]}
+                onPress={handleSend}
+                hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+                accessible
+                accessibilityRole="button"
+                accessibilityLabel="Send message"
+              >
+                {useLiquidGlass ? (
+                  <>
+                    <GlassView
+                      style={styles.sendButtonGlass}
+                      glassEffectStyle="clear"
+                      tintColor="rgba(255, 255, 255, 1)"
+                      isInteractive
+                    />
+                    <View style={styles.sendButtonContent} pointerEvents="none">
+                      <Icon name="arrow-up-fill" size={22} color={Colors.black} />
+                    </View>
+                  </>
+                ) : (
+                  <Icon name="arrow-up-fill" size={22} color={Colors.black} />
+                )}
+              </Pressable>
+            ) : null}
+          </View>
+        )}
       </KeyboardAvoidingView>
     </View>
   );
@@ -1595,7 +1725,46 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.neutral[900],
+    borderBottomColor: Colors.neutral[800],
+  },
+  acceptBar: {
+    paddingHorizontal: 10,
+    paddingTop: 10,
+    gap: 10,
+    borderTopWidth: 1,
+    borderTopColor: Colors.neutral[800],
+    backgroundColor: Colors.black,
+  },
+  acceptBarButtonAcceptBg: {
+    backgroundColor: Colors.brand.teal,
+  },
+  acceptBarButtonAcceptText: {
+    color: Colors.black,
+  },
+  acceptBarRowActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  acceptBarOptionButtonWrap: {
+    flex: 1,
+  },
+  acceptBarOptionButton: {
+    marginHorizontal: 0,
+    marginBottom: 0,
+  },
+  acceptBarOptionButtonInner: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  acceptBarOptionButtonCenter: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  acceptBarOptionButtonText: {
+    textAlign: 'center',
   },
   backButton: {
     width: 44,
@@ -1631,6 +1800,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingBottom: 24,
     flexGrow: 1,
+    justifyContent: 'flex-end',
   },
   empty: {
     paddingVertical: 48,
@@ -1673,6 +1843,10 @@ const styles = StyleSheet.create({
   messageRowEmbed: {
     borderLeftWidth: 0,
     borderRightWidth: 0,
+  },
+  messageRowVideoEmbed: {
+    paddingLeft: 0,
+    paddingRight: 0,
   },
   messageText: {
     color: Colors.neutral[50],
@@ -1922,7 +2096,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: Colors.neutral[900],
+    borderTopColor: Colors.neutral[800],
     backgroundColor: Colors.black,
   },
   inputWrapper: {

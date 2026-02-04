@@ -121,6 +121,11 @@ export const queryKeys = {
     feeds: (query: string) => [...searchBase, 'feeds', query] as const,
   },
 
+  // Tab bar unread (single source: notifications + chats)
+  unread: {
+    summary: () => ['unread', 'summary'] as const,
+  },
+
   // Notification queries
   notifications: {
     all: ['notifications'] as const,

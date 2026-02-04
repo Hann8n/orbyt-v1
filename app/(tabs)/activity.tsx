@@ -179,7 +179,7 @@ const ActivityScreen: React.FC = () => {
   const [showFilterSheet, setShowFilterSheet] = useState(false);
   const [filterReasons, setFilterReasons] = useState<NotificationReason[] | undefined>(undefined);
   const insets = useSafeAreaInsets();
-  const { notificationsCount } = useUnreadCount();
+  const { notificationsCount, messagesCount } = useUnreadCount();
 
   const pages = useMemo<Array<'chats' | 'notifications'>>(() => ['chats', 'notifications'], []);
 
@@ -272,6 +272,7 @@ const ActivityScreen: React.FC = () => {
                   {tabId === 'notifications' && Number(notificationsCount) > 0 && (
                     <View style={styles.badge} />
                   )}
+                  {tabId === 'chats' && Number(messagesCount) > 0 && <View style={styles.badge} />}
                 </View>
               </Pressable>
             ))}

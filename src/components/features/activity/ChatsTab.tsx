@@ -1,15 +1,23 @@
-import React, { useCallback, useMemo, forwardRef, useImperativeHandle, useRef } from 'react';
+import React, {
+  useCallback,
+  useMemo,
+  forwardRef,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from 'react';
 import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../../utils/constants';
 import { View, Text, StyleSheet, Pressable, RefreshControl } from 'react-native';
 import { LegendList, LegendListRef } from '@legendapp/list';
 import type { ScrollToTopRef } from '../../../utils/navigation/tabRefs';
 import { ChatBskyConvoDefs } from '@atproto/api';
 import { ChatService } from '../../../services/api/chat/ChatService';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { Colors } from '../../../theme';
+import { OptionsButton } from '../../../components/ui/OptionsButton';
 import { Avatar } from '../../../components/ui/UI';
 import { Loading3FillIcon } from '../../../components/ui/Icon';
 import { VerificationBadge } from '../badging';
@@ -57,93 +65,166 @@ function getOtherMember(
 type ConversationItemProps = {
   item: ConvoView;
   navigation: ReturnType<typeof useRouter>;
+  onAccept: (convoId: string) => void;
+  onDecline: (convoId: string) => void;
+  isAccepting: boolean;
+  isDeclining: boolean;
 };
 
-const ConversationItem = React.memo<ConversationItemProps>(({ item, navigation }) => {
-  const currentUser = useUserStore(s => s.currentUser);
-  const other = useMemo(() => getOtherMember(item, currentUser?.did), [item, currentUser?.did]);
-  const handle = other?.handle ?? '';
-  const nameLabel = formatHandle(handle) || 'Unknown';
-  const preview = getLastMessagePreview(item.lastMessage);
-  const lastMsg = item.lastMessage;
-  const sentAt =
-    lastMsg &&
-    typeof lastMsg === 'object' &&
-    'sentAt' in lastMsg &&
-    typeof (lastMsg as { sentAt?: string }).sentAt === 'string'
-      ? (lastMsg as { sentAt: string }).sentAt
-      : undefined;
-  const unread = (item.unreadCount ?? 0) > 0;
+const ConversationItem = React.memo<ConversationItemProps>(
+  ({ item, navigation, onAccept, onDecline, isAccepting, isDeclining }) => {
+    const currentUser = useUserStore(s => s.currentUser);
+    const other = useMemo(
+      () => getOtherMember(item, currentUser?.did ?? undefined),
+      [item, currentUser?.did]
+    );
+    const handle = other?.handle ?? '';
+    const nameLabel = formatHandle(handle) || 'Unknown';
+    const preview = getLastMessagePreview(item.lastMessage);
+    const lastMsg = item.lastMessage;
+    const sentAt =
+      lastMsg &&
+      typeof lastMsg === 'object' &&
+      'sentAt' in lastMsg &&
+      typeof (lastMsg as { sentAt?: string }).sentAt === 'string'
+        ? (lastMsg as { sentAt: string }).sentAt
+        : undefined;
+    const unread = (item.unreadCount ?? 0) > 0;
+    const isRequest = item.status === 'request';
 
-  const handlePress = useCallback(() => {
-    if (item.id && other?.did) {
-      navigation.push({
-        pathname: '/chat/[id]',
-        params: { id: item.id, did: other.did },
-      });
-    }
-  }, [navigation, item.id, other]);
+    const handlePress = useCallback(() => {
+      if (item.id && other?.did) {
+        navigation.push({
+          pathname: '/chat/[id]',
+          params: { id: item.id, did: other.did },
+        });
+      }
+    }, [navigation, item.id, other]);
 
-  const handleAvatarPress = useCallback(() => {
-    if (other?.did) {
-      navigation.push({
-        pathname: '/profile/[did]',
-        params: { did: other.did },
-      });
-    }
-  }, [navigation, other]);
+    const handleAvatarPress = useCallback(() => {
+      if (other?.did) {
+        navigation.push({
+          pathname: '/profile/[did]',
+          params: { did: other.did },
+        });
+      }
+    }, [navigation, other]);
 
-  const handleNamePress = useCallback(() => {
-    if (other?.did) {
-      navigation.push({
-        pathname: '/profile/[did]',
-        params: { did: other.did },
-      });
-    }
-  }, [navigation, other]);
+    const handleNamePress = useCallback(() => {
+      if (other?.did) {
+        navigation.push({
+          pathname: '/profile/[did]',
+          params: { did: other.did },
+        });
+      }
+    }, [navigation, other]);
 
-  const nameHitSlop = { top: 8, bottom: 8, left: 8, right: 8 };
+    const handleAccept = useCallback(() => {
+      if (item.id) onAccept(item.id);
+    }, [item.id, onAccept]);
 
-  return (
-    <View style={styles.conversationItem}>
-      <Pressable onPress={handleAvatarPress} style={styles.profileImage}>
-        <Avatar
-          uri={other?.avatar}
-          type="profile"
-          size={55}
-          showRing={true}
-          style={styles.avatarFill}
-        />
-      </Pressable>
-      <Pressable onPress={handlePress} style={styles.content}>
-        <View style={styles.nameRow}>
-          <Pressable onPress={handleNamePress} hitSlop={nameHitSlop} style={styles.namePressable}>
-            <Text style={styles.name} numberOfLines={1}>
-              {nameLabel}
-            </Text>
-            {handle && (
-              <VerificationBadge handle={handle} textSize={14} textColor={Colors.neutral[50]} />
-            )}
+    const handleDecline = useCallback(() => {
+      if (item.id) onDecline(item.id);
+    }, [item.id, onDecline]);
+
+    const nameHitSlop = { top: 8, bottom: 8, left: 8, right: 8 };
+    const thisAccepting = isRequest && isAccepting;
+    const thisDeclining = isRequest && isDeclining;
+
+    return (
+      <View style={styles.conversationItem}>
+        <View style={styles.topRow}>
+          <Pressable onPress={handleAvatarPress} style={styles.profileImage}>
+            <Avatar
+              uri={other?.avatar}
+              type="profile"
+              size={55}
+              showRing={true}
+              style={styles.avatarFill}
+            />
           </Pressable>
-          {sentAt && <Text style={styles.time}>{formatRelativeDate(sentAt)}</Text>}
+          <Pressable onPress={handlePress} style={styles.nameAndPreview}>
+            <View style={styles.nameRow}>
+              <Pressable
+                onPress={handleNamePress}
+                hitSlop={nameHitSlop}
+                style={styles.namePressable}
+              >
+                <Text style={styles.name} numberOfLines={1}>
+                  {nameLabel}
+                </Text>
+                {handle && (
+                  <VerificationBadge handle={handle} textSize={14} textColor={Colors.neutral[50]} />
+                )}
+              </Pressable>
+              {sentAt && <Text style={styles.time}>{formatRelativeDate(sentAt)}</Text>}
+            </View>
+            <View style={styles.previewRow}>
+              <Text style={[styles.preview, unread && styles.previewUnread]} numberOfLines={1}>
+                {preview || (isRequest ? 'Chat request' : 'Tap to open')}
+              </Text>
+              {unread && <View style={styles.unreadDot} />}
+            </View>
+          </Pressable>
         </View>
-        <View style={styles.previewRow}>
-          <Text style={[styles.preview, unread && styles.previewUnread]} numberOfLines={1}>
-            {preview || 'Tap to open'}
-          </Text>
-          {unread && <View style={styles.unreadDot} />}
-        </View>
-      </Pressable>
-    </View>
-  );
-});
+        {isRequest ? (
+          <View style={styles.requestActions}>
+            <View style={styles.requestOptionButtonWrap}>
+              <OptionsButton
+                label={thisAccepting ? 'Accepting…' : 'Accept'}
+                onPress={handleAccept}
+                disabled={thisAccepting || thisDeclining}
+                linkType="none"
+                style={styles.requestOptionButton}
+                containerStyle={[
+                  styles.requestOptionButtonInner,
+                  styles.requestOptionButtonCenter,
+                  styles.requestOptionButtonAcceptBg,
+                ]}
+                textStyle={[styles.requestOptionButtonText, styles.requestOptionButtonAcceptText]}
+              />
+            </View>
+            <View style={styles.requestOptionButtonWrap}>
+              <OptionsButton
+                label={thisDeclining ? 'Declining…' : 'Decline'}
+                onPress={handleDecline}
+                disabled={thisAccepting || thisDeclining}
+                linkType="none"
+                style={styles.requestOptionButton}
+                containerStyle={[styles.requestOptionButtonInner, styles.requestOptionButtonCenter]}
+                textStyle={styles.requestOptionButtonText}
+              />
+            </View>
+          </View>
+        ) : null}
+      </View>
+    );
+  }
+);
 ConversationItem.displayName = 'ConversationItem';
 
 const ChatsTab = forwardRef<ScrollToTopRef>((_, ref) => {
   const listRef = useRef<LegendListRef>(null);
   const navigation = useRouter();
+  const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const bottomNavBarHeight = getBottomNavBarHeight(insets);
+  const [isUserRefreshing, setIsUserRefreshing] = useState(false);
+
+  const acceptConvoMutation = useMutation({
+    mutationFn: (convoId: string) => ChatService.acceptConvo(convoId),
+    onSuccess: (_, convoId) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.detail(convoId) });
+    },
+  });
+
+  const leaveConvoMutation = useMutation({
+    mutationFn: (convoId: string) => ChatService.leaveConvo(convoId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.all });
+    },
+  });
 
   useImperativeHandle(
     ref,
@@ -171,8 +252,9 @@ const ChatsTab = forwardRef<ScrollToTopRef>((_, ref) => {
     getNextPageParam: lastPage => lastPage.cursor ?? undefined,
     staleTime: QUERY_CONSTANTS.STALE_TIME_SHORT,
     gcTime: 60 * 60 * 1000,
+    refetchInterval: 30000, // Auto-refresh list to stay in sync with indicator
     refetchOnWindowFocus: false,
-    refetchOnMount: true,
+    refetchOnMount: false,
     refetchOnReconnect: false,
     placeholderData: prev => prev,
   });
@@ -182,9 +264,29 @@ const ChatsTab = forwardRef<ScrollToTopRef>((_, ref) => {
     [data]
   );
 
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
+
+  const handleRefresh = useCallback(() => {
+    setIsUserRefreshing(true);
+    refetch().finally(() => setIsUserRefreshing(false));
+  }, [refetch]);
+
   const renderItem = useCallback(
-    ({ item }: { item: ConvoView }) => <ConversationItem item={item} navigation={navigation} />,
-    [navigation]
+    ({ item }: { item: ConvoView }) => (
+      <ConversationItem
+        item={item}
+        navigation={navigation}
+        onAccept={convoId => acceptConvoMutation.mutate(convoId)}
+        onDecline={convoId => leaveConvoMutation.mutate(convoId)}
+        isAccepting={acceptConvoMutation.isPending && acceptConvoMutation.variables === item.id}
+        isDeclining={leaveConvoMutation.isPending && leaveConvoMutation.variables === item.id}
+      />
+    ),
+    [navigation, acceptConvoMutation, leaveConvoMutation]
   );
 
   const keyExtractor = useCallback((item: ConvoView) => item.id, []);
@@ -221,6 +323,7 @@ const ChatsTab = forwardRef<ScrollToTopRef>((_, ref) => {
         styles.listContentContainer,
         { paddingBottom: bottomNavBarHeight + 5 },
       ]}
+      contentInsetAdjustmentBehavior="never"
       data={conversations}
       renderItem={renderItem}
       keyExtractor={keyExtractor}
@@ -228,8 +331,8 @@ const ChatsTab = forwardRef<ScrollToTopRef>((_, ref) => {
       estimatedItemSize={80}
       refreshControl={
         <RefreshControl
-          refreshing={isRefetching && !isFetchingNextPage}
-          onRefresh={() => refetch()}
+          refreshing={isUserRefreshing && isRefetching && !isFetchingNextPage}
+          onRefresh={handleRefresh}
           tintColor={Colors.neutral[50]}
         />
       }
@@ -255,14 +358,16 @@ const styles = StyleSheet.create({
   listContainer: { flex: 1 },
   listContentContainer: { paddingHorizontal: 10 },
   conversationItem: {
+    paddingVertical: 10,
+  },
+  topRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
   },
   divider: {
     height: 1,
     backgroundColor: Colors.neutral[900],
-    marginLeft: 65,
+    marginLeft: 67,
     marginRight: -10,
   },
   profileImage: {
@@ -272,7 +377,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   avatarFill: { width: '100%', height: '100%' },
-  content: {
+  nameAndPreview: {
     flex: 1,
     justifyContent: 'center',
     marginRight: 10,
@@ -312,6 +417,39 @@ const styles = StyleSheet.create({
   previewUnread: {
     color: Colors.neutral[50],
     fontFamily: 'Figtree-SemiBold',
+  },
+  requestActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 10,
+    width: '100%',
+  },
+  requestOptionButtonWrap: {
+    flex: 1,
+  },
+  requestOptionButton: {
+    marginHorizontal: 0,
+    marginBottom: 0,
+  },
+  requestOptionButtonInner: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    minHeight: 40,
+    justifyContent: 'center',
+  },
+  requestOptionButtonCenter: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  requestOptionButtonText: {
+    textAlign: 'center',
+  },
+  requestOptionButtonAcceptBg: {
+    backgroundColor: Colors.brand.teal,
+  },
+  requestOptionButtonAcceptText: {
+    color: Colors.black,
   },
   unreadDot: {
     width: 8,

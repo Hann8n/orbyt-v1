@@ -8,6 +8,20 @@ import type { ConvoView, MessageView } from '../types';
 
 const CHAT_SERVICE_DID = 'did:web:api.bsky.chat';
 
+/** Log event types from chat.bsky.convo.getLog (union of all convo log events) */
+export type ChatLogEntry = {
+  $type?: string;
+  rev?: string;
+  convoId?: string;
+  message?: MessageView | { id: string; rev: string; sender?: { did: string }; sentAt?: string };
+  reaction?: { value: string; sender?: { did: string }; createdAt?: string };
+};
+
+export interface ChatLogResponse {
+  cursor?: string;
+  logs: ChatLogEntry[];
+}
+
 const chatOpts = () => ({
   headers: { 'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat` as const },
 });
@@ -51,9 +65,9 @@ export const ChatService = {
   },
 
   /** chat.bsky.convo.getConvoAvailability */
-  async getConvoAvailability(userDid: string): Promise<ConvoView | null> {
+  async getConvoAvailability(members: string[]): Promise<ConvoView | null> {
     const { api } = await AtprotoService.getApiClient();
-    const res = await api.chat.bsky.convo.getConvoAvailability({ userDid }, chatOpts());
+    const res = await api.chat.bsky.convo.getConvoAvailability({ members }, chatOpts());
     return res.data?.convo ?? null;
   },
 
@@ -64,18 +78,28 @@ export const ChatService = {
       { convoId, limit: 50, ...(cursor && { cursor }) },
       chatOpts()
     );
-    const data = res.data as { messages?: unknown[]; logs?: unknown[]; cursor?: string | null };
     return {
-      messages: data?.messages ?? data?.logs ?? [],
-      cursor: data?.cursor ?? null,
+      messages: (res.data?.messages ?? []) as MessagesResponse['messages'],
+      cursor: res.data?.cursor ?? null,
     };
   },
 
-  /** chat.bsky.convo.getLog */
-  async getLog(cursor: string | null = null): Promise<{ cursor?: string; log: unknown[] }> {
+  /**
+   * chat.bsky.convo.getLog (lexicon type: query).
+   * Per AT Protocol: this is an XRPC query (GET), not a subscription. There is no
+   * chat subscription in the lexicon (unlike com.atproto.sync.subscribeRepos).
+   * To get new events: omit cursor on first call; then pass the returned cursor for
+   * follow-on requests (XRPC cursor pagination). Clients poll getLog(cursor) to
+   * receive new messages, reactions, and convo events.
+   * @see https://github.com/bluesky-social/atproto/blob/main/lexicons/chat/bsky/convo/getLog.json
+   */
+  async getLog(cursor: string | null = null): Promise<ChatLogResponse> {
     const { api } = await AtprotoService.getApiClient();
     const res = await api.chat.bsky.convo.getLog(cursor ? { cursor } : undefined, chatOpts());
-    return { cursor: res.data?.cursor, log: res.data?.log ?? [] };
+    return {
+      cursor: res.data?.cursor ?? undefined,
+      logs: (res.data?.logs ?? []) as ChatLogEntry[],
+    };
   },
 
   /** chat.bsky.convo.sendMessage */
@@ -95,10 +119,12 @@ export const ChatService = {
   ): Promise<MessageView[]> {
     const { api } = await AtprotoService.getApiClient();
     const res = await api.chat.bsky.convo.sendMessageBatch(
-      { convoId, items: items.map(i => ({ message: i.message })) },
+      {
+        items: items.map(i => ({ convoId, message: i.message })),
+      },
       chatOpts()
     );
-    return (res.data?.items ?? []).map((x: { message: MessageView }) => x.message);
+    return res.data?.items ?? [];
   },
 
   /** chat.bsky.convo.updateRead */
@@ -137,11 +163,10 @@ export const ChatService = {
     await api.chat.bsky.convo.deleteMessageForSelf({ convoId, messageId }, chatOpts());
   },
 
-  /** chat.bsky.convo.acceptConvo */
-  async acceptConvo(convoId: string): Promise<ConvoView> {
+  /** chat.bsky.convo.acceptConvo – accepts a conversation request. API returns { rev?: string } only. */
+  async acceptConvo(convoId: string): Promise<void> {
     const { api } = await AtprotoService.getApiClient();
-    const res = await api.chat.bsky.convo.acceptConvo({ convoId }, chatOpts());
-    return res.data!.convo;
+    await api.chat.bsky.convo.acceptConvo({ convoId }, chatOpts());
   },
 
   /** chat.bsky.convo.leaveConvo */
