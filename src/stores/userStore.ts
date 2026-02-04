@@ -24,6 +24,7 @@ import type { OrbytProfileRecord } from '../services/api/types';
 import { isOrbytChannel } from '../utils/channels/orbyt';
 import { queryClient } from '../utils/query/queryClient';
 import { usePostInteractionStore } from './postInteractionStore';
+import { useFollowStore } from './followStore';
 import { queryKeys } from '../utils/query/queryKeys';
 import { prefetchOrbytColors, loadPersistedColors } from '../hooks/useOrbytColors';
 import { ALGORITHMIC_FEED_PROVIDERS, APP_CONSTANTS } from '../utils/constants';
@@ -133,7 +134,7 @@ interface UserState {
   // Authentication
   signIn: (identifier: string) => Promise<void>;
   signOut: (clearAllAccounts?: boolean) => Promise<void>;
-  restoreSession: (did: string) => Promise<void>;
+  restoreSession: (did: string, skipSettings?: boolean) => Promise<void>;
 
   // Account management
   switchAccount: (did: string, onComplete?: () => void) => Promise<void>;
@@ -204,8 +205,14 @@ interface UserState {
   // Initialization
   initializeUserState: () => Promise<void>;
   loadSavedAccounts: () => Promise<void>;
-  loadUserSpecificSettings: (did: string) => Promise<void>;
-  loadSubscribedChannels: (did: string) => Promise<void>;
+  loadUserSpecificSettings: (
+    did: string,
+    orbytProfileRecord?: OrbytProfileRecord | null
+  ) => Promise<void>;
+  loadSubscribedChannels: (
+    did: string,
+    orbytProfileRecord?: OrbytProfileRecord | null
+  ) => Promise<void>;
 }
 
 // Storage keys
@@ -448,7 +455,7 @@ export const useUserStore = create<UserState>()(
         }
       },
 
-      restoreSession: async (did: string) => {
+      restoreSession: async (did: string, skipSettings: boolean = false) => {
         try {
           set({ isAuthenticating: true, authError: null });
 
@@ -531,17 +538,19 @@ export const useUserStore = create<UserState>()(
           prefetchColorsForUser(session.did);
 
           // Load and clean subscribed channels after session restore
-          // This ensures built-in channels are removed from both state and profile record
-          // Already non-blocking (Promise.all not awaited), so no need to defer further
-          Promise.all([
-            get().loadUserSpecificSettings(session.did),
-            get().loadSubscribedChannels(session.did),
-          ]).catch(error => {
-            logger.warn('Failed to load some user settings after session restore', {
-              component: 'userStore',
-              error: error.message,
+          // Skip if called from account switch (settings will be loaded once after)
+          if (!skipSettings) {
+            // Already non-blocking (Promise.all not awaited), so no need to defer further
+            Promise.all([
+              get().loadUserSpecificSettings(session.did),
+              get().loadSubscribedChannels(session.did),
+            ]).catch(error => {
+              logger.warn('Failed to load some user settings after session restore', {
+                component: 'userStore',
+                error: error.message,
+              });
             });
-          });
+          }
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : 'Session restoration failed';
@@ -616,7 +625,8 @@ export const useUserStore = create<UserState>()(
             throw new Error('Account not found');
           }
 
-          // Clear all caches before switching - this ensures no stale data from previous account
+          // Clear interaction stores before switching - this ensures no stale data from previous account
+          // Note: React Query cache will be invalidated (not cleared) below for better performance
           await get().clearAllCaches();
 
           // Update account statuses
@@ -633,7 +643,8 @@ export const useUserStore = create<UserState>()(
           // The OAuth client package handles session switching internally via restore()
           // No need to manually clear the client - it manages multiple sessions by DID
           try {
-            await get().restoreSession(did);
+            // Restore session without loading settings (we'll load them once after)
+            await get().restoreSession(did, true); // skipSettings = true
 
             // Verify agent is set before proceeding
             const state = get();
@@ -647,11 +658,22 @@ export const useUserStore = create<UserState>()(
               activeAccountDid: did,
             });
 
+            // Fetch orbyt profile record once and reuse for both settings and channels
+            // This avoids duplicate API calls during account switching
+            let orbytProfileRecord: OrbytProfileRecord | null = null;
+            try {
+              orbytProfileRecord = (await AtprotoService.getOrbytProfileRecordForDid(
+                did
+              )) as OrbytProfileRecord | null;
+            } catch {
+              // Fallback handled in individual functions
+            }
+
             // Load user-specific data and wait for it to complete
             // Settings are needed for feed rendering (algorithmicFeedProvider, subscribedChannels)
             await Promise.all([
-              get().loadUserSpecificSettings(did),
-              get().loadSubscribedChannels(did),
+              get().loadUserSpecificSettings(did, orbytProfileRecord),
+              get().loadSubscribedChannels(did, orbytProfileRecord),
             ]).catch(error => {
               logger.warn('Failed to load some user settings', {
                 component: 'userStore',
@@ -670,6 +692,7 @@ export const useUserStore = create<UserState>()(
             // Invalidate ALL React Query queries to trigger fresh data fetch for the new account
             // This ensures feeds, profiles, channels, and all user-specific data refreshes
             // Feeds will now be enabled (because isSwitchingAccount is false) and can fetch successfully
+            // Using invalidateQueries instead of clear() preserves query structure and is faster
             queryClient.invalidateQueries();
           } catch (restoreErr) {
             logger.error('Session restoration failed for account switch', restoreErr, {
@@ -1157,17 +1180,14 @@ export const useUserStore = create<UserState>()(
 
       clearAllCaches: async () => {
         try {
-          // Clear React Query cache (single source of truth for all data)
-          queryClient.clear();
-
           // Clear post interaction cache
           usePostInteractionStore.getState().clearInteractions();
 
           // Clear follow state cache
-          const { useFollowStore } = await import('./followStore');
           useFollowStore.getState().clearFollows();
 
-          // Clear profile interaction flags
+          // Clear profile interaction flags (lazy import to avoid circular dependency)
+          // profileInteractionStore imports userStore, so we must import it dynamically
           const { useProfileInteractionStore } = await import('./profileInteractionStore');
           useProfileInteractionStore.getState().clearAll();
 
@@ -1175,7 +1195,8 @@ export const useUserStore = create<UserState>()(
           // Moderation prefs are managed by React Query - invalidate cache on logout
           queryClient.removeQueries({ queryKey: queryKeys.moderation.all });
 
-          // Note: All data caching is now handled by React Query
+          // Note: React Query cache will be invalidated (not cleared) in switchAccount
+          // This allows for better performance by avoiding full cache clear
           // Custom caches (ProfileCache, ChannelCache, AtprotoService) have been removed
         } catch (error) {
           logger.error('Error clearing caches', error, { component: 'userStore' });
@@ -1496,7 +1517,10 @@ export const useUserStore = create<UserState>()(
         }
       },
 
-      loadUserSpecificSettings: async (did: string) => {
+      loadUserSpecificSettings: async (
+        did: string,
+        orbytProfileRecord?: OrbytProfileRecord | null
+      ) => {
         try {
           // Load user-specific feed settings
           const feedDebugOverlayEnabled = await get().getFeedDebugOverlayEnabled();
@@ -1506,7 +1530,11 @@ export const useUserStore = create<UserState>()(
           // Record-first backfill: Load algorithmic feed provider from profile record first
           let algorithmicFeedProvider: string | null = null;
           try {
-            const record = await AtprotoService.getOrbytProfileRecordForDid(did);
+            // Use provided record or fetch if not provided
+            const record =
+              orbytProfileRecord !== undefined
+                ? orbytProfileRecord
+                : await AtprotoService.getOrbytProfileRecordForDid(did);
             // Use API structure directly - OrbytProfileRecord.algorithmicFeedProvider is string | null | undefined
             const remoteProvider = (record as OrbytProfileRecord)?.algorithmicFeedProvider;
 
@@ -1533,8 +1561,6 @@ export const useUserStore = create<UserState>()(
           const agent = get().agent;
           const modResult = await ModerationService.getModerationPrefsAndLabelDefs(agent);
           if (modResult && currentUser?.did) {
-            const { queryClient } = await import('../utils/query/queryClient');
-            const { queryKeys } = await import('../utils/query/queryKeys');
             queryClient.setQueryData(queryKeys.moderation.byUser(currentUser.did), modResult);
           }
 
@@ -1550,7 +1576,10 @@ export const useUserStore = create<UserState>()(
         }
       },
 
-      loadSubscribedChannels: async (did: string) => {
+      loadSubscribedChannels: async (
+        did: string,
+        orbytProfileRecord?: OrbytProfileRecord | null
+      ) => {
         try {
           // Load user-specific channel subscriptions
           const key = getUserScopedKey(STORAGE_KEYS.SUBSCRIBED_CHANNELS, did);
@@ -1566,7 +1595,11 @@ export const useUserStore = create<UserState>()(
           // Always check and clean profile record, even if we have local channels
           // This ensures built-ins are removed from the profile record
           try {
-            const record = await AtprotoService.getOrbytProfileRecordForDid(did);
+            // Use provided record or fetch if not provided
+            const record =
+              orbytProfileRecord !== undefined
+                ? orbytProfileRecord
+                : await AtprotoService.getOrbytProfileRecordForDid(did);
             // Use API structure directly - OrbytProfileRecord.subscribedChannels is string[] | undefined
             const remoteUris: string[] = Array.isArray(
               (record as OrbytProfileRecord)?.subscribedChannels
