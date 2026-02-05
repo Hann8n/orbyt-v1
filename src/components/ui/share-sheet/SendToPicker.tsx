@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { View, Text, TextInput, FlatList, StyleSheet, Pressable } from 'react-native';
+import { View, Text, TextInput, FlatList, StyleSheet, Pressable, Alert } from 'react-native';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import {
   safeDismiss,
@@ -248,7 +248,6 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
         }
 
         if (!cid) {
-          const { Alert } = await import('react-native');
           Alert.alert('error', 'unable to send post. missing post information.');
           return;
         }
@@ -260,7 +259,6 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
           const otherDid = (item as ProfileViewBasic).did;
           const convo = await ChatService.getConvoForMembers([currentUserDid, otherDid].sort());
           if (!convo) {
-            const { Alert } = await import('react-native');
             Alert.alert('error', 'could not start conversation. the user may have DMs disabled.');
             return;
           }
@@ -282,10 +280,7 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
         queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.all });
         handleDismiss();
         onSent();
-        const { Alert } = await import('react-native');
-        Alert.alert('sent', 'post sent successfully.');
       } catch (_error: unknown) {
-        const { Alert } = await import('react-native');
         const msg =
           _error instanceof Error ? _error.message : 'failed to send post. please try again.';
         Alert.alert('error', msg);
