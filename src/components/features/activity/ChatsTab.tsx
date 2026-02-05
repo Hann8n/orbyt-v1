@@ -632,9 +632,9 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   requestOptionButtonInner: {
-    paddingVertical: 10,
+    paddingVertical: 6,
     paddingHorizontal: 14,
-    minHeight: 40,
+    minHeight: 34,
     justifyContent: 'center',
   },
   requestOptionButtonCenter: {
@@ -643,6 +643,7 @@ const styles = StyleSheet.create({
   },
   requestOptionButtonText: {
     textAlign: 'center',
+    fontSize: 15,
   },
   requestOptionButtonAcceptBg: {
     backgroundColor: Colors.brand.teal,
