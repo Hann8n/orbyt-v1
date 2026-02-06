@@ -7,6 +7,7 @@ import {
   memo,
   forwardRef,
   useImperativeHandle,
+  type ReactNode,
 } from 'react';
 import {
   View,
@@ -36,7 +37,7 @@ import { useWindowDimensions } from 'react-native';
 import * as Device from 'expo-device';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ListFeedViewRef } from '../../../types';
-import type { ScrollToTopRef } from '../../../utils/navigation/tabRefs';
+import type { ProfileRef } from '../../../utils/navigation/tabRefs';
 import { useFeedSettings } from '../../../stores/userStore';
 import {
   useSetTabBarVisibility,
@@ -47,23 +48,58 @@ import {
 // Define the feed options type
 export type FeedOption = string;
 
-// Hardcoded feed options - only 'following' and 'your-mix'
+// Default feed options and labels for home screen
+const DEFAULT_FEED_OPTIONS: FeedOption[] = ['following', 'your-mix'];
 const FEED_LABELS: { [key: string]: string } = {
   following: 'following',
   'your-mix': 'your mix',
+  profile: 'videos',
+  reposts: 'reposts',
+  likes: 'likes',
 };
 
 // SVG uses Orbyt White for the camera icon fill (matches Colors.neutral[50] / Colors.neutral[50])
 const CAMERA_2_FILL_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='2 2 20 20'><g fill='none'><path fill='#f3f5fe' d='M14.793 3a1.5 1.5 0 0 1 .95.34l.11.1L17.415 5H20a2 2 0 0 1 1.995 1.85L22 7v12a2 2 0 0 1-1.85 1.995L20 21H4a2 2 0 0 1-1.995-1.85L2 19V7a2 2 0 0 1 1.85-1.995L4 5h2.586l1.56-1.56a1.5 1.5 0 0 1 .913-.433L9.207 3zM12 7.5a5 5 0 1 0 0 10 5 5 0 0 0 0-10m0 2a3 3 0 1 1 0 6 3 3 0 0 1 0-6'/></g></svg>`;
 
-interface FeedPagerProps {
+// Pass-through props for FeedRenderer when using custom feedOptions (e.g. profile)
+interface FeedPagerRendererProps {
+  headerComponent?: ReactNode;
+  backgroundColor?: string;
+  secondaryColor?: string;
+  viewMode?: 'list' | 'grid';
+  onViewModeChange?: (mode: 'list' | 'grid') => void;
+  onRefresh?: () => void | Promise<void>;
+  /** When provided, the visible list writes scroll progress (0..1) here on UI thread for overlay fade. */
+  contentScrollProgressOutput?: SharedValue<number>;
+  queryOptions?: {
+    enabled?: boolean;
+    staleTime?: number;
+    refetchOnMount?: boolean;
+    refetchOnWindowFocus?: boolean;
+  };
+  isVisible?: boolean;
+  isModal?: boolean;
+}
+
+interface FeedPagerProps extends FeedPagerRendererProps {
   initialFeed?: FeedOption;
+  /** When provided, use these feeds instead of default following/your-mix (e.g. profile/reposts/likes) */
+  feedOptions?: FeedOption[];
+  /** Custom labels for feed indicator; when missing uses FEED_LABELS */
+  feedLabels?: { [key: string]: string };
+  /** Passed to each FeedRenderer when using profile-style feeds */
+  userDid?: string;
   onFeedChange?: (feed: FeedOption) => void;
+  /** Controlled feed: when provided, pager syncs page to this feed (e.g. profile tab tap) */
+  currentFeed?: FeedOption;
   isRefreshing?: boolean;
-  forceError?: boolean; // Add debug flag to force error responses
+  forceError?: boolean;
   applySafeArea?: boolean;
-  // Optional override for indicator text size (used by Home screen)
   indicatorFontSize?: number;
+  /** When false, hide the top feed indicator bar (profile uses TabNavigation in header) */
+  showFeedIndicator?: boolean;
+  /** When false, disables swipe and uses instant page changes (no animation). Default true. */
+  scrollEnabled?: boolean;
 }
 
 interface FeedIndicatorItemProps {
@@ -106,14 +142,30 @@ const FeedIndicatorItem = memo(function FeedIndicatorItem({
   );
 });
 
-const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
+const FeedPager = forwardRef<ProfileRef, FeedPagerProps>(function FeedPager(
   {
     initialFeed = 'following',
+    feedOptions: feedOptionsProp,
+    feedLabels: feedLabelsProp,
+    userDid,
+    currentFeed,
     onFeedChange,
     isRefreshing = false,
     forceError = false,
     applySafeArea = false,
     indicatorFontSize,
+    showFeedIndicator = true,
+    scrollEnabled = true,
+    headerComponent,
+    backgroundColor,
+    secondaryColor,
+    viewMode,
+    onViewModeChange,
+    onRefresh,
+    contentScrollProgressOutput,
+    queryOptions: queryOptionsProp,
+    isVisible = true,
+    isModal = false,
   },
   ref
 ) {
@@ -121,7 +173,6 @@ const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
   const isTablet = Device.deviceType === Device.DeviceType.TABLET || Math.min(width, height) >= 600;
   const isSmallScreen = width <= 375 || height <= 667;
   const pagerViewRef = useRef<PagerView>(null);
-  // Refs to FeedRenderer instances, keyed by feedOption
   const feedRendererRefs = useRef<{ [key: string]: ListFeedViewRef | null }>({});
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -129,6 +180,8 @@ const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
   const setTabBarVisibility = useSetTabBarVisibility();
   const setOverlayVisibility = useSetOverlayVisibility();
   const tabBarVisibility = useTabBarVisibility();
+
+  const feedOptions = useMemo(() => feedOptionsProp ?? DEFAULT_FEED_OPTIONS, [feedOptionsProp]);
 
   const showBarAndOverlay = useCallback(() => {
     setTabBarVisibility(1);
@@ -160,26 +213,36 @@ const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
     };
   }, []);
 
-  // State for feed retries
-  const [feedRetries, setFeedRetries] = useState<{ [key in FeedOption]?: number }>({});
-
   // Animation values for feed bar vertical transition - using Reanimated for UI thread
   const feedBarTranslateY = useSharedValue(0);
   const [isFeedBarVisible, setIsFeedBarVisible] = useState(true);
 
-  // Always show 'following' first, then 'your-mix'
-  const feedOptions = useMemo(() => {
-    return ['following', 'your-mix'] as FeedOption[];
-  }, []);
-
   // Same as PagerView's initialPage – single source of truth for "which page we're on" at mount.
   const initialPageIndex = useMemo(() => {
-    const initialIndex = feedOptions.findIndex(option => option === initialFeed);
+    const feed = currentFeed ?? initialFeed;
+    const initialIndex = feedOptions.findIndex(option => option === feed);
     return initialIndex >= 0 ? initialIndex : 0;
-  }, [feedOptions, initialFeed]);
+  }, [feedOptions, initialFeed, currentFeed]);
 
   // Must match initialPage: native PagerView does not fire onPageSelected for the initial page.
   const pageScrollProgress = useSharedValue(initialPageIndex);
+
+  const setPagerPage = useCallback(
+    (index: number) => {
+      if (index < 0 || !pagerViewRef.current) return;
+      if (scrollEnabled) pagerViewRef.current.setPage(index);
+      else pagerViewRef.current.setPageWithoutAnimation(index);
+      pageScrollProgress.value = index;
+    },
+    [scrollEnabled, pageScrollProgress]
+  );
+
+  // Sync controlled currentFeed -> pager page
+  useEffect(() => {
+    if (currentFeed == null) return;
+    const index = feedOptions.findIndex(option => option === currentFeed);
+    if (index >= 0) setPagerPage(index);
+  }, [currentFeed, feedOptions, setPagerPage]);
 
   // Track current feed index for visibility checks (updated via useAnimatedReaction)
   const [currentFeedIndex, setCurrentFeedIndex] = useState(initialPageIndex);
@@ -274,33 +337,26 @@ const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
     [feedOptions, onFeedChange]
   );
 
-  // Handle retry for each feed
-  const handleRetryFeed = useCallback(() => {
-    const currentRetries = feedRetries[currentFeedOption] || 0;
-    setFeedRetries(prev => ({
-      ...prev,
-      [currentFeedOption]: currentRetries + 1,
-    }));
-  }, [currentFeedOption, feedRetries]);
+  // Retry is handled inside FeedRenderer (refetch); pass stable no-op so child can call it
+  const handleRetryFeed = useCallback(() => {}, []);
 
   const handleIndicatorTap = useCallback(
     (feedOption: FeedOption) => {
       const targetIndex = feedOptions.findIndex(option => option === feedOption);
-      if (targetIndex >= 0 && pagerViewRef.current) {
-        pagerViewRef.current.setPage(targetIndex);
-      }
+      if (targetIndex >= 0) setPagerPage(targetIndex);
     },
-    [feedOptions]
+    [feedOptions, setPagerPage]
   );
 
-  // Memoized query options for feed rendering
+  // Memoized query options for feed rendering (merge profile-style overrides when provided)
   const baseQueryOptions = useMemo(
     () => ({
       staleTime: 5 * 60 * 1000, // 5 minutes
       refetchOnMount: false,
       refetchOnWindowFocus: false,
+      ...queryOptionsProp,
     }),
-    []
+    [queryOptionsProp]
   );
 
   // Optimized feed page styles - consistent with ListFeedView
@@ -336,66 +392,103 @@ const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
           feedRendererRefs.current[feedOption] = r;
         }}
         feedOption={String(feedOption)}
+        userDid={userDid}
+        headerComponent={headerComponent}
+        backgroundColor={backgroundColor}
+        secondaryColor={secondaryColor}
+        viewMode={viewMode}
+        onViewModeChange={onViewModeChange}
+        onRefresh={onRefresh}
+        contentScrollProgressOutput={
+          index === currentFeedIndex ? contentScrollProgressOutput : undefined
+        }
         onRetryFeed={handleRetryFeed}
         queryOptions={baseQueryOptions}
-        isVisible={index === currentFeedIndex}
+        isVisible={isVisible && index === currentFeedIndex}
         isRefreshing={isRefreshing}
         forceError={forceError}
+        isModal={isModal}
       />
     ),
-    [currentFeedIndex, handleRetryFeed, baseQueryOptions, isRefreshing, forceError]
+    [
+      userDid,
+      headerComponent,
+      backgroundColor,
+      secondaryColor,
+      viewMode,
+      onViewModeChange,
+      onRefresh,
+      contentScrollProgressOutput,
+      currentFeedIndex,
+      handleRetryFeed,
+      baseQueryOptions,
+      isVisible,
+      isRefreshing,
+      forceError,
+      isModal,
+    ]
   );
 
-  // Expose scrollToTop method
+  const getLabel = useCallback(
+    (feedOption: FeedOption) =>
+      feedLabelsProp?.[feedOption] ?? FEED_LABELS[feedOption] ?? feedOption,
+    [feedLabelsProp]
+  );
+
+  // Expose scrollToTop and setPage (setPage used by profile to sync tab tap -> pager)
   useImperativeHandle(
     ref,
     () => ({
       scrollToTop: () => {
         feedRendererRefs.current[currentFeedOption]?.scrollToTop();
       },
+      setPage: (index: number) => {
+        if (index >= 0 && index < feedOptions.length) setPagerPage(index);
+      },
     }),
-    [currentFeedOption]
+    [currentFeedOption, feedOptions.length, setPagerPage]
   );
 
   return (
     <GestureHandlerRootView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.black} />
 
-      {/* Feed Indicators & camera button - animated using Reanimated for UI thread performance */}
-      <Animated.View
-        style={[
-          styles.feedSwitcher,
-          feedSwitcherTopStyle,
-          feedBarAnimatedStyle,
-          controlsAnimatedStyle,
-        ]}
-      >
-        <View style={styles.indicatorContainer}>
-          <View style={styles.feedIndicators}>
-            {feedOptions.map((feedOption, index) => (
-              <FeedIndicatorItem
-                key={feedOption}
-                feedIndex={index}
-                indicatorBaseFontSize={indicatorBaseFontSize}
-                pageScrollProgress={pageScrollProgress}
-                label={FEED_LABELS[feedOption] || feedOption}
-                onPress={() => handleIndicatorTap(feedOption)}
-                pressableStyle={styles.indicatorItem}
-              />
-            ))}
+      {showFeedIndicator && (
+        <Animated.View
+          style={[
+            styles.feedSwitcher,
+            feedSwitcherTopStyle,
+            feedBarAnimatedStyle,
+            controlsAnimatedStyle,
+          ]}
+        >
+          <View style={styles.indicatorContainer}>
+            <View style={styles.feedIndicators}>
+              {feedOptions.map((feedOption, index) => (
+                <FeedIndicatorItem
+                  key={feedOption}
+                  feedIndex={index}
+                  indicatorBaseFontSize={indicatorBaseFontSize}
+                  pageScrollProgress={pageScrollProgress}
+                  label={getLabel(feedOption)}
+                  onPress={() => handleIndicatorTap(feedOption)}
+                  pressableStyle={styles.indicatorItem}
+                />
+              ))}
+            </View>
+            {nativeTabsEnabled && (
+              <Pressable
+                onPress={() => {
+                  router.navigate('/create');
+                }}
+                style={styles.createButton}
+              >
+                <SvgXml xml={CAMERA_2_FILL_ICON_SVG} width={24} height={24} />
+              </Pressable>
+            )}
           </View>
-          {nativeTabsEnabled && (
-            <Pressable
-              onPress={() => {
-                router.navigate('/create');
-              }}
-              style={styles.createButton}
-            >
-              <SvgXml xml={CAMERA_2_FILL_ICON_SVG} width={24} height={24} />
-            </Pressable>
-          )}
-        </View>
-      </Animated.View>
+        </Animated.View>
+      )}
 
       {/* PagerView for feeds with optimized gesture handling */}
       <PagerView
@@ -403,7 +496,7 @@ const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
         style={styles.pagerView}
         initialPage={initialPageIndex}
         onPageSelected={handlePageSelected}
-        scrollEnabled={true}
+        scrollEnabled={scrollEnabled}
         overdrag={false}
         pageMargin={0}
       >
@@ -474,12 +567,17 @@ const styles = StyleSheet.create({
 
 // Performance comparison for memo
 const areEqual = (prevProps: FeedPagerProps, nextProps: FeedPagerProps) => {
-  // Critical props that affect visibility and performance
   if (prevProps.initialFeed !== nextProps.initialFeed) return false;
+  if (prevProps.currentFeed !== nextProps.currentFeed) return false;
   if (prevProps.isRefreshing !== nextProps.isRefreshing) return false;
   if (prevProps.forceError !== nextProps.forceError) return false;
   if (prevProps.applySafeArea !== nextProps.applySafeArea) return false;
   if (prevProps.indicatorFontSize !== nextProps.indicatorFontSize) return false;
+  if (prevProps.showFeedIndicator !== nextProps.showFeedIndicator) return false;
+  if (prevProps.scrollEnabled !== nextProps.scrollEnabled) return false;
+  if (prevProps.userDid !== nextProps.userDid) return false;
+  if (prevProps.isVisible !== nextProps.isVisible) return false;
+  if (prevProps.feedOptions !== nextProps.feedOptions) return false;
 
   return true;
 };

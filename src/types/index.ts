@@ -4,7 +4,7 @@
  */
 
 import type React from 'react';
-import type { FeedScrollContextReadyPayload } from '../context/FeedScrollContext';
+import type { SharedValue } from 'react-native-reanimated';
 
 // ============================================================================
 // UI Component Types
@@ -42,8 +42,8 @@ export interface ListFeedViewProps {
   isModal?: boolean;
   isProfileFeed?: boolean;
   isRefreshing?: boolean;
-  /** When list provides scroll context (list view only), called so parent can reuse contentScrollProgressSV. */
-  onScrollContextReady?: (ctx: FeedScrollContextReadyPayload) => void;
+  /** When provided, list writes its scroll progress (0..1) here on the UI thread. Used by overlay fade. */
+  contentScrollProgressOutput?: SharedValue<number>;
   forceError?: boolean;
   ListComponent?: React.ComponentType<unknown> | null;
   targetScrollIndex?: number | null;

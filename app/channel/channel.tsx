@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
-import type { FeedScrollContextReadyPayload } from '../../src/context/FeedScrollContext';
+import { useSharedValue } from 'react-native-reanimated';
 import { BORDER_RADIUS } from '../../src/utils/constants';
 import { View, StyleSheet, Dimensions, Pressable, Text } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -50,15 +50,8 @@ const Channel: React.FC = memo(() => {
 
   const defaultTop = (typeof insets?.top === 'number' ? insets.top : 0) + 5;
   const [viewMode, setViewMode] = useState<ViewMode>('list');
-  const [feedScrollContext, setFeedScrollContext] = useState<FeedScrollContextReadyPayload | null>(
-    null
-  );
-  const onScrollContextReady = useCallback(
-    (ctx: FeedScrollContextReadyPayload) => setFeedScrollContext(ctx),
-    []
-  );
-  const contentScrollProgressSV =
-    viewMode === 'list' ? feedScrollContext?.contentScrollProgressSV : undefined;
+  const overlayScrollProgressSV = useSharedValue(0);
+  const contentScrollProgressSV = viewMode === 'list' ? overlayScrollProgressSV : undefined;
   const {
     isModal,
     headerPaddingTop,
@@ -363,7 +356,7 @@ const Channel: React.FC = memo(() => {
           onViewModeChange={setViewMode}
           queryOptions={channelDataForFeed && feedOption ? queryOptions : { enabled: false }}
           isVisible={isRouteFocused}
-          onScrollContextReady={onScrollContextReady}
+          contentScrollProgressOutput={viewMode === 'list' ? overlayScrollProgressSV : undefined}
           isModal={isModal}
         />
       )}

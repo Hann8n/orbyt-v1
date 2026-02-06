@@ -1,10 +1,9 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef, memo } from 'react';
-import type { FeedScrollContextReadyPayload } from '../../src/context/FeedScrollContext';
+import { useSharedValue } from 'react-native-reanimated';
 import { BORDER_RADIUS, APP_CONSTANTS } from '../../src/utils/constants';
 import { View, Text, StyleSheet, Pressable, Dimensions, Modal } from 'react-native';
 import { Image } from 'expo-image';
-// Use plain FlashList via FeedRenderer; no adapter/converter
-import FeedRenderer from '../../src/components/features/feed/FeedRenderer';
+import { FeedPager } from '../../src/components';
 import ProfileService, {
   useProfileByDid,
   useProfile,
@@ -43,10 +42,10 @@ import type { FeedResponse } from '../../src/services/api/types';
 import ProfileMenu from '../../src/components/features/profile/ProfileMenu';
 import SubscriptionOptionsSheet from '../../src/components/features/profile/SubscriptionOptionsSheet';
 import LiveStreamInfoSheet from '../../src/components/features/profile/LiveStreamInfoSheet';
-import { tabRefs } from '../../src/utils/navigation/tabRefs';
+import { tabRefs, type ProfileRef } from '../../src/utils/navigation/tabRefs';
 import type { ViewMode } from '../../src/types';
 interface ProfileScreenProps {
-  onLogout: (clearAllAccounts?: boolean) => Promise<void>;
+  onLogout: (_clearAllAccounts?: boolean) => Promise<void>;
 }
 
 const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
@@ -178,7 +177,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
 
       // Refetch profile (includes orbytColors) so cache is updated
       await refetchProfile();
-    } catch (_error) {
+    } catch {
       setProfileError('Failed to refresh profile.');
     } finally {
       // Reset refreshing state after a delay to show the refresh animation
@@ -202,6 +201,11 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       { id: 'reposts', label: 'reposts' },
       ...(isOwnProfileView ? [{ id: 'likes', label: 'likes' }] : []),
     ],
+    [isOwnProfileView]
+  );
+
+  const profileFeedOptions = useMemo(
+    () => (isOwnProfileView ? ['profile', 'reposts', 'likes'] : ['profile', 'reposts']),
     [isOwnProfileView]
   );
 
@@ -388,14 +392,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   }, [onLogout]);
 
   const defaultTop = (insets?.top ?? 0) + 5;
-  const [feedScrollContext, setFeedScrollContext] = useState<FeedScrollContextReadyPayload | null>(
-    null
-  );
-  const onScrollContextReady = useCallback(
-    (ctx: FeedScrollContextReadyPayload) => setFeedScrollContext(ctx),
-    []
-  );
-  const contentScrollProgressSV = feedScrollContext?.contentScrollProgressSV;
+  const overlayScrollProgressSV = useSharedValue(0);
   const {
     isModal,
     headerPaddingTop,
@@ -404,7 +401,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     overlayAnimatedStyle,
     backIconPrimaryStyle,
     backIconSecondaryStyle,
-  } = useDetailScreenOverlay(providedIdentifier, defaultTop, contentScrollProgressSV);
+  } = useDetailScreenOverlay(providedIdentifier, defaultTop, overlayScrollProgressSV);
 
   const baseBackTextColor = useMemo(
     () => (dynamicColors ? dynamicColors.textColor : profileColors.textColor) || Colors.neutral[50],
@@ -587,15 +584,18 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       {showErrorScreen ? (
         renderErrorScreen
       ) : (
-        <FeedRenderer
+        <FeedPager
           ref={r => {
-            tabRefs.profile = r;
+            tabRefs.profile = r as ProfileRef | null;
           }}
-          feedOption={
-            activeTab === 'profile' ? 'profile' : activeTab === 'reposts' ? 'reposts' : 'likes'
-          }
+          feedOptions={profileFeedOptions}
           userDid={profileDid}
+          currentFeed={activeTab}
+          onFeedChange={feed => setActiveTab(feed as 'profile' | 'reposts' | 'likes')}
+          showFeedIndicator={false}
+          scrollEnabled={false}
           queryOptions={queryOptions}
+          isVisible={isRouteFocused}
           isModal={isModal}
           headerComponent={
             <View style={styles.headerContainer} pointerEvents="box-none">
@@ -620,7 +620,11 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
                   key={`tab-nav-${dynamicColors?.textColor || profileColors.textColor}`}
                   tabs={tabOptions}
                   activeTab={activeTab}
-                  onTabPress={tabId => setActiveTab(tabId as 'profile' | 'reposts' | 'likes')}
+                  onTabPress={tabId => {
+                    setActiveTab(tabId as 'profile' | 'reposts' | 'likes');
+                    const index = profileFeedOptions.indexOf(tabId);
+                    if (index >= 0) tabRefs.profile?.setPage(index);
+                  }}
                   textColor={dynamicColors ? dynamicColors.textColor : profileColors.textColor}
                   backgroundColor="transparent"
                   viewMode={viewMode}
@@ -638,8 +642,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
           onRefresh={isModal ? undefined : onRefresh}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
-          isVisible={isRouteFocused}
-          onScrollContextReady={onScrollContextReady}
+          contentScrollProgressOutput={overlayScrollProgressSV}
         />
       )}
       {isLoading && (

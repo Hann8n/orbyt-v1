@@ -164,7 +164,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       viewMode,
       onViewModeChange: _onViewModeChange,
       isModal = false,
-      onScrollContextReady,
+      contentScrollProgressOutput,
       forceError = false,
       ListComponent,
       targetScrollIndex,
@@ -185,13 +185,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     // Scroll offset for percent-visible: written in useAnimatedScrollHandler (UI thread), read in VideoCard worklet.
     const scrollOffsetYSV = useSharedValue(0);
-
-    // UI-thread scroll handler: updates scrollOffsetYSV only.
-    const scrollHandler = useAnimatedScrollHandler({
-      onScroll: event => {
-        scrollOffsetYSV.value = event.contentOffset.y;
-      },
-    });
 
     // setScrollBasedBlocking via useAnimatedReaction so we only cross the JS bridge when the boolean flips (same pattern as ProfileHeader).
     useAnimatedReaction(
@@ -484,6 +477,23 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       return fadeDist > 0 ? Math.max(0, Math.min(1, scrollOffsetYSV.value / fadeDist)) : 0;
     }, [scrollOffsetYSV, fadeDist]);
 
+    // UI-thread scroll handler: one write path for offset and (when provided) overlay progress. No extra useAnimatedReaction.
+    const scrollHandler = useAnimatedScrollHandler(
+      {
+        onScroll: event => {
+          'worklet';
+          const y = event.contentOffset.y;
+          scrollOffsetYSV.value = y;
+          if (contentScrollProgressOutput && fadeDist > 0) {
+            // Reanimated SharedValue: mutating .value is the intended API (UI-thread sync), not the prop reference.
+            // eslint-disable-next-line react-hooks/immutability
+            contentScrollProgressOutput.value = Math.max(0, Math.min(1, y / fadeDist));
+          }
+        },
+      },
+      [contentScrollProgressOutput, fadeDist]
+    );
+
     // Memoize context value to avoid unnecessary re-renders of list consumers when layout/scroll haven't changed.
     // Must be before the grid early return so hooks run in the same order every render.
     const feedScrollValue = useMemo(
@@ -502,12 +512,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         contentScrollProgressSV,
       ]
     );
-
-    useEffect(() => {
-      if (onScrollContextReady && contentScrollProgressSV != null) {
-        onScrollContextReady({ contentScrollProgressSV });
-      }
-    }, [onScrollContextReady, contentScrollProgressSV]);
 
     // Grid view rendering (feed from FeedRenderer has no endCard; filter satisfies GridFeedView type)
     if (viewMode === 'grid') {

@@ -24,7 +24,6 @@ import { Colors } from '../../../theme';
 import { feedService } from '../../../services/FeedService';
 import type { ListFeedViewRef, ViewMode } from '../../../types';
 import { FollowProvider } from '../../../context/FollowContext';
-import type { FeedScrollContextReadyPayload } from '../../../context/FeedScrollContext';
 import type {
   ExtendedFeedViewPost as FeedItem,
   ExtendedPostView as Post,
@@ -57,8 +56,8 @@ interface FeedRendererProps {
   // Callbacks
   onRetryFeed?: () => void;
   onRefresh?: () => void | Promise<void>; // Called when user pulls to refresh
-  /** When list provides scroll context, called so parent can reuse contentScrollProgressSV for overlay. */
-  onScrollContextReady?: (ctx: FeedScrollContextReadyPayload) => void;
+  /** When provided, list writes scroll progress (0..1) here on UI thread for overlay fade. */
+  contentScrollProgressOutput?: import('react-native-reanimated').SharedValue<number>;
 
   // Search-specific props
   hasNextPage?: boolean;
@@ -97,7 +96,7 @@ const FeedRenderer = memo(
         isVisible = true,
         viewMode = 'list',
         onViewModeChange,
-        onScrollContextReady,
+        contentScrollProgressOutput,
         isRefreshing, // No default - undefined means FeedRenderer manages state internally
         isModal = false,
         // Search props
@@ -365,7 +364,7 @@ const FeedRenderer = memo(
           isVisible,
           viewMode,
           onViewModeChange,
-          onScrollContextReady,
+          contentScrollProgressOutput,
           isRefreshing: effectiveRefreshing,
           isModal,
           ListComponent,
@@ -386,7 +385,7 @@ const FeedRenderer = memo(
           isVisible,
           viewMode,
           onViewModeChange,
-          onScrollContextReady,
+          contentScrollProgressOutput,
           effectiveRefreshing,
           isModal,
           ListComponent,
