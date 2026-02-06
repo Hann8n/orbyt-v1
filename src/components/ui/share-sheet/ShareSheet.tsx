@@ -12,8 +12,10 @@ import {
   Alert,
   ScrollView,
 } from 'react-native';
-import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import type { TrueSheet } from '@lodev09/react-native-true-sheet';
 import {
+  AppTrueSheet,
+  DEFAULT_HEADER_STYLE,
   useMeasuredFooterHeight,
   FOOTER_BOTTOM_PADDING_MIN,
 } from '../../../utils/components/truesheet';
@@ -368,28 +370,18 @@ const ShareSheet: React.FC = () => {
   // Don't render content if no data
   if (!data) {
     return (
-      <TrueSheet
-        ref={sheetRef}
-        name="share-sheet"
-        detents={['auto']}
-        backgroundColor={Colors.black}
-        onDidDismiss={handleDismiss}
-        grabber={false}
-      >
+      <AppTrueSheet ref={sheetRef} name="share-sheet" onDidDismiss={handleDismiss}>
         <View style={styles.contentContainer} />
-      </TrueSheet>
+      </AppTrueSheet>
     );
   }
 
   return (
     <>
-      <TrueSheet
+      <AppTrueSheet
         ref={sheetRef}
         name="share-sheet"
-        detents={['auto']}
-        backgroundColor={Colors.black}
         onDidDismiss={handleDismiss}
-        grabber={false}
         header={headerComponent}
         footer={wrapFooter(
           <View style={{ backgroundColor: Colors.black, paddingBottom: footerBottomPadding }}>
@@ -454,7 +446,7 @@ const ShareSheet: React.FC = () => {
             ))}
           </ScrollView>
         </View>
-      </TrueSheet>
+      </AppTrueSheet>
 
       {/* Send-to picker: isolated child sheet with its own footer */}
       {data && (
@@ -476,9 +468,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 20,
+    ...DEFAULT_HEADER_STYLE,
   },
   headerTitle: {
     color: Colors.neutral[50],

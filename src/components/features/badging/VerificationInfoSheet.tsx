@@ -1,5 +1,5 @@
 // filepath: /Users/jack/orbyt/components/VerificationInfoSheet.tsx
-import React, { useRef, useEffect, useMemo } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, Text, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,8 +11,10 @@ import { Loading3FillIcon } from '../../ui/Icon';
 import CloseButton from '../../ui/CloseButton';
 import CancelButton from '../../ui/CancelButton';
 import KeyboardAwareFooter from '../../../utils/components/truesheet/KeyboardAwareFooter';
-import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import type { TrueSheet } from '@lodev09/react-native-true-sheet';
 import {
+  AppTrueSheet,
+  DEFAULT_HEADER_STYLE,
   useMeasuredFooterHeight,
   FOOTER_BOTTOM_PADDING_MIN,
 } from '../../../utils/components/truesheet';
@@ -58,7 +60,6 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
 }) => {
   const bottomSheetRef = useRef<TrueSheet>(null);
   const navigation = useRouter();
-  const sheetDetents: ('auto' | number)[] = useMemo(() => ['auto'], []);
   const insets = useSafeAreaInsets();
   const footerBottomPadding = Math.max(insets.bottom, FOOTER_BOTTOM_PADDING_MIN);
   const [contentBottomPadding, wrapFooter] = useMeasuredFooterHeight(44 + footerBottomPadding);
@@ -96,13 +97,10 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
   }, [visible]);
 
   return (
-    <TrueSheet
+    <AppTrueSheet
       ref={bottomSheetRef}
       name="verification-info-sheet"
-      detents={sheetDetents}
-      backgroundColor={Colors.black}
       onDidDismiss={onDismiss}
-      grabber={false}
       footer={wrapFooter(
         <View style={{ backgroundColor: Colors.black, paddingBottom: footerBottomPadding }}>
           <KeyboardAwareFooter
@@ -150,7 +148,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
           </View>
         )}
       </View>
-    </TrueSheet>
+    </AppTrueSheet>
   );
 
   // Render trusted verifier badge info
@@ -267,9 +265,7 @@ const styles = StyleSheet.create({
   headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 20,
+    ...DEFAULT_HEADER_STYLE,
   },
   headerLeft: {
     flexDirection: 'row',

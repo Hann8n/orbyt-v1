@@ -21,7 +21,8 @@ import BlurredBackground from '../../src/components/ui/BlurredBackground';
 import { FlashList } from '@shopify/flash-list';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import type { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { AppTrueSheet } from '../../src/utils/components/truesheet';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 
 import { Colors } from '../../src/theme';
@@ -765,24 +766,15 @@ function ReactionPickerSheet({
     }
   }, [visible]);
 
+  const maxHeight = Math.round(screenHeight * 0.75);
+
   return (
-    <TrueSheet
+    <AppTrueSheet
       ref={sheetRef}
       name={REACTION_PICKER_SHEET_NAME}
-      detents={['auto']}
-      maxHeight={Math.round(screenHeight * 0.75)}
-      backgroundColor={Colors.neutral[900]}
+      variant="reactionPicker"
+      maxHeight={maxHeight}
       onDidDismiss={onDismiss}
-      grabber
-      grabberOptions={{
-        width: 42,
-        height: 4,
-        topMargin: 8,
-        cornerRadius: 2,
-        color: 'rgba(243, 245, 254, 0.5)',
-        adaptive: false,
-      }}
-      insetAdjustment="never"
       scrollable
       header={
         <View style={styles.reactionSheetHeader}>
@@ -863,7 +855,7 @@ function ReactionPickerSheet({
           }}
         />
       </View>
-    </TrueSheet>
+    </AppTrueSheet>
   );
 }
 
@@ -1862,7 +1854,6 @@ export default function ChatScreen() {
         showCancelButton
         cancelButtonText="Cancel"
         name="chat-menu"
-        detents={['auto']}
       >
         <View style={styles.menuOptionsContainer}>
           <VerticalListButton label="Go to profile" onPress={handleViewProfile} />
@@ -1896,7 +1887,6 @@ export default function ChatScreen() {
         showCancelButton
         cancelButtonText="Cancel"
         name="chat-report-or-block"
-        detents={['auto']}
       >
         <View style={styles.menuOptionsContainer}>
           <VerticalListButton

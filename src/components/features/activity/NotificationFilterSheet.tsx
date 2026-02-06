@@ -312,7 +312,6 @@ const NotificationFilterSheet: React.FC<NotificationFilterSheetProps> = ({
       showCancelButton={false}
       hideCloseButton={false}
       customHeaderButton={clearButtonState}
-      detents={['auto']}
       scrollable={true}
       customFooter={footerState}
     >

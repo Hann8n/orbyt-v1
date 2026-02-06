@@ -3,8 +3,10 @@ import { View, Text, StyleSheet, Linking } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format, parseISO, isValid, isToday, isTomorrow } from 'date-fns';
-import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import type { TrueSheet } from '@lodev09/react-native-true-sheet';
 import {
+  AppTrueSheet,
+  DEFAULT_HEADER_STYLE,
   useMeasuredFooterHeight,
   FOOTER_BOTTOM_PADDING_MIN,
 } from '../../../utils/components/truesheet';
@@ -33,7 +35,6 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
 }) => {
   const bottomSheetRef = useRef<TrueSheet>(null);
   const insets = useSafeAreaInsets();
-  const sheetDetents: ('auto' | number)[] = useMemo(() => ['auto'], []);
   const footerBottomPadding = Math.max(insets.bottom, FOOTER_BOTTOM_PADDING_MIN);
   const [contentBottomPadding, wrapFooter] = useMeasuredFooterHeight(44 + footerBottomPadding);
 
@@ -124,13 +125,10 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
   }, [displayExpiration]);
 
   return (
-    <TrueSheet
+    <AppTrueSheet
       ref={bottomSheetRef}
       name="live-stream-info-sheet"
-      detents={sheetDetents}
-      backgroundColor={Colors.black}
       onDidDismiss={onDismiss}
-      grabber={false}
       header={
         <View style={styles.headerContainer}>
           <View style={styles.headerLeft}>
@@ -189,7 +187,7 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
               <VerticalListButton
                 label={`watch on ${getDomainFromUrl(displayUrl)}`}
                 onPress={() => handleOpenLink(displayUrl)}
-                rightIcon={<Icon name="external-link" size={16} color={Colors.black} />}
+                rightIcon={<Icon name="external-link" size={24} color={Colors.black} />}
                 style={{ backgroundColor: Colors.neutral[50] }}
                 textStyle={{ color: Colors.black }}
               />
@@ -201,7 +199,7 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
           </View>
         )}
       </View>
-    </TrueSheet>
+    </AppTrueSheet>
   );
 };
 
@@ -213,9 +211,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 20,
+    ...DEFAULT_HEADER_STYLE,
   },
   headerLeft: {
     flexDirection: 'row',

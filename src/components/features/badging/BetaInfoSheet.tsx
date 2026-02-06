@@ -1,9 +1,11 @@
-import React, { useMemo, useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format, parseISO, isValid } from 'date-fns';
-import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import type { TrueSheet } from '@lodev09/react-native-true-sheet';
 import {
+  AppTrueSheet,
+  DEFAULT_HEADER_STYLE,
   useMeasuredFooterHeight,
   FOOTER_BOTTOM_PADDING_MIN,
 } from '../../../utils/components/truesheet';
@@ -22,7 +24,6 @@ interface BetaInfoSheetProps {
 
 const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate, onDismiss }) => {
   const bottomSheetRef = useRef<TrueSheet>(null);
-  const sheetDetents: ('auto' | number)[] = useMemo(() => ['auto'], []);
   const insets = useSafeAreaInsets();
   const footerBottomPadding = Math.max(insets.bottom, FOOTER_BOTTOM_PADDING_MIN);
   const [contentBottomPadding, wrapFooter] = useMeasuredFooterHeight(44 + footerBottomPadding);
@@ -57,13 +58,10 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
   );
 
   return (
-    <TrueSheet
+    <AppTrueSheet
       ref={bottomSheetRef}
       name="beta-info-sheet"
-      detents={sheetDetents}
-      backgroundColor={Colors.black}
       onDidDismiss={onDismiss}
-      grabber={false}
       header={headerComponent}
       footer={wrapFooter(
         <View style={{ backgroundColor: Colors.black, paddingBottom: footerBottomPadding }}>
@@ -95,7 +93,7 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
           </View>
         )}
       </View>
-    </TrueSheet>
+    </AppTrueSheet>
   );
 };
 
@@ -106,9 +104,7 @@ const styles = StyleSheet.create({
   headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 20,
+    ...DEFAULT_HEADER_STYLE,
   },
   headerLeft: {
     flexDirection: 'row',

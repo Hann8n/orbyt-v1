@@ -442,7 +442,6 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
         title="Accounts"
         customHeaderButton={customHeaderButton}
         name="account-switcher"
-        detents={['auto']}
         scrollable={false}
       >
         <View style={styles.listContent}>
@@ -485,7 +484,7 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: 12,
     paddingVertical: 0,
-    paddingBottom: 12,
+    paddingBottom: 0,
   },
   accountButton: {
     marginBottom: 0,

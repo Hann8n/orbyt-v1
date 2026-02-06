@@ -1,12 +1,14 @@
 import React, { useRef, useEffect } from 'react';
 import { BORDER_RADIUS } from '../../utils/constants';
 import { View, Text, StyleSheet, ViewStyle, TextStyle, StyleProp } from 'react-native';
-import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import type { TrueSheet } from '@lodev09/react-native-true-sheet';
 import {
+  AppTrueSheet,
+  CONTENT_TO_FOOTER_GAP_REDUCTION,
+  DEFAULT_HEADER_STYLE,
+  FOOTER_TOP_PADDING_DEFAULT,
   useMeasuredFooterHeight,
-  FOOTER_BOTTOM_PADDING_MIN,
 } from '../../utils/components/truesheet';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from './Icon';
 import CloseButton from './CloseButton';
 import CancelButton from './CancelButton';
@@ -18,8 +20,6 @@ interface VerticalListSheetProps {
   onDismiss: () => void;
   title: string;
   children: React.ReactNode;
-  /** Detent values for TrueSheet v3: use 'auto', or fractional values (0-1) */
-  detents?: ('auto' | number)[];
   showCancelButton?: boolean;
   cancelButtonText?: string;
   /**
@@ -59,6 +59,15 @@ interface VerticalListSheetProps {
    * Custom footer component (replaces default cancel button)
    */
   customFooter?: React.ReactNode;
+  /**
+   * Override bottom padding below the footer button. Default uses safe area.
+   * Set to 0 to remove extra padding (e.g. when TrueSheet already handles safe area).
+   */
+  footerBottomPadding?: number;
+  /**
+   * Background color for the footer area (default: Colors.black).
+   */
+  footerBackgroundColor?: string;
 }
 
 const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
@@ -66,9 +75,8 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
   onDismiss,
   title,
   children,
-  detents = ['auto'],
   showCancelButton = true,
-  cancelButtonText = 'Cancel',
+  cancelButtonText = 'Close',
   description,
   customHeaderButton,
   name,
@@ -78,23 +86,23 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
   scrollable = false,
   contentBottomPadding,
   customFooter,
+  footerBottomPadding: footerBottomPaddingProp,
+  footerBackgroundColor = 'transparent',
 }) => {
   const bottomSheetRef = useRef<TrueSheet>(null);
-  const insets = useSafeAreaInsets();
-  const footerBottomPadding = Math.max(insets.bottom, FOOTER_BOTTOM_PADDING_MIN);
-
-  const footerTop = footerTopPadding ?? 0;
+  const footerBottomPadding = footerBottomPaddingProp !== undefined ? footerBottomPaddingProp : 24;
+  const footerTop = footerTopPadding ?? FOOTER_TOP_PADDING_DEFAULT;
   const hasFooter = showCancelButton || customFooter;
   const fallbackFooterHeight = hasFooter ? footerTop + 44 + footerBottomPadding : 0;
   const [measuredFooterHeight, wrapFooter] = useMeasuredFooterHeight(fallbackFooterHeight);
 
   // Content padding so list isn't cut off by the footer (TrueSheet footer is position:absolute)
-  // Use measured footer height when available; allow override via contentBottomPadding
+  // Slightly reduce to bring content closer to footer; allow override via contentBottomPadding
   const contentPaddingBottom =
     contentBottomPadding !== undefined
       ? contentBottomPadding
       : hasFooter
-        ? measuredFooterHeight
+        ? Math.max(0, measuredFooterHeight - CONTENT_TO_FOOTER_GAP_REDUCTION)
         : 0;
 
   // Handle bottom sheet visibility with instance ref (TrueSheet v3+)
@@ -128,25 +136,32 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
   );
 
   return (
-    <TrueSheet
+    <AppTrueSheet
       ref={bottomSheetRef}
       name={name}
-      detents={detents}
-      backgroundColor={Colors.black}
       onDidDismiss={onDismiss}
-      grabber={false}
       scrollable={scrollable}
       header={headerComponent}
       footer={
         customFooter
           ? wrapFooter(
-              <View style={[styles.footerContainer, { paddingBottom: footerBottomPadding }]}>
+              <View
+                style={[
+                  styles.footerContainer,
+                  { paddingBottom: footerBottomPadding, backgroundColor: footerBackgroundColor },
+                ]}
+              >
                 {customFooter}
               </View>
             )
           : showCancelButton
             ? wrapFooter(
-                <View style={[styles.footerContainer, { paddingBottom: footerBottomPadding }]}>
+                <View
+                  style={[
+                    styles.footerContainer,
+                    { paddingBottom: footerBottomPadding, backgroundColor: footerBackgroundColor },
+                  ]}
+                >
                   <View style={[styles.cancelContainer, { paddingTop: footerTop }]}>
                     <CancelButton onPress={onDismiss} text={cancelButtonText} />
                   </View>
@@ -168,7 +183,7 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
           {children}
         </View>
       </View>
-    </TrueSheet>
+    </AppTrueSheet>
   );
 };
 
@@ -180,9 +195,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 20,
+    ...DEFAULT_HEADER_STYLE,
   },
   headerTitle: {
     color: Colors.neutral[50],
@@ -198,8 +211,8 @@ const styles = StyleSheet.create({
   },
   descriptionContainer: {
     marginTop: 4,
-    marginBottom: 16,
-    paddingHorizontal: 15,
+    marginBottom: 12,
+    paddingHorizontal: 12,
   },
   descriptionText: {
     color: Colors.neutral[200],
@@ -231,7 +244,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.neutral[50],
   },
   listButtonMargin: {
-    marginHorizontal: 12,
+    marginHorizontal: 8,
+    marginBottom: 8,
   },
 });
 
@@ -242,13 +256,12 @@ export default VerticalListSheet;
 export const VerticalListButton: React.FC<{
   label: string;
   onPress: () => void;
-  icon?: string;
   disabled?: boolean;
   danger?: boolean;
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
   rightIcon?: React.ReactNode;
-}> = ({ label, onPress, icon: _icon, disabled, danger, style, textStyle, rightIcon }) => {
+}> = ({ label, onPress, disabled, danger, style, textStyle, rightIcon }) => {
   return (
     <OptionsButton
       label={label}

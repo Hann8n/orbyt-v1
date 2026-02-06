@@ -9,8 +9,10 @@ import { Colors } from '../../../theme';
 import CloseButton from '../../ui/CloseButton';
 import CancelButton from '../../ui/CancelButton';
 import VerticalListSheet, { VerticalListButton } from '../../ui/VerticalListSheet';
-import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import type { TrueSheet } from '@lodev09/react-native-true-sheet';
 import {
+  AppTrueSheet,
+  DEFAULT_HEADER_STYLE,
   useMeasuredFooterHeight,
   FOOTER_BOTTOM_PADDING_MIN,
 } from '../../../utils/components/truesheet';
@@ -318,27 +320,9 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
   const getMenuOptions = () => {
     if (isOwnProfile) {
       return [
-        {
-          id: 'share',
-          label: 'share',
-          icon: 'share',
-          onPress: handleShare,
-          color: Colors.neutral[200],
-        },
-        {
-          id: 'switch',
-          label: 'switch',
-          icon: 'user-3',
-          onPress: handleSwitchAccount,
-          color: Colors.neutral[200],
-        },
-        {
-          id: 'logout',
-          label: 'log out',
-          icon: 'logout',
-          onPress: handleLogout,
-          color: Colors.coral[500],
-        },
+        { id: 'share', label: 'share', onPress: handleShare },
+        { id: 'switch', label: 'switch', onPress: handleSwitchAccount },
+        { id: 'logout', label: 'log out', onPress: handleLogout, danger: true },
       ];
     } else {
       const options = [];
@@ -347,45 +331,23 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
         options.push({
           id: 'message',
           label: 'message',
-          icon: 'inbox',
           onPress: () => {
             onDismiss();
             onMessagePress();
           },
-          color: Colors.neutral[200],
         });
       }
 
       options.push(
-        {
-          id: 'share',
-          label: 'share',
-          icon: 'share',
-          onPress: handleShare,
-          color: Colors.neutral[200],
-        },
-        {
-          id: 'mute',
-          label: isMuted ? 'unmute' : 'mute',
-          icon: isMuted ? 'volume-2' : 'volume-x',
-          onPress: handleMuteToggle,
-          color: Colors.neutral[200],
-        },
+        { id: 'share', label: 'share', onPress: handleShare },
+        { id: 'mute', label: isMuted ? 'unmute' : 'mute', onPress: handleMuteToggle },
         {
           id: 'openOnBluesky',
           label: 'view on bluesky',
-          icon: 'external-link',
           onPress: handleOpenOnBluesky,
-          color: Colors.neutral[200],
-          rightIcon: <Icon name="outlink" size={20} color={Colors.neutral[200]} />,
+          rightIcon: <Icon name="outlink" size={24} color={Colors.neutral[200]} />,
         },
-        {
-          id: 'reportOrBlock',
-          label: 'report or block',
-          icon: 'more-horizontal',
-          onPress: handleReportOrBlock,
-          color: Colors.neutral[200],
-        }
+        { id: 'reportOrBlock', label: 'report or block', onPress: handleReportOrBlock }
       );
 
       return options;
@@ -402,7 +364,6 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
       showCancelButton={true}
       cancelButtonText="Cancel"
       name="profile-menu"
-      detents={['auto']}
     >
       {/* Main menu options */}
       <View style={styles.optionsContainer}>
@@ -412,22 +373,19 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
             label={option.label.charAt(0).toUpperCase() + option.label.slice(1)}
             onPress={option.onPress}
             disabled={isSubmitting}
-            danger={option.id === 'logout'}
+            danger={'danger' in option && option.danger}
             rightIcon={'rightIcon' in option ? option.rightIcon : undefined}
           />
         ))}
       </View>
 
       {/* Submenu sheet for Report or Block - defined within parent sheet */}
-      <TrueSheet
+      <AppTrueSheet
         ref={submenuSheetRef}
         name="profile-menu-submenu"
-        detents={['auto']}
-        backgroundColor={Colors.black}
         onDidDismiss={() => {
           /* no-op */
         }}
-        grabber={false}
         header={
           <View style={styles.headerContainer}>
             <Text style={styles.headerTitle} numberOfLines={1}>
@@ -477,7 +435,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
             />
           </View>
         </View>
-      </TrueSheet>
+      </AppTrueSheet>
     </VerticalListSheet>
   );
 };
@@ -493,9 +451,7 @@ const styles = StyleSheet.create({
   headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 20,
+    ...DEFAULT_HEADER_STYLE,
   },
   headerTitle: {
     color: Colors.neutral[50],

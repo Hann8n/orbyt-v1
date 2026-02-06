@@ -33,6 +33,7 @@ import { getBottomNavBarHeight } from '../../../utils/device/screen';
 import { formatHandle } from '../../../utils/formatting/handles';
 import { formatRelativeDate } from '../../ui/RelativeDate';
 import { queryKeys } from '../../../utils/query/queryKeys';
+import ChatSettingsSheet from './ChatSettingsSheet';
 import { useUserStore } from '../../../stores/userStore';
 import { getActiveStreak, isStreakActive } from '../../../utils/chat/streak';
 import { useAvatarProfileRing } from '../../../hooks/useOrbytColors';
@@ -353,205 +354,202 @@ function segmentToFilter(segment: ChatSegment): ListConvosFilter {
 export interface ChatsTabProps {
   /** Optional initial filter (e.g. from /chat/requests page). Segment bar uses this to set initial selection. */
   chatFilter?: ListConvosFilter;
-  /** Called when the user taps the gear (opens who-can-message-you sheet). */
-  onOpenChatSettings?: () => void;
 }
 
-const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(
-  ({ chatFilter, onOpenChatSettings }, ref) => {
-    const listRef = useRef<LegendListRef>(null);
-    const scrollOffsetRef = useRef(0);
-    const previousFirstConvoIdRef = useRef<string | undefined>(undefined);
-    const navigation = useRouter();
-    const queryClient = useQueryClient();
-    const insets = useSafeAreaInsets();
-    const bottomNavBarHeight = getBottomNavBarHeight(insets);
-    const [isUserRefreshing, setIsUserRefreshing] = useState(false);
+const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(({ chatFilter }, ref) => {
+  const listRef = useRef<LegendListRef>(null);
+  const scrollOffsetRef = useRef(0);
+  const previousFirstConvoIdRef = useRef<string | undefined>(undefined);
+  const navigation = useRouter();
+  const queryClient = useQueryClient();
+  const insets = useSafeAreaInsets();
+  const bottomNavBarHeight = getBottomNavBarHeight(insets);
+  const [isUserRefreshing, setIsUserRefreshing] = useState(false);
 
-    const [segment, setSegment] = useState<ChatSegment>(() => {
-      if (chatFilter?.status === 'request') return 'requests';
-      if (chatFilter?.readState === 'unread') return 'unread';
-      return 'all';
-    });
+  const [showChatSettingsSheet, setShowChatSettingsSheet] = useState(false);
+  const [segment, setSegment] = useState<ChatSegment>(() => {
+    if (chatFilter?.status === 'request') return 'requests';
+    if (chatFilter?.readState === 'unread') return 'unread';
+    return 'all';
+  });
 
-    const effectiveFilter = useMemo(() => segmentToFilter(segment), [segment]);
+  const effectiveFilter = useMemo(() => segmentToFilter(segment), [segment]);
 
-    const acceptConvoMutation = useMutation({
-      mutationFn: (convoId: string) => ChatService.acceptConvo(convoId),
-      onSuccess: (_, convoId) => {
-        queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.all });
-        queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.detail(convoId) });
-      },
-    });
+  const acceptConvoMutation = useMutation({
+    mutationFn: (convoId: string) => ChatService.acceptConvo(convoId),
+    onSuccess: (_, convoId) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.detail(convoId) });
+    },
+  });
 
-    const leaveConvoMutation = useMutation({
-      mutationFn: (convoId: string) => ChatService.leaveConvo(convoId),
-      onSuccess: (_, convoId) => {
-        queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.all });
-        queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.detail(convoId) });
-      },
-    });
+  const leaveConvoMutation = useMutation({
+    mutationFn: (convoId: string) => ChatService.leaveConvo(convoId),
+    onSuccess: (_, convoId) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.detail(convoId) });
+    },
+  });
 
-    useImperativeHandle(
-      ref,
-      () => ({
-        scrollToTop: () => {
-          listRef.current?.scrollToOffset({ offset: 0, animated: true });
-        },
-      }),
-      []
-    );
-
-    const {
-      data,
-      fetchNextPage,
-      hasNextPage,
-      isLoading,
-      isError,
-      refetch,
-      isRefetching,
-      isFetchingNextPage,
-    } = useInfiniteQuery({
-      queryKey: queryKeys.chat.conversations.list(undefined, effectiveFilter),
-      queryFn: async ({ pageParam }) =>
-        ChatService.listConvos(pageParam as string | null, effectiveFilter),
-      initialPageParam: null as string | null,
-      getNextPageParam: lastPage => lastPage?.cursor ?? undefined,
-      staleTime: QUERY_CONSTANTS.STALE_TIME_SHORT,
-      gcTime: 60 * 60 * 1000,
-      refetchInterval: 30000, // Auto-refresh list to stay in sync with indicator
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-      placeholderData: prev => prev,
-    });
-    // Refetch when chatFilter changes (query key already includes it)
-
-    const conversations: ConvoView[] = useMemo(
-      () => data?.pages?.flatMap(p => p?.conversations ?? []) ?? [],
-      [data]
-    );
-
-    // Prefetch messages for recent convos that might show a streak, so the list can display streak badges.
-    // Without this, streak only shows when that convo was previously opened (messages in cache).
-    const convoIdsToFetchForStreak = useMemo(() => {
-      const ids: string[] = [];
-      for (const c of conversations) {
-        const id = c?.id;
-        if (!id) continue;
-        const lastMsg = c.lastMessage;
-        const sentAt =
-          lastMsg &&
-          typeof lastMsg === 'object' &&
-          'sentAt' in lastMsg &&
-          typeof (lastMsg as { sentAt?: string }).sentAt === 'string'
-            ? (lastMsg as { sentAt: string }).sentAt
-            : undefined;
-        if (!isStreakActive(sentAt)) continue;
-        const cached = queryClient.getQueryData<{ messages?: unknown[] }>(
-          queryKeys.chat.messages.byConversation(id)
-        );
-        if (cached?.messages && cached.messages.length > 0) continue;
-        ids.push(id);
-        if (ids.length >= 5) break;
-      }
-      return ids;
-    }, [conversations, queryClient]);
-
-    useQueries({
-      queries: convoIdsToFetchForStreak.map(convoId => ({
-        queryKey: queryKeys.chat.messages.byConversation(convoId),
-        queryFn: () => ChatService.getMessages(convoId, null),
-        staleTime: 60 * 60 * 1000,
-        gcTime: 60 * 60 * 1000,
-      })),
-    });
-
-    const handleScroll = useCallback((e: { nativeEvent: { contentOffset: { y: number } } }) => {
-      scrollOffsetRef.current = e.nativeEvent.contentOffset.y;
-    }, []);
-
-    useEffect(() => {
-      const firstId = conversations[0]?.id;
-      if (firstId === undefined) return;
-      const prevFirstId = previousFirstConvoIdRef.current;
-      const atTop = scrollOffsetRef.current <= SCROLL_AT_TOP_THRESHOLD;
-      if (prevFirstId !== undefined && prevFirstId !== firstId && atTop) {
+  useImperativeHandle(
+    ref,
+    () => ({
+      scrollToTop: () => {
         listRef.current?.scrollToOffset({ offset: 0, animated: true });
-      }
-      previousFirstConvoIdRef.current = firstId;
-    }, [conversations]);
+      },
+    }),
+    []
+  );
 
-    useFocusEffect(
-      useCallback(() => {
-        refetch();
-      }, [refetch])
-    );
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isLoading,
+    isError,
+    refetch,
+    isRefetching,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: queryKeys.chat.conversations.list(undefined, effectiveFilter),
+    queryFn: async ({ pageParam }) =>
+      ChatService.listConvos(pageParam as string | null, effectiveFilter),
+    initialPageParam: null as string | null,
+    getNextPageParam: lastPage => lastPage?.cursor ?? undefined,
+    staleTime: QUERY_CONSTANTS.STALE_TIME_SHORT,
+    gcTime: 60 * 60 * 1000,
+    refetchInterval: 30000, // Auto-refresh list to stay in sync with indicator
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    placeholderData: prev => prev,
+  });
+  // Refetch when chatFilter changes (query key already includes it)
 
-    const handleRefresh = useCallback(() => {
-      setIsUserRefreshing(true);
-      refetch().finally(() => setIsUserRefreshing(false));
-    }, [refetch]);
+  const conversations: ConvoView[] = useMemo(
+    () => data?.pages?.flatMap(p => p?.conversations ?? []) ?? [],
+    [data]
+  );
 
-    const renderItem = useCallback(
-      ({ item }: { item: ConvoView }) => (
-        <ConversationItem
-          item={item}
-          navigation={navigation}
-          onAccept={convoId => acceptConvoMutation.mutate(convoId)}
-          onDecline={convoId => leaveConvoMutation.mutate(convoId)}
-          isAccepting={acceptConvoMutation.isPending && acceptConvoMutation.variables === item.id}
-          isDeclining={leaveConvoMutation.isPending && leaveConvoMutation.variables === item.id}
-        />
-      ),
-      [navigation, acceptConvoMutation, leaveConvoMutation]
-    );
+  // Prefetch messages for recent convos that might show a streak, so the list can display streak badges.
+  // Without this, streak only shows when that convo was previously opened (messages in cache).
+  const convoIdsToFetchForStreak = useMemo(() => {
+    const ids: string[] = [];
+    for (const c of conversations) {
+      const id = c?.id;
+      if (!id) continue;
+      const lastMsg = c.lastMessage;
+      const sentAt =
+        lastMsg &&
+        typeof lastMsg === 'object' &&
+        'sentAt' in lastMsg &&
+        typeof (lastMsg as { sentAt?: string }).sentAt === 'string'
+          ? (lastMsg as { sentAt: string }).sentAt
+          : undefined;
+      if (!isStreakActive(sentAt)) continue;
+      const cached = queryClient.getQueryData<{ messages?: unknown[] }>(
+        queryKeys.chat.messages.byConversation(id)
+      );
+      if (cached?.messages && cached.messages.length > 0) continue;
+      ids.push(id);
+      if (ids.length >= 5) break;
+    }
+    return ids;
+  }, [conversations, queryClient]);
 
-    const keyExtractor = useCallback((item: ConvoView) => item.id, []);
+  useQueries({
+    queries: convoIdsToFetchForStreak.map(convoId => ({
+      queryKey: queryKeys.chat.messages.byConversation(convoId),
+      queryFn: () => ChatService.getMessages(convoId, null),
+      staleTime: 60 * 60 * 1000,
+      gcTime: 60 * 60 * 1000,
+    })),
+  });
 
-    const handleLoadMore = useCallback(() => {
-      if (hasNextPage && !isFetchingNextPage) fetchNextPage();
-    }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+  const handleScroll = useCallback((e: { nativeEvent: { contentOffset: { y: number } } }) => {
+    scrollOffsetRef.current = e.nativeEvent.contentOffset.y;
+  }, []);
 
-    const listHeaderComponent = useMemo(
-      () => (
-        <View style={styles.segmentRow}>
-          <View style={styles.segmentChipsWrap}>
-            {SEGMENT_OPTIONS.map(opt => (
-              <Pressable
-                key={opt.value}
-                onPress={() => setSegment(opt.value)}
-                style={[styles.segmentChip, segment === opt.value && styles.segmentChipActive]}
+  useEffect(() => {
+    const firstId = conversations[0]?.id;
+    if (firstId === undefined) return;
+    const prevFirstId = previousFirstConvoIdRef.current;
+    const atTop = scrollOffsetRef.current <= SCROLL_AT_TOP_THRESHOLD;
+    if (prevFirstId !== undefined && prevFirstId !== firstId && atTop) {
+      listRef.current?.scrollToOffset({ offset: 0, animated: true });
+    }
+    previousFirstConvoIdRef.current = firstId;
+  }, [conversations]);
+
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
+
+  const handleRefresh = useCallback(() => {
+    setIsUserRefreshing(true);
+    refetch().finally(() => setIsUserRefreshing(false));
+  }, [refetch]);
+
+  const renderItem = useCallback(
+    ({ item }: { item: ConvoView }) => (
+      <ConversationItem
+        item={item}
+        navigation={navigation}
+        onAccept={convoId => acceptConvoMutation.mutate(convoId)}
+        onDecline={convoId => leaveConvoMutation.mutate(convoId)}
+        isAccepting={acceptConvoMutation.isPending && acceptConvoMutation.variables === item.id}
+        isDeclining={leaveConvoMutation.isPending && leaveConvoMutation.variables === item.id}
+      />
+    ),
+    [navigation, acceptConvoMutation, leaveConvoMutation]
+  );
+
+  const keyExtractor = useCallback((item: ConvoView) => item.id, []);
+
+  const handleLoadMore = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) fetchNextPage();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  const listHeaderComponent = useMemo(
+    () => (
+      <View style={styles.segmentRow}>
+        <View style={styles.segmentChipsWrap}>
+          {SEGMENT_OPTIONS.map(opt => (
+            <Pressable
+              key={opt.value}
+              onPress={() => setSegment(opt.value)}
+              style={[styles.segmentChip, segment === opt.value && styles.segmentChipActive]}
+            >
+              <Text
+                style={[
+                  styles.segmentChipText,
+                  segment === opt.value && styles.segmentChipTextActive,
+                ]}
               >
-                <Text
-                  style={[
-                    styles.segmentChipText,
-                    segment === opt.value && styles.segmentChipTextActive,
-                  ]}
-                >
-                  {opt.label}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-          {onOpenChatSettings ? (
-            <Pressable onPress={onOpenChatSettings} style={styles.segmentGearButton}>
-              <Icon name="settings" size={22} color={Colors.neutral[50]} />
+                {opt.label}
+              </Text>
             </Pressable>
-          ) : null}
+          ))}
         </View>
-      ),
-      [segment, onOpenChatSettings]
-    );
+        <Pressable onPress={() => setShowChatSettingsSheet(true)} style={styles.segmentGearButton}>
+          <Icon name="settings" size={22} color={Colors.neutral[50]} />
+        </Pressable>
+      </View>
+    ),
+    [segment]
+  );
 
-    const emptyMessage =
-      segment === 'unread'
-        ? 'All caught up'
-        : segment === 'requests'
-          ? 'No requests'
-          : 'No chats, yet…';
+  const emptyMessage =
+    segment === 'unread'
+      ? 'All caught up'
+      : segment === 'requests'
+        ? 'No requests'
+        : 'No chats, yet…';
 
-    return (
+  return (
+    <>
       <LegendList
         ref={listRef}
         style={styles.listContainer}
@@ -603,9 +601,13 @@ const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(
           ) : null
         }
       />
-    );
-  }
-);
+      <ChatSettingsSheet
+        visible={showChatSettingsSheet}
+        onDismiss={() => setShowChatSettingsSheet(false)}
+      />
+    </>
+  );
+});
 ChatsTab.displayName = 'ChatsTab';
 
 export default ChatsTab;

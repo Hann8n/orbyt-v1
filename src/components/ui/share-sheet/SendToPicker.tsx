@@ -6,8 +6,10 @@
 
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { View, Text, TextInput, FlatList, StyleSheet, Pressable, Alert } from 'react-native';
-import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import type { TrueSheet } from '@lodev09/react-native-true-sheet';
 import {
+  AppTrueSheet,
+  DEFAULT_HEADER_STYLE,
   useMeasuredFooterHeight,
   FOOTER_BOTTOM_PADDING_MIN,
 } from '../../../utils/components/truesheet';
@@ -340,13 +342,11 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
   );
 
   return (
-    <TrueSheet
+    <AppTrueSheet
       ref={sheetRef}
       name={SHEET_NAME}
-      detents={[0.9]}
-      backgroundColor={Colors.black}
+      variant="sendToPicker"
       onDidDismiss={handleDismiss}
-      grabber={false}
       header={header}
       footer={footer}
       style={styles.sheet}
@@ -427,7 +427,7 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
           </View>
         )}
       </View>
-    </TrueSheet>
+    </AppTrueSheet>
   );
 };
 
@@ -439,9 +439,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 20,
+    ...DEFAULT_HEADER_STYLE,
   },
   headerTitle: {
     color: Colors.neutral[50],

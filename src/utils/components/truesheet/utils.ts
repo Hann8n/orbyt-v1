@@ -5,4 +5,13 @@
  */
 
 /** Minimum padding below footer Cancel/Done buttons (older devices may have 0 safe area). */
-export const FOOTER_BOTTOM_PADDING_MIN = 12;
+export const FOOTER_BOTTOM_PADDING_MIN = 0;
+
+/** Default padding between sheet content and footer (above Cancel/Close button). */
+export const FOOTER_TOP_PADDING_DEFAULT = 12;
+
+/**
+ * Pixels to subtract from content bottom padding so items sit closer to the footer.
+ * Reduces excess gap while keeping content visible above the overlay.
+ */
+export const CONTENT_TO_FOOTER_GAP_REDUCTION = 12;

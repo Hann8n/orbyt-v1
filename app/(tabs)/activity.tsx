@@ -11,7 +11,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../src/theme';
 import ChatsTab from '../../src/components/features/activity/ChatsTab';
 import NotificationsTab from '../../src/components/features/activity/NotificationsTab';
-import ChatSettingsSheet from '../../src/components/features/activity/ChatSettingsSheet';
 import { useUnreadCount } from '../../src/hooks/useUnreadCount';
 import { useActivityFilterStore } from '../../src/stores/activityFilterStore';
 
@@ -174,7 +173,6 @@ const ActivitySwipePager = ({
 const ActivityScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'chats' | 'notifications'>('notifications');
   const [indicatorScrollProgress, setIndicatorScrollProgress] = useState(0);
-  const [chatSettingsSheetVisible, setChatSettingsSheetVisible] = useState(false);
   const filterReasons = useActivityFilterStore(s => s.filterReasons);
   const insets = useSafeAreaInsets();
   const { notificationsCount, messagesCount } = useUnreadCount();
@@ -190,7 +188,6 @@ const ActivityScreen: React.FC = () => {
             ref={r => {
               if (activeTab === 'chats') tabRefs.activity = r;
             }}
-            onOpenChatSettings={() => setChatSettingsSheetVisible(true)}
           />
         );
       }
@@ -275,11 +272,6 @@ const ActivityScreen: React.FC = () => {
           </View>
         </View>
       </View>
-
-      <ChatSettingsSheet
-        visible={chatSettingsSheetVisible}
-        onDismiss={() => setChatSettingsSheetVisible(false)}
-      />
 
       {/* Tab Content */}
       <ActivitySwipePager

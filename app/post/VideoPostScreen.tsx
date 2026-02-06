@@ -1381,7 +1381,6 @@ const VideoPostScreen: React.FC = () => {
         onDismiss={() => setShowContentWarningsSheet(false)}
         title="Warnings"
         name="post-content-warnings-sheet"
-        detents={['auto']}
         scrollable={false}
         showCancelButton={true}
         cancelButtonText="Close"
@@ -1446,7 +1445,6 @@ const VideoPostScreen: React.FC = () => {
         onDismiss={() => setShowCommentSettingsSheet(false)}
         title="Comments"
         name="post-comment-settings-sheet"
-        detents={['auto']}
         showCancelButton={true}
         cancelButtonText="Close"
       >
@@ -1470,7 +1468,6 @@ const VideoPostScreen: React.FC = () => {
         onDismiss={() => setShowChannelSelectionSheet(false)}
         title="Pick a channel"
         name="post-channel-selection-sheet"
-        detents={['auto']}
         showCancelButton={true}
         cancelButtonText="Close"
         titleSize={26}
