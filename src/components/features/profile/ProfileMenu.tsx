@@ -10,12 +10,7 @@ import CloseButton from '../../ui/CloseButton';
 import CancelButton from '../../ui/CancelButton';
 import VerticalListSheet, { VerticalListButton } from '../../ui/VerticalListSheet';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import {
-  safeDismiss,
-  safePresent,
-  useMeasuredFooterHeight,
-  FOOTER_BOTTOM_PADDING_MIN,
-} from '../../../utils/components/truesheet';
+import { useMeasuredFooterHeight, FOOTER_BOTTOM_PADDING_MIN } from '../../../utils/components/truesheet';
 import { useAuth } from '../../../stores/userStore';
 import {
   useProfile,
@@ -97,7 +92,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
 
     if (isBlocked) {
       // Ensure submenu is closed
-      safeDismiss('profile-menu-submenu');
+      submenuSheetRef.current?.dismiss().catch(() => {});
       blockMutation.mutate({
         did: profile.did,
         handle: profile.handle,
@@ -106,7 +101,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
       onDismiss();
     } else {
       // Ensure submenu is closed before showing confirmation alert
-      safeDismiss('profile-menu-submenu');
+      submenuSheetRef.current?.dismiss().catch(() => {});
       Alert.alert(
         'block user',
         'are you sure you want to block this user? they will not be able to see your posts or interact with you.',
@@ -230,7 +225,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
 
   // Report or Block handler - now presents submenu sheet using global API
   const handleReportOrBlock = useCallback(() => {
-    safePresent('profile-menu-submenu');
+    submenuSheetRef.current?.present().catch(() => {});
   }, []);
 
   // Share handler
@@ -433,7 +428,11 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
             <Text style={styles.headerTitle} numberOfLines={1}>
               Report or Block
             </Text>
-            <CloseButton onPress={() => safeDismiss('profile-menu-submenu')} />
+            <CloseButton
+              onPress={() => {
+                submenuSheetRef.current?.dismiss().catch(() => {});
+              }}
+            />
           </View>
         }
         footer={wrapSubmenuFooter(
@@ -443,7 +442,11 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
             style={{ backgroundColor: Colors.black }}
           >
             <View style={[styles.cancelContainer, { backgroundColor: Colors.black }]}>
-              <CancelButton onPress={() => safeDismiss('profile-menu-submenu')} />
+              <CancelButton
+                onPress={() => {
+                  submenuSheetRef.current?.dismiss().catch(() => {});
+                }}
+              />
             </View>
           </KeyboardAwareFooter>
         )}
@@ -454,15 +457,15 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
             <VerticalListButton
               label="Report Account"
               onPress={() => {
-                safeDismiss('profile-menu-submenu');
-                handleReport();
+                  submenuSheetRef.current?.dismiss().catch(() => {});
+                  handleReport();
               }}
               disabled={isSubmitting}
             />
             <VerticalListButton
               label={isBlocked ? 'Unblock Account' : 'Block Account'}
               onPress={() => {
-                safeDismiss('profile-menu-submenu');
+                submenuSheetRef.current?.dismiss().catch(() => {});
                 handleBlockToggle();
               }}
               disabled={isSubmitting || isBlockedByList}

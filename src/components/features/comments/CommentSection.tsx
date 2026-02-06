@@ -18,11 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import {
-  safeDismiss,
-  safePresent,
-  useMeasuredFooterHeight,
-} from '../../../utils/components/truesheet';
+import { useMeasuredFooterHeight } from '../../../utils/components/truesheet';
 
 import AtprotoService from '../../../services/api/AtprotoService';
 import { queryKeys } from '../../../utils/query/queryKeys';
@@ -552,21 +548,14 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     onDismiss?.();
   }, [onDismiss]);
 
+  // Control TrueSheet visibility via instance ref (TrueSheet v3+)
   useEffect(() => {
+    const sheet = sheetRef.current;
+    if (!sheet) return;
     if (visible && post) {
-      (async () => {
-        try {
-          if (sheetRef.current) {
-            await sheetRef.current.present();
-          } else {
-            await safePresent('comment-section');
-          }
-        } catch {
-          await safePresent('comment-section');
-        }
-      })();
+      sheet.present().catch(() => {});
     } else {
-      safeDismiss('comment-section');
+      sheet.dismiss().catch(() => {});
     }
   }, [visible, post]);
 

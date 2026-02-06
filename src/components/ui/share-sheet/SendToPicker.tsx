@@ -7,12 +7,7 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { View, Text, TextInput, FlatList, StyleSheet, Pressable, Alert } from 'react-native';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import {
-  safeDismiss,
-  safePresent,
-  useMeasuredFooterHeight,
-  FOOTER_BOTTOM_PADDING_MIN,
-} from '../../../utils/components/truesheet';
+import { useMeasuredFooterHeight, FOOTER_BOTTOM_PADDING_MIN } from '../../../utils/components/truesheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { queryKeys } from '../../../utils/query/queryKeys';
@@ -136,6 +131,7 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
   const [isSending, setIsSending] = useState(false);
   const searchInputRef = useRef<TextInput | null>(null);
   const messageInputRef = useRef<TextInput | null>(null);
+  const sheetRef = useRef<TrueSheet>(null);
 
   const footerBottomPadding = Math.max(insets.bottom, FOOTER_BOTTOM_PADDING_MIN);
   const footerFallbackHeight = 96;
@@ -203,14 +199,16 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
     return [...conversationMatches, ...newProfiles];
   }, [conversations, currentUserDid, searchQuery, searchResults]);
 
+  // Control TrueSheet visibility via instance ref (TrueSheet v3+)
   useEffect(() => {
+    const sheet = sheetRef.current;
+    if (!sheet) return;
     if (visible) {
-      safePresent(SHEET_NAME);
+      sheet.present().catch(() => {});
       searchInputRef.current?.focus();
+    } else {
+      sheet.dismiss().catch(() => {});
     }
-    return () => {
-      if (visible) safeDismiss(SHEET_NAME);
-    };
   }, [visible]);
 
   const handleDismiss = useCallback(() => {
@@ -310,7 +308,7 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
       <Text style={styles.headerTitle} numberOfLines={1}>
         Send to
       </Text>
-      <CloseButton onPress={() => safeDismiss(SHEET_NAME)} />
+      <CloseButton onPress={onDismiss} />
     </View>
   );
 
@@ -338,10 +336,9 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
     </View>
   );
 
-  if (!visible) return null;
-
   return (
     <TrueSheet
+      ref={sheetRef}
       name={SHEET_NAME}
       detents={[0.9]}
       backgroundColor={Colors.black}

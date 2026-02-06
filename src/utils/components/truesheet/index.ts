@@ -6,5 +6,5 @@
  */
 
 export { default as KeyboardAwareFooter } from './KeyboardAwareFooter';
-export * from './utils';
 export { useMeasuredFooterHeight } from './useMeasuredFooterHeight';
+export { FOOTER_BOTTOM_PADDING_MIN } from './utils';

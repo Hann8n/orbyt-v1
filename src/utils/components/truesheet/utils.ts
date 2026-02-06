@@ -1,6 +1,3 @@
-import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import { presentSheet, dismissSheet } from '../../navigation/bottomSheetRegistry';
-
 /**
  * TrueSheet footer: the native footer is position:absolute and overlays the content.
  * To avoid list content being cut off, use useMeasuredFooterHeight() from this package
@@ -9,51 +6,3 @@ import { presentSheet, dismissSheet } from '../../navigation/bottomSheetRegistry
 
 /** Minimum padding below footer Cancel/Done buttons (older devices may have 0 safe area). */
 export const FOOTER_BOTTOM_PADDING_MIN = 12;
-
-/**
- * Safely dismiss a TrueSheet by name, swallowing any error from the native layer.
- * Useful to avoid unhandled promise rejections when a sheet isn't mounted.
- */
-export const safeDismiss = async (name?: string) => {
-  if (!name) return;
-  try {
-    // Try the legacy TrueSheet API first
-    await TrueSheet.dismiss(name);
-    return;
-  } catch (_e) {
-    // ignore and fallback to registry
-  }
-
-  try {
-    // Try the gorhom-based registry dismissal
-    dismissSheet(name);
-  } catch (_e) {
-    // ignore - best effort dismissal
-  }
-};
-
-/**
- * Safely present a TrueSheet by name, swallowing any error from the native layer.
- */
-export const safePresent = async (name?: string) => {
-  if (!name) return;
-  try {
-    // Try the legacy TrueSheet API first
-    await TrueSheet.present(name);
-    return;
-  } catch (_e) {
-    // ignore and fallback to registry
-  }
-
-  try {
-    // Try the gorhom-based registry present
-    presentSheet(name);
-  } catch (_e) {
-    // ignore - best effort present
-  }
-};
-
-export default {
-  safeDismiss,
-  safePresent,
-};

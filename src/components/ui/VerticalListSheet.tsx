@@ -2,12 +2,7 @@ import React, { useRef, useEffect } from 'react';
 import { BORDER_RADIUS } from '../../utils/constants';
 import { View, Text, StyleSheet, ViewStyle, TextStyle, StyleProp } from 'react-native';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import {
-  safeDismiss,
-  safePresent,
-  useMeasuredFooterHeight,
-  FOOTER_BOTTOM_PADDING_MIN,
-} from '../../utils/components/truesheet';
+import { useMeasuredFooterHeight, FOOTER_BOTTOM_PADDING_MIN } from '../../utils/components/truesheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from './Icon';
 import CloseButton from './CloseButton';
@@ -99,38 +94,16 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
         ? measuredFooterHeight
         : 0;
 
-  // Handle bottom sheet visibility
+  // Handle bottom sheet visibility with instance ref (TrueSheet v3+)
   useEffect(() => {
-    const presentSheet = async () => {
-      try {
-        if (name) {
-          await safePresent(name);
-        } else {
-          await bottomSheetRef.current?.present();
-        }
-      } catch {
-        // Safely ignore race conditions when the sheet unmounts
-      }
-    };
-
-    const dismissSheet = async () => {
-      try {
-        if (name) {
-          await safeDismiss(name);
-        } else {
-          await bottomSheetRef.current?.dismiss();
-        }
-      } catch {
-        // Safely ignore race conditions when the sheet unmounts
-      }
-    };
-
+    const sheet = bottomSheetRef.current;
+    if (!sheet) return;
     if (visible) {
-      presentSheet();
+      sheet.present().catch(() => {});
     } else {
-      dismissSheet();
+      sheet.dismiss().catch(() => {});
     }
-  }, [visible, name]);
+  }, [visible]);
 
   // Header component for TrueSheet header prop
   const headerComponent = (

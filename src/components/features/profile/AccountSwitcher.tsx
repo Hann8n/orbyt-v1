@@ -10,7 +10,6 @@ import { Colors } from '../../../theme';
 import AuthorItem from '../../ui/AuthorItem';
 import VerticalListSheet from '../../ui/VerticalListSheet';
 import { useAccountManagement, useAuth } from '../../../stores/userStore';
-import { safeDismiss, safePresent } from '../../../utils/components/truesheet/utils';
 import CustomPDSInputSheet from '../../ui/CustomPDSInputSheet';
 
 interface AccountSwitcherProps {
@@ -238,30 +237,28 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
   }, [signIn, loadAccounts]);
 
   const handleBlueskyAddAccount = useCallback(async () => {
-    // Use TrueSheet global method to dismiss the main sheet first
     try {
-      await safeDismiss('account-switcher');
-      // Wait for dismissal to complete before proceeding with OAuth
+      // Dismiss the account switcher first so OAuth UI isn't stacked under it
+      onDismiss();
+      // Small delay to allow dismissal animation to complete
       await new Promise(resolve => setTimeout(resolve, 200));
       await handleBlueskyLogin();
     } catch (_error: unknown) {
       // ignore
     }
-  }, [handleBlueskyLogin]);
+  }, [onDismiss, handleBlueskyLogin]);
 
   const handleCustomPDSAddAccount = useCallback(async () => {
-    // Use TrueSheet global method to dismiss the main sheet first, then present the custom PDS input
     try {
-      await safeDismiss('account-switcher'); // Dismiss the parent sheet first
+      // Dismiss the parent sheet first to avoid stacked modals
+      onDismiss();
       // Wait a bit for the dismissal to complete before showing the custom PDS input
       await new Promise(resolve => setTimeout(resolve, 200));
       setShowUsernameInput(true); // Set state to true first
-      // Then use TrueSheet global method to present the custom PDS input sheet
-      await safePresent('custom-pds-input');
     } catch (_error: unknown) {
       // ignore
     }
-  }, []);
+  }, [onDismiss]);
 
   const handleCustomPDSSignIn = useCallback(
     async (identifier: string) => {

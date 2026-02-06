@@ -12,12 +12,7 @@ import CloseButton from '../../ui/CloseButton';
 import CancelButton from '../../ui/CancelButton';
 import KeyboardAwareFooter from '../../../utils/components/truesheet/KeyboardAwareFooter';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import {
-  safeDismiss,
-  safePresent,
-  useMeasuredFooterHeight,
-  FOOTER_BOTTOM_PADDING_MIN,
-} from '../../../utils/components/truesheet';
+import { useMeasuredFooterHeight, FOOTER_BOTTOM_PADDING_MIN } from '../../../utils/components/truesheet';
 import VerificationBadge from './VerificationBadge';
 
 // Import AuthorItem directly - preload to avoid size calculation issues
@@ -86,12 +81,14 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
   // trustedVerifierStatus is 'valid' | 'invalid' | 'none' per API
   const isTrustedVerifier = verification?.trustedVerifierStatus === 'valid';
 
-  // Handle bottom sheet visibility
+  // Handle bottom sheet visibility via instance ref (TrueSheet v3+)
   useEffect(() => {
+    const sheet = bottomSheetRef.current;
+    if (!sheet) return;
     if (visible) {
-      safePresent('verification-info-sheet');
+      sheet.present().catch(() => {});
     } else {
-      safeDismiss('verification-info-sheet');
+      sheet.dismiss().catch(() => {});
     }
   }, [visible]);
 
@@ -129,7 +126,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
               customMargin={0}
               verification={verification || undefined}
             />
-            <Text style={[styles.headerTitle, { marginLeft: 4 }]} numberOfLines={1}>
+            <Text style={[styles.headerTitle, styles.headerTitleMargin]} numberOfLines={1}>
               {isTrustedVerifier ? 'Trusted Verifier' : 'Verified'}
             </Text>
           </View>
@@ -284,6 +281,9 @@ const styles = StyleSheet.create({
     textAlign: 'left',
     fontFamily: 'Figtree-Bold',
   },
+  headerTitleMargin: {
+    marginLeft: 4,
+  },
   loadingIndicator: {
     marginVertical: 40,
     alignSelf: 'center',
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: BORDER_RADIUS.LARGE,
     borderWidth: 0,
-    borderColor: 'transparent',
+    borderColor: Colors.transparent,
   },
   issuerNameShimmer: {
     width: 120,

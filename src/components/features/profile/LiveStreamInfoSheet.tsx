@@ -4,12 +4,7 @@ import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format, parseISO, isValid, isToday, isTomorrow } from 'date-fns';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import {
-  safeDismiss,
-  safePresent,
-  useMeasuredFooterHeight,
-  FOOTER_BOTTOM_PADDING_MIN,
-} from '../../../utils/components/truesheet';
+import { useMeasuredFooterHeight, FOOTER_BOTTOM_PADDING_MIN } from '../../../utils/components/truesheet';
 import KeyboardAwareFooter from '../../../utils/components/truesheet/KeyboardAwareFooter';
 import CloseButton from '../../ui/CloseButton';
 import CancelButton from '../../ui/CancelButton';
@@ -41,12 +36,14 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
 
   const status = profile?.status;
 
-  // Handle bottom sheet visibility
+  // Handle bottom sheet visibility via instance ref (TrueSheet v3+)
   useEffect(() => {
+    const sheet = bottomSheetRef.current;
+    if (!sheet) return;
     if (visible) {
-      safePresent('live-stream-info-sheet');
+      sheet.present().catch(() => {});
     } else {
-      safeDismiss('live-stream-info-sheet');
+      sheet.dismiss().catch(() => {});
     }
   }, [visible]);
 

@@ -22,7 +22,6 @@ import { FlashList } from '@shopify/flash-list';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import { safeDismiss, safePresent } from '../../src/utils/components/truesheet/utils';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 
 import { Colors } from '../../src/theme';
@@ -743,23 +742,28 @@ function ReactionPickerSheet({
     () => groupReactions(currentReactions, currentUserDid),
     [currentReactions, currentUserDid]
   );
-  useEffect(() => {
-    if (visible) {
-      safePresent(REACTION_PICKER_SHEET_NAME).catch(() => {});
-    } else {
-      safeDismiss(REACTION_PICKER_SHEET_NAME).catch(() => {});
-    }
-  }, [visible]);
-
   const handleSelect = useCallback(
-    (emoji: string) => {
+    async (emoji: string) => {
       onSelect(emoji);
-      safeDismiss(REACTION_PICKER_SHEET_NAME)
-        .then(onDismiss)
-        .catch(() => {});
+      try {
+        await sheetRef.current?.dismiss();
+      } catch {
+        // ignore dismiss errors
+      }
+      onDismiss();
     },
     [onSelect, onDismiss]
   );
+
+  useEffect(() => {
+    const sheet = sheetRef.current;
+    if (!sheet) return;
+    if (visible) {
+      sheet.present().catch(() => {});
+    } else {
+      sheet.dismiss().catch(() => {});
+    }
+  }, [visible]);
 
   return (
     <TrueSheet

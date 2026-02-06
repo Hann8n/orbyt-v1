@@ -13,12 +13,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import {
-  safeDismiss,
-  safePresent,
-  useMeasuredFooterHeight,
-  FOOTER_BOTTOM_PADDING_MIN,
-} from '../../../utils/components/truesheet';
+import { useMeasuredFooterHeight, FOOTER_BOTTOM_PADDING_MIN } from '../../../utils/components/truesheet';
 import KeyboardAwareFooter from '../../../utils/components/truesheet/KeyboardAwareFooter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from '../Icon';
@@ -55,10 +50,14 @@ const ShareSheet: React.FC = () => {
   const footerFallbackHeight = footerTop + 44 + footerBottomPadding;
   const [contentBottomPadding, wrapFooter] = useMeasuredFooterHeight(footerFallbackHeight);
 
-  // Present sheet when data arrives
+  // Present/dismiss sheet based on data presence (TrueSheet v3+)
   useEffect(() => {
+    const sheet = sheetRef.current;
+    if (!sheet) return;
     if (data) {
-      safePresent('share-sheet');
+      sheet.present().catch(() => {});
+    } else {
+      sheet.dismiss().catch(() => {});
     }
   }, [data]);
 
@@ -82,9 +81,8 @@ const ShareSheet: React.FC = () => {
 
   // Programmatic dismiss function for buttons
   const dismissSheet = useCallback(() => {
-    // Dismiss the global sheet name if mounted; ignore if it's not present.
-    safeDismiss('share-sheet');
-    // onDismiss (handleDismiss) will handle the overlay clearing
+    // Let TrueSheet handle dismissal; onDidDismiss (handleDismiss) clears store state
+    sheetRef.current?.dismiss().catch(() => {});
   }, []);
 
   // Bookmark handler - instant optimistic update

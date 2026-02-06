@@ -4,7 +4,6 @@
  * Replaces manual state management in useGlobalModals hook
  */
 import { create } from 'zustand';
-import { safeDismiss } from '../utils/components/truesheet/utils';
 
 // Types
 export interface CommentSectionPost {
@@ -86,10 +85,7 @@ export const useModalStore = create<ModalState>((set, _get) => ({
     set({ shareSheetData: data });
   },
 
-  dismissShareSheet: (skipDismiss = false) => {
-    if (!skipDismiss) {
-      safeDismiss('share-sheet');
-    }
+  dismissShareSheet: (_skipDismiss = false) => {
     set({ shareSheetData: null });
   },
 }));
