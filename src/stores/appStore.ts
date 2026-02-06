@@ -6,29 +6,29 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { storageAdapter } from '../utils/storage/storage';
 
-interface AppState {
-  // App state
-  appState: string;
+type HomeFeedTab = 'following' | 'your-mix';
 
-  // Actions
+interface AppState {
+  appState: string;
+  lastHomeFeed: HomeFeedTab;
   setAppState: (state: string) => void;
+  setLastHomeFeed: (feed: HomeFeedTab) => void;
 }
 
 export const useAppStore = create<AppState>()(
   persist(
     (set, _get) => ({
-      // Initial state
       appState: 'active',
-
-      // Actions
+      lastHomeFeed: 'your-mix',
       setAppState: (appState: string) => set({ appState }),
+      setLastHomeFeed: (lastHomeFeed: HomeFeedTab) => set({ lastHomeFeed }),
     }),
     {
       name: 'app-store',
       storage: createJSONStorage(() => storageAdapter),
       partialize: state => ({
-        // Only persist app state, not loading states
         appState: state.appState,
+        lastHomeFeed: state.lastHomeFeed,
       }),
     }
   )

@@ -26,10 +26,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { Image } from 'expo-image';
-import PagerView, {
-  type PagerViewOnPageScrollEvent,
-  type PagerViewOnPageSelectedEvent,
-} from 'react-native-pager-view';
+import PagerView, { type PagerViewOnPageSelectedEvent } from 'react-native-pager-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList, FlashListRef } from '@shopify/flash-list';
 import Reanimated, {
@@ -38,8 +35,6 @@ import Reanimated, {
   withTiming,
   interpolate,
   Extrapolation,
-  runOnUI,
-  type SharedValue,
 } from 'react-native-reanimated';
 
 import AtprotoService from '../../src/services/api/AtprotoService';
@@ -214,55 +209,37 @@ const SearchSwipePager = forwardRef<
   {
     activeTab: 'recently-visited' | 'profiles' | 'channels';
     onActiveTabChange: (tab: 'recently-visited' | 'profiles' | 'channels') => void;
+    onPageIndexChange?: (index: number) => void;
     renderTabContent: (tabId: 'recently-visited' | 'profiles' | 'channels') => React.ReactNode;
-    pageScrollProgress: SharedValue<number>;
     pages: Array<'recently-visited' | 'profiles' | 'channels'>;
   }
->(({ activeTab, onActiveTabChange, renderTabContent, pageScrollProgress, pages }, ref) => {
+>(({ activeTab, onActiveTabChange, onPageIndexChange, renderTabContent, pages }, ref) => {
   const pagerViewRef = useRef<PagerView>(null);
   const activeIndex = pages.indexOf(activeTab);
 
-  // Expose setPage - update shared value immediately for instant indicator
   useImperativeHandle(
     ref,
     () => ({
       setPage: (tabId: 'recently-visited' | 'profiles' | 'channels') => {
         const targetIndex = pages.indexOf(tabId);
         if (targetIndex >= 0 && pagerViewRef.current) {
-          runOnUI(() => {
-            'worklet';
-            pageScrollProgress.value = targetIndex;
-          })();
           pagerViewRef.current.setPage(targetIndex);
         }
       },
     }),
-    [pages, pageScrollProgress]
+    [pages]
   );
 
-  // Update shared value from native scroll events
-  const handlePageScroll = useCallback(
-    (event: PagerViewOnPageScrollEvent) => {
-      const { position, offset } = event.nativeEvent;
-      const progress = position + offset;
-      runOnUI(() => {
-        'worklet';
-        pageScrollProgress.value = progress;
-      })();
-    },
-    [pageScrollProgress]
-  );
-
-  // Update active tab when page selection completes (shared value already updated by handlePageScroll)
   const handlePageSelected = useCallback(
     (event: PagerViewOnPageSelectedEvent) => {
       const index = event.nativeEvent.position;
+      onPageIndexChange?.(index);
       const tab = pages[index];
       if (tab && tab !== activeTab) {
         onActiveTabChange(tab);
       }
     },
-    [activeTab, pages, onActiveTabChange]
+    [activeTab, pages, onActiveTabChange, onPageIndexChange]
   );
 
   return (
@@ -272,7 +249,6 @@ const SearchSwipePager = forwardRef<
         style={styles.pagerView}
         initialPage={activeIndex >= 0 ? activeIndex : 0}
         onPageSelected={handlePageSelected}
-        onPageScroll={handlePageScroll}
         scrollEnabled={true}
         pageMargin={0}
       >
@@ -1153,6 +1129,12 @@ const ExploreScreen: React.FC = () => {
   const contentOpacity = useSharedValue(1);
   const topGradientOpacity = useSharedValue(0);
   const indicatorScrollProgress = useSharedValue(0);
+  const handleSearchPageIndexChange = useCallback(
+    (index: number) => {
+      indicatorScrollProgress.value = index;
+    },
+    [indicatorScrollProgress]
+  );
 
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -1903,7 +1885,7 @@ const ExploreScreen: React.FC = () => {
                 ref={searchPagerRef}
                 activeTab={activeTab}
                 onActiveTabChange={setActiveTab}
-                pageScrollProgress={indicatorScrollProgress}
+                onPageIndexChange={handleSearchPageIndexChange}
                 pages={pages}
                 renderTabContent={tabId => (
                   <SearchFeedRenderer

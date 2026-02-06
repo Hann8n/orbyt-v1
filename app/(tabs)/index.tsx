@@ -20,16 +20,15 @@ import { Colors } from '../../src/theme';
 import { tabRefs } from '../../src/utils/navigation/tabRefs';
 import type { ScrollToTopRef } from '../../src/utils/navigation/tabRefs';
 import { useUserStore } from '../../src/stores/userStore';
+import { useAppStore } from '../../src/stores/appStore';
 import { VideoUploadBanner } from '../../src/components/ui/VideoUploadBanner';
 
 type HomeScreenProps = Record<string, never>;
 
 const HomeScreen = memo(
   forwardRef<HomeScreenRef, HomeScreenProps>((_props, ref) => {
-    // Home screen always defaults to 'your-mix'
-    // Built-in channels ('following' and 'your-mix') are not in subscribedChannels,
-    // so we always default to 'your-mix' directly
-    const [currentFeed, setCurrentFeed] = useState<FeedOption>('your-mix');
+    const currentFeed = useAppStore(s => s.lastHomeFeed);
+    const setLastHomeFeed = useAppStore(s => s.setLastHomeFeed);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const queryClient = useQueryClient();
     const currentUser = useUserStore(state => state.currentUser);
@@ -64,10 +63,14 @@ const HomeScreen = memo(
       }, APP_CONSTANTS.REFRESH_DELAY);
     }, [queryClient, currentUser?.did]);
 
-    // Memoized feed change handler
-    const handleFeedChange = useCallback((newFeed: FeedOption) => {
-      setCurrentFeed(newFeed);
-    }, []);
+    const handleFeedChange = useCallback(
+      (newFeed: FeedOption) => {
+        if (newFeed === 'following' || newFeed === 'your-mix') {
+          setLastHomeFeed(newFeed);
+        }
+      },
+      [setLastHomeFeed]
+    );
 
     // Ref for FeedPager to forward scrollToTop
     const feedPagerRef = useRef<ScrollToTopRef>(null);

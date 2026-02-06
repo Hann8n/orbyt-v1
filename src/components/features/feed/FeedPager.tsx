@@ -4,7 +4,6 @@ import {
   useEffect,
   useState,
   useMemo,
-  useLayoutEffect,
   memo,
   forwardRef,
   useImperativeHandle,
@@ -25,6 +24,8 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
   Easing,
+  useAnimatedReaction,
+  runOnJS,
   type SharedValue,
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
@@ -159,74 +160,42 @@ const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
     };
   }, []);
 
-  // State for current feed
-  const [currentFeedIndex, setCurrentFeedIndex] = useState(0);
+  // State for feed retries
   const [feedRetries, setFeedRetries] = useState<{ [key in FeedOption]?: number }>({});
 
   // Animation values for feed bar vertical transition - using Reanimated for UI thread
   const feedBarTranslateY = useSharedValue(0);
   const [isFeedBarVisible, setIsFeedBarVisible] = useState(true);
 
-  // Use PagerView's page tracking directly - updated via onPageSelected
-  const currentPageRef = useRef(0);
-  // Track scroll progress from PagerView's native onPageScroll - Reanimated shared value for UI thread.
-  // FeedIndicatorItem reads it via useAnimatedStyle (no setState on onPageScroll).
-  const pageScrollProgress = useSharedValue(0);
-
   // Always show 'following' first, then 'your-mix'
   const feedOptions = useMemo(() => {
     return ['following', 'your-mix'] as FeedOption[];
   }, []);
 
-  // Set initial feed index when feed options are available
-  const hasAppliedInitialIndexRef = useRef(false);
-  useLayoutEffect(() => {
-    if (!hasAppliedInitialIndexRef.current && feedOptions.length > 0) {
-      const initialIndex = feedOptions.findIndex(option => option === initialFeed);
-
-      // Always set a valid index, defaulting to 0 if initialFeed is not found
-      const targetIndex = initialIndex >= 0 ? initialIndex : 0;
-
-      // Update both ref and state
-      currentPageRef.current = targetIndex;
-      setCurrentFeedIndex(targetIndex);
-      // Reanimated shared value update
-
-      pageScrollProgress.value = targetIndex;
-
-      onFeedChange?.(feedOptions[targetIndex]);
-
-      // Ensure the PagerView starts on the desired initial index
-      requestAnimationFrame(() => {
-        pagerViewRef.current?.setPage(targetIndex);
-      });
-
-      hasAppliedInitialIndexRef.current = true;
-    }
-    // pageScrollProgress is a shared value - not needed in dependencies
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [feedOptions, initialFeed, onFeedChange]);
-
-  // Compute current feed option using PagerView's tracked page
-  const pendingInitialIndex = feedOptions.findIndex(option => option === initialFeed);
-  const activePageIndex = hasAppliedInitialIndexRef.current
-    ? currentPageRef.current
-    : pendingInitialIndex >= 0
-      ? pendingInitialIndex
-      : 0;
-  const currentFeedOption = feedOptions[activePageIndex] || feedOptions[0] || 'following';
-
-  // Ensure PagerView renders the correct initial index on the first paint when items are available
+  // Same as PagerView's initialPage – single source of truth for "which page we're on" at mount.
   const initialPageIndex = useMemo(() => {
-    if (hasAppliedInitialIndexRef.current) {
-      return Math.max(0, Math.min(currentPageRef.current, Math.max(0, feedOptions.length - 1)));
+    const initialIndex = feedOptions.findIndex(option => option === initialFeed);
+    return initialIndex >= 0 ? initialIndex : 0;
+  }, [feedOptions, initialFeed]);
+
+  // Must match initialPage: native PagerView does not fire onPageSelected for the initial page.
+  const pageScrollProgress = useSharedValue(initialPageIndex);
+
+  // Track current feed index for visibility checks (updated via useAnimatedReaction)
+  const [currentFeedIndex, setCurrentFeedIndex] = useState(initialPageIndex);
+
+  // Update current feed index state when shared value changes (for isVisible prop)
+  useAnimatedReaction(
+    () => Math.round(pageScrollProgress.value),
+    (currentIndex, previousIndex) => {
+      if (previousIndex !== null && currentIndex !== previousIndex) {
+        runOnJS(setCurrentFeedIndex)(currentIndex);
+      }
     }
-    if (feedOptions.length > 0) {
-      return pendingInitialIndex >= 0 ? pendingInitialIndex : 0;
-    }
-    return 0;
-    // hasAppliedInitialIndexRef.current is a ref - not a valid dependency
-  }, [feedOptions.length, pendingInitialIndex]);
+  );
+
+  // Derive current feed option from current index
+  const currentFeedOption = feedOptions[currentFeedIndex] || feedOptions[0] || 'following';
 
   // Animated style for feed bar - runs on UI thread
   const feedBarAnimatedStyle = useAnimatedStyle(() => {
@@ -271,13 +240,17 @@ const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
     [isFeedBarVisible, feedBarTranslateY]
   );
 
-  // Ensure overlay is visible when feed changes
-  useEffect(() => {
-    if (hasAppliedInitialIndexRef.current) {
-      animateFeedBar(true, true);
-      showBarAndOverlay();
-    }
-  }, [currentFeedIndex, animateFeedBar, showBarAndOverlay]);
+  // React to page changes from shared value to trigger callbacks
+  useAnimatedReaction(
+    () => Math.round(pageScrollProgress.value),
+    (currentIndex, previousIndex) => {
+      if (previousIndex !== null && currentIndex !== previousIndex) {
+        runOnJS(animateFeedBar)(true, true);
+        runOnJS(showBarAndOverlay)();
+      }
+    },
+    []
+  );
 
   // Ensure controls are visible when pager mounts
   useEffect(() => {
@@ -287,31 +260,18 @@ const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
   // Handle page change from PagerView - final confirmation after transition completes
   const handlePageSelected = useCallback(
     (event: { nativeEvent: { position: number } }) => {
-      if (!hasAppliedInitialIndexRef.current) return;
-
       const nextIndex = event.nativeEvent.position;
-      const prevIndex = currentPageRef.current;
-
-      // Ensure refs are in sync (should already be updated by onPageScroll, but confirm)
-      if (nextIndex !== prevIndex) {
-        currentPageRef.current = nextIndex;
-
-        pageScrollProgress.value = nextIndex;
-        setCurrentFeedIndex(nextIndex);
-
-        animateFeedBar(true, true);
-        showBarAndOverlay();
-      }
-
-      // Notify parent of feed change (only on final selection, not during scroll)
+      // Update shared value to exact position after transition
+      pageScrollProgress.value = nextIndex;
+      // Notify parent of feed change
       const newFeedOption = feedOptions[nextIndex];
-      if (newFeedOption && nextIndex !== prevIndex) {
+      if (newFeedOption) {
         onFeedChange?.(newFeedOption);
       }
     },
     // pageScrollProgress is a shared value - not needed in dependencies
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [feedOptions, onFeedChange, animateFeedBar, showBarAndOverlay]
+    [feedOptions, onFeedChange]
   );
 
   // Handle retry for each feed
@@ -323,55 +283,14 @@ const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
     }));
   }, [currentFeedOption, feedRetries]);
 
-  // Ensure current page stays in range when options change
-  useEffect(() => {
-    if (feedOptions.length === 0) return;
-    if (currentPageRef.current >= feedOptions.length) {
-      const lastIndex = Math.max(0, feedOptions.length - 1);
-      currentPageRef.current = lastIndex;
-      setCurrentFeedIndex(lastIndex);
-    }
-  }, [feedOptions]);
-
-  // Handle page scroll from PagerView - use native props directly
-  const handlePageScroll = useCallback(
-    (event: { nativeEvent: { position: number; offset: number } }) => {
-      const { position, offset } = event.nativeEvent;
-      const progress = position + offset;
-      const roundedPosition = Math.round(progress);
-
-      // Update shared value directly from native event
-
-      pageScrollProgress.value = progress;
-
-      // Update visibility immediately during scroll
-      if (
-        roundedPosition !== currentPageRef.current &&
-        roundedPosition >= 0 &&
-        roundedPosition < feedOptions.length
-      ) {
-        currentPageRef.current = roundedPosition;
-        setCurrentFeedIndex(roundedPosition);
-      }
-
-      // Show overlay during pager scroll
-      animateFeedBar(true);
-      showBarAndOverlay();
-    },
-    [animateFeedBar, feedOptions.length, pageScrollProgress, showBarAndOverlay]
-  );
-
-  // Handle feed indicator tap
   const handleIndicatorTap = useCallback(
     (feedOption: FeedOption) => {
       const targetIndex = feedOptions.findIndex(option => option === feedOption);
-      if (targetIndex >= 0 && targetIndex !== currentPageRef.current) {
-        pagerViewRef.current?.setPage(targetIndex);
-        animateFeedBar(true, true);
-        showBarAndOverlay();
+      if (targetIndex >= 0 && pagerViewRef.current) {
+        pagerViewRef.current.setPage(targetIndex);
       }
     },
-    [feedOptions, animateFeedBar, showBarAndOverlay]
+    [feedOptions]
   );
 
   // Memoized query options for feed rendering
@@ -432,14 +351,10 @@ const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
     ref,
     () => ({
       scrollToTop: () => {
-        // Get current active feed option
-        const activePageIndex = currentPageRef.current;
-        const currentFeedOption = feedOptions[activePageIndex] || feedOptions[0] || 'following';
-        // Scroll the current active feed to top
         feedRendererRefs.current[currentFeedOption]?.scrollToTop();
       },
     }),
-    [feedOptions]
+    [currentFeedOption]
   );
 
   return (
@@ -488,7 +403,6 @@ const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
         style={styles.pagerView}
         initialPage={initialPageIndex}
         onPageSelected={handlePageSelected}
-        onPageScroll={handlePageScroll}
         scrollEnabled={true}
         overdrag={false}
         pageMargin={0}
