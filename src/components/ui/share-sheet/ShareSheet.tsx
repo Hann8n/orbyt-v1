@@ -15,7 +15,9 @@ import {
 import type { TrueSheet } from '@lodev09/react-native-true-sheet';
 import {
   AppTrueSheet,
+  CONTENT_TO_FOOTER_GAP_REDUCTION,
   DEFAULT_HEADER_STYLE,
+  FOOTER_TOP_PADDING_DEFAULT,
   useMeasuredFooterHeight,
   FOOTER_BOTTOM_PADDING_MIN,
 } from '../../../utils/components/truesheet';
@@ -51,7 +53,7 @@ const ShareSheet: React.FC = () => {
 
   const insets = useSafeAreaInsets();
   const footerBottomPadding = Math.max(insets.bottom, FOOTER_BOTTOM_PADDING_MIN);
-  const footerTop = 0;
+  const footerTop = FOOTER_TOP_PADDING_DEFAULT;
   const footerFallbackHeight = footerTop + 44 + footerBottomPadding;
   const [contentBottomPadding, wrapFooter] = useMeasuredFooterHeight(footerFallbackHeight);
 
@@ -402,7 +404,14 @@ const ShareSheet: React.FC = () => {
           </View>
         )}
       >
-        <View style={[styles.contentContainer, { paddingBottom: contentBottomPadding }]}>
+        <View
+          style={[
+            styles.contentContainer,
+            {
+              paddingBottom: Math.max(0, contentBottomPadding - CONTENT_TO_FOOTER_GAP_REDUCTION),
+            },
+          ]}
+        >
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}

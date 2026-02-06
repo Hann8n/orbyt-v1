@@ -6,6 +6,7 @@ import { format, parseISO, isValid, isToday, isTomorrow } from 'date-fns';
 import type { TrueSheet } from '@lodev09/react-native-true-sheet';
 import {
   AppTrueSheet,
+  CONTENT_TO_FOOTER_GAP_REDUCTION,
   DEFAULT_HEADER_STYLE,
   useMeasuredFooterHeight,
   FOOTER_BOTTOM_PADDING_MIN,
@@ -153,7 +154,14 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
         </View>
       )}
     >
-      <View style={[styles.content, { paddingBottom: contentBottomPadding }]}>
+      <View
+        style={[
+          styles.content,
+          {
+            paddingBottom: Math.max(0, contentBottomPadding - CONTENT_TO_FOOTER_GAP_REDUCTION),
+          },
+        ]}
+      >
         {status ? (
           <>
             {/* Thumbnail */}

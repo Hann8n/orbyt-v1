@@ -14,6 +14,7 @@ import KeyboardAwareFooter from '../../../utils/components/truesheet/KeyboardAwa
 import type { TrueSheet } from '@lodev09/react-native-true-sheet';
 import {
   AppTrueSheet,
+  CONTENT_TO_FOOTER_GAP_REDUCTION,
   DEFAULT_HEADER_STYLE,
   useMeasuredFooterHeight,
   FOOTER_BOTTOM_PADDING_MIN,
@@ -115,7 +116,14 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
         </View>
       )}
     >
-      <View style={[styles.content, { paddingBottom: contentBottomPadding }]}>
+      <View
+        style={[
+          styles.content,
+          {
+            paddingBottom: Math.max(0, contentBottomPadding - CONTENT_TO_FOOTER_GAP_REDUCTION),
+          },
+        ]}
+      >
         {/* Header with title, badge and close button */}
         <View style={styles.headerContainer}>
           <View style={styles.headerLeft}>

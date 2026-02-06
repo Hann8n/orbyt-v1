@@ -12,6 +12,7 @@ import VerticalListSheet, { VerticalListButton } from '../../ui/VerticalListShee
 import type { TrueSheet } from '@lodev09/react-native-true-sheet';
 import {
   AppTrueSheet,
+  CONTENT_TO_FOOTER_GAP_REDUCTION,
   DEFAULT_HEADER_STYLE,
   useMeasuredFooterHeight,
   FOOTER_BOTTOM_PADDING_MIN,
@@ -414,7 +415,17 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
           </KeyboardAwareFooter>
         )}
       >
-        <View style={[styles.submenuContent, { paddingBottom: submenuContentBottomPadding }]}>
+        <View
+          style={[
+            styles.submenuContent,
+            {
+              paddingBottom: Math.max(
+                0,
+                submenuContentBottomPadding - CONTENT_TO_FOOTER_GAP_REDUCTION
+              ),
+            },
+          ]}
+        >
           {/* Submenu options */}
           <View style={styles.optionsContainer}>
             <VerticalListButton
