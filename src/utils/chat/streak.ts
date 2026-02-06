@@ -1,61 +1,61 @@
-/**
- * Chat streak: consecutive calendar days with both participants sending at least one message.
- * Pure function over message timestamps; no API calls.
- * Only consider "active" streak when last message was within the last 24h.
- */
+import { differenceInCalendarDays, isToday, isYesterday, isValid, parseISO } from 'date-fns';
 
-const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+/**
+ * Chat streaks work on calendar days and require both participants
+ * to send at least one message per day.
+ */
 
 type StreakMessage = { sentAt?: string; sender?: { did?: string } } | null | undefined;
 
-/** True if the last message was sent within the last 24 hours (streak still active). */
-export function isStreakActive(lastMessageSentAt: string | undefined): boolean {
-  if (!lastMessageSentAt || typeof lastMessageSentAt !== 'string') return false;
-  const sent = new Date(lastMessageSentAt).getTime();
-  return Number.isFinite(sent) && Date.now() - sent < TWENTY_FOUR_HOURS_MS;
-}
+export const isStreakActive = (lastMessageSentAt?: string): boolean => {
+  if (!lastMessageSentAt) return false;
+  const d = parseISO(lastMessageSentAt);
+  return isValid(d) && (isToday(d) || isYesterday(d));
+};
 
-/**
- * Consecutive days where BOTH participants sent at least one message, ending at the most recent day.
- * Returns 0 if < 2 such days. Requires currentUserDid to identify participants.
- */
 export function getChatStreak(
   messages: Array<StreakMessage>,
-  currentUserDid: string | undefined
+  currentUserDid: string | undefined,
+  lastMessageSentAt?: string
 ): number {
   if (!currentUserDid) return 0;
 
-  // Map: date -> Set of sender DIDs who sent on that day
   const dayToSenders = new Map<string, Set<string>>();
   for (const m of messages) {
     const at = m?.sentAt;
-    const senderDid = m?.sender?.did;
-    if (typeof at !== 'string' || typeof senderDid !== 'string') continue;
-    const d = at.slice(0, 10); // YYYY-MM-DD (ISO)
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
-    let senders = dayToSenders.get(d);
-    if (!senders) {
-      senders = new Set<string>();
-      dayToSenders.set(d, senders);
-    }
-    senders.add(senderDid);
+    const did = m?.sender?.did;
+    if (!at || !did) continue;
+    const d = parseISO(at);
+    if (!isValid(d)) continue;
+    const key = d.toISOString().slice(0, 10); // YYYY-MM-DD
+    let senders = dayToSenders.get(key);
+    if (!senders) dayToSenders.set(key, (senders = new Set<string>()));
+    senders.add(did);
   }
 
-  // Only count days where both participants (current user + at least one other) sent
   const daysWithBoth = [...dayToSenders.entries()]
     .filter(([, senders]) => senders.has(currentUserDid) && senders.size >= 2)
-    .map(([d]) => d);
+    .map(([key]) => key)
+    .sort();
+  if (!daysWithBoth.length) return 0;
 
-  if (daysWithBoth.length < 2) return daysWithBoth.length;
+  // Streak must end on the same calendar day as the last message,
+  // otherwise it's an old streak that should no longer show.
+  if (lastMessageSentAt) {
+    const d = parseISO(lastMessageSentAt);
+    if (!isValid(d)) return 0;
+    const lastDayKey = d.toISOString().slice(0, 10);
+    const mostRecentBothDay = daysWithBoth[daysWithBoth.length - 1];
+    if (mostRecentBothDay !== lastDayKey) return 0;
+  }
 
-  const sorted = [...daysWithBoth].sort((a, b) => b.localeCompare(a)); // newest first
   let streak = 1;
-  for (let i = 1; i < sorted.length; i++) {
-    const prev = new Date(sorted[i - 1] + 'T12:00:00Z');
-    prev.setUTCDate(prev.getUTCDate() - 1);
-    const want = prev.toISOString().slice(0, 10);
-    if (sorted[i] === want) streak++;
-    else break;
+  for (let i = daysWithBoth.length - 1; i > 0; i--) {
+    const cur = parseISO(daysWithBoth[i]);
+    const prev = parseISO(daysWithBoth[i - 1]);
+    if (!isValid(cur) || !isValid(prev)) break;
+    if (differenceInCalendarDays(cur, prev) !== 1) break;
+    streak++;
   }
   return streak;
 }
@@ -67,6 +67,6 @@ export function getActiveStreak(
   currentUserDid?: string
 ): { show: boolean; count: number } {
   if (!isStreakActive(lastMessageSentAt)) return { show: false, count: 0 };
-  const count = getChatStreak(messages, currentUserDid);
+  const count = getChatStreak(messages, currentUserDid, lastMessageSentAt);
   return { show: count >= 2, count: count >= 2 ? count : 0 };
 }
