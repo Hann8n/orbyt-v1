@@ -41,6 +41,7 @@ import { VideoItem } from './VideoItem';
 import GridFeedView from './GridFeedView';
 import * as Device from 'expo-device';
 import { getViewportDimensions } from '../../../utils/device/screen';
+import { getVideoCardHeight } from '../../../utils/video/helpers';
 import { Colors } from '../../../theme';
 import { Loading3FillIcon } from '../../ui/Icon';
 import {
@@ -231,13 +232,11 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       [isModal, isHeaderFeed, insets]
     );
 
-    // Card height: prefer a 9:16 vertical card based on viewport width,
-    // but never exceed the actual viewport height used for snapping.
-    const cardHeight = useMemo(() => {
-      const verticalCardAspect = 16 / 9; // height / width for a 9:16 card
-      const idealHeight = viewportDimensions.width * verticalCardAspect;
-      return Math.min(idealHeight, viewportDimensions.height);
-    }, [viewportDimensions.width, viewportDimensions.height]);
+    // Card height: standard 9:16 portrait card from viewport width, capped by viewport height.
+    const cardHeight = useMemo(
+      () => getVideoCardHeight(viewportDimensions.width, viewportDimensions.height),
+      [viewportDimensions.width, viewportDimensions.height]
+    );
 
     const { onViewableItemsChanged, viewabilityConfig, canPlay, feedKey } = useFeedVisibility({
       feedOption,

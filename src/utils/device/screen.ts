@@ -41,19 +41,6 @@ export const getBottomNavBarHeight = (insets: { bottom: number }): number => {
 };
 
 /**
- * Get the appropriate video card height based on screen size and context
- */
-export const getVideoCardHeight = (insets: { top: number; bottom: number }): number => {
-  const { height } = Dimensions.get('window');
-  if (isCompactDevice()) {
-    return height;
-  } else {
-    const navHeight = getBottomNavBarHeight(insets) + 20;
-    return height - navHeight - insets.top;
-  }
-};
-
-/**
  * Get viewport dimensions for video snapping
  */
 export const getViewportDimensions = (

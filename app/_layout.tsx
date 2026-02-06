@@ -189,7 +189,7 @@ function RootNavigator() {
             name="(modals)/feed"
             options={{
               headerShown: false,
-              presentation: 'fullScreenModal',
+              presentation: 'transparentModal',
               gestureEnabled: true,
               animation: 'fade',
             }}

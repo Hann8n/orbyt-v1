@@ -9,10 +9,17 @@ import { View, StyleSheet, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { Colors } from '../../../theme';
 import BlurredBackground from '../../ui/BlurredBackground';
-import { getVideoView } from '../../../utils/video/helpers';
+import { getVideoMetadata, getVideoAspectRatioFromEmbed } from '../../../utils/video/helpers';
 import type { ExtendedPostView, ExtendedFeedViewPost, PostView } from '../../../services/api/types';
 
 type Post = ExtendedPostView | ExtendedFeedViewPost;
+
+function getEmbed(post: Post): PostView['embed'] | null | undefined {
+  return (
+    (post as { embed?: PostView['embed'] }).embed ??
+    (post as { post?: { embed?: PostView['embed'] } }).post?.embed
+  );
+}
 
 export interface VideoCardPlaceholderProps {
   post: Post;
@@ -24,16 +31,11 @@ const VideoCardPlaceholder: React.FC<VideoCardPlaceholderProps> = ({
   height: heightProp,
 }) => {
   const { width } = Dimensions.get('window');
-  const videoView = useMemo(() => {
-    const embed =
-      (post as { embed?: unknown }).embed ?? (post as { post?: { embed?: unknown } }).post?.embed;
-    return getVideoView(embed as PostView['embed'] | null | undefined);
-  }, [post]);
-  const posterUrl = videoView?.thumbnail || null;
-  const aspectRatio = videoView?.aspectRatio
-    ? videoView.aspectRatio.width / videoView.aspectRatio.height
-    : 16 / 9;
-  const cardHeight = heightProp || width * aspectRatio;
+  const embed = useMemo(() => getEmbed(post), [post]);
+  const meta = useMemo(() => getVideoMetadata(embed), [embed]);
+  const posterUrl = meta?.thumbnail ?? null;
+  const aspectRatio = getVideoAspectRatioFromEmbed(embed);
+  const cardHeight = heightProp ?? width / aspectRatio;
 
   return (
     <View style={[styles.container, { height: cardHeight }]}>

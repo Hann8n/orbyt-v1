@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList, FlashListRef } from '@shopify/flash-list';
 import type { ListFeedViewRef } from '../../../types';
 import { Colors } from '../../../theme';
-import { getVideoView } from '../../../utils/video/helpers';
+import { getVideoView, DEFAULT_VIDEO_ASPECT_RATIO } from '../../../utils/video/helpers';
 import { QUERY_CONSTANTS } from '../../../utils/constants';
 import type { ExtendedFeedViewPost } from '../../../services/api/types';
 import * as Device from 'expo-device';
@@ -174,9 +174,10 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
     }, [windowWidth, isTablet]);
 
     const numColumns = computedColumns;
-    // With borders instead of margins, items can use full width divided by columns
+    // With borders instead of margins, items can use full width divided by columns.
+    // Cell aspect matches standard video aspect (9:16 portrait).
     const itemWidth = (windowWidth || Dimensions.get('window').width) / numColumns;
-    const itemHeight = itemWidth * (16 / 9);
+    const itemHeight = itemWidth / DEFAULT_VIDEO_ASPECT_RATIO;
 
     // Use actual safe area insets and bottom nav bar height
     const insets = useSafeAreaInsets();

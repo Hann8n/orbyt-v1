@@ -1,6 +1,9 @@
 /**
  * Video Utilities - Lean helpers for video playback
  * Uses native expo-video caching (1GB LRU default)
+ *
+ * Video dimensions: All video sizing uses DEFAULT_VIDEO_ASPECT_RATIO (9:16 portrait)
+ * and getVideoAspectRatio* helpers so list, grid, placeholder, and post screen stay consistent.
  */
 
 import { Platform } from 'react-native';
@@ -154,4 +157,44 @@ export function getVideoMetadata(embed: PostView['embed'] | null | undefined): {
         }
       : null,
   };
+}
+
+/** Default video aspect ratio (width / height). 9:16 portrait used everywhere for consistent sizing. */
+export const DEFAULT_VIDEO_ASPECT_RATIO = 9 / 16;
+
+/**
+ * Returns video aspect ratio (width / height) from embed, or default 9:16 portrait.
+ * Use for layout: cardHeight = viewportWidth / aspectRatio (capped by viewportHeight).
+ */
+export function getVideoAspectRatioFromEmbed(embed: PostView['embed'] | null | undefined): number {
+  const meta = getVideoMetadata(embed);
+  if (meta?.aspectRatio && meta.aspectRatio.width > 0 && meta.aspectRatio.height > 0) {
+    return meta.aspectRatio.width / meta.aspectRatio.height;
+  }
+  return DEFAULT_VIDEO_ASPECT_RATIO;
+}
+
+/**
+ * Returns video aspect ratio (width / height) from a post, or default 9:16 portrait.
+ */
+export function getVideoAspectRatioFromPost(
+  post: { embed?: PostView['embed'] } | { post?: { embed?: PostView['embed'] } }
+): number {
+  const embed =
+    (post as { embed?: PostView['embed'] }).embed ??
+    (post as { post?: { embed?: PostView['embed'] } }).post?.embed;
+  return getVideoAspectRatioFromEmbed(embed ?? null);
+}
+
+/**
+ * Standard card height for a video in the list feed: viewport width / aspect ratio,
+ * capped by viewport height. Uses default 9:16 portrait when aspect ratio not provided.
+ */
+export function getVideoCardHeight(
+  viewportWidth: number,
+  viewportHeight: number,
+  aspectRatio: number = DEFAULT_VIDEO_ASPECT_RATIO
+): number {
+  const idealHeight = viewportWidth / aspectRatio;
+  return Math.min(idealHeight, viewportHeight);
 }

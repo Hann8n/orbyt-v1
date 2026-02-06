@@ -37,7 +37,7 @@ import BlurredBackground from '../../src/components/ui/BlurredBackground';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextOverlay } from '../../src/types';
 import { resolveVideoPath, VideoPathInfo } from '../../src/utils/video/path';
-import { DEFAULT_BUFFER_OPTIONS } from '../../src/utils/video/helpers';
+import { DEFAULT_BUFFER_OPTIONS, DEFAULT_VIDEO_ASPECT_RATIO } from '../../src/utils/video/helpers';
 import { Colors } from '../../src/theme';
 import { useWindowDimensions } from 'react-native';
 import * as Device from 'expo-device';
@@ -61,7 +61,6 @@ import { useRichTextSearchTrigger, RichTextSearchModal } from '../../src/compone
 import { useRichText, formatRichTextForDisplay } from '../../src/hooks/useRichText';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const ASPECT_RATIO = 9 / 16; // 9:16 aspect ratio for video cards
 const VIDEO_WIDTH = 150; // Fixed preview width
 
 // Convert OrbytChannel to SubscribedChannel for draft storage
@@ -1293,7 +1292,7 @@ const VideoPostScreen: React.FC = () => {
 
   // Fixed container size with 9:16 aspect ratio
   const containerWidth = VIDEO_WIDTH;
-  const containerHeight = containerWidth / ASPECT_RATIO;
+  const containerHeight = containerWidth / DEFAULT_VIDEO_ASPECT_RATIO;
 
   // Add orientation state
   const getOrientation = () => {
@@ -1823,7 +1822,7 @@ const styles = StyleSheet.create({
   },
   landscapeVideoContainer: {
     width: '100%',
-    aspectRatio: 9 / 16,
+    aspectRatio: DEFAULT_VIDEO_ASPECT_RATIO,
     maxHeight: '90%',
   },
   textOverlayContainer: {
