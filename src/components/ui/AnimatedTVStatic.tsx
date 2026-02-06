@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { StyleProp, ViewStyle, Image } from 'react-native';
 import { Canvas, Image as SkiaImage, useImage, Group, rect } from '@shopify/react-native-skia';
 import {
@@ -46,8 +46,9 @@ const AnimatedTVStatic: React.FC<AnimatedTVStaticProps> = ({
 }) => {
   const frameIndex = useSharedValue(0);
   const spriteSheet = useImage(SPRITE_SHEET);
+  const animationStartedRef = useRef(false);
 
-  // Calculate dimensions once, reuse in position calculations
+  // Calculate dimensions once - this runs on UI thread via worklet
   const dimensions = useDerivedValue(() => {
     'worklet';
     if (!spriteSheet) return { frameSize: 0, scale: 1 };
@@ -56,11 +57,11 @@ const AnimatedTVStatic: React.FC<AnimatedTVStaticProps> = ({
     return { frameSize, scale: size / frameSize };
   }, [spriteSheet, size]);
 
-  // Calculate position and size using cached dimensions
+  // Calculate sprite position - all worklet calculations run on UI thread
   const imageX = useDerivedValue(() => {
     'worklet';
     if (!spriteSheet) return 0;
-    const idx = Math.round(frameIndex.value) % TOTAL_FRAMES;
+    const idx = Math.floor(frameIndex.value) % TOTAL_FRAMES;
     const col = idx % FRAMES_PER_ROW;
     return -col * dimensions.value.frameSize * dimensions.value.scale;
   }, [frameIndex, spriteSheet, dimensions]);
@@ -68,7 +69,7 @@ const AnimatedTVStatic: React.FC<AnimatedTVStaticProps> = ({
   const imageY = useDerivedValue(() => {
     'worklet';
     if (!spriteSheet) return 0;
-    const idx = Math.round(frameIndex.value) % TOTAL_FRAMES;
+    const idx = Math.floor(frameIndex.value) % TOTAL_FRAMES;
     const row = Math.floor(idx / FRAMES_PER_ROW);
     return -row * dimensions.value.frameSize * dimensions.value.scale;
   }, [frameIndex, spriteSheet, dimensions]);
@@ -85,11 +86,16 @@ const AnimatedTVStatic: React.FC<AnimatedTVStaticProps> = ({
     return spriteSheet.width() * dimensions.value.scale;
   }, [spriteSheet, size, dimensions]);
 
+  // Initialize animation when sprite sheet loads
+  // Reanimated animations already run on UI thread, no need for runOnUI
   useEffect(() => {
-    if (!autoPlay || !spriteSheet) return;
+    if (!spriteSheet || !autoPlay || animationStartedRef.current) {
+      return;
+    }
 
-    // Start animation sequence - assign animation to shared value
-    // eslint-disable-next-line react-hooks/immutability
+    animationStartedRef.current = true;
+
+    // Start animation loop - frameIndex starts at 0, showing first frame immediately
     frameIndex.value = withRepeat(
       withSequence(
         ...Array.from({ length: TOTAL_FRAMES }, (_, i) =>
@@ -99,25 +105,23 @@ const AnimatedTVStatic: React.FC<AnimatedTVStaticProps> = ({
       -1,
       false
     );
-  }, [autoPlay, spriteSheet, frameIndex]);
+  }, [spriteSheet, autoPlay, frameIndex]);
 
-  // Show a placeholder or first frame while loading
-  // All hooks must be called before any conditional returns
-  if (!spriteSheet) {
-    return <Canvas style={[{ width: size, height: size }, style]} />;
-  }
-
+  // Always render Canvas to avoid layout shifts, but only show image when ready
+  // This prevents the glitch from empty canvas appearing
   return (
     <Canvas style={[{ width: size, height: size }, style]}>
-      <Group clip={rect(0, 0, size, size)}>
-        <SkiaImage
-          image={spriteSheet}
-          x={imageX}
-          y={imageY}
-          width={imageWidth}
-          height={imageHeight}
-        />
-      </Group>
+      {spriteSheet && (
+        <Group clip={rect(0, 0, size, size)}>
+          <SkiaImage
+            image={spriteSheet}
+            x={imageX}
+            y={imageY}
+            width={imageWidth}
+            height={imageHeight}
+          />
+        </Group>
+      )}
     </Canvas>
   );
 };
