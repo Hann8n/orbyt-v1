@@ -646,7 +646,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         onDismiss?.();
         if (item.actor.did) {
           setTimeout(() => {
-            router.push({
+            router.navigate({
               pathname: '/profile/[did]',
               params: { did: item.actor.did },
             });

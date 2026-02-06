@@ -230,7 +230,7 @@ const CustomBottomTabBar: React.FC<CustomBottomTabBarProps> = ({
             if (isEmailVerificationRequired(currentUser)) {
               setShowEmailVerificationModal(true);
             } else {
-              router.push('/create');
+              router.navigate('/create');
             }
             break;
         }
@@ -244,7 +244,7 @@ const CustomBottomTabBar: React.FC<CustomBottomTabBarProps> = ({
           if (isEmailVerificationRequired(currentUser)) {
             setShowEmailVerificationModal(true);
           } else {
-            router.push('/create');
+            router.navigate('/create');
           }
           // Reset guard after navigation (create uses router, not navigation)
           setTimeout(() => {

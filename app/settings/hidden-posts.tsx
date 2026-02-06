@@ -161,7 +161,7 @@ const HiddenPostsScreen: React.FC = () => {
           mode="sheet"
           title="hidden posts"
           showCloseButton
-          onClosePress={() => router.back()}
+          onClosePress={() => router.dismiss()}
           applySafeAreaTop={false}
           backgroundColor={Colors.black}
         />
@@ -179,7 +179,7 @@ const HiddenPostsScreen: React.FC = () => {
         mode="sheet"
         title="hidden posts"
         showCloseButton
-        onClosePress={() => router.back()}
+        onClosePress={() => router.dismiss()}
         applySafeAreaTop={false}
         backgroundColor={Colors.black}
       />

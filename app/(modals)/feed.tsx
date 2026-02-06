@@ -55,7 +55,7 @@ const FeedScreen = memo(() => {
 
   // Memoized close handler
   const handleClose = useCallback(() => {
-    router.back();
+    router.dismiss();
   }, [router]);
 
   return (

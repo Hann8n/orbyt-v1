@@ -340,7 +340,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
           <Pressable
             style={styles.addChannelsButton}
             onPress={() => {
-              navigation.push('/explore');
+              navigation.navigate('/explore');
             }}
           >
             <Text style={styles.addChannelsButtonText}>Explore Channels</Text>

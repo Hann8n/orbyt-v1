@@ -196,7 +196,7 @@ const navigateToProfile = (profile: Profile, queryClient: QueryClient, router: R
     description: profile.description,
     verification: profile.verification,
   }).finally(() => {
-    router.push({
+    router.navigate({
       pathname: '/profile/[did]',
       params: { did },
     });
@@ -424,7 +424,7 @@ const ChannelsFeedRenderer = React.memo(
                 onChannelPress(channel);
               } else {
                 if (channel.uri && channel.uri.trim()) {
-                  router.push({
+                  router.navigate({
                     pathname: '/channel/[id]',
                     params: { id: channel.uri.trim() },
                   });
@@ -1010,7 +1010,7 @@ const OrbytChannelsGrid = React.memo(
                   itemHeight={specialItemHeight}
                   onPress={() => {
                     if (popularNowChannel.uri && popularNowChannel.uri.trim()) {
-                      router.push({
+                      router.navigate({
                         pathname: '/channel/[id]',
                         params: { id: popularNowChannel.uri.trim() },
                       });
@@ -1027,7 +1027,7 @@ const OrbytChannelsGrid = React.memo(
                   itemHeight={specialItemHeight}
                   onPress={() => {
                     if (latestChannel.uri && latestChannel.uri.trim()) {
-                      router.push({
+                      router.navigate({
                         pathname: '/channel/[id]',
                         params: { id: latestChannel.uri.trim() },
                       });
@@ -1050,7 +1050,7 @@ const OrbytChannelsGrid = React.memo(
                   itemHeight={specialItemHeight}
                   onPress={() => {
                     if (popularNowChannel.uri && popularNowChannel.uri.trim()) {
-                      router.push({
+                      router.navigate({
                         pathname: '/channel/[id]',
                         params: { id: popularNowChannel.uri.trim() },
                       });
@@ -1067,7 +1067,7 @@ const OrbytChannelsGrid = React.memo(
                   itemHeight={specialItemHeight}
                   onPress={() => {
                     if (latestChannel.uri && latestChannel.uri.trim()) {
-                      router.push({
+                      router.navigate({
                         pathname: '/channel/[id]',
                         params: { id: latestChannel.uri.trim() },
                       });
@@ -1109,7 +1109,7 @@ const OrbytChannelsGrid = React.memo(
                     itemWidth={itemWidth}
                     onPress={() => {
                       if (channel.uri && channel.uri.trim()) {
-                        router.push({
+                        router.navigate({
                           pathname: '/channel/[id]',
                           params: { id: channel.uri.trim() },
                         });
@@ -1443,7 +1443,7 @@ const ExploreScreen: React.FC = () => {
         );
       } else if (item.type === 'channel') {
         if (item.uri) {
-          router.push({
+          router.navigate({
             pathname: '/channel/[id]',
             params: { id: item.uri },
           });
@@ -1465,7 +1465,7 @@ const ExploreScreen: React.FC = () => {
     (channel: Channel) => {
       addVisit('channel', channel);
       if (channel.uri) {
-        router.push({
+        router.navigate({
           pathname: '/channel/[id]',
           params: { id: channel.uri },
         });
@@ -2041,7 +2041,7 @@ const ExploreScreen: React.FC = () => {
                               feedService.setCurrentFeed(formattedFeed);
                               const index = formattedFeed.findIndex(v => v.post.uri === videoUri);
                               const finalIndex = index >= 0 ? index : 0;
-                              router.push({
+                              router.navigate({
                                 pathname: '/(modals)/feed',
                                 params: {
                                   initialIndex: finalIndex,
@@ -2115,7 +2115,7 @@ const ExploreScreen: React.FC = () => {
                           description: profile.description,
                           verification: profile.verification,
                         }).finally(() => {
-                          router.push({
+                          router.navigate({
                             pathname: '/profile/[did]',
                             params: { did },
                           });
@@ -2143,7 +2143,7 @@ const ExploreScreen: React.FC = () => {
                       onPress={() => {
                         if (channel.uri && channel.uri.trim()) {
                           // Navigate to channel using Expo Router
-                          router.push({
+                          router.navigate({
                             pathname: '/channel/[id]',
                             params: { id: channel.uri.trim() },
                           });

@@ -181,7 +181,7 @@ const AppIconSettingsScreen: React.FC = () => {
         mode="sheet"
         title="App icon"
         showCloseButton
-        onClosePress={() => router.back()}
+        onClosePress={() => router.dismiss()}
         applySafeAreaTop={Platform.OS === 'android'}
         backgroundColor={Colors.black}
       />
@@ -205,7 +205,7 @@ const AppIconSettingsScreen: React.FC = () => {
                       <TouchableOpacity
                         style={styles.attributionContainer}
                         onPress={() =>
-                          router.push({
+                          router.navigate({
                             pathname: '/profile/[did]',
                             params: { did: section.attribution!.did },
                           })

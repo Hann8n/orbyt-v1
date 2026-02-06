@@ -16,7 +16,7 @@ const SavesScreen: React.FC = () => {
         mode="sheet"
         title="Your saves"
         showCloseButton
-        onClosePress={() => router.back()}
+        onClosePress={() => router.dismiss()}
         applySafeAreaTop={false}
         backgroundColor={Colors.black}
       />

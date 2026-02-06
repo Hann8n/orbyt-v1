@@ -173,7 +173,7 @@ const ListScreen: React.FC<ListScreenProps> = ({
         mode="sheet"
         title={title}
         showCloseButton
-        onClosePress={() => router.back()}
+        onClosePress={() => router.dismiss()}
         applySafeAreaTop={false}
         backgroundColor={Colors.black}
       />

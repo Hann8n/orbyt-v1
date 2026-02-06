@@ -740,7 +740,7 @@ const VideoEditorScreen: React.FC = () => {
     const normalizedPath = activeVideoPath.startsWith('file://')
       ? activeVideoPath
       : `file://${activeVideoPath}`;
-    router.push({
+    router.navigate({
       pathname: '/post/[id]',
       params: { id: 'new', videoPath: normalizedPath },
     });

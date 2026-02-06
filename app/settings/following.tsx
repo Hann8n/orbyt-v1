@@ -78,7 +78,7 @@ const FollowingScreen: React.FC = () => {
               }
             : undefined
         ).finally(() => {
-          navigation.push({
+          navigation.navigate({
             pathname: '/profile/[did]',
             params: { did: targetDid },
           });

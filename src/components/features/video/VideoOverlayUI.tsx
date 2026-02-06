@@ -183,7 +183,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
         );
       }
 
-      navigation.push({
+      navigation.navigate({
         pathname: '/profile/[did]',
         params: { did: cleanDid },
       });
@@ -194,7 +194,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   // Navigation to hashtag feed
   const navigateToHashtagFeed = useCallback(
     (hashtag: string) => {
-      navigation.push({
+      navigation.navigate({
         pathname: '/(modals)/feed',
         params: {
           feedOption: `hashtag:${hashtag}`,

@@ -585,7 +585,7 @@ const HeaderContentComponent = memo<{
       const clean = (identifier || '').trim();
       if (!clean) return;
 
-      router.push({
+      router.navigate({
         pathname: '/profile/[did]',
         // Route param is named [did], but we allow handle too and resolve inside ProfileScreen.
         params: { did: clean },
@@ -596,7 +596,7 @@ const HeaderContentComponent = memo<{
 
   const navigateToHashtagFeed = useCallback(
     (hashtag: string) => {
-      router.push({
+      router.navigate({
         pathname: '/(modals)/feed',
         params: {
           feedOption: `hashtag:${hashtag}`,

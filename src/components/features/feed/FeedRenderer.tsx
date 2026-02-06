@@ -321,7 +321,7 @@ const FeedRenderer = memo(
         (index: number) => {
           if (index >= 0 && index < feed.length) {
             feedService.setCurrentFeed(feed);
-            router.push({
+            router.navigate({
               pathname: '/(modals)/feed',
               params: {
                 feedOption: feedOption || 'search',

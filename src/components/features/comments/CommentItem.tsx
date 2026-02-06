@@ -364,7 +364,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
       onDismiss?.();
 
       // Navigate to profile using DID only
-      navigation.push({
+      navigation.navigate({
         pathname: '/profile/[did]',
         params: { did: cleanDid },
       });
@@ -398,7 +398,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
 
   const handleHashtagPress = useCallback(
     (hashtag: string) => {
-      navigation.push({
+      navigation.navigate({
         pathname: '/(modals)/feed',
         params: {
           feedOption: `hashtag:${hashtag}`,

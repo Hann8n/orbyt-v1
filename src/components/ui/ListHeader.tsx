@@ -41,7 +41,7 @@ const ListHeader: React.FC<ListHeaderProps> = ({
   const insets = useSafeAreaInsets();
 
   const handleBackPress = onBackPress || (() => router.back());
-  const handleClosePress = onClosePress || (() => router.back());
+  const handleClosePress = onClosePress || (() => router.dismiss());
 
   const containerStyle = [
     styles.container,

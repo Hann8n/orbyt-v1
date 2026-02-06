@@ -365,7 +365,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     }
 
     if (isOwnProfileView) {
-      router.push('/settings');
+      router.navigate('/settings');
     } else {
       setShowProfileMenu(true);
     }
@@ -425,7 +425,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
         {
           id: 'edit',
           label: 'Edit profile',
-          onPress: () => router.push('/edit-profile'),
+          onPress: () => router.navigate('/edit-profile'),
         },
       ];
     }
@@ -664,7 +664,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
             ? () => {
                 setShowProfileMenu(false);
                 const pushChat = () => {
-                  router.push({
+                  router.navigate({
                     pathname: '/chat/[id]',
                     params: { id: profileData.did, did: profileData.did },
                   });

@@ -203,7 +203,7 @@ const VideoUploadBannerComponent: React.FC<VideoUploadBannerProps> = ({
   }, [scrollY, isComplete]);
 
   const handleProfilePress = useCallback(() => {
-    router.push('/(tabs)/profile');
+    router.navigate('/(tabs)/profile');
     reset();
   }, [router, reset]);
 

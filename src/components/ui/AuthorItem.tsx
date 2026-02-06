@@ -147,10 +147,10 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
         });
       }
 
-      // Navigate back first to dismiss any modal/sheet, then navigate to profile
-      router.back();
+      // Dismiss modal/sheet first, then navigate to profile
+      router.dismiss();
       setTimeout(() => {
-        router.push({
+        router.navigate({
           pathname: '/profile/[did]',
           params: { did: cleanDid },
         });

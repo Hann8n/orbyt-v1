@@ -390,28 +390,28 @@ ${deviceInfo}`
           id: 'followers',
           label: 'Your followers',
           icon: 'users',
-          onPress: () => router.push('/settings/followers'),
+          onPress: () => router.navigate('/settings/followers'),
           linkType: 'internal',
         },
         {
           id: 'following',
           label: 'People you follow',
           icon: 'user-plus',
-          onPress: () => router.push('/settings/following'),
+          onPress: () => router.navigate('/settings/following'),
           linkType: 'internal',
         },
         {
           id: 'saves',
           label: 'Your saves',
           icon: 'bookmark',
-          onPress: () => router.push('/settings/saves'),
+          onPress: () => router.navigate('/settings/saves'),
           linkType: 'internal',
         },
         {
           id: 'watched',
           label: 'Watched videos',
           icon: 'eye',
-          onPress: () => router.push('/settings/watched'),
+          onPress: () => router.navigate('/settings/watched'),
           linkType: 'internal',
         },
       ],
@@ -433,13 +433,13 @@ ${deviceInfo}`
         {
           id: 'blocked-users',
           label: 'Blocked accounts',
-          onPress: () => router.push('/settings/blocked'),
+          onPress: () => router.navigate('/settings/blocked'),
           linkType: 'internal',
         },
         {
           id: 'muted-users',
           label: 'Muted accounts',
-          onPress: () => router.push('/settings/muted'),
+          onPress: () => router.navigate('/settings/muted'),
           linkType: 'internal',
         },
       ],
@@ -451,14 +451,14 @@ ${deviceInfo}`
           id: 'algorithmic-feed',
           label: 'Your mix',
           icon: 'sparkles',
-          onPress: () => router.push('/settings/algorithmic-feed'),
+          onPress: () => router.navigate('/settings/algorithmic-feed'),
           linkType: 'internal',
         },
         // {
         //   id: 'app-icon',
         //   label: 'App icon',
         //   icon: 'device-tv',
-        //   onPress: () => router.push('/settings/app-icon'),
+        //   onPress: () => router.navigate('/settings/app-icon'),
         //   linkType: 'internal',
         // },
         {
@@ -529,7 +529,7 @@ ${deviceInfo}`
           label: savedAccounts.length > 1 ? 'Switch account' : 'Add an account',
           icon: 'user',
           onPress: () => {
-            router.back();
+            router.dismiss();
             // Ensure modal close animation completes before presenting account switcher
             // Account switcher will show "Add Account" options by default if only one account
             setTimeout(() => presentAccountSwitcher(), 350);
@@ -646,7 +646,7 @@ ${deviceInfo}`
         mode="sheet"
         title="Settings"
         showCloseButton
-        onClosePress={() => router.back()}
+        onClosePress={() => router.dismiss()}
         applySafeAreaTop={Platform.OS === 'android'}
         backgroundColor={Colors.black}
       />

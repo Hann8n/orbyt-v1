@@ -197,7 +197,7 @@ function ChatMessageRichText({
       if (part.kind === 'mention' && part.identifier) {
         const clean = part.identifier.trim();
         if (!clean) return;
-        router.push({
+        router.navigate({
           pathname: '/profile/[did]',
           params: { did: clean },
         });
@@ -207,7 +207,7 @@ function ChatMessageRichText({
       if (part.kind === 'hashtag' && part.identifier) {
         const clean = part.identifier.replace(/^#/, '').trim();
         if (!clean) return;
-        router.push({
+        router.navigate({
           pathname: '/(modals)/feed',
           params: {
             feedOption: `hashtag:${clean}`,
@@ -956,7 +956,7 @@ function ChatEmbeddedPost({
         uniqueKey: uri,
       };
       feedService.setCurrentFeed([feedItem]);
-      router.push({
+      router.navigate({
         pathname: '/(modals)/feed',
         params: {
           feedOption: 'search',
@@ -1534,7 +1534,7 @@ export default function ChatScreen() {
 
   const handleViewProfile = useCallback(() => {
     setShowChatMenu(false);
-    if (otherDid) router.push({ pathname: '/profile/[did]', params: { did: otherDid } });
+    if (otherDid) router.navigate({ pathname: '/profile/[did]', params: { did: otherDid } });
   }, [router, otherDid]);
 
   const muteConvoMutation = useMutation({

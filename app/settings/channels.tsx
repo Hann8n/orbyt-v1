@@ -80,7 +80,7 @@ export default function ChannelManagementScreen() {
     if (selectedChannel?.uri) {
       setIsSheetVisible(false);
       setSelectedChannel(null);
-      router.push({
+      router.navigate({
         pathname: '/channel/[id]',
         params: { id: selectedChannel.uri },
       });
@@ -113,10 +113,7 @@ export default function ChannelManagementScreen() {
   }, [selectedChannel, unsubscribeFromChannel]);
 
   const handleExplorePress = useCallback(() => {
-    router.back();
-    setTimeout(() => {
-      router.push('/(tabs)/explore');
-    }, 100);
+    router.dismissTo('/(tabs)/explore');
   }, [router]);
 
   const renderChannelItem = useCallback(
@@ -186,7 +183,7 @@ export default function ChannelManagementScreen() {
         mode="sheet"
         title="channels"
         showCloseButton
-        onClosePress={() => router.back()}
+        onClosePress={() => router.dismiss()}
         applySafeAreaTop={false}
         backgroundColor={Colors.black}
       />

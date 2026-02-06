@@ -245,7 +245,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
                     if (!targetDid) return;
 
                     // Navigate to the verifier's profile, not the current profile
-                    navigation.push({
+                    navigation.navigate({
                       pathname: '/profile/[did]',
                       params: { did: targetDid },
                     });

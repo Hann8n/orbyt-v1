@@ -60,7 +60,7 @@ const ChannelItem: React.FC<ChannelItemProps> = ({
     if (onPress) {
       onPress();
     } else if (uri && uri.trim()) {
-      router.push({
+      router.navigate({
         pathname: '/channel/[id]',
         params: { id: uri.trim() },
       });

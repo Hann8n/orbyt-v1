@@ -283,7 +283,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
       ? () => {
           const did = channel.creator!.did?.trim();
           if (!did) return;
-          navigation.push({
+          navigation.navigate({
             pathname: '/profile/[did]',
             params: { did },
           });

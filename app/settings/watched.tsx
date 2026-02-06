@@ -16,7 +16,7 @@ const WatchedScreen: React.FC = () => {
         mode="sheet"
         title="Watched videos"
         showCloseButton
-        onClosePress={() => router.back()}
+        onClosePress={() => router.dismiss()}
         applySafeAreaTop={false}
         backgroundColor={Colors.black}
       />

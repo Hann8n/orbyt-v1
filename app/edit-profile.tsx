@@ -764,7 +764,7 @@ const EditProfileScreen: React.FC = () => {
         }
       }
 
-      router.back();
+      router.dismiss();
     } catch (_error) {
       Alert.alert('Error', 'Failed to update profile. Please try again.');
     }
@@ -782,7 +782,7 @@ const EditProfileScreen: React.FC = () => {
 
   // Handle dismiss
   const handleDismiss = useCallback(() => {
-    router.back();
+    router.dismiss();
   }, [router]);
 
   // Helper to dismiss keyboard and reset focus states

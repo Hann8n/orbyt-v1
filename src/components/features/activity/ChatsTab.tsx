@@ -160,7 +160,7 @@ const ConversationItem = React.memo<ConversationItemProps>(
 
     const handlePress = useCallback(() => {
       if (item.id && other?.did) {
-        navigation.push({
+        navigation.navigate({
           pathname: '/chat/[id]',
           params: { id: item.id, did: other.did },
         });
@@ -169,7 +169,7 @@ const ConversationItem = React.memo<ConversationItemProps>(
 
     const handleAvatarPress = useCallback(() => {
       if (other?.did) {
-        navigation.push({
+        navigation.navigate({
           pathname: '/profile/[did]',
           params: { did: other.did },
         });
@@ -178,7 +178,7 @@ const ConversationItem = React.memo<ConversationItemProps>(
 
     const handleNamePress = useCallback(() => {
       if (other?.did) {
-        navigation.push({
+        navigation.navigate({
           pathname: '/profile/[did]',
           params: { did: other.did },
         });

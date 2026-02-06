@@ -472,7 +472,7 @@ const FeedPager = forwardRef<ScrollToTopRef, FeedPagerProps>(function FeedPager(
           {nativeTabsEnabled && (
             <Pressable
               onPress={() => {
-                router.push('/create');
+                router.navigate('/create');
               }}
               style={styles.createButton}
             >

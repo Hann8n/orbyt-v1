@@ -376,7 +376,7 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
           <Text style={styles.networkSignInText}>
             On another network?{' '}
             <Text
-              onPress={() => !isLoading && router.push('/advanced-login')}
+              onPress={() => !isLoading && router.navigate('/advanced-login')}
               style={[styles.networkSignInLink, isLoading && styles.customPDSButtonDisabled]}
             >
               sign in here

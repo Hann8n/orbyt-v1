@@ -239,10 +239,7 @@ const AlgorithmicFeedScreen: React.FC = () => {
   );
 
   const handleExplorePress = useCallback(() => {
-    router.back();
-    setTimeout(() => {
-      router.push('/(tabs)/explore');
-    }, 100);
+    router.dismissTo('/(tabs)/explore');
   }, [router]);
 
   return (
@@ -251,7 +248,7 @@ const AlgorithmicFeedScreen: React.FC = () => {
         mode="sheet"
         title="Your mix"
         showCloseButton
-        onClosePress={() => router.back()}
+        onClosePress={() => router.dismiss()}
         applySafeAreaTop={false}
         backgroundColor={Colors.black}
       />

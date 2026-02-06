@@ -941,7 +941,7 @@ const VideoCard = memo(
       const handleChannelPress = useCallback(() => {
         if (channelUri) {
           const encodedUri = encodeURIComponent(channelUri);
-          navigation.push(`/channel/${encodedUri}`);
+          navigation.navigate(`/channel/${encodedUri}`);
         }
       }, [channelUri, navigation]);
 

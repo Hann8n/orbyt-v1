@@ -154,7 +154,7 @@ export default function NotificationFilterModal() {
         title="filter options"
         applySafeAreaTop={Platform.OS === 'android'}
         showCloseButton
-        onClosePress={() => router.back()}
+        onClosePress={() => router.dismiss()}
       />
 
       <ScrollView

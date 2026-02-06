@@ -822,14 +822,14 @@ const CreateScreen: React.FC = () => {
       // In development, route to video editor for faster iteration; otherwise go straight to post.
       if (__DEV__) {
         if (videoSegments.length === 1) {
-          router.push({
+          router.navigate({
             pathname: '/video-editor',
             params: {
               videoPath: videoSegments[0].video.uri,
             },
           });
         } else {
-          router.push({
+          router.navigate({
             pathname: '/video-editor',
             params: {
               segments: JSON.stringify(videoSegments),
@@ -838,7 +838,7 @@ const CreateScreen: React.FC = () => {
         }
       } else {
         if (videoSegments.length === 1) {
-          router.push({
+          router.navigate({
             pathname: '/post/[id]',
             params: {
               id: 'new',
@@ -846,7 +846,7 @@ const CreateScreen: React.FC = () => {
             },
           });
         } else {
-          router.push({
+          router.navigate({
             pathname: '/post/[id]',
             params: {
               id: 'new',

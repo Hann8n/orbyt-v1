@@ -463,13 +463,13 @@ const NotificationItem = React.memo<NotificationItemProps>(
                 }
               : undefined
           ).finally(() => {
-            navigation.push({
+            navigation.navigate({
               pathname: '/profile/[did]',
               params: { did: trimmed },
             });
           });
         } else {
-          navigation.push({
+          navigation.navigate({
             pathname: '/profile/[did]',
             params: { did: trimmed },
           });
@@ -485,7 +485,7 @@ const NotificationItem = React.memo<NotificationItemProps>(
         ]);
         if (!feedItem) return;
         feedService.setCurrentFeed([feedItem as ExtendedFeedViewPost]);
-        navigation.push({
+        navigation.navigate({
           pathname: '/(modals)/feed',
           params: {
             feedOption: 'search',
