@@ -3,7 +3,10 @@ import { View, Text, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format, parseISO, isValid } from 'date-fns';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import { useMeasuredFooterHeight, FOOTER_BOTTOM_PADDING_MIN } from '../../../utils/components/truesheet';
+import {
+  useMeasuredFooterHeight,
+  FOOTER_BOTTOM_PADDING_MIN,
+} from '../../../utils/components/truesheet';
 import { Colors } from '../../../theme';
 import CloseButton from '../../ui/CloseButton';
 import CancelButton from '../../ui/CancelButton';

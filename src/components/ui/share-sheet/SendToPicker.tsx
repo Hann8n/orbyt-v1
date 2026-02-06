@@ -7,7 +7,10 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { View, Text, TextInput, FlatList, StyleSheet, Pressable, Alert } from 'react-native';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import { useMeasuredFooterHeight, FOOTER_BOTTOM_PADDING_MIN } from '../../../utils/components/truesheet';
+import {
+  useMeasuredFooterHeight,
+  FOOTER_BOTTOM_PADDING_MIN,
+} from '../../../utils/components/truesheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { queryKeys } from '../../../utils/query/queryKeys';

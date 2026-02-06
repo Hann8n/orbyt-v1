@@ -2,7 +2,10 @@ import React, { useRef, useEffect } from 'react';
 import { BORDER_RADIUS } from '../../utils/constants';
 import { View, Text, StyleSheet, ViewStyle, TextStyle, StyleProp } from 'react-native';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import { useMeasuredFooterHeight, FOOTER_BOTTOM_PADDING_MIN } from '../../utils/components/truesheet';
+import {
+  useMeasuredFooterHeight,
+  FOOTER_BOTTOM_PADDING_MIN,
+} from '../../utils/components/truesheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from './Icon';
 import CloseButton from './CloseButton';

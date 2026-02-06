@@ -12,7 +12,10 @@ import CloseButton from '../../ui/CloseButton';
 import CancelButton from '../../ui/CancelButton';
 import KeyboardAwareFooter from '../../../utils/components/truesheet/KeyboardAwareFooter';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import { useMeasuredFooterHeight, FOOTER_BOTTOM_PADDING_MIN } from '../../../utils/components/truesheet';
+import {
+  useMeasuredFooterHeight,
+  FOOTER_BOTTOM_PADDING_MIN,
+} from '../../../utils/components/truesheet';
 import VerificationBadge from './VerificationBadge';
 
 // Import AuthorItem directly - preload to avoid size calculation issues

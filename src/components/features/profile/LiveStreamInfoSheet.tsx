@@ -4,7 +4,10 @@ import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format, parseISO, isValid, isToday, isTomorrow } from 'date-fns';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import { useMeasuredFooterHeight, FOOTER_BOTTOM_PADDING_MIN } from '../../../utils/components/truesheet';
+import {
+  useMeasuredFooterHeight,
+  FOOTER_BOTTOM_PADDING_MIN,
+} from '../../../utils/components/truesheet';
 import KeyboardAwareFooter from '../../../utils/components/truesheet/KeyboardAwareFooter';
 import CloseButton from '../../ui/CloseButton';
 import CancelButton from '../../ui/CancelButton';

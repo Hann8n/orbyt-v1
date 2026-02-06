@@ -10,7 +10,10 @@ import CloseButton from '../../ui/CloseButton';
 import CancelButton from '../../ui/CancelButton';
 import VerticalListSheet, { VerticalListButton } from '../../ui/VerticalListSheet';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import { useMeasuredFooterHeight, FOOTER_BOTTOM_PADDING_MIN } from '../../../utils/components/truesheet';
+import {
+  useMeasuredFooterHeight,
+  FOOTER_BOTTOM_PADDING_MIN,
+} from '../../../utils/components/truesheet';
 import { useAuth } from '../../../stores/userStore';
 import {
   useProfile,
@@ -457,8 +460,8 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
             <VerticalListButton
               label="Report Account"
               onPress={() => {
-                  submenuSheetRef.current?.dismiss().catch(() => {});
-                  handleReport();
+                submenuSheetRef.current?.dismiss().catch(() => {});
+                handleReport();
               }}
               disabled={isSubmitting}
             />
