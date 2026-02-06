@@ -17,8 +17,8 @@ import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
-import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import { useMeasuredFooterHeight } from '../../../utils/components/truesheet';
+import type { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { AppTrueSheet, useMeasuredFooterHeight } from '../../../utils/components/truesheet';
 
 import AtprotoService from '../../../services/api/AtprotoService';
 import { queryKeys } from '../../../utils/query/queryKeys';
@@ -486,6 +486,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   }, [scrollToCommentUri, flattenedComments, commentsLoading]);
 
   const [isPosting, setIsPosting] = useState(false);
+  const [postedCommentUri, setPostedCommentUri] = useState<string | null>(null);
 
   const handleSendComment = useCallback(async () => {
     if (!post?.uri) return;
@@ -502,15 +503,26 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       const parentUri = replyContext?.parentUri ?? rootUri;
       const parentCid = replyContext?.parentCid ?? rootCid;
 
-      await AtprotoService.postComment(text, rootUri, rootCid, parentUri, parentCid);
+      const result = await AtprotoService.postComment(text, rootUri, rootCid, parentUri, parentCid);
+
+      // Store the URI of the newly posted comment to scroll to it after refetch
+      setPostedCommentUri(result.uri);
 
       setNewCommentText('');
       setReplyContext(null);
 
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.comments.byPost(post.uri),
-        refetchType: 'active',
-      });
+      // Invalidate and force refetch to ensure new comment appears immediately
+      // Use a small delay to account for API propagation
+      setTimeout(async () => {
+        await queryClient.invalidateQueries({
+          queryKey: queryKeys.comments.byPost(post.uri),
+          refetchType: 'all', // Refetch all matching queries, not just active ones
+        });
+        // Force refetch to ensure immediate update
+        await queryClient.refetchQueries({
+          queryKey: queryKeys.comments.byPost(post.uri),
+        });
+      }, 300);
 
       setTimeout(() => inputRef.current?.focus?.(), 100);
     } catch {
@@ -519,6 +531,56 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       setIsPosting(false);
     }
   }, [post, newCommentText, replyContext, isPosting, queryClient]);
+
+  // Scroll to newly posted comment after it appears in the list
+  useEffect(() => {
+    if (
+      !postedCommentUri ||
+      !flattenedComments.length ||
+      commentsLoading ||
+      !commentsListRef.current
+    ) {
+      return;
+    }
+
+    const idx = flattenedComments.findIndex(c => {
+      const uri = c?.uri;
+      return uri === postedCommentUri;
+    });
+
+    if (idx >= 0 && idx < flattenedComments.length) {
+      // Comment found, scroll to it
+      setTimeout(() => {
+        try {
+          commentsListRef.current?.scrollToIndex({ index: idx, animated: true, viewPosition: 0.5 });
+          setPostedCommentUri(null); // Clear after scrolling
+        } catch {
+          // If scrollToIndex fails, try scrolling to end as fallback
+          try {
+            commentsListRef.current?.scrollToOffset({ offset: 0, animated: true });
+          } catch {
+            // ignore
+          }
+          setPostedCommentUri(null);
+        }
+      }, 500);
+    } else if (!commentsLoading) {
+      // Comment not found yet but loading is done - might need more time or scroll to bottom
+      setTimeout(() => {
+        try {
+          // Scroll to end as fallback
+          const itemCount = flattenedComments.length;
+          if (itemCount > 0) {
+            commentsListRef.current?.scrollToIndex({ index: itemCount - 1, animated: true });
+          }
+        } catch {
+          // ignore
+        }
+        // Clear after a delay even if not found
+        setTimeout(() => setPostedCommentUri(null), 1000);
+      }, 500);
+    }
+  }, [postedCommentUri, flattenedComments, commentsLoading]);
 
   const tabOptions: TabOption[] = useMemo(
     () => [
@@ -776,13 +838,11 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
   return (
     <>
-      <TrueSheet
+      <AppTrueSheet
         ref={sheetRef}
         name="comment-section"
         detents={scrollToCommentUri ? [1] : [0.5, 1]}
-        backgroundColor={Colors.black}
         onDidDismiss={handleClose}
-        grabber={false}
         scrollable={true}
         header={headerComponent}
         footer={activeTab === 'comments' ? wrapFooter(ComposerFooter) : undefined}
@@ -832,7 +892,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
             />
           )}
         </View>
-      </TrueSheet>
+      </AppTrueSheet>
 
       <Modal
         visible={!!fullscreenImageUri}

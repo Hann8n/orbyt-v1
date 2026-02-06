@@ -1,6 +1,7 @@
 /**
  * App-wide TrueSheet wrapper that applies consistent defaults.
- * Use for all sheets except CommentSection (which keeps raw TrueSheet).
+ * Use for all sheets - applies DEFAULT_SHEET_PROPS (black background, no grabber, auto detents).
+ * Override any prop (like detents) as needed.
  */
 
 import { forwardRef } from 'react';
