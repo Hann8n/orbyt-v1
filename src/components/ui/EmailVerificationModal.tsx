@@ -230,7 +230,7 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
       cancelButtonText="Skip for Now"
       name={name}
       scrollable={false}
-      footerTopPadding={16}
+      footerTopPadding={0}
     >
       <View style={[styles.container, { paddingBottom: 16 }]}>
         <Text style={styles.descriptionText}>

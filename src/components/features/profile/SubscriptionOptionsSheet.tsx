@@ -63,7 +63,7 @@ const SubscriptionOptionsSheet: React.FC<SubscriptionOptionsSheetProps> = ({
       showCancelButton={true}
       cancelButtonText="Done"
       name="subscription-options-sheet"
-      footerTopPadding={24}
+      footerTopPadding={0}
     >
       <View style={styles.content}>
         <VerticalListCheckboxButton
@@ -83,9 +83,7 @@ const SubscriptionOptionsSheet: React.FC<SubscriptionOptionsSheetProps> = ({
 };
 
 const styles = StyleSheet.create({
-  content: {
-    paddingTop: 8,
-  },
+  content: {},
 });
 
 export default SubscriptionOptionsSheet;

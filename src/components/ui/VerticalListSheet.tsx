@@ -83,7 +83,7 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
   const insets = useSafeAreaInsets();
   const footerBottomPadding = Math.max(insets.bottom, FOOTER_BOTTOM_PADDING_MIN);
 
-  const footerTop = footerTopPadding ?? 4;
+  const footerTop = footerTopPadding ?? 0;
   const hasFooter = showCancelButton || customFooter;
   const fallbackFooterHeight = hasFooter ? footerTop + 44 + footerBottomPadding : 0;
   const [measuredFooterHeight, wrapFooter] = useMeasuredFooterHeight(fallbackFooterHeight);
@@ -216,7 +216,6 @@ const styles = StyleSheet.create({
   },
   cancelContainer: {
     alignItems: 'center',
-    paddingTop: 8,
   },
   checkboxButtonCheckbox: {
     width: 22,

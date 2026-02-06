@@ -25,7 +25,7 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
   const sheetDetents: ('auto' | number)[] = useMemo(() => ['auto'], []);
   const insets = useSafeAreaInsets();
   const footerBottomPadding = Math.max(insets.bottom, FOOTER_BOTTOM_PADDING_MIN);
-  const [contentBottomPadding, wrapFooter] = useMeasuredFooterHeight(8 + 44);
+  const [contentBottomPadding, wrapFooter] = useMeasuredFooterHeight(44 + footerBottomPadding);
 
   useEffect(() => {
     const sheet = bottomSheetRef.current;
@@ -102,7 +102,6 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
 const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 12,
-    paddingTop: 8,
   },
   headerContainer: {
     flexDirection: 'row',
@@ -155,7 +154,6 @@ const styles = StyleSheet.create({
   },
   cancelContainer: {
     alignItems: 'center',
-    paddingTop: 8,
   },
 });
 

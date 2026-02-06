@@ -61,7 +61,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
   const sheetDetents: ('auto' | number)[] = useMemo(() => ['auto'], []);
   const insets = useSafeAreaInsets();
   const footerBottomPadding = Math.max(insets.bottom, FOOTER_BOTTOM_PADDING_MIN);
-  const [contentBottomPadding, wrapFooter] = useMeasuredFooterHeight(20 + 44);
+  const [contentBottomPadding, wrapFooter] = useMeasuredFooterHeight(44 + footerBottomPadding);
 
   // Get profile info - use cached data if available
   // Verification data is included in profile response, so we only need one query
@@ -263,7 +263,6 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
 const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 12,
-    paddingTop: 8,
   },
   headerContainer: {
     flexDirection: 'row',
@@ -378,7 +377,6 @@ const styles = StyleSheet.create({
   },
   cancelContainer: {
     alignItems: 'center',
-    paddingTop: 20,
   },
 });
 

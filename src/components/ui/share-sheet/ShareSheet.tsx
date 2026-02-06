@@ -49,7 +49,7 @@ const ShareSheet: React.FC = () => {
 
   const insets = useSafeAreaInsets();
   const footerBottomPadding = Math.max(insets.bottom, FOOTER_BOTTOM_PADDING_MIN);
-  const footerTop = 4;
+  const footerTop = 0;
   const footerFallbackHeight = footerTop + 44 + footerBottomPadding;
   const [contentBottomPadding, wrapFooter] = useMeasuredFooterHeight(footerFallbackHeight);
 
@@ -490,7 +490,6 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingHorizontal: 12,
-    paddingTop: 8,
     // Extend options row to sheet edges while preserving overall content padding
     marginLeft: -12,
     marginRight: -12,

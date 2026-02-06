@@ -59,7 +59,9 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
   // TrueSheet refs for proper stacking
   const submenuSheetRef = useRef<TrueSheet>(null);
   const submenuFooterBottomPadding = Math.max(insets.bottom, FOOTER_BOTTOM_PADDING_MIN);
-  const [submenuContentBottomPadding, wrapSubmenuFooter] = useMeasuredFooterHeight(8 + 44);
+  const [submenuContentBottomPadding, wrapSubmenuFooter] = useMeasuredFooterHeight(
+    44 + submenuFooterBottomPadding
+  );
 
   // Get profile data - prefer useProfileByDid if DID is provided (more reliable for handle.invalid cases)
   // Otherwise fallback to useProfile for backwards compatibility
@@ -487,7 +489,6 @@ const styles = StyleSheet.create({
   },
   submenuContent: {
     paddingHorizontal: 12,
-    paddingTop: 8,
   },
   headerContainer: {
     flexDirection: 'row',
@@ -506,7 +507,6 @@ const styles = StyleSheet.create({
   },
   cancelContainer: {
     alignItems: 'center',
-    paddingTop: 8,
   },
 });
 

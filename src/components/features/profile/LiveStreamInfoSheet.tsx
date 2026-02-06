@@ -35,7 +35,7 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
   const insets = useSafeAreaInsets();
   const sheetDetents: ('auto' | number)[] = useMemo(() => ['auto'], []);
   const footerBottomPadding = Math.max(insets.bottom, FOOTER_BOTTOM_PADDING_MIN);
-  const [contentBottomPadding, wrapFooter] = useMeasuredFooterHeight(20 + 44);
+  const [contentBottomPadding, wrapFooter] = useMeasuredFooterHeight(44 + footerBottomPadding);
 
   const status = profile?.status;
 
@@ -208,7 +208,6 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
 const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 12,
-    paddingTop: 8,
   },
   headerContainer: {
     flexDirection: 'row',
@@ -318,7 +317,6 @@ const styles = StyleSheet.create({
   },
   cancelContainer: {
     alignItems: 'center',
-    paddingTop: 20,
   },
 });
 

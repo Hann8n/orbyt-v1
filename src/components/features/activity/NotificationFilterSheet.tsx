@@ -366,7 +366,6 @@ const styles = StyleSheet.create({
   },
   footer: {
     alignItems: 'center',
-    paddingTop: 8,
     // No backgroundColor – gradient from VerticalListSheet shows through to match other sheets
   },
   clearButton: {
