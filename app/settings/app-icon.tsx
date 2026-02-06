@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  Alert,
   Platform,
   ScrollView,
   TouchableOpacity,
@@ -154,28 +153,24 @@ const AppIconSettingsScreen: React.FC = () => {
   const iconSize = Math.floor((availableWidth - totalGapWidth) / NUM_COLUMNS);
 
   const handleSelectIcon = useCallback(
-    (iconKey: AppIconKey) => {
+    async (iconKey: AppIconKey) => {
       if (isSubmitting) return;
 
       setIsSubmitting(true);
 
-      // setAppIcon returns false on error, or the icon name on success
-      const result = setAppIcon(iconKey);
+      try {
+        // setAppIcon resolves to the icon name on success, or throws on error
+        await setAppIcon(iconKey);
 
-      if (result === false) {
-        const message =
-          Platform.OS === 'android'
-            ? 'Changing the app icon may not be supported on all Android launchers.'
-            : 'Unable to change the app icon. Please make sure this device supports alternate icons.';
-        Alert.alert('icon change failed', message);
-      } else {
         // Verify the change actually succeeded by reading the current icon
         const newIconName = getAppIcon();
         const newIcon = newIconName === 'DEFAULT' ? null : (newIconName as AppIconKey);
         setCurrentIcon(newIcon);
+      } catch {
+        // Swallow errors; we'll just keep the previous icon selection
+      } finally {
+        setIsSubmitting(false);
       }
-
-      setIsSubmitting(false);
     },
     [isSubmitting]
   );
@@ -189,7 +184,6 @@ const AppIconSettingsScreen: React.FC = () => {
         onClosePress={() => router.back()}
         applySafeAreaTop={Platform.OS === 'android'}
         backgroundColor={Colors.black}
-        titleIndent={true}
       />
 
       <ScrollView

@@ -21,7 +21,6 @@ interface ListHeaderProps {
   right?: React.ReactNode;
   applySafeAreaTop?: boolean;
   style?: ViewStyle | ViewStyle[];
-  titleIndent?: boolean;
 }
 
 const ListHeader: React.FC<ListHeaderProps> = ({
@@ -37,7 +36,6 @@ const ListHeader: React.FC<ListHeaderProps> = ({
   right,
   applySafeAreaTop = false,
   style,
-  titleIndent = false,
 }) => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -59,7 +57,6 @@ const ListHeader: React.FC<ListHeaderProps> = ({
     mode === 'root' && styles.titleRoot,
     mode === 'stacked' && styles.titleStacked,
     mode === 'sheet' && styles.titleSheet,
-    mode === 'sheet' && titleIndent && styles.titleSheetIndent,
     { color: textColor },
   ];
 
@@ -221,9 +218,6 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     fontFamily: 'Figtree-Bold',
-  },
-  titleSheetIndent: {
-    marginLeft: 8,
   },
 });
 

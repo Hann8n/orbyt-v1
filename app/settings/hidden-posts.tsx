@@ -164,7 +164,6 @@ const HiddenPostsScreen: React.FC = () => {
           onClosePress={() => router.back()}
           applySafeAreaTop={false}
           backgroundColor={Colors.black}
-          titleIndent={true}
         />
         <View style={styles.loadingContainer}>
           <Loading3FillIcon size={48} color={Colors.neutral[50]} />
@@ -183,7 +182,6 @@ const HiddenPostsScreen: React.FC = () => {
         onClosePress={() => router.back()}
         applySafeAreaTop={false}
         backgroundColor={Colors.black}
-        titleIndent={true}
       />
 
       <FlatList

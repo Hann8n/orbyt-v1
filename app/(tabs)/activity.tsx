@@ -9,12 +9,11 @@ import PagerView, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors } from '../../src/theme';
-import { BORDER_RADIUS } from '../../src/utils/constants';
 import ChatsTab from '../../src/components/features/activity/ChatsTab';
 import NotificationsTab from '../../src/components/features/activity/NotificationsTab';
-import NotificationFilterSheet from '../../src/components/features/activity/NotificationFilterSheet';
+import ChatSettingsSheet from '../../src/components/features/activity/ChatSettingsSheet';
 import { useUnreadCount } from '../../src/hooks/useUnreadCount';
-import type { NotificationReason } from '../../src/services/api/types';
+import { useActivityFilterStore } from '../../src/stores/activityFilterStore';
 
 // Tab labels
 const TAB_LABELS: { [key: string]: string } = {
@@ -174,10 +173,9 @@ const ActivitySwipePager = ({
 
 const ActivityScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'chats' | 'notifications'>('notifications');
-  // State to trigger indicator re-renders during scroll (doesn't affect feeds) - matches FeedPager
   const [indicatorScrollProgress, setIndicatorScrollProgress] = useState(0);
-  const [showFilterSheet, setShowFilterSheet] = useState(false);
-  const [filterReasons, setFilterReasons] = useState<NotificationReason[] | undefined>(undefined);
+  const [chatSettingsSheetVisible, setChatSettingsSheetVisible] = useState(false);
+  const filterReasons = useActivityFilterStore(s => s.filterReasons);
   const insets = useSafeAreaInsets();
   const { notificationsCount, messagesCount } = useUnreadCount();
 
@@ -192,6 +190,7 @@ const ActivityScreen: React.FC = () => {
             ref={r => {
               if (activeTab === 'chats') tabRefs.activity = r;
             }}
+            onOpenChatSettings={() => setChatSettingsSheetVisible(true)}
           />
         );
       }
@@ -234,7 +233,7 @@ const ActivityScreen: React.FC = () => {
       const indicatorBaseFontSize = 22;
 
       return {
-        color: isActive ? Colors.neutral[50] : 'rgba(255, 255, 255, 0.75)',
+        color: isActive ? Colors.neutral[50] : Colors.neutral[500],
         fontSize: indicatorBaseFontSize,
         marginRight: 8,
         fontWeight: 'bold' as const,
@@ -249,9 +248,6 @@ const ActivityScreen: React.FC = () => {
   const handleIndicatorTap = useCallback((tabId: 'chats' | 'notifications') => {
     setActiveTab(tabId);
   }, []);
-
-  // Show filter button only when on notifications tab; use notifications indicator opacity
-  const filterButtonOpacity = getIndicatorStyle('notifications').opacity;
 
   return (
     <View style={styles.container}>
@@ -277,22 +273,13 @@ const ActivityScreen: React.FC = () => {
               </Pressable>
             ))}
           </View>
-          {filterButtonOpacity > 0.3 && (
-            <Pressable
-              onPress={() => setShowFilterSheet(true)}
-              style={[
-                styles.filterButton,
-                {
-                  opacity: filterButtonOpacity,
-                },
-              ]}
-              disabled={filterButtonOpacity < 1}
-            >
-              <Text style={styles.filterButtonText}>filter</Text>
-            </Pressable>
-          )}
         </View>
       </View>
+
+      <ChatSettingsSheet
+        visible={chatSettingsSheetVisible}
+        onDismiss={() => setChatSettingsSheetVisible(false)}
+      />
 
       {/* Tab Content */}
       <ActivitySwipePager
@@ -300,14 +287,6 @@ const ActivityScreen: React.FC = () => {
         onActiveTabChange={setActiveTab}
         renderTabContent={renderTabContent}
         onScrollProgressChange={setIndicatorScrollProgress}
-      />
-
-      {/* Filter Sheet */}
-      <NotificationFilterSheet
-        visible={showFilterSheet}
-        selectedReasons={filterReasons}
-        onDismiss={() => setShowFilterSheet(false)}
-        onFilterChange={setFilterReasons}
       />
     </View>
   );
@@ -346,22 +325,6 @@ const styles = StyleSheet.create({
   },
   indicatorItem: {
     paddingHorizontal: 4,
-  },
-  filterButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 50,
-    height: 32,
-    backgroundColor: Colors.neutral[900],
-    borderRadius: BORDER_RADIUS.MEDIUM,
-  },
-  filterButtonText: {
-    color: Colors.neutral[50],
-    fontSize: 16,
-    fontWeight: '600',
-    fontFamily: 'Figtree-SemiBold',
   },
   badgeContainer: {
     position: 'relative',

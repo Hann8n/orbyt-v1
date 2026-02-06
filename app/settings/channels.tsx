@@ -189,7 +189,6 @@ export default function ChannelManagementScreen() {
         onClosePress={() => router.back()}
         applySafeAreaTop={false}
         backgroundColor={Colors.black}
-        titleIndent={true}
       />
       <FlatList
         data={listData}

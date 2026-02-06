@@ -254,7 +254,6 @@ const AlgorithmicFeedScreen: React.FC = () => {
         onClosePress={() => router.back()}
         applySafeAreaTop={false}
         backgroundColor={Colors.black}
-        titleIndent={true}
       />
 
       <ScrollView

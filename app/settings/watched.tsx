@@ -19,7 +19,6 @@ const WatchedScreen: React.FC = () => {
         onClosePress={() => router.back()}
         applySafeAreaTop={false}
         backgroundColor={Colors.black}
-        titleIndent={true}
       />
       <FeedRenderer
         feedOption="watched"

@@ -40,7 +40,7 @@ import EmptyFeed from './EmptyFeed';
 import { VideoItem } from './VideoItem';
 import GridFeedView from './GridFeedView';
 import * as Device from 'expo-device';
-import { getVideoCardHeight, getBottomNavBarHeight } from '../../../utils/device/screen';
+import { getViewportDimensions } from '../../../utils/device/screen';
 import { Colors } from '../../../theme';
 import { Loading3FillIcon } from '../../ui/Icon';
 import {
@@ -232,25 +232,19 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       [feedOption, headerComponent]
     );
 
-    // Viewport calculations
-    const viewportDimensions = useMemo(() => {
-      const { height } = Dimensions.get('window');
-      const bottomNavBarHeight = getBottomNavBarHeight(insets);
-      const viewportHeight = isCompactDevice ? height : height - bottomNavBarHeight - insets.top;
-      return {
-        height: viewportHeight,
-        effectiveInsets: insets,
-        bottomNavBarHeight,
-      };
-    }, [isCompactDevice, insets]);
+    // Viewport calculations (single source of truth for list + cards)
+    const viewportDimensions = useMemo(
+      () => getViewportDimensions(isModal, isHeaderFeed, insets),
+      [isModal, isHeaderFeed, insets]
+    );
 
-    // Card height calculation
+    // Card height: prefer a 9:16 vertical card based on viewport width,
+    // but never exceed the actual viewport height used for snapping.
     const cardHeight = useMemo(() => {
-      if (isCompactDevice) {
-        return viewportDimensions.height;
-      }
-      return getVideoCardHeight(viewportDimensions.effectiveInsets);
-    }, [viewportDimensions.height, viewportDimensions.effectiveInsets, isCompactDevice]);
+      const verticalCardAspect = 16 / 9; // height / width for a 9:16 card
+      const idealHeight = viewportDimensions.width * verticalCardAspect;
+      return Math.min(idealHeight, viewportDimensions.height);
+    }, [viewportDimensions.width, viewportDimensions.height]);
 
     const { onViewableItemsChanged, viewabilityConfig, canPlay, feedKey } = useFeedVisibility({
       feedOption,

@@ -57,20 +57,78 @@ export interface MessagesResponse {
   cursor: string | null;
 }
 
+/** Filter params for listConvos (chat.bsky.convo.listConvos query params). */
+export interface ListConvosFilter {
+  readState?: 'unread';
+  status?: 'request' | 'accepted';
+}
+
 export const ChatService = {
   /** chat.bsky.convo.listConvos */
-  async listConvos(cursor: string | null = null): Promise<ConversationsResponse> {
+  async listConvos(
+    cursor: string | null = null,
+    filter?: ListConvosFilter
+  ): Promise<ConversationsResponse> {
     return withRetry429(async () => {
       const { api } = await AtprotoService.getApiClient();
-      const res = await api.chat.bsky.convo.listConvos(
-        { limit: 50, ...(cursor && { cursor }) },
-        chatOpts()
-      );
+      const params: {
+        limit: number;
+        cursor?: string;
+        readState?: 'unread';
+        status?: 'request' | 'accepted';
+      } = {
+        limit: 50,
+        ...(cursor && { cursor }),
+        ...(filter?.readState && { readState: filter.readState }),
+        ...(filter?.status && { status: filter.status }),
+      };
+      const res = await api.chat.bsky.convo.listConvos(params, chatOpts());
       return {
         conversations: res.data?.convos ?? [],
         cursor: res.data?.cursor ?? null,
       };
     });
+  },
+
+  /**
+   * Get chat declaration (allowIncoming) for the current user.
+   * Uses chat.bsky.actor.declaration record; requires atproto-proxy for bsky_chat.
+   */
+  async getChatDeclaration(did: string): Promise<'all' | 'none' | 'following' | null> {
+    if (!did) return null;
+    try {
+      const { api } = await AtprotoService.getApiClient();
+      // Use a loose any-typed call here because the chat actor
+      // declaration endpoint isn't fully modeled in the typed client.
+      const res: any = await (api as any).chat.bsky.actor.declaration.get(
+        { repo: did, rkey: 'self' },
+        chatOpts()
+      );
+      const value = res?.data?.value as
+        | { allowIncoming?: 'all' | 'none' | 'following' }
+        | undefined;
+      return value?.allowIncoming ?? null;
+    } catch {
+      return null;
+    }
+  },
+
+  /**
+   * Update chat declaration (who can message you).
+   * Uses chat.bsky.actor.declaration record; requires atproto-proxy for bsky_chat.
+   */
+  async updateChatDeclaration(
+    did: string,
+    allowIncoming: 'all' | 'none' | 'following'
+  ): Promise<void> {
+    const { api } = await AtprotoService.getApiClient();
+    // Loosely typed call; the generated client types don't expose the
+    // chat actor declaration mutation with full options, so fall back to any.
+    await (api as any).chat.bsky.actor.declaration.put(
+      { repo: did, rkey: 'self' },
+      { allowIncoming },
+      chatOpts() as any
+    );
   },
 
   /** chat.bsky.convo.getConvo */

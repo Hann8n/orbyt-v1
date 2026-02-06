@@ -12,15 +12,15 @@ import { View, Text, StyleSheet, Pressable, RefreshControl } from 'react-native'
 import { LegendList, LegendListRef } from '@legendapp/list';
 import type { ScrollToTopRef } from '../../../utils/navigation/tabRefs';
 import { ChatBskyConvoDefs } from '@atproto/api';
-import { ChatService } from '../../../services/api/chat/ChatService';
+import { ChatService, type ListConvosFilter } from '../../../services/api/chat/ChatService';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { Colors } from '../../../theme';
 import { OptionsButton } from '../../../components/ui/OptionsButton';
 import { Avatar } from '../../../components/ui/UI';
-import {
+import Icon, {
   FlameFillIcon,
   FireFillIcon,
   Loading3FillIcon,
@@ -34,7 +34,7 @@ import { formatHandle } from '../../../utils/formatting/handles';
 import { formatRelativeDate } from '../../ui/RelativeDate';
 import { queryKeys } from '../../../utils/query/queryKeys';
 import { useUserStore } from '../../../stores/userStore';
-import { getActiveStreak } from '../../../utils/chat/streak';
+import { getActiveStreak, isStreakActive } from '../../../utils/chat/streak';
 import { useAvatarProfileRing } from '../../../hooks/useOrbytColors';
 import type { ProfileViewBasic, RecordValue } from '../../../services/api/types';
 
@@ -50,9 +50,9 @@ interface EmbedRecordViewRecord {
   detached?: boolean;
 }
 
-const EmptyChats = () => (
+const EmptyChats: React.FC<{ message?: string }> = ({ message = 'No chats, yet…' }) => (
   <View style={styles.emptyContainer}>
-    <Text style={styles.emptyText}>no conversations yet</Text>
+    <Text style={styles.emptyText}>{message}</Text>
   </View>
 );
 
@@ -243,6 +243,24 @@ const ConversationItem = React.memo<ConversationItemProps>(
                   <MutedChatIcon size={18} color={Colors.neutral[500]} />
                 </View>
               )}
+              {showStreak && (
+                <View style={styles.streakBadge}>
+                  {streak < 7 ? (
+                    <FlameFillIcon size={14} color={Colors.orange[500]} />
+                  ) : (
+                    <FireFillIcon size={14} color="#dc2626" />
+                  )}
+                  <Text
+                    style={[
+                      styles.streakBadgeText,
+                      streak < 7 ? styles.streakBadgeTextFlame : styles.streakBadgeTextFire,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {streak}
+                  </Text>
+                </View>
+              )}
             </View>
             <View style={styles.actionRow}>
               <View style={styles.actionTextAndTime}>
@@ -279,24 +297,6 @@ const ConversationItem = React.memo<ConversationItemProps>(
               </View>
             </View>
           </Pressable>
-          {showStreak && (
-            <View style={styles.streakBadge}>
-              {streak < 7 ? (
-                <FlameFillIcon size={14} color={Colors.orange[500]} />
-              ) : (
-                <FireFillIcon size={14} color="#dc2626" />
-              )}
-              <Text
-                style={[
-                  styles.streakBadgeText,
-                  streak < 7 ? styles.streakBadgeTextFlame : styles.streakBadgeTextFire,
-                ]}
-                numberOfLines={1}
-              >
-                {streak}
-              </Text>
-            </View>
-          )}
         </View>
         {isRequest ? (
           <View style={styles.requestActions}>
@@ -336,178 +336,318 @@ ConversationItem.displayName = 'ConversationItem';
 
 const SCROLL_AT_TOP_THRESHOLD = 80;
 
-const ChatsTab = forwardRef<ScrollToTopRef>((_, ref) => {
-  const listRef = useRef<LegendListRef>(null);
-  const scrollOffsetRef = useRef(0);
-  const previousFirstConvoIdRef = useRef<string | undefined>(undefined);
-  const navigation = useRouter();
-  const queryClient = useQueryClient();
-  const insets = useSafeAreaInsets();
-  const bottomNavBarHeight = getBottomNavBarHeight(insets);
-  const [isUserRefreshing, setIsUserRefreshing] = useState(false);
+type ChatSegment = 'all' | 'unread' | 'requests';
 
-  const acceptConvoMutation = useMutation({
-    mutationFn: (convoId: string) => ChatService.acceptConvo(convoId),
-    onSuccess: (_, convoId) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.detail(convoId) });
-    },
-  });
+const SEGMENT_OPTIONS: { value: ChatSegment; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'unread', label: 'Unread' },
+  { value: 'requests', label: 'Requests' },
+];
 
-  const leaveConvoMutation = useMutation({
-    mutationFn: (convoId: string) => ChatService.leaveConvo(convoId),
-    onSuccess: (_, convoId) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.detail(convoId) });
-    },
-  });
+function segmentToFilter(segment: ChatSegment): ListConvosFilter {
+  if (segment === 'requests') return { status: 'request' };
+  if (segment === 'unread') return { status: 'accepted', readState: 'unread' };
+  return { status: 'accepted' };
+}
 
-  useImperativeHandle(
-    ref,
-    () => ({
-      scrollToTop: () => {
-        listRef.current?.scrollToOffset({ offset: 0, animated: true });
+export interface ChatsTabProps {
+  /** Optional initial filter (e.g. from /chat/requests page). Segment bar uses this to set initial selection. */
+  chatFilter?: ListConvosFilter;
+  /** Called when the user taps the gear (opens who-can-message-you sheet). */
+  onOpenChatSettings?: () => void;
+}
+
+const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(
+  ({ chatFilter, onOpenChatSettings }, ref) => {
+    const listRef = useRef<LegendListRef>(null);
+    const scrollOffsetRef = useRef(0);
+    const previousFirstConvoIdRef = useRef<string | undefined>(undefined);
+    const navigation = useRouter();
+    const queryClient = useQueryClient();
+    const insets = useSafeAreaInsets();
+    const bottomNavBarHeight = getBottomNavBarHeight(insets);
+    const [isUserRefreshing, setIsUserRefreshing] = useState(false);
+
+    const [segment, setSegment] = useState<ChatSegment>(() => {
+      if (chatFilter?.status === 'request') return 'requests';
+      if (chatFilter?.readState === 'unread') return 'unread';
+      return 'all';
+    });
+
+    const effectiveFilter = useMemo(() => segmentToFilter(segment), [segment]);
+
+    const acceptConvoMutation = useMutation({
+      mutationFn: (convoId: string) => ChatService.acceptConvo(convoId),
+      onSuccess: (_, convoId) => {
+        queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.all });
+        queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.detail(convoId) });
       },
-    }),
-    []
-  );
+    });
 
-  const {
-    data,
-    fetchNextPage,
-    hasNextPage,
-    isLoading,
-    isError,
-    refetch,
-    isRefetching,
-    isFetchingNextPage,
-  } = useInfiniteQuery({
-    queryKey: queryKeys.chat.conversations.list(),
-    queryFn: async ({ pageParam }) => ChatService.listConvos(pageParam as string | null),
-    initialPageParam: null as string | null,
-    getNextPageParam: lastPage => lastPage?.cursor ?? undefined,
-    staleTime: QUERY_CONSTANTS.STALE_TIME_SHORT,
-    gcTime: 60 * 60 * 1000,
-    refetchInterval: 30000, // Auto-refresh list to stay in sync with indicator
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
-    placeholderData: prev => prev,
-  });
+    const leaveConvoMutation = useMutation({
+      mutationFn: (convoId: string) => ChatService.leaveConvo(convoId),
+      onSuccess: (_, convoId) => {
+        queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.all });
+        queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.detail(convoId) });
+      },
+    });
 
-  const conversations: ConvoView[] = useMemo(
-    () => data?.pages?.flatMap(p => p?.conversations ?? []) ?? [],
-    [data]
-  );
-
-  const handleScroll = useCallback((e: { nativeEvent: { contentOffset: { y: number } } }) => {
-    scrollOffsetRef.current = e.nativeEvent.contentOffset.y;
-  }, []);
-
-  useEffect(() => {
-    const firstId = conversations[0]?.id;
-    if (firstId === undefined) return;
-    const prevFirstId = previousFirstConvoIdRef.current;
-    const atTop = scrollOffsetRef.current <= SCROLL_AT_TOP_THRESHOLD;
-    if (prevFirstId !== undefined && prevFirstId !== firstId && atTop) {
-      listRef.current?.scrollToOffset({ offset: 0, animated: true });
-    }
-    previousFirstConvoIdRef.current = firstId;
-  }, [conversations]);
-
-  useFocusEffect(
-    useCallback(() => {
-      refetch();
-    }, [refetch])
-  );
-
-  const handleRefresh = useCallback(() => {
-    setIsUserRefreshing(true);
-    refetch().finally(() => setIsUserRefreshing(false));
-  }, [refetch]);
-
-  const renderItem = useCallback(
-    ({ item }: { item: ConvoView }) => (
-      <ConversationItem
-        item={item}
-        navigation={navigation}
-        onAccept={convoId => acceptConvoMutation.mutate(convoId)}
-        onDecline={convoId => leaveConvoMutation.mutate(convoId)}
-        isAccepting={acceptConvoMutation.isPending && acceptConvoMutation.variables === item.id}
-        isDeclining={leaveConvoMutation.isPending && leaveConvoMutation.variables === item.id}
-      />
-    ),
-    [navigation, acceptConvoMutation, leaveConvoMutation]
-  );
-
-  const keyExtractor = useCallback((item: ConvoView) => item.id, []);
-
-  const handleLoadMore = useCallback(() => {
-    if (hasNextPage && !isFetchingNextPage) fetchNextPage();
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
-
-  if (isError) {
-    return (
-      <View style={styles.errorContainer}>
-        <EmptyFeed
-          type="no-connection"
-          message="can't load conversations"
-          onRetry={() => refetch()}
-        />
-      </View>
+    useImperativeHandle(
+      ref,
+      () => ({
+        scrollToTop: () => {
+          listRef.current?.scrollToOffset({ offset: 0, animated: true });
+        },
+      }),
+      []
     );
-  }
 
-  if (isLoading && conversations.length === 0) {
-    return (
-      <View style={styles.listContainer}>
-        <ChatsLoading />
-      </View>
+    const {
+      data,
+      fetchNextPage,
+      hasNextPage,
+      isLoading,
+      isError,
+      refetch,
+      isRefetching,
+      isFetchingNextPage,
+    } = useInfiniteQuery({
+      queryKey: queryKeys.chat.conversations.list(undefined, effectiveFilter),
+      queryFn: async ({ pageParam }) =>
+        ChatService.listConvos(pageParam as string | null, effectiveFilter),
+      initialPageParam: null as string | null,
+      getNextPageParam: lastPage => lastPage?.cursor ?? undefined,
+      staleTime: QUERY_CONSTANTS.STALE_TIME_SHORT,
+      gcTime: 60 * 60 * 1000,
+      refetchInterval: 30000, // Auto-refresh list to stay in sync with indicator
+      refetchOnWindowFocus: false,
+      refetchOnMount: false,
+      refetchOnReconnect: false,
+      placeholderData: prev => prev,
+    });
+    // Refetch when chatFilter changes (query key already includes it)
+
+    const conversations: ConvoView[] = useMemo(
+      () => data?.pages?.flatMap(p => p?.conversations ?? []) ?? [],
+      [data]
     );
-  }
 
-  return (
-    <LegendList
-      ref={listRef}
-      style={styles.listContainer}
-      contentContainerStyle={[
-        styles.listContentContainer,
-        { paddingBottom: bottomNavBarHeight + 5 },
-      ]}
-      contentInsetAdjustmentBehavior="never"
-      data={conversations}
-      renderItem={renderItem}
-      keyExtractor={keyExtractor}
-      ItemSeparatorComponent={ChatDivider}
-      estimatedItemSize={80}
-      onScroll={handleScroll}
-      scrollEventThrottle={16}
-      refreshControl={
-        <RefreshControl
-          refreshing={isUserRefreshing && isRefetching && !isFetchingNextPage}
-          onRefresh={handleRefresh}
-          tintColor={Colors.neutral[50]}
-        />
+    // Prefetch messages for recent convos that might show a streak, so the list can display streak badges.
+    // Without this, streak only shows when that convo was previously opened (messages in cache).
+    const convoIdsToFetchForStreak = useMemo(() => {
+      const ids: string[] = [];
+      for (const c of conversations) {
+        const id = c?.id;
+        if (!id) continue;
+        const lastMsg = c.lastMessage;
+        const sentAt =
+          lastMsg &&
+          typeof lastMsg === 'object' &&
+          'sentAt' in lastMsg &&
+          typeof (lastMsg as { sentAt?: string }).sentAt === 'string'
+            ? (lastMsg as { sentAt: string }).sentAt
+            : undefined;
+        if (!isStreakActive(sentAt)) continue;
+        const cached = queryClient.getQueryData<{ messages?: unknown[] }>(
+          queryKeys.chat.messages.byConversation(id)
+        );
+        if (cached?.messages && cached.messages.length > 0) continue;
+        ids.push(id);
+        if (ids.length >= 5) break;
       }
-      onEndReached={handleLoadMore}
-      onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
-      showsVerticalScrollIndicator={false}
-      ListEmptyComponent={!isLoading ? <EmptyChats /> : null}
-      ListFooterComponent={
-        isFetchingNextPage ? (
-          <View style={styles.loadingMoreContainer}>
-            <Loading3FillIcon size={24} color={Colors.neutral[50]} />
+      return ids;
+    }, [conversations, queryClient]);
+
+    useQueries({
+      queries: convoIdsToFetchForStreak.map(convoId => ({
+        queryKey: queryKeys.chat.messages.byConversation(convoId),
+        queryFn: () => ChatService.getMessages(convoId, null),
+        staleTime: 60 * 60 * 1000,
+        gcTime: 60 * 60 * 1000,
+      })),
+    });
+
+    const handleScroll = useCallback((e: { nativeEvent: { contentOffset: { y: number } } }) => {
+      scrollOffsetRef.current = e.nativeEvent.contentOffset.y;
+    }, []);
+
+    useEffect(() => {
+      const firstId = conversations[0]?.id;
+      if (firstId === undefined) return;
+      const prevFirstId = previousFirstConvoIdRef.current;
+      const atTop = scrollOffsetRef.current <= SCROLL_AT_TOP_THRESHOLD;
+      if (prevFirstId !== undefined && prevFirstId !== firstId && atTop) {
+        listRef.current?.scrollToOffset({ offset: 0, animated: true });
+      }
+      previousFirstConvoIdRef.current = firstId;
+    }, [conversations]);
+
+    useFocusEffect(
+      useCallback(() => {
+        refetch();
+      }, [refetch])
+    );
+
+    const handleRefresh = useCallback(() => {
+      setIsUserRefreshing(true);
+      refetch().finally(() => setIsUserRefreshing(false));
+    }, [refetch]);
+
+    const renderItem = useCallback(
+      ({ item }: { item: ConvoView }) => (
+        <ConversationItem
+          item={item}
+          navigation={navigation}
+          onAccept={convoId => acceptConvoMutation.mutate(convoId)}
+          onDecline={convoId => leaveConvoMutation.mutate(convoId)}
+          isAccepting={acceptConvoMutation.isPending && acceptConvoMutation.variables === item.id}
+          isDeclining={leaveConvoMutation.isPending && leaveConvoMutation.variables === item.id}
+        />
+      ),
+      [navigation, acceptConvoMutation, leaveConvoMutation]
+    );
+
+    const keyExtractor = useCallback((item: ConvoView) => item.id, []);
+
+    const handleLoadMore = useCallback(() => {
+      if (hasNextPage && !isFetchingNextPage) fetchNextPage();
+    }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+    const listHeaderComponent = useMemo(
+      () => (
+        <View style={styles.segmentRow}>
+          <View style={styles.segmentChipsWrap}>
+            {SEGMENT_OPTIONS.map(opt => (
+              <Pressable
+                key={opt.value}
+                onPress={() => setSegment(opt.value)}
+                style={[styles.segmentChip, segment === opt.value && styles.segmentChipActive]}
+              >
+                <Text
+                  style={[
+                    styles.segmentChipText,
+                    segment === opt.value && styles.segmentChipTextActive,
+                  ]}
+                >
+                  {opt.label}
+                </Text>
+              </Pressable>
+            ))}
           </View>
-        ) : null
-      }
-    />
-  );
-});
+          {onOpenChatSettings ? (
+            <Pressable onPress={onOpenChatSettings} style={styles.segmentGearButton}>
+              <Icon name="settings" size={22} color={Colors.neutral[50]} />
+            </Pressable>
+          ) : null}
+        </View>
+      ),
+      [segment, onOpenChatSettings]
+    );
+
+    const emptyMessage =
+      segment === 'unread'
+        ? 'All caught up'
+        : segment === 'requests'
+          ? 'No requests'
+          : 'No chats, yet…';
+
+    return (
+      <LegendList
+        ref={listRef}
+        style={styles.listContainer}
+        contentContainerStyle={[
+          styles.listContentContainer,
+          { paddingBottom: bottomNavBarHeight + 5 },
+        ]}
+        contentInsetAdjustmentBehavior="never"
+        data={isError ? [] : conversations}
+        renderItem={renderItem}
+        keyExtractor={keyExtractor}
+        ItemSeparatorComponent={ChatDivider}
+        estimatedItemSize={80}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        ListHeaderComponent={listHeaderComponent}
+        refreshControl={
+          <RefreshControl
+            refreshing={isUserRefreshing && isRefetching && !isFetchingNextPage}
+            onRefresh={handleRefresh}
+            tintColor={Colors.neutral[50]}
+          />
+        }
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          isError ? (
+            <View style={styles.errorContainer}>
+              <EmptyFeed
+                type="no-connection"
+                message="can't load conversations"
+                onRetry={() => refetch()}
+              />
+            </View>
+          ) : isLoading && conversations.length === 0 ? (
+            <View style={styles.loadingContainer}>
+              <ChatsLoading />
+            </View>
+          ) : (
+            <EmptyChats message={emptyMessage} />
+          )
+        }
+        ListFooterComponent={
+          isFetchingNextPage ? (
+            <View style={styles.loadingMoreContainer}>
+              <Loading3FillIcon size={24} color={Colors.neutral[50]} />
+            </View>
+          ) : null
+        }
+      />
+    );
+  }
+);
 ChatsTab.displayName = 'ChatsTab';
 
 export default ChatsTab;
 
 const styles = StyleSheet.create({
+  segmentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 8,
+  },
+  segmentChipsWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  segmentChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    backgroundColor: Colors.neutral[900],
+    borderRadius: BORDER_RADIUS.MEDIUM,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  segmentChipActive: {
+    backgroundColor: Colors.neutral[50],
+  },
+  segmentChipText: {
+    fontSize: 15,
+    fontFamily: 'Figtree-SemiBold',
+    color: Colors.neutral[400],
+  },
+  segmentChipTextActive: {
+    color: Colors.black,
+  },
+  segmentGearButton: {
+    width: 40,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'flex-end',
+  },
   listContainer: { flex: 1 },
   listContentContainer: { paddingHorizontal: 10 },
   conversationItem: {
@@ -522,7 +662,6 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: Colors.neutral[900],
     marginLeft: 65,
-    marginRight: -10,
   },
   profileImage: {
     width: 55,
@@ -534,11 +673,12 @@ const styles = StyleSheet.create({
   notificationContent: {
     flex: 1,
     justifyContent: 'center',
-    marginRight: 10,
+    minWidth: 0,
   },
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    minWidth: 0,
   },
   namePressable: {
     alignSelf: 'flex-start',
@@ -591,7 +731,7 @@ const styles = StyleSheet.create({
   streakBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'center',
+    marginLeft: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: BORDER_RADIUS.FULL,

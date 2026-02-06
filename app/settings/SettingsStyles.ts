@@ -199,6 +199,13 @@ export const settingsTextStyles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
+  // Label inside a grouped section (e.g. "Read state")
+  groupedLabelText: {
+    color: Colors.neutral[500],
+    fontSize: 13,
+    fontFamily: 'Figtree-Medium',
+  },
+
   // Section title (larger)
   sectionTitleLarge: {
     color: Colors.neutral[50],
@@ -366,6 +373,33 @@ export const settingsLayoutStyles = StyleSheet.create({
   section: {
     marginTop: 0,
     marginBottom: 12,
+  },
+
+  // Grouped list (iOS Settings style): one card per section, rows inside
+  groupedSection: {
+    backgroundColor: Colors.neutral[900],
+    borderRadius: BORDER_RADIUS.LARGE,
+    overflow: 'hidden',
+    marginBottom: 24,
+  },
+  groupedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.neutral[800],
+  },
+  groupedRowLast: {
+    borderBottomWidth: 0,
+  },
+  groupedRowLabel: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderTopWidth: 1,
+    borderTopColor: Colors.neutral[800],
+    marginTop: 4,
   },
 
   // Section with standard settings padding (5px)

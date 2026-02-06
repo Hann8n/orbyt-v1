@@ -649,7 +649,6 @@ ${deviceInfo}`
         onClosePress={() => router.back()}
         applySafeAreaTop={Platform.OS === 'android'}
         backgroundColor={Colors.black}
-        titleIndent={true}
       />
       <ScrollView
         contentContainerStyle={settingsLayoutStyles.contentContainerWithPadding}

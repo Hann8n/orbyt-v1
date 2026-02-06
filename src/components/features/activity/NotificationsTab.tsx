@@ -7,14 +7,14 @@ import React, {
   useRef,
 } from 'react';
 import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../../utils/constants';
-import { View, Text, StyleSheet, Pressable, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, Pressable, RefreshControl, ScrollView } from 'react-native';
 import { Image } from 'expo-image';
 import { LegendList, LegendListRef } from '@legendapp/list';
 import type { ScrollToTopRef } from '../../../utils/navigation/tabRefs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AtprotoService from '../../../services/api/AtprotoService';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { useInfiniteQuery, useQueryClient, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 
 import ProfileService, { prefetchProfile, useProfile } from '../../../services/data/ProfileService';
 import { Colors } from '../../../theme';
@@ -28,6 +28,7 @@ import { feedService } from '../../../services/FeedService';
 import { formatRelativeDate } from '../../ui/RelativeDate';
 import { useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 import { useUserStore } from '../../../stores/userStore';
+import { useActivityFilterStore } from '../../../stores/activityFilterStore';
 import BlurredBackground from '../../ui/BlurredBackground';
 import { queryKeys } from '../../../utils/query/queryKeys';
 import { useAvatarProfileRing } from '../../../hooks/useOrbytColors';
@@ -55,6 +56,34 @@ import { getVideoView } from '../../../utils/video/helpers';
 
 // Import radar.gif for empty notifications state
 const RadarGif = require('../../../assets/radar.gif');
+
+// Activity filter chips: label + reasons (grouped like notification-filter modal)
+const ACTIVITY_CHIP_OPTIONS: { label: string; reasons: NotificationReason[] }[] = [
+  { label: 'Likes', reasons: ['like', 'like-via-repost'] },
+  { label: 'Reposts', reasons: ['repost', 'repost-via-repost'] },
+  { label: 'Follows', reasons: ['follow'] },
+  { label: 'Mentions', reasons: ['mention'] },
+  { label: 'Replies', reasons: ['reply'] },
+  { label: 'Quotes', reasons: ['quote'] },
+  { label: 'Subscriptions', reasons: ['subscribed-post'] },
+  { label: 'Starter pack', reasons: ['starterpack-joined'] },
+  { label: 'Verification', reasons: ['verified', 'unverified'] },
+];
+
+const ALL_ACTIVITY_REASONS: NotificationReason[] = [
+  'like',
+  'repost',
+  'follow',
+  'mention',
+  'reply',
+  'quote',
+  'subscribed-post',
+  'like-via-repost',
+  'repost-via-repost',
+  'starterpack-joined',
+  'verified',
+  'unverified',
+];
 
 // Custom empty state for notifications
 const EmptyNotifications = () => (
@@ -247,7 +276,6 @@ const fetchPostData = async (
 
   let rootPostUri = postUri;
 
-  // If postUri is a repost record, fetch it first to get root post URI
   if (postUri.includes('app.bsky.feed.repost')) {
     try {
       const apiClient = await AtprotoService.getApiClient();
@@ -266,14 +294,12 @@ const fetchPostData = async (
           if (repostValue?.subject?.uri) {
             rootPostUri = repostValue.subject.uri;
             const postData = await AtprotoService.getPost(rootPostUri);
-            if (postData) {
-              return { postData, rootPostUri };
-            }
+            if (postData) return { postData, rootPostUri };
           }
         }
       }
     } catch {
-      // Fallback: try fetching postUri directly
+      // fallback: fetch postUri directly
     }
   }
 
@@ -281,6 +307,87 @@ const fetchPostData = async (
   if (!postData) return null;
   return { postData, rootPostUri };
 };
+
+// Batch-fetch post data for notification list (resolves reposts to root posts)
+async function fetchNotificationPostDataMap(uris: string[]): Promise<PostDataMap> {
+  const result: PostDataMap = new Map();
+  const repostUris: string[] = [];
+  const postUris: string[] = [];
+
+  for (const uri of uris) {
+    if (uri.includes('app.bsky.feed.repost')) repostUris.push(uri);
+    else postUris.push(uri);
+  }
+
+  if (postUris.length > 0) {
+    const posts = await AtprotoService.getPosts(postUris);
+    posts.forEach((post, uri) => {
+      if (
+        post &&
+        !AppBskyFeedDefs.isNotFoundPost(post) &&
+        !AppBskyFeedDefs.isBlockedPost(post) &&
+        'author' in post &&
+        'cid' in post
+      ) {
+        result.set(uri, post as PostView);
+      }
+    });
+  }
+
+  if (repostUris.length > 0) {
+    try {
+      const apiClient = await AtprotoService.getApiClient();
+      if (!apiClient) return result;
+      const { api } = apiClient;
+      const rootPostUris: string[] = [];
+      const repostToRootMap = new Map<string, string>();
+
+      for (const repostUri of repostUris) {
+        try {
+          const uriMatch = repostUri.match(/at:\/\/([^/]+)\/app\.bsky\.feed\.repost\/(.+)/);
+          if (!uriMatch) continue;
+          const repostRecordResponse = await api.com.atproto.repo.getRecord({
+            repo: uriMatch[1],
+            collection: 'app.bsky.feed.repost',
+            rkey: uriMatch[2],
+          });
+          const repostValue = repostRecordResponse?.data?.value as
+            | AppBskyFeedRepost.Record
+            | undefined;
+          if (repostValue?.subject?.uri) {
+            rootPostUris.push(repostValue.subject.uri);
+            repostToRootMap.set(repostUri, repostValue.subject.uri);
+          }
+        } catch {
+          /* skip */
+        }
+      }
+
+      if (rootPostUris.length > 0) {
+        const rootPosts = await AtprotoService.getPosts(rootPostUris);
+        rootPosts.forEach((post, uri) => {
+          if (
+            post &&
+            !AppBskyFeedDefs.isNotFoundPost(post) &&
+            !AppBskyFeedDefs.isBlockedPost(post) &&
+            'author' in post &&
+            'cid' in post
+          ) {
+            const postView = post as PostView;
+            result.set(uri, postView);
+            for (const [repostUri, rootUri] of repostToRootMap.entries()) {
+              if (rootUri === uri) result.set(repostUri, postView);
+            }
+          }
+        });
+      }
+    } catch {
+      /* skip */
+    }
+  }
+
+  return result;
+}
 
 type EnrichedNotification = Notification & { shouldFilter?: boolean };
 
@@ -581,6 +688,7 @@ interface NotificationsTabProps {
 const NotificationsTab = forwardRef<ScrollToTopRef, NotificationsTabProps>(
   ({ filterReasons }, ref) => {
     const legendListRef = useRef<LegendListRef>(null);
+    const setFilterReasons = useActivityFilterStore(s => s.setFilterReasons);
 
     // Expose scrollToTop method
     useImperativeHandle(
@@ -625,214 +733,159 @@ const NotificationsTab = forwardRef<ScrollToTopRef, NotificationsTabProps>(
       }, [queryClient])
     );
 
-    // Improved infinite query implementation - includes all notification types
-    // Include filterReasons in query key so it refetches when filter changes
-    const {
-      data,
-      fetchNextPage,
-      hasNextPage,
-      isLoading,
-      isError,
-      refetch,
-      isRefetching,
-      isFetchingNextPage,
-    } = useInfiniteQuery({
-      queryKey: queryKeys.notifications.list(filterReasons),
-      queryFn: async ({ pageParam }) => {
-        const response = await AtprotoService.listNotifications(
-          pageParam as string | null,
-          50,
-          filterReasons
-        );
-        return response;
-      },
-      initialPageParam: null as string | null,
-      getNextPageParam: lastPage => lastPage.cursor,
-      staleTime: QUERY_CONSTANTS.STALE_TIME_MEDIUM, // 1 minute - for moderately changing data
-      gcTime: 60 * 60 * 1000, // 60 minutes - increased to prevent aggressive cache clearing, matches feed components
-      // Prevent automatic refetches that could clear data - let LegendList handle recycling
-      refetchOnWindowFocus: false,
-      refetchOnMount: true, // Allow refresh on mount since placeholderData prevents disappearing items
-      refetchOnReconnect: false,
-      // Use placeholderData to maintain previous data during refetch - prevents items from disappearing
-      placeholderData: previousData => previousData,
-    });
+    // Notifications: React Query useInfiniteQuery. Stable key + refetch on filter change so placeholderData keeps list stable.
+    const scrollToTopAfterUpdateRef = useRef(false);
+    const [isUserRefreshing, setIsUserRefreshing] = React.useState(false);
+    const [postDataMap, setPostDataMap] = React.useState<PostDataMap>(() => new Map());
 
-    // Flatten notifications from all pages
-    const allNotifications = useMemo(() => {
-      return data?.pages.flatMap(page => page.notifications) || [];
+    const { data, refetch, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isError } =
+      useInfiniteQuery({
+        queryKey: [...queryKeys.notifications.lists()],
+        queryFn: ({ pageParam }) =>
+          AtprotoService.listNotifications(pageParam as string | null, 50, filterReasons),
+        initialPageParam: null as string | null,
+        getNextPageParam: last => last.cursor ?? undefined,
+        placeholderData: prev => prev,
+        refetchOnMount: false,
+      });
+
+    const notifications = useMemo(() => data?.pages.flatMap(p => p.notifications) ?? [], [data]);
+
+    // When filter changes: mark that we should scroll to top when new data lands, then refetch
+    useEffect(() => {
+      scrollToTopAfterUpdateRef.current = true;
+      refetch();
+    }, [filterReasons, refetch]);
+
+    // Scroll to top only after new data has rendered (keeps list from jumping mid-update)
+    useEffect(() => {
+      if (!scrollToTopAfterUpdateRef.current || !data?.pages?.length) return;
+      scrollToTopAfterUpdateRef.current = false;
+      requestAnimationFrame(() => {
+        legendListRef.current?.scrollToOffset({ offset: 0, animated: false });
+      });
     }, [data]);
 
-    useModerationSettings(currentUser?.did || undefined);
+    // Post data for notification items (batch fetch when notifications change)
+    const postUrisToFetch = useMemo(() => {
+      const uris = new Set<string>();
+      for (const n of notifications) {
+        if (!POST_ACTION_TYPES.includes(n.reason as PostActionReason)) continue;
+        const uri = getPostUri(n);
+        if (uri) uris.add(uri);
+      }
+      return Array.from(uris);
+    }, [notifications]);
 
+    const postUrisKey = postUrisToFetch.slice().sort().join(',');
+    useEffect(() => {
+      let cancelled = false;
+
+      const loadPostData = async () => {
+        try {
+          if (postUrisToFetch.length === 0) {
+            if (!cancelled) {
+              setPostDataMap(new Map());
+            }
+            return;
+          }
+
+          const map = await fetchNotificationPostDataMap(postUrisToFetch);
+          if (!cancelled) {
+            setPostDataMap(map);
+          }
+        } catch {
+          if (!cancelled) {
+            setPostDataMap(new Map());
+          }
+        }
+      };
+
+      void loadPostData();
+
+      return () => {
+        cancelled = true;
+      };
+    }, [postUrisKey, postUrisToFetch]);
+
+    const moderationOpts = ModerationService.getModerationOpts(currentUser?.did ?? undefined);
     const enrichedNotifications = useMemo((): EnrichedNotification[] => {
-      const opts = ModerationService.getModerationOpts(currentUser?.did ?? undefined);
-      if (!opts) return allNotifications.map(n => ({ ...n, shouldFilter: false }));
-      return allNotifications.map(n => ({
+      if (!moderationOpts) return notifications.map(n => ({ ...n, shouldFilter: false }));
+      return notifications.map(n => ({
         ...n,
-        shouldFilter: moderateNotification(n, opts).ui('contentList').filter,
+        shouldFilter: moderateNotification(n, moderationOpts).ui('contentList').filter,
       }));
-    }, [allNotifications, currentUser?.did]);
+    }, [notifications, moderationOpts]);
 
     const filteredNotifications = useMemo(
       () => enrichedNotifications.filter(n => !n.shouldFilter),
       [enrichedNotifications]
     );
-    const moderationOpts = ModerationService.getModerationOpts(currentUser?.did ?? undefined);
 
-    // Batch prefetch all author profiles for better performance
-    useEffect(() => {
-      if (allNotifications.length > 0) {
-        // Extract all unique handles from notifications and batch prefetch them
-        const uniqueHandles = new Set<string>();
-        allNotifications.forEach(notification => {
-          if (notification.author?.handle) {
-            uniqueHandles.add(notification.author.handle.toLowerCase());
-          }
-        });
-        const handlesToPrefetch = Array.from(uniqueHandles).filter(
-          handle => handle && handle.trim() !== ''
-        );
-        if (handlesToPrefetch.length > 0) {
-          ProfileService.batchGetProfiles(handlesToPrefetch).catch(() => {
-            // Silently fail - prefetch is not critical
-          });
+    const handleToggleChip = useCallback(
+      (reasons: NotificationReason[]) => {
+        const current = filterReasons ?? [];
+        const allSelected = reasons.every(r => current.includes(r));
+        const next = allSelected
+          ? current.filter(r => !reasons.includes(r))
+          : [...new Set([...current, ...reasons])];
+        if (next.length === 0 || next.length === ALL_ACTIVITY_REASONS.length) {
+          setFilterReasons(undefined);
+        } else {
+          setFilterReasons(next);
         }
-      }
-    }, [allNotifications]);
-
-    // Extract post URIs that need fetching - matches Bluesky's pattern
-    // Quote/mention include post data with view embeds (thumbnails) - no fetch needed
-    // Subscribed-post has raw embed (no thumbnails) - fetch to get view embed with thumbnails
-    // Others (like/repost/reply) need fetching
-    const postUrisToFetch = useMemo(() => {
-      const uris = new Set<string>();
-
-      for (const notification of allNotifications) {
-        if (!POST_ACTION_TYPES.includes(notification.reason as PostActionReason)) continue;
-
-        const postUri = getPostUri(notification);
-        if (postUri) uris.add(postUri);
-      }
-
-      return Array.from(uris);
-    }, [allNotifications]);
-
-    // Batch fetch all posts, automatically resolving repost records to root posts
-    const { data: postDataMap = new Map() } = useQuery<PostDataMap>({
-      queryKey: ['notification-posts-batch', postUrisToFetch.sort().join(',')],
-      queryFn: async () => {
-        const result: PostDataMap = new Map();
-        const repostUris: string[] = [];
-        const postUris: string[] = [];
-
-        // Separate repost records from regular posts
-        for (const uri of postUrisToFetch) {
-          if (uri.includes('app.bsky.feed.repost')) {
-            repostUris.push(uri);
-          } else {
-            postUris.push(uri);
-          }
-        }
-
-        // Fetch regular posts - AtprotoService.getPosts returns Map<string, PostView | NotFoundPost | BlockedPost>
-        // We filter to only include PostView (skip NotFoundPost and BlockedPost)
-        if (postUris.length > 0) {
-          const posts = await AtprotoService.getPosts(postUris);
-          posts.forEach((post, uri) => {
-            // Only include valid PostView (exclude NotFoundPost and BlockedPost)
-            if (
-              post &&
-              !AppBskyFeedDefs.isNotFoundPost(post) &&
-              !AppBskyFeedDefs.isBlockedPost(post) &&
-              'author' in post &&
-              'cid' in post
-            ) {
-              // TypeScript now knows post is PostView after type guards and property checks
-              result.set(uri, post as PostView);
-            }
-          });
-        }
-
-        // Fetch repost records and resolve to root posts
-        if (repostUris.length > 0) {
-          try {
-            const apiClient = await AtprotoService.getApiClient();
-            if (!apiClient) return result;
-
-            const { api } = apiClient;
-            const rootPostUris: string[] = [];
-            const repostToRootMap = new Map<string, string>();
-
-            for (const repostUri of repostUris) {
-              try {
-                const uriMatch = repostUri.match(/at:\/\/([^/]+)\/app\.bsky\.feed\.repost\/(.+)/);
-                if (!uriMatch) continue;
-
-                const repostRecordResponse = await api.com.atproto.repo.getRecord({
-                  repo: uriMatch[1],
-                  collection: 'app.bsky.feed.repost',
-                  rkey: uriMatch[2],
-                });
-
-                const repostValue = repostRecordResponse?.data?.value as
-                  | AppBskyFeedRepost.Record
-                  | undefined;
-
-                if (repostValue?.subject?.uri) {
-                  rootPostUris.push(repostValue.subject.uri);
-                  repostToRootMap.set(repostUri, repostValue.subject.uri);
-                }
-              } catch {
-                // Silently fail for individual repost records
-              }
-            }
-
-            // Fetch root posts - filter to only include PostView
-            if (rootPostUris.length > 0) {
-              const rootPosts = await AtprotoService.getPosts(rootPostUris);
-              rootPosts.forEach((post, uri) => {
-                // Only include valid PostView (exclude NotFoundPost and BlockedPost)
-                if (
-                  post &&
-                  !AppBskyFeedDefs.isNotFoundPost(post) &&
-                  !AppBskyFeedDefs.isBlockedPost(post) &&
-                  'author' in post &&
-                  'cid' in post
-                ) {
-                  // TypeScript now knows post is PostView after type guards and property checks
-                  const postView = post as PostView;
-                  // Store root post with its URI
-                  result.set(uri, postView);
-                  // Also store with repost URI as key for direct lookup
-                  for (const [repostUri, rootUri] of repostToRootMap.entries()) {
-                    if (rootUri === uri) {
-                      result.set(repostUri, postView);
-                    }
-                  }
-                }
-              });
-            }
-          } catch {
-            // Silently fail
-          }
-        }
-
-        return result;
       },
-      enabled: postUrisToFetch.length > 0,
-      staleTime: QUERY_CONSTANTS.STALE_TIME_LONG, // 10 minutes - for slowly changing data
-      gcTime: 10 * 60 * 1000,
-    });
+      [filterReasons, setFilterReasons]
+    );
 
-    // Use notifications directly from API without filtering
+    const activityChipsHeader = useMemo(
+      () => (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.activityChipsRibbonContent}
+          style={styles.activityChipsRibbon}
+        >
+          {ACTIVITY_CHIP_OPTIONS.map(opt => {
+            const selected = opt.reasons.every(r => (filterReasons ?? []).includes(r));
+            return (
+              <Pressable
+                key={opt.label}
+                onPress={() => handleToggleChip(opt.reasons)}
+                style={[styles.activityChip, selected && styles.activityChipActive]}
+              >
+                <Text style={[styles.activityChipText, selected && styles.activityChipTextActive]}>
+                  {opt.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      ),
+      [filterReasons, handleToggleChip]
+    );
 
-    // Memoized callback for loading more notifications - prevents unnecessary re-renders
+    // Prefetch author profiles when notifications load
+    useEffect(() => {
+      if (notifications.length === 0) return;
+      const handles = Array.from(
+        new Set(
+          notifications
+            .map(n => n.author?.handle?.toLowerCase())
+            .filter((h): h is string => !!h?.trim())
+        )
+      );
+      if (handles.length > 0) ProfileService.batchGetProfiles(handles).catch(() => {});
+    }, [notifications]);
+
     const handleLoadMore = useCallback(() => {
-      if (hasNextPage && !isFetchingNextPage) {
-        fetchNextPage();
-      }
+      if (hasNextPage && !isFetchingNextPage) fetchNextPage();
     }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+    const handleRefresh = useCallback(() => {
+      setIsUserRefreshing(true);
+      refetch().finally(() => setIsUserRefreshing(false));
+    }, [refetch]);
 
     const renderNotificationContent = useCallback(
       ({ item }: { item: EnrichedNotification }) => {
@@ -853,26 +906,6 @@ const NotificationsTab = forwardRef<ScrollToTopRef, NotificationsTabProps>(
       return item.uri || `notification-${item.indexedAt || Math.random()}`;
     }, []);
 
-    if (isError) {
-      return (
-        <View style={styles.errorContainer}>
-          <EmptyFeed
-            type="no-connection"
-            message="can't connect to notifications"
-            onRetry={() => refetch()}
-          />
-        </View>
-      );
-    }
-
-    if (isLoading && allNotifications.length === 0) {
-      return (
-        <View style={styles.listContainer}>
-          <NotificationLoading />
-        </View>
-      );
-    }
-
     return (
       <LegendList
         ref={legendListRef}
@@ -881,29 +914,40 @@ const NotificationsTab = forwardRef<ScrollToTopRef, NotificationsTabProps>(
           styles.listContentContainer,
           { paddingBottom: bottomNavBarHeight + 5 },
         ]}
-        data={filteredNotifications}
+        data={isError ? [] : filteredNotifications}
         extraData={postDataMap.size}
         renderItem={renderNotificationContent}
         keyExtractor={keyExtractor}
         ItemSeparatorComponent={NotificationDivider}
         estimatedItemSize={114}
+        ListHeaderComponent={activityChipsHeader}
         refreshControl={
           <RefreshControl
-            refreshing={isRefetching && !isFetchingNextPage}
-            onRefresh={async () => {
-              try {
-                await refetch();
-              } catch {
-                // Silently fail - error is handled by React Query
-              }
-            }}
+            refreshing={isUserRefreshing}
+            onRefresh={handleRefresh}
             tintColor={Colors.neutral[50]}
           />
         }
         onEndReached={handleLoadMore}
         onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
         showsVerticalScrollIndicator={false}
-        ListEmptyComponent={!isLoading ? <EmptyNotifications /> : null}
+        ListEmptyComponent={
+          isError ? (
+            <View style={styles.errorContainer}>
+              <EmptyFeed
+                type="no-connection"
+                message="Can't load notifications"
+                onRetry={handleRefresh}
+              />
+            </View>
+          ) : isLoading && notifications.length === 0 ? (
+            <View style={styles.loadingContainer}>
+              <NotificationLoading />
+            </View>
+          ) : (
+            <EmptyNotifications />
+          )
+        }
         ListFooterComponent={
           isFetchingNextPage ? (
             <View style={styles.loadingMoreContainer}>
@@ -925,6 +969,35 @@ const styles = StyleSheet.create({
   },
   listContentContainer: {
     paddingHorizontal: 10,
+  },
+  activityChipsRibbon: {
+    marginHorizontal: -10,
+    paddingBottom: 8,
+  },
+  activityChipsRibbonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 10,
+  },
+  activityChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    backgroundColor: Colors.neutral[900],
+    borderRadius: BORDER_RADIUS.MEDIUM,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activityChipActive: {
+    backgroundColor: Colors.neutral[50],
+  },
+  activityChipText: {
+    fontSize: 15,
+    fontFamily: 'Figtree-SemiBold',
+    color: Colors.neutral[400],
+  },
+  activityChipTextActive: {
+    color: Colors.black,
   },
   nameRow: {
     flexDirection: 'row',

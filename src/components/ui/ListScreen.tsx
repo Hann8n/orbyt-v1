@@ -176,7 +176,6 @@ const ListScreen: React.FC<ListScreenProps> = ({
         onClosePress={() => router.back()}
         applySafeAreaTop={false}
         backgroundColor={Colors.black}
-        titleIndent={true}
       />
     ),
     [title, router]

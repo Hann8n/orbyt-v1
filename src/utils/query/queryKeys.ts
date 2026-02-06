@@ -38,10 +38,16 @@ export const queryKeys = {
     all: chatBase,
     conversations: {
       all: [...chatBase, 'conversations'] as const,
-      list: (cursor?: string) =>
-        cursor
-          ? ([...chatBase, 'conversations', 'list', cursor] as const)
-          : ([...chatBase, 'conversations', 'list'] as const),
+      list: (
+        cursor?: string,
+        filter?: { readState?: 'unread'; status?: 'request' | 'accepted' }
+      ) => {
+        const readState = filter?.readState ?? null;
+        const status = filter?.status ?? null;
+        return cursor
+          ? ([...chatBase, 'conversations', 'list', cursor, readState, status] as const)
+          : ([...chatBase, 'conversations', 'list', readState, status] as const);
+      },
       detail: (conversationId: string) => [...chatBase, 'conversations', conversationId] as const,
       count: () => [...chatBase, 'conversations', 'count'] as const,
     },

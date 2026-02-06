@@ -298,14 +298,11 @@ const VideoCard = memo(
       const videoView = getVideoView(postView.embed);
       const videoUrl = videoView?.playlist || null;
       const posterUrl = videoView?.thumbnail || null;
-      const postAspectRatio = videoView?.aspectRatio;
 
-      // Track dimensions
-      const { width } = Dimensions.get('window');
-      const defaultAspectRatio = postAspectRatio
-        ? postAspectRatio.width / postAspectRatio.height
-        : 16 / 9;
-      const cardHeight = height || width * defaultAspectRatio;
+      // Track dimensions. Treat height from parent (ListFeedView/VideoItem) as source of truth so
+      // cards match the viewport height; fall back to full screen height if no height is provided.
+      const { height: screenHeight } = Dimensions.get('window');
+      const cardHeight = height ?? screenHeight;
 
       // HLS-only source creation
       const videoSource = createVideoSource(videoUrl);
