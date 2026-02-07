@@ -637,18 +637,19 @@ const styles = StyleSheet.create({
   },
   segmentChipText: {
     fontSize: 15,
-    fontFamily: 'Figtree-SemiBold',
+    fontFamily: 'Figtree-Bold',
     color: Colors.neutral[400],
   },
   segmentChipTextActive: {
+    fontFamily: 'Figtree-Bold',
     color: Colors.black,
   },
   segmentGearButton: {
-    width: 40,
-    height: 36,
+    paddingVertical: 8,
+    paddingLeft: 12,
+    paddingRight: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    alignSelf: 'flex-end',
   },
   listContainer: { flex: 1 },
   listContentContainer: { paddingHorizontal: 10 },

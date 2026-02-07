@@ -993,10 +993,11 @@ const styles = StyleSheet.create({
   },
   activityChipText: {
     fontSize: 15,
-    fontFamily: 'Figtree-SemiBold',
+    fontFamily: 'Figtree-Bold',
     color: Colors.neutral[400],
   },
   activityChipTextActive: {
+    fontFamily: 'Figtree-Bold',
     color: Colors.black,
   },
   nameRow: {
