@@ -11,12 +11,12 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { storageAdapter, storageHelpers, storage } from '../utils/storage/storage';
 import * as SecureStore from 'expo-secure-store';
 import { Agent } from '@atproto/api';
-import { AtProtoOAuthService } from '../services/auth';
+import { getOAuthClient } from '../services/auth';
 import type { OAuthSession } from '@atproto/oauth-client';
 import ProfileService from '../services/data/ProfileService';
 import { AtprotoService } from '../services/api/AtprotoService';
 import { isUserCancellation, getErrorMessage } from '../utils/errors/errorHandler';
-import { analyzeOAuthError } from '../utils/errors/oauth';
+import { requiresReauth } from '../utils/errors/oauth';
 import { logger } from '../utils/logger';
 
 import { ModerationService } from '../services/moderation/ModerationService';
@@ -302,8 +302,7 @@ export const useUserStore = create<UserState>()(
         try {
           set({ isAuthenticating: true, authError: null });
 
-          const oauthService = AtProtoOAuthService.getInstance();
-          const client = await oauthService.getClient();
+          const client = getOAuthClient();
           const session = await client.signIn(identifier);
 
           // Create agent from session - Agent accepts OAuthSession directly
@@ -405,11 +404,10 @@ export const useUserStore = create<UserState>()(
           set({ isAuthenticating: true });
 
           const currentDid = get().activeAccountDid;
-          const oauthService = AtProtoOAuthService.getInstance();
 
           if (currentDid) {
             try {
-              const client = await oauthService.getClient();
+              const client = getOAuthClient();
               await client.revoke(currentDid);
             } catch (error) {
               // Log but don't fail - session may already be invalid
@@ -424,10 +422,7 @@ export const useUserStore = create<UserState>()(
           // Clear all user data
           await get().invalidateAllUserData();
 
-          // Only clear the OAuth client instance if clearing all accounts
-          // For single account sign out, keep the client so other accounts remain accessible
           if (clearAllAccounts) {
-            oauthService.clearClient();
             await SecureStore.deleteItemAsync(STORAGE_KEYS.ACCOUNTS);
           }
 
@@ -462,13 +457,7 @@ export const useUserStore = create<UserState>()(
           // Load persisted colors immediately for instant profile display
           await loadPersistedColors(did);
 
-          const oauthService = AtProtoOAuthService.getInstance();
-          // Ensure client is created with cached metadata before restore
-          // This prevents the library from needing to fetch metadata during restore()
-          const client = await oauthService.getClient();
-
-          // Restore session - the library may still try to validate metadata,
-          // but our cache should handle that gracefully
+          const client = getOAuthClient();
           const session = await client.restore(did);
 
           // Create agent from session - Agent accepts OAuthSession directly
@@ -554,58 +543,22 @@ export const useUserStore = create<UserState>()(
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : 'Session restoration failed';
-
-          // Use universal OAuth error analysis - package throws appropriate errors
-          const errorInfo = analyzeOAuthError(error);
-
-          // If it's a network error (including client metadata fetch failures),
-          // don't clear the session - it might be a temporary issue
-          if (errorInfo.isNetworkError) {
-            logger.warn(
-              'Session restoration failed due to network error, preserving session state',
-              {
-                component: 'userStore',
-                did,
-                error: errorMessage,
-              }
-            );
-            set({
-              isAuthenticating: false,
-              // Don't clear authentication state for network errors
-              // The session might still be valid, just temporarily unreachable
-            });
-            // Re-throw as a network error so callers can handle it appropriately
-            throw new Error(`Network error during session restoration: ${errorMessage}`);
-          }
-
-          if (errorInfo.requiresReauth) {
-            // Session expiration is expected behavior, log as warning (not error)
-            logger.warn('Session expired, re-authentication required', {
-              component: 'userStore',
-              did,
-            });
-            set({
-              isAuthenticating: false,
-              isAuthenticated: false,
-              currentUser: null,
-              oauthSession: null,
-              agent: undefined,
-              activeAccountDid: null,
-            });
-            throw new Error('oauth_reauth_required');
-          }
-
-          // Only log as error for unexpected failures
-          logger.error('Session restoration failed', error, { component: 'userStore', did });
+          logger.warn('Session restoration failed', {
+            component: 'userStore',
+            did,
+            error: errorMessage,
+          });
           set({
             isAuthenticating: false,
             isAuthenticated: false,
-            authError: errorMessage,
             currentUser: null,
             oauthSession: null,
             agent: undefined,
             activeAccountDid: null,
           });
+          if (requiresReauth(error)) {
+            throw new Error('oauth_reauth_required');
+          }
           throw error;
         }
       },
@@ -699,11 +652,6 @@ export const useUserStore = create<UserState>()(
               component: 'userStore',
               did,
             });
-
-            // Use universal OAuth error analysis
-            const errorInfo = analyzeOAuthError(restoreErr);
-
-            // Clear the user state
             set({
               isAuthenticated: false,
               currentUser: null,
@@ -714,13 +662,11 @@ export const useUserStore = create<UserState>()(
               switchingToAvatar: null,
               activeAccountDid: null,
             });
-
-            if (errorInfo.requiresReauth) {
-              // Throw a specific error that the UI can handle to redirect to login
-              throw new Error('oauth_reauth_required');
-            } else {
-              throw new Error('Session expired - please sign in again');
-            }
+            throw new Error(
+              requiresReauth(restoreErr)
+                ? 'oauth_reauth_required'
+                : 'Session expired - please sign in again'
+            );
           }
 
           // Call completion callback if provided
@@ -797,8 +743,7 @@ export const useUserStore = create<UserState>()(
 
           // If this is the active account, clean up the OAuth session first
           if (isActiveAccount) {
-            const oauthService = AtProtoOAuthService.getInstance();
-            const client = await oauthService.getClient();
+            const client = getOAuthClient();
             await client.revoke(did);
           }
 
@@ -1257,59 +1202,15 @@ export const useUserStore = create<UserState>()(
             return false;
           }
 
-          const oauthService = AtProtoOAuthService.getInstance();
-          const client = await oauthService.getClient();
-
-          // Use the package's restore method for validation
-          try {
-            const session = await client.restore(did);
-            return !!session;
-          } catch (error) {
-            const errorInfo = analyzeOAuthError(error);
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-
-            // If it's a network error (including client metadata issues),
-            // don't treat it as session expiration - return true to preserve session
-            if (errorInfo.isNetworkError) {
-              logger.debug(
-                'Session validation failed due to network error, assuming session is still valid',
-                {
-                  component: 'userStore',
-                  did,
-                  error: errorMessage,
-                }
-              );
-              // Return true to preserve the session - network errors are temporary
-              return true;
-            }
-
-            // Only return false for actual session expiration
-            logger.debug('Session validation failed for DID', {
-              component: 'userStore',
-              did,
-              error: errorMessage,
-              requiresReauth: errorInfo.requiresReauth,
-            });
-            return false;
-          }
+          const client = getOAuthClient();
+          const session = await client.restore(did);
+          return !!session;
         } catch (error) {
-          const errorInfo = analyzeOAuthError(error);
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-
-          // If it's a network error, assume session is still valid
-          if (errorInfo.isNetworkError) {
-            logger.warn(
-              'Account session validity check failed due to network error, assuming session is valid',
-              {
-                component: 'userStore',
-                did,
-                error: errorMessage,
-              }
-            );
-            return true;
-          }
-
-          logger.error('Account session validity check failed', error, { component: 'userStore' });
+          logger.debug('Session validation failed for DID', {
+            component: 'userStore',
+            did,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          });
           return false;
         }
       },
@@ -1317,16 +1218,12 @@ export const useUserStore = create<UserState>()(
       clearCorruptedSessions: async () => {
         try {
           const currentDid = get().activeAccountDid;
-          const oauthService = AtProtoOAuthService.getInstance();
 
-          // Try to revoke the current session if we have one
-          // This is a best-effort cleanup for corrupted sessions
           if (currentDid) {
             try {
-              const client = await oauthService.getClient();
+              const client = getOAuthClient();
               await client.revoke(currentDid);
             } catch (error) {
-              // If revoke fails (session already corrupted), that's okay
               logger.debug('Could not revoke corrupted session', {
                 component: 'userStore',
                 did: currentDid,
@@ -1334,10 +1231,6 @@ export const useUserStore = create<UserState>()(
               });
             }
           }
-
-          // Clear OAuth client instance to force recreation on next use
-          // This is acceptable for corrupted sessions as we need a fresh client
-          oauthService.clearClient();
 
           // Clear secure storage items related to sessions
           try {
@@ -1381,18 +1274,6 @@ export const useUserStore = create<UserState>()(
         set({ isInitializingAuth: true });
 
         try {
-          // Pre-warm OAuth client metadata to avoid fetch delays during session restore
-          // This ensures metadata is cached before any restore() calls
-          const oauthService = AtProtoOAuthService.getInstance();
-          oauthService.prewarm().catch(error => {
-            // Non-blocking - if pre-warm fails, we'll handle it during restore
-            logger.debug('OAuth client pre-warm failed (non-critical)', {
-              component: 'userStore',
-              error: error instanceof Error ? error.message : 'Unknown error',
-            });
-          });
-
-          // Load saved accounts
           await get().loadSavedAccounts();
 
           // Check for active account
@@ -1411,36 +1292,19 @@ export const useUserStore = create<UserState>()(
               return;
             }
 
-            // Try to restore session
             let sessionRestored = false;
-            let isNetworkError = false;
-
-            // First try OAuth session
             try {
               await get().restoreSession(activeAccountDid);
               sessionRestored = true;
             } catch (error) {
-              // Check if it's a network error - if so, preserve the account
-              const errorInfo = analyzeOAuthError(error);
-              if (errorInfo.isNetworkError) {
-                logger.warn(
-                  'Session restoration failed due to network error during initialization, preserving account',
-                  {
-                    component: 'userStore',
-                    did: activeAccountDid,
-                    error: error instanceof Error ? error.message : 'Unknown error',
-                  }
-                );
-                isNetworkError = true;
-                // Don't clear the account - session might still be valid
-                // User can retry when network is available
-              }
-              // Session restoration failed - will be handled below
+              logger.warn('Session restoration failed during initialization', {
+                component: 'userStore',
+                did: activeAccountDid,
+                error: error instanceof Error ? error.message : 'Unknown error',
+              });
             }
 
-            // If no session could be restored AND it's not a network error, clear the active account
-            // Network errors are temporary and shouldn't cause account clearing
-            if (!sessionRestored && !isNetworkError) {
+            if (!sessionRestored) {
               logger.warn('Session could not be restored, clearing active account', {
                 component: 'userStore',
                 did: activeAccountDid,

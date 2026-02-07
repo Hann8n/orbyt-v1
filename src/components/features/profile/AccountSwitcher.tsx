@@ -3,7 +3,7 @@ import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
 import Icon, { Loading3FillIcon } from '../../ui/Icon';
 import { SavedAccount } from '../../../stores/userStore';
-import { analyzeOAuthError } from '../../../utils/errors/oauth';
+import { requiresReauth } from '../../../utils/errors/oauth';
 import ProfileService, { useProfile } from '../../../services/data/ProfileService';
 import type { ProfileViewWithOrbyt } from '../../../services/api/types';
 import { Colors } from '../../../theme';
@@ -127,10 +127,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
           onDismiss();
         });
       } catch (error) {
-        // Use universal OAuth error analysis
-        const errorInfo = analyzeOAuthError(error);
-
-        if (errorInfo.requiresReauth) {
+        if (requiresReauth(error)) {
           // Dismiss the account switcher first
           onDismiss();
 
