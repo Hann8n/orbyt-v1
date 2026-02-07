@@ -5,9 +5,13 @@ import { differenceInCalendarDays, isToday, isYesterday, isValid, parseISO } fro
  * to send at least one message per day.
  */
 
+/** Set to true to re-enable streak badges in chat header and ChatsTab. */
+const STREAKS_ENABLED = false;
+
 type StreakMessage = { sentAt?: string; sender?: { did?: string } } | null | undefined;
 
 export const isStreakActive = (lastMessageSentAt?: string): boolean => {
+  if (!STREAKS_ENABLED) return false;
   if (!lastMessageSentAt) return false;
   const d = parseISO(lastMessageSentAt);
   return isValid(d) && (isToday(d) || isYesterday(d));
@@ -66,6 +70,7 @@ export function getActiveStreak(
   messages: Array<StreakMessage>,
   currentUserDid?: string
 ): { show: boolean; count: number } {
+  if (!STREAKS_ENABLED) return { show: false, count: 0 };
   if (!isStreakActive(lastMessageSentAt)) return { show: false, count: 0 };
   const count = getChatStreak(messages, currentUserDid, lastMessageSentAt);
   return { show: count >= 2, count: count >= 2 ? count : 0 };

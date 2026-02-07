@@ -1661,7 +1661,7 @@ const ExploreScreen: React.FC = () => {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  // Fetch custom spotlight feed
+  // Fetch custom spotlight feed (disabled)
   const {
     data: spotlightFeed,
     isLoading: isLoadingSpotlightFeed,
@@ -1681,7 +1681,7 @@ const ExploreScreen: React.FC = () => {
       );
       return response.feed || [];
     },
-    enabled: true,
+    enabled: false, // Spotlight videos disabled
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 

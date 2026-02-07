@@ -164,7 +164,7 @@ export const DEFAULT_VIDEO_ASPECT_RATIO = 9 / 16;
 
 /**
  * Returns video aspect ratio (width / height) from embed, or default 9:16 portrait.
- * Use for layout: cardHeight = viewportWidth / aspectRatio (capped by viewportHeight).
+ * Use for layout: cardHeight = screenWidth / aspectRatio (capped by screenHeight).
  */
 export function getVideoAspectRatioFromEmbed(embed: PostView['embed'] | null | undefined): number {
   const meta = getVideoMetadata(embed);
@@ -187,14 +187,14 @@ export function getVideoAspectRatioFromPost(
 }
 
 /**
- * Standard card height for a video in the list feed: viewport width / aspect ratio,
- * capped by viewport height. Uses default 9:16 portrait when aspect ratio not provided.
+ * Standard card height for a video in the list feed: screen width / aspect ratio,
+ * capped by screen height. Uses default 9:16 portrait when aspect ratio not provided.
  */
 export function getVideoCardHeight(
-  viewportWidth: number,
-  viewportHeight: number,
+  screenWidth: number,
+  screenHeight: number,
   aspectRatio: number = DEFAULT_VIDEO_ASPECT_RATIO
 ): number {
-  const idealHeight = viewportWidth / aspectRatio;
-  return Math.min(idealHeight, viewportHeight);
+  const idealHeight = screenWidth / aspectRatio;
+  return Math.min(idealHeight, screenHeight);
 }

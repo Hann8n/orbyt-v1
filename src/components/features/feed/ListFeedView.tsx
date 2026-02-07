@@ -232,10 +232,10 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       [isModal, isHeaderFeed, insets]
     );
 
-    // Card height: standard 9:16 portrait card from viewport width, capped by viewport height.
+    // Card height: standard 9:16 portrait card from screen width, capped by screen height (not viewport).
     const cardHeight = useMemo(
-      () => getVideoCardHeight(viewportDimensions.width, viewportDimensions.height),
-      [viewportDimensions.width, viewportDimensions.height]
+      () => getVideoCardHeight(width, screenHeight),
+      [width, screenHeight]
     );
 
     const { onViewableItemsChanged, viewabilityConfig, canPlay, feedKey } = useFeedVisibility({
