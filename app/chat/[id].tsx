@@ -1,4 +1,14 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import type { ComponentProps } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   View,
   Text,
@@ -386,17 +396,20 @@ function isEmbedRecordView(embed: MessageView['embed'] | null | undefined): bool
   );
 }
 
-/** Shared author row: avatar + handle for both video and non-video embeds */
+/** Shared author row: avatar + handle for both video and non-video embeds. Use authorAlwaysOnRight (e.g. video overlay) to keep avatar left, handle right regardless of isFromMe. */
 function EmbedAuthor({
   author,
   size,
   isFromMe,
   compact,
+  authorAlwaysOnRight,
 }: {
   author: EmbedRecordShape['author'];
   size: number;
   isFromMe: boolean;
   compact?: boolean;
+  /** When true, author handle is always on the right of the avatar (e.g. video overlay). */
+  authorAlwaysOnRight?: boolean;
 }) {
   const ringProps = useAvatarProfileRing(author?.did ?? null);
   if (!author) return null;
@@ -406,7 +419,7 @@ function EmbedAuthor({
       style={[
         styles.embedAuthorRow,
         compact && styles.embedAuthorRowCompact,
-        isFromMe && styles.embedAuthorRowFromMe,
+        isFromMe && !authorAlwaysOnRight && styles.embedAuthorRowFromMe,
       ]}
     >
       <Avatar
@@ -421,7 +434,7 @@ function EmbedAuthor({
         style={[
           styles.embedAuthorHandle,
           compact && styles.embedAuthorHandleCompact,
-          isFromMe && styles.embedAuthorHandleFromMe,
+          isFromMe && !authorAlwaysOnRight && styles.embedAuthorHandleFromMe,
         ]}
         numberOfLines={1}
       >
@@ -522,13 +535,115 @@ function MessageReactions({
 const REACTION_PICKER_SHEET_NAME = 'chat-reaction-picker';
 const PICKER_WIDTH_EST = 310;
 const PICKER_HEIGHT_EST = 56;
-const PICKER_OFFSET_ABOVE = 12;
-const SCREEN_PADDING = 16;
+const PICKER_OFFSET = 4;
+const SCREEN_PADDING = 8;
 
-/** Overlay: positioned quick-reaction pill at touch; + opens full picker sheet. Selected = my reaction = current user accent (fallback orbyt green). */
+/** Message bounds in window coords (from measureInWindow). Used to root the reaction picker above or below the message. */
+type MessageBounds = { top: number; bottom: number; left: number; width: number };
+
+/** When set, nested content (e.g. embeds) calls this to open the reaction picker with the row's measured bounds. */
+const ReactionPickerRowContext = createContext<(() => void) | null>(null);
+
+/** Vertical band where the picker is allowed (between header and input row). */
+function getPickerSafeVerticalRange(
+  screenHeight: number,
+  safeArea: { top: number; bottom: number }
+): { minTop: number; maxTop: number } {
+  const headerHeight = safeArea.top + 56;
+  const footerHeight = 60 + safeArea.bottom;
+  return {
+    minTop: headerHeight,
+    maxTop: screenHeight - footerHeight - PICKER_HEIGHT_EST,
+  };
+}
+
+/** Picker top so it sits just above or just below the message, clamped to the safe band. */
+function clampPickerTopToMessage(
+  messageBounds: MessageBounds,
+  safe: { minTop: number; maxTop: number }
+): number {
+  const topIfAbove = messageBounds.top - PICKER_HEIGHT_EST - PICKER_OFFSET;
+  const topIfBelow = messageBounds.bottom + PICKER_OFFSET;
+  const fitsAbove = topIfAbove >= safe.minTop;
+  const top = fitsAbove ? topIfAbove : topIfBelow;
+  return Math.max(safe.minTop, Math.min(safe.maxTop, top));
+}
+
+type ReactionPickerState = {
+  messageId: string;
+  messageBounds: MessageBounds | null;
+  showFullSheet: boolean;
+} | null;
+
+/** Encapsulates reaction overlay + sheet state and open/close. Single closePicker() clears everything. */
+function useReactionPicker() {
+  const [state, setState] = useState<ReactionPickerState>(null);
+
+  const openPicker = useCallback((messageId: string, bounds: MessageBounds | null) => {
+    setState({ messageId, messageBounds: bounds, showFullSheet: false });
+  }, []);
+
+  const closePicker = useCallback(() => {
+    setState(null);
+  }, []);
+
+  const openFullSheet = useCallback(() => {
+    setState(prev => (prev ? { ...prev, showFullSheet: true } : null));
+  }, []);
+
+  return {
+    state,
+    openPicker,
+    closePicker,
+    openFullSheet,
+    isOverlayVisible: state != null && !state.showFullSheet,
+    isSheetVisible: state != null && state.showFullSheet,
+  };
+}
+
+/** Wraps a message row: measures its own ref on long-press and provides that open action via context so embeds open the picker with correct position. */
+function ChatMessageRow({
+  messageId,
+  onOpenPicker,
+  entering,
+  pressableStyle,
+  children,
+}: {
+  messageId: string;
+  onOpenPicker: (messageId: string, bounds: MessageBounds | null) => void;
+  entering?: ComponentProps<typeof Animated.View>['entering'];
+  pressableStyle: Parameters<typeof Pressable>[0]['style'];
+  children: React.ReactNode;
+}) {
+  const rowRef = useRef<View | null>(null);
+  const openWithBounds = useCallback(() => {
+    const el = rowRef.current;
+    if (el) {
+      el.measureInWindow((x, y, w, h) => {
+        onOpenPicker(messageId, { top: y, bottom: y + h, left: x, width: w });
+      });
+    } else {
+      onOpenPicker(messageId, null);
+    }
+  }, [messageId, onOpenPicker]);
+
+  return (
+    <ReactionPickerRowContext.Provider value={openWithBounds}>
+      <Animated.View entering={entering} ref={rowRef}>
+        <Pressable onLongPress={openWithBounds} delayLongPress={400} style={pressableStyle}>
+          {children}
+        </Pressable>
+      </Animated.View>
+    </ReactionPickerRowContext.Provider>
+  );
+}
+
+/** Overlay: positioned quick-reaction pill above or below the selected message; + opens full picker sheet. Selected = my reaction = current user accent (fallback orbyt green). */
 function ReactionOverlayModal({
   visible,
-  touchPosition,
+  messageBounds,
+  isFromMe,
+  safeAreaInsets,
   onDismiss,
   onSelect,
   onOpenFullPicker,
@@ -537,7 +652,9 @@ function ReactionOverlayModal({
   sentAccentColor,
 }: {
   visible: boolean;
-  touchPosition: { x: number; y: number } | null;
+  messageBounds: MessageBounds | null;
+  isFromMe: boolean;
+  safeAreaInsets: { top: number; bottom: number };
   onDismiss: () => void;
   onSelect: (value: string) => void;
   onOpenFullPicker: () => void;
@@ -546,24 +663,52 @@ function ReactionOverlayModal({
   sentAccentColor?: string;
 }) {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const position = useMemo(() => {
-    if (!touchPosition) {
-      return { left: screenWidth / 2 - PICKER_WIDTH_EST / 2, top: 100 };
-    }
+  const defaultPosition = useMemo(
+    () => ({ left: screenWidth / 2 - PICKER_WIDTH_EST / 2, top: 100 }),
+    [screenWidth]
+  );
+  const [lastPosition, setLastPosition] = useState<{ left: number; top: number } | null>(null);
+  const [lastMessageBounds, setLastMessageBounds] = useState<MessageBounds | null>(null);
+
+  if (visible && messageBounds) {
+    if (messageBounds !== lastMessageBounds) setLastMessageBounds(messageBounds);
+    const rawLeft = isFromMe
+      ? messageBounds.left + messageBounds.width - PICKER_WIDTH_EST
+      : messageBounds.left;
     const left = Math.max(
       SCREEN_PADDING,
-      Math.min(
-        screenWidth - PICKER_WIDTH_EST - SCREEN_PADDING,
-        touchPosition.x - PICKER_WIDTH_EST / 2
-      )
+      Math.min(screenWidth - PICKER_WIDTH_EST - SCREEN_PADDING, rawLeft)
     );
-    const preferredTop = touchPosition.y - PICKER_HEIGHT_EST - PICKER_OFFSET_ABOVE;
-    const top =
-      preferredTop < SCREEN_PADDING
-        ? touchPosition.y + PICKER_OFFSET_ABOVE
-        : Math.min(preferredTop, screenHeight - PICKER_HEIGHT_EST - SCREEN_PADDING);
-    return { left, top };
-  }, [touchPosition, screenWidth, screenHeight]);
+    const safe = getPickerSafeVerticalRange(screenHeight, safeAreaInsets);
+    const top = clampPickerTopToMessage(messageBounds, safe);
+    if (lastPosition?.left !== left || lastPosition?.top !== top) {
+      setLastPosition({ left, top });
+    }
+  }
+
+  const position = useMemo(() => {
+    if (messageBounds) {
+      const rawLeft = isFromMe
+        ? messageBounds.left + messageBounds.width - PICKER_WIDTH_EST
+        : messageBounds.left;
+      const left = Math.max(
+        SCREEN_PADDING,
+        Math.min(screenWidth - PICKER_WIDTH_EST - SCREEN_PADDING, rawLeft)
+      );
+      const safe = getPickerSafeVerticalRange(screenHeight, safeAreaInsets);
+      const top = clampPickerTopToMessage(messageBounds, safe);
+      return { left, top };
+    }
+    return lastPosition ?? defaultPosition;
+  }, [
+    messageBounds,
+    isFromMe,
+    screenWidth,
+    screenHeight,
+    safeAreaInsets,
+    defaultPosition,
+    lastPosition,
+  ]);
 
   const positionStyle = useMemo(
     () => ({ left: position.left, top: position.top }),
@@ -580,9 +725,29 @@ function ReactionOverlayModal({
     return [...new Set([...mine, ...QUICK_REACTIONS])];
   }, [currentReactions, currentUserDid]);
 
+  const boundsForCutout = messageBounds ?? lastMessageBounds;
+  const dimBands = useMemo(() => {
+    if (!boundsForCutout) return null;
+    const { top: t, bottom: b, left: l, width: w } = boundsForCutout;
+    const dimStyle = styles.reactionPickerDimBand;
+    return (
+      <>
+        <View style={[dimStyle, styles.reactionPickerDimTop, { height: t }]} />
+        <View style={[dimStyle, styles.reactionPickerDimBottom, { top: b }]} />
+        <View
+          style={[dimStyle, styles.reactionPickerDimLeft, { top: t, width: l, height: b - t }]}
+        />
+        <View
+          style={[dimStyle, styles.reactionPickerDimRight, { top: t, left: l + w, height: b - t }]}
+        />
+      </>
+    );
+  }, [boundsForCutout]);
+
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onDismiss}>
       <View style={styles.reactionPickerBackdrop}>
+        {dimBands ?? <View style={[StyleSheet.absoluteFill, styles.reactionPickerDimBand]} />}
         <Pressable style={StyleSheet.absoluteFill} onPress={onDismiss} />
         <View style={[styles.reactionPickerContent, positionStyle]}>
           {quickEmojis.map(value => {
@@ -867,10 +1032,12 @@ function ChatEmbeddedPost({
 }: {
   embed: NonNullable<MessageView['embed']>;
   isFromMe: boolean;
-  onLongPress?: (e: { nativeEvent: { pageX: number; pageY: number } }) => void;
+  onLongPress?: (e?: { nativeEvent: { pageX: number; pageY: number } }) => void;
   delayLongPress?: number;
 }) {
   const router = useRouter();
+  const openFromRow = useContext(ReactionPickerRowContext);
+  const handleLongPress = openFromRow ?? onLongPress;
   const record = (embed as { record?: EmbedRecordShape }).record;
   if (!record || typeof record !== 'object') return null;
 
@@ -981,7 +1148,7 @@ function ChatEmbeddedPost({
         <View style={[styles.embedVideoBlock, { width: CHAT_EMBED_VIDEO_WIDTH }]}>
           <Pressable
             onPress={onPressVideo}
-            onLongPress={onLongPress}
+            onLongPress={handleLongPress}
             delayLongPress={delayLongPress}
             style={[
               styles.embedVideoCard,
@@ -1015,7 +1182,13 @@ function ChatEmbeddedPost({
                 style={[StyleSheet.absoluteFill, styles.embedVideoGradientShim]}
                 contentFit="cover"
               />
-              <EmbedAuthor author={author} size={20} isFromMe={isFromMe} compact />
+              <EmbedAuthor
+                author={author}
+                size={26}
+                isFromMe={isFromMe}
+                compact
+                authorAlwaysOnRight
+              />
             </View>
           </Pressable>
         </View>
@@ -1040,7 +1213,7 @@ function ChatEmbeddedPost({
   return (
     <Pressable
       onPress={onPressPost}
-      onLongPress={onLongPress}
+      onLongPress={handleLongPress}
       delayLongPress={delayLongPress}
       style={[styles.embedContent, isFromMe && styles.embedContentFromMe]}
       android_ripple={{ color: Colors.neutral[700] }}
@@ -1161,11 +1334,9 @@ export default function ChatScreen() {
   const headerConfig = itemSizeConfig.large;
   const [showChatMenu, setShowChatMenu] = useState(false);
   const [showReportOrBlockSheet, setShowReportOrBlockSheet] = useState(false);
-  const [reactionPickerMessageId, setReactionPickerMessageId] = useState<string | null>(null);
-  const [reactionPickerTouch, setReactionPickerTouch] = useState<{ x: number; y: number } | null>(
-    null
-  );
-  const [showFullEmojiPicker, setShowFullEmojiPicker] = useState(false);
+  const reactionPicker = useReactionPicker();
+  const closePickerRef = useRef(reactionPicker.closePicker);
+  closePickerRef.current = reactionPicker.closePicker;
 
   const isInConvo = !!convo;
   const hasLeftConvo = convoFetched && convo === null && !openByDid;
@@ -1188,15 +1359,9 @@ export default function ChatScreen() {
     queryFn: () => ChatService.getMessages(convoId, null),
     enabled: !!convoId && isInConvo,
     refetchOnWindowFocus: true,
+    staleTime: 30_000,
+    gcTime: 5 * 60 * 1000,
   });
-
-  useFocusEffect(
-    useCallback(() => {
-      if (convoId && isInConvo) {
-        queryClient.refetchQueries({ queryKey: queryKeys.chat.messages.byConversation(convoId) });
-      }
-    }, [convoId, isInConvo, queryClient])
-  );
 
   // Dismiss keyboard when leaving the route
   useFocusEffect(
@@ -1268,13 +1433,13 @@ export default function ChatScreen() {
       return { prev };
     },
     onError: (_err, _vars, context) => {
-      setReactionPickerMessageId(null);
+      closePickerRef.current();
       if (context?.prev != null) {
         queryClient.setQueryData(queryKeys.chat.messages.byConversation(convoId), context.prev);
       }
     },
     onSuccess: () => {
-      setReactionPickerMessageId(null);
+      closePickerRef.current();
     },
     onSettled: () => {
       queryClient.invalidateQueries({
@@ -1438,81 +1603,71 @@ export default function ChatScreen() {
       const hasVideoEmbed = !!record && !!getVideoViewFromRecordEmbeds(record.embeds);
       const hasMessageText = msg.text != null && msg.text !== '';
       const showVideoCaption = hasVideoEmbed && hasMessageText;
-      const onLongPress = (e: { nativeEvent: { pageX: number; pageY: number } }) => {
-        setReactionPickerMessageId(msg.id);
-        setReactionPickerTouch({ x: e.nativeEvent.pageX, y: e.nativeEvent.pageY });
-      };
       return (
-        <Animated.View entering={entering}>
-          <Pressable
-            onLongPress={onLongPress}
-            delayLongPress={400}
-            style={[
-              styles.messageRow,
-              isFromMe ? styles.messageRowFromMe : styles.messageRowFromThem,
-              isNewSender && styles.messageRowNewSender,
-              isFromMe && !hasEmbed && sentMessageAccentBorderStyle,
-              !isFromMe && !hasEmbed && otherMessageAccentBorderStyle,
-              hasEmbed && styles.messageRowEmbed,
-              hasVideoEmbed && styles.messageRowVideoEmbed,
-            ]}
-          >
-            {hasMessageText && !hasVideoEmbed && (
+        <ChatMessageRow
+          messageId={msg.id}
+          onOpenPicker={reactionPicker.openPicker}
+          entering={entering}
+          pressableStyle={[
+            styles.messageRow,
+            isFromMe ? styles.messageRowFromMe : styles.messageRowFromThem,
+            isNewSender && styles.messageRowNewSender,
+            isFromMe && !hasEmbed && sentMessageAccentBorderStyle,
+            !isFromMe && !hasEmbed && otherMessageAccentBorderStyle,
+            hasEmbed && styles.messageRowEmbed,
+            hasVideoEmbed && styles.messageRowVideoEmbed,
+          ]}
+        >
+          {hasMessageText && !hasVideoEmbed && (
+            <ChatMessageRichText
+              text={msg.text}
+              facets={(msg as { facets?: RichTextFacet[] | null }).facets ?? null}
+              isFromMe={!!isFromMe}
+            />
+          )}
+          {hasEmbed && msg.embed && (
+            <ChatEmbeddedPost embed={msg.embed} isFromMe={!!isFromMe} delayLongPress={400} />
+          )}
+          {showVideoCaption && (
+            <View
+              style={[
+                styles.videoCaptionContainer,
+                isFromMe
+                  ? styles.videoCaptionContainerFromMe
+                  : styles.videoCaptionContainerFromThem,
+                isFromMe ? sentMessageAccentBorderStyle : otherMessageAccentBorderStyle,
+              ]}
+            >
               <ChatMessageRichText
                 text={msg.text}
                 facets={(msg as { facets?: RichTextFacet[] | null }).facets ?? null}
                 isFromMe={!!isFromMe}
               />
+            </View>
+          )}
+          {(!msg.text || msg.text === '') && !hasEmbed && (
+            <Text style={[styles.messageText, isFromMe && styles.messageTextFromMe]}>
+              {getMessagePreview(msg)}
+            </Text>
+          )}
+          <View style={[styles.messageMetaRow, isFromMe && styles.messageMetaRowFromMe]}>
+            {!isFromMe && item.showTime && msg.sentAt && (
+              <Text style={styles.messageTime}>{formatMessageTime(msg.sentAt)}</Text>
             )}
-            {hasEmbed && msg.embed && (
-              <ChatEmbeddedPost
-                embed={msg.embed}
-                isFromMe={!!isFromMe}
-                onLongPress={onLongPress}
-                delayLongPress={400}
-              />
-            )}
-            {showVideoCaption && (
-              <View
-                style={[
-                  styles.videoCaptionContainer,
-                  isFromMe
-                    ? styles.videoCaptionContainerFromMe
-                    : styles.videoCaptionContainerFromThem,
-                  isFromMe ? sentMessageAccentBorderStyle : otherMessageAccentBorderStyle,
-                ]}
-              >
-                <ChatMessageRichText
-                  text={msg.text}
-                  facets={(msg as { facets?: RichTextFacet[] | null }).facets ?? null}
-                  isFromMe={!!isFromMe}
-                />
-              </View>
-            )}
-            {(!msg.text || msg.text === '') && !hasEmbed && (
-              <Text style={[styles.messageText, isFromMe && styles.messageTextFromMe]}>
-                {getMessagePreview(msg)}
+            <MessageReactions
+              reactions={(msg as MessageItem).reactions}
+              currentUserDid={currentUserDid ?? undefined}
+              isFromMe={!!isFromMe}
+              sentAccentColor={sentMessageAccentColor}
+              otherAccentColor={otherUserAccentColor}
+            />
+            {isFromMe && item.showTime && msg.sentAt && (
+              <Text style={[styles.messageTime, styles.messageTimeFromMe]}>
+                {formatMessageTime(msg.sentAt)}
               </Text>
             )}
-            <View style={[styles.messageMetaRow, isFromMe && styles.messageMetaRowFromMe]}>
-              {!isFromMe && item.showTime && msg.sentAt && (
-                <Text style={styles.messageTime}>{formatMessageTime(msg.sentAt)}</Text>
-              )}
-              <MessageReactions
-                reactions={(msg as MessageItem).reactions}
-                currentUserDid={currentUserDid ?? undefined}
-                isFromMe={!!isFromMe}
-                sentAccentColor={sentMessageAccentColor}
-                otherAccentColor={otherUserAccentColor}
-              />
-              {isFromMe && item.showTime && msg.sentAt && (
-                <Text style={[styles.messageTime, styles.messageTimeFromMe]}>
-                  {formatMessageTime(msg.sentAt)}
-                </Text>
-              )}
-            </View>
-          </Pressable>
-        </Animated.View>
+          </View>
+        </ChatMessageRow>
       );
     },
     [
@@ -1522,12 +1677,31 @@ export default function ChatScreen() {
       otherUserAccentColor,
       sentMessageAccentBorderStyle,
       otherMessageAccentBorderStyle,
+      reactionPicker,
     ]
   );
 
   const keyExtractor = useCallback((item: ChatListItem) => {
     if (item.type === 'date') return `date-${item.dateKey}`;
     return item.message.id;
+  }, []);
+
+  const getItemType = useCallback((item: ChatListItem) => {
+    return item.type === 'date' ? 'date' : 'message';
+  }, []);
+
+  const maintainVisibleContentPositionConfig = useMemo(
+    () => ({
+      startRenderingFromBottom: true,
+      autoscrollToBottomThreshold: 0.2,
+    }),
+    []
+  );
+
+  const listItemSeparator = useMemo(() => {
+    const ListItemSeparator = () => <View style={styles.listItemSeparator} />;
+    ListItemSeparator.displayName = 'ListItemSeparator';
+    return ListItemSeparator;
   }, []);
 
   const handleBack = useCallback(() => router.back(), [router]);
@@ -1658,14 +1832,13 @@ export default function ChatScreen() {
   );
 
   const pickerMessage = useMemo(() => {
-    if (!reactionPickerMessageId) return null;
+    const messageId = reactionPicker.state?.messageId;
+    if (!messageId) return null;
     const raw = messagesData?.messages ?? [];
     return (
-      (raw.find((m: { id?: string }) => m.id === reactionPickerMessageId) as
-        | MessageItem
-        | undefined) ?? null
+      (raw.find((m: { id?: string }) => m.id === messageId) as MessageItem | undefined) ?? null
     );
-  }, [reactionPickerMessageId, messagesData?.messages]);
+  }, [reactionPicker.state?.messageId, messagesData?.messages]);
 
   const canSend = !needsAccept && inputText.trim().length > 0 && !sendMessageMutation.isPending;
   const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
@@ -1811,35 +1984,29 @@ export default function ChatScreen() {
       </View>
 
       <ReactionOverlayModal
-        visible={!!reactionPickerMessageId && !showFullEmojiPicker}
-        touchPosition={reactionPickerTouch}
-        onDismiss={() => {
-          setReactionPickerMessageId(null);
-          setReactionPickerTouch(null);
-        }}
+        visible={reactionPicker.isOverlayVisible}
+        messageBounds={reactionPicker.state?.messageBounds ?? null}
+        isFromMe={pickerMessage?.sender?.did === currentUserDid}
+        safeAreaInsets={{ top: insets.top, bottom: insets.bottom }}
+        onDismiss={reactionPicker.closePicker}
         onSelect={value => {
-          if (reactionPickerMessageId) handleReactionSelect(reactionPickerMessageId, value);
-          setReactionPickerMessageId(null);
-          setReactionPickerTouch(null);
+          if (reactionPicker.state?.messageId)
+            handleReactionSelect(reactionPicker.state.messageId, value);
+          reactionPicker.closePicker();
         }}
-        onOpenFullPicker={() => setShowFullEmojiPicker(true)}
+        onOpenFullPicker={reactionPicker.openFullSheet}
         currentReactions={pickerMessage?.reactions}
         currentUserDid={currentUserDid ?? undefined}
         sentAccentColor={sentMessageAccentColor}
       />
 
       <ReactionPickerSheet
-        visible={showFullEmojiPicker}
-        onDismiss={() => {
-          setShowFullEmojiPicker(false);
-          setReactionPickerMessageId(null);
-          setReactionPickerTouch(null);
-        }}
+        visible={reactionPicker.isSheetVisible}
+        onDismiss={reactionPicker.closePicker}
         onSelect={value => {
-          if (reactionPickerMessageId) handleReactionSelect(reactionPickerMessageId, value);
-          setShowFullEmojiPicker(false);
-          setReactionPickerMessageId(null);
-          setReactionPickerTouch(null);
+          if (reactionPicker.state?.messageId)
+            handleReactionSelect(reactionPicker.state.messageId, value);
+          reactionPicker.closePicker();
         }}
         currentReactions={pickerMessage?.reactions}
         currentUserDid={currentUserDid ?? undefined}
@@ -1914,16 +2081,16 @@ export default function ChatScreen() {
             data={listData}
             renderItem={renderListItem}
             keyExtractor={keyExtractor}
-            getItemType={(item: ChatListItem) => (item.type === 'date' ? 'date' : 'message')}
+            getItemType={getItemType}
+            drawDistance={400}
+            extraData={{ listLength: listData.length }}
             style={styles.list}
             contentContainerStyle={styles.listContent}
+            ItemSeparatorComponent={listItemSeparator}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             onScrollBeginDrag={Keyboard.dismiss}
-            maintainVisibleContentPosition={{
-              startRenderingFromBottom: true,
-              autoscrollToBottomThreshold: 100,
-            }}
+            maintainVisibleContentPosition={maintainVisibleContentPositionConfig}
           />
         ) : (
           <ScrollView
@@ -2156,11 +2323,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listContent: {
-    paddingHorizontal: 10,
-    paddingVertical: 16,
-    paddingBottom: 24,
+    paddingLeft: 10,
+    paddingRight: 10,
     flexGrow: 1,
     justifyContent: 'flex-end',
+  },
+  listItemSeparator: {
+    height: 6,
   },
   empty: {
     paddingVertical: 48,
@@ -2173,11 +2342,10 @@ const styles = StyleSheet.create({
   },
   messageRow: {
     width: '100%',
-    marginBottom: 6,
     alignItems: 'flex-start',
   },
   dateSeparator: {
-    paddingVertical: 16,
+    paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2187,16 +2355,16 @@ const styles = StyleSheet.create({
     fontFamily: 'Figtree-Medium',
   },
   messageRowNewSender: {
-    marginTop: 16,
+    marginTop: 10,
   },
   messageRowFromThem: {
-    paddingLeft: 12,
+    paddingLeft: 10,
     borderLeftWidth: 2,
     borderLeftColor: Colors.neutral[700],
   },
   messageRowFromMe: {
     alignItems: 'flex-end',
-    paddingRight: 12,
+    paddingRight: 10,
     borderRightWidth: 2,
     borderRightColor: Colors.brand.teal,
   },
@@ -2220,12 +2388,12 @@ const styles = StyleSheet.create({
   },
   videoCaptionContainerFromMe: {
     alignSelf: 'flex-end',
-    paddingRight: 12,
+    paddingRight: 10,
     borderLeftWidth: 0,
   },
   videoCaptionContainerFromThem: {
     alignSelf: 'flex-start',
-    paddingLeft: 12,
+    paddingLeft: 10,
     borderRightWidth: 0,
   },
   messageText: {
@@ -2293,14 +2461,34 @@ const styles = StyleSheet.create({
   },
   reactionPickerBackdrop: {
     flex: 1,
+    backgroundColor: hexToRGBA(Colors.black, 0),
+  },
+  reactionPickerDimBand: {
+    position: 'absolute',
     backgroundColor: hexToRGBA(Colors.black, 0.4),
+  },
+  reactionPickerDimTop: {
+    top: 0,
+    left: 0,
+    right: 0,
+  },
+  reactionPickerDimBottom: {
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  reactionPickerDimLeft: {
+    left: 0,
+  },
+  reactionPickerDimRight: {
+    right: 0,
   },
   reactionPickerContent: {
     position: 'absolute',
     flexDirection: 'row',
     gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 6,
     borderRadius: 28,
     backgroundColor: Colors.neutral[900],
     shadowColor: Colors.black,
