@@ -122,6 +122,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   );
 
   const sheetRef = useRef<TrueSheet>(null);
+  const lastPresentedPostUriRef = useRef<string | null>(null);
   const commentsListRef = useRef<FlashListRef<Comment> | null>(null);
   const likesListRef = useRef<FlashListRef<Like> | null>(null);
 
@@ -589,15 +590,23 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   }, [onDismiss]);
 
   // Control TrueSheet visibility via instance ref (TrueSheet v3+)
+  // Guard: only call present() once per open (avoids double-open when effect runs twice or two instances existed)
   useEffect(() => {
     const sheet = sheetRef.current;
     if (!sheet) return;
-    if (visible && post) {
-      sheet.present().catch(() => {});
+    const postUri = post?.uri ?? null;
+    if (visible && post && postUri) {
+      if (lastPresentedPostUriRef.current !== postUri) {
+        lastPresentedPostUriRef.current = postUri;
+        sheet.present().catch(() => {});
+      }
     } else {
+      if (lastPresentedPostUriRef.current !== null) {
+        lastPresentedPostUriRef.current = null;
+      }
       sheet.dismiss().catch(() => {});
     }
-  }, [visible, post]);
+  }, [visible, post, post?.uri]);
 
   const router = useRouter();
 

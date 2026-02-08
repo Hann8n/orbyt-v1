@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { View, StyleSheet, StatusBar, Appearance, AppState, Platform } from 'react-native';
-import { Stack, usePathname } from 'expo-router';
+import { Stack } from 'expo-router';
 import { DarkTheme, ThemeProvider } from '@react-navigation/native';
 import {
   SafeAreaProvider,
@@ -90,7 +90,6 @@ const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 
 // Global modals component
 const GlobalModals: React.FC = () => {
-  const isFeedModal = usePathname() === '/(modals)/feed';
   const isAuthenticated = useUserStore(state => state.isAuthenticated);
   const currentUser = useUserStore(state => state.currentUser);
   const showEmailVerificationModal = useUserStore(state => state.showEmailVerificationModal);
@@ -118,7 +117,8 @@ const GlobalModals: React.FC = () => {
   return (
     <>
       <ShareSheet />
-      {!isFeedModal && <CommentSection />}
+      {/* Single global instance so comments don't open twice on feed transparent modal */}
+      <CommentSection />
       <GlobalAccountSwitcher />
       {isAuthenticated && (
         <EmailVerificationModal
