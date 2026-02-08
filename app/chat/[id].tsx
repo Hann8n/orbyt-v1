@@ -48,7 +48,7 @@ import { OptionsButton } from '../../src/components/ui/OptionsButton';
 import VerticalListSheet, { VerticalListButton } from '../../src/components/ui/VerticalListSheet';
 import { itemSizeConfig, sharedItemStyles } from '../../src/components/ui/ItemStyles';
 import { hexToRGBA } from '../../src/utils/formatting/colors';
-import { useAvatarProfileRing } from '../../src/hooks/useOrbytColors';
+import { useAvatarProfileRing } from '../../src/services/colors';
 import { formatHandle } from '../../src/utils/formatting/handles';
 import { queryKeys } from '../../src/utils/query/queryKeys';
 import { getActiveStreak } from '../../src/utils/chat/streak';

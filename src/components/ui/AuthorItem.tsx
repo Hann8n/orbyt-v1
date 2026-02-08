@@ -9,7 +9,7 @@ import { hexToRGBA } from '../../utils/formatting/colors';
 import { Colors } from './UI';
 
 import { useProfile, useFollowMutation, prefetchProfile } from '../../services/data/ProfileService';
-import { useAvatarProfileRing } from '../../hooks/useOrbytColors';
+import { useAvatarProfileRing } from '../../services/colors';
 import { formatHandle } from '../../utils/formatting/handles';
 import { useQueryClient } from '@tanstack/react-query';
 import { itemSizeConfig, sharedItemStyles } from './ItemStyles';

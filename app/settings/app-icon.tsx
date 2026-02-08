@@ -18,7 +18,7 @@ import Icon from '../../src/components/ui/Icon';
 import ListHeader from '../../src/components/ui/ListHeader';
 import { settingsLayoutStyles } from './SettingsStyles';
 import { useCurrentUser } from '../../src/stores/userStore';
-import { useOrbytColors } from '../../src/hooks/useOrbytColors';
+import { useOrbytColors } from '../../src/services/colors';
 import { formatHandle } from '../../src/utils/formatting/handles';
 
 type AppIconKey =

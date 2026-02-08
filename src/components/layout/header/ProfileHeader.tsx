@@ -13,7 +13,7 @@ import { useFeedScroll } from '../../../context/FeedScrollContext';
 import type { ProfileViewWithOrbyt } from '../../../services/api/types';
 import { getProfileColors } from '../../../utils/formatting/colors';
 import { useProfileFlags } from '../../../stores/profileInteractionStore';
-import { useOrbytColors } from '../../../hooks/useOrbytColors';
+import { useOrbytColors } from '../../../services/colors';
 import VerificationBadge from '../../features/badging/VerificationBadge';
 import BetaBadge from '../../features/badging/BetaBadge';
 import BetaInfoSheet from '../../features/badging/BetaInfoSheet';

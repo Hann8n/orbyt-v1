@@ -160,7 +160,7 @@ export interface ProfileColorScheme {
 }
 
 /**
- * orbyt API color data type (matches OrbytColorsService response)
+ * orbyt API color data type (matches OrbytColors response)
  */
 export interface OrbytAPIColorData {
   textColor: string;

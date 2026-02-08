@@ -41,11 +41,7 @@ import { hexToRGBA, blendColors } from '../src/utils/formatting/colors';
 import { BORDER_RADIUS } from '../src/utils/constants';
 import { useCurrentUser } from '../src/stores/userStore';
 import { splitHandleSuffix } from '../src/utils/formatting/handles';
-import {
-  useOrbytColors,
-  setAndPersistColors,
-  getCachedOrbytColors,
-} from '../src/hooks/useOrbytColors';
+import { useOrbytColors, saveAndSyncColors } from '../src/services/colors';
 
 export interface ProfileColorOption {
   backgroundColor: string;
@@ -745,16 +741,8 @@ const EditProfileScreen: React.FC = () => {
           updates,
         });
 
-        // Set colors locally in cache and persist - Jetstream takes ~1 min to index
-        // This ensures immediate UI update without waiting for API
         if (currentUser?.did && updates.customColors) {
-          const existingData = getCachedOrbytColors(currentUser.did);
-          setAndPersistColors(currentUser.did, {
-            textColor: updates.customColors.textColor,
-            backgroundColor: updates.customColors.backgroundColor,
-            joinedAt: existingData?.joinedAt ?? new Date().toISOString(),
-            isBeta: existingData?.isBeta ?? false,
-          });
+          await saveAndSyncColors(currentUser.did, updates.customColors);
         }
       }
 

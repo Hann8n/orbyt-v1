@@ -18,7 +18,7 @@ import { BORDER_RADIUS } from '../../../utils/constants';
 import { UserSearchModal } from '../../ui/usersearch';
 import { useUserStore } from '../../../stores/userStore';
 import { useProfile } from '../../../services/data/ProfileService';
-import { useAvatarProfileRing } from '../../../hooks/useOrbytColors';
+import { useAvatarProfileRing } from '../../../services/colors';
 
 interface UserSearchModalProps {
   visible: boolean;

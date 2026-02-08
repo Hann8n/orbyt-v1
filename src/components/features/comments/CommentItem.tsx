@@ -13,7 +13,7 @@ import Animated, {
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { prefetchProfile, useProfile } from '../../../services/data/ProfileService';
-import { useAvatarProfileRing } from '../../../hooks/useOrbytColors';
+import { useAvatarProfileRing } from '../../../services/colors';
 
 import AtprotoService from '../../../services/api/AtprotoService';
 import { queryKeys } from '../../../utils/query/queryKeys';

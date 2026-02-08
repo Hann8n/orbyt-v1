@@ -31,7 +31,7 @@ import { useUserStore } from '../../../stores/userStore';
 import { useActivityFilterStore } from '../../../stores/activityFilterStore';
 import BlurredBackground from '../../ui/BlurredBackground';
 import { queryKeys } from '../../../utils/query/queryKeys';
-import { useAvatarProfileRing } from '../../../hooks/useOrbytColors';
+import { useAvatarProfileRing } from '../../../services/colors';
 import {
   moderateNotification,
   moderatePost,

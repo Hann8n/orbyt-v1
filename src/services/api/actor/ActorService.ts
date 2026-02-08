@@ -15,7 +15,7 @@ import type { AppBskyActorProfile } from '@atproto/api';
 import { BlobRef } from '@atproto/lexicon';
 // @ts-expect-error - multiformats/cid has type resolution issues with package.json exports
 import { CID } from 'multiformats/cid';
-import OrbytColorsService from '../../OrbytColorsService';
+import { fetchColors, batchFetchColors } from '../../colors';
 
 /**
  * Converts JSON blob objects (from getRecord) to BlobRef instances.
@@ -181,7 +181,7 @@ export class ActorService {
     try {
       const [profileResponse, orbytColors] = await Promise.all([
         api.app.bsky.actor.getProfile({ actor: did }),
-        OrbytColorsService.fetchColors(did),
+        fetchColors(did),
       ]);
 
       const profile = profileResponse.data as ProfileView;
@@ -208,7 +208,7 @@ export class ActorService {
       });
 
       const profile = response.data as ProfileView;
-      const orbytColors = profile.did ? await OrbytColorsService.fetchColors(profile.did) : null;
+      const orbytColors = profile.did ? await fetchColors(profile.did) : null;
       return {
         ...profile,
         orbytRecord: null,
@@ -278,7 +278,7 @@ export class ActorService {
       const profiles = profileResults.flat();
 
       const dids = [...new Set(profiles.map(p => p.did).filter(Boolean))] as string[];
-      const colorMap = dids.length > 0 ? await OrbytColorsService.batchFetchColors(dids) : {};
+      const colorMap = dids.length > 0 ? await batchFetchColors(dids) : {};
 
       return profiles.map(profile => ({
         ...profile,

@@ -507,5 +507,5 @@ export type FeedItem = ExtendedFeedViewPost;
 // Extended ProfileView that includes orbyt data (colors from api.getorbyt.com, fetched with profile)
 export type ProfileViewWithOrbyt = ProfileView & {
   orbytRecord?: OrbytProfileRecord | null;
-  orbytColors?: import('../OrbytColorsService').OrbytColorData | null;
+  orbytColors?: import('../colors').OrbytColorData | null;
 };

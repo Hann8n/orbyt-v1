@@ -9,7 +9,7 @@ import { Avatar } from '../../src/components/ui/UI';
 import { ModerationService } from '../../src/services/moderation/ModerationService';
 import { useUserStoreState } from '../../src/stores/userStore';
 import { useModerationSettings } from '../../src/hooks/useModerationSettings';
-import { useAvatarProfileRing } from '../../src/hooks/useOrbytColors';
+import { useAvatarProfileRing } from '../../src/services/colors';
 import { logger } from '../../src/utils/logger';
 
 interface HiddenPost {

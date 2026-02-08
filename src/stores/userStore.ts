@@ -33,7 +33,7 @@ import {
   prefetchOrbytColors,
   loadPersistedColors,
   getPersistedColorsSync,
-} from '../hooks/useOrbytColors';
+} from '../services/colors';
 import { getProfileColors } from '../utils/formatting/colors';
 import type { ProfileColorScheme } from '../utils/formatting/colors';
 import { ALGORITHMIC_FEED_PROVIDERS, APP_CONSTANTS } from '../utils/constants';
@@ -60,7 +60,7 @@ const getDefaultModalProfileEnabled = (): boolean => {
  */
 async function prefetchColorsForUser(
   userDid: string
-): Promise<import('../services/OrbytColorsService').OrbytColorData | null> {
+): Promise<import('../services/colors').OrbytColorData | null> {
   try {
     const { GraphService } = await import('../services/api/graph/GraphService');
     const followingResponse = await GraphService.getFollowing(userDid, null, 100);

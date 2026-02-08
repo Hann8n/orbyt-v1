@@ -12,7 +12,7 @@ import { Avatar } from '../../ui/UI';
 import { VerificationBadge } from '../badging';
 import { useRouter } from 'expo-router';
 import { useFollowMutation, useProfile } from '../../../services/data/ProfileService';
-import { useAvatarProfileRing } from '../../../hooks/useOrbytColors';
+import { useAvatarProfileRing } from '../../../services/colors';
 import { formatHandle } from '../../../utils/formatting/handles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 // Use require for static RN asset to avoid TS module typing issues

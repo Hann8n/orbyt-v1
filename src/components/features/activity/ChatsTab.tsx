@@ -36,7 +36,7 @@ import { queryKeys } from '../../../utils/query/queryKeys';
 import ChatSettingsSheet from './ChatSettingsSheet';
 import { useUserStore } from '../../../stores/userStore';
 import { getActiveStreak, isStreakActive } from '../../../utils/chat/streak';
-import { useAvatarProfileRing } from '../../../hooks/useOrbytColors';
+import { useAvatarProfileRing } from '../../../services/colors';
 import type { ProfileViewBasic, RecordValue } from '../../../services/api/types';
 
 type ConvoView = ChatBskyConvoDefs.ConvoView;
