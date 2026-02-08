@@ -169,51 +169,35 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     onSelectionChange: e => setInputSelection(e.nativeEvent.selection),
   });
 
-  const { updatePostInteraction, getPostInteraction } = usePostInteractionStore();
+  const defaultHeaderInteraction = useMemo(
+    () => ({
+      isLiked: !!isLiked,
+      likeCount: totalLikes,
+      likeUri: undefined as string | undefined,
+      isReposted: false,
+      isBookmarked: false,
+      repostCount: 0,
+    }),
+    [isLiked, totalLikes]
+  );
+  const persistedHeaderInteraction = usePostInteractionStore(state =>
+    post?.uri ? state.getPostInteraction(post.uri, defaultHeaderInteraction) : null
+  );
+  const updatePostInteraction = usePostInteractionStore(state => state.updatePostInteraction);
   const deletedComments = useCommentStore(state => state.deletedComments);
 
   const [headerIsLiked, setHeaderIsLiked] = useState<boolean>(() => {
-    if (!post?.uri || onToggleLike) {
-      return !!isLiked;
-    }
-    return getPostInteraction(post.uri, {
-      isLiked: !!isLiked,
-      likeCount: totalLikes,
-      likeUri: undefined,
-      isReposted: false,
-      isBookmarked: false,
-      repostCount: 0,
-    }).isLiked;
+    if (!post?.uri || onToggleLike) return !!isLiked;
+    return persistedHeaderInteraction?.isLiked ?? !!isLiked;
   });
-
   const [headerLikeUri, setHeaderLikeUri] = useState<string | undefined>(() => {
-    if (!post?.uri || onToggleLike) {
-      return undefined;
-    }
-    return getPostInteraction(post.uri, {
-      isLiked: !!isLiked,
-      likeCount: totalLikes,
-      likeUri: undefined,
-      isReposted: false,
-      isBookmarked: false,
-      repostCount: 0,
-    }).likeUri;
+    if (!post?.uri || onToggleLike) return undefined;
+    return persistedHeaderInteraction?.likeUri;
   });
-
   const [headerIsPending, setHeaderIsPending] = useState<boolean>(false);
-
   const [headerVisualLiked, setHeaderVisualLiked] = useState<boolean>(() => {
-    if (!post?.uri || onToggleLike) {
-      return !!isLiked;
-    }
-    return getPostInteraction(post.uri, {
-      isLiked: !!isLiked,
-      likeCount: totalLikes,
-      likeUri: undefined,
-      isReposted: false,
-      isBookmarked: false,
-      repostCount: 0,
-    }).isLiked;
+    if (!post?.uri || onToggleLike) return !!isLiked;
+    return persistedHeaderInteraction?.isLiked ?? !!isLiked;
   });
 
   useEffect(() => {
@@ -223,15 +207,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       return;
     }
 
-    if (post?.uri && isLiked !== undefined) {
-      const storeState = getPostInteraction(post.uri, {
-        isLiked: !!isLiked,
-        likeCount: totalLikes,
-        likeUri: undefined,
-        isReposted: false,
-        isBookmarked: false,
-        repostCount: 0,
-      });
+    if (post?.uri && isLiked !== undefined && persistedHeaderInteraction) {
+      const storeState = persistedHeaderInteraction;
 
       if (storeState.isLiked !== !!isLiked) {
         setHeaderIsLiked(!!isLiked);
@@ -247,7 +224,14 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         });
       }
     }
-  }, [isLiked, totalLikes, post?.uri, onToggleLike, getPostInteraction, updatePostInteraction]);
+  }, [
+    isLiked,
+    totalLikes,
+    post?.uri,
+    onToggleLike,
+    persistedHeaderInteraction,
+    updatePostInteraction,
+  ]);
 
   const headerHeartScale = useSharedValue(1);
   const headerHeartStyle = useAnimatedStyle(() => ({
@@ -257,14 +241,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const handleHeaderToggleLikeInternal = useCallback(async () => {
     if (!post?.uri || headerIsPending) return;
 
-    const storeState = getPostInteraction(post.uri, {
-      isLiked: !!isLiked,
-      likeCount: totalLikes,
-      likeUri: undefined,
-      isReposted: false,
-      isBookmarked: false,
-      repostCount: 0,
-    });
+    const storeState = persistedHeaderInteraction ?? defaultHeaderInteraction;
     const currentLikeCount = storeState.likeCount;
     const newIsLiked = !headerIsLiked;
     const newLikeCount = newIsLiked ? currentLikeCount + 1 : Math.max(0, currentLikeCount - 1);
@@ -323,7 +300,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     headerHeartScale,
     isLiked,
     totalLikes,
-    getPostInteraction,
+    persistedHeaderInteraction,
+    defaultHeaderInteraction,
     updatePostInteraction,
   ]);
 
