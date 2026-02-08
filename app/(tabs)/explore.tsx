@@ -1183,24 +1183,6 @@ const ExploreScreen: React.FC = () => {
     }));
   }, [fetchedHeaders]);
 
-  // Comment out video-related useEffect since videos are disabled
-  // useEffect(() => {
-  //   if (searchData?.pages) {
-  //     const allVideosFromPages = searchData.pages.flatMap(page => {
-  //       const videoResults = page.results.filter((result: any) => result.type === 'video');
-  //       return videoResults.map((result: any) => result.data);
-  //     });
-  //     setAllVideos(allVideosFromPages);
-  //
-  //     const formattedFeed = allVideosFromPages.map(video => ({
-  //       post: video,
-  //       shouldCache: true,
-  //       uniqueKey: video.uri,
-  //     }));
-  //     setCurrentFeed(formattedFeed);
-  //   }
-  // }, [searchData]);
-
   // Debounce search query
   useEffect(() => {
     if (debounceTimeoutRef.current) {

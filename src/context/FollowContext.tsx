@@ -1,10 +1,11 @@
 import React, { createContext, useContext } from 'react';
 import { useFollowMutation } from '../services/data/ProfileService';
 import { useUserStore } from '../stores/userStore';
+import type { UserState } from '../stores/userStore';
 
 type FollowContextValue = {
   followMutation: ReturnType<typeof useFollowMutation>;
-  currentUser: any;
+  currentUser: UserState['currentUser'];
 };
 
 const FollowContext = createContext<FollowContextValue | null>(null);

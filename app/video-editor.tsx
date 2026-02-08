@@ -33,6 +33,7 @@ import VerticalListSheet, { VerticalListButton } from '../src/components/ui/Vert
 import BottomToolBar from '../src/components/ui/BottomToolBar';
 import { useWindowDimensions } from 'react-native';
 import { getBottomNavBarHeight } from '../src/utils/device/screen';
+import { logger } from '../src/utils/logger';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ASPECT_RATIO = 9 / 16;
@@ -332,7 +333,7 @@ const VideoEditorScreen: React.FC = () => {
           { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
         );
       } catch (error: unknown) {
-        console.error('[VideoEditor] Error merging segments:', error);
+        logger.error('Error merging segments', error, { component: 'VideoEditor' });
         setIsMerging(false);
         const errorMessage =
           error instanceof Error
@@ -381,7 +382,7 @@ const VideoEditorScreen: React.FC = () => {
           setVideoError('Video file not found');
         }
       } catch (error) {
-        console.error('[VideoEditor] Error resolving video path:', error);
+        logger.error('Error resolving video path', error, { component: 'VideoEditor' });
         setVideoError('Unable to access video file');
       } finally {
         setVideoLoading(false);
@@ -439,7 +440,7 @@ const VideoEditorScreen: React.FC = () => {
             await tempFile.delete();
           }
         } catch (error) {
-          console.warn('Failed to cleanup temp file:', error);
+          logger.warn('Failed to cleanup temp file', { component: 'VideoEditor', error });
         }
       });
     };
@@ -613,7 +614,7 @@ const VideoEditorScreen: React.FC = () => {
         Alert.alert('Error', 'Could not access music file');
       }
     } catch (error) {
-      console.error('Error selecting music:', error);
+      logger.error('Error selecting music', error, { component: 'VideoEditor' });
       Alert.alert('Error', 'Failed to select music file');
     }
   }, []);
@@ -704,7 +705,7 @@ const VideoEditorScreen: React.FC = () => {
 
       Alert.alert('Success', 'Video edits applied successfully!');
     } catch (error: unknown) {
-      console.error('Error applying edits:', error);
+      logger.error('Error applying edits', error, { component: 'VideoEditor' });
       const errorMessage =
         error instanceof Error ? error.message : 'Failed to apply edits. Please try again.';
       Alert.alert('Error', errorMessage);

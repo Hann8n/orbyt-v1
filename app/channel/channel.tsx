@@ -23,6 +23,7 @@ import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '../../src
 import { useDetailScreenOverlay } from '../../src/hooks/useDetailScreenOverlay';
 import { isOrbytChannel, getChannelByUri, channelToHashtag } from '../../src/utils/channels/orbyt';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { logger } from '../../src/utils/logger';
 import type { ListFeedViewRef, ViewMode } from '../../src/types';
 
 const Channel: React.FC = memo(() => {
@@ -121,7 +122,7 @@ const Channel: React.FC = memo(() => {
           foregroundColor: colors.foregroundColor,
         });
       } catch (error) {
-        console.error('Error extracting/saving channel colors:', error);
+        logger.error('Error extracting/saving channel colors', error, { component: 'Channel' });
       }
     },
     [colorsMutation]
@@ -138,7 +139,7 @@ const Channel: React.FC = memo(() => {
   useEffect(() => {
     if (channelData?.creator?.handle) {
       ProfileService.getProfile(channelData.creator.handle).catch(error => {
-        console.warn('Error preloading channel creator profile:', error);
+        logger.warn('Error preloading channel creator profile', { component: 'Channel', error });
       });
     }
   }, [channelData?.creator?.handle]);
@@ -211,7 +212,7 @@ const Channel: React.FC = memo(() => {
       await refetchChannel();
       // Feed refresh is handled by FeedRenderer's useEffect when isRefreshing is true
     } catch (error) {
-      console.error('Error during refresh:', error);
+      logger.error('Error during refresh', error, { component: 'Channel' });
     } finally {
       // Reset refreshing state after a delay to show the refresh animation
       setTimeout(() => {

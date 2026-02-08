@@ -826,7 +826,9 @@ const VideoPostScreen: React.FC = () => {
             });
           }
         } catch (error) {
-          console.error('Error checking and compressing video:', error);
+          logger.error('Error checking and compressing video', error, {
+            component: 'VideoPostScreen',
+          });
         } finally {
           setIsCompressing(false);
         }
@@ -1225,7 +1227,7 @@ const VideoPostScreen: React.FC = () => {
           setVideoError('Video file not found');
         }
       } catch (error) {
-        console.error('[VideoPostScreen] Error resolving video path:', error);
+        logger.error('Error resolving video path', error, { component: 'VideoPostScreen' });
         setVideoError('Unable to access video file');
       } finally {
         setVideoLoading(false);

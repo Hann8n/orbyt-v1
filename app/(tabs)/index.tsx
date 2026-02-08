@@ -18,7 +18,7 @@ import { HomeScreenRef, FeedOption } from '../../src/types';
 import { useVisibilityRouteTracker } from '../../src/hooks';
 import { Colors } from '../../src/theme';
 import { tabRefs } from '../../src/utils/navigation/tabRefs';
-import type { ScrollToTopRef } from '../../src/utils/navigation/tabRefs';
+import type { ProfileRef } from '../../src/utils/navigation/tabRefs';
 import { useUserStore } from '../../src/stores/userStore';
 import { useAppStore } from '../../src/stores/appStore';
 import { VideoUploadBanner } from '../../src/components/ui/VideoUploadBanner';
@@ -72,8 +72,8 @@ const HomeScreen = memo(
       [setLastHomeFeed]
     );
 
-    // Ref for FeedPager to forward scrollToTop
-    const feedPagerRef = useRef<ScrollToTopRef>(null);
+    // Ref for FeedPager to forward scrollToTop (FeedPager exposes ProfileRef)
+    const feedPagerRef = useRef<ProfileRef>(null);
 
     // Expose refresh method to parent components
     useImperativeHandle(

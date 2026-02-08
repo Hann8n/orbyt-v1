@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text, StyleSheet } from 'react-native';
+import { Text, StyleSheet, StyleProp, TextStyle } from 'react-native';
 import {
   differenceInMinutes,
   differenceInHours,
@@ -13,7 +13,7 @@ import { Colors } from '../../theme';
 
 interface RelativeDateProps {
   dateString?: string;
-  style?: any;
+  style?: StyleProp<TextStyle>;
   showTime?: boolean;
 }
 

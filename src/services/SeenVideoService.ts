@@ -4,6 +4,7 @@
  * Uses dedicated MMKV instance for optimal performance
  */
 import { MMKV } from 'react-native-mmkv';
+import { logger } from '../utils/logger';
 import type { ExtendedFeedViewPost } from './api/types';
 
 class SeenVideoService {
@@ -62,9 +63,11 @@ class SeenVideoService {
     } catch (error) {
       // Log error but don't throw - visibility tracking shouldn't break feed
       if (__DEV__) {
-        console.warn('SeenVideoService.markAsSeen error:', error, {
+        logger.warn('SeenVideoService.markAsSeen error', {
+          component: 'SeenVideoService',
           videoUri,
           userDid: this.userDid,
+          error,
         });
       }
     }
@@ -89,7 +92,12 @@ class SeenVideoService {
     } catch (error) {
       // Log error but return false - don't break feed
       if (__DEV__) {
-        console.warn('SeenVideoService.isSeen error:', error, { videoUri, userDid: this.userDid });
+        logger.warn('SeenVideoService.isSeen error', {
+          component: 'SeenVideoService',
+          videoUri,
+          userDid: this.userDid,
+          error,
+        });
       }
       return false;
     }
@@ -111,7 +119,7 @@ class SeenVideoService {
       // This prevents filtering when user is not logged in or userDid is not initialized
       if (!targetUserDid) {
         if (__DEV__) {
-          console.log('SeenVideoService.filterSeen: No userDid, skipping filter', {
+          logger.debug('SeenVideoService.filterSeen: No userDid, skipping filter', {
             totalItems: feedItems.length,
           });
         }
@@ -137,7 +145,7 @@ class SeenVideoService {
       // If no seen videos, return all items
       if (seenUris.size === 0) {
         if (__DEV__) {
-          console.log('SeenVideoService.filterSeen: No seen videos, returning all items', {
+          logger.debug('SeenVideoService.filterSeen: No seen videos, returning all items', {
             totalItems: feedItems.length,
             userDid: targetUserDid,
           });
@@ -153,7 +161,7 @@ class SeenVideoService {
 
       // Debug logging in dev mode
       if (__DEV__) {
-        console.log('SeenVideoService.filterSeen', {
+        logger.debug('SeenVideoService.filterSeen', {
           totalItems: feedItems.length,
           seenCount: seenUris.size,
           filteredCount: filtered.length,
@@ -165,7 +173,11 @@ class SeenVideoService {
     } catch (error) {
       // Log error but return all items - don't break feed
       if (__DEV__) {
-        console.warn('SeenVideoService.filterSeen error:', error, { userDid });
+        logger.warn('SeenVideoService.filterSeen error', {
+          component: 'SeenVideoService',
+          userDid,
+          error,
+        });
       }
       return feedItems;
     }
@@ -207,7 +219,11 @@ class SeenVideoService {
     } catch (error) {
       // Log error but return empty array - don't break watched videos page
       if (__DEV__) {
-        console.warn('SeenVideoService.getSeenVideos error:', error, { userDid });
+        logger.warn('SeenVideoService.getSeenVideos error', {
+          component: 'SeenVideoService',
+          userDid,
+          error,
+        });
       }
       return [];
     }

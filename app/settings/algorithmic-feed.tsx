@@ -21,6 +21,7 @@ import {
 import { BORDER_RADIUS, ALGORITHMIC_FEED_PROVIDERS } from '../../src/utils/constants';
 import { hexToRGBA, isColorDark } from '../../src/utils/formatting/colors';
 import { AtprotoService } from '../../src/services/api/AtprotoService';
+import { logger } from '../../src/utils/logger';
 
 interface FeedProviderOption {
   id: string;
@@ -113,7 +114,9 @@ const AlgorithmicFeedScreen: React.FC = () => {
 
     // Save in background
     setAlgorithmicFeedProvider(uri).catch(error => {
-      console.error('Error setting algorithmic feed provider:', error);
+      logger.error('Error setting algorithmic feed provider', error, {
+        component: 'AlgorithmicFeed',
+      });
       // Revert on error
       setSelectedUri(algorithmicFeedProvider);
     });
@@ -193,7 +196,9 @@ const AlgorithmicFeedScreen: React.FC = () => {
               setIsSheetVisible(false);
               setSelectedChannel(null);
             } catch (error) {
-              console.error('Error unsubscribing from channel:', error);
+              logger.error('Error unsubscribing from channel', error, {
+                component: 'AlgorithmicFeed',
+              });
               Alert.alert('Error', 'Failed to unsubscribe from channel. Please try again.');
             }
           },
@@ -222,7 +227,7 @@ const AlgorithmicFeedScreen: React.FC = () => {
           });
         }
       } catch (error) {
-        console.error('Error toggling subscription:', error);
+        logger.error('Error toggling subscription', error, { component: 'AlgorithmicFeed' });
         Alert.alert(
           'Error',
           `Failed to ${isSubscribed ? 'unsubscribe from' : 'subscribe to'} channel. Please try again.`
@@ -276,20 +281,7 @@ const AlgorithmicFeedScreen: React.FC = () => {
                 description={option.description}
                 onPress={() => handleSelectProvider(option.uri)}
                 rightIcon={
-                  <View
-                    style={[
-                      {
-                        width: 22,
-                        height: 22,
-                        borderRadius: BORDER_RADIUS.SMALL,
-                        borderWidth: 2,
-                        borderColor: selected ? Colors.neutral[50] : Colors.neutral[200],
-                        backgroundColor: selected ? Colors.neutral[50] : 'transparent',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                      },
-                    ]}
-                  >
+                  <View style={[styles.optionCheckbox, selected && styles.optionCheckboxSelected]}>
                     {selected && <Icon name="checkmark" size={16} color={Colors.black} />}
                   </View>
                 }
@@ -375,18 +367,13 @@ const AlgorithmicFeedScreen: React.FC = () => {
                       style={[
                         styles.subscribeButton,
                         useGlass
-                          ? {
-                              backgroundColor: 'transparent',
-                              borderColor: 'transparent',
-                              borderWidth: 0,
-                            }
-                          : {
-                              backgroundColor: isSubscribed
-                                ? channelColor
-                                : 'rgba(255, 255, 255, 0.2)',
-                              borderColor: 'transparent',
-                              borderWidth: 0,
-                            },
+                          ? styles.subscribeButtonGlass
+                          : [
+                              styles.subscribeButtonBase,
+                              isSubscribed
+                                ? { backgroundColor: channelColor }
+                                : styles.subscribeButtonUnsub,
+                            ],
                       ]}
                       onPress={e => {
                         e.stopPropagation();
@@ -402,15 +389,7 @@ const AlgorithmicFeedScreen: React.FC = () => {
                           isInteractive
                         />
                       )}
-                      <View
-                        pointerEvents="none"
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: 4,
-                        }}
-                      >
+                      <View pointerEvents="none" style={styles.subscribeButtonInner}>
                         {isSubscribing ? (
                           <Loading3FillIcon
                             size={14}
@@ -460,6 +439,20 @@ const AlgorithmicFeedScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
+  optionCheckbox: {
+    width: 22,
+    height: 22,
+    borderRadius: BORDER_RADIUS.SMALL,
+    borderWidth: 2,
+    borderColor: Colors.neutral[200],
+    backgroundColor: Colors.transparent,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  optionCheckboxSelected: {
+    borderColor: Colors.neutral[50],
+    backgroundColor: Colors.neutral[50],
+  },
   content: {
     flex: 1,
   },
@@ -492,7 +485,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
     paddingHorizontal: 20,
-    backgroundColor: 'transparent',
+    backgroundColor: Colors.transparent,
   },
   channelAvatar: {
     marginRight: 12,
@@ -531,9 +524,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     gap: 4,
     overflow: 'hidden',
+  },
+  subscribeButtonBase: {
+    borderColor: Colors.transparent,
+    borderWidth: 0,
+  },
+  subscribeButtonGlass: {
+    backgroundColor: Colors.transparent,
+    borderColor: Colors.transparent,
+    borderWidth: 0,
+  },
+  subscribeButtonUnsub: {
+    backgroundColor: Colors.overlay.white30,
+  },
+  subscribeButtonInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
   },
   glassBackgroundFull: {
     ...StyleSheet.absoluteFillObject,
@@ -573,7 +583,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 24,
     borderWidth: 0,
-    borderColor: 'transparent',
+    borderColor: Colors.transparent,
   },
   exploreButtonText: {
     color: Colors.black,

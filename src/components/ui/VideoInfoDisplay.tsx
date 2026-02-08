@@ -1,11 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import { VideoInfo } from '../../services/video/VideoProcessingService';
 import { Colors } from './UI';
 
 interface VideoInfoDisplayProps {
   videoInfo: VideoInfo;
-  style?: any;
+  style?: StyleProp<ViewStyle>;
 }
 
 const VideoInfoDisplay: React.FC<VideoInfoDisplayProps> = ({ videoInfo, style }) => {

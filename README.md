@@ -9,7 +9,7 @@ A new video app built for bluesky
 - **State Management**: [TanStack Query](https://github.com/TanStack/query) (React Query)
 - **Video**: [React Native Video](https://github.com/TheWidlarzGroup/react-native-video)
 - **Camera**: [Expo Camera](https://docs.expo.dev/versions/latest/sdk/camera/)
-- **Storage**: AsyncStorage and SecureStore
+- **Storage**: MMKV and SecureStore
 - **API**: [Atproto](https://github.com/bluesky-social/atproto/tree/main/packages/api)
 
 ## Getting Started

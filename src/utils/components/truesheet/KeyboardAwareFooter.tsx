@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Keyboard, Platform, StyleSheet, ViewStyle } from 'react-native';
+import { Keyboard, KeyboardEvent, Platform, StyleSheet, ViewStyle } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -46,24 +46,24 @@ const KeyboardAwareFooter: React.FC<KeyboardAwareFooterProps> = ({
   });
 
   useEffect(() => {
-    const handleShow = (event: any) => {
-      const keyboardHeight = event?.endCoordinates?.height ?? 0;
+    const handleShow = (event: KeyboardEvent) => {
+      const keyboardHeight = event.endCoordinates?.height ?? 0;
       const effectiveHeight = Math.max(0, keyboardHeight - insets.bottom);
       setKeyboardVisible(true);
 
       // Run animation on UI thread with Reanimated
       translateY.value = withTiming(-effectiveHeight, {
-        duration: event?.duration ?? 250,
+        duration: event.duration ?? 250,
         easing: Platform.OS === 'ios' ? Easing.out(Easing.cubic) : Easing.ease,
       });
     };
 
-    const handleHide = (event: any) => {
+    const handleHide = (event: KeyboardEvent) => {
       setKeyboardVisible(false);
 
       // Run animation on UI thread with Reanimated
       translateY.value = withTiming(0, {
-        duration: event?.duration ?? 250,
+        duration: event.duration ?? 250,
         easing: Platform.OS === 'ios' ? Easing.out(Easing.cubic) : Easing.ease,
       });
     };

@@ -7,7 +7,7 @@ import { RichText, AtUri, moderatePost } from '@atproto/api';
 import { BlobRef } from '@atproto/api';
 import { ModerationService } from '../../moderation/ModerationService';
 import { Platform } from 'react-native';
-import { storageHelpers } from '../../../utils/storage/storage';
+import { storage } from '../../../utils/storage/storage';
 import { AtprotoCore } from '../core';
 import { logger } from '../../../utils/logger';
 import type {
@@ -1126,7 +1126,7 @@ export class FeedService {
         userDid: userDid,
         targetFeed: targetFeed,
       };
-      await storageHelpers.setItem(feedbackKey, JSON.stringify(feedbackData));
+      storage.set(feedbackKey, JSON.stringify(feedbackData));
 
       // If we have a target feed, send the interaction to Bluesky's API
       // This communicates the preference to the feed generator
@@ -1164,7 +1164,7 @@ export class FeedService {
   ): Promise<{ type: 'interested' | 'not_interested'; timestamp: string; userDid: string } | null> {
     try {
       const feedbackKey = `video_feedback_${postUri}`;
-      const feedbackStr = await storageHelpers.getItem(feedbackKey);
+      const feedbackStr = storage.getString(feedbackKey) ?? null;
 
       if (feedbackStr) {
         const feedbackData = JSON.parse(feedbackStr);
@@ -1180,9 +1180,9 @@ export class FeedService {
   /**
    * Remove stored video feedback for a post
    */
-  static async removeVideoFeedback(postUri: string): Promise<void> {
+  static removeVideoFeedback(postUri: string): void {
     const feedbackKey = `video_feedback_${postUri}`;
-    await storageHelpers.removeItem(feedbackKey);
+    storage.delete(feedbackKey);
   }
 
   /**

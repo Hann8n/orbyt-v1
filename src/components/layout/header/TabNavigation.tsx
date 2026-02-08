@@ -1,6 +1,6 @@
 import React, { memo, useState } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import { View, StyleSheet, Pressable, Text } from 'react-native';
+import { View, StyleSheet, Pressable, Text, StyleProp, ViewStyle } from 'react-native';
 import { ListViewIcon, GridViewIcon, DownSmallFillIcon } from '../../ui/Icon';
 import type { ViewMode } from '../../../types';
 import { Colors } from '../../../theme';
@@ -19,7 +19,7 @@ interface TabNavigationProps {
   textColor?: string;
   backgroundColor?: string;
   accentColor?: string; // Add accent color for vibrant tab styling
-  style?: any;
+  style?: StyleProp<ViewStyle>;
   viewMode?: ViewMode;
   onViewModeChange?: (mode: ViewMode) => void;
   showViewToggle?: boolean;
@@ -67,11 +67,8 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
             <Text
               style={[
                 styles.dropdownText,
-                {
-                  color: activeTabColor,
-                  fontFamily: 'Figtree-SemiBold',
-                  fontSize: variant === 'header' ? 18 : 16,
-                },
+                variant === 'header' ? styles.dropdownTextHeader : styles.dropdownTextDefault,
+                { color: activeTabColor },
               ]}
             >
               {activeTabLabel}
@@ -158,10 +155,9 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
             <Text
               style={[
                 styles.tabText,
+                variant === 'header' ? styles.tabTextHeader : styles.tabTextDefault,
                 {
                   color: activeTab === tab.id ? activeTabColor : hexToRGBA(textColor, 0.7),
-                  fontFamily: variant === 'header' ? 'Figtree-Black' : 'Figtree-Black',
-                  fontSize: variant === 'header' ? 18 : 16,
                 },
                 activeTab === tab.id && styles.activeTabText,
                 tab.disabled && styles.disabledTabText,
@@ -230,8 +226,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     marginTop: 4,
-    backgroundColor: 'transparent',
-    // Add layout stability to prevent jitter
+    backgroundColor: Colors.transparent,
     minHeight: 48,
   },
   tabsRow: {
@@ -300,7 +295,21 @@ const styles = StyleSheet.create({
     minHeight: 36,
   },
   dropdownText: {
+    fontFamily: 'Figtree-SemiBold',
+  },
+  dropdownTextHeader: {
     fontSize: 18,
+  },
+  dropdownTextDefault: {
+    fontSize: 16,
+  },
+  tabTextHeader: {
+    fontFamily: 'Figtree-Black',
+    fontSize: 18,
+  },
+  tabTextDefault: {
+    fontFamily: 'Figtree-Black',
+    fontSize: 16,
   },
   optionsContainer: {
     paddingHorizontal: 0,

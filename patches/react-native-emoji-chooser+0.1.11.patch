@@ -1,8 +1,23 @@
 diff --git a/node_modules/react-native-emoji-chooser/dist/index.js b/node_modules/react-native-emoji-chooser/dist/index.js
-index 135d3a9..2308e99 100644
+index 135d3a9..ef95643 100644
 --- a/node_modules/react-native-emoji-chooser/dist/index.js
 +++ b/node_modules/react-native-emoji-chooser/dist/index.js
-@@ -163,7 +163,7 @@ const EmojiPicker = ({ mode = 'light', columnCount = 6, lang = 'en', onSelect, t
+@@ -6,7 +6,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
+ const react_native_1 = require("react-native");
+ const utils_1 = require("./utils");
+ const react_1 = require("react");
+-const async_storage_1 = __importDefault(require("@react-native-async-storage/async-storage"));
++const react_native_mmkv_1 = require("react-native-mmkv");
++const emojiStorage = new react_native_mmkv_1.MMKV({ id: "emoji-chooser-recents" });
++const emojiStorageAdapter = {
++    getItem: (key) => Promise.resolve(emojiStorage.getString(key) ?? null),
++    setItem: (key, value) => Promise.resolve(emojiStorage.set(key, value)),
++};
++const async_storage_1 = { default: emojiStorageAdapter };
+ const constants_1 = require("./constants");
+ const react_native_2 = require("react-native");
+ const react_native_3 = require("react-native");
+@@ -163,7 +169,7 @@ const EmojiPicker = ({ mode = 'light', columnCount = 6, lang = 'en', onSelect, t
                  }
                  return <react_native_1.Text style={[styles.sectionHeaderStyle, themeMode.flatList.section.header]}>{section.title}</react_native_1.Text>;
              }}/>)}

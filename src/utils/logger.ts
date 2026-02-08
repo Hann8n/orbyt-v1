@@ -8,14 +8,19 @@ type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 interface LogContext {
   component?: string;
   action?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 class Logger {
   private isDevelopment = __DEV__;
 
   // Internal helper to exercise LogLevel type and centralize formatting
-  private log(level: LogLevel, message: string, context?: LogContext, errorDisplay?: any): void {
+  private log(
+    level: LogLevel,
+    message: string,
+    context?: LogContext,
+    errorDisplay?: unknown
+  ): void {
     const prefix = level.toUpperCase();
     const formatted = `[${prefix}]${this.formatContext(context)} ${message}`;
 
@@ -82,9 +87,9 @@ class Logger {
   /**
    * Error level logging - always shown
    */
-  error(message: string, error?: any, context?: LogContext): void {
+  error(message: string, error?: unknown, context?: LogContext): void {
     // Safely stringify error to prevent "Cannot convert undefined value to object" errors
-    let errorDisplay: any = '';
+    let errorDisplay: unknown = '';
     try {
       if (error == null) {
         errorDisplay = '';

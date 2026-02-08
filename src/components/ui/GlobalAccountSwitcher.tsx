@@ -2,13 +2,18 @@ import React from 'react';
 import { useGlobalAccountSwitcher } from '../../hooks/useGlobalModals';
 import AccountSwitcher from '../features/profile/AccountSwitcher';
 import { useAuth } from '../../stores/userStore';
+import type { SavedAccount } from '../../stores/userStore';
+import type { ProfileViewWithOrbyt } from '../../services/api/types';
+
+/** SavedAccount plus optional cached profile (from AccountSwitcher) */
+type AccountWithProfile = SavedAccount & { cachedProfile?: ProfileViewWithOrbyt };
 import { logger } from '../../utils/logger';
 
 const GlobalAccountSwitcher: React.FC = () => {
   const { visible, dismissAccountSwitcher } = useGlobalAccountSwitcher();
   const { signOut } = useAuth();
 
-  const handleAccountSwitch = async (account: any) => {
+  const handleAccountSwitch = async (account: AccountWithProfile) => {
     try {
       // Account switching is handled by the AccountSwitcher component
       const handle = account?.handle || account?.cachedProfile?.handle || account?.did || 'unknown';

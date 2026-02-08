@@ -267,10 +267,13 @@ export async function isValidVideoPath(
   return info.exists && info.uri.length > 0;
 }
 
+/** Asset shape from expo-image-picker (assetId) or expo-media-library (id) */
+type AssetLike = { assetId?: string; id?: string } | null | undefined;
+
 /**
  * Extract assetId from an ImagePickerAsset or similar object
  */
-export function extractAssetId(asset: any): string | null {
+export function extractAssetId(asset: AssetLike): string | null {
   if (!asset) return null;
 
   // ImagePickerAsset has assetId
@@ -289,7 +292,7 @@ export function extractAssetId(asset: any): string | null {
 /**
  * Debug: Log all relevant info about a video path
  */
-export function debugVideoPath(label: string, path: string, asset?: any): void {
+export function debugVideoPath(label: string, path: string, asset?: AssetLike): void {
   if (!DEBUG) return;
 
   logger.debug(`VideoPath Debug: ${label}`, {

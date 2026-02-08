@@ -23,14 +23,12 @@ import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { View, Text, StyleSheet, Linking, Pressable, Alert, Platform } from 'react-native';
 import { useRouter, useSegments } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
-import * as Device from 'expo-device';
-import * as Application from 'expo-application';
 import { logger } from '../../utils/logger';
 import { Colors, RetryButton } from './UI';
 import { BORDER_RADIUS } from '../../utils/constants';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
 import { GlassView } from 'expo-glass-effect';
-import { getBuildNumber, getFormattedVersion } from '../../utils/version';
+import { getDeviceInfo } from '../../utils/version';
 
 export interface ErrorBoundaryProps {
   children: ReactNode;
@@ -263,86 +261,6 @@ const ErrorFallback: React.FC<ErrorFallbackProps> = ({
       default:
         return 'An unexpected error occurred. Please try again.';
     }
-  };
-
-  const getDeviceInfo = async () => {
-    const platform =
-      Platform.OS === 'ios'
-        ? 'iOS'
-        : Platform.OS === 'android'
-          ? 'Android'
-          : Platform.OS === 'web'
-            ? 'Web'
-            : Platform.OS;
-    const appType = `orbyt for ${platform}`;
-    const osVersion = Device.osVersion || 'Unknown';
-    const modelName = Device.modelName || 'Unknown';
-    const appVersion = getFormattedVersion();
-    const buildNumber = getBuildNumber();
-    const environment = __DEV__ ? 'Debug' : 'Release';
-    const applicationId = Application.applicationId ?? 'N/A';
-    const applicationName = Application.applicationName ?? 'N/A';
-
-    const installationTime = await Application.getInstallationTimeAsync().catch(() => null);
-    const installationTimeText = installationTime ? installationTime.toISOString() : 'N/A';
-
-    const platformAppInfo: string[] = [];
-
-    if (Platform.OS === 'android') {
-      const androidId = (() => {
-        try {
-          return Application.getAndroidId();
-        } catch {
-          return null;
-        }
-      })();
-      platformAppInfo.push(`Android ID: ${androidId ?? 'N/A'}`);
-
-      const installReferrer = await Application.getInstallReferrerAsync().catch(() => null);
-      platformAppInfo.push(`Install Referrer: ${installReferrer ?? 'N/A'}`);
-
-      const lastUpdateTime = await Application.getLastUpdateTimeAsync().catch(() => null);
-      platformAppInfo.push(
-        `Last Update Time: ${lastUpdateTime ? lastUpdateTime.toISOString() : 'N/A'}`
-      );
-    }
-
-    if (Platform.OS === 'ios') {
-      const idForVendor = await Application.getIosIdForVendorAsync().catch(() => null);
-      platformAppInfo.push(`ID for Vendor: ${idForVendor ?? 'N/A'}`);
-
-      const releaseType = await Application.getIosApplicationReleaseTypeAsync().catch(() => null);
-      const releaseTypeLabel =
-        releaseType === null || releaseType === undefined
-          ? 'N/A'
-          : // Numeric enum reverse-mapping (e.g. 5 -> 'APP_STORE')
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (((Application as any).ApplicationReleaseType?.[releaseType] as string | undefined) ??
-            String(releaseType));
-      platformAppInfo.push(`iOS Release Type: ${releaseTypeLabel}`);
-
-      const apnsEnv = await Application.getIosPushNotificationServiceEnvironmentAsync().catch(
-        () => null
-      );
-      platformAppInfo.push(`APNs Environment: ${apnsEnv ?? 'N/A'}`);
-    }
-
-    return [
-      appType,
-      `Platform: ${platform}`,
-      `OS Version: ${osVersion}`,
-      `Device Model: ${modelName}`,
-      '',
-      `App Version: ${appVersion}`,
-      `Build Number: ${buildNumber}`,
-      `Environment: ${environment}`,
-      '',
-      `Application ID: ${applicationId}`,
-      `Application Name: ${applicationName}`,
-      '',
-      `Installation Time: ${installationTimeText}`,
-      ...(platformAppInfo.length ? ['', ...platformAppInfo] : []),
-    ].join('\n');
   };
 
   const getEmailBody = async () => {

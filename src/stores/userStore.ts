@@ -8,7 +8,7 @@ import { useEffect } from 'react';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 // Note: Using individual selectors instead of shallow comparison for better performance
-import { storageAdapter, storageHelpers, storage } from '../utils/storage/storage';
+import { storageAdapter, storage } from '../utils/storage/storage';
 import * as SecureStore from 'expo-secure-store';
 import { Agent } from '@atproto/api';
 import { getOAuthClient } from '../services/auth';
@@ -87,7 +87,7 @@ export interface SubscribedChannel {
 }
 
 // User state types - DID-centric design
-interface UserState {
+export interface UserState {
   // Current user information - DID is the primary identifier
   // Uses API structure directly: ProfileView uses string | undefined for optional fields
   currentUser: {
@@ -455,7 +455,7 @@ export const useUserStore = create<UserState>()(
           set({ isAuthenticating: true, authError: null });
 
           // Load persisted colors immediately for instant profile display
-          await loadPersistedColors(did);
+          loadPersistedColors(did);
 
           const client = getOAuthClient();
           const session = await client.restore(did);
@@ -856,7 +856,7 @@ export const useUserStore = create<UserState>()(
 
           // Save to storage
           const key = getUserScopedKey(STORAGE_KEYS.SUBSCRIBED_CHANNELS, currentUser.did);
-          await storageHelpers.setItem(key, JSON.stringify(channelsToSave));
+          storage.set(key, JSON.stringify(channelsToSave));
 
           // Sync subscribed channels to orbyt profile record (best-effort)
           try {
@@ -891,7 +891,7 @@ export const useUserStore = create<UserState>()(
           // Save to storage (filter built-ins)
           const key = getUserScopedKey(STORAGE_KEYS.SUBSCRIBED_CHANNELS, currentUser.did);
           const channelsToSave = updatedChannels.filter(ch => !BUILT_IN_CHANNELS.includes(ch.uri));
-          await storageHelpers.setItem(key, JSON.stringify(channelsToSave));
+          storage.set(key, JSON.stringify(channelsToSave));
 
           // Sync subscribed channels to orbyt profile record (best-effort)
           try {
@@ -968,7 +968,7 @@ export const useUserStore = create<UserState>()(
           const channelsToSave = get().subscribedChannels.filter(
             ch => !BUILT_IN_CHANNELS.includes(ch.uri)
           );
-          await storageHelpers.setItem(key, JSON.stringify(channelsToSave));
+          storage.set(key, JSON.stringify(channelsToSave));
 
           // Sync subscribed channels to orbyt profile record (best-effort)
           try {
@@ -1001,7 +1001,7 @@ export const useUserStore = create<UserState>()(
           // Single storage operation for all changes (filter built-ins)
           const key = getUserScopedKey(STORAGE_KEYS.SUBSCRIBED_CHANNELS, currentUser.did);
           const channelsToSave = updatedChannels.filter(ch => !BUILT_IN_CHANNELS.includes(ch.uri));
-          await storageHelpers.setItem(key, JSON.stringify(channelsToSave));
+          storage.set(key, JSON.stringify(channelsToSave));
 
           // Sync subscribed channels to orbyt profile record (best-effort)
           try {
@@ -1054,9 +1054,9 @@ export const useUserStore = create<UserState>()(
             : STORAGE_KEYS.ALGORITHMIC_FEED_PROVIDER;
 
           if (uri === null) {
-            await storageHelpers.removeItem(key);
+            storage.delete(key);
           } else {
-            await storageHelpers.setItem(key, uri);
+            storage.set(key, uri);
           }
 
           set({ algorithmicFeedProvider: uri });
@@ -1093,7 +1093,7 @@ export const useUserStore = create<UserState>()(
           const key = currentUser?.did
             ? getUserScopedKey(STORAGE_KEYS.ALGORITHMIC_FEED_PROVIDER, currentUser.did)
             : STORAGE_KEYS.ALGORITHMIC_FEED_PROVIDER;
-          const value = await storageHelpers.getItem(key);
+          const value = storage.getString(key) ?? null;
           // Default to Bluesky Video if not set
           return value ?? ALGORITHMIC_FEED_PROVIDERS.BLUESKY_VIDEO.uri;
         } catch (error) {
@@ -1408,9 +1408,9 @@ export const useUserStore = create<UserState>()(
               // Save to local storage for faster access next time
               const key = getUserScopedKey(STORAGE_KEYS.ALGORITHMIC_FEED_PROVIDER, did);
               if (algorithmicFeedProvider === null) {
-                await storageHelpers.removeItem(key);
+                storage.delete(key);
               } else {
-                await storageHelpers.setItem(key, algorithmicFeedProvider);
+                storage.set(key, algorithmicFeedProvider);
               }
             } else {
               // No value in profile record, try local storage
@@ -1447,7 +1447,7 @@ export const useUserStore = create<UserState>()(
         try {
           // Load user-specific channel subscriptions
           const key = getUserScopedKey(STORAGE_KEYS.SUBSCRIBED_CHANNELS, did);
-          const savedChannelsStr = await storageHelpers.getItem(key);
+          const savedChannelsStr = storage.getString(key) ?? null;
 
           let savedChannels: SubscribedChannel[] = savedChannelsStr
             ? JSON.parse(savedChannelsStr)
@@ -1483,7 +1483,7 @@ export const useUserStore = create<UserState>()(
                   isOrbytChannel: isOrbytChannel(uri),
                   subscribedAt: Date.now(),
                 }));
-                await storageHelpers.setItem(key, JSON.stringify(savedChannels));
+                storage.set(key, JSON.stringify(savedChannels));
               }
             }
           } catch {

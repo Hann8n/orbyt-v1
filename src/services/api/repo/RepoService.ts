@@ -264,8 +264,8 @@ export class RepoService {
 
       // Check if migration already done for this user
       const migrationKey = `${this.MIGRATION_KEY_PREFIX}${this.MIGRATION_VERSION}_${userDid}`;
-      const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
-      const migrationDone = await AsyncStorage.getItem(migrationKey);
+      const { storage } = await import('../../../utils/storage');
+      const migrationDone = storage.getString(migrationKey) === 'true';
 
       const existing = (await this.getOrbytProfileRecord()) as OrbytProfileRecord | null;
 
@@ -278,7 +278,7 @@ export class RepoService {
         // Record exists but migration not done - touch it to trigger re-index
         // Just update updatedAt, preserving all other fields
         await this.upsertOrbytProfileRecord({});
-        await AsyncStorage.setItem(migrationKey, 'true');
+        storage.set(migrationKey, 'true');
         logger.debug('orbyt profile migration: touched existing record', {
           component: 'RepoService',
           did: userDid,
@@ -321,7 +321,7 @@ export class RepoService {
       });
 
       // Mark migration as done
-      await AsyncStorage.setItem(migrationKey, 'true');
+      storage.set(migrationKey, 'true');
       logger.debug('orbyt profile migration: created new record', {
         component: 'RepoService',
         did: userDid,

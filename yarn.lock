@@ -52,12 +52,12 @@
     "@atproto-labs/simple-store" "0.3.0"
     lru-cache "^10.2.0"
 
-"@atproto-labs/simple-store@0.3.0", "@atproto-labs/simple-store@^0.3.0":
+"@atproto-labs/simple-store@0.3.0":
   version "0.3.0"
   resolved "https://registry.yarnpkg.com/@atproto-labs/simple-store/-/simple-store-0.3.0.tgz#65c0a5c949fe6c8dc3bdaf13ab40848f20073593"
   integrity sha512-nOb6ONKBRJHRlukW1sVawUkBqReLlLx6hT35VS3imaNPwiXDxLnTK7lxw3Lrl9k5yugSBDQAkZAq3MPTEFSUBQ==
 
-"@atproto/api@^0.18.20":
+"@atproto/api@^0.18.18":
   version "0.18.20"
   resolved "https://registry.yarnpkg.com/@atproto/api/-/api-0.18.20.tgz#3fdbb7b7fae90bd59101970c2b56cc31e8cf417d"
   integrity sha512-BZYZkh2VJIFCXEnc/vzKwAwWjAQQTgbNJ8FBxpBK+z+KYh99O0uPCsRYKoCQsRrnkgrhzdU9+g2G+7zanTIGbw==
@@ -209,7 +209,7 @@
     multiformats "^9.9.0"
     zod "^3.23.8"
 
-"@atproto/oauth-client-browser@^0.3.40":
+"@atproto/oauth-client-browser@0.3.40":
   version "0.3.40"
   resolved "https://registry.yarnpkg.com/@atproto/oauth-client-browser/-/oauth-client-browser-0.3.40.tgz#57cb43d092a9f5a93e75066b1a4aea24e888b463"
   integrity sha512-AlvHf1DYFRHw+J8uALUMhpclTbUTTkvLqzQeGBdAXxSGP8OefsOXXaSiY5Mh6zAYxek95/ypxYzNYncasgnMWg==
@@ -224,14 +224,14 @@
     "@atproto/oauth-types" "0.6.2"
     core-js "^3"
 
-"@atproto/oauth-client-expo@^0.0.9":
-  version "0.0.9"
-  resolved "https://registry.yarnpkg.com/@atproto/oauth-client-expo/-/oauth-client-expo-0.0.9.tgz#240890a540f9444a2f3f530866238d54ebc2b781"
-  integrity sha512-lypqGI7ioa90x9INjYWsSXR9fTwYw2OgyBLg0ptTkn7j0SRolCmXzB0BnTUnvZ9YEF/n6XVbz7CdgmbWF+EsiA==
+"@atproto/oauth-client-expo@^0.0.8":
+  version "0.0.8"
+  resolved "https://registry.yarnpkg.com/@atproto/oauth-client-expo/-/oauth-client-expo-0.0.8.tgz#af727839d836b677336924c4b9956a1fb1fc1535"
+  integrity sha512-RnGAPK/S+46K+ohvBW68hNE2abag1X3IcGa2ggiQjtDUw0tOgEg/QtdeRlasUpKCz7iNeLU5NRhXUOl1z0th6w==
   dependencies:
-    "@atproto-labs/simple-store" "^0.3.0"
-    "@atproto/oauth-client" "^0.5.14"
-    "@atproto/oauth-client-browser" "^0.3.40"
+    "@atproto-labs/simple-store" "0.3.0"
+    "@atproto/oauth-client" "0.5.14"
+    "@atproto/oauth-client-browser" "0.3.40"
     core-js "^3"
     event-target-polyfill "^0.0.4"
     expo-web-browser "^15.0.8"
@@ -344,7 +344,7 @@
     json5 "^2.2.3"
     semver "^6.3.1"
 
-"@babel/core@^7.29.0":
+"@babel/core@^7.28.6":
   version "7.29.0"
   resolved "https://registry.yarnpkg.com/@babel/core/-/core-7.29.0.tgz#5286ad785df7f79d656e88ce86e650d16ca5f322"
   integrity sha512-CGOfOJqWjg2qW/Mb6zNsDm+u5vFQ8DxXfbM09z69p5Z6+mE1ikP2jUXw+j42Pf1XTYED2Rni5f95npYeuwMDQA==
@@ -1754,7 +1754,7 @@
     "@formatjs/fast-memoize" "3.1.0"
     tslib "^2.8.1"
 
-"@formatjs/intl-segmenter@^12.1.1":
+"@formatjs/intl-segmenter@^12.1.0":
   version "12.1.1"
   resolved "https://registry.yarnpkg.com/@formatjs/intl-segmenter/-/intl-segmenter-12.1.1.tgz#9d0f06b46d7e22394a595ce484f3625ef3985132"
   integrity sha512-/ufC6NrGKDHrjWXLhkSu852K/ZHgMXm4H37xOqiB5qWrjOSu0gXyiyUSJkc5HExmNW/28qDTvh4gUb79ZQ3fbA==
@@ -2176,7 +2176,7 @@
   dependencies:
     use-sync-external-store "^1.5.0"
 
-"@lodev09/react-native-true-sheet@^3.8.2":
+"@lodev09/react-native-true-sheet@^3.8.1":
   version "3.8.2"
   resolved "https://registry.yarnpkg.com/@lodev09/react-native-true-sheet/-/react-native-true-sheet-3.8.2.tgz#363b34d1295ea3196bd46c6c368bf1cc5bd23854"
   integrity sha512-Cg8iMviVQw4G7lRsUnGgwBQEUnaLo2wuSBMKyPf/ffewegqZovKTN/lKOjCT35/5w4tq4zPIDTHzuiu/WfOCBw==
@@ -2373,13 +2373,6 @@
   version "1.1.1"
   resolved "https://registry.yarnpkg.com/@radix-ui/react-use-layout-effect/-/react-use-layout-effect-1.1.1.tgz#0c4230a9eed49d4589c967e2d9c0d9d60a23971e"
   integrity sha512-RbJRS4UWQFkzHTTwVymMTUv8EqYhOp8dOOviLj2ugtTiXRaRQS7GLGxZTLL1jWhMeoSCf5zmcZkqTl9IiYfXcQ==
-
-"@react-native-async-storage/async-storage@2.2.0":
-  version "2.2.0"
-  resolved "https://registry.yarnpkg.com/@react-native-async-storage/async-storage/-/async-storage-2.2.0.tgz#a3aa565253e46286655560172f4e366e8969f5ad"
-  integrity sha512-gvRvjR5JAaUZF8tv2Kcq/Gbt3JHwbKFYfmb445rhOj6NUMx3qPLixmDx5pZAyb9at1bYvJ4/eTUipU5aki45xw==
-  dependencies:
-    merge-options "^3.0.4"
 
 "@react-native/assets-registry@0.83.1":
   version "0.83.1"
@@ -2597,10 +2590,10 @@
   dependencies:
     tslib "2.8.1"
 
-"@shopify/react-native-skia@2.4.14":
-  version "2.4.14"
-  resolved "https://registry.yarnpkg.com/@shopify/react-native-skia/-/react-native-skia-2.4.14.tgz#565db4532efe11ed808643328cfbac3a49eb41de"
-  integrity sha512-zFxjAQbfrdOxoNJoaOCZQzZliuAWXjFkrNZv2PtofG2RAUPWIxWmk2J/oOROpTwXgkmh1JLvFp3uONccTXUthQ==
+"@shopify/react-native-skia@2.4.18":
+  version "2.4.18"
+  resolved "https://registry.yarnpkg.com/@shopify/react-native-skia/-/react-native-skia-2.4.18.tgz#3d42c4b28dbb20feea85ea723a10d21f81d4152d"
+  integrity sha512-/AB/mvb2dGSQVIJTxyG9ZMFn2PjwWlVcFxHU4TV+K25LCU49ntJXl4xda2ghXxdENMggKgO9R5pA+P/AQ0UUrA==
   dependencies:
     canvaskit-wasm "0.40.0"
     react-reconciler "0.31.0"
@@ -2734,14 +2727,14 @@
   dependencies:
     undici-types "~5.26.4"
 
-"@types/node@^25.2.1":
-  version "25.2.1"
-  resolved "https://registry.yarnpkg.com/@types/node/-/node-25.2.1.tgz#378021f9e765bb65ba36de16f3c3a8622c1fa03d"
-  integrity sha512-CPrnr8voK8vC6eEtyRzvMpgp3VyVRhgclonE7qYi6P9sXwYb59ucfrnmFBTaP0yUi8Gk4yZg/LlTJULGxvTNsg==
+"@types/node@^25.1.0":
+  version "25.2.2"
+  resolved "https://registry.yarnpkg.com/@types/node/-/node-25.2.2.tgz#0ddfe326c326afcb3422d32bfe5eb2938e1cb5db"
+  integrity sha512-BkmoP5/FhRYek5izySdkOneRyXYN35I860MFAGupTdebyE66uZaR+bXLHq8k4DirE5DwQi3NuhvRU1jqTVwUrQ==
   dependencies:
     undici-types "~7.16.0"
 
-"@types/react@~19.2.13":
+"@types/react@~19.2.10":
   version "19.2.13"
   resolved "https://registry.yarnpkg.com/@types/react/-/react-19.2.13.tgz#7cea30d7f60a01d97e4ece039c04e9056682218a"
   integrity sha512-KkiJeU6VbYbUOp5ITMIc7kBfqlYkKA5KhEHVrGMmUUMt7NeaZg65ojdPk+FtNrBAOXNVM5QM72jnADjM+XVRAQ==
@@ -5577,11 +5570,6 @@ is-number@^7.0.0:
   resolved "https://registry.yarnpkg.com/is-number/-/is-number-7.0.0.tgz#7535345b896734d5f80c4d06c50955527a14f12b"
   integrity sha512-41Cifkg6e8TylSpdtTpeLVMqvSBEVzTttHvERD741+pnZ8ANv0004MRL43QKPDlK9cGvNp6NZWZUBlbGXYxxng==
 
-is-plain-obj@^2.1.0:
-  version "2.1.0"
-  resolved "https://registry.yarnpkg.com/is-plain-obj/-/is-plain-obj-2.1.0.tgz#45e42e37fccf1f40da8e5f76ee21515840c09287"
-  integrity sha512-YWnfyRwxL/+SsrWYfOpUtz5b3YD+nyfkHvjbcanzk8zgyO4ASD67uVMRt8k5bM4lLMDnXfriRhOpemw+NfT1eA==
-
 is-port-reachable@4.0.0:
   version "4.0.0"
   resolved "https://registry.yarnpkg.com/is-port-reachable/-/is-port-reachable-4.0.0.tgz#dac044091ef15319c8ab2f34604d8794181f8c2d"
@@ -6179,13 +6167,6 @@ memoize-one@^6.0.0:
   version "6.0.0"
   resolved "https://registry.yarnpkg.com/memoize-one/-/memoize-one-6.0.0.tgz#b2591b871ed82948aee4727dc6abceeeac8c1045"
   integrity sha512-rkpe71W0N0c0Xz6QD0eJETuWAJGnJ9afsl1srmwPrI+yBCkge5EycXXbYRyvL29zZVUWQCY7InPRCv3GDXuZNw==
-
-merge-options@^3.0.4:
-  version "3.0.4"
-  resolved "https://registry.yarnpkg.com/merge-options/-/merge-options-3.0.4.tgz#84709c2aa2a4b24c1981f66c179fe5565cc6dbb7"
-  integrity sha512-2Sug1+knBjkaMsMgf1ctR1Ujx+Ayku4EdJN4Z+C2+JzoeF7A3OZ9KM2GY0CpQS51NR61LTurMJrRKPhSs3ZRTQ==
-  dependencies:
-    is-plain-obj "^2.1.0"
 
 merge-stream@^2.0.0:
   version "2.0.0"
@@ -7205,10 +7186,10 @@ react-native-is-edge-to-edge@1.2.1, react-native-is-edge-to-edge@^1.1.6, react-n
   resolved "https://registry.yarnpkg.com/react-native-is-edge-to-edge/-/react-native-is-edge-to-edge-1.2.1.tgz#64e10851abd9d176cbf2b40562f751622bde3358"
   integrity sha512-FLbPWl/MyYQWz+KwqOZsSyj2JmLKglHatd3xLZWskXOpRaio4LfEDEz8E/A6uD8QoTHW6Aobw1jbEwK7KMgR7Q==
 
-react-native-keyboard-controller@^1.20.7:
-  version "1.20.7"
-  resolved "https://registry.yarnpkg.com/react-native-keyboard-controller/-/react-native-keyboard-controller-1.20.7.tgz#e1be1c15a5eb10b96a40a0812d8472e6e4bd8f29"
-  integrity sha512-G8S5jz1FufPrcL1vPtReATx+jJhT/j+sTqxMIb30b1z7cYEfMlkIzOCyaHgf6IMB2KA9uBmnA5M6ve2A9Ou4kw==
+react-native-keyboard-controller@1.20.4:
+  version "1.20.4"
+  resolved "https://registry.yarnpkg.com/react-native-keyboard-controller/-/react-native-keyboard-controller-1.20.4.tgz#38d0a2cecdf766497bedc09ae2961abaad336ba5"
+  integrity sha512-IW2VatYwYhA3uRnGCOsEGARNjCYcYLUJX8KeuNz9GOMDWdLBVZWI+cy28+V4R2WvnToIIFku1NICbBSsQZi/8w==
   dependencies:
     react-native-is-edge-to-edge "^1.2.1"
 
@@ -8851,7 +8832,7 @@ zod@^3.23.8, zod@^3.25.76:
   resolved "https://registry.yarnpkg.com/zod/-/zod-4.3.5.tgz#aeb269a6f9fc259b1212c348c7c5432aaa474d2a"
   integrity sha512-k7Nwx6vuWx1IJ9Bjuf4Zt1PEllcwe7cls3VNzm4CQ1/hgtFUK2bRNG3rvnpPUhFjmqJKAKtjV576KnUkHocg/g==
 
-zustand@^5.0.11:
+zustand@^5.0.10:
   version "5.0.11"
   resolved "https://registry.yarnpkg.com/zustand/-/zustand-5.0.11.tgz#99f912e590de1ca9ce6c6d1cab6cdb1f034ab494"
   integrity sha512-fdZY+dk7zn/vbWNCYmzZULHRrss0jx5pPFiOuMZ/5HJN6Yv3u+1Wswy/4MpZEkEGhtNH+pwxZB8OKgUBPzYAGg==

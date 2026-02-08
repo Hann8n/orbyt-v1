@@ -10,7 +10,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { storage } from '../utils/storage';
 import OrbytColorsService, { type OrbytColorData } from '../services/OrbytColorsService';
 import { queryClient } from '../utils/query/queryClient';
 import { getProfileColors, pickLighterHex } from '../utils/formatting/colors';
@@ -54,20 +54,14 @@ export function useOrbytColors(did: string | null | undefined) {
 }
 
 /**
- * Persist current user's colors to AsyncStorage for instant load on next app open
+ * Persist current user's colors to MMKV for instant load on next app open
  * @param did - User's DID
  * @param data - Color data to persist
  */
-export async function persistCurrentUserColors(
-  did: string,
-  data: OrbytColorData | null
-): Promise<void> {
+export function persistCurrentUserColors(did: string, data: OrbytColorData | null): void {
   try {
     if (data) {
-      await AsyncStorage.setItem(
-        CURRENT_USER_COLORS_KEY,
-        JSON.stringify({ did, data, timestamp: Date.now() })
-      );
+      storage.set(CURRENT_USER_COLORS_KEY, JSON.stringify({ did, data, timestamp: Date.now() }));
     }
   } catch {
     // Best effort - don't fail if storage fails
@@ -79,9 +73,9 @@ export async function persistCurrentUserColors(
  * Call this on app start before session restore
  * @param currentUserDid - Current user's DID to validate against persisted data
  */
-export async function loadPersistedColors(currentUserDid: string): Promise<void> {
+export function loadPersistedColors(currentUserDid: string): void {
   try {
-    const stored = await AsyncStorage.getItem(CURRENT_USER_COLORS_KEY);
+    const stored = storage.getString(CURRENT_USER_COLORS_KEY);
     if (!stored) return;
 
     const { did, data, timestamp } = JSON.parse(stored) as {
@@ -139,7 +133,7 @@ export async function prefetchOrbytColors(dids: string[]): Promise<void> {
   const currentUserDid = dids[0];
   const currentUserColors = results[currentUserDid];
   if (currentUserColors) {
-    await persistCurrentUserColors(currentUserDid, currentUserColors);
+    persistCurrentUserColors(currentUserDid, currentUserColors);
   }
 }
 
@@ -209,11 +203,11 @@ export function useAvatarProfileRing(did: string | null | undefined): AvatarProf
  * @param did - User's DID
  * @param colors - Color data to set
  */
-export async function setAndPersistColors(did: string, colors: OrbytColorData): Promise<void> {
+export function setAndPersistColors(did: string, colors: OrbytColorData): void {
   queryClient.setQueryData(orbytColorKeys.color(did), colors, {
     updatedAt: Date.now(),
   });
-  await persistCurrentUserColors(did, colors);
+  persistCurrentUserColors(did, colors);
 }
 
 // Re-export types for convenience

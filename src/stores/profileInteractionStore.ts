@@ -65,11 +65,17 @@ export const useProfileFlags = (did?: string, handle?: string) => {
   };
 };
 
+// Minimal shape needed for current-user check
+interface CurrentUserLike {
+  did?: string | null;
+  handle?: string | null;
+}
+
 // Check if profile is the current user
 export const isCurrentUser = (
   profileDid?: string,
   profileHandle?: string,
-  currentUser?: any
+  currentUser?: CurrentUserLike | null
 ): boolean => {
   if (!profileDid || !currentUser) return false;
   return profileDid === currentUser.did || profileHandle === currentUser.handle;

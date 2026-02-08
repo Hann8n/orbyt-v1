@@ -15,6 +15,7 @@ import {
   getChannelAvatarUri,
   shouldShowChannelSlash,
 } from '../../src/utils/channels/orbyt';
+import { logger } from '../../src/utils/logger';
 
 interface ChannelUser {
   did: string;
@@ -103,7 +104,9 @@ export default function ChannelManagementScreen() {
               setIsSheetVisible(false);
               setSelectedChannel(null);
             } catch (error) {
-              console.error('Error unsubscribing from channel:', error);
+              logger.error('Error unsubscribing from channel', error, {
+                component: 'ChannelManagementScreen',
+              });
               Alert.alert('Error', 'Failed to unsubscribe from channel. Please try again.');
             }
           },
@@ -227,7 +230,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 20,
-    backgroundColor: 'transparent',
+    backgroundColor: Colors.transparent,
     borderRadius: BORDER_RADIUS.MEDIUM,
   },
   channelAvatar: {
@@ -297,7 +300,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 24,
     borderWidth: 0,
-    borderColor: 'transparent',
+    borderColor: Colors.transparent,
   },
   exploreButtonText: {
     color: Colors.black,

@@ -16,8 +16,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { queryKeys } from '../../../utils/query/queryKeys';
-import { QUERY_CONSTANTS } from '../../../utils/constants';
-import { BORDER_RADIUS } from '../../../utils/constants';
+import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../../utils/constants';
 import { formatHandle } from '../../../utils/formatting/handles';
 import { useProfile } from '../../../services/data/ProfileService';
 import { getProfileColors } from '../../../utils/formatting/colors';
@@ -233,6 +232,39 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
     return `profile-${base}-${idx}`;
   }, []);
 
+  const renderConversationItem = useCallback(
+    ({ item, index }: { item: ConvoView | ProfileViewBasic; index: number }) => {
+      const itemIsConversation = 'id' in item && typeof (item as ConvoView).id === 'string';
+      const profile: ProfileViewBasic = itemIsConversation
+        ? (((item as ConvoView).members?.find(m => m.did !== currentUserDid) ??
+            (item as ConvoView).members?.[0]) as ProfileViewBasic)
+        : (item as ProfileViewBasic);
+
+      const isDisabled = !itemIsConversation && !canBeMessaged(item as ProfileViewBasic);
+      const key = getPickerItemKey(item, index);
+      const isSelected = selectedRecipientKey === key;
+
+      return (
+        <ConversationItem
+          profile={profile}
+          isDisabled={isDisabled}
+          isSelected={isSelected}
+          onPress={() => {
+            if (isDisabled) return;
+            if (isSelected) {
+              setSelectedRecipientKey(null);
+              setSelectedRecipientItem(null);
+              return;
+            }
+            setSelectedRecipientKey(key);
+            setSelectedRecipientItem(item);
+          }}
+        />
+      );
+    },
+    [currentUserDid, getPickerItemKey, selectedRecipientKey]
+  );
+
   const handleSendToConversation = useCallback(
     async (item: ConvoView | ProfileViewBasic) => {
       if (isSending) return;
@@ -375,37 +407,7 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
               keyExtractor={(item, idx) => getPickerItemKey(item, idx)}
               showsVerticalScrollIndicator={false}
               ItemSeparatorComponent={() => <View style={styles.conversationDivider} />}
-              renderItem={({ item, index }) => {
-                const itemIsConversation =
-                  'id' in item && typeof (item as ConvoView).id === 'string';
-                const profile: ProfileViewBasic = itemIsConversation
-                  ? (((item as ConvoView).members?.find(m => m.did !== currentUserDid) ??
-                      (item as ConvoView).members?.[0]) as ProfileViewBasic)
-                  : (item as ProfileViewBasic);
-
-                const isDisabled = !itemIsConversation && !canBeMessaged(item as ProfileViewBasic);
-
-                const key = getPickerItemKey(item, index);
-                const isSelected = selectedRecipientKey === key;
-
-                return (
-                  <ConversationItem
-                    profile={profile}
-                    isDisabled={isDisabled}
-                    isSelected={isSelected}
-                    onPress={() => {
-                      if (isDisabled) return;
-                      if (isSelected) {
-                        setSelectedRecipientKey(null);
-                        setSelectedRecipientItem(null);
-                        return;
-                      }
-                      setSelectedRecipientKey(key);
-                      setSelectedRecipientItem(item);
-                    }}
-                  />
-                );
-              }}
+              renderItem={renderConversationItem}
               contentContainerStyle={[
                 styles.conversationList,
                 { paddingBottom: contentBottomPadding },

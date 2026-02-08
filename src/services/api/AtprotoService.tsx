@@ -1,6 +1,6 @@
 import { AtpAgent } from '@atproto/api';
 import type { BlobRef } from '@atproto/api';
-import { storageHelpers } from '../../utils/storage/storage';
+import { storage } from '../../utils/storage/storage';
 import { AtprotoCore } from './core';
 import { FeedService } from './feed/FeedService';
 import { ActorService } from './actor/ActorService';
@@ -553,7 +553,7 @@ class AtprotoService {
   ): Promise<{ type: 'interested' | 'not_interested'; timestamp: string; userDid: string } | null> {
     try {
       const feedbackKey = `video_feedback_${postUri}`;
-      const feedbackStr = await storageHelpers.getItem(feedbackKey);
+      const feedbackStr = storage.getString(feedbackKey) ?? null;
 
       if (feedbackStr) {
         const feedbackData = JSON.parse(feedbackStr);
@@ -569,9 +569,9 @@ class AtprotoService {
   /**
    * Remove stored video feedback for a post
    */
-  static async removeVideoFeedback(postUri: string): Promise<void> {
+  static removeVideoFeedback(postUri: string): void {
     const feedbackKey = `video_feedback_${postUri}`;
-    await storageHelpers.removeItem(feedbackKey);
+    storage.delete(feedbackKey);
   }
 
   /**

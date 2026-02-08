@@ -18,7 +18,6 @@ import { LinearGradient } from '../src/components/ui/LinearGradient';
 // Keep local imports where they are; no file moves
 import { Colors } from '../src/theme';
 import { useUserStore } from '../src/stores/userStore';
-import { migrateAsyncStorageToMMKV } from '../src/utils/storage';
 import { useBookmarkStore } from '../src/stores/bookmarkStore';
 import { ShareSheet } from '../src/components/ui/share-sheet';
 import CommentSection from '../src/components/features/comments/CommentSection';
@@ -53,10 +52,9 @@ SplashScreen.preventAutoHideAsync();
 
 Appearance.setColorScheme('dark');
 
-// Handle location variable error for React Native
+// Handle location variable error for React Native (some libs expect web-like globals)
 if (typeof global !== 'undefined' && !global.location) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (global as any).location = {
+  global.location = {
     href: '',
     origin: '',
     protocol: '',
@@ -69,6 +67,7 @@ if (typeof global !== 'undefined' && !global.location) {
     reload: () => {},
     replace: () => {},
     assign: () => {},
+    ancestorOrigins: [],
   };
 }
 
@@ -320,9 +319,6 @@ export default function RootLayout() {
       // Preload sprite sheet for TV static animation (non-blocking)
       const { preloadSpriteSheet } = require('../src/components/ui/AnimatedTVStatic');
       preloadSpriteSheet().catch(() => {});
-
-      // Migrate AsyncStorage to MMKV (one-time migration)
-      await migrateAsyncStorageToMMKV();
 
       // Initialize user state - this sets isInitializingAuth which controls splash screen
       await initializeUserState();

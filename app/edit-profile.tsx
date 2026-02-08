@@ -74,38 +74,32 @@ interface AnimatedColorSquareProps {
 }
 
 const AnimatedColorSquare: React.FC<AnimatedColorSquareProps> = React.memo(
-  ({ colorOption, isSelected, currentColors, backgroundFlex, textFlex, onPress }) => {
-    const backgroundAnimatedStyle = useAnimatedStyle(() => {
-      return {
-        flex: backgroundFlex.value,
-      };
-    });
+  function AnimatedColorSquare({
+    colorOption,
+    isSelected,
+    currentColors,
+    backgroundFlex,
+    textFlex,
+    onPress,
+  }) {
+    const backgroundAnimatedStyle = useAnimatedStyle(() => ({
+      flex: backgroundFlex.value,
+    }));
 
-    const textAnimatedStyle = useAnimatedStyle(() => {
-      return {
-        flex: textFlex.value,
-      };
-    });
+    const textAnimatedStyle = useAnimatedStyle(() => ({
+      flex: textFlex.value,
+    }));
 
-    // Determine colors to display for the color box itself.
-    // We intentionally always use the preset colors here so that toggling
-    // inversion does not swap the visual colors inside the box; only the
-    // proportions (flex) change.
     const displayBackgroundColor = colorOption.backgroundColor;
     const displayTextColor = colorOption.textColor;
+    const colorSquareBorder = {
+      borderColor: isSelected ? currentColors.textColor : Colors.transparent,
+      borderWidth: isSelected ? 3 : 0,
+    };
 
     return (
       <View style={styles.colorSquareContainer}>
-        <Pressable
-          style={[
-            styles.colorSquare,
-            {
-              borderColor: isSelected ? currentColors.textColor : 'transparent',
-              borderWidth: isSelected ? 3 : 0,
-            },
-          ]}
-          onPress={onPress}
-        >
+        <Pressable style={[styles.colorSquare, colorSquareBorder]} onPress={onPress}>
           {/* Background color section */}
           <Animated.View
             style={[
@@ -755,7 +749,7 @@ const EditProfileScreen: React.FC = () => {
         // This ensures immediate UI update without waiting for API
         if (currentUser?.did && updates.customColors) {
           const existingData = getCachedOrbytColors(currentUser.did);
-          await setAndPersistColors(currentUser.did, {
+          setAndPersistColors(currentUser.did, {
             textColor: updates.customColors.textColor,
             backgroundColor: updates.customColors.backgroundColor,
             joinedAt: existingData?.joinedAt ?? new Date().toISOString(),
@@ -963,7 +957,7 @@ const EditProfileScreen: React.FC = () => {
         >
           <ScrollView
             style={styles.content}
-            contentContainerStyle={{ flexGrow: 1 }}
+            contentContainerStyle={styles.contentContainerFlexGrow}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="always"
           >
@@ -988,7 +982,7 @@ const EditProfileScreen: React.FC = () => {
                     horizontal
                     showsHorizontalScrollIndicator={false}
                     bounces={false}
-                    contentContainerStyle={{ flexGrow: 1 }}
+                    contentContainerStyle={styles.contentContainerFlexGrow}
                   >
                     <Text style={[styles.largeText, { color: currentColors.textColor }]}>
                       <Text
@@ -1048,7 +1042,8 @@ const EditProfileScreen: React.FC = () => {
                       <Text
                         style={[
                           styles.sectionTitle,
-                          { color: hexToRGBA(currentColors.textColor, 0.8), marginLeft: 6 },
+                          styles.sectionTitleAvatar,
+                          { color: hexToRGBA(currentColors.textColor, 0.8) },
                         ]}
                       >
                         PROFILE PICTURE
@@ -1107,12 +1102,8 @@ const EditProfileScreen: React.FC = () => {
                     <Text
                       style={[
                         styles.sectionTitle,
-                        {
-                          color: hexToRGBA(currentColors.textColor, 0.8),
-                          // Slightly tighter margin than default to visually
-                          // match the username header-to-value spacing.
-                          marginBottom: 2,
-                        },
+                        styles.sectionTitleDisplayName,
+                        { color: hexToRGBA(currentColors.textColor, 0.8) },
                       ]}
                     >
                       DISPLAY NAME
@@ -1121,12 +1112,9 @@ const EditProfileScreen: React.FC = () => {
                       nativeID="edit-profile-display-name-input"
                       style={[
                         styles.largeInput,
-                        {
-                          color: currentColors.textColor,
-                          backgroundColor: 'transparent',
-                          borderColor: 'transparent',
-                        },
-                        isDisplayNameFocused && { flex: 1 },
+                        styles.largeInputTransparent,
+                        { color: currentColors.textColor },
+                        isDisplayNameFocused && styles.flex1,
                       ]}
                       value={editDisplayName}
                       onChangeText={setEditDisplayName}
@@ -1184,7 +1172,7 @@ const EditProfileScreen: React.FC = () => {
                 >
                   <Animated.View
                     entering={FadeIn.duration(150).easing(Easing.out(Easing.ease))}
-                    style={{ flex: 1 }}
+                    style={styles.flex1}
                   >
                     <Text
                       style={[
@@ -1314,6 +1302,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 20,
   },
+  contentContainerFlexGrow: {
+    flexGrow: 1,
+  },
+  sectionTitleAvatar: {
+    marginLeft: 6,
+  },
+  sectionTitleDisplayName: {
+    marginBottom: 2,
+  },
+  largeInputTransparent: {
+    backgroundColor: Colors.transparent,
+    borderColor: Colors.transparent,
+  },
+  flex1: {
+    flex: 1,
+  },
   section: {
     marginTop: 0,
   },
@@ -1363,7 +1367,7 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
     marginTop: 0,
     textAlignVertical: 'center',
-    backgroundColor: 'transparent',
+    backgroundColor: Colors.transparent,
   },
   divider: {
     height: 2,
@@ -1410,14 +1414,14 @@ const styles = StyleSheet.create({
   colorDivider: {
     width: 2,
     height: 44,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: Colors.overlay.white30,
     marginHorizontal: 8,
   },
   colorSquare: {
     width: 44,
     height: 44,
     overflow: 'hidden',
-    shadowColor: '#000',
+    shadowColor: Colors.black,
     shadowOffset: {
       width: 0,
       height: 2,
@@ -1436,7 +1440,7 @@ const styles = StyleSheet.create({
     marginTop: 0,
     minHeight: 100,
     textAlignVertical: 'top',
-    backgroundColor: 'transparent',
+    backgroundColor: Colors.transparent,
     flex: 1,
   },
 });

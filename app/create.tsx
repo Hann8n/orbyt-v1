@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { BORDER_RADIUS } from '../src/utils/constants';
 import {
   View,
@@ -54,6 +54,9 @@ const DURATION_OPTIONS = [
   { value: 60, label: '1m' },
   { value: 180, label: '3m' },
 ] as const;
+
+const CAPTURE_BUTTON_INNER_BG = 'rgba(129, 136, 150, 0.4)';
+const CAPTURE_BUTTON_INNER_DISABLED_BG = 'rgba(129, 136, 150, 0.2)';
 
 const CreateScreen: React.FC = () => {
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
@@ -227,14 +230,13 @@ const CreateScreen: React.FC = () => {
   const stopRecordingImmediate = useCallback(() => {
     if (isRecordingRef.current && cameraRef.current) {
       cameraRef.current.stopRecording();
-      // Reset recording timer shared values
       recordingStartTime.value = null;
       recordingElapsed.value = 0;
       isRecordingRef.current = false;
       setIsRecording(false);
       recordingPromiseRef.current = null;
     }
-  }, [recordingStartTime]);
+  }, [recordingStartTime, recordingElapsed]);
 
   // Set up event listeners for react-native-clip-trim using Spec API
   useEffect(() => {
@@ -286,11 +288,13 @@ const CreateScreen: React.FC = () => {
       const eventEmitter = new NativeEventEmitter(NativeModules.VideoTrim);
       listenerSubscription.current.onFinishTrimming = eventEmitter.addListener(
         'VideoTrim',
-        (event: any) => {
+        (event: { name?: string; message?: string } & Record<string, unknown>) => {
           if (event.name === 'onFinishTrimming') {
             // Extract data from event (old architecture includes name property)
             const { name: _name, ...data } = event;
-            handleTrimmingComplete(data);
+            handleTrimmingComplete(
+              data as { outputPath: string; startTime: number; endTime: number }
+            );
           } else if (event.name === 'onError') {
             Alert.alert('Error', event.message || 'Failed to trim video');
             setIsLoadingFromGallery(false);
@@ -333,11 +337,11 @@ const CreateScreen: React.FC = () => {
   // Cleanup: reset processing state when component unmounts or user navigates away
   useEffect(() => {
     isMountedRef.current = true;
+    const camera = cameraRef.current;
     return () => {
       isMountedRef.current = false;
-      // Stop recording if active when component unmounts
-      if (isRecordingRef.current && cameraRef.current) {
-        cameraRef.current.stopRecording();
+      if (isRecordingRef.current && camera) {
+        camera.stopRecording();
         recordingStartTime.value = null;
         isRecordingRef.current = false;
         setIsRecording(false);
@@ -348,7 +352,7 @@ const CreateScreen: React.FC = () => {
       }
       setIsProcessing(false);
     };
-  }, []);
+  }, [recordingStartTime]);
 
   // Keep status bar hidden even when app returns from background
   useEffect(() => {
@@ -371,22 +375,19 @@ const CreateScreen: React.FC = () => {
   // Reset processing state when screen comes back into focus (user navigated back)
   useFocusEffect(
     useCallback(() => {
-      // Reset processing state when screen is focused again
       setIsProcessing(false);
       isMountedRef.current = true;
-
+      const camera = cameraRef.current;
       return () => {
-        // Cleanup when screen loses focus - stop recording if active
-        if (isRecordingRef.current && cameraRef.current) {
-          cameraRef.current.stopRecording();
+        if (isRecordingRef.current && camera) {
+          camera.stopRecording();
           recordingStartTime.value = null;
           isRecordingRef.current = false;
           setIsRecording(false);
         }
-        // Ensure flashlight is turned off when leaving the create screen
         setFlash('off');
       };
-    }, [])
+    }, [recordingStartTime])
   );
 
   // Disable flash when switching to front camera
@@ -394,7 +395,7 @@ const CreateScreen: React.FC = () => {
     if (isFrontCamera && flash === 'on') {
       setFlash('off');
     }
-  }, [isFrontCamera]);
+  }, [isFrontCamera, flash]);
 
   // Reset zoom when switching cameras - CameraView respects the controlled zoom prop
   useEffect(() => {
@@ -402,7 +403,7 @@ const CreateScreen: React.FC = () => {
     zoomScale.value = 1;
     baseZoom.value = 0;
     startZoom.value = 0;
-  }, [isFrontCamera]);
+  }, [isFrontCamera, baseZoom, startZoom, zoomScale]);
 
   // Pinch gesture handler for zoom
   const pinchGesture = Gesture.Pinch()
@@ -466,7 +467,7 @@ const CreateScreen: React.FC = () => {
   useEffect(() => {
     const isMaxReached = availableTime <= 0;
     buttonOpacity.value = withTiming(isRecording || isMaxReached ? 0.5 : 1, { duration: 100 });
-  }, [isRecording, availableTime]);
+  }, [isRecording, availableTime, buttonOpacity]);
 
   const stopRecording = useCallback(async () => {
     // Prevent duplicate calls - set recording ref to false immediately
@@ -532,7 +533,7 @@ const CreateScreen: React.FC = () => {
     } finally {
       setIsProcessing(false);
     }
-  }, [totalDurationShared, recordingStartTime]);
+  }, [totalDurationShared, recordingStartTime, recordingElapsed]);
 
   const startRecording = useCallback(async () => {
     const currentTotal = segmentManagerRef.current?.getTotalDuration() ?? 0;
@@ -571,11 +572,11 @@ const CreateScreen: React.FC = () => {
       }
     }
   }, [
-    stopRecording,
     microphonePermission,
     requestMicrophonePermission,
     maxDuration,
     recordingStartTime,
+    recordingElapsed,
   ]);
 
   // Handle press start - begin recording (press in to start)
@@ -599,7 +600,7 @@ const CreateScreen: React.FC = () => {
     }
   }, [stopRecording]);
 
-  const pickFromGallery = async () => {
+  const pickFromGallery = useCallback(async () => {
     try {
       setIsLoadingFromGallery(true);
       setIsProcessing(true);
@@ -684,7 +685,7 @@ const CreateScreen: React.FC = () => {
       setIsLoadingFromGallery(false);
       setIsProcessing(false);
     }
-  };
+  }, []);
 
   const flipCamera = useCallback(async () => {
     // Stop any active recording before switching cameras
@@ -697,7 +698,7 @@ const CreateScreen: React.FC = () => {
     baseZoom.value = 0;
     startZoom.value = 0;
     setIsFrontCamera(prev => !prev);
-  }, [stopRecording]);
+  }, [stopRecording, baseZoom, startZoom, zoomScale]);
 
   const handleDoubleTap = useCallback(() => {
     const now = Date.now();
@@ -858,10 +859,38 @@ const CreateScreen: React.FC = () => {
     }
   }, [router, isProcessing, stopRecording]);
 
+  const cameraContainerLayout = useMemo(
+    () => ({
+      justifyContent: isTabletDevice
+        ? 'center'
+        : ((Platform.OS === 'ios' ? 'flex-start' : 'center') as const),
+    }),
+    [isTabletDevice]
+  );
+  const cameraAndroidLayout = useMemo(
+    () => (Platform.OS === 'android' ? { flex: 0, height: 'auto' as const } : null),
+    []
+  );
+  const cameraLayout = useMemo(
+    () => ({
+      width: cameraWidth,
+      height: cameraHeight,
+      marginTop: isTabletDevice ? 0 : Platform.OS === 'ios' ? (isSmallDevice ? 0 : insets.top) : 0,
+    }),
+    [cameraWidth, cameraHeight, isTabletDevice, isSmallDevice, insets.top]
+  );
+  const backButtonPosition = useMemo(
+    () => ({ top: isSmallDevice ? 5 : insets.top + 4, left: 4 }),
+    [isSmallDevice, insets.top]
+  );
+  const durationSelectorTop = useMemo(
+    () => ({ top: isSmallDevice ? 5 : insets.top + 4 }),
+    [isSmallDevice, insets.top]
+  );
+
   // Render content based on the state of permissions and device availability
   const renderContent = () => {
     if (!cameraPermission) {
-      // Camera permissions are still loading
       return <View style={styles.warningContainer} />;
     }
 
@@ -880,54 +909,21 @@ const CreateScreen: React.FC = () => {
       );
     }
 
-    // Normal camera content when permissions and device are available
     return (
       <>
         {/* Camera View - only render when screen is focused and trimmer is not active */}
-        <View
-          style={[
-            styles.cameraContainer,
-            {
-              justifyContent: isTabletDevice
-                ? 'center'
-                : Platform.OS === 'ios'
-                  ? 'flex-start'
-                  : 'center',
-            },
-          ]}
-        >
+        <View style={[styles.cameraContainer, cameraContainerLayout]}>
           {isFocused && !isTrimmerActive && (
             <GestureDetector gesture={pinchGesture}>
-              <Animated.View
-                style={[
-                  styles.cameraPressable,
-                  Platform.OS === 'android' && { flex: 0, height: 'auto' },
-                ]}
-              >
+              <Animated.View style={[styles.cameraPressable, cameraAndroidLayout]}>
                 <Pressable
                   onPress={handleDoubleTap}
-                  style={[
-                    styles.cameraPressable,
-                    Platform.OS === 'android' && { flex: 0, height: 'auto' },
-                  ]}
+                  style={[styles.cameraPressable, cameraAndroidLayout]}
                 >
                   <CameraView
                     key={cameraKey}
                     ref={cameraRef}
-                    style={[
-                      styles.camera,
-                      {
-                        width: cameraWidth,
-                        height: cameraHeight,
-                        marginTop: isTabletDevice
-                          ? 0
-                          : Platform.OS === 'ios'
-                            ? isSmallDevice
-                              ? 0
-                              : insets.top
-                            : 0,
-                      },
-                    ]}
+                    style={[styles.camera, cameraLayout]}
                     facing={isFrontCamera ? 'front' : 'back'}
                     mode="video"
                     enableTorch={flash === 'on' && !isFrontCamera}
@@ -1008,22 +1004,13 @@ const CreateScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <StatusBar hidden={true} />
-      <Pressable
-        style={[
-          styles.backButton,
-          {
-            top: isSmallDevice ? 5 : insets.top + 4,
-            left: 4,
-          },
-        ]}
-        onPress={handleBackPress}
-      >
+      <Pressable style={[styles.backButton, backButtonPosition]} onPress={handleBackPress}>
         <CloseFillIcon size={26} color="white" />
       </Pressable>
 
       {/* Duration Selector */}
       {!isRecording && (!segmentManagerRef.current || !segmentManagerRef.current.hasSegments()) && (
-        <View style={[styles.durationSelector, { top: isSmallDevice ? 5 : insets.top + 4 }]}>
+        <View style={[styles.durationSelector, durationSelectorTop]}>
           {isDurationSelectorExpanded ? (
             <>
               {DURATION_OPTIONS.map(option => {
@@ -1192,7 +1179,7 @@ const styles = StyleSheet.create({
   combinedProgressBarContainer: {
     width: '100%',
     height: '100%',
-    backgroundColor: 'transparent',
+    backgroundColor: Colors.transparent,
     position: 'relative',
     overflow: 'hidden',
   },
@@ -1226,11 +1213,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 15,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: Colors.overlay.white10,
     overflow: 'hidden',
   },
   durationOptionGlass: {
-    backgroundColor: 'transparent',
+    backgroundColor: Colors.transparent,
   },
   glassBackground: {
     ...StyleSheet.absoluteFillObject,
@@ -1240,7 +1227,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.neutral[50],
   },
   durationOptionSelectedGlass: {
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: Colors.overlay.white30,
   },
   durationOptionText: {
     color: Colors.neutral[50],
@@ -1281,7 +1268,7 @@ const styles = StyleSheet.create({
     borderRadius: 47.5,
     borderWidth: 5,
     borderColor: Colors.neutral[50],
-    backgroundColor: 'transparent',
+    backgroundColor: Colors.transparent,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1292,10 +1279,10 @@ const styles = StyleSheet.create({
     width: 74,
     height: 74,
     borderRadius: 38,
-    backgroundColor: 'rgba(129, 136, 150, 0.4)',
+    backgroundColor: CAPTURE_BUTTON_INNER_BG,
   },
   captureButtonInnerDisabled: {
-    backgroundColor: 'rgba(129, 136, 150, 0.2)',
+    backgroundColor: CAPTURE_BUTTON_INNER_DISABLED_BG,
   },
 });
 

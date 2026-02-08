@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import ListScreen from '../../src/components/ui/ListScreen';
 import AtprotoService from '../../src/services/api/AtprotoService';
+import { logger } from '../../src/utils/logger';
 
 interface BlockedUser {
   did: string;
@@ -48,7 +49,7 @@ const BlockedUsersScreen: React.FC = () => {
       const users = await Promise.all(userPromises);
       setBlockedUsers(users);
     } catch (error) {
-      console.error('Error loading blocked users:', error);
+      logger.error('Error loading blocked users', error, { component: 'BlockedUsersScreen' });
     } finally {
       setLoading(false);
     }
@@ -60,7 +61,7 @@ const BlockedUsersScreen: React.FC = () => {
       await AtprotoService.unblockUser(user.did);
       setBlockedUsers(prev => prev.filter(blockedUser => blockedUser.did !== user.did));
     } catch (error) {
-      console.error('Error unblocking user:', error);
+      logger.error('Error unblocking user', error, { component: 'BlockedUsersScreen' });
     } finally {
       setUnblockingUsers(prev => {
         const newSet = new Set(prev);
