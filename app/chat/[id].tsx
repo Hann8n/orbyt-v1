@@ -2321,6 +2321,7 @@ const styles = StyleSheet.create({
   listContent: {
     paddingLeft: 10,
     paddingRight: 10,
+    paddingBottom: 24,
     flexGrow: 1,
     justifyContent: 'flex-end',
   },
