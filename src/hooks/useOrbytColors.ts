@@ -23,10 +23,33 @@ export const orbytColorKeys = {
 };
 
 // Storage key for persisting current user's colors
-const CURRENT_USER_COLORS_KEY = 'orbyt_current_user_colors';
+export const CURRENT_USER_COLORS_KEY = 'orbyt_current_user_colors';
+
+const PERSISTED_COLORS_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 // Stale time: 5 min so cache refreshes sooner and other users' color changes propagate
 const STALE_TIME = 5 * 60 * 1000;
+
+/**
+ * Synchronously read persisted orbyt colors for a DID from storage.
+ * Used at app start so UI can show colors before any async fetch.
+ */
+export function getPersistedColorsSync(did: string): OrbytColorData | null {
+  try {
+    const stored = storage.getString(CURRENT_USER_COLORS_KEY);
+    if (!stored) return null;
+    const { did: storedDid, data, timestamp } = JSON.parse(stored) as {
+      did: string;
+      data: OrbytColorData;
+      timestamp: number;
+    };
+    if (storedDid !== did || Date.now() - timestamp > PERSISTED_COLORS_MAX_AGE_MS || !data)
+      return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Hook to fetch colors for a single DID
@@ -84,8 +107,8 @@ export function loadPersistedColors(currentUserDid: string): void {
       timestamp: number;
     };
 
-    // Only use if it's for the same user and not too old (24 hours)
-    const isValid = did === currentUserDid && Date.now() - timestamp < 24 * 60 * 60 * 1000;
+    const isValid =
+      did === currentUserDid && Date.now() - timestamp < PERSISTED_COLORS_MAX_AGE_MS;
 
     if (isValid && data) {
       queryClient.setQueryData(orbytColorKeys.color(did), data, {
@@ -116,25 +139,28 @@ export function usePrefetchOrbytColors(dids: string[] | null | undefined): void 
 /**
  * Batch prefetch colors for multiple DIDs (one POST vs N GETs).
  * Used at app init (userStore) and by usePrefetchOrbytColors when a list has DIDs.
+ * Returns the current user's color data when first DID is the current user (for instant store update).
  */
-export async function prefetchOrbytColors(dids: string[]): Promise<void> {
-  if (!dids || dids.length === 0) return;
+export async function prefetchOrbytColors(
+  dids: string[],
+  currentUserDid?: string | null
+): Promise<OrbytColorData | null> {
+  if (!dids || dids.length === 0) return null;
 
   const results = await OrbytColorsService.batchFetchColors(dids);
 
-  // Populate React Query cache for each DID (including null = no orbyt profile)
   Object.entries(results).forEach(([did, data]) => {
     queryClient.setQueryData(orbytColorKeys.color(did), data, {
       updatedAt: Date.now(),
     });
   });
 
-  // Persist current user's colors when first DID is current user (e.g. app init)
-  const currentUserDid = dids[0];
-  const currentUserColors = results[currentUserDid];
-  if (currentUserColors) {
-    persistCurrentUserColors(currentUserDid, currentUserColors);
+  const firstDid = dids[0];
+  const currentUserColors = results[firstDid] ?? null;
+  if (currentUserColors && (currentUserDid == null || firstDid === currentUserDid)) {
+    persistCurrentUserColors(firstDid, currentUserColors);
   }
+  return currentUserDid ? (results[currentUserDid] ?? null) : currentUserColors;
 }
 
 /**

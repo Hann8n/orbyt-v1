@@ -1,8 +1,11 @@
 /**
  * Unified User State Management
- * Combines user store and account manager functionality
- * Centralizes all user-related state using DIDs as primary identifiers
- * Integrates with @atproto/oauth-client-expo for OAuth session management
+ *
+ * Storage: Zustand persist (MMKV) for non-sensitive state; expo-secure-store for
+ * accounts + activeAccountDid. Profile colors: MMKV only (orbyt_current_user_colors);
+ * store is filled on rehydrate so tabs/headers render instantly.
+ *
+ * DID-centric; integrates with @atproto/oauth-client-expo for OAuth.
  */
 import { useEffect } from 'react';
 import { create } from 'zustand';
@@ -26,7 +29,13 @@ import { queryClient } from '../utils/query/queryClient';
 import { usePostInteractionStore } from './postInteractionStore';
 import { useFollowStore } from './followStore';
 import { queryKeys } from '../utils/query/queryKeys';
-import { prefetchOrbytColors, loadPersistedColors } from '../hooks/useOrbytColors';
+import {
+  prefetchOrbytColors,
+  loadPersistedColors,
+  getPersistedColorsSync,
+} from '../hooks/useOrbytColors';
+import { getProfileColors } from '../utils/formatting/colors';
+import type { ProfileColorScheme } from '../utils/formatting/colors';
 import { ALGORITHMIC_FEED_PROVIDERS, APP_CONSTANTS } from '../utils/constants';
 import { Platform, Dimensions } from 'react-native';
 import * as Device from 'expo-device';
@@ -49,18 +58,21 @@ const getDefaultModalProfileEnabled = (): boolean => {
  * Prefetch orbyt colors for a user and their following (non-blocking)
  * Called after sign in or session restore to warm the cache
  */
-async function prefetchColorsForUser(userDid: string): Promise<void> {
+async function prefetchColorsForUser(
+  userDid: string
+): Promise<import('../services/OrbytColorsService').OrbytColorData | null> {
   try {
     const { GraphService } = await import('../services/api/graph/GraphService');
     const followingResponse = await GraphService.getFollowing(userDid, null, 100);
     const followingDids = followingResponse.following.map(f => f.did);
     const dids = [userDid, ...followingDids].slice(0, 100);
-    await prefetchOrbytColors(dids);
+    return prefetchOrbytColors(dids, userDid);
   } catch (error) {
     logger.warn('Failed to prefetch orbyt colors', {
       component: 'userStore',
       error: error instanceof Error ? error.message : 'Unknown error',
     });
+    return null;
   }
 }
 
@@ -130,6 +142,9 @@ export interface UserState {
   // Email verification modal state
   showEmailVerificationModal: boolean;
 
+  // Cached profile colors for current user (filled from MMKV on rehydrate; instant tab/header display)
+  currentUserProfileColors: ProfileColorScheme | null;
+
   // Actions
   // Authentication
   signIn: (identifier: string) => Promise<void>;
@@ -186,6 +201,7 @@ export interface UserState {
 
   // State management
   setCurrentUser: (user: UserState['currentUser']) => void;
+  setCurrentUserProfileColors: (colors: ProfileColorScheme | null) => void;
   setAuthenticating: (authenticating: boolean) => void;
   setAuthError: (error: string | null) => void;
   clearAuthError: () => void;
@@ -297,6 +313,8 @@ export const useUserStore = create<UserState>()(
       // Email verification modal state
       showEmailVerificationModal: false,
 
+      currentUserProfileColors: null,
+
       // Authentication actions
       signIn: async (identifier: string) => {
         try {
@@ -381,8 +399,9 @@ export const useUserStore = create<UserState>()(
           // Defer until after interactions complete to improve startup performance
           deferOrbytProfileInit('signIn');
 
-          // Prefetch orbyt colors for current user and followed users (non-blocking)
-          prefetchColorsForUser(session.did);
+          prefetchColorsForUser(session.did).then(colors => {
+            if (colors) get().setCurrentUserProfileColors(getProfileColors(colors));
+          });
         } catch (error) {
           // Handle user cancellation silently
           if (isUserCancellation(error)) {
@@ -432,6 +451,7 @@ export const useUserStore = create<UserState>()(
           // Reset state
           set({
             currentUser: null,
+            currentUserProfileColors: null,
             isAuthenticated: false,
             isAuthenticating: false,
             switchingToHandle: null,
@@ -454,7 +474,11 @@ export const useUserStore = create<UserState>()(
         try {
           set({ isAuthenticating: true, authError: null });
 
-          // Load persisted colors immediately for instant profile display
+          // Sync-load persisted colors so tabs/header have accent on first paint
+          const persistedColors = getPersistedColorsSync(did);
+          if (persistedColors) {
+            set({ currentUserProfileColors: getProfileColors(persistedColors) });
+          }
           loadPersistedColors(did);
 
           const client = getOAuthClient();
@@ -523,8 +547,9 @@ export const useUserStore = create<UserState>()(
           // Defer until after interactions complete to improve startup performance
           deferOrbytProfileInit('restoreSession');
 
-          // Prefetch orbyt colors for current user and followed users (non-blocking)
-          prefetchColorsForUser(session.did);
+          prefetchColorsForUser(session.did).then(colors => {
+            if (colors) get().setCurrentUserProfileColors(getProfileColors(colors));
+          });
 
           // Load and clean subscribed channels after session restore
           // Skip if called from account switch (settings will be loaded once after)
@@ -552,6 +577,7 @@ export const useUserStore = create<UserState>()(
             isAuthenticating: false,
             isAuthenticated: false,
             currentUser: null,
+            currentUserProfileColors: null,
             oauthSession: null,
             agent: undefined,
             activeAccountDid: null,
@@ -572,6 +598,12 @@ export const useUserStore = create<UserState>()(
             switchingToHandle: account?.handle || account?.did || null,
             switchingToAvatar: account?.avatar || null,
           });
+          const persistedColors = getPersistedColorsSync(did);
+          if (persistedColors) {
+            set({ currentUserProfileColors: getProfileColors(persistedColors) });
+          } else {
+            set({ currentUserProfileColors: null });
+          }
 
           if (!account) {
             logger.error('Account not found for DID', { component: 'userStore', did });
@@ -655,6 +687,7 @@ export const useUserStore = create<UserState>()(
             set({
               isAuthenticated: false,
               currentUser: null,
+              currentUserProfileColors: null,
               oauthSession: null,
               agent: undefined,
               isSwitchingAccount: false,
@@ -1106,6 +1139,8 @@ export const useUserStore = create<UserState>()(
 
       // State management actions
       setCurrentUser: user => set({ currentUser: user }),
+      setCurrentUserProfileColors: colors => set({ currentUserProfileColors: colors }),
+
       setAuthenticating: authenticating => set({ isAuthenticating: authenticating }),
       setAuthError: error => set({ authError: error }),
       clearAuthError: () => set({ authError: null }),
@@ -1180,6 +1215,7 @@ export const useUserStore = create<UserState>()(
             set({
               isAuthenticated: false,
               currentUser: null,
+              currentUserProfileColors: null,
               oauthSession: null,
               agent: undefined,
               activeAccountDid: null,
@@ -1243,24 +1279,23 @@ export const useUserStore = create<UserState>()(
             });
           }
 
-          // Clear state
           set({
             isAuthenticated: false,
             currentUser: null,
+            currentUserProfileColors: null,
             oauthSession: null,
             agent: undefined,
             activeAccountDid: null,
           });
 
-          // Clear all caches
           await get().clearAllCaches();
         } catch (error) {
           logger.error('Failed to clear corrupted sessions', error, { component: 'userStore' });
 
-          // Still try to reset the state even if other cleanup fails
           set({
             isAuthenticated: false,
             currentUser: null,
+            currentUserProfileColors: null,
             oauthSession: null,
             agent: undefined,
             activeAccountDid: null,
@@ -1268,7 +1303,6 @@ export const useUserStore = create<UserState>()(
         }
       },
 
-      // Initialization actions
       initializeUserState: async () => {
         // Set loading state at start
         set({ isInitializingAuth: true });
@@ -1309,13 +1343,14 @@ export const useUserStore = create<UserState>()(
                 component: 'userStore',
                 did: activeAccountDid,
               });
-              set({
-                isAuthenticated: false,
-                currentUser: null,
-                oauthSession: null,
-                agent: undefined,
-                activeAccountDid: null,
-              });
+            set({
+              isAuthenticated: false,
+              currentUser: null,
+              currentUserProfileColors: null,
+              oauthSession: null,
+              agent: undefined,
+              activeAccountDid: null,
+            });
             } else if (sessionRestored) {
               // Initialize subscription store in background after interactions complete
               requestIdleCallback(
@@ -1338,12 +1373,12 @@ export const useUserStore = create<UserState>()(
           set({
             isAuthenticated: false,
             currentUser: null,
+            currentUserProfileColors: null,
             oauthSession: null,
             agent: undefined,
             activeAccountDid: null,
           });
         } finally {
-          // Always set loading to false when done
           set({ isInitializingAuth: false });
         }
       },
@@ -1518,26 +1553,29 @@ export const useUserStore = create<UserState>()(
       name: 'user-store',
       storage: createJSONStorage(() => storageAdapter),
       partialize: state => ({
-        // Only persist non-sensitive data
         savedAccounts: state.savedAccounts,
         activeAccountDid: state.activeAccountDid,
+        currentUser: state.currentUser,
         feedDebugOverlayEnabled: state.feedDebugOverlayEnabled,
         nativeTabsEnabled: state.nativeTabsEnabled,
         algorithmicFeedProvider: state.algorithmicFeedProvider,
-        // Filter out built-in channels before persisting
         subscribedChannels: state.subscribedChannels.filter(
           ch => !BUILT_IN_CHANNELS.includes(ch.uri)
         ),
       }),
       onRehydrateStorage: () => state => {
-        // Clean up any built-in channels from persisted state on rehydration
-        if (state) {
-          const filteredChannels = state.subscribedChannels.filter(
-            ch => !BUILT_IN_CHANNELS.includes(ch.uri)
-          );
-          if (filteredChannels.length !== state.subscribedChannels.length) {
-            state.subscribedChannels = filteredChannels;
-          }
+        if (!state) return;
+        const filteredChannels = state.subscribedChannels.filter(
+          ch => !BUILT_IN_CHANNELS.includes(ch.uri)
+        );
+        if (filteredChannels.length !== state.subscribedChannels.length) {
+          state.subscribedChannels = filteredChannels;
+        }
+        // Fill profile colors from MMKV (single source of truth for persisted colors)
+        const did = state.activeAccountDid ?? state.currentUser?.did ?? null;
+        if (did) {
+          const raw = getPersistedColorsSync(did);
+          if (raw) state.currentUserProfileColors = getProfileColors(raw);
         }
       },
     }

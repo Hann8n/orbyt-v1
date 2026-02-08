@@ -7,28 +7,21 @@ import { useUserStore, useFeedSettings } from '../../src/stores/userStore';
 import { Colors } from '../../src/theme';
 import CustomBottomTabBar from '../../src/components/ui/CustomBottomTabBar';
 import { useUnreadCount } from '../../src/hooks/useUnreadCount';
-import { useOrbytColors } from '../../src/hooks/useOrbytColors';
-import { getProfileColors, pickLighterHex } from '../../src/utils/formatting/colors';
+import { pickLighterHex } from '../../src/utils/formatting/colors';
 
 export default function TabsLayout() {
-  const currentUserDid = useUserStore(state => state.currentUser?.did);
-  const { data: orbytColors } = useOrbytColors(currentUserDid);
+  const profileColors = useUserStore(state => state.currentUserProfileColors);
   const { nativeTabsEnabled } = useFeedSettings();
   const { totalUnreadCount } = useUnreadCount();
 
-  // Note: Moderation settings are loaded by useFeed hooks as needed
-  // React Query automatically deduplicates multiple calls with the same userDid
-
-  // Native tabs: use lighter of orbyt text/background so icons stay visible
-  const profileColors = getProfileColors(orbytColors);
+  // Store-backed colors for instant display (no loading flash)
   const nativeTintColor =
-    orbytColors?.textColor && orbytColors?.backgroundColor
-      ? pickLighterHex(orbytColors.textColor, orbytColors.backgroundColor)
-      : profileColors.foregroundColor || Colors.neutral[50];
+    profileColors?.backgroundColor && profileColors?.foregroundColor
+      ? pickLighterHex(profileColors.backgroundColor, profileColors.foregroundColor)
+      : profileColors?.foregroundColor || Colors.neutral[50];
 
-  // Custom JavaScript tabs: use white
   const customTintColor = Colors.neutral[50];
-  const customInactiveTintColor = 'rgba(243, 245, 254, 0.60)'; // Colors.neutral[50] at 60% opacity
+  const customInactiveTintColor = 'rgba(243, 245, 254, 0.60)';
 
   // Check if liquid glass is available (needed for role="search" on newer iOS versions)
   const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();

@@ -11,8 +11,6 @@ import {
 import { Canvas, Path } from '@shopify/react-native-skia';
 
 import { Colors } from '../../theme';
-import { useProfile } from '../../services/data/ProfileService';
-import { getProfileColors } from '../../utils/formatting/colors';
 
 // SVG content as strings - updated to match the actual icon files
 const PLUS_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" fill="none"/><g fill="none"><path fill="#fff" d="M10.5 20a1.5 1.5 0 0 0 3 0v-6.5H20a1.5 1.5 0 0 0 0-3h-6.5V4a1.5 1.5 0 0 0-3 0v6.5H4a1.5 1.5 0 0 0 0 3h6.5z"/></g></svg>`;
@@ -244,50 +242,34 @@ export const NotificationIcon: React.FC<{
   return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
 };
 
-// Custom Profile Icon component that uses current user's avatar
+// Profile icon: current user avatar and colors from userStore for instant display
 export const ProfileIcon: React.FC<{ size: number; color: string }> = ({ size, color }) => {
-  // Use lazy import to break circular dependency with userStore
-  const [currentUserHandle, setCurrentUserHandle] = React.useState<string | null>(null);
+  const [avatar, setAvatar] = React.useState<string | undefined>(undefined);
+  const [profileColors, setProfileColors] = React.useState<{
+    backgroundColor: string;
+    foregroundColor: string;
+  } | null>(null);
 
   React.useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
+    const { useUserStore } = require('../../stores/userStore');
+    const store = useUserStore.getState();
+    setAvatar(store.currentUser?.avatar);
+    setProfileColors(store.currentUserProfileColors);
 
-    // Dynamically import userStore only when component mounts
-    import('../../stores/userStore').then(({ useUserStore }) => {
-      // Access store state directly without using hook
-      const store = useUserStore.getState();
-      setCurrentUserHandle(store.currentUser?.handle || null);
-
-      // Subscribe to changes
-      unsubscribe = useUserStore.subscribe(state => {
-        const currentUser = state.currentUser;
-        setCurrentUserHandle(currentUser?.handle || null);
-      });
+    const unsubscribe = useUserStore.subscribe(state => {
+      setAvatar(state.currentUser?.avatar);
+      setProfileColors(state.currentUserProfileColors);
     });
-
-    return () => {
-      if (unsubscribe) {
-        unsubscribe();
-      }
-    };
+    return unsubscribe;
   }, []);
 
-  // Use ProfileCache to get cached profile data
-  const { data: profileData } = useProfile(currentUserHandle);
-
-  // Use Avatar component from UI.tsx
-  // Dynamically import to avoid circular dependency
   const { Avatar } = require('./UI');
 
-  // If we have cached profile data with an avatar, show the avatar
-  if (profileData?.avatar) {
-    // Use cached profile color for the ring, fallback to the passed color
-    const profileColors = getProfileColors(profileData);
+  if (avatar && profileColors) {
     const ringColor = profileColors.foregroundColor || color;
-
     return (
       <Avatar
-        uri={profileData.avatar}
+        uri={avatar}
         type="profile"
         size={size}
         showRing={true}
@@ -301,7 +283,6 @@ export const ProfileIcon: React.FC<{ size: number; color: string }> = ({ size, c
     );
   }
 
-  // Fallback to default user icon
   const svgXml = PROFILE_ICON_SVG.replace(/#fff/g, color);
   return <SvgXml xml={svgXml} width={size} height={size} />;
 };

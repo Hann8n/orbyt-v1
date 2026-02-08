@@ -11,11 +11,8 @@ import { useUnreadCount } from '../../hooks/useUnreadCount';
 import { NotificationIndicator } from './NotificationIndicator';
 import { useGlobalAccountSwitcher } from '../../hooks/useGlobalModals';
 import { useUserStore, isEmailVerificationRequired } from '../../stores/userStore';
-import { useProfile } from '../../services/data/ProfileService';
-import { useOrbytColors } from '../../hooks/useOrbytColors';
 import { tabRefs } from '../../utils/navigation/tabRefs';
 import { useSetTabBarHeight } from '../../context/FeedIndicatorContext';
-import { getProfileColors } from '../../utils/formatting/colors';
 
 interface TabConfig {
   name: string;
@@ -35,23 +32,16 @@ const RIGHT_TABS: TabConfig[] = [
 
 const CREATE_TAB: TabConfig = { name: 'create', routeName: 'create', iconType: 'create' };
 
-// ProfileTabIcon component - matches old implementation
+// Profile tab icon: avatar and colors from userStore for instant display (no loading flash)
 const ProfileTabIcon = React.memo(
   ({ color, tabIconSize, isActive }: { color: string; tabIconSize: number; isActive: boolean }) => {
-    const currentUserDid = useUserStore(state => state.currentUser?.did);
-    const currentUserHandle = useUserStore(state => state.currentUser?.handle);
+    const currentUser = useUserStore(state => state.currentUser);
+    const profileColors = useUserStore(state => state.currentUserProfileColors);
     const savedAccountsLength = useUserStore(state => state.savedAccounts.length);
-    const { data: profileData } = useProfile(currentUserHandle);
-    const { data: orbytColors } = useOrbytColors(currentUserDid);
 
     const hasMultipleAccounts = savedAccountsLength > 1;
-
-    // Dim avatar and ring together via wrapper opacity
     const opacity = isActive ? 1 : 0.6;
-
-    // Use colors from orbyt API
-    const profileColors = getProfileColors(orbytColors);
-    const ringColor = profileColors.foregroundColor || Colors.neutral[50];
+    const ringColor = profileColors?.foregroundColor || Colors.neutral[50];
 
     if (!hasMultipleAccounts) {
       return <UserIcon size={tabIconSize} color={color} />;
@@ -60,15 +50,14 @@ const ProfileTabIcon = React.memo(
     return (
       <View style={{ opacity }}>
         <Avatar
-          uri={profileData?.avatar}
+          uri={currentUser?.avatar}
           type="profile"
           size={tabIconSize}
           showRing={true}
-          status={profileData?.status}
           profileColors={{
-            backgroundColor: profileColors.backgroundColor,
-            textColor: profileColors.foregroundColor || color,
-            foregroundColor: profileColors.foregroundColor || color,
+            backgroundColor: profileColors?.backgroundColor ?? Colors.black,
+            textColor: profileColors?.foregroundColor || color,
+            foregroundColor: profileColors?.foregroundColor || color,
           }}
           ringColor={ringColor}
         />
