@@ -40,13 +40,10 @@
         {
           "backgroundColor": "#000000",
           "image": "./src/assets/splash.png",
-          "imageWidth": 200,
-          "dark": {
-            "backgroundColor": "#000000",
-            "image": "./src/assets/splash.png"
-          }
+          "imageWidth": 200
         }
       ],
+      "expo-system-ui",
       [
         "expo-font",
         {
