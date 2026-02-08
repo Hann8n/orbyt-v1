@@ -1028,7 +1028,7 @@ const CreateScreen: React.FC = () => {
               { bottom: bottomNavBarHeight + (isSmallDevice ? 40 : 50) },
             ]}
           >
-            {!isRecording && (
+            {!isRecording && !isFrontCamera && (
               <View style={styles.zoomSelectorContainer}>
                 {isZoomExpanded ? (
                   <View style={styles.zoomPicker}>
