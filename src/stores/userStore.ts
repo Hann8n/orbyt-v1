@@ -1343,14 +1343,14 @@ export const useUserStore = create<UserState>()(
                 component: 'userStore',
                 did: activeAccountDid,
               });
-            set({
-              isAuthenticated: false,
-              currentUser: null,
-              currentUserProfileColors: null,
-              oauthSession: null,
-              agent: undefined,
-              activeAccountDid: null,
-            });
+              set({
+                isAuthenticated: false,
+                currentUser: null,
+                currentUserProfileColors: null,
+                oauthSession: null,
+                agent: undefined,
+                activeAccountDid: null,
+              });
             } else if (sessionRestored) {
               // Initialize subscription store in background after interactions complete
               requestIdleCallback(

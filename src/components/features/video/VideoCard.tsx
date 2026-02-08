@@ -155,12 +155,29 @@ const VideoCard = memo(
       const feedContext = feedItem?.feedContext;
       const reqId = feedItem?.reqId;
       const { presentCommentSection } = useGlobalCommentSection();
-      const { updatePostInteraction, getPostInteraction } = usePostInteractionStore();
 
       // Normalize post - extract ExtendedPostView from ExtendedFeedViewPost if needed
       const postView: ExtendedPostView = React.useMemo(() => {
         return normalizePostView(post);
       }, [post]);
+
+      // Subscribe only to this post's interaction so other cards don't re-render on like/repost
+      const defaultInteraction = React.useMemo(
+        () => ({
+          isLiked: !!postView.viewer?.like,
+          likeCount: postView.likeCount || 0,
+          repostCount: postView.repostCount || 0,
+          isReposted: !!postView.viewer?.repost,
+          isBookmarked: false,
+          likeUri: postView.viewer?.like,
+          repostUri: postView.viewer?.repost,
+        }),
+        [postView.viewer?.like, postView.likeCount, postView.repostCount, postView.viewer?.repost]
+      );
+      const persistedInteraction = usePostInteractionStore(state =>
+        state.getPostInteraction(postView.uri, defaultInteraction)
+      );
+      const updatePostInteraction = usePostInteractionStore(state => state.updatePostInteraction);
 
       // Enhanced video state management with automatic recycling
       // Scope by post URI + feedOption so playback state doesn't leak across different feeds
@@ -171,17 +188,6 @@ const VideoCard = memo(
         },
         [postView.uri, feedOption]
       ); // Auto-resets when post.uri or feed context changes
-
-      // Get persisted interaction state from store
-      const persistedInteraction = getPostInteraction(postView.uri, {
-        isLiked: !!postView.viewer?.like,
-        likeCount: postView.likeCount || 0,
-        repostCount: postView.repostCount || 0,
-        isReposted: !!postView.viewer?.repost,
-        isBookmarked: false, // Bookmarks are now handled in share sheet
-        likeUri: postView.viewer?.like,
-        repostUri: postView.viewer?.repost,
-      });
 
       // Overlay state - using recycling state for automatic reset, but initialize from store
       const [overlayState, setOverlayState] = useRecyclingState(

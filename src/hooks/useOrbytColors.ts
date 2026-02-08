@@ -38,7 +38,11 @@ export function getPersistedColorsSync(did: string): OrbytColorData | null {
   try {
     const stored = storage.getString(CURRENT_USER_COLORS_KEY);
     if (!stored) return null;
-    const { did: storedDid, data, timestamp } = JSON.parse(stored) as {
+    const {
+      did: storedDid,
+      data,
+      timestamp,
+    } = JSON.parse(stored) as {
       did: string;
       data: OrbytColorData;
       timestamp: number;
@@ -107,8 +111,7 @@ export function loadPersistedColors(currentUserDid: string): void {
       timestamp: number;
     };
 
-    const isValid =
-      did === currentUserDid && Date.now() - timestamp < PERSISTED_COLORS_MAX_AGE_MS;
+    const isValid = did === currentUserDid && Date.now() - timestamp < PERSISTED_COLORS_MAX_AGE_MS;
 
     if (isValid && data) {
       queryClient.setQueryData(orbytColorKeys.color(did), data, {
