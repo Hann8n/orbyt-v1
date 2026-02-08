@@ -294,9 +294,11 @@ export default function RootLayout() {
   // Splash screen is controlled by SessionProvider.isLoading (auth state only)
   useEffect(() => {
     const initializeApp = async () => {
-      // Preload sprite sheet for TV static animation (non-blocking)
+      // Preload sprite sheets (non-blocking)
       const { preloadSpriteSheet } = require('../src/components/ui/AnimatedTVStatic');
+      const { preloadRocketSpriteSheet } = require('../src/components/ui/RocketBackground');
       preloadSpriteSheet().catch(() => {});
+      preloadRocketSpriteSheet().catch(() => {});
 
       // Initialize user state - this sets isInitializingAuth which controls splash screen
       await initializeUserState();

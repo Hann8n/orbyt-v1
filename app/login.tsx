@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState } from 'react';
 import { BORDER_RADIUS } from '../src/utils/constants';
 import {
   View,
@@ -8,10 +8,10 @@ import {
   Alert,
   Platform,
   ScrollView,
-  AppState,
+  StatusBar,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Svg, Path, Rect, Defs, Mask } from 'react-native-svg';
@@ -22,16 +22,7 @@ import { SavedAccount } from '../src/stores/userStore';
 import { useAuth, useAccountManagement } from '../src/stores/userStore';
 import { isUserCancellation, getErrorMessage } from '../src/utils/errors/errorHandler';
 import { hexToRGBA } from '../src/utils/formatting/colors';
-import { useVideoPlayer, VideoView } from 'expo-video';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  Easing,
-} from 'react-native-reanimated';
-
-// Background video source (ping-pong loop for seamless playback)
-const backgroundVideo = require('../src/assets/login-background-loop.mp4');
+import RocketBackground from '../src/components/ui/RocketBackground';
 
 // Login logo: PNG 4x on Android (avoids SVG stroke clipping), SVG on iOS
 const orbytLogoLoginPng = require('../src/assets/orbyt-logo-login.png');
@@ -40,71 +31,6 @@ interface LoginScreenProps {
   onLogin?: (handle: string) => Promise<void>;
   onAccountSwitch?: (account: SavedAccount) => Promise<void>;
 }
-
-// Video background component using expo-video with fade-in
-const AnimatedBackground = () => {
-  const opacity = useSharedValue(0);
-  const isMounted = useRef(true);
-
-  const player = useVideoPlayer(backgroundVideo, player => {
-    player.loop = true;
-    player.muted = true;
-    player.play();
-  });
-
-  // Track mount state
-  useEffect(() => {
-    isMounted.current = true;
-    return () => {
-      isMounted.current = false;
-    };
-  }, []);
-
-  // Fade in when component mounts
-  useEffect(() => {
-    opacity.value = withTiming(1, {
-      duration: 1000,
-      easing: Easing.out(Easing.ease),
-    });
-  }, [opacity]);
-
-  // Resume playback when app becomes active (background -> foreground)
-  // Check isMounted to avoid calling play() on a destroyed player during OAuth callback
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', nextAppState => {
-      if (nextAppState === 'active' && isMounted.current) {
-        player.play();
-      }
-    });
-
-    return () => subscription.remove();
-  }, [player]);
-
-  // Resume playback when screen regains focus (navigation)
-  // No cleanup needed - React Native Screens handles pausing when covered,
-  // and the player is destroyed on unmount anyway
-  useFocusEffect(
-    useCallback(() => {
-      player.play();
-    }, [player])
-  );
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-  }));
-
-  return (
-    <Animated.View style={[StyleSheet.absoluteFill, animatedStyle]}>
-      <VideoView
-        style={StyleSheet.absoluteFill}
-        player={player}
-        contentFit="cover"
-        nativeControls={false}
-        allowsPictureInPicture={false}
-      />
-    </Animated.View>
-  );
-};
 
 export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenProps = {}) {
   const router = useRouter();
@@ -152,20 +78,6 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
       setIsLoading(false);
     }
   };
-
-  // Check for saved accounts on mount
-  useEffect(() => {
-    const checkSavedAccounts = async () => {
-      try {
-        // The savedAccounts are now managed by the user store, so we don't need to fetch them here
-        // unless we want to re-render the component to show them immediately after login.
-        // For now, we'll rely on the user store's initial state.
-      } catch (_error) {
-        // Silently handle error checking saved accounts
-      }
-    };
-    checkSavedAccounts();
-  }, []);
 
   const handleSavedAccountLogin = async (account: SavedAccount) => {
     setIsLoading(true);
@@ -401,7 +313,8 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
 
   const renderContent = () => (
     <View style={styles.backgroundImage}>
-      {!hasSavedAccounts && <AnimatedBackground />}
+      <StatusBar hidden />
+      {!hasSavedAccounts && <RocketBackground />}
       <View
         style={[
           styles.container,

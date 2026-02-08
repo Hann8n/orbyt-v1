@@ -26,8 +26,7 @@
     "serve:docs": "npx serve docs -l 5173 --single",
     "prepare": "husky",
     "version:increment-build": "npx tsx scripts/update-version.ts increment-build",
-    "version:get-build": "npx tsx scripts/update-version.ts get-build",
-    "create:sprite-sheet": "npx tsx scripts/create-sprite-sheet.ts"
+    "version:get-build": "npx tsx scripts/update-version.ts get-build"
   },
   "dependencies": {
     "@atproto/api": "^0.18.18",
