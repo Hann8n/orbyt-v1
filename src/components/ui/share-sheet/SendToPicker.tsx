@@ -469,6 +469,8 @@ const styles = StyleSheet.create({
     fontFamily: 'Figtree-Medium',
     fontSize: 16,
     borderWidth: 0,
+    textAlign: 'left',
+    textAlignVertical: 'center',
   },
   pickerListWrap: {
     flex: 1,

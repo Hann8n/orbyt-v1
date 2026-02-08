@@ -1809,9 +1809,7 @@ const ExploreScreen: React.FC = () => {
               importantForAutofill="no"
               keyboardAppearance="dark"
               returnKeyType="search"
-              textAlignVertical="center"
               caretHidden={false}
-              {...(Platform.OS === 'android' && { includeFontPadding: false })}
             />
           </View>
           {isSearching && (
@@ -2230,8 +2228,11 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontFamily: 'Figtree-Medium',
     padding: 0,
+    paddingVertical: 12,
+    textAlign: 'left',
+    textAlignVertical: 'center',
     ...(Platform.OS === 'android' && {
-      paddingVertical: 0,
+      includeFontPadding: false,
     }),
   },
   clearButton: {
