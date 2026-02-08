@@ -5,11 +5,14 @@ import { Canvas, Image, Blur, Rect, useImage, useCanvasSize } from '@shopify/rea
 interface BlurredBackgroundProps {
   thumbnailUrl: string | null;
   onBlurReady?: () => void;
+  /** When false, no dark overlay on top of the blur (e.g. for video post preview) */
+  darkOverlay?: boolean;
 }
 
 const BlurredBackground = memo(function BlurredBackground({
   thumbnailUrl,
   onBlurReady,
+  darkOverlay = true,
 }: BlurredBackgroundProps) {
   const image = useImage(thumbnailUrl);
   const { ref, size } = useCanvasSize();
@@ -39,7 +42,7 @@ const BlurredBackground = memo(function BlurredBackground({
               <Blur blur={24} mode="clamp" />
             </Image>
           )}
-          <Rect x={0} y={0} width={w} height={h} color="black" opacity={0.5} />
+          {darkOverlay && <Rect x={0} y={0} width={w} height={h} color="black" opacity={0.5} />}
         </>
       )}
     </Canvas>

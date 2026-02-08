@@ -15,6 +15,7 @@ import {
   useWindowDimensions,
   type EventSubscription,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   CameraView,
@@ -45,6 +46,8 @@ import * as Haptics from 'expo-haptics';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { showEditor, isValidFile, type Spec } from 'react-native-clip-trim';
 import { SegmentManager, type Segment } from '../src/utils/video/segmentManager';
+import VideoProcessingService from '../src/services/video/VideoProcessingService';
+import { useVideoPostDraftStore } from '../src/stores/videoPostDraftStore';
 
 // Duration options in seconds
 const DURATION_OPTIONS = [
@@ -81,6 +84,9 @@ const CreateScreen: React.FC = () => {
   const [selectedPresetLabel, setSelectedPresetLabel] = useState('1x');
   const [isTrimmerActive, setIsTrimmerActive] = useState(false);
   const [lastReadyCameraKey, setLastReadyCameraKey] = useState<string | null>(null);
+  const [isOnionSkinningEnabled, setIsOnionSkinningEnabled] = useState(false);
+  const [lastFrameThumbnail, setLastFrameThumbnail] = useState<string | null>(null);
+  const setPendingThumbnail = useVideoPostDraftStore(s => s.setPendingThumbnail);
 
   // Segment manager - single source of truth
   const segmentManagerRef = useRef<SegmentManager | null>(null);
@@ -130,6 +136,37 @@ const CreateScreen: React.FC = () => {
       setSegmentUpdateTrigger(prev => prev + 1);
     }
   }, [selectedDuration, totalDurationShared]);
+
+  // Extract only the last segment's frame for onion skinning (single source, no re-extraction of older clips)
+  useEffect(() => {
+    const segments = segmentManagerRef.current?.getSegments() ?? [];
+    if (segments.length === 0) {
+      setLastFrameThumbnail(null);
+      return;
+    }
+
+    const lastSeg = segments[segments.length - 1];
+    const videoUri =
+      typeof lastSeg.video === 'object' && lastSeg.video && 'uri' in lastSeg.video
+        ? (lastSeg.video as { uri: string }).uri
+        : '';
+    if (!videoUri || lastSeg.duration <= 0) {
+      setLastFrameThumbnail(null);
+      return;
+    }
+
+    let cancelled = false;
+    VideoProcessingService.extractLastFrame(videoUri, lastSeg.duration)
+      .then(thumbUri => {
+        if (!cancelled && isMountedRef.current) setLastFrameThumbnail(thumbUri);
+      })
+      .catch(() => {
+        if (!cancelled) setLastFrameThumbnail(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [segmentUpdateTrigger]);
 
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -528,7 +565,6 @@ const CreateScreen: React.FC = () => {
           };
 
           if (clampedDuration > 0 && segmentManagerRef.current.addSegment(newSegment)) {
-            // Update with actual total from segment manager (should match optimistic update)
             totalDurationShared.value = segmentManagerRef.current.getTotalDuration();
             setSegmentUpdateTrigger(prev => prev + 1);
           } else {
@@ -770,6 +806,9 @@ const CreateScreen: React.FC = () => {
         case 'delete':
           deleteLastSegment();
           break;
+        case 'onion-skin':
+          setIsOnionSkinningEnabled(prev => !prev);
+          break;
         default:
           break;
       }
@@ -831,47 +870,29 @@ const CreateScreen: React.FC = () => {
 
     // Convert to VideoSegment format
     const videoSegments = segmentManagerRef.current.toVideoSegments();
+    const firstVideoUri = videoSegments[0]?.video?.uri ?? '';
+    const thumbnailPath = firstVideoUri
+      ? await VideoProcessingService.extractFirstFrame(firstVideoUri, null, { quality: 0.5 }).catch(
+          () => undefined
+        )
+      : undefined;
 
-    // Only navigate if component is still mounted
-    if (isMountedRef.current) {
-      // In development, route to video editor for faster iteration; otherwise go straight to post.
-      if (__DEV__) {
-        if (videoSegments.length === 1) {
-          router.navigate({
-            pathname: '/video-editor',
-            params: {
-              videoPath: videoSegments[0].video.uri,
-            },
-          });
-        } else {
-          router.navigate({
-            pathname: '/video-editor',
-            params: {
-              segments: JSON.stringify(videoSegments),
-            },
-          });
-        }
-      } else {
-        if (videoSegments.length === 1) {
-          router.navigate({
-            pathname: '/post/[id]',
-            params: {
-              id: 'new',
-              videoPath: videoSegments[0].video.uri,
-            },
-          });
-        } else {
-          router.navigate({
-            pathname: '/post/[id]',
-            params: {
-              id: 'new',
-              segments: JSON.stringify(videoSegments),
-            },
-          });
-        }
-      }
+    if (!isMountedRef.current) return;
+
+    if (thumbnailPath) setPendingThumbnail(thumbnailPath);
+
+    if (videoSegments.length === 1) {
+      router.navigate({
+        pathname: '/post/[id]',
+        params: { id: 'new', videoPath: videoSegments[0].video.uri },
+      });
+    } else {
+      router.navigate({
+        pathname: '/post/[id]',
+        params: { id: 'new', segments: JSON.stringify(videoSegments) },
+      });
     }
-  }, [router, isProcessing, stopRecording]);
+  }, [router, isProcessing, stopRecording, setPendingThumbnail]);
 
   const cameraContainerLayout = useMemo(
     () => ({
@@ -934,35 +955,47 @@ const CreateScreen: React.FC = () => {
                   onPress={handleDoubleTap}
                   style={[styles.cameraPressable, cameraAndroidLayout]}
                 >
-                  <CameraView
-                    key={cameraKey}
-                    ref={cameraRef}
-                    style={[styles.camera, cameraLayout]}
-                    facing={isFrontCamera ? 'front' : 'back'}
-                    mode="video"
-                    enableTorch={flash === 'on' && !isFrontCamera}
-                    mute={!microphonePermission?.granted}
-                    videoQuality="2160p"
-                    videoStabilizationMode="off"
-                    zoom={zoom}
-                    selectedLens={selectedLens ?? undefined}
-                    onCameraReady={() => setLastReadyCameraKey(cameraKey)}
-                    onAvailableLensesChanged={event => {
-                      const raw = event?.lenses ?? [];
-                      const n = (s: string) => s.toLowerCase();
-                      const physical = raw.filter(
-                        l => !n(l).includes('dual') && !n(l).includes('triple')
-                      );
-                      setAvailableLenses(physical);
-                      if (physical.length > 0) {
-                        const valid = physical.includes(selectedLens ?? '');
-                        const wide = physical.find(
-                          l => n(l).includes('wide') && !n(l).includes('ultra')
+                  {/* Wrapper matches camera dimensions so overlay aligns pixel-perfect */}
+                  <View style={[styles.cameraWrapper, cameraLayout]}>
+                    <CameraView
+                      key={cameraKey}
+                      ref={cameraRef}
+                      style={styles.cameraFill}
+                      facing={isFrontCamera ? 'front' : 'back'}
+                      mode="video"
+                      enableTorch={flash === 'on' && !isFrontCamera}
+                      mute={!microphonePermission?.granted}
+                      videoQuality="2160p"
+                      videoStabilizationMode="off"
+                      zoom={zoom}
+                      selectedLens={selectedLens ?? undefined}
+                      onCameraReady={() => setLastReadyCameraKey(cameraKey)}
+                      onAvailableLensesChanged={event => {
+                        const raw = event?.lenses ?? [];
+                        const n = (s: string) => s.toLowerCase();
+                        const physical = raw.filter(
+                          l => !n(l).includes('dual') && !n(l).includes('triple')
                         );
-                        if (!valid) setSelectedLens(wide ?? physical[0]);
-                      }
-                    }}
-                  />
+                        setAvailableLenses(physical);
+                        if (physical.length > 0) {
+                          const valid = physical.includes(selectedLens ?? '');
+                          const wide = physical.find(
+                            l => n(l).includes('wide') && !n(l).includes('ultra')
+                          );
+                          if (!valid) setSelectedLens(wide ?? physical[0]);
+                        }
+                      }}
+                    />
+                    {isOnionSkinningEnabled && lastFrameThumbnail && (
+                      <Image
+                        source={{ uri: lastFrameThumbnail }}
+                        style={styles.onionSkinOverlay}
+                        contentFit="cover"
+                        cachePolicy="memory-disk"
+                        pointerEvents="none"
+                      />
+                    )}
+                  </View>
                 </Pressable>
               </Animated.View>
             </GestureDetector>
@@ -1207,6 +1240,7 @@ const CreateScreen: React.FC = () => {
         hasSegments={(segmentManagerRef.current?.getTotalDuration() ?? 0) > 0}
         isFrontCamera={isFrontCamera}
         disableGalleryUpload={Platform.OS === 'android' || availableTime <= 0}
+        onionSkinningActive={isOnionSkinningEnabled}
       />
     </SafeAreaView>
   );
@@ -1268,6 +1302,18 @@ const styles = StyleSheet.create({
   },
   camera: {
     // Dimensions will be set dynamically via inline style
+  },
+  cameraWrapper: {
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  cameraFill: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  onionSkinOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.3,
+    zIndex: 10,
   },
   progressBarOverlay: {
     position: 'absolute',

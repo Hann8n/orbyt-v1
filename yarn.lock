@@ -4783,6 +4783,11 @@ expo-task-manager@~55.0.4:
   dependencies:
     unimodules-app-loader "~55.0.2"
 
+expo-video-thumbnails@~55.0.5:
+  version "55.0.5"
+  resolved "https://registry.yarnpkg.com/expo-video-thumbnails/-/expo-video-thumbnails-55.0.5.tgz#bec08df7771eefaebd2d3c5e4371d97ff5162809"
+  integrity sha512-+lSSZKz/Omv+UHVKptVvOkALo0jbbbcKW1mEUDyOro178HN6OAr32skpk7gcQipDbQy+BU8/jE1OBTFwBAKsuA==
+
 expo-video@~55.0.4:
   version "55.0.4"
   resolved "https://registry.yarnpkg.com/expo-video/-/expo-video-55.0.4.tgz#a8852e5679aaeec1772ca28d412b8d5ae66aaa41"

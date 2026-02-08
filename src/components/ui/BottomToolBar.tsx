@@ -17,6 +17,7 @@ interface BottomToolBarProps {
   disableGalleryUpload?: boolean; // When true, disable gallery button (e.g., not enough remaining time)
   onNextPress?: () => void; // Optional next button handler
   nextButtonDisabled?: boolean; // Disable next button
+  onionSkinningActive?: boolean; // When true, onion skinning overlay is shown
 }
 
 const BottomToolBar: React.FC<BottomToolBarProps> = ({
@@ -28,16 +29,18 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
   disableGalleryUpload = false,
   onNextPress,
   nextButtonDisabled = false,
+  onionSkinningActive = false,
 }) => {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
 
   // Different tool configurations based on mode
-  const getTools = () => {
+  const getTools = (): { id: string; icon: string; activeIcon?: string }[] => {
     if (mode === 'create') {
       return [
         { id: 'flip', icon: 'camera-rotate' },
         { id: 'delete', icon: 'delete-back' },
+        { id: 'onion-skin', icon: 'ghost-fill', activeIcon: 'ghost-fill-sunglasses' },
         { id: 'flash', icon: 'flash' },
         { id: 'gallery', icon: 'gallery' },
       ];
@@ -60,7 +63,7 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
   const iconSize = Math.round(Math.max(22, Math.min(28, width * 0.07)));
 
   // Render tool button
-  const renderTool = (tool: { id: string; icon: string }, index?: number) => {
+  const renderTool = (tool: { id: string; icon: string; activeIcon?: string }, index?: number) => {
     const isDeleteDisabled = tool.id === 'delete' && !hasSegments;
     const isFlashDisabled = tool.id === 'flash' && isFrontCamera;
     const isGalleryDisabled = tool.id === 'gallery' && disableGalleryUpload;
@@ -102,7 +105,15 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
         }}
         disabled={isDisabled}
       >
-        <Icon name={tool.icon} size={iconSize} color={iconColor} />
+        <Icon
+          name={
+            tool.activeIcon && tool.id === 'onion-skin' && onionSkinningActive
+              ? tool.activeIcon
+              : tool.icon
+          }
+          size={iconSize}
+          color={iconColor}
+        />
       </Pressable>
     );
   };

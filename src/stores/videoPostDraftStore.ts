@@ -17,10 +17,14 @@ interface VideoPostDraftState {
   setDraft: (draft: Partial<VideoPostDraft>) => void;
   clearDraft: () => void;
   getDraft: () => VideoPostDraft | null;
+  pendingThumbnail: string | null;
+  setPendingThumbnail: (path: string | null) => void;
 }
 
 export const useVideoPostDraftStore = create<VideoPostDraftState>((set, get) => ({
   draft: null,
+  pendingThumbnail: null,
+  setPendingThumbnail: path => set({ pendingThumbnail: path }),
   setDraft: draftData => {
     const currentDraft = get().draft || {
       videoPath: null,

@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
+import * as VideoThumbnails from 'expo-video-thumbnails';
 import { File, Directory, Paths } from 'expo-file-system';
 import { Video as VideoCompressor } from 'react-native-compressor';
 import { resolveVideoPath } from '../../utils/video/path';
@@ -1675,79 +1676,73 @@ class VideoProcessingService {
   }
 
   /**
-   * Extracts the first frame from a video as a thumbnail image
+   * Extracts the first frame from a video as a thumbnail image.
+   * Uses expo-video-thumbnails (native AVAssetImageGenerator/MediaMetadataRetriever) for fast extraction.
    * @param videoPath - Path to the video file (should already be standardized)
    * @param assetId - Optional asset ID for MediaLibrary lookup (iCloud videos) - only needed if videoPath is not standardized
+   * @param options - Optional: quality 0-1 (0.5 for fast preview, 0.8 for upload banner)
    * @returns Path to the extracted thumbnail image
    */
-  static async extractFirstFrame(videoPath: string, assetId?: string | null): Promise<string> {
+  static async extractFirstFrame(
+    videoPath: string,
+    assetId?: string | null,
+    options?: { quality?: number }
+  ): Promise<string> {
     try {
-      // If videoPath is already standardized (from sandbox), use it directly
-      // Otherwise, get local URI from MediaLibrary if we have assetId (for iCloud videos)
       let localVideoPath: string;
       if (videoPath.includes('video_sandbox') || videoPath.includes('Library/Caches')) {
-        // Already standardized, use as-is
         localVideoPath = videoPath;
       } else {
-        // Need to get local path (handles iCloud videos)
         localVideoPath = await this.getLocalVideoPath(videoPath, assetId);
       }
+      const videoUri = this.ensureFileProtocol(localVideoPath);
 
-      // Strip fragment identifier and normalize path for FFmpeg
-      let normalizedPath = VideoProcessingService.stripFragment(
-        localVideoPath.replace('file://', '')
-      );
-      if (Platform.OS === 'ios' && !normalizedPath.startsWith('/')) {
-        normalizedPath = '/' + normalizedPath;
-      }
-
-      // Create temp directory for thumbnail
-      const tempDir = new Directory(Paths.cache, `thumbnails_${Date.now()}`);
-      tempDir.create({ intermediates: true });
-      const thumbnailFile = new File(tempDir, `thumbnail_${Date.now()}.jpg`);
-      let thumbnailPath = thumbnailFile.uri.replace('file://', '');
-
-      if (Platform.OS === 'ios' && !thumbnailPath.startsWith('/')) {
-        thumbnailPath = '/' + thumbnailPath;
-      }
-
-      if (!FFmpegKit || !ReturnCode) {
-        throw new Error('FFmpegKit is not available');
-      }
-
-      // Extract first frame at 0.1 seconds (to avoid black frames)
-      // -ss 0.1: seek to 0.1 seconds
-      // -vframes 1: extract only 1 frame
-      // -update 1: update the output file (required for single image output)
-      // -q:v 2: high quality JPEG
-      const cmd = `-i "${normalizedPath}" -ss 0.1 -vframes 1 -update 1 -q:v 2 "${thumbnailPath}"`;
-
-      const session = await FFmpegKit.execute(cmd);
-      const returnCode = await session.getReturnCode();
-
-      if (ReturnCode.isSuccess(returnCode)) {
-        // Verify thumbnail file exists (use thumbnailFile.uri, not normalized thumbnailPath)
-        const thumbnail = new File(thumbnailFile.uri);
-        if (!thumbnail.exists) {
-          throw new Error('Thumbnail file was not created');
-        }
-
-        return this.ensureFileProtocol(thumbnailFile.uri);
-      } else {
-        const failStackTrace = await session.getFailStackTrace();
-        const output = await session.getOutput();
-        logger.error('Thumbnail extraction failed', {
-          component: 'VideoProcessingService',
-          returnCode,
-          failStackTrace,
-          output,
-        });
-        throw new Error(
-          `Thumbnail extraction failed: ${failStackTrace || output || 'Unknown error'}`
-        );
-      }
+      const quality = options?.quality ?? 0.8;
+      // Extract the very first frame (0ms). Lower quality (e.g. 0.5) for fast preview background.
+      const { uri } = await VideoThumbnails.getThumbnailAsync(videoUri, {
+        time: 0,
+        quality,
+      });
+      return this.ensureFileProtocol(uri);
     } catch (error) {
       logger.error('Error extracting first frame', error, { component: 'VideoProcessingService' });
+      throw error;
+    }
+  }
+
+  /**
+   * Extracts the last frame from a video as a thumbnail image (for onion skinning).
+   * Uses expo-video-thumbnails (native AVAssetImageGenerator/MediaMetadataRetriever) for fast extraction.
+   * @param videoPath - Path to the video file (should already be standardized)
+   * @param durationSeconds - Video duration in seconds (from segment)
+   * @param assetId - Optional asset ID for MediaLibrary lookup (iCloud videos)
+   * @returns Path to the extracted thumbnail image
+   */
+  static async extractLastFrame(
+    videoPath: string,
+    durationSeconds: number,
+    assetId?: string | null
+  ): Promise<string> {
+    try {
+      let localVideoPath: string;
+      if (videoPath.includes('video_sandbox') || videoPath.includes('Library/Caches')) {
+        localVideoPath = videoPath;
+      } else {
+        localVideoPath = await this.getLocalVideoPath(videoPath, assetId);
+      }
+      const videoUri = this.ensureFileProtocol(localVideoPath);
+
+      // Extract the very last frame (1ms before end to stay within bounds)
+      const timeMs = Math.max(0, Math.round((durationSeconds - 0.001) * 1000));
+
+      // Lower quality (0.5) is fine for low-opacity ghost overlay; faster extraction
+      const { uri } = await VideoThumbnails.getThumbnailAsync(videoUri, {
+        time: timeMs,
+        quality: 0.5,
+      });
+      return uri;
+    } catch (error) {
+      logger.error('Error extracting last frame', error, { component: 'VideoProcessingService' });
       throw error;
     }
   }

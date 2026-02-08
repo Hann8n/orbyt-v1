@@ -30,6 +30,10 @@ const LIST_VIEW_ICON_SVG = `<svg width="20" height="20" viewBox="0 0 20 20" fill
   <rect x="2" y="11" width="16" height="6" rx="1.5" fill="white" opacity="0.5" />
 </svg>`;
 
+// Ghost icons for onion skinning - ghost_fill (inactive), ghost_fill_sunglasses (active)
+const GHOST_FILL_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><title>ghost_fill</title><g fill='none' fill-rule='evenodd'><path d='M24 0v24H0V0zM12.593 23.258l-.011.002-.071.035-.02.004-.014-.004-.071-.035c-.01-.004-.019-.001-.024.005l-.004.01-.017.428.005.02.01.013.104.074.015.004.012-.004.104-.074.012-.016.004-.017-.017-.427c-.002-.01-.009-.017-.017-.018m.265-.113-.013.002-.185.093-.01.01-.003.011.018.43.005.012.008.007.201.093c.012.004.023 0 .029-.008l.004-.014-.034-.614c-.003-.012-.01-.02-.02-.022m-.715.002a.023.023 0 0 0-.027.006l-.006.014-.034.614c0 .012.007.02.017.024l.015-.002.201-.093.01-.008.004-.011.017-.43-.003-.012-.01-.01z'/><path fill='#fff' d='M12 2a9 9 0 0 1 9 9v8.62c0 1.83-1.966 2.987-3.565 2.099l-.363-.195c-1-.512-1.784-.68-2.889-.114l-.198.108a4 4 0 0 1-3.762.11l-.208-.11c-1.277-.73-2.166-.512-3.45.2-1.6.89-3.565-.267-3.565-2.097V11a9 9 0 0 1 9-9M8.5 9a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3m7 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3'/></g></svg>`;
+const GHOST_FILL_SUNGLASSES_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><title>ghost_fill_sunglasses</title><g fill='none' fill-rule='evenodd'><path d='M24 0v24H0V0zM12.593 23.258l-.011.002-.071.035-.02.004-.014-.004-.071-.035c-.01-.004-.019-.001-.024.005l-.004.01-.017.428.005.02.01.013.104.074.015.004.012-.004.104-.074.012-.016.004-.017-.017-.427c-.002-.01-.009-.017-.017-.018m.265-.113-.013.002-.185.093-.01.01-.003.011.018.43.005.012.008.007.201.093c.012.004.023 0 .029-.008l.004-.014-.034-.614c-.003-.012-.01-.02-.02-.022m-.715.002a.023.023 0 0 0-.027.006l-.006.014-.034.614c0 .012.007.02.017.024l.015-.002.201-.093.01-.008.004-.011.017-.43-.003-.012-.01-.01z'/><path fill='#fff' fill-rule='evenodd' d='M12 2a9 9 0 0 1 9 9v8.62c0 1.83-1.966 2.987-3.565 2.099l-.363-.195c-1-.512-1.784-.68-2.889-.114l-.198.108a4 4 0 0 1-3.762.11l-.208-.11c-1.277-.73-2.166-.512-3.45.2-1.6.89-3.565-.267-3.565-2.097V11a9 9 0 0 1 9-9z M7.5 8.4H10.1Q10.6 8.4 10.6 8.9V9.05Q10.6 9.2 10.8 9.2H13.2Q13.4 9.2 13.4 9.05V8.9Q13.4 8.4 13.9 8.4H16.5Q17 8.4 17 8.9V11.1Q17 11.6 16.5 11.6H13.9Q13.4 11.6 13.4 11.1V9.95Q13.4 9.8 13.2 9.8H10.8Q10.6 9.8 10.6 9.95V11.1Q10.6 11.6 10.1 11.6H7.5Q7 11.6 7 11.1V8.9Q7 8.4 7.5 8.4z'/></g></svg>`;
+
 const GRID_VIEW_ICON_SVG = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
   <!-- 3x2 grid of video cards -->
   <!-- Row 1 -->
@@ -202,6 +206,24 @@ export const CheckCircleFillIcon: React.FC<{
 export const ListViewIcon: React.FC<{ color: string; size?: number }> = ({ color, size = 20 }) => {
   const svgXml = LIST_VIEW_ICON_SVG.replace(/white/g, color);
   return <SvgXml xml={svgXml} width={size} height={size} />;
+};
+
+export const GhostFillIcon: React.FC<{
+  size: number;
+  color: string;
+  style?: StyleProp<ViewStyle>;
+}> = ({ size, color, style }) => {
+  const svgXml = GHOST_FILL_ICON_SVG.replace(/#fff/g, color);
+  return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
+};
+
+export const GhostFillSunglassesIcon: React.FC<{
+  size: number;
+  color: string;
+  style?: StyleProp<ViewStyle>;
+}> = ({ size, color, style }) => {
+  const svgXml = GHOST_FILL_SUNGLASSES_ICON_SVG.replace(/#fff/g, color);
+  return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
 };
 
 // Custom Grid View Icon component
@@ -1338,6 +1360,12 @@ const Icon: React.FC<IconProps> = ({
   }
   if (name === 'delete-back' || name === 'delete-back-fill') {
     return <DeleteBackIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'ghost-fill' || name === 'ghost_fill') {
+    return <GhostFillIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'ghost-fill-sunglasses' || name === 'ghost_fill_sunglasses') {
+    return <GhostFillSunglassesIcon size={size} color={color} style={style} />;
   }
   if (name === 'music' || name === 'music-fill') {
     return <MusicFillIcon size={size} color={color} style={style} />;

@@ -29,6 +29,7 @@ import VideoEditingService, {
   BackgroundMusicOptions,
 } from '../src/services/video/VideoEditingService';
 import VideoProcessingService from '../src/services/video/VideoProcessingService';
+import { useVideoPostDraftStore } from '../src/stores/videoPostDraftStore';
 import VerticalListSheet, { VerticalListButton } from '../src/components/ui/VerticalListSheet';
 import BottomToolBar from '../src/components/ui/BottomToolBar';
 import { useWindowDimensions } from 'react-native';
@@ -741,6 +742,14 @@ const VideoEditorScreen: React.FC = () => {
     const normalizedPath = activeVideoPath.startsWith('file://')
       ? activeVideoPath
       : `file://${activeVideoPath}`;
+
+    const thumbnailPath = await VideoProcessingService.extractFirstFrame(normalizedPath, null, {
+      quality: 0.5,
+    }).catch(() => undefined);
+    if (thumbnailPath) {
+      useVideoPostDraftStore.getState().setPendingThumbnail(thumbnailPath);
+    }
+
     router.navigate({
       pathname: '/post/[id]',
       params: { id: 'new', videoPath: normalizedPath },

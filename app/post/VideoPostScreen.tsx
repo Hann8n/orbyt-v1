@@ -26,6 +26,7 @@ import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useVideoPlayer, VideoView, VideoPlayer } from 'expo-video';
 import * as MediaLibrary from 'expo-media-library';
 import { Image } from 'expo-image';
+import { BlurView } from '../../src/components/ui/BlurView';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Avatar } from '../../src/components/ui/UI';
 import Icon, {
@@ -33,7 +34,6 @@ import Icon, {
   Loading3FillIcon,
   DownSmallFillIcon,
 } from '../../src/components/ui/Icon';
-import BlurredBackground from '../../src/components/ui/BlurredBackground';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextOverlay } from '../../src/types';
 import { resolveVideoPath, VideoPathInfo } from '../../src/utils/video/path';
@@ -96,18 +96,13 @@ const VideoPreviewContent: React.FC<{
   containerStyle,
 }) => {
   const thumbnailUrl = thumbnailPath || videoUri;
-  const [firstFrameRendered, setFirstFrameRendered] = useState(false);
-  const [blurReady, setBlurReady] = useState(false);
-  const showPoster = !firstFrameRendered || !blurReady;
 
   return (
     <View style={[styles.videoContainer, containerStyle]}>
       {thumbnailUrl && (
         <>
-          <BlurredBackground thumbnailUrl={thumbnailUrl} onBlurReady={() => setBlurReady(true)} />
-          {showPoster && (
-            <Image source={{ uri: thumbnailUrl }} contentFit="contain" style={styles.poster} />
-          )}
+          <Image source={{ uri: thumbnailUrl }} contentFit="cover" style={styles.poster} />
+          <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
         </>
       )}
       {videoUri && player && (
@@ -117,7 +112,6 @@ const VideoPreviewContent: React.FC<{
           contentFit="contain"
           nativeControls={false}
           surfaceType={Platform.OS === 'android' ? 'textureView' : undefined}
-          onFirstFrameRender={() => setFirstFrameRendered(true)}
         />
       )}
       {(videoLoading || isMerging) && (
@@ -539,17 +533,12 @@ const VideoPostScreen: React.FC = () => {
   // OR segments are provided for background merging
   const videoPath = params.videoPath as string;
   const segmentsParam = params.segments as string | undefined;
-  const thumbnailPath = params.thumbnailPath as string | undefined;
 
-  // Debug: Log thumbnail path
-  useEffect(() => {
-    if (thumbnailPath) {
-      logger.info('VideoPostScreen received thumbnailPath', {
-        component: 'VideoPostScreen',
-        thumbnailPath,
-      });
-    }
-  }, [thumbnailPath]);
+  const [thumbnailPath, setThumbnailPath] = useState<string | undefined>(() => {
+    const thumb = useVideoPostDraftStore.getState().pendingThumbnail ?? undefined;
+    useVideoPostDraftStore.getState().setPendingThumbnail(null);
+    return thumb;
+  });
 
   const textOverlays = useMemo(
     () => (params.textOverlays as unknown as TextOverlay[] | undefined) || [],
@@ -651,17 +640,18 @@ const VideoPostScreen: React.FC = () => {
     if (videoPath) {
       const draft = getDraft();
       if (draft && draft.videoPath === videoPath) {
-        // Restore draft state
         setDescription(draft.description || '');
         setSelectedContentWarnings(draft.selectedContentWarnings || []);
         setOtherWarning(draft.otherWarning || '');
         setCommentFilter(draft.commentFilter || null);
         setSelectedChannel(draft.selectedChannel || null);
+        if (draft.thumbnailPath) setThumbnailPath(draft.thumbnailPath);
       }
     }
   }, [
     videoPath,
     getDraft,
+    setThumbnailPath,
     setDescription,
     setSelectedContentWarnings,
     setOtherWarning,
@@ -962,23 +952,12 @@ const VideoPostScreen: React.FC = () => {
         channelSlug,
       };
 
-      if (!thumbnailPath) {
-        try {
-          const extractedThumbnail =
-            await VideoProcessingService.extractFirstFrame(videoPathToUpload);
-          storage.set('video-upload-thumbnail', extractedThumbnail);
-          logger.info('Thumbnail extracted for upload banner', {
-            component: 'VideoPostScreen',
-            thumbnailPath: extractedThumbnail,
-          });
-        } catch (error) {
-          logger.warn('Failed to extract thumbnail for upload banner', {
-            component: 'VideoPostScreen',
-            error,
-          });
-        }
-      } else {
-        storage.set('video-upload-thumbnail', thumbnailPath);
+      // Use thumbnail from params (passed from create) or extract for upload banner
+      const bannerThumbnail =
+        thumbnailPath ??
+        (await VideoProcessingService.extractFirstFrame(videoPathToUpload).catch(() => null));
+      if (bannerThumbnail) {
+        storage.set('video-upload-thumbnail', bannerThumbnail);
       }
 
       router.replace('/(tabs)');
@@ -1782,7 +1761,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 2,
-    backgroundColor: Colors.black,
+    backgroundColor: 'transparent',
   },
   errorOverlay: {
     zIndex: 3,
