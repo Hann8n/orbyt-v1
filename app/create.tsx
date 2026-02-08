@@ -43,7 +43,6 @@ import * as Device from 'expo-device';
 import { getBottomNavBarHeight } from '../src/utils/device/screen';
 import { Colors } from '../src/theme';
 import * as Haptics from 'expo-haptics';
-import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { showEditor, isValidFile, type Spec } from 'react-native-clip-trim';
 import { SegmentManager, type Segment } from '../src/utils/video/segmentManager';
 import VideoProcessingService from '../src/services/video/VideoProcessingService';
@@ -77,7 +76,6 @@ const CreateScreen: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoadingFromGallery, setIsLoadingFromGallery] = useState(false);
   const [selectedDuration, setSelectedDuration] = useState(16); // Default to 16 seconds
-  const [isDurationSelectorExpanded, setIsDurationSelectorExpanded] = useState(false);
   const [isZoomExpanded, setIsZoomExpanded] = useState(false);
   const [availableLenses, setAvailableLenses] = useState<string[]>([]);
   const [selectedLens, setSelectedLens] = useState<string | null>(null);
@@ -918,11 +916,6 @@ const CreateScreen: React.FC = () => {
     () => ({ top: isSmallDevice ? 5 : insets.top + 4, left: 4 }),
     [isSmallDevice, insets.top]
   );
-  const durationSelectorTop = useMemo(
-    () => ({ top: isSmallDevice ? 5 : insets.top + 4 }),
-    [isSmallDevice, insets.top]
-  );
-
   // Render content based on the state of permissions and device availability
   const renderContent = () => {
     if (!cameraPermission) {
@@ -1103,31 +1096,60 @@ const CreateScreen: React.FC = () => {
                 )}
               </View>
             )}
-            <Pressable
-              onPressIn={handlePressIn}
-              onPressOut={handlePressOut}
-              disabled={availableTime <= 0 || !isCameraReady}
-              style={styles.recordButtonContainer}
-            >
-              <Animated.View
-                style={[
-                  styles.recordButton,
-                  animatedButtonOpacityStyle,
-                  availableTime <= 0 && styles.recordButtonDisabled,
-                ]}
+            <View style={styles.recordButtonArea}>
+              <View style={styles.recordButtonAreaSpacer} />
+              <Pressable
+                onPressIn={handlePressIn}
+                onPressOut={handlePressOut}
+                disabled={availableTime <= 0 || !isCameraReady}
+                style={styles.recordButtonContainer}
               >
-                {isLoadingFromGallery ? (
-                  <Loading3FillIcon size={32} color="white" />
-                ) : (
-                  <View
-                    style={[
-                      styles.captureButtonInner,
-                      availableTime <= 0 && styles.captureButtonInnerDisabled,
-                    ]}
-                  />
-                )}
-              </Animated.View>
-            </Pressable>
+                <Animated.View
+                  style={[
+                    styles.recordButton,
+                    animatedButtonOpacityStyle,
+                    availableTime <= 0 && styles.recordButtonDisabled,
+                  ]}
+                >
+                  {isLoadingFromGallery ? (
+                    <Loading3FillIcon size={32} color="white" />
+                  ) : (
+                    <View
+                      style={[
+                        styles.captureButtonInner,
+                        availableTime <= 0 && styles.captureButtonInnerDisabled,
+                      ]}
+                    />
+                  )}
+                </Animated.View>
+              </Pressable>
+              <View style={styles.recordButtonAreaSpacer}>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.durationSelectorCollapsed,
+                    pressed && { opacity: 0.7 },
+                  ]}
+                  onPress={() => {
+                    const currentTotal = segmentManagerRef.current?.getTotalDuration() ?? 0;
+                    const availableOptions = DURATION_OPTIONS.filter(
+                      opt => opt.value >= currentTotal
+                    );
+                    Haptics.selectionAsync();
+                    Alert.alert('Max duration', 'Select maximum recording length', [
+                      ...availableOptions.map(opt => ({
+                        text: opt.label,
+                        onPress: () => setSelectedDuration(opt.value),
+                      })),
+                      { text: 'Cancel', style: 'cancel' as const },
+                    ]);
+                  }}
+                >
+                  <Text style={styles.durationSelectorCollapsedText}>
+                    {DURATION_OPTIONS.find(opt => opt.value === selectedDuration)?.label || '16s'}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
           </View>
         </View>
       </>
@@ -1140,81 +1162,6 @@ const CreateScreen: React.FC = () => {
       <Pressable style={[styles.backButton, backButtonPosition]} onPress={handleBackPress}>
         <CloseFillIcon size={26} color="white" />
       </Pressable>
-
-      {/* Duration Selector */}
-      {!isRecording && (!segmentManagerRef.current || !segmentManagerRef.current.hasSegments()) && (
-        <View style={[styles.durationSelector, durationSelectorTop]}>
-          {isDurationSelectorExpanded ? (
-            <>
-              {DURATION_OPTIONS.map(option => {
-                const useGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
-                const isSelected = selectedDuration === option.value;
-                return (
-                  <Pressable
-                    key={option.value}
-                    style={[
-                      styles.durationOption,
-                      useGlass && styles.durationOptionGlass,
-                      isSelected &&
-                        (useGlass
-                          ? styles.durationOptionSelectedGlass
-                          : styles.durationOptionSelected),
-                    ]}
-                    onPress={() => {
-                      // Only allow changing duration if not recording and no segments exist
-                      const hasSegments = segmentManagerRef.current?.hasSegments() ?? false;
-                      if (!isRecording && !hasSegments) {
-                        setSelectedDuration(option.value);
-                        setIsDurationSelectorExpanded(false);
-                      }
-                    }}
-                    disabled={isRecording || (segmentManagerRef.current?.hasSegments() ?? false)}
-                  >
-                    {useGlass && (
-                      <GlassView
-                        style={styles.glassBackground}
-                        glassEffectStyle="clear"
-                        tintColor="rgba(255, 255, 255, 0)"
-                        isInteractive
-                      />
-                    )}
-                    <Text
-                      style={[
-                        styles.durationOptionText,
-                        isSelected && styles.durationOptionTextSelected,
-                        (isRecording || (segmentManagerRef.current?.hasSegments() ?? false)) &&
-                          styles.durationOptionTextDisabled,
-                      ]}
-                    >
-                      {option.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </>
-          ) : (
-            <Pressable
-              style={[
-                styles.durationOption,
-                Platform.OS === 'ios' && isLiquidGlassAvailable() && styles.durationOptionGlass,
-              ]}
-              onPress={() => setIsDurationSelectorExpanded(true)}
-            >
-              {Platform.OS === 'ios' && isLiquidGlassAvailable() && (
-                <GlassView
-                  style={styles.glassBackground}
-                  glassEffectStyle="clear"
-                  tintColor="rgba(255, 255, 255, 0)"
-                  isInteractive
-                />
-              )}
-              <Text style={styles.durationOptionText}>
-                {DURATION_OPTIONS.find(opt => opt.value === selectedDuration)?.label || '16s'}
-              </Text>
-            </Pressable>
-          )}
-        </View>
-      )}
 
       {segmentManagerRef.current?.hasSegments() && (
         <Pressable
@@ -1344,48 +1291,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  durationSelector: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    zIndex: 10,
-    height: 44,
+  recordButtonArea: {
     flexDirection: 'row',
+    width: '100%',
+    minHeight: 90,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recordButtonAreaSpacer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  durationSelectorCollapsed: {
+    paddingHorizontal: 14,
+    minWidth: 48,
+    minHeight: 48,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
   },
-  durationOption: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 15,
-    backgroundColor: Colors.overlay.white10,
-    overflow: 'hidden',
-  },
-  durationOptionGlass: {
-    backgroundColor: Colors.transparent,
-  },
-  glassBackground: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 15,
-  },
-  durationOptionSelected: {
-    backgroundColor: Colors.neutral[50],
-  },
-  durationOptionSelectedGlass: {
-    backgroundColor: Colors.overlay.white30,
-  },
-  durationOptionText: {
+  durationSelectorCollapsedText: {
     color: Colors.neutral[50],
-    fontSize: 14,
-    fontFamily: 'Figtree-Medium',
-  },
-  durationOptionTextSelected: {
-    color: Colors.neutral[50],
-    fontFamily: 'Figtree-SemiBold',
-  },
-  durationOptionTextDisabled: {
-    opacity: 0.5,
+    fontSize: 17,
+    fontFamily: 'Figtree-Bold',
   },
   doneButton: {
     position: 'absolute',
