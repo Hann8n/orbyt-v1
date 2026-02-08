@@ -12,7 +12,6 @@ import {
 import {
   View,
   StyleSheet,
-  Dimensions,
   StatusBar,
   Pressable,
   type StyleProp,
@@ -188,31 +187,6 @@ const FeedPager = forwardRef<ProfileRef, FeedPagerProps>(function FeedPager(
     setOverlayVisibility(1);
   }, [setTabBarVisibility, setOverlayVisibility]);
 
-  // Memoized screen dimensions handling
-  const [screenDims, setScreenDims] = useState(() => Dimensions.get('window'));
-  const { screenWidth, screenHeight } = useMemo(
-    () => ({
-      screenWidth: screenDims.width,
-      screenHeight: screenDims.height,
-    }),
-    [screenDims.width, screenDims.height]
-  );
-
-  // Listen for orientation/screen size changes
-  useEffect(() => {
-    const onChange = ({
-      window,
-    }: {
-      window: { width: number; height: number; scale: number; fontScale: number };
-    }) => {
-      setScreenDims(window);
-    };
-    const sub = Dimensions.addEventListener('change', onChange);
-    return () => {
-      sub?.remove();
-    };
-  }, []);
-
   // Animation values for feed bar vertical transition - using Reanimated for UI thread
   const feedBarTranslateY = useSharedValue(0);
   const [isFeedBarVisible, setIsFeedBarVisible] = useState(true);
@@ -237,11 +211,14 @@ const FeedPager = forwardRef<ProfileRef, FeedPagerProps>(function FeedPager(
     [scrollEnabled, pageScrollProgress]
   );
 
-  // Sync controlled currentFeed -> pager page
+  // Sync controlled currentFeed -> pager page (handles store hydration and programmatic changes)
   useEffect(() => {
     if (currentFeed == null) return;
     const index = feedOptions.findIndex(option => option === currentFeed);
-    if (index >= 0) setPagerPage(index);
+    if (index >= 0) {
+      setPagerPage(index);
+      setCurrentFeedIndex(index); // Keep React state in sync immediately to avoid UI/playback mismatch
+    }
   }, [currentFeed, feedOptions, setPagerPage]);
 
   // Track current feed index for visibility checks (updated via useAnimatedReaction)
@@ -363,10 +340,10 @@ const FeedPager = forwardRef<ProfileRef, FeedPagerProps>(function FeedPager(
   const feedPageStyle = useMemo(
     () => ({
       ...styles.feedPage,
-      width: screenWidth,
+      width,
       height: '100%' as const,
     }),
-    [screenWidth]
+    [width]
   );
 
   // Dynamic base font size for channel indicators based on screen size
@@ -374,10 +351,10 @@ const FeedPager = forwardRef<ProfileRef, FeedPagerProps>(function FeedPager(
     if (typeof indicatorFontSize === 'number' && indicatorFontSize > 0) return indicatorFontSize;
     if (isTablet) return 20;
     if (isSmallScreen) return 16;
-    const minDimension = Math.min(screenWidth, screenHeight);
+    const minDimension = Math.min(width, height);
     if (minDimension >= 420) return 18; // large phones/phablets
     return 16;
-  }, [screenWidth, screenHeight, indicatorFontSize, isTablet, isSmallScreen]);
+  }, [width, height, indicatorFontSize, isTablet, isSmallScreen]);
 
   const feedSwitcherTopStyle = useMemo(
     () => ({ top: applySafeArea ? 12 + insets.top : 12 }),

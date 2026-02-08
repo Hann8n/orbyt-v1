@@ -102,7 +102,7 @@ const HomeScreen = memo(
         <VideoUploadBanner topInset={insets.top} applySafeArea={true} />
         <FeedPager
           ref={feedPagerRef}
-          initialFeed={currentFeed}
+          currentFeed={currentFeed}
           onFeedChange={handleFeedChange}
           isRefreshing={isRefreshing}
           applySafeArea={true}

@@ -7,30 +7,31 @@ import { useUserStore, useFeedSettings } from '../../src/stores/userStore';
 import { Colors } from '../../src/theme';
 import CustomBottomTabBar from '../../src/components/ui/CustomBottomTabBar';
 import { useUnreadCount } from '../../src/hooks/useUnreadCount';
-import { pickLighterHex } from '../../src/utils/formatting/colors';
+import {
+  getTabBarActiveTintFromProfile,
+  TAB_BAR_INACTIVE_TINT,
+} from '../../src/utils/formatting/colors';
 
 export default function TabsLayout() {
   const profileColors = useUserStore(state => state.currentUserProfileColors);
   const { nativeTabsEnabled } = useFeedSettings();
   const { totalUnreadCount } = useUnreadCount();
 
-  // Store-backed colors for instant display (no loading flash)
-  const nativeTintColor =
-    profileColors?.backgroundColor && profileColors?.foregroundColor
-      ? pickLighterHex(profileColors.backgroundColor, profileColors.foregroundColor)
-      : profileColors?.foregroundColor || Colors.neutral[50];
-
+  const nativeTintColor = getTabBarActiveTintFromProfile(profileColors);
   const customTintColor = Colors.neutral[50];
-  const customInactiveTintColor = 'rgba(243, 245, 254, 0.60)';
 
   // Check if liquid glass is available (needed for role="search" on newer iOS versions)
   const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
 
-  // Experimental: Use native tabs if enabled
+  // Experimental: Use native tabs if enabled (tint = lighter profile color)
   if (nativeTabsEnabled) {
     return (
       <NativeTabs
         tintColor={nativeTintColor}
+        iconColor={{
+          default: TAB_BAR_INACTIVE_TINT,
+          selected: nativeTintColor,
+        }}
         badgeBackgroundColor={Colors.teal[600]}
         disableTransparentOnScrollEdge={true}
       >
@@ -84,7 +85,7 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: customTintColor,
-        tabBarInactiveTintColor: customInactiveTintColor,
+        tabBarInactiveTintColor: TAB_BAR_INACTIVE_TINT,
         tabBarBadgeStyle: {
           backgroundColor: Colors.teal[600],
           color: '#fff',
@@ -105,7 +106,7 @@ export default function TabsLayout() {
           state={props.state}
           navigation={props.navigation}
           tintColor={customTintColor}
-          inactiveTintColor={customInactiveTintColor}
+          inactiveTintColor={TAB_BAR_INACTIVE_TINT}
         />
       )}
     >

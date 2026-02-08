@@ -11,6 +11,7 @@ import {
 import { Canvas, Path } from '@shopify/react-native-skia';
 
 import { Colors } from '../../theme';
+import type { UserState } from '../../stores/userStore';
 
 // SVG content as strings - updated to match the actual icon files
 const PLUS_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" fill="none"/><g fill="none"><path fill="#fff" d="M10.5 20a1.5 1.5 0 0 0 3 0v-6.5H20a1.5 1.5 0 0 0 0-3h-6.5V4a1.5 1.5 0 0 0-3 0v6.5H4a1.5 1.5 0 0 0 0 3h6.5z"/></g></svg>`;
@@ -278,7 +279,7 @@ export const ProfileIcon: React.FC<{ size: number; color: string }> = ({ size, c
     setAvatar(store.currentUser?.avatar);
     setProfileColors(store.currentUserProfileColors);
 
-    const unsubscribe = useUserStore.subscribe(state => {
+    const unsubscribe = useUserStore.subscribe((state: UserState) => {
       setAvatar(state.currentUser?.avatar);
       setProfileColors(state.currentUserProfileColors);
     });

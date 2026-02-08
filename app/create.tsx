@@ -42,6 +42,7 @@ import BottomToolBar from '../src/components/ui/BottomToolBar';
 import * as Device from 'expo-device';
 import { getBottomNavBarHeight } from '../src/utils/device/screen';
 import { Colors } from '../src/theme';
+import { hexToRGBA } from '../src/utils/formatting/colors';
 import * as Haptics from 'expo-haptics';
 import { showEditor, isValidFile, type Spec } from 'react-native-clip-trim';
 import { SegmentManager, type Segment } from '../src/utils/video/segmentManager';
@@ -895,8 +896,10 @@ const CreateScreen: React.FC = () => {
   const cameraContainerLayout = useMemo(
     () => ({
       justifyContent: isTabletDevice
-        ? 'center'
-        : ((Platform.OS === 'ios' ? 'flex-start' : 'center') as const),
+        ? ('center' as const)
+        : Platform.OS === 'ios'
+          ? ('flex-start' as const)
+          : ('center' as const),
     }),
     [isTabletDevice]
   );
@@ -1247,9 +1250,6 @@ const styles = StyleSheet.create({
     height: '100%',
     flex: 1,
   },
-  camera: {
-    // Dimensions will be set dynamically via inline style
-  },
   cameraWrapper: {
     position: 'relative',
     overflow: 'hidden',
@@ -1338,19 +1338,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   zoomCollapsed: {
-    backgroundColor: 'rgba(120, 120, 128, 0.36)',
+    backgroundColor: hexToRGBA(Colors.neutral[500], 0.36),
     borderRadius: 9,
     paddingHorizontal: 14,
     paddingVertical: 8,
   },
   zoomCollapsedText: {
-    color: '#FFFFFF',
+    color: Colors.neutral[50],
     fontSize: 13,
     fontFamily: 'Figtree-SemiBold',
   },
   zoomPicker: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(120, 120, 128, 0.36)',
+    backgroundColor: hexToRGBA(Colors.neutral[500], 0.36),
     borderRadius: 9,
     padding: 4,
     maxWidth: 180,
@@ -1365,15 +1365,15 @@ const styles = StyleSheet.create({
     borderRadius: 7,
   },
   zoomSegmentSelected: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.neutral[50],
   },
   zoomSegmentText: {
-    color: 'rgba(255, 255, 255, 0.85)',
+    color: hexToRGBA(Colors.neutral[50], 0.85),
     fontSize: 13,
     fontFamily: 'Figtree-Medium',
   },
   zoomSegmentTextSelected: {
-    color: '#000000',
+    color: Colors.black,
     fontFamily: 'Figtree-SemiBold',
   },
   recordButtonContainer: {

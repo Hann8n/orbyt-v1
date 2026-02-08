@@ -66,7 +66,7 @@ if (typeof global !== 'undefined' && !global.location) {
     reload: () => {},
     replace: () => {},
     assign: () => {},
-    ancestorOrigins: [],
+    ancestorOrigins: [] as unknown as ReadonlyArray<string>,
   };
 }
 
