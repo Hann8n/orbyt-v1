@@ -12,9 +12,10 @@ import {
   AppState,
   NativeEventEmitter,
   NativeModules,
+  useWindowDimensions,
   type EventSubscription,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   CameraView,
   useCameraPermissions,
@@ -28,8 +29,8 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
   useFrameCallback,
+  runOnJS,
 } from 'react-native-reanimated';
-import { scheduleOnRN } from 'react-native-worklets';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Icon, {
   CloseFillIcon,
@@ -37,11 +38,9 @@ import Icon, {
   ArrowRightFillIcon,
 } from '../src/components/ui/Icon';
 import BottomToolBar from '../src/components/ui/BottomToolBar';
-import { useWindowDimensions } from 'react-native';
 import * as Device from 'expo-device';
 import { getBottomNavBarHeight } from '../src/utils/device/screen';
 import { Colors } from '../src/theme';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { showEditor, isValidFile, type Spec } from 'react-native-clip-trim';
@@ -58,6 +57,13 @@ const DURATION_OPTIONS = [
 const CAPTURE_BUTTON_INNER_BG = 'rgba(129, 136, 150, 0.4)';
 const CAPTURE_BUTTON_INNER_DISABLED_BG = 'rgba(129, 136, 150, 0.2)';
 
+function lensToLabel(lens: string): string {
+  const n = lens.toLowerCase();
+  if (n.includes('ultra wide') || n.includes('ultra-wide') || n.includes('ultrawide')) return '.5x';
+  if (n.includes('telephoto')) return '2x';
+  return '1x';
+}
+
 const CreateScreen: React.FC = () => {
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [microphonePermission, requestMicrophonePermission] = useMicrophonePermissions();
@@ -69,14 +75,18 @@ const CreateScreen: React.FC = () => {
   const [isLoadingFromGallery, setIsLoadingFromGallery] = useState(false);
   const [selectedDuration, setSelectedDuration] = useState(16); // Default to 16 seconds
   const [isDurationSelectorExpanded, setIsDurationSelectorExpanded] = useState(false);
+  const [isZoomExpanded, setIsZoomExpanded] = useState(false);
+  const [availableLenses, setAvailableLenses] = useState<string[]>([]);
+  const [selectedLens, setSelectedLens] = useState<string | null>(null);
+  const [selectedPresetLabel, setSelectedPresetLabel] = useState('1x');
   const [isTrimmerActive, setIsTrimmerActive] = useState(false);
+  const [lastReadyCameraKey, setLastReadyCameraKey] = useState<string | null>(null);
 
   // Segment manager - single source of truth
   const segmentManagerRef = useRef<SegmentManager | null>(null);
   const [segmentUpdateTrigger, setSegmentUpdateTrigger] = useState(0);
 
   // Recording state
-  const segmentStartTime = useRef<number>(0);
   const cameraRef = useRef<CameraView>(null);
   const recordingPromiseRef = useRef<Promise<{ uri: string } | undefined> | null>(null);
   const isMountedRef = useRef(true);
@@ -89,9 +99,7 @@ const CreateScreen: React.FC = () => {
   const recordingStartTime = useSharedValue<number | null>(null); // Start time of current recording (milliseconds)
   const recordingElapsed = useSharedValue(0); // Elapsed time during current recording (seconds) - updated continuously
   const buttonOpacity = useSharedValue(1);
-  const zoomScale = useSharedValue(1);
-  const baseZoom = useSharedValue(0);
-  const startZoom = useSharedValue(0);
+  const zoomStartRef = useRef(0);
 
   // Use useFocusEffect from expo-router instead of useIsFocused from react-navigation
   // This ensures compatibility with Expo Router's navigation system
@@ -99,7 +107,10 @@ const CreateScreen: React.FC = () => {
   useFocusEffect(
     React.useCallback(() => {
       setIsFocused(true);
-      return () => setIsFocused(false);
+      return () => {
+        setIsFocused(false);
+        setLastReadyCameraKey(null);
+      };
     }, [])
   );
 
@@ -152,6 +163,7 @@ const CreateScreen: React.FC = () => {
 
   // Camera key changes on dimension/orientation change to fix camera preview
   const cameraKey = `${Math.round(screenWidth)}x${Math.round(screenHeight)}-${isFrontCamera ? 'front' : 'back'}`;
+  const isCameraReady = lastReadyCameraKey === cameraKey;
 
   // For small screens and tablets, use full screen; otherwise use available space between safe areas
   const availableHeight =
@@ -397,35 +409,40 @@ const CreateScreen: React.FC = () => {
     }
   }, [isFrontCamera, flash]);
 
-  // Reset zoom when switching cameras - CameraView respects the controlled zoom prop
+  // Reset zoom when switching cameras or lens
   useEffect(() => {
     setZoom(0);
-    zoomScale.value = 1;
-    baseZoom.value = 0;
-    startZoom.value = 0;
-  }, [isFrontCamera, baseZoom, startZoom, zoomScale]);
+  }, [isFrontCamera]);
 
-  // Pinch gesture handler for zoom
+  useEffect(() => {
+    if (isRecording) setIsZoomExpanded(false);
+  }, [isRecording]);
+
+  useEffect(() => {
+    setAvailableLenses([]);
+    setSelectedLens(null);
+    setSelectedPresetLabel('1x');
+  }, [isFrontCamera]);
+
+  // Pinch gesture: map full pinch range (scale ~0.2–4) to full camera zoom 0–1
+  const captureZoomStart = useCallback(() => {
+    zoomStartRef.current = zoom;
+  }, [zoom]);
+  const applyZoomFromPinch = useCallback((scale: number) => {
+    // Sensitivity so one full pinch-out reaches 1 and one full pinch-in reaches 0
+    const sensitivity = 1.25;
+    const scaleChange = (scale - 1) * sensitivity;
+    const newZoom = Math.max(0, Math.min(1, zoomStartRef.current + scaleChange));
+    setZoom(newZoom);
+  }, []);
   const pinchGesture = Gesture.Pinch()
     .onStart(() => {
       'worklet';
-      // Store the current zoom as the starting point for this gesture
-      startZoom.value = baseZoom.value;
+      runOnJS(captureZoomStart)();
     })
     .onUpdate(event => {
       'worklet';
-      // Calculate new zoom: clamp between 0 and 1
-      // Scale factor: 1.0 = no zoom, higher = zoom in
-      // We use a multiplier for more natural feel (0.3 = slower, more controlled zoom)
-      const scaleChange = (event.scale - 1) * 0.3;
-      const newZoom = Math.max(0, Math.min(1, startZoom.value + scaleChange));
-      baseZoom.value = newZoom;
-      zoomScale.value = event.scale;
-      scheduleOnRN(setZoom, newZoom);
-    })
-    .onEnd(() => {
-      'worklet';
-      zoomScale.value = 1;
+      runOnJS(applyZoomFromPinch)(event.scale);
     });
 
   // Update shared value when segments change
@@ -552,7 +569,6 @@ const CreateScreen: React.FC = () => {
       isRecordingRef.current = true;
       setIsRecording(true);
       const startTime = Date.now();
-      segmentStartTime.current = startTime;
       recordingStartTime.value = startTime; // Set shared value for UI-thread timer
       recordingElapsed.value = 0; // Reset elapsed time
 
@@ -580,10 +596,12 @@ const CreateScreen: React.FC = () => {
   ]);
 
   // Handle press start - begin recording (press in to start)
+  // Wait for onCameraReady before recording – expo-camera requires this
   const handlePressIn = useCallback(() => {
     const currentTotal = segmentManagerRef.current?.getTotalDuration() ?? 0;
     const availableTime = segmentManagerRef.current?.getAvailableTime() ?? 0;
     if (
+      isCameraReady &&
       !isRecordingRef.current &&
       !isProcessing &&
       currentTotal < maxDuration &&
@@ -591,7 +609,7 @@ const CreateScreen: React.FC = () => {
     ) {
       startRecording();
     }
-  }, [isProcessing, startRecording, maxDuration]);
+  }, [isCameraReady, isProcessing, startRecording, maxDuration]);
 
   // Handle press end - stop recording (press out to stop)
   const handlePressOut = useCallback(() => {
@@ -692,13 +710,9 @@ const CreateScreen: React.FC = () => {
     if (isRecordingRef.current && cameraRef.current) {
       await stopRecording();
     }
-    // Reset zoom synchronously before switching cameras to ensure CameraView receives the update
     setZoom(0);
-    zoomScale.value = 1;
-    baseZoom.value = 0;
-    startZoom.value = 0;
     setIsFrontCamera(prev => !prev);
-  }, [stopRecording, baseZoom, startZoom, zoomScale]);
+  }, [stopRecording]);
 
   const handleDoubleTap = useCallback(() => {
     const now = Date.now();
@@ -928,8 +942,26 @@ const CreateScreen: React.FC = () => {
                     mode="video"
                     enableTorch={flash === 'on' && !isFrontCamera}
                     mute={!microphonePermission?.granted}
-                    videoQuality="1080p"
+                    videoQuality="2160p"
+                    videoStabilizationMode="off"
                     zoom={zoom}
+                    selectedLens={selectedLens ?? undefined}
+                    onCameraReady={() => setLastReadyCameraKey(cameraKey)}
+                    onAvailableLensesChanged={event => {
+                      const raw = event?.lenses ?? [];
+                      const n = (s: string) => s.toLowerCase();
+                      const physical = raw.filter(
+                        l => !n(l).includes('dual') && !n(l).includes('triple')
+                      );
+                      setAvailableLenses(physical);
+                      if (physical.length > 0) {
+                        const valid = physical.includes(selectedLens ?? '');
+                        const wide = physical.find(
+                          l => n(l).includes('wide') && !n(l).includes('ultra')
+                        );
+                        if (!valid) setSelectedLens(wide ?? physical[0]);
+                      }
+                    }}
                   />
                 </Pressable>
               </Animated.View>
@@ -970,10 +1002,78 @@ const CreateScreen: React.FC = () => {
               { bottom: bottomNavBarHeight + (isSmallDevice ? 40 : 50) },
             ]}
           >
+            {!isRecording && (
+              <View style={styles.zoomSelectorContainer}>
+                {isZoomExpanded ? (
+                  <View style={styles.zoomPicker}>
+                    {availableLenses.length > 0
+                      ? availableLenses.map(lens => {
+                          const isSelected = selectedLens === lens;
+                          const label = lensToLabel(lens);
+                          return (
+                            <Pressable
+                              key={lens}
+                              style={[styles.zoomSegment, isSelected && styles.zoomSegmentSelected]}
+                              onPress={() => {
+                                Haptics.selectionAsync();
+                                setSelectedLens(lens);
+                                setZoom(0);
+                                setIsZoomExpanded(false);
+                              }}
+                            >
+                              <Text
+                                style={[
+                                  styles.zoomSegmentText,
+                                  isSelected && styles.zoomSegmentTextSelected,
+                                ]}
+                              >
+                                {label}
+                              </Text>
+                            </Pressable>
+                          );
+                        })
+                      : [0.5, 1, 2, 3, 5, 10].map(factor => {
+                          const optZoom = Math.log(Math.max(0.5, factor) / 0.5) / Math.log(20);
+                          const isSelected = Math.abs(optZoom - zoom) < 0.03;
+                          const label = factor === 0.5 ? '.5x' : `${factor}x`;
+                          return (
+                            <Pressable
+                              key={factor}
+                              style={[styles.zoomSegment, isSelected && styles.zoomSegmentSelected]}
+                              onPress={() => {
+                                Haptics.selectionAsync();
+                                setZoom(optZoom);
+                                setSelectedPresetLabel(label);
+                                setIsZoomExpanded(false);
+                              }}
+                            >
+                              <Text
+                                style={[
+                                  styles.zoomSegmentText,
+                                  isSelected && styles.zoomSegmentTextSelected,
+                                ]}
+                              >
+                                {label}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                  </View>
+                ) : (
+                  <Pressable style={styles.zoomCollapsed} onPress={() => setIsZoomExpanded(true)}>
+                    <Text style={styles.zoomCollapsedText}>
+                      {availableLenses.length > 0 && selectedLens
+                        ? lensToLabel(selectedLens)
+                        : selectedPresetLabel}
+                    </Text>
+                  </Pressable>
+                )}
+              </View>
+            )}
             <Pressable
               onPressIn={handlePressIn}
               onPressOut={handlePressOut}
-              disabled={availableTime <= 0}
+              disabled={availableTime <= 0 || !isCameraReady}
               style={styles.recordButtonContainer}
             >
               <Animated.View
@@ -1254,9 +1354,53 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-evenly',
+    flexDirection: 'column',
     alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  zoomSelectorContainer: {
+    marginBottom: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  zoomCollapsed: {
+    backgroundColor: 'rgba(120, 120, 128, 0.36)',
+    borderRadius: 9,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  zoomCollapsedText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontFamily: 'Figtree-SemiBold',
+  },
+  zoomPicker: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(120, 120, 128, 0.36)',
+    borderRadius: 9,
+    padding: 4,
+    maxWidth: 180,
+    alignSelf: 'center',
+  },
+  zoomSegment: {
+    flex: 1,
+    height: 28,
+    minWidth: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 7,
+  },
+  zoomSegmentSelected: {
+    backgroundColor: '#FFFFFF',
+  },
+  zoomSegmentText: {
+    color: 'rgba(255, 255, 255, 0.85)',
+    fontSize: 13,
+    fontFamily: 'Figtree-Medium',
+  },
+  zoomSegmentTextSelected: {
+    color: '#000000',
+    fontFamily: 'Figtree-SemiBold',
   },
   recordButtonContainer: {
     alignItems: 'center',
