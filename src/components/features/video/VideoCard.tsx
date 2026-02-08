@@ -1050,6 +1050,7 @@ const VideoCard = memo(
                   nativeControls={false}
                   playsInline
                   surfaceType={Platform.OS === 'android' ? 'textureView' : undefined}
+                  allowsVideoFrameAnalysis={false}
                   onFirstFrameRender={handleFirstFrameRender}
                 />
               )}
