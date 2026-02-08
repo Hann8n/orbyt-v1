@@ -291,7 +291,7 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
               onPress={() => !isLoading && router.navigate('/advanced-login')}
               style={[styles.networkSignInLink, isLoading && styles.customPDSButtonDisabled]}
             >
-              sign in here
+              Sign in here.
             </Text>
           </Text>
         </View>
@@ -565,7 +565,6 @@ const styles = StyleSheet.create({
   },
   networkSignInLink: {
     color: Colors.neutral[200],
-    textDecorationLine: 'underline',
-    fontFamily: 'Figtree-SemiBold',
+    fontFamily: 'Figtree-Bold',
   },
 });
