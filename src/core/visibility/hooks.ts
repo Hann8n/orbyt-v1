@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef } from 'react';
-import type { ViewabilityConfig, ViewToken } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState, type ViewabilityConfig, type ViewToken } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { useVisibilityCoreStore } from './visibilityStore';
 import { useSetOverlayVisibility } from '../../context/FeedIndicatorContext';
@@ -39,7 +39,12 @@ export function useFeedVisibility({
     (feedOption === 'profile' || feedOption === 'likes' || feedOption === 'reposts') && userDid
       ? `${feedOption}:${userDid}`
       : feedOption;
-  const appState = useVisibilityCoreStore(state => state.appState);
+  // Use React Native's AppState directly (no store sync) per RN docs
+  const [appState, setAppState] = useState(AppState.currentState);
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', setAppState);
+    return () => subscription.remove();
+  }, []);
   const activeRoute = useVisibilityCoreStore(state => state.activeRoute);
   const setActiveFeedKey = useVisibilityCoreStore(state => state.setActiveFeedKey);
   const setLastViewableIndex = useVisibilityCoreStore(state => state.setLastViewableIndex);

@@ -567,6 +567,9 @@ const VideoCard = memo(
         }, [videoState.userPaused, togglePlayback])
       );
 
+      // On error: retry once with a fresh HLS URL (re-fetch post then replace source)
+      const errorRetriedForUriRef = useRef<string | null>(null);
+
       // Handle player status changes for callbacks only
       useEffect(() => {
         if (!player) return;
@@ -576,6 +579,18 @@ const VideoCard = memo(
         } else if (playerStatus === 'loading') {
           onVideoStatus?.(postView.uri, 'loading');
         } else if (playerStatus === 'error') {
+          if (errorRetriedForUriRef.current !== postView.uri) {
+            errorRetriedForUriRef.current = postView.uri;
+            AtprotoService.getPost(postView.uri).then(post => {
+              const vv = post ? getVideoView(post.embed) : null;
+              const newSource = createVideoSource(vv?.playlist ?? null);
+              if (newSource) {
+                player.replaceAsync(newSource).catch(() => {});
+              } else {
+                errorRetriedForUriRef.current = null; // allow retry if getPost returns no source
+              }
+            });
+          }
           onVideoStatus?.(postView.uri, 'error');
         }
       }, [playerStatus, player, postView.uri, onVideoStatus]);

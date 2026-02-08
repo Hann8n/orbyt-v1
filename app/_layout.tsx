@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, StyleSheet, StatusBar, Appearance, AppState, Platform } from 'react-native';
+import { View, StyleSheet, StatusBar, Appearance, Platform } from 'react-native';
 import { Stack } from 'expo-router';
 import { DarkTheme, ThemeProvider } from '@react-navigation/native';
 import {
@@ -23,7 +23,6 @@ import { ShareSheet } from '../src/components/ui/share-sheet';
 import CommentSection from '../src/components/features/comments/CommentSection';
 import GlobalAccountSwitcher from '../src/components/ui/GlobalAccountSwitcher';
 import EmailVerificationModal from '../src/components/ui/EmailVerificationModal';
-import { useVisibilityCoreStore } from '../src/core/visibility';
 import { queryClient } from '../src/utils/query/queryClient';
 import { QueryErrorBoundary } from '../src/components/ui/QueryErrorBoundary';
 import { SessionProvider, useSession } from '../src/context/SessionProvider';
@@ -278,28 +277,7 @@ function RootNavigator() {
   );
 }
 
-// Visibility hook for inline logic - tracks app state only
-// Tab/route tracking handled by useVisibilityRouteTracker in individual screens
-// With freezeOnBlur: true, route tracking via useIsFocused() correctly handles frozen tabs
-const useVisibilityTracking = () => {
-  const setAppState = useVisibilityCoreStore(state => state.setAppState);
-
-  useEffect(() => {
-    const initialState = AppState.currentState;
-    setAppState(initialState);
-
-    const subscription = AppState.addEventListener('change', nextState => {
-      setAppState(nextState);
-    });
-
-    return () => subscription.remove();
-  }, [setAppState]);
-};
-
 export default function RootLayout() {
-  // Inline visibility tracking
-  useVisibilityTracking();
-
   const isAuthenticated = useUserStore(state => state.isAuthenticated);
   const initializeUserState = useUserStore(state => state.initializeUserState);
   const loadBookmarks = useBookmarkStore(state => state.loadBookmarks);
