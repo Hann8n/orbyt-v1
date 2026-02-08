@@ -11,7 +11,10 @@ import { useAlgorithmicFeedProvider } from '../../src/stores/userStore';
 import { settingsLayoutStyles } from './SettingsStyles';
 import { OptionsButton } from '../../src/components/ui/OptionsButton';
 import { useSubscribedChannels } from '../../src/hooks/useSubscribedChannels';
-import VerticalListSheet, { VerticalListButton } from '../../src/components/ui/VerticalListSheet';
+import VerticalListSheet, {
+  VerticalListButton,
+  TrueSheet,
+} from '../../src/components/ui/VerticalListSheet';
 import {
   isOrbytChannel,
   getChannelByUri,
@@ -53,7 +56,6 @@ const AlgorithmicFeedScreen: React.FC = () => {
     unsubscribeFromChannel,
   } = useSubscribedChannels();
   const [selectedChannel, setSelectedChannel] = useState<ChannelUser | null>(null);
-  const [isSheetVisible, setIsSheetVisible] = useState(false);
   const [displayedTitle, setDisplayedTitle] = useState<string>('');
   const [subscribingChannels, setSubscribingChannels] = useState<Set<string>>(new Set());
 
@@ -159,7 +161,7 @@ const AlgorithmicFeedScreen: React.FC = () => {
 
   const handleChannelPress = useCallback((channel: ChannelUser) => {
     setSelectedChannel(channel);
-    setIsSheetVisible(true);
+    TrueSheet.present('algorithmic-feed-channel-options');
     // Set the displayed title immediately
     if (channel.isOrbytChannel && channel.uri && shouldShowChannelSlash(channel.uri)) {
       setDisplayedTitle(`/${channel.displayName || channel.handle || 'Unknown channel'}`);
@@ -170,7 +172,7 @@ const AlgorithmicFeedScreen: React.FC = () => {
 
   const handleViewChannel = useCallback(() => {
     if (selectedChannel?.uri) {
-      setIsSheetVisible(false);
+      TrueSheet.dismiss('algorithmic-feed-channel-options');
       setSelectedChannel(null);
       // Use replace to ensure channel opens as fullscreen modal
       router.replace({
@@ -193,7 +195,7 @@ const AlgorithmicFeedScreen: React.FC = () => {
           onPress: async () => {
             try {
               await unsubscribeFromChannel(selectedChannel.uri!);
-              setIsSheetVisible(false);
+              TrueSheet.dismiss('algorithmic-feed-channel-options');
               setSelectedChannel(null);
             } catch (error) {
               logger.error('Error unsubscribing from channel', error, {
@@ -421,11 +423,8 @@ const AlgorithmicFeedScreen: React.FC = () => {
       </ScrollView>
 
       <VerticalListSheet
-        visible={isSheetVisible}
-        onDismiss={() => {
-          setIsSheetVisible(false);
-          setSelectedChannel(null);
-        }}
+        name="algorithmic-feed-channel-options"
+        onDismiss={() => setSelectedChannel(null)}
         title={displayedTitle || 'Channel Options'}
         showCancelButton={true}
       >

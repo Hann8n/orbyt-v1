@@ -8,7 +8,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useUserStore } from '../../stores/userStore';
 import { EmailVerificationService } from '../../services/auth/EmailVerificationService';
-import VerticalListSheet from './VerticalListSheet';
+import VerticalListSheet, { TrueSheet } from './VerticalListSheet';
 import { Colors } from './UI';
 import { BORDER_RADIUS, APP_CONSTANTS } from '../../utils/constants';
 import { logger } from '../../utils/logger';
@@ -17,13 +17,11 @@ import Icon, { Loading3FillIcon } from './Icon';
 interface EmailVerificationModalProps {
   visible: boolean;
   onClose: () => void;
-  name?: string;
 }
 
 export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
   visible,
   onClose,
-  name = 'email-verification',
 }) => {
   const agent = useUserStore(state => state.agent);
 
@@ -68,6 +66,10 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
       transform: [{ translateX: shakeOffset.value }],
     };
   });
+
+  useEffect(() => {
+    if (visible) TrueSheet.present('email-verification-sheet');
+  }, [visible]);
 
   // Format token as "XXXXX-XXXXX" (uppercase, alphanumeric only)
   const formatToken = (text: string): string => {
@@ -223,12 +225,11 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
 
   return (
     <VerticalListSheet
-      visible={visible}
+      name="email-verification-sheet"
       onDismiss={handleDismiss}
       title="Verify Your Email"
       showCancelButton={true}
       cancelButtonText="Skip for Now"
-      name={name}
       scrollable={false}
       footerTopPadding={0}
     >

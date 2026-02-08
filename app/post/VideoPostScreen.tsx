@@ -56,7 +56,10 @@ import {
   getChannelByUri,
 } from '../../src/utils/channels/orbyt';
 import type { SubscribedChannel } from '../../src/stores/userStore';
-import VerticalListSheet, { VerticalListButton } from '../../src/components/ui/VerticalListSheet';
+import VerticalListSheet, {
+  VerticalListButton,
+  TrueSheet,
+} from '../../src/components/ui/VerticalListSheet';
 import { useRichTextSearchTrigger, RichTextSearchModal } from '../../src/components/ui/usersearch';
 import { useRichText, formatRichTextForDisplay } from '../../src/hooks/useRichText';
 
@@ -570,11 +573,6 @@ const VideoPostScreen: React.FC = () => {
 
   // Channel selection state
   const [selectedChannel, setSelectedChannel] = useState<SubscribedChannel | null>(null);
-
-  // Sheet visibility state
-  const [showContentWarningsSheet, setShowContentWarningsSheet] = useState(false);
-  const [showCommentSettingsSheet, setShowCommentSettingsSheet] = useState(false);
-  const [showChannelSelectionSheet, setShowChannelSelectionSheet] = useState(false);
 
   // Full-screen description input modal state
   const [showDescriptionInputModal, setShowDescriptionInputModal] = useState(false);
@@ -1357,10 +1355,9 @@ const VideoPostScreen: React.FC = () => {
       />
 
       <VerticalListSheet
-        visible={showContentWarningsSheet}
-        onDismiss={() => setShowContentWarningsSheet(false)}
-        title="Warnings"
         name="post-content-warnings-sheet"
+        onDismiss={() => {}}
+        title="Warnings"
         scrollable={false}
         showCancelButton={true}
         cancelButtonText="Close"
@@ -1421,10 +1418,9 @@ const VideoPostScreen: React.FC = () => {
       </VerticalListSheet>
 
       <VerticalListSheet
-        visible={showCommentSettingsSheet}
-        onDismiss={() => setShowCommentSettingsSheet(false)}
-        title="Comments"
         name="post-comment-settings-sheet"
+        onDismiss={() => {}}
+        title="Comments"
         showCancelButton={true}
         cancelButtonText="Close"
       >
@@ -1435,7 +1431,7 @@ const VideoPostScreen: React.FC = () => {
               label={filter.label.toLowerCase()}
               onPress={() => {
                 setCommentFilter(filter.id);
-                setShowCommentSettingsSheet(false);
+                TrueSheet.dismiss('post-comment-settings-sheet');
               }}
               disabled={commentFilter === filter.id}
             />
@@ -1444,10 +1440,9 @@ const VideoPostScreen: React.FC = () => {
       </VerticalListSheet>
 
       <VerticalListSheet
-        visible={showChannelSelectionSheet}
-        onDismiss={() => setShowChannelSelectionSheet(false)}
-        title="Pick a channel"
         name="post-channel-selection-sheet"
+        onDismiss={() => {}}
+        title="Pick a channel"
         showCancelButton={true}
         cancelButtonText="Close"
         titleSize={26}
@@ -1466,7 +1461,7 @@ const VideoPostScreen: React.FC = () => {
             label="none"
             onPress={() => {
               setSelectedChannel(null);
-              setShowChannelSelectionSheet(false);
+              TrueSheet.dismiss('post-channel-selection-sheet');
             }}
             disabled={selectedChannel === null}
           />
@@ -1478,7 +1473,7 @@ const VideoPostScreen: React.FC = () => {
                 style={styles.channelListButton}
                 onPress={() => {
                   setSelectedChannel(orbytChannelToSubscribedChannel(channel));
-                  setShowChannelSelectionSheet(false);
+                  TrueSheet.dismiss('post-channel-selection-sheet');
                 }}
                 disabled={selectedChannel?.uri === channelUri}
               >
@@ -1547,19 +1542,19 @@ const VideoPostScreen: React.FC = () => {
               />
               <ChannelSelector
                 selectedChannel={selectedChannel}
-                onPress={() => setShowChannelSelectionSheet(true)}
+                onPress={() => TrueSheet.present('post-channel-selection-sheet')}
                 showRing={false}
               />
               <CommentFilterSelector
                 commentFilter={commentFilter}
                 getSelectedCommentFilterLabel={getSelectedCommentFilterLabel}
-                onPress={() => setShowCommentSettingsSheet(true)}
+                onPress={() => TrueSheet.present('post-comment-settings-sheet')}
               />
               <ContentWarningSelector
                 selectedContentWarnings={selectedContentWarnings}
                 otherWarning={otherWarning}
                 getSelectedContentWarningsLabel={getSelectedContentWarningsLabel}
-                onPress={() => setShowContentWarningsSheet(true)}
+                onPress={() => TrueSheet.present('post-content-warnings-sheet')}
               />
               <View
                 style={[
@@ -1600,13 +1595,11 @@ const VideoPostScreen: React.FC = () => {
   }
 
   // Portrait layout: content extends under transparent status bar; header buttons use safe area
+  // No KeyboardAvoidingView so the list does not resize when keyboard opens (description/edit inputs live in modals/sheets).
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
       {renderHeader()}
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.container}
-      >
+      <View style={styles.container}>
         <Animated.ScrollView
           style={[styles.contentContainer, fadeAnimatedStyle]}
           contentContainerStyle={[
@@ -1618,6 +1611,7 @@ const VideoPostScreen: React.FC = () => {
           ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
         >
           {/* Video Preview - in flow, safe area from paddingTop */}
           <View style={styles.portraitPreviewSection}>
@@ -1644,24 +1638,24 @@ const VideoPostScreen: React.FC = () => {
 
           <ChannelSelector
             selectedChannel={selectedChannel}
-            onPress={() => setShowChannelSelectionSheet(true)}
+            onPress={() => TrueSheet.present('post-channel-selection-sheet')}
             showRing={false}
           />
 
           <CommentFilterSelector
             commentFilter={commentFilter}
             getSelectedCommentFilterLabel={getSelectedCommentFilterLabel}
-            onPress={() => setShowCommentSettingsSheet(true)}
+            onPress={() => TrueSheet.present('post-comment-settings-sheet')}
           />
 
           <ContentWarningSelector
             selectedContentWarnings={selectedContentWarnings}
             otherWarning={otherWarning}
             getSelectedContentWarningsLabel={getSelectedContentWarningsLabel}
-            onPress={() => setShowContentWarningsSheet(true)}
+            onPress={() => TrueSheet.present('post-content-warnings-sheet')}
           />
         </Animated.ScrollView>
-      </KeyboardAvoidingView>
+      </View>
 
       <View
         style={[styles.floatingPostButtonContainer, { paddingBottom: Math.max(insets.bottom, 20) }]}

@@ -30,7 +30,10 @@ import VideoEditingService, {
 } from '../src/services/video/VideoEditingService';
 import VideoProcessingService from '../src/services/video/VideoProcessingService';
 import { useVideoPostDraftStore } from '../src/stores/videoPostDraftStore';
-import VerticalListSheet, { VerticalListButton } from '../src/components/ui/VerticalListSheet';
+import VerticalListSheet, {
+  VerticalListButton,
+  TrueSheet,
+} from '../src/components/ui/VerticalListSheet';
 import BottomToolBar from '../src/components/ui/BottomToolBar';
 import { useWindowDimensions } from 'react-native';
 import { getBottomNavBarHeight } from '../src/utils/device/screen';
@@ -275,7 +278,6 @@ const VideoEditorScreen: React.FC = () => {
   const [musicPath, setMusicPath] = useState<string | null>(null);
   const [videoVolume] = useState(1.0);
   const [musicVolume] = useState(1.0);
-  const [showMusicSheet, setShowMusicSheet] = useState(false);
 
   // Volume control state
   const [masterVolume] = useState(1.0);
@@ -610,7 +612,7 @@ const VideoEditorScreen: React.FC = () => {
 
       if (assetInfo.localUri) {
         setMusicPath(assetInfo.localUri);
-        setShowMusicSheet(false);
+        TrueSheet.dismiss('video-editor-music-sheet');
       } else {
         Alert.alert('Error', 'Could not access music file');
       }
@@ -765,7 +767,7 @@ const VideoEditorScreen: React.FC = () => {
           handleAddTextOverlay();
           break;
         case 'audio':
-          setShowMusicSheet(true);
+          TrueSheet.present('video-editor-music-sheet');
           break;
         default:
           break;
@@ -902,12 +904,15 @@ const VideoEditorScreen: React.FC = () => {
 
       {/* Music Selection Sheet */}
       <VerticalListSheet
-        visible={showMusicSheet}
-        onDismiss={() => setShowMusicSheet(false)}
+        name="video-editor-music-sheet"
+        onDismiss={() => {}}
         title="Select Background Music"
       >
         <VerticalListButton label="Choose from Library" onPress={handleSelectMusic} />
-        <VerticalListButton label="Cancel" onPress={() => setShowMusicSheet(false)} />
+        <VerticalListButton
+          label="Cancel"
+          onPress={() => TrueSheet.dismiss('video-editor-music-sheet')}
+        />
       </VerticalListSheet>
 
       {/* Text Overlay Controls - appears above keyboard when editing */}

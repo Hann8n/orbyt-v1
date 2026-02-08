@@ -1,12 +1,17 @@
-import React, { useRef, useEffect } from 'react';
+import React from 'react';
 import { BORDER_RADIUS } from '../../utils/constants';
 import { View, Text, StyleSheet, ViewStyle, TextStyle, StyleProp } from 'react-native';
-import type { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { TrueSheet } from '@lodev09/react-native-true-sheet';
+
+/** Re-export: use TrueSheet.present(name) to show, TrueSheet.dismiss(name) to hide. */
+export { TrueSheet };
 import {
   AppTrueSheet,
   CONTENT_TO_FOOTER_GAP_REDUCTION,
   DEFAULT_HEADER_STYLE,
   FOOTER_TOP_PADDING_DEFAULT,
+  FOOTER_BOTTOM_PADDING_MIN,
   useMeasuredFooterHeight,
 } from '../../utils/components/truesheet';
 import Icon from './Icon';
@@ -16,7 +21,10 @@ import { Colors } from './UI';
 import { OptionsButton } from './OptionsButton';
 
 interface VerticalListSheetProps {
-  visible: boolean;
+  /**
+   * Unique name. Use TrueSheet.present(name) to show, TrueSheet.dismiss(name) to hide.
+   */
+  name: string;
   onDismiss: () => void;
   title: string;
   children: React.ReactNode;
@@ -30,10 +38,6 @@ interface VerticalListSheetProps {
    * Custom header button to replace the close button
    */
   customHeaderButton?: React.ReactNode;
-  /**
-   * Name for global TrueSheet methods
-   */
-  name?: string;
   /**
    * Custom title font size
    */
@@ -71,7 +75,7 @@ interface VerticalListSheetProps {
 }
 
 const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
-  visible,
+  name,
   onDismiss,
   title,
   children,
@@ -79,7 +83,6 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
   cancelButtonText = 'Close',
   description,
   customHeaderButton,
-  name,
   titleSize,
   hideCloseButton = false,
   footerTopPadding,
@@ -89,15 +92,17 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
   footerBottomPadding: footerBottomPaddingProp,
   footerBackgroundColor = 'transparent',
 }) => {
-  const bottomSheetRef = useRef<TrueSheet>(null);
-  const footerBottomPadding = footerBottomPaddingProp !== undefined ? footerBottomPaddingProp : 24;
+  const insets = useSafeAreaInsets();
+  const footerBottomPadding =
+    footerBottomPaddingProp !== undefined
+      ? footerBottomPaddingProp
+      : Math.max(insets.bottom, FOOTER_BOTTOM_PADDING_MIN, 24);
   const footerTop = footerTopPadding ?? FOOTER_TOP_PADDING_DEFAULT;
   const hasFooter = showCancelButton || customFooter;
   const fallbackFooterHeight = hasFooter ? footerTop + 44 + footerBottomPadding : 0;
   const [measuredFooterHeight, wrapFooter] = useMeasuredFooterHeight(fallbackFooterHeight);
 
   // Content padding so list isn't cut off by the footer (TrueSheet footer is position:absolute)
-  // Slightly reduce to bring content closer to footer; allow override via contentBottomPadding
   const contentPaddingBottom =
     contentBottomPadding !== undefined
       ? contentBottomPadding
@@ -105,18 +110,10 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
         ? Math.max(0, measuredFooterHeight - CONTENT_TO_FOOTER_GAP_REDUCTION)
         : 0;
 
-  // Handle bottom sheet visibility with instance ref (TrueSheet v3+)
-  useEffect(() => {
-    const sheet = bottomSheetRef.current;
-    if (!sheet) return;
-    if (visible) {
-      sheet.present().catch(() => {});
-    } else {
-      sheet.dismiss().catch(() => {});
-    }
-  }, [visible]);
+  const handleDismiss = () => {
+    TrueSheet.dismiss(name).catch(() => {});
+  };
 
-  // Header component for TrueSheet header prop
   const headerComponent = (
     <View style={styles.headerContainer}>
       <Text
@@ -130,14 +127,13 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
       ) : customHeaderButton ? (
         customHeaderButton
       ) : (
-        <CloseButton onPress={onDismiss} />
+        <CloseButton onPress={handleDismiss} />
       )}
     </View>
   );
 
   return (
     <AppTrueSheet
-      ref={bottomSheetRef}
       name={name}
       onDidDismiss={onDismiss}
       scrollable={scrollable}
@@ -163,7 +159,7 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
                   ]}
                 >
                   <View style={[styles.cancelContainer, { paddingTop: footerTop }]}>
-                    <CancelButton onPress={onDismiss} text={cancelButtonText} />
+                    <CancelButton onPress={handleDismiss} text={cancelButtonText} />
                   </View>
                 </View>
               )

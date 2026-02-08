@@ -1,9 +1,9 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { BORDER_RADIUS } from '../../utils/constants';
 import { View, Text, Pressable, StyleSheet, TextInput, Linking } from 'react-native';
 import Icon, { Loading3FillIcon } from './Icon';
 import { Colors } from './UI';
-import VerticalListSheet from './VerticalListSheet';
+import VerticalListSheet, { TrueSheet } from './VerticalListSheet';
 
 interface CustomPDSInputSheetProps {
   visible: boolean;
@@ -24,6 +24,10 @@ const CustomPDSInputSheet: React.FC<CustomPDSInputSheetProps> = ({
   const [pdsError, setPdsError] = useState<string | null>(null);
   const [isAddingAccount, setIsAddingAccount] = useState(false);
   const [isValidatingPds, setIsValidatingPds] = useState(false);
+
+  useEffect(() => {
+    if (visible) TrueSheet.present(name);
+  }, [visible, name]);
 
   const handleUsernameLogin = useCallback(async () => {
     const trimmedUsername = username.trim();
@@ -47,7 +51,7 @@ const CustomPDSInputSheet: React.FC<CustomPDSInputSheetProps> = ({
       // @atproto/oauth-client-expo handles identifier normalization (handles, emails, URLs)
       await onSignIn(trimmedUsername);
 
-      // Close the sheet on success
+      TrueSheet.dismiss(name);
       onDismiss();
     } catch (error) {
       // Check if this is a user cancellation vs actual error
@@ -75,23 +79,23 @@ const CustomPDSInputSheet: React.FC<CustomPDSInputSheetProps> = ({
       setIsAddingAccount(false);
       setIsValidatingPds(false);
     }
-  }, [username, onSignIn, onDismiss]);
+  }, [username, onSignIn, onDismiss, name]);
 
-  const handleDismiss = useCallback(async () => {
+  const handleDismiss = useCallback(() => {
     setUsername('');
     setPdsError(null);
     setIsAddingAccount(false);
     setIsValidatingPds(false);
+    TrueSheet.dismiss(name);
     onDismiss();
-  }, [onDismiss]);
+  }, [onDismiss, name]);
 
   return (
     <VerticalListSheet
-      visible={visible}
+      name={name}
       onDismiss={handleDismiss}
       title={title}
       showCancelButton={false}
-      name={name}
       scrollable={false}
     >
       <View style={styles.usernameInputContainer}>

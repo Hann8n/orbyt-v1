@@ -1,6 +1,9 @@
 import { useState, useCallback, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
-import VerticalListSheet, { VerticalListCheckboxButton } from '../../ui/VerticalListSheet';
+import VerticalListSheet, {
+  VerticalListCheckboxButton,
+  TrueSheet,
+} from '../../ui/VerticalListSheet';
 import { ChatService } from '../../../services/api/chat/ChatService';
 import { useUserStore } from '../../../stores/userStore';
 import { useProfileByDid } from '../../../services/data/ProfileService';
@@ -35,6 +38,10 @@ export default function ChatSettingsSheet({ visible, onDismiss }: ChatSettingsSh
     setLocalAllowIncoming(initialAllowIncoming);
   }, [initialAllowIncoming]);
 
+  useEffect(() => {
+    if (visible) TrueSheet.present('chat-settings-sheet');
+  }, [visible]);
+
   const handleSelect = useCallback(
     (value: AllowIncoming) => {
       setLocalAllowIncoming(value);
@@ -49,12 +56,11 @@ export default function ChatSettingsSheet({ visible, onDismiss }: ChatSettingsSh
 
   return (
     <VerticalListSheet
-      visible={visible}
+      name="chat-settings-sheet"
       onDismiss={onDismiss}
       title="Who can message you"
       showCancelButton
       cancelButtonText="Done"
-      name="chat-settings-sheet"
     >
       <View style={styles.content}>
         {OPTIONS.map(opt => (

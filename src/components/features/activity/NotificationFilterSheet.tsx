@@ -1,7 +1,7 @@
-import React, { useState, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import VerticalListSheet from '../../ui/VerticalListSheet';
+import VerticalListSheet, { TrueSheet } from '../../ui/VerticalListSheet';
 import CancelButton from '../../ui/CancelButton';
 import Icon from '../../ui/Icon';
 import { Colors } from '../../../theme';
@@ -279,15 +279,15 @@ const NotificationFilterSheet: React.FC<NotificationFilterSheetProps> = ({
   const prevVisibleRef = useRef(visible);
   const [openingTimestamp, setOpeningTimestamp] = useState<number | null>(null);
 
-  // Store timestamp when opening in useEffect to avoid calling impure function during render
+  useEffect(() => {
+    if (visible) TrueSheet.present('notification-filter-sheet');
+  }, [visible]);
+
+  // Store timestamp when opening to reset inner component state
   React.useEffect(() => {
     const isOpening = visible && !prevVisibleRef.current;
-    if (isOpening) {
-      setOpeningTimestamp(Date.now());
-    } else if (!visible) {
-      // Reset timestamp when sheet closes
-      setOpeningTimestamp(null);
-    }
+    if (isOpening) setOpeningTimestamp(Date.now());
+    else if (!visible) setOpeningTimestamp(null);
     prevVisibleRef.current = visible;
   }, [visible]);
 
@@ -306,7 +306,7 @@ const NotificationFilterSheet: React.FC<NotificationFilterSheetProps> = ({
 
   return (
     <VerticalListSheet
-      visible={visible}
+      name="notification-filter-sheet"
       onDismiss={onDismiss}
       title="filter options"
       showCancelButton={false}

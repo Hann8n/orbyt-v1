@@ -8,7 +8,7 @@ import ProfileService, { useProfile } from '../../../services/data/ProfileServic
 import type { ProfileViewWithOrbyt } from '../../../services/api/types';
 import { Colors } from '../../../theme';
 import AuthorItem from '../../ui/AuthorItem';
-import VerticalListSheet from '../../ui/VerticalListSheet';
+import VerticalListSheet, { TrueSheet } from '../../ui/VerticalListSheet';
 import { useAccountManagement, useAuth } from '../../../stores/userStore';
 import CustomPDSInputSheet from '../../ui/CustomPDSInputSheet';
 
@@ -36,6 +36,10 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
   const [editMode, setEditMode] = useState(false);
   const [showUsernameInput, setShowUsernameInput] = useState(false);
   const [_isAddingAccount, setIsAddingAccount] = useState(false);
+
+  useEffect(() => {
+    if (visible) TrueSheet.present('account-switcher');
+  }, [visible]);
 
   // User store hooks
   const { savedAccounts, switchAccount, removeAccount, activeAccountDid } = useAccountManagement();
@@ -434,11 +438,10 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
   return (
     <>
       <VerticalListSheet
-        visible={visible}
+        name="account-switcher"
         onDismiss={onDismiss}
         title="Accounts"
         customHeaderButton={customHeaderButton}
-        name="account-switcher"
         scrollable={false}
       >
         <View style={styles.listContent}>

@@ -8,7 +8,10 @@ import { Colors } from '../../src/theme';
 import { Avatar, Icon } from '../../src/components/ui/UI';
 import { BORDER_RADIUS } from '../../src/utils/constants';
 import ListHeader from '../../src/components/ui/ListHeader';
-import VerticalListSheet, { VerticalListButton } from '../../src/components/ui/VerticalListSheet';
+import VerticalListSheet, {
+  VerticalListButton,
+  TrueSheet,
+} from '../../src/components/ui/VerticalListSheet';
 import {
   isOrbytChannel,
   getChannelByUri,
@@ -36,7 +39,6 @@ export default function ChannelManagementScreen() {
   const { subscribedChannels: channels, unsubscribeFromChannel } = useSubscribedChannels();
 
   const [selectedChannel, setSelectedChannel] = useState<ChannelUser | null>(null);
-  const [isSheetVisible, setIsSheetVisible] = useState(false);
   const [displayedTitle, setDisplayedTitle] = useState<string>('');
 
   // Transform channels data - subscribed channels only (no built-ins)
@@ -68,7 +70,7 @@ export default function ChannelManagementScreen() {
 
   const handleChannelPress = useCallback((channel: ChannelUser) => {
     setSelectedChannel(channel);
-    setIsSheetVisible(true);
+    TrueSheet.present('settings-channels-sheet');
     // Set the displayed title immediately
     if (channel.isOrbytChannel && channel.uri && shouldShowChannelSlash(channel.uri)) {
       setDisplayedTitle(`/${channel.displayName || channel.handle || 'Unknown channel'}`);
@@ -79,7 +81,7 @@ export default function ChannelManagementScreen() {
 
   const handleViewChannel = useCallback(() => {
     if (selectedChannel?.uri) {
-      setIsSheetVisible(false);
+      TrueSheet.dismiss('settings-channels-sheet');
       setSelectedChannel(null);
       router.navigate({
         pathname: '/channel/[id]',
@@ -101,7 +103,7 @@ export default function ChannelManagementScreen() {
           onPress: async () => {
             try {
               await unsubscribeFromChannel(selectedChannel.uri!);
-              setIsSheetVisible(false);
+              TrueSheet.dismiss('settings-channels-sheet');
               setSelectedChannel(null);
             } catch (error) {
               logger.error('Error unsubscribing from channel', error, {
@@ -200,11 +202,8 @@ export default function ChannelManagementScreen() {
       />
 
       <VerticalListSheet
-        visible={isSheetVisible}
-        onDismiss={() => {
-          setIsSheetVisible(false);
-          setSelectedChannel(null);
-        }}
+        name="settings-channels-sheet"
+        onDismiss={() => setSelectedChannel(null)}
         title={displayedTitle || 'Channel Options'}
         scrollable={true}
         showCancelButton={true}

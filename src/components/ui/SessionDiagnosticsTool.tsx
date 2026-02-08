@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable, Alert } from 'react-native';
 import { BORDER_RADIUS } from '../../utils/constants';
 import { Colors } from './UI';
 import { useAuth, useAccountManagement } from '../../stores/userStore';
-import VerticalListSheet from './VerticalListSheet';
+import VerticalListSheet, { TrueSheet } from './VerticalListSheet';
 
 interface SessionDiagnosticsToolProps {
   visible: boolean;
@@ -13,6 +13,10 @@ interface SessionDiagnosticsToolProps {
 const SessionDiagnosticsTool: React.FC<SessionDiagnosticsToolProps> = ({ visible, onDismiss }) => {
   const { clearCorruptedSessions, savedAccounts } = useAccountManagement();
   const { signOut } = useAuth();
+
+  useEffect(() => {
+    if (visible) TrueSheet.present('session-diagnostics-sheet');
+  }, [visible]);
 
   const handleClearSessions = async () => {
     try {
@@ -38,7 +42,7 @@ const SessionDiagnosticsTool: React.FC<SessionDiagnosticsToolProps> = ({ visible
 
   return (
     <VerticalListSheet
-      visible={visible}
+      name="session-diagnostics-sheet"
       onDismiss={onDismiss}
       title="Session Tools"
       showCancelButton={true}

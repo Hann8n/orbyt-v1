@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { View, Text, StyleSheet, Share, Platform, Alert, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,8 +8,7 @@ import KeyboardAwareFooter from '../../../utils/components/truesheet/KeyboardAwa
 import { Colors } from '../../../theme';
 import CloseButton from '../../ui/CloseButton';
 import CancelButton from '../../ui/CancelButton';
-import VerticalListSheet, { VerticalListButton } from '../../ui/VerticalListSheet';
-import type { TrueSheet } from '@lodev09/react-native-true-sheet';
+import VerticalListSheet, { VerticalListButton, TrueSheet } from '../../ui/VerticalListSheet';
 import {
   AppTrueSheet,
   CONTENT_TO_FOOTER_GAP_REDUCTION,
@@ -59,8 +58,12 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const insets = useSafeAreaInsets();
 
-  // TrueSheet refs for proper stacking
-  const submenuSheetRef = useRef<TrueSheet>(null);
+  useEffect(() => {
+    if (visible) TrueSheet.present('profile-menu-sheet');
+  }, [visible]);
+
+  // TrueSheet refs for proper stacking (submenu uses AppTrueSheet with ref)
+  const submenuSheetRef = useRef<import('@lodev09/react-native-true-sheet').TrueSheet>(null);
   const submenuFooterBottomPadding = Math.max(insets.bottom, FOOTER_BOTTOM_PADDING_MIN);
   const [submenuContentBottomPadding, wrapSubmenuFooter] = useMeasuredFooterHeight(
     44 + submenuFooterBottomPadding
@@ -359,12 +362,11 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
 
   return (
     <VerticalListSheet
-      visible={visible}
+      name="profile-menu-sheet"
       onDismiss={onDismiss}
       title={handle}
       showCancelButton={true}
       cancelButtonText="Cancel"
-      name="profile-menu"
     >
       {/* Main menu options */}
       <View style={styles.optionsContainer}>

@@ -31,7 +31,7 @@ import BlurredBackground from '../../src/components/ui/BlurredBackground';
 import { FlashList } from '@shopify/flash-list';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { AppTrueSheet } from '../../src/utils/components/truesheet';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 
@@ -1332,8 +1332,6 @@ export default function ChatScreen() {
     [otherUserAccentColor]
   );
   const headerConfig = itemSizeConfig.large;
-  const [showChatMenu, setShowChatMenu] = useState(false);
-  const [showReportOrBlockSheet, setShowReportOrBlockSheet] = useState(false);
   const reactionPicker = useReactionPicker();
   const closePickerRef = useRef(reactionPicker.closePicker);
   closePickerRef.current = reactionPicker.closePicker;
@@ -1707,7 +1705,7 @@ export default function ChatScreen() {
   const handleBack = useCallback(() => router.back(), [router]);
 
   const handleViewProfile = useCallback(() => {
-    setShowChatMenu(false);
+    TrueSheet.dismiss('chat-menu');
     if (otherDid) router.navigate({ pathname: '/profile/[did]', params: { did: otherDid } });
   }, [router, otherDid]);
 
@@ -1717,7 +1715,7 @@ export default function ChatScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.detail(convoId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.all });
-      setShowChatMenu(false);
+      TrueSheet.dismiss('chat-menu');
     },
   });
 
@@ -1730,7 +1728,7 @@ export default function ChatScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.detail(convoId) });
-      setShowChatMenu(false);
+      TrueSheet.dismiss('chat-menu');
       router.back();
     },
   });
@@ -1760,7 +1758,7 @@ export default function ChatScreen() {
         const success = await AtprotoService.reportContent(otherDid, reasonType);
         if (success) {
           Alert.alert('Thank you', 'This conversation has been reported for review.');
-          setShowChatMenu(false);
+          TrueSheet.dismiss('chat-menu');
         } else {
           Alert.alert('Error', 'Failed to submit report. Please try again.');
         }
@@ -1791,7 +1789,7 @@ export default function ChatScreen() {
     if (blockMutation.isPending || isBlockedByList) return;
     if (isBlocked) {
       blockMutation.mutate({ did: profile.did, handle: profile.handle, isBlocked: false });
-      setShowChatMenu(false);
+      TrueSheet.dismiss('chat-menu');
     } else {
       Alert.alert(
         'Block user',
@@ -1803,7 +1801,7 @@ export default function ChatScreen() {
             style: 'destructive',
             onPress: () => {
               blockMutation.mutate({ did: profile.did, handle: profile.handle, isBlocked: true });
-              setShowChatMenu(false);
+              TrueSheet.dismiss('chat-menu');
               router.back();
             },
           },
@@ -1972,7 +1970,7 @@ export default function ChatScreen() {
             </View>
           )}
           <Pressable
-            onPress={() => setShowChatMenu(true)}
+            onPress={() => TrueSheet.present('chat-menu')}
             style={styles.menuButton}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             accessibilityRole="button"
@@ -2015,12 +2013,11 @@ export default function ChatScreen() {
       />
 
       <VerticalListSheet
-        visible={showChatMenu}
-        onDismiss={() => setShowChatMenu(false)}
+        name="chat-menu"
+        onDismiss={() => {}}
         title={`Chat with ${formatHandle(profile?.handle) || 'user'}`}
         showCancelButton
         cancelButtonText="Cancel"
-        name="chat-menu"
       >
         <View style={styles.menuOptionsContainer}>
           <VerticalListButton label="Go to profile" onPress={handleViewProfile} />
@@ -2048,18 +2045,17 @@ export default function ChatScreen() {
       </VerticalListSheet>
 
       <VerticalListSheet
-        visible={showReportOrBlockSheet}
-        onDismiss={() => setShowReportOrBlockSheet(false)}
+        name="chat-report-or-block"
+        onDismiss={() => {}}
         title="Report or block"
         showCancelButton
         cancelButtonText="Cancel"
-        name="chat-report-or-block"
       >
         <View style={styles.menuOptionsContainer}>
           <VerticalListButton
             label={isBlocked ? 'Unblock account' : 'Block account'}
             onPress={() => {
-              setShowReportOrBlockSheet(false);
+              TrueSheet.dismiss('chat-report-or-block');
               handleBlockToggle();
             }}
             disabled={blockMutation.isPending || isBlockedByList}
@@ -2067,7 +2063,7 @@ export default function ChatScreen() {
           <VerticalListButton
             label="Report conversation"
             onPress={() => {
-              setShowReportOrBlockSheet(false);
+              TrueSheet.dismiss('chat-report-or-block');
               handleReportConversation();
             }}
             disabled={isReportSubmitting}
@@ -2126,7 +2122,7 @@ export default function ChatScreen() {
               <View style={styles.acceptBarOptionButtonWrap}>
                 <OptionsButton
                   label="Report or block"
-                  onPress={() => setShowReportOrBlockSheet(true)}
+                  onPress={() => TrueSheet.present('chat-report-or-block')}
                   disabled={acceptConvoMutation.isPending || leaveConvoMutation.isPending}
                   destructive
                   linkType="none"

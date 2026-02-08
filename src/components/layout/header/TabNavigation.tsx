@@ -1,10 +1,10 @@
-import React, { memo, useState } from 'react';
+import React, { memo } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, StyleSheet, Pressable, Text, StyleProp, ViewStyle } from 'react-native';
 import { ListViewIcon, GridViewIcon, DownSmallFillIcon } from '../../ui/Icon';
 import type { ViewMode } from '../../../types';
 import { Colors } from '../../../theme';
-import VerticalListSheet, { VerticalListButton } from '../../ui/VerticalListSheet';
+import VerticalListSheet, { VerticalListButton, TrueSheet } from '../../ui/VerticalListSheet';
 
 export interface TabOption {
   id: string;
@@ -41,8 +41,6 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
   variant = 'header', // Default to header variant
   dropdown = false, // Default to tabs
 }) => {
-  const [dropdownVisible, setDropdownVisible] = useState(false);
-
   const handleViewModeChange = (mode: ViewMode) => {
     if (onViewModeChange) {
       onViewModeChange(mode);
@@ -63,7 +61,10 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
     return (
       <>
         <View style={[styles.tabContainer, variantStyle, { backgroundColor }, style]}>
-          <Pressable style={styles.dropdownButton} onPress={() => setDropdownVisible(true)}>
+          <Pressable
+            style={styles.dropdownButton}
+            onPress={() => TrueSheet.present('tab-dropdown-sheet')}
+          >
             <Text
               style={[
                 styles.dropdownText,
@@ -110,10 +111,9 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
         </View>
 
         <VerticalListSheet
-          visible={dropdownVisible}
-          onDismiss={() => setDropdownVisible(false)}
-          title="Sort by"
           name="tab-dropdown-sheet"
+          onDismiss={() => {}}
+          title="Sort by"
           showCancelButton={true}
           cancelButtonText="Cancel"
         >
@@ -123,10 +123,8 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
                 key={tab.id}
                 label={tab.label}
                 onPress={() => {
-                  if (activeTab !== tab.id) {
-                    onTabPress(tab.id);
-                  }
-                  setDropdownVisible(false);
+                  if (activeTab !== tab.id) onTabPress(tab.id);
+                  TrueSheet.dismiss('tab-dropdown-sheet');
                 }}
                 disabled={tab.disabled || activeTab === tab.id}
               />

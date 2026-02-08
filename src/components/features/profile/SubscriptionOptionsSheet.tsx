@@ -1,6 +1,9 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
-import VerticalListSheet, { VerticalListCheckboxButton } from '../../ui/VerticalListSheet';
+import VerticalListSheet, {
+  VerticalListCheckboxButton,
+  TrueSheet,
+} from '../../ui/VerticalListSheet';
 import { useSubscriptionStore } from '../../../stores/subscriptionStore';
 
 const DEFAULT_PREFERENCES = { post: false, reply: false };
@@ -25,6 +28,10 @@ const SubscriptionOptionsSheet: React.FC<SubscriptionOptionsSheetProps> = ({
     const prefs = subscriptions.get(did);
     return prefs ?? DEFAULT_PREFERENCES;
   }, [did, subscriptions]);
+
+  useEffect(() => {
+    if (visible) TrueSheet.present('subscription-options-sheet');
+  }, [visible]);
 
   const handleTogglePreference = useCallback(
     async (key: 'post' | 'reply') => {
@@ -56,13 +63,12 @@ const SubscriptionOptionsSheet: React.FC<SubscriptionOptionsSheetProps> = ({
 
   return (
     <VerticalListSheet
-      visible={visible}
+      name="subscription-options-sheet"
       onDismiss={onDismiss}
       title="keep me posted"
       description="Get notified of this account's activity"
       showCancelButton={true}
       cancelButtonText="Done"
-      name="subscription-options-sheet"
       footerTopPadding={0}
     >
       <View style={styles.content}>
