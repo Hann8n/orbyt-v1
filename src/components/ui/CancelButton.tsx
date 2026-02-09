@@ -60,9 +60,9 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     color: Colors.neutral[50],
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '500',
     textAlign: 'center',
-    fontFamily: 'Figtree-SemiBold',
+    fontFamily: 'Figtree-Medium',
   },
   cancelButtonTextPressed: {
     color: Colors.black,

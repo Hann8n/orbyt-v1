@@ -1,7 +1,6 @@
 import React from 'react';
 import { BORDER_RADIUS } from '../../utils/constants';
 import { View, Text, StyleSheet, ViewStyle, TextStyle, StyleProp } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 
 /** Re-export: use TrueSheet.present(name) to show, TrueSheet.dismiss(name) to hide. */
@@ -10,7 +9,6 @@ import {
   AppTrueSheet,
   CONTENT_TO_FOOTER_GAP_REDUCTION,
   DEFAULT_HEADER_STYLE,
-  FOOTER_TOP_PADDING_DEFAULT,
   FOOTER_BOTTOM_PADDING_MIN,
   useMeasuredFooterHeight,
 } from '../../utils/components/truesheet';
@@ -92,12 +90,12 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
   footerBottomPadding: footerBottomPaddingProp,
   footerBackgroundColor = 'transparent',
 }) => {
-  const insets = useSafeAreaInsets();
+  // Use fixed padding only; TrueSheet's insetAdjustment='automatic' already accounts for safe area
   const footerBottomPadding =
     footerBottomPaddingProp !== undefined
       ? footerBottomPaddingProp
-      : Math.max(insets.bottom, FOOTER_BOTTOM_PADDING_MIN, 24);
-  const footerTop = footerTopPadding ?? FOOTER_TOP_PADDING_DEFAULT;
+      : Math.max(FOOTER_BOTTOM_PADDING_MIN, 28);
+  const footerTop = footerTopPadding ?? 6;
   const hasFooter = showCancelButton || customFooter;
   const fallbackFooterHeight = hasFooter ? footerTop + 44 + footerBottomPadding : 0;
   const [measuredFooterHeight, wrapFooter] = useMeasuredFooterHeight(fallbackFooterHeight);
@@ -192,6 +190,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     ...DEFAULT_HEADER_STYLE,
+    paddingHorizontal: 20,
   },
   headerTitle: {
     color: Colors.neutral[50],
@@ -208,7 +207,7 @@ const styles = StyleSheet.create({
   descriptionContainer: {
     marginTop: 4,
     marginBottom: 12,
-    paddingHorizontal: 12,
+    paddingHorizontal: 20,
   },
   descriptionText: {
     color: Colors.neutral[200],
@@ -218,9 +217,11 @@ const styles = StyleSheet.create({
     fontFamily: 'Figtree-Regular',
   },
   contentContainer: {
+    paddingHorizontal: 20,
     // Removed flex: 1 to allow 'auto' detent to properly size to content
   },
   footerContainer: {
+    paddingHorizontal: 20,
     backgroundColor: Colors.black,
   },
   cancelContainer: {
@@ -240,7 +241,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.neutral[50],
   },
   listButtonMargin: {
-    marginHorizontal: 8,
+    marginHorizontal: 0,
     marginBottom: 8,
   },
 });

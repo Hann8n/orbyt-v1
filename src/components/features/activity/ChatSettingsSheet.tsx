@@ -1,5 +1,4 @@
 import { useState, useCallback, useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
 import VerticalListSheet, {
   VerticalListCheckboxButton,
   TrueSheet,
@@ -62,20 +61,14 @@ export default function ChatSettingsSheet({ visible, onDismiss }: ChatSettingsSh
       showCancelButton
       cancelButtonText="Done"
     >
-      <View style={styles.content}>
-        {OPTIONS.map(opt => (
-          <VerticalListCheckboxButton
-            key={opt.value}
-            label={opt.label}
-            checked={localAllowIncoming === opt.value}
-            onPress={() => handleSelect(opt.value)}
-          />
-        ))}
-      </View>
+      {OPTIONS.map(opt => (
+        <VerticalListCheckboxButton
+          key={opt.value}
+          label={opt.label}
+          checked={localAllowIncoming === opt.value}
+          onPress={() => handleSelect(opt.value)}
+        />
+      ))}
     </VerticalListSheet>
   );
 }
-
-const styles = StyleSheet.create({
-  content: {},
-});
