@@ -174,9 +174,9 @@ const EditProfileScreen: React.FC = () => {
   // Predefined color options - just the pairings
   const predefinedColors: ProfileColorOption[] = useMemo(
     () => [
-      // Neutral/Universal
+      // Neutral/Universal (orbyt grey - matches DEFAULT_PROFILE_COLORS / palette)
       {
-        backgroundColor: Colors.black,
+        backgroundColor: Colors.neutral[900],
         textColor: Colors.neutral[200],
       },
       // Primary - colored backgrounds with white text (ordered by hue - reverse rainbow order, red first)

@@ -79,21 +79,21 @@ export const Colors = {
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // NEUTRAL SCALE (#636982 mid greys; #171a21 middle default for dark neutrals)
+  // NEUTRAL SCALE (cool blue-grey; 200=#ccd7e9 text, 900=#0e141b dark – orbyt grey)
   // ═══════════════════════════════════════════════════════════════════════════
   neutral: {
     0: '#f3f5fe', // ← Orbyt White (no pure white in app)
     50: '#f3f5fe', // ← Orbyt White
-    100: '#e9ecf8',
-    200: '#d5daea',
-    300: '#b4bcce',
-    400: '#8891ab',
-    500: '#636982', // ← Anchor grey (darker greys)
-    600: '#353b46',
-    700: '#262b34',
-    800: '#171a21', // ← Middle default for dark neutrals
-    900: '#111318',
-    950: '#0c0d10',
+    100: '#e4eaf5',
+    200: '#ccd7e9', // ← Default profile text / light grey
+    300: '#a8b8d4',
+    400: '#7a8aa8',
+    500: '#5a6580', // ← Anchor grey
+    600: '#3d4659',
+    700: '#282f3d',
+    800: '#1a1f2a',
+    900: '#0e141b', // ← Default profile background / dark
+    950: '#0a0e14',
   },
 
   // ═══════════════════════════════════════════════════════════════════════════

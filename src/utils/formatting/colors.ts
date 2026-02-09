@@ -154,10 +154,10 @@ export const getStatusBarStyle = (backgroundColor: string): 'light' | 'dark' => 
 };
 
 /**
- * Default profile colors used throughout the app
+ * Default profile colors used throughout the app (orbyt grey – from palette neutral scale).
  */
 export const DEFAULT_PROFILE_COLORS = {
-  backgroundColor: Colors.black,
+  backgroundColor: Colors.neutral[900],
   foregroundColor: Colors.neutral[200],
   statusBarStyle: 'light' as const,
 };
