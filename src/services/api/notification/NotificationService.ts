@@ -5,6 +5,7 @@
 
 import { logger } from '../../../utils/logger';
 import { AtprotoCore } from '../core';
+import type { OutputSchema as GetUnreadCountOutput } from '@atproto/api/dist/client/types/app/bsky/notification/getUnreadCount';
 import type {
   NotificationsResponse,
   NotificationReason,
@@ -69,6 +70,20 @@ export class NotificationService {
       });
       throw error; // Re-throw so the UI can handle it properly
     }
+  }
+
+  /**
+   * Get unread notification count (lightweight, for badge)
+   * @returns Promise with { count: number }
+   */
+  static async getUnreadCount(): Promise<GetUnreadCountOutput> {
+    await AtprotoCore.ensureSession();
+    const { api } = await AtprotoCore.getApiClient();
+    if (!api?.app?.bsky?.notification) {
+      return { count: 0 };
+    }
+    const res = await api.app.bsky.notification.getUnreadCount();
+    return res.data;
   }
 
   /**

@@ -590,6 +590,14 @@ class AtprotoService {
   }
 
   /**
+   * Get unread notification count (lightweight, for badge)
+   * Delegates to NotificationService
+   */
+  static async getUnreadCount(): Promise<{ count: number }> {
+    return NotificationService.getUnreadCount();
+  }
+
+  /**
    * Mark all notifications as seen for the current user
    * Delegates to NotificationService
    */

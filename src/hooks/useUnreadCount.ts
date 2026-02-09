@@ -4,9 +4,7 @@ import { ChatService } from '../services/api/chat/ChatService';
 import { useUserStore } from '../stores/userStore';
 import { QUERY_CONSTANTS } from '../utils/constants';
 import { queryKeys } from '../utils/query/queryKeys';
-import type { ConvoView, Notification } from '../services/api/types';
 
-/** Single unread state: API types ConvoView.unreadCount (number) + Notification.isRead (boolean) */
 export type UnreadSummary = {
   notificationsCount: number;
   messagesCount: number;
@@ -18,15 +16,12 @@ export const useUnreadCount = () => {
   const { data } = useQuery<UnreadSummary>({
     queryKey: queryKeys.unread.summary(),
     queryFn: async (): Promise<UnreadSummary> => {
-      const [notifResponse, { conversations }] = await Promise.all([
-        AtprotoService.listNotifications(null, 100),
+      const [{ count: notificationsCount }, { conversations }] = await Promise.all([
+        AtprotoService.getUnreadCount(),
         ChatService.listConvos(null),
       ]);
-      const notificationsCount = notifResponse.notifications.filter(
-        (n: Notification) => !n.isRead
-      ).length;
-      const messagesCount = (conversations as (ConvoView & { muted?: boolean })[]).reduce(
-        (sum, c) => sum + (c.muted ? 0 : (c.unreadCount ?? 0)),
+      const messagesCount = conversations.reduce(
+        (sum, c) => sum + (c.muted ? 0 : c.unreadCount),
         0
       );
       return { notificationsCount, messagesCount };
