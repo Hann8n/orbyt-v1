@@ -361,6 +361,9 @@ export default function RootLayout() {
     return unsubscribe;
   }, []);
 
+  // Note: OAuthSession.fetchHandler automatically refreshes tokens when making API calls
+  // No need to manually refresh on app foreground - tokens refresh automatically via getTokenSet('auto')
+
   return (
     <ThemeProvider value={DarkTheme}>
       <AppProviders>

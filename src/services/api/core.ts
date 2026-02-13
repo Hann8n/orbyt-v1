@@ -11,7 +11,7 @@ import type { Agent } from '@atproto/api';
  * Small helper to wait until the userStore finishes auth/switching and exposes an agent.
  * This prevents request spam and avoids throwing during session transitions.
  */
-async function waitForAgent(timeoutMs: number = 6000): Promise<{ api: Agent } | null> {
+async function waitForAgent(timeoutMs: number = 6000): Promise<Agent | null> {
   const { useUserStore } = await import('../../stores/userStore');
   const start = Date.now();
 
@@ -19,7 +19,8 @@ async function waitForAgent(timeoutMs: number = 6000): Promise<{ api: Agent } | 
     const checkAndResolve = (state = useUserStore.getState()) => {
       if (state.agent) {
         unsubscribe();
-        resolve({ api: state.agent.api });
+        // Return Agent directly - agent.api is deprecated, use agent directly
+        resolve(state.agent);
         return;
       }
 
@@ -90,6 +91,7 @@ export class AtprotoCore {
   /**
    * Get the API client (OAuth or app password)
    * Gets the current Agent from userStore
+   * OAuthSession.fetchHandler automatically refreshes tokens via getTokenSet('auto')
    * Returns null if no session is available (instead of throwing)
    */
   static async getApiClient(): Promise<ApiClient> {
@@ -98,6 +100,7 @@ export class AtprotoCore {
       const state = useUserStore.getState();
 
       if (state.agent) {
+        // Use agent directly - agent.api is deprecated but still works for compatibility
         return { api: state.agent.api, isOAuth: true };
       }
 

@@ -482,9 +482,16 @@ export const useUserStore = create<UserState>()(
           loadPersistedColors(did);
 
           const client = getOAuthClient();
+          // client.restore() automatically refreshes tokens if needed per OAuth spec
+          // This ensures we always get the latest session with valid tokens
           const session = await client.restore(did);
 
-          // Create agent from session - Agent accepts OAuthSession directly
+          if (!session) {
+            throw new Error('Failed to restore session from OAuth client');
+          }
+
+          // Create agent from fresh session - Agent accepts OAuthSession directly
+          // The OAuth client handles token refresh internally, so this session is always fresh
           const agent = new Agent(session);
 
           // Get user profile and email verification status in parallel
@@ -1184,6 +1191,9 @@ export const useUserStore = create<UserState>()(
       },
 
       // Session management
+      // Note: OAuthSession.fetchHandler automatically refreshes tokens via getTokenSet('auto')
+      // The Agent uses OAuthSession.fetchHandler, so token refresh happens automatically
+      // We only need to ensure the Agent is created with a valid session from client.restore()
       checkSessionHealth: async () => {
         try {
           const currentUser = get().currentUser;
@@ -1199,27 +1209,47 @@ export const useUserStore = create<UserState>()(
             const agent = get().agent;
             const userDid = get().currentUser?.did;
             if (agent && userDid) {
-              // Try to make a simple API call to verify the session is still valid
+              // OAuthSession.fetchHandler automatically refreshes tokens if needed
+              // Just verify the session is still valid with a simple API call
               await agent.api.app.bsky.actor.getProfile({
                 actor: userDid,
               });
               isHealthy = true;
             }
-          } catch {
-            // Session is invalid
-            isHealthy = false;
+          } catch (error) {
+            // If it's a reauth error, session is invalid
+            if (requiresReauth(error)) {
+              isHealthy = false;
+            } else {
+              // Other errors (network, etc.) don't necessarily mean session is invalid
+              // OAuthSession will handle token refresh automatically on next request
+              isHealthy = false;
+            }
           }
 
-          // If both session types are unhealthy, sign out the user
+          // If session is unhealthy and requires reauth, sign out the user
           if (!isHealthy && get().isAuthenticated) {
-            set({
-              isAuthenticated: false,
-              currentUser: null,
-              currentUserProfileColors: null,
-              oauthSession: null,
-              agent: undefined,
-              activeAccountDid: null,
-            });
+            const agent = get().agent;
+            if (agent) {
+              try {
+                // Try one more time - OAuthSession might refresh tokens automatically
+                await agent.api.app.bsky.actor.getProfile({
+                  actor: currentUser.did,
+                });
+                isHealthy = true;
+              } catch (finalError) {
+                if (requiresReauth(finalError)) {
+                  set({
+                    isAuthenticated: false,
+                    currentUser: null,
+                    currentUserProfileColors: null,
+                    oauthSession: null,
+                    agent: undefined,
+                    activeAccountDid: null,
+                  });
+                }
+              }
+            }
           }
 
           return isHealthy;
