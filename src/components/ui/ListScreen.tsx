@@ -175,7 +175,7 @@ const ListScreen: React.FC<ListScreenProps> = ({
         showCloseButton
         onClosePress={() => router.dismiss()}
         applySafeAreaTop={false}
-        backgroundColor={Colors.black}
+        backgroundColor={Colors.transparent}
       />
     ),
     [title, router]

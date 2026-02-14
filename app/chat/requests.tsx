@@ -13,7 +13,7 @@ export default function ChatRequestsScreen() {
         title="Requests"
         showBackButton
         applySafeAreaTop
-        backgroundColor={Colors.black}
+        backgroundColor={Colors.transparent}
       />
       <View style={styles.list}>
         <ChatsTab chatFilter={REQUESTS_FILTER} />

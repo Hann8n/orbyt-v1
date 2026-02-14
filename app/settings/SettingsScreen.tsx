@@ -354,12 +354,30 @@ ${deviceInfo}`
       ],
     },
     {
+      title: 'Community',
+      items: [
+        {
+          id: 'ideas',
+          label: 'Ideas & feature requests',
+          icon: 'message-circle',
+          onPress: () => router.navigate('/settings/community'),
+          linkType: 'internal',
+        },
+      ],
+    },
+    {
       title: 'About',
       items: [
         {
           id: 'website',
           label: 'Website',
           onPress: () => handleOpenLink('https://getorbyt.com'),
+          linkType: 'external',
+        },
+        {
+          id: 'forum',
+          label: 'Forum',
+          onPress: () => handleOpenLink('https://community.getorbyt.com'),
           linkType: 'external',
         },
         {
@@ -503,7 +521,7 @@ ${deviceInfo}`
         showCloseButton
         onClosePress={() => router.dismiss()}
         applySafeAreaTop={Platform.OS === 'android'}
-        backgroundColor={Colors.black}
+        backgroundColor={Colors.transparent}
       />
       <ScrollView
         contentContainerStyle={settingsLayoutStyles.contentContainerWithPadding}

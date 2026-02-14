@@ -26,7 +26,7 @@ interface ListHeaderProps {
 const ListHeader: React.FC<ListHeaderProps> = ({
   mode,
   title,
-  backgroundColor = Colors.black,
+  backgroundColor = Colors.transparent,
   textColor = Colors.neutral[50],
   showBackButton = false,
   onBackPress,
@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 0,
-    borderBottomColor: 'transparent',
+    borderBottomColor: Colors.transparent,
   },
   containerStacked: {
     paddingHorizontal: 20,

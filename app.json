@@ -10,7 +10,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.getorbyt.app",
       "appleTeamId": "D8VXFBV8SJ",
-      "buildNumber": "42",
+      "buildNumber": "45",
       "icon": "./src/assets/AppIcons/iOS/Orbyt.icon",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -28,7 +28,7 @@
         "backgroundColor": "#000000"
       },
       "package": "com.orbyt.app",
-      "versionCode": 42,
+      "versionCode": 45,
       "permissions": ["CAMERA", "RECORD_AUDIO"]
     },
     "web": {
@@ -40,7 +40,8 @@
         {
           "backgroundColor": "#000000",
           "image": "./src/assets/splash.png",
-          "imageWidth": 200
+          "imageWidth": 200,
+          "resizeMode": "contain"
         }
       ],
       "expo-system-ui",
@@ -55,48 +56,6 @@
             "./src/assets/fonts/Figtree-BoldItalic.ttf",
             "./src/assets/fonts/Figtree-Black.ttf"
           ]
-        }
-      ],
-      [
-        "@mozzius/expo-dynamic-app-icon",
-        {
-          "orBYTE": {
-            "ios": "./src/assets/AppIcons/iOS/orBYTE.png",
-            "android": "./src/assets/AppIcons/android/orBYTE_foreground.png",
-            "prerendered": true
-          },
-          "planyt-red": {
-            "ios": "./src/assets/AppIcons/iOS/planyt/planyt-red.png",
-            "prerendered": true
-          },
-          "planyt-orange": {
-            "ios": "./src/assets/AppIcons/iOS/planyt/planyt-orange.png",
-            "prerendered": true
-          },
-          "planyt-yellow": {
-            "ios": "./src/assets/AppIcons/iOS/planyt/planyt-yellow.png",
-            "prerendered": true
-          },
-          "planyt-green": {
-            "ios": "./src/assets/AppIcons/iOS/planyt/planyt-green.png",
-            "prerendered": true
-          },
-          "planyt-blue": {
-            "ios": "./src/assets/AppIcons/iOS/planyt/planyt-blue.png",
-            "prerendered": true
-          },
-          "planyt-purple": {
-            "ios": "./src/assets/AppIcons/iOS/planyt/planyt-purple.png",
-            "prerendered": true
-          },
-          "planyt-greyscale": {
-            "ios": "./src/assets/AppIcons/iOS/planyt/planyt-greyscale.png",
-            "prerendered": true
-          },
-          "planyt-greyscale-alt": {
-            "ios": "./src/assets/AppIcons/iOS/planyt/planyt-greyscale-alt.png",
-            "prerendered": true
-          }
         }
       ],
       [

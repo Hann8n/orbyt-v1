@@ -1,0 +1,13 @@
+diff --git a/node_modules/react-native-clip-trim/android/build.gradle b/node_modules/react-native-clip-trim/android/build.gradle
+index 5a1c2de..b8e1234 100644
+--- a/node_modules/react-native-clip-trim/android/build.gradle
++++ b/node_modules/react-native-clip-trim/android/build.gradle
+@@ -95,7 +95,7 @@ def kotlin_version = getExtOrDefault("kotlinVersion")
+ dependencies {
+   implementation "com.facebook.react:react-android"
+   implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+-  implementation 'io.github.maitrungduc1410:ffmpeg-kit-' + getPackageNameOrDefault() +':' + getPackageVersionOrDefault()
++  implementation files("${rootProject.projectDir}/../patches/ffmpeg-kit-full-gpl.aar")
+ }
+ 
+ if (isNewArchitectureEnabled()) {

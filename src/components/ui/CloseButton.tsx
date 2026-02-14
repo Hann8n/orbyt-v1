@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 import { BORDER_RADIUS } from '../../utils/constants';
+import { hexToRGBA } from '../../utils/formatting/colors';
 import { Colors } from './UI';
 import Icon from './Icon';
 
@@ -17,28 +18,22 @@ const CloseButton: React.FC<CloseButtonProps> = ({ onPress }) => {
       accessibilityLabel="Close"
       accessibilityHint="Closes the current sheet"
     >
-      {({ pressed }) => (
-        <Icon
-          name="close"
-          size={20}
-          color={pressed ? Colors.black : Colors.neutral[50]}
-          style={styles.closeIcon}
-        />
-      )}
+      <Icon name="close" size={20} color={Colors.neutral[50]} style={styles.closeIcon} />
     </Pressable>
   );
 };
 
 const styles = StyleSheet.create({
   closeButton: {
-    width: 30,
-    height: 30,
+    width: 40,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: BORDER_RADIUS.MEDIUM,
+    borderRadius: BORDER_RADIUS.LARGE,
+    backgroundColor: hexToRGBA(Colors.neutral[500], 0.12),
   },
   closeButtonPressed: {
-    backgroundColor: Colors.neutral[50],
+    backgroundColor: Colors.neutral[800],
   },
   closeIcon: {
     margin: 0,

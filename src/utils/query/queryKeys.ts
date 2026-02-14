@@ -157,4 +157,10 @@ export const queryKeys = {
     all: moderationBase,
     byUser: (did: string) => [...moderationBase, did] as const,
   },
+
+  // Discourse community (Ideas and Feature Requests)
+  discourse: {
+    all: ['discourse'] as const,
+    categoryTopics: (categoryId: number) => ['discourse', 'category', categoryId] as const,
+  },
 } as const;

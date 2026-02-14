@@ -117,3 +117,10 @@ export const VIDEO_EDITOR_MESSAGES = {
   TRIM_NOT_AVAILABLE:
     'Trim functionality is coming in a future update! You can currently:\n\n• Reorder clips by long pressing and dragging\n• Delete unwanted clips\n• Preview the final video\n\nFor now, consider re-recording shorter clips or editing the video after posting.',
 } as const;
+
+// Discourse community (Ideas and Feature Requests)
+export const DISCOURSE = {
+  COMMUNITY_URL: 'https://community.getorbyt.com',
+  IDEAS_CATEGORY_ID: 11,
+  IDEAS_CATEGORY_SLUG: 'ideas-and-feature-requests',
+} as const;

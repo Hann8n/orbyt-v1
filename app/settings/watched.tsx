@@ -18,7 +18,7 @@ const WatchedScreen: React.FC = () => {
         showCloseButton
         onClosePress={() => router.dismiss()}
         applySafeAreaTop={false}
-        backgroundColor={Colors.black}
+        backgroundColor={Colors.transparent}
       />
       <FeedRenderer
         feedOption="watched"

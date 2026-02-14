@@ -163,7 +163,7 @@ const HiddenPostsScreen: React.FC = () => {
           showCloseButton
           onClosePress={() => router.dismiss()}
           applySafeAreaTop={false}
-          backgroundColor={Colors.black}
+          backgroundColor={Colors.transparent}
         />
         <View style={styles.loadingContainer}>
           <Loading3FillIcon size={48} color={Colors.neutral[50]} />
@@ -181,7 +181,7 @@ const HiddenPostsScreen: React.FC = () => {
         showCloseButton
         onClosePress={() => router.dismiss()}
         applySafeAreaTop={false}
-        backgroundColor={Colors.black}
+        backgroundColor={Colors.transparent}
       />
 
       <FlatList

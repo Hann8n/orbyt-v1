@@ -1274,22 +1274,6 @@
     resolve-from "^5.0.0"
     semver "^7.6.0"
 
-"@expo/image-utils@^0.8.7":
-  version "0.8.8"
-  resolved "https://registry.yarnpkg.com/@expo/image-utils/-/image-utils-0.8.8.tgz#db5d460fd0c7101b10e9d027ffbe42f9cf115248"
-  integrity sha512-HHHaG4J4nKjTtVa1GG9PCh763xlETScfEyNxxOvfTRr8IKPJckjTyqSLEtdJoFNJ1vqiABEjW7tqGhqGibZLeA==
-  dependencies:
-    "@expo/spawn-async" "^1.7.2"
-    chalk "^4.0.0"
-    getenv "^2.0.0"
-    jimp-compact "0.16.1"
-    parse-png "^2.1.0"
-    resolve-from "^5.0.0"
-    resolve-global "^1.0.0"
-    semver "^7.6.0"
-    temp-dir "~2.0.0"
-    unique-string "~2.0.0"
-
 "@expo/json-file@^10.0.12", "@expo/json-file@~10.0.12":
   version "10.0.12"
   resolved "https://registry.yarnpkg.com/@expo/json-file/-/json-file-10.0.12.tgz#411216996ab6df6765d463de22283b3f30e49ccb"
@@ -1919,14 +1903,6 @@
   version "2.6.0"
   resolved "https://registry.yarnpkg.com/@miblanchard/react-native-slider/-/react-native-slider-2.6.0.tgz#9f78c805d637ffaff0e3e7429932d2995a67edc9"
   integrity sha512-o7hk/f/8vkqh6QNR5L52m+ws846fQeD/qNCC9CCSRdBqjq66KiCgbxzlhRzKM/gbtxcvMYMIEEJ1yes5cr6I3A==
-
-"@mozzius/expo-dynamic-app-icon@^1.8.1":
-  version "1.8.1"
-  resolved "https://registry.yarnpkg.com/@mozzius/expo-dynamic-app-icon/-/expo-dynamic-app-icon-1.8.1.tgz#082e35236d98378ed129ba18cda9518b3f14a52c"
-  integrity sha512-JWNY9gw06s+q54b2SqWf6BEo7IYuJCtjJDtca+wTo6kP5dH/wYK85JdLrMbdy+cwOMScEY85uU6Mjn0wkWTLnw==
-  dependencies:
-    "@expo/image-utils" "^0.8.7"
-    xcode "^3.0.1"
 
 "@radix-ui/primitive@1.1.3":
   version "1.1.3"
@@ -3610,11 +3586,6 @@ cross-spawn@^7.0.3, cross-spawn@^7.0.6:
     shebang-command "^2.0.0"
     which "^2.0.1"
 
-crypto-random-string@^2.0.0:
-  version "2.0.0"
-  resolved "https://registry.yarnpkg.com/crypto-random-string/-/crypto-random-string-2.0.0.tgz#ef2a7a966ec11083388369baa02ebead229b30d5"
-  integrity sha512-v1plID3y9r/lPhviJ1wrXpLeyUIGAZ2SHNYTEapm7/8A9nLPoyvVp3RK/EPFqn5kEznyWgYZNsRtYYIWbuG8KA==
-
 css-in-js-utils@^3.1.0:
   version "3.1.0"
   resolved "https://registry.yarnpkg.com/css-in-js-utils/-/css-in-js-utils-3.1.0.tgz#640ae6a33646d401fc720c54fc61c42cd76ae2bb"
@@ -4854,13 +4825,6 @@ glob@^9.3.3:
     minipass "^4.2.4"
     path-scurry "^1.6.1"
 
-global-dirs@^0.1.1:
-  version "0.1.1"
-  resolved "https://registry.yarnpkg.com/global-dirs/-/global-dirs-0.1.1.tgz#b319c0dd4607f353f3be9cca4c72fc148c49f445"
-  integrity sha512-NknMLn7F2J7aflwFOlGdNIuCDpN3VGoSoB+aap3KABFWbHVn1TCgFC+np23J8W2BiZbjfEw3BFBycSMv1AFblg==
-  dependencies:
-    ini "^1.3.4"
-
 globals@^14.0.0:
   version "14.0.0"
   resolved "https://registry.yarnpkg.com/globals/-/globals-14.0.0.tgz#898d7413c29babcf6bafe56fcadded858ada724e"
@@ -5081,7 +5045,7 @@ inherits@2, inherits@^2.0.3, inherits@~2.0.3, inherits@~2.0.4:
   resolved "https://registry.yarnpkg.com/inherits/-/inherits-2.0.4.tgz#0fa2c64f932917c3433a0ded55363aae37416b7c"
   integrity sha512-k/vGaX4/Yla3WzyMCvTQOXYeIHvqOKtnqBduzTHpzpQZzAskKMhZ2K+EnBiSM9zGSoIFeMpXKxa4dYeZIQqewQ==
 
-ini@^1.3.4, ini@~1.3.0:
+ini@~1.3.0:
   version "1.3.8"
   resolved "https://registry.yarnpkg.com/ini/-/ini-1.3.8.tgz#a29da425b48806f34767a4efce397269af28432c"
   integrity sha512-JV/yugV2uzW5iMRSiZAyDtQd+nxtUnjeLt0acNdw98kKLrvuRVyB80tsREOE7yvGVgalhZ6RNXCmEHkUKBKxew==
@@ -7197,13 +7161,6 @@ resolve-from@^5.0.0:
   resolved "https://registry.yarnpkg.com/resolve-from/-/resolve-from-5.0.0.tgz#c35225843df8f776df21c57557bc087e9dfdfc69"
   integrity sha512-qYg9KP24dD5qka9J47d0aVky0N+b4fTU89LN9iDnjB5waksiC49rvMB0PrUJQGoTmH50XPiqOvAjDfaijGxYZw==
 
-resolve-global@^1.0.0:
-  version "1.0.0"
-  resolved "https://registry.yarnpkg.com/resolve-global/-/resolve-global-1.0.0.tgz#a2a79df4af2ca3f49bf77ef9ddacd322dad19255"
-  integrity sha512-zFa12V4OLtT5XUX/Q4VLvTfBf+Ok0SPc1FNGM/z9ctUdiU618qwKpWnd0CHs3+RqROfyEg/DhuHbMWYqcgljEw==
-  dependencies:
-    global-dirs "^0.1.1"
-
 resolve-workspace-root@^2.0.0:
   version "2.0.1"
   resolved "https://registry.yarnpkg.com/resolve-workspace-root/-/resolve-workspace-root-2.0.1.tgz#9cbbf8321ebccaaf0e4ffea5274aa26b611ccd62"
@@ -7875,11 +7832,6 @@ supports-preserve-symlinks-flag@^1.0.0:
   resolved "https://registry.yarnpkg.com/supports-preserve-symlinks-flag/-/supports-preserve-symlinks-flag-1.0.0.tgz#6eda4bd344a3c94aea376d4cc31bc77311039e09"
   integrity sha512-ot0WnXS9fgdkgIcePe6RHNk1WA8+muPa6cSjeR3V8K27q9BB1rTE3R1p7Hv0z1ZyAc8s6Vvv8DIyWf681MAt0w==
 
-temp-dir@~2.0.0:
-  version "2.0.0"
-  resolved "https://registry.yarnpkg.com/temp-dir/-/temp-dir-2.0.0.tgz#bde92b05bdfeb1516e804c9c00ad45177f31321e"
-  integrity sha512-aoBAniQmmwtcKp/7BzsH8Cxzv8OL736p7v1ihGb5e9DJ9kTwGWHrQrVB5+lfVDzfGrdRzXch+ig7LHaY1JTOrg==
-
 terminal-link@^2.1.1:
   version "2.1.1"
   resolved "https://registry.yarnpkg.com/terminal-link/-/terminal-link-2.1.1.tgz#14a64a27ab3c0df933ea546fba55f2d078edc994"
@@ -8145,13 +8097,6 @@ unimodules-app-loader@~55.0.2:
   version "55.0.2"
   resolved "https://registry.yarnpkg.com/unimodules-app-loader/-/unimodules-app-loader-55.0.2.tgz#f11f763159c5e38f6219317285a48654e55f8bb8"
   integrity sha512-SarK/0fxceV3mpP26+0mlwDbHOn98OkHEMAifrRU0+uhAnAuZkEJKNPL/QKBFhwNCaeQGiL9s3XAQ9ZMtkJ47g==
-
-unique-string@~2.0.0:
-  version "2.0.0"
-  resolved "https://registry.yarnpkg.com/unique-string/-/unique-string-2.0.0.tgz#39c6451f81afb2749de2b233e3f7c5e8843bd89d"
-  integrity sha512-uNaeirEPvpZWSgzwsPGtU2zVSTrn/8L5q/IexZmH0eH6SA73CmAA5U4GwORTxQAZs95TAXLNqeLoPPNO5gZfWg==
-  dependencies:
-    crypto-random-string "^2.0.0"
 
 universalify@^2.0.0:
   version "2.0.1"

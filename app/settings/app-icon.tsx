@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { setAppIcon, getAppIcon } from '@mozzius/expo-dynamic-app-icon';
+// import { setAppIcon, getAppIcon } from '@mozzius/expo-dynamic-app-icon';
 import type { ImageSource } from 'expo-image';
 
 import { Colors } from '../../src/theme';
@@ -23,14 +23,14 @@ import { formatHandle } from '../../src/utils/formatting/handles';
 
 type AppIconKey =
   | 'orBYTE'
-  | 'planyt-green'
-  | 'planyt-blue'
-  | 'planyt-greyscale'
-  | 'planyt-greyscale-alt'
-  | 'planyt-yellow'
-  | 'planyt-purple'
-  | 'planyt-orange'
-  | 'planyt-red'
+  | 'planyt_green'
+  | 'planyt_blue'
+  | 'planyt_greyscale'
+  | 'planyt_greyscale_alt'
+  | 'planyt_yellow'
+  | 'planyt_purple'
+  | 'planyt_orange'
+  | 'planyt_red'
   | null;
 
 type IconOption = {
@@ -78,51 +78,51 @@ const ICON_SECTIONS: IconSection[] = [
     },
     items: [
       {
-        id: 'planyt-red',
+        id: 'planyt_red',
         label: 'Red',
-        iconKey: 'planyt-red',
+        iconKey: 'planyt_red',
         preview: require('../../src/assets/AppIcons/iOS/planyt/planyt-red.png'),
       },
       {
-        id: 'planyt-orange',
+        id: 'planyt_orange',
         label: 'Orange',
-        iconKey: 'planyt-orange',
+        iconKey: 'planyt_orange',
         preview: require('../../src/assets/AppIcons/iOS/planyt/planyt-orange.png'),
       },
       {
-        id: 'planyt-yellow',
+        id: 'planyt_yellow',
         label: 'Yellow',
-        iconKey: 'planyt-yellow',
+        iconKey: 'planyt_yellow',
         preview: require('../../src/assets/AppIcons/iOS/planyt/planyt-yellow.png'),
       },
       {
-        id: 'planyt-green',
+        id: 'planyt_green',
         label: 'Green',
-        iconKey: 'planyt-green',
+        iconKey: 'planyt_green',
         preview: require('../../src/assets/AppIcons/iOS/planyt/planyt-green.png'),
       },
       {
-        id: 'planyt-blue',
+        id: 'planyt_blue',
         label: 'Blue',
-        iconKey: 'planyt-blue',
+        iconKey: 'planyt_blue',
         preview: require('../../src/assets/AppIcons/iOS/planyt/planyt-blue.png'),
       },
       {
-        id: 'planyt-purple',
+        id: 'planyt_purple',
         label: 'Purple',
-        iconKey: 'planyt-purple',
+        iconKey: 'planyt_purple',
         preview: require('../../src/assets/AppIcons/iOS/planyt/planyt-purple.png'),
       },
       {
-        id: 'planyt-greyscale',
+        id: 'planyt_greyscale',
         label: 'Greyscale',
-        iconKey: 'planyt-greyscale',
+        iconKey: 'planyt_greyscale',
         preview: require('../../src/assets/AppIcons/iOS/planyt/planyt-greyscale.png'),
       },
       {
-        id: 'planyt-greyscale-alt',
+        id: 'planyt_greyscale_alt',
         label: 'Greyscale Alt',
-        iconKey: 'planyt-greyscale-alt',
+        iconKey: 'planyt_greyscale_alt',
         preview: require('../../src/assets/AppIcons/iOS/planyt/planyt-greyscale-alt.png'),
       },
     ],
@@ -135,13 +135,8 @@ const NUM_COLUMNS = 4;
 
 const AppIconSettingsScreen: React.FC = () => {
   const router = useRouter();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  // Use lazy initialization to get the current icon on mount without triggering effect warnings
-  const [currentIcon, setCurrentIcon] = useState<AppIconKey>(() => {
-    const iconName = getAppIcon();
-    // getAppIcon returns "DEFAULT" for the default icon, convert to null
-    return iconName === 'DEFAULT' ? null : (iconName as AppIconKey);
-  });
+  // Dynamic app icons temporarily disabled - incompatible with Expo 55
+  const currentIcon = null;
   const { currentUser } = useCurrentUser();
   const { data: orbytColors } = useOrbytColors(currentUser?.did ?? null);
   const isBeta = orbytColors?.isBeta ?? false;
@@ -152,28 +147,10 @@ const AppIconSettingsScreen: React.FC = () => {
   const totalGapWidth = GRID_GAP * (NUM_COLUMNS - 1);
   const iconSize = Math.floor((availableWidth - totalGapWidth) / NUM_COLUMNS);
 
-  const handleSelectIcon = useCallback(
-    async (iconKey: AppIconKey) => {
-      if (isSubmitting) return;
-
-      setIsSubmitting(true);
-
-      try {
-        // setAppIcon resolves to the icon name on success, or throws on error
-        await setAppIcon(iconKey);
-
-        // Verify the change actually succeeded by reading the current icon
-        const newIconName = getAppIcon();
-        const newIcon = newIconName === 'DEFAULT' ? null : (newIconName as AppIconKey);
-        setCurrentIcon(newIcon);
-      } catch {
-        // Swallow errors; we'll just keep the previous icon selection
-      } finally {
-        setIsSubmitting(false);
-      }
-    },
-    [isSubmitting]
-  );
+  const handleSelectIcon = useCallback(async () => {
+    // Dynamic app icons temporarily disabled - incompatible with Expo 55
+    return;
+  }, []);
 
   return (
     <View style={settingsLayoutStyles.container}>
@@ -183,7 +160,7 @@ const AppIconSettingsScreen: React.FC = () => {
         showCloseButton
         onClosePress={() => router.dismiss()}
         applySafeAreaTop={Platform.OS === 'android'}
-        backgroundColor={Colors.black}
+        backgroundColor={Colors.transparent}
       />
 
       <ScrollView
@@ -228,8 +205,7 @@ const AppIconSettingsScreen: React.FC = () => {
                     <TouchableOpacity
                       key={option.id}
                       style={[styles.iconItem, { width: iconSize }]}
-                      onPress={() => handleSelectIcon(option.iconKey)}
-                      disabled={isSubmitting}
+                      onPress={handleSelectIcon}
                       activeOpacity={0.7}
                     >
                       <View style={[styles.iconWrapper, { width: iconSize, height: iconSize }]}>
