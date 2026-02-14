@@ -205,19 +205,19 @@ const styles = StyleSheet.create({
     height: 30,
   },
   descriptionContainer: {
-    marginTop: 4,
-    marginBottom: 12,
+    marginTop: -12,
+    marginBottom: 10,
     paddingHorizontal: 20,
   },
   descriptionText: {
     color: Colors.neutral[200],
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: 15,
+    lineHeight: 20,
     textAlign: 'left',
     fontFamily: 'Figtree-Regular',
   },
   contentContainer: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 12,
     // Removed flex: 1 to allow 'auto' detent to properly size to content
   },
   footerContainer: {

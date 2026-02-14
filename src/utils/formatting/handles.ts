@@ -23,7 +23,7 @@ export function splitHandleSuffix(handle: string | null | undefined): {
   handleSuffix: string | null;
 } {
   if (!handle) {
-    return { handleBase: 'username', handleSuffix: null };
+    return { handleBase: 'handle', handleSuffix: null };
   }
 
   const orbytSuffix = '.orbyt.video';

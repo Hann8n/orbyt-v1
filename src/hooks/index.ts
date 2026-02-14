@@ -10,3 +10,4 @@ export {
   useVisibilityRouteTracker,
   useVisibilityRouteIsActive,
 } from '../core/visibility';
+export { useSheetPresentation } from './useSheetPresentation';

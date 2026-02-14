@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { BORDER_RADIUS } from '../src/utils/constants';
 import {
   View,
@@ -11,32 +11,33 @@ import {
   StatusBar,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Svg, Path, Rect, Defs, Mask } from 'react-native-svg';
-import Icon, { Loading3FillIcon } from '../src/components/ui/Icon';
+import { Loading3FillIcon } from '../src/components/ui/Icon';
 import { Colors } from '../src/theme';
 import AuthorItem from '../src/components/ui/AuthorItem';
 import { SavedAccount } from '../src/stores/userStore';
 import { useAuth, useAccountManagement } from '../src/stores/userStore';
-import { isUserCancellation, getErrorMessage } from '../src/utils/errors/errorHandler';
 import { hexToRGBA } from '../src/utils/formatting/colors';
 import RocketBackground from '../src/components/ui/RocketBackground';
+import SignUpSheet from '../src/components/ui/SignUpSheet';
+import LoginSheet from '../src/components/ui/LoginSheet';
 
 // Login logo: PNG 4x on Android (avoids SVG stroke clipping), SVG on iOS
 const orbytLogoLoginPng = require('../src/assets/orbyt-logo-login.png');
+const atSignSky = require('../src/assets/at-sign-sky.png');
 
 interface LoginScreenProps {
-  onLogin?: (handle: string) => Promise<void>;
   onAccountSwitch?: (account: SavedAccount) => Promise<void>;
 }
 
-export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenProps = {}) {
-  const router = useRouter();
+export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) {
   const insets = useSafeAreaInsets();
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [oauthError, setOAuthError] = useState<string | null>(null);
+  const [showSignUpSheet, setShowSignUpSheet] = useState<boolean>(false);
+  const [showLoginSheet, setShowLoginSheet] = useState<boolean>(false);
 
   // User store hooks
   const { signIn, clearAuthError } = useAuth();
@@ -44,40 +45,15 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
   const { savedAccounts, switchAccount, loadSavedAccounts, checkAccountSessionValidity } =
     useAccountManagement();
 
-  const hasSavedAccounts = savedAccounts.length > 0;
-
-  const handleLogin = async () => {
-    setIsLoading(true);
-    setOAuthError(null);
-    clearAuthError();
-
-    try {
-      await signIn('https://bsky.social');
-
-      // Reload accounts to show the new one
+  const handleLoginSignIn = useCallback(
+    async (identifier: string) => {
+      await signIn(identifier);
       await loadSavedAccounts();
+    },
+    [signIn, loadSavedAccounts]
+  );
 
-      if (onLogin) {
-        await onLogin('oauth-success');
-      }
-
-      // Stack.Protected automatically redirects when session is set
-      // No manual navigation needed
-    } catch (error) {
-      // Don't show errors for user cancellation
-      if (isUserCancellation(error)) {
-        return;
-      }
-
-      const errorMessage = getErrorMessage(error);
-      setOAuthError(errorMessage);
-
-      // Show error with app password fallback option
-      Alert.alert('Sign-in Failed', errorMessage, [{ text: 'OK', style: 'cancel' }]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const hasSavedAccounts = savedAccounts.length > 0;
 
   const handleSavedAccountLogin = async (account: SavedAccount) => {
     setIsLoading(true);
@@ -233,23 +209,22 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
 
   const renderLoginButtons = () => {
     const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
+    const textColor = useLiquidGlass ? '#fff' : Colors.black;
+    const buttonTextStyle = useLiquidGlass
+      ? styles.blueskyButtonTextGlass
+      : styles.blueskyButtonText;
 
     const signInButtonContent = (
       <View style={styles.buttonContent} pointerEvents="none">
         {isLoading ? (
           <>
-            <Loading3FillIcon size={24} color={Colors.black} style={{ marginRight: 8 }} />
-            <Text style={styles.blueskyButtonText}>Signing in...</Text>
+            <Loading3FillIcon size={24} color={textColor} style={{ marginRight: 8 }} />
+            <Text style={buttonTextStyle}>Signing in...</Text>
           </>
         ) : (
           <>
-            <Icon
-              name="bluesky-icon"
-              size={24}
-              color={Colors.blue[500]}
-              style={{ marginRight: 12 }}
-            />
-            <Text style={styles.blueskyButtonText}>Sign in with Bluesky</Text>
+            <Image source={atSignSky} style={styles.atSignImage} />
+            <Text style={buttonTextStyle}>Sign in with your handle</Text>
           </>
         )}
       </View>
@@ -265,7 +240,7 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
         {/* Sign in button */}
         <Pressable
           style={[styles.liquidGlassButton, !useLiquidGlass && styles.whiteButton]}
-          onPress={handleLogin}
+          onPress={() => !isLoading && setShowLoginSheet(true)}
           disabled={isLoading}
         >
           {useLiquidGlass ? (
@@ -273,7 +248,7 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
               <GlassView
                 style={styles.glassBackground}
                 glassEffectStyle="clear"
-                tintColor="rgba(255, 255, 255, 1)"
+                tintColor="rgba(255, 255, 255, 0)"
                 isInteractive
               />
               {signInButtonContent}
@@ -283,16 +258,16 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
           )}
         </Pressable>
 
-        {/* Advanced login link */}
+        {/* Sign up link */}
         <View style={styles.manualSignInLink}>
           <Text style={styles.networkSignInText}>
-            On another network?{' '}
+            Need an account?{' '}
             <Text
               suppressHighlighting
-              onPress={() => !isLoading && router.navigate('/advanced-login')}
-              style={[styles.networkSignInLink, isLoading && styles.customPDSButtonDisabled]}
+              onPress={() => !isLoading && setShowSignUpSheet(true)}
+              style={[styles.networkSignInLink, isLoading && styles.signUpLinkDisabled]}
             >
-              Sign in here.
+              Sign up here.
             </Text>
           </Text>
         </View>
@@ -399,7 +374,18 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
     </View>
   );
 
-  return renderContent();
+  return (
+    <>
+      {renderContent()}
+      <SignUpSheet visible={showSignUpSheet} onDismiss={() => setShowSignUpSheet(false)} />
+      <LoginSheet
+        visible={showLoginSheet}
+        onDismiss={() => setShowLoginSheet(false)}
+        onSignIn={handleLoginSignIn}
+        title="Sign in"
+      />
+    </>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -465,14 +451,19 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.FULL,
   },
   whiteButton: {
-    backgroundColor: Colors.neutral[50],
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
   },
   blueskyButtonText: {
     color: Colors.black,
     fontSize: 18,
     fontFamily: 'Figtree-SemiBold',
   },
-  customPDSButtonDisabled: {
+  blueskyButtonTextGlass: {
+    color: '#fff',
+    fontSize: 18,
+    fontFamily: 'Figtree-SemiBold',
+  },
+  signUpLinkDisabled: {
     opacity: 0.5,
   },
   savedAccountsContainer: {
@@ -525,6 +516,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  atSignImage: {
+    width: 24,
+    height: 24,
+    marginRight: 12,
   },
   firstAccountItem: {
     marginTop: 0,

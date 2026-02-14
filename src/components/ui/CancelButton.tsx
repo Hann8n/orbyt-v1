@@ -24,6 +24,8 @@ const CancelButton: React.FC<CancelButtonProps> = ({
         pressed && (isPrimary ? styles.primaryButtonPressed : styles.cancelButtonPressed),
       ]}
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={text}
     >
       {({ pressed }) => (
         <Text

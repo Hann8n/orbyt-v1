@@ -129,7 +129,7 @@ const EditProfileScreen: React.FC = () => {
   // Handle formatting: detach ".bsky.social" or ".orbyt.video" suffix if present so we can
   // render the suffix separately in the UI (bottom-right of the section).
   const { handleBase, handleSuffix } = useMemo(() => {
-    const rawHandle = profileData?.handle ?? userHandle ?? 'username';
+    const rawHandle = profileData?.handle ?? userHandle ?? 'handle';
     return splitHandleSuffix(rawHandle);
   }, [profileData?.handle, userHandle]);
 
@@ -949,22 +949,22 @@ const EditProfileScreen: React.FC = () => {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="always"
           >
-            {/* Username & Avatar Sections */}
+            {/* Handle & Avatar Sections */}
             {!isAboutFocused && !isDisplayNameFocused && (
               <Animated.View
                 layout={Layout.springify().duration(280)}
                 entering={FadeIn.duration(280).easing(Easing.out(Easing.ease))}
                 exiting={FadeOut.duration(100).easing(Easing.in(Easing.ease))}
               >
-                {/* Username Section */}
-                <View style={styles.usernameSection}>
+                {/* Handle Section */}
+                <View style={styles.handleSection}>
                   <Text
                     style={[
                       styles.sectionTitle,
                       { color: hexToRGBA(currentColors.textColor, 0.9) },
                     ]}
                   >
-                    USERNAME
+                    HANDLE
                   </Text>
                   <ScrollView
                     horizontal
@@ -1319,7 +1319,7 @@ const styles = StyleSheet.create({
   aboutContentWrapper: {
     flex: 1,
   },
-  usernameSection: {
+  handleSection: {
     marginTop: 0,
     position: 'relative',
   },

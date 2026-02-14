@@ -148,6 +148,7 @@ export interface UserState {
   // Actions
   // Authentication
   signIn: (identifier: string) => Promise<void>;
+  signUp: (identifier: string) => Promise<void>;
   signOut: (clearAllAccounts?: boolean) => Promise<void>;
   restoreSession: (did: string, skipSettings?: boolean) => Promise<void>;
 
@@ -410,6 +411,91 @@ export const useUserStore = create<UserState>()(
           }
 
           const errorMessage = getErrorMessage(error);
+          set({
+            isAuthenticating: false,
+            authError: errorMessage,
+          });
+          throw error;
+        }
+      },
+
+      signUp: async (identifier: string) => {
+        try {
+          set({ isAuthenticating: true, authError: null });
+
+          const client = getOAuthClient();
+          const trimmed = identifier.trim();
+          let session: OAuthSession;
+          try {
+            session = await client.signIn(trimmed, { prompt: 'create' });
+          } catch (promptError) {
+            const msg = promptError instanceof Error ? promptError.message : String(promptError);
+            const isUnsupportedCreatePrompt =
+              /invalid_request|Invalid enum|received 'create'|prompt.*create/i.test(msg);
+            if (isUnsupportedCreatePrompt) {
+              session = await client.signIn(trimmed);
+            } else {
+              throw promptError;
+            }
+          }
+
+          // Create agent from session - Agent accepts OAuthSession directly
+          const agent = new Agent(session);
+
+          // Get user profile and email verification status in parallel
+          const [profile, sessionInfo] = await Promise.all([
+            agent.api.app.bsky.actor.getProfile({
+              actor: session.did,
+            }),
+            agent.api.com.atproto.server.getSession(),
+          ]);
+
+          const userProfile = profile.data;
+          // Only set emailConfirmed if email exists (has scope). Leave undefined if no email scope.
+          // Use API field name directly: emailConfirmed
+          const emailConfirmed =
+            sessionInfo.data.email !== undefined && sessionInfo.data.email !== null
+              ? sessionInfo.data.emailConfirmed
+              : undefined;
+
+          // Create account object
+          const account: SavedAccount = {
+            id: session.did,
+            handle: userProfile.handle,
+            did: session.did,
+            displayName: userProfile.displayName || userProfile.handle,
+            avatar: userProfile.avatar,
+            lastUsed: Date.now(),
+            originalIdentifier: identifier || session.did,
+          };
+
+          // Update saved accounts list
+          const updatedAccounts = [
+            account,
+            ...get().savedAccounts.filter(a => a.did !== session.did),
+          ];
+
+          // Persist to SecureStore
+          await SecureStore.setItemAsync(STORAGE_KEYS.ACCOUNTS, JSON.stringify(updatedAccounts));
+          await SecureStore.setItemAsync(STORAGE_KEYS.ACTIVE_ACCOUNT, session.did);
+
+          // Update state
+          set({
+            currentUser: userProfile,
+            currentUserDid: session.did,
+            currentUserHandle: userProfile.handle,
+            currentUserEmailConfirmed: emailConfirmed,
+            savedAccounts: updatedAccounts,
+            activeAccountDid: session.did,
+            oauthSession: session,
+            isAuthenticating: false,
+            authError: null,
+          });
+
+          // Defer orbyt profile init after state update
+          deferOrbytProfileInit('signUp');
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'OAuth sign-up failed';
           set({
             isAuthenticating: false,
             authError: errorMessage,
@@ -1619,6 +1705,7 @@ export const useAuth = () => {
   const isSwitchingAccount = useUserStore(state => state.isSwitchingAccount);
   const authError = useUserStore(state => state.authError);
   const signIn = useUserStore(state => state.signIn);
+  const signUp = useUserStore(state => state.signUp);
   const signOut = useUserStore(state => state.signOut);
   const restoreSession = useUserStore(state => state.restoreSession);
   const clearAuthError = useUserStore(state => state.clearAuthError);
@@ -1629,6 +1716,7 @@ export const useAuth = () => {
     isSwitchingAccount,
     authError,
     signIn,
+    signUp,
     signOut,
     restoreSession,
     clearAuthError,

@@ -1,0 +1,223 @@
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { View, Text, Pressable, TextInput, Linking } from 'react-native';
+import VerticalListSheet, { TrueSheet } from './VerticalListSheet';
+import { Colors } from './UI';
+import Icon, { Loading3FillIcon } from './Icon';
+import { useAuth, useAccountManagement } from '../../stores/userStore';
+import { AtprotoService } from '../../services/api/AtprotoService';
+import { authSheetStyles } from './AuthSheetStyles';
+import ErrorMessage from './ErrorMessage';
+import { useSheetPresentation } from '../../hooks';
+import { isUserCancellation } from '../../utils/errors/errorHandler';
+import 'abortcontroller-polyfill';
+
+const DEFAULT_PDS = 'https://bsky.social';
+
+function normalizePds(input: string): string {
+  const trimmed = input.trim() || 'bsky.social';
+  const withProtocol =
+    trimmed.startsWith('http://') || trimmed.startsWith('https://')
+      ? trimmed
+      : `https://${trimmed}`;
+  return withProtocol.toLowerCase().replace(/\/+$/, '');
+}
+
+interface SignUpSheetProps {
+  visible: boolean;
+  onDismiss: () => void;
+  name?: string;
+}
+
+const SignUpSheet: React.FC<SignUpSheetProps> = ({
+  visible,
+  onDismiss,
+  name = 'sign-up-sheet',
+}) => {
+  const { signUp } = useAuth();
+  const { loadSavedAccounts } = useAccountManagement();
+  const [pdsUrl, setPdsUrl] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [isSigningUp, setIsSigningUp] = useState(false);
+  const [canContinue, setCanContinue] = useState(true);
+  // eslint-disable-next-line no-undef
+  const checkAbortRef = useRef<AbortController | null>(null);
+  const lastKeyRef = useRef('');
+  const lastCheckErrorRef = useRef<string | null>(null);
+
+  useSheetPresentation(visible, name);
+
+  useEffect(() => {
+    const key = normalizePds(pdsUrl);
+
+    if (key === DEFAULT_PDS) {
+      lastKeyRef.current = key;
+      lastCheckErrorRef.current = null;
+      setError(null);
+      setCanContinue(true);
+      return;
+    }
+
+    if (key === lastKeyRef.current) return;
+
+    lastKeyRef.current = key;
+    setCanContinue(false);
+    lastCheckErrorRef.current = null;
+
+    checkAbortRef.current?.abort();
+    // eslint-disable-next-line no-undef
+    const ac = new AbortController();
+    checkAbortRef.current = ac;
+
+    const toCheck = pdsUrl.trim() || 'bsky.social';
+    AtprotoService.checkPdsActive(toCheck)
+      .then(result => {
+        if (ac.signal.aborted) return;
+        setCanContinue(result.success);
+        lastCheckErrorRef.current = result.success ? null : result.error || null;
+      })
+      .catch(() => {
+        if (!ac.signal.aborted) {
+          setCanContinue(false);
+          lastCheckErrorRef.current = 'Could not check server status';
+        }
+      });
+
+    return () => {
+      ac.abort();
+      checkAbortRef.current = null;
+    };
+  }, [pdsUrl]);
+
+  const handleDismiss = useCallback(() => {
+    checkAbortRef.current?.abort();
+    setPdsUrl('');
+    setError(null);
+    setIsSigningUp(false);
+    setCanContinue(true);
+    lastKeyRef.current = '';
+    lastCheckErrorRef.current = null;
+    onDismiss();
+  }, [onDismiss]);
+
+  const handleSignUp = useCallback(async () => {
+    const identifier = normalizePds(pdsUrl);
+    setError(null);
+    setIsSigningUp(true);
+    try {
+      await signUp(identifier);
+      await loadSavedAccounts();
+      TrueSheet.dismiss(name);
+    } catch (err) {
+      if (!isUserCancellation(err)) {
+        const msg = err instanceof Error ? err.message : 'Sign-up failed';
+        setError(msg);
+      }
+    } finally {
+      setIsSigningUp(false);
+    }
+  }, [pdsUrl, signUp, loadSavedAccounts, name]);
+
+  const onPress = () => {
+    if (isSigningUp) return;
+    if (!canContinue) {
+      setError(lastCheckErrorRef.current || 'Could not verify server');
+      return;
+    }
+    handleSignUp();
+  };
+
+  return (
+    <VerticalListSheet
+      name={name}
+      onDismiss={handleDismiss}
+      title="Sign up"
+      description="Enter an account provider (e.g. blacksky.app)"
+      showCancelButton={false}
+      scrollable={false}
+    >
+      <View>
+        <ErrorMessage error={error} />
+
+        <View style={authSheetStyles.inputContainer}>
+          <Icon
+            name="cloud-fill"
+            size={28}
+            color={Colors.neutral[400]}
+            style={authSheetStyles.inputIcon}
+          />
+          <TextInput
+            nativeID="sign-up-pds-input"
+            style={authSheetStyles.input}
+            placeholder="bsky.social"
+            placeholderTextColor={Colors.neutral[500]}
+            value={pdsUrl}
+            onChangeText={text => {
+              setPdsUrl(text);
+              setError(null);
+            }}
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="go"
+            onSubmitEditing={handleSignUp}
+            editable={!isSigningUp}
+            autoFocus
+            accessibilityLabel="Account provider input"
+            accessibilityHint="Enter the domain of your account provider, such as bsky.social or blacksky.app"
+          />
+        </View>
+
+        <Pressable
+          style={[
+            authSheetStyles.button,
+            canContinue && !isSigningUp && authSheetStyles.buttonActive,
+          ]}
+          onPress={onPress}
+          accessibilityRole="button"
+          accessibilityLabel="Continue to sign up"
+          accessibilityState={{ disabled: !canContinue || isSigningUp }}
+        >
+          {isSigningUp ? (
+            <View style={authSheetStyles.buttonContent}>
+              <Loading3FillIcon
+                size={24}
+                color={Colors.neutral[500]}
+                style={authSheetStyles.loadingIcon}
+              />
+              <Text style={authSheetStyles.buttonText}>Connecting...</Text>
+            </View>
+          ) : (
+            <View style={authSheetStyles.buttonContentRow}>
+              <Text
+                style={[
+                  authSheetStyles.buttonText,
+                  canContinue && authSheetStyles.buttonTextActive,
+                ]}
+              >
+                Continue to sign up
+              </Text>
+              <Icon
+                name="right_arrow_filled"
+                size={24}
+                color={canContinue ? Colors.neutral[900] : Colors.neutral[500]}
+              />
+            </View>
+          )}
+        </Pressable>
+
+        <View style={authSheetStyles.footerContainer}>
+          <Text style={authSheetStyles.footerText}>
+            By continuing you agree to the{' '}
+            <Text
+              style={authSheetStyles.footerLink}
+              onPress={() => Linking.openURL('https://getorbyt.com/terms')}
+            >
+              orbyt terms of use
+            </Text>
+          </Text>
+        </View>
+      </View>
+    </VerticalListSheet>
+  );
+};
+
+export default SignUpSheet;

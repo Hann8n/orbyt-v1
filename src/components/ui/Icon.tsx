@@ -110,7 +110,9 @@ const SHARE_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" heigh
 
 const INBOX_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none'><path fill='#FFFFFFFF' d='M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10H4a2 2 0 0 1-2-2v-8C2 6.477 6.477 2 12 2m0 12H9a1 1 0 1 0 0 2h3a1 1 0 1 0 0-2m3-4H9a1 1 0 0 0-.117 1.993L9 12h6a1 1 0 0 0 .117-1.993z'/></g></svg>`;
 
-const BLUESKY_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" fill="none"/><g fill="none"><path fill="#fff" d="M5.892 2.93c-1.78-1.06-3.813.446-3.63 2.359l.398 4.185c.176 1.855 1.84 4.026 4.195 3.823C4.5 14 3.132 15.865 4.88 18.145c.286.373.597.745.914 1.062s.69.628 1.062.914c1.88 1.441 4.375-.65 5.055-2.69l.09-.268l.09.269c.68 2.04 3.174 4.13 5.055 2.689c.372-.286.745-.597 1.062-.914s.628-.69.914-1.062c1.747-2.28.379-4.145-1.976-4.848c2.355.203 4.018-1.968 4.195-3.823l.399-4.185c.182-1.913-1.852-3.418-3.631-2.36C15.2 4.66 13.485 7.393 12 9.902C10.515 7.392 8.8 4.66 5.892 2.93"/></g></svg>`;
+const CLOUD_FILL_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><title>cloud_fill</title><g id="cloud_fill" fill='none' fill-rule='evenodd'><path d='M24 0v24H0V0zM12.593 23.258l-.011.002-.071.035-.02.004-.014-.004-.071-.035c-.01-.004-.019-.001-.024.005l-.004.01-.017.428.005.02.01.013.104.074.015.004.012-.004.104-.074.012-.016.004-.017-.017-.427c-.002-.01-.009-.017-.017-.018m.265-.113-.013.002-.185.093-.01.01-.003.011.018.43.005.012.008.007.201.093c.012.004.023 0 .029-.008l.004-.014-.034-.614c-.003-.012-.01-.02-.02-.022m-.715.002a.023.023 0 0 0-.027.006l-.006.014-.034.614c0 .012.007.02.017.024l.015-.002.201-.093.01-.008.004-.011.017-.43-.003-.012-.01-.01z'/><path fill='#09244BFF' d='M5 10.416a6.5 6.5 0 0 1 12.586-2.204A6.002 6.002 0 0 1 16 20H7a5 5 0 0 1-2-9.584'/></g></svg>`;
+
+const AT_FILL_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="640" viewBox="0 0 640 640"><path fill="currentColor" d="M320 128c-106 0-192 86-192 192s86 192 192 192c17.7 0 32 14.3 32 32s-14.3 32-32 32C178.6 576 64 461.4 64 320S178.6 64 320 64s256 114.6 256 256v32c0 53-43 96-96 96c-29.3 0-55.6-13.2-73.2-33.9c-22.8 21-53.3 33.9-86.8 33.9c-70.7 0-128-57.3-128-128s57.3-128 128-128c27.9 0 53.7 8.9 74.7 24.1c5.7-5 13.1-8.1 21.3-8.1c17.7 0 32 14.3 32 32v112c0 17.7 14.3 32 32 32s32-14.3 32-32v-32c0-106-86-192-192-192m64 192c0-35.3-28.7-64-64-64s-64 28.7-64 64s28.7 64 64 64s64-28.7 64-64"/></svg>`;
 
 const BLOCK_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none" fill-rule="evenodd"><path fill="#fff" d="M6 7a5 5 0 1 1 10 0A5 5 0 0 1 6 7m-1.178 7.672C6.425 13.694 8.605 13 11 13q.671 0 1.316.07a1 1 0 0 1 .72 1.557A5.97 5.97 0 0 0 12 18c0 .92.207 1.79.575 2.567a1 1 0 0 1-.89 1.428Q11.345 22 11 22c-2.229 0-4.335-.14-5.913-.558c-.785-.208-1.524-.506-2.084-.956C2.41 20.01 2 19.345 2 18.5c0-.787.358-1.523.844-2.139c.494-.625 1.177-1.2 1.978-1.69Zm11.246 2.81a2 2 0 0 0 2.45 2.45zm1.414-1.414l2.45 2.45a2 2 0 0 0-2.45-2.45M14 18a4 4 0 1 1 8 0a4 4 0 0 1-8 0"/></g></svg>`;
 
@@ -1073,6 +1075,15 @@ export const AtLineIcon: React.FC<{
   return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
 };
 
+export const CloudFillIcon: React.FC<{
+  size: number;
+  color: string;
+  style?: StyleProp<ViewStyle>;
+}> = ({ size, color, style }) => {
+  const svgXml = CLOUD_FILL_ICON_SVG.replace(/#09244BFF/g, color);
+  return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
+};
+
 export const SendPlaneFillIcon: React.FC<{
   size: number;
   color: string;
@@ -1347,7 +1358,7 @@ const Icon: React.FC<IconProps> = ({
     return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
   }
   if (name === 'bluesky-icon') {
-    const svgXml = BLUESKY_ICON_SVG.replace(/#fff/g, color);
+    const svgXml = AT_FILL_ICON_SVG.replace(/currentColor/g, color);
     return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
   }
   if (name === 'gallery' || name === 'photo-album-fill') {
@@ -1379,6 +1390,9 @@ const Icon: React.FC<IconProps> = ({
   }
   if (name === 'at' || name === 'at-line') {
     return <AtLineIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'cloud-fill' || name === 'cloud_fill') {
+    return <CloudFillIcon size={size} color={color} style={style} />;
   }
 
   if (name === 'explore') {

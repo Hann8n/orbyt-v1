@@ -10,6 +10,7 @@ import { BookmarkService } from './bookmark/BookmarkService';
 import { VideoService } from './video/VideoService';
 import { RepoService } from './repo/RepoService';
 import { ModerationService } from '../moderation/ModerationService';
+import 'abortcontroller-polyfill';
 import type {
   FeedResponse,
   FeedParams,
@@ -121,6 +122,80 @@ class AtprotoService {
       return endpoint;
     } catch {
       return null;
+    }
+  }
+
+  /**
+   * Check if a PDS is active by calling com.atproto.server.describeServer.
+   * Used to enable "Continue to sign up" only when the entered domain (e.g. test.bsky.social) is reachable.
+   * Returns an object with success status and error message if failed.
+   */
+  static async checkPdsActive(pdsInput: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const trimmed = (pdsInput.trim() || '').toLowerCase();
+      if (!trimmed) {
+        return { success: false, error: 'Please enter a server address' };
+      }
+      const base =
+        trimmed.startsWith('http://') || trimmed.startsWith('https://')
+          ? trimmed
+          : `https://${trimmed}`;
+      const url = `${base.replace(/\/+$/, '')}/xrpc/com.atproto.server.describeServer`;
+
+      // Create timeout using AbortController for better compatibility
+      // eslint-disable-next-line no-undef
+      const timeoutController = new AbortController();
+      const timeoutId = setTimeout(() => timeoutController.abort(), 10000);
+
+      // eslint-disable-next-line no-undef
+      let res: Response;
+      try {
+        res = await fetch(url, { method: 'GET', signal: timeoutController.signal });
+        clearTimeout(timeoutId);
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        // Check for abort (timeout)
+        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+          return { success: false, error: 'Could not connect' };
+        }
+        // Check error.cause for the actual error (Node.js/React Native pattern)
+        const cause =
+          fetchError instanceof Error && 'cause' in fetchError ? fetchError.cause : null;
+        const causeMsg = cause instanceof Error ? cause.message : String(cause || '');
+        const errorMsg = fetchError instanceof Error ? fetchError.message : String(fetchError);
+        const combinedMsg = `${errorMsg} ${causeMsg}`.toLowerCase();
+
+        // DNS resolution failure
+        if (combinedMsg.includes('enotfound') || combinedMsg.includes('getaddrinfo')) {
+          return { success: false, error: 'Could not connect' };
+        }
+        // Connection refused
+        if (combinedMsg.includes('econnrefused') || combinedMsg.includes('refused')) {
+          return { success: false, error: 'Could not connect' };
+        }
+        // Generic fetch failure
+        return { success: false, error: 'Could not connect' };
+      }
+
+      if (!res.ok) {
+        // Server exists but endpoint not found (not an ATProto server)
+        return { success: false, error: 'Could not connect' };
+      }
+
+      const data = (await res.json()) as { did?: string; availableUserDomains?: string[] };
+      const isValid = typeof data?.did === 'string' || Array.isArray(data?.availableUserDomains);
+
+      if (!isValid) {
+        return { success: false, error: 'Could not connect' };
+      }
+
+      return { success: true };
+    } catch (error) {
+      // Handle any other unexpected errors
+      if (error instanceof Error && error.name === 'AbortError') {
+        return { success: false, error: 'Could not connect' };
+      }
+      return { success: false, error: 'Could not connect' };
     }
   }
 

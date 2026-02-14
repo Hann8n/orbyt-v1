@@ -707,7 +707,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     justifyContent: 'flex-end',
-    zIndex: 12, // Above scrubber (z 10) so overlay hitboxes (avatar, username, actions) are always tappable
+    zIndex: 12, // Above scrubber (z 10) so overlay hitboxes (avatar, handle, actions) are always tappable
   },
   overlayContentContainer: {
     position: 'absolute',

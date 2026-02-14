@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
-import Icon, { Loading3FillIcon } from '../../ui/Icon';
 import { SavedAccount } from '../../../stores/userStore';
 import { requiresReauth } from '../../../utils/errors/oauth';
 import ProfileService, { useProfile } from '../../../services/data/ProfileService';
@@ -10,7 +9,8 @@ import { Colors } from '../../../theme';
 import AuthorItem from '../../ui/AuthorItem';
 import VerticalListSheet, { TrueSheet } from '../../ui/VerticalListSheet';
 import { useAccountManagement, useAuth } from '../../../stores/userStore';
-import CustomPDSInputSheet from '../../ui/CustomPDSInputSheet';
+import LoginSheet from '../../ui/LoginSheet';
+import SignUpSheet from '../../ui/SignUpSheet';
 
 interface AccountSwitcherProps {
   visible: boolean;
@@ -34,8 +34,9 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
   const [accounts, setAccounts] = useState<AccountWithProfile[]>([]);
   const [switchingAccount, setSwitchingAccount] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
-  const [showUsernameInput, setShowUsernameInput] = useState(false);
-  const [_isAddingAccount, setIsAddingAccount] = useState(false);
+  const [showHandleInput, setShowHandleInput] = useState(false);
+  const [showSignUpSheet, setShowSignUpSheet] = useState(false);
+  const [, setIsAddingAccount] = useState(false);
 
   useEffect(() => {
     if (visible) TrueSheet.present('account-switcher');
@@ -214,54 +215,17 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
     [removeAccount, activeAccountDid, onDismiss]
   );
 
-  const handleBlueskyLogin = useCallback(async () => {
-    setIsAddingAccount(true);
-
+  const handleAddAccount = useCallback(async () => {
     try {
-      await signIn('https://bsky.social');
-
-      // Reload accounts to show the new one
-      await loadAccounts();
-    } catch (error) {
-      // Use simple error handler
-      const { isUserCancellation, getErrorMessage } =
-        await import('../../../utils/errors/errorHandler');
-
-      // Don't show errors for user cancellation
-      if (!isUserCancellation(error)) {
-        const errorMessage = getErrorMessage(error);
-        Alert.alert('OAuth Sign-in Failed', errorMessage, [{ text: 'OK', style: 'cancel' }]);
-      }
-    } finally {
-      setIsAddingAccount(false);
-    }
-  }, [signIn, loadAccounts]);
-
-  const handleBlueskyAddAccount = useCallback(async () => {
-    try {
-      // Dismiss the account switcher first so OAuth UI isn't stacked under it
       onDismiss();
-      // Small delay to allow dismissal animation to complete
       await new Promise(resolve => setTimeout(resolve, 200));
-      await handleBlueskyLogin();
-    } catch (_error: unknown) {
-      // ignore
-    }
-  }, [onDismiss, handleBlueskyLogin]);
-
-  const handleCustomPDSAddAccount = useCallback(async () => {
-    try {
-      // Dismiss the parent sheet first to avoid stacked modals
-      onDismiss();
-      // Wait a bit for the dismissal to complete before showing the custom PDS input
-      await new Promise(resolve => setTimeout(resolve, 200));
-      setShowUsernameInput(true); // Set state to true first
+      setShowHandleInput(true);
     } catch (_error: unknown) {
       // ignore
     }
   }, [onDismiss]);
 
-  const handleCustomPDSSignIn = useCallback(
+  const handleLoginSignIn = useCallback(
     async (identifier: string) => {
       setIsAddingAccount(true);
 
@@ -277,85 +241,24 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
     [signIn, loadAccounts]
   );
 
-  type AccountListItem =
-    | {
-        type: 'account';
-        data: AccountWithProfile;
-      }
-    | {
-        type: 'addButtons';
-        data: null;
-      };
+  type AccountListItem = {
+    type: 'account';
+    data: AccountWithProfile;
+  };
 
-  // Prepare list data including the add account options
-  const listData: AccountListItem[] = useMemo(() => {
-    const accountItems: AccountListItem[] = accounts.map(account => ({
-      type: 'account',
-      data: account,
-    }));
+  const listData: AccountListItem[] = useMemo(
+    () =>
+      accounts.map(account => ({
+        type: 'account' as const,
+        data: account,
+      })),
+    [accounts]
+  );
 
-    // Add the "Add Account" options when:
-    // 1. There's only one account (show by default)
-    // 2. OR when in edit mode and onAddAccount is provided (multiple accounts)
-    const shouldShowAddButtons = (savedAccounts.length <= 1 || editMode) && !!onAddAccount;
-    if (shouldShowAddButtons) {
-      accountItems.push({
-        type: 'addButtons',
-        data: null,
-      });
-    }
-
-    return accountItems;
-  }, [accounts, onAddAccount, editMode, savedAccounts.length]);
+  const showAddAccountLink = !!onAddAccount && (savedAccounts.length <= 1 || editMode);
 
   const renderAccountItem = useCallback(
     ({ item }: { item: AccountListItem }) => {
-      if (item.type === 'addButtons') {
-        return (
-          <View style={styles.addAccountSection}>
-            <Text style={styles.addAccountHeader}>Add Account</Text>
-            <View style={styles.addButtonsContainer}>
-              <Pressable
-                style={[styles.addAccountButton, styles.addAccountButtonHalf]}
-                onPress={handleBlueskyAddAccount}
-                disabled={isAuthenticating}
-              >
-                <View style={styles.buttonContent}>
-                  {isAuthenticating ? (
-                    <Loading3FillIcon
-                      size={24}
-                      color={Colors.neutral[50]}
-                      style={styles.iconSpacing}
-                    />
-                  ) : (
-                    <Icon
-                      name="bluesky-icon"
-                      size={20}
-                      color={Colors.blue[500]}
-                      style={styles.iconSpacing}
-                    />
-                  )}
-                  <Text style={styles.addAccountButtonText}>
-                    {isAuthenticating ? 'Signing in...' : 'Bluesky'}
-                  </Text>
-                </View>
-              </Pressable>
-
-              <Pressable
-                style={[styles.addAccountButton, styles.addAccountButtonHalf]}
-                onPress={handleCustomPDSAddAccount}
-                disabled={isAuthenticating}
-              >
-                <View style={styles.buttonContent}>
-                  <Icon name="at" size={20} color={Colors.neutral[50]} style={styles.iconSpacing} />
-                  <Text style={styles.addAccountButtonText}>Network</Text>
-                </View>
-              </Pressable>
-            </View>
-          </View>
-        );
-      }
-
       const account = item.data;
       const isActive = account.did === activeAccountDid; // derive from store to avoid stale flags
       const isSwitchTarget = isSwitchingAccount && switchingAccount === account.did;
@@ -403,20 +306,13 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
       editMode,
       handleSwitchAccount,
       handleRemoveAccount,
-      handleBlueskyAddAccount,
-      handleCustomPDSAddAccount,
-      isAuthenticating,
       savedAccounts.length,
       activeAccountDid,
       isSwitchingAccount,
     ]
   );
 
-  const keyExtractor = useCallback((item: AccountListItem) => {
-    const type = item.type;
-    if (type === 'addButtons') return 'addButtons';
-    return item.data.id;
-  }, []);
+  const keyExtractor = useCallback((item: AccountListItem) => item.data.id, []);
 
   // Custom header button for edit mode toggle (only show when there are multiple accounts)
   const customHeaderButton =
@@ -448,17 +344,34 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
           {listData.map(item => (
             <React.Fragment key={keyExtractor(item)}>{renderAccountItem({ item })}</React.Fragment>
           ))}
+          {showAddAccountLink && (
+            <Pressable
+              style={({ pressed }) => [
+                styles.addAccountButton,
+                isAuthenticating && styles.addAccountButtonDisabled,
+                pressed && styles.addAccountButtonPressed,
+              ]}
+              onPress={handleAddAccount}
+              disabled={isAuthenticating}
+            >
+              <Text style={styles.addAccountButtonText}>Add account</Text>
+            </Pressable>
+          )}
         </View>
       </VerticalListSheet>
 
-      <CustomPDSInputSheet
-        visible={showUsernameInput}
-        onDismiss={async () => {
-          setShowUsernameInput(false);
-        }}
-        onSignIn={handleCustomPDSSignIn}
-        title="Network sign in"
-        name="custom-pds-input"
+      <LoginSheet
+        visible={showHandleInput}
+        onDismiss={() => setShowHandleInput(false)}
+        onSignIn={handleLoginSignIn}
+        title="Add account"
+        name="add-account-login-sheet"
+        onOpenSignUp={() => setShowSignUpSheet(true)}
+      />
+      <SignUpSheet
+        visible={showSignUpSheet}
+        onDismiss={() => setShowSignUpSheet(false)}
+        name="add-account-sign-up-sheet"
       />
     </>
   );
@@ -492,52 +405,32 @@ const styles = StyleSheet.create({
   activeAccountButton: {
     // AuthorItem handles its own styling
   },
-  addAccountSection: {
-    marginTop: 0,
-    marginBottom: 12,
-  },
-  addAccountHeader: {
-    color: Colors.neutral[500],
-    fontSize: 16,
-
-    fontFamily: 'Figtree-SemiBold',
-    paddingHorizontal: 10,
-    paddingVertical: 12,
-    letterSpacing: 0.5,
-  },
-  addButtonsContainer: {
-    flexDirection: 'row',
-    gap: 8,
-  },
   addAccountButton: {
-    backgroundColor: Colors.neutral[900],
-    borderRadius: BORDER_RADIUS.LARGE,
-    paddingVertical: 16,
+    marginBottom: 12,
+    marginHorizontal: 0,
+    paddingVertical: 20,
     paddingHorizontal: 20,
-    overflow: 'hidden',
-    borderWidth: 0,
-    borderColor: Colors.transparent,
-  },
-  addAccountButtonHalf: {
-    flex: 1,
-    marginBottom: 0,
-  },
-  iconSpacing: {
-    marginRight: 8,
-  },
-  headerEditButtonDisabled: {
-    opacity: 0.5,
-  },
-  buttonContent: {
+    minHeight: 64,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
+    backgroundColor: Colors.neutral[900],
+    borderRadius: BORDER_RADIUS.LARGE,
+    overflow: 'hidden',
+  },
+  addAccountButtonPressed: {
+    opacity: 0.85,
+  },
+  addAccountButtonDisabled: {
+    opacity: 0.5,
   },
   addAccountButtonText: {
     color: Colors.neutral[50],
     fontSize: 18,
-    fontWeight: '600',
     fontFamily: 'Figtree-SemiBold',
+  },
+  headerEditButtonDisabled: {
+    opacity: 0.5,
   },
 });
 
