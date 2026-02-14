@@ -9,7 +9,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Pressable,
-  ActivityIndicator,
   Linking,
   RefreshControl,
 } from 'react-native';
@@ -18,6 +17,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import ListHeader from '../../src/components/ui/ListHeader';
 import Icon from '../../src/components/ui/Icon';
+import { Loading } from '../../src/components/ui/UI';
 import { Colors } from '../../src/theme';
 import { BORDER_RADIUS, DISCOURSE } from '../../src/utils/constants';
 import { queryKeys } from '../../src/utils/query/queryKeys';
@@ -31,6 +31,7 @@ interface DiscourseTopic {
   fancy_title: string;
   slug: string;
   like_count: number;
+  vote_count?: number; // Topic Voting plugin; use this for vote tally when present
   posts_count: number;
   reply_count: number;
 }
@@ -55,6 +56,7 @@ function TopicRow({
   topic: DiscourseTopic;
   onPress: (topic: DiscourseTopic) => void;
 }) {
+  const voteCount = topic.vote_count ?? topic.like_count;
   return (
     <TouchableOpacity style={styles.topicRow} onPress={() => onPress(topic)} activeOpacity={0.7}>
       <View style={styles.topicContent}>
@@ -62,19 +64,24 @@ function TopicRow({
           {topic.fancy_title || topic.title}
         </Text>
         <Text style={styles.topicMeta}>
-          {topic.like_count} likes · {topic.reply_count} replies
+          {topic.like_count} {topic.like_count === 1 ? 'like' : 'likes'} · {topic.reply_count}{' '}
+          {topic.reply_count === 1 ? 'reply' : 'replies'}
         </Text>
       </View>
       <View style={styles.voteTallyButton}>
         <Icon
           name="arrow-up-fill"
           size={16}
-          color={topic.like_count >= 1 ? Colors.brand.teal : Colors.neutral[50]}
+          color={voteCount >= 1 ? Colors.brand.teal : Colors.neutral[200]}
         />
         <Text
-          style={[styles.voteTallyCount, topic.like_count >= 1 && { color: Colors.brand.teal }]}
+          style={[
+            styles.voteTallyCount,
+            voteCount === 0 && { color: Colors.neutral[200] },
+            voteCount >= 1 && { color: Colors.brand.teal },
+          ]}
         >
-          {topic.like_count}
+          {voteCount === 0 ? 'vote' : voteCount}
         </Text>
       </View>
     </TouchableOpacity>
@@ -126,8 +133,8 @@ export default function CommunityScreen() {
         }
       >
         {isLoading && (
-          <View style={styles.centered}>
-            <ActivityIndicator size="large" color={Colors.brand.purple} />
+          <View style={[styles.centered, styles.loadingWrapper]}>
+            <Loading size="large" color={Colors.neutral[50]} />
           </View>
         )}
         {isError && (
@@ -179,6 +186,9 @@ const styles = StyleSheet.create({
     padding: 24,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  loadingWrapper: {
+    minHeight: 200,
   },
   errorText: {
     fontSize: 15,
