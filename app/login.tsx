@@ -17,7 +17,7 @@ import { Svg, Path, Rect, Defs, Mask } from 'react-native-svg';
 import { Loading3FillIcon } from '../src/components/ui/Icon';
 import { Colors } from '../src/theme';
 import AuthorItem from '../src/components/ui/AuthorItem';
-import { SavedAccount } from '../src/stores/userStore';
+import type { SavedAccount } from '../src/stores/userStore';
 import { useAuth, useAccountManagement } from '../src/stores/userStore';
 import { hexToRGBA } from '../src/utils/formatting/colors';
 import RocketBackground from '../src/components/ui/RocketBackground';
@@ -218,7 +218,7 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
       <View style={styles.buttonContent} pointerEvents="none">
         {isLoading ? (
           <>
-            <Loading3FillIcon size={24} color={textColor} style={{ marginRight: 8 }} />
+            <Loading3FillIcon size={24} color={textColor} style={styles.loadingIcon} />
             <Text style={buttonTextStyle}>Signing in...</Text>
           </>
         ) : (
@@ -298,7 +298,7 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
             paddingTop: typeof insets?.top === 'number' ? insets.top : 0,
             paddingBottom: typeof insets?.bottom === 'number' ? insets.bottom : 0,
             justifyContent: hasSavedAccounts ? 'space-between' : 'flex-end',
-            backgroundColor: hasSavedAccounts ? Colors.black : 'rgba(0, 0, 0, 0.5)',
+            backgroundColor: hasSavedAccounts ? Colors.black : Colors.overlay.black50,
           },
         ]}
       >
@@ -399,7 +399,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     paddingHorizontal: 24,
     paddingVertical: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: Colors.overlay.black50,
   },
   logoContainer: {
     alignItems: 'center',
@@ -451,7 +451,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.FULL,
   },
   whiteButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    backgroundColor: Colors.overlay.white80,
   },
   blueskyButtonText: {
     color: Colors.black,
@@ -459,7 +459,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Figtree-SemiBold',
   },
   blueskyButtonTextGlass: {
-    color: '#fff',
+    color: Colors.neutral[50],
     fontSize: 18,
     fontFamily: 'Figtree-SemiBold',
   },
@@ -516,6 +516,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  loadingIcon: {
+    marginRight: 8,
   },
   atSignImage: {
     width: 24,

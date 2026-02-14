@@ -547,13 +547,20 @@ const CreateScreen: React.FC = () => {
       recordingStartTime.value = null;
       recordingElapsed.value = 0;
 
-      cameraRef.current.stopRecording();
+      // Type guard: ensure camera ref is still valid before stopping
+      const camera = cameraRef.current;
+      if (camera) {
+        camera.stopRecording();
+      }
 
+      // Type guard: ensure promise ref exists before awaiting
       if (recordingPromiseRef.current) {
         const video = await recordingPromiseRef.current;
-        if (video && segmentManagerRef.current && elapsedDuration > 0) {
+        const manager = segmentManagerRef.current;
+
+        if (video && manager && elapsedDuration > 0) {
           // Clamp elapsed duration to available time to prevent exceeding maxDuration
-          const availableTime = segmentManagerRef.current.getAvailableTime();
+          const availableTime = manager.getAvailableTime();
           const clampedDuration = Math.min(elapsedDuration, availableTime);
 
           // Use the clamped duration for the segment
@@ -563,16 +570,16 @@ const CreateScreen: React.FC = () => {
             sourceType: 'camera',
           };
 
-          if (clampedDuration > 0 && segmentManagerRef.current.addSegment(newSegment)) {
-            totalDurationShared.value = segmentManagerRef.current.getTotalDuration();
+          if (clampedDuration > 0 && manager.addSegment(newSegment)) {
+            totalDurationShared.value = manager.getTotalDuration();
             setSegmentUpdateTrigger(prev => prev + 1);
           } else {
             // If segment couldn't be added, revert optimistic update
-            totalDurationShared.value = segmentManagerRef.current.getTotalDuration();
+            totalDurationShared.value = manager.getTotalDuration();
           }
-        } else if (elapsedDuration > 0 && segmentManagerRef.current) {
+        } else if (elapsedDuration > 0 && manager) {
           // If video failed but we had elapsed time, revert optimistic update
-          totalDurationShared.value = segmentManagerRef.current.getTotalDuration();
+          totalDurationShared.value = manager.getTotalDuration();
         }
       }
 
@@ -608,12 +615,21 @@ const CreateScreen: React.FC = () => {
       recordingElapsed.value = 0; // Reset elapsed time
 
       try {
-        const availableTime = segmentManagerRef.current?.getAvailableTime() ?? 0;
+        const manager = segmentManagerRef.current;
+        const availableTime = manager?.getAvailableTime() ?? 0;
         const recordingOptions: CameraRecordingOptions = {
           maxDuration: availableTime * 1000,
         };
 
-        recordingPromiseRef.current = cameraRef.current.recordAsync(recordingOptions);
+        const camera = cameraRef.current;
+        if (camera) {
+          recordingPromiseRef.current = camera.recordAsync(recordingOptions);
+        } else {
+          // Camera became unavailable, reset state
+          isRecordingRef.current = false;
+          setIsRecording(false);
+          recordingStartTime.value = null;
+        }
       } catch (_e) {
         // Reset recording timer shared values on error
         recordingStartTime.value = null;
@@ -852,7 +868,8 @@ const CreateScreen: React.FC = () => {
   };
 
   const finishRecording = useCallback(async () => {
-    if (!segmentManagerRef.current || isProcessing) {
+    const manager = segmentManagerRef.current;
+    if (!manager || isProcessing) {
       return;
     }
 
@@ -861,15 +878,17 @@ const CreateScreen: React.FC = () => {
       await stopRecording();
     }
 
-    const finalSegments = segmentManagerRef.current.getSegments();
+    const finalSegments = manager.getSegments();
 
     if (finalSegments.length === 0) {
       return;
     }
 
     // Convert to VideoSegment format
-    const videoSegments = segmentManagerRef.current.toVideoSegments();
-    const firstVideoUri = videoSegments[0]?.video?.uri ?? '';
+    const videoSegments = manager.toVideoSegments();
+    const firstSegment = videoSegments[0];
+    const firstVideoUri = firstSegment?.video?.uri ?? '';
+
     const thumbnailPath = firstVideoUri
       ? await VideoProcessingService.extractFirstFrame(firstVideoUri, null, { quality: 0.5 }).catch(
           () => undefined
@@ -880,11 +899,14 @@ const CreateScreen: React.FC = () => {
 
     if (thumbnailPath) setPendingThumbnail(thumbnailPath);
 
-    if (videoSegments.length === 1) {
-      router.navigate({
-        pathname: '/post/[id]',
-        params: { id: 'new', videoPath: videoSegments[0].video.uri },
-      });
+    if (videoSegments.length === 1 && firstSegment) {
+      const videoUri = firstSegment.video?.uri;
+      if (videoUri) {
+        router.navigate({
+          pathname: '/post/[id]',
+          params: { id: 'new', videoPath: videoUri },
+        });
+      }
     } else {
       router.navigate({
         pathname: '/post/[id]',
@@ -1189,7 +1211,11 @@ const CreateScreen: React.FC = () => {
         flashActive={flash === 'on'}
         hasSegments={(segmentManagerRef.current?.getTotalDuration() ?? 0) > 0}
         isFrontCamera={isFrontCamera}
-        disableGalleryUpload={Platform.OS === 'android' || availableTime <= 0}
+        disableGalleryUpload={
+          Platform.OS === 'android' ||
+          (Platform.OS === 'ios' && parseInt(Device.osVersion || '0', 10) < 17) ||
+          availableTime <= 0
+        }
         onionSkinningActive={isOnionSkinningEnabled}
       />
     </SafeAreaView>

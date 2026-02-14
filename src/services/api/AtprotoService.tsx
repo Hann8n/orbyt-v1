@@ -11,6 +11,13 @@ import { VideoService } from './video/VideoService';
 import { RepoService } from './repo/RepoService';
 import { ModerationService } from '../moderation/ModerationService';
 import 'abortcontroller-polyfill';
+
+// Declare global types (provided by abortcontroller-polyfill and fetch)
+declare global {
+  var AbortController: typeof AbortController;
+  var Response: typeof Response;
+}
+
 import type {
   FeedResponse,
   FeedParams,
@@ -143,11 +150,11 @@ class AtprotoService {
       const url = `${base.replace(/\/+$/, '')}/xrpc/com.atproto.server.describeServer`;
 
       // Create timeout using AbortController for better compatibility
-      // eslint-disable-next-line no-undef
+      // eslint-disable-next-line no-undef -- AbortController provided by abortcontroller-polyfill
       const timeoutController = new AbortController();
       const timeoutId = setTimeout(() => timeoutController.abort(), 10000);
 
-      // eslint-disable-next-line no-undef
+      // eslint-disable-next-line no-undef -- Response is a standard global provided by fetch polyfill
       let res: Response;
       try {
         res = await fetch(url, { method: 'GET', signal: timeoutController.signal });

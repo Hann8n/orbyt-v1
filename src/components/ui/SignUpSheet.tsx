@@ -39,7 +39,7 @@ const SignUpSheet: React.FC<SignUpSheetProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isSigningUp, setIsSigningUp] = useState(false);
   const [canContinue, setCanContinue] = useState(true);
-  // eslint-disable-next-line no-undef
+  // eslint-disable-next-line no-undef -- AbortController provided by abortcontroller-polyfill
   const checkAbortRef = useRef<AbortController | null>(null);
   const lastKeyRef = useRef('');
   const lastCheckErrorRef = useRef<string | null>(null);
@@ -64,7 +64,7 @@ const SignUpSheet: React.FC<SignUpSheetProps> = ({
     lastCheckErrorRef.current = null;
 
     checkAbortRef.current?.abort();
-    // eslint-disable-next-line no-undef
+    // eslint-disable-next-line no-undef -- AbortController provided by abortcontroller-polyfill
     const ac = new AbortController();
     checkAbortRef.current = ac;
 
