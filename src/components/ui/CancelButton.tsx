@@ -45,7 +45,7 @@ const CancelButton: React.FC<CancelButtonProps> = ({
 
 const styles = StyleSheet.create({
   cancelButton: {
-    backgroundColor: Colors.neutral[900],
+    backgroundColor: hexToRGBA(Colors.neutral[500], 0.12),
     borderRadius: BORDER_RADIUS.FULL,
     paddingVertical: 12,
     paddingHorizontal: 20,
@@ -57,7 +57,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.transparent,
   },
   cancelButtonPressed: {
-    backgroundColor: hexToRGBA(Colors.neutral[200], 0.8),
+    backgroundColor: Colors.neutral[800],
   },
   cancelButtonText: {
     color: Colors.neutral[50],
@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Figtree-Medium',
   },
   cancelButtonTextPressed: {
-    color: Colors.black,
+    color: Colors.neutral[50],
   },
   primaryButton: {
     backgroundColor: Colors.neutral[50],

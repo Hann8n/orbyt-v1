@@ -34,6 +34,7 @@ interface DiscourseTopic {
   vote_count?: number; // Topic Voting plugin; use this for vote tally when present
   posts_count: number;
   reply_count: number;
+  can_vote?: boolean; // false for category "about" topic; filter those out
 }
 
 interface CategoryResponse {
@@ -46,7 +47,9 @@ async function fetchCategory(): Promise<DiscourseTopic[]> {
   const res = await fetch(IDEAS_JSON);
   if (!res.ok) throw new Error('Failed to load topics');
   const data = (await res.json()) as CategoryResponse;
-  return data.topic_list?.topics ?? [];
+  const topics = data.topic_list?.topics ?? [];
+  // Exclude category "about" topic; only show topics that can be voted on
+  return topics.filter(t => t.can_vote !== false);
 }
 
 function TopicRow({
@@ -212,8 +215,8 @@ const styles = StyleSheet.create({
   topicRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: Colors.neutral[800],
   },
