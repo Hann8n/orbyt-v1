@@ -15,7 +15,8 @@ import type { AppBskyActorProfile } from '@atproto/api';
 import { BlobRef } from '@atproto/lexicon';
 // @ts-expect-error - multiformats/cid has type resolution issues with package.json exports
 import { CID } from 'multiformats/cid';
-import { fetchColors, batchFetchColors } from '../../colors';
+import { fetchColors, batchFetchColors, orbytColorKeys } from '../../colors';
+import { queryClient } from '../../../utils/query/queryClient';
 
 /**
  * Converts JSON blob objects (from getRecord) to BlobRef instances.
@@ -185,6 +186,9 @@ export class ActorService {
       ]);
 
       const profile = profileResponse.data as ProfileView;
+      if (orbytColors) {
+        queryClient.setQueryData(orbytColorKeys.color(did), orbytColors);
+      }
       return {
         ...profile,
         orbytRecord: null,
@@ -209,6 +213,9 @@ export class ActorService {
 
       const profile = response.data as ProfileView;
       const orbytColors = profile.did ? await fetchColors(profile.did) : null;
+      if (profile.did && orbytColors) {
+        queryClient.setQueryData(orbytColorKeys.color(profile.did), orbytColors);
+      }
       return {
         ...profile,
         orbytRecord: null,
@@ -279,6 +286,9 @@ export class ActorService {
 
       const dids = [...new Set(profiles.map(p => p.did).filter(Boolean))] as string[];
       const colorMap = dids.length > 0 ? await batchFetchColors(dids) : {};
+      for (const [d, data] of Object.entries(colorMap)) {
+        if (data) queryClient.setQueryData(orbytColorKeys.color(d), data);
+      }
 
       return profiles.map(profile => ({
         ...profile,

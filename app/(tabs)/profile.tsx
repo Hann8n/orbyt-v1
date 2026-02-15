@@ -67,10 +67,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const { presentAccountSwitcher } = useGlobalAccountSwitcher();
-  const [dynamicColors, setDynamicColors] = useState<{
-    backgroundColor: string;
-    textColor: string;
-  } | null>(null);
   const didLongPressMenuRef = useRef(false);
   // Use DID in route key to differentiate between own profile and author profiles
   const profileRouteKey = useMemo(() => {
@@ -404,8 +400,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   } = useDetailScreenOverlay(providedIdentifier, defaultTop, overlayScrollProgressSV);
 
   const baseBackTextColor = useMemo(
-    () => (dynamicColors ? dynamicColors.textColor : profileColors.textColor) || Colors.neutral[50],
-    [dynamicColors, profileColors.textColor]
+    () => profileColors.textColor || Colors.neutral[50],
+    [profileColors.textColor]
   );
 
   const handleGrabHandlePress = useCallback(() => {
@@ -432,25 +428,14 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     let label = isBlocked ? 'Unblock' : 'follow';
     let icon: string | undefined = undefined;
     let customIcon: React.ReactNode | undefined = isBlocked ? undefined : (
-      <FollowIcon
-        size={14}
-        color={
-          (dynamicColors ? dynamicColors.textColor : profileColors.textColor) || Colors.neutral[50]
-        }
-      />
+      <FollowIcon size={14} color={profileColors.textColor || Colors.neutral[50]} />
     );
 
     if (!isBlocked && isFollowing && isFollowedBy) {
       label = '';
       icon = undefined;
       customIcon = (
-        <MutualHeartIcon
-          size={20}
-          color={
-            (dynamicColors ? dynamicColors.backgroundColor : profileColors.backgroundColor) ||
-            Colors.black
-          }
-        />
+        <MutualHeartIcon size={20} color={profileColors.backgroundColor || Colors.black} />
       );
     } else if (!isBlocked && isFollowing) {
       label = '';
@@ -478,10 +463,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
             size={20}
             color={
               isSubscribed
-                ? (dynamicColors ? dynamicColors.backgroundColor : profileColors.backgroundColor) ||
-                  Colors.black
-                : (dynamicColors ? dynamicColors.textColor : profileColors.textColor) ||
-                  Colors.neutral[50]
+                ? profileColors.backgroundColor || Colors.black
+                : profileColors.textColor || Colors.neutral[50]
             }
           />
         ),
@@ -520,7 +503,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     handleFollowUnfollow,
     isSubscribed,
     isFollowing,
-    dynamicColors,
     profileColors.backgroundColor,
     profileColors.textColor,
     router,
@@ -553,13 +535,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
           delayLongPress={250}
           style={styles.overlayMenuButton}
         >
-          <MoreFillIcon
-            size={24}
-            color={
-              (dynamicColors ? dynamicColors.textColor : profileColors.textColor) ||
-              Colors.neutral[50]
-            }
-          />
+          <MoreFillIcon size={24} color={profileColors.textColor || Colors.neutral[50]} />
         </Pressable>
         {headerActions.length > 0 && (
           <View style={styles.overlayActionsContainer}>
@@ -567,14 +543,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
               <HeaderActionButton
                 key={action.id}
                 action={action}
-                textColor={
-                  (dynamicColors ? dynamicColors.textColor : profileColors.textColor) ||
-                  Colors.neutral[50]
-                }
-                backgroundColor={
-                  (dynamicColors ? dynamicColors.backgroundColor : profileColors.backgroundColor) ||
-                  Colors.black
-                }
+                textColor={profileColors.textColor || Colors.neutral[50]}
+                backgroundColor={profileColors.backgroundColor || Colors.black}
               />
             ))}
           </View>
@@ -605,7 +575,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
                 applySafeArea={!isModal}
                 controlStatusBar={!isModal}
                 headerStyle={headerPaddingTop ? { paddingTop: headerPaddingTop } : undefined}
-                onColorsChange={setDynamicColors}
                 contentFadeDisabled={viewMode === 'grid'}
                 dimOverlayDisabled={viewMode === 'grid'}
                 onAvatarPress={
@@ -617,7 +586,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
                 }
               >
                 <TabNavigation
-                  key={`tab-nav-${dynamicColors?.textColor || profileColors.textColor}`}
+                  key={`tab-nav-${profileColors.textColor}`}
                   tabs={tabOptions}
                   activeTab={activeTab}
                   onTabPress={tabId => {
@@ -625,7 +594,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
                     const index = profileFeedOptions.indexOf(tabId);
                     if (index >= 0) tabRefs.profile?.setPage(index);
                   }}
-                  textColor={dynamicColors ? dynamicColors.textColor : profileColors.textColor}
+                  textColor={profileColors.textColor}
                   backgroundColor="transparent"
                   viewMode={viewMode}
                   onViewModeChange={(mode: ViewMode) => setViewMode(mode)}
@@ -634,10 +603,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
               </ProfileHeader>
             </View>
           }
-          backgroundColor={
-            dynamicColors ? dynamicColors.backgroundColor : profileColors.backgroundColor
-          }
-          secondaryColor={dynamicColors ? dynamicColors.textColor : profileColors.textColor}
+          backgroundColor={profileColors.backgroundColor}
+          secondaryColor={profileColors.textColor}
           isRefreshing={isModal ? false : refreshing}
           onRefresh={isModal ? undefined : onRefresh}
           viewMode={viewMode}
