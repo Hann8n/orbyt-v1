@@ -79,6 +79,7 @@ function toFileUri(path: string): string {
 /**
  * Copies a video from Photos library to app sandbox for playback
  * iOS doesn't allow direct video playback from Photos library paths
+ * Uses expo-file-system Directory/File and Paths per https://docs.expo.dev/versions/latest/sdk/filesystem/
  */
 async function copyToSandboxIfNeeded(path: string): Promise<{ path: string; copied: boolean }> {
   if (!isPhotosLibraryPath(path)) {
@@ -88,30 +89,24 @@ async function copyToSandboxIfNeeded(path: string): Promise<{ path: string; copi
   const logPrefix = '[VideoPath]';
 
   try {
-    // Ensure sandbox directory exists
     const sandboxDir = new Directory(Paths.cache, 'video_sandbox');
-    if (!sandboxDir.exists) {
-      sandboxDir.create({ intermediates: true });
-    }
+    sandboxDir.create({ intermediates: true, idempotent: true });
 
-    // Generate unique filename
-    const ext = path.split('.').pop()?.toLowerCase() || 'mp4';
-    const filename = `video_${Date.now()}.${ext}`;
-    const destPath = `${sandboxDir.uri.replace('file://', '')}/${filename}`;
+    const ext = Paths.extname(path).toLowerCase() || '.mp4';
+    const extWithoutDot = ext.startsWith('.') ? ext.slice(1) : ext;
+    const destFile = new File(sandboxDir, `video_${Date.now()}.${extWithoutDot}`);
 
     const sourceFile = new File(path);
-    const destFile = new File(destPath);
-
     if (sourceFile.exists) {
       sourceFile.copy(destFile);
-
       if (destFile.exists) {
         if (DEBUG) {
           logger.info(`${logPrefix} Copied to sandbox`, {
             component: 'videoPath',
-            dest: destPath.substring(destPath.length - 50),
+            dest: destFile.uri.substring(destFile.uri.length - 50),
           });
         }
+        const destPath = destFile.uri.replace(/^file:\/\//, '');
         return { path: destPath, copied: true };
       }
     }

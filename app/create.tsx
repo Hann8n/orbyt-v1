@@ -5,13 +5,11 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  Dimensions,
   Alert,
   Platform,
   StatusBar,
   AppState,
   NativeEventEmitter,
-  NativeModules,
   useWindowDimensions,
   type EventSubscription,
 } from 'react-native';
@@ -44,10 +42,10 @@ import { getBottomNavBarHeight } from '../src/utils/device/screen';
 import { Colors } from '../src/theme';
 import { hexToRGBA } from '../src/utils/formatting/colors';
 import * as Haptics from 'expo-haptics';
-import { showEditor, isValidFile, type Spec } from 'react-native-clip-trim';
+import VideoTrim, { showEditor, isValidFile, type Spec } from 'react-native-clip-trim';
 import { SegmentManager, type Segment } from '../src/utils/video/segmentManager';
 import VideoProcessingService from '../src/services/video/VideoProcessingService';
-import { useVideoPostDraftStore } from '../src/stores/videoPostDraftStore';
+import { usePendingVideoPostStore } from '../src/stores/pendingVideoPostStore';
 
 // Duration options in seconds
 const DURATION_OPTIONS = [
@@ -59,6 +57,9 @@ const DURATION_OPTIONS = [
 
 const CAPTURE_BUTTON_INNER_BG = 'rgba(129, 136, 150, 0.4)';
 const CAPTURE_BUTTON_INNER_DISABLED_BG = 'rgba(129, 136, 150, 0.2)';
+const DIGITAL_ZOOM_PRESETS = [0.5, 1, 2, 3, 5, 10] as const;
+/** Minimum segment duration (seconds). Shorter clips often have invalid timestamps after camera switch. */
+const MIN_RECORDING_DURATION = 0.4;
 
 function lensToLabel(lens: string): string {
   const n = lens.toLowerCase();
@@ -79,13 +80,14 @@ const CreateScreen: React.FC = () => {
   const [selectedDuration, setSelectedDuration] = useState(16); // Default to 16 seconds
   const [isZoomExpanded, setIsZoomExpanded] = useState(false);
   const [availableLenses, setAvailableLenses] = useState<string[]>([]);
+  const [lensDataReceived, setLensDataReceived] = useState(false);
   const [selectedLens, setSelectedLens] = useState<string | null>(null);
   const [selectedPresetLabel, setSelectedPresetLabel] = useState('1x');
   const [isTrimmerActive, setIsTrimmerActive] = useState(false);
   const [lastReadyCameraKey, setLastReadyCameraKey] = useState<string | null>(null);
   const [isOnionSkinningEnabled, setIsOnionSkinningEnabled] = useState(false);
   const [lastFrameThumbnail, setLastFrameThumbnail] = useState<string | null>(null);
-  const setPendingThumbnail = useVideoPostDraftStore(s => s.setPendingThumbnail);
+  const setPendingVideoPost = usePendingVideoPostStore(s => s.setPayload);
 
   // Segment manager - single source of truth
   const segmentManagerRef = useRef<SegmentManager | null>(null);
@@ -94,7 +96,7 @@ const CreateScreen: React.FC = () => {
   // Recording state
   const cameraRef = useRef<CameraView>(null);
   const recordingPromiseRef = useRef<Promise<{ uri: string } | undefined> | null>(null);
-  const isMountedRef = useRef(true);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const isRecordingRef = useRef(false);
   const lastTapRef = useRef<number>(0);
   const tapTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -138,10 +140,11 @@ const CreateScreen: React.FC = () => {
 
   // Extract only the last segment's frame for onion skinning (single source, no re-extraction of older clips)
   useEffect(() => {
+    const ac = new AbortController();
     const segments = segmentManagerRef.current?.getSegments() ?? [];
     if (segments.length === 0) {
       setLastFrameThumbnail(null);
-      return;
+      return () => ac.abort();
     }
 
     const lastSeg = segments[segments.length - 1];
@@ -151,20 +154,17 @@ const CreateScreen: React.FC = () => {
         : '';
     if (!videoUri || lastSeg.duration <= 0) {
       setLastFrameThumbnail(null);
-      return;
+      return () => ac.abort();
     }
 
-    let cancelled = false;
     VideoProcessingService.extractLastFrame(videoUri, lastSeg.duration)
       .then(thumbUri => {
-        if (!cancelled && isMountedRef.current) setLastFrameThumbnail(thumbUri);
+        if (!ac.signal.aborted) setLastFrameThumbnail(thumbUri);
       })
       .catch(() => {
-        if (!cancelled) setLastFrameThumbnail(null);
+        if (!ac.signal.aborted) setLastFrameThumbnail(null);
       });
-    return () => {
-      cancelled = true;
-    };
+    return () => ac.abort();
   }, [segmentUpdateTrigger]);
 
   const router = useRouter();
@@ -172,34 +172,18 @@ const CreateScreen: React.FC = () => {
   const bottomNavBarHeight = getBottomNavBarHeight(insets);
   const listenerSubscription = useRef<Record<string, EventSubscription>>({});
 
-  // Track screen dimensions for camera updates on orientation change
-  const [screenDims, setScreenDims] = useState(() => Dimensions.get('window'));
-
-  useEffect(() => {
-    const onChange = ({
-      window,
-    }: {
-      window: { width: number; height: number; scale: number; fontScale: number };
-    }) => {
-      setScreenDims(window);
-    };
-    const subscription = Dimensions.addEventListener('change', onChange);
-    return () => subscription?.remove();
-  }, []);
-
-  // Calculate dimensions from tracked state
-  const screenWidth = screenDims.width;
-  const screenHeight = screenDims.height;
-
-  // Device detection
-  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const isTabletDevice =
-    Device.deviceType === Device.DeviceType.TABLET || Math.min(windowWidth, windowHeight) >= 600;
-  const isSmallDevice = windowWidth <= 375 || windowHeight <= 667;
+    Device.deviceType === Device.DeviceType.TABLET || Math.min(screenWidth, screenHeight) >= 600;
+  const isSmallDevice = screenWidth <= 375 || screenHeight <= 667;
 
-  // Camera key changes on dimension/orientation change to fix camera preview
-  const cameraKey = `${Math.round(screenWidth)}x${Math.round(screenHeight)}-${isFrontCamera ? 'front' : 'back'}`;
-  const isCameraReady = lastReadyCameraKey === cameraKey;
+  // Ready once onCameraReady has fired for this dimensions. Facing changes in-place (no remount).
+  const cameraReadyKey = `${Math.round(screenWidth)}x${Math.round(screenHeight)}`;
+  const isCameraReady = lastReadyCameraKey === cameraReadyKey;
+
+  const handleCameraReady = useCallback(() => {
+    setLastReadyCameraKey(cameraReadyKey);
+  }, [cameraReadyKey]);
 
   // For small screens and tablets, use full screen; otherwise use available space between safe areas
   const availableHeight =
@@ -286,17 +270,11 @@ const CreateScreen: React.FC = () => {
     }
   }, [recordingStartTime, recordingElapsed]);
 
-  // Set up event listeners for react-native-clip-trim using Spec API
+  // Set up event listeners for react-native-clip-trim (Spec API for New Arch, NativeEventEmitter for Old Arch)
   useEffect(() => {
-    const VideoTrimModule = NativeModules.VideoTrim as Spec;
+    const VideoTrimModule = VideoTrim as Spec;
 
-    // Use the new Spec API if available, otherwise fall back to old architecture
     if (VideoTrimModule && typeof VideoTrimModule.onFinishTrimming === 'function') {
-      // New Architecture - use Spec API
-      listenerSubscription.current.onLoad = VideoTrimModule.onLoad(() => {});
-
-      listenerSubscription.current.onStartTrimming = VideoTrimModule.onStartTrimming(() => {});
-
       listenerSubscription.current.onCancelTrimming = VideoTrimModule.onCancelTrimming(() => {
         setIsLoadingFromGallery(false);
         setIsProcessing(false);
@@ -321,10 +299,6 @@ const CreateScreen: React.FC = () => {
       listenerSubscription.current.onFinishTrimming =
         VideoTrimModule.onFinishTrimming(handleTrimmingComplete);
 
-      listenerSubscription.current.onLog = VideoTrimModule.onLog(() => {});
-
-      listenerSubscription.current.onStatistics = VideoTrimModule.onStatistics(() => {});
-
       listenerSubscription.current.onError = VideoTrimModule.onError(({ message }) => {
         Alert.alert('Error', message || 'Failed to trim video');
         setIsLoadingFromGallery(false);
@@ -332,8 +306,7 @@ const CreateScreen: React.FC = () => {
         setIsTrimmerActive(false);
       });
     } else {
-      // Fallback to old architecture
-      const eventEmitter = new NativeEventEmitter(NativeModules.VideoTrim);
+      const eventEmitter = new NativeEventEmitter(VideoTrim);
       listenerSubscription.current.onFinishTrimming = eventEmitter.addListener(
         'VideoTrim',
         (event: { name?: string; message?: string } & Record<string, unknown>) => {
@@ -382,12 +355,16 @@ const CreateScreen: React.FC = () => {
     requestMicrophonePermission,
   ]);
 
-  // Cleanup: reset processing state when component unmounts or user navigates away
+  // AbortController for async work (e.g. finishRecording) so we don't setState after unmount
   useEffect(() => {
-    isMountedRef.current = true;
+    abortControllerRef.current = new AbortController();
+    return () => abortControllerRef.current?.abort();
+  }, []);
+
+  // Cleanup when component unmounts or recordingStartTime changes
+  useEffect(() => {
     const camera = cameraRef.current;
     return () => {
-      isMountedRef.current = false;
       if (isRecordingRef.current && camera) {
         camera.stopRecording();
         recordingStartTime.value = null;
@@ -424,11 +401,9 @@ const CreateScreen: React.FC = () => {
   useFocusEffect(
     useCallback(() => {
       setIsProcessing(false);
-      isMountedRef.current = true;
-      const camera = cameraRef.current;
       return () => {
-        if (isRecordingRef.current && camera) {
-          camera.stopRecording();
+        if (isRecordingRef.current && cameraRef.current) {
+          cameraRef.current.stopRecording();
           recordingStartTime.value = null;
           isRecordingRef.current = false;
           setIsRecording(false);
@@ -445,20 +420,23 @@ const CreateScreen: React.FC = () => {
     }
   }, [isFrontCamera, flash]);
 
-  // Reset zoom when switching cameras or lens
-  useEffect(() => {
-    setZoom(0);
-  }, [isFrontCamera]);
-
   useEffect(() => {
     if (isRecording) setIsZoomExpanded(false);
   }, [isRecording]);
 
+  // Pre-request microphone when camera is ready so first press doesn't block on permission
   useEffect(() => {
-    setAvailableLenses([]);
-    setSelectedLens(null);
-    setSelectedPresetLabel('1x');
-  }, [isFrontCamera]);
+    if (isCameraReady && !microphonePermission?.granted) {
+      requestMicrophonePermission();
+    }
+  }, [isCameraReady, microphonePermission?.granted, requestMicrophonePermission]);
+
+  // Android: onAvailableLensesChanged may not fire; treat as digital-zoom mode after brief delay
+  useEffect(() => {
+    if (isFrontCamera || !isCameraReady || lensDataReceived) return;
+    const id = setTimeout(() => setLensDataReceived(true), 200);
+    return () => clearTimeout(id);
+  }, [isFrontCamera, isCameraReady, lensDataReceived]);
 
   // Pinch gesture: map full pinch range (scale ~0.2–4) to full camera zoom 0–1
   const captureZoomStart = useCallback(() => {
@@ -550,42 +528,49 @@ const CreateScreen: React.FC = () => {
       // Type guard: ensure camera ref is still valid before stopping
       const camera = cameraRef.current;
       if (camera) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         camera.stopRecording();
       }
 
-      // Type guard: ensure promise ref exists before awaiting
+      // Await recording result; promise may reject e.g. after camera flip or very short record
       if (recordingPromiseRef.current) {
-        const video = await recordingPromiseRef.current;
+        let video: { uri: string } | undefined;
+        try {
+          video = await recordingPromiseRef.current;
+        } catch {
+          video = undefined;
+        }
         const manager = segmentManagerRef.current;
 
-        if (video && manager && elapsedDuration > 0) {
-          // Clamp elapsed duration to available time to prevent exceeding maxDuration
+        if (video && manager && elapsedDuration >= MIN_RECORDING_DURATION) {
           const availableTime = manager.getAvailableTime();
           const clampedDuration = Math.min(elapsedDuration, availableTime);
 
-          // Use the clamped duration for the segment
-          const newSegment: Segment = {
-            duration: clampedDuration,
-            video,
-            sourceType: 'camera',
-          };
+          if (clampedDuration > 0) {
+            const newSegment: Segment = {
+              duration: clampedDuration,
+              video,
+              sourceType: 'camera',
+            };
 
-          if (clampedDuration > 0 && manager.addSegment(newSegment)) {
-            totalDurationShared.value = manager.getTotalDuration();
-            setSegmentUpdateTrigger(prev => prev + 1);
+            if (manager.addSegment(newSegment)) {
+              totalDurationShared.value = manager.getTotalDuration();
+              setSegmentUpdateTrigger(prev => prev + 1);
+            } else {
+              totalDurationShared.value = manager.getTotalDuration();
+            }
           } else {
-            // If segment couldn't be added, revert optimistic update
             totalDurationShared.value = manager.getTotalDuration();
           }
         } else if (elapsedDuration > 0 && manager) {
-          // If video failed but we had elapsed time, revert optimistic update
           totalDurationShared.value = manager.getTotalDuration();
         }
       }
 
       recordingPromiseRef.current = null;
     } catch (_e) {
-      // Reset recording timer shared values on error
+      const manager = segmentManagerRef.current;
+      if (manager) totalDurationShared.value = manager.getTotalDuration();
       recordingStartTime.value = null;
       recordingElapsed.value = 0;
       recordingPromiseRef.current = null;
@@ -618,7 +603,8 @@ const CreateScreen: React.FC = () => {
         const manager = segmentManagerRef.current;
         const availableTime = manager?.getAvailableTime() ?? 0;
         const recordingOptions: CameraRecordingOptions = {
-          maxDuration: availableTime * 1000,
+          maxDuration: availableTime,
+          maxFileSize: 512 * 1024 * 1024,
         };
 
         const camera = cameraRef.current;
@@ -658,6 +644,7 @@ const CreateScreen: React.FC = () => {
       currentTotal < maxDuration &&
       availableTime > 0
     ) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       startRecording();
     }
   }, [isCameraReady, isProcessing, startRecording, maxDuration]);
@@ -687,7 +674,7 @@ const CreateScreen: React.FC = () => {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: 'videos',
+        mediaTypes: ['videos'],
         allowsMultipleSelection: false,
         videoQuality: ImagePicker.UIImagePickerControllerQualityType.High,
         preferredAssetRepresentationMode:
@@ -696,7 +683,14 @@ const CreateScreen: React.FC = () => {
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        const videoUri = result.assets[0].uri;
+        const asset = result.assets[0];
+        if (asset.type != null && asset.type !== 'video') {
+          Alert.alert('Invalid selection', 'Please select a video. This screen is for video only.');
+          setIsLoadingFromGallery(false);
+          setIsProcessing(false);
+          return;
+        }
+        const videoUri = asset.uri;
 
         try {
           // Validate file using library's API and get actual video duration
@@ -757,11 +751,15 @@ const CreateScreen: React.FC = () => {
   }, []);
 
   const flipCamera = useCallback(async () => {
-    // Stop any active recording before switching cameras
     if (isRecordingRef.current && cameraRef.current) {
       await stopRecording();
     }
+    // Batch all flip-related state in one tick to avoid multiple re-renders and jank
     setZoom(0);
+    setIsZoomExpanded(false);
+    setLensDataReceived(false);
+    setSelectedLens(null);
+    setSelectedPresetLabel('1x');
     setIsFrontCamera(prev => !prev);
   }, [stopRecording]);
 
@@ -895,25 +893,32 @@ const CreateScreen: React.FC = () => {
         )
       : undefined;
 
-    if (!isMountedRef.current) return;
-
-    if (thumbnailPath) setPendingThumbnail(thumbnailPath);
+    if (abortControllerRef.current?.signal.aborted) return;
 
     if (videoSegments.length === 1 && firstSegment) {
       const videoUri = firstSegment.video?.uri;
       if (videoUri) {
-        router.navigate({
-          pathname: '/post/[id]',
-          params: { id: 'new', videoPath: videoUri },
+        setPendingVideoPost({
+          videoPath: videoUri,
+          thumbnailPath: thumbnailPath ?? undefined,
+          textOverlays: [],
         });
+        router.navigate({ pathname: '/post/[id]', params: { id: 'new' } });
       }
     } else {
-      router.navigate({
-        pathname: '/post/[id]',
-        params: { id: 'new', segments: JSON.stringify(videoSegments) },
+      setPendingVideoPost({
+        segments: videoSegments.map(s => ({
+          startTime: s.startTime,
+          duration: s.duration,
+          video: s.video as { uri: string; assetId?: string; [k: string]: unknown },
+          sourceType: s.sourceType,
+        })),
+        thumbnailPath: thumbnailPath ?? undefined,
+        textOverlays: [],
       });
+      router.navigate({ pathname: '/post/[id]', params: { id: 'new' } });
     }
-  }, [router, isProcessing, stopRecording, setPendingThumbnail]);
+  }, [router, isProcessing, stopRecording, setPendingVideoPost]);
 
   const cameraContainerLayout = useMemo(
     () => ({
@@ -976,18 +981,23 @@ const CreateScreen: React.FC = () => {
                   {/* Wrapper matches camera dimensions so overlay aligns pixel-perfect */}
                   <View style={[styles.cameraWrapper, cameraLayout]}>
                     <CameraView
-                      key={cameraKey}
                       ref={cameraRef}
                       style={styles.cameraFill}
                       facing={isFrontCamera ? 'front' : 'back'}
                       mode="video"
+                      flash="off"
                       enableTorch={flash === 'on' && !isFrontCamera}
                       mute={!microphonePermission?.granted}
-                      videoQuality="2160p"
+                      mirror={isFrontCamera}
+                      videoQuality={isFrontCamera ? '1080p' : '2160p'}
                       videoStabilizationMode="off"
+                      animateShutter={false}
                       zoom={zoom}
                       selectedLens={selectedLens ?? undefined}
-                      onCameraReady={() => setLastReadyCameraKey(cameraKey)}
+                      onCameraReady={handleCameraReady}
+                      onMountError={e => {
+                        if (__DEV__) console.warn('[Camera] Mount error:', e?.message);
+                      }}
                       onAvailableLensesChanged={event => {
                         const raw = event?.lenses ?? [];
                         const n = (s: string) => s.toLowerCase();
@@ -995,12 +1005,16 @@ const CreateScreen: React.FC = () => {
                           l => !n(l).includes('dual') && !n(l).includes('triple')
                         );
                         setAvailableLenses(physical);
+                        setLensDataReceived(true);
                         if (physical.length > 0) {
-                          const valid = physical.includes(selectedLens ?? '');
-                          const wide = physical.find(
-                            l => n(l).includes('wide') && !n(l).includes('ultra')
-                          );
-                          if (!valid) setSelectedLens(wide ?? physical[0]);
+                          setSelectedLens(prev => {
+                            const valid = physical.includes(prev ?? '');
+                            if (valid) return prev;
+                            const wide = physical.find(
+                              l => n(l).includes('wide') && !n(l).includes('ultra')
+                            );
+                            return wide ?? physical[0];
+                          });
                         }
                       }}
                     />
@@ -1053,74 +1067,84 @@ const CreateScreen: React.FC = () => {
               { bottom: bottomNavBarHeight + (isSmallDevice ? 40 : 50) },
             ]}
           >
-            {!isRecording && !isFrontCamera && (
-              <View style={styles.zoomSelectorContainer}>
-                {isZoomExpanded ? (
-                  <View style={styles.zoomPicker}>
-                    {availableLenses.length > 0
-                      ? availableLenses.map(lens => {
-                          const isSelected = selectedLens === lens;
-                          const label = lensToLabel(lens);
-                          return (
-                            <Pressable
-                              key={lens}
-                              style={[styles.zoomSegment, isSelected && styles.zoomSegmentSelected]}
-                              onPress={() => {
-                                Haptics.selectionAsync();
-                                setSelectedLens(lens);
-                                setZoom(0);
-                                setIsZoomExpanded(false);
-                              }}
-                            >
-                              <Text
+            {!isRecording &&
+              !isFrontCamera &&
+              isCameraReady &&
+              lensDataReceived &&
+              availableLenses.length !== 1 && (
+                <View style={styles.zoomSelectorContainer}>
+                  {isZoomExpanded ? (
+                    <View style={styles.zoomPicker}>
+                      {availableLenses.length > 0
+                        ? availableLenses.map(lens => {
+                            const isSelected = selectedLens === lens;
+                            const label = lensToLabel(lens);
+                            return (
+                              <Pressable
+                                key={lens}
                                 style={[
-                                  styles.zoomSegmentText,
-                                  isSelected && styles.zoomSegmentTextSelected,
+                                  styles.zoomSegment,
+                                  isSelected && styles.zoomSegmentSelected,
                                 ]}
+                                onPress={() => {
+                                  Haptics.selectionAsync();
+                                  setSelectedLens(lens);
+                                  setZoom(0);
+                                  setIsZoomExpanded(false);
+                                }}
                               >
-                                {label}
-                              </Text>
-                            </Pressable>
-                          );
-                        })
-                      : [0.5, 1, 2, 3, 5, 10].map(factor => {
-                          const optZoom = Math.log(Math.max(0.5, factor) / 0.5) / Math.log(20);
-                          const isSelected = Math.abs(optZoom - zoom) < 0.03;
-                          const label = factor === 0.5 ? '.5x' : `${factor}x`;
-                          return (
-                            <Pressable
-                              key={factor}
-                              style={[styles.zoomSegment, isSelected && styles.zoomSegmentSelected]}
-                              onPress={() => {
-                                Haptics.selectionAsync();
-                                setZoom(optZoom);
-                                setSelectedPresetLabel(label);
-                                setIsZoomExpanded(false);
-                              }}
-                            >
-                              <Text
+                                <Text
+                                  style={[
+                                    styles.zoomSegmentText,
+                                    isSelected && styles.zoomSegmentTextSelected,
+                                  ]}
+                                >
+                                  {label}
+                                </Text>
+                              </Pressable>
+                            );
+                          })
+                        : DIGITAL_ZOOM_PRESETS.map(factor => {
+                            const optZoom = Math.log(Math.max(0.5, factor) / 0.5) / Math.log(20);
+                            const isSelected = Math.abs(optZoom - zoom) < 0.03;
+                            const label = factor === 0.5 ? '.5x' : `${factor}x`;
+                            return (
+                              <Pressable
+                                key={factor}
                                 style={[
-                                  styles.zoomSegmentText,
-                                  isSelected && styles.zoomSegmentTextSelected,
+                                  styles.zoomSegment,
+                                  isSelected && styles.zoomSegmentSelected,
                                 ]}
+                                onPress={() => {
+                                  Haptics.selectionAsync();
+                                  setZoom(optZoom);
+                                  setSelectedPresetLabel(label);
+                                  setIsZoomExpanded(false);
+                                }}
                               >
-                                {label}
-                              </Text>
-                            </Pressable>
-                          );
-                        })}
-                  </View>
-                ) : (
-                  <Pressable style={styles.zoomCollapsed} onPress={() => setIsZoomExpanded(true)}>
-                    <Text style={styles.zoomCollapsedText}>
-                      {availableLenses.length > 0 && selectedLens
-                        ? lensToLabel(selectedLens)
-                        : selectedPresetLabel}
-                    </Text>
-                  </Pressable>
-                )}
-              </View>
-            )}
+                                <Text
+                                  style={[
+                                    styles.zoomSegmentText,
+                                    isSelected && styles.zoomSegmentTextSelected,
+                                  ]}
+                                >
+                                  {label}
+                                </Text>
+                              </Pressable>
+                            );
+                          })}
+                    </View>
+                  ) : (
+                    <Pressable style={styles.zoomCollapsed} onPress={() => setIsZoomExpanded(true)}>
+                      <Text style={styles.zoomCollapsedText}>
+                        {availableLenses.length > 0 && selectedLens
+                          ? lensToLabel(selectedLens)
+                          : selectedPresetLabel}
+                      </Text>
+                    </Pressable>
+                  )}
+                </View>
+              )}
             <View style={styles.recordButtonArea}>
               <View style={styles.recordButtonAreaSpacer} />
               <Pressable

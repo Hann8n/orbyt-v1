@@ -47,6 +47,7 @@ module.exports = [
         React: 'readonly',
         NodeJS: 'readonly',
         window: 'readonly',
+        AbortController: 'readonly',
       },
     },
     plugins: {

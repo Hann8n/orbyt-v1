@@ -1899,11 +1899,6 @@
   resolved "https://registry.yarnpkg.com/@lodev09/react-native-true-sheet/-/react-native-true-sheet-3.8.2.tgz#363b34d1295ea3196bd46c6c368bf1cc5bd23854"
   integrity sha512-Cg8iMviVQw4G7lRsUnGgwBQEUnaLo2wuSBMKyPf/ffewegqZovKTN/lKOjCT35/5w4tq4zPIDTHzuiu/WfOCBw==
 
-"@miblanchard/react-native-slider@^2.6.0":
-  version "2.6.0"
-  resolved "https://registry.yarnpkg.com/@miblanchard/react-native-slider/-/react-native-slider-2.6.0.tgz#9f78c805d637ffaff0e3e7429932d2995a67edc9"
-  integrity sha512-o7hk/f/8vkqh6QNR5L52m+ws846fQeD/qNCC9CCSRdBqjq66KiCgbxzlhRzKM/gbtxcvMYMIEEJ1yes5cr6I3A==
-
 "@radix-ui/primitive@1.1.3":
   version "1.1.3"
   resolved "https://registry.yarnpkg.com/@radix-ui/primitive/-/primitive-1.1.3.tgz#e2dbc13bdc5e4168f4334f75832d7bdd3e2de5ba"
@@ -6902,13 +6897,6 @@ react-native-url-polyfill@^3.0.0:
   integrity sha512-aA5CiuUCUb/lbrliVCJ6lZ17/RpNJzvTO/C7gC/YmDQhTUoRD5q5HlJfwLWcxz4VgAhHwXKzhxH+wUN24tAdqg==
   dependencies:
     whatwg-url-without-unicode "8.0.0-3"
-
-react-native-video-trimmer-ui@^0.3.6:
-  version "0.3.6"
-  resolved "https://registry.yarnpkg.com/react-native-video-trimmer-ui/-/react-native-video-trimmer-ui-0.3.6.tgz#0d5a830175dfa9beeb08adff71f330675c3f0130"
-  integrity sha512-th/DrDPXCHKL9+dKf1uGiueTwdN4XLLp+3O3zpGy7ccKRcfJ9PKMfrTlT+YUp/3bEf1pZuSmqziO44repSSBeg==
-  dependencies:
-    "@miblanchard/react-native-slider" "^2.6.0"
 
 react-native-video@^6.19.0:
   version "6.19.0"

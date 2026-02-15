@@ -2,7 +2,9 @@ import { Platform } from 'react-native';
 import { logger } from '../../utils/logger';
 
 // Lazy import FFmpegKit to avoid errors when native module isn't linked yet
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- FFmpegKit types from native module
 let FFmpegKit: any = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- ReturnCode from native module
 let ReturnCode: any = null;
 try {
   const ffmpegModule = require('ffmpeg-kit-react-native');
@@ -152,7 +154,7 @@ class VideoEditingService {
       // No need for InteractionManager wrapper - FFmpegKit handles threading internally
       const session = await FFmpegKit.execute(cmd);
       const returnCode = await session.getReturnCode();
-
+      if (ReturnCode.isCancel(returnCode)) throw new Error('FFmpeg operation cancelled');
       if (ReturnCode.isSuccess(returnCode)) {
         logger.info('Text overlay added successfully', { component: 'VideoEditingService' });
         return outputPath.startsWith('file://') ? outputPath : `file://${outputPath}`;
@@ -238,7 +240,7 @@ class VideoEditingService {
       // No need for InteractionManager wrapper - FFmpegKit handles threading internally
       const session = await FFmpegKit.execute(cmd);
       const returnCode = await session.getReturnCode();
-
+      if (ReturnCode.isCancel(returnCode)) throw new Error('FFmpeg operation cancelled');
       if (ReturnCode.isSuccess(returnCode)) {
         logger.info('Background music added successfully', { component: 'VideoEditingService' });
         return outputPath.startsWith('file://') ? outputPath : `file://${outputPath}`;
@@ -306,7 +308,7 @@ class VideoEditingService {
       // No need for InteractionManager wrapper - FFmpegKit handles threading internally
       const session = await FFmpegKit.execute(cmd);
       const returnCode = await session.getReturnCode();
-
+      if (ReturnCode.isCancel(returnCode)) throw new Error('FFmpeg operation cancelled');
       if (ReturnCode.isSuccess(returnCode)) {
         logger.info('Volume adjusted successfully', { component: 'VideoEditingService' });
         return outputPath.startsWith('file://') ? outputPath : `file://${outputPath}`;
@@ -377,7 +379,7 @@ class VideoEditingService {
       // No need for InteractionManager wrapper - FFmpegKit handles threading internally
       const session = await FFmpegKit.execute(cmd);
       const returnCode = await session.getReturnCode();
-
+      if (ReturnCode.isCancel(returnCode)) throw new Error('FFmpeg operation cancelled');
       if (ReturnCode.isSuccess(returnCode)) {
         const finalPath = outputPath.startsWith('file://') ? outputPath : `file://${outputPath}`;
         // Brief delay to ensure file is flushed
@@ -440,7 +442,7 @@ class VideoEditingService {
 
       const session = await FFmpegKit.execute(cmd);
       const returnCode = await session.getReturnCode();
-
+      if (ReturnCode.isCancel(returnCode)) throw new Error('FFmpeg operation cancelled');
       if (ReturnCode.isSuccess(returnCode)) {
         const finalPath = outputPath.startsWith('file://') ? outputPath : `file://${outputPath}`;
         // Brief delay to ensure file is flushed

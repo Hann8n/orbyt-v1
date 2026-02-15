@@ -37,24 +37,17 @@ function isMessageView(m: unknown): m is MessageView {
  */
 export function useChatLogPolling(convoId: string | undefined, queryClient: QueryClient): void {
   const cursorRef = useRef<string | null>(null);
-  const isMountedRef = useRef(true);
   const currentDelayRef = useRef(BASE_POLL_INTERVAL_MS);
 
   useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
-
-  useEffect(() => {
     if (!convoId) return;
+    const ac = new AbortController();
     currentDelayRef.current = BASE_POLL_INTERVAL_MS;
 
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
     const poll = async () => {
-      if (!isMountedRef.current) return;
+      if (ac.signal.aborted) return;
       try {
         const key = queryKeys.chat.messages.byConversation(convoId);
         const prev = queryClient.getQueryData<{ messages: unknown[]; cursor: string | null }>(key);
@@ -64,7 +57,7 @@ export function useChatLogPolling(convoId: string | undefined, queryClient: Quer
         }
 
         const { cursor: nextCursor, logs } = await ChatService.getLog(cursorRef.current);
-        if (!isMountedRef.current) return;
+        if (ac.signal.aborted) return;
 
         let nextMessages = [...prev.messages] as Array<Record<string, unknown> & { id: string }>;
         let didChange = false;
@@ -134,7 +127,7 @@ export function useChatLogPolling(convoId: string | undefined, queryClient: Quer
         // Ignore errors (e.g. network); next poll will retry
       }
 
-      if (isMountedRef.current) {
+      if (!ac.signal.aborted) {
         timeoutId = setTimeout(poll, currentDelayRef.current);
       }
     };
@@ -142,6 +135,7 @@ export function useChatLogPolling(convoId: string | undefined, queryClient: Quer
     poll();
 
     return () => {
+      ac.abort();
       if (timeoutId != null) clearTimeout(timeoutId);
     };
   }, [convoId, queryClient]);

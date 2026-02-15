@@ -29,7 +29,7 @@ import VideoEditingService, {
   BackgroundMusicOptions,
 } from '../src/services/video/VideoEditingService';
 import VideoProcessingService from '../src/services/video/VideoProcessingService';
-import { useVideoPostDraftStore } from '../src/stores/videoPostDraftStore';
+import { usePendingVideoPostStore } from '../src/stores/pendingVideoPostStore';
 import VerticalListSheet, {
   VerticalListButton,
   TrueSheet,
@@ -748,14 +748,12 @@ const VideoEditorScreen: React.FC = () => {
     const thumbnailPath = await VideoProcessingService.extractFirstFrame(normalizedPath, null, {
       quality: 0.5,
     }).catch(() => undefined);
-    if (thumbnailPath) {
-      useVideoPostDraftStore.getState().setPendingThumbnail(thumbnailPath);
-    }
 
-    router.navigate({
-      pathname: '/post/[id]',
-      params: { id: 'new', videoPath: normalizedPath },
+    usePendingVideoPostStore.getState().setPayload({
+      videoPath: normalizedPath,
+      thumbnailPath: thumbnailPath ?? undefined,
     });
+    router.navigate({ pathname: '/post/[id]', params: { id: 'new' } });
   };
 
   const bottomNavBarHeight = getBottomNavBarHeight(insets);

@@ -27,7 +27,7 @@ import { useVideoPlayer, VideoView, VideoPlayer } from 'expo-video';
 import * as MediaLibrary from 'expo-media-library';
 import { Image } from 'expo-image';
 import { BlurView } from '../../src/components/ui/BlurView';
-import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Avatar } from '../../src/components/ui/UI';
 import Icon, {
   BackArrowIcon,
@@ -47,6 +47,7 @@ import AtprotoService from '../../src/services/api/AtprotoService';
 import VideoProcessingService from '../../src/services/video/VideoProcessingService';
 import { logger } from '../../src/utils/logger';
 import { useVideoPostDraftStore } from '../../src/stores/videoPostDraftStore';
+import { usePendingVideoPostStore } from '../../src/stores/pendingVideoPostStore';
 import {
   getPostableChannels,
   shouldShowChannelSlash,
@@ -530,22 +531,18 @@ const COMMENT_FILTERS = [
 ];
 
 const VideoPostScreen: React.FC = () => {
-  const params = useLocalSearchParams();
+  const consumePayload = usePendingVideoPostStore(s => s.consumePayload);
+  const [payload] = useState(() => consumePayload());
 
-  // Video path is already standardized when it arrives from create.tsx
-  // OR segments are provided for background merging
-  const videoPath = params.videoPath as string;
-  const segmentsParam = params.segments as string | undefined;
+  const videoPath = payload?.videoPath;
+  const segments = useMemo(() => payload?.segments ?? [], [payload?.segments]);
+  const segmentsForDraft = segments.length > 0 ? JSON.stringify(segments) : null;
 
-  const [thumbnailPath, setThumbnailPath] = useState<string | undefined>(() => {
-    const thumb = useVideoPostDraftStore.getState().pendingThumbnail ?? undefined;
-    useVideoPostDraftStore.getState().setPendingThumbnail(null);
-    return thumb;
-  });
+  const [thumbnailPath, setThumbnailPath] = useState<string | undefined>(payload?.thumbnailPath);
 
   const textOverlays = useMemo(
-    () => (params.textOverlays as unknown as TextOverlay[] | undefined) || [],
-    [params.textOverlays]
+    () => (payload?.textOverlays ?? []) as TextOverlay[],
+    [payload?.textOverlays]
   );
   const router = useRouter();
 
@@ -633,11 +630,13 @@ const VideoPostScreen: React.FC = () => {
     }
   }, [currentUser?.handle, currentUser?.did]);
 
+  const activeVideoPath = mergedVideoPath || videoPath;
+
   // Restore draft state when component mounts or videoPath changes
   useEffect(() => {
-    if (videoPath) {
+    if (activeVideoPath) {
       const draft = getDraft();
-      if (draft && draft.videoPath === videoPath) {
+      if (draft && draft.videoPath === activeVideoPath) {
         setDescription(draft.description || '');
         setSelectedContentWarnings(draft.selectedContentWarnings || []);
         setOtherWarning(draft.otherWarning || '');
@@ -647,7 +646,7 @@ const VideoPostScreen: React.FC = () => {
       }
     }
   }, [
-    videoPath,
+    activeVideoPath,
     getDraft,
     setThumbnailPath,
     setDescription,
@@ -660,11 +659,11 @@ const VideoPostScreen: React.FC = () => {
   // Save draft state whenever it changes (with debouncing to prevent infinite loops)
   const prevDraftRef = useRef<string>('');
   useEffect(() => {
-    if (!videoPath) return;
+    if (!activeVideoPath) return;
 
     const currentDraft = JSON.stringify({
-      videoPath,
-      segments: segmentsParam || null,
+      videoPath: activeVideoPath,
+      segments: segmentsForDraft,
       thumbnailPath: thumbnailPath || null,
       textOverlays: textOverlays || [],
       description,
@@ -674,12 +673,11 @@ const VideoPostScreen: React.FC = () => {
       selectedChannel,
     });
 
-    // Only update if draft actually changed
     if (prevDraftRef.current !== currentDraft) {
       prevDraftRef.current = currentDraft;
       setDraft({
-        videoPath,
-        segments: segmentsParam || null,
+        videoPath: activeVideoPath,
+        segments: segmentsForDraft,
         thumbnailPath: thumbnailPath || null,
         textOverlays: textOverlays || [],
         description,
@@ -690,8 +688,8 @@ const VideoPostScreen: React.FC = () => {
       });
     }
   }, [
-    videoPath,
-    segmentsParam,
+    activeVideoPath,
+    segmentsForDraft,
     thumbnailPath,
     textOverlays,
     description,
@@ -702,67 +700,39 @@ const VideoPostScreen: React.FC = () => {
     setDraft,
   ]);
 
-  // Handle background merging if segments are provided
+  // Handle background merging when segments are provided
   useEffect(() => {
-    if (!segmentsParam || mergedVideoPath) return; // Already merged or no segments
+    if (segments.length === 0 || mergedVideoPath) return;
 
+    const ac = new AbortController();
     const mergeSegments = async () => {
       try {
+        if (ac.signal.aborted) return;
         setIsMerging(true);
 
-        // Parse segments from params
-        const segments = JSON.parse(segmentsParam);
+        const processingSegments = segments.map(seg => ({
+          startTime: seg.startTime,
+          duration: seg.duration,
+          video: seg.video as { uri: string } | { uri: string; [key: string]: unknown },
+          sourceType: seg.sourceType as 'camera' | 'gallery' | undefined,
+        }));
 
-        if (!segments || segments.length === 0) {
-          throw new Error('No video segments provided');
-        }
-
-        // Validate and convert segments to VideoSegment format
-        // Segments come from params as JSON string, parsed to unknown structure
-        type ParsedSegment = {
-          startTime?: unknown;
-          duration?: unknown;
-          video?: unknown;
-          sourceType?: unknown;
-        };
-
-        const processingSegments = (segments as ParsedSegment[]).map(segment => {
-          if (
-            typeof segment.startTime !== 'number' ||
-            typeof segment.duration !== 'number' ||
-            !segment.video ||
-            typeof segment.video !== 'object'
-          ) {
-            throw new Error('Invalid segment format');
-          }
-          return {
-            startTime: segment.startTime,
-            duration: segment.duration,
-            video: segment.video as { uri: string } | { uri: string; [key: string]: unknown },
-            sourceType: segment.sourceType as 'camera' | 'gallery' | undefined,
-          };
-        });
-
-        // Merge segments in background using requestIdleCallback
-        requestIdleCallback(
-          async () => {
-            const mergedVideo = await VideoProcessingService.mergeSegments(
-              processingSegments as Parameters<typeof VideoProcessingService.mergeSegments>[0]
-            );
-
-            setMergedVideoPath(mergedVideo.path);
-            setIsMerging(false);
-
-            logger.info('Background merging completed', {
-              component: 'VideoPostScreen',
-              mergedPath: mergedVideo.path,
-            });
-          },
-          { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
+        const mergedVideo = await VideoProcessingService.mergeSegments(
+          processingSegments as Parameters<typeof VideoProcessingService.mergeSegments>[0]
         );
+
+        if (ac.signal.aborted) return;
+        setMergedVideoPath(mergedVideo.path);
+        setIsMerging(false);
+
+        logger.info('Background merging completed', {
+          component: 'VideoPostScreen',
+          mergedPath: mergedVideo.path,
+        });
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         logger.error('Background merging failed', error, { component: 'VideoPostScreen' });
+        if (ac.signal.aborted) return;
         setIsMerging(false);
         Alert.alert(
           'Merging Failed',
@@ -778,34 +748,39 @@ const VideoPostScreen: React.FC = () => {
     };
 
     mergeSegments();
-  }, [segmentsParam, mergedVideoPath, router]);
+    return () => ac.abort();
+  }, [segments, mergedVideoPath, router]);
 
-  // Determine the active video path (merged > provided > null)
-  const activeVideoPath = mergedVideoPath || videoPath;
+  // No valid video source
+  const hasVideoSource = Boolean(videoPath || segments.length > 0);
+  useEffect(() => {
+    if (!hasVideoSource) {
+      setVideoLoading(false);
+      setVideoError('No video');
+    }
+  }, [hasVideoSource]);
 
   // Automatically check upload limits and compress video if needed on component mount
   // Defer compression until after interactions complete to avoid blocking UI
   useEffect(() => {
-    // Use merged video path if available, otherwise use provided videoPath
     if (!activeVideoPath) return;
 
+    const ac = new AbortController();
     const interactionId = requestIdleCallback(
       async () => {
         try {
+          if (ac.signal.aborted) return;
           setIsCompressing(true);
 
-          // Automatically check upload limits and compress if needed
-          // This uses WhatsApp-like automatic compression in the background
           const result = await VideoProcessingService.checkAndCompressVideoForUpload(
             activeVideoPath,
-            undefined, // assetId not available here, path is already standardized
+            undefined,
             () => {}
           );
 
-          // Update state based on compression result
+          if (ac.signal.aborted) return;
           if (result.wasCompressed) {
             setCompressedVideoPath(result.processedVideo.path);
-
             logger.info('Video automatically compressed', {
               component: 'VideoPostScreen',
               originalSize: result.originalSize,
@@ -818,13 +793,14 @@ const VideoPostScreen: React.FC = () => {
             component: 'VideoPostScreen',
           });
         } finally {
-          setIsCompressing(false);
+          if (!ac.signal.aborted) setIsCompressing(false);
         }
       },
       { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
     );
 
     return () => {
+      ac.abort();
       cancelIdleCallback(interactionId);
     };
   }, [activeVideoPath]);
@@ -1181,23 +1157,23 @@ const VideoPostScreen: React.FC = () => {
 
   // Resolve video path on mount or when activeVideoPath changes
   useEffect(() => {
-    const resolveVideo = async () => {
-      // Wait for merging to complete if in progress
-      if (isMerging || !activeVideoPath) {
-        if (isMerging) {
-          setVideoLoading(true);
-          setVideoError(null);
-        }
-        return;
+    if (isMerging || !activeVideoPath) {
+      if (isMerging) {
+        setVideoLoading(true);
+        setVideoError(null);
       }
+      return;
+    }
 
+    const ac = new AbortController();
+    const resolveVideo = async () => {
       try {
         setVideoLoading(true);
         setVideoError(null);
 
-        // Use the utility to resolve the path (handles iCloud, normalization, validation)
         const pathInfo = await resolveVideoPath(activeVideoPath);
 
+        if (ac.signal.aborted) return;
         setVideoPathInfo(pathInfo);
 
         if (!pathInfo.exists) {
@@ -1205,13 +1181,14 @@ const VideoPostScreen: React.FC = () => {
         }
       } catch (error) {
         logger.error('Error resolving video path', error, { component: 'VideoPostScreen' });
-        setVideoError('Unable to access video file');
+        if (!ac.signal.aborted) setVideoError('Unable to access video file');
       } finally {
-        setVideoLoading(false);
+        if (!ac.signal.aborted) setVideoLoading(false);
       }
     };
 
     resolveVideo();
+    return () => ac.abort();
   }, [activeVideoPath, isMerging]);
 
   // Final video URI for playback
@@ -1755,7 +1732,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 2,
-    backgroundColor: 'transparent',
+    backgroundColor: Colors.transparent,
   },
   errorOverlay: {
     zIndex: 3,

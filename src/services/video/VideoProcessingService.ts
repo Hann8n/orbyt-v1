@@ -11,8 +11,11 @@ import { logger } from '../../utils/logger';
 type ExpoCameraVideo = { uri: string };
 
 // Lazy import FFmpegKit to avoid errors when native module isn't linked yet
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- FFmpegKit types from native module
 let FFmpegKit: any = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- ReturnCode from native module
 let ReturnCode: any = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- FFprobeKit types from native module
 let FFprobeKit: any = null;
 try {
   const ffmpegModule = require('ffmpeg-kit-react-native');
@@ -74,6 +77,9 @@ const COMPRESSION_LEVELS = [
 ];
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB in bytes
+
+/** Minimum free disk space (bytes) before starting merge or compress. Uses Paths.availableDiskSpace. */
+const MIN_FREE_DISK_SPACE = 150 * 1024 * 1024; // 150MB
 
 // Video merge settings for complex filter approach
 // These values provide a good balance between quality and compatibility
@@ -268,7 +274,7 @@ class VideoProcessingService {
   ): Promise<string> {
     const resolved = await resolveVideoPath(
       videoPath,
-      asset?.assetId || (asset as any)?.id || null
+      asset?.assetId || (asset as { assetId?: string; id?: string })?.id || null
     );
     if (!resolved.uri) {
       throw new Error('Failed to standardize video path');
@@ -291,7 +297,7 @@ class VideoProcessingService {
     // First, standardize the path (handles iCloud downloads, sandbox copies, file:// prefix)
     const standardizedPath = await this.standardizeVideoPath(
       videoPath,
-      assetId ? ({ assetId } as any) : undefined
+      assetId ? ({ assetId } as ImagePicker.ImagePickerAsset) : undefined
     );
     const localPath = standardizedPath.replace('file://', '');
 
@@ -310,7 +316,7 @@ class VideoProcessingService {
     const targetHeight = props.height > 0 ? props.height : 1920;
 
     const tempDir = new Directory(Paths.cache, `video_edit_normalize_${Date.now()}`);
-    tempDir.create({ intermediates: true });
+    tempDir.create({ intermediates: true, idempotent: true });
     const outputFile = new File(tempDir, `normalized_edit_${Date.now()}.mp4`);
 
     const normalizedPath = await this.normalizeVideoFormat(
@@ -577,13 +583,12 @@ class VideoProcessingService {
     onProgress?: (progress: number) => void
   ): Promise<ProcessedVideo> {
     try {
-      // Get local URI from MediaLibrary if we have assetId (for iCloud videos)
       const localVideoPath = await this.getLocalVideoPath(videoPath, assetId);
-
-      // Validate file exists
       await this.validateVideoFileExists(localVideoPath);
 
-      // Activate background task for compression (allows compression when app is in background)
+      if ((Paths.availableDiskSpace ?? 0) < MIN_FREE_DISK_SPACE) {
+        throw new Error('Not enough storage. Free some space and try again.');
+      }
       await VideoCompressor.activateBackgroundTask();
 
       try {
@@ -636,11 +641,12 @@ class VideoProcessingService {
     assetId?: string | null
   ): Promise<ProcessedVideo> {
     try {
-      // Get local URI from MediaLibrary if we have assetId (for iCloud videos)
       const localVideoPath = await this.getLocalVideoPath(videoPath, assetId);
-
-      // Validate file exists and get size
       const file = await this.validateVideoFileExists(localVideoPath);
+
+      if ((Paths.availableDiskSpace ?? 0) < MIN_FREE_DISK_SPACE) {
+        throw new Error('Not enough storage. Free some space and try again.');
+      }
       const originalSize = file.size || 0;
 
       // If original is already under limit, return as-is
@@ -676,9 +682,8 @@ class VideoProcessingService {
         });
       }
 
-      // Create temp directory for processing
       const tempDir = new Directory(Paths.cache, `video_compress_${Date.now()}`);
-      tempDir.create({ intermediates: true });
+      tempDir.create({ intermediates: true, idempotent: true });
 
       // Try compression levels progressively
       for (const level of COMPRESSION_LEVELS) {
@@ -698,10 +703,11 @@ class VideoProcessingService {
           const compressedSize = await this.getFileSize(outputFile.uri);
 
           if (compressedSize <= maxSizeBytes) {
-            // Clean up temp directory
-            this.cleanupTempFiles(tempDir);
-
-            // Ensure file:// prefix for local file
+            try {
+              tempDir.delete();
+            } catch {
+              // Ignore cleanup failure
+            }
             const finalPath = this.ensureFileProtocol(outputFile.uri);
             return {
               path: finalPath,
@@ -728,10 +734,11 @@ class VideoProcessingService {
         });
 
         new File(compressedPath).copy(minimalFile);
-
-        // Clean up temp directory
-        this.cleanupTempFiles(tempDir);
-
+        try {
+          tempDir.delete();
+        } catch {
+          // Ignore cleanup failure
+        }
         const finalPath = this.ensureFileProtocol(minimalFile.uri);
         return {
           path: finalPath,
@@ -897,7 +904,13 @@ class VideoProcessingService {
         try {
           // Use FFprobe to get media information
           // Try getMediaInformation method (if available in the API)
-          let mediaInfo: any = null;
+          type MediaInfo = {
+            getStreams?: () => unknown[];
+            streams?: unknown[];
+            getDuration?: () => number;
+            duration?: number;
+          };
+          let mediaInfo: MediaInfo | null = null;
 
           if (typeof FFprobeKit.getMediaInformation === 'function') {
             // FFprobe operations are already async and run in background threads
@@ -956,9 +969,29 @@ class VideoProcessingService {
           // Try direct media info access if available
           if (mediaInfo) {
             const streams = mediaInfo.getStreams?.() || mediaInfo.streams || [];
+            type StreamLike = {
+              getCodecType?: () => string;
+              codec_type?: string;
+              getWidth?: () => number;
+              width?: number;
+              getHeight?: () => number;
+              height?: number;
+              getCodec?: () => string;
+              codec?: string;
+              getRealFrameRate?: () => string;
+              r_frame_rate?: string;
+              getColorSpace?: () => string;
+              color_space?: string;
+              getColorTransfer?: () => string;
+              color_transfer?: string;
+              getColorPrimaries?: () => string;
+              color_primaries?: string;
+            };
             const videoStream = streams.find(
-              (s: any) => s.getCodecType?.() === 'video' || s.codec_type === 'video'
-            );
+              (s: unknown) =>
+                (s as StreamLike).getCodecType?.() === 'video' ||
+                (s as StreamLike).codec_type === 'video'
+            ) as StreamLike | undefined;
 
             if (videoStream) {
               const width = videoStream.getWidth?.() || videoStream.width || 0;
@@ -1110,7 +1143,7 @@ class VideoProcessingService {
       // No need for InteractionManager wrapper - FFmpegKit handles threading internally
       const session = await FFmpegKit.execute(ffmpegCommand);
       const returnCode = await session.getReturnCode();
-
+      if (ReturnCode.isCancel(returnCode)) throw new Error('FFmpeg operation cancelled');
       if (ReturnCode.isSuccess(returnCode)) {
         // Verify output file exists
         const outputFile = new File(normalizedOutput);
@@ -1165,9 +1198,8 @@ class VideoProcessingService {
     const targetWidth = videoProps.width > 0 ? videoProps.width : 1080;
     const targetHeight = videoProps.height > 0 ? videoProps.height : 1920;
 
-    // Normalize video to MP4 container with H.264 codec for compatibility
     const tempDir = new Directory(Paths.cache, `video_normalize_${Date.now()}`);
-    tempDir.create({ intermediates: true });
+    tempDir.create({ intermediates: true, idempotent: true });
     const outputFile = new File(tempDir, `normalized_${Date.now()}.mp4`);
 
     const normalizedPath = await this.normalizeVideoFormat(
@@ -1205,30 +1237,30 @@ class VideoProcessingService {
     }
 
     if (segments.length === 1) {
-      // For single segment, use normalizeVideo
       return await this.normalizeVideo(segments[0].video);
     }
 
-    try {
-      // Create temporary directory for processing
-      const tempDir = new Directory(Paths.cache, `video_merge_${Date.now()}`);
-      tempDir.create({ intermediates: true });
+    if (!FFmpegKit || !ReturnCode) {
+      throw new Error('FFmpegKit is not available');
+    }
 
-      // Calculate total duration
+    if ((Paths.availableDiskSpace ?? 0) < MIN_FREE_DISK_SPACE) {
+      throw new Error('Not enough storage. Free some space and try again.');
+    }
+
+    try {
+      await VideoCompressor.activateBackgroundTask();
+      const tempDir = new Directory(Paths.cache, `video_merge_${Date.now()}`);
+      tempDir.create({ intermediates: true, idempotent: true });
       let totalDuration = 0;
       for (const segment of segments) {
         totalDuration += segment.duration;
       }
 
-      // Generate output path
       const outputFile = new File(tempDir, `merged_video_${Date.now()}.mp4`);
+      await this.mergeSegmentsComplex(segments, outputFile.uri);
 
-      // Use complex filter approach for merging (prevents glitches from mixing different clip types)
-      const mergedVideoPath = await this.mergeSegmentsComplex(segments, outputFile.uri);
-
-      // Verify merged file exists (use mergedVideoPath with file:// prefix)
-      const mergedFile = new File(mergedVideoPath);
-      if (!mergedFile.exists) {
+      if (!outputFile.exists) {
         throw new Error('Merged video file was not created');
       }
 
@@ -1237,12 +1269,10 @@ class VideoProcessingService {
       let mergedHeight = this.getVideoHeight(segments[0].video);
 
       try {
-        // Try to get actual properties from merged video
-        const mergedProps = await this.analyzeVideoProperties(mergedVideoPath);
+        const mergedProps = await this.analyzeVideoProperties(outputFile.uri);
         mergedWidth = mergedProps.width;
         mergedHeight = mergedProps.height;
       } catch (_error) {
-        // Fallback to finding highest resolution from segments
         for (const segment of segments) {
           const width = this.getVideoWidth(segment.video);
           const height = this.getVideoHeight(segment.video);
@@ -1253,8 +1283,7 @@ class VideoProcessingService {
         }
       }
 
-      // Ensure file:// prefix for local file
-      const mergedPath = this.ensureFileProtocol(mergedVideoPath);
+      const mergedPath = this.ensureFileProtocol(outputFile.uri);
       return {
         path: mergedPath,
         duration: totalDuration,
@@ -1265,6 +1294,8 @@ class VideoProcessingService {
       logger.error('Error merging video segments', error, { component: 'VideoProcessingService' });
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       throw new Error(`Failed to merge video segments: ${errorMessage}`);
+    } finally {
+      await VideoCompressor.deactivateBackgroundTask();
     }
   }
 
@@ -1404,18 +1435,15 @@ class VideoProcessingService {
       // No need for InteractionManager wrapper - FFmpegKit handles threading internally
       const session = await FFmpegKit.execute(cmd);
       const returnCode = await session.getReturnCode();
-
+      if (ReturnCode.isCancel(returnCode)) throw new Error('FFmpeg operation cancelled');
       if (ReturnCode.isSuccess(returnCode)) {
-        // Verify output file exists (use original outputPath URI, not normalized path)
-        const outputFile = new File(outputPath);
-        if (!outputFile.exists) {
+        const outFile = new File(outputPath);
+        if (!outFile.exists) {
           throw new Error('Complex filter merge completed but output file not found');
         }
-
         logger.info('Complex filter merge completed successfully', {
           component: 'VideoProcessingService',
         });
-
         return this.ensureFileProtocol(normalizedOutput);
       } else {
         const failStackTrace = await session.getFailStackTrace();
@@ -1435,17 +1463,6 @@ class VideoProcessingService {
         component: 'VideoProcessingService',
       });
       throw error;
-    }
-  }
-
-  /**
-   * Cleans up temporary files
-   */
-  private static cleanupTempFiles(tempDir: Directory): void {
-    try {
-      tempDir.delete();
-    } catch (_error) {
-      logger.warn('Failed to cleanup temp files', { component: 'VideoProcessingService' });
     }
   }
 
