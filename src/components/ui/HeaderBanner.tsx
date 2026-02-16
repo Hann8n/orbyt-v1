@@ -77,7 +77,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
     },
   });
 
-  // Build looped data for seamless wrap-around: [last, ...headers, first]
+  // Loop data for wrap-around: [last, ...headers, first]
   const loopedData = useMemo(() => {
     if (!hasHeaders || headers.length <= 1) return headers;
     const first = headers[0];

@@ -135,10 +135,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   const authorDid = authorDidProp ?? author.did;
 
   const profilePicUrl = useMemo(
-    () =>
-      author.avatar && author.avatar.startsWith('http')
-        ? author.avatar
-        : 'https://via.placeholder.com/40',
+    () => (author.avatar && author.avatar.startsWith('http') ? author.avatar : undefined),
     [author.avatar]
   );
 

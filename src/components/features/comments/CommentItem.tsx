@@ -213,7 +213,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
   const authorDid = useMemo(() => comment?.author?.did || null, [comment?.author?.did]);
 
   const authorAvatar = useMemo(
-    () => comment?.author?.avatar || 'https://via.placeholder.com/40',
+    () => comment?.author?.avatar ?? undefined,
     [comment?.author?.avatar]
   );
 

@@ -479,17 +479,20 @@ export const useUserStore = create<UserState>()(
           await SecureStore.setItemAsync(STORAGE_KEYS.ACCOUNTS, JSON.stringify(updatedAccounts));
           await SecureStore.setItemAsync(STORAGE_KEYS.ACTIVE_ACCOUNT, session.did);
 
-          // Update state
+          // Update state (currentUser must include originalIdentifier; API profile does not)
           set({
-            currentUser: userProfile,
-            currentUserDid: session.did,
-            currentUserHandle: userProfile.handle,
-            currentUserEmailConfirmed: emailConfirmed,
+            currentUser: {
+              ...userProfile,
+              originalIdentifier: identifier || session.did,
+              emailConfirmed,
+            },
+            isAuthenticated: true,
+            isAuthenticating: false,
+            authError: null,
+            agent,
             savedAccounts: updatedAccounts,
             activeAccountDid: session.did,
             oauthSession: session,
-            isAuthenticating: false,
-            authError: null,
           });
 
           // Defer orbyt profile init after state update

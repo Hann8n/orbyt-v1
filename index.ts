@@ -44,8 +44,7 @@ import { enableScreens, enableFreeze } from 'react-native-screens';
 // Enable native screens (uses native navigation primitives for better performance)
 enableScreens(true);
 
-// Enable screen freezing (freezes inactive screens to save memory and improve performance)
-// This is especially beneficial for apps with deep navigation stacks
+// Freeze inactive screens to save memory
 enableFreeze(true);
 
 // Import expo-router entry point LAST

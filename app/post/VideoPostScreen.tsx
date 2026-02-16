@@ -538,7 +538,9 @@ const VideoPostScreen: React.FC = () => {
   const segments = useMemo(() => payload?.segments ?? [], [payload?.segments]);
   const segmentsForDraft = segments.length > 0 ? JSON.stringify(segments) : null;
 
-  const [thumbnailPath, setThumbnailPath] = useState<string | undefined>(payload?.thumbnailPath);
+  const [thumbnailPath, setThumbnailPath] = useState<string | undefined>(
+    payload?.thumbnailPath ?? undefined
+  );
 
   const textOverlays = useMemo(
     () => (payload?.textOverlays ?? []) as TextOverlay[],

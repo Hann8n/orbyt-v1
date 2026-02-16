@@ -166,7 +166,7 @@ class VideoProcessingService {
   }
 
   /**
-   * Gets comprehensive video information
+   * Returns video metadata (dimensions, duration, codec, etc.) for a local file.
    */
   static async getVideoInfo(
     videoPath: string,
@@ -1122,7 +1122,7 @@ class VideoProcessingService {
       const isHdr = !!inputProps.isHdr;
 
       // Mild, well-tested HDR→SDR mapping: linearize, tonemap, then convert to BT.709 and 4:2:0
-      // This is intentionally simpler than the very long custom chain to keep it robust on mobile.
+      // Simpler chain than the full custom one so it runs reliably on device.
       const hdrTonemapFilter =
         'zscale=t=linear:npl=100,' +
         'format=gbrpf32le,' +

@@ -53,6 +53,7 @@ Appearance.setColorScheme('dark');
 
 // Handle location variable error for React Native (some libs expect web-like globals)
 if (typeof global !== 'undefined' && !global.location) {
+  /* eslint-disable no-undef -- DOM types used only for mock cast; not in RN env */
   global.location = {
     href: '',
     origin: '',
@@ -66,8 +67,9 @@ if (typeof global !== 'undefined' && !global.location) {
     reload: () => {},
     replace: () => {},
     assign: () => {},
-    ancestorOrigins: [] as unknown as ReadonlyArray<string>,
-  };
+    ancestorOrigins: [] as unknown as DOMStringList,
+  } as Location;
+  /* eslint-enable no-undef */
 }
 
 // Consolidated providers wrapper

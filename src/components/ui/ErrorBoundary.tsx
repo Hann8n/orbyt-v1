@@ -1,22 +1,6 @@
 /**
- * Error Boundary Component
- *
- * Catches JavaScript errors anywhere in the child component tree,
- * logs those errors, and displays a fallback UI instead of crashing.
- *
- * Modern implementation for React Native 2025 with React Query integration support.
- *
- * Note: Error boundaries must be class components (React limitation).
- * They catch errors in:
- * - Render methods
- * - Lifecycle methods
- * - Constructors of the whole tree below them
- *
- * They do NOT catch errors in:
- * - Event handlers (use try/catch)
- * - Async code (use try/catch or React Query error handling)
- * - Server-side rendering
- * - Errors thrown in the error boundary itself
+ * Error boundary: catches render/lifecycle errors in the tree and shows fallback UI.
+ * Must be a class component (React limitation).
  */
 
 import React, { Component, ErrorInfo, ReactNode } from 'react';
