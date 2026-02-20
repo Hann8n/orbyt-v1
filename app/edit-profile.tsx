@@ -35,7 +35,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Colors } from '../src/theme';
 import { Avatar } from '../src/components/ui/UI';
-import { Loading3FillIcon } from '../src/components/ui/Icon';
+import { CheckIcon } from '../src/components/ui/Icon';
 import { useProfileUpdateMutation, useProfile } from '../src/services/data/ProfileService';
 import { hexToRGBA, blendColors } from '../src/utils/formatting/colors';
 import { BORDER_RADIUS } from '../src/utils/constants';
@@ -125,6 +125,7 @@ const EditProfileScreen: React.FC = () => {
   const { data: orbytColors } = useOrbytColors(currentUser?.did);
   const [isAboutFocused, setIsAboutFocused] = useState(false);
   const [isDisplayNameFocused, setIsDisplayNameFocused] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Handle formatting: detach ".bsky.social" or ".orbyt.video" suffix if present so we can
   // render the suffix separately in the UI (bottom-right of the section).
@@ -212,6 +213,38 @@ const EditProfileScreen: React.FC = () => {
       {
         backgroundColor: '#B713C6', // Pink background (HSL: ~295°, ~88%, ~42%)
         textColor: Colors.neutral[50],
+      },
+      {
+        backgroundColor: '#f34965',
+        textColor: Colors.neutral[900],
+      },
+      {
+        backgroundColor: '#f3c949',
+        textColor: Colors.neutral[900],
+      },
+      {
+        backgroundColor: '#73f349',
+        textColor: Colors.neutral[900],
+      },
+      {
+        backgroundColor: '#49f3f1',
+        textColor: Colors.neutral[900],
+      },
+      {
+        backgroundColor: '#49c9f3',
+        textColor: Colors.neutral[900],
+      },
+      {
+        backgroundColor: '#5c8ff5',
+        textColor: Colors.neutral[900],
+      },
+      {
+        backgroundColor: '#8c57f4',
+        textColor: Colors.neutral[900],
+      },
+      {
+        backgroundColor: '#e549f3',
+        textColor: Colors.neutral[900],
       },
       // Complementary - colored backgrounds with complementary text colors (ordered by hue - reverse rainbow order, red first)
       {
@@ -695,6 +728,8 @@ const EditProfileScreen: React.FC = () => {
       return;
     }
 
+    setIsSaving(true);
+
     try {
       // Create updates object
       const updates: {
@@ -748,6 +783,7 @@ const EditProfileScreen: React.FC = () => {
 
       router.dismiss();
     } catch (_error) {
+      setIsSaving(false);
       Alert.alert('Error', 'Failed to update profile. Please try again.');
     }
   }, [
@@ -760,6 +796,7 @@ const EditProfileScreen: React.FC = () => {
     profileUpdateMutation,
     router,
     currentUser,
+    setIsSaving,
   ]);
 
   // Handle dismiss
@@ -784,6 +821,7 @@ const EditProfileScreen: React.FC = () => {
       textColor: defaultColors?.textColor || Colors.neutral[50],
     };
   }, [customColors, defaultColors]);
+  const isSaveDisabled = isSaving || (isAboutFocused && aboutOverBy > 0);
 
   return (
     <GestureHandlerRootView style={styles.container}>
@@ -832,11 +870,6 @@ const EditProfileScreen: React.FC = () => {
               !isLiquidGlassAvailable() && styles.saveButton,
               isAboutFocused && aboutOverBy > 0 && styles.saveButtonDisabled,
             ]}
-            pointerEvents={
-              profileUpdateMutation.isPending || (isAboutFocused && aboutOverBy > 0)
-                ? 'none'
-                : 'auto'
-            }
             onPress={() => {
               if (isAboutFocused) {
                 if (aboutOverBy > 0) {
@@ -849,7 +882,7 @@ const EditProfileScreen: React.FC = () => {
                 handleSave();
               }
             }}
-            disabled={profileUpdateMutation.isPending || (isAboutFocused && aboutOverBy > 0)}
+            disabled={isSaveDisabled}
           >
             {isLiquidGlassAvailable() && (
               <GlassView
@@ -863,8 +896,8 @@ const EditProfileScreen: React.FC = () => {
               />
             )}
             <View pointerEvents="none">
-              {profileUpdateMutation.isPending ? (
-                <Loading3FillIcon size={24} color={Colors.black} />
+              {isSaving ? (
+                <CheckIcon size={17} color={Colors.black} strokeWidth={2.5} />
               ) : (
                 <Text
                   style={[
