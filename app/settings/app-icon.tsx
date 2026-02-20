@@ -5,7 +5,7 @@ import {
   StyleSheet,
   Platform,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   useWindowDimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
@@ -179,7 +179,7 @@ const AppIconSettingsScreen: React.FC = () => {
                   <View style={styles.sectionHeader}>
                     <Text style={styles.sectionTitleText}>{section.title}</Text>
                     {section.attribution && (
-                      <TouchableOpacity
+                      <Pressable
                         style={styles.attributionContainer}
                         onPress={() =>
                           router.navigate({
@@ -187,13 +187,12 @@ const AppIconSettingsScreen: React.FC = () => {
                             params: { did: section.attribution!.did },
                           })
                         }
-                        activeOpacity={0.7}
                       >
                         <Text style={styles.attributionText}>by </Text>
                         <Text style={styles.attributionHandle}>
                           @{formatHandle(section.attribution.handle)}
                         </Text>
-                      </TouchableOpacity>
+                      </Pressable>
                     )}
                   </View>
                 </View>
@@ -202,11 +201,10 @@ const AppIconSettingsScreen: React.FC = () => {
                 {filteredItems.map(option => {
                   const isSelected = option.iconKey === currentIcon;
                   return (
-                    <TouchableOpacity
+                    <Pressable
                       key={option.id}
                       style={[styles.iconItem, { width: iconSize }]}
                       onPress={handleSelectIcon}
-                      activeOpacity={0.7}
                     >
                       <View style={[styles.iconWrapper, { width: iconSize, height: iconSize }]}>
                         <View style={[styles.iconPreview, { width: iconSize, height: iconSize }]}>
@@ -233,7 +231,7 @@ const AppIconSettingsScreen: React.FC = () => {
                           {option.subtitle}
                         </Text>
                       )}
-                    </TouchableOpacity>
+                    </Pressable>
                   );
                 })}
               </View>

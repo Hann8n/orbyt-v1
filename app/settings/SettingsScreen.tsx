@@ -7,7 +7,7 @@ import {
   Platform,
   ScrollView,
   Linking,
-  TouchableOpacity,
+  Pressable,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import Icon from '../../src/components/ui/Icon';
@@ -576,9 +576,9 @@ ${deviceInfo}`
                       <Icon name="heart" size={18} color={Colors.coral[400]} />
                       <Text style={styles.footerSubtext}> for the community</Text>
                     </View>
-                    <TouchableOpacity onPress={handleVersionPress} activeOpacity={0.7}>
+                    <Pressable onPress={handleVersionPress}>
                       <Text style={styles.versionText}>v{formattedVersion}</Text>
-                    </TouchableOpacity>
+                    </Pressable>
                   </View>
                 </View>
               );

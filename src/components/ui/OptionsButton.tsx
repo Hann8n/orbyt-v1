@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,9 @@ import { hexToRGBA } from '../../utils/formatting/colors';
 const ROW_MIN_HEIGHT = 64; // paddingVertical 40 + standard right-slot 24
 
 const buttonStyles = StyleSheet.create({
+  wrapper: {
+    marginBottom: 0,
+  },
   menuOption: {
     backgroundColor: Colors.neutral[900], // neutral.900 - with blue tint
     borderRadius: BORDER_RADIUS.LARGE,
@@ -94,8 +97,6 @@ export const OptionsButton: React.FC<OptionsButtonProps> = ({
   textStyle,
   containerStyle,
 }) => {
-  const [pressed, setPressed] = useState(false);
-
   // Extract color from textStyle prop
   const customTextColor = useMemo(() => {
     if (!textStyle) return null;
@@ -117,10 +118,6 @@ export const OptionsButton: React.FC<OptionsButtonProps> = ({
     if (disabled) {
       return hexToRGBA(Colors.neutral[900], 0.5); // neutral.900 @ 50%
     }
-    if (pressed) {
-      if (destructive) return Colors.coral[400]; // coral.400 - brand coral
-      return hexToRGBA(Colors.neutral[200], 0.8); // neutral.200 @ 80%
-    }
     if (destructive) return Colors.coral[950]; // coral.950 - darkest coral
     return Colors.neutral[900]; // neutral.900 - dark background with blue tint
   };
@@ -128,10 +125,6 @@ export const OptionsButton: React.FC<OptionsButtonProps> = ({
   const getTextColor = () => {
     if (disabled) {
       return hexToRGBA(Colors.neutral[50], 0.4); // neutral.50 @ 40%
-    }
-    if (pressed) {
-      if (destructive) return Colors.coral[950]; // coral.950 - dark coral text when pressed
-      return Colors.black;
     }
     if (destructive) return Colors.coral[300]; // coral.300 - vibrant salmon-coral text
     // Use custom text color if provided
@@ -142,10 +135,6 @@ export const OptionsButton: React.FC<OptionsButtonProps> = ({
   };
 
   const getChevronColor = () => {
-    if (pressed) {
-      if (destructive) return Colors.neutral[50]; // neutral.50 - Orbyt White
-      return Colors.black;
-    }
     return Colors.neutral[200]; // neutral.200 - light gray
   };
 
@@ -178,33 +167,13 @@ export const OptionsButton: React.FC<OptionsButtonProps> = ({
             {label}
           </Text>
           {subtitle && (
-            <Text
-              style={[
-                textStyles.menuOptionSubtitle,
-                {
-                  color: pressed
-                    ? destructive
-                      ? Colors.neutral[50]
-                      : Colors.black
-                    : Colors.neutral[500],
-                },
-              ]}
-            >
+            <Text style={[textStyles.menuOptionSubtitle, { color: Colors.neutral[500] }]}>
               {subtitle}
             </Text>
           )}
           {description && (
             <Text
-              style={[
-                textStyles.menuOptionSubtitle,
-                {
-                  color: pressed
-                    ? destructive
-                      ? Colors.neutral[50]
-                      : Colors.black
-                    : Colors.neutral[500],
-                },
-              ]}
+              style={[textStyles.menuOptionSubtitle, { color: Colors.neutral[500] }]}
               numberOfLines={1}
             >
               {description}
@@ -247,18 +216,12 @@ export const OptionsButton: React.FC<OptionsButtonProps> = ({
   );
 
   if (onPress) {
-    const handlePress = () => {
-      setPressed(false);
-      onPress();
-    };
-
     return (
-      <View style={{ marginBottom: 0 }}>
+      <View style={buttonStyles.wrapper}>
         <Pressable
-          onPress={handlePress}
-          onPressIn={() => setPressed(true)}
-          onPressOut={() => setPressed(false)}
+          onPress={onPress}
           disabled={disabled || loading}
+          android_ripple={{ color: hexToRGBA(Colors.neutral[50], 0.12) }}
         >
           {buttonContent}
         </Pressable>
@@ -266,7 +229,7 @@ export const OptionsButton: React.FC<OptionsButtonProps> = ({
     );
   }
 
-  return <View style={{ marginBottom: 0 }}>{buttonContent}</View>;
+  return <View style={buttonStyles.wrapper}>{buttonContent}</View>;
 };
 
 export default OptionsButton;

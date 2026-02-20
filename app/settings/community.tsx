@@ -7,7 +7,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   Pressable,
   Linking,
   RefreshControl,
@@ -61,7 +60,7 @@ function TopicRow({
 }) {
   const voteCount = topic.vote_count ?? topic.like_count;
   return (
-    <TouchableOpacity style={styles.topicRow} onPress={() => onPress(topic)} activeOpacity={0.7}>
+    <Pressable style={styles.topicRow} onPress={() => onPress(topic)}>
       <View style={styles.topicContent}>
         <Text style={styles.topicTitle} numberOfLines={2}>
           {topic.fancy_title || topic.title}
@@ -87,7 +86,7 @@ function TopicRow({
           {voteCount === 0 ? 'vote' : voteCount}
         </Text>
       </View>
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 

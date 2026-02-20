@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useMemo, useRef } from 'react';
+import React, { memo, useCallback, useMemo } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
@@ -136,9 +136,6 @@ const ActionButton = memo<{
     [hasFilledBackground]
   );
 
-  // Freeze hasFilledBackground when press starts to prevent flash during async state updates
-  const frozenHasFilledBackgroundRef = useRef<boolean | null>(null);
-
   // Animated style for smooth background color transition
   const animatedButtonStyle = useAnimatedStyle(() => {
     'worklet';
@@ -161,48 +158,34 @@ const ActionButton = memo<{
     return { opacity: animationProgress.value };
   });
 
-  const getButtonStyle = useCallback(
-    (pressed: boolean = false, frozenValue: boolean | null = null) => {
-      // Use frozen value if provided (during press), otherwise use current value
-      const baselineFilled = frozenValue !== null ? frozenValue : hasFilledBackground;
-      // When pressed, show opposite state by inverting baseline; when not pressed, use current value
-      const showFilledState = pressed ? !baselineFilled : hasFilledBackground;
+  const getButtonStyle = useCallback(() => {
+    const showFilledState = hasFilledBackground;
 
-      const baseStyle = {
-        backgroundColor: showFilledState ? textColor : blendColors(backgroundColor, textColor, 0.2),
-        opacity: action.disabled ? 0.4 : 1,
-      };
+    const baseStyle = {
+      backgroundColor: showFilledState ? textColor : blendColors(backgroundColor, textColor, 0.2),
+      opacity: action.disabled ? 0.4 : 1,
+    };
 
-      switch (action.variant) {
-        case 'danger':
-          return {
-            ...baseStyle,
-            backgroundColor: pressed
-              ? blendColors(backgroundColor, Colors.coral[500], 0.4)
-              : blendColors(backgroundColor, Colors.coral[500], 0.2),
-          };
-        case 'secondary':
-          return {
-            backgroundColor: 'transparent',
-            opacity: action.disabled ? 0.4 : 1,
-          };
-        default:
-          return baseStyle;
-      }
-    },
-    [action.variant, action.disabled, textColor, backgroundColor, hasFilledBackground]
-  );
+    switch (action.variant) {
+      case 'danger':
+        return {
+          ...baseStyle,
+          backgroundColor: blendColors(backgroundColor, Colors.coral[500], 0.2),
+        };
+      case 'secondary':
+        return {
+          backgroundColor: 'transparent',
+          opacity: action.disabled ? 0.4 : 1,
+        };
+      default:
+        return baseStyle;
+    }
+  }, [action.variant, action.disabled, textColor, backgroundColor, hasFilledBackground]);
 
-  const getContentColor = useCallback(
-    (pressed: boolean = false, frozenValue: boolean | null = null) => {
-      // Use frozen value if provided (during press), otherwise use current value
-      const baselineFilled = frozenValue !== null ? frozenValue : hasFilledBackground;
-      // When pressed, show opposite state by inverting baseline
-      const showFilledState = pressed ? !baselineFilled : hasFilledBackground;
-      return showFilledState ? backgroundColor : textColor;
-    },
-    [textColor, backgroundColor, hasFilledBackground]
-  );
+  const getContentColor = useCallback(() => {
+    const showFilledState = hasFilledBackground;
+    return showFilledState ? backgroundColor : textColor;
+  }, [textColor, backgroundColor, hasFilledBackground]);
 
   const getButtonSize = useCallback(() => {
     const isFollowButton = action.id === 'follow';
@@ -242,43 +225,21 @@ const ActionButton = memo<{
     }
   }, [size, action.label, action.id]);
 
-  const renderContent = useCallback(
-    (pressed: boolean, frozenValue: boolean | null = null) => {
-      const contentColor = getContentColor(pressed, frozenValue);
+  const renderContent = useCallback(() => {
+    const contentColor = getContentColor();
 
-      if (action.loading) {
-        return <Loading3FillIcon size={24} color={contentColor} />;
-      }
+    if (action.loading) {
+      return <Loading3FillIcon size={24} color={contentColor} />;
+    }
 
-      if (action.label) {
-        const textStyle =
-          action.variant === 'secondary' || action.id === 'save'
-            ? styles.actionTextBold
-            : styles.actionText;
-        return (
-          <View style={styles.actionContent} pointerEvents="none">
-            <Text style={[textStyle, { color: contentColor }]}>{action.label}</Text>
-            {action.customIcon ? (
-              React.isValidElement(action.customIcon) &&
-              action.customIcon.props &&
-              typeof action.customIcon.props === 'object' &&
-              'color' in action.customIcon.props ? (
-                React.cloneElement(action.customIcon as React.ReactElement<{ color?: string }>, {
-                  color: contentColor,
-                })
-              ) : (
-                action.customIcon
-              )
-            ) : action.icon ? (
-              <Icon name={action.icon} size={16} color={contentColor} strokeWidth={2.5} />
-            ) : null}
-          </View>
-        );
-      }
-
-      // Icon-only button
+    if (action.label) {
+      const textStyle =
+        action.variant === 'secondary' || action.id === 'save'
+          ? styles.actionTextBold
+          : styles.actionText;
       return (
-        <View style={styles.iconOnlyContent} pointerEvents="none">
+        <View style={styles.actionContent} pointerEvents="none">
+          <Text style={[textStyle, { color: contentColor }]}>{action.label}</Text>
           {action.customIcon ? (
             React.isValidElement(action.customIcon) &&
             action.customIcon.props &&
@@ -291,13 +252,32 @@ const ActionButton = memo<{
               action.customIcon
             )
           ) : action.icon ? (
-            <Icon name={action.icon} size={20} color={contentColor} strokeWidth={2.5} />
+            <Icon name={action.icon} size={16} color={contentColor} strokeWidth={2.5} />
           ) : null}
         </View>
       );
-    },
-    [action, getContentColor]
-  );
+    }
+
+    // Icon-only button
+    return (
+      <View style={styles.iconOnlyContent} pointerEvents="none">
+        {action.customIcon ? (
+          React.isValidElement(action.customIcon) &&
+          action.customIcon.props &&
+          typeof action.customIcon.props === 'object' &&
+          'color' in action.customIcon.props ? (
+            React.cloneElement(action.customIcon as React.ReactElement<{ color?: string }>, {
+              color: contentColor,
+            })
+          ) : (
+            action.customIcon
+          )
+        ) : action.icon ? (
+          <Icon name={action.icon} size={20} color={contentColor} strokeWidth={2.5} />
+        ) : null}
+      </View>
+    );
+  }, [action, getContentColor]);
 
   // Only apply animations for follow button, use regular styles for others
   const isFollowButton = action.id === 'follow';
@@ -306,28 +286,18 @@ const ActionButton = memo<{
 
   const buttonContent = (
     <Pressable
-      style={({ pressed }) => {
-        if (shouldAnimate) {
-          // For animated buttons, only handle press feedback (styles come from Animated.View wrapper)
-          return [styles.pressableFill, { opacity: pressed ? 0.9 : 1 }];
-        }
-        const frozenValue = frozenHasFilledBackgroundRef.current;
-        return [styles.actionButton, getButtonStyle(pressed, frozenValue), getButtonSize()];
-      }}
-      onPressIn={() => {
-        // Freeze the current state when press starts
-        frozenHasFilledBackgroundRef.current = hasFilledBackground ?? false;
-      }}
-      onPressOut={() => {
-        // Clear frozen value when press ends
-        frozenHasFilledBackgroundRef.current = null;
-      }}
+      style={
+        shouldAnimate
+          ? styles.pressableFill
+          : [styles.actionButton, getButtonStyle(), getButtonSize()]
+      }
+      android_ripple={{ color: hexToRGBA(textColor, 0.12), borderless: false }}
       onPress={action.onPress}
       onLongPress={action.onLongPress}
       delayLongPress={action.delayLongPress}
       disabled={action.disabled || action.loading}
     >
-      {({ pressed }) => {
+      {() => {
         if (shouldAnimate) {
           const textStyle =
             action.variant === 'secondary' || action.id === 'save'
@@ -432,8 +402,7 @@ const ActionButton = memo<{
           );
         }
 
-        const frozenValue = frozenHasFilledBackgroundRef.current;
-        return renderContent(pressed, frozenValue);
+        return renderContent();
       }}
     </Pressable>
   );
@@ -464,7 +433,11 @@ const CustomActionLayoutComponent = memo<{
     if (!layout.menuIcon) return null;
 
     return (
-      <Pressable style={styles.menuIconButton} onPress={layout.menuIcon.onPress}>
+      <Pressable
+        style={styles.menuIconButton}
+        onPress={layout.menuIcon.onPress}
+        android_ripple={{ color: hexToRGBA(textColor, 0.12), borderless: true }}
+      >
         <MoreFillIcon size={layout.menuIcon.size || 24} color={textColor} />
       </Pressable>
     );
