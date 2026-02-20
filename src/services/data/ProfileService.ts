@@ -937,13 +937,11 @@ export function useProfileUpdateMutation() {
           ...(updates.avatar !== undefined ? { avatar: updates.avatar } : {}),
           ...(updates.customColors
             ? {
-                orbytRecord: {
-                  ...previousProfile.orbytRecord,
-                  $type: 'com.getorbyt.profile',
-                  colors: {
-                    backgroundColor: updates.customColors.backgroundColor,
-                    textColor: updates.customColors.textColor,
-                  },
+                orbytColors: {
+                  backgroundColor: updates.customColors.backgroundColor,
+                  textColor: updates.customColors.textColor,
+                  joinedAt: previousProfile.orbytColors?.joinedAt ?? new Date().toISOString(),
+                  isBeta: previousProfile.orbytColors?.isBeta ?? false,
                 },
               }
             : {}),
@@ -964,16 +962,14 @@ export function useProfileUpdateMutation() {
           const prev = queryClient.getQueryData<ProfileViewWithOrbyt>(profileKeys.detail(did));
 
           if (prev && updates.customColors) {
-            // Update the profile with new colors in orbyt record
+            // Update the profile with new colors in the centralized orbytColors field
             const updated: ProfileViewWithOrbyt = {
               ...prev,
-              orbytRecord: {
-                ...prev.orbytRecord,
-                $type: 'com.getorbyt.profile',
-                colors: {
-                  backgroundColor: updates.customColors.backgroundColor,
-                  textColor: updates.customColors.textColor,
-                },
+              orbytColors: {
+                backgroundColor: updates.customColors.backgroundColor,
+                textColor: updates.customColors.textColor,
+                joinedAt: prev.orbytColors?.joinedAt ?? new Date().toISOString(),
+                isBeta: prev.orbytColors?.isBeta ?? false,
               },
             };
 

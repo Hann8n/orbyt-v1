@@ -185,18 +185,16 @@ export interface OrbytAPIColorData {
 }
 
 /**
- * Get profile colors from orbyt API data or ProfileViewWithOrbyt (legacy)
+ * Get profile colors from orbyt API data or ProfileViewWithOrbyt.
  *
  * Supports:
  * 1. OrbytAPIColorData / OrbytColorData (backgroundColor, textColor at top level)
- * 2. ProfileViewWithOrbyt.orbytColors (from profile fetch – use this for instant UI when profile is cached)
- * 3. ProfileViewWithOrbyt.orbytRecord.colors (legacy)
+ * 2. ProfileViewWithOrbyt.orbytColors (centralized profile color source)
  */
 export function getProfileColors(
   colorData:
     | OrbytAPIColorData
     | { orbytColors?: { backgroundColor: string; textColor: string } | null }
-    | { orbytRecord?: { colors?: { backgroundColor: string; textColor: string } | null } | null }
     | null
     | undefined
 ): ProfileColorScheme {
@@ -209,17 +207,11 @@ export function getProfileColors(
       backgroundColor = colorData.backgroundColor || DEFAULT_PROFILE_COLORS.backgroundColor;
       textColor = colorData.textColor || DEFAULT_PROFILE_COLORS.foregroundColor;
     }
-    // 2. ProfileViewWithOrbyt.orbytColors (from cached profile – avoids black flash)
+    // 2. ProfileViewWithOrbyt.orbytColors (from cached profile)
     else if ('orbytColors' in colorData && colorData.orbytColors) {
       const o = colorData.orbytColors;
       backgroundColor = o.backgroundColor || DEFAULT_PROFILE_COLORS.backgroundColor;
       textColor = o.textColor || DEFAULT_PROFILE_COLORS.foregroundColor;
-    }
-    // 3. Legacy orbytRecord.colors
-    else if ('orbytRecord' in colorData && colorData.orbytRecord?.colors) {
-      backgroundColor =
-        colorData.orbytRecord.colors.backgroundColor || DEFAULT_PROFILE_COLORS.backgroundColor;
-      textColor = colorData.orbytRecord.colors.textColor || DEFAULT_PROFILE_COLORS.foregroundColor;
     }
   }
 

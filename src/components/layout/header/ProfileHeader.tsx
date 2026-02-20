@@ -76,11 +76,11 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     [contentScrollProgressSV]
   );
 
-  // Prefer profileData.orbytColors (from profile cache) for instant paint; fallback to useOrbytColors when profile is loading or has no colors
+  // Prefer profile cache colors and fallback to query colors while loading.
   const { data: orbytColorsFromQuery } = useOrbytColors(did);
   const orbytColors = profileData?.orbytColors ?? orbytColorsFromQuery;
 
-  const profileColors = getProfileColors(profileData ?? orbytColors);
+  const profileColors = getProfileColors(orbytColors);
   const joinDate = orbytColors?.joinedAt;
 
   const isBeta = orbytColors?.isBeta ?? false;
