@@ -15,8 +15,9 @@ import type { AppBskyActorProfile } from '@atproto/api';
 import { BlobRef } from '@atproto/lexicon';
 // @ts-expect-error - multiformats/cid has type resolution issues with package.json exports
 import { CID } from 'multiformats/cid';
-import { fetchColors, batchFetchColors, orbytColorKeys } from '../../colors';
+import { batchFetchColors, orbytColorKeys } from '../../colors';
 import { queryClient } from '../../../utils/query/queryClient';
+import { RepoService } from '../repo/RepoService';
 
 /**
  * Converts JSON blob objects (from getRecord) to BlobRef instances.
@@ -180,19 +181,34 @@ export class ActorService {
   static async getProfileByDid(did: string): Promise<ProfileViewWithOrbyt | null> {
     const { api } = await AtprotoCore.getApiClient();
     try {
-      const [profileResponse, orbytColors] = await Promise.all([
+      const [profileResponse, rawOrbytRecord] = await Promise.all([
         api.app.bsky.actor.getProfile({ actor: did }),
-        fetchColors(did),
+        RepoService.getOrbytProfileRecordForDid(did),
       ]);
 
       const profile = profileResponse.data as ProfileView;
+      const record = rawOrbytRecord as {
+        colors?: { backgroundColor: string; textColor: string } | null;
+        joinDate?: string;
+        updatedAt?: string;
+      } | null;
+      const colors = record?.colors;
+      const orbytColors =
+        colors?.backgroundColor && colors?.textColor
+          ? {
+              backgroundColor: colors.backgroundColor,
+              textColor: colors.textColor,
+              joinedAt: record?.joinDate ?? record?.updatedAt ?? new Date().toISOString(),
+              isBeta: false,
+            }
+          : null;
       if (orbytColors) {
         queryClient.setQueryData(orbytColorKeys.color(did), orbytColors);
       }
       return {
         ...profile,
         orbytRecord: null,
-        orbytColors: orbytColors ?? null,
+        orbytColors,
       };
     } catch (_error: unknown) {
       return null;
@@ -212,14 +228,31 @@ export class ActorService {
       });
 
       const profile = response.data as ProfileView;
-      const orbytColors = profile.did ? await fetchColors(profile.did) : null;
+      const rawOrbytRecord = profile.did
+        ? await RepoService.getOrbytProfileRecordForDid(profile.did)
+        : null;
+      const record = rawOrbytRecord as {
+        colors?: { backgroundColor: string; textColor: string } | null;
+        joinDate?: string;
+        updatedAt?: string;
+      } | null;
+      const colors = record?.colors;
+      const orbytColors =
+        colors?.backgroundColor && colors?.textColor
+          ? {
+              backgroundColor: colors.backgroundColor,
+              textColor: colors.textColor,
+              joinedAt: record?.joinDate ?? record?.updatedAt ?? new Date().toISOString(),
+              isBeta: false,
+            }
+          : null;
       if (profile.did && orbytColors) {
         queryClient.setQueryData(orbytColorKeys.color(profile.did), orbytColors);
       }
       return {
         ...profile,
         orbytRecord: null,
-        orbytColors: orbytColors ?? null,
+        orbytColors,
       };
     } catch (_error: unknown) {
       return null;
