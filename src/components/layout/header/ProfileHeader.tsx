@@ -7,9 +7,9 @@ import Animated, {
   runOnJS,
   interpolate,
   Extrapolate,
+  type SharedValue,
 } from 'react-native-reanimated';
 import UniversalHeader, { HeaderContent } from './UniversalHeader';
-import { useFeedScroll } from '../../../context/FeedScrollContext';
 import type { ProfileViewWithOrbyt } from '../../../services/api/types';
 import { getProfileColors } from '../../../utils/formatting/colors';
 import { useProfileFlags } from '../../../stores/profileInteractionStore';
@@ -42,6 +42,8 @@ interface ProfileHeaderProps {
   did: string | null;
   /** Profile data */
   profileData: ProfileViewWithOrbyt | null;
+  /** Explicit shared scroll progress (0..1) from the profile feed list. */
+  contentScrollProgressSV: SharedValue<number>;
 }
 
 const ProfileHeader: React.FC<ProfileHeaderProps> = ({
@@ -55,6 +57,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   controlStatusBar = true,
   did,
   profileData,
+  contentScrollProgressSV,
 }) => {
   const [showVerificationInfo, setShowVerificationInfo] = useState(false);
   const [showBetaInfo, setShowBetaInfo] = useState(false);
@@ -62,8 +65,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   // Same scroll progress as header (contentScrollProgressSV); use profile status bar at top, app default when scrolled.
   // Only runOnJS when the decision flips (not every frame) so we don't cross the bridge on every scroll tick.
   const [useProfileStatusBar, setUseProfileStatusBar] = useState(true);
-  const feedScroll = useFeedScroll();
-  const contentScrollProgressSV = feedScroll?.contentScrollProgressSV;
 
   useAnimatedReaction(
     () => (contentScrollProgressSV?.value ?? 0) < 0.25,

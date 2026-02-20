@@ -563,6 +563,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
           currentFeed={activeTab}
           onFeedChange={feed => setActiveTab(feed as 'profile' | 'reposts' | 'likes')}
           showFeedIndicator={false}
+          controlStatusBar={false}
           scrollEnabled={false}
           queryOptions={queryOptions}
           isVisible={isRouteFocused}
@@ -572,6 +573,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
               <ProfileHeader
                 did={targetDid || profileData?.did || null}
                 profileData={profileData}
+                contentScrollProgressSV={overlayScrollProgressSV}
                 applySafeArea={!isModal}
                 controlStatusBar={!isModal}
                 headerStyle={headerPaddingTop ? { paddingTop: headerPaddingTop } : undefined}

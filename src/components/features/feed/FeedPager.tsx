@@ -78,6 +78,8 @@ interface FeedPagerRendererProps {
   };
   isVisible?: boolean;
   isModal?: boolean;
+  /** When false, do not render FeedPager's default StatusBar (for screens that manage it themselves). */
+  controlStatusBar?: boolean;
 }
 
 interface FeedPagerProps extends FeedPagerRendererProps {
@@ -165,6 +167,7 @@ const FeedPager = forwardRef<ProfileRef, FeedPagerProps>(function FeedPager(
     queryOptions: queryOptionsProp,
     isVisible = true,
     isModal = false,
+    controlStatusBar = true,
   },
   ref
 ) {
@@ -428,7 +431,7 @@ const FeedPager = forwardRef<ProfileRef, FeedPagerProps>(function FeedPager(
 
   return (
     <GestureHandlerRootView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.black} />
+      {controlStatusBar && <StatusBar barStyle="light-content" backgroundColor={Colors.black} />}
 
       {showFeedIndicator && (
         <Animated.View
