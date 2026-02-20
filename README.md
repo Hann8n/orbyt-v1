@@ -1,78 +1,142 @@
-# **orbyt**
+# Orbyt
 
-A video app built for [Bluesky](https://bsky.social), powered by the [AT Protocol](https://atproto.com).
+A video-first social app for the [Bluesky](https://bsky.social) network, built on the [AT Protocol](https://atproto.com). Watch, create, and share short-form video content with the decentralized social graph.
+
+[![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Expo](https://img.shields.io/badge/Expo-55-black.svg)](https://expo.dev)
+[![React Native](https://img.shields.io/badge/React%20Native-0.83-61DAFB.svg)](https://reactnative.dev)
+
+---
+
+## Table of Contents
+
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Getting Started](#getting-started)
+- [Project Structure](#project-structure)
+- [Building](#building)
+- [Contributing](#contributing)
+- [Documentation](#documentation)
+- [License](#license)
+
+---
+
+## Features
+
+- **Video Feed** — Infinite scroll feeds with channels, bookmarks, and personalized content
+- **Video Creation** — Record, trim, and post videos with FFmpeg-powered processing
+- **Chat** — Direct messaging with streak tracking and conversation threads
+- **Activity** — Notifications, likes, reposts, and replies
+- **Profiles** — User profiles with Orbyt color themes, follows, and content
+- **Moderation** — Built-in moderation tools and hidden post management
+- **OAuth Auth** — Secure sign-in via AT Protocol OAuth
+- **Offline-Ready** — MMKV storage and React Query caching for responsive UX
+
+---
 
 ## Tech Stack
 
-- **Framework**: [React Native](https://github.com/facebook/react-native) with [Expo](https://expo.dev)
-- **Routing**: [Expo Router](https://docs.expo.dev/router/introduction/) (file-based navigation)
-- **State (client)**: [Zustand](https://github.com/pmndrs/zustand)
-- **State (server)**: [TanStack Query](https://github.com/TanStack/query) (React Query)
-- **Lists**: [@shopify/flash-list](https://github.com/Shopify/flash-list)
-- **Video**: [React Native Video](https://github.com/TheWidlarzGroup/react-native-video)
-- **Camera**: [Expo Camera](https://docs.expo.dev/versions/latest/sdk/camera/)
-- **Storage**: [MMKV](https://github.com/mrousavy/react-native-mmkv) and [SecureStore](https://docs.expo.dev/versions/latest/sdk/securestore/)
-- **API**: [AT Protocol](https://github.com/bluesky-social/atproto/tree/main/packages/api) with OAuth
+| Layer              | Technology                                                                                                                                         |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Runtime**        | Expo 55, React Native 0.83                                                                                                                         |
+| **Routing**        | [Expo Router](https://docs.expo.dev/router/introduction/) (file-based)                                                                             |
+| **State (client)** | [Zustand](https://github.com/pmndrs/zustand)                                                                                                       |
+| **State (server)** | [TanStack React Query](https://github.com/TanStack/query)                                                                                          |
+| **API**            | [AT Protocol](https://github.com/bluesky-social/atproto) + [OAuth](https://github.com/bluesky-social/atproto/tree/main/packages/oauth-client-expo) |
+| **Video**          | expo-video, react-native-video, ffmpeg-kit-react-native                                                                                            |
+| **Lists**          | [@shopify/flash-list](https://github.com/Shopify/flash-list)                                                                                       |
+| **Sheets**         | [react-native-true-sheet](https://github.com/lodev09/react-native-true-sheet)                                                                      |
+| **Animation**      | react-native-reanimated, react-native-gesture-handler                                                                                              |
+| **Storage**        | react-native-mmkv, expo-secure-store                                                                                                               |
+| **Graphics**       | @shopify/react-native-skia, react-native-svg                                                                                                       |
+
+---
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js (v18 or higher)
-- Yarn package manager
-- Expo CLI
+- **Node.js** v18 or higher
+- **Yarn** package manager
+- **Expo development client** (required; the app uses `--dev-client`)
+- **iOS**: Xcode and CocoaPods
+- **Android**: Android Studio and configured SDK
 
 ### Installation
 
-1. Clone the repository:
+1. **Clone the repository**
 
-```bash
-git clone https://github.com/Hann8n/orbyt
-```
+   ```bash
+   git clone https://github.com/Hann8n/orbyt.git
+   cd orbyt
+   ```
 
-2. Install dependencies:
+2. **Install dependencies**
 
-```bash
-yarn install
-```
+   ```bash
+   yarn install
+   ```
 
-3. Start the development server:
+3. **Start the development server**
 
-```bash
-yarn start
-```
+   ```bash
+   yarn start
+   ```
+
+4. **Run on a device or simulator**
+
+   ```bash
+   yarn ios
+   # or
+   yarn android
+   ```
+
+### Usage
+
+- Sign in with a Bluesky account via OAuth when prompted.
+- Browse feeds, channels, and profiles; tap a video to watch.
+- Use the create flow to record or pick a video, trim it, and post.
+
+---
 
 ## Project Structure
 
 ```
-app/                        # Expo Router file-based routes
-├── (tabs)/                 # Tab group: Home, Explore, Activity, Profile
-├── (modals)/               # Modal routes
-├── settings/               # Settings flow
-├── profile/[did].tsx       # Dynamic profile
-├── channel/[id].tsx        # Dynamic channel
-├── post/[id].tsx           # Post detail
-├── chat/[id].tsx           # Chat screen
-├── create.tsx              # Video creation
-└── login.tsx               # Auth entry
-
-src/
-├── components/
-│   ├── ui/                 # Reusable primitives
-│   ├── features/           # Domain modules (feed, video, comments, activity, profile, etc.)
-│   └── layout/             # Headers and navigation
-├── services/               # API layer and business logic
-├── stores/                 # Zustand stores (client state)
-├── hooks/                  # Custom React hooks
-├── theme/                  # Design tokens (color palette)
-├── utils/                  # Constants, typography, query config, helpers
-├── context/                # React Context providers
-└── core/                   # Core modules (feed visibility)
+orbyt/
+├── app/                          # Expo Router file-based routes
+│   ├── (tabs)/                   # Tab group: Home, Explore, Activity, Profile
+│   ├── (modals)/                 # Modal routes
+│   ├── settings/                 # Settings flow
+│   ├── profile/[did].tsx         # Dynamic profile by DID
+│   ├── channel/[id].tsx          # Dynamic channel feed
+│   ├── post/[id].tsx             # Post detail
+│   ├── chat/[id].tsx             # Chat screen
+│   ├── create.tsx                # Video creation
+│   └── login.tsx                 # Auth entry
+│
+└── src/
+    ├── components/
+    │   ├── ui/                   # Reusable primitives (Icon, Button, Card, Modal, Input)
+    │   ├── features/             # Domain modules (feed, video, comments, activity, profile, moderation)
+    │   └── layout/               # Headers and navigation
+    ├── services/                 # API layer and business logic
+    │   ├── api/                  # AtprotoService, FeedService, GraphService, ChatService, etc.
+    │   ├── auth/                 # OAuth, email verification
+    │   ├── video/                # FFmpeg processing and editing
+    │   └── ...
+    ├── stores/                   # Zustand stores (client state)
+    ├── hooks/                    # Custom React hooks
+    ├── theme/                    # Design tokens (Colors palette)
+    ├── utils/                    # Constants, typography, query config, formatters
+    ├── context/                  # React Context providers
+    └── core/                     # Visibility system for feed/video playback
 ```
+
+---
 
 ## Building
 
-The project uses EAS Build for creating production builds:
+The project uses [EAS Build](https://docs.expo.dev/build/introduction/) for production builds:
 
 ```bash
 # Development build
@@ -85,14 +149,37 @@ yarn build:preview
 yarn build:prod
 ```
 
+Additional scripts:
+
+```bash
+yarn type-check        # TypeScript check
+yarn lint              # ESLint
+yarn format:check      # Prettier check
+yarn check             # Run all checks
+```
+
+---
+
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines and the pull request process.
+We welcome contributions. Please read [CONTRIBUTING.md](CONTRIBUTING.md) for:
 
-## AI Context
+- Development guidelines and code style
+- Pull request process
+- Testing expectations
 
-See [AGENTS.md](AGENTS.md) for project conventions used by AI coding assistants.
+---
+
+## Documentation
+
+| Resource                           | Description                                 |
+| ---------------------------------- | ------------------------------------------- |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Development guidelines and PR process       |
+| [AGENTS.md](AGENTS.md)             | Conventions for AI coding assistants        |
+| `.cursor/rules/`                   | Architecture, styling, and convention rules |
+
+---
 
 ## License
 
-GPL-3.0
+This project is licensed under the **GPL-3.0** License.
