@@ -885,14 +885,24 @@ export function useProfileUpdateMutation() {
           backgroundColor: string;
           textColor: string;
         };
+        fontPreference?: import('../../utils/profileFonts').ProfileFontPreference | null;
       };
     }) => {
-      // Handle custom colors - update orbyt profile record
-      if (updates.customColors) {
-        await AtprotoService.updateOrbytProfileColors(
-          updates.customColors.backgroundColor,
-          updates.customColors.textColor
-        );
+      // Handle orbyt profile fields in one write
+      if (updates.customColors || updates.fontPreference !== undefined) {
+        await AtprotoService.upsertOrbytProfileRecord({
+          ...(updates.customColors
+            ? {
+                colors: {
+                  backgroundColor: updates.customColors.backgroundColor,
+                  textColor: updates.customColors.textColor,
+                },
+              }
+            : {}),
+          ...(updates.fontPreference !== undefined
+            ? { fontPreference: updates.fontPreference }
+            : {}),
+        });
       }
 
       // Create a copy of updates without customColors for AtprotoService
@@ -912,7 +922,12 @@ export function useProfileUpdateMutation() {
         updatedProfile = await AtprotoService.updateProfile(profileUpdates);
       }
 
-      return { handle, updatedProfile, updatedColors: !!updates.customColors };
+      return {
+        handle,
+        updatedProfile,
+        updatedColors: !!updates.customColors,
+        updatedFontPreference: updates.fontPreference !== undefined,
+      };
     },
     onMutate: async ({ handle, updates }) => {
       // Get profile to find DID (API always provides DID)
@@ -945,6 +960,15 @@ export function useProfileUpdateMutation() {
                 },
               }
             : {}),
+          ...(updates.fontPreference !== undefined
+            ? {
+                orbytRecord: {
+                  $type: 'com.getorbyt.profile' as const,
+                  ...(previousProfile.orbytRecord ?? {}),
+                  fontPreference: updates.fontPreference,
+                },
+              }
+            : {}),
         };
 
         queryClient.setQueryData(profileKeys.detail(did), optimistic);
@@ -952,25 +976,37 @@ export function useProfileUpdateMutation() {
 
       return { previousProfile, did };
     },
-    onSuccess: ({ updatedProfile, updatedColors }, { updates }, context) => {
+    onSuccess: ({ updatedProfile, updatedColors, updatedFontPreference }, { updates }, context) => {
       try {
         const did = context?.did;
         if (!did) return;
 
-        // If colors were updated, update orbyt record in cache
-        if (updatedColors) {
+        // If any orbyt profile fields were updated, patch them in cache
+        if (updatedColors || updatedFontPreference) {
           const prev = queryClient.getQueryData<ProfileViewWithOrbyt>(profileKeys.detail(did));
 
-          if (prev && updates.customColors) {
-            // Update the profile with new colors in the centralized orbytColors field
+          if (prev) {
             const updated: ProfileViewWithOrbyt = {
               ...prev,
-              orbytColors: {
-                backgroundColor: updates.customColors.backgroundColor,
-                textColor: updates.customColors.textColor,
-                joinedAt: prev.orbytColors?.joinedAt ?? new Date().toISOString(),
-                isBeta: prev.orbytColors?.isBeta ?? false,
-              },
+              ...(updates.customColors
+                ? {
+                    orbytColors: {
+                      backgroundColor: updates.customColors.backgroundColor,
+                      textColor: updates.customColors.textColor,
+                      joinedAt: prev.orbytColors?.joinedAt ?? new Date().toISOString(),
+                      isBeta: prev.orbytColors?.isBeta ?? false,
+                    },
+                  }
+                : {}),
+              ...(updates.fontPreference !== undefined
+                ? {
+                    orbytRecord: {
+                      $type: 'com.getorbyt.profile' as const,
+                      ...(prev.orbytRecord ?? {}),
+                      fontPreference: updates.fontPreference,
+                    },
+                  }
+                : {}),
             };
 
             // Update React Query cache immediately

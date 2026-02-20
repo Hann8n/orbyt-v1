@@ -13,6 +13,7 @@
  * - The paths are stable and match the package's generated structure
  */
 import type { Agent, ModerationUI } from '@atproto/api';
+import type { ProfileFontPreference } from '../../utils/profileFonts';
 
 // ============================================================================
 // Runtime imports (type guards - these must be functions, not types)
@@ -476,6 +477,7 @@ export interface OrbytProfileRecord extends RecordValue {
   colors?: { backgroundColor: string; textColor: string } | null;
   subscribedChannels?: string[];
   algorithmicFeedProvider?: string | null;
+  fontPreference?: ProfileFontPreference | null;
 }
 
 // Repost type (based on FeedViewPost structure)

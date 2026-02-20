@@ -1841,6 +1841,10 @@ export default function ChatScreen() {
   const canSend = !needsAccept && inputText.trim().length > 0 && !sendMessageMutation.isPending;
   const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
   const headerTop = insets.top + 4;
+  const keyboardAvoidingBehavior = Platform.select<'padding' | 'height'>({
+    ios: 'padding',
+    default: 'height',
+  });
 
   const rawMessages = messagesData?.messages ?? [];
   const latestSentAt =
@@ -2071,7 +2075,7 @@ export default function ChatScreen() {
         </View>
       </VerticalListSheet>
 
-      <KeyboardAvoidingView style={styles.keyboardView} behavior="padding">
+      <KeyboardAvoidingView style={styles.keyboardView} behavior={keyboardAvoidingBehavior}>
         {listData.length > 0 ? (
           <FlashList
             data={listData}
@@ -2085,7 +2089,7 @@ export default function ChatScreen() {
             ItemSeparatorComponent={listItemSeparator}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
-            onScrollBeginDrag={Keyboard.dismiss}
+            keyboardDismissMode="on-drag"
             maintainVisibleContentPosition={maintainVisibleContentPositionConfig}
           />
         ) : (
@@ -2093,7 +2097,7 @@ export default function ChatScreen() {
             style={styles.list}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
-            onScrollBeginDrag={Keyboard.dismiss}
+            keyboardDismissMode="on-drag"
           >
             {!messagesLoading && messagesData && (messagesData.messages?.length ?? 0) === 0 ? (
               <View style={styles.empty}>
@@ -2104,7 +2108,7 @@ export default function ChatScreen() {
         )}
 
         {needsAccept ? (
-          <View style={styles.acceptBar}>
+          <View style={[styles.acceptBar, { paddingBottom: 8 + insets.bottom }]}>
             <OptionsButton
               label={acceptConvoMutation.isPending ? 'Accepting…' : 'Accept'}
               onPress={() => acceptConvoMutation.mutate()}
@@ -2151,7 +2155,7 @@ export default function ChatScreen() {
             </View>
           </View>
         ) : (
-          <View style={styles.inputRow}>
+          <View style={[styles.inputRow, { paddingBottom: 8 + insets.bottom }]}>
             <View style={styles.inputWrapper}>
               <TextInput
                 ref={inputRef}
@@ -2201,7 +2205,6 @@ export default function ChatScreen() {
           </View>
         )}
       </KeyboardAvoidingView>
-      <View style={{ height: insets.bottom, backgroundColor: Colors.black }} />
     </View>
   );
 }

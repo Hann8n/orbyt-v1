@@ -185,6 +185,7 @@ export class RepoService {
     colors?: { backgroundColor: string; textColor: string } | null;
     subscribedChannels?: string[];
     algorithmicFeedProvider?: string | null;
+    fontPreference?: import('../../../utils/profileFonts').ProfileFontPreference | null;
   }): Promise<boolean> {
     try {
       const userDid = await AtprotoCore.getCurrentUserDid();
@@ -222,6 +223,10 @@ export class RepoService {
           update.algorithmicFeedProvider === undefined
             ? (existingRecord?.algorithmicFeedProvider ?? null)
             : update.algorithmicFeedProvider,
+        fontPreference:
+          update.fontPreference === undefined
+            ? (existingRecord?.fontPreference ?? null)
+            : update.fontPreference,
       };
 
       if (existing) {
@@ -363,6 +368,18 @@ export class RepoService {
   static async updateOrbytProfileAlgorithmicFeedProvider(uri: string | null): Promise<void> {
     await this.upsertOrbytProfileRecord({
       algorithmicFeedProvider: uri,
+    });
+  }
+
+  /**
+   * Update header font preference in orbyt profile record
+   * @param fontPreference - Font preference key or null to clear
+   */
+  static async updateOrbytProfileFontPreference(
+    fontPreference: import('../../../utils/profileFonts').ProfileFontPreference | null
+  ): Promise<void> {
+    await this.upsertOrbytProfileRecord({
+      fontPreference,
     });
   }
 }

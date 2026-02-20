@@ -19,6 +19,7 @@ import {
   Keyboard,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
@@ -36,12 +37,17 @@ import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Colors } from '../src/theme';
 import { Avatar } from '../src/components/ui/UI';
 import { CheckIcon } from '../src/components/ui/Icon';
-import { useProfileUpdateMutation, useProfile } from '../src/services/data/ProfileService';
+import { useProfileUpdateMutation, useProfileByDid } from '../src/services/data/ProfileService';
 import { hexToRGBA, blendColors } from '../src/utils/formatting/colors';
 import { BORDER_RADIUS } from '../src/utils/constants';
 import { useCurrentUser } from '../src/stores/userStore';
 import { splitHandleSuffix } from '../src/utils/formatting/handles';
-import { useOrbytColors, saveAndSyncColors } from '../src/services/colors';
+import { saveAndSyncColors } from '../src/services/colors';
+import {
+  PROFILE_FONT_OPTIONS,
+  getHeaderFontSet,
+  sanitizeProfileFontPreference,
+} from '../src/utils/profileFonts';
 
 export interface ProfileColorOption {
   backgroundColor: string;
@@ -118,11 +124,11 @@ const AnimatedColorSquare: React.FC<AnimatedColorSquareProps> = React.memo(
 const EditProfileScreen: React.FC = () => {
   const router = useRouter();
   const { currentUser } = useCurrentUser();
-  const userHandle = currentUser?.handle || null;
+  const currentUserDid = currentUser?.did ?? null;
+  const userHandle = currentUser?.handle ?? null;
 
-  // Fetch profile data - use cache directly, no refetch
-  const { data: profileData } = useProfile(userHandle);
-  const { data: orbytColors } = useOrbytColors(currentUser?.did);
+  // Single source of truth for edit profile data (includes orbytRecord + orbytColors).
+  const { data: profileData, refetch: refetchProfile } = useProfileByDid(currentUserDid);
   const [isAboutFocused, setIsAboutFocused] = useState(false);
   const [isDisplayNameFocused, setIsDisplayNameFocused] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -138,6 +144,13 @@ const EditProfileScreen: React.FC = () => {
   const [editDisplayName, setEditDisplayName] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editAvatar, setEditAvatar] = useState<string | undefined>(undefined);
+  const [editFontPreference, setEditFontPreference] =
+    useState<import('../src/utils/profileFonts').ProfileFontPreference>('default');
+  const [fontPreferenceOverrideDid, setFontPreferenceOverrideDid] = useState<string | null>(null);
+  const hasUserChangedDisplayName = useRef(false);
+  const hasUserChangedDescription = useRef(false);
+  const hasUserChangedAvatar = useRef(false);
+  const hasUserChangedColors = useRef(false);
 
   // About length tracking
   const aboutCount = editDescription?.length || 0;
@@ -163,8 +176,6 @@ const EditProfileScreen: React.FC = () => {
     textColor: string;
   } | null>(null);
 
-  // Ref to track if we've initialized colors to prevent infinite loops
-  const hasInitializedColors = useRef(false);
   // Ref for color picker ScrollView to scroll to selected color
   const colorPickerScrollViewRef = useRef<ScrollView>(null);
   // Ref to track if we've done the initial scroll (no animation)
@@ -505,71 +516,102 @@ const EditProfileScreen: React.FC = () => {
   // Mutation
   const profileUpdateMutation = useProfileUpdateMutation();
 
-  // Get colors from orbyt API
+  // Get colors from profile record (single source of truth)
   const defaultColors = useMemo(() => {
-    if (!orbytColors?.backgroundColor || !orbytColors?.textColor) {
+    const colors = profileData?.orbytColors;
+    if (!colors?.backgroundColor || !colors?.textColor) {
       return undefined;
     }
     return {
-      backgroundColor: orbytColors.backgroundColor,
-      textColor: orbytColors.textColor,
+      backgroundColor: colors.backgroundColor,
+      textColor: colors.textColor,
     };
-  }, [orbytColors]);
+  }, [profileData]);
 
-  // Initialize form when component mounts and profile data is available
+  // Keep the saved profile font as the source of truth until user explicitly changes it.
+  const syncedFontPreference = useMemo(
+    () => sanitizeProfileFontPreference(profileData?.orbytRecord?.fontPreference) || 'default',
+    [profileData?.orbytRecord?.fontPreference]
+  );
+  const activeFontPreference =
+    fontPreferenceOverrideDid === currentUserDid ? editFontPreference : syncedFontPreference;
+
+  // Refetch profile on screen focus so edits don't open on stale cache.
+  useFocusEffect(
+    useCallback(() => {
+      refetchProfile();
+    }, [refetchProfile])
+  );
+
+  // Reset "user edited" guards when account/profile changes.
   useEffect(() => {
-    if (profileData && !hasInitializedColors.current) {
-      startTransition(() => {
-        setEditDisplayName(profileData.displayName || '');
-        setEditDescription(profileData.description || '');
-        setEditAvatar(undefined);
-      });
+    hasUserChangedDisplayName.current = false;
+    hasUserChangedDescription.current = false;
+    hasUserChangedAvatar.current = false;
+    hasUserChangedColors.current = false;
+  }, [currentUserDid]);
 
-      // Check if default colors match a preset
-      if (defaultColors) {
-        const match = findColorMatch(defaultColors);
-        if (match) {
-          startTransition(() => {
-            setSelectedColorIndex(match.index);
-            setInvertedStates({ [match.index]: match.inverted });
-            setCustomColors({
-              backgroundColor: defaultColors.backgroundColor,
-              textColor: defaultColors.textColor,
-            });
-          });
-          updateFlexValues(match.index, match.inverted, false);
-        } else {
-          // Custom colors - no preset match
-          const originalColors = {
+  // Keep text/avatar fields synced with profile until user edits them.
+  useEffect(() => {
+    if (!profileData) return;
+    startTransition(() => {
+      if (!hasUserChangedDisplayName.current) {
+        setEditDisplayName(profileData.displayName || '');
+      }
+      if (!hasUserChangedDescription.current) {
+        setEditDescription(profileData.description || '');
+      }
+      if (!hasUserChangedAvatar.current) {
+        setEditAvatar(undefined);
+      }
+    });
+  }, [profileData?.did, profileData?.displayName, profileData?.description, profileData]);
+
+  // Keep color selection synced with profile colors until user edits colors.
+  useEffect(() => {
+    if (!profileData || hasUserChangedColors.current) return;
+
+    if (defaultColors) {
+      const match = findColorMatch(defaultColors);
+      if (match) {
+        startTransition(() => {
+          setSelectedColorIndex(match.index);
+          setInvertedStates({ [match.index]: match.inverted });
+          setCustomColors({
             backgroundColor: defaultColors.backgroundColor,
             textColor: defaultColors.textColor,
-          };
-          startTransition(() => {
-            setSelectedColorIndex(null);
-            setInvertedStates({});
-            setCustomColors(originalColors);
-            setOriginalCustomColors(originalColors); // Store original custom colors
-            setHasCustomColors(true);
           });
-          updateFlexValues(null, false, false);
-        }
-      } else {
-        startTransition(() => {
-          setSelectedColorIndex(0); // First color (black)
-          setInvertedStates({});
-          setCustomColors(null);
           setHasCustomColors(false);
         });
-        updateFlexValues(0, false, false);
+        updateFlexValues(match.index, match.inverted, false);
+      } else {
+        const originalColors = {
+          backgroundColor: defaultColors.backgroundColor,
+          textColor: defaultColors.textColor,
+        };
+        startTransition(() => {
+          setSelectedColorIndex(null);
+          setInvertedStates({});
+          setCustomColors(originalColors);
+          setOriginalCustomColors(originalColors);
+          setHasCustomColors(true);
+        });
+        updateFlexValues(null, false, false);
       }
-
-      hasInitializedColors.current = true;
+    } else {
+      startTransition(() => {
+        setSelectedColorIndex(0);
+        setInvertedStates({});
+        setCustomColors(null);
+        setHasCustomColors(false);
+      });
+      updateFlexValues(0, false, false);
     }
-  }, [profileData, defaultColors, findColorMatch, updateFlexValues]);
+  }, [profileData?.did, defaultColors, findColorMatch, updateFlexValues, profileData]);
 
   // Scroll to selected color - no animation on initial load, animated for user selections
   useEffect(() => {
-    if (!hasInitializedColors.current || !colorPickerScrollViewRef.current) {
+    if (!colorPickerScrollViewRef.current) {
       return;
     }
 
@@ -639,6 +681,7 @@ const EditProfileScreen: React.FC = () => {
               });
 
               if (!result.canceled && result.assets && result.assets[0] && result.assets[0].uri) {
+                hasUserChangedAvatar.current = true;
                 setEditAvatar(result.assets[0].uri || undefined);
               }
             } catch (_error) {
@@ -658,6 +701,7 @@ const EditProfileScreen: React.FC = () => {
               });
 
               if (!result.canceled && result.assets && result.assets[0] && result.assets[0].uri) {
+                hasUserChangedAvatar.current = true;
                 setEditAvatar(result.assets[0].uri || undefined);
               }
             } catch (_error) {
@@ -678,6 +722,7 @@ const EditProfileScreen: React.FC = () => {
   // Handle color selection - unified for both predefined and custom colors
   const handleColorSelect = useCallback(
     (colorIndex: number | null, colorOption: ProfileColorOption) => {
+      hasUserChangedColors.current = true;
       const isAlreadySelected = selectedColorIndex === colorIndex;
       const isCustom = colorIndex === null;
       const stateKey = isCustom ? -1 : colorIndex;
@@ -740,6 +785,7 @@ const EditProfileScreen: React.FC = () => {
           backgroundColor: string;
           textColor: string;
         };
+        fontPreference?: import('../src/utils/profileFonts').ProfileFontPreference | null;
       } = {};
 
       // Check displayName — allow empty string to clear (no name)
@@ -769,6 +815,14 @@ const EditProfileScreen: React.FC = () => {
         updates.customColors = customColors;
       }
 
+      const savedFontPreference = sanitizeProfileFontPreference(
+        profileData.orbytRecord?.fontPreference
+      );
+      const nextFontPreference = activeFontPreference === 'default' ? null : activeFontPreference;
+      if ((savedFontPreference ?? 'default') !== activeFontPreference) {
+        updates.fontPreference = nextFontPreference;
+      }
+
       // Only update if there are changes
       if (Object.keys(updates).length > 0) {
         await profileUpdateMutation.mutateAsync({
@@ -793,6 +847,7 @@ const EditProfileScreen: React.FC = () => {
     editAvatar,
     customColors,
     defaultColors,
+    activeFontPreference,
     profileUpdateMutation,
     router,
     currentUser,
@@ -822,6 +877,10 @@ const EditProfileScreen: React.FC = () => {
     };
   }, [customColors, defaultColors]);
   const isSaveDisabled = isSaving || (isAboutFocused && aboutOverBy > 0);
+  const selectedHeaderFontSet = useMemo(
+    () => getHeaderFontSet(activeFontPreference),
+    [activeFontPreference]
+  );
 
   return (
     <GestureHandlerRootView style={styles.container}>
@@ -966,6 +1025,43 @@ const EditProfileScreen: React.FC = () => {
             })}
           </ScrollView>
         </View>
+
+        <View style={styles.fontPickerSection}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.fontPickerContainer}
+            style={styles.colorPickerScrollView}
+            keyboardShouldPersistTaps="always"
+          >
+            {PROFILE_FONT_OPTIONS.map(option => {
+              const isSelected = activeFontPreference === option.key;
+              const optionFontSet = getHeaderFontSet(option.key);
+              return (
+                <Pressable
+                  key={option.key}
+                  style={[styles.fontOptionItem, isSelected && styles.fontOptionItemSelected]}
+                  onPress={() => {
+                    setFontPreferenceOverrideDid(currentUserDid);
+                    setEditFontPreference(option.key);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.fontOptionText,
+                      {
+                        color: isSelected ? Colors.neutral[50] : Colors.neutral[400],
+                        fontFamily: optionFontSet.actionBold,
+                      },
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
       </SafeAreaView>
 
       {/* Profile Editing Fields - Sheet Content */}
@@ -994,7 +1090,9 @@ const EditProfileScreen: React.FC = () => {
                   <Text
                     style={[
                       styles.sectionTitle,
-                      { color: hexToRGBA(currentColors.textColor, 0.9) },
+                      {
+                        color: hexToRGBA(currentColors.textColor, 0.9),
+                      },
                     ]}
                   >
                     HANDLE
@@ -1005,11 +1103,19 @@ const EditProfileScreen: React.FC = () => {
                     bounces={false}
                     contentContainerStyle={styles.contentContainerFlexGrow}
                   >
-                    <Text style={[styles.largeText, { color: currentColors.textColor }]}>
+                    <Text
+                      style={[
+                        styles.largeText,
+                        { color: currentColors.textColor, fontFamily: selectedHeaderFontSet.title },
+                      ]}
+                    >
                       <Text
                         style={[
                           styles.handleAt,
-                          { color: hexToRGBA(currentColors.textColor, 0.5) },
+                          {
+                            color: hexToRGBA(currentColors.textColor, 0.5),
+                            fontFamily: selectedHeaderFontSet.subtitle,
+                          },
                         ]}
                       >
                         @
@@ -1021,7 +1127,10 @@ const EditProfileScreen: React.FC = () => {
                           <Text
                             style={[
                               styles.handleSuffix,
-                              { color: hexToRGBA(currentColors.textColor, 0.7) },
+                              {
+                                color: hexToRGBA(currentColors.textColor, 0.7),
+                                fontFamily: selectedHeaderFontSet.subtitle,
+                              },
                             ]}
                           >
                             {handleSuffix}
@@ -1064,7 +1173,9 @@ const EditProfileScreen: React.FC = () => {
                         style={[
                           styles.sectionTitle,
                           styles.sectionTitleAvatar,
-                          { color: hexToRGBA(currentColors.textColor, 0.8) },
+                          {
+                            color: hexToRGBA(currentColors.textColor, 0.8),
+                          },
                         ]}
                       >
                         PROFILE PICTURE
@@ -1082,7 +1193,14 @@ const EditProfileScreen: React.FC = () => {
                         ]}
                         onPress={handleAvatarPress}
                       >
-                        <Text style={[styles.uploadButtonText, { color: currentColors.textColor }]}>
+                        <Text
+                          style={[
+                            styles.uploadButtonText,
+                            {
+                              color: currentColors.textColor,
+                            },
+                          ]}
+                        >
                           Upload
                         </Text>
                       </Pressable>
@@ -1124,7 +1242,9 @@ const EditProfileScreen: React.FC = () => {
                       style={[
                         styles.sectionTitle,
                         styles.sectionTitleDisplayName,
-                        { color: hexToRGBA(currentColors.textColor, 0.8) },
+                        {
+                          color: hexToRGBA(currentColors.textColor, 0.8),
+                        },
                       ]}
                     >
                       DISPLAY NAME
@@ -1134,11 +1254,14 @@ const EditProfileScreen: React.FC = () => {
                       style={[
                         styles.largeInput,
                         styles.largeInputTransparent,
-                        { color: currentColors.textColor },
+                        { color: currentColors.textColor, fontFamily: selectedHeaderFontSet.title },
                         isDisplayNameFocused && styles.flex1,
                       ]}
                       value={editDisplayName}
-                      onChangeText={setEditDisplayName}
+                      onChangeText={text => {
+                        hasUserChangedDisplayName.current = true;
+                        setEditDisplayName(text);
+                      }}
                       placeholder="Name"
                       placeholderTextColor={hexToRGBA(currentColors.textColor, 0.3)}
                       scrollEnabled
@@ -1198,7 +1321,9 @@ const EditProfileScreen: React.FC = () => {
                     <Text
                       style={[
                         styles.sectionTitle,
-                        { color: hexToRGBA(currentColors.textColor, 0.8) },
+                        {
+                          color: hexToRGBA(currentColors.textColor, 0.8),
+                        },
                       ]}
                     >
                       ABOUT
@@ -1209,10 +1334,14 @@ const EditProfileScreen: React.FC = () => {
                         styles.textArea,
                         {
                           color: currentColors.textColor,
+                          fontFamily: selectedHeaderFontSet.description,
                         },
                       ]}
                       value={editDescription}
-                      onChangeText={setEditDescription}
+                      onChangeText={text => {
+                        hasUserChangedDescription.current = true;
+                        setEditDescription(text);
+                      }}
                       placeholder="Tell us about yourself"
                       placeholderTextColor={hexToRGBA(currentColors.textColor, 0.3)}
                       multiline
@@ -1242,6 +1371,22 @@ const styles = StyleSheet.create({
   },
   colorPickerSection: {
     paddingBottom: 16,
+  },
+  fontPickerSection: {
+    paddingBottom: 14,
+  },
+  fontPickerContainer: {
+    paddingHorizontal: 20,
+    gap: 18,
+  },
+  fontOptionItem: {
+    paddingTop: 6,
+    paddingBottom: 4,
+    alignItems: 'center',
+  },
+  fontOptionItemSelected: {},
+  fontOptionText: {
+    fontSize: 14,
   },
   bottomSectionContainer: {
     flex: 1,

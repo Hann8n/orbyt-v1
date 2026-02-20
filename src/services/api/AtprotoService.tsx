@@ -150,7 +150,7 @@ class AtprotoService {
       const url = `${base.replace(/\/+$/, '')}/xrpc/com.atproto.server.describeServer`;
 
       // Create timeout using AbortController for better compatibility
-      // eslint-disable-next-line no-undef -- AbortController provided by abortcontroller-polyfill
+
       const timeoutController = new AbortController();
       const timeoutId = setTimeout(() => timeoutController.abort(), 10000);
 
@@ -1281,6 +1281,7 @@ class AtprotoService {
     colors?: { backgroundColor: string; textColor: string } | null;
     subscribedChannels?: string[];
     algorithmicFeedProvider?: string | null;
+    fontPreference?: import('../../utils/profileFonts').ProfileFontPreference | null;
   }): Promise<boolean> {
     try {
       const userDid = await this.getCurrentUserDid();
@@ -1324,6 +1325,10 @@ class AtprotoService {
           update.algorithmicFeedProvider === undefined
             ? (existingRecord?.algorithmicFeedProvider ?? null)
             : update.algorithmicFeedProvider,
+        fontPreference:
+          update.fontPreference === undefined
+            ? (existingRecord?.fontPreference ?? null)
+            : update.fontPreference,
       };
 
       if (existing) {
@@ -1427,6 +1432,17 @@ class AtprotoService {
   static async updateOrbytProfileAlgorithmicFeedProvider(uri: string | null): Promise<void> {
     await this.upsertOrbytProfileRecord({
       algorithmicFeedProvider: uri,
+    });
+  }
+
+  /**
+   * Update header font preference in orbyt profile record
+   */
+  static async updateOrbytProfileFontPreference(
+    fontPreference: import('../../utils/profileFonts').ProfileFontPreference | null
+  ): Promise<void> {
+    await this.upsertOrbytProfileRecord({
+      fontPreference,
     });
   }
 

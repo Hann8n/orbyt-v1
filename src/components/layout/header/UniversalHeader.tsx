@@ -31,6 +31,8 @@ import { Colors } from '../../../theme';
 import { splitHandleSuffix } from '../../../utils/formatting/handles';
 import { TextWithLinks } from '../../ui/TextWithLinks';
 import type { RichTextFacet } from '../../../utils/types/richText';
+import { getHeaderFontSet } from '../../../utils/profileFonts';
+import type { HeaderFontSet, ProfileFontPreference } from '../../../utils/profileFonts';
 
 const GRADIENT_SHIM = require('../../../assets/embed-video-gradient-shim.png');
 
@@ -103,6 +105,7 @@ export interface UniversalHeaderProps {
   hasTabs?: boolean; // Indicates if tab navigation is present (for hashtag feeds)
   reserveTopForOverlayButtons?: boolean; // Adds extra top padding so overlay buttons don't overlap content
   contentScrollProgress?: SharedValue<number>; // Optional shared value to fade header content (text/avatar/tabs) on scroll
+  fontPreference?: ProfileFontPreference | null;
 }
 
 // Memoized action button component for performance
@@ -111,7 +114,8 @@ const ActionButton = memo<{
   textColor: string;
   backgroundColor: string;
   size?: 'small' | 'medium' | 'large';
-}>(({ action, textColor, backgroundColor, size = 'medium' }) => {
+  fontSet?: HeaderFontSet;
+}>(({ action, textColor, backgroundColor, size = 'medium', fontSet = getHeaderFontSet(null) }) => {
   const hasFilledBackground = useMemo(() => {
     const isFollowingState = action.label === 'Following' || action.label === 'Mutuals';
     const isIconOnlyFollowingState = action.id === 'follow' && !action.label;
@@ -239,7 +243,18 @@ const ActionButton = memo<{
           : styles.actionText;
       return (
         <View style={styles.actionContent} pointerEvents="none">
-          <Text style={[textStyle, { color: contentColor }]}>{action.label}</Text>
+          <Text
+            style={[
+              textStyle,
+              {
+                color: contentColor,
+                fontFamily:
+                  textStyle === styles.actionTextBold ? fontSet.actionBold : fontSet.actionRegular,
+              },
+            ]}
+          >
+            {action.label}
+          </Text>
           {action.customIcon ? (
             React.isValidElement(action.customIcon) &&
             action.customIcon.props &&
@@ -277,7 +292,7 @@ const ActionButton = memo<{
         ) : null}
       </View>
     );
-  }, [action, getContentColor]);
+  }, [action, getContentColor, fontSet]);
 
   // Only apply animations for follow button, use regular styles for others
   const isFollowButton = action.id === 'follow';
@@ -312,7 +327,20 @@ const ActionButton = memo<{
             <Loading3FillIcon size={24} color={unfilledColor} />
           ) : action.label ? (
             <View style={styles.actionContent} pointerEvents="none">
-              <Text style={[textStyle, { color: unfilledColor }]}>{action.label}</Text>
+              <Text
+                style={[
+                  textStyle,
+                  {
+                    color: unfilledColor,
+                    fontFamily:
+                      textStyle === styles.actionTextBold
+                        ? fontSet.actionBold
+                        : fontSet.actionRegular,
+                  },
+                ]}
+              >
+                {action.label}
+              </Text>
               {action.customIcon ? (
                 React.isValidElement(action.customIcon) &&
                 action.customIcon.props &&
@@ -351,7 +379,20 @@ const ActionButton = memo<{
             <Loading3FillIcon size={24} color={filledColor} />
           ) : action.label ? (
             <View style={styles.actionContent} pointerEvents="none">
-              <Text style={[textStyle, { color: filledColor }]}>{action.label}</Text>
+              <Text
+                style={[
+                  textStyle,
+                  {
+                    color: filledColor,
+                    fontFamily:
+                      textStyle === styles.actionTextBold
+                        ? fontSet.actionBold
+                        : fontSet.actionRegular,
+                  },
+                ]}
+              >
+                {action.label}
+              </Text>
               {action.customIcon ? (
                 React.isValidElement(action.customIcon) &&
                 action.customIcon.props &&
@@ -428,7 +469,8 @@ const CustomActionLayoutComponent = memo<{
   layout: CustomActionLayout;
   textColor: string;
   backgroundColor: string;
-}>(({ layout, textColor, backgroundColor }) => {
+  fontSet: HeaderFontSet;
+}>(({ layout, textColor, backgroundColor, fontSet }) => {
   const renderMenuIcon = useCallback(() => {
     if (!layout.menuIcon) return null;
 
@@ -453,6 +495,7 @@ const CustomActionLayoutComponent = memo<{
               action={action}
               textColor={textColor}
               backgroundColor={backgroundColor}
+              fontSet={fontSet}
             />
           ))}
         </View>
@@ -468,6 +511,7 @@ const CustomActionLayoutComponent = memo<{
               textColor={textColor}
               backgroundColor={backgroundColor}
               size="medium"
+              fontSet={fontSet}
             />
           )}
           <ActionButton
@@ -475,13 +519,14 @@ const CustomActionLayoutComponent = memo<{
             textColor={textColor}
             backgroundColor={backgroundColor}
             size="medium"
+            fontSet={fontSet}
           />
         </View>
       );
     }
 
     return null;
-  }, [layout, textColor, backgroundColor]);
+  }, [layout, textColor, backgroundColor, fontSet]);
 
   const containerStyle = useMemo(() => {
     const baseStyle = styles.customActionsLayout;
@@ -550,7 +595,8 @@ const HeaderContentComponent = memo<{
   textColor: string;
   backgroundColor: string;
   customDescription?: React.ReactNode;
-}>(({ content, textColor, backgroundColor, customDescription }) => {
+  fontSet: HeaderFontSet;
+}>(({ content, textColor, backgroundColor, customDescription, fontSet }) => {
   const router = useRouter();
 
   const navigateToAuthorProfile = useCallback(
@@ -626,7 +672,7 @@ const HeaderContentComponent = memo<{
           ) : (
             <InlineTitleWithBadges
               title={content.title}
-              titleStyle={{ ...styles.title, color: textColor }}
+              titleStyle={{ ...styles.title, color: textColor, fontFamily: fontSet.title }}
               badges={[content.badge as React.ReactNode]}
             />
           )}
@@ -641,7 +687,10 @@ const HeaderContentComponent = memo<{
             return (
               <Pressable style={styles.subtitleRow} onPress={content.onTitlePress}>
                 <View style={styles.subtitleColumn}>
-                  <Text style={[styles.subtitle, { color: textColor }]} numberOfLines={1}>
+                  <Text
+                    style={[styles.subtitle, { color: textColor, fontFamily: fontSet.subtitle }]}
+                    numberOfLines={1}
+                  >
                     {subtitleBase}
                     {subtitleSuffix && (
                       <Text style={{ color: hexToRGBA(textColor, 0.7) }}>{subtitleSuffix}</Text>
@@ -673,7 +722,10 @@ const HeaderContentComponent = memo<{
                                   <Text
                                     style={[
                                       styles.subtitleSecondaryRegular,
-                                      { color: hexToRGBA(textColor, 0.8) },
+                                      {
+                                        color: hexToRGBA(textColor, 0.8),
+                                        fontFamily: fontSet.subtitleSecondaryRegular,
+                                      },
                                     ]}
                                   >
                                     {parts[1]}
@@ -681,7 +733,10 @@ const HeaderContentComponent = memo<{
                                   <Text
                                     style={[
                                       styles.subtitleSecondaryBold,
-                                      { color: hexToRGBA(textColor, 0.8) },
+                                      {
+                                        color: hexToRGBA(textColor, 0.8),
+                                        fontFamily: fontSet.subtitleSecondaryBold,
+                                      },
                                     ]}
                                   >
                                     {parts[2]}
@@ -705,7 +760,7 @@ const HeaderContentComponent = memo<{
           (content.description && (
             <TextWithLinks
               text={content.description}
-              style={[styles.description, { color: textColor }]}
+              style={[styles.description, { color: textColor, fontFamily: fontSet.description }]}
               onAuthorPress={navigateToAuthorProfile}
               onHashtagPress={navigateToHashtagFeed}
               facets={content.facets}
@@ -737,9 +792,11 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
   hasTabs = false,
   reserveTopForOverlayButtons = false,
   contentScrollProgress,
+  fontPreference = null,
 }) => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const fontSet = useMemo(() => getHeaderFontSet(fontPreference), [fontPreference]);
 
   const handleBackPress = useCallback(() => {
     if (onBackPress) {
@@ -954,6 +1011,7 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
                     action={action}
                     textColor={textColor}
                     backgroundColor={backgroundColor}
+                    fontSet={fontSet}
                   />
                 ))}
               </View>
@@ -966,6 +1024,7 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
                 layout={layout}
                 textColor={textColor}
                 backgroundColor={backgroundColor}
+                fontSet={fontSet}
               />
             ))}
           </View>
@@ -984,6 +1043,7 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
           textColor={textColor}
           backgroundColor={backgroundColor}
           customDescription={customDescription}
+          fontSet={fontSet}
         />
 
         {/* Additional Children */}

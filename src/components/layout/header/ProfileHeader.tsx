@@ -22,6 +22,7 @@ import { getStatusBarStyle } from '../../../utils/formatting/colors';
 import { RichText } from '@atproto/api';
 import { formatHandle } from '../../../utils/formatting/handles';
 import { openListInBluesky } from '../../../utils/links/bluesky';
+import { sanitizeProfileFontPreference } from '../../../utils/profileFonts';
 
 /**
  * Renders StatusBar only when this screen is focused (React Navigation recommended pattern).
@@ -175,6 +176,10 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     }),
     [profileColors.backgroundColor, profileColors.textColor]
   );
+  const fontPreference = useMemo(
+    () => sanitizeProfileFontPreference(profileData?.orbytRecord?.fontPreference),
+    [profileData?.orbytRecord?.fontPreference]
+  );
 
   // Profile status bar: used when at top; when scrolled we use app default so status bar transitions with header
   const profileStatusBarStyle = useMemo(() => {
@@ -225,6 +230,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
           onBackPress={undefined}
           backgroundColor={dynamicColors.backgroundColor}
           textColor={dynamicColors.textColor}
+          fontPreference={fontPreference}
           isLoading={false}
           applySafeArea={applySafeArea}
           reserveTopForOverlayButtons={!headerStyle}

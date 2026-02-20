@@ -144,14 +144,9 @@ function TextWithLinksBase({
 const styles = StyleSheet.create({
   link: {
     textDecorationLine: 'underline',
-    fontFamily: 'Figtree-Medium',
   },
-  mention: {
-    fontFamily: 'Figtree-SemiBold',
-  },
-  tag: {
-    fontFamily: 'Figtree-SemiBold',
-  },
+  mention: {},
+  tag: {},
 });
 
 export const TextWithLinks = React.memo(TextWithLinksBase);
