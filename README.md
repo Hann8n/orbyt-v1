@@ -1,16 +1,18 @@
 # **orbyt**
 
-A new video app built for bluesky
+A video app built for [Bluesky](https://bsky.social), powered by the [AT Protocol](https://atproto.com).
 
 ## Tech Stack
 
-- **Framework**: [React Native](https://github.com/facebook/react-native)
-- **Navigation**: [React Navigation](https://github.com/react-navigation/react-navigation)
-- **State Management**: [TanStack Query](https://github.com/TanStack/query) (React Query)
+- **Framework**: [React Native](https://github.com/facebook/react-native) with [Expo](https://expo.dev)
+- **Routing**: [Expo Router](https://docs.expo.dev/router/introduction/) (file-based navigation)
+- **State (client)**: [Zustand](https://github.com/pmndrs/zustand)
+- **State (server)**: [TanStack Query](https://github.com/TanStack/query) (React Query)
+- **Lists**: [@shopify/flash-list](https://github.com/Shopify/flash-list)
 - **Video**: [React Native Video](https://github.com/TheWidlarzGroup/react-native-video)
 - **Camera**: [Expo Camera](https://docs.expo.dev/versions/latest/sdk/camera/)
-- **Storage**: MMKV and SecureStore
-- **API**: [Atproto](https://github.com/bluesky-social/atproto/tree/main/packages/api)
+- **Storage**: [MMKV](https://github.com/mrousavy/react-native-mmkv) and [SecureStore](https://docs.expo.dev/versions/latest/sdk/securestore/)
+- **API**: [AT Protocol](https://github.com/bluesky-social/atproto/tree/main/packages/api) with OAuth
 
 ## Getting Started
 
@@ -43,16 +45,29 @@ yarn start
 ## Project Structure
 
 ```
+app/                        # Expo Router file-based routes
+├── (tabs)/                 # Tab group: Home, Explore, Activity, Profile
+├── (modals)/               # Modal routes
+├── settings/               # Settings flow
+├── profile/[did].tsx       # Dynamic profile
+├── channel/[id].tsx        # Dynamic channel
+├── post/[id].tsx           # Post detail
+├── chat/[id].tsx           # Chat screen
+├── create.tsx              # Video creation
+└── login.tsx               # Auth entry
+
 src/
-├── components/          # Reusable UI components
-│   ├── features/       # Feature-specific components
-│   ├── layout/         # Layout components
-│   └── ui/            # Basic UI components
-├── screens/            # Screen components
-├── navigation/         # Navigation configuration
-├── services/          # API and business logic
-├── hooks/             # Custom React hooks
-└── utils/             # Utility functions
+├── components/
+│   ├── ui/                 # Reusable primitives
+│   ├── features/           # Domain modules (feed, video, comments, activity, profile, etc.)
+│   └── layout/             # Headers and navigation
+├── services/               # API layer and business logic
+├── stores/                 # Zustand stores (client state)
+├── hooks/                  # Custom React hooks
+├── theme/                  # Design tokens (color palette)
+├── utils/                  # Constants, typography, query config, helpers
+├── context/                # React Context providers
+└── core/                   # Core modules (feed visibility)
 ```
 
 ## Building
@@ -70,6 +85,14 @@ yarn build:preview
 yarn build:prod
 ```
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines and the pull request process.
+
+## AI Context
+
+See [AGENTS.md](AGENTS.md) for project conventions used by AI coding assistants.
+
 ## License
 
-MIT
+GPL-3.0

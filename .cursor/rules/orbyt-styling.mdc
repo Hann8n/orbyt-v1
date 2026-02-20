@@ -1,0 +1,56 @@
+---
+description: Orbyt styling conventions — colors, typography, constants, and shared styles
+alwaysApply: true
+---
+
+# Orbyt Styling
+
+## Colors
+
+Import `Colors` from `src/theme` (via `@/theme` or relative path). Use the `Colors` object for all color values in styles — never raw hex strings or `rgba()` literals.
+
+- Palette: `Colors.purple[500]`, `Colors.neutral[900]`, `Colors.teal[400]`, etc.
+- Overlays: `Colors.overlay.black60`, `Colors.overlay.white30`, etc.
+- Brand: `Colors.brand.purple`, `Colors.brand.teal`, `Colors.brand.coral`
+- Reference: `src/theme/colors.ts`
+
+For dynamic color manipulation (hexToRGBA, blendColors), import from `src/utils/formatting/colors`.
+For profile ring / Orbyt profile colors, use hooks from `src/services/colors/`.
+
+- Migration note: existing code contains raw hex values (e.g. `'#000'`, `'#dc2626'`) and raw `rgba()` calls. New and modified code must use `Colors.*` tokens or `hexToRGBA()` from `src/utils/formatting/colors`. When touching a file with violations, migrate them.
+
+## Typography
+
+Use `Typography` and `FontFamily` from `src/utils/components/typography` for consistent text styling.
+
+- Font sizes: `Typography.sizes.body`, `Typography.sizes.h1`, `Typography.sizes.caption`, etc.
+- Font families: `Typography.families.regular`, `Typography.families.bold`, `Typography.families.medium`, etc.
+- Component: `TypographyText` for a pre-styled `<Text>` with variant/weight props
+- Migration note: existing code uses raw `fontSize`/`fontFamily: 'Figtree-*'` values. New and modified code should prefer Typography tokens.
+- Reference: `src/utils/components/typography.tsx`
+
+## Constants
+
+Use shared constants from `src/utils/constants` — never hardcode these values:
+
+- `BORDER_RADIUS.SMALL | MEDIUM | LARGE | FULL`
+- `ANIMATION_CONSTANTS.DURATION.FAST | NORMAL | SLOW`
+- `ICON_SIZES.SMALL | MEDIUM | LARGE | XLARGE`
+- `QUERY_CONSTANTS` for stale times and retry config
+
+## Shared Styles
+
+Before creating new styles, check for existing shared style modules:
+
+- `src/components/ui/ItemStyles.ts` — list item layouts (AuthorItem, ChannelItem)
+- `src/components/ui/AuthSheetStyles.ts` — auth flow styles (LoginSheet, SignUpSheet)
+- `app/settings/SettingsStyles.ts` — settings screen styles
+- `src/utils/components/truesheet/trueSheetPresets.ts` — bottom sheet configuration
+
+## Rules
+
+- Always use `StyleSheet.create()` — no inline style objects
+- Migration note: existing code contains inline style objects in some components. New and modified code must move styles into `StyleSheet.create()`. When touching a file with inline styles, migrate them.
+- Use `React.memo` for list items and heavy components
+- Avoid anonymous functions in `renderItem` and event handlers — use `useCallback`
+- Use `useCallback` / `useMemo` in list and performance-sensitive contexts

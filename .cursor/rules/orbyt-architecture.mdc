@@ -1,0 +1,102 @@
+---
+description: Orbyt project structure, architecture, and conventions
+alwaysApply: true
+---
+
+# Orbyt Architecture
+
+Orbyt is a video app for Bluesky built on the AT Protocol. React Native + Expo.
+
+## Project Structure
+
+- `app/` — Expo Router file-based routes (tabs, modals, dynamic routes like `[did]`, `[id]`)
+- `src/components/ui/` — Reusable primitives (Icon, Button, Card, Modal, Input, share-sheet)
+- `src/components/features/` — Domain modules: feed, video, comments, activity, profile, moderation, badging
+- `src/components/layout/` — Headers and navigation (UniversalHeader, ProfileHeader, ChannelHeader, TabNavigation)
+- `src/services/` — API layer and business logic (see full breakdown below)
+- `src/stores/` — Zustand stores (client state)
+- `src/hooks/` — Custom React hooks
+- `src/theme/` — Design tokens (`Colors` palette)
+- `src/utils/` — Helpers, constants, typography, query config (see full breakdown below)
+- `src/context/` — React Context providers (SessionProvider, OverlayLayoutContext, FollowContext, FeedScrollContext)
+- `src/core/` — Core modules (visibility system for feed/video playback)
+
+### Services (`src/services/`)
+
+- `api/AtprotoService.tsx` — Main API facade (delegates to sub-services)
+- `api/core.ts` — Shared session management and API client setup
+- `api/feed/FeedService.ts` — `app.bsky.feed.*` operations
+- `api/graph/GraphService.ts` — `app.bsky.graph.*` operations
+- `api/chat/ChatService.ts` — Chat operations
+- `api/actor/ActorService.ts` — `app.bsky.actor.*` operations
+- `api/notification/NotificationService.ts` — Notification operations
+- `api/bookmark/BookmarkService.ts` — Bookmark operations
+- `api/video/VideoService.ts` — Video-specific API operations
+- `api/repo/RepoService.ts` — `com.atproto.repo.*` operations
+- `auth/OAuthService.ts` — OAuth flow
+- `auth/EmailVerificationService.ts` — Email verification
+- `data/ProfileService.ts` — Profile caching (React Query integration)
+- `data/ChannelService.ts` — Channel feed generator caching
+- `video/VideoProcessingService.ts` — FFmpeg video processing
+- `video/VideoEditingService.ts` — FFmpeg video editing
+- `colors/OrbytColors.ts` — Profile color management (fetch, persist, sync)
+- `colors/useOrbytColors.tsx` — React hooks for profile colors
+- `moderation/ModerationService.ts` — Moderation operations
+- `FeedService.ts` — Feed logic (bookmarks, seen videos)
+- `SeenVideoService.ts` — Seen video tracking
+- `OrbytBannerService.ts` — Banner configuration
+
+### Utilities (`src/utils/`)
+
+- `constants.ts` — `BORDER_RADIUS`, `ANIMATION_CONSTANTS`, `ICON_SIZES`, `QUERY_CONSTANTS`
+- `logger.ts` — Centralized logger (never use `console.log`)
+- `query/queryKeys.ts` — Centralized React Query key factory
+- `query/queryClient.ts` — Query client config with stale times and retry
+- `storage/storage.ts` — MMKV instance and Zustand persist adapter
+- `formatting/colors.ts` — `hexToRGBA`, `blendColors`, `isColorDark`, `getContrastRatio`, image color extraction
+- `formatting/time.ts` — `formatTime` (MM:SS / HH:MM:SS for video durations)
+- `formatting/numbers.ts` — `formatNumber` (1.2K, 10K truncation)
+- `formatting/handles.ts` — `formatHandle`, `splitHandleSuffix` (AT Protocol handle formatting)
+- `video/` — Video path helpers, segment management
+- `device/screen.ts` — Screen dimension utilities
+- `navigation/` — Tab refs, bottom sheet registry
+- `links/bluesky.ts` — Bluesky URL parsing and deep link handling
+- `errors/errorHandler.ts` — `ErrorHandler` class, `CommonErrorHandlers`, error type checks
+- `errors/oauth.ts` — OAuth-specific error handling
+- `channels/orbyt.ts` — Built-in channel definitions and color generation
+- `chat/streak.ts` — Chat streak calculations
+- `types/richText.ts` — Rich text type definitions
+- `components/typography.tsx` — `Typography` tokens, `TypographyText` component
+- `components/truesheet/` — `AppTrueSheet`, `trueSheetPresets`, keyboard-aware footer
+
+## State Management
+
+- **Client state**: Zustand stores in `src/stores/` (userStore, appStore, modalStore, uiStore, followStore, postInteractionStore, etc.)
+- **Server state**: TanStack React Query. Query keys in `src/utils/query/queryKeys.ts`, client config in `src/utils/query/queryClient.ts`
+- **Persistence**: MMKV via `src/utils/storage/storage.ts`, expo-secure-store for auth credentials
+
+## Provider Hierarchy (app/_layout.tsx)
+
+ThemeProvider → SafeAreaProvider → QueryClientProvider → GestureHandlerRootView → KeyboardProvider → TabBarProvider → OverlayLayoutProvider → SessionProvider → SplashScreenController → QueryErrorBoundary → RootNavigator
+
+## Error Handling
+
+- **ErrorBoundary** (`src/components/ui/ErrorBoundary.tsx`): class component with `level` prop (`root`, `feature`, `component`). Supports `resetKeys`, custom fallback, and error reporting via email.
+- **QueryErrorBoundary** (`src/components/ui/QueryErrorBoundary.tsx`): wraps `ErrorBoundary` with `QueryErrorResetBoundary` to reset failed queries on retry. Used at root level in `app/_layout.tsx`.
+- **ErrorHandler** (`src/utils/errors/errorHandler.ts`): centralized error utility with `handleError`, `safeAsync`, `safeSync`, and type checks (`isNetworkError`, `isAuthError`, `isUserCancellation`).
+- **CommonErrorHandlers**: predefined handlers for login, logout, feed load, video playback, navigation, cache, and API errors.
+- Log all errors through `logger` with context. Use `ErrorHandler.safeAsync()` for fire-and-forget operations.
+
+## Conventions
+
+- **Path aliases**: `@/*` → `src/*`, `@stores/*` → `src/stores/*`
+- **Naming**: Components = PascalCase, hooks = `use*`, stores = `*Store`, services = `*Service`
+- **Directories**: Multi-word directory names use kebab-case (e.g. `share-sheet`, `hidden-posts`)
+- **Files**: Filename matches primary export (e.g. `VideoCard.tsx` exports `VideoCard`)
+- **New components**: UI primitives → `components/ui/`, feature code → `components/features/<domain>/`, layout → `components/layout/`
+- **Barrel exports**: Check existing barrels before adding exports: `src/components/index.ts`, `src/hooks/index.ts`, `src/services/index.ts`, `src/stores/index.ts`
+- **Logging**: Use `logger` from `src/utils/logger` — never `console.log`
+- **TypeScript**: Avoid `any`; use proper types or `unknown`
+- **Functional components**: Always prefer functional components with hooks. Class components only for error boundaries (React limitation).
+- **Dependencies first**: Before writing custom utility functions, check if an installed dependency or `src/utils/` module already provides the functionality. Prefer battle-tested library functions over custom implementations (e.g. `date-fns` for date operations, `Intl` APIs for formatting, Expo SDK modules over third-party alternatives). Check the Utilities section above before creating new helpers.
+- **Existing utilities**: Before building new helpers, check `src/utils/formatting/` (colors, time, numbers, handles), `src/utils/errors/` (ErrorHandler), `src/utils/video/`, `src/utils/links/`, `src/utils/device/`, and `src/utils/navigation/`.
