@@ -9,7 +9,7 @@ By participating in this project, you agree to maintain a respectful and inclusi
 ## Getting Started
 
 1. Fork the repository
-2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/orbyt.git`
+2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/orbyt-app.git`
 3. Install dependencies: `yarn install`
 4. Create a new branch: `git checkout -b feature/your-feature-name`
 

@@ -67,8 +67,8 @@ A video-first social app for the [Bluesky](https://bsky.social) network, built o
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/Hann8n/orbyt.git
-   cd orbyt
+   git clone https://github.com/Hann8n/orbyt-app.git
+   cd orbyt-app
    ```
 
 2. **Install dependencies**
@@ -102,7 +102,7 @@ A video-first social app for the [Bluesky](https://bsky.social) network, built o
 ## Project Structure
 
 ```
-orbyt/
+orbyt-app/
 ├── app/                          # Expo Router file-based routes
 │   ├── (tabs)/                   # Tab group: Home, Explore, Activity, Profile
 │   ├── (modals)/                 # Modal routes
