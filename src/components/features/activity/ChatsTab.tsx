@@ -38,6 +38,7 @@ import { useUserStore } from '../../../stores/userStore';
 import { getActiveStreak, isStreakActive } from '../../../utils/chat/streak';
 import { useAvatarProfileRing } from '../../../services/colors';
 import type { ProfileViewBasic, RecordValue } from '../../../services/api/types';
+import ActivitySegmentedChips from './ActivitySegmentedChips';
 
 type ConvoView = ChatBskyConvoDefs.ConvoView;
 
@@ -515,24 +516,16 @@ const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(({ chatFilter }, ref)
   const listHeaderComponent = useMemo(
     () => (
       <View style={styles.segmentRow}>
-        <View style={styles.segmentChipsWrap}>
-          {SEGMENT_OPTIONS.map(opt => (
-            <Pressable
-              key={opt.value}
-              onPress={() => setSegment(opt.value)}
-              style={[styles.segmentChip, segment === opt.value && styles.segmentChipActive]}
-            >
-              <Text
-                style={[
-                  styles.segmentChipText,
-                  segment === opt.value && styles.segmentChipTextActive,
-                ]}
-              >
-                {opt.label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+        <ActivitySegmentedChips
+          options={SEGMENT_OPTIONS.map(opt => ({
+            key: opt.value,
+            label: opt.label,
+            selected: segment === opt.value,
+            onPress: () => setSegment(opt.value),
+          }))}
+          containerStyle={styles.segmentChipsWrap}
+          trackStyle={styles.segmentChipsTrack}
+        />
         <Pressable onPress={() => setShowChatSettingsSheet(true)} style={styles.segmentGearButton}>
           <Icon name="settings" size={22} color={Colors.neutral[50]} />
         </Pressable>
@@ -620,29 +613,10 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   segmentChipsWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    flexShrink: 1,
   },
-  segmentChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    backgroundColor: Colors.neutral[900],
-    borderRadius: BORDER_RADIUS.MEDIUM,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  segmentChipActive: {
-    backgroundColor: Colors.neutral[50],
-  },
-  segmentChipText: {
-    fontSize: 15,
-    fontFamily: 'Figtree-Bold',
-    color: Colors.neutral[400],
-  },
-  segmentChipTextActive: {
-    fontFamily: 'Figtree-Bold',
-    color: Colors.black,
+  segmentChipsTrack: {
+    backgroundColor: Colors.neutral[950],
   },
   segmentGearButton: {
     paddingVertical: 8,

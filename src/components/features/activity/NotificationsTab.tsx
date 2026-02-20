@@ -7,7 +7,7 @@ import React, {
   useRef,
 } from 'react';
 import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../../utils/constants';
-import { View, Text, StyleSheet, Pressable, RefreshControl, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Pressable, RefreshControl } from 'react-native';
 import { Image } from 'expo-image';
 import { LegendList, LegendListRef } from '@legendapp/list';
 import type { ScrollToTopRef } from '../../../utils/navigation/tabRefs';
@@ -32,6 +32,7 @@ import { useActivityFilterStore } from '../../../stores/activityFilterStore';
 import BlurredBackground from '../../ui/BlurredBackground';
 import { queryKeys } from '../../../utils/query/queryKeys';
 import { useAvatarProfileRing } from '../../../services/colors';
+import ActivitySegmentedChips from './ActivitySegmentedChips';
 import {
   moderateNotification,
   moderatePost,
@@ -838,31 +839,20 @@ const NotificationsTab = forwardRef<ScrollToTopRef, NotificationsTabProps>(
       [filterReasons, setFilterReasons]
     );
 
-    const activityChipsHeader = useMemo(
-      () => (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.activityChipsRibbonContent}
-          style={styles.activityChipsRibbon}
-        >
-          {ACTIVITY_CHIP_OPTIONS.map(opt => {
-            const selected = opt.reasons.every(r => (filterReasons ?? []).includes(r));
-            return (
-              <Pressable
-                key={opt.label}
-                onPress={() => handleToggleChip(opt.reasons)}
-                style={[styles.activityChip, selected && styles.activityChipActive]}
-              >
-                <Text style={[styles.activityChipText, selected && styles.activityChipTextActive]}>
-                  {opt.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      ),
+    const activityChipOptions = useMemo(
+      () =>
+        ACTIVITY_CHIP_OPTIONS.map(opt => ({
+          key: opt.label,
+          label: opt.label,
+          selected: opt.reasons.every(r => (filterReasons ?? []).includes(r)),
+          onPress: () => handleToggleChip(opt.reasons),
+        })),
       [filterReasons, handleToggleChip]
+    );
+
+    const activityChipsHeader = useMemo(
+      () => <ActivitySegmentedChips options={activityChipOptions} scrollable />,
+      [activityChipOptions]
     );
 
     // Prefetch author profiles when notifications load
@@ -969,36 +959,6 @@ const styles = StyleSheet.create({
   },
   listContentContainer: {
     paddingHorizontal: 10,
-  },
-  activityChipsRibbon: {
-    marginHorizontal: -10,
-    paddingBottom: 8,
-  },
-  activityChipsRibbonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 10,
-  },
-  activityChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    backgroundColor: Colors.neutral[900],
-    borderRadius: BORDER_RADIUS.MEDIUM,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  activityChipActive: {
-    backgroundColor: Colors.neutral[50],
-  },
-  activityChipText: {
-    fontSize: 15,
-    fontFamily: 'Figtree-Bold',
-    color: Colors.neutral[400],
-  },
-  activityChipTextActive: {
-    fontFamily: 'Figtree-Bold',
-    color: Colors.black,
   },
   nameRow: {
     flexDirection: 'row',
