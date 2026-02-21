@@ -36,6 +36,7 @@ import { TextWithLinks } from '../../ui/TextWithLinks';
 import type { RichTextFacet } from '../../../utils/types/richText';
 
 const GRADIENT_SHIM = require('../../../assets/embed-video-gradient-shim.png');
+const TABBED_HEADER_BACKGROUND_CUTOFF = 20;
 
 // Types for the universal header system
 export interface HeaderAction {
@@ -872,7 +873,8 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
       styles.backgroundImageContainer,
       {
         top: applySafeArea ? -insets.top : 0,
-        ...(hasTabs && { bottom: 70 }), // Stop before tab navigation
+        // Keep a slight overlap behind tabbed nav to avoid a hard visual seam.
+        ...(hasTabs && { bottom: TABBED_HEADER_BACKGROUND_CUTOFF }),
       },
     ],
     [applySafeArea, insets.top, hasTabs]
@@ -883,7 +885,8 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
       styles.backgroundOverlay,
       {
         top: applySafeArea ? -insets.top : 0,
-        ...(hasTabs && { bottom: 70 }), // Stop before tab navigation
+        // Keep a slight overlap behind tabbed nav to avoid a hard visual seam.
+        ...(hasTabs && { bottom: TABBED_HEADER_BACKGROUND_CUTOFF }),
       },
     ],
     [applySafeArea, insets.top, hasTabs]
@@ -894,7 +897,8 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
       styles.shadowGradient,
       {
         top: applySafeArea ? -insets.top : 0,
-        ...(hasTabs && { bottom: 70 }), // Stop before tab navigation
+        // Keep a slight overlap behind tabbed nav to avoid a hard visual seam.
+        ...(hasTabs && { bottom: TABBED_HEADER_BACKGROUND_CUTOFF }),
       },
     ],
     [applySafeArea, insets.top, hasTabs]
@@ -922,10 +926,13 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
             style={[StyleSheet.absoluteFill, styles.gradientShim]}
             contentFit="cover"
           />
+          {hasTabs && (
+            <Image source={GRADIENT_SHIM} style={styles.tabbedBottomSeamFade} contentFit="fill" />
+          )}
         </View>
       </>
     );
-  }, [backgroundImage, imageSource, backgroundContainerStyle, backgroundOverlayStyle]);
+  }, [backgroundImage, imageSource, backgroundContainerStyle, backgroundOverlayStyle, hasTabs]);
 
   // Extract custom description from children
   const customDescription = useMemo(() => {
@@ -1190,7 +1197,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   actionText: {
-    fontFamily: 'Figtree-SemiBold',
+    fontFamily: 'Figtree-Bold',
     textAlign: 'center',
     fontSize: 17,
   },
@@ -1364,6 +1371,15 @@ const styles = StyleSheet.create({
   gradientShim: {
     transform: [{ scaleY: -1 }],
     opacity: 1.0,
+  },
+  tabbedBottomSeamFade: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 170,
+    transform: [{ scaleY: -1 }],
+    opacity: 0.9,
   },
   backgroundImageContainer: {
     position: 'absolute',

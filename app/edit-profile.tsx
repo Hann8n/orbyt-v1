@@ -1313,7 +1313,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Figtree-Bold',
     fontSize: 17,
     color: Colors.black,
-    fontWeight: '600',
   },
   aboutHeaderCounter: {
     marginHorizontal: 8,

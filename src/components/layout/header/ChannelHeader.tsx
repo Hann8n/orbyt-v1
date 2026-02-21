@@ -6,9 +6,11 @@ import {
   Pressable,
   Text,
   StatusBar,
+  Platform,
   useWindowDimensions,
   type ViewStyle,
 } from 'react-native';
+import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useRouter } from 'expo-router';
 import UniversalHeader, { HeaderContent } from './UniversalHeader';
 import { useChannelColors } from '../../../services/data/ChannelService';
@@ -72,7 +74,6 @@ const SubscribeButton: React.FC<{
   onViewModeChange?: (mode: ViewMode) => void;
   showViewToggle?: boolean;
   containerStyle?: ViewStyle;
-  isOrbyt?: boolean;
 }> = ({
   channel,
   textColor,
@@ -83,7 +84,6 @@ const SubscribeButton: React.FC<{
   onViewModeChange,
   showViewToggle = false,
   containerStyle,
-  isOrbyt = false,
 }) => {
   const { subscribedChannels, subscribeToChannel, unsubscribeFromChannel } =
     useSubscribedChannels();
@@ -120,44 +120,54 @@ const SubscribeButton: React.FC<{
     }
   }, [channel, isSubscribed, subscribeToChannel, unsubscribeFromChannel]);
 
-  // Use channelColor for channels, fallback to textColor
-  const subscribeColor = channelColor || textColor;
-
-  // Calculate appropriate text color for subscribed state based on background brightness
-  const subscribedTextColor = useMemo(() => {
-    if (!isSubscribed) return Colors.neutral[50];
-    // Use white text for dark backgrounds, black for light backgrounds
-    return isColorDark(subscribeColor) ? Colors.neutral[50] : Colors.black;
-  }, [isSubscribed, subscribeColor]);
-
   const hasFilledBackground = isSubscribed;
+  const canUseLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
+  const activeFillColor = useMemo(() => channelColor || textColor, [channelColor, textColor]);
+  const activeContentColor = useMemo(
+    () => (isColorDark(activeFillColor) ? Colors.neutral[50] : Colors.black),
+    [activeFillColor]
+  );
 
   const getButtonStyle = useCallback(
     (pressed: boolean = false, _frozenValue: boolean | null = null) => {
       // Always reflect the actual subscription state; pressed state only tweaks opacity
       const showFilledState = hasFilledBackground;
 
-      // On orbyt pages, use black and white for blending
-      const blendBg = isOrbyt ? Colors.black : _backgroundColor;
-      const blendFg = isOrbyt ? Colors.neutral[50] : Colors.neutral[50];
-
       return {
-        backgroundColor: showFilledState ? subscribeColor : blendColors(blendBg, blendFg, 0.2),
+        // Match profile action colors while preserving channel button sizing/layout.
+        backgroundColor: canUseLiquidGlass
+          ? Colors.transparent
+          : showFilledState
+            ? activeFillColor
+            : blendColors(_backgroundColor, textColor, 0.2),
         borderColor: Colors.transparent,
         borderWidth: 0,
         opacity: pressed ? 0.9 : 1,
       };
     },
-    [hasFilledBackground, subscribeColor, _backgroundColor, isOrbyt]
+    [hasFilledBackground, _backgroundColor, textColor, canUseLiquidGlass, activeFillColor]
+  );
+
+  const getLiquidGlassTintColor = useCallback(
+    (pressed = false) => {
+      const activeTint = activeFillColor;
+      const inactiveTint = hexToRGBA(Colors.black, 0.12);
+      // Keep subscription tint behavior stable on press (same as profile subscription button).
+      if (pressed) {
+        return hasFilledBackground ? activeTint : inactiveTint;
+      }
+      return hasFilledBackground ? activeTint : inactiveTint;
+    },
+    [hasFilledBackground, activeFillColor]
   );
 
   const getContentColor = useCallback(
     (_pressed: boolean = false, _frozenValue: boolean | null = null) => {
       // Use the real active state to decide text color; pressed does not invert colors
       const showFilledState = hasFilledBackground;
-      return showFilledState ? subscribedTextColor : Colors.neutral[50];
+      return showFilledState ? activeContentColor : textColor;
     },
-    [hasFilledBackground, subscribedTextColor]
+    [hasFilledBackground, activeContentColor, textColor]
   );
 
   if (channel.isOwner) return null; // Don't show subscribe button for owners
@@ -181,15 +191,22 @@ const SubscribeButton: React.FC<{
 
           return (
             <View style={[styles.subscribeButton, styles.subscribeButtonInner, buttonStyle]}>
+              {canUseLiquidGlass && (
+                <GlassView
+                  style={styles.subscribeButtonGlassBackground}
+                  glassEffectStyle="clear"
+                  tintColor={getLiquidGlassTintColor(pressed)}
+                />
+              )}
               <View pointerEvents="none" style={styles.subscribeButtonContent}>
                 <>
                   <Text style={[styles.subscribeButtonText, { color: contentColor }]}>
                     {isSubscribed ? 'Subscribed' : 'Subscribe'}
                   </Text>
                   {isSubscribed ? (
-                    <CheckIcon size={16} color={contentColor} strokeWidth={2.0} />
+                    <CheckIcon size={16} color={contentColor} strokeWidth={2.5} />
                   ) : (
-                    <PlusIcon size={12} color={contentColor} strokeWidth={2.0} />
+                    <PlusIcon size={16} color={contentColor} strokeWidth={2.5} />
                   )}
                 </>
               </View>
@@ -385,7 +402,6 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
             onViewModeChange={onViewModeChange}
             showViewToggle={showViewToggle}
             containerStyle={hasTabs ? styles.subscribeContainerWithTabs : undefined}
-            isOrbyt={isOrbyt}
           />
         )}
         {children}
@@ -473,7 +489,7 @@ const styles = StyleSheet.create({
   },
   subscribeButtonTouch: {
     flex: 1,
-    height: 40,
+    height: 44,
   },
   subscribeButtonMax: {
     maxWidth: 400,
@@ -485,9 +501,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.FULL,
     borderWidth: 0,
     borderColor: Colors.transparent,
     gap: 6,
@@ -501,13 +517,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
   },
+  subscribeButtonGlassBackground: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: BORDER_RADIUS.FULL,
+  },
   headerOpaque: {
     opacity: 1,
   },
   subscribeButtonText: {
     fontFamily: 'Figtree-Bold',
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 17,
   },
 
   viewToggleContainer: {
