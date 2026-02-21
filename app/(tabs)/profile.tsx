@@ -1,5 +1,10 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef, memo } from 'react';
-import { useSharedValue } from 'react-native-reanimated';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  interpolate,
+  Extrapolate,
+} from 'react-native-reanimated';
 import { BORDER_RADIUS, APP_CONSTANTS } from '../../src/utils/constants';
 import {
   View,
@@ -9,6 +14,7 @@ import {
   Dimensions,
   Modal,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { FeedPager } from '../../src/components';
@@ -36,6 +42,7 @@ import {
   HeaderActionButton,
 } from '../../src/components/layout/header/UniversalHeader';
 import { Colors } from '../../src/theme';
+import { isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalModals';
 import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '../../src/hooks';
 import { useDetailScreenOverlay } from '../../src/hooks/useDetailScreenOverlay';
@@ -420,15 +427,27 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     headerPaddingTop,
     actionButtonsTop,
     showBackButton,
-    overlayAnimatedStyle,
     backIconPrimaryStyle,
     backIconSecondaryStyle,
   } = useDetailScreenOverlay(providedIdentifier, defaultTop, overlayScrollProgressSV);
+  const menuOverlayAnimatedStyle = useAnimatedStyle(
+    () => ({
+      opacity: interpolate(
+        overlayScrollProgressSV.value,
+        [0, 0.3, 0.8],
+        [1, 1, 0],
+        Extrapolate.CLAMP
+      ),
+    }),
+    [overlayScrollProgressSV]
+  );
+  const staticOverlayAnimatedStyle = useAnimatedStyle(() => ({ opacity: 1 }));
 
   const baseBackTextColor = useMemo(
     () => profileColors.textColor || Colors.neutral[50],
     [profileColors.textColor]
   );
+  const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
 
   const handleGrabHandlePress = useCallback(() => {
     tabRefs.profile?.scrollToTop();
@@ -444,6 +463,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
         {
           id: 'edit',
           label: 'Edit profile',
+          active: true,
           onPress: () => router.navigate('/edit-profile'),
         },
       ];
@@ -552,17 +572,19 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
         backIconColor={baseBackTextColor}
         backIconPrimaryStyle={backIconPrimaryStyle}
         backIconSecondaryStyle={backIconSecondaryStyle}
-        overlayAnimatedStyle={overlayAnimatedStyle}
+        overlayAnimatedStyle={staticOverlayAnimatedStyle}
       >
-        <Pressable
-          onPress={handleMenuPress}
-          onPressIn={handleMenuPressIn}
-          onLongPress={isOwnProfileView ? handleMenuLongPress : undefined}
-          delayLongPress={250}
-          style={styles.overlayMenuButton}
-        >
-          <MoreFillIcon size={24} color={profileColors.textColor || Colors.neutral[50]} />
-        </Pressable>
+        <Animated.View style={menuOverlayAnimatedStyle}>
+          <Pressable
+            onPress={handleMenuPress}
+            onPressIn={handleMenuPressIn}
+            onLongPress={isOwnProfileView ? handleMenuLongPress : undefined}
+            delayLongPress={250}
+            style={styles.overlayMenuButton}
+          >
+            <MoreFillIcon size={24} color={profileColors.textColor || Colors.neutral[50]} />
+          </Pressable>
+        </Animated.View>
         {headerActions.length > 0 && (
           <View style={styles.overlayActionsContainer}>
             {headerActions.map(action => (
@@ -571,6 +593,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
                 action={action}
                 textColor={profileColors.textColor || Colors.neutral[50]}
                 backgroundColor={profileColors.backgroundColor || Colors.black}
+                preferLiquidGlass={useLiquidGlass}
               />
             ))}
           </View>
@@ -781,6 +804,8 @@ const styles = StyleSheet.create({
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: BORDER_RADIUS.FULL,
+    overflow: 'hidden',
   },
   overlayActionsContainer: {
     flexDirection: 'row',

@@ -9,8 +9,10 @@ import {
   ViewStyle,
   TextStyle,
   TextLayoutEventData,
+  Platform,
 } from 'react-native';
 import { Image, ImageBackground } from 'expo-image';
+import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import Animated, {
   type SharedValue,
   useAnimatedStyle,
@@ -112,13 +114,21 @@ const ActionButton = memo<{
   textColor: string;
   backgroundColor: string;
   size?: 'small' | 'medium' | 'large';
-}>(({ action, textColor, backgroundColor, size = 'medium' }) => {
+  preferLiquidGlass?: boolean;
+}>(({ action, textColor, backgroundColor, size = 'medium', preferLiquidGlass = false }) => {
   const hasFilledBackground = useMemo(() => {
     const isFollowingState = action.label === 'Following' || action.label === 'Mutuals';
     const isIconOnlyFollowingState = action.id === 'follow' && !action.label;
     const isSaveButton = action.id === 'save';
     const isActiveSubscription = action.id === 'subscription' && action.active;
-    return isFollowingState || isIconOnlyFollowingState || isSaveButton || isActiveSubscription;
+    const isExplicitlyActive = action.active === true;
+    return (
+      isFollowingState ||
+      isIconOnlyFollowingState ||
+      isSaveButton ||
+      isActiveSubscription ||
+      isExplicitlyActive
+    );
   }, [action.label, action.id, action.active]);
 
   // Animated progress value: 0 = not following, 1 = following
@@ -159,11 +169,22 @@ const ActionButton = memo<{
     return { opacity: animationProgress.value };
   });
 
+  const canUseLiquidGlass =
+    preferLiquidGlass &&
+    Platform.OS === 'ios' &&
+    isLiquidGlassAvailable() &&
+    action.variant !== 'danger' &&
+    action.variant !== 'secondary';
+
   const getButtonStyle = useCallback(() => {
     const showFilledState = hasFilledBackground;
 
     const baseStyle = {
-      backgroundColor: showFilledState ? textColor : blendColors(backgroundColor, textColor, 0.2),
+      backgroundColor: canUseLiquidGlass
+        ? Colors.transparent
+        : showFilledState
+          ? textColor
+          : blendColors(backgroundColor, textColor, 0.2),
       opacity: action.disabled ? 0.4 : 1,
     };
 
@@ -181,12 +202,49 @@ const ActionButton = memo<{
       default:
         return baseStyle;
     }
-  }, [action.variant, action.disabled, textColor, backgroundColor, hasFilledBackground]);
+  }, [
+    action.variant,
+    action.disabled,
+    textColor,
+    backgroundColor,
+    hasFilledBackground,
+    canUseLiquidGlass,
+  ]);
 
-  const getContentColor = useCallback(() => {
-    const showFilledState = hasFilledBackground;
-    return showFilledState ? backgroundColor : textColor;
-  }, [textColor, backgroundColor, hasFilledBackground]);
+  const getLiquidGlassTintColor = useCallback(
+    (pressed = false) => {
+      const shouldInvertOnPress = action.id !== 'follow' && action.id !== 'subscription';
+      const isPressedFeedback = pressed && shouldInvertOnPress;
+      const isActive = hasFilledBackground;
+      const activeTint = textColor;
+      const inactiveTint = hexToRGBA(Colors.black, 0.12);
+      if (isPressedFeedback) {
+        return isActive ? inactiveTint : activeTint;
+      }
+      return isActive ? activeTint : inactiveTint;
+    },
+    [action.id, hasFilledBackground, textColor]
+  );
+
+  const getContentColor = useCallback(
+    (pressed = false) => {
+      if (canUseLiquidGlass) {
+        const shouldInvertOnPress = action.id !== 'follow' && action.id !== 'subscription';
+        const isPressedFeedback = pressed && shouldInvertOnPress;
+        const isActive = hasFilledBackground;
+        const activeContent = backgroundColor;
+        const inactiveContent = textColor;
+        // Invert active/inactive palette while pressed for tactile feedback.
+        if (isPressedFeedback) {
+          return isActive ? inactiveContent : activeContent;
+        }
+        return isActive ? activeContent : inactiveContent;
+      }
+      const showFilledState = hasFilledBackground;
+      return showFilledState ? backgroundColor : textColor;
+    },
+    [action.id, textColor, backgroundColor, hasFilledBackground, canUseLiquidGlass]
+  );
 
   const getButtonSize = useCallback(() => {
     const isFollowButton = action.id === 'follow';
@@ -226,21 +284,43 @@ const ActionButton = memo<{
     }
   }, [size, action.label, action.id]);
 
-  const renderContent = useCallback(() => {
-    const contentColor = getContentColor();
+  const renderContent = useCallback(
+    (pressed = false) => {
+      const contentColor = getContentColor(pressed);
 
-    if (action.loading) {
-      return <ActivityIndicator size="small" color={contentColor} />;
-    }
+      if (action.loading) {
+        return <ActivityIndicator size="small" color={contentColor} />;
+      }
 
-    if (action.label) {
-      const textStyle =
-        action.variant === 'secondary' || action.id === 'save'
-          ? styles.actionTextBold
-          : styles.actionText;
+      if (action.label) {
+        const textStyle =
+          action.variant === 'secondary' || action.id === 'save'
+            ? styles.actionTextBold
+            : styles.actionText;
+        return (
+          <View style={styles.actionContent} pointerEvents="none">
+            <Text style={[textStyle, { color: contentColor }]}>{action.label}</Text>
+            {action.customIcon ? (
+              React.isValidElement(action.customIcon) &&
+              action.customIcon.props &&
+              typeof action.customIcon.props === 'object' &&
+              'color' in action.customIcon.props ? (
+                React.cloneElement(action.customIcon as React.ReactElement<{ color?: string }>, {
+                  color: contentColor,
+                })
+              ) : (
+                action.customIcon
+              )
+            ) : action.icon ? (
+              <Icon name={action.icon} size={16} color={contentColor} strokeWidth={2.5} />
+            ) : null}
+          </View>
+        );
+      }
+
+      // Icon-only button
       return (
-        <View style={styles.actionContent} pointerEvents="none">
-          <Text style={[textStyle, { color: contentColor }]}>{action.label}</Text>
+        <View style={styles.iconOnlyContent} pointerEvents="none">
           {action.customIcon ? (
             React.isValidElement(action.customIcon) &&
             action.customIcon.props &&
@@ -253,44 +333,34 @@ const ActionButton = memo<{
               action.customIcon
             )
           ) : action.icon ? (
-            <Icon name={action.icon} size={16} color={contentColor} strokeWidth={2.5} />
+            <Icon name={action.icon} size={20} color={contentColor} strokeWidth={2.5} />
           ) : null}
         </View>
       );
-    }
+    },
+    [action, getContentColor]
+  );
 
-    // Icon-only button
-    return (
-      <View style={styles.iconOnlyContent} pointerEvents="none">
-        {action.customIcon ? (
-          React.isValidElement(action.customIcon) &&
-          action.customIcon.props &&
-          typeof action.customIcon.props === 'object' &&
-          'color' in action.customIcon.props ? (
-            React.cloneElement(action.customIcon as React.ReactElement<{ color?: string }>, {
-              color: contentColor,
-            })
-          ) : (
-            action.customIcon
-          )
-        ) : action.icon ? (
-          <Icon name={action.icon} size={20} color={contentColor} strokeWidth={2.5} />
-        ) : null}
-      </View>
-    );
-  }, [action, getContentColor]);
-
-  // Only apply animations for follow button, use regular styles for others
+  // Only apply animated follow fill in non-glass mode.
   const isFollowButton = action.id === 'follow';
   const shouldAnimate =
-    isFollowButton && action.variant !== 'danger' && action.variant !== 'secondary';
+    !canUseLiquidGlass &&
+    isFollowButton &&
+    action.variant !== 'danger' &&
+    action.variant !== 'secondary';
 
   const buttonContent = (
     <Pressable
-      style={
+      style={({ pressed }) =>
         shouldAnimate
-          ? styles.pressableFill
-          : [styles.actionButton, getButtonStyle(), getButtonSize()]
+          ? [styles.pressableFill, pressed && styles.actionPressed]
+          : [
+              styles.actionButton,
+              canUseLiquidGlass && styles.actionButtonNoShadow,
+              getButtonStyle(),
+              getButtonSize(),
+              pressed && styles.actionPressed,
+            ]
       }
       android_ripple={{ color: hexToRGBA(textColor, 0.12), borderless: false }}
       onPress={action.onPress}
@@ -298,7 +368,7 @@ const ActionButton = memo<{
       delayLongPress={action.delayLongPress}
       disabled={action.disabled || action.loading}
     >
-      {() => {
+      {({ pressed }) => {
         if (shouldAnimate) {
           const textStyle =
             action.variant === 'secondary' || action.id === 'save'
@@ -403,7 +473,18 @@ const ActionButton = memo<{
           );
         }
 
-        return renderContent();
+        return (
+          <>
+            {canUseLiquidGlass && (
+              <GlassView
+                style={styles.actionButtonGlassBackground}
+                glassEffectStyle="clear"
+                tintColor={getLiquidGlassTintColor(pressed)}
+              />
+            )}
+            {renderContent(pressed)}
+          </>
+        );
       }}
     </Pressable>
   );
@@ -1063,6 +1144,22 @@ const styles = StyleSheet.create({
     elevation: 2,
     alignSelf: 'center',
   },
+  actionButtonNoShadow: {
+    borderRadius: BORDER_RADIUS.FULL,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    backgroundColor: Colors.transparent,
+    shadowColor: Colors.transparent,
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 0,
+  },
+  actionPressed: {
+    transform: [{ scale: 0.97 }],
+  },
   pressableFill: {
     flex: 1,
     width: '100%',
@@ -1101,6 +1198,10 @@ const styles = StyleSheet.create({
     fontFamily: 'Figtree-Bold',
     textAlign: 'center',
     fontSize: 17,
+  },
+  actionButtonGlassBackground: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: BORDER_RADIUS.FULL,
   },
   inlineBadgesContainerCentered: {
     justifyContent: 'center',
