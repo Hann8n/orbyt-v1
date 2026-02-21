@@ -31,7 +31,6 @@ import Animated, {
 import { useRouter } from 'expo-router';
 import { SvgXml } from 'react-native-svg';
 import { Colors } from '../../../theme';
-import { hexToRGBA } from '../../../utils/formatting/colors';
 import FeedRenderer from './FeedRenderer';
 import { useWindowDimensions } from 'react-native';
 import * as Device from 'expo-device';
@@ -128,7 +127,7 @@ const FeedIndicatorItem = memo(function FeedIndicatorItem({
     const isActive = Math.round(baseProgress) === feedIndex;
     const distance = Math.abs(baseProgress - feedIndex);
     const opacity = isActive ? 1 : Math.max(0.3, 1 - distance * 0.4);
-    const color = isActive ? Colors.neutral[50] : hexToRGBA(Colors.neutral[50], 0.75);
+    const color = isActive ? Colors.neutral[50] : Colors.overlay.white80;
     return {
       color,
       fontSize: indicatorBaseFontSize,
