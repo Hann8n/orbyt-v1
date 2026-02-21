@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { FeedPager } from '../../src/components';
-import ProfileService, {
+import {
   useProfileByDid,
   useProfile,
   isLiveStatus,
@@ -30,7 +30,7 @@ import Icon, {
 import { useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import { ProfileHeader, TabNavigation, TabOption } from '../../src/components/layout/header';
 import DetailScreenOverlay from '../../src/components/layout/detail/DetailScreenOverlay';
-import { useCurrentUser, useProfileCacheSync, useFeedSettings } from '../../src/stores/userStore';
+import { useCurrentUser, useFeedSettings } from '../../src/stores/userStore';
 import {
   HeaderAction,
   HeaderActionButton,
@@ -51,6 +51,7 @@ import SubscriptionOptionsSheet from '../../src/components/features/profile/Subs
 import LiveStreamInfoSheet from '../../src/components/features/profile/LiveStreamInfoSheet';
 import { tabRefs, type ProfileRef } from '../../src/utils/navigation/tabRefs';
 import type { ViewMode } from '../../src/types';
+import { useOrbytColors } from '../../src/services/colors';
 interface ProfileScreenProps {
   onLogout: (_clearAllAccounts?: boolean) => Promise<void>;
 }
@@ -67,9 +68,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
 
   const { currentUser } = useCurrentUser();
   const { modalProfileEnabled } = useFeedSettings();
-
-  // Automatically sync ProfileCache with userStore
-  useProfileCacheSync();
 
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [profileError, setProfileError] = useState<string | null>(null);
@@ -93,24 +91,21 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const handleQuery = useProfile(!providedIsDid ? providedIdentifier : null);
   const resolvedDidFromHandle = handleQuery.data?.did ?? null;
 
-  // Always use DID for the actual profile view
-  const targetDid =
-    (providedIsDid ? providedIdentifier : resolvedDidFromHandle) || currentUser?.did || null;
+  // Always use DID for the actual profile view.
+  // Only fall back to current user DID when no external identifier was provided.
+  const targetDid = useMemo(() => {
+    if (providedIsDid) return providedIdentifier || null;
+    if (providedIdentifier) return resolvedDidFromHandle;
+    return currentUser?.did || null;
+  }, [providedIsDid, providedIdentifier, resolvedDidFromHandle, currentUser?.did]);
 
   // Determine if we're viewing our own profile
   const isViewingOwnProfile = !providedIdentifier;
 
-  // Always fetch by DID (handle query is only used to resolve handle to DID)
-  const didQuery = useProfileByDid(targetDid, {
-    refetchOnWindowFocus: true,
-    refetchInterval: isRouteFocused ? 3 * 60 * 1000 : (false as const),
-    refetchIntervalInBackground: false,
-  });
+  const ownProfilePlaceholder = useMemo<ProfileViewWithOrbyt | undefined>(() => {
+    if (!isViewingOwnProfile) return undefined;
+    if (!currentUser?.did || !currentUser?.handle) return undefined;
 
-  // Use profile data from query with fallback for own profile
-  const fallbackProfileData = useMemo<ProfileViewWithOrbyt | null>(() => {
-    if (!isViewingOwnProfile) return null;
-    if (!currentUser?.did || !currentUser?.handle) return null;
     return {
       did: currentUser.did,
       handle: currentUser.handle,
@@ -127,17 +122,38 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     currentUser?.avatar,
   ]);
 
-  const profileData = useMemo<ProfileViewWithOrbyt | null>(
-    () => didQuery.data ?? fallbackProfileData,
-    [didQuery.data, fallbackProfileData]
-  );
+  // Always fetch by DID (handle query is only used to resolve handle to DID)
+  const didQuery = useProfileByDid(targetDid, {
+    refetchOnWindowFocus: true,
+    refetchInterval: isRouteFocused ? 3 * 60 * 1000 : (false as const),
+    refetchIntervalInBackground: false,
+    placeholderData: ownProfilePlaceholder,
+  });
+
+  const profileData = didQuery.data ?? null;
 
   const refetchProfile = didQuery.refetch;
+  const isHandleResolving = !!providedIdentifier && !providedIsDid && handleQuery.isLoading;
   const isProfileLoading = didQuery.isLoading && !profileData;
   const isProfileFetchError = didQuery.isError;
+  const isExternalProfileMissing =
+    !!providedIdentifier && !didQuery.isLoading && !isHandleResolving && !profileData;
 
-  // Colors come from profile (getProfileByDid includes orbytColors) – no separate color query
-  const profileColors = getProfileColors(profileData);
+  const { data: orbytColorsFromQuery } = useOrbytColors(targetDid);
+  const mergedOrbytColors = useMemo(() => {
+    if (profileData?.orbytColors && orbytColorsFromQuery) {
+      return {
+        ...profileData.orbytColors,
+        ...orbytColorsFromQuery,
+      };
+    }
+    return orbytColorsFromQuery ?? profileData?.orbytColors ?? null;
+  }, [profileData?.orbytColors, orbytColorsFromQuery]);
+
+  const profileColors = useMemo(
+    () => getProfileColors(mergedOrbytColors || profileData),
+    [mergedOrbytColors, profileData]
+  );
 
   // Check if live using helper function
   const isLive = isLiveStatus(profileData?.status);
@@ -167,10 +183,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   // Ensure profileData.did is defined for type safety
   const profileDid = profileData?.did ?? undefined;
 
-  // ProfileCache is now automatically synced via useProfileCacheSync hook
   // Colors are extracted during profile fetch in ProfileService.ts - no need to do it here
-
-  // Profile fetching is handled by React Query hooks
 
   // Handle refresh - refreshes profile metadata and lets FeedRenderer handle feed refresh
   const onRefresh = useCallback(async () => {
@@ -200,10 +213,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const isOwnProfileView = useMemo(() => {
     if (isViewingOwnProfile) return true;
 
-    // Simple: check if the profile being viewed belongs to the current user
-    const currentDid = ProfileService.getCurrentUserDid();
-    return currentDid && profileData?.did && currentDid === profileData.did;
-  }, [isViewingOwnProfile, profileData?.did]);
+    // Check if viewed profile DID matches signed-in user DID
+    return !!(currentUser?.did && profileData?.did && currentUser.did === profileData.did);
+  }, [isViewingOwnProfile, currentUser?.did, profileData?.did]);
 
   const tabOptions: TabOption[] = useMemo(
     () => [
@@ -220,8 +232,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   );
 
   const showErrorScreen = useMemo(
-    () => (isProfileFetchError || profileError) && !refreshing,
-    [isProfileFetchError, profileError, refreshing]
+    () => (isProfileFetchError || profileError || isExternalProfileMissing) && !refreshing,
+    [isProfileFetchError, profileError, isExternalProfileMissing, refreshing]
   );
 
   const renderErrorScreen = useMemo(() => {
@@ -279,7 +291,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     router,
   ]);
 
-  const isLoading = isProfileLoading && !profileData;
+  const isLoading = (isProfileLoading || isHandleResolving) && !profileData;
 
   // Overlay action state (moved from ProfileHeader)
   const [showProfileMenu, setShowProfileMenu] = useState(false);

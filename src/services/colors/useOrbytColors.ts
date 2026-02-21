@@ -8,7 +8,12 @@ import { useMemo } from 'react';
 import { queryClient } from '../../utils/query/queryClient';
 import { getProfileColors, pickLighterHex } from '../../utils/formatting/colors';
 import { useProfileByDid } from '../data/ProfileService';
-import { orbytColorKeys, fetchColors, type OrbytColorData } from './OrbytColors';
+import {
+  orbytColorKeys,
+  fetchColors,
+  getPersistedColorsSync,
+  type OrbytColorData,
+} from './OrbytColors';
 
 const STALE_TIME = 5 * 60 * 1000;
 
@@ -25,7 +30,10 @@ export interface AvatarProfileRingProps {
 export function useOrbytColors(did: string | null | undefined) {
   const initialData = useMemo(() => {
     if (!did) return undefined;
-    return queryClient.getQueryData<OrbytColorData | null>(orbytColorKeys.color(did));
+    return (
+      queryClient.getQueryData<OrbytColorData | null>(orbytColorKeys.color(did)) ??
+      getPersistedColorsSync(did)
+    );
   }, [did]);
 
   return useQuery<OrbytColorData | null, Error>({

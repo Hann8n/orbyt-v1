@@ -15,7 +15,7 @@ import type { AppBskyActorProfile } from '@atproto/api';
 import { BlobRef } from '@atproto/lexicon';
 // @ts-expect-error - multiformats/cid has type resolution issues with package.json exports
 import { CID } from 'multiformats/cid';
-import { batchFetchColors, orbytColorKeys } from '../../colors';
+import { batchFetchColors, fetchColors, orbytColorKeys } from '../../colors';
 import { queryClient } from '../../../utils/query/queryClient';
 import { RepoService } from '../repo/RepoService';
 
@@ -87,8 +87,40 @@ function convertProfileBlobsToBlobRefs(
 }
 
 export class ActorService {
+  private static async resolveOrbytColors(
+    did: string,
+    record: {
+      colors?: { backgroundColor: string; textColor: string } | null;
+      joinDate?: string;
+      updatedAt?: string;
+    } | null
+  ) {
+    // Canonical source: Orbyt Colors API (includes isBeta + joinedAt).
+    const apiColors = await fetchColors(did);
+    if (apiColors) {
+      return apiColors;
+    }
+
+    // Fallback source: repo record colors when API is unavailable.
+    const colors = record?.colors;
+    if (!colors?.backgroundColor || !colors?.textColor) {
+      return null;
+    }
+
+    const cached = queryClient.getQueryData<{
+      isBeta?: boolean;
+    } | null>(orbytColorKeys.color(did));
+
+    return {
+      backgroundColor: colors.backgroundColor,
+      textColor: colors.textColor,
+      joinedAt: record?.joinDate ?? record?.updatedAt ?? new Date().toISOString(),
+      isBeta: cached?.isBeta ?? false,
+    };
+  }
+
   /**
-   * Get the current authenticated user's profile
+   * Get the current authenticated user's profile.
    * @returns Current user's detailed profile
    */
   static async getCurrentUser(): Promise<ProfileViewDetailed> {
@@ -174,7 +206,8 @@ export class ActorService {
   }
 
   /**
-   * Get profile by DID (includes orbyt colors in one request for avatar rings)
+   * Get profile by DID.
+   * Uses Orbyt Colors API as the canonical orbytColors source, with repo colors as fallback.
    * @param did - User DID
    * @returns Profile data with orbytColors attached
    */
@@ -192,16 +225,7 @@ export class ActorService {
         joinDate?: string;
         updatedAt?: string;
       } | null;
-      const colors = record?.colors;
-      const orbytColors =
-        colors?.backgroundColor && colors?.textColor
-          ? {
-              backgroundColor: colors.backgroundColor,
-              textColor: colors.textColor,
-              joinedAt: record?.joinDate ?? record?.updatedAt ?? new Date().toISOString(),
-              isBeta: false,
-            }
-          : null;
+      const orbytColors = await this.resolveOrbytColors(did, record);
       if (orbytColors) {
         queryClient.setQueryData(orbytColorKeys.color(did), orbytColors);
       }
@@ -216,7 +240,8 @@ export class ActorService {
   }
 
   /**
-   * Get profile by handle (includes orbyt colors in one request for avatar rings)
+   * Get profile by handle.
+   * Uses Orbyt Colors API as the canonical orbytColors source, with repo colors as fallback.
    * @param handle - User handle
    * @returns Profile data with orbytColors attached
    */
@@ -236,16 +261,7 @@ export class ActorService {
         joinDate?: string;
         updatedAt?: string;
       } | null;
-      const colors = record?.colors;
-      const orbytColors =
-        colors?.backgroundColor && colors?.textColor
-          ? {
-              backgroundColor: colors.backgroundColor,
-              textColor: colors.textColor,
-              joinedAt: record?.joinDate ?? record?.updatedAt ?? new Date().toISOString(),
-              isBeta: false,
-            }
-          : null;
+      const orbytColors = profile.did ? await this.resolveOrbytColors(profile.did, record) : null;
       if (profile.did && orbytColors) {
         queryClient.setQueryData(orbytColorKeys.color(profile.did), orbytColors);
       }

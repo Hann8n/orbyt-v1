@@ -23,7 +23,7 @@ import { requiresReauth } from '../utils/errors/oauth';
 import { logger } from '../utils/logger';
 
 import { ModerationService } from '../services/moderation/ModerationService';
-import type { OrbytProfileRecord } from '../services/api/types';
+import type { OrbytProfileRecord, ProfileViewWithOrbyt } from '../services/api/types';
 import { isOrbytChannel } from '../utils/channels/orbyt';
 import { queryClient } from '../utils/query/queryClient';
 import { usePostInteractionStore } from './postInteractionStore';
@@ -74,6 +74,31 @@ async function prefetchColorsForUser(
     });
     return null;
   }
+}
+
+/**
+ * Seed current-user profile cache immediately after auth profile fetch.
+ * This prevents first-open profile/edit screens from rendering empty fields while refetch is pending.
+ */
+function seedCurrentUserProfileCache(
+  did: string,
+  handle: string,
+  profilePatch: Partial<ProfileViewWithOrbyt>
+): void {
+  const key = queryKeys.profiles.detail(did);
+  const existing = queryClient.getQueryData<ProfileViewWithOrbyt>(key);
+
+  const seeded: ProfileViewWithOrbyt = {
+    ...(existing ?? {}),
+    ...profilePatch,
+    did,
+    handle,
+    // Preserve resolved color/record fields from any existing cache.
+    orbytRecord: existing?.orbytRecord ?? null,
+    orbytColors: existing?.orbytColors ?? null,
+  };
+
+  queryClient.setQueryData<ProfileViewWithOrbyt>(key, seeded);
 }
 
 // Account types
@@ -336,6 +361,12 @@ export const useUserStore = create<UserState>()(
           ]);
 
           const userProfile = profile.data;
+          const { $type: _profileType, ...profileForCache } = userProfile;
+          seedCurrentUserProfileCache(
+            session.did,
+            userProfile.handle,
+            profileForCache as Partial<ProfileViewWithOrbyt>
+          );
           // Only set emailConfirmed if email exists (has scope). Leave undefined if no email scope.
           // Use API field name directly: emailConfirmed
           const emailConfirmed =
@@ -451,6 +482,12 @@ export const useUserStore = create<UserState>()(
           ]);
 
           const userProfile = profile.data;
+          const { $type: _profileType, ...profileForCache } = userProfile;
+          seedCurrentUserProfileCache(
+            session.did,
+            userProfile.handle,
+            profileForCache as Partial<ProfileViewWithOrbyt>
+          );
           // Only set emailConfirmed if email exists (has scope). Leave undefined if no email scope.
           // Use API field name directly: emailConfirmed
           const emailConfirmed =
@@ -592,6 +629,12 @@ export const useUserStore = create<UserState>()(
           ]);
 
           const userProfile = profile.data;
+          const { $type: _profileType, ...profileForCache } = userProfile;
+          seedCurrentUserProfileCache(
+            session.did,
+            userProfile.handle,
+            profileForCache as Partial<ProfileViewWithOrbyt>
+          );
           // Only set emailConfirmed if email exists (has scope). Leave undefined if no email scope.
           // Use API field name directly: emailConfirmed
           const emailConfirmed =
@@ -1840,22 +1883,6 @@ export const useAlgorithmicFeedProvider = () => {
     setAlgorithmicFeedProvider,
     getAlgorithmicFeedProvider,
   };
-};
-
-// Hook for automatically syncing ProfileCache with userStore
-export const useProfileCacheSync = () => {
-  const currentUser = useUserStore(state => state.currentUser);
-
-  useEffect(() => {
-    if (currentUser?.did) {
-      ProfileService.setCurrentUserDid(currentUser.did);
-    }
-    if (currentUser?.handle) {
-      ProfileService.setCurrentUserHandle(currentUser.handle);
-    }
-  }, [currentUser?.did, currentUser?.handle]);
-
-  return { currentUser };
 };
 
 // Hook for precaching current user profile on app launch

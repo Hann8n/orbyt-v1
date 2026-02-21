@@ -157,8 +157,10 @@ class ProfileService {
   }
 
   /**
-   * Get a profile by DID - uses native API with orbyt record included
-   * React Query handles caching, this just fetches from API
+   * Get a profile by DID.
+   * ActorService resolves `orbytColors` with Orbyt Colors API as canonical source,
+   * then falls back to repo-record colors when needed.
+   * React Query handles caching, this just fetches from API.
    */
   static async getProfileByDid(did: string): Promise<ProfileViewWithOrbyt | null> {
     if (!did) return null;
@@ -169,13 +171,14 @@ class ProfileService {
       return null;
     }
 
-    try {
-      // AtprotoService.getProfileByDid already fetches orbyt record in parallel
-      return await AtprotoService.getProfileByDid(did);
-    } catch (_error) {
-      // Return null on error - React Query will handle retries
-      return null;
+    // AtprotoService.getProfileByDid returns profile + canonical OrbytColorData fallback chain.
+    // Throw when the response is empty so React Query treats it as a failure (not cacheable null success).
+    const profile = await AtprotoService.getProfileByDid(did);
+    if (!profile) {
+      throw new Error('Failed to fetch profile by DID');
     }
+
+    return profile;
   }
 
   /**
@@ -232,36 +235,38 @@ class ProfileService {
   }
 
   /**
-   * Get a profile by handle - uses native API with orbyt record included
-   * React Query handles caching, this just fetches from API
+   * Get a profile by handle.
+   * ActorService resolves `orbytColors` with Orbyt Colors API as canonical source,
+   * then falls back to repo-record colors when needed.
+   * React Query handles caching, this just fetches from API.
    */
   static async getProfile(handle: string): Promise<ProfileViewWithOrbyt | null> {
     if (!handle) return null;
 
-    try {
-      // Normalize handle
-      let cleanHandle = handle.trim().toLowerCase();
-      if (cleanHandle.includes('://') || cleanHandle.includes('/')) {
-        const parts = cleanHandle.split('/');
-        for (const part of parts) {
-          if (part.includes('.')) {
-            cleanHandle = part;
-            break;
-          }
+    // Normalize handle
+    let cleanHandle = handle.trim().toLowerCase();
+    if (cleanHandle.includes('://') || cleanHandle.includes('/')) {
+      const parts = cleanHandle.split('/');
+      for (const part of parts) {
+        if (part.includes('.')) {
+          cleanHandle = part;
+          break;
         }
       }
+    }
 
-      // Validate handle format
-      if (cleanHandle !== 'verifier' && cleanHandle !== 'bsky.app' && !cleanHandle.includes('.')) {
-        return null;
-      }
-
-      // AtprotoService.getProfile already fetches orbyt record in parallel
-      return await AtprotoService.getProfile(cleanHandle);
-    } catch (_error) {
-      // Return null on error - React Query will handle retries
+    // Validate handle format
+    if (cleanHandle !== 'verifier' && cleanHandle !== 'bsky.app' && !cleanHandle.includes('.')) {
       return null;
     }
+
+    // Throw when the response is empty so React Query retries instead of caching null.
+    const profile = await AtprotoService.getProfile(cleanHandle);
+    if (!profile) {
+      throw new Error('Failed to fetch profile by handle');
+    }
+
+    return profile;
   }
 
   /**
@@ -466,6 +471,7 @@ export function useProfileByDid(
     refetchOnReconnect?: boolean;
     refetchInterval?: number | false;
     refetchIntervalInBackground?: boolean;
+    placeholderData?: ProfileViewWithOrbyt | null;
   } = {}
 ): UseQueryResult<ProfileViewWithOrbyt | null, Error> {
   const queryClient = useQueryClient();
@@ -489,6 +495,7 @@ export function useProfileByDid(
     refetchOnReconnect: options.refetchOnReconnect ?? false,
     refetchInterval: options.refetchInterval,
     refetchIntervalInBackground: options.refetchIntervalInBackground ?? false,
+    placeholderData: options.placeholderData,
   });
 }
 

@@ -36,12 +36,13 @@ import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Colors } from '../src/theme';
 import { Avatar } from '../src/components/ui/UI';
 import { CheckIcon } from '../src/components/ui/Icon';
-import { useProfileUpdateMutation, useProfile } from '../src/services/data/ProfileService';
+import { useProfileUpdateMutation, useProfileByDid } from '../src/services/data/ProfileService';
 import { hexToRGBA, blendColors } from '../src/utils/formatting/colors';
 import { BORDER_RADIUS } from '../src/utils/constants';
 import { useCurrentUser } from '../src/stores/userStore';
 import { splitHandleSuffix } from '../src/utils/formatting/handles';
 import { useOrbytColors, saveAndSyncColors } from '../src/services/colors';
+import type { ProfileViewWithOrbyt } from '../src/services/api/types';
 
 export interface ProfileColorOption {
   backgroundColor: string;
@@ -118,10 +119,23 @@ const AnimatedColorSquare: React.FC<AnimatedColorSquareProps> = React.memo(
 const EditProfileScreen: React.FC = () => {
   const router = useRouter();
   const { currentUser } = useCurrentUser();
+  const userDid = currentUser?.did || null;
   const userHandle = currentUser?.handle || null;
 
-  // Fetch profile data - use cache directly, no refetch
-  const { data: profileData } = useProfile(userHandle);
+  // Fetch profile data from the same DID detail query used by the profile screen.
+  const { data: profileData } = useProfileByDid(userDid, {
+    placeholderData:
+      userDid && userHandle
+        ? ({
+            did: userDid,
+            handle: userHandle,
+            displayName: currentUser?.displayName ?? undefined,
+            avatar: currentUser?.avatar ?? undefined,
+            description: '',
+            viewer: {},
+          } as ProfileViewWithOrbyt)
+        : undefined,
+  });
   const { data: orbytColors } = useOrbytColors(currentUser?.did);
   const [isAboutFocused, setIsAboutFocused] = useState(false);
   const [isDisplayNameFocused, setIsDisplayNameFocused] = useState(false);

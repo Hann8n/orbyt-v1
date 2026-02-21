@@ -77,9 +77,17 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     [contentScrollProgressSV]
   );
 
-  // Prefer profile cache colors and fallback to query colors while loading.
+  // Merge profile payload + query colors, but prefer query for canonical Orbyt API fields.
   const { data: orbytColorsFromQuery } = useOrbytColors(did);
-  const orbytColors = profileData?.orbytColors ?? orbytColorsFromQuery;
+  const profileOrbytColors = profileData?.orbytColors;
+  const orbytColors = useMemo(() => {
+    if (!profileOrbytColors) return orbytColorsFromQuery;
+    if (!orbytColorsFromQuery) return profileOrbytColors;
+    return {
+      ...profileOrbytColors,
+      ...orbytColorsFromQuery,
+    };
+  }, [profileOrbytColors, orbytColorsFromQuery]);
 
   const profileColors = getProfileColors(orbytColors);
   const joinDate = orbytColors?.joinedAt;

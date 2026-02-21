@@ -8,7 +8,6 @@ import {
   CONTENT_TO_FOOTER_GAP_REDUCTION,
   DEFAULT_HEADER_STYLE,
   useMeasuredFooterHeight,
-  FOOTER_BOTTOM_PADDING_MIN,
 } from '../../../utils/components/truesheet';
 import { Colors } from '../../../theme';
 import CloseButton from '../../ui/CloseButton';
@@ -23,10 +22,16 @@ interface BetaInfoSheetProps {
   onDismiss: () => void;
 }
 
+const FOOTER_BOTTOM_INSET_MIN = 8;
+const FOOTER_BOTTOM_INSET_MAX = 16;
+
 const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate, onDismiss }) => {
   const bottomSheetRef = useRef<TrueSheet>(null);
   const insets = useSafeAreaInsets();
-  const footerBottomPadding = Math.max(insets.bottom, FOOTER_BOTTOM_PADDING_MIN);
+  const footerBottomPadding = Math.max(
+    FOOTER_BOTTOM_INSET_MIN,
+    Math.min(insets.bottom, FOOTER_BOTTOM_INSET_MAX)
+  );
   const [contentBottomPadding, wrapFooter] = useMeasuredFooterHeight(44 + footerBottomPadding);
 
   useEffect(() => {
@@ -65,13 +70,13 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
       onDidDismiss={onDismiss}
       header={headerComponent}
       footer={wrapFooter(
-        <View style={{ backgroundColor: Colors.black, paddingBottom: footerBottomPadding }}>
+        <View style={styles.footerContainer}>
           <KeyboardAwareFooter
             hideOnKeyboard={true}
-            bottomPadding={0}
-            style={{ backgroundColor: Colors.black }}
+            bottomPadding={footerBottomPadding}
+            style={styles.footerKeyboardAware}
           >
-            <View style={[styles.cancelContainer, { backgroundColor: Colors.black }]}>
+            <View style={styles.cancelContainer}>
               <CancelButton onPress={onDismiss} text="Close" />
             </View>
           </KeyboardAwareFooter>
@@ -158,6 +163,13 @@ const styles = StyleSheet.create({
   },
   cancelContainer: {
     alignItems: 'center',
+    backgroundColor: Colors.black,
+  },
+  footerContainer: {
+    backgroundColor: Colors.black,
+  },
+  footerKeyboardAware: {
+    backgroundColor: Colors.black,
   },
 });
 
