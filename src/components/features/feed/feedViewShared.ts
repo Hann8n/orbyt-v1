@@ -28,7 +28,7 @@ export const getProfileColors = (backgroundColor?: string, secondaryColor?: stri
 
 export const getFeedItemKey = (item: FeedListItem | ExtendedFeedViewPost): string => {
   if ('endCard' in item && item.endCard) return 'end-card';
-  return `${item.post.uri}:${item.post.cid}`;
+  return item.post.uri;
 };
 
 export const getEmptyFeedType = (feedOption: string): 'no-following' | 'no-videos' =>

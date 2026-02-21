@@ -180,9 +180,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const queryOptions = useMemo(
     () => ({
       enabled: Boolean(isRouteFocused && profileData?.did),
-      refetchOnWindowFocus: true,
-      refetchInterval: isRouteFocused ? 3 * 60 * 1000 : (false as const),
-      refetchIntervalInBackground: false,
     }),
     [isRouteFocused, profileData?.did]
   );

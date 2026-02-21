@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { useInfiniteQuery, type InfiniteData } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { feedService, FeedOption, FeedItem } from '../services/FeedService';
 import { useUserStore } from '../stores/userStore';
 import { useModerationSettings } from './useModerationSettings';
@@ -129,11 +129,6 @@ export function useFeed(
     refetchOnReconnect: queryOptions.refetchOnReconnect ?? false,
     refetchInterval: queryOptions.refetchInterval,
     refetchIntervalInBackground: queryOptions.refetchIntervalInBackground ?? false,
-    // Use placeholderData to maintain previous data during refetch
-    // React Query automatically handles query key changes (feed switches) by creating new queries
-    placeholderData: (
-      previousData: InfiniteData<FeedResponse, string | null> | undefined
-    ): InfiniteData<FeedResponse, string | null> | undefined => previousData,
     // Flatten pages into a single feed array; getNextPageParam still receives raw lastPage
     select: data => (data?.pages ?? []).flatMap(p => (p as FeedResponse)?.feed ?? []) as FeedItem[],
   });

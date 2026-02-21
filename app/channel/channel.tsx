@@ -107,9 +107,6 @@ const Channel: React.FC = memo(() => {
         feedOption &&
         (feedOption.startsWith('hashtag:') || feedOption.startsWith('at://'))
       ),
-      refetchOnWindowFocus: true,
-      refetchInterval: isRouteFocused ? 3 * 60 * 1000 : (false as const),
-      refetchIntervalInBackground: false,
     }),
     [isRouteFocused, feedOption]
   );

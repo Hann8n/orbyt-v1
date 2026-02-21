@@ -318,7 +318,6 @@ const FeedPager = forwardRef<ProfileRef, FeedPagerProps>(function FeedPager(
 
   // Retry is handled inside FeedRenderer (refetch); pass stable no-op so child can call it
   const handleRetryFeed = useCallback(() => {}, []);
-  const activeFeedRefetchIntervalMs = 3 * 60 * 1000;
 
   const handleIndicatorTap = useCallback(
     (feedOption: FeedOption) => {
@@ -333,7 +332,7 @@ const FeedPager = forwardRef<ProfileRef, FeedPagerProps>(function FeedPager(
     () => ({
       staleTime: 5 * 60 * 1000, // 5 minutes
       refetchOnMount: false,
-      refetchOnWindowFocus: true,
+      refetchOnWindowFocus: false,
       refetchOnReconnect: false,
       refetchIntervalInBackground: false,
       ...queryOptionsProp,
@@ -386,10 +385,9 @@ const FeedPager = forwardRef<ProfileRef, FeedPagerProps>(function FeedPager(
         onRetryFeed={handleRetryFeed}
         queryOptions={{
           ...baseQueryOptions,
-          enabled: (baseQueryOptions.enabled ?? true) && isVisible && index === currentFeedIndex,
-          refetchInterval:
-            baseQueryOptions.refetchInterval ??
-            (isVisible && index === currentFeedIndex ? activeFeedRefetchIntervalMs : false),
+          // Enable feed queries for all pager pages while the pager is visible.
+          // Playback remains controlled by isVisible/currentFeedIndex below.
+          enabled: (baseQueryOptions.enabled ?? true) && isVisible,
         }}
         isVisible={isVisible && index === currentFeedIndex}
         forceError={forceError}
@@ -408,7 +406,6 @@ const FeedPager = forwardRef<ProfileRef, FeedPagerProps>(function FeedPager(
       handleRetryFeed,
       baseQueryOptions,
       isVisible,
-      activeFeedRefetchIntervalMs,
       forceError,
       isModal,
     ]
