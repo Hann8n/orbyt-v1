@@ -110,6 +110,8 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
     },
     ref
   ) => {
+    const effectiveBackgroundColor = backgroundColor || Colors.black;
+
     // Determine if this is a header feed (profile, channel, etc.)
     const isHeaderFeed = useMemo(
       () => getIsHeaderFeed(feedOption, headerComponent),
@@ -195,7 +197,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
         const borderStyle = {
           borderRightWidth: isLastColumn ? 0 : ITEM_MARGIN,
           borderBottomWidth: isLastRow ? 0 : ITEM_MARGIN,
-          borderColor: 'transparent', // Transparent borders
+          borderColor: Colors.black,
         };
 
         return (
@@ -203,13 +205,16 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
             item={item}
             index={index}
             onPress={onPress}
-            style={[{ width: itemWidth, height: itemHeight }, borderStyle]}
+            style={[
+              { width: itemWidth, height: itemHeight, backgroundColor: effectiveBackgroundColor },
+              borderStyle,
+            ]}
             itemStyle={styles.gridItemOverride}
             thumbnailStyle={styles.thumbnailOverride}
           />
         );
       },
-      [onGridItemPress, feed, numColumns, itemWidth, itemHeight]
+      [onGridItemPress, feed, numColumns, itemWidth, itemHeight, effectiveBackgroundColor]
     );
 
     const ListEl = ListComponent || FlashList;
@@ -218,7 +223,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
 
     // Use one list path for both empty and non-empty states
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: effectiveBackgroundColor }]}>
         <ListEl
           {...listProps}
           key={`grid-${feedOption}-${userDid || 'default'}-cols-${numColumns}`}
@@ -230,7 +235,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
             styles.listContent,
             {
               paddingBottom: viewportDimensions.bottomNavBarHeight,
-              backgroundColor: Colors.black,
+              backgroundColor: effectiveBackgroundColor,
             },
           ]}
           showsVerticalScrollIndicator={false}
