@@ -21,12 +21,11 @@ import {
   Dimensions,
   FlatList,
   useWindowDimensions,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
   ViewStyle,
   ActivityIndicator,
 } from 'react-native';
 import { Image } from 'expo-image';
+import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
 import PagerView, { type PagerViewOnPageSelectedEvent } from 'react-native-pager-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList, FlashListRef } from '@shopify/flash-list';
@@ -56,6 +55,7 @@ import AuthorItem from '../../src/components/ui/AuthorItem';
 import ChannelItem from '../../src/components/ui/ChannelItem';
 
 const CORNER_GRADIENT = require('../../src/assets/corner-gradient.png');
+const GRADIENT_SHIM = require('../../src/assets/embed-video-gradient-shim.png');
 
 import { SearchIcon } from '../../src/components/ui/Icon';
 import { Colors } from '../../src/theme';
@@ -1128,7 +1128,6 @@ const ExploreScreen: React.FC = () => {
   // Reanimated values for smooth transitions
   const searchProgress = useSharedValue(0);
   const contentOpacity = useSharedValue(1);
-  const topGradientOpacity = useSharedValue(0);
   const indicatorScrollProgress = useSharedValue(0);
   const handleSearchPageIndexChange = useCallback(
     (index: number) => {
@@ -1505,6 +1504,8 @@ const ExploreScreen: React.FC = () => {
   };
 
   const isSearching = isSearchFocused || debouncedQuery.length > 0;
+  const useLiquidGlassSearchBar =
+    Platform.OS === 'ios' && isLiquidGlassAvailable() && isGlassEffectAPIAvailable();
 
   // Animated styles
   const searchBarAnimatedStyle = useAnimatedStyle(() => {
@@ -1546,7 +1547,7 @@ const ExploreScreen: React.FC = () => {
   });
 
   const topGradientAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: topGradientOpacity.value,
+    opacity: interpolate(searchProgress.value, [0, 1], [1, 0], Extrapolation.CLAMP),
   }));
 
   // Animate search state transitions
@@ -1680,17 +1681,6 @@ const ExploreScreen: React.FC = () => {
     return Math.round(Dimensions.get('window').height * ratio);
   }, [headers]);
 
-  const handleExploreScroll = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const y = event?.nativeEvent?.contentOffset?.y ?? 0;
-      // Start the fade slightly higher in the header and ease in gently
-      const start = 0;
-      const targetOpacity = Math.min(Math.max((y - start) / 200, 0), 0.55);
-      topGradientOpacity.value = targetOpacity;
-    },
-    [topGradientOpacity]
-  );
-
   // Create loading items for suggested content
   const loadingSuggestedItems = useMemo(() => {
     const items: ListItem[] = [];
@@ -1751,37 +1741,38 @@ const ExploreScreen: React.FC = () => {
     <View style={[styles.container, Platform.OS === 'android' && styles.androidPaddingTop]}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.transparent} translucent={true} />
 
-      {!isSearching && (
-        <Reanimated.View
-          pointerEvents="none"
-          style={[
-            styles.topGradient,
-            {
-              height: insets.top + 10 + 48,
-            },
-            topGradientAnimatedStyle,
-          ]}
-        >
-          <LinearGradient
-            colors={[Colors.black, Colors.transparent]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
-        </Reanimated.View>
-      )}
+      <Reanimated.View
+        pointerEvents="none"
+        style={[
+          styles.topGradient,
+          {
+            height: insets.top + 10 + 48,
+          },
+          topGradientAnimatedStyle,
+        ]}
+      >
+        <Image source={GRADIENT_SHIM} style={StyleSheet.absoluteFill} contentFit="fill" />
+      </Reanimated.View>
 
       {/* Search Bar */}
       <Pressable onPress={() => searchInputRef.current?.focus()} style={styles.searchBarPressable}>
         <Reanimated.View
           style={[
             styles.searchContainer,
+            useLiquidGlassSearchBar && styles.searchContainerLiquidGlass,
             {
               top: insets.top + 10,
             },
             searchBarAnimatedStyle,
           ]}
         >
+          {useLiquidGlassSearchBar && (
+            <GlassView
+              style={styles.searchContainerGlassBackground}
+              glassEffectStyle="clear"
+              tintColor={Colors.neutral[50]}
+            />
+          )}
           <View style={styles.searchBarContent} pointerEvents="box-none">
             <View style={styles.searchIconContainer}>
               <SearchIcon
@@ -1899,7 +1890,6 @@ const ExploreScreen: React.FC = () => {
       >
         <FlashList<ListItem>
           ref={flashListRef}
-          onScroll={handleExploreScroll}
           ListHeaderComponent={
             isHeaderVisible ? (
               <HeaderBanner headers={headers} height={computedHeaderHeight} />
@@ -2214,6 +2204,15 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.25,
     shadowRadius: 4,
+  },
+  searchContainerLiquidGlass: {
+    // Keep a solid fallback so the bar remains visible if native glass fails to render.
+    backgroundColor: Colors.neutral[50],
+    overflow: 'hidden',
+  },
+  searchContainerGlassBackground: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 8,
   },
   searchBarContent: {
     flex: 1,
