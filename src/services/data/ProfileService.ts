@@ -8,6 +8,7 @@ import {
   UseQueryResult,
 } from '@tanstack/react-query';
 import { useMemo, useCallback, useEffect } from 'react';
+import { queryKeys } from '../../utils/query/queryKeys';
 import type {
   ProfileViewWithOrbyt,
   StatusView,
@@ -89,16 +90,8 @@ export function getProfileStaleTime(profile: ProfileViewWithOrbyt | null | undef
   return PROFILE_CACHE_EXPIRY;
 }
 
-// React Query keys as a const to ensure type safety
-// All profile cache keys use DID as identifier (not handle)
-export const profileKeys = {
-  all: ['profiles'] as const,
-  lists: () => [...profileKeys.all, 'list'] as const,
-  list: (filters: string) => [...profileKeys.lists(), { filters }] as const,
-  details: () => [...profileKeys.all, 'detail'] as const,
-  detail: (did: string) => [...profileKeys.details(), did] as const,
-  refresh: (did: string) => [...profileKeys.detail(did), 'refresh', Date.now()] as const,
-} as const;
+// Single source of truth for profile query keys.
+const profileKeys = queryKeys.profiles;
 
 // Note: getProfileColors has been moved to src/utils/formatting/colors.ts
 // Import it from there instead of using this file
@@ -466,7 +459,14 @@ class ProfileService {
  * React Query cache provides instant data on subsequent renders
  */
 export function useProfileByDid(
-  did: string | null | undefined
+  did: string | null | undefined,
+  options: {
+    refetchOnWindowFocus?: boolean;
+    refetchOnMount?: boolean;
+    refetchOnReconnect?: boolean;
+    refetchInterval?: number | false;
+    refetchIntervalInBackground?: boolean;
+  } = {}
 ): UseQueryResult<ProfileViewWithOrbyt | null, Error> {
   const queryClient = useQueryClient();
 
@@ -484,9 +484,11 @@ export function useProfileByDid(
     enabled: !!did,
     staleTime,
     gcTime: PROFILE_CACHE_EXPIRY * 2,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
+    refetchOnWindowFocus: options.refetchOnWindowFocus ?? true,
+    refetchOnMount: options.refetchOnMount ?? false,
+    refetchOnReconnect: options.refetchOnReconnect ?? false,
+    refetchInterval: options.refetchInterval,
+    refetchIntervalInBackground: options.refetchIntervalInBackground ?? false,
   });
 }
 

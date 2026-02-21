@@ -5,7 +5,16 @@
  */
 
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { View, Text, TextInput, FlatList, StyleSheet, Pressable, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  FlatList,
+  StyleSheet,
+  Pressable,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
 import type { TrueSheet } from '@lodev09/react-native-true-sheet';
 import {
   AppTrueSheet,
@@ -27,7 +36,7 @@ import { ChatService } from '../../../services/api/chat/ChatService';
 import { useUserStore } from '../../../stores/userStore';
 import { Colors, Avatar } from '../UI';
 import CloseButton from '../CloseButton';
-import Icon, { Loading3FillIcon } from '../Icon';
+import Icon from '../Icon';
 import type { ProfileViewBasic } from '../../../services/api/types';
 import type { ConvoView } from '../../../services/api/types';
 
@@ -397,7 +406,7 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
         />
         {conversationsLoading ? (
           <View style={styles.pickerLoadingContainer}>
-            <Loading3FillIcon size={48} color={Colors.neutral[50]} />
+            <ActivityIndicator size="large" color={Colors.neutral[50]} />
           </View>
         ) : (
           <View style={styles.pickerListWrap}>

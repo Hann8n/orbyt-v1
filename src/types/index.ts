@@ -25,7 +25,6 @@ export type ViewMode = 'list' | 'grid';
 export interface ListFeedViewProps {
   feed: FeedListItem[];
   headerComponent?: React.ReactNode;
-  refreshControl?: React.ReactElement;
   backgroundColor?: string;
   secondaryColor?: string;
   feedOption: FeedOption;
@@ -41,7 +40,6 @@ export interface ListFeedViewProps {
   onViewModeChange?: (mode: ViewMode) => void;
   isModal?: boolean;
   isProfileFeed?: boolean;
-  isRefreshing?: boolean;
   /** When provided, list writes its scroll progress (0..1) here on the UI thread. Used by overlay fade. */
   contentScrollProgressOutput?: SharedValue<number>;
   forceError?: boolean;
@@ -86,7 +84,6 @@ export interface TextOverlay {
  */
 export interface HomeScreenRef {
   refresh: () => void;
-  isRefreshing: boolean;
 }
 
 /**

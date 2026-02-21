@@ -25,7 +25,6 @@ const WatchedScreen: React.FC = () => {
         userDid={currentUser?.did ?? undefined}
         queryOptions={{ enabled: !!currentUser?.did }}
         viewMode="grid"
-        refreshControl={undefined}
         backgroundColor={Colors.black}
         secondaryColor={Colors.neutral[50]}
       />

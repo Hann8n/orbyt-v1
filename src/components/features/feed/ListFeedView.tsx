@@ -17,8 +17,8 @@ import {
   ScaledSize,
   LayoutChangeEvent,
   Platform,
+  ActivityIndicator,
   useWindowDimensions,
-  type RefreshControlProps,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -39,27 +39,21 @@ import { FeedScrollProvider } from '../../../context/FeedScrollContext';
 import EmptyFeed from './EmptyFeed';
 import { VideoItem } from './VideoItem';
 import GridFeedView from './GridFeedView';
+import {
+  FEED_VIEW_CONSTANTS,
+  getEmptyFeedType,
+  getFeedItemKey,
+  getProfileColors,
+  isHeaderFeed as getIsHeaderFeed,
+} from './feedViewShared';
 import * as Device from 'expo-device';
 import { getViewportDimensions } from '../../../utils/device/screen';
 import { getVideoCardHeight } from '../../../utils/video/helpers';
 import { Colors } from '../../../theme';
-import { Loading3FillIcon } from '../../ui/Icon';
-import {
-  APP_CONSTANTS,
-  SCROLL_CONSTANTS,
-  QUERY_CONSTANTS,
-  FEED_TYPES,
-} from '../../../utils/constants';
+import { APP_CONSTANTS, SCROLL_CONSTANTS, QUERY_CONSTANTS } from '../../../utils/constants';
 import type { FeedListItem, EndCardItem, ListFeedViewProps, ListFeedViewRef } from '../../../types';
 import type { ExtendedFeedViewPost } from '../../../services/api/types';
 import { useFeedVisibility, useVisibilityCoreStore } from '../../../core/visibility';
-
-// Constants
-const CONSTANTS = {
-  SEPARATOR_HEIGHT: 5, // Height of black separator between items
-  HEADER_HEIGHT_TABS: 280,
-  HEADER_BLOCKING_THRESHOLD: 250, // Header blocks playback if scroll is less than 250px from top
-} as const;
 
 // Reanimated-wrapped FlashList so useAnimatedScrollHandler runs on UI thread. Do not use @shopify/flash-list's AnimatedFlashList (it uses RN Animated).
 const AnimatedFlashList = Animated.createAnimatedComponent(FlashList) as ComponentType<
@@ -92,8 +86,8 @@ const ListEmptyComponent = memo<ListEmptyComponentProps>(
     if (isLoading) {
       return (
         <View style={[styles.centeredLoadingContainer, { backgroundColor: Colors.black }]}>
-          <Loading3FillIcon
-            size={48}
+          <ActivityIndicator
+            size="large"
             color={profileColors?.textColor || secondaryColor || Colors.neutral[50]}
           />
         </View>
@@ -111,10 +105,7 @@ const ListEmptyComponent = memo<ListEmptyComponentProps>(
     if (effectiveIsError) {
       return <EmptyFeed type="error" onRetry={onRetry} {...commonProps} />;
     }
-    if (feedOption === 'following') {
-      return <EmptyFeed type="no-following" {...commonProps} />;
-    }
-    return <EmptyFeed type="no-videos" {...commonProps} />;
+    return <EmptyFeed type={getEmptyFeedType(feedOption)} {...commonProps} />;
   },
   (prevProps, nextProps) => {
     // Custom comparison to prevent unnecessary rerenders
@@ -141,7 +132,9 @@ const ItemSeparator = memo(
   }: {
     leadingItem?: FeedListItem;
     trailingItem?: FeedListItem;
-  }) => <View style={{ height: CONSTANTS.SEPARATOR_HEIGHT, backgroundColor: Colors.black }} />
+  }) => (
+    <View style={{ height: FEED_VIEW_CONSTANTS.SEPARATOR_HEIGHT, backgroundColor: Colors.black }} />
+  )
 );
 ItemSeparator.displayName = 'ItemSeparator';
 
@@ -150,7 +143,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     {
       feed,
       headerComponent,
-      refreshControl,
       backgroundColor,
       secondaryColor,
       feedOption,
@@ -189,7 +181,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     // setScrollBasedBlocking via useAnimatedReaction so we only cross the JS bridge when the boolean flips (same pattern as ProfileHeader).
     useAnimatedReaction(
-      () => scrollOffsetYSV.value < CONSTANTS.HEADER_BLOCKING_THRESHOLD,
+      () => scrollOffsetYSV.value < FEED_VIEW_CONSTANTS.HEADER_BLOCKING_THRESHOLD,
       (isBlocking, prev) => {
         if (prev === null || isBlocking !== prev) {
           runOnJS(setScrollBasedBlocking)(isBlocking);
@@ -216,13 +208,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     const isSmallScreen = width <= 375 || screenHeight <= 667;
     const isCompactDevice = isTablet || isSmallScreen;
     const isHeaderFeed = useMemo(
-      () =>
-        feedOption === FEED_TYPES.PROFILE ||
-        feedOption === FEED_TYPES.LIKES ||
-        feedOption === FEED_TYPES.REPOSTS ||
-        (feedOption && feedOption.startsWith('at://')) ||
-        (feedOption && feedOption.startsWith('hashtag:orbyt-channel-')) ||
-        Boolean(headerComponent),
+      () => getIsHeaderFeed(feedOption, headerComponent),
       [feedOption, headerComponent]
     );
 
@@ -254,13 +240,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     // Memoize profileColors to prevent recreation on every render
     const profileColors = useMemo(
-      () =>
-        secondaryColor
-          ? {
-              backgroundColor: backgroundColor || '#000',
-              textColor: secondaryColor,
-            }
-          : undefined,
+      () => getProfileColors(backgroundColor, secondaryColor),
       [backgroundColor, secondaryColor]
     );
 
@@ -336,10 +316,10 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     // Key extractor with stable keys (no index) for FlashList v2 maintainVisibleContentPosition
     // Index-based keys cause issues when new items are added because existing items get new keys
-    const keyExtractor = useCallback((item: FeedListItem, _index: number) => {
-      if ('endCard' in item && item.endCard) return 'end-card';
-      return `${item.post.uri}:${item.post.cid}`;
-    }, []);
+    const keyExtractor = useCallback(
+      (item: FeedListItem, _index: number) => getFeedItemKey(item),
+      []
+    );
 
     // FlashList's native viewability handles item detection automatically
     // maintainVisibleContentPosition preserves scroll position, so the visible item
@@ -387,7 +367,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     // Calculate viewport dimensions for list view (always compute to avoid conditional hooks)
     const viewableAreaHeight = viewportDimensions.height;
     const headerHeightForTabs = useMemo(
-      () => (ListComponent ? CONSTANTS.HEADER_HEIGHT_TABS : 0),
+      () => (ListComponent ? FEED_VIEW_CONSTANTS.HEADER_HEIGHT_TABS : 0),
       [ListComponent]
     );
     const emptyComponentHeight = useMemo(
@@ -398,7 +378,10 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     // Snapping configuration - memoized to prevent recalculation (always compute)
     // FlashList's ItemSeparatorComponent adds spacing between items, so we need to account for it
     // Total spacing from start of one item to start of next = cardHeight + separatorHeight
-    const itemSpacing = useMemo(() => cardHeight + CONSTANTS.SEPARATOR_HEIGHT, [cardHeight]);
+    const itemSpacing = useMemo(
+      () => cardHeight + FEED_VIEW_CONSTANTS.SEPARATOR_HEIGHT,
+      [cardHeight]
+    );
     const snapToIntervalValue = useMemo(() => itemSpacing, [itemSpacing]);
     const hasHeader = useMemo(() => Boolean(headerComponent), [headerComponent]);
 
@@ -521,7 +504,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         <GridFeedView
           feed={gridFeed}
           headerComponent={headerComponent}
-          refreshControl={refreshControl}
           backgroundColor={backgroundColor}
           secondaryColor={secondaryColor}
           isProfileFeed={isHeaderFeed}
@@ -552,7 +534,10 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
                 <View onLayout={handleHeaderLayout}>
                   {headerComponent}
                   <View
-                    style={{ height: CONSTANTS.SEPARATOR_HEIGHT, backgroundColor: Colors.black }}
+                    style={{
+                      height: FEED_VIEW_CONSTANTS.SEPARATOR_HEIGHT,
+                      backgroundColor: Colors.black,
+                    }}
                   />
                 </View>
               ) : null
@@ -581,12 +566,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
             showsVerticalScrollIndicator={false}
             bounces={true}
             directionalLockEnabled={true}
-            // Pull to refresh - disabled in modal mode
-            refreshControl={
-              isModal || !refreshControl
-                ? undefined
-                : (refreshControl as React.ReactElement<RefreshControlProps>)
-            }
             // Prevent horizontal interference
             alwaysBounceVertical={false}
             alwaysBounceHorizontal={false}

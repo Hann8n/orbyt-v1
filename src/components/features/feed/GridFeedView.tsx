@@ -5,10 +5,8 @@ import {
   StyleSheet,
   Pressable,
   Dimensions,
-  ScrollView,
   type ViewStyle,
   type ImageStyle,
-  type RefreshControlProps,
   useWindowDimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
@@ -20,10 +18,17 @@ import { getVideoView, DEFAULT_VIDEO_ASPECT_RATIO } from '../../../utils/video/h
 import { QUERY_CONSTANTS } from '../../../utils/constants';
 import type { ExtendedFeedViewPost } from '../../../services/api/types';
 import * as Device from 'expo-device';
-import { getBottomNavBarHeight } from '../../../utils/device/screen';
+import { getViewportDimensions } from '../../../utils/device/screen';
 import EmptyFeed from './EmptyFeed';
 import BlurredBackground from '../../ui/BlurredBackground';
 import { hexToRGBA } from '../../../utils/formatting/colors';
+import {
+  FEED_VIEW_CONSTANTS,
+  getEmptyFeedType,
+  getFeedItemKey,
+  getProfileColors,
+  isHeaderFeed as getIsHeaderFeed,
+} from './feedViewShared';
 
 // Memoized shared video item component
 const VideoGridItem: React.FC<{
@@ -66,12 +71,11 @@ const VideoGridItem: React.FC<{
 
 VideoGridItem.displayName = 'VideoGridItem';
 
-const ITEM_MARGIN = 1; // Set divider thickness to 1 for both directions
+const ITEM_MARGIN = 2; // Divider thickness for both grid directions
 
 interface GridFeedViewProps {
   feed: ExtendedFeedViewPost[];
   headerComponent?: React.ReactNode;
-  refreshControl?: React.ReactElement;
   backgroundColor?: string;
   secondaryColor?: string;
   isProfileFeed?: boolean;
@@ -91,10 +95,9 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
     {
       feed,
       headerComponent,
-      refreshControl,
       isModal = false,
-      backgroundColor = '#000',
-      secondaryColor = '#fff',
+      backgroundColor = Colors.black,
+      secondaryColor = Colors.neutral[50],
       isProfileFeed = false,
       feedOption,
       userDid,
@@ -108,30 +111,21 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
     ref
   ) => {
     // Determine if this is a header feed (profile, channel, etc.)
-    const isHeaderFeed: boolean = Boolean(
-      feedOption === 'profile' ||
-      feedOption === 'likes' ||
-      feedOption === 'reposts' ||
-      (feedOption && feedOption.startsWith('at://'))
+    const isHeaderFeed = useMemo(
+      () => getIsHeaderFeed(feedOption, headerComponent),
+      [feedOption, headerComponent]
     );
 
     // Use profile colors when available
     const profileColors = useMemo(
-      () =>
-        secondaryColor
-          ? {
-              backgroundColor: backgroundColor || '#000',
-              textColor: secondaryColor,
-            }
-          : undefined,
+      () => getProfileColors(backgroundColor, secondaryColor),
       [backgroundColor, secondaryColor]
     );
 
     // Initialize infinite scroll hook with cursor-based loading
     // Infinite scroll functionality removed - should be handled by parent component
 
-    // Refs for scrolling
-    const scrollViewRef = useRef<ScrollView>(null);
+    // Ref for scrolling
     const flashListRef = useRef<FlashListRef<ExtendedFeedViewPost>>(null);
 
     // Expose scrollToTop method
@@ -139,16 +133,13 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
       ref,
       () => ({
         scrollToTop: () => {
-          if (feed.length === 0 && scrollViewRef.current) {
-            // Empty state uses ScrollView
-            scrollViewRef.current.scrollTo({ y: 0, animated: true });
-          } else if (flashListRef.current) {
-            // Grid content uses FlashList - use native scrollToTop for better performance
+          if (flashListRef.current) {
+            // Grid always uses FlashList
             flashListRef.current.scrollToTop({ animated: true });
           }
         },
       }),
-      [feed.length]
+      []
     );
 
     // Responsive grid columns and item size
@@ -181,17 +172,13 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
 
     // Use actual safe area insets and bottom nav bar height
     const insets = useSafeAreaInsets();
-    const effectiveInsets = {
-      top: insets.top || 0,
-      bottom: insets.bottom || 0,
-      left: insets.left || 0,
-      right: insets.right || 0,
-    } as const;
-    const bottomNavBarHeight = getBottomNavBarHeight(effectiveInsets);
-    const viewableAreaHeight =
-      (windowHeight || Dimensions.get('window').height) - effectiveInsets.top - bottomNavBarHeight;
+    const viewportDimensions = useMemo(
+      () => getViewportDimensions(isModal, isHeaderFeed, insets),
+      [isModal, isHeaderFeed, insets]
+    );
+    const viewableAreaHeight = viewportDimensions.height;
     // When used inside a custom container, subtract header height
-    const headerHeightForTabs = ListComponent ? 280 : 0;
+    const headerHeightForTabs = ListComponent ? FEED_VIEW_CONSTANTS.HEADER_HEIGHT_TABS : 0;
     const emptyComponentHeight = Math.max(0, viewableAreaHeight - headerHeightForTabs);
 
     // Render each grid item - optimized with background processing
@@ -225,25 +212,40 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
       [onGridItemPress, feed, numColumns, itemWidth, itemHeight]
     );
 
-    // Use FlashList to render the grid with appropriate numColumns
+    const ListEl = ListComponent || FlashList;
+    // Only attach ref if using FlashList (not custom ListComponent)
+    const listProps = ListComponent ? {} : { ref: flashListRef };
+
+    // Use one list path for both empty and non-empty states
     return (
-      <View style={[styles.container, { backgroundColor }]}>
-        {feed.length === 0 ? (
-          // Empty state: Use ScrollView for proper pull-to-refresh support
-          <ScrollView
-            ref={scrollViewRef}
-            style={styles.scrollView}
-            contentContainerStyle={styles.scrollViewContent}
-            showsVerticalScrollIndicator={false}
-            bounces={true}
-            refreshControl={
-              isModal || !refreshControl
-                ? undefined
-                : (refreshControl as React.ReactElement<RefreshControlProps>)
-            }
-          >
-            {headerComponent && <View style={styles.headerWrapper}>{headerComponent}</View>}
-            {isError ? (
+      <View style={styles.container}>
+        <ListEl
+          {...listProps}
+          key={`grid-${feedOption}-${userDid || 'default'}-cols-${numColumns}`}
+          data={feed}
+          renderItem={renderGridItem}
+          keyExtractor={(item: ExtendedFeedViewPost) => getFeedItemKey(item)}
+          numColumns={numColumns}
+          contentContainerStyle={[
+            styles.listContent,
+            {
+              paddingBottom: viewportDimensions.bottomNavBarHeight,
+              backgroundColor: Colors.black,
+            },
+          ]}
+          showsVerticalScrollIndicator={false}
+          contentInsetAdjustmentBehavior="never"
+          bounces={true}
+          ListHeaderComponent={
+            headerComponent ? (
+              <View style={styles.headerWrapper}>
+                {headerComponent}
+                <View style={styles.headerSeparator} />
+              </View>
+            ) : null
+          }
+          ListEmptyComponent={
+            isError ? (
               <EmptyFeed
                 type="error"
                 secondaryColor={secondaryColor}
@@ -255,59 +257,19 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
               />
             ) : (
               <EmptyFeed
-                type={feedOption === 'following' ? 'no-following' : 'no-videos'}
+                type={getEmptyFeedType(feedOption)}
                 secondaryColor={secondaryColor}
                 profileColors={profileColors}
                 isProfileFeed={isProfileFeed || isHeaderFeed}
                 viewableAreaHeight={emptyComponentHeight}
                 feedOption={feedOption}
               />
-            )}
-          </ScrollView>
-        ) : (
-          // Grid content: Use FlashList with header inside
-          (() => {
-            const ListEl = ListComponent || FlashList;
-            // Only attach ref if using FlashList (not custom ListComponent)
-            const listProps = ListComponent ? {} : { ref: flashListRef };
-            return (
-              <ListEl
-                {...listProps}
-                key={`grid-${feedOption}-${userDid || 'default'}-cols-${numColumns}`}
-                data={feed}
-                renderItem={renderGridItem}
-                keyExtractor={(item: ExtendedFeedViewPost) => {
-                  // Use URI and CID for stable keys to prevent recycling issues
-                  if (item.post?.cid && item.post?.uri) {
-                    return `${item.post.uri}:${item.post.cid}`;
-                  }
-                  return item.post?.uri || `item-${Math.random()}`;
-                }}
-                numColumns={numColumns}
-                contentContainerStyle={[
-                  styles.listContent,
-                  { paddingBottom: effectiveInsets.bottom + bottomNavBarHeight, backgroundColor },
-                ]}
-                showsVerticalScrollIndicator={false}
-                contentInsetAdjustmentBehavior="never"
-                bounces={true}
-                ListHeaderComponent={
-                  headerComponent ? (
-                    <View style={styles.headerWrapper}>{headerComponent}</View>
-                  ) : null
-                }
-                refreshControl={
-                  isModal || !refreshControl
-                    ? undefined
-                    : (refreshControl as React.ReactElement<RefreshControlProps>)
-                }
-                scrollEnabled={true}
-                onEndReached={hasNextPage ? onLoadMore : undefined}
-                onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
-              />
-            );
-          })()
-        )}
+            )
+          }
+          scrollEnabled={true}
+          onEndReached={hasNextPage ? onLoadMore : undefined}
+          onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
+        />
       </View>
     );
   }
@@ -320,14 +282,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.black,
   },
-  scrollView: {
-    flex: 1,
-  },
-  scrollViewContent: {
-    flexGrow: 1,
-  },
   headerWrapper: {
     width: '100%',
+  },
+  headerSeparator: {
+    height: FEED_VIEW_CONSTANTS.SEPARATOR_HEIGHT,
+    backgroundColor: Colors.black,
   },
   listContent: {
     flexGrow: 1,

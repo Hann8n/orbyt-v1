@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, StyleSheet, Pressable } from 'react-native';
+import { View, Text, TextInput, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -12,7 +12,7 @@ import VerticalListSheet, { TrueSheet } from './VerticalListSheet';
 import { Colors } from './UI';
 import { BORDER_RADIUS, APP_CONSTANTS } from '../../utils/constants';
 import { logger } from '../../utils/logger';
-import Icon, { Loading3FillIcon } from './Icon';
+import Icon from './Icon';
 
 interface EmailVerificationModalProps {
   visible: boolean;
@@ -59,7 +59,7 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
         withTiming(0, { duration: 50 })
       );
     }
-  }, [error]);
+  }, [error, shakeOffset]);
 
   const shakeStyle = useAnimatedStyle(() => {
     return {
@@ -233,7 +233,7 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
       scrollable={false}
       footerTopPadding={0}
     >
-      <View style={[styles.container, { paddingBottom: 16 }]}>
+      <View style={[styles.container, styles.containerBottomPadding]}>
         <Text style={styles.descriptionText}>
           {emailSent
             ? 'Enter the verification code sent to your email'
@@ -283,10 +283,10 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
             >
               {isVerifying ? (
                 <View style={styles.buttonContent}>
-                  <Loading3FillIcon
-                    size={24}
+                  <ActivityIndicator
+                    size="small"
                     color={Colors.neutral[50]}
-                    style={{ marginRight: 8 }}
+                    style={styles.buttonSpinner}
                   />
                   <Text style={styles.verifyButtonText}>Verifying...</Text>
                 </View>
@@ -338,10 +338,10 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
             >
               {isSendingEmail ? (
                 <View style={styles.buttonContent}>
-                  <Loading3FillIcon
-                    size={24}
+                  <ActivityIndicator
+                    size="small"
                     color={Colors.neutral[50]}
-                    style={{ marginRight: 8 }}
+                    style={styles.buttonSpinner}
                   />
                   <Text style={styles.sendButtonText}>Sending...</Text>
                 </View>
@@ -366,6 +366,9 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 20,
+  },
+  containerBottomPadding: {
+    paddingBottom: 16,
   },
   descriptionText: {
     color: Colors.neutral[200],
@@ -469,6 +472,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  buttonSpinner: {
+    marginRight: 8,
   },
   buttonContentRow: {
     flexDirection: 'row',

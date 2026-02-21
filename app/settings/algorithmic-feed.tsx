@@ -1,10 +1,18 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Pressable,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import ListHeader from '../../src/components/ui/ListHeader';
-import Icon, { Loading3FillIcon, PlusIcon } from '../../src/components/ui/Icon';
+import Icon, { PlusIcon } from '../../src/components/ui/Icon';
 import { Colors } from '../../src/theme';
 import { Avatar } from '../../src/components/ui/UI';
 import { useAlgorithmicFeedProvider } from '../../src/stores/userStore';
@@ -393,8 +401,8 @@ const AlgorithmicFeedScreen: React.FC = () => {
                       )}
                       <View pointerEvents="none" style={styles.subscribeButtonInner}>
                         {isSubscribing ? (
-                          <Loading3FillIcon
-                            size={14}
+                          <ActivityIndicator
+                            size="small"
                             color={isSubscribed ? subscribedTextColor : Colors.neutral[50]}
                           />
                         ) : (

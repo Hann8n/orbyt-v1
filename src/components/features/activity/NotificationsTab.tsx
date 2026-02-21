@@ -7,7 +7,7 @@ import React, {
   useRef,
 } from 'react';
 import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../../utils/constants';
-import { View, Text, StyleSheet, Pressable, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, Pressable, RefreshControl, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import { LegendList, LegendListRef } from '@legendapp/list';
 import type { ScrollToTopRef } from '../../../utils/navigation/tabRefs';
@@ -19,7 +19,6 @@ import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import ProfileService, { prefetchProfile, useProfile } from '../../../services/data/ProfileService';
 import { Colors } from '../../../theme';
 import { Avatar } from '../../../components/ui/UI';
-import { Loading3FillIcon } from '../../../components/ui/Icon';
 import { VerificationBadge } from '../badging';
 import EmptyFeed from '../feed/EmptyFeed';
 import { getBottomNavBarHeight } from '../../../utils/device/screen';
@@ -105,7 +104,7 @@ const EmptyNotifications = () => (
 
 const NotificationLoading = () => (
   <View style={styles.loadingContainer}>
-    <Loading3FillIcon size={48} color={Colors.neutral[50]} />
+    <ActivityIndicator size="large" color={Colors.neutral[50]} />
   </View>
 );
 
@@ -941,7 +940,7 @@ const NotificationsTab = forwardRef<ScrollToTopRef, NotificationsTabProps>(
         ListFooterComponent={
           isFetchingNextPage ? (
             <View style={styles.loadingMoreContainer}>
-              <Loading3FillIcon size={24} color={Colors.neutral[50]} />
+              <ActivityIndicator size="small" color={Colors.neutral[50]} />
             </View>
           ) : null
         }

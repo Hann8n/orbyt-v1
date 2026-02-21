@@ -14,6 +14,7 @@ import {
   Modal,
   StatusBar,
   Keyboard,
+  ActivityIndicator,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -29,11 +30,7 @@ import { Image } from 'expo-image';
 import { BlurView } from '../../src/components/ui/BlurView';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Avatar } from '../../src/components/ui/UI';
-import Icon, {
-  BackArrowIcon,
-  Loading3FillIcon,
-  DownSmallFillIcon,
-} from '../../src/components/ui/Icon';
+import Icon, { BackArrowIcon, DownSmallFillIcon } from '../../src/components/ui/Icon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextOverlay } from '../../src/types';
 import { resolveVideoPath, VideoPathInfo } from '../../src/utils/video/path';
@@ -120,7 +117,7 @@ const VideoPreviewContent: React.FC<{
       )}
       {(videoLoading || isMerging) && (
         <View style={styles.loadingOverlay}>
-          <Loading3FillIcon size={48} color={Colors.neutral[50]} />
+          <ActivityIndicator size="large" color={Colors.neutral[50]} />
         </View>
       )}
       {videoError && (
@@ -342,7 +339,7 @@ const PostButton: React.FC<{
     <View style={styles.buttonContent} pointerEvents="none">
       {isPosting ? (
         <View style={styles.loadingContainer}>
-          <Loading3FillIcon size={24} color={Colors.black} />
+          <ActivityIndicator size="small" color={Colors.black} />
           <Text style={styles.postButtonText}>
             {uploadProgress < 50
               ? 'Uploading video...'
@@ -353,7 +350,7 @@ const PostButton: React.FC<{
         </View>
       ) : isCompressing ? (
         <View style={styles.loadingContainer}>
-          <Loading3FillIcon size={24} color={Colors.black} />
+          <ActivityIndicator size="small" color={Colors.black} />
           <Text style={styles.postButtonText}>Getting ready...</Text>
         </View>
       ) : (
@@ -1310,7 +1307,7 @@ const VideoPostScreen: React.FC = () => {
           style={styles.headerButtonCenter}
         >
           {isDownloading ? (
-            <Loading3FillIcon size={32} color={Colors.neutral[50]} />
+            <ActivityIndicator size="large" color={Colors.neutral[50]} />
           ) : (
             <Icon name="save" size={32} color={Colors.neutral[50]} />
           )}
@@ -1508,7 +1505,7 @@ const VideoPostScreen: React.FC = () => {
                   style={styles.landscapeHeaderButton}
                 >
                   {isDownloading ? (
-                    <Loading3FillIcon size={30} color={Colors.neutral[50]} />
+                    <ActivityIndicator size="large" color={Colors.neutral[50]} />
                   ) : (
                     <Icon name="save" size={30} color={Colors.neutral[50]} />
                   )}

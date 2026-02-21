@@ -10,12 +10,13 @@ import {
   StyleProp,
   ImageStyle,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Modal as RNModal } from 'react-native';
 // SafeAreaView is imported elsewhere; no direct usage in this module
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
-import Icon, { Loading3FillIcon } from './Icon';
+import Icon from './Icon';
 import {
   hexToRGBA,
   isColorDark,
@@ -151,8 +152,8 @@ export const Button: React.FC<ButtonProps> = ({
   return (
     <Pressable style={[getButtonStyle(), style]} onPress={onPress} disabled={disabled || loading}>
       {loading ? (
-        <Loading3FillIcon
-          size={24}
+        <ActivityIndicator
+          size="small"
           color={variant === 'outline' ? Colors.neutral[200] : Colors.neutral[50]}
         />
       ) : (
@@ -766,10 +767,9 @@ export const Loading: React.FC<LoadingProps> = ({
   text,
   style,
 }) => {
-  const iconSize = size === 'small' ? 24 : 48;
   return (
     <View style={[styles.loadingContainer, style]}>
-      <Loading3FillIcon size={iconSize} color={color} />
+      <ActivityIndicator size={size === 'small' ? 'small' : 'large'} color={color} />
       {text && <Text style={styles.loadingText}>{text}</Text>}
     </View>
   );

@@ -15,7 +15,15 @@ import * as Haptics from 'expo-haptics';
 
 import { AtprotoService } from '../../../services/api/AtprotoService';
 import { FeedService } from '../../../services/api/feed/FeedService';
-import { View, Text, Dimensions, Pressable, StyleSheet, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  Dimensions,
+  Pressable,
+  StyleSheet,
+  Platform,
+  ActivityIndicator,
+} from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -31,7 +39,7 @@ import { BlurView } from '../../ui/BlurView';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Image } from 'expo-image';
 import { Colors } from '../../../theme';
-import { Loading3FillIcon, HeartFillIcon } from '../../ui/Icon';
+import { HeartFillIcon } from '../../ui/Icon';
 import BlurredBackground from '../../ui/BlurredBackground';
 import {
   normalizePostView,
@@ -1081,7 +1089,7 @@ const VideoCard = memo(
               {/* Loading indicator only shown when needed */}
               {!shouldLoadVideo && !cannotShowMedia && !isBlurred && (
                 <View style={styles.loadingOverlay}>
-                  <Loading3FillIcon size={48} color="white" />
+                  <ActivityIndicator size="large" color="white" />
                   <Text style={styles.loadingText}>No HLS stream available</Text>
                 </View>
               )}

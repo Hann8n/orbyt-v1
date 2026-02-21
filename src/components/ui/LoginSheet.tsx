@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { View, Text, Pressable, TextInput } from 'react-native';
-import Icon, { Loading3FillIcon } from './Icon';
+import { View, Text, Pressable, TextInput, ActivityIndicator } from 'react-native';
+import Icon from './Icon';
 import { Colors } from './UI';
 import VerticalListSheet, { TrueSheet } from './VerticalListSheet';
 import { authSheetStyles } from './AuthSheetStyles';
@@ -135,8 +135,8 @@ const LoginSheet: React.FC<LoginSheetProps> = ({
         >
           {isSigningIn ? (
             <View style={authSheetStyles.buttonContent}>
-              <Loading3FillIcon
-                size={24}
+              <ActivityIndicator
+                size="small"
                 color={Colors.neutral[500]}
                 style={authSheetStyles.loadingIcon}
               />

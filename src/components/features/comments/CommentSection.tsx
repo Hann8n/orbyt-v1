@@ -8,6 +8,7 @@ import {
   Modal,
   TextInput,
   LayoutAnimation,
+  ActivityIndicator,
 } from 'react-native';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
@@ -32,7 +33,7 @@ import { useGlobalShareSheet } from '../../../hooks/useGlobalModals';
 
 import TabNavigation, { TabOption } from '../../layout/header/TabNavigation';
 import { Colors } from '../../../theme';
-import { HeartFillIcon, MoreFillIcon, CloseFillIcon, Loading3FillIcon } from '../../ui/Icon';
+import { HeartFillIcon, MoreFillIcon, CloseFillIcon } from '../../ui/Icon';
 import RelativeDate from '../../ui/RelativeDate';
 import AuthorItem from '../../ui/AuthorItem';
 import { useUserSearchTrigger } from '../../ui/usersearch';
@@ -299,8 +300,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     headerIsLiked,
     headerLikeUri,
     headerHeartScale,
-    isLiked,
-    totalLikes,
     persistedHeaderInteraction,
     defaultHeaderInteraction,
     updatePostInteraction,
@@ -670,7 +669,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     () =>
       commentsLoading ? (
         <View style={styles.loadingContainer}>
-          <Loading3FillIcon size={24} color={Colors.neutral[200]} />
+          <ActivityIndicator size="small" color={Colors.neutral[200]} />
         </View>
       ) : (
         <View style={styles.emptyContainer}>
@@ -686,7 +685,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     () =>
       likesLoading ? (
         <View style={styles.loadingContainer}>
-          <Loading3FillIcon size={24} color={Colors.neutral[200]} />
+          <ActivityIndicator size="small" color={Colors.neutral[200]} />
         </View>
       ) : (
         <View style={styles.emptyContainer}>

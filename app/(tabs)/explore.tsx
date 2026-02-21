@@ -24,6 +24,7 @@ import {
   NativeScrollEvent,
   NativeSyntheticEvent,
   ViewStyle,
+  ActivityIndicator,
 } from 'react-native';
 import { Image } from 'expo-image';
 import PagerView, { type PagerViewOnPageSelectedEvent } from 'react-native-pager-view';
@@ -56,7 +57,7 @@ import ChannelItem from '../../src/components/ui/ChannelItem';
 
 const CORNER_GRADIENT = require('../../src/assets/corner-gradient.png');
 
-import { SearchIcon, Loading3FillIcon } from '../../src/components/ui/Icon';
+import { SearchIcon } from '../../src/components/ui/Icon';
 import { Colors } from '../../src/theme';
 import EmptyFeed from '../../src/components/features/feed/EmptyFeed';
 import { feedService } from '../../src/services/FeedService';
@@ -295,7 +296,7 @@ const ProfilesFeedRenderer = React.memo(
     if (isLoading) {
       return (
         <View style={styles.loadingContainerFull}>
-          <Loading3FillIcon size={48} color={Colors.neutral[50]} />
+          <ActivityIndicator size="large" color={Colors.neutral[50]} />
         </View>
       );
     }
@@ -379,7 +380,7 @@ const ChannelsFeedRenderer = React.memo(
     if (isLoading) {
       return (
         <View style={[styles.loadingContainer, styles.flexOne]}>
-          <Loading3FillIcon size={48} color={Colors.neutral[50]} />
+          <ActivityIndicator size="large" color={Colors.neutral[50]} />
         </View>
       );
     }
@@ -628,19 +629,19 @@ SearchFeedRenderer.displayName = 'SearchFeedRenderer';
 
 const SectionHeaderLoading = () => (
   <View style={[styles.sectionHeader, styles.loadingContainer]}>
-    <Loading3FillIcon size={24} color={Colors.neutral[50]} />
+    <ActivityIndicator size="small" color={Colors.neutral[50]} />
   </View>
 );
 
 const PopularChannelsLoading = () => (
   <View style={styles.loadingContainer}>
-    <Loading3FillIcon size={24} color={Colors.neutral[50]} />
+    <ActivityIndicator size="small" color={Colors.neutral[50]} />
   </View>
 );
 
 const SpotlightLoading = () => (
   <View style={[styles.spotlightContainer, styles.loadingContainer]}>
-    <Loading3FillIcon size={24} color={Colors.neutral[50]} />
+    <ActivityIndicator size="small" color={Colors.neutral[50]} />
   </View>
 );
 
@@ -1958,7 +1959,7 @@ const ExploreScreen: React.FC = () => {
                 <View
                   style={[styles.loadingContainer, { minHeight: Math.max(availableHeight, 200) }]}
                 >
-                  <Loading3FillIcon size={48} color={Colors.neutral[50]} />
+                  <ActivityIndicator size="large" color={Colors.neutral[50]} />
                 </View>
               );
             }

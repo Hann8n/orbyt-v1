@@ -33,6 +33,7 @@ import { seenVideoService } from '../src/services/SeenVideoService';
 import { storage } from '../src/utils/storage/storage';
 import { logger } from '../src/utils/logger';
 import { APP_CONSTANTS } from '../src/utils/constants';
+import { setupReactQueryLifecycleBridge } from '../src/utils/query/lifecycle';
 
 // Configure Reanimated logger to disable strict mode warnings
 configureReanimatedLogger({
@@ -283,6 +284,11 @@ export default function RootLayout() {
     if (Platform.OS === 'android') {
       NavigationBar.setButtonStyleAsync('light').catch(() => {});
     }
+  }, []);
+
+  // Bridge React Query focus state with RN app lifecycle.
+  useEffect(() => {
+    return setupReactQueryLifecycleBridge();
   }, []);
 
   // Initialize app - run in parallel, don't block rendering

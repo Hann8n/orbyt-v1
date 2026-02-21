@@ -25,7 +25,6 @@ const SavesScreen: React.FC = () => {
         userDid={currentUser?.did ?? undefined}
         viewMode="grid"
         isVisible={true}
-        refreshControl={undefined}
       />
     </View>
   );

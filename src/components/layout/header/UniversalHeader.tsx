@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Pressable,
   Text,
+  ActivityIndicator,
   ViewStyle,
   TextStyle,
   TextLayoutEventData,
@@ -22,7 +23,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Icon, { BackArrowIcon, MoreFillIcon, Loading3FillIcon } from '../../ui/Icon';
+import Icon, { BackArrowIcon, MoreFillIcon } from '../../ui/Icon';
 import { OutlinkIcon } from '../../ui/Icon';
 import { useRouter } from 'expo-router';
 import { hexToRGBA, blendColors } from '../../../utils/formatting/colors';
@@ -229,7 +230,7 @@ const ActionButton = memo<{
     const contentColor = getContentColor();
 
     if (action.loading) {
-      return <Loading3FillIcon size={24} color={contentColor} />;
+      return <ActivityIndicator size="small" color={contentColor} />;
     }
 
     if (action.label) {
@@ -309,7 +310,7 @@ const ActionButton = memo<{
           const filledColor = backgroundColor;
 
           const content = action.loading ? (
-            <Loading3FillIcon size={24} color={unfilledColor} />
+            <ActivityIndicator size="small" color={unfilledColor} />
           ) : action.label ? (
             <View style={styles.actionContent} pointerEvents="none">
               <Text style={[textStyle, { color: unfilledColor }]}>{action.label}</Text>
@@ -348,7 +349,7 @@ const ActionButton = memo<{
           );
 
           const contentFilled = action.loading ? (
-            <Loading3FillIcon size={24} color={filledColor} />
+            <ActivityIndicator size="small" color={filledColor} />
           ) : action.label ? (
             <View style={styles.actionContent} pointerEvents="none">
               <Text style={[textStyle, { color: filledColor }]}>{action.label}</Text>

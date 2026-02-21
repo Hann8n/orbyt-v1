@@ -10,6 +10,7 @@ import {
   type StyleProp,
   type ViewStyle,
   type TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from './LinearGradient';
 import { useInfiniteQuery, InfiniteData } from '@tanstack/react-query';
@@ -19,7 +20,6 @@ import AtprotoService from '../../services/api/AtprotoService';
 import AuthorItem from './AuthorItem';
 import { Colors } from './UI';
 // VerificationBadge import removed – badges rendered via AuthorItem
-import { Loading3FillIcon } from './Icon';
 
 // Types
 interface UserProfile {
@@ -142,7 +142,7 @@ export function UserSearchModal({
       <View style={styles.modal}>
         {isLoading ? (
           <View style={styles.centered}>
-            <Loading3FillIcon size={28} color={Colors.neutral[50]} />
+            <ActivityIndicator size="large" color={Colors.neutral[50]} />
           </View>
         ) : error ? (
           <View style={styles.centered}>
@@ -175,7 +175,7 @@ export function UserSearchModal({
             }}
             onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
             keyboardShouldPersistTaps="handled"
-            style={{ maxHeight: 260 }}
+            style={styles.userSearchList}
           />
         )}
       </View>
@@ -255,7 +255,7 @@ export function RichTextSearchModal({
       {searchType === 'mention' ? (
         isLoadingUsers ? (
           <View style={styles.centered}>
-            <Loading3FillIcon size={28} color={Colors.neutral[50]} />
+            <ActivityIndicator size="large" color={Colors.neutral[50]} />
           </View>
         ) : users.length === 0 ? (
           <View style={styles.centered}>
@@ -278,13 +278,7 @@ export function RichTextSearchModal({
                   hideHandleLine={false}
                   showArrow={false}
                   onPress={() => onSelectUser?.(item)}
-                  style={{
-                    marginBottom: 0,
-                    paddingLeft: 0,
-                    paddingRight: 0,
-                    paddingTop: 10,
-                    paddingBottom: 10,
-                  }}
+                  style={styles.richTextAuthorItem}
                 />
               )}
               onEndReached={() => {
@@ -306,7 +300,7 @@ export function RichTextSearchModal({
         )
       ) : isLoadingHashtags ? (
         <View style={styles.centered}>
-          <Loading3FillIcon size={28} color={Colors.neutral[50]} />
+          <ActivityIndicator size="large" color={Colors.neutral[50]} />
         </View>
       ) : hashtagSuggestions.length === 0 ? (
         <View style={styles.centered}>
@@ -599,6 +593,16 @@ const styles = StyleSheet.create({
     elevation: 8,
     width: '100%',
     maxHeight: 200,
+  },
+  userSearchList: {
+    maxHeight: 260,
+  },
+  richTextAuthorItem: {
+    marginBottom: 0,
+    paddingLeft: 0,
+    paddingRight: 0,
+    paddingTop: 10,
+    paddingBottom: 10,
   },
   centered: {
     alignItems: 'center',

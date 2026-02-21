@@ -12,6 +12,7 @@ import {
   NativeEventEmitter,
   useWindowDimensions,
   type EventSubscription,
+  ActivityIndicator,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -31,11 +32,7 @@ import Animated, {
   runOnJS,
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Icon, {
-  CloseFillIcon,
-  Loading3FillIcon,
-  ArrowRightFillIcon,
-} from '../src/components/ui/Icon';
+import Icon, { CloseFillIcon, ArrowRightFillIcon } from '../src/components/ui/Icon';
 import BottomToolBar from '../src/components/ui/BottomToolBar';
 import * as Device from 'expo-device';
 import { getBottomNavBarHeight } from '../src/utils/device/screen';
@@ -1161,7 +1158,7 @@ const CreateScreen: React.FC = () => {
                   ]}
                 >
                   {isLoadingFromGallery ? (
-                    <Loading3FillIcon size={32} color="white" />
+                    <ActivityIndicator size="large" color="white" />
                   ) : (
                     <View
                       style={[

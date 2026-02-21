@@ -1,10 +1,18 @@
 import React, { useCallback } from 'react';
 import { BORDER_RADIUS } from '../../utils/constants';
-import { Pressable, StyleSheet, Text, View, StyleProp, ViewStyle } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  StyleProp,
+  ViewStyle,
+  ActivityIndicator,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { Avatar } from './UI';
 import VerificationBadge from '../features/badging/VerificationBadge';
-import Icon, { FollowIcon, CheckIcon, Loading3FillIcon, MutualHeartIcon } from './Icon';
+import Icon, { FollowIcon, CheckIcon, MutualHeartIcon } from './Icon';
 import { hexToRGBA } from '../../utils/formatting/colors';
 import { Colors } from './UI';
 
@@ -232,7 +240,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
           </Pressable>
         ) : showCheckmarkSpinner ? (
           <StatusIconButton variant="success">
-            <Loading3FillIcon size={20} color={Colors.teal[300]} />
+            <ActivityIndicator size="small" color={Colors.teal[300]} />
           </StatusIconButton>
         ) : showCheckmark ? (
           <StatusIconButton variant="success">

@@ -826,7 +826,7 @@ const EditProfileScreen: React.FC = () => {
   return (
     <GestureHandlerRootView style={styles.container}>
       {/* Header and Color Picker - Black Background Section */}
-      <SafeAreaView edges={['top']} style={styles.topSafeArea}>
+      <View style={styles.topSafeArea}>
         {/* Header */}
         <View style={styles.header}>
           <Pressable
@@ -966,7 +966,7 @@ const EditProfileScreen: React.FC = () => {
             })}
           </ScrollView>
         </View>
-      </SafeAreaView>
+      </View>
 
       {/* Profile Editing Fields - Sheet Content */}
       <View

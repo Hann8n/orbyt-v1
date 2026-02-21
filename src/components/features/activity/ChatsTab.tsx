@@ -8,7 +8,7 @@ import React, {
   useState,
 } from 'react';
 import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../../utils/constants';
-import { View, Text, StyleSheet, Pressable, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, Pressable, RefreshControl, ActivityIndicator } from 'react-native';
 import { LegendList, LegendListRef } from '@legendapp/list';
 import type { ScrollToTopRef } from '../../../utils/navigation/tabRefs';
 import { ChatBskyConvoDefs } from '@atproto/api';
@@ -23,7 +23,6 @@ import { Avatar } from '../../../components/ui/UI';
 import Icon, {
   FlameFillIcon,
   FireFillIcon,
-  Loading3FillIcon,
   MutedChatIcon,
   ShareForwardFillIcon,
 } from '../../../components/ui/Icon';
@@ -60,7 +59,7 @@ const EmptyChats: React.FC<{ message?: string }> = ({ message = 'No chats, yetâ€
 
 const ChatsLoading = () => (
   <View style={styles.loadingContainer}>
-    <Loading3FillIcon size={48} color={Colors.neutral[50]} />
+    <ActivityIndicator size="large" color={Colors.neutral[50]} />
   </View>
 );
 
@@ -589,7 +588,7 @@ const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(({ chatFilter }, ref)
         ListFooterComponent={
           isFetchingNextPage ? (
             <View style={styles.loadingMoreContainer}>
-              <Loading3FillIcon size={24} color={Colors.neutral[50]} />
+              <ActivityIndicator size="small" color={Colors.neutral[50]} />
             </View>
           ) : null
         }

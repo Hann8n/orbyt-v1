@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { View, Text, Pressable, TextInput, Linking } from 'react-native';
+import { View, Text, Pressable, TextInput, Linking, ActivityIndicator } from 'react-native';
 import VerticalListSheet, { TrueSheet } from './VerticalListSheet';
 import { Colors } from './UI';
-import Icon, { Loading3FillIcon } from './Icon';
+import Icon from './Icon';
 import { useAuth, useAccountManagement } from '../../stores/userStore';
 import { AtprotoService } from '../../services/api/AtprotoService';
 import { authSheetStyles } from './AuthSheetStyles';
@@ -39,7 +39,7 @@ const SignUpSheet: React.FC<SignUpSheetProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isSigningUp, setIsSigningUp] = useState(false);
   const [canContinue, setCanContinue] = useState(true);
-  // eslint-disable-next-line no-undef -- AbortController provided by abortcontroller-polyfill
+
   const checkAbortRef = useRef<AbortController | null>(null);
   const lastKeyRef = useRef('');
   const lastCheckErrorRef = useRef<string | null>(null);
@@ -64,7 +64,7 @@ const SignUpSheet: React.FC<SignUpSheetProps> = ({
     lastCheckErrorRef.current = null;
 
     checkAbortRef.current?.abort();
-    // eslint-disable-next-line no-undef -- AbortController provided by abortcontroller-polyfill
+
     const ac = new AbortController();
     checkAbortRef.current = ac;
 
@@ -178,8 +178,8 @@ const SignUpSheet: React.FC<SignUpSheetProps> = ({
         >
           {isSigningUp ? (
             <View style={authSheetStyles.buttonContent}>
-              <Loading3FillIcon
-                size={24}
+              <ActivityIndicator
+                size="small"
                 color={Colors.neutral[500]}
                 style={authSheetStyles.loadingIcon}
               />

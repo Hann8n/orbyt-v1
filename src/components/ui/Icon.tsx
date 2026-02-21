@@ -1,14 +1,6 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { SvgXml } from 'react-native-svg';
 import { StyleProp, ViewStyle } from 'react-native';
-import {
-  useSharedValue,
-  useDerivedValue,
-  withRepeat,
-  withTiming,
-  Easing,
-} from 'react-native-reanimated';
-import { Canvas, Path } from '@shopify/react-native-skia';
 
 import { Colors } from '../../theme';
 import type { UserState } from '../../stores/userStore';
@@ -367,64 +359,6 @@ export const ShareIcon: React.FC<{ size: number; color: string; style?: StylePro
 }) => {
   const svgXml = SHARE_ICON_SVG.replace(/#fff/g, color);
   return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
-};
-
-// Custom Loading 3 Fill Icon component (spinning, thick ring) - using Skia for native performance
-export const Loading3FillIcon: React.FC<{
-  size: number;
-  color: string;
-  style?: StyleProp<ViewStyle>;
-}> = ({ size, color, style }) => {
-  const rotation = useSharedValue(0);
-
-  useEffect(() => {
-    rotation.value = withRepeat(
-      withTiming(360, {
-        duration: 1000,
-        easing: Easing.linear,
-      }),
-      -1,
-      false
-    );
-  }, [rotation]);
-
-  const center = size / 2;
-  const radius = center - 2;
-  const innerRadius = center - 6;
-
-  const path = useDerivedValue(() => {
-    'worklet';
-    const angle = (rotation.value * Math.PI) / 180;
-    const startAngle = angle;
-    const endAngle = angle + (Math.PI * 2) / 3;
-    const x1 = center + radius * Math.cos(startAngle);
-    const y1 = center + radius * Math.sin(startAngle);
-    const x2 = center + radius * Math.cos(endAngle);
-    const y2 = center + radius * Math.sin(endAngle);
-    const x3 = center + innerRadius * Math.cos(endAngle);
-    const y3 = center + innerRadius * Math.sin(endAngle);
-    const x4 = center + innerRadius * Math.cos(startAngle);
-    const y4 = center + innerRadius * Math.sin(startAngle);
-    return `M ${x1} ${y1} A ${radius} ${radius} 0 0 1 ${x2} ${y2} L ${x3} ${y3} A ${innerRadius} ${innerRadius} 0 0 0 ${x4} ${y4} Z`;
-  }, [rotation, center, radius, innerRadius]);
-
-  const backgroundRing = useDerivedValue(() => {
-    'worklet';
-    const outerStartX = center + radius;
-    const outerStartY = center;
-    const outerPath = `M ${outerStartX} ${outerStartY} A ${radius} ${radius} 0 1 1 ${center - radius} ${center} A ${radius} ${radius} 0 1 1 ${outerStartX} ${outerStartY}`;
-    const innerStartX = center + innerRadius;
-    const innerStartY = center;
-    const innerPath = `M ${innerStartX} ${innerStartY} A ${innerRadius} ${innerRadius} 0 1 0 ${center - innerRadius} ${center} A ${innerRadius} ${innerRadius} 0 1 0 ${innerStartX} ${innerStartY}`;
-    return `${outerPath} ${innerPath}`;
-  }, [center, radius, innerRadius]);
-
-  return (
-    <Canvas style={[{ width: size, height: size }, style]}>
-      <Path path={backgroundRing} color={color} opacity={0.1} />
-      <Path path={path} color={color} />
-    </Canvas>
-  );
 };
 
 // Custom Block Icon component
@@ -1212,9 +1146,6 @@ const Icon: React.FC<IconProps> = ({
   strokeWidth = 1.75,
 }) => {
   // Handle custom icons first
-  if (name === 'loading-3-fill') {
-    return <Loading3FillIcon size={size} color={color} style={style} />;
-  }
   if (name === 'user-3') {
     return <UserIcon size={size} color={color} style={style} />;
   }

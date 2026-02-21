@@ -1,7 +1,15 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef, memo } from 'react';
 import { useSharedValue } from 'react-native-reanimated';
 import { BORDER_RADIUS, APP_CONSTANTS } from '../../src/utils/constants';
-import { View, Text, StyleSheet, Pressable, Dimensions, Modal } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  Dimensions,
+  Modal,
+  ActivityIndicator,
+} from 'react-native';
 import { Image } from 'expo-image';
 import { FeedPager } from '../../src/components';
 import ProfileService, {
@@ -14,7 +22,6 @@ import { getProfileColors } from '../../src/utils/formatting/colors';
 import type { ProfileViewWithOrbyt } from '../../src/services/api/types';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Icon, {
-  Loading3FillIcon,
   FollowIcon,
   MutualHeartIcon,
   BellFilledIcon,
@@ -94,7 +101,11 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const isViewingOwnProfile = !providedIdentifier;
 
   // Always fetch by DID (handle query is only used to resolve handle to DID)
-  const didQuery = useProfileByDid(targetDid);
+  const didQuery = useProfileByDid(targetDid, {
+    refetchOnWindowFocus: true,
+    refetchInterval: isRouteFocused ? 3 * 60 * 1000 : (false as const),
+    refetchIntervalInBackground: false,
+  });
 
   // Use profile data from query with fallback for own profile
   const fallbackProfileData = useMemo<ProfileViewWithOrbyt | null>(() => {
@@ -146,6 +157,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const queryOptions = useMemo(
     () => ({
       enabled: Boolean(isRouteFocused && profileData?.did),
+      refetchOnWindowFocus: true,
+      refetchInterval: isRouteFocused ? 3 * 60 * 1000 : (false as const),
+      refetchIntervalInBackground: false,
     }),
     [isRouteFocused, profileData?.did]
   );
@@ -607,8 +621,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
           }
           backgroundColor={profileColors.backgroundColor}
           secondaryColor={profileColors.textColor}
-          isRefreshing={isModal ? false : refreshing}
-          onRefresh={isModal ? undefined : onRefresh}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
           contentScrollProgressOutput={overlayScrollProgressSV}
@@ -616,7 +628,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       )}
       {isLoading && (
         <View style={styles.loadingOverlay}>
-          <Loading3FillIcon size={48} color={Colors.neutral[50]} />
+          <ActivityIndicator size="large" color={Colors.neutral[50]} />
         </View>
       )}
 

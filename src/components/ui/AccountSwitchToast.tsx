@@ -1,6 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Loading3FillIcon } from './Icon';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { Colors, Avatar } from './UI';
 
 interface AccountSwitchToastProps {
@@ -29,19 +28,16 @@ export const AccountSwitchToast: React.FC<AccountSwitchToastProps> = ({
         <View style={styles.toast}>
           {avatarUri ? (
             <View style={styles.avatarWrapper}>
-              <Loading3FillIcon size={40} color={Colors.black} style={styles.avatarSpinner} />
+              <ActivityIndicator size="large" color={Colors.black} style={styles.avatarSpinner} />
               <View style={styles.toastAvatarContainer}>
                 <Avatar uri={avatarUri} type="profile" size={28} showRing={false} />
               </View>
             </View>
           ) : (
-            <View style={{ width: 12 }} />
+            <View style={styles.avatarSpacer} />
           )}
           <Text
-            style={[
-              styles.toastText,
-              { flexShrink: 1, flexGrow: 1, marginLeft: 12, marginRight: 8, textAlign: 'right' },
-            ]}
+            style={[styles.toastText, styles.toastTextCompact]}
             numberOfLines={1}
             ellipsizeMode="tail"
           >
@@ -102,7 +98,17 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.65)',
+    backgroundColor: Colors.overlay.black70,
+  },
+  avatarSpacer: {
+    width: 12,
+  },
+  toastTextCompact: {
+    flexShrink: 1,
+    flexGrow: 1,
+    marginLeft: 12,
+    marginRight: 8,
+    textAlign: 'right',
   },
 });
 

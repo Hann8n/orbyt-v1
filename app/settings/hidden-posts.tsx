@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { BORDER_RADIUS } from '../../src/utils/constants';
-import { View, Text, FlatList, StyleSheet, Pressable } from 'react-native';
+import { View, Text, FlatList, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import Icon, { Loading3FillIcon } from '../../src/components/ui/Icon';
+import Icon from '../../src/components/ui/Icon';
 import ListHeader from '../../src/components/ui/ListHeader';
 import { Colors } from '../../src/theme';
 import { Avatar } from '../../src/components/ui/UI';
@@ -142,7 +142,7 @@ const HiddenPostsScreen: React.FC = () => {
           disabled={isUnhiding}
         >
           {isUnhiding ? (
-            <Loading3FillIcon size={24} color={Colors.neutral[50]} />
+            <ActivityIndicator size="small" color={Colors.neutral[50]} />
           ) : (
             <>
               <Icon name="eye" size={16} color={Colors.neutral[50]} />
@@ -166,7 +166,7 @@ const HiddenPostsScreen: React.FC = () => {
           backgroundColor={Colors.transparent}
         />
         <View style={styles.loadingContainer}>
-          <Loading3FillIcon size={48} color={Colors.neutral[50]} />
+          <ActivityIndicator size="large" color={Colors.neutral[50]} />
           <Text style={styles.loadingText}>Loading hidden posts...</Text>
         </View>
       </View>

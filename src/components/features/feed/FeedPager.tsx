@@ -31,6 +31,7 @@ import Animated, {
 import { useRouter } from 'expo-router';
 import { SvgXml } from 'react-native-svg';
 import { Colors } from '../../../theme';
+import { hexToRGBA } from '../../../utils/formatting/colors';
 import FeedRenderer from './FeedRenderer';
 import { useWindowDimensions } from 'react-native';
 import * as Device from 'expo-device';
@@ -67,7 +68,6 @@ interface FeedPagerRendererProps {
   secondaryColor?: string;
   viewMode?: 'list' | 'grid';
   onViewModeChange?: (mode: 'list' | 'grid') => void;
-  onRefresh?: () => void | Promise<void>;
   /** When provided, the visible list writes scroll progress (0..1) here on UI thread for overlay fade. */
   contentScrollProgressOutput?: SharedValue<number>;
   queryOptions?: {
@@ -75,6 +75,9 @@ interface FeedPagerRendererProps {
     staleTime?: number;
     refetchOnMount?: boolean;
     refetchOnWindowFocus?: boolean;
+    refetchOnReconnect?: boolean;
+    refetchInterval?: number | false;
+    refetchIntervalInBackground?: boolean;
   };
   isVisible?: boolean;
   isModal?: boolean;
@@ -93,7 +96,6 @@ interface FeedPagerProps extends FeedPagerRendererProps {
   onFeedChange?: (feed: FeedOption) => void;
   /** Controlled feed: when provided, pager syncs page to this feed (e.g. profile tab tap) */
   currentFeed?: FeedOption;
-  isRefreshing?: boolean;
   forceError?: boolean;
   applySafeArea?: boolean;
   indicatorFontSize?: number;
@@ -126,7 +128,7 @@ const FeedIndicatorItem = memo(function FeedIndicatorItem({
     const isActive = Math.round(baseProgress) === feedIndex;
     const distance = Math.abs(baseProgress - feedIndex);
     const opacity = isActive ? 1 : Math.max(0.3, 1 - distance * 0.4);
-    const color = isActive ? Colors.neutral[50] : 'rgba(255, 255, 255, 0.75)';
+    const color = isActive ? Colors.neutral[50] : hexToRGBA(Colors.neutral[50], 0.75);
     return {
       color,
       fontSize: indicatorBaseFontSize,
@@ -151,7 +153,6 @@ const FeedPager = forwardRef<ProfileRef, FeedPagerProps>(function FeedPager(
     userDid,
     currentFeed,
     onFeedChange,
-    isRefreshing = false,
     forceError = false,
     applySafeArea = false,
     indicatorFontSize,
@@ -162,7 +163,6 @@ const FeedPager = forwardRef<ProfileRef, FeedPagerProps>(function FeedPager(
     secondaryColor,
     viewMode,
     onViewModeChange,
-    onRefresh,
     contentScrollProgressOutput,
     queryOptions: queryOptionsProp,
     isVisible = true,
@@ -319,6 +319,7 @@ const FeedPager = forwardRef<ProfileRef, FeedPagerProps>(function FeedPager(
 
   // Retry is handled inside FeedRenderer (refetch); pass stable no-op so child can call it
   const handleRetryFeed = useCallback(() => {}, []);
+  const activeFeedRefetchIntervalMs = 3 * 60 * 1000;
 
   const handleIndicatorTap = useCallback(
     (feedOption: FeedOption) => {
@@ -333,7 +334,9 @@ const FeedPager = forwardRef<ProfileRef, FeedPagerProps>(function FeedPager(
     () => ({
       staleTime: 5 * 60 * 1000, // 5 minutes
       refetchOnMount: false,
-      refetchOnWindowFocus: false,
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: false,
+      refetchIntervalInBackground: false,
       ...queryOptionsProp,
     }),
     [queryOptionsProp]
@@ -378,14 +381,18 @@ const FeedPager = forwardRef<ProfileRef, FeedPagerProps>(function FeedPager(
         secondaryColor={secondaryColor}
         viewMode={viewMode}
         onViewModeChange={onViewModeChange}
-        onRefresh={onRefresh}
         contentScrollProgressOutput={
           index === currentFeedIndex ? contentScrollProgressOutput : undefined
         }
         onRetryFeed={handleRetryFeed}
-        queryOptions={baseQueryOptions}
+        queryOptions={{
+          ...baseQueryOptions,
+          enabled: (baseQueryOptions.enabled ?? true) && isVisible && index === currentFeedIndex,
+          refetchInterval:
+            baseQueryOptions.refetchInterval ??
+            (isVisible && index === currentFeedIndex ? activeFeedRefetchIntervalMs : false),
+        }}
         isVisible={isVisible && index === currentFeedIndex}
-        isRefreshing={isRefreshing}
         forceError={forceError}
         isModal={isModal}
       />
@@ -397,13 +404,12 @@ const FeedPager = forwardRef<ProfileRef, FeedPagerProps>(function FeedPager(
       secondaryColor,
       viewMode,
       onViewModeChange,
-      onRefresh,
       contentScrollProgressOutput,
       currentFeedIndex,
       handleRetryFeed,
       baseQueryOptions,
       isVisible,
-      isRefreshing,
+      activeFeedRefetchIntervalMs,
       forceError,
       isModal,
     ]
@@ -549,7 +555,6 @@ const styles = StyleSheet.create({
 const areEqual = (prevProps: FeedPagerProps, nextProps: FeedPagerProps) => {
   if (prevProps.initialFeed !== nextProps.initialFeed) return false;
   if (prevProps.currentFeed !== nextProps.currentFeed) return false;
-  if (prevProps.isRefreshing !== nextProps.isRefreshing) return false;
   if (prevProps.forceError !== nextProps.forceError) return false;
   if (prevProps.applySafeArea !== nextProps.applySafeArea) return false;
   if (prevProps.indicatorFontSize !== nextProps.indicatorFontSize) return false;

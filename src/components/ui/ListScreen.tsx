@@ -1,12 +1,12 @@
 import React, { useCallback } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../utils/constants';
 import { Colors } from './UI';
 import { Icon } from './UI';
-import { Loading3FillIcon, MinusFillIcon } from './Icon';
+import { MinusFillIcon } from './Icon';
 import ListHeader from './ListHeader';
 import AuthorItem from './AuthorItem';
 import { useFollowMutation } from '../../services/data/ProfileService';
@@ -149,11 +149,10 @@ const ListScreen: React.FC<ListScreenProps> = ({
   const renderLoading = useCallback(
     () => (
       <View style={styles.loadingContainer}>
-        <Loading3FillIcon size={48} color={Colors.neutral[200]} />
-        <Text style={styles.loadingText}>Loading {title.toLowerCase()}...</Text>
+        <ActivityIndicator size="large" color={Colors.neutral[200]} />
       </View>
     ),
-    [title]
+    []
   );
 
   const renderError = useCallback(
@@ -294,12 +293,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingTop: 100,
-  },
-  loadingText: {
-    color: Colors.neutral[200],
-    fontSize: 16,
-    fontFamily: 'Figtree-Medium',
-    marginTop: 16,
   },
   errorContainer: {
     flex: 1,

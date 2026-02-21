@@ -1,13 +1,12 @@
 // filepath: /Users/jack/orbyt/components/VerificationInfoSheet.tsx
 import React, { useRef, useEffect } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format, parseISO, isValid } from 'date-fns';
 import { useProfile, useProfileByDid } from '../../../services/data/ProfileService';
 import { Colors } from '../../../theme';
 import { useRouter } from 'expo-router';
-import { Loading3FillIcon } from '../../ui/Icon';
 import CloseButton from '../../ui/CloseButton';
 import CancelButton from '../../ui/CancelButton';
 import KeyboardAwareFooter from '../../../utils/components/truesheet/KeyboardAwareFooter';
@@ -143,7 +142,11 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
         </View>
 
         {isLoading ? (
-          <Loading3FillIcon size={24} color={Colors.neutral[200]} style={styles.loadingIndicator} />
+          <ActivityIndicator
+            size="small"
+            color={Colors.neutral[200]}
+            style={styles.loadingIndicator}
+          />
         ) : verification ? (
           isTrustedVerifier ? (
             renderTrustedVerifierContent()

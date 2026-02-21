@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
 import { useSharedValue } from 'react-native-reanimated';
 import { BORDER_RADIUS } from '../../src/utils/constants';
-import { View, StyleSheet, Dimensions, Pressable, Text } from 'react-native';
+import { View, StyleSheet, Dimensions, Pressable, Text, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import ChannelHeader from '../../src/components/layout/header/ChannelHeader';
@@ -18,7 +18,7 @@ import {
 } from '../../src/services/data/ChannelService';
 import ProfileService from '../../src/services/data/ProfileService';
 import { extractColorsFromImage } from '../../src/utils/formatting/colors';
-import Icon, { Loading3FillIcon } from '../../src/components/ui/Icon';
+import Icon from '../../src/components/ui/Icon';
 import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '../../src/hooks';
 import { useDetailScreenOverlay } from '../../src/hooks/useDetailScreenOverlay';
 import { isOrbytChannel, getChannelByUri, channelToHashtag } from '../../src/utils/channels/orbyt';
@@ -107,6 +107,9 @@ const Channel: React.FC = memo(() => {
         feedOption &&
         (feedOption.startsWith('hashtag:') || feedOption.startsWith('at://'))
       ),
+      refetchOnWindowFocus: true,
+      refetchInterval: isRouteFocused ? 3 * 60 * 1000 : (false as const),
+      refetchIntervalInBackground: false,
     }),
     [isRouteFocused, feedOption]
   );
@@ -203,14 +206,11 @@ const Channel: React.FC = memo(() => {
     return [];
   }, [channelHeaderData?.isOwner, handleDelete]);
 
-  // Handle refresh - refreshes both channel metadata and feed
-  // FeedRenderer will handle feed refresh automatically when isRefreshing is true
+  // Refresh channel metadata from server.
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      // Refresh channel metadata first
       await refetchChannel();
-      // Feed refresh is handled by FeedRenderer's useEffect when isRefreshing is true
     } catch (error) {
       logger.error('Error during refresh', error, { component: 'Channel' });
     } finally {
@@ -351,8 +351,6 @@ const Channel: React.FC = memo(() => {
           headerComponent={headerComponent}
           backgroundColor={Colors.black}
           secondaryColor={channelColors.textColor}
-          isRefreshing={isModal ? false : refreshing}
-          onRefresh={isModal ? undefined : onRefresh}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
           queryOptions={channelDataForFeed && feedOption ? queryOptions : { enabled: false }}
@@ -363,7 +361,7 @@ const Channel: React.FC = memo(() => {
       )}
       {isLoading && (
         <View style={styles.loadingOverlay}>
-          <Loading3FillIcon size={48} color={Colors.neutral[50]} />
+          <ActivityIndicator size="large" color={Colors.neutral[50]} />
         </View>
       )}
     </View>

@@ -29,6 +29,9 @@ interface UseFeedOptions {
   gcTime?: number;
   refetchOnWindowFocus?: boolean;
   refetchOnMount?: boolean;
+  refetchOnReconnect?: boolean;
+  refetchInterval?: number | false;
+  refetchIntervalInBackground?: boolean;
 }
 
 interface UseFeedReturn {
@@ -123,7 +126,9 @@ export function useFeed(
     retryDelay: FEED_CONFIG.RETRY_DELAY,
     refetchOnWindowFocus: queryOptions.refetchOnWindowFocus ?? false,
     refetchOnMount: queryOptions.refetchOnMount ?? false,
-    refetchOnReconnect: false,
+    refetchOnReconnect: queryOptions.refetchOnReconnect ?? false,
+    refetchInterval: queryOptions.refetchInterval,
+    refetchIntervalInBackground: queryOptions.refetchIntervalInBackground ?? false,
     // Use placeholderData to maintain previous data during refetch
     // React Query automatically handles query key changes (feed switches) by creating new queries
     placeholderData: (

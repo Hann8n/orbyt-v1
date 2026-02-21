@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { BORDER_RADIUS } from '../src/utils/constants';
 import {
   View,
@@ -9,12 +9,12 @@ import {
   Platform,
   ScrollView,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Svg, Path, Rect, Defs, Mask } from 'react-native-svg';
-import { Loading3FillIcon } from '../src/components/ui/Icon';
 import { Colors } from '../src/theme';
 import AuthorItem from '../src/components/ui/AuthorItem';
 import type { SavedAccount } from '../src/stores/userStore';
@@ -54,6 +54,19 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
   );
 
   const hasSavedAccounts = savedAccounts.length > 0;
+  const loginButtonsInsetStyle = useMemo(
+    () => ({
+      paddingBottom: typeof insets?.bottom === 'number' ? insets.bottom + 16 : 16,
+    }),
+    [insets?.bottom]
+  );
+  const containerInsetStyle = useMemo(
+    () => ({
+      paddingTop: typeof insets?.top === 'number' ? insets.top : 0,
+      paddingBottom: typeof insets?.bottom === 'number' ? insets.bottom : 0,
+    }),
+    [insets?.top, insets?.bottom]
+  );
 
   const handleSavedAccountLogin = async (account: SavedAccount) => {
     setIsLoading(true);
@@ -218,7 +231,7 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
       <View style={styles.buttonContent} pointerEvents="none">
         {isLoading ? (
           <>
-            <Loading3FillIcon size={24} color={textColor} style={styles.loadingIcon} />
+            <ActivityIndicator size="small" color={textColor} style={styles.loadingIcon} />
             <Text style={buttonTextStyle}>Signing in...</Text>
           </>
         ) : (
@@ -231,12 +244,7 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
     );
 
     return (
-      <View
-        style={[
-          styles.loginButtonsContainer,
-          { paddingBottom: typeof insets?.bottom === 'number' ? insets.bottom + 16 : 16 },
-        ]}
-      >
+      <View style={[styles.loginButtonsContainer, loginButtonsInsetStyle]}>
         {/* Sign in button */}
         <Pressable
           style={[styles.liquidGlassButton, !useLiquidGlass && styles.whiteButton]}
@@ -294,12 +302,10 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
       <View
         style={[
           styles.container,
-          {
-            paddingTop: typeof insets?.top === 'number' ? insets.top : 0,
-            paddingBottom: typeof insets?.bottom === 'number' ? insets.bottom : 0,
-            justifyContent: hasSavedAccounts ? 'space-between' : 'flex-end',
-            backgroundColor: hasSavedAccounts ? Colors.black : Colors.overlay.black50,
-          },
+          containerInsetStyle,
+          hasSavedAccounts
+            ? styles.containerWithSavedAccounts
+            : styles.containerWithoutSavedAccounts,
         ]}
       >
         {/* Logo and App Name */}
@@ -396,9 +402,15 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    justifyContent: 'flex-end',
     paddingHorizontal: 24,
     paddingVertical: 20,
+  },
+  containerWithSavedAccounts: {
+    justifyContent: 'space-between',
+    backgroundColor: Colors.black,
+  },
+  containerWithoutSavedAccounts: {
+    justifyContent: 'flex-end',
     backgroundColor: Colors.overlay.black50,
   },
   logoContainer: {

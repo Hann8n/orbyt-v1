@@ -1,18 +1,9 @@
-import {
-  useState,
-  useCallback,
-  useImperativeHandle,
-  forwardRef,
-  memo,
-  useRef,
-  useEffect,
-} from 'react';
+import { useCallback, useImperativeHandle, forwardRef, memo, useRef, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { queryKeys } from '../../src/utils/query/queryKeys';
-import { APP_CONSTANTS } from '../../src/utils/constants';
 import { FeedPager } from '../../src/components';
 import { HomeScreenRef, FeedOption } from '../../src/types';
 import { useVisibilityRouteTracker } from '../../src/hooks';
@@ -29,7 +20,6 @@ const HomeScreen = memo(
   forwardRef<HomeScreenRef, HomeScreenProps>((_props, ref) => {
     const currentFeed = useAppStore(s => s.lastHomeFeed);
     const setLastHomeFeed = useAppStore(s => s.setLastHomeFeed);
-    const [isRefreshing, setIsRefreshing] = useState(false);
     const queryClient = useQueryClient();
     const currentUser = useUserStore(state => state.currentUser);
     const insets = useSafeAreaInsets();
@@ -52,15 +42,6 @@ const HomeScreen = memo(
         exact: false,
         refetchType: 'active', // Only refetch active queries
       });
-
-      // Set refreshing state for UI feedback
-      setIsRefreshing(true);
-
-      // Reset refreshing state after a delay to show refresh animation
-      // The actual refetch is handled by React Query and FeedRenderer's useEffect
-      setTimeout(() => {
-        setIsRefreshing(false);
-      }, APP_CONSTANTS.REFRESH_DELAY);
     }, [queryClient, currentUser?.did]);
 
     const handleFeedChange = useCallback(
@@ -80,9 +61,8 @@ const HomeScreen = memo(
       ref,
       () => ({
         refresh: triggerRefresh,
-        isRefreshing,
       }),
-      [isRefreshing, triggerRefresh]
+      [triggerRefresh]
     );
 
     // Store home screen ref in tabRefs for tab navigation
@@ -104,7 +84,6 @@ const HomeScreen = memo(
           ref={feedPagerRef}
           currentFeed={currentFeed}
           onFeedChange={handleFeedChange}
-          isRefreshing={isRefreshing}
           applySafeArea={true}
           indicatorFontSize={18}
         />

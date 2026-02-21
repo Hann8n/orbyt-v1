@@ -12,6 +12,7 @@ import {
   Keyboard,
   StatusBar,
   AppState,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -21,7 +22,7 @@ import { File, Directory, Paths } from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
 import { resolveVideoPath, VideoPathInfo } from '../src/utils/video/path';
 import { DEFAULT_BUFFER_OPTIONS } from '../src/utils/video/helpers';
-import { Loading3FillIcon, CloseFillIcon } from '../src/components/ui/Icon';
+import { CloseFillIcon } from '../src/components/ui/Icon';
 import { Colors } from '../src/theme';
 import { BORDER_RADIUS, APP_CONSTANTS } from '../src/utils/constants';
 import VideoEditingService, {
@@ -825,7 +826,7 @@ const VideoEditorScreen: React.FC = () => {
           )}
           {(videoLoading || isMerging) && (
             <View style={styles.loadingOverlay}>
-              <Loading3FillIcon size={48} color={Colors.neutral[50]} />
+              <ActivityIndicator size="large" color={Colors.neutral[50]} />
             </View>
           )}
           {videoError && (
@@ -892,7 +893,7 @@ const VideoEditorScreen: React.FC = () => {
             disabled={isProcessing}
           >
             {isProcessing ? (
-              <Loading3FillIcon size={24} color={Colors.neutral[50]} />
+              <ActivityIndicator size="small" color={Colors.neutral[50]} />
             ) : (
               <Text style={styles.applyButtonText}>Apply Changes</Text>
             )}
