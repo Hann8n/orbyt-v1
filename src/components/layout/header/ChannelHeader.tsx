@@ -395,9 +395,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
             textColor={safeTextColor}
             backgroundColor={safeBackgroundColor}
             accentColor={channelColors.accentColor || Colors.black}
-            channelColor={
-              isOrbyt && channel.uri ? getChannelByUri(channel.uri)?.channelColor : undefined
-            }
+            channelColor={channel.uri ? getChannelByUri(channel.uri)?.channelColor : undefined}
             viewMode={viewMode}
             onViewModeChange={onViewModeChange}
             showViewToggle={showViewToggle}
@@ -416,7 +414,6 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
       showViewToggle,
       onViewModeChange,
       viewMode,
-      isOrbyt,
       hasTabs,
     ]
   );
