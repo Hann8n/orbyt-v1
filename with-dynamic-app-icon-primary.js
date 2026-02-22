@@ -2,7 +2,7 @@ const { withInfoPlist } = require('@expo/config-plugins');
 const path = require('path');
 
 /**
- * Fix for @mozzius/expo-dynamic-app-icon with Expo 55 Liquid Glass icons.
+ * Fix for @variant-systems/expo-dynamic-app-icon with Expo 55 icon sets.
  *
  * When ios.icon is a .icon path (e.g. Orbyt.icon), Expo sets
  * ASSETCATALOG_COMPILER_APPICON_NAME to the icon set name ("Orbyt").

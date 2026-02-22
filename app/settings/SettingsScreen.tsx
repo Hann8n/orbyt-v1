@@ -309,13 +309,13 @@ ${deviceInfo}`
           onPress: () => router.navigate('/settings/algorithmic-feed'),
           linkType: 'internal',
         },
-        // {
-        //   id: 'app-icon',
-        //   label: 'App icon',
-        //   icon: 'device-tv',
-        //   onPress: () => router.navigate('/settings/app-icon'),
-        //   linkType: 'internal',
-        // },
+        {
+          id: 'app-icon',
+          label: 'App icon',
+          icon: 'device-tv',
+          onPress: () => router.navigate('/settings/app-icon'),
+          linkType: 'internal',
+        },
         {
           id: 'content-filters',
           label: 'Content filters',

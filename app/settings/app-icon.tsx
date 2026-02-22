@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-// import { setAppIcon, getAppIcon } from '@mozzius/expo-dynamic-app-icon';
+import ExpoDynamicAppIcon from '@variant-systems/expo-dynamic-app-icon';
 import type { ImageSource } from 'expo-image';
 
 import { Colors } from '../../src/theme';
@@ -20,6 +20,7 @@ import { settingsLayoutStyles } from './SettingsStyles';
 import { useCurrentUser } from '../../src/stores/userStore';
 import { useOrbytColors } from '../../src/services/colors';
 import { formatHandle } from '../../src/utils/formatting/handles';
+import { logger } from '../../src/utils/logger';
 
 type AppIconKey =
   | 'orBYTE'
@@ -32,6 +33,40 @@ type AppIconKey =
   | 'planyt_orange'
   | 'planyt_red'
   | null;
+
+const ICON_KEYS = new Set<Exclude<AppIconKey, null>>([
+  'orBYTE',
+  'planyt_green',
+  'planyt_blue',
+  'planyt_greyscale',
+  'planyt_greyscale_alt',
+  'planyt_yellow',
+  'planyt_purple',
+  'planyt_orange',
+  'planyt_red',
+]);
+
+const normalizeIconKey = (icon: string | null | undefined): AppIconKey => {
+  if (!icon || icon === 'Default') return null;
+  return ICON_KEYS.has(icon as Exclude<AppIconKey, null>)
+    ? (icon as Exclude<AppIconKey, null>)
+    : null;
+};
+
+const getInitialIcon = (): AppIconKey => {
+  if (Platform.OS === 'web') return null;
+
+  try {
+    return normalizeIconKey(ExpoDynamicAppIcon.getAppIcon());
+  } catch (error) {
+    logger.warn('Failed to read current app icon', {
+      component: 'AppIconSettingsScreen',
+      action: 'loadCurrentIcon',
+      error,
+    });
+    return null;
+  }
+};
 
 type IconOption = {
   id: string;
@@ -135,8 +170,7 @@ const NUM_COLUMNS = 4;
 
 const AppIconSettingsScreen: React.FC = () => {
   const router = useRouter();
-  // Dynamic app icons temporarily disabled - incompatible with Expo 55
-  const currentIcon = null;
+  const [currentIcon, setCurrentIcon] = useState<AppIconKey>(getInitialIcon);
   const { currentUser } = useCurrentUser();
   const { data: orbytColors } = useOrbytColors(currentUser?.did ?? null);
   const isBeta = orbytColors?.isBeta ?? false;
@@ -147,9 +181,28 @@ const AppIconSettingsScreen: React.FC = () => {
   const totalGapWidth = GRID_GAP * (NUM_COLUMNS - 1);
   const iconSize = Math.floor((availableWidth - totalGapWidth) / NUM_COLUMNS);
 
-  const handleSelectIcon = useCallback(async () => {
-    // Dynamic app icons temporarily disabled - incompatible with Expo 55
-    return;
+  const handleSelectIcon = useCallback((iconKey: AppIconKey) => {
+    if (Platform.OS === 'web') return;
+
+    try {
+      if (iconKey === null) {
+        if (Platform.OS === 'ios') {
+          ExpoDynamicAppIcon.setAppIcon(null);
+        } else {
+          ExpoDynamicAppIcon.setAppIcon('');
+        }
+      } else {
+        ExpoDynamicAppIcon.setAppIcon(iconKey);
+      }
+
+      setCurrentIcon(iconKey);
+    } catch (error) {
+      logger.error('Failed to set app icon', error, {
+        component: 'AppIconSettingsScreen',
+        action: 'selectIcon',
+        iconKey,
+      });
+    }
   }, []);
 
   return (
@@ -204,7 +257,7 @@ const AppIconSettingsScreen: React.FC = () => {
                     <Pressable
                       key={option.id}
                       style={[styles.iconItem, { width: iconSize }]}
-                      onPress={handleSelectIcon}
+                      onPress={() => void handleSelectIcon(option.iconKey)}
                     >
                       <View style={[styles.iconWrapper, { width: iconSize, height: iconSize }]}>
                         <View style={[styles.iconPreview, { width: iconSize, height: iconSize }]}>
