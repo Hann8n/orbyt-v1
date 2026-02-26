@@ -39,3 +39,28 @@ React Native + Expo, targeting iOS and Android.
 See `.cursor/rules/` for comprehensive architecture, styling, and convention rules enforced during development. Those files contain full service/utility inventories and error handling patterns.
 
 See `CONTRIBUTING.md` for the pull request process.
+
+## Cursor Cloud specific instructions
+
+### Environment
+
+- **Node.js 18+** and **Yarn** (Classic v1) are required. The VM has both pre-installed.
+- `yarn install` runs a `postinstall` script that includes `pod-install` (CocoaPods). This step is skipped automatically on Linux with a warning — this is expected and harmless.
+- The `postinstall` also runs `patch-package` (5 patches in `patches/`) and downloads Skia binaries. Both succeed on Linux.
+
+### Available checks (no automated test suite exists)
+
+- `yarn type-check` — TypeScript compilation (`tsc --noEmit`)
+- `yarn lint` — ESLint (0 errors expected; ~46 pre-existing warnings)
+- `yarn format:check` — Prettier (1 pre-existing warning in `.cursor/plans/`)
+- `yarn check` — runs all three sequentially
+
+### Running the app
+
+- This is a **mobile-only** React Native app requiring an Expo dev client on a physical device or simulator. The Expo dev server (`yarn start` / `expo start --dev-client`) boots on port 8081 but cannot render UI on a headless Linux VM.
+- **Web export is not supported** — `expo export --platform web` fails due to missing `@gorhom/bottom-sheet` (a web-only transitive dependency of `react-native-true-sheet`). This is a known limitation, not a bug.
+- For Cloud Agent work, focus on `yarn check` for code quality validation. UI changes must be verified via screenshots or described to the user for manual testing on a device.
+
+### Pre-commit hook
+
+- Husky runs `lint-staged` on commit, which auto-fixes ESLint and Prettier on staged `.js/.jsx/.ts/.tsx/.json/.md` files. Commits will succeed as long as files are lint-clean after auto-fix.
