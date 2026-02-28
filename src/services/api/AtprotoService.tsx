@@ -49,14 +49,12 @@ import type {
   ExtendedFeedViewPost,
   PostRecord,
   FeedGeneratorOutput,
-  GetRecordOutput,
   PutActivitySubscriptionOutput,
   ProfileRecord,
   OrbytProfileRecord,
   RepostView,
   CreateRecordResponse,
 } from './types';
-import type { SubscribedChannel } from '../../stores/userStore';
 import {
   isThreadViewPost,
   isNotFoundPost as checkIsNotFoundPost,
@@ -150,7 +148,7 @@ class AtprotoService {
       const url = `${base.replace(/\/+$/, '')}/xrpc/com.atproto.server.describeServer`;
 
       // Create timeout using AbortController for better compatibility
-      // eslint-disable-next-line no-undef -- AbortController provided by abortcontroller-polyfill
+
       const timeoutController = new AbortController();
       const timeoutId = setTimeout(() => timeoutController.abort(), 10000);
 
@@ -1221,36 +1219,10 @@ class AtprotoService {
 
   /**
    * Fetch the orbyt profile record for the current user
+   * Delegates to RepoService
    */
   static async getOrbytProfileRecord(): Promise<unknown | null> {
-    try {
-      const userDid = await this.getCurrentUserDid();
-      if (!userDid) return null;
-      const { api } = await this.getApiClient();
-      try {
-        const rec = await api.com.atproto.repo.getRecord({
-          repo: userDid,
-          collection: 'com.getorbyt.profile',
-          rkey: 'self',
-        });
-        return rec?.data?.value || null;
-      } catch (_e) {
-        // Fallback: try listRecords once
-        try {
-          const list = await api.com.atproto.repo.listRecords({
-            repo: userDid,
-            collection: 'com.getorbyt.profile',
-            limit: 1,
-          });
-          const first = list?.data?.records?.[0]?.value;
-          return first || null;
-        } catch {
-          return null;
-        }
-      }
-    } catch {
-      return null;
-    }
+    return RepoService.getOrbytProfileRecord();
   }
 
   /**
@@ -1275,6 +1247,7 @@ class AtprotoService {
 
   /**
    * Create or update the orbyt profile record with a stable rkey 'self'
+   * Delegates to RepoService
    */
   static async upsertOrbytProfileRecord(update: {
     joinDate?: string;
@@ -1282,122 +1255,15 @@ class AtprotoService {
     subscribedChannels?: string[];
     algorithmicFeedProvider?: string | null;
   }): Promise<boolean> {
-    try {
-      const userDid = await this.getCurrentUserDid();
-
-      if (!userDid) {
-        return false;
-      }
-
-      const apiClient = await this.getApiClient();
-
-      if (!apiClient) {
-        return false;
-      }
-      const { api } = apiClient;
-
-      // Read existing
-      let existing: OrbytProfileRecord | null = null;
-
-      try {
-        const rec = await api.com.atproto.repo.getRecord({
-          repo: userDid,
-          collection: 'com.getorbyt.profile',
-          rkey: 'self',
-        });
-        const output: GetRecordOutput = rec.data;
-        existing = (output.value as OrbytProfileRecord) || null;
-      } catch {
-        // No existing record found (this is OK for first-time creation)
-      }
-
-      const nowIso = new Date().toISOString();
-      const existingRecord = existing;
-      const nextRecord: Record<string, unknown> = {
-        $type: 'com.getorbyt.profile',
-        joinDate: existingRecord?.joinDate || update.joinDate || nowIso,
-        updatedAt: nowIso,
-        // Preserve prior fields unless overridden
-        colors: update.colors === undefined ? existingRecord?.colors || null : update.colors,
-        subscribedChannels: update.subscribedChannels ?? existingRecord?.subscribedChannels ?? [],
-        algorithmicFeedProvider:
-          update.algorithmicFeedProvider === undefined
-            ? (existingRecord?.algorithmicFeedProvider ?? null)
-            : update.algorithmicFeedProvider,
-      };
-
-      if (existing) {
-        // putRecord
-        await api.com.atproto.repo.putRecord({
-          repo: userDid,
-          collection: 'com.getorbyt.profile',
-          rkey: 'self',
-          record: nextRecord,
-        });
-      } else {
-        // createRecord
-        await api.com.atproto.repo.createRecord({
-          repo: userDid,
-          collection: 'com.getorbyt.profile',
-          rkey: 'self',
-          record: nextRecord,
-        });
-      }
-
-      return true;
-    } catch {
-      return false;
-    }
+    return RepoService.upsertOrbytProfileRecord(update);
   }
 
   /**
    * Initialize "com.getorbyt.profile" on first login if missing
+   * Delegates to RepoService
    */
   static async initOrbytProfileIfNeeded(): Promise<void> {
-    try {
-      const existing = await this.getOrbytProfileRecord();
-      if (existing) return;
-
-      const userDid = await this.getCurrentUserDid();
-      if (!userDid) return;
-
-      // No legacy migration; initialize without colors by default
-      let colors: { backgroundColor: string; textColor: string } | null = null;
-
-      // Pull current subscribed channels from userStore (filter built-ins)
-      let subscribedChannels: string[] = [];
-      try {
-        const { useUserStore } = await import('../../stores/userStore');
-        const channels = useUserStore.getState().subscribedChannels || [];
-        const allUris = channels.map((c: SubscribedChannel) => c.uri).filter(Boolean);
-        // Filter out built-in channels
-        const BUILT_IN_CHANNELS = ['following', 'your-mix'];
-        subscribedChannels = allUris.filter((uri: string) => !BUILT_IN_CHANNELS.includes(uri));
-      } catch {
-        // ignore errors
-      }
-
-      // Pull current algorithmic feed provider from userStore
-      let algorithmicFeedProvider: string | null = null;
-      try {
-        const { useUserStore } = await import('../../stores/userStore');
-        const { ALGORITHMIC_FEED_PROVIDERS } = await import('../../utils/constants');
-        const provider = useUserStore.getState().algorithmicFeedProvider;
-        // Use current value or default to Bluesky Video
-        algorithmicFeedProvider = provider ?? ALGORITHMIC_FEED_PROVIDERS.BLUESKY_VIDEO.uri;
-      } catch {
-        // ignore errors
-      }
-
-      await this.upsertOrbytProfileRecord({
-        joinDate: new Date().toISOString(),
-        colors,
-        subscribedChannels,
-        algorithmicFeedProvider,
-      });
-    } catch {
-      // best-effort only
-    }
+    return RepoService.initOrbytProfileIfNeeded();
   }
 
   /**

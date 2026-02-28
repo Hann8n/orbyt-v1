@@ -36,7 +36,7 @@ import {
 } from '../services/colors';
 import { getProfileColors } from '../utils/formatting/colors';
 import type { ProfileColorScheme } from '../utils/formatting/colors';
-import { ALGORITHMIC_FEED_PROVIDERS, APP_CONSTANTS } from '../utils/constants';
+import { APP_CONSTANTS, DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI } from '../utils/constants';
 import { Platform, Dimensions } from 'react-native';
 import * as Device from 'expo-device';
 
@@ -123,6 +123,21 @@ export interface SubscribedChannel {
   subscribedAt: number;
 }
 
+export type FeedBootstrapStatus = 'idle' | 'loading' | 'ready' | 'error';
+
+const buildFeedSourceFingerprint = (
+  algorithmicFeedProvider: string | null,
+  subscribedChannels: SubscribedChannel[]
+): string => {
+  const provider = algorithmicFeedProvider ?? 'none';
+  const channelUris = subscribedChannels
+    .map(channel => channel.uri)
+    .filter(uri => !BUILT_IN_CHANNELS.includes(uri))
+    .sort()
+    .join(',');
+  return `${provider}|${channelUris}`;
+};
+
 // User state types - DID-centric design
 export interface UserState {
   // Current user information - DID is the primary identifier
@@ -163,6 +178,11 @@ export interface UserState {
 
   // Subscribed channels - scoped by DID
   subscribedChannels: SubscribedChannel[];
+  feedSourceFingerprint: string; // Stable fingerprint for user-scoped feed query keys
+
+  // Feed bootstrap lifecycle
+  feedBootstrapStatus: FeedBootstrapStatus;
+  feedBootstrapDid: string | null;
 
   // Email verification modal state
   showEmailVerificationModal: boolean;
@@ -247,6 +267,7 @@ export interface UserState {
   // Initialization
   initializeUserState: () => Promise<void>;
   loadSavedAccounts: () => Promise<void>;
+  bootstrapUserFeedSettings: (did: string) => Promise<void>;
   loadUserSpecificSettings: (
     did: string,
     orbytProfileRecord?: OrbytProfileRecord | null
@@ -331,10 +352,15 @@ export const useUserStore = create<UserState>()(
       modalProfileEnabled: getDefaultModalProfileEnabled(), // Enabled by default on iOS devices that don't require compact layout
 
       // Algorithmic feed provider - default to Videos For You
-      algorithmicFeedProvider: ALGORITHMIC_FEED_PROVIDERS.VIDEOS_FOR_YOU.uri,
+      algorithmicFeedProvider: DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
 
       // Subscribed channels
       subscribedChannels: [],
+      feedSourceFingerprint: buildFeedSourceFingerprint(DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI, []),
+
+      // Feed bootstrap lifecycle
+      feedBootstrapStatus: 'idle',
+      feedBootstrapDid: null,
 
       // Email verification modal state
       showEmailVerificationModal: false,
@@ -412,6 +438,8 @@ export const useUserStore = create<UserState>()(
             activeAccountDid: session.did,
             oauthSession: session,
             savedAccounts: updatedAccounts,
+            feedBootstrapStatus: 'loading',
+            feedBootstrapDid: null,
           });
 
           // Show email verification modal once on initial login for unverified users
@@ -430,6 +458,8 @@ export const useUserStore = create<UserState>()(
           // Initialize orbyt profile record (join date, baseline colors/channels)
           // Defer until after interactions complete to improve startup performance
           deferOrbytProfileInit('signIn');
+
+          await get().bootstrapUserFeedSettings(session.did);
 
           prefetchColorsForUser(session.did).then(colors => {
             if (colors) get().setCurrentUserProfileColors(getProfileColors(colors));
@@ -530,10 +560,13 @@ export const useUserStore = create<UserState>()(
             savedAccounts: updatedAccounts,
             activeAccountDid: session.did,
             oauthSession: session,
+            feedBootstrapStatus: 'loading',
+            feedBootstrapDid: null,
           });
 
           // Defer orbyt profile init after state update
           deferOrbytProfileInit('signUp');
+          await get().bootstrapUserFeedSettings(session.did);
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'OAuth sign-up failed';
           set({
@@ -587,7 +620,14 @@ export const useUserStore = create<UserState>()(
             agent: undefined, // Use undefined to match API expectations
             activeAccountDid: null,
             savedAccounts: clearAllAccounts ? [] : get().savedAccounts,
+            algorithmicFeedProvider: DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
             subscribedChannels: [],
+            feedSourceFingerprint: buildFeedSourceFingerprint(
+              DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
+              []
+            ),
+            feedBootstrapStatus: 'idle',
+            feedBootstrapDid: null,
           });
         } catch (error) {
           logger.error('Error during sign out', error, { component: 'userStore' });
@@ -662,6 +702,8 @@ export const useUserStore = create<UserState>()(
             authError: null,
             agent: agent,
             oauthSession: session,
+            feedBootstrapStatus: 'loading',
+            feedBootstrapDid: null,
           });
 
           // Show email verification modal once on initial login for unverified users
@@ -693,16 +735,7 @@ export const useUserStore = create<UserState>()(
           // Load and clean subscribed channels after session restore
           // Skip if called from account switch (settings will be loaded once after)
           if (!skipSettings) {
-            // Already non-blocking (Promise.all not awaited), so no need to defer further
-            Promise.all([
-              get().loadUserSpecificSettings(session.did),
-              get().loadSubscribedChannels(session.did),
-            ]).catch(error => {
-              logger.warn('Failed to load some user settings after session restore', {
-                component: 'userStore',
-                error: error.message,
-              });
-            });
+            await get().bootstrapUserFeedSettings(session.did);
           }
         } catch (error) {
           const errorMessage =
@@ -720,6 +753,14 @@ export const useUserStore = create<UserState>()(
             oauthSession: null,
             agent: undefined,
             activeAccountDid: null,
+            algorithmicFeedProvider: DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
+            subscribedChannels: [],
+            feedSourceFingerprint: buildFeedSourceFingerprint(
+              DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
+              []
+            ),
+            feedBootstrapStatus: 'error',
+            feedBootstrapDid: null,
           });
           if (requiresReauth(error)) {
             throw new Error('oauth_reauth_required');
@@ -783,27 +824,8 @@ export const useUserStore = create<UserState>()(
             });
 
             // Fetch orbyt profile record once and reuse for both settings and channels
-            // This avoids duplicate API calls during account switching
-            let orbytProfileRecord: OrbytProfileRecord | null = null;
-            try {
-              orbytProfileRecord = (await AtprotoService.getOrbytProfileRecordForDid(
-                did
-              )) as OrbytProfileRecord | null;
-            } catch {
-              // Fallback handled in individual functions
-            }
-
-            // Load user-specific data and wait for it to complete
-            // Settings are needed for feed rendering (algorithmicFeedProvider, subscribedChannels)
-            await Promise.all([
-              get().loadUserSpecificSettings(did, orbytProfileRecord),
-              get().loadSubscribedChannels(did, orbytProfileRecord),
-            ]).catch(error => {
-              logger.warn('Failed to load some user settings', {
-                component: 'userStore',
-                error: error.message,
-              });
-            });
+            // Load user-specific settings/channels before unlocking feeds
+            await get().bootstrapUserFeedSettings(did);
 
             // Set isSwitchingAccount to false AFTER settings are loaded
             // This ensures feeds have correct settings before they start fetching
@@ -833,6 +855,14 @@ export const useUserStore = create<UserState>()(
               switchingToHandle: null,
               switchingToAvatar: null,
               activeAccountDid: null,
+              algorithmicFeedProvider: DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
+              subscribedChannels: [],
+              feedSourceFingerprint: buildFeedSourceFingerprint(
+                DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
+                []
+              ),
+              feedBootstrapStatus: 'error',
+              feedBootstrapDid: null,
             });
             throw new Error(
               requiresReauth(restoreErr)
@@ -1010,7 +1040,13 @@ export const useUserStore = create<UserState>()(
               isOrbytChannel: isOrbytChannel(channelData.uri),
               subscribedAt: Date.now(),
             };
-            set({ subscribedChannels: updatedChannels });
+            set(state => ({
+              subscribedChannels: updatedChannels,
+              feedSourceFingerprint: buildFeedSourceFingerprint(
+                state.algorithmicFeedProvider,
+                updatedChannels
+              ),
+            }));
           } else {
             // Add new channel/feed
             const newChannel: SubscribedChannel = {
@@ -1018,7 +1054,14 @@ export const useUserStore = create<UserState>()(
               isOrbytChannel: isOrbytChannel(channelData.uri),
               subscribedAt: Date.now(),
             };
-            set({ subscribedChannels: [...channels, newChannel] });
+            const nextChannels = [...channels, newChannel];
+            set(state => ({
+              subscribedChannels: nextChannels,
+              feedSourceFingerprint: buildFeedSourceFingerprint(
+                state.algorithmicFeedProvider,
+                nextChannels
+              ),
+            }));
           }
 
           // Filter out built-in channels before saving
@@ -1058,7 +1101,13 @@ export const useUserStore = create<UserState>()(
           const channels = get().subscribedChannels;
           const updatedChannels = channels.filter(ch => ch.uri !== uri);
 
-          set({ subscribedChannels: updatedChannels });
+          set(state => ({
+            subscribedChannels: updatedChannels,
+            feedSourceFingerprint: buildFeedSourceFingerprint(
+              state.algorithmicFeedProvider,
+              updatedChannels
+            ),
+          }));
 
           // Save to storage (filter built-ins)
           const key = getUserScopedKey(STORAGE_KEYS.SUBSCRIBED_CHANNELS, currentUser.did);
@@ -1133,7 +1182,14 @@ export const useUserStore = create<UserState>()(
           const remainingChannels = currentChannels.filter(ch => !processedUris.has(ch.uri));
 
           // Update state with remaining channels + new/updated channels
-          set({ subscribedChannels: [...remainingChannels, ...newChannels] });
+          const nextChannels = [...remainingChannels, ...newChannels];
+          set(state => ({
+            subscribedChannels: nextChannels,
+            feedSourceFingerprint: buildFeedSourceFingerprint(
+              state.algorithmicFeedProvider,
+              nextChannels
+            ),
+          }));
 
           // Single storage operation for all changes (filter built-ins)
           const key = getUserScopedKey(STORAGE_KEYS.SUBSCRIBED_CHANNELS, currentUser.did);
@@ -1168,7 +1224,13 @@ export const useUserStore = create<UserState>()(
           const currentChannels = get().subscribedChannels;
           // Filter out unsubscribed channels
           const updatedChannels = currentChannels.filter(ch => !validUris.includes(ch.uri));
-          set({ subscribedChannels: updatedChannels });
+          set(state => ({
+            subscribedChannels: updatedChannels,
+            feedSourceFingerprint: buildFeedSourceFingerprint(
+              state.algorithmicFeedProvider,
+              updatedChannels
+            ),
+          }));
 
           // Single storage operation for all changes (filter built-ins)
           const key = getUserScopedKey(STORAGE_KEYS.SUBSCRIBED_CHANNELS, currentUser.did);
@@ -1231,7 +1293,10 @@ export const useUserStore = create<UserState>()(
             storage.set(key, uri);
           }
 
-          set({ algorithmicFeedProvider: uri });
+          set(state => ({
+            algorithmicFeedProvider: uri,
+            feedSourceFingerprint: buildFeedSourceFingerprint(uri, state.subscribedChannels),
+          }));
 
           // Sync algorithmic feed provider to orbyt profile record (best-effort)
           try {
@@ -1266,13 +1331,12 @@ export const useUserStore = create<UserState>()(
             ? getUserScopedKey(STORAGE_KEYS.ALGORITHMIC_FEED_PROVIDER, currentUser.did)
             : STORAGE_KEYS.ALGORITHMIC_FEED_PROVIDER;
           const value = storage.getString(key) ?? null;
-          // Default to Bluesky Video if not set
-          return value ?? ALGORITHMIC_FEED_PROVIDERS.BLUESKY_VIDEO.uri;
+          return value ?? DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI;
         } catch (error) {
           logger.error('Error getting algorithmic feed provider', error, {
             component: 'userStore',
           });
-          return ALGORITHMIC_FEED_PROVIDERS.BLUESKY_VIDEO.uri;
+          return DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI;
         }
       },
 
@@ -1378,6 +1442,14 @@ export const useUserStore = create<UserState>()(
                     oauthSession: null,
                     agent: undefined,
                     activeAccountDid: null,
+                    algorithmicFeedProvider: DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
+                    subscribedChannels: [],
+                    feedSourceFingerprint: buildFeedSourceFingerprint(
+                      DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
+                      []
+                    ),
+                    feedBootstrapStatus: 'error',
+                    feedBootstrapDid: null,
                   });
                 }
               }
@@ -1448,6 +1520,14 @@ export const useUserStore = create<UserState>()(
             oauthSession: null,
             agent: undefined,
             activeAccountDid: null,
+            algorithmicFeedProvider: DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
+            subscribedChannels: [],
+            feedSourceFingerprint: buildFeedSourceFingerprint(
+              DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
+              []
+            ),
+            feedBootstrapStatus: 'error',
+            feedBootstrapDid: null,
           });
 
           await get().clearAllCaches();
@@ -1461,6 +1541,14 @@ export const useUserStore = create<UserState>()(
             oauthSession: null,
             agent: undefined,
             activeAccountDid: null,
+            algorithmicFeedProvider: DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
+            subscribedChannels: [],
+            feedSourceFingerprint: buildFeedSourceFingerprint(
+              DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
+              []
+            ),
+            feedBootstrapStatus: 'error',
+            feedBootstrapDid: null,
           });
         }
       },
@@ -1512,6 +1600,14 @@ export const useUserStore = create<UserState>()(
                 oauthSession: null,
                 agent: undefined,
                 activeAccountDid: null,
+                algorithmicFeedProvider: DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
+                subscribedChannels: [],
+                feedSourceFingerprint: buildFeedSourceFingerprint(
+                  DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
+                  []
+                ),
+                feedBootstrapStatus: 'error',
+                feedBootstrapDid: null,
               });
             } else if (sessionRestored) {
               // Initialize subscription store in background after interactions complete
@@ -1539,6 +1635,14 @@ export const useUserStore = create<UserState>()(
             oauthSession: null,
             agent: undefined,
             activeAccountDid: null,
+            algorithmicFeedProvider: DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
+            subscribedChannels: [],
+            feedSourceFingerprint: buildFeedSourceFingerprint(
+              DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
+              []
+            ),
+            feedBootstrapStatus: 'error',
+            feedBootstrapDid: null,
           });
         } finally {
           set({ isInitializingAuth: false });
@@ -1578,6 +1682,44 @@ export const useUserStore = create<UserState>()(
         }
       },
 
+      bootstrapUserFeedSettings: async (did: string) => {
+        set({
+          feedBootstrapStatus: 'loading',
+          feedBootstrapDid: null,
+        });
+
+        // Fetch once and fan out to settings/channels loaders to avoid duplicate record requests.
+        let orbytProfileRecord: OrbytProfileRecord | null = null;
+        try {
+          orbytProfileRecord = (await AtprotoService.getOrbytProfileRecordForDid(
+            did
+          )) as OrbytProfileRecord | null;
+        } catch {
+          // Individual loaders have local fallback behavior.
+        }
+
+        try {
+          await Promise.all([
+            get().loadUserSpecificSettings(did, orbytProfileRecord),
+            get().loadSubscribedChannels(did, orbytProfileRecord),
+          ]);
+
+          if (get().currentUser?.did === did) {
+            set({ feedBootstrapStatus: 'ready', feedBootstrapDid: did });
+          }
+        } catch (error) {
+          logger.warn('Failed to bootstrap user feed settings', {
+            component: 'userStore',
+            did,
+            error: error instanceof Error ? error.message : String(error),
+          });
+
+          if (get().currentUser?.did === did) {
+            set({ feedBootstrapStatus: 'error', feedBootstrapDid: did });
+          }
+        }
+      },
+
       loadUserSpecificSettings: async (
         did: string,
         orbytProfileRecord?: OrbytProfileRecord | null
@@ -1611,11 +1753,15 @@ export const useUserStore = create<UserState>()(
               }
             } else {
               // No value in profile record, try local storage
-              algorithmicFeedProvider = await get().getAlgorithmicFeedProvider();
+              const key = getUserScopedKey(STORAGE_KEYS.ALGORITHMIC_FEED_PROVIDER, did);
+              const value = storage.getString(key) ?? null;
+              algorithmicFeedProvider = value ?? DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI;
             }
           } catch {
             // Fallback to local storage if profile record fetch fails
-            algorithmicFeedProvider = await get().getAlgorithmicFeedProvider();
+            const key = getUserScopedKey(STORAGE_KEYS.ALGORITHMIC_FEED_PROVIDER, did);
+            const value = storage.getString(key) ?? null;
+            algorithmicFeedProvider = value ?? DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI;
           }
 
           const currentUser = get().currentUser;
@@ -1626,12 +1772,16 @@ export const useUserStore = create<UserState>()(
           }
 
           // Update state with user-specific settings
-          set({
+          set(state => ({
             feedDebugOverlayEnabled,
             nativeTabsEnabled,
             modalProfileEnabled,
             algorithmicFeedProvider,
-          });
+            feedSourceFingerprint: buildFeedSourceFingerprint(
+              algorithmicFeedProvider,
+              state.subscribedChannels
+            ),
+          }));
         } catch (error) {
           logger.error('Error loading user-specific settings', error, { component: 'userStore' });
         }
@@ -1691,7 +1841,13 @@ export const useUserStore = create<UserState>()(
           const filteredChannels = savedChannels.filter(ch => !BUILT_IN_CHANNELS.includes(ch.uri));
 
           // Set subscribed channels - no merging, no defaults, just the user's subscriptions
-          set({ subscribedChannels: filteredChannels });
+          set(state => ({
+            subscribedChannels: filteredChannels,
+            feedSourceFingerprint: buildFeedSourceFingerprint(
+              state.algorithmicFeedProvider,
+              filteredChannels
+            ),
+          }));
 
           // Always clean up profile record - remove built-ins and sync clean channels
           // This ensures the profile record is cleaned even if it previously had built-ins
@@ -1707,7 +1863,10 @@ export const useUserStore = create<UserState>()(
           }
         } catch (error) {
           logger.error('Error loading subscribed channels', error, { component: 'userStore' });
-          set({ subscribedChannels: [] });
+          set(state => ({
+            subscribedChannels: [],
+            feedSourceFingerprint: buildFeedSourceFingerprint(state.algorithmicFeedProvider, []),
+          }));
         }
       },
     }),
@@ -1733,6 +1892,10 @@ export const useUserStore = create<UserState>()(
         if (filteredChannels.length !== state.subscribedChannels.length) {
           state.subscribedChannels = filteredChannels;
         }
+        state.feedSourceFingerprint = buildFeedSourceFingerprint(
+          state.algorithmicFeedProvider ?? DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
+          state.subscribedChannels
+        );
         // Fill profile colors from MMKV (single source of truth for persisted colors)
         const did = state.activeAccountDid ?? state.currentUser?.did ?? null;
         if (did) {

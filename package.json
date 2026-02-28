@@ -25,6 +25,7 @@
     "check": "yarn type-check && yarn lint && yarn format:check",
     "serve:docs": "npx serve docs -l 5173 --single",
     "prepare": "husky",
+    "test:feed-bootstrap-regression": "npx tsx scripts/regression/firstLoginFeedInit.ts",
     "version:increment-build": "npx tsx scripts/update-version.ts increment-build",
     "version:get-build": "npx tsx scripts/update-version.ts get-build"
   },

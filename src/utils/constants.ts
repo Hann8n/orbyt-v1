@@ -66,6 +66,8 @@ export const ALGORITHMIC_FEED_PROVIDERS = {
   },
 } as const;
 
+export const DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI = ALGORITHMIC_FEED_PROVIDERS.VIDEOS_FOR_YOU.uri;
+
 // View Modes
 export const VIEW_MODES = {
   LIST: 'list',

@@ -1,5 +1,5 @@
 import { useCallback, useImperativeHandle, forwardRef, memo, useRef, useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -22,8 +22,13 @@ const HomeScreen = memo(
     const setLastHomeFeed = useAppStore(s => s.setLastHomeFeed);
     const queryClient = useQueryClient();
     const currentUser = useUserStore(state => state.currentUser);
+    const feedBootstrapStatus = useUserStore(state => state.feedBootstrapStatus);
+    const feedBootstrapDid = useUserStore(state => state.feedBootstrapDid);
     const insets = useSafeAreaInsets();
     useVisibilityRouteTracker('home');
+    const shouldGateHomeFeed =
+      !!currentUser?.did &&
+      (feedBootstrapStatus !== 'ready' || feedBootstrapDid !== currentUser.did);
 
     const triggerRefresh = useCallback(async () => {
       // Refresh both feeds since home screen can show either 'following' or 'your-mix'
@@ -80,13 +85,19 @@ const HomeScreen = memo(
     return (
       <View style={styles.container}>
         <VideoUploadBanner topInset={insets.top} applySafeArea={true} />
-        <FeedPager
-          ref={feedPagerRef}
-          currentFeed={currentFeed}
-          onFeedChange={handleFeedChange}
-          applySafeArea={true}
-          indicatorFontSize={18}
-        />
+        {shouldGateHomeFeed ? (
+          <View style={styles.bootstrapLoadingContainer}>
+            <ActivityIndicator size="small" color={Colors.purple[400]} />
+          </View>
+        ) : (
+          <FeedPager
+            ref={feedPagerRef}
+            currentFeed={currentFeed}
+            onFeedChange={handleFeedChange}
+            applySafeArea={true}
+            indicatorFontSize={18}
+          />
+        )}
       </View>
     );
   })
@@ -98,6 +109,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.black,
     // Prevent white lines at edges when scrolling under tab bar
     overflow: 'hidden',
+  },
+  bootstrapLoadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 
