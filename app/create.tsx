@@ -217,24 +217,36 @@ const CreateScreen: React.FC = () => {
 
   useEffect(() => {
     if (!deletePreviewPlayer) return;
-    if (!isDeletePreviewActive || !deletePreviewUri) {
-      deletePreviewPlayer.pause();
-      deletePreviewPlayer.currentTime = 0;
-      return;
-    }
+    let isCancelled = false;
+    let subscription: { remove: () => void } | null = null;
 
-    // Start playback and retry when the player reports ready.
-    const subscription = deletePreviewPlayer.addListener('statusChange', ({ status }) => {
-      if (status === 'readyToPlay' && isDeletePreviewActive) {
-        deletePreviewPlayer.play();
+    const updateDeletePreviewPlayback = async () => {
+      if (!isDeletePreviewActive || !deletePreviewUri) {
+        deletePreviewPlayer.pause();
+        deletePreviewPlayer.currentTime = 0;
+        return;
       }
+
+      // Keep playback resilient while the source transitions to ready.
+      subscription = deletePreviewPlayer.addListener('statusChange', ({ status }) => {
+        if (status === 'readyToPlay' && isDeletePreviewActive && !isCancelled) {
+          deletePreviewPlayer.play();
+        }
+      });
+
+      await deletePreviewPlayer.replaceAsync({ uri: deletePreviewUri });
+      if (isCancelled) return;
+      deletePreviewPlayer.currentTime = 0;
+      deletePreviewPlayer.play();
+    };
+
+    updateDeletePreviewPlayback().catch(() => {
+      // Source replacement failures are non-fatal; preview can be retried by user action.
     });
 
-    deletePreviewPlayer.currentTime = 0;
-    deletePreviewPlayer.play();
-
     return () => {
-      subscription.remove();
+      isCancelled = true;
+      subscription?.remove();
     };
   }, [deletePreviewPlayer, deletePreviewUri, isDeletePreviewActive]);
 
@@ -243,6 +255,9 @@ const CreateScreen: React.FC = () => {
   }, []);
 
   const getSegmentUri = useCallback((segment: Segment): string => {
+    if (!segment.video || typeof segment.video !== 'object') {
+      return '';
+    }
     if ('uri' in segment.video && typeof segment.video.uri === 'string') {
       return segment.video.uri;
     }
@@ -922,6 +937,7 @@ const CreateScreen: React.FC = () => {
   const handleBackPress = async () => {
     if (isDeletePreviewActive) {
       cancelDeletePreview();
+      return;
     }
     if (isRecordingRef.current) {
       await stopRecording();
