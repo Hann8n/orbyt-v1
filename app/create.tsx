@@ -23,6 +23,7 @@ import {
 } from 'expo-camera';
 import { useRouter, useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -64,6 +65,13 @@ function lensToLabel(lens: string): string {
   return '1x';
 }
 
+interface DeletePreviewState {
+  segmentUri: string;
+  segmentDuration: number;
+  segmentStartTime: number;
+  segmentEndTime: number;
+}
+
 const CreateScreen: React.FC = () => {
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [microphonePermission, requestMicrophonePermission] = useMicrophonePermissions();
@@ -83,6 +91,7 @@ const CreateScreen: React.FC = () => {
   const [lastReadyCameraKey, setLastReadyCameraKey] = useState<string | null>(null);
   const [isOnionSkinningEnabled, setIsOnionSkinningEnabled] = useState(false);
   const [lastFrameThumbnail, setLastFrameThumbnail] = useState<string | null>(null);
+  const [deletePreview, setDeletePreview] = useState<DeletePreviewState | null>(null);
   const setPendingVideoPost = usePendingVideoPostStore(s => s.setPayload);
 
   // Segment manager - single source of truth
@@ -195,6 +204,126 @@ const CreateScreen: React.FC = () => {
   // Derived values from segment manager
   const maxDuration = selectedDuration;
   const availableTime = segmentManagerRef.current?.getAvailableTime() ?? 0;
+  const isDeletePreviewActive = deletePreview !== null;
+  const deletePreviewUri = deletePreview?.segmentUri ?? '';
+
+  const deletePreviewPlayer = useVideoPlayer(
+    deletePreviewUri ? { uri: deletePreviewUri } : null,
+    p => {
+      p.loop = true;
+      p.volume = 1;
+    }
+  );
+
+  useEffect(() => {
+    if (!deletePreviewPlayer) return;
+    if (!isDeletePreviewActive || !deletePreviewUri) {
+      deletePreviewPlayer.pause();
+      deletePreviewPlayer.currentTime = 0;
+      return;
+    }
+
+    // Start playback and retry when the player reports ready.
+    const subscription = deletePreviewPlayer.addListener('statusChange', ({ status }) => {
+      if (status === 'readyToPlay' && isDeletePreviewActive) {
+        deletePreviewPlayer.play();
+      }
+    });
+
+    deletePreviewPlayer.currentTime = 0;
+    deletePreviewPlayer.play();
+
+    return () => {
+      subscription.remove();
+    };
+  }, [deletePreviewPlayer, deletePreviewUri, isDeletePreviewActive]);
+
+  const cancelDeletePreview = useCallback(() => {
+    setDeletePreview(null);
+  }, []);
+
+  const getSegmentUri = useCallback((segment: Segment): string => {
+    if ('uri' in segment.video && typeof segment.video.uri === 'string') {
+      return segment.video.uri;
+    }
+    return '';
+  }, []);
+
+  const startDeletePreview = useCallback(() => {
+    const manager = segmentManagerRef.current;
+    if (!manager) return;
+    const segments = manager.getSegments();
+    if (segments.length === 0) {
+      setDeletePreview(null);
+      return;
+    }
+    const lastSegment = segments[segments.length - 1];
+    const segmentUri = getSegmentUri(lastSegment);
+    if (!segmentUri) {
+      setDeletePreview(null);
+      return;
+    }
+    const totalDuration = manager.getTotalDuration();
+    const segmentDuration = Math.max(lastSegment.duration, 0);
+    const segmentStartTime = Math.max(totalDuration - segmentDuration, 0);
+    setDeletePreview({
+      segmentUri,
+      segmentDuration,
+      segmentStartTime,
+      segmentEndTime: totalDuration,
+    });
+  }, [getSegmentUri]);
+
+  const isSamePreviewAsLastSegment = useCallback(
+    (preview: DeletePreviewState | null): boolean => {
+      if (!preview) return false;
+      const manager = segmentManagerRef.current;
+      if (!manager) return false;
+      const segments = manager.getSegments();
+      const lastSegment = segments[segments.length - 1];
+      const lastSegmentUri = lastSegment ? getSegmentUri(lastSegment) : '';
+      return (
+        !!lastSegment &&
+        lastSegmentUri === preview.segmentUri &&
+        Math.abs(lastSegment.duration - preview.segmentDuration) < 0.01
+      );
+    },
+    [getSegmentUri]
+  );
+
+  const confirmDeletePreview = useCallback(() => {
+    const manager = segmentManagerRef.current;
+    if (!manager || !deletePreview) return;
+    if (isSamePreviewAsLastSegment(deletePreview)) {
+      const removedSegment = manager.removeLastSegment();
+      if (removedSegment) {
+        totalDurationShared.value = manager.getTotalDuration();
+        setSegmentUpdateTrigger(prev => prev + 1);
+      }
+    }
+
+    setDeletePreview(null);
+  }, [deletePreview, isSamePreviewAsLastSegment, totalDurationShared]);
+
+  useEffect(() => {
+    if (!deletePreview) return;
+    if (!isSamePreviewAsLastSegment(deletePreview)) {
+      setDeletePreview(null);
+    }
+  }, [deletePreview, isSamePreviewAsLastSegment, segmentUpdateTrigger]);
+
+  const deletePreviewProgressStyle = useMemo(() => {
+    if (!deletePreview) return null;
+    const safeMax = maxDuration || 1;
+    const startPercent =
+      (Math.min(Math.max(deletePreview.segmentStartTime, 0), safeMax) / safeMax) * 100;
+    const endPercent =
+      (Math.min(Math.max(deletePreview.segmentEndTime, 0), safeMax) / safeMax) * 100;
+    return {
+      left: `${startPercent}%` as const,
+      width: `${Math.max(endPercent - startPercent, 0)}%` as const,
+    };
+  }, [deletePreview, maxDuration]);
 
   // Handle trimmed video from gallery
   const handleTrimmingComplete = useCallback(
@@ -716,6 +845,10 @@ const CreateScreen: React.FC = () => {
   }, [stopRecording]);
 
   const handleDoubleTap = useCallback(() => {
+    if (isDeletePreviewActive) {
+      cancelDeletePreview();
+      return;
+    }
     const now = Date.now();
     const DOUBLE_TAP_DELAY = 300; // milliseconds
 
@@ -738,7 +871,7 @@ const CreateScreen: React.FC = () => {
         tapTimeoutRef.current = null;
       }, DOUBLE_TAP_DELAY);
     }
-  }, [flipCamera]);
+  }, [cancelDeletePreview, flipCamera, isDeletePreviewActive]);
   const toggleFlash = useCallback(() => {
     // Only allow flash on back camera
     if (!isFrontCamera) {
@@ -746,18 +879,11 @@ const CreateScreen: React.FC = () => {
     }
   }, [isFrontCamera]);
 
-  const deleteLastSegment = useCallback(() => {
-    if (!segmentManagerRef.current) return;
-
-    const removedSegment = segmentManagerRef.current.removeLastSegment();
-    if (removedSegment) {
-      totalDurationShared.value = segmentManagerRef.current.getTotalDuration();
-      setSegmentUpdateTrigger(prev => prev + 1);
-    }
-  }, [totalDurationShared]);
-
   const handleToolAction = useCallback(
     (action: string) => {
+      if (action !== 'delete' && isDeletePreviewActive) {
+        cancelDeletePreview();
+      }
       switch (action) {
         case 'gallery':
           pickFromGallery();
@@ -769,7 +895,11 @@ const CreateScreen: React.FC = () => {
           toggleFlash();
           break;
         case 'delete':
-          deleteLastSegment();
+          if (isDeletePreviewActive) {
+            confirmDeletePreview();
+          } else {
+            startDeletePreview();
+          }
           break;
         case 'onion-skin':
           setIsOnionSkinningEnabled(prev => !prev);
@@ -778,10 +908,21 @@ const CreateScreen: React.FC = () => {
           break;
       }
     },
-    [pickFromGallery, flipCamera, toggleFlash, deleteLastSegment]
+    [
+      cancelDeletePreview,
+      confirmDeletePreview,
+      flipCamera,
+      isDeletePreviewActive,
+      pickFromGallery,
+      startDeletePreview,
+      toggleFlash,
+    ]
   );
 
   const handleBackPress = async () => {
+    if (isDeletePreviewActive) {
+      cancelDeletePreview();
+    }
     if (isRecordingRef.current) {
       await stopRecording();
     }
@@ -818,6 +959,9 @@ const CreateScreen: React.FC = () => {
   };
 
   const finishRecording = useCallback(async () => {
+    if (isDeletePreviewActive) {
+      cancelDeletePreview();
+    }
     const manager = segmentManagerRef.current;
     if (!manager || isProcessing) {
       return;
@@ -870,7 +1014,14 @@ const CreateScreen: React.FC = () => {
       });
       router.navigate({ pathname: '/post/[id]', params: { id: 'new' } });
     }
-  }, [router, isProcessing, stopRecording, setPendingVideoPost]);
+  }, [
+    cancelDeletePreview,
+    isDeletePreviewActive,
+    router,
+    isProcessing,
+    setPendingVideoPost,
+    stopRecording,
+  ]);
 
   const cameraContainerLayout = useMemo(
     () => ({
@@ -919,72 +1070,88 @@ const CreateScreen: React.FC = () => {
       );
     }
 
+    const cameraSurface = (
+      <Animated.View style={[styles.cameraPressable, cameraAndroidLayout]}>
+        <Pressable
+          onPress={isDeletePreviewActive ? cancelDeletePreview : handleDoubleTap}
+          style={[styles.cameraPressable, cameraAndroidLayout]}
+        >
+          {/* Wrapper matches camera dimensions so overlay aligns pixel-perfect */}
+          <View style={[styles.cameraWrapper, cameraLayout]}>
+            {isDeletePreviewActive && deletePreviewUri && deletePreviewPlayer ? (
+              <VideoView
+                player={deletePreviewPlayer}
+                style={styles.cameraFill}
+                contentFit="cover"
+                nativeControls={false}
+                surfaceType={Platform.OS === 'android' ? 'textureView' : undefined}
+              />
+            ) : (
+              <CameraView
+                ref={cameraRef}
+                style={styles.cameraFill}
+                active={isFocused && !isTrimmerActive && !isDeletePreviewActive}
+                facing={isFrontCamera ? 'front' : 'back'}
+                mode="video"
+                flash="off"
+                enableTorch={flash === 'on' && !isFrontCamera}
+                mute={!microphonePermission?.granted}
+                mirror={isFrontCamera}
+                videoQuality={isFrontCamera ? '1080p' : '2160p'}
+                videoStabilizationMode="off"
+                animateShutter={false}
+                zoom={zoom}
+                selectedLens={selectedLens ?? undefined}
+                onCameraReady={handleCameraReady}
+                onMountError={e => {
+                  if (__DEV__) console.warn('[Camera] Mount error:', e?.message);
+                }}
+                onAvailableLensesChanged={event => {
+                  const raw = event?.lenses ?? [];
+                  const n = (s: string) => s.toLowerCase();
+                  const physical = raw.filter(
+                    l => !n(l).includes('dual') && !n(l).includes('triple')
+                  );
+                  setAvailableLenses(physical);
+                  setLensDataReceived(true);
+                  if (physical.length > 0) {
+                    setSelectedLens(prev => {
+                      const valid = physical.includes(prev ?? '');
+                      if (valid) return prev;
+                      const wide = physical.find(
+                        l => n(l).includes('wide') && !n(l).includes('ultra')
+                      );
+                      return wide ?? physical[0];
+                    });
+                  }
+                }}
+              />
+            )}
+            {!isDeletePreviewActive && isOnionSkinningEnabled && lastFrameThumbnail && (
+              <Image
+                source={{ uri: lastFrameThumbnail }}
+                style={styles.onionSkinOverlay}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+                pointerEvents="none"
+              />
+            )}
+          </View>
+        </Pressable>
+      </Animated.View>
+    );
+
     return (
       <>
         {/* Camera View - only render when screen is focused and trimmer is not active */}
         <View style={[styles.cameraContainer, cameraContainerLayout]}>
-          {isFocused && !isTrimmerActive && (
-            <GestureDetector gesture={pinchGesture}>
-              <Animated.View style={[styles.cameraPressable, cameraAndroidLayout]}>
-                <Pressable
-                  onPress={handleDoubleTap}
-                  style={[styles.cameraPressable, cameraAndroidLayout]}
-                >
-                  {/* Wrapper matches camera dimensions so overlay aligns pixel-perfect */}
-                  <View style={[styles.cameraWrapper, cameraLayout]}>
-                    <CameraView
-                      ref={cameraRef}
-                      style={styles.cameraFill}
-                      active={isFocused && !isTrimmerActive}
-                      facing={isFrontCamera ? 'front' : 'back'}
-                      mode="video"
-                      flash="off"
-                      enableTorch={flash === 'on' && !isFrontCamera}
-                      mute={!microphonePermission?.granted}
-                      mirror={isFrontCamera}
-                      videoQuality={isFrontCamera ? '1080p' : '2160p'}
-                      videoStabilizationMode="off"
-                      animateShutter={false}
-                      zoom={zoom}
-                      selectedLens={selectedLens ?? undefined}
-                      onCameraReady={handleCameraReady}
-                      onMountError={e => {
-                        if (__DEV__) console.warn('[Camera] Mount error:', e?.message);
-                      }}
-                      onAvailableLensesChanged={event => {
-                        const raw = event?.lenses ?? [];
-                        const n = (s: string) => s.toLowerCase();
-                        const physical = raw.filter(
-                          l => !n(l).includes('dual') && !n(l).includes('triple')
-                        );
-                        setAvailableLenses(physical);
-                        setLensDataReceived(true);
-                        if (physical.length > 0) {
-                          setSelectedLens(prev => {
-                            const valid = physical.includes(prev ?? '');
-                            if (valid) return prev;
-                            const wide = physical.find(
-                              l => n(l).includes('wide') && !n(l).includes('ultra')
-                            );
-                            return wide ?? physical[0];
-                          });
-                        }
-                      }}
-                    />
-                    {isOnionSkinningEnabled && lastFrameThumbnail && (
-                      <Image
-                        source={{ uri: lastFrameThumbnail }}
-                        style={styles.onionSkinOverlay}
-                        contentFit="cover"
-                        cachePolicy="memory-disk"
-                        pointerEvents="none"
-                      />
-                    )}
-                  </View>
-                </Pressable>
-              </Animated.View>
-            </GestureDetector>
-          )}
+          {isFocused &&
+            !isTrimmerActive &&
+            (isDeletePreviewActive ? (
+              cameraSurface
+            ) : (
+              <GestureDetector gesture={pinchGesture}>{cameraSurface}</GestureDetector>
+            ))}
 
           {/* Progress Bar - overlays on top of camera */}
           <View
@@ -1010,149 +1177,157 @@ const CreateScreen: React.FC = () => {
                   animatedProgressStyle,
                 ]}
               />
+              {deletePreviewProgressStyle && (
+                <View style={[styles.pendingDeleteSegmentFill, deletePreviewProgressStyle]} />
+              )}
             </View>
           </View>
 
           {/* Controls */}
-          <View
-            style={[
-              styles.centerButtonContainer,
-              { bottom: bottomNavBarHeight + (isSmallDevice ? 40 : 50) },
-            ]}
-          >
-            {!isRecording &&
-              !isFrontCamera &&
-              isCameraReady &&
-              lensDataReceived &&
-              availableLenses.length !== 1 && (
-                <View style={styles.zoomSelectorContainer}>
-                  {isZoomExpanded ? (
-                    <View style={styles.zoomPicker}>
-                      {availableLenses.length > 0
-                        ? availableLenses.map(lens => {
-                            const isSelected = selectedLens === lens;
-                            const label = lensToLabel(lens);
-                            return (
-                              <Pressable
-                                key={lens}
-                                style={[
-                                  styles.zoomSegment,
-                                  isSelected && styles.zoomSegmentSelected,
-                                ]}
-                                onPress={() => {
-                                  Haptics.selectionAsync();
-                                  setSelectedLens(lens);
-                                  setZoom(0);
-                                  setIsZoomExpanded(false);
-                                }}
-                              >
-                                <Text
+          {!isDeletePreviewActive && (
+            <View
+              style={[
+                styles.centerButtonContainer,
+                { bottom: bottomNavBarHeight + (isSmallDevice ? 40 : 50) },
+              ]}
+            >
+              {!isRecording &&
+                !isFrontCamera &&
+                isCameraReady &&
+                lensDataReceived &&
+                availableLenses.length !== 1 && (
+                  <View style={styles.zoomSelectorContainer}>
+                    {isZoomExpanded ? (
+                      <View style={styles.zoomPicker}>
+                        {availableLenses.length > 0
+                          ? availableLenses.map(lens => {
+                              const isSelected = selectedLens === lens;
+                              const label = lensToLabel(lens);
+                              return (
+                                <Pressable
+                                  key={lens}
                                   style={[
-                                    styles.zoomSegmentText,
-                                    isSelected && styles.zoomSegmentTextSelected,
+                                    styles.zoomSegment,
+                                    isSelected && styles.zoomSegmentSelected,
                                   ]}
+                                  onPress={() => {
+                                    Haptics.selectionAsync();
+                                    setSelectedLens(lens);
+                                    setZoom(0);
+                                    setIsZoomExpanded(false);
+                                  }}
                                 >
-                                  {label}
-                                </Text>
-                              </Pressable>
-                            );
-                          })
-                        : DIGITAL_ZOOM_PRESETS.map(factor => {
-                            const optZoom = Math.log(Math.max(0.5, factor) / 0.5) / Math.log(20);
-                            const isSelected = Math.abs(optZoom - zoom) < 0.03;
-                            const label = factor === 0.5 ? '.5x' : `${factor}x`;
-                            return (
-                              <Pressable
-                                key={factor}
-                                style={[
-                                  styles.zoomSegment,
-                                  isSelected && styles.zoomSegmentSelected,
-                                ]}
-                                onPress={() => {
-                                  Haptics.selectionAsync();
-                                  setZoom(optZoom);
-                                  setSelectedPresetLabel(label);
-                                  setIsZoomExpanded(false);
-                                }}
-                              >
-                                <Text
+                                  <Text
+                                    style={[
+                                      styles.zoomSegmentText,
+                                      isSelected && styles.zoomSegmentTextSelected,
+                                    ]}
+                                  >
+                                    {label}
+                                  </Text>
+                                </Pressable>
+                              );
+                            })
+                          : DIGITAL_ZOOM_PRESETS.map(factor => {
+                              const optZoom = Math.log(Math.max(0.5, factor) / 0.5) / Math.log(20);
+                              const isSelected = Math.abs(optZoom - zoom) < 0.03;
+                              const label = factor === 0.5 ? '.5x' : `${factor}x`;
+                              return (
+                                <Pressable
+                                  key={factor}
                                   style={[
-                                    styles.zoomSegmentText,
-                                    isSelected && styles.zoomSegmentTextSelected,
+                                    styles.zoomSegment,
+                                    isSelected && styles.zoomSegmentSelected,
                                   ]}
+                                  onPress={() => {
+                                    Haptics.selectionAsync();
+                                    setZoom(optZoom);
+                                    setSelectedPresetLabel(label);
+                                    setIsZoomExpanded(false);
+                                  }}
                                 >
-                                  {label}
-                                </Text>
-                              </Pressable>
-                            );
-                          })}
-                    </View>
-                  ) : (
-                    <Pressable style={styles.zoomCollapsed} onPress={() => setIsZoomExpanded(true)}>
-                      <Text style={styles.zoomCollapsedText}>
-                        {availableLenses.length > 0 && selectedLens
-                          ? lensToLabel(selectedLens)
-                          : selectedPresetLabel}
-                      </Text>
-                    </Pressable>
-                  )}
-                </View>
-              )}
-            <View style={styles.recordButtonArea}>
-              <View style={styles.recordButtonAreaSpacer} />
-              <Pressable
-                onPressIn={handlePressIn}
-                onPressOut={handlePressOut}
-                disabled={availableTime <= 0 || !isCameraReady}
-                style={styles.recordButtonContainer}
-              >
-                <Animated.View
-                  style={[
-                    styles.recordButton,
-                    animatedButtonOpacityStyle,
-                    availableTime <= 0 && styles.recordButtonDisabled,
-                  ]}
-                >
-                  {isLoadingFromGallery ? (
-                    <ActivityIndicator size="large" color="white" />
-                  ) : (
-                    <View
-                      style={[
-                        styles.captureButtonInner,
-                        availableTime <= 0 && styles.captureButtonInnerDisabled,
-                      ]}
-                    />
-                  )}
-                </Animated.View>
-              </Pressable>
-              <View style={styles.recordButtonAreaSpacer}>
+                                  <Text
+                                    style={[
+                                      styles.zoomSegmentText,
+                                      isSelected && styles.zoomSegmentTextSelected,
+                                    ]}
+                                  >
+                                    {label}
+                                  </Text>
+                                </Pressable>
+                              );
+                            })}
+                      </View>
+                    ) : (
+                      <Pressable
+                        style={styles.zoomCollapsed}
+                        onPress={() => setIsZoomExpanded(true)}
+                      >
+                        <Text style={styles.zoomCollapsedText}>
+                          {availableLenses.length > 0 && selectedLens
+                            ? lensToLabel(selectedLens)
+                            : selectedPresetLabel}
+                        </Text>
+                      </Pressable>
+                    )}
+                  </View>
+                )}
+              <View style={styles.recordButtonArea}>
+                <View style={styles.recordButtonAreaSpacer} />
                 <Pressable
-                  style={({ pressed }) => [
-                    styles.durationSelectorCollapsed,
-                    pressed && { opacity: 0.7 },
-                  ]}
-                  onPress={() => {
-                    const currentTotal = segmentManagerRef.current?.getTotalDuration() ?? 0;
-                    const availableOptions = DURATION_OPTIONS.filter(
-                      opt => opt.value >= currentTotal
-                    );
-                    Haptics.selectionAsync();
-                    Alert.alert('Max duration', 'Select maximum recording length', [
-                      ...availableOptions.map(opt => ({
-                        text: opt.label,
-                        onPress: () => setSelectedDuration(opt.value),
-                      })),
-                      { text: 'Cancel', style: 'cancel' as const },
-                    ]);
-                  }}
+                  onPressIn={handlePressIn}
+                  onPressOut={handlePressOut}
+                  disabled={availableTime <= 0 || !isCameraReady}
+                  style={styles.recordButtonContainer}
                 >
-                  <Text style={styles.durationSelectorCollapsedText}>
-                    {DURATION_OPTIONS.find(opt => opt.value === selectedDuration)?.label || '16s'}
-                  </Text>
+                  <Animated.View
+                    style={[
+                      styles.recordButton,
+                      animatedButtonOpacityStyle,
+                      availableTime <= 0 && styles.recordButtonDisabled,
+                    ]}
+                  >
+                    {isLoadingFromGallery ? (
+                      <ActivityIndicator size="large" color="white" />
+                    ) : (
+                      <View
+                        style={[
+                          styles.captureButtonInner,
+                          availableTime <= 0 && styles.captureButtonInnerDisabled,
+                        ]}
+                      />
+                    )}
+                  </Animated.View>
                 </Pressable>
+                <View style={styles.recordButtonAreaSpacer}>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.durationSelectorCollapsed,
+                      pressed && { opacity: 0.7 },
+                    ]}
+                    onPress={() => {
+                      const currentTotal = segmentManagerRef.current?.getTotalDuration() ?? 0;
+                      const availableOptions = DURATION_OPTIONS.filter(
+                        opt => opt.value >= currentTotal
+                      );
+                      Haptics.selectionAsync();
+                      Alert.alert('Max duration', 'Select maximum recording length', [
+                        ...availableOptions.map(opt => ({
+                          text: opt.label,
+                          onPress: () => setSelectedDuration(opt.value),
+                        })),
+                        { text: 'Cancel', style: 'cancel' as const },
+                      ]);
+                    }}
+                  >
+                    <Text style={styles.durationSelectorCollapsedText}>
+                      {DURATION_OPTIONS.find(opt => opt.value === selectedDuration)?.label || '16s'}
+                    </Text>
+                  </Pressable>
+                </View>
               </View>
             </View>
-          </View>
+          )}
         </View>
       </>
     );
@@ -1187,6 +1362,7 @@ const CreateScreen: React.FC = () => {
         onToolPress={handleToolAction}
         flashActive={flash === 'on'}
         hasSegments={(segmentManagerRef.current?.getTotalDuration() ?? 0) > 0}
+        isDeletePreviewActive={isDeletePreviewActive}
         isFrontCamera={isFrontCamera}
         disableGalleryUpload={
           Platform.OS === 'android' ||
@@ -1284,6 +1460,13 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.purple[500],
     borderRadius: 0,
     minHeight: 4, // Ensure minimum visible height on tablets
+  },
+  pendingDeleteSegmentFill: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    backgroundColor: Colors.coral[500],
+    minHeight: 4,
   },
   backButton: {
     position: 'absolute',

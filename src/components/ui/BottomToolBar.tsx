@@ -12,12 +12,13 @@ interface BottomToolBarProps {
   mode: 'create' | 'edit';
   onToolPress?: (toolName: string) => void;
   flashActive?: boolean;
-  hasSegments?: boolean; // Add this prop to control delete button state
-  isFrontCamera?: boolean; // Add this prop to disable flash in front camera mode
-  disableGalleryUpload?: boolean; // When true, disable gallery button (e.g., not enough remaining time)
-  onNextPress?: () => void; // Optional next button handler
-  nextButtonDisabled?: boolean; // Disable next button
-  onionSkinningActive?: boolean; // When true, onion skinning overlay is shown
+  hasSegments?: boolean;
+  isDeletePreviewActive?: boolean;
+  isFrontCamera?: boolean;
+  disableGalleryUpload?: boolean;
+  onNextPress?: () => void;
+  nextButtonDisabled?: boolean;
+  onionSkinningActive?: boolean;
 }
 
 const BottomToolBar: React.FC<BottomToolBarProps> = ({
@@ -25,6 +26,7 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
   onToolPress,
   flashActive,
   hasSegments = false,
+  isDeletePreviewActive = false,
   isFrontCamera = false,
   disableGalleryUpload = false,
   onNextPress,
@@ -70,7 +72,9 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
     const isDisabled = isDeleteDisabled || isFlashDisabled || isGalleryDisabled;
 
     let iconColor = 'white';
-    if (tool.id === 'flash' && isFlashDisabled) {
+    if (tool.id === 'delete' && isDeletePreviewActive && !isDeleteDisabled) {
+      iconColor = Colors.coral[500];
+    } else if (tool.id === 'flash' && isFlashDisabled) {
       iconColor = 'rgba(255, 255, 255, 0.75)';
     } else if (tool.id === 'flash' && flashActive) {
       iconColor = Colors.amber[400];
