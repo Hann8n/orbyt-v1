@@ -144,6 +144,16 @@ const CreateScreen: React.FC = () => {
     }
   }, [selectedDuration, totalDurationShared]);
 
+  const getSegmentUri = useCallback((segment: Segment): string => {
+    if (!segment.video || typeof segment.video !== 'object') {
+      return '';
+    }
+    if ('uri' in segment.video && typeof segment.video.uri === 'string') {
+      return segment.video.uri;
+    }
+    return '';
+  }, []);
+
   // Extract only the last segment's frame for onion skinning (single source, no re-extraction of older clips)
   useEffect(() => {
     const ac = new AbortController();
@@ -154,10 +164,7 @@ const CreateScreen: React.FC = () => {
     }
 
     const lastSeg = segments[segments.length - 1];
-    const videoUri =
-      typeof lastSeg.video === 'object' && lastSeg.video && 'uri' in lastSeg.video
-        ? (lastSeg.video as { uri: string }).uri
-        : '';
+    const videoUri = getSegmentUri(lastSeg);
     if (!videoUri || lastSeg.duration <= 0) {
       setLastFrameThumbnail(null);
       return () => ac.abort();
@@ -171,7 +178,7 @@ const CreateScreen: React.FC = () => {
         if (!ac.signal.aborted) setLastFrameThumbnail(null);
       });
     return () => ac.abort();
-  }, [segmentUpdateTrigger]);
+  }, [getSegmentUri, segmentUpdateTrigger]);
 
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -253,16 +260,6 @@ const CreateScreen: React.FC = () => {
 
   const cancelDeletePreview = useCallback(() => {
     setDeletePreview(null);
-  }, []);
-
-  const getSegmentUri = useCallback((segment: Segment): string => {
-    if (!segment.video || typeof segment.video !== 'object') {
-      return '';
-    }
-    if ('uri' in segment.video && typeof segment.video.uri === 'string') {
-      return segment.video.uri;
-    }
-    return '';
   }, []);
 
   const startDeletePreview = useCallback(() => {
