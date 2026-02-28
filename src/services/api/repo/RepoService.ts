@@ -5,6 +5,7 @@
 
 import { logger } from '../../../utils/logger';
 import { AtprotoCore } from '../core';
+import { DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI } from '../../../utils/constants';
 import type {
   ProfileRecord,
   OrbytProfileRecord,
@@ -306,9 +307,9 @@ export class RepoService {
       let algorithmicFeedProvider: string | null = null;
       try {
         const { useUserStore } = await import('../../../stores/userStore');
-        const { ALGORITHMIC_FEED_PROVIDERS } = await import('../../../utils/constants');
         const provider = useUserStore.getState().algorithmicFeedProvider;
-        algorithmicFeedProvider = provider ?? ALGORITHMIC_FEED_PROVIDERS.BLUESKY_VIDEO.uri;
+        algorithmicFeedProvider =
+          provider === undefined ? DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI : provider;
       } catch {
         // ignore
       }

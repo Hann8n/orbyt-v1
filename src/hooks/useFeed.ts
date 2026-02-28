@@ -66,6 +66,9 @@ export function useFeed(
   // Use direct selector to prevent re-renders when other user data changes
   const currentUser = useUserStore(state => state.currentUser);
   const isSwitchingAccount = useUserStore(state => state.isSwitchingAccount);
+  const feedSourceFingerprint = useUserStore(state => state.feedSourceFingerprint);
+  const feedBootstrapStatus = useUserStore(state => state.feedBootstrapStatus);
+  const feedBootstrapDid = useUserStore(state => state.feedBootstrapDid);
   const agent = useUserStore(state => state.agent);
   const prevModReadyRef = useRef(false);
 
@@ -96,16 +99,27 @@ export function useFeed(
   // 4. For user-specific feeds, we have a user DID
   // 5. Moderation prefs loaded (from MMKV or fetch) so applyModerationBatch can filter
   const isUserSpecificFeed = feedOption === 'following' || feedOption === 'your-mix';
+  const isFeedBootstrapReady =
+    !isUserSpecificFeed ||
+    (feedBootstrapStatus === 'ready' &&
+      !!effectiveUserDid &&
+      feedBootstrapDid === effectiveUserDid);
   const queryEnabled =
     enabled &&
     !isSwitchingAccount &&
     !!agent &&
     (!isUserSpecificFeed || !!effectiveUserDid) &&
-    modReady;
+    modReady &&
+    isFeedBootstrapReady;
 
   // Create optimized infinite query with centralized configuration
   // When effectiveUserDid or feedOption changes, React Query treats this as a new query and fetches fresh data
-  const queryKey = queryKeys.feed.infinite(feedOption, effectiveUserDid ?? undefined);
+  const sourceFingerprintForQuery = isUserSpecificFeed ? feedSourceFingerprint : undefined;
+  const queryKey = queryKeys.feed.infinite(
+    feedOption,
+    effectiveUserDid ?? undefined,
+    sourceFingerprintForQuery
+  );
 
   const query = useInfiniteQuery({
     queryKey,
