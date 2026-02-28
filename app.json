@@ -64,7 +64,7 @@
           "cameraPermission": "We need camera access to record videos for posts and take profile photos (e.g. on Create or when updating your avatar).",
           "microphonePermission": "We need microphone access to record audio with your videos (e.g. when you tap record on Create).",
           "recordAudioAndroid": true,
-          "enableBarcodeScanner": false
+          "barcodeScannerEnabled": false
         }
       ],
       [

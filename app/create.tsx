@@ -9,7 +9,6 @@ import {
   Platform,
   StatusBar,
   AppState,
-  NativeEventEmitter,
   useWindowDimensions,
   type EventSubscription,
   ActivityIndicator,
@@ -267,70 +266,39 @@ const CreateScreen: React.FC = () => {
     }
   }, [recordingStartTime, recordingElapsed]);
 
-  // Set up event listeners for react-native-clip-trim (Spec API for New Arch, NativeEventEmitter for Old Arch)
+  // Set up event listeners for react-native-clip-trim (TurboModule API).
   useEffect(() => {
     const VideoTrimModule = VideoTrim as Spec;
+    listenerSubscription.current.onCancelTrimming = VideoTrimModule.onCancelTrimming(() => {
+      setIsLoadingFromGallery(false);
+      setIsProcessing(false);
+      setIsTrimmerActive(false);
+    });
 
-    if (VideoTrimModule && typeof VideoTrimModule.onFinishTrimming === 'function') {
-      listenerSubscription.current.onCancelTrimming = VideoTrimModule.onCancelTrimming(() => {
-        setIsLoadingFromGallery(false);
-        setIsProcessing(false);
-        setIsTrimmerActive(false);
-      });
+    listenerSubscription.current.onCancel = VideoTrimModule.onCancel(() => {
+      setIsLoadingFromGallery(false);
+      setIsProcessing(false);
+      setIsTrimmerActive(false);
+    });
 
-      listenerSubscription.current.onCancel = VideoTrimModule.onCancel(() => {
-        setIsLoadingFromGallery(false);
-        setIsProcessing(false);
-        setIsTrimmerActive(false);
-      });
+    listenerSubscription.current.onHide = VideoTrimModule.onHide(() => {
+      setIsTrimmerActive(false);
+    });
 
-      listenerSubscription.current.onHide = VideoTrimModule.onHide(() => {
-        setIsTrimmerActive(false);
-      });
+    listenerSubscription.current.onShow = VideoTrimModule.onShow(() => {
+      stopRecordingImmediate();
+      setIsTrimmerActive(true);
+    });
 
-      listenerSubscription.current.onShow = VideoTrimModule.onShow(() => {
-        stopRecordingImmediate();
-        setIsTrimmerActive(true);
-      });
+    listenerSubscription.current.onFinishTrimming =
+      VideoTrimModule.onFinishTrimming(handleTrimmingComplete);
 
-      listenerSubscription.current.onFinishTrimming =
-        VideoTrimModule.onFinishTrimming(handleTrimmingComplete);
-
-      listenerSubscription.current.onError = VideoTrimModule.onError(({ message }) => {
-        Alert.alert('Error', message || 'Failed to trim video');
-        setIsLoadingFromGallery(false);
-        setIsProcessing(false);
-        setIsTrimmerActive(false);
-      });
-    } else {
-      const eventEmitter = new NativeEventEmitter(VideoTrim);
-      listenerSubscription.current.onFinishTrimming = eventEmitter.addListener(
-        'VideoTrim',
-        (event: { name?: string; message?: string } & Record<string, unknown>) => {
-          if (event.name === 'onFinishTrimming') {
-            // Extract data from event (old architecture includes name property)
-            const { name: _name, ...data } = event;
-            handleTrimmingComplete(
-              data as { outputPath: string; startTime: number; endTime: number }
-            );
-          } else if (event.name === 'onError') {
-            Alert.alert('Error', event.message || 'Failed to trim video');
-            setIsLoadingFromGallery(false);
-            setIsProcessing(false);
-            setIsTrimmerActive(false);
-          } else if (event.name === 'onCancel') {
-            setIsLoadingFromGallery(false);
-            setIsProcessing(false);
-            setIsTrimmerActive(false);
-          } else if (event.name === 'onShow') {
-            stopRecordingImmediate();
-            setIsTrimmerActive(true);
-          } else if (event.name === 'onHide') {
-            setIsTrimmerActive(false);
-          }
-        }
-      );
-    }
+    listenerSubscription.current.onError = VideoTrimModule.onError(({ message }) => {
+      Alert.alert('Error', message || 'Failed to trim video');
+      setIsLoadingFromGallery(false);
+      setIsProcessing(false);
+      setIsTrimmerActive(false);
+    });
 
     return () => {
       Object.values(listenerSubscription.current).forEach(listener => listener?.remove());
@@ -357,24 +325,6 @@ const CreateScreen: React.FC = () => {
     abortControllerRef.current = new AbortController();
     return () => abortControllerRef.current?.abort();
   }, []);
-
-  // Cleanup when component unmounts or recordingStartTime changes
-  useEffect(() => {
-    const camera = cameraRef.current;
-    return () => {
-      if (isRecordingRef.current && camera) {
-        camera.stopRecording();
-        recordingStartTime.value = null;
-        isRecordingRef.current = false;
-        setIsRecording(false);
-      }
-      if (tapTimeoutRef.current) {
-        clearTimeout(tapTimeoutRef.current);
-        tapTimeoutRef.current = null;
-      }
-      setIsProcessing(false);
-    };
-  }, [recordingStartTime]);
 
   // Keep status bar hidden even when app returns from background
   useEffect(() => {
@@ -405,6 +355,11 @@ const CreateScreen: React.FC = () => {
           isRecordingRef.current = false;
           setIsRecording(false);
         }
+        if (tapTimeoutRef.current) {
+          clearTimeout(tapTimeoutRef.current);
+          tapTimeoutRef.current = null;
+        }
+        setIsProcessing(false);
         setFlash('off');
       };
     }, [recordingStartTime])
@@ -980,6 +935,7 @@ const CreateScreen: React.FC = () => {
                     <CameraView
                       ref={cameraRef}
                       style={styles.cameraFill}
+                      active={isFocused && !isTrimmerActive}
                       facing={isFrontCamera ? 'front' : 'back'}
                       mode="video"
                       flash="off"

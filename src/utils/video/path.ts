@@ -39,7 +39,7 @@ function isPhotosLibraryPath(path: string): boolean {
  * Strips fragment identifiers (#...) from file paths
  * iOS asset URIs may include fragment identifiers that need to be removed
  */
-function stripFragment(path: string): string {
+export function stripPathFragment(path: string): string {
   const fragmentIndex = path.indexOf('#');
   return fragmentIndex >= 0 ? path.substring(0, fragmentIndex) : path;
 }
@@ -50,14 +50,14 @@ function stripFragment(path: string): string {
  * - Strips fragment identifiers
  * - Ensures absolute path on iOS
  */
-function normalizePath(path: string): string {
+export function normalizePathForNative(path: string): string {
   if (!path) return '';
 
   // Remove file:// prefix
   let normalized = path.replace(/^file:\/\//, '');
 
   // Strip fragment identifiers (iOS asset URIs)
-  normalized = stripFragment(normalized);
+  normalized = stripPathFragment(normalized);
 
   // Ensure absolute path on iOS
   if (Platform.OS === 'ios' && normalized && !normalized.startsWith('/')) {
@@ -70,10 +70,10 @@ function normalizePath(path: string): string {
 /**
  * Adds file:// prefix if not present
  */
-function toFileUri(path: string): string {
+export function ensureFileUri(path: string): string {
   if (!path) return '';
-  const normalized = normalizePath(path);
-  return normalized.startsWith('file://') ? normalized : `file://${normalized}`;
+  const normalized = normalizePathForNative(path);
+  return normalized ? `file://${normalized}` : '';
 }
 
 /**
@@ -153,7 +153,7 @@ export async function resolveVideoPath(
     };
   }
 
-  let localPath = normalizePath(videoPath);
+  let localPath = normalizePathForNative(videoPath);
   let source: 'local' | 'icloud' | 'sandbox' | 'processed' = 'local';
 
   // Try to resolve via MediaLibrary if we have an assetId (handles iCloud downloads)
@@ -171,7 +171,7 @@ export async function resolveVideoPath(
       });
 
       if (assetInfo.localUri) {
-        localPath = normalizePath(assetInfo.localUri);
+        localPath = normalizePathForNative(assetInfo.localUri);
         source = 'icloud';
 
         if (DEBUG) {
@@ -205,7 +205,7 @@ export async function resolveVideoPath(
   let size = 0;
 
   try {
-    const fileUri = toFileUri(localPath);
+    const fileUri = ensureFileUri(localPath);
     const file = new File(fileUri);
     exists = file.exists;
     size = file.size || 0;
@@ -232,7 +232,7 @@ export async function resolveVideoPath(
   }
 
   const result: VideoPathInfo = {
-    uri: toFileUri(localPath),
+    uri: ensureFileUri(localPath),
     localPath,
     exists,
     size,

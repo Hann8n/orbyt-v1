@@ -4,7 +4,12 @@ import * as MediaLibrary from 'expo-media-library';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { File, Directory, Paths } from 'expo-file-system';
 import { Video as VideoCompressor } from 'react-native-compressor';
-import { resolveVideoPath } from '../../utils/video/path';
+import {
+  ensureFileUri,
+  normalizePathForNative,
+  resolveVideoPath,
+  stripPathFragment,
+} from '../../utils/video/path';
 import { logger } from '../../utils/logger';
 
 // Expo Camera video result type
@@ -121,10 +126,7 @@ class VideoProcessingService {
   static async getVideoDurationFromFile(videoPath: string): Promise<number> {
     try {
       // Normalize path for FFprobe
-      let normalizedPath = videoPath.replace('file://', '');
-      if (Platform.OS === 'ios' && !normalizedPath.startsWith('/')) {
-        normalizedPath = '/' + normalizedPath;
-      }
+      const normalizedPath = normalizePathForNative(videoPath);
 
       // Try FFprobe first if available
       if (FFprobeKit) {
@@ -299,7 +301,7 @@ class VideoProcessingService {
       videoPath,
       assetId ? ({ assetId } as ImagePicker.ImagePickerAsset) : undefined
     );
-    const localPath = standardizedPath.replace('file://', '');
+    const localPath = normalizePathForNative(standardizedPath);
 
     // Analyze properties from the standardized file
     const props = await this.analyzeVideoProperties(localPath);
@@ -327,7 +329,7 @@ class VideoProcessingService {
       MERGE_TARGET_FPS
     );
 
-    return this.ensureFileProtocol(normalizedPath);
+    return ensureFileUri(normalizedPath);
   }
 
   /**
@@ -339,7 +341,7 @@ class VideoProcessingService {
   ): Promise<boolean> {
     try {
       const standardized = await this.standardizeVideoPath(videoPath, asset);
-      const localPath = standardized.replace('file://', '');
+      const localPath = normalizePathForNative(standardized);
       const props = await this.analyzeVideoProperties(localPath, asset);
 
       const codec = (props.codec || '').toLowerCase();
@@ -611,7 +613,7 @@ class VideoProcessingService {
         const originalInfo = await this.getVideoInfo(localVideoPath);
 
         // Ensure file:// prefix for local file
-        const finalPath = this.ensureFileProtocol(compressedPath);
+        const finalPath = ensureFileUri(compressedPath);
 
         return {
           path: finalPath,
@@ -662,7 +664,7 @@ class VideoProcessingService {
       // Try automatic compression first (WhatsApp-like)
       try {
         const autoCompressed = await this.compressVideoAuto(localVideoPath, assetId);
-        const compressedFile = new File(autoCompressed.path.replace('file://', ''));
+        const compressedFile = new File(normalizePathForNative(autoCompressed.path));
         const compressedSize = compressedFile.exists ? compressedFile.size || 0 : 0;
 
         if (compressedSize <= maxSizeBytes) {
@@ -708,7 +710,7 @@ class VideoProcessingService {
             } catch {
               // Ignore cleanup failure
             }
-            const finalPath = this.ensureFileProtocol(outputFile.uri);
+            const finalPath = ensureFileUri(outputFile.uri);
             return {
               path: finalPath,
               duration: 10, // Default duration
@@ -739,7 +741,7 @@ class VideoProcessingService {
         } catch {
           // Ignore cleanup failure
         }
-        const finalPath = this.ensureFileProtocol(minimalFile.uri);
+        const finalPath = ensureFileUri(minimalFile.uri);
         return {
           path: finalPath,
           duration: 10,
@@ -798,13 +800,6 @@ class VideoProcessingService {
   }
 
   /**
-   * Ensures file path has file:// prefix
-   */
-  private static ensureFileProtocol(path: string): string {
-    return path.startsWith('file://') ? path : `file://${path}`;
-  }
-
-  /**
    * Helper to extract video path from ImagePickerAsset or ExpoCameraVideo
    */
   private static getVideoPath(video: ImagePicker.ImagePickerAsset | ExpoCameraVideo): string {
@@ -813,15 +808,6 @@ class VideoProcessingService {
     }
     // Fallback (shouldn't happen)
     return '';
-  }
-
-  /**
-   * Strips fragment identifiers (#...) from file paths
-   * iOS asset URIs may include fragment identifiers that need to be removed
-   */
-  private static stripFragment(path: string): string {
-    const fragmentIndex = path.indexOf('#');
-    return fragmentIndex >= 0 ? path.substring(0, fragmentIndex) : path;
   }
 
   /**
@@ -894,10 +880,7 @@ class VideoProcessingService {
       };
 
       // Normalize path for FFprobe
-      let normalizedPath = videoPath.replace('file://', '');
-      if (Platform.OS === 'ios' && !normalizedPath.startsWith('/')) {
-        normalizedPath = '/' + normalizedPath;
-      }
+      const normalizedPath = normalizePathForNative(videoPath);
 
       // Try FFprobe first if available
       if (FFprobeKit) {
@@ -1085,13 +1068,8 @@ class VideoProcessingService {
       }
 
       // Normalize paths
-      let normalizedInput = inputPath.replace('file://', '');
-      let normalizedOutput = outputPath.replace('file://', '');
-
-      if (Platform.OS === 'ios') {
-        if (!normalizedInput.startsWith('/')) normalizedInput = '/' + normalizedInput;
-        if (!normalizedOutput.startsWith('/')) normalizedOutput = '/' + normalizedOutput;
-      }
+      const normalizedInput = normalizePathForNative(inputPath);
+      const normalizedOutput = normalizePathForNative(outputPath);
 
       // Analyze input video properties (including HDR metadata where available)
       const inputProps = await this.analyzeVideoProperties(inputPath);
@@ -1151,7 +1129,7 @@ class VideoProcessingService {
           throw new Error('Normalization completed but output file not found');
         }
 
-        return this.ensureFileProtocol(normalizedOutput);
+        return ensureFileUri(normalizedOutput);
       } else {
         const failStackTrace = await session.getFailStackTrace();
         const output = await session.getOutput();
@@ -1190,7 +1168,7 @@ class VideoProcessingService {
     let localVideoPath = await this.getLocalVideoPath(videoPath, assetId);
 
     // Strip fragment identifier from path (iOS asset URIs may include #...)
-    localVideoPath = VideoProcessingService.stripFragment(localVideoPath);
+    localVideoPath = stripPathFragment(localVideoPath);
 
     // Analyze video to determine target resolution
     const asset = 'assetId' in video ? (video as ImagePicker.ImagePickerAsset) : undefined;
@@ -1210,10 +1188,10 @@ class VideoProcessingService {
       MERGE_TARGET_FPS
     );
 
-    const finalPath = this.ensureFileProtocol(normalizedPath);
+    const finalPath = ensureFileUri(normalizedPath);
 
     // Verify normalized file exists
-    const normalizedFile = new File(finalPath.replace('file://', ''));
+    const normalizedFile = new File(normalizePathForNative(finalPath));
     if (!normalizedFile.exists) {
       throw new Error('Normalized video file was not created');
     }
@@ -1283,7 +1261,7 @@ class VideoProcessingService {
         }
       }
 
-      const mergedPath = this.ensureFileProtocol(outputFile.uri);
+      const mergedPath = ensureFileUri(outputFile.uri);
       return {
         path: mergedPath,
         duration: totalDuration,
@@ -1360,10 +1338,7 @@ class VideoProcessingService {
       });
 
       // Normalize paths
-      let normalizedOutput = outputPath.replace('file://', '');
-      if (Platform.OS === 'ios' && !normalizedOutput.startsWith('/')) {
-        normalizedOutput = '/' + normalizedOutput;
-      }
+      const normalizedOutput = normalizePathForNative(outputPath);
 
       // Build FFmpeg complex filter command
       let inputCmd = '';
@@ -1381,10 +1356,7 @@ class VideoProcessingService {
 
         // Normalize path for FFmpeg
         // Remove fragment identifier (#...) that iOS gallery URIs may contain
-        let normalizedPath = VideoProcessingService.stripFragment(videoPath.replace('file://', ''));
-        if (Platform.OS === 'ios' && !normalizedPath.startsWith('/')) {
-          normalizedPath = '/' + normalizedPath;
-        }
+        const normalizedPath = normalizePathForNative(videoPath);
 
         // Add input to command
         inputCmd += `-i "${normalizedPath}" `;
@@ -1444,7 +1416,7 @@ class VideoProcessingService {
         logger.info('Complex filter merge completed successfully', {
           component: 'VideoProcessingService',
         });
-        return this.ensureFileProtocol(normalizedOutput);
+        return ensureFileUri(normalizedOutput);
       } else {
         const failStackTrace = await session.getFailStackTrace();
         const output = await session.getOutput();
@@ -1506,7 +1478,7 @@ class VideoProcessingService {
         const compressedVideo = await this.compressVideoAuto(localVideoPath, assetId, onProgress);
 
         // Get compressed file size
-        const compressedFile = new File(compressedVideo.path.replace('file://', ''));
+        const compressedFile = new File(normalizePathForNative(compressedVideo.path));
         const compressedSize = compressedFile.exists ? compressedFile.size || 0 : 0;
 
         logger.info('Video compression completed', {
@@ -1712,7 +1684,7 @@ class VideoProcessingService {
       } else {
         localVideoPath = await this.getLocalVideoPath(videoPath, assetId);
       }
-      const videoUri = this.ensureFileProtocol(localVideoPath);
+      const videoUri = ensureFileUri(localVideoPath);
 
       const quality = options?.quality ?? 0.8;
       // Extract the very first frame (0ms). Lower quality (e.g. 0.5) for fast preview background.
@@ -1720,7 +1692,7 @@ class VideoProcessingService {
         time: 0,
         quality,
       });
-      return this.ensureFileProtocol(uri);
+      return ensureFileUri(uri);
     } catch (error) {
       logger.error('Error extracting first frame', error, { component: 'VideoProcessingService' });
       throw error;
@@ -1747,7 +1719,7 @@ class VideoProcessingService {
       } else {
         localVideoPath = await this.getLocalVideoPath(videoPath, assetId);
       }
-      const videoUri = this.ensureFileProtocol(localVideoPath);
+      const videoUri = ensureFileUri(localVideoPath);
 
       // Extract the very last frame (1ms before end to stay within bounds)
       const timeMs = Math.max(0, Math.round((durationSeconds - 0.001) * 1000));

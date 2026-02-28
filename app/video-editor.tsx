@@ -20,7 +20,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useVideoPlayer, VideoView, VideoPlayer } from 'expo-video';
 import { File, Directory, Paths } from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
-import { resolveVideoPath, VideoPathInfo } from '../src/utils/video/path';
+import {
+  ensureFileUri,
+  normalizePathForNative,
+  resolveVideoPath,
+  VideoPathInfo,
+} from '../src/utils/video/path';
 import { DEFAULT_BUFFER_OPTIONS } from '../src/utils/video/helpers';
 import { CloseFillIcon } from '../src/components/ui/Icon';
 import { Colors } from '../src/theme';
@@ -436,12 +441,11 @@ const VideoEditorScreen: React.FC = () => {
   useEffect(() => {
     const tempFiles = tempFilesRef.current;
     return () => {
-      tempFiles.forEach(async file => {
+      tempFiles.forEach(file => {
         try {
-          const normalizedPath = file.replace('file://', '');
-          const tempFile = new File(normalizedPath);
+          const tempFile = new File(normalizePathForNative(file));
           if (tempFile.exists) {
-            await tempFile.delete();
+            tempFile.delete();
           }
         } catch (error) {
           logger.warn('Failed to cleanup temp file', { component: 'VideoEditor', error });
@@ -452,70 +456,15 @@ const VideoEditorScreen: React.FC = () => {
 
   // Generate temporary file path using new FileSystem API
   const getTempFilePath = useCallback(async (): Promise<string> => {
-    try {
-      const timestamp = Date.now();
-      const random = Math.random().toString(36).substring(7);
-      const fileName = `video_edit_${timestamp}_${random}.mp4`;
-
-      // Use new FileSystem API like VideoProcessingService
-      const tempDir = new Directory(Paths.cache, `video_edit_${timestamp}`);
-      await tempDir.create({ intermediates: true });
-
-      const outputFile = new File(tempDir, fileName);
-      let tempPath = outputFile.uri;
-
-      // Remove file:// prefix
-      tempPath = tempPath.replace(/^file:\/\//, '');
-
-      // Ensure absolute path for iOS
-      if (Platform.OS === 'ios' && !tempPath.startsWith('/')) {
-        tempPath = '/' + tempPath;
-      }
-
-      // Validate path has directory structure
-      if (!tempPath.includes('/') || (tempPath.endsWith(fileName) && !tempPath.includes('/'))) {
-        throw new Error(`Invalid temp path generated: ${tempPath}`);
-      }
-
-      tempFilesRef.current.push(tempPath);
-      return tempPath;
-    } catch (_error) {
-      // Fallback to Paths API if new API fails
-      const timestamp = Date.now();
-      const random = Math.random().toString(36).substring(7);
-      const fileName = `video_edit_${timestamp}_${random}.mp4`;
-
-      // Use Paths.cache as fallback (same as primary path)
-      let tempDir: string | null = null;
-      try {
-        const cacheDir = new Directory(Paths.cache);
-        if (cacheDir.exists) {
-          tempDir = cacheDir.uri;
-        }
-      } catch {
-        // If cache fails, we can't proceed
-      }
-
-      if (!tempDir) {
-        throw new Error('Unable to determine temporary directory');
-      }
-
-      tempDir = tempDir.replace(/^file:\/\//, '');
-      const normalizedDir = tempDir.endsWith('/') ? tempDir : `${tempDir}/`;
-      let tempPath = `${normalizedDir}${fileName}`;
-
-      // Ensure absolute path for iOS
-      if (Platform.OS === 'ios' && !tempPath.startsWith('/')) {
-        tempPath = '/' + tempPath;
-      }
-
-      if (!tempPath.includes('/') || tempPath === fileName) {
-        throw new Error(`Invalid temp path generated: ${tempPath}`);
-      }
-
-      tempFilesRef.current.push(tempPath);
-      return tempPath;
-    }
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substring(7);
+    const fileName = `video_edit_${timestamp}_${random}.mp4`;
+    const tempDir = new Directory(Paths.cache, `video_edit_${timestamp}`);
+    tempDir.create({ intermediates: true, idempotent: true });
+    const outputFile = new File(tempDir, fileName);
+    const tempPath = normalizePathForNative(outputFile.uri);
+    tempFilesRef.current.push(tempPath);
+    return tempPath;
   }, []);
 
   // Add text overlay - immediately add empty overlay to video and start editing
@@ -699,7 +648,7 @@ const VideoEditorScreen: React.FC = () => {
       }
 
       // Update merged video path
-      const finalPath = workingPath.startsWith('file://') ? workingPath : `file://${workingPath}`;
+      const finalPath = ensureFileUri(workingPath);
       setMergedVideoPath(finalPath);
 
       // Reset video player

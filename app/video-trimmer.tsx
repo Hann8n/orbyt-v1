@@ -1,8 +1,7 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import { Alert, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { NativeEventEmitter, NativeModules } from 'react-native';
-import { showEditor, isValidFile, type Spec } from 'react-native-clip-trim';
+import VideoTrim, { showEditor, isValidFile, type Spec } from 'react-native-clip-trim';
 import { resolveVideoPath } from '../src/utils/video/path';
 import { useVideoTrimStore } from '../src/stores/videoTrimStore';
 import VideoProcessingService from '../src/services/video/VideoProcessingService';
@@ -18,11 +17,8 @@ const VideoTrimmerScreen: React.FC = () => {
   }>();
   const router = useRouter();
   const listeners = useRef<{
-    onFinishTrimming?:
-      | import('react-native').EmitterSubscription
-      | (() => void)
-      | { remove: () => void };
-    onError?: import('react-native').EmitterSubscription | (() => void) | { remove: () => void };
+    onFinishTrimming?: { remove: () => void };
+    onError?: { remove: () => void };
   }>({});
   const hasOpenedEditor = useRef(false);
   const didSucceed = useRef(false);
@@ -79,46 +75,16 @@ const VideoTrimmerScreen: React.FC = () => {
   );
 
   useEffect(() => {
-    const NativeVideoTrim = NativeModules.VideoTrim as unknown as Spec &
-      Partial<import('react-native').NativeModule>;
-
-    if (NativeVideoTrim && typeof NativeVideoTrim.onFinishTrimming === 'function') {
-      listeners.current.onFinishTrimming = NativeVideoTrim.onFinishTrimming(handleTrimmingComplete);
-      listeners.current.onError = NativeVideoTrim.onError(({ message }: { message?: string }) =>
-        handleTrimError(message)
-      );
-    } else {
-      const eventEmitter = new NativeEventEmitter(
-        NativeVideoTrim as import('react-native').NativeModule
-      );
-      listeners.current.onFinishTrimming = eventEmitter.addListener(
-        'VideoTrim',
-        (event: { name?: string; [key: string]: unknown }) => {
-          if (event.name === 'onFinishTrimming') {
-            const { name: _name, ...data } = event;
-            handleTrimmingComplete(data as Parameters<typeof handleTrimmingComplete>[0]);
-          }
-        }
-      );
-      listeners.current.onError = eventEmitter.addListener(
-        'VideoTrim',
-        (event: { name?: string; message?: string }) => {
-          if (event.name === 'onError') handleTrimError(event.message);
-        }
-      );
-    }
+    const NativeVideoTrim = VideoTrim as Spec;
+    listeners.current.onFinishTrimming = NativeVideoTrim.onFinishTrimming(handleTrimmingComplete);
+    listeners.current.onError = NativeVideoTrim.onError(({ message }: { message?: string }) =>
+      handleTrimError(message)
+    );
+    const currentListeners = listeners.current;
 
     return () => {
-      if (listeners.current.onFinishTrimming && 'remove' in listeners.current.onFinishTrimming) {
-        listeners.current.onFinishTrimming.remove();
-      } else if (typeof listeners.current.onFinishTrimming === 'function') {
-        listeners.current.onFinishTrimming();
-      }
-      if (listeners.current.onError && 'remove' in listeners.current.onError) {
-        listeners.current.onError.remove();
-      } else if (typeof listeners.current.onError === 'function') {
-        listeners.current.onError();
-      }
+      currentListeners.onFinishTrimming?.remove();
+      currentListeners.onError?.remove();
     };
   }, [handleTrimmingComplete, handleTrimError]);
 

@@ -1,5 +1,5 @@
-import { Platform } from 'react-native';
 import { logger } from '../../utils/logger';
+import { ensureFileUri, normalizePathForNative } from '../../utils/video/path';
 
 // Lazy import FFmpegKit to avoid errors when native module isn't linked yet
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- FFmpegKit types from native module
@@ -39,38 +39,6 @@ export interface BackgroundMusicOptions {
  */
 class VideoEditingService {
   /**
-   * Normalizes a file path for FFmpeg usage
-   * - Removes file:// prefix
-   * - Ensures absolute path for iOS
-   * - Preserves full directory structure
-   */
-  private static normalizePath(path: string): string {
-    if (!path) {
-      throw new Error('Path cannot be empty');
-    }
-
-    // Remove file:// prefix if present
-    let normalized = path.replace(/^file:\/\//, '');
-
-    // Ensure we have an absolute path for iOS
-    // Only add leading slash if path doesn't already have one AND doesn't start with a valid absolute path
-    if (Platform.OS === 'ios') {
-      // If path doesn't start with /, it might be a relative path
-      // But if it starts with /private or /var, it's already absolute
-      if (normalized && !normalized.startsWith('/')) {
-        normalized = '/' + normalized;
-      }
-    }
-
-    // Validate that we have a proper path (not just a filename)
-    if (normalized && !normalized.includes('/') && normalized.endsWith('.mp4')) {
-      throw new Error(`Invalid path: ${normalized} - missing directory`);
-    }
-
-    return normalized;
-  }
-
-  /**
    * Escapes special characters in text for FFmpeg drawtext filter
    * FFmpeg requires escaping of colons, single quotes, backslashes, etc.
    */
@@ -102,8 +70,8 @@ class VideoEditingService {
       }
 
       // Normalize paths
-      const normalizedInput = this.normalizePath(videoPath);
-      const normalizedOutput = this.normalizePath(outputPath);
+      const normalizedInput = normalizePathForNative(videoPath);
+      const normalizedOutput = normalizePathForNative(outputPath);
 
       // Log paths for debugging
       logger.info('FFmpeg paths', {
@@ -126,7 +94,7 @@ class VideoEditingService {
       drawTextFilter += `:y=${options.y}`;
 
       if (options.fontFile) {
-        const normalizedFontPath = this.normalizePath(options.fontFile);
+        const normalizedFontPath = normalizePathForNative(options.fontFile);
         drawTextFilter += `:fontfile=${normalizedFontPath}`;
       }
 
@@ -157,7 +125,7 @@ class VideoEditingService {
       if (ReturnCode.isCancel(returnCode)) throw new Error('FFmpeg operation cancelled');
       if (ReturnCode.isSuccess(returnCode)) {
         logger.info('Text overlay added successfully', { component: 'VideoEditingService' });
-        return outputPath.startsWith('file://') ? outputPath : `file://${outputPath}`;
+        return ensureFileUri(outputPath);
       } else {
         const failStackTrace = await session.getFailStackTrace();
         const output = await session.getOutput();
@@ -209,9 +177,9 @@ class VideoEditingService {
       }
 
       // Normalize paths
-      const normalizedInput = this.normalizePath(videoPath);
-      const normalizedMusic = this.normalizePath(musicPath);
-      const normalizedOutput = this.normalizePath(outputPath);
+      const normalizedInput = normalizePathForNative(videoPath);
+      const normalizedMusic = normalizePathForNative(musicPath);
+      const normalizedOutput = normalizePathForNative(outputPath);
 
       // Build filter for audio mixing
       // [0:a] is video audio, [1:a] is music
@@ -243,7 +211,7 @@ class VideoEditingService {
       if (ReturnCode.isCancel(returnCode)) throw new Error('FFmpeg operation cancelled');
       if (ReturnCode.isSuccess(returnCode)) {
         logger.info('Background music added successfully', { component: 'VideoEditingService' });
-        return outputPath.startsWith('file://') ? outputPath : `file://${outputPath}`;
+        return ensureFileUri(outputPath);
       } else {
         const failStackTrace = await session.getFailStackTrace();
         const output = await session.getOutput();
@@ -282,8 +250,8 @@ class VideoEditingService {
       }
 
       // Normalize paths
-      const normalizedInput = this.normalizePath(videoPath);
-      const normalizedOutput = this.normalizePath(outputPath);
+      const normalizedInput = normalizePathForNative(videoPath);
+      const normalizedOutput = normalizePathForNative(outputPath);
 
       // Clamp volume to valid range
       const clampedVolume = Math.max(MIN_VOLUME, Math.min(MAX_VOLUME, volume));
@@ -311,7 +279,7 @@ class VideoEditingService {
       if (ReturnCode.isCancel(returnCode)) throw new Error('FFmpeg operation cancelled');
       if (ReturnCode.isSuccess(returnCode)) {
         logger.info('Volume adjusted successfully', { component: 'VideoEditingService' });
-        return outputPath.startsWith('file://') ? outputPath : `file://${outputPath}`;
+        return ensureFileUri(outputPath);
       } else {
         const failStackTrace = await session.getFailStackTrace();
         const output = await session.getOutput();
@@ -356,8 +324,8 @@ class VideoEditingService {
       }
 
       // Normalize paths
-      const normalizedInput = this.normalizePath(videoPath);
-      const normalizedOutput = this.normalizePath(outputPath);
+      const normalizedInput = normalizePathForNative(videoPath);
+      const normalizedOutput = normalizePathForNative(outputPath);
 
       const duration = endTime - startTime;
 
@@ -381,7 +349,7 @@ class VideoEditingService {
       const returnCode = await session.getReturnCode();
       if (ReturnCode.isCancel(returnCode)) throw new Error('FFmpeg operation cancelled');
       if (ReturnCode.isSuccess(returnCode)) {
-        const finalPath = outputPath.startsWith('file://') ? outputPath : `file://${outputPath}`;
+        const finalPath = ensureFileUri(outputPath);
         // Brief delay to ensure file is flushed
         await new Promise(resolve => setTimeout(resolve, 100));
         logger.info('Video trimmed successfully', { component: 'VideoEditingService' });
@@ -424,8 +392,8 @@ class VideoEditingService {
         throw new Error('FFmpegKit is not available');
       }
 
-      const normalizedInput = this.normalizePath(videoPath);
-      const normalizedOutput = this.normalizePath(outputPath);
+      const normalizedInput = normalizePathForNative(videoPath);
+      const normalizedOutput = normalizePathForNative(outputPath);
 
       // Clamp pan offsets
       const panX = Math.max(-1, Math.min(1, panOffsetX || 0));
@@ -444,7 +412,7 @@ class VideoEditingService {
       const returnCode = await session.getReturnCode();
       if (ReturnCode.isCancel(returnCode)) throw new Error('FFmpeg operation cancelled');
       if (ReturnCode.isSuccess(returnCode)) {
-        const finalPath = outputPath.startsWith('file://') ? outputPath : `file://${outputPath}`;
+        const finalPath = ensureFileUri(outputPath);
         // Brief delay to ensure file is flushed
         await new Promise(resolve => setTimeout(resolve, 100));
         logger.info('Video cropped successfully', { component: 'VideoEditingService' });
