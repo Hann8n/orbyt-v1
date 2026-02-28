@@ -122,6 +122,7 @@ const CreateScreen: React.FC = () => {
       return () => {
         setIsFocused(false);
         setLastReadyCameraKey(null);
+        setDeletePreview(null);
       };
     }, [])
   );
