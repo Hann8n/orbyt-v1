@@ -36,14 +36,14 @@ const HomeScreen = memo(
       const userDid = currentUser?.did;
 
       // Use invalidateQueries with refetchType to ensure it refetches active queries
-      // This is more reliable than refetchQueries for inactive queries
+      // Prefix matching avoids coupling invalidation to source fingerprint key segments.
       queryClient.invalidateQueries({
-        queryKey: queryKeys.feed.infinite('following', userDid ?? undefined),
+        queryKey: queryKeys.feed.byUser('following', userDid ?? undefined),
         exact: false,
         refetchType: 'active', // Only refetch active queries
       });
       queryClient.invalidateQueries({
-        queryKey: queryKeys.feed.infinite('your-mix', userDid ?? undefined),
+        queryKey: queryKeys.feed.byUser('your-mix', userDid ?? undefined),
         exact: false,
         refetchType: 'active', // Only refetch active queries
       });

@@ -267,15 +267,15 @@ export interface UserState {
   // Initialization
   initializeUserState: () => Promise<void>;
   loadSavedAccounts: () => Promise<void>;
-  bootstrapUserFeedSettings: (did: string) => Promise<void>;
+  bootstrapUserFeedSettings: (did: string) => Promise<boolean>;
   loadUserSpecificSettings: (
     did: string,
     orbytProfileRecord?: OrbytProfileRecord | null
-  ) => Promise<void>;
+  ) => Promise<boolean>;
   loadSubscribedChannels: (
     did: string,
     orbytProfileRecord?: OrbytProfileRecord | null
-  ) => Promise<void>;
+  ) => Promise<boolean>;
 }
 
 // Storage keys
@@ -1699,14 +1699,22 @@ export const useUserStore = create<UserState>()(
         }
 
         try {
-          await Promise.all([
+          const [settingsLoaded, channelsLoaded] = await Promise.all([
             get().loadUserSpecificSettings(did, orbytProfileRecord),
             get().loadSubscribedChannels(did, orbytProfileRecord),
           ]);
 
-          if (get().currentUser?.did === did) {
+          const bootstrapSucceeded = settingsLoaded && channelsLoaded;
+
+          if (get().currentUser?.did === did && bootstrapSucceeded) {
             set({ feedBootstrapStatus: 'ready', feedBootstrapDid: did });
+            return true;
           }
+
+          if (get().currentUser?.did === did) {
+            set({ feedBootstrapStatus: 'error', feedBootstrapDid: did });
+          }
+          return false;
         } catch (error) {
           logger.warn('Failed to bootstrap user feed settings', {
             component: 'userStore',
@@ -1717,6 +1725,7 @@ export const useUserStore = create<UserState>()(
           if (get().currentUser?.did === did) {
             set({ feedBootstrapStatus: 'error', feedBootstrapDid: did });
           }
+          return false;
         }
       },
 
@@ -1782,8 +1791,10 @@ export const useUserStore = create<UserState>()(
               state.subscribedChannels
             ),
           }));
+          return true;
         } catch (error) {
           logger.error('Error loading user-specific settings', error, { component: 'userStore' });
+          return false;
         }
       },
 
@@ -1861,12 +1872,14 @@ export const useUserStore = create<UserState>()(
               error: error instanceof Error ? error.message : String(error),
             });
           }
+          return true;
         } catch (error) {
           logger.error('Error loading subscribed channels', error, { component: 'userStore' });
           set(state => ({
             subscribedChannels: [],
             feedSourceFingerprint: buildFeedSourceFingerprint(state.algorithmicFeedProvider, []),
           }));
+          return false;
         }
       },
     }),

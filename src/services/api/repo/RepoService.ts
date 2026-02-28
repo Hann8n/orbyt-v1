@@ -308,7 +308,8 @@ export class RepoService {
       try {
         const { useUserStore } = await import('../../../stores/userStore');
         const provider = useUserStore.getState().algorithmicFeedProvider;
-        algorithmicFeedProvider = provider ?? DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI;
+        algorithmicFeedProvider =
+          provider === undefined ? DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI : provider;
       } catch {
         // ignore
       }
