@@ -18,7 +18,7 @@ import { useSegments } from 'expo-router';
 import { Canvas, Rect } from '@shopify/react-native-skia';
 import { formatTime } from '../../../utils/formatting/time';
 import { Colors } from '../../../theme';
-import { useDeviceLayout } from '../../../hooks/useDeviceLayout';
+import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import { useUIStore } from '../../../stores/uiStore';
 import { useOverlayVisibility } from '../../../context/FeedIndicatorContext';
 import {

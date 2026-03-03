@@ -6,6 +6,7 @@ import { getBottomNavBarHeight } from '../../utils/device/screen';
 import { useDeviceLayout } from '../../hooks/useDeviceLayout';
 import Icon from './Icon';
 import { Colors } from './UI';
+import { BORDER_RADIUS } from '@/utils/constants';
 
 interface BottomToolBarProps {
   mode: 'create' | 'edit';
@@ -234,7 +235,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.neutral[50],
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.LARGE,
     paddingVertical: 8,
     paddingHorizontal: 16,
     minWidth: 60,

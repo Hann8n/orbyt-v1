@@ -207,13 +207,12 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       [feedOption, headerComponent]
     );
 
-    // Viewport calculations (single source of truth for list + cards)
     const viewportDimensions = useMemo(
       () => getViewportDimensions(isModal, isHeaderFeed, insets),
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       [isModal, isHeaderFeed, insets, width, screenHeight]
     );
 
-    // Card height: standard 9:16 portrait card from screen width, capped by screen height (not viewport).
     const cardHeight = useMemo(
       () => getVideoCardHeight(width, screenHeight),
       [width, screenHeight]
@@ -225,7 +224,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       isActive: Boolean(isVisible),
     });
 
-    // Compute final blocking state in render
     const isHeaderBlockingPlayback = useMemo(() => {
       if (!headerComponent || !isVisible || viewMode !== 'list') {
         return false;
@@ -463,7 +461,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           scrollOffsetYSV.value = y;
           if (contentScrollProgressOutput && fadeDist > 0) {
             // Reanimated SharedValue: mutating .value is the intended API (UI-thread sync), not the prop reference.
-            // eslint-disable-next-line react-hooks/immutability
+
             contentScrollProgressOutput.value = Math.max(0, Math.min(1, y / fadeDist));
           }
         },

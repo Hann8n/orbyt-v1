@@ -42,7 +42,7 @@ import VerticalListSheet, {
 } from '../src/components/ui/VerticalListSheet';
 import BottomToolBar from '../src/components/ui/BottomToolBar';
 import { getBottomNavBarHeight } from '../src/utils/device/screen';
-import { useDeviceLayout } from '../src/hooks/useDeviceLayout';
+import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import { logger } from '../src/utils/logger';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');

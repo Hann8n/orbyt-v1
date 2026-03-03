@@ -1,23 +1,10 @@
 /**
  * Layout calculation utilities.
- *
- * "Small phone" requires BOTH short-side AND long-side to be within the caps.
- * Using OR (the old behaviour) caused iPhone 13 mini (375×812) to be
- * misclassified as small because its short side equals the SE threshold,
- * even though its aspect ratio is a normal 9:16.
- *
- *   SE 1st gen   320×568  short=320 ≤ 375, long=568  ≤ 720  → small ✓
- *   SE 2nd/3rd   375×667  short=375 ≤ 375, long=667  ≤ 720  → small ✓
- *   13 mini      375×812  short=375 ≤ 375, long=812  > 720  → NOT small ✓
- *   14 / 15      390×844  short=390 > 375                   → NOT small ✓
+ * Small phone: shortSide ≤ 375 and longSide ≤ 720.
  */
 
 import * as Device from 'expo-device';
 import { Dimensions } from 'react-native';
-
-// ---------------------------------------------------------------------------
-// Exported constants — imported by useDeviceLayout and any other consumer
-// ---------------------------------------------------------------------------
 
 export const TABLET_SHORT_SIDE_DP = 600;
 export const SMALL_PHONE_SHORT_SIDE_DP = 375;
@@ -27,12 +14,6 @@ export const LAYOUT = {
   TAB_NAV_HEIGHT: 45,
   SMALL_SCREEN_NAV_HEIGHT: 40,
 } as const;
-
-// ---------------------------------------------------------------------------
-// Pure classification — accepts dimensions, returns device flags.
-// Imported by useDeviceLayout (reactive) and the non-reactive helpers
-// getBottomNavBarHeight / getViewportDimensions below.
-// ---------------------------------------------------------------------------
 
 export interface DeviceClass {
   isTablet: boolean;
@@ -50,19 +31,17 @@ export function classifyDevice(width: number, height: number): DeviceClass {
   return { isTablet, isSmallPhone, isCompact: isTablet || isSmallPhone };
 }
 
-// ---------------------------------------------------------------------------
-// Non-reactive helpers — for stores and module-level code only.
-// Prefer useDeviceLayout() inside React components.
-// ---------------------------------------------------------------------------
-
 const getWindowDimensions = () => Dimensions.get('window');
 
-export const getBottomNavBarHeight = (insets: { bottom: number }): number => {
+export const getBottomNavBarHeight = (insets: { bottom: number }, isCompact?: boolean): number => {
+  if (isCompact !== undefined) {
+    return (
+      (isCompact ? LAYOUT.SMALL_SCREEN_NAV_HEIGHT : LAYOUT.TAB_NAV_HEIGHT) + (insets.bottom || 0)
+    );
+  }
   const { width, height } = getWindowDimensions();
-  const { isCompact } = classifyDevice(width, height);
-  return (
-    (isCompact ? LAYOUT.SMALL_SCREEN_NAV_HEIGHT : LAYOUT.TAB_NAV_HEIGHT) + (insets.bottom || 0)
-  );
+  const { isCompact: c } = classifyDevice(width, height);
+  return (c ? LAYOUT.SMALL_SCREEN_NAV_HEIGHT : LAYOUT.TAB_NAV_HEIGHT) + (insets.bottom || 0);
 };
 
 export const getViewportDimensions = (
@@ -73,9 +52,7 @@ export const getViewportDimensions = (
   const { width, height } = getWindowDimensions();
   const effectiveInsets = insets ?? { top: 0, bottom: 0, left: 0, right: 0 };
   const { isCompact } = classifyDevice(width, height);
-  const bottomNavBarHeight =
-    (isCompact ? LAYOUT.SMALL_SCREEN_NAV_HEIGHT : LAYOUT.TAB_NAV_HEIGHT) +
-    (effectiveInsets.bottom || 0);
+  const bottomNavBarHeight = getBottomNavBarHeight(effectiveInsets, isCompact);
   const useFullHeight = isModal || isCompact;
   return {
     width,

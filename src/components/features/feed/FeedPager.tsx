@@ -32,7 +32,7 @@ import { useRouter } from 'expo-router';
 import { SvgXml } from 'react-native-svg';
 import { Colors } from '../../../theme';
 import FeedRenderer from './FeedRenderer';
-import { useDeviceLayout } from '../../../hooks/useDeviceLayout';
+import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ListFeedViewRef } from '../../../types';
 import type { ProfileRef } from '../../../utils/navigation/tabRefs';

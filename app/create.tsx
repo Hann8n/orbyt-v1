@@ -34,9 +34,9 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Icon, { CloseFillIcon, ArrowRightFillIcon } from '../src/components/ui/Icon';
 import BottomToolBar from '../src/components/ui/BottomToolBar';
 import * as Device from 'expo-device';
-import { getBottomNavBarHeight } from '../src/utils/device/screen';
-import { useDeviceLayout } from '../src/hooks/useDeviceLayout';
-import { logger } from '../src/utils/logger';
+import { getBottomNavBarHeight } from '@/utils/device/screen';
+import { useDeviceLayout } from '@/hooks/useDeviceLayout';
+import { logger } from '@/utils/logger';
 import { Colors } from '../src/theme';
 import { hexToRGBA } from '../src/utils/formatting/colors';
 import * as Haptics from 'expo-haptics';
@@ -203,11 +203,8 @@ const CreateScreen: React.FC = () => {
     setLastReadyCameraKey(cameraReadyKey);
   }, [cameraReadyKey]);
 
-  // Use a 16:9 frame when the device's native aspect ratio fits 16:9 and the device is not a tablet;
-  // otherwise fall back to a full-screen camera preview. fitsNative16x9 is aspect-ratio-based, so
-  // tall-but-narrow phones (e.g. iPhone 13 mini) can still take the 16:9 path when tall enough.
   const cameraHeight = fitsNative16x9 && !isTabletDevice ? cameraHeightFor16x9 : screenHeight;
-  const cameraWidth = screenWidth; // Use full width
+  const cameraWidth = screenWidth;
 
   // Derived values from segment manager
   const maxDuration = selectedDuration;
@@ -1124,7 +1121,11 @@ const CreateScreen: React.FC = () => {
                 selectedLens={selectedLens ?? undefined}
                 onCameraReady={handleCameraReady}
                 onMountError={e => {
-                  if (__DEV__) logger.warn('[Camera] Mount error:', e?.message);
+                  if (__DEV__)
+                    logger.warn('[Camera] Mount error:', {
+                      component: 'Camera',
+                      message: e?.message,
+                    });
                 }}
                 onAvailableLensesChanged={event => {
                   const raw = event?.lenses ?? [];

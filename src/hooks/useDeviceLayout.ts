@@ -9,14 +9,15 @@ const NATIVE_16x9 = 16 / 9 - 0.02; // ≈ 1.758
 export interface DeviceLayout extends DeviceClass {
   screenWidth: number;
   screenHeight: number;
-  /** Height minus top safe-area inset — use this for full-screen video sizing. */
+  /** Height minus top safe-area inset. */
   availableHeight: number;
-  /** Screen aspect ratio (h/w) ≥ 16/9. Key camera sizing off this, not isSmallPhone. */
+  /** Screen aspect ratio (h/w) ≥ 16/9. */
   fitsNative16x9: boolean;
-  /** Math.min(width * 16/9, availableHeight) — ready to use as a height style value. */
+  /** min(width * 16/9, availableHeight). */
   cameraHeightFor16x9: number;
 }
 
+/** Returns device layout. Subscribes to window dimensions and safe area insets. */
 export function useDeviceLayout(): DeviceLayout {
   const { width, height } = useWindowDimensions();
   const { top } = useSafeAreaInsets();
