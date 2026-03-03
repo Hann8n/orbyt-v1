@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { classifyDevice, type DeviceClass } from '../utils/device/screen';
+import { classifyDevice, type DeviceClass } from '@/utils/device/screen';
 
 // Tolerance absorbs dp-rounding on high-density screens.
 const NATIVE_16x9 = 16 / 9 - 0.02; // ≈ 1.758
@@ -22,14 +22,15 @@ export function useDeviceLayout(): DeviceLayout {
   const { top } = useSafeAreaInsets();
 
   return useMemo(() => {
-    const availableHeight = height - top;
+    const safeWidth = Math.max(width, 1);
+    const availableHeight = Math.max(0, height - top);
     return {
       ...classifyDevice(width, height),
       screenWidth: width,
       screenHeight: height,
       availableHeight,
-      fitsNative16x9: height / width >= NATIVE_16x9,
-      cameraHeightFor16x9: Math.min((width * 16) / 9, availableHeight),
+      fitsNative16x9: height / safeWidth >= NATIVE_16x9,
+      cameraHeightFor16x9: Math.min((safeWidth * 16) / 9, availableHeight),
     };
   }, [width, height, top]);
 }

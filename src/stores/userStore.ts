@@ -38,7 +38,7 @@ import { getProfileColors } from '../utils/formatting/colors';
 import type { ProfileColorScheme } from '../utils/formatting/colors';
 import { ALGORITHMIC_FEED_PROVIDERS, APP_CONSTANTS } from '../utils/constants';
 import { Platform, Dimensions } from 'react-native';
-import { classifyDevice } from '../utils/device/screen';
+import { classifyDevice } from '@/utils/device/screen';
 
 // Note: FeedService is no longer needed here - React Query handles all feed caching
 

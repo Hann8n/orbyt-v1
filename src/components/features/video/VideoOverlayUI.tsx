@@ -11,7 +11,7 @@ import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '../../../theme';
-import { useDeviceLayout } from '../../../hooks/useDeviceLayout';
+import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import {
   useOverlayLayout,
   OVERLAY_LAYOUT_FALLBACK_BOTTOM_NAV,

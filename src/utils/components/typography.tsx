@@ -1,5 +1,5 @@
 import { Dimensions } from 'react-native';
-import { classifyDevice } from '../../utils/device/screen';
+import { classifyDevice } from '@/utils/device/screen';
 import { Colors } from '../../theme';
 
 const { width, height } = Dimensions.get('window');

@@ -46,7 +46,7 @@ import {
   isHeaderFeed as getIsHeaderFeed,
 } from './feedViewShared';
 import { getViewportDimensions } from '../../../utils/device/screen';
-import { useDeviceLayout } from '../../../hooks/useDeviceLayout';
+import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import { getVideoCardHeight } from '../../../utils/video/helpers';
 import { Colors } from '../../../theme';
 import { APP_CONSTANTS, SCROLL_CONSTANTS, QUERY_CONSTANTS } from '../../../utils/constants';
@@ -210,7 +210,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     // Viewport calculations (single source of truth for list + cards)
     const viewportDimensions = useMemo(
       () => getViewportDimensions(isModal, isHeaderFeed, insets),
-      [isModal, isHeaderFeed, insets]
+      [isModal, isHeaderFeed, insets, width, screenHeight]
     );
 
     // Card height: standard 9:16 portrait card from screen width, capped by screen height (not viewport).

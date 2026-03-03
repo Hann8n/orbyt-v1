@@ -36,6 +36,7 @@ import BottomToolBar from '../src/components/ui/BottomToolBar';
 import * as Device from 'expo-device';
 import { getBottomNavBarHeight } from '../src/utils/device/screen';
 import { useDeviceLayout } from '../src/hooks/useDeviceLayout';
+import { logger } from '../src/utils/logger';
 import { Colors } from '../src/theme';
 import { hexToRGBA } from '../src/utils/formatting/colors';
 import * as Haptics from 'expo-haptics';
@@ -202,9 +203,9 @@ const CreateScreen: React.FC = () => {
     setLastReadyCameraKey(cameraReadyKey);
   }, [cameraReadyKey]);
 
-  // Use full screen for compact devices (small phones / tablets); otherwise fit a 16:9 frame.
-  // fitsNative16x9 is aspect-ratio-based, so tall-but-narrow phones (e.g. iPhone 13 mini)
-  // correctly get the 16:9 frame rather than falling through to the full-screen path.
+  // Use a 16:9 frame when the device's native aspect ratio fits 16:9 and the device is not a tablet;
+  // otherwise fall back to a full-screen camera preview. fitsNative16x9 is aspect-ratio-based, so
+  // tall-but-narrow phones (e.g. iPhone 13 mini) can still take the 16:9 path when tall enough.
   const cameraHeight = fitsNative16x9 && !isTabletDevice ? cameraHeightFor16x9 : screenHeight;
   const cameraWidth = screenWidth; // Use full width
 
@@ -1123,7 +1124,7 @@ const CreateScreen: React.FC = () => {
                 selectedLens={selectedLens ?? undefined}
                 onCameraReady={handleCameraReady}
                 onMountError={e => {
-                  if (__DEV__) console.warn('[Camera] Mount error:', e?.message);
+                  if (__DEV__) logger.warn('[Camera] Mount error:', e?.message);
                 }}
                 onAvailableLensesChanged={event => {
                   const raw = event?.lenses ?? [];

@@ -36,8 +36,7 @@ import { TextOverlay } from '../../src/types';
 import { resolveVideoPath, VideoPathInfo } from '../../src/utils/video/path';
 import { DEFAULT_BUFFER_OPTIONS, DEFAULT_VIDEO_ASPECT_RATIO } from '../../src/utils/video/helpers';
 import { Colors } from '../../src/theme';
-import { useWindowDimensions } from 'react-native';
-import { useDeviceLayout } from '../../src/hooks/useDeviceLayout';
+import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import { useCurrentUser } from '../../src/stores/userStore';
 import ProfileService from '../../src/services/data/ProfileService';
 import AtprotoService from '../../src/services/api/AtprotoService';
@@ -1257,8 +1256,7 @@ const VideoPostScreen: React.FC = () => {
 
   const [orientation, setOrientation] = useState(getOrientation());
   const insets = useSafeAreaInsets();
-  const { width: screenWidth, height: _screenHeight } = useWindowDimensions();
-  const { isTablet, isSmallPhone: isSmallDevice } = useDeviceLayout();
+  const { screenWidth, isTablet, isSmallPhone: isSmallDevice } = useDeviceLayout();
 
   useEffect(() => {
     const onChange = ({ window }: { window: { width: number; height: number } }) => {

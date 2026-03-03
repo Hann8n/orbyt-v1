@@ -30,7 +30,8 @@ export const LAYOUT = {
 
 // ---------------------------------------------------------------------------
 // Pure classification — accepts dimensions, returns device flags.
-// Imported by useDeviceLayout (reactive) and isCompactDevice (non-reactive).
+// Imported by useDeviceLayout (reactive) and the non-reactive helpers
+// getBottomNavBarHeight / getViewportDimensions below.
 // ---------------------------------------------------------------------------
 
 export interface DeviceClass {
@@ -71,8 +72,10 @@ export const getViewportDimensions = (
 ) => {
   const { width, height } = getWindowDimensions();
   const effectiveInsets = insets ?? { top: 0, bottom: 0, left: 0, right: 0 };
-  const bottomNavBarHeight = getBottomNavBarHeight(effectiveInsets);
   const { isCompact } = classifyDevice(width, height);
+  const bottomNavBarHeight =
+    (isCompact ? LAYOUT.SMALL_SCREEN_NAV_HEIGHT : LAYOUT.TAB_NAV_HEIGHT) +
+    (effectiveInsets.bottom || 0);
   const useFullHeight = isModal || isCompact;
   return {
     width,
