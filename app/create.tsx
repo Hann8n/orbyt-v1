@@ -191,7 +191,7 @@ const CreateScreen: React.FC = () => {
     fitsNative16x9,
     cameraHeightFor16x9,
   } = useDeviceLayout();
-  const bottomNavBarHeight = getBottomNavBarHeight(insets, isSmallDevice || isTabletDevice);
+  const bottomNavBarHeight = getBottomNavBarHeight(insets, isSmallDevice);
   const listenerSubscription = useRef<Record<string, EventSubscription>>({});
 
   // Ready once onCameraReady has fired for this dimensions. Facing changes in-place (no remount).
@@ -202,6 +202,9 @@ const CreateScreen: React.FC = () => {
     setLastReadyCameraKey(cameraReadyKey);
   }, [cameraReadyKey]);
 
+  // Small phones (e.g. iPhone SE) no longer special-cased: they use the same 16:9 crop as other
+  // portrait phones, which may leave a small bottom gap. Full screenHeight only for tablets or
+  // devices that don't fit native 16:9.
   const cameraHeight = fitsNative16x9 && !isTabletDevice ? cameraHeightFor16x9 : screenHeight;
   const cameraWidth = screenWidth;
 

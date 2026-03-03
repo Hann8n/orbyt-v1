@@ -57,7 +57,7 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
   };
 
   const tools = getTools();
-  const bottomNavBarHeight = getBottomNavBarHeight(insets);
+  const bottomNavBarHeight = getBottomNavBarHeight(insets, isSmallDevice);
   // Icon size for toolbar
   const iconSize = Math.round(Math.max(22, Math.min(28, width * 0.07)));
 
