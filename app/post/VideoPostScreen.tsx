@@ -320,7 +320,7 @@ const PostButton: React.FC<{
   uploadProgress: number;
   buttonStyle?: 'landscape' | 'portrait';
   width?: number;
-  screenWidth: number;
+  screenWidth?: number;
 }> = ({
   onPress,
   isPosting,
@@ -331,7 +331,7 @@ const PostButton: React.FC<{
   screenWidth,
 }) => {
   const numericWidth =
-    buttonStyle === 'portrait' ? Math.max(width ?? screenWidth * 0.6, 200) : undefined;
+    buttonStyle === 'portrait' ? Math.max(width ?? (screenWidth ?? 0) * 0.6, 200) : undefined;
   const buttonWidth = buttonStyle === 'landscape' ? '100%' : numericWidth;
   const glassStyle =
     buttonStyle === 'landscape' ? styles.landscapePostButtonGlass : styles.floatingPostButtonGlass;

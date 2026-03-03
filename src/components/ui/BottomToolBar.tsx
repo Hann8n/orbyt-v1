@@ -3,7 +3,7 @@ import { View, Pressable, StyleSheet, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { getBottomNavBarHeight } from '../../utils/device/screen';
-import { useDeviceLayout } from '../../hooks/useDeviceLayout';
+import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import Icon from './Icon';
 import { Colors } from './UI';
 import { BORDER_RADIUS } from '@/utils/constants';

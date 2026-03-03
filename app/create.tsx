@@ -183,9 +183,6 @@ const CreateScreen: React.FC = () => {
 
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const bottomNavBarHeight = getBottomNavBarHeight(insets);
-  const listenerSubscription = useRef<Record<string, EventSubscription>>({});
-
   const {
     screenWidth,
     screenHeight,
@@ -194,6 +191,8 @@ const CreateScreen: React.FC = () => {
     fitsNative16x9,
     cameraHeightFor16x9,
   } = useDeviceLayout();
+  const bottomNavBarHeight = getBottomNavBarHeight(insets, isSmallDevice || isTabletDevice);
+  const listenerSubscription = useRef<Record<string, EventSubscription>>({});
 
   // Ready once onCameraReady has fired for this dimensions. Facing changes in-place (no remount).
   const cameraReadyKey = `${Math.round(screenWidth)}x${Math.round(screenHeight)}`;
