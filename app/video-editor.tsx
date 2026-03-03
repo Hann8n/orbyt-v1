@@ -41,8 +41,8 @@ import VerticalListSheet, {
   TrueSheet,
 } from '../src/components/ui/VerticalListSheet';
 import BottomToolBar from '../src/components/ui/BottomToolBar';
-import { useWindowDimensions } from 'react-native';
 import { getBottomNavBarHeight } from '../src/utils/device/screen';
+import { useDeviceLayout } from '../src/hooks/useDeviceLayout';
 import { logger } from '../src/utils/logger';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -724,8 +724,7 @@ const VideoEditorScreen: React.FC = () => {
     [handleAddTextOverlay]
   );
 
-  const { width, height } = useWindowDimensions();
-  const isSmallDevice = width <= 375 || height <= 667;
+  const { isSmallPhone: isSmallDevice } = useDeviceLayout();
 
   // Keep status bar hidden even when app returns from background
   useEffect(() => {

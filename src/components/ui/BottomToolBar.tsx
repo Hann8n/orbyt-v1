@@ -1,10 +1,9 @@
 import React from 'react';
 import { View, Pressable, StyleSheet, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import * as Device from 'expo-device';
 import { getBottomNavBarHeight } from '../../utils/device/screen';
+import { useDeviceLayout } from '../../hooks/useDeviceLayout';
 import Icon from './Icon';
 import { Colors } from './UI';
 
@@ -34,7 +33,7 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
   onionSkinningActive = false,
 }) => {
   const insets = useSafeAreaInsets();
-  const { width, height } = useWindowDimensions();
+  const { screenWidth: width, isCompact: isSmallDevice } = useDeviceLayout();
 
   // Different tool configurations based on mode
   const getTools = (): { id: string; icon: string; activeIcon?: string }[] => {
@@ -57,9 +56,6 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
   };
 
   const tools = getTools();
-  const isTablet = Device.deviceType === Device.DeviceType.TABLET || Math.min(width, height) >= 600;
-  const isSmallScreen = width <= 375 || height <= 667;
-  const isSmallDevice = isSmallScreen || isTablet;
   const bottomNavBarHeight = getBottomNavBarHeight(insets);
   // Icon size for toolbar
   const iconSize = Math.round(Math.max(22, Math.min(28, width * 0.07)));

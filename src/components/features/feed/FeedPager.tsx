@@ -32,8 +32,7 @@ import { useRouter } from 'expo-router';
 import { SvgXml } from 'react-native-svg';
 import { Colors } from '../../../theme';
 import FeedRenderer from './FeedRenderer';
-import { useWindowDimensions } from 'react-native';
-import * as Device from 'expo-device';
+import { useDeviceLayout } from '../../../hooks/useDeviceLayout';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ListFeedViewRef } from '../../../types';
 import type { ProfileRef } from '../../../utils/navigation/tabRefs';
@@ -170,9 +169,12 @@ const FeedPager = forwardRef<ProfileRef, FeedPagerProps>(function FeedPager(
   },
   ref
 ) {
-  const { width, height } = useWindowDimensions();
-  const isTablet = Device.deviceType === Device.DeviceType.TABLET || Math.min(width, height) >= 600;
-  const isSmallScreen = width <= 375 || height <= 667;
+  const {
+    screenWidth: width,
+    screenHeight: height,
+    isTablet,
+    isSmallPhone: isSmallScreen,
+  } = useDeviceLayout();
   const pagerViewRef = useRef<PagerView>(null);
   const feedRendererRefs = useRef<{ [key: string]: ListFeedViewRef | null }>({});
   const insets = useSafeAreaInsets();

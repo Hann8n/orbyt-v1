@@ -37,7 +37,7 @@ import { resolveVideoPath, VideoPathInfo } from '../../src/utils/video/path';
 import { DEFAULT_BUFFER_OPTIONS, DEFAULT_VIDEO_ASPECT_RATIO } from '../../src/utils/video/helpers';
 import { Colors } from '../../src/theme';
 import { useWindowDimensions } from 'react-native';
-import * as Device from 'expo-device';
+import { useDeviceLayout } from '../../src/hooks/useDeviceLayout';
 import { useCurrentUser } from '../../src/stores/userStore';
 import ProfileService from '../../src/services/data/ProfileService';
 import AtprotoService from '../../src/services/api/AtprotoService';
@@ -1257,10 +1257,8 @@ const VideoPostScreen: React.FC = () => {
 
   const [orientation, setOrientation] = useState(getOrientation());
   const insets = useSafeAreaInsets();
-  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const isTablet =
-    Device.deviceType === Device.DeviceType.TABLET || Math.min(screenWidth, screenHeight) >= 600;
-  const isSmallDevice = screenWidth <= 375 || screenHeight <= 667;
+  const { width: screenWidth, height: _screenHeight } = useWindowDimensions();
+  const { isTablet, isSmallPhone: isSmallDevice } = useDeviceLayout();
 
   useEffect(() => {
     const onChange = ({ window }: { window: { width: number; height: number } }) => {

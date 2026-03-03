@@ -9,7 +9,6 @@ import {
   Platform,
   StatusBar,
   AppState,
-  useWindowDimensions,
   type EventSubscription,
   ActivityIndicator,
 } from 'react-native';
@@ -36,6 +35,7 @@ import Icon, { CloseFillIcon, ArrowRightFillIcon } from '../src/components/ui/Ic
 import BottomToolBar from '../src/components/ui/BottomToolBar';
 import * as Device from 'expo-device';
 import { getBottomNavBarHeight } from '../src/utils/device/screen';
+import { useDeviceLayout } from '../src/hooks/useDeviceLayout';
 import { Colors } from '../src/theme';
 import { hexToRGBA } from '../src/utils/formatting/colors';
 import * as Haptics from 'expo-haptics';
@@ -185,10 +185,14 @@ const CreateScreen: React.FC = () => {
   const bottomNavBarHeight = getBottomNavBarHeight(insets);
   const listenerSubscription = useRef<Record<string, EventSubscription>>({});
 
-  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const isTabletDevice =
-    Device.deviceType === Device.DeviceType.TABLET || Math.min(screenWidth, screenHeight) >= 600;
-  const isSmallDevice = screenWidth <= 375 || screenHeight <= 667;
+  const {
+    screenWidth,
+    screenHeight,
+    isTablet: isTabletDevice,
+    isSmallPhone: isSmallDevice,
+    fitsNative16x9,
+    cameraHeightFor16x9,
+  } = useDeviceLayout();
 
   // Ready once onCameraReady has fired for this dimensions. Facing changes in-place (no remount).
   const cameraReadyKey = `${Math.round(screenWidth)}x${Math.round(screenHeight)}`;
@@ -198,15 +202,10 @@ const CreateScreen: React.FC = () => {
     setLastReadyCameraKey(cameraReadyKey);
   }, [cameraReadyKey]);
 
-  // For small screens and tablets, use full screen; otherwise use available space between safe areas
-  const availableHeight =
-    isSmallDevice || isTabletDevice ? screenHeight : screenHeight - insets.top - bottomNavBarHeight;
-
-  // If small screen or tablet, use full screen; otherwise maintain 9:16 aspect ratio
-  const cameraHeight =
-    isSmallDevice || isTabletDevice
-      ? screenHeight
-      : Math.min((screenWidth * 16) / 9, availableHeight);
+  // Use full screen for compact devices (small phones / tablets); otherwise fit a 16:9 frame.
+  // fitsNative16x9 is aspect-ratio-based, so tall-but-narrow phones (e.g. iPhone 13 mini)
+  // correctly get the 16:9 frame rather than falling through to the full-screen path.
+  const cameraHeight = fitsNative16x9 && !isTabletDevice ? cameraHeightFor16x9 : screenHeight;
   const cameraWidth = screenWidth; // Use full width
 
   // Derived values from segment manager
@@ -1055,13 +1054,19 @@ const CreateScreen: React.FC = () => {
     () => ({
       width: cameraWidth,
       height: cameraHeight,
-      marginTop: isTabletDevice ? 0 : Platform.OS === 'ios' ? (isSmallDevice ? 0 : insets.top) : 0,
+      marginTop: isTabletDevice
+        ? 0
+        : Platform.OS === 'ios'
+          ? isSmallDevice || !fitsNative16x9
+            ? 0
+            : insets.top
+          : 0,
     }),
-    [cameraWidth, cameraHeight, isTabletDevice, isSmallDevice, insets.top]
+    [cameraWidth, cameraHeight, isTabletDevice, isSmallDevice, fitsNative16x9, insets.top]
   );
   const backButtonPosition = useMemo(
-    () => ({ top: isSmallDevice ? 5 : insets.top + 4, left: 4 }),
-    [isSmallDevice, insets.top]
+    () => ({ top: isSmallDevice || !fitsNative16x9 ? 5 : insets.top + 4, left: 4 }),
+    [isSmallDevice, fitsNative16x9, insets.top]
   );
   // Render content based on the state of permissions and device availability
   const renderContent = () => {
@@ -1173,8 +1178,8 @@ const CreateScreen: React.FC = () => {
               styles.progressBarOverlay,
               {
                 height:
-                  isSmallDevice || isTabletDevice
-                    ? isSmallDevice
+                  isSmallDevice || isTabletDevice || !fitsNative16x9
+                    ? isSmallDevice || !fitsNative16x9
                       ? 49
                       : insets.top + 48 // Extends to bottom of header (5px top + 44px button for small, or insets.top + 4px + 44px for others)
                     : insets.top, // iOS: extend to top of video, Android: just status bar
@@ -1202,7 +1207,9 @@ const CreateScreen: React.FC = () => {
             <View
               style={[
                 styles.centerButtonContainer,
-                { bottom: bottomNavBarHeight + (isSmallDevice ? 40 : 50) },
+                {
+                  bottom: bottomNavBarHeight + (isSmallDevice ? 40 : 50),
+                },
               ]}
             >
               {!isRecording &&
@@ -1359,7 +1366,7 @@ const CreateScreen: React.FC = () => {
           style={({ pressed }) => [
             styles.doneButton,
             {
-              top: isSmallDevice ? 5 : insets.top + 4,
+              top: isSmallDevice || !fitsNative16x9 ? 5 : insets.top + 4,
               right: 4,
             },
             pressed && { opacity: 0.7 },

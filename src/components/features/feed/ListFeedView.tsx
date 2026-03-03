@@ -18,7 +18,6 @@ import {
   LayoutChangeEvent,
   Platform,
   ActivityIndicator,
-  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -46,8 +45,8 @@ import {
   getProfileColors,
   isHeaderFeed as getIsHeaderFeed,
 } from './feedViewShared';
-import * as Device from 'expo-device';
 import { getViewportDimensions } from '../../../utils/device/screen';
+import { useDeviceLayout } from '../../../hooks/useDeviceLayout';
 import { getVideoCardHeight } from '../../../utils/video/helpers';
 import { Colors } from '../../../theme';
 import { APP_CONSTANTS, SCROLL_CONSTANTS, QUERY_CONSTANTS } from '../../../utils/constants';
@@ -202,11 +201,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     );
 
     // Device detection
-    const { width, height: screenHeight } = useWindowDimensions();
-    const isTablet =
-      Device.deviceType === Device.DeviceType.TABLET || Math.min(width, screenHeight) >= 600;
-    const isSmallScreen = width <= 375 || screenHeight <= 667;
-    const isCompactDevice = isTablet || isSmallScreen;
+    const { screenWidth: width, screenHeight, isCompact: isCompactDevice } = useDeviceLayout();
     const isHeaderFeed = useMemo(
       () => getIsHeaderFeed(feedOption, headerComponent),
       [feedOption, headerComponent]

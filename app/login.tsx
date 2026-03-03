@@ -463,7 +463,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.FULL,
   },
   whiteButton: {
-    backgroundColor: Colors.overlay.white80,
+    backgroundColor: Colors.neutral[50],
   },
   blueskyButtonText: {
     color: Colors.black,

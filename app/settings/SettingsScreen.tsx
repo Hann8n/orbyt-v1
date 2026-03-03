@@ -26,8 +26,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalModals';
 import ProfileService from '../../src/services/data/ProfileService';
-import { useWindowDimensions } from 'react-native';
-import * as Device from 'expo-device';
+import { useDeviceLayout } from '../../src/hooks/useDeviceLayout';
 
 const SettingsScreen: React.FC = () => {
   const router = useRouter();
@@ -40,10 +39,7 @@ const SettingsScreen: React.FC = () => {
     useFeedSettings();
   const { currentUser } = useCurrentUser();
   const { savedAccounts } = useAccountManagement();
-  const { width, height } = useWindowDimensions();
-  const isTablet = Device.deviceType === Device.DeviceType.TABLET || Math.min(width, height) >= 600;
-  const isSmallScreen = width <= 375 || height <= 667;
-  const isCompactDevice = isTablet || isSmallScreen;
+  const { isCompact: isCompactDevice } = useDeviceLayout();
 
   const handleLogout = async () => {
     if (isSubmitting) return;

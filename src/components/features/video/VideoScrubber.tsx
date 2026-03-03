@@ -17,9 +17,8 @@ import { type VideoPlayer } from 'expo-video';
 import { useSegments } from 'expo-router';
 import { Canvas, Rect } from '@shopify/react-native-skia';
 import { formatTime } from '../../../utils/formatting/time';
-import { useWindowDimensions } from 'react-native';
-import * as Device from 'expo-device';
 import { Colors } from '../../../theme';
+import { useDeviceLayout } from '../../../hooks/useDeviceLayout';
 import { useUIStore } from '../../../stores/uiStore';
 import { useOverlayVisibility } from '../../../context/FeedIndicatorContext';
 import {
@@ -49,13 +48,9 @@ const VideoScrubberComponent = ({
   const isIOS = Platform.OS === 'ios';
   const segments = useSegments();
   const overlayLayout = useOverlayLayout();
-  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const isTabletDirect =
-    Device.deviceType === Device.DeviceType.TABLET || Math.min(screenWidth, screenHeight) >= 600;
-  const isSmallScreenDirect = screenWidth <= 375 || screenHeight <= 667;
-  const isCompactDeviceDirect = isTabletDirect || isSmallScreenDirect;
-  const isTabletDevice = overlayLayout?.isTablet ?? isTabletDirect;
-  const isCompactDeviceValue = overlayLayout?.isCompactDevice ?? isCompactDeviceDirect;
+  const deviceLayout = useDeviceLayout();
+  const screenWidth = deviceLayout.screenWidth;
+  const isCompactDeviceValue = overlayLayout?.isCompactDevice ?? deviceLayout.isCompact;
   const bottomNavBarHeight =
     overlayLayout?.bottomNavBarHeight ?? OVERLAY_LAYOUT_FALLBACK_BOTTOM_NAV;
   const hasTabBar = Array.isArray(segments) && segments[0] === '(tabs)';
@@ -386,7 +381,7 @@ const VideoScrubberComponent = ({
     if (isModal) return 0;
     if (hasTabBar && isCompactDeviceValue) return bottomNavBarHeight;
     return 0;
-  }, [isModal, hasTabBar, isCompactDeviceValue, isTabletDevice, bottomNavBarHeight]);
+  }, [isModal, hasTabBar, isCompactDeviceValue, bottomNavBarHeight]);
 
   if (!isIOS) {
     return null;
