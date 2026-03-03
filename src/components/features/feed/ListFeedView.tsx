@@ -18,7 +18,6 @@ import {
   LayoutChangeEvent,
   Platform,
   ActivityIndicator,
-  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -46,8 +45,8 @@ import {
   getProfileColors,
   isHeaderFeed as getIsHeaderFeed,
 } from './feedViewShared';
-import * as Device from 'expo-device';
 import { getViewportDimensions } from '../../../utils/device/screen';
+import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import { getVideoCardHeight } from '../../../utils/video/helpers';
 import { Colors } from '../../../theme';
 import { APP_CONSTANTS, SCROLL_CONSTANTS, QUERY_CONSTANTS } from '../../../utils/constants';
@@ -202,23 +201,18 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     );
 
     // Device detection
-    const { width, height: screenHeight } = useWindowDimensions();
-    const isTablet =
-      Device.deviceType === Device.DeviceType.TABLET || Math.min(width, screenHeight) >= 600;
-    const isSmallScreen = width <= 375 || screenHeight <= 667;
-    const isCompactDevice = isTablet || isSmallScreen;
+    const { screenWidth: width, screenHeight, isCompact: isCompactDevice } = useDeviceLayout();
     const isHeaderFeed = useMemo(
       () => getIsHeaderFeed(feedOption, headerComponent),
       [feedOption, headerComponent]
     );
 
-    // Viewport calculations (single source of truth for list + cards)
     const viewportDimensions = useMemo(
       () => getViewportDimensions(isModal, isHeaderFeed, insets),
-      [isModal, isHeaderFeed, insets]
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      [isModal, isHeaderFeed, insets, width, screenHeight]
     );
 
-    // Card height: standard 9:16 portrait card from screen width, capped by screen height (not viewport).
     const cardHeight = useMemo(
       () => getVideoCardHeight(width, screenHeight),
       [width, screenHeight]
@@ -230,7 +224,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       isActive: Boolean(isVisible),
     });
 
-    // Compute final blocking state in render
     const isHeaderBlockingPlayback = useMemo(() => {
       if (!headerComponent || !isVisible || viewMode !== 'list') {
         return false;
@@ -468,7 +461,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           scrollOffsetYSV.value = y;
           if (contentScrollProgressOutput && fadeDist > 0) {
             // Reanimated SharedValue: mutating .value is the intended API (UI-thread sync), not the prop reference.
-            // eslint-disable-next-line react-hooks/immutability
+
             contentScrollProgressOutput.value = Math.max(0, Math.min(1, y / fadeDist));
           }
         },

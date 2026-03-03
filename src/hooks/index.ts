@@ -1,4 +1,6 @@
 // Export all hooks from a centralized location
+export { useDeviceLayout } from './useDeviceLayout';
+export type { DeviceLayout } from './useDeviceLayout';
 export * from './useFeed';
 export * from './useSubscribedChannels';
 export * from './useGlobalModals';

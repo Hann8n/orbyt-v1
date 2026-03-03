@@ -1,64 +1,62 @@
 /**
- * Layout calculation utilities
+ * Layout calculation utilities.
+ * Small phone: shortSide ≤ 375 and longSide ≤ 720.
  */
 
 import * as Device from 'expo-device';
 import { Dimensions } from 'react-native';
 
-const TABLET_MIN_SIZE = 600;
-const SMALL_SCREEN_WIDTH = 375;
-const SMALL_SCREEN_HEIGHT = 667;
+export const TABLET_SHORT_SIDE_DP = 600;
+export const SMALL_PHONE_SHORT_SIDE_DP = 375;
+export const SMALL_PHONE_LONG_SIDE_DP = 720;
 
-// Helper to check if device needs compact layout (for stores/module-level code)
-const isCompactDevice = (): boolean => {
-  const { width, height } = Dimensions.get('window');
-  const isTablet =
-    Device.deviceType === Device.DeviceType.TABLET || Math.min(width, height) >= TABLET_MIN_SIZE;
-  const isSmallScreen = width <= SMALL_SCREEN_WIDTH || height <= SMALL_SCREEN_HEIGHT;
-  return isTablet || isSmallScreen;
-};
-
-/**
- * Constants for layout calculations
- */
 export const LAYOUT = {
   TAB_NAV_HEIGHT: 45,
   SMALL_SCREEN_NAV_HEIGHT: 40,
-  TABLET_NAV_HEIGHT: 40,
-};
+} as const;
 
-/**
- * Get the appropriate bottom navigation bar height based on screen size
- */
-export const getBottomNavBarHeight = (insets: { bottom: number }): number => {
-  const safeAreaBottom = insets.bottom || 0;
+export interface DeviceClass {
+  isTablet: boolean;
+  isSmallPhone: boolean;
+  isCompact: boolean;
+}
 
-  if (isCompactDevice()) {
-    return LAYOUT.SMALL_SCREEN_NAV_HEIGHT + safeAreaBottom;
-  } else {
-    return LAYOUT.TAB_NAV_HEIGHT + safeAreaBottom;
+export function classifyDevice(width: number, height: number): DeviceClass {
+  const shortSide = Math.min(width, height);
+  const longSide = Math.max(width, height);
+  const isTablet =
+    Device.deviceType === Device.DeviceType.TABLET || shortSide >= TABLET_SHORT_SIDE_DP;
+  const isSmallPhone =
+    !isTablet && shortSide <= SMALL_PHONE_SHORT_SIDE_DP && longSide <= SMALL_PHONE_LONG_SIDE_DP;
+  return { isTablet, isSmallPhone, isCompact: isTablet || isSmallPhone };
+}
+
+const getWindowDimensions = () => Dimensions.get('window');
+
+export const getBottomNavBarHeight = (insets: { bottom: number }, isCompact?: boolean): number => {
+  if (isCompact !== undefined) {
+    return (
+      (isCompact ? LAYOUT.SMALL_SCREEN_NAV_HEIGHT : LAYOUT.TAB_NAV_HEIGHT) + (insets.bottom || 0)
+    );
   }
+  const { width, height } = getWindowDimensions();
+  const { isCompact: c } = classifyDevice(width, height);
+  return (c ? LAYOUT.SMALL_SCREEN_NAV_HEIGHT : LAYOUT.TAB_NAV_HEIGHT) + (insets.bottom || 0);
 };
 
-/**
- * Get viewport dimensions for video snapping
- */
 export const getViewportDimensions = (
   isModal: boolean = false,
   _isHeaderFeed: boolean = false,
   insets?: { top: number; bottom: number; left: number; right: number }
 ) => {
-  const { width, height } = Dimensions.get('window');
-
-  const effectiveInsets = insets || { top: 0, bottom: 0, left: 0, right: 0 };
-  const bottomNavBarHeight = getBottomNavBarHeight(effectiveInsets);
-
-  const useFullHeight = isModal || isCompactDevice();
-  const viewportHeight = useFullHeight ? height : height - bottomNavBarHeight - effectiveInsets.top;
-
+  const { width, height } = getWindowDimensions();
+  const effectiveInsets = insets ?? { top: 0, bottom: 0, left: 0, right: 0 };
+  const { isCompact } = classifyDevice(width, height);
+  const bottomNavBarHeight = getBottomNavBarHeight(effectiveInsets, isCompact);
+  const useFullHeight = isModal || isCompact;
   return {
     width,
-    height: viewportHeight,
+    height: useFullHeight ? height : height - bottomNavBarHeight - effectiveInsets.top,
     effectiveInsets,
     bottomNavBarHeight,
     isFullScreen: useFullHeight,

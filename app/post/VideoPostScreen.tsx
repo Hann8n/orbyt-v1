@@ -36,8 +36,7 @@ import { TextOverlay } from '../../src/types';
 import { resolveVideoPath, VideoPathInfo } from '../../src/utils/video/path';
 import { DEFAULT_BUFFER_OPTIONS, DEFAULT_VIDEO_ASPECT_RATIO } from '../../src/utils/video/helpers';
 import { Colors } from '../../src/theme';
-import { useWindowDimensions } from 'react-native';
-import * as Device from 'expo-device';
+import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import { useCurrentUser } from '../../src/stores/userStore';
 import ProfileService from '../../src/services/data/ProfileService';
 import AtprotoService from '../../src/services/api/AtprotoService';
@@ -61,7 +60,6 @@ import VerticalListSheet, {
 import { useRichTextSearchTrigger, RichTextSearchModal } from '../../src/components/ui/usersearch';
 import { useRichText, formatRichTextForDisplay } from '../../src/hooks/useRichText';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const VIDEO_WIDTH = 150; // Fixed preview width
 
 // Convert OrbytChannel to SubscribedChannel for draft storage
@@ -322,9 +320,18 @@ const PostButton: React.FC<{
   uploadProgress: number;
   buttonStyle?: 'landscape' | 'portrait';
   width?: number;
-}> = ({ onPress, isPosting, isCompressing, uploadProgress, buttonStyle = 'portrait', width }) => {
+  screenWidth?: number;
+}> = ({
+  onPress,
+  isPosting,
+  isCompressing,
+  uploadProgress,
+  buttonStyle = 'portrait',
+  width,
+  screenWidth,
+}) => {
   const numericWidth =
-    buttonStyle === 'portrait' ? Math.max(width ?? SCREEN_WIDTH * 0.6, 200) : undefined;
+    buttonStyle === 'portrait' ? Math.max(width ?? (screenWidth ?? 0) * 0.6, 200) : undefined;
   const buttonWidth = buttonStyle === 'landscape' ? '100%' : numericWidth;
   const glassStyle =
     buttonStyle === 'landscape' ? styles.landscapePostButtonGlass : styles.floatingPostButtonGlass;
@@ -1257,10 +1264,7 @@ const VideoPostScreen: React.FC = () => {
 
   const [orientation, setOrientation] = useState(getOrientation());
   const insets = useSafeAreaInsets();
-  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const isTablet =
-    Device.deviceType === Device.DeviceType.TABLET || Math.min(screenWidth, screenHeight) >= 600;
-  const isSmallDevice = screenWidth <= 375 || screenHeight <= 667;
+  const { screenWidth, isTablet, isSmallPhone: isSmallDevice } = useDeviceLayout();
 
   useEffect(() => {
     const onChange = ({ window }: { window: { width: number; height: number } }) => {
@@ -1544,6 +1548,7 @@ const VideoPostScreen: React.FC = () => {
                   isCompressing={isCompressing}
                   uploadProgress={uploadProgress}
                   buttonStyle="landscape"
+                  screenWidth={screenWidth}
                 />
               </View>
             </ScrollView>
@@ -1644,6 +1649,7 @@ const VideoPostScreen: React.FC = () => {
           uploadProgress={uploadProgress}
           buttonStyle="portrait"
           width={screenWidth * 0.6}
+          screenWidth={screenWidth}
         />
       </View>
 

@@ -38,7 +38,7 @@ import { getProfileColors } from '../utils/formatting/colors';
 import type { ProfileColorScheme } from '../utils/formatting/colors';
 import { APP_CONSTANTS, DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI } from '../utils/constants';
 import { Platform, Dimensions } from 'react-native';
-import * as Device from 'expo-device';
+import { classifyDevice } from '@/utils/device/screen';
 
 // Note: FeedService is no longer needed here - React Query handles all feed caching
 
@@ -49,9 +49,7 @@ import * as Device from 'expo-device';
 const getDefaultModalProfileEnabled = (): boolean => {
   if (Platform.OS !== 'ios') return false;
   const { width, height } = Dimensions.get('window');
-  const isTablet = Device.deviceType === Device.DeviceType.TABLET || Math.min(width, height) >= 600;
-  const isSmallScreen = width <= 375 || height <= 667;
-  return !(isTablet || isSmallScreen);
+  return !classifyDevice(width, height).isCompact;
 };
 
 /**

@@ -8,10 +8,10 @@ import Animated, {
   withSequence,
 } from 'react-native-reanimated';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import { View, Text, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '../../../theme';
-import * as Device from 'expo-device';
+import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import {
   useOverlayLayout,
   OVERLAY_LAYOUT_FALLBACK_BOTTOM_NAV,
@@ -99,17 +99,13 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
     authorProfileStatus,
   } = authorProfileOverlay ?? {};
   const overlayLayout = useOverlayLayout();
-  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const isTabletDirect =
-    Device.deviceType === Device.DeviceType.TABLET || Math.min(screenWidth, screenHeight) >= 600;
-  const isSmallScreenDirect = screenWidth <= 375 || screenHeight <= 667;
-  const isCompactDeviceDirect = isTabletDirect || isSmallScreenDirect;
-  const isTabletDevice = overlayLayout?.isTablet ?? isTabletDirect;
-  const isCompactDeviceValue = overlayLayout?.isCompactDevice ?? isCompactDeviceDirect;
+  const deviceLayout = useDeviceLayout();
+  const isTabletDevice = overlayLayout?.isTablet ?? deviceLayout.isTablet;
+  const isCompactDeviceValue = overlayLayout?.isCompactDevice ?? deviceLayout.isCompact;
   const bottomNavBarHeight =
     overlayLayout?.bottomNavBarHeight ?? OVERLAY_LAYOUT_FALLBACK_BOTTOM_NAV;
 
-  const { width } = useWindowDimensions();
+  const { screenWidth: width } = deviceLayout;
   const { presentShareSheet } = useGlobalShareSheet();
   const { presentCommentSection } = useGlobalCommentSection();
   const navigation = useRouter();
