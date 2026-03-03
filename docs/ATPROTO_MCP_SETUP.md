@@ -39,10 +39,10 @@ npx atproto-mcp
 ### Cursor
 
 1. Create or edit the MCP config file:
-   - **Project-level** (recommended for team repos): `.cursor/mcp.json` in the project root
-   - **Global** (all workspaces): `~/.cursor/mcp.json`
+   - **Global** (recommended): `~/.cursor/mcp.json` — applies to all workspaces and keeps credentials out of the repo
+   - **Project-level** (local-only): `.cursor/mcp.json` in the project root — **must be gitignored and must not contain plaintext credentials**
 
-2. Add the atproto server:
+2. Add the atproto server, referencing credentials via environment variables:
 
 ```json
 {
@@ -51,15 +51,15 @@ npx atproto-mcp
       "command": "atproto-mcp",
       "args": [],
       "env": {
-        "ATPROTO_IDENTIFIER": "your-handle.bsky.social",
-        "ATPROTO_PASSWORD": "your-app-password"
+        "ATPROTO_IDENTIFIER": "${ATPROTO_IDENTIFIER}",
+        "ATPROTO_PASSWORD": "${ATPROTO_PASSWORD}"
       }
     }
   }
 }
 ```
 
-3. Replace `your-handle.bsky.social` with your Bluesky handle and `your-app-password` with your app password.
+3. Set `ATPROTO_IDENTIFIER` and `ATPROTO_PASSWORD` in your shell environment (see [Use Environment Variables](#4-recommended-use-environment-variables) below).
 
 4. Fully restart Cursor.
 
@@ -90,16 +90,18 @@ Restart the app after saving.
 
 ---
 
-## 4. Optional: Use Environment Variables
+## 4. Recommended: Use Environment Variables
 
-To avoid storing credentials in config files:
+Store credentials in your shell environment rather than in any config file:
 
 ```bash
 export ATPROTO_IDENTIFIER="your-handle.bsky.social"
 export ATPROTO_PASSWORD="your-app-password"
 ```
 
-Then omit the `env` block from the config, or ensure your editor/shell passes these variables through to the MCP process.
+Add these lines to your shell profile (e.g. `~/.zshrc` or `~/.bashrc`) so they are set automatically. The MCP config's `env` block will then resolve `${ATPROTO_IDENTIFIER}` and `${ATPROTO_PASSWORD}` from the environment at runtime.
+
+> **Warning:** Never commit plaintext credentials to version control. If you use a project-level `.cursor/mcp.json`, ensure it is listed in `.gitignore`.
 
 ---
 
