@@ -35,10 +35,10 @@ export const SHEET_VARIANTS = {
   },
   /** Reaction picker: grabber, neutral background, custom inset behavior. */
   reactionPicker: (
-    maxHeight: number
+    maxContentHeight: number
   ): Pick<
     TrueSheetProps,
-    'backgroundColor' | 'grabber' | 'grabberOptions' | 'insetAdjustment' | 'maxHeight'
+    'backgroundColor' | 'grabber' | 'grabberOptions' | 'insetAdjustment' | 'maxContentHeight'
   > => {
     const grabberOptions: GrabberOptions = {
       width: 42,
@@ -53,7 +53,7 @@ export const SHEET_VARIANTS = {
       grabber: true,
       grabberOptions,
       insetAdjustment: 'never',
-      maxHeight,
+      maxContentHeight,
     };
   },
 } as const;

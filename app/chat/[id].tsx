@@ -938,7 +938,7 @@ function ReactionPickerSheet({
       ref={sheetRef}
       name={REACTION_PICKER_SHEET_NAME}
       variant="reactionPicker"
-      maxHeight={maxHeight}
+      maxContentHeight={maxHeight}
       onDidDismiss={onDismiss}
       scrollable
       header={
