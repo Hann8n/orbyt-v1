@@ -119,8 +119,9 @@
       [
         "expo-navigation-bar",
         {
-          "backgroundColor": "#000000",
-          "barStyle": "light"
+          "enforceContrast": true,
+          "barStyle": "light",
+          "visibility": "visible"
         }
       ],
       [

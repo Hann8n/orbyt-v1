@@ -8,7 +8,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "postinstall": "patch-package && node node_modules/@shopify/react-native-skia/scripts/install-skia.mjs && pod-install",
+    "postinstall": "patch-package && SKIP_SKIA_TVOS=1 node node_modules/@shopify/react-native-skia/scripts/install-skia.mjs && pod-install",
     "build:dev": "eas build --profile development",
     "build:preview": "eas build --profile preview",
     "build:prod": "eas build --profile production",
@@ -38,16 +38,16 @@
     "@formatjs/intl-segmenter": "^12.1.0",
     "@legendapp/list": "^2.0.19",
     "@lodev09/react-native-true-sheet": "^3.8.1",
-    "@react-navigation/native": "7.1.28",
-    "@shopify/flash-list": "^2.0.2",
-    "@shopify/react-native-skia": "^2.4.18",
+    "@react-navigation/native": "^7.1.28",
+    "@shopify/flash-list": "2.0.2",
+    "@shopify/react-native-skia": "2.4.18",
     "@tanstack/react-query": "^5.90.21",
     "@variant-systems/expo-dynamic-app-icon": "^1.0.2",
     "abortcontroller-polyfill": "^1.7.8",
     "buffer": "^6.0.3",
     "date-fns": "^4.1.0",
     "event-target-polyfill": "^0.0.4",
-    "expo": "~55.0.0-preview.11",
+    "expo": "~55.0.0",
     "expo-application": "~55.0.7",
     "expo-background-task": "~55.0.7",
     "expo-blur": "~55.0.7",
@@ -66,7 +66,7 @@
     "expo-media-library": "~55.0.8",
     "expo-navigation-bar": "~55.0.7",
     "expo-notifications": "~55.0.9",
-    "expo-router": "~55.0.0-preview.9",
+    "expo-router": "~55.0.0",
     "expo-secure-store": "~55.0.7",
     "expo-splash-screen": "~55.0.8",
     "expo-system-ui": "~55.0.8",
@@ -74,9 +74,9 @@
     "expo-video-thumbnails": "~55.0.8",
     "expo-web-browser": "~55.0.8",
     "ffmpeg-kit-react-native": "6.0.2",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "react-native": "^0.83.2",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "react-native": "0.83.2",
     "react-native-clip-trim": "^6.1.0-beta.1",
     "react-native-compressor": "^1.16.0",
     "react-native-emoji-chooser": "^0.1.11",
@@ -85,13 +85,13 @@
     "react-native-keyboard-controller": "^1.20.7",
     "react-native-mmkv": "3.3.3",
     "react-native-pager-view": "8.0.0",
-    "react-native-reanimated": "~4.2.1",
-    "react-native-safe-area-context": "^5.6.1",
-    "react-native-screens": "^4.23.0",
+    "react-native-reanimated": "4.2.1",
+    "react-native-safe-area-context": "~5.6.2",
+    "react-native-screens": "~4.23.0",
     "react-native-svg": "^15.15.3",
     "react-native-video": "^6.19.0",
     "react-native-web": "^0.21.0",
-    "react-native-worklets": "^0.7.2",
+    "react-native-worklets": "0.7.2",
     "react-refresh": "^0.18.0",
     "zustand": "^5.0.10"
   },
@@ -120,16 +120,15 @@
   "private": true,
   "resolutions": {
     "hermes-compiler": "250829098.0.4",
-    "expo-constants": "~55.0.4",
-    "expo-web-browser": "~55.0.5",
-    "@expo/log-box": "~55.0.5"
+    "expo-web-browser": "~55.0.8"
   },
   "expo": {
     "doctor": {
       "reactNativeDirectoryCheck": {
         "listUnknownPackages": false,
         "exclude": [
-          "@atproto/oauth-client-expo"
+          "@atproto/oauth-client-expo",
+          "react-native-emoji-chooser"
         ]
       }
     }
