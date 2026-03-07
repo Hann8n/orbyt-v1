@@ -1,0 +1,15 @@
+diff --git a/node_modules/@shopify/react-native-skia/scripts/install-skia.mjs b/node_modules/@shopify/react-native-skia/scripts/install-skia.mjs
+index ac4e945..b29bae3 100644
+--- a/node_modules/@shopify/react-native-skia/scripts/install-skia.mjs
++++ b/node_modules/@shopify/react-native-skia/scripts/install-skia.mjs
+@@ -59,8 +59,8 @@ const names = [
+   `${prefix}-apple-macos-xcframeworks`,
+ ];
+ 
+-// Add tvOS only for non-Graphite builds
+-if (!GRAPHITE) {
++// Add tvOS only for non-Graphite builds (skip if SKIP_SKIA_TVOS=1 - e.g. iOS/iPadOS/Android only)
++if (!GRAPHITE && process.env.SKIP_SKIA_TVOS !== '1' && process.env.SKIP_SKIA_TVOS !== 'true') {
+   names.push(`${prefix}-apple-tvos-xcframeworks`);
+ }
+ 

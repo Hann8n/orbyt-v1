@@ -938,7 +938,7 @@ function ReactionPickerSheet({
       ref={sheetRef}
       name={REACTION_PICKER_SHEET_NAME}
       variant="reactionPicker"
-      maxHeight={maxHeight}
+      maxContentHeight={maxHeight}
       onDidDismiss={onDismiss}
       scrollable
       header={
@@ -2085,7 +2085,7 @@ export default function ChatScreen() {
             ItemSeparatorComponent={listItemSeparator}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
-            onScrollBeginDrag={Keyboard.dismiss}
+            keyboardDismissMode="on-drag"
             maintainVisibleContentPosition={maintainVisibleContentPositionConfig}
           />
         ) : (
@@ -2093,7 +2093,8 @@ export default function ChatScreen() {
             style={styles.list}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
-            onScrollBeginDrag={Keyboard.dismiss}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
           >
             {!messagesLoading && messagesData && (messagesData.messages?.length ?? 0) === 0 ? (
               <View style={styles.empty}>

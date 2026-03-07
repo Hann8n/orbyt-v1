@@ -29,8 +29,8 @@ export const AppTrueSheet = forwardRef<TrueSheet, AppTrueSheetProps>(function Ap
 
   if (variant === 'sendToPicker') {
     Object.assign(defaults, SHEET_VARIANTS.sendToPicker);
-  } else if (variant === 'reactionPicker' && rest.maxHeight != null) {
-    Object.assign(defaults, SHEET_VARIANTS.reactionPicker(rest.maxHeight));
+  } else if (variant === 'reactionPicker' && rest.maxContentHeight != null) {
+    Object.assign(defaults, SHEET_VARIANTS.reactionPicker(rest.maxContentHeight));
   }
 
   return <TrueSheet ref={ref} {...defaults} {...rest} />;
