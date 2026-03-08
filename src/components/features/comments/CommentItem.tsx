@@ -19,9 +19,10 @@ import AtprotoService from '../../../services/api/AtprotoService';
 import { queryKeys } from '../../../utils/query/queryKeys';
 import { formatNumber } from '../../../utils/formatting/numbers';
 import { formatHandle } from '../../../utils/formatting/handles';
+import { Typography, FontFamily } from '../../../utils/components/typography';
 import { Colors } from '../../../theme';
 import UI from '../../ui/UI';
-import { HeartFillIcon } from '../../ui/Icon';
+import { HeartFillIcon, OutlinkIcon } from '../../ui/Icon';
 import { VerificationBadge } from '../badging';
 import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
 import RelativeDate from '../../ui/RelativeDate';
@@ -77,7 +78,10 @@ function getCommentFacets(c: Comment) {
   return (c?.record as { facets?: unknown })?.facets;
 }
 function getCommentEmbed(c: Comment) {
-  return (c?.record as { embed?: unknown })?.embed;
+  // Prefer view embed (has thumb/fullsize URLs) over record embed (blob refs)
+  const viewEmbed = (c as { embed?: unknown })?.embed;
+  const recordEmbed = (c?.record as { embed?: unknown })?.embed;
+  return viewEmbed ?? recordEmbed;
 }
 
 const CommentItem: React.FC<CommentItemProps> = ({
@@ -718,11 +722,18 @@ const CommentItem: React.FC<CommentItemProps> = ({
   }> = ({ external }) => {
     if (!external?.uri || !/^https?:\/\//.test(external.uri)) return null;
 
+    const thumbUrl =
+      typeof external.thumb === 'string' && external.thumb.startsWith('http')
+        ? external.thumb
+        : undefined;
+
     const handlePress = () => {
       if (external.uri) {
         Linking.openURL(external.uri).catch(() => {});
       }
     };
+
+    const displayUrl = external.uri.replace(/^https?:\/\//, '').replace(/^www\./, '');
 
     return (
       <Pressable
@@ -730,23 +741,28 @@ const CommentItem: React.FC<CommentItemProps> = ({
         style={styles.linkPreviewContainer}
         android_ripple={{ color: Colors.neutral[600] }}
       >
-        <View style={styles.linkPreviewContent}>
-          {external.title && (
+        {thumbUrl ? (
+          <View style={styles.linkPreviewThumbWrap}>
+            <Image source={{ uri: thumbUrl }} style={styles.linkPreviewThumb} contentFit="cover" />
+          </View>
+        ) : null}
+        <View style={[styles.linkPreviewContent, thumbUrl && styles.linkPreviewContentWithThumb]}>
+          {external.title ? (
             <Text numberOfLines={2} style={styles.linkPreviewTitle}>
               {external.title}
             </Text>
-          )}
-          {external.description && (
-            <Text numberOfLines={2} style={styles.linkPreviewDescription}>
+          ) : null}
+          {external.description ? (
+            <Text numberOfLines={external.title ? 1 : 2} style={styles.linkPreviewDescription}>
               {external.description}
             </Text>
-          )}
+          ) : null}
           <Text numberOfLines={1} style={styles.linkPreviewUrl}>
-            {external.uri.replace(/^https?:\/\//, '').replace(/^www\./, '')}
+            {displayUrl}
           </Text>
         </View>
         <View style={styles.linkPreviewIconContainer}>
-          <Text style={styles.linkPreviewIcon}>↗</Text>
+          <OutlinkIcon size={18} color={Colors.neutral[400]} />
         </View>
       </Pressable>
     );
@@ -764,8 +780,8 @@ const CommentItem: React.FC<CommentItemProps> = ({
       external: {
         uri: string;
         thumb?: string | { ref: { $link: string } };
-        description?: string;
         title?: string;
+        description?: string;
       };
     } => {
       if (!e || typeof e !== 'object') return false;
@@ -974,28 +990,24 @@ const CommentItem: React.FC<CommentItemProps> = ({
                     textColor={Colors.neutral[50]}
                   />
                 )}
-                {/* Parent context chyron: Author Name → Parent Author Name */}
-                {/* Only show if parent is itself a reply (not a direct reply to top-level comment) */}
                 {parent && parentAuthorName && level > 0 && parent.parent && (
-                  <View style={styles.parentChyronContainer}>
-                    <Text style={styles.parentChyronArrow}>→</Text>
-                    <Pressable
-                      onPress={() => {
-                        const parentAuthorData = parent?.author;
-                        if (parentAuthorHandle && typeof parentAuthorHandle === 'string') {
-                          handleAuthorPress(
-                            parentAuthorHandle,
-                            parentAuthorDid ?? undefined,
-                            parentAuthorData
-                          );
-                        }
-                      }}
-                    >
-                      <Text style={styles.parentChyronText} numberOfLines={1}>
-                        {parentAuthorName}
-                      </Text>
-                    </Pressable>
-                  </View>
+                  <Pressable
+                    onPress={() => {
+                      const parentAuthorData = parent?.author;
+                      if (parentAuthorHandle && typeof parentAuthorHandle === 'string') {
+                        handleAuthorPress(
+                          parentAuthorHandle,
+                          parentAuthorDid ?? undefined,
+                          parentAuthorData
+                        );
+                      }
+                    }}
+                  >
+                    <Text style={styles.parentChyronText} numberOfLines={1}>
+                      <Text style={styles.parentChyronArrow}>▸ </Text>
+                      {parentAuthorName}
+                    </Text>
+                  </Pressable>
                 )}
               </View>
 
@@ -1163,17 +1175,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
+    gap: 6,
   },
   commentAuthorName: {
     color: Colors.neutral[50],
     fontSize: 16,
-    marginBottom: 2,
     fontFamily: 'Figtree-Bold',
+    lineHeight: 20,
   },
   commentText: {
     color: Colors.neutral[200],
     fontSize: 15,
-    marginTop: 2,
     fontFamily: 'Figtree-Regular',
   },
   highlightOverlay: {
@@ -1184,26 +1196,17 @@ const styles = StyleSheet.create({
     bottom: 0,
     zIndex: -1,
   },
-  parentChyronContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    backgroundColor: Colors.overlay.white10,
-    borderRadius: BORDER_RADIUS.SMALL,
-  },
   parentChyronArrow: {
-    color: Colors.neutral[500],
-    fontSize: 12,
-    fontFamily: 'Figtree-Regular',
-    marginRight: 4,
+    color: Colors.neutral[400],
+    fontSize: Typography.sizes.body,
+    fontFamily: FontFamily.regular,
   },
   parentChyronText: {
-    color: Colors.neutral[500],
-    fontSize: 12,
-    fontFamily: 'Figtree-Medium',
-    maxWidth: 120,
+    color: Colors.neutral[200],
+    fontSize: Typography.sizes.bodySmall,
+    lineHeight: Typography.lineHeights.bodySmall,
+    fontFamily: FontFamily.bold,
+    maxWidth: 140,
   },
   commentMetaContainer: {
     flexDirection: 'row',
@@ -1249,13 +1252,24 @@ const styles = StyleSheet.create({
   },
   linkPreviewContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'stretch',
     borderWidth: 1,
-    borderColor: Colors.neutral[900],
+    borderColor: Colors.neutral[800],
     borderRadius: BORDER_RADIUS.MEDIUM,
     marginTop: 8,
     marginBottom: 4,
     overflow: 'hidden',
+    backgroundColor: Colors.neutral[950],
+  },
+  linkPreviewThumbWrap: {
+    width: 88,
+    minHeight: 72,
+    backgroundColor: Colors.neutral[900],
+  },
+  linkPreviewThumb: {
+    width: '100%',
+    height: '100%',
+    minHeight: 72,
   },
   linkPreviewContent: {
     flex: 1,
@@ -1263,38 +1277,37 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     minWidth: 0,
   },
+  linkPreviewContentWithThumb: {
+    paddingVertical: 10,
+  },
   linkPreviewTitle: {
     color: Colors.neutral[50],
-    fontFamily: 'Figtree-SemiBold',
-    fontSize: 13,
-    marginBottom: 4,
-    lineHeight: 18,
+    fontFamily: Typography.families.semibold,
+    fontSize: Typography.sizes.bodySmall,
+    lineHeight: Typography.lineHeights.bodySmall,
+    marginBottom: 2,
   },
   linkPreviewDescription: {
-    color: Colors.neutral[200],
-    fontFamily: 'Figtree-Regular',
-    fontSize: 12,
-    lineHeight: 16,
+    color: Colors.neutral[300],
+    fontFamily: Typography.families.regular,
+    fontSize: Typography.sizes.caption,
+    lineHeight: Typography.lineHeights.caption,
     marginBottom: 4,
   },
   linkPreviewUrl: {
     color: Colors.neutral[500],
-    fontFamily: 'Figtree-Regular',
-    fontSize: 12,
-    lineHeight: 16,
+    fontFamily: Typography.families.regular,
+    fontSize: Typography.sizes.caption,
+    lineHeight: Typography.lineHeights.caption,
   },
   linkPreviewIconContainer: {
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    width: 48,
+    paddingHorizontal: 10,
+    width: 40,
     alignSelf: 'stretch',
-  },
-  linkPreviewIcon: {
-    fontSize: 18,
-    color: Colors.neutral[500],
-    fontWeight: 'bold',
-    fontFamily: 'Figtree-Bold',
+    borderLeftWidth: 1,
+    borderLeftColor: Colors.neutral[800],
   },
 });
 

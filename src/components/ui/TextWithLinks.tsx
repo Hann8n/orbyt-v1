@@ -1,6 +1,8 @@
 import React, { useMemo } from 'react';
 import { Text, Linking, StyleSheet, TextStyle } from 'react-native';
 import { RichText } from '@atproto/api';
+import { Colors } from '../../theme';
+import { Typography } from '../../utils/components/typography';
 
 export interface TextWithLinksProps {
   text: string;
@@ -143,14 +145,16 @@ function TextWithLinksBase({
 
 const styles = StyleSheet.create({
   link: {
+    color: Colors.teal[400],
     textDecorationLine: 'underline',
-    fontFamily: 'Figtree-Medium',
+    textDecorationColor: Colors.teal[400],
+    fontFamily: Typography.families.medium,
   },
   mention: {
-    fontFamily: 'Figtree-SemiBold',
+    fontFamily: Typography.families.semibold,
   },
   tag: {
-    fontFamily: 'Figtree-SemiBold',
+    fontFamily: Typography.families.semibold,
   },
 });
 

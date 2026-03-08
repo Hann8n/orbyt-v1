@@ -709,12 +709,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     ? `Replying to ${replyContext.authorName}`
     : 'Say something nice...';
 
-  const handleInputFocus = useCallback(() => {
-    // TrueSheet's native footer handles keyboard automatically
-    // Resize to full height to ensure footer remains visible when keyboard appears
-    sheetRef.current?.resize(1);
-  }, []);
-
   const ComposerFooter = useMemo(() => {
     return (
       <CommentInputFooter
@@ -741,7 +735,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         currentUserAvatar={currentUserProfile?.avatar}
         userSearchModalProps={userSearchModalProps}
         mentionInputProps={mentionInputProps}
-        onFocus={handleInputFocus}
       />
     );
   }, [
@@ -756,7 +749,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     currentUserProfile?.avatar,
     userSearchModalProps,
     mentionInputProps,
-    handleInputFocus,
   ]);
 
   const headerComponent = useMemo(

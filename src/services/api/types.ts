@@ -270,6 +270,8 @@ export interface Comment {
   cid: string;
   author: ProfileViewBasic;
   record: PostRecord;
+  /** View format embed (thumb/fullsize URLs) from getPostThread; preferred over record.embed for display. */
+  embed?: PostView['embed'];
   indexedAt: string;
   viewer?: ViewerState;
   likeCount?: number;

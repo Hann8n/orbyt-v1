@@ -765,6 +765,7 @@ export class FeedService {
           cid: post.post.cid,
           author: post.post.author,
           record: post.post.record as PostRecord,
+          embed: post.post.embed, // View format with thumb/fullsize URLs for link previews
           indexedAt: post.post.indexedAt,
           viewer: post.post.viewer,
           likeCount: post.post.likeCount,
