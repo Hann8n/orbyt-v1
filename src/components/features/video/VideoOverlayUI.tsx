@@ -521,23 +521,22 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
               </View>
               <View style={styles.authorTextContainer}>
                 <View style={styles.authorNameRow}>
-                  <View style={styles.authorNameWrapper}>
-                    <Pressable
-                      onPress={handleAuthorPress}
-                      hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                  <Pressable
+                    style={styles.authorNamePressable}
+                    onPress={handleAuthorPress}
+                    hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                  >
+                    <Text
+                      style={[
+                        styles.baseText,
+                        isTabletDevice ? styles.authorNameTablet : styles.authorName,
+                      ]}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
                     >
-                      <Text
-                        style={[
-                          styles.baseText,
-                          isTabletDevice ? styles.authorNameTablet : styles.authorName,
-                        ]}
-                        numberOfLines={1}
-                        ellipsizeMode="tail"
-                      >
-                        {formattedAuthorHandle}
-                      </Text>
-                    </Pressable>
-                  </View>
+                      {formattedAuthorHandle}
+                    </Text>
+                  </Pressable>
                   {author.handle && (
                     <View style={styles.authorBadgeWrapper}>
                       <VerificationBadge
@@ -762,9 +761,10 @@ const styles = StyleSheet.create({
   authorNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'nowrap',
   },
-  authorNameWrapper: {
-    flex: 1,
+  authorNamePressable: {
+    flexShrink: 1,
     minWidth: 0,
   },
   authorBadgeWrapper: {
