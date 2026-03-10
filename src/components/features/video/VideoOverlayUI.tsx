@@ -616,7 +616,10 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                         styles.sourceTextOpacity,
                       ]}
                     >
-                      /{channelSlug}
+                      <Text style={isTabletDevice ? styles.sourceSlashTablet : styles.sourceSlash}>
+                        /
+                      </Text>
+                      {channelSlug}
                     </Text>
                   </Pressable>
                 ) : null}
@@ -787,23 +790,21 @@ const styles = StyleSheet.create({
   },
   baseText: {
     color: Colors.neutral[50],
-    fontWeight: 'bold',
-    fontFamily: 'Figtree-Medium',
     textShadowColor: Colors.overlay.black50,
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
   authorName: {
-    fontSize: 15,
-    fontFamily: 'Figtree-SemiBold',
-    lineHeight: 21,
+    fontSize: 17,
+    fontFamily: 'Figtree-Bold',
+    lineHeight: 24,
     includeFontPadding: false,
     flexShrink: 1,
   },
   authorNameTablet: {
-    fontSize: 15,
+    fontSize: 18,
     fontFamily: 'Figtree-SemiBold',
-    lineHeight: 21,
+    lineHeight: 24,
     includeFontPadding: false,
     flexShrink: 1,
   },
@@ -813,13 +814,19 @@ const styles = StyleSheet.create({
     marginTop: 0,
     paddingHorizontal: 0,
   },
+  sourceSlash: {
+    fontFamily: 'Figtree-SemiBold',
+  },
+  sourceSlashTablet: {
+    fontFamily: 'Figtree-SemiBold',
+  },
   sourceText: {
-    fontSize: 15,
-    fontFamily: 'Figtree-Medium',
+    fontSize: 16,
+    fontFamily: 'Figtree-Bold',
   },
   sourceTextTablet: {
-    fontSize: 15,
-    fontFamily: 'Figtree-Medium',
+    fontSize: 16,
+    fontFamily: 'Figtree-Bold',
   },
   actionsContainer: {
     flexDirection: 'column',
