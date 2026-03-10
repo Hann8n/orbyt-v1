@@ -52,7 +52,7 @@ const Channel: React.FC = memo(() => {
   const defaultTop = (typeof insets?.top === 'number' ? insets.top : 0) + 5;
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const overlayScrollProgressSV = useSharedValue(0);
-  const contentScrollProgressSV = viewMode === 'list' ? overlayScrollProgressSV : undefined;
+  const contentScrollProgressSV = overlayScrollProgressSV;
   const {
     isModal,
     headerPaddingTop,
@@ -294,8 +294,6 @@ const Channel: React.FC = memo(() => {
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         showViewToggle={!isCategoryChannel}
-        contentFadeDisabled={viewMode === 'grid'}
-        dimOverlayDisabled={viewMode === 'grid'}
       >
         {tabNavigation}
       </ChannelHeader>
@@ -352,7 +350,7 @@ const Channel: React.FC = memo(() => {
           onViewModeChange={setViewMode}
           queryOptions={channelDataForFeed && feedOption ? queryOptions : { enabled: false }}
           isVisible={isRouteFocused}
-          contentScrollProgressOutput={viewMode === 'list' ? overlayScrollProgressSV : undefined}
+          contentScrollProgressOutput={overlayScrollProgressSV}
           isModal={isModal}
         />
       )}

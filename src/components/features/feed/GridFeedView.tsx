@@ -1,21 +1,34 @@
-import React, { useCallback, useMemo, forwardRef, useImperativeHandle, useRef } from 'react';
+import React, {
+  useCallback,
+  useMemo,
+  forwardRef,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
   StyleSheet,
   Pressable,
   Dimensions,
+  LayoutChangeEvent,
   type ViewStyle,
   type ImageStyle,
   useWindowDimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, {
+  useSharedValue,
+  useDerivedValue,
+  useAnimatedScrollHandler,
+} from 'react-native-reanimated';
 import { FlashList, FlashListRef } from '@shopify/flash-list';
 import type { ListFeedViewRef } from '../../../types';
 import { Colors } from '../../../theme';
 import { getVideoView, DEFAULT_VIDEO_ASPECT_RATIO } from '../../../utils/video/helpers';
-import { QUERY_CONSTANTS } from '../../../utils/constants';
+import { APP_CONSTANTS, QUERY_CONSTANTS, SCROLL_CONSTANTS } from '../../../utils/constants';
 import type { ExtendedFeedViewPost } from '../../../services/api/types';
 import * as Device from 'expo-device';
 import { getViewportDimensions } from '../../../utils/device/screen';
@@ -29,6 +42,14 @@ import {
   getProfileColors,
   isHeaderFeed as getIsHeaderFeed,
 } from './feedViewShared';
+import { FeedScrollProvider } from '../../../context/FeedScrollContext';
+import type { SharedValue } from 'react-native-reanimated';
+import type { ComponentType, Ref } from 'react';
+import type { FlashListProps } from '@shopify/flash-list';
+
+const AnimatedFlashList = Animated.createAnimatedComponent(FlashList) as ComponentType<
+  FlashListProps<ExtendedFeedViewPost> & { ref?: Ref<FlashListRef<ExtendedFeedViewPost>> }
+>;
 
 // Memoized shared video item component
 const VideoGridItem: React.FC<{
@@ -88,6 +109,8 @@ interface GridFeedViewProps {
   onRetry?: () => void;
   ListComponent?: React.ComponentType<unknown> | null; // Optional custom list component
   isModal?: boolean;
+  /** When provided, grid writes scroll progress (0..1) here on UI thread for overlay/header fade. */
+  contentScrollProgressOutput?: SharedValue<number>;
 }
 
 const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
@@ -107,6 +130,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
       isError = false,
       onRetry,
       ListComponent,
+      contentScrollProgressOutput,
     },
     ref
   ) => {
@@ -124,11 +148,46 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
       [backgroundColor, secondaryColor]
     );
 
-    // Initialize infinite scroll hook with cursor-based loading
-    // Infinite scroll functionality removed - should be handled by parent component
-
     // Ref for scrolling
     const flashListRef = useRef<FlashListRef<ExtendedFeedViewPost>>(null);
+
+    // Header height for FeedScrollContext (only when header present and using FlashList)
+    const [headerHeight, setHeaderHeight] = useState(0);
+    const hasHeader = Boolean(headerComponent);
+    const useScrollTracking = !ListComponent && hasHeader;
+
+    const scrollOffsetYSV = useSharedValue(0);
+    const fadeDist = useScrollTracking ? SCROLL_CONSTANTS.HEADER_FADE_DISTANCE : 0;
+    const contentScrollProgressSV = useDerivedValue(() => {
+      'worklet';
+      return fadeDist > 0 ? Math.max(0, Math.min(1, scrollOffsetYSV.value / fadeDist)) : 0;
+    }, [scrollOffsetYSV, fadeDist]);
+
+    const scrollHandler = useAnimatedScrollHandler(
+      {
+        onScroll: event => {
+          'worklet';
+          const y = event.contentOffset.y;
+          /* eslint-disable react-hooks/immutability -- SharedValue mutations (scrollOffsetYSV, contentScrollProgressOutput) in useAnimatedScrollHandler worklet */
+          scrollOffsetYSV.value = y;
+          if (contentScrollProgressOutput && fadeDist > 0) {
+            contentScrollProgressOutput.value = Math.max(0, Math.min(1, y / fadeDist));
+          }
+          /* eslint-enable react-hooks/immutability */
+        },
+      },
+      [contentScrollProgressOutput, fadeDist]
+    );
+
+    const handleHeaderLayout = useCallback(
+      (e: LayoutChangeEvent) => {
+        const h = Math.round(e.nativeEvent.layout.height);
+        if (h > 0 && h !== headerHeight) {
+          requestAnimationFrame(() => setHeaderHeight(h));
+        }
+      },
+      [headerHeight]
+    );
 
     // Expose scrollToTop method
     useImperativeHandle(
@@ -171,6 +230,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
     // Cell aspect matches standard video aspect (9:16 portrait).
     const itemWidth = (windowWidth || Dimensions.get('window').width) / numColumns;
     const itemHeight = itemWidth / DEFAULT_VIDEO_ASPECT_RATIO;
+    const itemSpacing = itemHeight + ITEM_MARGIN;
 
     // Use actual safe area insets and bottom nav bar height
     const insets = useSafeAreaInsets();
@@ -217,66 +277,101 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
       [onGridItemPress, feed, numColumns, itemWidth, itemHeight, effectiveBackgroundColor]
     );
 
-    const ListEl = ListComponent || FlashList;
-    // Only attach ref if using FlashList (not custom ListComponent)
-    const listProps = ListComponent ? {} : { ref: flashListRef };
+    const feedScrollValue = useMemo(
+      () =>
+        useScrollTracking
+          ? {
+              scrollOffsetYSV,
+              headerHeight,
+              viewportHeight: viewportDimensions.height,
+              itemSpacing,
+              contentScrollProgressSV,
+            }
+          : null,
+      [
+        useScrollTracking,
+        scrollOffsetYSV,
+        headerHeight,
+        viewportDimensions.height,
+        itemSpacing,
+        contentScrollProgressSV,
+      ]
+    );
 
-    // Use one list path for both empty and non-empty states
+    const ListEl = ListComponent || (useScrollTracking ? AnimatedFlashList : FlashList);
+    const listProps = useMemo(() => {
+      const base: Record<string, unknown> = ListComponent ? {} : { ref: flashListRef };
+      if (useScrollTracking) {
+        base.onScroll = scrollHandler;
+        base.scrollEventThrottle = APP_CONSTANTS.SCROLL_THROTTLE;
+      }
+      return base;
+    }, [ListComponent, useScrollTracking, scrollHandler]);
+
+    const listHeader = headerComponent ? (
+      <View
+        style={styles.headerWrapper}
+        onLayout={useScrollTracking ? handleHeaderLayout : undefined}
+      >
+        {headerComponent}
+        <View style={[styles.headerSeparator, { backgroundColor: effectiveBackgroundColor }]} />
+      </View>
+    ) : null;
+
+    const listContent = (
+      <ListEl
+        {...listProps}
+        key={`grid-${feedOption}-${userDid || 'default'}-cols-${numColumns}`}
+        data={feed}
+        renderItem={renderGridItem}
+        keyExtractor={(item: ExtendedFeedViewPost) => getFeedItemKey(item)}
+        numColumns={numColumns}
+        contentContainerStyle={[
+          styles.listContent,
+          {
+            paddingBottom: viewportDimensions.bottomNavBarHeight,
+            backgroundColor: effectiveBackgroundColor,
+          },
+        ]}
+        showsVerticalScrollIndicator={false}
+        contentInsetAdjustmentBehavior="never"
+        bounces={true}
+        ListHeaderComponent={listHeader}
+        ListEmptyComponent={
+          isError ? (
+            <EmptyFeed
+              type="error"
+              secondaryColor={secondaryColor}
+              profileColors={profileColors}
+              onRetry={onRetry}
+              isProfileFeed={isProfileFeed || isHeaderFeed}
+              viewableAreaHeight={emptyComponentHeight}
+              feedOption={feedOption}
+            />
+          ) : (
+            <EmptyFeed
+              type={getEmptyFeedType(feedOption)}
+              secondaryColor={secondaryColor}
+              profileColors={profileColors}
+              isProfileFeed={isProfileFeed || isHeaderFeed}
+              viewableAreaHeight={emptyComponentHeight}
+              feedOption={feedOption}
+            />
+          )
+        }
+        scrollEnabled={true}
+        onEndReached={hasNextPage ? onLoadMore : undefined}
+        onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
+      />
+    );
+
     return (
       <View style={[styles.container, { backgroundColor: effectiveBackgroundColor }]}>
-        <ListEl
-          {...listProps}
-          key={`grid-${feedOption}-${userDid || 'default'}-cols-${numColumns}`}
-          data={feed}
-          renderItem={renderGridItem}
-          keyExtractor={(item: ExtendedFeedViewPost) => getFeedItemKey(item)}
-          numColumns={numColumns}
-          contentContainerStyle={[
-            styles.listContent,
-            {
-              paddingBottom: viewportDimensions.bottomNavBarHeight,
-              backgroundColor: effectiveBackgroundColor,
-            },
-          ]}
-          showsVerticalScrollIndicator={false}
-          contentInsetAdjustmentBehavior="never"
-          bounces={true}
-          ListHeaderComponent={
-            headerComponent ? (
-              <View style={styles.headerWrapper}>
-                {headerComponent}
-                <View
-                  style={[styles.headerSeparator, { backgroundColor: effectiveBackgroundColor }]}
-                />
-              </View>
-            ) : null
-          }
-          ListEmptyComponent={
-            isError ? (
-              <EmptyFeed
-                type="error"
-                secondaryColor={secondaryColor}
-                profileColors={profileColors}
-                onRetry={onRetry}
-                isProfileFeed={isProfileFeed || isHeaderFeed}
-                viewableAreaHeight={emptyComponentHeight}
-                feedOption={feedOption}
-              />
-            ) : (
-              <EmptyFeed
-                type={getEmptyFeedType(feedOption)}
-                secondaryColor={secondaryColor}
-                profileColors={profileColors}
-                isProfileFeed={isProfileFeed || isHeaderFeed}
-                viewableAreaHeight={emptyComponentHeight}
-                feedOption={feedOption}
-              />
-            )
-          }
-          scrollEnabled={true}
-          onEndReached={hasNextPage ? onLoadMore : undefined}
-          onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
-        />
+        {useScrollTracking && feedScrollValue ? (
+          <FeedScrollProvider value={feedScrollValue}>{listContent}</FeedScrollProvider>
+        ) : (
+          listContent
+        )}
       </View>
     );
   }

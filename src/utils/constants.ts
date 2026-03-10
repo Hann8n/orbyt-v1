@@ -44,7 +44,7 @@ export const SCROLL_CONSTANTS = {
   DECELERATION_RATE_IOS: 'fast' as const,
   DECELERATION_RATE_ANDROID: 0.98,
   /** Scroll distance (px) over which header content fade goes 0→1. Used for contentScrollProgressSV. */
-  HEADER_FADE_DISTANCE: 250,
+  HEADER_FADE_DISTANCE: 400,
 } as const;
 
 // Feed Types

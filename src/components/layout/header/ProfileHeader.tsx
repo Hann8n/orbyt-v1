@@ -210,7 +210,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     return {
       ...StyleSheet.absoluteFillObject,
       backgroundColor: 'black',
-      opacity: interpolate(progress, [0, 0.4, 1], [0, 0, 0.3], Extrapolate.CLAMP),
+      opacity: interpolate(progress, [0, 0.5, 1], [0, 0, 0.3], Extrapolate.CLAMP),
       pointerEvents: 'none',
     };
   }, [contentScrollProgressSV]);

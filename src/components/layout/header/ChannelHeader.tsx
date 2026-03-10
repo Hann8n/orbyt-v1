@@ -372,7 +372,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
       };
     }
     // More gradual dim: start dimming at 40% progress, reach ~30% black opacity at max scroll
-    const overlayOpacity = interpolate(progress, [0, 0.4, 1], [0, 0, 0], 'clamp');
+    const overlayOpacity = interpolate(progress, [0, 0.5, 1], [0, 0, 0], 'clamp');
     return {
       position: 'absolute',
       top: 0,

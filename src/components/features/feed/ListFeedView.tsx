@@ -474,26 +474,24 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       ]
     );
 
-    const ItemSeparatorComponent = useMemo(
-      () =>
-        memo(
-          ({
-            leadingItem: _leadingItem,
-            trailingItem: _trailingItem,
-          }: {
-            leadingItem?: FeedListItem;
-            trailingItem?: FeedListItem;
-          }) => (
-            <View
-              style={{
-                height: FEED_VIEW_CONSTANTS.SEPARATOR_HEIGHT,
-                backgroundColor: Colors.black,
-              }}
-            />
-          )
-        ),
-      []
-    );
+    const ItemSeparatorComponent = useMemo(() => {
+      const ItemSeparator = ({
+        leadingItem: _leadingItem,
+        trailingItem: _trailingItem,
+      }: {
+        leadingItem?: FeedListItem;
+        trailingItem?: FeedListItem;
+      }) => (
+        <View
+          style={{
+            height: FEED_VIEW_CONSTANTS.SEPARATOR_HEIGHT,
+            backgroundColor: Colors.black,
+          }}
+        />
+      );
+      ItemSeparator.displayName = 'ItemSeparatorComponent';
+      return memo(ItemSeparator);
+    }, []);
 
     // Grid view rendering (feed from FeedRenderer has no endCard; filter satisfies GridFeedView type)
     if (viewMode === 'grid') {
@@ -515,6 +513,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           isError={effectiveIsError}
           onRetry={onRetry}
           ListComponent={ListComponent}
+          contentScrollProgressOutput={contentScrollProgressOutput}
         />
       );
     }

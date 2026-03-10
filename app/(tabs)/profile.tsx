@@ -623,8 +623,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
                 applySafeArea={!isModal}
                 controlStatusBar={!isModal}
                 headerStyle={headerPaddingTop ? { paddingTop: headerPaddingTop } : undefined}
-                contentFadeDisabled={viewMode === 'grid'}
-                dimOverlayDisabled={viewMode === 'grid'}
                 onAvatarPress={
                   isLive
                     ? () => setShowLiveStreamSheet(true)

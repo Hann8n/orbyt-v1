@@ -62,7 +62,7 @@ export function useDetailScreenOverlay(
   );
 
   const overlayAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(progressSV.value, [0, 0.3, 0.8], [1, 1, 0], Extrapolate.CLAMP),
+    opacity: interpolate(progressSV.value, [0, 0.5, 0.95], [1, 1, 0], Extrapolate.CLAMP),
   }));
 
   const backIconPrimaryStyle = useAnimatedStyle(() => ({
