@@ -100,21 +100,12 @@ const CommentImage: React.FC<{
   onPress?: () => void;
   accessibilityLabel?: string;
 }> = ({ uri, initialAspectRatio, wrapperStyle, imageStyle, onPress, accessibilityLabel }) => {
-  const [aspectRatio, setAspectRatio] = useState(initialAspectRatio);
-
-  const handleLoad = useCallback((e: { source: { width: number; height: number } }) => {
-    const { width, height } = e.source;
-    if (width > 0 && height > 0) {
-      setAspectRatio(clampAspectRatio(width / height));
-    }
-  }, []);
-
+  // Use fixed aspect ratio to prevent layout shift on load
   const content = (
     <Image
       source={{ uri }}
-      style={[styles.commentImage, imageStyle, { aspectRatio }]}
-      contentFit="contain"
-      onLoad={handleLoad}
+      style={[styles.commentImage, imageStyle, { aspectRatio: initialAspectRatio }]}
+      contentFit="cover"
       accessible={true}
       accessibilityLabel={accessibilityLabel ?? 'Comment image'}
     />
@@ -122,12 +113,12 @@ const CommentImage: React.FC<{
 
   if (onPress) {
     return (
-      <Pressable style={[wrapperStyle, { aspectRatio }]} onPress={onPress}>
+      <Pressable style={[wrapperStyle, { aspectRatio: initialAspectRatio }]} onPress={onPress}>
         {content}
       </Pressable>
     );
   }
-  return <View style={[wrapperStyle, { aspectRatio }]}>{content}</View>;
+  return <View style={[wrapperStyle, { aspectRatio: initialAspectRatio }]}>{content}</View>;
 };
 
 const CommentItem: React.FC<CommentItemProps> = ({
