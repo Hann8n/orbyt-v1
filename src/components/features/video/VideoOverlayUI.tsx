@@ -9,6 +9,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '../../../theme';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
@@ -32,6 +33,8 @@ import type { ExtendedPostView, PostRecord, StatusView } from '../../../services
 import type { RichTextFacet } from '../../../utils/types/richText';
 import { type ProfileColorScheme, pickLighterHex } from '../../../utils/formatting/colors';
 import { useFollowStore } from '../../../stores/followStore';
+
+const GRADIENT_SHIM = require('../../../assets/embed-video-gradient-shim.png');
 
 type Post = ExtendedPostView;
 
@@ -439,6 +442,12 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
         style={[styles.overlayContainer, overlayAnimatedStyle]}
         pointerEvents={overlayPointerEvents}
       >
+        <Image
+          source={GRADIENT_SHIM}
+          style={styles.gradientShim}
+          contentFit="cover"
+          pointerEvents="none"
+        />
         <View style={overlayContentStyle} pointerEvents="box-none">
           <View style={styles.infoColumn} pointerEvents="box-none">
             {/* Repost indicator - repost icon + name text */}
@@ -669,6 +678,14 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
 
 // Styles
 const styles = StyleSheet.create({
+  gradientShim: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 220,
+    transform: [{ scaleY: -1 }],
+  },
   overlayContainer: {
     position: 'absolute',
     top: 0,
@@ -729,25 +746,20 @@ const styles = StyleSheet.create({
     paddingRight: 10,
     shadowColor: Colors.neutral[200],
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 1.5,
+    shadowOpacity: 0.03,
+    shadowRadius: 0.75,
   },
   descriptionText: {
     color: Colors.neutral[50],
     fontSize: 17,
     fontFamily: 'Figtree-Medium',
     lineHeight: 22,
-    textShadowColor: Colors.overlay.black50,
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 1.5,
+    textShadowColor: 'transparent',
+    textShadowRadius: 0,
   },
   authorInfoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: Colors.neutral[200],
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 1.5,
   },
   avatarContainer: {
     position: 'relative',
@@ -786,9 +798,8 @@ const styles = StyleSheet.create({
   },
   baseText: {
     color: Colors.neutral[50],
-    textShadowColor: Colors.overlay.black50,
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 1.5,
+    textShadowColor: 'transparent',
+    textShadowRadius: 0,
   },
   authorName: {
     fontSize: 17,
@@ -796,6 +807,8 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     includeFontPadding: false,
     flexShrink: 1,
+    textShadowColor: 'transparent',
+    textShadowRadius: 0,
   },
   authorNameTablet: {
     fontSize: 18,
@@ -803,6 +816,8 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     includeFontPadding: false,
     flexShrink: 1,
+    textShadowColor: 'transparent',
+    textShadowRadius: 0,
   },
   sourceIndicatorContainer: {
     flexDirection: 'row',
@@ -832,15 +847,15 @@ const styles = StyleSheet.create({
     marginBottom: 0,
     shadowColor: Colors.neutral[200],
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 1.5,
+    shadowOpacity: 0.03,
+    shadowRadius: 0.75,
   },
   baseActionButton: {
     alignItems: 'center',
     shadowColor: Colors.overlay.black50,
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1,
+    shadowOpacity: 0.1,
+    shadowRadius: 0.5,
     elevation: 0,
     width: 36.5,
   },
@@ -862,9 +877,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     width: '100%',
     minWidth: 45,
-    textShadowColor: Colors.overlay.black35,
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 0.5,
+    textShadowColor: 'transparent',
+    textShadowRadius: 0,
   },
   actionTextTablet: {
     color: Colors.neutral[50],
@@ -874,9 +888,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     width: '100%',
     minWidth: 45,
-    textShadowColor: Colors.overlay.black35,
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 0.5,
+    textShadowColor: 'transparent',
+    textShadowRadius: 0,
   },
   actionButtonDisabled: {
     // Removed opacity transparency effect
