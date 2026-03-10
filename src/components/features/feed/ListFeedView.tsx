@@ -123,20 +123,6 @@ const ListEmptyComponent = memo<ListEmptyComponentProps>(
 
 ListEmptyComponent.displayName = 'ListEmptyComponent';
 
-// ViewHolder passes leadingItem/trailingItem; accept for FlashList v2 compat, ignore for static bar.
-const ItemSeparator = memo(
-  ({
-    leadingItem: _leadingItem,
-    trailingItem: _trailingItem,
-  }: {
-    leadingItem?: FeedListItem;
-    trailingItem?: FeedListItem;
-  }) => (
-    <View style={{ height: FEED_VIEW_CONSTANTS.SEPARATOR_HEIGHT, backgroundColor: Colors.black }} />
-  )
-);
-ItemSeparator.displayName = 'ItemSeparator';
-
 const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
   (
     {
@@ -488,6 +474,27 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       ]
     );
 
+    const ItemSeparatorComponent = useMemo(
+      () =>
+        memo(
+          ({
+            leadingItem: _leadingItem,
+            trailingItem: _trailingItem,
+          }: {
+            leadingItem?: FeedListItem;
+            trailingItem?: FeedListItem;
+          }) => (
+            <View
+              style={{
+                height: FEED_VIEW_CONSTANTS.SEPARATOR_HEIGHT,
+                backgroundColor: Colors.black,
+              }}
+            />
+          )
+        ),
+      []
+    );
+
     // Grid view rendering (feed from FeedRenderer has no endCard; filter satisfies GridFeedView type)
     if (viewMode === 'grid') {
       const gridFeed = feed.filter(
@@ -576,7 +583,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
               />
             }
             // Item separator for black gaps between cards
-            ItemSeparatorComponent={ItemSeparator}
+            ItemSeparatorComponent={ItemSeparatorComponent}
             contentContainerStyle={[
               styles.contentContainer,
               feed.length > 0 && {

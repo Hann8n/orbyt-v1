@@ -197,7 +197,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
         const borderStyle = {
           borderRightWidth: isLastColumn ? 0 : ITEM_MARGIN,
           borderBottomWidth: isLastRow ? 0 : ITEM_MARGIN,
-          borderColor: Colors.black,
+          borderColor: effectiveBackgroundColor,
         };
 
         return (
@@ -245,7 +245,9 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
             headerComponent ? (
               <View style={styles.headerWrapper}>
                 {headerComponent}
-                <View style={styles.headerSeparator} />
+                <View
+                  style={[styles.headerSeparator, { backgroundColor: effectiveBackgroundColor }]}
+                />
               </View>
             ) : null
           }
