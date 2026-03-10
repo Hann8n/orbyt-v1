@@ -7,6 +7,7 @@ import FeedRenderer from '../../src/components/features/feed/FeedRenderer';
 import { BackArrowIcon } from '../../src/components/ui/Icon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../src/theme';
+import { Typography } from '../../src/utils/components/typography';
 import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '../../src/hooks';
 
 const FeedScreen = memo(() => {
@@ -130,14 +131,14 @@ const styles = StyleSheet.create({
   hashtagSymbol: {
     fontSize: 18,
     color: Colors.neutral[50],
-    fontFamily: 'Figtree-Regular',
+    fontFamily: Typography.families.medium,
     includeFontPadding: false,
     lineHeight: 30, // Match icon height for vertical alignment
   },
   hashtagText: {
     fontSize: 18,
     color: Colors.neutral[50],
-    fontFamily: 'Figtree-SemiBold',
+    fontFamily: Typography.families.bold,
     includeFontPadding: false,
     lineHeight: 30, // Match icon height for vertical alignment
   },

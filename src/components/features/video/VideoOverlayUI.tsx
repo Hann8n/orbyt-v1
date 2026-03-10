@@ -407,7 +407,11 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   const overlayContentStyle = useMemo(
     () => [
       styles.overlayContentContainer,
-      { padding: contentPadding },
+      {
+        paddingHorizontal: contentPadding,
+        paddingTop: contentPadding,
+        paddingBottom: contentPadding,
+      },
       isModal
         ? { bottom: 0 }
         : hasTabBar && isCompactDeviceValue
@@ -517,28 +521,32 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
               </View>
               <View style={styles.authorTextContainer}>
                 <View style={styles.authorNameRow}>
-                  <Pressable
-                    onPress={handleAuthorPress}
-                    hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-                  >
-                    <Text
-                      style={[
-                        styles.baseText,
-                        isTabletDevice ? styles.authorNameTablet : styles.authorName,
-                      ]}
-                      numberOfLines={1}
-                      ellipsizeMode="tail"
+                  <View style={styles.authorNameWrapper}>
+                    <Pressable
+                      onPress={handleAuthorPress}
+                      hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
                     >
-                      {formattedAuthorHandle}
-                    </Text>
-                  </Pressable>
+                      <Text
+                        style={[
+                          styles.baseText,
+                          isTabletDevice ? styles.authorNameTablet : styles.authorName,
+                        ]}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                      >
+                        {formattedAuthorHandle}
+                      </Text>
+                    </Pressable>
+                  </View>
                   {author.handle && (
-                    <VerificationBadge
-                      handle={author.handle}
-                      size={isTabletDevice ? 22 : 20}
-                      customMargin={2}
-                      textColor={Colors.neutral[50]}
-                    />
+                    <View style={styles.authorBadgeWrapper}>
+                      <VerificationBadge
+                        handle={author.handle}
+                        size={isTabletDevice ? 22 : 20}
+                        customMargin={2}
+                        textColor={Colors.neutral[50]}
+                      />
+                    </View>
                   )}
                   {showFollowText && (
                     <>
@@ -550,21 +558,23 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                       >
                         {' · '}
                       </Text>
-                      <Pressable
-                        onPress={handleFollowPress}
-                        disabled={followMutation.isPending}
-                        hitSlop={{ top: 8, bottom: 8, left: 4, right: 6 }}
-                      >
-                        <Text
-                          style={[
-                            styles.baseText,
-                            isTabletDevice ? styles.authorNameTablet : styles.authorName,
-                            styles.followText,
-                          ]}
+                      <View style={styles.followButtonWrapper}>
+                        <Pressable
+                          onPress={handleFollowPress}
+                          disabled={followMutation.isPending}
+                          hitSlop={{ top: 8, bottom: 8, left: 4, right: 6 }}
                         >
-                          Follow
-                        </Text>
-                      </Pressable>
+                          <Text
+                            style={[
+                              styles.baseText,
+                              isTabletDevice ? styles.authorNameTablet : styles.authorName,
+                              styles.followText,
+                            ]}
+                          >
+                            Follow
+                          </Text>
+                        </Pressable>
+                      </View>
                     </>
                   )}
                 </View>
@@ -753,14 +763,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  authorNameWrapper: {
+    flex: 1,
+    minWidth: 0,
+  },
+  authorBadgeWrapper: {
+    flexShrink: 0,
+  },
   followSeparator: {
     marginHorizontal: 4,
     color: Colors.neutral[50],
     opacity: 0.5,
     fontFamily: 'Figtree-Black',
+    flexShrink: 0,
+  },
+  followButtonWrapper: {
+    flexShrink: 0,
   },
   followText: {
     opacity: 0.9,
+    flexShrink: 0,
   },
   baseText: {
     color: Colors.neutral[50],
@@ -805,6 +827,7 @@ const styles = StyleSheet.create({
   actionsContainer: {
     flexDirection: 'column',
     alignItems: 'flex-end',
+    gap: 12,
     marginLeft: 5,
     marginBottom: 0,
     shadowColor: Colors.neutral[200],
@@ -821,11 +844,8 @@ const styles = StyleSheet.create({
     elevation: 0,
     width: 36.5,
   },
-  actionButton: {
-    marginVertical: 4,
-  },
+  actionButton: {},
   actionButtonTablet: {
-    marginVertical: 5,
     width: 44,
   },
   iconContainer: {
@@ -836,10 +856,9 @@ const styles = StyleSheet.create({
   },
   actionText: {
     color: Colors.neutral[50],
-    fontSize: 12.5,
-    fontWeight: 'bold',
-    fontFamily: 'Figtree-Bold',
-    marginTop: 2,
+    fontSize: 13,
+    fontFamily: 'Figtree-SemiBold',
+    marginTop: 1,
     textAlign: 'center',
     width: '100%',
     minWidth: 45,
@@ -849,10 +868,9 @@ const styles = StyleSheet.create({
   },
   actionTextTablet: {
     color: Colors.neutral[50],
-    fontSize: 15,
-    fontWeight: 'bold',
-    fontFamily: 'Figtree-Bold',
-    marginTop: 3,
+    fontSize: 13,
+    fontFamily: 'Figtree-SemiBold',
+    marginTop: 1,
     textAlign: 'center',
     width: '100%',
     minWidth: 45,

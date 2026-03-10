@@ -36,6 +36,7 @@ import { AppTrueSheet } from '../../src/utils/components/truesheet';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 
 import { Colors } from '../../src/theme';
+import { Typography } from '../../src/utils/components/typography';
 import { BORDER_RADIUS } from '../../src/utils/constants';
 import Icon, {
   BackArrowIcon,
@@ -115,6 +116,7 @@ type ChatListItem =
 type ChatRichTextPart = {
   text: string;
   isSemiBold?: boolean;
+  isSymbol?: boolean;
   kind?: 'mention' | 'hashtag' | 'link';
   identifier?: string;
   href?: string;
@@ -163,7 +165,7 @@ function formatChatRichTextParts(
             : hashtagFeature?.tag || ''),
       };
 
-      if (symbol) parts.push({ text: symbol, isSemiBold: false, ...base });
+      if (symbol) parts.push({ text: symbol, isSemiBold: false, isSymbol: true, ...base });
       if (textAfterSymbol) parts.push({ text: textAfterSymbol, isSemiBold: true, ...base });
     } else if (isLink) {
       const href = linkFeature?.uri || facetText;
@@ -244,6 +246,7 @@ function ChatMessageRichText({
         <Text
           key={index}
           style={[
+            part.isSymbol && styles.messageTextMedium,
             part.isSemiBold && styles.messageTextSemiBold,
             part.kind === 'link' &&
               (isFromMe ? styles.messageTextLinkFromMe : styles.messageTextLink),
@@ -2399,8 +2402,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Figtree-Regular',
   },
+  messageTextMedium: {
+    fontFamily: Typography.families.medium,
+  },
   messageTextSemiBold: {
-    fontFamily: 'Figtree-SemiBold',
+    fontFamily: Typography.families.bold,
   },
   messageTextLink: {
     color: Colors.brand.teal,

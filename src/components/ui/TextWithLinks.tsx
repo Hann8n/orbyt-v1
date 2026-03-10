@@ -97,14 +97,18 @@ function TextWithLinksBase({
           );
         }
         if (segment.isMention() && segment.mention?.did) {
+          const full = segment.text || '';
+          const symbol = full[0] || '@';
+          const handle = full.slice(1);
           return (
             <Text
               key={`${i}-mention`}
-              style={[style, styles.mention]}
+              style={style}
               onPress={() => onAuthorPress(segment.mention!.did!, { did: segment.mention!.did })}
               suppressHighlighting
             >
-              {segment.text}
+              <Text style={styles.symbol}>{symbol}</Text>
+              <Text style={styles.mentionTagText}>{handle}</Text>
             </Text>
           );
         }
@@ -112,27 +116,35 @@ function TextWithLinksBase({
           // Unresolved mention (common when using detectFacetsWithoutResolution): fall back to @handle text.
           const candidate = stripAtPrefix((segment.text || '').trim());
           if (candidate) {
+            const full = segment.text || '';
+            const symbol = full[0] || '@';
+            const handle = full.slice(1);
             return (
               <Text
                 key={`${i}-mention-unresolved`}
-                style={[style, styles.mention]}
+                style={style}
                 onPress={() => onAuthorPress(candidate)}
                 suppressHighlighting
               >
-                {segment.text}
+                <Text style={styles.symbol}>{symbol}</Text>
+                <Text style={styles.mentionTagText}>{handle}</Text>
               </Text>
             );
           }
         }
         if (segment.isTag() && segment.tag?.tag && onHashtagPress) {
+          const full = segment.text || '';
+          const symbol = full[0] || '#';
+          const tag = full.slice(1);
           return (
             <Text
               key={`${i}-tag`}
-              style={[style, styles.tag]}
+              style={style}
               onPress={() => onHashtagPress(segment.tag!.tag!)}
               suppressHighlighting
             >
-              {segment.text}
+              <Text style={styles.symbol}>{symbol}</Text>
+              <Text style={styles.mentionTagText}>{tag}</Text>
             </Text>
           );
         }
@@ -147,11 +159,11 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
     fontFamily: Typography.families.medium,
   },
-  mention: {
-    fontFamily: Typography.families.semibold,
+  symbol: {
+    fontFamily: Typography.families.medium,
   },
-  tag: {
-    fontFamily: Typography.families.semibold,
+  mentionTagText: {
+    fontFamily: Typography.families.bold,
   },
 });
 

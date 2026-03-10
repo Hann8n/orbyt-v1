@@ -53,8 +53,8 @@ export function useRichText(text: string): [RichTextAPI, boolean] {
  */
 export function formatRichTextForDisplay(
   richText: RichTextAPI
-): Array<{ text: string; isSemiBold: boolean }> {
-  const parts: Array<{ text: string; isSemiBold: boolean }> = [];
+): Array<{ text: string; isSemiBold: boolean; isSymbol?: boolean }> {
+  const parts: Array<{ text: string; isSemiBold: boolean; isSymbol?: boolean }> = [];
   const text = richText.text;
 
   if (!text || !richText.facets || richText.facets.length === 0) {
@@ -90,7 +90,7 @@ export function formatRichTextForDisplay(
       const textAfterSymbol = facetText.slice(1);
 
       if (symbol) {
-        parts.push({ text: symbol, isSemiBold: false });
+        parts.push({ text: symbol, isSemiBold: false, isSymbol: true });
       }
       if (textAfterSymbol) {
         parts.push({ text: textAfterSymbol, isSemiBold: true });

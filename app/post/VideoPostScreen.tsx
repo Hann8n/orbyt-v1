@@ -36,6 +36,7 @@ import { TextOverlay } from '../../src/types';
 import { resolveVideoPath, VideoPathInfo } from '../../src/utils/video/path';
 import { DEFAULT_BUFFER_OPTIONS, DEFAULT_VIDEO_ASPECT_RATIO } from '../../src/utils/video/helpers';
 import { Colors } from '../../src/theme';
+import { Typography } from '../../src/utils/components/typography';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import { useCurrentUser } from '../../src/stores/userStore';
 import ProfileService from '../../src/services/data/ProfileService';
@@ -162,7 +163,7 @@ const VideoPreviewContent: React.FC<{
 // Reusable description preview component
 const DescriptionPreview: React.FC<{
   description: string;
-  formattedRichText: Array<{ text: string; isSemiBold: boolean }>;
+  formattedRichText: Array<{ text: string; isSemiBold: boolean; isSymbol?: boolean }>;
   onPress: () => void;
 }> = ({ description, formattedRichText, onPress }) => (
   <View style={[styles.descriptionSection, styles.descriptionSectionNoPadding]}>
@@ -174,9 +175,11 @@ const DescriptionPreview: React.FC<{
             <Text
               key={index}
               style={
-                part.isSemiBold
-                  ? styles.descriptionInputPreviewSemiBold
-                  : styles.descriptionInputPreviewNormal
+                part.isSymbol
+                  ? styles.descriptionInputPreviewMedium
+                  : part.isSemiBold
+                    ? styles.descriptionInputPreviewSemiBold
+                    : styles.descriptionInputPreviewNormal
               }
             >
               {part.text}
@@ -398,7 +401,7 @@ const PostButton: React.FC<{
 const DescriptionInputModal: React.FC<{
   visible: boolean;
   description: string;
-  formattedRichText: Array<{ text: string; isSemiBold: boolean }>;
+  formattedRichText: Array<{ text: string; isSemiBold: boolean; isSymbol?: boolean }>;
   setDescription: (text: string) => void;
   setDescriptionSelection: (selection: { start: number; end: number }) => void;
   onClose: () => void;
@@ -2038,9 +2041,15 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
   },
+  descriptionInputPreviewMedium: {
+    color: Colors.neutral[200],
+    fontFamily: Typography.families.medium,
+    fontSize: 15,
+    lineHeight: 22,
+  },
   descriptionInputPreviewSemiBold: {
     color: Colors.neutral[200],
-    fontFamily: 'Figtree-SemiBold',
+    fontFamily: Typography.families.bold,
     fontSize: 15,
     lineHeight: 22,
   },
@@ -2133,9 +2142,14 @@ const styles = StyleSheet.create({
     fontFamily: 'Figtree-Regular',
     fontSize: 15,
   },
+  descriptionInputOverlayMedium: {
+    color: Colors.neutral[200],
+    fontFamily: Typography.families.medium,
+    fontSize: 15,
+  },
   descriptionInputOverlaySemiBold: {
     color: Colors.neutral[200],
-    fontFamily: 'Figtree-SemiBold',
+    fontFamily: Typography.families.bold,
     fontSize: 15,
   },
   searchModalContainer: {

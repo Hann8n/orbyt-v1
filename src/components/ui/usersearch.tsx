@@ -19,6 +19,7 @@ import AtprotoService from '../../services/api/AtprotoService';
 // Avatar import removed – using AuthorItem instead
 import AuthorItem from './AuthorItem';
 import { Colors } from './UI';
+import { Typography } from '../../utils/components/typography';
 // VerificationBadge import removed – badges rendered via AuthorItem
 
 // Types
@@ -635,12 +636,12 @@ const styles = StyleSheet.create({
   hashtagSymbol: {
     color: Colors.neutral[50],
     fontSize: 17,
-    fontFamily: 'Figtree-Regular',
+    fontFamily: Typography.families.medium,
   },
   hashtagTag: {
     color: Colors.neutral[50],
     fontSize: 17,
-    fontFamily: 'Figtree-SemiBold',
+    fontFamily: Typography.families.bold,
   },
   hashtagListContent: {
     paddingHorizontal: 0,
