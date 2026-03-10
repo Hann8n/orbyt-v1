@@ -20,9 +20,10 @@ import { queryKeys } from '../../../utils/query/queryKeys';
 import { formatNumber } from '../../../utils/formatting/numbers';
 import { formatHandle } from '../../../utils/formatting/handles';
 import { Typography, FontFamily } from '../../../utils/components/typography';
+import { hexToRGBA } from '../../../utils/formatting/colors';
 import { Colors } from '../../../theme';
 import UI from '../../ui/UI';
-import { HeartFillIcon, OutlinkIcon } from '../../ui/Icon';
+import { HeartFillIcon } from '../../ui/Icon';
 import { VerificationBadge } from '../badging';
 import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
 import RelativeDate from '../../ui/RelativeDate';
@@ -733,37 +734,47 @@ const CommentItem: React.FC<CommentItemProps> = ({
       }
     };
 
-    const displayUrl = external.uri.replace(/^https?:\/\//, '').replace(/^www\./, '');
+    const hasThumb = !!thumbUrl;
 
     return (
       <Pressable
         onPress={handlePress}
-        style={styles.linkPreviewContainer}
-        android_ripple={{ color: Colors.neutral[600] }}
+        style={[styles.linkPreviewContainer, hasThumb && styles.linkPreviewContainerWithThumb]}
+        android_ripple={{ color: hexToRGBA(Colors.neutral[400], 0.2) }}
       >
-        {thumbUrl ? (
-          <View style={styles.linkPreviewThumbWrap}>
-            <Image source={{ uri: thumbUrl }} style={styles.linkPreviewThumb} contentFit="cover" />
+        {hasThumb ? (
+          <>
+            <View style={styles.linkPreviewThumbWrap}>
+              <Image
+                source={{ uri: thumbUrl }}
+                style={styles.linkPreviewThumb}
+                contentFit="cover"
+              />
+            </View>
+            <View style={styles.linkPreviewContent}>
+              {external.title ? (
+                <Text numberOfLines={2} style={styles.linkPreviewTitle}>
+                  {external.title}
+                </Text>
+              ) : null}
+              {external.description ? (
+                <Text numberOfLines={external.title ? 1 : 2} style={styles.linkPreviewDescription}>
+                  {external.description}
+                </Text>
+              ) : null}
+            </View>
+          </>
+        ) : (
+          <View style={styles.linkPreviewContentNoThumb}>
+            <View style={styles.linkPreviewTextWrap}>
+              {external.title ? (
+                <Text numberOfLines={2} style={styles.linkPreviewTitleNoThumb}>
+                  {external.title}
+                </Text>
+              ) : null}
+            </View>
           </View>
-        ) : null}
-        <View style={[styles.linkPreviewContent, thumbUrl && styles.linkPreviewContentWithThumb]}>
-          {external.title ? (
-            <Text numberOfLines={2} style={styles.linkPreviewTitle}>
-              {external.title}
-            </Text>
-          ) : null}
-          {external.description ? (
-            <Text numberOfLines={external.title ? 1 : 2} style={styles.linkPreviewDescription}>
-              {external.description}
-            </Text>
-          ) : null}
-          <Text numberOfLines={1} style={styles.linkPreviewUrl}>
-            {displayUrl}
-          </Text>
-        </View>
-        <View style={styles.linkPreviewIconContainer}>
-          <OutlinkIcon size={18} color={Colors.neutral[400]} />
-        </View>
+        )}
       </Pressable>
     );
   };
@@ -1251,34 +1262,31 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
   },
   linkPreviewContainer: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    borderWidth: 1,
-    borderColor: Colors.neutral[800],
     borderRadius: BORDER_RADIUS.MEDIUM,
     marginTop: 8,
     marginBottom: 4,
     overflow: 'hidden',
-    backgroundColor: Colors.neutral[950],
+    backgroundColor: hexToRGBA(Colors.neutral[900], 0.6),
+    borderWidth: 1,
+    borderColor: hexToRGBA(Colors.neutral[700], 0.5),
+  },
+  linkPreviewContainerWithThumb: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
   },
   linkPreviewThumbWrap: {
-    width: 88,
-    minHeight: 72,
+    width: '100%',
+    aspectRatio: 1200 / 630, // OG image spec (1.91:1)
     backgroundColor: Colors.neutral[900],
   },
   linkPreviewThumb: {
     width: '100%',
     height: '100%',
-    minHeight: 72,
   },
   linkPreviewContent: {
-    flex: 1,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    minWidth: 0,
-  },
-  linkPreviewContentWithThumb: {
-    paddingVertical: 10,
+    paddingTop: 10,
   },
   linkPreviewTitle: {
     color: Colors.neutral[50],
@@ -1292,22 +1300,23 @@ const styles = StyleSheet.create({
     fontFamily: Typography.families.regular,
     fontSize: Typography.sizes.caption,
     lineHeight: Typography.lineHeights.caption,
-    marginBottom: 4,
   },
-  linkPreviewUrl: {
-    color: Colors.neutral[500],
-    fontFamily: Typography.families.regular,
-    fontSize: Typography.sizes.caption,
-    lineHeight: Typography.lineHeights.caption,
-  },
-  linkPreviewIconContainer: {
-    justifyContent: 'center',
+  linkPreviewContentNoThumb: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    width: 40,
-    alignSelf: 'stretch',
-    borderLeftWidth: 1,
-    borderLeftColor: Colors.neutral[800],
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  linkPreviewTextWrap: {
+    flex: 1,
+    minWidth: 0,
+  },
+  linkPreviewTitleNoThumb: {
+    color: Colors.neutral[50],
+    fontFamily: Typography.families.semibold,
+    fontSize: Typography.sizes.bodySmall,
+    lineHeight: Typography.lineHeights.bodySmall,
+    marginBottom: 1,
   },
 });
 
