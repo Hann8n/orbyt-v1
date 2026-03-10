@@ -16,14 +16,7 @@ import {
   useOverlayLayout,
   OVERLAY_LAYOUT_FALLBACK_BOTTOM_NAV,
 } from '../../../context/OverlayLayoutContext';
-import {
-  HeartFillIcon,
-  ChatFillIcon,
-  RefreshFillIcon,
-  MoreFillIcon,
-  AddCircleLineIcon,
-  CheckCircleFillIcon,
-} from '../../ui/Icon';
+import { HeartFillIcon, ChatFillIcon, RefreshFillIcon, MoreFillIcon } from '../../ui/Icon';
 import { isCurrentUser } from '../../../stores/profileInteractionStore';
 import { Avatar } from '../../ui/UI';
 import { formatNumber } from '../../../utils/formatting/numbers';
@@ -116,9 +109,6 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   // Overlay state
   const [isOverlayCollapsed, setIsOverlayCollapsed] = useState(true);
 
-  // Local UI state for confirmation badge (brief checkmark animation after follow)
-  const [showFollowConfirmation, setShowFollowConfirmation] = useState(false);
-
   // Memoize expensive calculations to prevent rerenders
   const author = useMemo(() => post.author || {}, [post.author]);
   const record = useMemo(() => post.record as PostRecord | undefined, [post.record]);
@@ -142,7 +132,6 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   // Reset text state when post changes
   useEffect(() => {
     setIsOverlayCollapsed(true);
-    setShowFollowConfirmation(false);
   }, [post?.uri, record?.text]);
 
   // Heuristic to detect long text without layout measurement
@@ -406,34 +395,15 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
 
   const handleFollowPress = useCallback(() => {
     if (!post.author?.handle) return;
-    // Optimistically show checkmark immediately
-    setShowFollowConfirmation(true);
-    // Trigger server follow (mutation updates follow store immediately)
     followMutation.mutate(
       { did: post.author?.did, handle: post.author.handle, isFollowing: true },
-      {
-        onError: () => {
-          // Reset confirmation if mutation fails
-          setShowFollowConfirmation(false);
-        },
-      }
+      {}
     );
   }, [post.author?.handle, post.author?.did, followMutation]);
 
-  // Precompute follow badge metrics
-  const followBadgeMetrics = useMemo(() => {
-    const badgeSize = Math.round(authorAvatarSize * 0.42);
-    const offset = Math.round(badgeSize * 0.25);
-    // Slight enlargement for tap; kept modest so it doesn't overlap avatar (avatar gets priority)
-    const hitBoxSize = Math.round(badgeSize * 1.2);
-    // Adjust positioning so icon stays in same visual position
-    const hitBoxOffset = Math.round((hitBoxSize - badgeSize) / 2);
-    return { badgeSize, offset, hitBoxSize, hitBoxOffset };
-  }, [authorAvatarSize]);
+  const showFollowText = hasProfile && !actualIsFollowing && !isCurrentUserProfile;
 
-  const { badgeSize, offset, hitBoxSize, hitBoxOffset } = followBadgeMetrics;
-
-  // Memoize dynamic styles to prevent style object recreation
+  // Memoize dynamic styles to prevent style object recreation to prevent style object recreation
   const overlayContentStyle = useMemo(
     () => [
       styles.overlayContentContainer,
@@ -544,39 +514,6 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                     }
                   />
                 </Pressable>
-                {/* Follow badge overlay: show + when not following, show check briefly after follow */}
-                {hasProfile &&
-                  !actualIsFollowing &&
-                  !showFollowConfirmation &&
-                  !isCurrentUserProfile && (
-                    <Pressable
-                      onPress={handleFollowPress}
-                      disabled={followMutation.isPending}
-                      hitSlop={{ top: 10, bottom: 4, left: 4, right: 10 }}
-                      style={[
-                        styles.followBadge,
-                        {
-                          right: -offset - hitBoxOffset,
-                          top: -offset - hitBoxOffset,
-                        },
-                        { width: hitBoxSize, height: hitBoxSize },
-                      ]}
-                    >
-                      <AddCircleLineIcon size={badgeSize} color={Colors.black} />
-                    </Pressable>
-                  )}
-                {showFollowConfirmation && !isCurrentUserProfile && (
-                  <View
-                    pointerEvents="none"
-                    style={[
-                      styles.followBadge,
-                      { right: -offset, top: -offset },
-                      { width: badgeSize, height: badgeSize },
-                    ]}
-                  >
-                    <CheckCircleFillIcon size={badgeSize} color={Colors.brand.teal} />
-                  </View>
-                )}
               </View>
               <View style={styles.authorTextContainer}>
                 <View style={styles.authorNameRow}>
@@ -602,6 +539,33 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                       customMargin={2}
                       textColor={Colors.neutral[50]}
                     />
+                  )}
+                  {showFollowText && (
+                    <>
+                      <Text
+                        style={[
+                          isTabletDevice ? styles.authorNameTablet : styles.authorName,
+                          styles.followSeparator,
+                        ]}
+                      >
+                        {' · '}
+                      </Text>
+                      <Pressable
+                        onPress={handleFollowPress}
+                        disabled={followMutation.isPending}
+                        hitSlop={{ top: 8, bottom: 8, left: 4, right: 6 }}
+                      >
+                        <Text
+                          style={[
+                            styles.baseText,
+                            isTabletDevice ? styles.authorNameTablet : styles.authorName,
+                            styles.followText,
+                          ]}
+                        >
+                          Follow
+                        </Text>
+                      </Pressable>
+                    </>
                   )}
                 </View>
                 {channelSlug ? (
@@ -756,24 +720,25 @@ const styles = StyleSheet.create({
     paddingRight: 10,
     shadowColor: Colors.neutral[200],
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowOpacity: 0.06,
+    shadowRadius: 1.5,
   },
   descriptionText: {
     color: Colors.neutral[50],
-    fontSize: 15,
-    fontFamily: 'Figtree-Regular',
+    fontSize: 17,
+    fontFamily: 'Figtree-Medium',
+    lineHeight: 22,
     textShadowColor: Colors.overlay.black50,
     textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+    textShadowRadius: 1.5,
   },
   authorInfoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     shadowColor: Colors.neutral[200],
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowOpacity: 0.06,
+    shadowRadius: 1.5,
   },
   avatarContainer: {
     position: 'relative',
@@ -788,11 +753,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  followSeparator: {
+    marginHorizontal: 4,
+    color: Colors.neutral[50],
+    opacity: 0.5,
+    fontFamily: 'Figtree-Black',
+  },
+  followText: {
+    opacity: 0.9,
+  },
   baseText: {
     color: Colors.neutral[50],
     textShadowColor: Colors.overlay.black50,
     textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+    textShadowRadius: 1.5,
   },
   authorName: {
     fontSize: 17,
@@ -835,14 +809,14 @@ const styles = StyleSheet.create({
     marginBottom: 0,
     shadowColor: Colors.neutral[200],
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowOpacity: 0.06,
+    shadowRadius: 1.5,
   },
   baseActionButton: {
     alignItems: 'center',
     shadowColor: Colors.overlay.black50,
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.2,
     shadowRadius: 1,
     elevation: 0,
     width: 36.5,
@@ -871,7 +845,7 @@ const styles = StyleSheet.create({
     minWidth: 45,
     textShadowColor: Colors.overlay.black35,
     textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 1,
+    textShadowRadius: 0.5,
   },
   actionTextTablet: {
     color: Colors.neutral[50],
@@ -884,19 +858,7 @@ const styles = StyleSheet.create({
     minWidth: 45,
     textShadowColor: Colors.overlay.black35,
     textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 1,
-  },
-  followBadge: {
-    position: 'absolute',
-    zIndex: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.transparent,
-    elevation: 6, // Android elevation
-    shadowColor: Colors.black, // iOS shadow
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
+    textShadowRadius: 0.5,
   },
   actionButtonDisabled: {
     // Removed opacity transparency effect
