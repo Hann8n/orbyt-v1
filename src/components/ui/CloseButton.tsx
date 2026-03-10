@@ -30,10 +30,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: BORDER_RADIUS.LARGE,
-    backgroundColor: hexToRGBA(Colors.neutral[500], 0.12),
+    backgroundColor: hexToRGBA(Colors.neutral[300], 0.12),
   },
   closeButtonPressed: {
-    backgroundColor: Colors.neutral[800],
+    backgroundColor: Colors.neutral[700],
   },
   closeIcon: {
     margin: 0,

@@ -7,7 +7,7 @@ import { BORDER_RADIUS } from '../../src/utils/constants';
 export const settingsButtonStyles = StyleSheet.create({
   // Primary button style used across most settings screens
   primaryButton: {
-    backgroundColor: hexToRGBA(Colors.neutral[500], 0.12),
+    backgroundColor: hexToRGBA(Colors.neutral[300], 0.12),
     borderRadius: BORDER_RADIUS.LARGE,
     paddingVertical: 20,
     paddingHorizontal: 20,
@@ -44,7 +44,7 @@ export const settingsButtonStyles = StyleSheet.create({
     minWidth: 80,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: hexToRGBA(Colors.neutral[500], 0.12),
+    backgroundColor: hexToRGBA(Colors.neutral[300], 0.12),
     shadowColor: Colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -57,7 +57,7 @@ export const settingsButtonStyles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: BORDER_RADIUS.LARGE,
-    backgroundColor: hexToRGBA(Colors.neutral[500], 0.12),
+    backgroundColor: hexToRGBA(Colors.neutral[300], 0.12),
     alignItems: 'center',
     justifyContent: 'center',
   },
