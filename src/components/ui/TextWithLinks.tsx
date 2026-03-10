@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
 import { Text, Linking, StyleSheet, TextStyle } from 'react-native';
 import { RichText } from '@atproto/api';
-import { Colors } from '../../theme';
 import { Typography } from '../../utils/components/typography';
 
 export interface TextWithLinksProps {
@@ -145,9 +144,7 @@ function TextWithLinksBase({
 
 const styles = StyleSheet.create({
   link: {
-    color: Colors.teal[400],
     textDecorationLine: 'underline',
-    textDecorationColor: Colors.teal[400],
     fontFamily: Typography.families.medium,
   },
   mention: {
