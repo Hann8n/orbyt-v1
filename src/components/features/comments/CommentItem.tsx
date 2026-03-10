@@ -85,6 +85,51 @@ function getCommentEmbed(c: Comment) {
   return viewEmbed ?? recordEmbed;
 }
 
+const ASPECT_RATIO_MIN = 0.35;
+const ASPECT_RATIO_MAX = 2.75;
+
+function clampAspectRatio(ar: number) {
+  return Math.max(ASPECT_RATIO_MIN, Math.min(ASPECT_RATIO_MAX, ar));
+}
+
+const CommentImage: React.FC<{
+  uri: string;
+  initialAspectRatio: number;
+  wrapperStyle: object;
+  imageStyle: object;
+  onPress?: () => void;
+  accessibilityLabel?: string;
+}> = ({ uri, initialAspectRatio, wrapperStyle, imageStyle, onPress, accessibilityLabel }) => {
+  const [aspectRatio, setAspectRatio] = useState(initialAspectRatio);
+
+  const handleLoad = useCallback((e: { source: { width: number; height: number } }) => {
+    const { width, height } = e.source;
+    if (width > 0 && height > 0) {
+      setAspectRatio(clampAspectRatio(width / height));
+    }
+  }, []);
+
+  const content = (
+    <Image
+      source={{ uri }}
+      style={[styles.commentImage, imageStyle, { aspectRatio }]}
+      contentFit="contain"
+      onLoad={handleLoad}
+      accessible={true}
+      accessibilityLabel={accessibilityLabel ?? 'Comment image'}
+    />
+  );
+
+  if (onPress) {
+    return (
+      <Pressable style={[wrapperStyle, { aspectRatio }]} onPress={onPress}>
+        {content}
+      </Pressable>
+    );
+  }
+  return <View style={[wrapperStyle, { aspectRatio }]}>{content}</View>;
+};
+
 const CommentItem: React.FC<CommentItemProps> = ({
   comment,
   onDismiss,
@@ -815,7 +860,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
       external = embed.external;
     }
 
-    const getClampedAspectRatio = (ar: number) => Math.max(0.5, Math.min(2.0, ar));
+    const getClampedAspectRatio = clampAspectRatio;
 
     const isDirectImageUrl = (url: string) => {
       return /\.(jpg|jpeg|png|gif|webp)$/i.test(url.split('?')[0]);
@@ -824,36 +869,21 @@ const CommentItem: React.FC<CommentItemProps> = ({
     if (external && external.uri && /^https?:\/\//.test(external.uri)) {
       if (isDirectImageUrl(external.uri)) {
         const maxHeight = hasText ? 220 : 320;
-        // Use default aspect ratio to prevent size change on load
-        const defaultAspectRatio = 1.5;
-        const imageStyle = {
-          width: '100%' as const,
-          maxHeight,
-          marginTop: hasText ? 2 : 0,
-          aspectRatio: defaultAspectRatio,
-          borderRadius: BORDER_RADIUS.MEDIUM,
-        };
         return (
           <View style={styles.commentImagesContainer}>
-            <Pressable
+            <CommentImage
               key={external.uri}
-              style={[
+              uri={external.uri}
+              initialAspectRatio={1.5}
+              wrapperStyle={[
                 styles.commentImageWrapper,
                 styles.commentImageWrapperFullWidth,
-                { aspectRatio: defaultAspectRatio },
+                { maxHeight, marginTop: hasText ? 2 : 0 },
               ]}
-              onPress={() => {
-                if (onImagePress) onImagePress(external.uri);
-              }}
-            >
-              <Image
-                source={{ uri: external.uri }}
-                style={[styles.commentImage, imageStyle]}
-                contentFit="cover"
-                accessible={true}
-                accessibilityLabel={external.description || external.title || 'Comment image'}
-              />
-            </Pressable>
+              imageStyle={{ width: '100%', maxHeight, borderRadius: BORDER_RADIUS.MEDIUM }}
+              onPress={() => onImagePress?.(external.uri)}
+              accessibilityLabel={external.description || external.title || 'Comment image'}
+            />
           </View>
         );
       } else {
