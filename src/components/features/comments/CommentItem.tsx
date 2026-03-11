@@ -87,6 +87,7 @@ function getCommentEmbed(c: Comment) {
 
 const ASPECT_RATIO_MIN = 0.35;
 const ASPECT_RATIO_MAX = 2.75;
+const ASPECT_RATIO_DEFAULT = 1.5;
 
 function clampAspectRatio(ar: number) {
   return Math.max(ASPECT_RATIO_MIN, Math.min(ASPECT_RATIO_MAX, ar));
@@ -859,19 +860,24 @@ const CommentItem: React.FC<CommentItemProps> = ({
 
     if (external && external.uri && /^https?:\/\//.test(external.uri)) {
       if (isDirectImageUrl(external.uri)) {
-        const maxHeight = hasText ? 220 : 320;
+        const wrapperVariant = hasText
+          ? styles.commentImageWrapperWithText
+          : styles.commentImageWrapperNoText;
+        const imageVariant = hasText
+          ? styles.commentImageDirectUrlWithText
+          : styles.commentImageDirectUrlNoText;
         return (
           <View style={styles.commentImagesContainer}>
             <CommentImage
               key={external.uri}
               uri={external.uri}
-              initialAspectRatio={1.5}
+              initialAspectRatio={ASPECT_RATIO_DEFAULT}
               wrapperStyle={[
                 styles.commentImageWrapper,
                 styles.commentImageWrapperFullWidth,
-                { maxHeight, marginTop: hasText ? 2 : 0 },
+                wrapperVariant,
               ]}
-              imageStyle={{ width: '100%', maxHeight, borderRadius: BORDER_RADIUS.MEDIUM }}
+              imageStyle={imageVariant}
               onPress={() => onImagePress?.(external.uri)}
               accessibilityLabel={external.description || external.title || 'Comment image'}
             />
@@ -1113,6 +1119,24 @@ const styles = StyleSheet.create({
   },
   commentImageWrapperFullWidth: {
     width: '100%',
+  },
+  commentImageWrapperWithText: {
+    marginTop: 2,
+    maxHeight: 220,
+  },
+  commentImageWrapperNoText: {
+    marginTop: 0,
+    maxHeight: 320,
+  },
+  commentImageDirectUrlWithText: {
+    width: '100%',
+    maxHeight: 220,
+    borderRadius: BORDER_RADIUS.MEDIUM,
+  },
+  commentImageDirectUrlNoText: {
+    width: '100%',
+    maxHeight: 320,
+    borderRadius: BORDER_RADIUS.MEDIUM,
   },
   commentImageWrapperMarginRight: {
     marginRight: '1%',
