@@ -4,6 +4,7 @@
  */
 
 // Image.resolveAssetSource replaced with expo-asset
+import i18n from '../../i18n';
 import { extractColorsFromImage } from '../formatting/colors';
 import { logger } from '../logger';
 
@@ -143,7 +144,7 @@ function colorDistance(color1: string, color2: string): number {
  * @param channelGIF - The GIF asset (require() result)
  * @returns A hex color string that matches the app's aesthetic
  */
-export async function generateChannelColorFromGIF(channelGIF: any): Promise<string> {
+export async function generateChannelColorFromGIF(channelGIF: number): Promise<string> {
   try {
     // Resolve the GIF asset to get its URI using expo-asset
     const { Asset } = require('expo-asset');
@@ -208,7 +209,7 @@ export interface OrbytChannel {
   displayName: string;
   description?: string; // Channel description (stored locally since we're not loading from server)
   channelColor: string; // Color for the channel display name
-  channelGIF?: any; // Local GIF asset (require() result) for channel avatar/background
+  channelGIF?: number; // Local GIF asset (require() result) for channel avatar/background
   showSlash?: boolean; // Whether to show the "/" prefix (default: true)
   isPostable?: boolean; // Whether users can post to this channel (default: true)
   isActive?: boolean; // Whether channel is active and should appear in explore (default: true)
@@ -330,6 +331,37 @@ export const ORBYT_CHANNELS: OrbytChannel[] = applyUniqueChannelColors(
   BASE_ORBYT_CHANNELS,
   APP_COLOR_PALETTE
 );
+
+/**
+ * Get localized display name for an orbyt channel.
+ * Use in components that display channel names to ensure correct locale.
+ */
+export function getLocalizedChannelDisplayName(uri: string, fallback?: string): string {
+  if (!uri || !isOrbytChannel(uri)) return fallback ?? '';
+  const slug = extractFeedSlug(uri);
+  if (!slug) return fallback ?? '';
+  return i18n.t(`channels.orbyt.${slug}.displayName`, { defaultValue: fallback ?? slug });
+}
+
+/**
+ * Get localized display name from a channel slug (e.g. from post tags).
+ * Use when you have the slug but not the URI, e.g. when displaying channel on video cards.
+ */
+export function getLocalizedChannelDisplayNameFromSlug(slug: string, fallback?: string): string {
+  if (!slug || typeof slug !== 'string') return fallback ?? '';
+  return i18n.t(`channels.orbyt.${slug}.displayName`, { defaultValue: fallback ?? slug });
+}
+
+/**
+ * Get localized description for an orbyt channel.
+ * Use in components that display channel descriptions to ensure correct locale.
+ */
+export function getLocalizedChannelDescription(uri: string, fallback?: string): string {
+  if (!uri || !isOrbytChannel(uri)) return fallback ?? '';
+  const slug = extractFeedSlug(uri);
+  if (!slug) return fallback ?? '';
+  return i18n.t(`channels.orbyt.${slug}.description`, { defaultValue: fallback ?? '' });
+}
 
 /**
  * Extract feed slug from a feed generator URI or local channel URI

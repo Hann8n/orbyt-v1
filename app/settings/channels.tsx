@@ -17,6 +17,7 @@ import {
   isOrbytChannel,
   getChannelByUri,
   getChannelAvatarUri,
+  getLocalizedChannelDisplayName,
   shouldShowChannelSlash,
 } from '../../src/utils/channels/orbyt';
 import { logger } from '../../src/utils/logger';
@@ -75,10 +76,15 @@ export default function ChannelManagementScreen() {
       setSelectedChannel(channel);
       TrueSheet.present('settings-channels-sheet');
       // Set the displayed title immediately
+      const name =
+        getLocalizedChannelDisplayName(channel.uri, channel.displayName) ||
+        channel.displayName ||
+        channel.handle ||
+        t('feed.unknownChannel');
       if (channel.isOrbytChannel && channel.uri && shouldShowChannelSlash(channel.uri)) {
-        setDisplayedTitle(`/${channel.displayName || channel.handle || t('feed.unknownChannel')}`);
+        setDisplayedTitle(`/${name}`);
       } else {
-        setDisplayedTitle(channel.displayName || channel.handle || t('feed.unknownChannel'));
+        setDisplayedTitle(name);
       }
     },
     [t]

@@ -31,6 +31,8 @@ import {
   isOrbytChannel,
   getChannelByUri,
   shouldShowChannelSlash,
+  getLocalizedChannelDisplayName,
+  getLocalizedChannelDescription,
 } from '../../../utils/channels/orbyt';
 import { RichText } from '@atproto/api';
 import Animated, { useAnimatedStyle, interpolate } from 'react-native-reanimated';
@@ -313,20 +315,26 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
     // Get orbyt channel info for custom title
     const orbytChannel = isOrbyt && channel.uri ? getChannelByUri(channel.uri) : undefined;
     const channelColor = orbytChannel?.channelColor || Colors.amber[400];
+    const displayName =
+      getLocalizedChannelDisplayName(channel.uri || '', channel.name) || channel.name;
+    const descriptionText =
+      getLocalizedChannelDescription(channel.uri || '', channel.description || '') ||
+      channel.description ||
+      '';
 
     const customTitle = isOrbyt ? (
       <View style={styles.orbytChannelTitle}>
         {shouldShowChannelSlash(channel.uri || '') && (
           <Text style={[styles.title, styles.orbytSlash, { color: channelColor }]}>/</Text>
         )}
-        <Text style={[styles.title, { color: safeTextColor }]}>{channel.name}</Text>
+        <Text style={[styles.title, { color: safeTextColor }]}>{displayName}</Text>
       </View>
     ) : undefined;
 
     // Parse description to generate rich text facets
-    const richText = channel.description
+    const richText = descriptionText
       ? (() => {
-          const rt = new RichText({ text: channel.description });
+          const rt = new RichText({ text: descriptionText });
           rt.detectFacetsWithoutResolution();
           return rt;
         })()
@@ -334,7 +342,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
 
     return {
       avatar: channel.avatar,
-      title: channel.name,
+      title: displayName,
       customTitle: customTitle,
       subtitle: isOrbyt ? undefined : channel.creator?.handle ? channel.creator.handle : undefined,
       description: richText?.text,

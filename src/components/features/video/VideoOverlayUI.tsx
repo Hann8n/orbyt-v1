@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { getLocalizedChannelDisplayNameFromSlug } from '../../../utils/channels/orbyt';
 import Animated, {
   type SharedValue,
   useSharedValue,
@@ -603,7 +604,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                       <Text style={isTabletDevice ? styles.sourceSlashTablet : styles.sourceSlash}>
                         /
                       </Text>
-                      {channelSlug}
+                      {getLocalizedChannelDisplayNameFromSlug(channelSlug, channelSlug)}
                     </Text>
                   </Pressable>
                 ) : null}
@@ -756,7 +757,7 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontFamily: 'Figtree-Medium',
     lineHeight: 22,
-    textShadowColor: 'transparent',
+    textShadowColor: Colors.transparent,
     textShadowRadius: 0,
   },
   authorInfoContainer: {
@@ -800,7 +801,7 @@ const styles = StyleSheet.create({
   },
   baseText: {
     color: Colors.neutral[50],
-    textShadowColor: 'transparent',
+    textShadowColor: Colors.transparent,
     textShadowRadius: 0,
   },
   authorName: {
@@ -809,7 +810,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     includeFontPadding: false,
     flexShrink: 1,
-    textShadowColor: 'transparent',
+    textShadowColor: Colors.transparent,
     textShadowRadius: 0,
   },
   authorNameTablet: {
@@ -818,7 +819,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     includeFontPadding: false,
     flexShrink: 1,
-    textShadowColor: 'transparent',
+    textShadowColor: Colors.transparent,
     textShadowRadius: 0,
   },
   sourceIndicatorContainer: {
@@ -879,7 +880,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     width: '100%',
     minWidth: 45,
-    textShadowColor: 'transparent',
+    textShadowColor: Colors.transparent,
     textShadowRadius: 0,
   },
   actionTextTablet: {
@@ -890,7 +891,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     width: '100%',
     minWidth: 45,
-    textShadowColor: 'transparent',
+    textShadowColor: Colors.transparent,
     textShadowRadius: 0,
   },
   actionButtonDisabled: {

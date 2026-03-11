@@ -53,6 +53,7 @@ import {
   extractFeedSlug,
   getChannelAvatarUri,
   getChannelByUri,
+  getLocalizedChannelDisplayName,
 } from '../../src/utils/channels/orbyt';
 import type { SubscribedChannel } from '../../src/stores/userStore';
 import VerticalListSheet, {
@@ -1479,7 +1480,11 @@ const VideoPostScreen: React.FC = () => {
                       </Text>
                     )}
                     <Text style={[styles.channelListButtonText, styles.channelSelectorNameBold]}>
-                      {channel.displayName.toLowerCase()}
+                      {(
+                        getLocalizedChannelDisplayName(channel.uri, channel.displayName) ||
+                        channel.displayName ||
+                        ''
+                      ).toLowerCase()}
                     </Text>
                   </View>
                 </View>
@@ -2142,11 +2147,6 @@ const styles = StyleSheet.create({
   descriptionInputOverlayNormal: {
     color: Colors.neutral[200],
     fontFamily: 'Figtree-Regular',
-    fontSize: 15,
-  },
-  descriptionInputOverlayMedium: {
-    color: Colors.neutral[200],
-    fontFamily: Typography.families.medium,
     fontSize: 15,
   },
   descriptionInputOverlaySemiBold: {

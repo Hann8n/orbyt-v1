@@ -28,6 +28,8 @@ import {
   isOrbytChannel,
   getChannelByUri,
   getChannelAvatarUri,
+  getLocalizedChannelDisplayName,
+  getLocalizedChannelDescription,
   shouldShowChannelSlash,
 } from '../../src/utils/channels/orbyt';
 import { BORDER_RADIUS, ALGORITHMIC_FEED_PROVIDERS } from '../../src/utils/constants';
@@ -174,10 +176,15 @@ const AlgorithmicFeedScreen: React.FC = () => {
       setSelectedChannel(channel);
       TrueSheet.present('algorithmic-feed-channel-options');
       // Set the displayed title immediately
+      const name =
+        getLocalizedChannelDisplayName(channel.uri, channel.displayName) ||
+        channel.displayName ||
+        channel.handle ||
+        t('feed.unknownChannel');
       if (channel.isOrbytChannel && channel.uri && shouldShowChannelSlash(channel.uri)) {
-        setDisplayedTitle(`/${channel.displayName || channel.handle || t('feed.unknownChannel')}`);
+        setDisplayedTitle(`/${name}`);
       } else {
-        setDisplayedTitle(channel.displayName || channel.handle || t('feed.unknownChannel'));
+        setDisplayedTitle(name);
       }
     },
     [t]
@@ -201,7 +208,11 @@ const AlgorithmicFeedScreen: React.FC = () => {
     Alert.alert(
       t('settings.unsubscribeChannel'),
       t('settings.unsubscribeConfirmWithName', {
-        name: selectedChannel.displayName || selectedChannel.handle || t('feed.unknownChannel'),
+        name:
+          getLocalizedChannelDisplayName(selectedChannel.uri, selectedChannel.displayName) ||
+          selectedChannel.displayName ||
+          selectedChannel.handle ||
+          t('feed.unknownChannel'),
       }),
       [
         { text: t('common.cancel'), style: 'cancel' },
@@ -323,7 +334,13 @@ const AlgorithmicFeedScreen: React.FC = () => {
             <View style={styles.channelsList}>
               {listData.map(channel => {
                 const channelName =
-                  channel.displayName || channel.handle || t('feed.unknownChannel');
+                  getLocalizedChannelDisplayName(channel.uri, channel.displayName) ||
+                  channel.displayName ||
+                  channel.handle ||
+                  t('feed.unknownChannel');
+                const channelDesc =
+                  getLocalizedChannelDescription(channel.uri, channel.description) ||
+                  channel.description;
                 const showSlash =
                   channel.isOrbytChannel && channel.uri && shouldShowChannelSlash(channel.uri);
 
@@ -373,9 +390,9 @@ const AlgorithmicFeedScreen: React.FC = () => {
                           {channelName}
                         </Text>
                       </View>
-                      {channel.description && (
+                      {channelDesc && (
                         <Text style={styles.channelDescription} numberOfLines={1}>
-                          {channel.description}
+                          {channelDesc}
                         </Text>
                       )}
                     </View>

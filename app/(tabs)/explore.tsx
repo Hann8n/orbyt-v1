@@ -77,6 +77,7 @@ import {
   isOrbytChannel,
   getChannelByUri,
   getChannelAvatarUri,
+  getLocalizedChannelDisplayName,
   shouldShowChannelSlash,
   extractFeedSlug,
 } from '../../src/utils/channels/orbyt';
@@ -657,6 +658,10 @@ const ChannelNameDisplay: React.FC<{ channel: Channel; style?: StyleProp<ViewSty
   const isOrbyt = isOrbytChannel(channel.uri);
   const orbytChannel = isOrbyt ? getChannelByUri(channel.uri) : undefined;
   const channelColor = orbytChannel?.channelColor || Colors.amber[400];
+  const displayName =
+    getLocalizedChannelDisplayName(channel.uri, channel.displayName) ||
+    channel.displayName ||
+    t('feed.unknownChannel');
 
   if (isOrbyt) {
     const showSlash = shouldShowChannelSlash(channel.uri);
@@ -666,7 +671,7 @@ const ChannelNameDisplay: React.FC<{ channel: Channel; style?: StyleProp<ViewSty
           <Text style={[styles.channelName, styles.orbytSlash, { color: channelColor }]}>/</Text>
         )}
         <Text style={styles.channelName} numberOfLines={1}>
-          {channel.displayName || t('feed.unknownChannel')}
+          {displayName}
         </Text>
       </View>
     );
@@ -674,7 +679,7 @@ const ChannelNameDisplay: React.FC<{ channel: Channel; style?: StyleProp<ViewSty
 
   return (
     <Text style={styles.channelName} numberOfLines={1}>
-      {channel.displayName || t('feed.unknownChannel')}
+      {displayName}
     </Text>
   );
 };
@@ -769,12 +774,16 @@ const GridChannelItem = ({
                 </Text>
               )}
               <Text style={styles.gridChannelName} numberOfLines={1}>
-                {channel.displayName || t('feed.unknownChannel')}
+                {getLocalizedChannelDisplayName(channel.uri, channel.displayName) ||
+                  channel.displayName ||
+                  t('feed.unknownChannel')}
               </Text>
             </View>
           ) : (
             <Text style={styles.gridChannelName} numberOfLines={1}>
-              {channel.displayName || t('feed.unknownChannel')}
+              {getLocalizedChannelDisplayName(channel.uri, channel.displayName) ||
+                channel.displayName ||
+                t('feed.unknownChannel')}
             </Text>
           )}
         </View>
@@ -866,12 +875,16 @@ const HorizontalChannelItem = ({
               <Text style={[styles.horizontalChannelLabel, styles.orbytSlash]}>/</Text>
             )}
             <Text style={styles.horizontalChannelLabel} numberOfLines={1}>
-              {channel.displayName || t('feed.unknownChannel')}
+              {getLocalizedChannelDisplayName(channel.uri, channel.displayName) ||
+                channel.displayName ||
+                t('feed.unknownChannel')}
             </Text>
           </View>
         ) : (
           <Text style={styles.horizontalChannelLabel} numberOfLines={1}>
-            {channel.displayName || t('feed.unknownChannel')}
+            {getLocalizedChannelDisplayName(channel.uri, channel.displayName) ||
+              channel.displayName ||
+              t('feed.unknownChannel')}
           </Text>
         )}
       </View>

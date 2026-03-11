@@ -10,6 +10,7 @@ import {
   isOrbytChannel,
   getChannelByUri,
   shouldShowChannelSlash,
+  getLocalizedChannelDisplayName,
 } from '../../utils/channels/orbyt';
 import { itemSizeConfig, sharedItemStyles } from './ItemStyles';
 
@@ -49,14 +50,16 @@ const ChannelItem: React.FC<ChannelItemProps> = ({
   const router = useRouter();
 
   const config = itemSizeConfig[size];
-  const actualDisplayName = displayName || t('feed.unknownChannel');
+  const actualDisplayName =
+    getLocalizedChannelDisplayName(uri, displayName || undefined) ||
+    displayName ||
+    t('feed.unknownChannel');
   const avatarUri = getChannelAvatarUri(uri, avatar);
 
   // orbyt channel formatting
-  const isOrbyt = isOrbytChannel(uri);
-  const orbytChannel = isOrbyt ? getChannelByUri(uri) : undefined;
+  const orbytChannel = isOrbytChannel(uri) ? getChannelByUri(uri) : undefined;
   const channelColor = orbytChannel?.channelColor || Colors.amber[400];
-  const showSlash = isOrbyt && shouldShowChannelSlash(uri);
+  const showSlash = isOrbytChannel(uri) && shouldShowChannelSlash(uri);
 
   const handlePress = () => {
     if (onPress) {
@@ -80,7 +83,7 @@ const ChannelItem: React.FC<ChannelItemProps> = ({
         </View>
         <View style={styles.accountInfoContainer}>
           <View style={styles.nameRow}>
-            {isOrbyt && showSlash ? (
+            {isOrbytChannel(uri) && showSlash ? (
               <View style={styles.channelNameRow}>
                 <Text
                   style={[

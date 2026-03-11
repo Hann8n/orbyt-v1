@@ -45,6 +45,7 @@ import {
   isVideoEmbedInMedia,
 } from '../types';
 import { REQUESTMORE, REQUESTLESS } from '@atproto/api/dist/client/types/app/bsky/feed/defs';
+import i18n from '../../../i18n';
 
 export class FeedService {
   // Tracks whether app.bsky.feed.sendInteractions is supported by the current PDS/AppView
@@ -159,8 +160,13 @@ export class FeedService {
           cursor: cursor || undefined,
         };
 
+        // Bluesky recommends Accept-Language for feed generators to prefer posts in user's language
+        const lang = i18n.language?.replace(/-.+$/, '') || 'en';
+        const acceptLang = lang === 'en' ? 'en' : `${lang},en`;
+        const opts = { headers: { 'Accept-Language': acceptLang } as Record<string, string> };
+
         try {
-          const apiResponse = await api.app.bsky.feed.getFeed(params);
+          const apiResponse = await api.app.bsky.feed.getFeed(params, opts);
           responseData = apiResponse.data;
         } catch (customFeedError: unknown) {
           if (
