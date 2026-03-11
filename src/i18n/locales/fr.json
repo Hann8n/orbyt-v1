@@ -149,8 +149,8 @@
     "cantLoadNotifications": "Impossible de charger les notifications"
   },
   "channel": {
-    "notFound": "Canal introuvable",
-    "retrieveFailed": "Impossible de charger ce canal",
+    "notFound": "Chaîne introuvable",
+    "retrieveFailed": "Impossible de charger cette chaîne",
     "trending": "tendance",
     "new": "nouveau"
   },
@@ -185,7 +185,7 @@
     "decline": "Refuser",
     "declining": "Refus…",
     "or": "ou",
-    "discard": "Annuler",
+    "discard": "Abandonner",
     "cancel": "Annuler",
     "save": "Enregistrer",
     "ok": "OK",
@@ -291,7 +291,7 @@
     "noUsersFound": "Aucun utilisateur trouvé",
     "noHashtagsFound": "Aucun hashtag trouvé",
     "unknownUser": "Utilisateur inconnu",
-    "unknownChannel": "Canal inconnu",
+    "unknownChannel": "Chaîne inconnue",
     "recentlyVisited": "récemment visités",
     "people": "personnes",
     "feeds": "fils",
@@ -396,7 +396,7 @@
     "comments": "Commentaires",
     "warnings": "Avertissements",
     "gettingReady": "Préparation…",
-    "uploadingVideo": "Téléchargement…",
+    "uploadingVideo": "Envoi en cours…",
     "processingVideo": "Traitement…",
     "creatingPost": "Création…",
     "finishingUp": "Finalisation…",
