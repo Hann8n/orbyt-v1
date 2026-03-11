@@ -5,9 +5,16 @@ import { getLocales } from 'expo-localization';
 import en from './locales/en.json';
 import es from './locales/es.json';
 import ja from './locales/ja.json';
+import ptBR from './locales/pt-BR.json';
 import { getDateFnsLocaleForLanguage } from './dateFnsLocales';
 
-const resources = { en: { translation: en }, es: { translation: es }, ja: { translation: ja } };
+const resources = {
+  en: { translation: en },
+  es: { translation: es },
+  ja: { translation: ja },
+  'pt-BR': { translation: ptBR },
+  pt: { translation: ptBR },
+};
 const deviceLanguage = getLocales()[0]?.languageCode ?? 'en';
 
 /** Returns the date-fns locale for the current i18n language. Use for format(), formatDistanceToNow, etc. */

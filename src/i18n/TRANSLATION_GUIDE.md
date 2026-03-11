@@ -127,7 +127,7 @@ These keys have **varying character lengths** across locales. Keep translations 
 ## File Structure
 
 - **Source of truth**: `src/i18n/locales/en.json`
-- **Locales**: `en.json`, `es.json`, `ja.json`
+- **Locales**: `en.json`, `es.json`, `ja.json`, `pt-BR.json`
 - **Registration**: `src/i18n/index.ts` — import and add to `resources`
 - **Date formatting**: `src/i18n/dateFnsLocales.ts` — add date-fns locale for new language
 - **Expo**: `app.json` — add language code to `expo-localization` `supportedLocales`
