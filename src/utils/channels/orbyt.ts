@@ -237,7 +237,7 @@ const BASE_ORBYT_CHANNELS: OrbytChannel[] = [
     uri: 'at://local.orbyt.channel/archive',
     slug: 'archive',
     displayName: 'archive',
-    description: 'from the platforms of yesteryear',
+    description: 'vintage videos from across the web',
     channelColor: '#D07EA2', // Pastel maroon with AA contrast on dark
     channelGIF: ArchiveChannelGIF,
   },
@@ -245,7 +245,7 @@ const BASE_ORBYT_CHANNELS: OrbytChannel[] = [
     uri: 'at://local.orbyt.channel/art',
     slug: 'art',
     displayName: 'art',
-    description: 'i like it ... Picasso',
+    description: 'creativity in motion',
     channelColor: '#FFD700', // Yellow color for art channel
     channelGIF: ArtChannelGIF,
   },
@@ -253,7 +253,7 @@ const BASE_ORBYT_CHANNELS: OrbytChannel[] = [
     uri: 'at://local.orbyt.channel/chill',
     slug: 'chill',
     displayName: 'chill',
-    description: 'just vibes',
+    description: 'relax and unwind',
     channelColor: '#8ECFFF', // Pastel blue with AA contrast on dark
     channelGIF: ChillChannelGIF,
   },
@@ -261,7 +261,7 @@ const BASE_ORBYT_CHANNELS: OrbytChannel[] = [
     uri: 'at://local.orbyt.channel/edits',
     slug: 'edits',
     displayName: 'edits',
-    description: 'GET HYPED!',
+    description: 'high-energy cuts',
     channelColor: '#ce3bff', // Bright neon purple for contrast
     channelGIF: EditsChannelGIF,
   },
@@ -269,7 +269,7 @@ const BASE_ORBYT_CHANNELS: OrbytChannel[] = [
     uri: 'at://local.orbyt.channel/funny',
     slug: 'funny',
     displayName: 'funny',
-    description: 'laugh out loud',
+    description: 'for a good laugh',
     channelColor: '#8B5CF6', // Bright purple for contrast
     channelGIF: FunnyChannelGIF,
   },
@@ -277,7 +277,7 @@ const BASE_ORBYT_CHANNELS: OrbytChannel[] = [
     uri: 'at://local.orbyt.channel/holidays',
     slug: 'holidays',
     displayName: 'holidays',
-    description: 'celebrate the moments',
+    description: 'seasonal celebrations',
     channelColor: '#FF6B35', // Warm orange for holidays (matches app palette)
     channelGIF: HolidaysChannelGIF,
     isActive: false, // Seasonal channel - deactivated when not in season
@@ -286,7 +286,7 @@ const BASE_ORBYT_CHANNELS: OrbytChannel[] = [
     uri: 'at://local.orbyt.channel/horror',
     slug: 'horror',
     displayName: 'horror',
-    description: "💨 what was that? I'm scared",
+    description: 'watch with the lights on',
     channelColor: '#FF6B9D', // Light red for dark backgrounds
     channelGIF: HorrorChannelGIF,
   },
@@ -303,7 +303,7 @@ const BASE_ORBYT_CHANNELS: OrbytChannel[] = [
     uri: 'at://local.orbyt.channel/pets',
     slug: 'pets',
     displayName: 'pets',
-    description: 'good boys and girls',
+    description: 'adorable animals',
     channelColor: '#00D4AA', // Teal for pets (unique, bright)
     channelGIF: PetsChannelGIF,
   },
@@ -320,7 +320,7 @@ const BASE_ORBYT_CHANNELS: OrbytChannel[] = [
     uri: 'at://local.orbyt.channel/weird',
     slug: 'weird',
     displayName: 'weird',
-    description: "well ... that's new",
+    description: 'odd and wonderful',
     channelColor: '#00BFFF', // Teal-blue for contrast on dark
     channelGIF: WeirdChannelGIF,
   },
