@@ -1,4 +1,5 @@
 import type { Locale } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { ja } from 'date-fns/locale';
 
 /**
@@ -7,6 +8,7 @@ import { ja } from 'date-fns/locale';
  * Align with app.json expo-localization supportedLocales.
  */
 const DATE_FNS_LOCALE_MAP: Record<string, Locale> = {
+  es,
   ja,
 };
 

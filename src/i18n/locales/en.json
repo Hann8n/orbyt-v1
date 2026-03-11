@@ -310,6 +310,7 @@
     "sinceDate": "Since {{date}}",
     "verifiedBy": "verified by:",
     "joinedOn": "Joined on {{date}}",
+    "betaDescriptionRest": " joined during the orbyt beta. Beta testers helped test early features and shape the experience.",
     "watchOn": "watch on {{domain}}",
     "trustedVerifier": "Trusted Verifier",
     "verified": "Verified",

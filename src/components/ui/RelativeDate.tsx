@@ -7,7 +7,6 @@ import {
   differenceInMinutes,
   differenceInSeconds,
   format,
-  formatDistanceToNow,
   getYear,
   isValid,
   parseISO,
@@ -21,7 +20,7 @@ interface RelativeDateProps {
 }
 
 /**
- * Component to display a relative date string (e.g., "1h", "2d" in English; localized in other languages)
+ * Component to display a relative date string (e.g., "1h", "2d", compact format for all locales)
  * For older dates, shows the actual date
  */
 const RelativeDate: React.FC<RelativeDateProps> = ({ dateString, style, showTime = false }) => {
@@ -34,7 +33,7 @@ const RelativeDate: React.FC<RelativeDateProps> = ({ dateString, style, showTime
 
 /**
  * Format a date string into a relative time string.
- * For dates within 7 days: English uses short format (1h, 2d); other locales use full localized text.
+ * For dates within 7 days: short format (1s, 30m, 2h, 5d) for all locales.
  * For older dates: formatted date string with localized month names.
  *
  * @param dateString - ISO date string to format
@@ -52,17 +51,14 @@ export const formatRelativeDate = (dateString?: string, _showTime: boolean = fal
   const dateFnsLocale = getDateFnsLocale();
 
   if (diffDays < 7) {
-    // English: short format (1h, 2d). Other locales: full localized text.
-    if (!dateFnsLocale) {
-      const seconds = differenceInSeconds(now, date);
-      if (seconds < 60) return `${seconds}s`;
-      const minutes = differenceInMinutes(now, date);
-      if (minutes < 60) return `${minutes}m`;
-      const hours = differenceInHours(now, date);
-      if (hours < 24) return `${hours}h`;
-      return `${diffDays}d`;
-    }
-    return formatDistanceToNow(date, { addSuffix: false, locale: dateFnsLocale });
+    // Short format (1s, 30m, 2h, 5d) for all locales — compact and widely understood.
+    const seconds = differenceInSeconds(now, date);
+    if (seconds < 60) return `${seconds}s`;
+    const minutes = differenceInMinutes(now, date);
+    if (minutes < 60) return `${minutes}m`;
+    const hours = differenceInHours(now, date);
+    if (hours < 24) return `${hours}h`;
+    return `${diffDays}d`;
   }
 
   if (diffDays >= 365) {
