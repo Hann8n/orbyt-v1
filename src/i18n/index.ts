@@ -1,6 +1,6 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
-import { getLocales } from 'expo-localization';
+import { getLocales, type Locale } from 'expo-localization';
 
 import de from './locales/de.json';
 import en from './locales/en.json';
@@ -23,7 +23,23 @@ const resources = {
   'pt-BR': { translation: ptBR },
   pt: { translation: ptBR },
 };
-const deviceLanguage = getLocales()[0]?.languageCode ?? 'en';
+
+const SUPPORTED = new Set(Object.keys(resources));
+
+/**
+ * Resolves the best locale from the device's ranked list.
+ * Iterates the full getLocales() list so fallbacks (e.g. Thai → English → Japanese)
+ * are respected when the primary language isn't supported.
+ */
+export function resolveLocale(locales: Locale[] = getLocales()): string {
+  for (const locale of locales) {
+    if (SUPPORTED.has(locale.languageTag)) return locale.languageTag;
+    if (locale.languageCode && SUPPORTED.has(locale.languageCode)) return locale.languageCode;
+  }
+  return 'en';
+}
+
+const deviceLanguage = resolveLocale();
 
 /** Returns the date-fns locale for the current i18n language. Use for format(), formatDistanceToNow, etc. */
 export function getDateFnsLocale(): import('date-fns').Locale | undefined {

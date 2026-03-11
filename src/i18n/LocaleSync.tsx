@@ -1,20 +1,25 @@
 import { useEffect } from 'react';
-import { useLocales } from 'expo-localization';
-import i18n from './index';
+import { AppState } from 'react-native';
+import { getLocales } from 'expo-localization';
+import i18n, { resolveLocale } from './index';
+
+const applyLocale = () => {
+  const resolved = resolveLocale(getLocales());
+  if (i18n.language !== resolved) i18n.changeLanguage(resolved);
+};
 
 /**
  * Syncs device locale to i18n. Mount once inside app tree (e.g. AppProviders).
- * useLocales() re-renders when OS locale changes (e.g. Android per-app language).
+ * On Android, users can change language in Settings without restarting — AppState
+ * re-runs getLocales() on foreground per Expo docs.
  */
 export function LocaleSync() {
-  const [locale] = useLocales();
-
   useEffect(() => {
-    const code = locale?.languageCode ?? 'en';
-    if (i18n.language !== code) {
-      i18n.changeLanguage(code);
-    }
-  }, [locale?.languageCode]);
-
+    applyLocale();
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'active') applyLocale();
+    });
+    return () => subscription.remove();
+  }, []);
   return null;
 }
