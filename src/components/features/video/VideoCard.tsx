@@ -85,34 +85,32 @@ const OVERLAY_FADE_EXPONENT = 2;
 /** System moderation labels: do not show in user-facing warning text. */
 const WARNING_HIDDEN_LABELS = ['!hide', '!warn', '!no-unauthenticated'];
 
-/** Map label values to user-friendly warning messages */
-const LABEL_MESSAGE_MAP: Record<string, string> = {
-  // Global labels
-  porn: 'explicit sexual content',
-  sexual: 'sexually suggestive content',
-  nudity: 'nudity',
-  'graphic-media': 'graphic or violent content',
-  gore: 'graphic or violent content', // deprecated alias
-  // Common custom labels from Bluesky moderation service
-  'self-harm': 'content about self-harm',
-  sensitive: 'sensitive content',
-  extremist: 'extremist content',
-  intolerance: 'intolerant content',
-  threats: 'threatening content',
-  rude: 'rude or offensive content',
-  illicit: 'illicit content',
-  'security-concerns': 'potentially unsafe content',
-  'unsafe-link': 'unsafe links',
-  impersonation: 'impersonation',
-  misinformation: 'misinformation',
-  scam: 'scam content',
-  'engagement-farming': 'engagement farming content',
-  spam: 'spam',
-  unconfirmed: 'unconfirmed claims',
-  misleading: 'misleading content',
-  'inauthentic-account': 'content from an inauthentic account',
-  'sexually-suggestive-cartoon': 'sexually suggestive cartoon content',
-};
+/** Label keys that have i18n translations (video.contentWarningLabels.*) */
+const CONTENT_WARNING_LABEL_KEYS = [
+  'porn',
+  'sexual',
+  'nudity',
+  'graphic-media',
+  'gore',
+  'self-harm',
+  'sensitive',
+  'extremist',
+  'intolerance',
+  'threats',
+  'rude',
+  'illicit',
+  'security-concerns',
+  'unsafe-link',
+  'impersonation',
+  'misinformation',
+  'scam',
+  'engagement-farming',
+  'spam',
+  'unconfirmed',
+  'misleading',
+  'inauthentic-account',
+  'sexually-suggestive-cartoon',
+] as const;
 
 // Types
 export interface VideoCardRef {
@@ -395,46 +393,41 @@ const VideoCard = memo(
 
         if (labels.length === 0) return fallback;
 
-        // Map labels to user-friendly messages
+        const getLabelMessage = (label: string): string => {
+          const key = `video.contentWarningLabels.${label}`;
+          const translated = t(key);
+          if (translated !== key) return translated;
+          const lowerLabel = label.toLowerCase();
+          const matchedKey = CONTENT_WARNING_LABEL_KEYS.find(k => k.toLowerCase() === lowerLabel);
+          if (matchedKey) return t(`video.contentWarningLabels.${matchedKey}`);
+          return label
+            .split('-')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ')
+            .toLowerCase();
+        };
+
         const messages = labels
-          .map((label: string) => {
-            // Check exact match first
-            if (LABEL_MESSAGE_MAP[label]) {
-              return LABEL_MESSAGE_MAP[label];
-            }
-            // Check case-insensitive match
-            const lowerLabel = label.toLowerCase();
-            const matchedKey = Object.keys(LABEL_MESSAGE_MAP).find(
-              key => key.toLowerCase() === lowerLabel
-            );
-            if (matchedKey) {
-              return LABEL_MESSAGE_MAP[matchedKey];
-            }
-            // Fallback: format the label identifier nicely
-            return label
-              .split('-')
-              .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-              .join(' ')
-              .toLowerCase();
-          })
+          .map((label: string) => getLabelMessage(label))
           .filter((msg: string) => msg.length > 0);
 
         if (messages.length === 0) return fallback;
 
-        // Format multiple labels
-        const formattedMessage =
-          messages.length > 1
-            ? messages.slice(0, -1).join(', ') + ', and ' + messages[messages.length - 1]
-            : messages[0];
+        const andConjunction = t('video.contentWarningAnd');
 
         // Special case: inauthentic account uses different sentence structure
         if (
           labels.some(l => l === 'inauthentic-account' || l.toLowerCase() === 'inauthentic-account')
         ) {
-          return `This video may be from an inauthentic account.`;
+          return t('video.contentWarningInauthentic');
         }
 
-        return `This video may contain ${formattedMessage}.`;
+        const formattedMessage =
+          messages.length > 1
+            ? messages.slice(0, -1).join(', ') + andConjunction + messages[messages.length - 1]
+            : messages[0];
+
+        return t('video.contentWarningMayContain', { labels: formattedMessage });
       }, [reason, t]);
 
       const handleViewContent = useCallback(() => setUserChoseToView(true), [setUserChoseToView]);

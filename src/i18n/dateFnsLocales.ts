@@ -1,5 +1,6 @@
 import type { Locale } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { fr } from 'date-fns/locale';
 import { ja } from 'date-fns/locale';
 import { ptBR } from 'date-fns/locale';
 
@@ -10,6 +11,7 @@ import { ptBR } from 'date-fns/locale';
  */
 const DATE_FNS_LOCALE_MAP: Record<string, Locale> = {
   es,
+  fr,
   ja,
   pt: ptBR,
 };

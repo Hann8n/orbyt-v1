@@ -4,6 +4,7 @@ import { getLocales } from 'expo-localization';
 
 import en from './locales/en.json';
 import es from './locales/es.json';
+import fr from './locales/fr.json';
 import ja from './locales/ja.json';
 import ptBR from './locales/pt-BR.json';
 import { getDateFnsLocaleForLanguage } from './dateFnsLocales';
@@ -11,6 +12,9 @@ import { getDateFnsLocaleForLanguage } from './dateFnsLocales';
 const resources = {
   en: { translation: en },
   es: { translation: es },
+  fr: { translation: fr },
+  'fr-FR': { translation: fr },
+  'fr-CA': { translation: fr },
   ja: { translation: ja },
   'pt-BR': { translation: ptBR },
   pt: { translation: ptBR },

@@ -59,6 +59,10 @@ Use the target language's natural equivalent for these concepts when available.
 ## Spanish-Specific
 
 - Use **tú** (informal) for social/consumer UI — "tu sesión", "inténtalo de nuevo"
+
+## French-Specific
+
+- Use **tu** (informal) for social/consumer UI — "ta session", "réessaie"
 - Prefer broadly understood phrasing across regions (Spain, Latin America)
 - Use neutral terminology when possible (e.g. "personas" vs "usuarios")
 
@@ -83,32 +87,32 @@ These keys have **varying character lengths** across locales. Keep translations 
 
 ### Critical — must stay compact
 
-| Key                           | en  | ja  | es     | Notes                                                                   |
-| ----------------------------- | --- | --- | ------ | ----------------------------------------------------------------------- |
-| `profile.live`                | 4   | 2   | 4      | LIVE badge on avatars; keep ≤4 chars                                    |
-| `common.next`                 | 4   | 2   | **9**  | Button; es "SIGUIENTE" may overflow — consider "Siguiente" or shorter   |
-| `video.post`                  | 4   | 2   | **8**  | Post button; es "PUBLICAR"                                              |
-| `tabs.notifications`          | 13  | 2   | **14** | Tab bar; Spanish/English long                                           |
-| `tabs.sortBy`                 | 7   | 4   | **11** | Filter tab                                                              |
-| `profile.logOut`              | 7   | 5   | **13** | Profile menu; es "Cerrar sesión"                                        |
-| `profile.unmute`              | 6   | 6   | **14** | es "Activar sonido" — consider "Quitar mute" (10)                       |
-| `profile.share`               | 5   | 2   | **9**  | Profile action                                                          |
-| `activity.subscriptions`      | 13  | 2   | 13     | Filter chip                                                             |
-| `profile.handleIsLive`        | 10  | 7   | **18** | Header; es "{{handle}} está EN DIRECTO" — consider "{{handle}} en vivo" |
-| `settings.unsubscribeChannel` | 24  | 11  | **29** | Sheet title                                                             |
+| Key                           | en  | ja  | es     | fr  | Notes                                              |
+| ----------------------------- | --- | --- | ------ | --- | -------------------------------------------------- |
+| `profile.live`                | 4   | 2   | 4      | 6   | LIVE badge on avatars; keep ≤6 chars (fr "DIRECT") |
+| `common.next`                 | 4   | 2   | **9**  | 8   | Button; fr "SUIVANT", es "SIGUIENTE"               |
+| `video.post`                  | 4   | 2   | **8**  | 8   | Post button; fr "PUBLIER"                          |
+| `tabs.notifications`          | 13  | 2   | **14** | 13  | Tab bar; fr "notifications" same length            |
+| `tabs.sortBy`                 | 7   | 4   | **11** | 5   | Filter tab; fr "trier"                             |
+| `profile.logOut`              | 7   | 5   | **13** | 11  | Profile menu; fr "Déconnexion"                     |
+| `profile.unmute`              | 6   | 6   | **14** | 9   | fr "Réactiver" kept short                          |
+| `profile.share`               | 5   | 2   | **9**  | 8   | Profile action; fr "Partager"                      |
+| `activity.subscriptions`      | 13  | 2   | 13     | 11  | Filter chip; fr "Abonnements"                      |
+| `profile.handleIsLive`        | 10  | 7   | **18** | 18  | fr "{{handle}} en direct"                          |
+| `settings.unsubscribeChannel` | 24  | 11  | **29** | 15  | Sheet title; fr "Se désabonner"                    |
 
 ### Moderate — watch layout
 
-| Key                  | en  | ja  | es  |
-| -------------------- | --- | --- | --- |
-| `common.decline`     | 7   | 2   | 8   |
-| `common.save`        | 4   | 2   | 7   |
-| `common.done`        | 4   | 2   | 5   |
-| `profile.mute`       | 4   | 4   | 9   |
-| `activity.likes`     | 5   | 3   | 8   |
-| `activity.replies`   | 7   | 2   | 10  |
-| `settings.subscribe` | 9   | 2   | 11  |
-| `comments.reply`     | 5   | 2   | 9   |
+| Key                  | en  | ja  | es  | fr  |
+| -------------------- | --- | --- | --- | --- |
+| `common.decline`     | 7   | 2   | 8   | 6   |
+| `common.save`        | 4   | 2   | 7   | 10  |
+| `common.done`        | 4   | 2   | 5   | 8   |
+| `profile.mute`       | 4   | 4   | 9   | 8   |
+| `activity.likes`     | 5   | 3   | 8   | 6   |
+| `activity.replies`   | 7   | 2   | 10  | 8   |
+| `settings.subscribe` | 9   | 2   | 11  | 9   |
+| `comments.reply`     | 5   | 2   | 9   | 8   |
 
 ### Recommendations
 
@@ -127,7 +131,7 @@ These keys have **varying character lengths** across locales. Keep translations 
 ## File Structure
 
 - **Source of truth**: `src/i18n/locales/en.json`
-- **Locales**: `en.json`, `es.json`, `ja.json`, `pt-BR.json`
+- **Locales**: `en.json`, `es.json`, `fr.json`, `ja.json`, `pt-BR.json`
 - **Registration**: `src/i18n/index.ts` — import and add to `resources`
 - **Date formatting**: `src/i18n/dateFnsLocales.ts` — add date-fns locale for new language
 - **Expo**: `app.json` — add language code to `expo-localization` `supportedLocales`
