@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, Pressable, Alert } from 'react-native';
 import { BORDER_RADIUS } from '../../utils/constants';
 import { Colors } from './UI';
@@ -11,6 +12,7 @@ interface SessionDiagnosticsToolProps {
 }
 
 const SessionDiagnosticsTool: React.FC<SessionDiagnosticsToolProps> = ({ visible, onDismiss }) => {
+  const { t } = useTranslation();
   const { clearCorruptedSessions, savedAccounts } = useAccountManagement();
   const { signOut } = useAuth();
 
@@ -21,22 +23,22 @@ const SessionDiagnosticsTool: React.FC<SessionDiagnosticsToolProps> = ({ visible
   const handleClearSessions = async () => {
     try {
       await clearCorruptedSessions();
-      Alert.alert('Success', 'All sessions have been cleared. Please sign in again.');
+      Alert.alert(t('common.success'), t('session.sessionsCleared'));
       onDismiss();
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      Alert.alert('Error', `Failed to clear sessions: ${errorMsg}`);
+      const errorMsg = error instanceof Error ? error.message : t('errors.unknown');
+      Alert.alert(t('common.error'), t('session.failedToClearSessions', { error: errorMsg }));
     }
   };
 
   const handleSignOut = async () => {
     try {
       await signOut(false); // Don't clear all accounts
-      Alert.alert('Success', 'Signed out successfully.');
+      Alert.alert(t('common.success'), t('session.signedOutSuccess'));
       onDismiss();
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      Alert.alert('Error', `Failed to sign out: ${errorMsg}`);
+      const errorMsg = error instanceof Error ? error.message : t('errors.unknown');
+      Alert.alert(t('common.error'), t('session.failedToSignOut', { error: errorMsg }));
     }
   };
 
@@ -44,15 +46,15 @@ const SessionDiagnosticsTool: React.FC<SessionDiagnosticsToolProps> = ({ visible
     <VerticalListSheet
       name="session-diagnostics-sheet"
       onDismiss={onDismiss}
-      title="Session Tools"
+      title={t('session.tools')}
       showCancelButton={true}
     >
       <View style={styles.container}>
         <View style={styles.infoContainer}>
           <Text style={styles.infoText}>
             {savedAccounts.length > 0
-              ? `You have ${savedAccounts.length} saved account${savedAccounts.length === 1 ? '' : 's'}`
-              : 'No saved accounts found'}
+              ? t('session.savedAccountsCount', { count: savedAccounts.length })
+              : t('session.noSavedAccounts')}
           </Text>
         </View>
 
@@ -61,11 +63,11 @@ const SessionDiagnosticsTool: React.FC<SessionDiagnosticsToolProps> = ({ visible
             style={[styles.actionButton, styles.clearButton]}
             onPress={handleClearSessions}
           >
-            <Text style={styles.actionButtonText}>Clear All Sessions</Text>
+            <Text style={styles.actionButtonText}>{t('session.clearAllSessions')}</Text>
           </Pressable>
 
           <Pressable style={[styles.actionButton, styles.signOutButton]} onPress={handleSignOut}>
-            <Text style={styles.actionButtonText}>Sign Out</Text>
+            <Text style={styles.actionButtonText}>{t('session.signOut')}</Text>
           </Pressable>
         </View>
       </View>

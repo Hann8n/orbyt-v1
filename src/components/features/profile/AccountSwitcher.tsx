@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
 import { SavedAccount } from '../../../stores/userStore';
@@ -31,6 +32,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
   onAccountSwitch,
   onAddAccount,
 }) => {
+  const { t } = useTranslation();
   const [accounts, setAccounts] = useState<AccountWithProfile[]>([]);
   const [switchingAccount, setSwitchingAccount] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
@@ -139,12 +141,12 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
           // Small delay to ensure modal is dismissed before showing alert
           setTimeout(() => {
             Alert.alert(
-              'Session Expired',
-              `Your session for @${account.handle} has expired. You need to sign in again.`,
+              t('auth.sessionExpired'),
+              t('auth.sessionExpiredMessage', { handle: account.handle }),
               [
-                { text: 'Cancel', style: 'cancel' },
+                { text: t('common.cancel'), style: 'cancel' },
                 {
-                  text: 'Sign In',
+                  text: t('auth.signIn'),
                   onPress: async () => {
                     await signIn(account.originalIdentifier);
                     await loadAccounts();
@@ -154,7 +156,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
             );
           }, 300);
         } else {
-          Alert.alert('Error', 'Failed to switch account. Please try again.');
+          Alert.alert(t('common.error'), t('errors.accountSwitchFailed'));
         }
       } finally {
         setSwitchingAccount(null);
@@ -169,23 +171,25 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
       isAuthenticating,
       signIn,
       loadAccounts,
+      t,
     ]
   );
 
   const handleRemoveAccount = useCallback(
     async (account: AccountWithProfile) => {
       const isActiveAccount = account.did === activeAccountDid;
+      const name = account.displayName || account.handle;
       const alertMessage = isActiveAccount
-        ? `Are you sure you want to remove ${account.displayName || account.handle}? This will sign you out.`
-        : `Are you sure you want to remove ${account.displayName || account.handle}?`;
+        ? t('auth.removeAccountConfirm', { name })
+        : t('auth.removeAccountConfirmInactive', { name });
 
-      Alert.alert('Remove Account', alertMessage, [
+      Alert.alert(t('auth.removeAccount'), alertMessage, [
         {
-          text: 'Cancel',
+          text: t('common.cancel'),
           style: 'cancel',
         },
         {
-          text: 'Remove',
+          text: t('common.remove'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -205,14 +209,14 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
                 await import('../../../utils/errors/errorHandler');
 
               if (shouldShowError(error)) {
-                Alert.alert('Error', getErrorMessage(error));
+                Alert.alert(t('common.error'), getErrorMessage(error));
               }
             }
           },
         },
       ]);
     },
-    [removeAccount, activeAccountDid, onDismiss]
+    [removeAccount, activeAccountDid, onDismiss, t]
   );
 
   const handleAddAccount = useCallback(async () => {
@@ -327,7 +331,9 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
           (isSwitchingAccount || isAuthenticating) && styles.headerEditButtonDisabled,
         ]}
       >
-        <Text style={styles.headerEditButtonText}>{editMode ? 'Done' : 'Edit'}</Text>
+        <Text style={styles.headerEditButtonText}>
+          {editMode ? t('common.done') : t('common.edit')}
+        </Text>
       </Pressable>
     ) : null;
 
@@ -336,7 +342,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
       <VerticalListSheet
         name="account-switcher"
         onDismiss={onDismiss}
-        title="Accounts"
+        title={t('auth.accounts')}
         customHeaderButton={customHeaderButton}
         scrollable={false}
       >
@@ -354,7 +360,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
               onPress={handleAddAccount}
               disabled={isAuthenticating}
             >
-              <Text style={styles.addAccountButtonText}>Add account</Text>
+              <Text style={styles.addAccountButtonText}>{t('auth.addAccount')}</Text>
             </Pressable>
           )}
         </View>
@@ -364,7 +370,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
         visible={showHandleInput}
         onDismiss={() => setShowHandleInput(false)}
         onSignIn={handleLoginSignIn}
-        title="Add account"
+        title={t('auth.addAccount')}
         name="add-account-login-sheet"
         onOpenSignUp={() => setShowSignUpSheet(true)}
       />

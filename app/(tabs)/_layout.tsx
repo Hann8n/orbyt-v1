@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Tabs } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
@@ -13,6 +14,7 @@ import {
 } from '../../src/utils/formatting/colors';
 
 export default function TabsLayout() {
+  const { t } = useTranslation();
   const profileColors = useUserStore(state => state.currentUserProfileColors);
   const { nativeTabsEnabled } = useFeedSettings();
   const { totalUnreadCount } = useUnreadCount();
@@ -39,19 +41,25 @@ export default function TabsLayout() {
           <NativeTabs.Trigger.Icon
             src={require('../../src/assets/tab-icons/png/home_5_fill.png')}
           />
-          <NativeTabs.Trigger.Label hidden={useLiquidGlass}>Home</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Label hidden={useLiquidGlass}>
+            {t('tabs.home')}
+          </NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
 
         <NativeTabs.Trigger name="explore" {...(useLiquidGlass && { role: 'search' })}>
           <NativeTabs.Trigger.Icon
             src={require('../../src/assets/tab-icons/png/search_2_fill.png')}
           />
-          <NativeTabs.Trigger.Label hidden={useLiquidGlass}>Explore</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Label hidden={useLiquidGlass}>
+            {t('tabs.explore')}
+          </NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
 
         <NativeTabs.Trigger name="activity">
           <NativeTabs.Trigger.Icon src={require('../../src/assets/tab-icons/png/flash_fill.png')} />
-          <NativeTabs.Trigger.Label hidden={useLiquidGlass}>Activity</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Label hidden={useLiquidGlass}>
+            {t('tabs.activity')}
+          </NativeTabs.Trigger.Label>
           {totalUnreadCount > 0 && (
             <NativeTabs.Trigger.Badge>
               {totalUnreadCount > 99 ? '99+' : totalUnreadCount.toString()}
@@ -63,7 +71,9 @@ export default function TabsLayout() {
           <NativeTabs.Trigger.Icon
             src={require('../../src/assets/tab-icons/png/user_3_fill.png')}
           />
-          <NativeTabs.Trigger.Label hidden={useLiquidGlass}>Profile</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Label hidden={useLiquidGlass}>
+            {t('tabs.profile')}
+          </NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
       </NativeTabs>
     );

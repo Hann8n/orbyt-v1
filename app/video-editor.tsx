@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -96,6 +97,7 @@ const EditableTextOverlay: React.FC<EditableTextOverlayProps> = ({
   onTap,
   onTextChange,
 }) => {
+  const { t } = useTranslation();
   const textInputRef = useRef<TextInput>(null);
   const dragStartPositions = useRef<{ x: number; y: number } | null>(null);
   const hasMoved = useRef(false);
@@ -184,7 +186,7 @@ const EditableTextOverlay: React.FC<EditableTextOverlayProps> = ({
 
   const activePanHandlers = panHandlers ?? {};
 
-  const displayText = overlay.text.trim() || 'Tap to edit';
+  const displayText = overlay.text.trim() || t('video.tapToEdit');
   const isEmpty = !overlay.text.trim();
 
   if (isEditing) {
@@ -212,7 +214,7 @@ const EditableTextOverlay: React.FC<EditableTextOverlayProps> = ({
           ]}
           value={overlay.text}
           onChangeText={text => onTextChange(overlay.id, text)}
-          placeholder="Enter text"
+          placeholder={t('video.enterText')}
           placeholderTextColor={Colors.neutral[200]}
           multiline
           autoFocus
@@ -257,6 +259,7 @@ const EditableTextOverlay: React.FC<EditableTextOverlayProps> = ({
 };
 
 const VideoEditorScreen: React.FC = () => {
+  const { t } = useTranslation();
   const params = useLocalSearchParams();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -345,12 +348,10 @@ const VideoEditorScreen: React.FC = () => {
         logger.error('Error merging segments', error, { component: 'VideoEditor' });
         setIsMerging(false);
         const errorMessage =
-          error instanceof Error
-            ? error.message
-            : 'Failed to merge video segments. Please try again.';
-        Alert.alert('Merging Failed', errorMessage, [
+          error instanceof Error ? error.message : t('video.mergingFailedMessage');
+        Alert.alert(t('video.mergingFailed'), errorMessage, [
           {
-            text: 'Go Back',
+            text: t('common.goBack'),
             onPress: () => router.back(),
           },
         ]);
@@ -358,7 +359,7 @@ const VideoEditorScreen: React.FC = () => {
     };
 
     mergeSegments();
-  }, [segmentsParam, mergedVideoPath, router]);
+  }, [segmentsParam, mergedVideoPath, router, t]);
 
   // Determine the active video path (merged > provided > null) - same as post screen
   const activeVideoPath = mergedVideoPath || videoPath;
@@ -388,18 +389,18 @@ const VideoEditorScreen: React.FC = () => {
         setVideoPathInfo(pathInfo);
 
         if (!pathInfo.exists) {
-          setVideoError('Video file not found');
+          setVideoError(t('video.videoFileNotFound'));
         }
       } catch (error) {
         logger.error('Error resolving video path', error, { component: 'VideoEditor' });
-        setVideoError('Unable to access video file');
+        setVideoError(t('video.unableToAccessVideoFile'));
       } finally {
         setVideoLoading(false);
       }
     };
 
     resolveVideo();
-  }, [activeVideoPath, isMerging]);
+  }, [activeVideoPath, isMerging, t]);
 
   // Final video URI for playback (same as post screen)
   const videoUri = videoPathInfo?.uri || '';
@@ -538,10 +539,7 @@ const VideoEditorScreen: React.FC = () => {
     try {
       const permissionResult = await MediaLibrary.requestPermissionsAsync();
       if (!permissionResult.granted) {
-        Alert.alert(
-          'Permission required',
-          'Please grant access to your media library to select music.'
-        );
+        Alert.alert(t('video.permissionRequired'), t('video.mediaLibraryPermissionForMusic'));
         return;
       }
 
@@ -551,7 +549,7 @@ const VideoEditorScreen: React.FC = () => {
       });
 
       if (assets.assets.length === 0) {
-        Alert.alert('No music found', 'No audio files found in your library.');
+        Alert.alert(t('video.noMusicFound'), t('video.noMusicFoundMessage'));
         return;
       }
 
@@ -564,13 +562,13 @@ const VideoEditorScreen: React.FC = () => {
         setMusicPath(assetInfo.localUri);
         TrueSheet.dismiss('video-editor-music-sheet');
       } else {
-        Alert.alert('Error', 'Could not access music file');
+        Alert.alert(t('common.error'), t('video.couldNotAccessMusicFile'));
       }
     } catch (error) {
       logger.error('Error selecting music', error, { component: 'VideoEditor' });
-      Alert.alert('Error', 'Failed to select music file');
+      Alert.alert(t('common.error'), t('video.failedToSelectMusicFile'));
     }
-  }, []);
+  }, [t]);
 
   // Apply all edits
   const handleApplyEdits = useCallback(async () => {
@@ -656,12 +654,11 @@ const VideoEditorScreen: React.FC = () => {
         player.currentTime = 0;
       }
 
-      Alert.alert('Success', 'Video edits applied successfully!');
+      Alert.alert(t('common.success'), t('video.videoEditsAppliedSuccess'));
     } catch (error: unknown) {
       logger.error('Error applying edits', error, { component: 'VideoEditor' });
-      const errorMessage =
-        error instanceof Error ? error.message : 'Failed to apply edits. Please try again.';
-      Alert.alert('Error', errorMessage);
+      const errorMessage = error instanceof Error ? error.message : t('video.failedToApplyEdits');
+      Alert.alert(t('common.error'), errorMessage);
     } finally {
       setIsProcessing(false);
       setVideoLoading(false);
@@ -676,6 +673,7 @@ const VideoEditorScreen: React.FC = () => {
     getTempFilePath,
     player,
     isProcessing,
+    t,
   ]);
 
   // Check if there are pending edits
@@ -687,7 +685,7 @@ const VideoEditorScreen: React.FC = () => {
 
   const handleNext = async () => {
     if (!activeVideoPath) {
-      Alert.alert('Error', 'No video available');
+      Alert.alert(t('common.error'), t('video.noVideoAvailable'));
       return;
     }
 
@@ -843,7 +841,7 @@ const VideoEditorScreen: React.FC = () => {
             {isProcessing ? (
               <ActivityIndicator size="small" color={Colors.neutral[50]} />
             ) : (
-              <Text style={styles.applyButtonText}>Apply Changes</Text>
+              <Text style={styles.applyButtonText}>{t('video.applyChanges')}</Text>
             )}
           </Pressable>
         )}
@@ -853,11 +851,11 @@ const VideoEditorScreen: React.FC = () => {
       <VerticalListSheet
         name="video-editor-music-sheet"
         onDismiss={() => {}}
-        title="Select Background Music"
+        title={t('video.selectBackgroundMusic')}
       >
-        <VerticalListButton label="Choose from Library" onPress={handleSelectMusic} />
+        <VerticalListButton label={t('video.chooseFromLibrary')} onPress={handleSelectMusic} />
         <VerticalListButton
-          label="Cancel"
+          label={t('common.cancel')}
           onPress={() => TrueSheet.dismiss('video-editor-music-sheet')}
         />
       </VerticalListSheet>
@@ -914,7 +912,7 @@ const VideoEditorScreen: React.FC = () => {
 
             {/* Done */}
             <Pressable style={styles.doneControlButton} onPress={handleDoneEditing}>
-              <Text style={styles.doneControlText}>Done</Text>
+              <Text style={styles.doneControlText}>{t('common.done')}</Text>
             </Pressable>
           </View>
         </View>

@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import Animated, {
   type SharedValue,
   useSharedValue,
@@ -88,6 +89,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   onChannelPress,
   authorProfileOverlay,
 }) => {
+  const { t } = useTranslation();
   const {
     isAuthorBlocked = false,
     profileColors: profileColorsProp,
@@ -469,7 +471,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                       styles.repostTextOpacity,
                     ]}
                   >
-                    {`reposted by ${formattedRepostHandle}`}
+                    {t('feed.repostedBy', { handle: formattedRepostHandle })}
                   </Text>
                 </Pressable>
               </View>
@@ -579,7 +581,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                               styles.followText,
                             ]}
                           >
-                            Follow
+                            {t('profile.follow')}
                           </Text>
                         </Pressable>
                       </View>

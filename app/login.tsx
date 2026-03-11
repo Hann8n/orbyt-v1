@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '../src/utils/constants';
 import {
   View,
@@ -33,6 +34,7 @@ interface LoginScreenProps {
 }
 
 export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [oauthError, setOAuthError] = useState<string | null>(null);
@@ -81,12 +83,12 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
         setIsLoading(false);
 
         Alert.alert(
-          'Session Expired',
-          `Your session for @${account.handle} has expired. You need to sign in again.`,
+          t('auth.sessionExpired'),
+          t('auth.sessionExpiredMessage', { handle: account.handle }),
           [
-            { text: 'Cancel', style: 'cancel' },
+            { text: t('common.cancel'), style: 'cancel' },
             {
-              text: 'Sign In',
+              text: t('auth.signIn'),
               onPress: async () => {
                 // Use the account's original identifier for re-authentication
                 await signIn(account.originalIdentifier);
@@ -109,7 +111,7 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
       // No manual navigation needed
     } catch (error) {
       setIsLoading(false);
-      const errorMessage = error instanceof Error ? error.message : 'Account switch failed';
+      const errorMessage = error instanceof Error ? error.message : t('errors.accountSwitchFailed');
 
       const isUserCancellation =
         errorMessage.includes('cancelled') || errorMessage.includes('user_cancelled');
@@ -123,12 +125,12 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
           errorMessage.includes('No session available')
         ) {
           Alert.alert(
-            'Session Issue',
-            `There's an issue with the saved session for @${account.handle}. This can happen after app updates or device changes.`,
+            t('auth.sessionIssue'),
+            t('auth.sessionIssueMessage', { handle: account.handle }),
             [
-              { text: 'Cancel', style: 'cancel' },
+              { text: t('common.cancel'), style: 'cancel' },
               {
-                text: 'Sign In',
+                text: t('auth.signIn'),
                 onPress: async () => {
                   // Use the account's original identifier for re-authentication
                   await signIn(account.originalIdentifier);
@@ -144,27 +146,23 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
           errorMessage.includes('ETIMEDOUT')
         ) {
           // Network error
-          Alert.alert(
-            'Network Error',
-            `Unable to connect to the server. Please check your internet connection and try again.`,
-            [{ text: 'OK' }]
-          );
+          Alert.alert(t('auth.networkError'), t('auth.networkErrorMessage'), [
+            { text: t('common.ok') },
+          ]);
         } else if (errorMessage.includes('rate limit') || errorMessage.includes('Rate Limit')) {
           // Rate limit error
-          Alert.alert(
-            'Rate Limit Exceeded',
-            `Too many login attempts. Please wait a few minutes and try again.`,
-            [{ text: 'OK' }]
-          );
+          Alert.alert(t('auth.rateLimitExceeded'), t('auth.rateLimitMessage'), [
+            { text: t('common.ok') },
+          ]);
         } else {
           // Show detailed error information for debugging
           Alert.alert(
-            'Account Switch Failed',
-            `Failed to switch to @${account.handle}.\n\nError: ${errorMessage}\n\nPlease try signing in again.`,
+            t('auth.accountSwitchFailed'),
+            t('auth.accountSwitchFailedMessage', { handle: account.handle, error: errorMessage }),
             [
-              { text: 'Cancel', style: 'cancel' },
+              { text: t('common.cancel'), style: 'cancel' },
               {
-                text: 'Sign In',
+                text: t('auth.signIn'),
                 onPress: async () => {
                   // Use the account's original identifier for re-authentication
                   await signIn(account.originalIdentifier);
@@ -183,10 +181,8 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
   const renderSavedAccounts = () => (
     <View style={styles.savedAccountsContainer}>
       <View style={styles.headerSection}>
-        <Text style={styles.chooseAccountTitle}>Choose an Account</Text>
-        <Text style={styles.chooseAccountSubtitle}>
-          Select an account to continue or sign in with a new one
-        </Text>
+        <Text style={styles.chooseAccountTitle}>{t('auth.chooseAccount')}</Text>
+        <Text style={styles.chooseAccountSubtitle}>{t('auth.selectAccountSubtitle')}</Text>
       </View>
 
       <View style={styles.accountsSection}>
@@ -204,7 +200,7 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
               key={account.did}
               handle={account.handle}
               did={account.did}
-              displayName={account.displayName || account.handle || 'User'}
+              displayName={account.displayName || account.handle || t('profile.userFallback')}
               avatar={account.avatar}
               onPress={() => handleSavedAccountLogin(account)}
               size="large"
@@ -232,12 +228,12 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
         {isLoading ? (
           <>
             <ActivityIndicator size="small" color={textColor} style={styles.loadingIcon} />
-            <Text style={buttonTextStyle}>Signing in...</Text>
+            <Text style={buttonTextStyle}>{t('auth.signingIn')}</Text>
           </>
         ) : (
           <>
             <Image source={atSignSky} style={styles.atSignImage} />
-            <Text style={buttonTextStyle}>Sign in with your handle</Text>
+            <Text style={buttonTextStyle}>{t('auth.signInWithHandle')}</Text>
           </>
         )}
       </View>
@@ -269,13 +265,13 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
         {/* Sign up link */}
         <View style={styles.manualSignInLink}>
           <Text style={styles.networkSignInText}>
-            Need an account?{' '}
+            {t('auth.needAccount')}
             <Text
               suppressHighlighting
               onPress={() => !isLoading && setShowSignUpSheet(true)}
               style={[styles.networkSignInLink, isLoading && styles.signUpLinkDisabled]}
             >
-              Sign up here.
+              {t('auth.signUpHere')}
             </Text>
           </Text>
         </View>
@@ -357,7 +353,7 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
                 />
               </Svg>
             )}
-            <Text style={styles.appName}>orbyt</Text>
+            <Text style={styles.appName}>{t('auth.appName')}</Text>
           </View>
         )}
 
@@ -367,7 +363,7 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
             <View>
               <View style={styles.dividerContainer}>
                 <View style={styles.divider} />
-                <Text style={styles.dividerText}>or</Text>
+                <Text style={styles.dividerText}>{t('common.or')}</Text>
                 <View style={styles.divider} />
               </View>
               {renderLoginButtons()}
@@ -388,7 +384,7 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
         visible={showLoginSheet}
         onDismiss={() => setShowLoginSheet(false)}
         onSignIn={handleLoginSignIn}
-        title="Sign in"
+        title={t('auth.signIn')}
       />
     </>
   );

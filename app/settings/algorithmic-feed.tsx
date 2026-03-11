@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -54,6 +55,7 @@ interface ChannelUser {
 }
 
 const AlgorithmicFeedScreen: React.FC = () => {
+  const { t } = useTranslation();
   const router = useRouter();
   const queryClient = useQueryClient();
   const { algorithmicFeedProvider, setAlgorithmicFeedProvider } = useAlgorithmicFeedProvider();
@@ -88,7 +90,7 @@ const AlgorithmicFeedScreen: React.FC = () => {
     options.push({
       id: 'bluesky-video',
       uri: ALGORITHMIC_FEED_PROVIDERS.BLUESKY_VIDEO.uri,
-      displayName: blueskyVideoData?.view?.displayName || 'Bluesky Video Feed',
+      displayName: blueskyVideoData?.view?.displayName || t('settings.blueskyVideoFeed'),
       description: blueskyVideoData?.view?.description || '',
     });
 
@@ -96,7 +98,7 @@ const AlgorithmicFeedScreen: React.FC = () => {
     options.push({
       id: 'videos-for-you',
       uri: ALGORITHMIC_FEED_PROVIDERS.VIDEOS_FOR_YOU.uri,
-      displayName: videosForYouData?.view?.displayName || 'Videos For You',
+      displayName: videosForYouData?.view?.displayName || t('settings.videosForYou'),
       description: videosForYouData?.view?.description || '',
     });
 
@@ -104,12 +106,12 @@ const AlgorithmicFeedScreen: React.FC = () => {
     options.push({
       id: 'none',
       uri: null,
-      displayName: 'None',
-      description: 'Only show content from your subscriptions',
+      displayName: t('settings.none'),
+      description: t('settings.onlySubscriptionsDescription'),
     });
 
     return options;
-  }, [blueskyVideoData, videosForYouData]);
+  }, [blueskyVideoData, videosForYouData, t]);
 
   // Sync with store when it changes
   useEffect(() => {
@@ -167,16 +169,19 @@ const AlgorithmicFeedScreen: React.FC = () => {
     });
   }, [channels]);
 
-  const handleChannelPress = useCallback((channel: ChannelUser) => {
-    setSelectedChannel(channel);
-    TrueSheet.present('algorithmic-feed-channel-options');
-    // Set the displayed title immediately
-    if (channel.isOrbytChannel && channel.uri && shouldShowChannelSlash(channel.uri)) {
-      setDisplayedTitle(`/${channel.displayName || channel.handle || 'Unknown channel'}`);
-    } else {
-      setDisplayedTitle(channel.displayName || channel.handle || 'Unknown channel');
-    }
-  }, []);
+  const handleChannelPress = useCallback(
+    (channel: ChannelUser) => {
+      setSelectedChannel(channel);
+      TrueSheet.present('algorithmic-feed-channel-options');
+      // Set the displayed title immediately
+      if (channel.isOrbytChannel && channel.uri && shouldShowChannelSlash(channel.uri)) {
+        setDisplayedTitle(`/${channel.displayName || channel.handle || t('feed.unknownChannel')}`);
+      } else {
+        setDisplayedTitle(channel.displayName || channel.handle || t('feed.unknownChannel'));
+      }
+    },
+    [t]
+  );
 
   const handleViewChannel = useCallback(() => {
     if (selectedChannel?.uri) {
@@ -194,12 +199,14 @@ const AlgorithmicFeedScreen: React.FC = () => {
     if (!selectedChannel?.uri) return;
 
     Alert.alert(
-      'Unsubscribe from Channel',
-      `Are you sure you want to unsubscribe from "${selectedChannel.displayName}"?`,
+      t('settings.unsubscribeChannel'),
+      t('settings.unsubscribeConfirmWithName', {
+        name: selectedChannel.displayName || selectedChannel.handle || t('feed.unknownChannel'),
+      }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Unsubscribe',
+          text: t('common.unsubscribe'),
           onPress: async () => {
             try {
               await unsubscribeFromChannel(selectedChannel.uri!);
@@ -209,13 +216,13 @@ const AlgorithmicFeedScreen: React.FC = () => {
               logger.error('Error unsubscribing from channel', error, {
                 component: 'AlgorithmicFeed',
               });
-              Alert.alert('Error', 'Failed to unsubscribe from channel. Please try again.');
+              Alert.alert(t('common.error'), t('settings.failedToUnsubscribe'));
             }
           },
         },
       ]
     );
-  }, [selectedChannel, unsubscribeFromChannel]);
+  }, [selectedChannel, unsubscribeFromChannel, t]);
 
   const handleSubscribeToggle = useCallback(
     async (channel: ChannelUser) => {
@@ -231,7 +238,7 @@ const AlgorithmicFeedScreen: React.FC = () => {
         } else {
           await subscribeToChannel({
             uri: channel.uri,
-            displayName: channel.displayName || channel.handle || 'Untitled Channel',
+            displayName: channel.displayName || channel.handle || t('settings.untitledChannel'),
             description: channel.description,
             avatar: channel.avatar,
           });
@@ -239,8 +246,8 @@ const AlgorithmicFeedScreen: React.FC = () => {
       } catch (error) {
         logger.error('Error toggling subscription', error, { component: 'AlgorithmicFeed' });
         Alert.alert(
-          'Error',
-          `Failed to ${isSubscribed ? 'unsubscribe from' : 'subscribe to'} channel. Please try again.`
+          t('common.error'),
+          isSubscribed ? t('settings.failedToUnsubscribeShort') : t('settings.failedToSubscribe')
         );
       } finally {
         setSubscribingChannels(prev => {
@@ -250,7 +257,7 @@ const AlgorithmicFeedScreen: React.FC = () => {
         });
       }
     },
-    [channels, subscribeToChannel, unsubscribeFromChannel]
+    [channels, subscribeToChannel, unsubscribeFromChannel, t]
   );
 
   const handleExplorePress = useCallback(() => {
@@ -261,7 +268,7 @@ const AlgorithmicFeedScreen: React.FC = () => {
     <View style={settingsLayoutStyles.container}>
       <ListHeader
         mode="sheet"
-        title="Your mix"
+        title={t('settings.yourMix')}
         showCloseButton
         onClosePress={() => router.dismiss()}
         applySafeAreaTop={false}
@@ -275,9 +282,7 @@ const AlgorithmicFeedScreen: React.FC = () => {
       >
         {/* Info Section */}
         <View style={styles.infoSection}>
-          <Text style={styles.infoText}>
-            Choose a personalized feed to blend recommendations into your mix.
-          </Text>
+          <Text style={styles.infoText}>{t('settings.algorithmicFeedInfo')}</Text>
         </View>
 
         {/* Feed Provider Options */}
@@ -303,21 +308,22 @@ const AlgorithmicFeedScreen: React.FC = () => {
         {/* Channels Section */}
         <View>
           <View style={styles.channelsSectionHeader}>
-            <Text style={styles.channelsSectionTitle}>Subscriptions</Text>
+            <Text style={styles.channelsSectionTitle}>{t('settings.subscriptions')}</Text>
           </View>
           {listData.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Icon name="tv" size={48} color={Colors.neutral[200]} style={styles.emptyIcon} />
-              <Text style={styles.emptyTitle}>No channels yet</Text>
-              <Text style={styles.emptySubtitle}>Explore channels to subscribe to them</Text>
+              <Text style={styles.emptyTitle}>{t('settings.noChannelsYet')}</Text>
+              <Text style={styles.emptySubtitle}>{t('settings.exploreChannelsSubscribe')}</Text>
               <Pressable style={styles.exploreButton} onPress={handleExplorePress}>
-                <Text style={styles.exploreButtonText}>Explore Channels</Text>
+                <Text style={styles.exploreButtonText}>{t('settings.exploreChannels')}</Text>
               </Pressable>
             </View>
           ) : (
             <View style={styles.channelsList}>
               {listData.map(channel => {
-                const channelName = channel.displayName || channel.handle || 'Unknown channel';
+                const channelName =
+                  channel.displayName || channel.handle || t('feed.unknownChannel');
                 const showSlash =
                   channel.isOrbytChannel && channel.uri && shouldShowChannelSlash(channel.uri);
 
@@ -413,7 +419,7 @@ const AlgorithmicFeedScreen: React.FC = () => {
                                 { color: isSubscribed ? subscribedTextColor : Colors.neutral[50] },
                               ]}
                             >
-                              {isSubscribed ? 'Subscribed' : 'Subscribe'}
+                              {isSubscribed ? t('settings.subscribed') : t('settings.subscribe')}
                             </Text>
                             {!isSubscribed && (
                               <PlusIcon size={10} color={Colors.neutral[50]} strokeWidth={2.0} />
@@ -433,12 +439,14 @@ const AlgorithmicFeedScreen: React.FC = () => {
       <VerticalListSheet
         name="algorithmic-feed-channel-options"
         onDismiss={() => setSelectedChannel(null)}
-        title={displayedTitle || 'Channel Options'}
+        title={displayedTitle || t('settings.channelOptions')}
         showCancelButton={true}
       >
         <View style={styles.sheetContent}>
-          {selectedChannel && <VerticalListButton label="View" onPress={handleViewChannel} />}
-          <VerticalListButton label="Unsubscribe" onPress={handleUnsubscribe} />
+          {selectedChannel && (
+            <VerticalListButton label={t('common.view')} onPress={handleViewChannel} />
+          )}
+          <VerticalListButton label={t('common.unsubscribe')} onPress={handleUnsubscribe} />
         </View>
       </VerticalListSheet>
     </View>

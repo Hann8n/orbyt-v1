@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Alert, View, Text, StyleSheet, Pressable, FlatList } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -33,6 +34,7 @@ interface ChannelUser {
 }
 
 export default function ChannelManagementScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -68,16 +70,19 @@ export default function ChannelManagementScreen() {
     });
   }, [channels]);
 
-  const handleChannelPress = useCallback((channel: ChannelUser) => {
-    setSelectedChannel(channel);
-    TrueSheet.present('settings-channels-sheet');
-    // Set the displayed title immediately
-    if (channel.isOrbytChannel && channel.uri && shouldShowChannelSlash(channel.uri)) {
-      setDisplayedTitle(`/${channel.displayName || channel.handle || 'Unknown channel'}`);
-    } else {
-      setDisplayedTitle(channel.displayName || channel.handle || 'Unknown channel');
-    }
-  }, []);
+  const handleChannelPress = useCallback(
+    (channel: ChannelUser) => {
+      setSelectedChannel(channel);
+      TrueSheet.present('settings-channels-sheet');
+      // Set the displayed title immediately
+      if (channel.isOrbytChannel && channel.uri && shouldShowChannelSlash(channel.uri)) {
+        setDisplayedTitle(`/${channel.displayName || channel.handle || t('feed.unknownChannel')}`);
+      } else {
+        setDisplayedTitle(channel.displayName || channel.handle || t('feed.unknownChannel'));
+      }
+    },
+    [t]
+  );
 
   const handleViewChannel = useCallback(() => {
     if (selectedChannel?.uri) {
@@ -94,12 +99,14 @@ export default function ChannelManagementScreen() {
     if (!selectedChannel?.uri) return;
 
     Alert.alert(
-      'Unsubscribe from Channel',
-      `Are you sure you want to unsubscribe from "${selectedChannel.displayName}"?`,
+      t('settings.unsubscribeChannel'),
+      t('settings.unsubscribeConfirmWithName', {
+        name: selectedChannel.displayName || selectedChannel.handle || t('feed.unknownChannel'),
+      }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Unsubscribe',
+          text: t('common.unsubscribe'),
           onPress: async () => {
             try {
               await unsubscribeFromChannel(selectedChannel.uri!);
@@ -109,13 +116,13 @@ export default function ChannelManagementScreen() {
               logger.error('Error unsubscribing from channel', error, {
                 component: 'ChannelManagementScreen',
               });
-              Alert.alert('Error', 'Failed to unsubscribe from channel. Please try again.');
+              Alert.alert(t('common.error'), t('settings.failedToUnsubscribe'));
             }
           },
         },
       ]
     );
-  }, [selectedChannel, unsubscribeFromChannel]);
+  }, [selectedChannel, unsubscribeFromChannel, t]);
 
   const handleExplorePress = useCallback(() => {
     router.dismissTo('/(tabs)/explore');
@@ -146,13 +153,13 @@ export default function ChannelManagementScreen() {
                   </Text>
                 )}
                 <Text style={styles.displayName} numberOfLines={1}>
-                  {item.displayName || item.handle || 'Unknown channel'}
+                  {item.displayName || item.handle || t('feed.unknownChannel')}
                 </Text>
               </View>
             ) : (
               <View style={styles.channelNameRow}>
                 <Text style={styles.displayName} numberOfLines={1}>
-                  {item.displayName || item.handle || 'Unknown channel'}
+                  {item.displayName || item.handle || t('feed.unknownChannel')}
                 </Text>
               </View>
             )}
@@ -165,28 +172,28 @@ export default function ChannelManagementScreen() {
         </Pressable>
       );
     },
-    [handleChannelPress]
+    [handleChannelPress, t]
   );
 
   const renderEmpty = useCallback(
     () => (
       <View style={styles.emptyContainer}>
         <Icon name="tv" size={48} color={Colors.neutral[200]} style={styles.emptyIcon} />
-        <Text style={styles.emptyTitle}>No channels yet</Text>
-        <Text style={styles.emptySubtitle}>Explore channels to subscribe to them</Text>
+        <Text style={styles.emptyTitle}>{t('settings.noChannelsYet')}</Text>
+        <Text style={styles.emptySubtitle}>{t('settings.exploreChannelsSubscribe')}</Text>
         <Pressable style={styles.exploreButton} onPress={handleExplorePress}>
-          <Text style={styles.exploreButtonText}>Explore Channels</Text>
+          <Text style={styles.exploreButtonText}>{t('settings.exploreChannels')}</Text>
         </Pressable>
       </View>
     ),
-    [handleExplorePress]
+    [handleExplorePress, t]
   );
 
   return (
     <View style={[styles.container, { backgroundColor: Colors.black }]}>
       <ListHeader
         mode="sheet"
-        title="channels"
+        title={t('settings.channels')}
         showCloseButton
         onClosePress={() => router.dismiss()}
         applySafeAreaTop={false}
@@ -204,13 +211,15 @@ export default function ChannelManagementScreen() {
       <VerticalListSheet
         name="settings-channels-sheet"
         onDismiss={() => setSelectedChannel(null)}
-        title={displayedTitle || 'Channel Options'}
+        title={displayedTitle || t('settings.channelOptions')}
         scrollable={true}
         showCancelButton={true}
       >
         <View style={styles.sheetContent}>
-          {selectedChannel && <VerticalListButton label="View" onPress={handleViewChannel} />}
-          <VerticalListButton label="Unsubscribe" onPress={handleUnsubscribe} />
+          {selectedChannel && (
+            <VerticalListButton label={t('common.view')} onPress={handleViewChannel} />
+          )}
+          <VerticalListButton label={t('common.unsubscribe')} onPress={handleUnsubscribe} />
         </View>
       </VerticalListSheet>
     </View>

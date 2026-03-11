@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import VerticalListSheet, {
   VerticalListCheckboxButton,
   TrueSheet,
@@ -11,18 +12,13 @@ import { useQueryClient } from '@tanstack/react-query';
 
 type AllowIncoming = 'all' | 'none' | 'following';
 
-const OPTIONS: { value: AllowIncoming; label: string }[] = [
-  { value: 'all', label: 'Everyone' },
-  { value: 'following', label: 'People you follow' },
-  { value: 'none', label: 'No one' },
-];
-
 interface ChatSettingsSheetProps {
   visible: boolean;
   onDismiss: () => void;
 }
 
 export default function ChatSettingsSheet({ visible, onDismiss }: ChatSettingsSheetProps) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const currentUser = useUserStore(s => s.currentUser);
   const did = currentUser?.did ?? null;
@@ -57,14 +53,18 @@ export default function ChatSettingsSheet({ visible, onDismiss }: ChatSettingsSh
     <VerticalListSheet
       name="chat-settings-sheet"
       onDismiss={onDismiss}
-      title="Who can message you"
+      title={t('activity.whoCanMessage')}
       showCancelButton
-      cancelButtonText="Done"
+      cancelButtonText={t('common.done')}
     >
-      {OPTIONS.map(opt => (
+      {[
+        { value: 'all' as AllowIncoming, labelKey: 'activity.everyone' },
+        { value: 'following' as AllowIncoming, labelKey: 'activity.peopleYouFollow' },
+        { value: 'none' as AllowIncoming, labelKey: 'activity.noOne' },
+      ].map(opt => (
         <VerticalListCheckboxButton
           key={opt.value}
-          label={opt.label}
+          label={t(opt.labelKey)}
           checked={localAllowIncoming === opt.value}
           onPress={() => handleSelect(opt.value)}
         />

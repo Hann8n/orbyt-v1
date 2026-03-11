@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, StyleSheet } from 'react-native';
 import VerticalListSheet, {
   VerticalListCheckboxButton,
@@ -19,6 +20,7 @@ const SubscriptionOptionsSheet: React.FC<SubscriptionOptionsSheetProps> = ({
   onDismiss,
   did,
 }) => {
+  const { t } = useTranslation();
   const updatePreferences = useSubscriptionStore(state => state.updatePreferences);
   const unsubscribe = useSubscriptionStore(state => state.unsubscribe);
   const subscriptions = useSubscriptionStore(state => state.subscriptions);
@@ -65,21 +67,21 @@ const SubscriptionOptionsSheet: React.FC<SubscriptionOptionsSheetProps> = ({
     <VerticalListSheet
       name="subscription-options-sheet"
       onDismiss={onDismiss}
-      title="keep me posted"
-      description="Get notified of this account's activity"
+      title={t('profile.keepMePosted')}
+      description={t('profile.getNotifiedActivity')}
       showCancelButton={true}
-      cancelButtonText="Done"
+      cancelButtonText={t('common.done')}
       footerTopPadding={0}
     >
       <View style={styles.content}>
         <VerticalListCheckboxButton
-          label="Posts"
+          label={t('profile.posts')}
           checked={preferences.post}
           onPress={() => handleTogglePreference('post')}
         />
 
         <VerticalListCheckboxButton
-          label="Replies"
+          label={t('profile.replies')}
           checked={preferences.reply}
           onPress={() => handleTogglePreference('reply')}
         />

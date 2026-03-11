@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import ListScreen from '../../src/components/ui/ListScreen';
@@ -22,6 +23,7 @@ interface FollowingPage {
 }
 
 const FollowingScreen: React.FC = () => {
+  const { t } = useTranslation();
   const navigation = useRouter();
   const queryClient = useQueryClient();
   const { currentUser } = useCurrentUser();
@@ -90,7 +92,7 @@ const FollowingScreen: React.FC = () => {
 
   return (
     <ListScreen
-      title="People you follow"
+      title={t('settings.peopleYouFollow')}
       data={following}
       isLoading={isLoading}
       error={error}
@@ -102,8 +104,8 @@ const FollowingScreen: React.FC = () => {
       hasNextPage={hasNextPage}
       isFetchingNextPage={isFetchingNextPage}
       emptyIcon="user-plus"
-      emptyTitle="Not following anyone yet"
-      emptySubtitle="When you follow people, they'll appear here"
+      emptyTitle={t('settings.noFollowingYet')}
+      emptySubtitle={t('settings.followingEmpty')}
       showFollowButton={true}
       followButtonAction="unfollow"
       onUserPress={handleProfilePress}

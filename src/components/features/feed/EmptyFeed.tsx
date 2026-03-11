@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, Text, StyleSheet, Dimensions, Pressable, FlatList } from 'react-native';
 import { Image } from 'expo-image';
@@ -56,6 +57,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
   viewableAreaHeight,
   feedOption,
 }) => {
+  const { t } = useTranslation();
   const navigation = useRouter();
   const [suggestedUsers, setSuggestedUsers] = useState<SuggestedUser[]>([]);
   const insets = useSafeAreaInsets();
@@ -69,9 +71,9 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
   // Simple unified empty message for no-videos state
   const getNoVideosMessage = (): string => {
     if (isYourMixFeed) {
-      return 'nothing on the air...';
+      return t('feed.nothingOnTheAir');
     }
-    return 'nothing here yet...';
+    return t('feed.nothingHereYet');
   };
 
   const { data: suggestedAccounts } = useQuery({
@@ -97,17 +99,17 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
       case 'no-connection':
         return {
           icon: 'alert-circle',
-          defaultMessage: "can't connect to feed",
+          defaultMessage: t('feed.cantConnectToFeed'),
         };
       case 'error':
         return {
           icon: 'alert-circle',
-          defaultMessage: 'something went wrong',
+          defaultMessage: t('feed.somethingWentWrong'),
         };
       case 'no-following':
         return {
           icon: 'user-plus',
-          defaultMessage: 'follow accounts to see their posts here',
+          defaultMessage: t('feed.followAccountsToSeePosts'),
         };
       case 'end': {
         const endMessage = () => {
@@ -115,11 +117,11 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
             case 'following':
               return '';
             case 'your-mix':
-              return "that's all from your channels";
+              return t('feed.thatsAllFromChannels');
             case 'discover':
-              return 'explore more content';
+              return t('feed.exploreMoreContent');
             default:
-              return "that's all for now";
+              return t('feed.thatsAllForNow');
           }
         };
         return {
@@ -164,7 +166,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
           <View style={styles.profileContent}>
             <View style={styles.displayNameRow}>
               <Text style={styles.displayName} numberOfLines={1} ellipsizeMode="tail">
-                {item.displayName || formatHandle(item.handle) || 'Unknown user'}
+                {item.displayName || formatHandle(item.handle) || t('feed.unknownUser')}
               </Text>
               {item.handle && item.handle.trim() && item.handle.length > 0 && (
                 <VerificationBadge
@@ -231,7 +233,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
             <Text style={[styles.emptyText, { color: textColor }]}>{displayMessage}</Text>
           )}
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>suggested accounts</Text>
+            <Text style={styles.sectionTitle}>{t('feed.suggestedAccounts')}</Text>
           </View>
           <FlatList
             data={suggestedUsers}
@@ -275,7 +277,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
               </Text>
             )}
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>suggested accounts</Text>
+              <Text style={styles.sectionTitle}>{t('feed.suggestedAccounts')}</Text>
             </View>
             <FlatList
               data={suggestedUsers}
@@ -343,7 +345,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
               navigation.navigate('/explore');
             }}
           >
-            <Text style={styles.addChannelsButtonText}>Explore Channels</Text>
+            <Text style={styles.addChannelsButtonText}>{t('feed.exploreChannels')}</Text>
           </Pressable>
         )}
         {onRetry && (type === 'error' || type === 'no-connection') && (

@@ -1,4 +1,5 @@
 import React, { useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '../../utils/constants';
 import {
   Pressable,
@@ -116,12 +117,13 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   showCheckmark = false,
   showCheckmarkSpinner = false,
 }) => {
+  const { t } = useTranslation();
   const router = useRouter();
   const queryClient = useQueryClient();
   const currentUser = useUserStore(state => state.currentUser);
 
   const config = itemSizeConfig[size];
-  const actualDisplayName = formatHandle(handle) || 'Unknown';
+  const actualDisplayName = formatHandle(handle) || t('feed.unknownUser');
   const actualAvatar = avatar || undefined;
 
   // Get following & block status from ProfileService using the hook

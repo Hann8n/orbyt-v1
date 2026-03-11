@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, TextInput, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -23,6 +24,7 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
   visible,
   onClose,
 }) => {
+  const { t } = useTranslation();
   const agent = useUserStore(state => state.agent);
 
   const [token, setToken] = useState('');
@@ -89,7 +91,7 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
 
   const handleSendEmail = async () => {
     if (!agent) {
-      setError('Authentication error. Please try logging in again.');
+      setError(t('auth.authErrorLoginAgain'));
       return;
     }
 
@@ -106,7 +108,8 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
       setEmailSent(true);
       setCooldownSeconds(90); // Start 90 second cooldown
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to send verification email';
+      const errorMessage =
+        err instanceof Error ? err.message : t('auth.failedToSendVerificationEmail');
       setError(errorMessage);
       logger.error('Failed to send email verification', err, {
         component: 'EmailVerificationModal',
@@ -118,12 +121,12 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
 
   const handleVerifyToken = async () => {
     if (!token.trim()) {
-      setError('Please enter the verification code from your email');
+      setError(t('auth.pleaseEnterVerificationCode'));
       return;
     }
 
     if (!agent) {
-      setError('Authentication error. Please try logging in again.');
+      setError(t('auth.authErrorLoginAgain'));
       return;
     }
 
@@ -135,7 +138,7 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
       const sessionResponse = await agent.api.com.atproto.server.getSession();
       const email = sessionResponse.data.email ?? null;
       if (!email) {
-        throw new Error('Email not found. Please try logging in again.');
+        throw new Error(t('auth.emailNotFound'));
       }
 
       // API expects token WITH hyphen (format: "XXXXX-XXXXX")
@@ -144,9 +147,7 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
 
       // Validate token format (should be 11 characters with hyphen: "XXXXX-XXXXX")
       if (trimmedToken.length !== 11 || !trimmedToken.includes('-')) {
-        setError(
-          'Invalid verification code format. Please enter the code exactly as shown in your email (XXXXX-XXXXX).'
-        );
+        setError(t('auth.invalidVerificationFormat'));
         setIsVerifying(false);
         return;
       }
@@ -193,15 +194,15 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
       );
     } catch (err) {
       // Handle specific error types from the API
-      let errorMessage = 'Failed to verify email';
+      let errorMessage = t('auth.failedToVerifyEmail');
       if (err instanceof Error) {
         const errMsg = err.message;
         if (errMsg.includes('ExpiredToken')) {
-          errorMessage = 'This verification code has expired. Please request a new one.';
+          errorMessage = t('auth.verificationCodeExpired');
         } else if (errMsg.includes('InvalidToken')) {
-          errorMessage = 'Invalid verification code. Please check and try again.';
+          errorMessage = t('auth.invalidVerificationCode');
         } else if (errMsg.includes('InvalidEmail') || errMsg.includes('AccountNotFound')) {
-          errorMessage = 'Invalid email address. Please try logging in again.';
+          errorMessage = t('auth.invalidEmailLoginAgain');
         } else {
           errorMessage = errMsg;
         }
@@ -227,17 +228,15 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
     <VerticalListSheet
       name="email-verification-sheet"
       onDismiss={handleDismiss}
-      title="Verify Your Email"
+      title={t('auth.verifyEmail')}
       showCancelButton={true}
-      cancelButtonText="Skip for Now"
+      cancelButtonText={t('auth.skipForNow')}
       scrollable={false}
       footerTopPadding={0}
     >
       <View style={[styles.container, styles.containerBottomPadding]}>
         <Text style={styles.descriptionText}>
-          {emailSent
-            ? 'Enter the verification code sent to your email'
-            : 'Please verify your email address to post videos.'}
+          {emailSent ? t('auth.enterVerificationCode') : t('auth.pleaseVerifyEmail')}
         </Text>
 
         {emailSent ? (
@@ -247,7 +246,7 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
               <TextInput
                 nativeID="email-verification-token-input"
                 style={styles.input}
-                placeholder="XXXXX-XXXXX"
+                placeholder={t('auth.verificationCodePlaceholder')}
                 placeholderTextColor={Colors.neutral[500]}
                 value={token}
                 onChangeText={text => {
@@ -288,7 +287,7 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
                     color={Colors.neutral[50]}
                     style={styles.buttonSpinner}
                   />
-                  <Text style={styles.verifyButtonText}>Verifying...</Text>
+                  <Text style={styles.verifyButtonText}>{t('auth.verifying')}</Text>
                 </View>
               ) : (
                 <View style={styles.buttonContentRow}>
@@ -298,7 +297,7 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
                       token.trim().length === 11 && !error && styles.verifyButtonTextActive,
                     ]}
                   >
-                    Verify Email
+                    {t('auth.verify')}
                   </Text>
                   <Icon
                     name="right_arrow_filled"
@@ -320,7 +319,7 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
                 disabled={isVerifying || isSendingEmail}
               >
                 <Text style={styles.resendButtonText}>
-                  {isSendingEmail ? 'Sending...' : 'Request new code'}
+                  {isSendingEmail ? t('auth.sending') : t('auth.requestNewCode')}
                 </Text>
               </Pressable>
             )}
@@ -343,19 +342,17 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
                     color={Colors.neutral[50]}
                     style={styles.buttonSpinner}
                   />
-                  <Text style={styles.sendButtonText}>Sending...</Text>
+                  <Text style={styles.sendButtonText}>{t('auth.sending')}</Text>
                 </View>
               ) : (
                 <View style={styles.buttonContentRow}>
-                  <Text style={styles.sendButtonText}>Send Code</Text>
+                  <Text style={styles.sendButtonText}>{t('auth.sendCodeButton')}</Text>
                   <Icon name="right_arrow_filled" size={24} color={Colors.neutral[900]} />
                 </View>
               )}
             </Pressable>
 
-            <Text style={styles.infoText}>
-              You&apos;ll receive a verification code in your email.
-            </Text>
+            <Text style={styles.infoText}>{t('auth.youllReceiveCode')}</Text>
           </View>
         )}
       </View>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, Text, View, StyleProp, ViewStyle } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Avatar } from './UI';
@@ -44,10 +45,11 @@ const ChannelItem: React.FC<ChannelItemProps> = ({
   nameFontWeight = 'Figtree-Bold',
   customFontSize,
 }) => {
+  const { t } = useTranslation();
   const router = useRouter();
 
   const config = itemSizeConfig[size];
-  const actualDisplayName = displayName || 'Unknown channel';
+  const actualDisplayName = displayName || t('feed.unknownChannel');
   const avatarUri = getChannelAvatarUri(uri, avatar);
 
   // orbyt channel formatting

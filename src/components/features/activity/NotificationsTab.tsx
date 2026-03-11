@@ -6,6 +6,7 @@ import React, {
   useImperativeHandle,
   useRef,
 } from 'react';
+import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../../utils/constants';
 import { View, Text, StyleSheet, Pressable, RefreshControl, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
@@ -58,16 +59,16 @@ import { getVideoView } from '../../../utils/video/helpers';
 const RadarGif = require('../../../assets/radar.gif');
 
 // Activity filter chips: label + reasons (grouped like notification-filter modal)
-const ACTIVITY_CHIP_OPTIONS: { label: string; reasons: NotificationReason[] }[] = [
-  { label: 'Likes', reasons: ['like', 'like-via-repost'] },
-  { label: 'Reposts', reasons: ['repost', 'repost-via-repost'] },
-  { label: 'Follows', reasons: ['follow'] },
-  { label: 'Mentions', reasons: ['mention'] },
-  { label: 'Replies', reasons: ['reply'] },
-  { label: 'Quotes', reasons: ['quote'] },
-  { label: 'Subscriptions', reasons: ['subscribed-post'] },
-  { label: 'Starter pack', reasons: ['starterpack-joined'] },
-  { label: 'Verification', reasons: ['verified', 'unverified'] },
+const ACTIVITY_CHIP_OPTIONS: { labelKey: string; reasons: NotificationReason[] }[] = [
+  { labelKey: 'activity.likes', reasons: ['like', 'like-via-repost'] },
+  { labelKey: 'activity.reposts', reasons: ['repost', 'repost-via-repost'] },
+  { labelKey: 'activity.follows', reasons: ['follow'] },
+  { labelKey: 'activity.mentions', reasons: ['mention'] },
+  { labelKey: 'activity.replies', reasons: ['reply'] },
+  { labelKey: 'activity.quotes', reasons: ['quote'] },
+  { labelKey: 'activity.subscriptions', reasons: ['subscribed-post'] },
+  { labelKey: 'activity.starterPack', reasons: ['starterpack-joined'] },
+  { labelKey: 'activity.verification', reasons: ['verified', 'unverified'] },
 ];
 
 const ALL_ACTIVITY_REASONS: NotificationReason[] = [
@@ -86,21 +87,24 @@ const ALL_ACTIVITY_REASONS: NotificationReason[] = [
 ];
 
 // Custom empty state for notifications
-const EmptyNotifications = () => (
-  <View style={styles.emptyContainer}>
-    <View style={styles.emptyContent}>
-      <Image
-        source={RadarGif}
-        style={styles.radarGif}
-        contentFit="contain"
-        cachePolicy="memory-disk"
-        priority="low"
-        allowDownscaling={true}
-      />
-      <Text style={styles.emptyText}>no recent notifications</Text>
+const EmptyNotifications = () => {
+  const { t } = useTranslation();
+  return (
+    <View style={styles.emptyContainer}>
+      <View style={styles.emptyContent}>
+        <Image
+          source={RadarGif}
+          style={styles.radarGif}
+          contentFit="contain"
+          cachePolicy="memory-disk"
+          priority="low"
+          allowDownscaling={true}
+        />
+        <Text style={styles.emptyText}>{t('activity.noNotifications')}</Text>
+      </View>
     </View>
-  </View>
-);
+  );
+};
 
 const NotificationLoading = () => (
   <View style={styles.loadingContainer}>
@@ -401,6 +405,7 @@ type NotificationItemProps = {
 
 const NotificationItem = React.memo<NotificationItemProps>(
   ({ item, navigation, queryClient, postDataMap, moderationOpts }) => {
+    const { t } = useTranslation();
     const { reason, author, indexedAt, uri } = item;
     const { presentCommentSection } = useGlobalCommentSection();
     const { data: authorProfile } = useProfile(author?.handle);
@@ -411,7 +416,7 @@ const NotificationItem = React.memo<NotificationItemProps>(
     const videoView = embed ? getVideoView(embed) : null;
     const thumbnail = videoView?.thumbnail || null;
     const isVideo = !!videoView;
-    const postTypeLabel = isVideo ? 'video' : 'post';
+    const postTypeLabel = isVideo ? t('activity.video') : t('activity.post');
     const shouldShowThumbnailContainer = isPostAction && isVideo;
 
     // moderateNotification only covers author; run moderatePost on the referenced post for thumbnail. Blur on any moderation (warn or hide).
@@ -426,22 +431,22 @@ const NotificationItem = React.memo<NotificationItemProps>(
 
     const actionText = useMemo(() => {
       const actions: Record<string, string> = {
-        like: `liked your ${postTypeLabel}`,
-        repost: `reshared your ${postTypeLabel}`,
-        'like-via-repost': `liked your ${postTypeLabel}`,
-        'repost-via-repost': `reshared your ${postTypeLabel}`,
-        follow: 'followed you',
-        mention: 'mentioned you',
-        reply: 'left a comment',
-        quote: 'quoted your post',
-        post: `created a ${postTypeLabel}`,
-        'subscribed-post': `created a ${postTypeLabel}`,
-        'starterpack-joined': 'joined your starter pack',
-        verified: 'verified you',
-        unverified: 'unverified you',
+        like: t('activity.likedYourPost', { postType: postTypeLabel }),
+        repost: t('activity.resharedYourPost', { postType: postTypeLabel }),
+        'like-via-repost': t('activity.likedYourPost', { postType: postTypeLabel }),
+        'repost-via-repost': t('activity.resharedYourPost', { postType: postTypeLabel }),
+        follow: t('activity.followedYou'),
+        mention: t('activity.mentionedYou'),
+        reply: t('activity.leftComment'),
+        quote: t('activity.quotedPost'),
+        post: t('activity.createdPost', { postType: postTypeLabel }),
+        'subscribed-post': t('activity.createdPost', { postType: postTypeLabel }),
+        'starterpack-joined': t('activity.joinedStarterPack'),
+        verified: t('activity.verifiedYou'),
+        unverified: t('activity.unverifiedYou'),
       };
-      return actions[reason] || `performed action: ${reason}`;
-    }, [reason, postTypeLabel]);
+      return actions[reason] || t('activity.performedAction', { reason });
+    }, [reason, postTypeLabel, t]);
 
     // Navigate to profile
     const navigateToProfile = useCallback(
@@ -634,7 +639,9 @@ const NotificationItem = React.memo<NotificationItemProps>(
         <Pressable onPress={handlePress} style={styles.notificationContent}>
           <View style={styles.nameRow}>
             <Pressable onPress={handleNamePress} hitSlop={nameHitSlop} style={styles.namePressable}>
-              <Text style={styles.authorName}>{formatHandle(author.handle) || 'Unknown user'}</Text>
+              <Text style={styles.authorName}>
+                {formatHandle(author.handle) || t('feed.unknownUser')}
+              </Text>
               {author.handle && (
                 <VerificationBadge
                   handle={author.handle}
@@ -687,6 +694,7 @@ interface NotificationsTabProps {
 
 const NotificationsTab = forwardRef<ScrollToTopRef, NotificationsTabProps>(
   ({ filterReasons }, ref) => {
+    const { t } = useTranslation();
     const legendListRef = useRef<LegendListRef>(null);
     const setFilterReasons = useActivityFilterStore(s => s.setFilterReasons);
 
@@ -841,12 +849,12 @@ const NotificationsTab = forwardRef<ScrollToTopRef, NotificationsTabProps>(
     const activityChipOptions = useMemo(
       () =>
         ACTIVITY_CHIP_OPTIONS.map(opt => ({
-          key: opt.label,
-          label: opt.label,
+          key: opt.labelKey,
+          label: t(opt.labelKey),
           selected: opt.reasons.every(r => (filterReasons ?? []).includes(r)),
           onPress: () => handleToggleChip(opt.reasons),
         })),
-      [filterReasons, handleToggleChip]
+      [filterReasons, handleToggleChip, t]
     );
 
     const activityChipsHeader = useMemo(
@@ -925,7 +933,7 @@ const NotificationsTab = forwardRef<ScrollToTopRef, NotificationsTabProps>(
             <View style={styles.errorContainer}>
               <EmptyFeed
                 type="no-connection"
-                message="Can't load notifications"
+                message={t('activity.cantLoadNotifications')}
                 onRetry={handleRefresh}
               />
             </View>

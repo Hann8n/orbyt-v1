@@ -1,5 +1,6 @@
 import type { AppError } from '../../types';
 import { logger } from '../logger';
+import i18n from '../../i18n';
 
 /**
  * Centralized error handling utility
@@ -40,7 +41,7 @@ export class ErrorHandler {
       return String(error.message);
     }
 
-    return 'An unexpected error occurred';
+    return i18n.t('errors.unexpected');
   }
 
   /**
@@ -96,11 +97,11 @@ export class ErrorHandler {
    */
   static getAppropriateMessage(error: unknown): string {
     if (this.isNetworkError(error)) {
-      return 'Network connection error. Please check your internet connection.';
+      return i18n.t('errors.networkConnection');
     }
 
     if (this.isAuthError(error)) {
-      return 'Authentication error. Please log in again.';
+      return i18n.t('errors.authentication');
     }
 
     return this.getErrorMessage(error);

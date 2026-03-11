@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Pressable, StyleSheet, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -33,6 +34,7 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
   nextButtonDisabled = false,
   onionSkinningActive = false,
 }) => {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { screenWidth: width, isCompact: isSmallDevice } = useDeviceLayout();
 
@@ -171,7 +173,7 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
               onPress={onNextPress}
               disabled={nextButtonDisabled}
             >
-              <Text style={styles.nextButtonText}>NEXT</Text>
+              <Text style={styles.nextButtonText}>{t('common.next')}</Text>
             </Pressable>
           </View>
         )}

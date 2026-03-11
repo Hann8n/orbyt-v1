@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -93,6 +94,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   onToggleLike: propOnToggleLike,
   isLikePending: propIsLikePending,
 }) => {
+  const { t } = useTranslation();
   const globalData = useModalStore(state => state.commentSectionData);
   const dismissCommentSection = useModalStore(state => state.dismissCommentSection);
 
@@ -149,16 +151,19 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     setTimeout(() => inputRef.current?.focus?.(), 50);
   }, []);
 
-  const handleReplyPress = useCallback((comment: Comment) => {
-    const uri = comment?.uri;
-    const cid = comment?.cid;
-    const authorName = formatHandle(comment?.author?.handle || '') || 'Unknown';
+  const handleReplyPress = useCallback(
+    (comment: Comment) => {
+      const uri = comment?.uri;
+      const cid = comment?.cid;
+      const authorName = formatHandle(comment?.author?.handle || '') || t('feed.unknownUser');
 
-    if (!uri || !cid) return;
+      if (!uri || !cid) return;
 
-    setReplyContext({ authorName, parentUri: uri, parentCid: cid });
-    setTimeout(() => inputRef.current?.focus?.(), 150);
-  }, []);
+      setReplyContext({ authorName, parentUri: uri, parentCid: cid });
+      setTimeout(() => inputRef.current?.focus?.(), 150);
+    },
+    [t]
+  );
 
   const { currentUser } = useUserStore();
   const currentUserHandle = currentUser?.handle || null;
@@ -504,7 +509,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
       setTimeout(() => inputRef.current?.focus?.(), 100);
     } catch {
-      Alert.alert('Error', 'Failed to post comment. Please try again.');
+      Alert.alert(t('common.error'), t('comments.failedToPost'));
     } finally {
       setIsPosting(false);
     }
@@ -564,11 +569,20 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     () => [
       {
         id: 'comments',
-        label: totalComments > 0 ? `${formatNumber(totalComments)} Comments` : 'Comments',
+        label:
+          totalComments > 0
+            ? t('comments.commentsCount', { formattedCount: formatNumber(totalComments) })
+            : t('comments.comments'),
       },
-      { id: 'likes', label: totalLikes > 0 ? `${formatNumber(totalLikes)} Likes` : 'Likes' },
+      {
+        id: 'likes',
+        label:
+          totalLikes > 0
+            ? t('comments.likesCount', { formattedCount: formatNumber(totalLikes) })
+            : t('comments.likes'),
+      },
     ],
-    [totalComments, totalLikes]
+    [totalComments, totalLikes, t]
   );
 
   const handleTabPress = useCallback((tabId: string) => {
@@ -674,11 +688,11 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       ) : (
         <View style={styles.emptyContainer}>
           <View style={styles.emptyContent}>
-            <Text style={styles.emptyText}>start the conversation</Text>
+            <Text style={styles.emptyText}>{t('comments.startConversation')}</Text>
           </View>
         </View>
       ),
-    [commentsLoading]
+    [commentsLoading, t]
   );
 
   const LikesEmptyComponent = useMemo(
@@ -690,11 +704,11 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       ) : (
         <View style={styles.emptyContainer}>
           <View style={styles.emptyContent}>
-            <Text style={styles.emptyText}>be the first like</Text>
+            <Text style={styles.emptyText}>{t('comments.beFirstLike')}</Text>
           </View>
         </View>
       ),
-    [likesLoading]
+    [likesLoading, t]
   );
 
   const onEndReachedComments = useCallback(() => {
@@ -706,8 +720,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   }, [hasNextLikesPage, isFetchingNextLikesPage, fetchNextLikesPage]);
 
   const placeholder = replyContext
-    ? `Replying to ${replyContext.authorName}`
-    : 'Say something nice...';
+    ? t('comments.replyingTo', { name: replyContext.authorName })
+    : t('comments.saySomething');
 
   const ComposerFooter = useMemo(() => {
     return (

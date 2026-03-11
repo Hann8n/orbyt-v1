@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import ListScreen from '../../src/components/ui/ListScreen';
 import AtprotoService from '../../src/services/api/AtprotoService';
 import { logger } from '../../src/utils/logger';
@@ -11,6 +12,7 @@ interface MutedUser {
 }
 
 const MutedUsersScreen: React.FC = () => {
+  const { t } = useTranslation();
   const [mutedUsers, setMutedUsers] = useState<MutedUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [_unmutingUsers, setUnmutingUsers] = useState<Set<string>>(new Set());
@@ -40,7 +42,7 @@ const MutedUsersScreen: React.FC = () => {
           return {
             did,
             handle: did,
-            displayName: 'Unknown User',
+            displayName: t('profile.unknownUser'),
             avatar: undefined,
           };
         }
@@ -80,13 +82,13 @@ const MutedUsersScreen: React.FC = () => {
 
   return (
     <ListScreen
-      title="Muted accounts"
+      title={t('settings.mutedAccounts')}
       data={mutedUsers}
       isLoading={loading}
       error={null}
       emptyIcon="volume-x"
-      emptyTitle="No muted accounts"
-      emptySubtitle="You haven't muted any accounts yet. Muted accounts' posts won't appear in your feed, but they can still see your content."
+      emptyTitle={t('settings.noMutedAccounts')}
+      emptySubtitle={t('settings.mutedEmptySubtitle')}
       showFollowButton={true}
       followButtonAction="unmute"
       onActionPress={handleUnmuteUser}

@@ -1,4 +1,5 @@
 import React, { memo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, StyleSheet, Pressable, type ViewStyle } from 'react-native';
 import Animated, { type AnimatedStyle } from 'react-native-reanimated';
 import { BackArrowIcon } from '../../ui/Icon';
@@ -34,71 +35,74 @@ const DetailScreenOverlay: React.FC<DetailScreenOverlayProps> = ({
   backIconSecondaryStyle,
   overlayAnimatedStyle,
   children,
-}) => (
-  <>
-    {isModal && (
-      <Pressable
-        style={styles.grabHandle}
-        hitSlop={{ top: 10, bottom: 10, left: 20, right: 20 }}
-        onPress={onGrabHandlePress}
-      >
-        <View style={styles.grabHandleContainer}>
-          <Animated.View
-            style={[
-              StyleSheet.absoluteFillObject,
-              backIconPrimaryStyle,
-              styles.grabHandleBarWrapper,
-            ]}
-          >
-            <View
-              style={[
-                styles.grabHandleBar,
-                styles.grabHandleBarPrimary,
-                { backgroundColor: backIconColor },
-              ]}
-            />
-          </Animated.View>
-          <Animated.View
-            style={[
-              StyleSheet.absoluteFillObject,
-              backIconSecondaryStyle,
-              styles.grabHandleBarWrapper,
-            ]}
-          >
-            <View style={[styles.grabHandleBar, styles.grabHandleBarSecondary]} />
-          </Animated.View>
-        </View>
-      </Pressable>
-    )}
-
-    <View style={[styles.overlayRow, { top: actionButtonsTop }]}>
-      {showBackButton ? (
+}) => {
+  const { t } = useTranslation();
+  return (
+    <>
+      {isModal && (
         <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-          onPress={onBackPress}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          style={styles.overlayBackButton}
+          style={styles.grabHandle}
+          hitSlop={{ top: 10, bottom: 10, left: 20, right: 20 }}
+          onPress={onGrabHandlePress}
         >
-          <View style={styles.backIconContainer}>
-            <Animated.View style={[StyleSheet.absoluteFillObject, backIconPrimaryStyle]}>
-              <BackArrowIcon size={30} color={backIconColor} />
+          <View style={styles.grabHandleContainer}>
+            <Animated.View
+              style={[
+                StyleSheet.absoluteFillObject,
+                backIconPrimaryStyle,
+                styles.grabHandleBarWrapper,
+              ]}
+            >
+              <View
+                style={[
+                  styles.grabHandleBar,
+                  styles.grabHandleBarPrimary,
+                  { backgroundColor: backIconColor },
+                ]}
+              />
             </Animated.View>
-            <Animated.View style={[StyleSheet.absoluteFillObject, backIconSecondaryStyle]}>
-              <BackArrowIcon size={30} color={Colors.neutral[50]} />
+            <Animated.View
+              style={[
+                StyleSheet.absoluteFillObject,
+                backIconSecondaryStyle,
+                styles.grabHandleBarWrapper,
+              ]}
+            >
+              <View style={[styles.grabHandleBar, styles.grabHandleBarSecondary]} />
             </Animated.View>
           </View>
         </Pressable>
-      ) : (
-        <View style={styles.overlayBackSpacer} />
       )}
 
-      <Animated.View style={[styles.overlayRightSection, overlayAnimatedStyle]}>
-        {children}
-      </Animated.View>
-    </View>
-  </>
-);
+      <View style={[styles.overlayRow, { top: actionButtonsTop }]}>
+        {showBackButton ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('common.back')}
+            onPress={onBackPress}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={styles.overlayBackButton}
+          >
+            <View style={styles.backIconContainer}>
+              <Animated.View style={[StyleSheet.absoluteFillObject, backIconPrimaryStyle]}>
+                <BackArrowIcon size={30} color={backIconColor} />
+              </Animated.View>
+              <Animated.View style={[StyleSheet.absoluteFillObject, backIconSecondaryStyle]}>
+                <BackArrowIcon size={30} color={Colors.neutral[50]} />
+              </Animated.View>
+            </View>
+          </Pressable>
+        ) : (
+          <View style={styles.overlayBackSpacer} />
+        )}
+
+        <Animated.View style={[styles.overlayRightSection, overlayAnimatedStyle]}>
+          {children}
+        </Animated.View>
+      </View>
+    </>
+  );
+};
 
 const styles = StyleSheet.create({
   grabHandle: {

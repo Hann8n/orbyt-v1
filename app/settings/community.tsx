@@ -2,6 +2,7 @@
  * Community – Ideas and Feature Requests
  * Lists topics from community.getorbyt.com; tap to open in browser.
  */
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -58,6 +59,7 @@ function TopicRow({
   topic: DiscourseTopic;
   onPress: (topic: DiscourseTopic) => void;
 }) {
+  const { t } = useTranslation();
   const voteCount = topic.vote_count ?? topic.like_count;
   return (
     <Pressable style={styles.topicRow} onPress={() => onPress(topic)}>
@@ -66,8 +68,9 @@ function TopicRow({
           {topic.fancy_title || topic.title}
         </Text>
         <Text style={styles.topicMeta}>
-          {topic.like_count} {topic.like_count === 1 ? 'like' : 'likes'} · {topic.reply_count}{' '}
-          {topic.reply_count === 1 ? 'reply' : 'replies'}
+          {topic.like_count} {topic.like_count === 1 ? t('settings.like') : t('settings.likes')} ·{' '}
+          {topic.reply_count}{' '}
+          {topic.reply_count === 1 ? t('settings.reply') : t('settings.replies')}
         </Text>
       </View>
       <View style={styles.voteTallyButton}>
@@ -83,7 +86,7 @@ function TopicRow({
             voteCount >= 1 && { color: Colors.brand.teal },
           ]}
         >
-          {voteCount === 0 ? 'vote' : voteCount}
+          {voteCount === 0 ? t('settings.vote') : voteCount}
         </Text>
       </View>
     </Pressable>
@@ -91,6 +94,7 @@ function TopicRow({
 }
 
 export default function CommunityScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -118,7 +122,7 @@ export default function CommunityScreen() {
     <View style={styles.container}>
       <ListHeader
         mode="sheet"
-        title="Ideas & feature requests"
+        title={t('settings.ideasAndRequests')}
         showCloseButton
         onClosePress={() => router.dismiss()}
         applySafeAreaTop={false}
@@ -142,7 +146,7 @@ export default function CommunityScreen() {
         {isError && (
           <View style={styles.centered}>
             <Text style={styles.errorText}>
-              {error instanceof Error ? error.message : 'Failed to load'}
+              {error instanceof Error ? error.message : t('settings.failedToLoad')}
             </Text>
           </View>
         )}
@@ -152,14 +156,14 @@ export default function CommunityScreen() {
           topics.map(topic => <TopicRow key={topic.id} topic={topic} onPress={openInBrowser} />)}
         {!isLoading && !isError && topics.length === 0 && (
           <View style={styles.centered}>
-            <Text style={styles.emptyText}>No topics yet.</Text>
+            <Text style={styles.emptyText}>{t('settings.noTopicsYet')}</Text>
           </View>
         )}
       </ScrollView>
       {showFooter && (
         <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
           <Pressable style={styles.openForumFooter} onPress={() => Linking.openURL(openForumUrl)}>
-            <Text style={styles.openForumFooterText}>Open forum in browser</Text>
+            <Text style={styles.openForumFooterText}>{t('settings.openForumInBrowser')}</Text>
           </Pressable>
         </View>
       )}

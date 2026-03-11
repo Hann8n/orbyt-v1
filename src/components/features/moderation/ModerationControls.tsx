@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { Colors } from '../../../theme';
@@ -13,6 +14,7 @@ interface ModerationControlsProps {
 }
 
 const ModerationControls: React.FC<ModerationControlsProps> = ({ visible }) => {
+  const { t } = useTranslation();
   const { currentUser } = useUserStoreState();
 
   // Use React Query hook for moderation settings (account-scoped)
@@ -53,21 +55,21 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible }) => {
       >
         {loading ? (
           <View style={styles.loadingContainer}>
-            <Text style={styles.loadingText}>Loading settings...</Text>
+            <Text style={styles.loadingText}>{t('settings.loadingSettings')}</Text>
           </View>
         ) : (
           <>
             {/* Statistics Section */}
             {stats && (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>moderation statistics</Text>
+                <Text style={styles.sectionTitle}>{t('settings.moderationStatistics')}</Text>
                 <View style={styles.statsGrid}>{/* muted words stat removed */}</View>
               </View>
             )}
 
             {/* General Settings */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>general settings</Text>
+              <Text style={styles.sectionTitle}>{t('settings.generalSettings')}</Text>
               <View style={styles.sectionContent}>
                 <View style={styles.settingItem}>
                   <View style={styles.settingItemLeft}>
@@ -75,9 +77,9 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible }) => {
                       <Icon name="block" size={24} color={Colors.neutral[50]} />
                     </View>
                     <View style={styles.settingTextContainer}>
-                      <Text style={styles.settingItemText}>hide blocked and muted users</Text>
+                      <Text style={styles.settingItemText}>{t('settings.hideBlockedMuted')}</Text>
                       <Text style={styles.settingItemDescription}>
-                        content from blocked or muted users is always hidden
+                        {t('settings.hideBlockedMutedDescription')}
                       </Text>
                     </View>
                   </View>
@@ -96,7 +98,7 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible }) => {
                 }}
               >
                 <Icon name="external-link" size={24} color={Colors.neutral[50]} />
-                <Text style={styles.webSettingsTextButtonText}>adjust settings on bsky.app</Text>
+                <Text style={styles.webSettingsTextButtonText}>{t('settings.adjustOnBsky')}</Text>
               </Pressable>
             </View>
           </>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '../../utils/constants';
 import { hexToRGBA } from '../../utils/formatting/colors';
 import { Colors } from './UI';
@@ -10,13 +11,14 @@ interface CloseButtonProps {
 }
 
 const CloseButton: React.FC<CloseButtonProps> = ({ onPress }) => {
+  const { t } = useTranslation();
   return (
     <Pressable
       style={({ pressed }) => [styles.closeButton, pressed && styles.closeButtonPressed]}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel="Close"
-      accessibilityHint="Closes the current sheet"
+      accessibilityLabel={t('common.close')}
+      accessibilityHint={t('common.closesSheet')}
     >
       <Icon name="close" size={20} color={Colors.neutral[50]} style={styles.closeIcon} />
     </Pressable>

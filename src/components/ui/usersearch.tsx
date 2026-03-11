@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../utils/constants';
 import {
   View,
@@ -102,6 +103,7 @@ export function UserSearchModal({
   searchQuery,
   anchorPosition,
 }: UserSearchModalProps) {
+  const { t } = useTranslation();
   // Use the same search as ExploreScreen
   const {
     data,
@@ -147,11 +149,11 @@ export function UserSearchModal({
           </View>
         ) : error ? (
           <View style={styles.centered}>
-            <Text style={styles.errorText}>Error loading users</Text>
+            <Text style={styles.errorText}>{t('feed.errorLoadingUsers')}</Text>
           </View>
         ) : profiles.length === 0 ? (
           <View style={styles.centered}>
-            <Text style={styles.emptyText}>No users found</Text>
+            <Text style={styles.emptyText}>{t('feed.noUsersFound')}</Text>
           </View>
         ) : (
           <FlatList
@@ -198,6 +200,7 @@ export function RichTextSearchModal({
   anchorPosition: _anchorPosition,
   containerStyle,
 }: RichTextSearchModalProps) {
+  const { t } = useTranslation();
   // User search query
   const {
     data: userData,
@@ -260,7 +263,7 @@ export function RichTextSearchModal({
           </View>
         ) : users.length === 0 ? (
           <View style={styles.centered}>
-            <Text style={styles.emptyText}>No users found</Text>
+            <Text style={styles.emptyText}>{t('feed.noUsersFound')}</Text>
           </View>
         ) : (
           <View style={styles.listContainer}>
@@ -305,7 +308,7 @@ export function RichTextSearchModal({
         </View>
       ) : hashtagSuggestions.length === 0 ? (
         <View style={styles.centered}>
-          <Text style={styles.emptyText}>No hashtags found</Text>
+          <Text style={styles.emptyText}>{t('feed.noHashtagsFound')}</Text>
         </View>
       ) : (
         <View style={styles.listContainer}>

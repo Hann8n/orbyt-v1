@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '../src/utils/constants';
 import {
   View,
@@ -45,12 +46,12 @@ import { SegmentManager, type Segment } from '../src/utils/video/segmentManager'
 import VideoProcessingService from '../src/services/video/VideoProcessingService';
 import { usePendingVideoPostStore } from '../src/stores/pendingVideoPostStore';
 
-// Duration options in seconds
-const DURATION_OPTIONS = [
-  { value: 6, label: '6s' },
-  { value: 16, label: '16s' },
-  { value: 60, label: '1m' },
-  { value: 180, label: '3m' },
+// Duration options in seconds - labels resolved via t() in component
+const DURATION_OPTION_KEYS = [
+  { value: 6, labelKey: 'create.duration6s' as const },
+  { value: 16, labelKey: 'create.duration16s' as const },
+  { value: 60, labelKey: 'create.duration1m' as const },
+  { value: 180, labelKey: 'create.duration3m' as const },
 ] as const;
 
 const CAPTURE_BUTTON_INNER_BG = 'rgba(129, 136, 150, 0.4)';
@@ -74,6 +75,7 @@ interface DeletePreviewState {
 }
 
 const CreateScreen: React.FC = () => {
+  const { t } = useTranslation();
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [microphonePermission, requestMicrophonePermission] = useMicrophonePermissions();
   const [isRecording, setIsRecording] = useState(false);
@@ -362,8 +364,11 @@ const CreateScreen: React.FC = () => {
       const availableRounded = Math.round(availableTime * 1000) / 1000;
       if (trimmedRounded > availableRounded) {
         Alert.alert(
-          'Error',
-          `Trimmed video (${trimmedDurationSeconds.toFixed(1)}s) exceeds available time (${availableTime.toFixed(1)}s). Please trim to a shorter duration.`
+          t('common.error'),
+          t('video.trimmedExceedsAvailable', {
+            trimmed: trimmedDurationSeconds.toFixed(1),
+            available: availableTime.toFixed(1),
+          })
         );
         setIsLoadingFromGallery(false);
         setIsProcessing(false);
@@ -379,7 +384,7 @@ const CreateScreen: React.FC = () => {
       };
 
       if (!segmentManagerRef.current.addSegment(newSegment)) {
-        Alert.alert('Error', 'Adding this video would exceed the maximum duration');
+        Alert.alert(t('common.error'), t('video.addingExceedsMaxDuration'));
         setIsLoadingFromGallery(false);
         setIsProcessing(false);
         return;
@@ -392,7 +397,7 @@ const CreateScreen: React.FC = () => {
       setIsProcessing(false);
       setIsTrimmerActive(false);
     },
-    [totalDurationShared]
+    [totalDurationShared, t]
   );
 
   // Helper to stop recording without processing (for when trimmer opens)
@@ -435,7 +440,7 @@ const CreateScreen: React.FC = () => {
       VideoTrimModule.onFinishTrimming(handleTrimmingComplete);
 
     listenerSubscription.current.onError = VideoTrimModule.onError(({ message }) => {
-      Alert.alert('Error', message || 'Failed to trim video');
+      Alert.alert(t('common.error'), message || t('video.failedToTrim'));
       setIsLoadingFromGallery(false);
       setIsProcessing(false);
       setIsTrimmerActive(false);
@@ -445,7 +450,7 @@ const CreateScreen: React.FC = () => {
       Object.values(listenerSubscription.current).forEach(listener => listener?.remove());
       listenerSubscription.current = {};
     };
-  }, [handleTrimmingComplete, stopRecordingImmediate]);
+  }, [handleTrimmingComplete, stopRecordingImmediate, t]);
 
   // Request camera permissions on mount
   useEffect(() => {
@@ -678,10 +683,7 @@ const CreateScreen: React.FC = () => {
       if (!microphonePermission?.granted) {
         const result = await requestMicrophonePermission();
         if (!result.granted) {
-          Alert.alert(
-            'Microphone Permission',
-            'Please enable microphone access to record video with sound.'
-          );
+          Alert.alert(t('video.microphonePermission'), t('video.microphonePermissionMessage'));
           return;
         }
       }
@@ -723,6 +725,7 @@ const CreateScreen: React.FC = () => {
     maxDuration,
     recordingStartTime,
     recordingElapsed,
+    t,
   ]);
 
   // Handle press start - begin recording (press in to start)
@@ -759,10 +762,7 @@ const CreateScreen: React.FC = () => {
       if (!permissionResult.granted) {
         setIsLoadingFromGallery(false);
         setIsProcessing(false);
-        Alert.alert(
-          'Permission required',
-          'Permission to access the media library is required to select videos.'
-        );
+        Alert.alert(t('video.permissionRequired'), t('video.mediaLibraryPermissionRequired'));
         return;
       }
 
@@ -778,7 +778,7 @@ const CreateScreen: React.FC = () => {
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
         if (asset.type != null && asset.type !== 'video') {
-          Alert.alert('Invalid selection', 'Please select a video. This screen is for video only.');
+          Alert.alert(t('video.invalidSelection'), t('video.selectVideoOnly'));
           setIsLoadingFromGallery(false);
           setIsProcessing(false);
           return;
@@ -789,7 +789,7 @@ const CreateScreen: React.FC = () => {
           // Validate file using library's API and get actual video duration
           const validationResult = await isValidFile(videoUri);
           if (!validationResult.isValid) {
-            Alert.alert('Invalid Video', 'The selected video file cannot be accessed.');
+            Alert.alert(t('video.invalidVideo'), t('video.invalidVideoFile'));
             setIsLoadingFromGallery(false);
             setIsProcessing(false);
             return;
@@ -798,7 +798,7 @@ const CreateScreen: React.FC = () => {
           // Check if there's available time
           const availableTime = segmentManagerRef.current?.getAvailableTime() ?? 0;
           if (availableTime <= 0) {
-            Alert.alert('Error', 'No time remaining. Maximum duration reached.');
+            Alert.alert(t('common.error'), t('video.noTimeRemaining'));
             setIsLoadingFromGallery(false);
             setIsProcessing(false);
             return;
@@ -819,8 +819,8 @@ const CreateScreen: React.FC = () => {
             saveToPhoto: false,
             openShareSheetOnFinish: false,
             removeAfterSavedToPhoto: false,
-            cancelButtonText: 'Cancel',
-            saveButtonText: 'Done',
+            cancelButtonText: t('common.cancel'),
+            saveButtonText: t('common.done'),
             trimmerColor: Colors.purple[500],
             enableCancelTrimming: true,
             closeWhenFinish: true,
@@ -828,7 +828,7 @@ const CreateScreen: React.FC = () => {
             fullScreenModalIOS: true,
           });
         } catch (_error) {
-          Alert.alert('Error', 'Failed to open video trimmer');
+          Alert.alert(t('common.error'), t('video.failedToOpenTrimmer'));
           setIsLoadingFromGallery(false);
           setIsProcessing(false);
         }
@@ -837,11 +837,11 @@ const CreateScreen: React.FC = () => {
         setIsProcessing(false);
       }
     } catch (_e) {
-      Alert.alert('Error', 'Failed to access gallery. Please try again.');
+      Alert.alert(t('common.error'), t('video.failedToAccessGallery'));
       setIsLoadingFromGallery(false);
       setIsProcessing(false);
     }
-  }, []);
+  }, [t]);
 
   const flipCamera = useCallback(async () => {
     if (isRecordingRef.current && cameraRef.current) {
@@ -945,26 +945,22 @@ const CreateScreen: React.FC = () => {
     const currentTotal = segmentManagerRef.current?.getTotalDuration() ?? 0;
 
     if (hasSegments || currentTotal > 0) {
-      Alert.alert(
-        'Discard Recordings?',
-        'Closing will discard all your recordings. Are you sure you want to continue?',
-        [
-          {
-            text: 'Cancel',
-            style: 'cancel',
+      Alert.alert(t('video.discardRecordings'), t('video.discardRecordingsMessage'), [
+        {
+          text: t('common.cancel'),
+          style: 'cancel',
+        },
+        {
+          text: t('common.discard'),
+          style: 'destructive',
+          onPress: () => {
+            segmentManagerRef.current?.clear();
+            totalDurationShared.value = 0;
+            setSegmentUpdateTrigger(prev => prev + 1);
+            router.back();
           },
-          {
-            text: 'Discard',
-            style: 'destructive',
-            onPress: () => {
-              segmentManagerRef.current?.clear();
-              totalDurationShared.value = 0;
-              setSegmentUpdateTrigger(prev => prev + 1);
-              router.back();
-            },
-          },
-        ]
-      );
+        },
+      ]);
     } else {
       // No recordings, just navigate back
       router.back();
@@ -1078,12 +1074,12 @@ const CreateScreen: React.FC = () => {
       return (
         <View style={styles.warningContainer}>
           <Icon name="videocam" size={64} color={Colors.neutral[200]} style={styles.errorIcon} />
-          <Text style={styles.warningText}>Please enable camera permissions</Text>
+          <Text style={styles.warningText}>{t('video.pleaseEnableCamera')}</Text>
           <Pressable
             style={({ pressed }) => [styles.button, pressed && { opacity: 0.7 }]}
             onPress={requestCameraPermission}
           >
-            <Text style={styles.buttonText}>Grant Permission</Text>
+            <Text style={styles.buttonText}>{t('video.grantPermission')}</Text>
           </Pressable>
         </View>
       );
@@ -1332,21 +1328,24 @@ const CreateScreen: React.FC = () => {
                     ]}
                     onPress={() => {
                       const currentTotal = segmentManagerRef.current?.getTotalDuration() ?? 0;
-                      const availableOptions = DURATION_OPTIONS.filter(
+                      const availableOptions = DURATION_OPTION_KEYS.filter(
                         opt => opt.value >= currentTotal
                       );
                       Haptics.selectionAsync();
-                      Alert.alert('Max duration', 'Select maximum recording length', [
+                      Alert.alert(t('video.maxDuration'), t('video.selectMaxLength'), [
                         ...availableOptions.map(opt => ({
-                          text: opt.label,
+                          text: t(opt.labelKey),
                           onPress: () => setSelectedDuration(opt.value),
                         })),
-                        { text: 'Cancel', style: 'cancel' as const },
+                        { text: t('common.cancel'), style: 'cancel' as const },
                       ]);
                     }}
                   >
                     <Text style={styles.durationSelectorCollapsedText}>
-                      {DURATION_OPTIONS.find(opt => opt.value === selectedDuration)?.label || '16s'}
+                      {t(
+                        DURATION_OPTION_KEYS.find(opt => opt.value === selectedDuration)
+                          ?.labelKey ?? 'create.duration16s'
+                      )}
                     </Text>
                   </Pressable>
                 </View>

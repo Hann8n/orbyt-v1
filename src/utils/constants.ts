@@ -74,16 +74,7 @@ export const VIEW_MODES = {
   GRID: 'grid',
 } as const;
 
-// Error Messages
-export const ERROR_MESSAGES = {
-  LOGIN_ERROR: 'Login failed. Please try again.',
-  LOGOUT_ERROR: 'Logout failed. Please try again.',
-  ACCOUNT_SWITCH_ERROR: 'Account switch failed. Please try again.',
-  FONT_LOAD_ERROR: 'Error loading fonts',
-  SESSION_VERIFY_ERROR: 'Error verifying session',
-  FEED_RESET_ERROR: 'Error resetting feeds',
-  SCROLL_ERROR: 'Error during scroll operation',
-} as const;
+// Error messages: use i18n.t('errors.*') - see src/i18n/locales/en.json
 
 // Storage Keys
 export const STORAGE_KEYS = {
@@ -114,11 +105,7 @@ export const ICON_SIZES = {
   XLARGE: 32,
 } as const;
 
-// Video Editor Messages
-export const VIDEO_EDITOR_MESSAGES = {
-  TRIM_NOT_AVAILABLE:
-    'Trim functionality is coming in a future update! You can currently:\n\n• Reorder clips by long pressing and dragging\n• Delete unwanted clips\n• Preview the final video\n\nFor now, consider re-recording shorter clips or editing the video after posting.',
-} as const;
+// Video editor messages: use i18n.t('video.trimNotAvailable') - see src/i18n/locales/en.json
 
 // Discourse community (Ideas and Feature Requests)
 export const DISCOURSE = {

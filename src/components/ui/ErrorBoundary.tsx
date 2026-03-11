@@ -4,6 +4,7 @@
  */
 
 import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, Linking, Pressable, Alert, Platform } from 'react-native';
 import { useRouter, useSegments } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
@@ -153,12 +154,13 @@ interface ErrorFallbackProps {
 
 // Go Back Button Component - matches RetryButton styling
 const GoBackButton: React.FC<{ onPress: () => void }> = ({ onPress }) => {
+  const { t } = useTranslation();
   const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
 
   const buttonContent = (
     <View style={goBackButtonStyles.buttonContent} pointerEvents="none">
       <Text style={[goBackButtonStyles.text]} pointerEvents="none">
-        Go Back
+        {t('common.goBack')}
       </Text>
     </View>
   );
@@ -225,31 +227,32 @@ const ErrorFallback: React.FC<ErrorFallbackProps> = ({
   onReset,
   level = 'component',
 }) => {
+  const { t } = useTranslation();
   const router = useRouter();
   const segments = useSegments();
 
   // Check if we can go back (not at root)
   const canGoBack = segments.length > 0 && !(segments.length === 1 && segments[0] === '(tabs)');
   const getTitle = () => {
-    return 'Something went wrong';
+    return t('errors.somethingWentWrong');
   };
 
   const getMessage = () => {
     switch (level) {
       case 'root':
-        return 'The app encountered an unexpected error. Please try restarting the app.';
+        return t('errors.appEncounteredError');
       case 'feature':
-        return "We couldn't load this feature.";
+        return t('errors.couldNotLoadFeature');
       case 'component':
-        return 'This component encountered an error. Please try again.';
+        return t('errors.componentError');
       default:
-        return 'An unexpected error occurred. Please try again.';
+        return t('errors.unexpected');
     }
   };
 
   const getEmailBody = async () => {
     const deviceInfo = await getDeviceInfo();
-    const errorMessage = error?.message || 'Unknown error';
+    const errorMessage = error?.message || t('errors.unknown');
 
     return `
 
@@ -274,7 +277,7 @@ ${deviceInfo}`;
         <Pressable
           onPress={async () => {
             const email = 'support@getorbyt.com';
-            const subject = encodeURIComponent('orbyt app error report');
+            const subject = encodeURIComponent(t('errors.emailSubjectErrorReport'));
             let emailBody: string;
 
             try {
@@ -296,7 +299,7 @@ ${errorMessage}
 
 ----------------------------------------
 Device Information:
-Unavailable (failed to retrieve)`;
+${t('errors.deviceInfoUnavailable')}`;
             }
 
             const body = encodeURIComponent(emailBody);
@@ -309,34 +312,30 @@ Unavailable (failed to retrieve)`;
               } else {
                 // Fallback: Copy email body to clipboard and show alert
                 await Clipboard.setStringAsync(`${email}\n\n${emailBody}`);
-                Alert.alert(
-                  'Email Copied',
-                  `No email app is configured. The support email and error details have been copied to your clipboard.`,
-                  [{ text: 'OK' }]
-                );
+                Alert.alert(t('settings.emailCopied'), t('errors.emailCopiedNoApp'), [
+                  { text: t('common.ok') },
+                ]);
               }
             } catch (error) {
               logger.error('Error opening email', error, { component: 'ErrorBoundary' });
               // Fallback: Copy email body to clipboard
               try {
                 await Clipboard.setStringAsync(`${email}\n\n${emailBody}`);
-                Alert.alert(
-                  'Email Copied',
-                  `Unable to open email app. The support email and error details have been copied to your clipboard.`,
-                  [{ text: 'OK' }]
-                );
+                Alert.alert(t('settings.emailCopied'), t('errors.emailCopiedUnableToOpen'), [
+                  { text: t('common.ok') },
+                ]);
               } catch (_clipboardError) {
                 Alert.alert(
-                  'Contact Support',
-                  `Please email us at ${email} with the error details.`,
-                  [{ text: 'OK' }]
+                  t('errors.contactSupport'),
+                  t('errors.contactSupportMessage', { email }),
+                  [{ text: t('common.ok') }]
                 );
               }
             }
           }}
           style={styles.supportLink}
         >
-          <Text style={styles.supportLinkText}>Contact support</Text>
+          <Text style={styles.supportLinkText}>{t('errors.contactSupportLink')}</Text>
         </Pressable>
       </View>
 

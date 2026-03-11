@@ -8,6 +8,7 @@ import React, {
   useImperativeHandle,
   forwardRef,
 } from 'react';
+import { useTranslation } from 'react-i18next';
 import { QUERY_CONSTANTS } from '../../src/utils/constants';
 import {
   View,
@@ -169,13 +170,6 @@ const isProfileResult = (result: SearchResult): result is ProfileResult =>
 const isChannelResult = (result: SearchResult): result is ChannelResult =>
   result.type === 'channel';
 
-// Search-related components
-const SEARCH_TAB_LABELS: { [key: string]: string } = {
-  'recently-visited': 'Recently Visited',
-  profiles: 'People',
-  channels: 'Feeds',
-};
-
 // Helper function to navigate to profile
 const navigateToProfile = (profile: Profile, queryClient: QueryClient, router: Router) => {
   if (!profile.did) return;
@@ -285,6 +279,7 @@ const ProfilesFeedRenderer = React.memo(
     isFetchingNextPage?: boolean;
     fetchNextPage?: () => void;
   }) => {
+    const { t } = useTranslation();
     const router = useRouter();
     const queryClient = useQueryClient();
 
@@ -348,7 +343,7 @@ const ProfilesFeedRenderer = React.memo(
         }}
         ListEmptyComponent={() => (
           <View style={styles.emptyTabContent}>
-            <Text style={styles.emptyTabText}>No people found</Text>
+            <Text style={styles.emptyTabText}>{t('feed.noPeopleFound')}</Text>
           </View>
         )}
       />
@@ -370,6 +365,7 @@ const ChannelsFeedRenderer = React.memo(
     onChannelPress?: (channel: Channel) => void;
     bottomPadding?: number;
   }) => {
+    const { t } = useTranslation();
     const router = useRouter();
 
     const channels = searchResults
@@ -419,7 +415,7 @@ const ChannelsFeedRenderer = React.memo(
         keyboardDismissMode="on-drag"
         ListEmptyComponent={() => (
           <View style={styles.emptyTabContent}>
-            <Text style={styles.emptyTabText}>No feeds found</Text>
+            <Text style={styles.emptyTabText}>{t('feed.noFeedsFound')}</Text>
           </View>
         )}
       />
@@ -445,6 +441,7 @@ const VisitHistoryList = React.memo(
     profilesByDid: Map<string, ProfileViewWithOrbyt>;
     channelsByUri: Map<string, CachedChannel>;
   }) => {
+    const { t } = useTranslation();
     return (
       <FlashList
         data={visitHistory}
@@ -488,7 +485,7 @@ const VisitHistoryList = React.memo(
               <AuthorItem
                 handle=""
                 did={item.did}
-                displayName="Loading…"
+                displayName={t('feed.loading')}
                 avatar={undefined}
                 size="large"
                 showArrow={false}
@@ -525,7 +522,7 @@ const VisitHistoryList = React.memo(
             return (
               <ChannelItem
                 uri={item.uri}
-                displayName="Loading…"
+                displayName={t('feed.loading')}
                 avatar={undefined}
                 size="large"
                 showArrow={false}
@@ -544,7 +541,7 @@ const VisitHistoryList = React.memo(
         keyboardDismissMode="on-drag"
         ListEmptyComponent={() => (
           <View style={styles.emptyTabContent}>
-            <Text style={styles.emptyTabText}>No recent visits</Text>
+            <Text style={styles.emptyTabText}>{t('feed.noRecentVisits')}</Text>
           </View>
         )}
       />
@@ -656,6 +653,7 @@ const ChannelNameDisplay: React.FC<{ channel: Channel; style?: StyleProp<ViewSty
   channel,
   style,
 }) => {
+  const { t } = useTranslation();
   const isOrbyt = isOrbytChannel(channel.uri);
   const orbytChannel = isOrbyt ? getChannelByUri(channel.uri) : undefined;
   const channelColor = orbytChannel?.channelColor || Colors.amber[400];
@@ -668,7 +666,7 @@ const ChannelNameDisplay: React.FC<{ channel: Channel; style?: StyleProp<ViewSty
           <Text style={[styles.channelName, styles.orbytSlash, { color: channelColor }]}>/</Text>
         )}
         <Text style={styles.channelName} numberOfLines={1}>
-          {channel.displayName || 'Unknown channel'}
+          {channel.displayName || t('feed.unknownChannel')}
         </Text>
       </View>
     );
@@ -676,7 +674,7 @@ const ChannelNameDisplay: React.FC<{ channel: Channel; style?: StyleProp<ViewSty
 
   return (
     <Text style={styles.channelName} numberOfLines={1}>
-      {channel.displayName || 'Unknown channel'}
+      {channel.displayName || t('feed.unknownChannel')}
     </Text>
   );
 };
@@ -714,6 +712,7 @@ const GridChannelItem = ({
   itemWidth: number;
   itemHeight?: number;
 }) => {
+  const { t } = useTranslation();
   const avatarUri = getChannelAvatarUri(channel.uri, channel.avatar);
   const isOrbyt = isOrbytChannel(channel.uri);
   const orbytChannel = isOrbyt ? getChannelByUri(channel.uri) : undefined;
@@ -770,12 +769,12 @@ const GridChannelItem = ({
                 </Text>
               )}
               <Text style={styles.gridChannelName} numberOfLines={1}>
-                {channel.displayName || 'Unknown channel'}
+                {channel.displayName || t('feed.unknownChannel')}
               </Text>
             </View>
           ) : (
             <Text style={styles.gridChannelName} numberOfLines={1}>
-              {channel.displayName || 'Unknown channel'}
+              {channel.displayName || t('feed.unknownChannel')}
             </Text>
           )}
         </View>
@@ -796,6 +795,7 @@ const HorizontalChannelItem = ({
   itemWidth: number;
   itemHeight: number;
 }) => {
+  const { t } = useTranslation();
   const avatarUri = getChannelAvatarUri(channel.uri, channel.avatar);
   const isOrbyt = isOrbytChannel(channel.uri);
   const orbytChannel = isOrbyt ? getChannelByUri(channel.uri) : undefined;
@@ -866,12 +866,12 @@ const HorizontalChannelItem = ({
               <Text style={[styles.horizontalChannelLabel, styles.orbytSlash]}>/</Text>
             )}
             <Text style={styles.horizontalChannelLabel} numberOfLines={1}>
-              {channel.displayName || 'Unknown channel'}
+              {channel.displayName || t('feed.unknownChannel')}
             </Text>
           </View>
         ) : (
           <Text style={styles.horizontalChannelLabel} numberOfLines={1}>
-            {channel.displayName || 'Unknown channel'}
+            {channel.displayName || t('feed.unknownChannel')}
           </Text>
         )}
       </View>
@@ -1105,6 +1105,7 @@ const OrbytChannelsGrid = React.memo(
 OrbytChannelsGrid.displayName = 'orbytChannelsGrid';
 
 const ExploreScreen: React.FC = () => {
+  const { t } = useTranslation();
   const flashListRef = useRef<FlashListRef<ListItem> | null>(null);
   const currentUser = useUserStore(state => state.currentUser);
   const searchInputRef = useRef<TextInput | null>(null);
@@ -1274,7 +1275,7 @@ const ExploreScreen: React.FC = () => {
             uri: post.uri,
             cid: post.cid,
             did: post.author?.did || '',
-            displayName: post.text || post.author?.displayName || 'Unknown channel',
+            displayName: post.text || post.author?.displayName || t('feed.unknownChannel'),
             description: post.description || '',
             creator: post.author
               ? {
@@ -1352,7 +1353,7 @@ const ExploreScreen: React.FC = () => {
             data: {
               uri: embedRecord?.uri || post.uri,
               cid: embedRecord?.cid || post.cid,
-              displayName: postText || 'Unknown channel',
+              displayName: postText || t('feed.unknownChannel'),
               description: postText || '',
               creator: post.author
                 ? {
@@ -1386,7 +1387,7 @@ const ExploreScreen: React.FC = () => {
     });
 
     return filtered;
-  }, [searchFeedOption, searchFeed, currentUser, followStoreFollows]);
+  }, [searchFeedOption, searchFeed, currentUser, followStoreFollows, t]);
 
   const handleHistoryItemPress = useCallback(
     (item: VisitHistoryEntry) => {
@@ -1461,7 +1462,12 @@ const ExploreScreen: React.FC = () => {
     onPress: () => void;
   }) => {
     const tabIndex = pages.indexOf(tabId);
-    const label = SEARCH_TAB_LABELS[tabId] || tabId;
+    const label =
+      tabId === 'recently-visited'
+        ? t('feed.recentlyVisited')
+        : tabId === 'profiles'
+          ? t('feed.people')
+          : t('feed.feeds');
 
     const animatedStyle = useAnimatedStyle(() => {
       'worklet';
@@ -1712,7 +1718,11 @@ const ExploreScreen: React.FC = () => {
     }
 
     if (spotlightFeed && spotlightFeed.length > 0) {
-      data.push({ type: 'section-header' as const, title: 'spotlight', key: 'spotlight-header' });
+      data.push({
+        type: 'section-header' as const,
+        title: t('feed.spotlight'),
+        key: 'spotlight-header',
+      });
       data.push({
         type: 'spotlight-videos' as const,
         videos: spotlightFeed,
@@ -1723,7 +1733,7 @@ const ExploreScreen: React.FC = () => {
     if (orbytChannelsData && orbytChannelsData.length > 0) {
       data.push({
         type: 'section-header' as const,
-        title: 'channels',
+        title: t('feed.channels'),
         key: 'orbyt-channels-header',
       });
       data.push({
@@ -1785,7 +1795,7 @@ const ExploreScreen: React.FC = () => {
               ref={searchInputRef}
               nativeID="explore-search-input"
               style={styles.searchInput}
-              placeholder="search"
+              placeholder={t('feed.searchPlaceholder')}
               placeholderTextColor={Colors.neutral[500]}
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -1928,7 +1938,7 @@ const ExploreScreen: React.FC = () => {
                   <View style={styles.sectionHeaderRow}>
                     {typeof item.title === 'string' &&
                     item.title.toLowerCase().includes('spotlight') ? (
-                      <Text style={styles.sectionTitle}>spotlight</Text>
+                      <Text style={styles.sectionTitle}>{t('feed.spotlight')}</Text>
                     ) : (
                       <Text style={styles.sectionTitle}>{item.title}</Text>
                     )}
@@ -2029,7 +2039,9 @@ const ExploreScreen: React.FC = () => {
                             )}
                             {shouldBlur && (
                               <View style={styles.spotlightWarningOverlay}>
-                                <Text style={styles.spotlightWarningText}>Content Warning</Text>
+                                <Text style={styles.spotlightWarningText}>
+                                  {t('feed.contentWarning')}
+                                </Text>
                               </View>
                             )}
                           </View>

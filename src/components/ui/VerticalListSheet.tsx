@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '../../utils/constants';
 import { View, Text, StyleSheet, ViewStyle, TextStyle, StyleProp } from 'react-native';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
@@ -78,7 +79,7 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
   title,
   children,
   showCancelButton = true,
-  cancelButtonText = 'Close',
+  cancelButtonText: cancelButtonTextProp,
   description,
   customHeaderButton,
   titleSize,
@@ -90,6 +91,8 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
   footerBottomPadding: footerBottomPaddingProp,
   footerBackgroundColor = 'transparent',
 }) => {
+  const { t } = useTranslation();
+  const cancelButtonText = cancelButtonTextProp ?? t('common.close');
   // Use fixed padding only; TrueSheet's insetAdjustment='automatic' already accounts for safe area
   const footerBottomPadding =
     footerBottomPaddingProp !== undefined

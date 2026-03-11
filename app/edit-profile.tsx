@@ -7,6 +7,7 @@ import React, {
   useRef,
   startTransition,
 } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -117,6 +118,7 @@ const AnimatedColorSquare: React.FC<AnimatedColorSquareProps> = React.memo(
 );
 
 const EditProfileScreen: React.FC = () => {
+  const { t } = useTranslation();
   const router = useRouter();
   const { currentUser } = useCurrentUser();
   const userDid = currentUser?.did || null;
@@ -633,16 +635,13 @@ const EditProfileScreen: React.FC = () => {
       const { status: libraryStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (cameraStatus !== 'granted' || libraryStatus !== 'granted') {
-        Alert.alert(
-          'Permission Required',
-          'Camera and photo library access are required to change your avatar.'
-        );
+        Alert.alert(t('profile.permissionRequired'), t('profile.avatarPermissionRequired'));
         return;
       }
 
-      Alert.alert('Change Avatar', 'Choose how you want to update your avatar', [
+      Alert.alert(t('profile.changeAvatar'), t('profile.changeAvatarPrompt'), [
         {
-          text: 'Camera',
+          text: t('profile.camera'),
           onPress: async () => {
             try {
               const result = await ImagePicker.launchCameraAsync({
@@ -656,12 +655,12 @@ const EditProfileScreen: React.FC = () => {
                 setEditAvatar(result.assets[0].uri || undefined);
               }
             } catch (_error) {
-              Alert.alert('Error', 'Failed to open camera. Please try again.');
+              Alert.alert(t('common.error'), t('profile.failedToOpenCamera'));
             }
           },
         },
         {
-          text: 'Photo Library',
+          text: t('profile.photoLibrary'),
           onPress: async () => {
             try {
               const result = await ImagePicker.launchImageLibraryAsync({
@@ -675,19 +674,19 @@ const EditProfileScreen: React.FC = () => {
                 setEditAvatar(result.assets[0].uri || undefined);
               }
             } catch (_error) {
-              Alert.alert('Error', 'Failed to open photo library. Please try again.');
+              Alert.alert(t('common.error'), t('profile.failedToOpenPhotoLibrary'));
             }
           },
         },
         {
-          text: 'Cancel',
+          text: t('common.cancel'),
           style: 'cancel',
         },
       ]);
     } catch (_error) {
-      Alert.alert('Error', 'Failed to open image picker. Please try again.');
+      Alert.alert(t('common.error'), t('profile.failedToOpenImagePicker'));
     }
-  }, []);
+  }, [t]);
 
   // Handle color selection - unified for both predefined and custom colors
   const handleColorSelect = useCallback(
@@ -798,7 +797,7 @@ const EditProfileScreen: React.FC = () => {
       router.dismiss();
     } catch (_error) {
       setIsSaving(false);
-      Alert.alert('Error', 'Failed to update profile. Please try again.');
+      Alert.alert(t('common.error'), t('profile.failedToUpdateProfile'));
     }
   }, [
     profileData,
@@ -811,6 +810,7 @@ const EditProfileScreen: React.FC = () => {
     router,
     currentUser,
     setIsSaving,
+    t,
   ]);
 
   // Handle dismiss
@@ -858,7 +858,7 @@ const EditProfileScreen: React.FC = () => {
             style={styles.cancelButton}
           >
             <Text style={[styles.cancelButtonText, { color: Colors.neutral[50] }]}>
-              {isAboutFocused || isDisplayNameFocused ? 'Back' : 'Cancel'}
+              {isAboutFocused || isDisplayNameFocused ? t('common.back') : t('common.cancel')}
             </Text>
           </Pressable>
 
@@ -920,7 +920,7 @@ const EditProfileScreen: React.FC = () => {
                     isAboutFocused && aboutOverBy > 0 && { color: hexToRGBA(Colors.black, 0.25) },
                   ]}
                 >
-                  {isAboutFocused || isDisplayNameFocused ? 'Done' : 'Save'}
+                  {isAboutFocused || isDisplayNameFocused ? t('common.done') : t('common.save')}
                 </Text>
               )}
             </View>
@@ -1011,7 +1011,7 @@ const EditProfileScreen: React.FC = () => {
                       { color: hexToRGBA(currentColors.textColor, 0.9) },
                     ]}
                   >
-                    HANDLE
+                    {t('editProfile.handle')}
                   </Text>
                   <ScrollView
                     horizontal
@@ -1081,7 +1081,7 @@ const EditProfileScreen: React.FC = () => {
                           { color: hexToRGBA(currentColors.textColor, 0.8) },
                         ]}
                       >
-                        PROFILE PICTURE
+                        {t('editProfile.profilePicture')}
                       </Text>
                       <Pressable
                         style={[
@@ -1097,7 +1097,7 @@ const EditProfileScreen: React.FC = () => {
                         onPress={handleAvatarPress}
                       >
                         <Text style={[styles.uploadButtonText, { color: currentColors.textColor }]}>
-                          Upload
+                          {t('editProfile.upload')}
                         </Text>
                       </Pressable>
                     </View>
@@ -1141,7 +1141,7 @@ const EditProfileScreen: React.FC = () => {
                         { color: hexToRGBA(currentColors.textColor, 0.8) },
                       ]}
                     >
-                      DISPLAY NAME
+                      {t('editProfile.displayName')}
                     </Text>
                     <TextInput
                       nativeID="edit-profile-display-name-input"
@@ -1153,7 +1153,7 @@ const EditProfileScreen: React.FC = () => {
                       ]}
                       value={editDisplayName}
                       onChangeText={setEditDisplayName}
-                      placeholder="Name"
+                      placeholder={t('profile.namePlaceholder')}
                       placeholderTextColor={hexToRGBA(currentColors.textColor, 0.3)}
                       scrollEnabled
                       maxLength={65}
@@ -1215,7 +1215,7 @@ const EditProfileScreen: React.FC = () => {
                         { color: hexToRGBA(currentColors.textColor, 0.8) },
                       ]}
                     >
-                      ABOUT
+                      {t('editProfile.about')}
                     </Text>
                     <TextInput
                       nativeID="edit-profile-about-input"
@@ -1227,7 +1227,7 @@ const EditProfileScreen: React.FC = () => {
                       ]}
                       value={editDescription}
                       onChangeText={setEditDescription}
-                      placeholder="Tell us about yourself"
+                      placeholder={t('profile.aboutPlaceholder')}
                       placeholderTextColor={hexToRGBA(currentColors.textColor, 0.3)}
                       multiline
                       autoComplete="off"

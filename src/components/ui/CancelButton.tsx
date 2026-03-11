@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Pressable, Text, StyleSheet } from 'react-native';
 import { BORDER_RADIUS } from '../../utils/constants';
 import { Colors } from './UI';
@@ -10,11 +11,9 @@ interface CancelButtonProps {
   variant?: 'default' | 'primary';
 }
 
-const CancelButton: React.FC<CancelButtonProps> = ({
-  onPress,
-  text = 'Cancel',
-  variant = 'default',
-}) => {
+const CancelButton: React.FC<CancelButtonProps> = ({ onPress, text, variant = 'default' }) => {
+  const { t } = useTranslation();
+  const displayText = text ?? t('common.cancel');
   const isPrimary = variant === 'primary';
   return (
     <Pressable
@@ -25,7 +24,7 @@ const CancelButton: React.FC<CancelButtonProps> = ({
       ]}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={text}
+      accessibilityLabel={displayText}
     >
       {({ pressed }) => (
         <Text
@@ -36,7 +35,7 @@ const CancelButton: React.FC<CancelButtonProps> = ({
               (isPrimary ? styles.primaryButtonTextPressed : styles.cancelButtonTextPressed),
           ]}
         >
-          {text}
+          {displayText}
         </Text>
       )}
     </Pressable>

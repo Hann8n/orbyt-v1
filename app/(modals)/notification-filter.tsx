@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, ScrollView, Pressable, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import Icon from '../../src/components/ui/Icon';
@@ -8,34 +9,42 @@ import { BORDER_RADIUS } from '../../src/utils/constants';
 import type { NotificationReason } from '../../src/services/api/types';
 import { useActivityFilterStore } from '../../src/stores/activityFilterStore';
 
-const NOTIFICATION_REASONS_MAP: Record<NotificationReason, string> = {
-  like: 'likes',
-  repost: 'reposts',
-  follow: 'follows',
-  mention: 'mentions',
-  reply: 'replies',
-  quote: 'quotes',
-  'subscribed-post': 'subscriptions',
-  'like-via-repost': 'likes via repost',
-  'repost-via-repost': 'reposts via repost',
-  'starterpack-joined': 'starter pack joins',
-  verified: 'verified',
-  unverified: 'unverified',
+const NOTIFICATION_REASONS_LABEL_KEY: Record<NotificationReason, string> = {
+  like: 'activity.likes',
+  repost: 'activity.reposts',
+  follow: 'activity.follows',
+  mention: 'activity.mentions',
+  reply: 'activity.replies',
+  quote: 'activity.quotes',
+  'subscribed-post': 'activity.subscriptions',
+  'like-via-repost': 'activity.likesViaRepost',
+  'repost-via-repost': 'activity.repostsViaRepost',
+  'starterpack-joined': 'activity.starterPackJoins',
+  verified: 'activity.verification',
+  unverified: 'activity.verification',
 };
 
 interface GroupedFilterOption {
-  label: string;
+  labelKey: string;
   reasons: NotificationReason[];
   primaryReason: NotificationReason;
 }
 
 const GROUPED_OPTIONS: GroupedFilterOption[] = [
-  { label: 'likes', reasons: ['like', 'like-via-repost'], primaryReason: 'like' },
-  { label: 'reposts', reasons: ['repost', 'repost-via-repost'], primaryReason: 'repost' },
-  { label: 'verification', reasons: ['verified', 'unverified'], primaryReason: 'verified' },
+  { labelKey: 'activity.likes', reasons: ['like', 'like-via-repost'], primaryReason: 'like' },
+  {
+    labelKey: 'activity.reposts',
+    reasons: ['repost', 'repost-via-repost'],
+    primaryReason: 'repost',
+  },
+  {
+    labelKey: 'activity.verification',
+    reasons: ['verified', 'unverified'],
+    primaryReason: 'verified',
+  },
 ];
 
-const ALL_REASONS = (Object.keys(NOTIFICATION_REASONS_MAP) as NotificationReason[])
+const ALL_REASONS = (Object.keys(NOTIFICATION_REASONS_LABEL_KEY) as NotificationReason[])
   .filter(reason => !GROUPED_OPTIONS.some(group => group.reasons.includes(reason)))
   .concat(GROUPED_OPTIONS.flatMap(group => group.reasons)) as NotificationReason[];
 
@@ -90,6 +99,7 @@ const FilterOption: React.FC<{
 );
 
 export default function NotificationFilterModal() {
+  const { t } = useTranslation();
   const router = useRouter();
   const filterReasons = useActivityFilterStore(s => s.filterReasons);
   const setFilterReasons = useActivityFilterStore(s => s.setFilterReasons);
@@ -151,7 +161,7 @@ export default function NotificationFilterModal() {
     <View style={styles.container}>
       <ListHeader
         mode="sheet"
-        title="filter options"
+        title={t('activity.filterOptions')}
         applySafeAreaTop={Platform.OS === 'android'}
         showCloseButton
         onClosePress={() => router.dismiss()}
@@ -164,7 +174,7 @@ export default function NotificationFilterModal() {
       >
         <View style={styles.section}>
           <View style={styles.sectionTitleRow}>
-            <Text style={styles.sectionTitle}>Show notifications for</Text>
+            <Text style={styles.sectionTitle}>{t('activity.showNotificationsFor')}</Text>
             <Pressable
               onPress={handleClear}
               disabled={!hasFilters}
@@ -173,7 +183,7 @@ export default function NotificationFilterModal() {
                 { opacity: hasFilters ? (pressed ? 0.85 : 1) : 0.5 },
               ]}
             >
-              <Text style={styles.clearBtnText}>clear</Text>
+              <Text style={styles.clearBtnText}>{t('activity.clear')}</Text>
             </Pressable>
           </View>
           <View style={styles.optionGroup}>
@@ -182,7 +192,7 @@ export default function NotificationFilterModal() {
                 return (
                   <FilterOption
                     key={`grouped-${index}`}
-                    label={item.option.label}
+                    label={t(item.option.labelKey)}
                     checked={isGroupedOptionSelected(item.option.reasons)}
                     onPress={() => handleToggleGrouped(item.option.reasons)}
                   />
@@ -191,7 +201,7 @@ export default function NotificationFilterModal() {
               return (
                 <FilterOption
                   key={item.reason}
-                  label={NOTIFICATION_REASONS_MAP[item.reason]}
+                  label={t(NOTIFICATION_REASONS_LABEL_KEY[item.reason])}
                   checked={localSelected.includes(item.reason)}
                   onPress={() => handleToggleReason(item.reason)}
                 />

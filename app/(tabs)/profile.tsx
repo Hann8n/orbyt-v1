@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef, memo } from 'react';
+import { useTranslation } from 'react-i18next';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -64,6 +65,7 @@ interface ProfileScreenProps {
 }
 
 const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
+  const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const rawParams = useLocalSearchParams<{ did?: string }>();
@@ -205,14 +207,14 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       // Refetch profile (includes orbytColors) so cache is updated
       await refetchProfile();
     } catch {
-      setProfileError('Failed to refresh profile.');
+      setProfileError(t('profile.failedToRefresh'));
     } finally {
       // Reset refreshing state after a delay to show the refresh animation
       setTimeout(() => {
         setRefreshing(false);
       }, 2000);
     }
-  }, [refetchProfile]);
+  }, [refetchProfile, t]);
 
   const isOwnProfileView = useMemo(() => {
     if (isViewingOwnProfile) return true;
@@ -223,11 +225,11 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
 
   const tabOptions: TabOption[] = useMemo(
     () => [
-      { id: 'profile', label: 'videos' },
-      { id: 'reposts', label: 'reposts' },
-      ...(isOwnProfileView ? [{ id: 'likes', label: 'likes' }] : []),
+      { id: 'profile', label: t('profile.videos') },
+      { id: 'reposts', label: t('profile.reposts') },
+      ...(isOwnProfileView ? [{ id: 'likes', label: t('profile.likes') }] : []),
     ],
-    [isOwnProfileView]
+    [isOwnProfileView, t]
   );
 
   const profileFeedOptions = useMemo(
@@ -255,19 +257,19 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
           style={styles.errorIcon}
         />
         <Text style={[styles.errorText, { color: profileColors.textColor || '#fff' }]}>
-          Profile Not Found
+          {t('profile.notFound')}
         </Text>
         <Text style={styles.errorSubtext}>
           {providedIdentifier
-            ? `We couldn't find a profile for ${providedIdentifier}`
-            : profileError || "We couldn't retrieve your profile information"}
+            ? t('profile.notFoundFor', { identifier: providedIdentifier })
+            : profileError || t('profile.retrieveFailed')}
         </Text>
         <Pressable
           style={({ pressed }) => [styles.errorButton, pressed && { opacity: 0.7 }]}
           onPress={onRefresh}
         >
           <Text style={[styles.errorButtonText, { color: profileColors.textColor || '#fff' }]}>
-            Try Again
+            {t('errors.tryAgain')}
           </Text>
         </Pressable>
         {providedIdentifier && (
@@ -280,7 +282,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
             onPress={() => router.back()}
           >
             <Text style={[styles.errorButtonText, { color: profileColors.textColor || '#fff' }]}>
-              Go Back
+              {t('common.goBack')}
             </Text>
           </Pressable>
         )}
@@ -293,6 +295,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     profileError,
     onRefresh,
     router,
+    t,
   ]);
 
   const isLoading = (isProfileLoading || isHandleResolving) && !profileData;
@@ -459,7 +462,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       return [
         {
           id: 'edit',
-          label: 'Edit profile',
+          label: t('profile.editProfile'),
           active: true,
           onPress: () => router.navigate('/edit-profile'),
         },
@@ -468,7 +471,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
 
     const isFollowedBy = !!profileData.viewer?.followedBy;
 
-    let label = isBlocked ? 'Unblock' : 'follow';
+    let label = isBlocked ? t('profile.unblock') : t('profile.follow');
     let icon: string | undefined = undefined;
     let customIcon: React.ReactNode | undefined = isBlocked ? undefined : (
       <FollowIcon size={14} color={profileColors.textColor || Colors.neutral[50]} />
@@ -545,6 +548,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     isBlockedByList,
     handleFollowUnfollow,
     isSubscribed,
+    t,
     isFollowing,
     profileColors.backgroundColor,
     profileColors.textColor,

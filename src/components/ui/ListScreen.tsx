@@ -1,4 +1,5 @@
 import React, { useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
@@ -61,6 +62,7 @@ const ListScreen: React.FC<ListScreenProps> = ({
   onUserPress,
   onActionPress,
 }) => {
+  const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const followMutation = useFollowMutation();
@@ -159,11 +161,13 @@ const ListScreen: React.FC<ListScreenProps> = ({
     () => (
       <View style={styles.errorContainer}>
         <Icon name="alert-circle" size={48} color={Colors.neutral[200]} style={styles.emptyIcon} />
-        <Text style={styles.emptyTitle}>Failed to load {title.toLowerCase()}</Text>
-        <Text style={styles.emptySubtitle}>Please check your connection and try again</Text>
+        <Text style={styles.emptyTitle}>
+          {t('feed.failedToLoad', { title: title.toLowerCase() })}
+        </Text>
+        <Text style={styles.emptySubtitle}>{t('feed.checkConnection')}</Text>
       </View>
     ),
-    [title]
+    [title, t]
   );
 
   const renderListHeader = useCallback(

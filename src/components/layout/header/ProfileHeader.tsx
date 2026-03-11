@@ -1,5 +1,6 @@
 import React, { memo, useMemo, useCallback, useState, useEffect } from 'react';
-import { StatusBar, Pressable, StyleSheet, View, ViewStyle } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import { StatusBar, Pressable, StyleSheet, View, StyleProp, ViewStyle } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import Animated, {
   useAnimatedStyle,
@@ -31,7 +32,7 @@ import { openListInBluesky } from '../../../utils/links/bluesky';
 interface ProfileHeaderProps {
   children?: React.ReactNode;
   applySafeArea?: boolean;
-  headerStyle?: ViewStyle;
+  headerStyle?: StyleProp<ViewStyle>;
   onColorsChange?: (colors: { backgroundColor: string; textColor: string }) => void;
   contentFadeDisabled?: boolean;
   dimOverlayDisabled?: boolean;
@@ -59,6 +60,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   profileData,
   contentScrollProgressSV,
 }) => {
+  const { t } = useTranslation();
   const [showVerificationInfo, setShowVerificationInfo] = useState(false);
   const [showBetaInfo, setShowBetaInfo] = useState(false);
   const isFocused = useIsFocused();
@@ -123,7 +125,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     const subtitle: string | undefined = profileData.handle ? profileData.handle : undefined;
     // Show blocking indicator if blocked by list
     const subtitleSecondary: string | undefined = blockingByList
-      ? `Blocked by ${blockingByList.name}`
+      ? t('profile.blockedBy', { name: blockingByList.name })
       : undefined;
 
     // Parse description to generate rich text facets
@@ -137,7 +139,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 
     return {
       avatar: profileData.avatar || undefined,
-      title: profileData.displayName || formatHandle(profileData.handle) || 'Unknown User',
+      title: profileData.displayName || formatHandle(profileData.handle) || t('feed.unknownUser'),
       subtitle,
       subtitleSecondary,
       onSubtitleSecondaryPress: blockingByList ? handleListPress : undefined,
@@ -173,6 +175,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     blockingByList,
     handleListPress,
     onAvatarPress,
+    t,
   ]);
 
   // Get colors for description and tab navigation

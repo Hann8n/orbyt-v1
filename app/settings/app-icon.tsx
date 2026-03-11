@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -68,37 +69,29 @@ const getInitialIcon = (): AppIconKey => {
   }
 };
 
-type IconOption = {
-  id: string;
-  label: string;
-  subtitle?: string;
-  iconKey: AppIconKey;
-  preview: ImageSource;
-  requiresBeta?: boolean;
-};
-
-type IconSection = {
+const ICON_SECTIONS: Array<{
   title: string;
-  attribution?: {
-    handle: string;
-    did: string;
-  };
-  items: IconOption[];
-};
-
-const ICON_SECTIONS: IconSection[] = [
+  attribution?: { handle: string; did: string };
+  items: Array<{
+    id: string;
+    labelKey: string;
+    iconKey: string | null;
+    preview: ImageSource;
+    requiresBeta?: boolean;
+  }>;
+}> = [
   {
     title: '',
     items: [
       {
         id: 'default',
-        label: 'Default',
+        labelKey: 'settings.appIconDefault',
         iconKey: null,
         preview: require('../../src/assets/AppIcons/iOS/orbyt.png'),
       },
       {
         id: 'orBYTE',
-        label: 'Beta Badge',
+        labelKey: 'settings.appIconBetaBadge',
         iconKey: 'orBYTE',
         preview: require('../../src/assets/AppIcons/iOS/orBYTE.png'),
         requiresBeta: true,
@@ -114,49 +107,49 @@ const ICON_SECTIONS: IconSection[] = [
     items: [
       {
         id: 'planyt_red',
-        label: 'Red',
+        labelKey: 'settings.appIconRed',
         iconKey: 'planyt_red',
         preview: require('../../src/assets/AppIcons/iOS/planyt/planyt-red.png'),
       },
       {
         id: 'planyt_orange',
-        label: 'Orange',
+        labelKey: 'settings.appIconOrange',
         iconKey: 'planyt_orange',
         preview: require('../../src/assets/AppIcons/iOS/planyt/planyt-orange.png'),
       },
       {
         id: 'planyt_yellow',
-        label: 'Yellow',
+        labelKey: 'settings.appIconYellow',
         iconKey: 'planyt_yellow',
         preview: require('../../src/assets/AppIcons/iOS/planyt/planyt-yellow.png'),
       },
       {
         id: 'planyt_green',
-        label: 'Green',
+        labelKey: 'settings.appIconGreen',
         iconKey: 'planyt_green',
         preview: require('../../src/assets/AppIcons/iOS/planyt/planyt-green.png'),
       },
       {
         id: 'planyt_blue',
-        label: 'Blue',
+        labelKey: 'settings.appIconBlue',
         iconKey: 'planyt_blue',
         preview: require('../../src/assets/AppIcons/iOS/planyt/planyt-blue.png'),
       },
       {
         id: 'planyt_purple',
-        label: 'Purple',
+        labelKey: 'settings.appIconPurple',
         iconKey: 'planyt_purple',
         preview: require('../../src/assets/AppIcons/iOS/planyt/planyt-purple.png'),
       },
       {
         id: 'planyt_greyscale',
-        label: 'Greyscale',
+        labelKey: 'settings.appIconGreyscale',
         iconKey: 'planyt_greyscale',
         preview: require('../../src/assets/AppIcons/iOS/planyt/planyt-greyscale.png'),
       },
       {
         id: 'planyt_greyscale_alt',
-        label: 'Greyscale Alt',
+        labelKey: 'settings.appIconGreyscaleAlt',
         iconKey: 'planyt_greyscale_alt',
         preview: require('../../src/assets/AppIcons/iOS/planyt/planyt-greyscale-alt.png'),
       },
@@ -169,6 +162,7 @@ const GRID_GAP = 12;
 const NUM_COLUMNS = 4;
 
 const AppIconSettingsScreen: React.FC = () => {
+  const { t } = useTranslation();
   const router = useRouter();
   const [currentIcon, setCurrentIcon] = useState<AppIconKey>(getInitialIcon);
   const { currentUser } = useCurrentUser();
@@ -209,7 +203,7 @@ const AppIconSettingsScreen: React.FC = () => {
     <View style={settingsLayoutStyles.container}>
       <ListHeader
         mode="sheet"
-        title="App icon"
+        title={t('settings.appIcon')}
         showCloseButton
         onClosePress={() => router.dismiss()}
         applySafeAreaTop={Platform.OS === 'android'}
@@ -230,7 +224,9 @@ const AppIconSettingsScreen: React.FC = () => {
               {section.title ? (
                 <View style={settingsLayoutStyles.section}>
                   <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitleText}>{section.title}</Text>
+                    <Text style={styles.sectionTitleText}>
+                      {section.title === 'planyt' ? t('settings.planyt') : section.title}
+                    </Text>
                     {section.attribution && (
                       <Pressable
                         style={styles.attributionContainer}
@@ -241,7 +237,7 @@ const AppIconSettingsScreen: React.FC = () => {
                           })
                         }
                       >
-                        <Text style={styles.attributionText}>by </Text>
+                        <Text style={styles.attributionText}>{t('settings.by')}</Text>
                         <Text style={styles.attributionHandle}>
                           @{formatHandle(section.attribution.handle)}
                         </Text>
@@ -257,7 +253,7 @@ const AppIconSettingsScreen: React.FC = () => {
                     <Pressable
                       key={option.id}
                       style={[styles.iconItem, { width: iconSize }]}
-                      onPress={() => void handleSelectIcon(option.iconKey)}
+                      onPress={() => void handleSelectIcon(option.iconKey as AppIconKey)}
                     >
                       <View style={[styles.iconWrapper, { width: iconSize, height: iconSize }]}>
                         <View style={[styles.iconPreview, { width: iconSize, height: iconSize }]}>
@@ -277,13 +273,8 @@ const AppIconSettingsScreen: React.FC = () => {
                         )}
                       </View>
                       <Text style={styles.iconLabel} numberOfLines={1}>
-                        {option.label}
+                        {t(option.labelKey)}
                       </Text>
-                      {option.subtitle && (
-                        <Text style={styles.iconSubtitle} numberOfLines={2}>
-                          {option.subtitle}
-                        </Text>
-                      )}
                     </Pressable>
                   );
                 })}

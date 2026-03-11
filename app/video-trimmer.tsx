@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Alert, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import VideoTrim, { showEditor, isValidFile, type Spec } from 'react-native-clip-trim';
@@ -8,6 +9,7 @@ import VideoProcessingService from '../src/services/video/VideoProcessingService
 import { Colors } from '../src/theme';
 
 const VideoTrimmerScreen: React.FC = () => {
+  const { t } = useTranslation();
   const params = useLocalSearchParams<{
     videoPath: string;
     assetId?: string;
@@ -53,12 +55,12 @@ const VideoTrimmerScreen: React.FC = () => {
         router.back();
       } catch (error: unknown) {
         const errorMessage =
-          error instanceof Error ? error.message : 'Failed to process trimmed video';
-        Alert.alert('Error', errorMessage);
+          error instanceof Error ? error.message : t('video.failedToProcessTrimmed');
+        Alert.alert(t('common.error'), errorMessage);
         router.back();
       }
     },
-    [setPendingTrim, router]
+    [setPendingTrim, router, t]
   );
 
   const handleTrimError = useCallback(
@@ -68,10 +70,10 @@ const VideoTrimmerScreen: React.FC = () => {
         router.back();
         return;
       }
-      Alert.alert('Error', message || 'Failed to trim video');
+      Alert.alert(t('common.error'), message || t('video.failedToTrim'));
       router.back();
     },
-    [router]
+    [router, t]
   );
 
   useEffect(() => {
@@ -90,7 +92,7 @@ const VideoTrimmerScreen: React.FC = () => {
 
   const openTrimmer = useCallback(async () => {
     if (!params.videoPath) {
-      Alert.alert('Error', 'No video path provided');
+      Alert.alert(t('common.error'), t('video.noPathProvided'));
       router.back();
       return;
     }
@@ -103,7 +105,7 @@ const VideoTrimmerScreen: React.FC = () => {
       // Validate file and get actual video duration
       const validationResult = await isValidFile(normalizedUri);
       if (!validationResult.isValid) {
-        Alert.alert('Error', 'Invalid video file');
+        Alert.alert(t('common.error'), t('video.invalidVideoFileShort'));
         router.back();
         return;
       }
@@ -135,9 +137,9 @@ const VideoTrimmerScreen: React.FC = () => {
         saveToPhoto: false,
         openShareSheetOnFinish: false,
         removeAfterSavedToPhoto: false,
-        headerText: 'Trim Video',
-        cancelButtonText: 'Cancel',
-        saveButtonText: 'Done',
+        headerText: t('video.trimVideo'),
+        cancelButtonText: t('common.cancel'),
+        saveButtonText: t('common.done'),
         trimmerColor: Colors.purple[500],
         enableCancelTrimming: true,
         closeWhenFinish: true,
@@ -145,10 +147,10 @@ const VideoTrimmerScreen: React.FC = () => {
         fullScreenModalIOS: true, // Use fullscreen modal on iOS to prevent view issues
       });
     } catch {
-      Alert.alert('Error', 'Failed to open video trimmer');
+      Alert.alert(t('common.error'), t('video.failedToOpenTrimmer'));
       router.back();
     }
-  }, [params.videoPath, params.assetId, params.maxDuration, params.currentDuration, router]);
+  }, [params.videoPath, params.assetId, params.maxDuration, params.currentDuration, router, t]);
 
   // Open the trimmer when component mounts
   useEffect(() => {

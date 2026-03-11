@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useSharedValue } from 'react-native-reanimated';
 import { BORDER_RADIUS } from '../../src/utils/constants';
 import { View, StyleSheet, Dimensions, Pressable, Text, ActivityIndicator } from 'react-native';
@@ -27,6 +28,7 @@ import { logger } from '../../src/utils/logger';
 import type { ListFeedViewRef, ViewMode } from '../../src/types';
 
 const Channel: React.FC = memo(() => {
+  const { t } = useTranslation();
   const router = useRouter();
   const params = useLocalSearchParams();
   useVisibilityRouteTracker('channel');
@@ -165,14 +167,14 @@ const Channel: React.FC = memo(() => {
     return {
       id: uri,
       uri: uri,
-      name: channelData.displayName || 'Untitled Channel',
+      name: channelData.displayName || t('settings.untitledChannel'),
       description: description,
       avatar: channelData.avatar || '',
       likeCount,
       isOwner: false,
       creator: channelData.creator || null,
     };
-  }, [channelData, uri]);
+  }, [channelData, uri, t]);
 
   const handleBackPress = useCallback(() => {
     router.back();
@@ -193,7 +195,7 @@ const Channel: React.FC = memo(() => {
       return [
         {
           id: 'delete',
-          label: 'Delete',
+          label: t('common.delete'),
           icon: 'trash' as const,
           onPress: handleDelete,
           variant: 'danger' as const,
@@ -201,7 +203,7 @@ const Channel: React.FC = memo(() => {
       ];
     }
     return [];
-  }, [channelHeaderData?.isOwner, handleDelete]);
+  }, [channelHeaderData?.isOwner, handleDelete, t]);
 
   // Refresh channel metadata from server.
   const onRefresh = useCallback(async () => {
@@ -231,15 +233,15 @@ const Channel: React.FC = memo(() => {
         style={styles.errorIcon}
       />
       <Text style={[styles.errorText, { color: channelColors.textColor || '#fff' }]}>
-        Channel Not Found
+        {t('channel.notFound')}
       </Text>
-      <Text style={styles.errorSubtext}>{"We couldn't retrieve this channel information"}</Text>
+      <Text style={styles.errorSubtext}>{t('channel.retrieveFailed')}</Text>
       <Pressable
         style={[styles.errorButton, { borderColor: (channelColors.textColor || '#fff') + '44' }]}
         onPress={onRefresh}
       >
         <Text style={[styles.errorButtonText, { color: channelColors.textColor || '#fff' }]}>
-          Try Again
+          {t('errors.tryAgain')}
         </Text>
       </Pressable>
       <Pressable
@@ -251,7 +253,7 @@ const Channel: React.FC = memo(() => {
         onPress={() => router.back()}
       >
         <Text style={[styles.errorButtonText, { color: channelColors.textColor || '#fff' }]}>
-          Go Back
+          {t('common.goBack')}
         </Text>
       </Pressable>
     </View>
@@ -260,10 +262,10 @@ const Channel: React.FC = memo(() => {
   // Tab options for category channels
   const tabOptions: TabOption[] = useMemo(
     () => [
-      { id: 'top', label: 'Trending' },
-      { id: 'latest', label: 'New' },
+      { id: 'top', label: t('channel.trending') },
+      { id: 'latest', label: t('channel.new') },
     ],
-    []
+    [t]
   );
 
   // Tab navigation component for category channels (passed as children to ChannelHeader)

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { Colors, Avatar } from './UI';
 
@@ -19,6 +20,7 @@ export const AccountSwitchToast: React.FC<AccountSwitchToastProps> = ({
   avatarUri,
   topInset = 0,
 }) => {
+  const { t } = useTranslation();
   const displayHandle = handle?.startsWith('@') ? handle.slice(1) : handle;
 
   return (
@@ -41,7 +43,9 @@ export const AccountSwitchToast: React.FC<AccountSwitchToastProps> = ({
             numberOfLines={1}
             ellipsizeMode="tail"
           >
-            {displayHandle ? `Signing in ${displayHandle}` : 'Signing in'}
+            {displayHandle
+              ? t('account.signingInWith', { handle: displayHandle })
+              : t('account.signingIn')}
           </Text>
         </View>
       </View>

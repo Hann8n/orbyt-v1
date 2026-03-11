@@ -5,6 +5,7 @@
  */
 
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -129,6 +130,7 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
   postCid,
   currentUserDid,
 }) => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
@@ -292,7 +294,7 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
         }
 
         if (!cid) {
-          Alert.alert('error', 'unable to send post. missing post information.');
+          Alert.alert(t('common.error'), t('chat.unableToSendMissingInfo'));
           return;
         }
 
@@ -303,7 +305,7 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
           const otherDid = (item as ProfileViewBasic).did;
           const convo = await ChatService.getConvoForMembers([currentUserDid, otherDid].sort());
           if (!convo) {
-            Alert.alert('error', 'could not start conversation. the user may have DMs disabled.');
+            Alert.alert(t('common.error'), t('chat.couldNotStartConversation'));
             return;
           }
           conversationId = convo.id;
@@ -325,9 +327,8 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
         handleDismiss();
         onSent();
       } catch (_error: unknown) {
-        const msg =
-          _error instanceof Error ? _error.message : 'failed to send post. please try again.';
-        Alert.alert('error', msg);
+        const msg = _error instanceof Error ? _error.message : t('errors.failedTryAgain');
+        Alert.alert(t('common.error'), msg);
       } finally {
         setIsSending(false);
       }
@@ -341,6 +342,7 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
       handleDismiss,
       onSent,
       queryClient,
+      t,
     ]
   );
 
@@ -352,7 +354,7 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
   const header = (
     <View style={styles.headerContainer}>
       <Text style={styles.headerTitle} numberOfLines={1}>
-        Send to
+        {t('share.sendTo')}
       </Text>
       <CloseButton onPress={onDismiss} />
     </View>
@@ -365,12 +367,12 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
         onChangeText={setSendMessageText}
         inputSelection={sendMessageInputSelection}
         onSelectionChange={e => setSendMessageInputSelection(e.nativeEvent.selection)}
-        placeholder="Add a message (optional)"
+        placeholder={t('chat.addMessageOptional')}
         onSubmit={handleSubmitSend}
         showAvatar={false}
         showSendWhenEmpty={true}
         isSubmitDisabled={!selectedRecipientItem}
-        submitAccessibilityLabel="Send"
+        submitAccessibilityLabel={t('share.send')}
         isPosting={isSending}
         maxLength={MAX_MESSAGE_LENGTH}
         inputRef={messageInputRef}
@@ -398,7 +400,7 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
           ref={searchInputRef}
           value={searchQuery}
           onChangeText={setSearchQuery}
-          placeholder="Search people"
+          placeholder={t('chat.searchPeople')}
           placeholderTextColor={Colors.neutral[400]}
           style={styles.searchInput}
           autoComplete="off"
@@ -431,7 +433,7 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
               onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
               ListEmptyComponent={
                 <View style={styles.pickerEmptyContainer}>
-                  <Text style={styles.pickerEmptyText}>No results</Text>
+                  <Text style={styles.pickerEmptyText}>{t('chat.noResults')}</Text>
                 </View>
               }
             />

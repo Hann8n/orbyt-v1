@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, Text, Pressable, StyleSheet, Alert, Linking } from 'react-native';
 import { Image } from 'expo-image';
@@ -101,6 +102,7 @@ const CommentImage: React.FC<{
   onPress?: () => void;
   accessibilityLabel?: string;
 }> = ({ uri, initialAspectRatio, wrapperStyle, imageStyle, onPress, accessibilityLabel }) => {
+  const { t } = useTranslation();
   // Use fixed aspect ratio to prevent layout shift on load
   const content = (
     <Image
@@ -108,7 +110,7 @@ const CommentImage: React.FC<{
       style={[styles.commentImage, imageStyle, { aspectRatio: initialAspectRatio }]}
       contentFit="cover"
       accessible={true}
-      accessibilityLabel={accessibilityLabel ?? 'Comment image'}
+      accessibilityLabel={accessibilityLabel ?? t('comments.commentImage')}
     />
   );
 
@@ -133,6 +135,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
   highlightUri,
   onLayoutChange: _onLayoutChange,
 }) => {
+  const { t } = useTranslation();
   const uri = getCommentUri(comment);
   const cid = getCommentCid(comment);
   const viewerLike = getCommentViewerLike(comment);
@@ -243,8 +246,8 @@ const CommentItem: React.FC<CommentItemProps> = ({
   });
 
   const authorName = useMemo(
-    () => formatHandle(comment?.author?.handle || '') || 'Unknown',
-    [comment?.author?.handle]
+    () => formatHandle(comment?.author?.handle || '') || t('feed.unknownUser'),
+    [comment?.author?.handle, t]
   );
 
   const authorHandle = useMemo(
@@ -273,8 +276,8 @@ const CommentItem: React.FC<CommentItemProps> = ({
   const parent = comment?.parent;
   const parentAuthorName = useMemo(() => {
     if (!parent) return null;
-    return formatHandle(parent?.author?.handle || '') || 'Unknown';
-  }, [parent]);
+    return formatHandle(parent?.author?.handle || '') || t('feed.unknownUser');
+  }, [parent, t]);
 
   const parentAuthorHandle = useMemo(() => {
     if (!parent) return null;
@@ -372,11 +375,11 @@ const CommentItem: React.FC<CommentItemProps> = ({
           likeUri: prevLikeUri,
         });
       }
-      Alert.alert('Error', 'Failed to like comment. Please try again.');
+      Alert.alert(t('common.error'), t('comments.failedToLike'));
     } finally {
       setIsLiking(false);
     }
-  }, [isLiked, likeCount, likeUri, uri, cid, animateHeart, isLiking, updateCommentInteraction]);
+  }, [isLiked, likeCount, likeUri, uri, cid, animateHeart, isLiking, updateCommentInteraction, t]);
 
   const navigation = useRouter();
 
@@ -500,128 +503,120 @@ const CommentItem: React.FC<CommentItemProps> = ({
 
     // Determine if it's a comment or reply
     const isReply = level > 0 || !!comment?.parent;
-    const displayAuthor = isCurrentUserComment ? 'you' : authorName;
-    const actionTitle = isReply ? `reply by ${displayAuthor}` : `comment by ${displayAuthor}`;
+    const displayAuthor = isCurrentUserComment ? t('comments.you') : authorName;
+    const actionTitle = isReply
+      ? t('comments.replyBy', { author: displayAuthor })
+      : t('comments.commentBy', { author: displayAuthor });
     const postType = isReply ? 'reply' : 'comment';
 
     if (isCurrentUserComment) {
       // Current user's post: Pin to profile, Repost, Delete
-      Alert.alert(actionTitle, 'Choose an action:', [
+      Alert.alert(actionTitle, t('comments.chooseAction'), [
         {
-          text: 'Cancel',
+          text: t('common.cancel'),
           style: 'cancel',
         },
         {
-          text: 'Pin to Profile',
+          text: t('comments.pinToProfile'),
           onPress: async () => {
             try {
-              // Note: Pin to profile functionality may not be available in ATProto API
-              Alert.alert('Info', 'Pin to profile feature is not yet available.');
+              Alert.alert(t('common.info'), t('comments.pinNotAvailable'));
             } catch (_error) {
-              Alert.alert('Error', `Failed to pin ${postType}. Please try again.`);
+              Alert.alert(t('common.error'), t('comments.failedToPin', { postType }));
             }
           },
         },
         {
-          text: 'Repost',
+          text: t('comments.repost'),
           onPress: async () => {
             try {
               await AtprotoService.repostPost(uri, cid);
-              Alert.alert(
-                'Success',
-                `${postType.charAt(0).toUpperCase() + postType.slice(1)} reposted successfully.`
-              );
+              Alert.alert(t('common.success'), t('comments.repostedSuccessfully', { postType }));
               queryClient.invalidateQueries({
                 queryKey: queryKeys.comments.byPost(rootUri || ''),
                 refetchType: 'active',
               });
             } catch (_error) {
-              Alert.alert('Error', `Failed to repost ${postType}. Please try again.`);
+              Alert.alert(t('common.error'), t('comments.failedToRepost', { postType }));
             }
           },
         },
         {
-          text: 'Delete',
+          text: t('comments.delete'),
           style: 'destructive',
           onPress: async () => {
-            const capitalizedPostType = postType.charAt(0).toUpperCase() + postType.slice(1);
-            Alert.alert(
-              `Delete ${capitalizedPostType}`,
-              `Are you sure you want to delete this ${postType}? This action cannot be undone.`,
-              [
-                {
-                  text: 'Cancel',
-                  style: 'cancel',
-                },
-                {
-                  text: 'Delete',
-                  style: 'destructive',
-                  onPress: async () => {
-                    try {
-                      const success = await AtprotoService.deletePost(uri);
-                      if (success) {
-                        // Mark as deleted in store for immediate UI update
-                        markCommentAsDeleted(uri);
-                        Alert.alert('Success', `${capitalizedPostType} deleted successfully.`);
-                        queryClient.invalidateQueries({
-                          queryKey: queryKeys.comments.byPost(rootUri || ''),
-                          refetchType: 'active',
-                        });
-                        queryClient.invalidateQueries({
-                          queryKey: queryKeys.feed.all,
-                          refetchType: 'active',
-                        });
-                      } else {
-                        Alert.alert('Error', `Failed to delete ${postType}. Please try again.`);
-                      }
-                    } catch (_error) {
-                      Alert.alert('Error', `Failed to delete ${postType}. Please try again.`);
+            const deleteTitle = isReply ? t('comments.deleteReply') : t('comments.deleteComment');
+            Alert.alert(deleteTitle, t('comments.deleteConfirm', { postType }), [
+              {
+                text: t('common.cancel'),
+                style: 'cancel',
+              },
+              {
+                text: t('comments.delete'),
+                style: 'destructive',
+                onPress: async () => {
+                  try {
+                    const success = await AtprotoService.deletePost(uri);
+                    if (success) {
+                      markCommentAsDeleted(uri);
+                      Alert.alert(
+                        t('common.success'),
+                        t('comments.deletedSuccessfully', { postType })
+                      );
+                      queryClient.invalidateQueries({
+                        queryKey: queryKeys.comments.byPost(rootUri || ''),
+                        refetchType: 'active',
+                      });
+                      queryClient.invalidateQueries({
+                        queryKey: queryKeys.feed.all,
+                        refetchType: 'active',
+                      });
+                    } else {
+                      Alert.alert(t('common.error'), t('comments.failedToDelete', { postType }));
                     }
-                  },
+                  } catch (_error) {
+                    Alert.alert(t('common.error'), t('comments.failedToDelete', { postType }));
+                  }
                 },
-              ]
-            );
+              },
+            ]);
           },
         },
       ]);
     } else {
-      // Other user's post: Repost, Report Post
-      Alert.alert(actionTitle, 'Choose an action:', [
+      Alert.alert(actionTitle, t('comments.chooseAction'), [
         {
-          text: 'Cancel',
+          text: t('common.cancel'),
           style: 'cancel',
         },
         {
-          text: 'Repost',
+          text: t('comments.repost'),
           onPress: async () => {
             try {
               await AtprotoService.repostPost(uri, cid);
-              Alert.alert(
-                'Success',
-                `${postType.charAt(0).toUpperCase() + postType.slice(1)} reposted successfully.`
-              );
+              Alert.alert(t('common.success'), t('comments.repostedSuccessfully', { postType }));
               queryClient.invalidateQueries({
                 queryKey: queryKeys.comments.byPost(rootUri || ''),
                 refetchType: 'active',
               });
             } catch (_error) {
-              Alert.alert('Error', `Failed to repost ${postType}. Please try again.`);
+              Alert.alert(t('common.error'), t('comments.failedToRepost', { postType }));
             }
           },
         },
         {
-          text: `Report ${postType.charAt(0).toUpperCase() + postType.slice(1)}`,
+          text: isReply ? t('comments.reportReply') : t('comments.reportComment'),
           onPress: () => {
             Alert.alert(
-              'Report Content',
-              `Please select a reason for reporting this ${postType}:`,
+              t('comments.reportContent'),
+              t('comments.reportReasonPrompt', { postType }),
               [
                 {
-                  text: 'Cancel',
+                  text: t('common.cancel'),
                   style: 'cancel',
                 },
                 {
-                  text: 'Spam',
+                  text: t('alerts.spam'),
                   onPress: async () => {
                     try {
                       const success = await AtprotoService.reportContent(uri, 'spam');
@@ -629,17 +624,17 @@ const CommentItem: React.FC<CommentItemProps> = ({
                         const { useReportedPostsStore } =
                           await import('../../../stores/reportedPostsStore');
                         useReportedPostsStore.getState().reportPost(uri);
-                        Alert.alert('Thank you', 'This content has been reported for review.');
+                        Alert.alert(t('common.thankYou'), t('comments.reportedForReview'));
                       } else {
-                        Alert.alert('Error', 'Failed to submit report. Please try again.');
+                        Alert.alert(t('common.error'), t('comments.failedToSubmitReport'));
                       }
                     } catch (_error) {
-                      Alert.alert('Error', 'Failed to submit report. Please try again.');
+                      Alert.alert(t('common.error'), t('comments.failedToSubmitReport'));
                     }
                   },
                 },
                 {
-                  text: 'Harmful Content',
+                  text: t('alerts.harmfulContent'),
                   onPress: async () => {
                     try {
                       const success = await AtprotoService.reportContent(uri, 'violation');
@@ -647,17 +642,17 @@ const CommentItem: React.FC<CommentItemProps> = ({
                         const { useReportedPostsStore } =
                           await import('../../../stores/reportedPostsStore');
                         useReportedPostsStore.getState().reportPost(uri);
-                        Alert.alert('Thank you', 'This content has been reported for review.');
+                        Alert.alert(t('common.thankYou'), t('comments.reportedForReview'));
                       } else {
-                        Alert.alert('Error', 'Failed to submit report. Please try again.');
+                        Alert.alert(t('common.error'), t('comments.failedToSubmitReport'));
                       }
                     } catch (_error) {
-                      Alert.alert('Error', 'Failed to submit report. Please try again.');
+                      Alert.alert(t('common.error'), t('comments.failedToSubmitReport'));
                     }
                   },
                 },
                 {
-                  text: 'Misleading',
+                  text: t('alerts.misleading'),
                   onPress: async () => {
                     try {
                       const success = await AtprotoService.reportContent(uri, 'misleading');
@@ -665,17 +660,17 @@ const CommentItem: React.FC<CommentItemProps> = ({
                         const { useReportedPostsStore } =
                           await import('../../../stores/reportedPostsStore');
                         useReportedPostsStore.getState().reportPost(uri);
-                        Alert.alert('Thank you', 'This content has been reported for review.');
+                        Alert.alert(t('common.thankYou'), t('comments.reportedForReview'));
                       } else {
-                        Alert.alert('Error', 'Failed to submit report. Please try again.');
+                        Alert.alert(t('common.error'), t('comments.failedToSubmitReport'));
                       }
                     } catch (_error) {
-                      Alert.alert('Error', 'Failed to submit report. Please try again.');
+                      Alert.alert(t('common.error'), t('comments.failedToSubmitReport'));
                     }
                   },
                 },
                 {
-                  text: 'Sexual Content',
+                  text: t('alerts.sexualContent'),
                   onPress: async () => {
                     try {
                       const success = await AtprotoService.reportContent(uri, 'sexual');
@@ -683,17 +678,17 @@ const CommentItem: React.FC<CommentItemProps> = ({
                         const { useReportedPostsStore } =
                           await import('../../../stores/reportedPostsStore');
                         useReportedPostsStore.getState().reportPost(uri);
-                        Alert.alert('Thank you', 'This content has been reported for review.');
+                        Alert.alert(t('common.thankYou'), t('comments.reportedForReview'));
                       } else {
-                        Alert.alert('Error', 'Failed to submit report. Please try again.');
+                        Alert.alert(t('common.error'), t('comments.failedToSubmitReport'));
                       }
                     } catch (_error) {
-                      Alert.alert('Error', 'Failed to submit report. Please try again.');
+                      Alert.alert(t('common.error'), t('comments.failedToSubmitReport'));
                     }
                   },
                 },
                 {
-                  text: 'Rude/Offensive',
+                  text: t('alerts.rudeOffensive'),
                   onPress: async () => {
                     try {
                       const success = await AtprotoService.reportContent(uri, 'rude');
@@ -701,17 +696,17 @@ const CommentItem: React.FC<CommentItemProps> = ({
                         const { useReportedPostsStore } =
                           await import('../../../stores/reportedPostsStore');
                         useReportedPostsStore.getState().reportPost(uri);
-                        Alert.alert('Thank you', 'This content has been reported for review.');
+                        Alert.alert(t('common.thankYou'), t('comments.reportedForReview'));
                       } else {
-                        Alert.alert('Error', 'Failed to submit report. Please try again.');
+                        Alert.alert(t('common.error'), t('comments.failedToSubmitReport'));
                       }
                     } catch (_error) {
-                      Alert.alert('Error', 'Failed to submit report. Please try again.');
+                      Alert.alert(t('common.error'), t('comments.failedToSubmitReport'));
                     }
                   },
                 },
                 {
-                  text: 'Other',
+                  text: t('common.other'),
                   onPress: async () => {
                     try {
                       const success = await AtprotoService.reportContent(uri, 'other');
@@ -719,12 +714,12 @@ const CommentItem: React.FC<CommentItemProps> = ({
                         const { useReportedPostsStore } =
                           await import('../../../stores/reportedPostsStore');
                         useReportedPostsStore.getState().reportPost(uri);
-                        Alert.alert('Thank you', 'This content has been reported for review.');
+                        Alert.alert(t('common.thankYou'), t('comments.reportedForReview'));
                       } else {
-                        Alert.alert('Error', 'Failed to submit report. Please try again.');
+                        Alert.alert(t('common.error'), t('comments.failedToSubmitReport'));
                       }
                     } catch (_error) {
-                      Alert.alert('Error', 'Failed to submit report. Please try again.');
+                      Alert.alert(t('common.error'), t('comments.failedToSubmitReport'));
                     }
                   },
                 },
@@ -742,6 +737,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
     queryClient,
     level,
     comment?.parent,
+    t,
     authorName,
     markCommentAsDeleted,
   ]);
@@ -879,7 +875,9 @@ const CommentItem: React.FC<CommentItemProps> = ({
               ]}
               imageStyle={imageVariant}
               onPress={() => onImagePress?.(external.uri)}
-              accessibilityLabel={external.description || external.title || 'Comment image'}
+              accessibilityLabel={
+                external.description || external.title || t('comments.commentImage')
+              }
             />
           </View>
         );
@@ -966,7 +964,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
                   style={[styles.commentImage, { aspectRatio }]}
                   contentFit="cover"
                   accessible={true}
-                  accessibilityLabel={img.alt || 'Comment image'}
+                  accessibilityLabel={img.alt || t('comments.commentImage')}
                 />
               </Pressable>
             );
@@ -974,7 +972,9 @@ const CommentItem: React.FC<CommentItemProps> = ({
         )}
         {embedImages.length > 4 && (
           <View style={styles.moreImagesIndicator}>
-            <Text style={styles.moreImagesText}>+{embedImages.length - 4} more</Text>
+            <Text style={styles.moreImagesText}>
+              {t('comments.moreCount', { count: embedImages.length - 4 })}
+            </Text>
           </View>
         )}
       </View>
@@ -1064,7 +1064,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
               <View style={styles.commentMetaContainer}>
                 <RelativeDate dateString={comment?.indexedAt} style={styles.commentTimestamp} />
                 <Pressable onPress={handleReplyPress} style={styles.replyButton}>
-                  <Text style={styles.replyButtonText}>Reply</Text>
+                  <Text style={styles.replyButtonText}>{t('comments.reply')}</Text>
                 </Pressable>
               </View>
             </View>

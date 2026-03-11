@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import ListScreen from '../../src/components/ui/ListScreen';
@@ -8,6 +9,7 @@ import { useCurrentUser } from '../../src/stores/userStore';
 import type { ProfileViewBasic, FollowersResponse } from '../../src/services/api/types';
 
 const FollowersScreen: React.FC = () => {
+  const { t } = useTranslation();
   const navigation = useRouter();
   const queryClient = useQueryClient();
   const { currentUser } = useCurrentUser();
@@ -76,7 +78,7 @@ const FollowersScreen: React.FC = () => {
 
   return (
     <ListScreen
-      title="Your followers"
+      title={t('settings.yourFollowers')}
       data={followers}
       isLoading={isLoading}
       error={error}
@@ -88,8 +90,8 @@ const FollowersScreen: React.FC = () => {
       hasNextPage={hasNextPage}
       isFetchingNextPage={isFetchingNextPage}
       emptyIcon="users"
-      emptyTitle="No followers yet"
-      emptySubtitle="When people follow you, they'll appear here"
+      emptyTitle={t('settings.noFollowersYet')}
+      emptySubtitle={t('settings.followersEmpty')}
       showFollowButton={true}
       followButtonAction="follow"
       onUserPress={handleProfilePress}

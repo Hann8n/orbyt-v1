@@ -1,5 +1,6 @@
 import React from 'react';
-import { ViewStyle } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import { StyleProp, ViewStyle } from 'react-native';
 import { Svg, Polygon, G } from 'react-native-svg';
 import { Colors } from '../../../theme';
 
@@ -8,7 +9,7 @@ interface BetaBadgeProps {
   textSize?: number; // use same mapping as VerificationBadge for consistent scale
   color?: string;
   opacity?: number;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
   autoPosition?: boolean;
   customMargin?: number;
   accessibilityLabel?: string;
@@ -23,9 +24,11 @@ const BetaBadge: React.FC<BetaBadgeProps> = ({
   style,
   autoPosition = true,
   customMargin,
-  accessibilityLabel = 'Beta tester',
+  accessibilityLabel,
   scale = 1.0,
 }) => {
+  const { t } = useTranslation();
+  const resolvedAccessibilityLabel = accessibilityLabel ?? t('a11y.betaTester');
   // Match VerificationBadge sizing behavior
   const computeSizeFromText = (t?: number) => {
     if (!t) return 20;
@@ -54,7 +57,7 @@ const BetaBadge: React.FC<BetaBadgeProps> = ({
       height={displaySize}
       viewBox="0 0 200 200"
       style={[autoMargin(), style]}
-      accessibilityLabel={accessibilityLabel}
+      accessibilityLabel={resolvedAccessibilityLabel}
       accessible
     >
       {/* Scale around center (100,100) to tune visual size */}

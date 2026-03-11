@@ -1,4 +1,5 @@
 import React, { useRef, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { tabRefs } from '../../src/utils/navigation/tabRefs';
 import { View, StyleSheet, StatusBar, Pressable } from 'react-native';
 import PagerView from 'react-native-pager-view';
@@ -15,10 +16,10 @@ import NotificationsTab from '../../src/components/features/activity/Notificatio
 import { useUnreadCount } from '../../src/hooks/useUnreadCount';
 import { useActivityFilterStore } from '../../src/stores/activityFilterStore';
 
-// Tab labels
-const TAB_LABELS: { [key: string]: string } = {
-  chats: 'chats',
-  notifications: 'activity',
+// Tab label keys (resolved via t() in component)
+const TAB_LABEL_KEYS: { [key: string]: string } = {
+  chats: 'tabs.chats',
+  notifications: 'tabs.notifications',
 };
 
 // Indicator item component that uses shared value directly
@@ -65,6 +66,7 @@ const ActivityIndicatorItem = React.memo(function ActivityIndicatorItem({
 });
 
 const ActivityScreen: React.FC = () => {
+  const { t } = useTranslation();
   const pageScrollProgress = useSharedValue(0);
   const pagerViewRef = useRef<PagerView>(null);
   const filterReasons = useActivityFilterStore(s => s.filterReasons);
@@ -97,7 +99,7 @@ const ActivityScreen: React.FC = () => {
                   key={tabId}
                   tabIndex={tabIndex}
                   pageScrollProgress={pageScrollProgress}
-                  label={TAB_LABELS[tabId] || tabId}
+                  label={TAB_LABEL_KEYS[tabId] ? t(TAB_LABEL_KEYS[tabId]) : tabId}
                   onPress={() => {
                     const targetIndex = pages.indexOf(tabId);
                     if (targetIndex >= 0 && pagerViewRef.current) {

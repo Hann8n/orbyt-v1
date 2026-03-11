@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, ViewStyle } from 'react-native';
+import { Pressable, StyleProp, ViewStyle } from 'react-native';
 import { Svg, Path, Defs, Mask, G } from 'react-native-svg';
 import { useProfile } from '../../../services/data/ProfileService';
 import { Colors } from '../../../theme';
@@ -18,7 +18,7 @@ interface VerificationBadgeProps {
   size?: number;
   textSize?: number; // If provided, badge size scales with text
   customMargin?: number; // Override the auto-scaled margin
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
   onPress?: () => void;
   textColor?: string;
   borderColor?: string;

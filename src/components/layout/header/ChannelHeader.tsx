@@ -1,4 +1,5 @@
 import React, { memo, useCallback, useMemo, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
@@ -8,6 +9,7 @@ import {
   StatusBar,
   Platform,
   useWindowDimensions,
+  type StyleProp,
   type ViewStyle,
 } from 'react-native';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
@@ -55,7 +57,7 @@ interface ChannelHeaderProps {
   channel: ChannelData | null;
   children?: React.ReactNode;
   applySafeArea?: boolean;
-  headerStyle?: ViewStyle;
+  headerStyle?: StyleProp<ViewStyle>;
   viewMode?: ViewMode;
   onViewModeChange?: (mode: ViewMode) => void;
   showViewToggle?: boolean;
@@ -73,7 +75,7 @@ const SubscribeButton: React.FC<{
   viewMode?: ViewMode;
   onViewModeChange?: (mode: ViewMode) => void;
   showViewToggle?: boolean;
-  containerStyle?: ViewStyle;
+  containerStyle?: StyleProp<ViewStyle>;
 }> = ({
   channel,
   textColor,
@@ -85,6 +87,7 @@ const SubscribeButton: React.FC<{
   showViewToggle = false,
   containerStyle,
 }) => {
+  const { t } = useTranslation();
   const { subscribedChannels, subscribeToChannel, unsubscribeFromChannel } =
     useSubscribedChannels();
   const frozenHasFilledBackgroundRef = useRef<boolean | null>(null);
@@ -201,7 +204,7 @@ const SubscribeButton: React.FC<{
               <View pointerEvents="none" style={styles.subscribeButtonContent}>
                 <>
                   <Text style={[styles.subscribeButtonText, { color: contentColor }]}>
-                    {isSubscribed ? 'Subscribed' : 'Subscribe'}
+                    {isSubscribed ? t('settings.subscribed') : t('settings.subscribe')}
                   </Text>
                   {isSubscribed ? (
                     <CheckIcon size={16} color={contentColor} strokeWidth={2.5} />

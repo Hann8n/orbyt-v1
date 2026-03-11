@@ -1,4 +1,5 @@
 import React, { useMemo, useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -20,13 +21,6 @@ interface VideoUploadBannerProps {
   applySafeArea?: boolean;
   scrollY?: SharedValue<number>;
 }
-
-const STATUS_TEXT: Record<string, string> = {
-  uploading: 'Uploading video...',
-  processing: 'Processing video...',
-  complete: 'Done',
-  default: 'Finishing up...',
-};
 
 const styles = StyleSheet.create({
   banner: {
@@ -106,6 +100,7 @@ const VideoUploadBannerComponent: React.FC<VideoUploadBannerProps> = ({
   applySafeArea = false,
   scrollY,
 }) => {
+  const { t } = useTranslation();
   const { progress, status, thumbnailUri, reset } = useVideoUpload();
   const router = useRouter();
   const [isAtTop, setIsAtTop] = useState(true);
@@ -114,7 +109,17 @@ const VideoUploadBannerComponent: React.FC<VideoUploadBannerProps> = ({
   const hasDismissedRef = useRef(false);
 
   const isComplete = useMemo(() => status === 'complete', [status]);
-  const statusText = useMemo(() => STATUS_TEXT[status] || STATUS_TEXT.default, [status]);
+  const statusText = useMemo(() => {
+    const key =
+      status === 'uploading'
+        ? 'video.uploadingVideo'
+        : status === 'processing'
+          ? 'video.processingVideo'
+          : status === 'complete'
+            ? 'common.done'
+            : 'video.finishingUp';
+    return t(key);
+  }, [status, t]);
   const collapsedHeight = useMemo(
     () => (applySafeArea ? topInset : 0) + 4,
     [applySafeArea, topInset]
@@ -235,7 +240,7 @@ const VideoUploadBannerComponent: React.FC<VideoUploadBannerProps> = ({
         <View style={[styles.bannerContent, styles.bannerExpanded]}>
           <View style={styles.textContainer}>
             <Text style={styles.bannerText}>{statusText}</Text>
-            {isComplete && <Text style={styles.chyronText}>Tap to view on profile</Text>}
+            {isComplete && <Text style={styles.chyronText}>{t('video.tapToViewProfile')}</Text>}
           </View>
           <View style={styles.thumbnailContainer}>
             {thumbnailUri && (

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS, APP_CONSTANTS } from '../../src/utils/constants';
 import {
   View,
@@ -165,126 +166,137 @@ const DescriptionPreview: React.FC<{
   description: string;
   formattedRichText: Array<{ text: string; isSemiBold: boolean; isSymbol?: boolean }>;
   onPress: () => void;
-}> = ({ description, formattedRichText, onPress }) => (
-  <View style={[styles.descriptionSection, styles.descriptionSectionNoPadding]}>
-    <Text style={[styles.sectionHeaderTitle, styles.sectionHeaderTitleSmall]}>Description</Text>
-    <Pressable onPress={onPress} style={styles.descriptionInputTouchable}>
-      {description ? (
-        <Text style={styles.descriptionInputPreview} numberOfLines={3}>
-          {formattedRichText.map((part, index) => (
-            <Text
-              key={index}
-              style={
-                part.isSymbol
-                  ? styles.descriptionInputPreviewMedium
-                  : part.isSemiBold
-                    ? styles.descriptionInputPreviewSemiBold
-                    : styles.descriptionInputPreviewNormal
-              }
-            >
-              {part.text}
-            </Text>
-          ))}
-        </Text>
-      ) : (
-        <Text style={[styles.descriptionInputPreview, styles.descriptionInputPlaceholder]}>
-          Add text & tags (optional)
-        </Text>
-      )}
-    </Pressable>
-  </View>
-);
+}> = ({ description, formattedRichText, onPress }) => {
+  const { t } = useTranslation();
+  return (
+    <View style={[styles.descriptionSection, styles.descriptionSectionNoPadding]}>
+      <Text style={[styles.sectionHeaderTitle, styles.sectionHeaderTitleSmall]}>
+        {t('video.description')}
+      </Text>
+      <Pressable onPress={onPress} style={styles.descriptionInputTouchable}>
+        {description ? (
+          <Text style={styles.descriptionInputPreview} numberOfLines={3}>
+            {formattedRichText.map((part, index) => (
+              <Text
+                key={index}
+                style={
+                  part.isSymbol
+                    ? styles.descriptionInputPreviewMedium
+                    : part.isSemiBold
+                      ? styles.descriptionInputPreviewSemiBold
+                      : styles.descriptionInputPreviewNormal
+                }
+              >
+                {part.text}
+              </Text>
+            ))}
+          </Text>
+        ) : (
+          <Text style={[styles.descriptionInputPreview, styles.descriptionInputPlaceholder]}>
+            {t('video.addTextPlaceholder')}
+          </Text>
+        )}
+      </Pressable>
+    </View>
+  );
+};
 
 // Reusable channel selector component
 const ChannelSelector: React.FC<{
   selectedChannel: SubscribedChannel | null;
   onPress: () => void;
   showRing?: boolean;
-}> = ({ selectedChannel, onPress, showRing = false }) => (
-  <View style={styles.section}>
-    <Text style={styles.sectionHeaderTitle}>Channel (optional)</Text>
-    <Pressable style={styles.channelSelectorContainer} onPress={onPress}>
-      <View style={styles.channelSelectorBox}>
+}> = ({ selectedChannel, onPress, showRing = false }) => {
+  const { t } = useTranslation();
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionHeaderTitle}>{t('video.channelOptional')}</Text>
+      <Pressable style={styles.channelSelectorContainer} onPress={onPress}>
+        <View style={styles.channelSelectorBox}>
+          {!selectedChannel ? (
+            <Avatar
+              type="channel"
+              size={52}
+              ringColor={showRing ? undefined : 'transparent'}
+              fallbackIcon="device-tv"
+              fallbackIconColor={Colors.neutral[200]}
+              fallbackIconSize={32}
+            />
+          ) : (
+            <Avatar
+              uri={getChannelAvatarUri(selectedChannel.uri)}
+              type="channel"
+              size={52}
+              ringColor={showRing ? undefined : 'transparent'}
+            />
+          )}
+        </View>
         {!selectedChannel ? (
-          <Avatar
-            type="channel"
-            size={52}
-            ringColor={showRing ? undefined : 'transparent'}
-            fallbackIcon="device-tv"
-            fallbackIconColor={Colors.neutral[200]}
-            fallbackIconSize={32}
-          />
+          <View style={styles.channelSelectorPlaceholderContainer}>
+            <Text style={styles.channelSelectorPlaceholderText}>{t('video.pickChannel')}</Text>
+            <DownSmallFillIcon size={20} color={Colors.neutral[500]} />
+          </View>
         ) : (
-          <Avatar
-            uri={getChannelAvatarUri(selectedChannel.uri)}
-            type="channel"
-            size={52}
-            ringColor={showRing ? undefined : 'transparent'}
-          />
+          <View style={styles.channelSelectorNameContainer}>
+            {(() => {
+              const orbytChannel = getChannelByUri(selectedChannel.uri);
+              return (
+                shouldShowChannelSlash(selectedChannel.uri) && (
+                  <Text
+                    style={[
+                      styles.channelSelectorName,
+                      styles.orbytSlash,
+                      styles.channelSelectorNameSemiBold,
+                      {
+                        color: orbytChannel?.channelColor || Colors.amber[400],
+                      },
+                    ]}
+                  >
+                    /
+                  </Text>
+                )
+              );
+            })()}
+            <Text style={[styles.channelSelectorName, styles.channelSelectorNameBold]}>
+              {selectedChannel.displayName.toLowerCase()}
+            </Text>
+          </View>
         )}
-      </View>
-      {!selectedChannel ? (
-        <View style={styles.channelSelectorPlaceholderContainer}>
-          <Text style={styles.channelSelectorPlaceholderText}>Pick a channel</Text>
-          <DownSmallFillIcon size={20} color={Colors.neutral[500]} />
-        </View>
-      ) : (
-        <View style={styles.channelSelectorNameContainer}>
-          {(() => {
-            const orbytChannel = getChannelByUri(selectedChannel.uri);
-            return (
-              shouldShowChannelSlash(selectedChannel.uri) && (
-                <Text
-                  style={[
-                    styles.channelSelectorName,
-                    styles.orbytSlash,
-                    styles.channelSelectorNameSemiBold,
-                    {
-                      color: orbytChannel?.channelColor || Colors.amber[400],
-                    },
-                  ]}
-                >
-                  /
-                </Text>
-              )
-            );
-          })()}
-          <Text style={[styles.channelSelectorName, styles.channelSelectorNameBold]}>
-            {selectedChannel.displayName.toLowerCase()}
-          </Text>
-        </View>
-      )}
-    </Pressable>
-  </View>
-);
+      </Pressable>
+    </View>
+  );
+};
 
 // Reusable comment filter selector component
 const CommentFilterSelector: React.FC<{
   commentFilter: string | null;
   getSelectedCommentFilterLabel: () => string;
   onPress: () => void;
-}> = ({ commentFilter, getSelectedCommentFilterLabel, onPress }) => (
-  <View style={styles.section}>
-    <Text style={styles.sectionHeaderTitle}>Comments</Text>
-    <Pressable style={styles.channelSelectorContainer} onPress={onPress}>
-      <View style={styles.channelSelectorBox}>
-        <Icon name="chat-3-line" size={32} color={Colors.neutral[200]} />
-      </View>
-      {!commentFilter ? (
-        <View style={styles.channelSelectorPlaceholderContainer}>
-          <Text style={styles.channelSelectorPlaceholderText}>
-            {getSelectedCommentFilterLabel()}
-          </Text>
-          <DownSmallFillIcon size={20} color={Colors.neutral[500]} />
+}> = ({ commentFilter, getSelectedCommentFilterLabel, onPress }) => {
+  const { t } = useTranslation();
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionHeaderTitle}>{t('video.comments')}</Text>
+      <Pressable style={styles.channelSelectorContainer} onPress={onPress}>
+        <View style={styles.channelSelectorBox}>
+          <Icon name="chat-3-line" size={32} color={Colors.neutral[200]} />
         </View>
-      ) : (
-        <View style={styles.channelSelectorNameContainer}>
-          <Text style={styles.channelSelectorName}>{getSelectedCommentFilterLabel()}</Text>
-        </View>
-      )}
-    </Pressable>
-  </View>
-);
+        {!commentFilter ? (
+          <View style={styles.channelSelectorPlaceholderContainer}>
+            <Text style={styles.channelSelectorPlaceholderText}>
+              {getSelectedCommentFilterLabel()}
+            </Text>
+            <DownSmallFillIcon size={20} color={Colors.neutral[500]} />
+          </View>
+        ) : (
+          <View style={styles.channelSelectorNameContainer}>
+            <Text style={styles.channelSelectorName}>{getSelectedCommentFilterLabel()}</Text>
+          </View>
+        )}
+      </Pressable>
+    </View>
+  );
+};
 
 // Reusable content warning selector component
 const ContentWarningSelector: React.FC<{
@@ -292,28 +304,31 @@ const ContentWarningSelector: React.FC<{
   otherWarning: string;
   getSelectedContentWarningsLabel: () => string;
   onPress: () => void;
-}> = ({ selectedContentWarnings, otherWarning, getSelectedContentWarningsLabel, onPress }) => (
-  <View style={styles.section}>
-    <Text style={styles.sectionHeaderTitle}>Warnings</Text>
-    <Pressable style={styles.channelSelectorContainer} onPress={onPress}>
-      <View style={styles.channelSelectorBox}>
-        <Icon name="warning-line" size={32} color={Colors.neutral[200]} />
-      </View>
-      {selectedContentWarnings.length === 0 && !otherWarning.trim() ? (
-        <View style={styles.channelSelectorPlaceholderContainer}>
-          <Text style={styles.channelSelectorPlaceholderText}>
-            {getSelectedContentWarningsLabel()}
-          </Text>
-          <DownSmallFillIcon size={20} color={Colors.neutral[500]} />
+}> = ({ selectedContentWarnings, otherWarning, getSelectedContentWarningsLabel, onPress }) => {
+  const { t } = useTranslation();
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionHeaderTitle}>{t('video.warnings')}</Text>
+      <Pressable style={styles.channelSelectorContainer} onPress={onPress}>
+        <View style={styles.channelSelectorBox}>
+          <Icon name="warning-line" size={32} color={Colors.neutral[200]} />
         </View>
-      ) : (
-        <View style={styles.channelSelectorNameContainer}>
-          <Text style={styles.channelSelectorName}>{getSelectedContentWarningsLabel()}</Text>
-        </View>
-      )}
-    </Pressable>
-  </View>
-);
+        {selectedContentWarnings.length === 0 && !otherWarning.trim() ? (
+          <View style={styles.channelSelectorPlaceholderContainer}>
+            <Text style={styles.channelSelectorPlaceholderText}>
+              {getSelectedContentWarningsLabel()}
+            </Text>
+            <DownSmallFillIcon size={20} color={Colors.neutral[500]} />
+          </View>
+        ) : (
+          <View style={styles.channelSelectorNameContainer}>
+            <Text style={styles.channelSelectorName}>{getSelectedContentWarningsLabel()}</Text>
+          </View>
+        )}
+      </Pressable>
+    </View>
+  );
+};
 
 // Reusable post button component
 const PostButton: React.FC<{
@@ -333,6 +348,7 @@ const PostButton: React.FC<{
   width,
   screenWidth,
 }) => {
+  const { t } = useTranslation();
   const numericWidth =
     buttonStyle === 'portrait' ? Math.max(width ?? (screenWidth ?? 0) * 0.6, 200) : undefined;
   const buttonWidth = buttonStyle === 'landscape' ? '100%' : numericWidth;
@@ -352,19 +368,19 @@ const PostButton: React.FC<{
           <ActivityIndicator size="small" color={Colors.black} />
           <Text style={styles.postButtonText}>
             {uploadProgress < 50
-              ? 'Uploading video...'
+              ? t('video.uploadingVideo')
               : uploadProgress < 90
-                ? 'Processing video...'
-                : 'Creating post...'}
+                ? t('video.processingVideo')
+                : t('video.creatingPost')}
           </Text>
         </View>
       ) : isCompressing ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="small" color={Colors.black} />
-          <Text style={styles.postButtonText}>Getting ready...</Text>
+          <Text style={styles.postButtonText}>{t('video.gettingReady')}</Text>
         </View>
       ) : (
-        <Text style={styles.postButtonText}>POST</Text>
+        <Text style={styles.postButtonText}>{t('video.post')}</Text>
       )}
     </View>
   );
@@ -430,114 +446,120 @@ const DescriptionInputModal: React.FC<{
   onClose,
   richTextSearchModalProps,
   insets,
-}) => (
-  <Modal visible={visible} transparent={true} animationType="fade" onRequestClose={onClose}>
-    <View style={styles.descriptionModalContainer}>
-      <View style={styles.descriptionModalOverlay}>
-        <View style={[styles.descriptionModalContentWrapper, { paddingTop: insets.top }]}>
-          {/* Dynamic paddingTop based on safe area insets */}
-          <View style={styles.descriptionModalHeader}>
-            <View style={styles.descriptionModalHeaderSpacer} />
-            <Text style={[styles.sectionHeaderTitle, styles.descriptionModalHeaderTitle]}>
-              Description
-            </Text>
-            <Pressable
-              onPress={onClose}
-              style={[
-                styles.descriptionModalDoneButton,
-                description.length > 300 && styles.descriptionModalDoneButtonDisabled,
-              ]}
-              disabled={description.length > 300}
-              accessibilityLabel={description.length > 300 ? 'Description too long' : 'Done'}
-            >
-              <Text
-                style={[
-                  styles.descriptionModalDoneText,
-                  description.length > 300 && styles.descriptionModalDoneTextDisabled,
-                ]}
-              >
-                {description.length > 300 ? `+${description.length - 300}` : 'Done'}
+}) => {
+  const { t } = useTranslation();
+  return (
+    <Modal visible={visible} transparent={true} animationType="fade" onRequestClose={onClose}>
+      <View style={styles.descriptionModalContainer}>
+        <View style={styles.descriptionModalOverlay}>
+          <View style={[styles.descriptionModalContentWrapper, { paddingTop: insets.top }]}>
+            {/* Dynamic paddingTop based on safe area insets */}
+            <View style={styles.descriptionModalHeader}>
+              <View style={styles.descriptionModalHeaderSpacer} />
+              <Text style={[styles.sectionHeaderTitle, styles.descriptionModalHeaderTitle]}>
+                {t('video.description')}
               </Text>
-            </Pressable>
-          </View>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.descriptionModalContent}
-            keyboardVerticalOffset={0}
-          >
-            <View style={styles.descriptionInputContainer}>
-              <TextInput
-                nativeID="video-post-description-input"
-                value={description}
-                onChangeText={setDescription}
-                onSelectionChange={e => {
-                  setDescriptionSelection(e.nativeEvent.selection);
-                }}
-                style={styles.descriptionModalInput}
-                placeholder="Add text & tags (optional)"
-                placeholderTextColor={Colors.neutral[600]}
-                multiline={true}
-                maxLength={300}
-                autoFocus={true}
-                textAlignVertical="top"
-                blurOnSubmit={false}
-                returnKeyType="default"
-                selectionColor={Colors.neutral[200]}
-                cursorColor={Colors.neutral[200]}
-                autoComplete="off"
-                textContentType="none"
-                importantForAutofill="no"
-                caretHidden={false}
-              />
-              {description && (
-                <View style={styles.descriptionInputOverlay} pointerEvents="none">
-                  <Text style={styles.descriptionInputOverlayText}>
-                    {formattedRichText.map((part, index) => (
-                      <Text
-                        key={index}
-                        style={
-                          part.isSemiBold
-                            ? styles.descriptionInputOverlaySemiBold
-                            : styles.descriptionInputOverlayNormal
-                        }
-                      >
-                        {part.text}
-                      </Text>
-                    ))}
-                  </Text>
-                </View>
-              )}
+              <Pressable
+                onPress={onClose}
+                style={[
+                  styles.descriptionModalDoneButton,
+                  description.length > 300 && styles.descriptionModalDoneButtonDisabled,
+                ]}
+                disabled={description.length > 300}
+                accessibilityLabel={
+                  description.length > 300 ? t('video.descriptionTooLong') : t('common.done')
+                }
+              >
+                <Text
+                  style={[
+                    styles.descriptionModalDoneText,
+                    description.length > 300 && styles.descriptionModalDoneTextDisabled,
+                  ]}
+                >
+                  {description.length > 300 ? `+${description.length - 300}` : t('common.done')}
+                </Text>
+              </Pressable>
             </View>
-            {richTextSearchModalProps.visible && (
-              <RichTextSearchModal
-                {...richTextSearchModalProps}
-                containerStyle={styles.searchModalContainer}
-              />
-            )}
-          </KeyboardAvoidingView>
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              style={styles.descriptionModalContent}
+              keyboardVerticalOffset={0}
+            >
+              <View style={styles.descriptionInputContainer}>
+                <TextInput
+                  nativeID="video-post-description-input"
+                  value={description}
+                  onChangeText={setDescription}
+                  onSelectionChange={e => {
+                    setDescriptionSelection(e.nativeEvent.selection);
+                  }}
+                  style={styles.descriptionModalInput}
+                  placeholder={t('video.addTextPlaceholder')}
+                  placeholderTextColor={Colors.neutral[600]}
+                  multiline={true}
+                  maxLength={300}
+                  autoFocus={true}
+                  textAlignVertical="top"
+                  blurOnSubmit={false}
+                  returnKeyType="default"
+                  selectionColor={Colors.neutral[200]}
+                  cursorColor={Colors.neutral[200]}
+                  autoComplete="off"
+                  textContentType="none"
+                  importantForAutofill="no"
+                  caretHidden={false}
+                />
+                {description && (
+                  <View style={styles.descriptionInputOverlay} pointerEvents="none">
+                    <Text style={styles.descriptionInputOverlayText}>
+                      {formattedRichText.map((part, index) => (
+                        <Text
+                          key={index}
+                          style={
+                            part.isSemiBold
+                              ? styles.descriptionInputOverlaySemiBold
+                              : styles.descriptionInputOverlayNormal
+                          }
+                        >
+                          {part.text}
+                        </Text>
+                      ))}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              {richTextSearchModalProps.visible && (
+                <RichTextSearchModal
+                  {...richTextSearchModalProps}
+                  containerStyle={styles.searchModalContainer}
+                />
+              )}
+            </KeyboardAvoidingView>
+          </View>
         </View>
       </View>
-    </View>
-  </Modal>
-);
+    </Modal>
+  );
+};
 
-// Content warning options
+// Content warning options - use labelKey for i18n
 const CONTENT_WARNINGS = [
-  { id: 'nsfw', label: 'Adult Content (NSFW)' },
-  { id: 'nudity', label: 'Nudity' },
-  { id: 'violence', label: 'Violence' },
-  { id: 'sensitive', label: 'Sensitive Content' },
+  { id: 'nsfw', labelKey: 'video.adultContent' as const },
+  { id: 'nudity', labelKey: 'video.nudity' as const },
+  { id: 'violence', labelKey: 'video.violence' as const },
+  { id: 'sensitive', labelKey: 'video.sensitiveContent' as const },
 ];
 
-// Comment filtering options
+// Comment filtering options - use labelKey for i18n
 const COMMENT_FILTERS = [
-  { id: 'all', label: 'Allow all comments' },
-  { id: 'followers', label: 'Only followers can comment' },
-  { id: 'mentioned', label: 'Only mentioned users can comment' },
-  { id: 'none', label: 'No one can comment' },
+  { id: 'all', labelKey: 'video.allowAllComments' as const },
+  { id: 'followers', labelKey: 'video.onlyFollowersCanComment' as const },
+  { id: 'mentioned', labelKey: 'video.onlyMentionedCanComment' as const },
+  { id: 'none', labelKey: 'video.noOneCanComment' as const },
 ];
 
 const VideoPostScreen: React.FC = () => {
+  const { t } = useTranslation();
   const consumePayload = usePendingVideoPostStore(s => s.consumePayload);
   const [payload] = useState(() => consumePayload());
 
@@ -739,35 +761,31 @@ const VideoPostScreen: React.FC = () => {
           mergedPath: mergedVideo.path,
         });
       } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const errorMessage = error instanceof Error ? error.message : t('errors.unknown');
         logger.error('Background merging failed', error, { component: 'VideoPostScreen' });
         if (ac.signal.aborted) return;
         setIsMerging(false);
-        Alert.alert(
-          'Merging Failed',
-          errorMessage || 'Failed to merge video segments. Please try again.',
-          [
-            {
-              text: 'Go Back',
-              onPress: () => router.back(),
-            },
-          ]
-        );
+        Alert.alert(t('video.mergingFailed'), errorMessage || t('video.mergingFailedMessage'), [
+          {
+            text: t('common.goBack'),
+            onPress: () => router.back(),
+          },
+        ]);
       }
     };
 
     mergeSegments();
     return () => ac.abort();
-  }, [segments, mergedVideoPath, router]);
+  }, [segments, mergedVideoPath, router, t]);
 
   // No valid video source
   const hasVideoSource = Boolean(videoPath || segments.length > 0);
   useEffect(() => {
     if (!hasVideoSource) {
       setVideoLoading(false);
-      setVideoError('No video');
+      setVideoError(t('video.noVideo'));
     }
-  }, [hasVideoSource]);
+  }, [hasVideoSource, t]);
 
   // Automatically check upload limits and compress video if needed on component mount
   // Defer compression until after interactions complete to avoid blocking UI
@@ -832,35 +850,35 @@ const VideoPostScreen: React.FC = () => {
 
   // Helper functions to get selected labels for display
   const getSelectedCommentFilterLabel = () => {
-    if (!commentFilter) return 'Choose who can comment';
+    if (!commentFilter) return t('video.chooseWhoCanComment');
     const filter = COMMENT_FILTERS.find(f => f.id === commentFilter);
-    return filter?.label.toLowerCase() || 'Choose who can comment';
+    return filter ? t(filter.labelKey) : t('video.chooseWhoCanComment');
   };
 
   const getSelectedContentWarningsLabel = () => {
     if (selectedContentWarnings.length === 0 && !otherWarning.trim()) {
-      return 'Apply any warnings';
+      return t('video.applyAnyWarnings');
     }
     const warningLabels = selectedContentWarnings.map(id => {
       const warning = CONTENT_WARNINGS.find(w => w.id === id);
-      return warning?.label.toLowerCase() || id;
+      return warning ? t(warning.labelKey) : id;
     });
     if (otherWarning.trim()) {
-      warningLabels.push('other');
+      warningLabels.push(t('common.other'));
     }
-    return warningLabels.length > 0 ? warningLabels.join(', ') : 'Apply any warnings';
+    return warningLabels.length > 0 ? warningLabels.join(', ') : t('video.applyAnyWarnings');
   };
 
   const handlePost = async () => {
     if (isPosting || isCompressing || isMerging) {
       if (isMerging) {
-        Alert.alert('Please wait', 'Video is still being merged. Please wait for it to complete.');
+        Alert.alert(t('video.pleaseWait'), t('video.videoMergingWait'));
       }
       return;
     }
 
     if (!activeVideoPath) {
-      Alert.alert('error', 'no video selected');
+      Alert.alert(t('common.error'), t('video.noVideoSelected'));
       return;
     }
 
@@ -986,8 +1004,8 @@ const VideoPostScreen: React.FC = () => {
           useUIStore.getState().clearProgress(UPLOAD_KEY);
           storage.delete('video-upload-thumbnail');
 
-          Alert.alert('Upload Failed', 'Your video upload failed. Please try again.', [
-            { text: 'OK' },
+          Alert.alert(t('video.uploadFailed'), t('video.uploadFailedRetry'), [
+            { text: t('common.ok') },
           ]);
         } finally {
           setIsPosting(false);
@@ -1017,54 +1035,42 @@ const VideoPostScreen: React.FC = () => {
       const errorMessage = error instanceof Error ? error.message : '';
       // For upload failures, assume issue and offer retry
       if (errorMessage?.includes('Video upload failed') || errorMessage?.includes('timeout')) {
-        Alert.alert(
-          'Upload Failed',
-          'It looks like there was an issue while uploading your video.\n\nWould you like to try again?',
-          [
-            {
-              text: 'Close',
-              style: 'cancel',
+        Alert.alert(t('video.uploadFailed'), t('video.uploadFailedRetryPrompt'), [
+          {
+            text: t('common.close'),
+            style: 'cancel',
+          },
+          {
+            text: t('video.retry'),
+            onPress: () => {
+              // Retry the upload
+              handlePost();
             },
-            {
-              text: 'Retry',
-              onPress: () => {
-                // Retry the upload
-                handlePost();
-              },
-            },
-          ]
-        );
+          },
+        ]);
       } else if (errorMessage?.includes('unauthorized')) {
-        Alert.alert(
-          'Authentication Failed',
-          'Your session has expired. Please log out and log back in.',
-          [{ text: 'OK' }]
-        );
+        Alert.alert(t('video.authenticationFailed'), t('video.authenticationFailedMessage'), [
+          { text: t('common.ok') },
+        ]);
       } else if (errorMessage?.includes('Video compression failed')) {
-        Alert.alert(
-          'Compression Failed',
-          'Failed to compress your video. Please try again with a shorter video or check your device storage.',
-          [{ text: 'OK' }]
-        );
+        Alert.alert(t('video.compressionFailed'), t('video.compressionFailedMessage'), [
+          { text: t('common.ok') },
+        ]);
       } else {
         // Generic error - still offer retry
-        Alert.alert(
-          'Upload Failed',
-          `Unable to upload your video. It looks like there was an issue.\n\nWould you like to try again?`,
-          [
-            {
-              text: 'Close',
-              style: 'cancel',
+        Alert.alert(t('video.uploadFailed'), t('video.uploadFailedGeneric'), [
+          {
+            text: t('common.close'),
+            style: 'cancel',
+          },
+          {
+            text: t('video.retry'),
+            onPress: () => {
+              // Retry the upload
+              handlePost();
             },
-            {
-              text: 'Retry',
-              onPress: () => {
-                // Retry the upload
-                handlePost();
-              },
-            },
-          ]
-        );
+          },
+        ]);
       }
     } finally {
       setIsPosting(false);
@@ -1079,7 +1085,7 @@ const VideoPostScreen: React.FC = () => {
   const handleDownload = async () => {
     if (!activeVideoPath || isDownloading || isMerging) {
       if (isMerging) {
-        Alert.alert('Please wait', 'Video is still being merged. Please wait for it to complete.');
+        Alert.alert(t('video.pleaseWait'), t('video.videoMergingWait'));
       }
       return;
     }
@@ -1090,11 +1096,9 @@ const VideoPostScreen: React.FC = () => {
       // Request media library permissions
       const { status } = await MediaLibrary.requestPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert(
-          'Permission Required',
-          'Please grant access to your photo library to save the video.',
-          [{ text: 'OK' }]
-        );
+        Alert.alert(t('video.permissionRequired'), t('video.photoLibraryPermissionRequired'), [
+          { text: t('common.ok') },
+        ]);
         setIsDownloading(false);
         return;
       }
@@ -1106,8 +1110,8 @@ const VideoPostScreen: React.FC = () => {
       const pathInfo = await resolveVideoPath(videoPathToDownload);
 
       if (!pathInfo.exists) {
-        Alert.alert('Video Not Found', 'The video file could not be found. Please try again.', [
-          { text: 'OK' },
+        Alert.alert(t('video.videoNotFound'), t('video.videoNotFoundRetry'), [
+          { text: t('common.ok') },
         ]);
         setIsDownloading(false);
         return;
@@ -1119,8 +1123,8 @@ const VideoPostScreen: React.FC = () => {
       // Save video to media library
       const asset = await MediaLibrary.createAssetAsync(fileUri);
 
-      Alert.alert('Video Saved', 'Your video has been saved to your photo library.', [
-        { text: 'OK' },
+      Alert.alert(t('video.videoSaved'), t('video.videoSavedToLibrary'), [
+        { text: t('common.ok') },
       ]);
 
       logger.info('Video downloaded successfully', {
@@ -1128,13 +1132,11 @@ const VideoPostScreen: React.FC = () => {
         assetId: asset.id,
       });
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage = error instanceof Error ? error.message : t('errors.unknown');
       logger.error('Failed to download video', error, { component: 'VideoPostScreen' });
-      Alert.alert(
-        'Download Failed',
-        errorMessage || 'Failed to save video to your photo library. Please try again.',
-        [{ text: 'OK' }]
-      );
+      Alert.alert(t('video.downloadFailed'), errorMessage || t('video.downloadFailedMessage'), [
+        { text: t('common.ok') },
+      ]);
     } finally {
       setIsDownloading(false);
     }
@@ -1186,11 +1188,11 @@ const VideoPostScreen: React.FC = () => {
         setVideoPathInfo(pathInfo);
 
         if (!pathInfo.exists) {
-          setVideoError('Video file not found');
+          setVideoError(t('video.videoFileNotFound'));
         }
       } catch (error) {
         logger.error('Error resolving video path', error, { component: 'VideoPostScreen' });
-        if (!ac.signal.aborted) setVideoError('Unable to access video file');
+        if (!ac.signal.aborted) setVideoError(t('video.unableToAccessVideoFile'));
       } finally {
         if (!ac.signal.aborted) setVideoLoading(false);
       }
@@ -1198,7 +1200,7 @@ const VideoPostScreen: React.FC = () => {
 
     resolveVideo();
     return () => ac.abort();
-  }, [activeVideoPath, isMerging]);
+  }, [activeVideoPath, isMerging, t]);
 
   // Final video URI for playback
   const videoUri = videoPathInfo?.uri || '';
@@ -1340,10 +1342,10 @@ const VideoPostScreen: React.FC = () => {
       <VerticalListSheet
         name="post-content-warnings-sheet"
         onDismiss={() => {}}
-        title="Warnings"
+        title={t('video.warnings')}
         scrollable={false}
         showCancelButton={true}
-        cancelButtonText="Close"
+        cancelButtonText={t('common.close')}
       >
         <View style={styles.sheetContent}>
           {CONTENT_WARNINGS.map(warning => (
@@ -1352,7 +1354,7 @@ const VideoPostScreen: React.FC = () => {
               style={styles.sheetOptionRow}
               onPress={() => toggleContentWarning(warning.id)}
             >
-              <Text style={styles.sheetOptionText}>{warning.label.toLowerCase()}</Text>
+              <Text style={styles.sheetOptionText}>{t(warning.labelKey)}</Text>
               <View
                 style={[
                   styles.checkbox,
@@ -1369,7 +1371,7 @@ const VideoPostScreen: React.FC = () => {
             style={styles.sheetOptionRow}
             onPress={() => setShowContentWarningInput(!showContentWarningInput)}
           >
-            <Text style={styles.sheetOptionText}>other warning</Text>
+            <Text style={styles.sheetOptionText}>{t('video.otherWarning')}</Text>
             <View style={[styles.checkbox, showContentWarningInput && styles.checkboxSelected]}>
               {showContentWarningInput && <Icon name="checkmark" size={16} color={Colors.black} />}
             </View>
@@ -1384,7 +1386,7 @@ const VideoPostScreen: React.FC = () => {
               <TextInput
                 nativeID="video-post-warning-input"
                 style={styles.otherWarningInput}
-                placeholder="specify content warning"
+                placeholder={t('video.specifyWarning')}
                 placeholderTextColor={Colors.neutral[200]}
                 value={otherWarning}
                 onChangeText={setOtherWarning}
@@ -1403,15 +1405,15 @@ const VideoPostScreen: React.FC = () => {
       <VerticalListSheet
         name="post-comment-settings-sheet"
         onDismiss={() => {}}
-        title="Comments"
+        title={t('video.comments')}
         showCancelButton={true}
-        cancelButtonText="Close"
+        cancelButtonText={t('common.close')}
       >
         <View style={styles.sheetContent}>
           {COMMENT_FILTERS.map(filter => (
             <VerticalListButton
               key={filter.id}
-              label={filter.label.toLowerCase()}
+              label={t(filter.labelKey)}
               onPress={() => {
                 setCommentFilter(filter.id);
                 TrueSheet.dismiss('post-comment-settings-sheet');
@@ -1425,9 +1427,9 @@ const VideoPostScreen: React.FC = () => {
       <VerticalListSheet
         name="post-channel-selection-sheet"
         onDismiss={() => {}}
-        title="Pick a channel"
+        title={t('video.pickChannel')}
         showCancelButton={true}
-        cancelButtonText="Close"
+        cancelButtonText={t('common.close')}
         titleSize={26}
         hideCloseButton={true}
       >
@@ -1441,7 +1443,7 @@ const VideoPostScreen: React.FC = () => {
           nestedScrollEnabled={true}
         >
           <VerticalListButton
-            label="none"
+            label={t('settings.none')}
             onPress={() => {
               setSelectedChannel(null);
               TrueSheet.dismiss('post-channel-selection-sheet');

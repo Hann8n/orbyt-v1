@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../../utils/query/queryKeys';
@@ -35,6 +36,7 @@ import { useUserStore } from '../../../stores/userStore';
 import SendToPicker from './SendToPicker';
 
 const ShareSheet: React.FC = () => {
+  const { t } = useTranslation();
   const { getCurrentData, dismissShareSheet } = useGlobalShareSheet();
   const data = getCurrentData();
 
@@ -158,7 +160,7 @@ const ShareSheet: React.FC = () => {
       dismissSheet();
 
       // Show success message immediately
-      Alert.alert('thank you', 'this content has been reported for review.');
+      Alert.alert(t('common.thankYou'), t('alerts.contentReported'));
 
       // Perform report in background
       try {
@@ -168,103 +170,99 @@ const ShareSheet: React.FC = () => {
           const newSet = new Set(store.reportedPostUris);
           newSet.delete(postUri);
           store.reportedPostUris = newSet;
-          Alert.alert('error', 'failed to submit report. please try again.');
+          Alert.alert(t('common.error'), t('alerts.failedToReport'));
         }
       } catch (_error) {
         // Revert optimistic update on error - remove from reported set
         const newSet = new Set(store.reportedPostUris);
         newSet.delete(postUri);
         store.reportedPostUris = newSet;
-        Alert.alert('error', 'failed to submit report. please try again.');
+        Alert.alert(t('common.error'), t('alerts.failedToReport'));
       }
     },
-    [postUri, dismissSheet]
+    [postUri, dismissSheet, t]
   );
 
   // Report or delete post handler
   const handleReportOrDelete = useCallback(() => {
     // For current user, show delete option
     if (isCurrentUser) {
-      Alert.alert(
-        'delete post',
-        'are you sure you want to delete this post? this action cannot be undone.',
-        [
-          {
-            text: 'cancel',
-            style: 'cancel',
-          },
-          {
-            text: 'delete',
-            style: 'destructive',
-            onPress: async () => {
-              if (!postUri) return;
+      Alert.alert(t('alerts.deletePost'), t('alerts.deletePostConfirm'), [
+        {
+          text: t('common.cancel'),
+          style: 'cancel',
+        },
+        {
+          text: t('common.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            if (!postUri) return;
 
-              // Optimistic update - dismiss sheet immediately
-              dismissSheet();
+            // Optimistic update - dismiss sheet immediately
+            dismissSheet();
 
-              // Invalidate queries immediately for responsive UI
-              queryClient.invalidateQueries({
-                queryKey: queryKeys.feed.all,
-                refetchType: 'active',
-              });
+            // Invalidate queries immediately for responsive UI
+            queryClient.invalidateQueries({
+              queryKey: queryKeys.feed.all,
+              refetchType: 'active',
+            });
 
-              // Perform deletion in background
-              try {
-                const success = await AtprotoService.deletePost(postUri);
-                if (!success) {
-                  // Re-invalidate on error to ensure UI is correct
-                  queryClient.invalidateQueries({
-                    queryKey: queryKeys.feed.all,
-                    refetchType: 'active',
-                  });
-                  Alert.alert('error', 'failed to delete post. please try again.');
-                }
-              } catch (_error) {
+            // Perform deletion in background
+            try {
+              const success = await AtprotoService.deletePost(postUri);
+              if (!success) {
                 // Re-invalidate on error to ensure UI is correct
                 queryClient.invalidateQueries({
                   queryKey: queryKeys.feed.all,
                   refetchType: 'active',
                 });
-                Alert.alert('error', 'failed to delete post. please try again.');
+                Alert.alert(t('common.error'), t('alerts.failedToDeletePost'));
               }
-            },
+            } catch (_error) {
+              // Re-invalidate on error to ensure UI is correct
+              queryClient.invalidateQueries({
+                queryKey: queryKeys.feed.all,
+                refetchType: 'active',
+              });
+              Alert.alert(t('common.error'), t('alerts.failedToDeletePost'));
+            }
           },
-        ]
-      );
+        },
+      ]);
     } else {
       // For other users' content, show report option
-      Alert.alert('report content', 'please select a reason for reporting this content:', [
+      Alert.alert(t('alerts.reportContent'), t('alerts.reportContentPrompt'), [
         {
-          text: 'cancel',
+          text: t('common.cancel'),
           style: 'cancel',
         },
         {
-          text: 'spam',
+          text: t('alerts.spam'),
           onPress: () => reportContent('spam'),
         },
         {
-          text: 'harmful content',
+          text: t('alerts.harmfulContent'),
           onPress: () => reportContent('violation'),
         },
         {
-          text: 'misleading',
+          text: t('alerts.misleading'),
           onPress: () => reportContent('misleading'),
         },
         {
-          text: 'sexual content',
+          text: t('alerts.sexualContent'),
           onPress: () => reportContent('sexual'),
         },
         {
-          text: 'rude/offensive',
+          text: t('alerts.rudeOffensive'),
           onPress: () => reportContent('rude'),
         },
         {
-          text: 'other',
+          text: t('alerts.other'),
           onPress: () => reportContent('other'),
         },
       ]);
     }
-  }, [dismissSheet, isCurrentUser, postUri, queryClient, reportContent]);
+  }, [dismissSheet, isCurrentUser, postUri, queryClient, reportContent, t]);
 
   // Share link handler
   const handleShare = useCallback(async () => {
@@ -285,12 +283,12 @@ const ShareSheet: React.FC = () => {
       await Share.share({
         message: Platform.OS === 'ios' ? '' : shareUrl,
         url: Platform.OS === 'ios' ? shareUrl : '',
-        title: 'check out this post on bluesky',
+        title: t('share.checkOutPost'),
       });
     } catch (_error: unknown) {
       // ignore
     }
-  }, [postUri, authorHandle, authorDid]);
+  }, [postUri, authorHandle, authorDid, t]);
 
   const handleSend = useCallback(() => {
     setShowConversationPicker(true);
@@ -318,7 +316,7 @@ const ShareSheet: React.FC = () => {
     const options = [
       {
         id: 'share',
-        label: 'Share',
+        label: t('share.share'),
         icon: 'share',
         onPress: handleShare,
         color: NEON.purple,
@@ -326,7 +324,7 @@ const ShareSheet: React.FC = () => {
       },
       {
         id: 'send',
-        label: 'Send',
+        label: t('share.send'),
         icon: 'send-plane-fill',
         onPress: handleSend,
         color: NEON.green,
@@ -334,7 +332,7 @@ const ShareSheet: React.FC = () => {
       },
       {
         id: 'bookmark',
-        label: isBookmarked ? 'Saved' : 'Save',
+        label: isBookmarked ? t('share.saved') : t('share.save'),
         icon: 'bookmark-fill',
         onPress: handleBookmark,
         color: NEON.amber,
@@ -342,7 +340,7 @@ const ShareSheet: React.FC = () => {
       },
       {
         id: 'report',
-        label: isCurrentUser ? 'Delete' : 'Report',
+        label: isCurrentUser ? t('share.delete') : t('share.report'),
         icon: isCurrentUser ? 'delete-2-fill' : 'report',
         onPress: async () => handleReportOrDelete(),
         color: NEON.coral,
@@ -363,7 +361,7 @@ const ShareSheet: React.FC = () => {
     authorName || authorHandle ? (
       <View style={styles.headerContainer}>
         <Text style={styles.headerTitle} numberOfLines={1}>
-          post by {authorHandle ? formatHandle(authorHandle) : authorName}
+          {t('share.postBy', { author: authorHandle ? formatHandle(authorHandle) : authorName })}
         </Text>
         <CloseButton onPress={dismissSheet} />
       </View>

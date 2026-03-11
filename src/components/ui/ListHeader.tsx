@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable, ViewStyle } from 'react-native';
+import { View, Text, StyleSheet, Pressable, StyleProp, ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { BackArrowIcon } from './Icon';
@@ -20,7 +20,7 @@ interface ListHeaderProps {
   left?: React.ReactNode;
   right?: React.ReactNode;
   applySafeAreaTop?: boolean;
-  style?: ViewStyle | ViewStyle[];
+  style?: StyleProp<ViewStyle>;
 }
 
 const ListHeader: React.FC<ListHeaderProps> = ({

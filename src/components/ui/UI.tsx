@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -195,12 +196,13 @@ interface RetryButtonProps {
 }
 
 export const RetryButton: React.FC<RetryButtonProps> = ({ onPress, style, textStyle }) => {
+  const { t } = useTranslation();
   const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
 
   const buttonContent = (
     <View style={retryButtonStyles.buttonContent} pointerEvents="none">
       <Text style={[retryButtonStyles.text, textStyle]} pointerEvents="none">
-        Retry
+        {t('errors.tryAgain')}
       </Text>
     </View>
   );
@@ -299,6 +301,7 @@ export const Avatar: React.FC<AvatarProps> = ({
   status,
   profileColors,
 }) => {
+  const { t } = useTranslation();
   // Check if status is live using helper function
   const isLive = isLiveStatus(status);
   const iconSize = fallbackIconSize || Math.max(size * 0.6, 20);
@@ -515,7 +518,7 @@ export const Avatar: React.FC<AvatarProps> = ({
         </View>
         {isLive && (
           <View style={liveBadgeStyle}>
-            <Text style={liveBadgeTextStyle}>LIVE</Text>
+            <Text style={liveBadgeTextStyle}>{t('profile.live')}</Text>
           </View>
         )}
       </View>
@@ -544,7 +547,7 @@ export const Avatar: React.FC<AvatarProps> = ({
         </View>
         {isLive && (
           <View style={liveBadgeStyle}>
-            <Text style={liveBadgeTextStyle}>LIVE</Text>
+            <Text style={liveBadgeTextStyle}>{t('profile.live')}</Text>
           </View>
         )}
       </View>
@@ -565,7 +568,7 @@ export const Avatar: React.FC<AvatarProps> = ({
       </View>
       {isLive && (
         <View style={liveBadgeStyle}>
-          <Text style={liveBadgeTextStyle}>LIVE</Text>
+          <Text style={liveBadgeTextStyle}>{t('profile.live')}</Text>
         </View>
       )}
     </View>

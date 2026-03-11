@@ -1,3 +1,4 @@
+import i18n from '../../../i18n';
 import React, {
   useCallback,
   useEffect,
@@ -7,6 +8,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../../utils/constants';
 import { View, Text, StyleSheet, Pressable, RefreshControl, ActivityIndicator } from 'react-native';
 import { LegendList, LegendListRef } from '@legendapp/list';
@@ -51,11 +53,15 @@ interface EmbedRecordViewRecord {
   detached?: boolean;
 }
 
-const EmptyChats: React.FC<{ message?: string }> = ({ message = 'No chats, yet…' }) => (
-  <View style={styles.emptyContainer}>
-    <Text style={styles.emptyText}>{message}</Text>
-  </View>
-);
+const EmptyChats: React.FC<{ message?: string }> = ({ message }) => {
+  const { t } = useTranslation();
+  const displayMessage = message ?? t('chat.noChatsYet');
+  return (
+    <View style={styles.emptyContainer}>
+      <Text style={styles.emptyText}>{displayMessage}</Text>
+    </View>
+  );
+};
 
 const ChatsLoading = () => (
   <View style={styles.loadingContainer}>
@@ -87,7 +93,7 @@ function getLastMessagePreview(
           if (recordType === 'app.bsky.embed.record#viewRecord' && record.author && record.value) {
             const authorHandleRaw = (record as { author?: { handle?: string } }).author?.handle;
             const authorHandle = authorHandleRaw ? formatHandle(authorHandleRaw) : '';
-            const base = isFromMe ? 'You shared a post' : 'Shared a post';
+            const base = isFromMe ? i18n.t('chat.youSharedPost') : i18n.t('chat.sharedPost');
             return authorHandle ? `${base} by @${authorHandle}` : base;
           }
           // Unavailable record variants (notFound/blocked/detached)
@@ -99,10 +105,10 @@ function getLastMessagePreview(
             record.blocked === true ||
             record.detached === true
           ) {
-            return isFromMe ? 'You shared a post' : 'Shared a post';
+            return isFromMe ? i18n.t('chat.youSharedPost') : i18n.t('chat.sharedPost');
           }
         }
-        return isFromMe ? 'You shared a post' : 'Shared a post';
+        return isFromMe ? i18n.t('chat.youSharedPost') : i18n.t('chat.sharedPost');
       }
     }
     return msg.text ?? '';
@@ -110,7 +116,7 @@ function getLastMessagePreview(
   if ('text' in lastMessage && typeof (lastMessage as { text?: string }).text === 'string') {
     return (lastMessage as { text: string }).text;
   }
-  return 'Message deleted';
+  return i18n.t('chat.messageDeleted');
 }
 
 function getOtherMember(
@@ -132,6 +138,7 @@ type ConversationItemProps = {
 
 const ConversationItem = React.memo<ConversationItemProps>(
   ({ item, navigation, onAccept, onDecline, isAccepting, isDeclining }) => {
+    const { t } = useTranslation();
     const queryClient = useQueryClient();
     const currentUser = useUserStore(s => s.currentUser);
     const other = useMemo(
@@ -139,7 +146,7 @@ const ConversationItem = React.memo<ConversationItemProps>(
       [item, currentUser?.did]
     );
     const handle = other?.handle ?? '';
-    const nameLabel = formatHandle(handle) || 'Unknown';
+    const nameLabel = formatHandle(handle) || t('feed.unknownUser');
     const preview = getLastMessagePreview(item.lastMessage, currentUser?.did ?? undefined);
     const lastMsg = item.lastMessage;
     const sentAt =
@@ -240,7 +247,7 @@ const ConversationItem = React.memo<ConversationItemProps>(
                 )}
               </Pressable>
               {isMuted && (
-                <View style={styles.mutedIconWrap} accessibilityLabel="Muted conversation">
+                <View style={styles.mutedIconWrap} accessibilityLabel={t('a11y.mutedConversation')}>
                   <MutedChatIcon size={18} color={Colors.neutral[500]} />
                 </View>
               )}
@@ -266,15 +273,12 @@ const ConversationItem = React.memo<ConversationItemProps>(
             <View style={styles.actionRow}>
               <View style={styles.actionTextAndTime}>
                 {unread && (
-                  <View style={styles.unreadDotWrap} accessibilityLabel="Unread messages">
+                  <View style={styles.unreadDotWrap} accessibilityLabel={t('a11y.unreadMessages')}>
                     <View style={[styles.unreadDot, isMuted && styles.unreadDotMuted]} />
                   </View>
                 )}
                 {isLastMessageFromMe && (
-                  <View
-                    style={styles.sentByMeIconWrap}
-                    accessibilityLabel="You sent the last message"
-                  >
+                  <View style={styles.sentByMeIconWrap} accessibilityLabel={t('a11y.youSentLast')}>
                     <ShareForwardFillIcon size={16} color={Colors.neutral[500]} />
                   </View>
                 )}
@@ -287,7 +291,7 @@ const ConversationItem = React.memo<ConversationItemProps>(
                     ]}
                     numberOfLines={1}
                   >
-                    {preview || (isRequest ? 'Chat request' : 'Tap to open')}
+                    {preview || (isRequest ? t('chat.chatRequest') : t('chat.tapToOpen'))}
                   </Text>
                 </View>
                 {sentAt && (
@@ -303,7 +307,7 @@ const ConversationItem = React.memo<ConversationItemProps>(
           <View style={styles.requestActions}>
             <View style={styles.requestOptionButtonWrap}>
               <OptionsButton
-                label={thisAccepting ? 'Accepting…' : 'Accept'}
+                label={thisAccepting ? t('common.accepting') : t('common.accept')}
                 onPress={handleAccept}
                 disabled={thisAccepting || thisDeclining}
                 linkType="none"
@@ -318,7 +322,7 @@ const ConversationItem = React.memo<ConversationItemProps>(
             </View>
             <View style={styles.requestOptionButtonWrap}>
               <OptionsButton
-                label={thisDeclining ? 'Declining…' : 'Decline'}
+                label={thisDeclining ? t('common.declining') : t('common.decline')}
                 onPress={handleDecline}
                 disabled={thisAccepting || thisDeclining}
                 linkType="none"
@@ -339,10 +343,10 @@ const SCROLL_AT_TOP_THRESHOLD = 80;
 
 type ChatSegment = 'all' | 'unread' | 'requests';
 
-const SEGMENT_OPTIONS: { value: ChatSegment; label: string }[] = [
-  { value: 'all', label: 'All' },
-  { value: 'unread', label: 'Unread' },
-  { value: 'requests', label: 'Requests' },
+const SEGMENT_OPTIONS: { value: ChatSegment; labelKey: string }[] = [
+  { value: 'all', labelKey: 'chat.all' },
+  { value: 'unread', labelKey: 'chat.unread' },
+  { value: 'requests', labelKey: 'chat.requests' },
 ];
 
 function segmentToFilter(segment: ChatSegment): ListConvosFilter {
@@ -357,6 +361,7 @@ export interface ChatsTabProps {
 }
 
 const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(({ chatFilter }, ref) => {
+  const { t } = useTranslation();
   const listRef = useRef<LegendListRef>(null);
   const scrollOffsetRef = useRef(0);
   const previousFirstConvoIdRef = useRef<string | undefined>(undefined);
@@ -518,7 +523,7 @@ const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(({ chatFilter }, ref)
         <ActivitySegmentedChips
           options={SEGMENT_OPTIONS.map(opt => ({
             key: opt.value,
-            label: opt.label,
+            label: t(opt.labelKey),
             selected: segment === opt.value,
             onPress: () => setSegment(opt.value),
           }))}
@@ -530,15 +535,15 @@ const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(({ chatFilter }, ref)
         </Pressable>
       </View>
     ),
-    [segment]
+    [segment, t]
   );
 
   const emptyMessage =
     segment === 'unread'
-      ? 'All caught up'
+      ? t('chat.allCaughtUp')
       : segment === 'requests'
-        ? 'No requests'
-        : 'No chats, yet…';
+        ? t('chat.noRequests')
+        : t('chat.noChatsYet');
 
   return (
     <>
@@ -573,7 +578,7 @@ const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(({ chatFilter }, ref)
             <View style={styles.errorContainer}>
               <EmptyFeed
                 type="no-connection"
-                message="can't load conversations"
+                message={t('chat.cantLoadConversations')}
                 onRetry={() => refetch()}
               />
             </View>

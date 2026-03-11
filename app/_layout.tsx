@@ -1,3 +1,4 @@
+import '../src/i18n';
 import React, { useEffect } from 'react';
 import { View, StyleSheet, StatusBar, Appearance, Platform } from 'react-native';
 import { Stack } from 'expo-router';
@@ -34,6 +35,7 @@ import { storage } from '../src/utils/storage/storage';
 import { logger } from '../src/utils/logger';
 import { APP_CONSTANTS } from '../src/utils/constants';
 import { setupReactQueryLifecycleBridge } from '../src/utils/query/lifecycle';
+import { LocaleSync } from '../src/i18n/LocaleSync';
 
 // Configure Reanimated logger to disable strict mode warnings
 configureReanimatedLogger({
@@ -78,6 +80,7 @@ const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <QueryClientProvider client={queryClient}>
+        <LocaleSync />
         <GestureHandlerRootView style={styles.gestureHandler}>
           <KeyboardProvider>
             <TabBarProvider>

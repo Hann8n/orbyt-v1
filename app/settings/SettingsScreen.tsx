@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -29,6 +30,7 @@ import ProfileService from '../../src/services/data/ProfileService';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 
 const SettingsScreen: React.FC = () => {
+  const { t } = useTranslation();
   const router = useRouter();
   const onLogout = useAuth().signOut;
   const queryClient = useQueryClient();
@@ -44,13 +46,13 @@ const SettingsScreen: React.FC = () => {
   const handleLogout = async () => {
     if (isSubmitting) return;
 
-    Alert.alert('Log out', 'Are you sure you want to log out?', [
+    Alert.alert(t('alerts.logOut'), t('alerts.logOutConfirm'), [
       {
-        text: 'Cancel',
+        text: t('common.cancel'),
         style: 'cancel',
       },
       {
-        text: 'Log out',
+        text: t('settings.logOut'),
         style: 'default',
         onPress: async () => {
           setIsSubmitting(true);
@@ -58,7 +60,7 @@ const SettingsScreen: React.FC = () => {
             // Use userStore to handle logout without removing accounts (clearAllAccounts = false)
             await onLogout(false);
           } catch (_error) {
-            Alert.alert('Error', 'Failed to log out. Please try again.');
+            Alert.alert(t('common.error'), t('errors.logoutFailed'));
           } finally {
             setIsSubmitting(false);
           }
@@ -71,15 +73,19 @@ const SettingsScreen: React.FC = () => {
     if (isSubmitting) return;
 
     const hasMultipleAccounts = savedAccounts.length > 1;
-    const title = hasMultipleAccounts ? 'Remove accounts?' : 'Remove account?';
+    const title = hasMultipleAccounts
+      ? t('settings.removeAccounts') + '?'
+      : t('settings.removeAccount') + '?';
     const message = hasMultipleAccounts
-      ? 'This will remove all accounts from this device. You will need to sign in again.'
-      : 'You will need to sign in again.';
-    const confirmLabel = hasMultipleAccounts ? 'Remove accounts' : 'Remove account';
+      ? t('settings.removeAccountsMessage')
+      : t('settings.removeAccountMessage');
+    const confirmLabel = hasMultipleAccounts
+      ? t('settings.removeAccounts')
+      : t('settings.removeAccount');
 
     Alert.alert(title, message, [
       {
-        text: 'Cancel',
+        text: t('common.cancel'),
         style: 'cancel',
       },
       {
@@ -91,7 +97,7 @@ const SettingsScreen: React.FC = () => {
             // Use userStore to handle account removal (clearAllAccounts = true)
             await onLogout(true);
           } catch (_error) {
-            Alert.alert('Error', 'Failed to remove account. Please try again.');
+            Alert.alert(t('common.error'), t('errors.accountSwitchFailed'));
           } finally {
             setIsSubmitting(false);
           }
@@ -102,7 +108,7 @@ const SettingsScreen: React.FC = () => {
 
   const handleCopyProfileLink = async () => {
     if (!currentUser?.handle && !currentUser?.did) {
-      Alert.alert('Error', 'Unable to get your profile information.');
+      Alert.alert(t('common.error'), t('errors.unexpected'));
       return;
     }
 
@@ -111,7 +117,7 @@ const SettingsScreen: React.FC = () => {
       const handle = currentUser?.handle;
       const identifier = handle && !handle.endsWith('.invalid') ? handle : currentUser?.did;
       if (!identifier) {
-        Alert.alert('Error', 'Unable to get your profile information.');
+        Alert.alert(t('common.error'), t('errors.unexpected'));
         return;
       }
 
@@ -131,7 +137,7 @@ const SettingsScreen: React.FC = () => {
     try {
       await setNativeTabsEnabled(value);
     } catch (_error) {
-      Alert.alert('error', 'failed to save setting. please try again.');
+      Alert.alert(t('common.error'), t('settings.failedToSaveSetting'));
     }
   };
 
@@ -139,38 +145,34 @@ const SettingsScreen: React.FC = () => {
     try {
       await setModalProfileEnabled(value);
     } catch (_error) {
-      Alert.alert('error', 'failed to save setting. please try again.');
+      Alert.alert(t('common.error'), t('settings.failedToSaveSetting'));
     }
   };
 
   const handleClearCache = async () => {
-    Alert.alert(
-      'Clear app cache',
-      'This will clear all cached data including profiles, channels, and other app data. You may need to reload some content.',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Clear Cache',
-          style: 'default',
-          onPress: async () => {
-            try {
-              // Clear all caches
-              await Promise.all([ProfileService.clearCache()]);
+    Alert.alert(t('settings.clearCacheConfirm'), t('settings.clearCacheMessage'), [
+      {
+        text: t('common.cancel'),
+        style: 'cancel',
+      },
+      {
+        text: t('settings.clearCache'),
+        style: 'default',
+        onPress: async () => {
+          try {
+            // Clear all caches
+            await Promise.all([ProfileService.clearCache()]);
 
-              // Clear React Query cache
-              queryClient.clear();
+            // Clear React Query cache
+            queryClient.clear();
 
-              Alert.alert('Success', 'App cache has been cleared successfully.');
-            } catch (_error) {
-              // Ignore cache clear failures
-            }
-          },
+            Alert.alert(t('common.success'), t('settings.cacheCleared'));
+          } catch (_error) {
+            // Ignore cache clear failures
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const handleOpenLink = (url: string) => {
@@ -180,7 +182,7 @@ const SettingsScreen: React.FC = () => {
   const handleOpenEmail = async (email: string) => {
     try {
       const deviceInfo = await getDeviceInfo();
-      const subject = encodeURIComponent('orbyt support request');
+      const subject = encodeURIComponent(t('settings.emailSubjectSupport'));
       const body = encodeURIComponent(
         `
 
@@ -198,11 +200,9 @@ ${deviceInfo}`
       } else {
         // Fallback: Copy email body to clipboard
         await Clipboard.setStringAsync(`${email}\n\n${deviceInfo}`);
-        Alert.alert(
-          'Email Copied',
-          'No email app is configured. The support email and device information have been copied to your clipboard.',
-          [{ text: 'OK' }]
-        );
+        Alert.alert(t('settings.emailCopied'), t('settings.emailCopiedMessage'), [
+          { text: t('common.ok') },
+        ]);
       }
     } catch (_error) {
       // Fallback: Just open basic mailto
@@ -215,52 +215,69 @@ ${deviceInfo}`
   const handleVersionPress = async () => {
     try {
       const message = await getDeviceInfo();
-      Alert.alert('Version Information', message, [
+      Alert.alert(t('settings.versionInfo'), message, [
         {
-          text: 'Copy',
+          text: t('common.copy'),
           onPress: async () => {
             await Clipboard.setStringAsync(message);
-            Alert.alert('Copied', 'Version copied to clipboard');
+            Alert.alert(t('common.success'), t('settings.versionCopied'));
           },
         },
         {
-          text: 'OK',
+          text: t('common.ok'),
           style: 'default',
         },
       ]);
     } catch (_error) {
-      Alert.alert('Error', 'Unable to get version information.');
+      Alert.alert(t('common.error'), t('errors.unexpected'));
     }
   };
 
-  const settingsSections = [
+  type SettingItem = {
+    id: string;
+    label: string;
+    onPress: () => void;
+    linkType?: 'internal' | 'external' | 'none';
+    icon?: string;
+    rightIcon?: React.ReactNode;
+    destructive?: boolean;
+  };
+
+  type SettingsSection = {
+    id: string;
+    title: string;
+    items: SettingItem[];
+  };
+
+  const settingsSections: SettingsSection[] = [
     {
+      id: 'profile',
       title: '', // No title for profile section
       items: [
         {
           id: 'followers',
-          label: 'Your followers',
+          label: t('settings.yourFollowers'),
           icon: 'users',
           onPress: () => router.navigate('/settings/followers'),
           linkType: 'internal',
         },
         {
           id: 'following',
-          label: 'People you follow',
+          label: t('settings.peopleYouFollow'),
           icon: 'user-plus',
           onPress: () => router.navigate('/settings/following'),
           linkType: 'internal',
         },
         {
           id: 'saves',
-          label: 'Your saves',
+          label: t('settings.yourSaves'),
           icon: 'bookmark',
           onPress: () => router.navigate('/settings/saves'),
           linkType: 'internal',
         },
         {
           id: 'watched',
-          label: 'Watched videos',
+          label: t('settings.watchedVideos'),
           icon: 'eye',
           onPress: () => router.navigate('/settings/watched'),
           linkType: 'internal',
@@ -268,53 +285,56 @@ ${deviceInfo}`
       ],
     },
     {
-      title: 'Sharing',
+      id: 'sharing',
+      title: t('settings.sharing'),
       items: [
         {
           id: 'copy-profile-link',
-          label: 'Copy your profile link',
+          label: t('settings.copyProfileLink'),
           onPress: handleCopyProfileLink,
           linkType: 'none',
         },
       ],
     },
     {
-      title: 'Privacy',
+      id: 'privacy',
+      title: t('settings.privacy'),
       items: [
         {
           id: 'blocked-users',
-          label: 'Blocked accounts',
+          label: t('settings.blockedAccounts'),
           onPress: () => router.navigate('/settings/blocked'),
           linkType: 'internal',
         },
         {
           id: 'muted-users',
-          label: 'Muted accounts',
+          label: t('settings.mutedAccounts'),
           onPress: () => router.navigate('/settings/muted'),
           linkType: 'internal',
         },
       ],
     },
     {
-      title: 'App Settings',
+      id: 'app-settings',
+      title: t('settings.appSettings'),
       items: [
         {
           id: 'algorithmic-feed',
-          label: 'Your mix',
+          label: t('settings.yourMix'),
           icon: 'sparkles',
           onPress: () => router.navigate('/settings/algorithmic-feed'),
           linkType: 'internal',
         },
         {
           id: 'app-icon',
-          label: 'App icon',
+          label: t('settings.appIcon'),
           icon: 'device-tv',
           onPress: () => router.navigate('/settings/app-icon'),
           linkType: 'internal',
         },
         {
           id: 'content-filters',
-          label: 'Content filters',
+          label: t('settings.contentFilters'),
           icon: 'external-link',
           onPress: () => handleOpenLink('https://bsky.app/moderation'),
           linkType: 'external',
@@ -329,32 +349,35 @@ ${deviceInfo}`
       ],
     },
     {
-      title: 'Labs',
+      id: 'labs',
+      title: t('settings.labs'),
       items: [],
     },
     {
-      title: 'Troubleshooting',
+      id: 'troubleshooting',
+      title: t('settings.troubleshooting'),
       items: [
         {
           id: 'clear-cache',
-          label: 'Clear cache',
+          label: t('settings.clearCache'),
           onPress: handleClearCache,
           linkType: 'none',
         },
         {
           id: 'support',
-          label: 'Support',
+          label: t('settings.support'),
           onPress: () => handleOpenEmail('support@getorbyt.com'),
           linkType: 'none',
         },
       ],
     },
     {
-      title: 'Community',
+      id: 'community',
+      title: t('settings.community'),
       items: [
         {
           id: 'ideas',
-          label: 'Ideas & feature requests',
+          label: t('settings.ideasAndRequests'),
           icon: 'message-circle',
           onPress: () => router.navigate('/settings/community'),
           linkType: 'internal',
@@ -362,40 +385,42 @@ ${deviceInfo}`
       ],
     },
     {
-      title: 'About',
+      id: 'about',
+      title: t('settings.about'),
       items: [
         {
           id: 'website',
-          label: 'Website',
+          label: t('settings.website'),
           onPress: () => handleOpenLink('https://getorbyt.com'),
           linkType: 'external',
         },
         {
           id: 'forum',
-          label: 'Forum',
+          label: t('settings.forum'),
           onPress: () => handleOpenLink('https://community.getorbyt.com'),
           linkType: 'external',
         },
         {
           id: 'privacy',
-          label: 'Privacy policy',
+          label: t('settings.privacyPolicy'),
           onPress: () => handleOpenLink('https://getorbyt.com/privacy'),
           linkType: 'external',
         },
         {
           id: 'terms',
-          label: 'Terms of service',
+          label: t('settings.termsOfService'),
           onPress: () => handleOpenLink('https://getorbyt.com/terms'),
           linkType: 'external',
         },
       ],
     },
     {
-      title: 'Accounts',
+      id: 'accounts',
+      title: t('settings.accounts'),
       items: [
         {
           id: 'switch-account',
-          label: savedAccounts.length > 1 ? 'Switch account' : 'Add an account',
+          label: savedAccounts.length > 1 ? t('settings.switchAccount') : t('settings.addAccount'),
           icon: 'user',
           onPress: () => {
             router.dismiss();
@@ -407,13 +432,14 @@ ${deviceInfo}`
         },
         {
           id: 'logout',
-          label: 'Log out',
+          label: t('settings.logOut'),
           onPress: handleLogout,
           linkType: 'none',
         },
         {
           id: 'remove-account',
-          label: savedAccounts.length > 1 ? 'Remove accounts' : 'Remove account',
+          label:
+            savedAccounts.length > 1 ? t('settings.removeAccounts') : t('settings.removeAccount'),
           onPress: handleRemoveAccount,
           linkType: 'none',
           destructive: true,
@@ -423,16 +449,6 @@ ${deviceInfo}`
   ];
 
   // Build flat list data for FlashList
-  type SettingItem = {
-    id: string;
-    label: string;
-    onPress: () => void;
-    linkType?: 'internal' | 'external' | 'none';
-    icon?: string;
-    rightIcon?: React.ReactNode;
-    destructive?: boolean;
-  };
-
   type ListRow =
     | { kind: 'section-title'; id: string; title: string }
     | {
@@ -460,7 +476,11 @@ ${deviceInfo}`
   settingsSections.forEach(section => {
     // Only add section title if it's not empty
     if (section.title) {
-      listData.push({ kind: 'section-title', id: `title-${section.title}`, title: section.title });
+      listData.push({
+        kind: 'section-title',
+        id: `title-${section.id}`,
+        title: section.title,
+      });
     }
 
     (section.items as SettingItem[]).forEach((item: SettingItem) => {
@@ -475,12 +495,12 @@ ${deviceInfo}`
       });
     });
 
-    if (section.title === 'Labs') {
+    if (section.id === 'labs') {
       listData.push({
         kind: 'toggle',
         id: 'native-tabs',
-        label: 'New tabs',
-        subtitle: 'Use native navigation bar',
+        label: t('settings.newTabs'),
+        subtitle: t('settings.useNativeNavBar'),
         value: nativeTabsEnabled,
         onValueChange: handleToggleNativeTabs,
       });
@@ -491,10 +511,10 @@ ${deviceInfo}`
         listData.push({
           kind: 'toggle',
           id: 'modal-profile',
-          label: modalIsDefault ? 'Classic layout' : 'Modal layout',
+          label: modalIsDefault ? t('settings.classicLayout') : t('settings.modalLayout'),
           subtitle: modalIsDefault
-            ? 'Card-style for profile and channel'
-            : 'Native modal with pull-to-dismiss',
+            ? t('settings.cardStyleForProfile')
+            : t('settings.nativeModalPullToDismiss'),
           value: modalIsDefault ? !modalProfileEnabled : modalProfileEnabled,
           onValueChange: (value: boolean) =>
             handleToggleModalProfile(modalIsDefault ? !value : value),
@@ -513,7 +533,7 @@ ${deviceInfo}`
     <View style={[settingsLayoutStyles.container, { backgroundColor: Colors.black }]}>
       <ListHeader
         mode="sheet"
-        title="Settings"
+        title={t('settings.title')}
         showCloseButton
         onClosePress={() => router.dismiss()}
         applySafeAreaTop={Platform.OS === 'android'}
@@ -568,9 +588,9 @@ ${deviceInfo}`
                 <View key={key} style={styles.footer}>
                   <View style={styles.footerContent}>
                     <View style={styles.footerHeartContainer}>
-                      <Text style={styles.footerSubtext}>built with </Text>
+                      <Text style={styles.footerSubtext}>{t('settings.builtWith')}</Text>
                       <Icon name="heart" size={18} color={Colors.coral[400]} />
-                      <Text style={styles.footerSubtext}> for the community</Text>
+                      <Text style={styles.footerSubtext}>{t('settings.forCommunity')}</Text>
                     </View>
                     <Pressable onPress={handleVersionPress}>
                       <Text style={styles.versionText}>v{formattedVersion}</Text>

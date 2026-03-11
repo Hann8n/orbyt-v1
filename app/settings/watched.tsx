@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { View, StyleSheet } from 'react-native';
 import { Colors } from '../../src/theme';
@@ -7,6 +8,7 @@ import FeedRenderer from '../../src/components/features/feed/FeedRenderer';
 import { useCurrentUser } from '../../src/stores/userStore';
 
 const WatchedScreen: React.FC = () => {
+  const { t } = useTranslation();
   const router = useRouter();
   const { currentUser } = useCurrentUser();
 
@@ -14,7 +16,7 @@ const WatchedScreen: React.FC = () => {
     <View style={styles.container}>
       <ListHeader
         mode="sheet"
-        title="Watched videos"
+        title={t('settings.watchedVideos')}
         showCloseButton
         onClosePress={() => router.dismiss()}
         applySafeAreaTop={false}

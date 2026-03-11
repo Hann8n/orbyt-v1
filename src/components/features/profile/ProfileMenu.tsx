@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { View, Text, StyleSheet, Share, Platform, Alert, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -53,6 +54,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
   viewerFollowing = false,
   onMessagePress,
 }) => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { signOut } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -113,30 +115,26 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
     } else {
       // Ensure submenu is closed before showing confirmation alert
       submenuSheetRef.current?.dismiss().catch(() => {});
-      Alert.alert(
-        'block user',
-        'are you sure you want to block this user? they will not be able to see your posts or interact with you.',
-        [
-          {
-            text: 'cancel',
-            style: 'cancel',
+      Alert.alert(t('alerts.blockUser'), t('alerts.blockUserConfirm'), [
+        {
+          text: t('common.cancel'),
+          style: 'cancel',
+        },
+        {
+          text: t('alerts.block'),
+          style: 'destructive',
+          onPress: () => {
+            blockMutation.mutate({
+              did: profile.did,
+              handle: profile.handle,
+              isBlocked: true,
+            });
+            onDismiss();
           },
-          {
-            text: 'block',
-            style: 'destructive',
-            onPress: () => {
-              blockMutation.mutate({
-                did: profile.did,
-                handle: profile.handle,
-                isBlocked: true,
-              });
-              onDismiss();
-            },
-          },
-        ]
-      );
+        },
+      ]);
     }
-  }, [profile?.did, profile?.handle, isBlocked, isBlockedByList, onDismiss, blockMutation]);
+  }, [profile?.did, profile?.handle, isBlocked, isBlockedByList, onDismiss, blockMutation, t]);
 
   // Mute/unmute handler
   const handleMuteToggle = useCallback(() => {
@@ -150,30 +148,26 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
         isMuted: false,
       });
     } else {
-      Alert.alert(
-        'mute user',
-        'are you sure you want to mute this user? you will not see their posts in your timeline.',
-        [
-          {
-            text: 'cancel',
-            style: 'cancel',
+      Alert.alert(t('alerts.muteUser'), t('alerts.muteUserConfirm'), [
+        {
+          text: t('common.cancel'),
+          style: 'cancel',
+        },
+        {
+          text: t('alerts.mute'),
+          style: 'destructive',
+          onPress: () => {
+            muteMutation.mutate({
+              did: profile.did,
+              handle: profile.handle,
+              isMuted: true,
+            });
+            onDismiss();
           },
-          {
-            text: 'mute',
-            style: 'destructive',
-            onPress: () => {
-              muteMutation.mutate({
-                did: profile.did,
-                handle: profile.handle,
-                isMuted: true,
-              });
-              onDismiss();
-            },
-          },
-        ]
-      );
+        },
+      ]);
     }
-  }, [profile?.did, profile?.handle, isMuted, onDismiss, muteMutation]);
+  }, [profile?.did, profile?.handle, isMuted, onDismiss, muteMutation, t]);
 
   // Helper function to report account
   const reportAccount = useCallback(
@@ -184,13 +178,13 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
       try {
         const success = await AtprotoService.reportContent(profile.did, reasonType);
         if (success) {
-          Alert.alert('thank you', 'this account has been reported for review.');
+          Alert.alert(t('common.thankYou'), t('alerts.accountReported'));
           onDismiss();
         } else {
-          Alert.alert('error', 'failed to submit report. please try again.');
+          Alert.alert(t('common.error'), t('alerts.failedToSubmitReport'));
         }
       } catch (_error) {
-        Alert.alert('error', 'failed to submit report. please try again.');
+        Alert.alert(t('common.error'), t('alerts.failedToSubmitReport'));
       } finally {
         setIsSubmitting(false);
       }
@@ -202,37 +196,37 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
   const handleReport = useCallback(async () => {
     if (!profile?.did) return;
 
-    Alert.alert('report account', 'please select a reason for reporting this account:', [
+    Alert.alert(t('alerts.reportAccount'), t('alerts.reportReasonPrompt'), [
       {
-        text: 'cancel',
+        text: t('common.cancel'),
         style: 'cancel',
       },
       {
-        text: 'spam',
+        text: t('alerts.spam'),
         onPress: () => reportAccount('spam'),
       },
       {
-        text: 'harmful content',
+        text: t('alerts.harmfulContent'),
         onPress: () => reportAccount('violation'),
       },
       {
-        text: 'misleading',
+        text: t('alerts.misleading'),
         onPress: () => reportAccount('misleading'),
       },
       {
-        text: 'sexual content',
+        text: t('alerts.sexualContent'),
         onPress: () => reportAccount('sexual'),
       },
       {
-        text: 'rude/offensive',
+        text: t('alerts.rudeOffensive'),
         onPress: () => reportAccount('rude'),
       },
       {
-        text: 'other',
+        text: t('alerts.other'),
         onPress: () => reportAccount('other'),
       },
     ]);
-  }, [profile?.did, reportAccount]);
+  }, [profile?.did, reportAccount, t]);
 
   // Report or Block handler - now presents submenu sheet using global API
   const handleReportOrBlock = useCallback(() => {
@@ -252,14 +246,14 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
       await Share.share({
         message: Platform.OS === 'ios' ? '' : profileUrl,
         url: Platform.OS === 'ios' ? profileUrl : '',
-        title: `check out @${handle} on bluesky`,
+        title: t('profile.checkOutOnBluesky', { handle }),
       });
 
       onDismiss();
     } catch (_error: unknown) {
       // ignore
     }
-  }, [handle, did, onDismiss]);
+  }, [handle, did, onDismiss, t]);
 
   // Open on Bluesky handler
   const handleOpenOnBluesky = useCallback(async () => {
@@ -270,12 +264,12 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
         await Linking.openURL(profileUrl);
         onDismiss();
       } else {
-        Alert.alert('error', 'unable to open profile. please check your internet connection.');
+        Alert.alert(t('common.error'), t('alerts.unableToOpenProfile'));
       }
     } catch (_error) {
-      Alert.alert('error', 'failed to open profile on bluesky.');
+      Alert.alert(t('common.error'), t('alerts.failedToOpenBluesky'));
     }
-  }, [handle, onDismiss]);
+  }, [handle, onDismiss, t]);
 
   // Switch account handler
   const handleSwitchAccount = useCallback(() => {
@@ -287,13 +281,13 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
 
   // Logout handler
   const handleLogout = useCallback(async () => {
-    Alert.alert('log out', 'are you sure you want to log out?', [
+    Alert.alert(t('alerts.logOut'), t('alerts.logOutConfirm'), [
       {
-        text: 'cancel',
+        text: t('common.cancel'),
         style: 'cancel',
       },
       {
-        text: 'log out',
+        text: t('profile.logOut'),
         style: 'destructive',
         onPress: async () => {
           setIsSubmitting(true);
@@ -311,22 +305,22 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
             onDismiss();
             // Note: The actual logout navigation should be handled by the parent component
           } catch (_error) {
-            Alert.alert('error', 'failed to log out. please try again.');
+            Alert.alert(t('common.error'), t('errors.logoutFailed'));
           } finally {
             setIsSubmitting(false);
           }
         },
       },
     ]);
-  }, [onDismiss, queryClient, onLogout, signOut]);
+  }, [onDismiss, queryClient, onLogout, signOut, t]);
 
   // Determine menu options based on profile type
   const getMenuOptions = () => {
     if (isOwnProfile) {
       return [
-        { id: 'share', label: 'share', onPress: handleShare },
-        { id: 'switch', label: 'switch', onPress: handleSwitchAccount },
-        { id: 'logout', label: 'log out', onPress: handleLogout, danger: true },
+        { id: 'share', label: t('profile.share'), onPress: handleShare },
+        { id: 'switch', label: t('profile.switch'), onPress: handleSwitchAccount },
+        { id: 'logout', label: t('profile.logOut'), onPress: handleLogout, danger: true },
       ];
     } else {
       const options = [];
@@ -334,7 +328,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
       if (canMessage && did && onMessagePress) {
         options.push({
           id: 'message',
-          label: 'message',
+          label: t('profile.message'),
           onPress: () => {
             onDismiss();
             onMessagePress();
@@ -343,15 +337,19 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
       }
 
       options.push(
-        { id: 'share', label: 'share', onPress: handleShare },
-        { id: 'mute', label: isMuted ? 'unmute' : 'mute', onPress: handleMuteToggle },
+        { id: 'share', label: t('profile.share'), onPress: handleShare },
+        {
+          id: 'mute',
+          label: isMuted ? t('profile.unmute') : t('profile.mute'),
+          onPress: handleMuteToggle,
+        },
         {
           id: 'openOnBluesky',
-          label: 'view on bluesky',
+          label: t('profile.viewOnBluesky'),
           onPress: handleOpenOnBluesky,
           rightIcon: <Icon name="outlink" size={24} color={Colors.neutral[200]} />,
         },
-        { id: 'reportOrBlock', label: 'report or block', onPress: handleReportOrBlock }
+        { id: 'reportOrBlock', label: t('profile.reportOrBlock'), onPress: handleReportOrBlock }
       );
 
       return options;
@@ -366,14 +364,14 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
       onDismiss={onDismiss}
       title={handle}
       showCancelButton={true}
-      cancelButtonText="Cancel"
+      cancelButtonText={t('common.cancel')}
     >
       {/* Main menu options */}
       <View style={styles.optionsContainer}>
         {menuOptions.map(option => (
           <VerticalListButton
             key={option.id}
-            label={option.label.charAt(0).toUpperCase() + option.label.slice(1)}
+            label={option.label}
             onPress={option.onPress}
             disabled={isSubmitting}
             danger={'danger' in option && option.danger}
@@ -392,7 +390,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
         header={
           <View style={styles.headerContainer}>
             <Text style={styles.headerTitle} numberOfLines={1}>
-              Report or Block
+              {t('profile.reportOrBlock')}
             </Text>
             <CloseButton
               onPress={() => {
@@ -431,7 +429,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
           {/* Submenu options */}
           <View style={styles.optionsContainer}>
             <VerticalListButton
-              label="Report Account"
+              label={t('alerts.reportAccount')}
               onPress={() => {
                 submenuSheetRef.current?.dismiss().catch(() => {});
                 handleReport();
@@ -439,7 +437,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
               disabled={isSubmitting}
             />
             <VerticalListButton
-              label={isBlocked ? 'Unblock Account' : 'Block Account'}
+              label={isBlocked ? t('profile.unblockAccount') : t('profile.blockAccount')}
               onPress={() => {
                 submenuSheetRef.current?.dismiss().catch(() => {});
                 handleBlockToggle();

@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '../../src/utils/constants';
 import { View, Text, FlatList, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -43,6 +44,7 @@ const HiddenPostAvatar: React.FC<{
 };
 
 const HiddenPostsScreen: React.FC = () => {
+  const { t } = useTranslation();
   const router = useRouter();
   const { agent, currentUser } = useUserStoreState();
   const { moderationPrefs } = useModerationSettings(currentUser?.did ?? undefined);
@@ -65,7 +67,7 @@ const HiddenPostsScreen: React.FC = () => {
           displayName: `User ${index}`,
           avatar: undefined,
         },
-        text: 'Hidden post content...',
+        text: t('settings.hiddenPostContent'),
         createdAt: new Date().toISOString(),
       }));
 
@@ -78,7 +80,7 @@ const HiddenPostsScreen: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [moderationPrefs]);
+  }, [moderationPrefs, t]);
 
   useEffect(() => {
     if (moderationPrefs) {
@@ -128,12 +130,14 @@ const HiddenPostsScreen: React.FC = () => {
               <HiddenPostAvatar author={item.author} />
             </View>
             <View style={styles.authorDetails}>
-              <Text style={styles.authorName}>{item.author.displayName || 'Unknown User'}</Text>
+              <Text style={styles.authorName}>
+                {item.author.displayName || t('profile.unknownUser')}
+              </Text>
               <Text style={styles.authorHandle}>@{item.author.handle}</Text>
             </View>
           </View>
           <Text style={styles.postText} numberOfLines={2}>
-            {item.text || 'Hidden post content...'}
+            {item.text || t('settings.hiddenPostContent')}
           </Text>
         </View>
         <Pressable
@@ -146,7 +150,7 @@ const HiddenPostsScreen: React.FC = () => {
           ) : (
             <>
               <Icon name="eye" size={16} color={Colors.neutral[50]} />
-              <Text style={styles.unhideButtonText}>Unhide</Text>
+              <Text style={styles.unhideButtonText}>{t('settings.unhide')}</Text>
             </>
           )}
         </Pressable>
@@ -159,7 +163,7 @@ const HiddenPostsScreen: React.FC = () => {
       <View style={styles.safeArea}>
         <ListHeader
           mode="sheet"
-          title="hidden posts"
+          title={t('settings.hiddenPosts')}
           showCloseButton
           onClosePress={() => router.dismiss()}
           applySafeAreaTop={false}
@@ -167,7 +171,7 @@ const HiddenPostsScreen: React.FC = () => {
         />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.neutral[50]} />
-          <Text style={styles.loadingText}>Loading hidden posts...</Text>
+          <Text style={styles.loadingText}>{t('settings.loadingHiddenPosts')}</Text>
         </View>
       </View>
     );
@@ -177,7 +181,7 @@ const HiddenPostsScreen: React.FC = () => {
     <View style={styles.safeArea}>
       <ListHeader
         mode="sheet"
-        title="hidden posts"
+        title={t('settings.hiddenPosts')}
         showCloseButton
         onClosePress={() => router.dismiss()}
         applySafeAreaTop={false}
@@ -193,11 +197,8 @@ const HiddenPostsScreen: React.FC = () => {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Icon name="eye-closed" size={48} color={Colors.neutral[200]} />
-            <Text style={styles.emptyTitle}>no hidden posts</Text>
-            <Text style={styles.emptyDescription}>
-              you haven{"'"}t hidden any posts yet. hidden posts won{"'"}t appear in your feed, but
-              you can unhide them here.
-            </Text>
+            <Text style={styles.emptyTitle}>{t('settings.noHiddenPosts')}</Text>
+            <Text style={styles.emptyDescription}>{t('settings.hiddenPostsEmptyDescription')}</Text>
           </View>
         }
       />

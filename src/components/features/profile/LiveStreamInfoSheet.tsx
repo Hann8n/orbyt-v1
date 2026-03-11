@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useMemo, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, Linking } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -34,6 +35,7 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
   profile,
   onDismiss,
 }) => {
+  const { t } = useTranslation();
   const bottomSheetRef = useRef<TrueSheet>(null);
   const insets = useSafeAreaInsets();
   const footerBottomPadding = Math.max(insets.bottom, FOOTER_BOTTOM_PADDING_MIN);
@@ -109,21 +111,24 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
 
       // If same day, just show time
       if (isToday(date)) {
-        return `ends at ${timeStr}`;
+        return t('profile.endsAt', { time: timeStr });
       }
 
       // If tomorrow, show "tomorrow at [time]"
       if (isTomorrow(date)) {
-        return `ends tomorrow at ${timeStr}`;
+        return t('profile.endsTomorrowAt', { time: timeStr });
       }
 
       // Otherwise, show date and time
-      return `ends ${format(date, 'MMM d')} at ${format(date, 'h:mm a')}`;
+      return t('profile.endsDateAt', {
+        date: format(date, 'MMM d'),
+        time: format(date, 'h:mm a'),
+      });
     } catch {
       // Ignore parsing errors
     }
     return null;
-  }, [displayExpiration]);
+  }, [displayExpiration, t]);
 
   return (
     <AppTrueSheet
@@ -134,7 +139,9 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
         <View style={styles.headerContainer}>
           <View style={styles.headerLeft}>
             <Text style={styles.headerTitle} numberOfLines={1}>
-              {profile?.handle ? `${formatHandle(profile.handle)} is LIVE` : 'LIVE'}
+              {profile?.handle
+                ? t('profile.handleIsLive', { handle: formatHandle(profile.handle) })
+                : t('profile.live')}
             </Text>
           </View>
           <CloseButton onPress={onDismiss} />
@@ -148,7 +155,7 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
             style={{ backgroundColor: Colors.black }}
           >
             <View style={[styles.cancelContainer, { backgroundColor: Colors.black }]}>
-              <CancelButton onPress={onDismiss} text="Close" />
+              <CancelButton onPress={onDismiss} text={t('common.close')} />
             </View>
           </KeyboardAwareFooter>
         </View>
@@ -174,7 +181,7 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
                 />
                 <View style={styles.thumbnailOverlay} />
                 <View style={styles.liveBadge}>
-                  <Text style={styles.liveBadgeText}>LIVE</Text>
+                  <Text style={styles.liveBadgeText}>{t('profile.live')}</Text>
                 </View>
                 {expirationText && (
                   <View style={styles.chipsContainer}>
@@ -193,7 +200,7 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
             {/* Link to Stream */}
             {displayUrl && (
               <VerticalListButton
-                label={`watch on ${getDomainFromUrl(displayUrl)}`}
+                label={t('profile.watchOn', { domain: getDomainFromUrl(displayUrl) })}
                 onPress={() => handleOpenLink(displayUrl)}
                 rightIcon={<Icon name="external-link" size={24} color={Colors.black} />}
                 style={{ backgroundColor: Colors.neutral[50] }}
@@ -203,7 +210,7 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
           </>
         ) : (
           <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>Could not load live stream information</Text>
+            <Text style={styles.errorText}>{t('profile.couldNotLoadLiveStream')}</Text>
           </View>
         )}
       </View>

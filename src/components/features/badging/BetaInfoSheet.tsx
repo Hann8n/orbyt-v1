@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format, parseISO, isValid } from 'date-fns';
@@ -26,6 +27,7 @@ const FOOTER_BOTTOM_INSET_MIN = 8;
 const FOOTER_BOTTOM_INSET_MAX = 16;
 
 const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate, onDismiss }) => {
+  const { t } = useTranslation();
   const bottomSheetRef = useRef<TrueSheet>(null);
   const insets = useSafeAreaInsets();
   const footerBottomPadding = Math.max(
@@ -56,7 +58,7 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
       <View style={styles.headerLeft}>
         <BetaBadge size={24} color={Colors.neutral[50]} opacity={0.7} customMargin={0} />
         <Text style={[styles.headerTitle, styles.headerTitleMargin]} numberOfLines={1}>
-          Beta Tester
+          {t('a11y.betaTester')}
         </Text>
       </View>
       <CloseButton onPress={onDismiss} />
@@ -77,7 +79,7 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
             style={styles.footerKeyboardAware}
           >
             <View style={styles.cancelContainer}>
-              <CancelButton onPress={onDismiss} text="Close" />
+              <CancelButton onPress={onDismiss} text={t('common.close')} />
             </View>
           </KeyboardAwareFooter>
         </View>
@@ -102,7 +104,7 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
         {/* Join Date */}
         {formattedDate && (
           <View style={styles.statusDateContainer}>
-            <Text style={styles.statusText}>Joined on {formattedDate}</Text>
+            <Text style={styles.statusText}>{t('profile.joinedOn', { date: formattedDate })}</Text>
           </View>
         )}
       </View>

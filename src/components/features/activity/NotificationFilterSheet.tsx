@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import VerticalListSheet, { TrueSheet } from '../../ui/VerticalListSheet';
@@ -9,49 +10,49 @@ import { BORDER_RADIUS } from '../../../utils/constants';
 import { FOOTER_BOTTOM_PADDING_MIN } from '../../../utils/components/truesheet';
 import type { NotificationReason } from '../../../services/api/types';
 
-// Valid notification reasons extracted from API type with user-friendly labels
-const NOTIFICATION_REASONS_MAP: Record<NotificationReason, string> = {
-  like: 'likes',
-  repost: 'reposts',
-  follow: 'follows',
-  mention: 'mentions',
-  reply: 'replies',
-  quote: 'quotes',
-  'subscribed-post': 'subscriptions',
-  'like-via-repost': 'likes via repost',
-  'repost-via-repost': 'reposts via repost',
-  'starterpack-joined': 'starter pack joins',
-  verified: 'verified',
-  unverified: 'unverified',
+// Valid notification reasons - use labelKey for i18n
+const NOTIFICATION_REASONS_LABEL_KEY: Record<NotificationReason, string> = {
+  like: 'activity.likes',
+  repost: 'activity.reposts',
+  follow: 'activity.follows',
+  mention: 'activity.mentions',
+  reply: 'activity.replies',
+  quote: 'activity.quotes',
+  'subscribed-post': 'activity.subscriptions',
+  'like-via-repost': 'activity.likesViaRepost',
+  'repost-via-repost': 'activity.repostsViaRepost',
+  'starterpack-joined': 'activity.starterPackJoins',
+  verified: 'activity.verification',
+  unverified: 'activity.verification',
 } as const;
 
 // Grouped options that combine multiple reasons
 interface GroupedFilterOption {
-  label: string;
+  labelKey: string;
   reasons: NotificationReason[];
   primaryReason: NotificationReason; // The first reason in original order
 }
 
 const GROUPED_OPTIONS: GroupedFilterOption[] = [
   {
-    label: 'likes',
+    labelKey: 'activity.likes',
     reasons: ['like', 'like-via-repost'],
     primaryReason: 'like',
   },
   {
-    label: 'reposts',
+    labelKey: 'activity.reposts',
     reasons: ['repost', 'repost-via-repost'],
     primaryReason: 'repost',
   },
   {
-    label: 'verification',
+    labelKey: 'activity.verification',
     reasons: ['verified', 'unverified'],
     primaryReason: 'verified',
   },
 ];
 
 // Get all reasons (for checking if all are selected)
-const ALL_REASONS = (Object.keys(NOTIFICATION_REASONS_MAP) as NotificationReason[])
+const ALL_REASONS = (Object.keys(NOTIFICATION_REASONS_LABEL_KEY) as NotificationReason[])
   .filter(reason => !GROUPED_OPTIONS.some(group => group.reasons.includes(reason)))
   .concat(GROUPED_OPTIONS.flatMap(group => group.reasons)) as NotificationReason[];
 
@@ -134,8 +135,13 @@ const GroupedFilterOptionItem: React.FC<GroupedFilterOptionProps> = ({
   checked,
   onToggle,
 }) => {
+  const { t } = useTranslation();
   return (
-    <FilterOption label={option.label} checked={checked} onPress={() => onToggle(option.reasons)} />
+    <FilterOption
+      label={t(option.labelKey)}
+      checked={checked}
+      onPress={() => onToggle(option.reasons)}
+    />
   );
 };
 
@@ -147,6 +153,7 @@ const NotificationFilterContent: React.FC<{
   onClearButtonChange: (button: React.ReactNode) => void;
   onFooterChange: (footer: React.ReactNode) => void;
 }> = ({ selectedReasons, onFilterChange, onDismiss, onClearButtonChange, onFooterChange }) => {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const footerBottomPadding = Math.max(insets.bottom, FOOTER_BOTTOM_PADDING_MIN);
 
@@ -204,10 +211,10 @@ const NotificationFilterContent: React.FC<{
         disabled={!hasFilters}
         style={[styles.clearButton, { opacity: !hasFilters ? 0.6 : 1 }]}
       >
-        <Text style={styles.clearButtonText}>clear</Text>
+        <Text style={styles.clearButtonText}>{t('activity.clear')}</Text>
       </Pressable>
     );
-  }, [handleClear, localSelected.length]);
+  }, [handleClear, localSelected.length, t]);
 
   const footer = useMemo(
     () => (
@@ -222,11 +229,11 @@ const NotificationFilterContent: React.FC<{
             }
             onDismiss();
           }}
-          text="Done"
+          text={t('common.done')}
         />
       </View>
     ),
-    [localSelected, onFilterChange, onDismiss]
+    [localSelected, onFilterChange, onDismiss, t]
   );
 
   // Update parent with clear button and footer
@@ -258,7 +265,7 @@ const NotificationFilterContent: React.FC<{
           return (
             <FilterOption
               key={item.reason}
-              label={NOTIFICATION_REASONS_MAP[item.reason]}
+              label={t(NOTIFICATION_REASONS_LABEL_KEY[item.reason])}
               checked={localSelected.includes(item.reason)}
               onPress={() => handleToggleReason(item.reason)}
             />
@@ -275,6 +282,7 @@ const NotificationFilterSheet: React.FC<NotificationFilterSheetProps> = ({
   onDismiss,
   onFilterChange,
 }) => {
+  const { t } = useTranslation();
   // Track when sheet opens to generate reset key for inner component
   const prevVisibleRef = useRef(visible);
   const [openingTimestamp, setOpeningTimestamp] = useState<number | null>(null);
@@ -308,7 +316,7 @@ const NotificationFilterSheet: React.FC<NotificationFilterSheetProps> = ({
     <VerticalListSheet
       name="notification-filter-sheet"
       onDismiss={onDismiss}
-      title="filter options"
+      title={t('activity.filterOptions')}
       showCancelButton={false}
       hideCloseButton={false}
       customHeaderButton={clearButtonState}

@@ -1,4 +1,5 @@
 import React, { memo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, StyleSheet, Pressable, Text, StyleProp, ViewStyle } from 'react-native';
 import { ListViewIcon, GridViewIcon, DownSmallFillIcon } from '../../ui/Icon';
@@ -41,6 +42,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
   variant = 'header', // Default to header variant
   dropdown = false, // Default to tabs
 }) => {
+  const { t } = useTranslation();
   const handleViewModeChange = (mode: ViewMode) => {
     if (onViewModeChange) {
       onViewModeChange(mode);
@@ -113,9 +115,9 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
         <VerticalListSheet
           name="tab-dropdown-sheet"
           onDismiss={() => {}}
-          title="Sort by"
+          title={t('tabs.sortBy')}
           showCancelButton={true}
-          cancelButtonText="Cancel"
+          cancelButtonText={t('common.cancel')}
         >
           <View style={styles.optionsContainer}>
             {tabs.map(tab => (

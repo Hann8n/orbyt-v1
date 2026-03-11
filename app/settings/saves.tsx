@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import FeedRenderer from '../../src/components/features/feed/FeedRenderer';
 import { useCurrentUser } from '../../src/stores/userStore';
@@ -7,6 +8,7 @@ import { Colors } from '../../src/theme';
 import ListHeader from '../../src/components/ui/ListHeader';
 
 const SavesScreen: React.FC = () => {
+  const { t } = useTranslation();
   const router = useRouter();
   const { currentUser } = useCurrentUser();
 
@@ -14,7 +16,7 @@ const SavesScreen: React.FC = () => {
     <View style={styles.container}>
       <ListHeader
         mode="sheet"
-        title="Your saves"
+        title={t('settings.yourSaves')}
         showCloseButton
         onClosePress={() => router.dismiss()}
         applySafeAreaTop={false}

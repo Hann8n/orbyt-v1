@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, Pressable, TextInput, ActivityIndicator } from 'react-native';
 import Icon from './Icon';
 import { Colors } from './UI';
@@ -23,11 +24,14 @@ const LoginSheet: React.FC<LoginSheetProps> = ({
   visible,
   onDismiss,
   onSignIn,
-  title = 'Sign in',
-  description = 'Enter your handle to continue',
+  title,
+  description,
   name = 'login-sheet',
   onOpenSignUp,
 }) => {
+  const { t } = useTranslation();
+  const sheetTitle = title ?? t('auth.signIn');
+  const sheetDescription = description ?? t('auth.enterHandle');
   const [handle, setHandle] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSigningIn, setIsSigningIn] = useState(false);
@@ -40,13 +44,13 @@ const LoginSheet: React.FC<LoginSheetProps> = ({
 
   const handleSignIn = useCallback(async () => {
     if (!trimmedHandle) {
-      setError('Please enter your handle');
+      setError(t('auth.pleaseEnterHandle'));
       return;
     }
 
     // Basic validation for common formats
     if (!trimmedHandle.includes('.') && !trimmedHandle.includes('@')) {
-      setError('Enter a full address (e.g. you.orbyt.video)');
+      setError(t('auth.enterFullAddress'));
       return;
     }
 
@@ -60,15 +64,15 @@ const LoginSheet: React.FC<LoginSheetProps> = ({
       onDismiss();
     } catch (err) {
       if (!isUserCancellation(err)) {
-        const errorMessage = err instanceof Error ? err.message : 'Sign-in failed';
-        let userFriendlyMessage = `Could not connect to ${trimmedHandle}`;
+        const errorMessage = err instanceof Error ? err.message : t('auth.signInFailed');
+        let userFriendlyMessage = t('auth.couldNotConnect', { handle: trimmedHandle });
 
         if (errorMessage.includes('network') || errorMessage.includes('timeout')) {
-          userFriendlyMessage = `Network error connecting to ${trimmedHandle}. Please check your internet connection and try again.`;
+          userFriendlyMessage = t('auth.networkErrorConnect', { handle: trimmedHandle });
         } else if (errorMessage.includes('not found') || errorMessage.includes('404')) {
-          userFriendlyMessage = `Could not find the server for ${trimmedHandle}. Please check it and try again.`;
+          userFriendlyMessage = t('auth.couldNotFindServer', { handle: trimmedHandle });
         } else if (errorMessage.includes('invalid') || errorMessage.includes('malformed')) {
-          userFriendlyMessage = `Invalid format for ${trimmedHandle}. Try something like you.orbyt.video`;
+          userFriendlyMessage = t('auth.invalidFormat', { handle: trimmedHandle });
         }
 
         setError(userFriendlyMessage);
@@ -76,7 +80,7 @@ const LoginSheet: React.FC<LoginSheetProps> = ({
     } finally {
       setIsSigningIn(false);
     }
-  }, [trimmedHandle, onSignIn, onDismiss, name]);
+  }, [trimmedHandle, onSignIn, onDismiss, name, t]);
 
   const handleDismiss = useCallback(() => {
     setHandle('');
@@ -90,8 +94,8 @@ const LoginSheet: React.FC<LoginSheetProps> = ({
     <VerticalListSheet
       name={name}
       onDismiss={handleDismiss}
-      title={title}
-      description={description}
+      title={sheetTitle}
+      description={sheetDescription}
       showCancelButton={false}
       scrollable={false}
     >
@@ -103,7 +107,9 @@ const LoginSheet: React.FC<LoginSheetProps> = ({
           <TextInput
             nativeID="login-handle-input"
             style={authSheetStyles.input}
-            placeholder="you.orbyt.video"
+            placeholder={t('auth.handlePlaceholder')}
+            accessibilityLabel={t('auth.handleInput')}
+            accessibilityHint={t('auth.handleInputHint')}
             placeholderTextColor={Colors.neutral[500]}
             value={handle}
             onChangeText={text => {
@@ -120,8 +126,6 @@ const LoginSheet: React.FC<LoginSheetProps> = ({
             editable={!isSigningIn}
             caretHidden={false}
             autoFocus
-            accessibilityLabel="Handle input"
-            accessibilityHint="Enter your Bluesky or orbyt handle to sign in"
           />
         </View>
 
@@ -130,7 +134,7 @@ const LoginSheet: React.FC<LoginSheetProps> = ({
           onPress={handleSignIn}
           disabled={!canSubmit}
           accessibilityRole="button"
-          accessibilityLabel="Sign in"
+          accessibilityLabel={t('auth.signIn')}
           accessibilityState={{ disabled: !canSubmit }}
         >
           {isSigningIn ? (
@@ -140,14 +144,14 @@ const LoginSheet: React.FC<LoginSheetProps> = ({
                 color={Colors.neutral[500]}
                 style={authSheetStyles.loadingIcon}
               />
-              <Text style={authSheetStyles.buttonText}>Signing in...</Text>
+              <Text style={authSheetStyles.buttonText}>{t('auth.signingIn')}</Text>
             </View>
           ) : (
             <View style={authSheetStyles.buttonContentRow}>
               <Text
                 style={[authSheetStyles.buttonText, canSubmit && authSheetStyles.buttonTextActive]}
               >
-                Sign me in
+                {t('auth.signMeIn')}
               </Text>
               <Icon
                 name="right_arrow_filled"
@@ -160,7 +164,7 @@ const LoginSheet: React.FC<LoginSheetProps> = ({
 
         {onOpenSignUp && (
           <View style={authSheetStyles.footerContainer}>
-            <Text style={authSheetStyles.footerText}>Need an account? </Text>
+            <Text style={authSheetStyles.footerText}>{t('auth.needAccount')}</Text>
             <Text
               style={authSheetStyles.footerLink}
               onPress={() => {
@@ -169,7 +173,7 @@ const LoginSheet: React.FC<LoginSheetProps> = ({
               }}
               suppressHighlighting
             >
-              Create one
+              {t('auth.createOne')}
             </Text>
           </View>
         )}

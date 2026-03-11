@@ -9,6 +9,7 @@ import {
   useImperativeHandle,
   type ReactNode,
 } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   StyleSheet,
@@ -46,14 +47,14 @@ import {
 // Define the feed options type
 export type FeedOption = string;
 
-// Default feed options and labels for home screen
+// Default feed options and label keys for home screen (resolved via t() in component)
 const DEFAULT_FEED_OPTIONS: FeedOption[] = ['following', 'your-mix'];
-const FEED_LABELS: { [key: string]: string } = {
-  following: 'following',
-  'your-mix': 'your mix',
-  profile: 'videos',
-  reposts: 'reposts',
-  likes: 'likes',
+const FEED_LABEL_KEYS: { [key: string]: string } = {
+  following: 'feed.following',
+  'your-mix': 'feed.yourMix',
+  profile: 'profile.videos',
+  reposts: 'profile.reposts',
+  likes: 'profile.likes',
 };
 
 // SVG uses Orbyt White for the camera icon fill (matches Colors.neutral[50] / Colors.neutral[50])
@@ -169,6 +170,7 @@ const FeedPager = forwardRef<ProfileRef, FeedPagerProps>(function FeedPager(
   },
   ref
 ) {
+  const { t } = useTranslation();
   const {
     screenWidth: width,
     screenHeight: height,
@@ -414,9 +416,12 @@ const FeedPager = forwardRef<ProfileRef, FeedPagerProps>(function FeedPager(
   );
 
   const getLabel = useCallback(
-    (feedOption: FeedOption) =>
-      feedLabelsProp?.[feedOption] ?? FEED_LABELS[feedOption] ?? feedOption,
-    [feedLabelsProp]
+    (feedOption: FeedOption) => {
+      if (feedLabelsProp?.[feedOption]) return feedLabelsProp[feedOption];
+      const labelKey = FEED_LABEL_KEYS[feedOption];
+      return labelKey ? t(labelKey) : feedOption;
+    },
+    [feedLabelsProp, t]
   );
 
   // Expose scrollToTop and setPage (setPage used by profile to sync tab tap -> pager)

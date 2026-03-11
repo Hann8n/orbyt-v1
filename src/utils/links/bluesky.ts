@@ -3,6 +3,7 @@
  */
 
 import { Linking, Alert } from 'react-native';
+import i18n from '../../i18n';
 
 /**
  * Convert AT Protocol URI to Bluesky web URL
@@ -92,12 +93,11 @@ export const openPostInBluesky = async (
     }
 
     // If it doesn't work, show error
-    const errorMessage =
-      fallbackMessage || 'Unable to open this post. Please check your internet connection.';
-    Alert.alert('Cannot Open Post', errorMessage, [{ text: 'OK' }]);
+    const errorMessage = fallbackMessage || i18n.t('errors.unableToOpenPost');
+    Alert.alert(i18n.t('errors.cannotOpenPost'), errorMessage, [{ text: i18n.t('common.ok') }]);
   } catch (_error: unknown) {
-    const errorMessage = fallbackMessage || 'Failed to open post in Bluesky.';
-    Alert.alert('Error', errorMessage, [{ text: 'OK' }]);
+    const errorMessage = fallbackMessage || i18n.t('errors.failedToOpenPost');
+    Alert.alert(i18n.t('common.error'), errorMessage, [{ text: i18n.t('common.ok') }]);
   }
 };
 
@@ -122,11 +122,10 @@ export const openListInBluesky = async (
     }
 
     // If it doesn't work, show error
-    const errorMessage =
-      fallbackMessage || 'Unable to open this list. Please check your internet connection.';
-    Alert.alert('Cannot Open List', errorMessage, [{ text: 'OK' }]);
+    const errorMessage = fallbackMessage || i18n.t('errors.unableToOpenList');
+    Alert.alert(i18n.t('errors.cannotOpenList'), errorMessage, [{ text: i18n.t('common.ok') }]);
   } catch (_error: unknown) {
-    const errorMessage = fallbackMessage || 'Failed to open list in Bluesky.';
-    Alert.alert('Error', errorMessage, [{ text: 'OK' }]);
+    const errorMessage = fallbackMessage || i18n.t('errors.failedToOpenList');
+    Alert.alert(i18n.t('common.error'), errorMessage, [{ text: i18n.t('common.ok') }]);
   }
 };

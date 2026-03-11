@@ -1,11 +1,11 @@
 import React, { useMemo } from 'react';
-import { Text, Linking, StyleSheet, TextStyle } from 'react-native';
+import { Text, Linking, StyleSheet, StyleProp, TextStyle } from 'react-native';
 import { RichText } from '@atproto/api';
 import { Typography } from '../../utils/components/typography';
 
 export interface TextWithLinksProps {
   text: string;
-  style?: TextStyle | TextStyle[];
+  style?: StyleProp<TextStyle>;
   numberOfLines?: number;
   /**
    * Called for @mention / profile taps.

@@ -1,4 +1,5 @@
 import React, { memo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -98,12 +99,12 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   onChangeText,
   inputSelection,
   onSelectionChange,
-  placeholder = 'Say something nice...',
+  placeholder,
   onSubmit,
   showAvatar = true,
   showSendWhenEmpty = false,
   isSubmitDisabled = false,
-  submitAccessibilityLabel = 'Send comment',
+  submitAccessibilityLabel,
   onCancelReply,
   replyContext,
   isPosting = false,
@@ -115,6 +116,9 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   onFocus,
   safeAreaBottom: safeAreaBottomProp,
 }) => {
+  const { t } = useTranslation();
+  const resolvedPlaceholder = placeholder ?? t('comments.saySomething');
+  const resolvedSubmitLabel = submitAccessibilityLabel ?? t('comments.sendComment');
   const charCount = value.length;
   const hasText = value.trim().length > 0;
   const showCharCount = charCount >= 150;
@@ -163,7 +167,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
               selection={inputSelection}
               onSelectionChange={onSelectionChange}
               style={styles.textInput}
-              placeholder={placeholder}
+              placeholder={resolvedPlaceholder}
               placeholderTextColor={Colors.neutral[500]}
               multiline
               editable={!isPosting}
@@ -193,7 +197,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                 hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
                 accessible={true}
                 accessibilityRole="button"
-                accessibilityLabel={submitAccessibilityLabel}
+                accessibilityLabel={resolvedSubmitLabel}
               >
                 {useLiquidGlass ? (
                   <>
@@ -218,7 +222,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                 hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
                 accessible={true}
                 accessibilityRole="button"
-                accessibilityLabel="Cancel reply"
+                accessibilityLabel={t('comments.cancelReply')}
               >
                 <Icon name="close" size={18} color={Colors.neutral[200]} />
               </Pressable>

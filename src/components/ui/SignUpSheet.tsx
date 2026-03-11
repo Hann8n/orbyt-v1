@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, Pressable, TextInput, Linking, ActivityIndicator } from 'react-native';
 import VerticalListSheet, { TrueSheet } from './VerticalListSheet';
 import { Colors } from './UI';
@@ -33,6 +34,7 @@ const SignUpSheet: React.FC<SignUpSheetProps> = ({
   onDismiss,
   name = 'sign-up-sheet',
 }) => {
+  const { t } = useTranslation();
   const { signUp } = useAuth();
   const { loadSavedAccounts } = useAccountManagement();
   const [pdsUrl, setPdsUrl] = useState('');
@@ -78,7 +80,7 @@ const SignUpSheet: React.FC<SignUpSheetProps> = ({
       .catch(() => {
         if (!ac.signal.aborted) {
           setCanContinue(false);
-          lastCheckErrorRef.current = 'Could not check server status';
+          lastCheckErrorRef.current = t('auth.couldNotCheckServer');
         }
       });
 
@@ -109,7 +111,7 @@ const SignUpSheet: React.FC<SignUpSheetProps> = ({
       TrueSheet.dismiss(name);
     } catch (err) {
       if (!isUserCancellation(err)) {
-        const msg = err instanceof Error ? err.message : 'Sign-up failed';
+        const msg = err instanceof Error ? err.message : t('auth.signUpFailed');
         setError(msg);
       }
     } finally {
@@ -120,7 +122,7 @@ const SignUpSheet: React.FC<SignUpSheetProps> = ({
   const onPress = () => {
     if (isSigningUp) return;
     if (!canContinue) {
-      setError(lastCheckErrorRef.current || 'Could not verify server');
+      setError(lastCheckErrorRef.current || t('auth.couldNotVerifyServer'));
       return;
     }
     handleSignUp();
@@ -130,8 +132,8 @@ const SignUpSheet: React.FC<SignUpSheetProps> = ({
     <VerticalListSheet
       name={name}
       onDismiss={handleDismiss}
-      title="Sign up"
-      description="Enter an account provider (e.g. blacksky.app)"
+      title={t('auth.signUp')}
+      description={t('auth.enterAccountProvider')}
       showCancelButton={false}
       scrollable={false}
     >
@@ -148,7 +150,7 @@ const SignUpSheet: React.FC<SignUpSheetProps> = ({
           <TextInput
             nativeID="sign-up-pds-input"
             style={authSheetStyles.input}
-            placeholder="bsky.social"
+            placeholder={t('auth.accountProviderPlaceholder')}
             placeholderTextColor={Colors.neutral[500]}
             value={pdsUrl}
             onChangeText={text => {
@@ -161,8 +163,8 @@ const SignUpSheet: React.FC<SignUpSheetProps> = ({
             onSubmitEditing={handleSignUp}
             editable={!isSigningUp}
             autoFocus
-            accessibilityLabel="Account provider input"
-            accessibilityHint="Enter the domain of your account provider, such as bsky.social or blacksky.app"
+            accessibilityLabel={t('auth.accountProviderInput')}
+            accessibilityHint={t('auth.accountProviderHint')}
           />
         </View>
 
@@ -173,7 +175,7 @@ const SignUpSheet: React.FC<SignUpSheetProps> = ({
           ]}
           onPress={onPress}
           accessibilityRole="button"
-          accessibilityLabel="Continue to sign up"
+          accessibilityLabel={t('auth.continueToSignUp')}
           accessibilityState={{ disabled: !canContinue || isSigningUp }}
         >
           {isSigningUp ? (
@@ -183,7 +185,7 @@ const SignUpSheet: React.FC<SignUpSheetProps> = ({
                 color={Colors.neutral[500]}
                 style={authSheetStyles.loadingIcon}
               />
-              <Text style={authSheetStyles.buttonText}>Connecting...</Text>
+              <Text style={authSheetStyles.buttonText}>{t('auth.connecting')}</Text>
             </View>
           ) : (
             <View style={authSheetStyles.buttonContentRow}>
@@ -193,7 +195,7 @@ const SignUpSheet: React.FC<SignUpSheetProps> = ({
                   canContinue && authSheetStyles.buttonTextActive,
                 ]}
               >
-                Continue to sign up
+                {t('auth.continueToSignUp')}
               </Text>
               <Icon
                 name="right_arrow_filled"
@@ -206,12 +208,12 @@ const SignUpSheet: React.FC<SignUpSheetProps> = ({
 
         <View style={authSheetStyles.footerContainer}>
           <Text style={authSheetStyles.footerText}>
-            By continuing you agree to the{' '}
+            {t('auth.orbytTerms')}
             <Text
               style={authSheetStyles.footerLink}
               onPress={() => Linking.openURL('https://getorbyt.com/terms')}
             >
-              orbyt terms of use
+              {t('auth.orbytTermsLink')}
             </Text>
           </Text>
         </View>

@@ -1,4 +1,5 @@
 import { useMemo, useCallback, memo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, StyleSheet, Pressable, Text } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
@@ -11,6 +12,7 @@ import { Typography } from '../../src/utils/components/typography';
 import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '../../src/hooks';
 
 const FeedScreen = memo(() => {
+  const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
@@ -62,7 +64,7 @@ const FeedScreen = memo(() => {
     <View style={styles.container}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Back"
+        accessibilityLabel={t('common.back')}
         onPress={() => {
           handleClose();
         }}

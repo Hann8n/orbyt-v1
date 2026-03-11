@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import ListScreen from '../../src/components/ui/ListScreen';
 import AtprotoService from '../../src/services/api/AtprotoService';
 import { logger } from '../../src/utils/logger';
@@ -11,6 +12,7 @@ interface BlockedUser {
 }
 
 const BlockedUsersScreen: React.FC = () => {
+  const { t } = useTranslation();
   const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [_unblockingUsers, setUnblockingUsers] = useState<Set<string>>(new Set());
@@ -40,7 +42,7 @@ const BlockedUsersScreen: React.FC = () => {
           return {
             did,
             handle: did,
-            displayName: 'Unknown User',
+            displayName: t('profile.unknownUser'),
             avatar: undefined,
           };
         }
@@ -73,13 +75,13 @@ const BlockedUsersScreen: React.FC = () => {
 
   return (
     <ListScreen
-      title="Blocked accounts"
+      title={t('settings.blockedAccounts')}
       data={blockedUsers}
       isLoading={loading}
       error={null}
       emptyIcon="shield-shape-fill"
-      emptyTitle="No blocked accounts"
-      emptySubtitle="You haven't blocked any accounts yet. Blocked accounts won't be able to see your content or interact with you."
+      emptyTitle={t('settings.noBlockedAccounts')}
+      emptySubtitle={t('settings.blockedEmptySubtitle')}
       showFollowButton={true}
       followButtonAction="unblock"
       onActionPress={handleUnblockUser}

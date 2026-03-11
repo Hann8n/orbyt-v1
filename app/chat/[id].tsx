@@ -1,4 +1,6 @@
 import type { ComponentProps } from 'react';
+import { useTranslation } from 'react-i18next';
+import i18n from '../../src/i18n';
 import {
   createContext,
   useCallback,
@@ -263,8 +265,8 @@ function ChatMessageRichText({
 function getDateGroupLabel(sentAt: string): string {
   const date = parseISO(sentAt);
   if (!isValid(date)) return '';
-  if (isToday(date)) return 'Today';
-  if (isYesterday(date)) return 'Yesterday';
+  if (isToday(date)) return i18n.t('chat.today');
+  if (isYesterday(date)) return i18n.t('chat.yesterday');
   return format(date, 'EEEE, MMM d');
 }
 
@@ -282,7 +284,7 @@ function formatMessageTime(sentAt?: string): string {
 
 function getMessagePreview(msg: MessageItem): string {
   if (msg.text != null && msg.text !== '') return msg.text;
-  return 'Message deleted';
+  return i18n.t('chat.messageDeleted');
 }
 
 /** Embed is app.bsky.embed.record#view; record can be viewRecord | viewNotFound | viewBlocked | viewDetached (per app.bsky.embed.record View type) */
@@ -665,6 +667,7 @@ function ReactionOverlayModal({
   currentUserDid: string | undefined;
   sentAccentColor?: string;
 }) {
+  const { t } = useTranslation();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const defaultPosition = useMemo(
     () => ({ left: screenWidth / 2 - PICKER_WIDTH_EST / 2, top: 100 }),
@@ -789,7 +792,7 @@ function ReactionOverlayModal({
             ]}
             onPressIn={onOpenFullPicker}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            accessibilityLabel="More emoji"
+            accessibilityLabel={t('a11y.moreEmoji')}
           >
             <Icon name="plus" size={20} color={Colors.neutral[400]} />
           </Pressable>
@@ -905,6 +908,7 @@ function ReactionPickerSheet({
   sentAccentColor?: string;
   otherAccentColor?: string;
 }) {
+  const { t } = useTranslation();
   const sheetRef = useRef<TrueSheet>(null);
   const { height: screenHeight } = useWindowDimensions();
   const grouped = useMemo(
@@ -958,7 +962,7 @@ function ReactionPickerSheet({
                   <Pressable
                     key={value}
                     accessibilityRole="button"
-                    accessibilityLabel={`React with ${value}`}
+                    accessibilityLabel={t('chat.reactWith', { emoji: value })}
                     onPress={() => handleSelect(value)}
                     style={({ pressed }) => [
                       styles.reactionSheetActiveChip,
@@ -994,7 +998,7 @@ function ReactionPickerSheet({
               })}
             </View>
           ) : (
-            <Text style={styles.reactionSheetActiveEmpty}>No reactions yet</Text>
+            <Text style={styles.reactionSheetActiveEmpty}>{t('chat.noReactionsYet')}</Text>
           )}
         </View>
       }
@@ -1007,7 +1011,7 @@ function ReactionPickerSheet({
           columnCount={6}
           theme={EMOJI_PICKER_THEME}
           searchBarProps={{
-            placeholder: 'Search emoji…',
+            placeholder: t('chat.searchEmoji'),
             placeholderTextColor: Colors.neutral[500],
             style: {
               fontFamily: 'Figtree-Regular',
@@ -1249,7 +1253,7 @@ function ChatEmbeddedPost({
                   style={StyleSheet.absoluteFill}
                   contentFit="cover"
                   accessible
-                  accessibilityLabel={img.alt || 'Embed image'}
+                  accessibilityLabel={img.alt || i18n.t('chat.embedImage')}
                 />
               </View>
             );
@@ -1284,6 +1288,7 @@ const getReactionChipStyle = ({
 const isDid = (id: string) => typeof id === 'string' && id.startsWith('did:');
 
 export default function ChatScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const params = useLocalSearchParams<{ id: string; did?: string }>();
   const queryClient = useQueryClient();
@@ -1745,11 +1750,11 @@ export default function ChatScreen() {
   });
 
   const handleLeaveConvo = useCallback(() => {
-    Alert.alert('Leave conversation', 'Are you sure you want to leave this conversation?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Leave', style: 'destructive', onPress: () => leaveConvoMutation.mutate() },
+    Alert.alert(t('chat.leaveConversation'), t('chat.leaveConfirm'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('chat.leave'), style: 'destructive', onPress: () => leaveConvoMutation.mutate() },
     ]);
-  }, [leaveConvoMutation]);
+  }, [leaveConvoMutation, t]);
 
   const [isReportSubmitting, setIsReportSubmitting] = useState(false);
 
@@ -1760,32 +1765,32 @@ export default function ChatScreen() {
       try {
         const success = await AtprotoService.reportContent(otherDid, reasonType);
         if (success) {
-          Alert.alert('Thank you', 'This conversation has been reported for review.');
+          Alert.alert(t('common.thankYou'), t('chat.conversationReported'));
           TrueSheet.dismiss('chat-menu');
         } else {
-          Alert.alert('Error', 'Failed to submit report. Please try again.');
+          Alert.alert(t('common.error'), t('chat.failedToSubmitReport'));
         }
       } catch {
-        Alert.alert('Error', 'Failed to submit report. Please try again.');
+        Alert.alert(t('common.error'), t('chat.failedToSubmitReport'));
       } finally {
         setIsReportSubmitting(false);
       }
     },
-    [otherDid]
+    [otherDid, t]
   );
 
   const handleReportConversation = useCallback(() => {
     if (!otherDid) return;
-    Alert.alert('Report conversation', 'Please select a reason for reporting this conversation:', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Spam', onPress: () => reportConversation('spam') },
-      { text: 'Harmful content', onPress: () => reportConversation('violation') },
-      { text: 'Misleading', onPress: () => reportConversation('misleading') },
-      { text: 'Sexual content', onPress: () => reportConversation('sexual') },
-      { text: 'Rude/offensive', onPress: () => reportConversation('rude') },
-      { text: 'Other', onPress: () => reportConversation('other') },
+    Alert.alert(t('chat.reportConversationTitle'), t('chat.reportReasonPrompt'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('alerts.spam'), onPress: () => reportConversation('spam') },
+      { text: t('alerts.harmfulContent'), onPress: () => reportConversation('violation') },
+      { text: t('alerts.misleading'), onPress: () => reportConversation('misleading') },
+      { text: t('alerts.sexualContent'), onPress: () => reportConversation('sexual') },
+      { text: t('alerts.rudeOffensive'), onPress: () => reportConversation('rude') },
+      { text: t('alerts.other'), onPress: () => reportConversation('other') },
     ]);
-  }, [otherDid, reportConversation]);
+  }, [otherDid, reportConversation, t]);
 
   const handleBlockToggle = useCallback(() => {
     if (!profile?.did || !profile?.handle) return;
@@ -1794,24 +1799,20 @@ export default function ChatScreen() {
       blockMutation.mutate({ did: profile.did, handle: profile.handle, isBlocked: false });
       TrueSheet.dismiss('chat-menu');
     } else {
-      Alert.alert(
-        'Block user',
-        'Are you sure you want to block this user? They will not be able to see your posts or message you.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Block',
-            style: 'destructive',
-            onPress: () => {
-              blockMutation.mutate({ did: profile.did, handle: profile.handle, isBlocked: true });
-              TrueSheet.dismiss('chat-menu');
-              router.back();
-            },
+      Alert.alert(t('chat.blockUser'), t('chat.blockUserConfirm'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('alerts.block'),
+          style: 'destructive',
+          onPress: () => {
+            blockMutation.mutate({ did: profile.did, handle: profile.handle, isBlocked: true });
+            TrueSheet.dismiss('chat-menu');
+            router.back();
           },
-        ]
-      );
+        },
+      ]);
     }
-  }, [profile?.did, profile?.handle, isBlocked, isBlockedByList, blockMutation, router]);
+  }, [profile?.did, profile?.handle, isBlocked, isBlockedByList, blockMutation, router, t]);
 
   const handleSend = useCallback(() => {
     const text = inputText.trim();
@@ -1861,7 +1862,7 @@ export default function ChatScreen() {
   if (!convoId && !openByDid) {
     return (
       <View style={styles.container}>
-        <Text style={styles.placeholder}>Invalid conversation</Text>
+        <Text style={styles.placeholder}>{t('chat.invalidConversation')}</Text>
       </View>
     );
   }
@@ -1869,7 +1870,7 @@ export default function ChatScreen() {
   if (openByDid && !convoFetched) {
     return (
       <View style={styles.container}>
-        <Text style={styles.placeholder}>Loading…</Text>
+        <Text style={styles.placeholder}>{t('chat.loading')}</Text>
       </View>
     );
   }
@@ -1884,14 +1885,14 @@ export default function ChatScreen() {
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               style={styles.backButton}
               accessibilityRole="button"
-              accessibilityLabel="Back"
+              accessibilityLabel={t('common.back')}
             >
               <BackArrowIcon size={30} color={Colors.neutral[50]} />
             </Pressable>
           </View>
         </View>
         <View style={styles.leftConvoPlaceholder}>
-          <Text style={styles.placeholder}>No conversation with this user yet</Text>
+          <Text style={styles.placeholder}>{t('chat.noConversationYet')}</Text>
         </View>
       </View>
     );
@@ -1907,14 +1908,14 @@ export default function ChatScreen() {
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               style={styles.backButton}
               accessibilityRole="button"
-              accessibilityLabel="Back"
+              accessibilityLabel={t('common.back')}
             >
               <BackArrowIcon size={30} color={Colors.neutral[50]} />
             </Pressable>
           </View>
         </View>
         <View style={styles.leftConvoPlaceholder}>
-          <Text style={styles.placeholder}>You left this conversation</Text>
+          <Text style={styles.placeholder}>{t('chat.youLeftConversation')}</Text>
         </View>
       </View>
     );
@@ -1929,7 +1930,7 @@ export default function ChatScreen() {
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             style={styles.backButton}
             accessibilityRole="button"
-            accessibilityLabel="Back"
+            accessibilityLabel={t('common.back')}
           >
             <BackArrowIcon size={30} color={Colors.neutral[50]} />
           </Pressable>
@@ -1939,7 +1940,7 @@ export default function ChatScreen() {
             onPress={handleViewProfile}
             style={sharedItemStyles.avatarContainer}
             accessibilityRole="button"
-            accessibilityLabel="View profile"
+            accessibilityLabel={t('a11y.viewProfile')}
           >
             <Avatar
               uri={profile?.avatar}
@@ -1977,7 +1978,7 @@ export default function ChatScreen() {
             style={styles.menuButton}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             accessibilityRole="button"
-            accessibilityLabel="Chat options"
+            accessibilityLabel={t('a11y.chatOptions')}
           >
             <MoreFillIcon size={24} color={Colors.neutral[50]} />
           </Pressable>
@@ -2018,29 +2019,31 @@ export default function ChatScreen() {
       <VerticalListSheet
         name="chat-menu"
         onDismiss={() => {}}
-        title={`Chat with ${formatHandle(profile?.handle) || 'user'}`}
+        title={t('chat.chatWith', {
+          handle: formatHandle(profile?.handle) || t('chat.chatWithUserFallback'),
+        })}
         showCancelButton
-        cancelButtonText="Cancel"
+        cancelButtonText={t('common.cancel')}
       >
         <View style={styles.menuOptionsContainer}>
-          <VerticalListButton label="Go to profile" onPress={handleViewProfile} />
+          <VerticalListButton label={t('chat.goToProfile')} onPress={handleViewProfile} />
           <VerticalListButton
-            label={isConvoMuted ? 'Unmute' : 'Mute conversation'}
+            label={isConvoMuted ? t('chat.unmute') : t('chat.muteConversation')}
             onPress={handleMuteToggle}
             disabled={muteConvoMutation.isPending}
           />
           <VerticalListButton
-            label={isBlocked ? 'Unblock account' : 'Block account'}
+            label={isBlocked ? t('chat.unblockAccount') : t('chat.blockAccount')}
             onPress={handleBlockToggle}
             disabled={blockMutation.isPending || isBlockedByList}
           />
           <VerticalListButton
-            label="Report conversation"
+            label={t('chat.reportConversation')}
             onPress={handleReportConversation}
             disabled={isReportSubmitting}
           />
           <VerticalListButton
-            label="Leave conversation"
+            label={t('chat.leaveConversation')}
             onPress={handleLeaveConvo}
             disabled={leaveConvoMutation.isPending}
           />
@@ -2050,13 +2053,13 @@ export default function ChatScreen() {
       <VerticalListSheet
         name="chat-report-or-block"
         onDismiss={() => {}}
-        title="Report or block"
+        title={t('chat.reportOrBlock')}
         showCancelButton
-        cancelButtonText="Cancel"
+        cancelButtonText={t('common.cancel')}
       >
         <View style={styles.menuOptionsContainer}>
           <VerticalListButton
-            label={isBlocked ? 'Unblock account' : 'Block account'}
+            label={isBlocked ? t('chat.unblockAccount') : t('chat.blockAccount')}
             onPress={() => {
               TrueSheet.dismiss('chat-report-or-block');
               handleBlockToggle();
@@ -2064,7 +2067,7 @@ export default function ChatScreen() {
             disabled={blockMutation.isPending || isBlockedByList}
           />
           <VerticalListButton
-            label="Report conversation"
+            label={t('chat.reportConversation')}
             onPress={() => {
               TrueSheet.dismiss('chat-report-or-block');
               handleReportConversation();
@@ -2101,7 +2104,7 @@ export default function ChatScreen() {
           >
             {!messagesLoading && messagesData && (messagesData.messages?.length ?? 0) === 0 ? (
               <View style={styles.empty}>
-                <Text style={styles.emptyText}>No messages yet</Text>
+                <Text style={styles.emptyText}>{t('chat.noMessagesYet')}</Text>
               </View>
             ) : null}
           </ScrollView>
@@ -2110,7 +2113,7 @@ export default function ChatScreen() {
         {needsAccept ? (
           <View style={styles.acceptBar}>
             <OptionsButton
-              label={acceptConvoMutation.isPending ? 'Accepting…' : 'Accept'}
+              label={acceptConvoMutation.isPending ? t('common.accepting') : t('common.accept')}
               onPress={() => acceptConvoMutation.mutate()}
               disabled={acceptConvoMutation.isPending || leaveConvoMutation.isPending}
               linkType="none"
@@ -2125,7 +2128,7 @@ export default function ChatScreen() {
             <View style={styles.acceptBarRowActions}>
               <View style={styles.acceptBarOptionButtonWrap}>
                 <OptionsButton
-                  label="Report or block"
+                  label={t('chat.reportOrBlock')}
                   onPress={() => TrueSheet.present('chat-report-or-block')}
                   disabled={acceptConvoMutation.isPending || leaveConvoMutation.isPending}
                   destructive
@@ -2140,7 +2143,7 @@ export default function ChatScreen() {
               </View>
               <View style={styles.acceptBarOptionButtonWrap}>
                 <OptionsButton
-                  label={leaveConvoMutation.isPending ? 'Declining…' : 'Decline'}
+                  label={leaveConvoMutation.isPending ? t('common.declining') : t('common.decline')}
                   onPress={() => leaveConvoMutation.mutate()}
                   disabled={acceptConvoMutation.isPending || leaveConvoMutation.isPending}
                   linkType="none"
@@ -2162,7 +2165,7 @@ export default function ChatScreen() {
                 style={styles.input}
                 value={inputText}
                 onChangeText={setInputText}
-                placeholder="Message"
+                placeholder={t('chat.messagePlaceholder')}
                 placeholderTextColor={Colors.neutral[500]}
                 multiline
                 maxLength={1000}
@@ -2183,7 +2186,7 @@ export default function ChatScreen() {
                 hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
                 accessible
                 accessibilityRole="button"
-                accessibilityLabel="Send message"
+                accessibilityLabel={t('a11y.sendMessage')}
               >
                 {useLiquidGlass ? (
                   <>

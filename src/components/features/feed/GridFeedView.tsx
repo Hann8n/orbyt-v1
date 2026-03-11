@@ -13,6 +13,7 @@ import {
   Pressable,
   Dimensions,
   LayoutChangeEvent,
+  type StyleProp,
   type ViewStyle,
   type ImageStyle,
   useWindowDimensions,
@@ -56,8 +57,8 @@ const VideoGridItem: React.FC<{
   item: ExtendedFeedViewPost;
   index: number;
   onPress: (index: number) => void;
-  style?: ViewStyle | ViewStyle[];
-  itemStyle?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
+  itemStyle?: StyleProp<ViewStyle>;
   thumbnailStyle?: ImageStyle;
 }> = React.memo(({ item, index, onPress, style, itemStyle, thumbnailStyle }) => {
   const videoView = getVideoView(item.post.embed);

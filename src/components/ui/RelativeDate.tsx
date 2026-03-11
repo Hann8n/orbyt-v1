@@ -1,10 +1,13 @@
 import React from 'react';
+import { getDateFnsLocale } from '../../i18n';
 import { Text, StyleSheet, StyleProp, TextStyle } from 'react-native';
 import {
-  differenceInMinutes,
-  differenceInHours,
   differenceInDays,
+  differenceInHours,
+  differenceInMinutes,
+  differenceInSeconds,
   format,
+  formatDistanceToNow,
   getYear,
   isValid,
   parseISO,
@@ -18,7 +21,7 @@ interface RelativeDateProps {
 }
 
 /**
- * Component to display a relative date string (e.g., "3m", "2h", "1d" ago)
+ * Component to display a relative date string (e.g., "1h", "2d" in English; localized in other languages)
  * For older dates, shows the actual date
  */
 const RelativeDate: React.FC<RelativeDateProps> = ({ dateString, style, showTime = false }) => {
@@ -30,8 +33,9 @@ const RelativeDate: React.FC<RelativeDateProps> = ({ dateString, style, showTime
 };
 
 /**
- * Format a date string into a relative time string (e.g., "3m", "2h", "1d")
- * For dates older than 7 days, returns a formatted date string
+ * Format a date string into a relative time string.
+ * For dates within 7 days: English uses short format (1h, 2d); other locales use full localized text.
+ * For older dates: formatted date string with localized month names.
  *
  * @param dateString - ISO date string to format
  * @param showTime - Whether to show the time for older dates (currently unused, kept for API compatibility)
@@ -44,44 +48,33 @@ export const formatRelativeDate = (dateString?: string, _showTime: boolean = fal
   if (!isValid(date)) return '';
 
   const now = new Date();
-  const diffMins = differenceInMinutes(now, date);
-
-  // Less than a minute
-  if (diffMins < 1) {
-    return 'now';
-  }
-
-  // Less than an hour
-  if (diffMins < 60) {
-    return `${diffMins}m`;
-  }
-
-  const diffHours = differenceInHours(now, date);
-
-  // Less than a day
-  if (diffHours < 24) {
-    return `${diffHours}h`;
-  }
-
   const diffDays = differenceInDays(now, date);
+  const dateFnsLocale = getDateFnsLocale();
 
-  // Less than a week
   if (diffDays < 7) {
-    return `${diffDays}d`;
+    // English: short format (1h, 2d). Other locales: full localized text.
+    if (!dateFnsLocale) {
+      const seconds = differenceInSeconds(now, date);
+      if (seconds < 60) return `${seconds}s`;
+      const minutes = differenceInMinutes(now, date);
+      if (minutes < 60) return `${minutes}m`;
+      const hours = differenceInHours(now, date);
+      if (hours < 24) return `${hours}h`;
+      return `${diffDays}d`;
+    }
+    return formatDistanceToNow(date, { addSuffix: false, locale: dateFnsLocale });
   }
 
-  // After 1 week, use Month Day (Mar 7) if less than a year, MM/DD/YY (03/07/23) if over a year ago
-  // If over a year ago, use MM/DD/YY format
   if (diffDays >= 365) {
-    return format(date, 'MM/dd/yy');
-  } else {
-    return format(date, 'MMM d');
+    return format(date, 'MM/dd/yy', { locale: dateFnsLocale });
   }
+  return format(date, 'MMM d', { locale: dateFnsLocale });
 };
 
 /**
- * Format a post date in "Month Day" format (e.g., "Jan 15")
- * If the post is from a different year than current, also shows the year (e.g., "Jan 15, 2023")
+ * Format a post date in "Month Day" format (e.g., "Jan 15" / "1月15日")
+ * If the post is from a different year than current, also shows the year.
+ * Uses localized month names per current language.
  * @param dateString - ISO date string to format
  * @returns Formatted date string
  */
@@ -94,13 +87,12 @@ export const formatPostDate = (dateString?: string): string => {
   const now = new Date();
   const year = getYear(date);
   const currentYear = getYear(now);
+  const dateFnsLocale = getDateFnsLocale();
 
-  // If the post is from a different year, include the year
   if (year !== currentYear) {
-    return format(date, 'MMM d, yyyy');
+    return format(date, 'MMM d, yyyy', { locale: dateFnsLocale });
   }
-
-  return format(date, 'MMM d');
+  return format(date, 'MMM d', { locale: dateFnsLocale });
 };
 
 const styles = StyleSheet.create({

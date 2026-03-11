@@ -1,5 +1,6 @@
 // filepath: /Users/jack/orbyt/components/VerificationInfoSheet.tsx
 import React, { useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -58,6 +59,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
   handle,
   onDismiss,
 }) => {
+  const { t } = useTranslation();
   const bottomSheetRef = useRef<TrueSheet>(null);
   const navigation = useRouter();
   const insets = useSafeAreaInsets();
@@ -109,7 +111,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
             style={{ backgroundColor: Colors.black }}
           >
             <View style={[styles.cancelContainer, { backgroundColor: Colors.black }]}>
-              <CancelButton onPress={onDismiss} text="Close" />
+              <CancelButton onPress={onDismiss} text={t('common.close')} />
             </View>
           </KeyboardAwareFooter>
         </View>
@@ -135,7 +137,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
               verification={verification || undefined}
             />
             <Text style={[styles.headerTitle, styles.headerTitleMargin]} numberOfLines={1}>
-              {isTrustedVerifier ? 'Trusted Verifier' : 'Verified'}
+              {isTrustedVerifier ? t('profile.trustedVerifier') : t('profile.verified')}
             </Text>
           </View>
           <CloseButton onPress={onDismiss} />
@@ -155,7 +157,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
           )
         ) : (
           <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>Could not load verification information</Text>
+            <Text style={styles.errorText}>{t('profile.couldNotLoadVerification')}</Text>
           </View>
         )}
       </View>
@@ -170,11 +172,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
         <View style={styles.infoContainer}>
           <Text style={styles.infoText}>
             <Text>{profile?.displayName || handle}</Text>
-            <Text>
-              {' '}
-              is a trusted verifier on the atmosphere. Trusted verifiers can verify other accounts
-              on the network.
-            </Text>
+            <Text> {t('profile.trustedVerifierDescription')}</Text>
           </Text>
         </View>
 
@@ -184,7 +182,9 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
             const date = parseISO(verification.verifications[0].createdAt);
             return isValid(date) ? (
               <View style={styles.statusDateContainer}>
-                <Text style={styles.statusText}>Since {format(date, 'MMM d, yyyy')}</Text>
+                <Text style={styles.statusText}>
+                  {t('profile.sinceDate', { date: format(date, 'MMM d, yyyy') })}
+                </Text>
               </View>
             ) : null;
           })()}
@@ -202,10 +202,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
       <>
         {/* Info Container */}
         <View style={styles.infoContainer}>
-          <Text style={styles.infoText}>
-            A verification badge indicates this is an authentic account representing the person or
-            organization it claims to be.
-          </Text>
+          <Text style={styles.infoText}>{t('profile.verificationBadgeDescription')}</Text>
         </View>
 
         {/* Verified By: Issuer Profile Card */}
@@ -232,7 +229,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
 
           return (
             <>
-              <Text style={styles.verifiedByLabel}>verified by:</Text>
+              <Text style={styles.verifiedByLabel}>{t('profile.verifiedBy')}</Text>
               {isIssuerLoading ? (
                 <VerifiedByShimmer />
               ) : (

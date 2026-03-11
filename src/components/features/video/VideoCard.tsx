@@ -7,6 +7,7 @@ import React, {
   useMemo,
   memo,
 } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useRecyclingState } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import { useEvent } from 'expo';
@@ -159,6 +160,7 @@ const VideoCard = memo(
       },
       ref
     ) => {
+      const { t } = useTranslation();
       // Access feedContext and reqId from feedItem (native properties from FeedViewPost)
       const feedContext = feedItem?.feedContext;
       const reqId = feedItem?.reqId;
@@ -382,7 +384,7 @@ const VideoCard = memo(
       const isBlurred = isWarn && !userChoseToView;
 
       const warningDescription = useMemo(() => {
-        const fallback = 'This video may not be appropriate for all viewers.';
+        const fallback = t('video.contentWarningFallback');
         if (!reason) return fallback;
 
         // Parse labels from reason (can be comma-separated)
@@ -433,7 +435,7 @@ const VideoCard = memo(
         }
 
         return `This video may contain ${formattedMessage}.`;
-      }, [reason]);
+      }, [reason, t]);
 
       const handleViewContent = useCallback(() => setUserChoseToView(true), [setUserChoseToView]);
 
@@ -1090,7 +1092,7 @@ const VideoCard = memo(
               {!shouldLoadVideo && !cannotShowMedia && !isBlurred && (
                 <View style={styles.loadingOverlay}>
                   <ActivityIndicator size="large" color="white" />
-                  <Text style={styles.loadingText}>No HLS stream available</Text>
+                  <Text style={styles.loadingText}>{t('video.noHlsStream')}</Text>
                 </View>
               )}
 
@@ -1149,12 +1151,10 @@ const VideoCard = memo(
               <View style={styles.contentWarningOverlay}>
                 <View style={styles.blurMessage}>
                   <Text style={styles.blurTitle}>
-                    {cannotShowMedia ? 'Content blocked' : 'Sensitive Content'}
+                    {cannotShowMedia ? t('video.contentBlocked') : t('video.sensitiveContent')}
                   </Text>
                   <Text style={styles.blurText}>
-                    {cannotShowMedia
-                      ? 'This content is hidden by your safety settings'
-                      : warningDescription}
+                    {cannotShowMedia ? t('video.contentHiddenBySafety') : warningDescription}
                   </Text>
                 </View>
                 {isBlurred && (
@@ -1168,7 +1168,7 @@ const VideoCard = memo(
                       />
                     ) : null}
                     <View style={styles.buttonContent} pointerEvents="none">
-                      <Text style={styles.viewButtonText}>See video</Text>
+                      <Text style={styles.viewButtonText}>{t('video.seeVideo')}</Text>
                     </View>
                   </Pressable>
                 )}

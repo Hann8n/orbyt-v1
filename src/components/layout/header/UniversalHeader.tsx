@@ -6,6 +6,7 @@ import {
   Pressable,
   Text,
   ActivityIndicator,
+  StyleProp,
   ViewStyle,
   TextStyle,
   TextLayoutEventData,
@@ -98,8 +99,8 @@ export interface UniversalHeaderProps {
   isLoading?: boolean;
   skeleton?: React.ReactNode;
   children?: React.ReactNode;
-  style?: ViewStyle;
-  contentStyle?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
+  contentStyle?: StyleProp<ViewStyle>;
   applySafeArea?: boolean;
   showShadowGradient?: boolean;
   minHeight?: number;
@@ -118,18 +119,11 @@ const ActionButton = memo<{
   preferLiquidGlass?: boolean;
 }>(({ action, textColor, backgroundColor, size = 'medium', preferLiquidGlass = false }) => {
   const hasFilledBackground = useMemo(() => {
-    const isFollowingState = action.label === 'Following' || action.label === 'Mutuals';
     const isIconOnlyFollowingState = action.id === 'follow' && !action.label;
     const isSaveButton = action.id === 'save';
     const isActiveSubscription = action.id === 'subscription' && action.active;
     const isExplicitlyActive = action.active === true;
-    return (
-      isFollowingState ||
-      isIconOnlyFollowingState ||
-      isSaveButton ||
-      isActiveSubscription ||
-      isExplicitlyActive
-    );
+    return isIconOnlyFollowingState || isSaveButton || isActiveSubscription || isExplicitlyActive;
   }, [action.label, action.id, action.active]);
 
   // Animated progress value: 0 = not following, 1 = following
