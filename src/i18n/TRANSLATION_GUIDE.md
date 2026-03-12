@@ -60,6 +60,19 @@ Use the target language's natural equivalent for these concepts when available.
 
 - Use **tú** (informal) for social/consumer UI — "tu sesión", "inténtalo de nuevo"
 
+## Spanish (Latin America) Specific
+
+- **es-LA** (`es-LA.json`) — used for es-MX, es-AR, es-CO, es-CL, es-PE, es-419
+- Prefer **agregar** over añadir, **verificar** over comprobar, **reportar** over denunciar
+- Use **video** (no accent) instead of vídeo
+- Use **expirada/expirado** instead of caducada/caducado
+- **Configuración** for "Settings" (Ajustes is common in Spain)
+- Use **repostear / reposteado / reposteos** (not reenviar) — aligns with social-media language in LATAM
+- Use **tu mix** (not tu mezcla) — common digital/media terminology
+- Use **ver más contenido** (not explorar más contenido) — lighter, more app-native tone
+- Use **post** (not publicación) — younger LATAM users commonly use "post"; "publicación" sounds formal
+- **Match English case** — e.g. profile.reposts = lowercase ("reposteos"), activity.reposts = Title case ("Reposteos"); tabs/feed states = lowercase
+
 ## French-Specific
 
 - Use **tu** (informal) for social/consumer UI — "ta session", "réessaie"
@@ -137,7 +150,7 @@ These keys have **varying character lengths** across locales. Keep translations 
 ## File Structure
 
 - **Source of truth**: `src/i18n/locales/en.json`
-- **Locales**: `de.json`, `en.json`, `es.json`, `fr.json`, `ja.json`, `ko.json`, `pt-BR.json`
+- **Locales**: `de.json`, `en.json`, `es.json`, `es-LA.json`, `fr.json`, `ja.json`, `ko.json`, `pt-BR.json`
 - **Registration**: `src/i18n/index.ts` — import and add to `resources`
 - **Date formatting**: `src/i18n/dateFnsLocales.ts` — add date-fns locale for new language
 - **Expo**: `app.json` — add language code to `expo-localization` `supportedLocales`

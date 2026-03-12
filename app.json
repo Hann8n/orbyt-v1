@@ -39,8 +39,36 @@
         "expo-localization",
         {
           "supportedLocales": {
-            "ios": ["en", "de", "ja", "ko", "es", "fr", "fr-CA", "pt-BR"],
-            "android": ["en", "de", "ja", "ko", "es", "fr", "fr-CA", "pt-BR"]
+            "ios": [
+              "en",
+              "de",
+              "ja",
+              "ko",
+              "es",
+              "es-MX",
+              "es-AR",
+              "es-CO",
+              "es-CL",
+              "es-PE",
+              "fr",
+              "fr-CA",
+              "pt-BR"
+            ],
+            "android": [
+              "en",
+              "de",
+              "ja",
+              "ko",
+              "es",
+              "es-MX",
+              "es-AR",
+              "es-CO",
+              "es-CL",
+              "es-PE",
+              "fr",
+              "fr-CA",
+              "pt-BR"
+            ]
           }
         }
       ],

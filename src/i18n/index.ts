@@ -5,6 +5,7 @@ import { getLocales, type Locale } from 'expo-localization';
 import de from './locales/de.json';
 import en from './locales/en.json';
 import es from './locales/es.json';
+import esLA from './locales/es-LA.json';
 import fr from './locales/fr.json';
 import ja from './locales/ja.json';
 import ko from './locales/ko.json';
@@ -15,6 +16,13 @@ const resources = {
   de: { translation: de },
   en: { translation: en },
   es: { translation: es },
+  'es-LA': { translation: esLA },
+  'es-419': { translation: esLA },
+  'es-MX': { translation: esLA },
+  'es-AR': { translation: esLA },
+  'es-CO': { translation: esLA },
+  'es-CL': { translation: esLA },
+  'es-PE': { translation: esLA },
   fr: { translation: fr },
   'fr-FR': { translation: fr },
   'fr-CA': { translation: fr },

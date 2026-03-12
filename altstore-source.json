@@ -1,0 +1,51 @@
+{
+  "name": "Orbyt",
+  "identifier": "com.getorbyt.altstore",
+  "subtitle": "Video app for Bluesky",
+  "description": "Orbyt is a video-first social app for the Bluesky network, built on the AT Protocol.",
+  "iconURL": "https://YOUR_DOMAIN_OR_CDN/orbyt-icon.png",
+  "headerURL": "https://YOUR_DOMAIN_OR_CDN/orbyt-header.png",
+  "tintColor": "9B59B6",
+  "website": "https://getorbyt.com",
+  "apps": [
+    {
+      "name": "Orbyt",
+      "bundleIdentifier": "com.getorbyt.app",
+      "developerName": "Orbyt",
+      "subtitle": "Video app for Bluesky",
+      "localizedDescription": "Orbyt is a video-first social app for the Bluesky network.\n\n• Browse video feeds from Bluesky\n• Create and share short-form videos\n• Connect with the AT Protocol community\n• Built with React Native and Expo",
+      "iconURL": "https://YOUR_DOMAIN_OR_CDN/orbyt-icon.png",
+      "tintColor": "9B59B6",
+      "screenshotURLs": [],
+      "permissions": [
+        {
+          "type": "camera",
+          "usageDescription": "We need camera access to record videos for posts and take profile photos."
+        },
+        {
+          "type": "microphone",
+          "usageDescription": "We need microphone access to record audio with your videos."
+        },
+        {
+          "type": "photo-library",
+          "usageDescription": "We need access to your photo library to select videos for posts and photos for your profile."
+        },
+        {
+          "type": "photo-library-add",
+          "usageDescription": "We need permission to save your videos to the camera roll."
+        }
+      ],
+      "versions": [
+        {
+          "version": "1.1.2",
+          "buildVersion": "61",
+          "date": "2025-03-11T00:00:00Z",
+          "localizedDescription": "Latest release.",
+          "downloadURL": "https://YOUR_DOMAIN_OR_CDN/orbyt-1.1.2.ipa",
+          "size": 0,
+          "minOSVersion": "16.4"
+        }
+      ]
+    }
+  ]
+}
