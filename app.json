@@ -13,6 +13,7 @@
       "buildNumber": "45",
       "icon": "./src/assets/AppIcons/iOS/Orbyt.icon",
       "infoPlist": {
+        "CFBundleDevelopmentRegion": "en",
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "We need camera access to record videos for posts and take profile photos (e.g. on Create or when updating your avatar).",
         "NSMicrophoneUsageDescription": "We need microphone access to record audio with your videos (e.g. when you tap record on Create).",
@@ -121,6 +122,15 @@
         {
           "backgroundColor": "#000000",
           "barStyle": "light"
+        }
+      ],
+      [
+        "expo-localization",
+        {
+          "supportedLocales": {
+            "ios": ["en", "de", "es", "es-419", "fr", "ja", "ko", "pt-BR"],
+            "android": ["en", "de", "es", "es-419", "fr", "ja", "ko", "pt-BR"]
+          }
         }
       ]
     ],
