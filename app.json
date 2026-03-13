@@ -10,7 +10,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.getorbyt.app",
       "appleTeamId": "D8VXFBV8SJ",
-      "buildNumber": "61",
+      "buildNumber": "45",
       "icon": "./src/assets/AppIcons/iOS/Orbyt.icon",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -28,50 +28,13 @@
         "backgroundColor": "#000000"
       },
       "package": "com.orbyt.app",
-      "versionCode": 61,
+      "versionCode": 45,
       "permissions": ["CAMERA", "RECORD_AUDIO"]
     },
     "web": {
       "favicon": "./src/assets/favicon.png"
     },
     "plugins": [
-      [
-        "expo-localization",
-        {
-          "supportedLocales": {
-            "ios": [
-              "en",
-              "de",
-              "ja",
-              "ko",
-              "es",
-              "es-MX",
-              "es-AR",
-              "es-CO",
-              "es-CL",
-              "es-PE",
-              "fr",
-              "fr-CA",
-              "pt-BR"
-            ],
-            "android": [
-              "en",
-              "de",
-              "ja",
-              "ko",
-              "es",
-              "es-MX",
-              "es-AR",
-              "es-CO",
-              "es-CL",
-              "es-PE",
-              "fr",
-              "fr-CA",
-              "pt-BR"
-            ]
-          }
-        }
-      ],
       [
         "expo-splash-screen",
         {
@@ -101,7 +64,7 @@
           "cameraPermission": "We need camera access to record videos for posts and take profile photos (e.g. on Create or when updating your avatar).",
           "microphonePermission": "We need microphone access to record audio with your videos (e.g. when you tap record on Create).",
           "recordAudioAndroid": true,
-          "barcodeScannerEnabled": false
+          "enableBarcodeScanner": false
         }
       ],
       [
@@ -117,7 +80,7 @@
           "buildReactNativeFromSource": true,
           "useHermesV1": true,
           "ios": {
-            "deploymentTarget": "16.4"
+            "deploymentTarget": "17.0"
           },
           "android": {
             "compileSdkVersion": 36,
@@ -156,44 +119,10 @@
       [
         "expo-navigation-bar",
         {
-          "enforceContrast": true,
-          "barStyle": "light",
-          "visibility": "visible"
+          "backgroundColor": "#000000",
+          "barStyle": "light"
         }
-      ],
-      [
-        "@variant-systems/expo-dynamic-app-icon",
-        {
-          "orBYTE": {
-            "image": "./src/assets/AppIcons/iOS/orBYTE.png"
-          },
-          "planyt_green": {
-            "image": "./src/assets/AppIcons/iOS/planyt/planyt-green.png"
-          },
-          "planyt_blue": {
-            "image": "./src/assets/AppIcons/iOS/planyt/planyt-blue.png"
-          },
-          "planyt_greyscale": {
-            "image": "./src/assets/AppIcons/iOS/planyt/planyt-greyscale.png"
-          },
-          "planyt_greyscale_alt": {
-            "image": "./src/assets/AppIcons/iOS/planyt/planyt-greyscale-alt.png"
-          },
-          "planyt_yellow": {
-            "image": "./src/assets/AppIcons/iOS/planyt/planyt-yellow.png"
-          },
-          "planyt_purple": {
-            "image": "./src/assets/AppIcons/iOS/planyt/planyt-purple.png"
-          },
-          "planyt_orange": {
-            "image": "./src/assets/AppIcons/iOS/planyt/planyt-orange.png"
-          },
-          "planyt_red": {
-            "image": "./src/assets/AppIcons/iOS/planyt/planyt-red.png"
-          }
-        }
-      ],
-      "./with-dynamic-app-icon-primary.js"
+      ]
     ],
     "extra": {
       "eas": {

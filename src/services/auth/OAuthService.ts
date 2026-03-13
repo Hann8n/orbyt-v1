@@ -6,7 +6,7 @@ const CLIENT_METADATA: ExpoOAuthClientOptions['clientMetadata'] = {
   client_id: 'https://getorbyt.com/oauth-client-metadata.json',
   client_name: 'orbyt',
   client_uri: 'https://getorbyt.com',
-  logo_uri: 'https://getorbyt.com/TV-Raw.png',
+  logo_uri: 'https://getorbyt.com/images/orbyt-logo.png',
   tos_uri: 'https://getorbyt.com/terms',
   policy_uri: 'https://getorbyt.com/privacy',
   redirect_uris: ['com.getorbyt:/oauth/callback'],

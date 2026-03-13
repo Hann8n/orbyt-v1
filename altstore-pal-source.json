@@ -1,0 +1,45 @@
+{
+  "name": "Orbyt",
+  "subtitle": "Video app for Bluesky",
+  "description": "Orbyt is a video-first social app for the Bluesky network, built on the AT Protocol. Available for EU and Japan via AltStore PAL.",
+  "iconURL": "https://getorbyt.com/altstore/orbyt-icon.png",
+  "headerURL": "https://getorbyt.com/images/orbyt-logotype.png",
+  "website": "https://getorbyt.com",
+  "tintColor": "#9B59B6",
+  "fediUsername": "orbyt",
+  "featuredApps": ["com.getorbyt.app"],
+  "apps": [
+    {
+      "name": "Orbyt",
+      "bundleIdentifier": "com.getorbyt.app",
+      "marketplaceID": "6751679299",
+      "developerName": "Orbyt",
+      "subtitle": "Video app for Bluesky",
+      "localizedDescription": "Orbyt is a video-first social app for the Bluesky network.\n\n• Browse video feeds from Bluesky\n• Create and share short-form videos\n• Connect with the AT Protocol community\n• Built with React Native and Expo",
+      "iconURL": "https://getorbyt.com/altstore/orbyt-icon.png",
+      "tintColor": "#9B59B6",
+      "category": "social",
+      "screenshots": [],
+      "versions": [
+        {
+          "version": "1.1.2",
+          "buildVersion": "62",
+          "date": "2026-03-12",
+          "localizedDescription": "Latest release.",
+          "downloadURL": "https://getorbyt.com/altstore/adp/manifest.json",
+          "size": 70307293,
+          "minOSVersion": "16.4"
+        }
+      ],
+      "appPermissions": {
+        "privacy": {
+          "NSCameraUsageDescription": "We need camera access to record videos for posts and take profile photos.",
+          "NSMicrophoneUsageDescription": "We need microphone access to record audio with your videos.",
+          "NSPhotoLibraryUsageDescription": "We need access to your photo library to select videos for posts and photos for your profile.",
+          "NSPhotoLibraryAddUsageDescription": "We need permission to save your videos to the camera roll."
+        }
+      }
+    }
+  ],
+  "news": []
+}

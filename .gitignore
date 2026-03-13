@@ -52,3 +52,7 @@ docs/BYTE_FEATURE_PARITY_ANALYSIS.md
 .reassure/
 coverage/
 .jest-cache/
+
+# AltStore ADP build artifacts (download, extract, host externally)
+adp-extracted/
+orbyt-adp-*.zip

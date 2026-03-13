@@ -101,7 +101,7 @@ cmd_status() {
   response=$(curl -s -X GET "$API_BASE/adps/$adp_id")
   echo "$response" | python3 -m json.tool 2>/dev/null || echo "$response"
   if echo "$response" | grep -q '"downloadURL"'; then
-    url=$(echo "$response" | grep -o '"downloadURL"[[:space:]]*:[[:space:]]*"[^"]*"' | cut -d'"' -f4)
+    url=$(echo "$response" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('downloadURL',''))" 2>/dev/null)
     echo ""
     echo -e "${GREEN}Ready! Download: $url${NC}"
     echo "Or run: $0 download $adp_id"
@@ -116,7 +116,7 @@ cmd_download() {
     exit 1
   fi
   response=$(curl -s -X GET "$API_BASE/adps/$adp_id")
-  url=$(echo "$response" | grep -o '"downloadURL"[[:space:]]*:[[:space:]]*"[^"]*"' | cut -d'"' -f4)
+  url=$(echo "$response" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('downloadURL',''))" 2>/dev/null)
   if [[ -z "$url" ]]; then
     echo -e "${RED}ADP not ready yet. Status:${NC}"
     echo "$response" | python3 -m json.tool 2>/dev/null || echo "$response"
@@ -125,7 +125,32 @@ cmd_download() {
   mkdir -p "$out_dir"
   out_file="$out_dir/orbyt-adp-$adp_id.zip"
   echo -e "${YELLOW}Downloading to $out_file...${NC}"
-  curl -L -o "$out_file" "$url"
+  # Use Python to avoid curl's URL parsing issues with complex query strings (e.g. timestamps with colons)
+  # Stream with progress; 10min timeout; ADP packages can be 100MB+
+  python3 -c "
+import urllib.request
+import sys
+
+req = urllib.request.Request(sys.argv[1], headers={'User-Agent': 'AltStore-PAL-Script/1.0'})
+with urllib.request.urlopen(req, timeout=600) as resp:
+    total = int(resp.headers.get('Content-Length', 0))
+    total_mb = total / (1024*1024) if total else 0
+    downloaded = 0
+    chunk = 256 * 1024  # 256KB
+    with open(sys.argv[2], 'wb') as f:
+        while True:
+            data = resp.read(chunk)
+            if not data:
+                break
+            f.write(data)
+            downloaded += len(data)
+            if total > 0:
+                pct = min(100, downloaded * 100 // total)
+                mb = downloaded / (1024*1024)
+                sys.stderr.write(f'\r  {mb:.1f} / {total_mb:.1f} MB ({pct}%)  ')
+                sys.stderr.flush()
+sys.stderr.write('\n')
+" "$url" "$out_file"
   echo -e "${GREEN}Downloaded: $out_file${NC}"
 }
 

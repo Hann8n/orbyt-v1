@@ -166,6 +166,17 @@ Apple: [Submit for notarization](https://developer.apple.com/help/app-store-conn
 
 ---
 
+## Step 7: Host ADP and Source (after approval)
+
+Once your app is approved and notarized:
+
+1. **Download** the ADP: `./scripts/altstore-pal.sh download YOUR_ADP_ID`
+2. **Extract** the ZIP and upload the contents to your server (e.g. `https://getorbyt.com/altstore/adp/`) — preserve the exact directory structure; do not modify `manifest.json`
+3. **Host the source** — use `altstore-pal-source.json` as a template; update version, buildVersion, date, size, and `downloadURL` to point at your hosted `manifest.json`
+4. **Federate** (optional, for discoverability on explore.altstore.io): `curl -X POST -H "Content-Type: application/json" -d '{"source": "https://YOUR_URL/source.json"}' https://api.altstore.io/federate`
+
+---
+
 ## Alternative: AltStore Source (Sideloading)
 
 For worldwide sideloading (7-day signing, AltServer refresh), use `altstore-source.json` and host an IPA. See [Make a Source](https://faq.altstore.io/distribute-your-apps/make-a-source) for details. This is separate from AltStore PAL.
