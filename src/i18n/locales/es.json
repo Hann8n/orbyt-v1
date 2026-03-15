@@ -319,6 +319,8 @@
     "message": "Mensaje",
     "mute": "Silenciar",
     "unmute": "Dejar de silenciar",
+    "viewOnBluesky": "Ver en Bluesky",
+    "germDm": "Germ DM",
     "reportOrBlock": "Denunciar o bloquear",
     "reportAccount": "Denunciar cuenta",
     "checkOutOnBluesky": "visita a @{{handle}} en Bluesky",

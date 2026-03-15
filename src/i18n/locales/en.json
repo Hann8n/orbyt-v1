@@ -320,6 +320,7 @@
     "mute": "Mute",
     "unmute": "Unmute",
     "viewOnBluesky": "View on Bluesky",
+    "germDm": "Germ DM",
     "reportOrBlock": "Report or Block",
     "reportAccount": "Report Account",
     "checkOutOnBluesky": "check out @{{handle}} on bluesky",

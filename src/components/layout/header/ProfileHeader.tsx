@@ -45,6 +45,8 @@ interface ProfileHeaderProps {
   profileData: ProfileViewWithOrbyt | null;
   /** Explicit shared scroll progress (0..1) from the profile feed list. */
   contentScrollProgressSV: SharedValue<number>;
+  /** Optional action link in subtitle area (e.g. Germ DM) */
+  subtitleAction?: { label: string; onPress: () => void };
 }
 
 const ProfileHeader: React.FC<ProfileHeaderProps> = ({
@@ -59,6 +61,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   did,
   profileData,
   contentScrollProgressSV,
+  subtitleAction,
 }) => {
   const { t } = useTranslation();
   const [showVerificationInfo, setShowVerificationInfo] = useState(false);
@@ -143,6 +146,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       subtitle,
       subtitleSecondary,
       onSubtitleSecondaryPress: blockingByList ? handleListPress : undefined,
+      subtitleAction,
       // Hide description when blocked
       description: isBlocked ? undefined : richText?.text,
       facets: isBlocked ? undefined : richText?.facets,
@@ -175,6 +179,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     blockingByList,
     handleListPress,
     onAvatarPress,
+    subtitleAction,
     t,
   ]);
 

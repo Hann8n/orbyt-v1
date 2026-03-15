@@ -16,6 +16,7 @@ import {
   Modal,
   ActivityIndicator,
   Platform,
+  Linking,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { FeedPager } from '../../src/components';
@@ -318,6 +319,32 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const isFollowing = !!profileData?.viewer?.following;
 
   // ProfileViewWithOrbyt already includes all ProfileView fields including associated.chat
+
+  // Germ DM subtitle action (inline in header, not overlay)
+  const germSubtitleAction = useMemo(() => {
+    if (isOwnProfileView || !profileData?.did || !currentUser?.did) return undefined;
+    const germ = profileData?.associated?.germ;
+    if (
+      !germ?.messageMeUrl ||
+      (germ.showButtonTo !== 'everyone' && germ.showButtonTo !== 'usersIFollow') ||
+      (germ.showButtonTo === 'usersIFollow' && !profileData?.viewer?.followedBy)
+    )
+      return undefined;
+    const baseUrl = germ.messageMeUrl.replace(/\/$/, '');
+    const platform = Platform.OS === 'ios' ? 'iOS' : Platform.OS === 'android' ? 'android' : 'web';
+    const url = `${baseUrl}/${platform}#${profileData.did}+${currentUser.did}`;
+    return {
+      label: t('profile.germDm'),
+      onPress: () => Linking.openURL(url),
+    };
+  }, [
+    isOwnProfileView,
+    profileData?.did,
+    profileData?.associated?.germ,
+    profileData?.viewer?.followedBy,
+    currentUser?.did,
+    t,
+  ]);
 
   // Prefetch reposts feed in background after profile loads
   useEffect(() => {
@@ -627,6 +654,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
                 applySafeArea={!isModal}
                 controlStatusBar={!isModal}
                 headerStyle={headerPaddingTop ? { paddingTop: headerPaddingTop } : undefined}
+                subtitleAction={germSubtitleAction}
                 onAvatarPress={
                   isLive
                     ? () => setShowLiveStreamSheet(true)
