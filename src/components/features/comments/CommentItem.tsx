@@ -1,8 +1,9 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import { View, Text, Pressable, StyleSheet, Alert, Linking } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Alert, Linking, Share } from 'react-native';
 import { Image } from 'expo-image';
+import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   useSharedValue,
@@ -15,6 +16,8 @@ import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { prefetchProfile, useProfile } from '../../../services/data/ProfileService';
 import { useAvatarProfileRing } from '../../../services/colors';
+import { MenuView } from '@react-native-menu/menu';
+import type { MenuAction } from '@react-native-menu/menu';
 
 import AtprotoService from '../../../services/api/AtprotoService';
 import { queryKeys } from '../../../utils/query/queryKeys';
@@ -497,250 +500,266 @@ const CommentItem: React.FC<CommentItemProps> = ({
   const commentAuthorDid = comment?.author?.did;
   const isCurrentUserComment = currentUser?.did && commentAuthorDid === currentUser.did;
 
-  // Handle long press to show post actions
-  const handleLongPress = useCallback(() => {
-    if (!uri || !cid) return;
+  const isReply = level > 0 || !!comment?.parent;
+  const postType = isReply ? 'reply' : 'comment';
 
-    // Determine if it's a comment or reply
-    const isReply = level > 0 || !!comment?.parent;
-    const displayAuthor = isCurrentUserComment ? t('comments.you') : authorName;
-    const actionTitle = isReply
-      ? t('comments.replyBy', { author: displayAuthor })
-      : t('comments.commentBy', { author: displayAuthor });
-    const postType = isReply ? 'reply' : 'comment';
+  const canCopyOrShareText = !!commentText?.trim();
 
-    if (isCurrentUserComment) {
-      // Current user's post: Pin to profile, Repost, Delete
-      Alert.alert(actionTitle, t('comments.chooseAction'), [
-        {
-          text: t('common.cancel'),
-          style: 'cancel',
-        },
-        {
-          text: t('comments.pinToProfile'),
-          onPress: async () => {
-            try {
-              Alert.alert(t('common.info'), t('comments.pinNotAvailable'));
-            } catch (_error) {
-              Alert.alert(t('common.error'), t('comments.failedToPin', { postType }));
-            }
-          },
-        },
-        {
-          text: t('comments.repost'),
-          onPress: async () => {
-            try {
-              await AtprotoService.repostPost(uri, cid);
-              Alert.alert(t('common.success'), t('comments.repostedSuccessfully', { postType }));
-              queryClient.invalidateQueries({
-                queryKey: queryKeys.comments.byPost(rootUri || ''),
-                refetchType: 'active',
-              });
-            } catch (_error) {
-              Alert.alert(t('common.error'), t('comments.failedToRepost', { postType }));
-            }
-          },
-        },
-        {
-          text: t('comments.delete'),
-          style: 'destructive',
-          onPress: async () => {
-            const deleteTitle = isReply ? t('comments.deleteReply') : t('comments.deleteComment');
-            Alert.alert(deleteTitle, t('comments.deleteConfirm', { postType }), [
-              {
-                text: t('common.cancel'),
-                style: 'cancel',
-              },
-              {
-                text: t('comments.delete'),
-                style: 'destructive',
-                onPress: async () => {
-                  try {
-                    const success = await AtprotoService.deletePost(uri);
-                    if (success) {
-                      markCommentAsDeleted(uri);
-                      Alert.alert(
-                        t('common.success'),
-                        t('comments.deletedSuccessfully', { postType })
-                      );
-                      queryClient.invalidateQueries({
-                        queryKey: queryKeys.comments.byPost(rootUri || ''),
-                        refetchType: 'active',
-                      });
-                      queryClient.invalidateQueries({
-                        queryKey: queryKeys.feed.all,
-                        refetchType: 'active',
-                      });
-                    } else {
-                      Alert.alert(t('common.error'), t('comments.failedToDelete', { postType }));
-                    }
-                  } catch (_error) {
-                    Alert.alert(t('common.error'), t('comments.failedToDelete', { postType }));
-                  }
-                },
-              },
-            ]);
-          },
-        },
-      ]);
-    } else {
-      Alert.alert(actionTitle, t('comments.chooseAction'), [
-        {
-          text: t('common.cancel'),
-          style: 'cancel',
-        },
-        {
-          text: t('comments.repost'),
-          onPress: async () => {
-            try {
-              await AtprotoService.repostPost(uri, cid);
-              Alert.alert(t('common.success'), t('comments.repostedSuccessfully', { postType }));
-              queryClient.invalidateQueries({
-                queryKey: queryKeys.comments.byPost(rootUri || ''),
-                refetchType: 'active',
-              });
-            } catch (_error) {
-              Alert.alert(t('common.error'), t('comments.failedToRepost', { postType }));
-            }
-          },
-        },
-        {
-          text: isReply ? t('comments.reportReply') : t('comments.reportComment'),
-          onPress: () => {
-            Alert.alert(
-              t('comments.reportContent'),
-              t('comments.reportReasonPrompt', { postType }),
-              [
-                {
-                  text: t('common.cancel'),
-                  style: 'cancel',
-                },
-                {
-                  text: t('alerts.spam'),
-                  onPress: async () => {
-                    try {
-                      const success = await AtprotoService.reportContent(uri, 'spam');
-                      if (success) {
-                        const { useReportedPostsStore } =
-                          await import('../../../stores/reportedPostsStore');
-                        useReportedPostsStore.getState().reportPost(uri);
-                        Alert.alert(t('common.thankYou'), t('comments.reportedForReview'));
-                      } else {
-                        Alert.alert(t('common.error'), t('comments.failedToSubmitReport'));
-                      }
-                    } catch (_error) {
-                      Alert.alert(t('common.error'), t('comments.failedToSubmitReport'));
-                    }
-                  },
-                },
-                {
-                  text: t('alerts.harmfulContent'),
-                  onPress: async () => {
-                    try {
-                      const success = await AtprotoService.reportContent(uri, 'violation');
-                      if (success) {
-                        const { useReportedPostsStore } =
-                          await import('../../../stores/reportedPostsStore');
-                        useReportedPostsStore.getState().reportPost(uri);
-                        Alert.alert(t('common.thankYou'), t('comments.reportedForReview'));
-                      } else {
-                        Alert.alert(t('common.error'), t('comments.failedToSubmitReport'));
-                      }
-                    } catch (_error) {
-                      Alert.alert(t('common.error'), t('comments.failedToSubmitReport'));
-                    }
-                  },
-                },
-                {
-                  text: t('alerts.misleading'),
-                  onPress: async () => {
-                    try {
-                      const success = await AtprotoService.reportContent(uri, 'misleading');
-                      if (success) {
-                        const { useReportedPostsStore } =
-                          await import('../../../stores/reportedPostsStore');
-                        useReportedPostsStore.getState().reportPost(uri);
-                        Alert.alert(t('common.thankYou'), t('comments.reportedForReview'));
-                      } else {
-                        Alert.alert(t('common.error'), t('comments.failedToSubmitReport'));
-                      }
-                    } catch (_error) {
-                      Alert.alert(t('common.error'), t('comments.failedToSubmitReport'));
-                    }
-                  },
-                },
-                {
-                  text: t('alerts.sexualContent'),
-                  onPress: async () => {
-                    try {
-                      const success = await AtprotoService.reportContent(uri, 'sexual');
-                      if (success) {
-                        const { useReportedPostsStore } =
-                          await import('../../../stores/reportedPostsStore');
-                        useReportedPostsStore.getState().reportPost(uri);
-                        Alert.alert(t('common.thankYou'), t('comments.reportedForReview'));
-                      } else {
-                        Alert.alert(t('common.error'), t('comments.failedToSubmitReport'));
-                      }
-                    } catch (_error) {
-                      Alert.alert(t('common.error'), t('comments.failedToSubmitReport'));
-                    }
-                  },
-                },
-                {
-                  text: t('alerts.rudeOffensive'),
-                  onPress: async () => {
-                    try {
-                      const success = await AtprotoService.reportContent(uri, 'rude');
-                      if (success) {
-                        const { useReportedPostsStore } =
-                          await import('../../../stores/reportedPostsStore');
-                        useReportedPostsStore.getState().reportPost(uri);
-                        Alert.alert(t('common.thankYou'), t('comments.reportedForReview'));
-                      } else {
-                        Alert.alert(t('common.error'), t('comments.failedToSubmitReport'));
-                      }
-                    } catch (_error) {
-                      Alert.alert(t('common.error'), t('comments.failedToSubmitReport'));
-                    }
-                  },
-                },
-                {
-                  text: t('common.other'),
-                  onPress: async () => {
-                    try {
-                      const success = await AtprotoService.reportContent(uri, 'other');
-                      if (success) {
-                        const { useReportedPostsStore } =
-                          await import('../../../stores/reportedPostsStore');
-                        useReportedPostsStore.getState().reportPost(uri);
-                        Alert.alert(t('common.thankYou'), t('comments.reportedForReview'));
-                      } else {
-                        Alert.alert(t('common.error'), t('comments.failedToSubmitReport'));
-                      }
-                    } catch (_error) {
-                      Alert.alert(t('common.error'), t('comments.failedToSubmitReport'));
-                    }
-                  },
-                },
-              ]
-            );
-          },
-        },
-      ]);
+  const handleCopyText = useCallback(async () => {
+    if (!canCopyOrShareText) return;
+    try {
+      await Clipboard.setStringAsync(commentText.trim());
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch (_error) {
+      // ignore
     }
-  }, [
-    uri,
-    cid,
-    isCurrentUserComment,
-    rootUri,
-    queryClient,
-    level,
-    comment?.parent,
-    t,
-    authorName,
-    markCommentAsDeleted,
-  ]);
+  }, [canCopyOrShareText, commentText]);
+
+  const handleShareText = useCallback(async () => {
+    if (!canCopyOrShareText) return;
+    try {
+      await Share.share({
+        message: commentText.trim(),
+      });
+    } catch (_error) {
+      // ignore
+    }
+  }, [canCopyOrShareText, commentText]);
+
+  const handleRepost = useCallback(async () => {
+    if (!uri || !cid) return;
+    try {
+      await AtprotoService.repostPost(uri, cid);
+      Alert.alert(t('common.success'), t('comments.repostedSuccessfully', { postType }));
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.comments.byPost(rootUri || ''),
+        refetchType: 'active',
+      });
+    } catch (_error) {
+      Alert.alert(t('common.error'), t('comments.failedToRepost', { postType }));
+    }
+  }, [uri, cid, t, postType, queryClient, rootUri]);
+
+  const confirmDelete = useCallback(() => {
+    if (!uri) return;
+    const deleteTitle = isReply ? t('comments.deleteReply') : t('comments.deleteComment');
+    Alert.alert(deleteTitle, t('comments.deleteConfirm', { postType }), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('comments.delete'),
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            const success = await AtprotoService.deletePost(uri);
+            if (success) {
+              markCommentAsDeleted(uri);
+              Alert.alert(t('common.success'), t('comments.deletedSuccessfully', { postType }));
+              queryClient.invalidateQueries({
+                queryKey: queryKeys.comments.byPost(rootUri || ''),
+                refetchType: 'active',
+              });
+              queryClient.invalidateQueries({
+                queryKey: queryKeys.feed.all,
+                refetchType: 'active',
+              });
+            } else {
+              Alert.alert(t('common.error'), t('comments.failedToDelete', { postType }));
+            }
+          } catch (_error) {
+            Alert.alert(t('common.error'), t('comments.failedToDelete', { postType }));
+          }
+        },
+      },
+    ]);
+  }, [uri, isReply, t, postType, markCommentAsDeleted, queryClient, rootUri]);
+
+  const handlePinToProfile = useCallback(() => {
+    try {
+      Alert.alert(t('common.info'), t('comments.pinNotAvailable'));
+    } catch (_error) {
+      Alert.alert(t('common.error'), t('comments.failedToPin', { postType }));
+    }
+  }, [t, postType]);
+
+  const openReportReasonPrompt = useCallback(() => {
+    if (!uri) return;
+    Alert.alert(t('comments.reportContent'), t('comments.reportReasonPrompt', { postType }), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('alerts.spam'),
+        onPress: async () => {
+          try {
+            const success = await AtprotoService.reportContent(uri, 'spam');
+            if (success) {
+              const { useReportedPostsStore } = await import('../../../stores/reportedPostsStore');
+              useReportedPostsStore.getState().reportPost(uri);
+              Alert.alert(t('common.thankYou'), t('comments.reportedForReview'));
+            } else {
+              Alert.alert(t('common.error'), t('comments.failedToSubmitReport'));
+            }
+          } catch (_error) {
+            Alert.alert(t('common.error'), t('comments.failedToSubmitReport'));
+          }
+        },
+      },
+      {
+        text: t('alerts.harmfulContent'),
+        onPress: async () => {
+          try {
+            const success = await AtprotoService.reportContent(uri, 'violation');
+            if (success) {
+              const { useReportedPostsStore } = await import('../../../stores/reportedPostsStore');
+              useReportedPostsStore.getState().reportPost(uri);
+              Alert.alert(t('common.thankYou'), t('comments.reportedForReview'));
+            } else {
+              Alert.alert(t('common.error'), t('comments.failedToSubmitReport'));
+            }
+          } catch (_error) {
+            Alert.alert(t('common.error'), t('comments.failedToSubmitReport'));
+          }
+        },
+      },
+      {
+        text: t('alerts.misleading'),
+        onPress: async () => {
+          try {
+            const success = await AtprotoService.reportContent(uri, 'misleading');
+            if (success) {
+              const { useReportedPostsStore } = await import('../../../stores/reportedPostsStore');
+              useReportedPostsStore.getState().reportPost(uri);
+              Alert.alert(t('common.thankYou'), t('comments.reportedForReview'));
+            } else {
+              Alert.alert(t('common.error'), t('comments.failedToSubmitReport'));
+            }
+          } catch (_error) {
+            Alert.alert(t('common.error'), t('comments.failedToSubmitReport'));
+          }
+        },
+      },
+      {
+        text: t('alerts.sexualContent'),
+        onPress: async () => {
+          try {
+            const success = await AtprotoService.reportContent(uri, 'sexual');
+            if (success) {
+              const { useReportedPostsStore } = await import('../../../stores/reportedPostsStore');
+              useReportedPostsStore.getState().reportPost(uri);
+              Alert.alert(t('common.thankYou'), t('comments.reportedForReview'));
+            } else {
+              Alert.alert(t('common.error'), t('comments.failedToSubmitReport'));
+            }
+          } catch (_error) {
+            Alert.alert(t('common.error'), t('comments.failedToSubmitReport'));
+          }
+        },
+      },
+      {
+        text: t('alerts.rudeOffensive'),
+        onPress: async () => {
+          try {
+            const success = await AtprotoService.reportContent(uri, 'rude');
+            if (success) {
+              const { useReportedPostsStore } = await import('../../../stores/reportedPostsStore');
+              useReportedPostsStore.getState().reportPost(uri);
+              Alert.alert(t('common.thankYou'), t('comments.reportedForReview'));
+            } else {
+              Alert.alert(t('common.error'), t('comments.failedToSubmitReport'));
+            }
+          } catch (_error) {
+            Alert.alert(t('common.error'), t('comments.failedToSubmitReport'));
+          }
+        },
+      },
+      {
+        text: t('common.other'),
+        onPress: async () => {
+          try {
+            const success = await AtprotoService.reportContent(uri, 'other');
+            if (success) {
+              const { useReportedPostsStore } = await import('../../../stores/reportedPostsStore');
+              useReportedPostsStore.getState().reportPost(uri);
+              Alert.alert(t('common.thankYou'), t('comments.reportedForReview'));
+            } else {
+              Alert.alert(t('common.error'), t('comments.failedToSubmitReport'));
+            }
+          } catch (_error) {
+            Alert.alert(t('common.error'), t('comments.failedToSubmitReport'));
+          }
+        },
+      },
+    ]);
+  }, [uri, t, postType]);
+
+  const commentMenuActions = useMemo<MenuAction[]>(() => {
+    if (!uri || !cid) return [];
+    if (isCurrentUserComment) {
+      return [
+        {
+          id: 'copy_text',
+          title: t('common.copy'),
+          attributes: { disabled: !canCopyOrShareText },
+        },
+        {
+          id: 'share_text',
+          title: t('share.share'),
+          attributes: { disabled: !canCopyOrShareText },
+        },
+        { id: 'pin', title: t('comments.pinToProfile') },
+        { id: 'repost', title: t('comments.repost') },
+        {
+          id: 'delete',
+          title: t('comments.delete'),
+          attributes: { destructive: true },
+        },
+      ];
+    }
+    return [
+      {
+        id: 'copy_text',
+        title: t('common.copy'),
+        attributes: { disabled: !canCopyOrShareText },
+      },
+      {
+        id: 'share_text',
+        title: t('share.share'),
+        attributes: { disabled: !canCopyOrShareText },
+      },
+      { id: 'repost', title: t('comments.repost') },
+      {
+        id: 'report',
+        title: t('Report'),
+        attributes: { destructive: true },
+      },
+    ];
+  }, [uri, cid, isCurrentUserComment, t, isReply, canCopyOrShareText]);
+
+  const handleCommentMenuPressAction = useCallback(
+    ({ nativeEvent }: { nativeEvent: { event?: string } }) => {
+      const id = nativeEvent?.event;
+      if (!id) return;
+      if (id === 'copy_text') {
+        void handleCopyText();
+      } else if (id === 'share_text') {
+        void handleShareText();
+      } else if (id === 'pin') {
+        handlePinToProfile();
+      } else if (id === 'repost') {
+        void handleRepost();
+      } else if (id === 'delete') {
+        confirmDelete();
+      } else if (id === 'report') {
+        openReportReasonPrompt();
+      }
+    },
+    [
+      handleCopyText,
+      handleShareText,
+      handlePinToProfile,
+      handleRepost,
+      confirmDelete,
+      openReportReasonPrompt,
+    ]
+  );
 
   // BLUESKY_CDN constant removed - not used
 
@@ -990,7 +1009,13 @@ const CommentItem: React.FC<CommentItemProps> = ({
         level > 0 && { marginLeft: 14 * level },
       ]}
     >
-      <Pressable onLongPress={handleLongPress} delayLongPress={400}>
+      <MenuView
+        actions={commentMenuActions}
+        onPressAction={handleCommentMenuPressAction}
+        shouldOpenOnLongPress={true}
+        themeVariant="dark"
+        isAnchoredToRight={true}
+      >
         <Animated.View style={[styles.commentItemContainer, styles.commentItemContainerInner]}>
           {/* Full-width highlight overlay */}
           {shouldHighlight && (
@@ -1082,7 +1107,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
             {likeCount > 0 && <Text style={styles.likeCount}>{formatNumber(likeCount)}</Text>}
           </View>
         </Animated.View>
-      </Pressable>
+      </MenuView>
     </View>
   );
 };
