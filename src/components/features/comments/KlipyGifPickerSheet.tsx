@@ -139,7 +139,7 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
     <AppTrueSheet
       ref={sheetRef}
       name="klipy-gif-picker"
-      detents={[0.85, 1]}
+      detents={[1]}
       onDidDismiss={onClose}
       scrollable
       header={
