@@ -54,11 +54,14 @@ const DURATION_OPTION_KEYS = [
   { value: 180, labelKey: 'create.duration3m' as const },
 ] as const;
 
-const CAPTURE_BUTTON_INNER_BG = 'rgba(129, 136, 150, 0.4)';
-const CAPTURE_BUTTON_INNER_DISABLED_BG = 'rgba(129, 136, 150, 0.2)';
+const CAPTURE_BUTTON_INNER_BG = hexToRGBA(Colors.neutral[500], 0.4);
+const CAPTURE_BUTTON_INNER_DISABLED_BG = hexToRGBA(Colors.neutral[500], 0.2);
 const DIGITAL_ZOOM_PRESETS = [0.5, 1, 2, 3, 5, 10] as const;
-/** Minimum segment duration (seconds). Shorter clips often have invalid timestamps after camera switch. */
-const MIN_RECORDING_DURATION = 0.4;
+/**
+ * Allows very short segments for Vine-style tap capture.
+ * Primarily a UX threshold for segment bar and onion skinning.
+ */
+const MIN_FINAL_SEGMENT_DURATION = 0.02;
 
 function lensToLabel(lens: string): string {
   const n = lens.toLowerCase();
@@ -89,6 +92,7 @@ const CreateScreen: React.FC = () => {
   const [availableLenses, setAvailableLenses] = useState<string[]>([]);
   const [lensDataReceived, setLensDataReceived] = useState(false);
   const [selectedLens, setSelectedLens] = useState<string | null>(null);
+  const [hasUserSelectedLens, setHasUserSelectedLens] = useState(false);
   const [selectedPresetLabel, setSelectedPresetLabel] = useState('1x');
   const [isTrimmerActive, setIsTrimmerActive] = useState(false);
   const [lastReadyCameraKey, setLastReadyCameraKey] = useState<string | null>(null);
@@ -108,13 +112,26 @@ const CreateScreen: React.FC = () => {
   const isRecordingRef = useRef(false);
   const lastTapRef = useRef<number>(0);
   const tapTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastZoomUpdateAtRef = useRef(0);
+  const pendingZoomRef = useRef<number | null>(null);
 
   // Animated values
   const totalDurationShared = useSharedValue(0); // Total duration from segments (updated when segments change)
-  const recordingStartTime = useSharedValue<number | null>(null); // Start time of current recording (milliseconds)
+  const recordingStartTime = useSharedValue<number | null>(null); // Start time of current recording (milliseconds, performance.now-based)
   const recordingElapsed = useSharedValue(0); // Elapsed time during current recording (seconds) - updated continuously
   const buttonOpacity = useSharedValue(1);
+  const cameraOpacity = useSharedValue(0);
   const zoomStartRef = useRef(0);
+
+  const cameraFadeStyle = useAnimatedStyle(() => {
+    'worklet';
+    return { opacity: cameraOpacity.value };
+  }, [cameraOpacity]);
+
+  const cameraWarmupOverlayStyle = useAnimatedStyle(() => {
+    'worklet';
+    return { opacity: 1 - cameraOpacity.value };
+  }, [cameraOpacity]);
 
   // Use useFocusEffect from expo-router instead of useIsFocused from react-navigation
   // This ensures compatibility with Expo Router's navigation system
@@ -160,28 +177,47 @@ const CreateScreen: React.FC = () => {
   // Extract only the last segment's frame for onion skinning (single source, no re-extraction of older clips)
   useEffect(() => {
     const ac = new AbortController();
-    const segments = segmentManagerRef.current?.getSegments() ?? [];
-    if (segments.length === 0) {
-      setLastFrameThumbnail(null);
-      return () => ac.abort();
-    }
+    // Defer extraction off the record-stop hot path.
+    // Avoid InteractionManager dependency; schedule on next tick and cancel on cleanup.
+    const timeoutId = setTimeout(() => {
+      (async () => {
+        if (ac.signal.aborted) return;
+        if (!isOnionSkinningEnabled) {
+          setLastFrameThumbnail(null);
+          return;
+        }
 
-    const lastSeg = segments[segments.length - 1];
-    const videoUri = getSegmentUri(lastSeg);
-    if (!videoUri || lastSeg.duration <= 0) {
-      setLastFrameThumbnail(null);
-      return () => ac.abort();
-    }
+        const segments = segmentManagerRef.current?.getSegments() ?? [];
+        if (segments.length === 0) {
+          setLastFrameThumbnail(null);
+          return;
+        }
 
-    VideoProcessingService.extractLastFrame(videoUri, lastSeg.duration)
-      .then(thumbUri => {
-        if (!ac.signal.aborted) setLastFrameThumbnail(thumbUri);
-      })
-      .catch(() => {
+        const lastSeg = segments[segments.length - 1];
+        const videoUri = getSegmentUri(lastSeg);
+        if (!videoUri || lastSeg.duration <= 0) {
+          setLastFrameThumbnail(null);
+          return;
+        }
+
+        try {
+          const thumbUri = await VideoProcessingService.extractLastFrame(
+            videoUri,
+            lastSeg.duration
+          );
+          if (!ac.signal.aborted) setLastFrameThumbnail(thumbUri);
+        } catch {
+          if (!ac.signal.aborted) setLastFrameThumbnail(null);
+        }
+      })().catch(() => {
         if (!ac.signal.aborted) setLastFrameThumbnail(null);
       });
-    return () => ac.abort();
-  }, [getSegmentUri, segmentUpdateTrigger]);
+    }, 0);
+    return () => {
+      ac.abort();
+      clearTimeout(timeoutId);
+    };
+  }, [getSegmentUri, isOnionSkinningEnabled, segmentUpdateTrigger]);
 
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -196,13 +232,27 @@ const CreateScreen: React.FC = () => {
   const bottomNavBarHeight = getBottomNavBarHeight(insets, isSmallDevice);
   const listenerSubscription = useRef<Record<string, EventSubscription>>({});
 
-  // Ready once onCameraReady has fired for this dimensions. Facing changes in-place (no remount).
-  const cameraReadyKey = `${Math.round(screenWidth)}x${Math.round(screenHeight)}`;
+  // Latch the initial dimensions so layout settling doesn't cause a remount churn.
+  const [latchedCameraSize, setLatchedCameraSize] = useState<{ w: number; h: number } | null>(null);
+  useEffect(() => {
+    if (latchedCameraSize) return;
+    const w = Math.round(screenWidth);
+    const h = Math.round(screenHeight);
+    if (w > 0 && h > 0) setLatchedCameraSize({ w, h });
+  }, [latchedCameraSize, screenWidth, screenHeight]);
+
+  const cameraReadyKey = `${latchedCameraSize?.w ?? Math.round(screenWidth)}x${latchedCameraSize?.h ?? Math.round(screenHeight)}-${isFrontCamera ? 'front' : 'back'}`;
   const isCameraReady = lastReadyCameraKey === cameraReadyKey;
 
   const handleCameraReady = useCallback(() => {
     setLastReadyCameraKey(cameraReadyKey);
-  }, [cameraReadyKey]);
+    cameraOpacity.value = withTiming(1, { duration: 160 });
+  }, [cameraOpacity, cameraReadyKey]);
+
+  // Hide warmup frames whenever the camera session restarts.
+  useEffect(() => {
+    cameraOpacity.value = 0;
+  }, [cameraReadyKey, cameraOpacity]);
 
   // Small phones (e.g. iPhone SE) no longer special-cased: they use the same 16:9 crop as other
   // portrait phones, which may leave a small bottom gap. Full screenHeight only for tablets or
@@ -540,11 +590,23 @@ const CreateScreen: React.FC = () => {
   const captureZoomStart = useCallback(() => {
     zoomStartRef.current = zoom;
   }, [zoom]);
+  const flushPendingZoom = useCallback(() => {
+    const pending = pendingZoomRef.current;
+    if (pending == null) return;
+    pendingZoomRef.current = null;
+    lastZoomUpdateAtRef.current = Date.now();
+    setZoom(pending);
+  }, []);
   const applyZoomFromPinch = useCallback((scale: number) => {
     // Sensitivity so one full pinch-out reaches 1 and one full pinch-in reaches 0
     const sensitivity = 1.25;
     const scaleChange = (scale - 1) * sensitivity;
     const newZoom = Math.max(0, Math.min(1, zoomStartRef.current + scaleChange));
+    pendingZoomRef.current = newZoom;
+    const now = Date.now();
+    // Throttle React state updates; camera prop churn can cause preview jank.
+    if (now - lastZoomUpdateAtRef.current < 60) return;
+    lastZoomUpdateAtRef.current = now;
     setZoom(newZoom);
   }, []);
   const pinchGesture = Gesture.Pinch()
@@ -555,6 +617,10 @@ const CreateScreen: React.FC = () => {
     .onUpdate(event => {
       'worklet';
       runOnJS(applyZoomFromPinch)(event.scale);
+    })
+    .onEnd(() => {
+      'worklet';
+      runOnJS(flushPendingZoom)();
     });
 
   // Update shared value when segments change
@@ -562,11 +628,11 @@ const CreateScreen: React.FC = () => {
     totalDurationShared.value = segmentManagerRef.current?.getTotalDuration() ?? 0;
   }, [segmentUpdateTrigger, totalDurationShared]);
 
-  // Continuously update elapsed time on UI thread every frame
+  // Continuously update elapsed time on UI thread every frame using performance.now to minimize drift
   useFrameCallback(() => {
     'worklet';
     if (recordingStartTime.value !== null) {
-      const now = Date.now();
+      const now = global.performance ? global.performance.now() : Date.now();
       recordingElapsed.value = (now - recordingStartTime.value) / 1000;
     } else {
       recordingElapsed.value = 0;
@@ -614,8 +680,9 @@ const CreateScreen: React.FC = () => {
       // Capture elapsed time before resetting (use recording time directly)
       const elapsedDuration = recordingElapsed.value;
 
-      // Optimistically update total duration immediately to prevent flash
-      if (elapsedDuration > 0 && segmentManagerRef.current) {
+      // Optimistically update total duration immediately to prevent flash.
+      // Only do this if the tap is long enough to plausibly become a segment.
+      if (elapsedDuration >= MIN_FINAL_SEGMENT_DURATION && segmentManagerRef.current) {
         totalDurationShared.value = segmentManagerRef.current.getTotalDuration() + elapsedDuration;
       }
 
@@ -639,10 +706,15 @@ const CreateScreen: React.FC = () => {
           video = undefined;
         }
         const manager = segmentManagerRef.current;
+        const fileDuration =
+          video?.uri != null
+            ? await VideoProcessingService.getVideoDurationFromFile(video.uri).catch(() => 0)
+            : 0;
+        const measuredDuration = fileDuration > 0 ? fileDuration : elapsedDuration;
 
-        if (video && manager && elapsedDuration >= MIN_RECORDING_DURATION) {
+        if (video && manager && measuredDuration >= MIN_FINAL_SEGMENT_DURATION) {
           const availableTime = manager.getAvailableTime();
-          const clampedDuration = Math.min(elapsedDuration, availableTime);
+          const clampedDuration = Math.min(measuredDuration, availableTime);
 
           if (clampedDuration > 0) {
             const newSegment: Segment = {
@@ -678,7 +750,15 @@ const CreateScreen: React.FC = () => {
   }, [totalDurationShared, recordingStartTime, recordingElapsed]);
 
   const startRecording = useCallback(async () => {
-    const currentTotal = segmentManagerRef.current?.getTotalDuration() ?? 0;
+    const manager = segmentManagerRef.current;
+    const currentTotal = manager?.getTotalDuration() ?? 0;
+    const availableTime = manager?.getAvailableTime() ?? 0;
+
+    // Guard: require at least a tiny amount of remaining time
+    if (availableTime <= MIN_FINAL_SEGMENT_DURATION) {
+      return;
+    }
+
     if (cameraRef.current && !isRecordingRef.current && currentTotal < maxDuration) {
       if (!microphonePermission?.granted) {
         const result = await requestMicrophonePermission();
@@ -690,13 +770,13 @@ const CreateScreen: React.FC = () => {
 
       isRecordingRef.current = true;
       setIsRecording(true);
-      const startTime = Date.now();
-      recordingStartTime.value = startTime; // Set shared value for UI-thread timer
+      const now = global.performance ? global.performance.now() : Date.now();
+      recordingStartTime.value = now; // Set shared value for UI-thread timer
       recordingElapsed.value = 0; // Reset elapsed time
 
       try {
-        const manager = segmentManagerRef.current;
-        const availableTime = manager?.getAvailableTime() ?? 0;
+        const managerForDuration = segmentManagerRef.current;
+        const availableTime = managerForDuration?.getAvailableTime() ?? 0;
         const recordingOptions: CameraRecordingOptions = {
           maxDuration: availableTime,
           maxFileSize: 512 * 1024 * 1024,
@@ -738,7 +818,7 @@ const CreateScreen: React.FC = () => {
       !isRecordingRef.current &&
       !isProcessing &&
       currentTotal < maxDuration &&
-      availableTime > 0
+      availableTime > MIN_FINAL_SEGMENT_DURATION
     ) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       startRecording();
@@ -852,7 +932,10 @@ const CreateScreen: React.FC = () => {
     setIsZoomExpanded(false);
     setLensDataReceived(false);
     setSelectedLens(null);
+    setHasUserSelectedLens(false);
     setSelectedPresetLabel('1x');
+    setLastReadyCameraKey(null);
+    cameraOpacity.value = 0;
     setIsFrontCamera(prev => !prev);
   }, [stopRecording]);
 
@@ -1085,13 +1168,14 @@ const CreateScreen: React.FC = () => {
       );
     }
 
+    const isCameraActive = isFocused && !isTrimmerActive && !isDeletePreviewActive;
+
     const cameraSurface = (
       <Animated.View style={[styles.cameraPressable, cameraAndroidLayout]}>
         <Pressable
           onPress={isDeletePreviewActive ? cancelDeletePreview : handleDoubleTap}
           style={[styles.cameraPressable, cameraAndroidLayout]}
         >
-          {/* Wrapper matches camera dimensions so overlay aligns pixel-perfect */}
           <View style={[styles.cameraWrapper, cameraLayout]}>
             {isDeletePreviewActive && deletePreviewUri && deletePreviewPlayer ? (
               <VideoView
@@ -1102,48 +1186,53 @@ const CreateScreen: React.FC = () => {
                 surfaceType={Platform.OS === 'android' ? 'textureView' : undefined}
               />
             ) : (
-              <CameraView
-                ref={cameraRef}
-                style={styles.cameraFill}
-                active={isFocused && !isTrimmerActive && !isDeletePreviewActive}
-                facing={isFrontCamera ? 'front' : 'back'}
-                mode="video"
-                flash="off"
-                enableTorch={flash === 'on' && !isFrontCamera}
-                mute={!microphonePermission?.granted}
-                mirror={isFrontCamera}
-                videoQuality={isFrontCamera ? '1080p' : '2160p'}
-                videoStabilizationMode="off"
-                animateShutter={false}
-                zoom={zoom}
-                selectedLens={selectedLens ?? undefined}
-                onCameraReady={handleCameraReady}
-                onMountError={e => {
-                  if (__DEV__)
+              <Animated.View style={[styles.cameraFill, cameraFadeStyle]}>
+                <CameraView
+                  key={cameraReadyKey}
+                  ref={cameraRef}
+                  style={styles.cameraFill}
+                  active={isCameraActive}
+                  facing={isFrontCamera ? 'front' : 'back'}
+                  mode="video"
+                  flash="off"
+                  enableTorch={flash === 'on' && !isFrontCamera}
+                  mute={!microphonePermission?.granted}
+                  mirror={isFrontCamera}
+                  videoQuality="1080p"
+                  videoStabilizationMode="off"
+                  animateShutter={false}
+                  zoom={zoom}
+                  selectedLens={hasUserSelectedLens ? (selectedLens ?? undefined) : undefined}
+                  onCameraReady={handleCameraReady}
+                  onMountError={e => {
+                    if (!__DEV__) return;
                     logger.warn('[Camera] Mount error:', {
                       component: 'Camera',
                       message: e?.message,
                     });
-                }}
-                onAvailableLensesChanged={event => {
-                  const raw = event?.lenses ?? [];
-                  const n = (s: string) => s.toLowerCase();
-                  const physical = raw.filter(
-                    l => !n(l).includes('dual') && !n(l).includes('triple')
-                  );
-                  setAvailableLenses(physical);
-                  setLensDataReceived(true);
-                  if (physical.length > 0) {
-                    setSelectedLens(prev => {
-                      const valid = physical.includes(prev ?? '');
-                      if (valid) return prev;
-                      const wide = physical.find(
-                        l => n(l).includes('wide') && !n(l).includes('ultra')
-                      );
-                      return wide ?? physical[0];
-                    });
-                  }
-                }}
+                  }}
+                  onAvailableLensesChanged={event => {
+                    const raw = event?.lenses ?? [];
+                    const n = (s: string) => s.toLowerCase();
+                    const physical = raw.filter(
+                      l => !n(l).includes('dual') && !n(l).includes('triple')
+                    );
+                    setAvailableLenses(physical);
+                    setLensDataReceived(true);
+
+                    // Keep user-selected lens if it still exists; otherwise revert to native default.
+                    if (hasUserSelectedLens && selectedLens && !physical.includes(selectedLens)) {
+                      setSelectedLens(null);
+                      setHasUserSelectedLens(false);
+                    }
+                  }}
+                />
+              </Animated.View>
+            )}
+            {!isDeletePreviewActive && (
+              <Animated.View
+                pointerEvents="none"
+                style={[styles.cameraWarmupOverlay, cameraWarmupOverlayStyle]}
               />
             )}
             {!isDeletePreviewActive && isOnionSkinningEnabled && lastFrameThumbnail && (
@@ -1234,6 +1323,7 @@ const CreateScreen: React.FC = () => {
                                   onPress={() => {
                                     Haptics.selectionAsync();
                                     setSelectedLens(lens);
+                                    setHasUserSelectedLens(true);
                                     setZoom(0);
                                     setIsZoomExpanded(false);
                                   }}
@@ -1464,6 +1554,11 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     opacity: 0.3,
     zIndex: 10,
+  },
+  cameraWarmupOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: Colors.black,
+    zIndex: 5,
   },
   progressBarOverlay: {
     position: 'absolute',
