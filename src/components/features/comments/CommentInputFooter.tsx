@@ -1,10 +1,11 @@
-import React, { memo } from 'react';
+import React, { memo, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
   Pressable,
   TextInput,
+  ScrollView,
   StyleSheet,
   Platform,
   type NativeSyntheticEvent,
@@ -12,6 +13,9 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
+import { Image } from 'expo-image';
+import { MenuView } from '@react-native-menu/menu';
+import type { MenuAction } from '@react-native-menu/menu';
 import Icon from '../../ui/Icon';
 import UI from '../../ui/UI';
 import { Colors } from '../../../theme';
@@ -20,6 +24,7 @@ import { UserSearchModal } from '../../ui/usersearch';
 import { useUserStore } from '../../../stores/userStore';
 import { useProfile } from '../../../services/data/ProfileService';
 import { useAvatarProfileRing } from '../../../services/colors';
+import { Typography } from '../../../utils/components/typography';
 
 interface UserSearchModalProps {
   visible: boolean;
@@ -55,6 +60,18 @@ interface CommentInputFooterProps {
   onSelectionChange: (e: TextInputSelectionChangeEvent) => void;
   placeholder?: string;
   onSubmit: () => void;
+  onPressGif?: () => void;
+  onPressPhotos?: () => void;
+  selectedGifPreviewUri?: string | null;
+  selectedImages?: Array<{
+    uri: string;
+    alt: string;
+    aspectRatio?: { width: number; height: number };
+  }>;
+  onRemoveImage?: (uri: string) => void;
+  onClearGif?: () => void;
+  hasAttachment?: boolean;
+  onClearAttachment?: () => void;
   /**
    * Show/hide the current user's avatar at the start of the input row.
    * Useful for compact composers (e.g. share-sheet send message).
@@ -115,16 +132,26 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   mentionInputProps,
   onFocus,
   safeAreaBottom: safeAreaBottomProp,
+  onPressGif,
+  onPressPhotos,
+  selectedGifPreviewUri = null,
+  selectedImages = [],
+  onRemoveImage,
+  onClearGif,
+  hasAttachment = false,
+  onClearAttachment,
 }) => {
   const { t } = useTranslation();
   const resolvedPlaceholder = placeholder ?? t('comments.saySomething');
   const resolvedSubmitLabel = submitAccessibilityLabel ?? t('comments.sendComment');
   const charCount = value.length;
   const hasText = value.trim().length > 0;
-  const showCharCount = charCount >= 150;
-  const shouldRenderSendButton = hasText || showSendWhenEmpty;
+  const remainingChars = maxLength - charCount;
+  const showCharCount = remainingChars <= 50;
+  const hasContent = hasText || !!hasAttachment;
+  const shouldRenderSendButton = hasContent || showSendWhenEmpty;
   const isSendDisabled =
-    isPosting || isSubmitDisabled || (!hasText && !showSendWhenEmpty) || charCount > maxLength;
+    isPosting || isSubmitDisabled || (!hasContent && !showSendWhenEmpty) || charCount > maxLength;
   const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
 
   // Get current user profile for live status
@@ -140,9 +167,136 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   const bottomPadding =
     safeAreaBottomProp !== undefined ? safeAreaBottomProp : defaultBottomPadding;
 
+  const hasImages = selectedImages.length > 0;
+  const hasGifPreview = !!selectedGifPreviewUri;
+  // `selectedGifPreviewUri` can be null depending on the provider; `hasAttachment` is the reliable signal.
+  const hasGifAttachment = !hasImages && !!hasAttachment;
+  const attachmentKind: 'images' | 'gif' | 'none' = hasImages
+    ? 'images'
+    : hasGifAttachment
+      ? 'gif'
+      : 'none';
+  const canOpenMediaDrawer = !!(onPressGif || onPressPhotos);
+  const handlePickGif = useCallback(() => {
+    onPressGif?.();
+  }, [onPressGif]);
+
+  const handlePickPhotos = useCallback(() => {
+    onPressPhotos?.();
+  }, [onPressPhotos]);
+
+  const mediaMenuActions = useMemo<MenuAction[]>(() => {
+    const actions: MenuAction[] = [];
+    if (onPressGif) {
+      actions.push({
+        id: 'gif',
+        title: t('comments.addGif'),
+        attributes: { disabled: !!isPosting },
+      });
+    }
+    if (onPressPhotos) {
+      actions.push({
+        id: 'photos',
+        title: t('comments.addPhoto'),
+        attributes: { disabled: !!isPosting },
+      });
+    }
+    return actions;
+  }, [onPressGif, onPressPhotos, isPosting, t]);
+
+  const handleMediaMenuPressAction = useCallback(
+    ({ nativeEvent }: { nativeEvent: { event?: string } }) => {
+      const id = nativeEvent?.event;
+      if (id === 'gif') {
+        handlePickGif();
+      } else if (id === 'photos') {
+        handlePickPhotos();
+      }
+    },
+    [handlePickGif, handlePickPhotos]
+  );
+
   return (
     <View style={[styles.footerContainer, { paddingBottom: bottomPadding }]}>
       <View style={styles.inputContainer}>
+        {attachmentKind === 'none' ? null : (
+          <View style={styles.attachmentRow}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.attachmentStrip}
+              keyboardShouldPersistTaps="handled"
+            >
+              {attachmentKind === 'gif' ? (
+                <View style={[styles.attachmentThumbWrap, { aspectRatio: 16 / 9 }]}>
+                  {hasGifPreview ? (
+                    <Image
+                      source={{ uri: selectedGifPreviewUri ?? undefined }}
+                      style={styles.attachmentThumb}
+                      contentFit="contain"
+                    />
+                  ) : (
+                    <View style={styles.gifFallbackThumb} />
+                  )}
+                  <View style={styles.attachmentBadge} pointerEvents="none">
+                    <Text style={styles.attachmentBadgeText}>GIF</Text>
+                  </View>
+                  {onClearGif ? (
+                    <Pressable
+                      onPress={onClearGif}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      style={styles.removeThumbButton}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('comments.removeGif')}
+                    >
+                      <Icon name="close" size={14} color={Colors.neutral[50]} />
+                    </Pressable>
+                  ) : onClearAttachment ? (
+                    <Pressable
+                      onPress={onClearAttachment}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      style={styles.removeThumbButton}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('comments.removeGif')}
+                    >
+                      <Icon name="close" size={14} color={Colors.neutral[50]} />
+                    </Pressable>
+                  ) : null}
+                </View>
+              ) : null}
+
+              {hasImages
+                ? selectedImages.slice(0, 4).map(img => {
+                    const ar =
+                      img.aspectRatio && img.aspectRatio.height > 0
+                        ? img.aspectRatio.width / img.aspectRatio.height
+                        : 1;
+                    return (
+                      <View key={img.uri} style={[styles.attachmentThumbWrap, { aspectRatio: ar }]}>
+                        <Image
+                          source={{ uri: img.uri }}
+                          style={styles.attachmentThumb}
+                          contentFit="contain"
+                        />
+                        {onRemoveImage ? (
+                          <Pressable
+                            onPress={() => onRemoveImage(img.uri)}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            style={styles.removeThumbButton}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('comments.removeImage')}
+                          >
+                            <Icon name="close" size={14} color={Colors.neutral[50]} />
+                          </Pressable>
+                        ) : null}
+                      </View>
+                    );
+                  })
+                : null}
+            </ScrollView>
+          </View>
+        )}
+
         <View style={styles.inputRow}>
           {showAvatar ? (
             <View style={styles.avatarContainer}>
@@ -185,59 +339,80 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
             />
           </View>
           <View style={styles.sendColumn}>
-            {shouldRenderSendButton ? (
-              <Pressable
-                style={[
-                  styles.sendButton,
-                  !useLiquidGlass && styles.sendButtonFallback,
-                  isSendDisabled && styles.sendButtonDisabled,
-                ]}
-                onPress={onSubmit}
-                disabled={isSendDisabled}
-                hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
-                accessible={true}
-                accessibilityRole="button"
-                accessibilityLabel={resolvedSubmitLabel}
-              >
-                {useLiquidGlass ? (
-                  <>
-                    <GlassView
-                      style={styles.glassBackground}
-                      glassEffectStyle="clear"
-                      tintColor="rgba(255, 255, 255, 1)"
-                      isInteractive
-                    />
-                    <View style={styles.sendButtonContent} pointerEvents="none">
-                      <Icon name="arrow-up-fill" size={22} color={Colors.black} />
-                    </View>
-                  </>
-                ) : (
-                  <Icon name="arrow-up-fill" size={22} color={Colors.black} />
-                )}
-              </Pressable>
-            ) : replyContext && !hasText ? (
-              <Pressable
-                style={[styles.sendButton, styles.cancelReplyButton]}
-                onPress={onCancelReply}
-                hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
-                accessible={true}
-                accessibilityRole="button"
-                accessibilityLabel={t('comments.cancelReply')}
-              >
-                <Icon name="close" size={18} color={Colors.neutral[200]} />
-              </Pressable>
+            <View style={styles.controlsRow}>
+              {canOpenMediaDrawer && !hasText && attachmentKind === 'none' ? (
+                <MenuView
+                  title=""
+                  actions={mediaMenuActions}
+                  onPressAction={handleMediaMenuPressAction}
+                  shouldOpenOnLongPress={false}
+                  themeVariant="dark"
+                  isAnchoredToRight={true}
+                >
+                  <Pressable
+                    style={[styles.iconButton, isPosting && styles.iconButtonDisabled]}
+                    disabled={isPosting || mediaMenuActions.length === 0}
+                    hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+                    accessible={true}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('common.add')}
+                  >
+                    <Icon name="plus" size={18} color={Colors.neutral[200]} />
+                  </Pressable>
+                </MenuView>
+              ) : null}
+              {shouldRenderSendButton ? (
+                <Pressable
+                  style={[
+                    styles.sendButton,
+                    !useLiquidGlass && styles.sendButtonFallback,
+                    isSendDisabled && styles.sendButtonDisabled,
+                  ]}
+                  onPress={onSubmit}
+                  disabled={isSendDisabled}
+                  hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+                  accessible={true}
+                  accessibilityRole="button"
+                  accessibilityLabel={resolvedSubmitLabel}
+                >
+                  {useLiquidGlass ? (
+                    <>
+                      <GlassView
+                        style={styles.glassBackground}
+                        glassEffectStyle="clear"
+                        tintColor="rgba(255, 255, 255, 1)"
+                        isInteractive
+                      />
+                      <View style={styles.sendButtonContent} pointerEvents="none">
+                        <Icon name="arrow-up-fill" size={22} color={Colors.black} />
+                      </View>
+                    </>
+                  ) : (
+                    <Icon name="arrow-up-fill" size={22} color={Colors.black} />
+                  )}
+                </Pressable>
+              ) : replyContext && !hasText ? (
+                <Pressable
+                  style={[styles.sendButton, styles.cancelReplyButton]}
+                  onPress={onCancelReply}
+                  hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+                  accessible={true}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('comments.cancelReply')}
+                >
+                  <Icon name="close" size={18} color={Colors.neutral[200]} />
+                </Pressable>
+              ) : null}
+            </View>
+            {showCharCount ? (
+              <View style={styles.charCountOverlay} pointerEvents="none">
+                <Text
+                  style={[styles.charCountText, charCount > maxLength && styles.charCountTextError]}
+                >
+                  {remainingChars}
+                </Text>
+              </View>
             ) : null}
-            {showCharCount && (
-              <Text
-                style={[
-                  styles.charCountText,
-                  styles.charCountBelow,
-                  charCount > maxLength && styles.charCountTextError,
-                ]}
-              >
-                {maxLength - charCount}
-              </Text>
-            )}
           </View>
         </View>
       </View>
@@ -298,16 +473,36 @@ const styles = StyleSheet.create({
     paddingBottom: 9,
     paddingLeft: 0,
     textAlignVertical: 'top',
-    fontFamily: 'Figtree-Regular',
-    fontSize: 18,
-    lineHeight: 24,
+    fontFamily: Typography.families.regular,
+    fontSize: Typography.sizes.title,
+    lineHeight: Typography.lineHeights.title,
   },
   sendColumn: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'flex-end',
+    justifyContent: 'flex-start',
     marginLeft: 8,
+    alignSelf: 'stretch',
+    position: 'relative',
     zIndex: 10,
     elevation: 10,
+  },
+  controlsRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+  iconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: BORDER_RADIUS.FULL,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.overlay.white10,
+    marginBottom: 6,
+  },
+  iconButtonDisabled: {
+    opacity: 0.6,
   },
   sendButton: {
     paddingHorizontal: 8,
@@ -318,7 +513,6 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     alignItems: 'center',
-    marginLeft: 8,
     marginTop: 0,
     zIndex: 11,
     elevation: 11,
@@ -343,23 +537,24 @@ const styles = StyleSheet.create({
   cancelReplyButton: {
     backgroundColor: Colors.overlay.white10,
   },
-  charCountBelow: {
-    marginTop: 6,
-    color: Colors.neutral[200],
-    fontSize: 11,
-    textAlign: 'center',
-    fontFamily: 'Figtree-Medium',
+  charCountOverlay: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
     width: 42,
-    alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
   },
   charCountText: {
     color: Colors.neutral[200],
-    fontSize: 11,
+    fontSize: Typography.sizes.bodySmall,
     textAlign: 'center',
-    fontFamily: 'Figtree-Medium',
+    fontFamily: Typography.families.medium,
+    lineHeight: Typography.lineHeights.bodySmall,
   },
   charCountTextError: {
     color: Colors.coral[300],
+    height: 84,
   },
   userSearchContainer: {
     position: 'absolute',
@@ -367,6 +562,56 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     pointerEvents: 'box-none',
+  },
+  attachmentRow: {
+    paddingBottom: 10,
+  },
+  attachmentStrip: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingRight: 2,
+  },
+  attachmentThumbWrap: {
+    marginRight: 0,
+    height: 72,
+    borderRadius: BORDER_RADIUS.MEDIUM,
+    overflow: 'hidden',
+    backgroundColor: Colors.overlay.white10,
+  },
+  attachmentThumb: {
+    width: '100%',
+    height: '100%',
+  },
+  gifFallbackThumb: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: Colors.overlay.white10,
+  },
+  attachmentBadge: {
+    position: 'absolute',
+    left: 6,
+    bottom: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: BORDER_RADIUS.FULL,
+    backgroundColor: Colors.overlay.black70,
+  },
+  attachmentBadgeText: {
+    color: Colors.neutral[50],
+    fontFamily: Typography.families.semibold,
+    fontSize: Typography.sizes.caption,
+    lineHeight: Typography.lineHeights.caption,
+  },
+  removeThumbButton: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 22,
+    height: 22,
+    borderRadius: BORDER_RADIUS.FULL,
+    backgroundColor: Colors.overlay.black70,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 

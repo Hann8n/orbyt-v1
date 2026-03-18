@@ -379,7 +379,8 @@ export class FeedService {
     rootCid: string,
     parentUri?: string,
     parentCid?: string,
-    images?: { uri: string; alt: string; aspectRatio?: { width: number; height: number } }[]
+    images?: { uri: string; alt: string; aspectRatio?: { width: number; height: number } }[],
+    externalEmbed?: { uri: string; title?: string; description?: string; thumb?: string }
   ): Promise<{ uri: string; cid: string }> {
     await AtprotoCore.ensureSession();
     const { api } = await AtprotoCore.getApiClient();
@@ -408,8 +409,32 @@ export class FeedService {
     }
 
     // Add images if provided
-    if (images && images.length > 0) {
+    if (externalEmbed?.uri) {
+      const external: Record<string, unknown> = {
+        uri: externalEmbed.uri,
+        title: externalEmbed.title ?? externalEmbed.uri,
+        description: externalEmbed.description ?? '',
+      };
+      if (externalEmbed.thumb) external.thumb = externalEmbed.thumb;
+
+      postRecord.embed = {
+        $type: 'app.bsky.embed.external',
+        external,
+      };
+    } else if (images && images.length > 0) {
       try {
+        const inferImageEncoding = (uri: string, blob: Blob): string => {
+          const fromBlob = typeof blob?.type === 'string' ? blob.type : '';
+          if (fromBlob.startsWith('image/')) return fromBlob;
+
+          const clean = uri.split('?')[0].toLowerCase();
+          if (clean.endsWith('.png')) return 'image/png';
+          if (clean.endsWith('.webp')) return 'image/webp';
+          if (clean.endsWith('.gif')) return 'image/gif';
+          if (clean.endsWith('.jpg') || clean.endsWith('.jpeg')) return 'image/jpeg';
+          return 'image/jpeg';
+        };
+
         // Upload each image and get its blob reference
         const uploadedImages = await Promise.all(
           images.map(async img => {
@@ -420,7 +445,7 @@ export class FeedService {
               // Upload the blob to Bluesky
               const { api } = await AtprotoCore.getApiClient();
               const uploadResult = await api.uploadBlob(blob, {
-                encoding: 'image/jpeg', // Default to JPEG, but ideally detect from the blob
+                encoding: inferImageEncoding(img.uri, blob),
               });
 
               return {

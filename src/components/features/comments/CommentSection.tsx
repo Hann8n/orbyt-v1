@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { FlashList, ListRenderItem, FlashListRef } from '@shopify/flash-list';
@@ -36,14 +37,17 @@ import TabNavigation, { TabOption } from '../../layout/header/TabNavigation';
 import { Colors } from '../../../theme';
 import { HeartFillIcon, MoreFillIcon, CloseFillIcon } from '../../ui/Icon';
 import RelativeDate from '../../ui/RelativeDate';
-import AuthorItem from '../../ui/AuthorItem';
 import { useUserSearchTrigger } from '../../ui/usersearch';
 import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../../utils/constants';
 import { formatNumber } from '../../../utils/formatting/numbers';
 import { formatHandle } from '../../../utils/formatting/handles';
+import { FontFamily } from '../../../utils/components/typography';
 import CommentInputFooter from './CommentInputFooter';
 import CommentItem from './CommentItem';
+import { CommentLikeItem } from './CommentLikeItem';
+import KlipyGifPickerSheet from './KlipyGifPickerSheet';
 import type { Comment, Like } from '../../../services/api/types';
+import type { KlipyItem } from '../../../services/klipy/KlipyService';
 
 /**
  * Types (kept compatible with your current usage)
@@ -125,6 +129,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   );
 
   const sheetRef = useRef<TrueSheet>(null);
+  const klipySheetRef = useRef<TrueSheet>(null);
   const lastPresentedPostUriRef = useRef<string | null>(null);
   const commentsListRef = useRef<FlashListRef<Comment> | null>(null);
   const likesListRef = useRef<FlashListRef<Like> | null>(null);
@@ -134,6 +139,10 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const [fullscreenImageUri, setFullscreenImageUri] = useState<string | null>(null);
 
   const [newCommentText, setNewCommentText] = useState('');
+  const [selectedGif, setSelectedGif] = useState<KlipyItem | null>(null);
+  const [selectedImages, setSelectedImages] = useState<
+    Array<{ uri: string; alt: string; aspectRatio?: { width: number; height: number } }>
+  >([]);
   const [inputSelection, setInputSelection] = useState<{ start: number; end: number }>({
     start: 0,
     end: 0,
@@ -149,6 +158,73 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const handleCancelReply = useCallback(() => {
     setReplyContext(null);
     setTimeout(() => inputRef.current?.focus?.(), 50);
+  }, []);
+
+  const openGifPicker = useCallback(() => {
+    klipySheetRef.current?.present().catch(() => {});
+  }, []);
+
+  const closeGifPicker = useCallback(() => {
+    klipySheetRef.current?.dismiss().catch(() => {});
+  }, []);
+
+  const handleSelectGif = useCallback(
+    (item: KlipyItem) => {
+      setSelectedGif(item);
+      setSelectedImages([]);
+      closeGifPicker();
+      setTimeout(() => inputRef.current?.focus?.(), 50);
+    },
+    [closeGifPicker]
+  );
+
+  const handlePickImages = useCallback(async () => {
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert(t('video.permissionRequired'), t('video.mediaLibraryPermissionRequired'));
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsMultipleSelection: true,
+        selectionLimit: 4,
+        quality: 0.9,
+        allowsEditing: false,
+      });
+
+      if (result.canceled) return;
+      const assets = result.assets ?? [];
+      if (!assets.length) return;
+
+      const next = assets
+        .filter(a => a?.uri)
+        .slice(0, 4)
+        .map(a => {
+          const width = typeof a.width === 'number' ? a.width : undefined;
+          const height = typeof a.height === 'number' ? a.height : undefined;
+          const aspectRatio =
+            width && height && width > 0 && height > 0 ? { width, height } : undefined;
+          return {
+            uri: a.uri,
+            alt: '',
+            aspectRatio,
+          };
+        });
+
+      if (next.length) {
+        setSelectedImages(next);
+        setSelectedGif(null);
+        setTimeout(() => inputRef.current?.focus?.(), 50);
+      }
+    } catch {
+      Alert.alert(t('common.error'), t('video.failedToAccessGallery'));
+    }
+  }, [t]);
+
+  const handleRemoveSelectedImage = useCallback((uri: string) => {
+    setSelectedImages(prev => prev.filter(img => img.uri !== uri));
   }, []);
 
   const handleReplyPress = useCallback(
@@ -475,7 +551,9 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     if (!post?.uri) return;
 
     const text = newCommentText.trim();
-    if (!text || isPosting) return;
+    const hasGif = !!selectedGif?.fullUrl;
+    const hasImages = selectedImages.length > 0;
+    if ((!text && !hasGif && !hasImages) || isPosting) return;
 
     setIsPosting(true);
 
@@ -486,12 +564,45 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       const parentUri = replyContext?.parentUri ?? rootUri;
       const parentCid = replyContext?.parentCid ?? rootCid;
 
-      const result = await AtprotoService.postComment(text, rootUri, rootCid, parentUri, parentCid);
+      const externalEmbed = hasGif
+        ? {
+            uri: selectedGif!.fullUrl,
+            title:
+              selectedGif!.title ??
+              (selectedGif!.kind === 'sticker'
+                ? 'Sticker'
+                : selectedGif!.kind === 'meme'
+                  ? 'Meme'
+                  : selectedGif!.kind === 'emoji'
+                    ? 'Emoji'
+                    : 'GIF'),
+            description:
+              selectedGif!.kind === 'sticker'
+                ? 'Klipy Sticker'
+                : selectedGif!.kind === 'meme'
+                  ? 'Klipy Meme'
+                  : selectedGif!.kind === 'emoji'
+                    ? 'Klipy Emoji'
+                    : 'Klipy GIF',
+          }
+        : undefined;
+
+      const result = await AtprotoService.postComment(
+        text,
+        rootUri,
+        rootCid,
+        parentUri,
+        parentCid,
+        hasImages ? selectedImages : undefined,
+        hasGif ? externalEmbed : undefined
+      );
 
       // Store the URI of the newly posted comment to scroll to it after refetch
       setPostedCommentUri(result.uri);
 
       setNewCommentText('');
+      setSelectedGif(null);
+      setSelectedImages([]);
       setReplyContext(null);
 
       // Invalidate and force refetch to ensure new comment appears immediately
@@ -513,7 +624,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     } finally {
       setIsPosting(false);
     }
-  }, [post, newCommentText, replyContext, isPosting, queryClient]);
+  }, [post, newCommentText, selectedGif, selectedImages, replyContext, isPosting, queryClient, t]);
 
   // Scroll to newly posted comment after it appears in the list
   useEffect(() => {
@@ -593,6 +704,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
   const handleClose = useCallback(() => {
     setNewCommentText('');
+    setSelectedGif(null);
+    setSelectedImages([]);
     setActiveTab('comments');
     setLikesQueryEnabled(false);
     setFullscreenImageUri(null);
@@ -654,21 +767,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         }
       };
 
-      return (
-        <AuthorItem
-          handle={item.actor.handle}
-          did={item.actor.did}
-          displayName={item.actor.displayName}
-          avatar={item.actor.avatar}
-          size="medium"
-          showArrow={false}
-          backgroundColor="transparent"
-          hideHandleLine={true}
-          customFontSize={16}
-          onPress={handlePress}
-          style={styles.likeItem}
-        />
-      );
+      return <CommentLikeItem like={item} onPress={handlePress} />;
     },
     [onDismiss, router]
   );
@@ -732,6 +831,17 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         onSelectionChange={e => setInputSelection(e.nativeEvent.selection)}
         placeholder={placeholder}
         onSubmit={handleSendComment}
+        onPressGif={openGifPicker}
+        onPressPhotos={handlePickImages}
+        selectedGifPreviewUri={selectedGif?.previewUrl ?? null}
+        selectedImages={selectedImages}
+        hasAttachment={!!selectedGif || selectedImages.length > 0}
+        onClearAttachment={() => {
+          setSelectedGif(null);
+          setSelectedImages([]);
+        }}
+        onClearGif={() => setSelectedGif(null)}
+        onRemoveImage={handleRemoveSelectedImage}
         onCancelReply={handleCancelReply}
         replyContext={
           replyContext
@@ -753,6 +863,10 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     );
   }, [
     newCommentText,
+    openGifPicker,
+    handlePickImages,
+    selectedGif,
+    selectedImages,
     inputSelection,
     placeholder,
     handleSendComment,
@@ -763,6 +877,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     currentUserProfile?.avatar,
     userSearchModalProps,
     mentionInputProps,
+    handleRemoveSelectedImage,
   ]);
 
   const headerComponent = useMemo(
@@ -788,7 +903,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
             style={styles.actionButton}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <MoreFillIcon size={20} color={Colors.neutral[200]} />
+            <MoreFillIcon size={20} color={Colors.neutral[400]} />
           </Pressable>
 
           <Pressable
@@ -803,7 +918,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
                 color={
                   (onToggleLike ? headerVisualLiked : headerIsLiked)
                     ? Colors.coral[500]
-                    : Colors.neutral[500]
+                    : Colors.neutral[400]
                 }
               />
             </Animated.View>
@@ -868,6 +983,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               keyExtractor={likeKeyExtractor}
               renderItem={renderLikeItem}
               contentContainerStyle={listContentStyle}
+              ItemSeparatorComponent={() => <View style={styles.likeDivider} />}
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode="on-drag"
               showsVerticalScrollIndicator={false}
@@ -905,6 +1021,12 @@ const CommentSection: React.FC<CommentSectionProps> = ({
           </Pressable>
         </Pressable>
       </Modal>
+
+      <KlipyGifPickerSheet
+        sheetRef={klipySheetRef}
+        onSelect={handleSelectGif}
+        onClose={closeGifPicker}
+      />
     </>
   );
 };
@@ -923,7 +1045,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingTop: 12,
-    paddingBottom: 8,
   },
   tabContainer: {
     flex: 1,
@@ -940,9 +1061,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   dateText: {
-    color: Colors.neutral[500],
+    color: Colors.neutral[400],
     fontSize: 15,
-    fontFamily: 'Figtree-Regular',
+    fontFamily: FontFamily.medium,
   },
   actionButton: {
     padding: 0,
@@ -978,11 +1099,10 @@ const styles = StyleSheet.create({
     fontFamily: 'Figtree-SemiBold',
   },
 
-  likeItem: {
-    paddingVertical: 6,
-    paddingHorizontal: 0,
-    marginBottom: 2,
-    alignItems: 'flex-start',
+  likeDivider: {
+    height: 1,
+    backgroundColor: Colors.neutral[900],
+    marginLeft: 52,
   },
 
   modalOverlay: {

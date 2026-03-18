@@ -332,9 +332,18 @@ class AtprotoService {
     rootCid: string,
     parentUri?: string,
     parentCid?: string,
-    images?: { uri: string; alt: string; aspectRatio?: { width: number; height: number } }[]
+    images?: { uri: string; alt: string; aspectRatio?: { width: number; height: number } }[],
+    externalEmbed?: { uri: string; title?: string; description?: string; thumb?: string }
   ): Promise<{ uri: string; cid: string }> {
-    return FeedService.postComment(text, rootUri, rootCid, parentUri, parentCid, images);
+    return FeedService.postComment(
+      text,
+      rootUri,
+      rootCid,
+      parentUri,
+      parentCid,
+      images,
+      externalEmbed
+    );
   }
 
   /**

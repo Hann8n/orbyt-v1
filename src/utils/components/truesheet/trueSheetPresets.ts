@@ -27,6 +27,15 @@ export const DEFAULT_HEADER_STYLE: ViewStyle = {
 /** Default horizontal padding for sheet content. */
 export const DEFAULT_CONTENT_PADDING_HORIZONTAL = 12;
 
+export const DEFAULT_GRABBER_OPTIONS: GrabberOptions = {
+  width: 42,
+  height: 4,
+  topMargin: 8,
+  cornerRadius: 2,
+  color: 'rgba(243, 245, 254, 0.5)',
+  adaptive: false,
+};
+
 /** Variant overrides for sheets that intentionally differ from defaults. */
 export const SHEET_VARIANTS = {
   /** Send-to picker: fixed 90% height for full-height list UX. */
@@ -40,18 +49,10 @@ export const SHEET_VARIANTS = {
     TrueSheetProps,
     'backgroundColor' | 'grabber' | 'grabberOptions' | 'insetAdjustment' | 'maxContentHeight'
   > => {
-    const grabberOptions: GrabberOptions = {
-      width: 42,
-      height: 4,
-      topMargin: 8,
-      cornerRadius: 2,
-      color: 'rgba(243, 245, 254, 0.5)',
-      adaptive: false,
-    };
     return {
       backgroundColor: Colors.neutral[900],
       grabber: true,
-      grabberOptions,
+      grabberOptions: DEFAULT_GRABBER_OPTIONS,
       insetAdjustment: 'never',
       maxContentHeight,
     };

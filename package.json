@@ -42,6 +42,7 @@
     "@formatjs/intl-segmenter": "^12.1.0",
     "@legendapp/list": "^2.0.19",
     "@lodev09/react-native-true-sheet": "^3.8.1",
+    "@react-native-menu/menu": "^2.0.0",
     "@react-navigation/native": "^7.1.28",
     "@shopify/flash-list": "2.0.2",
     "@shopify/react-native-skia": "2.4.18",
