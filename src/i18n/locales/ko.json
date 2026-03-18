@@ -113,7 +113,13 @@
     "reportReply": "답글 신고",
     "replyBy": "{{author}}의 답글",
     "commentBy": "{{author}}의 댓글",
-    "you": "당신"
+    "you": "당신",
+    "klipySearchPlaceholder": "KLIPY 검색",
+    "clearSearch": "검색 지우기",
+    "klipyKindGif": "GIF",
+    "klipyKindSticker": "스티커",
+    "klipyKindMeme": "밈",
+    "klipyKindEmoji": "이모지"
   },
   "activity": {
     "likes": "좋아요",
@@ -739,6 +745,7 @@
     "about": "소개"
   },
   "create": {
+    "setRecordTime": "녹화 시간 설정",
     "duration6s": "6초",
     "duration16s": "16초",
     "duration1m": "1분",

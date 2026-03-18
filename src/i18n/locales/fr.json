@@ -113,7 +113,13 @@
     "reportReply": "Signaler la réponse",
     "replyBy": "réponse de {{author}}",
     "commentBy": "commentaire de {{author}}",
-    "you": "toi"
+    "you": "toi",
+    "klipySearchPlaceholder": "Rechercher dans KLIPY",
+    "clearSearch": "Effacer la recherche",
+    "klipyKindGif": "GIFs",
+    "klipyKindSticker": "Stickers",
+    "klipyKindMeme": "Memes",
+    "klipyKindEmoji": "Emojis"
   },
   "activity": {
     "likes": "J'aime",
@@ -739,6 +745,7 @@
     "about": "À propos"
   },
   "create": {
+    "setRecordTime": "Définir le temps d'enregistrement",
     "duration6s": "6s",
     "duration16s": "16s",
     "duration1m": "1min",

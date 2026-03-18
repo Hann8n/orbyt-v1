@@ -113,7 +113,13 @@
     "reportReply": "返信を報告",
     "replyBy": "{{author}}による返信",
     "commentBy": "{{author}}によるコメント",
-    "you": "あなた"
+    "you": "あなた",
+    "klipySearchPlaceholder": "KLIPYを検索",
+    "clearSearch": "検索をクリア",
+    "klipyKindGif": "GIFs",
+    "klipyKindSticker": "ステッカー",
+    "klipyKindMeme": "ミーム",
+    "klipyKindEmoji": "絵文字"
   },
   "activity": {
     "likes": "いいね",
@@ -708,6 +714,7 @@
     "about": "自己紹介"
   },
   "create": {
+    "setRecordTime": "録画時間を設定",
     "duration6s": "6秒",
     "duration16s": "16秒",
     "duration1m": "1分",

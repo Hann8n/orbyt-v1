@@ -113,7 +113,13 @@
     "reportReply": "Antwort melden",
     "replyBy": "Antwort von {{author}}",
     "commentBy": "Kommentar von {{author}}",
-    "you": "du"
+    "you": "du",
+    "klipySearchPlaceholder": "KLIPY durchsuchen",
+    "clearSearch": "Suche löschen",
+    "klipyKindGif": "GIFs",
+    "klipyKindSticker": "Sticker",
+    "klipyKindMeme": "Memes",
+    "klipyKindEmoji": "Emojis"
   },
   "activity": {
     "likes": "Likes",
@@ -739,6 +745,7 @@
     "about": "Über"
   },
   "create": {
+    "setRecordTime": "Aufnahmezeit festlegen",
     "duration6s": "6s",
     "duration16s": "16s",
     "duration1m": "1 Min",

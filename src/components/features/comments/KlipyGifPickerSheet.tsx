@@ -1,4 +1,5 @@
 import React, { memo, useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   TextInput,
@@ -29,18 +30,12 @@ export interface KlipyGifPickerSheetProps {
 
 const GRID_COLUMNS = 3;
 
-const KIND_OPTIONS: Array<{ kind: KlipyKind; label: string }> = [
-  { kind: 'gif', label: 'GIFs' },
-  { kind: 'sticker', label: 'Stickers' },
-  { kind: 'meme', label: 'Memes' },
-  { kind: 'emoji', label: 'Emojis' },
-];
-
 const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
   sheetRef,
   onSelect,
   onClose,
 }) => {
+  const { t } = useTranslation();
   const scrollY = useMemo(() => new Animated.Value(0), []);
   const [query, setQuery] = useState('');
   const [kindFilter, setKindFilter] = useState<KlipyKind>('gif');
@@ -142,9 +137,17 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
 
   const keyExtractor = useCallback((it: KlipyItem) => `${it.kind}:${String(it.id)}`, []);
 
-  const placeholder = 'Search KLIPY';
+  const placeholder = t('comments.klipySearchPlaceholder');
 
-  const tabs = useMemo(() => KIND_OPTIONS.map(opt => ({ id: opt.kind, label: opt.label })), []);
+  const tabs = useMemo(
+    () => [
+      { id: 'gif', label: t('comments.klipyKindGif') },
+      { id: 'sticker', label: t('comments.klipyKindSticker') },
+      { id: 'meme', label: t('comments.klipyKindMeme') },
+      { id: 'emoji', label: t('comments.klipyKindEmoji') },
+    ],
+    [t]
+  );
   const tabsOpacity = scrollY.interpolate({
     inputRange: [0, 20, 40],
     outputRange: [1, 1, 0],
@@ -182,7 +185,7 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
                   style={styles.clearButton}
                   android_ripple={{ color: Colors.overlay.white10 }}
                   accessibilityRole="button"
-                  accessibilityLabel="Clear search"
+                  accessibilityLabel={t('comments.clearSearch')}
                 >
                   <Icon name="close-circle" size={22.5} color={Colors.neutral[200]} />
                 </Pressable>

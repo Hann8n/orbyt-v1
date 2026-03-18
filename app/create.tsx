@@ -15,6 +15,8 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MenuView } from '@react-native-menu/menu';
+import type { MenuAction } from '@react-native-menu/menu';
 import {
   CameraView,
   useCameraPermissions,
@@ -54,8 +56,8 @@ const DURATION_OPTION_KEYS = [
   { value: 180, labelKey: 'create.duration3m' as const },
 ] as const;
 
-const CAPTURE_BUTTON_INNER_BG = 'rgba(129, 136, 150, 0.4)';
-const CAPTURE_BUTTON_INNER_DISABLED_BG = 'rgba(129, 136, 150, 0.2)';
+const CAPTURE_BUTTON_INNER_BG = hexToRGBA(Colors.neutral[500], 0.4);
+const CAPTURE_BUTTON_INNER_DISABLED_BG = hexToRGBA(Colors.neutral[500], 0.2);
 const DIGITAL_ZOOM_PRESETS = [0.5, 1, 2, 3, 5, 10] as const;
 /** Minimum segment duration (seconds). Shorter clips often have invalid timestamps after camera switch. */
 const MIN_RECORDING_DURATION = 0.4;
@@ -338,6 +340,30 @@ const CreateScreen: React.FC = () => {
       width: `${Math.max(endPercent - startPercent, 0)}%` as const,
     };
   }, [deletePreview, maxDuration]);
+
+  const durationMenuActions = useMemo<MenuAction[]>(() => {
+    const currentTotal = segmentManagerRef.current?.getTotalDuration() ?? 0;
+    return DURATION_OPTION_KEYS.filter(opt => opt.value >= currentTotal).map(opt => ({
+      id: String(opt.value),
+      title: t(opt.labelKey),
+      state: opt.value === selectedDuration ? ('on' as const) : ('off' as const),
+      attributes: { disabled: isProcessing || isRecording || isDeletePreviewActive },
+    }));
+  }, [isDeletePreviewActive, isProcessing, isRecording, selectedDuration, segmentUpdateTrigger, t]);
+
+  const handleDurationMenuPressAction = useCallback(
+    ({ nativeEvent }: { nativeEvent: { event?: string } }) => {
+      const id = nativeEvent?.event;
+      const next = id ? Number(id) : NaN;
+      if (!Number.isFinite(next)) return;
+      if (next === selectedDuration) return;
+      const currentTotal = segmentManagerRef.current?.getTotalDuration() ?? 0;
+      if (next < currentTotal) return;
+      Haptics.selectionAsync();
+      setSelectedDuration(next);
+    },
+    [selectedDuration]
+  );
 
   // Handle trimmed video from gallery
   const handleTrimmingComplete = useCallback(
@@ -1076,7 +1102,7 @@ const CreateScreen: React.FC = () => {
           <Icon name="videocam" size={64} color={Colors.neutral[200]} style={styles.errorIcon} />
           <Text style={styles.warningText}>{t('video.pleaseEnableCamera')}</Text>
           <Pressable
-            style={({ pressed }) => [styles.button, pressed && { opacity: 0.7 }]}
+            style={({ pressed }) => [styles.button, pressed && styles.pressedOpacity70]}
             onPress={requestCameraPermission}
           >
             <Text style={styles.buttonText}>{t('video.grantPermission')}</Text>
@@ -1321,33 +1347,37 @@ const CreateScreen: React.FC = () => {
                   </Animated.View>
                 </Pressable>
                 <View style={styles.recordButtonAreaSpacer}>
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.durationSelectorCollapsed,
-                      pressed && { opacity: 0.7 },
-                    ]}
-                    onPress={() => {
-                      const currentTotal = segmentManagerRef.current?.getTotalDuration() ?? 0;
-                      const availableOptions = DURATION_OPTION_KEYS.filter(
-                        opt => opt.value >= currentTotal
-                      );
-                      Haptics.selectionAsync();
-                      Alert.alert(t('video.maxDuration'), t('video.selectMaxLength'), [
-                        ...availableOptions.map(opt => ({
-                          text: t(opt.labelKey),
-                          onPress: () => setSelectedDuration(opt.value),
-                        })),
-                        { text: t('common.cancel'), style: 'cancel' as const },
-                      ]);
-                    }}
+                  <MenuView
+                    title={t('create.setRecordTime')}
+                    actions={durationMenuActions}
+                    onPressAction={handleDurationMenuPressAction}
+                    shouldOpenOnLongPress={false}
+                    themeVariant="dark"
+                    isAnchoredToRight={true}
                   >
-                    <Text style={styles.durationSelectorCollapsedText}>
-                      {t(
-                        DURATION_OPTION_KEYS.find(opt => opt.value === selectedDuration)
-                          ?.labelKey ?? 'create.duration16s'
-                      )}
-                    </Text>
-                  </Pressable>
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.durationSelectorCollapsed,
+                        pressed && styles.pressedOpacity70,
+                      ]}
+                      disabled={
+                        durationMenuActions.length === 0 ||
+                        isProcessing ||
+                        isRecording ||
+                        isDeletePreviewActive
+                      }
+                      accessible={true}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('create.setRecordTime')}
+                    >
+                      <Text style={styles.durationSelectorCollapsedText}>
+                        {t(
+                          DURATION_OPTION_KEYS.find(opt => opt.value === selectedDuration)
+                            ?.labelKey ?? 'create.duration16s'
+                        )}
+                      </Text>
+                    </Pressable>
+                  </MenuView>
                 </View>
               </View>
             </View>
@@ -1372,7 +1402,7 @@ const CreateScreen: React.FC = () => {
               top: isSmallDevice || !fitsNative16x9 ? 5 : insets.top + 4,
               right: 4,
             },
-            pressed && { opacity: 0.7 },
+            pressed && styles.pressedOpacity70,
           ]}
           onPress={finishRecording}
           disabled={isProcessing}
@@ -1524,6 +1554,9 @@ const styles = StyleSheet.create({
     color: Colors.neutral[50],
     fontSize: 17,
     fontFamily: 'Figtree-Bold',
+  },
+  pressedOpacity70: {
+    opacity: 0.7,
   },
   doneButton: {
     position: 'absolute',

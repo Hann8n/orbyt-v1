@@ -1,4 +1,5 @@
 import React, { useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -57,13 +58,13 @@ const ICON_SECTIONS: IconSection[] = [
     items: [
       {
         id: 'default',
-        label: 'Default',
+        label: 'settings.appIconDefault',
         iconKey: null,
         preview: require('../../src/assets/AppIcons/iOS/orbyt.png'),
       },
       {
         id: 'orBYTE',
-        label: 'Beta Badge',
+        label: 'settings.appIconBetaBadge',
         iconKey: 'orBYTE',
         preview: require('../../src/assets/AppIcons/iOS/orBYTE.png'),
         requiresBeta: true,
@@ -79,49 +80,49 @@ const ICON_SECTIONS: IconSection[] = [
     items: [
       {
         id: 'planyt_red',
-        label: 'Red',
+        label: 'settings.appIconRed',
         iconKey: 'planyt_red',
         preview: require('../../src/assets/AppIcons/iOS/planyt/planyt-red.png'),
       },
       {
         id: 'planyt_orange',
-        label: 'Orange',
+        label: 'settings.appIconOrange',
         iconKey: 'planyt_orange',
         preview: require('../../src/assets/AppIcons/iOS/planyt/planyt-orange.png'),
       },
       {
         id: 'planyt_yellow',
-        label: 'Yellow',
+        label: 'settings.appIconYellow',
         iconKey: 'planyt_yellow',
         preview: require('../../src/assets/AppIcons/iOS/planyt/planyt-yellow.png'),
       },
       {
         id: 'planyt_green',
-        label: 'Green',
+        label: 'settings.appIconGreen',
         iconKey: 'planyt_green',
         preview: require('../../src/assets/AppIcons/iOS/planyt/planyt-green.png'),
       },
       {
         id: 'planyt_blue',
-        label: 'Blue',
+        label: 'settings.appIconBlue',
         iconKey: 'planyt_blue',
         preview: require('../../src/assets/AppIcons/iOS/planyt/planyt-blue.png'),
       },
       {
         id: 'planyt_purple',
-        label: 'Purple',
+        label: 'settings.appIconPurple',
         iconKey: 'planyt_purple',
         preview: require('../../src/assets/AppIcons/iOS/planyt/planyt-purple.png'),
       },
       {
         id: 'planyt_greyscale',
-        label: 'Greyscale',
+        label: 'settings.appIconGreyscale',
         iconKey: 'planyt_greyscale',
         preview: require('../../src/assets/AppIcons/iOS/planyt/planyt-greyscale.png'),
       },
       {
         id: 'planyt_greyscale_alt',
-        label: 'Greyscale Alt',
+        label: 'settings.appIconGreyscaleAlt',
         iconKey: 'planyt_greyscale_alt',
         preview: require('../../src/assets/AppIcons/iOS/planyt/planyt-greyscale-alt.png'),
       },
@@ -134,6 +135,7 @@ const GRID_GAP = 12;
 const NUM_COLUMNS = 4;
 
 const AppIconSettingsScreen: React.FC = () => {
+  const { t } = useTranslation();
   const router = useRouter();
   // Dynamic app icons temporarily disabled - incompatible with Expo 55
   const currentIcon = null;
@@ -156,7 +158,7 @@ const AppIconSettingsScreen: React.FC = () => {
     <View style={settingsLayoutStyles.container}>
       <ListHeader
         mode="sheet"
-        title="App icon"
+        title={t('settings.appIcon')}
         showCloseButton
         onClosePress={() => router.dismiss()}
         applySafeAreaTop={Platform.OS === 'android'}
@@ -189,7 +191,7 @@ const AppIconSettingsScreen: React.FC = () => {
                         }
                         activeOpacity={0.7}
                       >
-                        <Text style={styles.attributionText}>by </Text>
+                        <Text style={styles.attributionText}>{t('settings.by')}</Text>
                         <Text style={styles.attributionHandle}>
                           @{formatHandle(section.attribution.handle)}
                         </Text>
@@ -226,7 +228,7 @@ const AppIconSettingsScreen: React.FC = () => {
                         )}
                       </View>
                       <Text style={styles.iconLabel} numberOfLines={1}>
-                        {option.label}
+                        {option.label.startsWith('settings.') ? t(option.label) : option.label}
                       </Text>
                       {option.subtitle && (
                         <Text style={styles.iconSubtitle} numberOfLines={2}>

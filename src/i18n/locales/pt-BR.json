@@ -113,7 +113,13 @@
     "reportReply": "Denunciar resposta",
     "replyBy": "resposta de {{author}}",
     "commentBy": "comentário de {{author}}",
-    "you": "você"
+    "you": "você",
+    "klipySearchPlaceholder": "Buscar no KLIPY",
+    "clearSearch": "Limpar busca",
+    "klipyKindGif": "GIFs",
+    "klipyKindSticker": "Figurinhas",
+    "klipyKindMeme": "Memes",
+    "klipyKindEmoji": "Emojis"
   },
   "activity": {
     "likes": "Curtidas",
@@ -739,6 +745,7 @@
     "about": "Sobre"
   },
   "create": {
+    "setRecordTime": "Definir tempo de gravação",
     "duration6s": "6s",
     "duration16s": "16s",
     "duration1m": "1m",
