@@ -1075,7 +1075,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
               <Animated.View style={heartAnimatedStyle}>
                 <HeartFillIcon
                   size={20}
-                  color={isLiked ? Colors.coral[500] : Colors.neutral[500]}
+                  color={isLiked ? Colors.coral[500] : Colors.neutral[400]}
                 />
               </Animated.View>
             </Pressable>
@@ -1243,7 +1243,7 @@ const styles = StyleSheet.create({
   commentText: {
     color: Colors.neutral[200],
     fontSize: 15,
-    fontFamily: 'Figtree-Regular',
+    fontFamily: FontFamily.medium,
   },
   highlightOverlay: {
     position: 'absolute',
@@ -1272,8 +1272,8 @@ const styles = StyleSheet.create({
   },
   commentTimestamp: {
     fontSize: 12,
-    color: Colors.neutral[500],
-    fontFamily: 'Figtree-Regular',
+    color: Colors.neutral[400],
+    fontFamily: FontFamily.medium,
     marginRight: 12,
   },
   replyButton: {

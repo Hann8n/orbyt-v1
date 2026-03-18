@@ -108,7 +108,7 @@ const CustomBottomTabBar: React.FC<CustomBottomTabBarProps> = ({
   state,
   navigation,
   tintColor = Colors.neutral[50],
-  inactiveTintColor = 'rgba(243, 245, 254, 0.60)', // Colors.neutral[50] at 60% opacity
+  inactiveTintColor = Colors.neutral[500],
 }) => {
   const router = useRouter();
   const insets = useSafeAreaInsets();

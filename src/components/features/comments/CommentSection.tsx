@@ -42,6 +42,7 @@ import { useUserSearchTrigger } from '../../ui/usersearch';
 import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../../utils/constants';
 import { formatNumber } from '../../../utils/formatting/numbers';
 import { formatHandle } from '../../../utils/formatting/handles';
+import { FontFamily } from '../../../utils/components/typography';
 import CommentInputFooter from './CommentInputFooter';
 import CommentItem from './CommentItem';
 import KlipyGifPickerSheet from './KlipyGifPickerSheet';
@@ -916,7 +917,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
             style={styles.actionButton}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <MoreFillIcon size={20} color={Colors.neutral[200]} />
+            <MoreFillIcon size={20} color={Colors.neutral[400]} />
           </Pressable>
 
           <Pressable
@@ -931,7 +932,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
                 color={
                   (onToggleLike ? headerVisualLiked : headerIsLiked)
                     ? Colors.coral[500]
-                    : Colors.neutral[500]
+                    : Colors.neutral[400]
                 }
               />
             </Animated.View>
@@ -1074,9 +1075,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   dateText: {
-    color: Colors.neutral[500],
+    color: Colors.neutral[400],
     fontSize: 15,
-    fontFamily: 'Figtree-Regular',
+    fontFamily: FontFamily.medium,
   },
   actionButton: {
     padding: 0,

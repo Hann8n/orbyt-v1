@@ -55,6 +55,9 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
 
   // Use the passed textColor for active tabs, fallback to white for better readability
   const activeTabColor = textColor || Colors.neutral[50];
+  // Align inactive tab color with Activity pager when using light-on-dark headers
+  const inactiveTabColor =
+    activeTabColor === Colors.neutral[50] ? Colors.neutral[500] : hexToRGBA(textColor, 0.7);
 
   // Get variant-specific styles
   const variantStyle = variant === 'comments' ? styles.commentsStyle : styles.headerStyle;
@@ -96,7 +99,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
                     onPress={() => handleViewModeChange('grid')}
                   >
                     <GridViewIcon
-                      color={viewMode === 'grid' ? activeTabColor : hexToRGBA(textColor, 0.7)}
+                      color={viewMode === 'grid' ? activeTabColor : inactiveTabColor}
                       size={20}
                     />
                   </Pressable>
@@ -108,7 +111,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
                     onPress={() => handleViewModeChange('list')}
                   >
                     <ListViewIcon
-                      color={viewMode === 'list' ? activeTabColor : hexToRGBA(textColor, 0.7)}
+                      color={viewMode === 'list' ? activeTabColor : inactiveTabColor}
                       size={20}
                     />
                   </Pressable>
@@ -167,7 +170,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
                     ? styles.tabTextComments
                     : styles.tabTextDefault,
                 {
-                  color: activeTab === tab.id ? activeTabColor : hexToRGBA(textColor, 0.7),
+                  color: activeTab === tab.id ? activeTabColor : inactiveTabColor,
                 },
                 activeTab === tab.id && styles.activeTabText,
                 tab.disabled && styles.disabledTabText,
@@ -191,7 +194,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
                 onPress={() => handleViewModeChange('grid')}
               >
                 <GridViewIcon
-                  color={viewMode === 'grid' ? activeTabColor : hexToRGBA(textColor, 0.7)}
+                  color={viewMode === 'grid' ? activeTabColor : inactiveTabColor}
                   size={20}
                 />
               </Pressable>
@@ -203,7 +206,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
                 onPress={() => handleViewModeChange('list')}
               >
                 <ListViewIcon
-                  color={viewMode === 'list' ? activeTabColor : hexToRGBA(textColor, 0.7)}
+                  color={viewMode === 'list' ? activeTabColor : inactiveTabColor}
                   size={20}
                 />
               </Pressable>
@@ -309,7 +312,7 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.subtitle,
   },
   tabTextComments: {
-    fontFamily: Typography.families.bold,
+    fontFamily: Typography.families.black,
     fontSize: Typography.sizes.subtitle,
   },
   optionsContainer: {
