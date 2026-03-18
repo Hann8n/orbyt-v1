@@ -37,7 +37,6 @@ import TabNavigation, { TabOption } from '../../layout/header/TabNavigation';
 import { Colors } from '../../../theme';
 import { HeartFillIcon, MoreFillIcon, CloseFillIcon } from '../../ui/Icon';
 import RelativeDate from '../../ui/RelativeDate';
-import AuthorItem from '../../ui/AuthorItem';
 import { useUserSearchTrigger } from '../../ui/usersearch';
 import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../../utils/constants';
 import { formatNumber } from '../../../utils/formatting/numbers';
@@ -45,6 +44,7 @@ import { formatHandle } from '../../../utils/formatting/handles';
 import { FontFamily } from '../../../utils/components/typography';
 import CommentInputFooter from './CommentInputFooter';
 import CommentItem from './CommentItem';
+import { CommentLikeItem } from './CommentLikeItem';
 import KlipyGifPickerSheet from './KlipyGifPickerSheet';
 import type { Comment, Like } from '../../../services/api/types';
 import type { KlipyItem } from '../../../services/klipy/KlipyService';
@@ -624,7 +624,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     } finally {
       setIsPosting(false);
     }
-  }, [post, newCommentText, selectedGif, replyContext, isPosting, queryClient, t]);
+  }, [post, newCommentText, selectedGif, selectedImages, replyContext, isPosting, queryClient, t]);
 
   // Scroll to newly posted comment after it appears in the list
   useEffect(() => {
@@ -767,21 +767,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         }
       };
 
-      return (
-        <AuthorItem
-          handle={item.actor.handle}
-          did={item.actor.did}
-          displayName={item.actor.displayName}
-          avatar={item.actor.avatar}
-          size="medium"
-          showArrow={false}
-          backgroundColor="transparent"
-          hideHandleLine={true}
-          customFontSize={16}
-          onPress={handlePress}
-          style={styles.likeItem}
-        />
-      );
+      return <CommentLikeItem like={item} onPress={handlePress} />;
     },
     [onDismiss, router]
   );
@@ -997,6 +983,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               keyExtractor={likeKeyExtractor}
               renderItem={renderLikeItem}
               contentContainerStyle={listContentStyle}
+              ItemSeparatorComponent={() => <View style={styles.likeDivider} />}
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode="on-drag"
               showsVerticalScrollIndicator={false}
@@ -1058,7 +1045,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingTop: 12,
-    paddingBottom: 8,
   },
   tabContainer: {
     flex: 1,
@@ -1113,11 +1099,10 @@ const styles = StyleSheet.create({
     fontFamily: 'Figtree-SemiBold',
   },
 
-  likeItem: {
-    paddingVertical: 6,
-    paddingHorizontal: 0,
-    marginBottom: 2,
-    alignItems: 'flex-start',
+  likeDivider: {
+    height: 1,
+    backgroundColor: Colors.neutral[900],
+    marginLeft: 52,
   },
 
   modalOverlay: {
