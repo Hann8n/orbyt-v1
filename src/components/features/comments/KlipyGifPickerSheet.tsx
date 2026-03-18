@@ -29,6 +29,7 @@ export interface KlipyGifPickerSheetProps {
 }
 
 const GRID_COLUMNS = 3;
+const SHEET_HORIZONTAL_INSET = 16;
 
 const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
   sheetRef,
@@ -238,23 +239,26 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: Colors.black,
-    paddingHorizontal: 16,
+    paddingHorizontal: SHEET_HORIZONTAL_INSET,
     paddingTop: 18,
     paddingBottom: 6,
     gap: 8,
   },
   tabsBarContainer: {
     backgroundColor: Colors.black,
-    paddingHorizontal: 16,
+    paddingHorizontal: SHEET_HORIZONTAL_INSET,
     paddingTop: 0,
     paddingBottom: 6,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: Colors.overlay.white10,
+    alignItems: 'stretch',
   },
   kindTabs: {
     paddingVertical: 0,
+    paddingHorizontal: 0,
     marginTop: 0,
     minHeight: 34,
+    alignSelf: 'stretch',
   },
   searchRow: {
     flexDirection: 'row',
