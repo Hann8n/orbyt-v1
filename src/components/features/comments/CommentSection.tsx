@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { FlashList, ListRenderItem, FlashListRef } from '@shopify/flash-list';
@@ -138,6 +139,9 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
   const [newCommentText, setNewCommentText] = useState('');
   const [selectedGif, setSelectedGif] = useState<KlipyItem | null>(null);
+  const [selectedImages, setSelectedImages] = useState<
+    Array<{ uri: string; alt: string; aspectRatio?: { width: number; height: number } }>
+  >([]);
   const [inputSelection, setInputSelection] = useState<{ start: number; end: number }>({
     start: 0,
     end: 0,
@@ -166,11 +170,61 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const handleSelectGif = useCallback(
     (item: KlipyItem) => {
       setSelectedGif(item);
+      setSelectedImages([]);
       closeGifPicker();
       setTimeout(() => inputRef.current?.focus?.(), 50);
     },
     [closeGifPicker]
   );
+
+  const handlePickImages = useCallback(async () => {
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert(t('video.permissionRequired'), t('video.mediaLibraryPermissionRequired'));
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsMultipleSelection: true,
+        selectionLimit: 4,
+        quality: 0.9,
+        allowsEditing: false,
+      });
+
+      if (result.canceled) return;
+      const assets = result.assets ?? [];
+      if (!assets.length) return;
+
+      const next = assets
+        .filter(a => a?.uri)
+        .slice(0, 4)
+        .map(a => {
+          const width = typeof a.width === 'number' ? a.width : undefined;
+          const height = typeof a.height === 'number' ? a.height : undefined;
+          const aspectRatio =
+            width && height && width > 0 && height > 0 ? { width, height } : undefined;
+          return {
+            uri: a.uri,
+            alt: '',
+            aspectRatio,
+          };
+        });
+
+      if (next.length) {
+        setSelectedImages(next);
+        setSelectedGif(null);
+        setTimeout(() => inputRef.current?.focus?.(), 50);
+      }
+    } catch {
+      Alert.alert(t('common.error'), t('video.failedToAccessGallery'));
+    }
+  }, [t]);
+
+  const handleRemoveSelectedImage = useCallback((uri: string) => {
+    setSelectedImages(prev => prev.filter(img => img.uri !== uri));
+  }, []);
 
   const handleReplyPress = useCallback(
     (comment: Comment) => {
@@ -497,7 +551,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
     const text = newCommentText.trim();
     const hasGif = !!selectedGif?.fullUrl;
-    if ((!text && !hasGif) || isPosting) return;
+    const hasImages = selectedImages.length > 0;
+    if ((!text && !hasGif && !hasImages) || isPosting) return;
 
     setIsPosting(true);
 
@@ -537,8 +592,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         rootCid,
         parentUri,
         parentCid,
-        undefined,
-        externalEmbed
+        hasImages ? selectedImages : undefined,
+        hasGif ? externalEmbed : undefined
       );
 
       // Store the URI of the newly posted comment to scroll to it after refetch
@@ -546,6 +601,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
       setNewCommentText('');
       setSelectedGif(null);
+      setSelectedImages([]);
       setReplyContext(null);
 
       // Invalidate and force refetch to ensure new comment appears immediately
@@ -648,6 +704,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const handleClose = useCallback(() => {
     setNewCommentText('');
     setSelectedGif(null);
+    setSelectedImages([]);
     setActiveTab('comments');
     setLikesQueryEnabled(false);
     setFullscreenImageUri(null);
@@ -788,8 +845,16 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         placeholder={placeholder}
         onSubmit={handleSendComment}
         onPressGif={openGifPicker}
-        hasAttachment={!!selectedGif}
-        onClearAttachment={() => setSelectedGif(null)}
+        onPressPhotos={handlePickImages}
+        selectedGifPreviewUri={selectedGif?.previewUrl ?? null}
+        selectedImages={selectedImages}
+        hasAttachment={!!selectedGif || selectedImages.length > 0}
+        onClearAttachment={() => {
+          setSelectedGif(null);
+          setSelectedImages([]);
+        }}
+        onClearGif={() => setSelectedGif(null)}
+        onRemoveImage={handleRemoveSelectedImage}
         onCancelReply={handleCancelReply}
         replyContext={
           replyContext
@@ -812,7 +877,9 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   }, [
     newCommentText,
     openGifPicker,
+    handlePickImages,
     selectedGif,
+    selectedImages,
     inputSelection,
     placeholder,
     handleSendComment,
@@ -823,6 +890,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     currentUserProfile?.avatar,
     userSearchModalProps,
     mentionInputProps,
+    handleRemoveSelectedImage,
   ]);
 
   const headerComponent = useMemo(

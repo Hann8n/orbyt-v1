@@ -423,6 +423,18 @@ export class FeedService {
       };
     } else if (images && images.length > 0) {
       try {
+        const inferImageEncoding = (uri: string, blob: Blob): string => {
+          const fromBlob = typeof blob?.type === 'string' ? blob.type : '';
+          if (fromBlob.startsWith('image/')) return fromBlob;
+
+          const clean = uri.split('?')[0].toLowerCase();
+          if (clean.endsWith('.png')) return 'image/png';
+          if (clean.endsWith('.webp')) return 'image/webp';
+          if (clean.endsWith('.gif')) return 'image/gif';
+          if (clean.endsWith('.jpg') || clean.endsWith('.jpeg')) return 'image/jpeg';
+          return 'image/jpeg';
+        };
+
         // Upload each image and get its blob reference
         const uploadedImages = await Promise.all(
           images.map(async img => {
@@ -433,7 +445,7 @@ export class FeedService {
               // Upload the blob to Bluesky
               const { api } = await AtprotoCore.getApiClient();
               const uploadResult = await api.uploadBlob(blob, {
-                encoding: 'image/jpeg', // Default to JPEG, but ideally detect from the blob
+                encoding: inferImageEncoding(img.uri, blob),
               });
 
               return {

@@ -856,6 +856,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
 
     if (external && external.uri && /^https?:\/\//.test(external.uri)) {
       if (isDirectImageUrl(external.uri)) {
+        const aspectRatio = getClampedAspectRatio(ASPECT_RATIO_DEFAULT);
         const wrapperVariant = hasText
           ? styles.commentImageWrapperWithText
           : styles.commentImageWrapperNoText;
@@ -867,7 +868,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
             <CommentImage
               key={external.uri}
               uri={external.uri}
-              initialAspectRatio={ASPECT_RATIO_DEFAULT}
+              initialAspectRatio={aspectRatio}
               wrapperStyle={[
                 styles.commentImageWrapper,
                 styles.commentImageWrapperFullWidth,
