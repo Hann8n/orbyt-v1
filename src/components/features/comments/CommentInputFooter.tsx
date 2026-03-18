@@ -474,8 +474,8 @@ const styles = StyleSheet.create({
     paddingLeft: 0,
     textAlignVertical: 'top',
     fontFamily: Typography.families.regular,
-    fontSize: Typography.sizes.body,
-    lineHeight: Typography.lineHeights.body,
+    fontSize: Typography.sizes.title,
+    lineHeight: Typography.lineHeights.title,
   },
   sendColumn: {
     alignItems: 'flex-end',

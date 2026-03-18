@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.subtitle,
   },
   tabTextComments: {
-    fontFamily: Typography.families.semibold,
+    fontFamily: Typography.families.bold,
     fontSize: Typography.sizes.subtitle,
   },
   optionsContainer: {
