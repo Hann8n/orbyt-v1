@@ -5,6 +5,8 @@ import { View, StyleSheet, Pressable, Text, StyleProp, ViewStyle } from 'react-n
 import { ListViewIcon, GridViewIcon, DownSmallFillIcon } from '../../ui/Icon';
 import type { ViewMode } from '../../../types';
 import { Colors } from '../../../theme';
+import { Typography } from '../../../utils/components/typography';
+import { hexToRGBA } from '../../../utils/formatting/colors';
 import VerticalListSheet, { VerticalListButton, TrueSheet } from '../../ui/VerticalListSheet';
 
 export interface TabOption {
@@ -24,6 +26,7 @@ interface TabNavigationProps {
   viewMode?: ViewMode;
   onViewModeChange?: (mode: ViewMode) => void;
   showViewToggle?: boolean;
+  reserveViewToggleSpace?: boolean;
   variant?: 'header' | 'comments'; // New prop to distinguish between header and comments styles
   dropdown?: boolean; // New prop to show as dropdown instead of tabs
 }
@@ -33,12 +36,13 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
   activeTab,
   onTabPress,
   textColor = Colors.neutral[50],
-  backgroundColor = 'transparent',
+  backgroundColor = Colors.transparent,
   accentColor: _accentColor, // Add accent color prop
   style,
   viewMode = 'list',
   onViewModeChange,
   showViewToggle = false,
+  reserveViewToggleSpace = true,
   variant = 'header', // Default to header variant
   dropdown = false, // Default to tabs
 }) => {
@@ -80,36 +84,38 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
           </Pressable>
 
           {/* View toggle area */}
-          <View style={styles.viewToggleArea}>
-            {showViewToggle && onViewModeChange && (
-              <View style={styles.viewToggleContainer}>
-                <Pressable
-                  style={[
-                    styles.viewToggleButton,
-                    viewMode === 'grid' && styles.activeViewToggleButton,
-                  ]}
-                  onPress={() => handleViewModeChange('grid')}
-                >
-                  <GridViewIcon
-                    color={viewMode === 'grid' ? activeTabColor : hexToRGBA(textColor, 0.7)}
-                    size={20}
-                  />
-                </Pressable>
-                <Pressable
-                  style={[
-                    styles.viewToggleButton,
-                    viewMode === 'list' && styles.activeViewToggleButton,
-                  ]}
-                  onPress={() => handleViewModeChange('list')}
-                >
-                  <ListViewIcon
-                    color={viewMode === 'list' ? activeTabColor : hexToRGBA(textColor, 0.7)}
-                    size={20}
-                  />
-                </Pressable>
-              </View>
-            )}
-          </View>
+          {(reserveViewToggleSpace || (showViewToggle && onViewModeChange)) && (
+            <View style={styles.viewToggleArea}>
+              {showViewToggle && onViewModeChange && (
+                <View style={styles.viewToggleContainer}>
+                  <Pressable
+                    style={[
+                      styles.viewToggleButton,
+                      viewMode === 'grid' && styles.activeViewToggleButton,
+                    ]}
+                    onPress={() => handleViewModeChange('grid')}
+                  >
+                    <GridViewIcon
+                      color={viewMode === 'grid' ? activeTabColor : hexToRGBA(textColor, 0.7)}
+                      size={20}
+                    />
+                  </Pressable>
+                  <Pressable
+                    style={[
+                      styles.viewToggleButton,
+                      viewMode === 'list' && styles.activeViewToggleButton,
+                    ]}
+                    onPress={() => handleViewModeChange('list')}
+                  >
+                    <ListViewIcon
+                      color={viewMode === 'list' ? activeTabColor : hexToRGBA(textColor, 0.7)}
+                      size={20}
+                    />
+                  </Pressable>
+                </View>
+              )}
+            </View>
+          )}
         </View>
 
         <VerticalListSheet
@@ -155,7 +161,11 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
             <Text
               style={[
                 styles.tabText,
-                variant === 'header' ? styles.tabTextHeader : styles.tabTextDefault,
+                variant === 'header'
+                  ? styles.tabTextHeader
+                  : variant === 'comments'
+                    ? styles.tabTextComments
+                    : styles.tabTextDefault,
                 {
                   color: activeTab === tab.id ? activeTabColor : hexToRGBA(textColor, 0.7),
                 },
@@ -169,54 +179,40 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
         ))}
       </View>
 
-      {/* Always render the view toggle area to maintain consistent spacing */}
-      <View style={styles.viewToggleArea}>
-        {showViewToggle && onViewModeChange && (
-          <View style={styles.viewToggleContainer}>
-            <Pressable
-              style={[
-                styles.viewToggleButton,
-                viewMode === 'grid' && styles.activeViewToggleButton,
-              ]}
-              onPress={() => handleViewModeChange('grid')}
-            >
-              <GridViewIcon
-                color={viewMode === 'grid' ? activeTabColor : hexToRGBA(textColor, 0.7)}
-                size={20}
-              />
-            </Pressable>
-            <Pressable
-              style={[
-                styles.viewToggleButton,
-                viewMode === 'list' && styles.activeViewToggleButton,
-              ]}
-              onPress={() => handleViewModeChange('list')}
-            >
-              <ListViewIcon
-                color={viewMode === 'list' ? activeTabColor : hexToRGBA(textColor, 0.7)}
-                size={20}
-              />
-            </Pressable>
-          </View>
-        )}
-      </View>
+      {(reserveViewToggleSpace || (showViewToggle && onViewModeChange)) && (
+        <View style={styles.viewToggleArea}>
+          {showViewToggle && onViewModeChange && (
+            <View style={styles.viewToggleContainer}>
+              <Pressable
+                style={[
+                  styles.viewToggleButton,
+                  viewMode === 'grid' && styles.activeViewToggleButton,
+                ]}
+                onPress={() => handleViewModeChange('grid')}
+              >
+                <GridViewIcon
+                  color={viewMode === 'grid' ? activeTabColor : hexToRGBA(textColor, 0.7)}
+                  size={20}
+                />
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.viewToggleButton,
+                  viewMode === 'list' && styles.activeViewToggleButton,
+                ]}
+                onPress={() => handleViewModeChange('list')}
+              >
+                <ListViewIcon
+                  color={viewMode === 'list' ? activeTabColor : hexToRGBA(textColor, 0.7)}
+                  size={20}
+                />
+              </Pressable>
+            </View>
+          )}
+        </View>
+      )}
     </View>
   );
-};
-
-// Helper function for hex to rgba conversion
-const hexToRGBA = (hex: string, alpha: number): string => {
-  hex = hex.replace('#', '');
-  if (hex.length === 3) {
-    hex = hex
-      .split('')
-      .map(c => c + c)
-      .join('');
-  }
-  const r = parseInt(hex.substring(0, 2), 16);
-  const g = parseInt(hex.substring(2, 4), 16);
-  const b = parseInt(hex.substring(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
 const styles = StyleSheet.create({
@@ -243,7 +239,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tabText: {
-    fontWeight: 'bold',
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
   activeTabText: {
     opacity: 1,
@@ -295,21 +292,25 @@ const styles = StyleSheet.create({
     minHeight: 36,
   },
   dropdownText: {
-    fontFamily: 'Figtree-SemiBold',
+    fontFamily: Typography.families.semibold,
   },
   dropdownTextHeader: {
-    fontSize: 18,
+    fontSize: Typography.sizes.title,
   },
   dropdownTextDefault: {
-    fontSize: 16,
+    fontSize: Typography.sizes.subtitle,
   },
   tabTextHeader: {
-    fontFamily: 'Figtree-Black',
-    fontSize: 18,
+    fontFamily: Typography.families.black,
+    fontSize: Typography.sizes.title,
   },
   tabTextDefault: {
-    fontFamily: 'Figtree-Black',
-    fontSize: 16,
+    fontFamily: Typography.families.bold,
+    fontSize: Typography.sizes.subtitle,
+  },
+  tabTextComments: {
+    fontFamily: Typography.families.semibold,
+    fontSize: Typography.sizes.subtitle,
   },
   optionsContainer: {
     paddingHorizontal: 0,

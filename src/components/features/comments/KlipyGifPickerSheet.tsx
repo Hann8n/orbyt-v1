@@ -1,16 +1,24 @@
 import React, { memo, useCallback, useMemo, useState } from 'react';
-import { View, Text, TextInput, StyleSheet, Pressable } from 'react-native';
-import { FlashList } from '@shopify/flash-list';
+import {
+  View,
+  TextInput,
+  StyleSheet,
+  Pressable,
+  Animated,
+  type ListRenderItem,
+} from 'react-native';
 import { Image } from 'expo-image';
 import type { TrueSheet } from '@lodev09/react-native-true-sheet';
 
 import { AppTrueSheet } from '@/utils/components/truesheet';
+import { DEFAULT_GRABBER_OPTIONS } from '@/utils/components/truesheet/trueSheetPresets';
 import { Colors } from '@/theme';
 import { BORDER_RADIUS, ICON_SIZES } from '@/utils/constants';
 import { Typography } from '@/utils/components/typography';
 import Icon from '@/components/ui/Icon';
 import { useKlipySearch, useKlipyTrending } from '@/hooks/klipy/useKlipyGifs';
 import type { KlipyItem, KlipyKind } from '@/services/klipy/KlipyService';
+import TabNavigation from '@/components/layout/header/TabNavigation';
 
 export interface KlipyGifPickerSheetProps {
   sheetRef: React.RefObject<TrueSheet | null>;
@@ -18,7 +26,6 @@ export interface KlipyGifPickerSheetProps {
   onClose: () => void;
 }
 
-const ITEM_SIZE = 110;
 const GRID_COLUMNS = 3;
 
 const KIND_OPTIONS: Array<{ kind: KlipyKind; label: string }> = [
@@ -33,6 +40,7 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
   onSelect,
   onClose,
 }) => {
+  const scrollY = useMemo(() => new Animated.Value(0), []);
   const [query, setQuery] = useState('');
   const [kindFilter, setKindFilter] = useState<KlipyKind>('gif');
   const trimmed = query.trim();
@@ -116,8 +124,8 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
     emojiTrending,
   ]);
 
-  const renderItem = useCallback(
-    ({ item }: { item: KlipyItem }) => {
+  const renderItem: ListRenderItem<KlipyItem> = useCallback(
+    ({ item }) => {
       return (
         <Pressable
           style={styles.tile}
@@ -135,34 +143,24 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
 
   const placeholder = 'Search KLIPY';
 
+  const tabs = useMemo(() => KIND_OPTIONS.map(opt => ({ id: opt.kind, label: opt.label })), []);
+  const tabsOpacity = scrollY.interpolate({
+    inputRange: [0, 20, 40],
+    outputRange: [1, 1, 0],
+    extrapolate: 'clamp',
+  });
+
   return (
     <AppTrueSheet
       ref={sheetRef}
       name="klipy-gif-picker"
       detents={[1]}
+      grabber
+      grabberOptions={DEFAULT_GRABBER_OPTIONS}
       onDidDismiss={onClose}
       scrollable
       header={
         <View style={styles.header}>
-          <View style={styles.kindRow}>
-            {KIND_OPTIONS.map(opt => {
-              const active = opt.kind === kindFilter;
-              return (
-                <Pressable
-                  key={opt.kind}
-                  onPress={() => setKindFilter(opt.kind)}
-                  style={[styles.kindChip, active && styles.kindChipActive]}
-                  android_ripple={{ color: Colors.overlay.white10 }}
-                  accessibilityRole="button"
-                  accessibilityLabel={opt.label}
-                >
-                  <Text style={[styles.kindChipText, active && styles.kindChipTextActive]}>
-                    {opt.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
           <View style={styles.searchRow}>
             <Icon name="search" size={ICON_SIZES.MEDIUM} color={Colors.neutral[300]} />
             <TextInput
@@ -175,29 +173,48 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
               autoCapitalize="none"
               returnKeyType="search"
             />
-            <Pressable
-              onPress={() => setQuery('')}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              style={styles.clearButton}
-              accessibilityRole="button"
-              accessibilityLabel="Clear search"
-            >
-              <Icon name="close" size={18} color={Colors.neutral[200]} />
-            </Pressable>
+            {trimmed.length > 0 && (
+              <Pressable
+                onPress={() => setQuery('')}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={styles.clearButton}
+                android_ripple={{ color: Colors.overlay.white10 }}
+                accessibilityRole="button"
+                accessibilityLabel="Clear search"
+              >
+                <Icon name="close" size={18} color={Colors.neutral[200]} />
+              </Pressable>
+            )}
           </View>
         </View>
       }
     >
       <View style={styles.container}>
-        <FlashList
+        <Animated.FlatList
           data={items}
           renderItem={renderItem}
           keyExtractor={keyExtractor}
           numColumns={GRID_COLUMNS}
-          estimatedItemSize={ITEM_SIZE}
+          ListHeaderComponent={
+            <Animated.View style={[styles.tabsBarContainer, { opacity: tabsOpacity }]}>
+              <TabNavigation
+                tabs={tabs}
+                activeTab={kindFilter}
+                onTabPress={tabId => setKindFilter(tabId as KlipyKind)}
+                variant="comments"
+                textColor={Colors.neutral[50]}
+                reserveViewToggleSpace={false}
+                style={styles.kindTabs}
+              />
+            </Animated.View>
+          }
           onEndReached={onEndReached}
           onEndReachedThreshold={0.8}
           contentContainerStyle={styles.listContent}
+          scrollEventThrottle={16}
+          onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+            useNativeDriver: true,
+          })}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         />
@@ -212,36 +229,24 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.black,
   },
   header: {
+    backgroundColor: Colors.black,
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 12,
-    gap: 12,
-  },
-  kindRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    paddingTop: 18,
+    paddingBottom: 10,
     gap: 8,
   },
-  kindChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: BORDER_RADIUS.FULL,
-    backgroundColor: Colors.overlay.white10,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Colors.overlay.white10,
+  tabsBarContainer: {
+    backgroundColor: Colors.black,
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 6,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.overlay.white10,
   },
-  kindChipActive: {
-    backgroundColor: Colors.neutral[200],
-    borderColor: Colors.neutral[200],
-  },
-  kindChipText: {
-    color: Colors.neutral[200],
-    fontFamily: Typography.families.medium,
-    fontSize: Typography.sizes.caption,
-    lineHeight: Typography.lineHeights.caption,
-  },
-  kindChipTextActive: {
-    color: Colors.black,
+  kindTabs: {
+    paddingVertical: 0,
+    marginTop: 0,
+    minHeight: 34,
   },
   searchRow: {
     flexDirection: 'row',
@@ -249,6 +254,8 @@ const styles = StyleSheet.create({
     gap: 10,
     backgroundColor: Colors.overlay.white10,
     borderRadius: BORDER_RADIUS.LARGE,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Colors.overlay.white10,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
@@ -262,7 +269,9 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
   clearButton: {
-    padding: 2,
+    padding: 4,
+    borderRadius: BORDER_RADIUS.FULL,
+    backgroundColor: Colors.overlay.white10,
   },
   listContent: {
     paddingHorizontal: 0,
