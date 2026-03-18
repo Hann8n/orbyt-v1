@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Pressable,
   Animated,
+  Platform,
   type ListRenderItem,
 } from 'react-native';
 import { Image } from 'expo-image';
@@ -162,7 +163,7 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
       header={
         <View style={styles.header}>
           <View style={styles.searchRow}>
-            <Icon name="search" size={ICON_SIZES.MEDIUM} color={Colors.neutral[300]} />
+            <Icon name="search" size={ICON_SIZES.LARGE} color={Colors.neutral[200]} />
             <TextInput
               value={query}
               onChangeText={setQuery}
@@ -173,18 +174,22 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
               autoCapitalize="none"
               returnKeyType="search"
             />
-            {trimmed.length > 0 && (
-              <Pressable
-                onPress={() => setQuery('')}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                style={styles.clearButton}
-                android_ripple={{ color: Colors.overlay.white10 }}
-                accessibilityRole="button"
-                accessibilityLabel="Clear search"
-              >
-                <Icon name="close" size={18} color={Colors.neutral[200]} />
-              </Pressable>
-            )}
+            <View style={styles.clearSlot}>
+              {trimmed.length > 0 ? (
+                <Pressable
+                  onPress={() => setQuery('')}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  style={styles.clearButton}
+                  android_ripple={{ color: Colors.overlay.white10 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Clear search"
+                >
+                  <Icon name="close-circle" size={22.5} color={Colors.neutral[200]} />
+                </Pressable>
+              ) : (
+                <View style={styles.clearButtonPlaceholder} />
+              )}
+            </View>
           </View>
         </View>
       }
@@ -232,13 +237,13 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.black,
     paddingHorizontal: 16,
     paddingTop: 18,
-    paddingBottom: 10,
+    paddingBottom: 6,
     gap: 8,
   },
   tabsBarContainer: {
     backgroundColor: Colors.black,
     paddingHorizontal: 16,
-    paddingTop: 4,
+    paddingTop: 0,
     paddingBottom: 6,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: Colors.overlay.white10,
@@ -252,26 +257,50 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: Colors.overlay.white10,
+    backgroundColor: Colors.neutral[800],
     borderRadius: BORDER_RADIUS.LARGE,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Colors.overlay.white10,
+    borderColor: Colors.neutral[700],
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 11,
+    minHeight: 46,
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 2,
   },
   searchInput: {
     flex: 1,
     minWidth: 0,
     color: Colors.neutral[50],
     fontFamily: Typography.families.regular,
-    fontSize: Typography.sizes.body,
-    lineHeight: Typography.lineHeights.body,
+    fontSize: Typography.sizes.title,
+    height: Typography.lineHeights.title,
+    padding: 0,
     paddingVertical: 0,
+    textAlignVertical: 'center',
+    ...(Platform.OS === 'android' && {
+      includeFontPadding: false,
+    }),
+  },
+  clearSlot: {
+    marginLeft: 8,
+    width: 28,
+    height: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   clearButton: {
-    padding: 4,
+    width: 28,
+    height: 28,
     borderRadius: BORDER_RADIUS.FULL,
-    backgroundColor: Colors.overlay.white10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  clearButtonPlaceholder: {
+    width: 28,
+    height: 28,
   },
   listContent: {
     paddingHorizontal: 0,
