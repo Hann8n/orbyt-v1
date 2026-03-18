@@ -379,7 +379,8 @@ export class FeedService {
     rootCid: string,
     parentUri?: string,
     parentCid?: string,
-    images?: { uri: string; alt: string; aspectRatio?: { width: number; height: number } }[]
+    images?: { uri: string; alt: string; aspectRatio?: { width: number; height: number } }[],
+    externalEmbed?: { uri: string; title?: string; description?: string; thumb?: string }
   ): Promise<{ uri: string; cid: string }> {
     await AtprotoCore.ensureSession();
     const { api } = await AtprotoCore.getApiClient();
@@ -408,7 +409,19 @@ export class FeedService {
     }
 
     // Add images if provided
-    if (images && images.length > 0) {
+    if (externalEmbed?.uri) {
+      const external: Record<string, unknown> = {
+        uri: externalEmbed.uri,
+        title: externalEmbed.title ?? externalEmbed.uri,
+        description: externalEmbed.description ?? '',
+      };
+      if (externalEmbed.thumb) external.thumb = externalEmbed.thumb;
+
+      postRecord.embed = {
+        $type: 'app.bsky.embed.external',
+        external,
+      };
+    } else if (images && images.length > 0) {
       try {
         // Upload each image and get its blob reference
         const uploadedImages = await Promise.all(

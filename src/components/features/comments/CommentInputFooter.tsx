@@ -20,6 +20,7 @@ import { UserSearchModal } from '../../ui/usersearch';
 import { useUserStore } from '../../../stores/userStore';
 import { useProfile } from '../../../services/data/ProfileService';
 import { useAvatarProfileRing } from '../../../services/colors';
+import { Typography } from '../../../utils/components/typography';
 
 interface UserSearchModalProps {
   visible: boolean;
@@ -55,6 +56,9 @@ interface CommentInputFooterProps {
   onSelectionChange: (e: TextInputSelectionChangeEvent) => void;
   placeholder?: string;
   onSubmit: () => void;
+  onPressGif?: () => void;
+  hasAttachment?: boolean;
+  onClearAttachment?: () => void;
   /**
    * Show/hide the current user's avatar at the start of the input row.
    * Useful for compact composers (e.g. share-sheet send message).
@@ -115,6 +119,9 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   mentionInputProps,
   onFocus,
   safeAreaBottom: safeAreaBottomProp,
+  onPressGif,
+  hasAttachment = false,
+  onClearAttachment,
 }) => {
   const { t } = useTranslation();
   const resolvedPlaceholder = placeholder ?? t('comments.saySomething');
@@ -122,9 +129,10 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   const charCount = value.length;
   const hasText = value.trim().length > 0;
   const showCharCount = charCount >= 150;
-  const shouldRenderSendButton = hasText || showSendWhenEmpty;
+  const hasContent = hasText || !!hasAttachment;
+  const shouldRenderSendButton = hasContent || showSendWhenEmpty;
   const isSendDisabled =
-    isPosting || isSubmitDisabled || (!hasText && !showSendWhenEmpty) || charCount > maxLength;
+    isPosting || isSubmitDisabled || (!hasContent && !showSendWhenEmpty) || charCount > maxLength;
   const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
 
   // Get current user profile for live status
@@ -185,6 +193,19 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
             />
           </View>
           <View style={styles.sendColumn}>
+            {onPressGif ? (
+              <Pressable
+                onPress={onPressGif}
+                style={[styles.iconButton, isPosting && styles.iconButtonDisabled]}
+                disabled={isPosting}
+                hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+                accessible={true}
+                accessibilityRole="button"
+                accessibilityLabel={t('comments.addGif')}
+              >
+                <Icon name="gallery" size={20} color={Colors.neutral[200]} />
+              </Pressable>
+            ) : null}
             {shouldRenderSendButton ? (
               <Pressable
                 style={[
@@ -240,6 +261,23 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
             )}
           </View>
         </View>
+        {hasAttachment ? (
+          <View style={styles.attachmentRow}>
+            <View style={styles.attachmentChip}>
+              <Text style={styles.attachmentText}>{t('comments.gifAttached')}</Text>
+              {onClearAttachment ? (
+                <Pressable
+                  onPress={onClearAttachment}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('comments.removeGif')}
+                >
+                  <Icon name="close" size={16} color={Colors.neutral[200]} />
+                </Pressable>
+              ) : null}
+            </View>
+          </View>
+        ) : null}
       </View>
       {userSearchModalProps && (
         <View style={styles.userSearchContainer} pointerEvents="box-none">
@@ -298,9 +336,9 @@ const styles = StyleSheet.create({
     paddingBottom: 9,
     paddingLeft: 0,
     textAlignVertical: 'top',
-    fontFamily: 'Figtree-Regular',
-    fontSize: 18,
-    lineHeight: 24,
+    fontFamily: Typography.families.regular,
+    fontSize: Typography.sizes.body,
+    lineHeight: Typography.lineHeights.body,
   },
   sendColumn: {
     alignItems: 'center',
@@ -308,6 +346,19 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     zIndex: 10,
     elevation: 10,
+  },
+  iconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: BORDER_RADIUS.FULL,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.overlay.white10,
+    marginLeft: 8,
+    marginBottom: 6,
+  },
+  iconButtonDisabled: {
+    opacity: 0.6,
   },
   sendButton: {
     paddingHorizontal: 8,
@@ -367,6 +418,25 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     pointerEvents: 'box-none',
+  },
+  attachmentRow: {
+    paddingTop: 8,
+  },
+  attachmentChip: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: BORDER_RADIUS.FULL,
+    backgroundColor: Colors.overlay.white10,
+  },
+  attachmentText: {
+    color: Colors.neutral[200],
+    fontFamily: Typography.families.medium,
+    fontSize: Typography.sizes.caption,
+    lineHeight: Typography.lineHeights.caption,
   },
 });
 

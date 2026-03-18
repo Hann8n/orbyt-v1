@@ -43,7 +43,9 @@ import { formatNumber } from '../../../utils/formatting/numbers';
 import { formatHandle } from '../../../utils/formatting/handles';
 import CommentInputFooter from './CommentInputFooter';
 import CommentItem from './CommentItem';
+import KlipyGifPickerSheet from './KlipyGifPickerSheet';
 import type { Comment, Like } from '../../../services/api/types';
+import type { KlipyItem } from '../../../services/klipy/KlipyService';
 
 /**
  * Types (kept compatible with your current usage)
@@ -125,6 +127,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   );
 
   const sheetRef = useRef<TrueSheet>(null);
+  const klipySheetRef = useRef<TrueSheet>(null);
   const lastPresentedPostUriRef = useRef<string | null>(null);
   const commentsListRef = useRef<FlashListRef<Comment> | null>(null);
   const likesListRef = useRef<FlashListRef<Like> | null>(null);
@@ -134,6 +137,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const [fullscreenImageUri, setFullscreenImageUri] = useState<string | null>(null);
 
   const [newCommentText, setNewCommentText] = useState('');
+  const [selectedGif, setSelectedGif] = useState<KlipyItem | null>(null);
   const [inputSelection, setInputSelection] = useState<{ start: number; end: number }>({
     start: 0,
     end: 0,
@@ -150,6 +154,23 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     setReplyContext(null);
     setTimeout(() => inputRef.current?.focus?.(), 50);
   }, []);
+
+  const openGifPicker = useCallback(() => {
+    klipySheetRef.current?.present().catch(() => {});
+  }, []);
+
+  const closeGifPicker = useCallback(() => {
+    klipySheetRef.current?.dismiss().catch(() => {});
+  }, []);
+
+  const handleSelectGif = useCallback(
+    (item: KlipyItem) => {
+      setSelectedGif(item);
+      closeGifPicker();
+      setTimeout(() => inputRef.current?.focus?.(), 50);
+    },
+    [closeGifPicker]
+  );
 
   const handleReplyPress = useCallback(
     (comment: Comment) => {
@@ -475,7 +496,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     if (!post?.uri) return;
 
     const text = newCommentText.trim();
-    if (!text || isPosting) return;
+    const hasGif = !!selectedGif?.fullUrl;
+    if ((!text && !hasGif) || isPosting) return;
 
     setIsPosting(true);
 
@@ -486,12 +508,44 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       const parentUri = replyContext?.parentUri ?? rootUri;
       const parentCid = replyContext?.parentCid ?? rootCid;
 
-      const result = await AtprotoService.postComment(text, rootUri, rootCid, parentUri, parentCid);
+      const externalEmbed = hasGif
+        ? {
+            uri: selectedGif!.fullUrl,
+            title:
+              selectedGif!.title ??
+              (selectedGif!.kind === 'sticker'
+                ? 'Sticker'
+                : selectedGif!.kind === 'meme'
+                  ? 'Meme'
+                  : selectedGif!.kind === 'emoji'
+                    ? 'Emoji'
+                    : 'GIF'),
+            description:
+              selectedGif!.kind === 'sticker'
+                ? 'Klipy Sticker'
+                : selectedGif!.kind === 'meme'
+                  ? 'Klipy Meme'
+                  : selectedGif!.kind === 'emoji'
+                    ? 'Klipy Emoji'
+                    : 'Klipy GIF',
+          }
+        : undefined;
+
+      const result = await AtprotoService.postComment(
+        text,
+        rootUri,
+        rootCid,
+        parentUri,
+        parentCid,
+        undefined,
+        externalEmbed
+      );
 
       // Store the URI of the newly posted comment to scroll to it after refetch
       setPostedCommentUri(result.uri);
 
       setNewCommentText('');
+      setSelectedGif(null);
       setReplyContext(null);
 
       // Invalidate and force refetch to ensure new comment appears immediately
@@ -513,7 +567,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     } finally {
       setIsPosting(false);
     }
-  }, [post, newCommentText, replyContext, isPosting, queryClient]);
+  }, [post, newCommentText, selectedGif, replyContext, isPosting, queryClient, t]);
 
   // Scroll to newly posted comment after it appears in the list
   useEffect(() => {
@@ -593,6 +647,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
   const handleClose = useCallback(() => {
     setNewCommentText('');
+    setSelectedGif(null);
     setActiveTab('comments');
     setLikesQueryEnabled(false);
     setFullscreenImageUri(null);
@@ -732,6 +787,9 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         onSelectionChange={e => setInputSelection(e.nativeEvent.selection)}
         placeholder={placeholder}
         onSubmit={handleSendComment}
+        onPressGif={openGifPicker}
+        hasAttachment={!!selectedGif}
+        onClearAttachment={() => setSelectedGif(null)}
         onCancelReply={handleCancelReply}
         replyContext={
           replyContext
@@ -753,6 +811,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     );
   }, [
     newCommentText,
+    openGifPicker,
+    selectedGif,
     inputSelection,
     placeholder,
     handleSendComment,
@@ -905,6 +965,12 @@ const CommentSection: React.FC<CommentSectionProps> = ({
           </Pressable>
         </Pressable>
       </Modal>
+
+      <KlipyGifPickerSheet
+        sheetRef={klipySheetRef}
+        onSelect={handleSelectGif}
+        onClose={closeGifPicker}
+      />
     </>
   );
 };

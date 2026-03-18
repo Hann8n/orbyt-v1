@@ -16,6 +16,7 @@ const mutesBase = ['mutes'] as const;
 const feedsBase = ['feeds'] as const;
 const searchBase = ['search'] as const;
 const moderationBase = ['moderation'] as const;
+const klipyBase = ['klipy'] as const;
 
 export const queryKeys = {
   // Feed queries (merged from FeedService)
@@ -158,6 +159,19 @@ export const queryKeys = {
   moderation: {
     all: moderationBase,
     byUser: (did: string) => [...moderationBase, did] as const,
+  },
+
+  klipy: {
+    all: klipyBase,
+    media: {
+      trending: (customerId: string, kind: import('@/services/klipy/KlipyService').KlipyKind) =>
+        [...klipyBase, 'media', 'trending', kind, customerId] as const,
+      search: (
+        customerId: string,
+        kind: import('@/services/klipy/KlipyService').KlipyKind,
+        q: string
+      ) => [...klipyBase, 'media', 'search', kind, customerId, q] as const,
+    },
   },
 
   // Discourse community (Ideas and Feature Requests)
