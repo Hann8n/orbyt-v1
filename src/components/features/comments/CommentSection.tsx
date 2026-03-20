@@ -10,6 +10,7 @@ import {
   TextInput,
   LayoutAnimation,
   ActivityIndicator,
+  InteractionManager,
 } from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
@@ -168,12 +169,22 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     klipySheetRef.current?.dismiss().catch(() => {});
   }, []);
 
+  const refocusInputAfterAttachment = useCallback(() => {
+    InteractionManager.runAfterInteractions(() => {
+      setTimeout(() => inputRef.current?.focus?.(), 150);
+    });
+  }, []);
+
+  const handleGifPickerClosed = useCallback(() => {
+    closeGifPicker();
+    refocusInputAfterAttachment();
+  }, [closeGifPicker, refocusInputAfterAttachment]);
+
   const handleSelectGif = useCallback(
     (item: KlipyItem) => {
       setSelectedGif(item);
       setSelectedImages([]);
       closeGifPicker();
-      setTimeout(() => inputRef.current?.focus?.(), 50);
     },
     [closeGifPicker]
   );
@@ -216,12 +227,12 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       if (next.length) {
         setSelectedImages(next);
         setSelectedGif(null);
-        setTimeout(() => inputRef.current?.focus?.(), 50);
+        refocusInputAfterAttachment();
       }
     } catch {
       Alert.alert(t('common.error'), t('video.failedToAccessGallery'));
     }
-  }, [t]);
+  }, [t, refocusInputAfterAttachment]);
 
   const handleRemoveSelectedImage = useCallback((uri: string) => {
     setSelectedImages(prev => prev.filter(img => img.uri !== uri));
@@ -1029,7 +1040,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       <KlipyGifPickerSheet
         sheetRef={klipySheetRef}
         onSelect={handleSelectGif}
-        onClose={closeGifPicker}
+        onClose={handleGifPickerClosed}
       />
     </>
   );
