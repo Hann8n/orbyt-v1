@@ -10,16 +10,18 @@ import { Colors } from '../../../theme';
 import { useRouter } from 'expo-router';
 import CloseButton from '../../ui/CloseButton';
 import CancelButton from '../../ui/CancelButton';
-import KeyboardAwareFooter from '../../../utils/components/truesheet/KeyboardAwareFooter';
 import type { TrueSheet } from '@lodev09/react-native-true-sheet';
 import {
   AppTrueSheet,
   CONTENT_TO_FOOTER_GAP_REDUCTION,
-  DEFAULT_HEADER_STYLE,
+  DEFAULT_CONTENT_PADDING_HORIZONTAL,
+  SheetActionFooter,
   useMeasuredFooterHeight,
-  FOOTER_BOTTOM_PADDING_MIN,
+  getFooterBottomPadding,
+  SHEET_STYLES,
 } from '../../../utils/components/truesheet';
 import VerificationBadge from './VerificationBadge';
+import { FontFamily, Typography } from '../../../utils/components/typography';
 
 // Import AuthorItem directly - preload to avoid size calculation issues
 import AuthorItem from '../../ui/AuthorItem';
@@ -63,7 +65,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
   const bottomSheetRef = useRef<TrueSheet>(null);
   const navigation = useRouter();
   const insets = useSafeAreaInsets();
-  const footerBottomPadding = Math.max(insets.bottom, FOOTER_BOTTOM_PADDING_MIN);
+  const footerBottomPadding = getFooterBottomPadding(insets.bottom);
   const [contentBottomPadding, wrapFooter] = useMeasuredFooterHeight(44 + footerBottomPadding);
 
   // Get profile info - use cached data if available
@@ -98,23 +100,35 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
     }
   }, [visible]);
 
+  const headerComponent = (
+    <View style={styles.headerContainer}>
+      <View style={styles.headerLeft}>
+        <VerificationBadge
+          handle={handle}
+          size={24}
+          badgeType="auto"
+          textColor={Colors.neutral[50]}
+          customMargin={0}
+          verification={verification || undefined}
+        />
+        <Text style={[styles.headerTitle, styles.headerTitleMargin]} numberOfLines={1}>
+          {isTrustedVerifier ? t('profile.trustedVerifier') : t('profile.verified')}
+        </Text>
+      </View>
+      <CloseButton onPress={onDismiss} />
+    </View>
+  );
+
   return (
     <AppTrueSheet
       ref={bottomSheetRef}
       name="verification-info-sheet"
       onDidDismiss={onDismiss}
+      header={headerComponent}
       footer={wrapFooter(
-        <View style={{ backgroundColor: Colors.black, paddingBottom: footerBottomPadding }}>
-          <KeyboardAwareFooter
-            hideOnKeyboard={true}
-            bottomPadding={0}
-            style={{ backgroundColor: Colors.black }}
-          >
-            <View style={[styles.cancelContainer, { backgroundColor: Colors.black }]}>
-              <CancelButton onPress={onDismiss} text={t('common.close')} />
-            </View>
-          </KeyboardAwareFooter>
-        </View>
+        <SheetActionFooter bottomPadding={footerBottomPadding} backgroundColor={Colors.black}>
+          <CancelButton onPress={onDismiss} text={t('common.close')} />
+        </SheetActionFooter>
       )}
     >
       <View
@@ -125,24 +139,6 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
           },
         ]}
       >
-        {/* Header with title, badge and close button */}
-        <View style={styles.headerContainer}>
-          <View style={styles.headerLeft}>
-            <VerificationBadge
-              handle={handle}
-              size={24}
-              badgeType="auto"
-              textColor={Colors.neutral[50]}
-              customMargin={0}
-              verification={verification || undefined}
-            />
-            <Text style={[styles.headerTitle, styles.headerTitleMargin]} numberOfLines={1}>
-              {isTrustedVerifier ? t('profile.trustedVerifier') : t('profile.verified')}
-            </Text>
-          </View>
-          <CloseButton onPress={onDismiss} />
-        </View>
-
         {isLoading ? (
           <ActivityIndicator
             size="small"
@@ -268,12 +264,10 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
 
 const styles = StyleSheet.create({
   content: {
-    paddingHorizontal: 12,
+    ...SHEET_STYLES.contentContainer,
   },
   headerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    ...DEFAULT_HEADER_STYLE,
+    ...SHEET_STYLES.headerContainer,
   },
   headerLeft: {
     flexDirection: 'row',
@@ -281,11 +275,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    color: Colors.neutral[50],
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'left',
-    fontFamily: 'Figtree-Bold',
+    ...SHEET_STYLES.headerTitle,
   },
   headerTitleMargin: {
     marginLeft: 4,
@@ -296,29 +286,28 @@ const styles = StyleSheet.create({
   },
   infoContainer: {
     marginBottom: 20,
-    paddingHorizontal: 20,
+    paddingHorizontal: DEFAULT_CONTENT_PADDING_HORIZONTAL,
   },
   infoText: {
     color: Colors.neutral[200],
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: Typography.sizes.body,
+    lineHeight: Typography.lineHeights.body,
     textAlign: 'left',
-    fontFamily: 'Figtree-Regular',
+    fontFamily: FontFamily.regular,
   },
   verifiedByLabel: {
     color: Colors.neutral[500],
-    fontSize: 14,
-    fontWeight: '600',
-    fontFamily: 'Figtree-SemiBold',
+    fontSize: Typography.sizes.bodySmall,
+    fontFamily: FontFamily.semibold,
     marginBottom: 8,
     marginTop: 8,
-    paddingHorizontal: 20,
+    paddingHorizontal: DEFAULT_CONTENT_PADDING_HORIZONTAL,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   verifierItem: {
-    marginHorizontal: 12,
-    marginBottom: 12,
+    marginHorizontal: DEFAULT_CONTENT_PADDING_HORIZONTAL,
+    marginBottom: DEFAULT_CONTENT_PADDING_HORIZONTAL,
   },
   issuerListItem: {
     marginVertical: 4,
@@ -327,8 +316,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: DEFAULT_CONTENT_PADDING_HORIZONTAL,
+    paddingHorizontal: DEFAULT_CONTENT_PADDING_HORIZONTAL,
   },
   issuerTextContainer: {
     flex: 1,
@@ -364,8 +353,9 @@ const styles = StyleSheet.create({
   },
   statusText: {
     color: Colors.neutral[200],
-    fontSize: 14,
-    fontFamily: 'Figtree-Regular',
+    fontSize: Typography.sizes.bodySmall,
+    lineHeight: Typography.lineHeights.bodySmall,
+    fontFamily: FontFamily.regular,
     textAlign: 'center',
   },
   errorContainer: {
@@ -374,13 +364,11 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: Colors.neutral[200],
-    fontSize: 16,
-    fontFamily: 'Figtree-Regular',
+    fontSize: Typography.sizes.body,
+    lineHeight: Typography.lineHeights.body,
+    fontFamily: FontFamily.regular,
     marginBottom: 20,
     textAlign: 'center',
-  },
-  cancelContainer: {
-    alignItems: 'center',
   },
 });
 

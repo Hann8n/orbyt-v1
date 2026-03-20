@@ -12,8 +12,12 @@ import {
 import { Image } from 'expo-image';
 import type { TrueSheet } from '@lodev09/react-native-true-sheet';
 
-import { AppTrueSheet } from '@/utils/components/truesheet';
-import { DEFAULT_GRABBER_OPTIONS } from '@/utils/components/truesheet/trueSheetPresets';
+import {
+  AppTrueSheet,
+  DEFAULT_CONTENT_PADDING_HORIZONTAL,
+  DEFAULT_GRABBER_OPTIONS,
+  SHEET_SPACING,
+} from '@/utils/components/truesheet';
 import { Colors } from '@/theme';
 import { BORDER_RADIUS, ICON_SIZES } from '@/utils/constants';
 import { Typography } from '@/utils/components/typography';
@@ -29,7 +33,6 @@ export interface KlipyGifPickerSheetProps {
 }
 
 const GRID_COLUMNS = 3;
-const SHEET_HORIZONTAL_INSET = 16;
 
 const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
   sheetRef,
@@ -159,7 +162,7 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
     <AppTrueSheet
       ref={sheetRef}
       name="klipy-gif-picker"
-      detents={[1]}
+      variant="full"
       grabber
       grabberOptions={DEFAULT_GRABBER_OPTIONS}
       onDidDismiss={onClose}
@@ -239,14 +242,14 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: Colors.black,
-    paddingHorizontal: SHEET_HORIZONTAL_INSET,
+    paddingHorizontal: SHEET_SPACING.mediaPickerHorizontal,
     paddingTop: 18,
     paddingBottom: 6,
     gap: 8,
   },
   tabsBarContainer: {
     backgroundColor: Colors.black,
-    paddingHorizontal: SHEET_HORIZONTAL_INSET,
+    paddingHorizontal: SHEET_SPACING.mediaPickerHorizontal,
     paddingTop: 0,
     paddingBottom: 6,
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -268,7 +271,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.LARGE,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: Colors.neutral[700],
-    paddingHorizontal: 12,
+    paddingHorizontal: DEFAULT_CONTENT_PADDING_HORIZONTAL,
     paddingVertical: 11,
     minHeight: 46,
     shadowColor: Colors.black,

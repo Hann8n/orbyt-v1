@@ -4,8 +4,11 @@
  */
 
 import type { ViewStyle } from 'react-native';
+import type { TextStyle } from 'react-native';
 import type { TrueSheetProps, GrabberOptions } from '@lodev09/react-native-true-sheet';
 import { Colors } from '../../../theme';
+import { FontFamily, Typography } from '../../components/typography';
+import { hexToRGBA } from '../../formatting/colors';
 
 export type { SheetDetent } from '@lodev09/react-native-true-sheet';
 
@@ -27,20 +30,71 @@ export const DEFAULT_HEADER_STYLE: ViewStyle = {
 /** Default horizontal padding for sheet content. */
 export const DEFAULT_CONTENT_PADDING_HORIZONTAL = 12;
 
+/** Canonical sheet spacing tokens for shell consistency. */
+export const SHEET_SPACING = {
+  headerHorizontal: 20,
+  headerTop: 20,
+  headerBottom: 20,
+  contentHorizontal: DEFAULT_CONTENT_PADDING_HORIZONTAL,
+  contentVertical: 0,
+  descriptionTopOffset: -12,
+  descriptionBottom: 10,
+  footerHorizontal: 20,
+  footerTop: 12,
+  /** Media pickers (e.g. Klipy GIF): wider inset for full-screen grid layouts. */
+  mediaPickerHorizontal: 16,
+} as const;
+
 export const DEFAULT_GRABBER_OPTIONS: GrabberOptions = {
   width: 42,
   height: 4,
   topMargin: 8,
   cornerRadius: 2,
-  color: 'rgba(243, 245, 254, 0.5)',
+  color: hexToRGBA(Colors.brand.white, 0.5),
   adaptive: false,
 };
 
+/** Shared shell text styles for sheet headers and descriptions. */
+export const SHEET_TEXT_STYLES: {
+  title: TextStyle;
+  description: TextStyle;
+} = {
+  title: {
+    color: Colors.neutral[50],
+    fontSize: Typography.sizes.h3,
+    lineHeight: Typography.lineHeights.h3,
+    fontFamily: FontFamily.bold,
+    textAlign: 'left',
+    flex: 1,
+  },
+  description: {
+    color: Colors.neutral[200],
+    fontSize: Typography.sizes.bodySmall,
+    lineHeight: Typography.lineHeights.bodySmall,
+    textAlign: 'left',
+    fontFamily: FontFamily.regular,
+  },
+};
+
+/** Canonical detent presets for common sheet behaviors. */
+export const SHEET_DETENTS = {
+  auto: ['auto'] as const,
+  full: [1] as const,
+  halfAndFull: [0.5, 1] as const,
+  sendToPicker: [0.9] as const,
+} as const;
+
 /** Variant overrides for sheets that intentionally differ from defaults. */
 export const SHEET_VARIANTS = {
+  full: {
+    detents: SHEET_DETENTS.full,
+  },
+  halfAndFull: {
+    detents: SHEET_DETENTS.halfAndFull,
+  },
   /** Send-to picker: fixed 90% height for full-height list UX. */
   sendToPicker: {
-    detents: [0.9] as const,
+    detents: SHEET_DETENTS.sendToPicker,
   },
   /** Reaction picker: grabber, neutral background, custom inset behavior. */
   reactionPicker: (

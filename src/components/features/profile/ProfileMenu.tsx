@@ -5,7 +5,6 @@ import { View, Text, StyleSheet, Share, Platform, Alert, Linking } from 'react-n
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Icon from '../../ui/Icon';
-import KeyboardAwareFooter from '../../../utils/components/truesheet/KeyboardAwareFooter';
 import { Colors } from '../../../theme';
 import CloseButton from '../../ui/CloseButton';
 import CancelButton from '../../ui/CancelButton';
@@ -13,9 +12,11 @@ import VerticalListSheet, { VerticalListButton, TrueSheet } from '../../ui/Verti
 import {
   AppTrueSheet,
   CONTENT_TO_FOOTER_GAP_REDUCTION,
-  DEFAULT_HEADER_STYLE,
+  SheetActionFooter,
+  FOOTER_TOP_PADDING_DEFAULT,
   useMeasuredFooterHeight,
-  FOOTER_BOTTOM_PADDING_MIN,
+  getFooterBottomPadding,
+  SHEET_STYLES,
 } from '../../../utils/components/truesheet';
 import { useAuth } from '../../../stores/userStore';
 import {
@@ -66,9 +67,10 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
 
   // TrueSheet refs for proper stacking (submenu uses AppTrueSheet with ref)
   const submenuSheetRef = useRef<import('@lodev09/react-native-true-sheet').TrueSheet>(null);
-  const submenuFooterBottomPadding = Math.max(insets.bottom, FOOTER_BOTTOM_PADDING_MIN);
+  const submenuFooterBottomPadding = getFooterBottomPadding(insets.bottom);
+  const submenuFooterTopPadding = FOOTER_TOP_PADDING_DEFAULT;
   const [submenuContentBottomPadding, wrapSubmenuFooter] = useMeasuredFooterHeight(
-    44 + submenuFooterBottomPadding
+    submenuFooterTopPadding + 44 + submenuFooterBottomPadding
   );
 
   // Get profile data - prefer useProfileByDid if DID is provided (more reliable for handle.invalid cases)
@@ -400,19 +402,17 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
           </View>
         }
         footer={wrapSubmenuFooter(
-          <KeyboardAwareFooter
-            hideOnKeyboard={true}
+          <SheetActionFooter
             bottomPadding={submenuFooterBottomPadding}
-            style={{ backgroundColor: Colors.black }}
+            topPadding={submenuFooterTopPadding}
+            backgroundColor={Colors.black}
           >
-            <View style={[styles.cancelContainer, { backgroundColor: Colors.black }]}>
-              <CancelButton
-                onPress={() => {
-                  submenuSheetRef.current?.dismiss().catch(() => {});
-                }}
-              />
-            </View>
-          </KeyboardAwareFooter>
+            <CancelButton
+              onPress={() => {
+                submenuSheetRef.current?.dismiss().catch(() => {});
+              }}
+            />
+          </SheetActionFooter>
         )}
       >
         <View
@@ -457,23 +457,13 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   submenuContent: {
-    paddingHorizontal: 12,
+    ...SHEET_STYLES.contentContainer,
   },
   headerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    ...DEFAULT_HEADER_STYLE,
+    ...SHEET_STYLES.headerContainer,
   },
   headerTitle: {
-    color: Colors.neutral[50],
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'left',
-    fontFamily: 'Figtree-Bold',
-    flex: 1,
-  },
-  cancelContainer: {
-    alignItems: 'center',
+    ...SHEET_STYLES.headerTitle,
   },
 });
 

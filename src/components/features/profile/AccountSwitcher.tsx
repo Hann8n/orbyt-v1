@@ -9,9 +9,15 @@ import type { ProfileViewWithOrbyt } from '../../../services/api/types';
 import { Colors } from '../../../theme';
 import AuthorItem from '../../ui/AuthorItem';
 import VerticalListSheet, { TrueSheet } from '../../ui/VerticalListSheet';
+import {
+  DEFAULT_CONTENT_PADDING_HORIZONTAL,
+  SHEET_SPACING,
+  SHEET_STYLES,
+} from '../../../utils/components/truesheet';
 import { useAccountManagement, useAuth } from '../../../stores/userStore';
 import LoginSheet from '../../ui/LoginSheet';
 import SignUpSheet from '../../ui/SignUpSheet';
+import { FontFamily, Typography } from '../../../utils/components/typography';
 
 interface AccountSwitcherProps {
   visible: boolean;
@@ -385,23 +391,13 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
 
 const styles = StyleSheet.create({
   headerEditButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 50,
-    height: 32,
-    backgroundColor: Colors.neutral[900],
-    borderRadius: BORDER_RADIUS.MEDIUM,
+    ...SHEET_STYLES.headerActionButton,
   },
   headerEditButtonText: {
-    color: Colors.neutral[50],
-    fontSize: 16,
-    fontWeight: '600',
-    fontFamily: 'Figtree-SemiBold',
+    ...SHEET_STYLES.headerActionButtonText,
   },
   listContent: {
-    paddingHorizontal: 12,
+    paddingHorizontal: DEFAULT_CONTENT_PADDING_HORIZONTAL,
     paddingVertical: 0,
     paddingBottom: 0,
   },
@@ -412,10 +408,10 @@ const styles = StyleSheet.create({
     // AuthorItem handles its own styling
   },
   addAccountButton: {
-    marginBottom: 12,
+    marginBottom: DEFAULT_CONTENT_PADDING_HORIZONTAL,
     marginHorizontal: 0,
-    paddingVertical: 20,
-    paddingHorizontal: 20,
+    paddingVertical: SHEET_SPACING.headerBottom,
+    paddingHorizontal: SHEET_SPACING.headerHorizontal,
     minHeight: 64,
     flexDirection: 'row',
     alignItems: 'center',
@@ -432,8 +428,9 @@ const styles = StyleSheet.create({
   },
   addAccountButtonText: {
     color: Colors.neutral[50],
-    fontSize: 18,
-    fontFamily: 'Figtree-SemiBold',
+    fontSize: Typography.sizes.title,
+    lineHeight: Typography.lineHeights.title,
+    fontFamily: FontFamily.semibold,
   },
   headerEditButtonDisabled: {
     opacity: 0.5,

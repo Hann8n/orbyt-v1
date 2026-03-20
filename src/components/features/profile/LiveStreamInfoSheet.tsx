@@ -8,11 +8,12 @@ import type { TrueSheet } from '@lodev09/react-native-true-sheet';
 import {
   AppTrueSheet,
   CONTENT_TO_FOOTER_GAP_REDUCTION,
-  DEFAULT_HEADER_STYLE,
+  DEFAULT_CONTENT_PADDING_HORIZONTAL,
+  SheetActionFooter,
   useMeasuredFooterHeight,
-  FOOTER_BOTTOM_PADDING_MIN,
+  getFooterBottomPadding,
+  SHEET_STYLES,
 } from '../../../utils/components/truesheet';
-import KeyboardAwareFooter from '../../../utils/components/truesheet/KeyboardAwareFooter';
 import CloseButton from '../../ui/CloseButton';
 import CancelButton from '../../ui/CancelButton';
 import { VerticalListButton } from '../../ui/VerticalListSheet';
@@ -23,6 +24,7 @@ import { formatHandle } from '../../../utils/formatting/handles';
 import type { ProfileViewWithOrbyt } from '../../../services/api/types';
 import { BlurView } from '../../ui/BlurView';
 import { hexToRGBA } from '../../../utils/formatting/colors';
+import { FontFamily, Typography } from '../../../utils/components/typography';
 
 interface LiveStreamInfoSheetProps {
   visible: boolean;
@@ -38,7 +40,7 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
   const { t } = useTranslation();
   const bottomSheetRef = useRef<TrueSheet>(null);
   const insets = useSafeAreaInsets();
-  const footerBottomPadding = Math.max(insets.bottom, FOOTER_BOTTOM_PADDING_MIN);
+  const footerBottomPadding = getFooterBottomPadding(insets.bottom);
   const [contentBottomPadding, wrapFooter] = useMeasuredFooterHeight(44 + footerBottomPadding);
 
   const status = profile?.status;
@@ -148,17 +150,9 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
         </View>
       }
       footer={wrapFooter(
-        <View style={{ backgroundColor: Colors.black, paddingBottom: footerBottomPadding }}>
-          <KeyboardAwareFooter
-            hideOnKeyboard={true}
-            bottomPadding={0}
-            style={{ backgroundColor: Colors.black }}
-          >
-            <View style={[styles.cancelContainer, { backgroundColor: Colors.black }]}>
-              <CancelButton onPress={onDismiss} text={t('common.close')} />
-            </View>
-          </KeyboardAwareFooter>
-        </View>
+        <SheetActionFooter bottomPadding={footerBottomPadding} backgroundColor={Colors.black}>
+          <CancelButton onPress={onDismiss} text={t('common.close')} />
+        </SheetActionFooter>
       )}
     >
       <View
@@ -203,8 +197,8 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
                 label={t('profile.watchOn', { domain: getDomainFromUrl(displayUrl) })}
                 onPress={() => handleOpenLink(displayUrl)}
                 rightIcon={<Icon name="external-link" size={24} color={Colors.black} />}
-                style={{ backgroundColor: Colors.neutral[50] }}
-                textStyle={{ color: Colors.black }}
+                style={styles.watchButton}
+                textStyle={styles.watchButtonText}
               />
             )}
           </>
@@ -220,13 +214,10 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
 
 const styles = StyleSheet.create({
   content: {
-    paddingHorizontal: 12,
+    ...SHEET_STYLES.contentContainer,
   },
   headerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    ...DEFAULT_HEADER_STYLE,
+    ...SHEET_STYLES.headerContainer,
   },
   headerLeft: {
     flexDirection: 'row',
@@ -234,28 +225,24 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    color: Colors.neutral[50],
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'left',
-    fontFamily: 'Figtree-Bold',
+    ...SHEET_STYLES.headerTitle,
   },
   titleText: {
     color: Colors.neutral[50],
-    fontSize: 18,
-    fontWeight: 'bold',
-    fontFamily: 'Figtree-Bold',
+    fontSize: Typography.sizes.title,
+    lineHeight: Typography.lineHeights.title,
+    fontFamily: FontFamily.bold,
     marginBottom: 8,
-    paddingHorizontal: 15,
+    paddingHorizontal: DEFAULT_CONTENT_PADDING_HORIZONTAL,
   },
   descriptionText: {
     color: Colors.neutral[200],
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: Typography.sizes.body,
+    lineHeight: Typography.lineHeights.body,
     textAlign: 'left',
-    fontFamily: 'Figtree-Regular',
+    fontFamily: FontFamily.regular,
     marginBottom: 20,
-    paddingHorizontal: 15,
+    paddingHorizontal: DEFAULT_CONTENT_PADDING_HORIZONTAL,
   },
   thumbnailContainer: {
     marginBottom: 20,
@@ -293,8 +280,9 @@ const styles = StyleSheet.create({
   },
   chipText: {
     color: Colors.neutral[50],
-    fontSize: 13,
-    fontFamily: 'Figtree-Medium',
+    fontSize: Typography.sizes.caption,
+    lineHeight: Typography.lineHeights.caption,
+    fontFamily: FontFamily.medium,
   },
   liveBadge: {
     position: 'absolute',
@@ -303,16 +291,16 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.coral[500],
     paddingHorizontal: 7,
     paddingVertical: 3,
-    borderRadius: 8,
+    borderRadius: BORDER_RADIUS.SMALL,
     minWidth: 42,
     alignItems: 'center',
     justifyContent: 'center',
   },
   liveBadgeText: {
     color: Colors.neutral[50],
-    fontSize: 15,
-    fontFamily: 'Figtree-Black',
-    fontWeight: '900',
+    fontSize: Typography.sizes.bodySmall,
+    lineHeight: Typography.lineHeights.bodySmall,
+    fontFamily: FontFamily.black,
     letterSpacing: 0.7,
   },
   errorContainer: {
@@ -321,13 +309,17 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: Colors.neutral[200],
-    fontSize: 16,
-    fontFamily: 'Figtree-Regular',
+    fontSize: Typography.sizes.body,
+    lineHeight: Typography.lineHeights.body,
+    fontFamily: FontFamily.regular,
     marginBottom: 20,
     textAlign: 'center',
   },
-  cancelContainer: {
-    alignItems: 'center',
+  watchButton: {
+    backgroundColor: Colors.neutral[50],
+  },
+  watchButtonText: {
+    color: Colors.black,
   },
 });
 

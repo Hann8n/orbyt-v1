@@ -19,9 +19,11 @@ import {
 import type { TrueSheet } from '@lodev09/react-native-true-sheet';
 import {
   AppTrueSheet,
-  DEFAULT_HEADER_STYLE,
+  DEFAULT_CONTENT_PADDING_HORIZONTAL,
   useMeasuredFooterHeight,
-  FOOTER_BOTTOM_PADDING_MIN,
+  getFooterBottomPadding,
+  SHEET_SPACING,
+  SHEET_STYLES,
 } from '../../../utils/components/truesheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
@@ -40,6 +42,7 @@ import CloseButton from '../CloseButton';
 import Icon from '../Icon';
 import type { ProfileViewBasic } from '../../../services/api/types';
 import type { ConvoView } from '../../../services/api/types';
+import { FontFamily, Typography } from '../../../utils/components/typography';
 
 const SHEET_NAME = 'share-sheet-send-to';
 const MAX_MESSAGE_LENGTH = 300;
@@ -148,7 +151,7 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
   const messageInputRef = useRef<TextInput | null>(null);
   const sheetRef = useRef<TrueSheet>(null);
 
-  const footerBottomPadding = Math.max(insets.bottom, FOOTER_BOTTOM_PADDING_MIN);
+  const footerBottomPadding = getFooterBottomPadding(insets.bottom);
   const footerFallbackHeight = 96;
   const [contentBottomPadding, wrapFooter] = useMeasuredFooterHeight(footerFallbackHeight);
 
@@ -449,18 +452,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    ...DEFAULT_HEADER_STYLE,
+    ...SHEET_STYLES.headerContainer,
   },
   headerTitle: {
-    color: Colors.neutral[50],
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'left',
-    fontFamily: 'Figtree-Bold',
-    flex: 1,
+    ...SHEET_STYLES.headerTitle,
   },
   footerWrapper: {
     backgroundColor: Colors.black,
@@ -468,17 +463,18 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     minHeight: 0,
-    paddingHorizontal: 20,
+    paddingHorizontal: DEFAULT_CONTENT_PADDING_HORIZONTAL,
   },
   searchInput: {
-    marginBottom: 16,
+    marginBottom: SHEET_SPACING.mediaPickerHorizontal,
     borderRadius: BORDER_RADIUS.MEDIUM,
     backgroundColor: Colors.neutral[800],
     color: Colors.neutral[50],
-    paddingHorizontal: 16,
+    paddingHorizontal: SHEET_SPACING.mediaPickerHorizontal,
     paddingVertical: 14,
-    fontFamily: 'Figtree-Medium',
-    fontSize: 16,
+    fontFamily: FontFamily.medium,
+    fontSize: Typography.sizes.body,
+    lineHeight: Typography.lineHeights.body,
     borderWidth: 0,
     textAlign: 'left',
     textAlignVertical: 'center',
@@ -504,12 +500,13 @@ const styles = StyleSheet.create({
   },
   pickerEmptyText: {
     color: Colors.neutral[200],
-    fontSize: 16,
-    fontFamily: 'Figtree-Medium',
+    fontSize: Typography.sizes.body,
+    lineHeight: Typography.lineHeights.body,
+    fontFamily: FontFamily.medium,
   },
   conversationList: {
     paddingTop: 4,
-    paddingBottom: 20,
+    paddingBottom: SHEET_SPACING.headerBottom,
     paddingHorizontal: 0,
     flexGrow: 1,
   },
@@ -530,7 +527,7 @@ const styles = StyleSheet.create({
     width: 55,
     height: 55,
     borderRadius: BORDER_RADIUS.FULL,
-    marginRight: 12,
+    marginRight: DEFAULT_CONTENT_PADDING_HORIZONTAL,
     overflow: 'hidden',
   },
   conversationAvatar: {
@@ -549,26 +546,20 @@ const styles = StyleSheet.create({
   conversationInfo: {
     flex: 1,
     minWidth: 0,
-    marginLeft: 12,
+    marginLeft: DEFAULT_CONTENT_PADDING_HORIZONTAL,
     justifyContent: 'center',
   },
   selectorBox: {
-    width: 22,
-    height: 22,
-    borderRadius: BORDER_RADIUS.SMALL,
-    borderWidth: 2,
-    borderColor: Colors.neutral[200],
-    justifyContent: 'center',
-    alignItems: 'center',
+    ...SHEET_STYLES.selectorBox,
   },
   selectorBoxSelected: {
-    backgroundColor: Colors.neutral[50],
-    borderColor: Colors.neutral[50],
+    ...SHEET_STYLES.selectorBoxSelected,
   },
   conversationName: {
     color: Colors.neutral[50],
-    fontSize: 18,
-    fontFamily: 'Figtree-Black',
+    fontSize: Typography.sizes.title,
+    lineHeight: Typography.lineHeights.title,
+    fontFamily: FontFamily.black,
     marginBottom: 2,
   },
   disabledText: {

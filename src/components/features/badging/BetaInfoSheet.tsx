@@ -7,14 +7,17 @@ import type { TrueSheet } from '@lodev09/react-native-true-sheet';
 import {
   AppTrueSheet,
   CONTENT_TO_FOOTER_GAP_REDUCTION,
-  DEFAULT_HEADER_STYLE,
+  DEFAULT_CONTENT_PADDING_HORIZONTAL,
+  getFooterBottomPadding,
+  SheetActionFooter,
+  SHEET_STYLES,
   useMeasuredFooterHeight,
 } from '../../../utils/components/truesheet';
 import { Colors } from '../../../theme';
 import CloseButton from '../../ui/CloseButton';
 import CancelButton from '../../ui/CancelButton';
 import BetaBadge from './BetaBadge';
-import KeyboardAwareFooter from '../../../utils/components/truesheet/KeyboardAwareFooter';
+import { FontFamily, Typography } from '../../../utils/components/typography';
 
 interface BetaInfoSheetProps {
   visible: boolean;
@@ -23,17 +26,11 @@ interface BetaInfoSheetProps {
   onDismiss: () => void;
 }
 
-const FOOTER_BOTTOM_INSET_MIN = 8;
-const FOOTER_BOTTOM_INSET_MAX = 16;
-
 const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate, onDismiss }) => {
   const { t } = useTranslation();
   const bottomSheetRef = useRef<TrueSheet>(null);
   const insets = useSafeAreaInsets();
-  const footerBottomPadding = Math.max(
-    FOOTER_BOTTOM_INSET_MIN,
-    Math.min(insets.bottom, FOOTER_BOTTOM_INSET_MAX)
-  );
+  const footerBottomPadding = getFooterBottomPadding(insets.bottom);
   const [contentBottomPadding, wrapFooter] = useMeasuredFooterHeight(44 + footerBottomPadding);
 
   useEffect(() => {
@@ -72,17 +69,9 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
       onDidDismiss={onDismiss}
       header={headerComponent}
       footer={wrapFooter(
-        <View style={styles.footerContainer}>
-          <KeyboardAwareFooter
-            hideOnKeyboard={true}
-            bottomPadding={footerBottomPadding}
-            style={styles.footerKeyboardAware}
-          >
-            <View style={styles.cancelContainer}>
-              <CancelButton onPress={onDismiss} text={t('common.close')} />
-            </View>
-          </KeyboardAwareFooter>
-        </View>
+        <SheetActionFooter bottomPadding={footerBottomPadding} backgroundColor={Colors.black}>
+          <CancelButton onPress={onDismiss} text={t('common.close')} />
+        </SheetActionFooter>
       )}
     >
       <View
@@ -114,12 +103,10 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
 
 const styles = StyleSheet.create({
   content: {
-    paddingHorizontal: 12,
+    ...SHEET_STYLES.contentContainer,
   },
   headerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    ...DEFAULT_HEADER_STYLE,
+    ...SHEET_STYLES.headerContainer,
   },
   headerLeft: {
     flexDirection: 'row',
@@ -127,28 +114,23 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    color: Colors.neutral[50],
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'left',
-    fontFamily: 'Figtree-Bold',
+    ...SHEET_STYLES.headerTitle,
   },
   infoContainer: {
     marginBottom: 20,
-    paddingHorizontal: 15,
+    paddingHorizontal: DEFAULT_CONTENT_PADDING_HORIZONTAL,
   },
   infoText: {
     color: Colors.neutral[200],
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: Typography.sizes.body,
+    lineHeight: Typography.lineHeights.body,
     textAlign: 'left',
-    fontFamily: 'Figtree-Regular',
+    fontFamily: FontFamily.regular,
   },
   highlightedText: {
-    fontWeight: '600',
     color: Colors.neutral[50],
     opacity: 1,
-    fontFamily: 'Figtree-SemiBold',
+    fontFamily: FontFamily.semibold,
   },
   headerTitleMargin: {
     marginLeft: 4,
@@ -159,19 +141,10 @@ const styles = StyleSheet.create({
   },
   statusText: {
     color: Colors.neutral[200],
-    fontSize: 14,
-    fontFamily: 'Figtree-Regular',
+    fontSize: Typography.sizes.bodySmall,
+    lineHeight: Typography.lineHeights.bodySmall,
+    fontFamily: FontFamily.regular,
     textAlign: 'center',
-  },
-  cancelContainer: {
-    alignItems: 'center',
-    backgroundColor: Colors.black,
-  },
-  footerContainer: {
-    backgroundColor: Colors.black,
-  },
-  footerKeyboardAware: {
-    backgroundColor: Colors.black,
   },
 });
 

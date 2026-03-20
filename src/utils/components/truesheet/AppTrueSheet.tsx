@@ -11,7 +11,12 @@ import { DEFAULT_SHEET_PROPS, SHEET_VARIANTS } from './trueSheetPresets';
 
 export { DEFAULT_HEADER_STYLE } from './trueSheetPresets';
 
-export type AppTrueSheetVariant = 'default' | 'reactionPicker' | 'sendToPicker';
+export type AppTrueSheetVariant =
+  | 'default'
+  | 'full'
+  | 'halfAndFull'
+  | 'reactionPicker'
+  | 'sendToPicker';
 
 export interface AppTrueSheetProps extends Omit<TrueSheetProps, 'ref'> {
   variant?: AppTrueSheetVariant;
@@ -29,6 +34,10 @@ export const AppTrueSheet = forwardRef<TrueSheet, AppTrueSheetProps>(function Ap
 
   if (variant === 'sendToPicker') {
     Object.assign(defaults, SHEET_VARIANTS.sendToPicker);
+  } else if (variant === 'full') {
+    Object.assign(defaults, SHEET_VARIANTS.full);
+  } else if (variant === 'halfAndFull') {
+    Object.assign(defaults, SHEET_VARIANTS.halfAndFull);
   } else if (variant === 'reactionPicker' && rest.maxContentHeight != null) {
     Object.assign(defaults, SHEET_VARIANTS.reactionPicker(rest.maxContentHeight));
   }

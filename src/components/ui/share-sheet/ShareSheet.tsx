@@ -17,12 +17,14 @@ import type { TrueSheet } from '@lodev09/react-native-true-sheet';
 import {
   AppTrueSheet,
   CONTENT_TO_FOOTER_GAP_REDUCTION,
-  DEFAULT_HEADER_STYLE,
+  DEFAULT_CONTENT_PADDING_HORIZONTAL,
   FOOTER_TOP_PADDING_DEFAULT,
+  SheetActionFooter,
   useMeasuredFooterHeight,
-  FOOTER_BOTTOM_PADDING_MIN,
+  getFooterBottomPadding,
+  SHEET_SPACING,
+  SHEET_STYLES,
 } from '../../../utils/components/truesheet';
-import KeyboardAwareFooter from '../../../utils/components/truesheet/KeyboardAwareFooter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from '../Icon';
 import CloseButton from '../CloseButton';
@@ -34,6 +36,7 @@ import { formatHandle } from '../../../utils/formatting/handles';
 import { useBookmarkStore } from '../../../stores/bookmarkStore';
 import { useUserStore } from '../../../stores/userStore';
 import SendToPicker from './SendToPicker';
+import { FontFamily, Typography } from '../../../utils/components/typography';
 
 const ShareSheet: React.FC = () => {
   const { t } = useTranslation();
@@ -54,7 +57,7 @@ const ShareSheet: React.FC = () => {
   const removeBookmark = useBookmarkStore(state => state.removeBookmark);
 
   const insets = useSafeAreaInsets();
-  const footerBottomPadding = Math.max(insets.bottom, FOOTER_BOTTOM_PADDING_MIN);
+  const footerBottomPadding = getFooterBottomPadding(insets.bottom);
   const footerTop = FOOTER_TOP_PADDING_DEFAULT;
   const footerFallbackHeight = footerTop + 44 + footerBottomPadding;
   const [contentBottomPadding, wrapFooter] = useMeasuredFooterHeight(footerFallbackHeight);
@@ -353,9 +356,6 @@ const ShareSheet: React.FC = () => {
 
   const menuOptions = getMenuOptions();
 
-  // Use fixed spacing instead of dynamic calculation
-  const fixedSpacing = 12;
-
   // Header component for TrueSheet header prop
   const headerComponent =
     authorName || authorHandle ? (
@@ -384,22 +384,13 @@ const ShareSheet: React.FC = () => {
         onDidDismiss={handleDismiss}
         header={headerComponent}
         footer={wrapFooter(
-          <View style={{ backgroundColor: Colors.black, paddingBottom: footerBottomPadding }}>
-            <KeyboardAwareFooter
-              hideOnKeyboard={true}
-              bottomPadding={0}
-              style={{ backgroundColor: Colors.black }}
-            >
-              <View
-                style={[
-                  styles.cancelContainer,
-                  { backgroundColor: Colors.black, paddingTop: footerTop },
-                ]}
-              >
-                <CancelButton onPress={dismissSheet} />
-              </View>
-            </KeyboardAwareFooter>
-          </View>
+          <SheetActionFooter
+            bottomPadding={footerBottomPadding}
+            topPadding={footerTop}
+            backgroundColor={Colors.black}
+          >
+            <CancelButton onPress={dismissSheet} />
+          </SheetActionFooter>
         )}
       >
         <View
@@ -420,7 +411,7 @@ const ShareSheet: React.FC = () => {
             contentContainerStyle={[
               styles.optionsContainer,
               styles.optionsContainerContent,
-              { gap: fixedSpacing },
+              { gap: DEFAULT_CONTENT_PADDING_HORIZONTAL },
             ]}
           >
             {menuOptions.map(option => (
@@ -472,24 +463,16 @@ const ShareSheet: React.FC = () => {
 
 const styles = StyleSheet.create({
   headerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    ...DEFAULT_HEADER_STYLE,
+    ...SHEET_STYLES.headerContainer,
   },
   headerTitle: {
-    color: Colors.neutral[50],
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'left',
-    fontFamily: 'Figtree-Bold',
-    flex: 1,
+    ...SHEET_STYLES.headerTitle,
   },
   contentContainer: {
-    paddingHorizontal: 12,
+    paddingHorizontal: DEFAULT_CONTENT_PADDING_HORIZONTAL,
     // Extend options row to sheet edges while preserving overall content padding
-    marginLeft: -12,
-    marginRight: -12,
+    marginLeft: -DEFAULT_CONTENT_PADDING_HORIZONTAL,
+    marginRight: -DEFAULT_CONTENT_PADDING_HORIZONTAL,
   },
   optionsContainer: {
     flexDirection: 'row',
@@ -500,7 +483,7 @@ const styles = StyleSheet.create({
     flexWrap: 'nowrap',
   },
   optionsContainerContent: {
-    paddingLeft: 20,
+    paddingLeft: SHEET_SPACING.headerHorizontal,
   },
   optionWrapper: {
     alignItems: 'center',
@@ -519,15 +502,13 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 12,
   },
-  cancelContainer: {
-    alignItems: 'center',
-  },
   optionText: {
     color: Colors.neutral[200],
-    fontSize: 15,
+    fontSize: Typography.sizes.bodySmall,
+    lineHeight: Typography.lineHeights.bodySmall,
     marginTop: 12,
     textAlign: 'center',
-    fontFamily: 'Figtree-Medium',
+    fontFamily: FontFamily.medium,
   },
 });
 

@@ -14,6 +14,7 @@ import { Colors } from './UI';
 import { BORDER_RADIUS, APP_CONSTANTS } from '../../utils/constants';
 import { logger } from '../../utils/logger';
 import Icon from './Icon';
+import { FontFamily, Typography } from '../../utils/components/typography';
 
 interface EmailVerificationModalProps {
   visible: boolean;
@@ -232,7 +233,6 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
       showCancelButton={true}
       cancelButtonText={t('auth.skipForNow')}
       scrollable={false}
-      footerTopPadding={0}
     >
       <View style={[styles.container, styles.containerBottomPadding]}>
         <Text style={styles.descriptionText}>
@@ -362,16 +362,16 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 12,
   },
   containerBottomPadding: {
     paddingBottom: 16,
   },
   descriptionText: {
     color: Colors.neutral[200],
-    fontSize: 16,
-    lineHeight: 22,
-    fontFamily: 'Figtree-Regular',
+    fontSize: Typography.sizes.body,
+    lineHeight: Typography.lineHeights.body,
+    fontFamily: FontFamily.regular,
     marginBottom: 16,
     marginTop: 4,
   },
@@ -399,9 +399,10 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     color: Colors.black,
-    fontSize: 20,
+    fontSize: Typography.sizes.h3,
+    lineHeight: Typography.lineHeights.h3,
     height: '100%',
-    fontFamily: 'Figtree-Medium',
+    fontFamily: FontFamily.medium,
     letterSpacing: 1,
   },
   sendButton: {
@@ -422,8 +423,9 @@ const styles = StyleSheet.create({
   },
   sendButtonText: {
     color: Colors.neutral[900],
-    fontSize: 18,
-    fontFamily: 'Figtree-SemiBold',
+    fontSize: Typography.sizes.title,
+    lineHeight: Typography.lineHeights.title,
+    fontFamily: FontFamily.semibold,
   },
   verifyButton: {
     backgroundColor: Colors.neutral[200],
@@ -443,8 +445,9 @@ const styles = StyleSheet.create({
   },
   verifyButtonText: {
     color: Colors.neutral[500],
-    fontSize: 18,
-    fontFamily: 'Figtree-SemiBold',
+    fontSize: Typography.sizes.title,
+    lineHeight: Typography.lineHeights.title,
+    fontFamily: FontFamily.semibold,
   },
   verifyButtonTextActive: {
     color: Colors.neutral[900],
@@ -455,14 +458,15 @@ const styles = StyleSheet.create({
   },
   resendButtonText: {
     color: Colors.neutral[200],
-    fontSize: 16,
-    fontFamily: 'Figtree-Medium',
+    fontSize: Typography.sizes.body,
+    lineHeight: Typography.lineHeights.body,
+    fontFamily: FontFamily.medium,
   },
   infoText: {
     color: Colors.neutral[200],
-    fontSize: 14,
-    fontFamily: 'Figtree-Regular',
-    lineHeight: 20,
+    fontSize: Typography.sizes.bodySmall,
+    fontFamily: FontFamily.regular,
+    lineHeight: Typography.lineHeights.bodySmall,
     textAlign: 'center',
   },
   buttonContent: {

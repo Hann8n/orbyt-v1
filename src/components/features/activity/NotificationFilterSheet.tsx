@@ -7,8 +7,15 @@ import CancelButton from '../../ui/CancelButton';
 import Icon from '../../ui/Icon';
 import { Colors } from '../../../theme';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import { FOOTER_BOTTOM_PADDING_MIN } from '../../../utils/components/truesheet';
+import {
+  DEFAULT_CONTENT_PADDING_HORIZONTAL,
+  FOOTER_TOP_PADDING_DEFAULT,
+  getFooterBottomPadding,
+  SHEET_SPACING,
+  SHEET_STYLES,
+} from '../../../utils/components/truesheet';
 import type { NotificationReason } from '../../../services/api/types';
+import { FontFamily, Typography } from '../../../utils/components/typography';
 
 // Valid notification reasons - use labelKey for i18n
 const NOTIFICATION_REASONS_LABEL_KEY: Record<NotificationReason, string> = {
@@ -155,7 +162,7 @@ const NotificationFilterContent: React.FC<{
 }> = ({ selectedReasons, onFilterChange, onDismiss, onClearButtonChange, onFooterChange }) => {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const footerBottomPadding = Math.max(insets.bottom, FOOTER_BOTTOM_PADDING_MIN);
+  const footerBottomPadding = getFooterBottomPadding(insets.bottom);
 
   // Initialize state from prop - will reset when parent component remounts with new key
   const [localSelected, setLocalSelected] = useState<NotificationReason[]>(
@@ -243,7 +250,9 @@ const NotificationFilterContent: React.FC<{
   }, [clearButton, footer, onClearButtonChange, onFooterChange]);
 
   // Ensure scroll content has enough bottom padding so last options aren't cut off by footer
-  const scrollContentPaddingBottom = 12 + 8 + 44 + footerBottomPadding;
+  const CANCEL_BUTTON_HEIGHT = 44;
+  const scrollContentPaddingBottom =
+    FOOTER_TOP_PADDING_DEFAULT + CANCEL_BUTTON_HEIGHT + footerBottomPadding;
 
   return (
     <ScrollView
@@ -342,10 +351,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    marginHorizontal: 12,
-    marginBottom: 12,
+    paddingVertical: SHEET_SPACING.headerBottom,
+    paddingHorizontal: SHEET_SPACING.headerHorizontal,
+    marginHorizontal: DEFAULT_CONTENT_PADDING_HORIZONTAL,
+    marginBottom: DEFAULT_CONTENT_PADDING_HORIZONTAL,
     backgroundColor: Colors.neutral[900],
     borderRadius: BORDER_RADIUS.LARGE,
   },
@@ -354,44 +363,28 @@ const styles = StyleSheet.create({
   },
   filterOptionLabel: {
     color: Colors.neutral[50],
-    fontSize: 18,
-    fontFamily: 'Figtree-SemiBold',
+    fontSize: Typography.sizes.title,
+    lineHeight: Typography.lineHeights.title,
+    fontFamily: FontFamily.semibold,
     flex: 1,
   },
   checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: BORDER_RADIUS.SMALL,
-    borderWidth: 2,
-    borderColor: Colors.neutral[200],
-    justifyContent: 'center',
-    alignItems: 'center',
+    ...SHEET_STYLES.selectorBox,
   },
   checkboxSelected: {
-    backgroundColor: Colors.neutral[50],
-    borderColor: Colors.neutral[50],
+    ...SHEET_STYLES.selectorBoxSelected,
   },
   footer: {
     alignItems: 'center',
     // No backgroundColor – gradient from VerticalListSheet shows through to match other sheets
   },
   clearButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 50,
-    height: 32,
-    backgroundColor: Colors.neutral[900],
-    borderRadius: BORDER_RADIUS.MEDIUM,
+    ...SHEET_STYLES.headerActionButton,
   },
   clearButtonText: {
-    color: Colors.neutral[50],
-    fontSize: 16,
-    fontWeight: '600',
-    fontFamily: 'Figtree-SemiBold',
+    ...SHEET_STYLES.headerActionButtonText,
   },
   scrollContent: {
-    paddingBottom: 12,
+    paddingBottom: DEFAULT_CONTENT_PADDING_HORIZONTAL,
   },
 });

@@ -71,7 +71,6 @@ const SubscriptionOptionsSheet: React.FC<SubscriptionOptionsSheetProps> = ({
       description={t('profile.getNotifiedActivity')}
       showCancelButton={true}
       cancelButtonText={t('common.done')}
-      footerTopPadding={0}
     >
       <View style={styles.content}>
         <VerticalListCheckboxButton
