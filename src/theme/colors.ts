@@ -25,6 +25,7 @@ export const Colors = {
     teal: '#01f5b3', // Accent/success (hsl 164, 99%, 48%)
     coral: '#fe5f79', // Attention/error (hsl 350, 99%, 68%)
     white: '#f3f5fe', // Background (hsl 229, 69%, 97%)
+    germBrandGreen: '#7ee459', // Germ DM brand
   },
 
   // ═══════════════════════════════════════════════════════════════════════════

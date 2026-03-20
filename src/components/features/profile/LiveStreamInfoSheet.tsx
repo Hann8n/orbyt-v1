@@ -196,9 +196,8 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
               <VerticalListButton
                 label={t('profile.watchOn', { domain: getDomainFromUrl(displayUrl) })}
                 onPress={() => handleOpenLink(displayUrl)}
+                variant="primary"
                 rightIcon={<Icon name="external-link" size={24} color={Colors.black} />}
-                style={styles.watchButton}
-                textStyle={styles.watchButtonText}
               />
             )}
           </>
@@ -314,12 +313,6 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.regular,
     marginBottom: 20,
     textAlign: 'center',
-  },
-  watchButton: {
-    backgroundColor: Colors.neutral[50],
-  },
-  watchButtonText: {
-    color: Colors.black,
   },
 });
 

@@ -210,6 +210,13 @@ const styles = StyleSheet.create({
 
 export default VerticalListSheet;
 
+/** Variants for sheet CTAs: default (neutral), primary (light/inverted), destructive (dark coral), destructiveReversed (light coral bg) */
+export type SheetActionButtonVariant =
+  | 'default'
+  | 'primary'
+  | 'destructive'
+  | 'destructiveReversed';
+
 // Optional in-file list button for consistent styling inside sheets
 // Now uses OptionsButton for consistency
 export const VerticalListButton: React.FC<{
@@ -217,19 +224,54 @@ export const VerticalListButton: React.FC<{
   onPress: () => void;
   disabled?: boolean;
   danger?: boolean;
+  /** CTA variant: primary = light bg (e.g. Watch), destructive = coral (e.g. Disconnect), destructiveReversed = light coral bg. Use danger for backward compat. */
+  variant?: SheetActionButtonVariant;
+  loading?: boolean;
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
   rightIcon?: React.ReactNode;
-}> = ({ label, onPress, disabled, danger, style, textStyle, rightIcon }) => {
+}> = ({
+  label,
+  onPress,
+  disabled,
+  danger,
+  variant,
+  loading = false,
+  style,
+  textStyle,
+  rightIcon,
+}) => {
+  const isDestructive = danger || variant === 'destructive';
+  const isDestructiveReversed = variant === 'destructiveReversed';
+  const isPrimary = variant === 'primary';
+
+  const variantStyle: StyleProp<ViewStyle> = isPrimary
+    ? { backgroundColor: Colors.neutral[50] }
+    : isDestructiveReversed
+      ? { backgroundColor: Colors.coral[500] }
+      : undefined;
+  const variantTextStyle: StyleProp<TextStyle> | undefined = isPrimary
+    ? { color: Colors.black }
+    : isDestructiveReversed
+      ? { color: Colors.black }
+      : undefined;
+
   return (
     <OptionsButton
       label={label}
       onPress={onPress}
       disabled={disabled}
-      destructive={danger}
+      destructive={isDestructive && !isDestructiveReversed}
+      loading={loading}
       rightIcon={rightIcon}
-      style={[styles.listButtonMargin, style]}
-      textStyle={textStyle}
+      style={[styles.listButtonMargin, variantStyle, style]}
+      textStyle={
+        variantTextStyle
+          ? textStyle
+            ? [variantTextStyle, textStyle]
+            : variantTextStyle
+          : textStyle
+      }
     />
   );
 };
