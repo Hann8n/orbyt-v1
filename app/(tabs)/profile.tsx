@@ -322,12 +322,15 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
 
   // Germ DM subtitle action (inline in header, not overlay)
   const germSubtitleAction = useMemo(() => {
-    if (isOwnProfileView || !profileData?.did || !currentUser?.did) return undefined;
+    if (!profileData?.did || !currentUser?.did) return undefined;
     const germ = profileData?.associated?.germ;
+    if (!germ?.messageMeUrl) return undefined;
+    const isOwnProfile = profileData.did === currentUser.did;
+    // Own profile: always show if enabled. Others: respect showButtonTo.
     if (
-      !germ?.messageMeUrl ||
-      (germ.showButtonTo !== 'everyone' && germ.showButtonTo !== 'usersIFollow') ||
-      (germ.showButtonTo === 'usersIFollow' && !profileData?.viewer?.followedBy)
+      !isOwnProfile &&
+      ((germ.showButtonTo !== 'everyone' && germ.showButtonTo !== 'usersIFollow') ||
+        (germ.showButtonTo === 'usersIFollow' && !profileData?.viewer?.followedBy))
     )
       return undefined;
     const baseUrl = germ.messageMeUrl.replace(/\/$/, '');
@@ -338,7 +341,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       onPress: () => Linking.openURL(url),
     };
   }, [
-    isOwnProfileView,
     profileData?.did,
     profileData?.associated?.germ,
     profileData?.viewer?.followedBy,
