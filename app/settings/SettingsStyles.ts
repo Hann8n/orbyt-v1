@@ -2,6 +2,7 @@ import { StyleSheet } from 'react-native';
 import { Colors } from '../../src/theme';
 import { hexToRGBA } from '../../src/utils/formatting/colors';
 import { BORDER_RADIUS } from '../../src/utils/constants';
+import { FontFamily, Typography } from '../../src/utils/components/typography';
 
 // Shared button styles for settings screens
 export const settingsButtonStyles = StyleSheet.create({
@@ -24,7 +25,7 @@ export const settingsButtonStyles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.LARGE,
     paddingVertical: 20,
     paddingHorizontal: 20,
-    marginHorizontal: 10,
+    marginHorizontal: 16,
     marginBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
@@ -88,7 +89,7 @@ export const settingsButtonStyles = StyleSheet.create({
     backgroundColor: Colors.neutral[900],
   },
 
-  // Logout button style - matches cancel/option button pattern
+  // Logout button style - matches cancel button (compact footer style)
   logoutButton: {
     backgroundColor: Colors.neutral[900],
     borderRadius: BORDER_RADIUS.FULL,
@@ -273,13 +274,12 @@ export const settingsTextStyles = StyleSheet.create({
     letterSpacing: 0.3,
   },
 
-  // Logout button text - matches cancel/option button pattern
+  // Logout button text - matches cancel button (compact footer style)
   logoutButtonText: {
     color: Colors.neutral[50],
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: Typography.sizes.subtitle,
     textAlign: 'center',
-    fontFamily: 'Figtree-SemiBold',
+    fontFamily: FontFamily.semibold,
   },
 
   // Edit button text
@@ -358,7 +358,7 @@ export const settingsLayoutStyles = StyleSheet.create({
   // List container
   listContainer: {
     flexGrow: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingTop: 16,
   },
 
@@ -483,7 +483,7 @@ export const settingsLayoutStyles = StyleSheet.create({
   logoutSection: {
     alignItems: 'center',
     paddingTop: 20,
-    paddingHorizontal: 12,
+    paddingHorizontal: 24,
   },
 });
 

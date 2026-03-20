@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
   },
   loadingText: {
     color: Colors.neutral[500],
@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontFamily: 'Figtree-SemiBold',
     marginBottom: 8,
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -194,11 +194,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
   },
   webSettingsSection: {
     marginTop: 16,
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     alignItems: 'center',
   },
   webSettingsTextButton: {

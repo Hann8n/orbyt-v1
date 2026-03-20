@@ -9,6 +9,7 @@ import type { TrueSheetProps, GrabberOptions } from '@lodev09/react-native-true-
 import { Colors } from '../../../theme';
 import { FontFamily, Typography } from '../../components/typography';
 import { hexToRGBA } from '../../formatting/colors';
+import { LAYOUT_INSETS } from '../../constants';
 
 export type { SheetDetent } from '@lodev09/react-native-true-sheet';
 
@@ -20,26 +21,26 @@ export const DEFAULT_SHEET_PROPS: Pick<TrueSheetProps, 'backgroundColor' | 'grab
     detents: ['auto'],
   };
 
+/** Default horizontal padding for sheet content. */
+export const DEFAULT_CONTENT_PADDING_HORIZONTAL = LAYOUT_INSETS.SHEET_CONTENT;
+
 /** Consistent header container style (padding). */
 export const DEFAULT_HEADER_STYLE: ViewStyle = {
-  paddingHorizontal: 20,
+  paddingHorizontal: LAYOUT_INSETS.SHEET_FOOTER,
   paddingTop: 20,
   paddingBottom: 20,
 };
 
-/** Default horizontal padding for sheet content. */
-export const DEFAULT_CONTENT_PADDING_HORIZONTAL = 12;
-
 /** Canonical sheet spacing tokens for shell consistency. */
 export const SHEET_SPACING = {
-  headerHorizontal: 20,
+  headerHorizontal: LAYOUT_INSETS.SHEET_FOOTER,
   headerTop: 20,
   headerBottom: 20,
   contentHorizontal: DEFAULT_CONTENT_PADDING_HORIZONTAL,
   contentVertical: 0,
   descriptionTopOffset: -12,
   descriptionBottom: 10,
-  footerHorizontal: 20,
+  footerHorizontal: LAYOUT_INSETS.SHEET_FOOTER,
   footerTop: 12,
   /** Media pickers (e.g. Klipy GIF): wider inset for full-screen grid layouts. */
   mediaPickerHorizontal: 16,

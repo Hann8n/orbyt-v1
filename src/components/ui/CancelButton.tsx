@@ -4,6 +4,7 @@ import { Pressable, Text, StyleSheet } from 'react-native';
 import { BORDER_RADIUS } from '../../utils/constants';
 import { Colors } from './UI';
 import { hexToRGBA } from '../../utils/formatting/colors';
+import { FontFamily, Typography } from '../../utils/components/typography';
 
 interface CancelButtonProps {
   onPress: () => void;
@@ -60,10 +61,9 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     color: Colors.neutral[50],
-    fontSize: 15,
-    fontWeight: '500',
+    fontSize: Typography.sizes.subtitle,
     textAlign: 'center',
-    fontFamily: 'Figtree-Medium',
+    fontFamily: FontFamily.medium,
   },
   cancelButtonTextPressed: {
     color: Colors.neutral[50],

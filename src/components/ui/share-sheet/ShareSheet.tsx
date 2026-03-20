@@ -411,7 +411,7 @@ const ShareSheet: React.FC = () => {
             contentContainerStyle={[
               styles.optionsContainer,
               styles.optionsContainerContent,
-              { gap: DEFAULT_CONTENT_PADDING_HORIZONTAL },
+              { gap: 12 },
             ]}
           >
             {menuOptions.map(option => (
@@ -504,8 +504,8 @@ const styles = StyleSheet.create({
   },
   optionText: {
     color: Colors.neutral[200],
-    fontSize: Typography.sizes.bodySmall,
-    lineHeight: Typography.lineHeights.bodySmall,
+    fontSize: Typography.sizes.body,
+    lineHeight: Typography.lineHeights.body,
     marginTop: 12,
     textAlign: 'center',
     fontFamily: FontFamily.medium,

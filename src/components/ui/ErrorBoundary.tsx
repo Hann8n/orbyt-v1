@@ -366,7 +366,7 @@ const styles = StyleSheet.create({
     maxWidth: 400,
     alignSelf: 'center',
     width: '100%',
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingTop: 120,
     flex: 1,
   },
@@ -398,7 +398,7 @@ const styles = StyleSheet.create({
   buttonContainer: {
     width: '100%',
     alignItems: 'flex-start',
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingBottom: 50,
     maxWidth: 400,
     alignSelf: 'center',

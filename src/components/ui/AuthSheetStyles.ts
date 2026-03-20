@@ -87,7 +87,7 @@ export const authSheetStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-start',
     marginTop: 20,
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
   },
   footerText: {
     color: Colors.neutral[200],

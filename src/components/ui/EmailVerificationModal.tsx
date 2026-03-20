@@ -362,7 +362,7 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 20,
   },
   containerBottomPadding: {
     paddingBottom: 16,

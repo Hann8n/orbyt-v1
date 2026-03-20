@@ -10,6 +10,13 @@ export const APP_CONSTANTS = {
   IDLE_CALLBACK_TIMEOUT: 100, // Timeout for requestIdleCallback (replaces InteractionManager)
 } as const;
 
+// Layout insets - minimum distance from screen edge for interactive content
+export const LAYOUT_INSETS = {
+  SCREEN: 24, // Standard screen edge padding
+  SHEET_CONTENT: 20, // Sheet body content
+  SHEET_FOOTER: 24, // Sheet footer (Cancel, actions)
+} as const;
+
 // Border Radius Constants
 export const BORDER_RADIUS = {
   SMALL: 8,

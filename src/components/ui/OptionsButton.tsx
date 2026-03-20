@@ -26,7 +26,7 @@ const buttonStyles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.LARGE,
     paddingVertical: 20,
     paddingHorizontal: 20,
-    marginHorizontal: 10,
+    marginHorizontal: 16,
     marginBottom: 12,
     minHeight: ROW_MIN_HEIGHT,
     flexDirection: 'row',
