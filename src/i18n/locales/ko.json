@@ -349,6 +349,7 @@
     "couldNotLoadVerification": "인증 정보를 불러올 수 없어요",
     "sinceDate": "{{date}}부터",
     "verifiedBy": "인증:",
+    "viewVerifier": "인증자 보기",
     "joinedOn": "{{date}}에 가입",
     "betaDescriptionRest": " orbyt 베타에 참여했어요. 베타 테스터들이 앱 개선에 도움을 줬어요.",
     "watchOn": "{{domain}}에서 시청",

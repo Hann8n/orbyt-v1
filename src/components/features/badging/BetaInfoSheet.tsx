@@ -7,7 +7,6 @@ import type { TrueSheet } from '@lodev09/react-native-true-sheet';
 import {
   AppTrueSheet,
   CONTENT_TO_FOOTER_GAP_REDUCTION,
-  DEFAULT_CONTENT_PADDING_HORIZONTAL,
   getFooterBottomPadding,
   SheetActionFooter,
   SHEET_STYLES,
@@ -49,7 +48,7 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
     return isValid(date) ? format(date, 'MMM d, yyyy') : null;
   }, [joinDate]);
 
-  // Header component for TrueSheet header prop
+  // Header component for TrueSheet header prop (matches GermDisconnectSheet layout)
   const headerComponent = (
     <View style={styles.headerContainer}>
       <View style={styles.headerLeft}>
@@ -70,41 +69,34 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
       header={headerComponent}
       footer={wrapFooter(
         <SheetActionFooter bottomPadding={footerBottomPadding} backgroundColor={Colors.black}>
-          <CancelButton onPress={onDismiss} text={t('common.close')} />
+          <CancelButton onPress={onDismiss} text={t('common.done')} />
         </SheetActionFooter>
       )}
     >
-      <View
-        style={[
-          styles.content,
-          {
-            paddingBottom: Math.max(0, contentBottomPadding - CONTENT_TO_FOOTER_GAP_REDUCTION),
-          },
-        ]}
-      >
-        {/* Info Container */}
-        <View style={styles.infoContainer}>
-          <Text style={styles.infoText}>
+      <View style={styles.content}>
+        <View style={styles.descriptionContainer}>
+          <Text style={styles.descriptionText}>
             <Text style={styles.highlightedText}>{handle}</Text>
             {t('profile.betaDescriptionRest')}
           </Text>
         </View>
-
-        {/* Join Date */}
-        {formattedDate && (
-          <View style={styles.statusDateContainer}>
+        <View
+          style={[
+            styles.contentContainer,
+            { paddingBottom: Math.max(0, contentBottomPadding - CONTENT_TO_FOOTER_GAP_REDUCTION) },
+          ]}
+        >
+          {formattedDate && (
             <Text style={styles.statusText}>{t('profile.joinedOn', { date: formattedDate })}</Text>
-          </View>
-        )}
+          )}
+        </View>
       </View>
     </AppTrueSheet>
   );
 };
 
 const styles = StyleSheet.create({
-  content: {
-    ...SHEET_STYLES.contentContainer,
-  },
+  content: {},
   headerContainer: {
     ...SHEET_STYLES.headerContainer,
   },
@@ -116,34 +108,29 @@ const styles = StyleSheet.create({
   headerTitle: {
     ...SHEET_STYLES.headerTitle,
   },
-  infoContainer: {
-    marginBottom: 20,
-    paddingHorizontal: DEFAULT_CONTENT_PADDING_HORIZONTAL,
+  headerTitleMargin: {
+    marginLeft: 10,
   },
-  infoText: {
-    color: Colors.neutral[200],
+  descriptionContainer: {
+    ...SHEET_STYLES.descriptionContainer,
+    marginBottom: 24,
+  },
+  descriptionText: {
+    ...SHEET_STYLES.descriptionText,
     fontSize: Typography.sizes.body,
     lineHeight: Typography.lineHeights.body,
-    textAlign: 'left',
-    fontFamily: FontFamily.regular,
   },
   highlightedText: {
     color: Colors.neutral[50],
     opacity: 1,
     fontFamily: FontFamily.semibold,
   },
-  headerTitleMargin: {
-    marginLeft: 4,
-  },
-  statusDateContainer: {
-    marginBottom: 20,
-    alignItems: 'center',
+  contentContainer: {
+    ...SHEET_STYLES.contentContainer,
   },
   statusText: {
-    color: Colors.neutral[200],
-    fontSize: Typography.sizes.bodySmall,
-    lineHeight: Typography.lineHeights.bodySmall,
-    fontFamily: FontFamily.regular,
+    ...SHEET_STYLES.descriptionText,
+    marginTop: 8,
     textAlign: 'center',
   },
 });

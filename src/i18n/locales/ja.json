@@ -348,6 +348,7 @@
     "couldNotLoadVerification": "認証情報を読み込めませんでした",
     "sinceDate": "{{date}}以降",
     "verifiedBy": "認証者:",
+    "viewVerifier": "認証者を見る",
     "joinedOn": "{{date}}に参加",
     "betaDescriptionRest": "はorbytベータ期間中に参加しました。ベータテスターは初期機能のテストと体験の構築に貢献しました。",
     "watchOn": "{{domain}}で視聴",

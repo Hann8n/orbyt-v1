@@ -349,6 +349,7 @@
     "couldNotLoadVerification": "Verifizierungsinfos konnten nicht geladen werden",
     "sinceDate": "Seit {{date}}",
     "verifiedBy": "verifiziert von:",
+    "viewVerifier": "Prüfer anzeigen",
     "joinedOn": "Beigetreten am {{date}}",
     "betaDescriptionRest": " war während der orbyt-Beta dabei. Beta-Tester haben die App mitgeprägt.",
     "watchOn": "ansehen auf {{domain}}",

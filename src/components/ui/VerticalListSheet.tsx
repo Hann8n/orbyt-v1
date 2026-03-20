@@ -230,6 +230,10 @@ export const VerticalListButton: React.FC<{
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
   rightIcon?: React.ReactNode;
+  /** Custom left content (e.g. avatar + label); when set, replaces default label. */
+  leftContent?: React.ReactNode;
+  /** Custom right content (e.g. avatar); when set, replaces rightIcon/chevron. */
+  rightContent?: React.ReactNode;
 }> = ({
   label,
   onPress,
@@ -240,6 +244,8 @@ export const VerticalListButton: React.FC<{
   style,
   textStyle,
   rightIcon,
+  leftContent,
+  rightContent,
 }) => {
   const isDestructive = danger || variant === 'destructive';
   const isDestructiveReversed = variant === 'destructiveReversed';
@@ -259,11 +265,14 @@ export const VerticalListButton: React.FC<{
   return (
     <OptionsButton
       label={label}
+      leftContent={leftContent}
+      rightContent={rightContent}
+      linkType={leftContent ? 'internal' : undefined}
       onPress={onPress}
       disabled={disabled}
       destructive={isDestructive && !isDestructiveReversed}
       loading={loading}
-      rightIcon={rightIcon}
+      rightIcon={rightContent ? undefined : rightIcon}
       style={[styles.listButtonMargin, variantStyle, style]}
       textStyle={
         variantTextStyle

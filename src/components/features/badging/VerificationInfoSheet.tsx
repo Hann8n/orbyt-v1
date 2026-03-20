@@ -23,8 +23,8 @@ import {
 import VerificationBadge from './VerificationBadge';
 import { FontFamily, Typography } from '../../../utils/components/typography';
 
-// Import AuthorItem directly - preload to avoid size calculation issues
-import AuthorItem from '../../ui/AuthorItem';
+import { VerticalListButton } from '../../ui/VerticalListSheet';
+import { Avatar } from '../../ui/UI';
 
 interface VerificationInfoSheetProps {
   visible: boolean;
@@ -41,17 +41,13 @@ interface VerificationData {
   trustedVerifierStatus?: 'valid' | 'invalid' | 'none' | string;
 }
 
-// Loading placeholder component for verified by profile
+// Loading placeholder for verified-by section
 const VerifiedByShimmer = () => (
-  <View style={styles.issuerListItem}>
-    <View style={styles.issuerContent}>
-      <View style={[styles.issuerAvatarShimmer, { backgroundColor: Colors.neutral[600] }]} />
-      <View style={styles.issuerTextContainer}>
-        <View style={styles.issuerNameRow}>
-          <View style={[styles.issuerNameShimmer, { backgroundColor: Colors.neutral[600] }]} />
-        </View>
-        <View style={[styles.issuerHandleShimmer, { backgroundColor: Colors.neutral[600] }]} />
-      </View>
+  <View style={styles.verifierRow}>
+    <View style={styles.verifierAvatarShimmer} />
+    <View style={styles.verifierTextShimmer}>
+      <View style={styles.verifierLineShimmer} />
+      <View style={[styles.verifierLineShimmer, styles.verifierLineShimmerShort]} />
     </View>
   </View>
 );
@@ -127,7 +123,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
       header={headerComponent}
       footer={wrapFooter(
         <SheetActionFooter bottomPadding={footerBottomPadding} backgroundColor={Colors.black}>
-          <CancelButton onPress={onDismiss} text={t('common.close')} />
+          <CancelButton onPress={onDismiss} text={t('common.done')} />
         </SheetActionFooter>
       )}
     >
@@ -213,48 +209,38 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
           }
 
           const authorHandle = issuerProfile?.handle || actualIssuerHandle || verifierDid || '';
-          const authorDisplayName =
-            issuerProfile?.displayName ||
-            actualIssuerHandle ||
-            (verifierDid ? `verifier (${verifierDid.slice(0, 8)}...)` : 'verifier');
 
           // Only render if we have a valid handle
           if (!authorHandle && !isIssuerLoading) {
             return null;
           }
 
+          const handleViewProfile = () => {
+            const targetDid = (issuerProfile?.did || verifierDid)?.trim();
+            if (!targetDid) return;
+            navigation.navigate({
+              pathname: '/profile/[did]',
+              params: { did: targetDid },
+            });
+            setTimeout(() => onDismiss(), 100);
+          };
+
           return (
-            <>
-              <Text style={styles.verifiedByLabel}>{t('profile.verifiedBy')}</Text>
+            <View style={styles.verifiedBySection}>
               {isIssuerLoading ? (
                 <VerifiedByShimmer />
               ) : (
-                <AuthorItem
-                  handle={authorHandle}
-                  did={issuerProfile?.did || verifierDid}
-                  displayName={authorDisplayName}
-                  avatar={issuerProfile?.avatar}
-                  size="large"
-                  showArrow={true}
-                  onPress={() => {
-                    const targetDid = (issuerProfile?.did || verifierDid)?.trim();
-                    if (!targetDid) return;
-
-                    // Navigate to the verifier's profile, not the current profile
-                    navigation.navigate({
-                      pathname: '/profile/[did]',
-                      params: { did: targetDid },
-                    });
-
-                    // Dismiss the sheet after navigation starts
-                    setTimeout(() => {
-                      onDismiss();
-                    }, 100);
-                  }}
-                  style={styles.verifierItem}
+                <VerticalListButton
+                  label={t('profile.viewVerifier')}
+                  rightContent={
+                    <View style={styles.verifierAvatarSlot}>
+                      <Avatar uri={issuerProfile?.avatar} type="profile" size={32} />
+                    </View>
+                  }
+                  onPress={handleViewProfile}
                 />
               )}
-            </>
+            </View>
           );
         })()}
       </>
@@ -264,7 +250,8 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
 
 const styles = StyleSheet.create({
   content: {
-    ...SHEET_STYLES.contentContainer,
+    paddingHorizontal: DEFAULT_CONTENT_PADDING_HORIZONTAL,
+    paddingTop: 8,
   },
   headerContainer: {
     ...SHEET_STYLES.headerContainer,
@@ -278,15 +265,15 @@ const styles = StyleSheet.create({
     ...SHEET_STYLES.headerTitle,
   },
   headerTitleMargin: {
-    marginLeft: 4,
+    marginLeft: 10,
   },
   loadingIndicator: {
     marginVertical: 40,
     alignSelf: 'center',
   },
   infoContainer: {
-    marginBottom: 20,
-    paddingHorizontal: DEFAULT_CONTENT_PADDING_HORIZONTAL,
+    marginBottom: 24,
+    paddingHorizontal: 0,
   },
   infoText: {
     color: Colors.neutral[200],
@@ -295,68 +282,54 @@ const styles = StyleSheet.create({
     textAlign: 'left',
     fontFamily: FontFamily.regular,
   },
-  verifiedByLabel: {
-    color: Colors.neutral[500],
-    fontSize: Typography.sizes.bodySmall,
-    fontFamily: FontFamily.semibold,
-    marginBottom: 8,
-    marginTop: 8,
-    paddingHorizontal: DEFAULT_CONTENT_PADDING_HORIZONTAL,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+  verifiedBySection: {
+    marginTop: 0,
   },
-  verifierItem: {
-    marginHorizontal: DEFAULT_CONTENT_PADDING_HORIZONTAL,
-    marginBottom: DEFAULT_CONTENT_PADDING_HORIZONTAL,
+  verifierAvatarSlot: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  issuerListItem: {
-    marginVertical: 4,
-  },
-  issuerContent: {
+  verifierRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: DEFAULT_CONTENT_PADDING_HORIZONTAL,
+    paddingVertical: 20,
     paddingHorizontal: DEFAULT_CONTENT_PADDING_HORIZONTAL,
+    backgroundColor: Colors.neutral[900],
+    borderRadius: BORDER_RADIUS.LARGE,
+    minHeight: 64,
   },
-  issuerTextContainer: {
+  verifierAvatarShimmer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.neutral[700],
+  },
+  verifierTextShimmer: {
     flex: 1,
-    justifyContent: 'center',
     marginLeft: 12,
   },
-  issuerNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 2,
-  },
-  issuerAvatarShimmer: {
-    width: 40,
-    height: 40,
-    borderRadius: BORDER_RADIUS.LARGE,
-    borderWidth: 0,
-    borderColor: Colors.transparent,
-  },
-  issuerNameShimmer: {
-    width: 120,
+  verifierLineShimmer: {
     height: 14,
+    width: 120,
     borderRadius: BORDER_RADIUS.SMALL,
-    marginRight: 8,
+    backgroundColor: Colors.neutral[700],
   },
-  issuerHandleShimmer: {
-    width: 80,
-    height: 12,
-    borderRadius: BORDER_RADIUS.SMALL,
+  verifierLineShimmerShort: {
+    width: 90,
+    marginTop: 6,
   },
   statusDateContainer: {
-    marginBottom: 20,
-    alignItems: 'center',
+    marginBottom: 24,
+    alignItems: 'flex-start',
   },
   statusText: {
     color: Colors.neutral[200],
     fontSize: Typography.sizes.bodySmall,
     lineHeight: Typography.lineHeights.bodySmall,
     fontFamily: FontFamily.regular,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   errorContainer: {
     padding: 30,
