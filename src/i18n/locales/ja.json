@@ -119,7 +119,8 @@
     "klipyKindGif": "GIFs",
     "klipyKindSticker": "ステッカー",
     "klipyKindMeme": "ミーム",
-    "klipyKindEmoji": "絵文字"
+    "klipyKindEmoji": "絵文字",
+    "klipyAdLabel": "広告"
   },
   "activity": {
     "likes": "いいね",

@@ -119,7 +119,8 @@
     "klipyKindGif": "GIFs",
     "klipyKindSticker": "Stickers",
     "klipyKindMeme": "Memes",
-    "klipyKindEmoji": "Emojis"
+    "klipyKindEmoji": "Emojis",
+    "klipyAdLabel": "Annonce"
   },
   "activity": {
     "likes": "J'aime",

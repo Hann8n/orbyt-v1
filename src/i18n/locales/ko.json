@@ -119,7 +119,8 @@
     "klipyKindGif": "GIF",
     "klipyKindSticker": "스티커",
     "klipyKindMeme": "밈",
-    "klipyKindEmoji": "이모지"
+    "klipyKindEmoji": "이모지",
+    "klipyAdLabel": "광고"
   },
   "activity": {
     "likes": "좋아요",

@@ -2,6 +2,7 @@ import React, { memo, useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   View,
+  Text,
   TextInput,
   StyleSheet,
   Pressable,
@@ -10,6 +11,8 @@ import {
   type ListRenderItem,
 } from 'react-native';
 import { Image } from 'expo-image';
+import * as WebBrowser from 'expo-web-browser';
+import { WebView } from 'react-native-webview';
 import type { TrueSheet } from '@lodev09/react-native-true-sheet';
 
 import {
@@ -20,7 +23,8 @@ import {
 } from '@/utils/components/truesheet';
 import { Colors } from '@/theme';
 import { BORDER_RADIUS, ICON_SIZES } from '@/utils/constants';
-import { Typography } from '@/utils/components/typography';
+import { FontFamily, Typography } from '@/utils/components/typography';
+import { BlurView } from '@/components/ui/BlurView';
 import Icon from '@/components/ui/Icon';
 import { useKlipySearch, useKlipyTrending } from '@/hooks/klipy/useKlipyGifs';
 import type { KlipyItem, KlipyKind } from '@/services/klipy/KlipyService';
@@ -33,6 +37,15 @@ export interface KlipyGifPickerSheetProps {
 }
 
 const GRID_COLUMNS = 3;
+
+const AdWebViewTile: React.FC<{ html: string }> = memo(({ html }) => (
+  <WebView
+    source={{ html }}
+    style={styles.adWebView}
+    scrollEnabled={false}
+    originWhitelist={['*']}
+  />
+));
 
 const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
   sheetRef,
@@ -72,7 +85,7 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
       const key = `${it.kind}:${String(it.id)}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      if (it.previewUrl && it.fullUrl) uniq.push(it);
+      if (it.isAd ? it.content || it.destinationUrl : it.previewUrl && it.fullUrl) uniq.push(it);
     }
     return uniq;
   }, [
@@ -124,8 +137,51 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
     emojiTrending,
   ]);
 
+  const handleAdPress = useCallback((destinationUrl: string) => {
+    WebBrowser.openBrowserAsync(destinationUrl, { controlsColor: Colors.brand.purple }).catch(
+      () => {}
+    );
+  }, []);
+
   const renderItem: ListRenderItem<KlipyItem> = useCallback(
     ({ item }) => {
+      const showAsAd = item.isAd && (item.content || item.destinationUrl);
+
+      if (showAsAd) {
+        const hasHtmlContent = !!item.content;
+        const adDestinationUrl = item.destinationUrl ?? item.fullUrl;
+
+        return (
+          <Pressable
+            style={styles.tile}
+            onPress={() => {
+              if (adDestinationUrl && !hasHtmlContent) {
+                handleAdPress(adDestinationUrl);
+              }
+            }}
+            android_ripple={{ color: Colors.overlay.white10 }}
+            accessibilityRole={hasHtmlContent ? undefined : 'link'}
+            accessibilityLabel={t('comments.klipyAdLabel')}
+          >
+            {hasHtmlContent ? (
+              <AdWebViewTile html={item.content!} />
+            ) : item.previewUrl ? (
+              <Image
+                source={{ uri: item.previewUrl }}
+                style={styles.tileImage}
+                contentFit="cover"
+              />
+            ) : (
+              <View style={[styles.tileImage, styles.adPlaceholder]}>
+                <Icon name="open-outline" size={ICON_SIZES.LARGE} color={Colors.neutral[500]} />
+              </View>
+            )}
+            <BlurView intensity={60} tint="dark" style={styles.adBadge}>
+              <Text style={styles.adBadgeText}>{t('comments.klipyAdLabel')}</Text>
+            </BlurView>
+          </Pressable>
+        );
+      }
       return (
         <Pressable
           style={styles.tile}
@@ -136,7 +192,7 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
         </Pressable>
       );
     },
-    [onSelect]
+    [onSelect, handleAdPress, t]
   );
 
   const keyExtractor = useCallback((it: KlipyItem) => `${it.kind}:${String(it.id)}`, []);
@@ -330,6 +386,34 @@ const styles = StyleSheet.create({
   tileImage: {
     width: '100%',
     height: '100%',
+  },
+  adWebView: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    backgroundColor: Colors.neutral[900],
+  },
+  adPlaceholder: {
+    backgroundColor: Colors.neutral[800],
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  adBadge: {
+    position: 'absolute',
+    bottom: 4,
+    left: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: BORDER_RADIUS.FULL,
+    overflow: 'hidden',
+  },
+  adBadgeText: {
+    fontFamily: FontFamily.bold,
+    fontSize: Typography.sizes.overline,
+    lineHeight: Typography.lineHeights.overline,
+    color: Colors.neutral[50],
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 });
 

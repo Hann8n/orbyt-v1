@@ -119,7 +119,8 @@
     "klipyKindGif": "GIFs",
     "klipyKindSticker": "Figurinhas",
     "klipyKindMeme": "Memes",
-    "klipyKindEmoji": "Emojis"
+    "klipyKindEmoji": "Emojis",
+    "klipyAdLabel": "Anúncio"
   },
   "activity": {
     "likes": "Curtidas",
