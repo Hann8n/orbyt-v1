@@ -1325,6 +1325,14 @@ class AtprotoService {
   }
 
   /**
+   * Disconnect Germ DM from the current user's profile.
+   * Deletes the com.germnetwork.declaration record. Returns true on success.
+   */
+  static async deleteGermDeclaration(): Promise<boolean> {
+    return RepoService.deleteGermDeclaration();
+  }
+
+  /**
    * List all activity subscriptions (users you're subscribed to)
    * Delegates to NotificationService
    */

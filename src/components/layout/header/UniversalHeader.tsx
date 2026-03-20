@@ -1,5 +1,5 @@
 import React, { memo, useCallback, useMemo } from 'react';
-import { BORDER_RADIUS } from '../../../utils/constants';
+import { BORDER_RADIUS, ICON_SIZES } from '../../../utils/constants';
 import {
   View,
   StyleSheet,
@@ -27,11 +27,12 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { BackArrowIcon, MoreFillIcon } from '../../ui/Icon';
-import { OutlinkIcon } from '../../ui/Icon';
+import { OutlinkIcon, GermDmIcon } from '../../ui/Icon';
 import { useRouter } from 'expo-router';
 import { hexToRGBA, blendColors } from '../../../utils/formatting/colors';
 import { Avatar } from '../../ui/UI';
 import { Colors } from '../../../theme';
+import { Typography, FontFamily } from '../../../utils/components/typography';
 import { splitHandleSuffix } from '../../../utils/formatting/handles';
 import { TextWithLinks } from '../../ui/TextWithLinks';
 import type { RichTextFacet } from '../../../utils/types/richText';
@@ -61,6 +62,8 @@ export interface HeaderContent {
   subtitle?: string;
   subtitleSecondary?: string; // e.g., Joined date or secondary line
   onSubtitleSecondaryPress?: () => void; // Handler for subtitle secondary press
+  /** Optional action link in subtitle area (e.g. Germ DM) */
+  subtitleAction?: { label: string; onPress: () => void };
   description?: string;
   facets?: RichTextFacet[];
   badge?: React.ReactNode;
@@ -725,6 +728,26 @@ const HeaderContentComponent = memo<{
                     )}
                     {content.onTitlePress ? ' ›' : ''}
                   </Text>
+                  {!!content.subtitleAction && (
+                    <Pressable
+                      onPress={content.subtitleAction.onPress}
+                      style={({ pressed }) => [
+                        styles.subtitleActionPill,
+                        {
+                          backgroundColor: blendColors(backgroundColor, textColor, 0.2),
+                          opacity: pressed ? 0.8 : 1,
+                        },
+                      ]}
+                    >
+                      <GermDmIcon size={ICON_SIZES.SMALL} color={textColor} />
+                      <Text
+                        style={[styles.subtitleActionLabel, { color: textColor }]}
+                        numberOfLines={1}
+                      >
+                        {content.subtitleAction.label}
+                      </Text>
+                    </Pressable>
+                  )}
                   {!!content.subtitleSecondary && (
                     <Pressable
                       onPress={content.onSubtitleSecondaryPress}
@@ -1317,6 +1340,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+  },
+  subtitleActionPill: {
+    marginTop: 6,
+    marginBottom: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: BORDER_RADIUS.FULL,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  subtitleActionLabel: {
+    fontFamily: FontFamily.semibold,
+    fontSize: Typography.sizes.bodySmall,
   },
   subtitleSecondary: {
     fontSize: 14,
