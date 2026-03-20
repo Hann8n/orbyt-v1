@@ -5,13 +5,23 @@ import { StyleProp, ViewStyle } from 'react-native';
 import { Colors } from '../../theme';
 import type { UserState } from '../../stores/userStore';
 
-// SVG content as strings - updated to match the actual icon files
-const PLUS_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" fill="none"/><g fill="none"><path fill="#fff" d="M10.5 20a1.5 1.5 0 0 0 3 0v-6.5H20a1.5 1.5 0 0 0 0-3h-6.5V4a1.5 1.5 0 0 0-3 0v6.5H4a1.5 1.5 0 0 0 0 3h6.5z"/></g></svg>`;
+// Stroke-based plus (thickness via stroke-width)
+const PLUS_ICON_STROKE_SVG = (strokeWidth: number) =>
+  `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="#fff" stroke-width="${strokeWidth}" stroke-linecap="round" fill="none"/></svg>`;
+
+// Stroke-based X/close (thickness via stroke-width)
+const CLOSE_LINE_ICON_STROKE_SVG = (strokeWidth: number) =>
+  `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="#fff" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`;
+
+/** Shared stroke width for check, plus, and close when used together (e.g. AuthorItem, list actions). */
+export const STROKE_WIDTH_THICK = 3.5;
 
 // Add Circle Line Icon (white interior, black border + black plus)
 const ADD_CIRCLE_LINE_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none"><circle cx="12" cy="12" r="10" fill="#FFF" stroke="currentColor" stroke-width="1"/><rect x="10.5" y="6.5" width="3" height="11" fill="currentColor"/><rect x="6.5" y="10.5" width="11" height="3" fill="currentColor"/></g></svg>`;
 
-const CHECK_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none" fill-rule="evenodd"><path fill="#fff" d="M21.546 5.111a1.5 1.5 0 0 1 0 2.121L10.303 18.475a1.6 1.6 0 0 1-2.263 0L2.454 12.89a1.5 1.5 0 1 1 2.121-2.121l4.596 4.596L19.424 5.111a1.5 1.5 0 0 1 2.122 0"/></g></svg>`;
+// Stroke-based check (thickness via stroke-width)
+const CHECK_ICON_STROKE_SVG = (strokeWidth: number) =>
+  `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M6 12.5l4 4 8-10" stroke="#fff" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`;
 
 // Follow Check Circle Icon (green fill with white checkmark)
 const FOLLOW_CHECK_CIRCLE_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none"><circle cx="12" cy="12" r="10" fill="currentColor" stroke="#000" stroke-width="1"/><path d="M8 12.5l2.5 2.5l5.5-5.5" stroke="#000" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter" fill="none"/></g></svg>`;
@@ -157,13 +167,13 @@ const CAMERA_ROTATE_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='2
 // Delete Back Icon SVG
 const DELETE_BACK_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' fill-rule='evenodd'><path fill='#09244BFF' d='M8.108 3a3 3 0 0 0-2.544 1.41l-4.08 6.53a2 2 0 0 0 0 2.12l4.08 6.53A3 3 0 0 0 8.108 21H19a3 3 0 0 0 3-3V6a3 3 0 0 0-3-3zm8.427 12.536a1 1 0 0 1-1.414 0L13 13.414l-2.121 2.122a1 1 0 1 1-1.415-1.415L11.586 12 9.464 9.879a1 1 0 0 1 1.415-1.415L13 10.586l2.121-2.122a1 1 0 1 1 1.414 1.415L14.415 12l2.12 2.121a1 1 0 0 1 0 1.415'/></g></svg>`;
 
-// Custom Plus Icon component
+// Custom Plus Icon component (stroke-based, thickness via strokeWidth)
 export const PlusIcon: React.FC<{ size: number; color: string; strokeWidth: number }> = ({
   size,
   color,
-  strokeWidth: _strokeWidth,
+  strokeWidth,
 }) => {
-  const svgXml = PLUS_ICON_SVG.replace(/#fff/g, color);
+  const svgXml = PLUS_ICON_STROKE_SVG(strokeWidth).replace(/#fff/g, color);
   return <SvgXml xml={svgXml} width={size} height={size} />;
 };
 
@@ -177,13 +187,13 @@ export const AddCircleLineIcon: React.FC<{
   return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
 };
 
-// Custom Check Icon component
+// Custom Check Icon component (stroke-based, thickness via strokeWidth)
 export const CheckIcon: React.FC<{ size: number; color: string; strokeWidth: number }> = ({
   size,
   color,
-  strokeWidth: _strokeWidth,
+  strokeWidth,
 }) => {
-  const svgXml = CHECK_ICON_SVG.replace(/#fff/g, color);
+  const svgXml = CHECK_ICON_STROKE_SVG(strokeWidth).replace(/#fff/g, color);
   return <SvgXml xml={svgXml} width={size} height={size} />;
 };
 
@@ -742,6 +752,17 @@ export const CloseBoldIcon: React.FC<{
   return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
 };
 
+// Stroke-based X/close icon (matches CheckIcon/PlusIcon thickness when strokeWidth matches)
+export const CloseLineIcon: React.FC<{
+  size: number;
+  color: string;
+  strokeWidth: number;
+  style?: StyleProp<ViewStyle>;
+}> = ({ size, color, strokeWidth, style }) => {
+  const svgXml = CLOSE_LINE_ICON_STROKE_SVG(strokeWidth).replace(/#fff/g, color);
+  return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
+};
+
 // Custom Eye Fill Icon component
 const EYE_FILL_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" fill="none"/><g fill="none" fill-rule="evenodd"><path fill="#fff" d="M12 4C9.213 4 6.737 5.257 4.974 6.813C4.09 7.594 3.36 8.47 2.846 9.344C2.34 10.201 2 11.13 2 12s.34 1.799.846 2.656c.514.873 1.243 1.75 2.128 2.531C6.737 18.743 9.214 20 12 20c2.787 0 5.263-1.257 7.026-2.813c.885-.781 1.614-1.658 2.128-2.531C21.66 13.799 22 12.87 22 12s-.34-1.799-.846-2.656c-.514-.873-1.243-1.75-2.128-2.531C17.263 5.257 14.786 4 12 4m2 8c.36 0 .697-.095.989-.261A3 3 0 1 1 12.26 9.01A2 2 0 0 0 14 12"/></g></svg>`;
 
@@ -1232,7 +1253,13 @@ const Icon: React.FC<IconProps> = ({
     return <MenuFillIcon size={size} color={color} style={style} />;
   }
   if (name === 'checkmark' || name === 'check') {
-    return <CheckIcon size={size} color={color} strokeWidth={strokeWidth} />;
+    return (
+      <CheckIcon
+        size={size}
+        color={color}
+        strokeWidth={strokeWidth >= 2 ? strokeWidth : STROKE_WIDTH_THICK}
+      />
+    );
   }
   // check circle filled (defaults to black background if color is default white)
   if (
@@ -1366,13 +1393,21 @@ const Icon: React.FC<IconProps> = ({
     return <DocumentsFillIcon size={size} color={color} style={style} />;
   if (name === 'calendar') return <Calendar2FillIcon size={size} color={color} style={style} />;
   if (name === 'eye') return <EyeFillIcon size={size} color={color} style={style} />;
-  if (name === 'close') return <CloseFillIcon size={size} color={color} style={style} />;
+  if (name === 'close') {
+    return strokeWidth >= 2 ? (
+      <CloseLineIcon size={size} color={color} strokeWidth={strokeWidth} style={style} />
+    ) : (
+      <CloseFillIcon size={size} color={color} style={style} />
+    );
+  }
   if (name === 'close-bold') return <CloseBoldIcon size={size} color={color} style={style} />;
   if (name === 'section-x') return <CloseFillIcon size={size} color={color} style={style} />;
   if (name === 'user') return <UserIcon size={size} color={color} style={style} />;
   if (name === 'users') return <UserIcon size={size} color={color} style={style} />;
-  if (name === 'user-plus') return <PlusIcon size={size} color={color} strokeWidth={2.5} />;
-  if (name === 'plus') return <PlusIcon size={size} color={color} strokeWidth={2.5} />;
+  if (name === 'user-plus')
+    return <PlusIcon size={size} color={color} strokeWidth={STROKE_WIDTH_THICK} />;
+  if (name === 'plus')
+    return <PlusIcon size={size} color={color} strokeWidth={STROKE_WIDTH_THICK} />;
   if (name === 'add-circle-line' || name === 'add_circle_line' || name === 'circle-plus') {
     return <AddCircleLineIcon size={size} color={color} style={style} />;
   }

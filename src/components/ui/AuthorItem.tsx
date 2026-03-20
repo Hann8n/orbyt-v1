@@ -13,7 +13,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Avatar } from './UI';
 import VerificationBadge from '../features/badging/VerificationBadge';
-import Icon, { FollowIcon, CheckIcon, MutualHeartIcon } from './Icon';
+import Icon, { FollowIcon, CheckIcon, MutualHeartIcon, STROKE_WIDTH_THICK } from './Icon';
 import { hexToRGBA } from '../../utils/formatting/colors';
 import { Colors } from './UI';
 
@@ -62,21 +62,35 @@ interface AuthorItemProps {
   onDeletePress?: () => void;
   showCheckmark?: boolean;
   showCheckmarkSpinner?: boolean;
+  showCheckmarkSkeleton?: boolean;
 }
 
+/** Dim grey for inactive/skeleton state to indicate tappable action. */
+const SKELETON_BG = hexToRGBA(Colors.neutral[600], 0.5);
+
 interface StatusIconButtonProps {
-  variant?: 'success' | 'error';
+  variant?: 'success' | 'error' | 'checkmark' | 'skeleton';
   size?: number;
-  children: React.ReactNode;
+  padding?: number;
+  children?: React.ReactNode;
 }
 
 export const StatusIconButton: React.FC<StatusIconButtonProps> = ({
   variant = 'success',
   size = 32,
+  padding,
   children,
 }) => {
   const backgroundColor =
-    variant === 'success' ? hexToRGBA(Colors.teal[300], 0.1) : hexToRGBA(Colors.coral[500], 0.1);
+    variant === 'success'
+      ? hexToRGBA(Colors.teal[300], 0.1)
+      : variant === 'checkmark'
+        ? Colors.teal[300]
+        : variant === 'skeleton'
+          ? SKELETON_BG
+          : hexToRGBA(Colors.coral[500], 0.1);
+
+  const actualPadding = padding ?? (variant === 'checkmark' || variant === 'skeleton' ? 4 : 8);
 
   return (
     <View
@@ -85,6 +99,7 @@ export const StatusIconButton: React.FC<StatusIconButtonProps> = ({
         {
           width: size,
           height: size,
+          padding: actualPadding,
           backgroundColor,
         },
       ]}
@@ -116,6 +131,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   onDeletePress,
   showCheckmark = false,
   showCheckmarkSpinner = false,
+  showCheckmarkSkeleton = false,
 }) => {
   const { t } = useTranslation();
   const router = useRouter();
@@ -223,15 +239,19 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
         </View>
         {shouldShowFollowButton ? (
           <Pressable
-            style={({ pressed }) => [styles.followButton, pressed && { opacity: 0.8 }]}
+            style={({ pressed }) => [
+              styles.followButton,
+              !actualIsFollowing && styles.followButtonInactive,
+              pressed && { opacity: 0.8 },
+            ]}
             onPress={handleFollowPress}
           >
             {isMutual ? (
               <MutualHeartIcon size={16} color={Colors.black} />
             ) : actualIsFollowing ? (
-              <CheckIcon size={16} color={Colors.black} strokeWidth={2} />
+              <CheckIcon size={16} color={Colors.black} strokeWidth={STROKE_WIDTH_THICK} />
             ) : (
-              <FollowIcon size={16} color={Colors.black} />
+              <FollowIcon size={16} color={Colors.neutral[300]} />
             )}
           </Pressable>
         ) : showDeleteButton ? (
@@ -245,9 +265,11 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
             <ActivityIndicator size="small" color={Colors.teal[300]} />
           </StatusIconButton>
         ) : showCheckmark ? (
-          <StatusIconButton variant="success">
-            <CheckIcon size={16} color={Colors.teal[300]} strokeWidth={2} />
+          <StatusIconButton variant="checkmark" size={28}>
+            <CheckIcon size={20} color={Colors.teal[800]} strokeWidth={STROKE_WIDTH_THICK} />
           </StatusIconButton>
+        ) : showCheckmarkSkeleton ? (
+          <StatusIconButton variant="skeleton" size={28} />
         ) : (
           showArrow && (
             <View style={styles.accountArrow}>
@@ -269,8 +291,10 @@ const styles = StyleSheet.create({
   accountArrow: sharedItemStyles.accountArrow,
   nameRow: sharedItemStyles.nameRow,
   followButton: sharedItemStyles.followButton,
+  followButtonInactive: {
+    backgroundColor: SKELETON_BG,
+  },
   statusIconButton: {
-    padding: 8,
     borderRadius: BORDER_RADIUS.SMALL,
     justifyContent: 'center',
     alignItems: 'center',

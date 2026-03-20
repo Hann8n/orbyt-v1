@@ -13,6 +13,8 @@ export {
   FOOTER_BOTTOM_PADDING_DEFAULT,
   FOOTER_TOP_PADDING_DEFAULT,
   CONTENT_TO_FOOTER_GAP_REDUCTION,
+  COMPOSER_INPUT_PADDING,
+  COMPOSER_INPUT_DIMENSIONS,
   getFooterBottomPadding,
 } from './utils';
 export {
@@ -31,5 +33,5 @@ export {
   SHEET_VARIANTS,
   type SheetDetent,
 } from './trueSheetPresets';
-export { SHEET_STYLES, sheetPaddingBottomStyle } from './sheetStyles';
+export { SHEET_STYLES, sheetPaddingBottomStyle, COMPOSER_STYLES } from './sheetStyles';
 export { default as SheetActionFooter } from './SheetActionFooter';

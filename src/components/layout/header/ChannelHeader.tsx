@@ -16,7 +16,7 @@ import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useRouter } from 'expo-router';
 import UniversalHeader, { HeaderContent } from './UniversalHeader';
 import { useChannelColors } from '../../../services/data/ChannelService';
-import { PlusIcon, CheckIcon, ListViewIcon, GridViewIcon } from '../../ui/Icon';
+import { PlusIcon, CheckIcon, ListViewIcon, GridViewIcon, STROKE_WIDTH_THICK } from '../../ui/Icon';
 import type { ViewMode } from '../../../types';
 import {
   hexToRGBA,
@@ -209,9 +209,9 @@ const SubscribeButton: React.FC<{
                     {isSubscribed ? t('settings.subscribed') : t('settings.subscribe')}
                   </Text>
                   {isSubscribed ? (
-                    <CheckIcon size={16} color={contentColor} strokeWidth={2.5} />
+                    <CheckIcon size={16} color={contentColor} strokeWidth={STROKE_WIDTH_THICK} />
                   ) : (
-                    <PlusIcon size={16} color={contentColor} strokeWidth={2.5} />
+                    <PlusIcon size={16} color={contentColor} strokeWidth={STROKE_WIDTH_THICK} />
                   )}
                 </>
               </View>

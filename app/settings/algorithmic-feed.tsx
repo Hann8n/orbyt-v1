@@ -13,7 +13,7 @@ import { useRouter } from 'expo-router';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import ListHeader from '../../src/components/ui/ListHeader';
-import Icon, { PlusIcon } from '../../src/components/ui/Icon';
+import Icon, { PlusIcon, STROKE_WIDTH_THICK } from '../../src/components/ui/Icon';
 import { Colors } from '../../src/theme';
 import { Avatar } from '../../src/components/ui/UI';
 import { useAlgorithmicFeedProvider } from '../../src/stores/userStore';
@@ -439,7 +439,11 @@ const AlgorithmicFeedScreen: React.FC = () => {
                               {isSubscribed ? t('settings.subscribed') : t('settings.subscribe')}
                             </Text>
                             {!isSubscribed && (
-                              <PlusIcon size={10} color={Colors.neutral[50]} strokeWidth={2.0} />
+                              <PlusIcon
+                                size={10}
+                                color={Colors.neutral[50]}
+                                strokeWidth={STROKE_WIDTH_THICK}
+                              />
                             )}
                           </>
                         )}

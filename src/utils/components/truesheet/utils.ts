@@ -16,6 +16,22 @@ export const FOOTER_BOTTOM_PADDING_DEFAULT = 12;
 /** Default padding between sheet content and footer (above Cancel/Close button). */
 export const FOOTER_TOP_PADDING_DEFAULT = 12;
 
+/** Shared padding for composer input areas (chat, SendTo, comments). */
+export const COMPOSER_INPUT_PADDING = {
+  horizontal: 16,
+  vertical: 12,
+} as const;
+
+/** Shared dimensions for composer input and send button. */
+export const COMPOSER_INPUT_DIMENSIONS = {
+  minHeight: 42,
+  maxHeight: 120,
+  paddingVertical: 9,
+  sendButtonSize: 42,
+  sendButtonPadding: 8,
+  sendButtonMarginLeft: 8,
+} as const;
+
 /**
  * Pixels to subtract from content bottom padding so items sit closer to the footer.
  * Reduces excess gap while keeping content visible above the overlay.

@@ -26,7 +26,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Icon, { BackArrowIcon, MoreFillIcon } from '../../ui/Icon';
+import Icon, { BackArrowIcon, MoreFillIcon, STROKE_WIDTH_THICK } from '../../ui/Icon';
 import { OutlinkIcon, GermDmIcon } from '../../ui/Icon';
 import { useRouter } from 'expo-router';
 import { hexToRGBA, blendColors } from '../../../utils/formatting/colors';
@@ -310,7 +310,12 @@ const ActionButton = memo<{
                 action.customIcon
               )
             ) : action.icon ? (
-              <Icon name={action.icon} size={16} color={contentColor} strokeWidth={2.5} />
+              <Icon
+                name={action.icon}
+                size={16}
+                color={contentColor}
+                strokeWidth={STROKE_WIDTH_THICK}
+              />
             ) : null}
           </View>
         );
@@ -331,7 +336,12 @@ const ActionButton = memo<{
               action.customIcon
             )
           ) : action.icon ? (
-            <Icon name={action.icon} size={20} color={contentColor} strokeWidth={2.5} />
+            <Icon
+              name={action.icon}
+              size={20}
+              color={contentColor}
+              strokeWidth={STROKE_WIDTH_THICK}
+            />
           ) : null}
         </View>
       );
@@ -394,7 +404,12 @@ const ActionButton = memo<{
                   action.customIcon
                 )
               ) : action.icon ? (
-                <Icon name={action.icon} size={16} color={unfilledColor} strokeWidth={2.5} />
+                <Icon
+                  name={action.icon}
+                  size={16}
+                  color={unfilledColor}
+                  strokeWidth={STROKE_WIDTH_THICK}
+                />
               ) : null}
             </View>
           ) : (
@@ -411,7 +426,12 @@ const ActionButton = memo<{
                   action.customIcon
                 )
               ) : action.icon ? (
-                <Icon name={action.icon} size={20} color={unfilledColor} strokeWidth={2.5} />
+                <Icon
+                  name={action.icon}
+                  size={20}
+                  color={unfilledColor}
+                  strokeWidth={STROKE_WIDTH_THICK}
+                />
               ) : null}
             </View>
           );
@@ -433,7 +453,12 @@ const ActionButton = memo<{
                   action.customIcon
                 )
               ) : action.icon ? (
-                <Icon name={action.icon} size={16} color={filledColor} strokeWidth={2.5} />
+                <Icon
+                  name={action.icon}
+                  size={16}
+                  color={filledColor}
+                  strokeWidth={STROKE_WIDTH_THICK}
+                />
               ) : null}
             </View>
           ) : (
@@ -450,7 +475,12 @@ const ActionButton = memo<{
                   action.customIcon
                 )
               ) : action.icon ? (
-                <Icon name={action.icon} size={20} color={filledColor} strokeWidth={2.5} />
+                <Icon
+                  name={action.icon}
+                  size={20}
+                  color={filledColor}
+                  strokeWidth={STROKE_WIDTH_THICK}
+                />
               ) : null}
             </View>
           );

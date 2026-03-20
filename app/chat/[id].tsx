@@ -34,7 +34,11 @@ import { FlashList } from '@shopify/flash-list';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import { AppTrueSheet } from '../../src/utils/components/truesheet';
+import {
+  AppTrueSheet,
+  COMPOSER_STYLES,
+  getFooterBottomPadding,
+} from '../../src/utils/components/truesheet';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 
 import { Colors } from '../../src/theme';
@@ -2208,7 +2212,12 @@ export default function ChatScreen() {
           </View>
         )}
       </KeyboardAvoidingView>
-      <View style={{ height: insets.bottom, backgroundColor: Colors.black }} />
+      <View
+        style={{
+          height: getFooterBottomPadding(insets.bottom),
+          backgroundColor: Colors.black,
+        }}
+      />
     </View>
   );
 }
@@ -2683,59 +2692,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 8,
-    borderTopWidth: 1,
-    borderTopColor: Colors.neutral[800],
-    backgroundColor: Colors.black,
-  },
-  inputWrapper: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.transparent,
-  },
+  inputRow: COMPOSER_STYLES.inputRow,
+  inputWrapper: COMPOSER_STYLES.inputWrapper,
   input: {
-    flex: 1,
-    backgroundColor: Colors.transparent,
-    color: Colors.neutral[50],
-    minHeight: 42,
-    maxHeight: 120,
-    paddingVertical: 9,
-    paddingHorizontal: 0,
-    textAlignVertical: 'top',
-    fontFamily: 'Figtree-Regular',
-    fontSize: 18,
-    lineHeight: 24,
+    ...COMPOSER_STYLES.textInput,
+    ...(Platform.OS === 'android' && { includeFontPadding: false }),
   },
-  sendButton: {
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-    justifyContent: 'center',
-    borderRadius: BORDER_RADIUS.FULL,
-    width: 42,
-    height: 42,
-    alignItems: 'center',
-    marginLeft: 8,
-    overflow: 'hidden',
-  },
-  sendButtonFallback: {
-    backgroundColor: Colors.neutral[200],
-  },
-  sendButtonGlass: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: BORDER_RADIUS.FULL,
-  },
-  sendButtonContent: {
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  sendButton: COMPOSER_STYLES.sendButton,
+  sendButtonFallback: COMPOSER_STYLES.sendButtonFallback,
+  sendButtonGlass: COMPOSER_STYLES.sendButtonGlassBg,
+  sendButtonContent: COMPOSER_STYLES.sendButtonContent,
   placeholder: {
     color: Colors.neutral[400],
     fontSize: 16,

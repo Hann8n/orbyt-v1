@@ -17,7 +17,7 @@ import { Image } from 'expo-image';
 import { Modal as RNModal } from 'react-native';
 // SafeAreaView is imported elsewhere; no direct usage in this module
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
-import Icon from './Icon';
+import Icon, { STROKE_WIDTH_THICK } from './Icon';
 import {
   hexToRGBA,
   isColorDark,
@@ -167,7 +167,7 @@ export const Button: React.FC<ButtonProps> = ({
                 size={16}
                 color={getTextStyle().color as string}
                 style={styles.iconMargin}
-                strokeWidth={2.5}
+                strokeWidth={STROKE_WIDTH_THICK}
               />
             </React.Suspense>
           )}
@@ -178,7 +178,7 @@ export const Button: React.FC<ButtonProps> = ({
                 size={16}
                 color={getTextStyle().color as string}
                 style={styles.iconMargin}
-                strokeWidth={2.5}
+                strokeWidth={STROKE_WIDTH_THICK}
               />
             </React.Suspense>
           )}

@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useMemo } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   View,
@@ -8,6 +8,7 @@ import {
   ScrollView,
   StyleSheet,
   Platform,
+  Keyboard,
   type NativeSyntheticEvent,
   type TargetedEvent,
 } from 'react-native';
@@ -20,6 +21,8 @@ import Icon from '../../ui/Icon';
 import UI from '../../ui/UI';
 import { Colors } from '../../../theme';
 import { BORDER_RADIUS } from '../../../utils/constants';
+import { getFooterBottomPadding } from '../../../utils/components/truesheet/utils';
+import { COMPOSER_STYLES } from '../../../utils/components/truesheet/sheetStyles';
 import { UserSearchModal } from '../../ui/usersearch';
 import { useUserStore } from '../../../stores/userStore';
 import { useProfile } from '../../../services/data/ProfileService';
@@ -160,12 +163,27 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   const { data: currentUserProfile } = useProfile(currentUserHandle);
   const ringProps = useAvatarProfileRing(currentUser?.did ?? null);
 
-  // Get safe area insets for minimal bottom padding (when not overridden)
-  // TrueSheet handles keyboard positioning natively, so we only need minimal padding
+  // Bottom padding: reduced safe area when keyboard closed; collapse when keyboard open
+  // so the padding doesn't push the footer up with the keyboard.
   const insets = useSafeAreaInsets();
-  const defaultBottomPadding = Platform.OS === 'ios' ? Math.min(8, insets.bottom) : 8;
-  const bottomPadding =
-    safeAreaBottomProp !== undefined ? safeAreaBottomProp : defaultBottomPadding;
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const rawSafeArea = safeAreaBottomProp !== undefined ? safeAreaBottomProp : insets.bottom;
+  const clampedSafeArea = getFooterBottomPadding(rawSafeArea);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const onShow = () => setKeyboardVisible(true);
+    const onHide = () => setKeyboardVisible(false);
+    const showSub = Keyboard.addListener(showEvent, onShow);
+    const hideSub = Keyboard.addListener(hideEvent, onHide);
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  const bottomPadding = keyboardVisible ? 0 : clampedSafeArea;
 
   const hasImages = selectedImages.length > 0;
   const hasGifPreview = !!selectedGifPreviewUri;
@@ -357,7 +375,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                     accessibilityRole="button"
                     accessibilityLabel={t('common.add')}
                   >
-                    <Icon name="plus" size={18} color={Colors.neutral[200]} />
+                    <Icon name="plus" size={18} color={Colors.neutral[50]} />
                   </Pressable>
                 </MenuView>
               ) : null}
@@ -430,17 +448,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.black,
     width: '100%',
   },
-  inputContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
-    backgroundColor: Colors.black,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    width: '100%',
-  },
+  inputContainer: COMPOSER_STYLES.container,
+  inputRow: COMPOSER_STYLES.row,
   avatarContainer: {
     marginRight: 12,
     marginTop: 0,
@@ -451,31 +460,10 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.FULL,
     borderWidth: 0,
   },
-  inputWrapper: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.transparent,
-    borderRadius: BORDER_RADIUS.LARGE,
-    borderWidth: 0,
-    borderColor: Colors.transparent,
-    position: 'relative',
-  },
+  inputWrapper: COMPOSER_STYLES.inputWrapper,
   textInput: {
-    backgroundColor: Colors.transparent,
-    color: Colors.neutral[50],
-    borderColor: Colors.transparent,
-    flex: 1,
-    minHeight: 42,
-    maxHeight: 120,
-    paddingRight: 0,
-    paddingTop: 9,
-    paddingBottom: 9,
-    paddingLeft: 0,
-    textAlignVertical: 'top',
-    fontFamily: Typography.families.regular,
-    fontSize: Typography.sizes.title,
-    lineHeight: Typography.lineHeights.title,
+    ...COMPOSER_STYLES.textInput,
+    ...(Platform.OS === 'android' && { includeFontPadding: false }),
   },
   sendColumn: {
     alignItems: 'flex-end',
@@ -488,52 +476,21 @@ const styles = StyleSheet.create({
   },
   controlsRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'flex-end',
     gap: 8,
   },
-  iconButton: {
-    width: 36,
-    height: 36,
-    borderRadius: BORDER_RADIUS.FULL,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.overlay.white10,
-    marginBottom: 6,
-  },
+  iconButton: COMPOSER_STYLES.addButton,
   iconButtonDisabled: {
     opacity: 0.6,
   },
-  sendButton: {
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-    alignSelf: 'center',
-    justifyContent: 'center',
-    borderRadius: BORDER_RADIUS.FULL,
-    width: 42,
-    height: 42,
-    alignItems: 'center',
-    marginTop: 0,
-    zIndex: 11,
-    elevation: 11,
-    overflow: 'hidden',
-  },
-  sendButtonFallback: {
-    backgroundColor: Colors.neutral[200],
-  },
+  sendButton: [COMPOSER_STYLES.sendButton, { marginLeft: 0 }],
+  sendButtonFallback: COMPOSER_STYLES.sendButtonFallback,
   sendButtonDisabled: {
     opacity: 0.6,
   },
-  glassBackground: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: BORDER_RADIUS.FULL,
-  },
-  sendButtonContent: {
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  glassBackground: COMPOSER_STYLES.sendButtonGlassBg,
+  sendButtonContent: COMPOSER_STYLES.sendButtonContent,
   cancelReplyButton: {
     backgroundColor: Colors.overlay.white10,
   },

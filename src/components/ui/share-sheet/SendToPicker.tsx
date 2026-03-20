@@ -15,31 +15,30 @@ import {
   Pressable,
   Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import type { TrueSheet } from '@lodev09/react-native-true-sheet';
 import {
   AppTrueSheet,
   DEFAULT_CONTENT_PADDING_HORIZONTAL,
+  DEFAULT_GRABBER_OPTIONS,
   useMeasuredFooterHeight,
-  getFooterBottomPadding,
   SHEET_SPACING,
-  SHEET_STYLES,
 } from '../../../utils/components/truesheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { queryKeys } from '../../../utils/query/queryKeys';
-import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../../utils/constants';
-import { formatHandle } from '../../../utils/formatting/handles';
+import { BORDER_RADIUS, ICON_SIZES, QUERY_CONSTANTS } from '../../../utils/constants';
 import { useProfile } from '../../../services/data/ProfileService';
-import { getProfileColors } from '../../../utils/formatting/colors';
 import { useUserSearchTrigger } from '../usersearch';
 import CommentInputFooter from '../../features/comments/CommentInputFooter';
 import AtprotoService from '../../../services/api/AtprotoService';
 import { ChatService } from '../../../services/api/chat/ChatService';
 import { useUserStore } from '../../../stores/userStore';
-import { Colors, Avatar } from '../UI';
-import CloseButton from '../CloseButton';
+import { Colors } from '../UI';
+import AuthorItem from '../AuthorItem';
 import Icon from '../Icon';
+import { isCurrentUser } from '../../../stores/profileInteractionStore';
 import type { ProfileViewBasic } from '../../../services/api/types';
 import type { ConvoView } from '../../../services/api/types';
 import { FontFamily, Typography } from '../../../utils/components/typography';
@@ -61,59 +60,6 @@ const canBeMessaged = (profile: ProfileViewBasic): boolean => {
     default:
       return false;
   }
-};
-
-const ConversationItem: React.FC<{
-  profile: ProfileViewBasic;
-  isDisabled: boolean;
-  isSelected: boolean;
-  onPress: () => void;
-}> = ({ profile, isDisabled, isSelected, onPress }) => {
-  const { data: profileData } = useProfile(profile?.handle);
-  const profileColors = getProfileColors(profileData);
-
-  return (
-    <Pressable
-      style={[
-        styles.conversationItem,
-        isSelected && styles.conversationItemSelected,
-        isDisabled && styles.disabledItem,
-      ]}
-      onPress={onPress}
-      disabled={isDisabled}
-    >
-      <View style={styles.conversationAvatarWrap}>
-        <Avatar
-          uri={profile.avatar}
-          type="profile"
-          size={55}
-          showRing={false}
-          status={profileData?.status}
-          profileColors={
-            profileColors
-              ? {
-                  backgroundColor: profileColors.backgroundColor,
-                  foregroundColor: profileColors.foregroundColor,
-                  textColor: profileColors.foregroundColor,
-                }
-              : undefined
-          }
-          style={styles.conversationAvatar}
-        />
-      </View>
-      <View style={styles.conversationInfo}>
-        <Text
-          style={[styles.conversationName, isDisabled && styles.disabledText]}
-          numberOfLines={1}
-        >
-          {formatHandle(profile.handle) || 'user'}
-        </Text>
-      </View>
-      <View style={[styles.selectorBox, isSelected && styles.selectorBoxSelected]}>
-        {isSelected && <Icon name="checkmark" size={16} color={Colors.black} />}
-      </View>
-    </Pressable>
-  );
 };
 
 export interface SendToPickerProps {
@@ -151,7 +97,6 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
   const messageInputRef = useRef<TextInput | null>(null);
   const sheetRef = useRef<TrueSheet>(null);
 
-  const footerBottomPadding = getFooterBottomPadding(insets.bottom);
   const footerFallbackHeight = 96;
   const [contentBottomPadding, wrapFooter] = useMeasuredFooterHeight(footerFallbackHeight);
 
@@ -218,12 +163,12 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
   }, [conversations, currentUserDid, searchQuery, searchResults]);
 
   // Control TrueSheet visibility via instance ref (TrueSheet v3+)
+  // Do not auto-focus search: opening the keyboard would move the list up. User can tap search to focus.
   useEffect(() => {
     const sheet = sheetRef.current;
     if (!sheet) return;
     if (visible) {
       sheet.present().catch(() => {});
-      searchInputRef.current?.focus();
     } else {
       sheet.dismiss().catch(() => {});
     }
@@ -246,6 +191,8 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
     return `profile-${base}-${idx}`;
   }, []);
 
+  const currentUser = useUserStore(s => s.currentUser);
+
   const renderConversationItem = useCallback(
     ({ item, index }: { item: ConvoView | ProfileViewBasic; index: number }) => {
       const itemIsConversation = 'id' in item && typeof (item as ConvoView).id === 'string';
@@ -257,26 +204,42 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
       const isDisabled = !itemIsConversation && !canBeMessaged(item as ProfileViewBasic);
       const key = getPickerItemKey(item, index);
       const isSelected = selectedRecipientKey === key;
+      const isCurrentUserProfile = isCurrentUser(profile.did, profile.handle, currentUser);
+
+      const handlePress = () => {
+        if (isDisabled) return;
+        if (isSelected) {
+          setSelectedRecipientKey(null);
+          setSelectedRecipientItem(null);
+          return;
+        }
+        setSelectedRecipientKey(key);
+        setSelectedRecipientItem(item);
+      };
 
       return (
-        <ConversationItem
-          profile={profile}
-          isDisabled={isDisabled}
-          isSelected={isSelected}
-          onPress={() => {
-            if (isDisabled) return;
-            if (isSelected) {
-              setSelectedRecipientKey(null);
-              setSelectedRecipientItem(null);
-              return;
-            }
-            setSelectedRecipientKey(key);
-            setSelectedRecipientItem(item);
-          }}
-        />
+        <View style={[styles.userItemContainer, isDisabled && styles.disabledItem]}>
+          <AuthorItem
+            handle={profile.handle ?? ''}
+            did={profile.did}
+            displayName={profile.displayName}
+            avatar={profile.avatar}
+            size="large"
+            showArrow={false}
+            showFollowButton={false}
+            showCheckmark={isSelected && !isCurrentUserProfile}
+            showCheckmarkSkeleton={!isSelected && !isCurrentUserProfile && !isDisabled}
+            backgroundColor={Colors.transparent}
+            textColor={Colors.neutral[50]}
+            nameFontWeight="Figtree-SemiBold"
+            customFontSize={16}
+            style={styles.authorItem}
+            onPress={handlePress}
+          />
+        </View>
       );
     },
-    [currentUserDid, getPickerItemKey, selectedRecipientKey]
+    [currentUserDid, getPickerItemKey, selectedRecipientKey, currentUser]
   );
 
   const handleSendToConversation = useCallback(
@@ -354,37 +317,63 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
     handleSendToConversation(selectedRecipientItem);
   }, [handleSendToConversation, selectedRecipientItem]);
 
+  const trimmedSearch = searchQuery.trim();
   const header = (
-    <View style={styles.headerContainer}>
-      <Text style={styles.headerTitle} numberOfLines={1}>
-        {t('share.sendTo')}
-      </Text>
-      <CloseButton onPress={onDismiss} />
+    <View style={styles.header}>
+      <View style={styles.searchRow}>
+        <Icon name="search" size={ICON_SIZES.LARGE} color={Colors.neutral[200]} />
+        <TextInput
+          ref={searchInputRef}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder={t('chat.searchPeople')}
+          placeholderTextColor={Colors.neutral[500]}
+          style={styles.searchInput}
+          autoCorrect={false}
+          autoCapitalize="none"
+          returnKeyType="search"
+          autoComplete="off"
+          textContentType="none"
+        />
+        <View style={styles.clearSlot}>
+          {trimmedSearch.length > 0 ? (
+            <Pressable
+              onPress={() => setSearchQuery('')}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={styles.clearButton}
+              android_ripple={{ color: Colors.overlay.white10 }}
+              accessibilityRole="button"
+              accessibilityLabel={t('comments.clearSearch')}
+            >
+              <Icon name="close-circle" size={22.5} color={Colors.neutral[200]} />
+            </Pressable>
+          ) : (
+            <View style={styles.clearButtonPlaceholder} />
+          )}
+        </View>
+      </View>
     </View>
   );
 
   const footer = wrapFooter(
-    <View style={styles.footerWrapper}>
-      <CommentInputFooter
-        value={sendMessageText}
-        onChangeText={setSendMessageText}
-        inputSelection={sendMessageInputSelection}
-        onSelectionChange={e => setSendMessageInputSelection(e.nativeEvent.selection)}
-        placeholder={t('chat.addMessageOptional')}
-        onSubmit={handleSubmitSend}
-        showAvatar={false}
-        showSendWhenEmpty={true}
-        isSubmitDisabled={!selectedRecipientItem}
-        submitAccessibilityLabel={t('share.send')}
-        isPosting={isSending}
-        maxLength={MAX_MESSAGE_LENGTH}
-        inputRef={messageInputRef}
-        currentUserAvatar={currentUserProfile?.avatar}
-        userSearchModalProps={messageUserSearchProps}
-        mentionInputProps={messageMentionInputProps}
-        safeAreaBottom={footerBottomPadding}
-      />
-    </View>
+    <CommentInputFooter
+      value={sendMessageText}
+      onChangeText={setSendMessageText}
+      inputSelection={sendMessageInputSelection}
+      onSelectionChange={e => setSendMessageInputSelection(e.nativeEvent.selection)}
+      placeholder={t('chat.addMessageOptional')}
+      onSubmit={handleSubmitSend}
+      showAvatar={false}
+      showSendWhenEmpty={true}
+      isSubmitDisabled={!selectedRecipientItem}
+      submitAccessibilityLabel={t('share.send')}
+      isPosting={isSending}
+      maxLength={MAX_MESSAGE_LENGTH}
+      inputRef={messageInputRef}
+      currentUserAvatar={currentUserProfile?.avatar}
+      userSearchModalProps={messageUserSearchProps}
+      mentionInputProps={messageMentionInputProps}
+    />
   );
 
   return (
@@ -392,6 +381,8 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
       ref={sheetRef}
       name={SHEET_NAME}
       variant="sendToPicker"
+      grabber
+      grabberOptions={DEFAULT_GRABBER_OPTIONS}
       onDidDismiss={handleDismiss}
       header={header}
       footer={footer}
@@ -399,16 +390,6 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
       scrollable={true}
     >
       <View style={styles.content}>
-        <TextInput
-          ref={searchInputRef}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder={t('chat.searchPeople')}
-          placeholderTextColor={Colors.neutral[400]}
-          style={styles.searchInput}
-          autoComplete="off"
-          textContentType="none"
-        />
         {conversationsLoading ? (
           <View style={styles.pickerLoadingContainer}>
             <ActivityIndicator size="large" color={Colors.neutral[50]} />
@@ -420,14 +401,17 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
               data={filteredConversations}
               keyExtractor={(item, idx) => getPickerItemKey(item, idx)}
               showsVerticalScrollIndicator={false}
-              ItemSeparatorComponent={() => <View style={styles.conversationDivider} />}
               renderItem={renderConversationItem}
               contentContainerStyle={[
                 styles.conversationList,
-                { paddingBottom: contentBottomPadding },
+                {
+                  paddingBottom:
+                    contentBottomPadding + (typeof insets?.bottom === 'number' ? insets.bottom : 0),
+                },
                 filteredConversations.length === 0 && styles.conversationListEmpty,
               ]}
               keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
               onEndReached={() => {
                 if (searchQuery.trim() && hasMoreProfiles && !conversationsLoading) {
                   fetchMoreProfiles();
@@ -451,37 +435,71 @@ const styles = StyleSheet.create({
   sheet: {
     flex: 1,
   },
-  headerContainer: {
-    ...SHEET_STYLES.headerContainer,
-  },
-  headerTitle: {
-    ...SHEET_STYLES.headerTitle,
-  },
-  footerWrapper: {
+  header: {
     backgroundColor: Colors.black,
+    paddingHorizontal: SHEET_SPACING.mediaPickerHorizontal,
+    paddingTop: 18,
+    paddingBottom: 6,
+    gap: 8,
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: Colors.neutral[800],
+    borderRadius: BORDER_RADIUS.LARGE,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Colors.neutral[700],
+    paddingHorizontal: DEFAULT_CONTENT_PADDING_HORIZONTAL,
+    paddingVertical: 11,
+    minHeight: 46,
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  searchInput: {
+    flex: 1,
+    minWidth: 0,
+    color: Colors.neutral[50],
+    fontFamily: Typography.families.regular,
+    fontSize: Typography.sizes.title,
+    height: Typography.lineHeights.title,
+    padding: 0,
+    paddingVertical: 0,
+    textAlignVertical: 'center',
+    ...(Platform.OS === 'android' && {
+      includeFontPadding: false,
+    }),
+  },
+  clearSlot: {
+    marginLeft: 8,
+    width: 28,
+    height: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  clearButton: {
+    width: 28,
+    height: 28,
+    borderRadius: BORDER_RADIUS.FULL,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  clearButtonPlaceholder: {
+    width: 28,
+    height: 28,
   },
   content: {
     flex: 1,
     minHeight: 0,
     paddingHorizontal: DEFAULT_CONTENT_PADDING_HORIZONTAL,
   },
-  searchInput: {
-    marginBottom: SHEET_SPACING.mediaPickerHorizontal,
-    borderRadius: BORDER_RADIUS.MEDIUM,
-    backgroundColor: Colors.neutral[800],
-    color: Colors.neutral[50],
-    paddingHorizontal: SHEET_SPACING.mediaPickerHorizontal,
-    paddingVertical: 14,
-    fontFamily: FontFamily.medium,
-    fontSize: Typography.sizes.body,
-    lineHeight: Typography.lineHeights.body,
-    borderWidth: 0,
-    textAlign: 'left',
-    textAlignVertical: 'center',
-  },
   pickerListWrap: {
     flex: 1,
     minHeight: 0,
+    marginHorizontal: -DEFAULT_CONTENT_PADDING_HORIZONTAL,
   },
   pickerList: {
     flex: 1,
@@ -515,55 +533,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  conversationItem: {
+  userItemContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  authorItem: {
+    flex: 1,
     paddingVertical: 10,
-  },
-  conversationItemSelected: {
-    opacity: 0.92,
-  },
-  conversationAvatarWrap: {
-    width: 55,
-    height: 55,
-    borderRadius: BORDER_RADIUS.FULL,
-    marginRight: DEFAULT_CONTENT_PADDING_HORIZONTAL,
-    overflow: 'hidden',
-  },
-  conversationAvatar: {
-    width: '100%',
-    height: '100%',
-  },
-  conversationDivider: {
-    height: 1,
-    backgroundColor: Colors.neutral[900],
-    marginLeft: 67,
-    marginRight: 0,
+    paddingHorizontal: 20,
+    marginBottom: 0,
+    borderRadius: 0,
   },
   disabledItem: {
     opacity: 0.5,
-  },
-  conversationInfo: {
-    flex: 1,
-    minWidth: 0,
-    marginLeft: DEFAULT_CONTENT_PADDING_HORIZONTAL,
-    justifyContent: 'center',
-  },
-  selectorBox: {
-    ...SHEET_STYLES.selectorBox,
-  },
-  selectorBoxSelected: {
-    ...SHEET_STYLES.selectorBoxSelected,
-  },
-  conversationName: {
-    color: Colors.neutral[50],
-    fontSize: Typography.sizes.title,
-    lineHeight: Typography.lineHeights.title,
-    fontFamily: FontFamily.black,
-    marginBottom: 2,
-  },
-  disabledText: {
-    color: Colors.neutral[500],
   },
 });
 

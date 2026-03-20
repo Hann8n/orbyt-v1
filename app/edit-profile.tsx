@@ -36,7 +36,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Colors } from '../src/theme';
 import { Avatar } from '../src/components/ui/UI';
-import { CheckIcon } from '../src/components/ui/Icon';
+import { CheckIcon, STROKE_WIDTH_THICK } from '../src/components/ui/Icon';
 import { useProfileUpdateMutation, useProfileByDid } from '../src/services/data/ProfileService';
 import { hexToRGBA, blendColors } from '../src/utils/formatting/colors';
 import { BORDER_RADIUS } from '../src/utils/constants';
@@ -911,7 +911,7 @@ const EditProfileScreen: React.FC = () => {
             )}
             <View pointerEvents="none">
               {isSaving ? (
-                <CheckIcon size={17} color={Colors.black} strokeWidth={2.5} />
+                <CheckIcon size={17} color={Colors.black} strokeWidth={STROKE_WIDTH_THICK} />
               ) : (
                 <Text
                   style={[
