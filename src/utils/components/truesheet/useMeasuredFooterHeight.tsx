@@ -1,5 +1,9 @@
 import { useCallback, useState } from 'react';
-import { LayoutChangeEvent, View } from 'react-native';
+import { LayoutChangeEvent, StyleSheet, View } from 'react-native';
+
+const wrapperStyle = StyleSheet.create({
+  wrapper: { width: '100%', alignSelf: 'stretch' },
+}).wrapper;
 
 /**
  * TrueSheet's footer is position:absolute and overlays the content area.
@@ -35,7 +39,7 @@ export function useMeasuredFooterHeight(
 
   const wrapFooter = useCallback(
     (footer: React.ReactNode): React.ReactElement => (
-      <View onLayout={onLayout} collapsable={false} style={{ width: '100%' }}>
+      <View onLayout={onLayout} collapsable={false} style={wrapperStyle}>
         {footer}
       </View>
     ),

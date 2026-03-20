@@ -64,6 +64,7 @@ export const SHEET_STYLES: {
   },
   footerContainer: {
     width: '100%',
+    alignSelf: 'stretch',
     paddingHorizontal: SHEET_SPACING.footerHorizontal,
     backgroundColor: Colors.black,
   },
