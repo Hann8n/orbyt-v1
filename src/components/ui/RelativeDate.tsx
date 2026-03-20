@@ -1,4 +1,5 @@
 import React from 'react';
+import i18n from 'i18next';
 import { getDateFnsLocale } from '../../i18n';
 import { Text, StyleSheet, StyleProp, TextStyle } from 'react-native';
 import {
@@ -51,9 +52,12 @@ export const formatRelativeDate = (dateString?: string, _showTime: boolean = fal
   const dateFnsLocale = getDateFnsLocale();
 
   if (diffDays < 7) {
-    // Short format (1s, 30m, 2h, 5d) for all locales — compact and widely understood.
+    // Short format (now, 1s, 30m, 2h, 5d) for all locales — compact and widely understood.
     const seconds = differenceInSeconds(now, date);
-    if (seconds < 60) return `${seconds}s`;
+    if (seconds < 60) {
+      if (seconds === 0) return i18n.t('common.now');
+      return `${seconds}s`;
+    }
     const minutes = differenceInMinutes(now, date);
     if (minutes < 60) return `${minutes}m`;
     const hours = differenceInHours(now, date);

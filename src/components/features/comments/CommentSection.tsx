@@ -584,6 +584,10 @@ const CommentSection: React.FC<CommentSectionProps> = ({
                   : selectedGif!.kind === 'emoji'
                     ? 'Klipy Emoji'
                     : 'Klipy GIF',
+            thumb:
+              selectedGif!.previewUrl && /^https?:\/\//.test(selectedGif.previewUrl)
+                ? selectedGif.previewUrl
+                : undefined,
           }
         : undefined;
 

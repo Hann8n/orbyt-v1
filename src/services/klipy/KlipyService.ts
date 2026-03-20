@@ -208,12 +208,15 @@ export class KlipyService {
           pickPreferredUrl(media, previewPrefer) ??
           '';
 
+        // Prefer image/GIF URLs for embed URIs (AT Protocol external + in-app Image). MP4 last so
+        // comments render as animated/static images instead of falling through to a bare link card.
         const fullUrl =
-          pickPreferredFileUrl(obj.file, { sizes: ['md', 'hd', 'sm', 'xs'], format: 'mp4' }) ??
           pickPreferredFileUrl(obj.file, { sizes: ['md', 'hd', 'sm', 'xs'], format: 'gif' }) ??
           pickPreferredFileUrl(obj.file, { sizes: ['md', 'hd', 'sm', 'xs'], format: 'webp' }) ??
           pickPreferredFileUrl(obj.file, { sizes: ['md', 'hd', 'sm', 'xs'], format: 'png' }) ??
           pickPreferredFileUrl(obj.file, { sizes: ['md', 'hd', 'sm', 'xs'], format: 'jpg' }) ??
+          pickPreferredFileUrl(obj.file, { sizes: ['md', 'hd', 'sm', 'xs'], format: 'mp4' }) ??
+          pickPreferredFileUrl(obj.file, { sizes: ['md', 'hd', 'sm', 'xs'], format: 'webm' }) ??
           pickPreferredUrl(media, fullPrefer) ??
           previewUrl;
 

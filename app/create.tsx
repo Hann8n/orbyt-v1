@@ -15,8 +15,6 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MenuView } from '@react-native-menu/menu';
-import type { MenuAction } from '@react-native-menu/menu';
 import {
   CameraView,
   useCameraPermissions,
@@ -113,7 +111,7 @@ const CreateScreen: React.FC = () => {
 
   // Animated values
   const totalDurationShared = useSharedValue(0); // Total duration from segments (updated when segments change)
-  const recordingStartTime = useSharedValue<number | null>(null); // Start time of current recording (milliseconds)
+  const recordingStartTime = useSharedValue<number | null>(null); // Start time of current recording (milliseconds, performance.now-based)
   const recordingElapsed = useSharedValue(0); // Elapsed time during current recording (seconds) - updated continuously
   const buttonOpacity = useSharedValue(1);
   const zoomStartRef = useRef(0);
@@ -341,30 +339,6 @@ const CreateScreen: React.FC = () => {
     };
   }, [deletePreview, maxDuration]);
 
-  const durationMenuActions = useMemo<MenuAction[]>(() => {
-    const currentTotal = segmentManagerRef.current?.getTotalDuration() ?? 0;
-    return DURATION_OPTION_KEYS.filter(opt => opt.value >= currentTotal).map(opt => ({
-      id: String(opt.value),
-      title: t(opt.labelKey),
-      state: opt.value === selectedDuration ? ('on' as const) : ('off' as const),
-      attributes: { disabled: isProcessing || isRecording || isDeletePreviewActive },
-    }));
-  }, [isDeletePreviewActive, isProcessing, isRecording, selectedDuration, segmentUpdateTrigger, t]);
-
-  const handleDurationMenuPressAction = useCallback(
-    ({ nativeEvent }: { nativeEvent: { event?: string } }) => {
-      const id = nativeEvent?.event;
-      const next = id ? Number(id) : NaN;
-      if (!Number.isFinite(next)) return;
-      if (next === selectedDuration) return;
-      const currentTotal = segmentManagerRef.current?.getTotalDuration() ?? 0;
-      if (next < currentTotal) return;
-      Haptics.selectionAsync();
-      setSelectedDuration(next);
-    },
-    [selectedDuration]
-  );
-
   // Handle trimmed video from gallery
   const handleTrimmingComplete = useCallback(
     ({
@@ -588,11 +562,11 @@ const CreateScreen: React.FC = () => {
     totalDurationShared.value = segmentManagerRef.current?.getTotalDuration() ?? 0;
   }, [segmentUpdateTrigger, totalDurationShared]);
 
-  // Continuously update elapsed time on UI thread every frame
+  // Continuously update elapsed time on UI thread every frame using performance.now to minimize drift
   useFrameCallback(() => {
     'worklet';
     if (recordingStartTime.value !== null) {
-      const now = Date.now();
+      const now = global.performance ? global.performance.now() : Date.now();
       recordingElapsed.value = (now - recordingStartTime.value) / 1000;
     } else {
       recordingElapsed.value = 0;
@@ -704,7 +678,15 @@ const CreateScreen: React.FC = () => {
   }, [totalDurationShared, recordingStartTime, recordingElapsed]);
 
   const startRecording = useCallback(async () => {
-    const currentTotal = segmentManagerRef.current?.getTotalDuration() ?? 0;
+    const manager = segmentManagerRef.current;
+    const currentTotal = manager?.getTotalDuration() ?? 0;
+    const availableTime = manager?.getAvailableTime() ?? 0;
+
+    // Guard: require enough remaining time for at least a minimal segment
+    if (availableTime <= MIN_RECORDING_DURATION) {
+      return;
+    }
+
     if (cameraRef.current && !isRecordingRef.current && currentTotal < maxDuration) {
       if (!microphonePermission?.granted) {
         const result = await requestMicrophonePermission();
@@ -716,13 +698,13 @@ const CreateScreen: React.FC = () => {
 
       isRecordingRef.current = true;
       setIsRecording(true);
-      const startTime = Date.now();
-      recordingStartTime.value = startTime; // Set shared value for UI-thread timer
+      const now = global.performance ? global.performance.now() : Date.now();
+      recordingStartTime.value = now; // Set shared value for UI-thread timer
       recordingElapsed.value = 0; // Reset elapsed time
 
       try {
-        const manager = segmentManagerRef.current;
-        const availableTime = manager?.getAvailableTime() ?? 0;
+        const managerForDuration = segmentManagerRef.current;
+        const availableTime = managerForDuration?.getAvailableTime() ?? 0;
         const recordingOptions: CameraRecordingOptions = {
           maxDuration: availableTime,
           maxFileSize: 512 * 1024 * 1024,
@@ -764,7 +746,7 @@ const CreateScreen: React.FC = () => {
       !isRecordingRef.current &&
       !isProcessing &&
       currentTotal < maxDuration &&
-      availableTime > 0
+      availableTime > MIN_RECORDING_DURATION
     ) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       startRecording();
@@ -1102,7 +1084,7 @@ const CreateScreen: React.FC = () => {
           <Icon name="videocam" size={64} color={Colors.neutral[200]} style={styles.errorIcon} />
           <Text style={styles.warningText}>{t('video.pleaseEnableCamera')}</Text>
           <Pressable
-            style={({ pressed }) => [styles.button, pressed && styles.pressedOpacity70]}
+            style={({ pressed }) => [styles.button, pressed && { opacity: 0.7 }]}
             onPress={requestCameraPermission}
           >
             <Text style={styles.buttonText}>{t('video.grantPermission')}</Text>
@@ -1347,37 +1329,33 @@ const CreateScreen: React.FC = () => {
                   </Animated.View>
                 </Pressable>
                 <View style={styles.recordButtonAreaSpacer}>
-                  <MenuView
-                    title={t('create.setRecordTime')}
-                    actions={durationMenuActions}
-                    onPressAction={handleDurationMenuPressAction}
-                    shouldOpenOnLongPress={false}
-                    themeVariant="dark"
-                    isAnchoredToRight={true}
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.durationSelectorCollapsed,
+                      pressed && { opacity: 0.7 },
+                    ]}
+                    onPress={() => {
+                      const currentTotal = segmentManagerRef.current?.getTotalDuration() ?? 0;
+                      const availableOptions = DURATION_OPTION_KEYS.filter(
+                        opt => opt.value >= currentTotal
+                      );
+                      Haptics.selectionAsync();
+                      Alert.alert(t('video.maxDuration'), t('video.selectMaxLength'), [
+                        ...availableOptions.map(opt => ({
+                          text: t(opt.labelKey),
+                          onPress: () => setSelectedDuration(opt.value),
+                        })),
+                        { text: t('common.cancel'), style: 'cancel' as const },
+                      ]);
+                    }}
                   >
-                    <Pressable
-                      style={({ pressed }) => [
-                        styles.durationSelectorCollapsed,
-                        pressed && styles.pressedOpacity70,
-                      ]}
-                      disabled={
-                        durationMenuActions.length === 0 ||
-                        isProcessing ||
-                        isRecording ||
-                        isDeletePreviewActive
-                      }
-                      accessible={true}
-                      accessibilityRole="button"
-                      accessibilityLabel={t('create.setRecordTime')}
-                    >
-                      <Text style={styles.durationSelectorCollapsedText}>
-                        {t(
-                          DURATION_OPTION_KEYS.find(opt => opt.value === selectedDuration)
-                            ?.labelKey ?? 'create.duration16s'
-                        )}
-                      </Text>
-                    </Pressable>
-                  </MenuView>
+                    <Text style={styles.durationSelectorCollapsedText}>
+                      {t(
+                        DURATION_OPTION_KEYS.find(opt => opt.value === selectedDuration)
+                          ?.labelKey ?? 'create.duration16s'
+                      )}
+                    </Text>
+                  </Pressable>
                 </View>
               </View>
             </View>
@@ -1402,7 +1380,7 @@ const CreateScreen: React.FC = () => {
               top: isSmallDevice || !fitsNative16x9 ? 5 : insets.top + 4,
               right: 4,
             },
-            pressed && styles.pressedOpacity70,
+            pressed && { opacity: 0.7 },
           ]}
           onPress={finishRecording}
           disabled={isProcessing}
@@ -1554,9 +1532,6 @@ const styles = StyleSheet.create({
     color: Colors.neutral[50],
     fontSize: 17,
     fontFamily: 'Figtree-Bold',
-  },
-  pressedOpacity70: {
-    opacity: 0.7,
   },
   doneButton: {
     position: 'absolute',

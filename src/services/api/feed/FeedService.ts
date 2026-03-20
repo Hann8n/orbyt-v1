@@ -410,17 +410,55 @@ export class FeedService {
 
     // Add images if provided
     if (externalEmbed?.uri) {
-      const external: Record<string, unknown> = {
-        uri: externalEmbed.uri,
-        title: externalEmbed.title ?? externalEmbed.uri,
-        description: externalEmbed.description ?? '',
-      };
-      if (externalEmbed.thumb) external.thumb = externalEmbed.thumb;
+      let uploadedThumb:
+        | { $type?: string; ref: { $link: string }; mimeType: string; size: number }
+        | undefined;
+      if (externalEmbed.thumb && /^https?:\/\//.test(externalEmbed.thumb)) {
+        try {
+          const thumbRes = await fetch(externalEmbed.thumb);
+          const blob = await thumbRes.blob();
+          const fromBlob = typeof blob?.type === 'string' ? blob.type : '';
+          const encoding =
+            fromBlob && fromBlob.startsWith('image/')
+              ? fromBlob
+              : (() => {
+                  const clean = externalEmbed.thumb.split('?')[0].toLowerCase();
+                  if (clean.endsWith('.webp')) return 'image/webp';
+                  if (clean.endsWith('.png')) return 'image/png';
+                  if (clean.endsWith('.gif')) return 'image/gif';
+                  if (clean.endsWith('.jpg') || clean.endsWith('.jpeg')) return 'image/jpeg';
+                  return 'image/jpeg';
+                })();
+          const uploadResult = await api.uploadBlob(blob, { encoding });
+          uploadedThumb = uploadResult.data.blob;
+        } catch (err) {
+          logger.error('External embed thumbnail fetch/upload failed', {
+            rootUri,
+            embedUri: externalEmbed.uri,
+            thumbUrl: externalEmbed.thumb,
+            err,
+          });
+        }
+      }
+
+      const externalPayload =
+        uploadedThumb !== undefined
+          ? {
+              uri: externalEmbed.uri,
+              title: externalEmbed.title ?? externalEmbed.uri,
+              description: externalEmbed.description ?? '',
+              thumb: uploadedThumb,
+            }
+          : {
+              uri: externalEmbed.uri,
+              title: externalEmbed.title ?? externalEmbed.uri,
+              description: externalEmbed.description ?? '',
+            };
 
       postRecord.embed = {
         $type: 'app.bsky.embed.external',
-        external,
-      };
+        external: externalPayload,
+      } as PostRecord['embed'];
     } else if (images && images.length > 0) {
       try {
         const inferImageEncoding = (uri: string, blob: Blob): string => {

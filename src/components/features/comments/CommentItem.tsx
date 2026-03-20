@@ -97,6 +97,29 @@ function clampAspectRatio(ar: number) {
   return Math.max(ASPECT_RATIO_MIN, Math.min(ASPECT_RATIO_MAX, ar));
 }
 
+function resolveExternalThumbUrl(
+  thumb: string | { ref: { $link: string }; $type?: string } | undefined,
+  authorDid: string | undefined
+): string | undefined {
+  if (!thumb) return undefined;
+  if (typeof thumb === 'string' && thumb.startsWith('http')) return thumb;
+  const ref = thumb && typeof thumb === 'object' && thumb.ref?.$link;
+  if (ref && authorDid) {
+    return `https://cdn.bsky.app/img/feed_thumbnail/plain/${encodeURIComponent(authorDid)}/${encodeURIComponent(ref)}@jpeg`;
+  }
+  return undefined;
+}
+
+function isInlineImageUrl(url: string): boolean {
+  if (/\.(jpg|jpeg|png|gif|webp)$/i.test(url.split('?')[0])) return true;
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return host.includes('klipy') || host.includes('giphy') || host.includes('tenor');
+  } catch {
+    return false;
+  }
+}
+
 const CommentImage: React.FC<{
   uri: string;
   initialAspectRatio: number;
@@ -775,10 +798,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
   }> = ({ external }) => {
     if (!external?.uri || !/^https?:\/\//.test(external.uri)) return null;
 
-    const thumbUrl =
-      typeof external.thumb === 'string' && external.thumb.startsWith('http')
-        ? external.thumb
-        : undefined;
+    const thumbUrl = resolveExternalThumbUrl(external.thumb, comment?.author?.did);
 
     const handlePress = () => {
       if (external.uri) {
@@ -867,43 +887,66 @@ const CommentItem: React.FC<CommentItemProps> = ({
       external = embed.external;
     }
 
-    const getClampedAspectRatio = clampAspectRatio;
+    const aspectRatio = clampAspectRatio(ASPECT_RATIO_DEFAULT);
+    const wrapperVariant = hasText
+      ? styles.commentImageWrapperWithText
+      : styles.commentImageWrapperNoText;
+    const imageVariant = hasText
+      ? styles.commentImageDirectUrlWithText
+      : styles.commentImageDirectUrlNoText;
 
-    const isDirectImageUrl = (url: string) => {
-      return /\.(jpg|jpeg|png|gif|webp)$/i.test(url.split('?')[0]);
-    };
+    const renderExternalEmbedImage = (
+      imageUri: string,
+      onPress: () => void,
+      key: string,
+      accessibilityLabel: string
+    ) => (
+      <View style={styles.commentImagesContainer}>
+        <CommentImage
+          key={key}
+          uri={imageUri}
+          initialAspectRatio={aspectRatio}
+          wrapperStyle={[
+            styles.commentImageWrapper,
+            styles.commentImageWrapperFullWidth,
+            wrapperVariant,
+          ]}
+          imageStyle={imageVariant}
+          onPress={onPress}
+          accessibilityLabel={accessibilityLabel}
+        />
+      </View>
+    );
+
+    const isDirectVideoUrl = (url: string) => /\.(mp4|webm|mov)$/i.test(url.split('?')[0]);
 
     if (external && external.uri && /^https?:\/\//.test(external.uri)) {
-      if (isDirectImageUrl(external.uri)) {
-        const aspectRatio = getClampedAspectRatio(ASPECT_RATIO_DEFAULT);
-        const wrapperVariant = hasText
-          ? styles.commentImageWrapperWithText
-          : styles.commentImageWrapperNoText;
-        const imageVariant = hasText
-          ? styles.commentImageDirectUrlWithText
-          : styles.commentImageDirectUrlNoText;
-        return (
-          <View style={styles.commentImagesContainer}>
-            <CommentImage
-              key={external.uri}
-              uri={external.uri}
-              initialAspectRatio={aspectRatio}
-              wrapperStyle={[
-                styles.commentImageWrapper,
-                styles.commentImageWrapperFullWidth,
-                wrapperVariant,
-              ]}
-              imageStyle={imageVariant}
-              onPress={() => onImagePress?.(external.uri)}
-              accessibilityLabel={
-                external.description || external.title || t('comments.commentImage')
-              }
-            />
-          </View>
+      const embedAccessibilityLabel =
+        external.description || external.title || t('comments.commentImage');
+
+      if (isInlineImageUrl(external.uri)) {
+        return renderExternalEmbedImage(
+          external.uri,
+          () =>
+            onImagePress
+              ? onImagePress(external.uri)
+              : Linking.openURL(external.uri).catch(() => {}),
+          external.uri,
+          embedAccessibilityLabel
         );
-      } else {
-        return <LinkThumbnail external={external} />;
       }
+
+      const posterUrl = resolveExternalThumbUrl(external.thumb, comment?.author?.did);
+      if (posterUrl && isDirectVideoUrl(external.uri)) {
+        return renderExternalEmbedImage(
+          posterUrl,
+          () => Linking.openURL(external.uri).catch(() => {}),
+          `${external.uri}:${posterUrl}`,
+          embedAccessibilityLabel
+        );
+      }
+
+      return <LinkThumbnail external={external} />;
     }
 
     let embedImages: {
@@ -959,7 +1002,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
           ) => {
             // Calculate aspect ratio from embed data or use default
             const aspectRatio = img.aspectRatio
-              ? getClampedAspectRatio(img.aspectRatio.width / img.aspectRatio.height)
+              ? clampAspectRatio(img.aspectRatio.width / img.aspectRatio.height)
               : 1;
 
             return (
