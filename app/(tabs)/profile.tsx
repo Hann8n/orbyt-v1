@@ -56,6 +56,7 @@ import { feedService } from '../../src/services/FeedService';
 import { FEED_CONFIG } from '../../src/hooks/useFeed';
 import type { FeedResponse } from '../../src/services/api/types';
 import ProfileMenu from '../../src/components/features/profile/ProfileMenu';
+import GermDisconnectSheet from '../../src/components/features/profile/GermDisconnectSheet';
 import SubscriptionOptionsSheet from '../../src/components/features/profile/SubscriptionOptionsSheet';
 import LiveStreamInfoSheet from '../../src/components/features/profile/LiveStreamInfoSheet';
 import { tabRefs, type ProfileRef } from '../../src/utils/navigation/tabRefs';
@@ -304,6 +305,12 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   // Overlay action state (moved from ProfileHeader)
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showSubscriptionSheet, setShowSubscriptionSheet] = useState(false);
+  const [showGermSheet, setShowGermSheet] = useState(false);
+
+  // Reset Germ sheet when navigating away from own profile
+  useEffect(() => {
+    if (!isViewingOwnProfile) setShowGermSheet(false);
+  }, [isViewingOwnProfile]);
   const [showLiveStreamSheet, setShowLiveStreamSheet] = useState(false);
   const [fullscreenImageUri, setFullscreenImageUri] = useState<string | null>(null);
 
@@ -321,6 +328,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   // ProfileViewWithOrbyt already includes all ProfileView fields including associated.chat
 
   // Germ DM subtitle action (inline in header, not overlay)
+  // Own profile: tap shows bottom sheet (user cannot DM themselves; can only disconnect)
+  // Others: tap opens Germ DM URL
   const germSubtitleAction = useMemo(() => {
     if (!profileData?.did || !currentUser?.did) return undefined;
     const germ = profileData?.associated?.germ;
@@ -336,9 +345,18 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     const baseUrl = germ.messageMeUrl.replace(/\/$/, '');
     const platform = Platform.OS === 'ios' ? 'iOS' : Platform.OS === 'android' ? 'android' : 'web';
     const url = `${baseUrl}/${platform}#${profileData.did}+${currentUser.did}`;
+
+    const onPress = () => {
+      if (isOwnProfile) {
+        setShowGermSheet(true);
+      } else {
+        Linking.openURL(url);
+      }
+    };
+
     return {
       label: t('profile.germDm'),
-      onPress: () => Linking.openURL(url),
+      onPress,
     };
   }, [
     profileData?.did,
@@ -733,6 +751,14 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
           visible={showSubscriptionSheet}
           onDismiss={() => setShowSubscriptionSheet(false)}
           did={profileData.did}
+        />
+      )}
+
+      {profileData?.did && isViewingOwnProfile && (
+        <GermDisconnectSheet
+          visible={showGermSheet}
+          onDismiss={() => setShowGermSheet(false)}
+          profileDid={profileData.did}
         />
       )}
 
