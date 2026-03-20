@@ -162,7 +162,7 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
     <AppTrueSheet
       ref={sheetRef}
       name="klipy-gif-picker"
-      variant="full"
+      variant="sendToPicker"
       grabber
       grabberOptions={DEFAULT_GRABBER_OPTIONS}
       onDidDismiss={onClose}
@@ -228,6 +228,7 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
             useNativeDriver: true,
           })}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}
         />
       </View>
