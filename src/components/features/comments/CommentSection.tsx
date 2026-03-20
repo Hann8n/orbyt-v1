@@ -849,6 +849,11 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         onPressGif={openGifPicker}
         onPressPhotos={handlePickImages}
         selectedGifPreviewUri={selectedGif?.previewUrl ?? null}
+        selectedGifAspectRatio={
+          selectedGif?.width && selectedGif?.height && selectedGif.height > 0
+            ? selectedGif.width / selectedGif.height
+            : null
+        }
         selectedImages={selectedImages}
         hasAttachment={!!selectedGif || selectedImages.length > 0}
         onClearAttachment={() => {

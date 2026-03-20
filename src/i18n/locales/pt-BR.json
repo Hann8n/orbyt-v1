@@ -120,7 +120,12 @@
     "klipyKindSticker": "Figurinhas",
     "klipyKindMeme": "Memes",
     "klipyKindEmoji": "Emojis",
-    "klipyAdLabel": "Anúncio"
+    "klipyAdLabel": "Anúncio",
+    "klipyShare": "Compartilhar",
+    "klipyHideFromRecent": "Ocultar dos recentes",
+    "klipyReport": "Denunciar",
+    "klipyReportConfirm": "Tem certeza de que deseja denunciar isto?",
+    "klipyActionFailed": "Algo deu errado. Por favor, tente novamente."
   },
   "activity": {
     "likes": "Curtidas",

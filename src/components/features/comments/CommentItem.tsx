@@ -1,7 +1,17 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import { View, Text, Pressable, StyleSheet, Alert, Linking, Share } from 'react-native';
+import {
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  Alert,
+  Linking,
+  Share,
+  type ImageStyle,
+  type StyleProp,
+} from 'react-native';
 import { Image } from 'expo-image';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
@@ -91,7 +101,7 @@ function getCommentEmbed(c: Comment) {
 
 const ASPECT_RATIO_MIN = 0.35;
 const ASPECT_RATIO_MAX = 2.75;
-const ASPECT_RATIO_DEFAULT = 1.5;
+const ASPECT_RATIO_DEFAULT = 1;
 
 function clampAspectRatio(ar: number) {
   return Math.max(ASPECT_RATIO_MIN, Math.min(ASPECT_RATIO_MAX, ar));
@@ -120,6 +130,26 @@ function isInlineImageUrl(url: string): boolean {
   }
 }
 
+/** Shared image component for comment embeds — displays without cropping. */
+const CommentMediaImage: React.FC<{
+  uri: string;
+  aspectRatio: number;
+  contentFit?: 'contain' | 'cover';
+  style?: StyleProp<ImageStyle>;
+  accessibilityLabel?: string;
+}> = ({ uri, aspectRatio, contentFit = 'contain', style, accessibilityLabel }) => {
+  const { t } = useTranslation();
+  return (
+    <Image
+      source={{ uri }}
+      style={[styles.commentImage, { aspectRatio }, style]}
+      contentFit={contentFit}
+      accessible
+      accessibilityLabel={accessibilityLabel ?? t('comments.commentImage')}
+    />
+  );
+};
+
 const CommentImage: React.FC<{
   uri: string;
   initialAspectRatio: number;
@@ -128,18 +158,15 @@ const CommentImage: React.FC<{
   onPress?: () => void;
   accessibilityLabel?: string;
 }> = ({ uri, initialAspectRatio, wrapperStyle, imageStyle, onPress, accessibilityLabel }) => {
-  const { t } = useTranslation();
-  // Use fixed aspect ratio to prevent layout shift on load
   const content = (
-    <Image
-      source={{ uri }}
-      style={[styles.commentImage, imageStyle, { aspectRatio: initialAspectRatio }]}
-      contentFit="cover"
-      accessible={true}
-      accessibilityLabel={accessibilityLabel ?? t('comments.commentImage')}
+    <CommentMediaImage
+      uri={uri}
+      aspectRatio={initialAspectRatio}
+      contentFit="contain"
+      style={imageStyle}
+      accessibilityLabel={accessibilityLabel}
     />
   );
-
   if (onPress) {
     return (
       <Pressable style={[wrapperStyle, { aspectRatio: initialAspectRatio }]} onPress={onPress}>
@@ -784,10 +811,6 @@ const CommentItem: React.FC<CommentItemProps> = ({
     ]
   );
 
-  // BLUESKY_CDN constant removed - not used
-
-  // Shimmer Image Component
-
   const LinkThumbnailComponent: React.FC<{
     external: {
       uri: string;
@@ -820,7 +843,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
               <Image
                 source={{ uri: thumbUrl }}
                 style={styles.linkPreviewThumb}
-                contentFit="cover"
+                contentFit="contain"
               />
             </View>
             <View style={styles.linkPreviewContent}>
@@ -1022,11 +1045,10 @@ const CommentItem: React.FC<CommentItemProps> = ({
                   }
                 }}
               >
-                <Image
-                  source={{ uri: img.thumb || img.fullsize }}
-                  style={[styles.commentImage, { aspectRatio }]}
-                  contentFit="cover"
-                  accessible={true}
+                <CommentMediaImage
+                  uri={img.thumb || img.fullsize}
+                  aspectRatio={aspectRatio}
+                  contentFit="contain"
                   accessibilityLabel={img.alt || t('comments.commentImage')}
                 />
               </Pressable>
@@ -1185,6 +1207,8 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.MEDIUM,
     position: 'relative',
     marginBottom: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   commentImageWrapperFullWidth: {
     width: '100%',
@@ -1249,9 +1273,8 @@ const styles = StyleSheet.create({
   },
   moreImagesText: {
     color: Colors.neutral[50],
-    fontSize: 12,
-    fontWeight: 'bold',
-    fontFamily: 'Figtree-Bold',
+    fontSize: Typography.sizes.caption,
+    fontFamily: Typography.families.bold,
   },
   commentThreadContainer: {
     marginBottom: 2,

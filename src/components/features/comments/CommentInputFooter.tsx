@@ -66,6 +66,8 @@ interface CommentInputFooterProps {
   onPressGif?: () => void;
   onPressPhotos?: () => void;
   selectedGifPreviewUri?: string | null;
+  /** Aspect ratio (width/height) for the selected GIF. Uses natural dimensions when available. */
+  selectedGifAspectRatio?: number | null;
   selectedImages?: Array<{
     uri: string;
     alt: string;
@@ -138,6 +140,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   onPressGif,
   onPressPhotos,
   selectedGifPreviewUri = null,
+  selectedGifAspectRatio = null,
   selectedImages = [],
   onRemoveImage,
   onClearGif,
@@ -246,19 +249,26 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
               keyboardShouldPersistTaps="handled"
             >
               {attachmentKind === 'gif' ? (
-                <View style={[styles.attachmentThumbWrap, { aspectRatio: 16 / 9 }]}>
+                <View
+                  style={[
+                    styles.attachmentThumbWrap,
+                    {
+                      aspectRatio:
+                        selectedGifAspectRatio && selectedGifAspectRatio > 0
+                          ? selectedGifAspectRatio
+                          : 1,
+                    },
+                  ]}
+                >
                   {hasGifPreview ? (
                     <Image
                       source={{ uri: selectedGifPreviewUri ?? undefined }}
                       style={styles.attachmentThumb}
-                      contentFit="contain"
+                      contentFit="cover"
                     />
                   ) : (
                     <View style={styles.gifFallbackThumb} />
                   )}
-                  <View style={styles.attachmentBadge} pointerEvents="none">
-                    <Text style={styles.attachmentBadgeText}>GIF</Text>
-                  </View>
                   {onClearGif ? (
                     <Pressable
                       onPress={onClearGif}
@@ -294,7 +304,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                         <Image
                           source={{ uri: img.uri }}
                           style={styles.attachmentThumb}
-                          contentFit="contain"
+                          contentFit="cover"
                         />
                         {onRemoveImage ? (
                           <Pressable
@@ -531,9 +541,10 @@ const styles = StyleSheet.create({
   attachmentThumbWrap: {
     marginRight: 0,
     height: 72,
+    maxWidth: 128,
     borderRadius: BORDER_RADIUS.MEDIUM,
     overflow: 'hidden',
-    backgroundColor: Colors.overlay.white10,
+    backgroundColor: Colors.transparent,
   },
   attachmentThumb: {
     width: '100%',
@@ -543,21 +554,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     backgroundColor: Colors.overlay.white10,
-  },
-  attachmentBadge: {
-    position: 'absolute',
-    left: 6,
-    bottom: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: BORDER_RADIUS.FULL,
-    backgroundColor: Colors.overlay.black70,
-  },
-  attachmentBadgeText: {
-    color: Colors.neutral[50],
-    fontFamily: Typography.families.semibold,
-    fontSize: Typography.sizes.caption,
-    lineHeight: Typography.lineHeights.caption,
   },
   removeThumbButton: {
     position: 'absolute',

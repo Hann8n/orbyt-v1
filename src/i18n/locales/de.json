@@ -120,7 +120,12 @@
     "klipyKindSticker": "Sticker",
     "klipyKindMeme": "Memes",
     "klipyKindEmoji": "Emojis",
-    "klipyAdLabel": "Anzeige"
+    "klipyAdLabel": "Anzeige",
+    "klipyShare": "Teilen",
+    "klipyHideFromRecent": "Aus Zuletzt verwendet entfernen",
+    "klipyReport": "Melden",
+    "klipyReportConfirm": "Möchtest du das wirklich melden?",
+    "klipyActionFailed": "Etwas ist schiefgelaufen. Bitte versuche es erneut."
   },
   "activity": {
     "likes": "Likes",

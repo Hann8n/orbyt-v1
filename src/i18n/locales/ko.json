@@ -120,7 +120,12 @@
     "klipyKindSticker": "스티커",
     "klipyKindMeme": "밈",
     "klipyKindEmoji": "이모지",
-    "klipyAdLabel": "광고"
+    "klipyAdLabel": "광고",
+    "klipyShare": "공유",
+    "klipyHideFromRecent": "최근 항목에서 숨기기",
+    "klipyReport": "신고",
+    "klipyReportConfirm": "이 항목을 신고하시겠습니까?",
+    "klipyActionFailed": "문제가 발생했습니다. 다시 시도해 주세요."
   },
   "activity": {
     "likes": "좋아요",

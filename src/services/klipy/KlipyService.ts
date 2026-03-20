@@ -118,6 +118,58 @@ export class KlipyService {
     return (await res.json()) as T;
   }
 
+  private async post(path: string): Promise<void> {
+    const url = `${this.baseUrl}/${path}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': KLIPY_USER_AGENT,
+      },
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`Klipy request failed (${res.status}): ${text}`);
+    }
+  }
+
+  private async delete(path: string, params: Record<string, string>): Promise<void> {
+    const qs = toQueryString(params);
+    const url = `${this.baseUrl}/${path}${qs}`;
+    const res = await fetch(url, {
+      method: 'DELETE',
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': KLIPY_USER_AGENT,
+      },
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`Klipy request failed (${res.status}): ${text}`);
+    }
+  }
+
+  /** Share trigger – notifies Klipy that the item was shared. */
+  async share(opts: { kind: KlipyKind; slug: string }): Promise<void> {
+    const segment = kindToPathSegment(opts.kind);
+    await this.post(`api/v1/${this.appKey}/${segment}/share/${encodeURIComponent(opts.slug)}`);
+  }
+
+  /** Remove item from the user's recent list. */
+  async hideFromRecent(opts: { kind: KlipyKind; slug: string; customerId: string }): Promise<void> {
+    const segment = kindToPathSegment(opts.kind);
+    await this.delete(
+      `api/v1/${this.appKey}/${segment}/recent/${encodeURIComponent(opts.customerId)}`,
+      { slug: opts.slug }
+    );
+  }
+
+  /** Report item to Klipy. */
+  async report(opts: { kind: KlipyKind; slug: string }): Promise<void> {
+    const segment = kindToPathSegment(opts.kind);
+    await this.post(`api/v1/${this.appKey}/${segment}/report/${encodeURIComponent(opts.slug)}`);
+  }
+
   async search(opts: {
     customerId: string;
     kind: KlipyKind;

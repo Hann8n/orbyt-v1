@@ -120,7 +120,12 @@
     "klipyKindSticker": "ステッカー",
     "klipyKindMeme": "ミーム",
     "klipyKindEmoji": "絵文字",
-    "klipyAdLabel": "広告"
+    "klipyAdLabel": "広告",
+    "klipyShare": "共有",
+    "klipyHideFromRecent": "最近の項目から非表示",
+    "klipyReport": "報告",
+    "klipyReportConfirm": "これを報告してもよろしいですか？",
+    "klipyActionFailed": "問題が発生しました。もう一度お試しください。"
   },
   "activity": {
     "likes": "いいね",

@@ -8,6 +8,8 @@ import {
   Pressable,
   Animated,
   Platform,
+  Alert,
+  Share,
   type ListRenderItem,
 } from 'react-native';
 import { Image } from 'expo-image';
@@ -27,6 +29,7 @@ import { FontFamily, Typography } from '@/utils/components/typography';
 import { BlurView } from '@/components/ui/BlurView';
 import Icon from '@/components/ui/Icon';
 import { useKlipySearch, useKlipyTrending } from '@/hooks/klipy/useKlipyGifs';
+import { getKlipyService } from '@/services/klipy/klipyConfig';
 import type { KlipyItem, KlipyKind } from '@/services/klipy/KlipyService';
 import TabNavigation from '@/components/layout/header/TabNavigation';
 
@@ -143,6 +146,70 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
     );
   }, []);
 
+  const handleShare = useCallback(
+    async (item: KlipyItem) => {
+      const service = getKlipyService();
+      try {
+        const result = await Share.share({
+          url: item.fullUrl,
+          message: item.fullUrl,
+        });
+        if (item.slug && result.action === Share.sharedAction) {
+          await service.share({ kind: item.kind, slug: item.slug });
+        }
+      } catch {
+        Alert.alert(t('common.error'), t('comments.klipyActionFailed'));
+      }
+    },
+    [t]
+  );
+
+  const handleReport = useCallback(
+    (item: KlipyItem) => {
+      if (!item.slug) return;
+      Alert.alert(t('comments.klipyReport'), t('comments.klipyReportConfirm'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('comments.klipyReport'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await getKlipyService().report({ kind: item.kind, slug: item.slug! });
+              Alert.alert(t('common.success'), t('comments.reportedForReview'));
+            } catch {
+              Alert.alert(t('common.error'), t('comments.failedToSubmitReport'));
+            }
+          },
+        },
+      ]);
+    },
+    [t]
+  );
+
+  const showContextMenu = useCallback(
+    (item: KlipyItem) => {
+      const buttons: Array<{
+        text: string;
+        onPress?: () => void;
+        style?: 'cancel' | 'destructive';
+      }> = [
+        { text: t('comments.klipyShare'), onPress: () => void handleShare(item) },
+        ...(item.slug
+          ? [
+              {
+                text: t('comments.klipyReport'),
+                style: 'destructive' as const,
+                onPress: () => handleReport(item),
+              },
+            ]
+          : []),
+        { text: t('common.cancel'), style: 'cancel' },
+      ];
+      Alert.alert('', '', buttons);
+    },
+    [t, handleShare, handleReport]
+  );
+
   const renderItem: ListRenderItem<KlipyItem> = useCallback(
     ({ item }) => {
       const showAsAd = item.isAd && (item.content || item.destinationUrl);
@@ -150,14 +217,11 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
       if (showAsAd) {
         const hasHtmlContent = !!item.content;
         const adDestinationUrl = item.destinationUrl ?? item.fullUrl;
-
         return (
           <Pressable
             style={styles.tile}
             onPress={() => {
-              if (adDestinationUrl && !hasHtmlContent) {
-                handleAdPress(adDestinationUrl);
-              }
+              if (adDestinationUrl && !hasHtmlContent) handleAdPress(adDestinationUrl);
             }}
             android_ripple={{ color: Colors.overlay.white10 }}
             accessibilityRole={hasHtmlContent ? undefined : 'link'}
@@ -182,17 +246,20 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
           </Pressable>
         );
       }
+
       return (
         <Pressable
           style={styles.tile}
           onPress={() => onSelect(item)}
+          onLongPress={() => showContextMenu(item)}
+          delayLongPress={400}
           android_ripple={{ color: Colors.overlay.white10 }}
         >
           <Image source={{ uri: item.previewUrl }} style={styles.tileImage} contentFit="cover" />
         </Pressable>
       );
     },
-    [onSelect, handleAdPress, t]
+    [onSelect, handleAdPress, showContextMenu, t]
   );
 
   const keyExtractor = useCallback((it: KlipyItem) => `${it.kind}:${String(it.id)}`, []);
