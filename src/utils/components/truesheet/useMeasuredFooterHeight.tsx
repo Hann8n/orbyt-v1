@@ -35,7 +35,7 @@ export function useMeasuredFooterHeight(
 
   const wrapFooter = useCallback(
     (footer: React.ReactNode): React.ReactElement => (
-      <View onLayout={onLayout} collapsable={false}>
+      <View onLayout={onLayout} collapsable={false} style={{ width: '100%' }}>
         {footer}
       </View>
     ),

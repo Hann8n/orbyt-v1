@@ -63,10 +63,12 @@ export const SHEET_STYLES: {
     paddingHorizontal: DEFAULT_CONTENT_PADDING_HORIZONTAL,
   },
   footerContainer: {
+    width: '100%',
     paddingHorizontal: SHEET_SPACING.footerHorizontal,
     backgroundColor: Colors.black,
   },
   footerCenteredActions: {
+    width: '100%',
     alignItems: 'center',
   },
   selectorBox: {
