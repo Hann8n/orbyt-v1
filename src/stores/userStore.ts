@@ -36,7 +36,11 @@ import {
 } from '../services/colors';
 import { getProfileColors } from '../utils/formatting/colors';
 import type { ProfileColorScheme } from '../utils/formatting/colors';
-import { APP_CONSTANTS, DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI } from '../utils/constants';
+import {
+  APP_CONSTANTS,
+  DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
+  ENABLE_SERVER_YOUR_MIX,
+} from '../utils/constants';
 import { Platform, Dimensions } from 'react-native';
 import { classifyDevice } from '@/utils/device/screen';
 
@@ -170,6 +174,7 @@ export interface UserState {
   feedDebugOverlayEnabled: boolean;
   nativeTabsEnabled: boolean; // Experimental: Use native tabs instead of custom JavaScript tab bar
   modalProfileEnabled: boolean; // Labs: Enable modal profile presentation with pull-to-dismiss
+  serverYourMixEnabled: boolean; // Labs: Use server-side your-mix feed generator
 
   // Algorithmic feed provider - scoped by DID
   algorithmicFeedProvider: string | null; // Feed URI or null for none
@@ -238,6 +243,8 @@ export interface UserState {
   getNativeTabsEnabled: () => Promise<boolean>;
   setModalProfileEnabled: (enabled: boolean) => Promise<void>;
   getModalProfileEnabled: () => Promise<boolean>;
+  setServerYourMixEnabled: (enabled: boolean) => Promise<void>;
+  getServerYourMixEnabled: () => Promise<boolean>;
 
   // Algorithmic feed provider
   setAlgorithmicFeedProvider: (uri: string | null) => Promise<void>;
@@ -348,6 +355,7 @@ export const useUserStore = create<UserState>()(
       feedDebugOverlayEnabled: false, // Keep disabled by default, user can enable manually
       nativeTabsEnabled: false, // Default to custom JavaScript tab bar
       modalProfileEnabled: getDefaultModalProfileEnabled(), // Enabled by default on iOS devices that don't require compact layout
+      serverYourMixEnabled: ENABLE_SERVER_YOUR_MIX,
 
       // Algorithmic feed provider - default to Videos For You
       algorithmicFeedProvider: DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
@@ -1276,6 +1284,13 @@ export const useUserStore = create<UserState>()(
       getModalProfileEnabled: async () =>
         storage.getBoolean(getFlagKey('modal_profile_enabled', get().currentUser?.did ?? null)) ??
         getDefaultModalProfileEnabled(),
+      setServerYourMixEnabled: async (enabled: boolean) => {
+        storage.set(getFlagKey('server_your_mix_enabled', get().currentUser?.did ?? null), enabled);
+        set({ serverYourMixEnabled: enabled });
+      },
+      getServerYourMixEnabled: async () =>
+        storage.getBoolean(getFlagKey('server_your_mix_enabled', get().currentUser?.did ?? null)) ??
+        ENABLE_SERVER_YOUR_MIX,
 
       // Algorithmic feed provider actions
       setAlgorithmicFeedProvider: async (uri: string | null) => {
@@ -1736,6 +1751,7 @@ export const useUserStore = create<UserState>()(
           const feedDebugOverlayEnabled = await get().getFeedDebugOverlayEnabled();
           const nativeTabsEnabled = await get().getNativeTabsEnabled();
           const modalProfileEnabled = await get().getModalProfileEnabled();
+          const serverYourMixEnabled = await get().getServerYourMixEnabled();
 
           // Record-first backfill: Load algorithmic feed provider from profile record first
           let algorithmicFeedProvider: string | null = null;
@@ -1783,6 +1799,7 @@ export const useUserStore = create<UserState>()(
             feedDebugOverlayEnabled,
             nativeTabsEnabled,
             modalProfileEnabled,
+            serverYourMixEnabled,
             algorithmicFeedProvider,
             feedSourceFingerprint: buildFeedSourceFingerprint(
               algorithmicFeedProvider,
@@ -2026,23 +2043,29 @@ export const useFeedSettings = () => {
   const feedDebugOverlayEnabled = useUserStore(state => state.feedDebugOverlayEnabled);
   const nativeTabsEnabled = useUserStore(state => state.nativeTabsEnabled);
   const modalProfileEnabled = useUserStore(state => state.modalProfileEnabled);
+  const serverYourMixEnabled = useUserStore(state => state.serverYourMixEnabled);
   const setFeedDebugOverlayEnabled = useUserStore(state => state.setFeedDebugOverlayEnabled);
   const setNativeTabsEnabled = useUserStore(state => state.setNativeTabsEnabled);
   const setModalProfileEnabled = useUserStore(state => state.setModalProfileEnabled);
+  const setServerYourMixEnabled = useUserStore(state => state.setServerYourMixEnabled);
   const getFeedDebugOverlayEnabled = useUserStore(state => state.getFeedDebugOverlayEnabled);
   const getNativeTabsEnabled = useUserStore(state => state.getNativeTabsEnabled);
   const getModalProfileEnabled = useUserStore(state => state.getModalProfileEnabled);
+  const getServerYourMixEnabled = useUserStore(state => state.getServerYourMixEnabled);
 
   return {
     feedDebugOverlayEnabled,
     nativeTabsEnabled,
     modalProfileEnabled,
+    serverYourMixEnabled,
     setFeedDebugOverlayEnabled,
     setNativeTabsEnabled,
     setModalProfileEnabled,
+    setServerYourMixEnabled,
     getFeedDebugOverlayEnabled,
     getNativeTabsEnabled,
     getModalProfileEnabled,
+    getServerYourMixEnabled,
   };
 };
 

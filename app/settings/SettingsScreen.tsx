@@ -37,8 +37,14 @@ const SettingsScreen: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isProfileLinkCopied, setIsProfileLinkCopied] = useState(false);
   const { presentAccountSwitcher } = useGlobalAccountSwitcher();
-  const { nativeTabsEnabled, modalProfileEnabled, setNativeTabsEnabled, setModalProfileEnabled } =
-    useFeedSettings();
+  const {
+    nativeTabsEnabled,
+    modalProfileEnabled,
+    serverYourMixEnabled,
+    setNativeTabsEnabled,
+    setModalProfileEnabled,
+    setServerYourMixEnabled,
+  } = useFeedSettings();
   const { currentUser } = useCurrentUser();
   const { savedAccounts } = useAccountManagement();
   const { isCompact: isCompactDevice } = useDeviceLayout();
@@ -144,6 +150,14 @@ const SettingsScreen: React.FC = () => {
   const handleToggleModalProfile = async (value: boolean) => {
     try {
       await setModalProfileEnabled(value);
+    } catch (_error) {
+      Alert.alert(t('common.error'), t('settings.failedToSaveSetting'));
+    }
+  };
+
+  const handleToggleServerYourMix = async (value: boolean) => {
+    try {
+      await setServerYourMixEnabled(value);
     } catch (_error) {
       Alert.alert(t('common.error'), t('settings.failedToSaveSetting'));
     }
@@ -496,6 +510,14 @@ ${deviceInfo}`
     });
 
     if (section.id === 'labs') {
+      listData.push({
+        kind: 'toggle',
+        id: 'server-your-mix',
+        label: t('settings.serverYourMixFeed'),
+        subtitle: t('settings.serverYourMixFeedDescription'),
+        value: serverYourMixEnabled,
+        onValueChange: handleToggleServerYourMix,
+      });
       listData.push({
         kind: 'toggle',
         id: 'native-tabs',

@@ -20,6 +20,9 @@ export const FEED_CONFIG = {
   GC_TIME: 60 * 60 * 1000, // 60 minutes before garbage collection - increased to reduce unnecessary refetching
   RETRY_DELAY: 1000, // Longer delay to reduce server load
   MAX_RETRIES: 2, // Reduced retries for faster failure handling
+  // your-mix on Cloud Run: more retries + backoff to survive cold starts (~2-5s)
+  YOUR_MIX_MAX_RETRIES: 4,
+  YOUR_MIX_RETRY_BASE_MS: 1500,
 } as const;
 
 interface UseFeedOptions {
@@ -136,8 +139,11 @@ export function useFeed(
     getNextPageParam: (lastPage: FeedResponse) => lastPage?.cursor ?? null,
     staleTime: queryOptions.staleTime ?? FEED_CONFIG.STALE_TIME,
     gcTime: queryOptions.gcTime ?? FEED_CONFIG.GC_TIME,
-    retry: FEED_CONFIG.MAX_RETRIES,
-    retryDelay: FEED_CONFIG.RETRY_DELAY,
+    retry: feedOption === 'your-mix' ? FEED_CONFIG.YOUR_MIX_MAX_RETRIES : FEED_CONFIG.MAX_RETRIES,
+    retryDelay:
+      feedOption === 'your-mix'
+        ? attempt => Math.min(FEED_CONFIG.YOUR_MIX_RETRY_BASE_MS * 2 ** attempt, 6000)
+        : FEED_CONFIG.RETRY_DELAY,
     refetchOnWindowFocus: queryOptions.refetchOnWindowFocus ?? false,
     refetchOnMount: queryOptions.refetchOnMount ?? false,
     refetchOnReconnect: queryOptions.refetchOnReconnect ?? false,

@@ -34,8 +34,10 @@ export interface ShareSheetData {
   authorDid: string;
   authorName?: string;
   authorHandle?: string;
-  feedOption?: 'following' | 'discover';
+  feedOption?: 'following' | 'discover' | 'your-mix';
   sourceFeed?: string;
+  feedContext?: string;
+  isOrbytMixSource?: boolean;
 }
 
 interface ModalState {

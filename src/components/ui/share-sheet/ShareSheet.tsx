@@ -30,6 +30,7 @@ import Icon from '../Icon';
 import CloseButton from '../CloseButton';
 import CancelButton from '../CancelButton';
 import AtprotoService from '../../../services/api/AtprotoService';
+import { FeedService } from '../../../services/api/feed/FeedService';
 import { Colors } from '../UI';
 import { useGlobalShareSheet } from '../../../hooks/useGlobalModals';
 import { formatHandle } from '../../../utils/formatting/handles';
@@ -37,6 +38,25 @@ import { useBookmarkStore } from '../../../stores/bookmarkStore';
 import { useUserStore } from '../../../stores/userStore';
 import SendToPicker from './SendToPicker';
 import { FontFamily, Typography } from '../../../utils/components/typography';
+import {
+  type Interaction,
+  REQUESTMORE as REQUESTMORE_CONST,
+  REQUESTLESS as REQUESTLESS_CONST,
+} from '../../../services/api/types';
+import {
+  getOrbytMixInteractionCapability,
+  type OrbytMixInteractionCapability,
+} from '../../../services/OrbytMixWarmupService';
+import { YOUR_MIX_FEED_GENERATOR_URI } from '../../../utils/constants';
+
+interface ShareSheetMenuOption {
+  id: string;
+  label: string;
+  icon: string;
+  onPress: () => void | Promise<void>;
+  color: string;
+  buttonColor: string;
+}
 
 const ShareSheet: React.FC = () => {
   const { t } = useTranslation();
@@ -44,12 +64,19 @@ const ShareSheet: React.FC = () => {
   const data = getCurrentData();
 
   // Always render the TrueSheet component, but only show content when there's data
-  const { postUri, postCid, authorDid, authorName, authorHandle } = data || {};
+  const { postUri, postCid, authorDid, authorName, authorHandle, sourceFeed, feedContext } =
+    data || {};
   const queryClient = useQueryClient();
   const [isCurrentUser, setIsCurrentUser] = useState<boolean>(false);
   const [showConversationPicker, setShowConversationPicker] = useState<boolean>(false);
   const [currentUserDid, setCurrentUserDid] = useState<string>('');
+  const [orbytMixCapability, setOrbytMixCapability] =
+    useState<OrbytMixInteractionCapability | null>(null);
+  const [feedPreference, setFeedPreference] = useState<'interested' | 'not_interested' | null>(
+    null
+  );
   const sheetRef = useRef<TrueSheet>(null);
+  const isOrbytMixContext = Boolean(data?.isOrbytMixSource || data?.feedOption === 'your-mix');
 
   // Bookmark store
   const isBookmarked = useBookmarkStore(state => (postUri ? state.isBookmarked(postUri) : false));
@@ -84,6 +111,49 @@ const ShareSheet: React.FC = () => {
       setIsCurrentUser(did === authorDid);
     }
   }, [authorDid, currentUser?.did]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    if (!isOrbytMixContext) {
+      setOrbytMixCapability(null);
+      setFeedPreference(null);
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    getOrbytMixInteractionCapability()
+      .then(capability => {
+        if (isMounted) {
+          setOrbytMixCapability(capability);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setOrbytMixCapability({
+            describeSucceeded: false,
+            acceptsInteractions: false,
+            checkedAt: Date.now(),
+          });
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOrbytMixContext]);
+
+  // Load persisted feed preference when sheet opens with a post
+  useEffect(() => {
+    if (!postUri || !isOrbytMixContext) {
+      setFeedPreference(null);
+      return;
+    }
+    FeedService.getVideoFeedback(postUri).then(feedback => {
+      setFeedPreference(feedback?.type ?? null);
+    });
+  }, [postUri, isOrbytMixContext]);
 
   // Handle dismiss from TrueSheet - fires when sheet is dismissed by any means
   const handleDismiss = useCallback(() => {
@@ -306,48 +376,126 @@ const ShareSheet: React.FC = () => {
     dismissSheet();
   }, [dismissSheet]);
 
-  // Neon accent colors for share-sheet (electric glow)
-  const NEON = {
-    purple: '#c084fc',
-    green: '#22c55e',
-    amber: '#facc15',
-    coral: '#ff3366',
+  const sendPreferenceInteraction = useCallback(
+    async (event: NonNullable<Interaction['event']>) => {
+      if (!postUri) return;
+
+      const interaction: Interaction = {
+        $type: 'app.bsky.feed.defs#interaction',
+        item: postUri,
+        event,
+      };
+      if (feedContext) {
+        interaction.feedContext = feedContext;
+      }
+
+      const targetFeed = sourceFeed || YOUR_MIX_FEED_GENERATOR_URI;
+      await FeedService.sendFeedInteractions([interaction], targetFeed);
+    },
+    [postUri, feedContext, sourceFeed]
+  );
+
+  const handleShowMoreLikeThis = useCallback(async () => {
+    if (!postUri) return;
+    try {
+      if (feedPreference === 'interested') {
+        // Unselect: clear stored preference
+        FeedService.removeVideoFeedback(postUri);
+        setFeedPreference(null);
+        return;
+      }
+      await sendPreferenceInteraction(REQUESTMORE_CONST);
+      await FeedService.persistFeedPreference(postUri, 'interested');
+      setFeedPreference('interested');
+    } catch {
+      // Best-effort; interaction may still have been sent
+    }
+  }, [postUri, feedPreference, sendPreferenceInteraction]);
+
+  const handleShowLessLikeThis = useCallback(async () => {
+    if (!postUri) return;
+    try {
+      if (feedPreference === 'not_interested') {
+        // Unselect: clear stored preference
+        FeedService.removeVideoFeedback(postUri);
+        setFeedPreference(null);
+        return;
+      }
+      await sendPreferenceInteraction(REQUESTLESS_CONST);
+      await FeedService.persistFeedPreference(postUri, 'not_interested');
+      setFeedPreference('not_interested');
+    } catch {
+      // Best-effort; interaction may still have been sent
+    }
+  }, [postUri, feedPreference, sendPreferenceInteraction]);
+
+  // Share sheet palette — semantic colors for each action
+  const SHARE_OPTIONS_PALETTE = {
+    share: { accent: Colors.purple[400], bg: Colors.purple[950] }, // Brand, spread/share
+    send: { accent: Colors.blue[400], bg: Colors.blue[950] }, // Universal send/message
+    bookmark: { accent: Colors.amber[400], bg: Colors.amber[950] }, // Save/star gold
+    report: { accent: Colors.coral[400], bg: Colors.coral[950] }, // Danger, negative
+    showMore: { accent: Colors.teal[400], bg: Colors.teal[950] }, // Growth, positive
+    showLess: { accent: Colors.neutral[300], bg: Colors.neutral[800] }, // Muted, dial back
   };
 
   // Get menu options based on current state
   const getMenuOptions = () => {
-    const options = [
+    const canShowOrbytMixFeedback =
+      isOrbytMixContext && Boolean(orbytMixCapability?.acceptsInteractions);
+
+    const options: ShareSheetMenuOption[] = [
       {
         id: 'share',
         label: t('share.share'),
         icon: 'share',
         onPress: handleShare,
-        color: NEON.purple,
-        buttonColor: Colors.purple[950],
+        color: SHARE_OPTIONS_PALETTE.share.accent,
+        buttonColor: SHARE_OPTIONS_PALETTE.share.bg,
       },
       {
         id: 'send',
         label: t('share.send'),
         icon: 'send-plane-fill',
         onPress: handleSend,
-        color: NEON.green,
-        buttonColor: Colors.teal[950],
+        color: SHARE_OPTIONS_PALETTE.send.accent,
+        buttonColor: SHARE_OPTIONS_PALETTE.send.bg,
       },
       {
         id: 'bookmark',
         label: isBookmarked ? t('share.saved') : t('share.save'),
         icon: 'bookmark-fill',
         onPress: handleBookmark,
-        color: NEON.amber,
-        buttonColor: Colors.amber[950],
+        color: SHARE_OPTIONS_PALETTE.bookmark.accent,
+        buttonColor: SHARE_OPTIONS_PALETTE.bookmark.bg,
       },
+      ...(canShowOrbytMixFeedback
+        ? [
+            {
+              id: 'show-more' as const,
+              label: t('share.showMore'),
+              icon: 'interested' as const,
+              onPress: handleShowMoreLikeThis,
+              color: SHARE_OPTIONS_PALETTE.showMore.accent,
+              buttonColor: SHARE_OPTIONS_PALETTE.showMore.bg,
+            },
+            {
+              id: 'show-less' as const,
+              label: t('share.showLess'),
+              icon: 'not_interested' as const,
+              onPress: handleShowLessLikeThis,
+              color: SHARE_OPTIONS_PALETTE.showLess.accent,
+              buttonColor: SHARE_OPTIONS_PALETTE.showLess.bg,
+            },
+          ]
+        : []),
       {
         id: 'report',
         label: isCurrentUser ? t('share.delete') : t('share.report'),
-        icon: isCurrentUser ? 'delete-2-fill' : 'report',
-        onPress: async () => handleReportOrDelete(),
-        color: NEON.coral,
-        buttonColor: Colors.coral[950],
+        icon: (isCurrentUser ? 'delete-2-fill' : 'report') as 'delete-2-fill' | 'report',
+        onPress: handleReportOrDelete,
+        color: SHARE_OPTIONS_PALETTE.report.accent,
+        buttonColor: SHARE_OPTIONS_PALETTE.report.bg,
       },
     ];
 
@@ -411,14 +559,18 @@ const ShareSheet: React.FC = () => {
             contentContainerStyle={[
               styles.optionsContainer,
               styles.optionsContainerContent,
-              { gap: 12 },
+              styles.optionsContainerGap,
             ]}
           >
             {menuOptions.map(option => (
               <View key={option.id} style={styles.optionWrapper}>
                 <Pressable onPress={option.onPress}>
                   {({ pressed }) => {
-                    const isSwapped = (option.id === 'bookmark' && isBookmarked) || pressed;
+                    const isSwapped =
+                      (option.id === 'bookmark' && isBookmarked) ||
+                      (option.id === 'show-more' && feedPreference === 'interested') ||
+                      (option.id === 'show-less' && feedPreference === 'not_interested') ||
+                      pressed;
                     const iconColor = isSwapped ? option.buttonColor : option.color;
                     const backgroundColor = isSwapped ? option.color : option.buttonColor;
 
@@ -470,7 +622,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingHorizontal: DEFAULT_CONTENT_PADDING_HORIZONTAL,
-    // Extend options row to sheet edges while preserving overall content padding
+    // Extend options row to sheet edges while preserving padding via scroll content
     marginLeft: -DEFAULT_CONTENT_PADDING_HORIZONTAL,
     marginRight: -DEFAULT_CONTENT_PADDING_HORIZONTAL,
   },
@@ -479,11 +631,13 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     alignItems: 'flex-start',
     marginTop: 0,
-    paddingHorizontal: 0,
     flexWrap: 'nowrap',
   },
   optionsContainerContent: {
-    paddingLeft: SHEET_SPACING.headerHorizontal,
+    paddingHorizontal: SHEET_SPACING.headerHorizontal,
+  },
+  optionsContainerGap: {
+    gap: 12,
   },
   optionWrapper: {
     alignItems: 'center',

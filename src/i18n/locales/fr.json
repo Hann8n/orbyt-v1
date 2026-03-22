@@ -610,6 +610,8 @@
     "appIcon": "Icône de l'app",
     "contentFilters": "Filtres de contenu",
     "newTabs": "Nouveaux onglets",
+    "serverYourMixFeed": "Ton Mix amélioré",
+    "serverYourMixFeedDescription": "Des recommandations plus intelligentes qui s'améliorent quand tu regardes et interagis",
     "classicLayout": "Mise en page classique",
     "modalLayout": "Mise en page modale",
     "cardStyleForProfile": "Style carte pour profil et chaîne",
@@ -725,7 +727,11 @@
     "saved": "Enregistré",
     "delete": "Supprimer",
     "report": "Signaler",
-    "postBy": "publication de {{author}}"
+    "postBy": "publication de {{author}}",
+    "showMore": "Afficher plus",
+    "showLess": "Afficher moins",
+    "showMoreLikeThis": "Afficher plus de contenus similaires",
+    "showLessLikeThis": "Afficher moins de contenus similaires"
   },
   "tabs": {
     "home": "accueil",

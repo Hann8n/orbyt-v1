@@ -6,7 +6,11 @@
  */
 
 import { logger } from '../utils/logger';
-import { QUERY_CONSTANTS } from '../utils/constants';
+import {
+  QUERY_CONSTANTS,
+  ENABLE_SERVER_YOUR_MIX,
+  YOUR_MIX_FEED_GENERATOR_URI,
+} from '../utils/constants';
 import type {
   ExtendedFeedViewPost,
   FeedResponse,
@@ -422,119 +426,132 @@ class FeedService {
           'custom'
         );
       } else if (feedOptionForAPI === 'your-mix') {
-        // Get feed sources (pre-computed, no dynamic imports)
-        const feedSources = this.getYourMixSources();
+        const useServerYourMix =
+          useUserStore.getState().serverYourMixEnabled ?? ENABLE_SERVER_YOUR_MIX;
+        if (useServerYourMix) {
+          response = await AtprotoService.getFeed(
+            cursor ?? null,
+            YOUR_MIX_FEED_GENERATOR_URI,
+            {},
+            false,
+            limit,
+            'custom'
+          );
+        } else {
+          // Get feed sources (pre-computed, no dynamic imports)
+          const feedSources = this.getYourMixSources();
 
-        // If no feed sources, return empty
-        if (feedSources.length === 0) {
-          return { feed: [], cursor: null };
-        }
+          // If no feed sources, return empty
+          if (feedSources.length === 0) {
+            return { feed: [], cursor: null };
+          }
 
-        // Get current user for seen video filtering
-        const currentUser = useUserStore.getState().currentUser;
-        const currentUserDid = currentUser?.did ?? null;
+          // Get current user for seen video filtering
+          const currentUser = useUserStore.getState().currentUser;
+          const currentUserDid = currentUser?.did ?? null;
 
-        // If only one source, use direct fetch
-        if (feedSources.length === 1) {
-          const singleSource = feedSources[0];
-          // Parse simple cursor format or use null
+          // If only one source, use direct fetch
+          if (feedSources.length === 1) {
+            const singleSource = feedSources[0];
+            // Parse simple cursor format or use null
+            let sourceCursor: string | null = null;
+            if (cursor) {
+              try {
+                const parsed = JSON.parse(cursor);
+                if (typeof parsed === 'object' && parsed !== null && parsed[singleSource.uri]) {
+                  sourceCursor = parsed[singleSource.uri];
+                }
+              } catch {
+                // Invalid cursor, start fresh
+              }
+            }
+            const resp = await this.fetchSingleSource(
+              singleSource,
+              sourceCursor,
+              limit,
+              currentUserDid
+            );
+            return {
+              feed: resp.feed,
+              cursor: resp.cursor ? JSON.stringify({ [singleSource.uri]: resp.cursor }) : null,
+            };
+          }
+
+          // Parse cursor to get source index and cursor
+          let sourceIndex = 0;
           let sourceCursor: string | null = null;
           if (cursor) {
             try {
               const parsed = JSON.parse(cursor);
-              if (typeof parsed === 'object' && parsed !== null && parsed[singleSource.uri]) {
-                sourceCursor = parsed[singleSource.uri];
+              if (typeof parsed === 'object' && parsed !== null) {
+                sourceIndex = parsed.index ?? 0;
+                sourceCursor = parsed.cursor ?? null;
               }
             } catch {
               // Invalid cursor, start fresh
             }
           }
-          const resp = await this.fetchSingleSource(
-            singleSource,
-            sourceCursor,
-            limit,
-            currentUserDid
-          );
-          return {
-            feed: resp.feed,
-            cursor: resp.cursor ? JSON.stringify({ [singleSource.uri]: resp.cursor }) : null,
+
+          // Fetch sequentially from sources until we have enough posts
+          const allPosts: ExtendedFeedViewPost[] = [];
+          const seenUris = new Set<string>();
+          let currentIndex = sourceIndex;
+          let currentCursor = sourceCursor;
+
+          while (allPosts.length < limit && currentIndex < feedSources.length) {
+            const source = feedSources[currentIndex];
+            const result = await this.fetchFromSource(source, currentCursor, limit);
+
+            if (result.success) {
+              // Add new posts (deduplicate by URI)
+              for (const post of result.feed) {
+                const uri = post.post?.uri;
+                if (uri && !seenUris.has(uri)) {
+                  seenUris.add(uri);
+                  allPosts.push(post);
+                }
+              }
+              currentCursor = result.cursor;
+            } else {
+              // Fetch failed - advance to next source
+              currentIndex++;
+              currentCursor = null;
+              continue;
+            }
+
+            if (!currentCursor) {
+              // Source exhausted - advance to next source
+              currentIndex++;
+              currentCursor = null;
+            } else if (allPosts.length >= limit) {
+              break;
+            }
+          }
+
+          // Filter seen videos
+          const filteredPosts = seenVideoService.filterSeen(allPosts, currentUserDid);
+
+          // Sort chronologically by indexedAt (newest first)
+          filteredPosts.sort((a, b) => {
+            const aTime = new Date(a?.post?.indexedAt || 0).getTime();
+            const bTime = new Date(b?.post?.indexedAt || 0).getTime();
+            return bTime - aTime;
+          });
+
+          // Apply limit
+          const limitedPosts = filteredPosts.slice(0, limit);
+
+          // Create cursor for next fetch
+          const newCursor =
+            currentIndex < feedSources.length
+              ? JSON.stringify({ index: currentIndex, cursor: currentCursor })
+              : null;
+
+          response = {
+            feed: limitedPosts,
+            cursor: newCursor,
           };
         }
-
-        // Parse cursor to get source index and cursor
-        let sourceIndex = 0;
-        let sourceCursor: string | null = null;
-        if (cursor) {
-          try {
-            const parsed = JSON.parse(cursor);
-            if (typeof parsed === 'object' && parsed !== null) {
-              sourceIndex = parsed.index ?? 0;
-              sourceCursor = parsed.cursor ?? null;
-            }
-          } catch {
-            // Invalid cursor, start fresh
-          }
-        }
-
-        // Fetch sequentially from sources until we have enough posts
-        const allPosts: ExtendedFeedViewPost[] = [];
-        const seenUris = new Set<string>();
-        let currentIndex = sourceIndex;
-        let currentCursor = sourceCursor;
-
-        while (allPosts.length < limit && currentIndex < feedSources.length) {
-          const source = feedSources[currentIndex];
-          const result = await this.fetchFromSource(source, currentCursor, limit);
-
-          if (result.success) {
-            // Add new posts (deduplicate by URI)
-            for (const post of result.feed) {
-              const uri = post.post?.uri;
-              if (uri && !seenUris.has(uri)) {
-                seenUris.add(uri);
-                allPosts.push(post);
-              }
-            }
-            currentCursor = result.cursor;
-          } else {
-            // Fetch failed - advance to next source
-            currentIndex++;
-            currentCursor = null;
-            continue;
-          }
-
-          if (!currentCursor) {
-            // Source exhausted - advance to next source
-            currentIndex++;
-            currentCursor = null;
-          } else if (allPosts.length >= limit) {
-            break;
-          }
-        }
-
-        // Filter seen videos
-        const filteredPosts = seenVideoService.filterSeen(allPosts, currentUserDid);
-
-        // Sort chronologically by indexedAt (newest first)
-        filteredPosts.sort((a, b) => {
-          const aTime = new Date(a?.post?.indexedAt || 0).getTime();
-          const bTime = new Date(b?.post?.indexedAt || 0).getTime();
-          return bTime - aTime;
-        });
-
-        // Apply limit
-        const limitedPosts = filteredPosts.slice(0, limit);
-
-        // Create cursor for next fetch
-        const newCursor =
-          currentIndex < feedSources.length
-            ? JSON.stringify({ index: currentIndex, cursor: currentCursor })
-            : null;
-
-        response = {
-          feed: limitedPosts,
-          cursor: newCursor,
-        };
       } else if (
         feedOptionForAPI === 'profile' ||
         feedOptionForAPI === 'likes' ||

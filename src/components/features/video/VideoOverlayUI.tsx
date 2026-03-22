@@ -44,7 +44,10 @@ export interface VideoOverlayUIProps {
   post: Post;
   isVisible: boolean;
   isModal?: boolean;
-  feedOption?: 'following' | 'discover';
+  feedOption?: 'following' | 'discover' | 'your-mix';
+  sourceFeed?: string;
+  feedContext?: string;
+  isOrbytMixSource?: boolean;
   // Optional composed shared opacity to tie overlay and scrubber together
   overlayOpacitySV?: SharedValue<number>;
   onLike?: () => void;
@@ -74,6 +77,9 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   isVisible,
   isModal = false,
   feedOption,
+  sourceFeed,
+  feedContext,
+  isOrbytMixSource = false,
   overlayOpacitySV,
   onLike,
   onRepost,
@@ -230,8 +236,21 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
       authorName: post.author?.displayName,
       authorHandle: post.author?.handle,
       feedOption: feedOption,
+      sourceFeed,
+      feedContext,
+      isOrbytMixSource,
     });
-  }, [post.uri, post.cid, post.author, feedOption, presentShareSheet, onShareInteraction]);
+  }, [
+    post.uri,
+    post.cid,
+    post.author,
+    feedOption,
+    sourceFeed,
+    feedContext,
+    isOrbytMixSource,
+    presentShareSheet,
+    onShareInteraction,
+  ]);
 
   // Memoize UI calculations to prevent recalculation on every render
   const likeScale = useSharedValue(1);
@@ -932,6 +951,9 @@ const arePropsEqual = (prevProps: VideoOverlayUIProps, nextProps: VideoOverlayUI
 
   if (prevProps.isModal !== nextProps.isModal) return false;
   if (prevProps.feedOption !== nextProps.feedOption) return false;
+  if (prevProps.sourceFeed !== nextProps.sourceFeed) return false;
+  if (prevProps.feedContext !== nextProps.feedContext) return false;
+  if (prevProps.isOrbytMixSource !== nextProps.isOrbytMixSource) return false;
 
   return true;
 };
