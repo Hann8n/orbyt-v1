@@ -611,6 +611,8 @@
     "appIcon": "App icon",
     "contentFilters": "Content filters",
     "newTabs": "New tabs",
+    "serverYourMixFeed": "Enhanced Your Mix",
+    "serverYourMixFeedDescription": "Smarter recommendations that improve as you watch and interact",
     "classicLayout": "Classic layout",
     "modalLayout": "Modal layout",
     "cardStyleForProfile": "Card-style for profile and channel",
@@ -726,7 +728,11 @@
     "saved": "Saved",
     "delete": "Delete",
     "report": "Report",
-    "postBy": "post by {{author}}"
+    "postBy": "post by {{author}}",
+    "showMore": "Show more",
+    "showLess": "Show less",
+    "showMoreLikeThis": "Show more like this",
+    "showLessLikeThis": "Show less like this"
   },
   "tabs": {
     "home": "home",
