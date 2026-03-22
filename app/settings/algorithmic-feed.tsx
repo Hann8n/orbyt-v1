@@ -177,7 +177,7 @@ const AlgorithmicFeedScreen: React.FC = () => {
       TrueSheet.present('algorithmic-feed-channel-options');
       // Set the displayed title immediately
       const name =
-        getLocalizedChannelDisplayName(channel.uri, channel.displayName) ||
+        getLocalizedChannelDisplayName(channel.uri ?? '', channel.displayName) ||
         channel.displayName ||
         channel.handle ||
         t('feed.unknownChannel');
@@ -334,12 +334,12 @@ const AlgorithmicFeedScreen: React.FC = () => {
             <View style={styles.channelsList}>
               {listData.map(channel => {
                 const channelName =
-                  getLocalizedChannelDisplayName(channel.uri, channel.displayName) ||
+                  getLocalizedChannelDisplayName(channel.uri ?? '', channel.displayName) ||
                   channel.displayName ||
                   channel.handle ||
                   t('feed.unknownChannel');
                 const channelDesc =
-                  getLocalizedChannelDescription(channel.uri, channel.description) ||
+                  getLocalizedChannelDescription(channel.uri ?? '', channel.description) ||
                   channel.description;
                 const showSlash =
                   channel.isOrbytChannel && channel.uri && shouldShowChannelSlash(channel.uri);
