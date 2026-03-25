@@ -62,6 +62,7 @@ import { useFeedScroll } from '../../../context/FeedScrollContext';
 import { seenVideoService } from '../../../services/SeenVideoService';
 import { hexToRGBA } from '../../../utils/formatting/colors';
 import { useFollowStore } from '../../../stores/followStore';
+import { ErrorHandler } from '../../../utils/errors/errorHandler';
 import type {
   ExtendedPostView,
   ExtendedFeedViewPost,
@@ -299,7 +300,9 @@ const VideoCard = memo(
             interactionQueueRef.current = [];
 
             if (interactionsToSend.length > 0) {
-              FeedService.sendFeedInteractions(interactionsToSend).catch(() => {});
+              FeedService.sendFeedInteractions(interactionsToSend).catch(error => {
+                ErrorHandler.handleError(error, 'VideoCard: sendFeedInteractions (debounced)');
+              });
             }
 
             sendInteractionsTimeoutRef.current = null;
@@ -619,15 +622,16 @@ const VideoCard = memo(
         } else if (playerStatus === 'error') {
           if (errorRetriedForUriRef.current !== postView.uri) {
             errorRetriedForUriRef.current = postView.uri;
-            AtprotoService.getPost(postView.uri).then(post => {
+            ErrorHandler.safeAsync(async () => {
+              const post = await AtprotoService.getPost(postView.uri);
               const vv = post ? getVideoView(post.embed) : null;
               const newSource = createVideoSource(vv?.playlist ?? null);
-              if (newSource) {
-                player.replaceAsync(newSource).catch(() => {});
-              } else {
+              if (!newSource) {
                 errorRetriedForUriRef.current = null; // allow retry if getPost returns no source
+                return;
               }
-            });
+              await player.replaceAsync(newSource);
+            }, 'VideoCard: retry replaceAsync after error');
           }
           onVideoStatus?.(postView.uri, 'error');
         }
@@ -1004,6 +1008,10 @@ const VideoCard = memo(
         }
       }, [channelUri, navigation]);
 
+      const handleShareInteraction = useCallback(() => {
+        queueInteraction(INTERACTIONSHARE_CONST);
+      }, [queueInteraction]);
+
       // Track interactionSeen and markAsSeen when video becomes visible
       useEffect(() => {
         if (isVisible) {
@@ -1027,7 +1035,9 @@ const VideoCard = memo(
           if (interactionQueueRef.current.length > 0) {
             const interactionsToSend = [...interactionQueueRef.current];
             interactionQueueRef.current = [];
-            FeedService.sendFeedInteractions(interactionsToSend).catch(() => {});
+            FeedService.sendFeedInteractions(interactionsToSend).catch(error => {
+              ErrorHandler.handleError(error, 'VideoCard: sendFeedInteractions (unmount flush)');
+            });
           }
         };
       }, []);
@@ -1119,7 +1129,7 @@ const VideoCard = memo(
               {/* Loading indicator only shown when needed */}
               {!shouldLoadVideo && !cannotShowMedia && !isBlurred && (
                 <View style={styles.loadingOverlay}>
-                  <ActivityIndicator size="large" color="white" />
+                  <ActivityIndicator size="large" color={Colors.neutral[50]} />
                   <Text style={styles.loadingText}>{t('video.noHlsStream')}</Text>
                 </View>
               )}
@@ -1158,7 +1168,7 @@ const VideoCard = memo(
                   onOverlayCollapsedChange={handleOverlayCollapsedChange}
                   onLike={handleLike}
                   onRepost={handleRepost}
-                  onShareInteraction={() => queueInteraction(INTERACTIONSHARE_CONST)}
+                  onShareInteraction={handleShareInteraction}
                   isLiked={overlayState.isLiked}
                   isReposted={overlayState.isReposted}
                   likeCount={overlayState.likeCount}
@@ -1203,7 +1213,7 @@ const VideoCard = memo(
                       <GlassView
                         style={styles.glassBackground}
                         glassEffectStyle="clear"
-                        tintColor="rgba(255, 255, 255, 1)"
+                        tintColor={Colors.neutral[50]}
                         isInteractive
                       />
                     ) : null}

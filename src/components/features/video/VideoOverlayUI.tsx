@@ -916,4 +916,34 @@ const styles = StyleSheet.create({
   },
 });
 
-export default VideoOverlayUI;
+const arePropsEqual = (prevProps: VideoOverlayUIProps, nextProps: VideoOverlayUIProps) => {
+  if (prevProps.isVisible !== nextProps.isVisible) return false;
+  if (prevProps.post?.uri !== nextProps.post?.uri) return false;
+
+  if (prevProps.isLiked !== nextProps.isLiked) return false;
+  if (prevProps.isReposted !== nextProps.isReposted) return false;
+  if (prevProps.likeCount !== nextProps.likeCount) return false;
+  if (prevProps.repostCount !== nextProps.repostCount) return false;
+  if (prevProps.isLikePending !== nextProps.isLikePending) return false;
+  if (prevProps.isRepostPending !== nextProps.isRepostPending) return false;
+
+  if (prevProps.isFollowing !== nextProps.isFollowing) return false;
+  if (prevProps.hasProfile !== nextProps.hasProfile) return false;
+  if (prevProps.channelSlug !== nextProps.channelSlug) return false;
+
+  if (prevProps.isModal !== nextProps.isModal) return false;
+  if (prevProps.feedOption !== nextProps.feedOption) return false;
+
+  // Object identity changes are common; compare the fields this component actually reads.
+  const prevOverlay = prevProps.authorProfileOverlay;
+  const nextOverlay = nextProps.authorProfileOverlay;
+  if ((prevOverlay?.isAuthorBlocked ?? false) !== (nextOverlay?.isAuthorBlocked ?? false))
+    return false;
+  if ((prevOverlay?.authorDid ?? null) !== (nextOverlay?.authorDid ?? null)) return false;
+  if (prevOverlay?.authorProfileStatus !== nextOverlay?.authorProfileStatus) return false;
+  if (prevOverlay?.profileColors !== nextOverlay?.profileColors) return false;
+
+  return true;
+};
+
+export default React.memo(VideoOverlayUI, arePropsEqual);
