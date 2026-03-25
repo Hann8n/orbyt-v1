@@ -895,7 +895,7 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
       baseStyles.push({ minHeight });
     }
     if (style) {
-      baseStyles.push(style);
+      baseStyles.push(StyleSheet.flatten(style) as ViewStyle);
     }
     return baseStyles;
   }, [
@@ -1055,7 +1055,7 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
       baseStyles.push(styles.contentSpaceBetween);
     }
     if (contentStyle) {
-      baseStyles.push(contentStyle);
+      baseStyles.push(StyleSheet.flatten(contentStyle) as ViewStyle);
     }
     return baseStyles;
   }, [contentPosition, contentStyle]);

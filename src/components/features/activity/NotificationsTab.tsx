@@ -900,7 +900,17 @@ const NotificationsTab = forwardRef<ScrollToTopRef, NotificationsTabProps>(
     );
 
     const keyExtractor = useCallback((item: EnrichedNotification) => {
-      return item.uri || `notification-${item.indexedAt || Math.random()}`;
+      if (item.uri) {
+        return item.uri;
+      }
+
+      return [
+        'notification',
+        item.cid ?? 'no-cid',
+        item.indexedAt ?? 'no-indexed-at',
+        item.reason ?? 'no-reason',
+        item.author?.did ?? 'no-author',
+      ].join('-');
     }, []);
 
     return (

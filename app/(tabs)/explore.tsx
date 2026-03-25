@@ -284,10 +284,68 @@ const ProfilesFeedRenderer = React.memo(
     const router = useRouter();
     const queryClient = useQueryClient();
 
-    const profiles = searchResults
-      .filter(isProfileResult)
-      .map(result => result.data)
-      .filter((profile, index, self) => index === self.findIndex(p => p.did === profile.did));
+    const profiles = useMemo(() => {
+      const seen = new Set<string>();
+      const dedupedProfiles: Profile[] = [];
+
+      for (const result of searchResults) {
+        if (!isProfileResult(result)) continue;
+        const profile = result.data;
+        const key = profile.did || profile.handle;
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        dedupedProfiles.push(profile);
+      }
+
+      return dedupedProfiles;
+    }, [searchResults]);
+
+    const handleLoadMore = useCallback(() => {
+      if (hasNextPage && !isFetchingNextPage && fetchNextPage) {
+        fetchNextPage();
+      }
+    }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+    const renderEmptyProfiles = useCallback(
+      () => (
+        <View style={styles.emptyTabContent}>
+          <Text style={styles.emptyTabText}>{t('feed.noPeopleFound')}</Text>
+        </View>
+      ),
+      [t]
+    );
+
+    const renderProfileItem = useCallback(
+      ({ item: profile }: { item: Profile }) => {
+        const isFollowing = !!profile.viewer?.following;
+
+        return (
+          <AuthorItem
+            handle={profile.handle || ''}
+            did={profile.did}
+            displayName={profile.displayName}
+            avatar={profile.avatar}
+            size="large"
+            showArrow={false}
+            showFollowButton={!isFollowing}
+            isFollowing={isFollowing}
+            onFollowPress={() => onFollow(profile)}
+            onPress={() => {
+              if (onProfilePress) {
+                onProfilePress(profile);
+              } else {
+                navigateToProfile(profile, queryClient, router);
+              }
+            }}
+            backgroundColor={Colors.transparent}
+            textColor={Colors.neutral[50]}
+            nameFontWeight="Figtree-SemiBold"
+            style={styles.authorItemStyle}
+          />
+        );
+      },
+      [onFollow, onProfilePress, queryClient, router]
+    );
 
     if (isLoading) {
       return (
@@ -301,52 +359,17 @@ const ProfilesFeedRenderer = React.memo(
       <FlashList
         data={profiles}
         keyExtractor={profile => `profile-${profile.did || profile.handle}`}
-        renderItem={({ item: profile }) => {
-          const isFollowing = !!profile.viewer?.following;
-
-          return (
-            <AuthorItem
-              handle={profile.handle || ''}
-              did={profile.did}
-              displayName={profile.displayName}
-              avatar={profile.avatar}
-              size="large"
-              showArrow={false}
-              showFollowButton={!isFollowing}
-              isFollowing={isFollowing}
-              onFollowPress={() => onFollow(profile)}
-              onPress={() => {
-                if (onProfilePress) {
-                  onProfilePress(profile);
-                } else {
-                  navigateToProfile(profile, queryClient, router);
-                }
-              }}
-              backgroundColor={Colors.transparent}
-              textColor={Colors.neutral[50]}
-              nameFontWeight="Figtree-SemiBold"
-              style={styles.authorItemStyle}
-            />
-          );
-        }}
+        renderItem={renderProfileItem}
         contentContainerStyle={[styles.listContainer, { paddingBottom: bottomPadding + 20 }]}
         showsVerticalScrollIndicator={false}
         keyboardDismissMode="on-drag"
-        onEndReached={() => {
-          if (hasNextPage && !isFetchingNextPage && fetchNextPage) {
-            fetchNextPage();
-          }
-        }}
+        onEndReached={handleLoadMore}
         onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
         maintainVisibleContentPosition={{
           disabled: false,
           autoscrollToTopThreshold: undefined,
         }}
-        ListEmptyComponent={() => (
-          <View style={styles.emptyTabContent}>
-            <Text style={styles.emptyTabText}>{t('feed.noPeopleFound')}</Text>
-          </View>
-        )}
+        ListEmptyComponent={renderEmptyProfiles}
       />
     );
   }
@@ -369,10 +392,59 @@ const ChannelsFeedRenderer = React.memo(
     const { t } = useTranslation();
     const router = useRouter();
 
-    const channels = searchResults
-      .filter(isChannelResult)
-      .map(result => result.data)
-      .filter((channel, index, self) => index === self.findIndex(c => c.uri === channel.uri));
+    const channels = useMemo(() => {
+      const seen = new Set<string>();
+      const dedupedChannels: Channel[] = [];
+
+      for (const result of searchResults) {
+        if (!isChannelResult(result)) continue;
+        const channel = result.data;
+        const key = channel.uri || channel.cid;
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        dedupedChannels.push(channel);
+      }
+
+      return dedupedChannels;
+    }, [searchResults]);
+
+    const renderEmptyChannels = useCallback(
+      () => (
+        <View style={styles.emptyTabContent}>
+          <Text style={styles.emptyTabText}>{t('feed.noFeedsFound')}</Text>
+        </View>
+      ),
+      [t]
+    );
+
+    const renderChannelItem = useCallback(
+      ({ item: channel }: { item: Channel }) => (
+        <ChannelItem
+          uri={channel.uri}
+          displayName={channel.displayName}
+          avatar={channel.avatar}
+          size="large"
+          showArrow={false}
+          onPress={() => {
+            if (onChannelPress) {
+              onChannelPress(channel);
+            } else {
+              if (channel.uri && channel.uri.trim()) {
+                router.navigate({
+                  pathname: '/channel/[id]',
+                  params: { id: channel.uri.trim() },
+                });
+              }
+            }
+          }}
+          backgroundColor={Colors.transparent}
+          textColor={Colors.neutral[50]}
+          nameFontWeight="Figtree-Bold"
+          style={styles.channelItemStyle}
+        />
+      ),
+      [onChannelPress, router]
+    );
 
     if (isLoading) {
       return (
@@ -386,39 +458,11 @@ const ChannelsFeedRenderer = React.memo(
       <FlashList
         data={channels}
         keyExtractor={channel => `channel-${channel.uri || channel.cid}`}
-        renderItem={({ item: channel }) => (
-          <ChannelItem
-            uri={channel.uri}
-            displayName={channel.displayName}
-            avatar={channel.avatar}
-            size="large"
-            showArrow={false}
-            onPress={() => {
-              if (onChannelPress) {
-                onChannelPress(channel);
-              } else {
-                if (channel.uri && channel.uri.trim()) {
-                  router.navigate({
-                    pathname: '/channel/[id]',
-                    params: { id: channel.uri.trim() },
-                  });
-                }
-              }
-            }}
-            backgroundColor={Colors.transparent}
-            textColor={Colors.neutral[50]}
-            nameFontWeight="Figtree-Bold"
-            style={styles.channelItemStyle}
-          />
-        )}
+        renderItem={renderChannelItem}
         contentContainerStyle={[styles.listContainer, { paddingBottom: bottomPadding + 20 }]}
         showsVerticalScrollIndicator={false}
         keyboardDismissMode="on-drag"
-        ListEmptyComponent={() => (
-          <View style={styles.emptyTabContent}>
-            <Text style={styles.emptyTabText}>{t('feed.noFeedsFound')}</Text>
-          </View>
-        )}
+        ListEmptyComponent={renderEmptyChannels}
       />
     );
   }

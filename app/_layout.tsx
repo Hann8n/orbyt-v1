@@ -20,8 +20,6 @@ import { LinearGradient } from '../src/components/ui/LinearGradient';
 import { Colors } from '../src/theme';
 import { useUserStore } from '../src/stores/userStore';
 import { useBookmarkStore } from '../src/stores/bookmarkStore';
-import { ShareSheet } from '../src/components/ui/share-sheet';
-import CommentSection from '../src/components/features/comments/CommentSection';
 import GlobalAccountSwitcher from '../src/components/ui/GlobalAccountSwitcher';
 import EmailVerificationModal from '../src/components/ui/EmailVerificationModal';
 import { queryClient } from '../src/utils/query/queryClient';
@@ -36,6 +34,13 @@ import { logger } from '../src/utils/logger';
 import { APP_CONSTANTS } from '../src/utils/constants';
 import { setupReactQueryLifecycleBridge } from '../src/utils/query/lifecycle';
 import { LocaleSync } from '../src/i18n/LocaleSync';
+
+const LazyShareSheet = React.lazy(async () => ({
+  default: (await import('../src/components/ui/share-sheet')).ShareSheet,
+}));
+const LazyCommentSection = React.lazy(
+  () => import('../src/components/features/comments/CommentSection')
+);
 
 // Configure Reanimated logger to disable strict mode warnings
 configureReanimatedLogger({
@@ -99,6 +104,7 @@ const GlobalModals: React.FC = () => {
   const currentUser = useUserStore(state => state.currentUser);
   const showEmailVerificationModal = useUserStore(state => state.showEmailVerificationModal);
   const setShowEmailVerificationModal = useUserStore(state => state.setShowEmailVerificationModal);
+  const [isDeferredModalMountReady, setIsDeferredModalMountReady] = React.useState(false);
 
   // Reset modal flag when user/DID changes (account switch) or email gets verified
   const prevDid = React.useRef(currentUser?.did);
@@ -115,15 +121,29 @@ const GlobalModals: React.FC = () => {
     }
   }, [currentUser?.emailConfirmed, currentUser?.did, setShowEmailVerificationModal]);
 
+  useEffect(() => {
+    const deferredMount = requestAnimationFrame(() => {
+      setIsDeferredModalMountReady(true);
+    });
+
+    return () => {
+      cancelAnimationFrame(deferredMount);
+    };
+  }, []);
+
   const handleCloseEmailModal = () => {
     setShowEmailVerificationModal(false);
   };
 
   return (
     <>
-      <ShareSheet />
-      {/* Single global instance so comments don't open twice on feed transparent modal */}
-      <CommentSection />
+      {isDeferredModalMountReady && (
+        <React.Suspense fallback={null}>
+          <LazyShareSheet />
+          {/* Single global instance so comments don't open twice on feed transparent modal */}
+          <LazyCommentSection />
+        </React.Suspense>
+      )}
       <GlobalAccountSwitcher />
       {isAuthenticated && (
         <EmailVerificationModal

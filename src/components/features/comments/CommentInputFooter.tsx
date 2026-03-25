@@ -9,6 +9,9 @@ import {
   StyleSheet,
   Platform,
   Keyboard,
+  type StyleProp,
+  type ViewStyle,
+  type ImageStyle,
   type NativeSyntheticEvent,
   type TargetedEvent,
 } from 'react-native';
@@ -161,10 +164,10 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
 
   // Get current user profile for live status
-  const { currentUser } = useUserStore();
-  const currentUserHandle = currentUser?.handle || null;
+  const currentUserHandle = useUserStore(state => state.currentUser?.handle ?? null);
+  const currentUserDid = useUserStore(state => state.currentUser?.did ?? null);
   const { data: currentUserProfile } = useProfile(currentUserHandle);
-  const ringProps = useAvatarProfileRing(currentUser?.did ?? null);
+  const ringProps = useAvatarProfileRing(currentUserDid);
 
   // Bottom padding: reduced safe area when keyboard closed; collapse when keyboard open
   // so the padding doesn't push the footer up with the keyboard.
@@ -192,6 +195,20 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   const hasGifPreview = !!selectedGifPreviewUri;
   // `selectedGifPreviewUri` can be null depending on the provider; `hasAttachment` is the reliable signal.
   const hasGifAttachment = !hasImages && !!hasAttachment;
+  const gifAspectRatio =
+    selectedGifAspectRatio && selectedGifAspectRatio > 0 ? selectedGifAspectRatio : 1;
+  const gifAttachmentWrapStyle = useMemo(
+    () => [styles.attachmentThumbWrap, { aspectRatio: gifAspectRatio }],
+    [gifAspectRatio]
+  );
+  const attachmentThumbWrapStyle = useMemo<StyleProp<ViewStyle>>(
+    () => styles.attachmentThumbWrap,
+    []
+  );
+  const attachmentThumbImageStyle = useMemo<StyleProp<ImageStyle>>(
+    () => styles.attachmentThumb,
+    []
+  );
   const attachmentKind: 'images' | 'gif' | 'none' = hasImages
     ? 'images'
     : hasGifAttachment
@@ -249,21 +266,11 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
               keyboardShouldPersistTaps="handled"
             >
               {attachmentKind === 'gif' ? (
-                <View
-                  style={[
-                    styles.attachmentThumbWrap,
-                    {
-                      aspectRatio:
-                        selectedGifAspectRatio && selectedGifAspectRatio > 0
-                          ? selectedGifAspectRatio
-                          : 1,
-                    },
-                  ]}
-                >
+                <View style={gifAttachmentWrapStyle}>
                   {hasGifPreview ? (
                     <Image
                       source={{ uri: selectedGifPreviewUri ?? undefined }}
-                      style={styles.attachmentThumb}
+                      style={attachmentThumbImageStyle}
                       contentFit="cover"
                     />
                   ) : (
@@ -300,10 +307,10 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                         ? img.aspectRatio.width / img.aspectRatio.height
                         : 1;
                     return (
-                      <View key={img.uri} style={[styles.attachmentThumbWrap, { aspectRatio: ar }]}>
+                      <View key={img.uri} style={[attachmentThumbWrapStyle, { aspectRatio: ar }]}>
                         <Image
                           source={{ uri: img.uri }}
-                          style={styles.attachmentThumb}
+                          style={attachmentThumbImageStyle}
                           contentFit="cover"
                         />
                         {onRemoveImage ? (
@@ -494,7 +501,7 @@ const styles = StyleSheet.create({
   iconButtonDisabled: {
     opacity: 0.6,
   },
-  sendButton: [COMPOSER_STYLES.sendButton, { marginLeft: 0 }],
+  sendButton: StyleSheet.flatten([COMPOSER_STYLES.sendButton, { marginLeft: 0 }]),
   sendButtonFallback: COMPOSER_STYLES.sendButtonFallback,
   sendButtonDisabled: {
     opacity: 0.6,

@@ -787,10 +787,9 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     [onDismiss, router]
   );
 
-  const commentKeyExtractor = useCallback(
-    (item: Comment) => item?.uri || item?.cid || Math.random().toString(36),
-    []
-  );
+  const commentKeyExtractor = useCallback((item: Comment, index: number) => {
+    return item?.uri || item?.cid || `comment-${index}`;
+  }, []);
   const likeKeyExtractor = useCallback((item: Like) => `${item.actor.did}-${item.createdAt}`, []);
 
   const CommentsEmptyComponent = useMemo(

@@ -176,24 +176,35 @@ const VideoUploadBannerComponent: React.FC<VideoUploadBannerProps> = ({
 
   // Handle scroll-based visibility (only if scrollY is provided)
   useAnimatedReaction(
-    () => scrollY?.value ?? 0,
-    scrollValue => {
+    () => {
+      const scrollValue = scrollY?.value ?? 0;
+      const atTop = scrollValue <= 50;
+      const isCompleteValue = isCompleteShared.value;
+
+      return {
+        atTop,
+        shouldShow: scrollValue <= 50,
+        shouldDismiss: isCompleteValue && scrollValue > 20,
+        isComplete: isCompleteValue,
+      };
+    },
+    (current, previous) => {
       'worklet';
       if (!scrollY) return; // Skip if no scrollY
 
-      const atTop = scrollValue <= 50;
-      runOnJS(setIsAtTop)(atTop);
+      if (current.atTop !== previous?.atTop) {
+        runOnJS(setIsAtTop)(current.atTop);
+      }
 
-      // Auto-dismiss completed uploads when scrolled down
-      const isCompleteValue = isCompleteShared.value;
-      if (isCompleteValue && scrollValue > 20) {
+      // Auto-dismiss completed uploads on threshold transition only
+      if (current.shouldDismiss && !previous?.shouldDismiss) {
         runOnJS(handleDismiss)();
-      } else if (!isCompleteValue) {
+      } else if (!current.isComplete && current.shouldShow !== previous?.shouldShow) {
         // For active uploads, show content when at top, hide when scrolled
-        runOnJS(setShowContent)(scrollValue <= 50);
+        runOnJS(setShowContent)(current.shouldShow);
       }
     },
-    [scrollY]
+    [scrollY, handleDismiss]
   );
 
   // Always show content when scrollY is not provided (no scroll-based hiding)

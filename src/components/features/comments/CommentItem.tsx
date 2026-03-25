@@ -37,7 +37,7 @@ import { Typography, FontFamily } from '../../../utils/components/typography';
 import { hexToRGBA } from '../../../utils/formatting/colors';
 import { Colors } from '../../../theme';
 import UI from '../../ui/UI';
-import { HeartFillIcon } from '../../ui/Icon';
+import { HeartFillIcon, MoreFillIcon } from '../../ui/Icon';
 import { VerificationBadge } from '../badging';
 import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
 import RelativeDate from '../../ui/RelativeDate';
@@ -193,9 +193,10 @@ const CommentItem: React.FC<CommentItemProps> = ({
   const cid = getCommentCid(comment);
   const viewerLike = getCommentViewerLike(comment);
 
-  const { updateCommentInteraction, getCommentInteraction, markCommentAsDeleted } =
-    useCommentStore();
-  const { currentUser } = useUserStore();
+  const updateCommentInteraction = useCommentStore(state => state.updateCommentInteraction);
+  const getCommentInteraction = useCommentStore(state => state.getCommentInteraction);
+  const markCommentAsDeleted = useCommentStore(state => state.markCommentAsDeleted);
+  const currentUserDid = useUserStore(state => state.currentUser?.did);
 
   // Get persisted interaction state from store, with API data as fallback
   // Only use store if we have a valid URI (prevents undefined keys causing shared state)
@@ -548,7 +549,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
 
   // Check if comment belongs to current user
   const commentAuthorDid = comment?.author?.did;
-  const isCurrentUserComment = currentUser?.did && commentAuthorDid === currentUser.did;
+  const isCurrentUserComment = !!currentUserDid && commentAuthorDid === currentUserDid;
 
   const isReply = level > 0 || !!comment?.parent;
   const postType = isReply ? 'reply' : 'comment';
@@ -781,7 +782,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
         attributes: { destructive: true },
       },
     ];
-  }, [uri, cid, isCurrentUserComment, t, isReply, canCopyOrShareText]);
+  }, [uri, cid, isCurrentUserComment, t, canCopyOrShareText]);
 
   const handleCommentMenuPressAction = useCallback(
     ({ nativeEvent }: { nativeEvent: { event?: string } }) => {
@@ -1074,105 +1075,110 @@ const CommentItem: React.FC<CommentItemProps> = ({
         level > 0 && { marginLeft: 14 * level },
       ]}
     >
-      <MenuView
-        actions={commentMenuActions}
-        onPressAction={handleCommentMenuPressAction}
-        shouldOpenOnLongPress={true}
-        themeVariant="dark"
-        isAnchoredToRight={true}
-      >
-        <Animated.View style={[styles.commentItemContainer, styles.commentItemContainerInner]}>
-          {/* Full-width highlight overlay */}
-          {shouldHighlight && (
-            <Animated.View style={[styles.highlightOverlay, highlightStyle]} pointerEvents="none" />
-          )}
-          <View style={styles.commentItemRow}>
-            <Pressable onPress={handleAuthorAvatarPress}>
-              <UI.Avatar
-                uri={authorAvatar}
-                type="profile"
-                size={level > 0 ? 30 : 40}
-                showRing={ringProps.showRing}
-                ringColor={ringProps.ringColor}
-                profileColors={ringProps.profileColors}
-                blurRadius={isAuthorBlocked ? 30 : 0}
-                status={authorProfile?.status}
-                style={[styles.commentAvatar, level > 0 && styles.commentAvatarNested]}
-              />
-            </Pressable>
-            <View style={styles.commentItemBody}>
-              <View style={styles.commentItemAuthorRow}>
+      <Animated.View style={[styles.commentItemContainer, styles.commentItemContainerInner]}>
+        {/* Full-width highlight overlay */}
+        {shouldHighlight && (
+          <Animated.View style={[styles.highlightOverlay, highlightStyle]} pointerEvents="none" />
+        )}
+        <View style={styles.commentItemRow}>
+          <Pressable onPress={handleAuthorAvatarPress}>
+            <UI.Avatar
+              uri={authorAvatar}
+              type="profile"
+              size={level > 0 ? 30 : 40}
+              showRing={ringProps.showRing}
+              ringColor={ringProps.ringColor}
+              profileColors={ringProps.profileColors}
+              blurRadius={isAuthorBlocked ? 30 : 0}
+              status={authorProfile?.status}
+              style={[styles.commentAvatar, level > 0 && styles.commentAvatarNested]}
+            />
+          </Pressable>
+          <View style={styles.commentItemBody}>
+            <View style={styles.commentItemAuthorRow}>
+              <Pressable
+                onPress={() => {
+                  const authorData = comment?.author;
+                  if (authorHandle || authorDid) {
+                    handleAuthorPress(authorHandle, authorDid, authorData);
+                  }
+                }}
+              >
+                <Text style={styles.commentAuthorName}>{authorName}</Text>
+              </Pressable>
+              {authorHandle && (
+                <VerificationBadge
+                  handle={authorHandle}
+                  textSize={16}
+                  textColor={Colors.neutral[50]}
+                />
+              )}
+              {parent && parentAuthorName && level > 0 && parent.parent && (
                 <Pressable
                   onPress={() => {
-                    const authorData = comment?.author;
-                    if (authorHandle || authorDid) {
-                      handleAuthorPress(authorHandle, authorDid, authorData);
+                    const parentAuthorData = parent?.author;
+                    if (parentAuthorHandle && typeof parentAuthorHandle === 'string') {
+                      handleAuthorPress(
+                        parentAuthorHandle,
+                        parentAuthorDid ?? undefined,
+                        parentAuthorData
+                      );
                     }
                   }}
                 >
-                  <Text style={styles.commentAuthorName}>{authorName}</Text>
+                  <Text style={styles.parentChyronText} numberOfLines={1}>
+                    <Text style={styles.parentChyronArrow}>▸ </Text>
+                    {parentAuthorName}
+                  </Text>
                 </Pressable>
-                {authorHandle && (
-                  <VerificationBadge
-                    handle={authorHandle}
-                    textSize={16}
-                    textColor={Colors.neutral[50]}
-                  />
-                )}
-                {parent && parentAuthorName && level > 0 && parent.parent && (
-                  <Pressable
-                    onPress={() => {
-                      const parentAuthorData = parent?.author;
-                      if (parentAuthorHandle && typeof parentAuthorHandle === 'string') {
-                        handleAuthorPress(
-                          parentAuthorHandle,
-                          parentAuthorDid ?? undefined,
-                          parentAuthorData
-                        );
-                      }
-                    }}
-                  >
-                    <Text style={styles.parentChyronText} numberOfLines={1}>
-                      <Text style={styles.parentChyronArrow}>▸ </Text>
-                      {parentAuthorName}
-                    </Text>
-                  </Pressable>
-                )}
-              </View>
+              )}
+            </View>
 
-              {commentText ? (
-                <TextWithAuthorLinks
-                  text={commentText}
-                  style={styles.commentText}
-                  onAuthorPress={handleAuthorPress}
-                  onHashtagPress={handleHashtagPress}
-                  facets={
-                    facets as import('../../../utils/types/richText').RichTextFacet[] | undefined
-                  }
-                />
-              ) : null}
-              {renderImages(!!commentText)}
-              <View style={styles.commentMetaContainer}>
-                <RelativeDate dateString={comment?.indexedAt} style={styles.commentTimestamp} />
-                <Pressable onPress={handleReplyPress} style={styles.replyButton}>
-                  <Text style={styles.replyButtonText}>{t('comments.reply')}</Text>
+            {commentText ? (
+              <TextWithAuthorLinks
+                text={commentText}
+                style={styles.commentText}
+                onAuthorPress={handleAuthorPress}
+                onHashtagPress={handleHashtagPress}
+                facets={
+                  facets as import('../../../utils/types/richText').RichTextFacet[] | undefined
+                }
+              />
+            ) : null}
+            {renderImages(!!commentText)}
+            <View style={styles.commentMetaContainer}>
+              <RelativeDate dateString={comment?.indexedAt} style={styles.commentTimestamp} />
+              <Pressable onPress={handleReplyPress} style={styles.replyButton}>
+                <Text style={styles.replyButtonText}>{t('comments.reply')}</Text>
+              </Pressable>
+              <MenuView
+                actions={commentMenuActions}
+                onPressAction={handleCommentMenuPressAction}
+                shouldOpenOnLongPress={false}
+                themeVariant="dark"
+                isAnchoredToRight={true}
+              >
+                <Pressable
+                  style={styles.moreButton}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('common.more')}
+                >
+                  <MoreFillIcon size={16} color={Colors.neutral[300]} />
                 </Pressable>
-              </View>
+              </MenuView>
             </View>
           </View>
-          <View style={styles.commentActionsContainer}>
-            <Pressable onPress={handleLikeComment} style={styles.likeButton} disabled={isLiking}>
-              <Animated.View style={heartAnimatedStyle}>
-                <HeartFillIcon
-                  size={20}
-                  color={isLiked ? Colors.coral[500] : Colors.neutral[400]}
-                />
-              </Animated.View>
-            </Pressable>
-            {likeCount > 0 && <Text style={styles.likeCount}>{formatNumber(likeCount)}</Text>}
-          </View>
-        </Animated.View>
-      </MenuView>
+        </View>
+        <View style={styles.commentActionsContainer}>
+          <Pressable onPress={handleLikeComment} style={styles.likeButton} disabled={isLiking}>
+            <Animated.View style={heartAnimatedStyle}>
+              <HeartFillIcon size={20} color={isLiked ? Colors.coral[500] : Colors.neutral[400]} />
+            </Animated.View>
+          </Pressable>
+          {likeCount > 0 && <Text style={styles.likeCount}>{formatNumber(likeCount)}</Text>}
+        </View>
+      </Animated.View>
     </View>
   );
 };
@@ -1375,6 +1381,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.neutral[200],
     fontFamily: 'Figtree-Bold',
+  },
+  moreButton: {
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   commentActionsContainer: {
     alignItems: 'center',

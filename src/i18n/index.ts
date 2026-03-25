@@ -2,37 +2,49 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import { getLocales, type Locale } from 'expo-localization';
 
-import de from './locales/de.json';
 import en from './locales/en.json';
-import es from './locales/es.json';
-import esLA from './locales/es-LA.json';
-import fr from './locales/fr.json';
-import ja from './locales/ja.json';
-import ko from './locales/ko.json';
-import ptBR from './locales/pt-BR.json';
 import { getDateFnsLocaleForLanguage } from './dateFnsLocales';
 
-const resources = {
-  de: { translation: de },
-  en: { translation: en },
-  es: { translation: es },
-  'es-LA': { translation: esLA },
-  'es-419': { translation: esLA },
-  'es-MX': { translation: esLA },
-  'es-AR': { translation: esLA },
-  'es-CO': { translation: esLA },
-  'es-CL': { translation: esLA },
-  'es-PE': { translation: esLA },
-  fr: { translation: fr },
-  'fr-FR': { translation: fr },
-  'fr-CA': { translation: fr },
-  ja: { translation: ja },
-  ko: { translation: ko },
-  'pt-BR': { translation: ptBR },
-  pt: { translation: ptBR },
+type TranslationResource = Record<string, unknown>;
+type LocaleLoaderKey = 'de' | 'es' | 'es-LA' | 'fr' | 'ja' | 'ko' | 'pt-BR';
+
+const localeLoaders: Record<LocaleLoaderKey, () => Promise<{ default: TranslationResource }>> = {
+  de: () => import('./locales/de.json'),
+  es: () => import('./locales/es.json'),
+  'es-LA': () => import('./locales/es-LA.json'),
+  fr: () => import('./locales/fr.json'),
+  ja: () => import('./locales/ja.json'),
+  ko: () => import('./locales/ko.json'),
+  'pt-BR': () => import('./locales/pt-BR.json'),
 };
 
-const SUPPORTED = new Set(Object.keys(resources));
+const localeAliasMap: Record<string, LocaleLoaderKey | 'en'> = {
+  de: 'de',
+  en: 'en',
+  es: 'es',
+  'es-LA': 'es-LA',
+  'es-419': 'es-LA',
+  'es-MX': 'es-LA',
+  'es-AR': 'es-LA',
+  'es-CO': 'es-LA',
+  'es-CL': 'es-LA',
+  'es-PE': 'es-LA',
+  fr: 'fr',
+  'fr-FR': 'fr',
+  'fr-CA': 'fr',
+  ja: 'ja',
+  ko: 'ko',
+  'pt-BR': 'pt-BR',
+  pt: 'pt-BR',
+};
+
+const loadedLocales = new Set<string>(['en']);
+
+const resources = {
+  en: { translation: en },
+};
+
+const SUPPORTED = new Set(Object.keys(localeAliasMap));
 
 /**
  * Resolves the best locale from the device's ranked list.
@@ -49,6 +61,32 @@ export function resolveLocale(locales: Locale[] = getLocales()): string {
 
 const deviceLanguage = resolveLocale();
 
+function normalizeLocale(locale: string): LocaleLoaderKey | 'en' {
+  return localeAliasMap[locale] ?? 'en';
+}
+
+async function ensureLocaleLoaded(locale: string) {
+  const normalizedLocale = normalizeLocale(locale);
+  if (normalizedLocale === 'en') return;
+  if (loadedLocales.has(locale) || loadedLocales.has(normalizedLocale)) return;
+
+  const translation = (await localeLoaders[normalizedLocale]()).default;
+
+  i18n.addResourceBundle(normalizedLocale, 'translation', translation, true, true);
+  loadedLocales.add(normalizedLocale);
+
+  if (locale !== normalizedLocale) {
+    i18n.addResourceBundle(locale, 'translation', translation, true, true);
+    loadedLocales.add(locale);
+  }
+
+  const baseLocale = locale.split('-')[0];
+  if (!loadedLocales.has(baseLocale) && baseLocale !== 'en') {
+    i18n.addResourceBundle(baseLocale, 'translation', translation, true, true);
+    loadedLocales.add(baseLocale);
+  }
+}
+
 /** Returns the date-fns locale for the current i18n language. Use for format(), formatDistanceToNow, etc. */
 export function getDateFnsLocale(): import('date-fns').Locale | undefined {
   const lang = i18n.language?.split('-')[0] ?? 'en';
@@ -57,11 +95,21 @@ export function getDateFnsLocale(): import('date-fns').Locale | undefined {
 
 i18n.use(initReactI18next).init({
   resources,
-  lng: deviceLanguage,
+  lng: 'en',
   fallbackLng: 'en',
   compatibilityJSON: 'v4',
   interpolation: { escapeValue: false },
   react: { useSuspense: false },
 });
+
+void (async () => {
+  if (deviceLanguage === 'en') return;
+  try {
+    await ensureLocaleLoaded(deviceLanguage);
+    await i18n.changeLanguage(deviceLanguage);
+  } catch {
+    await i18n.changeLanguage('en');
+  }
+})();
 
 export default i18n;

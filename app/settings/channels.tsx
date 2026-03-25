@@ -77,7 +77,7 @@ export default function ChannelManagementScreen() {
       TrueSheet.present('settings-channels-sheet');
       // Set the displayed title immediately
       const name =
-        getLocalizedChannelDisplayName(channel.uri, channel.displayName) ||
+        getLocalizedChannelDisplayName(channel.uri ?? '', channel.displayName) ||
         channel.displayName ||
         channel.handle ||
         t('feed.unknownChannel');

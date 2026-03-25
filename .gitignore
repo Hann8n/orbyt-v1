@@ -56,3 +56,6 @@ coverage/
 # AltStore ADP build artifacts (download, extract, host externally)
 adp-extracted/
 orbyt-adp-*.zip
+
+# Perf exports (generated Expo/Metro artifacts)
+perf/export/
