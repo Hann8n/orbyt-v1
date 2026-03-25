@@ -916,31 +916,4 @@ const styles = StyleSheet.create({
   },
 });
 
-// Custom comparison function to prevent unnecessary re-renders
-// Only re-render if critical props change (isFollowing/hasProfile/channelSlug affect follow badge and channel indicator)
-const arePropsEqual = (prevProps: VideoOverlayUIProps, nextProps: VideoOverlayUIProps) => {
-  if (prevProps.isVisible !== nextProps.isVisible) return false;
-  if (prevProps.post?.uri !== nextProps.post?.uri) return false;
-
-  // Interaction states
-  if (prevProps.isLiked !== nextProps.isLiked) return false;
-  if (prevProps.isReposted !== nextProps.isReposted) return false;
-  if (prevProps.likeCount !== nextProps.likeCount) return false;
-  if (prevProps.repostCount !== nextProps.repostCount) return false;
-  if (prevProps.isLikePending !== nextProps.isLikePending) return false;
-  if (prevProps.isRepostPending !== nextProps.isRepostPending) return false;
-
-  // Follow badge and channel indicator
-  if (prevProps.isFollowing !== nextProps.isFollowing) return false;
-  if (prevProps.hasProfile !== nextProps.hasProfile) return false;
-  if (prevProps.channelSlug !== nextProps.channelSlug) return false;
-
-  if (prevProps.authorProfileOverlay !== nextProps.authorProfileOverlay) return false;
-
-  if (prevProps.isModal !== nextProps.isModal) return false;
-  if (prevProps.feedOption !== nextProps.feedOption) return false;
-
-  return true;
-};
-
-export default React.memo(VideoOverlayUI, arePropsEqual);
+export default VideoOverlayUI;
