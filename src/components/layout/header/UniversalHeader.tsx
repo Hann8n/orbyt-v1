@@ -764,7 +764,7 @@ const HeaderContentComponent = memo<{
                       style={({ pressed }) => [
                         styles.subtitleActionPill,
                         {
-                          backgroundColor: blendColors(backgroundColor, textColor, 0.2),
+                          backgroundColor: blendColors(backgroundColor, textColor, 0.28),
                           opacity: pressed ? 0.8 : 1,
                         },
                       ]}
