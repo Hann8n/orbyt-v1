@@ -130,7 +130,7 @@ export const pickLighterHex = (a: string, b: string): string =>
   getRelativeLuminance(a) >= getRelativeLuminance(b) ? a : b;
 
 /** Inactive tab bar icon/label color (used by both native and custom tab bars). */
-export const TAB_BAR_INACTIVE_TINT = Colors.neutral[500];
+export const TAB_BAR_INACTIVE_TINT = blendColors(Colors.neutral[200], Colors.neutral[300], 0.5);
 
 /**
  * Active tint for tab bar from profile colors (lighter of bg/fg so icons stay visible on any theme).

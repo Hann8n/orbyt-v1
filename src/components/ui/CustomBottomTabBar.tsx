@@ -34,30 +34,36 @@ const CREATE_TAB: TabConfig = { name: 'create', routeName: 'create', iconType: '
 
 // Profile tab icon: avatar and colors from userStore for instant display (no loading flash)
 const ProfileTabIcon = React.memo(
-  ({ color, tabIconSize, isActive }: { color: string; tabIconSize: number; isActive: boolean }) => {
+  ({
+    color,
+    tabIconSize,
+    isActive: _isActive,
+  }: {
+    color: string;
+    tabIconSize: number;
+    isActive: boolean;
+  }) => {
     const currentUser = useUserStore(state => state.currentUser);
-    const profileColors = useUserStore(state => state.currentUserProfileColors);
     const savedAccountsLength = useUserStore(state => state.savedAccounts.length);
 
     const hasMultipleAccounts = savedAccountsLength > 1;
-    const opacity = isActive ? 1 : 0.6;
-    const ringColor = profileColors?.foregroundColor || Colors.neutral[50];
+    const ringColor = color;
 
     if (!hasMultipleAccounts) {
       return <UserIcon size={tabIconSize} color={color} />;
     }
 
     return (
-      <View style={{ opacity }}>
+      <View>
         <Avatar
           uri={currentUser?.avatar}
           type="profile"
           size={tabIconSize}
           showRing={true}
           profileColors={{
-            backgroundColor: profileColors?.backgroundColor ?? Colors.black,
-            textColor: profileColors?.foregroundColor || color,
-            foregroundColor: profileColors?.foregroundColor || color,
+            backgroundColor: Colors.black,
+            textColor: color,
+            foregroundColor: color,
           }}
           ringColor={ringColor}
         />
@@ -143,35 +149,25 @@ const CustomBottomTabBar: React.FC<CustomBottomTabBarProps> = ({
 
   // Haptic feedback ref (non-blocking)
   const pendingHapticRef = useRef<boolean>(false);
-  // Navigation guard to prevent desync from rapid taps
-  const navigationPendingRef = useRef<boolean>(false);
 
   // Memoize current route name for UI display
   const currentRouteName = useMemo(() => state?.routes?.[state.index]?.name || '', [state]);
+  const activeRouteKey = useMemo(() => state?.routes?.[state.index]?.key, [state]);
+  const routeByName = useMemo(() => {
+    return new Map(state.routes.map(route => [route.name, route]));
+  }, [state.routes]);
+  const isTabActive = useCallback(
+    (routeName: string) => {
+      const route = routeByName.get(routeName);
+      return Boolean(route && activeRouteKey && route.key === activeRouteKey);
+    },
+    [activeRouteKey, routeByName]
+  );
 
   const handleTabPress = useCallback(
     (tab: TabConfig) => {
-      // Prevent desync: guard against rapid successive taps
-      if (navigationPendingRef.current) {
-        return;
-      }
-
-      // Get fresh navigation state synchronously (Bluesky pattern) to prevent desync
-      let freshRouteName = '';
-      try {
-        const currentState = navigation.getState();
-        if (
-          currentState?.routes &&
-          currentState.index >= 0 &&
-          currentState.index < currentState.routes.length
-        ) {
-          freshRouteName = currentState.routes[currentState.index]?.name || '';
-        }
-      } catch (_error) {
-        // Fallback to prop state if getState() fails
-        freshRouteName = state?.routes?.[state.index]?.name || '';
-      }
-      const isActive = freshRouteName === tab.routeName;
+      const route = routeByName.get(tab.routeName);
+      const isActive = isTabActive(tab.routeName);
 
       // Trigger haptics asynchronously (non-blocking, fire and forget)
       if (!pendingHapticRef.current) {
@@ -224,10 +220,6 @@ const CustomBottomTabBar: React.FC<CustomBottomTabBarProps> = ({
             break;
         }
       } else {
-        // Tab is not active - navigate immediately for fastest switching
-        // Set guard to prevent desync from rapid taps
-        navigationPendingRef.current = true;
-
         if (tab.iconType === 'create') {
           // Check if email verification is required before navigating
           if (isEmailVerificationRequired(currentUser)) {
@@ -235,33 +227,41 @@ const CustomBottomTabBar: React.FC<CustomBottomTabBarProps> = ({
           } else {
             router.navigate('/create');
           }
-          // Reset guard after navigation (create uses router, not navigation)
-          setTimeout(() => {
-            navigationPendingRef.current = false;
-          }, 100);
         } else {
-          // Use jumpTo for faster tab switching (optimized for tab navigators)
-          // This is faster than navigate for tab switching
-          const tabNavigation = navigation as typeof navigation & {
-            jumpTo?: (name: string) => void;
-          };
-          if (tabNavigation.jumpTo) {
-            tabNavigation.jumpTo(tab.routeName);
-          } else {
-            navigation.navigate(tab.routeName);
+          if (!route) {
+            return;
           }
-          // Reset guard after navigation completes
-          setTimeout(() => {
-            navigationPendingRef.current = false;
-          }, 100);
+          const event = navigation.emit({
+            type: 'tabPress',
+            target: route.key,
+            canPreventDefault: true,
+          });
+          if (!event.defaultPrevented) {
+            const tabNavigation = navigation as typeof navigation & {
+              jumpTo?: (name: string, params?: object) => void;
+            };
+            if (tabNavigation.jumpTo) {
+              tabNavigation.jumpTo(route.name, route.params);
+            } else {
+              navigation.navigate(route.name, route.params);
+            }
+          }
         }
       }
     },
-    [navigation, router, state, currentUser, setShowEmailVerificationModal]
+    [currentUser, isTabActive, navigation, routeByName, router, setShowEmailVerificationModal]
   );
 
   const handleLongPress = useCallback(
     (tab: TabConfig) => {
+      const route = routeByName.get(tab.routeName);
+      if (route) {
+        navigation.emit({
+          type: 'tabLongPress',
+          target: route.key,
+        });
+      }
+
       // Trigger haptics for long press (non-blocking)
       if (!pendingHapticRef.current) {
         pendingHapticRef.current = true;
@@ -273,15 +273,24 @@ const CustomBottomTabBar: React.FC<CustomBottomTabBarProps> = ({
       if (tab.iconType === 'profile') {
         presentAccountSwitcher();
       } else if (tab.iconType === 'explore') {
-        const isActive = currentRouteName === tab.routeName;
+        const isActive = isTabActive(tab.routeName);
         if (!isActive) {
-          const tabNavigation = navigation as typeof navigation & {
-            jumpTo?: (name: string) => void;
-          };
-          if (tabNavigation.jumpTo) {
-            tabNavigation.jumpTo(tab.routeName);
-          } else {
-            navigation.navigate(tab.routeName);
+          if (route) {
+            const event = navigation.emit({
+              type: 'tabPress',
+              target: route.key,
+              canPreventDefault: true,
+            });
+            if (!event.defaultPrevented) {
+              const tabNavigation = navigation as typeof navigation & {
+                jumpTo?: (name: string, params?: object) => void;
+              };
+              if (tabNavigation.jumpTo) {
+                tabNavigation.jumpTo(route.name, route.params);
+              } else {
+                navigation.navigate(route.name, route.params);
+              }
+            }
           }
           setTimeout(() => tabRefs.explore?.focusSearch?.(), 100);
         } else {
@@ -289,7 +298,7 @@ const CustomBottomTabBar: React.FC<CustomBottomTabBarProps> = ({
         }
       }
     },
-    [presentAccountSwitcher, navigation, currentRouteName]
+    [isTabActive, navigation, presentAccountSwitcher, routeByName]
   );
 
   const renderTabIcon = useCallback(
@@ -326,7 +335,7 @@ const CustomBottomTabBar: React.FC<CustomBottomTabBarProps> = ({
     () =>
       currentRouteName === 'explore' || currentRouteName === 'activity'
         ? Colors.black
-        : 'transparent',
+        : Colors.transparent,
     [currentRouteName]
   );
 
@@ -362,7 +371,7 @@ const CustomBottomTabBar: React.FC<CustomBottomTabBarProps> = ({
               onLongPress={() => handleLongPress(tab)}
               delayLongPress={200}
             >
-              {renderTabIcon(tab, currentRouteName === tab.routeName)}
+              {renderTabIcon(tab, isTabActive(tab.routeName))}
             </Pressable>
           ))}
         </View>
@@ -391,7 +400,7 @@ const CustomBottomTabBar: React.FC<CustomBottomTabBarProps> = ({
               onLongPress={() => handleLongPress(tab)}
               delayLongPress={250}
             >
-              {renderTabIcon(tab, currentRouteName === tab.routeName)}
+              {renderTabIcon(tab, isTabActive(tab.routeName))}
             </Pressable>
           ))}
         </View>
@@ -409,7 +418,7 @@ const iconStyles = StyleSheet.create({
     borderColor: Colors.neutral[50],
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'transparent',
+    backgroundColor: Colors.transparent,
   },
   captureInner: {
     backgroundColor: Colors.neutral[50],
@@ -422,7 +431,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'transparent',
+    backgroundColor: Colors.transparent,
     borderTopWidth: 0,
     zIndex: 100,
     shadowOpacity: 0,
