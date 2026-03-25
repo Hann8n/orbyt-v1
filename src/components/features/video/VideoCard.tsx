@@ -453,8 +453,43 @@ const VideoCard = memo(
         isVisible &&
         !!videoUrl;
 
-      // Simple dim state: dim when video cannot play, clear when it can
-      const isDimmed = !shouldPlayVideo;
+      const isPausedDimmed = !shouldPlayVideo;
+
+      // Text-expanded dim state is driven fully by Reanimated shared values to avoid re-rendering
+      // VideoCard when the overlay text is expanded/collapsed.
+      const textDimActiveSV = useSharedValue(0);
+      const textDimOpacitySV = useSharedValue(0);
+
+      useEffect(() => {
+        // Reset dim state when post changes (FlashList recycle safety)
+
+        textDimActiveSV.value = 0;
+
+        textDimOpacitySV.value = 0;
+      }, [postView.uri, textDimActiveSV, textDimOpacitySV]);
+
+      const handleOverlayCollapsedChange = useCallback(
+        (isCollapsed: boolean) => {
+          const isExpanded = !isCollapsed;
+
+          textDimActiveSV.value = isExpanded ? 1 : 0;
+
+          textDimOpacitySV.value = withTiming(isExpanded ? 0.65 : 0, { duration: 120 });
+        },
+        [textDimActiveSV, textDimOpacitySV]
+      );
+
+      const textDimAnimatedStyle = useAnimatedStyle(() => {
+        'worklet';
+        return { opacity: textDimOpacitySV.value };
+      }, [textDimOpacitySV]);
+
+      const pausedDimAnimatedStyle = useAnimatedStyle(() => {
+        'worklet';
+        // Hide paused dim whenever the text-expanded dim is active (no stacking)
+        const shouldShowPaused = isPausedDimmed && textDimActiveSV.value < 0.5;
+        return { opacity: shouldShowPaused ? 1 : 0 };
+      }, [textDimActiveSV, isPausedDimmed]);
 
       const shouldLoadVideo = !cannotShowMedia && !isBlurred && !!videoSource;
 
@@ -1089,8 +1124,19 @@ const VideoCard = memo(
                 </View>
               )}
 
-              {/* Simple dimming overlay - only rendered when video cannot play */}
-              {isDimmed && <View style={styles.dimmingOverlay} pointerEvents="none" />}
+              {/* Dimming overlays
+                  - Paused/not-playing: instant 0.4 (no animation)
+                  - Text expanded: fades to 0.65 (micro-animation)
+                  - When both apply: prefer text-expanded overlay (no stacking)
+              */}
+              <Animated.View
+                style={[styles.pausedDimmingOverlay, pausedDimAnimatedStyle]}
+                pointerEvents="none"
+              />
+              <Animated.View
+                style={[styles.textExpandedDimmingOverlay, textDimAnimatedStyle]}
+                pointerEvents="none"
+              />
 
               {/* Double tap heart animation */}
               <Animated.View
@@ -1109,6 +1155,7 @@ const VideoCard = memo(
                   isModal={isModal}
                   overlayOpacitySV={uiOverlayOpacitySV}
                   feedOption={feedOption as 'following' | 'discover' | undefined}
+                  onOverlayCollapsedChange={handleOverlayCollapsedChange}
                   onLike={handleLike}
                   onRepost={handleRepost}
                   onShareInteraction={() => queueInteraction(INTERACTIONSHARE_CONST)}
@@ -1281,11 +1328,17 @@ const styles = StyleSheet.create({
     fontFamily: 'Figtree-SemiBold',
     fontWeight: '600',
   },
-  dimmingOverlay: {
+  pausedDimmingOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: hexToRGBA(Colors.black, 0.4),
     zIndex: 5,
-    pointerEvents: 'none', // Allow touch events to pass through when not dimmed
+    pointerEvents: 'none',
+  },
+  textExpandedDimmingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: Colors.black,
+    zIndex: 5,
+    pointerEvents: 'none',
   },
   heartAnimationContainer: {
     position: 'absolute',

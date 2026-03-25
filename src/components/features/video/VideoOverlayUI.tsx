@@ -47,6 +47,8 @@ export interface VideoOverlayUIProps {
   feedOption?: 'following' | 'discover';
   // Optional composed shared opacity to tie overlay and scrubber together
   overlayOpacitySV?: SharedValue<number>;
+  /** Fires when the description text collapses/expands (collapsed = 2 lines). */
+  onOverlayCollapsedChange?: (isCollapsed: boolean) => void;
   onLike?: () => void;
   onRepost?: () => void;
   onShareInteraction?: () => void; // Callback to track share interaction
@@ -75,6 +77,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   isModal = false,
   feedOption,
   overlayOpacitySV,
+  onOverlayCollapsedChange,
   onLike,
   onRepost,
   onShareInteraction,
@@ -139,6 +142,10 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   useEffect(() => {
     setIsOverlayCollapsed(true);
   }, [post?.uri, record?.text]);
+
+  useEffect(() => {
+    onOverlayCollapsedChange?.(isOverlayCollapsed);
+  }, [isOverlayCollapsed, onOverlayCollapsedChange]);
 
   // Heuristic to detect long text without layout measurement
   const hasLongText = useMemo(
