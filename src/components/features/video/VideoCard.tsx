@@ -35,7 +35,7 @@ import Animated, {
   useDerivedValue,
   interpolate,
 } from 'react-native-reanimated';
-import { BORDER_RADIUS, YOUR_MIX_FEED_GENERATOR_URI } from '../../../utils/constants';
+import { BORDER_RADIUS } from '../../../utils/constants';
 import { BlurView } from '../../ui/BlurView';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Image } from 'expo-image';
@@ -162,10 +162,6 @@ const VideoCard = memo(
       // Access feedContext and reqId from feedItem (native properties from FeedViewPost)
       const feedContext = feedItem?.feedContext;
       const reqId = feedItem?.reqId;
-      const sourceFeed = (feedItem as (ExtendedFeedViewPost & { sourceFeed?: string }) | undefined)
-        ?.sourceFeed;
-      const isOrbytMixSource =
-        feedOption === 'your-mix' || sourceFeed === YOUR_MIX_FEED_GENERATOR_URI;
       const { presentCommentSection } = useGlobalCommentSection();
 
       // Normalize post - extract ExtendedPostView from ExtendedFeedViewPost if needed
@@ -1112,10 +1108,7 @@ const VideoCard = memo(
                   isVisible={isVisible}
                   isModal={isModal}
                   overlayOpacitySV={uiOverlayOpacitySV}
-                  feedOption={feedOption as 'following' | 'discover' | 'your-mix' | undefined}
-                  sourceFeed={sourceFeed}
-                  feedContext={feedContext}
-                  isOrbytMixSource={isOrbytMixSource}
+                  feedOption={feedOption as 'following' | 'discover' | undefined}
                   onLike={handleLike}
                   onRepost={handleRepost}
                   onShareInteraction={() => queueInteraction(INTERACTIONSHARE_CONST)}

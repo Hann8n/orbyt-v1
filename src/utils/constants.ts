@@ -75,16 +75,6 @@ export const ALGORITHMIC_FEED_PROVIDERS = {
 
 export const DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI = ALGORITHMIC_FEED_PROVIDERS.VIDEOS_FOR_YOU.uri;
 
-// Orbyt mix feed generator URI used for the server-side "your-mix" feed.
-export const YOUR_MIX_FEED_GENERATOR_URI =
-  'at://did:plc:2xrqztnmzlckb3xfuuukupso/app.bsky.feed.generator/your-mix';
-
-// Base URL for orbyt-mix feed generator (used for warm-up ping when Cloud Run is scale-to-zero).
-export const ORBYT_MIX_FEED_BASE_URL = 'https://feed.getorbyt.com';
-
-// Feature flag for migrating "your-mix" from client-side mixing to orbyt-mix.
-export const ENABLE_SERVER_YOUR_MIX = true;
-
 // View Modes
 export const VIEW_MODES = {
   LIST: 'list',

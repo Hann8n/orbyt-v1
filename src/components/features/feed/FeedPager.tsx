@@ -43,8 +43,6 @@ import {
   useTabBarVisibility,
   useSetOverlayVisibility,
 } from '../../../context/FeedIndicatorContext';
-import { warmupOrbytMix } from '../../../services/OrbytMixWarmupService';
-import { useUserStore } from '../../../stores/userStore';
 
 // Define the feed options type
 export type FeedOption = string;
@@ -189,14 +187,6 @@ const FeedPager = forwardRef<ProfileRef, FeedPagerProps>(function FeedPager(
   const tabBarVisibility = useTabBarVisibility();
 
   const feedOptions = useMemo(() => feedOptionsProp ?? DEFAULT_FEED_OPTIONS, [feedOptionsProp]);
-  const serverYourMixEnabled = useUserStore(state => state.serverYourMixEnabled);
-
-  // Warm orbyt-mix (Cloud Run) when home feed includes your-mix — reduces cold-start latency
-  useEffect(() => {
-    if (serverYourMixEnabled && feedOptions.includes('your-mix')) {
-      warmupOrbytMix();
-    }
-  }, [serverYourMixEnabled, feedOptions]);
 
   const showBarAndOverlay = useCallback(() => {
     setTabBarVisibility(1);

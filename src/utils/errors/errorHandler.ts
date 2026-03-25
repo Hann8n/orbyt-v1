@@ -81,29 +81,6 @@ export class ErrorHandler {
   }
 
   /**
-   * Check if error is transient (503, 504, timeout, network) and worth retrying.
-   * Used for feed fetches when Cloud Run or upstream may be cold-starting.
-   */
-  static isTransientError(error: unknown): boolean {
-    const msg = this.getErrorMessage(error).toLowerCase();
-    if (
-      msg.includes('503') ||
-      msg.includes('504') ||
-      msg.includes('timeout') ||
-      msg.includes('network') ||
-      msg.includes('connection') ||
-      msg.includes('econnrefused')
-    ) {
-      return true;
-    }
-    if (error && typeof error === 'object' && 'status' in error) {
-      const status = (error as { status?: number }).status;
-      if (status === 503 || status === 504) return true;
-    }
-    return false;
-  }
-
-  /**
    * Check if error is a user cancellation
    */
   static isUserCancellation(error: unknown): boolean {

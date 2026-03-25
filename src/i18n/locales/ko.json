@@ -610,8 +610,6 @@
     "appIcon": "앱 아이콘",
     "contentFilters": "콘텐츠 필터",
     "newTabs": "새 탭",
-    "serverYourMixFeed": "향상된 내 믹스",
-    "serverYourMixFeedDescription": "시청하고 상호작용할수록 더 똑똑해지는 추천",
     "classicLayout": "클래식 레이아웃",
     "modalLayout": "모달 레이아웃",
     "cardStyleForProfile": "프로필·채널 카드 스타일",
@@ -727,11 +725,7 @@
     "saved": "저장됨",
     "delete": "삭제",
     "report": "신고",
-    "postBy": "{{author}}의 게시물",
-    "showMore": "더 보기",
-    "showLess": "덜 보기",
-    "showMoreLikeThis": "이와 비슷한 게시물 더 보기",
-    "showLessLikeThis": "이와 비슷한 게시물 덜 보기"
+    "postBy": "{{author}}의 게시물"
   },
   "tabs": {
     "home": "홈",

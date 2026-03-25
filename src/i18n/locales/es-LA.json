@@ -610,8 +610,6 @@
     "appIcon": "Icono de la app",
     "contentFilters": "Filtros de contenido",
     "newTabs": "Nuevas pestañas",
-    "serverYourMixFeed": "Tu Mix mejorado",
-    "serverYourMixFeedDescription": "Recomendaciones más inteligentes que mejoran al ver e interactuar",
     "classicLayout": "Diseño clásico",
     "modalLayout": "Diseño modal",
     "cardStyleForProfile": "Estilo tarjeta para perfil y canal",
@@ -727,11 +725,7 @@
     "saved": "Guardado",
     "delete": "Eliminar",
     "report": "Reportar",
-    "postBy": "post de {{author}}",
-    "showMore": "Mostrar más",
-    "showLess": "Mostrar menos",
-    "showMoreLikeThis": "Mostrar más como esto",
-    "showLessLikeThis": "Mostrar menos como esto"
+    "postBy": "post de {{author}}"
   },
   "tabs": {
     "home": "inicio",

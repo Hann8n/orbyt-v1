@@ -589,8 +589,6 @@
     "appIcon": "アプリアイコン",
     "contentFilters": "コンテンツフィルター",
     "newTabs": "新しいタブ",
-    "serverYourMixFeed": "強化されたミックス",
-    "serverYourMixFeedDescription": "視聴や操作に応じてどんどん賢くなるおすすめ",
     "classicLayout": "クラシックレイアウト",
     "modalLayout": "モーダルレイアウト",
     "clearCache": "キャッシュをクリア",
@@ -696,11 +694,7 @@
     "saved": "保存しました",
     "delete": "削除",
     "report": "報告",
-    "postBy": "{{author}}の投稿",
-    "showMore": "もっと表示",
-    "showLess": "表示を減らす",
-    "showMoreLikeThis": "このような投稿をもっと表示",
-    "showLessLikeThis": "このような投稿を減らす"
+    "postBy": "{{author}}の投稿"
   },
   "a11y": {
     "back": "戻る",

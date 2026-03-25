@@ -46,16 +46,11 @@ import {
 } from '../types';
 import { REQUESTMORE, REQUESTLESS } from '@atproto/api/dist/client/types/app/bsky/feed/defs';
 import i18n from '../../../i18n';
-import { ErrorHandler } from '../../../utils/errors/errorHandler';
 
 export class FeedService {
   // Tracks whether app.bsky.feed.sendInteractions is supported by the current PDS/AppView
   // null = unknown (try once), true = supported, false = known unsupported (skip quietly)
   private static interactionsSupported: boolean | null = null;
-
-  static getInteractionsSupportedState(): boolean | null {
-    return FeedService.interactionsSupported;
-  }
   /**
    * Get feed content - optimized for video-only feeds with maximum batch loading
    * Uses @atproto/api directly - React Query handles retries
@@ -179,11 +174,6 @@ export class FeedService {
             customFeedError.message.includes('feed must be a valid at-uri')
           ) {
             return { feed: [], cursor: null };
-          }
-          // Rethrow transient errors (503, timeout, network) so React Query can retry.
-          // Critical for orbyt-mix on Cloud Run scale-to-zero cold starts.
-          if (ErrorHandler.isTransientError(customFeedError)) {
-            throw customFeedError;
           }
           return { feed: [], cursor: null };
         }
@@ -1090,9 +1080,8 @@ export class FeedService {
    * Send feed interactions directly to the Bluesky API
    * Accepts Interaction[] array directly from ATProto SDK types
    * @param interactions - Array of Interaction objects to send
-   * @param feed - Optional feed URI hint for interaction routing
    */
-  static async sendFeedInteractions(interactions: Interaction[], feed?: string): Promise<void> {
+  static async sendFeedInteractions(interactions: Interaction[]): Promise<void> {
     if (!interactions || interactions.length === 0) {
       return;
     }
@@ -1116,13 +1105,7 @@ export class FeedService {
       // Call sendInteractions - procedures use (data, opts) where data is the input and opts contains qp
       // The SDK implementation: _client.call('app.bsky.feed.sendInteractions', opts?.qp, data, opts)
       // So we pass { interactions } as data, and {} as opts (which means opts.qp is undefined, so query params are empty)
-      // Some SDK builds still type sendInteractions input without optional `feed`.
-      // Cast to preserve support for feed-hint routing while keeping runtime behavior.
-      await api.app.bsky.feed.sendInteractions(
-        (feed ? { interactions, feed } : { interactions }) as unknown as Parameters<
-          typeof api.app.bsky.feed.sendInteractions
-        >[0]
-      );
+      await api.app.bsky.feed.sendInteractions({ interactions });
 
       // Mark endpoint as supported once we have a successful call
       FeedService.interactionsSupported = true;
@@ -1236,7 +1219,7 @@ export class FeedService {
 
         // Send the interaction using FeedService's sendFeedInteractions method
         // This ensures consistent error handling and deduplication
-        await FeedService.sendFeedInteractions([interaction], targetFeed ?? undefined);
+        await FeedService.sendFeedInteractions([interaction]);
       }
     } catch (_error: unknown) {
       // Interactions are best-effort; swallow errors
@@ -1270,33 +1253,6 @@ export class FeedService {
   static removeVideoFeedback(postUri: string): void {
     const feedbackKey = `video_feedback_${postUri}`;
     storage.delete(feedbackKey);
-  }
-
-  /**
-   * Persist feed preference (show more / show less) for a post.
-   * Uses the same storage key as getVideoFeedback so the preference survives app restarts.
-   */
-  static async persistFeedPreference(
-    postUri: string,
-    type: 'interested' | 'not_interested'
-  ): Promise<void> {
-    try {
-      const userDid = await AtprotoCore.getCurrentUserDid();
-      if (!userDid) return;
-
-      const feedbackKey = `video_feedback_${postUri}`;
-      storage.set(
-        feedbackKey,
-        JSON.stringify({
-          postUri,
-          type,
-          timestamp: new Date().toISOString(),
-          userDid,
-        })
-      );
-    } catch {
-      // Persistence is best-effort
-    }
   }
 
   /**

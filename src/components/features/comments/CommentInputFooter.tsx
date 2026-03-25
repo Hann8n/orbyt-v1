@@ -11,8 +11,6 @@ import {
   Keyboard,
   type NativeSyntheticEvent,
   type TargetedEvent,
-  type ImageStyle,
-  type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
@@ -265,7 +263,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                   {hasGifPreview ? (
                     <Image
                       source={{ uri: selectedGifPreviewUri ?? undefined }}
-                      style={styles.attachmentThumb as ImageStyle}
+                      style={styles.attachmentThumb}
                       contentFit="cover"
                     />
                   ) : (
@@ -305,7 +303,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                       <View key={img.uri} style={[styles.attachmentThumbWrap, { aspectRatio: ar }]}>
                         <Image
                           source={{ uri: img.uri }}
-                          style={styles.attachmentThumb as ImageStyle}
+                          style={styles.attachmentThumb}
                           contentFit="cover"
                         />
                         {onRemoveImage ? (
@@ -496,7 +494,7 @@ const styles = StyleSheet.create({
   iconButtonDisabled: {
     opacity: 0.6,
   },
-  sendButton: StyleSheet.flatten([COMPOSER_STYLES.sendButton, { marginLeft: 0 }]) as ViewStyle,
+  sendButton: [COMPOSER_STYLES.sendButton, { marginLeft: 0 }],
   sendButtonFallback: COMPOSER_STYLES.sendButtonFallback,
   sendButtonDisabled: {
     opacity: 0.6,
