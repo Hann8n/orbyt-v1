@@ -624,44 +624,50 @@ const NotificationItem = React.memo<NotificationItemProps>(
 
     return (
       <View style={styles.notificationItem}>
-        <Pressable onPress={handleAvatarPress} style={styles.profileImage}>
-          <Avatar
-            uri={author?.avatar}
-            type="profile"
-            size={55}
-            showRing={ringProps.showRing}
-            ringColor={ringProps.ringColor}
-            profileColors={ringProps.profileColors}
-            style={styles.avatarFill}
-            status={authorProfile?.status}
-          />
-        </Pressable>
-        <Pressable onPress={handlePress} style={styles.notificationContent}>
-          <View style={styles.nameRow}>
-            <Pressable onPress={handleNamePress} hitSlop={nameHitSlop} style={styles.namePressable}>
-              <Text style={styles.authorName}>
-                {formatHandle(author.handle) || t('feed.unknownUser')}
-              </Text>
-              {author.handle && (
-                <VerificationBadge
-                  handle={author.handle}
-                  textSize={14}
-                  textColor={Colors.neutral[50]}
-                />
-              )}
-            </Pressable>
-          </View>
-          <View style={styles.actionRow}>
-            <View style={styles.actionTextAndTime}>
-              <View style={styles.actionTextWrap}>
-                <Text style={styles.actionText} numberOfLines={1}>
-                  {actionText}
+        <View style={styles.notificationLeftContainer}>
+          <Pressable onPress={handleAvatarPress} style={styles.profileImage}>
+            <Avatar
+              uri={author?.avatar}
+              type="profile"
+              size={55}
+              showRing={ringProps.showRing}
+              ringColor={ringProps.ringColor}
+              profileColors={ringProps.profileColors}
+              style={styles.avatarFill}
+              status={authorProfile?.status}
+            />
+          </Pressable>
+          <Pressable onPress={handlePress} style={styles.notificationContent}>
+            <View style={styles.nameRow}>
+              <Pressable
+                onPress={handleNamePress}
+                hitSlop={nameHitSlop}
+                style={styles.namePressable}
+              >
+                <Text style={styles.authorName}>
+                  {formatHandle(author.handle) || t('feed.unknownUser')}
                 </Text>
-              </View>
-              {indexedAt && <Text style={styles.timeText}>{formatRelativeDate(indexedAt)}</Text>}
+                {author.handle && (
+                  <VerificationBadge
+                    handle={author.handle}
+                    textSize={14}
+                    textColor={Colors.neutral[50]}
+                  />
+                )}
+              </Pressable>
             </View>
-          </View>
-        </Pressable>
+            <View style={styles.actionRow}>
+              <View style={styles.actionTextAndTime}>
+                <View style={styles.actionTextWrap}>
+                  <Text style={styles.actionText} numberOfLines={1}>
+                    {actionText}
+                  </Text>
+                </View>
+                {indexedAt && <Text style={styles.timeText}>{formatRelativeDate(indexedAt)}</Text>}
+              </View>
+            </View>
+          </Pressable>
+        </View>
         {shouldShowThumbnailContainer && (
           <Pressable onPress={handleThumbnailPress} style={styles.thumbnailContainer}>
             {thumbnail ? (
@@ -988,8 +994,13 @@ const styles = StyleSheet.create({
   },
   notificationItem: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingVertical: 10,
+  },
+  notificationLeftContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
   },
   divider: {
     height: 1,
@@ -1010,6 +1021,7 @@ const styles = StyleSheet.create({
   notificationContent: {
     flex: 1,
     justifyContent: 'center',
+    minHeight: 55,
     marginRight: 10,
   },
   thumbnailContainer: {
