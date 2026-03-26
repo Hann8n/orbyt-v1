@@ -3,19 +3,13 @@ import React, { useEffect } from 'react';
 import { View, StyleSheet, StatusBar, Appearance, Platform } from 'react-native';
 import { Stack } from 'expo-router';
 import { DarkTheme, ThemeProvider } from '@react-navigation/native';
-import {
-  SafeAreaProvider,
-  initialWindowMetrics,
-  useSafeAreaInsets,
-} from 'react-native-safe-area-context';
+import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import * as SplashScreen from 'expo-splash-screen';
 import * as NavigationBar from 'expo-navigation-bar';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
-import { LinearGradient } from '../src/components/ui/LinearGradient';
-
 // Keep local imports where they are; no file moves
 import { Colors } from '../src/theme';
 import { useUserStore } from '../src/stores/userStore';
@@ -173,7 +167,6 @@ export const unstable_settings = {
 // Following Expo Router's recommended authentication pattern
 function RootNavigator() {
   const { session, isLoading } = useSession();
-  const insets = useSafeAreaInsets();
   const currentUser = useUserStore(state => state.currentUser);
   const modalProfileEnabled = useUserStore(state => state.modalProfileEnabled);
 
@@ -191,13 +184,6 @@ function RootNavigator() {
         translucent={Platform.OS === 'android'}
         hidden={false}
       />
-      {!session && (
-        <LinearGradient
-          colors={['transparent', Colors.black]}
-          style={[styles.bottomGradient, { height: 45 + insets.bottom }]}
-          pointerEvents="none"
-        />
-      )}
       <Stack
         screenOptions={{
           headerShown: false,
@@ -409,11 +395,5 @@ const styles = StyleSheet.create({
   },
   gestureHandler: {
     flex: 1,
-  },
-  bottomGradient: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
   },
 });

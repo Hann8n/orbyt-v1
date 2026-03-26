@@ -2266,10 +2266,10 @@
     color "^4.2.3"
     sf-symbols-typescript "^2.1.0"
 
-"@react-navigation/core@^7.16.1":
-  version "7.16.1"
-  resolved "https://registry.yarnpkg.com/@react-navigation/core/-/core-7.16.1.tgz#a8f6799a7b18f6d5c45616cbf792ec8f08d1aadc"
-  integrity sha512-xhquoyhKdqDfiL7LuupbwYnmauUGfVFGDEJO34m26k8zSN1eDjQ2stBZcHN8ILOI1PrG9885nf8ZmfaQxPS0ww==
+"@react-navigation/core@7.17.0", "@react-navigation/core@^7.17.0":
+  version "7.17.0"
+  resolved "https://registry.yarnpkg.com/@react-navigation/core/-/core-7.17.0.tgz#7553a86e25acc7221ba6cdf6296e9163ab361c73"
+  integrity sha512-E4Kr1PRrhKiVn1RdMdPIG1rCfrKh+HiVJ2smdLsh9D95Q2z0a9dGE9yHpRQ2pAUiiwOfgloLqegkPb8g+TcCBA==
   dependencies:
     "@react-navigation/routers" "^7.5.3"
     escape-string-regexp "^4.0.0"
@@ -2299,12 +2299,12 @@
     sf-symbols-typescript "^2.1.0"
     warn-once "^0.1.1"
 
-"@react-navigation/native@^7.1.28":
-  version "7.1.33"
-  resolved "https://registry.yarnpkg.com/@react-navigation/native/-/native-7.1.33.tgz#a9910b51b42373e8977cf8d76ac960077ad4a2fc"
-  integrity sha512-DpFdWGcgLajKZ1TuIvDNQsblN2QaUFWpTQaB8v7WRP9Mix8H/6TFoIrZd93pbymI2hybd6UYrD+lI408eWVcfw==
+"@react-navigation/native@7.2.0", "@react-navigation/native@^7.1.28":
+  version "7.2.0"
+  resolved "https://registry.yarnpkg.com/@react-navigation/native/-/native-7.2.0.tgz#41e68397e37fdb662b07c30b82ebec7cf2e4f0ef"
+  integrity sha512-kEuqIS1MkzzLD45Fp17CrxAchoB4W6tMfc541merUgtAeNNsg06gRrvmuLv6LAYvpLifGdXuSjpluPIu/VmbQw==
   dependencies:
-    "@react-navigation/core" "^7.16.1"
+    "@react-navigation/core" "^7.17.0"
     escape-string-regexp "^4.0.0"
     fast-deep-equal "^3.1.3"
     nanoid "^3.3.11"
