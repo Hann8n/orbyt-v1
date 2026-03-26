@@ -2,9 +2,12 @@ import { Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Tabs } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
-import { isLiquidGlassAvailable } from 'expo-glass-effect';
 
-import { useUserStore, useFeedSettings } from '../../src/stores/userStore';
+import {
+  useUserStore,
+  useFeedSettings,
+  isIosLiquidGlassAvailable,
+} from '../../src/stores/userStore';
 import { Colors } from '../../src/theme';
 import CustomBottomTabBar from '../../src/components/ui/CustomBottomTabBar';
 import { useUnreadCount } from '../../src/hooks/useUnreadCount';
@@ -22,9 +25,6 @@ export default function TabsLayout() {
   const nativeTintColor = getTabBarActiveTintFromProfile(profileColors);
   const customTintColor = Colors.neutral[50];
 
-  // Check if liquid glass is available (needed for role="search" on newer iOS versions)
-  const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
-
   // Experimental: Use native tabs if enabled (tint = lighter profile color)
   if (nativeTabsEnabled) {
     return (
@@ -41,23 +41,23 @@ export default function TabsLayout() {
           <NativeTabs.Trigger.Icon
             src={require('../../src/assets/tab-icons/png/home_5_fill.png')}
           />
-          <NativeTabs.Trigger.Label hidden={useLiquidGlass}>
+          <NativeTabs.Trigger.Label hidden={isIosLiquidGlassAvailable}>
             {t('tabs.home')}
           </NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
 
-        <NativeTabs.Trigger name="explore" {...(useLiquidGlass && { role: 'search' })}>
+        <NativeTabs.Trigger name="explore" {...(isIosLiquidGlassAvailable && { role: 'search' })}>
           <NativeTabs.Trigger.Icon
             src={require('../../src/assets/tab-icons/png/search_2_fill.png')}
           />
-          <NativeTabs.Trigger.Label hidden={useLiquidGlass}>
+          <NativeTabs.Trigger.Label hidden={isIosLiquidGlassAvailable}>
             {t('tabs.explore')}
           </NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
 
         <NativeTabs.Trigger name="activity">
           <NativeTabs.Trigger.Icon src={require('../../src/assets/tab-icons/png/flash_fill.png')} />
-          <NativeTabs.Trigger.Label hidden={useLiquidGlass}>
+          <NativeTabs.Trigger.Label hidden={isIosLiquidGlassAvailable}>
             {t('tabs.activity')}
           </NativeTabs.Trigger.Label>
           {totalUnreadCount > 0 && (
@@ -71,7 +71,7 @@ export default function TabsLayout() {
           <NativeTabs.Trigger.Icon
             src={require('../../src/assets/tab-icons/png/user_3_fill.png')}
           />
-          <NativeTabs.Trigger.Label hidden={useLiquidGlass}>
+          <NativeTabs.Trigger.Label hidden={isIosLiquidGlassAvailable}>
             {t('tabs.profile')}
           </NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
@@ -107,8 +107,8 @@ export default function TabsLayout() {
           },
           default: {},
         }),
-        // Performance optimizations for faster tab switching
-        lazy: true, // Lazy load screens for better initial performance
+        // Eager tab screens (matches native tab mount behavior more closely)
+        lazy: false,
         freezeOnBlur: true, // Freeze screens when not focused to prevent unnecessary re-renders
       }}
       tabBar={props => (

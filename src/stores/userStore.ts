@@ -39,6 +39,7 @@ import type { ProfileColorScheme } from '../utils/formatting/colors';
 import { APP_CONSTANTS, DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI } from '../utils/constants';
 import { Platform, Dimensions } from 'react-native';
 import { classifyDevice } from '@/utils/device/screen';
+import { isLiquidGlassAvailable } from 'expo-glass-effect';
 
 // Note: FeedService is no longer needed here - React Query handles all feed caching
 
@@ -51,6 +52,8 @@ const getDefaultModalProfileEnabled = (): boolean => {
   const { width, height } = Dimensions.get('window');
   return !classifyDevice(width, height).isCompact;
 };
+
+export const isIosLiquidGlassAvailable = Platform.OS === 'ios' && isLiquidGlassAvailable();
 
 /**
  * Prefetch orbyt colors for a user and their following (non-blocking)
@@ -346,7 +349,7 @@ export const useUserStore = create<UserState>()(
 
       // Feed settings
       feedDebugOverlayEnabled: false, // Keep disabled by default, user can enable manually
-      nativeTabsEnabled: false, // Default to custom JavaScript tab bar
+      nativeTabsEnabled: isIosLiquidGlassAvailable,
       modalProfileEnabled: getDefaultModalProfileEnabled(), // Enabled by default on iOS devices that don't require compact layout
 
       // Algorithmic feed provider - default to Videos For You
@@ -1268,7 +1271,7 @@ export const useUserStore = create<UserState>()(
       },
       getNativeTabsEnabled: async () =>
         storage.getBoolean(getFlagKey('native_tabs_enabled', get().currentUser?.did ?? null)) ??
-        false,
+        isIosLiquidGlassAvailable,
       setModalProfileEnabled: async (enabled: boolean) => {
         storage.set(getFlagKey('modal_profile_enabled', get().currentUser?.did ?? null), enabled);
         set({ modalProfileEnabled: enabled });
