@@ -10,7 +10,6 @@ import { authSheetStyles } from './AuthSheetStyles';
 import ErrorMessage from './ErrorMessage';
 import { useSheetPresentation } from '../../hooks';
 import { isUserCancellation } from '../../utils/errors/errorHandler';
-import 'abortcontroller-polyfill';
 
 const DEFAULT_PDS = 'https://bsky.social';
 

@@ -10,9 +10,8 @@ import { BookmarkService } from './bookmark/BookmarkService';
 import { VideoService } from './video/VideoService';
 import { RepoService } from './repo/RepoService';
 import { ModerationService } from '../moderation/ModerationService';
-import 'abortcontroller-polyfill';
 
-// Declare global types (provided by abortcontroller-polyfill and fetch)
+// Declare global types (polyfilled at the app entrypoint)
 declare global {
   var AbortController: typeof AbortController;
   var Response: typeof Response;
