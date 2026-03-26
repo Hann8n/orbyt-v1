@@ -1,23 +1,23 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BORDER_RADIUS } from '../../../utils/constants';
-import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
+import { BORDER_RADIUS, LAYOUT_INSETS } from '../../../utils/constants';
+import { View, Pressable, StyleSheet, Alert } from 'react-native';
 import { SavedAccount } from '../../../stores/userStore';
 import { requiresReauth } from '../../../utils/errors/oauth';
+import { shouldShowError, getErrorMessage } from '../../../utils/errors/errorHandler';
 import ProfileService, { useProfile } from '../../../services/data/ProfileService';
 import type { ProfileViewWithOrbyt } from '../../../services/api/types';
 import { Colors } from '../../../theme';
 import AuthorItem from '../../ui/AuthorItem';
+import { ITEM_ROW_PADDING_VERTICAL, itemSizeConfig } from '../../ui/ItemStyles';
 import VerticalListSheet, { TrueSheet } from '../../ui/VerticalListSheet';
-import {
-  DEFAULT_CONTENT_PADDING_HORIZONTAL,
-  SHEET_SPACING,
-  SHEET_STYLES,
-} from '../../../utils/components/truesheet';
+import { SHEET_SPACING, SHEET_STYLES } from '../../../utils/components/truesheet';
 import { useAccountManagement, useAuth } from '../../../stores/userStore';
 import LoginSheet from '../../ui/LoginSheet';
 import SignUpSheet from '../../ui/SignUpSheet';
-import { FontFamily, Typography } from '../../../utils/components/typography';
+import { TypographyText } from '../../../utils/components/typography';
+
+const ACCOUNT_LIST_ROW_MIN_HEIGHT = itemSizeConfig.large.avatarSize + 2 * ITEM_ROW_PADDING_VERTICAL;
 
 interface AccountSwitcherProps {
   visible: boolean;
@@ -119,6 +119,10 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
     }
   }, [visible]);
 
+  const toggleEditMode = useCallback(() => {
+    setEditMode(prev => !prev);
+  }, []);
+
   const handleSwitchAccount = useCallback(
     async (account: AccountWithProfile) => {
       if (account.did === activeAccountDid) {
@@ -210,10 +214,6 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
                 setAccounts(prevAccounts => prevAccounts.filter(acc => acc.did !== account.did));
               }
             } catch (error) {
-              // Use simple error handler
-              const { shouldShowError, getErrorMessage } =
-                await import('../../../utils/errors/errorHandler');
-
               if (shouldShowError(error)) {
                 Alert.alert(t('common.error'), getErrorMessage(error));
               }
@@ -284,31 +284,27 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
       const shouldShowCheckmark = !editMode && isCurrentAccount && !isSwitchTarget;
 
       return (
-        <View style={styles.accountButton}>
-          <AuthorItem
-            handle={handle}
-            did={account.did}
-            displayName={displayName}
-            avatar={account.cachedProfile?.avatar}
-            size="large"
-            showRing={true}
-            showArrow={false}
-            showDeleteButton={editMode && savedAccounts.length > 1}
-            showCheckmark={shouldShowCheckmark}
-            showCheckmarkSpinner={isSwitchTarget && !editMode}
-            onDeletePress={() => handleRemoveAccount(account)}
-            backgroundColor={Colors.neutral[900]}
-            onPress={() => {
-              if (!isActive && !editMode) {
-                // Only allow switching if there are multiple accounts
-                if (savedAccounts.length > 1) {
-                  handleSwitchAccount(account);
-                }
+        <AuthorItem
+          handle={handle}
+          did={account.did}
+          displayName={displayName}
+          avatar={account.cachedProfile?.avatar}
+          size="large"
+          showRing={true}
+          showArrow={false}
+          showDeleteButton={editMode && savedAccounts.length > 1}
+          showCheckmark={shouldShowCheckmark}
+          showCheckmarkSpinner={isSwitchTarget && !editMode}
+          onDeletePress={() => handleRemoveAccount(account)}
+          backgroundColor={Colors.neutral[900]}
+          onPress={() => {
+            if (!isActive && !editMode) {
+              if (savedAccounts.length > 1) {
+                handleSwitchAccount(account);
               }
-            }}
-            style={isActive ? styles.activeAccountButton : undefined}
-          />
-        </View>
+            }
+          }}
+        />
       );
     },
     [
@@ -328,18 +324,16 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
   const customHeaderButton =
     savedAccounts.length > 1 ? (
       <Pressable
-        onPress={() => {
-          setEditMode(!editMode);
-        }}
+        onPress={toggleEditMode}
         disabled={isSwitchingAccount || isAuthenticating}
         style={[
           styles.headerEditButton,
           (isSwitchingAccount || isAuthenticating) && styles.headerEditButtonDisabled,
         ]}
       >
-        <Text style={styles.headerEditButtonText}>
+        <TypographyText variant="body" weight="semibold">
           {editMode ? t('common.done') : t('common.edit')}
-        </Text>
+        </TypographyText>
       </Pressable>
     ) : null;
 
@@ -352,7 +346,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
         customHeaderButton={customHeaderButton}
         scrollable={false}
       >
-        <View style={styles.listContent}>
+        <View>
           {listData.map(item => (
             <React.Fragment key={keyExtractor(item)}>{renderAccountItem({ item })}</React.Fragment>
           ))}
@@ -366,7 +360,9 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
               onPress={handleAddAccount}
               disabled={isAuthenticating}
             >
-              <Text style={styles.addAccountButtonText}>{t('auth.addAccount')}</Text>
+              <TypographyText variant="title" weight="semibold">
+                {t('auth.addAccount')}
+              </TypographyText>
             </Pressable>
           )}
         </View>
@@ -392,27 +388,14 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
 const styles = StyleSheet.create({
   headerEditButton: {
     ...SHEET_STYLES.headerActionButton,
-  },
-  headerEditButtonText: {
-    ...SHEET_STYLES.headerActionButtonText,
-  },
-  listContent: {
-    paddingHorizontal: DEFAULT_CONTENT_PADDING_HORIZONTAL,
-    paddingVertical: 0,
-    paddingBottom: 0,
-  },
-  accountButton: {
-    marginBottom: 0,
-  },
-  activeAccountButton: {
-    // AuthorItem handles its own styling
+    paddingHorizontal: SHEET_SPACING.headerActionHorizontalTight,
   },
   addAccountButton: {
-    marginBottom: DEFAULT_CONTENT_PADDING_HORIZONTAL,
+    marginBottom: SHEET_SPACING.headerBottom,
     marginHorizontal: 0,
-    paddingVertical: SHEET_SPACING.headerBottom,
-    paddingHorizontal: SHEET_SPACING.headerHorizontal,
-    minHeight: 64,
+    paddingVertical: ITEM_ROW_PADDING_VERTICAL,
+    paddingHorizontal: LAYOUT_INSETS.SHEET_CONTENT,
+    minHeight: ACCOUNT_LIST_ROW_MIN_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
@@ -425,12 +408,6 @@ const styles = StyleSheet.create({
   },
   addAccountButtonDisabled: {
     opacity: 0.5,
-  },
-  addAccountButtonText: {
-    color: Colors.neutral[50],
-    fontSize: Typography.sizes.title,
-    lineHeight: Typography.lineHeights.title,
-    fontFamily: FontFamily.semibold,
   },
   headerEditButtonDisabled: {
     opacity: 0.5,

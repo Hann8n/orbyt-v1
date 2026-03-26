@@ -2,6 +2,9 @@ import { StyleSheet } from 'react-native';
 import { BORDER_RADIUS } from '../../utils/constants';
 import { Colors } from './UI';
 
+/** Vertical padding for AuthorItem / ChannelItem rows (single source of truth). */
+export const ITEM_ROW_PADDING_VERTICAL = 16;
+
 // Shared size configuration for AuthorItem and ChannelItem
 export const itemSizeConfig = {
   small: {
@@ -33,7 +36,7 @@ export const sharedItemStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 16,
+    paddingVertical: ITEM_ROW_PADDING_VERTICAL,
     paddingHorizontal: 20,
     borderRadius: BORDER_RADIUS.LARGE,
     marginBottom: 12,

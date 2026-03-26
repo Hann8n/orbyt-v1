@@ -42,6 +42,8 @@ export const SHEET_SPACING = {
   descriptionBottom: 10,
   footerHorizontal: LAYOUT_INSETS.SHEET_FOOTER,
   footerTop: 12,
+  /** Small header actions (e.g. account switcher Edit). */
+  headerActionHorizontalTight: 12,
   /** Media pickers (e.g. Klipy GIF): wider inset for full-screen grid layouts. */
   mediaPickerHorizontal: 16,
 } as const;
