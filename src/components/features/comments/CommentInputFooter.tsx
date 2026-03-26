@@ -385,14 +385,14 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                   isAnchoredToRight={true}
                 >
                   <Pressable
-                    style={[styles.iconButton, isPosting && styles.iconButtonDisabled]}
+                    style={[styles.addIconButton, isPosting && styles.iconButtonDisabled]}
                     disabled={isPosting || mediaMenuActions.length === 0}
                     hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
                     accessible={true}
                     accessibilityRole="button"
                     accessibilityLabel={t('common.add')}
                   >
-                    <Icon name="plus" size={18} color={Colors.neutral[50]} />
+                    <Icon name="circle-plus" size={30} color={Colors.neutral[50]} />
                   </Pressable>
                 </MenuView>
               ) : null}
@@ -484,9 +484,9 @@ const styles = StyleSheet.create({
   },
   sendColumn: {
     alignItems: 'flex-end',
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
     marginLeft: 8,
-    alignSelf: 'stretch',
+    alignSelf: 'center',
     position: 'relative',
     zIndex: 10,
     elevation: 10,
@@ -497,7 +497,15 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     gap: 8,
   },
-  iconButton: COMPOSER_STYLES.addButton,
+  addIconButton: {
+    padding: 0,
+    backgroundColor: Colors.transparent,
+    borderRadius: 0,
+    width: 34,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   iconButtonDisabled: {
     opacity: 0.6,
   },

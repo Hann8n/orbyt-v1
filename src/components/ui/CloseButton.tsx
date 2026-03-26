@@ -20,7 +20,7 @@ const CloseButton: React.FC<CloseButtonProps> = ({ onPress }) => {
       accessibilityLabel={t('common.close')}
       accessibilityHint={t('common.closesSheet')}
     >
-      <Icon name="close" size={20} color={Colors.neutral[50]} style={styles.closeIcon} />
+      <Icon name="close" size={34} color={Colors.neutral[50]} style={styles.closeIcon} />
     </Pressable>
   );
 };
@@ -32,10 +32,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: BORDER_RADIUS.LARGE,
-    backgroundColor: hexToRGBA(Colors.neutral[300], 0.12),
+    backgroundColor: Colors.transparent,
   },
   closeButtonPressed: {
-    backgroundColor: Colors.neutral[700],
+    backgroundColor: hexToRGBA(Colors.neutral[300], 0.12),
   },
   closeIcon: {
     margin: 0,

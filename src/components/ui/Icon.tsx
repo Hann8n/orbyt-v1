@@ -16,9 +16,6 @@ const CLOSE_LINE_ICON_STROKE_SVG = (strokeWidth: number) =>
 /** Shared stroke width for check, plus, and close when used together (e.g. AuthorItem, list actions). */
 export const STROKE_WIDTH_THICK = 3.5;
 
-// Add Circle Line Icon (white interior, black border + black plus)
-const ADD_CIRCLE_LINE_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none"><circle cx="12" cy="12" r="10" fill="#FFF" stroke="currentColor" stroke-width="1"/><rect x="10.5" y="6.5" width="3" height="11" fill="currentColor"/><rect x="6.5" y="10.5" width="11" height="3" fill="currentColor"/></g></svg>`;
-
 // Stroke-based check (thickness via stroke-width)
 const CHECK_ICON_STROKE_SVG = (strokeWidth: number) =>
   `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M6 12.5l4 4 8-10" stroke="#fff" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`;
@@ -180,16 +177,6 @@ export const PlusIcon: React.FC<{ size: number; color: string; strokeWidth: numb
 }) => {
   const svgXml = PLUS_ICON_STROKE_SVG(strokeWidth).replace(/#fff/g, color);
   return <SvgXml xml={svgXml} width={size} height={size} />;
-};
-
-// Add Circle Line Icon component
-export const AddCircleLineIcon: React.FC<{
-  size: number;
-  color: string;
-  style?: StyleProp<ViewStyle>;
-}> = ({ size, color, style }) => {
-  const svgXml = ADD_CIRCLE_LINE_ICON_SVG.replace(/currentColor/g, color);
-  return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
 };
 
 // Custom Check Icon component (stroke-based, thickness via strokeWidth)
@@ -810,6 +797,83 @@ export const CloseLineIcon: React.FC<{
   style?: StyleProp<ViewStyle>;
 }> = ({ size, color, strokeWidth, style }) => {
   const svgXml = CLOSE_LINE_ICON_STROKE_SVG(strokeWidth).replace(/#fff/g, color);
+  return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
+};
+
+// MGC "cute filled" close_medium icon (filled X)
+const CLOSE_MEDIUM_CUTE_FILLED_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none"><path d="M6.572 5.634c-.891.308-1.276 1.326-.818 2.165.063.115.829.914 2.101 2.191L9.857 12l-2.002 2.01c-1.305 1.31-2.037 2.075-2.103 2.196a1.58 1.58 0 0 0-.06 1.367c.132.288.445.602.739.739.198.094.28.108.609.108.347 0 .404-.011.659-.132.26-.123.416-.269 2.29-2.138L12 14.143l2.01 2.002c1.31 1.305 2.075 2.037 2.196 2.103.414.226.953.25 1.367.06.288-.132.602-.445.739-.739.094-.198.108-.28.108-.609 0-.347-.011-.404-.132-.659-.123-.26-.269-.416-2.138-2.29L14.143 12l2.002-2.01c1.305-1.31 2.037-2.075 2.103-2.196a1.506 1.506 0 0 0-.246-1.796 1.506 1.506 0 0 0-1.796-.246c-.121.066-.886.798-2.196 2.103L12 9.857 9.99 7.855C8.697 6.568 7.914 5.818 7.796 5.753a1.58 1.58 0 0 0-1.224-.119" fill="#10161F" fill-rule="evenodd"/></svg>`;
+
+export const CloseMediumCuteFilledIcon: React.FC<{
+  size: number;
+  color: string;
+  style?: StyleProp<ViewStyle>;
+}> = ({ size, color, style }) => {
+  const svgXml = CLOSE_MEDIUM_CUTE_FILLED_ICON_SVG.replace(/#10161F/g, color);
+  return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
+};
+
+// MGC "cute filled" close_square icon (filled X + rounded-square background)
+const CLOSE_SQUARE_CUTE_FILLED_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M8.24 2.546c-2.117.11-3.311.502-4.229 1.387-.813.783-1.204 1.745-1.401 3.439-.062.542-.07 1.047-.07 4.628 0 3.581.008 4.086.07 4.628.197 1.694.588 2.656 1.401 3.439.804.775 1.708 1.131 3.361 1.323.542.062 1.047.07 4.628.07 3.581 0 4.086-.008 4.628-.07 1.653-.192 2.557-.548 3.361-1.323.813-.783 1.204-1.745 1.401-3.439.062-.542.07-1.047.07-4.628 0-3.581-.008-4.086-.07-4.628-.197-1.694-.588-2.656-1.401-3.439-.796-.768-1.702-1.128-3.32-1.319-.49-.058-1.094-.068-4.369-.074-2.09-.004-3.917-.001-4.06.006m1.263 5.68c.173.057.337.204 1.347 1.208l1.151 1.144 1.129-1.125c.622-.618 1.191-1.155 1.265-1.192.36-.182.851-.097 1.145.197.28.279.364.656.234 1.045-.057.173-.204.337-1.208 1.347l-1.144 1.151 1.127 1.129c1.207 1.21 1.288 1.317 1.29 1.685.002.316-.076.505-.298.726-.221.222-.41.3-.726.298-.368-.002-.475-.083-1.685-1.29L12 13.422l-1.13 1.125c-.622.618-1.191 1.155-1.265 1.192a1.21 1.21 0 0 1-.345.09.994.994 0 0 1-1.04-1.314c.065-.197.164-.309 1.214-1.365L10.577 12l-1.143-1.15C8.43 9.84 8.283 9.676 8.226 9.503c-.13-.389-.046-.766.234-1.045.277-.278.655-.362 1.043-.232" fill="#10161F" fill-rule="evenodd"/></svg>`;
+
+export const CloseSquareCuteFilledIcon: React.FC<{
+  size: number;
+  color: string;
+  style?: StyleProp<ViewStyle>;
+}> = ({ size, color, style }) => {
+  const svgXml = CLOSE_SQUARE_CUTE_FILLED_ICON_SVG.replace(/#10161F/g, color);
+  return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
+};
+
+// MGC "cute filled" add_square icon (filled + rounded square background)
+const ADD_SQUARE_CUTE_FILLED_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M8.24 2.546c-2.117.11-3.311.502-4.229 1.387-.813.783-1.204 1.745-1.401 3.439-.062.542-.07 1.047-.07 4.628 0 3.581.008 4.086.07 4.628.197 1.694.588 2.656 1.401 3.439.804.775 1.708 1.131 3.361 1.323.542.062 1.047.07 4.628.07 3.581 0 4.086-.008 4.628-.07 1.653-.192 2.557-.548 3.361-1.323.813-.783 1.204-1.745 1.401-3.439.062-.542.07-1.047.07-4.628 0-3.581-.008-4.086-.07-4.628-.197-1.694-.588-2.656-1.401-3.439-.796-.768-1.702-1.128-3.32-1.319-.49-.058-1.094-.068-4.369-.074-2.09-.004-3.917-.001-4.06.006m4.1 4.52c.253.087.507.341.594.594.057.168.066.408.066 1.767V11h1.573c1.789 0 1.836.006 2.128.299a.984.984 0 0 1 0 1.402c-.292.293-.339.299-2.128.299H13v1.573c0 1.79-.006 1.835-.3 2.129a.987.987 0 0 1-1.169.172 1.065 1.065 0 0 1-.489-.585c-.025-.091-.042-.761-.042-1.719V13H9.425c-1.704 0-1.769-.007-2.051-.222a1.19 1.19 0 0 1-.243-.289c-.095-.161-.111-.233-.111-.489s.016-.328.111-.489c.061-.103.173-.236.25-.294.273-.208.319-.213 2.027-.215L10.997 11l.011-1.65.012-1.65.111-.189a.987.987 0 0 1 1.209-.445" fill="#10161F" fill-rule="evenodd"/></svg>`;
+
+export const AddSquareCuteFilledIcon: React.FC<{
+  size: number;
+  color: string;
+  style?: StyleProp<ViewStyle>;
+}> = ({ size, color, style }) => {
+  const svgXml = ADD_SQUARE_CUTE_FILLED_ICON_SVG.replace(/#10161F/g, color);
+  return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
+};
+
+// MGC "cute filled" rounded-square box shape (reusable background for selection/loading)
+const CUTE_FILLED_SQUARE_BOX_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M8.24 2.546c-2.117.11-3.311.502-4.229 1.387-.813.783-1.204 1.745-1.401 3.439-.062.542-.07 1.047-.07 4.628 0 3.581.008 4.086.07 4.628.197 1.694.588 2.656 1.401 3.439.804.775 1.708 1.131 3.361 1.323.542.062 1.047.07 4.628.07 3.581 0 4.086-.008 4.628-.07 1.653-.192 2.557-.548 3.361-1.323.813-.783 1.204-1.745 1.401-3.439.062-.542.07-1.047.07-4.628 0-3.581-.008-4.086-.07-4.628-.197-1.694-.588-2.656-1.401-3.439-.796-.768-1.702-1.128-3.32-1.319-.49-.058-1.094-.068-4.369-.074-2.09-.004-3.917-.001-4.06.006" fill="#BOX_COLOR" fill-rule="evenodd"/></svg>`;
+
+export const CuteFilledSquareBoxIcon: React.FC<{
+  size: number;
+  color: string;
+  style?: StyleProp<ViewStyle>;
+}> = ({ size, color, style }) => {
+  const svgXml = CUTE_FILLED_SQUARE_BOX_ICON_SVG.replace(/#BOX_COLOR/g, color);
+  return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
+};
+
+// MGC "cute regular" checkbox outline box (empty state)
+const CUTE_REGULAR_SQUARE_BOX_EMPTY_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M8.3 2.545c-2.312.151-3.352.488-4.289 1.389-.827.794-1.235 1.838-1.419 3.626-.074.714-.074 8.166 0 8.88.18 1.748.549 2.725 1.342 3.549.794.827 1.838 1.235 3.626 1.419.714.074 8.166.074 8.88 0 1.748-.18 2.725-.549 3.549-1.342.676-.65 1.107-1.562 1.307-2.766.153-.92.164-1.266.164-5.3 0-4.114-.01-4.407-.18-5.381-.389-2.221-1.594-3.462-3.768-3.879-.943-.181-1.187-.19-5.192-.199-2.101-.005-3.91-.004-4.02.004m7.68 2.015c1.358.103 2.169.357 2.636.824.474.473.718 1.268.831 2.696.067.857.067 6.983 0 7.84-.113 1.428-.357 2.223-.831 2.696-.473.474-1.268.718-2.696.831-.859.067-6.985.067-7.84 0-1.165-.092-1.902-.27-2.343-.565-.301-.2-.329-.225-.503-.442-.38-.474-.577-1.203-.681-2.52-.068-.86-.068-6.985 0-7.84.104-1.32.302-2.049.682-2.52.282-.35.567-.54 1.045-.699.657-.218 1.28-.297 2.7-.342 1.328-.042 6.292-.014 7 .041" fill="#BOX_COLOR" fill-rule="evenodd"/></svg>`;
+
+export const CuteRegularSquareBoxEmptyIcon: React.FC<{
+  size: number;
+  color: string;
+  style?: StyleProp<ViewStyle>;
+}> = ({ size, color, style }) => {
+  const svgXml = CUTE_REGULAR_SQUARE_BOX_EMPTY_ICON_SVG.replace(/#BOX_COLOR/g, color);
+  return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
+};
+
+// MGC "cute filled" checkbox icon (duotone: box + check)
+const CHECKBOX_CUTE_FILLED_DUOTONE_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M8.24 2.546c-2.117.11-3.311.502-4.229 1.387-.813.783-1.204 1.745-1.401 3.439-.062.542-.07 1.047-.07 4.628 0 3.581.008 4.086.07 4.628.197 1.694.588 2.656 1.401 3.439.804.775 1.708 1.131 3.361 1.323.542.062 1.047.07 4.628.07 3.581 0 4.086-.008 4.628-.07 1.653-.192 2.557-.548 3.361-1.323.813-.783 1.204-1.745 1.401-3.439.062-.542.07-1.047.07-4.628 0-3.581-.008-4.086-.07-4.628-.197-1.694-.588-2.656-1.401-3.439-.796-.768-1.702-1.128-3.32-1.319-.49-.058-1.094-.068-4.369-.074-2.09-.004-3.917-.001-4.06.006" fill="#BOX_COLOR" fill-rule="evenodd"/><path d="M16.53 8.135a.995.995 0 0 1 .632 1.331c-.116.27-.245.384-.862.766-1.974 1.219-3.405 2.674-4.715 4.796-.263.426-.442.59-.734.676-.249.073-.477.048-.732-.08-.184-.093-.245-.162-.668-.77-.498-.716-1.152-1.353-1.953-1.907-.546-.376-.688-.555-.725-.911a.987.987 0 0 1 .547-1.009c.194-.1.252-.111.489-.096.224.015.313.045.54.18.493.293 1.104.78 1.65 1.316.296.29.542.525.546.521l.257-.348c1.217-1.656 2.897-3.168 4.709-4.238.485-.287.677-.33 1.019-.227" fill="#CHECK_COLOR" fill-rule="evenodd" opacity="0.35"/></svg>`;
+
+export const CheckboxCuteFilledDuotoneIcon: React.FC<{
+  size: number;
+  boxColor: string;
+  checkColor: string;
+  checkOpacity?: number;
+  style?: StyleProp<ViewStyle>;
+}> = ({ size, boxColor, checkColor, checkOpacity = 0.35, style }) => {
+  const svgXml = CHECKBOX_CUTE_FILLED_DUOTONE_ICON_SVG.replace(/#BOX_COLOR/g, boxColor)
+    .replace(/#CHECK_COLOR/g, checkColor)
+    .replace(/opacity="0\.35"/g, `opacity="${checkOpacity}"`);
+
   return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
 };
 
@@ -1460,11 +1524,7 @@ const Icon: React.FC<IconProps> = ({
   if (name === 'calendar') return <Calendar2FillIcon size={size} color={color} style={style} />;
   if (name === 'eye') return <EyeFillIcon size={size} color={color} style={style} />;
   if (name === 'close') {
-    return strokeWidth >= 2 ? (
-      <CloseLineIcon size={size} color={color} strokeWidth={strokeWidth} style={style} />
-    ) : (
-      <CloseFillIcon size={size} color={color} style={style} />
-    );
+    return <CloseSquareCuteFilledIcon size={size} color={color} style={style} />;
   }
   if (name === 'close-bold') return <CloseBoldIcon size={size} color={color} style={style} />;
   if (name === 'section-x') return <CloseFillIcon size={size} color={color} style={style} />;
@@ -1474,8 +1534,9 @@ const Icon: React.FC<IconProps> = ({
     return <PlusIcon size={size} color={color} strokeWidth={STROKE_WIDTH_THICK} />;
   if (name === 'plus')
     return <PlusIcon size={size} color={color} strokeWidth={STROKE_WIDTH_THICK} />;
+  // Legacy "circle-plus" aliases now point to the MGC cute filled square-plus asset.
   if (name === 'add-circle-line' || name === 'add_circle_line' || name === 'circle-plus') {
-    return <AddCircleLineIcon size={size} color={color} style={style} />;
+    return <AddSquareCuteFilledIcon size={size} color={color} style={style} />;
   }
   if (name === 'minus-fill') return <MinusFillIcon size={size} color={color} style={style} />;
   if (name === 'trash') return <TrashIcon size={size} color={color} style={style} />;

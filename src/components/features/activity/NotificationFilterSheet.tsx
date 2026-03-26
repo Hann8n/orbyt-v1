@@ -4,7 +4,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import VerticalListSheet, { TrueSheet } from '../../ui/VerticalListSheet';
 import CancelButton from '../../ui/CancelButton';
-import Icon from '../../ui/Icon';
+import { CheckboxCuteFilledDuotoneIcon, CuteRegularSquareBoxEmptyIcon } from '../../ui/Icon';
 import { Colors } from '../../../theme';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import {
@@ -124,8 +124,17 @@ const FilterOption: React.FC<FilterOptionProps> = ({ label, checked, onPress }) 
       style={({ pressed }) => [styles.filterOption, pressed && styles.filterOptionPressed]}
     >
       <Text style={styles.filterOptionLabel}>{label}</Text>
-      <View style={[styles.checkbox, checked && styles.checkboxSelected]}>
-        {checked && <Icon name="checkmark" size={16} color={Colors.black} />}
+      <View style={styles.checkboxWrap}>
+        {checked ? (
+          <CheckboxCuteFilledDuotoneIcon
+            size={24}
+            boxColor={Colors.neutral[50]}
+            checkColor={Colors.black}
+            checkOpacity={1}
+          />
+        ) : (
+          <CuteRegularSquareBoxEmptyIcon size={24} color={Colors.neutral[200]} />
+        )}
       </View>
     </Pressable>
   );
@@ -216,7 +225,7 @@ const NotificationFilterContent: React.FC<{
       <Pressable
         onPress={handleClear}
         disabled={!hasFilters}
-        style={[styles.clearButton, { opacity: !hasFilters ? 0.6 : 1 }]}
+        style={[styles.clearButton, !hasFilters && styles.clearButtonDisabled]}
       >
         <Text style={styles.clearButtonText}>{t('activity.clear')}</Text>
       </Pressable>
@@ -368,11 +377,11 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.semibold,
     flex: 1,
   },
-  checkbox: {
-    ...SHEET_STYLES.selectorBox,
-  },
-  checkboxSelected: {
-    ...SHEET_STYLES.selectorBoxSelected,
+  checkboxWrap: {
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   footer: {
     alignItems: 'center',
@@ -380,6 +389,9 @@ const styles = StyleSheet.create({
   },
   clearButton: {
     ...SHEET_STYLES.headerActionButton,
+  },
+  clearButtonDisabled: {
+    opacity: 0.6,
   },
   clearButtonText: {
     ...SHEET_STYLES.headerActionButtonText,
