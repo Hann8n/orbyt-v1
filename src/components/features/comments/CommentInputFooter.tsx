@@ -392,7 +392,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                     accessibilityRole="button"
                     accessibilityLabel={t('common.add')}
                   >
-                    <Icon name="circle-plus" size={30} color={Colors.neutral[50]} />
+                    <Icon name="circle-plus" size={30} color={Colors.neutral[300]} />
                   </Pressable>
                 </MenuView>
               ) : null}
@@ -423,7 +423,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                       </View>
                     </>
                   ) : (
-                    <Icon name="arrow-up-fill" size={22} color={Colors.black} />
+                    <Icon name="arrow-up-fill" size={22} color={Colors.neutral[300]} />
                   )}
                 </Pressable>
               ) : replyContext && !hasText ? (
