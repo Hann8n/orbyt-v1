@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   View,
@@ -15,7 +15,12 @@ import {
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import Animated, {
+  cancelAnimation,
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from 'react-native-reanimated';
 import { FlashList, ListRenderItem, FlashListRef } from '@shopify/flash-list';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -124,12 +129,15 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
   const insets = useSafeAreaInsets();
   const [listBottomPadding, wrapFooter] = useMeasuredFooterHeight(96);
-  const listContentStyle = [
-    styles.listContent,
-    {
-      paddingBottom: listBottomPadding + (typeof insets?.bottom === 'number' ? insets.bottom : 0),
-    },
-  ];
+  const listContentStyle = useMemo(
+    () => [
+      styles.listContent,
+      {
+        paddingBottom: listBottomPadding + (typeof insets?.bottom === 'number' ? insets.bottom : 0),
+      },
+    ],
+    [listBottomPadding, insets?.bottom]
+  );
 
   const sheetRef = useRef<TrueSheet>(null);
   const klipySheetRef = useRef<TrueSheet>(null);
@@ -265,14 +273,17 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     onSelectionChange: e => setInputSelection(e.nativeEvent.selection),
   });
 
-  const defaultHeaderInteraction = {
-    isLiked: !!isLiked,
-    likeCount: totalLikes,
-    likeUri: undefined as string | undefined,
-    isReposted: false,
-    isBookmarked: false,
-    repostCount: 0,
-  };
+  const defaultHeaderInteraction = useMemo(
+    () => ({
+      isLiked: !!isLiked,
+      likeCount: totalLikes,
+      likeUri: undefined as string | undefined,
+      isReposted: false,
+      isBookmarked: false,
+      repostCount: 0,
+    }),
+    [isLiked, totalLikes]
+  );
   const persistedHeaderInteraction = usePostInteractionStore(state =>
     post?.uri ? state.getPostInteraction(post.uri, defaultHeaderInteraction) : null
   );
@@ -302,8 +313,10 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       // `updatePostInteraction`). Since `persistedHeaderInteraction` is in deps, we must sync from the
       // store when available or we reset the header heart to the stale snapshot after each like.
       const synced = post?.uri != null ? !!persistedHeaderInteraction?.isLiked : !!isLiked;
-      setHeaderIsLiked(synced);
-      setHeaderVisualLiked(synced);
+      // Prevent render loops: this effect can re-run whenever `persistedHeaderInteraction` identity changes.
+      // We only update state if the boolean actually differs.
+      setHeaderIsLiked(prev => (prev === synced ? prev : synced));
+      setHeaderVisualLiked(prev => (prev === synced ? prev : synced));
       return;
     }
 
@@ -337,6 +350,15 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const headerHeartStyle = useAnimatedStyle(() => ({
     transform: [{ scale: headerHeartScale.value }],
   }));
+
+  // When switching posts (or dismissing/re-opening the sheet), ensure any in-flight
+  // heart animation doesn't "complete" on the next video.
+  useEffect(() => {
+    cancelAnimation(headerHeartScale);
+    headerHeartScale.value = 1;
+    setHeaderIsPending(false);
+    setHeaderLikeUri(undefined);
+  }, [post?.uri, headerHeartScale]);
 
   const handleHeaderToggleLikeInternal = useCallback(async () => {
     if (!post?.uri || headerIsPending) return;
@@ -457,13 +479,15 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     structuralSharing: false, // Disable structural sharing to avoid circular reference issues with nested comment structures
   });
 
-  const comments = commentsPages?.pages.flatMap(p => p.comments) ?? [];
-
   // Track reported comments for animated removal
   const reportedPostUris = useReportedPostsStore(state => state.reportedPostUris);
   const previousCommentsLengthRef = useRef<number>(0);
 
-  const flattenedComments = (() => {
+  // Important: keep `flattenedComments` referentially stable.
+  // FlashList can end up in a render/layout update loop if `data` changes identity every render.
+  const flattenedComments = useMemo(() => {
+    const comments = commentsPages?.pages.flatMap(p => p.comments) ?? [];
+
     const flat: Comment[] = [];
     const addComments = (commentList: Comment[], parentComment?: Comment) => {
       commentList.forEach((c: Comment) => {
@@ -485,11 +509,10 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         }
       });
     };
-    if (comments && comments.length > 0) {
-      addComments(comments);
-    }
+
+    if (comments.length > 0) addComments(comments);
     return flat;
-  })();
+  }, [commentsPages, deletedComments, reportedPostUris]);
 
   // Prepare layout animation when comments are removed
   useEffect(() => {
@@ -531,7 +554,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     enabled: !!post?.uri && likesQueryEnabled,
   });
 
-  const likes = likesPages?.pages.flatMap(p => p.likes) ?? [];
+  const likes = useMemo(() => likesPages?.pages.flatMap(p => p.likes) ?? [], [likesPages]);
 
   useEffect(() => {
     if (
@@ -718,6 +741,10 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   };
 
   const handleClose = () => {
+    cancelAnimation(headerHeartScale);
+    headerHeartScale.value = 1;
+    setHeaderIsPending(false);
+    setHeaderLikeUri(undefined);
     setNewCommentText('');
     setSelectedGif(null);
     setSelectedImages([]);
@@ -787,29 +814,45 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     [onDismiss, router]
   );
 
-  const CommentsEmptyComponent = commentsLoading ? (
-    <View style={styles.loadingContainer}>
-      <ActivityIndicator size="small" color={Colors.neutral[200]} />
-    </View>
-  ) : (
-    <View style={styles.emptyContainer}>
-      <View style={styles.emptyContent}>
-        <Text style={styles.emptyText}>{t('comments.startConversation')}</Text>
+  const CommentsEmptyComponent = useMemo(() => {
+    return commentsLoading ? (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="small" color={Colors.neutral[200]} />
       </View>
-    </View>
-  );
+    ) : (
+      <View style={styles.emptyContainer}>
+        <View style={styles.emptyContent}>
+          <Text style={styles.emptyText}>{t('comments.startConversation')}</Text>
+        </View>
+      </View>
+    );
+  }, [commentsLoading, t]);
 
-  const LikesEmptyComponent = likesLoading ? (
-    <View style={styles.loadingContainer}>
-      <ActivityIndicator size="small" color={Colors.neutral[200]} />
-    </View>
-  ) : (
-    <View style={styles.emptyContainer}>
-      <View style={styles.emptyContent}>
-        <Text style={styles.emptyText}>{t('comments.beFirstLike')}</Text>
+  const LikesEmptyComponent = useMemo(() => {
+    return likesLoading ? (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="small" color={Colors.neutral[200]} />
       </View>
-    </View>
-  );
+    ) : (
+      <View style={styles.emptyContainer}>
+        <View style={styles.emptyContent}>
+          <Text style={styles.emptyText}>{t('comments.beFirstLike')}</Text>
+        </View>
+      </View>
+    );
+  }, [likesLoading, t]);
+
+  const overrideCommentsItemLayout = useCallback((layout: { span?: number }) => {
+    layout.span = COMMENT_ITEM_ESTIMATE;
+  }, []);
+
+  const overrideLikesItemLayout = useCallback((layout: { span?: number }) => {
+    layout.span = LIKE_ITEM_ESTIMATE;
+  }, []);
+
+  const ItemSeparatorComponent = useCallback(() => {
+    return <View style={styles.likeDivider} />;
+  }, []);
 
   const onEndReachedComments = useCallback(() => {
     if (hasNextCommentsPage && !isFetchingNextCommentsPage) fetchNextCommentsPage();
@@ -939,9 +982,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               scrollEventThrottle={16}
               onEndReached={onEndReachedComments}
               onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
-              overrideItemLayout={layout => {
-                layout.span = COMMENT_ITEM_ESTIMATE;
-              }}
+              overrideItemLayout={overrideCommentsItemLayout}
               removeClippedSubviews={true}
               drawDistance={250}
               ListEmptyComponent={CommentsEmptyComponent}
@@ -953,7 +994,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               keyExtractor={likeKeyExtractor}
               renderItem={renderLikeItem}
               contentContainerStyle={listContentStyle}
-              ItemSeparatorComponent={() => <View style={styles.likeDivider} />}
+              ItemSeparatorComponent={ItemSeparatorComponent}
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode="on-drag"
               showsVerticalScrollIndicator={false}
@@ -961,9 +1002,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               scrollEventThrottle={16}
               onEndReached={onEndReachedLikes}
               onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
-              overrideItemLayout={layout => {
-                layout.span = LIKE_ITEM_ESTIMATE;
-              }}
+              overrideItemLayout={overrideLikesItemLayout}
               removeClippedSubviews={true}
               drawDistance={250}
               ListEmptyComponent={LikesEmptyComponent}
