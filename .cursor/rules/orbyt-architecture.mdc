@@ -77,7 +77,11 @@ Orbyt is a video app for Bluesky built on the AT Protocol. React Native + Expo.
 
 ## Provider Hierarchy (app/_layout.tsx)
 
-ThemeProvider → SafeAreaProvider → QueryClientProvider → GestureHandlerRootView → KeyboardProvider → TabBarProvider → OverlayLayoutProvider → SessionProvider → SplashScreenController → QueryErrorBoundary → RootNavigator
+ThemeProvider → SafeAreaProvider → QueryClientProvider → GestureHandlerRootView → KeyboardProvider → TabBarProvider → OverlayLayoutProvider → SessionProvider → QueryErrorBoundary → RootNavigator
+
+### Splash screen control
+
+Native splash is managed directly in `app/_layout.tsx` via `expo-splash-screen`. The layout holds rendering (returns `null`) until app readiness conditions are met, then calls `SplashScreen.hideAsync()` once to avoid a blank/partial first paint.
 
 ## Error Handling
 
