@@ -16,9 +16,8 @@ const CLOSE_LINE_ICON_STROKE_SVG = (strokeWidth: number) =>
 /** Shared stroke width for check, plus, and close when used together (e.g. AuthorItem, list actions). */
 export const STROKE_WIDTH_THICK = 3.5;
 
-// Stroke-based check (thickness via stroke-width)
-const CHECK_ICON_STROKE_SVG = (strokeWidth: number) =>
-  `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M6 12.5l4 4 8-10" stroke="#fff" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`;
+// MGC cute filled check icon (slightly thickened for better legibility)
+const CHECK_CUTE_FILLED_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M20.057 4.734c-.28.092-1.575.843-2.572 1.493-2.726 1.776-5.151 4.03-7.052 6.553a35.909 35.909 0 0 0-1.253 1.77c-.088.137-.17.245-.182.24a7.879 7.879 0 0 1-.359-.39 24.717 24.717 0 0 0-3.857-3.498c-.582-.424-.697-.485-1.033-.543-.65-.113-1.304.24-1.595.861-.098.21-.12.308-.121.549-.002.686.182.973 1.007 1.573a21.346 21.346 0 0 1 4.657 4.668c.496.679.737.863 1.243.943.676.108 1.206-.178 1.605-.866 1.403-2.417 2.498-3.934 3.986-5.521 1.783-1.9 3.677-3.35 6.553-5.019.427-.247.598-.417.752-.745.092-.195.104-.272.103-.642-.001-.488-.066-.665-.367-1a1.398 1.398 0 0 0-1.026-.467 1.68 1.68 0 0 0-.489.041" fill="#10161F" stroke="#10161F" stroke-width="0.6" stroke-linejoin="round" fill-rule="evenodd"/></svg>`;
 
 // Follow Check Circle Icon (green fill with white checkmark)
 const FOLLOW_CHECK_CIRCLE_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none"><circle cx="12" cy="12" r="10" fill="currentColor" stroke="#000" stroke-width="1"/><path d="M8 12.5l2.5 2.5l5.5-5.5" stroke="#000" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter" fill="none"/></g></svg>`;
@@ -101,7 +100,7 @@ const FLAME_FILL_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' 
 
 const FIRE_FILL_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><title>fire_fill</title><g id="fire_fill" fill='none'><path d='M24 0v24H0V0zM12.593 23.258l-.011.002-.071.035-.02.004-.014-.004-.071-.035c-.01-.004-.019-.001-.024.005l-.004.01-.017.428.005.02.01.013.104.074.015.004.012-.004.104-.074.012-.016.004-.017-.017-.427c-.002-.01-.009-.017-.017-.018m.265-.113-.013.002-.185.093-.01.01-.003.011.018.43.005.012.008.007.201.093c.012.004.023 0 .029-.008l.004-.014-.034-.614c-.003-.012-.01-.02-.02-.022m-.715.002a.023.023 0 0 0-.027.006l-.006.014-.034.614c0 .012.007.02.017.024l.015-.002.201-.093.01-.008.004-.011.017-.43-.003-.012-.01-.01z'/><path fill='#09244BFF' d='m11.514 2.142-1.26-.755-.24 1.449C9.632 5.124 8.069 7.25 6.345 8.744 2.97 11.67 2.231 14.85 3.276 17.475c1 2.512 3.538 4.232 6.114 4.519l.596.066c-1.474-.901-2.42-3.006-2.09-4.579.326-1.546 1.438-2.994 3.574-4.33l1.077-.672.402 1.205c.237.712.647 1.284 1.064 1.865.2.28.403.563.589.864.643 1.045.813 2.207.398 3.36-.378 1.048-1.001 1.872-1.86 2.329l.97-.108c2.418-.269 4.193-1.096 5.346-2.479C20.599 18.144 21 16.379 21 14.5c0-1.75-.719-3.554-1.567-5.055-.994-1.758-2.291-3.218-3.707-4.633-.245.49-.226.688-.73 1.475a8.146 8.146 0 0 0-3.482-4.145'/></g></svg>`;
 
-const BELL_FILL_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none'><path fill='#09244BFF' d='M12 2a7 7 0 0 0-7 7v3.528a1 1 0 0 1-.105.447l-1.717 3.433A1.1 1.1 0 0 0 4.162 18h15.676a1.1 1.1 0 0 0 .984-1.592l-1.716-3.433a1 1 0 0 1-.106-.447V9a7 7 0 0 0-7-7m0 19a3.001 3.001 0 0 1-2.83-2h5.66A3.001 3.001 0 0 1 12 21'/></g></svg>`;
+const BELL_FILL_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M11.204 2.046c-2.638.276-4.98 1.985-6.061 4.424-.503 1.133-.622 1.849-.623 3.716 0 2.243-.094 2.745-.755 4.034-.18.352-.364.756-.408.898-.363 1.178.268 2.411 1.421 2.773l.282.089h13.88l.282-.089c1.133-.356 1.773-1.573 1.436-2.731-.035-.121-.222-.535-.416-.92-.675-1.342-.762-1.804-.762-4.049 0-.984-.016-1.429-.062-1.746a7.351 7.351 0 0 0-.982-2.786 7.516 7.516 0 0 0-7.232-3.613M9.248 19.19c.467 1.066 1.59 1.81 2.731 1.81.303 0 .845-.102 1.104-.209.521-.214 1.089-.653 1.36-1.052.107-.158.357-.646.357-.698 0-.028-.92-.041-2.818-.041H9.164l.084.19" fill="#10161F" fill-rule="evenodd"/></svg>`;
 
 const TV_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none" fill-rule="evenodd"><path fill="currentColor" d="M16.95 4.007a1 1 0 0 0-1.414-1.414l-3.89 3.889a.5.5 0 0 1-.707 0L8.464 4.007A1 1 0 0 0 7.05 5.42l1.414 1.414q.086.086.175.165H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-5.053a4 4 0 0 0 .174-.165zM5 9h14v10H5z"/></g></svg>`;
 
@@ -126,11 +125,11 @@ const SEARCH_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" heig
 
 const BACK_ARROW_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none"><path fill="#fff" d="M3.283 10.94a1.5 1.5 0 0 0 0 2.12l5.656 5.658a1.5 1.5 0 1 0 2.122-2.122L7.965 13.5H19.5a1.5 1.5 0 0 0 0-3H7.965l3.096-3.096a1.5 1.5 0 1 0-2.122-2.121z"/></g></svg>`;
 
-const FOLLOW_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none"><path fill="#fff" d="M10.5 20a1.5 1.5 0 0 0 3 0v-6.5H20a1.5 1.5 0 0 0 0-3h-6.5V4a1.5 1.5 0 0 0-3 0v6.5H4a1.5 1.5 0 0 0 0 3h6.5z"/></g></svg>`;
+const FOLLOW_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M11.28 2.024c-2.109.185-3.979.926-5.561 2.201-1.675 1.351-2.908 3.28-3.416 5.346-.216.881-.277 1.41-.277 2.429s.061 1.548.277 2.429c.886 3.607 3.839 6.502 7.457 7.311.844.189 1.287.236 2.24.236.953 0 1.396-.047 2.24-.236 3.618-.809 6.571-3.704 7.457-7.311.213-.869.276-1.413.278-2.409.001-.976-.043-1.404-.235-2.26-.458-2.049-1.658-4.025-3.26-5.369-1.824-1.531-3.915-2.321-6.26-2.368a15.89 15.89 0 0 0-.94.001m1.06 5.042c.253.087.507.341.594.594.057.168.066.408.066 1.767V11h1.573c1.789 0 1.836.006 2.128.299a.984.984 0 0 1 0 1.402c-.292.293-.339.299-2.128.299H13v1.573c0 1.79-.006 1.835-.3 2.129a.987.987 0 0 1-1.169.172 1.065 1.065 0 0 1-.489-.585c-.025-.091-.042-.761-.042-1.719V13H9.425c-1.704 0-1.769-.007-2.051-.222a1.19 1.19 0 0 1-.243-.289c-.095-.161-.111-.233-.111-.489s.016-.328.111-.489c.061-.103.173-.236.25-.294.273-.208.319-.213 2.027-.215L10.997 11l.011-1.65.012-1.65.111-.189a.987.987 0 0 1 1.209-.445" fill="#fff" fill-rule="evenodd"/></svg>`;
 
 const MINUS_FILL_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' fill-rule='evenodd'><path fill='#FFFFFFFF' d='M2.5 12A1.5 1.5 0 0 1 4 10.5h16a1.5 1.5 0 0 1 0 3H4A1.5 1.5 0 0 1 2.5 12'/></g></svg>`;
 
-const MUTUAL_HEART_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' fill-rule='evenodd'><path fill='#09244BFF' d='M21.998 10.393c.065-2.892-1.409-5.37-3.504-6.592-1.96-1.141-4.422-1.148-6.494.538-2.072-1.686-4.534-1.68-6.494-.538-2.095 1.221-3.569 3.7-3.504 6.592.081 3.61 2.89 6.794 7.679 9.638.331.198.662.398 1.006.573.406.206.85.396 1.313.396.463 0 .907-.19 1.313-.396.344-.175.675-.375 1.006-.573 4.788-2.844 7.598-6.029 7.679-9.638m-9.155-4.121c1.508-1.526 3.25-1.554 4.644-.742 1.444.841 2.56 2.628 2.511 4.818-.01.482-.092.97-.25 1.463a2.275 2.275 0 0 1-2.879-.278l-1.293-1.294a1.854 1.854 0 0 0-2.622 0l-.865.866a2.044 2.044 0 0 1-2.89 0 .826.826 0 0 1-.001-1.169l3.517-3.519c.039-.038.074-.08.104-.122a1.09 1.09 0 0 0 .024-.023'/></g></svg>`;
+const MUTUAL_HEART_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12.94 3.719c-1.193.171-2.117.655-3.013 1.578-.204.21-.413.393-.465.406-.054.014-.251-.027-.469-.097-1.015-.325-2.218-.333-3.15-.022-.769.256-1.41.662-2.045 1.296-.993.988-1.563 2.153-1.781 3.64-.095.651-.06 1.675.08 2.343.639 3.05 3.111 5.225 7.683 6.759 1.446.486 2.171.633 2.752.561l.217-.027-.769-.768c-1.113-1.111-1.731-1.926-2.222-2.929-.472-.965-.66-1.751-.654-2.739a5.118 5.118 0 0 1 .279-1.74c.442-1.358 1.441-2.551 2.661-3.18 1.55-.798 3.228-.739 4.657.164l.243.153.218-.058a6.03 6.03 0 0 1 .628-.104 4.462 4.462 0 0 1 1.554.128c.168.045.316.071.328.059.038-.039-.189-.855-.355-1.275-.826-2.088-2.572-3.627-4.617-4.071-.41-.089-1.38-.132-1.76-.077m.94 6.545c-.28.05-.608.16-.858.285-1.033.52-1.748 1.576-1.902 2.813-.187 1.499.698 3.177 2.613 4.953.757.702 1.124.885 1.774.885.373 0 .636-.072 1.33-.366 2.456-1.041 3.872-2.386 4.142-3.934.276-1.584-.439-3.131-1.719-3.721a2.221 2.221 0 0 0-1.06-.229c-.42.003-.644.053-1.08.24-.354.152-.559.176-.729.086a3.103 3.103 0 0 1-.359-.292c-.544-.493-1.023-.7-1.672-.724a3.757 3.757 0 0 0-.48.004" fill="#10161F" fill-rule="evenodd"/></svg>`;
 
 const PROFILE_EDIT_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none"><path fill="#fff" d="M11 2a5 5 0 1 0 0 10a5 5 0 0 0 0-10m0 11q.887.002 1.724.12a1 1 0 0 1 .539 1.726a6.98 6.98 0 0 0-2.21 6.022a1 1 0 0 1-1.012 1.123c-2.01-.04-3.89-.216-5.294-.646c-.702-.215-1.364-.517-1.866-.962C2.35 19.913 2 19.28 2 18.5c0-.787.358-1.523.844-2.139c.494-.625 1.177-1.2 1.978-1.69C6.425 13.695 8.605 13 11 13m10.212 1.034a2.5 2.5 0 0 1 0 3.535l-3.418 3.418a1.5 1.5 0 0 1-.848.424l-2.309.33a1 1 0 0 1-1.132-1.133l.33-2.308a1.5 1.5 0 0 1 .424-.849l3.418-3.418a2.5 2.5 0 0 1 3.535 0Z"/></g></svg>`;
 
@@ -183,9 +182,9 @@ export const PlusIcon: React.FC<{ size: number; color: string; strokeWidth: numb
 export const CheckIcon: React.FC<{ size: number; color: string; strokeWidth: number }> = ({
   size,
   color,
-  strokeWidth,
+  strokeWidth: _strokeWidth,
 }) => {
-  const svgXml = CHECK_ICON_STROKE_SVG(strokeWidth).replace(/#fff/g, color);
+  const svgXml = CHECK_CUTE_FILLED_ICON_SVG.replace(/#10161F/g, color);
   return <SvgXml xml={svgXml} width={size} height={size} />;
 };
 
@@ -496,7 +495,7 @@ export const MutualHeartIcon: React.FC<{
   color: string;
   style?: StyleProp<ViewStyle>;
 }> = ({ size, color, style }) => {
-  const svgXml = MUTUAL_HEART_ICON_SVG.replace(/#09244BFF/g, color);
+  const svgXml = MUTUAL_HEART_ICON_SVG.replace(/#10161F/gi, color);
   return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
 };
 
@@ -566,7 +565,7 @@ export const BellFilledIcon: React.FC<{
   style?: StyleProp<ViewStyle>;
 }> = ({ size, color, style }) => (
   <SvgXml
-    xml={BELL_FILL_ICON_SVG.replace(/#09244BFF/g, color)}
+    xml={BELL_FILL_ICON_SVG.replace(/#10161F/g, color)}
     width={size}
     height={size}
     style={style}
@@ -833,6 +832,18 @@ export const AddSquareCuteFilledIcon: React.FC<{
   style?: StyleProp<ViewStyle>;
 }> = ({ size, color, style }) => {
   const svgXml = ADD_SQUARE_CUTE_FILLED_ICON_SVG.replace(/#10161F/g, color);
+  return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
+};
+
+// MGC "cute filled" minus_square icon (filled - rounded square background)
+const MINUS_SQUARE_CUTE_FILLED_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M8.24 2.546c-2.117.11-3.311.502-4.229 1.387-.813.783-1.204 1.745-1.401 3.439-.062.542-.07 1.047-.07 4.628 0 3.581.008 4.086.07 4.628.197 1.694.588 2.656 1.401 3.439.804.775 1.708 1.131 3.361 1.323.542.062 1.047.07 4.628.07 3.581 0 4.086-.008 4.628-.07 1.653-.192 2.557-.548 3.361-1.323.813-.783 1.204-1.745 1.401-3.439.062-.542.07-1.047.07-4.628 0-3.581-.008-4.086-.07-4.628-.197-1.694-.588-2.656-1.401-3.439-.796-.768-1.702-1.128-3.32-1.319-.49-.058-1.094-.068-4.369-.074-2.09-.004-3.917-.001-4.06.006m8.1 8.52c.369.126.66.538.66.934 0 .242-.119.521-.299.701-.317.317-.038.299-4.703.299-4.514 0-4.321.009-4.624-.222a1.19 1.19 0 0 1-.243-.289c-.095-.161-.111-.233-.111-.489s.016-.328.111-.489c.125-.213.318-.375.539-.454.122-.043.94-.054 4.313-.055 3.773-.002 4.181.004 4.357.064" fill="#10161F" fill-rule="evenodd"/></svg>`;
+
+export const MinusSquareCuteFilledIcon: React.FC<{
+  size: number;
+  color: string;
+  style?: StyleProp<ViewStyle>;
+}> = ({ size, color, style }) => {
+  const svgXml = MINUS_SQUARE_CUTE_FILLED_ICON_SVG.replace(/#10161F/g, color);
   return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
 };
 

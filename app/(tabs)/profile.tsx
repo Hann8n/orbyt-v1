@@ -521,7 +521,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     let label = isBlocked ? t('profile.unblock') : t('profile.follow');
     let icon: string | undefined = undefined;
     let customIcon: React.ReactNode | undefined = isBlocked ? undefined : (
-      <FollowIcon size={14} color={profileColors.textColor || Colors.neutral[50]} />
+      <FollowIcon size={18} color={profileColors.textColor || Colors.neutral[50]} />
     );
 
     if (!isBlocked && isFollowing && isFollowedBy) {

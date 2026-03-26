@@ -15,11 +15,8 @@ import { Avatar } from './UI';
 import VerificationBadge from '../features/badging/VerificationBadge';
 import Icon, {
   AddSquareCuteFilledIcon,
-  CheckIcon,
   CheckboxCuteFilledDuotoneIcon,
   CuteFilledSquareBoxIcon,
-  MutualHeartIcon,
-  STROKE_WIDTH_THICK,
 } from './Icon';
 import { hexToRGBA } from '../../utils/formatting/colors';
 import { Colors } from './UI';
@@ -153,13 +150,11 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   const { data: cachedProfile } = useProfile(handle);
   const ringProps = useAvatarProfileRing(did ?? null);
   const actualIsFollowing = cachedProfile?.viewer?.following ? true : isFollowing;
-  const isFollowedBy = !!cachedProfile?.viewer?.followedBy;
-  const isMutual = actualIsFollowing && isFollowedBy;
   const isBlocked = !!(cachedProfile?.viewer?.blocking || cachedProfile?.viewer?.blockingByList);
 
   // Automatically hide follow button for current user
   const isCurrentUserProfile = isCurrentUser(did, handle, currentUser);
-  const shouldShowFollowButton = showFollowButton && !isCurrentUserProfile;
+  const shouldShowFollowButton = showFollowButton && !isCurrentUserProfile && !actualIsFollowing;
 
   const followMutation = useFollowMutation();
 
@@ -253,13 +248,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
             ]}
             onPress={handleFollowPress}
           >
-            {isMutual ? (
-              <MutualHeartIcon size={16} color={Colors.black} />
-            ) : actualIsFollowing ? (
-              <CheckIcon size={16} color={Colors.black} strokeWidth={STROKE_WIDTH_THICK} />
-            ) : (
-              <AddSquareCuteFilledIcon size={32} color={Colors.neutral[400]} />
-            )}
+            <AddSquareCuteFilledIcon size={32} color={Colors.neutral[400]} />
           </Pressable>
         ) : showDeleteButton ? (
           <Pressable onPress={onDeletePress}>
