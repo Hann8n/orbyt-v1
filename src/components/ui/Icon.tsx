@@ -119,6 +119,11 @@ const AT_FILL_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="640" he
 const BLOCK_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none" fill-rule="evenodd"><path fill="#fff" d="M6 7a5 5 0 1 1 10 0A5 5 0 0 1 6 7m-1.178 7.672C6.425 13.694 8.605 13 11 13q.671 0 1.316.07a1 1 0 0 1 .72 1.557A5.97 5.97 0 0 0 12 18c0 .92.207 1.79.575 2.567a1 1 0 0 1-.89 1.428Q11.345 22 11 22c-2.229 0-4.335-.14-5.913-.558c-.785-.208-1.524-.506-2.084-.956C2.41 20.01 2 19.345 2 18.5c0-.787.358-1.523.844-2.139c.494-.625 1.177-1.2 1.978-1.69Zm11.246 2.81a2 2 0 0 0 2.45 2.45zm1.414-1.414l2.45 2.45a2 2 0 0 0-2.45-2.45M14 18a4 4 0 1 1 8 0a4 4 0 0 1-8 0"/></g></svg>`;
 
 const REPORT_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none" fill-rule="evenodd"><path fill="#fff" d="m12.702 2.195l7 2.625A2 2 0 0 1 21 6.693v5.363a9 9 0 0 1-4.975 8.05l-3.354 1.676a1.5 1.5 0 0 1-1.342 0l-3.354-1.677A9 9 0 0 1 3 12.055V6.694A2 2 0 0 1 4.298 4.82l7-2.625a2 2 0 0 1 1.404 0M12 14a1 1 0 1 0 0 2a1 1 0 0 0 0-2m0-7a1 1 0 0 0-.993.883L11 8v4a1 1 0 0 0 1.993.117L13 12V8a1 1 0 0 0-1-1"/></g></svg>`;
+const SHARE_SHEET_SHARE_2_CUTE_FILL_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12.17 3.284a3.226 3.226 0 0 0-1.805.88c-.604.601-.758 1.076-.945 2.914-.055.537-.113.99-.13 1.005-.016.015-.318.109-.67.208-.352.099-.829.255-1.06.347-1.612.638-3.067 1.831-4.051 3.322a8.984 8.984 0 0 0-1.485 4.82c-.004.571.001.611.102.827.141.3.381.554.664.702.292.153.393.176.77.175.442-.001.675-.101 1.192-.511 1.318-1.048 2.513-1.596 4.042-1.855.271-.046.502-.075.513-.065.01.011.062.429.116.93.104.984.146 1.266.246 1.637.252.941.952 1.638 1.995 1.988.239.08.355.092.876.092.571 0 .613-.006.878-.116.379-.158.652-.321 1.402-.839a41.784 41.784 0 0 0 5.823-4.863c.893-.893 1.218-1.281 1.436-1.717.328-.656.321-1.563-.018-2.276-.257-.542-.524-.875-1.42-1.771a40.517 40.517 0 0 0-5.33-4.508c-1.17-.835-1.203-.857-1.573-1.043-.536-.269-.986-.351-1.568-.283" fill="#10161F" fill-rule="evenodd"/></svg>`;
+const SHARE_SHEET_SEND_PLANE_CUTE_FILL_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M18.24 3.106c-1.06.135-1.761.296-5.82 1.337-4 1.027-5.141 1.334-6.032 1.623-2.111.686-3.077 1.403-3.494 2.594-.102.291-.112.371-.113.88-.001.476.013.605.092.86.319 1.026.988 1.905 2.881 3.783l1.134 1.126-.054.235c-.039.17-.054.574-.054 1.436 0 1.137.005 1.215.091 1.49a1.45 1.45 0 0 0 1.146 1.007c.562.097.985-.087 1.634-.714l.432-.416.095.076c.052.042.288.248.523.457 1.435 1.272 2.392 1.76 3.45 1.76 1.076 0 1.958-.528 2.669-1.598.315-.473.72-1.283 1.114-2.224.278-.664 2.284-5.814 2.834-7.278.896-2.381 1.136-3.534.928-4.472a2.545 2.545 0 0 0-1.836-1.891c-.237-.064-1.309-.111-1.62-.071m-.27 3.46a.39.39 0 0 1 .07.214c0 .12-.316.445-3.995 4.096a591.557 591.557 0 0 1-4.097 4.045c-.25.196-.63.248-.969.132-.229-.077-.841-.64-1.008-.925-.228-.388-.147-.944.181-1.257.136-.129 9.351-6.348 9.488-6.402.096-.039.254.008.33.097" fill="#10161F" fill-rule="evenodd"/></svg>`;
+const SHARE_SHEET_BOOKMARK_CUTE_FILL_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M9.12 2.564c-1.461.126-2.328.468-3.007 1.188-.594.63-.884 1.38-1.037 2.688-.036.308-.054 1.971-.066 6.22-.017 5.903-.002 6.729.132 7.296.239 1.017 1.04 1.617 1.982 1.483.631-.089 1.336-.499 2.728-1.587 1.177-.92 1.841-1.332 2.148-1.332.307 0 .971.412 2.148 1.332 1.714 1.339 2.444 1.697 3.235 1.585a1.61 1.61 0 0 0 .937-.474c.421-.426.572-.867.642-1.877.064-.904.03-12.068-.038-12.646-.153-1.308-.443-2.058-1.037-2.688-.692-.734-1.533-1.06-3.067-1.19-.562-.048-5.141-.046-5.7.002" fill="#10161F" fill-rule="evenodd"/></svg>`;
+const SHARE_SHEET_DELETE_2_CUTE_FILL_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M9.619 1.56c-.933.127-1.701.602-2.158 1.336-.206.331-.252.433-.5 1.104l-.184.5-1.802.02-1.801.02-.196.121c-.518.321-.619 1.077-.201 1.508.162.167.383.276.609.302l.169.019.023.245c.013.135.14 2.153.283 4.485.297 4.857.357 5.718.443 6.44.194 1.611.542 2.453 1.373 3.313.624.647 1.325 1.062 2.133 1.265.79.198 1.045.213 3.83.231 2.666.017 3.295-.003 4.08-.134.989-.165 1.759-.548 2.476-1.233.725-.692 1.143-1.473 1.36-2.542.176-.864.205-1.236.582-7.32.327-5.264.282-4.76.419-4.76.316 0 .676-.235.825-.54.092-.188.105-.258.092-.494-.02-.353-.168-.61-.452-.785l-.196-.121-1.801-.02-1.802-.02-.183-.5c-.241-.656-.319-.823-.532-1.148-.408-.622-.977-1.025-1.718-1.22-.318-.083-.416-.087-2.63-.095-1.265-.005-2.409.005-2.541.023m4.186 1.958c.58.039.805.116.967.328.111.146.307.543.308.624 0 .04-.642.05-3.08.05s-3.08-.01-3.08-.05c.001-.081.197-.478.308-.624.155-.204.401-.294.892-.326.616-.041 3.099-.043 3.685-.002M9.34 10.066c.253.087.507.341.594.594.059.173.066.482.066 2.84 0 2.987.009 2.893-.3 3.202a.987.987 0 0 1-1.169.172 1.058 1.058 0 0 1-.491-.594c-.028-.104-.038-1.059-.031-2.868L8.02 10.7l.111-.189a.987.987 0 0 1 1.209-.445m6 0c.253.087.507.341.594.594.059.173.066.482.066 2.84 0 2.987.009 2.893-.3 3.202a.987.987 0 0 1-1.169.172 1.058 1.058 0 0 1-.491-.594c-.028-.104-.038-1.059-.031-2.868l.011-2.712.111-.189a.987.987 0 0 1 1.209-.445" fill="#10161F" fill-rule="evenodd"/></svg>`;
+const SHARE_SHEET_REPORT_CUTE_FILL_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="m11.64 2.223-.34.061c-.391.071-.883.241-3.24 1.122-2.441.913-3.116 1.212-3.593 1.591a3.87 3.87 0 0 0-1.372 2.297c-.086.434-.129 4.854-.056 5.726.182 2.181 1.082 4.139 2.601 5.661.792.793 1.964 1.585 3.259 2.202a6.917 6.917 0 0 0 1.697.586c.462.099.579.108 1.404.108s.942-.009 1.404-.108a6.917 6.917 0 0 0 1.697-.586c1.294-.616 2.464-1.407 3.26-2.202a9.028 9.028 0 0 0 2.598-5.601c.053-.598.052-4.681-.001-5.29-.052-.587-.154-.997-.356-1.418a3.761 3.761 0 0 0-.759-1.095c-.582-.581-.978-.772-3.823-1.837-2.475-.927-2.722-1.015-3.16-1.122-.31-.076-1.017-.131-1.22-.095m.7 4.843c.253.087.507.341.594.594.058.171.066.448.066 2.34 0 2.429.003 2.399-.3 2.702a.987.987 0 0 1-1.169.172 1.056 1.056 0 0 1-.491-.595c-.028-.104-.039-.902-.031-2.368L11.02 7.7l.111-.189a.987.987 0 0 1 1.209-.445m.172 7.081a.995.995 0 1 1-1.381 1.342c-.095-.161-.111-.233-.111-.489s.016-.328.111-.489a.955.955 0 0 1 .941-.496.836.836 0 0 1 .44.132" fill="#10161F" fill-rule="evenodd"/></svg>`;
 
 const SEARCH_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none" fill-rule="evenodd"><path fill="#fff" d="M5.5 10a4.5 4.5 0 1 1 9 0a4.5 4.5 0 0 1-9 0M10 2.5a7.5 7.5 0 1 0 4.136 13.757l4.803 4.804a1.5 1.5 0 0 0 2.122-2.122l-4.804-4.803A7.5 7.5 0 0 0 10 2.5"/></g></svg>`;
 
@@ -381,6 +386,51 @@ export const BlockIcon: React.FC<{ size: number; color: string }> = ({ size, col
 export const ReportIcon: React.FC<{ size: number; color: string }> = ({ size, color }) => {
   const svgXml = REPORT_ICON_SVG.replace(/#fff/g, color);
   return <SvgXml xml={svgXml} width={size} height={size} />;
+};
+
+export const ShareSheetShare2CuteFillIcon: React.FC<{
+  size: number;
+  color: string;
+  style?: StyleProp<ViewStyle>;
+}> = ({ size, color, style }) => {
+  const svgXml = SHARE_SHEET_SHARE_2_CUTE_FILL_ICON_SVG.replace(/#10161F/g, color);
+  return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
+};
+
+export const ShareSheetSendPlaneCuteFillIcon: React.FC<{
+  size: number;
+  color: string;
+  style?: StyleProp<ViewStyle>;
+}> = ({ size, color, style }) => {
+  const svgXml = SHARE_SHEET_SEND_PLANE_CUTE_FILL_ICON_SVG.replace(/#10161F/g, color);
+  return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
+};
+
+export const ShareSheetBookmarkCuteFillIcon: React.FC<{
+  size: number;
+  color: string;
+  style?: StyleProp<ViewStyle>;
+}> = ({ size, color, style }) => {
+  const svgXml = SHARE_SHEET_BOOKMARK_CUTE_FILL_ICON_SVG.replace(/#10161F/g, color);
+  return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
+};
+
+export const ShareSheetDelete2CuteFillIcon: React.FC<{
+  size: number;
+  color: string;
+  style?: StyleProp<ViewStyle>;
+}> = ({ size, color, style }) => {
+  const svgXml = SHARE_SHEET_DELETE_2_CUTE_FILL_ICON_SVG.replace(/#10161F/g, color);
+  return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
+};
+
+export const ShareSheetReportCuteFillIcon: React.FC<{
+  size: number;
+  color: string;
+  style?: StyleProp<ViewStyle>;
+}> = ({ size, color, style }) => {
+  const svgXml = SHARE_SHEET_REPORT_CUTE_FILL_ICON_SVG.replace(/#10161F/g, color);
+  return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
 };
 
 // Custom Search Icon component
@@ -978,7 +1028,8 @@ export const CloseCircleFillIcon: React.FC<{
 };
 
 // Custom Video Camera 2 Fill Icon component
-const VIDEO_CAMERA_2_FILL_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" fill="none"/><g fill="none" fill-rule="evenodd"><path fill="#fff" d="M11.762 7.445A1 1 0 0 0 10.93 7H6a1 1 0 1 1 0-2h4.93a3 3 0 0 1 2.496 1.336L14.536 8H15a3 3 0 0 1 3 3v.21l1.713-1.056A1.5 1.5 0 0 1 22 11.43v5.138a1.5 1.5 0 0 1-2.287 1.277L18 16.79V17a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3v-6a3 3 0 0 1 3-3h7.132z"/></g></svg>`;
+// Matches the MGC "camera_2_cute_fi.svg" asset (with the fill made swappable via replace(/#fff/g, color)).
+const VIDEO_CAMERA_2_FILL_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M10.86 2.485c-1.066.027-1.512.085-1.956.252-.603.227-.961.46-1.633 1.066-.653.589-.936.717-1.58.717-.353 0-.993.136-1.388.296a4.424 4.424 0 0 0-2.704 3.229c-.083.409-.084.467-.068 4.395.015 3.362.027 4.055.082 4.46.195 1.46.529 2.259 1.267 3.036.692.728 1.462 1.135 2.54 1.342.919.176 1.137.182 6.58.182s5.661-.006 6.58-.182c1.219-.234 2.076-.739 2.817-1.661.427-.53.728-1.233.883-2.057.162-.864.17-1.08.188-5.141.017-3.897.016-3.968-.067-4.372a4.438 4.438 0 0 0-2.729-3.243c-.382-.151-1.02-.284-1.363-.284-.644 0-.927-.128-1.58-.717a9.323 9.323 0 0 0-.734-.606 4.441 4.441 0 0 0-1.224-.56c-.562-.144-2.017-.201-3.911-.152m1.583 5.037c1.187.122 2.222.596 3.032 1.391a4.988 4.988 0 0 1 0 7.174 5 5 0 0 1-5.015 1.165 4.514 4.514 0 0 1-1.231-.598 4.975 4.975 0 0 1-1.967-2.579C6.25 11.049 8.316 7.856 11.5 7.524c.462-.048.49-.048.943-.002m-1.112 2.056a3.024 3.024 0 0 0-2.219 2.13c-.126.443-.125 1.143.002 1.59a3.051 3.051 0 0 0 2.048 2.082c.323.1 1.103.124 1.478.044.378-.08.948-.356 1.259-.611.468-.382.818-.919.987-1.515.128-.449.128-1.147 0-1.596a3.051 3.051 0 0 0-2.048-2.082c-.3-.094-1.172-.118-1.507-.042" fill="#fff" fill-rule="evenodd"/></svg>`;
 
 export const VideoCamera2FillIcon: React.FC<{
   size: number;
@@ -1194,6 +1245,21 @@ const Icon: React.FC<IconProps> = ({
   }
   if (name === 'share') {
     return <ShareIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'share-sheet-share-cute-fill') {
+    return <ShareSheetShare2CuteFillIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'share-sheet-send-cute-fill') {
+    return <ShareSheetSendPlaneCuteFillIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'share-sheet-bookmark-cute-fill') {
+    return <ShareSheetBookmarkCuteFillIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'share-sheet-delete-cute-fill') {
+    return <ShareSheetDelete2CuteFillIcon size={size} color={color} style={style} />;
+  }
+  if (name === 'share-sheet-report-cute-fill') {
+    return <ShareSheetReportCuteFillIcon size={size} color={color} style={style} />;
   }
   if (name === 'safe-shield-2-fill' || name === 'mingcute:safe-shield-2-fill') {
     return <SafeShieldIcon size={size} color={color} style={style} />;

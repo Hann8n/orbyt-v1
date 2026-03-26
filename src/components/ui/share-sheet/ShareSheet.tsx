@@ -320,7 +320,7 @@ const ShareSheet: React.FC = () => {
       {
         id: 'share',
         label: t('share.share'),
-        icon: 'share',
+        icon: 'share-sheet-share-cute-fill',
         onPress: handleShare,
         color: NEON.purple,
         buttonColor: Colors.purple[950],
@@ -328,7 +328,7 @@ const ShareSheet: React.FC = () => {
       {
         id: 'send',
         label: t('share.send'),
-        icon: 'send-plane-fill',
+        icon: 'share-sheet-send-cute-fill',
         onPress: handleSend,
         color: NEON.green,
         buttonColor: Colors.teal[950],
@@ -336,7 +336,7 @@ const ShareSheet: React.FC = () => {
       {
         id: 'bookmark',
         label: isBookmarked ? t('share.saved') : t('share.save'),
-        icon: 'bookmark-fill',
+        icon: 'share-sheet-bookmark-cute-fill',
         onPress: handleBookmark,
         color: NEON.amber,
         buttonColor: Colors.amber[950],
@@ -344,7 +344,7 @@ const ShareSheet: React.FC = () => {
       {
         id: 'report',
         label: isCurrentUser ? t('share.delete') : t('share.report'),
-        icon: isCurrentUser ? 'delete-2-fill' : 'report',
+        icon: isCurrentUser ? 'share-sheet-delete-cute-fill' : 'share-sheet-report-cute-fill',
         onPress: async () => handleReportOrDelete(),
         color: NEON.coral,
         buttonColor: Colors.coral[950],
