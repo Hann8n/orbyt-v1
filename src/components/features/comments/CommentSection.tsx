@@ -318,14 +318,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         });
       }
     }
-  }, [
-    isLiked,
-    totalLikes,
-    post?.uri,
-    onToggleLike,
-    persistedHeaderInteraction,
-    updatePostInteraction,
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- omit onToggleLike: new identity each overlay update + stale modal isLiked reverts the heart
+  }, [isLiked, totalLikes, post?.uri, persistedHeaderInteraction, updatePostInteraction]);
 
   const headerHeartScale = useSharedValue(1);
   const headerHeartStyle = useAnimatedStyle(() => ({
