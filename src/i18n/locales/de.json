@@ -316,7 +316,7 @@
     "channels": "Kanäle",
     "loading": "Lade…",
     "following": "Abos",
-    "yourMix": "dein Mix",
+    "yourMix": "dein mix",
     "repostedBy": "repostet von {{handle}}"
   },
   "profile": {
@@ -606,7 +606,7 @@
     "copyProfileLink": "Profillink kopieren",
     "blockedAccounts": "Blockierte Konten",
     "mutedAccounts": "Stummschaltungen",
-    "yourMix": "dein Mix",
+    "yourMix": "Dein Mix",
     "appIcon": "App-Symbol",
     "contentFilters": "Inhaltsfilter",
     "newTabs": "Neue Tabs",
