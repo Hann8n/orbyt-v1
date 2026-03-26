@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, Text, StyleSheet, Dimensions, Pressable, FlatList } from 'react-native';
 import { Image } from 'expo-image';
@@ -46,6 +47,64 @@ interface SuggestedUser {
     followedBy?: string;
   };
 }
+
+type SuggestedUserItemProps = {
+  item: SuggestedUser;
+  followMutation: ReturnType<typeof useFollowMutation>;
+  t: TFunction;
+};
+
+const suggestedUserKeyExtractor = (item: SuggestedUser, _index: number): string => item.did;
+
+const SuggestedUserItem: React.FC<SuggestedUserItemProps> = ({ item, followMutation, t }) => {
+  const { data: profile } = useProfile(item.handle || null);
+  const ringProps = useAvatarProfileRing(item.did ?? null);
+  const isFollowing = !!profile?.viewer?.following || !!item.viewer?.following;
+
+  return (
+    <View style={styles.profileItem}>
+      <View style={styles.profileTouchable}>
+        <Avatar
+          uri={item.avatar}
+          type="profile"
+          size={40}
+          showRing={ringProps.showRing}
+          ringColor={ringProps.ringColor}
+          profileColors={ringProps.profileColors}
+          style={styles.profileImage}
+        />
+        <View style={styles.profileContent}>
+          <View style={styles.displayNameRow}>
+            <Text style={styles.displayName} numberOfLines={1} ellipsizeMode="tail">
+              {item.displayName || formatHandle(item.handle) || t('feed.unknownUser')}
+            </Text>
+            {item.handle && item.handle.trim() && item.handle.length > 0 && (
+              <VerificationBadge
+                handle={item.handle.trim()}
+                textSize={14}
+                textColor={Colors.neutral[50]}
+              />
+            )}
+          </View>
+        </View>
+      </View>
+      {!isFollowing && (
+        <Pressable
+          style={styles.followButton}
+          onPress={() => {
+            followMutation.mutate({
+              did: item.did,
+              handle: item.handle,
+              isFollowing: !isFollowing,
+            });
+          }}
+        >
+          <Icon name="user-plus" size={16} color={Colors.black} />
+        </Pressable>
+      )}
+    </View>
+  );
+};
 
 const EmptyFeed: React.FC<EmptyFeedProps> = ({
   secondaryColor,
@@ -145,60 +204,9 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
   const iconColor = profileColors ? profileColors.textColor : secondaryColor || Colors.neutral[200];
   const textColor = profileColors ? profileColors.textColor : secondaryColor || Colors.neutral[200];
 
-  // Suggested user item component (must be a component to use hooks)
-  const SuggestedUserItem: React.FC<{ item: SuggestedUser }> = ({ item }) => {
-    const { data: profile } = useProfile(item.handle || null);
-    const ringProps = useAvatarProfileRing(item.did ?? null);
-    const isFollowing = !!profile?.viewer?.following || !!item.viewer?.following;
-
-    return (
-      <View style={styles.profileItem}>
-        <View style={styles.profileTouchable}>
-          <Avatar
-            uri={item.avatar}
-            type="profile"
-            size={40}
-            showRing={ringProps.showRing}
-            ringColor={ringProps.ringColor}
-            profileColors={ringProps.profileColors}
-            style={styles.profileImage}
-          />
-          <View style={styles.profileContent}>
-            <View style={styles.displayNameRow}>
-              <Text style={styles.displayName} numberOfLines={1} ellipsizeMode="tail">
-                {item.displayName || formatHandle(item.handle) || t('feed.unknownUser')}
-              </Text>
-              {item.handle && item.handle.trim() && item.handle.length > 0 && (
-                <VerificationBadge
-                  handle={item.handle.trim()}
-                  textSize={14}
-                  textColor={Colors.neutral[50]}
-                />
-              )}
-            </View>
-          </View>
-        </View>
-        {!isFollowing && (
-          <Pressable
-            style={styles.followButton}
-            onPress={() => {
-              followMutation.mutate({
-                did: item.did,
-                handle: item.handle,
-                isFollowing: !isFollowing,
-              });
-            }}
-          >
-            <Icon name="user-plus" size={16} color={Colors.black} />
-          </Pressable>
-        )}
-      </View>
-    );
-  };
-
   // Render suggested user item using explore screen UI pattern
   const renderSuggestedUser = ({ item }: { item: SuggestedUser }) => (
-    <SuggestedUserItem item={item} />
+    <SuggestedUserItem item={item} followMutation={followMutation} t={t} />
   );
 
   // Calculate top offset so content appears around the top third of the available area
@@ -238,7 +246,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
           <FlatList
             data={suggestedUsers}
             renderItem={renderSuggestedUser}
-            keyExtractor={item => item.did}
+            keyExtractor={suggestedUserKeyExtractor}
             scrollEnabled={false}
             style={styles.suggestionsList}
             contentContainerStyle={styles.listContainer}
@@ -282,7 +290,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
             <FlatList
               data={suggestedUsers}
               renderItem={renderSuggestedUser}
-              keyExtractor={item => item.did}
+              keyExtractor={suggestedUserKeyExtractor}
               scrollEnabled={false}
               style={styles.suggestionsList}
               contentContainerStyle={styles.listContainer}
@@ -481,4 +489,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default React.memo(EmptyFeed);
+export default EmptyFeed;

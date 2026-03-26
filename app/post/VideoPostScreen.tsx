@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS, APP_CONSTANTS } from '../../src/utils/constants';
 import {
@@ -565,17 +565,14 @@ const VideoPostScreen: React.FC = () => {
   const [payload] = useState(() => consumePayload());
 
   const videoPath = payload?.videoPath;
-  const segments = useMemo(() => payload?.segments ?? [], [payload?.segments]);
+  const segments = payload?.segments ?? [];
   const segmentsForDraft = segments.length > 0 ? JSON.stringify(segments) : null;
 
   const [thumbnailPath, setThumbnailPath] = useState<string | undefined>(
     payload?.thumbnailPath ?? undefined
   );
 
-  const textOverlays = useMemo(
-    () => (payload?.textOverlays ?? []) as TextOverlay[],
-    [payload?.textOverlays]
-  );
+  const textOverlays = (payload?.textOverlays ?? []) as TextOverlay[];
   const router = useRouter();
 
   // Draft store
@@ -634,8 +631,7 @@ const VideoPostScreen: React.FC = () => {
       duration: 300,
       easing: Easing.out(Easing.ease),
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [headerFadeOpacity, fadeOpacity]);
 
   const fadeAnimatedStyle = useAnimatedStyle(() => ({
     opacity: fadeOpacity.value,
@@ -1281,11 +1277,7 @@ const VideoPostScreen: React.FC = () => {
     return () => sub?.remove();
   }, []);
 
-  // Memoize dynamic header styles to avoid inline style warnings
-  const headerButtonTopStyle = useMemo(
-    () => ({ top: isSmallDevice ? 5 : insets.top + 4 }),
-    [isSmallDevice, insets.top]
-  );
+  const headerButtonTopStyle = { top: isSmallDevice ? 5 : insets.top + 4 };
 
   // Render header (StatusBar transparent, header buttons keep safe area) - shared between portrait and landscape
   const renderHeader = () => (

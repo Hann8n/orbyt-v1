@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   View,
@@ -87,6 +87,11 @@ const COMMENT_ITEM_ESTIMATE = 150;
 const LIKE_ITEM_ESTIMATE = 72;
 const MAX_COMMENT_LENGTH = 300;
 
+const commentKeyExtractor = (item: Comment, index: number): string =>
+  item?.uri || item?.cid || `comment-${index}`;
+
+const likeKeyExtractor = (item: Like): string => `${item.actor.did}-${item.createdAt}`;
+
 const CommentSection: React.FC<CommentSectionProps> = ({
   post: propPost,
   onDismiss: propOnDismiss,
@@ -119,15 +124,12 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
   const insets = useSafeAreaInsets();
   const [listBottomPadding, wrapFooter] = useMeasuredFooterHeight(96);
-  const listContentStyle = useMemo(
-    () => [
-      styles.listContent,
-      {
-        paddingBottom: listBottomPadding + (typeof insets?.bottom === 'number' ? insets.bottom : 0),
-      },
-    ],
-    [listBottomPadding, insets?.bottom]
-  );
+  const listContentStyle = [
+    styles.listContent,
+    {
+      paddingBottom: listBottomPadding + (typeof insets?.bottom === 'number' ? insets.bottom : 0),
+    },
+  ];
 
   const sheetRef = useRef<TrueSheet>(null);
   const klipySheetRef = useRef<TrueSheet>(null);
@@ -263,17 +265,14 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     onSelectionChange: e => setInputSelection(e.nativeEvent.selection),
   });
 
-  const defaultHeaderInteraction = useMemo(
-    () => ({
-      isLiked: !!isLiked,
-      likeCount: totalLikes,
-      likeUri: undefined as string | undefined,
-      isReposted: false,
-      isBookmarked: false,
-      repostCount: 0,
-    }),
-    [isLiked, totalLikes]
-  );
+  const defaultHeaderInteraction = {
+    isLiked: !!isLiked,
+    likeCount: totalLikes,
+    likeUri: undefined as string | undefined,
+    isReposted: false,
+    isBookmarked: false,
+    repostCount: 0,
+  };
   const persistedHeaderInteraction = usePostInteractionStore(state =>
     post?.uri ? state.getPostInteraction(post.uri, defaultHeaderInteraction) : null
   );
@@ -294,8 +293,10 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     return persistedHeaderInteraction?.isLiked ?? !!isLiked;
   });
 
+  const hasToggleLike = Boolean(onToggleLike);
+
   useEffect(() => {
-    if (onToggleLike) {
+    if (hasToggleLike) {
       // Modal `commentSectionData.isLiked` is a snapshot from `presentCommentSection` and does not
       // update when the user likes from this sheet. The post interaction store does (see VideoCard
       // `updatePostInteraction`). Since `persistedHeaderInteraction` is in deps, we must sync from the
@@ -323,8 +324,14 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         });
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- omit onToggleLike: new identity each overlay update + stale modal isLiked reverts the heart
-  }, [isLiked, totalLikes, post?.uri, persistedHeaderInteraction, updatePostInteraction]);
+  }, [
+    hasToggleLike,
+    isLiked,
+    totalLikes,
+    post?.uri,
+    persistedHeaderInteraction,
+    updatePostInteraction,
+  ]);
 
   const headerHeartScale = useSharedValue(1);
   const headerHeartStyle = useAnimatedStyle(() => ({
@@ -450,16 +457,13 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     structuralSharing: false, // Disable structural sharing to avoid circular reference issues with nested comment structures
   });
 
-  const comments = useMemo(
-    () => commentsPages?.pages.flatMap(p => p.comments) ?? [],
-    [commentsPages]
-  );
+  const comments = commentsPages?.pages.flatMap(p => p.comments) ?? [];
 
   // Track reported comments for animated removal
   const reportedPostUris = useReportedPostsStore(state => state.reportedPostUris);
   const previousCommentsLengthRef = useRef<number>(0);
 
-  const flattenedComments = useMemo<Comment[]>(() => {
+  const flattenedComments = (() => {
     const flat: Comment[] = [];
     const addComments = (commentList: Comment[], parentComment?: Comment) => {
       commentList.forEach((c: Comment) => {
@@ -485,7 +489,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       addComments(comments);
     }
     return flat;
-  }, [comments, deletedComments, reportedPostUris]);
+  })();
 
   // Prepare layout animation when comments are removed
   useEffect(() => {
@@ -527,7 +531,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     enabled: !!post?.uri && likesQueryEnabled,
   });
 
-  const likes = useMemo(() => likesPages?.pages.flatMap(p => p.likes) ?? [], [likesPages]);
+  const likes = likesPages?.pages.flatMap(p => p.likes) ?? [];
 
   useEffect(() => {
     if (
@@ -690,33 +694,30 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     }
   }, [postedCommentUri, flattenedComments, commentsLoading]);
 
-  const tabOptions: TabOption[] = useMemo(
-    () => [
-      {
-        id: 'comments',
-        label:
-          totalComments > 0
-            ? t('comments.commentsCount', { formattedCount: formatNumber(totalComments) })
-            : t('comments.comments'),
-      },
-      {
-        id: 'likes',
-        label:
-          totalLikes > 0
-            ? t('comments.likesCount', { formattedCount: formatNumber(totalLikes) })
-            : t('comments.likes'),
-      },
-    ],
-    [totalComments, totalLikes, t]
-  );
+  const tabOptions: TabOption[] = [
+    {
+      id: 'comments',
+      label:
+        totalComments > 0
+          ? t('comments.commentsCount', { formattedCount: formatNumber(totalComments) })
+          : t('comments.comments'),
+    },
+    {
+      id: 'likes',
+      label:
+        totalLikes > 0
+          ? t('comments.likesCount', { formattedCount: formatNumber(totalLikes) })
+          : t('comments.likes'),
+    },
+  ];
 
-  const handleTabPress = useCallback((tabId: string) => {
+  const handleTabPress = (tabId: string) => {
     const next = tabId as 'comments' | 'likes';
     setActiveTab(next);
     if (next === 'likes') setLikesQueryEnabled(true);
-  }, []);
+  };
 
-  const handleClose = useCallback(() => {
+  const handleClose = () => {
     setNewCommentText('');
     setSelectedGif(null);
     setSelectedImages([]);
@@ -727,7 +728,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     setReplyContext(null);
     setIsPosting(false);
     onDismiss?.();
-  }, [onDismiss]);
+  };
 
   // Control TrueSheet visibility via instance ref (TrueSheet v3+)
   // Guard: only call present() once per open (avoids double-open when effect runs twice or two instances existed)
@@ -786,41 +787,28 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     [onDismiss, router]
   );
 
-  const commentKeyExtractor = useCallback((item: Comment, index: number) => {
-    return item?.uri || item?.cid || `comment-${index}`;
-  }, []);
-  const likeKeyExtractor = useCallback((item: Like) => `${item.actor.did}-${item.createdAt}`, []);
-
-  const CommentsEmptyComponent = useMemo(
-    () =>
-      commentsLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color={Colors.neutral[200]} />
-        </View>
-      ) : (
-        <View style={styles.emptyContainer}>
-          <View style={styles.emptyContent}>
-            <Text style={styles.emptyText}>{t('comments.startConversation')}</Text>
-          </View>
-        </View>
-      ),
-    [commentsLoading, t]
+  const CommentsEmptyComponent = commentsLoading ? (
+    <View style={styles.loadingContainer}>
+      <ActivityIndicator size="small" color={Colors.neutral[200]} />
+    </View>
+  ) : (
+    <View style={styles.emptyContainer}>
+      <View style={styles.emptyContent}>
+        <Text style={styles.emptyText}>{t('comments.startConversation')}</Text>
+      </View>
+    </View>
   );
 
-  const LikesEmptyComponent = useMemo(
-    () =>
-      likesLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color={Colors.neutral[200]} />
-        </View>
-      ) : (
-        <View style={styles.emptyContainer}>
-          <View style={styles.emptyContent}>
-            <Text style={styles.emptyText}>{t('comments.beFirstLike')}</Text>
-          </View>
-        </View>
-      ),
-    [likesLoading, t]
+  const LikesEmptyComponent = likesLoading ? (
+    <View style={styles.loadingContainer}>
+      <ActivityIndicator size="small" color={Colors.neutral[200]} />
+    </View>
+  ) : (
+    <View style={styles.emptyContainer}>
+      <View style={styles.emptyContent}>
+        <Text style={styles.emptyText}>{t('comments.beFirstLike')}</Text>
+      </View>
+    </View>
   );
 
   const onEndReachedComments = useCallback(() => {
@@ -835,130 +823,94 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     ? t('comments.replyingTo', { name: replyContext.authorName })
     : t('comments.saySomething');
 
-  const ComposerFooter = useMemo(() => {
-    return (
-      <CommentInputFooter
-        value={newCommentText}
-        onChangeText={setNewCommentText}
-        inputSelection={inputSelection}
-        onSelectionChange={e => setInputSelection(e.nativeEvent.selection)}
-        placeholder={placeholder}
-        onSubmit={handleSendComment}
-        onPressGif={openGifPicker}
-        onPressPhotos={handlePickImages}
-        selectedGifPreviewUri={selectedGif?.previewUrl ?? null}
-        selectedGifAspectRatio={
-          selectedGif?.width && selectedGif?.height && selectedGif.height > 0
-            ? selectedGif.width / selectedGif.height
-            : null
-        }
-        selectedImages={selectedImages}
-        hasAttachment={!!selectedGif || selectedImages.length > 0}
-        onClearAttachment={() => {
-          setSelectedGif(null);
-          setSelectedImages([]);
-        }}
-        onClearGif={() => setSelectedGif(null)}
-        onRemoveImage={handleRemoveSelectedImage}
-        onCancelReply={handleCancelReply}
-        replyContext={
-          replyContext
-            ? {
-                authorName: replyContext.authorName,
-                parentUri: replyContext.parentUri,
-                parentCid: replyContext.parentCid,
-                level: 0,
-              }
-            : null
-        }
-        isPosting={isPosting}
-        maxLength={MAX_COMMENT_LENGTH}
-        inputRef={inputRef}
-        currentUserAvatar={currentUserProfile?.avatar}
-        userSearchModalProps={userSearchModalProps}
-        mentionInputProps={mentionInputProps}
-      />
-    );
-  }, [
-    newCommentText,
-    openGifPicker,
-    handlePickImages,
-    selectedGif,
-    selectedImages,
-    inputSelection,
-    placeholder,
-    handleSendComment,
-    handleCancelReply,
-    replyContext,
-    isPosting,
-    inputRef,
-    currentUserProfile?.avatar,
-    userSearchModalProps,
-    mentionInputProps,
-    handleRemoveSelectedImage,
-  ]);
+  const ComposerFooter = (
+    <CommentInputFooter
+      value={newCommentText}
+      onChangeText={setNewCommentText}
+      inputSelection={inputSelection}
+      onSelectionChange={e => setInputSelection(e.nativeEvent.selection)}
+      placeholder={placeholder}
+      onSubmit={handleSendComment}
+      onPressGif={openGifPicker}
+      onPressPhotos={handlePickImages}
+      selectedGifPreviewUri={selectedGif?.previewUrl ?? null}
+      selectedGifAspectRatio={
+        selectedGif?.width && selectedGif?.height && selectedGif.height > 0
+          ? selectedGif.width / selectedGif.height
+          : null
+      }
+      selectedImages={selectedImages}
+      hasAttachment={!!selectedGif || selectedImages.length > 0}
+      onClearAttachment={() => {
+        setSelectedGif(null);
+        setSelectedImages([]);
+      }}
+      onClearGif={() => setSelectedGif(null)}
+      onRemoveImage={handleRemoveSelectedImage}
+      onCancelReply={handleCancelReply}
+      replyContext={
+        replyContext
+          ? {
+              authorName: replyContext.authorName,
+              parentUri: replyContext.parentUri,
+              parentCid: replyContext.parentCid,
+              level: 0,
+            }
+          : null
+      }
+      isPosting={isPosting}
+      maxLength={MAX_COMMENT_LENGTH}
+      inputRef={inputRef}
+      currentUserAvatar={currentUserProfile?.avatar}
+      userSearchModalProps={userSearchModalProps}
+      mentionInputProps={mentionInputProps}
+    />
+  );
 
-  const headerComponent = useMemo(
-    () => (
-      <View style={styles.header}>
-        <View style={styles.tabContainer}>
-          <TabNavigation
-            tabs={tabOptions}
-            activeTab={activeTab}
-            onTabPress={handleTabPress}
-            textColor={Colors.neutral[50]}
-            backgroundColor="transparent"
-            variant="comments"
-            style={styles.tabNavigation}
-          />
-        </View>
-
-        <View style={styles.headerActions}>
-          <RelativeDate dateString={postedAt || post?.indexedAt} style={styles.dateText} />
-
-          <Pressable
-            onPress={handleHeaderSharePress}
-            style={styles.actionButton}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <MoreFillIcon size={20} color={Colors.neutral[400]} />
-          </Pressable>
-
-          <Pressable
-            onPress={handleHeaderToggleLike}
-            disabled={!!isLikePending || headerIsPending}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            style={styles.actionButton}
-          >
-            <Animated.View style={headerHeartStyle}>
-              <HeartFillIcon
-                size={26}
-                color={
-                  (onToggleLike ? headerVisualLiked : headerIsLiked)
-                    ? Colors.coral[500]
-                    : Colors.neutral[400]
-                }
-              />
-            </Animated.View>
-          </Pressable>
-        </View>
+  const headerComponent = (
+    <View style={styles.header}>
+      <View style={styles.tabContainer}>
+        <TabNavigation
+          tabs={tabOptions}
+          activeTab={activeTab}
+          onTabPress={handleTabPress}
+          textColor={Colors.neutral[50]}
+          backgroundColor="transparent"
+          variant="comments"
+          style={styles.tabNavigation}
+        />
       </View>
-    ),
-    [
-      tabOptions,
-      activeTab,
-      handleTabPress,
-      postedAt,
-      post?.indexedAt,
-      handleHeaderSharePress,
-      handleHeaderToggleLike,
-      isLikePending,
-      headerIsPending,
-      headerHeartStyle,
-      onToggleLike,
-      headerVisualLiked,
-      headerIsLiked,
-    ]
+
+      <View style={styles.headerActions}>
+        <RelativeDate dateString={postedAt || post?.indexedAt} style={styles.dateText} />
+
+        <Pressable
+          onPress={handleHeaderSharePress}
+          style={styles.actionButton}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <MoreFillIcon size={20} color={Colors.neutral[400]} />
+        </Pressable>
+
+        <Pressable
+          onPress={handleHeaderToggleLike}
+          disabled={!!isLikePending || headerIsPending}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={styles.actionButton}
+        >
+          <Animated.View style={headerHeartStyle}>
+            <HeartFillIcon
+              size={26}
+              color={
+                (onToggleLike ? headerVisualLiked : headerIsLiked)
+                  ? Colors.coral[500]
+                  : Colors.neutral[400]
+              }
+            />
+          </Animated.View>
+        </Pressable>
+      </View>
+    </View>
   );
 
   return (

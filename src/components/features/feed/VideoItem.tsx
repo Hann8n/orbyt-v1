@@ -3,7 +3,7 @@
  * Updated for unified snapping system
  */
 
-import React, { useMemo } from 'react';
+import React from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 
 import { useVisibilityCoreStore } from '../../../core/visibility';
@@ -74,22 +74,11 @@ const VideoItem: React.FC<VideoItemProps> = ({
 
   const hasVideo = !!videoUrl;
 
-  // Memoize container style to prevent recreation on every render
   // No margins - using FlashList ItemSeparatorComponent for spacing
-  const containerStyle = useMemo(
-    () => [styles.videoContainer, { height: itemHeight }],
-    [itemHeight]
-  );
+  const containerStyle = [styles.videoContainer, { height: itemHeight }];
 
-  // Memoize merged post so VideoCard's memo can skip when uri/cid/video unchanged (FlashList recycling)
-  const postUri = getPostUri(post) ?? '';
-  const postCid = getPostCid(post) ?? '';
-  const normalizedPost = useMemo(
-    () => ({ ...post, embed: videoView }) as VideoCardPost,
-    // Deps by stable identity (uri/cid/video) for FlashList recycling; post/videoView used in callback
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [postUri, postCid, videoUrl]
-  );
+  // Normalize post so VideoCard can read `embed` consistently
+  const normalizedPost = { ...post, embed: videoView } as VideoCardPost;
 
   // Early return if no video
   if (!hasVideo) {
@@ -128,51 +117,5 @@ const styles = StyleSheet.create({
   },
 });
 
-// Helper to extract stable post identifiers
-const getPostUri = (post: Post): string | undefined => {
-  if ('uri' in post) return post.uri;
-  if ('post' in post && typeof post.post === 'object' && post.post !== null && 'uri' in post.post) {
-    return (post.post as { uri: string }).uri;
-  }
-  return undefined;
-};
-
-const getPostCid = (post: Post): string | undefined => {
-  if ('cid' in post) return post.cid;
-  if ('post' in post && typeof post.post === 'object' && post.post !== null && 'cid' in post.post) {
-    return (post.post as { cid: string }).cid;
-  }
-  return undefined;
-};
-
-// Custom comparison function for memoization
-// Compares by value (URI/CID + optional feed properties) rather than post object reference
-// isVisible and allowPlayback are derived from store in the component; areEqual only compares props
-const areEqual = (prevProps: VideoItemProps, nextProps: VideoItemProps) => {
-  if (
-    prevProps.height !== nextProps.height ||
-    prevProps.feedOption !== nextProps.feedOption ||
-    prevProps.feedKey !== nextProps.feedKey ||
-    prevProps.canPlay !== nextProps.canPlay ||
-    prevProps.isHeaderBlockingPlayback !== nextProps.isHeaderBlockingPlayback ||
-    prevProps.isModal !== nextProps.isModal ||
-    prevProps.index !== nextProps.index
-  ) {
-    return false;
-  }
-  if (prevProps.feedItem !== nextProps.feedItem) return false;
-  if (prevProps.feedItem?.post?.uri !== nextProps.feedItem?.post?.uri) return false;
-
-  // Compare post by stable identifiers (URI/CID) instead of object reference
-  if (
-    getPostUri(prevProps.post) !== getPostUri(nextProps.post) ||
-    getPostCid(prevProps.post) !== getPostCid(nextProps.post)
-  ) {
-    return false;
-  }
-
-  return true;
-};
-
-export default React.memo(VideoItem, areEqual);
+export default VideoItem;
 export { VideoItem };

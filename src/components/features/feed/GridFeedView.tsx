@@ -1,11 +1,4 @@
-import React, {
-  useCallback,
-  useMemo,
-  forwardRef,
-  useImperativeHandle,
-  useRef,
-  useState,
-} from 'react';
+import React, { useCallback, forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
@@ -60,12 +53,14 @@ const VideoGridItem: React.FC<{
   style?: StyleProp<ViewStyle>;
   itemStyle?: StyleProp<ViewStyle>;
   thumbnailStyle?: ImageStyle;
-}> = React.memo(({ item, index, onPress, style, itemStyle, thumbnailStyle }) => {
+}> = ({ item, index, onPress, style, itemStyle, thumbnailStyle }) => {
   const videoView = getVideoView(item.post.embed);
   const thumbnailUrl = videoView?.thumbnail || null;
   const shouldBlur = !!(item.contentListUI?.blur || item.contentMediaUI?.blur);
 
-  const handlePress = useCallback(() => onPress(index), [onPress, index]);
+  // Simple press handler for the grid cell.
+  // Keeping this as a plain function avoids unnecessary manual memoization.
+  const handlePress = () => onPress(index);
 
   const validThumbnailUrl =
     thumbnailUrl && typeof thumbnailUrl === 'string' && thumbnailUrl.trim() !== ''
@@ -89,11 +84,14 @@ const VideoGridItem: React.FC<{
       )}
     </Pressable>
   );
-});
+};
 
 VideoGridItem.displayName = 'VideoGridItem';
 
 const ITEM_MARGIN = 2; // Divider thickness for both grid directions
+
+const gridKeyExtractor = (item: ExtendedFeedViewPost, _index: number): string =>
+  getFeedItemKey(item);
 
 interface GridFeedViewProps {
   feed: ExtendedFeedViewPost[];
@@ -138,16 +136,10 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
     const effectiveBackgroundColor = backgroundColor || Colors.black;
 
     // Determine if this is a header feed (profile, channel, etc.)
-    const isHeaderFeed = useMemo(
-      () => getIsHeaderFeed(feedOption, headerComponent),
-      [feedOption, headerComponent]
-    );
+    const isHeaderFeed = getIsHeaderFeed(feedOption, headerComponent);
 
     // Use profile colors when available
-    const profileColors = useMemo(
-      () => getProfileColors(backgroundColor, secondaryColor),
-      [backgroundColor, secondaryColor]
-    );
+    const profileColors = getProfileColors(backgroundColor, secondaryColor);
 
     // Ref for scrolling
     const flashListRef = useRef<FlashListRef<ExtendedFeedViewPost>>(null);
@@ -180,15 +172,12 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
       [contentScrollProgressOutput, fadeDist]
     );
 
-    const handleHeaderLayout = useCallback(
-      (e: LayoutChangeEvent) => {
-        const h = Math.round(e.nativeEvent.layout.height);
-        if (h > 0 && h !== headerHeight) {
-          requestAnimationFrame(() => setHeaderHeight(h));
-        }
-      },
-      [headerHeight]
-    );
+    const handleHeaderLayout = (e: LayoutChangeEvent) => {
+      const h = Math.round(e.nativeEvent.layout.height);
+      if (h > 0 && h !== headerHeight) {
+        requestAnimationFrame(() => setHeaderHeight(h));
+      }
+    };
 
     // Expose scrollToTop method
     useImperativeHandle(
@@ -210,7 +199,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
       Device.deviceType === Device.DeviceType.TABLET || Math.min(windowWidth, windowHeight) >= 600;
     // Breakpoints: ensure at least 3 columns; default 3 on mobile
     // Adjust as needed: 3 (<=480), 4 (<=900), 5 (<=1200), 6 (>1200 or tablets)
-    const computedColumns = useMemo(() => {
+    const computedColumns = (() => {
       const w = windowWidth || Dimensions.get('window').width;
       let cols = 3; // default mobile
       if (w > 1200 || isTablet) {
@@ -224,7 +213,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
       }
       // enforce minimum of 3
       return Math.max(3, cols);
-    }, [windowWidth, isTablet]);
+    })();
 
     const numColumns = computedColumns;
     // With borders instead of margins, items can use full width divided by columns.
@@ -235,10 +224,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
 
     // Use actual safe area insets and bottom nav bar height
     const insets = useSafeAreaInsets();
-    const viewportDimensions = useMemo(
-      () => getViewportDimensions(isModal, isHeaderFeed, insets),
-      [isModal, isHeaderFeed, insets]
-    );
+    const viewportDimensions = getViewportDimensions(isModal, isHeaderFeed, insets);
     const viewableAreaHeight = viewportDimensions.height;
     // When used inside a custom container, subtract header height
     const headerHeightForTabs = ListComponent ? FEED_VIEW_CONSTANTS.HEADER_HEIGHT_TABS : 0;
@@ -278,36 +264,25 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
       [onGridItemPress, feed, numColumns, itemWidth, itemHeight, effectiveBackgroundColor]
     );
 
-    const feedScrollValue = useMemo(
-      () =>
-        useScrollTracking
-          ? {
-              scrollOffsetYSV,
-              headerHeight,
-              viewportHeight: viewportDimensions.height,
-              itemSpacing,
-              contentScrollProgressSV,
-            }
-          : null,
-      [
-        useScrollTracking,
-        scrollOffsetYSV,
-        headerHeight,
-        viewportDimensions.height,
-        itemSpacing,
-        contentScrollProgressSV,
-      ]
-    );
+    const feedScrollValue = useScrollTracking
+      ? {
+          scrollOffsetYSV,
+          headerHeight,
+          viewportHeight: viewportDimensions.height,
+          itemSpacing,
+          contentScrollProgressSV,
+        }
+      : null;
 
     const ListEl = ListComponent || (useScrollTracking ? AnimatedFlashList : FlashList);
-    const listProps = useMemo(() => {
+    const listProps = (() => {
       const base: Record<string, unknown> = ListComponent ? {} : { ref: flashListRef };
       if (useScrollTracking) {
         base.onScroll = scrollHandler;
         base.scrollEventThrottle = APP_CONSTANTS.SCROLL_THROTTLE;
       }
       return base;
-    }, [ListComponent, useScrollTracking, scrollHandler]);
+    })();
 
     const listHeader = headerComponent ? (
       <View
@@ -325,7 +300,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
         key={`grid-${feedOption}-${userDid || 'default'}-cols-${numColumns}`}
         data={feed}
         renderItem={renderGridItem}
-        keyExtractor={(item: ExtendedFeedViewPost) => getFeedItemKey(item)}
+        keyExtractor={gridKeyExtractor}
         numColumns={numColumns}
         contentContainerStyle={[
           styles.listContent,

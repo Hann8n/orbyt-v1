@@ -1,6 +1,8 @@
-import { StyleSheet } from 'react-native';
-import { memo, useEffect } from 'react';
-import { Canvas, Image, Blur, Rect, useImage, useCanvasSize } from '@shopify/react-native-skia';
+import { memo, useEffect, useRef, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
+import { Colors } from '../../theme';
+import { LinearGradient } from './LinearGradient';
+import { extractColorsFromImage, darkenColor } from '../../utils/formatting/colors';
 
 interface BlurredBackgroundProps {
   thumbnailUrl: string | null;
@@ -9,44 +11,100 @@ interface BlurredBackgroundProps {
   darkOverlay?: boolean;
 }
 
+const ambientColorCache = new Map<string, { backgroundColor: string; accentColor: string }>();
+
 const BlurredBackground = memo(function BlurredBackground({
   thumbnailUrl,
   onBlurReady,
   darkOverlay = true,
 }: BlurredBackgroundProps) {
-  const image = useImage(thumbnailUrl);
-  const { ref, size } = useCanvasSize();
-  const w = size.width;
-  const h = size.height;
-  const hasSize = w > 0 && h > 0;
+  const [colors, setColors] = useState<{ backgroundColor: string; accentColor: string }>(() => ({
+    backgroundColor: Colors.black,
+    accentColor: Colors.neutral[800] ?? Colors.black,
+  }));
+
+  const notifiedUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (image && hasSize && onBlurReady) onBlurReady();
-  }, [image, hasSize, onBlurReady]);
+    if (!thumbnailUrl) return;
+
+    let cancelled = false;
+
+    const url = thumbnailUrl;
+
+    async function run(): Promise<void> {
+      const cached = ambientColorCache.get(url);
+      if (cached) {
+        setColors(cached);
+        if (notifiedUrlRef.current !== url) {
+          notifiedUrlRef.current = url;
+          onBlurReady?.();
+        }
+        return;
+      }
+
+      try {
+        const extracted = await extractColorsFromImage(url);
+
+        // Darken aggressively so the background stays subtle behind readable video UI.
+        const backgroundColor = darkenColor(extracted.backgroundColor, 0.55);
+        const accentColor = darkenColor(extracted.accentColor, 0.6);
+
+        const next = { backgroundColor, accentColor };
+        if (cancelled) return;
+
+        ambientColorCache.set(url, next);
+        setColors(next);
+
+        if (notifiedUrlRef.current !== url) {
+          notifiedUrlRef.current = url;
+          onBlurReady?.();
+        }
+      } catch {
+        // Keep defaults.
+        if (cancelled) return;
+        if (notifiedUrlRef.current !== url) {
+          notifiedUrlRef.current = url;
+          onBlurReady?.();
+        }
+      }
+    }
+
+    // Reset notification for this thumbnail, so poster hiding logic can trigger again.
+    notifiedUrlRef.current = null;
+    void run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [thumbnailUrl, onBlurReady]);
 
   if (!thumbnailUrl) return null;
 
   return (
-    <Canvas ref={ref} style={StyleSheet.absoluteFill} pointerEvents="none">
-      {hasSize && (
-        <>
-          {image && (
-            <Image
-              image={image}
-              x={-w * 0.15}
-              y={-h * 0.15}
-              width={w * 1.3}
-              height={h * 1.3}
-              fit="cover"
-            >
-              <Blur blur={24} mode="clamp" />
-            </Image>
-          )}
-          {darkOverlay && <Rect x={0} y={0} width={w} height={h} color="black" opacity={0.5} />}
-        </>
-      )}
-    </Canvas>
+    <View style={styles.container} pointerEvents="none">
+      <LinearGradient
+        colors={[colors.backgroundColor, colors.accentColor]}
+        style={styles.gradient}
+      />
+
+      {darkOverlay && <View style={styles.darkOverlay} />}
+    </View>
   );
 });
 
 export default BlurredBackground;
+
+const styles = StyleSheet.create({
+  container: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  gradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  darkOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: Colors.black,
+    opacity: 0.5,
+  },
+});

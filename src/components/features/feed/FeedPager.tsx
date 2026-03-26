@@ -3,8 +3,6 @@ import {
   useCallback,
   useEffect,
   useState,
-  useMemo,
-  memo,
   forwardRef,
   useImperativeHandle,
   type ReactNode,
@@ -56,6 +54,8 @@ const FEED_LABEL_KEYS: { [key: string]: string } = {
   reposts: 'profile.reposts',
   likes: 'profile.likes',
 };
+
+const NOOP = () => {};
 
 // SVG uses Orbyt White for the camera icon fill (matches Colors.neutral[50] / Colors.neutral[50])
 const CAMERA_2_FILL_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='2 2 20 20'><g fill='none'><path fill='#f3f5fe' d='M14.793 3a1.5 1.5 0 0 1 .95.34l.11.1L17.415 5H20a2 2 0 0 1 1.995 1.85L22 7v12a2 2 0 0 1-1.85 1.995L20 21H4a2 2 0 0 1-1.995-1.85L2 19V7a2 2 0 0 1 1.85-1.995L4 5h2.586l1.56-1.56a1.5 1.5 0 0 1 .913-.433L9.207 3zM12 7.5a5 5 0 1 0 0 10 5 5 0 0 0 0-10m0 2a3 3 0 1 1 0 6 3 3 0 0 1 0-6'/></g></svg>`;
@@ -113,7 +113,7 @@ interface FeedIndicatorItemProps {
   pressableStyle?: StyleProp<ViewStyle>;
 }
 
-const FeedIndicatorItem = memo(function FeedIndicatorItem({
+function FeedIndicatorItem({
   feedIndex,
   indicatorBaseFontSize,
   pageScrollProgress,
@@ -142,7 +142,7 @@ const FeedIndicatorItem = memo(function FeedIndicatorItem({
       <Animated.Text style={animatedStyle}>{label}</Animated.Text>
     </Pressable>
   );
-});
+}
 
 const FeedPager = forwardRef<ProfileRef, FeedPagerProps>(function FeedPager(
   {
@@ -186,7 +186,7 @@ const FeedPager = forwardRef<ProfileRef, FeedPagerProps>(function FeedPager(
   const setOverlayVisibility = useSetOverlayVisibility();
   const tabBarVisibility = useTabBarVisibility();
 
-  const feedOptions = useMemo(() => feedOptionsProp ?? DEFAULT_FEED_OPTIONS, [feedOptionsProp]);
+  const feedOptions = feedOptionsProp ?? DEFAULT_FEED_OPTIONS;
 
   const showBarAndOverlay = useCallback(() => {
     setTabBarVisibility(1);
@@ -198,11 +198,11 @@ const FeedPager = forwardRef<ProfileRef, FeedPagerProps>(function FeedPager(
   const [isFeedBarVisible, setIsFeedBarVisible] = useState(true);
 
   // Same as PagerView's initialPage – single source of truth for "which page we're on" at mount.
-  const initialPageIndex = useMemo(() => {
+  const initialPageIndex = (() => {
     const feed = currentFeed ?? initialFeed;
     const initialIndex = feedOptions.findIndex(option => option === feed);
     return initialIndex >= 0 ? initialIndex : 0;
-  }, [feedOptions, initialFeed, currentFeed]);
+  })();
 
   // Must match initialPage: native PagerView does not fire onPageSelected for the initial page.
   const pageScrollProgress = useSharedValue(initialPageIndex);
@@ -315,59 +315,47 @@ const FeedPager = forwardRef<ProfileRef, FeedPagerProps>(function FeedPager(
         onFeedChange?.(newFeedOption);
       }
     },
-    // pageScrollProgress is a shared value - not needed in dependencies
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [feedOptions, onFeedChange]
+    [feedOptions, onFeedChange, pageScrollProgress]
   );
 
   // Retry is handled inside FeedRenderer (refetch); pass stable no-op so child can call it
-  const handleRetryFeed = useCallback(() => {}, []);
-
-  const handleIndicatorTap = useCallback(
-    (feedOption: FeedOption) => {
-      const targetIndex = feedOptions.findIndex(option => option === feedOption);
-      if (targetIndex >= 0) setPagerPage(targetIndex);
-    },
-    [feedOptions, setPagerPage]
-  );
+  const handleIndicatorTap = (feedOption: FeedOption) => {
+    const targetIndex = feedOptions.findIndex(option => option === feedOption);
+    if (targetIndex >= 0) setPagerPage(targetIndex);
+  };
 
   // Memoized query options for feed rendering (merge profile-style overrides when provided)
-  const baseQueryOptions = useMemo(
-    () => ({
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      refetchOnMount: false,
-      refetchOnWindowFocus: false,
-      refetchOnReconnect: false,
-      refetchIntervalInBackground: false,
-      ...queryOptionsProp,
-    }),
-    [queryOptionsProp]
-  );
+  const baseQueryOptions = {
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchIntervalInBackground: false,
+    ...queryOptionsProp,
+  };
 
   // Optimized feed page styles - consistent with ListFeedView
-  const feedPageStyle = useMemo(
-    () => ({
-      ...styles.feedPage,
-      width,
-      height: '100%' as const,
-    }),
-    [width]
-  );
+  const feedPageStyle = {
+    ...styles.feedPage,
+    width,
+    height: '100%' as const,
+  };
 
   // Dynamic base font size for channel indicators based on screen size
-  const indicatorBaseFontSize = useMemo(() => {
-    if (typeof indicatorFontSize === 'number' && indicatorFontSize > 0) return indicatorFontSize;
-    if (isTablet) return 20;
-    if (isSmallScreen) return 16;
-    const minDimension = Math.min(width, height);
-    if (minDimension >= 420) return 18; // large phones/phablets
-    return 16;
-  }, [width, height, indicatorFontSize, isTablet, isSmallScreen]);
+  const indicatorBaseFontSize =
+    typeof indicatorFontSize === 'number' && indicatorFontSize > 0
+      ? indicatorFontSize
+      : isTablet
+        ? 20
+        : isSmallScreen
+          ? 16
+          : (() => {
+              const minDimension = Math.min(width, height);
+              if (minDimension >= 420) return 18; // large phones/phablets
+              return 16;
+            })();
 
-  const feedSwitcherTopStyle = useMemo(
-    () => ({ top: applySafeArea ? 12 + insets.top : 12 }),
-    [applySafeArea, insets.top]
-  );
+  const feedSwitcherTopStyle = { top: applySafeArea ? 12 + insets.top : 12 };
 
   // Both feeds render side-by-side; each keeps its own scroll and cursor (fully independent).
   const renderFeed = useCallback(
@@ -386,7 +374,7 @@ const FeedPager = forwardRef<ProfileRef, FeedPagerProps>(function FeedPager(
         contentScrollProgressOutput={
           index === currentFeedIndex ? contentScrollProgressOutput : undefined
         }
-        onRetryFeed={handleRetryFeed}
+        onRetryFeed={NOOP}
         queryOptions={{
           ...baseQueryOptions,
           // Enable feed queries for all pager pages while the pager is visible.
@@ -407,7 +395,6 @@ const FeedPager = forwardRef<ProfileRef, FeedPagerProps>(function FeedPager(
       onViewModeChange,
       contentScrollProgressOutput,
       currentFeedIndex,
-      handleRetryFeed,
       baseQueryOptions,
       isVisible,
       forceError,
@@ -415,14 +402,11 @@ const FeedPager = forwardRef<ProfileRef, FeedPagerProps>(function FeedPager(
     ]
   );
 
-  const getLabel = useCallback(
-    (feedOption: FeedOption) => {
-      if (feedLabelsProp?.[feedOption]) return feedLabelsProp[feedOption];
-      const labelKey = FEED_LABEL_KEYS[feedOption];
-      return labelKey ? t(labelKey) : feedOption;
-    },
-    [feedLabelsProp, t]
-  );
+  const getLabel = (feedOption: FeedOption) => {
+    if (feedLabelsProp?.[feedOption]) return feedLabelsProp[feedOption];
+    const labelKey = FEED_LABEL_KEYS[feedOption];
+    return labelKey ? t(labelKey) : feedOption;
+  };
 
   // Expose scrollToTop and setPage (setPage used by profile to sync tab tap -> pager)
   useImperativeHandle(
@@ -554,20 +538,4 @@ const styles = StyleSheet.create({
   },
 });
 
-// Performance comparison for memo
-const areEqual = (prevProps: FeedPagerProps, nextProps: FeedPagerProps) => {
-  if (prevProps.initialFeed !== nextProps.initialFeed) return false;
-  if (prevProps.currentFeed !== nextProps.currentFeed) return false;
-  if (prevProps.forceError !== nextProps.forceError) return false;
-  if (prevProps.applySafeArea !== nextProps.applySafeArea) return false;
-  if (prevProps.indicatorFontSize !== nextProps.indicatorFontSize) return false;
-  if (prevProps.showFeedIndicator !== nextProps.showFeedIndicator) return false;
-  if (prevProps.scrollEnabled !== nextProps.scrollEnabled) return false;
-  if (prevProps.userDid !== nextProps.userDid) return false;
-  if (prevProps.isVisible !== nextProps.isVisible) return false;
-  if (prevProps.feedOptions !== nextProps.feedOptions) return false;
-
-  return true;
-};
-
-export default memo(FeedPager, areEqual);
+export default FeedPager;

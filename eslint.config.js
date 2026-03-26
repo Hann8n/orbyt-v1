@@ -4,6 +4,7 @@ const typescriptParser = require('@typescript-eslint/parser');
 const react = require('eslint-plugin-react');
 const reactHooks = require('eslint-plugin-react-hooks');
 const reactNative = require('eslint-plugin-react-native');
+const reactCompiler = require('eslint-plugin-react-compiler');
 const prettier = require('eslint-config-prettier');
 
 module.exports = [
@@ -63,6 +64,11 @@ module.exports = [
       ...reactHooks.configs.recommended.rules,
       'react/react-in-jsx-scope': 'off',
       'react/prop-types': 'off',
+      // React Compiler adoption is about memoization safety; keep these stricter
+      // hook rules as warnings because this app intentionally uses Reanimated
+      // SharedValues and sync-effects in a way that would otherwise block lint.
+      'react-hooks/set-state-in-effect': 'warn',
+      'react-hooks/immutability': 'warn',
       '@typescript-eslint/no-unused-vars': [
         'error',
         {
@@ -87,6 +93,7 @@ module.exports = [
       },
     },
   },
+  reactCompiler.configs.recommended,
   prettier,
   {
     files: [

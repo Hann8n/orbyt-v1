@@ -3,6 +3,8 @@ module.exports = function (api) {
   return {
     presets: ['babel-preset-expo'],
     plugins: [
+      // Must run first so React Compiler sees original source shape.
+      'babel-plugin-react-compiler',
       [
         'module-resolver',
         {
