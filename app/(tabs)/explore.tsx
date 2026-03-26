@@ -9,7 +9,7 @@ import React, {
   forwardRef,
 } from 'react';
 import { useTranslation } from 'react-i18next';
-import { QUERY_CONSTANTS } from '../../src/utils/constants';
+import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../src/utils/constants';
 import {
   View,
   Text,
@@ -1826,7 +1826,9 @@ const ExploreScreen: React.FC = () => {
         <Reanimated.View
           style={[
             styles.searchContainer,
-            useLiquidGlassSearchBar && styles.searchContainerLiquidGlass,
+            useLiquidGlassSearchBar
+              ? styles.searchContainerLiquidGlass
+              : styles.searchContainerTintedWhite,
             {
               top: insets.top + 10,
             },
@@ -2260,8 +2262,9 @@ const styles = StyleSheet.create({
     right: 15,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.neutral[50],
-    borderRadius: 8,
+    backgroundColor: Colors.transparent,
+    borderRadius: BORDER_RADIUS.SMALL,
+    overflow: 'hidden',
     paddingHorizontal: 15,
     height: 48,
     zIndex: 10,
@@ -2275,13 +2278,15 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   searchContainerLiquidGlass: {
-    // Keep a solid fallback so the bar remains visible if native glass fails to render.
+    backgroundColor: Colors.transparent,
+  },
+  searchContainerTintedWhite: {
+    // Non-glass fallback that matches the same shape metrics as liquid glass.
     backgroundColor: Colors.neutral[50],
-    overflow: 'hidden',
   },
   searchContainerGlassBackground: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: 8,
+    borderRadius: BORDER_RADIUS.SMALL,
   },
   searchBarContent: {
     flex: 1,
