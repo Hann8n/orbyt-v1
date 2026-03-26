@@ -40,7 +40,7 @@ import {
   type ModerationOpts,
   type AppBskyFeedRepost,
 } from '@atproto/api';
-import { FeedService as ApiFeedService } from '../../../services/api/feed/FeedService';
+import { AtprotoFeedService } from '../../../services/api/feed/FeedService';
 import { useModerationSettings } from '../../../hooks/useModerationSettings';
 import { ModerationService } from '../../../services/moderation/ModerationService';
 import type {
@@ -485,7 +485,7 @@ const NotificationItem = React.memo<NotificationItemProps>(
 
     const navigateToVideoPost = useCallback(
       async (postData: PostView) => {
-        const [feedItem] = await ApiFeedService.applyModerationBatch([
+        const [feedItem] = await AtprotoFeedService.applyModerationBatch([
           { post: postData, uniqueKey: postData.uri || item.uri },
         ]);
         if (!feedItem) return;

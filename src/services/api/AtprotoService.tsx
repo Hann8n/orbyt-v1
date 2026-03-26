@@ -2,7 +2,7 @@ import { AtpAgent } from '@atproto/api';
 import type { BlobRef } from '@atproto/api';
 import { storage } from '../../utils/storage/storage';
 import { AtprotoCore } from './core';
-import { FeedService } from './feed/FeedService';
+import { AtprotoFeedService } from './feed/FeedService';
 import { ActorService } from './actor/ActorService';
 import { GraphService } from './graph/GraphService';
 import { NotificationService } from './notification/NotificationService';
@@ -243,7 +243,7 @@ class AtprotoService {
 
   /**
    * Get feed content - optimized for video-only feeds with maximum batch loading
-   * Delegates to FeedService
+   * Delegates to AtprotoFeedService
    *
    * @param cursor - Pagination cursor
    * @param feedLink - Link to the feed
@@ -259,7 +259,14 @@ class AtprotoService {
     limit: number = 100,
     feedType?: FeedType
   ): Promise<FeedResponse> {
-    return FeedService.getFeed(cursor, feedLink, _feedVariables, filterVideosOnly, limit, feedType);
+    return AtprotoFeedService.getFeed(
+      cursor,
+      feedLink,
+      _feedVariables,
+      filterVideosOnly,
+      limit,
+      feedType
+    );
   }
 
   static async getCurrentUser(): Promise<ProfileViewDetailed> {
@@ -279,19 +286,19 @@ class AtprotoService {
    * @returns The URI of the created like
    */
   static async likePost(uri: string, cid: string): Promise<string> {
-    return FeedService.likePost(uri, cid);
+    return AtprotoFeedService.likePost(uri, cid);
   }
 
   static async deleteLike(likeUri: string): Promise<void> {
-    return FeedService.deleteLike(likeUri);
+    return AtprotoFeedService.deleteLike(likeUri);
   }
 
   static async repostPost(uri: string, cid: string): Promise<string> {
-    return FeedService.repostPost(uri, cid);
+    return AtprotoFeedService.repostPost(uri, cid);
   }
 
   static async deleteRepost(repostURI: string): Promise<void> {
-    return FeedService.deleteRepost(repostURI);
+    return AtprotoFeedService.deleteRepost(repostURI);
   }
 
   /**
@@ -324,7 +331,7 @@ class AtprotoService {
 
   /**
    * Post a comment on a post or reply to another comment
-   * Delegates to FeedService
+   * Delegates to AtprotoFeedService
    */
   static async postComment(
     text: string,
@@ -335,7 +342,7 @@ class AtprotoService {
     images?: { uri: string; alt: string; aspectRatio?: { width: number; height: number } }[],
     externalEmbed?: { uri: string; title?: string; description?: string; thumb?: string }
   ): Promise<{ uri: string; cid: string }> {
-    return FeedService.postComment(
+    return AtprotoFeedService.postComment(
       text,
       rootUri,
       rootCid,
@@ -348,7 +355,7 @@ class AtprotoService {
 
   /**
    * Create a new post with video content using Bluesky's video service
-   * Delegates to FeedService
+   * Delegates to AtprotoFeedService
    */
   static async createVideoPost(
     text: string,
@@ -360,7 +367,7 @@ class AtprotoService {
     jobId?: string,
     videoBlob?: BlobRef
   ): Promise<CreateRecordResponse> {
-    return FeedService.createVideoPost(
+    return AtprotoFeedService.createVideoPost(
       text,
       videoPath,
       contentWarnings,
@@ -392,7 +399,7 @@ class AtprotoService {
 
   /**
    * Get comments for a post with pagination support
-   * Delegates to FeedService
+   * Delegates to AtprotoFeedService
    * @param postUri - The URI of the post
    * @param cursor - Pagination cursor
    * @param limit - Number of comments per page
@@ -403,7 +410,7 @@ class AtprotoService {
     cursor: string | null = null,
     limit: number = 25
   ): Promise<CommentsResponse> {
-    return FeedService.getComments(postUri, cursor, limit);
+    return AtprotoFeedService.getComments(postUri, cursor, limit);
   }
 
   /**
@@ -619,7 +626,7 @@ class AtprotoService {
 
   /**
    * Send video feedback (show more/show less) to the appropriate feed provider
-   * Delegates to FeedService
+   * Delegates to AtprotoFeedService
    * @param postUri - The post URI to send feedback for
    * @param type - Type of feedback: 'interested' (show more) or 'not_interested' (show less)
    * @param sourceFeed - Optional source feed URI where the post came from (for accurate interaction routing)
@@ -631,7 +638,7 @@ class AtprotoService {
     sourceFeed?: string,
     feedContext?: string
   ): Promise<void> {
-    return FeedService.sendVideoFeedback(postUri, type, sourceFeed, feedContext);
+    return AtprotoFeedService.sendVideoFeedback(postUri, type, sourceFeed, feedContext);
   }
 
   /**
@@ -902,63 +909,63 @@ class AtprotoService {
 
   /**
    * Get engagement data for a specific post
-   * Delegates to FeedService
+   * Delegates to AtprotoFeedService
    */
   static async getPostEngagement(
     uri: string
   ): Promise<{ likes: Like[]; reposts: RepostView[]; replies: Comment[] }> {
-    return FeedService.getPostEngagement(uri);
+    return AtprotoFeedService.getPostEngagement(uri);
   }
 
   /**
    * Search for popular feed generators (channels) with query support
-   * Delegates to FeedService to avoid code duplication
+   * Delegates to AtprotoFeedService to avoid code duplication
    * @param query - Search query
    * @param limit - Number of results to return
    * @returns Array of feed generator objects (video-only feeds only)
    */
   static async searchPopularFeeds(query: string, limit: number = 5): Promise<GeneratorView[]> {
-    return FeedService.searchPopularFeeds(query, limit);
+    return AtprotoFeedService.searchPopularFeeds(query, limit);
   }
 
   /**
    * Get suggested feed generators (channels) without search query
-   * Delegates to FeedService to avoid code duplication
+   * Delegates to AtprotoFeedService to avoid code duplication
    * @param limit - Number of results to return
    * @returns Array of feed generator objects (video-only feeds only)
    */
   static async getSuggestedFeeds(limit: number = 10): Promise<GeneratorView[]> {
-    return FeedService.getSuggestedFeeds(limit);
+    return AtprotoFeedService.getSuggestedFeeds(limit);
   }
 
   /**
    * Get feed generator details by URI
-   * Delegates to FeedService
+   * Delegates to AtprotoFeedService
    * @param uri - Feed generator URI
    * @returns Feed generator details
    */
   static async getFeedGenerator(uri: string): Promise<FeedGeneratorOutput | null> {
-    return FeedService.getFeedGenerator(uri);
+    return AtprotoFeedService.getFeedGenerator(uri);
   }
 
   /**
    * Get subscriber count for a feed generator
-   * Delegates to FeedService
+   * Delegates to AtprotoFeedService
    */
   static async getFeedGeneratorSubscriberCount(uri: string): Promise<number> {
-    return FeedService.getFeedGeneratorSubscriberCount(uri);
+    return AtprotoFeedService.getFeedGeneratorSubscriberCount(uri);
   }
 
   /**
    * Get feed generator details by URI with pagination support
-   * Delegates to FeedService
+   * Delegates to AtprotoFeedService
    */
   static async getFeedGeneratorWithPosts(
     uri: string,
     cursor: string | null = null,
     _limit: number = 50
   ): Promise<FeedGeneratorResponse> {
-    return FeedService.getFeedGeneratorWithPosts(uri, cursor, _limit);
+    return AtprotoFeedService.getFeedGeneratorWithPosts(uri, cursor, _limit);
   }
 
   /**
@@ -978,7 +985,7 @@ class AtprotoService {
   }
 
   /**
-   * Search for video posts with hashtag support. Delegates to FeedService (includes moderation batch).
+   * Search for video posts with hashtag support. Delegates to AtprotoFeedService (includes moderation batch).
    */
   static async searchHashtagVideosPaginated(
     hashtag: string,
@@ -986,7 +993,7 @@ class AtprotoService {
     limit: number = 20,
     sort: 'top' | 'latest' = 'latest'
   ): Promise<VideoSearchResponse> {
-    return FeedService.searchHashtagVideosPaginated(hashtag, cursor, limit, sort);
+    return AtprotoFeedService.searchHashtagVideosPaginated(hashtag, cursor, limit, sort);
   }
 
   /**
@@ -1044,14 +1051,14 @@ class AtprotoService {
   }
 
   /**
-   * Search for video posts with query support. Delegates to FeedService (includes moderation batch).
+   * Search for video posts with query support. Delegates to AtprotoFeedService (includes moderation batch).
    */
   static async searchVideosPaginated(
     query: string,
     cursor: string | null = null,
     limit: number = 20
   ): Promise<VideoSearchResponse> {
-    return FeedService.searchVideosPaginated(query, cursor, limit);
+    return AtprotoFeedService.searchVideosPaginated(query, cursor, limit);
   }
 
   static async getMixedFeed(
@@ -1188,14 +1195,14 @@ class AtprotoService {
    * Aggressively fetch an actor's reposted videos by paging raw author feed data
    * and filtering client-side for reposts that contain video embeds.
    * This avoids server-side author filters that exclude reposts.
-   * Delegates to FeedService
+   * Delegates to AtprotoFeedService
    */
   static async getRepostedVideos(
     actor: string,
     cursor: string | null = null,
     limit: number = 50
   ): Promise<FeedResponse> {
-    return FeedService.getRepostedVideos(actor, cursor, limit);
+    return AtprotoFeedService.getRepostedVideos(actor, cursor, limit);
   }
 
   /**
@@ -1352,12 +1359,12 @@ class AtprotoService {
 
   /**
    * Get static channels from the web API
-   * Delegates to FeedService
+   * Delegates to AtprotoFeedService
    */
   static async getStaticChannels(
     limit: number = 10
   ): Promise<(GeneratorView & { contentMode?: string })[]> {
-    return FeedService.getStaticChannels(limit);
+    return AtprotoFeedService.getStaticChannels(limit);
   }
 }
 

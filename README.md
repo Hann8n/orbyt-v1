@@ -43,7 +43,7 @@ A video-first social app for the [Bluesky](https://bsky.social) network, built o
 | **State (client)** | [Zustand](https://github.com/pmndrs/zustand)                                                                                                       |
 | **State (server)** | [TanStack React Query](https://github.com/TanStack/query)                                                                                          |
 | **API**            | [AT Protocol](https://github.com/bluesky-social/atproto) + [OAuth](https://github.com/bluesky-social/atproto/tree/main/packages/oauth-client-expo) |
-| **Video**          | expo-video, react-native-video, ffmpeg-kit-react-native                                                                                            |
+| **Video**          | expo-video, ffmpeg-kit-react-native                                                                                                                |
 | **Lists**          | [@shopify/flash-list](https://github.com/Shopify/flash-list)                                                                                       |
 | **Sheets**         | [react-native-true-sheet](https://github.com/lodev09/react-native-true-sheet)                                                                      |
 | **Animation**      | react-native-reanimated, react-native-gesture-handler                                                                                              |

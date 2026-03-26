@@ -1,6 +1,6 @@
 /**
- * Feed Service - app.bsky.feed.* namespace operations
- * Handles all feed-related API operations including posts, likes, reposts, comments, and feed generation
+ * AT Protocol feed API (`AtprotoFeedService`) — `app.bsky.feed.*` and related post/comment/search operations.
+ * Distinct from `src/services/FeedService.ts`, which holds app-level feed state (bookmarks, seen videos).
  */
 
 import { RichText, AtUri, moderatePost } from '@atproto/api';
@@ -47,7 +47,7 @@ import {
 import { REQUESTMORE, REQUESTLESS } from '@atproto/api/dist/client/types/app/bsky/feed/defs';
 import i18n from '../../../i18n';
 
-export class FeedService {
+export class AtprotoFeedService {
   // Tracks whether app.bsky.feed.sendInteractions is supported by the current PDS/AppView
   // null = unknown (try once), true = supported, false = known unsupported (skip quietly)
   private static interactionsSupported: boolean | null = null;
@@ -574,7 +574,7 @@ export class FeedService {
       }
       // Log and continue on import errors (don't block on service errors)
       logger.warn('Failed to check email confirmation status', {
-        component: 'FeedService',
+        component: 'AtprotoFeedService',
         error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
@@ -1087,7 +1087,7 @@ export class FeedService {
     }
 
     // If we've previously confirmed the endpoint is not supported, skip quietly
-    if (FeedService.interactionsSupported === false) return;
+    if (AtprotoFeedService.interactionsSupported === false) return;
 
     try {
       await AtprotoCore.ensureSession();
@@ -1108,7 +1108,7 @@ export class FeedService {
       await api.app.bsky.feed.sendInteractions({ interactions });
 
       // Mark endpoint as supported once we have a successful call
-      FeedService.interactionsSupported = true;
+      AtprotoFeedService.interactionsSupported = true;
     } catch (error: unknown) {
       // Check if the error is XRPCNotSupported (404) - this is expected when:
       // 1. The PDS doesn't support this endpoint (older PDS versions)
@@ -1136,7 +1136,7 @@ export class FeedService {
       // Interactions are best-effort and failures shouldn't spam logs
       if (isNotSupported) {
         // Remember that this endpoint is not supported so we can skip future attempts
-        FeedService.interactionsSupported = false;
+        AtprotoFeedService.interactionsSupported = false;
         return;
       }
     }
@@ -1217,9 +1217,9 @@ export class FeedService {
           interaction.feedContext = feedContext;
         }
 
-        // Send the interaction using FeedService's sendFeedInteractions method
+        // Send the interaction using AtprotoFeedService.sendFeedInteractions
         // This ensures consistent error handling and deduplication
-        await FeedService.sendFeedInteractions([interaction]);
+        await AtprotoFeedService.sendFeedInteractions([interaction]);
       }
     } catch (_error: unknown) {
       // Interactions are best-effort; swallow errors

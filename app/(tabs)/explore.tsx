@@ -1717,7 +1717,7 @@ const ExploreScreen: React.FC = () => {
   } = useQuery({
     queryKey: ['spotlightFeed'],
     queryFn: async () => {
-      // Get custom spotlight feed (FeedService.getFeed runs moderation batch; items have contentListUI, contentMediaUI, shouldFilter)
+      // Get custom spotlight feed (AtprotoFeedService.getFeed via AtprotoService runs moderation batch; items have contentListUI, contentMediaUI, shouldFilter)
       const response = await AtprotoService.getFeed(
         null,
         'at://did:plc:l3l3fjuwhv4mh4ih5y7ewrue/app.bsky.feed.generator/aaaiu3akzsv6q',

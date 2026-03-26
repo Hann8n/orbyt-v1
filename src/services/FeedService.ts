@@ -18,7 +18,7 @@ import type {
 import { isOrbytChannel, channelToHashtag, getChannelByUri } from '../utils/channels/orbyt';
 import type { FeedOption } from '../types';
 import { seenVideoService } from './SeenVideoService';
-import { FeedService as ApiFeedService } from './api/feed/FeedService';
+import { AtprotoFeedService } from './api/feed/FeedService';
 import { useUserStore } from '../stores/userStore';
 
 // Type definition for AtprotoService methods used by FeedService
@@ -404,7 +404,7 @@ class FeedService {
           post: bookmark,
           uniqueKey: bookmark.uri,
         }));
-        const moderatedFeed = await ApiFeedService.applyModerationBatch(feed);
+        const moderatedFeed = await AtprotoFeedService.applyModerationBatch(feed);
         return { feed: moderatedFeed, cursor: bookmarksResponse.cursor };
       } else if (feedOptionForAPI === 'bookmarks' && !userDid) {
         return { feed: [], cursor: null };
@@ -662,7 +662,7 @@ class FeedService {
             validPosts.push({ post } as ExtendedFeedViewPost);
           }
         }
-        const feed = await ApiFeedService.applyModerationBatch(validPosts);
+        const feed = await AtprotoFeedService.applyModerationBatch(validPosts);
         const nextIndex = startIndex + pageSize;
         const nextCursor = nextIndex < seenVideos.length ? String(nextIndex) : null;
         return { feed, cursor: nextCursor };

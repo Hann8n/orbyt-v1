@@ -13,7 +13,7 @@ React Native + Expo, targeting iOS and Android.
 - **Lists**: `@shopify/flash-list`
 - **Sheets**: `@lodev09/react-native-true-sheet`
 - **Animation**: `react-native-reanimated`, `react-native-gesture-handler`
-- **Video**: `expo-video`, `react-native-video`, `ffmpeg-kit-react-native`
+- **Video**: `expo-video`, `ffmpeg-kit-react-native`
 - **Graphics**: `@shopify/react-native-skia`, `react-native-svg`
 - **Storage**: `react-native-mmkv` (general), `expo-secure-store` (auth)
 - **Dates**: `date-fns`

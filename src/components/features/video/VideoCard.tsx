@@ -15,7 +15,7 @@ import { useVideoPlayer, VideoView as ExpoVideoView } from 'expo-video';
 import * as Haptics from 'expo-haptics';
 
 import { AtprotoService } from '../../../services/api/AtprotoService';
-import { FeedService } from '../../../services/api/feed/FeedService';
+import { AtprotoFeedService } from '../../../services/api/feed/FeedService';
 import {
   View,
   Text,
@@ -300,7 +300,7 @@ const VideoCard = memo(
             interactionQueueRef.current = [];
 
             if (interactionsToSend.length > 0) {
-              FeedService.sendFeedInteractions(interactionsToSend).catch(error => {
+              AtprotoFeedService.sendFeedInteractions(interactionsToSend).catch(error => {
                 ErrorHandler.handleError(error, 'VideoCard: sendFeedInteractions (debounced)');
               });
             }
@@ -1035,7 +1035,7 @@ const VideoCard = memo(
           if (interactionQueueRef.current.length > 0) {
             const interactionsToSend = [...interactionQueueRef.current];
             interactionQueueRef.current = [];
-            FeedService.sendFeedInteractions(interactionsToSend).catch(error => {
+            AtprotoFeedService.sendFeedInteractions(interactionsToSend).catch(error => {
               ErrorHandler.handleError(error, 'VideoCard: sendFeedInteractions (unmount flush)');
             });
           }
