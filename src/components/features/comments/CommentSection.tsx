@@ -296,8 +296,13 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
   useEffect(() => {
     if (onToggleLike) {
-      setHeaderIsLiked(!!isLiked);
-      setHeaderVisualLiked(!!isLiked);
+      // Modal `commentSectionData.isLiked` is a snapshot from `presentCommentSection` and does not
+      // update when the user likes from this sheet. The post interaction store does (see VideoCard
+      // `updatePostInteraction`). Since `persistedHeaderInteraction` is in deps, we must sync from the
+      // store when available or we reset the header heart to the stale snapshot after each like.
+      const synced = post?.uri != null ? !!persistedHeaderInteraction?.isLiked : !!isLiked;
+      setHeaderIsLiked(synced);
+      setHeaderVisualLiked(synced);
       return;
     }
 
