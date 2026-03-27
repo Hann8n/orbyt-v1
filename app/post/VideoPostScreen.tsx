@@ -1311,7 +1311,7 @@ const VideoPostScreen: React.FC = () => {
           {isDownloading ? (
             <ActivityIndicator size="large" color={Colors.neutral[50]} />
           ) : (
-            <Icon name="save" size={32} color={Colors.neutral[50]} />
+            <Icon name="download" size={32} color={Colors.neutral[50]} />
           )}
         </Pressable>
       </Animated.View>
@@ -1513,7 +1513,7 @@ const VideoPostScreen: React.FC = () => {
                   {isDownloading ? (
                     <ActivityIndicator size="large" color={Colors.neutral[50]} />
                   ) : (
-                    <Icon name="save" size={30} color={Colors.neutral[50]} />
+                    <Icon name="download" size={30} color={Colors.neutral[50]} />
                   )}
                 </Pressable>
               </View>
