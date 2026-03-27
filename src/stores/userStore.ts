@@ -33,7 +33,7 @@ import {
   prefetchOrbytColors,
   loadPersistedColors,
   getPersistedColorsSync,
-} from '../services/colors';
+} from '../services/colors/OrbytColors';
 import { getProfileColors } from '../utils/formatting/colors';
 import type { ProfileColorScheme } from '../utils/formatting/colors';
 import { APP_CONSTANTS, DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI } from '../utils/constants';

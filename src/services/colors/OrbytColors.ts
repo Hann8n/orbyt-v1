@@ -6,7 +6,6 @@
  */
 import { queryClient } from '../../utils/query/queryClient';
 import { storage } from '../../utils/storage';
-import { useUserStore } from '../../stores/userStore';
 import { getProfileColors } from '../../utils/formatting/colors';
 import { logger } from '../../utils/logger';
 
@@ -138,9 +137,16 @@ function syncToCaches(did: string, data: OrbytColorData): void {
     updatedAt: Date.now(),
   });
   persist(did, data);
-  const activeDid = useUserStore.getState().activeAccountDid;
-  if (activeDid === did) {
-    useUserStore.getState().setCurrentUserProfileColors(getProfileColors(data));
+  try {
+    // Lazy-load userStore to avoid import-time cycles with ProfileService.
+    const { useUserStore } =
+      require('../../stores/userStore') as typeof import('../../stores/userStore');
+    const activeDid = useUserStore.getState().activeAccountDid;
+    if (activeDid === did) {
+      useUserStore.getState().setCurrentUserProfileColors(getProfileColors(data));
+    }
+  } catch {
+    // userStore may not be initialized yet; cache and persistence are still updated.
   }
 }
 

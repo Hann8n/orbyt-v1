@@ -15,7 +15,7 @@ import type { AppBskyActorProfile } from '@atproto/api';
 import { BlobRef } from '@atproto/lexicon';
 // @ts-expect-error - multiformats/cid has type resolution issues with package.json exports
 import { CID } from 'multiformats/cid';
-import { batchFetchColors, fetchColors, orbytColorKeys } from '../../colors';
+import { batchFetchColors, fetchColors, orbytColorKeys } from '../../colors/OrbytColors';
 import { queryClient } from '../../../utils/query/queryClient';
 import { RepoService } from '../repo/RepoService';
 
