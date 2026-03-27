@@ -6,6 +6,7 @@ import {
   Pressable,
   Dimensions,
   LayoutChangeEvent,
+  Platform,
   type StyleProp,
   type ViewStyle,
   type ImageStyle,
@@ -278,8 +279,15 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
     const listProps = (() => {
       const base: Record<string, unknown> = ListComponent ? {} : { ref: flashListRef };
       if (useScrollTracking) {
+        const gridSnapOffset = Math.max(0, headerHeight - insets.top);
         base.onScroll = scrollHandler;
         base.scrollEventThrottle = APP_CONSTANTS.SCROLL_THROTTLE;
+        base.snapToOffsets = headerHeight > 0 ? [0, gridSnapOffset] : [0];
+        base.decelerationRate =
+          Platform.OS === 'ios'
+            ? SCROLL_CONSTANTS.DECELERATION_RATE_IOS
+            : SCROLL_CONSTANTS.DECELERATION_RATE_ANDROID;
+        base.disableIntervalMomentum = true;
       }
       return base;
     })();
