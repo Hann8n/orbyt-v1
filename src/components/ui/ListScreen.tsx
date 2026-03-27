@@ -4,10 +4,10 @@ import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
-import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../utils/constants';
+import { QUERY_CONSTANTS } from '../../utils/constants';
 import { Colors } from './UI';
 import { Icon } from './UI';
-import { MinusFillIcon } from './Icon';
+import { MinusSquareCuteFilledIcon } from './Icon';
 import ListHeader from './ListHeader';
 import AuthorItem from './AuthorItem';
 import { useFollowMutation } from '../../services/data/ProfileService';
@@ -128,7 +128,7 @@ const ListScreen: React.FC<ListScreenProps> = ({
               style={({ pressed }) => [styles.actionButton, pressed && { opacity: 0.8 }]}
               onPress={() => handleFollowPress(item)}
             >
-              <MinusFillIcon size={16} color={Colors.black} />
+              <MinusSquareCuteFilledIcon size={32} color={Colors.neutral[400]} />
             </Pressable>
           )}
         </View>
@@ -160,7 +160,7 @@ const ListScreen: React.FC<ListScreenProps> = ({
   const renderError = useCallback(
     () => (
       <View style={styles.errorContainer}>
-        <Icon name="alert-circle" size={48} color={Colors.neutral[200]} style={styles.emptyIcon} />
+        <Icon name="warning" size={48} color={Colors.neutral[200]} style={styles.emptyIcon} />
         <Text style={styles.emptyTitle}>
           {t('feed.failedToLoad', { title: title.toLowerCase() })}
         </Text>
@@ -256,14 +256,6 @@ const styles = StyleSheet.create({
     borderRadius: 0,
   },
   actionButton: {
-    width: 32,
-    height: 32,
-    borderWidth: 0,
-    borderColor: Colors.transparent,
-    borderRadius: BORDER_RADIUS.SMALL,
-    backgroundColor: Colors.neutral[200],
-    alignItems: 'center',
-    justifyContent: 'center',
     flexShrink: 0,
     marginRight: 20,
   },

@@ -1,11 +1,18 @@
 import React, { memo, useMemo, useCallback, useRef } from 'react';
-import { View, StyleSheet, Pressable, useWindowDimensions, LayoutChangeEvent } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  Pressable,
+  Image,
+  useWindowDimensions,
+  LayoutChangeEvent,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { getBottomNavBarHeight } from '../../utils/device/screen';
-import { HomeIcon, ExploreIcon, NotificationIcon, UserIcon } from './Icon';
+import { HomeIcon, ExploreIcon, UserIcon } from './Icon';
 import { Colors, Avatar } from './UI';
 import { useUnreadCount } from '../../hooks/useUnreadCount';
 import { NotificationIndicator } from './NotificationIndicator';
@@ -31,6 +38,8 @@ const RIGHT_TABS: TabConfig[] = [
 ];
 
 const CREATE_TAB: TabConfig = { name: 'create', routeName: 'create', iconType: 'create' };
+
+const ACTIVITY_TAB_ICON = require('../../assets/tab-icons/png/inbox_2_cute.png');
 
 // Profile tab icon: avatar and colors from userStore for instant display (no loading flash)
 const ProfileTabIcon = React.memo(
@@ -317,7 +326,12 @@ const CustomBottomTabBar: React.FC<CustomBottomTabBarProps> = ({
         case 'activity':
           return (
             <View style={iconStyles.relativeContainer}>
-              <NotificationIcon size={tabIconSize} color={color} />
+              <Image
+                source={ACTIVITY_TAB_ICON}
+                style={{ width: tabIconSize, height: tabIconSize }}
+                resizeMode="contain"
+                tintColor={color}
+              />
               <NotificationIndicator hasUnread={hasUnread} size="small" position="top-right" />
             </View>
           );

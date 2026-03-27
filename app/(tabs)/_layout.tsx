@@ -39,7 +39,7 @@ export default function TabsLayout() {
       >
         <NativeTabs.Trigger name="index">
           <NativeTabs.Trigger.Icon
-            src={require('../../src/assets/tab-icons/png/home_5_fill.png')}
+            src={require('../../src/assets/tab-icons/png/home_3_cute.png')}
           />
           <NativeTabs.Trigger.Label hidden={isIosLiquidGlassAvailable}>
             {t('tabs.home')}
@@ -48,7 +48,7 @@ export default function TabsLayout() {
 
         <NativeTabs.Trigger name="explore" {...(isIosLiquidGlassAvailable && { role: 'search' })}>
           <NativeTabs.Trigger.Icon
-            src={require('../../src/assets/tab-icons/png/search_2_fill.png')}
+            src={require('../../src/assets/tab-icons/png/search_2_cute.png')}
           />
           <NativeTabs.Trigger.Label hidden={isIosLiquidGlassAvailable}>
             {t('tabs.explore')}
@@ -56,7 +56,9 @@ export default function TabsLayout() {
         </NativeTabs.Trigger>
 
         <NativeTabs.Trigger name="activity">
-          <NativeTabs.Trigger.Icon src={require('../../src/assets/tab-icons/png/flash_fill.png')} />
+          <NativeTabs.Trigger.Icon
+            src={require('../../src/assets/tab-icons/png/inbox_2_cute.png')}
+          />
           <NativeTabs.Trigger.Label hidden={isIosLiquidGlassAvailable}>
             {t('tabs.activity')}
           </NativeTabs.Trigger.Label>
@@ -68,9 +70,7 @@ export default function TabsLayout() {
         </NativeTabs.Trigger>
 
         <NativeTabs.Trigger name="profile">
-          <NativeTabs.Trigger.Icon
-            src={require('../../src/assets/tab-icons/png/user_3_fill.png')}
-          />
+          <NativeTabs.Trigger.Icon src={require('../../src/assets/tab-icons/png/badge_cute.png')} />
           <NativeTabs.Trigger.Label hidden={isIosLiquidGlassAvailable}>
             {t('tabs.profile')}
           </NativeTabs.Trigger.Label>

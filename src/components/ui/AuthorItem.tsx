@@ -13,7 +13,11 @@ import {
 import { useRouter } from 'expo-router';
 import { Avatar } from './UI';
 import VerificationBadge from '../features/badging/VerificationBadge';
-import Icon, { FollowIcon, CheckIcon, MutualHeartIcon, STROKE_WIDTH_THICK } from './Icon';
+import Icon, {
+  AddSquareCuteFilledIcon,
+  CheckboxCuteFilledDuotoneIcon,
+  CuteFilledSquareBoxIcon,
+} from './Icon';
 import { hexToRGBA } from '../../utils/formatting/colors';
 import { Colors } from './UI';
 
@@ -146,13 +150,11 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   const { data: cachedProfile } = useProfile(handle);
   const ringProps = useAvatarProfileRing(did ?? null);
   const actualIsFollowing = cachedProfile?.viewer?.following ? true : isFollowing;
-  const isFollowedBy = !!cachedProfile?.viewer?.followedBy;
-  const isMutual = actualIsFollowing && isFollowedBy;
   const isBlocked = !!(cachedProfile?.viewer?.blocking || cachedProfile?.viewer?.blockingByList);
 
   // Automatically hide follow button for current user
   const isCurrentUserProfile = isCurrentUser(did, handle, currentUser);
-  const shouldShowFollowButton = showFollowButton && !isCurrentUserProfile;
+  const shouldShowFollowButton = showFollowButton && !isCurrentUserProfile && !actualIsFollowing;
 
   const followMutation = useFollowMutation();
 
@@ -246,34 +248,38 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
             ]}
             onPress={handleFollowPress}
           >
-            {isMutual ? (
-              <MutualHeartIcon size={16} color={Colors.black} />
-            ) : actualIsFollowing ? (
-              <CheckIcon size={16} color={Colors.black} strokeWidth={STROKE_WIDTH_THICK} />
-            ) : (
-              <FollowIcon size={16} color={Colors.neutral[300]} />
-            )}
+            <AddSquareCuteFilledIcon size={32} color={Colors.neutral[400]} />
           </Pressable>
         ) : showDeleteButton ? (
           <Pressable onPress={onDeletePress}>
             <StatusIconButton variant="error">
-              <Icon name="delete-2-fill" size={16} color={Colors.coral[500]} />
+              <Icon name="delete_2" size={16} color={Colors.coral[500]} />
             </StatusIconButton>
           </Pressable>
         ) : showCheckmarkSpinner ? (
-          <StatusIconButton variant="success">
-            <ActivityIndicator size="small" color={Colors.teal[300]} />
-          </StatusIconButton>
+          <View style={styles.checkmarkIconContainer}>
+            <CuteFilledSquareBoxIcon size={34} color={Colors.teal[800]} />
+            <ActivityIndicator
+              style={styles.checkmarkSpinner}
+              size="small"
+              color={Colors.teal[300]}
+            />
+          </View>
         ) : showCheckmark ? (
-          <StatusIconButton variant="checkmark" size={28}>
-            <CheckIcon size={20} color={Colors.teal[800]} strokeWidth={STROKE_WIDTH_THICK} />
-          </StatusIconButton>
+          <View style={styles.checkmarkIconContainer}>
+            <CheckboxCuteFilledDuotoneIcon
+              size={34}
+              boxColor={Colors.teal[300]}
+              checkColor={Colors.teal[800]}
+              checkOpacity={0.9}
+            />
+          </View>
         ) : showCheckmarkSkeleton ? (
           <StatusIconButton variant="skeleton" size={28} />
         ) : (
           showArrow && (
             <View style={styles.accountArrow}>
-              <Icon name="chevron-right" size={20} color={Colors.neutral[500]} />
+              <Icon name="right_small" size={20} color={Colors.neutral[500]} />
             </View>
           )
         )}
@@ -292,13 +298,24 @@ const styles = StyleSheet.create({
   nameRow: sharedItemStyles.nameRow,
   followButton: sharedItemStyles.followButton,
   followButtonInactive: {
-    backgroundColor: SKELETON_BG,
+    backgroundColor: Colors.transparent,
   },
   statusIconButton: {
     borderRadius: BORDER_RADIUS.SMALL,
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 8,
+  },
+  checkmarkIconContainer: {
+    width: 34,
+    height: 34,
+    marginLeft: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkmarkSpinner: {
+    position: 'absolute',
+    transform: [{ scale: 0.95 }],
   },
 });
 

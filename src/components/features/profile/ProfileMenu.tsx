@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { View, Text, StyleSheet, Share, Platform, Alert, Linking } from 'react-native';
@@ -8,7 +8,7 @@ import Icon from '../../ui/Icon';
 import { Colors } from '../../../theme';
 import CloseButton from '../../ui/CloseButton';
 import CancelButton from '../../ui/CancelButton';
-import VerticalListSheet, { VerticalListButton, TrueSheet } from '../../ui/VerticalListSheet';
+import VerticalListSheet, { VerticalListButton } from '../../ui/VerticalListSheet';
 import {
   AppTrueSheet,
   CONTENT_TO_FOOTER_GAP_REDUCTION,
@@ -27,6 +27,7 @@ import {
 } from '../../../services/data/ProfileService';
 import AtprotoService from '../../../services/api/AtprotoService';
 import type { ProfileAssociatedChat } from '@atproto/api/dist/client/types/app/bsky/actor/defs';
+import { useSheetPresentation } from '../../../hooks';
 
 interface ProfileMenuProps {
   visible: boolean;
@@ -61,9 +62,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const insets = useSafeAreaInsets();
 
-  useEffect(() => {
-    if (visible) TrueSheet.present('profile-menu-sheet');
-  }, [visible]);
+  useSheetPresentation(visible, 'profile-menu-sheet');
 
   // TrueSheet refs for proper stacking (submenu uses AppTrueSheet with ref)
   const submenuSheetRef = useRef<import('@lodev09/react-native-true-sheet').TrueSheet>(null);
@@ -191,7 +190,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
         setIsSubmitting(false);
       }
     },
-    [profile?.did, onDismiss]
+    [profile?.did, onDismiss, t]
   );
 
   // Report handler
@@ -349,7 +348,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
           id: 'openOnBluesky',
           label: t('profile.viewOnBluesky'),
           onPress: handleOpenOnBluesky,
-          rightIcon: <Icon name="outlink" size={24} color={Colors.neutral[200]} />,
+          rightIcon: <Icon name="arrow_right_up" size={24} color={Colors.neutral[200]} />,
         },
         { id: 'reportOrBlock', label: t('profile.reportOrBlock'), onPress: handleReportOrBlock }
       );

@@ -247,16 +247,33 @@ const ActionButton = memo<{
   const getButtonSize = useCallback(() => {
     const isFollowButton = action.id === 'follow';
 
-    // Follow button with label should match the combined width of following + gap + subscribed buttons
-    // Following button: 50px, gap: 8px, subscribed button: 50px = 108px total
+    // Follow button with label uses a minimum width so icon + localized text can expand cleanly.
     if (isFollowButton && action.label) {
       switch (size) {
         case 'small':
-          return { width: 84, height: 32, borderRadius: 100 }; // 40 + 8 + 40
+          return {
+            paddingLeft: 12,
+            paddingRight: 10,
+            minWidth: 84,
+            height: 32,
+            borderRadius: 100,
+          };
         case 'large':
-          return { width: 120, height: 48, borderRadius: 100 }; // 56 + 8 + 56
+          return {
+            paddingLeft: 20,
+            paddingRight: 16,
+            minWidth: 120,
+            height: 48,
+            borderRadius: 100,
+          };
         default:
-          return { width: 108, height: 44, borderRadius: 100 }; // 50 + 8 + 50
+          return {
+            paddingLeft: 16,
+            paddingRight: 12,
+            minWidth: 108,
+            height: 44,
+            borderRadius: 100,
+          };
       }
     }
 

@@ -531,7 +531,7 @@ const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(({ chatFilter }, ref)
           trackStyle={styles.segmentChipsTrack}
         />
         <Pressable onPress={() => setShowChatSettingsSheet(true)} style={styles.segmentGearButton}>
-          <Icon name="settings" size={22} color={Colors.neutral[50]} />
+          <Icon name="settings_2" size={22} color={Colors.neutral[50]} />
         </Pressable>
       </View>
     ),

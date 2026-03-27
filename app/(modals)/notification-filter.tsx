@@ -93,7 +93,7 @@ const FilterOption: React.FC<{
   >
     <Text style={styles.filterOptionLabel}>{label}</Text>
     <View style={[styles.checkbox, checked && styles.checkboxSelected]}>
-      {checked && <Icon name="checkmark" size={16} color={Colors.black} />}
+      {checked && <Icon name="check" size={16} color={Colors.black} />}
     </View>
   </Pressable>
 );

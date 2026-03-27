@@ -137,7 +137,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
                   if (activeTab !== tab.id) onTabPress(tab.id);
                   TrueSheet.dismiss('tab-dropdown-sheet');
                 }}
-                disabled={tab.disabled || activeTab === tab.id}
+                disabled={tab.disabled}
               />
             ))}
           </View>

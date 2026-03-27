@@ -1081,7 +1081,12 @@ const CreateScreen: React.FC = () => {
     if (!cameraPermission.granted) {
       return (
         <View style={styles.warningContainer}>
-          <Icon name="videocam" size={64} color={Colors.neutral[200]} style={styles.errorIcon} />
+          <Icon
+            name="video_camera_2"
+            size={64}
+            color={Colors.neutral[200]}
+            style={styles.errorIcon}
+          />
           <Text style={styles.warningText}>{t('video.pleaseEnableCamera')}</Text>
           <Pressable
             style={({ pressed }) => [styles.button, pressed && { opacity: 0.7 }]}

@@ -227,7 +227,7 @@ const Channel: React.FC = memo(() => {
       style={[styles.errorContainer, { backgroundColor: channelColors.backgroundColor || '#000' }]}
     >
       <Icon
-        name="user-x"
+        name="user_x"
         size={48}
         color={channelColors.textColor || '#fff'}
         style={styles.errorIcon}

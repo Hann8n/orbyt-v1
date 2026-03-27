@@ -220,7 +220,7 @@ const AppIconSettingsScreen: React.FC = () => {
                         {isSelected && (
                           <View style={styles.selectedIndicator}>
                             <View style={styles.checkmarkCircle}>
-                              <Icon name="checkmark" size={12} color={Colors.black} />
+                              <Icon name="check" size={12} color={Colors.black} />
                             </View>
                           </View>
                         )}

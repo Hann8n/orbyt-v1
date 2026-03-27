@@ -280,7 +280,7 @@ const CommentFilterSelector: React.FC<{
       <Text style={styles.sectionHeaderTitle}>{t('video.comments')}</Text>
       <Pressable style={styles.channelSelectorContainer} onPress={onPress}>
         <View style={styles.channelSelectorBox}>
-          <Icon name="chat-3-line" size={32} color={Colors.neutral[200]} />
+          <Icon name="chat_3" size={32} color={Colors.neutral[200]} />
         </View>
         {!commentFilter ? (
           <View style={styles.channelSelectorPlaceholderContainer}>
@@ -312,7 +312,7 @@ const ContentWarningSelector: React.FC<{
       <Text style={styles.sectionHeaderTitle}>{t('video.warnings')}</Text>
       <Pressable style={styles.channelSelectorContainer} onPress={onPress}>
         <View style={styles.channelSelectorBox}>
-          <Icon name="warning-line" size={32} color={Colors.neutral[200]} />
+          <Icon name="warning" size={32} color={Colors.neutral[200]} />
         </View>
         {selectedContentWarnings.length === 0 && !otherWarning.trim() ? (
           <View style={styles.channelSelectorPlaceholderContainer}>
@@ -1311,7 +1311,7 @@ const VideoPostScreen: React.FC = () => {
           {isDownloading ? (
             <ActivityIndicator size="large" color={Colors.neutral[50]} />
           ) : (
-            <Icon name="save" size={32} color={Colors.neutral[50]} />
+            <Icon name="download" size={32} color={Colors.neutral[50]} />
           )}
         </Pressable>
       </Animated.View>
@@ -1355,7 +1355,7 @@ const VideoPostScreen: React.FC = () => {
                 ]}
               >
                 {selectedContentWarnings.includes(warning.id) && (
-                  <Icon name="checkmark" size={16} color={Colors.black} />
+                  <Icon name="check" size={16} color={Colors.black} />
                 )}
               </View>
             </Pressable>
@@ -1366,7 +1366,7 @@ const VideoPostScreen: React.FC = () => {
           >
             <Text style={styles.sheetOptionText}>{t('video.otherWarning')}</Text>
             <View style={[styles.checkbox, showContentWarningInput && styles.checkboxSelected]}>
-              {showContentWarningInput && <Icon name="checkmark" size={16} color={Colors.black} />}
+              {showContentWarningInput && <Icon name="check" size={16} color={Colors.black} />}
             </View>
           </Pressable>
           {showContentWarningInput && (
@@ -1411,7 +1411,6 @@ const VideoPostScreen: React.FC = () => {
                 setCommentFilter(filter.id);
                 TrueSheet.dismiss('post-comment-settings-sheet');
               }}
-              disabled={commentFilter === filter.id}
             />
           ))}
         </View>
@@ -1421,6 +1420,7 @@ const VideoPostScreen: React.FC = () => {
         name="post-channel-selection-sheet"
         onDismiss={() => {}}
         title={t('video.pickChannel')}
+        scrollable={true}
         showCancelButton={true}
         cancelButtonText={t('common.close')}
         titleSize={26}
@@ -1433,7 +1433,6 @@ const VideoPostScreen: React.FC = () => {
             { paddingBottom: 52 + insets.bottom },
           ]}
           showsVerticalScrollIndicator={false}
-          nestedScrollEnabled={true}
         >
           <VerticalListButton
             label={t('settings.none')}
@@ -1441,10 +1440,12 @@ const VideoPostScreen: React.FC = () => {
               setSelectedChannel(null);
               TrueSheet.dismiss('post-channel-selection-sheet');
             }}
-            disabled={selectedChannel === null}
           />
           {getPostableChannels().map(channel => {
-            const channelUri = channel.uri;
+            const channelDisplayName =
+              getLocalizedChannelDisplayName(channel.uri, channel.displayName) ||
+              channel.displayName ||
+              '';
             return (
               <Pressable
                 key={channel.slug}
@@ -1453,31 +1454,46 @@ const VideoPostScreen: React.FC = () => {
                   setSelectedChannel(orbytChannelToSubscribedChannel(channel));
                   TrueSheet.dismiss('post-channel-selection-sheet');
                 }}
-                disabled={selectedChannel?.uri === channelUri}
               >
                 <View style={styles.listButtonContent}>
-                  <View style={styles.channelSelectorRow}>
-                    {shouldShowChannelSlash(channel.uri) && (
+                  <Image
+                    source={channel.channelGIF || { uri: getChannelAvatarUri(channel.uri) }}
+                    contentFit="cover"
+                    style={styles.channelListButtonGif}
+                  />
+                  <View style={styles.channelListTextContent}>
+                    <View style={styles.channelSelectorRow}>
+                      {shouldShowChannelSlash(channel.uri) && (
+                        <Text
+                          style={[
+                            styles.channelListButtonText,
+                            styles.orbytSlash,
+                            styles.channelSelectorNameSemiBold,
+                            {
+                              color: channel.channelColor || Colors.amber[400],
+                            },
+                          ]}
+                        >
+                          /
+                        </Text>
+                      )}
                       <Text
-                        style={[
-                          styles.channelListButtonText,
-                          styles.orbytSlash,
-                          styles.channelSelectorNameSemiBold,
-                          {
-                            color: channel.channelColor || Colors.amber[400],
-                          },
-                        ]}
+                        style={[styles.channelListButtonText, styles.channelSelectorNameBold]}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
                       >
-                        /
+                        {channelDisplayName.toLowerCase()}
+                      </Text>
+                    </View>
+                    {!!channel.description && (
+                      <Text
+                        style={styles.channelListDescription}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                      >
+                        {channel.description}
                       </Text>
                     )}
-                    <Text style={[styles.channelListButtonText, styles.channelSelectorNameBold]}>
-                      {(
-                        getLocalizedChannelDisplayName(channel.uri, channel.displayName) ||
-                        channel.displayName ||
-                        ''
-                      ).toLowerCase()}
-                    </Text>
                   </View>
                 </View>
               </Pressable>
@@ -1513,7 +1529,7 @@ const VideoPostScreen: React.FC = () => {
                   {isDownloading ? (
                     <ActivityIndicator size="large" color={Colors.neutral[50]} />
                   ) : (
-                    <Icon name="save" size={30} color={Colors.neutral[50]} />
+                    <Icon name="download" size={30} color={Colors.neutral[50]} />
                   )}
                 </Pressable>
               </View>
@@ -1976,10 +1992,10 @@ const styles = StyleSheet.create({
   },
   channelListButton: {
     borderRadius: BORDER_RADIUS.LARGE,
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    marginHorizontal: 12,
-    marginBottom: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginHorizontal: 0,
+    marginBottom: 8,
     backgroundColor: Colors.neutral[900],
     overflow: 'hidden',
     borderWidth: 0,
@@ -1996,8 +2012,25 @@ const styles = StyleSheet.create({
   listButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 12,
     flex: 1,
+  },
+  channelListButtonGif: {
+    width: 52,
+    height: 52,
+    borderRadius: BORDER_RADIUS.MEDIUM,
+    backgroundColor: Colors.neutral[800],
+  },
+  channelListTextContent: {
+    flex: 1,
+    justifyContent: 'center',
+    gap: 2,
+  },
+  channelListDescription: {
+    color: Colors.neutral[500],
+    fontSize: Typography.sizes.body,
+    fontFamily: Typography.families.regular,
+    lineHeight: 18,
   },
   sheetOptionRow: {
     flexDirection: 'row',
@@ -2005,8 +2038,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 20,
     paddingHorizontal: 20,
-    marginHorizontal: 12,
-    marginBottom: 12,
+    marginHorizontal: 0,
+    marginBottom: 8,
     backgroundColor: Colors.neutral[900],
     borderRadius: BORDER_RADIUS.LARGE,
   },
@@ -2017,8 +2050,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sheetInputContainer: {
-    marginHorizontal: 12,
-    marginBottom: 12,
+    marginHorizontal: 0,
+    marginBottom: 8,
   },
   sheetInputContainerKeyboard: {
     paddingBottom: 20,

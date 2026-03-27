@@ -15,7 +15,7 @@ import {
   SHEET_STYLES,
   useMeasuredFooterHeight,
 } from '../../utils/components/truesheet';
-import Icon from './Icon';
+import { CheckboxCuteFilledDuotoneIcon, CuteRegularSquareBoxEmptyIcon } from './Icon';
 import CloseButton from './CloseButton';
 import CancelButton from './CancelButton';
 import { Colors } from './UI';
@@ -196,11 +196,11 @@ const styles = StyleSheet.create({
   descriptionContainer: SHEET_STYLES.descriptionContainer,
   descriptionText: SHEET_STYLES.descriptionText,
   contentContainer: SHEET_STYLES.contentContainer,
-  checkboxButtonCheckbox: {
-    ...SHEET_STYLES.selectorBox,
-  },
-  checkboxButtonCheckboxSelected: {
-    ...SHEET_STYLES.selectorBoxSelected,
+  checkboxButtonCheckboxWrap: {
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   listButtonMargin: {
     marginHorizontal: 0,
@@ -301,10 +301,17 @@ export const VerticalListCheckboxButton: React.FC<{
       onPress={onPress}
       disabled={disabled}
       rightIcon={
-        <View
-          style={[styles.checkboxButtonCheckbox, checked && styles.checkboxButtonCheckboxSelected]}
-        >
-          {checked && <Icon name="checkmark" size={16} color={Colors.black} />}
+        <View style={styles.checkboxButtonCheckboxWrap}>
+          {checked ? (
+            <CheckboxCuteFilledDuotoneIcon
+              size={24}
+              boxColor={Colors.neutral[50]}
+              checkColor={Colors.black}
+              checkOpacity={1}
+            />
+          ) : (
+            <CuteRegularSquareBoxEmptyIcon size={24} color={Colors.neutral[200]} />
+          )}
         </View>
       }
       style={[styles.listButtonMargin, style]}

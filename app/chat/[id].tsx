@@ -1184,7 +1184,7 @@ function ChatEmbeddedPost({
               </View>
             ) : (
               <View style={[styles.embedVideoPlaceholder, thumbnailStyle]}>
-                <Icon name="videocam" size={24} color={Colors.neutral[500]} />
+                <Icon name="video_camera_2" size={24} color={Colors.neutral[500]} />
               </View>
             )}
             <View style={styles.embedVideoAuthorOverlay} pointerEvents="none">
@@ -2201,11 +2201,11 @@ export default function ChatScreen() {
                       isInteractive
                     />
                     <View style={styles.sendButtonContent} pointerEvents="none">
-                      <Icon name="arrow-up-fill" size={22} color={Colors.black} />
+                      <Icon name="up" size={22} color={Colors.black} />
                     </View>
                   </>
                 ) : (
-                  <Icon name="arrow-up-fill" size={22} color={Colors.black} />
+                  <Icon name="up" size={22} color={Colors.black} />
                 )}
               </Pressable>
             ) : null}

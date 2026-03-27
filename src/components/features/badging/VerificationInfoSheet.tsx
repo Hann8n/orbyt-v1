@@ -1,5 +1,5 @@
 // filepath: /Users/jack/orbyt/components/VerificationInfoSheet.tsx
-import React, { useRef, useEffect } from 'react';
+import React, { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
@@ -10,7 +10,7 @@ import { Colors } from '../../../theme';
 import { useRouter } from 'expo-router';
 import CloseButton from '../../ui/CloseButton';
 import CancelButton from '../../ui/CancelButton';
-import type { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import {
   AppTrueSheet,
   CONTENT_TO_FOOTER_GAP_REDUCTION,
@@ -22,6 +22,7 @@ import {
 } from '../../../utils/components/truesheet';
 import VerificationBadge from './VerificationBadge';
 import { FontFamily, Typography } from '../../../utils/components/typography';
+import { useSheetPresentation } from '../../../hooks';
 
 import { VerticalListButton } from '../../ui/VerticalListSheet';
 import { Avatar } from '../../ui/UI';
@@ -58,7 +59,6 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
   onDismiss,
 }) => {
   const { t } = useTranslation();
-  const bottomSheetRef = useRef<TrueSheet>(null);
   const navigation = useRouter();
   const insets = useSafeAreaInsets();
   const footerBottomPadding = getFooterBottomPadding(insets.bottom);
@@ -85,16 +85,11 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
   // trustedVerifierStatus is 'valid' | 'invalid' | 'none' per API
   const isTrustedVerifier = verification?.trustedVerifierStatus === 'valid';
 
-  // Handle bottom sheet visibility via instance ref (TrueSheet v3+)
-  useEffect(() => {
-    const sheet = bottomSheetRef.current;
-    if (!sheet) return;
-    if (visible) {
-      sheet.present().catch(() => {});
-    } else {
-      sheet.dismiss().catch(() => {});
-    }
-  }, [visible]);
+  useSheetPresentation(visible, 'verification-info-sheet');
+
+  const handleClosePress = useCallback(() => {
+    TrueSheet.dismiss('verification-info-sheet').catch(() => {});
+  }, []);
 
   const headerComponent = (
     <View style={styles.headerContainer}>
@@ -111,19 +106,18 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
           {isTrustedVerifier ? t('profile.trustedVerifier') : t('profile.verified')}
         </Text>
       </View>
-      <CloseButton onPress={onDismiss} />
+      <CloseButton onPress={handleClosePress} />
     </View>
   );
 
   return (
     <AppTrueSheet
-      ref={bottomSheetRef}
       name="verification-info-sheet"
       onDidDismiss={onDismiss}
       header={headerComponent}
       footer={wrapFooter(
         <SheetActionFooter bottomPadding={footerBottomPadding} backgroundColor={Colors.black}>
-          <CancelButton onPress={onDismiss} text={t('common.done')} />
+          <CancelButton onPress={handleClosePress} text={t('common.done')} />
         </SheetActionFooter>
       )}
     >

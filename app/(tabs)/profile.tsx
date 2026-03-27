@@ -6,7 +6,7 @@ import Animated, {
   interpolate,
   Extrapolate,
 } from 'react-native-reanimated';
-import { BORDER_RADIUS, APP_CONSTANTS } from '../../src/utils/constants';
+import { BORDER_RADIUS, APP_CONSTANTS, ICON_SIZES } from '../../src/utils/constants';
 import {
   View,
   Text,
@@ -253,7 +253,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
         ]}
       >
         <Icon
-          name="user-x"
+          name="user_x"
           size={48}
           color={profileColors.textColor || '#fff'}
           style={styles.errorIcon}
@@ -521,14 +521,17 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     let label = isBlocked ? t('profile.unblock') : t('profile.follow');
     let icon: string | undefined = undefined;
     let customIcon: React.ReactNode | undefined = isBlocked ? undefined : (
-      <FollowIcon size={14} color={profileColors.textColor || Colors.neutral[50]} />
+      <FollowIcon size={18} color={profileColors.textColor || Colors.neutral[50]} />
     );
 
     if (!isBlocked && isFollowing && isFollowedBy) {
       label = '';
       icon = undefined;
       customIcon = (
-        <MutualHeartIcon size={20} color={profileColors.backgroundColor || Colors.black} />
+        <MutualHeartIcon
+          size={ICON_SIZES.LARGE}
+          color={profileColors.backgroundColor || Colors.black}
+        />
       );
     } else if (!isBlocked && isFollowing) {
       label = '';

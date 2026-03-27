@@ -1,9 +1,9 @@
-import React, { useRef, useEffect, useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format, parseISO, isValid } from 'date-fns';
-import type { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import {
   AppTrueSheet,
   CONTENT_TO_FOOTER_GAP_REDUCTION,
@@ -17,6 +17,7 @@ import CloseButton from '../../ui/CloseButton';
 import CancelButton from '../../ui/CancelButton';
 import BetaBadge from './BetaBadge';
 import { FontFamily, Typography } from '../../../utils/components/typography';
+import { useSheetPresentation } from '../../../hooks';
 
 interface BetaInfoSheetProps {
   visible: boolean;
@@ -27,20 +28,14 @@ interface BetaInfoSheetProps {
 
 const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate, onDismiss }) => {
   const { t } = useTranslation();
-  const bottomSheetRef = useRef<TrueSheet>(null);
   const insets = useSafeAreaInsets();
   const footerBottomPadding = getFooterBottomPadding(insets.bottom);
   const [contentBottomPadding, wrapFooter] = useMeasuredFooterHeight(44 + footerBottomPadding);
+  useSheetPresentation(visible, 'beta-info-sheet');
 
-  useEffect(() => {
-    const sheet = bottomSheetRef.current;
-    if (!sheet) return;
-    if (visible) {
-      sheet.present().catch(() => {});
-    } else {
-      sheet.dismiss().catch(() => {});
-    }
-  }, [visible]);
+  const handleClosePress = useCallback(() => {
+    TrueSheet.dismiss('beta-info-sheet').catch(() => {});
+  }, []);
 
   const formattedDate = useMemo(() => {
     if (!joinDate) return null;
@@ -57,19 +52,18 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
           {t('a11y.betaTester')}
         </Text>
       </View>
-      <CloseButton onPress={onDismiss} />
+      <CloseButton onPress={handleClosePress} />
     </View>
   );
 
   return (
     <AppTrueSheet
-      ref={bottomSheetRef}
       name="beta-info-sheet"
       onDidDismiss={onDismiss}
       header={headerComponent}
       footer={wrapFooter(
         <SheetActionFooter bottomPadding={footerBottomPadding} backgroundColor={Colors.black}>
-          <CancelButton onPress={onDismiss} text={t('common.done')} />
+          <CancelButton onPress={handleClosePress} text={t('common.done')} />
         </SheetActionFooter>
       )}
     >

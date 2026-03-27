@@ -10,12 +10,13 @@ import type { ProfileViewWithOrbyt } from '../../../services/api/types';
 import { Colors } from '../../../theme';
 import AuthorItem from '../../ui/AuthorItem';
 import { ITEM_ROW_PADDING_VERTICAL, itemSizeConfig } from '../../ui/ItemStyles';
-import VerticalListSheet, { TrueSheet } from '../../ui/VerticalListSheet';
+import VerticalListSheet from '../../ui/VerticalListSheet';
 import { SHEET_SPACING, SHEET_STYLES } from '../../../utils/components/truesheet';
 import { useAccountManagement, useAuth } from '../../../stores/userStore';
 import LoginSheet from '../../ui/LoginSheet';
 import SignUpSheet from '../../ui/SignUpSheet';
 import { TypographyText } from '../../../utils/components/typography';
+import { useSheetPresentation } from '../../../hooks';
 
 const ACCOUNT_LIST_ROW_MIN_HEIGHT = itemSizeConfig.large.avatarSize + 2 * ITEM_ROW_PADDING_VERTICAL;
 
@@ -46,9 +47,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
   const [showSignUpSheet, setShowSignUpSheet] = useState(false);
   const [, setIsAddingAccount] = useState(false);
 
-  useEffect(() => {
-    if (visible) TrueSheet.present('account-switcher');
-  }, [visible]);
+  useSheetPresentation(visible, 'account-switcher');
 
   // User store hooks
   const { savedAccounts, switchAccount, removeAccount, activeAccountDid } = useAccountManagement();

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 
 /**
@@ -17,9 +17,23 @@ import { TrueSheet } from '@lodev09/react-native-true-sheet';
  * ```
  */
 export function useSheetPresentation(visible: boolean, name: string): void {
+  const hasMountedRef = useRef(false);
+  const wasVisibleRef = useRef(false);
+
   useEffect(() => {
-    if (visible) {
-      TrueSheet.present(name);
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true;
+      wasVisibleRef.current = visible;
+      if (visible) {
+        TrueSheet.present(name).catch(() => {});
+      }
+      return;
     }
+
+    if (visible && !wasVisibleRef.current) {
+      TrueSheet.present(name).catch(() => {});
+    }
+
+    wasVisibleRef.current = visible;
   }, [visible, name]);
 }

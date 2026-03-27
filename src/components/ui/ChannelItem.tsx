@@ -131,7 +131,7 @@ const ChannelItem: React.FC<ChannelItemProps> = ({
         </View>
         {showArrow && (
           <View style={styles.accountArrow}>
-            <Icon name="chevron-right" size={20} color={Colors.neutral[500]} />
+            <Icon name="right_small" size={20} color={Colors.neutral[500]} />
           </View>
         )}
       </View>

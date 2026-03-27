@@ -26,7 +26,8 @@ import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
-import type { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import type { TrueSheet as TrueSheetHandle } from '@lodev09/react-native-true-sheet';
 import { AppTrueSheet, useMeasuredFooterHeight } from '../../../utils/components/truesheet';
 
 import AtprotoService from '../../../services/api/AtprotoService';
@@ -139,9 +140,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     [listBottomPadding, insets?.bottom]
   );
 
-  const sheetRef = useRef<TrueSheet>(null);
-  const klipySheetRef = useRef<TrueSheet>(null);
-  const lastPresentedPostUriRef = useRef<string | null>(null);
+  const klipySheetRef = useRef<TrueSheetHandle>(null);
+  const [presentedPostUri, setPresentedPostUri] = useState<string | null>(null);
   const commentsListRef = useRef<FlashListRef<Comment> | null>(null);
   const likesListRef = useRef<FlashListRef<Like> | null>(null);
 
@@ -741,6 +741,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   };
 
   const handleClose = () => {
+    setPresentedPostUri(null);
     cancelAnimation(headerHeartScale);
     headerHeartScale.value = 1;
     setHeaderIsPending(false);
@@ -757,24 +758,17 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     onDismiss?.();
   };
 
-  // Control TrueSheet visibility via instance ref (TrueSheet v3+)
-  // Guard: only call present() once per open (avoids double-open when effect runs twice or two instances existed)
+  // Control TrueSheet visibility via native global methods + lifecycle state
   useEffect(() => {
-    const sheet = sheetRef.current;
-    if (!sheet) return;
     const postUri = post?.uri ?? null;
     if (visible && post && postUri) {
-      if (lastPresentedPostUriRef.current !== postUri) {
-        lastPresentedPostUriRef.current = postUri;
-        sheet.present().catch(() => {});
+      if (presentedPostUri !== postUri) {
+        TrueSheet.present('comment-section').catch(() => {});
       }
-    } else {
-      if (lastPresentedPostUriRef.current !== null) {
-        lastPresentedPostUriRef.current = null;
-      }
-      sheet.dismiss().catch(() => {});
+    } else if (presentedPostUri !== null) {
+      TrueSheet.dismiss('comment-section').catch(() => {});
     }
-  }, [visible, post, post?.uri]);
+  }, [visible, post, post?.uri, presentedPostUri]);
 
   const router = useRouter();
 
@@ -959,9 +953,9 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   return (
     <>
       <AppTrueSheet
-        ref={sheetRef}
         name="comment-section"
         detents={scrollToCommentUri ? [1] : [0.5, 1]}
+        onDidPresent={() => setPresentedPostUri(post?.uri ?? null)}
         onDidDismiss={handleClose}
         scrollable={true}
         header={headerComponent}

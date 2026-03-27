@@ -1,10 +1,10 @@
-import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import VerticalListSheet, { TrueSheet } from '../../ui/VerticalListSheet';
+import VerticalListSheet from '../../ui/VerticalListSheet';
 import CancelButton from '../../ui/CancelButton';
-import Icon from '../../ui/Icon';
+import { CheckboxCuteFilledDuotoneIcon, CuteRegularSquareBoxEmptyIcon } from '../../ui/Icon';
 import { Colors } from '../../../theme';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import {
@@ -16,6 +16,7 @@ import {
 } from '../../../utils/components/truesheet';
 import type { NotificationReason } from '../../../services/api/types';
 import { FontFamily, Typography } from '../../../utils/components/typography';
+import { useSheetPresentation } from '../../../hooks';
 
 // Valid notification reasons - use labelKey for i18n
 const NOTIFICATION_REASONS_LABEL_KEY: Record<NotificationReason, string> = {
@@ -124,8 +125,17 @@ const FilterOption: React.FC<FilterOptionProps> = ({ label, checked, onPress }) 
       style={({ pressed }) => [styles.filterOption, pressed && styles.filterOptionPressed]}
     >
       <Text style={styles.filterOptionLabel}>{label}</Text>
-      <View style={[styles.checkbox, checked && styles.checkboxSelected]}>
-        {checked && <Icon name="checkmark" size={16} color={Colors.black} />}
+      <View style={styles.checkboxWrap}>
+        {checked ? (
+          <CheckboxCuteFilledDuotoneIcon
+            size={24}
+            boxColor={Colors.neutral[50]}
+            checkColor={Colors.black}
+            checkOpacity={1}
+          />
+        ) : (
+          <CuteRegularSquareBoxEmptyIcon size={24} color={Colors.neutral[200]} />
+        )}
       </View>
     </Pressable>
   );
@@ -216,7 +226,7 @@ const NotificationFilterContent: React.FC<{
       <Pressable
         onPress={handleClear}
         disabled={!hasFilters}
-        style={[styles.clearButton, { opacity: !hasFilters ? 0.6 : 1 }]}
+        style={[styles.clearButton, !hasFilters && styles.clearButtonDisabled]}
       >
         <Text style={styles.clearButtonText}>{t('activity.clear')}</Text>
       </Pressable>
@@ -296,9 +306,7 @@ const NotificationFilterSheet: React.FC<NotificationFilterSheetProps> = ({
   const prevVisibleRef = useRef(visible);
   const [openingTimestamp, setOpeningTimestamp] = useState<number | null>(null);
 
-  useEffect(() => {
-    if (visible) TrueSheet.present('notification-filter-sheet');
-  }, [visible]);
+  useSheetPresentation(visible, 'notification-filter-sheet');
 
   // Store timestamp when opening to reset inner component state
   React.useEffect(() => {
@@ -368,11 +376,11 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.semibold,
     flex: 1,
   },
-  checkbox: {
-    ...SHEET_STYLES.selectorBox,
-  },
-  checkboxSelected: {
-    ...SHEET_STYLES.selectorBoxSelected,
+  checkboxWrap: {
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   footer: {
     alignItems: 'center',
@@ -380,6 +388,9 @@ const styles = StyleSheet.create({
   },
   clearButton: {
     ...SHEET_STYLES.headerActionButton,
+  },
+  clearButtonDisabled: {
+    opacity: 0.6,
   },
   clearButtonText: {
     ...SHEET_STYLES.headerActionButtonText,

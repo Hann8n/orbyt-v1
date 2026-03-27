@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, Text, Pressable, TextInput, ActivityIndicator } from 'react-native';
 import Icon from './Icon';
@@ -38,11 +38,10 @@ const LoginSheet: React.FC<LoginSheetProps> = ({
 
   useSheetPresentation(visible, name);
 
-  // Memoize computed values to avoid redundant calculations
-  const trimmedHandle = useMemo(() => handle.trim(), [handle]);
+  const trimmedHandle = handle.trim();
   const canSubmit = trimmedHandle.length > 0 && !isSigningIn;
 
-  const handleSignIn = useCallback(async () => {
+  const handleSignIn = async () => {
     if (!trimmedHandle) {
       setError(t('auth.pleaseEnterHandle'));
       return;
@@ -59,9 +58,7 @@ const LoginSheet: React.FC<LoginSheetProps> = ({
 
     try {
       await onSignIn(trimmedHandle);
-
       TrueSheet.dismiss(name).catch(() => {});
-      onDismiss();
     } catch (err) {
       if (!isUserCancellation(err)) {
         const errorMessage = err instanceof Error ? err.message : t('auth.signInFailed');
@@ -80,20 +77,23 @@ const LoginSheet: React.FC<LoginSheetProps> = ({
     } finally {
       setIsSigningIn(false);
     }
-  }, [trimmedHandle, onSignIn, onDismiss, name, t]);
+  };
 
-  const handleDismiss = useCallback(() => {
+  const resetAndNotifyDismiss = () => {
     setHandle('');
     setError(null);
     setIsSigningIn(false);
-    TrueSheet.dismiss(name).catch(() => {});
     onDismiss();
-  }, [onDismiss, name]);
+  };
+
+  const handleDismissPress = () => {
+    TrueSheet.dismiss(name).catch(() => {});
+  };
 
   return (
     <VerticalListSheet
       name={name}
-      onDismiss={handleDismiss}
+      onDismiss={resetAndNotifyDismiss}
       title={sheetTitle}
       description={sheetDescription}
       showCancelButton={false}
@@ -154,7 +154,7 @@ const LoginSheet: React.FC<LoginSheetProps> = ({
                 {t('auth.signMeIn')}
               </Text>
               <Icon
-                name="right_arrow_filled"
+                name="arrow_right"
                 size={24}
                 color={canSubmit ? Colors.neutral[900] : Colors.neutral[500]}
               />
@@ -168,7 +168,7 @@ const LoginSheet: React.FC<LoginSheetProps> = ({
             <Text
               style={authSheetStyles.footerLink}
               onPress={() => {
-                handleDismiss();
+                handleDismissPress();
                 onOpenSignUp();
               }}
               suppressHighlighting

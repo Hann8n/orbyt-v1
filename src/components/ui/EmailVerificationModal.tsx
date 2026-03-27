@@ -300,7 +300,7 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
                     {t('auth.verify')}
                   </Text>
                   <Icon
-                    name="right_arrow_filled"
+                    name="arrow_right"
                     size={24}
                     color={
                       token.trim().length === 11 && !isVerifying && !error
@@ -347,7 +347,7 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
               ) : (
                 <View style={styles.buttonContentRow}>
                   <Text style={styles.sendButtonText}>{t('auth.sendCodeButton')}</Text>
-                  <Icon name="right_arrow_filled" size={24} color={Colors.neutral[900]} />
+                  <Icon name="arrow_right" size={24} color={Colors.neutral[900]} />
                 </View>
               )}
             </Pressable>

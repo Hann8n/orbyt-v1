@@ -308,7 +308,7 @@ const AlgorithmicFeedScreen: React.FC = () => {
                 onPress={() => handleSelectProvider(option.uri)}
                 rightIcon={
                   <View style={[styles.optionCheckbox, selected && styles.optionCheckboxSelected]}>
-                    {selected && <Icon name="checkmark" size={16} color={Colors.black} />}
+                    {selected && <Icon name="check" size={16} color={Colors.black} />}
                   </View>
                 }
               />
@@ -323,7 +323,7 @@ const AlgorithmicFeedScreen: React.FC = () => {
           </View>
           {listData.length === 0 ? (
             <View style={styles.emptyContainer}>
-              <Icon name="tv" size={48} color={Colors.neutral[200]} style={styles.emptyIcon} />
+              <Icon name="tv_2" size={48} color={Colors.neutral[200]} style={styles.emptyIcon} />
               <Text style={styles.emptyTitle}>{t('settings.noChannelsYet')}</Text>
               <Text style={styles.emptySubtitle}>{t('settings.exploreChannelsSubscribe')}</Text>
               <Pressable style={styles.exploreButton} onPress={handleExplorePress}>

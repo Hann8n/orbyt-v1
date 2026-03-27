@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { useQueryClient } from '@tanstack/react-query';
@@ -13,7 +13,7 @@ import {
   Alert,
   ScrollView,
 } from 'react-native';
-import type { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import {
   AppTrueSheet,
   CONTENT_TO_FOOTER_GAP_REDUCTION,
@@ -49,7 +49,7 @@ const ShareSheet: React.FC = () => {
   const [isCurrentUser, setIsCurrentUser] = useState<boolean>(false);
   const [showConversationPicker, setShowConversationPicker] = useState<boolean>(false);
   const [currentUserDid, setCurrentUserDid] = useState<string>('');
-  const sheetRef = useRef<TrueSheet>(null);
+  const [isSheetPresented, setIsSheetPresented] = useState(false);
 
   // Bookmark store
   const isBookmarked = useBookmarkStore(state => (postUri ? state.isBookmarked(postUri) : false));
@@ -64,14 +64,14 @@ const ShareSheet: React.FC = () => {
 
   // Present/dismiss sheet based on data presence (TrueSheet v3+)
   useEffect(() => {
-    const sheet = sheetRef.current;
-    if (!sheet) return;
     if (data) {
-      sheet.present().catch(() => {});
-    } else {
-      sheet.dismiss().catch(() => {});
+      if (!isSheetPresented) {
+        TrueSheet.present('share-sheet').catch(() => {});
+      }
+    } else if (isSheetPresented) {
+      TrueSheet.dismiss('share-sheet').catch(() => {});
     }
-  }, [data]);
+  }, [data, isSheetPresented]);
 
   // Get current user from store instead of API call
   const currentUser = useUserStore(state => state.currentUser);
@@ -87,6 +87,7 @@ const ShareSheet: React.FC = () => {
 
   // Handle dismiss from TrueSheet - fires when sheet is dismissed by any means
   const handleDismiss = useCallback(() => {
+    setIsSheetPresented(false);
     dismissShareSheet(true);
     setShowConversationPicker(false);
   }, [dismissShareSheet]);
@@ -94,7 +95,7 @@ const ShareSheet: React.FC = () => {
   // Programmatic dismiss function for buttons
   const dismissSheet = useCallback(() => {
     // Let TrueSheet handle dismissal; onDidDismiss (handleDismiss) clears store state
-    sheetRef.current?.dismiss().catch(() => {});
+    TrueSheet.dismiss('share-sheet').catch(() => {});
   }, []);
 
   // Bookmark handler - instant optimistic update
@@ -320,7 +321,7 @@ const ShareSheet: React.FC = () => {
       {
         id: 'share',
         label: t('share.share'),
-        icon: 'share',
+        icon: 'share-sheet-share-cute-fill',
         onPress: handleShare,
         color: NEON.purple,
         buttonColor: Colors.purple[950],
@@ -328,7 +329,7 @@ const ShareSheet: React.FC = () => {
       {
         id: 'send',
         label: t('share.send'),
-        icon: 'send-plane-fill',
+        icon: 'share-sheet-send-cute-fill',
         onPress: handleSend,
         color: NEON.green,
         buttonColor: Colors.teal[950],
@@ -336,7 +337,7 @@ const ShareSheet: React.FC = () => {
       {
         id: 'bookmark',
         label: isBookmarked ? t('share.saved') : t('share.save'),
-        icon: 'bookmark-fill',
+        icon: 'share-sheet-bookmark-cute-fill',
         onPress: handleBookmark,
         color: NEON.amber,
         buttonColor: Colors.amber[950],
@@ -344,7 +345,7 @@ const ShareSheet: React.FC = () => {
       {
         id: 'report',
         label: isCurrentUser ? t('share.delete') : t('share.report'),
-        icon: isCurrentUser ? 'delete-2-fill' : 'report',
+        icon: isCurrentUser ? 'share-sheet-delete-cute-fill' : 'share-sheet-report-cute-fill',
         onPress: async () => handleReportOrDelete(),
         color: NEON.coral,
         buttonColor: Colors.coral[950],
@@ -370,7 +371,11 @@ const ShareSheet: React.FC = () => {
   // Don't render content if no data
   if (!data) {
     return (
-      <AppTrueSheet ref={sheetRef} name="share-sheet" onDidDismiss={handleDismiss}>
+      <AppTrueSheet
+        name="share-sheet"
+        onDidPresent={() => setIsSheetPresented(true)}
+        onDidDismiss={handleDismiss}
+      >
         <View style={styles.contentContainer} />
       </AppTrueSheet>
     );
@@ -379,8 +384,8 @@ const ShareSheet: React.FC = () => {
   return (
     <>
       <AppTrueSheet
-        ref={sheetRef}
         name="share-sheet"
+        onDidPresent={() => setIsSheetPresented(true)}
         onDidDismiss={handleDismiss}
         header={headerComponent}
         footer={wrapFooter(
@@ -411,7 +416,7 @@ const ShareSheet: React.FC = () => {
             contentContainerStyle={[
               styles.optionsContainer,
               styles.optionsContainerContent,
-              { gap: 12 },
+              styles.optionsContainerGap,
             ]}
           >
             {menuOptions.map(option => (
@@ -484,6 +489,9 @@ const styles = StyleSheet.create({
   },
   optionsContainerContent: {
     paddingLeft: SHEET_SPACING.headerHorizontal,
+  },
+  optionsContainerGap: {
+    gap: 12,
   },
   optionWrapper: {
     alignItems: 'center',

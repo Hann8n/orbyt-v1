@@ -141,7 +141,7 @@ const SignUpSheet: React.FC<SignUpSheetProps> = ({
 
         <View style={authSheetStyles.inputContainer}>
           <Icon
-            name="cloud-fill"
+            name="cloud"
             size={28}
             color={Colors.neutral[400]}
             style={authSheetStyles.inputIcon}
@@ -197,7 +197,7 @@ const SignUpSheet: React.FC<SignUpSheetProps> = ({
                 {t('auth.continueToSignUp')}
               </Text>
               <Icon
-                name="right_arrow_filled"
+                name="arrow_right"
                 size={24}
                 color={canContinue ? Colors.neutral[900] : Colors.neutral[500]}
               />
