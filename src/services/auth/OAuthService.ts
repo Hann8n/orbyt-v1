@@ -9,9 +9,10 @@ const CLIENT_METADATA: ExpoOAuthClientOptions['clientMetadata'] = {
   logo_uri: 'https://getorbyt.com/images/orbyt-logo.png',
   tos_uri: 'https://getorbyt.com/terms',
   policy_uri: 'https://getorbyt.com/privacy',
-  redirect_uris: ['com.getorbyt:/oauth/callback'],
-  scope:
-    'atproto transition:generic transition:chat.bsky transition:email account:email?action=manage',
+  // Include both native and web redirect URIs (per oauth-client-expo docs)
+  redirect_uris: ['com.getorbyt:/oauth/callback', 'https://getorbyt.com/oauth/callback'],
+  // Prefer transitional scopes for broad app access (atproto spec transitional scopes)
+  scope: 'atproto transition:generic transition:chat.bsky transition:email',
   grant_types: ['authorization_code', 'refresh_token'],
   response_types: ['code'],
   token_endpoint_auth_method: 'none',

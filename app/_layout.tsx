@@ -19,7 +19,6 @@ import EmailVerificationModal from '../src/components/ui/EmailVerificationModal'
 import { queryClient } from '../src/utils/query/queryClient';
 import { QueryErrorBoundary } from '../src/components/ui/QueryErrorBoundary';
 import { SessionProvider, useSession } from '../src/context/SessionProvider';
-import { SplashScreenController } from '../src/components/ui/SplashScreenController';
 import { TabBarProvider } from '../src/context/FeedIndicatorContext';
 import { OverlayLayoutProvider } from '../src/context/OverlayLayoutContext';
 import { seenVideoService } from '../src/services/SeenVideoService';
@@ -49,7 +48,9 @@ SplashScreen.setOptions({
 });
 
 // Prevent the splash screen from auto-hiding before we're ready
-SplashScreen.preventAutoHideAsync();
+SplashScreen.preventAutoHideAsync().catch(() => {
+  // Non-fatal: if the splash already hid, we can still render normally.
+});
 
 Appearance.setColorScheme('dark');
 
@@ -166,15 +167,9 @@ export const unstable_settings = {
 // RootNavigator - handles route protection using Stack.Protected
 // Following Expo Router's recommended authentication pattern
 function RootNavigator() {
-  const { session, isLoading } = useSession();
+  const { session } = useSession();
   const currentUser = useUserStore(state => state.currentUser);
   const modalProfileEnabled = useUserStore(state => state.modalProfileEnabled);
-
-  // Don't render navigation until auth state is determined
-  // This prevents the login screen from flashing before session is restored
-  if (isLoading) {
-    return null;
-  }
 
   return (
     <View style={styles.rootView}>
@@ -287,6 +282,10 @@ export default function RootLayout() {
   const initializeUserState = useUserStore(state => state.initializeUserState);
   const loadBookmarks = useBookmarkStore(state => state.loadBookmarks);
   const clearBookmarks = useBookmarkStore(state => state.clearBookmarks);
+  const isInitializingAuth = useUserStore(state => state.isInitializingAuth);
+  const currentUserDid = useUserStore(state => state.currentUser?.did ?? null);
+  const feedBootstrapStatus = useUserStore(state => state.feedBootstrapStatus);
+  const feedBootstrapDid = useUserStore(state => state.feedBootstrapDid);
 
   // Set Android navigation bar button style (light)
   useEffect(() => {
@@ -374,11 +373,33 @@ export default function RootLayout() {
   // Note: OAuthSession.fetchHandler automatically refreshes tokens when making API calls
   // No need to manually refresh on app foreground - tokens refresh automatically via getTokenSet('auto')
 
+  // Keep native splash visible until:
+  // - initial auth restoration completes, and
+  // - if authenticated, feed bootstrap is ready (or errored) for the active DID.
+  //
+  // This avoids the "native splash → purple spinner → app" first-login experience.
+  const isFeedBootstrapReadyForActiveDid =
+    !!currentUserDid &&
+    feedBootstrapDid === currentUserDid &&
+    (feedBootstrapStatus === 'ready' || feedBootstrapStatus === 'error');
+
+  const isAppReady = !isInitializingAuth && (!isAuthenticated || isFeedBootstrapReadyForActiveDid);
+
+  const didHideSplashRef = React.useRef(false);
+  useEffect(() => {
+    if (!isAppReady || didHideSplashRef.current) return;
+    didHideSplashRef.current = true;
+    SplashScreen.hideAsync().catch(() => {});
+  }, [isAppReady]);
+
+  if (!isAppReady) {
+    return null;
+  }
+
   return (
     <ThemeProvider value={DarkTheme}>
       <AppProviders>
         <SessionProvider>
-          <SplashScreenController />
           <QueryErrorBoundary level="root">
             <RootNavigator />
           </QueryErrorBoundary>
