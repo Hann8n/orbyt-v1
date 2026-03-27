@@ -37,8 +37,7 @@ const SettingsScreen: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isProfileLinkCopied, setIsProfileLinkCopied] = useState(false);
   const { presentAccountSwitcher } = useGlobalAccountSwitcher();
-  const { nativeTabsEnabled, modalProfileEnabled, setNativeTabsEnabled, setModalProfileEnabled } =
-    useFeedSettings();
+  const { modalProfileEnabled, setModalProfileEnabled } = useFeedSettings();
   const { currentUser } = useCurrentUser();
   const { savedAccounts } = useAccountManagement();
   const { isCompact: isCompactDevice } = useDeviceLayout();
@@ -130,14 +129,6 @@ const SettingsScreen: React.FC = () => {
       }, 4000);
     } catch (_error) {
       // Ignore clipboard errors
-    }
-  };
-
-  const handleToggleNativeTabs = async (value: boolean) => {
-    try {
-      await setNativeTabsEnabled(value);
-    } catch (_error) {
-      Alert.alert(t('common.error'), t('settings.failedToSaveSetting'));
     }
   };
 
@@ -496,14 +487,6 @@ ${deviceInfo}`
     });
 
     if (section.id === 'labs') {
-      listData.push({
-        kind: 'toggle',
-        id: 'native-tabs',
-        label: t('settings.newTabs'),
-        subtitle: t('settings.useNativeNavBar'),
-        value: nativeTabsEnabled,
-        onValueChange: handleToggleNativeTabs,
-      });
       // Only show profile/channel presentation toggle on iOS devices that don't require compact layout.
       // When modal is the default, show "Classic layout" (inverted); otherwise "Modal layout".
       if (Platform.OS === 'ios' && !isCompactDevice) {
