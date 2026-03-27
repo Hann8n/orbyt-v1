@@ -24,5 +24,6 @@
     }
   },
   "include": ["src/**/*", "app/**/*"],
-  "exclude": ["node_modules", "dist", "src/navigation/**/*"]
+  "exclude": ["node_modules", "dist", "src/navigation/**/*"],
+  "extends": "expo/tsconfig.base"
 }

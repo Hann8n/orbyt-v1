@@ -16,6 +16,8 @@ export default function TabsLayout() {
 
   return (
     <NativeTabs
+      backgroundColor={Colors.black}
+      blurEffect="none"
       tintColor={getTabBarActiveTintFromProfile(profileColors)}
       iconColor={{
         default: TAB_BAR_INACTIVE_TINT,

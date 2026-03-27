@@ -33,6 +33,7 @@ import {
   RenderTargetOptions,
 } from '@shopify/flash-list';
 import { FeedScrollProvider } from '../../../context/FeedScrollContext';
+import { useOverlayLayout } from '../../../context/OverlayLayoutContext';
 import EmptyFeed from './EmptyFeed';
 import { VideoItem } from './VideoItem';
 import GridFeedView from './GridFeedView';
@@ -45,7 +46,7 @@ import {
 } from './feedViewShared';
 import { getViewportDimensions } from '../../../utils/device/screen';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
-import { getVideoCardHeight } from '../../../utils/video/helpers';
+import { buildListSnapViewport } from './listSnapViewport';
 import { Colors } from '../../../theme';
 import { APP_CONSTANTS, SCROLL_CONSTANTS, QUERY_CONSTANTS } from '../../../utils/constants';
 import type { FeedListItem, EndCardItem, ListFeedViewProps, ListFeedViewRef } from '../../../types';
@@ -194,8 +195,17 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     const isHeaderFeed = getIsHeaderFeed(feedOption, headerComponent);
 
     const viewportDimensions = getViewportDimensions(isModal, isHeaderFeed, insets);
-
-    const cardHeight = getVideoCardHeight(width, screenHeight);
+    const overlayLayout = useOverlayLayout();
+    const effectiveBottomNavBarHeight =
+      overlayLayout?.bottomNavBarHeight ?? viewportDimensions.bottomNavBarHeight;
+    const { useLegacyLiquidGlassLayout, snapViewportHeight, cardHeightForList } =
+      buildListSnapViewport({
+        screenWidth: width,
+        screenHeight,
+        legacyViewportHeight: viewportDimensions.height,
+        bottomNavBarHeight: effectiveBottomNavBarHeight,
+      });
+    const cardHeight = cardHeightForList;
 
     const { onViewableItemsChanged, viewabilityConfig, canPlay, feedKey } = useFeedVisibility({
       feedOption,
@@ -318,7 +328,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     }, [handleOrientationChange]);
 
     // Calculate viewport dimensions for list view (always compute to avoid conditional hooks)
-    const viewableAreaHeight = viewportDimensions.height;
+    const viewableAreaHeight = snapViewportHeight;
     const headerHeightForTabs = ListComponent ? FEED_VIEW_CONSTANTS.HEADER_HEIGHT_TABS : 0;
     const emptyComponentHeight = Math.max(0, viewableAreaHeight - headerHeightForTabs);
 
@@ -336,17 +346,23 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     // - Non-header feeds keep existing behavior (small devices ignore inset to stay full-screen)
     const headerSnapTopInset = !isHeaderFeed
       ? null
-      : isCompactDevice || (isModal && hasHeader)
-        ? 0
-        : insets.top;
+      : useLegacyLiquidGlassLayout
+        ? isCompactDevice || (isModal && hasHeader)
+          ? 0
+          : insets.top
+        : 0;
 
-    const nonHeaderSnapTopInset = isCompactDevice ? 0 : insets.top;
+    const nonHeaderSnapTopInset = useLegacyLiquidGlassLayout
+      ? isCompactDevice
+        ? 0
+        : insets.top
+      : 0;
     const snapTopInset = headerSnapTopInset !== null ? headerSnapTopInset : nonHeaderSnapTopInset;
 
     const snapToOffsets = (() => {
       // Always use snapToOffsets when there's a header to properly account for header height
       // snapToInterval doesn't account for headers, so it causes scroll issues
-      if (!hasHeader && isCompactDevice) return null;
+      if (useLegacyLiquidGlassLayout && !hasHeader && isCompactDevice) return null;
 
       const offsets: number[] = hasHeader ? [0] : [];
 
@@ -403,7 +419,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     const feedScrollValue = {
       scrollOffsetYSV,
       headerHeight,
-      viewportHeight: viewportDimensions.height,
+      viewportHeight: snapViewportHeight,
       itemSpacing,
       contentScrollProgressSV,
     };
@@ -461,7 +477,9 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
             pagingEnabled={false}
             snapToOffsets={snapToOffsets ?? undefined}
             snapToInterval={snapToOffsets ? undefined : snapToIntervalValue}
-            snapToAlignment={snapToOffsets ? undefined : ('center' as const)}
+            snapToAlignment={
+              snapToOffsets ? undefined : useLegacyLiquidGlassLayout ? 'center' : 'start'
+            }
             decelerationRate={
               Platform.OS === 'ios'
                 ? SCROLL_CONSTANTS.DECELERATION_RATE_IOS
@@ -501,7 +519,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
             contentContainerStyle={[
               styles.contentContainer,
               feed.length > 0 && {
-                paddingBottom: viewportDimensions.bottomNavBarHeight,
+                paddingBottom: effectiveBottomNavBarHeight,
               },
             ]}
           />

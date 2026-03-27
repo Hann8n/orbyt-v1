@@ -35,7 +35,6 @@ import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ListFeedViewRef } from '../../../types';
 import type { ProfileRef } from '../../../utils/navigation/tabRefs';
-import { useFeedSettings } from '../../../stores/userStore';
 import {
   useSetTabBarVisibility,
   useTabBarVisibility,
@@ -182,7 +181,6 @@ const FeedPager = forwardRef<ProfileRef, FeedPagerProps>(function FeedPager(
   const feedRendererRefs = useRef<{ [key: string]: ListFeedViewRef | null }>({});
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { nativeTabsEnabled } = useFeedSettings();
   const setTabBarVisibility = useSetTabBarVisibility();
   const setOverlayVisibility = useSetOverlayVisibility();
   const tabBarVisibility = useTabBarVisibility();
@@ -450,16 +448,14 @@ const FeedPager = forwardRef<ProfileRef, FeedPagerProps>(function FeedPager(
                 />
               ))}
             </View>
-            {nativeTabsEnabled && (
-              <Pressable
-                onPress={() => {
-                  router.navigate('/create');
-                }}
-                style={styles.createButton}
-              >
-                <SvgXml xml={CAMERA_2_FILL_ICON_SVG} width={26} height={26} />
-              </Pressable>
-            )}
+            <Pressable
+              onPress={() => {
+                router.navigate('/create');
+              }}
+              style={styles.createButton}
+            >
+              <SvgXml xml={CAMERA_2_FILL_ICON_SVG} width={26} height={26} />
+            </Pressable>
           </View>
         </Animated.View>
       )}
