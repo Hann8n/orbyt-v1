@@ -3,7 +3,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTabBarHeight } from './FeedIndicatorContext';
 import { useFeedSettings } from '../stores/userStore';
-import { LAYOUT } from '@/utils/device/screen';
+import { getBottomNavBarHeight } from '@/utils/device/screen';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 
 export interface OverlayLayoutValue {
@@ -27,12 +27,10 @@ export const OverlayLayoutProvider: React.FC<{ children: React.ReactNode }> = ({
   const { nativeTabsEnabled } = useFeedSettings();
   const deviceLayout = useDeviceLayout();
 
-  const bottomInset = insets.bottom || 0;
   const { isTablet, isCompact: isCompactDevice } = deviceLayout;
 
   const value: OverlayLayoutValue = (() => {
-    const calculated =
-      (isCompactDevice ? LAYOUT.SMALL_SCREEN_NAV_HEIGHT : LAYOUT.TAB_NAV_HEIGHT) + bottomInset;
+    const calculated = getBottomNavBarHeight(insets, isCompactDevice);
     const base = measuredTabBarHeight ?? calculated;
     const bottomNavBarHeight = nativeTabsEnabled ? base + 10 : base;
 

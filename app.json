@@ -10,7 +10,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.getorbyt.app",
       "appleTeamId": "D8VXFBV8SJ",
-      "buildNumber": "47",
+      "buildNumber": "2026032700",
       "icon": "./src/assets/AppIcons/iOS/Orbyt.icon",
       "infoPlist": {
         "CFBundleDevelopmentRegion": "en",
@@ -29,7 +29,7 @@
         "backgroundColor": "#000000"
       },
       "package": "com.orbyt.app",
-      "versionCode": 47,
+      "versionCode": 2026032700,
       "permissions": ["CAMERA", "RECORD_AUDIO"]
     },
     "web": {
@@ -78,8 +78,6 @@
       [
         "expo-build-properties",
         {
-          "buildReactNativeFromSource": true,
-          "useHermesV1": true,
           "ios": {
             "deploymentTarget": "17.0"
           },
@@ -87,13 +85,8 @@
             "compileSdkVersion": 36,
             "targetSdkVersion": 36,
             "minSdkVersion": 24,
-            "buildArchs": ["arm64-v8a"],
             "enableMinifyInReleaseBuilds": true,
-            "enableShrinkResourcesInReleaseBuilds": true,
-            "packagingOptions": {
-              "pickFirsts": ["builddef.lst", "**/builddef.lst"],
-              "excludes": ["builddef.lst", "**/builddef.lst"]
-            }
+            "enableShrinkResourcesInReleaseBuilds": true
           }
         }
       ],

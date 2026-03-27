@@ -159,6 +159,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     // Layout state
     const [headerHeight, setHeaderHeight] = useState(0);
+    const [measuredViewportHeight, setMeasuredViewportHeight] = useState<number | null>(null);
     // Track scroll-based blocking state (driven by useAnimatedReaction when crossing HEADER_BLOCKING_THRESHOLD)
     const [scrollBasedBlocking, setScrollBasedBlocking] = useState(() => Boolean(headerComponent));
 
@@ -205,7 +206,11 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         legacyViewportHeight: viewportDimensions.height,
         bottomNavBarHeight: effectiveBottomNavBarHeight,
       });
-    const cardHeight = cardHeightForList;
+    const autoViewportHeight = measuredViewportHeight ?? snapViewportHeight;
+    const viewableAreaHeight = useLegacyLiquidGlassLayout ? snapViewportHeight : autoViewportHeight;
+    const cardHeight = useLegacyLiquidGlassLayout
+      ? cardHeightForList
+      : Math.max(0, viewableAreaHeight - FEED_VIEW_CONSTANTS.SEPARATOR_HEIGHT);
 
     const { onViewableItemsChanged, viewabilityConfig, canPlay, feedKey } = useFeedVisibility({
       feedOption,
@@ -328,7 +333,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     }, [handleOrientationChange]);
 
     // Calculate viewport dimensions for list view (always compute to avoid conditional hooks)
-    const viewableAreaHeight = snapViewportHeight;
     const headerHeightForTabs = ListComponent ? FEED_VIEW_CONSTANTS.HEADER_HEIGHT_TABS : 0;
     const emptyComponentHeight = Math.max(0, viewableAreaHeight - headerHeightForTabs);
 
@@ -391,6 +395,13 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       }
     };
 
+    const handleContainerLayout = useCallback((e: LayoutChangeEvent) => {
+      const h = Math.round(e.nativeEvent.layout.height);
+      if (h > 0) {
+        setMeasuredViewportHeight(prev => (prev === h ? prev : h));
+      }
+    }, []);
+
     const fadeDist = hasHeader ? SCROLL_CONSTANTS.HEADER_FADE_DISTANCE : 0;
     const contentScrollProgressSV = useDerivedValue(() => {
       'worklet';
@@ -419,7 +430,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     const feedScrollValue = {
       scrollOffsetYSV,
       headerHeight,
-      viewportHeight: snapViewportHeight,
+      viewportHeight: viewableAreaHeight,
       itemSpacing,
       contentScrollProgressSV,
     };
@@ -452,7 +463,10 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     return (
       <FeedScrollProvider value={feedScrollValue}>
-        <View style={[styles.container, { backgroundColor: backgroundColor || Colors.black }]}>
+        <View
+          style={[styles.container, { backgroundColor: backgroundColor || Colors.black }]}
+          onLayout={handleContainerLayout}
+        >
           <AnimatedFlashList
             ref={flashListRef}
             data={listData}

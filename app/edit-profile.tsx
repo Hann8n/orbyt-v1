@@ -18,9 +18,10 @@ import {
   ScrollView,
   Dimensions,
   Keyboard,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
   Layout,
@@ -122,6 +123,7 @@ const AnimatedColorSquare: React.FC<AnimatedColorSquareProps> = React.memo(
 const EditProfileScreen: React.FC = () => {
   const { t } = useTranslation();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { currentUser } = useCurrentUser();
   const userDid = currentUser?.did || null;
   const userHandle = currentUser?.handle || null;
@@ -858,7 +860,7 @@ const EditProfileScreen: React.FC = () => {
   return (
     <GestureHandlerRootView style={styles.container}>
       {/* Header and Color Picker - Black Background Section */}
-      <View style={styles.topSafeArea}>
+      <View style={[styles.topSafeArea, Platform.OS === 'android' && { paddingTop: insets.top }]}>
         {/* Header */}
         <View style={styles.header}>
           <Pressable

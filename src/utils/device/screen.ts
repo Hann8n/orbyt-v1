@@ -34,14 +34,13 @@ export function classifyDevice(width: number, height: number): DeviceClass {
 const getWindowDimensions = () => Dimensions.get('window');
 
 export const getBottomNavBarHeight = (insets: { bottom: number }, isCompact?: boolean): number => {
+  const bottom = insets.bottom || 0;
   if (isCompact !== undefined) {
-    return (
-      (isCompact ? LAYOUT.SMALL_SCREEN_NAV_HEIGHT : LAYOUT.TAB_NAV_HEIGHT) + (insets.bottom || 0)
-    );
+    return (isCompact ? LAYOUT.SMALL_SCREEN_NAV_HEIGHT : LAYOUT.TAB_NAV_HEIGHT) + bottom;
   }
   const { width, height } = getWindowDimensions();
   const { isCompact: c } = classifyDevice(width, height);
-  return (c ? LAYOUT.SMALL_SCREEN_NAV_HEIGHT : LAYOUT.TAB_NAV_HEIGHT) + (insets.bottom || 0);
+  return (c ? LAYOUT.SMALL_SCREEN_NAV_HEIGHT : LAYOUT.TAB_NAV_HEIGHT) + bottom;
 };
 
 export const getViewportDimensions = (

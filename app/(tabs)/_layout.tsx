@@ -13,11 +13,13 @@ export default function TabsLayout() {
   const { t } = useTranslation();
   const profileColors = useUserStore(state => state.currentUserProfileColors);
   const { totalUnreadCount } = useUnreadCount();
+  const hideTabLabels = isIosLiquidGlassAvailable;
 
   return (
     <NativeTabs
       backgroundColor={Colors.black}
       blurEffect="none"
+      labelVisibilityMode={hideTabLabels ? undefined : 'labeled'}
       tintColor={getTabBarActiveTintFromProfile(profileColors)}
       iconColor={{
         default: TAB_BAR_INACTIVE_TINT,
@@ -28,23 +30,21 @@ export default function TabsLayout() {
     >
       <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Icon src={require('../../src/assets/tab-icons/png/home_3_cute.png')} />
-        <NativeTabs.Trigger.Label hidden={isIosLiquidGlassAvailable}>
-          {t('tabs.home')}
-        </NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label hidden={hideTabLabels}>{t('tabs.home')}</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="explore" {...(isIosLiquidGlassAvailable && { role: 'search' })}>
+      <NativeTabs.Trigger name="explore" {...(hideTabLabels && { role: 'search' })}>
         <NativeTabs.Trigger.Icon
           src={require('../../src/assets/tab-icons/png/search_2_cute.png')}
         />
-        <NativeTabs.Trigger.Label hidden={isIosLiquidGlassAvailable}>
+        <NativeTabs.Trigger.Label hidden={hideTabLabels}>
           {t('tabs.explore')}
         </NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="activity">
         <NativeTabs.Trigger.Icon src={require('../../src/assets/tab-icons/png/inbox_2_cute.png')} />
-        <NativeTabs.Trigger.Label hidden={isIosLiquidGlassAvailable}>
+        <NativeTabs.Trigger.Label hidden={hideTabLabels}>
           {t('tabs.activity')}
         </NativeTabs.Trigger.Label>
         {totalUnreadCount > 0 && (
@@ -56,7 +56,7 @@ export default function TabsLayout() {
 
       <NativeTabs.Trigger name="profile">
         <NativeTabs.Trigger.Icon src={require('../../src/assets/tab-icons/png/badge_cute.png')} />
-        <NativeTabs.Trigger.Label hidden={isIosLiquidGlassAvailable}>
+        <NativeTabs.Trigger.Label hidden={hideTabLabels}>
           {t('tabs.profile')}
         </NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>

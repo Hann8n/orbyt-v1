@@ -3,8 +3,11 @@
 /**
  * Script to manage native build numbers in app.json
  *
+ * Android versionCode uses UTC date encoding: YYYYMMDD00–YYMMDD99 (100 builds/day max).
+ * Migrates from legacy integer codes by jumping to today's base when appropriate.
+ *
  * Usage:
- *   tsx scripts/update-version.ts increment-build   # Increment Android versionCode and iOS buildNumber
+ *   tsx scripts/update-version.ts increment-build   # Next Android versionCode + matching iOS buildNumber
  *   tsx scripts/update-version.ts get-build   # Get current build numbers
  */
 
@@ -37,12 +40,33 @@ function writeAppJson(appJson: AppJson): void {
   fs.writeFileSync(APP_JSON_PATH, content, 'utf-8');
 }
 
+/** Calendar day as YYYYMMDD in UTC. */
+function yyyymmddUtc(d: Date): number {
+  return d.getUTCFullYear() * 10000 + (d.getUTCMonth() + 1) * 100 + d.getUTCDate();
+}
+
+/** Next Android versionCode: date-based, strictly increasing, 100 slots per UTC day. */
+function nextDateBasedVersionCode(currentVersionCode: number): number {
+  const now = new Date();
+  const todayBase = yyyymmddUtc(now) * 100;
+  const todayMax = todayBase + 99;
+
+  if (currentVersionCode < todayBase) {
+    return Math.max(currentVersionCode + 1, todayBase);
+  }
+  if (currentVersionCode < todayMax) {
+    return currentVersionCode + 1;
+  }
+  const tomorrow = new Date(now);
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+  return yyyymmddUtc(tomorrow) * 100;
+}
+
 function incrementBuildNumbers(): { versionCode: number; buildNumber: string } {
   const appJson = readAppJson();
 
-  // Get current values or default to 0
   const currentVersionCode = (appJson.expo.android?.versionCode as number) || 0;
-  const newVersionCode = currentVersionCode + 1;
+  const newVersionCode = nextDateBasedVersionCode(currentVersionCode);
   const newBuildNumber = String(newVersionCode);
 
   // Ensure ios and android objects exist
