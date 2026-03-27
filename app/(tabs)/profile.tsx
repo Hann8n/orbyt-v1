@@ -44,7 +44,6 @@ import {
   HeaderActionButton,
 } from '../../src/components/layout/header/UniversalHeader';
 import { Colors } from '../../src/theme';
-import { isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalModals';
 import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '../../src/hooks';
 import { useDetailScreenOverlay } from '../../src/hooks/useDetailScreenOverlay';
@@ -488,14 +487,23 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     }),
     [overlayScrollProgressSV]
   );
+  const actionButtonsOverlayAnimatedStyle = useAnimatedStyle(
+    () => ({
+      opacity: interpolate(
+        overlayScrollProgressSV.value,
+        [0, 0.3, 0.8],
+        [1, 1, 0],
+        Extrapolate.CLAMP
+      ),
+    }),
+    [overlayScrollProgressSV]
+  );
   const staticOverlayAnimatedStyle = useAnimatedStyle(() => ({ opacity: 1 }));
 
   const baseBackTextColor = useMemo(
     () => profileColors.textColor || Colors.neutral[50],
     [profileColors.textColor]
   );
-  const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
-
   const handleGrabHandlePress = useCallback(() => {
     tabRefs.profile?.scrollToTop();
   }, []);
@@ -637,17 +645,19 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
           </Pressable>
         </Animated.View>
         {headerActions.length > 0 && (
-          <View style={styles.overlayActionsContainer}>
+          <Animated.View
+            style={[styles.overlayActionsContainer, actionButtonsOverlayAnimatedStyle]}
+          >
             {headerActions.map(action => (
               <HeaderActionButton
                 key={action.id}
                 action={action}
                 textColor={profileColors.textColor || Colors.neutral[50]}
                 backgroundColor={profileColors.backgroundColor || Colors.black}
-                preferLiquidGlass={useLiquidGlass}
+                preferLiquidGlass={false}
               />
             ))}
-          </View>
+          </Animated.View>
         )}
       </DetailScreenOverlay>
 
