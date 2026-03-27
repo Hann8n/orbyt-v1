@@ -433,6 +433,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         <GridFeedView
           feed={gridFeed}
           headerComponent={headerComponent}
+          isModal={isModal}
           backgroundColor={backgroundColor}
           secondaryColor={secondaryColor}
           isProfileFeed={isHeaderFeed}

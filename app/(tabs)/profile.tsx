@@ -476,28 +476,17 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     backIconPrimaryStyle,
     backIconSecondaryStyle,
   } = useDetailScreenOverlay(providedIdentifier, defaultTop, overlayScrollProgressSV);
-  const menuOverlayAnimatedStyle = useAnimatedStyle(
-    () => ({
-      opacity: interpolate(
-        overlayScrollProgressSV.value,
-        [0, 0.3, 0.8],
-        [1, 1, 0],
-        Extrapolate.CLAMP
-      ),
-    }),
-    [overlayScrollProgressSV]
-  );
-  const actionButtonsOverlayAnimatedStyle = useAnimatedStyle(
-    () => ({
-      opacity: interpolate(
-        overlayScrollProgressSV.value,
-        [0, 0.3, 0.8],
-        [1, 1, 0],
-        Extrapolate.CLAMP
-      ),
-    }),
-    [overlayScrollProgressSV]
-  );
+  const overlayControlFadeAnimatedStyle = useAnimatedStyle(() => {
+    const progress = overlayScrollProgressSV.value;
+    // Start fading sooner and complete fade earlier than before.
+    const normalizedFade = interpolate(progress, [0.12, 0.55], [0, 1], Extrapolate.CLAMP);
+    // Smooth curve for less abrupt linear fade.
+    const easedFade = normalizedFade * normalizedFade * (3 - 2 * normalizedFade);
+
+    return {
+      opacity: 1 - easedFade,
+    };
+  }, [overlayScrollProgressSV]);
   const staticOverlayAnimatedStyle = useAnimatedStyle(() => ({ opacity: 1 }));
 
   const baseBackTextColor = useMemo(
@@ -633,7 +622,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
         backIconSecondaryStyle={backIconSecondaryStyle}
         overlayAnimatedStyle={staticOverlayAnimatedStyle}
       >
-        <Animated.View style={menuOverlayAnimatedStyle}>
+        <Animated.View style={overlayControlFadeAnimatedStyle}>
           <Pressable
             onPress={handleMenuPress}
             onPressIn={handleMenuPressIn}
@@ -645,9 +634,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
           </Pressable>
         </Animated.View>
         {headerActions.length > 0 && (
-          <Animated.View
-            style={[styles.overlayActionsContainer, actionButtonsOverlayAnimatedStyle]}
-          >
+          <Animated.View style={[styles.overlayActionsContainer, overlayControlFadeAnimatedStyle]}>
             {headerActions.map(action => (
               <HeaderActionButton
                 key={action.id}
