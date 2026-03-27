@@ -284,7 +284,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                       accessibilityRole="button"
                       accessibilityLabel={t('comments.removeGif')}
                     >
-                      <Icon name="close" size={14} color={Colors.neutral[50]} />
+                      <Icon name="close" size={18} color={Colors.neutral[50]} />
                     </Pressable>
                   ) : onClearAttachment ? (
                     <Pressable
@@ -294,7 +294,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                       accessibilityRole="button"
                       accessibilityLabel={t('comments.removeGif')}
                     >
-                      <Icon name="close" size={14} color={Colors.neutral[50]} />
+                      <Icon name="close" size={18} color={Colors.neutral[50]} />
                     </Pressable>
                   ) : null}
                 </View>
@@ -321,7 +321,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                             accessibilityRole="button"
                             accessibilityLabel={t('comments.removeImage')}
                           >
-                            <Icon name="close" size={14} color={Colors.neutral[50]} />
+                            <Icon name="close" size={18} color={Colors.neutral[50]} />
                           </Pressable>
                         ) : null}
                       </View>
@@ -392,7 +392,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                     accessibilityRole="button"
                     accessibilityLabel={t('common.add')}
                   >
-                    <Icon name="circle-plus" size={30} color={Colors.neutral[300]} />
+                    <Icon name="add_circle" size={30} color={Colors.neutral[300]} />
                   </Pressable>
                 </MenuView>
               ) : null}
@@ -419,11 +419,11 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                         isInteractive
                       />
                       <View style={styles.sendButtonContent} pointerEvents="none">
-                        <Icon name="arrow-up-fill" size={22} color={Colors.black} />
+                        <Icon name="up" size={22} color={Colors.black} />
                       </View>
                     </>
                   ) : (
-                    <Icon name="arrow-up-fill" size={22} color={Colors.neutral[300]} />
+                    <Icon name="up" size={22} color={Colors.neutral[300]} />
                   )}
                 </Pressable>
               ) : replyContext && !hasText ? (
@@ -557,7 +557,7 @@ const styles = StyleSheet.create({
     marginRight: 0,
     height: 72,
     maxWidth: 128,
-    borderRadius: BORDER_RADIUS.MEDIUM,
+    borderRadius: BORDER_RADIUS.SMALL,
     overflow: 'hidden',
     backgroundColor: Colors.transparent,
   },
@@ -574,10 +574,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 4,
     right: 4,
-    width: 22,
-    height: 22,
-    borderRadius: BORDER_RADIUS.FULL,
-    backgroundColor: Colors.overlay.black70,
+    backgroundColor: Colors.transparent,
     alignItems: 'center',
     justifyContent: 'center',
   },

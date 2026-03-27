@@ -794,7 +794,7 @@ const GridChannelItem = ({
               { backgroundColor: Colors.neutral[900] },
             ]}
           >
-            <Icon name="device-tv" size={thumbnailHeight * 0.4} color={Colors.neutral[500]} />
+            <Icon name="tv_2" size={thumbnailHeight * 0.4} color={Colors.neutral[500]} />
           </View>
         )}
         {/* Light gradient from bottom */}
@@ -2093,7 +2093,7 @@ const ExploreScreen: React.FC = () => {
                               />
                             ) : (
                               <View style={styles.spotlightVideoThumbnailPlaceholder}>
-                                <Icon name="videocam" size={16} color={Colors.neutral[500]} />
+                                <Icon name="video_camera_2" size={16} color={Colors.neutral[500]} />
                               </View>
                             )}
                             {shouldBlur && (

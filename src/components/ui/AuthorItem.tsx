@@ -253,7 +253,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
         ) : showDeleteButton ? (
           <Pressable onPress={onDeletePress}>
             <StatusIconButton variant="error">
-              <Icon name="delete-2-fill" size={16} color={Colors.coral[500]} />
+              <Icon name="delete_2" size={16} color={Colors.coral[500]} />
             </StatusIconButton>
           </Pressable>
         ) : showCheckmarkSpinner ? (
@@ -279,7 +279,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
         ) : (
           showArrow && (
             <View style={styles.accountArrow}>
-              <Icon name="chevron-right" size={20} color={Colors.neutral[500]} />
+              <Icon name="right_small" size={20} color={Colors.neutral[500]} />
             </View>
           )
         )}

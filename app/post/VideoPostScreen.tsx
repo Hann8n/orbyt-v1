@@ -280,7 +280,7 @@ const CommentFilterSelector: React.FC<{
       <Text style={styles.sectionHeaderTitle}>{t('video.comments')}</Text>
       <Pressable style={styles.channelSelectorContainer} onPress={onPress}>
         <View style={styles.channelSelectorBox}>
-          <Icon name="chat-3-line" size={32} color={Colors.neutral[200]} />
+          <Icon name="chat_3" size={32} color={Colors.neutral[200]} />
         </View>
         {!commentFilter ? (
           <View style={styles.channelSelectorPlaceholderContainer}>
@@ -312,7 +312,7 @@ const ContentWarningSelector: React.FC<{
       <Text style={styles.sectionHeaderTitle}>{t('video.warnings')}</Text>
       <Pressable style={styles.channelSelectorContainer} onPress={onPress}>
         <View style={styles.channelSelectorBox}>
-          <Icon name="warning-line" size={32} color={Colors.neutral[200]} />
+          <Icon name="warning" size={32} color={Colors.neutral[200]} />
         </View>
         {selectedContentWarnings.length === 0 && !otherWarning.trim() ? (
           <View style={styles.channelSelectorPlaceholderContainer}>
@@ -1355,7 +1355,7 @@ const VideoPostScreen: React.FC = () => {
                 ]}
               >
                 {selectedContentWarnings.includes(warning.id) && (
-                  <Icon name="checkmark" size={16} color={Colors.black} />
+                  <Icon name="check" size={16} color={Colors.black} />
                 )}
               </View>
             </Pressable>
@@ -1366,7 +1366,7 @@ const VideoPostScreen: React.FC = () => {
           >
             <Text style={styles.sheetOptionText}>{t('video.otherWarning')}</Text>
             <View style={[styles.checkbox, showContentWarningInput && styles.checkboxSelected]}>
-              {showContentWarningInput && <Icon name="checkmark" size={16} color={Colors.black} />}
+              {showContentWarningInput && <Icon name="check" size={16} color={Colors.black} />}
             </View>
           </Pressable>
           {showContentWarningInput && (

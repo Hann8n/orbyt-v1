@@ -253,7 +253,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
         ]}
       >
         <Icon
-          name="user-x"
+          name="user_x"
           size={48}
           color={profileColors.textColor || '#fff'}
           style={styles.errorIcon}

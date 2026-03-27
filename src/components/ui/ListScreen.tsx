@@ -160,7 +160,7 @@ const ListScreen: React.FC<ListScreenProps> = ({
   const renderError = useCallback(
     () => (
       <View style={styles.errorContainer}>
-        <Icon name="alert-circle" size={48} color={Colors.neutral[200]} style={styles.emptyIcon} />
+        <Icon name="warning" size={48} color={Colors.neutral[200]} style={styles.emptyIcon} />
         <Text style={styles.emptyTitle}>
           {t('feed.failedToLoad', { title: title.toLowerCase() })}
         </Text>

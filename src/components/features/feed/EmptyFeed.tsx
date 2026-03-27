@@ -99,7 +99,7 @@ const SuggestedUserItem: React.FC<SuggestedUserItemProps> = ({ item, followMutat
             });
           }}
         >
-          <Icon name="user-plus" size={16} color={Colors.black} />
+          <Icon name="user_add_2" size={16} color={Colors.black} />
         </Pressable>
       )}
     </View>

@@ -209,7 +209,7 @@ export const OptionsButton: React.FC<OptionsButtonProps> = ({
         </View>
       ) : effectiveShowChevron ? (
         <View style={{ width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
-          <Icon name="right_arrow_filled" size={24} color={getChevronColor()} />
+          <Icon name="arrow_right" size={24} color={getChevronColor()} />
         </View>
       ) : null}
     </View>

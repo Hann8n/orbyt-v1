@@ -237,7 +237,7 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
               />
             ) : (
               <View style={[styles.tileImage, styles.adPlaceholder]}>
-                <Icon name="open-outline" size={ICON_SIZES.LARGE} color={Colors.neutral[500]} />
+                <Icon name="arrow_right_up" size={ICON_SIZES.LARGE} color={Colors.neutral[500]} />
               </View>
             )}
             <BlurView intensity={60} tint="dark" style={styles.adBadge}>

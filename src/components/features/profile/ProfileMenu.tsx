@@ -348,7 +348,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
           id: 'openOnBluesky',
           label: t('profile.viewOnBluesky'),
           onPress: handleOpenOnBluesky,
-          rightIcon: <Icon name="outlink" size={24} color={Colors.neutral[200]} />,
+          rightIcon: <Icon name="arrow_right_up" size={24} color={Colors.neutral[200]} />,
         },
         { id: 'reportOrBlock', label: t('profile.reportOrBlock'), onPress: handleReportOrBlock }
       );

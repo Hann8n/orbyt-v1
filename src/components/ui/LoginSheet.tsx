@@ -154,7 +154,7 @@ const LoginSheet: React.FC<LoginSheetProps> = ({
                 {t('auth.signMeIn')}
               </Text>
               <Icon
-                name="right_arrow_filled"
+                name="arrow_right"
                 size={24}
                 color={canSubmit ? Colors.neutral[900] : Colors.neutral[500]}
               />

@@ -75,7 +75,7 @@ function TopicRow({
       </View>
       <View style={styles.voteTallyButton}>
         <Icon
-          name="arrow-up-fill"
+          name="up"
           size={16}
           color={voteCount >= 1 ? Colors.brand.teal : Colors.neutral[200]}
         />

@@ -164,13 +164,13 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
               <VerticalListButton
                 label={t('profile.watchOn', { domain: getDomainFromUrl(displayUrl) })}
                 onPress={() => handleOpenLink(displayUrl)}
-                rightIcon={<Icon name="external-link" size={24} color={Colors.neutral[200]} />}
+                rightIcon={<Icon name="arrow_right_up" size={24} color={Colors.neutral[200]} />}
               />
             )}
           </View>
         ) : (
           <View style={styles.errorContainer}>
-            <Icon name="device-tv" size={48} color={Colors.neutral[600]} />
+            <Icon name="tv_2" size={48} color={Colors.neutral[600]} />
             <Text style={styles.errorText}>{t('profile.couldNotLoadLiveStream')}</Text>
           </View>
         )}

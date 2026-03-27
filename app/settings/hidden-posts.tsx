@@ -196,7 +196,7 @@ const HiddenPostsScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Icon name="eye-closed" size={48} color={Colors.neutral[200]} />
+            <Icon name="eye_close" size={48} color={Colors.neutral[200]} />
             <Text style={styles.emptyTitle}>{t('settings.noHiddenPosts')}</Text>
             <Text style={styles.emptyDescription}>{t('settings.hiddenPostsEmptyDescription')}</Text>
           </View>

@@ -74,7 +74,7 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible }) => {
                 <View style={styles.settingItem}>
                   <View style={styles.settingItemLeft}>
                     <View style={styles.iconContainer}>
-                      <Icon name="block" size={24} color={Colors.neutral[50]} />
+                      <Icon name="lock" size={24} color={Colors.neutral[50]} />
                     </View>
                     <View style={styles.settingTextContainer}>
                       <Text style={styles.settingItemText}>{t('settings.hideBlockedMuted')}</Text>
@@ -97,7 +97,7 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible }) => {
                   // External moderation settings link is not currently available
                 }}
               >
-                <Icon name="external-link" size={24} color={Colors.neutral[50]} />
+                <Icon name="arrow_right_up" size={24} color={Colors.neutral[50]} />
                 <Text style={styles.webSettingsTextButtonText}>{t('settings.adjustOnBsky')}</Text>
               </Pressable>
             </View>
