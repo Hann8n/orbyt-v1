@@ -37,16 +37,16 @@ import * as ImagePicker from 'expo-image-picker';
 import { MenuView } from '@react-native-menu/menu';
 import type { MenuAction } from '@react-native-menu/menu';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
-import { Colors } from '../src/theme';
-import { Avatar } from '../src/components/ui/UI';
-import { CheckIcon, STROKE_WIDTH_THICK } from '../src/components/ui/Icon';
-import { useProfileUpdateMutation, useProfileByDid } from '../src/services/data/ProfileService';
-import { hexToRGBA, blendColors } from '../src/utils/formatting/colors';
-import { BORDER_RADIUS } from '../src/utils/constants';
-import { useCurrentUser } from '../src/stores/userStore';
-import { splitHandleSuffix } from '../src/utils/formatting/handles';
-import { useOrbytColors, saveAndSyncColors } from '../src/services/colors';
-import type { ProfileViewWithOrbyt } from '../src/services/api/types';
+import { Colors } from '@/theme';
+import { Avatar } from '@/components/ui/UI';
+import { CheckIcon, STROKE_WIDTH_THICK } from '@/components/ui/Icon';
+import { useProfileUpdateMutation, useProfileByDid } from '@/services/data/ProfileService';
+import { hexToRGBA, blendColors } from '@/utils/formatting/colors';
+import { BORDER_RADIUS } from '@/utils/constants';
+import { useCurrentUser } from '@/stores/userStore';
+import { splitHandleSuffix } from '@/utils/formatting/handles';
+import { useOrbytColors, saveAndSyncColors } from '@/services/colors';
+import type { ProfileViewWithOrbyt } from '@/services/api/types';
 
 export interface ProfileColorOption {
   backgroundColor: string;

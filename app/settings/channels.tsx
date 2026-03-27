@@ -4,23 +4,23 @@ import { Alert, View, Text, StyleSheet, Pressable, FlatList } from 'react-native
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useSubscribedChannels } from '../../src/hooks/useSubscribedChannels';
-import { Colors } from '../../src/theme';
-import { Avatar, Icon } from '../../src/components/ui/UI';
-import { BORDER_RADIUS } from '../../src/utils/constants';
-import ListHeader from '../../src/components/ui/ListHeader';
+import { useSubscribedChannels } from '@/hooks/useSubscribedChannels';
+import { Colors } from '@/theme';
+import { Avatar, Icon } from '@/components/ui/UI';
+import { BORDER_RADIUS } from '@/utils/constants';
+import ListHeader from '@/components/ui/ListHeader';
 import VerticalListSheet, {
   VerticalListButton,
   TrueSheet,
-} from '../../src/components/ui/VerticalListSheet';
+} from '@/components/ui/VerticalListSheet';
 import {
   isOrbytChannel,
   getChannelByUri,
   getChannelAvatarUri,
   getLocalizedChannelDisplayName,
   shouldShowChannelSlash,
-} from '../../src/utils/channels/orbyt';
-import { logger } from '../../src/utils/logger';
+} from '@/utils/channels/orbyt';
+import { logger } from '@/utils/logger';
 
 interface ChannelUser {
   did: string;

@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BORDER_RADIUS } from '../src/utils/constants';
+import { BORDER_RADIUS } from '@/utils/constants';
 import {
   View,
   Text,
@@ -32,19 +32,19 @@ import Animated, {
   runOnJS,
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Icon, { CloseFillIcon, ArrowRightFillIcon } from '../src/components/ui/Icon';
-import BottomToolBar from '../src/components/ui/BottomToolBar';
+import Icon, { CloseFillIcon, ArrowRightFillIcon } from '@/components/ui/Icon';
+import BottomToolBar from '@/components/ui/BottomToolBar';
 import * as Device from 'expo-device';
 import { getBottomNavBarHeight } from '@/utils/device/screen';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import { logger } from '@/utils/logger';
-import { Colors } from '../src/theme';
-import { hexToRGBA } from '../src/utils/formatting/colors';
+import { Colors } from '@/theme';
+import { hexToRGBA } from '@/utils/formatting/colors';
 import * as Haptics from 'expo-haptics';
 import VideoTrim, { showEditor, isValidFile, type Spec } from 'react-native-clip-trim';
-import { SegmentManager, type Segment } from '../src/utils/video/segmentManager';
-import VideoProcessingService from '../src/services/video/VideoProcessingService';
-import { usePendingVideoPostStore } from '../src/stores/pendingVideoPostStore';
+import { SegmentManager, type Segment } from '@/utils/video/segmentManager';
+import VideoProcessingService from '@/services/video/VideoProcessingService';
+import { usePendingVideoPostStore } from '@/stores/pendingVideoPostStore';
 
 // Duration options in seconds - labels resolved via t() in component
 const DURATION_OPTION_KEYS = [

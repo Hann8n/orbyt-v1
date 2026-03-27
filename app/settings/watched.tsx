@@ -2,10 +2,10 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { View, StyleSheet } from 'react-native';
-import { Colors } from '../../src/theme';
-import ListHeader from '../../src/components/ui/ListHeader';
-import FeedRenderer from '../../src/components/features/feed/FeedRenderer';
-import { useCurrentUser } from '../../src/stores/userStore';
+import { Colors } from '@/theme';
+import ListHeader from '@/components/ui/ListHeader';
+import FeedRenderer from '@/components/features/feed/FeedRenderer';
+import { useCurrentUser } from '@/stores/userStore';
 
 const WatchedScreen: React.FC = () => {
   const { t } = useTranslation();

@@ -1,8 +1,8 @@
 import { View, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import ListHeader from '../../src/components/ui/ListHeader';
-import ChatsTab from '../../src/components/features/activity/ChatsTab';
-import { Colors } from '../../src/theme';
+import ListHeader from '@/components/ui/ListHeader';
+import ChatsTab from '@/components/features/activity/ChatsTab';
+import { Colors } from '@/theme';
 
 const REQUESTS_FILTER = { status: 'request' as const };
 

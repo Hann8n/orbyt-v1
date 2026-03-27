@@ -3,13 +3,13 @@ import { useTranslation } from 'react-i18next';
 import { View, StyleSheet, Pressable, Text } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
-import FeedRenderer from '../../src/components/features/feed/FeedRenderer';
+import FeedRenderer from '@/components/features/feed/FeedRenderer';
 
-import { BackArrowIcon } from '../../src/components/ui/Icon';
+import { BackArrowIcon } from '@/components/ui/Icon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors } from '../../src/theme';
-import { Typography } from '../../src/utils/components/typography';
-import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '../../src/hooks';
+import { Colors } from '@/theme';
+import { Typography } from '@/utils/components/typography';
+import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '@/hooks';
 
 const FeedScreen = memo(() => {
   const { t } = useTranslation();

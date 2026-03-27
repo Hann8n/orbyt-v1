@@ -3,16 +3,16 @@ import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { queryKeys } from '../../src/utils/query/queryKeys';
-import { FeedPager } from '../../src/components';
-import { HomeScreenRef, FeedOption } from '../../src/types';
-import { useVisibilityRouteTracker } from '../../src/hooks';
-import { Colors } from '../../src/theme';
-import { tabRefs } from '../../src/utils/navigation/tabRefs';
-import type { ProfileRef } from '../../src/utils/navigation/tabRefs';
-import { useUserStore } from '../../src/stores/userStore';
-import { useAppStore } from '../../src/stores/appStore';
-import { VideoUploadBanner } from '../../src/components/ui/VideoUploadBanner';
+import { queryKeys } from '@/utils/query/queryKeys';
+import { FeedPager } from '@/components';
+import { HomeScreenRef, FeedOption } from '@/types';
+import { useVisibilityRouteTracker } from '@/hooks';
+import { Colors } from '@/theme';
+import { tabRefs } from '@/utils/navigation/tabRefs';
+import type { ProfileRef } from '@/utils/navigation/tabRefs';
+import { useUserStore } from '@/stores/userStore';
+import { useAppStore } from '@/stores/appStore';
+import { VideoUploadBanner } from '@/components/ui/VideoUploadBanner';
 
 type HomeScreenProps = Record<string, never>;
 

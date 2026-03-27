@@ -1,17 +1,17 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BORDER_RADIUS } from '../../src/utils/constants';
+import { BORDER_RADIUS } from '@/utils/constants';
 import { View, Text, FlatList, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import Icon from '../../src/components/ui/Icon';
-import ListHeader from '../../src/components/ui/ListHeader';
-import { Colors } from '../../src/theme';
-import { Avatar } from '../../src/components/ui/UI';
-import { ModerationService } from '../../src/services/moderation/ModerationService';
-import { useUserStoreState } from '../../src/stores/userStore';
-import { useModerationSettings } from '../../src/hooks/useModerationSettings';
-import { useAvatarProfileRing } from '../../src/services/colors';
-import { logger } from '../../src/utils/logger';
+import Icon from '@/components/ui/Icon';
+import ListHeader from '@/components/ui/ListHeader';
+import { Colors } from '@/theme';
+import { Avatar } from '@/components/ui/UI';
+import { ModerationService } from '@/services/moderation/ModerationService';
+import { useUserStoreState } from '@/stores/userStore';
+import { useModerationSettings } from '@/hooks/useModerationSettings';
+import { useAvatarProfileRing } from '@/services/colors';
+import { logger } from '@/utils/logger';
 
 interface HiddenPost {
   id: string;

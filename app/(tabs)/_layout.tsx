@@ -1,13 +1,10 @@
 import { useTranslation } from 'react-i18next';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 
-import { useUserStore, isIosLiquidGlassAvailable } from '../../src/stores/userStore';
-import { Colors } from '../../src/theme';
-import { useUnreadCount } from '../../src/hooks/useUnreadCount';
-import {
-  getTabBarActiveTintFromProfile,
-  TAB_BAR_INACTIVE_TINT,
-} from '../../src/utils/formatting/colors';
+import { useUserStore, isIosLiquidGlassAvailable } from '@/stores/userStore';
+import { Colors } from '@/theme';
+import { useUnreadCount } from '@/hooks/useUnreadCount';
+import { getTabBarActiveTintFromProfile, TAB_BAR_INACTIVE_TINT } from '@/utils/formatting/colors';
 
 export default function TabsLayout() {
   const { t } = useTranslation();
@@ -29,21 +26,19 @@ export default function TabsLayout() {
       disableTransparentOnScrollEdge={true}
     >
       <NativeTabs.Trigger name="index">
-        <NativeTabs.Trigger.Icon src={require('../../src/assets/tab-icons/png/home_3_cute.png')} />
+        <NativeTabs.Trigger.Icon src={require('@/assets/tab-icons/png/home_3_cute.png')} />
         <NativeTabs.Trigger.Label hidden={hideTabLabels}>{t('tabs.home')}</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="explore" {...(hideTabLabels && { role: 'search' })}>
-        <NativeTabs.Trigger.Icon
-          src={require('../../src/assets/tab-icons/png/search_2_cute.png')}
-        />
+        <NativeTabs.Trigger.Icon src={require('@/assets/tab-icons/png/search_2_cute.png')} />
         <NativeTabs.Trigger.Label hidden={hideTabLabels}>
           {t('tabs.explore')}
         </NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="activity">
-        <NativeTabs.Trigger.Icon src={require('../../src/assets/tab-icons/png/inbox_2_cute.png')} />
+        <NativeTabs.Trigger.Icon src={require('@/assets/tab-icons/png/inbox_2_cute.png')} />
         <NativeTabs.Trigger.Label hidden={hideTabLabels}>
           {t('tabs.activity')}
         </NativeTabs.Trigger.Label>
@@ -55,7 +50,7 @@ export default function TabsLayout() {
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="profile">
-        <NativeTabs.Trigger.Icon src={require('../../src/assets/tab-icons/png/badge_cute.png')} />
+        <NativeTabs.Trigger.Icon src={require('@/assets/tab-icons/png/badge_cute.png')} />
         <NativeTabs.Trigger.Label hidden={hideTabLabels}>
           {t('tabs.profile')}
         </NativeTabs.Trigger.Label>

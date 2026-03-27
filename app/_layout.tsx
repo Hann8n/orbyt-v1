@@ -1,4 +1,4 @@
-import '../src/i18n';
+import '@/i18n';
 import React, { useEffect } from 'react';
 import { View, StyleSheet, StatusBar, Appearance, Platform } from 'react-native';
 import { Stack } from 'expo-router';
@@ -11,28 +11,28 @@ import * as SplashScreen from 'expo-splash-screen';
 import * as NavigationBar from 'expo-navigation-bar';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
 // Keep local imports where they are; no file moves
-import { Colors } from '../src/theme';
-import { useUserStore } from '../src/stores/userStore';
-import { useBookmarkStore } from '../src/stores/bookmarkStore';
-import GlobalAccountSwitcher from '../src/components/ui/GlobalAccountSwitcher';
-import EmailVerificationModal from '../src/components/ui/EmailVerificationModal';
-import { queryClient } from '../src/utils/query/queryClient';
-import { QueryErrorBoundary } from '../src/components/ui/QueryErrorBoundary';
-import { SessionProvider, useSession } from '../src/context/SessionProvider';
-import { TabBarProvider } from '../src/context/FeedIndicatorContext';
-import { OverlayLayoutProvider } from '../src/context/OverlayLayoutContext';
-import { seenVideoService } from '../src/services/SeenVideoService';
-import { storage } from '../src/utils/storage/storage';
-import { logger } from '../src/utils/logger';
-import { APP_CONSTANTS } from '../src/utils/constants';
-import { setupReactQueryLifecycleBridge } from '../src/utils/query/lifecycle';
-import { LocaleSync } from '../src/i18n/LocaleSync';
+import { Colors } from '@/theme';
+import { useUserStore } from '@/stores/userStore';
+import { useBookmarkStore } from '@/stores/bookmarkStore';
+import GlobalAccountSwitcher from '@/components/ui/GlobalAccountSwitcher';
+import EmailVerificationModal from '@/components/ui/EmailVerificationModal';
+import { queryClient } from '@/utils/query/queryClient';
+import { QueryErrorBoundary } from '@/components/ui/QueryErrorBoundary';
+import { SessionProvider, useSession } from '@/context/SessionProvider';
+import { TabBarProvider } from '@/context/FeedIndicatorContext';
+import { OverlayLayoutProvider } from '@/context/OverlayLayoutContext';
+import { seenVideoService } from '@/services/SeenVideoService';
+import { storage } from '@/utils/storage/storage';
+import { logger } from '@/utils/logger';
+import { APP_CONSTANTS } from '@/utils/constants';
+import { setupReactQueryLifecycleBridge } from '@/utils/query/lifecycle';
+import { LocaleSync } from '@/i18n/LocaleSync';
 
 const LazyShareSheet = React.lazy(async () => ({
-  default: (await import('../src/components/ui/share-sheet')).ShareSheet,
+  default: (await import('@/components/ui/share-sheet')).ShareSheet,
 }));
 const LazyCommentSection = React.lazy(
-  () => import('../src/components/features/comments/CommentSection')
+  () => import('@/components/features/comments/CommentSection')
 );
 
 // Configure Reanimated logger to disable strict mode warnings
@@ -304,8 +304,8 @@ export default function RootLayout() {
   useEffect(() => {
     const initializeApp = async () => {
       // Preload sprite sheets (non-blocking)
-      const { preloadSpriteSheet } = require('../src/components/ui/AnimatedTVStatic');
-      const { preloadRocketSpriteSheet } = require('../src/components/ui/RocketBackground');
+      const { preloadSpriteSheet } = require('@/components/ui/AnimatedTVStatic');
+      const { preloadRocketSpriteSheet } = require('@/components/ui/RocketBackground');
       preloadSpriteSheet().catch(() => {});
       preloadRocketSpriteSheet().catch(() => {});
 

@@ -1,6 +1,6 @@
 import React, { useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { tabRefs } from '../../src/utils/navigation/tabRefs';
+import { tabRefs } from '@/utils/navigation/tabRefs';
 import { View, StyleSheet, StatusBar, Pressable } from 'react-native';
 import PagerView from 'react-native-pager-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,11 +10,11 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 
-import { Colors } from '../../src/theme';
-import ChatsTab from '../../src/components/features/activity/ChatsTab';
-import NotificationsTab from '../../src/components/features/activity/NotificationsTab';
-import { useUnreadCount } from '../../src/hooks/useUnreadCount';
-import { useActivityFilterStore } from '../../src/stores/activityFilterStore';
+import { Colors } from '@/theme';
+import ChatsTab from '@/components/features/activity/ChatsTab';
+import NotificationsTab from '@/components/features/activity/NotificationsTab';
+import { useUnreadCount } from '@/hooks/useUnreadCount';
+import { useActivityFilterStore } from '@/stores/activityFilterStore';
 
 // Tab label keys (resolved via t() in component)
 const TAB_LABEL_KEYS: { [key: string]: string } = {

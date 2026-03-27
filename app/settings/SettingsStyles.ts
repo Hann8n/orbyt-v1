@@ -1,8 +1,8 @@
 import { StyleSheet } from 'react-native';
-import { Colors } from '../../src/theme';
-import { hexToRGBA } from '../../src/utils/formatting/colors';
-import { BORDER_RADIUS } from '../../src/utils/constants';
-import { FontFamily, Typography } from '../../src/utils/components/typography';
+import { Colors } from '@/theme';
+import { hexToRGBA } from '@/utils/formatting/colors';
+import { BORDER_RADIUS } from '@/utils/constants';
+import { FontFamily, Typography } from '@/utils/components/typography';
 
 // Shared button styles for settings screens
 export const settingsButtonStyles = StyleSheet.create({

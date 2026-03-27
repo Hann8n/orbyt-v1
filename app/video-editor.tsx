@@ -26,25 +26,25 @@ import {
   normalizePathForNative,
   resolveVideoPath,
   VideoPathInfo,
-} from '../src/utils/video/path';
-import { DEFAULT_BUFFER_OPTIONS } from '../src/utils/video/helpers';
-import { CloseFillIcon } from '../src/components/ui/Icon';
-import { Colors } from '../src/theme';
-import { BORDER_RADIUS, APP_CONSTANTS } from '../src/utils/constants';
+} from '@/utils/video/path';
+import { DEFAULT_BUFFER_OPTIONS } from '@/utils/video/helpers';
+import { CloseFillIcon } from '@/components/ui/Icon';
+import { Colors } from '@/theme';
+import { BORDER_RADIUS, APP_CONSTANTS } from '@/utils/constants';
 import VideoEditingService, {
   TextOverlayOptions,
   BackgroundMusicOptions,
-} from '../src/services/video/VideoEditingService';
-import VideoProcessingService from '../src/services/video/VideoProcessingService';
-import { usePendingVideoPostStore } from '../src/stores/pendingVideoPostStore';
+} from '@/services/video/VideoEditingService';
+import VideoProcessingService from '@/services/video/VideoProcessingService';
+import { usePendingVideoPostStore } from '@/stores/pendingVideoPostStore';
 import VerticalListSheet, {
   VerticalListButton,
   TrueSheet,
-} from '../src/components/ui/VerticalListSheet';
-import BottomToolBar from '../src/components/ui/BottomToolBar';
-import { getBottomNavBarHeight } from '../src/utils/device/screen';
+} from '@/components/ui/VerticalListSheet';
+import BottomToolBar from '@/components/ui/BottomToolBar';
+import { getBottomNavBarHeight } from '@/utils/device/screen';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
-import { logger } from '../src/utils/logger';
+import { logger } from '@/utils/logger';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ASPECT_RATIO = 9 / 16;

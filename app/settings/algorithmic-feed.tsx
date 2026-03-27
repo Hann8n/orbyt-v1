@@ -12,18 +12,18 @@ import {
 import { useRouter } from 'expo-router';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
-import ListHeader from '../../src/components/ui/ListHeader';
-import Icon, { PlusIcon, STROKE_WIDTH_THICK } from '../../src/components/ui/Icon';
-import { Colors } from '../../src/theme';
-import { Avatar } from '../../src/components/ui/UI';
-import { useAlgorithmicFeedProvider } from '../../src/stores/userStore';
+import ListHeader from '@/components/ui/ListHeader';
+import Icon, { PlusIcon, STROKE_WIDTH_THICK } from '@/components/ui/Icon';
+import { Colors } from '@/theme';
+import { Avatar } from '@/components/ui/UI';
+import { useAlgorithmicFeedProvider } from '@/stores/userStore';
 import { settingsLayoutStyles } from './SettingsStyles';
-import { OptionsButton } from '../../src/components/ui/OptionsButton';
-import { useSubscribedChannels } from '../../src/hooks/useSubscribedChannels';
+import { OptionsButton } from '@/components/ui/OptionsButton';
+import { useSubscribedChannels } from '@/hooks/useSubscribedChannels';
 import VerticalListSheet, {
   VerticalListButton,
   TrueSheet,
-} from '../../src/components/ui/VerticalListSheet';
+} from '@/components/ui/VerticalListSheet';
 import {
   isOrbytChannel,
   getChannelByUri,
@@ -31,11 +31,11 @@ import {
   getLocalizedChannelDisplayName,
   getLocalizedChannelDescription,
   shouldShowChannelSlash,
-} from '../../src/utils/channels/orbyt';
-import { BORDER_RADIUS, ALGORITHMIC_FEED_PROVIDERS } from '../../src/utils/constants';
-import { hexToRGBA, isColorDark } from '../../src/utils/formatting/colors';
-import { AtprotoService } from '../../src/services/api/AtprotoService';
-import { logger } from '../../src/utils/logger';
+} from '@/utils/channels/orbyt';
+import { BORDER_RADIUS, ALGORITHMIC_FEED_PROVIDERS } from '@/utils/constants';
+import { hexToRGBA, isColorDark } from '@/utils/formatting/colors';
+import { AtprotoService } from '@/services/api/AtprotoService';
+import { logger } from '@/utils/logger';
 
 interface FeedProviderOption {
   id: string;

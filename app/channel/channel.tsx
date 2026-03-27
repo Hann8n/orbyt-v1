@@ -1,31 +1,31 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSharedValue } from 'react-native-reanimated';
-import { BORDER_RADIUS } from '../../src/utils/constants';
+import { BORDER_RADIUS } from '@/utils/constants';
 import { View, StyleSheet, Dimensions, Pressable, Text, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
-import ChannelHeader from '../../src/components/layout/header/ChannelHeader';
-import TabNavigation, { TabOption } from '../../src/components/layout/header/TabNavigation';
-import DetailScreenOverlay from '../../src/components/layout/detail/DetailScreenOverlay';
-import { HeaderActionButton } from '../../src/components/layout/header/UniversalHeader';
-import FeedRenderer from '../../src/components/features/feed/FeedRenderer';
-import { Colors } from '../../src/theme';
+import ChannelHeader from '@/components/layout/header/ChannelHeader';
+import TabNavigation, { TabOption } from '@/components/layout/header/TabNavigation';
+import DetailScreenOverlay from '@/components/layout/detail/DetailScreenOverlay';
+import { HeaderActionButton } from '@/components/layout/header/UniversalHeader';
+import FeedRenderer from '@/components/features/feed/FeedRenderer';
+import { Colors } from '@/theme';
 
 import {
   useChannelColors,
   useChannel,
   useChannelColorsMutation,
-} from '../../src/services/data/ChannelService';
-import ProfileService from '../../src/services/data/ProfileService';
-import { extractColorsFromImage } from '../../src/utils/formatting/colors';
-import Icon from '../../src/components/ui/Icon';
-import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '../../src/hooks';
-import { useDetailScreenOverlay } from '../../src/hooks/useDetailScreenOverlay';
-import { isOrbytChannel, getChannelByUri, channelToHashtag } from '../../src/utils/channels/orbyt';
+} from '@/services/data/ChannelService';
+import ProfileService from '@/services/data/ProfileService';
+import { extractColorsFromImage } from '@/utils/formatting/colors';
+import Icon from '@/components/ui/Icon';
+import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '@/hooks';
+import { useDetailScreenOverlay } from '@/hooks/useDetailScreenOverlay';
+import { isOrbytChannel, getChannelByUri, channelToHashtag } from '@/utils/channels/orbyt';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { logger } from '../../src/utils/logger';
-import type { ListFeedViewRef, ViewMode } from '../../src/types';
+import { logger } from '@/utils/logger';
+import type { ListFeedViewRef, ViewMode } from '@/types';
 
 const Channel: React.FC = memo(() => {
   const { t } = useTranslation();

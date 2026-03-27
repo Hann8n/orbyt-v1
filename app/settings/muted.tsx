@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import ListScreen from '../../src/components/ui/ListScreen';
-import AtprotoService from '../../src/services/api/AtprotoService';
-import { logger } from '../../src/utils/logger';
+import ListScreen from '@/components/ui/ListScreen';
+import AtprotoService from '@/services/api/AtprotoService';
+import { logger } from '@/utils/logger';
 
 interface MutedUser {
   did: string;

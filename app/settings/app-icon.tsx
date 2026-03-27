@@ -13,14 +13,14 @@ import { useRouter } from 'expo-router';
 import ExpoDynamicAppIcon from '@variant-systems/expo-dynamic-app-icon';
 import type { ImageSource } from 'expo-image';
 
-import { Colors } from '../../src/theme';
-import Icon from '../../src/components/ui/Icon';
-import ListHeader from '../../src/components/ui/ListHeader';
+import { Colors } from '@/theme';
+import Icon from '@/components/ui/Icon';
+import ListHeader from '@/components/ui/ListHeader';
 import { settingsLayoutStyles } from './SettingsStyles';
-import { useCurrentUser } from '../../src/stores/userStore';
-import { useOrbytColors } from '../../src/services/colors';
-import { formatHandle } from '../../src/utils/formatting/handles';
-import { logger } from '../../src/utils/logger';
+import { useCurrentUser } from '@/stores/userStore';
+import { useOrbytColors } from '@/services/colors';
+import { formatHandle } from '@/utils/formatting/handles';
+import { logger } from '@/utils/logger';
 
 type AppIconKey =
   | 'orBYTE'
@@ -94,13 +94,13 @@ const ICON_SECTIONS: IconSection[] = [
         id: 'default',
         label: 'Default',
         iconKey: null,
-        preview: require('../../src/assets/AppIcons/iOS/orbyt.png'),
+        preview: require('@/assets/AppIcons/iOS/orbyt.png'),
       },
       {
         id: 'orBYTE',
         label: 'Beta Badge',
         iconKey: 'orBYTE',
-        preview: require('../../src/assets/AppIcons/iOS/orBYTE.png'),
+        preview: require('@/assets/AppIcons/iOS/orBYTE.png'),
         requiresBeta: true,
       },
     ],
@@ -116,49 +116,49 @@ const ICON_SECTIONS: IconSection[] = [
         id: 'planyt_red',
         label: 'Red',
         iconKey: 'planyt_red',
-        preview: require('../../src/assets/AppIcons/iOS/planyt/planyt-red.png'),
+        preview: require('@/assets/AppIcons/iOS/planyt/planyt-red.png'),
       },
       {
         id: 'planyt_orange',
         label: 'Orange',
         iconKey: 'planyt_orange',
-        preview: require('../../src/assets/AppIcons/iOS/planyt/planyt-orange.png'),
+        preview: require('@/assets/AppIcons/iOS/planyt/planyt-orange.png'),
       },
       {
         id: 'planyt_yellow',
         label: 'Yellow',
         iconKey: 'planyt_yellow',
-        preview: require('../../src/assets/AppIcons/iOS/planyt/planyt-yellow.png'),
+        preview: require('@/assets/AppIcons/iOS/planyt/planyt-yellow.png'),
       },
       {
         id: 'planyt_green',
         label: 'Green',
         iconKey: 'planyt_green',
-        preview: require('../../src/assets/AppIcons/iOS/planyt/planyt-green.png'),
+        preview: require('@/assets/AppIcons/iOS/planyt/planyt-green.png'),
       },
       {
         id: 'planyt_blue',
         label: 'Blue',
         iconKey: 'planyt_blue',
-        preview: require('../../src/assets/AppIcons/iOS/planyt/planyt-blue.png'),
+        preview: require('@/assets/AppIcons/iOS/planyt/planyt-blue.png'),
       },
       {
         id: 'planyt_purple',
         label: 'Purple',
         iconKey: 'planyt_purple',
-        preview: require('../../src/assets/AppIcons/iOS/planyt/planyt-purple.png'),
+        preview: require('@/assets/AppIcons/iOS/planyt/planyt-purple.png'),
       },
       {
         id: 'planyt_greyscale',
         label: 'Greyscale',
         iconKey: 'planyt_greyscale',
-        preview: require('../../src/assets/AppIcons/iOS/planyt/planyt-greyscale.png'),
+        preview: require('@/assets/AppIcons/iOS/planyt/planyt-greyscale.png'),
       },
       {
         id: 'planyt_greyscale_alt',
         label: 'Greyscale Alt',
         iconKey: 'planyt_greyscale_alt',
-        preview: require('../../src/assets/AppIcons/iOS/planyt/planyt-greyscale-alt.png'),
+        preview: require('@/assets/AppIcons/iOS/planyt/planyt-greyscale-alt.png'),
       },
     ],
   },

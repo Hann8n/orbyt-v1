@@ -6,7 +6,7 @@ import Animated, {
   interpolate,
   Extrapolate,
 } from 'react-native-reanimated';
-import { BORDER_RADIUS, APP_CONSTANTS, ICON_SIZES } from '../../src/utils/constants';
+import { BORDER_RADIUS, APP_CONSTANTS, ICON_SIZES } from '@/utils/constants';
 import {
   View,
   Text,
@@ -19,48 +19,45 @@ import {
   Linking,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { FeedPager } from '../../src/components';
+import { FeedPager } from '@/components';
 import {
   useProfileByDid,
   useProfile,
   isLiveStatus,
   useStatusExpirationMonitor,
-} from '../../src/services/data/ProfileService';
-import { getProfileColors } from '../../src/utils/formatting/colors';
-import type { ProfileViewWithOrbyt } from '../../src/services/api/types';
+} from '@/services/data/ProfileService';
+import { getProfileColors } from '@/utils/formatting/colors';
+import type { ProfileViewWithOrbyt } from '@/services/api/types';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Icon, {
   FollowIcon,
   MutualHeartIcon,
   BellFilledIcon,
   MoreFillIcon,
-} from '../../src/components/ui/Icon';
+} from '@/components/ui/Icon';
 import { useQueryClient, type InfiniteData } from '@tanstack/react-query';
-import { ProfileHeader, TabNavigation, TabOption } from '../../src/components/layout/header';
-import DetailScreenOverlay from '../../src/components/layout/detail/DetailScreenOverlay';
-import { useCurrentUser, useFeedSettings } from '../../src/stores/userStore';
-import {
-  HeaderAction,
-  HeaderActionButton,
-} from '../../src/components/layout/header/UniversalHeader';
-import { Colors } from '../../src/theme';
-import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalModals';
-import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '../../src/hooks';
-import { useDetailScreenOverlay } from '../../src/hooks/useDetailScreenOverlay';
+import { ProfileHeader, TabNavigation, TabOption } from '@/components/layout/header';
+import DetailScreenOverlay from '@/components/layout/detail/DetailScreenOverlay';
+import { useCurrentUser, useFeedSettings } from '@/stores/userStore';
+import { HeaderAction, HeaderActionButton } from '@/components/layout/header/UniversalHeader';
+import { Colors } from '@/theme';
+import { useGlobalAccountSwitcher } from '@/hooks/useGlobalModals';
+import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '@/hooks';
+import { useDetailScreenOverlay } from '@/hooks/useDetailScreenOverlay';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFollowMutation, useBlockMutation } from '../../src/services/data/ProfileService';
-import { queryKeys } from '../../src/utils/query/queryKeys';
-import { useSubscriptionStore } from '../../src/stores/subscriptionStore';
-import { feedService } from '../../src/services/FeedService';
-import { FEED_CONFIG } from '../../src/hooks/useFeed';
-import type { FeedResponse } from '../../src/services/api/types';
-import ProfileMenu from '../../src/components/features/profile/ProfileMenu';
-import GermDisconnectSheet from '../../src/components/features/profile/GermDisconnectSheet';
-import SubscriptionOptionsSheet from '../../src/components/features/profile/SubscriptionOptionsSheet';
-import LiveStreamInfoSheet from '../../src/components/features/profile/LiveStreamInfoSheet';
-import { tabRefs, type ProfileRef } from '../../src/utils/navigation/tabRefs';
-import type { ViewMode } from '../../src/types';
-import { useOrbytColors } from '../../src/services/colors';
+import { useFollowMutation, useBlockMutation } from '@/services/data/ProfileService';
+import { queryKeys } from '@/utils/query/queryKeys';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
+import { feedService } from '@/services/FeedService';
+import { FEED_CONFIG } from '@/hooks/useFeed';
+import type { FeedResponse } from '@/services/api/types';
+import ProfileMenu from '@/components/features/profile/ProfileMenu';
+import GermDisconnectSheet from '@/components/features/profile/GermDisconnectSheet';
+import SubscriptionOptionsSheet from '@/components/features/profile/SubscriptionOptionsSheet';
+import LiveStreamInfoSheet from '@/components/features/profile/LiveStreamInfoSheet';
+import { tabRefs, type ProfileRef } from '@/utils/navigation/tabRefs';
+import type { ViewMode } from '@/types';
+import { useOrbytColors } from '@/services/colors';
 interface ProfileScreenProps {
   onLogout: (_clearAllAccounts?: boolean) => Promise<void>;
 }
@@ -199,7 +196,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     try {
       // Re-initialize activity subscriptions so "keep me posted" reflects server state
       try {
-        const { useSubscriptionStore } = await import('../../src/stores/subscriptionStore');
+        const { useSubscriptionStore } = await import('@/stores/subscriptionStore');
         await useSubscriptionStore.getState().initialize();
       } catch {
         // Subscriptions are non-critical; ignore errors

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BORDER_RADIUS, APP_CONSTANTS } from '../../src/utils/constants';
+import { BORDER_RADIUS, APP_CONSTANTS } from '@/utils/constants';
 import {
   View,
   Text,
@@ -28,24 +28,24 @@ import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useVideoPlayer, VideoView, VideoPlayer } from 'expo-video';
 import * as MediaLibrary from 'expo-media-library';
 import { Image } from 'expo-image';
-import { BlurView } from '../../src/components/ui/BlurView';
+import { BlurView } from '@/components/ui/BlurView';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { Avatar } from '../../src/components/ui/UI';
-import Icon, { BackArrowIcon, DownSmallFillIcon } from '../../src/components/ui/Icon';
+import { Avatar } from '@/components/ui/UI';
+import Icon, { BackArrowIcon, DownSmallFillIcon } from '@/components/ui/Icon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { TextOverlay } from '../../src/types';
-import { resolveVideoPath, VideoPathInfo } from '../../src/utils/video/path';
-import { DEFAULT_BUFFER_OPTIONS, DEFAULT_VIDEO_ASPECT_RATIO } from '../../src/utils/video/helpers';
-import { Colors } from '../../src/theme';
-import { Typography } from '../../src/utils/components/typography';
+import { TextOverlay } from '@/types';
+import { resolveVideoPath, VideoPathInfo } from '@/utils/video/path';
+import { DEFAULT_BUFFER_OPTIONS, DEFAULT_VIDEO_ASPECT_RATIO } from '@/utils/video/helpers';
+import { Colors } from '@/theme';
+import { Typography } from '@/utils/components/typography';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
-import { useCurrentUser } from '../../src/stores/userStore';
-import ProfileService from '../../src/services/data/ProfileService';
-import AtprotoService from '../../src/services/api/AtprotoService';
-import VideoProcessingService from '../../src/services/video/VideoProcessingService';
-import { logger } from '../../src/utils/logger';
-import { useVideoPostDraftStore } from '../../src/stores/videoPostDraftStore';
-import { usePendingVideoPostStore } from '../../src/stores/pendingVideoPostStore';
+import { useCurrentUser } from '@/stores/userStore';
+import ProfileService from '@/services/data/ProfileService';
+import AtprotoService from '@/services/api/AtprotoService';
+import VideoProcessingService from '@/services/video/VideoProcessingService';
+import { logger } from '@/utils/logger';
+import { useVideoPostDraftStore } from '@/stores/videoPostDraftStore';
+import { usePendingVideoPostStore } from '@/stores/pendingVideoPostStore';
 import {
   getPostableChannels,
   shouldShowChannelSlash,
@@ -54,14 +54,14 @@ import {
   getChannelAvatarUri,
   getChannelByUri,
   getLocalizedChannelDisplayName,
-} from '../../src/utils/channels/orbyt';
-import type { SubscribedChannel } from '../../src/stores/userStore';
+} from '@/utils/channels/orbyt';
+import type { SubscribedChannel } from '@/stores/userStore';
 import VerticalListSheet, {
   VerticalListButton,
   TrueSheet,
-} from '../../src/components/ui/VerticalListSheet';
-import { useRichTextSearchTrigger, RichTextSearchModal } from '../../src/components/ui/usersearch';
-import { useRichText, formatRichTextForDisplay } from '../../src/hooks/useRichText';
+} from '@/components/ui/VerticalListSheet';
+import { useRichTextSearchTrigger, RichTextSearchModal } from '@/components/ui/usersearch';
+import { useRichText, formatRichTextForDisplay } from '@/hooks/useRichText';
 
 const VIDEO_WIDTH = 150; // Fixed preview width
 
@@ -926,8 +926,8 @@ const VideoPostScreen: React.FC = () => {
           : null,
       });
 
-      const { useUIStore } = await import('../../src/stores/uiStore');
-      const { storage } = await import('../../src/utils/storage/storage');
+      const { useUIStore } = await import('@/stores/uiStore');
+      const { storage } = await import('@/utils/storage/storage');
       const UPLOAD_KEY = 'video-upload';
       useUIStore.getState().setLoading(UPLOAD_KEY, true);
 
@@ -935,7 +935,7 @@ const VideoPostScreen: React.FC = () => {
         ? extractFeedSlug(selectedChannel.uri) || undefined
         : undefined;
 
-      const { VideoService } = await import('../../src/services/api/video/VideoService');
+      const { VideoService } = await import('@/services/api/video/VideoService');
 
       const uploadResult = await VideoService.uploadVideo(videoPathToUpload, progress => {
         useUIStore.getState().setProgress(UPLOAD_KEY, progress);

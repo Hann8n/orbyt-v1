@@ -1,6 +1,6 @@
 import type { ComponentProps } from 'react';
 import { useTranslation } from 'react-i18next';
-import i18n from '../../src/i18n';
+import i18n from '@/i18n';
 import {
   createContext,
   useCallback,
@@ -29,7 +29,7 @@ import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { Image } from 'expo-image';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 
-import BlurredBackground from '../../src/components/ui/BlurredBackground';
+import BlurredBackground from '@/components/ui/BlurredBackground';
 import { FlashList } from '@shopify/flash-list';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -38,43 +38,43 @@ import {
   AppTrueSheet,
   COMPOSER_STYLES,
   getFooterBottomPadding,
-} from '../../src/utils/components/truesheet';
+} from '@/utils/components/truesheet';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 
-import { Colors } from '../../src/theme';
-import { Typography } from '../../src/utils/components/typography';
-import { BORDER_RADIUS } from '../../src/utils/constants';
+import { Colors } from '@/theme';
+import { Typography } from '@/utils/components/typography';
+import { BORDER_RADIUS } from '@/utils/constants';
 import Icon, {
   BackArrowIcon,
   FlameFillIcon,
   FireFillIcon,
   MoreFillIcon,
-} from '../../src/components/ui/Icon';
-import { Avatar } from '../../src/components/ui/UI';
-import { OptionsButton } from '../../src/components/ui/OptionsButton';
-import VerticalListSheet, { VerticalListButton } from '../../src/components/ui/VerticalListSheet';
-import { itemSizeConfig, sharedItemStyles } from '../../src/components/ui/ItemStyles';
-import { hexToRGBA } from '../../src/utils/formatting/colors';
-import { useAvatarProfileRing } from '../../src/services/colors';
-import { formatHandle } from '../../src/utils/formatting/handles';
-import { queryKeys } from '../../src/utils/query/queryKeys';
-import { getActiveStreak } from '../../src/utils/chat/streak';
+} from '@/components/ui/Icon';
+import { Avatar } from '@/components/ui/UI';
+import { OptionsButton } from '@/components/ui/OptionsButton';
+import VerticalListSheet, { VerticalListButton } from '@/components/ui/VerticalListSheet';
+import { itemSizeConfig, sharedItemStyles } from '@/components/ui/ItemStyles';
+import { hexToRGBA } from '@/utils/formatting/colors';
+import { useAvatarProfileRing } from '@/services/colors';
+import { formatHandle } from '@/utils/formatting/handles';
+import { queryKeys } from '@/utils/query/queryKeys';
+import { getActiveStreak } from '@/utils/chat/streak';
 import { format, parseISO, isValid, isToday, isYesterday, differenceInMinutes } from 'date-fns';
-import { useProfileByDid, useBlockMutation } from '../../src/services/data/ProfileService';
-import { useChatLogPolling } from '../../src/hooks/useChatLogPolling';
-import { ChatService } from '../../src/services/api/chat/ChatService';
-import AtprotoService from '../../src/services/api/AtprotoService';
-import { useUserStore } from '../../src/stores/userStore';
-import type { MessageView } from '../../src/services/api/types';
-import { openPostInBluesky } from '../../src/utils/links/bluesky';
-import { getVideoView } from '../../src/utils/video/helpers';
-import { feedService } from '../../src/services/FeedService';
-import type { ExtendedFeedViewPost, PostView } from '../../src/services/api/types';
-import type { RichTextFacet } from '../../src/utils/types/richText';
+import { useProfileByDid, useBlockMutation } from '@/services/data/ProfileService';
+import { useChatLogPolling } from '@/hooks/useChatLogPolling';
+import { ChatService } from '@/services/api/chat/ChatService';
+import AtprotoService from '@/services/api/AtprotoService';
+import { useUserStore } from '@/stores/userStore';
+import type { MessageView } from '@/services/api/types';
+import { openPostInBluesky } from '@/utils/links/bluesky';
+import { getVideoView } from '@/utils/video/helpers';
+import { feedService } from '@/services/FeedService';
+import type { ExtendedFeedViewPost, PostView } from '@/services/api/types';
+import type { RichTextFacet } from '@/utils/types/richText';
 import EmojiPicker from 'react-native-emoji-chooser';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
-const EMBED_VIDEO_GRADIENT_SHIM = require('../../src/assets/embed-video-gradient-shim.png');
+const EMBED_VIDEO_GRADIENT_SHIM = require('@/assets/embed-video-gradient-shim.png');
 
 /** Chat message item: full MessageView from API (id, rev, text, facets?, embed?, sender, sentAt, reactions?, etc.) */
 type MessageItem = MessageView & { sender?: { did: string } };

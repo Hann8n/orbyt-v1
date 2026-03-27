@@ -2,12 +2,12 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, ScrollView, Pressable, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
-import Icon from '../../src/components/ui/Icon';
-import ListHeader from '../../src/components/ui/ListHeader';
-import { Colors } from '../../src/theme';
-import { BORDER_RADIUS } from '../../src/utils/constants';
-import type { NotificationReason } from '../../src/services/api/types';
-import { useActivityFilterStore } from '../../src/stores/activityFilterStore';
+import Icon from '@/components/ui/Icon';
+import ListHeader from '@/components/ui/ListHeader';
+import { Colors } from '@/theme';
+import { BORDER_RADIUS } from '@/utils/constants';
+import type { NotificationReason } from '@/services/api/types';
+import { useActivityFilterStore } from '@/stores/activityFilterStore';
 
 const NOTIFICATION_REASONS_LABEL_KEY: Record<NotificationReason, string> = {
   like: 'activity.likes',

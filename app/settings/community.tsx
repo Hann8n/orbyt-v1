@@ -15,12 +15,12 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import ListHeader from '../../src/components/ui/ListHeader';
-import Icon from '../../src/components/ui/Icon';
-import { Loading } from '../../src/components/ui/UI';
-import { Colors } from '../../src/theme';
-import { BORDER_RADIUS, DISCOURSE } from '../../src/utils/constants';
-import { queryKeys } from '../../src/utils/query/queryKeys';
+import ListHeader from '@/components/ui/ListHeader';
+import Icon from '@/components/ui/Icon';
+import { Loading } from '@/components/ui/UI';
+import { Colors } from '@/theme';
+import { BORDER_RADIUS, DISCOURSE } from '@/utils/constants';
+import { queryKeys } from '@/utils/query/queryKeys';
 
 const COMMUNITY_URL = DISCOURSE.COMMUNITY_URL;
 const IDEAS_JSON = `${COMMUNITY_URL}/c/${DISCOURSE.IDEAS_CATEGORY_SLUG}/${DISCOURSE.IDEAS_CATEGORY_ID}.json`;

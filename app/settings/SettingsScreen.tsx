@@ -11,22 +11,17 @@ import {
   Pressable,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import Icon from '../../src/components/ui/Icon';
-import { getDeviceInfo, getFormattedVersion } from '../../src/utils/version';
-import { Colors } from '../../src/theme';
-import ListHeader from '../../src/components/ui/ListHeader';
-import { OptionsButton } from '../../src/components/ui/OptionsButton';
-import {
-  useFeedSettings,
-  useAuth,
-  useCurrentUser,
-  useAccountManagement,
-} from '../../src/stores/userStore';
+import Icon from '@/components/ui/Icon';
+import { getDeviceInfo, getFormattedVersion } from '@/utils/version';
+import { Colors } from '@/theme';
+import ListHeader from '@/components/ui/ListHeader';
+import { OptionsButton } from '@/components/ui/OptionsButton';
+import { useFeedSettings, useAuth, useCurrentUser, useAccountManagement } from '@/stores/userStore';
 import { settingsTextStyles, settingsLayoutStyles } from './SettingsStyles';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalModals';
-import ProfileService from '../../src/services/data/ProfileService';
+import { useGlobalAccountSwitcher } from '@/hooks/useGlobalModals';
+import ProfileService from '@/services/data/ProfileService';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 
 const SettingsScreen: React.FC = () => {

@@ -1,4 +1,4 @@
-import { QueryErrorBoundary } from '../../src/components/ui/QueryErrorBoundary';
+import { QueryErrorBoundary } from '@/components/ui/QueryErrorBoundary';
 import VideoPostScreen from './VideoPostScreen';
 
 export default function PostScreen() {

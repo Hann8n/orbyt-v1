@@ -3,10 +3,10 @@ import { useTranslation } from 'react-i18next';
 import { Alert, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import VideoTrim, { showEditor, isValidFile, type Spec } from 'react-native-clip-trim';
-import { resolveVideoPath } from '../src/utils/video/path';
-import { useVideoTrimStore } from '../src/stores/videoTrimStore';
-import VideoProcessingService from '../src/services/video/VideoProcessingService';
-import { Colors } from '../src/theme';
+import { resolveVideoPath } from '@/utils/video/path';
+import { useVideoTrimStore } from '@/stores/videoTrimStore';
+import VideoProcessingService from '@/services/video/VideoProcessingService';
+import { Colors } from '@/theme';
 
 const VideoTrimmerScreen: React.FC = () => {
   const { t } = useTranslation();

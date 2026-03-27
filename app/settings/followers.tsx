@@ -2,11 +2,11 @@ import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
-import ListScreen from '../../src/components/ui/ListScreen';
-import AtprotoService from '../../src/services/api/AtprotoService';
-import { prefetchProfile } from '../../src/services/data/ProfileService';
-import { useCurrentUser } from '../../src/stores/userStore';
-import type { ProfileViewBasic, FollowersResponse } from '../../src/services/api/types';
+import ListScreen from '@/components/ui/ListScreen';
+import AtprotoService from '@/services/api/AtprotoService';
+import { prefetchProfile } from '@/services/data/ProfileService';
+import { useCurrentUser } from '@/stores/userStore';
+import type { ProfileViewBasic, FollowersResponse } from '@/services/api/types';
 
 const FollowersScreen: React.FC = () => {
   const { t } = useTranslation();

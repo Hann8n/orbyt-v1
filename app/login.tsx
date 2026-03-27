@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BORDER_RADIUS } from '../src/utils/constants';
+import { BORDER_RADIUS } from '@/utils/constants';
 import {
   View,
   Pressable,
@@ -16,18 +16,18 @@ import { Image } from 'expo-image';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Svg, Path, Rect, Defs, Mask } from 'react-native-svg';
-import { Colors } from '../src/theme';
-import AuthorItem from '../src/components/ui/AuthorItem';
-import type { SavedAccount } from '../src/stores/userStore';
-import { useAuth, useAccountManagement } from '../src/stores/userStore';
-import { hexToRGBA } from '../src/utils/formatting/colors';
-import RocketBackground from '../src/components/ui/RocketBackground';
-import SignUpSheet from '../src/components/ui/SignUpSheet';
-import LoginSheet from '../src/components/ui/LoginSheet';
+import { Colors } from '@/theme';
+import AuthorItem from '@/components/ui/AuthorItem';
+import type { SavedAccount } from '@/stores/userStore';
+import { useAuth, useAccountManagement } from '@/stores/userStore';
+import { hexToRGBA } from '@/utils/formatting/colors';
+import RocketBackground from '@/components/ui/RocketBackground';
+import SignUpSheet from '@/components/ui/SignUpSheet';
+import LoginSheet from '@/components/ui/LoginSheet';
 
 // Login logo: PNG 4x on Android (avoids SVG stroke clipping), SVG on iOS
-const orbytLogoLoginPng = require('../src/assets/orbyt-logo-login.png');
-const atSignSky = require('../src/assets/at-sign-sky.png');
+const orbytLogoLoginPng = require('@/assets/orbyt-logo-login.png');
+const atSignSky = require('@/assets/at-sign-sky.png');
 
 interface LoginScreenProps {
   onAccountSwitch?: (account: SavedAccount) => Promise<void>;

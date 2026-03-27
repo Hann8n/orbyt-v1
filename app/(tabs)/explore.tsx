@@ -9,7 +9,7 @@ import React, {
   forwardRef,
 } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../src/utils/constants';
+import { BORDER_RADIUS, QUERY_CONSTANTS } from '@/utils/constants';
 import {
   View,
   Text,
@@ -38,40 +38,37 @@ import Reanimated, {
   Extrapolation,
 } from 'react-native-reanimated';
 
-import AtprotoService from '../../src/services/api/AtprotoService';
+import AtprotoService from '@/services/api/AtprotoService';
 
 import { useRouter, type Router } from 'expo-router';
-import ProfileService, {
-  useFollowMutation,
-  prefetchProfile,
-} from '../../src/services/data/ProfileService';
-import type { ProfileViewWithOrbyt } from '../../src/services/api/types';
-import ChannelService from '../../src/services/data/ChannelService';
-import type { CachedChannel } from '../../src/services/data/ChannelService';
+import ProfileService, { useFollowMutation, prefetchProfile } from '@/services/data/ProfileService';
+import type { ProfileViewWithOrbyt } from '@/services/api/types';
+import ChannelService from '@/services/data/ChannelService';
+import type { CachedChannel } from '@/services/data/ChannelService';
 import { useQueryClient, useQuery, type QueryClient } from '@tanstack/react-query';
-import { Avatar, Icon } from '../../src/components/ui/UI';
-import { LinearGradient } from '../../src/components/ui/LinearGradient';
-import HeaderBanner from '../../src/components/ui/HeaderBanner';
-import AuthorItem from '../../src/components/ui/AuthorItem';
-import ChannelItem from '../../src/components/ui/ChannelItem';
+import { Avatar, Icon } from '@/components/ui/UI';
+import { LinearGradient } from '@/components/ui/LinearGradient';
+import HeaderBanner from '@/components/ui/HeaderBanner';
+import AuthorItem from '@/components/ui/AuthorItem';
+import ChannelItem from '@/components/ui/ChannelItem';
 
-const CORNER_GRADIENT = require('../../src/assets/corner-gradient.png');
-const GRADIENT_SHIM = require('../../src/assets/embed-video-gradient-shim.png');
+const CORNER_GRADIENT = require('@/assets/corner-gradient.png');
+const GRADIENT_SHIM = require('@/assets/embed-video-gradient-shim.png');
 
-import { SearchIcon } from '../../src/components/ui/Icon';
-import { Colors } from '../../src/theme';
-import EmptyFeed from '../../src/components/features/feed/EmptyFeed';
-import { feedService } from '../../src/services/FeedService';
+import { SearchIcon } from '@/components/ui/Icon';
+import { Colors } from '@/theme';
+import EmptyFeed from '@/components/features/feed/EmptyFeed';
+import { feedService } from '@/services/FeedService';
 import * as Device from 'expo-device';
-import { getBottomNavBarHeight } from '../../src/utils/device/screen';
-import { getVideoView } from '../../src/utils/video/helpers';
-import BlurredBackground from '../../src/components/ui/BlurredBackground';
-import { HeaderService, useHeaders, type Header } from '../../src/services/OrbytBannerService';
-import { useFeed } from '../../src/hooks/useFeed';
-import { useUserStore, useFeedSettings } from '../../src/stores/userStore';
-import type { ExtendedFeedViewPost } from '../../src/services/api/types';
-import { isCurrentUser } from '../../src/stores/profileInteractionStore';
-import { useFollowStore } from '../../src/stores/followStore';
+import { getBottomNavBarHeight } from '@/utils/device/screen';
+import { getVideoView } from '@/utils/video/helpers';
+import BlurredBackground from '@/components/ui/BlurredBackground';
+import { HeaderService, useHeaders, type Header } from '@/services/OrbytBannerService';
+import { useFeed } from '@/hooks/useFeed';
+import { useUserStore, useFeedSettings } from '@/stores/userStore';
+import type { ExtendedFeedViewPost } from '@/services/api/types';
+import { isCurrentUser } from '@/stores/profileInteractionStore';
+import { useFollowStore } from '@/stores/followStore';
 import {
   getActiveChannels,
   isOrbytChannel,
@@ -80,10 +77,10 @@ import {
   getLocalizedChannelDisplayName,
   shouldShowChannelSlash,
   extractFeedSlug,
-} from '../../src/utils/channels/orbyt';
-import { tabRefs } from '../../src/utils/navigation/tabRefs';
-import type { ExploreRef } from '../../src/utils/navigation/tabRefs';
-import { useVisitHistory, type VisitHistoryEntry } from '../../src/hooks/useVisitHistory';
+} from '@/utils/channels/orbyt';
+import { tabRefs } from '@/utils/navigation/tabRefs';
+import type { ExploreRef } from '@/utils/navigation/tabRefs';
+import { useVisitHistory, type VisitHistoryEntry } from '@/hooks/useVisitHistory';
 
 // Use ProfileViewWithOrbyt as the canonical profile type (single source of truth)
 // Only extract the fields we need for the explore page
