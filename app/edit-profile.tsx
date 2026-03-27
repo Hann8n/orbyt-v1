@@ -33,6 +33,8 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import * as ImagePicker from 'expo-image-picker';
+import { MenuView } from '@react-native-menu/menu';
+import type { MenuAction } from '@react-native-menu/menu';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Colors } from '../src/theme';
 import { Avatar } from '../src/components/ui/UI';
@@ -628,65 +630,81 @@ const EditProfileScreen: React.FC = () => {
     });
   }, [selectedColorIndex, hasCustomColors]);
 
-  // Handle avatar selection
-  const handleAvatarPress = useCallback(async () => {
+  const handleOpenCamera = useCallback(async () => {
     try {
-      const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
-      const { status: libraryStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (cameraStatus !== 'granted' || libraryStatus !== 'granted') {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
         Alert.alert(t('profile.permissionRequired'), t('profile.avatarPermissionRequired'));
         return;
       }
 
-      Alert.alert(t('profile.changeAvatar'), t('profile.changeAvatarPrompt'), [
-        {
-          text: t('profile.camera'),
-          onPress: async () => {
-            try {
-              const result = await ImagePicker.launchCameraAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                allowsEditing: true,
-                aspect: [1, 1],
-                quality: 0.8,
-              });
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
 
-              if (!result.canceled && result.assets && result.assets[0] && result.assets[0].uri) {
-                setEditAvatar(result.assets[0].uri || undefined);
-              }
-            } catch (_error) {
-              Alert.alert(t('common.error'), t('profile.failedToOpenCamera'));
-            }
-          },
-        },
-        {
-          text: t('profile.photoLibrary'),
-          onPress: async () => {
-            try {
-              const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                allowsEditing: true,
-                aspect: [1, 1],
-                quality: 0.8,
-              });
+      if (!result.canceled && result.assets && result.assets[0] && result.assets[0].uri) {
+        setEditAvatar(result.assets[0].uri || undefined);
+      }
+    } catch (_error) {
+      Alert.alert(t('common.error'), t('profile.failedToOpenCamera'));
+    }
+  }, [t]);
 
-              if (!result.canceled && result.assets && result.assets[0] && result.assets[0].uri) {
-                setEditAvatar(result.assets[0].uri || undefined);
-              }
-            } catch (_error) {
-              Alert.alert(t('common.error'), t('profile.failedToOpenPhotoLibrary'));
-            }
-          },
-        },
-        {
-          text: t('common.cancel'),
-          style: 'cancel',
-        },
-      ]);
+  const handleOpenPhotoLibrary = useCallback(async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(t('profile.permissionRequired'), t('profile.avatarPermissionRequired'));
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0] && result.assets[0].uri) {
+        setEditAvatar(result.assets[0].uri || undefined);
+      }
+    } catch (_error) {
+      Alert.alert(t('common.error'), t('profile.failedToOpenPhotoLibrary'));
+    }
+  }, [t]);
+
+  const avatarMenuActions = useMemo<MenuAction[]>(
+    () => [
+      { id: 'camera', title: t('profile.camera') },
+      { id: 'library', title: t('profile.photoLibrary') },
+    ],
+    [t]
+  );
+
+  const handleAvatarMenuPressAction = useCallback(
+    ({ nativeEvent }: { nativeEvent: { event: string } }) => {
+      if (nativeEvent.event === 'camera') {
+        void handleOpenCamera();
+        return;
+      }
+
+      if (nativeEvent.event === 'library') {
+        void handleOpenPhotoLibrary();
+      }
+    },
+    [handleOpenCamera, handleOpenPhotoLibrary]
+  );
+
+  const handleAvatarPress = useCallback(async () => {
+    try {
+      await handleOpenPhotoLibrary();
     } catch (_error) {
       Alert.alert(t('common.error'), t('profile.failedToOpenImagePicker'));
     }
-  }, [t]);
+  }, [handleOpenPhotoLibrary, t]);
 
   // Handle color selection - unified for both predefined and custom colors
   const handleColorSelect = useCallback(
@@ -1083,23 +1101,34 @@ const EditProfileScreen: React.FC = () => {
                       >
                         {t('editProfile.profilePicture')}
                       </Text>
-                      <Pressable
-                        style={[
-                          styles.uploadButton,
-                          {
-                            backgroundColor: blendColors(
-                              currentColors.backgroundColor,
-                              currentColors.textColor,
-                              0.15
-                            ),
-                          },
-                        ]}
-                        onPress={handleAvatarPress}
+                      <MenuView
+                        title=""
+                        actions={avatarMenuActions}
+                        onPressAction={handleAvatarMenuPressAction}
+                        shouldOpenOnLongPress={false}
+                        themeVariant="dark"
+                        isAnchoredToRight={true}
                       >
-                        <Text style={[styles.uploadButtonText, { color: currentColors.textColor }]}>
-                          {t('editProfile.upload')}
-                        </Text>
-                      </Pressable>
+                        <Pressable
+                          style={[
+                            styles.uploadButton,
+                            {
+                              backgroundColor: blendColors(
+                                currentColors.backgroundColor,
+                                currentColors.textColor,
+                                0.15
+                              ),
+                            },
+                          ]}
+                          onPress={handleAvatarPress}
+                        >
+                          <Text
+                            style={[styles.uploadButtonText, { color: currentColors.textColor }]}
+                          >
+                            {t('editProfile.upload')}
+                          </Text>
+                        </Pressable>
+                      </MenuView>
                     </View>
                   </View>
                 </View>
