@@ -1,11 +1,9 @@
-import React, { useCallback, useMemo, useEffect } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, StyleSheet } from 'react-native';
-import VerticalListSheet, {
-  VerticalListCheckboxButton,
-  TrueSheet,
-} from '../../ui/VerticalListSheet';
+import VerticalListSheet, { VerticalListCheckboxButton } from '../../ui/VerticalListSheet';
 import { useSubscriptionStore } from '../../../stores/subscriptionStore';
+import { useSheetPresentation } from '../../../hooks';
 
 const DEFAULT_PREFERENCES = { post: false, reply: false };
 
@@ -31,9 +29,7 @@ const SubscriptionOptionsSheet: React.FC<SubscriptionOptionsSheetProps> = ({
     return prefs ?? DEFAULT_PREFERENCES;
   }, [did, subscriptions]);
 
-  useEffect(() => {
-    if (visible) TrueSheet.present('subscription-options-sheet');
-  }, [visible]);
+  useSheetPresentation(visible, 'subscription-options-sheet');
 
   const handleTogglePreference = useCallback(
     async (key: 'post' | 'reply') => {

@@ -1,9 +1,9 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, Linking, useWindowDimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import {
   AppTrueSheet,
   CONTENT_TO_FOOTER_GAP_REDUCTION,
@@ -24,6 +24,7 @@ import type { ProfileViewWithOrbyt } from '../../../services/api/types';
 import { LinearGradient } from '../../ui/LinearGradient';
 import { hexToRGBA } from '../../../utils/formatting/colors';
 import { FontFamily, Typography } from '../../../utils/components/typography';
+import { useSheetPresentation } from '../../../hooks';
 
 interface LiveStreamInfoSheetProps {
   visible: boolean;
@@ -37,7 +38,6 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
   onDismiss,
 }) => {
   const { t } = useTranslation();
-  const bottomSheetRef = useRef<TrueSheet>(null);
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
   const footerBottomPadding = getFooterBottomPadding(insets.bottom);
@@ -45,16 +45,11 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
 
   const status = profile?.status;
 
-  // Handle bottom sheet visibility via instance ref (TrueSheet v3+)
-  useEffect(() => {
-    const sheet = bottomSheetRef.current;
-    if (!sheet) return;
-    if (visible) {
-      sheet.present().catch(() => {});
-    } else {
-      sheet.dismiss().catch(() => {});
-    }
-  }, [visible]);
+  useSheetPresentation(visible, 'live-stream-info-sheet');
+
+  const handleClosePress = useCallback(() => {
+    TrueSheet.dismiss('live-stream-info-sheet').catch(() => {});
+  }, []);
 
   const handleOpenLink = useCallback(async (url: string) => {
     try {
@@ -102,7 +97,6 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
 
   return (
     <AppTrueSheet
-      ref={bottomSheetRef}
       name="live-stream-info-sheet"
       onDidDismiss={onDismiss}
       grabber={true}
@@ -139,13 +133,13 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
                 ? t('profile.handleIsLive', { handle: formatHandle(profile.handle) })
                 : t('profile.live')}
             </Text>
-            <CloseButton onPress={onDismiss} />
+            <CloseButton onPress={handleClosePress} />
           </View>
         )
       }
       footer={wrapFooter(
         <SheetActionFooter bottomPadding={footerBottomPadding} backgroundColor={Colors.black}>
-          <CancelButton onPress={onDismiss} text={t('common.close')} />
+          <CancelButton onPress={handleClosePress} text={t('common.close')} />
         </SheetActionFooter>
       )}
     >

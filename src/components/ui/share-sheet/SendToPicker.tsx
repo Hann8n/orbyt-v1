@@ -17,7 +17,7 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
-import type { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import {
   AppTrueSheet,
   DEFAULT_CONTENT_PADDING_HORIZONTAL,
@@ -95,7 +95,7 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
   const [isSending, setIsSending] = useState(false);
   const searchInputRef = useRef<TextInput | null>(null);
   const messageInputRef = useRef<TextInput | null>(null);
-  const sheetRef = useRef<TrueSheet>(null);
+  const [isSheetPresented, setIsSheetPresented] = useState(false);
 
   const footerFallbackHeight = 96;
   const [contentBottomPadding, wrapFooter] = useMeasuredFooterHeight(footerFallbackHeight);
@@ -165,16 +165,17 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
   // Control TrueSheet visibility via instance ref (TrueSheet v3+)
   // Do not auto-focus search: opening the keyboard would move the list up. User can tap search to focus.
   useEffect(() => {
-    const sheet = sheetRef.current;
-    if (!sheet) return;
     if (visible) {
-      sheet.present().catch(() => {});
-    } else {
-      sheet.dismiss().catch(() => {});
+      if (!isSheetPresented) {
+        TrueSheet.present(SHEET_NAME).catch(() => {});
+      }
+    } else if (isSheetPresented) {
+      TrueSheet.dismiss(SHEET_NAME).catch(() => {});
     }
-  }, [visible]);
+  }, [visible, isSheetPresented]);
 
   const handleDismiss = useCallback(() => {
+    setIsSheetPresented(false);
     setSearchQuery('');
     setSendMessageText('');
     setSelectedRecipientKey(null);
@@ -378,11 +379,11 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
 
   return (
     <AppTrueSheet
-      ref={sheetRef}
       name={SHEET_NAME}
       variant="sendToPicker"
       grabber
       grabberOptions={DEFAULT_GRABBER_OPTIONS}
+      onDidPresent={() => setIsSheetPresented(true)}
       onDidDismiss={handleDismiss}
       header={header}
       footer={footer}

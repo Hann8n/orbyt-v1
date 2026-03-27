@@ -1,8 +1,8 @@
-import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import VerticalListSheet, { TrueSheet } from '../../ui/VerticalListSheet';
+import VerticalListSheet from '../../ui/VerticalListSheet';
 import CancelButton from '../../ui/CancelButton';
 import { CheckboxCuteFilledDuotoneIcon, CuteRegularSquareBoxEmptyIcon } from '../../ui/Icon';
 import { Colors } from '../../../theme';
@@ -16,6 +16,7 @@ import {
 } from '../../../utils/components/truesheet';
 import type { NotificationReason } from '../../../services/api/types';
 import { FontFamily, Typography } from '../../../utils/components/typography';
+import { useSheetPresentation } from '../../../hooks';
 
 // Valid notification reasons - use labelKey for i18n
 const NOTIFICATION_REASONS_LABEL_KEY: Record<NotificationReason, string> = {
@@ -305,9 +306,7 @@ const NotificationFilterSheet: React.FC<NotificationFilterSheetProps> = ({
   const prevVisibleRef = useRef(visible);
   const [openingTimestamp, setOpeningTimestamp] = useState<number | null>(null);
 
-  useEffect(() => {
-    if (visible) TrueSheet.present('notification-filter-sheet');
-  }, [visible]);
+  useSheetPresentation(visible, 'notification-filter-sheet');
 
   // Store timestamp when opening to reset inner component state
   React.useEffect(() => {

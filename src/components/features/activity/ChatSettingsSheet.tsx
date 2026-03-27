@@ -1,14 +1,12 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import VerticalListSheet, {
-  VerticalListCheckboxButton,
-  TrueSheet,
-} from '../../ui/VerticalListSheet';
+import VerticalListSheet, { VerticalListCheckboxButton } from '../../ui/VerticalListSheet';
 import { ChatService } from '../../../services/api/chat/ChatService';
 import { useUserStore } from '../../../stores/userStore';
 import { useProfileByDid } from '../../../services/data/ProfileService';
 import { queryKeys } from '../../../utils/query/queryKeys';
 import { useQueryClient } from '@tanstack/react-query';
+import { useSheetPresentation } from '../../../hooks';
 
 type AllowIncoming = 'all' | 'none' | 'following';
 
@@ -33,9 +31,7 @@ export default function ChatSettingsSheet({ visible, onDismiss }: ChatSettingsSh
     setLocalAllowIncoming(initialAllowIncoming);
   }, [initialAllowIncoming]);
 
-  useEffect(() => {
-    if (visible) TrueSheet.present('chat-settings-sheet');
-  }, [visible]);
+  useSheetPresentation(visible, 'chat-settings-sheet');
 
   const handleSelect = useCallback(
     (value: AllowIncoming) => {

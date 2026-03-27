@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, Alert } from 'react-native';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
@@ -22,6 +22,7 @@ import { queryKeys } from '../../../utils/query/queryKeys';
 import { useQueryClient } from '@tanstack/react-query';
 import { Colors } from '../../../theme';
 import { Typography, FontFamily } from '../../../utils/components/typography';
+import { useSheetPresentation } from '../../../hooks';
 
 interface GermDisconnectSheetProps {
   visible: boolean;
@@ -40,14 +41,7 @@ const GermDisconnectSheet: React.FC<GermDisconnectSheetProps> = ({
   const insets = useSafeAreaInsets();
   const footerBottomPadding = getFooterBottomPadding(insets.bottom);
   const [contentBottomPadding, wrapFooter] = useMeasuredFooterHeight(44 + footerBottomPadding);
-
-  useEffect(() => {
-    if (visible) {
-      TrueSheet.present('germ-disconnect-sheet').catch(() => {});
-    } else {
-      TrueSheet.dismiss('germ-disconnect-sheet').catch(() => {});
-    }
-  }, [visible]);
+  useSheetPresentation(visible, 'germ-disconnect-sheet');
 
   const handleDismiss = useCallback(() => {
     TrueSheet.dismiss('germ-disconnect-sheet').catch(() => {});
@@ -60,7 +54,6 @@ const GermDisconnectSheet: React.FC<GermDisconnectSheetProps> = ({
     try {
       const ok = await AtprotoService.deleteGermDeclaration();
       TrueSheet.dismiss('germ-disconnect-sheet').catch(() => {});
-      onDismiss();
       if (ok) {
         queryClient.invalidateQueries({
           queryKey: queryKeys.profiles.detail(profileDid),
@@ -72,7 +65,7 @@ const GermDisconnectSheet: React.FC<GermDisconnectSheetProps> = ({
     } finally {
       setIsDisconnecting(false);
     }
-  }, [profileDid, queryClient, onDismiss, isDisconnecting, t]);
+  }, [profileDid, queryClient, isDisconnecting, t]);
 
   return (
     <AppTrueSheet
