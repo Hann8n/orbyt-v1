@@ -1146,13 +1146,7 @@ function ChatEmbeddedPost({
             style={[StyleSheet.absoluteFill, styles.embedVideoGradientShim]}
             contentFit="cover"
           />
-          <EmbedAuthor
-            author={author}
-            size={26}
-            isFromMe={isFromMe}
-            compact
-            authorAlwaysOnRight
-          />
+          <EmbedAuthor author={author} size={26} isFromMe={isFromMe} compact authorAlwaysOnRight />
         </View>
       </>
     );

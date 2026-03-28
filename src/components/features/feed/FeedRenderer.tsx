@@ -15,7 +15,10 @@ import { useReportedPostsStore } from '../../../stores/reportedPostsStore';
 import { Colors } from '../../../theme';
 import { feedService } from '../../../services/FeedService';
 import type { ListFeedViewRef, ViewMode } from '../../../types';
-import { buildFeedModalHref, type GridFeedModalZoomConfig } from '@/utils/navigation/feedModalRoute';
+import {
+  buildFeedModalHref,
+  type GridFeedModalZoomConfig,
+} from '@/utils/navigation/feedModalRoute';
 import { FollowProvider } from '../../../context/FollowContext';
 import type {
   ExtendedFeedViewPost as FeedItem,

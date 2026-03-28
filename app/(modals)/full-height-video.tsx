@@ -35,8 +35,7 @@ const FullHeightVideoScreen = memo(() => {
   });
 
   const items = feedService.getCurrentFeed();
-  const feedItem =
-    postUri && items[0]?.post?.uri === postUri ? items[0] : undefined;
+  const feedItem = postUri && items[0]?.post?.uri === postUri ? items[0] : undefined;
 
   const setLastViewableIndex = useVisibilityCoreStore(s => s.setLastViewableIndex);
 
