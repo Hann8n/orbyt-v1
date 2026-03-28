@@ -589,6 +589,9 @@
     "chatRequest": "Chat request",
     "tapToOpen": "Tap to open",
     "reactWith": "React with {{emoji}}",
+    "react": "React",
+    "deleteMessageForMe": "Delete for me",
+    "deleteMessageConfirm": "This message will be removed from your view. Other participants may still see it.",
     "cantLoadConversations": "can't load conversations",
     "embedImage": "Embed image"
   },

@@ -40,7 +40,7 @@ import Reanimated, {
 
 import AtprotoService from '@/services/api/AtprotoService';
 
-import { useRouter, type Router } from 'expo-router';
+import { useRouter } from 'expo-router';
 import ProfileService, { useFollowMutation, prefetchProfile } from '@/services/data/ProfileService';
 import type { ProfileViewWithOrbyt } from '@/services/api/types';
 import ChannelService from '@/services/data/ChannelService';
@@ -81,6 +81,7 @@ import {
 import { tabRefs } from '@/utils/navigation/tabRefs';
 import type { ExploreRef } from '@/utils/navigation/tabRefs';
 import { useVisitHistory, type VisitHistoryEntry } from '@/hooks/useVisitHistory';
+import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 
 // Use ProfileViewWithOrbyt as the canonical profile type (single source of truth)
 // Only extract the fields we need for the explore page
@@ -168,14 +169,17 @@ const isProfileResult = (result: SearchResult): result is ProfileResult =>
 const isChannelResult = (result: SearchResult): result is ChannelResult =>
   result.type === 'channel';
 
-// Helper function to navigate to profile
-const navigateToProfile = (profile: Profile, queryClient: QueryClient, router: Router) => {
+/** Prefetch profile then open with tab-aware stack navigation (classic) or root modal route. */
+const prefetchProfileThenOpen = (
+  profile: Profile,
+  queryClient: QueryClient,
+  openProfileForDid: (did: string) => void
+) => {
   if (!profile.did) return;
 
   const did = profile.did.trim();
   if (!did) return;
 
-  // Prefetch profile: sets partial data immediately + fetches full profile in background
   prefetchProfile(queryClient, did, {
     did: profile.did,
     handle: profile.handle,
@@ -184,10 +188,7 @@ const navigateToProfile = (profile: Profile, queryClient: QueryClient, router: R
     description: profile.description,
     verification: profile.verification,
   }).finally(() => {
-    router.navigate({
-      pathname: '/profile/[did]',
-      params: { did },
-    });
+    openProfileForDid(did);
   });
 };
 
@@ -278,8 +279,8 @@ const ProfilesFeedRenderer = React.memo(
     fetchNextPage?: () => void;
   }) => {
     const { t } = useTranslation();
-    const router = useRouter();
     const queryClient = useQueryClient();
+    const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
 
     const profiles = useMemo(() => {
       const seen = new Set<string>();
@@ -331,7 +332,7 @@ const ProfilesFeedRenderer = React.memo(
               if (onProfilePress) {
                 onProfilePress(profile);
               } else {
-                navigateToProfile(profile, queryClient, router);
+                prefetchProfileThenOpen(profile, queryClient, goToProfile);
               }
             }}
             backgroundColor={Colors.transparent}
@@ -341,7 +342,7 @@ const ProfilesFeedRenderer = React.memo(
           />
         );
       },
-      [onFollow, onProfilePress, queryClient, router]
+      [onFollow, onProfilePress, queryClient, goToProfile]
     );
 
     if (isLoading) {
@@ -387,7 +388,7 @@ const ChannelsFeedRenderer = React.memo(
     bottomPadding?: number;
   }) => {
     const { t } = useTranslation();
-    const router = useRouter();
+    const { navigateToChannel: goToChannel } = useProfileChannelNavigation();
 
     const channels = useMemo(() => {
       const seen = new Set<string>();
@@ -427,10 +428,7 @@ const ChannelsFeedRenderer = React.memo(
               onChannelPress(channel);
             } else {
               if (channel.uri && channel.uri.trim()) {
-                router.navigate({
-                  pathname: '/channel/[id]',
-                  params: { id: channel.uri.trim() },
-                });
+                goToChannel(encodeURIComponent(channel.uri.trim()));
               }
             }
           }}
@@ -440,7 +438,7 @@ const ChannelsFeedRenderer = React.memo(
           style={styles.channelItemStyle}
         />
       ),
-      [onChannelPress, router]
+      [onChannelPress, goToChannel]
     );
 
     if (isLoading) {
@@ -936,226 +934,210 @@ const HorizontalChannelItem = ({
 // Search-related components moved to search.tsx
 
 // Responsive orbyt Channels Grid Component
-const OrbytChannelsGrid = React.memo(
-  ({ channels, router }: { channels: Channel[]; router: Router }) => {
-    const { width: windowWidth, height: windowHeight } = useWindowDimensions();
-    const isTablet =
-      Device.deviceType === Device.DeviceType.TABLET || Math.min(windowWidth, windowHeight) >= 600;
+const OrbytChannelsGrid = React.memo(({ channels }: { channels: Channel[] }) => {
+  const { navigateToChannel: goToChannel } = useProfileChannelNavigation();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const isTablet =
+    Device.deviceType === Device.DeviceType.TABLET || Math.min(windowWidth, windowHeight) >= 600;
 
-    // Responsive column calculation - similar to GridFeedView
-    const computedColumns = useMemo(() => {
-      const w = windowWidth || Dimensions.get('window').width;
-      let cols = 3; // default mobile
-      if (w > 1200 || isTablet) {
-        cols = 6;
-      } else if (w > 900) {
-        cols = 5;
-      } else if (w > 480) {
-        cols = 4;
-      } else {
-        cols = 3;
-      }
-      // enforce minimum of 3
-      return Math.max(3, cols);
-    }, [windowWidth, isTablet]);
+  // Responsive column calculation - similar to GridFeedView
+  const computedColumns = useMemo(() => {
+    const w = windowWidth || Dimensions.get('window').width;
+    let cols = 3; // default mobile
+    if (w > 1200 || isTablet) {
+      cols = 6;
+    } else if (w > 900) {
+      cols = 5;
+    } else if (w > 480) {
+      cols = 4;
+    } else {
+      cols = 3;
+    }
+    // enforce minimum of 3
+    return Math.max(3, cols);
+  }, [windowWidth, isTablet]);
 
-    // Responsive padding and gap based on screen size
-    const { padding, gap } = useMemo(() => {
-      const w = windowWidth || Dimensions.get('window').width;
-      if (isTablet || w > 900) {
-        return { padding: 10, gap: 10 };
-      } else if (w > 480) {
-        return { padding: 10, gap: 8 };
-      } else {
-        return { padding: 10, gap: 7 };
-      }
-    }, [windowWidth, isTablet]);
+  // Responsive padding and gap based on screen size
+  const { padding, gap } = useMemo(() => {
+    const w = windowWidth || Dimensions.get('window').width;
+    if (isTablet || w > 900) {
+      return { padding: 10, gap: 10 };
+    } else if (w > 480) {
+      return { padding: 10, gap: 8 };
+    } else {
+      return { padding: 10, gap: 7 };
+    }
+  }, [windowWidth, isTablet]);
 
-    // Calculate grid dimensions using native formulas
-    // W = container width, p = padding, g = gap
-    // availableWidth = W - 2*p
-    // itemWidth = (availableWidth - (columns - 1) * g) / columns
-    // specialWidth = (availableWidth - g) / 2 (for two items side-by-side)
-    const { itemWidth, fullWidth, specialWidth, buttonHeight } = useMemo(() => {
-      const screenWidth = windowWidth || Dimensions.get('window').width;
-      const availableWidth = screenWidth - padding * 2; // W - 2*p
+  // Calculate grid dimensions using native formulas
+  // W = container width, p = padding, g = gap
+  // availableWidth = W - 2*p
+  // itemWidth = (availableWidth - (columns - 1) * g) / columns
+  // specialWidth = (availableWidth - g) / 2 (for two items side-by-side)
+  const { itemWidth, fullWidth, specialWidth, buttonHeight } = useMemo(() => {
+    const screenWidth = windowWidth || Dimensions.get('window').width;
+    const availableWidth = screenWidth - padding * 2; // W - 2*p
 
-      // Grid item width: (W - 2*p - (columns - 1) * g) / columns
-      const calculatedItemWidth = Math.floor(
-        (availableWidth - (computedColumns - 1) * gap) / computedColumns
-      );
-      const gridItemHeight = calculatedItemWidth; // Square items
-
-      // Full width for stacked special items: availableWidth
-      const calculatedFullWidth = availableWidth;
-
-      // Special width for side-by-side items: (availableWidth - g) / 2
-      const calculatedSpecialWidth = Math.floor((availableWidth - gap) / 2);
-
-      // Reduced height for popular now and latest buttons (80% of grid item height)
-      const calculatedButtonHeight = Math.round(gridItemHeight * 0.8);
-
-      return {
-        itemWidth: calculatedItemWidth,
-        fullWidth: calculatedFullWidth,
-        specialWidth: calculatedSpecialWidth,
-        buttonHeight: calculatedButtonHeight,
-      };
-    }, [windowWidth, padding, gap, computedColumns]);
-
-    const shouldShowSpecialInRow = useMemo(() => {
-      return computedColumns >= 4 || isTablet;
-    }, [computedColumns, isTablet]);
-
-    const specialItemHeight = useMemo(() => {
-      return shouldShowSpecialInRow ? Math.round(buttonHeight * 0.9) : buttonHeight;
-    }, [shouldShowSpecialInRow, buttonHeight]);
-
-    // Separate popular now and latest from other channels
-    const popularNowChannel = channels.find(ch => {
-      const slug = extractFeedSlug(ch.uri || '');
-      return slug === 'popular-now';
-    });
-    const latestChannel = channels.find(ch => {
-      const slug = extractFeedSlug(ch.uri || '');
-      return slug === 'latest';
-    });
-    const otherChannels = channels.filter(ch => {
-      const slug = extractFeedSlug(ch.uri || '');
-      return slug !== 'popular-now' && slug !== 'latest';
-    });
-
-    // Render special items header
-    const renderSpecialItems = () => {
-      if (!popularNowChannel && !latestChannel) return null;
-
-      if (shouldShowSpecialInRow) {
-        // Two items side-by-side using calculated specialWidth
-        return (
-          <View style={[styles.specialRow, { marginBottom: gap }]}>
-            {popularNowChannel && (
-              <View style={{ width: specialWidth }}>
-                <HorizontalChannelItem
-                  channel={popularNowChannel}
-                  itemWidth={specialWidth}
-                  itemHeight={specialItemHeight}
-                  onPress={() => {
-                    if (popularNowChannel.uri && popularNowChannel.uri.trim()) {
-                      router.navigate({
-                        pathname: '/channel/[id]',
-                        params: { id: popularNowChannel.uri.trim() },
-                      });
-                    }
-                  }}
-                />
-              </View>
-            )}
-            {latestChannel && (
-              <View style={{ width: specialWidth, marginLeft: gap }}>
-                <HorizontalChannelItem
-                  channel={latestChannel}
-                  itemWidth={specialWidth}
-                  itemHeight={specialItemHeight}
-                  onPress={() => {
-                    if (latestChannel.uri && latestChannel.uri.trim()) {
-                      router.navigate({
-                        pathname: '/channel/[id]',
-                        params: { id: latestChannel.uri.trim() },
-                      });
-                    }
-                  }}
-                />
-              </View>
-            )}
-          </View>
-        );
-      } else {
-        // Stacked items using fullWidth
-        return (
-          <View style={{ marginBottom: gap }}>
-            {popularNowChannel && (
-              <View style={{ width: fullWidth, marginBottom: gap }}>
-                <HorizontalChannelItem
-                  channel={popularNowChannel}
-                  itemWidth={fullWidth}
-                  itemHeight={specialItemHeight}
-                  onPress={() => {
-                    if (popularNowChannel.uri && popularNowChannel.uri.trim()) {
-                      router.navigate({
-                        pathname: '/channel/[id]',
-                        params: { id: popularNowChannel.uri.trim() },
-                      });
-                    }
-                  }}
-                />
-              </View>
-            )}
-            {latestChannel && (
-              <View style={{ width: fullWidth }}>
-                <HorizontalChannelItem
-                  channel={latestChannel}
-                  itemWidth={fullWidth}
-                  itemHeight={specialItemHeight}
-                  onPress={() => {
-                    if (latestChannel.uri && latestChannel.uri.trim()) {
-                      router.navigate({
-                        pathname: '/channel/[id]',
-                        params: { id: latestChannel.uri.trim() },
-                      });
-                    }
-                  }}
-                />
-              </View>
-            )}
-          </View>
-        );
-      }
-    };
-
-    return (
-      <View style={[styles.channelsGridContainer, { paddingHorizontal: padding }]}>
-        {/* Render special items */}
-        {renderSpecialItems()}
-
-        {/* Render grid items with proper width calculations */}
-        {otherChannels.length > 0 && (
-          <View style={styles.gridItemsContainer}>
-            {otherChannels.map((channel, index) => {
-              const isLastInRow = (index + 1) % computedColumns === 0;
-              const wrapperStyle = [
-                styles.gridChannelWrapper,
-                {
-                  width: itemWidth,
-                  marginRight: isLastInRow ? 0 : gap,
-                  marginBottom: gap,
-                },
-              ];
-              return (
-                <View
-                  key={`orbyt-channel-${channel.uri || channel.cid || index}`}
-                  style={wrapperStyle}
-                >
-                  <GridChannelItem
-                    channel={channel}
-                    itemWidth={itemWidth}
-                    onPress={() => {
-                      if (channel.uri && channel.uri.trim()) {
-                        router.navigate({
-                          pathname: '/channel/[id]',
-                          params: { id: channel.uri.trim() },
-                        });
-                      }
-                    }}
-                  />
-                </View>
-              );
-            })}
-          </View>
-        )}
-      </View>
+    // Grid item width: (W - 2*p - (columns - 1) * g) / columns
+    const calculatedItemWidth = Math.floor(
+      (availableWidth - (computedColumns - 1) * gap) / computedColumns
     );
-  }
-);
+    const gridItemHeight = calculatedItemWidth; // Square items
+
+    // Full width for stacked special items: availableWidth
+    const calculatedFullWidth = availableWidth;
+
+    // Special width for side-by-side items: (availableWidth - g) / 2
+    const calculatedSpecialWidth = Math.floor((availableWidth - gap) / 2);
+
+    // Reduced height for popular now and latest buttons (80% of grid item height)
+    const calculatedButtonHeight = Math.round(gridItemHeight * 0.8);
+
+    return {
+      itemWidth: calculatedItemWidth,
+      fullWidth: calculatedFullWidth,
+      specialWidth: calculatedSpecialWidth,
+      buttonHeight: calculatedButtonHeight,
+    };
+  }, [windowWidth, padding, gap, computedColumns]);
+
+  const shouldShowSpecialInRow = useMemo(() => {
+    return computedColumns >= 4 || isTablet;
+  }, [computedColumns, isTablet]);
+
+  const specialItemHeight = useMemo(() => {
+    return shouldShowSpecialInRow ? Math.round(buttonHeight * 0.9) : buttonHeight;
+  }, [shouldShowSpecialInRow, buttonHeight]);
+
+  // Separate popular now and latest from other channels
+  const popularNowChannel = channels.find(ch => {
+    const slug = extractFeedSlug(ch.uri || '');
+    return slug === 'popular-now';
+  });
+  const latestChannel = channels.find(ch => {
+    const slug = extractFeedSlug(ch.uri || '');
+    return slug === 'latest';
+  });
+  const otherChannels = channels.filter(ch => {
+    const slug = extractFeedSlug(ch.uri || '');
+    return slug !== 'popular-now' && slug !== 'latest';
+  });
+
+  // Render special items header
+  const renderSpecialItems = () => {
+    if (!popularNowChannel && !latestChannel) return null;
+
+    if (shouldShowSpecialInRow) {
+      // Two items side-by-side using calculated specialWidth
+      return (
+        <View style={[styles.specialRow, { marginBottom: gap }]}>
+          {popularNowChannel && (
+            <View style={{ width: specialWidth }}>
+              <HorizontalChannelItem
+                channel={popularNowChannel}
+                itemWidth={specialWidth}
+                itemHeight={specialItemHeight}
+                onPress={() => {
+                  if (popularNowChannel.uri && popularNowChannel.uri.trim()) {
+                    goToChannel(encodeURIComponent(popularNowChannel.uri.trim()));
+                  }
+                }}
+              />
+            </View>
+          )}
+          {latestChannel && (
+            <View style={{ width: specialWidth, marginLeft: gap }}>
+              <HorizontalChannelItem
+                channel={latestChannel}
+                itemWidth={specialWidth}
+                itemHeight={specialItemHeight}
+                onPress={() => {
+                  if (latestChannel.uri && latestChannel.uri.trim()) {
+                    goToChannel(encodeURIComponent(latestChannel.uri.trim()));
+                  }
+                }}
+              />
+            </View>
+          )}
+        </View>
+      );
+    } else {
+      // Stacked items using fullWidth
+      return (
+        <View style={{ marginBottom: gap }}>
+          {popularNowChannel && (
+            <View style={{ width: fullWidth, marginBottom: gap }}>
+              <HorizontalChannelItem
+                channel={popularNowChannel}
+                itemWidth={fullWidth}
+                itemHeight={specialItemHeight}
+                onPress={() => {
+                  if (popularNowChannel.uri && popularNowChannel.uri.trim()) {
+                    goToChannel(encodeURIComponent(popularNowChannel.uri.trim()));
+                  }
+                }}
+              />
+            </View>
+          )}
+          {latestChannel && (
+            <View style={{ width: fullWidth }}>
+              <HorizontalChannelItem
+                channel={latestChannel}
+                itemWidth={fullWidth}
+                itemHeight={specialItemHeight}
+                onPress={() => {
+                  if (latestChannel.uri && latestChannel.uri.trim()) {
+                    goToChannel(encodeURIComponent(latestChannel.uri.trim()));
+                  }
+                }}
+              />
+            </View>
+          )}
+        </View>
+      );
+    }
+  };
+
+  return (
+    <View style={[styles.channelsGridContainer, { paddingHorizontal: padding }]}>
+      {/* Render special items */}
+      {renderSpecialItems()}
+
+      {/* Render grid items with proper width calculations */}
+      {otherChannels.length > 0 && (
+        <View style={styles.gridItemsContainer}>
+          {otherChannels.map((channel, index) => {
+            const isLastInRow = (index + 1) % computedColumns === 0;
+            const wrapperStyle = [
+              styles.gridChannelWrapper,
+              {
+                width: itemWidth,
+                marginRight: isLastInRow ? 0 : gap,
+                marginBottom: gap,
+              },
+            ];
+            return (
+              <View
+                key={`orbyt-channel-${channel.uri || channel.cid || index}`}
+                style={wrapperStyle}
+              >
+                <GridChannelItem
+                  channel={channel}
+                  itemWidth={itemWidth}
+                  onPress={() => {
+                    if (channel.uri && channel.uri.trim()) {
+                      goToChannel(encodeURIComponent(channel.uri.trim()));
+                    }
+                  }}
+                />
+              </View>
+            );
+          })}
+        </View>
+      )}
+    </View>
+  );
+});
 OrbytChannelsGrid.displayName = 'orbytChannelsGrid';
 
 const ExploreScreen: React.FC = () => {
@@ -1193,6 +1175,8 @@ const ExploreScreen: React.FC = () => {
 
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { navigateToProfile: goToProfile, navigateToChannel: goToChannel } =
+    useProfileChannelNavigation();
 
   // Use the follow mutation hook for proper cache management
   const followMutation = useFollowMutation();
@@ -1448,7 +1432,7 @@ const ExploreScreen: React.FC = () => {
       if (item.type === 'profile') {
         const did = item.did;
         const hydrated = recentProfilesByDid.get(did);
-        navigateToProfile(
+        prefetchProfileThenOpen(
           hydrated ??
             ({
               did,
@@ -1458,39 +1442,33 @@ const ExploreScreen: React.FC = () => {
               description: '',
             } as unknown as Profile),
           queryClient,
-          router
+          goToProfile
         );
       } else if (item.type === 'channel') {
         if (item.uri) {
-          router.navigate({
-            pathname: '/channel/[id]',
-            params: { id: item.uri },
-          });
+          goToChannel(encodeURIComponent(item.uri));
         }
       }
     },
-    [queryClient, router, recentProfilesByDid]
+    [goToChannel, goToProfile, queryClient, recentProfilesByDid]
   );
 
   const handleProfileNavigation = useCallback(
     (profile: Profile) => {
       addVisit('profile', profile);
-      navigateToProfile(profile, queryClient, router);
+      prefetchProfileThenOpen(profile, queryClient, goToProfile);
     },
-    [addVisit, queryClient, router]
+    [addVisit, goToProfile, queryClient]
   );
 
   const handleChannelNavigation = useCallback(
     (channel: Channel) => {
       addVisit('channel', channel);
       if (channel.uri) {
-        router.navigate({
-          pathname: '/channel/[id]',
-          params: { id: channel.uri },
-        });
+        goToChannel(encodeURIComponent(channel.uri));
       }
     },
-    [addVisit, router]
+    [addVisit, goToChannel]
   );
 
   // Determine search pages
@@ -2139,10 +2117,7 @@ const ExploreScreen: React.FC = () => {
                           description: profile.description,
                           verification: profile.verification,
                         }).finally(() => {
-                          router.navigate({
-                            pathname: '/profile/[did]',
-                            params: { did },
-                          });
+                          goToProfile(did);
                         });
                       }
                     }
@@ -2166,11 +2141,7 @@ const ExploreScreen: React.FC = () => {
                       channel={channel}
                       onPress={() => {
                         if (channel.uri && channel.uri.trim()) {
-                          // Navigate to channel using Expo Router
-                          router.navigate({
-                            pathname: '/channel/[id]',
-                            params: { id: channel.uri.trim() },
-                          });
+                          goToChannel(encodeURIComponent(channel.uri.trim()));
                         }
                       }}
                     />
@@ -2183,7 +2154,7 @@ const ExploreScreen: React.FC = () => {
                 return <PopularChannelsLoading />;
               }
 
-              return <OrbytChannelsGrid channels={item.channels} router={router} />;
+              return <OrbytChannelsGrid channels={item.channels} />;
             }
             return null;
           }}

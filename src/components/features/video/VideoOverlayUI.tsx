@@ -16,10 +16,7 @@ import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '../../../theme';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
-import {
-  useOverlayLayout,
-  OVERLAY_LAYOUT_FALLBACK_BOTTOM_NAV,
-} from '../../../context/OverlayLayoutContext';
+import { useOverlayLayout } from '../../../context/OverlayLayoutContext';
 import { HeartFillIcon, ChatFillIcon, RefreshFillIcon, MoreFillIcon } from '../../ui/Icon';
 import { isCurrentUser } from '../../../stores/profileInteractionStore';
 import { Avatar } from '../../ui/UI';
@@ -28,7 +25,8 @@ import { formatHandle } from '../../../utils/formatting/handles';
 import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
 import { VerificationBadge, BotBadge } from '../badging';
 import { useGlobalShareSheet, useGlobalCommentSection } from '../../../hooks/useGlobalModals';
-import { useRouter, useSegments } from 'expo-router';
+import { useRouter } from 'expo-router';
+import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { useFollowContext } from '../../../context/FollowContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { prefetchProfile } from '../../../services/data/ProfileService';
@@ -75,7 +73,6 @@ export interface VideoOverlayUIProps {
 const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   post,
   isVisible,
-  isModal = false,
   feedOption,
   overlayOpacitySV,
   onOverlayCollapsedChange,
@@ -104,16 +101,12 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   const overlayLayout = useOverlayLayout();
   const deviceLayout = useDeviceLayout();
   const isTabletDevice = overlayLayout?.isTablet ?? deviceLayout.isTablet;
-  const isCompactDeviceValue = overlayLayout?.isCompactDevice ?? deviceLayout.isCompact;
-  const bottomNavBarHeight =
-    overlayLayout?.bottomNavBarHeight ?? OVERLAY_LAYOUT_FALLBACK_BOTTOM_NAV;
 
   const { screenWidth: width } = deviceLayout;
   const { presentShareSheet } = useGlobalShareSheet();
   const { presentCommentSection } = useGlobalCommentSection();
   const navigation = useRouter();
-  const segments = useSegments();
-  const hasTabBar = Array.isArray(segments) && segments[0] === '(tabs)';
+  const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
   const queryClient = useQueryClient();
 
   // Overlay state
@@ -179,12 +172,9 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
         );
       }
 
-      navigation.navigate({
-        pathname: '/profile/[did]',
-        params: { did: cleanDid },
-      });
+      goToProfile(cleanDid);
     },
-    [navigation, queryClient]
+    [goToProfile, queryClient]
   );
 
   // Navigation to hashtag feed
@@ -421,6 +411,8 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   const showFollowText = hasProfile && !actualIsFollowing && !isCurrentUserProfile;
 
   // Memoize dynamic styles to prevent style object recreation to prevent style object recreation
+  // Pin to the bottom of the video card only. Feed list height already excludes the tab bar
+  // (see ListFeedView maxViewportAboveTabBar); do not inset by bottomNavBarHeight or the overlay floats.
   const overlayContentStyle = useMemo(
     () => [
       styles.overlayContentContainer,
@@ -429,13 +421,8 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
         paddingTop: contentPadding,
         paddingBottom: contentPadding,
       },
-      isModal
-        ? { bottom: 0 }
-        : hasTabBar && isCompactDeviceValue
-          ? { bottom: bottomNavBarHeight }
-          : {},
     ],
-    [contentPadding, isModal, isCompactDeviceValue, bottomNavBarHeight, hasTabBar]
+    [contentPadding]
   );
 
   // Opacity from composed overlayOpacitySV (itemVisibility + overlayVisibility + scrubbing)

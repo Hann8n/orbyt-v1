@@ -1,4 +1,4 @@
-import type { ComponentProps } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
 import {
@@ -19,11 +19,13 @@ import {
   Platform,
   ScrollView,
   Alert,
-  Modal,
   Pressable,
   useWindowDimensions,
   Linking,
   Keyboard,
+  InteractionManager,
+  type StyleProp,
+  type ViewStyle,
 } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
@@ -33,6 +35,7 @@ import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import BlurredBackground from '@/components/ui/BlurredBackground';
 import { FlashList } from '@shopify/flash-list';
 import { Link, useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import {
@@ -56,7 +59,6 @@ import { OptionsButton } from '@/components/ui/OptionsButton';
 import VerticalListSheet, { VerticalListButton } from '@/components/ui/VerticalListSheet';
 import AuthorItem from '@/components/ui/AuthorItem';
 import { itemSizeConfig, sharedItemStyles } from '@/components/ui/ItemStyles';
-import { hexToRGBA } from '@/utils/formatting/colors';
 import { useAvatarProfileRing } from '@/services/colors';
 import { formatHandle } from '@/utils/formatting/handles';
 import { queryKeys } from '@/utils/query/queryKeys';
@@ -75,15 +77,16 @@ import { getVideoView } from '@/utils/video/helpers';
 import type { PostView } from '@/services/api/types';
 import type { RichTextFacet } from '@/utils/types/richText';
 import EmojiPicker from 'react-native-emoji-chooser';
+import * as Clipboard from 'expo-clipboard';
+import * as Haptics from 'expo-haptics';
 import Animated, { FadeIn } from 'react-native-reanimated';
+import { MenuView } from '@react-native-menu/menu';
+import type { MenuAction, MenuComponentRef } from '@react-native-menu/menu';
 
 const EMBED_VIDEO_GRADIENT_SHIM = require('@/assets/embed-video-gradient-shim.png');
 
 /** Chat message item: full MessageView from API (id, rev, text, facets?, embed?, sender, sentAt, reactions?, etc.) */
 type MessageItem = MessageView & { sender?: { did: string } };
-
-/** Quick-reaction emojis (aligned with Bluesky chat defaults) */
-const QUICK_REACTIONS = ['❤️', '👍', '👀', '😢', '😂'] as const;
 
 /** Reaction shape from chat.bsky.convo messageView */
 type ReactionShape = { value: string; sender?: { did?: string }; createdAt?: string };
@@ -209,6 +212,7 @@ function ChatMessageRichText({
   isFromMe: boolean;
 }) {
   const router = useRouter();
+  const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
   const parts = useMemo(() => formatChatRichTextParts(text, facets), [text, facets]);
 
   const handlePartPress = useCallback(
@@ -218,10 +222,7 @@ function ChatMessageRichText({
       if (part.kind === 'mention' && part.identifier) {
         const clean = part.identifier.trim();
         if (!clean) return;
-        router.navigate({
-          pathname: '/profile/[did]',
-          params: { did: clean },
-        });
+        goToProfile(clean);
         return;
       }
 
@@ -246,7 +247,7 @@ function ChatMessageRichText({
         Linking.openURL(url).catch(() => {});
       }
     },
-    [router]
+    [goToProfile, router]
   );
 
   return (
@@ -536,267 +537,118 @@ function MessageReactions({
 }
 
 const REACTION_PICKER_SHEET_NAME = 'chat-reaction-picker';
-const PICKER_WIDTH_EST = 310;
-const PICKER_HEIGHT_EST = 56;
-const PICKER_OFFSET = 4;
-const SCREEN_PADDING = 8;
 
-/** Message bounds in window coords (from measureInWindow). Used to root the reaction picker above or below the message. */
-type MessageBounds = { top: number; bottom: number; left: number; width: number };
-
-/** When set, nested content (e.g. embeds) calls this to open the reaction picker with the row's measured bounds. */
+/** Nested content (e.g. embeds) calls this to open the same reaction menu as long-press on the row. */
 const ReactionPickerRowContext = createContext<(() => void) | null>(null);
 
-/** Vertical band where the picker is allowed (between header and input row). */
-function getPickerSafeVerticalRange(
-  screenHeight: number,
-  safeArea: { top: number; bottom: number }
-): { minTop: number; maxTop: number } {
-  const headerHeight = safeArea.top + 56;
-  const footerHeight = 60 + safeArea.bottom;
-  return {
-    minTop: headerHeight,
-    maxTop: screenHeight - footerHeight - PICKER_HEIGHT_EST,
-  };
-}
+type ReactionPickerState = { messageId: string; showFullSheet: true } | null;
 
-/** Picker top so it sits just above or just below the message, clamped to the safe band. */
-function clampPickerTopToMessage(
-  messageBounds: MessageBounds,
-  safe: { minTop: number; maxTop: number }
-): number {
-  const topIfAbove = messageBounds.top - PICKER_HEIGHT_EST - PICKER_OFFSET;
-  const topIfBelow = messageBounds.bottom + PICKER_OFFSET;
-  const fitsAbove = topIfAbove >= safe.minTop;
-  const top = fitsAbove ? topIfAbove : topIfBelow;
-  return Math.max(safe.minTop, Math.min(safe.maxTop, top));
-}
-
-type ReactionPickerState = {
-  messageId: string;
-  messageBounds: MessageBounds | null;
-  showFullSheet: boolean;
-} | null;
-
-/** Encapsulates reaction overlay + sheet state and open/close. Single closePicker() clears everything. */
+/** Full emoji sheet; long-press menu has React (opens sheet), Copy, Delete. */
 function useReactionPicker() {
   const [state, setState] = useState<ReactionPickerState>(null);
 
-  const openPicker = useCallback((messageId: string, bounds: MessageBounds | null) => {
-    setState({ messageId, messageBounds: bounds, showFullSheet: false });
+  const openFullPicker = useCallback((messageId: string) => {
+    setState({ messageId, showFullSheet: true });
   }, []);
 
   const closePicker = useCallback(() => {
     setState(null);
   }, []);
 
-  const openFullSheet = useCallback(() => {
-    setState(prev => (prev ? { ...prev, showFullSheet: true } : null));
-  }, []);
-
   return {
     state,
-    openPicker,
+    openFullPicker,
     closePicker,
-    openFullSheet,
-    isOverlayVisible: state != null && !state.showFullSheet,
-    isSheetVisible: state != null && state.showFullSheet,
+    isSheetVisible: state != null,
   };
 }
 
-/** Wraps a message row: measures its own ref on long-press and provides that open action via context so embeds open the picker with correct position. */
 function ChatMessageRow({
   messageId,
-  onOpenPicker,
+  message,
+  onOpenFullReactionPicker,
+  onCopyMessage,
+  onDeleteMessageForSelf,
   entering,
   pressableStyle,
   children,
 }: {
   messageId: string;
-  onOpenPicker: (messageId: string, bounds: MessageBounds | null) => void;
+  message: MessageItem;
+  onOpenFullReactionPicker: (messageId: string) => void;
+  onCopyMessage: (messageId: string) => void;
+  onDeleteMessageForSelf: (messageId: string) => void;
   entering?: ComponentProps<typeof Animated.View>['entering'];
-  pressableStyle: Parameters<typeof NativePressable>[0]['style'];
-  children: React.ReactNode;
-}) {
-  const rowRef = useRef<View | null>(null);
-  const openWithBounds = useCallback(() => {
-    const el = rowRef.current;
-    if (el) {
-      el.measureInWindow((x, y, w, h) => {
-        onOpenPicker(messageId, { top: y, bottom: y + h, left: x, width: w });
-      });
-    } else {
-      onOpenPicker(messageId, null);
-    }
-  }, [messageId, onOpenPicker]);
-
-  return (
-    <ReactionPickerRowContext.Provider value={openWithBounds}>
-      <Animated.View entering={entering} ref={rowRef}>
-        <NativePressable onLongPress={openWithBounds} delayLongPress={400} style={pressableStyle}>
-          {children}
-        </NativePressable>
-      </Animated.View>
-    </ReactionPickerRowContext.Provider>
-  );
-}
-
-/** Overlay: positioned quick-reaction pill above or below the selected message; + opens full picker sheet. Selected = my reaction = current user accent (fallback orbyt green). */
-function ReactionOverlayModal({
-  visible,
-  messageBounds,
-  isFromMe,
-  safeAreaInsets,
-  onDismiss,
-  onSelect,
-  onOpenFullPicker,
-  currentReactions,
-  currentUserDid,
-  sentAccentColor,
-}: {
-  visible: boolean;
-  messageBounds: MessageBounds | null;
-  isFromMe: boolean;
-  safeAreaInsets: { top: number; bottom: number };
-  onDismiss: () => void;
-  onSelect: (value: string) => void;
-  onOpenFullPicker: () => void;
-  currentReactions: ReactionShape[] | undefined;
-  currentUserDid: string | undefined;
-  sentAccentColor?: string;
+  pressableStyle: StyleProp<ViewStyle>;
+  children: ReactNode;
 }) {
   const { t } = useTranslation();
-  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const defaultPosition = useMemo(
-    () => ({ left: screenWidth / 2 - PICKER_WIDTH_EST / 2, top: 100 }),
-    [screenWidth]
+  const menuRef = useRef<MenuComponentRef>(null);
+  const openMenu = useCallback(() => {
+    menuRef.current?.show();
+  }, []);
+
+  const canCopyMessage = !!(message.text && message.text.trim().length > 0);
+
+  const menuActions = useMemo<MenuAction[]>(() => {
+    const reactAction: MenuAction = {
+      id: 'react',
+      title: t('chat.react'),
+    };
+
+    const copyAction: MenuAction = {
+      id: 'copy',
+      title: t('common.copy'),
+      attributes: { disabled: !canCopyMessage },
+    };
+
+    const deleteAction: MenuAction = {
+      id: 'delete_for_me',
+      title: t('chat.deleteMessageForMe'),
+      attributes: { destructive: true },
+    };
+
+    return [reactAction, copyAction, deleteAction];
+  }, [t, canCopyMessage]);
+
+  const onPressAction = useCallback(
+    ({ nativeEvent }: { nativeEvent: { event?: string } }) => {
+      const id = nativeEvent?.event;
+      if (!id) return;
+      if (id === 'react') {
+        // Let the native menu finish closing before presenting the sheet (avoids overlapping animations / odd “fly away” motion).
+        InteractionManager.runAfterInteractions(() => {
+          onOpenFullReactionPicker(messageId);
+        });
+        return;
+      }
+      if (id === 'copy') {
+        onCopyMessage(messageId);
+        return;
+      }
+      if (id === 'delete_for_me') {
+        onDeleteMessageForSelf(messageId);
+        return;
+      }
+    },
+    [messageId, onOpenFullReactionPicker, onCopyMessage, onDeleteMessageForSelf]
   );
-  const [lastPosition, setLastPosition] = useState<{ left: number; top: number } | null>(null);
-  const [lastMessageBounds, setLastMessageBounds] = useState<MessageBounds | null>(null);
-
-  if (visible && messageBounds) {
-    if (messageBounds !== lastMessageBounds) setLastMessageBounds(messageBounds);
-    const rawLeft = isFromMe
-      ? messageBounds.left + messageBounds.width - PICKER_WIDTH_EST
-      : messageBounds.left;
-    const left = Math.max(
-      SCREEN_PADDING,
-      Math.min(screenWidth - PICKER_WIDTH_EST - SCREEN_PADDING, rawLeft)
-    );
-    const safe = getPickerSafeVerticalRange(screenHeight, safeAreaInsets);
-    const top = clampPickerTopToMessage(messageBounds, safe);
-    if (lastPosition?.left !== left || lastPosition?.top !== top) {
-      setLastPosition({ left, top });
-    }
-  }
-
-  const position = useMemo(() => {
-    if (messageBounds) {
-      const rawLeft = isFromMe
-        ? messageBounds.left + messageBounds.width - PICKER_WIDTH_EST
-        : messageBounds.left;
-      const left = Math.max(
-        SCREEN_PADDING,
-        Math.min(screenWidth - PICKER_WIDTH_EST - SCREEN_PADDING, rawLeft)
-      );
-      const safe = getPickerSafeVerticalRange(screenHeight, safeAreaInsets);
-      const top = clampPickerTopToMessage(messageBounds, safe);
-      return { left, top };
-    }
-    return lastPosition ?? defaultPosition;
-  }, [
-    messageBounds,
-    isFromMe,
-    screenWidth,
-    screenHeight,
-    safeAreaInsets,
-    defaultPosition,
-    lastPosition,
-  ]);
-
-  const positionStyle = useMemo(
-    () => ({ left: position.left, top: position.top }),
-    [position.left, position.top]
-  );
-  const hasReaction = (value: string) =>
-    currentReactions?.some(r => r.value === value && r.sender?.did === currentUserDid) ?? false;
-
-  const quickEmojis = useMemo(() => {
-    const mine = (currentReactions ?? [])
-      .filter(r => r.sender?.did === currentUserDid)
-      .map(r => r.value ?? '')
-      .filter(Boolean);
-    return [...new Set([...mine, ...QUICK_REACTIONS])];
-  }, [currentReactions, currentUserDid]);
-
-  const boundsForCutout = messageBounds ?? lastMessageBounds;
-  const dimBands = useMemo(() => {
-    if (!boundsForCutout) return null;
-    const { top: t, bottom: b, left: l, width: w } = boundsForCutout;
-    const dimStyle = styles.reactionPickerDimBand;
-    return (
-      <>
-        <View style={[dimStyle, styles.reactionPickerDimTop, { height: t }]} />
-        <View style={[dimStyle, styles.reactionPickerDimBottom, { top: b }]} />
-        <View
-          style={[dimStyle, styles.reactionPickerDimLeft, { top: t, width: l, height: b - t }]}
-        />
-        <View
-          style={[dimStyle, styles.reactionPickerDimRight, { top: t, left: l + w, height: b - t }]}
-        />
-      </>
-    );
-  }, [boundsForCutout]);
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onDismiss}>
-      <View style={styles.reactionPickerBackdrop}>
-        {dimBands ?? <View style={[StyleSheet.absoluteFill, styles.reactionPickerDimBand]} />}
-        <NativePressable style={StyleSheet.absoluteFill} onPress={onDismiss} />
-        <View style={[styles.reactionPickerContent, positionStyle]}>
-          {quickEmojis.map(value => {
-            const selected = hasReaction(value);
-            return (
-              <NativePressable
-                key={value}
-                style={({ pressed }) => [
-                  styles.reactionPickerButton,
-                  {
-                    backgroundColor: selected
-                      ? (sentAccentColor ?? Colors.brand.teal)
-                      : REACTION_CHIP_STYLE.bgDefault,
-                    borderColor: REACTION_CHIP_STYLE.borderColorDefault,
-                  },
-                  selected && {
-                    borderColor: sentAccentColor ?? REACTION_CHIP_STYLE.borderColorMine,
-                  },
-                  pressed && { opacity: 0.85 },
-                ]}
-                onPress={() => onSelect(value)}
-              >
-                <Text style={styles.reactionPickerEmoji}>{value}</Text>
-              </NativePressable>
-            );
-          })}
-          <NativePressable
-            style={({ pressed }) => [
-              styles.reactionPickerButton,
-              styles.reactionPickerMoreButton,
-              {
-                backgroundColor: REACTION_CHIP_STYLE.bgDefault,
-                borderColor: REACTION_CHIP_STYLE.borderColorDefault,
-              },
-              pressed && { opacity: 0.85 },
-            ]}
-            onPressIn={onOpenFullPicker}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            accessibilityLabel={t('a11y.moreEmoji')}
-          >
-            <Icon name="plus" size={20} color={Colors.neutral[400]} />
-          </NativePressable>
-        </View>
-      </View>
-    </Modal>
+    <ReactionPickerRowContext.Provider value={openMenu}>
+      <Animated.View entering={entering} style={styles.chatMessageRowAnimated}>
+        <MenuView
+          ref={menuRef}
+          actions={menuActions}
+          onPressAction={onPressAction}
+          shouldOpenOnLongPress
+          themeVariant="dark"
+          style={styles.chatMessageMenuView}
+        >
+          <View style={pressableStyle}>{children}</View>
+        </MenuView>
+      </Animated.View>
+    </ReactionPickerRowContext.Provider>
   );
 }
 
@@ -1424,6 +1276,62 @@ export default function ChatScreen() {
     },
   });
 
+  const handleReactionSelect = useCallback(
+    (messageId: string, value: string) => {
+      const raw = messagesData?.messages ?? [];
+      const msg = raw.find((m: { id?: string }) => m.id === messageId) as MessageItem | undefined;
+      const reactions = msg?.reactions ?? [];
+      const hasReaction = reactions.some(
+        (r: ReactionShape) => r.value === value && r.sender?.did === currentUserDid
+      );
+      reactionMutation.mutate({ messageId, value, add: !hasReaction });
+    },
+    [messagesData?.messages, currentUserDid, reactionMutation]
+  );
+
+  const handleCopyMessage = useCallback(
+    async (messageId: string) => {
+      const raw = messagesData?.messages ?? [];
+      const msg = raw.find((m: { id?: string }) => m.id === messageId) as MessageItem | undefined;
+      const text = msg?.text?.trim() ?? '';
+      if (!text) return;
+      try {
+        await Clipboard.setStringAsync(text);
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } catch {
+        // ignore clipboard failures
+      }
+    },
+    [messagesData?.messages]
+  );
+
+  const deleteMessageForSelfMutation = useMutation({
+    mutationFn: (messageId: string) => ChatService.deleteMessageForSelf(convoId, messageId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.chat.messages.byConversation(convoId),
+      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.all });
+    },
+    onError: () => {
+      Alert.alert(t('common.error'), t('errors.failedTryAgain'));
+    },
+  });
+
+  const handleDeleteMessageForSelf = useCallback(
+    (messageId: string) => {
+      Alert.alert(t('chat.deleteMessageForMe'), t('chat.deleteMessageConfirm'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.delete'),
+          style: 'destructive',
+          onPress: () => deleteMessageForSelfMutation.mutate(messageId),
+        },
+      ]);
+    },
+    [deleteMessageForSelfMutation, t]
+  );
+
   // Newest message id (getMessages returns newest first); pass to updateRead so server marks read up to this message
   const latestMessageId = useMemo(() => {
     const messages = (messagesData?.messages ?? []) as MessageItem[];
@@ -1582,7 +1490,10 @@ export default function ChatScreen() {
       return (
         <ChatMessageRow
           messageId={msg.id}
-          onOpenPicker={reactionPicker.openPicker}
+          message={msg}
+          onOpenFullReactionPicker={reactionPicker.openFullPicker}
+          onCopyMessage={handleCopyMessage}
+          onDeleteMessageForSelf={handleDeleteMessageForSelf}
           entering={entering}
           pressableStyle={[
             styles.messageRow,
@@ -1653,7 +1564,9 @@ export default function ChatScreen() {
       otherUserAccentColor,
       sentMessageAccentBorderStyle,
       otherMessageAccentBorderStyle,
-      reactionPicker,
+      reactionPicker.openFullPicker,
+      handleCopyMessage,
+      handleDeleteMessageForSelf,
     ]
   );
 
@@ -1682,10 +1595,12 @@ export default function ChatScreen() {
 
   const handleBack = useCallback(() => router.back(), [router]);
 
+  const { navigateToProfile: goToProfileFromChat } = useProfileChannelNavigation();
+
   const handleViewProfile = useCallback(() => {
     TrueSheet.dismiss('chat-menu');
-    if (otherDid) router.navigate({ pathname: '/profile/[did]', params: { did: otherDid } });
-  }, [router, otherDid]);
+    if (otherDid) goToProfileFromChat(otherDid);
+  }, [goToProfileFromChat, otherDid]);
 
   const muteConvoMutation = useMutation({
     mutationFn: (mute: boolean) =>
@@ -1789,19 +1704,6 @@ export default function ChatScreen() {
     if (!text || sendMessageMutation.isPending) return;
     sendMessageMutation.mutate(text);
   }, [inputText, sendMessageMutation]);
-
-  const handleReactionSelect = useCallback(
-    (messageId: string, value: string) => {
-      const raw = messagesData?.messages ?? [];
-      const msg = raw.find((m: { id?: string }) => m.id === messageId) as MessageItem | undefined;
-      const reactions = msg?.reactions ?? [];
-      const hasReaction = reactions.some(
-        (r: ReactionShape) => r.value === value && r.sender?.did === currentUserDid
-      );
-      reactionMutation.mutate({ messageId, value, add: !hasReaction });
-    },
-    [messagesData?.messages, currentUserDid, reactionMutation]
-  );
 
   const pickerMessage = useMemo(() => {
     const messageId = reactionPicker.state?.messageId;
@@ -1954,23 +1856,6 @@ export default function ChatScreen() {
           </NativePressable>
         </View>
       </View>
-
-      <ReactionOverlayModal
-        visible={reactionPicker.isOverlayVisible}
-        messageBounds={reactionPicker.state?.messageBounds ?? null}
-        isFromMe={pickerMessage?.sender?.did === currentUserDid}
-        safeAreaInsets={{ top: insets.top, bottom: insets.bottom }}
-        onDismiss={reactionPicker.closePicker}
-        onSelect={value => {
-          if (reactionPicker.state?.messageId)
-            handleReactionSelect(reactionPicker.state.messageId, value);
-          reactionPicker.closePicker();
-        }}
-        onOpenFullPicker={reactionPicker.openFullSheet}
-        currentReactions={pickerMessage?.reactions}
-        currentUserDid={currentUserDid ?? undefined}
-        sentAccentColor={sentMessageAccentColor}
-      />
 
       <ReactionPickerSheet
         visible={reactionPicker.isSheetVisible}
@@ -2323,6 +2208,13 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'flex-start',
   },
+  chatMessageRowAnimated: {
+    width: '100%',
+  },
+  chatMessageMenuView: {
+    width: '100%',
+    alignSelf: 'stretch',
+  },
   dateSeparator: {
     paddingVertical: 10,
     alignItems: 'center',
@@ -2440,59 +2332,6 @@ const styles = StyleSheet.create({
   },
   reactionCountOnAccent: {
     color: REACTION_CHIP_STYLE.countColorOnColoredBg,
-  },
-  reactionPickerBackdrop: {
-    flex: 1,
-    backgroundColor: hexToRGBA(Colors.black, 0),
-  },
-  reactionPickerDimBand: {
-    position: 'absolute',
-    backgroundColor: hexToRGBA(Colors.black, 0.4),
-  },
-  reactionPickerDimTop: {
-    top: 0,
-    left: 0,
-    right: 0,
-  },
-  reactionPickerDimBottom: {
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  reactionPickerDimLeft: {
-    left: 0,
-  },
-  reactionPickerDimRight: {
-    right: 0,
-  },
-  reactionPickerContent: {
-    position: 'absolute',
-    flexDirection: 'row',
-    gap: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 6,
-    borderRadius: 28,
-    backgroundColor: Colors.neutral[900],
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 12,
-    elevation: 12,
-  },
-  reactionPickerButton: {
-    width: REACTION_SHEET_CHIP_SIZE,
-    height: REACTION_SHEET_CHIP_SIZE,
-    borderRadius: REACTION_SHEET_CHIP_SIZE / 2,
-    borderWidth: REACTION_CHIP_STYLE.borderWidth,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  reactionPickerEmoji: {
-    fontSize: 24,
-  },
-  reactionPickerMoreButton: {
-    borderLeftWidth: 1,
-    borderLeftColor: REACTION_CHIP_STYLE.borderColorDefault,
   },
   reactionSheetHeader: {
     paddingHorizontal: 20,

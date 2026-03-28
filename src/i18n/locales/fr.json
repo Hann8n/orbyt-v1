@@ -588,6 +588,9 @@
     "chatRequest": "Demande de chat",
     "tapToOpen": "Appuie pour ouvrir",
     "reactWith": "Réagir avec {{emoji}}",
+    "react": "Réagir",
+    "deleteMessageForMe": "Supprimer pour moi",
+    "deleteMessageConfirm": "Ce message sera retiré de votre vue. Les autres peuvent encore le voir.",
     "cantLoadConversations": "impossible de charger les messages",
     "embedImage": "Insérer une image"
   },

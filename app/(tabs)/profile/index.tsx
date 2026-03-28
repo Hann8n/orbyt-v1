@@ -746,7 +746,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
                   });
                 };
                 if (modalProfileEnabled) {
-                  router.dismissTo('/(tabs)/');
+                  router.dismissTo('/(tabs)/home');
                   setTimeout(pushChat, 0);
                 } else {
                   pushChat();

@@ -753,6 +753,13 @@ const VideoPostScreen: React.FC = () => {
         setMergedVideoPath(mergedVideo.path);
         setIsMerging(false);
 
+        const mergedPoster = await VideoProcessingService.extractFirstFrame(mergedVideo.path).catch(
+          () => undefined
+        );
+        if (mergedPoster) {
+          setThumbnailPath(mergedPoster);
+        }
+
         logger.info('Background merging completed', {
           component: 'VideoPostScreen',
           mergedPath: mergedVideo.path,
@@ -950,15 +957,18 @@ const VideoPostScreen: React.FC = () => {
         channelSlug,
       };
 
-      // Use thumbnail from params (passed from create) or extract for upload banner
-      const bannerThumbnail =
-        thumbnailPath ??
-        (await VideoProcessingService.extractFirstFrame(videoPathToUpload).catch(() => null));
+      // Prefer a frame from the file we upload (avoids stale segment preview / broken paths)
+      let bannerThumbnail: string | null =
+        (await VideoProcessingService.extractFirstFrame(videoPathToUpload).catch(() => null)) ??
+        null;
+      if (!bannerThumbnail && thumbnailPath) {
+        bannerThumbnail = thumbnailPath;
+      }
       if (bannerThumbnail) {
         storage.set('video-upload-thumbnail', bannerThumbnail);
       }
 
-      router.replace('/(tabs)');
+      router.replace('/(tabs)/home');
 
       (async () => {
         try {

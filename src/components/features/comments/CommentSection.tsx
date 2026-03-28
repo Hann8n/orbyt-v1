@@ -24,7 +24,7 @@ import Animated, {
 import { FlashList, ListRenderItem, FlashListRef } from '@shopify/flash-list';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import type { TrueSheet as TrueSheetHandle } from '@lodev09/react-native-true-sheet';
@@ -55,6 +55,28 @@ import { CommentLikeItem } from './CommentLikeItem';
 import KlipyGifPickerSheet from './KlipyGifPickerSheet';
 import type { Comment, Like } from '../../../services/api/types';
 import type { KlipyItem } from '../../../services/klipy/KlipyService';
+
+function normalizeKlipyAssetUrl(url: string | undefined): string | undefined {
+  if (!url || typeof url !== 'string') return undefined;
+  const t = url.trim();
+  if (!t) return undefined;
+  if (t.startsWith('//')) return `https:${t}`;
+  return t;
+}
+
+function isLikelyRasterImageUrl(url: string): boolean {
+  const clean = url.split('?')[0].toLowerCase();
+  return /\.(gif|webp|png|jpe?g)$/i.test(clean);
+}
+
+/** Prefer static preview for Bluesky thumb upload; allow protocol-relative URLs and image fullUrl fallback. */
+function klipyThumbUrlForEmbed(item: KlipyItem): string | undefined {
+  const preview = normalizeKlipyAssetUrl(item.previewUrl);
+  const full = normalizeKlipyAssetUrl(item.fullUrl);
+  if (preview && /^https?:\/\//.test(preview)) return preview;
+  if (full && /^https?:\/\//.test(full) && isLikelyRasterImageUrl(full)) return full;
+  return undefined;
+}
 
 /**
  * Types (kept compatible with your current usage)
@@ -621,10 +643,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
                   : selectedGif!.kind === 'emoji'
                     ? 'Klipy Emoji'
                     : 'Klipy GIF',
-            thumb:
-              selectedGif!.previewUrl && /^https?:\/\//.test(selectedGif.previewUrl)
-                ? selectedGif.previewUrl
-                : undefined,
+            thumb: klipyThumbUrlForEmbed(selectedGif!),
           }
         : undefined;
 
@@ -770,7 +789,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     }
   }, [visible, post, post?.uri, presentedPostUri]);
 
-  const router = useRouter();
+  const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
 
   const renderCommentItem = useCallback<ListRenderItem<Comment>>(
     ({ item }) => {
@@ -795,17 +814,14 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         onDismiss?.();
         if (item.actor.did) {
           setTimeout(() => {
-            router.navigate({
-              pathname: '/profile/[did]',
-              params: { did: item.actor.did },
-            });
+            goToProfile(item.actor.did);
           }, 100);
         }
       };
 
       return <CommentLikeItem like={item} onPress={handlePress} />;
     },
-    [onDismiss, router]
+    [goToProfile, onDismiss]
   );
 
   const CommentsEmptyComponent = useMemo(() => {

@@ -6,6 +6,5 @@ export * from './utils';
 export * from './hooks';
 export * from './components';
 export * from './services';
-export * from '../app/(tabs)';
 
 export * from './stores';

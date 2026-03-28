@@ -4,6 +4,7 @@ import { BORDER_RADIUS } from '../../utils/constants';
 import { StyleSheet, Text, View, StyleProp, ViewStyle, ActivityIndicator } from 'react-native';
 import { NativePressable } from './NativePressable';
 import { useRouter } from 'expo-router';
+import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { Avatar } from './UI';
 import VerificationBadge from '../features/badging/VerificationBadge';
 import BotBadge from '../features/badging/BotBadge';
@@ -139,6 +140,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
 }) => {
   const { t } = useTranslation();
   const router = useRouter();
+  const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
   const queryClient = useQueryClient();
   const currentUser = useUserStore(state => state.currentUser);
 
@@ -178,10 +180,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
       // Dismiss modal/sheet first, then navigate to profile
       router.dismiss();
       setTimeout(() => {
-        router.navigate({
-          pathname: '/profile/[did]',
-          params: { did: cleanDid },
-        });
+        goToProfile(cleanDid);
       }, 100);
     }
   };

@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useRouter } from 'expo-router';
+import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import ListScreen from '@/components/ui/ListScreen';
 import AtprotoService from '@/services/api/AtprotoService';
@@ -10,7 +10,7 @@ import type { ProfileViewBasic, FollowersResponse } from '@/services/api/types';
 
 const FollowersScreen: React.FC = () => {
   const { t } = useTranslation();
-  const navigation = useRouter();
+  const { navigateToProfile: goToProfile } = useProfileChannelNavigation({ fallbackTab: 'home' });
   const queryClient = useQueryClient();
   const { currentUser } = useCurrentUser();
 
@@ -66,14 +66,11 @@ const FollowersScreen: React.FC = () => {
               }
             : undefined
         ).finally(() => {
-          navigation.navigate({
-            pathname: '/profile/[did]',
-            params: { did: targetDid },
-          });
+          goToProfile(targetDid);
         });
       }
     },
-    [navigation, queryClient, followers]
+    [goToProfile, queryClient, followers]
   );
 
   return (

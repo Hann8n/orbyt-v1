@@ -12,7 +12,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
-import { useRouter } from 'expo-router';
+import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import UniversalHeader, { HeaderContent } from './UniversalHeader';
 import { useChannelColors } from '../../../services/data/ChannelService';
 import { PlusIcon, CheckIcon, ListViewIcon, GridViewIcon, STROKE_WIDTH_THICK } from '../../ui/Icon';
@@ -234,7 +234,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   contentFadeDisabled = false,
   dimOverlayDisabled = false,
 }) => {
-  const navigation = useRouter();
+  const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
 
   const feedScroll = useFeedScroll();
   const contentScrollProgressSV = feedScroll?.contentScrollProgressSV;
@@ -288,10 +288,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
       ? () => {
           const did = channel.creator!.did?.trim();
           if (!did) return;
-          navigation.navigate({
-            pathname: '/profile/[did]',
-            params: { did },
-          });
+          goToProfile(did);
         }
       : undefined;
 
@@ -334,7 +331,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
       onTitlePress: handleCreatorPress,
       hideAvatar: isOrbyt,
     };
-  }, [channel, navigation, safeTextColor, isOrbyt]);
+  }, [channel, goToProfile, safeTextColor, isOrbyt]);
 
   // Determine status bar style based on background color brightness
   const statusBarStyle = useMemo(() => {

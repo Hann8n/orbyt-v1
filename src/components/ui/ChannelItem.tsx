@@ -2,7 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text, View, StyleProp, ViewStyle } from 'react-native';
 import { NativePressable } from './NativePressable';
-import { useRouter } from 'expo-router';
+import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { Avatar } from './UI';
 import { Colors } from './UI';
 import Icon from './Icon';
@@ -48,7 +48,7 @@ const ChannelItem: React.FC<ChannelItemProps> = ({
   customFontSize,
 }) => {
   const { t } = useTranslation();
-  const router = useRouter();
+  const { navigateToChannel: goToChannel } = useProfileChannelNavigation();
 
   const config = itemSizeConfig[size];
   const actualDisplayName =
@@ -66,10 +66,7 @@ const ChannelItem: React.FC<ChannelItemProps> = ({
     if (onPress) {
       onPress();
     } else if (uri && uri.trim()) {
-      router.navigate({
-        pathname: '/channel/[id]',
-        params: { id: uri.trim() },
-      });
+      goToChannel(encodeURIComponent(uri.trim()));
     }
   };
 

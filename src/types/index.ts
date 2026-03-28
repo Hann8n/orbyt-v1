@@ -90,7 +90,7 @@ export interface TextOverlay {
 
 /**
  * Ref interface for HomeScreen
- * @usage app/(tabs)/index.tsx:9
+ * @usage app/(tabs)/home/index.tsx:9
  */
 export interface HomeScreenRef {
   refresh: () => void;
@@ -122,7 +122,7 @@ import type { ExtendedFeedViewPost } from '../services/api/types';
 /**
  * Feed option type for UI navigation
  * Consolidated definition — matches `src/services/FeedService.ts` (app feed), not `AtprotoFeedService`
- * @usage app/(tabs)/index.tsx:9
+ * @usage app/(tabs)/home/index.tsx:9
  * @usage src/components/features/feed/ListFeedView.tsx:50
  */
 export type FeedOption =

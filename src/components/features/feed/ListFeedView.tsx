@@ -18,6 +18,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView as RNScreensSafeAreaView } from 'react-native-screens/experimental';
 import Animated, {
   useSharedValue,
   useDerivedValue,
@@ -33,7 +34,6 @@ import {
   RenderTargetOptions,
 } from '@shopify/flash-list';
 import { FeedScrollProvider } from '../../../context/FeedScrollContext';
-import { useOverlayLayout } from '../../../context/OverlayLayoutContext';
 import EmptyFeed from './EmptyFeed';
 import { VideoItem } from './VideoItem';
 import GridFeedView from './GridFeedView';
@@ -44,9 +44,10 @@ import {
   getProfileColors,
   isHeaderFeed as getIsHeaderFeed,
 } from './feedViewShared';
-import { getViewportDimensions } from '../../../utils/device/screen';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
-import { buildListSnapViewport } from './listSnapViewport';
+import { isIosLiquidGlassAvailable } from '@/stores/userStore';
+import { getViewportDimensions } from '../../../utils/device/screen';
+import { getVideoCardHeight } from '../../../utils/video/helpers';
 import { Colors } from '../../../theme';
 import { APP_CONSTANTS, SCROLL_CONSTANTS, QUERY_CONSTANTS } from '../../../utils/constants';
 import type { FeedListItem, EndCardItem, ListFeedViewProps, ListFeedViewRef } from '../../../types';
@@ -161,7 +162,8 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     // Layout state
     const [headerHeight, setHeaderHeight] = useState(0);
-    const [measuredViewportHeight, setMeasuredViewportHeight] = useState<number | null>(null);
+    /** Pixel height of the feed region from onLayout — source of truth once laid out (profile pager, tab shell, modals). */
+    const [feedLayoutHeight, setFeedLayoutHeight] = useState(0);
     // Track scroll-based blocking state (driven by useAnimatedReaction when crossing HEADER_BLOCKING_THRESHOLD)
     const [scrollBasedBlocking, setScrollBasedBlocking] = useState(() => Boolean(headerComponent));
 
@@ -193,25 +195,35 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       []
     );
 
-    // Device detection
-    const { screenWidth: width, screenHeight, isCompact: isCompactDevice } = useDeviceLayout();
+    const { screenWidth, screenHeight, isCompact } = useDeviceLayout();
     const isHeaderFeed = getIsHeaderFeed(feedOption, headerComponent);
+    const hasTabBar = !isModal;
+    /** Pre–SafeAreaView list snap: `getViewportDimensions` + `getVideoCardHeight` (peek under glass tab bar). */
+    const useLegacyIosTabLiquidGlassLayout = hasTabBar && isIosLiquidGlassAvailable;
+    /**
+     * Native tabs only auto-adjust the first ScrollView on iOS; FlashList does not get tab-bar insets.
+     * Non–liquid-glass iOS: RNScreens SafeAreaView bottom inset avoids clipping (Expo-recommended).
+     * Liquid glass iOS: legacy viewport + card height; list draws under the tab bar for next-card peek.
+     * @see https://docs.expo.dev/router/advanced/native-tabs/#safe-area-handling
+     */
+    const useNativeTabBottomSafeArea =
+      hasTabBar && Platform.OS === 'ios' && !isIosLiquidGlassAvailable;
 
-    const viewportDimensions = getViewportDimensions(isModal, isHeaderFeed, insets);
-    const overlayLayout = useOverlayLayout();
-    const effectiveBottomNavBarHeight =
-      overlayLayout?.bottomNavBarHeight ?? viewportDimensions.bottomNavBarHeight;
-    const { useLegacyLiquidGlassLayout, snapViewportHeight, cardHeightForList } =
-      buildListSnapViewport({
-        screenWidth: width,
-        screenHeight,
-        legacyViewportHeight: viewportDimensions.height,
-        bottomNavBarHeight: effectiveBottomNavBarHeight,
-      });
-    const autoViewportHeight = measuredViewportHeight ?? snapViewportHeight;
-    const viewableAreaHeight = useLegacyLiquidGlassLayout ? snapViewportHeight : autoViewportHeight;
-    const cardHeight = useLegacyLiquidGlassLayout
-      ? cardHeightForList
+    const viewableAreaHeight = (() => {
+      if (!hasTabBar) {
+        const maxViewport = Math.max(0, screenHeight - insets.bottom);
+        return feedLayoutHeight > 0 ? Math.min(feedLayoutHeight, maxViewport) : maxViewport;
+      }
+      if (useLegacyIosTabLiquidGlassLayout) {
+        return getViewportDimensions(isModal, isHeaderFeed, insets).height;
+      }
+      if (feedLayoutHeight > 0) {
+        return feedLayoutHeight;
+      }
+      return Math.max(0, screenHeight - insets.top - insets.bottom);
+    })();
+    const cardHeight = useLegacyIosTabLiquidGlassLayout
+      ? getVideoCardHeight(screenWidth, screenHeight)
       : Math.max(0, viewableAreaHeight - FEED_VIEW_CONSTANTS.LIST_ITEM_GAP);
 
     const { onViewableItemsChanged, viewabilityConfig, canPlay, feedKey } = useFeedVisibility({
@@ -357,41 +369,30 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     // FlashList's ItemSeparatorComponent adds spacing between items, so we need to account for it
     // Total spacing from start of one item to start of next = cardHeight + LIST_ITEM_GAP
     const itemSpacing = cardHeight + FEED_VIEW_CONSTANTS.LIST_ITEM_GAP;
-    const snapToIntervalValue = itemSpacing;
     const hasHeader = Boolean(headerComponent);
 
-    // Header-feed specific top inset policy for snapping
-    // - Header feeds:
-    //   - Small/tablet devices -> snap items to the very top (ignore top safe area)
-    //   - Taller root/header feeds -> snap just below the status bar safe area
-    // - Non-header feeds keep existing behavior (small devices ignore inset to stay full-screen)
-    const headerSnapTopInset = !isHeaderFeed
-      ? null
-      : useLegacyLiquidGlassLayout
-        ? isCompactDevice || (isModal && hasHeader)
-          ? 0
-          : insets.top
-        : 0;
+    /**
+     * iOS tab + liquid glass (original list): offset snaps by top safe area on non-compact devices
+     * so the first card aligns with the status bar / notch region.
+     */
+    const snapTopInset = (() => {
+      if (!useLegacyIosTabLiquidGlassLayout) {
+        return 0;
+      }
+      if (isHeaderFeed) {
+        return isCompact || (isModal && hasHeader) ? 0 : insets.top;
+      }
+      return isCompact ? 0 : insets.top;
+    })();
 
-    const nonHeaderSnapTopInset = useLegacyLiquidGlassLayout
-      ? isCompactDevice
-        ? 0
-        : insets.top
-      : 0;
-    const snapTopInset = headerSnapTopInset !== null ? headerSnapTopInset : nonHeaderSnapTopInset;
-
-    const snapToOffsets = (() => {
-      // Always use snapToOffsets when there's a header to properly account for header height
-      // snapToInterval doesn't account for headers, so it causes scroll issues
-      if (useLegacyLiquidGlassLayout && !hasHeader && isCompactDevice) return null;
-
+    const snapToOffsets = ((): number[] | null => {
+      if (useLegacyIosTabLiquidGlassLayout && !hasHeader && isCompact) {
+        return null;
+      }
       const offsets: number[] = hasHeader ? [0] : [];
 
       for (let i = 0; i < listData.length; i++) {
         if (hasHeader && headerHeight > 0 && cardHeight > 0) {
-          // Header height from onLayout already includes all padding (including safe area)
-          // Use full headerHeight to ensure we scroll past the entire header
-          // For header feeds, adjust by snapTopInset so first card lands where desired
           const baseOffset = headerHeight + i * itemSpacing;
           offsets.push(baseOffset - (isHeaderFeed ? snapTopInset : 0));
         } else {
@@ -412,10 +413,10 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       }
     };
 
-    const handleContainerLayout = useCallback((e: LayoutChangeEvent) => {
+    const handleFeedLayout = useCallback((e: LayoutChangeEvent) => {
       const h = Math.round(e.nativeEvent.layout.height);
       if (h > 0) {
-        setMeasuredViewportHeight(prev => (prev === h ? prev : h));
+        setFeedLayoutHeight(prev => (prev === h ? prev : h));
       }
     }, []);
 
@@ -457,7 +458,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       const gridFeed = feed.filter(
         (item): item is ExtendedFeedViewPost => !('endCard' in item && item.endCard)
       );
-      return (
+      const grid = (
         <GridFeedView
           feed={gridFeed}
           headerComponent={headerComponent}
@@ -478,92 +479,119 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           snapTopInset={snapTopInset}
         />
       );
+      const tabSafeBg = backgroundColor || Colors.black;
+      return useNativeTabBottomSafeArea ? (
+        <RNScreensSafeAreaView
+          style={[styles.tabSceneSafeArea, { backgroundColor: tabSafeBg }]}
+          edges={{ bottom: true }}
+        >
+          {grid}
+        </RNScreensSafeAreaView>
+      ) : (
+        grid
+      );
     }
+
+    const listBody = (
+      <View
+        collapsable={false}
+        style={[styles.container, { backgroundColor: backgroundColor || Colors.black }]}
+        onLayout={handleFeedLayout}
+      >
+        <AnimatedFlashList
+          ref={flashListRef}
+          data={listData}
+          renderItem={renderItem}
+          keyExtractor={listKeyExtractor}
+          getItemType={getListItemType}
+          initialScrollIndex={initialScrollIndex}
+          ListHeaderComponent={
+            headerComponent ? (
+              <View onLayout={handleHeaderLayout}>
+                {headerComponent}
+                <View
+                  style={{
+                    height: FEED_VIEW_CONSTANTS.LIST_ITEM_GAP,
+                    backgroundColor: Colors.black,
+                  }}
+                />
+              </View>
+            ) : null
+          }
+          // Snapping configuration
+
+          pagingEnabled={false}
+          snapToOffsets={snapToOffsets ?? undefined}
+          snapToInterval={undefined}
+          snapToAlignment={undefined}
+          decelerationRate={
+            Platform.OS === 'ios'
+              ? SCROLL_CONSTANTS.DECELERATION_RATE_IOS
+              : SCROLL_CONSTANTS.DECELERATION_RATE_ANDROID
+          }
+          // Disable fast scrolling to prevent scrolling past multiple items
+          disableIntervalMomentum={true}
+          scrollEventThrottle={APP_CONSTANTS.SCROLL_THROTTLE}
+          onScroll={scrollHandler}
+          onEndReached={onLoadMore}
+          onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={viewabilityConfig}
+          // Scroll behavior
+          scrollEnabled={true}
+          showsVerticalScrollIndicator={false}
+          bounces={true}
+          directionalLockEnabled={true}
+          // Prevent horizontal interference
+          alwaysBounceVertical={false}
+          alwaysBounceHorizontal={false}
+          // Empty state components - extracted to memoized component
+          ListEmptyComponent={
+            <ListEmptyComponent
+              isLoading={isLoading}
+              effectiveIsError={effectiveIsError}
+              feedOption={feedOption}
+              secondaryColor={secondaryColor}
+              profileColors={profileColors}
+              isHeaderFeed={isHeaderFeed}
+              emptyComponentHeight={emptyComponentHeight}
+              onRetry={onRetry}
+            />
+          }
+          // Item separator for black gaps between cards
+          ItemSeparatorComponent={ItemSeparatorComponent}
+          contentContainerStyle={[
+            styles.contentContainer,
+            feed.length > 0 && {
+              // iOS tab: bottom inset is on RNScreensSafeAreaView wrapper. Android native tabs wrap content per Expo docs.
+              paddingBottom: useNativeTabBottomSafeArea ? 0 : insets.bottom,
+            },
+          ]}
+        />
+      </View>
+    );
 
     return (
       <FeedScrollProvider value={feedScrollValue}>
-        <View
-          style={[styles.container, { backgroundColor: backgroundColor || Colors.black }]}
-          onLayout={handleContainerLayout}
-        >
-          <AnimatedFlashList
-            ref={flashListRef}
-            data={listData}
-            renderItem={renderItem}
-            keyExtractor={listKeyExtractor}
-            getItemType={getListItemType}
-            initialScrollIndex={initialScrollIndex}
-            ListHeaderComponent={
-              headerComponent ? (
-                <View onLayout={handleHeaderLayout}>
-                  {headerComponent}
-                  <View
-                    style={{
-                      height: FEED_VIEW_CONSTANTS.LIST_ITEM_GAP,
-                      backgroundColor: Colors.black,
-                    }}
-                  />
-                </View>
-              ) : null
-            }
-            // Snapping configuration
-
-            pagingEnabled={false}
-            snapToOffsets={snapToOffsets ?? undefined}
-            snapToInterval={snapToOffsets ? undefined : snapToIntervalValue}
-            snapToAlignment={
-              snapToOffsets ? undefined : useLegacyLiquidGlassLayout ? 'center' : 'start'
-            }
-            decelerationRate={
-              Platform.OS === 'ios'
-                ? SCROLL_CONSTANTS.DECELERATION_RATE_IOS
-                : SCROLL_CONSTANTS.DECELERATION_RATE_ANDROID
-            }
-            // Disable fast scrolling to prevent scrolling past multiple items
-            disableIntervalMomentum={true}
-            scrollEventThrottle={APP_CONSTANTS.SCROLL_THROTTLE}
-            onScroll={scrollHandler}
-            onEndReached={onLoadMore}
-            onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
-            onViewableItemsChanged={onViewableItemsChanged}
-            viewabilityConfig={viewabilityConfig}
-            // Scroll behavior
-            scrollEnabled={true}
-            showsVerticalScrollIndicator={false}
-            bounces={true}
-            directionalLockEnabled={true}
-            // Prevent horizontal interference
-            alwaysBounceVertical={false}
-            alwaysBounceHorizontal={false}
-            // Empty state components - extracted to memoized component
-            ListEmptyComponent={
-              <ListEmptyComponent
-                isLoading={isLoading}
-                effectiveIsError={effectiveIsError}
-                feedOption={feedOption}
-                secondaryColor={secondaryColor}
-                profileColors={profileColors}
-                isHeaderFeed={isHeaderFeed}
-                emptyComponentHeight={emptyComponentHeight}
-                onRetry={onRetry}
-              />
-            }
-            // Item separator for black gaps between cards
-            ItemSeparatorComponent={ItemSeparatorComponent}
-            contentContainerStyle={[
-              styles.contentContainer,
-              feed.length > 0 && {
-                paddingBottom: effectiveBottomNavBarHeight,
-              },
-            ]}
-          />
-        </View>
+        {useNativeTabBottomSafeArea ? (
+          <RNScreensSafeAreaView
+            style={[styles.tabSceneSafeArea, { backgroundColor: backgroundColor || Colors.black }]}
+            edges={{ bottom: true }}
+          >
+            {listBody}
+          </RNScreensSafeAreaView>
+        ) : (
+          listBody
+        )}
       </FeedScrollProvider>
     );
   }
 );
 
 const styles = StyleSheet.create({
+  tabSceneSafeArea: {
+    flex: 1,
+  },
   container: {
     flex: 1,
   },

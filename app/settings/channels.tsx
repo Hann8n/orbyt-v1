@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Alert, View, Text, StyleSheet, FlatList } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { useRouter } from 'expo-router';
+import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useSubscribedChannels } from '@/hooks/useSubscribedChannels';
@@ -38,6 +39,7 @@ interface ChannelUser {
 export default function ChannelManagementScreen() {
   const { t } = useTranslation();
   const router = useRouter();
+  const { navigateToChannel: goToChannel } = useProfileChannelNavigation({ fallbackTab: 'home' });
   const insets = useSafeAreaInsets();
 
   const { subscribedChannels: channels, unsubscribeFromChannel } = useSubscribedChannels();
@@ -95,12 +97,9 @@ export default function ChannelManagementScreen() {
     if (selectedChannel?.uri) {
       TrueSheet.dismiss('settings-channels-sheet');
       setSelectedChannel(null);
-      router.navigate({
-        pathname: '/channel/[id]',
-        params: { id: selectedChannel.uri },
-      });
+      goToChannel(encodeURIComponent(selectedChannel.uri));
     }
-  }, [selectedChannel, router]);
+  }, [goToChannel, selectedChannel]);
 
   const handleUnsubscribe = useCallback(async () => {
     if (!selectedChannel?.uri) return;

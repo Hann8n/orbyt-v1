@@ -37,6 +37,7 @@ import { formatRelativeDate } from '../../ui/RelativeDate';
 import { queryKeys } from '../../../utils/query/queryKeys';
 import ChatSettingsSheet from './ChatSettingsSheet';
 import { useUserStore } from '../../../stores/userStore';
+import { useProfileChannelNavigation } from '../../../hooks/useProfileChannelNavigation';
 import { getActiveStreak, isStreakActive } from '../../../utils/chat/streak';
 import { useAvatarProfileRing } from '../../../services/colors';
 import type { ProfileViewBasic, RecordValue } from '../../../services/api/types';
@@ -141,6 +142,7 @@ const ConversationItem = React.memo<ConversationItemProps>(
   ({ item, navigation, onAccept, onDecline, isAccepting, isDeclining }) => {
     const { t } = useTranslation();
     const queryClient = useQueryClient();
+    const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
     const currentUser = useUserStore(s => s.currentUser);
     const other = useMemo(
       () => getOtherMember(item, currentUser?.did ?? undefined),
@@ -177,21 +179,15 @@ const ConversationItem = React.memo<ConversationItemProps>(
 
     const handleAvatarPress = useCallback(() => {
       if (other?.did) {
-        navigation.navigate({
-          pathname: '/profile/[did]',
-          params: { did: other.did },
-        });
+        goToProfile(other.did);
       }
-    }, [navigation, other]);
+    }, [goToProfile, other]);
 
     const handleNamePress = useCallback(() => {
       if (other?.did) {
-        navigation.navigate({
-          pathname: '/profile/[did]',
-          params: { did: other.did },
-        });
+        goToProfile(other.did);
       }
-    }, [navigation, other]);
+    }, [goToProfile, other]);
 
     const handleAccept = useCallback(() => {
       if (item.id) onAccept(item.id);

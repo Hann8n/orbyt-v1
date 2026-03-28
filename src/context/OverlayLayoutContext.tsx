@@ -8,7 +8,6 @@ import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 
 export interface OverlayLayoutValue {
   isTablet: boolean;
-  isCompactDevice: boolean;
   bottomNavBarHeight: number;
 }
 
@@ -18,7 +17,7 @@ const OverlayLayoutContext = createContext<OverlayLayoutValue | null>(null);
 export const OVERLAY_LAYOUT_FALLBACK_BOTTOM_NAV = 80;
 
 /**
- * Provides isTablet, isCompactDevice, and bottomNavBarHeight for overlay positioning.
+ * Provides isTablet and bottomNavBarHeight for overlay positioning.
  * Lifts per-item subscriptions to one. Place at root (e.g. app _layout) inside TabBarProvider.
  */
 export const OverlayLayoutProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -27,16 +26,15 @@ export const OverlayLayoutProvider: React.FC<{ children: React.ReactNode }> = ({
   const { nativeTabsEnabled } = useFeedSettings();
   const deviceLayout = useDeviceLayout();
 
-  const { isTablet, isCompact: isCompactDevice } = deviceLayout;
+  const { isTablet, isCompact } = deviceLayout;
 
   const value: OverlayLayoutValue = (() => {
-    const calculated = getBottomNavBarHeight(insets, isCompactDevice);
+    const calculated = getBottomNavBarHeight(insets, isCompact);
     const base = measuredTabBarHeight ?? calculated;
     const bottomNavBarHeight = nativeTabsEnabled ? base + 10 : base;
 
     return {
       isTablet,
-      isCompactDevice,
       bottomNavBarHeight,
     };
   })();

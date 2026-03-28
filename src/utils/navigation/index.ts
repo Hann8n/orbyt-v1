@@ -4,3 +4,4 @@
 
 export * from './tabRefs';
 export * from './bottomSheetRegistry';
+export * from './detailRoutes';

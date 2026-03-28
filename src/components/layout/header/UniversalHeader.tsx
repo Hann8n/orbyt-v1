@@ -29,6 +29,7 @@ import Icon, { BackArrowIcon, MoreFillIcon, STROKE_WIDTH_THICK } from '../../ui/
 import { NativePressable } from '../../ui/NativePressable';
 import { OutlinkIcon, GermDmIcon } from '../../ui/Icon';
 import { useRouter } from 'expo-router';
+import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { hexToRGBA, blendColors } from '../../../utils/formatting/colors';
 import { Avatar } from '../../ui/UI';
 import { Colors } from '../../../theme';
@@ -700,19 +701,16 @@ const HeaderContentComponent = memo<{
   customDescription?: React.ReactNode;
 }>(({ content, textColor, backgroundColor, customDescription }) => {
   const router = useRouter();
+  const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
 
   const navigateToAuthorProfile = useCallback(
     (identifier: string) => {
       const clean = (identifier || '').trim();
       if (!clean) return;
 
-      router.navigate({
-        pathname: '/profile/[did]',
-        // Route param is named [did], but we allow handle too and resolve inside ProfileScreen.
-        params: { did: clean },
-      });
+      goToProfile(clean);
     },
-    [router]
+    [goToProfile]
   );
 
   const navigateToHashtagFeed = useCallback(

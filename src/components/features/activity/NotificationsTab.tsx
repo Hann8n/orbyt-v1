@@ -47,6 +47,7 @@ import {
   type AppBskyFeedRepost,
 } from '@atproto/api';
 import { buildFullHeightVideoHref } from '@/utils/navigation/feedModalRoute';
+import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { seedFullHeightVideoFeedFromPostView } from '@/utils/chat/seedChatEmbedVideoFeed';
 import { useModerationSettings } from '../../../hooks/useModerationSettings';
 import { ModerationService } from '../../../services/moderation/ModerationService';
@@ -424,6 +425,7 @@ type NotificationItemProps = {
 const NotificationItem = React.memo<NotificationItemProps>(
   ({ item, navigation, queryClient, postDataMap, moderationOpts }) => {
     const { t } = useTranslation();
+    const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
     const currentUser = useUserStore(s => s.currentUser);
     const { reason, author, indexedAt, uri } = item;
     const { presentCommentSection } = useGlobalCommentSection();
@@ -487,19 +489,13 @@ const NotificationItem = React.memo<NotificationItemProps>(
                 }
               : undefined
           ).finally(() => {
-            navigation.navigate({
-              pathname: '/profile/[did]',
-              params: { did: trimmed },
-            });
+            goToProfile(trimmed);
           });
         } else {
-          navigation.navigate({
-            pathname: '/profile/[did]',
-            params: { did: trimmed },
-          });
+          goToProfile(trimmed);
         }
       },
-      [navigation, queryClient]
+      [goToProfile, queryClient]
     );
 
     const navigateToVideoPost = useCallback(

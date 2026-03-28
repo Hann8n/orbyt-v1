@@ -6,6 +6,11 @@ import { Colors } from '@/theme';
 import { useUnreadCount } from '@/hooks/useUnreadCount';
 import { getTabBarActiveTintFromProfile, TAB_BAR_INACTIVE_TINT } from '@/utils/formatting/colors';
 
+/** Default tab when opening `/(tabs)` without a segment (avoids resolving a missing `index` tab). */
+export const unstable_settings = {
+  initialRouteName: 'home',
+};
+
 export default function TabsLayout() {
   const { t } = useTranslation();
   const profileColors = useUserStore(state => state.currentUserProfileColors);
@@ -25,7 +30,12 @@ export default function TabsLayout() {
       badgeBackgroundColor={Colors.teal[600]}
       disableTransparentOnScrollEdge={true}
     >
-      <NativeTabs.Trigger name="index">
+      {/* Matches `index.tsx` redirect; hidden so deep links / old state don’t show a fifth tab */}
+      <NativeTabs.Trigger name="index" hidden>
+        <NativeTabs.Trigger.Label hidden />
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="home">
         <NativeTabs.Trigger.Icon src={require('@/assets/tab-icons/png/home_3_cute.png')} />
         <NativeTabs.Trigger.Label hidden={hideTabLabels}>{t('tabs.home')}</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>

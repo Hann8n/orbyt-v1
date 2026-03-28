@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { useRouter } from 'expo-router';
+import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
+import { buildChannelDetailHref } from '@/utils/navigation/detailRoutes';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import ListHeader from '@/components/ui/ListHeader';
@@ -52,6 +54,7 @@ interface ChannelUser {
 const AlgorithmicFeedScreen: React.FC = () => {
   const { t } = useTranslation();
   const router = useRouter();
+  const { hrefOpts } = useProfileChannelNavigation({ fallbackTab: 'home' });
   const queryClient = useQueryClient();
   const { algorithmicFeedProvider, setAlgorithmicFeedProvider } = useAlgorithmicFeedProvider();
   const [selectedUri, setSelectedUri] = useState<string | null>(algorithmicFeedProvider);
@@ -187,13 +190,9 @@ const AlgorithmicFeedScreen: React.FC = () => {
     if (selectedChannel?.uri) {
       TrueSheet.dismiss('algorithmic-feed-channel-options');
       setSelectedChannel(null);
-      // Use replace to ensure channel opens as fullscreen modal
-      router.replace({
-        pathname: '/channel/[id]',
-        params: { id: selectedChannel.uri },
-      });
+      router.replace(buildChannelDetailHref(encodeURIComponent(selectedChannel.uri), hrefOpts));
     }
-  }, [selectedChannel, router]);
+  }, [hrefOpts, router, selectedChannel]);
 
   const handleUnsubscribe = useCallback(async () => {
     if (!selectedChannel?.uri) return;

@@ -24,7 +24,7 @@ import { getStatusBarStyle } from '../../../utils/formatting/colors';
 import { RichText } from '@atproto/api';
 import { formatHandle } from '../../../utils/formatting/handles';
 import { openListInBluesky } from '../../../utils/links/bluesky';
-import { useRouter } from 'expo-router';
+import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { format, isValid, parseISO } from 'date-fns';
 
 /**
@@ -67,7 +67,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   subtitleAction,
 }) => {
   const { t } = useTranslation();
-  const router = useRouter();
+  const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
   const [showBetaInfo, setShowBetaInfo] = useState(false);
 
   const showVerificationInfoAlert = useCallback(() => {
@@ -103,13 +103,13 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       buttons.push({
         text: t('profile.viewVerifier'),
         onPress: () => {
-          router.navigate({ pathname: '/profile/[did]', params: { did: verifierDid } });
+          goToProfile(verifierDid);
         },
       });
     }
     buttons.push({ text: t('common.ok') });
     Alert.alert(t('profile.verified'), message, buttons);
-  }, [profileData, router, t]);
+  }, [goToProfile, profileData, t]);
 
   const showBotAccountAlert = useCallback(() => {
     Alert.alert(t('profile.botAccountTitle'), t('profile.botAccountDescription'), [

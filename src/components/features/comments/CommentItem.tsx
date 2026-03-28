@@ -23,7 +23,9 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
+import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { useQueryClient } from '@tanstack/react-query';
+import { AtUri } from '@atproto/api';
 import { prefetchProfile, useProfile } from '../../../services/data/ProfileService';
 import { useAvatarProfileRing } from '../../../services/colors';
 import { MenuView } from '@react-native-menu/menu';
@@ -107,13 +109,34 @@ function clampAspectRatio(ar: number) {
   return Math.max(ASPECT_RATIO_MIN, Math.min(ASPECT_RATIO_MAX, ar));
 }
 
+/** Repo DID for CDN blob URLs — author.did, or parsed from at:// URI when author is minimal. */
+function getCommentRepoDid(comment: Comment): string | undefined {
+  const fromAuthor = comment?.author?.did;
+  if (fromAuthor) return fromAuthor;
+  const uri = comment?.uri;
+  if (!uri || typeof uri !== 'string') return undefined;
+  try {
+    return new AtUri(uri).hostname;
+  } catch {
+    return undefined;
+  }
+}
+
 function resolveExternalThumbUrl(
-  thumb: string | { ref: { $link: string }; $type?: string } | undefined,
+  thumb: string | { ref?: { $link?: string }; cid?: string; $type?: string } | undefined,
   authorDid: string | undefined
 ): string | undefined {
   if (!thumb) return undefined;
-  if (typeof thumb === 'string' && thumb.startsWith('http')) return thumb;
-  const ref = thumb && typeof thumb === 'object' && thumb.ref?.$link;
+  if (typeof thumb === 'string') {
+    const t = thumb.trim();
+    if (t.startsWith('https://') || t.startsWith('http://')) return t;
+    if (t.startsWith('//')) return `https:${t}`;
+    return undefined;
+  }
+  const ref =
+    (typeof thumb.ref === 'object' && thumb.ref && typeof thumb.ref.$link === 'string'
+      ? thumb.ref.$link
+      : undefined) ?? (typeof thumb.cid === 'string' ? thumb.cid : undefined);
   if (ref && authorDid) {
     return `https://cdn.bsky.app/img/feed_thumbnail/plain/${encodeURIComponent(authorDid)}/${encodeURIComponent(ref)}@jpeg`;
   }
@@ -439,6 +462,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
   }, [isLiked, likeCount, likeUri, uri, cid, animateHeart, isLiking, updateCommentInteraction, t]);
 
   const navigation = useRouter();
+  const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
 
   // Modal-aware navigation to AuthorProfile (works inside FeedModal or regular screens)
   const navigateToAuthorProfile = useCallback(
@@ -465,13 +489,9 @@ const CommentItem: React.FC<CommentItemProps> = ({
       // Always dismiss the sheet first if provided
       onDismiss?.();
 
-      // Navigate to profile using DID only
-      navigation.navigate({
-        pathname: '/profile/[did]',
-        params: { did: cleanDid },
-      });
+      goToProfile(cleanDid);
     },
-    [navigation, onDismiss, queryClient]
+    [goToProfile, onDismiss, queryClient]
   );
 
   // Supports: (handle, did, authorData) from chyron/parent press, and (handle, { did }) from TextWithLinks/Atproto RichText.
@@ -825,7 +845,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
   }> = ({ external }) => {
     if (!external?.uri || !/^https?:\/\//.test(external.uri)) return null;
 
-    const thumbUrl = resolveExternalThumbUrl(external.thumb, comment?.author?.did);
+    const thumbUrl = resolveExternalThumbUrl(external.thumb, getCommentRepoDid(comment));
 
     const handlePress = () => {
       if (external.uri) {
@@ -945,12 +965,11 @@ const CommentItem: React.FC<CommentItemProps> = ({
       </View>
     );
 
-    const isDirectVideoUrl = (url: string) => /\.(mp4|webm|mov)$/i.test(url.split('?')[0]);
-
     if (external && external.uri && /^https?:\/\//.test(external.uri)) {
       const embedAccessibilityLabel =
         external.description || external.title || t('comments.commentImage');
 
+      // Full inline-image chrome only for direct image URLs (not video links with posters).
       if (isInlineImageUrl(external.uri)) {
         return renderExternalEmbedImage(
           external.uri,
@@ -959,16 +978,6 @@ const CommentItem: React.FC<CommentItemProps> = ({
               ? onImagePress(external.uri)
               : Linking.openURL(external.uri).catch(() => {}),
           external.uri,
-          embedAccessibilityLabel
-        );
-      }
-
-      const posterUrl = resolveExternalThumbUrl(external.thumb, comment?.author?.did);
-      if (posterUrl && isDirectVideoUrl(external.uri)) {
-        return renderExternalEmbedImage(
-          posterUrl,
-          () => Linking.openURL(external.uri).catch(() => {}),
-          `${external.uri}:${posterUrl}`,
           embedAccessibilityLabel
         );
       }

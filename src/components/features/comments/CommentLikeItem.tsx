@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
-import { useRouter } from 'expo-router';
+import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 
 import { Colors } from '../../../theme';
 import { formatHandle } from '../../../utils/formatting/handles';
@@ -20,7 +20,7 @@ type CommentLikeItemProps = {
 const AVATAR_SIZE = 40;
 
 const CommentLikeItemComponent: React.FC<CommentLikeItemProps> = ({ like, onPress }) => {
-  const router = useRouter();
+  const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
 
   const actor = like?.actor;
   const handle = actor?.handle ?? '';
@@ -38,11 +38,8 @@ const CommentLikeItemComponent: React.FC<CommentLikeItemProps> = ({ like, onPres
       return;
     }
     if (!did) return;
-    router.navigate({
-      pathname: '/profile/[did]',
-      params: { did },
-    });
-  }, [onPress, did, router]);
+    goToProfile(did);
+  }, [onPress, did, goToProfile]);
 
   return (
     <NativePressable onPress={handlePress} style={styles.row}>

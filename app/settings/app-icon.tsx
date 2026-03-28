@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
+import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import ExpoDynamicAppIcon from '@variant-systems/expo-dynamic-app-icon';
 import type { ImageSource } from 'expo-image';
 
@@ -170,6 +171,7 @@ const NUM_COLUMNS = 4;
 
 const AppIconSettingsScreen: React.FC = () => {
   const router = useRouter();
+  const { navigateToProfile: goToProfile } = useProfileChannelNavigation({ fallbackTab: 'home' });
   const [currentIcon, setCurrentIcon] = useState<AppIconKey>(getInitialIcon);
   const { currentUser } = useCurrentUser();
   const { data: orbytColors } = useOrbytColors(currentUser?.did ?? null);
@@ -234,12 +236,7 @@ const AppIconSettingsScreen: React.FC = () => {
                     {section.attribution && (
                       <TouchableOpacity
                         style={styles.attributionContainer}
-                        onPress={() =>
-                          router.navigate({
-                            pathname: '/profile/[did]',
-                            params: { did: section.attribution!.did },
-                          })
-                        }
+                        onPress={() => goToProfile(section.attribution!.did)}
                         activeOpacity={0.7}
                       >
                         <Text style={styles.attributionText}>by </Text>

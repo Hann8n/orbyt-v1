@@ -9,7 +9,6 @@ import React, {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRecyclingState } from '@shopify/flash-list';
-import { useRouter } from 'expo-router';
 import { useEvent } from 'expo';
 import { useVideoPlayer, VideoView as ExpoVideoView } from 'expo-video';
 import * as Haptics from 'expo-haptics';
@@ -45,6 +44,7 @@ import {
 import VideoOverlayUI from './VideoOverlayUI';
 import { useFocusEffect } from 'expo-router';
 import { useGlobalCommentSection } from '../../../hooks/useGlobalModals';
+import { useProfileChannelNavigation } from '../../../hooks/useProfileChannelNavigation';
 import { usePostInteractionStore } from '../../../stores/postInteractionStore';
 import { useProfile } from '../../../services/data/ProfileService';
 import { getProfileColors } from '../../../utils/formatting/colors';
@@ -992,14 +992,13 @@ const VideoCard = memo(
         queueInteraction,
       ]);
 
-      const navigation = useRouter();
+      const { navigateToChannel: goToChannel } = useProfileChannelNavigation();
 
       const handleChannelPress = useCallback(() => {
         if (channelUri) {
-          const encodedUri = encodeURIComponent(channelUri);
-          navigation.navigate(`/channel/${encodedUri}`);
+          goToChannel(encodeURIComponent(channelUri));
         }
-      }, [channelUri, navigation]);
+      }, [channelUri, goToChannel]);
 
       const handleShareInteraction = useCallback(() => {
         queueInteraction(INTERACTIONSHARE_CONST);
@@ -1072,7 +1071,12 @@ const VideoCard = memo(
             0,
             Math.min(itemBottom, viewportBottom) - Math.max(itemTop, scrollY)
           );
-          const raw = cardHeight > 0 ? Math.min(1, Math.max(0, overlap / cardHeight)) : 1;
+          // When cardHeight > viewport (e.g. legacy liquid-glass list: getVideoCardHeight uses full
+          // window height while FeedScroll viewportHeight excludes top inset + tab bar), overlap/cardHeight
+          // never reaches OVERLAY_DEAD_ZONE — scrubber + overlay stay faded. Normalize by the smaller span.
+          const visDenom =
+            viewportH > 0 && cardHeight > 0 ? Math.min(cardHeight, viewportH) : cardHeight;
+          const raw = visDenom > 0 ? Math.min(1, Math.max(0, overlap / visDenom)) : 1;
           if (raw >= OVERLAY_DEAD_ZONE) {
             p = 1;
           } else {

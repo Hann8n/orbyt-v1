@@ -588,6 +588,9 @@
     "chatRequest": "채팅 요청",
     "tapToOpen": "탭하여 열기",
     "reactWith": "{{emoji}}로 반응",
+    "react": "반응",
+    "deleteMessageForMe": "내 쪽에서만 삭제",
+    "deleteMessageConfirm": "이 메시지는 내 화면에서만 사라집니다. 상대방은 계속 볼 수 있어요.",
     "cantLoadConversations": "대화를 불러올 수 없어요",
     "embedImage": "이미지 삽입"
   },

@@ -47,6 +47,17 @@ import {
 import { REQUESTMORE, REQUESTLESS } from '@atproto/api/dist/client/types/app/bsky/feed/defs';
 import i18n from '../../../i18n';
 
+/** Resolve remote or local thumb URL for external embed upload (protocol-relative → https, keep file://). */
+function normalizeExternalEmbedThumbSource(raw: string | undefined): string | undefined {
+  if (!raw || typeof raw !== 'string') return undefined;
+  const t = raw.trim();
+  if (!t) return undefined;
+  if (t.startsWith('file://')) return t;
+  if (t.startsWith('https://') || t.startsWith('http://')) return t;
+  if (t.startsWith('//')) return `https:${t}`;
+  return undefined;
+}
+
 export class AtprotoFeedService {
   // Tracks whether app.bsky.feed.sendInteractions is supported by the current PDS/AppView
   // null = unknown (try once), true = supported, false = known unsupported (skip quietly)
@@ -413,16 +424,20 @@ export class AtprotoFeedService {
       let uploadedThumb:
         | { $type?: string; ref: { $link: string }; mimeType: string; size: number }
         | undefined;
-      if (externalEmbed.thumb && /^https?:\/\//.test(externalEmbed.thumb)) {
+      const thumbSource = normalizeExternalEmbedThumbSource(externalEmbed.thumb);
+      if (thumbSource) {
         try {
-          const thumbRes = await fetch(externalEmbed.thumb);
+          const thumbRes = await fetch(thumbSource);
+          if (!thumbRes.ok) {
+            throw new Error(`Thumb fetch failed: ${thumbRes.status}`);
+          }
           const blob = await thumbRes.blob();
           const fromBlob = typeof blob?.type === 'string' ? blob.type : '';
           const encoding =
             fromBlob && fromBlob.startsWith('image/')
               ? fromBlob
               : (() => {
-                  const clean = externalEmbed.thumb.split('?')[0].toLowerCase();
+                  const clean = thumbSource.split('?')[0].toLowerCase();
                   if (clean.endsWith('.webp')) return 'image/webp';
                   if (clean.endsWith('.png')) return 'image/png';
                   if (clean.endsWith('.gif')) return 'image/gif';

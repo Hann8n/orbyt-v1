@@ -567,6 +567,9 @@
     "chatWithUserFallback": "ユーザー",
     "chatRequest": "チャットリクエスト",
     "tapToOpen": "タップして開く",
+    "react": "リアクション",
+    "deleteMessageForMe": "自分側だけ削除",
+    "deleteMessageConfirm": "このメッセージはあなたの表示から消えます。相手側には残る場合があります。",
     "cantLoadConversations": "会話を読み込めません",
     "embedImage": "埋め込み画像"
   },

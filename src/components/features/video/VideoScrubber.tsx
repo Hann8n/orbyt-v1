@@ -14,17 +14,12 @@ import Animated, {
 import { scheduleOnUI, scheduleOnRN } from 'react-native-worklets';
 import { useEvent } from 'expo';
 import { type VideoPlayer } from 'expo-video';
-import { useSegments } from 'expo-router';
 import { Canvas, Rect } from '@shopify/react-native-skia';
 import { formatTime } from '../../../utils/formatting/time';
 import { Colors } from '../../../theme';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import { useUIStore } from '../../../stores/uiStore';
 import { useOverlayVisibility } from '../../../context/FeedIndicatorContext';
-import {
-  useOverlayLayout,
-  OVERLAY_LAYOUT_FALLBACK_BOTTOM_NAV,
-} from '../../../context/OverlayLayoutContext';
 
 interface VideoScrubberProps {
   active: boolean;
@@ -46,15 +41,8 @@ const VideoScrubberComponent = ({
   overlayOpacitySV,
 }: VideoScrubberProps) => {
   const isIOS = Platform.OS === 'ios';
-  const segments = useSegments();
-  const overlayLayout = useOverlayLayout();
   const deviceLayout = useDeviceLayout();
   const screenWidth = deviceLayout.screenWidth;
-  const isCompactDeviceValue = overlayLayout?.isCompactDevice ?? deviceLayout.isCompact;
-  const bottomNavBarHeight =
-    overlayLayout?.bottomNavBarHeight ?? OVERLAY_LAYOUT_FALLBACK_BOTTOM_NAV;
-  const hasTabBar = Array.isArray(segments) && segments[0] === '(tabs)';
-  const isModal = !hasTabBar;
 
   const setScrubbingState = useUIStore(state => state.setVisibility);
   const currentTimeSV = useSharedValue(0);
@@ -376,12 +364,7 @@ const VideoScrubberComponent = ({
     };
   });
 
-  // Calculate bottom offset; bottomNavBarHeight from OverlayLayoutContext already includes +10 when native tabs enabled
-  const scrubberBottomOffset = useMemo(() => {
-    if (isModal) return 0;
-    if (hasTabBar && isCompactDeviceValue) return bottomNavBarHeight;
-    return 0;
-  }, [isModal, hasTabBar, isCompactDeviceValue, bottomNavBarHeight]);
+  // Card bottom matches feed row (already above tab bar); keep scrubber flush to card bottom.
 
   if (!isIOS) {
     return null;
@@ -394,7 +377,7 @@ const VideoScrubberComponent = ({
           styles.timeContainer,
           styles.timeContainerPosition,
           {
-            bottom: scrubberTotalHeight + 5 + scrubberBottomOffset, // Position above scrubber bar at bottom of card
+            bottom: scrubberTotalHeight + 5, // Above scrubber track at bottom of card
           },
           timeStyle,
         ]}
@@ -408,10 +391,7 @@ const VideoScrubberComponent = ({
       </Animated.View>
 
       <GestureDetector gesture={scrubPanGesture}>
-        <Animated.View
-          style={[styles.scrubberContainer, { bottom: scrubberBottomOffset }]}
-          pointerEvents="box-none"
-        >
+        <Animated.View style={styles.scrubberContainer} pointerEvents="box-none">
           <Animated.View
             style={[styles.trackContainer, trackContainerOpacityStyle]}
             pointerEvents="auto"
@@ -493,6 +473,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
+    bottom: 0,
     width: '100%',
     zIndex: 10,
   },
