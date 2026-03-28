@@ -15,7 +15,6 @@ import { Colors } from '@/theme';
 import ChatsTab from '@/components/features/activity/ChatsTab';
 import NotificationsTab from '@/components/features/activity/NotificationsTab';
 import { useUnreadCount } from '@/hooks/useUnreadCount';
-import { useActivityFilterStore } from '@/stores/activityFilterStore';
 
 // Tab label keys (resolved via t() in component)
 const TAB_LABEL_KEYS: { [key: string]: string } = {
@@ -70,7 +69,6 @@ const ActivityScreen: React.FC = () => {
   const { t } = useTranslation();
   const pageScrollProgress = useSharedValue(0);
   const pagerViewRef = useRef<PagerView>(null);
-  const filterReasons = useActivityFilterStore(s => s.filterReasons);
   const insets = useSafeAreaInsets();
   const { notificationsCount, messagesCount } = useUnreadCount();
 
@@ -138,7 +136,6 @@ const ActivityScreen: React.FC = () => {
               ref={r => {
                 notificationsTabRef.current = r;
               }}
-              filterReasons={filterReasons}
             />
           </View>
           <View key="chats" style={styles.pagerPage} collapsable={false}>

@@ -29,11 +29,9 @@ import { feedService } from '../../../services/FeedService';
 import { formatRelativeDate } from '../../ui/RelativeDate';
 import { useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 import { useUserStore } from '../../../stores/userStore';
-import { useActivityFilterStore } from '../../../stores/activityFilterStore';
 import BlurredBackground from '../../ui/BlurredBackground';
 import { queryKeys } from '../../../utils/query/queryKeys';
 import { useAvatarProfileRing } from '../../../services/colors';
-import ActivitySegmentedChips from './ActivitySegmentedChips';
 import {
   moderateNotification,
   moderatePost,
@@ -46,7 +44,6 @@ import { useModerationSettings } from '../../../hooks/useModerationSettings';
 import { ModerationService } from '../../../services/moderation/ModerationService';
 import type {
   Notification,
-  NotificationReason,
   PostView,
   ExtendedFeedViewPost,
   RecordWithMediaView,
@@ -59,36 +56,12 @@ import { getVideoView } from '../../../utils/video/helpers';
 // Import radar.gif for empty notifications state
 const RadarGif = require('../../../assets/radar.gif');
 
-// Activity filter chips: label + reasons (grouped like notification-filter modal)
-const ACTIVITY_CHIP_OPTIONS: { labelKey: string; reasons: NotificationReason[] }[] = [
-  { labelKey: 'activity.likes', reasons: ['like', 'like-via-repost'] },
-  { labelKey: 'activity.reposts', reasons: ['repost', 'repost-via-repost'] },
-  { labelKey: 'activity.follows', reasons: ['follow'] },
-  { labelKey: 'activity.mentions', reasons: ['mention'] },
-  { labelKey: 'activity.replies', reasons: ['reply'] },
-  { labelKey: 'activity.quotes', reasons: ['quote'] },
-  { labelKey: 'activity.subscriptions', reasons: ['subscribed-post'] },
-  { labelKey: 'activity.starterPack', reasons: ['starterpack-joined'] },
-  { labelKey: 'activity.verification', reasons: ['verified', 'unverified'] },
-];
-
-const ALL_ACTIVITY_REASONS: NotificationReason[] = [
-  'like',
-  'repost',
-  'follow',
-  'mention',
-  'reply',
-  'quote',
-  'subscribed-post',
-  'like-via-repost',
-  'repost-via-repost',
-  'starterpack-joined',
-  'verified',
-  'unverified',
-];
-
 // Custom empty state for notifications
-const EmptyNotifications = () => {
+const EmptyNotifications = ({
+  messageKey = 'activity.noNotifications',
+}: {
+  messageKey?: string;
+}) => {
   const { t } = useTranslation();
   return (
     <View style={styles.emptyContainer}>
@@ -101,7 +74,7 @@ const EmptyNotifications = () => {
           priority="low"
           allowDownscaling={true}
         />
-        <Text style={styles.emptyText}>{t('activity.noNotifications')}</Text>
+        <Text style={styles.emptyText}>{t(messageKey)}</Text>
       </View>
     </View>
   );
@@ -266,6 +239,43 @@ const getPostDataFromNotification = (
   if (!postUri) return undefined;
   return postDataMap.get(postUri);
 };
+
+/**
+ * True when the notification's primary tap action stays inside Orbyt (profile, reply
+ * comment sheet, or in-app video). Non-video post engagement opens Bluesky — excluded.
+ */
+function canOpenNotificationInOrbyt(notification: Notification, postDataMap: PostDataMap): boolean {
+  const { reason } = notification;
+
+  if (
+    reason === 'follow' ||
+    reason === 'verified' ||
+    reason === 'unverified' ||
+    reason === 'starterpack-joined'
+  ) {
+    return true;
+  }
+
+  if (reason === 'reply') {
+    return true;
+  }
+
+  if (!POST_ACTION_TYPES.includes(reason as PostActionReason)) {
+    return true;
+  }
+
+  const postUri = getPostUri(notification);
+  if (!postUri) {
+    return true;
+  }
+
+  const postData = getPostDataFromNotification(notification, postDataMap);
+  if (!postData) {
+    return true;
+  }
+
+  return getPostKind(getEmbed(postData)) === 'video';
+}
 
 // Fetch post data, handling repost records - uses API types directly
 const fetchPostData = async (
@@ -704,284 +714,260 @@ const NotificationItem = React.memo<NotificationItemProps>(
 );
 NotificationItem.displayName = 'NotificationItem';
 
-interface NotificationsTabProps {
-  filterReasons?: NotificationReason[];
-}
+const NotificationsTab = forwardRef<ScrollToTopRef>((_, ref) => {
+  const { t } = useTranslation();
+  const legendListRef = useRef<LegendListRef>(null);
 
-const NotificationsTab = forwardRef<ScrollToTopRef, NotificationsTabProps>(
-  ({ filterReasons }, ref) => {
-    const { t } = useTranslation();
-    const legendListRef = useRef<LegendListRef>(null);
-    const setFilterReasons = useActivityFilterStore(s => s.setFilterReasons);
+  // Expose scrollToTop method
+  useImperativeHandle(
+    ref,
+    () => ({
+      scrollToTop: () => {
+        // LegendList uses scrollToOffset (compatible with FlatList/FlashList API)
+        legendListRef.current?.scrollToOffset({ offset: 0, animated: true });
+      },
+    }),
+    []
+  );
+  const navigation = useRouter();
+  const queryClient = useQueryClient();
+  const insets = useSafeAreaInsets();
+  const bottomNavBarHeight = getBottomNavBarHeight(insets);
 
-    // Expose scrollToTop method
-    useImperativeHandle(
-      ref,
-      () => ({
-        scrollToTop: () => {
-          // LegendList uses scrollToOffset (compatible with FlatList/FlashList API)
-          legendListRef.current?.scrollToOffset({ offset: 0, animated: true });
-        },
-      }),
-      []
-    );
-    const navigation = useRouter();
-    const queryClient = useQueryClient();
-    const insets = useSafeAreaInsets();
-    const bottomNavBarHeight = getBottomNavBarHeight(insets);
+  // Get current user from store instead of API call
+  const currentUser = useUserStore(state => state.currentUser);
 
-    // Get current user from store instead of API call
-    const currentUser = useUserStore(state => state.currentUser);
+  // Load moderation prefs so getModerationOpts can build ModerationOpts for moderateNotification
+  useModerationSettings(currentUser?.did ?? undefined);
 
-    // Load moderation prefs so getModerationOpts can build ModerationOpts for moderateNotification
-    useModerationSettings(currentUser?.did ?? undefined);
+  // Initialize current user for ProfileCache on mount - use store instead of API call
+  useEffect(() => {
+    if (currentUser?.did && currentUser?.handle) {
+      ProfileService.setCurrentUserHandle(currentUser.handle);
+    }
+  }, [currentUser?.did, currentUser?.handle]);
 
-    // Initialize current user for ProfileCache on mount - use store instead of API call
-    useEffect(() => {
-      if (currentUser?.did && currentUser?.handle) {
-        ProfileService.setCurrentUserHandle(currentUser.handle);
-      }
-    }, [currentUser?.did, currentUser?.handle]);
+  // Mark notifications as seen when the tab is focused
+  useFocusEffect(
+    useCallback(() => {
+      // Update seen status when notifications tab is focused
+      AtprotoService.updateNotificationSeen()
+        .then(() => {
+          void queryClient.refetchQueries({ queryKey: queryKeys.unread.summary() });
+        })
+        .catch(() => {
+          // Silently fail - seen status update is not critical
+        });
+    }, [queryClient])
+  );
 
-    // Mark notifications as seen when the tab is focused
-    useFocusEffect(
-      useCallback(() => {
-        // Update seen status when notifications tab is focused
-        AtprotoService.updateNotificationSeen()
-          .then(() => {
-            void queryClient.refetchQueries({ queryKey: queryKeys.unread.summary() });
-          })
-          .catch(() => {
-            // Silently fail - seen status update is not critical
-          });
-      }, [queryClient])
-    );
+  // Notifications: React Query useInfiniteQuery. Stable key + refetch on filter change so placeholderData keeps list stable.
+  const scrollToTopAfterUpdateRef = useRef(false);
+  const [isUserRefreshing, setIsUserRefreshing] = React.useState(false);
+  const [postDataMap, setPostDataMap] = React.useState<PostDataMap>(() => new Map());
 
-    // Notifications: React Query useInfiniteQuery. Stable key + refetch on filter change so placeholderData keeps list stable.
-    const scrollToTopAfterUpdateRef = useRef(false);
-    const [isUserRefreshing, setIsUserRefreshing] = React.useState(false);
-    const [postDataMap, setPostDataMap] = React.useState<PostDataMap>(() => new Map());
+  const { data, refetch, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isError } =
+    useInfiniteQuery({
+      queryKey: [...queryKeys.notifications.lists()],
+      queryFn: ({ pageParam }) => AtprotoService.listNotifications(pageParam as string | null, 50),
+      initialPageParam: null as string | null,
+      getNextPageParam: last => last.cursor ?? undefined,
+      placeholderData: prev => prev,
+      refetchOnMount: false,
+    });
 
-    const { data, refetch, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isError } =
-      useInfiniteQuery({
-        queryKey: [...queryKeys.notifications.lists()],
-        queryFn: ({ pageParam }) =>
-          AtprotoService.listNotifications(pageParam as string | null, 50, filterReasons),
-        initialPageParam: null as string | null,
-        getNextPageParam: last => last.cursor ?? undefined,
-        placeholderData: prev => prev,
-        refetchOnMount: false,
-      });
+  const notifications = useMemo(() => data?.pages.flatMap(p => p.notifications) ?? [], [data]);
 
-    const notifications = useMemo(() => data?.pages.flatMap(p => p.notifications) ?? [], [data]);
+  // Scroll to top only after new data has rendered (keeps list from jumping mid-update)
+  useEffect(() => {
+    if (!scrollToTopAfterUpdateRef.current || !data?.pages?.length) return;
+    scrollToTopAfterUpdateRef.current = false;
+    requestAnimationFrame(() => {
+      legendListRef.current?.scrollToOffset({ offset: 0, animated: false });
+    });
+  }, [data]);
 
-    // When filter changes: mark that we should scroll to top when new data lands, then refetch
-    useEffect(() => {
-      scrollToTopAfterUpdateRef.current = true;
-      refetch();
-    }, [filterReasons, refetch]);
+  // Post data for notification items (batch fetch when notifications change)
+  const postUrisToFetch = useMemo(() => {
+    const uris = new Set<string>();
+    for (const n of notifications) {
+      if (!POST_ACTION_TYPES.includes(n.reason as PostActionReason)) continue;
+      const uri = getPostUri(n);
+      if (uri) uris.add(uri);
+    }
+    return Array.from(uris);
+  }, [notifications]);
 
-    // Scroll to top only after new data has rendered (keeps list from jumping mid-update)
-    useEffect(() => {
-      if (!scrollToTopAfterUpdateRef.current || !data?.pages?.length) return;
-      scrollToTopAfterUpdateRef.current = false;
-      requestAnimationFrame(() => {
-        legendListRef.current?.scrollToOffset({ offset: 0, animated: false });
-      });
-    }, [data]);
+  const postUrisKey = postUrisToFetch.slice().sort().join(',');
+  useEffect(() => {
+    let cancelled = false;
 
-    // Post data for notification items (batch fetch when notifications change)
-    const postUrisToFetch = useMemo(() => {
-      const uris = new Set<string>();
-      for (const n of notifications) {
-        if (!POST_ACTION_TYPES.includes(n.reason as PostActionReason)) continue;
-        const uri = getPostUri(n);
-        if (uri) uris.add(uri);
-      }
-      return Array.from(uris);
-    }, [notifications]);
-
-    const postUrisKey = postUrisToFetch.slice().sort().join(',');
-    useEffect(() => {
-      let cancelled = false;
-
-      const loadPostData = async () => {
-        try {
-          if (postUrisToFetch.length === 0) {
-            if (!cancelled) {
-              setPostDataMap(new Map());
-            }
-            return;
-          }
-
-          const map = await fetchNotificationPostDataMap(postUrisToFetch);
-          if (!cancelled) {
-            setPostDataMap(map);
-          }
-        } catch {
+    const loadPostData = async () => {
+      try {
+        if (postUrisToFetch.length === 0) {
           if (!cancelled) {
             setPostDataMap(new Map());
           }
+          return;
         }
-      };
 
-      void loadPostData();
-
-      return () => {
-        cancelled = true;
-      };
-    }, [postUrisKey, postUrisToFetch]);
-
-    const moderationOpts = ModerationService.getModerationOpts(currentUser?.did ?? undefined);
-    const enrichedNotifications = useMemo((): EnrichedNotification[] => {
-      if (!moderationOpts) return notifications.map(n => ({ ...n, shouldFilter: false }));
-      return notifications.map(n => ({
-        ...n,
-        shouldFilter: moderateNotification(n, moderationOpts).ui('contentList').filter,
-      }));
-    }, [notifications, moderationOpts]);
-
-    const filteredNotifications = useMemo(
-      () => enrichedNotifications.filter(n => !n.shouldFilter),
-      [enrichedNotifications]
-    );
-
-    const handleToggleChip = useCallback(
-      (reasons: NotificationReason[]) => {
-        const current = filterReasons ?? [];
-        const allSelected = reasons.every(r => current.includes(r));
-        const next = allSelected
-          ? current.filter(r => !reasons.includes(r))
-          : [...new Set([...current, ...reasons])];
-        if (next.length === 0 || next.length === ALL_ACTIVITY_REASONS.length) {
-          setFilterReasons(undefined);
-        } else {
-          setFilterReasons(next);
+        const map = await fetchNotificationPostDataMap(postUrisToFetch);
+        if (!cancelled) {
+          setPostDataMap(map);
         }
-      },
-      [filterReasons, setFilterReasons]
-    );
-
-    const activityChipOptions = useMemo(
-      () =>
-        ACTIVITY_CHIP_OPTIONS.map(opt => ({
-          key: opt.labelKey,
-          label: t(opt.labelKey),
-          selected: opt.reasons.every(r => (filterReasons ?? []).includes(r)),
-          onPress: () => handleToggleChip(opt.reasons),
-        })),
-      [filterReasons, handleToggleChip, t]
-    );
-
-    const activityChipsHeader = useMemo(
-      () => <ActivitySegmentedChips options={activityChipOptions} scrollable />,
-      [activityChipOptions]
-    );
-
-    // Prefetch author profiles when notifications load
-    useEffect(() => {
-      if (notifications.length === 0) return;
-      const handles = Array.from(
-        new Set(
-          notifications
-            .map(n => n.author?.handle?.toLowerCase())
-            .filter((h): h is string => !!h?.trim())
-        )
-      );
-      if (handles.length > 0) ProfileService.batchGetProfiles(handles).catch(() => {});
-    }, [notifications]);
-
-    const handleLoadMore = useCallback(() => {
-      if (hasNextPage && !isFetchingNextPage) fetchNextPage();
-    }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
-
-    const handleRefresh = useCallback(() => {
-      setIsUserRefreshing(true);
-      refetch().finally(() => setIsUserRefreshing(false));
-    }, [refetch]);
-
-    const renderNotificationContent = useCallback(
-      ({ item }: { item: EnrichedNotification }) => {
-        return (
-          <NotificationItem
-            item={item}
-            navigation={navigation}
-            queryClient={queryClient}
-            postDataMap={postDataMap}
-            moderationOpts={moderationOpts}
-          />
-        );
-      },
-      [navigation, queryClient, postDataMap, moderationOpts]
-    );
-
-    const keyExtractor = useCallback((item: EnrichedNotification) => {
-      if (item.uri) {
-        return item.uri;
+      } catch {
+        if (!cancelled) {
+          setPostDataMap(new Map());
+        }
       }
+    };
 
-      return [
-        'notification',
-        item.cid ?? 'no-cid',
-        item.indexedAt ?? 'no-indexed-at',
-        item.reason ?? 'no-reason',
-        item.author?.did ?? 'no-author',
-      ].join('-');
-    }, []);
+    void loadPostData();
 
-    return (
-      <LegendList
-        ref={legendListRef}
-        style={styles.listContainer}
-        contentContainerStyle={[
-          styles.listContentContainer,
-          { paddingBottom: bottomNavBarHeight + 5 },
-        ]}
-        data={isError ? [] : filteredNotifications}
-        extraData={postDataMap.size}
-        renderItem={renderNotificationContent}
-        keyExtractor={keyExtractor}
-        ItemSeparatorComponent={NotificationDivider}
-        estimatedItemSize={114}
-        ListHeaderComponent={activityChipsHeader}
-        refreshControl={
-          <RefreshControl
-            refreshing={isUserRefreshing}
-            onRefresh={handleRefresh}
-            tintColor={Colors.neutral[50]}
-          />
-        }
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          isError ? (
-            <View style={styles.errorContainer}>
-              <EmptyFeed
-                type="no-connection"
-                message={t('activity.cantLoadNotifications')}
-                onRetry={handleRefresh}
-              />
-            </View>
-          ) : isLoading && notifications.length === 0 ? (
-            <View style={styles.loadingContainer}>
-              <NotificationLoading />
-            </View>
-          ) : (
-            <EmptyNotifications />
-          )
-        }
-        ListFooterComponent={
-          isFetchingNextPage ? (
-            <View style={styles.loadingMoreContainer}>
-              <ActivityIndicator size="small" color={Colors.neutral[50]} />
-            </View>
-          ) : null
-        }
-      />
+    return () => {
+      cancelled = true;
+    };
+  }, [postUrisKey, postUrisToFetch]);
+
+  const moderationOpts = ModerationService.getModerationOpts(currentUser?.did ?? undefined);
+  const enrichedNotifications = useMemo((): EnrichedNotification[] => {
+    if (!moderationOpts) return notifications.map(n => ({ ...n, shouldFilter: false }));
+    return notifications.map(n => ({
+      ...n,
+      shouldFilter: moderateNotification(n, moderationOpts).ui('contentList').filter,
+    }));
+  }, [notifications, moderationOpts]);
+
+  const filteredNotifications = useMemo(
+    () => enrichedNotifications.filter(n => !n.shouldFilter),
+    [enrichedNotifications]
+  );
+
+  const visibleNotifications = useMemo(
+    () => filteredNotifications.filter(n => canOpenNotificationInOrbyt(n, postDataMap)),
+    [filteredNotifications, postDataMap]
+  );
+
+  useEffect(() => {
+    if (isLoading || isFetchingNextPage || !hasNextPage) return;
+    if (visibleNotifications.length > 0) return;
+    if (filteredNotifications.length === 0) return;
+    if (notifications.length === 0) return;
+    fetchNextPage();
+  }, [
+    isLoading,
+    isFetchingNextPage,
+    hasNextPage,
+    visibleNotifications.length,
+    filteredNotifications.length,
+    notifications.length,
+    fetchNextPage,
+  ]);
+
+  // Prefetch author profiles when notifications load
+  useEffect(() => {
+    if (notifications.length === 0) return;
+    const handles = Array.from(
+      new Set(
+        notifications
+          .map(n => n.author?.handle?.toLowerCase())
+          .filter((h): h is string => !!h?.trim())
+      )
     );
-  }
-);
+    if (handles.length > 0) ProfileService.batchGetProfiles(handles).catch(() => {});
+  }, [notifications]);
+
+  const handleLoadMore = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) fetchNextPage();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  const handleRefresh = useCallback(() => {
+    setIsUserRefreshing(true);
+    refetch().finally(() => setIsUserRefreshing(false));
+  }, [refetch]);
+
+  const renderNotificationContent = useCallback(
+    ({ item }: { item: EnrichedNotification }) => {
+      return (
+        <NotificationItem
+          item={item}
+          navigation={navigation}
+          queryClient={queryClient}
+          postDataMap={postDataMap}
+          moderationOpts={moderationOpts}
+        />
+      );
+    },
+    [navigation, queryClient, postDataMap, moderationOpts]
+  );
+
+  const keyExtractor = useCallback((item: EnrichedNotification) => {
+    if (item.uri) {
+      return item.uri;
+    }
+
+    return [
+      'notification',
+      item.cid ?? 'no-cid',
+      item.indexedAt ?? 'no-indexed-at',
+      item.reason ?? 'no-reason',
+      item.author?.did ?? 'no-author',
+    ].join('-');
+  }, []);
+
+  return (
+    <LegendList
+      ref={legendListRef}
+      style={styles.listContainer}
+      contentContainerStyle={[
+        styles.listContentContainer,
+        { paddingBottom: bottomNavBarHeight + 5 },
+      ]}
+      data={isError ? [] : visibleNotifications}
+      extraData={postDataMap.size}
+      renderItem={renderNotificationContent}
+      keyExtractor={keyExtractor}
+      ItemSeparatorComponent={NotificationDivider}
+      estimatedItemSize={114}
+      refreshControl={
+        <RefreshControl
+          refreshing={isUserRefreshing}
+          onRefresh={handleRefresh}
+          tintColor={Colors.neutral[50]}
+        />
+      }
+      onEndReached={handleLoadMore}
+      onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
+      showsVerticalScrollIndicator={false}
+      ListEmptyComponent={
+        isError ? (
+          <View style={styles.errorContainer}>
+            <EmptyFeed
+              type="no-connection"
+              message={t('activity.cantLoadNotifications')}
+              onRetry={handleRefresh}
+            />
+          </View>
+        ) : isLoading && notifications.length === 0 ? (
+          <View style={styles.loadingContainer}>
+            <NotificationLoading />
+          </View>
+        ) : filteredNotifications.length > 0 && visibleNotifications.length === 0 ? (
+          <EmptyNotifications messageKey="activity.noOrbytNotifications" />
+        ) : (
+          <EmptyNotifications />
+        )
+      }
+      ListFooterComponent={
+        isFetchingNextPage ? (
+          <View style={styles.loadingMoreContainer}>
+            <ActivityIndicator size="small" color={Colors.neutral[50]} />
+          </View>
+        ) : null
+      }
+    />
+  );
+});
 NotificationsTab.displayName = 'NotificationsTab';
 
 export default NotificationsTab;
