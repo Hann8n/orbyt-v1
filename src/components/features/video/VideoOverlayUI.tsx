@@ -458,6 +458,12 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
       >
         <Image
           source={GRADIENT_SHIM}
+          style={styles.gradientShimTop}
+          contentFit="cover"
+          pointerEvents="none"
+        />
+        <Image
+          source={GRADIENT_SHIM}
           style={styles.gradientShim}
           contentFit="cover"
           pointerEvents="none"
@@ -705,6 +711,14 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
 
 // Styles
 const styles = StyleSheet.create({
+  gradientShimTop: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    height: 220,
+    opacity: 0.5,
+  },
   gradientShim: {
     position: 'absolute',
     left: 0,
@@ -712,6 +726,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     height: 220,
     transform: [{ scaleY: -1 }],
+    opacity: 0.65,
   },
   overlayContainer: {
     position: 'absolute',
