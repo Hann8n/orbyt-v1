@@ -637,7 +637,6 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
               style={[
                 styles.baseActionButton,
                 isTabletDevice ? styles.actionButtonTablet : styles.actionButton,
-                styles.moreMenuActionButton,
               ]}
               onPress={handleSharePress}
               hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}

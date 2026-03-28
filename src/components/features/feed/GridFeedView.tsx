@@ -8,12 +8,14 @@ import {
   Platform,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  Pressable,
   type StyleProp,
   type ViewStyle,
   type ImageStyle,
   useWindowDimensions,
 } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
+import { Link, type Href } from 'expo-router';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -43,6 +45,7 @@ import { FeedScrollProvider } from '../../../context/FeedScrollContext';
 import type { SharedValue } from 'react-native-reanimated';
 import type { ComponentType, Ref } from 'react';
 import type { FlashListProps } from '@shopify/flash-list';
+import type { GridFeedModalZoomConfig } from '@/utils/navigation/feedModalRoute';
 
 const AnimatedFlashList = Animated.createAnimatedComponent(FlashList) as ComponentType<
   FlashListProps<ExtendedFeedViewPost> & { ref?: Ref<FlashListRef<ExtendedFeedViewPost>> }
@@ -52,18 +55,21 @@ const AnimatedFlashList = Animated.createAnimatedComponent(FlashList) as Compone
 const VideoGridItem: React.FC<{
   item: ExtendedFeedViewPost;
   index: number;
-  onPress: (index: number) => void;
+  onPress?: (index: number) => void;
   style?: StyleProp<ViewStyle>;
   itemStyle?: StyleProp<ViewStyle>;
   thumbnailStyle?: ImageStyle;
-}> = ({ item, index, onPress, style, itemStyle, thumbnailStyle }) => {
+  /** iOS: Expo Router zoom transition source (must be inside `Link` with `asChild`). */
+  zoomLink?: { href: Href; onBeforeNavigate: () => void };
+}> = ({ item, index, onPress, style, itemStyle, thumbnailStyle, zoomLink }) => {
   const videoView = getVideoView(item.post.embed);
   const thumbnailUrl = videoView?.thumbnail || null;
   const shouldBlur = !!(item.contentListUI?.blur || item.contentMediaUI?.blur);
 
-  // Simple press handler for the grid cell.
-  // Keeping this as a plain function avoids unnecessary manual memoization.
-  const handlePress = () => onPress(index);
+  const handlePress = () => onPress?.(index);
+
+  // Link asChild uses Slot: array styles on the direct child are not allowed (expo-router requirement).
+  const flattenedOuterStyle = StyleSheet.flatten([styles.gridItem, style, itemStyle]);
 
   const validThumbnailUrl =
     thumbnailUrl && typeof thumbnailUrl === 'string' && thumbnailUrl.trim() !== ''
@@ -72,19 +78,39 @@ const VideoGridItem: React.FC<{
 
   const recyclingKey = item.post?.uri || item.post?.cid || `item-${index}`;
 
-  return (
-    <NativePressable style={[styles.gridItem, style, itemStyle]} onPress={handlePress}>
+  const cellContent = (
+    <>
       <BlurredBackground thumbnailUrl={validThumbnailUrl} />
       {validThumbnailUrl && !shouldBlur && (
         <Image
           source={{ uri: validThumbnailUrl }}
-          style={[styles.thumbnail, thumbnailStyle]}
+          style={StyleSheet.flatten([styles.thumbnail, thumbnailStyle])}
           contentFit="contain"
           recyclingKey={recyclingKey}
           cachePolicy="disk"
           transition={200}
         />
       )}
+    </>
+  );
+
+  if (zoomLink && Platform.OS === 'ios') {
+    return (
+      <Link href={zoomLink.href} asChild>
+        <Pressable style={flattenedOuterStyle} onPress={zoomLink.onBeforeNavigate}>
+          <Link.AppleZoom>
+            <View collapsable={false} style={styles.appleZoomSourceInner}>
+              {cellContent}
+            </View>
+          </Link.AppleZoom>
+        </Pressable>
+      </Link>
+    );
+  }
+
+  return (
+    <NativePressable style={[styles.gridItem, style, itemStyle]} onPress={handlePress}>
+      {cellContent}
     </NativePressable>
   );
 };
@@ -109,6 +135,7 @@ interface GridFeedViewProps {
   onLoadMore: () => void; // Simplified callback for loading more content
   hasNextPage?: boolean;
   onGridItemPress?: (index: number) => void; // Callback for grid item tap
+  gridFeedModalZoomConfig?: GridFeedModalZoomConfig | null;
   isError?: boolean;
   onRetry?: () => void;
   ListComponent?: React.ComponentType<unknown> | null; // Optional custom list component
@@ -131,6 +158,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
       onLoadMore,
       hasNextPage = false,
       onGridItemPress,
+      gridFeedModalZoomConfig,
       isError = false,
       onRetry,
       ListComponent,
@@ -320,7 +348,13 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
         const isLastRow =
           Math.floor(index / numColumns) === Math.floor((feed.length - 1) / numColumns);
 
-        const onPress = () => onGridItemPress?.(index);
+        const zoomLink =
+          gridFeedModalZoomConfig && Platform.OS === 'ios'
+            ? {
+                href: gridFeedModalZoomConfig.buildHref(index),
+                onBeforeNavigate: () => gridFeedModalZoomConfig.onBeforeNavigate(index),
+              }
+            : undefined;
 
         // Create border styles - only show borders on the inside of the grid
         const borderStyle = {
@@ -333,7 +367,8 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
           <VideoGridItem
             item={item}
             index={index}
-            onPress={onPress}
+            onPress={onGridItemPress}
+            zoomLink={zoomLink}
             style={[
               { width: itemWidth, height: itemHeight, backgroundColor: effectiveBackgroundColor },
               borderStyle,
@@ -343,7 +378,15 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
           />
         );
       },
-      [onGridItemPress, feed, numColumns, itemWidth, itemHeight, effectiveBackgroundColor]
+      [
+        onGridItemPress,
+        gridFeedModalZoomConfig,
+        feed,
+        numColumns,
+        itemWidth,
+        itemHeight,
+        effectiveBackgroundColor,
+      ]
     );
 
     const feedScrollValue = useScrollTracking
@@ -466,6 +509,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderRadius: 0,
     backgroundColor: Colors.black,
+  },
+  appleZoomSourceInner: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
   },
   thumbnail: {
     width: '100%',

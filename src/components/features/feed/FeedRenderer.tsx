@@ -4,7 +4,7 @@
  * Enhanced with React.memo for performance
  */
 
-import React, { forwardRef, useImperativeHandle, useRef } from 'react';
+import React, { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 
@@ -15,6 +15,7 @@ import { useReportedPostsStore } from '../../../stores/reportedPostsStore';
 import { Colors } from '../../../theme';
 import { feedService } from '../../../services/FeedService';
 import type { ListFeedViewRef, ViewMode } from '../../../types';
+import { buildFeedModalHref, type GridFeedModalZoomConfig } from '@/utils/navigation/feedModalRoute';
 import { FollowProvider } from '../../../context/FollowContext';
 import type {
   ExtendedFeedViewPost as FeedItem,
@@ -69,6 +70,8 @@ interface FeedRendererProps {
   forceError?: boolean;
   ListComponent?: React.ComponentType<unknown> | null; // Optional custom list component for integration with collapsible tabs
   targetScrollIndex?: number | null; // Initial index to scroll to when opening feed
+  /** When opening the feed modal from grid, matches `Link.AppleZoomTarget` on the list row (iOS 18+). */
+  zoomTargetPostUri?: string | null;
 }
 
 // Memoized Feed Renderer Component with Performance Optimizations
@@ -94,6 +97,7 @@ const FeedRenderer = forwardRef<ListFeedViewRef, FeedRendererProps>(
       forceError = false,
       ListComponent,
       targetScrollIndex: propTargetScrollIndex,
+      zoomTargetPostUri,
     },
     ref
   ) => {
@@ -187,18 +191,58 @@ const FeedRenderer = forwardRef<ListFeedViewRef, FeedRendererProps>(
     const handleGridItemPress = (index: number) => {
       if (index >= 0 && index < feed.length) {
         feedService.setCurrentFeed(feed);
-        router.navigate({
-          pathname: '/(modals)/feed',
-          params: {
+        const item = feed[index] as FeedItem;
+        const initialPostUri = item?.post?.uri ?? '';
+        router.navigate(
+          buildFeedModalHref({
             feedOption: feedOption || 'search',
             userDid,
             backgroundColor: backgroundColor || Colors.black,
             secondaryColor: secondaryColor || Colors.neutral[50],
             initialIndex: index.toString(),
-          },
-        });
+            initialPostUri,
+            hasNextPage: hasNextPage ? 'true' : 'false',
+            isFetchingNextPage: isFetchingNextPage ? 'true' : 'false',
+          })
+        );
       }
     };
+
+    const gridFeedModalZoomConfig: GridFeedModalZoomConfig | null = useMemo(() => {
+      if (isModal) {
+        return null;
+      }
+      return {
+        onBeforeNavigate: (index: number) => {
+          if (index >= 0 && index < feed.length) {
+            feedService.setCurrentFeed(feed);
+          }
+        },
+        buildHref: (index: number) => {
+          const item = feed[index] as FeedItem | undefined;
+          const initialPostUri = item?.post?.uri ?? '';
+          return buildFeedModalHref({
+            feedOption: feedOption || 'search',
+            userDid,
+            backgroundColor: backgroundColor || Colors.black,
+            secondaryColor: secondaryColor || Colors.neutral[50],
+            initialIndex: String(index),
+            initialPostUri,
+            hasNextPage: hasNextPage ? 'true' : 'false',
+            isFetchingNextPage: isFetchingNextPage ? 'true' : 'false',
+          });
+        },
+      };
+    }, [
+      isModal,
+      feed,
+      feedOption,
+      userDid,
+      backgroundColor,
+      secondaryColor,
+      hasNextPage,
+      isFetchingNextPage,
+    ]);
 
     // Single ref: ListFeedView chooses list vs grid internally and forwards scrollToTop
     const listFeedViewRef = useRef<ListFeedViewRef>(null);
@@ -230,6 +274,8 @@ const FeedRenderer = forwardRef<ListFeedViewRef, FeedRendererProps>(
       isModal,
       ListComponent,
       onGridItemPress: handleGridItemPress,
+      gridFeedModalZoomConfig,
+      zoomTargetPostUri: zoomTargetPostUri ?? null,
     };
 
     // ListFeedView is the single place that chooses list vs grid (no duplicate branch here)

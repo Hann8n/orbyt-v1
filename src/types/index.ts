@@ -5,6 +5,7 @@
 
 import type React from 'react';
 import type { SharedValue } from 'react-native-reanimated';
+import type { FeedModalSearchParams, GridFeedModalZoomConfig } from '@/utils/navigation/feedModalRoute';
 
 // ============================================================================
 // UI Component Types
@@ -17,6 +18,8 @@ import type { SharedValue } from 'react-native-reanimated';
 
 /** View mode for feed displays */
 export type ViewMode = 'list' | 'grid';
+
+export type { FeedModalSearchParams, GridFeedModalZoomConfig };
 
 /**
  * Component props for ListFeedView
@@ -48,6 +51,10 @@ export interface ListFeedViewProps {
   dataUpdatedAt?: number;
   /** When provided, grid item tap calls this (e.g. open feed modal); required for grid tap to do anything. */
   onGridItemPress?: (index: number) => void;
+  /** Post URI to align with `Link.AppleZoomTarget` when opening the feed modal from grid (iOS 18+ zoom). */
+  zoomTargetPostUri?: string | null;
+  /** When set on iOS, grid uses `Link` + `Link.AppleZoom` per Expo Router zoom transition docs. */
+  gridFeedModalZoomConfig?: GridFeedModalZoomConfig | null;
 }
 
 /**

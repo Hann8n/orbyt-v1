@@ -20,6 +20,7 @@ import {
   ScrollView,
   Alert,
   Modal,
+  Pressable,
   useWindowDimensions,
   Linking,
   Keyboard,
@@ -31,7 +32,7 @@ import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 
 import BlurredBackground from '@/components/ui/BlurredBackground';
 import { FlashList } from '@shopify/flash-list';
-import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { Link, useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import {
@@ -67,9 +68,10 @@ import AtprotoService from '@/services/api/AtprotoService';
 import { useUserStore } from '@/stores/userStore';
 import type { MessageView } from '@/services/api/types';
 import { openPostInBluesky } from '@/utils/links/bluesky';
+import { buildFullHeightVideoHref } from '@/utils/navigation/feedModalRoute';
+import { seedChatEmbedVideoFeed } from '@/utils/chat/seedChatEmbedVideoFeed';
 import { getVideoView } from '@/utils/video/helpers';
-import { feedService } from '@/services/FeedService';
-import type { ExtendedFeedViewPost, PostView } from '@/services/api/types';
+import type { PostView } from '@/services/api/types';
 import type { RichTextFacet } from '@/utils/types/richText';
 import EmojiPicker from 'react-native-emoji-chooser';
 import Animated, { FadeIn } from 'react-native-reanimated';
@@ -1046,7 +1048,6 @@ function ChatEmbeddedPost({
   onLongPress?: (e?: { nativeEvent: { pageX: number; pageY: number } }) => void;
   delayLongPress?: number;
 }) {
-  const router = useRouter();
   const openFromRow = useContext(ReactionPickerRowContext);
   const handleLongPress = openFromRow ?? onLongPress;
   const record = (embed as { record?: EmbedRecordShape }).record;
@@ -1107,101 +1108,80 @@ function ChatEmbeddedPost({
   const videoMeta = getVideoViewFromRecordEmbeds(record.embeds);
   const isVideo = !!videoMeta;
 
-  // Video embed: 9:16 card, route to feed modal
+  // Video embed: 9:16 card → `/(modals)/full-height-video` via Link (seed feed on press; iOS: Link.AppleZoom)
   if (isVideo) {
     const thumbnailUrl = videoMeta!.thumbnail;
-    const onPressVideo = () => {
-      const uri = record.uri ?? '';
-      if (!uri) return;
-      const postFromRecord: PostView = {
-        uri,
-        cid: record.cid ?? '',
-        author: {
-          did: author.did,
-          handle: author.handle,
-          displayName: author.displayName,
-          avatar: author.avatar,
-        } as PostView['author'],
-        record: (record.value ?? {}) as PostView['record'],
-        embed: record.embeds?.[0] as PostView['embed'],
-        indexedAt: record.indexedAt ?? new Date().toISOString(),
-        replyCount: record.replyCount ?? 0,
-        repostCount: record.repostCount ?? 0,
-        likeCount: record.likeCount ?? 0,
-      };
-      const feedItem: ExtendedFeedViewPost = {
-        post: postFromRecord as ExtendedFeedViewPost['post'],
-        uniqueKey: uri,
-      };
-      feedService.setCurrentFeed([feedItem]);
-      router.navigate({
-        pathname: '/(modals)/feed',
-        params: {
-          feedOption: 'search',
-          userDid: '',
-          backgroundColor: Colors.black,
-          secondaryColor: Colors.neutral[50],
-          hasNextPage: 'false',
-          isFetchingNextPage: 'false',
-          initialIndex: '0',
-        },
-      });
-    };
-
     const videoHeight = CHAT_EMBED_VIDEO_WIDTH / CHAT_EMBED_VIDEO_ASPECT;
     const thumbnailStyle = {
       width: CHAT_EMBED_VIDEO_WIDTH,
       height: videoHeight,
       borderRadius: CHAT_EMBED_VIDEO_RADIUS,
     };
+    const embedVideoCardLayoutStyle = {
+      width: CHAT_EMBED_VIDEO_WIDTH,
+      height: videoHeight,
+      borderRadius: CHAT_EMBED_VIDEO_RADIUS,
+    };
+    const videoThumbnailBody = (
+      <>
+        {thumbnailUrl ? (
+          <View style={[styles.embedVideoThumbnailWrap, thumbnailStyle]}>
+            <BlurredBackground thumbnailUrl={thumbnailUrl} />
+            <Image
+              source={{ uri: thumbnailUrl }}
+              style={[styles.embedVideoThumbnail, thumbnailStyle]}
+              contentFit="contain"
+              cachePolicy="memory-disk"
+              transition={200}
+            />
+          </View>
+        ) : (
+          <View style={[styles.embedVideoPlaceholder, thumbnailStyle]}>
+            <Icon name="video_camera_2" size={24} color={Colors.neutral[500]} />
+          </View>
+        )}
+        <View style={styles.embedVideoAuthorOverlay} pointerEvents="none">
+          <Image
+            source={EMBED_VIDEO_GRADIENT_SHIM}
+            style={[StyleSheet.absoluteFill, styles.embedVideoGradientShim]}
+            contentFit="cover"
+          />
+          <EmbedAuthor
+            author={author}
+            size={26}
+            isFromMe={isFromMe}
+            compact
+            authorAlwaysOnRight
+          />
+        </View>
+      </>
+    );
+    const fullHeightVideoHref = buildFullHeightVideoHref({ postUri: record.uri });
+
     return (
       <View style={[styles.embedVideoOuter, isFromMe && styles.embedVideoOuterFromMe]}>
         <View style={[styles.embedVideoBlock, { width: CHAT_EMBED_VIDEO_WIDTH }]}>
-          <NativePressable
-            onPress={onPressVideo}
-            onLongPress={handleLongPress}
-            delayLongPress={delayLongPress}
-            style={[
-              styles.embedVideoCard,
-              {
-                width: CHAT_EMBED_VIDEO_WIDTH,
-                height: videoHeight,
-                borderRadius: CHAT_EMBED_VIDEO_RADIUS,
-              },
-            ]}
-            android_ripple={{ color: Colors.neutral[700] }}
-          >
-            {thumbnailUrl ? (
-              <View style={[styles.embedVideoThumbnailWrap, thumbnailStyle]}>
-                <BlurredBackground thumbnailUrl={thumbnailUrl} />
-                <Image
-                  source={{ uri: thumbnailUrl }}
-                  style={[styles.embedVideoThumbnail, thumbnailStyle]}
-                  contentFit="contain"
-                  cachePolicy="memory-disk"
-                  transition={200}
-                />
-              </View>
-            ) : (
-              <View style={[styles.embedVideoPlaceholder, thumbnailStyle]}>
-                <Icon name="video_camera_2" size={24} color={Colors.neutral[500]} />
-              </View>
-            )}
-            <View style={styles.embedVideoAuthorOverlay} pointerEvents="none">
-              <Image
-                source={EMBED_VIDEO_GRADIENT_SHIM}
-                style={[StyleSheet.absoluteFill, styles.embedVideoGradientShim]}
-                contentFit="cover"
-              />
-              <EmbedAuthor
-                author={author}
-                size={26}
-                isFromMe={isFromMe}
-                compact
-                authorAlwaysOnRight
-              />
-            </View>
-          </NativePressable>
+          <Link href={fullHeightVideoHref} asChild>
+            <Pressable
+              onPress={() => {
+                seedChatEmbedVideoFeed(record);
+              }}
+              onLongPress={handleLongPress}
+              delayLongPress={delayLongPress}
+              style={StyleSheet.flatten([styles.embedVideoCard, embedVideoCardLayoutStyle])}
+              android_ripple={{ color: Colors.neutral[700] }}
+            >
+              {Platform.OS === 'ios' ? (
+                <Link.AppleZoom>
+                  <View collapsable={false} style={styles.embedVideoAppleZoomInner}>
+                    {videoThumbnailBody}
+                  </View>
+                </Link.AppleZoom>
+              ) : (
+                videoThumbnailBody
+              )}
+            </Pressable>
+          </Link>
         </View>
       </View>
     );
@@ -2678,6 +2658,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: Colors.neutral[900],
     position: 'relative',
+  },
+  embedVideoAppleZoomInner: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
   },
   embedVideoThumbnailWrap: {
     position: 'relative',

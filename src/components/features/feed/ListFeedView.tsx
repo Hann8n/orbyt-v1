@@ -151,6 +151,8 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       ListComponent,
       targetScrollIndex,
       onGridItemPress: onGridItemPressProp,
+      zoomTargetPostUri,
+      gridFeedModalZoomConfig,
     },
     ref
   ) => {
@@ -269,6 +271,11 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         }
 
         const feedItem = item as ExtendedFeedViewPost;
+        const isAppleZoomTarget =
+          isModal &&
+          Boolean(zoomTargetPostUri) &&
+          feedItem.post?.uri === zoomTargetPostUri &&
+          Platform.OS === 'ios';
         return (
           <VideoItem
             feedItem={feedItem}
@@ -280,10 +287,20 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
             isHeaderBlockingPlayback={isHeaderBlockingPlayback}
             isModal={isModal}
             index={index}
+            isAppleZoomTarget={isAppleZoomTarget}
           />
         );
       },
-      [cardHeight, feedOption, feedKey, canPlay, isModal, secondaryColor, isHeaderBlockingPlayback]
+      [
+        cardHeight,
+        feedOption,
+        feedKey,
+        canPlay,
+        isModal,
+        secondaryColor,
+        isHeaderBlockingPlayback,
+        zoomTargetPostUri,
+      ]
     );
 
     // Item type + keys are handled by pure module-scope helpers.
@@ -453,6 +470,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           onLoadMore={onLoadMore}
           hasNextPage={hasNextPage}
           onGridItemPress={onGridItemPressProp}
+          gridFeedModalZoomConfig={gridFeedModalZoomConfig ?? undefined}
           isError={effectiveIsError}
           onRetry={onRetry}
           ListComponent={ListComponent}

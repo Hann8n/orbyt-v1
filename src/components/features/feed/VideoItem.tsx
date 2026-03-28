@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
+import { Link } from 'expo-router';
 
 import { useVisibilityCoreStore } from '../../../core/visibility';
 import VideoCard from '../video/VideoCard';
@@ -45,6 +46,8 @@ export interface VideoItemProps {
   isHeaderBlockingPlayback?: boolean;
   isModal?: boolean;
   index?: number;
+  /** iOS: marks the row as the zoom transition target (paired with grid `Link.AppleZoom`). */
+  isAppleZoomTarget?: boolean;
 }
 
 const VideoItem: React.FC<VideoItemProps> = ({
@@ -57,6 +60,7 @@ const VideoItem: React.FC<VideoItemProps> = ({
   isHeaderBlockingPlayback = false,
   isModal = false,
   index = 0,
+  isAppleZoomTarget = false,
 }) => {
   const key = feedKey ?? feedOption ?? '';
   const isActiveFeed = useVisibilityCoreStore(s => s.activeFeedKey === key);
@@ -88,19 +92,29 @@ const VideoItem: React.FC<VideoItemProps> = ({
   // expo-video's useVideoPlayer automatically handles cleanup on unmount
   // The VideoCard component manages video state via useRecyclingState for FlashList optimization
 
+  const videoCard = (
+    <VideoCard
+      post={normalizedPost}
+      feedItem={feedItem}
+      isVisible={isVisible}
+      shouldDisablePlayback={!allowPlayback}
+      height={itemHeight}
+      showOverlay={true}
+      feedOption={feedOption}
+      isModal={isModal}
+      index={index}
+    />
+  );
+
   return (
     <View style={containerStyle}>
-      <VideoCard
-        post={normalizedPost}
-        feedItem={feedItem}
-        isVisible={isVisible}
-        shouldDisablePlayback={!allowPlayback}
-        height={itemHeight}
-        showOverlay={true}
-        feedOption={feedOption}
-        isModal={isModal}
-        index={index}
-      />
+      {isAppleZoomTarget ? (
+        <Link.AppleZoomTarget>
+          <View style={styles.appleZoomTargetInner}>{videoCard}</View>
+        </Link.AppleZoomTarget>
+      ) : (
+        videoCard
+      )}
     </View>
   );
 };
@@ -114,6 +128,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.black,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  appleZoomTargetInner: {
+    flex: 1,
+    width: '100%',
+    alignSelf: 'stretch',
   },
 });
 
