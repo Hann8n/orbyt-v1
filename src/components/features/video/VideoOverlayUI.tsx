@@ -724,9 +724,9 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: 220,
+    height: 280,
     transform: [{ scaleY: -1 }],
-    opacity: 0.65,
+    opacity: 0.92,
   },
   overlayContainer: {
     position: 'absolute',
