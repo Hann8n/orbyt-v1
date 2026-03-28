@@ -122,8 +122,6 @@ const VideoGridItem: React.FC<{
 
 VideoGridItem.displayName = 'VideoGridItem';
 
-const ITEM_MARGIN = 2; // Divider thickness for both grid directions
-
 const gridKeyExtractor = (item: ExtendedFeedViewPost, _index: number): string =>
   getFeedItemKey(item);
 
@@ -265,7 +263,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
     // Cell aspect matches standard video aspect (9:16 portrait).
     const itemWidth = (windowWidth || Dimensions.get('window').width) / numColumns;
     const itemHeight = itemWidth / DEFAULT_VIDEO_ASPECT_RATIO;
-    const itemSpacing = itemHeight + ITEM_MARGIN;
+    const itemSpacing = itemHeight + FEED_VIEW_CONSTANTS.GRID_CELL_GAP;
 
     // Native snapping (same approach as ListFeedView): full header at 0, then each grid row.
     const gridSnapToOffsets = useMemo(() => {
@@ -306,9 +304,9 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
 
         // Create border styles - only show borders on the inside of the grid
         const borderStyle = {
-          borderRightWidth: isLastColumn ? 0 : ITEM_MARGIN,
-          borderBottomWidth: isLastRow ? 0 : ITEM_MARGIN,
-          borderColor: effectiveBackgroundColor,
+          borderRightWidth: isLastColumn ? 0 : FEED_VIEW_CONSTANTS.GRID_CELL_GAP,
+          borderBottomWidth: isLastRow ? 0 : FEED_VIEW_CONSTANTS.GRID_CELL_GAP,
+          borderColor: Colors.black,
         };
 
         return (
@@ -369,9 +367,11 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
         onLayout={useScrollTracking ? handleHeaderLayout : undefined}
       >
         {headerComponent}
-        <View style={[styles.headerSeparator, { backgroundColor: effectiveBackgroundColor }]} />
+        <View style={styles.headerSeparator} />
       </View>
     ) : null;
+
+    const listFooter = feed.length > 0 ? <View style={styles.headerSeparator} /> : null;
 
     const listContent = (
       <ListEl
@@ -392,6 +392,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
         contentInsetAdjustmentBehavior="never"
         bounces={true}
         ListHeaderComponent={listHeader}
+        ListFooterComponent={listFooter}
         ListEmptyComponent={
           isError ? (
             <EmptyFeed
@@ -443,7 +444,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   headerSeparator: {
-    height: FEED_VIEW_CONSTANTS.SEPARATOR_HEIGHT,
+    height: FEED_VIEW_CONSTANTS.LIST_ITEM_GAP,
     backgroundColor: Colors.black,
   },
   listContent: {

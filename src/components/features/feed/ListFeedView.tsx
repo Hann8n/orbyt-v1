@@ -212,7 +212,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     const viewableAreaHeight = useLegacyLiquidGlassLayout ? snapViewportHeight : autoViewportHeight;
     const cardHeight = useLegacyLiquidGlassLayout
       ? cardHeightForList
-      : Math.max(0, viewableAreaHeight - FEED_VIEW_CONSTANTS.SEPARATOR_HEIGHT);
+      : Math.max(0, viewableAreaHeight - FEED_VIEW_CONSTANTS.LIST_ITEM_GAP);
 
     const { onViewableItemsChanged, viewabilityConfig, canPlay, feedKey } = useFeedVisibility({
       feedOption,
@@ -355,8 +355,8 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     // Snapping configuration - memoized to prevent recalculation (always compute)
     // FlashList's ItemSeparatorComponent adds spacing between items, so we need to account for it
-    // Total spacing from start of one item to start of next = cardHeight + separatorHeight
-    const itemSpacing = cardHeight + FEED_VIEW_CONSTANTS.SEPARATOR_HEIGHT;
+    // Total spacing from start of one item to start of next = cardHeight + LIST_ITEM_GAP
+    const itemSpacing = cardHeight + FEED_VIEW_CONSTANTS.LIST_ITEM_GAP;
     const snapToIntervalValue = itemSpacing;
     const hasHeader = Boolean(headerComponent);
 
@@ -499,7 +499,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
                   {headerComponent}
                   <View
                     style={{
-                      height: FEED_VIEW_CONSTANTS.SEPARATOR_HEIGHT,
+                      height: FEED_VIEW_CONSTANTS.LIST_ITEM_GAP,
                       backgroundColor: Colors.black,
                     }}
                   />
@@ -577,7 +577,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.black,
   },
   itemSeparator: {
-    height: FEED_VIEW_CONSTANTS.SEPARATOR_HEIGHT,
+    height: FEED_VIEW_CONSTANTS.LIST_ITEM_GAP,
     backgroundColor: Colors.black,
   },
 });

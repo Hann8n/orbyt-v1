@@ -5,7 +5,10 @@ import { FEED_TYPES } from '../../../utils/constants';
 import type { FeedListItem } from '../../../types';
 
 export const FEED_VIEW_CONSTANTS = {
-  SEPARATOR_HEIGHT: 5,
+  /** Space between list videos; grid header/footer strips match this. */
+  LIST_ITEM_GAP: 3,
+  /** Space between grid thumbnails (borders + row pitch for snap). */
+  GRID_CELL_GAP: 2.5,
   HEADER_HEIGHT_TABS: 280,
   HEADER_BLOCKING_THRESHOLD: 250,
 } as const;

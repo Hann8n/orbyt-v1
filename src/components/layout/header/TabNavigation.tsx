@@ -280,7 +280,6 @@ const styles = StyleSheet.create({
   // Simple variant styles - just basic spacing differences
   headerStyle: {
     paddingVertical: 12,
-    paddingBottom: 15,
     marginTop: 4,
   },
   commentsStyle: {

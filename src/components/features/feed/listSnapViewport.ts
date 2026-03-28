@@ -41,7 +41,7 @@ export const buildListSnapViewport = ({
   return {
     useLegacyLiquidGlassLayout,
     snapViewportHeight: boundedViewportHeight,
-    // Keep card + separator equal to viewport to avoid clipping near the bottom edge.
-    cardHeightForList: Math.max(0, boundedViewportHeight - FEED_VIEW_CONSTANTS.SEPARATOR_HEIGHT),
+    // Keep card + list gap equal to viewport to avoid clipping near the bottom edge.
+    cardHeightForList: Math.max(0, boundedViewportHeight - FEED_VIEW_CONSTANTS.LIST_ITEM_GAP),
   };
 };
