@@ -266,8 +266,11 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
     () => (isTabletDevice ? Math.max(actionIconSize, 34) : actionIconSize),
     [isTabletDevice, actionIconSize]
   );
-  const shareIconSize = useMemo(
-    () => (isTabletDevice ? Math.max(actionIconSize - 6, 24) : actionIconSize - 6),
+  const moreMenuIconSize = useMemo(
+    () =>
+      isTabletDevice
+        ? Math.max(Math.round(actionIconSize * 0.68), 22)
+        : Math.max(Math.round(actionIconSize * 0.68), 18),
     [isTabletDevice, actionIconSize]
   );
 
@@ -634,12 +637,18 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
               style={[
                 styles.baseActionButton,
                 isTabletDevice ? styles.actionButtonTablet : styles.actionButton,
+                styles.moreMenuActionButton,
               ]}
               onPress={handleSharePress}
               hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
             >
-              <View style={styles.iconContainer}>
-                <MoreFillIcon size={shareIconSize} color={Colors.neutral[50]} />
+              <View
+                style={[
+                  styles.moreMenuIconContainer,
+                  isTabletDevice && styles.moreMenuIconContainerTablet,
+                ]}
+              >
+                <MoreFillIcon size={moreMenuIconSize} color={Colors.neutral[50]} />
               </View>
             </Pressable>
 
@@ -889,6 +898,16 @@ const styles = StyleSheet.create({
     height: 34.5,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  moreMenuIconContainer: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  moreMenuIconContainerTablet: {
+    width: 32,
+    height: 32,
   },
   actionText: {
     color: Colors.neutral[50],
