@@ -41,9 +41,10 @@ export class GraphService {
   /**
    * Unfollow a user
    * @param did - User DID to unfollow
+   * @param followUri - Optional AT URI from `GraphService.follow`; avoids getProfile when indexer is briefly stale
    * @returns True if successful
    */
-  static async unfollow(did: string): Promise<boolean> {
+  static async unfollow(did: string, followUri?: string): Promise<boolean> {
     const cacheKey = `unfollow:${did}`;
     // Use dynamic import to avoid circular dependency
     const { AtprotoService } = await import('../AtprotoService');
@@ -59,22 +60,29 @@ export class GraphService {
       const userDid = userStore.currentUser.did;
 
       try {
-        // Get the profile by DID to get the viewer.following
-        const profileResponse = await api.app.bsky.actor.getProfile({ actor: did });
-        if (!profileResponse.data.viewer?.following) {
+        let uri = followUri?.trim();
+        const isPlaceholder = !uri || uri === 'at://placeholder';
+
+        if (isPlaceholder) {
+          const profileResponse = await api.app.bsky.actor.getProfile({ actor: did });
+          if (!profileResponse.data.viewer?.following) {
+            return false;
+          }
+          uri = profileResponse.data.viewer.following;
+        }
+        if (!uri) {
           return false;
         }
 
         // Extract the rkey from the follow URI
         // URI format: at://did:plc:xxxx/app.bsky.graph.follow/rkey
-        const uriParts = profileResponse.data.viewer.following.split('/');
+        const uriParts = uri.split('/');
         const rkey = uriParts[uriParts.length - 1];
 
         if (!rkey) {
           return false;
         }
 
-        // Delete the follow using the record key
         await api.app.bsky.graph.follow.delete({
           repo: userDid,
           rkey: rkey,

@@ -16,6 +16,10 @@ import type {
   ExtendedFeedViewPost,
   ProfileViewBasic,
 } from '../api/types';
+import { useFollowStore } from '../../stores/followStore';
+
+/** Truthy sentinel for optimistic follow only; unfollow ignores it and uses store or getProfile. */
+const OPTIMISTIC_FOLLOW_URI_PLACEHOLDER = 'at://placeholder';
 
 /**
  * Check if a StatusView represents an active live status
@@ -612,17 +616,12 @@ export function useFollowMutation() {
     isFollowing: boolean,
     followUri?: string
   ) => {
-    try {
-      const { useFollowStore } = require('../../stores/followStore');
-      useFollowStore.getState().updateFollowState(did, {
-        handle,
-        did,
-        isFollowing,
-        followUri,
-      });
-    } catch (_error) {
-      // Silently fail if store not available
-    }
+    useFollowStore.getState().updateFollowState(did, {
+      handle,
+      did,
+      isFollowing,
+      followUri,
+    });
   };
 
   return useMutation({
@@ -630,12 +629,10 @@ export function useFollowMutation() {
       did,
       handle,
       isFollowing,
-      isFollowedBy,
     }: {
       did?: string;
       handle: string;
       isFollowing: boolean;
-      isFollowedBy?: boolean;
     }) => {
       // Prefer DID when available to avoid extra lookups (keeps UX fully optimistic)
       const resolvedDid =
@@ -645,22 +642,30 @@ export function useFollowMutation() {
           .catch(() => undefined));
       if (!resolvedDid) throw new Error('Profile not found or missing DID');
 
-      // Make the actual API call
+      // Make the actual API call (graph.follow returns the record URI; use it for unfollow to avoid stale getProfile)
       let followUri: string | undefined;
       if (isFollowing) {
         followUri = await AtprotoService.follow(resolvedDid);
       } else {
-        await AtprotoService.unfollow(resolvedDid);
+        const cached = queryClient.getQueryData<ProfileViewWithOrbyt>(
+          profileKeys.detail(resolvedDid)
+        );
+        let existingFollowUri = cached?.viewer?.following;
+        if (existingFollowUri === OPTIMISTIC_FOLLOW_URI_PLACEHOLDER) existingFollowUri = undefined;
+        if (!existingFollowUri) {
+          existingFollowUri = useFollowStore.getState().getFollowState(resolvedDid)?.followUri;
+        }
+        await AtprotoService.unfollow(resolvedDid, existingFollowUri);
         followUri = undefined;
       }
 
       // Persist to follow store for navigation
       updateFollowState(resolvedDid, handle, isFollowing, followUri);
 
-      return { handle, isFollowing, isFollowedBy, did: resolvedDid, followUri };
+      return { handle, isFollowing, did: resolvedDid, followUri };
     },
     // When mutate is called:
-    onMutate: async ({ did, handle, isFollowing, isFollowedBy }) => {
+    onMutate: async ({ did, handle, isFollowing }) => {
       // Prefer DID when provided so the optimistic update is immediate (no await needed)
       let resolvedDid = did;
       if (!resolvedDid) {
@@ -687,14 +692,9 @@ export function useFollowMutation() {
           viewer: {
             ...previousProfile.viewer,
             following: isFollowing
-              ? previousProfile.viewer?.following || 'at://placeholder'
+              ? previousProfile.viewer?.following || OPTIMISTIC_FOLLOW_URI_PLACEHOLDER
               : undefined,
-            followedBy:
-              isFollowedBy !== undefined
-                ? isFollowedBy
-                  ? 'at://placeholder'
-                  : undefined
-                : previousProfile.viewer?.followedBy,
+            followedBy: previousProfile.viewer?.followedBy,
           },
         });
       }
@@ -713,14 +713,24 @@ export function useFollowMutation() {
         updateFollowState(context.did, '', wasFollowing);
       }
     },
-    // Delay invalidation to ensure server has processed the change (prevents premature refetch)
-    onSettled: (data, _error, _variables) => {
-      if (data?.did) {
-        // Delay refetch to ensure server has processed the follow/unfollow
-        setTimeout(() => {
-          queryClient.invalidateQueries({ queryKey: profileKeys.detail(data.did) });
-        }, 500);
-      }
+    // Merge graph API result into cache; do not refetch profile here (getProfile can briefly lag follow writes).
+    onSuccess: data => {
+      if (!data?.did) return;
+      queryClient.setQueryData<ProfileViewWithOrbyt | undefined>(
+        profileKeys.detail(data.did),
+        previousProfile => {
+          if (!previousProfile) return previousProfile;
+          return {
+            ...previousProfile,
+            viewer: {
+              ...previousProfile.viewer,
+              following: data.isFollowing
+                ? (data.followUri ?? previousProfile.viewer?.following)
+                : undefined,
+            },
+          };
+        }
+      );
     },
   });
 }

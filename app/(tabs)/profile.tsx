@@ -5,6 +5,8 @@ import Animated, {
   useAnimatedStyle,
   interpolate,
   Extrapolate,
+  Easing,
+  LinearTransition,
 } from 'react-native-reanimated';
 import { BORDER_RADIUS, APP_CONSTANTS, ICON_SIZES } from '@/utils/constants';
 import {
@@ -61,6 +63,10 @@ import { useOrbytColors } from '@/services/colors';
 interface ProfileScreenProps {
   onLogout: (_clearAllAccounts?: boolean) => Promise<void>;
 }
+
+const OVERLAY_HEADER_ACTIONS_LAYOUT = LinearTransition.duration(360).easing(
+  Easing.inOut(Easing.cubic)
+);
 
 const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const { t } = useTranslation();
@@ -515,7 +521,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     let label = isBlocked ? t('profile.unblock') : t('profile.follow');
     let icon: string | undefined = undefined;
     let customIcon: React.ReactNode | undefined = isBlocked ? undefined : (
-      <FollowIcon size={18} color={profileColors.textColor || Colors.neutral[50]} />
+      <FollowIcon size={22} color={profileColors.textColor || Colors.neutral[50]} />
     );
 
     if (!isBlocked && isFollowing && isFollowedBy) {
@@ -619,7 +625,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
         backIconSecondaryStyle={backIconSecondaryStyle}
         overlayAnimatedStyle={staticOverlayAnimatedStyle}
       >
-        <Animated.View style={overlayControlFadeAnimatedStyle}>
+        <Animated.View style={[styles.overlayMenuWrap, overlayControlFadeAnimatedStyle]}>
           <Pressable
             onPress={handleMenuPress}
             onPressIn={handleMenuPressIn}
@@ -631,15 +637,28 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
           </Pressable>
         </Animated.View>
         {headerActions.length > 0 && (
-          <Animated.View style={[styles.overlayActionsContainer, overlayControlFadeAnimatedStyle]}>
-            {headerActions.map(action => (
-              <HeaderActionButton
+          <Animated.View
+            style={[styles.overlayActionsContainer, overlayControlFadeAnimatedStyle]}
+            layout={OVERLAY_HEADER_ACTIONS_LAYOUT}
+          >
+            {headerActions.map((action, index) => (
+              <View
                 key={action.id}
-                action={action}
-                textColor={profileColors.textColor || Colors.neutral[50]}
-                backgroundColor={profileColors.backgroundColor || Colors.black}
-                preferLiquidGlass={false}
-              />
+                style={[
+                  styles.overlayHeaderActionSlot,
+                  {
+                    zIndex: headerActions.length - index,
+                    elevation: (headerActions.length - index) * 2,
+                  },
+                ]}
+              >
+                <HeaderActionButton
+                  action={action}
+                  textColor={profileColors.textColor || Colors.neutral[50]}
+                  backgroundColor={profileColors.backgroundColor || Colors.black}
+                  preferLiquidGlass={false}
+                />
+              </View>
             ))}
           </Animated.View>
         )}
@@ -851,6 +870,9 @@ const styles = StyleSheet.create({
   secondaryButton: {
     backgroundColor: Colors.transparent,
   },
+  overlayMenuWrap: {
+    zIndex: 1,
+  },
   overlayMenuButton: {
     width: 40,
     height: 40,
@@ -863,6 +885,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     columnGap: 8,
+    zIndex: 2,
+  },
+  /** Lets the lead (e.g. follow) pill paint above trailing actions during layout morph. */
+  overlayHeaderActionSlot: {
+    position: 'relative',
   },
   modalOverlay: {
     flex: 1,

@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useMemo } from 'react';
+import React, { memo, useCallback, useMemo, useLayoutEffect } from 'react';
 import { BORDER_RADIUS, ICON_SIZES } from '../../../utils/constants';
 import {
   View,
@@ -22,8 +22,8 @@ import Animated, {
   useSharedValue,
   withTiming,
   interpolateColor,
-  useAnimatedReaction,
   Easing,
+  LinearTransition,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { BackArrowIcon, MoreFillIcon, STROKE_WIDTH_THICK } from '../../ui/Icon';
@@ -39,6 +39,25 @@ import type { RichTextFacet } from '../../../utils/types/richText';
 
 const GRADIENT_SHIM = require('../../../assets/embed-video-gradient-shim.png');
 const TABBED_HEADER_BACKGROUND_CUTOFF = 20;
+
+/** Single spec for follow ↔ unfollow: same duration, easing, and layout as the ink crossfade. */
+const FOLLOW_PILL_TRANSITION_MS = 360;
+
+const FOLLOW_PILL_LAYOUT_ANIMATION = LinearTransition.duration(FOLLOW_PILL_TRANSITION_MS).easing(
+  Easing.inOut(Easing.cubic)
+);
+
+function cloneHeaderActionIconColor(node: React.ReactNode, color: string): React.ReactNode {
+  if (
+    React.isValidElement(node) &&
+    typeof node.props === 'object' &&
+    node.props !== null &&
+    'color' in node.props
+  ) {
+    return React.cloneElement(node as React.ReactElement<{ color?: string }>, { color });
+  }
+  return node;
+}
 
 // Types for the universal header system
 export interface HeaderAction {
@@ -129,21 +148,15 @@ const ActionButton = memo<{
     return isIconOnlyFollowingState || isSaveButton || isActiveSubscription || isExplicitlyActive;
   }, [action.label, action.id, action.active]);
 
-  // Animated progress value: 0 = not following, 1 = following
-  // Use timing animation with smooth easing for predictable, fluid transitions
+  // 0 = unfollowed appearance, 1 = followed (filled pill / inverted ink)
   const animationProgress = useSharedValue(hasFilledBackground ? 1 : 0);
 
-  // Sync animation progress when state changes
-  useAnimatedReaction(
-    () => hasFilledBackground,
-    isFilled => {
-      animationProgress.value = withTiming(isFilled ? 1 : 0, {
-        duration: 300,
-        easing: Easing.out(Easing.cubic), // Smooth, natural easing
-      });
-    },
-    [hasFilledBackground]
-  );
+  useLayoutEffect(() => {
+    animationProgress.value = withTiming(hasFilledBackground ? 1 : 0, {
+      duration: FOLLOW_PILL_TRANSITION_MS,
+      easing: Easing.inOut(Easing.cubic),
+    });
+  }, [hasFilledBackground, animationProgress]);
 
   // Animated style for smooth background color transition
   const animatedButtonStyle = useAnimatedStyle(() => {
@@ -156,7 +169,7 @@ const ActionButton = memo<{
     };
   }, [textColor, backgroundColor, action.disabled]);
 
-  // Content crossfade (UI thread): avoids animating Icon "color" prop via JS.
+  // Content crossfade (UI thread): linear blend so reversing direction mirrors the same curve in time.
   const unfilledContentOpacityStyle = useAnimatedStyle(() => {
     'worklet';
     return { opacity: 1 - animationProgress.value };
@@ -245,40 +258,12 @@ const ActionButton = memo<{
   );
 
   const getButtonSize = useCallback(() => {
-    const isFollowButton = action.id === 'follow';
+    const hasLabel = !!action.label;
+    const hasIcon = !!(action.customIcon || action.icon);
+    const isFollowLeadingIcon = action.id === 'follow' && !!action.customIcon && hasLabel;
 
-    // Follow button with label uses a minimum width so icon + localized text can expand cleanly.
-    if (isFollowButton && action.label) {
-      switch (size) {
-        case 'small':
-          return {
-            paddingLeft: 12,
-            paddingRight: 10,
-            minWidth: 84,
-            height: 32,
-            borderRadius: 100,
-          };
-        case 'large':
-          return {
-            paddingLeft: 20,
-            paddingRight: 16,
-            minWidth: 120,
-            height: 48,
-            borderRadius: 100,
-          };
-        default:
-          return {
-            paddingLeft: 16,
-            paddingRight: 12,
-            minWidth: 108,
-            height: 44,
-            borderRadius: 100,
-          };
-      }
-    }
-
-    // Icon-only buttons should be circular/pill-shaped
-    if (!action.label) {
+    // Icon-only — fixed footprint, full pill radius
+    if (!hasLabel) {
       switch (size) {
         case 'small':
           return { width: 40, height: 32, borderRadius: 100 };
@@ -289,15 +274,145 @@ const ActionButton = memo<{
       }
     }
 
+    // Labeled, text-only (e.g. Edit profile) — same pill heights as icon variants
+    if (!hasIcon) {
+      switch (size) {
+        case 'small':
+          return {
+            paddingHorizontal: 12,
+            paddingVertical: 6,
+            minWidth: 72,
+            height: 32,
+            borderRadius: 100,
+          };
+        case 'large':
+          return {
+            paddingHorizontal: 24,
+            paddingVertical: 12,
+            minWidth: 112,
+            height: 48,
+            borderRadius: 100,
+          };
+        default:
+          return {
+            paddingHorizontal: 16,
+            paddingVertical: 8,
+            minWidth: 92,
+            height: 44,
+            borderRadius: 100,
+          };
+      }
+    }
+
+    // Follow + leading custom icon — slightly asymmetric padding for the cap icon
+    if (isFollowLeadingIcon) {
+      switch (size) {
+        case 'small':
+          return {
+            paddingLeft: 7,
+            paddingRight: 10,
+            minWidth: 84,
+            height: 32,
+            borderRadius: 100,
+          };
+        case 'large':
+          return {
+            paddingLeft: 14,
+            paddingRight: 16,
+            minWidth: 120,
+            height: 48,
+            borderRadius: 100,
+          };
+        default:
+          return {
+            paddingLeft: 10,
+            paddingRight: 12,
+            minWidth: 108,
+            height: 44,
+            borderRadius: 100,
+          };
+      }
+    }
+
+    // Labeled + trailing icon (e.g. delete) — symmetric pill, matches row spacing used on Follow
     switch (size) {
       case 'small':
-        return { paddingHorizontal: 12, paddingVertical: 6, minWidth: 70, height: 32 };
+        return {
+          paddingHorizontal: 10,
+          minWidth: 88,
+          height: 32,
+          borderRadius: 100,
+        };
       case 'large':
-        return { paddingHorizontal: 24, paddingVertical: 12, minWidth: 110, height: 48 };
+        return {
+          paddingHorizontal: 20,
+          minWidth: 124,
+          height: 48,
+          borderRadius: 100,
+        };
       default:
-        return { paddingHorizontal: 16, paddingVertical: 8, minWidth: 90, height: 44 };
+        return {
+          paddingHorizontal: 14,
+          minWidth: 104,
+          height: 44,
+          borderRadius: 100,
+        };
     }
-  }, [size, action.label, action.id]);
+  }, [size, action]);
+
+  const renderLabeledActionRow = useCallback(
+    (contentColor: string, textStyle: StyleProp<TextStyle>) => {
+      const labelText = (align: 'left' | 'center'): React.ReactElement => (
+        <Text
+          style={[
+            textStyle,
+            align === 'left' ? styles.actionPillLabel : styles.actionPillLabelCentered,
+            { color: contentColor },
+          ]}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          {action.label}
+        </Text>
+      );
+
+      if (action.id === 'follow' && action.customIcon) {
+        return (
+          <View style={styles.labeledActionRow} pointerEvents="none">
+            <View style={styles.labeledActionLeadingIconCap}>
+              {cloneHeaderActionIconColor(action.customIcon, contentColor)}
+            </View>
+            {labelText('left')}
+          </View>
+        );
+      }
+
+      if (action.customIcon || action.icon) {
+        return (
+          <View style={styles.labeledActionRow} pointerEvents="none">
+            {labelText('left')}
+            {action.customIcon ? (
+              cloneHeaderActionIconColor(action.customIcon, contentColor)
+            ) : action.icon ? (
+              <Icon
+                name={action.icon}
+                size={16}
+                color={contentColor}
+                strokeWidth={STROKE_WIDTH_THICK}
+              />
+            ) : null}
+          </View>
+        );
+      }
+
+      return (
+        <View style={styles.labeledActionTextOnlyRow} pointerEvents="none">
+          {labelText('center')}
+        </View>
+      );
+    },
+    [action]
+  );
 
   const renderContent = useCallback(
     (pressed = false) => {
@@ -312,46 +427,14 @@ const ActionButton = memo<{
           action.variant === 'secondary' || action.id === 'save'
             ? styles.actionTextBold
             : styles.actionText;
-        return (
-          <View style={styles.actionContent} pointerEvents="none">
-            <Text style={[textStyle, { color: contentColor }]}>{action.label}</Text>
-            {action.customIcon ? (
-              React.isValidElement(action.customIcon) &&
-              action.customIcon.props &&
-              typeof action.customIcon.props === 'object' &&
-              'color' in action.customIcon.props ? (
-                React.cloneElement(action.customIcon as React.ReactElement<{ color?: string }>, {
-                  color: contentColor,
-                })
-              ) : (
-                action.customIcon
-              )
-            ) : action.icon ? (
-              <Icon
-                name={action.icon}
-                size={16}
-                color={contentColor}
-                strokeWidth={STROKE_WIDTH_THICK}
-              />
-            ) : null}
-          </View>
-        );
+        return renderLabeledActionRow(contentColor, textStyle);
       }
 
       // Icon-only button
       return (
         <View style={styles.iconOnlyContent} pointerEvents="none">
           {action.customIcon ? (
-            React.isValidElement(action.customIcon) &&
-            action.customIcon.props &&
-            typeof action.customIcon.props === 'object' &&
-            'color' in action.customIcon.props ? (
-              React.cloneElement(action.customIcon as React.ReactElement<{ color?: string }>, {
-                color: contentColor,
-              })
-            ) : (
-              action.customIcon
-            )
+            cloneHeaderActionIconColor(action.customIcon, contentColor)
           ) : action.icon ? (
             <Icon
               name={action.icon}
@@ -363,7 +446,7 @@ const ActionButton = memo<{
         </View>
       );
     },
-    [action, getContentColor]
+    [action, getContentColor, renderLabeledActionRow]
   );
 
   // Only apply animated follow fill in non-glass mode.
@@ -407,41 +490,11 @@ const ActionButton = memo<{
           const content = action.loading ? (
             <ActivityIndicator size="small" color={unfilledColor} />
           ) : action.label ? (
-            <View style={styles.actionContent} pointerEvents="none">
-              <Text style={[textStyle, { color: unfilledColor }]}>{action.label}</Text>
-              {action.customIcon ? (
-                React.isValidElement(action.customIcon) &&
-                action.customIcon.props &&
-                typeof action.customIcon.props === 'object' &&
-                'color' in action.customIcon.props ? (
-                  React.cloneElement(action.customIcon as React.ReactElement<{ color?: string }>, {
-                    color: unfilledColor,
-                  })
-                ) : (
-                  action.customIcon
-                )
-              ) : action.icon ? (
-                <Icon
-                  name={action.icon}
-                  size={16}
-                  color={unfilledColor}
-                  strokeWidth={STROKE_WIDTH_THICK}
-                />
-              ) : null}
-            </View>
+            renderLabeledActionRow(unfilledColor, textStyle)
           ) : (
             <View style={styles.iconOnlyContent} pointerEvents="none">
               {action.customIcon ? (
-                React.isValidElement(action.customIcon) &&
-                action.customIcon.props &&
-                typeof action.customIcon.props === 'object' &&
-                'color' in action.customIcon.props ? (
-                  React.cloneElement(action.customIcon as React.ReactElement<{ color?: string }>, {
-                    color: unfilledColor,
-                  })
-                ) : (
-                  action.customIcon
-                )
+                cloneHeaderActionIconColor(action.customIcon, unfilledColor)
               ) : action.icon ? (
                 <Icon
                   name={action.icon}
@@ -456,41 +509,11 @@ const ActionButton = memo<{
           const contentFilled = action.loading ? (
             <ActivityIndicator size="small" color={filledColor} />
           ) : action.label ? (
-            <View style={styles.actionContent} pointerEvents="none">
-              <Text style={[textStyle, { color: filledColor }]}>{action.label}</Text>
-              {action.customIcon ? (
-                React.isValidElement(action.customIcon) &&
-                action.customIcon.props &&
-                typeof action.customIcon.props === 'object' &&
-                'color' in action.customIcon.props ? (
-                  React.cloneElement(action.customIcon as React.ReactElement<{ color?: string }>, {
-                    color: filledColor,
-                  })
-                ) : (
-                  action.customIcon
-                )
-              ) : action.icon ? (
-                <Icon
-                  name={action.icon}
-                  size={16}
-                  color={filledColor}
-                  strokeWidth={STROKE_WIDTH_THICK}
-                />
-              ) : null}
-            </View>
+            renderLabeledActionRow(filledColor, textStyle)
           ) : (
             <View style={styles.iconOnlyContent} pointerEvents="none">
               {action.customIcon ? (
-                React.isValidElement(action.customIcon) &&
-                action.customIcon.props &&
-                typeof action.customIcon.props === 'object' &&
-                'color' in action.customIcon.props ? (
-                  React.cloneElement(action.customIcon as React.ReactElement<{ color?: string }>, {
-                    color: filledColor,
-                  })
-                ) : (
-                  action.customIcon
-                )
+                cloneHeaderActionIconColor(action.customIcon, filledColor)
               ) : action.icon ? (
                 <Icon
                   name={action.icon}
@@ -537,7 +560,11 @@ const ActionButton = memo<{
   // Wrap in Animated.View only when animating, otherwise return Pressable directly
   if (shouldAnimate) {
     return (
-      <Animated.View style={[styles.actionButton, animatedButtonStyle, getButtonSize()]}>
+      <Animated.View
+        layout={FOLLOW_PILL_LAYOUT_ANIMATION}
+        collapsable={false}
+        style={[styles.actionButton, animatedButtonStyle, getButtonSize()]}
+      >
         {buttonContent}
       </Animated.View>
     );
@@ -572,15 +599,23 @@ const CustomActionLayoutComponent = memo<{
 
   const renderButtons = useCallback(() => {
     if (layout.type === 'button' && layout.buttons) {
+      const n = layout.buttons.length;
       return (
         <View style={styles.buttonContainer}>
-          {layout.buttons.map(action => (
-            <ActionButton
+          {layout.buttons.map((action, index) => (
+            <View
               key={action.id}
-              action={action}
-              textColor={textColor}
-              backgroundColor={backgroundColor}
-            />
+              style={[
+                styles.headerActionStackSlot,
+                { zIndex: n - index, elevation: (n - index) * 2 },
+              ]}
+            >
+              <ActionButton
+                action={action}
+                textColor={textColor}
+                backgroundColor={backgroundColor}
+              />
+            </View>
           ))}
         </View>
       );
@@ -1101,14 +1136,24 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
           <View style={styles.rightSection}>
             {actions.length > 0 && (
               <View style={styles.actionsContainer}>
-                {actions.map(action => (
-                  <ActionButton
-                    key={action.id}
-                    action={action}
-                    textColor={textColor}
-                    backgroundColor={backgroundColor}
-                  />
-                ))}
+                {actions.map((action, index) => {
+                  const n = actions.length;
+                  return (
+                    <View
+                      key={action.id}
+                      style={[
+                        styles.headerActionStackSlot,
+                        { zIndex: n - index, elevation: (n - index) * 2 },
+                      ]}
+                    >
+                      <ActionButton
+                        action={action}
+                        textColor={textColor}
+                        backgroundColor={backgroundColor}
+                      />
+                    </View>
+                  );
+                })}
               </View>
             )}
 
@@ -1203,11 +1248,16 @@ const styles = StyleSheet.create({
     gap: 8,
     zIndex: 1,
   },
+  /** Earlier actions (e.g. follow) paint above later siblings during width layout animation. */
+  headerActionStackSlot: {
+    position: 'relative',
+  },
   actionButton: {
     borderRadius: BORDER_RADIUS.FULL,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'visible',
     shadowColor: Colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -1251,10 +1301,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  actionContent: {
+  /** Labeled actions with an icon (leading or trailing) share row spacing. */
+  labeledActionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'center',
+    gap: 9,
+    maxWidth: '100%',
+  },
+  labeledActionLeadingIconCap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: -2,
+  },
+  labeledActionTextOnlyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    maxWidth: '100%',
+  },
+  actionPillLabel: {
+    textAlign: 'left',
+    flexShrink: 1,
+    ...Platform.select({
+      android: { includeFontPadding: false },
+      default: {},
+    }),
+  },
+  actionPillLabelCentered: {
+    textAlign: 'center',
+    flexShrink: 1,
+    ...Platform.select({
+      android: { includeFontPadding: false },
+      default: {},
+    }),
   },
   iconOnlyContent: {
     alignItems: 'center',

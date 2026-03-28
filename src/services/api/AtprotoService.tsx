@@ -496,8 +496,8 @@ class AtprotoService {
    * Unfollow a user
    * Delegates to GraphService
    */
-  static async unfollow(did: string): Promise<boolean> {
-    return GraphService.unfollow(did);
+  static async unfollow(did: string, followUri?: string): Promise<boolean> {
+    return GraphService.unfollow(did, followUri);
   }
 
   /**
