@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, Text, StyleSheet, Pressable, Alert } from 'react-native';
+import { View, Text, StyleSheet, Alert } from 'react-native';
+import { NativePressable } from './NativePressable';
 import { BORDER_RADIUS } from '../../utils/constants';
 import { Colors } from './UI';
 import { useAuth, useAccountManagement } from '../../stores/userStore';
@@ -61,16 +62,19 @@ const SessionDiagnosticsTool: React.FC<SessionDiagnosticsToolProps> = ({ visible
         </View>
 
         <View style={styles.actionsContainer}>
-          <Pressable
+          <NativePressable
             style={[styles.actionButton, styles.clearButton]}
             onPress={handleClearSessions}
           >
             <Text style={styles.actionButtonText}>{t('session.clearAllSessions')}</Text>
-          </Pressable>
+          </NativePressable>
 
-          <Pressable style={[styles.actionButton, styles.signOutButton]} onPress={handleSignOut}>
+          <NativePressable
+            style={[styles.actionButton, styles.signOutButton]}
+            onPress={handleSignOut}
+          >
             <Text style={styles.actionButtonText}>{t('session.signOut')}</Text>
-          </Pressable>
+          </NativePressable>
         </View>
       </View>
     </VerticalListSheet>

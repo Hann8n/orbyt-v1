@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { NativePressable } from '@/components/ui/NativePressable';
 import { useRouter } from 'expo-router';
 
 import { Colors } from '../../../theme';
@@ -44,7 +45,7 @@ const CommentLikeItemComponent: React.FC<CommentLikeItemProps> = ({ like, onPres
   }, [onPress, did, router]);
 
   return (
-    <Pressable onPress={handlePress} style={styles.row}>
+    <NativePressable onPress={handlePress} style={styles.row}>
       <View style={styles.avatarWrap}>
         <UI.Avatar
           uri={actor?.avatar}
@@ -74,7 +75,7 @@ const CommentLikeItemComponent: React.FC<CommentLikeItemProps> = ({ like, onPres
           ) : null}
         </View>
       </View>
-    </Pressable>
+    </NativePressable>
   );
 };
 

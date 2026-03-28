@@ -13,13 +13,13 @@ import {
   View,
   Text,
   StyleSheet,
-  Pressable,
   Dimensions,
   Modal,
   ActivityIndicator,
   Platform,
   Linking,
 } from 'react-native';
+import { NativePressable } from '@/components/ui/NativePressable';
 import { Image } from 'expo-image';
 import { FeedPager } from '@/components';
 import {
@@ -268,27 +268,20 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
             ? t('profile.notFoundFor', { identifier: providedIdentifier })
             : profileError || t('profile.retrieveFailed')}
         </Text>
-        <Pressable
-          style={({ pressed }) => [styles.errorButton, pressed && { opacity: 0.7 }]}
-          onPress={onRefresh}
-        >
+        <NativePressable style={styles.errorButton} onPress={onRefresh}>
           <Text style={[styles.errorButtonText, { color: profileColors.textColor || '#fff' }]}>
             {t('errors.tryAgain')}
           </Text>
-        </Pressable>
+        </NativePressable>
         {providedIdentifier && (
-          <Pressable
-            style={({ pressed }) => [
-              styles.errorButton,
-              styles.secondaryButton,
-              pressed && { opacity: 0.7 },
-            ]}
+          <NativePressable
+            style={[styles.errorButton, styles.secondaryButton]}
             onPress={() => router.back()}
           >
             <Text style={[styles.errorButtonText, { color: profileColors.textColor || '#fff' }]}>
               {t('common.goBack')}
             </Text>
-          </Pressable>
+          </NativePressable>
         )}
       </View>
     );
@@ -626,15 +619,16 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
         overlayAnimatedStyle={staticOverlayAnimatedStyle}
       >
         <Animated.View style={[styles.overlayMenuWrap, overlayControlFadeAnimatedStyle]}>
-          <Pressable
+          <NativePressable
             onPress={handleMenuPress}
             onPressIn={handleMenuPressIn}
             onLongPress={isOwnProfileView ? handleMenuLongPress : undefined}
             delayLongPress={250}
             style={styles.overlayMenuButton}
+            androidRippleBorderless
           >
             <MoreFillIcon size={24} color={profileColors.textColor || Colors.neutral[50]} />
-          </Pressable>
+          </NativePressable>
         </Animated.View>
         {headerActions.length > 0 && (
           <Animated.View
@@ -790,7 +784,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
         animationType="fade"
         onRequestClose={() => setFullscreenImageUri(null)}
       >
-        <Pressable style={styles.modalOverlay} onPress={() => setFullscreenImageUri(null)}>
+        <NativePressable style={styles.modalOverlay} onPress={() => setFullscreenImageUri(null)}>
           {fullscreenImageUri && (
             <Image
               source={{ uri: fullscreenImageUri }}
@@ -798,7 +792,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
               contentFit="contain"
             />
           )}
-        </Pressable>
+        </NativePressable>
       </Modal>
     </View>
   );

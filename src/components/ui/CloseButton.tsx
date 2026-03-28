@@ -1,8 +1,8 @@
 import React from 'react';
-import { Pressable, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { NativePressable } from './NativePressable';
 import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '../../utils/constants';
-import { hexToRGBA } from '../../utils/formatting/colors';
 import { Colors } from './UI';
 import Icon from './Icon';
 
@@ -13,15 +13,16 @@ interface CloseButtonProps {
 const CloseButton: React.FC<CloseButtonProps> = ({ onPress }) => {
   const { t } = useTranslation();
   return (
-    <Pressable
-      style={({ pressed }) => [styles.closeButton, pressed && styles.closeButtonPressed]}
+    <NativePressable
+      style={styles.closeButton}
       onPress={onPress}
+      androidRippleBorderless
       accessibilityRole="button"
       accessibilityLabel={t('common.close')}
       accessibilityHint={t('common.closesSheet')}
     >
       <Icon name="close" size={34} color={Colors.neutral[200]} style={styles.closeIcon} />
-    </Pressable>
+    </NativePressable>
   );
 };
 
@@ -33,9 +34,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: BORDER_RADIUS.LARGE,
     backgroundColor: Colors.transparent,
-  },
-  closeButtonPressed: {
-    backgroundColor: hexToRGBA(Colors.neutral[300], 0.12),
   },
   closeIcon: {
     margin: 0,

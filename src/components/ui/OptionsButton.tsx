@@ -1,15 +1,7 @@
 import React, { useMemo } from 'react';
-import {
-  View,
-  Text,
-  Pressable,
-  Switch,
-  ViewStyle,
-  TextStyle,
-  StyleSheet,
-  StyleProp,
-} from 'react-native';
+import { View, Text, Switch, ViewStyle, TextStyle, StyleSheet, StyleProp } from 'react-native';
 import Icon, { OutlinkIcon } from './Icon';
+import { NativePressable } from './NativePressable';
 import { Colors } from './UI';
 import { BORDER_RADIUS } from '../../utils/constants';
 import { hexToRGBA } from '../../utils/formatting/colors';
@@ -218,13 +210,9 @@ export const OptionsButton: React.FC<OptionsButtonProps> = ({
   if (onPress) {
     return (
       <View style={buttonStyles.wrapper}>
-        <Pressable
-          onPress={onPress}
-          disabled={disabled || loading}
-          android_ripple={{ color: hexToRGBA(Colors.neutral[50], 0.12) }}
-        >
+        <NativePressable onPress={onPress} disabled={disabled || loading}>
           {buttonContent}
-        </Pressable>
+        </NativePressable>
       </View>
     );
   }

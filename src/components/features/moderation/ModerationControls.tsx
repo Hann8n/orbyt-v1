@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { NativePressable } from '@/components/ui/NativePressable';
 import { Colors } from '../../../theme';
 import Icon from '../../ui/Icon';
 import { useUserStoreState } from '../../../stores/userStore';
@@ -91,7 +92,7 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible }) => {
 
             {/* Web Settings Button */}
             <View style={styles.webSettingsSection}>
-              <Pressable
+              <NativePressable
                 style={styles.webSettingsTextButton}
                 onPress={() => {
                   // External moderation settings link is not currently available
@@ -99,7 +100,7 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible }) => {
               >
                 <Icon name="arrow_right_up" size={24} color={Colors.neutral[50]} />
                 <Text style={styles.webSettingsTextButtonText}>{t('settings.adjustOnBsky')}</Text>
-              </Pressable>
+              </NativePressable>
             </View>
           </>
         )}

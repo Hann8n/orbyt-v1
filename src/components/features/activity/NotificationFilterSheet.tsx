@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { NativePressable } from '../../ui/NativePressable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import VerticalListSheet from '../../ui/VerticalListSheet';
 import CancelButton from '../../ui/CancelButton';
@@ -120,10 +121,7 @@ interface FilterOptionProps {
 
 const FilterOption: React.FC<FilterOptionProps> = ({ label, checked, onPress }) => {
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [styles.filterOption, pressed && styles.filterOptionPressed]}
-    >
+    <NativePressable onPress={onPress} style={styles.filterOption}>
       <Text style={styles.filterOptionLabel}>{label}</Text>
       <View style={styles.checkboxWrap}>
         {checked ? (
@@ -137,7 +135,7 @@ const FilterOption: React.FC<FilterOptionProps> = ({ label, checked, onPress }) 
           <CuteRegularSquareBoxEmptyIcon size={24} color={Colors.neutral[200]} />
         )}
       </View>
-    </Pressable>
+    </NativePressable>
   );
 };
 
@@ -223,13 +221,13 @@ const NotificationFilterContent: React.FC<{
   const clearButton = useMemo(() => {
     const hasFilters = localSelected.length > 0;
     return (
-      <Pressable
+      <NativePressable
         onPress={handleClear}
         disabled={!hasFilters}
         style={[styles.clearButton, !hasFilters && styles.clearButtonDisabled]}
       >
         <Text style={styles.clearButtonText}>{t('activity.clear')}</Text>
-      </Pressable>
+      </NativePressable>
     );
   }, [handleClear, localSelected.length, t]);
 
@@ -365,9 +363,6 @@ const styles = StyleSheet.create({
     marginBottom: DEFAULT_CONTENT_PADDING_HORIZONTAL,
     backgroundColor: Colors.neutral[900],
     borderRadius: BORDER_RADIUS.LARGE,
-  },
-  filterOptionPressed: {
-    opacity: 0.7,
   },
   filterOptionLabel: {
     color: Colors.neutral[50],

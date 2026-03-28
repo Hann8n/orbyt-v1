@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, StyleSheet, Text, View, StyleProp, ViewStyle } from 'react-native';
+import { StyleSheet, Text, View, StyleProp, ViewStyle } from 'react-native';
+import { NativePressable } from './NativePressable';
 import { useRouter } from 'expo-router';
 import { Avatar } from './UI';
 import { Colors } from './UI';
@@ -73,7 +74,7 @@ const ChannelItem: React.FC<ChannelItemProps> = ({
   };
 
   return (
-    <Pressable
+    <NativePressable
       style={[styles.container, { backgroundColor: backgroundColor || Colors.neutral[900] }, style]}
       onPress={handlePress}
     >
@@ -135,7 +136,7 @@ const ChannelItem: React.FC<ChannelItemProps> = ({
           </View>
         )}
       </View>
-    </Pressable>
+    </NativePressable>
   );
 };
 

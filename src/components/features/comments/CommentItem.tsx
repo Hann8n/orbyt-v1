@@ -4,7 +4,6 @@ import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
   Text,
-  Pressable,
   StyleSheet,
   Alert,
   Linking,
@@ -12,6 +11,7 @@ import {
   type ImageStyle,
   type StyleProp,
 } from 'react-native';
+import { NativePressable } from '@/components/ui/NativePressable';
 import { Image } from 'expo-image';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
@@ -169,9 +169,12 @@ const CommentImage: React.FC<{
   );
   if (onPress) {
     return (
-      <Pressable style={[wrapperStyle, { aspectRatio: initialAspectRatio }]} onPress={onPress}>
+      <NativePressable
+        style={[wrapperStyle, { aspectRatio: initialAspectRatio }]}
+        onPress={onPress}
+      >
         {content}
-      </Pressable>
+      </NativePressable>
     );
   }
   return <View style={[wrapperStyle, { aspectRatio: initialAspectRatio }]}>{content}</View>;
@@ -833,7 +836,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
     const hasThumb = !!thumbUrl;
 
     return (
-      <Pressable
+      <NativePressable
         onPress={handlePress}
         style={[styles.linkPreviewContainer, hasThumb && styles.linkPreviewContainerWithThumb]}
         android_ripple={{ color: hexToRGBA(Colors.neutral[400], 0.2) }}
@@ -871,7 +874,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
             </View>
           </View>
         )}
-      </Pressable>
+      </NativePressable>
     );
   };
   LinkThumbnailComponent.displayName = 'LinkThumbnail';
@@ -1030,7 +1033,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
               : 1;
 
             return (
-              <Pressable
+              <NativePressable
                 key={`${img.thumb || img.fullsize || idx}`}
                 style={[
                   styles.commentImageWrapper,
@@ -1052,7 +1055,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
                   contentFit="contain"
                   accessibilityLabel={img.alt || t('comments.commentImage')}
                 />
-              </Pressable>
+              </NativePressable>
             );
           }
         )}
@@ -1081,7 +1084,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
           <Animated.View style={[styles.highlightOverlay, highlightStyle]} pointerEvents="none" />
         )}
         <View style={styles.commentItemRow}>
-          <Pressable onPress={handleAuthorAvatarPress}>
+          <NativePressable onPress={handleAuthorAvatarPress}>
             <UI.Avatar
               uri={authorAvatar}
               type="profile"
@@ -1093,10 +1096,10 @@ const CommentItem: React.FC<CommentItemProps> = ({
               status={authorProfile?.status}
               style={[styles.commentAvatar, level > 0 && styles.commentAvatarNested]}
             />
-          </Pressable>
+          </NativePressable>
           <View style={styles.commentItemBody}>
             <View style={styles.commentItemAuthorRow}>
-              <Pressable
+              <NativePressable
                 onPress={() => {
                   const authorData = comment?.author;
                   if (authorHandle || authorDid) {
@@ -1105,7 +1108,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
                 }}
               >
                 <Text style={styles.commentAuthorName}>{authorName}</Text>
-              </Pressable>
+              </NativePressable>
               {authorHandle && (
                 <VerificationBadge
                   handle={authorHandle}
@@ -1114,7 +1117,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
                 />
               )}
               {parent && parentAuthorName && level > 0 && parent.parent && (
-                <Pressable
+                <NativePressable
                   onPress={() => {
                     const parentAuthorData = parent?.author;
                     if (parentAuthorHandle && typeof parentAuthorHandle === 'string') {
@@ -1130,7 +1133,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
                     <Text style={styles.parentChyronArrow}>▸ </Text>
                     {parentAuthorName}
                   </Text>
-                </Pressable>
+                </NativePressable>
               )}
             </View>
 
@@ -1148,9 +1151,9 @@ const CommentItem: React.FC<CommentItemProps> = ({
             {renderImages(!!commentText)}
             <View style={styles.commentMetaContainer}>
               <RelativeDate dateString={comment?.indexedAt} style={styles.commentTimestamp} />
-              <Pressable onPress={handleReplyPress} style={styles.replyButton}>
+              <NativePressable onPress={handleReplyPress} style={styles.replyButton}>
                 <Text style={styles.replyButtonText}>{t('comments.reply')}</Text>
-              </Pressable>
+              </NativePressable>
               <MenuView
                 actions={commentMenuActions}
                 onPressAction={handleCommentMenuPressAction}
@@ -1158,24 +1161,28 @@ const CommentItem: React.FC<CommentItemProps> = ({
                 themeVariant="dark"
                 isAnchoredToRight={true}
               >
-                <Pressable
+                <NativePressable
                   style={styles.moreButton}
                   hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                   accessibilityRole="button"
                   accessibilityLabel={t('common.more')}
                 >
                   <MoreFillIcon size={16} color={Colors.neutral[300]} />
-                </Pressable>
+                </NativePressable>
               </MenuView>
             </View>
           </View>
         </View>
         <View style={styles.commentActionsContainer}>
-          <Pressable onPress={handleLikeComment} style={styles.likeButton} disabled={isLiking}>
+          <NativePressable
+            onPress={handleLikeComment}
+            style={styles.likeButton}
+            disabled={isLiking}
+          >
             <Animated.View style={heartAnimatedStyle}>
               <HeartFillIcon size={20} color={isLiked ? Colors.coral[500] : Colors.neutral[400]} />
             </Animated.View>
-          </Pressable>
+          </NativePressable>
           {likeCount > 0 && <Text style={styles.likeCount}>{formatNumber(likeCount)}</Text>}
         </View>
       </Animated.View>

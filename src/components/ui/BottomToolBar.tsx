@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, Pressable, StyleSheet, Text } from 'react-native';
+import { View, StyleSheet, Text } from 'react-native';
+import { NativePressable } from './NativePressable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { getBottomNavBarHeight } from '../../utils/device/screen';
@@ -95,9 +96,10 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
           ];
 
     return (
-      <Pressable
+      <NativePressable
         key={tool.id}
-        style={({ pressed }) => [...toolStyle, pressed ? { opacity: 0.7 } : null]}
+        style={toolStyle}
+        androidRippleBorderless
         onPress={() => {
           if (!isDisabled) {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -117,7 +119,7 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
           size={iconSize}
           color={iconColor}
         />
-      </Pressable>
+      </NativePressable>
     );
   };
 
@@ -164,17 +166,13 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
         {/* Right side - next button */}
         {onNextPress && (
           <View style={styles.nextButtonContainer}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.nextButton,
-                pressed && { opacity: 0.8 },
-                nextButtonDisabled && styles.nextButtonDisabled,
-              ]}
+            <NativePressable
+              style={[styles.nextButton, nextButtonDisabled && styles.nextButtonDisabled]}
               onPress={onNextPress}
               disabled={nextButtonDisabled}
             >
               <Text style={styles.nextButtonText}>{t('common.next')}</Text>
-            </Pressable>
+            </NativePressable>
           </View>
         )}
       </View>

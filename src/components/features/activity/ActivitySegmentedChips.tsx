@@ -1,13 +1,6 @@
 import React from 'react';
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  type StyleProp,
-  type ViewStyle,
-  View,
-  Pressable,
-} from 'react-native';
+import { ScrollView, StyleSheet, Text, type StyleProp, type ViewStyle, View } from 'react-native';
+import { NativePressable } from '@/components/ui/NativePressable';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { FontFamily, Typography } from '../../../utils/components/typography';
 import { Colors } from '../../../theme';
@@ -41,7 +34,7 @@ const ActivitySegmentedChips: React.FC<ActivitySegmentedChipsProps> = ({
   const content = (
     <View style={[styles.track, trackStyle]}>
       {options.map(option => (
-        <Pressable
+        <NativePressable
           key={option.key}
           onPress={option.onPress}
           style={[styles.chip, option.selected && { backgroundColor: activeChipColor }]}
@@ -49,7 +42,7 @@ const ActivitySegmentedChips: React.FC<ActivitySegmentedChipsProps> = ({
           <Text style={[styles.chipText, option.selected && { color: activeTextColor }]}>
             {option.label}
           </Text>
-        </Pressable>
+        </NativePressable>
       ))}
     </View>
   );

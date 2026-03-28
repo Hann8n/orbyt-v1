@@ -1,6 +1,7 @@
 import React, { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { NativePressable } from './NativePressable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
@@ -124,12 +125,13 @@ const ListScreen: React.FC<ListScreenProps> = ({
             onPress={() => handleUserPress(item.did)}
           />
           {shouldShowFollowButton && isActionButton && (
-            <Pressable
-              style={({ pressed }) => [styles.actionButton, pressed && { opacity: 0.8 }]}
+            <NativePressable
+              style={styles.actionButton}
               onPress={() => handleFollowPress(item)}
+              androidRippleBorderless
             >
               <MinusSquareCuteFilledIcon size={32} color={Colors.neutral[400]} />
-            </Pressable>
+            </NativePressable>
           )}
         </View>
       );

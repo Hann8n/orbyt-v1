@@ -1,6 +1,7 @@
 import React, { memo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, StyleSheet, Pressable, type ViewStyle } from 'react-native';
+import { View, StyleSheet, type ViewStyle } from 'react-native';
+import { NativePressable } from '../../ui/NativePressable';
 import Animated, { type AnimatedStyle } from 'react-native-reanimated';
 import { BackArrowIcon } from '../../ui/Icon';
 import { Colors } from '../../../theme';
@@ -40,10 +41,11 @@ const DetailScreenOverlay: React.FC<DetailScreenOverlayProps> = ({
   return (
     <>
       {isModal && (
-        <Pressable
+        <NativePressable
           style={styles.grabHandle}
           hitSlop={{ top: 10, bottom: 10, left: 20, right: 20 }}
           onPress={onGrabHandlePress}
+          androidRippleBorderless
         >
           <View style={styles.grabHandleContainer}>
             <Animated.View
@@ -71,17 +73,18 @@ const DetailScreenOverlay: React.FC<DetailScreenOverlayProps> = ({
               <View style={[styles.grabHandleBar, styles.grabHandleBarSecondary]} />
             </Animated.View>
           </View>
-        </Pressable>
+        </NativePressable>
       )}
 
       <View style={[styles.overlayRow, { top: actionButtonsTop }]}>
         {showBackButton ? (
-          <Pressable
+          <NativePressable
             accessibilityRole="button"
             accessibilityLabel={t('common.back')}
             onPress={onBackPress}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             style={styles.overlayBackButton}
+            androidRippleBorderless
           >
             <View style={styles.backIconContainer}>
               <Animated.View style={[StyleSheet.absoluteFillObject, backIconPrimaryStyle]}>
@@ -91,7 +94,7 @@ const DetailScreenOverlay: React.FC<DetailScreenOverlayProps> = ({
                 <BackArrowIcon size={30} color={Colors.neutral[50]} />
               </Animated.View>
             </View>
-          </Pressable>
+          </NativePressable>
         ) : (
           <View style={styles.overlayBackSpacer} />
         )}

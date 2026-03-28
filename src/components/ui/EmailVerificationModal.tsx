@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, Text, TextInput, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, StyleSheet, ActivityIndicator } from 'react-native';
+import { NativePressable } from './NativePressable';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -270,7 +271,7 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
               )}
             </View>
 
-            <Pressable
+            <NativePressable
               style={[
                 styles.verifyButton,
                 token.trim().length === 11 && !isVerifying && !error && styles.verifyButtonActive,
@@ -310,10 +311,10 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
                   />
                 </View>
               )}
-            </Pressable>
+            </NativePressable>
 
             {cooldownSeconds === 0 && (
-              <Pressable
+              <NativePressable
                 style={styles.resendButton}
                 onPress={handleSendEmail}
                 disabled={isVerifying || isSendingEmail}
@@ -321,12 +322,12 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
                 <Text style={styles.resendButtonText}>
                   {isSendingEmail ? t('auth.sending') : t('auth.requestNewCode')}
                 </Text>
-              </Pressable>
+              </NativePressable>
             )}
           </View>
         ) : (
           <View style={styles.infoContainer}>
-            <Pressable
+            <NativePressable
               style={[
                 styles.sendButton,
                 !isSendingEmail && styles.sendButtonActive,
@@ -350,7 +351,7 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
                   <Icon name="arrow_right" size={24} color={Colors.neutral[900]} />
                 </View>
               )}
-            </Pressable>
+            </NativePressable>
 
             <Text style={styles.infoText}>{t('auth.youllReceiveCode')}</Text>
           </View>

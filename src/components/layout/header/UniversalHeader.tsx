@@ -3,7 +3,6 @@ import { BORDER_RADIUS, ICON_SIZES } from '../../../utils/constants';
 import {
   View,
   StyleSheet,
-  Pressable,
   Text,
   ActivityIndicator,
   StyleProp,
@@ -27,6 +26,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { BackArrowIcon, MoreFillIcon, STROKE_WIDTH_THICK } from '../../ui/Icon';
+import { NativePressable } from '../../ui/NativePressable';
 import { OutlinkIcon, GermDmIcon } from '../../ui/Icon';
 import { useRouter } from 'expo-router';
 import { hexToRGBA, blendColors } from '../../../utils/formatting/colors';
@@ -222,40 +222,23 @@ const ActionButton = memo<{
     canUseLiquidGlass,
   ]);
 
-  const getLiquidGlassTintColor = useCallback(
-    (pressed = false) => {
-      const shouldInvertOnPress = action.id !== 'follow' && action.id !== 'subscription';
-      const isPressedFeedback = pressed && shouldInvertOnPress;
-      const isActive = hasFilledBackground;
-      const activeTint = textColor;
-      const inactiveTint = hexToRGBA(Colors.black, 0.12);
-      if (isPressedFeedback) {
-        return isActive ? inactiveTint : activeTint;
-      }
-      return isActive ? activeTint : inactiveTint;
-    },
-    [action.id, hasFilledBackground, textColor]
-  );
+  const getLiquidGlassTintColor = useCallback(() => {
+    const isActive = hasFilledBackground;
+    const activeTint = textColor;
+    const inactiveTint = hexToRGBA(Colors.black, 0.12);
+    return isActive ? activeTint : inactiveTint;
+  }, [hasFilledBackground, textColor]);
 
-  const getContentColor = useCallback(
-    (pressed = false) => {
-      if (canUseLiquidGlass) {
-        const shouldInvertOnPress = action.id !== 'follow' && action.id !== 'subscription';
-        const isPressedFeedback = pressed && shouldInvertOnPress;
-        const isActive = hasFilledBackground;
-        const activeContent = backgroundColor;
-        const inactiveContent = textColor;
-        // Invert active/inactive palette while pressed for tactile feedback.
-        if (isPressedFeedback) {
-          return isActive ? inactiveContent : activeContent;
-        }
-        return isActive ? activeContent : inactiveContent;
-      }
-      const showFilledState = hasFilledBackground;
-      return showFilledState ? backgroundColor : textColor;
-    },
-    [action.id, textColor, backgroundColor, hasFilledBackground, canUseLiquidGlass]
-  );
+  const getContentColor = useCallback(() => {
+    if (canUseLiquidGlass) {
+      const isActive = hasFilledBackground;
+      const activeContent = backgroundColor;
+      const inactiveContent = textColor;
+      return isActive ? activeContent : inactiveContent;
+    }
+    const showFilledState = hasFilledBackground;
+    return showFilledState ? backgroundColor : textColor;
+  }, [textColor, backgroundColor, hasFilledBackground, canUseLiquidGlass]);
 
   const getButtonSize = useCallback(() => {
     const hasLabel = !!action.label;
@@ -414,40 +397,36 @@ const ActionButton = memo<{
     [action]
   );
 
-  const renderContent = useCallback(
-    (pressed = false) => {
-      const contentColor = getContentColor(pressed);
+  const renderContent = useCallback(() => {
+    const contentColor = getContentColor();
 
-      if (action.loading) {
-        return <ActivityIndicator size="small" color={contentColor} />;
-      }
+    if (action.loading) {
+      return <ActivityIndicator size="small" color={contentColor} />;
+    }
 
-      if (action.label) {
-        const textStyle =
-          action.variant === 'secondary' || action.id === 'save'
-            ? styles.actionTextBold
-            : styles.actionText;
-        return renderLabeledActionRow(contentColor, textStyle);
-      }
+    if (action.label) {
+      const textStyle =
+        action.variant === 'secondary' || action.id === 'save'
+          ? styles.actionTextBold
+          : styles.actionText;
+      return renderLabeledActionRow(contentColor, textStyle);
+    }
 
-      // Icon-only button
-      return (
-        <View style={styles.iconOnlyContent} pointerEvents="none">
-          {action.customIcon ? (
-            cloneHeaderActionIconColor(action.customIcon, contentColor)
-          ) : action.icon ? (
-            <Icon
-              name={action.icon}
-              size={20}
-              color={contentColor}
-              strokeWidth={STROKE_WIDTH_THICK}
-            />
-          ) : null}
-        </View>
-      );
-    },
-    [action, getContentColor, renderLabeledActionRow]
-  );
+    return (
+      <View style={styles.iconOnlyContent} pointerEvents="none">
+        {action.customIcon ? (
+          cloneHeaderActionIconColor(action.customIcon, contentColor)
+        ) : action.icon ? (
+          <Icon
+            name={action.icon}
+            size={20}
+            color={contentColor}
+            strokeWidth={STROKE_WIDTH_THICK}
+          />
+        ) : null}
+      </View>
+    );
+  }, [action, getContentColor, renderLabeledActionRow]);
 
   // Only apply animated follow fill in non-glass mode.
   const isFollowButton = action.id === 'follow';
@@ -457,120 +436,127 @@ const ActionButton = memo<{
     action.variant !== 'danger' &&
     action.variant !== 'secondary';
 
-  const buttonContent = (
-    <Pressable
-      style={({ pressed }) =>
-        shouldAnimate
-          ? [styles.pressableFill, pressed && styles.actionPressed]
-          : [
-              styles.actionButton,
-              canUseLiquidGlass && styles.actionButtonNoShadow,
-              getButtonStyle(),
-              getButtonSize(),
-              pressed && styles.actionPressed,
-            ]
-      }
-      android_ripple={{ color: hexToRGBA(textColor, 0.12), borderless: false }}
+  const followCrossfadeContent = shouldAnimate
+    ? (() => {
+        const textStyle =
+          action.variant === 'secondary' || action.id === 'save'
+            ? styles.actionTextBold
+            : styles.actionText;
+        const unfilledColor = textColor;
+        const filledColor = backgroundColor;
+        const content = action.loading ? (
+          <ActivityIndicator size="small" color={unfilledColor} />
+        ) : action.label ? (
+          renderLabeledActionRow(unfilledColor, textStyle)
+        ) : (
+          <View style={styles.iconOnlyContent} pointerEvents="none">
+            {action.customIcon ? (
+              cloneHeaderActionIconColor(action.customIcon, unfilledColor)
+            ) : action.icon ? (
+              <Icon
+                name={action.icon}
+                size={20}
+                color={unfilledColor}
+                strokeWidth={STROKE_WIDTH_THICK}
+              />
+            ) : null}
+          </View>
+        );
+        const contentFilled = action.loading ? (
+          <ActivityIndicator size="small" color={filledColor} />
+        ) : action.label ? (
+          renderLabeledActionRow(filledColor, textStyle)
+        ) : (
+          <View style={styles.iconOnlyContent} pointerEvents="none">
+            {action.customIcon ? (
+              cloneHeaderActionIconColor(action.customIcon, filledColor)
+            ) : action.icon ? (
+              <Icon
+                name={action.icon}
+                size={20}
+                color={filledColor}
+                strokeWidth={STROKE_WIDTH_THICK}
+              />
+            ) : null}
+          </View>
+        );
+        return (
+          <View style={styles.followContentCrossfade} pointerEvents="none">
+            <View style={styles.followContentSizer} pointerEvents="none">
+              {content}
+            </View>
+            <Animated.View style={[styles.followContentLayer, unfilledContentOpacityStyle]}>
+              {content}
+            </Animated.View>
+            <Animated.View style={[styles.followContentLayer, filledContentOpacityStyle]}>
+              {contentFilled}
+            </Animated.View>
+          </View>
+        );
+      })()
+    : null;
+
+  // Follow pill: background must live inside NativePressable so iOS activeOpacity dimms the whole pill,
+  // not only icon/text (profile overlay and elsewhere use non-glass animated follow).
+  if (shouldAnimate) {
+    const sizeStyle = getButtonSize();
+    const pillRadius = 'borderRadius' in sizeStyle ? sizeStyle.borderRadius : BORDER_RADIUS.FULL;
+    return (
+      <Animated.View
+        layout={FOLLOW_PILL_LAYOUT_ANIMATION}
+        collapsable={false}
+        style={[styles.actionButton, sizeStyle]}
+      >
+        <NativePressable
+          style={[
+            StyleSheet.absoluteFillObject,
+            {
+              overflow: 'hidden',
+              borderRadius: pillRadius,
+              alignItems: 'center',
+              justifyContent: 'center',
+            },
+          ]}
+          onPress={action.onPress}
+          onLongPress={action.onLongPress}
+          delayLongPress={action.delayLongPress}
+          disabled={action.disabled || action.loading}
+        >
+          <Animated.View
+            pointerEvents="none"
+            style={[StyleSheet.absoluteFillObject, animatedButtonStyle]}
+          />
+          {followCrossfadeContent}
+        </NativePressable>
+      </Animated.View>
+    );
+  }
+
+  return (
+    <NativePressable
+      style={[
+        styles.actionButton,
+        canUseLiquidGlass && styles.actionButtonNoShadow,
+        getButtonStyle(),
+        getButtonSize(),
+      ]}
       onPress={action.onPress}
       onLongPress={action.onLongPress}
       delayLongPress={action.delayLongPress}
       disabled={action.disabled || action.loading}
     >
-      {({ pressed }) => {
-        if (shouldAnimate) {
-          const textStyle =
-            action.variant === 'secondary' || action.id === 'save'
-              ? styles.actionTextBold
-              : styles.actionText;
-
-          // Render two layers (unfilled + filled) and crossfade between them on UI thread.
-          const unfilledColor = textColor;
-          const filledColor = backgroundColor;
-
-          const content = action.loading ? (
-            <ActivityIndicator size="small" color={unfilledColor} />
-          ) : action.label ? (
-            renderLabeledActionRow(unfilledColor, textStyle)
-          ) : (
-            <View style={styles.iconOnlyContent} pointerEvents="none">
-              {action.customIcon ? (
-                cloneHeaderActionIconColor(action.customIcon, unfilledColor)
-              ) : action.icon ? (
-                <Icon
-                  name={action.icon}
-                  size={20}
-                  color={unfilledColor}
-                  strokeWidth={STROKE_WIDTH_THICK}
-                />
-              ) : null}
-            </View>
-          );
-
-          const contentFilled = action.loading ? (
-            <ActivityIndicator size="small" color={filledColor} />
-          ) : action.label ? (
-            renderLabeledActionRow(filledColor, textStyle)
-          ) : (
-            <View style={styles.iconOnlyContent} pointerEvents="none">
-              {action.customIcon ? (
-                cloneHeaderActionIconColor(action.customIcon, filledColor)
-              ) : action.icon ? (
-                <Icon
-                  name={action.icon}
-                  size={20}
-                  color={filledColor}
-                  strokeWidth={STROKE_WIDTH_THICK}
-                />
-              ) : null}
-            </View>
-          );
-
-          return (
-            <View style={styles.followContentCrossfade} pointerEvents="none">
-              {/* Sizer keeps intrinsic layout (absolute layers don't contribute to measurement) */}
-              <View style={styles.followContentSizer} pointerEvents="none">
-                {content}
-              </View>
-              <Animated.View style={[styles.followContentLayer, unfilledContentOpacityStyle]}>
-                {content}
-              </Animated.View>
-              <Animated.View style={[styles.followContentLayer, filledContentOpacityStyle]}>
-                {contentFilled}
-              </Animated.View>
-            </View>
-          );
-        }
-
-        return (
-          <>
-            {canUseLiquidGlass && (
-              <GlassView
-                style={styles.actionButtonGlassBackground}
-                glassEffectStyle="clear"
-                tintColor={getLiquidGlassTintColor(pressed)}
-              />
-            )}
-            {renderContent(pressed)}
-          </>
-        );
-      }}
-    </Pressable>
+      <>
+        {canUseLiquidGlass && (
+          <GlassView
+            style={styles.actionButtonGlassBackground}
+            glassEffectStyle="clear"
+            tintColor={getLiquidGlassTintColor()}
+          />
+        )}
+        {renderContent()}
+      </>
+    </NativePressable>
   );
-
-  // Wrap in Animated.View only when animating, otherwise return Pressable directly
-  if (shouldAnimate) {
-    return (
-      <Animated.View
-        layout={FOLLOW_PILL_LAYOUT_ANIMATION}
-        collapsable={false}
-        style={[styles.actionButton, animatedButtonStyle, getButtonSize()]}
-      >
-        {buttonContent}
-      </Animated.View>
-    );
-  }
-
-  return buttonContent;
 });
 ActionButton.displayName = 'ActionButton';
 
@@ -587,13 +573,13 @@ const CustomActionLayoutComponent = memo<{
     if (!layout.menuIcon) return null;
 
     return (
-      <Pressable
+      <NativePressable
         style={styles.menuIconButton}
         onPress={layout.menuIcon.onPress}
-        android_ripple={{ color: hexToRGBA(textColor, 0.12), borderless: true }}
+        androidRippleBorderless
       >
         <MoreFillIcon size={layout.menuIcon.size || 24} color={textColor} />
-      </Pressable>
+      </NativePressable>
     );
   }, [layout.menuIcon, textColor]);
 
@@ -751,7 +737,7 @@ const HeaderContentComponent = memo<{
   return (
     <View style={styles.contentContainer}>
       <View style={styles.avatarContainer}>
-        <Pressable
+        <NativePressable
           style={[
             styles.avatar,
             content.avatarStyle === 'rounded-square' && styles.avatarRoundedSquare,
@@ -770,7 +756,7 @@ const HeaderContentComponent = memo<{
               status={content.status}
             />
           )}
-        </Pressable>
+        </NativePressable>
       </View>
 
       <View
@@ -779,7 +765,7 @@ const HeaderContentComponent = memo<{
           !customDescription && !content.description && styles.textContainerNoMargin,
         ]}
       >
-        <Pressable style={styles.titleRow} onPress={content.onTitlePress}>
+        <NativePressable style={styles.titleRow} onPress={content.onTitlePress}>
           {content.customTitle ? (
             <View style={styles.titleRow}>
               {content.customTitle}
@@ -792,7 +778,7 @@ const HeaderContentComponent = memo<{
               badges={[content.badge as React.ReactNode]}
             />
           )}
-        </Pressable>
+        </NativePressable>
 
         {!!content.subtitle &&
           (() => {
@@ -801,7 +787,7 @@ const HeaderContentComponent = memo<{
             );
 
             return (
-              <Pressable style={styles.subtitleRow} onPress={content.onTitlePress}>
+              <NativePressable style={styles.subtitleRow} onPress={content.onTitlePress}>
                 <View style={styles.subtitleColumn}>
                   <Text style={[styles.subtitle, { color: textColor }]} numberOfLines={1}>
                     {subtitleBase}
@@ -811,13 +797,12 @@ const HeaderContentComponent = memo<{
                     {content.onTitlePress ? ' ›' : ''}
                   </Text>
                   {!!content.subtitleAction && (
-                    <Pressable
+                    <NativePressable
                       onPress={content.subtitleAction.onPress}
-                      style={({ pressed }) => [
+                      style={[
                         styles.subtitleActionPill,
                         {
                           backgroundColor: blendColors(backgroundColor, textColor, 0.28),
-                          opacity: pressed ? 0.8 : 1,
                         },
                       ]}
                     >
@@ -828,10 +813,10 @@ const HeaderContentComponent = memo<{
                       >
                         {content.subtitleAction.label}
                       </Text>
-                    </Pressable>
+                    </NativePressable>
                   )}
                   {!!content.subtitleSecondary && (
-                    <Pressable
+                    <NativePressable
                       onPress={content.onSubtitleSecondaryPress}
                       disabled={!content.onSubtitleSecondaryPress}
                     >
@@ -876,10 +861,10 @@ const HeaderContentComponent = memo<{
                         </Text>
                         <OutlinkIcon size={16} color={hexToRGBA(textColor, 0.8)} />
                       </View>
-                    </Pressable>
+                    </NativePressable>
                   )}
                 </View>
-              </Pressable>
+              </NativePressable>
             );
           })()}
 
@@ -1127,9 +1112,9 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
         <View style={styles.topRow}>
           <View style={styles.leftSection}>
             {showBackButton && (
-              <Pressable style={styles.backButton} onPress={handleBackPress}>
+              <NativePressable style={styles.backButton} onPress={handleBackPress}>
                 <BackArrowIcon size={30} color={textColor} />
-              </Pressable>
+              </NativePressable>
             )}
           </View>
 
@@ -1277,16 +1262,6 @@ const styles = StyleSheet.create({
     shadowRadius: 0,
     shadowOffset: { width: 0, height: 0 },
     elevation: 0,
-  },
-  actionPressed: {
-    transform: [{ scale: 0.97 }],
-  },
-  pressableFill: {
-    flex: 1,
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   followContentCrossfade: {
     position: 'relative',

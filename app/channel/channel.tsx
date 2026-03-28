@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from '
 import { useTranslation } from 'react-i18next';
 import { useSharedValue } from 'react-native-reanimated';
 import { BORDER_RADIUS } from '@/utils/constants';
-import { View, StyleSheet, Dimensions, Pressable, Text, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, Dimensions, Text, ActivityIndicator } from 'react-native';
+import { NativePressable } from '@/components/ui/NativePressable';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import ChannelHeader from '@/components/layout/header/ChannelHeader';
@@ -236,15 +237,15 @@ const Channel: React.FC = memo(() => {
         {t('channel.notFound')}
       </Text>
       <Text style={styles.errorSubtext}>{t('channel.retrieveFailed')}</Text>
-      <Pressable
+      <NativePressable
         style={[styles.errorButton, { borderColor: (channelColors.textColor || '#fff') + '44' }]}
         onPress={onRefresh}
       >
         <Text style={[styles.errorButtonText, { color: channelColors.textColor || '#fff' }]}>
           {t('errors.tryAgain')}
         </Text>
-      </Pressable>
-      <Pressable
+      </NativePressable>
+      <NativePressable
         style={[
           styles.errorButton,
           styles.secondaryButton,
@@ -255,7 +256,7 @@ const Channel: React.FC = memo(() => {
         <Text style={[styles.errorButtonText, { color: channelColors.textColor || '#fff' }]}>
           {t('common.goBack')}
         </Text>
-      </Pressable>
+      </NativePressable>
     </View>
   );
 

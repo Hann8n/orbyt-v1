@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
-  Pressable,
   StyleSheet,
   ViewStyle,
   TextStyle,
@@ -13,6 +12,7 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
+import { NativePressable } from './NativePressable';
 import { Image } from 'expo-image';
 import { Modal as RNModal } from 'react-native';
 // SafeAreaView is imported elsewhere; no direct usage in this module
@@ -151,7 +151,11 @@ export const Button: React.FC<ButtonProps> = ({
   };
 
   return (
-    <Pressable style={[getButtonStyle(), style]} onPress={onPress} disabled={disabled || loading}>
+    <NativePressable
+      style={[getButtonStyle(), style]}
+      onPress={onPress}
+      disabled={disabled || loading}
+    >
       {loading ? (
         <ActivityIndicator
           size="small"
@@ -184,7 +188,7 @@ export const Button: React.FC<ButtonProps> = ({
           )}
         </>
       )}
-    </Pressable>
+    </NativePressable>
   );
 };
 
@@ -208,7 +212,7 @@ export const RetryButton: React.FC<RetryButtonProps> = ({ onPress, style, textSt
   );
 
   return (
-    <Pressable
+    <NativePressable
       style={[retryButtonStyles.button, !useLiquidGlass && retryButtonStyles.whiteButton, style]}
       onPress={onPress}
     >
@@ -225,7 +229,7 @@ export const RetryButton: React.FC<RetryButtonProps> = ({ onPress, style, textSt
       ) : (
         buttonContent
       )}
-    </Pressable>
+    </NativePressable>
   );
 };
 
@@ -639,8 +643,8 @@ export const Modal: React.FC<ModalProps> = ({
   void showCloseButton;
   return (
     <RNModal animationType="fade" transparent={true} visible={visible} onRequestClose={onClose}>
-      <Pressable style={styles.modalBackdrop} onPress={onClose}>
-        <Pressable onPress={e => e.stopPropagation()}>
+      <NativePressable style={styles.modalBackdrop} onPress={onClose}>
+        <NativePressable onPress={e => e.stopPropagation()}>
           <Card style={[styles.modalContainer, style]}>
             {title && <Text style={styles.modalTitle}>{title}</Text>}
             {subtitle && <Text style={styles.modalSubtitle}>{subtitle}</Text>}
@@ -661,8 +665,8 @@ export const Modal: React.FC<ModalProps> = ({
               </View>
             )}
           </Card>
-        </Pressable>
-      </Pressable>
+        </NativePressable>
+      </NativePressable>
     </RNModal>
   );
 };
@@ -724,11 +728,16 @@ const InputComponent: React.FC<InputProps> = ({
     <View style={[styles.inputContainer, style]}>
       <View style={styles.inputWrapper}>
         {icon && (
-          <Pressable style={styles.inputIcon} onPress={onIconPress} disabled={!onIconPress}>
+          <NativePressable
+            style={styles.inputIcon}
+            onPress={onIconPress}
+            disabled={!onIconPress}
+            androidRippleBorderless
+          >
             <React.Suspense fallback={<View style={styles.iconFallbackLarge} />}>
               <Icon name={icon} size={20} color={Colors.neutral[500]} />
             </React.Suspense>
-          </Pressable>
+          </NativePressable>
         )}
         <TextInput
           nativeID={nativeID}

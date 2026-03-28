@@ -8,14 +8,8 @@ import {
   type ReactNode,
 } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  View,
-  StyleSheet,
-  StatusBar,
-  Pressable,
-  type StyleProp,
-  type ViewStyle,
-} from 'react-native';
+import { View, StyleSheet, StatusBar, type StyleProp, type ViewStyle } from 'react-native';
+import { NativePressable } from '@/components/ui/NativePressable';
 import PagerView from 'react-native-pager-view';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
@@ -138,9 +132,9 @@ function FeedIndicatorItem({
   }, [feedIndex, indicatorBaseFontSize]);
 
   return (
-    <Pressable onPress={onPress} style={pressableStyle}>
+    <NativePressable onPress={onPress} style={pressableStyle}>
       <Animated.Text style={animatedStyle}>{label}</Animated.Text>
-    </Pressable>
+    </NativePressable>
   );
 }
 
@@ -448,14 +442,14 @@ const FeedPager = forwardRef<ProfileRef, FeedPagerProps>(function FeedPager(
                 />
               ))}
             </View>
-            <Pressable
+            <NativePressable
               onPress={() => {
                 router.navigate('/create');
               }}
               style={styles.createButton}
             >
               <SvgXml xml={CAMERA_2_FILL_ICON_SVG} width={26} height={26} />
-            </Pressable>
+            </NativePressable>
           </View>
         </Animated.View>
       )}

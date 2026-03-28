@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, Text, Pressable, TextInput, Linking, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, Linking, ActivityIndicator } from 'react-native';
+import { NativePressable } from './NativePressable';
 import VerticalListSheet, { TrueSheet } from './VerticalListSheet';
 import { Colors } from './UI';
 import Icon from './Icon';
@@ -167,7 +168,7 @@ const SignUpSheet: React.FC<SignUpSheetProps> = ({
           />
         </View>
 
-        <Pressable
+        <NativePressable
           style={[
             authSheetStyles.button,
             canContinue && !isSigningUp && authSheetStyles.buttonActive,
@@ -203,7 +204,7 @@ const SignUpSheet: React.FC<SignUpSheetProps> = ({
               />
             </View>
           )}
-        </Pressable>
+        </NativePressable>
 
         <View style={authSheetStyles.footerContainer}>
           <Text style={authSheetStyles.footerText}>

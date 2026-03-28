@@ -1,7 +1,8 @@
 import React, { useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { tabRefs } from '@/utils/navigation/tabRefs';
-import { View, StyleSheet, StatusBar, Pressable } from 'react-native';
+import { View, StyleSheet, StatusBar } from 'react-native';
+import { NativePressable } from '@/components/ui/NativePressable';
 import PagerView from 'react-native-pager-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -56,12 +57,12 @@ const ActivityIndicatorItem = React.memo(function ActivityIndicatorItem({
   }, [tabIndex]);
 
   return (
-    <Pressable onPress={onPress} style={styles.indicatorItem}>
+    <NativePressable onPress={onPress} style={styles.indicatorItem}>
       <View style={styles.badgeContainer}>
         <Animated.Text style={animatedStyle}>{label}</Animated.Text>
         {badge}
       </View>
-    </Pressable>
+    </NativePressable>
   );
 });
 

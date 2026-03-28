@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, View, Text, StyleSheet, Pressable, FlatList } from 'react-native';
+import { Alert, View, Text, StyleSheet, FlatList } from 'react-native';
+import { NativePressable } from '@/components/ui/NativePressable';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -137,7 +138,7 @@ export default function ChannelManagementScreen() {
   const renderChannelItem = useCallback(
     ({ item }: { item: ChannelUser }) => {
       return (
-        <Pressable style={styles.channelItem} onPress={() => handleChannelPress(item)}>
+        <NativePressable style={styles.channelItem} onPress={() => handleChannelPress(item)}>
           <Avatar
             uri={item.avatar}
             type="channel"
@@ -175,7 +176,7 @@ export default function ChannelManagementScreen() {
               </Text>
             )}
           </View>
-        </Pressable>
+        </NativePressable>
       );
     },
     [handleChannelPress, t]
@@ -187,9 +188,9 @@ export default function ChannelManagementScreen() {
         <Icon name="tv_2" size={48} color={Colors.neutral[200]} style={styles.emptyIcon} />
         <Text style={styles.emptyTitle}>{t('settings.noChannelsYet')}</Text>
         <Text style={styles.emptySubtitle}>{t('settings.exploreChannelsSubscribe')}</Text>
-        <Pressable style={styles.exploreButton} onPress={handleExplorePress}>
+        <NativePressable style={styles.exploreButton} onPress={handleExplorePress}>
           <Text style={styles.exploreButtonText}>{t('settings.exploreChannels')}</Text>
-        </Pressable>
+        </NativePressable>
       </View>
     ),
     [handleExplorePress, t]

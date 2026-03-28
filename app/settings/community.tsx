@@ -3,15 +3,8 @@
  * Lists topics from community.getorbyt.com; tap to open in browser.
  */
 import { useTranslation } from 'react-i18next';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  Linking,
-  RefreshControl,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Linking, RefreshControl } from 'react-native';
+import { NativePressable } from '@/components/ui/NativePressable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
@@ -62,7 +55,7 @@ function TopicRow({
   const { t } = useTranslation();
   const voteCount = topic.vote_count ?? topic.like_count;
   return (
-    <Pressable style={styles.topicRow} onPress={() => onPress(topic)}>
+    <NativePressable style={styles.topicRow} onPress={() => onPress(topic)}>
       <View style={styles.topicContent}>
         <Text style={styles.topicTitle} numberOfLines={2}>
           {topic.fancy_title || topic.title}
@@ -89,7 +82,7 @@ function TopicRow({
           {voteCount === 0 ? t('settings.vote') : voteCount}
         </Text>
       </View>
-    </Pressable>
+    </NativePressable>
   );
 }
 
@@ -162,9 +155,12 @@ export default function CommunityScreen() {
       </ScrollView>
       {showFooter && (
         <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
-          <Pressable style={styles.openForumFooter} onPress={() => Linking.openURL(openForumUrl)}>
+          <NativePressable
+            style={styles.openForumFooter}
+            onPress={() => Linking.openURL(openForumUrl)}
+          >
             <Text style={styles.openForumFooterText}>{t('settings.openForumInBrowser')}</Text>
-          </Pressable>
+          </NativePressable>
         </View>
       )}
     </View>

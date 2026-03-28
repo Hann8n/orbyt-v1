@@ -1,5 +1,6 @@
 import React from 'react';
-import { Pressable, StyleProp, ViewStyle } from 'react-native';
+import { StyleProp, ViewStyle } from 'react-native';
+import { NativePressable } from '@/components/ui/NativePressable';
 import { Svg, Path } from 'react-native-svg';
 import { useProfile } from '../../../services/data/ProfileService';
 import { Colors } from '../../../theme';
@@ -76,7 +77,7 @@ const VerificationBadge: React.FC<VerificationBadgeProps> = ({
   );
 
   if (onPress) {
-    return <Pressable onPress={onPress}>{badgeComponent}</Pressable>;
+    return <NativePressable onPress={onPress}>{badgeComponent}</NativePressable>;
   }
 
   return badgeComponent;

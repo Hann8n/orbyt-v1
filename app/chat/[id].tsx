@@ -15,7 +15,6 @@ import {
   View,
   Text,
   StyleSheet,
-  Pressable,
   TextInput,
   Platform,
   ScrollView,
@@ -25,6 +24,7 @@ import {
   Linking,
   Keyboard,
 } from 'react-native';
+import { NativePressable } from '@/components/ui/NativePressable';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { Image } from 'expo-image';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
@@ -621,7 +621,7 @@ function ChatMessageRow({
   messageId: string;
   onOpenPicker: (messageId: string, bounds: MessageBounds | null) => void;
   entering?: ComponentProps<typeof Animated.View>['entering'];
-  pressableStyle: Parameters<typeof Pressable>[0]['style'];
+  pressableStyle: Parameters<typeof NativePressable>[0]['style'];
   children: React.ReactNode;
 }) {
   const rowRef = useRef<View | null>(null);
@@ -639,9 +639,9 @@ function ChatMessageRow({
   return (
     <ReactionPickerRowContext.Provider value={openWithBounds}>
       <Animated.View entering={entering} ref={rowRef}>
-        <Pressable onLongPress={openWithBounds} delayLongPress={400} style={pressableStyle}>
+        <NativePressable onLongPress={openWithBounds} delayLongPress={400} style={pressableStyle}>
           {children}
-        </Pressable>
+        </NativePressable>
       </Animated.View>
     </ReactionPickerRowContext.Provider>
   );
@@ -758,12 +758,12 @@ function ReactionOverlayModal({
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onDismiss}>
       <View style={styles.reactionPickerBackdrop}>
         {dimBands ?? <View style={[StyleSheet.absoluteFill, styles.reactionPickerDimBand]} />}
-        <Pressable style={StyleSheet.absoluteFill} onPress={onDismiss} />
+        <NativePressable style={StyleSheet.absoluteFill} onPress={onDismiss} />
         <View style={[styles.reactionPickerContent, positionStyle]}>
           {quickEmojis.map(value => {
             const selected = hasReaction(value);
             return (
-              <Pressable
+              <NativePressable
                 key={value}
                 style={({ pressed }) => [
                   styles.reactionPickerButton,
@@ -781,10 +781,10 @@ function ReactionOverlayModal({
                 onPress={() => onSelect(value)}
               >
                 <Text style={styles.reactionPickerEmoji}>{value}</Text>
-              </Pressable>
+              </NativePressable>
             );
           })}
-          <Pressable
+          <NativePressable
             style={({ pressed }) => [
               styles.reactionPickerButton,
               styles.reactionPickerMoreButton,
@@ -799,7 +799,7 @@ function ReactionOverlayModal({
             accessibilityLabel={t('a11y.moreEmoji')}
           >
             <Icon name="plus" size={20} color={Colors.neutral[400]} />
-          </Pressable>
+          </NativePressable>
         </View>
       </View>
     </Modal>
@@ -963,7 +963,7 @@ function ReactionPickerSheet({
                   : (otherAccentColor ?? REACTION_CHIP_STYLE.bgDefault);
                 const isColoredBg = bg !== Colors.neutral[700] && bg !== Colors.neutral[800];
                 return (
-                  <Pressable
+                  <NativePressable
                     key={value}
                     accessibilityRole="button"
                     accessibilityLabel={t('chat.reactWith', { emoji: value })}
@@ -997,7 +997,7 @@ function ReactionPickerSheet({
                         {count}
                       </Text>
                     )}
-                  </Pressable>
+                  </NativePressable>
                 );
               })}
             </View>
@@ -1157,7 +1157,7 @@ function ChatEmbeddedPost({
     return (
       <View style={[styles.embedVideoOuter, isFromMe && styles.embedVideoOuterFromMe]}>
         <View style={[styles.embedVideoBlock, { width: CHAT_EMBED_VIDEO_WIDTH }]}>
-          <Pressable
+          <NativePressable
             onPress={onPressVideo}
             onLongPress={handleLongPress}
             delayLongPress={delayLongPress}
@@ -1201,7 +1201,7 @@ function ChatEmbeddedPost({
                 authorAlwaysOnRight
               />
             </View>
-          </Pressable>
+          </NativePressable>
         </View>
       </View>
     );
@@ -1222,7 +1222,7 @@ function ChatEmbeddedPost({
   const CHAT_EMBED_IMAGE_SINGLE_MAX = 180;
 
   return (
-    <Pressable
+    <NativePressable
       onPress={onPressPost}
       onLongPress={handleLongPress}
       delayLongPress={delayLongPress}
@@ -1266,7 +1266,7 @@ function ChatEmbeddedPost({
       )}
       <EmbedAuthor author={author} size={24} isFromMe={isFromMe} />
       <EmbedDescription text={text} isFromMe={isFromMe} />
-    </Pressable>
+    </NativePressable>
   );
 }
 
@@ -1884,7 +1884,7 @@ export default function ChatScreen() {
       <View style={styles.container}>
         <View style={[styles.header, { paddingTop: headerTop }]}>
           <View style={styles.headerLeft}>
-            <Pressable
+            <NativePressable
               onPress={handleBack}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               style={styles.backButton}
@@ -1892,7 +1892,7 @@ export default function ChatScreen() {
               accessibilityLabel={t('common.back')}
             >
               <BackArrowIcon size={30} color={Colors.neutral[50]} />
-            </Pressable>
+            </NativePressable>
           </View>
         </View>
         <View style={styles.leftConvoPlaceholder}>
@@ -1907,7 +1907,7 @@ export default function ChatScreen() {
       <View style={styles.container}>
         <View style={[styles.header, { paddingTop: headerTop }]}>
           <View style={styles.headerLeft}>
-            <Pressable
+            <NativePressable
               onPress={handleBack}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               style={styles.backButton}
@@ -1915,7 +1915,7 @@ export default function ChatScreen() {
               accessibilityLabel={t('common.back')}
             >
               <BackArrowIcon size={30} color={Colors.neutral[50]} />
-            </Pressable>
+            </NativePressable>
           </View>
         </View>
         <View style={styles.leftConvoPlaceholder}>
@@ -1929,7 +1929,7 @@ export default function ChatScreen() {
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: headerTop }]}>
         <View style={styles.headerLeft}>
-          <Pressable
+          <NativePressable
             onPress={handleBack}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             style={styles.backButton}
@@ -1937,10 +1937,10 @@ export default function ChatScreen() {
             accessibilityLabel={t('common.back')}
           >
             <BackArrowIcon size={30} color={Colors.neutral[50]} />
-          </Pressable>
+          </NativePressable>
         </View>
         <View style={[sharedItemStyles.accountButtonContent, styles.headerCenter]}>
-          <Pressable
+          <NativePressable
             onPress={handleViewProfile}
             style={sharedItemStyles.avatarContainer}
             accessibilityRole="button"
@@ -1955,7 +1955,7 @@ export default function ChatScreen() {
               profileColors={otherRingProps.profileColors}
               status={profile?.status}
             />
-          </Pressable>
+          </NativePressable>
         </View>
         <View style={styles.headerRight}>
           {showStreakInHeader && (
@@ -1977,7 +1977,7 @@ export default function ChatScreen() {
               </Text>
             </View>
           )}
-          <Pressable
+          <NativePressable
             onPress={() => TrueSheet.present('chat-menu')}
             style={styles.menuButton}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -1985,7 +1985,7 @@ export default function ChatScreen() {
             accessibilityLabel={t('a11y.chatOptions')}
           >
             <MoreFillIcon size={24} color={Colors.neutral[50]} />
-          </Pressable>
+          </NativePressable>
         </View>
       </View>
 
@@ -2180,7 +2180,7 @@ export default function ChatScreen() {
               />
             </View>
             {canSend ? (
-              <Pressable
+              <NativePressable
                 style={[styles.sendButton, !useLiquidGlass && styles.sendButtonFallback]}
                 onPressIn={() => {
                   // Keep focus anchored on the input so keyboard doesn't collapse
@@ -2207,7 +2207,7 @@ export default function ChatScreen() {
                 ) : (
                   <Icon name="up" size={22} color={Colors.black} />
                 )}
-              </Pressable>
+              </NativePressable>
             ) : null}
           </View>
         )}

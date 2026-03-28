@@ -5,7 +5,6 @@ import {
   View,
   Text,
   StyleSheet,
-  Pressable,
   Alert,
   Platform,
   Dimensions,
@@ -17,6 +16,7 @@ import {
   Keyboard,
   ActivityIndicator,
 } from 'react-native';
+import { NativePressable } from '@/components/ui/NativePressable';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -174,7 +174,7 @@ const DescriptionPreview: React.FC<{
       <Text style={[styles.sectionHeaderTitle, styles.sectionHeaderTitleSmall]}>
         {t('video.description')}
       </Text>
-      <Pressable onPress={onPress} style={styles.descriptionInputTouchable}>
+      <NativePressable onPress={onPress} style={styles.descriptionInputTouchable}>
         {description ? (
           <Text style={styles.descriptionInputPreview} numberOfLines={3}>
             {formattedRichText.map((part, index) => (
@@ -197,7 +197,7 @@ const DescriptionPreview: React.FC<{
             {t('video.addTextPlaceholder')}
           </Text>
         )}
-      </Pressable>
+      </NativePressable>
     </View>
   );
 };
@@ -212,7 +212,7 @@ const ChannelSelector: React.FC<{
   return (
     <View style={styles.section}>
       <Text style={styles.sectionHeaderTitle}>{t('video.channelOptional')}</Text>
-      <Pressable style={styles.channelSelectorContainer} onPress={onPress}>
+      <NativePressable style={styles.channelSelectorContainer} onPress={onPress}>
         <View style={styles.channelSelectorBox}>
           {!selectedChannel ? (
             <Avatar
@@ -263,7 +263,7 @@ const ChannelSelector: React.FC<{
             </Text>
           </View>
         )}
-      </Pressable>
+      </NativePressable>
     </View>
   );
 };
@@ -278,7 +278,7 @@ const CommentFilterSelector: React.FC<{
   return (
     <View style={styles.section}>
       <Text style={styles.sectionHeaderTitle}>{t('video.comments')}</Text>
-      <Pressable style={styles.channelSelectorContainer} onPress={onPress}>
+      <NativePressable style={styles.channelSelectorContainer} onPress={onPress}>
         <View style={styles.channelSelectorBox}>
           <Icon name="chat_3" size={32} color={Colors.neutral[200]} />
         </View>
@@ -294,7 +294,7 @@ const CommentFilterSelector: React.FC<{
             <Text style={styles.channelSelectorName}>{getSelectedCommentFilterLabel()}</Text>
           </View>
         )}
-      </Pressable>
+      </NativePressable>
     </View>
   );
 };
@@ -310,7 +310,7 @@ const ContentWarningSelector: React.FC<{
   return (
     <View style={styles.section}>
       <Text style={styles.sectionHeaderTitle}>{t('video.warnings')}</Text>
-      <Pressable style={styles.channelSelectorContainer} onPress={onPress}>
+      <NativePressable style={styles.channelSelectorContainer} onPress={onPress}>
         <View style={styles.channelSelectorBox}>
           <Icon name="warning" size={32} color={Colors.neutral[200]} />
         </View>
@@ -326,7 +326,7 @@ const ContentWarningSelector: React.FC<{
             <Text style={styles.channelSelectorName}>{getSelectedContentWarningsLabel()}</Text>
           </View>
         )}
-      </Pressable>
+      </NativePressable>
     </View>
   );
 };
@@ -387,7 +387,7 @@ const PostButton: React.FC<{
   );
 
   return (
-    <Pressable
+    <NativePressable
       style={[
         glassStyle,
         { width: buttonWidth },
@@ -410,7 +410,7 @@ const PostButton: React.FC<{
       ) : (
         buttonContent
       )}
-    </Pressable>
+    </NativePressable>
   );
 };
 
@@ -460,7 +460,7 @@ const DescriptionInputModal: React.FC<{
               <Text style={[styles.sectionHeaderTitle, styles.descriptionModalHeaderTitle]}>
                 {t('video.description')}
               </Text>
-              <Pressable
+              <NativePressable
                 onPress={onClose}
                 style={[
                   styles.descriptionModalDoneButton,
@@ -479,7 +479,7 @@ const DescriptionInputModal: React.FC<{
                 >
                   {description.length > 300 ? `+${description.length - 300}` : t('common.done')}
                 </Text>
-              </Pressable>
+              </NativePressable>
             </View>
             <KeyboardAvoidingView
               behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -1291,9 +1291,9 @@ const VideoPostScreen: React.FC = () => {
           headerFadeAnimatedStyle,
         ]}
       >
-        <Pressable onPress={handleCancel} style={styles.headerButtonCenter}>
+        <NativePressable onPress={handleCancel} style={styles.headerButtonCenter}>
           <BackArrowIcon size={32} color={Colors.neutral[50]} />
-        </Pressable>
+        </NativePressable>
       </Animated.View>
       <Animated.View
         style={[
@@ -1303,7 +1303,7 @@ const VideoPostScreen: React.FC = () => {
           headerFadeAnimatedStyle,
         ]}
       >
-        <Pressable
+        <NativePressable
           onPress={handleDownload}
           disabled={isDownloading || isMerging || !activeVideoPath}
           style={styles.headerButtonCenter}
@@ -1313,7 +1313,7 @@ const VideoPostScreen: React.FC = () => {
           ) : (
             <Icon name="download" size={32} color={Colors.neutral[50]} />
           )}
-        </Pressable>
+        </NativePressable>
       </Animated.View>
     </>
   );
@@ -1342,7 +1342,7 @@ const VideoPostScreen: React.FC = () => {
       >
         <View style={styles.sheetContent}>
           {CONTENT_WARNINGS.map(warning => (
-            <Pressable
+            <NativePressable
               key={warning.id}
               style={styles.sheetOptionRow}
               onPress={() => toggleContentWarning(warning.id)}
@@ -1358,9 +1358,9 @@ const VideoPostScreen: React.FC = () => {
                   <Icon name="check" size={16} color={Colors.black} />
                 )}
               </View>
-            </Pressable>
+            </NativePressable>
           ))}
-          <Pressable
+          <NativePressable
             style={styles.sheetOptionRow}
             onPress={() => setShowContentWarningInput(!showContentWarningInput)}
           >
@@ -1368,7 +1368,7 @@ const VideoPostScreen: React.FC = () => {
             <View style={[styles.checkbox, showContentWarningInput && styles.checkboxSelected]}>
               {showContentWarningInput && <Icon name="check" size={16} color={Colors.black} />}
             </View>
-          </Pressable>
+          </NativePressable>
           {showContentWarningInput && (
             <View
               style={[
@@ -1447,7 +1447,7 @@ const VideoPostScreen: React.FC = () => {
               channel.displayName ||
               '';
             return (
-              <Pressable
+              <NativePressable
                 key={channel.slug}
                 style={styles.channelListButton}
                 onPress={() => {
@@ -1496,7 +1496,7 @@ const VideoPostScreen: React.FC = () => {
                     )}
                   </View>
                 </View>
-              </Pressable>
+              </NativePressable>
             );
           })}
         </ScrollView>
@@ -1518,10 +1518,10 @@ const VideoPostScreen: React.FC = () => {
             >
               {/* Header Buttons */}
               <View style={styles.landscapeButtonsContainer}>
-                <Pressable onPress={handleCancel} style={styles.landscapeHeaderButton}>
+                <NativePressable onPress={handleCancel} style={styles.landscapeHeaderButton}>
                   <BackArrowIcon size={32} color={Colors.neutral[50]} />
-                </Pressable>
-                <Pressable
+                </NativePressable>
+                <NativePressable
                   onPress={handleDownload}
                   disabled={isDownloading || isMerging || !activeVideoPath}
                   style={styles.landscapeHeaderButton}
@@ -1531,7 +1531,7 @@ const VideoPostScreen: React.FC = () => {
                   ) : (
                     <Icon name="download" size={30} color={Colors.neutral[50]} />
                   )}
-                </Pressable>
+                </NativePressable>
               </View>
               <DescriptionPreview
                 description={description}

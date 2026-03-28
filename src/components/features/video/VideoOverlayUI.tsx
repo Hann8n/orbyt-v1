@@ -10,7 +10,8 @@ import Animated, {
   withSequence,
 } from 'react-native-reanimated';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { NativePressable } from '@/components/ui/NativePressable';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '../../../theme';
@@ -463,7 +464,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
             {/* Repost indicator - repost icon + name text */}
             {post.repostedBy && (
               <View style={styles.repostIndicatorBox}>
-                <Pressable
+                <NativePressable
                   style={styles.repostIndicatorContainer}
                   onPress={handleRepostAuthorPress}
                   hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
@@ -481,7 +482,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                   >
                     {t('feed.repostedBy', { handle: formattedRepostHandle })}
                   </Text>
-                </Pressable>
+                </NativePressable>
               </View>
             )}
 
@@ -489,7 +490,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
             {record?.text && (
               <View style={styles.descriptionContainer}>
                 {hasLongText ? (
-                  <Pressable onPress={toggleCollapsed}>
+                  <NativePressable onPress={toggleCollapsed}>
                     <TextWithAuthorLinks
                       text={record.text}
                       style={styles.descriptionText}
@@ -498,7 +499,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                       onHashtagPress={navigateToHashtagFeed}
                       facets={record.facets as RichTextFacet[] | undefined}
                     />
-                  </Pressable>
+                  </NativePressable>
                 ) : (
                   <TextWithAuthorLinks
                     text={record.text}
@@ -514,7 +515,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
             {/* Author info */}
             <View style={styles.authorInfoContainer}>
               <View style={styles.avatarContainer}>
-                <Pressable
+                <NativePressable
                   onPress={handleAuthorPress}
                   hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                 >
@@ -536,11 +537,11 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                         : undefined
                     }
                   />
-                </Pressable>
+                </NativePressable>
               </View>
               <View style={styles.authorTextContainer}>
                 <View style={styles.authorNameRow}>
-                  <Pressable
+                  <NativePressable
                     style={styles.authorNamePressable}
                     onPress={handleAuthorPress}
                     hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
@@ -555,7 +556,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                     >
                       {formattedAuthorHandle}
                     </Text>
-                  </Pressable>
+                  </NativePressable>
                   {author.handle && (
                     <View style={styles.authorBadgeWrapper}>
                       <VerificationBadge
@@ -577,7 +578,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                         {' · '}
                       </Text>
                       <View style={styles.followButtonWrapper}>
-                        <Pressable
+                        <NativePressable
                           onPress={handleFollowPress}
                           disabled={followMutation.isPending}
                           hitSlop={{ top: 8, bottom: 8, left: 4, right: 6 }}
@@ -591,13 +592,13 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                           >
                             {t('profile.follow')}
                           </Text>
-                        </Pressable>
+                        </NativePressable>
                       </View>
                     </>
                   )}
                 </View>
                 {channelSlug ? (
-                  <Pressable
+                  <NativePressable
                     style={styles.sourceIndicatorContainer}
                     onPress={onChannelPress}
                     hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
@@ -613,13 +614,13 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                       </Text>
                       {getLocalizedChannelDisplayNameFromSlug(channelSlug, channelSlug)}
                     </Text>
-                  </Pressable>
+                  </NativePressable>
                 ) : null}
               </View>
             </View>
           </View>
 
-          {/* Action buttons */}
+          {/* Action buttons — Pressable (no NativePressable dim); like/repost use Animated feedback inside */}
           <View style={styles.actionsContainer} pointerEvents="box-none">
             <Pressable
               style={[

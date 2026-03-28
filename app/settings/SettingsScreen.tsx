@@ -1,15 +1,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Alert,
-  Platform,
-  ScrollView,
-  Linking,
-  Pressable,
-} from 'react-native';
+import { View, Text, StyleSheet, Alert, Platform, ScrollView, Linking } from 'react-native';
+import { NativePressable } from '@/components/ui/NativePressable';
 import * as Clipboard from 'expo-clipboard';
 import Icon from '@/components/ui/Icon';
 import { getDeviceInfo, getFormattedVersion } from '@/utils/version';
@@ -171,8 +163,6 @@ const SettingsScreen: React.FC = () => {
       const subject = encodeURIComponent(t('settings.emailSubjectSupport'));
       const body = encodeURIComponent(
         `
-
-
 
 ----------------------------------------
 Device Information (do not edit below this line):
@@ -570,9 +560,9 @@ ${deviceInfo}`
                       <Icon name="heart" size={18} color={Colors.coral[400]} />
                       <Text style={styles.footerSubtext}>{t('settings.forCommunity')}</Text>
                     </View>
-                    <Pressable onPress={handleVersionPress}>
+                    <NativePressable onPress={handleVersionPress}>
                       <Text style={styles.versionText}>v{formattedVersion}</Text>
-                    </Pressable>
+                    </NativePressable>
                   </View>
                 </View>
               );

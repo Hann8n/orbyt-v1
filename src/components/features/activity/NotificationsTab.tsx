@@ -8,7 +8,8 @@ import React, {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../../utils/constants';
-import { View, Text, StyleSheet, Pressable, RefreshControl, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, RefreshControl, ActivityIndicator } from 'react-native';
+import { NativePressable } from '@/components/ui/NativePressable';
 import { Image } from 'expo-image';
 import { LegendList, LegendListRef } from '@legendapp/list';
 import type { ScrollToTopRef } from '../../../utils/navigation/tabRefs';
@@ -625,7 +626,7 @@ const NotificationItem = React.memo<NotificationItemProps>(
     return (
       <View style={styles.notificationItem}>
         <View style={styles.notificationLeftContainer}>
-          <Pressable onPress={handleAvatarPress} style={styles.profileImage}>
+          <NativePressable onPress={handleAvatarPress} style={styles.profileImage}>
             <Avatar
               uri={author?.avatar}
               type="profile"
@@ -636,10 +637,10 @@ const NotificationItem = React.memo<NotificationItemProps>(
               style={styles.avatarFill}
               status={authorProfile?.status}
             />
-          </Pressable>
-          <Pressable onPress={handlePress} style={styles.notificationContent}>
+          </NativePressable>
+          <NativePressable onPress={handlePress} style={styles.notificationContent}>
             <View style={styles.nameRow}>
-              <Pressable
+              <NativePressable
                 onPress={handleNamePress}
                 hitSlop={nameHitSlop}
                 style={styles.namePressable}
@@ -654,7 +655,7 @@ const NotificationItem = React.memo<NotificationItemProps>(
                     textColor={Colors.neutral[50]}
                   />
                 )}
-              </Pressable>
+              </NativePressable>
             </View>
             <View style={styles.actionRow}>
               <View style={styles.actionTextAndTime}>
@@ -666,10 +667,10 @@ const NotificationItem = React.memo<NotificationItemProps>(
                 {indexedAt && <Text style={styles.timeText}>{formatRelativeDate(indexedAt)}</Text>}
               </View>
             </View>
-          </Pressable>
+          </NativePressable>
         </View>
         {shouldShowThumbnailContainer && (
-          <Pressable onPress={handleThumbnailPress} style={styles.thumbnailContainer}>
+          <NativePressable onPress={handleThumbnailPress} style={styles.thumbnailContainer}>
             {thumbnail ? (
               <>
                 <BlurredBackground thumbnailUrl={thumbnail} />
@@ -686,7 +687,7 @@ const NotificationItem = React.memo<NotificationItemProps>(
             ) : (
               <View style={styles.thumbnailPlaceholder} />
             )}
-          </Pressable>
+          </NativePressable>
         )}
       </View>
     );

@@ -1,14 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  Alert,
-  ActivityIndicator,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { NativePressable } from '@/components/ui/NativePressable';
 import { useRouter } from 'expo-router';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
@@ -326,9 +319,9 @@ const AlgorithmicFeedScreen: React.FC = () => {
               <Icon name="tv_2" size={48} color={Colors.neutral[200]} style={styles.emptyIcon} />
               <Text style={styles.emptyTitle}>{t('settings.noChannelsYet')}</Text>
               <Text style={styles.emptySubtitle}>{t('settings.exploreChannelsSubscribe')}</Text>
-              <Pressable style={styles.exploreButton} onPress={handleExplorePress}>
+              <NativePressable style={styles.exploreButton} onPress={handleExplorePress}>
                 <Text style={styles.exploreButtonText}>{t('settings.exploreChannels')}</Text>
-              </Pressable>
+              </NativePressable>
             </View>
           ) : (
             <View style={styles.channelsList}>
@@ -358,7 +351,7 @@ const AlgorithmicFeedScreen: React.FC = () => {
                   : Colors.neutral[50];
 
                 return (
-                  <Pressable
+                  <NativePressable
                     key={channel.uri || channel.did}
                     style={styles.channelItem}
                     onPress={() => handleChannelPress(channel)}
@@ -396,7 +389,7 @@ const AlgorithmicFeedScreen: React.FC = () => {
                         </Text>
                       )}
                     </View>
-                    <Pressable
+                    <NativePressable
                       style={[
                         styles.subscribeButton,
                         useGlass
@@ -448,8 +441,8 @@ const AlgorithmicFeedScreen: React.FC = () => {
                           </>
                         )}
                       </View>
-                    </Pressable>
-                  </Pressable>
+                    </NativePressable>
+                  </NativePressable>
                 );
               })}
             </View>

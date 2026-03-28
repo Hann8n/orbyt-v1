@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '@/utils/constants';
-import { View, Text, FlatList, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
+import { NativePressable } from '@/components/ui/NativePressable';
 import { useRouter } from 'expo-router';
 import Icon from '@/components/ui/Icon';
 import ListHeader from '@/components/ui/ListHeader';
@@ -140,7 +141,7 @@ const HiddenPostsScreen: React.FC = () => {
             {item.text || t('settings.hiddenPostContent')}
           </Text>
         </View>
-        <Pressable
+        <NativePressable
           style={[styles.unhideButton, isUnhiding && styles.unhideButtonDisabled]}
           onPress={() => handleUnhidePost(item.id)}
           disabled={isUnhiding}
@@ -153,7 +154,7 @@ const HiddenPostsScreen: React.FC = () => {
               <Text style={styles.unhideButtonText}>{t('settings.unhide')}</Text>
             </>
           )}
-        </Pressable>
+        </NativePressable>
       </View>
     );
   };

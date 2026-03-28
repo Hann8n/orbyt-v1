@@ -16,7 +16,6 @@ import {
   StyleSheet,
   StyleProp,
   TextInput,
-  Pressable,
   StatusBar,
   Platform,
   Dimensions,
@@ -25,6 +24,7 @@ import {
   ViewStyle,
   ActivityIndicator,
 } from 'react-native';
+import { NativePressable } from '@/components/ui/NativePressable';
 import { Image } from 'expo-image';
 import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
 import PagerView, { type PagerViewOnPageSelectedEvent } from 'react-native-pager-view';
@@ -729,7 +729,7 @@ const ChannelNameDisplay: React.FC<{ channel: Channel; style?: StyleProp<ViewSty
 const PopularChannelItem = ({ channel, onPress }: { channel: Channel; onPress: () => void }) => {
   const avatarUri = getChannelAvatarUri(channel.uri, channel.avatar);
   return (
-    <Pressable style={styles.channelItem} onPress={onPress}>
+    <NativePressable style={styles.channelItem} onPress={onPress}>
       <Avatar
         uri={avatarUri}
         type="channel"
@@ -742,7 +742,7 @@ const PopularChannelItem = ({ channel, onPress }: { channel: Channel; onPress: (
           <ChannelNameDisplay channel={channel} />
         </View>
       </View>
-    </Pressable>
+    </NativePressable>
   );
 };
 
@@ -766,7 +766,7 @@ const GridChannelItem = ({
   const thumbnailHeight = itemHeight || itemWidth; // Use itemHeight if provided, otherwise use itemWidth for square
 
   return (
-    <Pressable style={[styles.gridChannelItem, { width: itemWidth }]} onPress={onPress}>
+    <NativePressable style={[styles.gridChannelItem, { width: itemWidth }]} onPress={onPress}>
       <View
         style={[
           styles.gridChannelThumbnail,
@@ -829,7 +829,7 @@ const GridChannelItem = ({
           )}
         </View>
       </View>
-    </Pressable>
+    </NativePressable>
   );
 };
 
@@ -859,7 +859,7 @@ const HorizontalChannelItem = ({
   const isLatest = slug === 'latest';
 
   return (
-    <Pressable
+    <NativePressable
       style={[
         styles.horizontalChannelButton,
         {
@@ -929,7 +929,7 @@ const HorizontalChannelItem = ({
           </Text>
         )}
       </View>
-    </Pressable>
+    </NativePressable>
   );
 };
 
@@ -1540,9 +1540,9 @@ const ExploreScreen: React.FC = () => {
     }, [tabIndex]);
 
     return (
-      <Pressable onPress={onPress} style={styles.indicatorItem}>
+      <NativePressable onPress={onPress} style={styles.indicatorItem}>
         <Reanimated.Text style={animatedStyle}>{label}</Reanimated.Text>
-      </Pressable>
+      </NativePressable>
     );
   };
 
@@ -1819,7 +1819,10 @@ const ExploreScreen: React.FC = () => {
       </Reanimated.View>
 
       {/* Search Bar */}
-      <Pressable onPress={() => searchInputRef.current?.focus()} style={styles.searchBarPressable}>
+      <NativePressable
+        onPress={() => searchInputRef.current?.focus()}
+        style={styles.searchBarPressable}
+      >
         <Reanimated.View
           style={[
             styles.searchContainer,
@@ -1871,16 +1874,16 @@ const ExploreScreen: React.FC = () => {
             />
           </View>
           {isSearching && (
-            <Pressable
+            <NativePressable
               onPress={handleClearSearch}
               style={styles.clearButton}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
               <Icon name="close-circle" size={22.5} color={Colors.neutral[900]} />
-            </Pressable>
+            </NativePressable>
           )}
         </Reanimated.View>
-      </Pressable>
+      </NativePressable>
 
       {/* Search Results */}
       <Reanimated.View
@@ -2046,7 +2049,7 @@ const ExploreScreen: React.FC = () => {
                       const shouldBlur = !!(v.contentListUI?.blur || v.contentMediaUI?.blur);
 
                       return (
-                        <Pressable
+                        <NativePressable
                           style={styles.spotlightVideoItem}
                           onPress={() => {
                             const videoData = video.post || video;
@@ -2101,7 +2104,7 @@ const ExploreScreen: React.FC = () => {
                               </View>
                             )}
                           </View>
-                        </Pressable>
+                        </NativePressable>
                       );
                     }}
                   />

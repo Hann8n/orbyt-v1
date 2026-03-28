@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
-  Pressable,
   StyleSheet,
   Alert,
   Modal,
@@ -12,6 +11,7 @@ import {
   ActivityIndicator,
   InteractionManager,
 } from 'react-native';
+import { NativePressable } from '@/components/ui/NativePressable';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
@@ -921,15 +921,15 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       <View style={styles.headerActions}>
         <RelativeDate dateString={postedAt || post?.indexedAt} style={styles.dateText} />
 
-        <Pressable
+        <NativePressable
           onPress={handleHeaderSharePress}
           style={styles.actionButton}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <MoreFillIcon size={20} color={Colors.neutral[400]} />
-        </Pressable>
+        </NativePressable>
 
-        <Pressable
+        <NativePressable
           onPress={handleHeaderToggleLike}
           disabled={!!isLikePending || headerIsPending}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -945,7 +945,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               }
             />
           </Animated.View>
-        </Pressable>
+        </NativePressable>
       </View>
     </View>
   );
@@ -1011,7 +1011,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         animationType="fade"
         onRequestClose={() => setFullscreenImageUri(null)}
       >
-        <Pressable style={styles.modalOverlay} onPress={() => setFullscreenImageUri(null)}>
+        <NativePressable style={styles.modalOverlay} onPress={() => setFullscreenImageUri(null)}>
           {fullscreenImageUri && (
             <Image
               source={{ uri: fullscreenImageUri }}
@@ -1019,10 +1019,10 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               contentFit="contain"
             />
           )}
-          <Pressable style={styles.closeButton} onPress={() => setFullscreenImageUri(null)}>
+          <NativePressable style={styles.closeButton} onPress={() => setFullscreenImageUri(null)}>
             <CloseFillIcon size={28} color={Colors.neutral[50]} />
-          </Pressable>
-        </Pressable>
+          </NativePressable>
+        </NativePressable>
       </Modal>
 
       <KlipyGifPickerSheet

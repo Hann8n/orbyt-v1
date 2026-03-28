@@ -1,7 +1,8 @@
 import React, { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import { View, StyleSheet, Pressable, Text, StyleProp, ViewStyle } from 'react-native';
+import { View, StyleSheet, Text, StyleProp, ViewStyle } from 'react-native';
+import { NativePressable } from '../../ui/NativePressable';
 import { ListViewIcon, GridViewIcon, DownSmallFillIcon } from '../../ui/Icon';
 import type { ViewMode } from '../../../types';
 import { Colors } from '../../../theme';
@@ -70,7 +71,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
     return (
       <>
         <View style={[styles.tabContainer, variantStyle, { backgroundColor }, style]}>
-          <Pressable
+          <NativePressable
             style={styles.dropdownButton}
             onPress={() => TrueSheet.present('tab-dropdown-sheet')}
           >
@@ -84,14 +85,14 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
               {activeTabLabel}
             </Text>
             <DownSmallFillIcon size={20} color={Colors.neutral[500]} />
-          </Pressable>
+          </NativePressable>
 
           {/* View toggle area */}
           {(reserveViewToggleSpace || (showViewToggle && onViewModeChange)) && (
             <View style={styles.viewToggleArea}>
               {showViewToggle && onViewModeChange && (
                 <View style={styles.viewToggleContainer}>
-                  <Pressable
+                  <NativePressable
                     style={[
                       styles.viewToggleButton,
                       viewMode === 'grid' && styles.activeViewToggleButton,
@@ -102,8 +103,8 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
                       color={viewMode === 'grid' ? activeTabColor : inactiveTabColor}
                       size={20}
                     />
-                  </Pressable>
-                  <Pressable
+                  </NativePressable>
+                  <NativePressable
                     style={[
                       styles.viewToggleButton,
                       viewMode === 'list' && styles.activeViewToggleButton,
@@ -114,7 +115,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
                       color={viewMode === 'list' ? activeTabColor : inactiveTabColor}
                       size={20}
                     />
-                  </Pressable>
+                  </NativePressable>
                 </View>
               )}
             </View>
@@ -151,7 +152,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
     <View style={[styles.tabContainer, variantStyle, { backgroundColor }, style]}>
       <View style={styles.tabsRow}>
         {tabs.map(tab => (
-          <Pressable
+          <NativePressable
             key={tab.id}
             onPress={() => onTabPress(tab.id)}
             disabled={tab.disabled}
@@ -178,7 +179,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
             >
               {tab.label}
             </Text>
-          </Pressable>
+          </NativePressable>
         ))}
       </View>
 
@@ -186,7 +187,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
         <View style={styles.viewToggleArea}>
           {showViewToggle && onViewModeChange && (
             <View style={styles.viewToggleContainer}>
-              <Pressable
+              <NativePressable
                 style={[
                   styles.viewToggleButton,
                   viewMode === 'grid' && styles.activeViewToggleButton,
@@ -197,8 +198,8 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
                   color={viewMode === 'grid' ? activeTabColor : inactiveTabColor}
                   size={20}
                 />
-              </Pressable>
-              <Pressable
+              </NativePressable>
+              <NativePressable
                 style={[
                   styles.viewToggleButton,
                   viewMode === 'list' && styles.activeViewToggleButton,
@@ -209,7 +210,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
                   color={viewMode === 'list' ? activeTabColor : inactiveTabColor}
                   size={20}
                 />
-              </Pressable>
+              </NativePressable>
             </View>
           )}
         </View>

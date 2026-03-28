@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS, LAYOUT_INSETS } from '../../../utils/constants';
-import { View, Pressable, StyleSheet, Alert } from 'react-native';
+import { View, StyleSheet, Alert } from 'react-native';
+import { NativePressable } from '@/components/ui/NativePressable';
 import { SavedAccount } from '../../../stores/userStore';
 import { requiresReauth } from '../../../utils/errors/oauth';
 import { shouldShowError, getErrorMessage } from '../../../utils/errors/errorHandler';
@@ -322,7 +323,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
   // Custom header button for edit mode toggle (only show when there are multiple accounts)
   const customHeaderButton =
     savedAccounts.length > 1 ? (
-      <Pressable
+      <NativePressable
         onPress={toggleEditMode}
         disabled={isSwitchingAccount || isAuthenticating}
         style={[
@@ -333,7 +334,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
         <TypographyText variant="body" weight="semibold">
           {editMode ? t('common.done') : t('common.edit')}
         </TypographyText>
-      </Pressable>
+      </NativePressable>
     ) : null;
 
   return (
@@ -350,7 +351,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
             <React.Fragment key={keyExtractor(item)}>{renderAccountItem({ item })}</React.Fragment>
           ))}
           {showAddAccountLink && (
-            <Pressable
+            <NativePressable
               style={({ pressed }) => [
                 styles.addAccountButton,
                 isAuthenticating && styles.addAccountButtonDisabled,
@@ -362,7 +363,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
               <TypographyText variant="title" weight="semibold">
                 {t('auth.addAccount')}
               </TypographyText>
-            </Pressable>
+            </NativePressable>
           )}
         </View>
       </VerticalListSheet>

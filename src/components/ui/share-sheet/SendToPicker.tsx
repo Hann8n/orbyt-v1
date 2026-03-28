@@ -12,11 +12,11 @@ import {
   TextInput,
   FlatList,
   StyleSheet,
-  Pressable,
   Alert,
   ActivityIndicator,
   Platform,
 } from 'react-native';
+import { NativePressable } from '../NativePressable';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import {
   AppTrueSheet,
@@ -338,7 +338,7 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
         />
         <View style={styles.clearSlot}>
           {trimmedSearch.length > 0 ? (
-            <Pressable
+            <NativePressable
               onPress={() => setSearchQuery('')}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               style={styles.clearButton}
@@ -347,7 +347,7 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
               accessibilityLabel={t('comments.clearSearch')}
             >
               <Icon name="close-circle" size={22.5} color={Colors.neutral[200]} />
-            </Pressable>
+            </NativePressable>
           ) : (
             <View style={styles.clearButtonPlaceholder} />
           )}

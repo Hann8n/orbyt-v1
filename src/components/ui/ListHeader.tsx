@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable, StyleProp, ViewStyle } from 'react-native';
+import { View, Text, StyleSheet, StyleProp, ViewStyle } from 'react-native';
+import { NativePressable } from './NativePressable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { BackArrowIcon } from './Icon';
@@ -90,9 +91,9 @@ const ListHeader: React.FC<ListHeaderProps> = ({
         <View style={styles.stackedLeftRow}>
           {left ??
             (showBackButton ? (
-              <Pressable onPress={handleBackPress}>
+              <NativePressable onPress={handleBackPress}>
                 <BackArrowIcon size={28} color={textColor} />
-              </Pressable>
+              </NativePressable>
             ) : null)}
           {!!title && (
             <Text style={[titleStyle, styles.titleStackedLeft]} numberOfLines={1}>
@@ -118,9 +119,9 @@ const ListHeader: React.FC<ListHeaderProps> = ({
       <View style={styles.leftSection}>
         {left ??
           (showBackButton ? (
-            <Pressable onPress={() => router.back()}>
+            <NativePressable onPress={() => router.back()}>
               <BackArrowIcon size={28} color={textColor} />
-            </Pressable>
+            </NativePressable>
           ) : (
             <View style={styles.leftSpacer} />
           ))}

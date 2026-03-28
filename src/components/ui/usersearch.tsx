@@ -5,7 +5,6 @@ import {
   View,
   Text,
   FlatList,
-  Pressable,
   StyleSheet,
   Platform,
   type StyleProp,
@@ -13,6 +12,7 @@ import {
   type TextInput,
   ActivityIndicator,
 } from 'react-native';
+import { NativePressable } from './NativePressable';
 import { LinearGradient } from './LinearGradient';
 import { useInfiniteQuery, InfiniteData } from '@tanstack/react-query';
 import { queryKeys } from '../../utils/query/queryKeys';
@@ -183,7 +183,7 @@ export function UserSearchModal({
         )}
       </View>
       {/* Dismiss area (optional):
-      <Pressable style={StyleSheet.absoluteFill} onPress={onRequestClose} />
+      <NativePressable style={StyleSheet.absoluteFill} onPress={onRequestClose} />
       */}
     </View>
   );
@@ -316,12 +316,15 @@ export function RichTextSearchModal({
             data={hashtagSuggestions}
             keyExtractor={item => item.tag}
             renderItem={({ item }) => (
-              <Pressable style={styles.hashtagItem} onPress={() => onSelectHashtag?.(item.tag)}>
+              <NativePressable
+                style={styles.hashtagItem}
+                onPress={() => onSelectHashtag?.(item.tag)}
+              >
                 <Text style={styles.hashtagText}>
                   <Text style={styles.hashtagSymbol}>#</Text>
                   <Text style={styles.hashtagTag}>{item.tag}</Text>
                 </Text>
-              </Pressable>
+              </NativePressable>
             )}
             contentContainerStyle={styles.hashtagListContent}
             keyboardShouldPersistTaps="handled"

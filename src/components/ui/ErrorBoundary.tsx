@@ -5,7 +5,8 @@
 
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, Text, StyleSheet, Linking, Pressable, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, Linking, Alert, Platform } from 'react-native';
+import { NativePressable } from './NativePressable';
 import { useRouter, useSegments } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import { logger } from '../../utils/logger';
@@ -166,7 +167,7 @@ const GoBackButton: React.FC<{ onPress: () => void }> = ({ onPress }) => {
   );
 
   return (
-    <Pressable
+    <NativePressable
       style={[goBackButtonStyles.button, !useLiquidGlass && goBackButtonStyles.whiteButton]}
       onPress={onPress}
     >
@@ -183,7 +184,7 @@ const GoBackButton: React.FC<{ onPress: () => void }> = ({ onPress }) => {
       ) : (
         buttonContent
       )}
-    </Pressable>
+    </NativePressable>
   );
 };
 
@@ -256,8 +257,6 @@ const ErrorFallback: React.FC<ErrorFallbackProps> = ({
 
     return `
 
-
-
 ----------------------------------------
 Error Message (do not edit below this line):
 ${errorMessage}
@@ -274,7 +273,7 @@ ${deviceInfo}`;
         <Text style={styles.title}>{getTitle()}</Text>
         <Text style={styles.message}>{getMessage()}</Text>
 
-        <Pressable
+        <NativePressable
           onPress={async () => {
             const email = 'support@getorbyt.com';
             const subject = encodeURIComponent(t('errors.emailSubjectErrorReport'));
@@ -290,8 +289,6 @@ ${deviceInfo}`;
               // Still allow reporting if device info retrieval fails.
               const errorMessage = error instanceof Error ? error.message : String(error);
               emailBody = `
-
-
 
 ----------------------------------------
 Error Message (do not edit below this line):
@@ -336,7 +333,7 @@ ${t('errors.deviceInfoUnavailable')}`;
           style={styles.supportLink}
         >
           <Text style={styles.supportLinkText}>{t('errors.contactSupportLink')}</Text>
-        </Pressable>
+        </NativePressable>
       </View>
 
       <View style={styles.buttonContainer}>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, Text, Pressable, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, ActivityIndicator } from 'react-native';
+import { NativePressable } from './NativePressable';
 import Icon from './Icon';
 import { Colors } from './UI';
 import VerticalListSheet, { TrueSheet } from './VerticalListSheet';
@@ -129,7 +130,7 @@ const LoginSheet: React.FC<LoginSheetProps> = ({
           />
         </View>
 
-        <Pressable
+        <NativePressable
           style={[authSheetStyles.button, canSubmit && authSheetStyles.buttonActive]}
           onPress={handleSignIn}
           disabled={!canSubmit}
@@ -160,7 +161,7 @@ const LoginSheet: React.FC<LoginSheetProps> = ({
               />
             </View>
           )}
-        </Pressable>
+        </NativePressable>
 
         {onOpenSignUp && (
           <View style={authSheetStyles.footerContainer}>

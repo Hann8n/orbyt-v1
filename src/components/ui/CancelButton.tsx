@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, Text, StyleSheet } from 'react-native';
+import { Text, StyleSheet } from 'react-native';
+import { NativePressable } from './NativePressable';
 import { BORDER_RADIUS } from '../../utils/constants';
 import { Colors } from './UI';
 import { hexToRGBA } from '../../utils/formatting/colors';
@@ -17,29 +18,16 @@ const CancelButton: React.FC<CancelButtonProps> = ({ onPress, text, variant = 'd
   const displayText = text ?? t('common.cancel');
   const isPrimary = variant === 'primary';
   return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.cancelButton,
-        isPrimary && styles.primaryButton,
-        pressed && (isPrimary ? styles.primaryButtonPressed : styles.cancelButtonPressed),
-      ]}
+    <NativePressable
+      style={[styles.cancelButton, isPrimary && styles.primaryButton]}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={displayText}
     >
-      {({ pressed }) => (
-        <Text
-          style={[
-            styles.cancelButtonText,
-            isPrimary && styles.primaryButtonText,
-            pressed &&
-              (isPrimary ? styles.primaryButtonTextPressed : styles.cancelButtonTextPressed),
-          ]}
-        >
-          {displayText}
-        </Text>
-      )}
-    </Pressable>
+      <Text style={[styles.cancelButtonText, isPrimary && styles.primaryButtonText]}>
+        {displayText}
+      </Text>
+    </NativePressable>
   );
 };
 
@@ -56,29 +44,17 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     borderColor: Colors.transparent,
   },
-  cancelButtonPressed: {
-    backgroundColor: Colors.neutral[700],
-  },
   cancelButtonText: {
     color: Colors.neutral[50],
     fontSize: Typography.sizes.subtitle,
     textAlign: 'center',
     fontFamily: FontFamily.medium,
   },
-  cancelButtonTextPressed: {
-    color: Colors.neutral[50],
-  },
   primaryButton: {
     backgroundColor: Colors.neutral[50],
   },
-  primaryButtonPressed: {
-    backgroundColor: hexToRGBA(Colors.neutral[200], 0.8),
-  },
   primaryButtonText: {
     color: Colors.black,
-  },
-  primaryButtonTextPressed: {
-    color: Colors.neutral[900],
   },
 });
 

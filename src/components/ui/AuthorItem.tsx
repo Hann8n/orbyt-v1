@@ -1,15 +1,8 @@
 import React, { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '../../utils/constants';
-import {
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  StyleProp,
-  ViewStyle,
-  ActivityIndicator,
-} from 'react-native';
+import { StyleSheet, Text, View, StyleProp, ViewStyle, ActivityIndicator } from 'react-native';
+import { NativePressable } from './NativePressable';
 import { useRouter } from 'expo-router';
 import { Avatar } from './UI';
 import VerificationBadge from '../features/badging/VerificationBadge';
@@ -195,7 +188,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   }, [onFollowPress, handle, followMutation, actualIsFollowing, did]);
 
   return (
-    <Pressable
+    <NativePressable
       style={[styles.container, { backgroundColor: backgroundColor || Colors.neutral[900] }, style]}
       onPress={handlePress}
     >
@@ -240,22 +233,19 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
           </View>
         </View>
         {shouldShowFollowButton ? (
-          <Pressable
-            style={({ pressed }) => [
-              styles.followButton,
-              !actualIsFollowing && styles.followButtonInactive,
-              pressed && { opacity: 0.8 },
-            ]}
+          <NativePressable
+            style={[styles.followButton, !actualIsFollowing && styles.followButtonInactive]}
             onPress={handleFollowPress}
+            androidRippleBorderless
           >
             <AddSquareCuteFilledIcon size={32} color={Colors.neutral[400]} />
-          </Pressable>
+          </NativePressable>
         ) : showDeleteButton ? (
-          <Pressable onPress={onDeletePress}>
+          <NativePressable onPress={onDeletePress} androidRippleBorderless>
             <StatusIconButton variant="error">
               <Icon name="delete_2" size={16} color={Colors.coral[500]} />
             </StatusIconButton>
-          </Pressable>
+          </NativePressable>
         ) : showCheckmarkSpinner ? (
           <View style={styles.checkmarkIconContainer}>
             <CuteFilledSquareBoxIcon size={34} color={Colors.teal[800]} />
@@ -284,7 +274,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
           )
         )}
       </View>
-    </Pressable>
+    </NativePressable>
   );
 };
 

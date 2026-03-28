@@ -3,7 +3,6 @@ import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
   StyleSheet,
-  Pressable,
   Dimensions,
   LayoutChangeEvent,
   Platform,
@@ -14,6 +13,7 @@ import {
   type ImageStyle,
   useWindowDimensions,
 } from 'react-native';
+import { NativePressable } from '@/components/ui/NativePressable';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -73,7 +73,7 @@ const VideoGridItem: React.FC<{
   const recyclingKey = item.post?.uri || item.post?.cid || `item-${index}`;
 
   return (
-    <Pressable style={[styles.gridItem, style, itemStyle]} onPress={handlePress}>
+    <NativePressable style={[styles.gridItem, style, itemStyle]} onPress={handlePress}>
       <BlurredBackground thumbnailUrl={validThumbnailUrl} />
       {validThumbnailUrl && !shouldBlur && (
         <Image
@@ -85,7 +85,7 @@ const VideoGridItem: React.FC<{
           transition={200}
         />
       )}
-    </Pressable>
+    </NativePressable>
   );
 };
 

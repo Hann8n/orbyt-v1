@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, Text, StyleSheet, ScrollView, Pressable, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Platform } from 'react-native';
+import { NativePressable } from '@/components/ui/NativePressable';
 import { useRouter } from 'expo-router';
 import Icon from '@/components/ui/Icon';
 import ListHeader from '@/components/ui/ListHeader';
@@ -87,15 +88,12 @@ const FilterOption: React.FC<{
   checked: boolean;
   onPress: () => void;
 }> = ({ label, checked, onPress }) => (
-  <Pressable
-    onPress={onPress}
-    style={({ pressed }) => [styles.filterOption, pressed && styles.filterOptionPressed]}
-  >
+  <NativePressable onPress={onPress} style={styles.filterOption}>
     <Text style={styles.filterOptionLabel}>{label}</Text>
     <View style={[styles.checkbox, checked && styles.checkboxSelected]}>
       {checked && <Icon name="check" size={16} color={Colors.black} />}
     </View>
-  </Pressable>
+  </NativePressable>
 );
 
 export default function NotificationFilterModal() {
@@ -175,16 +173,13 @@ export default function NotificationFilterModal() {
         <View style={styles.section}>
           <View style={styles.sectionTitleRow}>
             <Text style={styles.sectionTitle}>{t('activity.showNotificationsFor')}</Text>
-            <Pressable
+            <NativePressable
               onPress={handleClear}
               disabled={!hasFilters}
-              style={({ pressed }) => [
-                styles.clearBtn,
-                { opacity: hasFilters ? (pressed ? 0.85 : 1) : 0.5 },
-              ]}
+              style={[styles.clearBtn, !hasFilters && styles.clearBtnDisabled]}
             >
               <Text style={styles.clearBtnText}>{t('activity.clear')}</Text>
-            </Pressable>
+            </NativePressable>
           </View>
           <View style={styles.optionGroup}>
             {ORDERED_FILTER_OPTIONS.map((item, index) => {
@@ -234,6 +229,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  clearBtnDisabled: {
+    opacity: 0.5,
+  },
   clearBtnText: {
     color: Colors.neutral[300],
     fontSize: 14,
@@ -275,9 +273,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     backgroundColor: Colors.neutral[900],
     borderRadius: BORDER_RADIUS.LARGE,
-  },
-  filterOptionPressed: {
-    opacity: 0.8,
   },
   filterOptionLabel: {
     color: Colors.neutral[50],

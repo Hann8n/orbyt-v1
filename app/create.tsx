@@ -33,6 +33,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Icon, { CloseFillIcon, ArrowRightFillIcon } from '@/components/ui/Icon';
+import { NativePressable } from '@/components/ui/NativePressable';
 import BottomToolBar from '@/components/ui/BottomToolBar';
 import * as Device from 'expo-device';
 import { getBottomNavBarHeight } from '@/utils/device/screen';
@@ -1088,12 +1089,9 @@ const CreateScreen: React.FC = () => {
             style={styles.errorIcon}
           />
           <Text style={styles.warningText}>{t('video.pleaseEnableCamera')}</Text>
-          <Pressable
-            style={({ pressed }) => [styles.button, pressed && { opacity: 0.7 }]}
-            onPress={requestCameraPermission}
-          >
+          <NativePressable style={styles.button} onPress={requestCameraPermission}>
             <Text style={styles.buttonText}>{t('video.grantPermission')}</Text>
-          </Pressable>
+          </NativePressable>
         </View>
       );
     }
@@ -1334,11 +1332,8 @@ const CreateScreen: React.FC = () => {
                   </Animated.View>
                 </Pressable>
                 <View style={styles.recordButtonAreaSpacer}>
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.durationSelectorCollapsed,
-                      pressed && { opacity: 0.7 },
-                    ]}
+                  <NativePressable
+                    style={styles.durationSelectorCollapsed}
                     onPress={() => {
                       const currentTotal = segmentManagerRef.current?.getTotalDuration() ?? 0;
                       const availableOptions = DURATION_OPTION_KEYS.filter(
@@ -1360,7 +1355,7 @@ const CreateScreen: React.FC = () => {
                           ?.labelKey ?? 'create.duration16s'
                       )}
                     </Text>
-                  </Pressable>
+                  </NativePressable>
                 </View>
               </View>
             </View>
@@ -1373,25 +1368,29 @@ const CreateScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <StatusBar hidden={true} />
-      <Pressable style={[styles.backButton, backButtonPosition]} onPress={handleBackPress}>
+      <NativePressable
+        style={[styles.backButton, backButtonPosition]}
+        onPress={handleBackPress}
+        androidRippleBorderless
+      >
         <CloseFillIcon size={26} color="white" />
-      </Pressable>
+      </NativePressable>
 
       {segmentManagerRef.current?.hasSegments() && (
-        <Pressable
-          style={({ pressed }) => [
+        <NativePressable
+          style={[
             styles.doneButton,
             {
               top: isSmallDevice || !fitsNative16x9 ? 5 : insets.top + 4,
               right: 4,
             },
-            pressed && { opacity: 0.7 },
           ]}
           onPress={finishRecording}
           disabled={isProcessing}
+          androidRippleBorderless
         >
           <ArrowRightFillIcon size={30} color="white" />
-        </Pressable>
+        </NativePressable>
       )}
       {renderContent()}
       <BottomToolBar

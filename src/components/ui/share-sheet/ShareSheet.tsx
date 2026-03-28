@@ -3,16 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../../utils/query/queryKeys';
-import {
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-  Share,
-  Platform,
-  Alert,
-  ScrollView,
-} from 'react-native';
+import { View, Text, StyleSheet, Share, Platform, Alert, ScrollView } from 'react-native';
+import { NativePressable } from '../NativePressable';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import {
   AppTrueSheet,
@@ -421,7 +413,7 @@ const ShareSheet: React.FC = () => {
           >
             {menuOptions.map(option => (
               <View key={option.id} style={styles.optionWrapper}>
-                <Pressable onPress={option.onPress}>
+                <NativePressable onPress={option.onPress}>
                   {({ pressed }) => {
                     const isSwapped = (option.id === 'bookmark' && isBookmarked) || pressed;
                     const iconColor = isSwapped ? option.buttonColor : option.color;
@@ -443,7 +435,7 @@ const ShareSheet: React.FC = () => {
                       </View>
                     );
                   }}
-                </Pressable>
+                </NativePressable>
                 <Text style={styles.optionText}>{option.label}</Text>
               </View>
             ))}

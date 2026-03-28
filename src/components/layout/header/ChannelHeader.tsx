@@ -1,10 +1,9 @@
-import React, { memo, useCallback, useMemo, useRef } from 'react';
+import React, { memo, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
   StyleSheet,
-  Pressable,
   Text,
   StatusBar,
   Platform,
@@ -17,6 +16,7 @@ import { useRouter } from 'expo-router';
 import UniversalHeader, { HeaderContent } from './UniversalHeader';
 import { useChannelColors } from '../../../services/data/ChannelService';
 import { PlusIcon, CheckIcon, ListViewIcon, GridViewIcon, STROKE_WIDTH_THICK } from '../../ui/Icon';
+import { NativePressable } from '../../ui/NativePressable';
 import type { ViewMode } from '../../../types';
 import {
   hexToRGBA,
@@ -92,7 +92,6 @@ const SubscribeButton: React.FC<{
   const { t } = useTranslation();
   const { subscribedChannels, subscribeToChannel, unsubscribeFromChannel } =
     useSubscribedChannels();
-  const frozenHasFilledBackgroundRef = useRef<boolean | null>(null);
   const { width: screenWidth } = useWindowDimensions();
   const isWideScreen = screenWidth > 768;
 
@@ -133,107 +132,91 @@ const SubscribeButton: React.FC<{
     [activeFillColor]
   );
 
-  const getButtonStyle = useCallback(
-    (pressed: boolean = false, _frozenValue: boolean | null = null) => {
-      // Always reflect the actual subscription state; pressed state only tweaks opacity
-      const showFilledState = hasFilledBackground;
+  const getButtonStyle = useCallback(() => {
+    const showFilledState = hasFilledBackground;
+    return {
+      backgroundColor: canUseLiquidGlass
+        ? Colors.transparent
+        : showFilledState
+          ? activeFillColor
+          : blendColors(_backgroundColor, textColor, 0.2),
+      borderColor: Colors.transparent,
+      borderWidth: 0,
+    };
+  }, [hasFilledBackground, _backgroundColor, textColor, canUseLiquidGlass, activeFillColor]);
 
-      return {
-        // Match profile action colors while preserving channel button sizing/layout.
-        backgroundColor: canUseLiquidGlass
-          ? Colors.transparent
-          : showFilledState
-            ? activeFillColor
-            : blendColors(_backgroundColor, textColor, 0.2),
-        borderColor: Colors.transparent,
-        borderWidth: 0,
-        opacity: pressed ? 0.9 : 1,
-      };
-    },
-    [hasFilledBackground, _backgroundColor, textColor, canUseLiquidGlass, activeFillColor]
-  );
+  const getLiquidGlassTintColor = useCallback(() => {
+    const activeTint = activeFillColor;
+    const inactiveTint = hexToRGBA(Colors.black, 0.12);
+    return hasFilledBackground ? activeTint : inactiveTint;
+  }, [hasFilledBackground, activeFillColor]);
 
-  const getLiquidGlassTintColor = useCallback(
-    (pressed = false) => {
-      const activeTint = activeFillColor;
-      const inactiveTint = hexToRGBA(Colors.black, 0.12);
-      // Keep subscription tint behavior stable on press (same as profile subscription button).
-      if (pressed) {
-        return hasFilledBackground ? activeTint : inactiveTint;
-      }
-      return hasFilledBackground ? activeTint : inactiveTint;
-    },
-    [hasFilledBackground, activeFillColor]
-  );
-
-  const getContentColor = useCallback(
-    (_pressed: boolean = false, _frozenValue: boolean | null = null) => {
-      // Use the real active state to decide text color; pressed does not invert colors
-      const showFilledState = hasFilledBackground;
-      return showFilledState ? activeContentColor : textColor;
-    },
-    [hasFilledBackground, activeContentColor, textColor]
-  );
+  const getContentColor = useCallback(() => {
+    const showFilledState = hasFilledBackground;
+    return showFilledState ? activeContentColor : textColor;
+  }, [hasFilledBackground, activeContentColor, textColor]);
 
   if (channel.isOwner) return null; // Don't show subscribe button for owners
 
+  const subscribePill = (
+    <View style={[styles.subscribeButton, styles.subscribeButtonInner, getButtonStyle()]}>
+      {canUseLiquidGlass && (
+        <GlassView
+          style={styles.subscribeButtonGlassBackground}
+          glassEffectStyle="clear"
+          tintColor={getLiquidGlassTintColor()}
+        />
+      )}
+      <View pointerEvents="none" style={styles.subscribeButtonContent}>
+        <Text style={[styles.subscribeButtonText, { color: getContentColor() }]}>
+          {isSubscribed ? t('settings.subscribed') : t('settings.subscribe')}
+        </Text>
+        {isSubscribed ? (
+          <CheckIcon size={16} color={getContentColor()} strokeWidth={STROKE_WIDTH_THICK} />
+        ) : (
+          <PlusIcon size={16} color={getContentColor()} strokeWidth={STROKE_WIDTH_THICK} />
+        )}
+      </View>
+    </View>
+  );
+
+  const subscribeTouchStyle = [
+    styles.subscribeButtonTouch,
+    isWideScreen && styles.subscribeButtonMax,
+  ];
+
   return (
     <View style={[styles.subscribeContainer, containerStyle]}>
-      <Pressable
-        style={[styles.subscribeButtonTouch, isWideScreen && styles.subscribeButtonMax]}
-        onPressIn={() => {
-          frozenHasFilledBackgroundRef.current = hasFilledBackground;
-        }}
-        onPressOut={() => {
-          frozenHasFilledBackgroundRef.current = null;
-        }}
-        onPress={handleSubscribe}
-      >
-        {({ pressed }) => {
-          const frozenValue = frozenHasFilledBackgroundRef.current;
-          const buttonStyle = getButtonStyle(pressed, frozenValue);
-          const contentColor = getContentColor(pressed, frozenValue);
-
-          return (
-            <View style={[styles.subscribeButton, styles.subscribeButtonInner, buttonStyle]}>
-              {canUseLiquidGlass && (
-                <GlassView
-                  style={styles.subscribeButtonGlassBackground}
-                  glassEffectStyle="clear"
-                  tintColor={getLiquidGlassTintColor(pressed)}
-                />
-              )}
-              <View pointerEvents="none" style={styles.subscribeButtonContent}>
-                <>
-                  <Text style={[styles.subscribeButtonText, { color: contentColor }]}>
-                    {isSubscribed ? t('settings.subscribed') : t('settings.subscribe')}
-                  </Text>
-                  {isSubscribed ? (
-                    <CheckIcon size={16} color={contentColor} strokeWidth={STROKE_WIDTH_THICK} />
-                  ) : (
-                    <PlusIcon size={16} color={contentColor} strokeWidth={STROKE_WIDTH_THICK} />
-                  )}
-                </>
-              </View>
-            </View>
-          );
-        }}
-      </Pressable>
+      {isSubscribed ? (
+        <View style={subscribeTouchStyle}>{subscribePill}</View>
+      ) : (
+        <NativePressable style={subscribeTouchStyle} onPress={handleSubscribe}>
+          {subscribePill}
+        </NativePressable>
+      )}
 
       {showViewToggle && onViewModeChange && (
         <View style={styles.viewToggleContainer}>
-          <Pressable onPress={() => onViewModeChange('grid')} style={styles.viewToggleButton}>
+          <NativePressable
+            androidRippleBorderless
+            onPress={() => onViewModeChange('grid')}
+            style={styles.viewToggleButton}
+          >
             <GridViewIcon
               color={viewMode === 'grid' ? textColor : hexToRGBA(textColor, 0.6)}
               size={20}
             />
-          </Pressable>
-          <Pressable onPress={() => onViewModeChange('list')} style={styles.viewToggleButton}>
+          </NativePressable>
+          <NativePressable
+            androidRippleBorderless
+            onPress={() => onViewModeChange('list')}
+            style={styles.viewToggleButton}
+          >
             <ListViewIcon
               color={viewMode === 'list' ? textColor : hexToRGBA(textColor, 0.6)}
               size={20}
             />
-          </Pressable>
+          </NativePressable>
         </View>
       )}
     </View>

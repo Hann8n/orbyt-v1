@@ -89,6 +89,9 @@ export const STORAGE_KEYS = {
   APP_STORE: 'app-store',
 } as const;
 
+/** iOS press dim for `NativePressable` (`TouchableOpacity`); higher = subtler (RN default is 0.2). */
+export const NATIVE_PRESSABLE_ACTIVE_OPACITY = 0.76;
+
 // Animation Constants
 export const ANIMATION_CONSTANTS = {
   DURATION: {

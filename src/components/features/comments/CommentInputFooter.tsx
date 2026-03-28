@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
-  Pressable,
   TextInput,
   ScrollView,
   StyleSheet,
@@ -15,6 +14,7 @@ import {
   type NativeSyntheticEvent,
   type TargetedEvent,
 } from 'react-native';
+import { NativePressable } from '@/components/ui/NativePressable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Image } from 'expo-image';
@@ -277,7 +277,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                     <View style={styles.gifFallbackThumb} />
                   )}
                   {onClearGif ? (
-                    <Pressable
+                    <NativePressable
                       onPress={onClearGif}
                       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                       style={styles.removeThumbButton}
@@ -285,9 +285,9 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                       accessibilityLabel={t('comments.removeGif')}
                     >
                       <Icon name="close" size={18} color={Colors.neutral[50]} />
-                    </Pressable>
+                    </NativePressable>
                   ) : onClearAttachment ? (
-                    <Pressable
+                    <NativePressable
                       onPress={onClearAttachment}
                       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                       style={styles.removeThumbButton}
@@ -295,7 +295,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                       accessibilityLabel={t('comments.removeGif')}
                     >
                       <Icon name="close" size={18} color={Colors.neutral[50]} />
-                    </Pressable>
+                    </NativePressable>
                   ) : null}
                 </View>
               ) : null}
@@ -314,7 +314,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                           contentFit="cover"
                         />
                         {onRemoveImage ? (
-                          <Pressable
+                          <NativePressable
                             onPress={() => onRemoveImage(img.uri)}
                             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                             style={styles.removeThumbButton}
@@ -322,7 +322,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                             accessibilityLabel={t('comments.removeImage')}
                           >
                             <Icon name="close" size={18} color={Colors.neutral[50]} />
-                          </Pressable>
+                          </NativePressable>
                         ) : null}
                       </View>
                     );
@@ -384,7 +384,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                   themeVariant="dark"
                   isAnchoredToRight={true}
                 >
-                  <Pressable
+                  <NativePressable
                     style={[styles.addIconButton, isPosting && styles.iconButtonDisabled]}
                     disabled={isPosting || mediaMenuActions.length === 0}
                     hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
@@ -393,11 +393,11 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                     accessibilityLabel={t('common.add')}
                   >
                     <Icon name="add_circle" size={30} color={Colors.neutral[300]} />
-                  </Pressable>
+                  </NativePressable>
                 </MenuView>
               ) : null}
               {shouldRenderSendButton ? (
-                <Pressable
+                <NativePressable
                   style={[
                     styles.sendButton,
                     !useLiquidGlass && styles.sendButtonFallback,
@@ -425,9 +425,9 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                   ) : (
                     <Icon name="up" size={22} color={Colors.neutral[300]} />
                   )}
-                </Pressable>
+                </NativePressable>
               ) : replyContext && !hasText ? (
-                <Pressable
+                <NativePressable
                   style={[styles.sendButton, styles.cancelReplyButton]}
                   onPress={onCancelReply}
                   hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
@@ -436,7 +436,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                   accessibilityLabel={t('comments.cancelReply')}
                 >
                   <Icon name="close" size={18} color={Colors.neutral[200]} />
-                </Pressable>
+                </NativePressable>
               ) : null}
             </View>
             {showCharCount ? (

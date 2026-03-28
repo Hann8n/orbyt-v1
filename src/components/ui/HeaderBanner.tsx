@@ -1,15 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BORDER_RADIUS, SCROLL_CONSTANTS } from '../../utils/constants';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  Dimensions,
-  Linking,
-  Platform,
-  FlatList,
-} from 'react-native';
+import { View, Text, StyleSheet, Dimensions, Linking, Platform, FlatList } from 'react-native';
+import { NativePressable } from './NativePressable';
 import { Image } from 'expo-image';
 import { Colors } from '../../theme';
 import { Header } from '../../services/OrbytBannerService';
@@ -186,7 +178,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
     ({ item }: { item: Header }) => {
       const header = item;
       return (
-        <Pressable
+        <NativePressable
           key={header.id}
           style={styles.headerItem}
           onPress={() => handleHeaderPress(header)}
@@ -247,7 +239,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
               })()}
             </View>
           </View>
-        </Pressable>
+        </NativePressable>
       );
     },
     [handleHeaderPress]
@@ -262,7 +254,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
     return (
       <View style={[styles.container, height ? { height } : null, { backgroundColor }]}>
         <View style={styles.headersContainer}>
-          <Pressable
+          <NativePressable
             key={header.id}
             style={styles.headerItem}
             onPress={() => handleHeaderPress(header)}
@@ -323,7 +315,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
                 })()}
               </View>
             </View>
-          </Pressable>
+          </NativePressable>
         </View>
       </View>
     );

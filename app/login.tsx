@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '@/utils/constants';
 import {
   View,
-  Pressable,
   Text,
   StyleSheet,
   Alert,
@@ -12,6 +11,7 @@ import {
   StatusBar,
   ActivityIndicator,
 } from 'react-native';
+import { NativePressable } from '@/components/ui/NativePressable';
 import { Image } from 'expo-image';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -242,7 +242,7 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
     return (
       <View style={[styles.loginButtonsContainer, loginButtonsInsetStyle]}>
         {/* Sign in button */}
-        <Pressable
+        <NativePressable
           style={[styles.liquidGlassButton, !useLiquidGlass && styles.whiteButton]}
           onPress={() => !isLoading && setShowLoginSheet(true)}
           disabled={isLoading}
@@ -260,7 +260,7 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
           ) : (
             signInButtonContent
           )}
-        </Pressable>
+        </NativePressable>
 
         {/* Sign up link */}
         <View style={styles.manualSignInLink}>

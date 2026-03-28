@@ -1,6 +1,7 @@
 import React, { memo, useMemo, useCallback, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StatusBar, Pressable, StyleSheet, View, StyleProp, ViewStyle } from 'react-native';
+import { StatusBar, StyleSheet, View, StyleProp, ViewStyle } from 'react-native';
+import { NativePressable } from '@/components/ui/NativePressable';
 import { useIsFocused } from '@react-navigation/native';
 import Animated, {
   useAnimatedStyle,
@@ -161,9 +162,9 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
             verification={profileData.verification}
           />
           {isBeta && (
-            <Pressable onPress={() => setShowBetaInfo(true)}>
+            <NativePressable onPress={() => setShowBetaInfo(true)}>
               <BetaBadge textSize={20} color={profileColors.textColor} opacity={0.6} scale={0.8} />
-            </Pressable>
+            </NativePressable>
           )}
         </>
       ) : undefined,

@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import { View, Text, StyleSheet, Dimensions, Pressable, FlatList } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, FlatList } from 'react-native';
+import { NativePressable } from '@/components/ui/NativePressable';
 import { Image } from 'expo-image';
 import Icon from '../../ui/Icon';
 import { Colors } from '../../../theme';
@@ -89,7 +90,7 @@ const SuggestedUserItem: React.FC<SuggestedUserItemProps> = ({ item, followMutat
         </View>
       </View>
       {!isFollowing && (
-        <Pressable
+        <NativePressable
           style={styles.followButton}
           onPress={() => {
             followMutation.mutate({
@@ -100,7 +101,7 @@ const SuggestedUserItem: React.FC<SuggestedUserItemProps> = ({ item, followMutat
           }}
         >
           <Icon name="user_add_2" size={16} color={Colors.black} />
-        </Pressable>
+        </NativePressable>
       )}
     </View>
   );
@@ -347,14 +348,14 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
           {displayMessage}
         </Text>
         {isYourMixFeed && type === 'no-videos' && (
-          <Pressable
+          <NativePressable
             style={styles.addChannelsButton}
             onPress={() => {
               navigation.navigate('/explore');
             }}
           >
             <Text style={styles.addChannelsButtonText}>{t('feed.exploreChannels')}</Text>
-          </Pressable>
+          </NativePressable>
         )}
         {onRetry && (type === 'error' || type === 'no-connection') && (
           <RetryButton onPress={onRetry} />

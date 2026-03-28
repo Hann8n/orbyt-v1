@@ -12,7 +12,6 @@ import {
   View,
   Text,
   StyleSheet,
-  Pressable,
   TextInput,
   Alert,
   ScrollView,
@@ -20,6 +19,7 @@ import {
   Keyboard,
   Platform,
 } from 'react-native';
+import { NativePressable } from '@/components/ui/NativePressable';
 import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -100,7 +100,7 @@ const AnimatedColorSquare: React.FC<AnimatedColorSquareProps> = React.memo(
 
     return (
       <View style={styles.colorSquareContainer}>
-        <Pressable style={[styles.colorSquare, colorSquareBorder]} onPress={onPress}>
+        <NativePressable style={[styles.colorSquare, colorSquareBorder]} onPress={onPress}>
           {/* Background color section */}
           <Animated.View
             style={[
@@ -114,7 +114,7 @@ const AnimatedColorSquare: React.FC<AnimatedColorSquareProps> = React.memo(
           <Animated.View
             style={[styles.colorSection, textAnimatedStyle, { backgroundColor: displayTextColor }]}
           />
-        </Pressable>
+        </NativePressable>
       </View>
     );
   }
@@ -863,7 +863,7 @@ const EditProfileScreen: React.FC = () => {
       <View style={[styles.topSafeArea, Platform.OS === 'android' && { paddingTop: insets.top }]}>
         {/* Header */}
         <View style={styles.header}>
-          <Pressable
+          <NativePressable
             onPress={() => {
               if (isAboutFocused) {
                 setEditDescription(profileData?.description || '');
@@ -880,7 +880,7 @@ const EditProfileScreen: React.FC = () => {
             <Text style={[styles.cancelButtonText, { color: Colors.neutral[50] }]}>
               {isAboutFocused || isDisplayNameFocused ? t('common.back') : t('common.cancel')}
             </Text>
-          </Pressable>
+          </NativePressable>
 
           {isAboutFocused && (aboutRemaining <= 50 || aboutOverBy > 0) && (
             <View style={styles.headerCenter}>
@@ -898,7 +898,7 @@ const EditProfileScreen: React.FC = () => {
             </View>
           )}
 
-          <Pressable
+          <NativePressable
             style={[
               styles.saveButtonGlass,
               !isLiquidGlassAvailable() && styles.saveButton,
@@ -944,7 +944,7 @@ const EditProfileScreen: React.FC = () => {
                 </Text>
               )}
             </View>
-          </Pressable>
+          </NativePressable>
         </View>
 
         {/* Color Picker */}
@@ -1111,7 +1111,7 @@ const EditProfileScreen: React.FC = () => {
                         themeVariant="dark"
                         isAnchoredToRight={true}
                       >
-                        <Pressable
+                        <NativePressable
                           style={[
                             styles.uploadButton,
                             {
@@ -1129,7 +1129,7 @@ const EditProfileScreen: React.FC = () => {
                           >
                             {t('editProfile.upload')}
                           </Text>
-                        </Pressable>
+                        </NativePressable>
                       </MenuView>
                     </View>
                   </View>
@@ -1156,7 +1156,7 @@ const EditProfileScreen: React.FC = () => {
                 layout={Layout.springify().duration(280)}
                 style={[styles.section, isDisplayNameFocused && styles.expandedSection]}
               >
-                <Pressable
+                <NativePressable
                   onPress={() => {
                     if (!isDisplayNameFocused) {
                       setIsDisplayNameFocused(true);
@@ -1198,7 +1198,7 @@ const EditProfileScreen: React.FC = () => {
                       }}
                     />
                   </Animated.View>
-                </Pressable>
+                </NativePressable>
               </Animated.View>
             )}
 
@@ -1227,7 +1227,7 @@ const EditProfileScreen: React.FC = () => {
                   isAboutFocused && styles.expandedSection,
                 ]}
               >
-                <Pressable
+                <NativePressable
                   onPress={() => {
                     if (!isAboutFocused) {
                       setIsAboutFocused(true);
@@ -1271,7 +1271,7 @@ const EditProfileScreen: React.FC = () => {
                       }}
                     />
                   </Animated.View>
-                </Pressable>
+                </NativePressable>
               </Animated.View>
             )}
           </ScrollView>

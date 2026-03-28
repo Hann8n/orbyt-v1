@@ -1,6 +1,7 @@
 import { useMemo, useCallback, memo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, StyleSheet, Pressable, Text } from 'react-native';
+import { View, StyleSheet, Text } from 'react-native';
+import { NativePressable } from '@/components/ui/NativePressable';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import FeedRenderer from '@/components/features/feed/FeedRenderer';
@@ -62,7 +63,7 @@ const FeedScreen = memo(() => {
 
   return (
     <View style={styles.container}>
-      <Pressable
+      <NativePressable
         accessibilityRole="button"
         accessibilityLabel={t('common.back')}
         onPress={() => {
@@ -75,7 +76,7 @@ const FeedScreen = memo(() => {
         ]}
       >
         <BackArrowIcon size={30} color={Colors.neutral[50]} />
-      </Pressable>
+      </NativePressable>
 
       <FeedRenderer
         feedOption={routeParams.feedOption}

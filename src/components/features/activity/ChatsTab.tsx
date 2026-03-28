@@ -10,7 +10,8 @@ import React, {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../../utils/constants';
-import { View, Text, StyleSheet, Pressable, RefreshControl, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, RefreshControl, ActivityIndicator } from 'react-native';
+import { NativePressable } from '@/components/ui/NativePressable';
 import { LegendList, LegendListRef } from '@legendapp/list';
 import type { ScrollToTopRef } from '../../../utils/navigation/tabRefs';
 import { ChatBskyConvoDefs } from '@atproto/api';
@@ -218,7 +219,7 @@ const ConversationItem = React.memo<ConversationItemProps>(
     return (
       <View style={styles.conversationItem}>
         <View style={styles.conversationItemRow}>
-          <Pressable onPress={handleAvatarPress} style={styles.profileImage}>
+          <NativePressable onPress={handleAvatarPress} style={styles.profileImage}>
             <Avatar
               uri={other?.avatar}
               type="profile"
@@ -228,10 +229,10 @@ const ConversationItem = React.memo<ConversationItemProps>(
               profileColors={ringProps.profileColors}
               style={styles.avatarFill}
             />
-          </Pressable>
-          <Pressable onPress={handlePress} style={styles.notificationContent}>
+          </NativePressable>
+          <NativePressable onPress={handlePress} style={styles.notificationContent}>
             <View style={styles.nameRow}>
-              <Pressable
+              <NativePressable
                 onPress={handleNamePress}
                 hitSlop={nameHitSlop}
                 style={styles.namePressable}
@@ -245,7 +246,7 @@ const ConversationItem = React.memo<ConversationItemProps>(
                 {handle && (
                   <VerificationBadge handle={handle} textSize={14} textColor={Colors.neutral[50]} />
                 )}
-              </Pressable>
+              </NativePressable>
               {isMuted && (
                 <View style={styles.mutedIconWrap} accessibilityLabel={t('a11y.mutedConversation')}>
                   <MutedChatIcon size={18} color={Colors.neutral[500]} />
@@ -301,7 +302,7 @@ const ConversationItem = React.memo<ConversationItemProps>(
                 )}
               </View>
             </View>
-          </Pressable>
+          </NativePressable>
         </View>
         {isRequest ? (
           <View style={styles.requestActions}>
@@ -530,9 +531,12 @@ const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(({ chatFilter }, ref)
           containerStyle={styles.segmentChipsWrap}
           trackStyle={styles.segmentChipsTrack}
         />
-        <Pressable onPress={() => setShowChatSettingsSheet(true)} style={styles.segmentGearButton}>
+        <NativePressable
+          onPress={() => setShowChatSettingsSheet(true)}
+          style={styles.segmentGearButton}
+        >
           <Icon name="settings_2" size={22} color={Colors.neutral[50]} />
-        </Pressable>
+        </NativePressable>
       </View>
     ),
     [segment, t]

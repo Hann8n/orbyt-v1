@@ -15,6 +15,7 @@ import {
   AppState,
   ActivityIndicator,
 } from 'react-native';
+import { NativePressable } from '@/components/ui/NativePressable';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -744,19 +745,19 @@ const VideoEditorScreen: React.FC = () => {
     <SafeAreaView style={styles.container}>
       <StatusBar hidden={true} />
       {/* Header buttons - matches create screen */}
-      <Pressable
-        style={({ pressed }) => [
+      <NativePressable
+        style={[
           styles.backButton,
           {
             top: isSmallDevice ? 5 : insets.top + 4,
             left: 4,
           },
-          pressed && { opacity: 0.7 },
         ]}
         onPress={handleBack}
+        androidRippleBorderless
       >
         <CloseFillIcon size={26} color="white" />
-      </Pressable>
+      </NativePressable>
 
       {/* Video Preview Container - matches cameraContainer from create.tsx */}
       <View style={styles.videoContainer}>

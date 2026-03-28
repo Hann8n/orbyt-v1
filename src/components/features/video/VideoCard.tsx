@@ -16,15 +16,8 @@ import * as Haptics from 'expo-haptics';
 
 import { AtprotoService } from '../../../services/api/AtprotoService';
 import { AtprotoFeedService } from '../../../services/api/feed/FeedService';
-import {
-  View,
-  Text,
-  Dimensions,
-  Pressable,
-  StyleSheet,
-  Platform,
-  ActivityIndicator,
-} from 'react-native';
+import { View, Text, Dimensions, StyleSheet, Platform, ActivityIndicator } from 'react-native';
+import { NativePressable } from '@/components/ui/NativePressable';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -1095,7 +1088,7 @@ const VideoCard = memo(
             thumbnailUrl={cannotShowMedia ? null : (posterUrl ?? null)}
             onBlurReady={handleBlurReady}
           />
-          <Pressable
+          <NativePressable
             onPress={handleVideoTap}
             onLongPress={handleLongPress}
             delayLongPress={400}
@@ -1193,7 +1186,7 @@ const VideoCard = memo(
                 />
               )}
             </View>
-          </Pressable>
+          </NativePressable>
 
           {(cannotShowMedia || isBlurred) && (
             <>
@@ -1208,7 +1201,7 @@ const VideoCard = memo(
                   </Text>
                 </View>
                 {isBlurred && (
-                  <Pressable onPress={handleViewContent} style={styles.viewButton}>
+                  <NativePressable onPress={handleViewContent} style={styles.viewButton}>
                     {Platform.OS === 'ios' && isLiquidGlassAvailable() ? (
                       <GlassView
                         style={styles.glassBackground}
@@ -1220,7 +1213,7 @@ const VideoCard = memo(
                     <View style={styles.buttonContent} pointerEvents="none">
                       <Text style={styles.viewButtonText}>{t('video.seeVideo')}</Text>
                     </View>
-                  </Pressable>
+                  </NativePressable>
                 )}
               </View>
             </>

@@ -1,6 +1,7 @@
 import React, { useMemo, useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import { NativePressable } from './NativePressable';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import Animated, {
@@ -240,7 +241,7 @@ const VideoUploadBannerComponent: React.FC<VideoUploadBannerProps> = ({
   }
 
   return (
-    <Pressable
+    <NativePressable
       onPress={isComplete ? handleProfilePress : undefined}
       style={[styles.banner, bannerDynamicStyle]}
     >
@@ -260,7 +261,7 @@ const VideoUploadBannerComponent: React.FC<VideoUploadBannerProps> = ({
           </View>
         </View>
       )}
-    </Pressable>
+    </NativePressable>
   );
 };
 
