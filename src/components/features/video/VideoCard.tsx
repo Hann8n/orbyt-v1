@@ -1093,6 +1093,8 @@ const VideoCard = memo(
             onLongPress={handleLongPress}
             delayLongPress={400}
             style={styles.videoContainerPressable}
+            activeOpacity={1}
+            android_ripple={{ color: hexToRGBA(Colors.black, 0), borderless: true }}
           >
             <View style={styles.videoContainer}>
               {!!posterUrl && !cannotShowMedia && (!firstFrameRendered || !blurReady) && (
