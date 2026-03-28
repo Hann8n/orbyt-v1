@@ -12,7 +12,7 @@ import AnimatedTVStatic from '../../ui/AnimatedTVStatic';
 import { useQuery } from '@tanstack/react-query';
 import AtprotoService from '../../../services/api/AtprotoService';
 import { Avatar } from '../../ui/UI';
-import { VerificationBadge } from '../badging';
+import { VerificationBadge, BotBadge } from '../badging';
 import { useRouter } from 'expo-router';
 import { useFollowMutation, useProfile } from '../../../services/data/ProfileService';
 import { useAvatarProfileRing } from '../../../services/colors';
@@ -82,6 +82,15 @@ const SuggestedUserItem: React.FC<SuggestedUserItemProps> = ({ item, followMutat
             {item.handle && item.handle.trim() && item.handle.length > 0 && (
               <VerificationBadge
                 handle={item.handle.trim()}
+                textSize={14}
+                textColor={Colors.neutral[50]}
+              />
+            )}
+            {item.handle && item.handle.trim() && item.handle.length > 0 && (
+              <BotBadge
+                handle={item.handle.trim()}
+                did={item.did}
+                labels={profile?.labels}
                 textSize={14}
                 textColor={Colors.neutral[50]}
               />

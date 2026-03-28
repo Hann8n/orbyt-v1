@@ -1,15 +1,98 @@
 diff --git a/node_modules/@shopify/react-native-skia/scripts/install-skia.mjs b/node_modules/@shopify/react-native-skia/scripts/install-skia.mjs
-index ac4e945..b29bae3 100644
+index 1111111..2222222 100644
 --- a/node_modules/@shopify/react-native-skia/scripts/install-skia.mjs
 +++ b/node_modules/@shopify/react-native-skia/scripts/install-skia.mjs
-@@ -59,8 +59,8 @@ const names = [
+@@ -49,6 +49,11 @@
+ const GRAPHITE = !!process.env.SK_GRAPHITE;
+ const prefix = GRAPHITE ? "skia-graphite" : "skia";
+ 
++const includeTvOS =
++  !GRAPHITE &&
++  process.env.SKIP_SKIA_TVOS !== "1" &&
++  process.env.SKIP_SKIA_TVOS !== "true";
++
+ // Build artifact names based on platform and Graphite mode
+ const names = [
+   `${prefix}-android-arm`,
+@@ -59,8 +64,8 @@
    `${prefix}-apple-macos-xcframeworks`,
  ];
  
 -// Add tvOS only for non-Graphite builds
 -if (!GRAPHITE) {
 +// Add tvOS only for non-Graphite builds (skip if SKIP_SKIA_TVOS=1 - e.g. iOS/iPadOS/Android only)
-+if (!GRAPHITE && process.env.SKIP_SKIA_TVOS !== '1' && process.env.SKIP_SKIA_TVOS !== 'true') {
++if (includeTvOS) {
    names.push(`${prefix}-apple-tvos-xcframeworks`);
  }
  
+@@ -368,7 +373,9 @@
+   // Note: maccatalyst is included in iOS xcframeworks, not a separate artifact
+   const applePlatforms = GRAPHITE
+     ? ["ios", "macos"]
+-    : ["ios", "tvos", "macos"];
++    : includeTvOS
++      ? ["ios", "tvos", "macos"]
++      : ["ios", "macos"];
+ 
+   for (const platform of applePlatforms) {
+     const platformDir = path.join(libsDir, "apple", platform);
+@@ -425,10 +432,12 @@
+     }
+   }
+ 
+-  // Check for Apple platform frameworks
++  // Check for Apple platform frameworks (Mac Catalyst ships inside iOS xcframeworks; tvOS optional)
+   const applePlatforms = GRAPHITE
+     ? ["ios", "macos"]
+-    : ["ios", "tvos", "macos", "maccatalyst"];
++    : includeTvOS
++      ? ["ios", "tvos", "macos"]
++      : ["ios", "macos"];
+ 
+   for (const platform of applePlatforms) {
+     const platformDir = path.join(libsDir, "apple", platform);
+@@ -567,7 +576,15 @@
+       ]
+     : [
+         { artifact: `${prefix}-apple-ios-xcframeworks`, srcSubdir: "ios", dest: "ios" },
+-        { artifact: `${prefix}-apple-tvos-xcframeworks`, srcSubdir: "tvos", dest: "tvos" },
++        ...(includeTvOS
++          ? [
++              {
++                artifact: `${prefix}-apple-tvos-xcframeworks`,
++                srcSubdir: "tvos",
++                dest: "tvos",
++              },
++            ]
++          : []),
+         { artifact: `${prefix}-apple-macos-xcframeworks`, srcSubdir: "macos", dest: "macos" },
+       ];
+ 
+@@ -610,6 +627,27 @@
+     }
+   });
+ 
++  const missingSkiaLibs = [];
++  for (const arch of ["armeabi-v7a", "arm64-v8a", "x86", "x86_64"]) {
++    const archDir = path.join(libsDir, "android", arch);
++    if (!fs.existsSync(archDir) || fs.readdirSync(archDir).length === 0) {
++      missingSkiaLibs.push(`android/${arch}`);
++    }
++  }
++  for (const platform of includeTvOS ? ["ios", "tvos", "macos"] : ["ios", "macos"]) {
++    const platformDir = path.join(libsDir, "apple", platform);
++    if (!fs.existsSync(platformDir) || fs.readdirSync(platformDir).length === 0) {
++      missingSkiaLibs.push(`apple/${platform}`);
++    }
++  }
++  if (missingSkiaLibs.length > 0) {
++    throw new Error(
++      `Skia install incomplete (missing ${missingSkiaLibs.join(
++        ", "
++      )}). Remove node_modules/packages/skia and node_modules/@shopify/react-native-skia/libs, then run yarn install again.`
++    );
++  }
++
+   // Create or remove Graphite marker files based on build type
+   const androidMarkerFile = path.join(androidDir, "graphite.enabled");
+   // Apple marker file stays at the apple root level (libs/apple/graphite.enabled)

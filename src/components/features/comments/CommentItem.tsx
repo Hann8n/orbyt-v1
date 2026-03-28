@@ -38,7 +38,7 @@ import { hexToRGBA } from '../../../utils/formatting/colors';
 import { Colors } from '../../../theme';
 import UI from '../../ui/UI';
 import { HeartFillIcon, MoreFillIcon } from '../../ui/Icon';
-import { VerificationBadge } from '../badging';
+import { VerificationBadge, BotBadge } from '../badging';
 import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
 import RelativeDate from '../../ui/RelativeDate';
 import { useCommentStore } from '../../../stores/commentStore';
@@ -1112,6 +1112,15 @@ const CommentItem: React.FC<CommentItemProps> = ({
               {authorHandle && (
                 <VerificationBadge
                   handle={authorHandle}
+                  textSize={16}
+                  textColor={Colors.neutral[50]}
+                />
+              )}
+              {authorHandle && (
+                <BotBadge
+                  handle={authorHandle}
+                  did={authorDid ?? undefined}
+                  labels={authorProfile?.labels ?? comment?.author?.labels}
                   textSize={16}
                   textColor={Colors.neutral[50]}
                 />

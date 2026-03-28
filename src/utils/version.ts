@@ -7,11 +7,18 @@ import { Platform } from 'react-native';
 /**
  * Get the native app version (store-facing).
  *
- * Prefer reading from the actual installed binary via `expo-application`,
- * then fall back to config when not available (e.g. web).
+ * In development, prefer `expo-constants` so the UI matches `app.json` without
+ * rebuilding the dev client when only the marketing version changes.
+ *
+ * In release builds, prefer the installed binary (`expo-application`) — that is
+ * what the store and OS report.
  */
 export function getBuildVersion(): string {
-  return Application.nativeApplicationVersion ?? Constants.expoConfig?.version ?? '1.1.1';
+  const fromConfig = Constants.expoConfig?.version;
+  if (__DEV__ && fromConfig) {
+    return fromConfig;
+  }
+  return Application.nativeApplicationVersion ?? fromConfig ?? '0.0.0';
 }
 
 /**
@@ -19,14 +26,17 @@ export function getBuildVersion(): string {
  */
 export function getBuildNumber(): string {
   const fromBinary = Application.nativeBuildVersion;
-  if (fromBinary) return fromBinary;
-
   const fromConfig =
     Platform.OS === 'ios'
       ? Constants.expoConfig?.ios?.buildNumber
       : Platform.OS === 'android'
         ? Constants.expoConfig?.android?.versionCode?.toString()
         : undefined;
+
+  if (__DEV__ && fromConfig) {
+    return fromConfig;
+  }
+  if (fromBinary) return fromBinary;
 
   return fromConfig ?? 'N/A';
 }

@@ -6,6 +6,7 @@ import { NativePressable } from './NativePressable';
 import { useRouter } from 'expo-router';
 import { Avatar } from './UI';
 import VerificationBadge from '../features/badging/VerificationBadge';
+import BotBadge from '../features/badging/BotBadge';
 import Icon, {
   AddSquareCuteFilledIcon,
   CheckboxCuteFilledDuotoneIcon,
@@ -228,6 +229,15 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
                 textSize={config.badgeTextSize}
                 textColor={textColor || Colors.neutral[50]}
                 verification={cachedProfile?.verification}
+              />
+            )}
+            {handle && !hideDisplayName && (
+              <BotBadge
+                handle={handle}
+                did={did}
+                labels={cachedProfile?.labels}
+                textSize={config.badgeTextSize}
+                textColor={textColor || Colors.neutral[50]}
               />
             )}
           </View>

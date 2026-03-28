@@ -29,7 +29,7 @@ import Icon, {
   MutedChatIcon,
   ShareForwardFillIcon,
 } from '../../../components/ui/Icon';
-import { VerificationBadge } from '../badging';
+import { VerificationBadge, BotBadge } from '../badging';
 import EmptyFeed from '../feed/EmptyFeed';
 import { getBottomNavBarHeight } from '../../../utils/device/screen';
 import { formatHandle } from '../../../utils/formatting/handles';
@@ -245,6 +245,15 @@ const ConversationItem = React.memo<ConversationItemProps>(
                 </Text>
                 {handle && (
                   <VerificationBadge handle={handle} textSize={14} textColor={Colors.neutral[50]} />
+                )}
+                {handle && (
+                  <BotBadge
+                    handle={handle}
+                    did={other?.did}
+                    labels={(other as ProfileViewBasic | undefined)?.labels}
+                    textSize={14}
+                    textColor={Colors.neutral[50]}
+                  />
                 )}
               </NativePressable>
               {isMuted && (

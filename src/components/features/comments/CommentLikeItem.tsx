@@ -10,7 +10,7 @@ import { useAvatarProfileRing } from '../../../services/colors';
 import type { Like } from '../../../services/api/types';
 
 import UI from '../../ui/UI';
-import { VerificationBadge } from '../badging';
+import { VerificationBadge, BotBadge } from '../badging';
 
 type CommentLikeItemProps = {
   like: Like;
@@ -71,6 +71,15 @@ const CommentLikeItemComponent: React.FC<CommentLikeItemProps> = ({ like, onPres
               textSize={16}
               textColor={Colors.neutral[50]}
               verification={actorProfile?.verification}
+            />
+          ) : null}
+          {handle ? (
+            <BotBadge
+              handle={handle}
+              did={did ?? undefined}
+              labels={actorProfile?.labels}
+              textSize={16}
+              textColor={Colors.neutral[50]}
             />
           ) : null}
         </View>

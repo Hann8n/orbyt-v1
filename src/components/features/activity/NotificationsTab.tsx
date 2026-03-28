@@ -21,7 +21,7 @@ import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import ProfileService, { prefetchProfile, useProfile } from '../../../services/data/ProfileService';
 import { Colors } from '../../../theme';
 import { Avatar } from '../../../components/ui/UI';
-import { VerificationBadge } from '../badging';
+import { VerificationBadge, BotBadge } from '../badging';
 import EmptyFeed from '../feed/EmptyFeed';
 import { getBottomNavBarHeight } from '../../../utils/device/screen';
 import { formatHandle } from '../../../utils/formatting/handles';
@@ -651,6 +651,15 @@ const NotificationItem = React.memo<NotificationItemProps>(
                 {author.handle && (
                   <VerificationBadge
                     handle={author.handle}
+                    textSize={14}
+                    textColor={Colors.neutral[50]}
+                  />
+                )}
+                {author.handle && (
+                  <BotBadge
+                    handle={author.handle}
+                    did={author.did}
+                    labels={author.labels}
                     textSize={14}
                     textColor={Colors.neutral[50]}
                   />

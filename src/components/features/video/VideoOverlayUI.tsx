@@ -26,7 +26,7 @@ import { Avatar } from '../../ui/UI';
 import { formatNumber } from '../../../utils/formatting/numbers';
 import { formatHandle } from '../../../utils/formatting/handles';
 import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
-import { VerificationBadge } from '../badging';
+import { VerificationBadge, BotBadge } from '../badging';
 import { useGlobalShareSheet, useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 import { useRouter, useSegments } from 'expo-router';
 import { useFollowContext } from '../../../context/FollowContext';
@@ -565,6 +565,14 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                         customMargin={2}
                         textColor={Colors.neutral[50]}
                       />
+                      <BotBadge
+                        handle={author.handle}
+                        did={author.did}
+                        labels={author.labels}
+                        size={isTabletDevice ? 22 : 20}
+                        customMargin={2}
+                        textColor={Colors.neutral[50]}
+                      />
                     </View>
                   )}
                   {showFollowText && (
@@ -792,6 +800,8 @@ const styles = StyleSheet.create({
   },
   authorBadgeWrapper: {
     flexShrink: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   followSeparator: {
     marginHorizontal: 4,

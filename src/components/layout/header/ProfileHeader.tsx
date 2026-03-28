@@ -1,6 +1,6 @@
 import React, { memo, useMemo, useCallback, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StatusBar, StyleSheet, View, StyleProp, ViewStyle } from 'react-native';
+import { Alert, StatusBar, StyleSheet, View, StyleProp, ViewStyle } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { useIsFocused } from '@react-navigation/native';
 import Animated, {
@@ -17,13 +17,15 @@ import { getProfileColors } from '../../../utils/formatting/colors';
 import { useProfileFlags } from '../../../stores/profileInteractionStore';
 import { useOrbytColors } from '../../../services/colors';
 import VerificationBadge from '../../features/badging/VerificationBadge';
+import BotBadge from '../../features/badging/BotBadge';
 import BetaBadge from '../../features/badging/BetaBadge';
 import BetaInfoSheet from '../../features/badging/BetaInfoSheet';
-import VerificationInfoSheet from '../../features/badging/VerificationInfoSheet';
 import { getStatusBarStyle } from '../../../utils/formatting/colors';
 import { RichText } from '@atproto/api';
 import { formatHandle } from '../../../utils/formatting/handles';
 import { openListInBluesky } from '../../../utils/links/bluesky';
+import { useRouter } from 'expo-router';
+import { format, isValid, parseISO } from 'date-fns';
 
 /**
  * Renders StatusBar only when this screen is focused (React Navigation recommended pattern).
@@ -65,8 +67,55 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   subtitleAction,
 }) => {
   const { t } = useTranslation();
-  const [showVerificationInfo, setShowVerificationInfo] = useState(false);
+  const router = useRouter();
   const [showBetaInfo, setShowBetaInfo] = useState(false);
+
+  const showVerificationInfoAlert = useCallback(() => {
+    if (!profileData) return;
+    const verification = profileData.verification;
+    if (!verification) {
+      Alert.alert(t('common.error'), t('profile.couldNotLoadVerification'), [
+        { text: t('common.ok') },
+      ]);
+      return;
+    }
+
+    if (verification.trustedVerifierStatus === 'valid') {
+      const name = profileData.displayName || profileData.handle || '';
+      let message = `${name} ${t('profile.trustedVerifierDescription')}`;
+      const createdAt = verification.verifications?.[0]?.createdAt;
+      if (createdAt) {
+        const d = parseISO(createdAt);
+        if (isValid(d)) {
+          message += `\n\n${t('profile.sinceDate', { date: format(d, 'MMM d, yyyy') })}`;
+        }
+      }
+      Alert.alert(t('profile.trustedVerifier'), message, [{ text: t('common.ok') }]);
+      return;
+    }
+
+    const message = t('profile.verificationBadgeDescription');
+    const validVerification = verification.verifications?.find(v => v.isValid);
+    const verifierDid = validVerification?.issuer?.trim();
+
+    const buttons: { text: string; onPress?: () => void }[] = [];
+    if (verifierDid) {
+      buttons.push({
+        text: t('profile.viewVerifier'),
+        onPress: () => {
+          router.navigate({ pathname: '/profile/[did]', params: { did: verifierDid } });
+        },
+      });
+    }
+    buttons.push({ text: t('common.ok') });
+    Alert.alert(t('profile.verified'), message, buttons);
+  }, [profileData, router, t]);
+
+  const showBotAccountAlert = useCallback(() => {
+    Alert.alert(t('profile.botAccountTitle'), t('profile.botAccountDescription'), [
+      { text: t('common.ok') },
+    ]);
+  }, [t]);
   const isFocused = useIsFocused();
   // Same scroll progress as header (contentScrollProgressSV); use profile status bar at top, app default when scrolled.
   // Only runOnJS when the decision flips (not every frame) so we don't cross the bridge on every scroll tick.
@@ -158,8 +207,17 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
             textSize={24}
             borderColor={profileColors.textColor}
             textColor={profileColors.textColor}
-            onPress={() => setShowVerificationInfo(true)}
+            onPress={showVerificationInfoAlert}
             verification={profileData.verification}
+          />
+          <BotBadge
+            handle={profileData.handle}
+            did={profileData.did}
+            labels={profileData.labels}
+            textSize={24}
+            borderColor={profileColors.textColor}
+            textColor={profileColors.textColor}
+            onPress={showBotAccountAlert}
           />
           {isBeta && (
             <NativePressable onPress={() => setShowBetaInfo(true)}>
@@ -181,6 +239,8 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     handleListPress,
     onAvatarPress,
     subtitleAction,
+    showBotAccountAlert,
+    showVerificationInfoAlert,
     t,
   ]);
 
@@ -255,14 +315,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         {/* Dim overlay above background as user scrolls */}
         <Animated.View style={dimOverlayStyle} />
       </View>
-
-      {profileData?.handle && (
-        <VerificationInfoSheet
-          visible={showVerificationInfo}
-          handle={profileData.handle}
-          onDismiss={() => setShowVerificationInfo(false)}
-        />
-      )}
 
       {profileData?.handle && (
         <BetaInfoSheet
