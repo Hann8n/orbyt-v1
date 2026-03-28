@@ -79,7 +79,7 @@ const FullHeightVideoScreen = memo(() => {
             isHeaderBlockingPlayback={false}
             isModal
             index={0}
-            isAppleZoomTarget={Platform.OS === 'ios' && Boolean(postUri)}
+            isAppleZoomTarget={Platform.OS === 'ios'}
           />
         ) : null}
       </View>
