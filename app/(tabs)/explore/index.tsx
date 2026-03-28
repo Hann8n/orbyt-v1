@@ -169,7 +169,7 @@ const isProfileResult = (result: SearchResult): result is ProfileResult =>
 const isChannelResult = (result: SearchResult): result is ChannelResult =>
   result.type === 'channel';
 
-/** Prefetch profile then open with tab-aware stack navigation (classic) or root modal route. */
+/** Prefetch profile then open with tab-aware stack navigation. */
 const prefetchProfileThenOpen = (
   profile: Profile,
   queryClient: QueryClient,

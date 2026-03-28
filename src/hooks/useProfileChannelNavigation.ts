@@ -1,7 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { useRouter, useSegments } from 'expo-router';
 
-import { useFeedSettings } from '@/stores/userStore';
 import {
   buildChannelDetailHref,
   buildProfileDetailHref,
@@ -15,21 +14,19 @@ type UseProfileChannelNavigationOptions = {
 };
 
 /**
- * Tab-aware profile/channel navigation: classic pushes on the current tab stack; modal uses root routes.
+ * Tab-aware profile/channel navigation: pushes on the active tab’s stack (or fallback tab when outside tabs).
  */
 export function useProfileChannelNavigation(options?: UseProfileChannelNavigationOptions) {
   const router = useRouter();
   const segments = useSegments();
-  const { modalProfileEnabled } = useFeedSettings();
   const fallbackTab = options?.fallbackTab ?? 'home';
 
   const hrefOpts: BuildDetailHrefOptions = useMemo(
     () => ({
-      useModalLayout: modalProfileEnabled,
       segments,
       fallbackTab,
     }),
-    [modalProfileEnabled, segments, fallbackTab]
+    [segments, fallbackTab]
   );
 
   const navigateToProfile = useCallback(

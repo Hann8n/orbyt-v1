@@ -57,7 +57,6 @@ const Channel: React.FC = memo(() => {
   const overlayScrollProgressSV = useSharedValue(0);
   const contentScrollProgressSV = overlayScrollProgressSV;
   const {
-    isModal,
     headerPaddingTop,
     actionButtonsTop,
     showBackButton,
@@ -181,10 +180,6 @@ const Channel: React.FC = memo(() => {
     router.back();
   }, [router]);
 
-  const handleGrabHandlePress = useCallback(() => {
-    channelFeedRef.current?.scrollToTop();
-  }, []);
-
   const handleDelete = useCallback(() => {
     if (channelHeaderData?.id) {
       router.back();
@@ -292,7 +287,7 @@ const Channel: React.FC = memo(() => {
     <View style={styles.headerContainer} pointerEvents="box-none">
       <ChannelHeader
         channel={channelHeaderData}
-        applySafeArea={!isModal}
+        applySafeArea
         headerStyle={headerPaddingTop ? { paddingTop: headerPaddingTop } : undefined}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
@@ -315,11 +310,9 @@ const Channel: React.FC = memo(() => {
       ]}
     >
       <DetailScreenOverlay
-        isModal={isModal}
         showBackButton={showBackButton}
         actionButtonsTop={actionButtonsTop}
         onBackPress={handleBackPress}
-        onGrabHandlePress={handleGrabHandlePress}
         backIconColor={baseBackTextColor}
         backIconPrimaryStyle={backIconPrimaryStyle}
         backIconSecondaryStyle={backIconSecondaryStyle}
@@ -354,7 +347,7 @@ const Channel: React.FC = memo(() => {
           queryOptions={channelDataForFeed && feedOption ? queryOptions : { enabled: false }}
           isVisible={isRouteFocused}
           contentScrollProgressOutput={overlayScrollProgressSV}
-          isModal={isModal}
+          isModal={false}
         />
       )}
       {isLoading && (

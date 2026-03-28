@@ -40,7 +40,7 @@ interface ProfileHeaderProps {
   contentFadeDisabled?: boolean;
   dimOverlayDisabled?: boolean;
   onAvatarPress?: () => void;
-  /** When true, this header controls StatusBar (root profile or classic card). When false (modal), StatusBar is not part of this screen. Default true. */
+  /** When true, this header controls StatusBar. Default true. */
   controlStatusBar?: boolean;
   /** DID to fetch colors for */
   did: string | null;

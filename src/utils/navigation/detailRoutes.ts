@@ -69,17 +69,12 @@ function channelPathnameForTab(
 }
 
 export type BuildDetailHrefOptions = {
-  /** When true, use root stack routes (modal presentation over tabs). */
-  useModalLayout: boolean;
   segments: readonly string[];
   /** Used when not inside `(tabs)` (e.g. settings). */
   fallbackTab?: DetailNavTab;
 };
 
 export function buildProfileDetailHref(did: string, opts: BuildDetailHrefOptions): Href {
-  if (opts.useModalLayout) {
-    return { pathname: '/profile/[did]', params: { did } };
-  }
   const tab = getDetailNavTabFromSegments(opts.segments, opts.fallbackTab ?? 'home');
   return {
     pathname: profilePathnameForTab(tab),
@@ -91,9 +86,6 @@ export function buildChannelDetailHref(
   encodedChannelId: string,
   opts: BuildDetailHrefOptions
 ): Href {
-  if (opts.useModalLayout) {
-    return { pathname: '/channel/[id]', params: { id: encodedChannelId } };
-  }
   const tab = getDetailNavTabFromSegments(opts.segments, opts.fallbackTab ?? 'home');
   return {
     pathname: channelPathnameForTab(tab),

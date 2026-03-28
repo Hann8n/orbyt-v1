@@ -8,14 +8,12 @@ import { getDeviceInfo, getFormattedVersion } from '@/utils/version';
 import { Colors } from '@/theme';
 import ListHeader from '@/components/ui/ListHeader';
 import { OptionsButton } from '@/components/ui/OptionsButton';
-import { useFeedSettings, useAuth, useCurrentUser, useAccountManagement } from '@/stores/userStore';
+import { useAuth, useCurrentUser, useAccountManagement } from '@/stores/userStore';
 import { settingsTextStyles, settingsLayoutStyles } from './SettingsStyles';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useGlobalAccountSwitcher } from '@/hooks/useGlobalModals';
 import ProfileService from '@/services/data/ProfileService';
-import { useDeviceLayout } from '@/hooks/useDeviceLayout';
-
 const SettingsScreen: React.FC = () => {
   const { t } = useTranslation();
   const router = useRouter();
@@ -24,10 +22,8 @@ const SettingsScreen: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isProfileLinkCopied, setIsProfileLinkCopied] = useState(false);
   const { presentAccountSwitcher } = useGlobalAccountSwitcher();
-  const { modalProfileEnabled, setModalProfileEnabled } = useFeedSettings();
   const { currentUser } = useCurrentUser();
   const { savedAccounts } = useAccountManagement();
-  const { isCompact: isCompactDevice } = useDeviceLayout();
 
   const handleLogout = async () => {
     if (isSubmitting) return;
@@ -116,14 +112,6 @@ const SettingsScreen: React.FC = () => {
       }, 4000);
     } catch (_error) {
       // Ignore clipboard errors
-    }
-  };
-
-  const handleToggleModalProfile = async (value: boolean) => {
-    try {
-      await setModalProfileEnabled(value);
-    } catch (_error) {
-      Alert.alert(t('common.error'), t('settings.failedToSaveSetting'));
     }
   };
 
@@ -470,25 +458,6 @@ ${deviceInfo}`
         destructive: item.destructive,
       });
     });
-
-    if (section.id === 'labs') {
-      // Only show profile/channel presentation toggle on iOS devices that don't require compact layout.
-      // When modal is the default, show "Classic layout" (inverted); otherwise "Modal layout".
-      if (Platform.OS === 'ios' && !isCompactDevice) {
-        const modalIsDefault = true; // modal is default on iOS non-compact
-        listData.push({
-          kind: 'toggle',
-          id: 'modal-profile',
-          label: modalIsDefault ? t('settings.classicLayout') : t('settings.modalLayout'),
-          subtitle: modalIsDefault
-            ? t('settings.cardStyleForProfile')
-            : t('settings.nativeModalPullToDismiss'),
-          value: modalIsDefault ? !modalProfileEnabled : modalProfileEnabled,
-          onValueChange: (value: boolean) =>
-            handleToggleModalProfile(modalIsDefault ? !value : value),
-        });
-      }
-    }
   });
 
   // Add footer with version and built with love message

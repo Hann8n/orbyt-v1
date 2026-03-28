@@ -40,7 +40,7 @@ import Icon, {
 import { useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import { ProfileHeader, TabNavigation, TabOption } from '@/components/layout/header';
 import DetailScreenOverlay from '@/components/layout/detail/DetailScreenOverlay';
-import { useCurrentUser, useFeedSettings } from '@/stores/userStore';
+import { useCurrentUser } from '@/stores/userStore';
 import { HeaderAction, HeaderActionButton } from '@/components/layout/header/UniversalHeader';
 import { Colors } from '@/theme';
 import { useGlobalAccountSwitcher } from '@/hooks/useGlobalModals';
@@ -80,7 +80,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const providedIsDid = !!providedIdentifier && providedIdentifier.startsWith('did:');
 
   const { currentUser } = useCurrentUser();
-  const { modalProfileEnabled } = useFeedSettings();
 
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [profileError, setProfileError] = useState<string | null>(null);
@@ -465,7 +464,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const defaultTop = (insets?.top ?? 0) + 5;
   const overlayScrollProgressSV = useSharedValue(0);
   const {
-    isModal,
     headerPaddingTop,
     actionButtonsTop,
     showBackButton,
@@ -489,10 +487,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     () => profileColors.textColor || Colors.neutral[50],
     [profileColors.textColor]
   );
-  const handleGrabHandlePress = useCallback(() => {
-    tabRefs.profile?.scrollToTop();
-  }, []);
-
   // Build header actions exactly as original ProfileHeader customActions
   const headerActions: HeaderAction[] = useMemo(() => {
     if (!profileData) return [];
@@ -608,11 +602,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       ]}
     >
       <DetailScreenOverlay
-        isModal={isModal}
         showBackButton={showBackButton}
         actionButtonsTop={actionButtonsTop}
         onBackPress={() => router.back()}
-        onGrabHandlePress={handleGrabHandlePress}
         backIconColor={baseBackTextColor}
         backIconPrimaryStyle={backIconPrimaryStyle}
         backIconSecondaryStyle={backIconSecondaryStyle}
@@ -674,15 +666,15 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
           scrollEnabled={false}
           queryOptions={queryOptions}
           isVisible={isRouteFocused}
-          isModal={isModal}
+          isModal={false}
           headerComponent={
             <View style={styles.headerContainer} pointerEvents="box-none">
               <ProfileHeader
                 did={targetDid || profileData?.did || null}
                 profileData={profileData}
                 contentScrollProgressSV={overlayScrollProgressSV}
-                applySafeArea={!isModal}
-                controlStatusBar={!isModal}
+                applySafeArea
+                controlStatusBar
                 headerStyle={headerPaddingTop ? { paddingTop: headerPaddingTop } : undefined}
                 subtitleAction={germSubtitleAction}
                 onAvatarPress={
@@ -739,18 +731,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
           profileData?.did
             ? () => {
                 setShowProfileMenu(false);
-                const pushChat = () => {
-                  router.navigate({
-                    pathname: '/chat/[id]',
-                    params: { id: profileData.did, did: profileData.did },
-                  });
-                };
-                if (modalProfileEnabled) {
-                  router.dismissTo('/(tabs)/home');
-                  setTimeout(pushChat, 0);
-                } else {
-                  pushChat();
-                }
+                router.navigate({
+                  pathname: '/chat/[id]',
+                  params: { id: profileData.did, did: profileData.did },
+                });
               }
             : undefined
         }

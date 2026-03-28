@@ -7,13 +7,10 @@ import { BackArrowIcon } from '../../ui/Icon';
 import { Colors } from '../../../theme';
 
 export interface DetailScreenOverlayProps {
-  isModal: boolean;
   showBackButton: boolean;
   actionButtonsTop: number;
   onBackPress: () => void;
-  /** Called when grab handle is tapped (modal only). Use to scroll list to top. */
-  onGrabHandlePress?: () => void;
-  /** Color for back arrow and grab bar (header text color) */
+  /** Color for back arrow (header text color) */
   backIconColor: string;
   backIconPrimaryStyle: AnimatedStyle<ViewStyle>;
   backIconSecondaryStyle: AnimatedStyle<ViewStyle>;
@@ -22,15 +19,13 @@ export interface DetailScreenOverlayProps {
 }
 
 /**
- * Shared overlay for profile/channel: grab handle (when modal) + back/spacer + right content.
+ * Shared overlay for profile/channel: back/spacer + right content.
  * Single place for layout and styles; screens supply onBackPress and children (menu + actions).
  */
 const DetailScreenOverlay: React.FC<DetailScreenOverlayProps> = ({
-  isModal,
   showBackButton,
   actionButtonsTop,
   onBackPress,
-  onGrabHandlePress,
   backIconColor,
   backIconPrimaryStyle,
   backIconSecondaryStyle,
@@ -40,42 +35,6 @@ const DetailScreenOverlay: React.FC<DetailScreenOverlayProps> = ({
   const { t } = useTranslation();
   return (
     <>
-      {isModal && (
-        <NativePressable
-          style={styles.grabHandle}
-          hitSlop={{ top: 10, bottom: 10, left: 20, right: 20 }}
-          onPress={onGrabHandlePress}
-          androidRippleBorderless
-        >
-          <View style={styles.grabHandleContainer}>
-            <Animated.View
-              style={[
-                StyleSheet.absoluteFillObject,
-                backIconPrimaryStyle,
-                styles.grabHandleBarWrapper,
-              ]}
-            >
-              <View
-                style={[
-                  styles.grabHandleBar,
-                  styles.grabHandleBarPrimary,
-                  { backgroundColor: backIconColor },
-                ]}
-              />
-            </Animated.View>
-            <Animated.View
-              style={[
-                StyleSheet.absoluteFillObject,
-                backIconSecondaryStyle,
-                styles.grabHandleBarWrapper,
-              ]}
-            >
-              <View style={[styles.grabHandleBar, styles.grabHandleBarSecondary]} />
-            </Animated.View>
-          </View>
-        </NativePressable>
-      )}
-
       <View style={[styles.overlayRow, { top: actionButtonsTop }]}>
         {showBackButton ? (
           <NativePressable
@@ -108,39 +67,6 @@ const DetailScreenOverlay: React.FC<DetailScreenOverlayProps> = ({
 };
 
 const styles = StyleSheet.create({
-  grabHandle: {
-    position: 'absolute',
-    top: 5,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 25,
-    paddingVertical: 8,
-    paddingHorizontal: 20,
-  },
-  grabHandleContainer: {
-    width: 42,
-    height: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  grabHandleBarWrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  grabHandleBar: {
-    width: 42,
-    height: 4,
-    borderRadius: 2,
-  },
-  grabHandleBarPrimary: {
-    opacity: 0.5,
-  },
-  grabHandleBarSecondary: {
-    backgroundColor: Colors.neutral[50],
-    opacity: 0.5,
-  },
   overlayRow: {
     position: 'absolute',
     left: 0,
@@ -149,7 +75,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
   },
   overlayBackButton: {
     width: 40,

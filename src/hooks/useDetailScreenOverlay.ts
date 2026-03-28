@@ -1,5 +1,4 @@
 import { useCallback, useMemo } from 'react';
-import { useSegments } from 'expo-router';
 import type { SharedValue } from 'react-native-reanimated';
 import {
   useSharedValue,
@@ -8,12 +7,11 @@ import {
   Extrapolate,
   runOnUI,
 } from 'react-native-reanimated';
-import { useFeedSettings } from '../stores/userStore';
 import { SCROLL_CONSTANTS } from '../utils/constants';
 
 /**
- * Single hook for detail screen (profile/channel) overlay: modal layout + scroll-driven fade.
- * Returns layout values (isModal, headerPaddingTop, actionButtonsTop, showBackButton) and
+ * Detail screen (profile/channel) overlay: scroll-driven fade for back affordance.
+ * Returns layout values (headerPaddingTop, actionButtonsTop, showBackButton) and
  * scroll fade (handleVerticalScroll, overlayAnimatedStyle, backIconPrimaryStyle, backIconSecondaryStyle).
  * When contentScrollProgressSV is provided (from feed context), overlay uses it so animations stay on the UI thread.
  * handleVerticalScroll is for screens that have scroll but do not provide contentScrollProgressSV (e.g. custom scroll views);
@@ -24,7 +22,6 @@ export function useDetailScreenOverlay(
   defaultTop: number,
   contentScrollProgressSV?: SharedValue<number>
 ): {
-  isModal: boolean;
   headerPaddingTop: number | undefined;
   actionButtonsTop: number;
   showBackButton: boolean;
@@ -34,21 +31,16 @@ export function useDetailScreenOverlay(
   backIconPrimaryStyle: ReturnType<typeof useAnimatedStyle>;
   backIconSecondaryStyle: ReturnType<typeof useAnimatedStyle>;
 } {
-  const segments = useSegments();
-  const { modalProfileEnabled } = useFeedSettings();
   const ownScrollProgress = useSharedValue(0);
   const progressSV = contentScrollProgressSV ?? ownScrollProgress;
 
-  const { isModal, headerPaddingTop, actionButtonsTop, showBackButton } = useMemo(() => {
-    const isModal = modalProfileEnabled && !!identifier && !segments.includes('(tabs)');
-    const showBackButton = !!identifier && !isModal;
+  const { headerPaddingTop, actionButtonsTop, showBackButton } = useMemo(() => {
     return {
-      isModal,
-      headerPaddingTop: isModal ? 24 : modalProfileEnabled ? defaultTop + 4 : undefined,
-      actionButtonsTop: isModal ? 20 : defaultTop,
-      showBackButton,
+      headerPaddingTop: undefined,
+      actionButtonsTop: defaultTop,
+      showBackButton: !!identifier,
     };
-  }, [modalProfileEnabled, identifier, segments, defaultTop]);
+  }, [identifier, defaultTop]);
 
   const handleVerticalScroll = useCallback(
     (scrollY: number) => {
@@ -74,7 +66,6 @@ export function useDetailScreenOverlay(
   }));
 
   return {
-    isModal,
     headerPaddingTop,
     actionButtonsTop,
     showBackButton,

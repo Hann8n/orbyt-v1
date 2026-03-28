@@ -596,8 +596,6 @@
     "appIcon": "アプリアイコン",
     "contentFilters": "コンテンツフィルター",
     "newTabs": "新しいタブ",
-    "classicLayout": "クラシックレイアウト",
-    "modalLayout": "モーダルレイアウト",
     "clearCache": "キャッシュをクリア",
     "support": "サポート",
     "ideasAndRequests": "アイデアと機能リクエスト",
@@ -669,8 +667,6 @@
     "subscribe": "登録",
     "subscribed": "登録済み",
     "failedToUnsubscribeShort": "チャンネルの登録解除に失敗しました。もう一度お試しください。",
-    "cardStyleForProfile": "プロフィールとチャンネルをカードスタイルで",
-    "nativeModalPullToDismiss": "プルで閉じるネイティブモーダル",
     "emailCopied": "メールをコピーしました",
     "emailCopiedMessage": "メールアプリが設定されていません。サポートメールとデバイス情報をクリップボードにコピーしました。",
     "emailSubjectSupport": "orbyt サポート依頼"

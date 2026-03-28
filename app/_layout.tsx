@@ -169,7 +169,6 @@ export const unstable_settings = {
 function RootNavigator() {
   const { session } = useSession();
   const currentUser = useUserStore(state => state.currentUser);
-  const modalProfileEnabled = useUserStore(state => state.modalProfileEnabled);
 
   return (
     <View style={styles.rootView}>
@@ -229,7 +228,7 @@ function RootNavigator() {
             name="channel/[id]"
             options={{
               headerShown: false,
-              presentation: modalProfileEnabled ? 'modal' : 'card',
+              presentation: 'card',
               gestureEnabled: true,
               animation: 'slide_from_right',
             }}
@@ -238,7 +237,7 @@ function RootNavigator() {
             name="profile/[did]"
             options={{
               headerShown: false,
-              presentation: modalProfileEnabled ? 'modal' : 'card',
+              presentation: 'card',
               gestureEnabled: true,
               animation: 'slide_from_right',
             }}

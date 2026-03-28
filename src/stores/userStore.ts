@@ -37,8 +37,7 @@ import {
 import { getProfileColors } from '../utils/formatting/colors';
 import type { ProfileColorScheme } from '../utils/formatting/colors';
 import { APP_CONSTANTS, DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI } from '../utils/constants';
-import { Platform, Dimensions } from 'react-native';
-import { classifyDevice } from '@/utils/device/screen';
+import { Platform } from 'react-native';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
 
 // Note: FeedService is no longer needed here - React Query handles all feed caching
@@ -64,16 +63,6 @@ function restoreSessionInFlight(did: string): Promise<OAuthSession> {
   restoreInFlightByDid.set(did, promise);
   return promise;
 }
-
-/**
- * Get the default value for modalProfileEnabled based on device characteristics
- * Enabled by default on iOS devices that don't require compact layout
- */
-const getDefaultModalProfileEnabled = (): boolean => {
-  if (Platform.OS !== 'ios') return false;
-  const { width, height } = Dimensions.get('window');
-  return !classifyDevice(width, height).isCompact;
-};
 
 export const isIosLiquidGlassAvailable = Platform.OS === 'ios' && isLiquidGlassAvailable();
 
@@ -194,7 +183,6 @@ export interface UserState {
   // User-specific settings - scoped by DID
   feedDebugOverlayEnabled: boolean;
   nativeTabsEnabled: boolean; // Experimental: Use native tabs instead of custom JavaScript tab bar
-  modalProfileEnabled: boolean; // Labs: Enable modal profile presentation with pull-to-dismiss
 
   // Algorithmic feed provider - scoped by DID
   algorithmicFeedProvider: string | null; // Feed URI or null for none
@@ -261,8 +249,6 @@ export interface UserState {
   getFeedDebugOverlayEnabled: () => Promise<boolean>;
   setNativeTabsEnabled: (enabled: boolean) => Promise<void>;
   getNativeTabsEnabled: () => Promise<boolean>;
-  setModalProfileEnabled: (enabled: boolean) => Promise<void>;
-  getModalProfileEnabled: () => Promise<boolean>;
 
   // Algorithmic feed provider
   setAlgorithmicFeedProvider: (uri: string | null) => Promise<void>;
@@ -396,7 +382,6 @@ export const useUserStore = create<UserState>()(
         // Feed settings
         feedDebugOverlayEnabled: false, // Keep disabled by default, user can enable manually
         nativeTabsEnabled: isIosLiquidGlassAvailable,
-        modalProfileEnabled: getDefaultModalProfileEnabled(), // Enabled by default on iOS devices that don't require compact layout
 
         // Algorithmic feed provider - default to Videos For You
         algorithmicFeedProvider: DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
@@ -1251,13 +1236,6 @@ export const useUserStore = create<UserState>()(
         getNativeTabsEnabled: async () =>
           storage.getBoolean(getFlagKey('native_tabs_enabled', get().currentUser?.did ?? null)) ??
           isIosLiquidGlassAvailable,
-        setModalProfileEnabled: async (enabled: boolean) => {
-          storage.set(getFlagKey('modal_profile_enabled', get().currentUser?.did ?? null), enabled);
-          set({ modalProfileEnabled: enabled });
-        },
-        getModalProfileEnabled: async () =>
-          storage.getBoolean(getFlagKey('modal_profile_enabled', get().currentUser?.did ?? null)) ??
-          getDefaultModalProfileEnabled(),
 
         // Algorithmic feed provider actions
         setAlgorithmicFeedProvider: async (uri: string | null) => {
@@ -1722,7 +1700,6 @@ export const useUserStore = create<UserState>()(
             // Load user-specific feed settings
             const feedDebugOverlayEnabled = await get().getFeedDebugOverlayEnabled();
             const nativeTabsEnabled = await get().getNativeTabsEnabled();
-            const modalProfileEnabled = await get().getModalProfileEnabled();
 
             // Record-first backfill: Load algorithmic feed provider from profile record first
             let algorithmicFeedProvider: string | null = null;
@@ -1769,7 +1746,6 @@ export const useUserStore = create<UserState>()(
             set(state => ({
               feedDebugOverlayEnabled,
               nativeTabsEnabled,
-              modalProfileEnabled,
               algorithmicFeedProvider,
               feedSourceFingerprint: buildFeedSourceFingerprint(
                 algorithmicFeedProvider,
@@ -2015,24 +1991,18 @@ export const useUserStoreState = () => {
 export const useFeedSettings = () => {
   const feedDebugOverlayEnabled = useUserStore(state => state.feedDebugOverlayEnabled);
   const nativeTabsEnabled = useUserStore(state => state.nativeTabsEnabled);
-  const modalProfileEnabled = useUserStore(state => state.modalProfileEnabled);
   const setFeedDebugOverlayEnabled = useUserStore(state => state.setFeedDebugOverlayEnabled);
   const setNativeTabsEnabled = useUserStore(state => state.setNativeTabsEnabled);
-  const setModalProfileEnabled = useUserStore(state => state.setModalProfileEnabled);
   const getFeedDebugOverlayEnabled = useUserStore(state => state.getFeedDebugOverlayEnabled);
   const getNativeTabsEnabled = useUserStore(state => state.getNativeTabsEnabled);
-  const getModalProfileEnabled = useUserStore(state => state.getModalProfileEnabled);
 
   return {
     feedDebugOverlayEnabled,
     nativeTabsEnabled,
-    modalProfileEnabled,
     setFeedDebugOverlayEnabled,
     setNativeTabsEnabled,
-    setModalProfileEnabled,
     getFeedDebugOverlayEnabled,
     getNativeTabsEnabled,
-    getModalProfileEnabled,
   };
 };
 
