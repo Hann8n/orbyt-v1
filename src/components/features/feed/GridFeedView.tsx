@@ -1,4 +1,11 @@
-import React, { useCallback, forwardRef, useImperativeHandle, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  forwardRef,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
@@ -6,8 +13,6 @@ import {
   Dimensions,
   LayoutChangeEvent,
   Platform,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
   Pressable,
   type StyleProp,
   type ViewStyle,
@@ -118,8 +123,6 @@ const VideoGridItem: React.FC<{
 VideoGridItem.displayName = 'VideoGridItem';
 
 const ITEM_MARGIN = 2; // Divider thickness for both grid directions
-const HEADER_SNAP_THRESHOLD = 6;
-const HEADER_SNAP_RELEASE_VELOCITY = 0.15;
 
 const gridKeyExtractor = (item: ExtendedFeedViewPost, _index: number): string =>
   getFeedItemKey(item);
@@ -142,6 +145,8 @@ interface GridFeedViewProps {
   isModal?: boolean;
   /** When provided, grid writes scroll progress (0..1) here on UI thread for overlay/header fade. */
   contentScrollProgressOutput?: SharedValue<number>;
+  /** Same inset as list `snapToOffsets` so the first grid row aligns with list’s first video snap. */
+  snapTopInset: number;
 }
 
 const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
@@ -163,6 +168,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
       onRetry,
       ListComponent,
       contentScrollProgressOutput,
+      snapTopInset,
     },
     ref
   ) => {
@@ -181,8 +187,6 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
     const [headerHeight, setHeaderHeight] = useState(0);
     const hasHeader = Boolean(headerComponent);
     const useScrollTracking = !ListComponent && hasHeader;
-    const hasCompletedInitialHeaderSnapRef = useRef(false);
-    const isProgrammaticSnapRef = useRef(false);
     // Use actual safe area insets and bottom nav bar height
     const insets = useSafeAreaInsets();
     const viewportDimensions = getViewportDimensions(isModal, isHeaderFeed, insets);
@@ -190,8 +194,6 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
     // When used inside a custom container, subtract header height
     const headerHeightForTabs = ListComponent ? FEED_VIEW_CONSTANTS.HEADER_HEIGHT_TABS : 0;
     const emptyComponentHeight = Math.max(0, viewableAreaHeight - headerHeightForTabs);
-    const gridSnapTopInset = isModal ? 0 : insets.top;
-
     const scrollOffsetYSV = useSharedValue(0);
     const fadeDist = useScrollTracking ? SCROLL_CONSTANTS.HEADER_FADE_DISTANCE : 0;
     const contentScrollProgressSV = useDerivedValue(() => {
@@ -221,81 +223,6 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
         requestAnimationFrame(() => setHeaderHeight(h));
       }
     };
-
-    const maybeSnapHeaderZone = useCallback(
-      (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-        if (!useScrollTracking || headerHeight <= 0) return;
-        if (isProgrammaticSnapRef.current) {
-          isProgrammaticSnapRef.current = false;
-          return;
-        }
-
-        const y = event.nativeEvent.contentOffset.y;
-        const gridSnapOffset = Math.max(0, headerHeight - gridSnapTopInset);
-        const threshold = HEADER_SNAP_THRESHOLD;
-
-        if (y <= threshold) {
-          hasCompletedInitialHeaderSnapRef.current = false;
-          return;
-        }
-
-        // First downward transition from header snaps once to grid start.
-        if (!hasCompletedInitialHeaderSnapRef.current) {
-          if (y < gridSnapOffset - threshold) {
-            isProgrammaticSnapRef.current = true;
-            flashListRef.current?.scrollToOffset({ offset: gridSnapOffset, animated: true });
-          }
-          hasCompletedInitialHeaderSnapRef.current = true;
-          return;
-        }
-
-        // After initial snap, downward scrolling is free.
-        // Only snap back when user re-enters header zone.
-        if (y < gridSnapOffset - threshold) {
-          isProgrammaticSnapRef.current = true;
-          flashListRef.current?.scrollToOffset({ offset: 0, animated: true });
-          hasCompletedInitialHeaderSnapRef.current = false;
-        }
-      },
-      [useScrollTracking, headerHeight, gridSnapTopInset]
-    );
-
-    const handleScrollEndDrag = useCallback(
-      (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-        if (!useScrollTracking || headerHeight <= 0) return;
-        if (isProgrammaticSnapRef.current) return;
-
-        const y = event.nativeEvent.contentOffset.y;
-        const vy = event.nativeEvent.velocity?.y ?? 0;
-        const gridSnapOffset = Math.max(0, headerHeight - gridSnapTopInset);
-        const threshold = HEADER_SNAP_THRESHOLD;
-
-        if (y <= threshold) {
-          hasCompletedInitialHeaderSnapRef.current = false;
-          return;
-        }
-
-        const isInHeaderZone = y < gridSnapOffset - threshold;
-
-        // First transition out of header: snap to grid start on release.
-        if (!hasCompletedInitialHeaderSnapRef.current) {
-          if (isInHeaderZone && vy >= -HEADER_SNAP_RELEASE_VELOCITY) {
-            isProgrammaticSnapRef.current = true;
-            flashListRef.current?.scrollToOffset({ offset: gridSnapOffset, animated: true });
-          }
-          hasCompletedInitialHeaderSnapRef.current = true;
-          return;
-        }
-
-        // After initial snap, pull back up into header zone snaps to top.
-        if (isInHeaderZone && vy <= HEADER_SNAP_RELEASE_VELOCITY) {
-          isProgrammaticSnapRef.current = true;
-          flashListRef.current?.scrollToOffset({ offset: 0, animated: true });
-          hasCompletedInitialHeaderSnapRef.current = false;
-        }
-      },
-      [useScrollTracking, headerHeight, gridSnapTopInset]
-    );
 
     // Expose scrollToTop method
     useImperativeHandle(
@@ -339,6 +266,27 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
     const itemWidth = (windowWidth || Dimensions.get('window').width) / numColumns;
     const itemHeight = itemWidth / DEFAULT_VIDEO_ASPECT_RATIO;
     const itemSpacing = itemHeight + ITEM_MARGIN;
+
+    // Native snapping (same approach as ListFeedView): full header at 0, then each grid row.
+    const gridSnapToOffsets = useMemo(() => {
+      if (!useScrollTracking) return undefined;
+      if (headerHeight <= 0) return [0];
+      const firstRowY = headerHeight - (isHeaderFeed ? snapTopInset : 0);
+      const rowCount = feed.length === 0 ? 0 : Math.ceil(feed.length / numColumns);
+      const offsets: number[] = [0];
+      for (let r = 0; r < rowCount; r++) {
+        offsets.push(firstRowY + r * itemSpacing);
+      }
+      return offsets;
+    }, [
+      useScrollTracking,
+      headerHeight,
+      isHeaderFeed,
+      snapTopInset,
+      feed.length,
+      numColumns,
+      itemSpacing,
+    ]);
 
     // Render each grid item - optimized with background processing
     const renderGridItem = useCallback(
@@ -402,16 +350,15 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
     const ListEl = ListComponent || (useScrollTracking ? AnimatedFlashList : FlashList);
     const listProps = (() => {
       const base: Record<string, unknown> = ListComponent ? {} : { ref: flashListRef };
+      base.decelerationRate =
+        Platform.OS === 'ios'
+          ? SCROLL_CONSTANTS.DECELERATION_RATE_IOS
+          : SCROLL_CONSTANTS.DECELERATION_RATE_ANDROID;
       if (useScrollTracking) {
         base.onScroll = scrollHandler;
-        base.onMomentumScrollEnd = maybeSnapHeaderZone;
-        base.onScrollEndDrag = handleScrollEndDrag;
         base.scrollEventThrottle = APP_CONSTANTS.SCROLL_THROTTLE;
-        base.decelerationRate =
-          Platform.OS === 'ios'
-            ? SCROLL_CONSTANTS.DECELERATION_RATE_IOS
-            : SCROLL_CONSTANTS.DECELERATION_RATE_ANDROID;
         base.disableIntervalMomentum = true;
+        base.snapToOffsets = gridSnapToOffsets;
       }
       return base;
     })();

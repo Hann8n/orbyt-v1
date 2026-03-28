@@ -475,6 +475,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           onRetry={onRetry}
           ListComponent={ListComponent}
           contentScrollProgressOutput={contentScrollProgressOutput}
+          snapTopInset={snapTopInset}
         />
       );
     }
