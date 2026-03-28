@@ -1,7 +1,8 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Text, Linking, StyleSheet, StyleProp, TextStyle } from 'react-native';
 import { RichText } from '@atproto/api';
 import { Typography } from '../../utils/components/typography';
+import { NATIVE_PRESSABLE_ACTIVE_OPACITY } from '@/utils/constants';
 
 export interface TextWithLinksProps {
   text: string;
@@ -48,6 +49,29 @@ function extractProfileIdentifierFromUrl(uri: string): string | null {
   }
 }
 
+function InlinePressableText({
+  style,
+  onPress,
+  children,
+}: {
+  style?: StyleProp<TextStyle>;
+  onPress: () => void;
+  children: React.ReactNode;
+}) {
+  const [pressed, setPressed] = useState(false);
+  return (
+    <Text
+      style={[style, pressed && styles.pressed]}
+      onPress={onPress}
+      onPressIn={() => setPressed(true)}
+      onPressOut={() => setPressed(false)}
+      suppressHighlighting
+    >
+      {children}
+    </Text>
+  );
+}
+
 function TextWithLinksBase({
   text,
   style,
@@ -85,15 +109,15 @@ function TextWithLinksBase({
     <Text style={style} numberOfLines={numberOfLines}>
       {Array.from(rt.segments()).map((segment, i) => {
         if (segment.isLink() && segment.link?.uri) {
+          const uri = segment.link.uri;
           return (
-            <Text
+            <InlinePressableText
               key={`${i}-link`}
               style={[style, styles.link]}
-              onPress={() => handleLinkPress(segment.link!.uri!)}
-              suppressHighlighting
+              onPress={() => handleLinkPress(uri)}
             >
               {segment.text}
-            </Text>
+            </InlinePressableText>
           );
         }
         if (segment.isMention() && segment.mention?.did) {
@@ -101,15 +125,14 @@ function TextWithLinksBase({
           const symbol = full[0] || '@';
           const handle = full.slice(1);
           return (
-            <Text
+            <InlinePressableText
               key={`${i}-mention`}
               style={style}
               onPress={() => onAuthorPress(segment.mention!.did!, { did: segment.mention!.did })}
-              suppressHighlighting
             >
               <Text style={styles.symbol}>{symbol}</Text>
               <Text style={styles.mentionTagText}>{handle}</Text>
-            </Text>
+            </InlinePressableText>
           );
         }
         if (segment.isMention()) {
@@ -120,15 +143,14 @@ function TextWithLinksBase({
             const symbol = full[0] || '@';
             const handle = full.slice(1);
             return (
-              <Text
+              <InlinePressableText
                 key={`${i}-mention-unresolved`}
                 style={style}
                 onPress={() => onAuthorPress(candidate)}
-                suppressHighlighting
               >
                 <Text style={styles.symbol}>{symbol}</Text>
                 <Text style={styles.mentionTagText}>{handle}</Text>
-              </Text>
+              </InlinePressableText>
             );
           }
         }
@@ -137,15 +159,14 @@ function TextWithLinksBase({
           const symbol = full[0] || '#';
           const tag = full.slice(1);
           return (
-            <Text
+            <InlinePressableText
               key={`${i}-tag`}
               style={style}
               onPress={() => onHashtagPress(segment.tag!.tag!)}
-              suppressHighlighting
             >
               <Text style={styles.symbol}>{symbol}</Text>
               <Text style={styles.mentionTagText}>{tag}</Text>
-            </Text>
+            </InlinePressableText>
           );
         }
         return <Text key={`${i}-plain`}>{segment.text}</Text>;
@@ -164,6 +185,9 @@ const styles = StyleSheet.create({
   },
   mentionTagText: {
     fontFamily: Typography.families.bold,
+  },
+  pressed: {
+    opacity: NATIVE_PRESSABLE_ACTIVE_OPACITY,
   },
 });
 

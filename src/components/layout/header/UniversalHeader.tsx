@@ -765,8 +765,8 @@ const HeaderContentComponent = memo<{
           !customDescription && !content.description && styles.textContainerNoMargin,
         ]}
       >
-        <NativePressable style={styles.titleRow} onPress={content.onTitlePress}>
-          {content.customTitle ? (
+        {(() => {
+          const titleRowInner = content.customTitle ? (
             <View style={styles.titleRow}>
               {content.customTitle}
               {content.badge && <View style={styles.badgeMargin}>{content.badge}</View>}
@@ -777,8 +777,15 @@ const HeaderContentComponent = memo<{
               titleStyle={{ ...styles.title, color: textColor }}
               badges={[content.badge as React.ReactNode]}
             />
-          )}
-        </NativePressable>
+          );
+          return content.onTitlePress ? (
+            <NativePressable style={styles.titleRow} onPress={content.onTitlePress}>
+              {titleRowInner}
+            </NativePressable>
+          ) : (
+            <View style={styles.titleRow}>{titleRowInner}</View>
+          );
+        })()}
 
         {!!content.subtitle &&
           (() => {
@@ -786,85 +793,91 @@ const HeaderContentComponent = memo<{
               content.subtitle
             );
 
-            return (
-              <NativePressable style={styles.subtitleRow} onPress={content.onTitlePress}>
-                <View style={styles.subtitleColumn}>
-                  <Text style={[styles.subtitle, { color: textColor }]} numberOfLines={1}>
-                    {subtitleBase}
-                    {subtitleSuffix && (
-                      <Text style={{ color: hexToRGBA(textColor, 0.7) }}>{subtitleSuffix}</Text>
-                    )}
-                    {content.onTitlePress ? ' ›' : ''}
-                  </Text>
-                  {!!content.subtitleAction && (
-                    <NativePressable
-                      onPress={content.subtitleAction.onPress}
+            const subtitleColumn = (
+              <View style={styles.subtitleColumn}>
+                <Text style={[styles.subtitle, { color: textColor }]} numberOfLines={1}>
+                  {subtitleBase}
+                  {subtitleSuffix && (
+                    <Text style={{ color: hexToRGBA(textColor, 0.7) }}>{subtitleSuffix}</Text>
+                  )}
+                  {content.onTitlePress ? ' ›' : ''}
+                </Text>
+                {!!content.subtitleAction && (
+                  <NativePressable
+                    onPress={content.subtitleAction.onPress}
+                    style={[
+                      styles.subtitleActionPill,
+                      {
+                        backgroundColor: blendColors(backgroundColor, textColor, 0.28),
+                      },
+                    ]}
+                  >
+                    <GermDmIcon size={ICON_SIZES.SMALL} color={textColor} />
+                    <Text
+                      style={[styles.subtitleActionLabel, { color: textColor }]}
+                      numberOfLines={1}
+                    >
+                      {content.subtitleAction.label}
+                    </Text>
+                  </NativePressable>
+                )}
+                {!!content.subtitleSecondary && (
+                  <NativePressable
+                    onPress={content.onSubtitleSecondaryPress}
+                    disabled={!content.onSubtitleSecondaryPress}
+                  >
+                    <View
                       style={[
-                        styles.subtitleActionPill,
-                        {
-                          backgroundColor: blendColors(backgroundColor, textColor, 0.28),
-                        },
+                        styles.subtitleSecondaryPill,
+                        { backgroundColor: hexToRGBA(textColor, 0.15) },
                       ]}
                     >
-                      <GermDmIcon size={ICON_SIZES.SMALL} color={textColor} />
                       <Text
-                        style={[styles.subtitleActionLabel, { color: textColor }]}
+                        style={[styles.subtitleSecondary, { color: hexToRGBA(textColor, 0.8) }]}
                         numberOfLines={1}
                       >
-                        {content.subtitleAction.label}
+                        {(() => {
+                          // Split "Blocked by [list name]" to make list name bold
+                          const text = content.subtitleSecondary || '';
+                          const parts = text.split(/(Blocked by )/);
+                          if (parts.length === 3) {
+                            return (
+                              <>
+                                <Text
+                                  style={[
+                                    styles.subtitleSecondaryRegular,
+                                    { color: hexToRGBA(textColor, 0.8) },
+                                  ]}
+                                >
+                                  {parts[1]}
+                                </Text>
+                                <Text
+                                  style={[
+                                    styles.subtitleSecondaryBold,
+                                    { color: hexToRGBA(textColor, 0.8) },
+                                  ]}
+                                >
+                                  {parts[2]}
+                                </Text>
+                              </>
+                            );
+                          }
+                          return text;
+                        })()}
                       </Text>
-                    </NativePressable>
-                  )}
-                  {!!content.subtitleSecondary && (
-                    <NativePressable
-                      onPress={content.onSubtitleSecondaryPress}
-                      disabled={!content.onSubtitleSecondaryPress}
-                    >
-                      <View
-                        style={[
-                          styles.subtitleSecondaryPill,
-                          { backgroundColor: hexToRGBA(textColor, 0.15) },
-                        ]}
-                      >
-                        <Text
-                          style={[styles.subtitleSecondary, { color: hexToRGBA(textColor, 0.8) }]}
-                          numberOfLines={1}
-                        >
-                          {(() => {
-                            // Split "Blocked by [list name]" to make list name bold
-                            const text = content.subtitleSecondary || '';
-                            const parts = text.split(/(Blocked by )/);
-                            if (parts.length === 3) {
-                              return (
-                                <>
-                                  <Text
-                                    style={[
-                                      styles.subtitleSecondaryRegular,
-                                      { color: hexToRGBA(textColor, 0.8) },
-                                    ]}
-                                  >
-                                    {parts[1]}
-                                  </Text>
-                                  <Text
-                                    style={[
-                                      styles.subtitleSecondaryBold,
-                                      { color: hexToRGBA(textColor, 0.8) },
-                                    ]}
-                                  >
-                                    {parts[2]}
-                                  </Text>
-                                </>
-                              );
-                            }
-                            return text;
-                          })()}
-                        </Text>
-                        <OutlinkIcon size={16} color={hexToRGBA(textColor, 0.8)} />
-                      </View>
-                    </NativePressable>
-                  )}
-                </View>
+                      <OutlinkIcon size={16} color={hexToRGBA(textColor, 0.8)} />
+                    </View>
+                  </NativePressable>
+                )}
+              </View>
+            );
+
+            return content.onTitlePress ? (
+              <NativePressable style={styles.subtitleRow} onPress={content.onTitlePress}>
+                {subtitleColumn}
               </NativePressable>
+            ) : (
+              <View style={styles.subtitleRow}>{subtitleColumn}</View>
             );
           })()}
 
