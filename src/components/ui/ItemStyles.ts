@@ -7,6 +7,14 @@ export const ITEM_ROW_PADDING_VERTICAL = 16;
 
 // Shared size configuration for AuthorItem and ChannelItem
 export const itemSizeConfig = {
+  /** Dense rows (e.g. chat embeds on video cards). */
+  xsmall: {
+    avatarSize: 28,
+    textSize: 11,
+    badgeTextSize: 11,
+    nameFontSize: 13,
+    handleFontSize: 10,
+  },
   small: {
     avatarSize: 32,
     textSize: 12,

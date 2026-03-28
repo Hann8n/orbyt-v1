@@ -1,6 +1,6 @@
-import { memo, useCallback, useEffect } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, StyleSheet, Platform } from 'react-native';
+import { View, StyleSheet, Platform, type LayoutChangeEvent } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -11,6 +11,7 @@ import { FollowProvider } from '@/context/FollowContext';
 import { VideoItem } from '@/components/features/feed/VideoItem';
 import { feedService } from '@/services/FeedService';
 import { getViewportDimensions } from '@/utils/device/screen';
+import type { EdgeInsets } from 'react-native-safe-area-context';
 import { useFeedVisibility } from '@/core/visibility';
 import { useVisibilityCoreStore } from '@/core/visibility/visibilityStore';
 import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '@/hooks';
@@ -18,6 +19,70 @@ import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '@/hooks';
 /** Route + visibility scope for this modal (one viewport-tall video, e.g. chat embed). */
 const ROUTE_KEY = 'full-height-video-modal';
 const FEED_OPTION = 'full-height-video';
+
+/** Ignore tiny height oscillations during iOS zoom dismiss; apply real layout changes (rotation, split view, insets). */
+const LAYOUT_HEIGHT_LOCK_EPSILON = 12;
+
+type PlaybackProps = {
+  insets: EdgeInsets;
+  feedItem: NonNullable<ReturnType<typeof feedService.getCurrentFeed>[number]>;
+  feedKey: string;
+  canPlay: boolean;
+};
+
+/**
+ * Stabilizes height against small layout jitter during iOS zoom dismiss; still follows real layout changes.
+ * State resets when `postUri` changes (parent passes `key={postUri}`).
+ */
+const FullHeightVideoPlayback = memo(function FullHeightVideoPlayback({
+  insets,
+  feedItem,
+  feedKey,
+  canPlay,
+}: PlaybackProps) {
+  const [lockedAreaHeight, setLockedAreaHeight] = useState<number | null>(null);
+
+  const { height: windowHeight } = getViewportDimensions(true, false, insets);
+  const bottomInset = typeof insets.bottom === 'number' ? insets.bottom : 0;
+  const computedVideoHeight = Math.max(0, windowHeight - bottomInset);
+
+  /**
+   * `onLayout` height is the full flex box (edge-to-edge). `computedVideoHeight` already excludes the
+   * bottom safe area (home indicator). Lock the capped value so the video row does not extend into the inset.
+   */
+  const handleVideoAreaLayout = useCallback(
+    (e: LayoutChangeEvent) => {
+      const h = e.nativeEvent.layout.height;
+      if (h <= 0) return;
+      const candidate = Math.min(h, computedVideoHeight);
+      setLockedAreaHeight(prev => {
+        if (prev === null) return candidate;
+        if (Math.abs(candidate - prev) > LAYOUT_HEIGHT_LOCK_EPSILON) return candidate;
+        return prev;
+      });
+    },
+    [computedVideoHeight]
+  );
+
+  const videoHeight = lockedAreaHeight ?? computedVideoHeight;
+
+  return (
+    <View style={styles.videoArea} onLayout={handleVideoAreaLayout}>
+      <VideoItem
+        feedItem={feedItem}
+        post={feedItem.post}
+        height={videoHeight}
+        feedOption={FEED_OPTION}
+        feedKey={feedKey}
+        canPlay={canPlay}
+        isHeaderBlockingPlayback={false}
+        isModal
+        index={0}
+        isAppleZoomTarget={Platform.OS === 'ios'}
+      />
+    </View>
+  );
+});
 
 const FullHeightVideoScreen = memo(() => {
   const { t } = useTranslation();
@@ -44,10 +109,6 @@ const FullHeightVideoScreen = memo(() => {
     setLastViewableIndex(feedKey, 0);
   }, [isRouteFocused, feedItem, feedKey, setLastViewableIndex]);
 
-  const { height: windowHeight } = getViewportDimensions(true, false, insets);
-  const bottomInset = typeof insets.bottom === 'number' ? insets.bottom : 0;
-  const videoHeight = Math.max(0, windowHeight - bottomInset);
-
   const handleClose = useCallback(() => {
     router.dismiss();
   }, [router]);
@@ -69,17 +130,12 @@ const FullHeightVideoScreen = memo(() => {
         </NativePressable>
 
         {feedItem ? (
-          <VideoItem
+          <FullHeightVideoPlayback
+            key={postUri}
+            insets={insets}
             feedItem={feedItem}
-            post={feedItem.post}
-            height={videoHeight}
-            feedOption={FEED_OPTION}
             feedKey={feedKey}
             canPlay={canPlay}
-            isHeaderBlockingPlayback={false}
-            isModal
-            index={0}
-            isAppleZoomTarget={Platform.OS === 'ios'}
           />
         ) : null}
       </View>
@@ -93,6 +149,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.black,
+  },
+  videoArea: {
+    flex: 1,
   },
   backButton: {
     position: 'absolute',

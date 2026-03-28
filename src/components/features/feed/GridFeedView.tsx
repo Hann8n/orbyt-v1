@@ -6,7 +6,6 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
   StyleSheet,
@@ -38,7 +37,6 @@ import * as Device from 'expo-device';
 import { getViewportDimensions } from '../../../utils/device/screen';
 import EmptyFeed from './EmptyFeed';
 import BlurredBackground from '../../ui/BlurredBackground';
-import { hexToRGBA } from '../../../utils/formatting/colors';
 import {
   FEED_VIEW_CONSTANTS,
   getEmptyFeedType,
@@ -316,7 +314,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
             onPress={onGridItemPress}
             zoomLink={zoomLink}
             style={[
-              { width: itemWidth, height: itemHeight, backgroundColor: effectiveBackgroundColor },
+              { width: itemWidth, height: itemHeight, backgroundColor: Colors.black },
               borderStyle,
             ]}
             itemStyle={styles.gridItemOverride}
@@ -324,15 +322,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
           />
         );
       },
-      [
-        onGridItemPress,
-        gridFeedModalZoomConfig,
-        feed,
-        numColumns,
-        itemWidth,
-        itemHeight,
-        effectiveBackgroundColor,
-      ]
+      [onGridItemPress, gridFeedModalZoomConfig, feed, numColumns, itemWidth, itemHeight]
     );
 
     const feedScrollValue = useScrollTracking
@@ -467,110 +457,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     borderRadius: 0,
-  },
-  itemOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 8,
-    // backgroundColor: 'rgba(0, 0, 0, 0.5)', // Remove the grey bar background
-  },
-  authorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: hexToRGBA(Colors.black, 0.5),
-    borderRadius: BORDER_RADIUS.SMALL,
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-  },
-  authorAvatar: {
-    width: 18,
-    height: 18,
-    borderRadius: BORDER_RADIUS.SMALL,
-  },
-  authorName: {
-    color: Colors.neutral[50],
-    fontSize: 10,
-    flex: 1,
-    fontFamily: 'Figtree-Medium',
-  },
-  repostIndicator: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    backgroundColor: hexToRGBA(Colors.black, 0.6),
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderBottomLeftRadius: 4,
-  },
-  repostText: {
-    color: Colors.neutral[50],
-    fontSize: 9,
-    fontFamily: 'Figtree-Regular',
-  },
-  footerLoader: {
-    paddingVertical: 20,
-    alignItems: 'center',
-  },
-  warningOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: hexToRGBA(Colors.black, 0.95),
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
-    padding: 12,
-  },
-  warningText: {
-    color: Colors.neutral[50],
-    fontSize: 12,
-    textAlign: 'center',
-    fontWeight: '600',
-  },
-  // removed topDivider to eliminate gap under header
-  warningIcon: {
-    // Centered by parent container
-  },
-  blurText: {
-    color: Colors.neutral[50],
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 20,
-    fontWeight: '600',
-    fontFamily: 'Figtree-Medium',
-    lineHeight: 22,
-    paddingHorizontal: 20,
-  },
-  showAnywayButton: {
-    backgroundColor: hexToRGBA(Colors.neutral[50], 0.2),
-    borderRadius: BORDER_RADIUS.LARGE,
-    paddingVertical: 8,
-    paddingHorizontal: 12, // reduced for tighter fit
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: hexToRGBA(Colors.neutral[50], 0.3),
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
-    minWidth: 64,
-    maxWidth: 80,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  showAnywayButtonText: {
-    color: Colors.neutral[50],
-    fontSize: 15,
-    fontFamily: 'Figtree-Medium',
-    fontWeight: '600',
-    textAlign: 'center',
   },
   gridItemOverride: {
     borderRadius: 0,

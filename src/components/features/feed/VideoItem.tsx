@@ -132,7 +132,9 @@ const styles = StyleSheet.create({
   appleZoomTargetInner: {
     flex: 1,
     width: '100%',
+    minHeight: 0,
     alignSelf: 'stretch',
+    overflow: 'hidden',
   },
 });
 

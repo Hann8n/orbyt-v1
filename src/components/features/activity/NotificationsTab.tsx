@@ -8,14 +8,22 @@ import React, {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../../utils/constants';
-import { View, Text, StyleSheet, RefreshControl, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  RefreshControl,
+  ActivityIndicator,
+  Pressable,
+  Platform,
+} from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { Image } from 'expo-image';
 import { LegendList, LegendListRef } from '@legendapp/list';
 import type { ScrollToTopRef } from '../../../utils/navigation/tabRefs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AtprotoService from '../../../services/api/AtprotoService';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { Link, useRouter, useFocusEffect } from 'expo-router';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 
 import ProfileService, { prefetchProfile, useProfile } from '../../../services/data/ProfileService';
@@ -25,7 +33,6 @@ import { VerificationBadge, BotBadge } from '../badging';
 import EmptyFeed from '../feed/EmptyFeed';
 import { getBottomNavBarHeight } from '../../../utils/device/screen';
 import { formatHandle } from '../../../utils/formatting/handles';
-import { feedService } from '../../../services/FeedService';
 import { formatRelativeDate } from '../../ui/RelativeDate';
 import { useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 import { useUserStore } from '../../../stores/userStore';
@@ -39,13 +46,13 @@ import {
   type ModerationOpts,
   type AppBskyFeedRepost,
 } from '@atproto/api';
-import { AtprotoFeedService } from '../../../services/api/feed/FeedService';
+import { buildFullHeightVideoHref } from '@/utils/navigation/feedModalRoute';
+import { seedFullHeightVideoFeedFromPostView } from '@/utils/chat/seedChatEmbedVideoFeed';
 import { useModerationSettings } from '../../../hooks/useModerationSettings';
 import { ModerationService } from '../../../services/moderation/ModerationService';
 import type {
   Notification,
   PostView,
-  ExtendedFeedViewPost,
   RecordWithMediaView,
   ProfileView,
   PostRecord,
@@ -417,6 +424,7 @@ type NotificationItemProps = {
 const NotificationItem = React.memo<NotificationItemProps>(
   ({ item, navigation, queryClient, postDataMap, moderationOpts }) => {
     const { t } = useTranslation();
+    const currentUser = useUserStore(s => s.currentUser);
     const { reason, author, indexedAt, uri } = item;
     const { presentCommentSection } = useGlobalCommentSection();
     const { data: authorProfile } = useProfile(author?.handle);
@@ -495,26 +503,18 @@ const NotificationItem = React.memo<NotificationItemProps>(
     );
 
     const navigateToVideoPost = useCallback(
-      async (postData: PostView) => {
-        const [feedItem] = await AtprotoFeedService.applyModerationBatch([
-          { post: postData, uniqueKey: postData.uri || item.uri },
-        ]);
-        if (!feedItem) return;
-        feedService.setCurrentFeed([feedItem as ExtendedFeedViewPost]);
-        navigation.navigate({
-          pathname: '/(modals)/feed',
-          params: {
-            feedOption: 'search',
-            userDid: undefined,
-            backgroundColor: 'transparent',
-            secondaryColor: Colors.neutral[50],
-            searchQuery: '',
-            hasNextPage: 'false',
-            isFetchingNextPage: 'false',
-          },
-        });
+      (finalPostData: PostView) => {
+        const postUri = finalPostData.uri || item.uri;
+        if (!postUri) return;
+        const ok = seedFullHeightVideoFeedFromPostView(
+          finalPostData,
+          postUri,
+          currentUser?.did ?? undefined
+        );
+        if (!ok) return;
+        navigation.navigate(buildFullHeightVideoHref({ postUri }));
       },
-      [navigation, item]
+      [navigation, item.uri, currentUser?.did]
     );
 
     const handlePress = async () => {
@@ -571,7 +571,7 @@ const NotificationItem = React.memo<NotificationItemProps>(
               : undefined,
           };
           if (finalKind === 'video') {
-            await navigateToVideoPost(finalPostData);
+            navigateToVideoPost(finalPostData);
             setTimeout(() => {
               presentCommentSection({ post: commentPost, scrollToCommentUri: uri });
             }, 500);
@@ -579,7 +579,7 @@ const NotificationItem = React.memo<NotificationItemProps>(
             presentCommentSection({ post: commentPost, scrollToCommentUri: uri });
           }
         } else if (finalKind === 'video') {
-          await navigateToVideoPost(finalPostData);
+          navigateToVideoPost(finalPostData);
         } else {
           const { openPostInBluesky } = await import('../../../utils/links/bluesky');
           await openPostInBluesky(rootPostUri);
@@ -613,7 +613,7 @@ const NotificationItem = React.memo<NotificationItemProps>(
         const finalKind = finalEmbed ? getPostKind(finalEmbed) : 'text';
 
         if (finalKind === 'video') {
-          await navigateToVideoPost(finalPostData);
+          navigateToVideoPost(finalPostData);
         } else {
           const { openPostInBluesky } = await import('../../../utils/links/bluesky');
           await openPostInBluesky(rootPostUri);
@@ -632,6 +632,50 @@ const NotificationItem = React.memo<NotificationItemProps>(
     }, [navigateToProfile, author]);
 
     const nameHitSlop = { top: 8, bottom: 8, left: 8, right: 8 };
+
+    const videoPostUri = postData?.uri?.trim() ?? '';
+    const fullHeightVideoHref = videoPostUri
+      ? buildFullHeightVideoHref({ postUri: videoPostUri })
+      : null;
+
+    const handleThumbnailApplePress = useCallback(
+      (e?: { preventDefault?: () => void }) => {
+        if (!postData?.uri) {
+          e?.preventDefault?.();
+          return;
+        }
+        const ok = seedFullHeightVideoFeedFromPostView(
+          postData,
+          postData.uri || item.uri,
+          currentUser?.did ?? undefined
+        );
+        if (!ok) {
+          e?.preventDefault?.();
+        }
+      },
+      [postData, item.uri, currentUser?.did]
+    );
+
+    const thumbnailBody = (
+      <>
+        {thumbnail ? (
+          <>
+            <BlurredBackground thumbnailUrl={thumbnail} />
+            {!shouldBlurThumbnail && (
+              <Image
+                source={{ uri: thumbnail }}
+                style={styles.thumbnailVideo}
+                contentFit="contain"
+                recyclingKey={uri}
+                transition={0}
+              />
+            )}
+          </>
+        ) : (
+          <View style={styles.thumbnailPlaceholder} />
+        )}
+      </>
+    );
 
     return (
       <View style={styles.notificationItem}>
@@ -688,26 +732,26 @@ const NotificationItem = React.memo<NotificationItemProps>(
             </View>
           </NativePressable>
         </View>
-        {shouldShowThumbnailContainer && (
+        {shouldShowThumbnailContainer && fullHeightVideoHref && Platform.OS === 'ios' ? (
+          <Link href={fullHeightVideoHref} asChild>
+            <Pressable
+              onPress={handleThumbnailApplePress}
+              collapsable={false}
+              style={styles.thumbnailContainer}
+              android_ripple={{ color: Colors.neutral[700] }}
+            >
+              <Link.AppleZoom>
+                <View collapsable={false} style={styles.thumbnailAppleZoomInner}>
+                  {thumbnailBody}
+                </View>
+              </Link.AppleZoom>
+            </Pressable>
+          </Link>
+        ) : shouldShowThumbnailContainer ? (
           <NativePressable onPress={handleThumbnailPress} style={styles.thumbnailContainer}>
-            {thumbnail ? (
-              <>
-                <BlurredBackground thumbnailUrl={thumbnail} />
-                {!shouldBlurThumbnail && (
-                  <Image
-                    source={{ uri: thumbnail }}
-                    style={styles.thumbnailVideo}
-                    contentFit="contain"
-                    recyclingKey={uri}
-                    transition={0}
-                  />
-                )}
-              </>
-            ) : (
-              <View style={styles.thumbnailPlaceholder} />
-            )}
+            {thumbnailBody}
           </NativePressable>
-        )}
+        ) : null}
       </View>
     );
   }
@@ -1028,9 +1072,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: Colors.neutral[900],
   },
+  thumbnailAppleZoomInner: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
   thumbnailVideo: {
-    width: 45,
-    height: 80,
+    ...StyleSheet.absoluteFillObject,
     zIndex: 1,
   },
   thumbnailPlaceholder: {

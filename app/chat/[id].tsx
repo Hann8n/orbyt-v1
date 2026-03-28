@@ -54,6 +54,7 @@ import Icon, {
 import { Avatar } from '@/components/ui/UI';
 import { OptionsButton } from '@/components/ui/OptionsButton';
 import VerticalListSheet, { VerticalListButton } from '@/components/ui/VerticalListSheet';
+import AuthorItem from '@/components/ui/AuthorItem';
 import { itemSizeConfig, sharedItemStyles } from '@/components/ui/ItemStyles';
 import { hexToRGBA } from '@/utils/formatting/colors';
 import { useAvatarProfileRing } from '@/services/colors';
@@ -407,50 +408,41 @@ function isEmbedRecordView(embed: MessageView['embed'] | null | undefined): bool
   );
 }
 
-/** Shared author row: avatar + handle for both video and non-video embeds. Use authorAlwaysOnRight (e.g. video overlay) to keep avatar left, handle right regardless of isFromMe. */
+/** Shared author row for both video and non-video embeds (AuthorItem for verification/bot badges). Use authorAlwaysOnRight (e.g. video overlay) to keep avatar left, handle right regardless of isFromMe. */
 function EmbedAuthor({
   author,
-  size,
   isFromMe,
   compact,
   authorAlwaysOnRight,
 }: {
   author: EmbedRecordShape['author'];
-  size: number;
   isFromMe: boolean;
   compact?: boolean;
   /** When true, author handle is always on the right of the avatar (e.g. video overlay). */
   authorAlwaysOnRight?: boolean;
 }) {
-  const ringProps = useAvatarProfileRing(author?.did ?? null);
   if (!author) return null;
-  const handle = formatHandle(author.handle) || author.did;
+  const handle = author.handle?.trim() || author.did || '';
+  if (!handle) return null;
+  const textColor = isFromMe && !authorAlwaysOnRight ? Colors.neutral[50] : Colors.neutral[100];
   return (
-    <View
-      style={[
-        styles.embedAuthorRow,
-        compact && styles.embedAuthorRowCompact,
-        isFromMe && !authorAlwaysOnRight && styles.embedAuthorRowFromMe,
-      ]}
-    >
-      <Avatar
-        uri={author.avatar}
-        type="profile"
-        size={size}
-        showRing={ringProps.showRing}
-        ringColor={ringProps.ringColor}
-        profileColors={ringProps.profileColors}
-      />
-      <Text
+    <View style={[styles.embedAuthorRow, compact && styles.embedAuthorRowCompact]}>
+      <AuthorItem
+        handle={handle}
+        did={author.did ?? undefined}
+        displayName={author.displayName}
+        avatar={author.avatar}
+        size={compact ? 'xsmall' : 'small'}
+        showArrow={false}
+        nonInteractive
+        reverseRow={isFromMe && !authorAlwaysOnRight}
+        textColor={textColor}
+        backgroundColor={Colors.transparent}
         style={[
-          styles.embedAuthorHandle,
-          compact && styles.embedAuthorHandleCompact,
-          isFromMe && !authorAlwaysOnRight && styles.embedAuthorHandleFromMe,
+          styles.embedAuthorItem,
+          isFromMe && !authorAlwaysOnRight && styles.embedAuthorItemFromMe,
         ]}
-        numberOfLines={1}
-      >
-        {handle}
-      </Text>
+      />
     </View>
   );
 }
@@ -1146,7 +1138,7 @@ function ChatEmbeddedPost({
             style={[StyleSheet.absoluteFill, styles.embedVideoGradientShim]}
             contentFit="cover"
           />
-          <EmbedAuthor author={author} size={26} isFromMe={isFromMe} compact authorAlwaysOnRight />
+          <EmbedAuthor author={author} isFromMe={isFromMe} compact authorAlwaysOnRight />
         </View>
       </>
     );
@@ -1238,7 +1230,7 @@ function ChatEmbeddedPost({
           })}
         </View>
       )}
-      <EmbedAuthor author={author} size={24} isFromMe={isFromMe} />
+      <EmbedAuthor author={author} isFromMe={isFromMe} />
       <EmbedDescription text={text} isFromMe={isFromMe} />
     </NativePressable>
   );
@@ -2578,24 +2570,16 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   embedAuthorRowCompact: {
-    gap: 6,
     marginBottom: 0,
   },
-  embedAuthorRowFromMe: {
-    flexDirection: 'row-reverse',
+  embedAuthorItem: {
+    paddingVertical: 0,
+    paddingHorizontal: 0,
+    marginBottom: 0,
+    borderRadius: 0,
   },
-  embedAuthorHandle: {
-    flex: 1,
-    color: Colors.neutral[100],
-    fontSize: 14,
-    fontFamily: 'Figtree-SemiBold',
-  },
-  embedAuthorHandleCompact: {
-    fontSize: 12,
-  },
-  embedAuthorHandleFromMe: {
-    color: Colors.neutral[50],
-    textAlign: 'right',
+  embedAuthorItemFromMe: {
+    alignSelf: 'flex-end',
   },
   embedDescription: {
     color: Colors.neutral[400],

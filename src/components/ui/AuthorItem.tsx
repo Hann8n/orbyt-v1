@@ -30,7 +30,7 @@ interface AuthorItemProps {
   avatar?: string;
   textColor?: string;
   backgroundColor?: string;
-  size?: 'small' | 'medium' | 'large';
+  size?: 'xsmall' | 'small' | 'medium' | 'large';
   showArrow?: boolean;
   onPress?: () => void;
   style?: StyleProp<ViewStyle>;
@@ -61,6 +61,10 @@ interface AuthorItemProps {
   showCheckmark?: boolean;
   showCheckmarkSpinner?: boolean;
   showCheckmarkSkeleton?: boolean;
+  /** Render as a non-pressable row and let touches pass to a parent (e.g. chat embed cards). */
+  nonInteractive?: boolean;
+  /** Mirror avatar/text order (e.g. outgoing message bubbles). */
+  reverseRow?: boolean;
 }
 
 /** Dim grey for inactive/skeleton state to indicate tappable action. */
@@ -130,6 +134,8 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   showCheckmark = false,
   showCheckmarkSpinner = false,
   showCheckmarkSkeleton = false,
+  nonInteractive = false,
+  reverseRow = false,
 }) => {
   const { t } = useTranslation();
   const router = useRouter();
@@ -188,102 +194,125 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
     }
   }, [onFollowPress, handle, followMutation, actualIsFollowing, did]);
 
-  return (
-    <NativePressable
-      style={[styles.container, { backgroundColor: backgroundColor || Colors.neutral[900] }, style]}
-      onPress={handlePress}
+  const rowContent = (
+    <View
+      style={[
+        styles.accountButtonContent,
+        reverseRow && styles.accountButtonContentReverse,
+        nonInteractive && styles.accountButtonContentEmbed,
+      ]}
     >
-      <View style={styles.accountButtonContent}>
-        <View style={styles.avatarContainer}>
-          <Avatar
-            uri={actualAvatar}
-            type="profile"
-            size={config.avatarSize}
-            showRing={showRing ?? ringProps.showRing}
-            ringColor={ringProps.ringColor}
-            profileColors={ringProps.profileColors}
-            blurRadius={isBlocked ? 30 : 0}
-            status={cachedProfile?.status}
+      <View style={[styles.avatarContainer, nonInteractive && styles.avatarContainerEmbed]}>
+        <Avatar
+          uri={actualAvatar}
+          type="profile"
+          size={config.avatarSize}
+          showRing={showRing ?? ringProps.showRing}
+          ringColor={ringProps.ringColor}
+          profileColors={ringProps.profileColors}
+          blurRadius={isBlocked ? 30 : 0}
+          status={cachedProfile?.status}
+        />
+      </View>
+      <View
+        style={[styles.accountInfoContainer, nonInteractive && styles.accountInfoContainerEmbed]}
+      >
+        <View style={styles.nameRow}>
+          {!hideDisplayName && (
+            <Text
+              style={[
+                styles.accountDisplayName,
+                {
+                  color: textColor || Colors.neutral[50],
+                  fontSize: customFontSize || config.nameFontSize,
+                  fontFamily: nameFontWeight,
+                },
+              ]}
+              numberOfLines={1}
+            >
+              {actualDisplayName}
+            </Text>
+          )}
+          {handle && !hideDisplayName && (
+            <VerificationBadge
+              handle={handle}
+              textSize={config.badgeTextSize}
+              textColor={textColor || Colors.neutral[50]}
+              verification={cachedProfile?.verification}
+            />
+          )}
+          {handle && !hideDisplayName && (
+            <BotBadge
+              handle={handle}
+              did={did}
+              labels={cachedProfile?.labels}
+              textSize={config.badgeTextSize}
+              textColor={textColor || Colors.neutral[50]}
+            />
+          )}
+        </View>
+      </View>
+      {shouldShowFollowButton ? (
+        <NativePressable
+          style={[styles.followButton, !actualIsFollowing && styles.followButtonInactive]}
+          onPress={handleFollowPress}
+          androidRippleBorderless
+        >
+          <AddSquareCuteFilledIcon size={32} color={Colors.neutral[400]} />
+        </NativePressable>
+      ) : showDeleteButton ? (
+        <NativePressable onPress={onDeletePress} androidRippleBorderless>
+          <StatusIconButton variant="error">
+            <Icon name="delete_2" size={16} color={Colors.coral[500]} />
+          </StatusIconButton>
+        </NativePressable>
+      ) : showCheckmarkSpinner ? (
+        <View style={styles.checkmarkIconContainer}>
+          <CuteFilledSquareBoxIcon size={34} color={Colors.teal[800]} />
+          <ActivityIndicator
+            style={styles.checkmarkSpinner}
+            size="small"
+            color={Colors.teal[300]}
           />
         </View>
-        <View style={styles.accountInfoContainer}>
-          <View style={styles.nameRow}>
-            {!hideDisplayName && (
-              <Text
-                style={[
-                  styles.accountDisplayName,
-                  {
-                    color: textColor || Colors.neutral[50],
-                    fontSize: customFontSize || config.nameFontSize,
-                    fontFamily: nameFontWeight,
-                  },
-                ]}
-                numberOfLines={1}
-              >
-                {actualDisplayName}
-              </Text>
-            )}
-            {handle && !hideDisplayName && (
-              <VerificationBadge
-                handle={handle}
-                textSize={config.badgeTextSize}
-                textColor={textColor || Colors.neutral[50]}
-                verification={cachedProfile?.verification}
-              />
-            )}
-            {handle && !hideDisplayName && (
-              <BotBadge
-                handle={handle}
-                did={did}
-                labels={cachedProfile?.labels}
-                textSize={config.badgeTextSize}
-                textColor={textColor || Colors.neutral[50]}
-              />
-            )}
-          </View>
+      ) : showCheckmark ? (
+        <View style={styles.checkmarkIconContainer}>
+          <CheckboxCuteFilledDuotoneIcon
+            size={34}
+            boxColor={Colors.teal[300]}
+            checkColor={Colors.teal[800]}
+            checkOpacity={0.9}
+          />
         </View>
-        {shouldShowFollowButton ? (
-          <NativePressable
-            style={[styles.followButton, !actualIsFollowing && styles.followButtonInactive]}
-            onPress={handleFollowPress}
-            androidRippleBorderless
-          >
-            <AddSquareCuteFilledIcon size={32} color={Colors.neutral[400]} />
-          </NativePressable>
-        ) : showDeleteButton ? (
-          <NativePressable onPress={onDeletePress} androidRippleBorderless>
-            <StatusIconButton variant="error">
-              <Icon name="delete_2" size={16} color={Colors.coral[500]} />
-            </StatusIconButton>
-          </NativePressable>
-        ) : showCheckmarkSpinner ? (
-          <View style={styles.checkmarkIconContainer}>
-            <CuteFilledSquareBoxIcon size={34} color={Colors.teal[800]} />
-            <ActivityIndicator
-              style={styles.checkmarkSpinner}
-              size="small"
-              color={Colors.teal[300]}
-            />
+      ) : showCheckmarkSkeleton ? (
+        <StatusIconButton variant="skeleton" size={28} />
+      ) : (
+        showArrow && (
+          <View style={styles.accountArrow}>
+            <Icon name="right_small" size={20} color={Colors.neutral[500]} />
           </View>
-        ) : showCheckmark ? (
-          <View style={styles.checkmarkIconContainer}>
-            <CheckboxCuteFilledDuotoneIcon
-              size={34}
-              boxColor={Colors.teal[300]}
-              checkColor={Colors.teal[800]}
-              checkOpacity={0.9}
-            />
-          </View>
-        ) : showCheckmarkSkeleton ? (
-          <StatusIconButton variant="skeleton" size={28} />
-        ) : (
-          showArrow && (
-            <View style={styles.accountArrow}>
-              <Icon name="right_small" size={20} color={Colors.neutral[500]} />
-            </View>
-          )
-        )}
+        )
+      )}
+    </View>
+  );
+
+  const rootStyle = [
+    styles.container,
+    { backgroundColor: backgroundColor || Colors.neutral[900] },
+    style,
+  ];
+
+  if (nonInteractive) {
+    return (
+      <View style={rootStyle} pointerEvents="none">
+        {rowContent}
       </View>
+    );
+  }
+
+  return (
+    <NativePressable style={rootStyle} onPress={handlePress}>
+      {rowContent}
     </NativePressable>
   );
 };
@@ -291,8 +320,23 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
 const styles = StyleSheet.create({
   container: sharedItemStyles.container,
   accountButtonContent: sharedItemStyles.accountButtonContent,
+  accountButtonContentReverse: { flexDirection: 'row-reverse' },
+  /** Tight row for embeds (avoid space-between with no trailing arrow). */
+  accountButtonContentEmbed: {
+    justifyContent: 'flex-start',
+    /** Single gap between avatar and text — avatar margin + info padding are cleared below. */
+    gap: 6,
+  },
   avatarContainer: sharedItemStyles.avatarContainer,
+  /** Embed: sharedItemStyles.avatarContainer marginRight stacks with row gap — omit margin. */
+  avatarContainerEmbed: {
+    marginRight: 0,
+  },
   accountInfoContainer: sharedItemStyles.accountInfoContainer,
+  /** Embed: omit paddingLeft so spacing is only `accountButtonContentEmbed` gap. */
+  accountInfoContainerEmbed: {
+    paddingLeft: 0,
+  },
   accountDisplayName: sharedItemStyles.accountDisplayName,
   accountArrow: sharedItemStyles.accountArrow,
   nameRow: sharedItemStyles.nameRow,
