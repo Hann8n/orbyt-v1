@@ -23,7 +23,6 @@ import {
   useWindowDimensions,
   Linking,
   Keyboard,
-  InteractionManager,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
@@ -47,7 +46,7 @@ import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 
 import { Colors } from '@/theme';
 import { Typography, FontFamily } from '@/utils/components/typography';
-import { BORDER_RADIUS } from '@/utils/constants';
+import { APP_CONSTANTS, BORDER_RADIUS } from '@/utils/constants';
 import Icon, {
   BackArrowIcon,
   FlameFillIcon,
@@ -622,9 +621,12 @@ function ChatMessageRow({
       if (!id) return;
       if (id === 'react') {
         // Let the native menu finish closing before presenting the sheet (avoids overlapping animations / odd “fly away” motion).
-        InteractionManager.runAfterInteractions(() => {
-          onOpenFullReactionPicker(messageId);
-        });
+        requestIdleCallback(
+          () => {
+            onOpenFullReactionPicker(messageId);
+          },
+          { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
+        );
         return;
       }
       if (id === 'copy') {

@@ -453,6 +453,7 @@ export class AtprotoFeedService {
             thumbUrl: externalEmbed.thumb,
             err,
           });
+          uploadedThumb = undefined;
         }
       }
 

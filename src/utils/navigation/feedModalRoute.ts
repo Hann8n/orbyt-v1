@@ -14,6 +14,8 @@ export type FeedModalSearchParams = {
   hasNextPage?: string;
   isFetchingNextPage?: string;
   feed?: string;
+  backgroundColor?: string;
+  secondaryColor?: string;
 };
 
 /** Params for full-height video routes (`/(tabs)/{tab}/full-height-video`, seeded via `feedService.setCurrentFeed`). */
@@ -53,6 +55,12 @@ export function buildFeedModalHref(
   }
   if (params.feed) {
     routeParams.feed = params.feed;
+  }
+  if (params.backgroundColor) {
+    routeParams.backgroundColor = params.backgroundColor;
+  }
+  if (params.secondaryColor) {
+    routeParams.secondaryColor = params.secondaryColor;
   }
   return {
     pathname: `/(tabs)/${tab}/feed`,

@@ -9,7 +9,6 @@ import {
   TextInput,
   LayoutAnimation,
   ActivityIndicator,
-  InteractionManager,
 } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { Image } from 'expo-image';
@@ -45,7 +44,7 @@ import { Colors } from '../../../theme';
 import { HeartFillIcon, MoreFillIcon, CloseFillIcon } from '../../ui/Icon';
 import RelativeDate from '../../ui/RelativeDate';
 import { useUserSearchTrigger } from '../../ui/usersearch';
-import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../../utils/constants';
+import { APP_CONSTANTS, BORDER_RADIUS, QUERY_CONSTANTS } from '../../../utils/constants';
 import { formatNumber } from '../../../utils/formatting/numbers';
 import { formatHandle } from '../../../utils/formatting/handles';
 import { FontFamily } from '../../../utils/components/typography';
@@ -202,9 +201,12 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   }, []);
 
   const refocusInputAfterAttachment = useCallback(() => {
-    InteractionManager.runAfterInteractions(() => {
-      setTimeout(() => inputRef.current?.focus?.(), 150);
-    });
+    requestIdleCallback(
+      () => {
+        setTimeout(() => inputRef.current?.focus?.(), 150);
+      },
+      { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
+    );
   }, []);
 
   const handleGifPickerClosed = useCallback(() => {
