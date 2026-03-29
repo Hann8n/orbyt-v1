@@ -4,7 +4,7 @@ import { tabRefs } from '@/utils/navigation/tabRefs';
 import { View, StyleSheet, StatusBar } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
 import PagerView from 'react-native-pager-view';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -69,7 +69,6 @@ const ActivityScreen: React.FC = () => {
   const { t } = useTranslation();
   const pageScrollProgress = useSharedValue(0);
   const pagerViewRef = useRef<PagerView>(null);
-  const insets = useSafeAreaInsets();
   const { notificationsCount, messagesCount } = useUnreadCount();
 
   const pages = useMemo<Array<'chats' | 'notifications'>>(() => ['notifications', 'chats'], []);
@@ -81,37 +80,39 @@ const ActivityScreen: React.FC = () => {
       <StatusBar barStyle="light-content" backgroundColor={'transparent'} translucent={true} />
 
       {/* Header with animated tab indicators */}
-      <View style={[styles.headerSection, { paddingTop: insets.top }]}>
-        <View style={styles.tabSection}>
-          <View style={styles.indicatorContainer}>
-            {pages.map(tabId => {
-              const tabIndex = pages.indexOf(tabId);
-              const badge =
-                tabId === 'notifications' && Number(notificationsCount) > 0 ? (
-                  <View style={styles.badge} />
-                ) : tabId === 'chats' && Number(messagesCount) > 0 ? (
-                  <View style={styles.badge} />
-                ) : undefined;
+      <SafeAreaView edges={['top']} style={styles.headerSafeArea}>
+        <View style={styles.headerSection}>
+          <View style={styles.tabSection}>
+            <View style={styles.indicatorContainer}>
+              {pages.map(tabId => {
+                const tabIndex = pages.indexOf(tabId);
+                const badge =
+                  tabId === 'notifications' && Number(notificationsCount) > 0 ? (
+                    <View style={styles.badge} />
+                  ) : tabId === 'chats' && Number(messagesCount) > 0 ? (
+                    <View style={styles.badge} />
+                  ) : undefined;
 
-              return (
-                <ActivityIndicatorItem
-                  key={tabId}
-                  tabIndex={tabIndex}
-                  pageScrollProgress={pageScrollProgress}
-                  label={TAB_LABEL_KEYS[tabId] ? t(TAB_LABEL_KEYS[tabId]) : tabId}
-                  onPress={() => {
-                    const targetIndex = pages.indexOf(tabId);
-                    if (targetIndex >= 0 && pagerViewRef.current) {
-                      pagerViewRef.current.setPage(targetIndex);
-                    }
-                  }}
-                  badge={badge}
-                />
-              );
-            })}
+                return (
+                  <ActivityIndicatorItem
+                    key={tabId}
+                    tabIndex={tabIndex}
+                    pageScrollProgress={pageScrollProgress}
+                    label={TAB_LABEL_KEYS[tabId] ? t(TAB_LABEL_KEYS[tabId]) : tabId}
+                    onPress={() => {
+                      const targetIndex = pages.indexOf(tabId);
+                      if (targetIndex >= 0 && pagerViewRef.current) {
+                        pagerViewRef.current.setPage(targetIndex);
+                      }
+                    }}
+                    badge={badge}
+                  />
+                );
+              })}
+            </View>
           </View>
         </View>
-      </View>
+      </SafeAreaView>
 
       {/* Tab Content - setPage on tap (animated); indicator only from onPageSelected */}
       <View style={styles.activityContainer}>
@@ -165,6 +166,9 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
     paddingTop: 0,
     zIndex: 1,
+  },
+  headerSafeArea: {
+    backgroundColor: Colors.black,
   },
   tabSection: {
     marginTop: 0,

@@ -46,7 +46,7 @@ import { Colors } from '@/theme';
 import { useGlobalAccountSwitcher } from '@/hooks/useGlobalModals';
 import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '@/hooks';
 import { useDetailScreenOverlay } from '@/hooks/useDetailScreenOverlay';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { initialWindowMetrics, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFollowMutation, useBlockMutation } from '@/services/data/ProfileService';
 import { queryKeys } from '@/utils/query/queryKeys';
 import { useSubscriptionStore } from '@/stores/subscriptionStore';
@@ -461,7 +461,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     }
   }, [onLogout]);
 
-  const defaultTop = (insets?.top ?? 0) + 5;
+  const topInset = Math.max(insets.top, initialWindowMetrics?.insets.top ?? 0);
+  const defaultTop = topInset + 5;
   const overlayScrollProgressSV = useSharedValue(0);
   const {
     headerPaddingTop,

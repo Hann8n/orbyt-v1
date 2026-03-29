@@ -234,15 +234,6 @@ function RootNavigator() {
             }}
           />
           <Stack.Screen
-            name="profile/[did]"
-            options={{
-              headerShown: false,
-              presentation: 'card',
-              gestureEnabled: true,
-              animation: 'slide_from_right',
-            }}
-          />
-          <Stack.Screen
             name="chat/[id]"
             options={{
               headerShown: false,

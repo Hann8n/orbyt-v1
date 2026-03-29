@@ -28,7 +28,7 @@ import { NativePressable } from '@/components/ui/NativePressable';
 import { Image } from 'expo-image';
 import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
 import PagerView, { type PagerViewOnPageSelectedEvent } from 'react-native-pager-view';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList, FlashListRef } from '@shopify/flash-list';
 import Reanimated, {
   useSharedValue,
@@ -1784,85 +1784,87 @@ const ExploreScreen: React.FC = () => {
     <View style={[styles.container, Platform.OS === 'android' && styles.androidPaddingTop]}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.transparent} translucent={true} />
 
-      <Reanimated.View
-        pointerEvents="none"
-        style={[
-          styles.topGradient,
-          {
-            height: insets.top + 10 + 48,
-          },
-          topGradientAnimatedStyle,
-        ]}
-      >
-        <Image source={GRADIENT_SHIM} style={StyleSheet.absoluteFill} contentFit="fill" />
-      </Reanimated.View>
-
-      {/* Search Bar */}
-      <NativePressable
-        onPress={() => searchInputRef.current?.focus()}
-        style={styles.searchBarPressable}
-      >
+      <SafeAreaView edges={['top']} style={styles.searchSafeArea} pointerEvents="box-none">
         <Reanimated.View
+          pointerEvents="none"
           style={[
-            styles.searchContainer,
-            useLiquidGlassSearchBar
-              ? styles.searchContainerLiquidGlass
-              : styles.searchContainerTintedWhite,
+            styles.topGradient,
             {
-              top: insets.top + 10,
+              height: 58,
             },
-            searchBarAnimatedStyle,
+            topGradientAnimatedStyle,
           ]}
         >
-          {useLiquidGlassSearchBar && (
-            <GlassView
-              style={styles.searchContainerGlassBackground}
-              glassEffectStyle="clear"
-              tintColor={Colors.neutral[50]}
-            />
-          )}
-          <View style={styles.searchBarContent} pointerEvents="box-none">
-            <View style={styles.searchIconContainer}>
-              <SearchIcon
-                size={24}
-                color={Colors.black}
-                style={{ transform: [{ scale: 1.2 }, { scaleX: -1 }] }}
+          <Image source={GRADIENT_SHIM} style={StyleSheet.absoluteFill} contentFit="fill" />
+        </Reanimated.View>
+
+        {/* Search Bar */}
+        <NativePressable
+          onPress={() => searchInputRef.current?.focus()}
+          style={styles.searchBarPressable}
+        >
+          <Reanimated.View
+            style={[
+              styles.searchContainer,
+              useLiquidGlassSearchBar
+                ? styles.searchContainerLiquidGlass
+                : styles.searchContainerTintedWhite,
+              {
+                top: 10,
+              },
+              searchBarAnimatedStyle,
+            ]}
+          >
+            {useLiquidGlassSearchBar && (
+              <GlassView
+                style={styles.searchContainerGlassBackground}
+                glassEffectStyle="clear"
+                tintColor={Colors.neutral[50]}
+              />
+            )}
+            <View style={styles.searchBarContent} pointerEvents="box-none">
+              <View style={styles.searchIconContainer}>
+                <SearchIcon
+                  size={24}
+                  color={Colors.black}
+                  style={{ transform: [{ scale: 1.2 }, { scaleX: -1 }] }}
+                />
+              </View>
+              <TextInput
+                ref={searchInputRef}
+                nativeID="explore-search-input"
+                style={styles.searchInput}
+                placeholder={t('feed.searchPlaceholder')}
+                placeholderTextColor={Colors.neutral[500]}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                onFocus={() => setIsSearchFocused(true)}
+                onBlur={() => {
+                  // Keep search visible even when blurred - don't auto-hide
+                }}
+                onSubmitEditing={() => {}}
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="off"
+                textContentType="none"
+                importantForAutofill="no"
+                keyboardAppearance="dark"
+                returnKeyType="search"
+                caretHidden={false}
               />
             </View>
-            <TextInput
-              ref={searchInputRef}
-              nativeID="explore-search-input"
-              style={styles.searchInput}
-              placeholder={t('feed.searchPlaceholder')}
-              placeholderTextColor={Colors.neutral[500]}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              onFocus={() => setIsSearchFocused(true)}
-              onBlur={() => {
-                // Keep search visible even when blurred - don't auto-hide
-              }}
-              onSubmitEditing={() => {}}
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoComplete="off"
-              textContentType="none"
-              importantForAutofill="no"
-              keyboardAppearance="dark"
-              returnKeyType="search"
-              caretHidden={false}
-            />
-          </View>
-          {isSearching && (
-            <NativePressable
-              onPress={handleClearSearch}
-              style={styles.clearButton}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Icon name="close-circle" size={22.5} color={Colors.neutral[900]} />
-            </NativePressable>
-          )}
-        </Reanimated.View>
-      </NativePressable>
+            {isSearching && (
+              <NativePressable
+                onPress={handleClearSearch}
+                style={styles.clearButton}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Icon name="close-circle" size={22.5} color={Colors.neutral[900]} />
+              </NativePressable>
+            )}
+          </Reanimated.View>
+        </NativePressable>
+      </SafeAreaView>
 
       {/* Search Results */}
       <Reanimated.View
@@ -1870,13 +1872,13 @@ const ExploreScreen: React.FC = () => {
         pointerEvents={isSearching ? 'auto' : 'none'}
       >
         {isSearching && (
-          <>
+          <SafeAreaView edges={['top']} style={styles.searchResultsSafeArea}>
             {/* Tab Navigation */}
             <Reanimated.View
               style={[
                 styles.searchTabsContainer,
                 {
-                  top: insets.top + 65,
+                  top: 65,
                 },
                 styles.searchTabsZIndex,
                 searchTabsAnimatedStyle,
@@ -1895,11 +1897,7 @@ const ExploreScreen: React.FC = () => {
 
             {/* Tab Content */}
             <Reanimated.View
-              style={[
-                styles.searchContentWrapper,
-                { marginTop: insets.top + 65 + 44 },
-                searchContentAnimatedStyle,
-              ]}
+              style={[styles.searchContentWrapper, { marginTop: 109 }, searchContentAnimatedStyle]}
             >
               <SearchSwipePager
                 ref={searchPagerRef}
@@ -1927,7 +1925,7 @@ const ExploreScreen: React.FC = () => {
                 )}
               />
             </Reanimated.View>
-          </>
+          </SafeAreaView>
         )}
       </Reanimated.View>
 
@@ -2211,6 +2209,16 @@ const styles = StyleSheet.create({
     right: 0,
     height: 100,
     zIndex: 5,
+  },
+  searchSafeArea: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 30,
+  },
+  searchResultsSafeArea: {
+    flex: 1,
   },
   flexOne: {
     flex: 1,
