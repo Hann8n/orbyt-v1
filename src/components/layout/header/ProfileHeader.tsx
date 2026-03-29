@@ -1,16 +1,9 @@
 import React, { memo, useMemo, useCallback, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, StatusBar, StyleSheet, View, StyleProp, ViewStyle } from 'react-native';
+import { Alert, StatusBar, StyleProp, ViewStyle } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { useIsFocused } from '@react-navigation/native';
-import Animated, {
-  useAnimatedStyle,
-  useAnimatedReaction,
-  runOnJS,
-  interpolate,
-  Extrapolate,
-  type SharedValue,
-} from 'react-native-reanimated';
+import { useAnimatedReaction, runOnJS, type SharedValue } from 'react-native-reanimated';
 import UniversalHeader, { HeaderContent } from './UniversalHeader';
 import type { ProfileViewWithOrbyt } from '../../../services/api/types';
 import { getProfileColors } from '../../../utils/formatting/colors';
@@ -270,20 +263,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     onColorsChange?.(dynamicColors);
   }, [dynamicColors, onColorsChange]);
 
-  const dimOverlayStyle = useAnimatedStyle(() => {
-    const progress = contentScrollProgressSV?.value ?? 0;
-    if (dimOverlayDisabled) {
-      return { ...StyleSheet.absoluteFillObject, opacity: 0, pointerEvents: 'none' };
-    }
-    // More gradual dim: start dimming at 40% progress, reach 30% black opacity at max scroll
-    return {
-      ...StyleSheet.absoluteFillObject,
-      backgroundColor: 'black',
-      opacity: interpolate(progress, [0, 0.5, 1], [0, 0, 0.3], Extrapolate.CLAMP),
-      pointerEvents: 'none',
-    };
-  }, [contentScrollProgressSV]);
-
   return (
     <>
       {controlStatusBar && isFocused && (
@@ -293,28 +272,21 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
           translucent={true}
         />
       )}
-      <View>
-        <UniversalHeader
-          content={headerContent}
-          actions={[]}
-          customActions={[]}
-          showBackButton={false}
-          onBackPress={undefined}
-          backgroundColor={dynamicColors.backgroundColor}
-          textColor={dynamicColors.textColor}
-          isLoading={false}
-          applySafeArea={applySafeArea}
-          reserveTopForOverlayButtons={!headerStyle}
-          contentScrollProgress={contentFadeDisabled ? undefined : contentScrollProgressSV}
-          style={headerStyle}
-          showShadowGradient={false}
-        >
-          {/* Hide tabs when blocked */}
-          {!isBlocked && children}
-        </UniversalHeader>
-        {/* Dim overlay above background as user scrolls */}
-        <Animated.View style={dimOverlayStyle} />
-      </View>
+      <UniversalHeader
+        content={headerContent}
+        backgroundColor={dynamicColors.backgroundColor}
+        textColor={dynamicColors.textColor}
+        applySafeArea={applySafeArea}
+        reserveTopForOverlayButtons={!headerStyle}
+        contentScrollProgress={contentScrollProgressSV}
+        contentScrollFadeDisabled={contentFadeDisabled}
+        scrollLinkedDimDisabled={dimOverlayDisabled}
+        style={headerStyle}
+        showShadowGradient={false}
+      >
+        {/* Hide tabs when blocked */}
+        {!isBlocked && children}
+      </UniversalHeader>
 
       {profileData?.handle && (
         <BetaInfoSheet

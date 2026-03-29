@@ -35,9 +35,7 @@ import {
   getLocalizedChannelDescription,
 } from '../../../utils/channels/orbyt';
 import { RichText } from '@atproto/api';
-import Animated, { useAnimatedStyle, interpolate } from 'react-native-reanimated';
-import { useFeedScroll } from '../../../context/FeedScrollContext';
-
+import type { SharedValue } from 'react-native-reanimated';
 interface ChannelData {
   id: string;
   uri?: string;
@@ -65,6 +63,8 @@ interface ChannelHeaderProps {
   showViewToggle?: boolean;
   contentFadeDisabled?: boolean;
   dimOverlayDisabled?: boolean;
+  /** Same SharedValue as `contentScrollProgressOutput` on the feed list (matches ProfileHeader). */
+  contentScrollProgressSV: SharedValue<number>;
 }
 
 // Subscribe button component
@@ -233,11 +233,9 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   showViewToggle = false,
   contentFadeDisabled = false,
   dimOverlayDisabled = false,
+  contentScrollProgressSV,
 }) => {
   const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
-
-  const feedScroll = useFeedScroll();
-  const contentScrollProgressSV = feedScroll?.contentScrollProgressSV;
 
   // Get channel colors from cache
   const { colors: channelColors } = useChannelColors(channel?.id || channel?.uri);
@@ -346,36 +344,6 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
     return orbytChannel?.isPostable !== false; // Default to true, only false for non-postable channels
   }, [isOrbyt, channel]);
 
-  // Animated styles driven by shared scroll progress (0 -> 1)
-  const headerAnimatedStyle = useAnimatedStyle(() => styles.headerOpaque, []);
-
-  const dimOverlayStyle = useAnimatedStyle(() => {
-    const progress = contentScrollProgressSV?.value ?? 0;
-    if (dimOverlayDisabled) {
-      return {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        opacity: 0,
-        pointerEvents: 'none',
-      };
-    }
-    // More gradual dim: start dimming at 40% progress, reach ~30% black opacity at max scroll
-    const overlayOpacity = interpolate(progress, [0, 0.5, 1], [0, 0, 0], 'clamp');
-    return {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'black',
-      opacity: overlayOpacity,
-      pointerEvents: 'none',
-    };
-  }, [contentScrollProgressSV, dimOverlayDisabled]);
-
   // Create children with subscribe button and other content
   const headerChildren = useMemo(
     () => (
@@ -436,31 +404,23 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
         backgroundColor={safeBackgroundColor}
         translucent={true}
       />
-      <Animated.View style={headerAnimatedStyle}>
-        <UniversalHeader
-          content={headerContent}
-          actions={[]}
-          customActions={[]}
-          showBackButton={false}
-          onBackPress={undefined}
-          backgroundColor={safeBackgroundColor}
-          textColor={safeTextColor}
-          backgroundImage={backgroundImage}
-          isLoading={false}
-          applySafeArea={applySafeArea}
-          reserveTopForOverlayButtons={true}
-          style={styles.headerOpaque}
-          contentStyle={headerStyle}
-          minHeight={isOrbyt ? 450 : undefined}
-          contentPosition={isOrbyt ? 'bottom' : 'top'}
-          hasTabs={hasTabs}
-          contentScrollProgress={contentFadeDisabled ? undefined : contentScrollProgressSV}
-        >
-          {headerChildren}
-        </UniversalHeader>
-        {/* Dim overlay above background as user scrolls */}
-        <Animated.View style={dimOverlayStyle} />
-      </Animated.View>
+      <UniversalHeader
+        content={headerContent}
+        backgroundColor={safeBackgroundColor}
+        textColor={safeTextColor}
+        backgroundImage={backgroundImage}
+        applySafeArea={applySafeArea}
+        reserveTopForOverlayButtons
+        contentStyle={headerStyle}
+        minHeight={isOrbyt ? 450 : undefined}
+        contentPosition={isOrbyt ? 'bottom' : 'top'}
+        hasTabs={hasTabs}
+        contentScrollProgress={contentScrollProgressSV}
+        contentScrollFadeDisabled={contentFadeDisabled}
+        scrollLinkedDimDisabled={dimOverlayDisabled}
+      >
+        {headerChildren}
+      </UniversalHeader>
     </>
   );
 };
@@ -508,9 +468,6 @@ const styles = StyleSheet.create({
   subscribeButtonGlassBackground: {
     ...StyleSheet.absoluteFillObject,
     borderRadius: BORDER_RADIUS.FULL,
-  },
-  headerOpaque: {
-    opacity: 1,
   },
   subscribeButtonText: {
     fontFamily: 'Figtree-Bold',

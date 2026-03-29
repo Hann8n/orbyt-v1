@@ -8,7 +8,6 @@ export { default as BlockedUsersScreen } from './blocked';
 export { default as FollowersScreen } from './followers';
 export { default as FollowingScreen } from './following';
 export { default as AppIconSettingsScreen } from './app-icon';
-export { default as WatchedScreen } from './watched';
 
 // Default export for the settings route
 export { default } from './SettingsScreen';

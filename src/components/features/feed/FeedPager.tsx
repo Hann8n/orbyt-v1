@@ -28,7 +28,7 @@ import FeedRenderer from './FeedRenderer';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ListFeedViewRef } from '../../../types';
-import type { ProfileRef } from '../../../utils/navigation/tabRefs';
+import type { FeedPagerRef } from '../../../utils/navigation/tabRefs';
 import {
   useSetTabBarVisibility,
   useTabBarVisibility,
@@ -46,6 +46,8 @@ const FEED_LABEL_KEYS: { [key: string]: string } = {
   profile: 'profile.videos',
   reposts: 'profile.reposts',
   likes: 'profile.likes',
+  bookmarks: 'profile.saves',
+  watched: 'profile.watched',
 };
 
 const NOOP = () => {};
@@ -81,7 +83,7 @@ interface FeedPagerRendererProps {
 interface FeedPagerProps extends FeedPagerRendererProps {
   initialFeed?: FeedOption;
   /** When provided, use these feeds instead of default following/your-mix (e.g. profile/reposts/likes) */
-  feedOptions?: FeedOption[];
+  feedOptions?: readonly FeedOption[];
   /** Custom labels for feed indicator; when missing uses FEED_LABELS */
   feedLabels?: { [key: string]: string };
   /** Passed to each FeedRenderer when using profile-style feeds */
@@ -138,7 +140,7 @@ function FeedIndicatorItem({
   );
 }
 
-const FeedPager = forwardRef<ProfileRef, FeedPagerProps>(function FeedPager(
+const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
   {
     initialFeed = 'following',
     feedOptions: feedOptionsProp,

@@ -7,7 +7,7 @@ import type { SharedValue } from 'react-native-reanimated';
  * Flow:
  * - scrollOffsetYSV: contentOffset.y, written in useAnimatedScrollHandler (UI), read in VideoCard worklets.
  * - contentScrollProgressSV: 0..1 from scrollOffsetYSV / HEADER_FADE_DISTANCE (useDerivedValue, UI).
- *   Consumed via this context by: UniversalHeader (content fade), ProfileHeader/ChannelHeader (dim + status bar).
+ *   Consumed via this context by: UniversalHeader (content fade on list feeds). ProfileHeader / ChannelHeader pass the same SharedValue into UniversalHeader for fade + scroll-linked dim.
  * - Overlay (back/actions fade): screen owns one SharedValue, passes as contentScrollProgressOutput to the
  *   visible list only; list writes progress in the same scroll handler (no extra useAnimatedReaction).
  * - headerHeight, viewportHeight, itemSpacing: used in VideoCard for percentVisible.

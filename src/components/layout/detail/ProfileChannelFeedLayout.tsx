@@ -1,0 +1,74 @@
+import React from 'react';
+import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import { Colors } from '@/theme';
+
+/**
+ * Single source of truth for full-bleed **profile** and **channel** screens:
+ * root container, loading overlay, and shared `FeedPager` / `TabNavigation` defaults.
+ *
+ * Use `ProfileChannelFeedLayout` as the outer shell; pair with `DetailScreenOverlay` + `FeedPager`
+ * the same way in `app/(tabs)/profile` and `app/channel/channel`.
+ */
+
+/** Pixels below measured safe-area top for detail-screen overlay controls (profile + channel). */
+export const PROFILE_CHANNEL_FEED_OVERLAY_TOP_OFFSET = 5;
+
+/** FeedPager defaults for header-driven feeds (tab strip in header, not the pager indicator). */
+export const PROFILE_CHANNEL_FEED_PAGER_DEFAULTS = {
+  showFeedIndicator: false,
+  controlStatusBar: false,
+  scrollEnabled: false,
+} as const;
+
+/** Tab strip under ProfileHeader / ChannelHeader — dropdown + view toggle. */
+export const PROFILE_CHANNEL_TAB_NAVIGATION_DEFAULTS = {
+  showViewToggle: true,
+  dropdown: true,
+  dropdownMenuTitleKey: 'tabs.pickAFeed',
+} as const;
+
+interface ProfileChannelFeedLayoutProps {
+  backgroundColor: string;
+  children: React.ReactNode;
+}
+
+export function ProfileChannelFeedLayout({
+  backgroundColor,
+  children,
+}: ProfileChannelFeedLayoutProps) {
+  return (
+    <View style={[styles.root, { backgroundColor }]} collapsable={false}>
+      {children}
+    </View>
+  );
+}
+
+interface ProfileChannelFeedLoadingOverlayProps {
+  visible: boolean;
+}
+
+export function ProfileChannelFeedLoadingOverlay({
+  visible,
+}: ProfileChannelFeedLoadingOverlayProps) {
+  if (!visible) return null;
+  return (
+    <View style={styles.loadingOverlay} collapsable={false}>
+      <ActivityIndicator size="large" color={Colors.neutral[50]} />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    minHeight: '100%',
+    overflow: 'hidden',
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: Colors.black,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 9999,
+  },
+});

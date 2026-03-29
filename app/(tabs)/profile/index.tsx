@@ -9,16 +9,7 @@ import Animated, {
   LinearTransition,
 } from 'react-native-reanimated';
 import { BORDER_RADIUS, APP_CONSTANTS, ICON_SIZES } from '@/utils/constants';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Dimensions,
-  Modal,
-  ActivityIndicator,
-  Platform,
-  Linking,
-} from 'react-native';
+import { View, Text, StyleSheet, Dimensions, Modal, Platform, Linking } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { Image } from 'expo-image';
 import { FeedPager } from '@/components';
@@ -40,12 +31,18 @@ import Icon, {
 import { useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import { ProfileHeader, TabNavigation, TabOption } from '@/components/layout/header';
 import DetailScreenOverlay from '@/components/layout/detail/DetailScreenOverlay';
+import {
+  ProfileChannelFeedLayout,
+  ProfileChannelFeedLoadingOverlay,
+  PROFILE_CHANNEL_FEED_OVERLAY_TOP_OFFSET,
+  PROFILE_CHANNEL_FEED_PAGER_DEFAULTS,
+  PROFILE_CHANNEL_TAB_NAVIGATION_DEFAULTS,
+} from '@/components/layout/detail/ProfileChannelFeedLayout';
 import { useCurrentUser } from '@/stores/userStore';
 import { HeaderAction, HeaderActionButton } from '@/components/layout/header/UniversalHeader';
 import { Colors } from '@/theme';
 import { useGlobalAccountSwitcher } from '@/hooks/useGlobalModals';
 import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '@/hooks';
-import { useDetailScreenOverlay } from '@/hooks/useDetailScreenOverlay';
 import { initialWindowMetrics, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFollowMutation, useBlockMutation } from '@/services/data/ProfileService';
 import { queryKeys } from '@/utils/query/queryKeys';
@@ -57,12 +54,15 @@ import ProfileMenu from '@/components/features/profile/ProfileMenu';
 import GermDisconnectSheet from '@/components/features/profile/GermDisconnectSheet';
 import SubscriptionOptionsSheet from '@/components/features/profile/SubscriptionOptionsSheet';
 import LiveStreamInfoSheet from '@/components/features/profile/LiveStreamInfoSheet';
-import { tabRefs, type ProfileRef } from '@/utils/navigation/tabRefs';
+import { tabRefs, type FeedPagerRef } from '@/utils/navigation/tabRefs';
 import type { ViewMode } from '@/types';
 import { useOrbytColors } from '@/services/colors';
+
 interface ProfileScreenProps {
   onLogout: (_clearAllAccounts?: boolean) => Promise<void>;
 }
+
+type ProfileFeedTab = 'profile' | 'reposts' | 'likes' | 'bookmarks' | 'watched';
 
 const OVERLAY_HEADER_ACTIONS_LAYOUT = LinearTransition.duration(360).easing(
   Easing.inOut(Easing.cubic)
@@ -71,7 +71,6 @@ const OVERLAY_HEADER_ACTIONS_LAYOUT = LinearTransition.duration(360).easing(
 const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const { t } = useTranslation();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const rawParams = useLocalSearchParams<{ did?: string }>();
 
   // Route file is [did].tsx - param name is "did", but we accept either DID or handle
@@ -174,7 +173,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   useStatusExpirationMonitor(profileData, targetDid);
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<'profile' | 'reposts' | 'likes'>('profile');
+  const [activeTab, setActiveTab] = useState<ProfileFeedTab>('profile');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
 
   // Read block state directly from profileData viewer fields (React Query cache - single source of truth)
@@ -230,15 +229,32 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     () => [
       { id: 'profile', label: t('profile.videos') },
       { id: 'reposts', label: t('profile.reposts') },
-      ...(isOwnProfileView ? [{ id: 'likes', label: t('profile.likes') }] : []),
+      ...(isOwnProfileView
+        ? [
+            { id: 'likes', label: t('profile.likes') },
+            { id: 'bookmarks', label: t('profile.saves') },
+            { id: 'watched', label: t('profile.watched') },
+          ]
+        : []),
     ],
     [isOwnProfileView, t]
   );
 
   const profileFeedOptions = useMemo(
-    () => (isOwnProfileView ? ['profile', 'reposts', 'likes'] : ['profile', 'reposts']),
+    () =>
+      isOwnProfileView
+        ? (['profile', 'reposts', 'likes', 'bookmarks', 'watched'] as const)
+        : (['profile', 'reposts'] as const),
     [isOwnProfileView]
   );
+
+  useEffect(() => {
+    const allowedFeeds = profileFeedOptions as readonly ProfileFeedTab[];
+    if (!allowedFeeds.includes(activeTab)) {
+      setActiveTab('profile');
+      tabRefs.profile?.setPage(0);
+    }
+  }, [profileFeedOptions, activeTab]);
 
   const showErrorScreen = useMemo(
     () => (isProfileFetchError || profileError || isExternalProfileMissing) && !refreshing,
@@ -461,16 +477,21 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     }
   }, [onLogout]);
 
+  const insets = useSafeAreaInsets();
   const topInset = Math.max(insets.top, initialWindowMetrics?.insets.top ?? 0);
-  const defaultTop = topInset + 5;
+  const defaultTop = topInset + PROFILE_CHANNEL_FEED_OVERLAY_TOP_OFFSET;
   const overlayScrollProgressSV = useSharedValue(0);
-  const {
-    headerPaddingTop,
-    actionButtonsTop,
-    showBackButton,
-    backIconPrimaryStyle,
-    backIconSecondaryStyle,
-  } = useDetailScreenOverlay(providedIdentifier, defaultTop, overlayScrollProgressSV);
+  const actionButtonsTop = defaultTop;
+  const showBackButton = !!providedIdentifier;
+
+  const backIconPrimaryStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(overlayScrollProgressSV.value, [0, 1], [1, 0], Extrapolate.CLAMP),
+  }));
+
+  const backIconSecondaryStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(overlayScrollProgressSV.value, [0, 1], [0, 1], Extrapolate.CLAMP),
+  }));
+
   const overlayControlFadeAnimatedStyle = useAnimatedStyle(() => {
     const progress = overlayScrollProgressSV.value;
     // Start fading sooner and complete fade earlier than before.
@@ -482,7 +503,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       opacity: 1 - easedFade,
     };
   }, [overlayScrollProgressSV]);
-  const staticOverlayAnimatedStyle = useAnimatedStyle(() => ({ opacity: 1 }));
 
   const baseBackTextColor = useMemo(
     () => profileColors.textColor || Colors.neutral[50],
@@ -594,14 +614,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   ]);
 
   return (
-    <View
-      style={[
-        styles.container,
-        {
-          backgroundColor: profileColors.backgroundColor,
-        },
-      ]}
-    >
+    <ProfileChannelFeedLayout backgroundColor={profileColors.backgroundColor}>
       <DetailScreenOverlay
         showBackButton={showBackButton}
         actionButtonsTop={actionButtonsTop}
@@ -609,7 +622,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
         backIconColor={baseBackTextColor}
         backIconPrimaryStyle={backIconPrimaryStyle}
         backIconSecondaryStyle={backIconSecondaryStyle}
-        overlayAnimatedStyle={staticOverlayAnimatedStyle}
       >
         <Animated.View style={[styles.overlayMenuWrap, overlayControlFadeAnimatedStyle]}>
           <NativePressable
@@ -656,15 +668,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       ) : (
         <FeedPager
           ref={r => {
-            tabRefs.profile = r as ProfileRef | null;
+            tabRefs.profile = r as FeedPagerRef | null;
           }}
           feedOptions={profileFeedOptions}
           userDid={profileDid}
           currentFeed={activeTab}
-          onFeedChange={feed => setActiveTab(feed as 'profile' | 'reposts' | 'likes')}
-          showFeedIndicator={false}
-          controlStatusBar={false}
-          scrollEnabled={false}
+          onFeedChange={feed => setActiveTab(feed as ProfileFeedTab)}
+          {...PROFILE_CHANNEL_FEED_PAGER_DEFAULTS}
           queryOptions={queryOptions}
           isVisible={isRouteFocused}
           isModal={false}
@@ -676,7 +686,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
                 contentScrollProgressSV={overlayScrollProgressSV}
                 applySafeArea
                 controlStatusBar
-                headerStyle={headerPaddingTop ? { paddingTop: headerPaddingTop } : undefined}
                 subtitleAction={germSubtitleAction}
                 onAvatarPress={
                   isLive
@@ -691,8 +700,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
                   tabs={tabOptions}
                   activeTab={activeTab}
                   onTabPress={tabId => {
-                    setActiveTab(tabId as 'profile' | 'reposts' | 'likes');
-                    const index = profileFeedOptions.indexOf(tabId);
+                    setActiveTab(tabId as ProfileFeedTab);
+                    const index = (profileFeedOptions as readonly string[]).indexOf(tabId);
                     if (index >= 0) tabRefs.profile?.setPage(index);
                   }}
                   textColor={profileColors.textColor}
@@ -700,7 +709,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
                   backgroundColor="transparent"
                   viewMode={viewMode}
                   onViewModeChange={(mode: ViewMode) => setViewMode(mode)}
-                  showViewToggle={true}
+                  {...PROFILE_CHANNEL_TAB_NAVIGATION_DEFAULTS}
                 />
               </ProfileHeader>
             </View>
@@ -712,11 +721,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
           contentScrollProgressOutput={overlayScrollProgressSV}
         />
       )}
-      {isLoading && (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color={Colors.neutral[50]} />
-        </View>
-      )}
+      <ProfileChannelFeedLoadingOverlay visible={isLoading} />
 
       {/* Sheets and menus moved from ProfileHeader so overlay buttons can control them */}
       <ProfileMenu
@@ -780,7 +785,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
           )}
         </NativePressable>
       </Modal>
-    </View>
+    </ProfileChannelFeedLayout>
   );
 });
 
@@ -790,11 +795,6 @@ export default ProfileScreen;
 
 // Optimized StyleSheet creation outside component
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    minHeight: '100%',
-    overflow: 'hidden',
-  },
   headerContainer: {
     backgroundColor: Colors.transparent,
   },
@@ -835,17 +835,6 @@ const styles = StyleSheet.create({
     color: Colors.neutral[50],
     fontSize: 16,
     fontFamily: 'Figtree-SemiBold',
-  },
-  loadingOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: Colors.black,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 9999,
   },
   secondaryButton: {
     backgroundColor: Colors.transparent,

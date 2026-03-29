@@ -14,7 +14,8 @@ export interface DetailScreenOverlayProps {
   backIconColor: string;
   backIconPrimaryStyle: AnimatedStyle<ViewStyle>;
   backIconSecondaryStyle: AnimatedStyle<ViewStyle>;
-  overlayAnimatedStyle: AnimatedStyle<ViewStyle>;
+  /** When omitted, the right section does not apply extra animated opacity (e.g. profile fades children only). */
+  overlayAnimatedStyle?: AnimatedStyle<ViewStyle>;
   children: React.ReactNode;
 }
 

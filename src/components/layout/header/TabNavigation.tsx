@@ -2,13 +2,14 @@ import React, { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, StyleSheet, Text, StyleProp, ViewStyle } from 'react-native';
+import { MenuView } from '@react-native-menu/menu';
+import type { MenuAction } from '@react-native-menu/menu';
 import { NativePressable } from '../../ui/NativePressable';
 import { ListViewIcon, GridViewIcon, DownSmallFillIcon } from '../../ui/Icon';
 import type { ViewMode } from '../../../types';
 import { Colors } from '../../../theme';
 import { Typography } from '../../../utils/components/typography';
 import { hexToRGBA } from '../../../utils/formatting/colors';
-import VerticalListSheet, { VerticalListButton, TrueSheet } from '../../ui/VerticalListSheet';
 
 export interface TabOption {
   id: string;
@@ -31,6 +32,8 @@ interface TabNavigationProps {
   reserveViewToggleSpace?: boolean;
   variant?: 'header' | 'comments'; // New prop to distinguish between header and comments styles
   dropdown?: boolean; // New prop to show as dropdown instead of tabs
+  /** i18n key for MenuView title when `dropdown` is true. Default: sort (e.g. channel top/latest). */
+  dropdownMenuTitleKey?: string;
 }
 
 const TabNavigation: React.FC<TabNavigationProps> = ({
@@ -48,6 +51,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
   reserveViewToggleSpace = true,
   variant = 'header', // Default to header variant
   dropdown = false, // Default to tabs
+  dropdownMenuTitleKey = 'tabs.sortBy',
 }) => {
   const { t } = useTranslation();
   const handleViewModeChange = (mode: ViewMode) => {
@@ -68,85 +72,79 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
 
   // Get current active tab label
   const activeTabLabel = tabs.find(tab => tab.id === activeTab)?.label || tabs[0]?.label || '';
+  const dropdownActions: MenuAction[] = tabs.map(tab => ({
+    id: tab.id,
+    title: tab.label,
+    state: activeTab === tab.id ? 'on' : 'off',
+    attributes: { disabled: !!tab.disabled },
+  }));
 
   // Dropdown mode
   if (dropdown) {
     return (
-      <>
-        <View style={[styles.tabContainer, variantStyle, { backgroundColor }, style]}>
-          <NativePressable
-            style={styles.dropdownButton}
-            onPress={() => TrueSheet.present('tab-dropdown-sheet')}
+      <View style={[styles.tabContainer, variantStyle, { backgroundColor }, style]}>
+        <View style={styles.dropdownMenuAnchor}>
+          <MenuView
+            title={t(dropdownMenuTitleKey)}
+            actions={dropdownActions}
+            shouldOpenOnLongPress={false}
+            themeVariant="dark"
+            isAnchoredToRight={false}
+            onPressAction={({ nativeEvent }: { nativeEvent: { event?: string } }) => {
+              const nextTabId = nativeEvent?.event;
+              if (!nextTabId || nextTabId === activeTab) return;
+              onTabPress(nextTabId);
+            }}
           >
-            <Text
-              style={[
-                styles.dropdownText,
-                variant === 'header' ? styles.dropdownTextHeader : styles.dropdownTextDefault,
-                { color: activeTabColor },
-              ]}
-            >
-              {activeTabLabel}
-            </Text>
-            <DownSmallFillIcon size={20} color={Colors.neutral[500]} />
-          </NativePressable>
-
-          {/* View toggle area */}
-          {(reserveViewToggleSpace || (showViewToggle && onViewModeChange)) && (
-            <View style={styles.viewToggleArea}>
-              {showViewToggle && onViewModeChange && (
-                <View style={styles.viewToggleContainer}>
-                  <NativePressable
-                    style={[
-                      styles.viewToggleButton,
-                      viewMode === 'grid' && styles.activeViewToggleButton,
-                    ]}
-                    onPress={() => handleViewModeChange('grid')}
-                  >
-                    <GridViewIcon
-                      color={viewMode === 'grid' ? activeTabColor : inactiveTabColor}
-                      size={20}
-                    />
-                  </NativePressable>
-                  <NativePressable
-                    style={[
-                      styles.viewToggleButton,
-                      viewMode === 'list' && styles.activeViewToggleButton,
-                    ]}
-                    onPress={() => handleViewModeChange('list')}
-                  >
-                    <ListViewIcon
-                      color={viewMode === 'list' ? activeTabColor : inactiveTabColor}
-                      size={20}
-                    />
-                  </NativePressable>
-                </View>
-              )}
-            </View>
-          )}
+            <NativePressable style={styles.dropdownButton}>
+              <Text
+                style={[
+                  styles.dropdownText,
+                  variant === 'header' ? styles.dropdownTextHeader : styles.dropdownTextDefault,
+                  { color: activeTabColor },
+                ]}
+              >
+                {activeTabLabel}
+              </Text>
+              <DownSmallFillIcon size={20} color={inactiveTabColor} />
+            </NativePressable>
+          </MenuView>
         </View>
 
-        <VerticalListSheet
-          name="tab-dropdown-sheet"
-          onDismiss={() => {}}
-          title={t('tabs.sortBy')}
-          showCancelButton={true}
-          cancelButtonText={t('common.cancel')}
-        >
-          <View style={styles.optionsContainer}>
-            {tabs.map(tab => (
-              <VerticalListButton
-                key={tab.id}
-                label={tab.label}
-                onPress={() => {
-                  if (activeTab !== tab.id) onTabPress(tab.id);
-                  TrueSheet.dismiss('tab-dropdown-sheet');
-                }}
-                disabled={tab.disabled}
-              />
-            ))}
+        {/* View toggle area */}
+        {(reserveViewToggleSpace || (showViewToggle && onViewModeChange)) && (
+          <View style={styles.viewToggleArea}>
+            {showViewToggle && onViewModeChange && (
+              <View style={styles.viewToggleContainer}>
+                <NativePressable
+                  style={[
+                    styles.viewToggleButton,
+                    viewMode === 'grid' && styles.activeViewToggleButton,
+                  ]}
+                  onPress={() => handleViewModeChange('grid')}
+                >
+                  <GridViewIcon
+                    color={viewMode === 'grid' ? activeTabColor : inactiveTabColor}
+                    size={20}
+                  />
+                </NativePressable>
+                <NativePressable
+                  style={[
+                    styles.viewToggleButton,
+                    viewMode === 'list' && styles.activeViewToggleButton,
+                  ]}
+                  onPress={() => handleViewModeChange('list')}
+                >
+                  <ListViewIcon
+                    color={viewMode === 'list' ? activeTabColor : inactiveTabColor}
+                    size={20}
+                  />
+                </NativePressable>
+              </View>
+            )}
           </View>
-        </VerticalListSheet>
-      </>
+        )}
+      </View>
     );
   }
 
@@ -297,8 +295,11 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     minHeight: 36,
   },
+  dropdownMenuAnchor: {
+    alignSelf: 'flex-start',
+  },
   dropdownText: {
-    fontFamily: Typography.families.semibold,
+    fontFamily: Typography.families.bold,
   },
   dropdownTextHeader: {
     fontSize: Typography.sizes.title,
@@ -317,9 +318,6 @@ const styles = StyleSheet.create({
   tabTextComments: {
     fontFamily: Typography.families.black,
     fontSize: Typography.sizes.subtitle,
-  },
-  optionsContainer: {
-    paddingHorizontal: 0,
   },
 });
 

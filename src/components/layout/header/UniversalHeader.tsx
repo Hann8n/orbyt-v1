@@ -16,8 +16,6 @@ import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import Animated, {
   type SharedValue,
   useAnimatedStyle,
-  interpolate,
-  Extrapolate,
   useSharedValue,
   withTiming,
   interpolateColor,
@@ -39,6 +37,13 @@ import { Typography, FontFamily } from '../../../utils/components/typography';
 import { splitHandleSuffix } from '../../../utils/formatting/handles';
 import { TextWithLinks } from '../../ui/TextWithLinks';
 import type { RichTextFacet } from '../../../utils/types/richText';
+import { useDetailHeaderScrollPresentation } from './useDetailHeaderScrollPresentation';
+
+/**
+ * Large header implementation for feeds and detail screens. ProfileHeader and ChannelHeader are
+ * the primary “detail” entry points; scroll-linked dim/fade for those flows lives in
+ * `useDetailHeaderScrollPresentation`.
+ */
 
 const GRADIENT_SHIM = require('../../../assets/embed-video-gradient-shim.png');
 const TABBED_HEADER_BACKGROUND_CUTOFF = 20;
@@ -132,7 +137,11 @@ export interface UniversalHeaderProps {
   contentPosition?: 'top' | 'center' | 'bottom' | 'space-between';
   hasTabs?: boolean; // Indicates if tab navigation is present (for hashtag feeds)
   reserveTopForOverlayButtons?: boolean; // Adds extra top padding so overlay buttons don't overlap content
-  contentScrollProgress?: SharedValue<number>; // Optional shared value to fade header content (text/avatar/tabs) on scroll
+  contentScrollProgress?: SharedValue<number>;
+  /** See `useDetailHeaderScrollPresentation`. */
+  contentScrollFadeDisabled?: boolean;
+  /** See `useDetailHeaderScrollPresentation`. */
+  scrollLinkedDimDisabled?: boolean;
 }
 
 // Memoized action button component for performance
@@ -922,6 +931,8 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
   hasTabs = false,
   reserveTopForOverlayButtons = false,
   contentScrollProgress,
+  contentScrollFadeDisabled = false,
+  scrollLinkedDimDisabled = false,
 }) => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -1115,13 +1126,11 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
     return baseStyles;
   }, [contentPosition, contentStyle]);
 
-  // Optional animated style to fade out header content (text/image/tabs) with shared scroll progress
-  const contentAnimatedStyle = useAnimatedStyle(() => {
-    const progress = contentScrollProgress?.value ?? 0;
-    // More gradual fade: keep fully visible until 60% scroll, then fade to 0 over remaining 40%
-    const opacity = interpolate(progress, [0, 0.6, 1], [1, 1, 0.02], Extrapolate.CLAMP);
-    return { opacity };
-  }, [contentScrollProgress]);
+  const { contentAnimatedStyle, scrollDimAnimatedStyle } = useDetailHeaderScrollPresentation({
+    contentScrollProgress,
+    contentScrollFadeDisabled,
+    scrollLinkedDimDisabled,
+  });
 
   const headerContent = (
     <>
@@ -1207,6 +1216,7 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
         </View>
       )}
       {headerContent}
+      <Animated.View style={[scrollDimAnimatedStyle, { zIndex: 3 }]} collapsable={false} />
     </Animated.View>
   );
 };

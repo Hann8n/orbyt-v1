@@ -232,20 +232,6 @@ ${deviceInfo}`
           onPress: () => router.navigate('/settings/following'),
           linkType: 'internal',
         },
-        {
-          id: 'saves',
-          label: t('settings.yourSaves'),
-          icon: 'bookmark',
-          onPress: () => router.navigate('/settings/saves'),
-          linkType: 'internal',
-        },
-        {
-          id: 'watched',
-          label: t('settings.watchedVideos'),
-          icon: 'eye',
-          onPress: () => router.navigate('/settings/watched'),
-          linkType: 'internal',
-        },
       ],
     },
     {
