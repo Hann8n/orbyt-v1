@@ -402,15 +402,24 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       return () => subscription?.remove();
     }, [handleOrientationChange]);
 
-    // Calculate viewport dimensions for list view (always compute to avoid conditional hooks)
-    const headerHeightForTabs = ListComponent ? FEED_VIEW_CONSTANTS.HEADER_HEIGHT_TABS : 0;
-    const emptyComponentHeight = Math.max(0, viewableAreaHeight - headerHeightForTabs);
-
     // Snapping configuration - memoized to prevent recalculation (always compute)
     // FlashList's ItemSeparatorComponent adds spacing between items, so we need to account for it
     // Total spacing from start of one item to start of next = cardHeight + LIST_ITEM_GAP
     const itemSpacing = cardHeight + FEED_VIEW_CONSTANTS.LIST_ITEM_GAP;
     const hasHeader = Boolean(headerComponent);
+
+    /**
+     * Empty state sits below ListHeaderComponent (profile/channel header). Height must be the
+     * visible list viewport minus that header — not full window height — or the slot is oversized
+     * and copy is positioned using the wrong vertical scale.
+     */
+    const listViewportForEmpty = feedLayoutHeight > 0 ? feedLayoutHeight : viewableAreaHeight;
+    const emptyStateHeaderDeduction = ListComponent
+      ? FEED_VIEW_CONSTANTS.HEADER_HEIGHT_TABS
+      : hasHeader && headerHeight > 0
+        ? headerHeight
+        : 0;
+    const emptyComponentHeight = Math.max(0, listViewportForEmpty - emptyStateHeaderDeduction);
 
     /**
      * iOS tab + liquid glass (original list): offset snaps by top safe area on non-compact devices

@@ -188,15 +188,29 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
 
     // Header height for FeedScrollContext (only when header present and using FlashList)
     const [headerHeight, setHeaderHeight] = useState(0);
+    /** List region height from layout — matches ListFeedView feedLayoutHeight for empty-state sizing. */
+    const [gridLayoutHeight, setGridLayoutHeight] = useState(0);
     const hasHeader = Boolean(headerComponent);
     const useScrollTracking = !ListComponent && hasHeader;
     // Use actual safe area insets and bottom nav bar height
     const insets = useSafeAreaInsets();
     const viewportDimensions = getViewportDimensions(isModal, isHeaderFeed, insets);
     const viewableAreaHeight = viewportDimensions.height;
-    // When used inside a custom container, subtract header height
-    const headerHeightForTabs = ListComponent ? FEED_VIEW_CONSTANTS.HEADER_HEIGHT_TABS : 0;
-    const emptyComponentHeight = Math.max(0, viewableAreaHeight - headerHeightForTabs);
+
+    const handleGridContainerLayout = useCallback((e: LayoutChangeEvent) => {
+      const h = Math.round(e.nativeEvent.layout.height);
+      if (h > 0) {
+        setGridLayoutHeight(prev => (prev === h ? prev : h));
+      }
+    }, []);
+
+    const listViewportForEmpty = gridLayoutHeight > 0 ? gridLayoutHeight : viewableAreaHeight;
+    const emptyStateHeaderDeduction = ListComponent
+      ? FEED_VIEW_CONSTANTS.HEADER_HEIGHT_TABS
+      : hasHeader && headerHeight > 0
+        ? headerHeight
+        : 0;
+    const emptyComponentHeight = Math.max(0, listViewportForEmpty - emptyStateHeaderDeduction);
     const scrollOffsetYSV = useSharedValue(0);
     const fadeDist = useScrollTracking ? SCROLL_CONSTANTS.HEADER_FADE_DISTANCE : 0;
     const contentScrollProgressSV = useDerivedValue(() => {
@@ -423,7 +437,10 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
     );
 
     return (
-      <View style={[styles.container, { backgroundColor: effectiveBackgroundColor }]}>
+      <View
+        style={[styles.container, { backgroundColor: effectiveBackgroundColor }]}
+        onLayout={handleGridContainerLayout}
+      >
         {useScrollTracking && feedScrollValue ? (
           <FeedScrollProvider value={feedScrollValue}>{listContent}</FeedScrollProvider>
         ) : (

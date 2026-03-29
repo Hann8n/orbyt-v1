@@ -20,6 +20,7 @@ import { formatHandle } from '../../../utils/formatting/handles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 // Use require for static RN asset to avoid TS module typing issues
 const TVStaticGif = require('../../../assets/tv_static.gif');
+const EMPTY_FEED_TV_SIZE = 70;
 
 interface EmptyFeedProps {
   secondaryColor?: string;
@@ -199,11 +200,11 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
     <SuggestedUserItem item={item} followMutation={followMutation} t={t} />
   );
 
-  // Calculate top offset so content appears around the top third of the available area
+  // Offset from top so icon + copy sit near the middle of the upper third (H/6 ≈ center of [0, H/3]).
   const containerHeight = viewableAreaHeight
     ? viewableAreaHeight
     : Dimensions.get('window').height - insets.top - insets.bottom;
-  const topThirdOffset = Math.max(0, Math.floor(containerHeight / 5));
+  const topThirdOffset = Math.max(0, Math.floor(containerHeight / 6));
 
   // Show suggested users for following feed with no videos
   if (shouldShowSuggestions && suggestedUsers.length > 0) {
@@ -257,7 +258,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
       <View style={[styles.contentContainer, { paddingTop: topThirdOffset }]}>
         <View style={styles.iconContainer}>
           {type === 'no-videos' ? (
-            <AnimatedTVStatic size={80} />
+            <AnimatedTVStatic size={EMPTY_FEED_TV_SIZE} />
           ) : (
             <Icon name={icon} size={72} color={isNoVideos ? Colors.neutral[200] : iconColor} />
           )}
@@ -318,8 +319,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   animatedGif: {
-    width: 80,
-    height: 80,
+    width: EMPTY_FEED_TV_SIZE,
+    height: EMPTY_FEED_TV_SIZE,
   },
   // Matching ExploreScreen styles exactly
   sectionHeader: {
