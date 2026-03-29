@@ -314,8 +314,9 @@ const VideoCard = memo(
       const { height: screenHeight } = Dimensions.get('window');
       const cardHeight = height ?? screenHeight;
 
-      // HLS-only source creation
-      const videoSource = createVideoSource(videoUrl);
+      // HLS-only source creation. Keep source object stable between renders
+      // so the player doesn't repeatedly reload the same stream.
+      const videoSource = useMemo(() => createVideoSource(videoUrl), [videoUrl]);
 
       // Create expo-video player with setup callback
       // expo-video's useVideoPlayer automatically handles player lifecycle and cleanup
@@ -601,7 +602,8 @@ const VideoCard = memo(
         }, [videoState.userPaused, togglePlayback])
       );
 
-      // On error: retry once with a fresh HLS URL (re-fetch post then replace source)
+      // On error: retry once with a fresh HLS URL (re-fetch post then replace source).
+      // If the URL is unchanged, append a cache-buster to bypass stale CDN edge state.
       const errorRetriedForUriRef = useRef<string | null>(null);
 
       // Handle player status changes for callbacks only
@@ -618,7 +620,12 @@ const VideoCard = memo(
             ErrorHandler.safeAsync(async () => {
               const post = await AtprotoService.getPost(postView.uri);
               const vv = post ? getVideoView(post.embed) : null;
-              const newSource = createVideoSource(vv?.playlist ?? null);
+              const latestUrl = vv?.playlist ?? null;
+              const retryUrl =
+                latestUrl && latestUrl === videoUrl
+                  ? `${latestUrl}${latestUrl.includes('?') ? '&' : '?'}orbyt_retry=${Date.now()}`
+                  : latestUrl;
+              const newSource = createVideoSource(retryUrl);
               if (!newSource) {
                 errorRetriedForUriRef.current = null; // allow retry if getPost returns no source
                 return;
@@ -628,7 +635,7 @@ const VideoCard = memo(
           }
           onVideoStatus?.(postView.uri, 'error');
         }
-      }, [playerStatus, player, postView.uri, onVideoStatus]);
+      }, [playerStatus, player, postView.uri, onVideoStatus, videoUrl]);
 
       // Control playback based on shouldPlayVideo
       // Drive play/pause directly from our own visibility logic, per Expo docs:
