@@ -1,8 +1,0 @@
-<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-  <!-- First triangle (left vertical line and top curve of B) -->
-  <polygon points="62.5,25 62.5,130 153.43,77.5" fill="white" fill-opacity="0.5"/>
-  
-  <!-- Second triangle (left vertical line and bottom curve of B) -->
-  <polygon points="62.5,77.5 62.5,182.5 153.43,130" fill="white" fill-opacity="0.5"/>
-  
-</svg>
