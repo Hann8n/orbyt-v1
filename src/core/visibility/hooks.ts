@@ -3,8 +3,6 @@ import { AppState, type ViewabilityConfig, type ViewToken } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { useVisibilityCoreStore } from './visibilityStore';
 import { useSetOverlayVisibility } from '../../context/FeedIndicatorContext';
-import type { FeedListItem } from '../../types';
-
 const VIEWABILITY_CONFIG: ViewabilityConfig = {
   itemVisiblePercentThreshold: 50,
   minimumViewTime: 0,
@@ -66,10 +64,7 @@ export function useFeedVisibility({
 
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-      const token = viewableItems.find(t => {
-        const it = t.item as FeedListItem & { endCard?: boolean };
-        return t.isViewable && !(it && 'endCard' in it && it.endCard);
-      });
+      const token = viewableItems.find(t => t.isViewable);
       const nextIndex = typeof token?.index === 'number' ? token.index : -1;
 
       const lastViewable = useVisibilityCoreStore.getState().lastViewableIndexByFeed[feedKey] ?? -1;

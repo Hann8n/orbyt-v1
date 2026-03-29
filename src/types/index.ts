@@ -137,19 +137,10 @@ export type FeedOption =
   | string;
 
 /**
- * Minimal type for end-of-feed card (only used in ListFeedView)
+ * Feed list items for FlashList / feed views
  * @usage src/components/features/feed/ListFeedView.tsx
  */
-export interface EndCardItem {
-  post: { uri: 'end-card'; cid: 'end-card' };
-  endCard: true;
-}
-
-/**
- * Feed list item type - uses native ExtendedFeedViewPost directly, union with EndCardItem for end-of-feed indicator
- * @usage src/components/features/feed/ListFeedView.tsx
- */
-export type FeedListItem = ExtendedFeedViewPost | EndCardItem;
+export type FeedListItem = ExtendedFeedViewPost;
 
 // ============================================================================
 // Error Types

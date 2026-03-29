@@ -143,6 +143,11 @@ interface GridFeedViewProps {
   contentScrollProgressOutput?: SharedValue<number>;
   /** Same inset as list `snapToOffsets` so the first grid row aligns with list’s first video snap. */
   snapTopInset: number;
+  /**
+   * When true (iOS + native tabs, non–liquid-glass), bottom inset is applied by `RNScreensSafeAreaView`
+   * in ListFeedView — same as list `contentContainerStyle` padding. Must not also pad by tab height here.
+   */
+  useNativeTabBottomSafeArea?: boolean;
 }
 
 const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
@@ -165,10 +170,12 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
       ListComponent,
       contentScrollProgressOutput,
       snapTopInset,
+      useNativeTabBottomSafeArea = false,
     },
     ref
   ) => {
     const effectiveBackgroundColor = backgroundColor || Colors.black;
+    // Cells stay black; list chrome is transparent so flex-grown space below the grid shows the parent (theme) instead of black.
 
     // Determine if this is a header feed (profile, channel, etc.)
     const isHeaderFeed = getIsHeaderFeed(feedOption, headerComponent);
@@ -374,10 +381,14 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
         contentContainerStyle={[
           styles.listContent,
           {
-            paddingBottom: viewportDimensions.bottomNavBarHeight,
-            backgroundColor: effectiveBackgroundColor,
+            backgroundColor: Colors.transparent,
+            // Match ListFeedView: wrapper applies bottom safe area when useNativeTabBottomSafeArea; else `insets.bottom` only.
+            ...(feed.length > 0 && {
+              paddingBottom: useNativeTabBottomSafeArea ? 0 : insets.bottom,
+            }),
           },
         ]}
+        style={{ backgroundColor: Colors.transparent }}
         showsVerticalScrollIndicator={false}
         contentInsetAdjustmentBehavior="never"
         bounces={true}

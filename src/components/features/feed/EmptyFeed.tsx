@@ -19,13 +19,12 @@ import { useAvatarProfileRing } from '../../../services/colors';
 import { formatHandle } from '../../../utils/formatting/handles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 // Use require for static RN asset to avoid TS module typing issues
-const LivingGif = require('../../../assets/livinga18.gif');
 const TVStaticGif = require('../../../assets/tv_static.gif');
 
 interface EmptyFeedProps {
   secondaryColor?: string;
   message?: string;
-  type?: 'no-connection' | 'no-videos' | 'error' | 'no-following' | 'end';
+  type?: 'no-connection' | 'no-videos' | 'error' | 'no-following';
   profileColors?: {
     backgroundColor: string;
     textColor: string;
@@ -131,10 +130,9 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
   const [suggestedUsers, setSuggestedUsers] = useState<SuggestedUser[]>([]);
   const insets = useSafeAreaInsets();
 
-  // Fetch suggested users when this is a following feed with no videos or as end card
+  // Fetch suggested users when this is a following feed with no videos
   const isFollowingFeed = feedOption === 'following';
   const isYourMixFeed = feedOption === 'your-mix';
-  // Show suggestions for following feed (both empty state and end card)
   const shouldShowSuggestions = isFollowingFeed;
 
   // Simple unified empty message for no-videos state
@@ -180,24 +178,6 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
           icon: 'user-plus',
           defaultMessage: t('feed.followAccountsToSeePosts'),
         };
-      case 'end': {
-        const endMessage = () => {
-          switch (feedOption) {
-            case 'following':
-              return '';
-            case 'your-mix':
-              return t('feed.thatsAllFromChannels');
-            case 'discover':
-              return t('feed.exploreMoreContent');
-            default:
-              return t('feed.thatsAllForNow');
-          }
-        };
-        return {
-          icon: 'video-movies-vintage-tv-1',
-          defaultMessage: endMessage(),
-        };
-      }
       case 'no-videos':
       default:
         return {
@@ -223,8 +203,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
   const containerHeight = viewableAreaHeight
     ? viewableAreaHeight
     : Dimensions.get('window').height - insets.top - insets.bottom;
-  const shouldOffsetTop = type !== 'end';
-  const topThirdOffset = shouldOffsetTop ? Math.max(0, Math.floor(containerHeight / 5)) : 0;
+  const topThirdOffset = Math.max(0, Math.floor(containerHeight / 5));
 
   // Show suggested users for following feed with no videos
   if (shouldShowSuggestions && suggestedUsers.length > 0) {
@@ -265,76 +244,6 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
       </View>
     );
   }
-  // Special case: end of feed card
-  if (type === 'end') {
-    // For following feed, show the "follow accounts" UI with suggestions
-    if (feedOption === 'following' && shouldShowSuggestions && suggestedUsers.length > 0) {
-      return (
-        <View
-          style={[
-            styles.emptyContainer,
-            styles.justifyCenter,
-            { backgroundColor: Colors.black },
-            viewableAreaHeight ? { height: viewableAreaHeight } : {},
-          ]}
-        >
-          <View style={[styles.contentContainer, styles.centerContent, styles.justifyCenter]}>
-            <View style={styles.iconContainer}>
-              <Image
-                source={TVStaticGif}
-                style={styles.animatedGif}
-                contentFit="contain"
-                cachePolicy="memory-disk"
-                priority="low"
-                allowDownscaling={true}
-              />
-            </View>
-            {displayMessage && (
-              <Text style={[styles.emptyText, { color: Colors.neutral[50] }]}>
-                {displayMessage}
-              </Text>
-            )}
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>{t('feed.suggestedAccounts')}</Text>
-            </View>
-            <FlatList
-              data={suggestedUsers}
-              renderItem={renderSuggestedUser}
-              keyExtractor={suggestedUserKeyExtractor}
-              scrollEnabled={false}
-              style={styles.suggestionsList}
-              contentContainerStyle={styles.listContainer}
-            />
-          </View>
-        </View>
-      );
-    }
-
-    return (
-      <View
-        style={[
-          styles.emptyContainer,
-          styles.justifyCenter,
-          { backgroundColor: Colors.black },
-          viewableAreaHeight ? { height: viewableAreaHeight } : {},
-        ]}
-      >
-        <View style={[styles.contentContainer, styles.justifyCenter]}>
-          <View style={styles.iconContainer}>
-            <Image
-              source={LivingGif}
-              style={styles.animatedGif}
-              contentFit="contain"
-              cachePolicy="memory-disk"
-              priority="low"
-              allowDownscaling={true}
-            />
-          </View>
-          <Text style={[styles.emptyText, { color: Colors.neutral[50] }]}>{displayMessage}</Text>
-        </View>
-      </View>
-    );
-  }
 
   const isNoVideos = type === 'no-videos';
   return (
@@ -345,7 +254,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
         viewableAreaHeight ? { height: viewableAreaHeight } : undefined,
       ]}
     >
-      <View style={[styles.contentContainer, shouldOffsetTop && { paddingTop: topThirdOffset }]}>
+      <View style={[styles.contentContainer, { paddingTop: topThirdOffset }]}>
         <View style={styles.iconContainer}>
           {type === 'no-videos' ? (
             <AnimatedTVStatic size={80} />

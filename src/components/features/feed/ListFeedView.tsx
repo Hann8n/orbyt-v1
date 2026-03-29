@@ -2,9 +2,11 @@ import {
   useState,
   useEffect,
   useCallback,
+  useMemo,
   useRef,
   forwardRef,
   useImperativeHandle,
+  memo,
   type ComponentType,
   type Ref,
 } from 'react';
@@ -24,7 +26,9 @@ import Animated, {
   useDerivedValue,
   useAnimatedScrollHandler,
   useAnimatedReaction,
+  useAnimatedStyle,
   runOnJS,
+  type SharedValue,
 } from 'react-native-reanimated';
 import {
   FlashList,
@@ -42,6 +46,7 @@ import {
   getEmptyFeedType,
   getFeedItemKey,
   getProfileColors,
+  getEndOfFeedOverscrollTextColor,
   isHeaderFeed as getIsHeaderFeed,
 } from './feedViewShared';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
@@ -50,9 +55,10 @@ import { getViewportDimensions } from '../../../utils/device/screen';
 import { getVideoCardHeight } from '../../../utils/video/helpers';
 import { Colors } from '../../../theme';
 import { APP_CONSTANTS, SCROLL_CONSTANTS, QUERY_CONSTANTS } from '../../../utils/constants';
-import type { FeedListItem, EndCardItem, ListFeedViewProps, ListFeedViewRef } from '../../../types';
-import type { ExtendedFeedViewPost } from '../../../services/api/types';
+import type { FeedListItem, ListFeedViewProps, ListFeedViewRef } from '../../../types';
 import { useFeedVisibility, useVisibilityCoreStore } from '../../../core/visibility';
+import { useTranslation } from 'react-i18next';
+import { TypographyText } from '@/utils/components/typography';
 
 // Reanimated-wrapped FlashList so useAnimatedScrollHandler runs on UI thread. Do not use @shopify/flash-list's AnimatedFlashList (it uses RN Animated).
 const AnimatedFlashList = Animated.createAnimatedComponent(FlashList) as ComponentType<
@@ -70,10 +76,7 @@ const ItemSeparatorComponent = ({
 // FlashList recycling helpers: these are pure/dep-free so React Compiler
 // can handle memoization without us manually wrapping them in useCallback.
 const getListItemType = (item: FeedListItem): string => {
-  if ('endCard' in item && item.endCard) return 'endCard';
-  // item is ExtendedFeedViewPost here
-  const feedItem = item as ExtendedFeedViewPost;
-  if (feedItem.post?.embed?.$type === 'app.bsky.embed.record#view') return 'video';
+  if (item.post?.embed?.$type === 'app.bsky.embed.record#view') return 'video';
   return 'default';
 };
 
@@ -128,6 +131,51 @@ const ListEmptyComponent = ({
 
 ListEmptyComponent.displayName = 'ListEmptyComponent';
 
+/** Pixels of bottom rubber-band past the last item to reach full opacity (iOS overscroll). */
+const END_OF_FEED_OVERSCROLL_FULL_OPACITY_PX = 56;
+
+/** Lift hint from screen bottom so it sits in the band under the last card (above tab / home indicator). */
+const END_OF_FEED_HINT_BOTTOM_OFFSET = 40;
+
+type EndOfFeedOverscrollHintProps = {
+  opacitySV: SharedValue<number>;
+  bottomInset: number;
+  labelColor: string;
+};
+
+/** End-of-feed copy under the scroll layer; opacity from bottom overscroll only. */
+const EndOfFeedOverscrollHint = memo(
+  ({ opacitySV, bottomInset, labelColor }: EndOfFeedOverscrollHintProps) => {
+    const { t } = useTranslation();
+    const animatedStyle = useAnimatedStyle(() => ({
+      opacity: opacitySV.value,
+    }));
+    return (
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.endOfFeedOverscrollHint,
+          { paddingBottom: bottomInset, bottom: END_OF_FEED_HINT_BOTTOM_OFFSET },
+          animatedStyle,
+        ]}
+      >
+        <View style={styles.endOfFeedOverscrollInner}>
+          <TypographyText
+            variant="body"
+            weight="medium"
+            color={labelColor}
+            align="center"
+            style={styles.endOfFeedLabel}
+          >
+            {t('feed.thatsAllForNow')}
+          </TypographyText>
+        </View>
+      </Animated.View>
+    );
+  }
+);
+EndOfFeedOverscrollHint.displayName = 'EndOfFeedOverscrollHint';
+
 const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
   (
     {
@@ -173,6 +221,8 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     // Scroll offset for percent-visible: written in useAnimatedScrollHandler (UI thread), read in VideoCard worklet.
     const scrollOffsetYSV = useSharedValue(0);
+    const endOfFeedEnabledSV = useSharedValue(0);
+    const endOfFeedOverscrollOpacitySV = useSharedValue(0);
 
     // setScrollBasedBlocking via useAnimatedReaction so we only cross the JS bridge when the boolean flips (same pattern as ProfileHeader).
     useAnimatedReaction(
@@ -239,28 +289,31 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     // Memoize profileColors to prevent recreation on every render
     const profileColors = getProfileColors(backgroundColor, secondaryColor);
 
-    // List data with end card (feed is already filtered by FeedRenderer: reported + shouldFilter)
-    // FlashList's maintainVisibleContentPosition will handle position preservation
-    // Reanimated layout animations handle smooth removal of reported posts and addition of new items
-    const listData = (() => {
-      const shouldAppendEndCard =
-        !isLoading && !isError && !isFetchingNextPage && !hasNextPage && feed.length > 0;
+    const endOfFeedHintColor = useMemo(
+      () => getEndOfFeedOverscrollTextColor(profileColors?.textColor, secondaryColor),
+      [profileColors?.textColor, secondaryColor]
+    );
 
-      if (shouldAppendEndCard) {
-        return [
-          ...feed,
-          {
-            post: { uri: 'end-card', cid: 'end-card' },
-            endCard: true,
-          } as EndCardItem,
-        ];
-      }
-
-      return feed;
-    })();
+    // Feed is already filtered by FeedRenderer: reported + shouldFilter.
+    // FlashList's maintainVisibleContentPosition will handle position preservation.
+    const listData = feed;
 
     // Error handling
     const effectiveIsError = forceError || isError;
+
+    const showEndOfFeed =
+      feed.length > 0 &&
+      !effectiveIsError &&
+      !isLoading &&
+      hasNextPage === false &&
+      !isFetchingNextPage;
+
+    useEffect(() => {
+      endOfFeedEnabledSV.value = showEndOfFeed ? 1 : 0;
+      if (!showEndOfFeed) {
+        endOfFeedOverscrollOpacitySV.value = 0;
+      }
+    }, [showEndOfFeed]);
 
     // Render item function - optimized to reduce dependencies and rerenders
     // VideoItem derives isVisible from store (activeFeedKey+lastViewableIndexByFeed) and allowPlayback from isVisible&&canPlay
@@ -271,19 +324,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           return <View style={[styles.measurementPlaceholder, { height: cardHeight }]} />;
         }
 
-        // Type guard for endCard
-        if ('endCard' in item && item.endCard) {
-          return (
-            <EmptyFeed
-              type="end"
-              secondaryColor={secondaryColor}
-              viewableAreaHeight={cardHeight}
-              feedOption={feedOption}
-            />
-          );
-        }
-
-        const feedItem = item as ExtendedFeedViewPost;
+        const feedItem = item;
         const isAppleZoomTarget =
           isModal &&
           Boolean(zoomTargetPostUri) &&
@@ -310,7 +351,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         feedKey,
         canPlay,
         isModal,
-        secondaryColor,
         isHeaderBlockingPlayback,
         zoomTargetPostUri,
       ]
@@ -439,6 +479,19 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
             contentScrollProgressOutput.value = Math.max(0, Math.min(1, y / fadeDist));
           }
+
+          const contentH = event.contentSize?.height ?? 0;
+          const layoutH = event.layoutMeasurement?.height ?? 0;
+          const maxY = Math.max(0, contentH - layoutH);
+          const overscrollPastEnd = y - maxY;
+          if (endOfFeedEnabledSV.value < 0.5) {
+            endOfFeedOverscrollOpacitySV.value = 0;
+          } else {
+            endOfFeedOverscrollOpacitySV.value = Math.max(
+              0,
+              Math.min(1, overscrollPastEnd / END_OF_FEED_OVERSCROLL_FULL_OPACITY_PX)
+            );
+          }
         },
       },
       [contentScrollProgressOutput, fadeDist]
@@ -454,14 +507,13 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       contentScrollProgressSV,
     };
 
-    // Grid view rendering (feed from FeedRenderer has no endCard; filter satisfies GridFeedView type)
+    /** Tab / home indicator clearance for the overscroll hint sitting above the bottom edge. */
+    const endOfFeedHintBottomInset = useNativeTabBottomSafeArea ? 12 : Math.max(12, insets.bottom);
+
     if (viewMode === 'grid') {
-      const gridFeed = feed.filter(
-        (item): item is ExtendedFeedViewPost => !('endCard' in item && item.endCard)
-      );
       const grid = (
         <GridFeedView
-          feed={gridFeed}
+          feed={feed}
           headerComponent={headerComponent}
           isModal={isModal}
           backgroundColor={backgroundColor}
@@ -478,6 +530,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           ListComponent={ListComponent}
           contentScrollProgressOutput={contentScrollProgressOutput}
           snapTopInset={snapTopInset}
+          useNativeTabBottomSafeArea={useNativeTabBottomSafeArea}
         />
       );
       const tabSafeBg = backgroundColor || Colors.black;
@@ -499,76 +552,87 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         style={[styles.container, { backgroundColor: backgroundColor || Colors.black }]}
         onLayout={handleFeedLayout}
       >
-        <AnimatedFlashList
-          ref={flashListRef}
-          data={listData}
-          renderItem={renderItem}
-          keyExtractor={listKeyExtractor}
-          getItemType={getListItemType}
-          initialScrollIndex={initialScrollIndex}
-          ListHeaderComponent={
-            headerComponent ? (
-              <View onLayout={handleHeaderLayout}>
-                {headerComponent}
-                <View
-                  style={{
-                    height: FEED_VIEW_CONSTANTS.LIST_ITEM_GAP,
-                    backgroundColor: Colors.black,
-                  }}
-                />
-              </View>
-            ) : null
-          }
-          // Snapping configuration
+        {showEndOfFeed ? (
+          <EndOfFeedOverscrollHint
+            opacitySV={endOfFeedOverscrollOpacitySV}
+            bottomInset={endOfFeedHintBottomInset}
+            labelColor={endOfFeedHintColor}
+          />
+        ) : null}
+        <View style={styles.flashListWrapper}>
+          <AnimatedFlashList
+            ref={flashListRef}
+            style={styles.flashList}
+            data={listData}
+            renderItem={renderItem}
+            keyExtractor={listKeyExtractor}
+            getItemType={getListItemType}
+            initialScrollIndex={initialScrollIndex}
+            ListHeaderComponent={
+              headerComponent ? (
+                <View onLayout={handleHeaderLayout}>
+                  {headerComponent}
+                  <View
+                    style={{
+                      height: FEED_VIEW_CONSTANTS.LIST_ITEM_GAP,
+                      backgroundColor: Colors.black,
+                    }}
+                  />
+                </View>
+              ) : null
+            }
+            // Snapping configuration
 
-          pagingEnabled={false}
-          snapToOffsets={snapToOffsets ?? undefined}
-          snapToInterval={undefined}
-          snapToAlignment={undefined}
-          decelerationRate={
-            Platform.OS === 'ios'
-              ? SCROLL_CONSTANTS.DECELERATION_RATE_IOS
-              : SCROLL_CONSTANTS.DECELERATION_RATE_ANDROID
-          }
-          // Disable fast scrolling to prevent scrolling past multiple items
-          disableIntervalMomentum={true}
-          scrollEventThrottle={APP_CONSTANTS.SCROLL_THROTTLE}
-          onScroll={scrollHandler}
-          onEndReached={onLoadMore}
-          onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
-          onViewableItemsChanged={onViewableItemsChanged}
-          viewabilityConfig={viewabilityConfig}
-          // Scroll behavior
-          scrollEnabled={true}
-          showsVerticalScrollIndicator={false}
-          bounces={true}
-          directionalLockEnabled={true}
-          // Prevent horizontal interference
-          alwaysBounceVertical={false}
-          alwaysBounceHorizontal={false}
-          // Empty state components - extracted to memoized component
-          ListEmptyComponent={
-            <ListEmptyComponent
-              isLoading={isLoading}
-              effectiveIsError={effectiveIsError}
-              feedOption={feedOption}
-              secondaryColor={secondaryColor}
-              profileColors={profileColors}
-              isHeaderFeed={isHeaderFeed}
-              emptyComponentHeight={emptyComponentHeight}
-              onRetry={onRetry}
-            />
-          }
-          // Item separator for black gaps between cards
-          ItemSeparatorComponent={ItemSeparatorComponent}
-          contentContainerStyle={[
-            styles.contentContainer,
-            feed.length > 0 && {
-              // iOS tab: bottom inset is on RNScreensSafeAreaView wrapper. Android native tabs wrap content per Expo docs.
-              paddingBottom: useNativeTabBottomSafeArea ? 0 : insets.bottom,
-            },
-          ]}
-        />
+            pagingEnabled={false}
+            snapToOffsets={snapToOffsets ?? undefined}
+            snapToInterval={undefined}
+            snapToAlignment={undefined}
+            decelerationRate={
+              Platform.OS === 'ios'
+                ? SCROLL_CONSTANTS.DECELERATION_RATE_IOS
+                : SCROLL_CONSTANTS.DECELERATION_RATE_ANDROID
+            }
+            // Disable fast scrolling to prevent scrolling past multiple items
+            disableIntervalMomentum={true}
+            scrollEventThrottle={APP_CONSTANTS.SCROLL_THROTTLE}
+            onScroll={scrollHandler}
+            onEndReached={onLoadMore}
+            onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
+            onViewableItemsChanged={onViewableItemsChanged}
+            viewabilityConfig={viewabilityConfig}
+            // Scroll behavior
+            scrollEnabled={true}
+            showsVerticalScrollIndicator={false}
+            bounces={true}
+            directionalLockEnabled={true}
+            // Allow bottom rubber-band when at end of feed so the overscroll hint can appear (not in scroll content).
+            alwaysBounceVertical={showEndOfFeed}
+            alwaysBounceHorizontal={false}
+            // Empty state components - extracted to memoized component
+            ListEmptyComponent={
+              <ListEmptyComponent
+                isLoading={isLoading}
+                effectiveIsError={effectiveIsError}
+                feedOption={feedOption}
+                secondaryColor={secondaryColor}
+                profileColors={profileColors}
+                isHeaderFeed={isHeaderFeed}
+                emptyComponentHeight={emptyComponentHeight}
+                onRetry={onRetry}
+              />
+            }
+            // Item separator for black gaps between cards
+            ItemSeparatorComponent={ItemSeparatorComponent}
+            ListFooterComponent={feed.length > 0 ? <View style={styles.itemSeparator} /> : null}
+            contentContainerStyle={[
+              styles.contentContainer,
+              feed.length > 0 && {
+                // iOS tab: bottom inset is on RNScreensSafeAreaView wrapper. Android native tabs wrap content per Expo docs.
+                paddingBottom: useNativeTabBottomSafeArea ? 0 : insets.bottom,
+              },
+            ]}
+          />
+        </View>
       </View>
     );
 
@@ -603,7 +667,16 @@ const styles = StyleSheet.create({
     minHeight: Dimensions.get('window').height,
   },
   contentContainer: {
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.transparent,
+  },
+  flashListWrapper: {
+    flex: 1,
+    zIndex: 1,
+    ...(Platform.OS === 'android' ? { elevation: 6 } : {}),
+  },
+  flashList: {
+    flex: 1,
+    backgroundColor: Colors.transparent,
   },
   itemSeparator: {
     height: FEED_VIEW_CONSTANTS.LIST_ITEM_GAP,
@@ -611,6 +684,24 @@ const styles = StyleSheet.create({
   },
   measurementPlaceholder: {
     // Used by FlashList for measurement passes
+  },
+  endOfFeedOverscrollHint: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    zIndex: 0,
+    paddingTop: 16,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    backgroundColor: Colors.transparent,
+  },
+  endOfFeedOverscrollInner: {
+    alignItems: 'center',
+    maxWidth: 280,
+  },
+  endOfFeedLabel: {
+    letterSpacing: 0.5,
   },
 });
 
