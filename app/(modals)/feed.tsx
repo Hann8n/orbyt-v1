@@ -1,156 +1,17 @@
-import { useMemo, useCallback, memo } from 'react';
-import { useTranslation } from 'react-i18next';
-import { View, StyleSheet, Text } from 'react-native';
-import { NativePressable } from '@/components/ui/NativePressable';
+import { useEffect } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
-import FeedRenderer from '@/components/features/feed/FeedRenderer';
-
-import { BackArrowIcon } from '@/components/ui/Icon';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors } from '@/theme';
-import { Typography } from '@/utils/components/typography';
-import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '@/hooks';
-
-const FeedScreen = memo(() => {
-  const { t } = useTranslation();
+/** Old `/(modals)/feed` URLs → tab stack (native tab bar insets). */
+export default function LegacyFeedModalRedirect() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
-  useVisibilityRouteTracker('feed-modal');
-  const isRouteFocused = useVisibilityRouteIsActive('feed-modal');
 
-  // Memoized route params extraction - includes initial index for scrolling to selected video
-  const routeParams = useMemo(() => {
-    const initialIndex = params.initialIndex ? parseInt(params.initialIndex as string, 10) : null;
-    const validInitialIndex = initialIndex !== null && !isNaN(initialIndex) ? initialIndex : null;
-    const initialPostUri =
-      typeof params.initialPostUri === 'string' && params.initialPostUri.length > 0
-        ? params.initialPostUri
-        : null;
-    return {
-      feed: params.feed as string,
-      feedOption: params.feedOption as string,
-      userDid: params.userDid as string,
-      backgroundColor: params.backgroundColor as string,
-      secondaryColor: params.secondaryColor as string,
-      hasNextPage: params.hasNextPage === 'true',
-      isFetchingNextPage: params.isFetchingNextPage === 'true',
-      initialIndex: validInitialIndex,
-      initialPostUri,
-    };
-  }, [params]);
+  useEffect(() => {
+    router.replace({
+      pathname: '/(tabs)/explore/feed',
+      params: params as Record<string, string>,
+    });
+  }, [router, params]);
 
-  const modalQueryOptions = useMemo(
-    () => ({
-      staleTime: 5 * 60 * 1000,
-      refetchOnMount: false,
-      refetchOnWindowFocus: false,
-    }),
-    []
-  );
-
-  // Check if this is a hashtag feed
-  const isHashtagFeed = routeParams.feedOption?.startsWith('hashtag:');
-  const hashtagWithSort = isHashtagFeed ? routeParams.feedOption.substring(8) : null;
-  // Extract hashtag without sort suffix (e.g., "art:top" -> "art")
-  const hashtag = hashtagWithSort ? hashtagWithSort.split(':')[0] : null;
-  // Check if this is an orbyt channel hashtag (don't show header for orbyt channels)
-  // orbyt channel hashtags start with "orbyt-channel-" or "orbyt-"
-  const isOrbytChannelHashtag = hashtag
-    ? hashtag.startsWith('orbyt-channel-') || hashtag.startsWith('orbyt-')
-    : false;
-
-  // Memoized close handler
-  const handleClose = useCallback(() => {
-    router.dismiss();
-  }, [router]);
-
-  return (
-    <View style={styles.container}>
-      <NativePressable
-        accessibilityRole="button"
-        accessibilityLabel={t('common.back')}
-        onPress={() => {
-          handleClose();
-        }}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        style={[
-          styles.backButton,
-          { top: (typeof insets?.top === 'number' ? insets.top : 0) + 15 },
-        ]}
-      >
-        <BackArrowIcon size={30} color={Colors.neutral[50]} />
-      </NativePressable>
-
-      <FeedRenderer
-        feedOption={routeParams.feedOption}
-        userDid={routeParams.userDid}
-        backgroundColor={routeParams.backgroundColor || Colors.black}
-        secondaryColor={routeParams.secondaryColor}
-        isVisible={isRouteFocused} // Only play when this modal has focus
-        isModal={true} // Mark as modal for optimized behavior
-        hasNextPage={routeParams.hasNextPage}
-        isFetchingNextPage={routeParams.isFetchingNextPage}
-        queryOptions={modalQueryOptions}
-        targetScrollIndex={routeParams.initialIndex}
-        zoomTargetPostUri={routeParams.initialPostUri}
-      />
-
-      {/* Show hashtag header if this is a hashtag feed (but not for orbyt channels) */}
-      {isHashtagFeed && hashtag && !isOrbytChannelHashtag && (
-        <View
-          style={[
-            styles.hashtagHeaderContainer,
-            { top: (typeof insets?.top === 'number' ? insets.top : 0) + 15 },
-          ]}
-        >
-          <Text style={styles.hashtagSymbol}>#</Text>
-          <Text style={styles.hashtagText}>{hashtag}</Text>
-        </View>
-      )}
-    </View>
-  );
-});
-
-FeedScreen.displayName = 'FeedScreen';
-
-// Optimized StyleSheet creation outside component
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.black,
-  },
-
-  backButton: {
-    position: 'absolute',
-    left: 20,
-    zIndex: 20, // Higher z-index to ensure it's above hashtag header
-  },
-
-  hashtagHeaderContainer: {
-    position: 'absolute',
-    left: 70, // Account for back button area (20 + 30 icon + 20 spacing)
-    right: 70, // Match left padding to center the text
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 100, // High z-index to ensure it's above feed content
-  },
-  hashtagSymbol: {
-    fontSize: 18,
-    color: Colors.neutral[50],
-    fontFamily: Typography.families.medium,
-    includeFontPadding: false,
-    lineHeight: 30, // Match icon height for vertical alignment
-  },
-  hashtagText: {
-    fontSize: 18,
-    color: Colors.neutral[50],
-    fontFamily: Typography.families.bold,
-    includeFontPadding: false,
-    lineHeight: 30, // Match icon height for vertical alignment
-  },
-});
-
-export default FeedScreen;
+  return null;
+}

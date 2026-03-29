@@ -22,7 +22,7 @@ export type ChatEmbedRecordForVideo = {
   likeCount?: number;
 };
 
-/** Seeds `feedService` with a single post for `/(modals)/full-height-video`. Returns whether seeding ran. */
+/** Seeds `feedService` with a single post for tab-stack full-height video (`/(tabs)/…/full-height-video`). */
 export function seedChatEmbedVideoFeed(record: ChatEmbedRecordForVideo): boolean {
   const uri = record.uri ?? '';
   if (!uri || !record.author) return false;
@@ -54,7 +54,7 @@ export function seedChatEmbedVideoFeed(record: ChatEmbedRecordForVideo): boolean
 }
 
 /**
- * Seeds `feedService` for `/(modals)/full-height-video` from a `PostView` (e.g. notifications).
+ * Seeds `feedService` for full-height video routes from a `PostView` (e.g. notifications).
  * Synchronous; mirrors `AtprotoFeedService.applyModerationBatch` for a single item.
  * Returns false when the post should not be shown (`contentList.filter`).
  */

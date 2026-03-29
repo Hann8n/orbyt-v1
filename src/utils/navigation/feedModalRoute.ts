@@ -1,7 +1,9 @@
 import type { Href } from 'expo-router';
 
+import type { FeedModalTabSegment } from '@/utils/navigation/feedModalTabSegment';
+
 /**
- * Serializable search params for `/(modals)/feed`.
+ * Serializable search params for tab-stack feed routes (`/(tabs)/{tab}/feed`).
  * Values are strings because Expo Router passes route params as strings.
  */
 export type FeedModalSearchParams = {
@@ -16,21 +18,27 @@ export type FeedModalSearchParams = {
   feed?: string;
 };
 
-/** Params for `/(modals)/full-height-video` (single post, seeded via `feedService.setCurrentFeed`). */
+/** Params for full-height video routes (`/(tabs)/{tab}/full-height-video`, seeded via `feedService.setCurrentFeed`). */
 export type FullHeightVideoModalParams = {
   postUri: string;
 };
 
-/** Typed `href` for the full-height video modal route. */
-export function buildFullHeightVideoHref(params: FullHeightVideoModalParams): Href {
+/** Typed `href` for the full-height video screen (push on current tab’s stack when possible). */
+export function buildFullHeightVideoHref(
+  params: FullHeightVideoModalParams,
+  tab: FeedModalTabSegment = 'explore'
+): Href {
   return {
-    pathname: '/(modals)/full-height-video',
+    pathname: `/(tabs)/${tab}/full-height-video`,
     params: { postUri: params.postUri },
   };
 }
 
-/** Typed `href` for the feed modal route. */
-export function buildFeedModalHref(params: FeedModalSearchParams): Href {
+/** Typed `href` for the feed stack screen inside a tab. */
+export function buildFeedModalHref(
+  params: FeedModalSearchParams,
+  tab: FeedModalTabSegment = 'explore'
+): Href {
   const routeParams: Record<string, string> = {
     feedOption: params.feedOption,
     backgroundColor: params.backgroundColor,
@@ -51,7 +59,7 @@ export function buildFeedModalHref(params: FeedModalSearchParams): Href {
     routeParams.feed = params.feed;
   }
   return {
-    pathname: '/(modals)/feed',
+    pathname: `/(tabs)/${tab}/feed`,
     params: routeParams,
   };
 }

@@ -45,6 +45,8 @@ export interface ListFeedViewProps {
   viewMode?: ViewMode;
   onViewModeChange?: (mode: ViewMode) => void;
   isModal?: boolean;
+  /** When set, overrides tab-bar layout (use true for transparent modals that show the native tab bar). */
+  hasTabBar?: boolean;
   isProfileFeed?: boolean;
   /** When provided, list writes its scroll progress (0..1) here on the UI thread. Used by overlay fade. */
   contentScrollProgressOutput?: SharedValue<number>;

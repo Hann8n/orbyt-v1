@@ -23,6 +23,8 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
+import { buildFeedModalHref } from '@/utils/navigation/feedModalRoute';
+import { useFeedModalTabSegment } from '@/utils/navigation/feedModalTabSegment';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { AtUri } from '@atproto/api';
@@ -462,6 +464,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
   }, [isLiked, likeCount, likeUri, uri, cid, animateHeart, isLiking, updateCommentInteraction, t]);
 
   const navigation = useRouter();
+  const feedModalTab = useFeedModalTabSegment();
   const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
 
   // Modal-aware navigation to AuthorProfile (works inside FeedModal or regular screens)
@@ -520,16 +523,20 @@ const CommentItem: React.FC<CommentItemProps> = ({
 
   const handleHashtagPress = useCallback(
     (hashtag: string) => {
-      navigation.navigate({
-        pathname: '/(modals)/feed',
-        params: {
-          feedOption: `hashtag:${hashtag}`,
-          backgroundColor: Colors.black,
-          searchQuery: `#${hashtag}`,
-        },
-      });
+      navigation.navigate(
+        buildFeedModalHref(
+          {
+            feedOption: `hashtag:${hashtag}`,
+            backgroundColor: Colors.black,
+            secondaryColor: Colors.neutral[50],
+            initialIndex: '0',
+            initialPostUri: '',
+          },
+          feedModalTab
+        )
+      );
     },
-    [navigation]
+    [navigation, feedModalTab]
   );
 
   const handleAuthorAvatarPress = useCallback(() => {

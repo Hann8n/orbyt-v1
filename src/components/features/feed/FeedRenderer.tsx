@@ -19,6 +19,7 @@ import {
   buildFeedModalHref,
   type GridFeedModalZoomConfig,
 } from '@/utils/navigation/feedModalRoute';
+import { useFeedModalTabSegment } from '@/utils/navigation/feedModalTabSegment';
 import { FollowProvider } from '../../../context/FollowContext';
 import type {
   ExtendedFeedViewPost as FeedItem,
@@ -42,6 +43,8 @@ interface FeedRendererProps {
   // Feed state
   isVisible?: boolean;
   isModal?: boolean;
+  /** When set, overrides list tab-bar inset behavior (e.g. transparent modal over tabs). */
+  hasTabBar?: boolean;
 
   // View mode
   viewMode?: ViewMode;
@@ -93,6 +96,7 @@ const FeedRenderer = forwardRef<ListFeedViewRef, FeedRendererProps>(
       onViewModeChange,
       contentScrollProgressOutput,
       isModal = false,
+      hasTabBar: hasTabBarProp,
       // Search props
       hasNextPage: searchHasNextPage,
       isFetchingNextPage: searchIsFetchingNextPage,
@@ -189,7 +193,9 @@ const FeedRenderer = forwardRef<ListFeedViewRef, FeedRendererProps>(
       }
     };
 
-    // Grid item press: open feed modal at tapped index (profile/channel); ListFeedView uses this when provided
+    const feedModalTab = useFeedModalTabSegment();
+
+    // Grid item press: open feed stack screen at tapped index (profile/channel); ListFeedView uses this when provided
     const router = useRouter();
     const handleGridItemPress = (index: number) => {
       if (index >= 0 && index < feed.length) {
@@ -197,16 +203,19 @@ const FeedRenderer = forwardRef<ListFeedViewRef, FeedRendererProps>(
         const item = feed[index] as FeedItem;
         const initialPostUri = item?.post?.uri ?? '';
         router.navigate(
-          buildFeedModalHref({
-            feedOption: feedOption || 'search',
-            userDid,
-            backgroundColor: backgroundColor || Colors.black,
-            secondaryColor: secondaryColor || Colors.neutral[50],
-            initialIndex: index.toString(),
-            initialPostUri,
-            hasNextPage: hasNextPage ? 'true' : 'false',
-            isFetchingNextPage: isFetchingNextPage ? 'true' : 'false',
-          })
+          buildFeedModalHref(
+            {
+              feedOption: feedOption || 'search',
+              userDid,
+              backgroundColor: backgroundColor || Colors.black,
+              secondaryColor: secondaryColor || Colors.neutral[50],
+              initialIndex: index.toString(),
+              initialPostUri,
+              hasNextPage: hasNextPage ? 'true' : 'false',
+              isFetchingNextPage: isFetchingNextPage ? 'true' : 'false',
+            },
+            feedModalTab
+          )
         );
       }
     };
@@ -224,16 +233,19 @@ const FeedRenderer = forwardRef<ListFeedViewRef, FeedRendererProps>(
         buildHref: (index: number) => {
           const item = feed[index] as FeedItem | undefined;
           const initialPostUri = item?.post?.uri ?? '';
-          return buildFeedModalHref({
-            feedOption: feedOption || 'search',
-            userDid,
-            backgroundColor: backgroundColor || Colors.black,
-            secondaryColor: secondaryColor || Colors.neutral[50],
-            initialIndex: String(index),
-            initialPostUri,
-            hasNextPage: hasNextPage ? 'true' : 'false',
-            isFetchingNextPage: isFetchingNextPage ? 'true' : 'false',
-          });
+          return buildFeedModalHref(
+            {
+              feedOption: feedOption || 'search',
+              userDid,
+              backgroundColor: backgroundColor || Colors.black,
+              secondaryColor: secondaryColor || Colors.neutral[50],
+              initialIndex: String(index),
+              initialPostUri,
+              hasNextPage: hasNextPage ? 'true' : 'false',
+              isFetchingNextPage: isFetchingNextPage ? 'true' : 'false',
+            },
+            feedModalTab
+          );
         },
       };
     }, [
@@ -245,6 +257,7 @@ const FeedRenderer = forwardRef<ListFeedViewRef, FeedRendererProps>(
       secondaryColor,
       hasNextPage,
       isFetchingNextPage,
+      feedModalTab,
     ]);
 
     // Single ref: ListFeedView chooses list vs grid internally and forwards scrollToTop
@@ -275,6 +288,7 @@ const FeedRenderer = forwardRef<ListFeedViewRef, FeedRendererProps>(
       onViewModeChange,
       contentScrollProgressOutput,
       isModal,
+      hasTabBar: hasTabBarProp,
       ListComponent,
       onGridItemPress: handleGridItemPress,
       gridFeedModalZoomConfig,

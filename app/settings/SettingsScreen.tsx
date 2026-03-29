@@ -438,6 +438,9 @@ ${deviceInfo}`
   const listData: ListRow[] = [];
 
   settingsSections.forEach(section => {
+    if (section.items.length === 0) {
+      return;
+    }
     // Only add section title if it's not empty
     if (section.title) {
       listData.push({

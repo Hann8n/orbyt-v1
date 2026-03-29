@@ -508,7 +508,7 @@ const NotificationItem = React.memo<NotificationItemProps>(
           currentUser?.did ?? undefined
         );
         if (!ok) return;
-        navigation.navigate(buildFullHeightVideoHref({ postUri }));
+        navigation.navigate(buildFullHeightVideoHref({ postUri }, 'activity'));
       },
       [navigation, item.uri, currentUser?.did]
     );
@@ -631,7 +631,7 @@ const NotificationItem = React.memo<NotificationItemProps>(
 
     const videoPostUri = postData?.uri?.trim() ?? '';
     const fullHeightVideoHref = videoPostUri
-      ? buildFullHeightVideoHref({ postUri: videoPostUri })
+      ? buildFullHeightVideoHref({ postUri: videoPostUri }, 'activity')
       : null;
 
     const handleThumbnailApplePress = useCallback(

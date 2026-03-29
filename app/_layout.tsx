@@ -193,16 +193,16 @@ function RootNavigator() {
             name="(modals)/feed"
             options={{
               headerShown: false,
-              presentation: 'fullScreenModal',
-              gestureEnabled: true,
+              animation: 'fade',
+              gestureEnabled: false,
             }}
           />
           <Stack.Screen
             name="(modals)/full-height-video"
             options={{
               headerShown: false,
-              presentation: 'fullScreenModal',
-              gestureEnabled: true,
+              animation: 'fade',
+              gestureEnabled: false,
             }}
           />
           {/* Protected create route - require email confirmation if email exists */}

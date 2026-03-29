@@ -147,6 +147,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       viewMode,
       onViewModeChange: _onViewModeChange,
       isModal = false,
+      hasTabBar: hasTabBarProp,
       contentScrollProgressOutput,
       forceError = false,
       ListComponent,
@@ -197,7 +198,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     const { screenWidth, screenHeight, isCompact } = useDeviceLayout();
     const isHeaderFeed = getIsHeaderFeed(feedOption, headerComponent);
-    const hasTabBar = !isModal;
+    const hasTabBar = hasTabBarProp ?? !isModal;
     /** Pre–SafeAreaView list snap: `getViewportDimensions` + `getVideoCardHeight` (peek under glass tab bar). */
     const useLegacyIosTabLiquidGlassLayout = hasTabBar && isIosLiquidGlassAvailable;
     /**
@@ -215,7 +216,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         return feedLayoutHeight > 0 ? Math.min(feedLayoutHeight, maxViewport) : maxViewport;
       }
       if (useLegacyIosTabLiquidGlassLayout) {
-        return getViewportDimensions(isModal, isHeaderFeed, insets).height;
+        return getViewportDimensions(!hasTabBar, isHeaderFeed, insets).height;
       }
       if (feedLayoutHeight > 0) {
         return feedLayoutHeight;

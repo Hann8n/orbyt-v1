@@ -71,7 +71,7 @@ import AtprotoService from '@/services/api/AtprotoService';
 import { useUserStore } from '@/stores/userStore';
 import type { MessageView } from '@/services/api/types';
 import { openPostInBluesky } from '@/utils/links/bluesky';
-import { buildFullHeightVideoHref } from '@/utils/navigation/feedModalRoute';
+import { buildFeedModalHref, buildFullHeightVideoHref } from '@/utils/navigation/feedModalRoute';
 import { seedChatEmbedVideoFeed } from '@/utils/chat/seedChatEmbedVideoFeed';
 import { getVideoView } from '@/utils/video/helpers';
 import type { PostView } from '@/services/api/types';
@@ -229,14 +229,18 @@ function ChatMessageRichText({
       if (part.kind === 'hashtag' && part.identifier) {
         const clean = part.identifier.replace(/^#/, '').trim();
         if (!clean) return;
-        router.navigate({
-          pathname: '/(modals)/feed',
-          params: {
-            feedOption: `hashtag:${clean}`,
-            backgroundColor: Colors.black,
-            searchQuery: `#${clean}`,
-          },
-        });
+        router.navigate(
+          buildFeedModalHref(
+            {
+              feedOption: `hashtag:${clean}`,
+              backgroundColor: Colors.black,
+              secondaryColor: Colors.neutral[50],
+              initialIndex: '0',
+              initialPostUri: '',
+            },
+            'explore'
+          )
+        );
         return;
       }
 
@@ -952,7 +956,7 @@ function ChatEmbeddedPost({
   const videoMeta = getVideoViewFromRecordEmbeds(record.embeds);
   const isVideo = !!videoMeta;
 
-  // Video embed: 9:16 card → `/(modals)/full-height-video` via Link (seed feed on press; iOS: Link.AppleZoom)
+  // Video embed: 9:16 card → `/(tabs)/…/full-height-video` via Link (seed feed on press; iOS: Link.AppleZoom)
   if (isVideo) {
     const thumbnailUrl = videoMeta!.thumbnail;
     const videoHeight = CHAT_EMBED_VIDEO_WIDTH / CHAT_EMBED_VIDEO_ASPECT;

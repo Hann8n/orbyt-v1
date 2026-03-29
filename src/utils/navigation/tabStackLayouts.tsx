@@ -17,6 +17,8 @@ export function HomeTabStackLayout() {
   return (
     <Stack screenOptions={tabStackScreenOptions}>
       <Stack.Screen name="index" />
+      <Stack.Screen name="feed" />
+      <Stack.Screen name="full-height-video" />
       <Stack.Screen
         name="user/[did]"
         dangerouslySingular={(_name, params) =>
@@ -62,6 +64,8 @@ export function ProfileTabStackLayout() {
   return (
     <Stack screenOptions={tabStackScreenOptions}>
       <Stack.Screen name="index" />
+      <Stack.Screen name="feed" />
+      <Stack.Screen name="full-height-video" />
       <Stack.Screen
         name="[did]"
         dangerouslySingular={(_name, params) =>

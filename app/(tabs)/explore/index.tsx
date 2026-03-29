@@ -41,6 +41,7 @@ import Reanimated, {
 import AtprotoService from '@/services/api/AtprotoService';
 
 import { useRouter } from 'expo-router';
+import { buildFeedModalHref } from '@/utils/navigation/feedModalRoute';
 import ProfileService, { useFollowMutation, prefetchProfile } from '@/services/data/ProfileService';
 import type { ProfileViewWithOrbyt } from '@/services/api/types';
 import ChannelService from '@/services/data/ChannelService';
@@ -2041,20 +2042,20 @@ const ExploreScreen: React.FC = () => {
                               feedService.setCurrentFeed(formattedFeed);
                               const index = formattedFeed.findIndex(v => v.post.uri === videoUri);
                               const finalIndex = index >= 0 ? index : 0;
-                              router.navigate({
-                                pathname: '/(modals)/feed',
-                                params: {
-                                  initialIndex: finalIndex,
-                                  initialUri: videoUri,
-                                  feedOption: 'search',
-                                  userDid: undefined,
-                                  backgroundColor: 'transparent',
-                                  secondaryColor: Colors.neutral[50],
-                                  searchQuery: '',
-                                  hasNextPage: 'false',
-                                  isFetchingNextPage: 'false',
-                                },
-                              });
+                              router.navigate(
+                                buildFeedModalHref(
+                                  {
+                                    initialIndex: String(finalIndex),
+                                    initialPostUri: videoUri,
+                                    feedOption: 'search',
+                                    backgroundColor: 'transparent',
+                                    secondaryColor: Colors.neutral[50],
+                                    hasNextPage: 'false',
+                                    isFetchingNextPage: 'false',
+                                  },
+                                  'explore'
+                                )
+                              );
                             }
                           }}
                         >

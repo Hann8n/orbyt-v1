@@ -29,6 +29,8 @@ import Icon, { BackArrowIcon, MoreFillIcon, STROKE_WIDTH_THICK } from '../../ui/
 import { NativePressable } from '../../ui/NativePressable';
 import { OutlinkIcon, GermDmIcon } from '../../ui/Icon';
 import { useRouter } from 'expo-router';
+import { buildFeedModalHref } from '@/utils/navigation/feedModalRoute';
+import { useFeedModalTabSegment } from '@/utils/navigation/feedModalTabSegment';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { hexToRGBA, blendColors } from '../../../utils/formatting/colors';
 import { Avatar } from '../../ui/UI';
@@ -701,6 +703,7 @@ const HeaderContentComponent = memo<{
   customDescription?: React.ReactNode;
 }>(({ content, textColor, backgroundColor, customDescription }) => {
   const router = useRouter();
+  const feedModalTab = useFeedModalTabSegment();
   const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
 
   const navigateToAuthorProfile = useCallback(
@@ -715,16 +718,20 @@ const HeaderContentComponent = memo<{
 
   const navigateToHashtagFeed = useCallback(
     (hashtag: string) => {
-      router.navigate({
-        pathname: '/(modals)/feed',
-        params: {
-          feedOption: `hashtag:${hashtag}`,
-          backgroundColor: Colors.black,
-          searchQuery: `#${hashtag}`,
-        },
-      });
+      router.navigate(
+        buildFeedModalHref(
+          {
+            feedOption: `hashtag:${hashtag}`,
+            backgroundColor: Colors.black,
+            secondaryColor: Colors.neutral[50],
+            initialIndex: '0',
+            initialPostUri: '',
+          },
+          feedModalTab
+        )
+      );
     },
-    [router]
+    [router, feedModalTab]
   );
 
   // Don't render empty content

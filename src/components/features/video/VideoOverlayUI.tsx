@@ -26,6 +26,8 @@ import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
 import { VerificationBadge, BotBadge } from '../badging';
 import { useGlobalShareSheet, useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 import { useRouter } from 'expo-router';
+import { buildFeedModalHref } from '@/utils/navigation/feedModalRoute';
+import { useFeedModalTabSegment } from '@/utils/navigation/feedModalTabSegment';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { useFollowContext } from '../../../context/FollowContext';
 import { useQueryClient } from '@tanstack/react-query';
@@ -106,6 +108,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   const { presentShareSheet } = useGlobalShareSheet();
   const { presentCommentSection } = useGlobalCommentSection();
   const navigation = useRouter();
+  const feedModalTab = useFeedModalTabSegment();
   const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
   const queryClient = useQueryClient();
 
@@ -180,16 +183,20 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   // Navigation to hashtag feed
   const navigateToHashtagFeed = useCallback(
     (hashtag: string) => {
-      navigation.navigate({
-        pathname: '/(modals)/feed',
-        params: {
-          feedOption: `hashtag:${hashtag}`,
-          backgroundColor: Colors.black,
-          searchQuery: `#${hashtag}`,
-        },
-      });
+      navigation.navigate(
+        buildFeedModalHref(
+          {
+            feedOption: `hashtag:${hashtag}`,
+            backgroundColor: Colors.black,
+            secondaryColor: Colors.neutral[50],
+            initialIndex: '0',
+            initialPostUri: '',
+          },
+          feedModalTab
+        )
+      );
     },
-    [navigation]
+    [navigation, feedModalTab]
   );
 
   // Consolidated handle extraction helper
