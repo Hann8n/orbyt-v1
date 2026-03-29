@@ -28,7 +28,6 @@ export { default as HeaderBanner } from './HeaderBanner';
 export { default as ListScreen } from './ListScreen';
 export { default as LoginSheet } from './LoginSheet';
 export { default as SignUpSheet } from './SignUpSheet';
-export { default as SessionDiagnosticsTool } from './SessionDiagnosticsTool';
 export { default as BlurredBackground } from './BlurredBackground';
 export { OptionsButton } from './OptionsButton';
 export { ErrorBoundary } from './ErrorBoundary';
