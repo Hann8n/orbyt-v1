@@ -1,5 +1,5 @@
 import ImageColors, { ImageColorsResult } from 'react-native-image-colors';
-import { APP_CONSTANTS } from '../constants';
+import { InteractionManager } from 'react-native';
 import { Colors } from '../../theme';
 
 /**
@@ -475,57 +475,54 @@ export async function batchExtractColorsFromImages(imageUrls: string[]): Promise
 
   return new Promise(resolve => {
     // Defer batch color extraction until after interactions complete
-    requestIdleCallback(
-      async () => {
-        try {
-          // Process images in smaller batches to avoid overwhelming the system
-          const batchSize = 3;
-          const results: Array<{
-            backgroundColor: string;
-            foregroundColor: string;
-            textColor: string;
-            accentColor: string;
-            statusBarStyle: 'light' | 'dark';
-          }> = [];
+    InteractionManager.runAfterInteractions(async () => {
+      try {
+        // Process images in smaller batches to avoid overwhelming the system
+        const batchSize = 3;
+        const results: Array<{
+          backgroundColor: string;
+          foregroundColor: string;
+          textColor: string;
+          accentColor: string;
+          statusBarStyle: 'light' | 'dark';
+        }> = [];
 
-          for (let i = 0; i < imageUrls.length; i += batchSize) {
-            const batch = imageUrls.slice(i, i + batchSize);
-            const batchResults = await Promise.allSettled(
-              batch.map(url => extractColorsFromImage(url))
-            );
-
-            // Collect successful results
-            batchResults.forEach(result => {
-              if (result.status === 'fulfilled') {
-                results.push(result.value);
-              } else {
-                // Add fallback color for failed extractions
-                results.push({
-                  backgroundColor: Colors.neutral[900],
-                  foregroundColor: Colors.neutral[50],
-                  textColor: Colors.neutral[50],
-                  accentColor: '#FFFFFF',
-                  statusBarStyle: 'light' as const,
-                });
-              }
-            });
-          }
-
-          resolve(results);
-        } catch (_error) {
-          // Return fallback colors for all images on error
-          resolve(
-            imageUrls.map(() => ({
-              backgroundColor: Colors.neutral[900],
-              foregroundColor: Colors.neutral[50],
-              textColor: Colors.neutral[50],
-              accentColor: '#FFFFFF',
-              statusBarStyle: 'light' as const,
-            }))
+        for (let i = 0; i < imageUrls.length; i += batchSize) {
+          const batch = imageUrls.slice(i, i + batchSize);
+          const batchResults = await Promise.allSettled(
+            batch.map(url => extractColorsFromImage(url))
           );
+
+          // Collect successful results
+          batchResults.forEach(result => {
+            if (result.status === 'fulfilled') {
+              results.push(result.value);
+            } else {
+              // Add fallback color for failed extractions
+              results.push({
+                backgroundColor: Colors.neutral[900],
+                foregroundColor: Colors.neutral[50],
+                textColor: Colors.neutral[50],
+                accentColor: '#FFFFFF',
+                statusBarStyle: 'light' as const,
+              });
+            }
+          });
         }
-      },
-      { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
-    );
+
+        resolve(results);
+      } catch (_error) {
+        // Return fallback colors for all images on error
+        resolve(
+          imageUrls.map(() => ({
+            backgroundColor: Colors.neutral[900],
+            foregroundColor: Colors.neutral[50],
+            textColor: Colors.neutral[50],
+            accentColor: '#FFFFFF',
+            statusBarStyle: 'light' as const,
+          }))
+        );
+      }
+    });
   });
 }

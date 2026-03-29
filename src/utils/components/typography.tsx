@@ -1,27 +1,49 @@
-import { Dimensions } from 'react-native';
+import { Dimensions, PixelRatio } from 'react-native';
 import { classifyDevice } from '@/utils/device/screen';
 import { Colors } from '../../theme';
 
-const { width, height } = Dimensions.get('window');
+/**
+ * Calculate responsive scale factor for typography.
+ * Balances user's system font scale (accessibility) with device dimensions.
+ */
+const getTypographyScale = (): number => {
+  const { width, height } = Dimensions.get('window');
+  const { isTablet, isSmallPhone } = classifyDevice(width, height);
 
-// Guideline base sizes (iPhone 12/13/14 baseline)
-const BASE_WIDTH = 390;
-const BASE_HEIGHT = 844;
+  // Get user's system font scale (respects accessibility settings)
+  const fontScale = PixelRatio.getFontScale();
 
-// Compute a conservative, clamped scale to ensure readability across devices
-const rawScale = Math.min(width / BASE_WIDTH, height / BASE_HEIGHT);
-const aspectRatio = height / width;
-const isTallScreen = aspectRatio > 2.1;
-const { isTablet, isSmallPhone: isSmallScreen } = classifyDevice(width, height);
+  // For small phones, use user's font scale only (no dimension penalty)
+  if (isSmallPhone) {
+    return Math.max(1.0, Math.min(1.3, fontScale));
+  }
 
-const deviceAdjustment = (() => {
-  if (isTablet) return 1.12;
-  if (isSmallScreen) return 0.94;
-  if (isTallScreen) return 1.02;
-  return 1;
-})();
+  // Dimension-based scaling for other devices
+  const BASE_WIDTH = 390;
+  const BASE_HEIGHT = 844;
+  const rawScale = Math.min(width / BASE_WIDTH, height / BASE_HEIGHT);
+  const aspectRatio = height / width;
+  const isTallScreen = aspectRatio > 2.1;
 
-const SCALE = Math.max(0.9, Math.min(1.2, rawScale * deviceAdjustment));
+  // Device type adjustments
+  const deviceAdjustment = (() => {
+    if (isTablet) return 1.12;
+    if (isTallScreen) return 1.02;
+    return 1.0;
+  })();
+
+  // Combine dimension scaling with device adjustment
+  const dimensionScale = rawScale * deviceAdjustment;
+
+  // Final scale: user preference × dimension scale
+  const finalScale = fontScale * dimensionScale;
+
+  // Clamp to reasonable bounds
+  return Math.max(0.95, Math.min(1.25, finalScale));
+};
+
+// Initial scale
+let SCALE = getTypographyScale();
 
 export type FontWeightToken = 'regular' | 'medium' | 'semibold' | 'bold' | 'black' | 'boldItalic';
 
@@ -34,8 +56,13 @@ export const FontFamily: Record<FontWeightToken, string> = {
   boldItalic: 'Figtree-BoldItalic',
 };
 
-// Scale helper
+// Scale helper - uses current SCALE value
 export const fontSizeFor = (base: number): number => Math.round(base * SCALE);
+
+// Update scale dynamically (call when dimensions or font scale changes)
+export const updateTypographyScale = (): void => {
+  SCALE = getTypographyScale();
+};
 
 // Line-height helper with gentle growth at larger sizes
 export const lineHeightFor = (size: number): number => {
@@ -69,17 +96,30 @@ const BASE_SIZES: Record<TextVariant, number> = {
   overline: 10,
 };
 
-export const Typography = {
-  scale: SCALE,
-  sizes: Object.fromEntries(
+// Helper to compute sizes dynamically
+const computeSizes = () =>
+  Object.fromEntries(
     (Object.keys(BASE_SIZES) as TextVariant[]).map(k => [k, fontSizeFor(BASE_SIZES[k])])
-  ) as Record<TextVariant, number>,
-  lineHeights: Object.fromEntries(
+  ) as Record<TextVariant, number>;
+
+const computeLineHeights = () =>
+  Object.fromEntries(
     (Object.keys(BASE_SIZES) as TextVariant[]).map(k => {
       const s = fontSizeFor(BASE_SIZES[k]);
       return [k, lineHeightFor(s)];
     })
-  ) as Record<TextVariant, number>,
+  ) as Record<TextVariant, number>;
+
+export const Typography = {
+  get scale(): number {
+    return SCALE;
+  },
+  get sizes(): Record<TextVariant, number> {
+    return computeSizes();
+  },
+  get lineHeights(): Record<TextVariant, number> {
+    return computeLineHeights();
+  },
   families: FontFamily,
   // Convenience: default weights per variant
   defaultWeight: {
@@ -97,8 +137,27 @@ export const Typography = {
 };
 
 // Optional standardized Text component for consistent usage
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Text as RNText, TextProps as RNTextProps, StyleSheet } from 'react-native';
+
+/**
+ * Hook to subscribe to font scale and dimension changes.
+ * Forces components to re-render when user changes system font size.
+ */
+export const useResponsiveTypography = () => {
+  const [, forceUpdate] = useState(0);
+
+  useEffect(() => {
+    const subscription = Dimensions.addEventListener('change', () => {
+      updateTypographyScale();
+      forceUpdate(prev => prev + 1);
+    });
+
+    return () => subscription?.remove();
+  }, []);
+
+  return Typography;
+};
 
 export interface TypographyTextProps extends RNTextProps {
   variant?: TextVariant;
@@ -116,9 +175,10 @@ export const TypographyText: React.FC<TypographyTextProps> = ({
   children,
   ...rest
 }) => {
-  const resolvedSize = Typography.sizes[variant];
-  const resolvedLineHeight = Typography.lineHeights[variant];
-  const resolvedWeight = weight || Typography.defaultWeight[variant];
+  const typo = useResponsiveTypography();
+  const resolvedSize = typo.sizes[variant];
+  const resolvedLineHeight = typo.lineHeights[variant];
+  const resolvedWeight = weight || typo.defaultWeight[variant];
 
   return (
     <RNText

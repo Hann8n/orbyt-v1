@@ -22,13 +22,13 @@ export function HomeTabStackLayout() {
       <Stack.Screen
         name="user/[did]"
         dangerouslySingular={(_name, params) =>
-          (params?.did as string | undefined) ?? String(Date.now())
+          (params?.did as string | undefined) ?? 'unknown-user'
         }
       />
       <Stack.Screen
         name="channel/[id]"
         dangerouslySingular={(_name, params) =>
-          (params?.id as string | undefined) ?? String(Date.now())
+          (params?.id as string | undefined) ?? 'unknown-channel'
         }
       />
     </Stack>
@@ -46,13 +46,13 @@ export function IndexExploreActivityStackLayout() {
       <Stack.Screen
         name="user/[did]"
         dangerouslySingular={(_name, params) =>
-          (params?.did as string | undefined) ?? String(Date.now())
+          (params?.did as string | undefined) ?? 'unknown-user'
         }
       />
       <Stack.Screen
         name="channel/[id]"
         dangerouslySingular={(_name, params) =>
-          (params?.id as string | undefined) ?? String(Date.now())
+          (params?.id as string | undefined) ?? 'unknown-channel'
         }
       />
     </Stack>
@@ -69,13 +69,13 @@ export function ProfileTabStackLayout() {
       <Stack.Screen
         name="[did]"
         dangerouslySingular={(_name, params) =>
-          (params?.did as string | undefined) ?? String(Date.now())
+          (params?.did as string | undefined) ?? 'unknown-user'
         }
       />
       <Stack.Screen
         name="channel/[id]"
         dangerouslySingular={(_name, params) =>
-          (params?.id as string | undefined) ?? String(Date.now())
+          (params?.id as string | undefined) ?? 'unknown-channel'
         }
       />
     </Stack>

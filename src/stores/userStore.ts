@@ -37,7 +37,7 @@ import {
 import { getProfileColors } from '../utils/formatting/colors';
 import type { ProfileColorScheme } from '../utils/formatting/colors';
 import { APP_CONSTANTS, DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI } from '../utils/constants';
-import { Platform } from 'react-native';
+import { Platform, InteractionManager } from 'react-native';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
 
 // Note: FeedService is no longer needed here - React Query handles all feed caching
@@ -319,19 +319,16 @@ export const isEmailVerificationRequired = (currentUser: UserState['currentUser'
 
 // Helper to defer orbyt profile initialization (non-critical, improves startup performance)
 const deferOrbytProfileInit = (context: string = 'userStore') => {
-  requestIdleCallback(
-    async () => {
-      try {
-        await AtprotoService.initOrbytProfileIfNeeded();
-      } catch (error) {
-        logger.debug(`Failed to initialize orbyt profile (${context})`, {
-          component: 'userStore',
-          error,
-        });
-      }
-    },
-    { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
-  );
+  InteractionManager.runAfterInteractions(async () => {
+    try {
+      await AtprotoService.initOrbytProfileIfNeeded();
+    } catch (error) {
+      logger.debug(`Failed to initialize orbyt profile (${context})`, {
+        component: 'userStore',
+        error,
+      });
+    }
+  });
 };
 
 // Helper to get storage key for boolean flags (scoped by user DID)

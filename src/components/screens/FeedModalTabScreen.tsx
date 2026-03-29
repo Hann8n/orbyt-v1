@@ -1,15 +1,14 @@
 import { useMemo, useCallback, memo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, StyleSheet, Text } from 'react-native';
-import { NativePressable } from '@/components/ui/NativePressable';
+import { View, StyleSheet } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import FeedRenderer from '@/components/features/feed/FeedRenderer';
+import { TabFullScreenBackButton } from '@/components/common/TabFullScreenBackButton';
+import { HashtagHeader } from '@/components/features/feed/HashtagHeader';
 
-import { BackArrowIcon } from '@/components/ui/Icon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/theme';
-import { Typography } from '@/utils/components/typography';
 import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '@/hooks';
 
 /**
@@ -51,31 +50,17 @@ const FeedModalTabScreen = memo(() => {
     []
   );
 
-  const isHashtagFeed = routeParams.feedOption?.startsWith('hashtag:');
-  const hashtagWithSort = isHashtagFeed ? routeParams.feedOption.substring(8) : null;
-  const hashtag = hashtagWithSort ? hashtagWithSort.split(':')[0] : null;
-  const isOrbytChannelHashtag = hashtag
-    ? hashtag.startsWith('orbyt-channel-') || hashtag.startsWith('orbyt-')
-    : false;
-
   const handleClose = useCallback(() => {
     router.back();
   }, [router]);
 
   return (
     <View style={styles.container}>
-      <NativePressable
-        accessibilityRole="button"
-        accessibilityLabel={t('common.back')}
+      <TabFullScreenBackButton
         onPress={handleClose}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        style={[
-          styles.backButton,
-          { top: (typeof insets?.top === 'number' ? insets.top : 0) + 15 },
-        ]}
-      >
-        <BackArrowIcon size={30} color={Colors.neutral[50]} />
-      </NativePressable>
+        insets={insets}
+        accessibilityLabel={t('common.back')}
+      />
 
       <FeedRenderer
         feedOption={routeParams.feedOption}
@@ -92,17 +77,7 @@ const FeedModalTabScreen = memo(() => {
         zoomTargetPostUri={routeParams.initialPostUri}
       />
 
-      {isHashtagFeed && hashtag && !isOrbytChannelHashtag && (
-        <View
-          style={[
-            styles.hashtagHeaderContainer,
-            { top: (typeof insets?.top === 'number' ? insets.top : 0) + 15 },
-          ]}
-        >
-          <Text style={styles.hashtagSymbol}>#</Text>
-          <Text style={styles.hashtagText}>{hashtag}</Text>
-        </View>
-      )}
+      <HashtagHeader feedOption={routeParams.feedOption} insets={insets} />
     </View>
   );
 });
@@ -113,34 +88,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.black,
-  },
-  backButton: {
-    position: 'absolute',
-    left: 20,
-    zIndex: 20,
-  },
-  hashtagHeaderContainer: {
-    position: 'absolute',
-    left: 70,
-    right: 70,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 100,
-  },
-  hashtagSymbol: {
-    fontSize: 18,
-    color: Colors.neutral[50],
-    fontFamily: Typography.families.medium,
-    includeFontPadding: false,
-    lineHeight: 30,
-  },
-  hashtagText: {
-    fontSize: 18,
-    color: Colors.neutral[50],
-    fontFamily: Typography.families.bold,
-    includeFontPadding: false,
-    lineHeight: 30,
   },
 });
 

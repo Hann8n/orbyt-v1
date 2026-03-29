@@ -15,6 +15,7 @@ import { NativePressable } from '@/components/ui/NativePressable';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '../../../theme';
+import { Typography, FontFamily } from '@/utils/components/typography';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import { useOverlayLayout } from '../../../context/OverlayLayoutContext';
 import { HeartFillIcon, ChatFillIcon, RefreshFillIcon, MoreFillIcon } from '../../ui/Icon';
@@ -757,19 +758,19 @@ const styles = StyleSheet.create({
   },
   repostIndicatorText: {
     color: Colors.neutral[200],
-    fontSize: 14,
-    fontFamily: 'Figtree-SemiBold',
+    fontSize: Typography.sizes.bodySmall,
+    fontFamily: FontFamily.semibold,
     marginLeft: 6,
     includeFontPadding: false,
-    lineHeight: 18,
+    lineHeight: Typography.lineHeights.bodySmall,
   },
   repostIndicatorTextTablet: {
     color: Colors.neutral[200],
-    fontSize: 16,
-    fontFamily: 'Figtree-SemiBold',
+    fontSize: Typography.sizes.subtitle,
+    fontFamily: FontFamily.semibold,
     marginLeft: 6,
     includeFontPadding: false,
-    lineHeight: 20,
+    lineHeight: Typography.lineHeights.subtitle,
   },
   repostIndicatorBox: {
     backgroundColor: Colors.transparent,
@@ -787,9 +788,9 @@ const styles = StyleSheet.create({
   },
   descriptionText: {
     color: Colors.neutral[50],
-    fontSize: 17,
-    fontFamily: 'Figtree-Medium',
-    lineHeight: 22,
+    fontSize: Typography.sizes.body,
+    fontFamily: FontFamily.medium,
+    lineHeight: Typography.lineHeights.body,
     textShadowColor: Colors.transparent,
     textShadowRadius: 0,
   },
@@ -824,7 +825,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
     color: Colors.neutral[50],
     opacity: 0.5,
-    fontFamily: 'Figtree-Black',
+    fontFamily: FontFamily.black,
     flexShrink: 0,
   },
   followButtonWrapper: {
@@ -840,8 +841,8 @@ const styles = StyleSheet.create({
     textShadowRadius: 0,
   },
   authorName: {
-    fontSize: 17,
-    fontFamily: 'Figtree-Bold',
+    fontSize: Typography.sizes.body,
+    fontFamily: FontFamily.bold,
     lineHeight: 24,
     includeFontPadding: false,
     flexShrink: 1,
@@ -849,8 +850,8 @@ const styles = StyleSheet.create({
     textShadowRadius: 0,
   },
   authorNameTablet: {
-    fontSize: 18,
-    fontFamily: 'Figtree-SemiBold',
+    fontSize: Typography.sizes.title,
+    fontFamily: FontFamily.semibold,
     lineHeight: 24,
     includeFontPadding: false,
     flexShrink: 1,
@@ -864,18 +865,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
   },
   sourceSlash: {
-    fontFamily: 'Figtree-SemiBold',
+    fontFamily: FontFamily.semibold,
   },
   sourceSlashTablet: {
-    fontFamily: 'Figtree-SemiBold',
+    fontFamily: FontFamily.semibold,
   },
   sourceText: {
-    fontSize: 16,
-    fontFamily: 'Figtree-Bold',
+    fontSize: Typography.sizes.subtitle,
+    fontFamily: FontFamily.bold,
   },
   sourceTextTablet: {
-    fontSize: 16,
-    fontFamily: 'Figtree-Bold',
+    fontSize: Typography.sizes.subtitle,
+    fontFamily: FontFamily.bold,
   },
   actionsContainer: {
     flexDirection: 'column',
@@ -919,8 +920,8 @@ const styles = StyleSheet.create({
   },
   actionText: {
     color: Colors.neutral[50],
-    fontSize: 13,
-    fontFamily: 'Figtree-SemiBold',
+    fontSize: Typography.sizes.caption,
+    fontFamily: FontFamily.semibold,
     marginTop: 1,
     textAlign: 'center',
     width: '100%',
@@ -930,8 +931,8 @@ const styles = StyleSheet.create({
   },
   actionTextTablet: {
     color: Colors.neutral[50],
-    fontSize: 13,
-    fontFamily: 'Figtree-SemiBold',
+    fontSize: Typography.sizes.caption,
+    fontFamily: FontFamily.semibold,
     marginTop: 1,
     textAlign: 'center',
     width: '100%',

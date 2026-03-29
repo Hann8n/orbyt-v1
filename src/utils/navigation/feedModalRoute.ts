@@ -9,8 +9,6 @@ import type { FeedModalTabSegment } from '@/utils/navigation/feedModalTabSegment
 export type FeedModalSearchParams = {
   feedOption: string;
   userDid?: string;
-  backgroundColor: string;
-  secondaryColor: string;
   initialIndex: string;
   initialPostUri: string;
   hasNextPage?: string;
@@ -41,8 +39,6 @@ export function buildFeedModalHref(
 ): Href {
   const routeParams: Record<string, string> = {
     feedOption: params.feedOption,
-    backgroundColor: params.backgroundColor,
-    secondaryColor: params.secondaryColor,
     initialIndex: params.initialIndex,
     initialPostUri: params.initialPostUri,
   };

@@ -46,7 +46,7 @@ import {
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 
 import { Colors } from '@/theme';
-import { Typography } from '@/utils/components/typography';
+import { Typography, FontFamily } from '@/utils/components/typography';
 import { BORDER_RADIUS } from '@/utils/constants';
 import Icon, {
   BackArrowIcon,
@@ -72,8 +72,10 @@ import { useUserStore } from '@/stores/userStore';
 import type { MessageView } from '@/services/api/types';
 import { openPostInBluesky } from '@/utils/links/bluesky';
 import { buildFeedModalHref, buildFullHeightVideoHref } from '@/utils/navigation/feedModalRoute';
+import { useFeedModalTabSegment } from '@/utils/navigation/feedModalTabSegment';
 import { seedChatEmbedVideoFeed } from '@/utils/chat/seedChatEmbedVideoFeed';
 import { getVideoView } from '@/utils/video/helpers';
+import { hexToRGBA } from '@/utils/formatting/colors';
 import type { PostView } from '@/services/api/types';
 import type { RichTextFacet } from '@/utils/types/richText';
 import EmojiPicker from 'react-native-emoji-chooser';
@@ -213,6 +215,7 @@ function ChatMessageRichText({
 }) {
   const router = useRouter();
   const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
+  const currentTab = useFeedModalTabSegment();
   const parts = useMemo(() => formatChatRichTextParts(text, facets), [text, facets]);
 
   const handlePartPress = useCallback(
@@ -233,12 +236,10 @@ function ChatMessageRichText({
           buildFeedModalHref(
             {
               feedOption: `hashtag:${clean}`,
-              backgroundColor: Colors.black,
-              secondaryColor: Colors.neutral[50],
               initialIndex: '0',
               initialPostUri: '',
             },
-            'explore'
+            currentTab
           )
         );
         return;
@@ -251,7 +252,7 @@ function ChatMessageRichText({
         Linking.openURL(url).catch(() => {});
       }
     },
-    [goToProfile, router]
+    [goToProfile, router, currentTab]
   );
 
   return (
@@ -677,8 +678,8 @@ const EMOJI_PICKER_THEME = {
       textInput: {
         color: Colors.neutral[900],
         backgroundColor: Colors.neutral[200],
-        fontFamily: 'Figtree-Regular',
-        fontSize: 16,
+        fontFamily: FontFamily.regular,
+        fontSize: Typography.sizes.subtitle,
         height: 40,
         paddingHorizontal: 12,
         paddingVertical: 8,
@@ -694,8 +695,8 @@ const EMOJI_PICKER_THEME = {
       section: {
         header: {
           color: Colors.neutral[600],
-          fontFamily: 'Figtree-SemiBold',
-          fontSize: 13,
+          fontFamily: FontFamily.semibold,
+          fontSize: Typography.sizes.caption,
         },
       },
     },
@@ -719,8 +720,8 @@ const EMOJI_PICKER_THEME = {
       textInput: {
         color: Colors.neutral[50],
         backgroundColor: Colors.neutral[800],
-        fontFamily: 'Figtree-Regular',
-        fontSize: 16,
+        fontFamily: FontFamily.regular,
+        fontSize: Typography.sizes.subtitle,
         height: 40,
         paddingHorizontal: 12,
         paddingVertical: 8,
@@ -736,8 +737,8 @@ const EMOJI_PICKER_THEME = {
       section: {
         header: {
           color: Colors.neutral[400],
-          fontFamily: 'Figtree-SemiBold',
-          fontSize: 13,
+          fontFamily: FontFamily.semibold,
+          fontSize: Typography.sizes.caption,
         },
       },
     },
@@ -868,8 +869,8 @@ function ReactionPickerSheet({
             placeholder: t('chat.searchEmoji'),
             placeholderTextColor: Colors.neutral[500],
             style: {
-              fontFamily: 'Figtree-Regular',
-              fontSize: 16,
+              fontFamily: FontFamily.regular,
+              fontSize: Typography.sizes.subtitle,
               color: Colors.neutral[50],
               backgroundColor: Colors.neutral[800],
               height: 40,
@@ -1835,7 +1836,7 @@ export default function ChatScreen() {
               {streakCount < 7 ? (
                 <FlameFillIcon size={14} color={Colors.orange[500]} />
               ) : (
-                <FireFillIcon size={14} color="#dc2626" />
+                <FireFillIcon size={14} color={Colors.coral[600]} />
               )}
               <Text
                 style={[
@@ -2052,7 +2053,7 @@ export default function ChatScreen() {
                     <GlassView
                       style={styles.sendButtonGlass}
                       glassEffectStyle="clear"
-                      tintColor="rgba(255, 255, 255, 1)"
+                      tintColor={hexToRGBA(Colors.neutral[50], 1)}
                       isInteractive
                     />
                     <View style={styles.sendButtonContent} pointerEvents="none">
@@ -2067,12 +2068,7 @@ export default function ChatScreen() {
           </View>
         )}
       </KeyboardAvoidingView>
-      <View
-        style={{
-          height: getFooterBottomPadding(insets.bottom),
-          backgroundColor: Colors.black,
-        }}
-      />
+      <View style={[styles.footerSpacer, { height: getFooterBottomPadding(insets.bottom) }]} />
     </View>
   );
 }
@@ -2164,8 +2160,8 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   headerStreakBadgeText: {
-    fontSize: 12,
-    fontFamily: 'Figtree-SemiBold',
+    fontSize: Typography.sizes.caption,
+    fontFamily: FontFamily.semibold,
   },
   headerStreakBadgeTextFlame: {
     color: Colors.orange[500],
@@ -2205,8 +2201,8 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: Colors.neutral[400],
-    fontSize: 16,
-    fontFamily: 'Figtree-Medium',
+    fontSize: Typography.sizes.subtitle,
+    fontFamily: FontFamily.medium,
   },
   messageRow: {
     width: '100%',
@@ -2226,8 +2222,8 @@ const styles = StyleSheet.create({
   },
   dateSeparatorText: {
     color: Colors.neutral[500],
-    fontSize: 13,
-    fontFamily: 'Figtree-Medium',
+    fontSize: Typography.sizes.caption,
+    fontFamily: FontFamily.medium,
   },
   messageRowNewSender: {
     marginTop: 10,
@@ -2273,8 +2269,8 @@ const styles = StyleSheet.create({
   },
   messageText: {
     color: Colors.neutral[50],
-    fontSize: 16,
-    fontFamily: 'Figtree-Regular',
+    fontSize: Typography.sizes.subtitle,
+    fontFamily: FontFamily.regular,
   },
   messageTextMedium: {
     fontFamily: Typography.families.medium,
@@ -2295,8 +2291,8 @@ const styles = StyleSheet.create({
   },
   messageTime: {
     color: Colors.neutral[500],
-    fontSize: 12,
-    fontFamily: 'Figtree-Regular',
+    fontSize: Typography.sizes.caption,
+    fontFamily: FontFamily.regular,
   },
   messageTimeFromMe: {
     color: Colors.neutral[600],
@@ -2332,7 +2328,7 @@ const styles = StyleSheet.create({
   reactionCount: {
     fontSize: 11,
     color: REACTION_CHIP_STYLE.countColor,
-    fontFamily: 'Figtree-Medium',
+    fontFamily: FontFamily.medium,
   },
   reactionCountOnAccent: {
     color: REACTION_CHIP_STYLE.countColorOnColoredBg,
@@ -2362,9 +2358,9 @@ const styles = StyleSheet.create({
     fontSize: 20,
   },
   reactionSheetActiveCount: {
-    fontSize: 12,
+    fontSize: Typography.sizes.caption,
     color: REACTION_CHIP_STYLE.countColor,
-    fontFamily: 'Figtree-Medium',
+    fontFamily: FontFamily.medium,
   },
   reactionSheetActiveCountHighlight: {
     color: REACTION_CHIP_STYLE.countColorMine,
@@ -2374,8 +2370,8 @@ const styles = StyleSheet.create({
   },
   reactionSheetActiveEmpty: {
     color: Colors.neutral[500],
-    fontSize: 14,
-    fontFamily: 'Figtree-Regular',
+    fontSize: Typography.sizes.bodySmall,
+    fontFamily: FontFamily.regular,
   },
   reactionSheetContent: {
     flex: 1,
@@ -2426,8 +2422,8 @@ const styles = StyleSheet.create({
   },
   embedDescription: {
     color: Colors.neutral[400],
-    fontSize: 14,
-    fontFamily: 'Figtree-Regular',
+    fontSize: Typography.sizes.bodySmall,
+    fontFamily: FontFamily.regular,
     lineHeight: 20,
   },
   embedDescriptionFromMe: {
@@ -2439,8 +2435,8 @@ const styles = StyleSheet.create({
   },
   embedUnavailableText: {
     color: Colors.neutral[500],
-    fontSize: 14,
-    fontFamily: 'Figtree-Regular',
+    fontSize: Typography.sizes.bodySmall,
+    fontFamily: FontFamily.regular,
   },
   embedUnavailableTextFromMe: {
     color: Colors.neutral[600],
@@ -2518,5 +2514,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+  },
+  footerSpacer: {
+    backgroundColor: Colors.black,
   },
 });

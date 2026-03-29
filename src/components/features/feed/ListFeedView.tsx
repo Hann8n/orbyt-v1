@@ -268,7 +268,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       ({ item, index, target }: ListRenderItemInfo<FeedListItem>) => {
         // FlashList may call renderItem with target=Measurement for layout; skip heavy work (video, images)
         if (target === RenderTargetOptions.Measurement) {
-          return <View style={{ height: cardHeight }} />;
+          return <View style={[styles.measurementPlaceholder, { height: cardHeight }]} />;
         }
 
         // Type guard for endCard
@@ -608,6 +608,9 @@ const styles = StyleSheet.create({
   itemSeparator: {
     height: FEED_VIEW_CONSTANTS.LIST_ITEM_GAP,
     backgroundColor: Colors.black,
+  },
+  measurementPlaceholder: {
+    // Used by FlashList for measurement passes
   },
 });
 
