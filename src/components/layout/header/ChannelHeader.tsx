@@ -21,7 +21,6 @@ import type { ViewMode } from '../../../types';
 import {
   hexToRGBA,
   blendColors,
-  darkenColor,
   getStatusBarStyle,
   isColorDark,
 } from '../../../utils/formatting/colors';
@@ -246,24 +245,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
     return Colors.neutral[50];
   }, []);
 
-  // Ensure background color is properly contrasted and always darker
-  const safeBackgroundColor = useMemo(() => {
-    const bgColor = channelColors.backgroundColor || Colors.black;
-    // Calculate brightness
-    const brightness = (() => {
-      const color = bgColor.replace('#', '');
-      const r = parseInt(color.substring(0, 2), 16);
-      const g = parseInt(color.substring(2, 4), 16);
-      const b = parseInt(color.substring(4, 6), 16);
-      return (r * 299 + g * 587 + b * 114) / 1000;
-    })();
-
-    // If brightness is above 80, darken it further
-    if (brightness > 80) {
-      return darkenColor(bgColor, 0.3);
-    }
-    return bgColor;
-  }, [channelColors.backgroundColor]);
+  const safeBackgroundColor = Colors.black;
 
   // Check if this is an orbyt channel
   const isOrbyt = useMemo(() => {

@@ -246,9 +246,7 @@ const Channel: React.FC = memo(() => {
   const showErrorScreen = !!channelError && !refreshing;
 
   const renderErrorScreen = () => (
-    <View
-      style={[styles.errorContainer, { backgroundColor: channelColors.backgroundColor || '#000' }]}
-    >
+    <View style={styles.errorContainer}>
       <Icon
         name="user_x"
         size={48}
@@ -348,7 +346,7 @@ const Channel: React.FC = memo(() => {
                 key={action.id}
                 action={action}
                 textColor={channelColors.textColor || Colors.neutral[50]}
-                backgroundColor={channelColors.backgroundColor || Colors.black}
+                backgroundColor={Colors.black}
               />
             ))}
           </View>
@@ -372,7 +370,7 @@ const Channel: React.FC = memo(() => {
           isVisible={isRouteFocused}
           isModal={false}
           headerComponent={headerComponent}
-          backgroundColor={channelColors.backgroundColor || Colors.black}
+          backgroundColor={Colors.black}
           secondaryColor={channelColors.textColor}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
