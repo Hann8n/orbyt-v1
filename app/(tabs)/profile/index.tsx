@@ -28,7 +28,7 @@ import {
   isLiveStatus,
   useStatusExpirationMonitor,
 } from '@/services/data/ProfileService';
-import { getProfileColors } from '@/utils/formatting/colors';
+import { getProfileColors, hexToRGBA } from '@/utils/formatting/colors';
 import type { ProfileViewWithOrbyt } from '@/services/api/types';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Icon, {
@@ -695,6 +695,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
                     if (index >= 0) tabRefs.profile?.setPage(index);
                   }}
                   textColor={profileColors.textColor}
+                  inactiveTextColor={hexToRGBA(profileColors.textColor || Colors.neutral[50], 0.65)}
                   backgroundColor="transparent"
                   viewMode={viewMode}
                   onViewModeChange={(mode: ViewMode) => setViewMode(mode)}

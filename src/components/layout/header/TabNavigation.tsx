@@ -21,6 +21,7 @@ interface TabNavigationProps {
   activeTab: string;
   onTabPress: (tabId: string) => void;
   textColor?: string;
+  inactiveTextColor?: string;
   backgroundColor?: string;
   accentColor?: string; // Add accent color for vibrant tab styling
   style?: StyleProp<ViewStyle>;
@@ -37,6 +38,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
   activeTab,
   onTabPress,
   textColor = Colors.neutral[50],
+  inactiveTextColor,
   backgroundColor = Colors.transparent,
   accentColor: _accentColor, // Add accent color prop
   style,
@@ -56,9 +58,10 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
 
   // Use the passed textColor for active tabs, fallback to white for better readability
   const activeTabColor = textColor || Colors.neutral[50];
-  // Align inactive tab color with Activity pager when using light-on-dark headers
+  // Preserve existing inactive treatment by default, with optional per-screen override.
   const inactiveTabColor =
-    activeTabColor === Colors.neutral[50] ? Colors.neutral[500] : hexToRGBA(textColor, 0.7);
+    inactiveTextColor ??
+    (activeTabColor === Colors.neutral[50] ? Colors.neutral[500] : hexToRGBA(textColor, 0.7));
 
   // Get variant-specific styles
   const variantStyle = variant === 'comments' ? styles.commentsStyle : styles.headerStyle;
