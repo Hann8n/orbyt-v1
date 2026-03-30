@@ -900,6 +900,7 @@ function ChatEmbeddedPost({
 }) {
   const openFromRow = useContext(ReactionPickerRowContext);
   const handleLongPress = openFromRow ?? onLongPress;
+  const feedModalTab = useFeedModalTabSegment();
   const record = (embed as { record?: EmbedRecordShape }).record;
   if (!record || typeof record !== 'object') return null;
 
@@ -1000,7 +1001,7 @@ function ChatEmbeddedPost({
         </View>
       </>
     );
-    const fullHeightVideoHref = buildFullHeightVideoHref({ postUri: record.uri });
+    const fullHeightVideoHref = buildFullHeightVideoHref({ postUri: record.uri }, feedModalTab);
 
     return (
       <View style={[styles.embedVideoOuter, isFromMe && styles.embedVideoOuterFromMe]}>

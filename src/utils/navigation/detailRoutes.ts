@@ -5,13 +5,13 @@ export type DetailNavTab = 'home' | 'explore' | 'activity' | 'profile';
 const TAB_SEGMENTS: readonly DetailNavTab[] = ['home', 'explore', 'activity', 'profile'];
 
 /**
- * True when the current route is a root stack screen presented as a modal (`presentation: 'modal'`).
- * In this case, tab destinations should use `router.dismissTo(href)` so the modal closes and the
- * detail screen is shown on the root stack, not stacked above the modal.
+ * True when the current route is a root stack screen presented as a modal (slide-up or transparent).
+ * Tab destinations should use `router.dismissTo(href)` so the modal closes and the detail lands on
+ * the tab stack, not stacked above the modal.
  */
 export function isRootModalStackContext(segments: readonly string[]): boolean {
   const root = segments[0];
-  return root === 'settings' || root === 'edit-profile';
+  return root === 'settings' || root === 'edit-profile' || root === 'profile-image-viewer';
 }
 
 /**
