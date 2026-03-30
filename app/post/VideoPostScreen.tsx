@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS, APP_CONSTANTS } from '@/utils/constants';
 import {
@@ -1212,15 +1212,21 @@ const VideoPostScreen: React.FC = () => {
   // Final video URI for playback
   const videoUri = videoPathInfo?.uri || '';
 
-  const previewVideoSource = useMemo(() => (videoUri ? { uri: videoUri } : null), [videoUri]);
-
   // Simple video player - auto-plays when source is set
-  const player = useVideoPlayer(previewVideoSource, p => {
+  const player = useVideoPlayer(videoUri ? { uri: videoUri } : null, p => {
     p.loop = true;
     p.volume = 1;
     p.bufferOptions = DEFAULT_BUFFER_OPTIONS;
     playerRef.current = p;
   });
+
+  // Update source and play when videoUri changes
+  useEffect(() => {
+    if (!player || !videoUri) return;
+    player.replaceAsync({ uri: videoUri }).then(() => {
+      player.play();
+    });
+  }, [player, videoUri]);
 
   // Sync play/pause state
   useEffect(() => {
