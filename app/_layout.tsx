@@ -12,7 +12,7 @@ import * as NavigationBar from 'expo-navigation-bar';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
 // Keep local imports where they are; no file moves
 import { Colors } from '@/theme';
-import { useUserStore } from '@/stores/userStore';
+import { selectIsSessionValid, useUserStore } from '@/stores/userStore';
 import { useBookmarkStore } from '@/stores/bookmarkStore';
 import GlobalAccountSwitcher from '@/components/ui/GlobalAccountSwitcher';
 import { EmailVerificationModal } from '@/components/ui/EmailVerificationModal';
@@ -95,7 +95,7 @@ const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 
 // Global modals component
 const GlobalModals: React.FC = () => {
-  const isAuthenticated = useUserStore(state => state.isAuthenticated);
+  const isAuthenticated = useUserStore(selectIsSessionValid);
   const currentUser = useUserStore(state => state.currentUser);
   const showEmailVerificationModal = useUserStore(state => state.showEmailVerificationModal);
   const setShowEmailVerificationModal = useUserStore(state => state.setShowEmailVerificationModal);
@@ -269,7 +269,7 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
-  const isAuthenticated = useUserStore(state => state.isAuthenticated);
+  const isAuthenticated = useUserStore(selectIsSessionValid);
   const initializeUserState = useUserStore(state => state.initializeUserState);
   const loadBookmarks = useBookmarkStore(state => state.loadBookmarks);
   const clearBookmarks = useBookmarkStore(state => state.clearBookmarks);

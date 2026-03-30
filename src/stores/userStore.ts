@@ -43,6 +43,13 @@ import { isLiquidGlassAvailable } from 'expo-glass-effect';
 // Note: FeedService is no longer needed here - React Query handles all feed caching
 
 export type SessionRestoreOutcome = 'ok' | 'reauth_required' | 'transient_failure' | 'cancelled';
+export type AuthStatus =
+  | 'unknown'
+  | 'restoring'
+  | 'authenticated'
+  | 'unauthenticated'
+  | 'reauth_required'
+  | 'degraded_transient';
 
 export class AuthFlowError extends Error {
   kind: Exclude<SessionRestoreOutcome, 'ok'>;
@@ -52,6 +59,14 @@ export class AuthFlowError extends Error {
     this.name = 'AuthFlowError';
     this.kind = kind;
   }
+}
+
+function hasAuthoritativeSdkSession(
+  oauthSession: OAuthSession | null,
+  currentUserDid: string | null
+): boolean {
+  if (!oauthSession || !currentUserDid) return false;
+  return oauthSession.did === currentUserDid;
 }
 
 export function getSessionRestoreOutcome(error: unknown): SessionRestoreOutcome {
@@ -216,6 +231,7 @@ export interface UserState {
   } | null;
 
   // Authentication state
+  authStatus: AuthStatus;
   isAuthenticated: boolean;
   isAuthenticating: boolean;
   isInitializingAuth: boolean; // Loading state for initial auth state restoration
@@ -223,6 +239,7 @@ export interface UserState {
   switchingToHandle: string | null;
   switchingToAvatar?: string | null;
   authError: string | null;
+  authErrorCode: 'none' | 'reauth_required' | 'transient_failure';
 
   // Account management - using DIDs for all operations
   savedAccounts: SavedAccount[];
@@ -428,9 +445,12 @@ export const useUserStore = create<UserState>()(
         params: {
           clearActiveDid: boolean;
           authError: string | null;
+          authStatus?: AuthStatus;
+          authErrorCode?: UserState['authErrorCode'];
         } = { clearActiveDid: false, authError: null }
       ) => {
         set({
+          authStatus: params.authStatus ?? 'unauthenticated',
           isAuthenticating: false,
           isAuthenticated: false,
           currentUser: null,
@@ -448,6 +468,7 @@ export const useUserStore = create<UserState>()(
           feedBootstrapStatus: 'error',
           feedBootstrapDid: null,
           authError: params.authError,
+          authErrorCode: params.authErrorCode ?? 'none',
           grantedOauthScopes: [],
         });
       };
@@ -455,6 +476,7 @@ export const useUserStore = create<UserState>()(
       return {
         // Initial state
         currentUser: null,
+        authStatus: 'unknown',
         isAuthenticated: false,
         isAuthenticating: false,
         isInitializingAuth: true, // Start as true - will be set to false after initial auth state is loaded
@@ -462,6 +484,7 @@ export const useUserStore = create<UserState>()(
         switchingToHandle: null,
         switchingToAvatar: null,
         authError: null,
+        authErrorCode: 'none',
         savedAccounts: [],
         activeAccountDid: null,
         oauthSession: null,
@@ -495,7 +518,12 @@ export const useUserStore = create<UserState>()(
         // Authentication actions
         signIn: async (identifier: string) => {
           try {
-            set({ isAuthenticating: true, authError: null });
+            set({
+              isAuthenticating: true,
+              authError: null,
+              authErrorCode: 'none',
+              authStatus: 'restoring',
+            });
 
             const client = getOAuthClient();
             const session = await client.signIn(identifier);
@@ -526,6 +554,7 @@ export const useUserStore = create<UserState>()(
             await SecureStore.setItemAsync(STORAGE_KEYS.ACTIVE_ACCOUNT, session.did);
 
             // Update state
+            const isAuthenticated = hasAuthoritativeSdkSession(session, session.did);
             set({
               currentUser: {
                 did: session.did,
@@ -535,9 +564,11 @@ export const useUserStore = create<UserState>()(
                 originalIdentifier: identifier,
                 emailConfirmed,
               },
-              isAuthenticated: true,
+              authStatus: isAuthenticated ? 'authenticated' : 'unauthenticated',
+              isAuthenticated,
               isAuthenticating: false,
               authError: null,
+              authErrorCode: 'none',
               agent: agent,
               activeAccountDid: session.did,
               oauthSession: session,
@@ -572,14 +603,21 @@ export const useUserStore = create<UserState>()(
           } catch (error) {
             // Handle user cancellation silently
             if (isUserCancellation(error)) {
-              set({ isAuthenticating: false, authError: null });
+              set({
+                isAuthenticating: false,
+                authError: null,
+                authErrorCode: 'none',
+                authStatus: 'unauthenticated',
+              });
               return; // Don't throw error for user cancellation
             }
 
             const errorMessage = getErrorMessage(error);
             set({
+              authStatus: 'reauth_required',
               isAuthenticating: false,
               authError: errorMessage,
+              authErrorCode: 'reauth_required',
             });
             throw error;
           }
@@ -587,7 +625,12 @@ export const useUserStore = create<UserState>()(
 
         signUp: async (identifier: string) => {
           try {
-            set({ isAuthenticating: true, authError: null });
+            set({
+              isAuthenticating: true,
+              authError: null,
+              authErrorCode: 'none',
+              authStatus: 'restoring',
+            });
 
             const client = getOAuthClient();
             const trimmed = identifier.trim();
@@ -631,15 +674,18 @@ export const useUserStore = create<UserState>()(
             await SecureStore.setItemAsync(STORAGE_KEYS.ACTIVE_ACCOUNT, session.did);
 
             // Update state (currentUser must include originalIdentifier; API profile does not)
+            const isAuthenticated = hasAuthoritativeSdkSession(session, session.did);
             set({
               currentUser: {
                 ...userProfile,
                 originalIdentifier: identifier || session.did,
                 emailConfirmed,
               },
-              isAuthenticated: true,
+              authStatus: isAuthenticated ? 'authenticated' : 'unauthenticated',
+              isAuthenticated,
               isAuthenticating: false,
               authError: null,
+              authErrorCode: 'none',
               agent,
               savedAccounts: updatedAccounts,
               activeAccountDid: session.did,
@@ -655,8 +701,10 @@ export const useUserStore = create<UserState>()(
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'OAuth sign-up failed';
             set({
+              authStatus: 'degraded_transient',
               isAuthenticating: false,
               authError: errorMessage,
+              authErrorCode: 'transient_failure',
             });
             throw error;
           }
@@ -694,6 +742,7 @@ export const useUserStore = create<UserState>()(
 
             // Reset state
             set({
+              authStatus: 'unauthenticated',
               currentUser: null,
               currentUserProfileColors: null,
               currentUserProfileAccentColor: null,
@@ -702,6 +751,7 @@ export const useUserStore = create<UserState>()(
               switchingToHandle: null,
               switchingToAvatar: null,
               authError: null,
+              authErrorCode: 'none',
               oauthSession: null,
               grantedOauthScopes: [],
               agent: undefined, // Use undefined to match API expectations
@@ -725,7 +775,12 @@ export const useUserStore = create<UserState>()(
 
         restoreSession: async (did: string, skipSettings: boolean = false) => {
           try {
-            set({ isAuthenticating: true, authError: null });
+            set({
+              isAuthenticating: true,
+              authError: null,
+              authErrorCode: 'none',
+              authStatus: 'restoring',
+            });
 
             // Sync-load persisted colors so tabs/header have accent on first paint
             const persistedColors = getPersistedColorsSync(did);
@@ -750,6 +805,7 @@ export const useUserStore = create<UserState>()(
             const originalIdentifier = account?.originalIdentifier ?? did;
 
             // Update state
+            const isAuthenticated = hasAuthoritativeSdkSession(session, session.did);
             set({
               currentUser: {
                 did: session.did,
@@ -759,9 +815,11 @@ export const useUserStore = create<UserState>()(
                 originalIdentifier: originalIdentifier,
                 emailConfirmed,
               },
-              isAuthenticated: true,
+              authStatus: isAuthenticated ? 'authenticated' : 'unauthenticated',
+              isAuthenticated,
               isAuthenticating: false,
               authError: null,
+              authErrorCode: 'none',
               agent: agent,
               oauthSession: session,
               grantedOauthScopes: grantedScopes,
@@ -811,14 +869,28 @@ export const useUserStore = create<UserState>()(
               restoreOutcome,
             });
             if (restoreOutcome === 'reauth_required') {
-              applyAuthFailureState({ clearActiveDid: true, authError: 'oauth_reauth_required' });
+              applyAuthFailureState({
+                clearActiveDid: true,
+                authError: 'oauth_reauth_required',
+                authStatus: 'reauth_required',
+                authErrorCode: 'reauth_required',
+              });
               throw new AuthFlowError('reauth_required', 'oauth_reauth_required');
             }
             if (restoreOutcome === 'cancelled') {
-              set({ isAuthenticating: false });
+              set({
+                isAuthenticating: false,
+                authStatus: 'unauthenticated',
+                authErrorCode: 'none',
+              });
               throw new AuthFlowError('cancelled', 'oauth_cancelled');
             }
-            set({ isAuthenticating: false, authError: errorMessage });
+            set({
+              isAuthenticating: false,
+              authError: errorMessage,
+              authStatus: 'degraded_transient',
+              authErrorCode: 'transient_failure',
+            });
             throw new AuthFlowError('transient_failure', errorMessage);
           }
         },
@@ -828,6 +900,7 @@ export const useUserStore = create<UserState>()(
           try {
             const account = get().savedAccounts.find(acc => acc.did === did);
             set({
+              authStatus: 'restoring',
               isSwitchingAccount: true,
               switchingToHandle: account?.handle || account?.did || null,
               switchingToAvatar: account?.avatar || null,
@@ -874,6 +947,17 @@ export const useUserStore = create<UserState>()(
               set({
                 savedAccounts: accounts,
                 activeAccountDid: did,
+                isAuthenticated: hasAuthoritativeSdkSession(
+                  get().oauthSession,
+                  get().currentUser?.did ?? null
+                ),
+                authStatus: hasAuthoritativeSdkSession(
+                  get().oauthSession,
+                  get().currentUser?.did ?? null
+                )
+                  ? 'authenticated'
+                  : 'unauthenticated',
+                authErrorCode: 'none',
               });
               await SecureStore.setItemAsync(STORAGE_KEYS.ACTIVE_ACCOUNT, did);
 
@@ -908,17 +992,37 @@ export const useUserStore = create<UserState>()(
               });
               const restoreOutcome = getSessionRestoreOutcome(restoreErr);
               if (restoreOutcome === 'reauth_required') {
-                applyAuthFailureState({ clearActiveDid: true, authError: 'oauth_reauth_required' });
+                applyAuthFailureState({
+                  clearActiveDid: true,
+                  authError: 'oauth_reauth_required',
+                  authStatus: 'reauth_required',
+                  authErrorCode: 'reauth_required',
+                });
                 throw new AuthFlowError('reauth_required', 'oauth_reauth_required');
               }
               if (restoreOutcome === 'cancelled') {
                 throw new AuthFlowError('cancelled', 'oauth_cancelled');
               }
-              set({ isSwitchingAccount: false, authError: 'oauth_restore_transient_failure' });
+              set({
+                isSwitchingAccount: false,
+                authError: 'oauth_restore_transient_failure',
+                authStatus: 'degraded_transient',
+                authErrorCode: 'transient_failure',
+              });
               throw new AuthFlowError('transient_failure', 'oauth_restore_transient_failure');
             }
           } catch (error) {
-            set({ isSwitchingAccount: false, switchingToHandle: null, switchingToAvatar: null });
+            const hasSession = hasAuthoritativeSdkSession(
+              get().oauthSession,
+              get().currentUser?.did ?? null
+            );
+            set({
+              isSwitchingAccount: false,
+              switchingToHandle: null,
+              switchingToAvatar: null,
+              isAuthenticated: hasSession,
+              authStatus: hasSession ? 'authenticated' : get().authStatus,
+            });
             throw error;
           }
         },
@@ -1475,6 +1579,7 @@ export const useUserStore = create<UserState>()(
                 } catch (finalError) {
                   if (requiresReauth(finalError)) {
                     set({
+                      authStatus: 'reauth_required',
                       isAuthenticated: false,
                       currentUser: null,
                       currentUserProfileColors: null,
@@ -1491,6 +1596,7 @@ export const useUserStore = create<UserState>()(
                       feedBootstrapStatus: 'error',
                       feedBootstrapDid: null,
                       grantedOauthScopes: [],
+                      authErrorCode: 'reauth_required',
                     });
                   }
                 }
@@ -1532,18 +1638,28 @@ export const useUserStore = create<UserState>()(
               });
             }
 
-            applyAuthFailureState({ clearActiveDid: true, authError: null });
+            applyAuthFailureState({
+              clearActiveDid: true,
+              authError: null,
+              authStatus: 'unauthenticated',
+              authErrorCode: 'none',
+            });
 
             await get().clearAllCaches();
           } catch (error) {
             logger.error('Failed to clear corrupted sessions', error, { component: 'userStore' });
-            applyAuthFailureState({ clearActiveDid: true, authError: null });
+            applyAuthFailureState({
+              clearActiveDid: true,
+              authError: null,
+              authStatus: 'degraded_transient',
+              authErrorCode: 'transient_failure',
+            });
           }
         },
 
         initializeUserState: async () => {
           // Set loading state at start
-          set({ isInitializingAuth: true });
+          set({ isInitializingAuth: true, authStatus: 'restoring', authErrorCode: 'none' });
 
           try {
             await get().loadSavedAccounts();
@@ -1562,7 +1678,7 @@ export const useUserStore = create<UserState>()(
                 logger.warn('Active account not found in saved accounts', {
                   component: 'userStore',
                 });
-                set({ activeAccountDid: null });
+                set({ activeAccountDid: null, authStatus: 'unauthenticated' });
                 return;
               }
 
@@ -1589,6 +1705,7 @@ export const useUserStore = create<UserState>()(
                     did: activeAccountDid,
                   });
                   set({
+                    authStatus: 'reauth_required',
                     isAuthenticated: false,
                     currentUser: null,
                     currentUserProfileColors: null,
@@ -1605,12 +1722,14 @@ export const useUserStore = create<UserState>()(
                     feedBootstrapStatus: 'error',
                     feedBootstrapDid: null,
                     grantedOauthScopes: [],
+                    authErrorCode: 'reauth_required',
                   });
                 } else {
                   logger.warn('Session restore failed transiently; preserving active account DID', {
                     component: 'userStore',
                     did: activeAccountDid,
                   });
+                  set({ authStatus: 'degraded_transient', authErrorCode: 'transient_failure' });
                 }
               } else if (sessionRestored) {
                 // Initialize subscription store in background after interactions complete
@@ -1626,12 +1745,19 @@ export const useUserStore = create<UserState>()(
                   { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
                 );
               }
+            } else {
+              set({ authStatus: 'unauthenticated', authErrorCode: 'none' });
             }
           } catch (error) {
             logger.error('Error initializing user state', error, { component: 'userStore' });
 
             // Clear state to be safe
-            applyAuthFailureState({ clearActiveDid: true, authError: null });
+            applyAuthFailureState({
+              clearActiveDid: true,
+              authError: null,
+              authStatus: 'degraded_transient',
+              authErrorCode: 'transient_failure',
+            });
           } finally {
             set({ isInitializingAuth: false });
           }
@@ -1923,9 +2049,12 @@ export const useUserStore = create<UserState>()(
   )
 );
 
+export const selectIsSessionValid = (state: UserState): boolean =>
+  hasAuthoritativeSdkSession(state.oauthSession, state.currentUser?.did ?? null);
+
 // Convenience hooks - optimized with individual selectors to prevent over-subscription
 export const useAuth = () => {
-  const isAuthenticated = useUserStore(state => state.isAuthenticated);
+  const isAuthenticated = useUserStore(selectIsSessionValid);
   const isAuthenticating = useUserStore(state => state.isAuthenticating);
   const isSwitchingAccount = useUserStore(state => state.isSwitchingAccount);
   const authError = useUserStore(state => state.authError);
@@ -2012,7 +2141,7 @@ export const useAgent = () => {
 // Hook for accessing user store state directly
 export const useUserStoreState = () => {
   const agent = useUserStore(state => state.agent);
-  const isAuthenticated = useUserStore(state => state.isAuthenticated);
+  const isAuthenticated = useUserStore(selectIsSessionValid);
   const currentUser = useUserStore(state => state.currentUser);
   const isAuthenticating = useUserStore(state => state.isAuthenticating);
 

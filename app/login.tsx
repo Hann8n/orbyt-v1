@@ -19,7 +19,7 @@ import { Svg, Path, Rect, Defs, Mask } from 'react-native-svg';
 import { Colors } from '@/theme';
 import AuthorItem from '@/components/ui/AuthorItem';
 import type { SavedAccount } from '@/stores/userStore';
-import { getSessionRestoreOutcome, useAuth, useAccountManagement } from '@/stores/userStore';
+import { useAuth, useAccountManagement } from '@/stores/userStore';
 import { hexToRGBA } from '@/utils/formatting/colors';
 import RocketBackground from '@/components/ui/RocketBackground';
 import SignUpSheet from '@/components/ui/SignUpSheet';
@@ -91,33 +91,7 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
         return;
       }
 
-      const outcome = getSessionRestoreOutcome(error);
       const errorMessage = error instanceof Error ? error.message : t('errors.accountSwitchFailed');
-
-      if (outcome === 'reauth_required') {
-        Alert.alert(
-          t('auth.sessionIssue'),
-          t('auth.sessionIssueMessage', { handle: account.handle }),
-          [
-            { text: t('common.cancel'), style: 'cancel' },
-            {
-              text: t('auth.signIn'),
-              onPress: async () => {
-                await signIn(account.originalIdentifier);
-                await loadSavedAccounts();
-              },
-            },
-          ]
-        );
-        return;
-      }
-
-      if (outcome === 'transient_failure') {
-        Alert.alert(t('auth.networkError'), t('auth.networkErrorMessage'), [
-          { text: t('common.ok') },
-        ]);
-        return;
-      }
 
       Alert.alert(
         t('auth.accountSwitchFailed'),

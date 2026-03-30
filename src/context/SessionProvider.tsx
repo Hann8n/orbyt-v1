@@ -6,7 +6,7 @@
  * https://docs.expo.dev/router/advanced/authentication/
  */
 import { createContext, useContext, useEffect, type PropsWithChildren } from 'react';
-import { useUserStore } from '../stores/userStore';
+import { selectIsSessionValid, useUserStore } from '../stores/userStore';
 import { dismissAllSheets } from '../utils/navigation';
 import { useModalStore } from '../stores/modalStore';
 
@@ -33,12 +33,13 @@ export function useSession() {
 
 export function SessionProvider({ children }: PropsWithChildren) {
   // Get auth state from Zustand store
-  const isAuthenticated = useUserStore(state => state.isAuthenticated);
   const isInitializingAuth = useUserStore(state => state.isInitializingAuth);
-  const activeAccountDid = useUserStore(state => state.activeAccountDid);
+  const oauthSessionDid = useUserStore(state => state.oauthSession?.did ?? null);
+  const isAuthenticated = useUserStore(selectIsSessionValid);
   const signIn = useUserStore(state => state.signIn);
   const signOut = useUserStore(state => state.signOut);
   const resetAllModals = useModalStore(state => state.resetAllModals);
+  const session = isAuthenticated ? oauthSessionDid : null;
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -56,8 +57,9 @@ export function SessionProvider({ children }: PropsWithChildren) {
         signOut: () => {
           signOut(false);
         },
-        // Use active DID as session key - Stack.Protected uses this for routing
-        session: isAuthenticated && activeAccountDid ? activeAccountDid : null,
+        // Project validated SDK session for Expo Router guards.
+        // Remembered account identity alone is insufficient for protected-route access.
+        session,
         // Only show splash during initial auth state restoration
         // Sign-in and account switching have their own loading indicators
         isLoading: isInitializingAuth,
