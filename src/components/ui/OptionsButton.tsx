@@ -219,5 +219,3 @@ export const OptionsButton: React.FC<OptionsButtonProps> = ({
 
   return <View style={buttonStyles.wrapper}>{buttonContent}</View>;
 };
-
-export default OptionsButton;

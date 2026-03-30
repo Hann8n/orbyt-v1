@@ -1,19 +1,8 @@
 // Colors exported from theme for convenience
 export { Colors } from '../../theme';
 
-// Main UI system exports
-export {
-  Button,
-  RetryButton,
-  GoBackButton,
-  Card,
-  Modal,
-  Input,
-  Loading,
-  Divider,
-  Badge,
-  meetsContrastGuidelines,
-} from './UI';
+// Main UI system exports (named API used outside this module)
+export { RetryButton, Loading } from './UI';
 
 // Individual component exports
 export { default as Icon } from './Icon';

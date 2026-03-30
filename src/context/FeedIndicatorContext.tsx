@@ -70,11 +70,6 @@ export const useTabBarHeight = () => {
   return context?.tabBarHeight ?? null;
 };
 
-export const useSetTabBarHeight = () => {
-  const context = useContext(TabBarContext);
-  return context?.setTabBarHeight ?? (() => {});
-};
-
 export const useTabBarVisibility = () => {
   const context = useContext(TabBarContext);
   if (!context) {

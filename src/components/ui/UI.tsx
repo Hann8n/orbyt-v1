@@ -24,7 +24,7 @@ import {
   getContrastRatio,
   blendColors,
 } from '../../utils/formatting/colors';
-import Typography, { TypographyText } from '../../utils/components/typography';
+import { Typography } from '../../utils/components/typography';
 import { BORDER_RADIUS } from '../../utils/constants';
 import type { StatusView } from '../../services/api/types';
 import { isLiveStatus } from '../../services/data/ProfileService';
@@ -41,7 +41,7 @@ export type { ColorScale, NeutralScale };
 /**
  * Check if colors meet WCAG AA standard (4.5:1 contrast ratio)
  */
-export const meetsContrastGuidelines = (color1: string, color2: string): boolean => {
+const meetsContrastGuidelines = (color1: string, color2: string): boolean => {
   return getContrastRatio(color1, color2) >= 4.5;
 };
 
@@ -67,7 +67,7 @@ interface ButtonProps {
   textStyle?: TextStyle;
 }
 
-export const Button: React.FC<ButtonProps> = ({
+const Button: React.FC<ButtonProps> = ({
   title,
   onPress,
   variant = 'primary',
@@ -273,7 +273,7 @@ interface GoBackButtonProps {
   style?: ViewStyle;
 }
 
-export const GoBackButton: React.FC<GoBackButtonProps> = ({ onPress, style }) => {
+const GoBackButton: React.FC<GoBackButtonProps> = ({ onPress, style }) => {
   const { t } = useTranslation();
   const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
 
@@ -662,7 +662,7 @@ interface CardProps {
   backgroundColor?: string;
 }
 
-export const Card: React.FC<CardProps> = ({
+const Card: React.FC<CardProps> = ({
   children,
   style,
   padding = 16,
@@ -703,7 +703,7 @@ interface ModalProps {
   style?: ViewStyle;
 }
 
-export const Modal: React.FC<ModalProps> = ({
+const Modal: React.FC<ModalProps> = ({
   visible,
   onClose,
   title,
@@ -837,7 +837,7 @@ const InputComponent: React.FC<InputProps> = ({
   );
 };
 InputComponent.displayName = 'Input';
-export const Input = React.memo(InputComponent);
+const Input = React.memo(InputComponent);
 
 // Loading Component
 interface LoadingProps {
@@ -869,7 +869,7 @@ interface DividerProps {
   style?: ViewStyle;
 }
 
-export const Divider: React.FC<DividerProps> = ({
+const Divider: React.FC<DividerProps> = ({
   color = Colors.neutral[500],
   thickness = 1,
   margin = 16,
@@ -897,7 +897,7 @@ interface BadgeProps {
   style?: ViewStyle;
 }
 
-export const Badge: React.FC<BadgeProps> = ({ text, variant, size, style }) => {
+const Badge: React.FC<BadgeProps> = ({ text, variant, size, style }) => {
   const getBadgeStyle = (): ViewStyle => {
     const baseStyle: ViewStyle = {
       borderRadius: BORDER_RADIUS.MEDIUM,
@@ -1091,4 +1091,3 @@ export default {
 };
 
 export { default as Icon } from './Icon';
-export { TypographyText };

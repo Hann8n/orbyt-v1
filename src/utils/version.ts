@@ -13,7 +13,7 @@ import { Platform } from 'react-native';
  * In release builds, prefer the installed binary (`expo-application`) — that is
  * what the store and OS report.
  */
-export function getBuildVersion(): string {
+function getBuildVersion(): string {
   const fromConfig = Constants.expoConfig?.version;
   if (__DEV__ && fromConfig) {
     return fromConfig;
@@ -24,7 +24,7 @@ export function getBuildVersion(): string {
 /**
  * Get the native build number/version code for the installed binary.
  */
-export function getBuildNumber(): string {
+function getBuildNumber(): string {
   const fromBinary = Application.nativeBuildVersion;
   const fromConfig =
     Platform.OS === 'ios'
@@ -49,26 +49,10 @@ export function getFormattedVersion(): string {
 }
 
 /**
- * Get full version information for debugging
- */
-export function getVersionInfo(): {
-  buildVersion: string;
-  formattedVersion: string;
-} {
-  const buildVersion = getBuildVersion();
-  const formattedVersion = getFormattedVersion();
-
-  return {
-    buildVersion,
-    formattedVersion,
-  };
-}
-
-/**
  * Format iOS ApplicationReleaseType enum value to human-readable string.
  * Uses the enum's reverse mapping (e.g. 5 -> 'APP_STORE').
  */
-export function formatIosReleaseType(releaseType: ApplicationReleaseType | null): string {
+function formatIosReleaseType(releaseType: ApplicationReleaseType | null): string {
   if (releaseType == null) return 'N/A';
   return ApplicationReleaseType[releaseType] ?? String(releaseType);
 }
@@ -77,7 +61,7 @@ export function formatIosReleaseType(releaseType: ApplicationReleaseType | null)
  * Get platform-specific app info lines (Android ID, iOS release type, etc.).
  * Shared by device info in Settings and ErrorBoundary.
  */
-export async function getPlatformAppInfoLines(): Promise<string[]> {
+async function getPlatformAppInfoLines(): Promise<string[]> {
   const lines: string[] = [];
   if (Platform.OS === 'android') {
     const androidId = (() => {

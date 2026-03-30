@@ -70,12 +70,3 @@ export function useKlipySearch(kind: KlipyKind, q: string) {
     getNextPageParam: last => (last.hasNextPage ? last.page + 1 : undefined),
   });
 }
-
-// Backwards-compatible GIF-only hooks
-export function useKlipyTrendingGifs() {
-  return useKlipyTrending('gif');
-}
-
-export function useKlipySearchGifs(q: string) {
-  return useKlipySearch('gif', q);
-}

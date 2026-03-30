@@ -49,22 +49,6 @@ import { useCommentStore } from '../../../stores/commentStore';
 import { useUserStore } from '../../../stores/userStore';
 import type { Comment } from '../../../services/api/types';
 
-// Extend API Comment type with UI-specific properties
-export interface UIComment extends Comment {
-  isExpanded?: boolean;
-}
-
-export interface Like {
-  actor: {
-    did: string;
-    handle: string;
-    displayName?: string;
-    avatar?: string;
-  };
-  createdAt: string;
-  uri: string;
-}
-
 interface CommentItemProps {
   comment: Comment;
   onDismiss?: () => void;
@@ -1502,5 +1486,3 @@ const styles = StyleSheet.create({
 });
 
 export default MemoizedCommentItem;
-export { CommentItem };
-export type { CommentItemProps };

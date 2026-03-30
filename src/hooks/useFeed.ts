@@ -197,5 +197,3 @@ export function useSearchFeed(
     fetchNextPage: fetchNextPage || (() => {}),
   };
 }
-
-export default useFeed;

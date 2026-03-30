@@ -249,23 +249,6 @@ export const useHeaders = () => {
   });
 };
 
-export const useStaticChannels = () => {
-  return useQuery({
-    queryKey: ['staticChannels'],
-    queryFn: async () => {
-      try {
-        return await StaticChannelsService.getChannels();
-      } catch (_error) {
-        return [];
-      }
-    },
-    staleTime: 1 * 60 * 1000, // 1 minute (shorter for testing)
-    gcTime: 5 * 60 * 1000, // 5 minutes
-    retry: 3, // Retry up to 3 times
-    retryDelay: 1000, // Wait 1 second between retries
-  });
-};
-
 // Export abstract class as OrbytBannerService for backwards compatibility
 const OrbytBannerService = OrbytAPIService;
 export default OrbytBannerService;

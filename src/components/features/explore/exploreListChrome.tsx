@@ -30,12 +30,6 @@ export const ExploreSectionLoading = ({ variant }: { variant: ExploreSectionLoad
   );
 };
 
-export const SectionHeaderLoading = () => <ExploreSectionLoading variant="sectionHeader" />;
-
-export const PopularChannelsLoading = () => <ExploreSectionLoading variant="inline" />;
-
-export const SpotlightLoading = () => <ExploreSectionLoading variant="spotlight" />;
-
 export const HeaderSpacer = ({ computedHeaderHeight }: { computedHeaderHeight: number }) => (
   <View style={[styles.headerSpacerFill, { height: computedHeaderHeight }]} />
 );

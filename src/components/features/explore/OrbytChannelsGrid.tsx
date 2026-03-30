@@ -75,26 +75,6 @@ const ChannelNameDisplay: React.FC<{
   );
 };
 
-const PopularChannelItem = ({ channel, onPress }: { channel: Channel; onPress: () => void }) => {
-  const avatarUri = getChannelAvatarUri(channel.uri, channel.avatar);
-  return (
-    <NativePressable style={styles.channelItem} onPress={onPress}>
-      <Avatar
-        uri={avatarUri}
-        type="channel"
-        size={48}
-        ringColor="transparent"
-        style={styles.channelImage}
-      />
-      <View style={styles.channelContent}>
-        <View style={styles.rowCenter}>
-          <ChannelNameDisplay channel={channel} />
-        </View>
-      </View>
-    </NativePressable>
-  );
-};
-
 const GridChannelItem = ({
   channel,
   onPress,
@@ -232,8 +212,6 @@ const HorizontalChannelItem = ({
   );
 };
 
-export { PopularChannelItem };
-
 export const OrbytChannelsGrid = React.memo(({ channels }: { channels: Channel[] }) => {
   const { navigateToChannel: goToChannel } = useProfileChannelNavigation();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
@@ -242,7 +220,7 @@ export const OrbytChannelsGrid = React.memo(({ channels }: { channels: Channel[]
 
   const computedColumns = useMemo(() => {
     const w = windowWidth || Dimensions.get('window').width;
-    let cols = 3;
+    let cols: number;
     if (w > 1200 || isTablet) {
       cols = 6;
     } else if (w > 900) {

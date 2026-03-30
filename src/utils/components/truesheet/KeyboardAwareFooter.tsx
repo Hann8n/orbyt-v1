@@ -17,7 +17,7 @@ interface KeyboardAwareFooterProps {
   bottomPadding?: number;
 }
 
-const KeyboardAwareFooter: React.FC<KeyboardAwareFooterProps> = ({
+export const KeyboardAwareFooter: React.FC<KeyboardAwareFooterProps> = ({
   children,
   style,
   hideOnKeyboard = false,
@@ -107,5 +107,3 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
   },
 });
-
-export default KeyboardAwareFooter;

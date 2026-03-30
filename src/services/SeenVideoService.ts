@@ -256,4 +256,3 @@ class SeenVideoService {
 
 // Export singleton instance
 export const seenVideoService = new SeenVideoService();
-export default seenVideoService;

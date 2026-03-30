@@ -2,7 +2,6 @@ import { storage } from '../../utils/storage/storage';
 import AtprotoService from '../api/AtprotoService';
 import { extractColorsFromImage, darkenColor } from '../../utils/formatting/colors';
 import { useQuery, useMutation, useQueryClient, UseQueryResult } from '@tanstack/react-query';
-import { useCallback } from 'react';
 import { Colors } from '../../theme';
 import {
   isOrbytChannel,
@@ -51,7 +50,7 @@ export interface ChannelColorScheme {
 }
 
 // Query keys for React Query
-export const channelKeys = {
+const channelKeys = {
   all: ['channels'] as const,
   detail: (uri: string) => [...channelKeys.all, 'detail', uri] as const,
   colors: (uri: string) => [...channelKeys.all, 'colors', uri] as const,
@@ -278,7 +277,14 @@ class ChannelService {
     }
 
     // Extract colors from avatar if available
-    let channelColors = undefined;
+    let channelColors:
+      | {
+          backgroundColor: string;
+          foregroundColor: string;
+          accentColor: string;
+          statusBarStyle: 'light';
+        }
+      | undefined;
     if (avatarUrl) {
       try {
         const extractedColors = await extractColorsFromImage(avatarUrl);
@@ -437,20 +443,6 @@ export function useChannelColorsMutation() {
       queryClient.invalidateQueries({ queryKey: channelKeys.detail(uri) });
     },
   });
-}
-
-/**
- * Hook to invalidate channel cache
- */
-export function useChannelInvalidation() {
-  const queryClient = useQueryClient();
-
-  return useCallback(
-    (uri: string) => {
-      queryClient.invalidateQueries({ queryKey: channelKeys.detail(uri) });
-    },
-    [queryClient]
-  );
 }
 
 export default ChannelService;

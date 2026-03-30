@@ -203,4 +203,4 @@ export async function saveAndSyncColors(
   syncToCaches(did, data);
 }
 
-export { fetchColors, batchFetchColors, refreshColors };
+export { fetchColors, batchFetchColors };

@@ -4,14 +4,11 @@
  * and apply the returned padding to your list's contentContainerStyle (or content wrapper).
  */
 
-/** Minimum padding below footer Cancel/Done buttons (older devices may have 0 safe area). */
-export const FOOTER_BOTTOM_PADDING_MIN = 8;
-
 /** Maximum bottom padding for compact sheet footers on large-safe-area devices. */
-export const FOOTER_BOTTOM_PADDING_MAX = 16;
+const FOOTER_BOTTOM_PADDING_MAX = 16;
 
 /** Default compact footer inset when safe-area data is unavailable. */
-export const FOOTER_BOTTOM_PADDING_DEFAULT = 12;
+const FOOTER_BOTTOM_PADDING_DEFAULT = 12;
 
 /** Default padding between sheet content and footer (above Cancel/Close button). */
 export const FOOTER_TOP_PADDING_DEFAULT = 12;

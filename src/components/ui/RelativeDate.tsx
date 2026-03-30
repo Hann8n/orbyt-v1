@@ -8,7 +8,6 @@ import {
   differenceInMinutes,
   differenceInSeconds,
   format,
-  getYear,
   isValid,
   parseISO,
 } from 'date-fns';
@@ -67,30 +66,6 @@ export const formatRelativeDate = (dateString?: string, _showTime: boolean = fal
 
   if (diffDays >= 365) {
     return format(date, 'MM/dd/yy', { locale: dateFnsLocale });
-  }
-  return format(date, 'MMM d', { locale: dateFnsLocale });
-};
-
-/**
- * Format a post date in "Month Day" format (e.g., "Jan 15" / "1月15日")
- * If the post is from a different year than current, also shows the year.
- * Uses localized month names per current language.
- * @param dateString - ISO date string to format
- * @returns Formatted date string
- */
-export const formatPostDate = (dateString?: string): string => {
-  if (!dateString) return '';
-
-  const date = parseISO(dateString);
-  if (!isValid(date)) return '';
-
-  const now = new Date();
-  const year = getYear(date);
-  const currentYear = getYear(now);
-  const dateFnsLocale = getDateFnsLocale();
-
-  if (year !== currentYear) {
-    return format(date, 'MMM d, yyyy', { locale: dateFnsLocale });
   }
   return format(date, 'MMM d', { locale: dateFnsLocale });
 };
