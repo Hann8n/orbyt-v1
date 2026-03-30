@@ -5,13 +5,11 @@ import {
   Text,
   StyleSheet,
   Alert,
-  Modal,
   TextInput,
   LayoutAnimation,
   ActivityIndicator,
 } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
-import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import Animated, {
@@ -24,6 +22,7 @@ import { FlashList, ListRenderItem, FlashListRef } from '@shopify/flash-list';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
+import { navigateToProfileImageViewer } from '@/utils/navigation/profileImageViewer';
 
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import type { TrueSheet as TrueSheetHandle } from '@lodev09/react-native-true-sheet';
@@ -41,10 +40,10 @@ import { useGlobalShareSheet } from '../../../hooks/useGlobalModals';
 
 import TabNavigation, { TabOption } from '../../layout/header/TabNavigation';
 import { Colors } from '../../../theme';
-import { HeartFillIcon, MoreFillIcon, CloseFillIcon } from '../../ui/Icon';
+import { HeartFillIcon, MoreFillIcon } from '../../ui/Icon';
 import RelativeDate from '../../ui/RelativeDate';
 import { useUserSearchTrigger } from '../../ui/usersearch';
-import { APP_CONSTANTS, BORDER_RADIUS, QUERY_CONSTANTS } from '../../../utils/constants';
+import { APP_CONSTANTS, QUERY_CONSTANTS } from '../../../utils/constants';
 import { formatNumber } from '../../../utils/formatting/numbers';
 import { formatHandle } from '../../../utils/formatting/handles';
 import { FontFamily } from '../../../utils/components/typography';
@@ -168,7 +167,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
   const [activeTab, setActiveTab] = useState<'comments' | 'likes'>('comments');
   const [likesQueryEnabled, setLikesQueryEnabled] = useState(false);
-  const [fullscreenImageUri, setFullscreenImageUri] = useState<string | null>(null);
 
   const [newCommentText, setNewCommentText] = useState('');
   const [selectedGif, setSelectedGif] = useState<KlipyItem | null>(null);
@@ -772,7 +770,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     setSelectedImages([]);
     setActiveTab('comments');
     setLikesQueryEnabled(false);
-    setFullscreenImageUri(null);
     setInputSelection({ start: 0, end: 0 });
     setReplyContext(null);
     setIsPosting(false);
@@ -800,7 +797,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         <CommentItem
           comment={item}
           onDismiss={onDismiss}
-          onImagePress={setFullscreenImageUri}
+          onImagePress={navigateToProfileImageViewer}
           onReplyPress={handleReplyPress}
           highlightUri={scrollToCommentUri}
           level={level}
@@ -1023,26 +1020,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         </View>
       </AppTrueSheet>
 
-      <Modal
-        visible={!!fullscreenImageUri}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setFullscreenImageUri(null)}
-      >
-        <NativePressable style={styles.modalOverlay} onPress={() => setFullscreenImageUri(null)}>
-          {fullscreenImageUri && (
-            <Image
-              source={{ uri: fullscreenImageUri }}
-              style={styles.fullscreenImage}
-              contentFit="contain"
-            />
-          )}
-          <NativePressable style={styles.closeButton} onPress={() => setFullscreenImageUri(null)}>
-            <CloseFillIcon size={28} color={Colors.neutral[50]} />
-          </NativePressable>
-        </NativePressable>
-      </Modal>
-
       <KlipyGifPickerSheet
         sheetRef={klipySheetRef}
         onSelect={handleSelectGif}
@@ -1124,26 +1101,6 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: Colors.neutral[900],
     marginLeft: 52,
-  },
-
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: Colors.overlay.black95,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  fullscreenImage: {
-    width: '95%',
-    height: '80%',
-    borderRadius: BORDER_RADIUS.MEDIUM,
-  },
-  closeButton: {
-    position: 'absolute',
-    top: 60,
-    left: 24,
-    backgroundColor: Colors.overlay.black70,
-    borderRadius: BORDER_RADIUS.LARGE,
-    padding: 12,
   },
 });
 

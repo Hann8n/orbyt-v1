@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { Colors } from '@/theme';
+import { LAYOUT_INSETS } from '@/utils/constants';
 
 /**
  * Single source of truth for full-bleed **profile** and **channel** screens:
@@ -14,8 +15,8 @@ import { Colors } from '@/theme';
 export { ProfileChannelErrorScreen } from './ProfileChannelErrorScreen';
 export type { ProfileChannelErrorScreenProps } from './ProfileChannelErrorScreen';
 
-/** Pixels below measured safe-area top for detail-screen overlay controls (profile + channel). */
-export const PROFILE_CHANNEL_FEED_OVERLAY_TOP_OFFSET = 5;
+/** Re-export of `LAYOUT_INSETS.DETAIL_OVERLAY_TOP_OFFSET` for profile/channel feed screens. */
+export const PROFILE_CHANNEL_FEED_OVERLAY_TOP_OFFSET = LAYOUT_INSETS.DETAIL_OVERLAY_TOP_OFFSET;
 
 /** FeedPager defaults for header-driven feeds (tab strip in header, not the pager indicator). */
 export const PROFILE_CHANNEL_FEED_PAGER_DEFAULTS = {

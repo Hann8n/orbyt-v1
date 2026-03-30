@@ -17,6 +17,8 @@ export const LAYOUT_INSETS = {
   SHEET_FOOTER: 24, // Sheet footer (Cancel, actions)
   /** Profile/channel `DetailScreenOverlay` + feed-modal `TabFullScreenBackButton` leading inset. */
   DETAIL_OVERLAY_HORIZONTAL: 16,
+  /** Pixels below safe-area top for detail overlay row (profile, channel, image viewer close). */
+  DETAIL_OVERLAY_TOP_OFFSET: 5,
 } as const;
 
 // Border Radius Constants

@@ -10,9 +10,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { BORDER_RADIUS, APP_CONSTANTS, ICON_SIZES } from '@/utils/constants';
 import { getEffectiveTopInset } from '@/utils/device/screen';
-import { View, StyleSheet, Modal, Platform, Linking } from 'react-native';
+import { View, StyleSheet, Platform, Linking } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
-import { Image } from 'expo-image';
 import { FeedPager } from '@/components';
 import {
   useProfileByDid,
@@ -55,6 +54,7 @@ import type { MenuAction } from '@react-native-menu/menu';
 import { tabRefs, type FeedPagerRef } from '@/utils/navigation/tabRefs';
 import type { ViewMode } from '@/types';
 import { useOrbytColors } from '@/services/colors';
+import { navigateToProfileImageViewer } from '@/utils/navigation/profileImageViewer';
 
 interface ProfileScreenProps {
   onLogout: (_clearAllAccounts?: boolean) => Promise<void>;
@@ -285,8 +285,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     if (!isViewingOwnProfile) setShowGermSheet(false);
   }, [isViewingOwnProfile]);
   const [showLiveStreamSheet, setShowLiveStreamSheet] = useState(false);
-  const [fullscreenImageUri, setFullscreenImageUri] = useState<string | null>(null);
-
   const liveAvatarMenuActions = useMemo<MenuAction[]>(() => {
     if (!isLive) return [];
     const actions: MenuAction[] = [{ id: 'liveInfo', title: t('profile.avatarMenuSeeLiveInfo') }];
@@ -303,7 +301,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
         return;
       }
       if (actionId === 'viewAvatar' && profileData?.avatar) {
-        setFullscreenImageUri(profileData.avatar);
+        navigateToProfileImageViewer(profileData.avatar);
       }
     },
     [profileData?.avatar]
@@ -680,7 +678,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
                     }
                   : {
                       onAvatarPress: profileData?.avatar
-                        ? () => setFullscreenImageUri(profileData.avatar || null)
+                        ? () => navigateToProfileImageViewer(profileData.avatar!)
                         : undefined,
                     })}
               >
@@ -757,23 +755,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
         profile={profileData}
         onDismiss={() => setShowLiveStreamSheet(false)}
       />
-
-      <Modal
-        visible={!!fullscreenImageUri}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setFullscreenImageUri(null)}
-      >
-        <NativePressable style={styles.modalOverlay} onPress={() => setFullscreenImageUri(null)}>
-          {fullscreenImageUri && (
-            <Image
-              source={{ uri: fullscreenImageUri }}
-              style={styles.fullscreenImage}
-              contentFit="contain"
-            />
-          )}
-        </NativePressable>
-      </Modal>
     </ProfileChannelFeedLayout>
   );
 });
@@ -807,16 +788,5 @@ const styles = StyleSheet.create({
   /** Lets the lead (e.g. follow) pill paint above trailing actions during layout morph. */
   overlayHeaderActionSlot: {
     position: 'relative',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: Colors.overlay.black95,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  fullscreenImage: {
-    width: '95%',
-    height: '80%',
-    borderRadius: BORDER_RADIUS.MEDIUM,
   },
 });

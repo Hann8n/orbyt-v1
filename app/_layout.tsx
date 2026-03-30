@@ -237,6 +237,16 @@ function RootNavigator() {
           />
           <Stack.Screen name="settings" options={modalSlideUpOptions} />
           <Stack.Screen name="edit-profile" options={modalSlideUpOptions} />
+          <Stack.Screen
+            name="profile-image-viewer"
+            options={{
+              presentation: 'transparentModal',
+              animation: 'fade',
+              animationDuration: 200,
+              headerShown: false,
+              contentStyle: { backgroundColor: Colors.transparent },
+            }}
+          />
         </Stack.Protected>
 
         {/* Public routes - accessible without authentication */}
