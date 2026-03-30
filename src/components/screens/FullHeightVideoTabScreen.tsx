@@ -37,7 +37,9 @@ const FullHeightVideoPlayback = memo(function FullHeightVideoPlayback({
   feedKey,
   canPlay,
 }: PlaybackProps) {
-  const { width: windowWidth, height: windowHeight } = getViewportDimensions(true, false, insets);
+  const { width: windowWidth, height: windowHeight } = getViewportDimensions(insets, {
+    useFullWindowHeight: true,
+  });
 
   const topInset = typeof insets.top === 'number' ? insets.top : 0;
   const bottomInset = typeof insets.bottom === 'number' ? insets.bottom : 0;
@@ -95,7 +97,6 @@ const FullHeightVideoPlayback = memo(function FullHeightVideoPlayback({
               feedKey={feedKey}
               canPlay={canPlay}
               isHeaderBlockingPlayback={false}
-              isModal
               index={0}
               isAppleZoomTarget={Platform.OS === 'ios'}
             />
@@ -110,7 +111,6 @@ const FullHeightVideoPlayback = memo(function FullHeightVideoPlayback({
           feedKey={feedKey}
           canPlay={canPlay}
           isHeaderBlockingPlayback={false}
-          isModal
           index={0}
           isAppleZoomTarget={Platform.OS === 'ios'}
         />

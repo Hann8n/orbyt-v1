@@ -189,22 +189,6 @@ function RootNavigator() {
         {/* Protected routes - require authentication */}
         <Stack.Protected guard={!!session}>
           <Stack.Screen name="(tabs)" />
-          <Stack.Screen
-            name="(modals)/feed"
-            options={{
-              headerShown: false,
-              animation: 'fade',
-              gestureEnabled: false,
-            }}
-          />
-          <Stack.Screen
-            name="(modals)/full-height-video"
-            options={{
-              headerShown: false,
-              animation: 'fade',
-              gestureEnabled: false,
-            }}
-          />
           {/* Protected create route - require email confirmation if email exists */}
           <Stack.Protected guard={canAccessCreate(currentUser?.emailConfirmed ?? null)}>
             <Stack.Screen

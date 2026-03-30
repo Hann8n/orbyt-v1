@@ -3,6 +3,8 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Colors } from '@/theme';
 import { Typography, FontFamily } from '@/utils/components/typography';
 import type { EdgeInsets } from 'react-native-safe-area-context';
+import { getEffectiveTopInset } from '@/utils/device/screen';
+import { PROFILE_CHANNEL_FEED_OVERLAY_TOP_OFFSET } from '@/components/layout/detail/ProfileChannelFeedLayout';
 
 export interface HashtagHeaderProps {
   feedOption: string;
@@ -34,13 +36,13 @@ export const HashtagHeader: React.FC<HashtagHeaderProps> = ({ feedOption, insets
     return null;
   }
 
+  const hookTop = typeof insets?.top === 'number' ? insets.top : 0;
+  const rowTop = getEffectiveTopInset(hookTop) + PROFILE_CHANNEL_FEED_OVERLAY_TOP_OFFSET;
+  // Center 30px line with the 40px-tall back row (same as `TabFullScreenBackButton`).
+  const top = rowTop + 5;
+
   return (
-    <View
-      style={[
-        styles.hashtagHeaderContainer,
-        { top: (typeof insets?.top === 'number' ? insets.top : 0) + 15 },
-      ]}
-    >
+    <View style={[styles.hashtagHeaderContainer, { top }]}>
       <Text style={styles.hashtagSymbol}>#</Text>
       <Text style={styles.hashtagText}>{hashtag}</Text>
     </View>

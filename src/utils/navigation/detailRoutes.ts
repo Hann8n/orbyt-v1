@@ -5,6 +5,16 @@ export type DetailNavTab = 'home' | 'explore' | 'activity' | 'profile';
 const TAB_SEGMENTS: readonly DetailNavTab[] = ['home', 'explore', 'activity', 'profile'];
 
 /**
+ * True when the current route is a root stack screen presented as a modal (`presentation: 'modal'`).
+ * In this case, tab destinations should use `router.dismissTo(href)` so the modal closes and the
+ * detail screen is shown on the root stack, not stacked above the modal.
+ */
+export function isRootModalStackContext(segments: readonly string[]): boolean {
+  const root = segments[0];
+  return root === 'settings' || root === 'edit-profile';
+}
+
+/**
  * Tab segment immediately under `(tabs)` — stable even when stacked on e.g. `user/[did]`.
  */
 export function getDetailNavTabFromSegments(
@@ -20,6 +30,19 @@ export function getDetailNavTabFromSegments(
     return candidate as DetailNavTab;
   }
   return fallback;
+}
+
+/** When the focused route is under `(tabs)`, returns that tab; otherwise `null` (e.g. root modal). */
+export function getDetailNavTabIfInsideTabs(segments: readonly string[]): DetailNavTab | null {
+  const tabsIdx = segments.indexOf('(tabs)');
+  if (tabsIdx < 0) {
+    return null;
+  }
+  const candidate = segments[tabsIdx + 1];
+  if (TAB_SEGMENTS.includes(candidate as DetailNavTab)) {
+    return candidate as DetailNavTab;
+  }
+  return null;
 }
 
 function profilePathnameForTab(

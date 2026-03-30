@@ -68,7 +68,6 @@ const FeedModalTabScreen = memo(() => {
         backgroundColor={Colors.black}
         secondaryColor={Colors.neutral[50]}
         isVisible={isRouteFocused}
-        isModal={true}
         hasTabBar
         hasNextPage={routeParams.hasNextPage}
         isFetchingNextPage={routeParams.isFetchingNextPage}

@@ -1,25 +1,29 @@
 import { useCallback, useMemo } from 'react';
 import { useRouter, useSegments } from 'expo-router';
 
+import { useDetailNavTabStore } from '@/stores/detailNavTabStore';
 import {
   buildChannelDetailHref,
   buildProfileDetailHref,
+  isRootModalStackContext,
   type BuildDetailHrefOptions,
   type DetailNavTab,
 } from '@/utils/navigation/detailRoutes';
 
 type UseProfileChannelNavigationOptions = {
-  /** When not under `(tabs)` (e.g. settings screens). */
+  /** Overrides last focused tab when not under `(tabs)` (e.g. tests). */
   fallbackTab?: DetailNavTab;
 };
 
 /**
- * Tab-aware profile/channel navigation: pushes on the active tab’s stack (or fallback tab when outside tabs).
+ * Tab-aware profile/channel navigation: pushes on the active tab’s stack (or last focused tab when
+ * outside tabs, e.g. settings modal — see `DetailNavTabSegmentSync` in `app/(tabs)/_layout.tsx`).
  */
 export function useProfileChannelNavigation(options?: UseProfileChannelNavigationOptions) {
   const router = useRouter();
   const segments = useSegments();
-  const fallbackTab = options?.fallbackTab ?? 'home';
+  const lastFocusedDetailNavTab = useDetailNavTabStore(s => s.lastFocusedDetailNavTab);
+  const fallbackTab = options?.fallbackTab ?? lastFocusedDetailNavTab;
 
   const hrefOpts: BuildDetailHrefOptions = useMemo(
     () => ({
@@ -31,16 +35,26 @@ export function useProfileChannelNavigation(options?: UseProfileChannelNavigatio
 
   const navigateToProfile = useCallback(
     (did: string) => {
-      router.navigate(buildProfileDetailHref(did, hrefOpts));
+      const href = buildProfileDetailHref(did, hrefOpts);
+      if (isRootModalStackContext(segments)) {
+        router.dismissTo(href);
+      } else {
+        router.navigate(href);
+      }
     },
-    [router, hrefOpts]
+    [router, hrefOpts, segments]
   );
 
   const navigateToChannel = useCallback(
     (encodedChannelId: string) => {
-      router.navigate(buildChannelDetailHref(encodedChannelId, hrefOpts));
+      const href = buildChannelDetailHref(encodedChannelId, hrefOpts);
+      if (isRootModalStackContext(segments)) {
+        router.dismissTo(href);
+      } else {
+        router.navigate(href);
+      }
     },
-    [router, hrefOpts]
+    [router, hrefOpts, segments]
   );
 
   return {

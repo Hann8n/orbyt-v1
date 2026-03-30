@@ -34,7 +34,8 @@ import ProfileService from '@/services/data/ProfileService';
 import { extractColorsFromImage, hexToRGBA } from '@/utils/formatting/colors';
 import Icon from '@/components/ui/Icon';
 import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '@/hooks';
-import { initialWindowMetrics, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getEffectiveTopInset } from '@/utils/device/screen';
 import { isOrbytChannel, getChannelByUri, channelToHashtag } from '@/utils/channels/orbyt';
 import { logger } from '@/utils/logger';
 import type { ViewMode } from '@/types';
@@ -66,7 +67,7 @@ const Channel: React.FC = memo(() => {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
 
   const insets = useSafeAreaInsets();
-  const topInset = Math.max(insets.top, initialWindowMetrics?.insets.top ?? 0);
+  const topInset = getEffectiveTopInset(insets.top);
   const defaultTop = topInset + PROFILE_CHANNEL_FEED_OVERLAY_TOP_OFFSET;
   const overlayScrollProgressSV = useSharedValue(0);
   const actionButtonsTop = defaultTop;
@@ -368,7 +369,6 @@ const Channel: React.FC = memo(() => {
           {...PROFILE_CHANNEL_FEED_PAGER_DEFAULTS}
           queryOptions={queryOptions}
           isVisible={isRouteFocused}
-          isModal={false}
           headerComponent={headerComponent}
           backgroundColor={Colors.black}
           secondaryColor={channelColors.textColor}

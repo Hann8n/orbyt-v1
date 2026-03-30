@@ -9,3 +9,4 @@ export * from './profileInteractionStore';
 export * from './subscriptionStore';
 export * from './commentStore';
 export * from './videoPostDraftStore';
+export * from './detailNavTabStore';

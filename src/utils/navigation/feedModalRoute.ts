@@ -69,7 +69,7 @@ export function buildFeedModalHref(
 }
 
 /**
- * iOS grid → feed modal: `Link` + `Link.AppleZoom` source configuration.
+ * iOS grid → tab stack feed: `Link` + `Link.AppleZoom` source configuration.
  */
 export interface GridFeedModalZoomConfig {
   buildHref: (index: number) => Href;

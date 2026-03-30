@@ -130,7 +130,6 @@ export interface VideoCardProps {
   // Overlay props
   showOverlay?: boolean;
   feedOption?: string;
-  isModal?: boolean;
   /** Item index in the list; used with FeedScrollContext to compute percent visible from scroll+layout. */
   index?: number;
 }
@@ -147,7 +146,6 @@ const VideoCard = memo(
         shouldDisablePlayback = false,
         showOverlay = true,
         feedOption,
-        isModal = false,
         index,
       },
       ref
@@ -1168,7 +1166,6 @@ const VideoCard = memo(
                 <VideoOverlayUI
                   post={postView}
                   isVisible={isVisible}
-                  isModal={isModal}
                   overlayOpacitySV={uiOverlayOpacitySV}
                   feedOption={feedOption as 'following' | 'discover' | undefined}
                   onOverlayCollapsedChange={handleOverlayCollapsedChange}

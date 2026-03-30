@@ -45,7 +45,6 @@ type Post = ExtendedPostView;
 export interface VideoOverlayUIProps {
   post: Post;
   isVisible: boolean;
-  isModal?: boolean;
   feedOption?: 'following' | 'discover';
   // Optional composed shared opacity to tie overlay and scrubber together
   overlayOpacitySV?: SharedValue<number>;
@@ -970,7 +969,6 @@ const arePropsEqual = (prevProps: VideoOverlayUIProps, nextProps: VideoOverlayUI
   if (prevProps.hasProfile !== nextProps.hasProfile) return false;
   if (prevProps.channelSlug !== nextProps.channelSlug) return false;
 
-  if (prevProps.isModal !== nextProps.isModal) return false;
   if (prevProps.feedOption !== nextProps.feedOption) return false;
 
   // Object identity changes are common; compare the fields this component actually reads.

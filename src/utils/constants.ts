@@ -15,6 +15,8 @@ export const LAYOUT_INSETS = {
   SCREEN: 24, // Standard screen edge padding
   SHEET_CONTENT: 20, // Sheet body content
   SHEET_FOOTER: 24, // Sheet footer (Cancel, actions)
+  /** Profile/channel `DetailScreenOverlay` + feed-modal `TabFullScreenBackButton` leading inset. */
+  DETAIL_OVERLAY_HORIZONTAL: 16,
 } as const;
 
 // Border Radius Constants

@@ -138,7 +138,6 @@ interface GridFeedViewProps {
   isError?: boolean;
   onRetry?: () => void;
   ListComponent?: React.ComponentType<unknown> | null; // Optional custom list component
-  isModal?: boolean;
   /** When provided, grid writes scroll progress (0..1) here on UI thread for overlay/header fade. */
   contentScrollProgressOutput?: SharedValue<number>;
   /** Same inset as list `snapToOffsets` so the first grid row aligns with list’s first video snap. */
@@ -155,7 +154,6 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
     {
       feed,
       headerComponent,
-      isModal = false,
       backgroundColor = Colors.black,
       secondaryColor = Colors.neutral[50],
       isProfileFeed = false,
@@ -194,7 +192,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
     const useScrollTracking = !ListComponent && hasHeader;
     // Use actual safe area insets and bottom nav bar height
     const insets = useSafeAreaInsets();
-    const viewportDimensions = getViewportDimensions(isModal, isHeaderFeed, insets);
+    const viewportDimensions = getViewportDimensions(insets);
     const viewableAreaHeight = viewportDimensions.height;
 
     const handleGridContainerLayout = useCallback((e: LayoutChangeEvent) => {

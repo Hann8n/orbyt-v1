@@ -39,7 +39,7 @@ interface ChannelUser {
 export default function ChannelManagementScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { navigateToChannel: goToChannel } = useProfileChannelNavigation({ fallbackTab: 'home' });
+  const { navigateToChannel: goToChannel } = useProfileChannelNavigation();
   const insets = useSafeAreaInsets();
 
   const { subscribedChannels: channels, unsubscribeFromChannel } = useSubscribedChannels();

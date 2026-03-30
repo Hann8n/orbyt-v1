@@ -24,7 +24,7 @@ interface FollowingPage {
 
 const FollowingScreen: React.FC = () => {
   const { t } = useTranslation();
-  const { navigateToProfile: goToProfile } = useProfileChannelNavigation({ fallbackTab: 'home' });
+  const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
   const queryClient = useQueryClient();
   const { currentUser } = useCurrentUser();
 

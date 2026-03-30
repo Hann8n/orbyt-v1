@@ -42,8 +42,7 @@ interface FeedRendererProps {
 
   // Feed state
   isVisible?: boolean;
-  isModal?: boolean;
-  /** When set, overrides list tab-bar inset behavior (e.g. transparent modal over tabs). */
+  /** When set, overrides list tab-bar inset behavior. */
   hasTabBar?: boolean;
 
   // View mode
@@ -95,7 +94,6 @@ const FeedRenderer = forwardRef<ListFeedViewRef, FeedRendererProps>(
       viewMode = 'list',
       onViewModeChange,
       contentScrollProgressOutput,
-      isModal = false,
       hasTabBar: hasTabBarProp,
       // Search props
       hasNextPage: searchHasNextPage,
@@ -220,10 +218,7 @@ const FeedRenderer = forwardRef<ListFeedViewRef, FeedRendererProps>(
       }
     };
 
-    const gridFeedModalZoomConfig: GridFeedModalZoomConfig | null = useMemo(() => {
-      if (isModal) {
-        return null;
-      }
+    const gridFeedModalZoomConfig: GridFeedModalZoomConfig = useMemo(() => {
       return {
         onBeforeNavigate: (index: number) => {
           if (index >= 0 && index < feed.length) {
@@ -249,7 +244,6 @@ const FeedRenderer = forwardRef<ListFeedViewRef, FeedRendererProps>(
         },
       };
     }, [
-      isModal,
       feed,
       feedOption,
       userDid,
@@ -287,7 +281,6 @@ const FeedRenderer = forwardRef<ListFeedViewRef, FeedRendererProps>(
       viewMode,
       onViewModeChange,
       contentScrollProgressOutput,
-      isModal,
       hasTabBar: hasTabBarProp,
       ListComponent,
       onGridItemPress: handleGridItemPress,
