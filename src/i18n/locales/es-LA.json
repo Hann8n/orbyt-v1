@@ -362,7 +362,7 @@
     "sinceDate": "Desde {{date}}",
     "verifiedBy": "verificado por:",
     "viewVerifier": "Ver verificador",
-    "joinedOn": "Se unió el {{date}}",
+    "joinedOn": "Registro: {{date}}",
     "betaDescriptionRest": " se unió durante la beta de orbyt. Los probadores beta ayudaron a probar las primeras funciones y a dar forma a la experiencia.",
     "watchOn": "ver en {{domain}}",
     "trustedVerifier": "Verificador de confianza",

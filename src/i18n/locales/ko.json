@@ -362,7 +362,7 @@
     "sinceDate": "{{date}}부터",
     "verifiedBy": "인증:",
     "viewVerifier": "인증자 보기",
-    "joinedOn": "{{date}}에 가입",
+    "joinedOn": "가입: {{date}}",
     "betaDescriptionRest": " orbyt 베타에 참여했어요. 베타 테스터들이 앱 개선에 도움을 줬어요.",
     "watchOn": "{{domain}}에서 시청",
     "trustedVerifier": "신뢰할 수 있는 인증자",

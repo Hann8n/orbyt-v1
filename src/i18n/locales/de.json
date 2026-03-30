@@ -362,7 +362,7 @@
     "sinceDate": "Seit {{date}}",
     "verifiedBy": "verifiziert von:",
     "viewVerifier": "Prüfer anzeigen",
-    "joinedOn": "Beigetreten am {{date}}",
+    "joinedOn": "Beigetreten: {{date}}",
     "betaDescriptionRest": " war während der orbyt-Beta dabei. Beta-Tester haben die App mitgeprägt.",
     "watchOn": "ansehen auf {{domain}}",
     "trustedVerifier": "Vertrauensprüfer",

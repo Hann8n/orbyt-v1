@@ -13,7 +13,6 @@ import { useOrbytColors } from '../../../services/colors';
 import VerificationBadge from '../../features/badging/VerificationBadge';
 import BotBadge from '../../features/badging/BotBadge';
 import BetaBadge from '../../features/badging/BetaBadge';
-import BetaInfoSheet from '../../features/badging/BetaInfoSheet';
 import { getStatusBarStyle } from '../../../utils/formatting/colors';
 import { RichText } from '@atproto/api';
 import { formatHandle } from '../../../utils/formatting/handles';
@@ -66,7 +65,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 }) => {
   const { t } = useTranslation();
   const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
-  const [showBetaInfo, setShowBetaInfo] = useState(false);
 
   const showVerificationInfoAlert = useCallback(() => {
     if (!profileData) return;
@@ -114,6 +112,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       { text: t('common.ok') },
     ]);
   }, [t]);
+
   const isFocused = useIsFocused();
   // Same scroll progress as header (contentScrollProgressSV); use profile status bar at top, app default when scrolled.
   // Only runOnJS when the decision flips (not every frame) so we don't cross the bridge on every scroll tick.
@@ -147,6 +146,18 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 
   const isBeta = orbytColors?.isBeta ?? false;
 
+  const showBetaInfoAlert = useCallback(() => {
+    if (!profileData?.handle) return;
+    let message = `${profileData.handle}${t('profile.betaDescriptionRest')}`;
+    if (joinDate) {
+      const d = parseISO(joinDate);
+      if (isValid(d)) {
+        message += `\n\n${t('profile.joinedOn', { date: format(d, 'MMM d, yyyy') })}`;
+      }
+    }
+    Alert.alert(t('a11y.betaTester'), message, [{ text: t('common.ok') }]);
+  }, [joinDate, profileData, t]);
+
   // Block status and flags (used for avatar blur only; actions moved to ProfileScreen)
   // Use moderation flags directly from ProfileView viewer fields
   // Fallback to store flags for optimistic updates during mutations
@@ -172,7 +183,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       };
     }
 
-    // Compose subtitle lines: handle only (joined date moved to Beta Info Sheet)
+    // Compose subtitle lines: handle only (joined date shown in beta tester alert when applicable)
     const subtitle: string | undefined = profileData.handle ? profileData.handle : undefined;
     // Show blocking indicator if blocked by list
     const subtitleSecondary: string | undefined = blockingByList
@@ -218,7 +229,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
             onPress={showBotAccountAlert}
           />
           {isBeta && (
-            <NativePressable onPress={() => setShowBetaInfo(true)}>
+            <NativePressable onPress={showBetaInfoAlert}>
               <BetaBadge textSize={20} color={profileColors.textColor} opacity={0.6} scale={0.8} />
             </NativePressable>
           )}
@@ -245,6 +256,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     avatarMenuActions,
     onAvatarMenuAction,
     subtitleAction,
+    showBetaInfoAlert,
     showBotAccountAlert,
     showVerificationInfoAlert,
     t,
@@ -300,15 +312,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         {/* Hide tabs when blocked */}
         {!isBlocked && children}
       </UniversalHeader>
-
-      {profileData?.handle && (
-        <BetaInfoSheet
-          visible={showBetaInfo}
-          handle={profileData.handle}
-          joinDate={joinDate}
-          onDismiss={() => setShowBetaInfo(false)}
-        />
-      )}
     </>
   );
 };

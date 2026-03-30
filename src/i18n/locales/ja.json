@@ -361,7 +361,7 @@
     "sinceDate": "{{date}}以降",
     "verifiedBy": "認証者:",
     "viewVerifier": "認証者を見る",
-    "joinedOn": "{{date}}に参加",
+    "joinedOn": "参加: {{date}}",
     "betaDescriptionRest": "はorbytベータ期間中に参加しました。ベータテスターは初期機能のテストと体験の構築に貢献しました。",
     "watchOn": "{{domain}}で視聴",
     "trustedVerifier": "信頼できる検証者",
