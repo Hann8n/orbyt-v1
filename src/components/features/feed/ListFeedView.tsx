@@ -45,8 +45,8 @@ import {
   FEED_VIEW_CONSTANTS,
   getEmptyFeedType,
   getFeedItemKey,
-  getProfileColors,
   getEndOfFeedOverscrollTextColor,
+  getProfileColors,
   isHeaderFeed as getIsHeaderFeed,
 } from './feedViewShared';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
@@ -54,7 +54,12 @@ import { isIosLiquidGlassAvailable } from '@/stores/userStore';
 import { getEffectiveTopInset, getViewportDimensions } from '../../../utils/device/screen';
 import { getVideoCardHeight } from '../../../utils/video/helpers';
 import { Colors } from '../../../theme';
-import { APP_CONSTANTS, SCROLL_CONSTANTS, QUERY_CONSTANTS } from '../../../utils/constants';
+import {
+  APP_CONSTANTS,
+  SCROLL_CONSTANTS,
+  QUERY_CONSTANTS,
+  SCROLL_INDICATOR_CONSTANTS,
+} from '../../../utils/constants';
 import type { FeedListItem, ListFeedViewProps, ListFeedViewRef } from '../../../types';
 import { useFeedVisibility, useVisibilityCoreStore } from '../../../core/visibility';
 import { useTranslation } from 'react-i18next';
@@ -593,7 +598,9 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
             viewabilityConfig={viewabilityConfig}
             // Scroll behavior
             scrollEnabled={true}
-            showsVerticalScrollIndicator={false}
+            showsVerticalScrollIndicator={
+              listData.length >= SCROLL_INDICATOR_CONSTANTS.FEED_LIST_MIN_ITEMS
+            }
             bounces={true}
             directionalLockEnabled={true}
             // Allow bottom rubber-band when at end of feed so the overscroll hint can appear (not in scroll content).

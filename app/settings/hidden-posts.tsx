@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BORDER_RADIUS } from '@/utils/constants';
+import { BORDER_RADIUS, SCROLL_INDICATOR_CONSTANTS } from '@/utils/constants';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { useRouter } from 'expo-router';
@@ -194,7 +194,9 @@ const HiddenPostsScreen: React.FC = () => {
         keyExtractor={item => item.id}
         renderItem={renderPostItem}
         contentContainerStyle={styles.listContainer}
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={
+          hiddenPosts.length >= SCROLL_INDICATOR_CONSTANTS.HIDDEN_POSTS_MIN_ITEMS
+        }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Icon name="eye_close" size={48} color={Colors.neutral[200]} />

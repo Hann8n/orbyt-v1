@@ -1,11 +1,16 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, type StyleProp, type ViewStyle, View } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
-import { BORDER_RADIUS } from '../../../utils/constants';
+import { BORDER_RADIUS, SCROLL_INDICATOR_CONSTANTS } from '../../../utils/constants';
 import { FontFamily, Typography } from '../../../utils/components/typography';
 import { Colors } from '../../../theme';
 import { useUserStore } from '../../../stores/userStore';
-import { getTabBarActiveTintFromProfile, isColorDark } from '../../../utils/formatting/colors';
+import {
+  blendColors,
+  getContrastRatio,
+  getTabBarActiveTintFromProfile,
+  isColorDark,
+} from '../../../utils/formatting/colors';
 
 export interface ActivitySegmentedChipOption {
   key: string;
@@ -30,6 +35,19 @@ const ActivitySegmentedChips: React.FC<ActivitySegmentedChipsProps> = ({
   const profileColors = useUserStore(state => state.currentUserProfileColors);
   const activeChipColor = getTabBarActiveTintFromProfile(profileColors);
   const activeTextColor = isColorDark(activeChipColor) ? Colors.neutral[50] : Colors.black;
+  const inactiveChipColor = blendColors(Colors.neutral[950], activeChipColor, 0.16);
+
+  // Keep inactive text subdued but ensure it stays readable on inactive chip fill.
+  let inactiveTextColor = blendColors(Colors.neutral[300], activeChipColor, 0.45);
+  if (getContrastRatio(inactiveTextColor, inactiveChipColor) < 4.5) {
+    for (let i = 1; i <= 5; i += 1) {
+      const candidate = blendColors(inactiveTextColor, Colors.neutral[50], i * 0.15);
+      if (getContrastRatio(candidate, inactiveChipColor) >= 4.5) {
+        inactiveTextColor = candidate;
+        break;
+      }
+    }
+  }
 
   const content = (
     <View style={[styles.track, trackStyle]}>
@@ -37,9 +55,17 @@ const ActivitySegmentedChips: React.FC<ActivitySegmentedChipsProps> = ({
         <NativePressable
           key={option.key}
           onPress={option.onPress}
-          style={[styles.chip, option.selected && { backgroundColor: activeChipColor }]}
+          style={[
+            styles.chip,
+            { backgroundColor: option.selected ? activeChipColor : inactiveChipColor },
+          ]}
         >
-          <Text style={[styles.chipText, option.selected && { color: activeTextColor }]}>
+          <Text
+            style={[
+              styles.chipText,
+              { color: option.selected ? activeTextColor : inactiveTextColor },
+            ]}
+          >
             {option.label}
           </Text>
         </NativePressable>
@@ -51,7 +77,9 @@ const ActivitySegmentedChips: React.FC<ActivitySegmentedChipsProps> = ({
     return (
       <ScrollView
         horizontal
-        showsHorizontalScrollIndicator={false}
+        showsHorizontalScrollIndicator={
+          options.length >= SCROLL_INDICATOR_CONSTANTS.SEGMENTED_CHIPS_MIN_ITEMS
+        }
         style={[styles.scrollContainer, containerStyle]}
         contentContainerStyle={styles.scrollContent}
       >

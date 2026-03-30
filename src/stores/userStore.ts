@@ -34,7 +34,7 @@ import {
   loadPersistedColors,
   getPersistedColorsSync,
 } from '../services/colors/OrbytColors';
-import { getProfileColors } from '../utils/formatting/colors';
+import { getProfileColors, getProfileMiddleAccentColor } from '../utils/formatting/colors';
 import type { ProfileColorScheme } from '../utils/formatting/colors';
 import { APP_CONSTANTS, DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI } from '../utils/constants';
 import { Platform } from 'react-native';
@@ -200,6 +200,7 @@ export interface UserState {
 
   // Cached profile colors for current user (filled from MMKV on rehydrate; instant tab/header display)
   currentUserProfileColors: ProfileColorScheme | null;
+  currentUserProfileAccentColor: string | null;
 
   // Actions
   // Authentication
@@ -364,6 +365,13 @@ export const useUserStore = create<UserState>()(
         return { agent, userProfile, emailConfirmed };
       };
 
+      const setCurrentUserProfileTheme = (colors: ProfileColorScheme | null) => {
+        set({
+          currentUserProfileColors: colors,
+          currentUserProfileAccentColor: getProfileMiddleAccentColor(colors),
+        });
+      };
+
       return {
         // Initial state
         currentUser: null,
@@ -401,6 +409,7 @@ export const useUserStore = create<UserState>()(
         showEmailVerificationModal: false,
 
         currentUserProfileColors: null,
+        currentUserProfileAccentColor: null,
 
         // Authentication actions
         signIn: async (identifier: string) => {
@@ -474,7 +483,7 @@ export const useUserStore = create<UserState>()(
             await get().bootstrapUserFeedSettings(session.did);
 
             prefetchColorsForUser(session.did).then(colors => {
-              if (colors) get().setCurrentUserProfileColors(getProfileColors(colors));
+              if (colors) setCurrentUserProfileTheme(getProfileColors(colors));
             });
           } catch (error) {
             // Handle user cancellation silently
@@ -600,6 +609,7 @@ export const useUserStore = create<UserState>()(
             set({
               currentUser: null,
               currentUserProfileColors: null,
+              currentUserProfileAccentColor: null,
               isAuthenticated: false,
               isAuthenticating: false,
               switchingToHandle: null,
@@ -632,7 +642,7 @@ export const useUserStore = create<UserState>()(
             // Sync-load persisted colors so tabs/header have accent on first paint
             const persistedColors = getPersistedColorsSync(did);
             if (persistedColors) {
-              set({ currentUserProfileColors: getProfileColors(persistedColors) });
+              setCurrentUserProfileTheme(getProfileColors(persistedColors));
             }
             loadPersistedColors(did);
 
@@ -690,7 +700,7 @@ export const useUserStore = create<UserState>()(
             deferOrbytProfileInit('restoreSession');
 
             prefetchColorsForUser(session.did).then(colors => {
-              if (colors) get().setCurrentUserProfileColors(getProfileColors(colors));
+              if (colors) setCurrentUserProfileTheme(getProfileColors(colors));
             });
 
             // Load and clean subscribed channels after session restore
@@ -711,6 +721,7 @@ export const useUserStore = create<UserState>()(
               isAuthenticated: false,
               currentUser: null,
               currentUserProfileColors: null,
+              currentUserProfileAccentColor: null,
               oauthSession: null,
               agent: undefined,
               activeAccountDid: null,
@@ -741,9 +752,9 @@ export const useUserStore = create<UserState>()(
             });
             const persistedColors = getPersistedColorsSync(did);
             if (persistedColors) {
-              set({ currentUserProfileColors: getProfileColors(persistedColors) });
+              setCurrentUserProfileTheme(getProfileColors(persistedColors));
             } else {
-              set({ currentUserProfileColors: null });
+              setCurrentUserProfileTheme(null);
             }
 
             if (!account) {
@@ -784,6 +795,13 @@ export const useUserStore = create<UserState>()(
                 activeAccountDid: did,
               });
 
+              // Notify UI as soon as the account switch is committed in state.
+              // This allows switch-related sheets to dismiss at switch time instead
+              // of waiting for downstream bootstrapping to finish.
+              if (onComplete) {
+                onComplete();
+              }
+
               // Fetch orbyt profile record once and reuse for both settings and channels
               // Load user-specific settings/channels before unlocking feeds
               await get().bootstrapUserFeedSettings(did);
@@ -810,6 +828,7 @@ export const useUserStore = create<UserState>()(
                 isAuthenticated: false,
                 currentUser: null,
                 currentUserProfileColors: null,
+                currentUserProfileAccentColor: null,
                 oauthSession: null,
                 agent: undefined,
                 isSwitchingAccount: false,
@@ -830,11 +849,6 @@ export const useUserStore = create<UserState>()(
                   ? 'oauth_reauth_required'
                   : 'Session expired - please sign in again'
               );
-            }
-
-            // Call completion callback if provided
-            if (onComplete) {
-              onComplete();
             }
           } catch (error) {
             set({ isSwitchingAccount: false, switchingToHandle: null, switchingToAvatar: null });
@@ -1300,7 +1314,7 @@ export const useUserStore = create<UserState>()(
 
         // State management actions
         setCurrentUser: user => set({ currentUser: user }),
-        setCurrentUserProfileColors: colors => set({ currentUserProfileColors: colors }),
+        setCurrentUserProfileColors: colors => setCurrentUserProfileTheme(colors),
 
         setAuthenticating: authenticating => set({ isAuthenticating: authenticating }),
         setAuthError: error => set({ authError: error }),
@@ -1397,6 +1411,7 @@ export const useUserStore = create<UserState>()(
                       isAuthenticated: false,
                       currentUser: null,
                       currentUserProfileColors: null,
+                      currentUserProfileAccentColor: null,
                       oauthSession: null,
                       agent: undefined,
                       activeAccountDid: null,
@@ -1476,6 +1491,7 @@ export const useUserStore = create<UserState>()(
               isAuthenticated: false,
               currentUser: null,
               currentUserProfileColors: null,
+              currentUserProfileAccentColor: null,
               oauthSession: null,
               agent: undefined,
               activeAccountDid: null,
@@ -1497,6 +1513,7 @@ export const useUserStore = create<UserState>()(
               isAuthenticated: false,
               currentUser: null,
               currentUserProfileColors: null,
+              currentUserProfileAccentColor: null,
               oauthSession: null,
               agent: undefined,
               activeAccountDid: null,
@@ -1558,6 +1575,7 @@ export const useUserStore = create<UserState>()(
                   isAuthenticated: false,
                   currentUser: null,
                   currentUserProfileColors: null,
+                  currentUserProfileAccentColor: null,
                   oauthSession: null,
                   agent: undefined,
                   activeAccountDid: null,
@@ -1593,6 +1611,7 @@ export const useUserStore = create<UserState>()(
               isAuthenticated: false,
               currentUser: null,
               currentUserProfileColors: null,
+              currentUserProfileAccentColor: null,
               oauthSession: null,
               agent: undefined,
               activeAccountDid: null,
@@ -1877,7 +1896,18 @@ export const useUserStore = create<UserState>()(
         const did = state.activeAccountDid ?? state.currentUser?.did ?? null;
         if (did) {
           const raw = getPersistedColorsSync(did);
-          if (raw) state.currentUserProfileColors = getProfileColors(raw);
+          if (raw) {
+            state.currentUserProfileColors = getProfileColors(raw);
+            state.currentUserProfileAccentColor = getProfileMiddleAccentColor(
+              state.currentUserProfileColors
+            );
+          } else {
+            state.currentUserProfileColors = null;
+            state.currentUserProfileAccentColor = null;
+          }
+        } else {
+          state.currentUserProfileColors = null;
+          state.currentUserProfileAccentColor = null;
         }
       },
     }

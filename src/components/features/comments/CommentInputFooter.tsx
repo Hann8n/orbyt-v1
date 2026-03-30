@@ -23,7 +23,7 @@ import type { MenuAction } from '@react-native-menu/menu';
 import Icon from '../../ui/Icon';
 import UI from '../../ui/UI';
 import { Colors } from '../../../theme';
-import { BORDER_RADIUS } from '../../../utils/constants';
+import { BORDER_RADIUS, SCROLL_INDICATOR_CONSTANTS } from '../../../utils/constants';
 import { getFooterBottomPadding } from '../../../utils/components/truesheet/utils';
 import { COMPOSER_STYLES } from '../../../utils/components/truesheet/sheetStyles';
 import { UserSearchModal } from '../../ui/usersearch';
@@ -261,7 +261,10 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
           <View style={styles.attachmentRow}>
             <ScrollView
               horizontal
-              showsHorizontalScrollIndicator={false}
+              showsHorizontalScrollIndicator={
+                (hasImages ? selectedImages.length : hasGifAttachment ? 1 : 0) >=
+                SCROLL_INDICATOR_CONSTANTS.COMPOSER_ATTACHMENTS_MIN_ITEMS
+              }
               contentContainerStyle={styles.attachmentStrip}
               keyboardShouldPersistTaps="handled"
             >

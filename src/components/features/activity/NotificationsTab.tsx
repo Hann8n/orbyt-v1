@@ -7,7 +7,11 @@ import React, {
   useRef,
 } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../../utils/constants';
+import {
+  BORDER_RADIUS,
+  QUERY_CONSTANTS,
+  SCROLL_INDICATOR_CONSTANTS,
+} from '../../../utils/constants';
 import {
   View,
   Text,
@@ -978,7 +982,9 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_, ref) => {
       }
       onEndReached={handleLoadMore}
       onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
-      showsVerticalScrollIndicator={false}
+      showsVerticalScrollIndicator={
+        visibleNotifications.length >= SCROLL_INDICATOR_CONSTANTS.ACTIVITY_LIST_MIN_ITEMS
+      }
       ListEmptyComponent={
         isError ? (
           <View style={styles.errorContainer}>

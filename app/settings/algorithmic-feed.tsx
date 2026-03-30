@@ -281,7 +281,7 @@ const AlgorithmicFeedScreen: React.FC = () => {
       <ScrollView
         style={styles.content}
         contentContainerStyle={settingsLayoutStyles.contentContainerWithPadding}
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={true}
       >
         {/* Info Section */}
         <View style={styles.infoSection}>

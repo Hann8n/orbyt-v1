@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BORDER_RADIUS } from '@/utils/constants';
+import { BORDER_RADIUS, SCROLL_INDICATOR_CONSTANTS } from '@/utils/constants';
 import {
   View,
   Text,
@@ -189,7 +189,9 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
         <ScrollView
           style={styles.accountsList}
           contentContainerStyle={styles.accountsListContent}
-          showsVerticalScrollIndicator={false}
+          showsVerticalScrollIndicator={
+            savedAccounts.length >= SCROLL_INDICATOR_CONSTANTS.LOGIN_ACCOUNTS_MIN_ITEMS
+          }
           bounces={true}
           overScrollMode="always"
           scrollEventThrottle={16}

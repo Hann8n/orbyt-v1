@@ -1442,7 +1442,7 @@ const VideoPostScreen: React.FC = () => {
             styles.sheetContentContainer,
             { paddingBottom: 52 + insets.bottom },
           ]}
-          showsVerticalScrollIndicator={false}
+          showsVerticalScrollIndicator={true}
         >
           <VerticalListButton
             label={t('settings.none')}
@@ -1618,7 +1618,7 @@ const VideoPostScreen: React.FC = () => {
               paddingBottom: 60 + Math.max(insets.bottom, 20) + 80,
             },
           ]}
-          showsVerticalScrollIndicator={false}
+          showsVerticalScrollIndicator={true}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
         >

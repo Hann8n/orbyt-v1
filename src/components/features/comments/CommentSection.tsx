@@ -46,7 +46,11 @@ import { Colors } from '../../../theme';
 import { HeartFillIcon, MoreFillIcon } from '../../ui/Icon';
 import RelativeDate from '../../ui/RelativeDate';
 import { useUserSearchTrigger } from '../../ui/usersearch';
-import { APP_CONSTANTS, QUERY_CONSTANTS } from '../../../utils/constants';
+import {
+  APP_CONSTANTS,
+  QUERY_CONSTANTS,
+  SCROLL_INDICATOR_CONSTANTS,
+} from '../../../utils/constants';
 import { formatNumber } from '../../../utils/formatting/numbers';
 import { formatHandle } from '../../../utils/formatting/handles';
 import { FontFamily } from '../../../utils/components/typography';
@@ -1235,7 +1239,9 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               contentContainerStyle={listContentStyle}
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode="on-drag"
-              showsVerticalScrollIndicator={false}
+              showsVerticalScrollIndicator={
+                flattenedComments.length >= SCROLL_INDICATOR_CONSTANTS.COMMENTS_MIN_ITEMS
+              }
               nestedScrollEnabled
               scrollEventThrottle={16}
               onEndReached={onEndReachedComments}
@@ -1254,7 +1260,9 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               ItemSeparatorComponent={ItemSeparatorComponent}
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode="on-drag"
-              showsVerticalScrollIndicator={false}
+              showsVerticalScrollIndicator={
+                likes.length >= SCROLL_INDICATOR_CONSTANTS.COMMENTS_MIN_ITEMS
+              }
               nestedScrollEnabled
               scrollEventThrottle={16}
               onEndReached={onEndReachedLikes}

@@ -46,7 +46,7 @@ import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 
 import { Colors } from '@/theme';
 import { Typography, FontFamily } from '@/utils/components/typography';
-import { APP_CONSTANTS, BORDER_RADIUS } from '@/utils/constants';
+import { APP_CONSTANTS, BORDER_RADIUS, SCROLL_INDICATOR_CONSTANTS } from '@/utils/constants';
 import Icon, {
   BackArrowIcon,
   FlameFillIcon,
@@ -2030,7 +2030,9 @@ export default function ChatScreen() {
             style={styles.list}
             contentContainerStyle={styles.listContent}
             ItemSeparatorComponent={listItemSeparator}
-            showsVerticalScrollIndicator={false}
+            showsVerticalScrollIndicator={
+              listData.length >= SCROLL_INDICATOR_CONSTANTS.CHAT_MESSAGES_MIN_ITEMS
+            }
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
             maintainVisibleContentPosition={maintainVisibleContentPositionConfig}

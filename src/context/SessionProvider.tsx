@@ -5,8 +5,10 @@
  * Following Expo Router's recommended authentication pattern:
  * https://docs.expo.dev/router/advanced/authentication/
  */
-import { createContext, useContext, type PropsWithChildren } from 'react';
+import { createContext, useContext, useEffect, type PropsWithChildren } from 'react';
 import { useUserStore } from '../stores/userStore';
+import { dismissAllSheets } from '../utils/navigation';
+import { useModalStore } from '../stores/modalStore';
 
 const AuthContext = createContext<{
   signIn: (identifier: string) => Promise<void>;
@@ -36,6 +38,16 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const activeAccountDid = useUserStore(state => state.activeAccountDid);
   const signIn = useUserStore(state => state.signIn);
   const signOut = useUserStore(state => state.signOut);
+  const resetAllModals = useModalStore(state => state.resetAllModals);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      // Ensure all native sheets close on logout/session interruption.
+      dismissAllSheets();
+      // Keep JS visibility state in sync so sheets don't reopen.
+      resetAllModals();
+    }
+  }, [isAuthenticated, resetAllModals]);
 
   return (
     <AuthContext.Provider

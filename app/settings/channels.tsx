@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSubscribedChannels } from '@/hooks/useSubscribedChannels';
 import { Colors } from '@/theme';
 import { Avatar, Icon } from '@/components/ui/UI';
-import { BORDER_RADIUS } from '@/utils/constants';
+import { BORDER_RADIUS, SCROLL_INDICATOR_CONSTANTS } from '@/utils/constants';
 import ListHeader from '@/components/ui/ListHeader';
 import VerticalListSheet, {
   VerticalListButton,
@@ -209,7 +209,9 @@ export default function ChannelManagementScreen() {
         data={listData}
         renderItem={renderChannelItem}
         keyExtractor={(item, index) => item.uri || item.did || `channel-${index}`}
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={
+          listData.length >= SCROLL_INDICATOR_CONSTANTS.SETTINGS_CHANNELS_MIN_ITEMS
+        }
         ListEmptyComponent={renderEmpty}
         contentContainerStyle={[styles.listContainer, { paddingBottom: insets.bottom + 20 }]}
       />

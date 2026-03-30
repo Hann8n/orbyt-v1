@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BORDER_RADIUS, LAYOUT_INSETS } from '../../../utils/constants';
 import { View, StyleSheet, Alert } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { SavedAccount } from '../../../stores/userStore';
@@ -10,16 +9,14 @@ import ProfileService, { useProfile } from '../../../services/data/ProfileServic
 import type { ProfileViewWithOrbyt } from '../../../services/api/types';
 import { Colors } from '../../../theme';
 import AuthorItem from '../../ui/AuthorItem';
-import { ITEM_ROW_PADDING_VERTICAL, itemSizeConfig } from '../../ui/ItemStyles';
-import VerticalListSheet from '../../ui/VerticalListSheet';
+import VerticalListSheet, { VerticalListButton } from '../../ui/VerticalListSheet';
 import { SHEET_SPACING, SHEET_STYLES } from '../../../utils/components/truesheet';
 import { useAccountManagement, useAuth } from '../../../stores/userStore';
 import LoginSheet from '../../ui/LoginSheet';
 import SignUpSheet from '../../ui/SignUpSheet';
 import { TypographyText } from '../../../utils/components/typography';
 import { useSheetPresentation } from '../../../hooks';
-
-const ACCOUNT_LIST_ROW_MIN_HEIGHT = itemSizeConfig.large.avatarSize + 2 * ITEM_ROW_PADDING_VERTICAL;
+import { dismissSheet } from '../../../utils/navigation';
 
 interface AccountSwitcherProps {
   visible: boolean;
@@ -140,7 +137,11 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
         await switchAccount(account.did, () => {
           // This callback is called when all data is loaded
           onAccountSwitch(account);
-          // Close the account switcher once the new account is fully ready
+          // Force native dismissal at switch-complete time to avoid stuck sheet states.
+          dismissSheet('account-switcher');
+          dismissSheet('add-account-login-sheet');
+          dismissSheet('add-account-sign-up-sheet');
+          // Keep modal store visibility in sync after native dismiss call.
           onDismiss();
         });
       } catch (error) {
@@ -351,19 +352,11 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
             <React.Fragment key={keyExtractor(item)}>{renderAccountItem({ item })}</React.Fragment>
           ))}
           {showAddAccountLink && (
-            <NativePressable
-              style={({ pressed }) => [
-                styles.addAccountButton,
-                isAuthenticating && styles.addAccountButtonDisabled,
-                pressed && styles.addAccountButtonPressed,
-              ]}
+            <VerticalListButton
+              label={t('auth.addAccount')}
               onPress={handleAddAccount}
               disabled={isAuthenticating}
-            >
-              <TypographyText variant="title" weight="semibold">
-                {t('auth.addAccount')}
-              </TypographyText>
-            </NativePressable>
+            />
           )}
         </View>
       </VerticalListSheet>
@@ -389,25 +382,6 @@ const styles = StyleSheet.create({
   headerEditButton: {
     ...SHEET_STYLES.headerActionButton,
     paddingHorizontal: SHEET_SPACING.headerActionHorizontalTight,
-  },
-  addAccountButton: {
-    marginBottom: SHEET_SPACING.headerBottom,
-    marginHorizontal: 0,
-    paddingVertical: ITEM_ROW_PADDING_VERTICAL,
-    paddingHorizontal: LAYOUT_INSETS.SHEET_CONTENT,
-    minHeight: ACCOUNT_LIST_ROW_MIN_HEIGHT,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    backgroundColor: Colors.neutral[900],
-    borderRadius: BORDER_RADIUS.LARGE,
-    overflow: 'hidden',
-  },
-  addAccountButtonPressed: {
-    opacity: 0.85,
-  },
-  addAccountButtonDisabled: {
-    opacity: 0.5,
   },
   headerEditButtonDisabled: {
     opacity: 0.5,

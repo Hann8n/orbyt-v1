@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { QUERY_CONSTANTS } from '@/utils/constants';
+import { QUERY_CONSTANTS, SCROLL_INDICATOR_CONSTANTS } from '@/utils/constants';
 import { View, StyleSheet, TextInput, StatusBar, Platform, Dimensions } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { Image } from 'expo-image';
@@ -651,7 +651,9 @@ const ExploreScreen: React.FC = () => {
               paddingBottom: bottomPadding,
             },
           ]}
-          showsVerticalScrollIndicator={false}
+          showsVerticalScrollIndicator={
+            listData.length >= SCROLL_INDICATOR_CONSTANTS.EXPLORE_SUGGESTIONS_MIN_ITEMS
+          }
           bounces={true}
           scrollEventThrottle={16}
           onEndReached={() => {}}

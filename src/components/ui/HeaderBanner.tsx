@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BORDER_RADIUS, SCROLL_CONSTANTS } from '../../utils/constants';
+import { BORDER_RADIUS, SCROLL_CONSTANTS, SCROLL_INDICATOR_CONSTANTS } from '../../utils/constants';
 import { View, Text, StyleSheet, Dimensions, Linking, Platform, FlatList } from 'react-native';
 import { NativePressable } from './NativePressable';
 import { Image } from 'expo-image';
@@ -330,7 +330,9 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
         renderItem={renderItem}
         horizontal
         pagingEnabled
-        showsHorizontalScrollIndicator={false}
+        showsHorizontalScrollIndicator={
+          loopedData.length >= SCROLL_INDICATOR_CONSTANTS.HEADER_CAROUSEL_MIN_ITEMS
+        }
         snapToAlignment="start"
         decelerationRate={
           Platform.OS === 'ios'

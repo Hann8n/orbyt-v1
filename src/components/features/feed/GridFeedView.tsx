@@ -31,7 +31,12 @@ import { FlashList, FlashListRef } from '@shopify/flash-list';
 import type { ListFeedViewRef } from '../../../types';
 import { Colors } from '../../../theme';
 import { getVideoView, DEFAULT_VIDEO_ASPECT_RATIO } from '../../../utils/video/helpers';
-import { APP_CONSTANTS, QUERY_CONSTANTS, SCROLL_CONSTANTS } from '../../../utils/constants';
+import {
+  APP_CONSTANTS,
+  QUERY_CONSTANTS,
+  SCROLL_CONSTANTS,
+  SCROLL_INDICATOR_CONSTANTS,
+} from '../../../utils/constants';
 import type { ExtendedFeedViewPost } from '../../../services/api/types';
 import * as Device from 'expo-device';
 import { getViewportDimensions } from '../../../utils/device/screen';
@@ -401,7 +406,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
           },
         ]}
         style={{ backgroundColor: Colors.transparent }}
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={feed.length >= SCROLL_INDICATOR_CONSTANTS.FEED_GRID_MIN_ITEMS}
         contentInsetAdjustmentBehavior="never"
         bounces={true}
         ListHeaderComponent={listHeader}

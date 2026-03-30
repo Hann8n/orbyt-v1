@@ -37,9 +37,20 @@ export const dismissSheet = (name?: string) => {
   }
 };
 
+export const dismissAllSheets = () => {
+  registry.forEach(actions => {
+    try {
+      actions.dismiss();
+    } catch (_e) {
+      // best-effort dismissal
+    }
+  });
+};
+
 export default {
   registerSheet,
   unregisterSheet,
   presentSheet,
   dismissSheet,
+  dismissAllSheets,
 };

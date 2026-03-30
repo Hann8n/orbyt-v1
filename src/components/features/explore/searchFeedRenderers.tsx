@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { View, Text, ActivityIndicator } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
-import { QUERY_CONSTANTS } from '@/utils/constants';
+import { QUERY_CONSTANTS, SCROLL_INDICATOR_CONSTANTS } from '@/utils/constants';
 import { Colors } from '@/theme';
 import AuthorItem from '@/components/ui/AuthorItem';
 import ChannelItem from '@/components/ui/ChannelItem';
@@ -186,7 +186,9 @@ const ProfilesFeedRenderer = React.memo(
         keyExtractor={profile => `profile-${profile.did || profile.handle}`}
         renderItem={renderProfileItem}
         contentContainerStyle={[styles.listContainer, { paddingBottom: bottomPadding + 20 }]}
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={
+          profiles.length >= SCROLL_INDICATOR_CONSTANTS.SEARCH_RESULTS_MIN_ITEMS
+        }
         keyboardDismissMode="on-drag"
         onEndReached={handleLoadMore}
         onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
@@ -265,7 +267,9 @@ const ChannelsFeedRenderer = React.memo(
         keyExtractor={channel => `channel-${channel.uri || channel.cid}`}
         renderItem={renderChannelItem}
         contentContainerStyle={[styles.listContainer, { paddingBottom: bottomPadding + 20 }]}
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={
+          channels.length >= SCROLL_INDICATOR_CONSTANTS.SEARCH_RESULTS_MIN_ITEMS
+        }
         keyboardDismissMode="on-drag"
         ListEmptyComponent={renderEmptyChannels}
       />
@@ -396,7 +400,9 @@ const VisitHistoryList = React.memo(
           return null;
         }}
         contentContainerStyle={[styles.listContainer, { paddingBottom: bottomPadding + 20 }]}
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={
+          visitHistory.length >= SCROLL_INDICATOR_CONSTANTS.SEARCH_RESULTS_MIN_ITEMS
+        }
         keyboardDismissMode="on-drag"
         ListEmptyComponent={renderVisitHistoryEmpty}
       />

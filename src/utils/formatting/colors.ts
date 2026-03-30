@@ -132,16 +132,60 @@ export const pickLighterHex = (a: string, b: string): string =>
 /** Inactive tab bar icon/label color (used by both native and custom tab bars). */
 export const TAB_BAR_INACTIVE_TINT = blendColors(Colors.neutral[200], Colors.neutral[300], 0.5);
 
+const MIN_DARK_BG_CONTRAST = 4.5;
+const MUDDY_SATURATION_THRESHOLD = 0.18;
+
+function getSaturation(hex: string): number {
+  const color = hex.replace('#', '');
+  const r = parseInt(color.substring(0, 2), 16) / 255;
+  const g = parseInt(color.substring(2, 4), 16) / 255;
+  const b = parseInt(color.substring(4, 6), 16) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+
+  if (max === min) return 0;
+  const d = max - min;
+  return l > 0.5 ? d / (2 - max - min) : d / (max + min);
+}
+
+function ensureVisibleOnDarkBackground(hex: string, lighterProfileColor: string): string {
+  if (getContrastRatio(hex, Colors.black) >= MIN_DARK_BG_CONTRAST) {
+    return hex;
+  }
+
+  // Gradually lift toward the lighter profile color to preserve theme identity.
+  for (let i = 1; i <= 6; i += 1) {
+    const candidate = blendColors(hex, lighterProfileColor, i * 0.15);
+    if (getContrastRatio(candidate, Colors.black) >= MIN_DARK_BG_CONTRAST) {
+      return candidate;
+    }
+  }
+
+  // Final fallback for guaranteed visibility.
+  return Colors.neutral[50];
+}
+
+export function getProfileMiddleAccentColor(profile: ProfileColorScheme | null): string {
+  if (!profile) return Colors.neutral[50];
+  const middle = blendColors(profile.backgroundColor, profile.foregroundColor, 0.5);
+  const lighter = pickLighterHex(profile.backgroundColor, profile.foregroundColor);
+
+  // RGB midpoints can look muddy; nudge toward the lighter profile color and boost saturation.
+  const deMuddiedMiddle =
+    getSaturation(middle) < MUDDY_SATURATION_THRESHOLD
+      ? enhanceColorSaturation(blendColors(middle, lighter, 0.3), 1.2)
+      : middle;
+
+  return ensureVisibleOnDarkBackground(deMuddiedMiddle, lighter);
+}
+
 /**
  * Active tint for tab bar from profile colors (lighter of bg/fg so icons stay visible on any theme).
  * Use for native tabs; custom tab bar uses fixed Colors.neutral[50].
  */
 export function getTabBarActiveTintFromProfile(profile: ProfileColorScheme | null): string {
-  if (!profile) return Colors.neutral[50];
-  if (profile.backgroundColor && profile.foregroundColor) {
-    return pickLighterHex(profile.backgroundColor, profile.foregroundColor);
-  }
-  return profile.foregroundColor ?? Colors.neutral[50];
+  return getProfileMiddleAccentColor(profile);
 }
 
 /**

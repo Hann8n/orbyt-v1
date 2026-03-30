@@ -36,7 +36,9 @@ function DetailNavTabSegmentSync() {
 export default function TabsLayout() {
   const { t } = useTranslation();
   const profileColors = useUserStore(state => state.currentUserProfileColors);
+  const profileAccentColor = useUserStore(state => state.currentUserProfileAccentColor);
   const { totalUnreadCount } = useUnreadCount();
+  const activeTint = profileAccentColor ?? getTabBarActiveTintFromProfile(profileColors);
 
   return (
     <>
@@ -45,12 +47,12 @@ export default function TabsLayout() {
         backgroundColor={Colors.black}
         blurEffect="none"
         labelVisibilityMode="unlabeled"
-        tintColor={getTabBarActiveTintFromProfile(profileColors)}
+        tintColor={activeTint}
         iconColor={{
           default: TAB_BAR_INACTIVE_TINT,
-          selected: getTabBarActiveTintFromProfile(profileColors),
+          selected: activeTint,
         }}
-        badgeBackgroundColor={Colors.teal[600]}
+        badgeBackgroundColor={activeTint}
         disableTransparentOnScrollEdge={true}
       >
         {/* Matches `index.tsx` redirect; hidden so deep links / old state don’t show a fifth tab */}

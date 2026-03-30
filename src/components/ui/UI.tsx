@@ -24,7 +24,7 @@ import {
   getContrastRatio,
   blendColors,
 } from '../../utils/formatting/colors';
-import { Typography } from '../../utils/components/typography';
+import { FontFamily, Typography } from '../../utils/components/typography';
 import { BORDER_RADIUS } from '../../utils/constants';
 import type { StatusView } from '../../services/api/types';
 import { isLiveStatus } from '../../services/data/ProfileService';
@@ -79,83 +79,22 @@ const Button: React.FC<ButtonProps> = ({
   style,
   textStyle,
 }) => {
-  const getButtonStyle = (): ViewStyle => {
-    const baseStyle: ViewStyle = {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderRadius: BORDER_RADIUS.MEDIUM,
-    };
-
-    const sizeStyles: Record<ButtonSize, ViewStyle> = {
-      small: { paddingVertical: 8, paddingHorizontal: 16, minHeight: 36 },
-      medium: { paddingVertical: 12, paddingHorizontal: 20, minHeight: 44 },
-      large: { paddingVertical: 16, paddingHorizontal: 24, minHeight: 52 },
-    };
-
-    const variantStyles: Record<ButtonVariant, ViewStyle> = {
-      primary: {
-        backgroundColor: Colors.neutral[200],
-      },
-      secondary: {
-        backgroundColor: Colors.neutral[600],
-      },
-      outline: {
-        backgroundColor: 'transparent',
-      },
-      ghost: {
-        backgroundColor: 'transparent',
-      },
-      danger: {
-        backgroundColor: Colors.coral[500],
-      },
-      success: {
-        backgroundColor: Colors.teal[500],
-      },
-    };
-
-    return {
-      ...baseStyle,
-      ...sizeStyles[size],
-      ...variantStyles[variant],
-      opacity: disabled ? 0.6 : 1,
-    };
-  };
-
-  const getTextStyle = (): TextStyle => {
-    const baseStyle: TextStyle = {
-      fontFamily: 'Figtree-Medium',
-      fontWeight: '600',
-    };
-
-    const sizeStyles: Record<ButtonSize, TextStyle> = {
-      small: { fontSize: 14 },
-      medium: { fontSize: 16 },
-      large: { fontSize: 18 },
-    };
-
-    const variantStyles: Record<ButtonVariant, TextStyle> = {
-      primary: { color: Colors.neutral[50] },
-      secondary: { color: Colors.neutral[50] },
-      outline: { color: Colors.neutral[200] },
-      ghost: { color: Colors.neutral[50] },
-      danger: { color: Colors.neutral[50] },
-      success: { color: Colors.neutral[50] },
-    };
-
-    return {
-      ...baseStyle,
-      ...sizeStyles[size],
-      ...variantStyles[variant],
-    };
-  };
+  const buttonStyle = [
+    styles.buttonBase,
+    buttonSizeStyles[size],
+    buttonVariantStyles[variant],
+    disabled && styles.buttonDisabled,
+    style,
+  ];
+  const computedTextStyle = [
+    styles.buttonTextBase,
+    buttonTextSizeStyles[size],
+    buttonTextVariantStyles[variant],
+  ];
+  const iconColor = buttonIconColorByVariant[variant];
 
   return (
-    <NativePressable
-      style={[getButtonStyle(), style]}
-      onPress={onPress}
-      disabled={disabled || loading}
-    >
+    <NativePressable style={buttonStyle} onPress={onPress} disabled={disabled || loading}>
       {loading ? (
         <ActivityIndicator
           size="small"
@@ -163,13 +102,13 @@ const Button: React.FC<ButtonProps> = ({
         />
       ) : (
         <>
-          <Text style={[getTextStyle(), textStyle]}>{title}</Text>
+          <Text style={[computedTextStyle, textStyle]}>{title}</Text>
           {icon && iconPosition === 'left' && (
             <React.Suspense fallback={<View style={styles.iconFallback} />}>
               <Icon
                 name={icon}
                 size={16}
-                color={getTextStyle().color as string}
+                color={iconColor}
                 style={styles.iconMargin}
                 strokeWidth={STROKE_WIDTH_THICK}
               />
@@ -180,7 +119,7 @@ const Button: React.FC<ButtonProps> = ({
               <Icon
                 name={icon}
                 size={16}
-                color={getTextStyle().color as string}
+                color={iconColor}
                 style={styles.iconMargin}
                 strokeWidth={STROKE_WIDTH_THICK}
               />
@@ -190,6 +129,49 @@ const Button: React.FC<ButtonProps> = ({
       )}
     </NativePressable>
   );
+};
+
+const buttonSizeStyles: Record<ButtonSize, ViewStyle> = {
+  small: { paddingVertical: 8, paddingHorizontal: 16, minHeight: 36 },
+  medium: { paddingVertical: 12, paddingHorizontal: 20, minHeight: 44 },
+  large: { paddingVertical: 16, paddingHorizontal: 24, minHeight: 52 },
+};
+
+const buttonVariantStyles: Record<ButtonVariant, ViewStyle> = {
+  primary: { backgroundColor: Colors.neutral[50] },
+  secondary: { backgroundColor: hexToRGBA(Colors.neutral[300], 0.12) },
+  outline: {
+    backgroundColor: Colors.transparent,
+    borderWidth: 1,
+    borderColor: Colors.neutral[300],
+  },
+  ghost: { backgroundColor: Colors.transparent },
+  danger: { backgroundColor: Colors.coral[950] },
+  success: { backgroundColor: Colors.teal[500] },
+};
+
+const buttonTextSizeStyles: Record<ButtonSize, TextStyle> = {
+  small: { fontSize: Typography.sizes.bodySmall },
+  medium: { fontSize: Typography.sizes.subtitle },
+  large: { fontSize: Typography.sizes.body },
+};
+
+const buttonTextVariantStyles: Record<ButtonVariant, TextStyle> = {
+  primary: { color: Colors.black },
+  secondary: { color: Colors.neutral[50] },
+  outline: { color: Colors.neutral[200] },
+  ghost: { color: Colors.neutral[50] },
+  danger: { color: Colors.coral[300] },
+  success: { color: Colors.neutral[50] },
+};
+
+const buttonIconColorByVariant: Record<ButtonVariant, string> = {
+  primary: Colors.black,
+  secondary: Colors.neutral[50],
+  outline: Colors.neutral[200],
+  ghost: Colors.neutral[50],
+  danger: Colors.coral[300],
+  success: Colors.neutral[50],
 };
 
 // Retry Button Component - consistent styling across the app
@@ -957,6 +939,20 @@ const Badge: React.FC<BadgeProps> = ({ text, variant, size, style }) => {
 // ============================================================================
 
 const styles = StyleSheet.create({
+  buttonBase: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: BORDER_RADIUS.FULL,
+    overflow: 'hidden',
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  buttonTextBase: {
+    fontFamily: FontFamily.medium,
+    textAlign: 'center',
+  },
   // Modal styles
   modalBackdrop: {
     flex: 1,

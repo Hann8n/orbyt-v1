@@ -10,12 +10,13 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useUserStore } from '../../stores/userStore';
 import { EmailVerificationService } from '../../services/auth/EmailVerificationService';
-import VerticalListSheet, { TrueSheet } from './VerticalListSheet';
+import VerticalListSheet from './VerticalListSheet';
 import { Colors } from './UI';
 import { BORDER_RADIUS, APP_CONSTANTS } from '../../utils/constants';
 import { logger } from '../../utils/logger';
 import Icon from './Icon';
 import { FontFamily, Typography } from '../../utils/components/typography';
+import { useSheetPresentation } from '../../hooks';
 
 interface EmailVerificationModalProps {
   visible: boolean;
@@ -71,9 +72,7 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
     };
   });
 
-  useEffect(() => {
-    if (visible) TrueSheet.present('email-verification-sheet');
-  }, [visible]);
+  useSheetPresentation(visible, 'email-verification-sheet');
 
   // Format token as "XXXXX-XXXXX" (uppercase, alphanumeric only)
   const formatToken = (text: string): string => {

@@ -221,7 +221,7 @@ const AppIconSettingsScreen: React.FC = () => {
       <ScrollView
         style={styles.contentContainer}
         contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={true}
       >
         {ICON_SECTIONS.map(section => {
           const filteredItems = section.items.filter(option => !option.requiresBeta || isBeta);

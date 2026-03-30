@@ -168,7 +168,7 @@ export default function NotificationFilterModal() {
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={true}
       >
         <View style={styles.section}>
           <View style={styles.sectionTitleRow}>

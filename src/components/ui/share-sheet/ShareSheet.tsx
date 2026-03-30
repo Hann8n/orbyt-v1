@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BORDER_RADIUS } from '../../../utils/constants';
+import { BORDER_RADIUS, SCROLL_INDICATOR_CONSTANTS } from '../../../utils/constants';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../../utils/query/queryKeys';
 import { View, Text, StyleSheet, Share, Platform, Alert, ScrollView } from 'react-native';
@@ -400,8 +400,13 @@ const ShareSheet: React.FC = () => {
         >
           <ScrollView
             horizontal
-            showsHorizontalScrollIndicator={false}
-            showsVerticalScrollIndicator={false}
+            showsHorizontalScrollIndicator={
+              menuOptions.length >=
+              SCROLL_INDICATOR_CONSTANTS.SHARE_ACTIONS_ROW_HORIZONTAL_MIN_ITEMS
+            }
+            showsVerticalScrollIndicator={
+              menuOptions.length >= SCROLL_INDICATOR_CONSTANTS.SHARE_ACTIONS_ROW_VERTICAL_MIN_ITEMS
+            }
             alwaysBounceHorizontal={true}
             alwaysBounceVertical={false}
             bounces={true}

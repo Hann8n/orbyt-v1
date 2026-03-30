@@ -7,6 +7,7 @@ import { Link, useRouter, type Href } from 'expo-router';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { Icon } from '@/components/ui/UI';
 import { Colors } from '@/theme';
+import { SCROLL_INDICATOR_CONSTANTS } from '@/utils/constants';
 import type { ExtendedFeedViewPost } from '@/services/api/types';
 import { getVideoView } from '@/utils/video/helpers';
 import BlurredBackground from '@/components/ui/BlurredBackground';
@@ -193,7 +194,9 @@ export const ExploreSpotlightCarousel = React.memo(({ videos }: Props) => {
       <FlatList
         data={videos}
         horizontal
-        showsHorizontalScrollIndicator={false}
+        showsHorizontalScrollIndicator={
+          videos.length >= SCROLL_INDICATOR_CONSTANTS.SPOTLIGHT_CAROUSEL_MIN_ITEMS
+        }
         contentContainerStyle={styles.spotlightScrollContainer}
         keyExtractor={keyExtractor}
         renderItem={renderItem}

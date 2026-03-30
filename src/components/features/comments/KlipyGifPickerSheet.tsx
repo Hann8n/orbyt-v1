@@ -24,7 +24,7 @@ import {
   SHEET_SPACING,
 } from '@/utils/components/truesheet';
 import { Colors } from '@/theme';
-import { BORDER_RADIUS, ICON_SIZES } from '@/utils/constants';
+import { BORDER_RADIUS, ICON_SIZES, SCROLL_INDICATOR_CONSTANTS } from '@/utils/constants';
 import { FontFamily, Typography } from '@/utils/components/typography';
 import { BlurView } from '@/components/ui/BlurView';
 import Icon from '@/components/ui/Icon';
@@ -352,7 +352,9 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
           })}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
-          showsVerticalScrollIndicator={false}
+          showsVerticalScrollIndicator={
+            items.length >= SCROLL_INDICATOR_CONSTANTS.GIF_PICKER_GRID_MIN_ITEMS
+          }
         />
       </View>
     </AppTrueSheet>

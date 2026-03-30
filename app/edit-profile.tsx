@@ -1013,7 +1013,7 @@ const EditProfileScreen: React.FC = () => {
           <ScrollView
             style={styles.content}
             contentContainerStyle={styles.contentContainerFlexGrow}
-            showsVerticalScrollIndicator={false}
+            showsVerticalScrollIndicator={true}
             keyboardShouldPersistTaps="always"
           >
             {/* Handle & Avatar Sections */}
@@ -1035,7 +1035,7 @@ const EditProfileScreen: React.FC = () => {
                   </Text>
                   <ScrollView
                     horizontal
-                    showsHorizontalScrollIndicator={false}
+                    showsHorizontalScrollIndicator={true}
                     bounces={false}
                     contentContainerStyle={styles.contentContainerFlexGrow}
                   >

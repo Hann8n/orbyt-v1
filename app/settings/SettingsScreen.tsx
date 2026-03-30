@@ -467,7 +467,7 @@ ${deviceInfo}`
       />
       <ScrollView
         contentContainerStyle={settingsLayoutStyles.contentContainerWithPadding}
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={true}
       >
         {listData.map((item, index) => {
           const key = `${item.kind}-${item.id}-${index}`;

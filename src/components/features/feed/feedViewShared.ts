@@ -3,7 +3,7 @@ import type { ExtendedFeedViewPost } from '../../../services/api/types';
 import { Colors } from '../../../theme';
 import { FEED_TYPES } from '../../../utils/constants';
 import type { FeedListItem } from '../../../types';
-import { blendColors, hexToRGBA, isColorDark } from '../../../utils/formatting/colors';
+import { hexToRGBA } from '../../../utils/formatting/colors';
 
 export const FEED_VIEW_CONSTANTS = {
   /** Space between list videos; grid header/footer strips match this. */
@@ -56,14 +56,7 @@ export const getEndOfFeedOverscrollTextColor = (
     return Colors.neutral[300];
   }
 
-  if (isColorDark(hex)) {
-    const lifted = blendColors(hex, Colors.neutral[200], 0.62);
-    if (isColorDark(lifted)) {
-      return Colors.neutral[300];
-    }
-    return hexToRGBA(lifted, 0.94);
-  }
-
-  const softened = blendColors(hex, Colors.neutral[0], 0.08);
-  return hexToRGBA(softened, 0.92);
+  // Preserve the original dynamic text color direction (dark/light) and only
+  // apply alpha for the overscroll hint treatment.
+  return hexToRGBA(hex, 0.98);
 };

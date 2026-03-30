@@ -5,7 +5,7 @@ import { NativePressable } from './NativePressable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
-import { QUERY_CONSTANTS } from '../../utils/constants';
+import { QUERY_CONSTANTS, SCROLL_INDICATOR_CONSTANTS } from '../../utils/constants';
 import { Colors } from './UI';
 import { Icon } from './UI';
 import { MinusSquareCuteFilledIcon } from './Icon';
@@ -225,7 +225,9 @@ const ListScreen: React.FC<ListScreenProps> = ({
         data={data}
         renderItem={renderUser}
         keyExtractor={item => item.did}
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={
+          data.length >= SCROLL_INDICATOR_CONSTANTS.GENERIC_LIST_MIN_ITEMS
+        }
         onEndReached={() => {
           if (hasNextPage && !isFetchingNextPage && onEndReached) {
             onEndReached();

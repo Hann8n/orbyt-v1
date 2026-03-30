@@ -9,7 +9,11 @@ import React, {
   useState,
 } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../../utils/constants';
+import {
+  BORDER_RADIUS,
+  QUERY_CONSTANTS,
+  SCROLL_INDICATOR_CONSTANTS,
+} from '../../../utils/constants';
 import { View, Text, StyleSheet, RefreshControl, ActivityIndicator } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { LegendList, LegendListRef } from '@legendapp/list';
@@ -584,7 +588,9 @@ const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(({ chatFilter }, ref)
         }
         onEndReached={handleLoadMore}
         onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={
+          conversations.length >= SCROLL_INDICATOR_CONSTANTS.ACTIVITY_LIST_MIN_ITEMS
+        }
         ListEmptyComponent={
           isError ? (
             <View style={styles.errorContainer}>

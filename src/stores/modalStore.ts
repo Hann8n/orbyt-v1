@@ -53,6 +53,9 @@ interface ModalState {
   shareSheetData: ShareSheetData | null;
   presentShareSheet: (data: ShareSheetData) => void;
   dismissShareSheet: (skipDismiss?: boolean) => void;
+
+  // Global reset (logout/session interruption)
+  resetAllModals: () => void;
 }
 
 export const useModalStore = create<ModalState>((set, _get) => ({
@@ -87,6 +90,14 @@ export const useModalStore = create<ModalState>((set, _get) => ({
 
   dismissShareSheet: (_skipDismiss = false) => {
     set({ shareSheetData: null });
+  },
+
+  resetAllModals: () => {
+    set({
+      accountSwitcherVisible: false,
+      commentSectionData: null,
+      shareSheetData: null,
+    });
   },
 }));
 

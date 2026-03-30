@@ -29,7 +29,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { queryKeys } from '../../../utils/query/queryKeys';
 import { chatReactQueryOptions } from '../../../utils/query/chatQueryOptions';
-import { BORDER_RADIUS, ICON_SIZES, QUERY_CONSTANTS } from '../../../utils/constants';
+import {
+  BORDER_RADIUS,
+  ICON_SIZES,
+  QUERY_CONSTANTS,
+  SCROLL_INDICATOR_CONSTANTS,
+} from '../../../utils/constants';
 import { useProfile } from '../../../services/data/ProfileService';
 import { useUserSearchTrigger } from '../usersearch';
 import CommentInputFooter from '../../features/comments/CommentInputFooter';
@@ -404,7 +409,9 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
               style={styles.pickerList}
               data={filteredConversations}
               keyExtractor={(item, idx) => getPickerItemKey(item, idx)}
-              showsVerticalScrollIndicator={false}
+              showsVerticalScrollIndicator={
+                filteredConversations.length >= SCROLL_INDICATOR_CONSTANTS.SEND_TO_PICKER_MIN_ITEMS
+              }
               renderItem={renderConversationItem}
               contentContainerStyle={[
                 styles.conversationList,
