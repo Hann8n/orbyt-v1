@@ -13,7 +13,7 @@ import type {
 } from '../types';
 import type { AppBskyActorProfile } from '@atproto/api';
 import { BlobRef } from '@atproto/lexicon';
-import { CID } from 'multiformats/cid';
+import { CID } from 'multiformats';
 import { batchFetchColors, fetchColors, orbytColorKeys } from '../../colors/OrbytColors';
 import { queryClient } from '../../../utils/query/queryClient';
 import { RepoService } from '../repo/RepoService';

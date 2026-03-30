@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "es2020",
-    "lib": ["es2020", "dom"],
+    "lib": ["es2020", "es2022.error", "dom"],
     "module": "esnext",
     "jsx": "react-jsx",
     "moduleResolution": "bundler",
@@ -20,7 +20,8 @@
     "baseUrl": ".",
     "paths": {
       "@stores/*": ["src/stores/*"],
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "multiformats": ["node_modules/multiformats/types/src/index.d.ts"]
     }
   },
   "include": ["src/**/*", "app/**/*"],
