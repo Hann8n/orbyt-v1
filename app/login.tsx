@@ -19,11 +19,12 @@ import { Svg, Path, Rect, Defs, Mask } from 'react-native-svg';
 import { Colors } from '@/theme';
 import AuthorItem from '@/components/ui/AuthorItem';
 import type { SavedAccount } from '@/stores/userStore';
-import { useAuth, useAccountManagement } from '@/stores/userStore';
+import { getSessionRestoreOutcome, useAuth, useAccountManagement } from '@/stores/userStore';
 import { hexToRGBA } from '@/utils/formatting/colors';
 import RocketBackground from '@/components/ui/RocketBackground';
 import SignUpSheet from '@/components/ui/SignUpSheet';
 import LoginSheet from '@/components/ui/LoginSheet';
+import { isUserCancellation } from '@/utils/errors/errorHandler';
 
 // Login logo: PNG 4x on Android (avoids SVG stroke clipping), SVG on iOS
 const orbytLogoLoginPng = require('@/assets/orbyt-logo-login.png');
@@ -44,8 +45,7 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
   // User store hooks
   const { signIn, clearAuthError } = useAuth();
 
-  const { savedAccounts, switchAccount, loadSavedAccounts, checkAccountSessionValidity } =
-    useAccountManagement();
+  const { savedAccounts, switchAccount, loadSavedAccounts } = useAccountManagement();
 
   const handleLoginSignIn = useCallback(
     async (identifier: string) => {
@@ -76,31 +76,7 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
     clearAuthError();
 
     try {
-      // First check if the account has a valid session
-      const hasValidSession = await checkAccountSessionValidity(account.did);
-
-      if (!hasValidSession) {
-        setIsLoading(false);
-
-        Alert.alert(
-          t('auth.sessionExpired'),
-          t('auth.sessionExpiredMessage', { handle: account.handle }),
-          [
-            { text: t('common.cancel'), style: 'cancel' },
-            {
-              text: t('auth.signIn'),
-              onPress: async () => {
-                // Use the account's original identifier for re-authentication
-                await signIn(account.originalIdentifier);
-                await loadSavedAccounts();
-              },
-            },
-          ]
-        );
-        return;
-      }
-
-      // Session is valid, proceed with account switch
+      // SDK-first path: switchAccount() performs restore and determines outcome.
       await switchAccount(account.did);
 
       if (onAccountSwitch) {
@@ -111,68 +87,52 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
       // No manual navigation needed
     } catch (error) {
       setIsLoading(false);
+      if (isUserCancellation(error)) {
+        return;
+      }
+
+      const outcome = getSessionRestoreOutcome(error);
       const errorMessage = error instanceof Error ? error.message : t('errors.accountSwitchFailed');
 
-      const isUserCancellation =
-        errorMessage.includes('cancelled') || errorMessage.includes('user_cancelled');
-
-      if (!isUserCancellation) {
-        // Check if this is a session corruption issue
-        if (
-          errorMessage.includes('Session expired') ||
-          errorMessage.includes('Unable to restore session') ||
-          errorMessage.includes('oauth_reauth_required') ||
-          errorMessage.includes('No session available')
-        ) {
-          Alert.alert(
-            t('auth.sessionIssue'),
-            t('auth.sessionIssueMessage', { handle: account.handle }),
-            [
-              { text: t('common.cancel'), style: 'cancel' },
-              {
-                text: t('auth.signIn'),
-                onPress: async () => {
-                  // Use the account's original identifier for re-authentication
-                  await signIn(account.originalIdentifier);
-                  await loadSavedAccounts();
-                },
+      if (outcome === 'reauth_required') {
+        Alert.alert(
+          t('auth.sessionIssue'),
+          t('auth.sessionIssueMessage', { handle: account.handle }),
+          [
+            { text: t('common.cancel'), style: 'cancel' },
+            {
+              text: t('auth.signIn'),
+              onPress: async () => {
+                await signIn(account.originalIdentifier);
+                await loadSavedAccounts();
               },
-            ]
-          );
-        } else if (
-          errorMessage.includes('Network') ||
-          errorMessage.includes('fetch') ||
-          errorMessage.includes('ENOTFOUND') ||
-          errorMessage.includes('ETIMEDOUT')
-        ) {
-          // Network error
-          Alert.alert(t('auth.networkError'), t('auth.networkErrorMessage'), [
-            { text: t('common.ok') },
-          ]);
-        } else if (errorMessage.includes('rate limit') || errorMessage.includes('Rate Limit')) {
-          // Rate limit error
-          Alert.alert(t('auth.rateLimitExceeded'), t('auth.rateLimitMessage'), [
-            { text: t('common.ok') },
-          ]);
-        } else {
-          // Show detailed error information for debugging
-          Alert.alert(
-            t('auth.accountSwitchFailed'),
-            t('auth.accountSwitchFailedMessage', { handle: account.handle, error: errorMessage }),
-            [
-              { text: t('common.cancel'), style: 'cancel' },
-              {
-                text: t('auth.signIn'),
-                onPress: async () => {
-                  // Use the account's original identifier for re-authentication
-                  await signIn(account.originalIdentifier);
-                  await loadSavedAccounts();
-                },
-              },
-            ]
-          );
-        }
+            },
+          ]
+        );
+        return;
       }
+
+      if (outcome === 'transient_failure') {
+        Alert.alert(t('auth.networkError'), t('auth.networkErrorMessage'), [
+          { text: t('common.ok') },
+        ]);
+        return;
+      }
+
+      Alert.alert(
+        t('auth.accountSwitchFailed'),
+        t('auth.accountSwitchFailedMessage', { handle: account.handle, error: errorMessage }),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('auth.signIn'),
+            onPress: async () => {
+              await signIn(account.originalIdentifier);
+              await loadSavedAccounts();
+            },
+          },
+        ]
+      );
     } finally {
       setIsLoading(false);
     }
@@ -220,7 +180,7 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
 
   const renderLoginButtons = () => {
     const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
-    const textColor = useLiquidGlass ? '#fff' : Colors.black;
+    const textColor = useLiquidGlass ? Colors.neutral[50] : Colors.black;
     const buttonTextStyle = useLiquidGlass
       ? styles.blueskyButtonTextGlass
       : styles.blueskyButtonText;

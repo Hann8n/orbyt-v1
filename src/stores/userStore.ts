@@ -42,6 +42,47 @@ import { isLiquidGlassAvailable } from 'expo-glass-effect';
 
 // Note: FeedService is no longer needed here - React Query handles all feed caching
 
+export type SessionRestoreOutcome = 'ok' | 'reauth_required' | 'transient_failure' | 'cancelled';
+
+export class AuthFlowError extends Error {
+  kind: Exclude<SessionRestoreOutcome, 'ok'>;
+
+  constructor(kind: Exclude<SessionRestoreOutcome, 'ok'>, message?: string) {
+    super(message ?? kind);
+    this.name = 'AuthFlowError';
+    this.kind = kind;
+  }
+}
+
+export function getSessionRestoreOutcome(error: unknown): SessionRestoreOutcome {
+  if (error instanceof AuthFlowError) return error.kind;
+  if (requiresReauth(error)) return 'reauth_required';
+  if (isUserCancellation(error)) return 'cancelled';
+  if (error instanceof Error && error.message.startsWith('oauth_scope_upgrade_required:')) {
+    return 'reauth_required';
+  }
+
+  const errorText = error instanceof Error ? error.message : String(error);
+  if (TRANSIENT_ERROR_PATTERNS.some(pattern => pattern.test(errorText))) {
+    return 'transient_failure';
+  }
+
+  return 'transient_failure';
+}
+
+const TRANSIENT_ERROR_PATTERNS = [
+  /network/i,
+  /fetch/i,
+  /timeout/i,
+  /timed out/i,
+  /enotfound/i,
+  /econnreset/i,
+  /econnrefused/i,
+  /503/,
+  /502/,
+  /504/,
+];
+
 // Some OAuth client session stores treat refresh tokens as single-use and can error if
 // `restore(did)` is called concurrently for the same account. This lock ensures we only
 // execute the restore once per DID at a time and share the in-flight result.
@@ -66,8 +107,9 @@ function restoreSessionInFlight(did: string): Promise<OAuthSession> {
 
 async function assertRequiredOauthScopes(session: OAuthSession): Promise<void> {
   const tokenInfo = await session.getTokenInfo(false);
-  const grantedScopes = tokenInfo.scope.split(' ');
-  const missingScopes = REQUIRED_OAUTH_SCOPES.filter(scope => !grantedScopes.includes(scope));
+  const grantedScopes = tokenInfo.scope.split(' ').filter(Boolean);
+  const requiredCoreScopes = REQUIRED_OAUTH_SCOPES.filter(scope => scope === 'atproto');
+  const missingScopes = requiredCoreScopes.filter(scope => !grantedScopes.includes(scope));
 
   if (missingScopes.length > 0) {
     throw new Error(`oauth_scope_upgrade_required:${missingScopes.join(',')}`);
@@ -211,6 +253,7 @@ export interface UserState {
   // Cached profile colors for current user (filled from MMKV on rehydrate; instant tab/header display)
   currentUserProfileColors: ProfileColorScheme | null;
   currentUserProfileAccentColor: string | null;
+  grantedOauthScopes: string[];
 
   // Actions
   // Authentication
@@ -281,7 +324,6 @@ export interface UserState {
 
   // Session management
   checkSessionHealth: () => Promise<boolean>;
-  checkAccountSessionValidity: (did: string) => Promise<boolean>;
   clearCorruptedSessions: () => Promise<void>;
 
   // Initialization
@@ -382,6 +424,34 @@ export const useUserStore = create<UserState>()(
         });
       };
 
+      const applyAuthFailureState = (
+        params: {
+          clearActiveDid: boolean;
+          authError: string | null;
+        } = { clearActiveDid: false, authError: null }
+      ) => {
+        set({
+          isAuthenticating: false,
+          isAuthenticated: false,
+          currentUser: null,
+          currentUserProfileColors: null,
+          currentUserProfileAccentColor: null,
+          oauthSession: null,
+          agent: undefined,
+          activeAccountDid: params.clearActiveDid ? null : get().activeAccountDid,
+          algorithmicFeedProvider: DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
+          subscribedChannels: [],
+          feedSourceFingerprint: buildFeedSourceFingerprint(
+            DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
+            []
+          ),
+          feedBootstrapStatus: 'error',
+          feedBootstrapDid: null,
+          authError: params.authError,
+          grantedOauthScopes: [],
+        });
+      };
+
       return {
         // Initial state
         currentUser: null,
@@ -420,6 +490,7 @@ export const useUserStore = create<UserState>()(
 
         currentUserProfileColors: null,
         currentUserProfileAccentColor: null,
+        grantedOauthScopes: [],
 
         // Authentication actions
         signIn: async (identifier: string) => {
@@ -430,6 +501,8 @@ export const useUserStore = create<UserState>()(
             const session = await client.signIn(identifier);
 
             const { agent, userProfile, emailConfirmed } = await hydrateOAuthSession(session);
+            const tokenInfo = await session.getTokenInfo(false);
+            const grantedScopes = tokenInfo.scope.split(' ').filter(Boolean);
 
             // Create account object
             const account: SavedAccount = {
@@ -468,6 +541,7 @@ export const useUserStore = create<UserState>()(
               agent: agent,
               activeAccountDid: session.did,
               oauthSession: session,
+              grantedOauthScopes: grantedScopes,
               savedAccounts: updatedAccounts,
               feedBootstrapStatus: 'loading',
               feedBootstrapDid: null,
@@ -532,6 +606,8 @@ export const useUserStore = create<UserState>()(
             }
 
             const { agent, userProfile, emailConfirmed } = await hydrateOAuthSession(session);
+            const tokenInfo = await session.getTokenInfo(false);
+            const grantedScopes = tokenInfo.scope.split(' ').filter(Boolean);
 
             // Create account object
             const account: SavedAccount = {
@@ -568,6 +644,7 @@ export const useUserStore = create<UserState>()(
               savedAccounts: updatedAccounts,
               activeAccountDid: session.did,
               oauthSession: session,
+              grantedOauthScopes: grantedScopes,
               feedBootstrapStatus: 'loading',
               feedBootstrapDid: null,
             });
@@ -626,6 +703,7 @@ export const useUserStore = create<UserState>()(
               switchingToAvatar: null,
               authError: null,
               oauthSession: null,
+              grantedOauthScopes: [],
               agent: undefined, // Use undefined to match API expectations
               activeAccountDid: null,
               savedAccounts: clearAllAccounts ? [] : get().savedAccounts,
@@ -661,6 +739,8 @@ export const useUserStore = create<UserState>()(
 
             if (!session) throw new Error('Failed to restore session from OAuth client');
             await assertRequiredOauthScopes(session);
+            const tokenInfo = await session.getTokenInfo(false);
+            const grantedScopes = tokenInfo.scope.split(' ').filter(Boolean);
 
             const { agent, userProfile, emailConfirmed } = await hydrateOAuthSession(session);
 
@@ -684,6 +764,7 @@ export const useUserStore = create<UserState>()(
               authError: null,
               agent: agent,
               oauthSession: session,
+              grantedOauthScopes: grantedScopes,
               feedBootstrapStatus: 'loading',
               feedBootstrapDid: null,
             });
@@ -722,39 +803,23 @@ export const useUserStore = create<UserState>()(
           } catch (error) {
             const errorMessage =
               error instanceof Error ? error.message : 'Session restoration failed';
+            const restoreOutcome = getSessionRestoreOutcome(error);
             logger.warn('Session restoration failed', {
               component: 'userStore',
               did,
               error: errorMessage,
+              restoreOutcome,
             });
-            set({
-              isAuthenticating: false,
-              isAuthenticated: false,
-              currentUser: null,
-              currentUserProfileColors: null,
-              currentUserProfileAccentColor: null,
-              oauthSession: null,
-              agent: undefined,
-              activeAccountDid: null,
-              algorithmicFeedProvider: DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
-              subscribedChannels: [],
-              feedSourceFingerprint: buildFeedSourceFingerprint(
-                DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
-                []
-              ),
-              feedBootstrapStatus: 'error',
-              feedBootstrapDid: null,
-            });
-            if (requiresReauth(error)) {
-              throw new Error('oauth_reauth_required');
+            if (restoreOutcome === 'reauth_required') {
+              applyAuthFailureState({ clearActiveDid: true, authError: 'oauth_reauth_required' });
+              throw new AuthFlowError('reauth_required', 'oauth_reauth_required');
             }
-            if (
-              error instanceof Error &&
-              error.message.startsWith('oauth_scope_upgrade_required:')
-            ) {
-              throw new Error('oauth_reauth_required');
+            if (restoreOutcome === 'cancelled') {
+              set({ isAuthenticating: false });
+              throw new AuthFlowError('cancelled', 'oauth_cancelled');
             }
-            throw error;
+            set({ isAuthenticating: false, authError: errorMessage });
+            throw new AuthFlowError('transient_failure', errorMessage);
           }
         },
 
@@ -791,7 +856,6 @@ export const useUserStore = create<UserState>()(
             }));
 
             await SecureStore.setItemAsync(STORAGE_KEYS.ACCOUNTS, JSON.stringify(accounts));
-            await SecureStore.setItemAsync(STORAGE_KEYS.ACTIVE_ACCOUNT, did);
 
             // Restore session for the new account
             // The OAuth client package handles session switching internally via restore()
@@ -811,6 +875,7 @@ export const useUserStore = create<UserState>()(
                 savedAccounts: accounts,
                 activeAccountDid: did,
               });
+              await SecureStore.setItemAsync(STORAGE_KEYS.ACTIVE_ACCOUNT, did);
 
               // Notify UI as soon as the account switch is committed in state.
               // This allows switch-related sheets to dismiss at switch time instead
@@ -841,31 +906,16 @@ export const useUserStore = create<UserState>()(
                 component: 'userStore',
                 did,
               });
-              set({
-                isAuthenticated: false,
-                currentUser: null,
-                currentUserProfileColors: null,
-                currentUserProfileAccentColor: null,
-                oauthSession: null,
-                agent: undefined,
-                isSwitchingAccount: false,
-                switchingToHandle: null,
-                switchingToAvatar: null,
-                activeAccountDid: null,
-                algorithmicFeedProvider: DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
-                subscribedChannels: [],
-                feedSourceFingerprint: buildFeedSourceFingerprint(
-                  DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
-                  []
-                ),
-                feedBootstrapStatus: 'error',
-                feedBootstrapDid: null,
-              });
-              throw new Error(
-                requiresReauth(restoreErr)
-                  ? 'oauth_reauth_required'
-                  : 'Session expired - please sign in again'
-              );
+              const restoreOutcome = getSessionRestoreOutcome(restoreErr);
+              if (restoreOutcome === 'reauth_required') {
+                applyAuthFailureState({ clearActiveDid: true, authError: 'oauth_reauth_required' });
+                throw new AuthFlowError('reauth_required', 'oauth_reauth_required');
+              }
+              if (restoreOutcome === 'cancelled') {
+                throw new AuthFlowError('cancelled', 'oauth_cancelled');
+              }
+              set({ isSwitchingAccount: false, authError: 'oauth_restore_transient_failure' });
+              throw new AuthFlowError('transient_failure', 'oauth_restore_transient_failure');
             }
           } catch (error) {
             set({ isSwitchingAccount: false, switchingToHandle: null, switchingToAvatar: null });
@@ -1440,6 +1490,7 @@ export const useUserStore = create<UserState>()(
                       ),
                       feedBootstrapStatus: 'error',
                       feedBootstrapDid: null,
+                      grantedOauthScopes: [],
                     });
                   }
                 }
@@ -1449,29 +1500,6 @@ export const useUserStore = create<UserState>()(
             return isHealthy;
           } catch (error) {
             logger.error('Session health check failed', error, { component: 'userStore' });
-            return false;
-          }
-        },
-
-        checkAccountSessionValidity: async (did: string) => {
-          try {
-            const account = get().savedAccounts.find(acc => acc.did === did);
-
-            if (!account) {
-              logger.error('Account not found for DID', { component: 'userStore', did });
-              return false;
-            }
-
-            // Use in-flight lock to avoid concurrent restore calls per DID.
-            // This keeps validation from triggering refresh-token single-use races.
-            const session = await restoreSessionInFlight(did);
-            return !!session;
-          } catch (error) {
-            logger.debug('Session validation failed for DID', {
-              component: 'userStore',
-              did,
-              error: error instanceof Error ? error.message : 'Unknown error',
-            });
             return false;
           }
         },
@@ -1504,45 +1532,12 @@ export const useUserStore = create<UserState>()(
               });
             }
 
-            set({
-              isAuthenticated: false,
-              currentUser: null,
-              currentUserProfileColors: null,
-              currentUserProfileAccentColor: null,
-              oauthSession: null,
-              agent: undefined,
-              activeAccountDid: null,
-              algorithmicFeedProvider: DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
-              subscribedChannels: [],
-              feedSourceFingerprint: buildFeedSourceFingerprint(
-                DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
-                []
-              ),
-              feedBootstrapStatus: 'error',
-              feedBootstrapDid: null,
-            });
+            applyAuthFailureState({ clearActiveDid: true, authError: null });
 
             await get().clearAllCaches();
           } catch (error) {
             logger.error('Failed to clear corrupted sessions', error, { component: 'userStore' });
-
-            set({
-              isAuthenticated: false,
-              currentUser: null,
-              currentUserProfileColors: null,
-              currentUserProfileAccentColor: null,
-              oauthSession: null,
-              agent: undefined,
-              activeAccountDid: null,
-              algorithmicFeedProvider: DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
-              subscribedChannels: [],
-              feedSourceFingerprint: buildFeedSourceFingerprint(
-                DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
-                []
-              ),
-              feedBootstrapStatus: 'error',
-              feedBootstrapDid: null,
-            });
+            applyAuthFailureState({ clearActiveDid: true, authError: null });
           }
         },
 
@@ -1572,39 +1567,51 @@ export const useUserStore = create<UserState>()(
               }
 
               let sessionRestored = false;
+              let restoreOutcome: SessionRestoreOutcome = 'transient_failure';
               try {
                 await get().restoreSession(activeAccountDid);
                 sessionRestored = true;
+                restoreOutcome = 'ok';
               } catch (error) {
+                restoreOutcome = getSessionRestoreOutcome(error);
                 logger.warn('Session restoration failed during initialization', {
                   component: 'userStore',
                   did: activeAccountDid,
                   error: error instanceof Error ? error.message : 'Unknown error',
+                  restoreOutcome,
                 });
               }
 
               if (!sessionRestored) {
-                logger.warn('Session could not be restored, clearing active account', {
-                  component: 'userStore',
-                  did: activeAccountDid,
-                });
-                set({
-                  isAuthenticated: false,
-                  currentUser: null,
-                  currentUserProfileColors: null,
-                  currentUserProfileAccentColor: null,
-                  oauthSession: null,
-                  agent: undefined,
-                  activeAccountDid: null,
-                  algorithmicFeedProvider: DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
-                  subscribedChannels: [],
-                  feedSourceFingerprint: buildFeedSourceFingerprint(
-                    DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
-                    []
-                  ),
-                  feedBootstrapStatus: 'error',
-                  feedBootstrapDid: null,
-                });
+                if (restoreOutcome === 'reauth_required') {
+                  logger.warn('Session could not be restored, clearing active account', {
+                    component: 'userStore',
+                    did: activeAccountDid,
+                  });
+                  set({
+                    isAuthenticated: false,
+                    currentUser: null,
+                    currentUserProfileColors: null,
+                    currentUserProfileAccentColor: null,
+                    oauthSession: null,
+                    agent: undefined,
+                    activeAccountDid: null,
+                    algorithmicFeedProvider: DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
+                    subscribedChannels: [],
+                    feedSourceFingerprint: buildFeedSourceFingerprint(
+                      DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
+                      []
+                    ),
+                    feedBootstrapStatus: 'error',
+                    feedBootstrapDid: null,
+                    grantedOauthScopes: [],
+                  });
+                } else {
+                  logger.warn('Session restore failed transiently; preserving active account DID', {
+                    component: 'userStore',
+                    did: activeAccountDid,
+                  });
+                }
               } else if (sessionRestored) {
                 // Initialize subscription store in background after interactions complete
                 requestIdleCallback(
@@ -1624,23 +1631,7 @@ export const useUserStore = create<UserState>()(
             logger.error('Error initializing user state', error, { component: 'userStore' });
 
             // Clear state to be safe
-            set({
-              isAuthenticated: false,
-              currentUser: null,
-              currentUserProfileColors: null,
-              currentUserProfileAccentColor: null,
-              oauthSession: null,
-              agent: undefined,
-              activeAccountDid: null,
-              algorithmicFeedProvider: DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
-              subscribedChannels: [],
-              feedSourceFingerprint: buildFeedSourceFingerprint(
-                DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
-                []
-              ),
-              feedBootstrapStatus: 'error',
-              feedBootstrapDid: null,
-            });
+            applyAuthFailureState({ clearActiveDid: true, authError: null });
           } finally {
             set({ isInitializingAuth: false });
           }
@@ -1890,6 +1881,7 @@ export const useUserStore = create<UserState>()(
         savedAccounts: state.savedAccounts,
         activeAccountDid: state.activeAccountDid,
         currentUser: state.currentUser,
+        grantedOauthScopes: state.grantedOauthScopes,
         feedDebugOverlayEnabled: state.feedDebugOverlayEnabled,
         nativeTabsEnabled: state.nativeTabsEnabled,
         algorithmicFeedProvider: state.algorithmicFeedProvider,
@@ -1974,7 +1966,6 @@ export const useAccountManagement = () => {
   const removeAccount = useUserStore(state => state.removeAccount);
   const updateAccountProfile = useUserStore(state => state.updateAccountProfile);
   const loadSavedAccounts = useUserStore(state => state.loadSavedAccounts);
-  const checkAccountSessionValidity = useUserStore(state => state.checkAccountSessionValidity);
   const clearCorruptedSessions = useUserStore(state => state.clearCorruptedSessions);
 
   return {
@@ -1985,7 +1976,6 @@ export const useAccountManagement = () => {
     removeAccount,
     updateAccountProfile,
     loadSavedAccounts,
-    checkAccountSessionValidity,
     clearCorruptedSessions,
   };
 };

@@ -2,9 +2,12 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, StyleSheet, Alert } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
-import { SavedAccount } from '../../../stores/userStore';
-import { requiresReauth } from '../../../utils/errors/oauth';
-import { shouldShowError, getErrorMessage } from '../../../utils/errors/errorHandler';
+import { SavedAccount, getSessionRestoreOutcome } from '../../../stores/userStore';
+import {
+  shouldShowError,
+  getErrorMessage,
+  isUserCancellation,
+} from '../../../utils/errors/errorHandler';
 import { useProfile } from '../../../services/data/ProfileService';
 import type { ProfileViewWithOrbyt } from '../../../services/api/types';
 import { Colors } from '../../../theme';
@@ -94,6 +97,12 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
     setEditMode(prev => !prev);
   }, []);
 
+  const closeAccountSwitcherSheets = useCallback(() => {
+    dismissSheet('account-switcher');
+    dismissSheet('add-account-login-sheet');
+    dismissSheet('add-account-sign-up-sheet');
+  }, []);
+
   const handleSwitchAccount = useCallback(
     async (account: AccountWithProfile) => {
       const switchEligibility = getAccountSwitchEligibility({
@@ -108,21 +117,24 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
 
       setSwitchingAccount(account.did);
       try {
-        // Use the user store to switch accounts with completion callback
-        await switchAccount(account.did, () => {
-          // This callback is called when all data is loaded
-          onAccountSwitch(account);
-          // Force native dismissal at switch-complete time to avoid stuck sheet states.
-          dismissSheet('account-switcher');
-          dismissSheet('add-account-login-sheet');
-          dismissSheet('add-account-sign-up-sheet');
-          // Keep modal store visibility in sync after native dismiss call.
-          onDismiss();
-        });
+        // Dismiss all related sheets first, then switch account.
+        // This avoids overlapping sheet presentations during account transition.
+        closeAccountSwitcherSheets();
+        await new Promise(resolve => setTimeout(resolve, 220));
+
+        // Use the user store to switch accounts after sheet close.
+        await switchAccount(account.did);
+        onAccountSwitch(account);
       } catch (error) {
-        if (requiresReauth(error)) {
+        if (isUserCancellation(error)) {
+          return;
+        }
+
+        const outcome = getSessionRestoreOutcome(error);
+
+        if (outcome === 'reauth_required') {
           // Dismiss the account switcher first
-          onDismiss();
+          closeAccountSwitcherSheets();
 
           // Small delay to ensure modal is dismissed before showing alert
           setTimeout(() => {
@@ -141,6 +153,8 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
               ]
             );
           }, 300);
+        } else if (outcome === 'transient_failure') {
+          Alert.alert(t('auth.networkError'), t('auth.networkErrorMessage'));
         } else {
           Alert.alert(t('common.error'), t('errors.accountSwitchFailed'));
         }
@@ -150,13 +164,13 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
     },
     [
       onAccountSwitch,
-      onDismiss,
       switchAccount,
       activeAccountDid,
       isSwitchingAccount,
       isAuthenticating,
       signIn,
       loadAccounts,
+      closeAccountSwitcherSheets,
       t,
     ]
   );
