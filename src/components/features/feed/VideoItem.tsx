@@ -44,7 +44,6 @@ export interface VideoItemProps {
   feedKey?: string;
   canPlay?: boolean;
   isHeaderBlockingPlayback?: boolean;
-  isModal?: boolean;
   index?: number;
   /** iOS: marks the row as the zoom transition target (paired with grid `Link.AppleZoom`). */
   isAppleZoomTarget?: boolean;
@@ -58,7 +57,6 @@ const VideoItem: React.FC<VideoItemProps> = ({
   feedKey,
   canPlay = false,
   isHeaderBlockingPlayback = false,
-  isModal = false,
   index = 0,
   isAppleZoomTarget = false,
 }) => {
@@ -101,7 +99,6 @@ const VideoItem: React.FC<VideoItemProps> = ({
       height={itemHeight}
       showOverlay={true}
       feedOption={feedOption}
-      isModal={isModal}
       index={index}
     />
   );

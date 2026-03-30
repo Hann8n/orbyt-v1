@@ -51,7 +51,7 @@ import {
 } from './feedViewShared';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import { isIosLiquidGlassAvailable } from '@/stores/userStore';
-import { getViewportDimensions } from '../../../utils/device/screen';
+import { getEffectiveTopInset, getViewportDimensions } from '../../../utils/device/screen';
 import { getVideoCardHeight } from '../../../utils/video/helpers';
 import { Colors } from '../../../theme';
 import { APP_CONSTANTS, SCROLL_CONSTANTS, QUERY_CONSTANTS } from '../../../utils/constants';
@@ -194,7 +194,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       isVisible = true,
       viewMode,
       onViewModeChange: _onViewModeChange,
-      isModal = false,
       hasTabBar: hasTabBarProp,
       contentScrollProgressOutput,
       forceError = false,
@@ -248,7 +247,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     const { screenWidth, screenHeight, isCompact } = useDeviceLayout();
     const isHeaderFeed = getIsHeaderFeed(feedOption, headerComponent);
-    const hasTabBar = hasTabBarProp ?? !isModal;
+    const hasTabBar = hasTabBarProp ?? true;
     /** Pre–SafeAreaView list snap: `getViewportDimensions` + `getVideoCardHeight` (peek under glass tab bar). */
     const useLegacyIosTabLiquidGlassLayout = hasTabBar && isIosLiquidGlassAvailable;
     /**
@@ -266,7 +265,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         return feedLayoutHeight > 0 ? Math.min(feedLayoutHeight, maxViewport) : maxViewport;
       }
       if (useLegacyIosTabLiquidGlassLayout) {
-        return getViewportDimensions(!hasTabBar, isHeaderFeed, insets).height;
+        return getViewportDimensions(insets, { useFullWindowHeight: !hasTabBar }).height;
       }
       if (feedLayoutHeight > 0) {
         return feedLayoutHeight;
@@ -326,7 +325,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
         const feedItem = item;
         const isAppleZoomTarget =
-          isModal &&
           Boolean(zoomTargetPostUri) &&
           feedItem.post?.uri === zoomTargetPostUri &&
           Platform.OS === 'ios';
@@ -339,21 +337,12 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
             feedKey={feedKey}
             canPlay={canPlay}
             isHeaderBlockingPlayback={isHeaderBlockingPlayback}
-            isModal={isModal}
             index={index}
             isAppleZoomTarget={isAppleZoomTarget}
           />
         );
       },
-      [
-        cardHeight,
-        feedOption,
-        feedKey,
-        canPlay,
-        isModal,
-        isHeaderBlockingPlayback,
-        zoomTargetPostUri,
-      ]
+      [cardHeight, feedOption, feedKey, canPlay, isHeaderBlockingPlayback, zoomTargetPostUri]
     );
 
     // Item type + keys are handled by pure module-scope helpers.
@@ -422,18 +411,12 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     const emptyComponentHeight = Math.max(0, listViewportForEmpty - emptyStateHeaderDeduction);
 
     /**
-     * iOS tab + liquid glass (original list): offset snaps by top safe area on non-compact devices
-     * so the first card aligns with the status bar / notch region.
+     * iOS tab + liquid glass: offset snaps by top safe area on non-compact devices so the first
+     * card aligns with the status bar. Use effective top inset (same as UniversalHeader) when the
+     * hook reports 0 under native tabs.
      */
-    const snapTopInset = (() => {
-      if (!useLegacyIosTabLiquidGlassLayout) {
-        return 0;
-      }
-      if (isHeaderFeed) {
-        return isCompact || (isModal && hasHeader) ? 0 : insets.top;
-      }
-      return isCompact ? 0 : insets.top;
-    })();
+    const snapTopInset =
+      useLegacyIosTabLiquidGlassLayout && !isCompact ? getEffectiveTopInset(insets.top) : 0;
 
     const snapToOffsets = ((): number[] | null => {
       if (useLegacyIosTabLiquidGlassLayout && !hasHeader && isCompact) {
@@ -524,7 +507,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         <GridFeedView
           feed={feed}
           headerComponent={headerComponent}
-          isModal={isModal}
           backgroundColor={backgroundColor}
           secondaryColor={secondaryColor}
           isProfileFeed={isHeaderFeed}

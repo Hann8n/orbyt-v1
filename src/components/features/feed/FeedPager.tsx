@@ -75,7 +75,6 @@ interface FeedPagerRendererProps {
     refetchIntervalInBackground?: boolean;
   };
   isVisible?: boolean;
-  isModal?: boolean;
   /** When false, do not render FeedPager's default StatusBar (for screens that manage it themselves). */
   controlStatusBar?: boolean;
 }
@@ -161,7 +160,6 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
     contentScrollProgressOutput,
     queryOptions: queryOptionsProp,
     isVisible = true,
-    isModal = false,
     controlStatusBar = true,
   },
   ref
@@ -378,7 +376,6 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
         }}
         isVisible={isVisible && index === currentFeedIndex}
         forceError={forceError}
-        isModal={isModal}
       />
     ),
     [
@@ -393,7 +390,6 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
       baseQueryOptions,
       isVisible,
       forceError,
-      isModal,
     ]
   );
 

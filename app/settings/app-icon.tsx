@@ -171,7 +171,7 @@ const NUM_COLUMNS = 4;
 
 const AppIconSettingsScreen: React.FC = () => {
   const router = useRouter();
-  const { navigateToProfile: goToProfile } = useProfileChannelNavigation({ fallbackTab: 'home' });
+  const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
   const [currentIcon, setCurrentIcon] = useState<AppIconKey>(getInitialIcon);
   const { currentUser } = useCurrentUser();
   const { data: orbytColors } = useOrbytColors(currentUser?.did ?? null);

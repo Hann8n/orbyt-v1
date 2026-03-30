@@ -5,6 +5,7 @@ import { NativePressable } from '../../ui/NativePressable';
 import Animated, { type AnimatedStyle } from 'react-native-reanimated';
 import { BackArrowIcon } from '../../ui/Icon';
 import { Colors } from '../../../theme';
+import { LAYOUT_INSETS } from '../../../utils/constants';
 
 export interface DetailScreenOverlayProps {
   showBackButton: boolean;
@@ -76,12 +77,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingLeft: LAYOUT_INSETS.DETAIL_OVERLAY_HORIZONTAL,
+    paddingRight: LAYOUT_INSETS.DETAIL_OVERLAY_HORIZONTAL,
   },
   overlayBackButton: {
     width: 40,
     height: 40,
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'center',
   },
   backIconContainer: {

@@ -54,7 +54,7 @@ interface ChannelUser {
 const AlgorithmicFeedScreen: React.FC = () => {
   const { t } = useTranslation();
   const router = useRouter();
-  const { hrefOpts } = useProfileChannelNavigation({ fallbackTab: 'home' });
+  const { hrefOpts } = useProfileChannelNavigation();
   const queryClient = useQueryClient();
   const { algorithmicFeedProvider, setAlgorithmicFeedProvider } = useAlgorithmicFeedProvider();
   const [selectedUri, setSelectedUri] = useState<string | null>(algorithmicFeedProvider);
@@ -190,7 +190,7 @@ const AlgorithmicFeedScreen: React.FC = () => {
     if (selectedChannel?.uri) {
       TrueSheet.dismiss('algorithmic-feed-channel-options');
       setSelectedChannel(null);
-      router.replace(buildChannelDetailHref(encodeURIComponent(selectedChannel.uri), hrefOpts));
+      router.dismissTo(buildChannelDetailHref(encodeURIComponent(selectedChannel.uri), hrefOpts));
     }
   }, [hrefOpts, router, selectedChannel]);
 

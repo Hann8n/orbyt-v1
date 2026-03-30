@@ -5,6 +5,16 @@
 
 import * as Device from 'expo-device';
 import { Dimensions } from 'react-native';
+import { initialWindowMetrics } from 'react-native-safe-area-context';
+
+/**
+ * Native tab shells sometimes report `useSafeAreaInsets().top === 0` while the window still has a
+ * non-zero top inset. Match that to `initialWindowMetrics` so headers (profile, channel) keep
+ * correct padding under the status bar / Dynamic Island.
+ */
+export function getEffectiveTopInset(hookTop: number): number {
+  return Math.max(hookTop, initialWindowMetrics?.insets.top ?? 0);
+}
 
 export const TABLET_SHORT_SIDE_DP = 600;
 export const SMALL_PHONE_SHORT_SIDE_DP = 375;
@@ -43,16 +53,27 @@ export const getBottomNavBarHeight = (insets: { bottom: number }, isCompact?: bo
   return (c ? LAYOUT.SMALL_SCREEN_NAV_HEIGHT : LAYOUT.TAB_NAV_HEIGHT) + bottom;
 };
 
+export type ViewportSafeAreaInsets = {
+  top: number;
+  bottom: number;
+  left: number;
+  right: number;
+};
+
+/**
+ * Viewport size for feed layouts. By default subtracts tab-bar chrome and top safe area
+ * on non-compact phones. Pass `useFullWindowHeight` when the feed has no tab bar overlay
+ * or the caller needs the raw window height (e.g. full-height video screen).
+ */
 export const getViewportDimensions = (
-  isModal: boolean = false,
-  _isHeaderFeed: boolean = false,
-  insets?: { top: number; bottom: number; left: number; right: number }
+  insets?: ViewportSafeAreaInsets,
+  options?: { useFullWindowHeight?: boolean }
 ) => {
   const { width, height } = getWindowDimensions();
   const effectiveInsets = insets ?? { top: 0, bottom: 0, left: 0, right: 0 };
   const { isCompact } = classifyDevice(width, height);
   const bottomNavBarHeight = getBottomNavBarHeight(effectiveInsets, isCompact);
-  const useFullHeight = isModal || isCompact;
+  const useFullHeight = Boolean(options?.useFullWindowHeight) || isCompact;
   return {
     width,
     height: useFullHeight ? height : height - bottomNavBarHeight - effectiveInsets.top,

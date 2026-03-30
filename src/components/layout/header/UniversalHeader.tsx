@@ -23,6 +23,7 @@ import Animated, {
   LinearTransition,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getEffectiveTopInset } from '@/utils/device/screen';
 import Icon, { BackArrowIcon, MoreFillIcon, STROKE_WIDTH_THICK } from '../../ui/Icon';
 import { NativePressable } from '../../ui/NativePressable';
 import { OutlinkIcon, GermDmIcon } from '../../ui/Icon';
@@ -936,6 +937,7 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
 }) => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const topInset = getEffectiveTopInset(insets.top);
 
   const handleBackPress = useCallback(() => {
     if (onBackPress) {
@@ -948,7 +950,7 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
   const headerStyle = useMemo((): ViewStyle[] => {
     const baseTopPadding = 12;
     const overlayExtraPadding = reserveTopForOverlayButtons ? 48 : 0;
-    const safeAreaTop = applySafeArea ? insets.top : 0;
+    const safeAreaTop = applySafeArea ? topInset : 0;
 
     const baseStyles: ViewStyle[] = [
       styles.header,
@@ -969,7 +971,7 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
     backgroundImage,
     style,
     applySafeArea,
-    insets.top,
+    topInset,
     minHeight,
     reserveTopForOverlayButtons,
   ]);
@@ -985,36 +987,36 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
     () => [
       styles.backgroundImageContainer,
       {
-        top: applySafeArea ? -insets.top : 0,
+        top: applySafeArea ? -topInset : 0,
         // Keep a slight overlap behind tabbed nav to avoid a hard visual seam.
         ...(hasTabs && { bottom: TABBED_HEADER_BACKGROUND_CUTOFF }),
       },
     ],
-    [applySafeArea, insets.top, hasTabs]
+    [applySafeArea, topInset, hasTabs]
   );
 
   const backgroundOverlayStyle = useMemo(
     () => [
       styles.backgroundOverlay,
       {
-        top: applySafeArea ? -insets.top : 0,
+        top: applySafeArea ? -topInset : 0,
         // Keep a slight overlap behind tabbed nav to avoid a hard visual seam.
         ...(hasTabs && { bottom: TABBED_HEADER_BACKGROUND_CUTOFF }),
       },
     ],
-    [applySafeArea, insets.top, hasTabs]
+    [applySafeArea, topInset, hasTabs]
   );
 
   const shadowGradientStyle = useMemo(
     () => [
       styles.shadowGradient,
       {
-        top: applySafeArea ? -insets.top : 0,
+        top: applySafeArea ? -topInset : 0,
         // Keep a slight overlap behind tabbed nav to avoid a hard visual seam.
         ...(hasTabs && { bottom: TABBED_HEADER_BACKGROUND_CUTOFF }),
       },
     ],
-    [applySafeArea, insets.top, hasTabs]
+    [applySafeArea, topInset, hasTabs]
   );
 
   // Memoize background image component separately to prevent recreation on viewMode changes

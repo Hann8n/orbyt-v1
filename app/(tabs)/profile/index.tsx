@@ -9,6 +9,7 @@ import Animated, {
   LinearTransition,
 } from 'react-native-reanimated';
 import { BORDER_RADIUS, APP_CONSTANTS, ICON_SIZES } from '@/utils/constants';
+import { getEffectiveTopInset } from '@/utils/device/screen';
 import { View, Text, StyleSheet, Dimensions, Modal, Platform, Linking } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { Image } from 'expo-image';
@@ -43,7 +44,7 @@ import { HeaderAction, HeaderActionButton } from '@/components/layout/header/Uni
 import { Colors } from '@/theme';
 import { useGlobalAccountSwitcher } from '@/hooks/useGlobalModals';
 import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '@/hooks';
-import { initialWindowMetrics, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFollowMutation, useBlockMutation } from '@/services/data/ProfileService';
 import { queryKeys } from '@/utils/query/queryKeys';
 import { useSubscriptionStore } from '@/stores/subscriptionStore';
@@ -478,7 +479,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   }, [onLogout]);
 
   const insets = useSafeAreaInsets();
-  const topInset = Math.max(insets.top, initialWindowMetrics?.insets.top ?? 0);
+  const topInset = getEffectiveTopInset(insets.top);
   const defaultTop = topInset + PROFILE_CHANNEL_FEED_OVERLAY_TOP_OFFSET;
   const overlayScrollProgressSV = useSharedValue(0);
   const actionButtonsTop = defaultTop;
@@ -677,7 +678,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
           {...PROFILE_CHANNEL_FEED_PAGER_DEFAULTS}
           queryOptions={queryOptions}
           isVisible={isRouteFocused}
-          isModal={false}
           headerComponent={
             <View style={styles.headerContainer} pointerEvents="box-none">
               <ProfileHeader
