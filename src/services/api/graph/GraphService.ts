@@ -4,6 +4,7 @@
  */
 
 import { AtprotoCore } from '../core';
+import { deduplicateRequest } from '../inFlightDedup';
 import type { ProfileViewBasic, ProfileView, FollowersResponse, FollowingResponse } from '../types';
 
 export class GraphService {
@@ -14,9 +15,7 @@ export class GraphService {
    */
   static async follow(did: string): Promise<string> {
     const cacheKey = `follow:${did}`;
-    // Use dynamic import to avoid circular dependency
-    const { AtprotoService } = await import('../AtprotoService');
-    return AtprotoService.deduplicateRequest(cacheKey, async () => {
+    return deduplicateRequest(cacheKey, async () => {
       const { api } = await AtprotoCore.getApiClient();
 
       // Get the current user DID from userStore
@@ -46,9 +45,7 @@ export class GraphService {
    */
   static async unfollow(did: string, followUri?: string): Promise<boolean> {
     const cacheKey = `unfollow:${did}`;
-    // Use dynamic import to avoid circular dependency
-    const { AtprotoService } = await import('../AtprotoService');
-    return AtprotoService.deduplicateRequest(cacheKey, async () => {
+    return deduplicateRequest(cacheKey, async () => {
       const { api } = await AtprotoCore.getApiClient();
 
       // Get the current user DID from userStore

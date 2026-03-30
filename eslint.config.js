@@ -95,6 +95,31 @@ module.exports = [
   },
   reactCompiler.configs.recommended,
   prettier,
+  // Phase 3: keep api/* free of facade imports (avoids cycles; use AtprotoCore / leaf utils).
+  {
+    files: ['src/services/api/**/*.ts', 'src/services/api/**/*.tsx'],
+    ignores: ['src/services/api/AtprotoService.tsx'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: [
+                './AtprotoService',
+                '../AtprotoService',
+                '../../AtprotoService',
+                '../../../AtprotoService',
+                '@/services/api/AtprotoService',
+              ],
+              message:
+                'API namespace modules must not import the AtprotoService facade; use AtprotoCore, leaf modules (inFlightDedup, pdsEndpointResolver), or peer services.',
+            },
+          ],
+        },
+      ],
+    },
+  },
   {
     files: [
       '**/*.test.{js,jsx,ts,tsx}',

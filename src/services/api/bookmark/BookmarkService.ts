@@ -5,6 +5,7 @@
 
 import { logger } from '../../../utils/logger';
 import { AtprotoCore } from '../core';
+import { deduplicateRequest } from '../inFlightDedup';
 import type { BookmarksResponse, ExtendedPostView, PostView } from '../types';
 
 export class BookmarkService {
@@ -16,9 +17,7 @@ export class BookmarkService {
    */
   static async createBookmark(uri: string, cid: string): Promise<string> {
     const cacheKey = `bookmark:create:${uri}:${cid}`;
-    // Use dynamic import to avoid circular dependency
-    const { AtprotoService } = await import('../AtprotoService');
-    return AtprotoService.deduplicateRequest(cacheKey, async () => {
+    return deduplicateRequest(cacheKey, async () => {
       await AtprotoCore.ensureSession();
       const { api } = await AtprotoCore.getApiClient();
 
@@ -39,9 +38,7 @@ export class BookmarkService {
    */
   static async deleteBookmark(postUri: string): Promise<void> {
     const cacheKey = `bookmark:delete:${postUri}`;
-    // Use dynamic import to avoid circular dependency
-    const { AtprotoService } = await import('../AtprotoService');
-    return AtprotoService.deduplicateRequest(cacheKey, async () => {
+    return deduplicateRequest(cacheKey, async () => {
       await AtprotoCore.ensureSession();
       const { api } = await AtprotoCore.getApiClient();
 

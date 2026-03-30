@@ -6,6 +6,7 @@
 import { BlobRef } from '@atproto/lexicon';
 import { logger } from '../../../utils/logger';
 import { AtprotoCore } from '../core';
+import { getAgentForRepo } from '../pdsEndpointResolver';
 import { DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI } from '../../../utils/constants';
 import type {
   ProfileRecord,
@@ -84,9 +85,7 @@ export class RepoService {
   static async getOrbytProfileRecordForDid(did: string): Promise<unknown | null> {
     try {
       if (!did) return null;
-      // Use dynamic import to avoid circular dependency with AtprotoService
-      const { default: AtprotoService } = await import('../AtprotoService');
-      const agent = await AtprotoService.getAgentForRepo(did);
+      const agent = await getAgentForRepo(did);
       if (!agent) return null;
       // Prefer stable rkey 'self'
       try {
@@ -126,9 +125,7 @@ export class RepoService {
     try {
       if (!did) return { profileRecord: null, orbytRecord: null };
 
-      // Use dynamic import to avoid circular dependency with AtprotoService
-      const { default: AtprotoService } = await import('../AtprotoService');
-      const agent = await AtprotoService.getAgentForRepo(did);
+      const agent = await getAgentForRepo(did);
       if (!agent) return { profileRecord: null, orbytRecord: null };
 
       // Fetch both records in parallel using listRecords

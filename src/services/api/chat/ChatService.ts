@@ -4,8 +4,8 @@
  */
 
 import { retry } from '@atproto/common-web';
-import { AtprotoService } from '../AtprotoService';
 import { RichText } from '@atproto/api';
+import { AtprotoCore } from '../core';
 import { XRPCError, ResponseType } from '@atproto/xrpc';
 import type { ConvoView, MessageView } from '../types';
 import type { OutputSchema as GetLogOutputSchema } from '@atproto/api/dist/client/types/chat/bsky/convo/getLog';
@@ -70,7 +70,7 @@ export const ChatService = {
     filter?: ListConvosFilter
   ): Promise<ConversationsResponse> {
     return withRetry429(async () => {
-      const { api } = await AtprotoService.getApiClient();
+      const { api } = await AtprotoCore.getApiClient();
       const params: {
         limit: number;
         cursor?: string;
@@ -97,17 +97,13 @@ export const ChatService = {
   async getChatDeclaration(did: string): Promise<'all' | 'none' | 'following' | null> {
     if (!did) return null;
     try {
-      const { api } = await AtprotoService.getApiClient();
-      // Use a loose any-typed call here because the chat actor
-      // declaration endpoint isn't fully modeled in the typed client.
-      const res: any = await (api as any).chat.bsky.actor.declaration.get(
-        { repo: did, rkey: 'self' },
-        chatOpts()
-      );
-      const value = res?.data?.value as
-        | { allowIncoming?: 'all' | 'none' | 'following' }
-        | undefined;
-      return value?.allowIncoming ?? null;
+      const { api } = await AtprotoCore.getApiClient();
+      const res = await api.chat.bsky.actor.declaration.get({ repo: did, rkey: 'self' });
+      const incoming = res?.value?.allowIncoming;
+      if (incoming === 'all' || incoming === 'none' || incoming === 'following') {
+        return incoming as 'all' | 'none' | 'following';
+      }
+      return null;
     } catch {
       return null;
     }
@@ -121,33 +117,31 @@ export const ChatService = {
     did: string,
     allowIncoming: 'all' | 'none' | 'following'
   ): Promise<void> {
-    const { api } = await AtprotoService.getApiClient();
-    // Loosely typed call; the generated client types don't expose the
-    // chat actor declaration mutation with full options, so fall back to any.
-    await (api as any).chat.bsky.actor.declaration.put(
+    const { api } = await AtprotoCore.getApiClient();
+    await api.chat.bsky.actor.declaration.put(
       { repo: did, rkey: 'self' },
       { allowIncoming },
-      chatOpts() as any
+      chatOpts().headers
     );
   },
 
   /** chat.bsky.convo.getConvo */
   async getConvo(convoId: string): Promise<ConvoView | null> {
-    const { api } = await AtprotoService.getApiClient();
+    const { api } = await AtprotoCore.getApiClient();
     const res = await api.chat.bsky.convo.getConvo({ convoId }, chatOpts());
     return res.data?.convo ?? null;
   },
 
   /** chat.bsky.convo.getConvoForMembers */
   async getConvoForMembers(members: string[]): Promise<ConvoView | null> {
-    const { api } = await AtprotoService.getApiClient();
+    const { api } = await AtprotoCore.getApiClient();
     const res = await api.chat.bsky.convo.getConvoForMembers({ members }, chatOpts());
     return res.data?.convo ?? null;
   },
 
   /** chat.bsky.convo.getConvoAvailability */
   async getConvoAvailability(members: string[]): Promise<ConvoView | null> {
-    const { api } = await AtprotoService.getApiClient();
+    const { api } = await AtprotoCore.getApiClient();
     const res = await api.chat.bsky.convo.getConvoAvailability({ members }, chatOpts());
     return res.data?.convo ?? null;
   },
@@ -155,7 +149,7 @@ export const ChatService = {
   /** chat.bsky.convo.getMessages */
   async getMessages(convoId: string, cursor: string | null = null): Promise<MessagesResponse> {
     return withRetry429(async () => {
-      const { api } = await AtprotoService.getApiClient();
+      const { api } = await AtprotoCore.getApiClient();
       const res = await api.chat.bsky.convo.getMessages(
         { convoId, limit: 50, ...(cursor && { cursor }) },
         chatOpts()
@@ -178,7 +172,7 @@ export const ChatService = {
    */
   async getLog(cursor: string | null = null): Promise<GetLogOutputSchema> {
     return withRetry429(async () => {
-      const { api } = await AtprotoService.getApiClient();
+      const { api } = await AtprotoCore.getApiClient();
       const res = await api.chat.bsky.convo.getLog(cursor ? { cursor } : undefined, chatOpts());
       return {
         cursor: res.data?.cursor ?? undefined,
@@ -196,7 +190,7 @@ export const ChatService = {
       embed?: { $type: string; record: { uri: string; cid: string } };
     }
   ): Promise<MessageView> {
-    const { api } = await AtprotoService.getApiClient();
+    const { api } = await AtprotoCore.getApiClient();
     const msg: {
       text: string;
       facets?: MessageView['facets'];
@@ -233,7 +227,7 @@ export const ChatService = {
     convoId: string,
     items: { message: { text: string } }[]
   ): Promise<MessageView[]> {
-    const { api } = await AtprotoService.getApiClient();
+    const { api } = await AtprotoCore.getApiClient();
     const res = await api.chat.bsky.convo.sendMessageBatch(
       {
         items: items.map(i => ({ convoId, message: i.message })),
@@ -245,7 +239,7 @@ export const ChatService = {
 
   /** chat.bsky.convo.updateRead */
   async updateRead(convoId: string, messageId?: string): Promise<ConvoView> {
-    const { api } = await AtprotoService.getApiClient();
+    const { api } = await AtprotoCore.getApiClient();
     const res = await api.chat.bsky.convo.updateRead(
       { convoId, ...(messageId && { messageId }) },
       chatOpts()
@@ -255,53 +249,53 @@ export const ChatService = {
 
   /** chat.bsky.convo.updateAllRead */
   async updateAllRead(): Promise<void> {
-    const { api } = await AtprotoService.getApiClient();
+    const { api } = await AtprotoCore.getApiClient();
     await api.chat.bsky.convo.updateAllRead(undefined, chatOpts());
   },
 
   /** chat.bsky.convo.addReaction */
   async addReaction(convoId: string, messageId: string, value: string): Promise<MessageView> {
-    const { api } = await AtprotoService.getApiClient();
+    const { api } = await AtprotoCore.getApiClient();
     const res = await api.chat.bsky.convo.addReaction({ convoId, messageId, value }, chatOpts());
     return res.data!.message;
   },
 
   /** chat.bsky.convo.removeReaction */
   async removeReaction(convoId: string, messageId: string, value: string): Promise<MessageView> {
-    const { api } = await AtprotoService.getApiClient();
+    const { api } = await AtprotoCore.getApiClient();
     const res = await api.chat.bsky.convo.removeReaction({ convoId, messageId, value }, chatOpts());
     return res.data!.message;
   },
 
   /** chat.bsky.convo.deleteMessageForSelf */
   async deleteMessageForSelf(convoId: string, messageId: string): Promise<void> {
-    const { api } = await AtprotoService.getApiClient();
+    const { api } = await AtprotoCore.getApiClient();
     await api.chat.bsky.convo.deleteMessageForSelf({ convoId, messageId }, chatOpts());
   },
 
   /** chat.bsky.convo.acceptConvo – accepts a conversation request. API returns { rev?: string } only. */
   async acceptConvo(convoId: string): Promise<void> {
-    const { api } = await AtprotoService.getApiClient();
+    const { api } = await AtprotoCore.getApiClient();
     await api.chat.bsky.convo.acceptConvo({ convoId }, chatOpts());
   },
 
   /** chat.bsky.convo.leaveConvo */
   async leaveConvo(convoId: string): Promise<{ convoId: string; rev: string }> {
-    const { api } = await AtprotoService.getApiClient();
+    const { api } = await AtprotoCore.getApiClient();
     const res = await api.chat.bsky.convo.leaveConvo({ convoId }, chatOpts());
     return res.data!;
   },
 
   /** chat.bsky.convo.muteConvo */
   async muteConvo(convoId: string): Promise<ConvoView> {
-    const { api } = await AtprotoService.getApiClient();
+    const { api } = await AtprotoCore.getApiClient();
     const res = await api.chat.bsky.convo.muteConvo({ convoId }, chatOpts());
     return res.data!.convo;
   },
 
   /** chat.bsky.convo.unmuteConvo */
   async unmuteConvo(convoId: string): Promise<ConvoView> {
-    const { api } = await AtprotoService.getApiClient();
+    const { api } = await AtprotoCore.getApiClient();
     const res = await api.chat.bsky.convo.unmuteConvo({ convoId }, chatOpts());
     return res.data!.convo;
   },

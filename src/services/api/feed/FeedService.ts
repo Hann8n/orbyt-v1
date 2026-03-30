@@ -46,6 +46,7 @@ import {
 } from '../types';
 import { REQUESTMORE, REQUESTLESS } from '@atproto/api/dist/client/types/app/bsky/feed/defs';
 import i18n from '../../../i18n';
+import { deduplicateRequest } from '../inFlightDedup';
 
 /** Resolve remote or local thumb URL for external embed upload (protocol-relative → https, keep file://). */
 function normalizeExternalEmbedThumbSource(raw: string | undefined): string | undefined {
@@ -306,9 +307,7 @@ export class AtprotoFeedService {
    */
   static async likePost(uri: string, cid: string): Promise<string> {
     const cacheKey = `like:${uri}:${cid}`;
-    // Use dynamic import to avoid circular dependency
-    const { AtprotoService } = await import('../AtprotoService');
-    return AtprotoService.deduplicateRequest(cacheKey, async () => {
+    return deduplicateRequest(cacheKey, async () => {
       const userDid = await AtprotoCore.getCurrentUserDid();
       if (!userDid) throw new Error('No authenticated user');
 
@@ -343,9 +342,7 @@ export class AtprotoFeedService {
    */
   static async repostPost(uri: string, cid: string): Promise<string> {
     const cacheKey = `repost:${uri}:${cid}`;
-    // Use dynamic import to avoid circular dependency
-    const { AtprotoService } = await import('../AtprotoService');
-    return AtprotoService.deduplicateRequest(cacheKey, async () => {
+    return deduplicateRequest(cacheKey, async () => {
       const userDid = await AtprotoCore.getCurrentUserDid();
       if (!userDid) throw new Error('No authenticated user');
 
@@ -928,24 +925,21 @@ export class AtprotoFeedService {
   }
 
   /**
-   * Get a single post by URI
+   * Get a single post by URI (uses getPosts — lighter than getPostThread for depth-0 lookups).
    * @param uri - Post URI
-   * @returns Post view or null
+   * @returns Post view or null (not-found / blocked / missing entries return null, same as thread-only path)
    */
   static async getPost(uri: string): Promise<PostView | null> {
+    const trimmed = typeof uri === 'string' ? uri.trim() : '';
+    if (!trimmed) return null;
     try {
-      await AtprotoCore.ensureSession();
-      const { api } = await AtprotoCore.getApiClient();
-      const response = await api.app.bsky.feed.getPostThread({
-        uri: uri,
-        depth: 0,
-      });
-
-      const thread = response.data.thread as ThreadPost;
-      if (isThreadViewPost(thread)) {
-        return thread.post;
+      const map = await this.getPosts([trimmed]);
+      const entry = map.get(trimmed);
+      if (!entry) return null;
+      if (checkIsNotFoundPost(entry as ThreadPost) || checkIsBlockedPost(entry as ThreadPost)) {
+        return null;
       }
-      return null;
+      return entry as PostView;
     } catch (_error: unknown) {
       return null;
     }

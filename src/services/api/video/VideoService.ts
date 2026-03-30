@@ -7,6 +7,7 @@ import { Platform } from 'react-native';
 import { File } from 'expo-file-system';
 import { logger } from '../../../utils/logger';
 import { AtprotoCore } from '../core';
+import { resolvePdsEndpointForDid } from '../pdsEndpointResolver';
 import type { UploadLimitsResponse } from '../types';
 import { Agent } from '@atproto/api';
 import type { BlobRef } from '@atproto/api';
@@ -81,9 +82,7 @@ export class VideoService {
       }
 
       // Resolve PDS endpoint from DID for service auth
-      const { AtprotoService } = await import('../AtprotoService');
-      const pdsEndpoint =
-        (await AtprotoService.resolvePdsEndpointForDid(did)) || 'https://bsky.social';
+      const pdsEndpoint = (await resolvePdsEndpointForDid(did)) || 'https://bsky.social';
       const pdsHost = new URL(pdsEndpoint).host;
 
       // Create service auth with proper audience format
@@ -195,7 +194,7 @@ export class VideoService {
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Error uploading video', error, { component: 'VideoService', videoPath });
-      throw new Error(`Video upload failed: ${errorMessage}`);
+      throw new Error(`Video upload failed: ${errorMessage}`, { cause: error });
     }
   }
 
@@ -235,7 +234,8 @@ export class VideoService {
       }
       logger.error('Error getting job status', error, { component: 'VideoService', jobId });
       throw new Error(
-        `Failed to get job status: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to get job status: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { cause: error }
       );
     }
   }

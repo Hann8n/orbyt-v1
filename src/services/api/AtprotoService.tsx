@@ -1,7 +1,11 @@
-import { AtpAgent } from '@atproto/api';
 import type { BlobRef } from '@atproto/api';
 import { storage } from '../../utils/storage/storage';
 import { AtprotoCore } from './core';
+import { deduplicateRequest as deduplicateInFlightRequest } from './inFlightDedup';
+import {
+  getAgentForRepo as getAgentForRepoForDid,
+  resolvePdsEndpointForDid as resolvePdsEndpointForDidFromPlc,
+} from './pdsEndpointResolver';
 import { AtprotoFeedService } from './feed/FeedService';
 import { ActorService } from './actor/ActorService';
 import { GraphService } from './graph/GraphService';
@@ -45,8 +49,6 @@ import type {
   BlockedPost,
   Like,
   GeneratorView,
-  ExtendedFeedViewPost,
-  PostRecord,
   FeedGeneratorOutput,
   PutActivitySubscriptionOutput,
   ProfileRecord,
@@ -55,78 +57,22 @@ import type {
   CreateRecordResponse,
 } from './types';
 import {
-  isThreadViewPost,
   isNotFoundPost as checkIsNotFoundPost,
   isBlockedPost as checkIsBlockedPost,
 } from './types';
 
 class AtprotoService {
-  // Cache resolved PDS endpoints per DID for cross-PDS reads
-  private static _pdsEndpointCache = new Map<string, string>();
-
-  // Request deduplication cache to prevent multiple identical API calls
-  private static _requestCache = new Map<
-    string,
-    { promise: Promise<unknown>; timestamp: number }
-  >();
-  private static readonly REQUEST_CACHE_TTL = 2000; // 2 second deduplication window
-
   /**
    * Deduplicate API requests to prevent multiple identical calls
-   * Made public so namespace services can access it if needed
+   * Delegates to inFlightDedup (namespace services should import that module directly)
    */
   static async deduplicateRequest<T>(key: string, requestFn: () => Promise<T>): Promise<T> {
-    const now = Date.now();
-
-    // Check if we have a recent identical request
-    const cached = this._requestCache.get(key);
-    if (cached && now - cached.timestamp < this.REQUEST_CACHE_TTL) {
-      return cached.promise as Promise<T>;
-    }
-
-    // Create new request and cache it
-    const promise = requestFn();
-    this._requestCache.set(key, { promise, timestamp: now });
-
-    // Clean up expired entries
-    for (const [k, v] of this._requestCache.entries()) {
-      if (now - v.timestamp > this.REQUEST_CACHE_TTL) {
-        this._requestCache.delete(k);
-      }
-    }
-
-    return promise;
+    return deduplicateInFlightRequest(key, requestFn);
   }
 
-  // Custom caching removed - React Query handles all caching
-
-  /**
-   * Resolve a DID's PDS service endpoint via PLC and cache it.
-   */
+  /** Resolve a DID's PDS service endpoint via PLC and cache it. */
   static async resolvePdsEndpointForDid(did: string): Promise<string | null> {
-    try {
-      if (!did) return null;
-      const cached = this._pdsEndpointCache.get(did);
-      if (cached) return cached;
-
-      const url = `https://plc.directory/${encodeURIComponent(did)}`;
-      const res = await fetch(url);
-      if (!res.ok) return null;
-      const doc = await res.json();
-      const services = Array.isArray(doc?.service) ? doc.service : [];
-      const pds = services.find(
-        (s: { type?: string; id?: string; serviceEndpoint?: string }) =>
-          (typeof s?.type === 'string' && s.type.includes('AtprotoPersonalDataServer')) ||
-          (typeof s?.id === 'string' && s.id.includes('atproto_pds'))
-      ) as { serviceEndpoint?: string } | undefined;
-      const endpoint = pds?.serviceEndpoint || null;
-      if (endpoint) {
-        this._pdsEndpointCache.set(did, endpoint);
-      }
-      return endpoint;
-    } catch {
-      return null;
-    }
+    return resolvePdsEndpointForDidFromPlc(did);
   }
 
   /**
@@ -203,17 +149,11 @@ class AtprotoService {
     }
   }
 
-  /**
-   * Create an unauthenticated agent targeting the repo's PDS for cross-PDS reads.
-   */
-  static async getAgentForRepo(did: string): Promise<AtpAgent | null> {
-    const endpoint = await this.resolvePdsEndpointForDid(did);
-    if (!endpoint) return null;
-    try {
-      return new AtpAgent({ service: endpoint });
-    } catch {
-      return null;
-    }
+  /** Create an unauthenticated agent targeting the repo's PDS for cross-PDS reads. */
+  static async getAgentForRepo(
+    did: string
+  ): Promise<Awaited<ReturnType<typeof getAgentForRepoForDid>>> {
+    return getAgentForRepoForDid(did);
   }
 
   /**
@@ -412,30 +352,14 @@ class AtprotoService {
 
   /**
    * Get likes for a post with pagination support
-   * @param uri - Post URI
-   * @param cursor - Pagination cursor
-   * @param limit - Number of likes per page
-   * @returns Array of likes and next cursor
+   * Delegates to AtprotoFeedService
    */
   static async getLikes(
     uri: string,
     cursor: string | null = null,
     limit: number = 25
   ): Promise<LikesResponse> {
-    await this.ensureSession();
-    try {
-      const params: { uri: string; limit: number; cursor?: string } = { uri, limit };
-      if (cursor) params.cursor = cursor;
-
-      const { api } = await this.getApiClient();
-      const response = await api.app.bsky.feed.getLikes(params);
-      return {
-        likes: response.data.likes || [],
-        cursor: response.data.cursor || null,
-      };
-    } catch (_error: unknown) {
-      return { likes: [], cursor: null };
-    }
+    return AtprotoFeedService.getLikes(uri, cursor, limit);
   }
 
   /**
@@ -530,23 +454,9 @@ class AtprotoService {
     return GraphService.unmuteUser(did);
   }
 
+  /** Delegates to AtprotoFeedService */
   static async getPost(uri: string): Promise<PostView | null> {
-    try {
-      await this.ensureSession();
-      const { api } = await this.getApiClient();
-      const response = await api.app.bsky.feed.getPostThread({
-        uri: uri,
-        depth: 0,
-      });
-
-      const thread = response.data.thread as ThreadPost;
-      if (isThreadViewPost(thread)) {
-        return thread.post;
-      }
-      return null;
-    } catch (_error: unknown) {
-      return null;
-    }
+    return AtprotoFeedService.getPost(uri);
   }
 
   /**
@@ -572,45 +482,12 @@ class AtprotoService {
 
   /**
    * Batch fetch multiple posts by URI
-   * Uses app.bsky.feed.getPosts which accepts up to 25 URIs at once
-   * @param uris - Array of post URIs to fetch
-   * @returns Map of URI to post data (includes NotFoundPost and BlockedPost objects)
+   * Delegates to AtprotoFeedService
    */
   static async getPosts(
     uris: string[]
   ): Promise<Map<string, PostView | NotFoundPost | BlockedPost>> {
-    const result = new Map<string, PostView | NotFoundPost | BlockedPost>();
-    if (!uris.length) return result;
-
-    try {
-      await this.ensureSession();
-      const { api } = await this.getApiClient();
-
-      // API accepts max 25 URIs per request
-      const BATCH_SIZE = 25;
-      const batches: string[][] = [];
-      for (let i = 0; i < uris.length; i += BATCH_SIZE) {
-        batches.push(uris.slice(i, i + BATCH_SIZE));
-      }
-
-      // Fetch all batches in parallel
-      const responses = await Promise.all(
-        batches.map(batch =>
-          api.app.bsky.feed.getPosts({ uris: batch }).catch(() => ({ data: { posts: [] } }))
-        )
-      );
-
-      // Collect all posts into the map (including NotFoundPost and BlockedPost)
-      for (const response of responses) {
-        for (const post of response.data.posts) {
-          result.set(post.uri, post);
-        }
-      }
-    } catch (_error: unknown) {
-      // ignore errors
-    }
-
-    return result;
+    return AtprotoFeedService.getPosts(uris);
   }
 
   /**
@@ -701,48 +578,9 @@ class AtprotoService {
   // Unified getFeed method now handles all feed types
   // Removed redundant getLikedPosts and getRepostedPosts methods
 
-  /**
-   * Delete a post
-   * @param uri - Post URI to delete
-   * @returns A boolean indicating whether the deletion was successful
-   */
+  /** Delegates to AtprotoFeedService */
   static async deletePost(uri: string): Promise<boolean> {
-    try {
-      await this.ensureSession();
-
-      // Extract the record key (rkey) from the URI
-      // URI format: at://did:plc:xxxx/app.bsky.feed.post/rkey
-      const parts = uri.split('/');
-      if (parts.length < 4) {
-        throw new Error('Invalid post URI format');
-      }
-
-      const did = parts[2];
-      const rkey = parts[4];
-
-      // Get the current user's DID to ensure they own the post
-      const userDid = await this.getCurrentUserDid();
-      if (!userDid) {
-        throw new Error('No authenticated user found');
-      }
-
-      // Ensure the user owns the post
-      if (did !== userDid) {
-        throw new Error('Cannot delete a post that you do not own');
-      }
-
-      // Delete the post
-      const { api } = await this.getApiClient();
-
-      await api.app.bsky.feed.post.delete({
-        repo: userDid,
-        rkey: rkey,
-      });
-
-      return true;
-    } catch (_error: unknown) {
-      return false;
-    }
+    return AtprotoFeedService.deletePost(uri);
   }
 
   /**
@@ -768,55 +606,11 @@ class AtprotoService {
   }
 
   /**
-   * Mute a post's comments (as a workaround using threadgate rules)
-   * This essentially creates a threadgate that doesn't allow any comments
-   * @param postUri - URI of the post to mute comments for
-   * @returns A boolean indicating success
+   * Mute a post's comments (threadgate with no allow rules)
+   * Delegates to AtprotoFeedService
    */
   static async mutePostComments(postUri: string): Promise<boolean> {
-    try {
-      await this.ensureSession();
-      // Extract the record key (rkey) from the URI
-      const parts = postUri.split('/');
-      if (parts.length < 4) {
-        throw new Error('Invalid post URI format');
-      }
-
-      const did = parts[2];
-      const rkey = parts[4];
-
-      // Get the current user's DID to ensure they own the post
-      const userDid = await this.getCurrentUserDid();
-      if (!userDid) {
-        throw new Error('No authenticated user found');
-      }
-
-      // Ensure the user owns the post
-      if (did !== userDid) {
-        throw new Error('Cannot mute comments on a post that you do not own');
-      }
-
-      // Create a threadgate with no allow rules (effectively muting all comments)
-      const record = {
-        $type: 'app.bsky.feed.threadgate',
-        post: postUri,
-        createdAt: new Date().toISOString(),
-        allow: [], // Empty array means no one can comment
-      };
-
-      const { api } = await this.getApiClient();
-
-      await api.com.atproto.repo.createRecord({
-        repo: userDid,
-        collection: 'app.bsky.feed.threadgate',
-        rkey: rkey,
-        record,
-      });
-
-      return true;
-    } catch (_error: unknown) {
-      return false;
-    }
+    return AtprotoFeedService.mutePostComments(postUri);
   }
 
   /**
@@ -995,56 +789,10 @@ class AtprotoService {
 
   /**
    * Search for hashtag suggestions
-   * @param query - Search query (partial hashtag without #)
-   * @param limit - Number of suggestions to return
-   * @returns Array of unique hashtag suggestions
+   * Delegates to AtprotoFeedService
    */
   static async searchHashtagSuggestions(query: string = '', limit: number = 10): Promise<string[]> {
-    await this.ensureSession();
-    try {
-      const { api } = await this.getApiClient();
-
-      // Build search query
-      // If query is empty, search for popular hashtags by searching common terms
-      // If query exists, search for posts with that hashtag pattern
-      let searchQuery: string;
-      if (query) {
-        searchQuery = `#${query}`;
-      } else {
-        // For empty query, search for popular terms that often have hashtags
-        searchQuery = 'video OR art OR music OR photography';
-      }
-
-      const response = await api.app.bsky.feed.searchPosts({
-        q: searchQuery,
-        limit: 50, // Get more posts to extract more hashtags
-      });
-
-      const posts = response?.data?.posts || [];
-      const hashtagSet = new Set<string>();
-
-      // Extract hashtags from post text
-      for (const post of posts) {
-        const text = (post.record as PostRecord)?.text || '';
-
-        // Extract hashtags from text
-        const hashtagRegex = /#([\w]+)/g;
-        let match;
-        while ((match = hashtagRegex.exec(text)) !== null) {
-          const tag = match[1].toLowerCase();
-          // Filter by query if provided
-          if (!query || tag.startsWith(query.toLowerCase())) {
-            hashtagSet.add(tag);
-            if (hashtagSet.size >= limit) break;
-          }
-        }
-        if (hashtagSet.size >= limit) break;
-      }
-
-      return Array.from(hashtagSet).slice(0, limit);
-    } catch {
-      return [];
-    }
+    return AtprotoFeedService.searchHashtagSuggestions(query, limit);
   }
 
   /**
@@ -1058,6 +806,7 @@ class AtprotoService {
     return AtprotoFeedService.searchVideosPaginated(query, cursor, limit);
   }
 
+  /** Delegates to AtprotoFeedService */
   static async getMixedFeed(
     feedUris: string[],
     cursor: string | null = null,
@@ -1065,127 +814,7 @@ class AtprotoService {
     filterVideosOnly: boolean = true,
     maxFeeds: number = 8
   ): Promise<FeedResponse> {
-    try {
-      // Filter out invalid URIs first
-      const validFeedUris = feedUris.filter(
-        uri => uri && typeof uri === 'string' && (uri.startsWith('at://') || uri.startsWith('did:'))
-      );
-
-      if (validFeedUris.length === 0) {
-        return { feed: [], cursor: null };
-      }
-
-      // Limit the number of feeds to fetch from
-      const limitedFeedUris = validFeedUris.slice(0, maxFeeds);
-
-      // Parse cursor to get individual feed states
-      let feedStates: { [feedUri: string]: string | null } = {};
-
-      if (cursor) {
-        try {
-          feedStates = JSON.parse(cursor);
-        } catch {
-          feedStates = {};
-        }
-      } else {
-        // Initialize feeds with null cursors
-        limitedFeedUris.forEach(feedUri => {
-          feedStates[feedUri] = null;
-        });
-      }
-
-      // Fetch from feeds in parallel with better error handling
-      const feedPromises = limitedFeedUris.map(async feedUri => {
-        try {
-          const feedCursor = feedStates[feedUri] || null;
-          // Distribute limit across feeds, ensuring each gets at least 10 posts
-          const feedLimit = Math.max(10, Math.floor(limit / limitedFeedUris.length) + 10);
-
-          const response = await this.getFeed(
-            feedCursor,
-            feedUri,
-            {},
-            filterVideosOnly,
-            feedLimit,
-            'custom'
-          );
-
-          return {
-            posts: response?.feed || [],
-            cursor: response?.cursor || null,
-            feedUri,
-            success: true,
-          };
-        } catch {
-          // Silently handle individual feed failures
-          return {
-            posts: [],
-            cursor: null,
-            feedUri,
-            success: false,
-          };
-        }
-      });
-
-      const feedResults = await Promise.all(feedPromises);
-
-      const successfulFeeds = feedResults.filter(r => r.success).length;
-      if (successfulFeeds === 0) {
-        return { feed: [], cursor: null };
-      }
-
-      // Update feed states with new cursors (only for successful feeds)
-      feedResults.forEach(result => {
-        if (result.success && result.cursor !== null) {
-          feedStates[result.feedUri] = result.cursor;
-        }
-      });
-
-      // Flatten and merge all feeds, preserving source feed information
-      let allPosts: (ExtendedFeedViewPost & { sourceFeed: string })[] = feedResults.flatMap(
-        result =>
-          result.posts.map(
-            post =>
-              ({
-                ...post,
-                sourceFeed: result.feedUri,
-              }) as ExtendedFeedViewPost & { sourceFeed: string }
-          )
-      );
-
-      // Remove duplicates
-      allPosts = this.deduplicatePosts(allPosts) as (ExtendedFeedViewPost & {
-        sourceFeed: string;
-      })[];
-
-      // Sort chronologically
-      allPosts.sort((a, b) => {
-        const aTime = new Date(a?.post?.indexedAt || 0).getTime();
-        const bTime = new Date(b?.post?.indexedAt || 0).getTime();
-        return bTime - aTime;
-      });
-
-      // Apply limit
-      const limitedPosts = allPosts.slice(0, limit);
-
-      // Create cursor from active feeds (only include feeds that have more data)
-      const activeFeedStates: { [feedUri: string]: string | null } = {};
-      feedResults.forEach(result => {
-        if (result.success && result.cursor !== null) {
-          activeFeedStates[result.feedUri] = result.cursor;
-        }
-      });
-
-      const compositeCursor =
-        Object.keys(activeFeedStates).length > 0 ? JSON.stringify(activeFeedStates) : null;
-
-      return {
-        feed: limitedPosts,
-        cursor: compositeCursor,
-      };
-    } catch {
-      return { feed: [], cursor: null };
-    }
+    return AtprotoFeedService.getMixedFeed(feedUris, cursor, limit, filterVideosOnly, maxFeeds);
   }
 
   /**
@@ -1200,34 +829,6 @@ class AtprotoService {
     limit: number = 50
   ): Promise<FeedResponse> {
     return AtprotoFeedService.getRepostedVideos(actor, cursor, limit);
-  }
-
-  /**
-   * Deduplicate posts based on URI and CID
-   */
-  private static deduplicatePosts<T extends ExtendedFeedViewPost>(posts: T[]): T[] {
-    const seenUris = new Set<string>();
-    const seenCids = new Set<string>();
-
-    return posts.filter(post => {
-      const uri = post?.post?.uri;
-      const cid = post?.post?.cid;
-
-      if (!uri || !cid) {
-        return false;
-      }
-
-      const uniqueId = `${uri}_${cid}`;
-
-      if (seenUris.has(uri) || seenCids.has(cid) || seenUris.has(uniqueId)) {
-        return false;
-      }
-
-      seenUris.add(uri);
-      seenCids.add(cid);
-      seenUris.add(uniqueId);
-      return true;
-    });
   }
 
   /**
