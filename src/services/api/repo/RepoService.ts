@@ -3,6 +3,7 @@
  * Handles all repository-related API operations including record creation, retrieval, and updates
  */
 
+import { BlobRef } from '@atproto/lexicon';
 import { logger } from '../../../utils/logger';
 import { AtprotoCore } from '../core';
 import { DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI } from '../../../utils/constants';
@@ -20,9 +21,7 @@ export class RepoService {
    * @param videoPath - Path to the video file
    * @returns Blob reference for the uploaded video
    */
-  static async uploadVideo(
-    videoPath: string
-  ): Promise<{ ref: { $link: string }; mimeType: string; size: number }> {
+  static async uploadVideo(videoPath: string): Promise<BlobRef> {
     await AtprotoCore.ensureSession();
 
     if (!videoPath.startsWith('file://')) {

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "project": ["app/**/*.{ts,tsx}", "src/**/*.{ts,tsx}"],
+  "ignore": ["src/**/index.ts"],
+  "ignoreDependencies": ["buffer"],
+  "ignoreBinaries": ["eas", "tsx"],
+  "ignoreUnresolved": ["babel-plugin-react-compiler"],
+  "ignoreExportsUsedInFile": {
+    "interface": true,
+    "type": true
+  },
+  "ignoreIssues": {
+    "src/services/api/types.ts": ["types"],
+    "src/utils/components/truesheet/KeyboardAwareFooter.tsx": ["exports"]
+  }
+}

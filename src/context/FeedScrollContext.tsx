@@ -20,9 +20,6 @@ export interface FeedScrollContextValue {
   contentScrollProgressSV?: SharedValue<number>;
 }
 
-/** Payload passed to onScrollContextReady so parent can reuse contentScrollProgressSV (e.g. overlay). */
-export type FeedScrollContextReadyPayload = Pick<FeedScrollContextValue, 'contentScrollProgressSV'>;
-
 const FeedScrollContext = createContext<FeedScrollContextValue | null>(null);
 
 export function FeedScrollProvider({

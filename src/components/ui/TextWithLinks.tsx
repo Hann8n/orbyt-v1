@@ -192,4 +192,4 @@ const styles = StyleSheet.create({
 });
 
 export const TextWithLinks = React.memo(TextWithLinksBase);
-export const TextWithAuthorLinks = TextWithLinks;
+export const TextWithAuthorLinks = React.memo(TextWithLinksBase);

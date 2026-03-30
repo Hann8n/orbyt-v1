@@ -15,7 +15,7 @@ import { Colors } from '@/theme';
 import { useUserStore } from '@/stores/userStore';
 import { useBookmarkStore } from '@/stores/bookmarkStore';
 import GlobalAccountSwitcher from '@/components/ui/GlobalAccountSwitcher';
-import EmailVerificationModal from '@/components/ui/EmailVerificationModal';
+import { EmailVerificationModal } from '@/components/ui/EmailVerificationModal';
 import { queryClient } from '@/utils/query/queryClient';
 import { QueryErrorBoundary } from '@/components/ui/QueryErrorBoundary';
 import { SessionProvider, useSession } from '@/context/SessionProvider';

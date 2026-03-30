@@ -8,7 +8,6 @@ export { default as OrbytBannerService } from './OrbytBannerService';
 export * from './auth';
 
 // Feed Services
-export { default as FeedService } from './FeedService';
 export { feedService } from './FeedService';
 
 // Cache Services

@@ -17,7 +17,7 @@ export const isStreakActive = (lastMessageSentAt?: string): boolean => {
   return isValid(d) && (isToday(d) || isYesterday(d));
 };
 
-export function getChatStreak(
+function getChatStreak(
   messages: Array<StreakMessage>,
   currentUserDid: string | undefined,
   lastMessageSentAt?: string

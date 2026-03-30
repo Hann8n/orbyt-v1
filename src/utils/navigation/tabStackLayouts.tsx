@@ -3,7 +3,7 @@ import { Stack } from 'expo-router';
 import { Colors } from '@/theme';
 
 /** Shared stack options for each tab (profile/channel pushes stay under tabs). */
-export const tabStackScreenOptions = {
+const tabStackScreenOptions = {
   headerShown: false as const,
   contentStyle: { backgroundColor: Colors.black },
   animation: 'slide_from_right' as const,

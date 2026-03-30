@@ -109,15 +109,6 @@ export interface VideoInfo {
   codec: string;
 }
 
-export interface CompressionResult {
-  originalInfo: VideoInfo;
-  compressedInfo: VideoInfo;
-  compressionRatio: number;
-  sizeReduction: string;
-  qualityLevel: string;
-  estimatedUploadTime: string;
-}
-
 class VideoProcessingService {
   /**
    * Gets the actual video duration from the video file path
@@ -752,7 +743,7 @@ class VideoProcessingService {
         logger.error('Minimal compression also failed', error, {
           component: 'VideoProcessingService',
         });
-        throw new Error('Video compression failed');
+        throw new Error('Video compression failed', { cause: error });
       }
     } catch (error) {
       logger.error('Error in variable compression', error, { component: 'VideoProcessingService' });
@@ -1271,7 +1262,7 @@ class VideoProcessingService {
     } catch (error) {
       logger.error('Error merging video segments', error, { component: 'VideoProcessingService' });
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      throw new Error(`Failed to merge video segments: ${errorMessage}`);
+      throw new Error(`Failed to merge video segments: ${errorMessage}`, { cause: error });
     } finally {
       await VideoCompressor.deactivateBackgroundTask();
     }

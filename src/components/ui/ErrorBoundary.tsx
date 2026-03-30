@@ -354,5 +354,3 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
 });
-
-export default ErrorBoundary;

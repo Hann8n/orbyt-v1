@@ -390,9 +390,7 @@ class AtprotoService {
    * Upload a video file to Bluesky
    * Delegates to RepoService
    */
-  static async uploadVideo(
-    videoPath: string
-  ): Promise<{ ref: { $link: string }; mimeType: string; size: number }> {
+  static async uploadVideo(videoPath: string): Promise<BlobRef> {
     return RepoService.uploadVideo(videoPath);
   }
 

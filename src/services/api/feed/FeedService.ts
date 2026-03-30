@@ -421,9 +421,7 @@ export class AtprotoFeedService {
 
     // Add images if provided
     if (externalEmbed?.uri) {
-      let uploadedThumb:
-        | { $type?: string; ref: { $link: string }; mimeType: string; size: number }
-        | undefined;
+      let uploadedThumb: BlobRef | undefined;
       const thumbSource = normalizeExternalEmbedThumbSource(externalEmbed.thumb);
       if (thumbSource) {
         try {
@@ -720,7 +718,7 @@ export class AtprotoFeedService {
       return postResponse;
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      throw new Error(`Video upload failed: ${errorMessage}`);
+      throw new Error(`Video upload failed: ${errorMessage}`, { cause: error });
     }
   }
 
@@ -757,7 +755,7 @@ export class AtprotoFeedService {
         }
       } catch (uriError: unknown) {
         const errorMessage = uriError instanceof Error ? uriError.message : 'Could not parse URI';
-        throw new Error(`Invalid post URI: ${errorMessage}`);
+        throw new Error(`Invalid post URI: ${errorMessage}`, { cause: uriError });
       }
 
       // Create threadgate record based on filter
@@ -801,7 +799,7 @@ export class AtprotoFeedService {
       });
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      throw new Error(errorMessage);
+      throw new Error(errorMessage, { cause: error });
     }
   }
 

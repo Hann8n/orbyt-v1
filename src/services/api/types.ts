@@ -21,17 +21,10 @@ import {
   isThreadViewPost as sdkIsThreadViewPost,
   isNotFoundPost as sdkIsNotFoundPost,
   isBlockedPost as sdkIsBlockedPost,
-  REQUESTLESS,
-  REQUESTMORE,
-  CLICKTHROUGHITEM,
-  CLICKTHROUGHAUTHOR,
-  CLICKTHROUGHREPOSTER,
-  CLICKTHROUGHEMBED,
   INTERACTIONSEEN,
   INTERACTIONLIKE,
   INTERACTIONREPOST,
   INTERACTIONREPLY,
-  INTERACTIONQUOTE,
   INTERACTIONSHARE,
 } from '@atproto/api/dist/client/types/app/bsky/feed/defs';
 
@@ -178,20 +171,7 @@ export type {
 export type { AtprotoRecord };
 
 // Re-export interaction event constants
-export {
-  REQUESTLESS,
-  REQUESTMORE,
-  CLICKTHROUGHITEM,
-  CLICKTHROUGHAUTHOR,
-  CLICKTHROUGHREPOSTER,
-  CLICKTHROUGHEMBED,
-  INTERACTIONSEEN,
-  INTERACTIONLIKE,
-  INTERACTIONREPOST,
-  INTERACTIONREPLY,
-  INTERACTIONQUOTE,
-  INTERACTIONSHARE,
-};
+export { INTERACTIONSEEN, INTERACTIONLIKE, INTERACTIONREPOST, INTERACTIONREPLY, INTERACTIONSHARE };
 
 export type ExtendedPostView = PostView & {
   repostedBy?: {

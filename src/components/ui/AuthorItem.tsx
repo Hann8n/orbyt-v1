@@ -78,7 +78,7 @@ interface StatusIconButtonProps {
   children?: React.ReactNode;
 }
 
-export const StatusIconButton: React.FC<StatusIconButtonProps> = ({
+const StatusIconButton: React.FC<StatusIconButtonProps> = ({
   variant = 'success',
   size = 32,
   padding,

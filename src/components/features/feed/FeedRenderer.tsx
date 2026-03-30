@@ -21,13 +21,7 @@ import {
 } from '@/utils/navigation/feedModalRoute';
 import { useFeedModalTabSegment } from '@/utils/navigation/feedModalTabSegment';
 import { FollowProvider } from '../../../context/FollowContext';
-import type {
-  ExtendedFeedViewPost as FeedItem,
-  ExtendedPostView as Post,
-} from '../../../services/api/types';
-
-// Re-export types for component usage
-export type { FeedItem, Post };
+import type { ExtendedFeedViewPost as FeedItem } from '../../../services/api/types';
 
 // Main Feed Renderer Props
 interface FeedRendererProps {

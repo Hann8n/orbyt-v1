@@ -3,15 +3,10 @@ import { SvgXml } from 'react-native-svg';
 import { StyleProp, ViewStyle } from 'react-native';
 
 import { Colors } from '../../theme';
-import type { UserState } from '../../stores/userStore';
 
 // Stroke-based plus (thickness via stroke-width)
 const PLUS_ICON_STROKE_SVG = (strokeWidth: number) =>
   `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="#fff" stroke-width="${strokeWidth}" stroke-linecap="round" fill="none"/></svg>`;
-
-// Stroke-based X/close (thickness via stroke-width)
-const CLOSE_LINE_ICON_STROKE_SVG = (strokeWidth: number) =>
-  `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke="#fff" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`;
 
 /** Shared stroke width for check, plus, and close when used together (e.g. AuthorItem, list actions). */
 export const STROKE_WIDTH_THICK = 3.5;
@@ -45,34 +40,12 @@ const GRID_VIEW_ICON_SVG = `<svg width="20" height="20" viewBox="0 0 20 20" fill
   <rect x="14" y="11" width="4" height="6" rx="1.5" fill="white" opacity="1" />
 </svg>`;
 
-const SLASH_ICON_SVG = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <path
-    d="M9 1L3 11"
-    stroke="white"
-    stroke-width="1.5"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-    fill="none"
-  />
-</svg>`;
-
-const HOME_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M11.42 2.416c-.63.123-1.214.397-2.027.952-.592.404-6.781 5.21-7.065 5.486-.116.113-.26.305-.32.426-.218.444-.11.99.264 1.328.168.152.539.312.724.312.062 0 .223.012.358.026l.246.025.001 1.605c.002 2.044.057 3.802.141 4.454.176 1.372.566 2.238 1.366 3.031.483.48 1.038.824 1.666 1.034.623.208 1.696.367 2.296.339.283-.012.344-.029.496-.137a.96.96 0 0 0 .294-.36l.12-.237.02-3.06c.02-3.035.021-3.062.108-3.294.362-.958 1.327-1.505 2.3-1.302.665.139 1.233.637 1.484 1.302.087.232.088.259.108 3.294l.02 3.06.12.24c.177.355.37.475.789.494.378.017 1.049-.049 1.601-.159.992-.197 1.723-.577 2.389-1.242.81-.81 1.198-1.716 1.361-3.173.064-.573.117-2.508.119-4.324l.001-1.565.246-.025c.135-.014.296-.026.358-.026.185 0 .556-.16.724-.312.246-.222.366-.492.368-.828.003-.34-.09-.568-.342-.843-.173-.188-6.03-4.768-6.88-5.38-.826-.594-1.48-.939-2.074-1.093-.357-.092-1.03-.116-1.38-.048" fill="#10161F" fill-rule="evenodd"/></svg>`;
-
 const EXPLORE_ICON_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
   <path 
     d="M5.5 11a4.5 4.5 0 1 1 9 0a4.5 4.5 0 0 1-9 0M10 3.5a7.5 7.5 0 1 0 4.136 13.757l4.803 4.804a1.5 1.5 0 0 0 2.122-2.122l-4.804-4.803A7.5 7.5 0 0 0 10 3.5" 
     fill="#fff"
   />
 </svg>`;
-
-const NOTIFICATION_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-  <g fill="none" fill-rule="evenodd">
-    
-    <path fill="#fff" d="M13.232 1.36c.632-.758 1.863-.24 1.763.742L14.289 9H20a1 1 0 0 1 .768 1.64l-10 12c-.632.758-1.863.24-1.763-.742L9.711 15H4a1 1 0 0 1-.768-1.64z"/>
-  </g>
-</svg>`;
-
-const PROFILE_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none"><path fill="#fff" d="M12 13c2.396 0 4.575.694 6.178 1.672c.8.488 1.484 1.064 1.978 1.69c.486.615.844 1.351.844 2.138c0 .845-.411 1.511-1.003 1.986c-.56.45-1.299.748-2.084.956c-1.578.417-3.684.558-5.913.558s-4.335-.14-5.913-.558c-.785-.208-1.524-.506-2.084-.956C3.41 20.01 3 19.345 3 18.5c0-.787.358-1.523.844-2.139c.494-.625 1.177-1.2 1.978-1.69C7.425 13.695 9.605 13 12 13m0-11a5 5 0 1 1 0 10a5 5 0 0 1 0-10"/></g></svg>`;
 
 const HEART_FILL_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none"><path fill="white" d="M18.494 3.801c2.095 1.221 3.569 3.7 3.504 6.592C21.86 16.5 13.5 21 12 21s-9.861-4.5-9.998-10.607c-.065-2.892 1.409-5.37 3.504-6.592C7.466 2.66 9.928 2.653 12 4.338c2.072-1.685 4.534-1.679 6.494-.537"/></g></svg>`;
 
@@ -184,7 +157,7 @@ export const CheckIcon: React.FC<{ size: number; color: string; strokeWidth: num
 };
 
 // Check Circle Fill Icon component - now uses the new follow check circle design
-export const CheckCircleFillIcon: React.FC<{
+const CheckCircleFillIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -199,7 +172,7 @@ export const ListViewIcon: React.FC<{ color: string; size?: number }> = ({ color
   return <SvgXml xml={svgXml} width={size} height={size} />;
 };
 
-export const GhostFillIcon: React.FC<{
+const GhostFillIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -208,7 +181,7 @@ export const GhostFillIcon: React.FC<{
   return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
 };
 
-export const GhostFillSunglassesIcon: React.FC<{
+const GhostFillSunglassesIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -223,81 +196,14 @@ export const GridViewIcon: React.FC<{ color: string; size?: number }> = ({ color
   return <SvgXml xml={svgXml} width={size} height={size} />;
 };
 
-// Custom Backslash Icon component for feed indicators
-export const SlashIcon: React.FC<{ color: string; size?: number }> = ({ color, size = 12 }) => {
-  const svgXml = SLASH_ICON_SVG.replace(/white/g, color);
-  return <SvgXml xml={svgXml} width={size} height={size} />;
-};
-
-// Custom Home Icon component using the provided SVG
-export const HomeIcon: React.FC<{ size: number; color: string }> = ({ size, color }) => {
-  const svgXml = HOME_ICON_SVG.replace(/#10161F/g, color);
-  return <SvgXml xml={svgXml} width={size} height={size} />;
-};
-
 // Custom Explore Icon component using the provided SVG
-export const ExploreIcon: React.FC<{
+const ExploreIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
 }> = ({ size, color, style }) => {
   const svgXml = EXPLORE_ICON_SVG.replace(/#fff/g, color);
   return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
-};
-
-// Custom Notification Icon component using the provided SVG
-export const NotificationIcon: React.FC<{
-  size: number;
-  color: string;
-  style?: StyleProp<ViewStyle>;
-}> = ({ size, color, style }) => {
-  const svgXml = NOTIFICATION_ICON_SVG.replace(/#fff/g, color);
-  return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
-};
-
-// Profile icon: current user avatar and colors from userStore for instant display
-export const ProfileIcon: React.FC<{ size: number; color: string }> = ({ size, color }) => {
-  const [avatar, setAvatar] = React.useState<string | undefined>(undefined);
-  const [profileColors, setProfileColors] = React.useState<{
-    backgroundColor: string;
-    foregroundColor: string;
-  } | null>(null);
-
-  React.useEffect(() => {
-    const { useUserStore } = require('../../stores/userStore');
-    const store = useUserStore.getState();
-    setAvatar(store.currentUser?.avatar);
-    setProfileColors(store.currentUserProfileColors);
-
-    const unsubscribe = useUserStore.subscribe((state: UserState) => {
-      setAvatar(state.currentUser?.avatar);
-      setProfileColors(state.currentUserProfileColors);
-    });
-    return unsubscribe;
-  }, []);
-
-  const { Avatar } = require('./UI');
-
-  if (avatar && profileColors) {
-    const ringColor = profileColors.foregroundColor || color;
-    return (
-      <Avatar
-        uri={avatar}
-        type="profile"
-        size={size}
-        showRing={true}
-        ringColor={ringColor}
-        profileColors={{
-          backgroundColor: profileColors.backgroundColor,
-          foregroundColor: profileColors.foregroundColor,
-          textColor: profileColors.foregroundColor,
-        }}
-      />
-    );
-  }
-
-  const svgXml = PROFILE_ICON_SVG.replace(/#fff/g, color);
-  return <SvgXml xml={svgXml} width={size} height={size} />;
 };
 
 // Custom Heart Fill Icon component
@@ -312,7 +218,7 @@ export const ChatFillIcon: React.FC<{ size: number; color: string }> = ({ size, 
   return <SvgXml xml={svgXml} width={size} height={size} />;
 };
 
-export const BookmarkFillIcon: React.FC<{ size: number; color: string }> = ({ size, color }) => {
+const BookmarkFillIcon: React.FC<{ size: number; color: string }> = ({ size, color }) => {
   const svgXml = BOOKMARK_FILL_ICON_SVG.replace(/white/g, color);
   return <SvgXml xml={svgXml} width={size} height={size} />;
 };
@@ -342,13 +248,13 @@ export const MoreFillIcon: React.FC<{ size: number; color: string }> = ({ size, 
 };
 
 // Custom TV Icon component
-export const TvIcon: React.FC<{ size: number; color: string }> = ({ size, color }) => {
+const TvIcon: React.FC<{ size: number; color: string }> = ({ size, color }) => {
   const svgXml = TV_ICON_SVG.replace(/#10161F/g, color);
   return <SvgXml xml={svgXml} width={size} height={size} />;
 };
 
 // Custom Share Icon component
-export const ShareIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({
+const ShareIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({
   size,
   color,
   style,
@@ -358,18 +264,18 @@ export const ShareIcon: React.FC<{ size: number; color: string; style?: StylePro
 };
 
 // Custom Block Icon component
-export const BlockIcon: React.FC<{ size: number; color: string }> = ({ size, color }) => {
+const BlockIcon: React.FC<{ size: number; color: string }> = ({ size, color }) => {
   const svgXml = BLOCK_ICON_SVG.replace(/#fff/g, color);
   return <SvgXml xml={svgXml} width={size} height={size} />;
 };
 
 // Custom Report Icon component
-export const ReportIcon: React.FC<{ size: number; color: string }> = ({ size, color }) => {
+const ReportIcon: React.FC<{ size: number; color: string }> = ({ size, color }) => {
   const svgXml = REPORT_ICON_SVG.replace(/#fff/g, color);
   return <SvgXml xml={svgXml} width={size} height={size} />;
 };
 
-export const ShareSheetShare2CuteFillIcon: React.FC<{
+const ShareSheetShare2CuteFillIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -378,7 +284,7 @@ export const ShareSheetShare2CuteFillIcon: React.FC<{
   return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
 };
 
-export const ShareSheetSendPlaneCuteFillIcon: React.FC<{
+const ShareSheetSendPlaneCuteFillIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -387,7 +293,7 @@ export const ShareSheetSendPlaneCuteFillIcon: React.FC<{
   return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
 };
 
-export const ShareSheetBookmarkCuteFillIcon: React.FC<{
+const ShareSheetBookmarkCuteFillIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -396,7 +302,7 @@ export const ShareSheetBookmarkCuteFillIcon: React.FC<{
   return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
 };
 
-export const ShareSheetDelete2CuteFillIcon: React.FC<{
+const ShareSheetDelete2CuteFillIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -405,7 +311,7 @@ export const ShareSheetDelete2CuteFillIcon: React.FC<{
   return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
 };
 
-export const ShareSheetReportCuteFillIcon: React.FC<{
+const ShareSheetReportCuteFillIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -445,7 +351,7 @@ export const FollowIcon: React.FC<{
 };
 
 // Custom Minus Fill Icon component
-export const MinusFillIcon: React.FC<{
+const MinusFillIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -455,7 +361,7 @@ export const MinusFillIcon: React.FC<{
 };
 
 // Custom Music Fill Icon component
-export const MusicFillIcon: React.FC<{
+const MusicFillIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -465,7 +371,7 @@ export const MusicFillIcon: React.FC<{
 };
 
 // Custom Textbox Fill Icon component
-export const TextboxFillIcon: React.FC<{
+const TextboxFillIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -475,7 +381,7 @@ export const TextboxFillIcon: React.FC<{
 };
 
 // Custom Scissors Fill Icon component
-export const ScissorsFillIcon: React.FC<{
+const ScissorsFillIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -495,7 +401,7 @@ export const MutualHeartIcon: React.FC<{
 };
 
 // Custom Profile Edit Icon component
-export const ProfileEditIcon: React.FC<{
+const ProfileEditIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -505,7 +411,7 @@ export const ProfileEditIcon: React.FC<{
 };
 
 // Custom Interested Icon component
-export const InterestedIcon: React.FC<{
+const InterestedIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -515,7 +421,7 @@ export const InterestedIcon: React.FC<{
 };
 
 // Custom Not Interested Icon component
-export const NotInterestedIcon: React.FC<{
+const NotInterestedIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -525,7 +431,7 @@ export const NotInterestedIcon: React.FC<{
 };
 
 // Custom User Icon component
-export const UserIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({
+const UserIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({
   size,
   color,
   style,
@@ -535,7 +441,7 @@ export const UserIcon: React.FC<{ size: number; color: string; style?: StyleProp
 };
 
 // Custom Settings Icon component
-export const SettingsIcon: React.FC<{
+const SettingsIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -545,7 +451,7 @@ export const SettingsIcon: React.FC<{
 };
 
 // Custom Safe Shield Icon component
-export const SafeShieldIcon: React.FC<{
+const SafeShieldIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -568,7 +474,7 @@ export const BellFilledIcon: React.FC<{
 );
 
 // Custom History Anticlockwise Icon component (updated)
-export const HistoryAnticlockwiseIcon: React.FC<{
+const HistoryAnticlockwiseIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -578,7 +484,7 @@ export const HistoryAnticlockwiseIcon: React.FC<{
 };
 
 // Custom Gallery Icon component
-export const GalleryIcon: React.FC<{
+const GalleryIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -588,7 +494,7 @@ export const GalleryIcon: React.FC<{
 };
 
 // Custom Flash Icon component
-export const FlashIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({
+const FlashIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({
   size,
   color,
   style,
@@ -598,7 +504,7 @@ export const FlashIcon: React.FC<{ size: number; color: string; style?: StylePro
 };
 
 // Custom Camera Rotate Icon component
-export const CameraRotateIcon: React.FC<{
+const CameraRotateIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -608,7 +514,7 @@ export const CameraRotateIcon: React.FC<{
 };
 
 // Custom Delete Back Icon component
-export const DeleteBackIcon: React.FC<{
+const DeleteBackIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -644,7 +550,7 @@ export const ShareForwardFillIcon: React.FC<{
 // Custom Muted Users Icon component
 const MUTED_USERS_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none"><path fill="#fff" d="M13.26 3.3a1.1 1.1 0 0 1 1.734.78l.006.114v15.612a1.1 1.1 0 0 1-1.643.957l-.096-.062L6.68 16H4a2 2 0 0 1-1.995-1.85L2 14v-4a2 2 0 0 1 1.85-1.994L4 8h2.68zm4.326 5.872L19 10.586l1.414-1.414a1 1 0 1 1 1.414 1.414L20.414 12l1.414 1.414a1 1 0 0 1-1.414 1.415L19 13.414l-1.414 1.415a1 1 0 0 1-1.414-1.415L17.586 12l-1.414-1.414a1 1 0 1 1 1.414-1.414"/></g></svg>`;
 
-export const MutedUsersIcon: React.FC<{
+const MutedUsersIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -656,7 +562,7 @@ export const MutedUsersIcon: React.FC<{
 // Custom Sensitive Content Icon component
 const SENSITIVE_CONTENT_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none" fill-rule="evenodd"><path fill="#fff" d="M20 4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM9.5 12h-2a2.5 2.5 0 0 0-2.495 2.336L5 14.5v.5a1 1 0 0 0 1.993.117L7 15v-.5a.5.5 0 0 1 .41-.492L7.5 14h2a.5.5 0 0 1 .492.41l.008.09v.5a1 1 0 0 0 1.993.117L12 15v-.5a2.5 2.5 0 0 0-2.336-2.495zm8.5 1h-4l-.117.007a1 1 0 0 0 0 1.986L14 15h4l.117-.007a1 1 0 0 0 0-1.986zm-2-3h-2a1 1 0 0 0-.117 1.993L14 12h2a1 1 0 0 0 .117-1.993zM8.5 8a1.75 1.75 0 1 0 0 3.5a1.75 1.75 0 0 0 0-3.5"/></g></svg>`;
 
-export const SensitiveContentIcon: React.FC<{
+const SensitiveContentIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -699,7 +605,7 @@ export const GermDmIcon: React.FC<{
 // Custom Logout Icon component
 const LOGOUT_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" fill="none"/><g fill="none" fill-rule="evenodd"><path fill="#fff" d="M16 3.77v16.46a1.5 1.5 0 0 1-1.747 1.479l-8.582-1.43A2 2 0 0 1 4 18.306V5.694a2 2 0 0 1 1.671-1.973l8.582-1.43A1.5 1.5 0 0 1 16 3.771ZM18 5a2 2 0 0 1 1.995 1.85L20 7v10a2 2 0 0 1-1.85 1.995L18 19h-1V5zm-6.5 5.5a1.5 1.5 0 1 0 0 3a1.5 1.5 0 0 0 0-3"/></g></svg>`;
 
-export const LogoutIcon: React.FC<{
+const LogoutIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -711,7 +617,7 @@ export const LogoutIcon: React.FC<{
 // Custom Eye Closed Icon component
 const EYE_CLOSED_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" fill="none"/><g fill="none"><path fill="#fff" d="M3.05 9.31a1 1 0 1 1 1.914-.577c2.086 6.986 11.982 6.987 14.07.004a1 1 0 1 1 1.918.57a9.5 9.5 0 0 1-1.813 3.417L20.414 14A1 1 0 0 1 19 15.414l-1.311-1.311a9.1 9.1 0 0 1-2.32 1.269l.357 1.335a1 1 0 1 1-1.931.518l-.364-1.357c-.947.14-1.915.14-2.862 0l-.364 1.357a1 1 0 1 1-1.931-.518l.357-1.335a9.1 9.1 0 0 1-2.32-1.27l-1.31 1.312A1 1 0 0 1 3.585 14l1.275-1.275c-.784-.936-1.41-2.074-1.812-3.414Z"/></g></svg>`;
 
-export const EyeClosedIcon: React.FC<{
+const EyeClosedIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -723,7 +629,7 @@ export const EyeClosedIcon: React.FC<{
 // Custom Chevron Up Icon component
 const CHEVRON_UP_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" fill="none"/><g fill="none" fill-rule="evenodd"><path fill="#fff" d="M11.293 8.293a1 1 0 0 1 1.414 0l5.657 5.657a1 1 0 0 1-1.414 1.414L12 10.414l-4.95 4.95a1 1 0 0 1-1.414-1.414z"/></g></svg>`;
 
-export const ChevronUpIcon: React.FC<{
+const ChevronUpIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -735,7 +641,7 @@ export const ChevronUpIcon: React.FC<{
 // Custom Chevron Down Icon component
 const CHEVRON_DOWN_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" fill="none"/><g fill="none" fill-rule="evenodd"><path fill="#fff" d="M12.707 15.707a1 1 0 0 1-1.414 0L5.636 10.05A1 1 0 1 1 7.05 8.636l4.95 4.95l4.95-4.95a1 1 0 0 1 1.414 1.414z"/></g></svg>`;
 
-export const ChevronDownIcon: React.FC<{
+const ChevronDownIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -771,7 +677,7 @@ export const CloseFillIcon: React.FC<{
 // Custom Close Bold Icon component
 const CLOSE_BOLD_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="1216" height="1312" viewBox="0 0 1216 1312"><rect width="1216" height="1312" fill="none"/><path fill="#fff" d="M1202 1066q0 40-28 68l-136 136q-28 28-68 28t-68-28L608 976l-294 294q-28 28-68 28t-68-28L42 1134q-28-28-28-68t28-68l294-294L42 410q-28-28-28-68t28-68l136-136q28-28 68-28t68 28l294 294l294-294q28-28 68-28t68 28l136 136q28 28 28 68t-28 68L880 704l294 294q28 28 28 68" stroke-width="20" stroke="#fff"/></svg>`;
 
-export const CloseBoldIcon: React.FC<{
+const CloseBoldIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -783,33 +689,10 @@ export const CloseBoldIcon: React.FC<{
   return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
 };
 
-// Stroke-based X/close icon (matches CheckIcon/PlusIcon thickness when strokeWidth matches)
-export const CloseLineIcon: React.FC<{
-  size: number;
-  color: string;
-  strokeWidth: number;
-  style?: StyleProp<ViewStyle>;
-}> = ({ size, color, strokeWidth, style }) => {
-  const svgXml = CLOSE_LINE_ICON_STROKE_SVG(strokeWidth).replace(/#fff/g, color);
-  return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
-};
-
-// MGC "cute filled" close_medium icon (filled X)
-const CLOSE_MEDIUM_CUTE_FILLED_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none"><path d="M6.572 5.634c-.891.308-1.276 1.326-.818 2.165.063.115.829.914 2.101 2.191L9.857 12l-2.002 2.01c-1.305 1.31-2.037 2.075-2.103 2.196a1.58 1.58 0 0 0-.06 1.367c.132.288.445.602.739.739.198.094.28.108.609.108.347 0 .404-.011.659-.132.26-.123.416-.269 2.29-2.138L12 14.143l2.01 2.002c1.31 1.305 2.075 2.037 2.196 2.103.414.226.953.25 1.367.06.288-.132.602-.445.739-.739.094-.198.108-.28.108-.609 0-.347-.011-.404-.132-.659-.123-.26-.269-.416-2.138-2.29L14.143 12l2.002-2.01c1.305-1.31 2.037-2.075 2.103-2.196a1.506 1.506 0 0 0-.246-1.796 1.506 1.506 0 0 0-1.796-.246c-.121.066-.886.798-2.196 2.103L12 9.857 9.99 7.855C8.697 6.568 7.914 5.818 7.796 5.753a1.58 1.58 0 0 0-1.224-.119" fill="#10161F" fill-rule="evenodd"/></svg>`;
-
-export const CloseMediumCuteFilledIcon: React.FC<{
-  size: number;
-  color: string;
-  style?: StyleProp<ViewStyle>;
-}> = ({ size, color, style }) => {
-  const svgXml = CLOSE_MEDIUM_CUTE_FILLED_ICON_SVG.replace(/#10161F/g, color);
-  return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
-};
-
 // MGC "cute filled" close_square icon (filled X + rounded-square background)
 const CLOSE_SQUARE_CUTE_FILLED_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M8.24 2.546c-2.117.11-3.311.502-4.229 1.387-.813.783-1.204 1.745-1.401 3.439-.062.542-.07 1.047-.07 4.628 0 3.581.008 4.086.07 4.628.197 1.694.588 2.656 1.401 3.439.804.775 1.708 1.131 3.361 1.323.542.062 1.047.07 4.628.07 3.581 0 4.086-.008 4.628-.07 1.653-.192 2.557-.548 3.361-1.323.813-.783 1.204-1.745 1.401-3.439.062-.542.07-1.047.07-4.628 0-3.581-.008-4.086-.07-4.628-.197-1.694-.588-2.656-1.401-3.439-.796-.768-1.702-1.128-3.32-1.319-.49-.058-1.094-.068-4.369-.074-2.09-.004-3.917-.001-4.06.006m1.263 5.68c.173.057.337.204 1.347 1.208l1.151 1.144 1.129-1.125c.622-.618 1.191-1.155 1.265-1.192.36-.182.851-.097 1.145.197.28.279.364.656.234 1.045-.057.173-.204.337-1.208 1.347l-1.144 1.151 1.127 1.129c1.207 1.21 1.288 1.317 1.29 1.685.002.316-.076.505-.298.726-.221.222-.41.3-.726.298-.368-.002-.475-.083-1.685-1.29L12 13.422l-1.13 1.125c-.622.618-1.191 1.155-1.265 1.192a1.21 1.21 0 0 1-.345.09.994.994 0 0 1-1.04-1.314c.065-.197.164-.309 1.214-1.365L10.577 12l-1.143-1.15C8.43 9.84 8.283 9.676 8.226 9.503c-.13-.389-.046-.766.234-1.045.277-.278.655-.362 1.043-.232" fill="#10161F" fill-rule="evenodd"/></svg>`;
 
-export const CloseSquareCuteFilledIcon: React.FC<{
+const CloseSquareCuteFilledIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -886,7 +769,7 @@ export const CheckboxCuteFilledDuotoneIcon: React.FC<{
 // Custom Eye Fill Icon component
 const EYE_FILL_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" fill="none"/><g fill="none" fill-rule="evenodd"><path fill="#fff" d="M12 4C9.213 4 6.737 5.257 4.974 6.813C4.09 7.594 3.36 8.47 2.846 9.344C2.34 10.201 2 11.13 2 12s.34 1.799.846 2.656c.514.873 1.243 1.75 2.128 2.531C6.737 18.743 9.214 20 12 20c2.787 0 5.263-1.257 7.026-2.813c.885-.781 1.614-1.658 2.128-2.531C21.66 13.799 22 12.87 22 12s-.34-1.799-.846-2.656c-.514-.873-1.243-1.75-2.128-2.531C17.263 5.257 14.786 4 12 4m2 8c.36 0 .697-.095.989-.261A3 3 0 1 1 12.26 9.01A2 2 0 0 0 14 12"/></g></svg>`;
 
-export const EyeFillIcon: React.FC<{
+const EyeFillIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -926,7 +809,7 @@ const DOCUMENTS_FILL_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="
 
 const CALENDAR2_FILL_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" fill="none"/><g fill="none" fill-rule="evenodd"><path fill="#fff" d="M16 3a1 1 0 0 1 1 1v1h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2V4a1 1 0 0 1 2 0v1h6V4a1 1 0 0 1 1-1M8.01 16H8a1 1 0 0 0-.117 1.993L8.01 18a1 1 0 1 0 0-2m4 0H12a1 1 0 0 0-.117 1.993l.127.007a1 1 0 1 0 0-2m4 0H16a1 1 0 0 0-.117 1.993l.127.007a1 1 0 1 0 0-2m-8-4H8a1 1 0 0 0-.117 1.993L8.01 14a1 1 0 1 0 0-2m4 0H12a1 1 0 0 0-.117 1.993l.127.007a1 1 0 1 0 0-2m4 0H16a1 1 0 0 0-.117 1.993l.127.007a1 1 0 1 0 0-2M19 7H5v2h14z"/></g></svg>`;
 
-export const PaperFillIcon: React.FC<{
+const PaperFillIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -935,7 +818,7 @@ export const PaperFillIcon: React.FC<{
   return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
 };
 
-export const DocumentsFillIcon: React.FC<{
+const DocumentsFillIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -944,7 +827,7 @@ export const DocumentsFillIcon: React.FC<{
   return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
 };
 
-export const Calendar2FillIcon: React.FC<{
+const Calendar2FillIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -953,7 +836,7 @@ export const Calendar2FillIcon: React.FC<{
   return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
 };
 
-export const ShieldOutlineIcon: React.FC<{
+const ShieldOutlineIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -962,7 +845,7 @@ export const ShieldOutlineIcon: React.FC<{
   return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
 };
 
-export const DownloadIcon: React.FC<{
+const DownloadIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -971,7 +854,7 @@ export const DownloadIcon: React.FC<{
   return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
 };
 
-export const DownloadLineIcon: React.FC<{
+const DownloadLineIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -980,7 +863,7 @@ export const DownloadLineIcon: React.FC<{
   return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
 };
 
-export const Save2FillIcon: React.FC<{
+const Save2FillIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -989,7 +872,7 @@ export const Save2FillIcon: React.FC<{
   return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
 };
 
-export const AlertCircleIcon: React.FC<{
+const AlertCircleIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -998,7 +881,7 @@ export const AlertCircleIcon: React.FC<{
   return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
 };
 
-export const ShuffleIcon: React.FC<{
+const ShuffleIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -1007,7 +890,7 @@ export const ShuffleIcon: React.FC<{
   return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
 };
 
-export const RadioButtonOnIcon: React.FC<{
+const RadioButtonOnIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -1019,7 +902,7 @@ export const RadioButtonOnIcon: React.FC<{
   return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
 };
 
-export const RadioButtonOffIcon: React.FC<{
+const RadioButtonOffIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -1031,7 +914,7 @@ export const RadioButtonOffIcon: React.FC<{
   return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
 };
 
-export const Delete2FillIcon: React.FC<{
+const Delete2FillIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -1040,7 +923,7 @@ export const Delete2FillIcon: React.FC<{
   return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
 };
 
-export const TrashIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({
+const TrashIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({
   size,
   color,
   style,
@@ -1052,7 +935,7 @@ export const TrashIcon: React.FC<{ size: number; color: string; style?: StylePro
 // Custom User X Fill Icon component
 const USER_X_FILL_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" fill="none"/><g fill="none" fill-rule="evenodd"><path fill="#fff" d="M11 2a5 5 0 1 0 0 10a5 5 0 0 0 0-10m0 11c-2.395 0-4.575.694-6.178 1.672c-.8.488-1.484 1.064-1.978 1.69C2.358 16.976 2 17.713 2 18.5c0 .845.411 1.511 1.003 1.986c.56.45 1.299.748 2.084.956C6.665 21.859 8.771 22 11 22q.346 0 .685-.005a1 1 0 0 0 .89-1.428A6 6 0 0 1 12 18c0-1.252.383-2.412 1.037-3.373a1 1 0 0 0-.72-1.557Q11.671 13 11 13m5.586 2.172a1 1 0 0 0-1.414 1.414L16.586 18l-1.414 1.414a1 1 0 1 0 1.414 1.414L18 19.414l1.414 1.414a1 1 0 1 0 1.414-1.414L19.414 18l1.414-1.414a1 1 0 0 0-1.414-1.414L18 16.586z"/></g></svg>`;
 
-export const UserXFillIcon: React.FC<{
+const UserXFillIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -1064,7 +947,7 @@ export const UserXFillIcon: React.FC<{
 // Custom User Follow 2 Fill Icon component
 const USER_FOLLOW_2_FILL_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" fill="none"/><g fill="none" fill-rule="evenodd"><path fill="#fff" d="M11 2a5 5 0 1 0 0 10a5 5 0 0 0 0-10m0 11c-2.395 0-4.575.694-6.178 1.672c-.8.488-1.484 1.064-1.978 1.69C2.358 16.976 2 17.713 2 18.5c0 .845.411 1.511 1.003 1.986c.56.45 1.299.748 2.084.956C6.665 21.859 8.771 22 11 22q.346 0 .685-.005a1 1 0 0 0 .89-1.428A6 6 0 0 1 12 18c0-1.252.383-2.412 1.037-3.373a1 1 0 0 0-.72-1.557Q11.671 13 11 13m10.708 3.068a1 1 0 0 0-1.414-1.414l-3.182 3.182l-1.414-1.414a1 1 0 0 0-1.414 1.414l2.05 2.05a1.1 1.1 0 0 0 1.556 0z"/></g></svg>`;
 
-export const UserFollow2FillIcon: React.FC<{
+const UserFollow2FillIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -1076,7 +959,7 @@ export const UserFollow2FillIcon: React.FC<{
 // Custom Volume Fill Icon component
 const VOLUME_FILL_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" fill="none"/><g fill="none" fill-rule="evenodd"><path fill="#fff" d="M11 2a5 5 0 1 0 0 10a5 5 0 0 0 0-10m0 11c-2.395 0-4.575.694-6.178 1.672c-.8.488-1.484 1.064-1.978 1.69C2.358 16.976 2 17.713 2 18.5c0 .845.411 1.511 1.003 1.986c.56.45 1.299.748 2.084.956C6.665 21.859 8.771 22 11 22q.346 0 .685-.005a1 1 0 0 0 .89-1.428A6 6 0 0 1 12 18c0-1.252.383-2.412 1.037-3.373a1 1 0 0 0-.72-1.557Q11.671 13 11 13m10.708 3.068a1 1 0 0 0-1.414-1.414l-3.182 3.182l-1.414-1.414a1 1 0 0 0-1.414 1.414l2.05 2.05a1.1 1.1 0 0 0 1.556 0z"/></g></svg>`;
 
-export const VolumeFillIcon: React.FC<{
+const VolumeFillIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -1088,7 +971,7 @@ export const VolumeFillIcon: React.FC<{
 // Custom Close Circle Fill Icon component
 const CLOSE_CIRCLE_FILL_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M11.28 2.024c-2.109.185-3.979.926-5.561 2.201-1.675 1.351-2.908 3.28-3.416 5.346-.216.881-.277 1.41-.277 2.429s.061 1.548.277 2.429c.886 3.607 3.839 6.502 7.457 7.311.844.189 1.287.236 2.24.236.953 0 1.396-.047 2.24-.236 3.618-.809 6.571-3.704 7.457-7.311.213-.869.276-1.413.278-2.409.001-.976-.043-1.404-.235-2.26-.458-2.049-1.658-4.025-3.26-5.369-1.824-1.531-3.915-2.321-6.26-2.368a15.89 15.89 0 0 0-.94.001m-1.797 6.2c.204.06.285.131 1.367 1.208L12 10.577l1.15-1.145c1.082-1.077 1.163-1.148 1.367-1.208.271-.08.335-.08.606 0 .298.089.564.355.653.653.08.271.08.335 0 .606-.06.204-.131.285-1.208 1.367L13.423 12l1.145 1.15c1.077 1.082 1.148 1.163 1.208 1.367.08.271.08.335 0 .606a1.017 1.017 0 0 1-.653.653c-.271.08-.335.08-.606 0-.204-.06-.285-.131-1.367-1.208L12 13.423l-1.15 1.145c-1.082 1.077-1.163 1.148-1.367 1.208-.271.08-.335.08-.606 0a1.017 1.017 0 0 1-.653-.653c-.08-.271-.08-.335 0-.606.06-.204.131-.285 1.208-1.367L10.577 12l-1.145-1.15C8.355 9.768 8.284 9.687 8.224 9.483c-.08-.271-.08-.336-.001-.602.087-.291.329-.543.618-.643.27-.093.366-.095.642-.014" fill="#fff" fill-rule="evenodd"/></svg>`;
 
-export const CloseCircleFillIcon: React.FC<{
+const CloseCircleFillIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -1101,7 +984,7 @@ export const CloseCircleFillIcon: React.FC<{
 // Matches the MGC "camera_2_cute_fi.svg" asset (with the fill made swappable via replace(/#fff/g, color)).
 const VIDEO_CAMERA_2_FILL_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M10.86 2.485c-1.066.027-1.512.085-1.956.252-.603.227-.961.46-1.633 1.066-.653.589-.936.717-1.58.717-.353 0-.993.136-1.388.296a4.424 4.424 0 0 0-2.704 3.229c-.083.409-.084.467-.068 4.395.015 3.362.027 4.055.082 4.46.195 1.46.529 2.259 1.267 3.036.692.728 1.462 1.135 2.54 1.342.919.176 1.137.182 6.58.182s5.661-.006 6.58-.182c1.219-.234 2.076-.739 2.817-1.661.427-.53.728-1.233.883-2.057.162-.864.17-1.08.188-5.141.017-3.897.016-3.968-.067-4.372a4.438 4.438 0 0 0-2.729-3.243c-.382-.151-1.02-.284-1.363-.284-.644 0-.927-.128-1.58-.717a9.323 9.323 0 0 0-.734-.606 4.441 4.441 0 0 0-1.224-.56c-.562-.144-2.017-.201-3.911-.152m1.583 5.037c1.187.122 2.222.596 3.032 1.391a4.988 4.988 0 0 1 0 7.174 5 5 0 0 1-5.015 1.165 4.514 4.514 0 0 1-1.231-.598 4.975 4.975 0 0 1-1.967-2.579C6.25 11.049 8.316 7.856 11.5 7.524c.462-.048.49-.048.943-.002m-1.112 2.056a3.024 3.024 0 0 0-2.219 2.13c-.126.443-.125 1.143.002 1.59a3.051 3.051 0 0 0 2.048 2.082c.323.1 1.103.124 1.478.044.378-.08.948-.356 1.259-.611.468-.382.818-.919.987-1.515.128-.449.128-1.147 0-1.596a3.051 3.051 0 0 0-2.048-2.082c-.3-.094-1.172-.118-1.507-.042" fill="#fff" fill-rule="evenodd"/></svg>`;
 
-export const VideoCamera2FillIcon: React.FC<{
+const VideoCamera2FillIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -1113,7 +996,7 @@ export const VideoCamera2FillIcon: React.FC<{
 // Custom Chevron Right Icon component
 const CHEVRON_RIGHT_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" fill="none"/><g fill="none" fill-rule="evenodd"><path fill="#fff" d="M15.707 11.293a1 1 0 0 1 0 1.414l-5.657 5.657a1 1 0 1 1-1.414-1.414l4.95-4.95l-4.95-4.95a1 1 0 0 1 1.414-1.414z"/></g></svg>`;
 
-export const ChevronRightIcon: React.FC<{
+const ChevronRightIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -1137,7 +1020,7 @@ export const ArrowRightFillIcon: React.FC<{
 // Custom Arrow Left Fill Icon component
 const ARROW_LEFT_FILL_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" fill="none"/><g fill="none"><path fill="#fff" d="M3.283 10.94a1.5 1.5 0 0 0 0 2.12l5.656 5.658a1.5 1.5 0 1 0 2.122-2.122L7.965 13.5H19.5a1.5 1.5 0 0 0 0-3H7.965l3.096-3.096a1.5 1.5 0 1 0-2.122-2.121z"/></g></svg>`;
 
-export const ArrowLeftFillIcon: React.FC<{
+const ArrowLeftFillIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -1149,7 +1032,7 @@ export const ArrowLeftFillIcon: React.FC<{
 // Custom Arrow Up Fill Icon component
 const ARROW_UP_FILL_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' fill-rule='nonzero'><path fill='#09244BFF' d='M13.06 3.283a1.5 1.5 0 0 0-2.12 0L5.281 8.939a1.5 1.5 0 0 0 2.122 2.122L10.5 7.965V19.5a1.5 1.5 0 0 0 3 0V7.965l3.096 3.096a1.5 1.5 0 1 0 2.122-2.122L13.06 3.283Z'/></g></svg>`;
 
-export const ArrowUpFillIcon: React.FC<{
+const ArrowUpFillIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -1161,7 +1044,7 @@ export const ArrowUpFillIcon: React.FC<{
 // Custom At Line Icon component
 const AT_LINE_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' fill-rule='evenodd'><path fill='#000000FF' d='M4 12a8 8 0 0 1 8-8c5.367 0 8.445 4.445 8.006 8.39-.12 1.086-.438 1.723-.72 2.095-.281.373-.571.54-.733.62-.753.377-1.133.212-1.283.093-.19-.15-.372-.503-.284-1.034l.006-.032.503-5.032a1 1 0 0 0-1.867-.59A5.025 5.025 0 0 0 12.03 7C9.279 7 7 9.229 7 12c0 2.774 2.288 5 5.038 5 1.212 0 2.35-.436 3.237-1.176.175.36.425.682.753.942.917.726 2.172.752 3.42.128.337-.168.91-.51 1.434-1.203.524-.694.956-1.682 1.112-3.08C22.556 7.554 18.633 2 12 2 6.477 2 2 6.477 2 12s4.477 10 10 10a9.963 9.963 0 0 0 4.445-1.04 1 1 0 0 0-.89-1.791A8 8 0 0 1 4 12m5 0c0-1.647 1.364-3 3.03-3 1.92 0 3.364 1.767 2.974 3.62-.291 1.378-1.539 2.38-2.966 2.38C10.368 15 9 13.645 9 12'/></g></svg>`;
 
-export const AtLineIcon: React.FC<{
+const AtLineIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -1170,7 +1053,7 @@ export const AtLineIcon: React.FC<{
   return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
 };
 
-export const CloudFillIcon: React.FC<{
+const CloudFillIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -1179,7 +1062,7 @@ export const CloudFillIcon: React.FC<{
   return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
 };
 
-export const SendPlaneFillIcon: React.FC<{
+const SendPlaneFillIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -1198,7 +1081,7 @@ export const SendPlaneFillIcon: React.FC<{
   );
 };
 
-export const InboxIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({
+const InboxIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({
   size,
   color,
   style,
@@ -1207,7 +1090,7 @@ export const InboxIcon: React.FC<{ size: number; color: string; style?: StylePro
   return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
 };
 
-export const LinkFillIcon: React.FC<{
+const LinkFillIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -1222,7 +1105,7 @@ export const LinkFillIcon: React.FC<{
   );
 };
 
-export const ShieldShapeFillIcon: React.FC<{
+const ShieldShapeFillIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -1237,7 +1120,7 @@ export const ShieldShapeFillIcon: React.FC<{
   );
 };
 
-export const MenuFillIcon: React.FC<{
+const MenuFillIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -1252,7 +1135,7 @@ export const MenuFillIcon: React.FC<{
   );
 };
 
-export const InformationLineIcon: React.FC<{
+const InformationLineIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -1270,7 +1153,7 @@ export const InformationLineIcon: React.FC<{
 // Custom Chat 3 Line Icon component
 const CHAT_3_LINE_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M11 3.045A11.242 11.242 0 0 0 6.893 4.2c-2.618 1.319-4.367 3.559-4.799 6.146-.053.317-.072.634-.07 1.174.004 1.046.13 1.738.481 2.64.598 1.534 1.7 2.9 3.157 3.912l.242.168.17.51c.416 1.244.854 1.761 1.65 1.948.67.158 1.201.006 1.99-.571l.321-.235c.051-.037.158-.035.485.009 1.429.192 3.145.073 4.56-.316a9.956 9.956 0 0 0 1.941-.745c2.658-1.302 4.454-3.576 4.884-6.186.099-.595.099-1.713 0-2.308-.255-1.547-1.001-3.008-2.144-4.2C17.628 3.922 14.374 2.771 11 3.045m2.28 2.036c3.424.489 6.023 2.608 6.624 5.401.103.479.104 1.566.001 2.036-.364 1.669-1.452 3.14-3.067 4.15-1.765 1.102-4.129 1.554-6.356 1.213-.82-.125-1.01-.072-1.762.493-.253.19-.478.34-.5.333-.022-.007-.11-.21-.195-.45-.451-1.274-.44-1.258-1.417-1.97-.724-.528-1.434-1.307-1.847-2.029-.553-.967-.798-1.957-.747-3.018.039-.807.198-1.398.588-2.181.722-1.453 2.136-2.69 3.868-3.384a9.59 9.59 0 0 1 2.29-.591l.52-.061c.245-.028 1.688.013 2 .058" fill="#10161F" fill-rule="evenodd"/></svg>`;
 
-export const Chat3LineIcon: React.FC<{
+const Chat3LineIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;
@@ -1282,7 +1165,7 @@ export const Chat3LineIcon: React.FC<{
 // Custom Warning Line Icon component
 const WARNING_LINE_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M11.34 2.201c-.56.087-1.183.332-1.778.7-.777.481-1.589 1.214-3.744 3.386-1.536 1.547-2.143 2.197-2.536 2.717-.51.675-.877 1.411-1.027 2.059-.107.463-.098 1.515.018 1.945.274 1.019.759 1.783 1.959 3.085.704.763 3.527 3.564 4.088 4.055 1.022.895 1.76 1.332 2.672 1.58.448.122 1.568.122 2.016 0 1.036-.282 1.803-.773 3.13-2.004.807-.749 3.52-3.484 4.01-4.044.896-1.023 1.333-1.763 1.58-2.672.12-.445.12-1.566-.001-2.016-.276-1.029-.771-1.802-2.003-3.13-.749-.807-3.484-3.52-4.044-4.01-1.026-.898-1.779-1.343-2.672-1.577-.356-.093-1.278-.134-1.668-.074m1.148 2.002c.313.064.885.357 1.272.651.493.374 1.369 1.195 2.78 2.606 2.086 2.086 2.709 2.8 3.039 3.48.198.409.261.664.261 1.06s-.063.651-.261 1.06c-.33.68-.95 1.39-3.039 3.48-2.09 2.089-2.8 2.709-3.48 3.039-.409.198-.664.261-1.06.261s-.651-.063-1.06-.261c-.68-.33-1.394-.953-3.48-3.039-2.086-2.086-2.709-2.8-3.039-3.48-.198-.409-.261-.664-.261-1.06s.063-.651.261-1.06c.33-.68.953-1.394 3.039-3.48 1.413-1.413 2.288-2.234 2.78-2.606.387-.293.894-.56 1.207-.636a3.03 3.03 0 0 1 1.041-.015m-.8 3.84a1.336 1.336 0 0 0-.732.429c-.226.247-.347.497-.38.784-.028.236.39 3.71.488 4.057.164.583.902.862 1.442.546a.989.989 0 0 0 .45-.61c.024-.104.144-.99.267-1.969.243-1.944.248-2.103.071-2.452-.313-.617-.93-.919-1.606-.785m-.015 7.02c-.369.114-.673.546-.673.957 0 .395.319.811.709.924a.987.987 0 0 0 1.278-1.056.977.977 0 0 0-.665-.827c-.21-.074-.402-.074-.649.002" fill="#10161F" fill-rule="evenodd"/></svg>`;
 
-export const WarningLineIcon: React.FC<{
+const WarningLineIcon: React.FC<{
   size: number;
   color: string;
   style?: StyleProp<ViewStyle>;

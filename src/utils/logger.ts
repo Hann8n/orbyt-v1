@@ -89,7 +89,7 @@ class Logger {
    */
   error(message: string, error?: unknown, context?: LogContext): void {
     // Safely stringify error to prevent "Cannot convert undefined value to object" errors
-    let errorDisplay: unknown = '';
+    let errorDisplay: unknown;
     try {
       if (error == null) {
         errorDisplay = '';
@@ -138,6 +138,3 @@ class Logger {
 
 // Export singleton instance
 export const logger = new Logger();
-
-// Export default for convenience
-export default logger;

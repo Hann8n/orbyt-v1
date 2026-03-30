@@ -7,7 +7,7 @@ export const FEED_MODAL_TAB_SEGMENTS = ['home', 'explore', 'activity', 'profile'
 
 export type FeedModalTabSegment = (typeof FEED_MODAL_TAB_SEGMENTS)[number];
 
-export function isFeedModalTabSegment(s: string): s is FeedModalTabSegment {
+function isFeedModalTabSegment(s: string): s is FeedModalTabSegment {
   return (FEED_MODAL_TAB_SEGMENTS as readonly string[]).includes(s);
 }
 

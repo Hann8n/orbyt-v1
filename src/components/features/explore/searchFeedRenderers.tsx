@@ -99,7 +99,7 @@ export const ExploreSuggestionsProfileRow = React.memo(
 );
 ExploreSuggestionsProfileRow.displayName = 'ExploreSuggestionsProfileRow';
 
-export const ProfilesFeedRenderer = React.memo(
+const ProfilesFeedRenderer = React.memo(
   ({
     searchResults,
     onFollow,
@@ -201,7 +201,7 @@ export const ProfilesFeedRenderer = React.memo(
 );
 ProfilesFeedRenderer.displayName = 'ProfilesFeedRenderer';
 
-export const ChannelsFeedRenderer = React.memo(
+const ChannelsFeedRenderer = React.memo(
   ({
     searchResults,
     isLoading,
@@ -274,7 +274,7 @@ export const ChannelsFeedRenderer = React.memo(
 );
 ChannelsFeedRenderer.displayName = 'ChannelsFeedRenderer';
 
-export const VisitHistoryList = React.memo(
+const VisitHistoryList = React.memo(
   ({
     visitHistory,
     onHistoryItemPress,

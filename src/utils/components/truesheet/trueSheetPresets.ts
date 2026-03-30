@@ -80,7 +80,7 @@ export const SHEET_TEXT_STYLES: {
 };
 
 /** Canonical detent presets for common sheet behaviors. */
-export const SHEET_DETENTS = {
+const SHEET_DETENTS = {
   auto: ['auto'] as const,
   full: [1] as const,
   halfAndFull: [0.5, 1] as const,

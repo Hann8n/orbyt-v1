@@ -54,5 +54,3 @@ export const QueryErrorBoundary: React.FC<QueryErrorBoundaryProps> = ({
     </QueryErrorResetBoundary>
   );
 };
-
-export default QueryErrorBoundary;

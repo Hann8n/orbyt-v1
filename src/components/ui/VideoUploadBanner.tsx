@@ -272,5 +272,3 @@ export const VideoUploadBanner = React.memo(VideoUploadBannerComponent, (prevPro
     prevProps.scrollY === nextProps.scrollY
   );
 });
-
-export default VideoUploadBanner;

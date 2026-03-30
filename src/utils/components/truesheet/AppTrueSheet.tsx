@@ -9,8 +9,6 @@ import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import type { TrueSheetProps } from '@lodev09/react-native-true-sheet';
 import { DEFAULT_SHEET_PROPS, SHEET_VARIANTS } from './trueSheetPresets';
 
-export { DEFAULT_HEADER_STYLE } from './trueSheetPresets';
-
 export type AppTrueSheetVariant =
   | 'default'
   | 'full'

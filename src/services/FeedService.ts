@@ -74,10 +74,10 @@ try {
 }
 
 // Re-export API types for convenience
-export type { ExtendedFeedViewPost as FeedItem, ExtendedPostView as Post } from './api/types';
+export type { ExtendedFeedViewPost as FeedItem } from './api/types';
 
 // API Response type matching AtprotoService return types
-export type APIResponse = FeedResponse;
+type APIResponse = FeedResponse;
 
 // Re-export FeedOption for convenience (defined in types/index.ts)
 export type { FeedOption } from '../types';
@@ -723,5 +723,3 @@ class FeedService {
 
 // Export singleton instance
 export const feedService = new FeedService();
-export default feedService;
-export { FEED_CONFIG };

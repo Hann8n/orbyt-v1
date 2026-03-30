@@ -87,14 +87,6 @@ export const SHEET_STYLES: {
   },
 };
 
-export const sheetPaddingBottomStyle = (
-  paddingBottom: number,
-  backgroundColor: string = Colors.black
-): ViewStyle => ({
-  paddingBottom,
-  backgroundColor,
-});
-
 /** Shared composer input styles (chat, SendTo, comments). */
 export const COMPOSER_STYLES = StyleSheet.create({
   /** Outer container: padding and background. */

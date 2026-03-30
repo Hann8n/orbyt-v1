@@ -13,9 +13,6 @@ export interface OverlayLayoutValue {
 
 const OverlayLayoutContext = createContext<OverlayLayoutValue | null>(null);
 
-/** Fallback when useOverlayLayout() is null (e.g. outside OverlayLayoutProvider). */
-export const OVERLAY_LAYOUT_FALLBACK_BOTTOM_NAV = 80;
-
 /**
  * Provides isTablet and bottomNavBarHeight for overlay positioning.
  * Lifts per-item subscriptions to one. Place at root (e.g. app _layout) inside TabBarProvider.
