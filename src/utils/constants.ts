@@ -40,6 +40,10 @@ export const QUERY_CONSTANTS = {
   STALE_TIME_MEDIUM: 60 * 1000, // 1 minute - for moderately changing data (unread counts)
   STALE_TIME_LONG: 10 * 60 * 1000, // 10 minutes - for slowly changing data (feeds, profiles)
   STALE_TIME_VERY_LONG: 60 * 60 * 1000, // 1 hour - for rarely changing data (static content)
+  /** Default page size for feed/search fetches (app FeedService, infinite scroll). */
+  FEED_PAGE_DEFAULT: 50,
+  /** Upper bound for single `getFeed` / author-feed requests when batching. */
+  FEED_PAGE_MAX_SINGLE: 100,
 } as const;
 
 // Viewability Constants - unified strategy using viewport coverage

@@ -10,68 +10,18 @@ import { QUERY_CONSTANTS } from '../utils/constants';
 import type {
   ExtendedFeedViewPost,
   FeedResponse,
-  VideoSearchResponse,
   ProfileViewBasic,
-  ProfileSearchResponse,
   GeneratorView,
+  FeedParams,
 } from './api/types';
 import { isOrbytChannel, channelToHashtag, getChannelByUri } from '../utils/channels/orbyt';
 import type { FeedOption } from '../types';
 import { seenVideoService } from './SeenVideoService';
 import { AtprotoFeedService } from './api/feed/FeedService';
+import { BookmarkService } from './api/bookmark/BookmarkService';
+import { ActorService } from './api/actor/ActorService';
+import { isValidPost } from './api/postGuards';
 import { useUserStore } from '../stores/userStore';
-
-// Type definition for AtprotoService methods used by FeedService
-interface AtprotoServiceInterface {
-  getFeed: (
-    cursor: string | null,
-    feedLink: string | null,
-    feedVariables: Record<string, unknown>,
-    filterVideosOnly: boolean,
-    limit: number,
-    feedType?: string
-  ) => Promise<FeedResponse>;
-  searchHashtagVideosPaginated: (
-    hashtag: string,
-    cursor: string | null,
-    limit: number,
-    sort: 'top' | 'latest'
-  ) => Promise<VideoSearchResponse>;
-  getRepostedVideos: (actor: string, cursor: string | null, limit: number) => Promise<FeedResponse>;
-  getBookmarks: (
-    cursor?: string,
-    limit?: number
-  ) => Promise<{
-    bookmarks: ExtendedFeedViewPost[];
-    cursor: string | null;
-  }>;
-  searchProfilesPaginated: (
-    query: string,
-    cursor: string | null,
-    limit: number
-  ) => Promise<ProfileSearchResponse>;
-  searchPopularFeeds: (query: string, limit: number) => Promise<GeneratorView[]>;
-  getPosts: (uris: string[]) => Promise<Map<string, unknown>>;
-  isValidPost: (post: unknown) => boolean;
-}
-
-// Import AtprotoService with error handling for circular dependency issues
-let AtprotoService: AtprotoServiceInterface;
-try {
-  AtprotoService = require('./api/AtprotoService').default as AtprotoServiceInterface;
-} catch (_error) {
-  // Fallback implementation
-  AtprotoService = {
-    getFeed: async () => ({ feed: [], cursor: null }),
-    searchHashtagVideosPaginated: async () => ({ videos: [], cursor: null }),
-    getRepostedVideos: async () => ({ feed: [], cursor: null }),
-    getBookmarks: async () => ({ bookmarks: [], cursor: null }),
-    searchProfilesPaginated: async () => ({ profiles: [], cursor: null }),
-    searchPopularFeeds: async () => [],
-    getPosts: async () => new Map(),
-    isValidPost: () => false,
-  };
-}
 
 // Re-export API types for convenience
 export type { ExtendedFeedViewPost as FeedItem } from './api/types';
@@ -100,9 +50,9 @@ interface FeedFetchResult {
 // Configuration constants
 const FEED_CONFIG = {
   maxFeedsPerFetch: 8,
-  maxPostsPerFetch: 50,
+  maxPostsPerFetch: QUERY_CONSTANTS.FEED_PAGE_DEFAULT,
   maxSubscribedChannels: 50,
-  defaultLimit: 50,
+  defaultLimit: QUERY_CONSTANTS.FEED_PAGE_DEFAULT,
   staleTime: QUERY_CONSTANTS.STALE_TIME_LONG, // 10 minutes - for slowly changing data
   cacheTime: 60 * 60 * 1000, // 60 minutes - increased to reduce unnecessary refetching
 } as const;
@@ -252,7 +202,7 @@ class FeedService {
   ): Promise<FeedFetchResult> {
     try {
       if (source.type === 'hashtag') {
-        const response = await AtprotoService.searchHashtagVideosPaginated(
+        const response = await AtprotoFeedService.searchHashtagVideosPaginated(
           source.hashtag!,
           cursor,
           limit,
@@ -265,10 +215,10 @@ class FeedService {
           success: true,
         };
       } else if (source.type === 'algorithmic') {
-        const response = await AtprotoService.getFeed(
+        const response = await AtprotoFeedService.getFeed(
           cursor,
           source.uri,
-          {},
+          {} as FeedParams,
           false, // Algorithmic feeds already return video-only content
           limit,
           'custom'
@@ -280,10 +230,10 @@ class FeedService {
           success: true,
         };
       } else {
-        const response = await AtprotoService.getFeed(
+        const response = await AtprotoFeedService.getFeed(
           cursor,
           source.uri,
-          {},
+          {} as FeedParams,
           true, // Filter videos for regular feed generators
           limit,
           'custom'
@@ -371,22 +321,21 @@ class FeedService {
 
       // Handle different feed types (using normalized feed option for API calls)
       if (feedOptionForAPI === 'likes' && userDid) {
-        response = await AtprotoService.getFeed(
+        response = await AtprotoFeedService.getFeed(
           cursor ?? null,
           userDid ?? null,
-          {},
+          {} as FeedParams,
           true,
           limit,
           'likes'
         );
       } else if (feedOptionForAPI === 'reposts' && userDid) {
-        // getRepostedVideos is a static method on AtprotoService
-        response = await AtprotoService.getRepostedVideos(userDid, cursor ?? null, limit);
+        response = await AtprotoFeedService.getRepostedVideos(userDid, cursor ?? null, limit);
       } else if (feedOptionForAPI === 'profile' && userDid) {
-        response = await AtprotoService.getFeed(
+        response = await AtprotoFeedService.getFeed(
           cursor ?? null,
           userDid ?? null,
-          {},
+          {} as FeedParams,
           true,
           limit,
           'authorVideos'
@@ -398,7 +347,7 @@ class FeedService {
       } else if (feedOptionForAPI === 'reposts' && !userDid) {
         return { feed: [], cursor: null };
       } else if (feedOptionForAPI === 'bookmarks' && userDid) {
-        const bookmarksResponse = await AtprotoService.getBookmarks(cursor || undefined, limit);
+        const bookmarksResponse = await BookmarkService.getBookmarks(cursor || undefined, limit);
         // Transform bookmarks to feed items
         const feed = bookmarksResponse.bookmarks.map((bookmark: any) => ({
           post: bookmark,
@@ -413,10 +362,10 @@ class FeedService {
         if (!feedLink) {
           return { feed: [], cursor: null };
         }
-        response = await AtprotoService.getFeed(
+        response = await AtprotoFeedService.getFeed(
           cursor ?? null,
           feedLink,
-          {},
+          {} as FeedParams,
           false,
           limit,
           'custom'
@@ -549,12 +498,12 @@ class FeedService {
 
         try {
           const [profilesResponse, channelsResponse] = await Promise.all([
-            AtprotoService.searchProfilesPaginated(
+            ActorService.searchProfilesPaginated(
               searchQuery,
               cursor as string | null,
               FEED_CONFIG.maxPostsPerFetch
             ),
-            AtprotoService.searchPopularFeeds(searchQuery, 15),
+            AtprotoFeedService.searchPopularFeeds(searchQuery, 15),
           ]);
 
           const feedItems: ExtendedFeedViewPost[] = [];
@@ -620,7 +569,7 @@ class FeedService {
         }
 
         try {
-          const response = await AtprotoService.searchHashtagVideosPaginated(
+          const response = await AtprotoFeedService.searchHashtagVideosPaginated(
             hashtag,
             (cursor as string | null) ?? null,
             FEED_CONFIG.maxPostsPerFetch,
@@ -654,11 +603,11 @@ class FeedService {
         }
         const urisToFetch = seenVideos.slice(startIndex, startIndex + pageSize).map(v => v.uri);
         if (urisToFetch.length === 0) return { feed: [], cursor: null };
-        const postsMap = await AtprotoService.getPosts(urisToFetch);
+        const postsMap = await AtprotoFeedService.getPosts(urisToFetch);
         const validPosts: ExtendedFeedViewPost[] = [];
         for (const uri of urisToFetch) {
           const post = postsMap.get(uri);
-          if (post && AtprotoService.isValidPost(post)) {
+          if (post && isValidPost(post)) {
             validPosts.push({ post } as ExtendedFeedViewPost);
           }
         }
@@ -680,10 +629,10 @@ class FeedService {
         // Other feeds may skip filtering if they're video-only generators
         const shouldFilter = feedOptionForAPI === 'reposts' || feedOptionForAPI === 'likes';
 
-        response = await AtprotoService.getFeed(
+        response = await AtprotoFeedService.getFeed(
           cursor ?? null,
           feedLink,
-          {},
+          {} as FeedParams,
           shouldFilter, // Apply filtering for reposts and likes
           limit,
           'custom'

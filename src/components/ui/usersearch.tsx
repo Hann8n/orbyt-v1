@@ -16,7 +16,8 @@ import { NativePressable } from './NativePressable';
 import { LinearGradient } from './LinearGradient';
 import { useInfiniteQuery, InfiniteData } from '@tanstack/react-query';
 import { queryKeys } from '../../utils/query/queryKeys';
-import AtprotoService from '../../services/api/AtprotoService';
+import { ActorService } from '../../services/api/actor/ActorService';
+import { AtprotoFeedService } from '../../services/api/feed/FeedService';
 // Avatar import removed – using AuthorItem instead
 import AuthorItem from './AuthorItem';
 import { Colors } from './UI';
@@ -122,7 +123,7 @@ export function UserSearchModal({
   >({
     queryKey: queryKeys.search.profiles(searchQuery),
     queryFn: async ({ pageParam }) => {
-      return AtprotoService.searchProfilesPaginated(searchQuery, pageParam as string | null);
+      return ActorService.searchProfilesPaginated(searchQuery, pageParam as string | null);
     },
     getNextPageParam: lastPage => lastPage?.cursor ?? null,
     initialPageParam: null,
@@ -217,7 +218,7 @@ export function RichTextSearchModal({
   >({
     queryKey: queryKeys.search.profiles(searchQuery),
     queryFn: async ({ pageParam }) => {
-      return AtprotoService.searchProfilesPaginated(searchQuery, pageParam as string | null);
+      return ActorService.searchProfilesPaginated(searchQuery, pageParam as string | null);
     },
     getNextPageParam: lastPage => lastPage?.cursor ?? null,
     initialPageParam: null,
@@ -237,7 +238,7 @@ export function RichTextSearchModal({
   >({
     queryKey: ['hashtagSuggestions', searchQuery] as const,
     queryFn: async () => {
-      const hashtags = await AtprotoService.searchHashtagSuggestions(searchQuery, 10);
+      const hashtags = await AtprotoFeedService.searchHashtagSuggestions(searchQuery, 10);
       return { hashtags };
     },
     getNextPageParam: () => null, // No pagination for suggestions

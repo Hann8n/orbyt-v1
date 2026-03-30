@@ -4,6 +4,7 @@ import { ChatService } from '../services/api/chat/ChatService';
 import { useUserStore } from '../stores/userStore';
 import { QUERY_CONSTANTS } from '../utils/constants';
 import { queryKeys } from '../utils/query/queryKeys';
+import { chatReactQueryOptions } from '../utils/query/chatQueryOptions';
 
 export type UnreadSummary = {
   notificationsCount: number;
@@ -28,6 +29,7 @@ export const useUnreadCount = () => {
     },
     enabled: isAuthenticated,
     staleTime: QUERY_CONSTANTS.STALE_TIME_MEDIUM,
+    ...chatReactQueryOptions,
   });
 
   const notificationsCount = data?.notificationsCount ?? 0;

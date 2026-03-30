@@ -60,6 +60,7 @@ import AuthorItem from '@/components/ui/AuthorItem';
 import { itemSizeConfig, sharedItemStyles } from '@/components/ui/ItemStyles';
 import { useAvatarProfileRing } from '@/services/colors';
 import { queryKeys } from '@/utils/query/queryKeys';
+import { chatReactQueryOptions } from '@/utils/query/chatQueryOptions';
 import { getActiveStreak } from '@/utils/chat/streak';
 import { format, parseISO, isValid, isToday, isYesterday, differenceInMinutes } from 'date-fns';
 import { useProfileByDid, useBlockMutation } from '@/services/data/ProfileService';
@@ -1143,12 +1144,14 @@ export default function ChatScreen() {
     ] as const,
     queryFn: () => ChatService.getConvoForMembers(members!),
     enabled: !!members && members.length === 2,
+    ...chatReactQueryOptions,
   });
 
   const { data: convoById, isFetched: convoByIdFetched } = useQuery({
     queryKey: queryKeys.chat.conversations.detail(rawId),
     queryFn: () => ChatService.getConvo(rawId),
     enabled: !!rawId && !openByDid,
+    ...chatReactQueryOptions,
   });
 
   const convo = openByDid ? convoByMembers : convoById;
@@ -1205,6 +1208,7 @@ export default function ChatScreen() {
     refetchOnWindowFocus: true,
     staleTime: 30_000,
     gcTime: 5 * 60 * 1000,
+    ...chatReactQueryOptions,
   });
 
   // Dismiss keyboard when leaving the route

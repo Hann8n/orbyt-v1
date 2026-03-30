@@ -28,11 +28,13 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { queryKeys } from '../../../utils/query/queryKeys';
+import { chatReactQueryOptions } from '../../../utils/query/chatQueryOptions';
 import { BORDER_RADIUS, ICON_SIZES, QUERY_CONSTANTS } from '../../../utils/constants';
 import { useProfile } from '../../../services/data/ProfileService';
 import { useUserSearchTrigger } from '../usersearch';
 import CommentInputFooter from '../../features/comments/CommentInputFooter';
-import AtprotoService from '../../../services/api/AtprotoService';
+import { ActorService } from '../../../services/api/actor/ActorService';
+import { AtprotoFeedService } from '../../../services/api/feed/FeedService';
 import { ChatService } from '../../../services/api/chat/ChatService';
 import { useUserStore } from '../../../stores/userStore';
 import { Colors } from '../UI';
@@ -117,6 +119,7 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
     getNextPageParam: lastPage => lastPage?.cursor ?? undefined,
     enabled: visible,
     staleTime: QUERY_CONSTANTS.STALE_TIME_SHORT,
+    ...chatReactQueryOptions,
   });
 
   const conversations = useMemo(
@@ -134,7 +137,7 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
   } = useInfiniteQuery({
     queryKey: queryKeys.search.profiles(searchQuery),
     queryFn: async ({ pageParam }) => {
-      return AtprotoService.searchProfilesPaginated(searchQuery, pageParam as string | null);
+      return ActorService.searchProfilesPaginated(searchQuery, pageParam as string | null);
     },
     getNextPageParam: lastPage => lastPage?.cursor ?? null,
     initialPageParam: null as string | null,
@@ -253,7 +256,7 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
         let cid = postCid;
         if (!cid) {
           try {
-            const post = await AtprotoService.getPost(postUri);
+            const post = await AtprotoFeedService.getPost(postUri);
             cid = post?.cid ?? '';
           } catch {
             cid = '';

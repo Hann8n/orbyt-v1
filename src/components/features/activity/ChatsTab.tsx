@@ -35,6 +35,7 @@ import { getBottomNavBarHeight } from '../../../utils/device/screen';
 import { formatHandle } from '../../../utils/formatting/handles';
 import { formatRelativeDate } from '../../ui/RelativeDate';
 import { queryKeys } from '../../../utils/query/queryKeys';
+import { chatReactQueryOptions } from '../../../utils/query/chatQueryOptions';
 import ChatSettingsSheet from './ChatSettingsSheet';
 import { useUserStore } from '../../../stores/userStore';
 import { useProfileChannelNavigation } from '../../../hooks/useProfileChannelNavigation';
@@ -434,6 +435,7 @@ const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(({ chatFilter }, ref)
     refetchOnMount: false,
     refetchOnReconnect: false,
     placeholderData: prev => prev,
+    ...chatReactQueryOptions,
   });
   // Refetch when chatFilter changes (query key already includes it)
 
@@ -474,6 +476,7 @@ const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(({ chatFilter }, ref)
       queryFn: () => ChatService.getMessages(convoId, null),
       staleTime: 60 * 60 * 1000,
       gcTime: 60 * 60 * 1000,
+      ...chatReactQueryOptions,
     })),
   });
 

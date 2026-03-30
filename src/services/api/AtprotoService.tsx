@@ -1,5 +1,6 @@
 import type { BlobRef } from '@atproto/api';
 import { storage } from '../../utils/storage/storage';
+import { QUERY_CONSTANTS } from '../../utils/constants';
 import { AtprotoCore } from './core';
 import { deduplicateRequest as deduplicateInFlightRequest } from './inFlightDedup';
 import {
@@ -14,6 +15,11 @@ import { BookmarkService } from './bookmark/BookmarkService';
 import { VideoService } from './video/VideoService';
 import { RepoService } from './repo/RepoService';
 import { ModerationService } from '../moderation/ModerationService';
+import {
+  isNotFoundPost as isNotFoundPostGuard,
+  isBlockedPost as isBlockedPostGuard,
+  isValidPost as isValidPostGuard,
+} from './postGuards';
 
 // Declare global types (polyfilled at the app entrypoint)
 declare global {
@@ -24,7 +30,6 @@ declare global {
 import type {
   FeedResponse,
   FeedParams,
-  ThreadPost,
   FeedType,
   ApiClient,
   Session,
@@ -56,11 +61,6 @@ import type {
   RepostView,
   CreateRecordResponse,
 } from './types';
-import {
-  isNotFoundPost as checkIsNotFoundPost,
-  isBlockedPost as checkIsBlockedPost,
-} from './types';
-
 class AtprotoService {
   /**
    * Deduplicate API requests to prevent multiple identical calls
@@ -195,7 +195,7 @@ class AtprotoService {
     feedLink: string | null = null,
     _feedVariables: FeedParams = {},
     filterVideosOnly: boolean = true,
-    limit: number = 100,
+    limit: number = QUERY_CONSTANTS.FEED_PAGE_MAX_SINGLE,
     feedType?: FeedType
   ): Promise<FeedResponse> {
     return AtprotoFeedService.getFeed(
@@ -463,21 +463,18 @@ class AtprotoService {
    * Check if a post is NotFoundPost or BlockedPost using $type field
    */
   static isNotFoundPost(post: unknown): post is NotFoundPost {
-    if (!post || typeof post !== 'object') return false;
-    return checkIsNotFoundPost(post as ThreadPost);
+    return isNotFoundPostGuard(post);
   }
 
   static isBlockedPost(post: unknown): post is BlockedPost {
-    if (!post || typeof post !== 'object') return false;
-    return checkIsBlockedPost(post as ThreadPost);
+    return isBlockedPostGuard(post);
   }
 
   /**
    * Check if a post is a valid post view (not NotFoundPost or BlockedPost)
    */
   static isValidPost(post: unknown): post is PostView {
-    if (!post) return false;
-    return !this.isNotFoundPost(post) && !this.isBlockedPost(post);
+    return isValidPostGuard(post);
   }
 
   /**

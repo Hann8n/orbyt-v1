@@ -1,6 +1,12 @@
 /**
- * Repo Service - com.atproto.repo.* namespace operations
- * Handles all repository-related API operations including record creation, retrieval, and updates
+ * Repo Service — `com.atproto.repo.*` namespace operations (record CRUD, blob upload).
+ *
+ * **Two XRPC client patterns:**
+ * - **`AtprotoCore.getApiClient()`** — Session-scoped `api`: the logged-in user’s App View / PDS.
+ *   Use for the current account’s records (e.g. `getOrbytProfileRecord`, `uploadVideo`, `upsertOrbytProfileRecord`).
+ * - **`getAgentForRepo(did)`** then **`agent.api.com.atproto.repo.*`** — Repo-scoped agent aimed at **that
+ *   actor’s PDS**. Required to read arbitrary DIDs’ records (`getOrbytProfileRecordForDid`, `getProfileRecordsForDid`)
+ *   because `com.getorbyt.profile` / `app.bsky.actor.profile` live on the subject’s repo, not necessarily on the viewer’s PDS.
  */
 
 import { BlobRef } from '@atproto/lexicon';
@@ -43,7 +49,7 @@ export class RepoService {
   }
 
   /**
-   * Get the orbyt profile record for the current user
+   * Get the orbyt profile record for the **current user** (session PDS via `getApiClient`).
    * @returns orbyt profile record or null
    */
   static async getOrbytProfileRecord(): Promise<unknown | null> {
@@ -78,7 +84,7 @@ export class RepoService {
   }
 
   /**
-   * Fetch the orbyt profile record for any DID by hitting that DID's PDS directly
+   * Fetch `com.getorbyt.profile` for **any** DID via `getAgentForRepo` (subject’s PDS, not session-only).
    * @param did - DID to fetch record for
    * @returns orbyt profile record or null
    */
@@ -113,8 +119,7 @@ export class RepoService {
   }
 
   /**
-   * Fetch both profile records (standard and custom) using listRecords in parallel
-   * This ensures both records are always fetched together
+   * Fetch `app.bsky.actor.profile` and `com.getorbyt.profile` for a **remote** DID (subject PDS via `getAgentForRepo`).
    * @param did - DID to fetch records for
    * @returns Object with profileRecord and orbytRecord
    */
