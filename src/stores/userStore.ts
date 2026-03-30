@@ -986,12 +986,12 @@ export const useUserStore = create<UserState>()(
               // Using invalidateQueries instead of clear() preserves query structure and is faster
               queryClient.invalidateQueries();
             } catch (restoreErr) {
-              logger.error('Session restoration failed for account switch', restoreErr, {
-                component: 'userStore',
-                did,
-              });
               const restoreOutcome = getSessionRestoreOutcome(restoreErr);
               if (restoreOutcome === 'reauth_required') {
+                logger.error('Session restoration failed for account switch (reauth)', restoreErr, {
+                  component: 'userStore',
+                  did,
+                });
                 applyAuthFailureState({
                   clearActiveDid: true,
                   authError: 'oauth_reauth_required',
@@ -1002,6 +1002,18 @@ export const useUserStore = create<UserState>()(
               }
               if (restoreOutcome === 'cancelled') {
                 throw new AuthFlowError('cancelled', 'oauth_cancelled');
+              }
+              if (restoreOutcome === 'transient_failure') {
+                logger.warn('Session restoration failed for account switch (transient)', {
+                  component: 'userStore',
+                  did,
+                  error: restoreErr instanceof Error ? restoreErr.message : String(restoreErr),
+                });
+              } else {
+                logger.error('Session restoration failed for account switch', restoreErr, {
+                  component: 'userStore',
+                  did,
+                });
               }
               set({
                 isSwitchingAccount: false,

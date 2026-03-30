@@ -24,7 +24,7 @@ import { hexToRGBA } from '@/utils/formatting/colors';
 import RocketBackground from '@/components/ui/RocketBackground';
 import SignUpSheet from '@/components/ui/SignUpSheet';
 import LoginSheet from '@/components/ui/LoginSheet';
-import { isUserCancellation } from '@/utils/errors/errorHandler';
+import { getErrorMessage, isUserCancellation, shouldShowError } from '@/utils/errors/errorHandler';
 
 // Login logo: PNG 4x on Android (avoids SVG stroke clipping), SVG on iOS
 const orbytLogoLoginPng = require('@/assets/orbyt-logo-login.png');
@@ -100,9 +100,17 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
           { text: t('common.cancel'), style: 'cancel' },
           {
             text: t('auth.signIn'),
-            onPress: async () => {
-              await signIn(account.originalIdentifier);
-              await loadSavedAccounts();
+            onPress: () => {
+              void (async () => {
+                try {
+                  await signIn(account.originalIdentifier);
+                  await loadSavedAccounts();
+                } catch (err) {
+                  if (shouldShowError(err)) {
+                    Alert.alert(t('common.error'), getErrorMessage(err));
+                  }
+                }
+              })();
             },
           },
         ]

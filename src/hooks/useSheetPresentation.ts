@@ -27,10 +27,9 @@ export function useSheetPresentation(visible: boolean, name: string): void {
       wasVisibleRef.current = visible;
       if (visible) {
         TrueSheet.present(name).catch(() => {});
-      } else {
-        // Ensure native sheet is closed on first mount/reload when JS state says hidden.
-        TrueSheet.dismiss(name).catch(() => {});
       }
+      // When hidden on first mount, do not call dismiss — the native TrueSheet may not
+      // exist yet (avoids "Could not find TrueSheet instance" warnings).
       return;
     }
 
@@ -45,8 +44,10 @@ export function useSheetPresentation(visible: boolean, name: string): void {
 
   useEffect(
     () => () => {
-      // Defensive cleanup: if a sheet component unmounts while visible, force native dismissal.
-      TrueSheet.dismiss(name).catch(() => {});
+      // Only dismiss if we ever presented — avoids spurious warnings when hidden sheets unmount.
+      if (wasVisibleRef.current) {
+        TrueSheet.dismiss(name).catch(() => {});
+      }
     },
     [name]
   );

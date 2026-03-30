@@ -11,6 +11,13 @@ export class ErrorHandler {
    */
   static handleError(error: unknown, context: string): AppError {
     const errorMessage = this.getErrorMessage(error);
+    if (this.isRuntimeTeardownError(error) || this.isUserCancellation(error)) {
+      return {
+        message: errorMessage,
+        code: this.getErrorCode(error),
+        details: error,
+      };
+    }
     const appError: AppError = {
       message: errorMessage,
       code: this.getErrorCode(error),
@@ -92,6 +99,12 @@ export class ErrorHandler {
     );
   }
 
+  /** Metro reload / dev client teardown — not actionable for error reporting */
+  static isRuntimeTeardownError(error: unknown): boolean {
+    const message = this.getErrorMessage(error).toLowerCase();
+    return message.includes('react native runtime is shutting down');
+  }
+
   /**
    * Get appropriate error message based on error type
    */
@@ -149,7 +162,11 @@ export function getErrorMessage(error: unknown): string {
 }
 
 export function shouldShowError(error: unknown): boolean {
-  return !ErrorHandler.isUserCancellation(error);
+  return !ErrorHandler.isUserCancellation(error) && !ErrorHandler.isRuntimeTeardownError(error);
+}
+
+export function isRuntimeTeardownError(error: unknown): boolean {
+  return ErrorHandler.isRuntimeTeardownError(error);
 }
 
 export const CommonErrorHandlers = {
