@@ -8,10 +8,12 @@ import {
   TextInput,
   LayoutAnimation,
   ActivityIndicator,
+  InteractionManager,
 } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
+import { Image as ImageCompressor } from 'react-native-compressor';
 import Animated, {
   cancelAnimation,
   useSharedValue,
@@ -65,6 +67,37 @@ function normalizeKlipyAssetUrl(url: string | undefined): string | undefined {
 function isLikelyRasterImageUrl(url: string): boolean {
   const clean = url.split('?')[0].toLowerCase();
   return /\.(gif|webp|png|jpe?g)$/i.test(clean);
+}
+
+async function ensureCommentUploadImage(uri: string): Promise<string> {
+  const MAX_UPLOAD_BYTES = 1_000_000;
+  const TARGET_MAX_BYTES = 950_000;
+
+  const readSize = async (targetUri: string): Promise<number> => {
+    const response = await fetch(targetUri);
+    if (!response.ok) throw new Error(`Failed to read image (${response.status})`);
+    const blob = await response.blob();
+    return blob.size;
+  };
+
+  let candidateUri = uri;
+  let size = await readSize(candidateUri);
+  if (size <= MAX_UPLOAD_BYTES) return candidateUri;
+
+  const qualitySteps = [0.8, 0.65, 0.5, 0.4];
+  for (const quality of qualitySteps) {
+    candidateUri = await ImageCompressor.compress(candidateUri, {
+      compressionMethod: 'manual',
+      output: 'jpg',
+      quality,
+      maxWidth: 1600,
+      maxHeight: 1600,
+    });
+    size = await readSize(candidateUri);
+    if (size <= TARGET_MAX_BYTES) return candidateUri;
+  }
+
+  throw new Error('Selected image is too large to upload');
 }
 
 /** Prefer static preview for Bluesky thumb upload; allow protocol-relative URLs and image fullUrl fallback. */
@@ -199,12 +232,19 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   }, []);
 
   const refocusInputAfterAttachment = useCallback(() => {
-    requestIdleCallback(
-      () => {
-        setTimeout(() => inputRef.current?.focus?.(), 150);
-      },
-      { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
-    );
+    const focusInput = () => {
+      // Retry once because native pickers/sheets can briefly steal focus during close animation.
+      setTimeout(() => inputRef.current?.focus?.(), 120);
+      setTimeout(() => inputRef.current?.focus?.(), 260);
+    };
+
+    InteractionManager.runAfterInteractions(() => {
+      if (typeof requestIdleCallback === 'function') {
+        requestIdleCallback(focusInput, { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT });
+        return;
+      }
+      focusInput();
+    });
   }, []);
 
   const handleGifPickerClosed = useCallback(() => {
@@ -217,23 +257,28 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       setSelectedGif(item);
       setSelectedImages([]);
       closeGifPicker();
+      refocusInputAfterAttachment();
     },
-    [closeGifPicker]
+    [closeGifPicker, refocusInputAfterAttachment]
   );
 
   const handlePickImages = useCallback(async () => {
+    let shouldRefocusInput = false;
+
     try {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permissionResult.granted) {
         Alert.alert(t('video.permissionRequired'), t('video.mediaLibraryPermissionRequired'));
+        shouldRefocusInput = true;
         return;
       }
 
+      shouldRefocusInput = true;
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsMultipleSelection: true,
         selectionLimit: 4,
-        quality: 0.9,
+        quality: 1,
         allowsEditing: false,
       });
 
@@ -241,28 +286,39 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       const assets = result.assets ?? [];
       if (!assets.length) return;
 
-      const next = assets
-        .filter(a => a?.uri)
-        .slice(0, 4)
-        .map(a => {
-          const width = typeof a.width === 'number' ? a.width : undefined;
-          const height = typeof a.height === 'number' ? a.height : undefined;
-          const aspectRatio =
-            width && height && width > 0 && height > 0 ? { width, height } : undefined;
-          return {
-            uri: a.uri,
-            alt: '',
-            aspectRatio,
-          };
-        });
+      const next = await Promise.all(
+        assets
+          .filter(a => a?.uri)
+          .slice(0, 4)
+          .map(async a => {
+            const width = typeof a.width === 'number' ? a.width : undefined;
+            const height = typeof a.height === 'number' ? a.height : undefined;
+            const aspectRatio =
+              width && height && width > 0 && height > 0 ? { width, height } : undefined;
+            const safeUploadUri = await ensureCommentUploadImage(a.uri);
+            return {
+              uri: safeUploadUri,
+              alt: '',
+              aspectRatio,
+            };
+          })
+      );
 
       if (next.length) {
         setSelectedImages(next);
         setSelectedGif(null);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message.toLowerCase() : '';
+      if (message.includes('too large')) {
+        Alert.alert(t('common.error'), 'Image is too large to upload. Try a smaller photo.');
+      } else {
+        Alert.alert(t('common.error'), t('video.failedToAccessGallery'));
+      }
+    } finally {
+      if (shouldRefocusInput) {
         refocusInputAfterAttachment();
       }
-    } catch {
-      Alert.alert(t('common.error'), t('video.failedToAccessGallery'));
     }
   }, [t, refocusInputAfterAttachment]);
 
@@ -679,8 +735,13 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       }, 300);
 
       setTimeout(() => inputRef.current?.focus?.(), 100);
-    } catch {
-      Alert.alert(t('common.error'), t('comments.failedToPost'));
+    } catch (error) {
+      const message = error instanceof Error ? error.message.toLowerCase() : '';
+      if (message.includes('1,000,000 byte limit') || message.includes('too large')) {
+        Alert.alert(t('common.error'), 'Image is too large to upload. Try a smaller photo.');
+      } else {
+        Alert.alert(t('common.error'), t('comments.failedToPost'));
+      }
     } finally {
       setIsPosting(false);
     }

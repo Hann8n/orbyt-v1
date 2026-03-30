@@ -100,51 +100,54 @@ export async function postComment(
       external: externalPayload,
     } as PostRecord['embed'];
   } else if (images && images.length > 0) {
-    try {
-      const inferImageEncoding = (uri: string, blob: Blob): string => {
-        const fromBlob = typeof blob?.type === 'string' ? blob.type : '';
-        if (fromBlob.startsWith('image/')) return fromBlob;
+    const inferImageEncoding = (uri: string, blob: Blob): string => {
+      const fromBlob = typeof blob?.type === 'string' ? blob.type.toLowerCase() : '';
+      if (fromBlob === 'image/png') return 'image/png';
+      if (fromBlob === 'image/webp') return 'image/webp';
+      if (fromBlob === 'image/gif') return 'image/gif';
+      if (fromBlob === 'image/jpeg' || fromBlob === 'image/jpg') return 'image/jpeg';
 
-        const clean = uri.split('?')[0].toLowerCase();
-        if (clean.endsWith('.png')) return 'image/png';
-        if (clean.endsWith('.webp')) return 'image/webp';
-        if (clean.endsWith('.gif')) return 'image/gif';
-        if (clean.endsWith('.jpg') || clean.endsWith('.jpeg')) return 'image/jpeg';
+      const clean = uri.split('?')[0].toLowerCase();
+      if (clean.endsWith('.png')) return 'image/png';
+      if (clean.endsWith('.webp')) return 'image/webp';
+      if (clean.endsWith('.gif')) return 'image/gif';
+      if (clean.endsWith('.jpg') || clean.endsWith('.jpeg') || clean.endsWith('.heic')) {
         return 'image/jpeg';
-      };
+      }
+      return 'image/jpeg';
+    };
 
-      // Upload each image and get its blob reference
-      const uploadedImages = await Promise.all(
-        images.map(async img => {
-          if (img.uri.startsWith('file://')) {
-            const response = await fetch(img.uri);
-            const blob = await response.blob();
+    const MAX_IMAGE_BYTES = 1_000_000;
 
-            // Upload the blob to Bluesky
-            const { api } = await AtprotoCore.getApiClient();
-            const uploadResult = await api.uploadBlob(blob, {
-              encoding: inferImageEncoding(img.uri, blob),
-            });
+    // Upload each image and include the returned blob in app.bsky.embed.images
+    const uploadedImages = await Promise.all(
+      images.slice(0, 4).map(async img => {
+        const response = await fetch(img.uri);
+        if (!response.ok) {
+          throw new Error(`Failed to read image before upload (${response.status})`);
+        }
 
-            return {
-              image: uploadResult.data.blob,
-              alt: img.alt || 'Image',
-              aspectRatio: img.aspectRatio,
-            };
-          } else {
-            throw new Error('Unsupported image URI format');
-          }
-        })
-      );
+        const blob = await response.blob();
+        if (blob.size > MAX_IMAGE_BYTES) {
+          throw new Error(`Image exceeds 1,000,000 byte limit (${blob.size})`);
+        }
 
-      // Add embed with images to post record
-      postRecord.embed = {
-        $type: 'app.bsky.embed.images',
-        images: uploadedImages,
-      };
-    } catch (_error) {
-      // Continue without images if there was an error
-    }
+        const uploadResult = await api.uploadBlob(blob, {
+          encoding: inferImageEncoding(img.uri, blob),
+        });
+
+        return {
+          image: uploadResult.data.blob,
+          alt: img.alt ?? '',
+          aspectRatio: img.aspectRatio,
+        };
+      })
+    );
+
+    postRecord.embed = {
+      $type: 'app.bsky.embed.images',
+      images: uploadedImages,
+    };
   }
 
   const commentResponse = await api.post(postRecord);
