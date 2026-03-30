@@ -324,7 +324,7 @@ const VideoScrubberComponent = ({
   const barOpacitySV = useDerivedValue(() => {
     'worklet';
     const seekingAnim = seekingAnimationSV.get();
-    return interpolate(seekingAnim, [0, 1], [0.5, 0.8]);
+    return interpolate(seekingAnim, [0, 1], [0.72, 1]);
   }, [seekingAnimationSV]);
 
   const trackHeightSV = useDerivedValue(() => {
@@ -357,10 +357,10 @@ const VideoScrubberComponent = ({
     'worklet';
     const seekingAnim = seekingAnimationSV.get();
     const containerOpacity = overlayOpacitySV ? overlayOpacitySV.value : overlayVisibility.value;
-    // During scrubbing, ensure track/progress bar stays visible (min 0.8 opacity)
+    // During scrubbing, ensure track/progress bar stays visible (min 0.95 opacity)
     // Otherwise use container opacity
     return {
-      opacity: seekingAnim > 0 ? Math.max(containerOpacity, 0.8) : containerOpacity,
+      opacity: seekingAnim > 0 ? Math.max(containerOpacity, 0.95) : containerOpacity,
     };
   });
 
@@ -403,7 +403,7 @@ const VideoScrubberComponent = ({
                 width={screenWidth}
                 height={trackHeightSV}
                 color={Colors.neutral[50]}
-                opacity={0.2}
+                opacity={0.45}
               />
               <Rect
                 x={0}
