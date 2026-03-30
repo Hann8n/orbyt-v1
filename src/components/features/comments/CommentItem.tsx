@@ -41,7 +41,7 @@ import { Typography, FontFamily } from '../../../utils/components/typography';
 import { hexToRGBA } from '../../../utils/formatting/colors';
 import { Colors } from '../../../theme';
 import UI from '../../ui/UI';
-import { HeartFillIcon, MoreFillIcon } from '../../ui/Icon';
+import { CommentHeartFillIcon, MoreFillIcon } from '../../ui/Icon';
 import { VerificationBadge, BotBadge } from '../badging';
 import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
 import RelativeDate from '../../ui/RelativeDate';
@@ -1191,7 +1191,10 @@ const CommentItem: React.FC<CommentItemProps> = ({
             disabled={isLiking}
           >
             <Animated.View style={heartAnimatedStyle}>
-              <HeartFillIcon size={20} color={isLiked ? Colors.coral[500] : Colors.neutral[400]} />
+              <CommentHeartFillIcon
+                size={20}
+                color={isLiked ? Colors.coral[500] : Colors.neutral[500]}
+              />
             </Animated.View>
           </NativePressable>
           {likeCount > 0 && <Text style={styles.likeCount}>{formatNumber(likeCount)}</Text>}

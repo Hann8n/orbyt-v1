@@ -1206,7 +1206,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
           <Animated.View style={headerHeartStyle}>
             <HeartFillIcon
               size={26}
-              color={headerVisualLiked ? Colors.coral[500] : Colors.neutral[400]}
+              color={headerVisualLiked ? Colors.coral[500] : Colors.neutral[500]}
             />
           </Animated.View>
         </NativePressable>
