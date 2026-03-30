@@ -355,6 +355,8 @@
     "posts": "Publications",
     "replies": "Réponses",
     "live": "DIRECT",
+    "avatarMenuSeeLiveInfo": "Voir les infos du direct",
+    "avatarMenuViewProfilePicture": "Voir la photo de profil",
     "couldNotLoadLiveStream": "Impossible de charger le stream",
     "couldNotLoadVerification": "Impossible de charger les infos de vérification",
     "sinceDate": "Depuis {{date}}",

@@ -356,6 +356,8 @@
     "posts": "Posts",
     "replies": "Replies",
     "live": "LIVE",
+    "avatarMenuSeeLiveInfo": "See Live info",
+    "avatarMenuViewProfilePicture": "View Profile picture",
     "couldNotLoadLiveStream": "Could not load live stream information",
     "couldNotLoadVerification": "Could not load verification information",
     "sinceDate": "Since {{date}}",

@@ -354,6 +354,8 @@
     "posts": "投稿",
     "replies": "返信",
     "live": "ライブ",
+    "avatarMenuSeeLiveInfo": "ライブ情報を見る",
+    "avatarMenuViewProfilePicture": "プロフィール画像を表示",
     "couldNotLoadLiveStream": "ライブ配信情報を読み込めませんでした",
     "couldNotLoadVerification": "認証情報を読み込めませんでした",
     "sinceDate": "{{date}}以降",

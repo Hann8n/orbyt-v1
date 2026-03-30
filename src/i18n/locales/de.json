@@ -355,6 +355,8 @@
     "posts": "Beiträge",
     "replies": "Antworten",
     "live": "LIVE",
+    "avatarMenuSeeLiveInfo": "Live-Infos anzeigen",
+    "avatarMenuViewProfilePicture": "Profilbild anzeigen",
     "couldNotLoadLiveStream": "Live-Stream-Infos konnten nicht geladen werden",
     "couldNotLoadVerification": "Verifizierungsinfos konnten nicht geladen werden",
     "sinceDate": "Seit {{date}}",

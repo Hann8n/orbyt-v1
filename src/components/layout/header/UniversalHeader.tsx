@@ -1,4 +1,6 @@
 import React, { memo, useCallback, useMemo, useLayoutEffect } from 'react';
+import { MenuView } from '@react-native-menu/menu';
+import type { MenuAction } from '@react-native-menu/menu';
 import { BORDER_RADIUS, ICON_SIZES } from '../../../utils/constants';
 import {
   View,
@@ -101,6 +103,9 @@ export interface HeaderContent {
   hideAvatar?: boolean;
   avatarBlurRadius?: number;
   status?: import('../../../services/api/types').StatusView; // Status for live indicator
+  /** When set (e.g. live avatar), opens native menu instead of single onAvatarPress. */
+  avatarMenuActions?: MenuAction[];
+  onAvatarMenuAction?: (actionId: string) => void;
 }
 
 export interface CustomActionLayout {
@@ -749,29 +754,52 @@ const HeaderContentComponent = memo<{
     return null;
   }
 
+  const avatarMenuActions = content.avatarMenuActions;
+  const useAvatarMenu = Boolean(avatarMenuActions && avatarMenuActions.length > 0);
+
+  const avatarPressable = (
+    <NativePressable
+      style={[
+        styles.avatar,
+        content.avatarStyle === 'rounded-square' && styles.avatarRoundedSquare,
+        content.hideAvatar && styles.hiddenAvatar,
+      ]}
+      onPress={useAvatarMenu ? undefined : content.onAvatarPress}
+    >
+      {!content.hideAvatar && (
+        <Avatar
+          uri={content.avatar}
+          type={content.avatarStyle === 'rounded-square' ? 'channel' : 'profile'}
+          size={120}
+          profileColors={{ backgroundColor, textColor, foregroundColor: textColor }}
+          showRing={true}
+          blurRadius={content.avatarBlurRadius}
+          status={content.status}
+        />
+      )}
+    </NativePressable>
+  );
+
   return (
     <View style={styles.contentContainer}>
       <View style={styles.avatarContainer}>
-        <NativePressable
-          style={[
-            styles.avatar,
-            content.avatarStyle === 'rounded-square' && styles.avatarRoundedSquare,
-            content.hideAvatar && styles.hiddenAvatar,
-          ]}
-          onPress={content.onAvatarPress}
-        >
-          {!content.hideAvatar && (
-            <Avatar
-              uri={content.avatar}
-              type={content.avatarStyle === 'rounded-square' ? 'channel' : 'profile'}
-              size={120}
-              profileColors={{ backgroundColor, textColor, foregroundColor: textColor }}
-              showRing={true}
-              blurRadius={content.avatarBlurRadius}
-              status={content.status}
-            />
-          )}
-        </NativePressable>
+        {useAvatarMenu && avatarMenuActions ? (
+          <MenuView
+            title=""
+            actions={avatarMenuActions}
+            shouldOpenOnLongPress={false}
+            themeVariant="dark"
+            isAnchoredToRight={false}
+            onPressAction={({ nativeEvent }: { nativeEvent: { event?: string } }) => {
+              const id = nativeEvent?.event;
+              if (id) content.onAvatarMenuAction?.(id);
+            }}
+          >
+            {avatarPressable}
+          </MenuView>
+        ) : (
+          avatarPressable
+        )}
       </View>
 
       <View

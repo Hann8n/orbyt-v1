@@ -51,6 +51,7 @@ import ProfileMenu from '@/components/features/profile/ProfileMenu';
 import GermDisconnectSheet from '@/components/features/profile/GermDisconnectSheet';
 import SubscriptionOptionsSheet from '@/components/features/profile/SubscriptionOptionsSheet';
 import LiveStreamInfoSheet from '@/components/features/profile/LiveStreamInfoSheet';
+import type { MenuAction } from '@react-native-menu/menu';
 import { tabRefs, type FeedPagerRef } from '@/utils/navigation/tabRefs';
 import type { ViewMode } from '@/types';
 import { useOrbytColors } from '@/services/colors';
@@ -285,6 +286,28 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   }, [isViewingOwnProfile]);
   const [showLiveStreamSheet, setShowLiveStreamSheet] = useState(false);
   const [fullscreenImageUri, setFullscreenImageUri] = useState<string | null>(null);
+
+  const liveAvatarMenuActions = useMemo<MenuAction[]>(() => {
+    if (!isLive) return [];
+    const actions: MenuAction[] = [{ id: 'liveInfo', title: t('profile.avatarMenuSeeLiveInfo') }];
+    if (profileData?.avatar) {
+      actions.push({ id: 'viewAvatar', title: t('profile.avatarMenuViewProfilePicture') });
+    }
+    return actions;
+  }, [isLive, profileData?.avatar, t]);
+
+  const onLiveAvatarMenuAction = useCallback(
+    (actionId: string) => {
+      if (actionId === 'liveInfo') {
+        setShowLiveStreamSheet(true);
+        return;
+      }
+      if (actionId === 'viewAvatar' && profileData?.avatar) {
+        setFullscreenImageUri(profileData.avatar);
+      }
+    },
+    [profileData?.avatar]
+  );
 
   const followMutation = useFollowMutation();
   const blockMutation = useBlockMutation();
@@ -650,13 +673,16 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
                 applySafeArea
                 controlStatusBar
                 subtitleAction={germSubtitleAction}
-                onAvatarPress={
-                  isLive
-                    ? () => setShowLiveStreamSheet(true)
-                    : profileData?.avatar
-                      ? () => setFullscreenImageUri(profileData.avatar || null)
-                      : undefined
-                }
+                {...(liveAvatarMenuActions.length > 0
+                  ? {
+                      avatarMenuActions: liveAvatarMenuActions,
+                      onAvatarMenuAction: onLiveAvatarMenuAction,
+                    }
+                  : {
+                      onAvatarPress: profileData?.avatar
+                        ? () => setFullscreenImageUri(profileData.avatar || null)
+                        : undefined,
+                    })}
               >
                 <TabNavigation
                   key={`tab-nav-${profileColors.textColor}`}

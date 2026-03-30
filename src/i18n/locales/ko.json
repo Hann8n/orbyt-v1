@@ -355,6 +355,8 @@
     "posts": "게시물",
     "replies": "답글",
     "live": "LIVE",
+    "avatarMenuSeeLiveInfo": "라이브 정보 보기",
+    "avatarMenuViewProfilePicture": "프로필 사진 보기",
     "couldNotLoadLiveStream": "라이브 스트림 정보를 불러올 수 없어요",
     "couldNotLoadVerification": "인증 정보를 불러올 수 없어요",
     "sinceDate": "{{date}}부터",

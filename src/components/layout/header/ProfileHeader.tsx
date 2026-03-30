@@ -4,6 +4,7 @@ import { Alert, StatusBar, StyleProp, ViewStyle } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { useIsFocused } from '@react-navigation/native';
 import { useAnimatedReaction, runOnJS, type SharedValue } from 'react-native-reanimated';
+import type { MenuAction } from '@react-native-menu/menu';
 import UniversalHeader, { HeaderContent } from './UniversalHeader';
 import type { ProfileViewWithOrbyt } from '../../../services/api/types';
 import { getProfileColors } from '../../../utils/formatting/colors';
@@ -33,6 +34,8 @@ interface ProfileHeaderProps {
   contentFadeDisabled?: boolean;
   dimOverlayDisabled?: boolean;
   onAvatarPress?: () => void;
+  avatarMenuActions?: MenuAction[];
+  onAvatarMenuAction?: (actionId: string) => void;
   /** When true, this header controls StatusBar. Default true. */
   controlStatusBar?: boolean;
   /** DID to fetch colors for */
@@ -53,6 +56,8 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   contentFadeDisabled = false,
   dimOverlayDisabled = false,
   onAvatarPress,
+  avatarMenuActions,
+  onAvatarMenuAction,
   controlStatusBar = true,
   did,
   profileData,
@@ -221,7 +226,13 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       ) : undefined,
       avatarBlurRadius: isBlocked ? 30 : 0,
       status: profileData?.status,
-      onAvatarPress,
+      ...(avatarMenuActions?.length
+        ? {
+            avatarMenuActions,
+            onAvatarMenuAction,
+            onAvatarPress: undefined,
+          }
+        : { onAvatarPress }),
     };
   }, [
     profileData,
@@ -231,6 +242,8 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     blockingByList,
     handleListPress,
     onAvatarPress,
+    avatarMenuActions,
+    onAvatarMenuAction,
     subtitleAction,
     showBotAccountAlert,
     showVerificationInfoAlert,
