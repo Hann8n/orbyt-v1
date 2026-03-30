@@ -267,6 +267,80 @@ const retryButtonStyles = StyleSheet.create({
   },
 });
 
+/** Matches {@link RetryButton} — use for secondary actions (e.g. Go back) on error / empty states. */
+interface GoBackButtonProps {
+  onPress: () => void;
+  style?: ViewStyle;
+}
+
+export const GoBackButton: React.FC<GoBackButtonProps> = ({ onPress, style }) => {
+  const { t } = useTranslation();
+  const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
+
+  const buttonContent = (
+    <View style={goBackButtonStyles.buttonContent} pointerEvents="none">
+      <Text style={goBackButtonStyles.text} pointerEvents="none">
+        {t('common.goBack')}
+      </Text>
+    </View>
+  );
+
+  return (
+    <NativePressable
+      style={[goBackButtonStyles.button, !useLiquidGlass && goBackButtonStyles.whiteButton, style]}
+      onPress={onPress}
+    >
+      {useLiquidGlass ? (
+        <>
+          <GlassView
+            style={goBackButtonStyles.glassBackground}
+            glassEffectStyle="clear"
+            tintColor="rgba(255, 255, 255, 1)"
+            isInteractive
+          />
+          {buttonContent}
+        </>
+      ) : (
+        buttonContent
+      )}
+    </NativePressable>
+  );
+};
+
+const goBackButtonStyles = StyleSheet.create({
+  button: {
+    borderRadius: BORDER_RADIUS.FULL,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    overflow: 'hidden',
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 44,
+    marginTop: 20,
+  },
+  buttonContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  whiteButton: {
+    backgroundColor: Colors.neutral[50],
+  },
+  glassBackground: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: BORDER_RADIUS.FULL,
+  },
+  text: {
+    color: Colors.black,
+    fontSize: 16,
+    fontFamily: 'Figtree-SemiBold',
+  },
+});
+
 // Icon Component
 
 // Avatar Component
@@ -1000,6 +1074,7 @@ export default {
   Colors,
   Button,
   RetryButton,
+  GoBackButton,
   Card,
   Modal,
   Input,

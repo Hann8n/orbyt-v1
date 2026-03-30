@@ -4,11 +4,15 @@ import { Colors } from '@/theme';
 
 /**
  * Single source of truth for full-bleed **profile** and **channel** screens:
- * root container, loading overlay, and shared `FeedPager` / `TabNavigation` defaults.
+ * root container, loading overlay, shared `FeedPager` / `TabNavigation` defaults,
+ * and the shared not-found / error full-screen state (`ProfileChannelErrorScreen`).
  *
  * Use `ProfileChannelFeedLayout` as the outer shell; pair with `DetailScreenOverlay` + `FeedPager`
  * the same way in `app/(tabs)/profile` and `app/channel/channel`.
  */
+
+export { ProfileChannelErrorScreen } from './ProfileChannelErrorScreen';
+export type { ProfileChannelErrorScreenProps } from './ProfileChannelErrorScreen';
 
 /** Pixels below measured safe-area top for detail-screen overlay controls (profile + channel). */
 export const PROFILE_CHANNEL_FEED_OVERLAY_TOP_OFFSET = 5;

@@ -5,15 +5,14 @@
 
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, Text, StyleSheet, Linking, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, Linking, Alert } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativePressable } from './NativePressable';
 import { useRouter, useSegments } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import { logger } from '../../utils/logger';
-import { Colors, RetryButton } from './UI';
-import { BORDER_RADIUS } from '../../utils/constants';
-import { isLiquidGlassAvailable } from 'expo-glass-effect';
-import { GlassView } from 'expo-glass-effect';
+import { Colors } from './UI';
+import CancelButton from './CancelButton';
 import { getDeviceInfo } from '../../utils/version';
 
 export interface ErrorBoundaryProps {
@@ -153,75 +152,6 @@ interface ErrorFallbackProps {
   level?: 'root' | 'feature' | 'component';
 }
 
-// Go Back Button Component - matches RetryButton styling
-const GoBackButton: React.FC<{ onPress: () => void }> = ({ onPress }) => {
-  const { t } = useTranslation();
-  const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
-
-  const buttonContent = (
-    <View style={goBackButtonStyles.buttonContent} pointerEvents="none">
-      <Text style={[goBackButtonStyles.text]} pointerEvents="none">
-        {t('common.goBack')}
-      </Text>
-    </View>
-  );
-
-  return (
-    <NativePressable
-      style={[goBackButtonStyles.button, !useLiquidGlass && goBackButtonStyles.whiteButton]}
-      onPress={onPress}
-    >
-      {useLiquidGlass ? (
-        <>
-          <GlassView
-            style={goBackButtonStyles.glassBackground}
-            glassEffectStyle="clear"
-            tintColor="rgba(255, 255, 255, 1)"
-            isInteractive
-          />
-          {buttonContent}
-        </>
-      ) : (
-        buttonContent
-      )}
-    </NativePressable>
-  );
-};
-
-const goBackButtonStyles = StyleSheet.create({
-  button: {
-    borderRadius: BORDER_RADIUS.FULL,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    overflow: 'hidden',
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    minHeight: 44,
-    marginTop: 20,
-  },
-  buttonContent: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  whiteButton: {
-    backgroundColor: Colors.neutral[50],
-  },
-  glassBackground: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: BORDER_RADIUS.FULL,
-  },
-  text: {
-    color: Colors.black,
-    fontSize: 16,
-    fontFamily: 'Figtree-SemiBold',
-  },
-});
-
 const ErrorFallback: React.FC<ErrorFallbackProps> = ({
   error,
   errorInfo: _errorInfo,
@@ -231,6 +161,7 @@ const ErrorFallback: React.FC<ErrorFallbackProps> = ({
   const { t } = useTranslation();
   const router = useRouter();
   const segments = useSegments();
+  const insets = useSafeAreaInsets();
 
   // Check if we can go back (not at root)
   const canGoBack = segments.length > 0 && !(segments.length === 1 && segments[0] === '(tabs)');
@@ -336,17 +267,21 @@ ${t('errors.deviceInfoUnavailable')}`;
         </NativePressable>
       </View>
 
-      <View style={styles.buttonContainer}>
-        <View style={styles.actionButtonsContainer}>
-          {canGoBack && (
-            <View style={styles.buttonWrapper}>
-              <GoBackButton onPress={() => router.back()} />
-            </View>
-          )}
-          <View style={styles.buttonWrapper}>
-            <RetryButton onPress={onReset} />
-          </View>
-        </View>
+      <View style={[styles.buttonContainer, { paddingBottom: Math.max(insets.bottom, 12) + 16 }]}>
+        <CancelButton
+          onPress={onReset}
+          text={t('errors.tryAgain')}
+          variant="primary"
+          style={styles.fullWidthAction}
+        />
+        {canGoBack ? (
+          <CancelButton
+            onPress={() => router.back()}
+            text={t('common.goBack')}
+            variant="default"
+            style={styles.fullWidthAction}
+          />
+        ) : null}
       </View>
     </View>
   );
@@ -394,20 +329,16 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     width: '100%',
-    alignItems: 'flex-start',
+    alignItems: 'stretch',
     paddingHorizontal: 24,
-    paddingBottom: 50,
+    paddingTop: 16,
     maxWidth: 400,
     alignSelf: 'center',
-  },
-  actionButtonsContainer: {
-    flexDirection: 'row',
-    width: '100%',
     gap: 12,
-    marginTop: 0,
   },
-  buttonWrapper: {
-    flex: 1,
+  fullWidthAction: {
+    alignSelf: 'stretch',
+    width: '100%',
   },
   supportLink: {
     paddingVertical: 8,

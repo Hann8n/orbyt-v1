@@ -10,7 +10,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { BORDER_RADIUS, APP_CONSTANTS, ICON_SIZES } from '@/utils/constants';
 import { getEffectiveTopInset } from '@/utils/device/screen';
-import { View, Text, StyleSheet, Dimensions, Modal, Platform, Linking } from 'react-native';
+import { View, StyleSheet, Modal, Platform, Linking } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { Image } from 'expo-image';
 import { FeedPager } from '@/components';
@@ -23,18 +23,14 @@ import {
 import { getProfileColors, hexToRGBA } from '@/utils/formatting/colors';
 import type { ProfileViewWithOrbyt } from '@/services/api/types';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import Icon, {
-  FollowIcon,
-  MutualHeartIcon,
-  BellFilledIcon,
-  MoreFillIcon,
-} from '@/components/ui/Icon';
+import { FollowIcon, MutualHeartIcon, BellFilledIcon, MoreFillIcon } from '@/components/ui/Icon';
 import { useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import { ProfileHeader, TabNavigation, TabOption } from '@/components/layout/header';
 import DetailScreenOverlay from '@/components/layout/detail/DetailScreenOverlay';
 import {
   ProfileChannelFeedLayout,
   ProfileChannelFeedLoadingOverlay,
+  ProfileChannelErrorScreen,
   PROFILE_CHANNEL_FEED_OVERLAY_TOP_OFFSET,
   PROFILE_CHANNEL_FEED_PAGER_DEFAULTS,
   PROFILE_CHANNEL_TAB_NAVIGATION_DEFAULTS,
@@ -263,53 +259,18 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   );
 
   const renderErrorScreen = useMemo(() => {
+    const subtitle = providedIdentifier
+      ? t('profile.notFoundFor', { identifier: providedIdentifier })
+      : profileError || t('profile.retrieveFailed');
     return (
-      <View
-        style={[
-          styles.errorContainer,
-          { backgroundColor: profileColors.backgroundColor || '#000' },
-        ]}
-      >
-        <Icon
-          name="user_x"
-          size={48}
-          color={profileColors.textColor || '#fff'}
-          style={styles.errorIcon}
-        />
-        <Text style={[styles.errorText, { color: profileColors.textColor || '#fff' }]}>
-          {t('profile.notFound')}
-        </Text>
-        <Text style={styles.errorSubtext}>
-          {providedIdentifier
-            ? t('profile.notFoundFor', { identifier: providedIdentifier })
-            : profileError || t('profile.retrieveFailed')}
-        </Text>
-        <NativePressable style={styles.errorButton} onPress={onRefresh}>
-          <Text style={[styles.errorButtonText, { color: profileColors.textColor || '#fff' }]}>
-            {t('errors.tryAgain')}
-          </Text>
-        </NativePressable>
-        {providedIdentifier && (
-          <NativePressable
-            style={[styles.errorButton, styles.secondaryButton]}
-            onPress={() => router.back()}
-          >
-            <Text style={[styles.errorButtonText, { color: profileColors.textColor || '#fff' }]}>
-              {t('common.goBack')}
-            </Text>
-          </NativePressable>
-        )}
-      </View>
+      <ProfileChannelErrorScreen
+        title={t('profile.notFound')}
+        subtitle={subtitle}
+        onRetry={onRefresh}
+        onGoBack={providedIdentifier ? () => router.back() : undefined}
+      />
     );
-  }, [
-    profileColors.backgroundColor,
-    profileColors.textColor,
-    providedIdentifier,
-    profileError,
-    onRefresh,
-    router,
-    t,
-  ]);
+  }, [providedIdentifier, profileError, onRefresh, router, t]);
 
   const isLoading = (isProfileLoading || isHandleResolving) && !profileData;
 
@@ -624,18 +585,20 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
         backIconPrimaryStyle={backIconPrimaryStyle}
         backIconSecondaryStyle={backIconSecondaryStyle}
       >
-        <Animated.View style={[styles.overlayMenuWrap, overlayControlFadeAnimatedStyle]}>
-          <NativePressable
-            onPress={handleMenuPress}
-            onPressIn={handleMenuPressIn}
-            onLongPress={isOwnProfileView ? handleMenuLongPress : undefined}
-            delayLongPress={250}
-            style={styles.overlayMenuButton}
-            androidRippleBorderless
-          >
-            <MoreFillIcon size={24} color={profileColors.textColor || Colors.neutral[50]} />
-          </NativePressable>
-        </Animated.View>
+        {!showErrorScreen && (
+          <Animated.View style={[styles.overlayMenuWrap, overlayControlFadeAnimatedStyle]}>
+            <NativePressable
+              onPress={handleMenuPress}
+              onPressIn={handleMenuPressIn}
+              onLongPress={isOwnProfileView ? handleMenuLongPress : undefined}
+              delayLongPress={250}
+              style={styles.overlayMenuButton}
+              androidRippleBorderless
+            >
+              <MoreFillIcon size={24} color={profileColors.textColor || Colors.neutral[50]} />
+            </NativePressable>
+          </Animated.View>
+        )}
         {headerActions.length > 0 && (
           <Animated.View
             style={[styles.overlayActionsContainer, overlayControlFadeAnimatedStyle]}
@@ -796,47 +759,6 @@ export default ProfileScreen;
 // Optimized StyleSheet creation outside component
 const styles = StyleSheet.create({
   headerContainer: {
-    backgroundColor: Colors.transparent,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-    height: Dimensions.get('window').height,
-  },
-  errorIcon: {
-    marginBottom: 16,
-    opacity: 0.8,
-  },
-  errorText: {
-    textAlign: 'center',
-    marginVertical: 8,
-  },
-  errorSubtext: {
-    color: Colors.neutral[200],
-    fontSize: 16,
-    fontFamily: 'Figtree-Medium',
-    textAlign: 'center',
-    marginBottom: 24,
-    maxWidth: '80%',
-  },
-  errorButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.neutral[900],
-    borderRadius: BORDER_RADIUS.MEDIUM,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    marginTop: 20,
-    minWidth: 150,
-  },
-  errorButtonText: {
-    color: Colors.neutral[50],
-    fontSize: 16,
-    fontFamily: 'Figtree-SemiBold',
-  },
-  secondaryButton: {
     backgroundColor: Colors.transparent,
   },
   overlayMenuWrap: {

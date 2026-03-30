@@ -5,6 +5,7 @@ export { Colors } from '../../theme';
 export {
   Button,
   RetryButton,
+  GoBackButton,
   Card,
   Modal,
   Input,

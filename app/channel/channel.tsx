@@ -6,9 +6,7 @@ import {
   interpolate,
   Extrapolate,
 } from 'react-native-reanimated';
-import { BORDER_RADIUS } from '@/utils/constants';
-import { View, StyleSheet, Dimensions, Text } from 'react-native';
-import { NativePressable } from '@/components/ui/NativePressable';
+import { View, StyleSheet } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import ChannelHeader from '@/components/layout/header/ChannelHeader';
@@ -17,6 +15,7 @@ import DetailScreenOverlay from '@/components/layout/detail/DetailScreenOverlay'
 import {
   ProfileChannelFeedLayout,
   ProfileChannelFeedLoadingOverlay,
+  ProfileChannelErrorScreen,
   PROFILE_CHANNEL_FEED_OVERLAY_TOP_OFFSET,
   PROFILE_CHANNEL_FEED_PAGER_DEFAULTS,
   PROFILE_CHANNEL_TAB_NAVIGATION_DEFAULTS,
@@ -32,7 +31,6 @@ import {
 } from '@/services/data/ChannelService';
 import ProfileService from '@/services/data/ProfileService';
 import { extractColorsFromImage, hexToRGBA } from '@/utils/formatting/colors';
-import Icon from '@/components/ui/Icon';
 import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '@/hooks';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getEffectiveTopInset } from '@/utils/device/screen';
@@ -247,38 +245,12 @@ const Channel: React.FC = memo(() => {
   const showErrorScreen = !!channelError && !refreshing;
 
   const renderErrorScreen = () => (
-    <View style={styles.errorContainer}>
-      <Icon
-        name="user_x"
-        size={48}
-        color={channelColors.textColor || '#fff'}
-        style={styles.errorIcon}
-      />
-      <Text style={[styles.errorText, { color: channelColors.textColor || '#fff' }]}>
-        {t('channel.notFound')}
-      </Text>
-      <Text style={styles.errorSubtext}>{t('channel.retrieveFailed')}</Text>
-      <NativePressable
-        style={[styles.errorButton, { borderColor: (channelColors.textColor || '#fff') + '44' }]}
-        onPress={onRefresh}
-      >
-        <Text style={[styles.errorButtonText, { color: channelColors.textColor || '#fff' }]}>
-          {t('errors.tryAgain')}
-        </Text>
-      </NativePressable>
-      <NativePressable
-        style={[
-          styles.errorButton,
-          styles.secondaryButton,
-          { borderColor: (channelColors.textColor || '#fff') + '44' },
-        ]}
-        onPress={() => router.back()}
-      >
-        <Text style={[styles.errorButtonText, { color: channelColors.textColor || '#fff' }]}>
-          {t('common.goBack')}
-        </Text>
-      </NativePressable>
-    </View>
+    <ProfileChannelErrorScreen
+      title={t('channel.notFound')}
+      subtitle={t('channel.retrieveFailed')}
+      onRetry={onRefresh}
+      onGoBack={() => router.back()}
+    />
   );
 
   const tabOptions: TabOption[] = useMemo(
@@ -390,52 +362,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.transparent,
     marginBottom: 0,
     paddingBottom: 0,
-  },
-  errorContainer: {
-    flex: 1,
-    backgroundColor: Colors.black,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-    height: Dimensions.get('window').height,
-  },
-  errorIcon: {
-    marginBottom: 16,
-    opacity: 0.8,
-  },
-  errorText: {
-    color: Colors.neutral[50],
-    fontSize: 16,
-    textAlign: 'center',
-    fontFamily: 'Figtree-Medium',
-  },
-  errorSubtext: {
-    color: Colors.neutral[200],
-    fontSize: 16,
-    fontFamily: 'Figtree-Medium',
-    textAlign: 'center',
-    marginBottom: 24,
-    maxWidth: '80%',
-  },
-  errorButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.neutral[900],
-    borderRadius: BORDER_RADIUS.MEDIUM,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderWidth: 1,
-    marginTop: 20,
-    minWidth: 150,
-  },
-  errorButtonText: {
-    color: Colors.neutral[50],
-    fontSize: 16,
-    fontFamily: 'Figtree-SemiBold',
-  },
-  secondaryButton: {
-    backgroundColor: Colors.transparent,
-    borderColor: Colors.neutral[600],
   },
   overlayActionsContainer: {
     flexDirection: 'row',
