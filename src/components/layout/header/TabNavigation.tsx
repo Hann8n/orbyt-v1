@@ -1,5 +1,4 @@
 import React, { memo } from 'react';
-import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, StyleSheet, Text, StyleProp, ViewStyle } from 'react-native';
 import { MenuView } from '@react-native-menu/menu';
@@ -32,8 +31,6 @@ interface TabNavigationProps {
   reserveViewToggleSpace?: boolean;
   variant?: 'header' | 'comments'; // New prop to distinguish between header and comments styles
   dropdown?: boolean; // New prop to show as dropdown instead of tabs
-  /** i18n key for MenuView title when `dropdown` is true. Default: sort (e.g. channel top/latest). */
-  dropdownMenuTitleKey?: string;
 }
 
 const TabNavigation: React.FC<TabNavigationProps> = ({
@@ -51,9 +48,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
   reserveViewToggleSpace = true,
   variant = 'header', // Default to header variant
   dropdown = false, // Default to tabs
-  dropdownMenuTitleKey = 'tabs.sortBy',
 }) => {
-  const { t } = useTranslation();
   const handleViewModeChange = (mode: ViewMode) => {
     if (onViewModeChange) {
       onViewModeChange(mode);
@@ -85,7 +80,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
       <View style={[styles.tabContainer, variantStyle, { backgroundColor }, style]}>
         <View style={styles.dropdownMenuAnchor}>
           <MenuView
-            title={t(dropdownMenuTitleKey)}
+            title=""
             actions={dropdownActions}
             shouldOpenOnLongPress={false}
             themeVariant="dark"

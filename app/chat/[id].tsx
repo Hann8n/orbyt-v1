@@ -59,7 +59,6 @@ import VerticalListSheet, { VerticalListButton } from '@/components/ui/VerticalL
 import AuthorItem from '@/components/ui/AuthorItem';
 import { itemSizeConfig, sharedItemStyles } from '@/components/ui/ItemStyles';
 import { useAvatarProfileRing } from '@/services/colors';
-import { formatHandle } from '@/utils/formatting/handles';
 import { queryKeys } from '@/utils/query/queryKeys';
 import { getActiveStreak } from '@/utils/chat/streak';
 import { format, parseISO, isValid, isToday, isYesterday, differenceInMinutes } from 'date-fns';
@@ -1155,7 +1154,16 @@ export default function ChatScreen() {
   const convoFetched = openByDid ? convoByMembersFetched : convoByIdFetched;
   const convoId = openByDid ? (convo?.id ?? '') : rawId;
 
-  const { data: profile } = useProfileByDid(otherDid || null);
+  const {
+    data: profile,
+    isError: profileIsError,
+    isFetched: profileFetched,
+  } = useProfileByDid(otherDid || null);
+
+  const isOtherUserUnavailable =
+    !!otherDid &&
+    ((profileFetched && profileIsError) ||
+      (!!profile?.handle && profile.handle.endsWith('.invalid')));
   const otherRingProps = useAvatarProfileRing(otherDid || null);
   const currentUserRingProps = useAvatarProfileRing(currentUserDid ?? null);
   const sentMessageAccentColor = currentUserRingProps.ringColor || Colors.brand.teal;
@@ -1605,9 +1613,12 @@ export default function ChatScreen() {
   const { navigateToProfile: goToProfileFromChat } = useProfileChannelNavigation();
 
   const handleViewProfile = useCallback(() => {
-    TrueSheet.dismiss('chat-menu');
+    if (isOtherUserUnavailable) {
+      Alert.alert(t('chat.profileUnavailableTitle'), t('chat.profileUnavailableMessage'));
+      return;
+    }
     if (otherDid) goToProfileFromChat(otherDid);
-  }, [goToProfileFromChat, otherDid]);
+  }, [goToProfileFromChat, otherDid, isOtherUserUnavailable, t]);
 
   const muteConvoMutation = useMutation({
     mutationFn: (mute: boolean) =>
@@ -1615,7 +1626,6 @@ export default function ChatScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.detail(convoId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.all });
-      TrueSheet.dismiss('chat-menu');
     },
   });
 
@@ -1628,7 +1638,6 @@ export default function ChatScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations.detail(convoId) });
-      TrueSheet.dismiss('chat-menu');
       router.back();
     },
   });
@@ -1658,7 +1667,6 @@ export default function ChatScreen() {
         const success = await AtprotoService.reportContent(otherDid, reasonType);
         if (success) {
           Alert.alert(t('common.thankYou'), t('chat.conversationReported'));
-          TrueSheet.dismiss('chat-menu');
         } else {
           Alert.alert(t('common.error'), t('chat.failedToSubmitReport'));
         }
@@ -1685,11 +1693,13 @@ export default function ChatScreen() {
   }, [otherDid, reportConversation, t]);
 
   const handleBlockToggle = useCallback(() => {
-    if (!profile?.did || !profile?.handle) return;
+    const did = profile?.did ?? otherDid ?? '';
+    if (!did) return;
     if (blockMutation.isPending || isBlockedByList) return;
+    const handle =
+      profile?.handle && profile.handle.length > 0 ? profile.handle : 'unknown.invalid';
     if (isBlocked) {
-      blockMutation.mutate({ did: profile.did, handle: profile.handle, isBlocked: false });
-      TrueSheet.dismiss('chat-menu');
+      blockMutation.mutate({ did, handle, isBlocked: false });
     } else {
       Alert.alert(t('chat.blockUser'), t('chat.blockUserConfirm'), [
         { text: t('common.cancel'), style: 'cancel' },
@@ -1697,14 +1707,96 @@ export default function ChatScreen() {
           text: t('alerts.block'),
           style: 'destructive',
           onPress: () => {
-            blockMutation.mutate({ did: profile.did, handle: profile.handle, isBlocked: true });
-            TrueSheet.dismiss('chat-menu');
+            blockMutation.mutate({ did, handle, isBlocked: true });
             router.back();
           },
         },
       ]);
     }
-  }, [profile?.did, profile?.handle, isBlocked, isBlockedByList, blockMutation, router, t]);
+  }, [
+    profile?.did,
+    profile?.handle,
+    otherDid,
+    isBlocked,
+    isBlockedByList,
+    blockMutation,
+    router,
+    t,
+  ]);
+
+  const headerChatMenuActions = useMemo((): MenuAction[] => {
+    const items: MenuAction[] = [];
+    if (!isOtherUserUnavailable) {
+      items.push({ id: 'profile', title: t('chat.goToProfile') });
+    }
+    items.push(
+      {
+        id: 'mute',
+        title: isConvoMuted ? t('chat.unmute') : t('chat.muteConversation'),
+        attributes: { disabled: muteConvoMutation.isPending },
+      },
+      {
+        id: 'block',
+        title: isBlocked ? t('chat.unblockAccount') : t('chat.blockAccount'),
+        attributes: { disabled: blockMutation.isPending || isBlockedByList },
+      },
+      {
+        id: 'report',
+        title: t('chat.reportConversation'),
+        attributes: { disabled: isReportSubmitting },
+      },
+      {
+        id: 'leave',
+        title: t('chat.leaveConversation'),
+        attributes: { destructive: true, disabled: leaveConvoMutation.isPending },
+      }
+    );
+    return items;
+  }, [
+    isOtherUserUnavailable,
+    isConvoMuted,
+    t,
+    muteConvoMutation.isPending,
+    isReportSubmitting,
+    isBlocked,
+    blockMutation.isPending,
+    isBlockedByList,
+    leaveConvoMutation.isPending,
+  ]);
+
+  const handleChatHeaderMenuAction = useCallback(
+    ({ nativeEvent }: { nativeEvent: { event?: string } }) => {
+      const id = nativeEvent?.event;
+      if (!id) return;
+      if (id === 'profile') {
+        handleViewProfile();
+        return;
+      }
+      if (id === 'mute') {
+        handleMuteToggle();
+        return;
+      }
+      if (id === 'report') {
+        handleReportConversation();
+        return;
+      }
+      if (id === 'block') {
+        handleBlockToggle();
+        return;
+      }
+      if (id === 'leave') {
+        handleLeaveConvo();
+        return;
+      }
+    },
+    [
+      handleViewProfile,
+      handleMuteToggle,
+      handleReportConversation,
+      handleBlockToggle,
+      handleLeaveConvo,
+    ]
+  );
 
   const handleSend = useCallback(() => {
     const text = inputText.trim();
@@ -1852,17 +1944,33 @@ export default function ChatScreen() {
               </Text>
             </View>
           )}
-          <NativePressable
-            onPress={() => TrueSheet.present('chat-menu')}
-            style={styles.menuButton}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            accessibilityRole="button"
-            accessibilityLabel={t('a11y.chatOptions')}
+          <MenuView
+            title=""
+            actions={headerChatMenuActions}
+            onPressAction={handleChatHeaderMenuAction}
+            shouldOpenOnLongPress={false}
+            themeVariant="dark"
+            isAnchoredToRight
           >
-            <MoreFillIcon size={24} color={Colors.neutral[50]} />
-          </NativePressable>
+            <NativePressable
+              style={styles.menuButton}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel={t('a11y.chatOptions')}
+            >
+              <MoreFillIcon size={24} color={Colors.neutral[50]} />
+            </NativePressable>
+          </MenuView>
         </View>
       </View>
+
+      {isOtherUserUnavailable ? (
+        <View style={styles.otherUserUnavailableBanner}>
+          <Text style={styles.otherUserUnavailableBannerText}>
+            {t('chat.otherUserUnavailableHint')}
+          </Text>
+        </View>
+      ) : null}
 
       <ReactionPickerSheet
         visible={reactionPicker.isSheetVisible}
@@ -1877,40 +1985,6 @@ export default function ChatScreen() {
         sentAccentColor={sentMessageAccentColor}
         otherAccentColor={otherUserAccentColor}
       />
-
-      <VerticalListSheet
-        name="chat-menu"
-        onDismiss={() => {}}
-        title={t('chat.chatWith', {
-          handle: formatHandle(profile?.handle) || t('chat.chatWithUserFallback'),
-        })}
-        showCancelButton
-        cancelButtonText={t('common.cancel')}
-      >
-        <View style={styles.menuOptionsContainer}>
-          <VerticalListButton label={t('chat.goToProfile')} onPress={handleViewProfile} />
-          <VerticalListButton
-            label={isConvoMuted ? t('chat.unmute') : t('chat.muteConversation')}
-            onPress={handleMuteToggle}
-            disabled={muteConvoMutation.isPending}
-          />
-          <VerticalListButton
-            label={isBlocked ? t('chat.unblockAccount') : t('chat.blockAccount')}
-            onPress={handleBlockToggle}
-            disabled={blockMutation.isPending || isBlockedByList}
-          />
-          <VerticalListButton
-            label={t('chat.reportConversation')}
-            onPress={handleReportConversation}
-            disabled={isReportSubmitting}
-          />
-          <VerticalListButton
-            label={t('chat.leaveConversation')}
-            onPress={handleLeaveConvo}
-            disabled={leaveConvoMutation.isPending}
-          />
-        </View>
-      </VerticalListSheet>
 
       <VerticalListSheet
         name="chat-report-or-block"
@@ -2177,6 +2251,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'flex-end',
+  },
+  otherUserUnavailableBanner: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: Colors.neutral[900],
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.neutral[800],
+  },
+  otherUserUnavailableBannerText: {
+    color: Colors.neutral[400],
+    fontSize: Typography.sizes.caption,
+    fontFamily: FontFamily.regular,
+    lineHeight: 20,
   },
   menuOptionsContainer: {
     paddingHorizontal: 4,

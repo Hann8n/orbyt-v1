@@ -28,7 +28,6 @@ export const PROFILE_CHANNEL_FEED_PAGER_DEFAULTS = {
 export const PROFILE_CHANNEL_TAB_NAVIGATION_DEFAULTS = {
   showViewToggle: true,
   dropdown: true,
-  dropdownMenuTitleKey: 'tabs.pickAFeed',
 } as const;
 
 interface ProfileChannelFeedLayoutProps {
