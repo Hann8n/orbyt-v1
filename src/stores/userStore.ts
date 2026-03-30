@@ -14,7 +14,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { storageAdapter, storage } from '../utils/storage/storage';
 import * as SecureStore from 'expo-secure-store';
 import { Agent } from '@atproto/api';
-import { getOAuthClient } from '../services/auth';
+import { getOAuthClient, REQUIRED_OAUTH_SCOPES } from '../services/auth';
 import type { OAuthSession } from '@atproto/oauth-client';
 import ProfileService from '../services/data/ProfileService';
 import { AtprotoService } from '../services/api/AtprotoService';
@@ -62,6 +62,16 @@ function restoreSessionInFlight(did: string): Promise<OAuthSession> {
 
   restoreInFlightByDid.set(did, promise);
   return promise;
+}
+
+async function assertRequiredOauthScopes(session: OAuthSession): Promise<void> {
+  const tokenInfo = await session.getTokenInfo(false);
+  const grantedScopes = tokenInfo.scope.split(' ');
+  const missingScopes = REQUIRED_OAUTH_SCOPES.filter(scope => !grantedScopes.includes(scope));
+
+  if (missingScopes.length > 0) {
+    throw new Error(`oauth_scope_upgrade_required:${missingScopes.join(',')}`);
+  }
 }
 
 export const isIosLiquidGlassAvailable = Platform.OS === 'ios' && isLiquidGlassAvailable();
@@ -650,6 +660,7 @@ export const useUserStore = create<UserState>()(
             const session = await restoreSessionInFlight(did);
 
             if (!session) throw new Error('Failed to restore session from OAuth client');
+            await assertRequiredOauthScopes(session);
 
             const { agent, userProfile, emailConfirmed } = await hydrateOAuthSession(session);
 
@@ -735,6 +746,12 @@ export const useUserStore = create<UserState>()(
               feedBootstrapDid: null,
             });
             if (requiresReauth(error)) {
+              throw new Error('oauth_reauth_required');
+            }
+            if (
+              error instanceof Error &&
+              error.message.startsWith('oauth_scope_upgrade_required:')
+            ) {
               throw new Error('oauth_reauth_required');
             }
             throw error;

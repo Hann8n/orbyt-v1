@@ -5,7 +5,7 @@ import { NativePressable } from '@/components/ui/NativePressable';
 import { SavedAccount } from '../../../stores/userStore';
 import { requiresReauth } from '../../../utils/errors/oauth';
 import { shouldShowError, getErrorMessage } from '../../../utils/errors/errorHandler';
-import ProfileService, { useProfile } from '../../../services/data/ProfileService';
+import { useProfile } from '../../../services/data/ProfileService';
 import type { ProfileViewWithOrbyt } from '../../../services/api/types';
 import { Colors } from '../../../theme';
 import AuthorItem from '../../ui/AuthorItem';
@@ -17,6 +17,10 @@ import SignUpSheet from '../../ui/SignUpSheet';
 import { TypographyText } from '../../../utils/components/typography';
 import { useSheetPresentation } from '../../../hooks';
 import { dismissSheet } from '../../../utils/navigation';
+import {
+  getAccountSwitchEligibility,
+  hydrateAccountsWithCachedProfiles,
+} from '@/utils/atproto/accountSwitching';
 
 interface AccountSwitcherProps {
   visible: boolean;
@@ -59,46 +63,16 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
   const loadAccounts = useCallback(async () => {
     const savedAccountsData = savedAccounts;
 
-    // Only seed basic accounts if we don't already have a list, to avoid flicker
-    if (accounts.length === 0) {
-      setAccounts(savedAccountsData.map(account => ({ ...account })));
-    }
+    // Seed base account data immediately to avoid visual delay.
+    setAccounts(savedAccountsData.map(account => ({ ...account })));
 
     try {
-      // Enhance accounts with cached profile data asynchronously
-      const accountsWithProfiles = await Promise.all(
-        savedAccountsData.map(async account => {
-          try {
-            // Try to get cached profile data for each account (using DID)
-            // First try to get from cache, then refresh if needed
-            let cachedProfile = await ProfileService.getProfileByDid(account.did);
-
-            // If no cached data or cache is stale, try to refresh
-            if (!cachedProfile) {
-              try {
-                cachedProfile = await ProfileService.getProfileByDid(account.did);
-              } catch (_error: unknown) {
-                // ignore
-              }
-            }
-
-            return {
-              ...account,
-              cachedProfile: cachedProfile || undefined,
-            };
-          } catch (_error) {
-            return account;
-          }
-        })
-      );
-
+      const accountsWithProfiles = await hydrateAccountsWithCachedProfiles(savedAccountsData);
       setAccounts(accountsWithProfiles);
-    } catch (_error) {
-      // no-op: account loading failures are handled per-account above
-    } finally {
-      // no-op: loading state is not used in UI; kept for potential future enhancements
+    } catch {
+      // no-op: account loading failures are handled per-account in hydrator
     }
-  }, [savedAccounts, accounts.length]);
+  }, [savedAccounts]);
 
   // Preload accounts when savedAccounts change (proactive loading)
   useEffect(() => {
@@ -122,12 +96,13 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
 
   const handleSwitchAccount = useCallback(
     async (account: AccountWithProfile) => {
-      if (account.did === activeAccountDid) {
-        return;
-      }
-
-      // Prevent starting another switch while one is in progress
-      if (isSwitchingAccount || isAuthenticating) {
+      const switchEligibility = getAccountSwitchEligibility({
+        targetDid: account.did,
+        activeAccountDid,
+        isSwitchingAccount,
+        isAuthenticating,
+      });
+      if (switchEligibility !== 'ok') {
         return;
       }
 
