@@ -56,6 +56,7 @@ import { seenVideoService } from '../../../services/SeenVideoService';
 import { hexToRGBA } from '../../../utils/formatting/colors';
 import { useFollowStore } from '../../../stores/followStore';
 import { ErrorHandler } from '../../../utils/errors/errorHandler';
+import { useLikeInteraction } from '@/hooks/useLikeInteraction';
 import type {
   ExtendedPostView,
   ExtendedFeedViewPost,
@@ -166,13 +167,20 @@ const VideoCard = memo(
         () => ({
           isLiked: !!postView.viewer?.like,
           likeCount: postView.likeCount || 0,
+          commentCount: postView.replyCount || 0,
           repostCount: postView.repostCount || 0,
           isReposted: !!postView.viewer?.repost,
           isBookmarked: false,
           likeUri: postView.viewer?.like,
           repostUri: postView.viewer?.repost,
         }),
-        [postView.viewer?.like, postView.likeCount, postView.repostCount, postView.viewer?.repost]
+        [
+          postView.viewer?.like,
+          postView.likeCount,
+          postView.replyCount,
+          postView.repostCount,
+          postView.viewer?.repost,
+        ]
       );
       const persistedInteraction = usePostInteractionStore(state =>
         state.getPostInteraction(postView.uri, defaultInteraction)
@@ -198,6 +206,43 @@ const VideoCard = memo(
         },
         [postView.uri, feedOption]
       ); // Auto-resets when post.uri or feed context changes
+
+      useEffect(() => {
+        setOverlayState(prev => {
+          if (prev.isLikePending || prev.isRepostPending) return prev;
+
+          const isUnchanged =
+            prev.isLiked === persistedInteraction.isLiked &&
+            prev.likeCount === persistedInteraction.likeCount &&
+            prev.commentCount === persistedInteraction.commentCount &&
+            prev.likeUri === persistedInteraction.likeUri &&
+            prev.isReposted === persistedInteraction.isReposted &&
+            prev.repostCount === persistedInteraction.repostCount &&
+            prev.repostUri === persistedInteraction.repostUri;
+
+          if (isUnchanged) return prev;
+
+          return {
+            ...prev,
+            isLiked: persistedInteraction.isLiked,
+            likeCount: persistedInteraction.likeCount,
+            commentCount: persistedInteraction.commentCount,
+            likeUri: persistedInteraction.likeUri,
+            isReposted: persistedInteraction.isReposted,
+            repostCount: persistedInteraction.repostCount,
+            repostUri: persistedInteraction.repostUri,
+          };
+        });
+      }, [
+        persistedInteraction.isLiked,
+        persistedInteraction.likeCount,
+        persistedInteraction.commentCount,
+        persistedInteraction.likeUri,
+        persistedInteraction.isReposted,
+        persistedInteraction.repostCount,
+        persistedInteraction.repostUri,
+        setOverlayState,
+      ]);
 
       // Lightweight follow state per post, hoisted out of overlay
       // Single useProfile for this card; derive isAuthorBlocked, profileColors, authorDid, authorProfileStatus
@@ -650,116 +695,27 @@ const VideoCard = memo(
         }
       }, [shouldPlayVideo, player]);
 
+      const { toggleLike: toggleLikeInteraction, likeOnly: likeOnlyInteraction } =
+        useLikeInteraction({
+          state: overlayState,
+          setState: setOverlayState,
+          postUri: postView.uri,
+          postCid: postView.cid,
+          updatePostInteraction,
+          onLikeSuccess: () => queueInteraction(INTERACTIONLIKE_CONST),
+        });
+
       // Simplified overlay interaction handlers
       const handleLike = useCallback(async () => {
-        if (overlayState.isLikePending) return;
-
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-        const newIsLiked = !overlayState.isLiked;
-        const newLikeCount = newIsLiked ? overlayState.likeCount + 1 : overlayState.likeCount - 1;
-
-        // Optimistic update
-        setOverlayState(prev => ({
-          ...prev,
-          isLikePending: true,
-          isLiked: newIsLiked,
-          likeCount: newLikeCount,
-        }));
-
-        try {
-          if (!overlayState.isLiked) {
-            const likeUri = await AtprotoService.likePost(postView.uri, postView.cid);
-            setOverlayState(prev => ({ ...prev, likeUri }));
-            // Persist to store
-            updatePostInteraction(postView.uri, {
-              isLiked: true,
-              likeCount: newLikeCount,
-              likeUri,
-            });
-            // Track interaction
-            queueInteraction(INTERACTIONLIKE_CONST);
-          } else {
-            if (!overlayState.likeUri) throw new Error('No like URI found');
-            await AtprotoService.deleteLike(overlayState.likeUri);
-            setOverlayState(prev => ({ ...prev, likeUri: undefined }));
-            // Persist to store
-            updatePostInteraction(postView.uri, {
-              isLiked: false,
-              likeCount: newLikeCount,
-              likeUri: undefined,
-            });
-          }
-        } catch (_error) {
-          // Revert optimistic update
-          setOverlayState(prev => ({
-            ...prev,
-            isLiked: !newIsLiked,
-            likeCount: overlayState.likeCount,
-          }));
-        } finally {
-          setOverlayState(prev => ({ ...prev, isLikePending: false }));
-        }
-      }, [
-        overlayState.isLikePending,
-        overlayState.isLiked,
-        overlayState.likeCount,
-        overlayState.likeUri,
-        postView.uri,
-        postView.cid,
-        setOverlayState,
-        updatePostInteraction,
-        queueInteraction,
-      ]);
+        await toggleLikeInteraction();
+      }, [toggleLikeInteraction]);
 
       // Like-only handler for double tap (doesn't unlike)
       const handleLikeOnly = useCallback(async () => {
-        // Only like if not already liked and not pending
-        if (overlayState.isLiked || overlayState.isLikePending) return;
-
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-        const newLikeCount = overlayState.likeCount + 1;
-
-        // Optimistic update
-        setOverlayState(prev => ({
-          ...prev,
-          isLikePending: true,
-          isLiked: true,
-          likeCount: newLikeCount,
-        }));
-
-        try {
-          const likeUri = await AtprotoService.likePost(postView.uri, postView.cid);
-          setOverlayState(prev => ({ ...prev, likeUri }));
-          // Persist to store
-          updatePostInteraction(postView.uri, {
-            isLiked: true,
-            likeCount: newLikeCount,
-            likeUri,
-          });
-          // Track interaction
-          queueInteraction(INTERACTIONLIKE_CONST);
-        } catch (_error) {
-          // Revert optimistic update
-          setOverlayState(prev => ({
-            ...prev,
-            isLiked: false,
-            likeCount: prev.likeCount - 1,
-          }));
-        } finally {
-          setOverlayState(prev => ({ ...prev, isLikePending: false }));
-        }
-      }, [
-        overlayState.isLiked,
-        overlayState.isLikePending,
-        overlayState.likeCount,
-        postView.uri,
-        postView.cid,
-        setOverlayState,
-        updatePostInteraction,
-        queueInteraction,
-      ]);
+        await likeOnlyInteraction();
+      }, [likeOnlyInteraction]);
 
       // Double tap to like animation - runs on UI thread with Reanimated
       // Heartbeat pattern: quick beat, slight dip, second beat, then fade out
@@ -897,7 +853,7 @@ const VideoCard = memo(
         presentCommentSection({
           post: commentPost,
           totalLikes: overlayState.likeCount,
-          totalComments: postView.replyCount || 0,
+          totalComments: overlayState.commentCount,
           isLiked: overlayState.isLiked,
           postedAt: (postView.record as { createdAt?: string })?.createdAt || postView.indexedAt,
           onToggleLike: handleLike,
@@ -905,6 +861,7 @@ const VideoCard = memo(
         });
       }, [
         overlayState.likeCount,
+        overlayState.commentCount,
         overlayState.isLiked,
         overlayState.isLikePending,
         presentCommentSection,
@@ -1168,6 +1125,7 @@ const VideoCard = memo(
                   isLiked={overlayState.isLiked}
                   isReposted={overlayState.isReposted}
                   likeCount={overlayState.likeCount}
+                  commentCount={overlayState.commentCount}
                   repostCount={overlayState.repostCount}
                   isLikePending={overlayState.isLikePending}
                   isRepostPending={overlayState.isRepostPending}

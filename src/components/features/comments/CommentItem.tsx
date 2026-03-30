@@ -52,6 +52,7 @@ import type { Comment } from '../../../services/api/types';
 interface CommentItemProps {
   comment: Comment;
   onDismiss?: () => void;
+  onCommentDeleted?: (wasReply?: boolean) => void;
   onReplyPress?: (comment: Comment) => void;
   rootUri?: string;
   rootCid?: string;
@@ -192,6 +193,7 @@ const CommentImage: React.FC<{
 const CommentItem: React.FC<CommentItemProps> = ({
   comment,
   onDismiss,
+  onCommentDeleted,
   onReplyPress,
   rootUri,
   rootCid: _rootCid,
@@ -618,7 +620,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
             const success = await AtprotoService.deletePost(uri);
             if (success) {
               markCommentAsDeleted(uri);
-              Alert.alert(t('common.success'), t('comments.deletedSuccessfully', { postType }));
+              onCommentDeleted?.(isReply);
               queryClient.invalidateQueries({
                 queryKey: queryKeys.comments.byPost(rootUri || ''),
                 refetchType: 'active',
@@ -636,7 +638,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
         },
       },
     ]);
-  }, [uri, isReply, t, postType, markCommentAsDeleted, queryClient, rootUri]);
+  }, [uri, isReply, t, postType, markCommentAsDeleted, onCommentDeleted, queryClient, rootUri]);
 
   const handlePinToProfile = useCallback(() => {
     try {
@@ -1203,6 +1205,7 @@ function areEqualCommentItem(prevProps: CommentItemProps, nextProps: CommentItem
   return (
     prevProps.comment === nextProps.comment &&
     prevProps.onDismiss === nextProps.onDismiss &&
+    prevProps.onCommentDeleted === nextProps.onCommentDeleted &&
     prevProps.onReplyPress === nextProps.onReplyPress &&
     prevProps.rootUri === nextProps.rootUri &&
     prevProps.rootCid === nextProps.rootCid &&

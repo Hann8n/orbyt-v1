@@ -13,6 +13,7 @@ interface PostInteraction {
   isReposted: boolean;
   isBookmarked: boolean;
   likeCount: number;
+  commentCount: number;
   repostCount: number;
 }
 
@@ -37,6 +38,7 @@ export const usePostInteractionStore = create<PostInteractionState>((set, get) =
         isReposted: false,
         isBookmarked: false,
         likeCount: 0,
+        commentCount: 0,
         repostCount: 0,
       };
       newInteractions.set(postUri, { ...current, ...update });

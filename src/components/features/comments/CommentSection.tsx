@@ -21,7 +21,7 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import { FlashList, ListRenderItem, FlashListRef } from '@shopify/flash-list';
-import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { navigateToProfileImageViewer } from '@/utils/navigation/profileImageViewer';
@@ -39,6 +39,7 @@ import { useCommentStore } from '../../../stores/commentStore';
 import { useReportedPostsStore } from '../../../stores/reportedPostsStore';
 import { useModalStore } from '../../../stores/modalStore';
 import { useGlobalShareSheet } from '../../../hooks/useGlobalModals';
+import { useLikeInteraction } from '@/hooks/useLikeInteraction';
 
 import TabNavigation, { TabOption } from '../../layout/header/TabNavigation';
 import { Colors } from '../../../theme';
@@ -142,14 +143,108 @@ interface CommentSectionProps {
   isLikePending?: boolean;
 }
 
-const COMMENT_ITEM_ESTIMATE = 150;
-const LIKE_ITEM_ESTIMATE = 72;
 const MAX_COMMENT_LENGTH = 300;
+const OPTIMISTIC_COMMENT_PREFIX = 'optimistic-comment:';
 
 const commentKeyExtractor = (item: Comment, index: number): string =>
   item?.uri || item?.cid || `comment-${index}`;
 
 const likeKeyExtractor = (item: Like): string => `${item.actor.did}-${item.createdAt}`;
+
+type CommentsPage = { comments: Comment[]; cursor: string | null };
+
+function insertReplyInTree(
+  comments: Comment[],
+  parentUri: string,
+  reply: Comment
+): { next: Comment[]; inserted: boolean } {
+  let inserted = false;
+
+  const next = comments.map(comment => {
+    if (inserted) return comment;
+
+    if (comment.uri === parentUri) {
+      inserted = true;
+      return {
+        ...comment,
+        replies: [reply, ...(comment.replies ?? [])],
+      };
+    }
+
+    if (comment.replies?.length) {
+      const child = insertReplyInTree(comment.replies, parentUri, reply);
+      if (child.inserted) {
+        inserted = true;
+        return {
+          ...comment,
+          replies: child.next,
+        };
+      }
+    }
+
+    return comment;
+  });
+
+  return { next, inserted };
+}
+
+type FeedLikeItem = { post?: { uri?: string; replyCount?: number } };
+
+function bumpReplyCountInFeedItems(
+  items: FeedLikeItem[] | undefined,
+  targetPostUri: string,
+  delta: number
+): FeedLikeItem[] | undefined {
+  if (!Array.isArray(items)) return items;
+
+  let changed = false;
+  const nextItems = items.map(item => {
+    if (!item?.post?.uri || item.post.uri !== targetPostUri) return item;
+    changed = true;
+    return {
+      ...item,
+      post: {
+        ...item.post,
+        replyCount: Math.max(0, (item.post.replyCount ?? 0) + delta),
+      },
+    };
+  });
+
+  return changed ? nextItems : items;
+}
+
+function bumpReplyCountInFeedCacheData(
+  oldData: unknown,
+  targetPostUri: string,
+  delta: number
+): unknown {
+  if (!oldData || typeof oldData !== 'object') return oldData;
+
+  const data = oldData as {
+    feed?: FeedLikeItem[];
+    pages?: Array<{ feed?: FeedLikeItem[] }>;
+  };
+
+  if (Array.isArray(data.pages)) {
+    let changed = false;
+    const nextPages = data.pages.map(page => {
+      const nextFeed = bumpReplyCountInFeedItems(page.feed, targetPostUri, delta);
+      if (nextFeed !== page.feed) {
+        changed = true;
+        return { ...page, feed: nextFeed };
+      }
+      return page;
+    });
+    return changed ? { ...data, pages: nextPages } : oldData;
+  }
+
+  if (Array.isArray(data.feed)) {
+    const nextFeed = bumpReplyCountInFeedItems(data.feed, targetPostUri, delta);
+    return nextFeed !== data.feed ? { ...data, feed: nextFeed } : oldData;
+  }
+
+  return oldData;
+}
 
 const CommentSection: React.FC<CommentSectionProps> = ({
   post: propPost,
@@ -160,8 +255,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   isLiked: propIsLiked,
   onOpenShareSheet: propOnOpenShareSheet,
   postedAt: propPostedAt,
-  onToggleLike: propOnToggleLike,
-  isLikePending: propIsLikePending,
 }) => {
   const { t } = useTranslation();
   const globalData = useModalStore(state => state.commentSectionData);
@@ -177,9 +270,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const totalComments = globalData?.totalComments ?? propTotalComments;
   const isLiked = globalData?.isLiked ?? propIsLiked;
   const postedAt = globalData?.postedAt ?? propPostedAt;
-  const onToggleLike = globalData?.onToggleLike ?? propOnToggleLike;
-  const isLikePending = globalData?.isLikePending ?? propIsLikePending;
   const scrollToCommentUri = globalData?.scrollToCommentUri;
+  const [displayedTotalComments, setDisplayedTotalComments] = useState(totalComments);
 
   const insets = useSafeAreaInsets();
   const [listBottomPadding, wrapFooter] = useMeasuredFooterHeight(96);
@@ -355,12 +447,13 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     () => ({
       isLiked: !!isLiked,
       likeCount: totalLikes,
+      commentCount: totalComments,
       likeUri: undefined as string | undefined,
       isReposted: false,
       isBookmarked: false,
       repostCount: 0,
     }),
-    [isLiked, totalLikes]
+    [isLiked, totalLikes, totalComments]
   );
   const persistedHeaderInteraction = usePostInteractionStore(state =>
     post?.uri ? state.getPostInteraction(post.uri, defaultHeaderInteraction) : null
@@ -368,57 +461,75 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const updatePostInteraction = usePostInteractionStore(state => state.updatePostInteraction);
   const deletedComments = useCommentStore(state => state.deletedComments);
 
-  const [headerIsLiked, setHeaderIsLiked] = useState<boolean>(() => {
-    if (!post?.uri || onToggleLike) return !!isLiked;
-    return persistedHeaderInteraction?.isLiked ?? !!isLiked;
-  });
-  const [headerLikeUri, setHeaderLikeUri] = useState<string | undefined>(() => {
-    if (!post?.uri || onToggleLike) return undefined;
-    return persistedHeaderInteraction?.likeUri;
-  });
-  const [headerIsPending, setHeaderIsPending] = useState<boolean>(false);
-  const [headerVisualLiked, setHeaderVisualLiked] = useState<boolean>(() => {
-    if (!post?.uri || onToggleLike) return !!isLiked;
-    return persistedHeaderInteraction?.isLiked ?? !!isLiked;
-  });
+  useEffect(() => {
+    const nextCount = post?.uri
+      ? (persistedHeaderInteraction?.commentCount ?? totalComments)
+      : totalComments;
+    setDisplayedTotalComments(nextCount);
+  }, [post?.uri, totalComments, persistedHeaderInteraction?.commentCount]);
 
-  const hasToggleLike = Boolean(onToggleLike);
+  const [headerLikeState, setHeaderLikeState] = useState<{
+    isLiked: boolean;
+    likeCount: number;
+    likeUri?: string | undefined;
+    isLikePending: boolean;
+  }>(() => ({
+    isLiked: post?.uri ? (persistedHeaderInteraction?.isLiked ?? !!isLiked) : !!isLiked,
+    likeCount: post?.uri ? (persistedHeaderInteraction?.likeCount ?? totalLikes) : totalLikes,
+    likeUri: post?.uri ? persistedHeaderInteraction?.likeUri : undefined,
+    isLikePending: false,
+  }));
+  const [headerVisualLiked, setHeaderVisualLiked] = useState<boolean>(() => {
+    if (!post?.uri) return !!isLiked;
+    return persistedHeaderInteraction?.isLiked ?? !!isLiked;
+  });
+  const resolvedTotalLikes = post?.uri ? headerLikeState.likeCount : totalLikes;
 
   useEffect(() => {
-    if (hasToggleLike) {
-      // Modal `commentSectionData.isLiked` is a snapshot from `presentCommentSection` and does not
-      // update when the user likes from this sheet. The post interaction store does (see VideoCard
-      // `updatePostInteraction`). Since `persistedHeaderInteraction` is in deps, we must sync from the
-      // store when available or we reset the header heart to the stale snapshot after each like.
-      const synced = post?.uri != null ? !!persistedHeaderInteraction?.isLiked : !!isLiked;
-      // Prevent render loops: this effect can re-run whenever `persistedHeaderInteraction` identity changes.
-      // We only update state if the boolean actually differs.
-      setHeaderIsLiked(prev => (prev === synced ? prev : synced));
-      setHeaderVisualLiked(prev => (prev === synced ? prev : synced));
+    if (!post?.uri) {
+      const fallbackLiked = !!isLiked;
+      setHeaderLikeState(prev => ({
+        ...prev,
+        isLiked: fallbackLiked,
+        likeCount: totalLikes,
+        likeUri: undefined,
+        isLikePending: false,
+      }));
+      setHeaderVisualLiked(prev => (prev === fallbackLiked ? prev : fallbackLiked));
       return;
     }
 
-    if (post?.uri && isLiked !== undefined && persistedHeaderInteraction) {
+    if (persistedHeaderInteraction) {
       const storeState = persistedHeaderInteraction;
-
-      if (storeState.isLiked !== !!isLiked) {
-        setHeaderIsLiked(!!isLiked);
-        setHeaderVisualLiked(!!isLiked);
-        updatePostInteraction(post.uri, {
-          isLiked: !!isLiked,
-          likeCount: totalLikes,
-        });
-      }
-      if (storeState.likeCount !== totalLikes) {
-        updatePostInteraction(post.uri, {
-          likeCount: totalLikes,
-        });
-      }
+      setHeaderLikeState(prev => ({
+        ...prev,
+        isLiked: storeState.isLiked,
+        likeCount: storeState.likeCount,
+        likeUri: storeState.likeUri,
+      }));
+      setDisplayedTotalComments(storeState.commentCount);
+      setHeaderVisualLiked(prev => (prev === storeState.isLiked ? prev : storeState.isLiked));
+      return;
     }
+
+    const fallbackLiked = !!isLiked;
+    setHeaderLikeState(prev => ({
+      ...prev,
+      isLiked: fallbackLiked,
+      likeCount: totalLikes,
+      likeUri: undefined,
+    }));
+    setDisplayedTotalComments(totalComments);
+    setHeaderVisualLiked(prev => (prev === fallbackLiked ? prev : fallbackLiked));
+    updatePostInteraction(post.uri, {
+      isLiked: fallbackLiked,
+      likeCount: totalLikes,
+      commentCount: totalComments,
+    });
   }, [
-    hasToggleLike,
     isLiked,
     totalLikes,
+    totalComments,
     post?.uri,
     persistedHeaderInteraction,
     updatePostInteraction,
@@ -434,92 +545,30 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   useEffect(() => {
     cancelAnimation(headerHeartScale);
     headerHeartScale.value = 1;
-    setHeaderIsPending(false);
-    setHeaderLikeUri(undefined);
+    setHeaderLikeState(prev => ({ ...prev, isLikePending: false }));
   }, [post?.uri, headerHeartScale]);
 
-  const handleHeaderToggleLikeInternal = useCallback(async () => {
-    if (!post?.uri || headerIsPending) return;
-
-    const storeState = persistedHeaderInteraction ?? defaultHeaderInteraction;
-    const currentLikeCount = storeState.likeCount;
-    const newIsLiked = !headerIsLiked;
-    const newLikeCount = newIsLiked ? currentLikeCount + 1 : Math.max(0, currentLikeCount - 1);
-
-    setHeaderIsPending(true);
-    setHeaderIsLiked(newIsLiked);
-    setHeaderVisualLiked(newIsLiked);
-
-    try {
-      if (newIsLiked) {
-        headerHeartScale.value = withSpring(1.2, { damping: 12, stiffness: 220 }, () => {
-          headerHeartScale.value = withSpring(1);
-        });
-        const likeURI = await AtprotoService.likePost(post.uri, post.cid || '');
-        setHeaderLikeUri(likeURI);
-        updatePostInteraction(post.uri, {
-          isLiked: true,
-          likeCount: newLikeCount,
-          likeUri: likeURI,
-        });
-      } else {
-        if (headerLikeUri) {
-          await AtprotoService.deleteLike(headerLikeUri);
-          setHeaderLikeUri(undefined);
-          updatePostInteraction(post.uri, {
-            isLiked: false,
-            likeCount: newLikeCount,
-            likeUri: undefined,
-          });
-        } else {
-          setHeaderIsLiked(true);
-          setHeaderVisualLiked(true);
-          updatePostInteraction(post.uri, {
-            isLiked: true,
-            likeCount: currentLikeCount,
-          });
-        }
-      }
-    } catch {
-      setHeaderIsLiked(headerIsLiked);
-      setHeaderVisualLiked(headerIsLiked);
-      updatePostInteraction(post.uri, {
-        isLiked: headerIsLiked,
-        likeCount: currentLikeCount,
-        likeUri: headerLikeUri,
-      });
-    } finally {
-      setHeaderIsPending(false);
-    }
-  }, [
-    post?.uri,
-    post?.cid,
-    headerIsPending,
-    headerIsLiked,
-    headerLikeUri,
-    headerHeartScale,
-    persistedHeaderInteraction,
-    defaultHeaderInteraction,
+  const { toggleLike: handleHeaderToggleLikeInternal } = useLikeInteraction({
+    state: headerLikeState,
+    setState: setHeaderLikeState,
+    postUri: post?.uri,
+    postCid: post?.cid,
     updatePostInteraction,
-  ]);
+  });
 
   const handleHeaderToggleLike = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (onToggleLike) {
-      const next = !headerVisualLiked;
-      setHeaderVisualLiked(next);
-      if (next) {
-        headerHeartScale.value = withSpring(1.2, { damping: 12, stiffness: 220 }, () => {
-          headerHeartScale.value = withSpring(1);
-        });
-      } else {
+    const nextLiked = !headerLikeState.isLiked;
+    setHeaderVisualLiked(nextLiked);
+    if (nextLiked) {
+      headerHeartScale.value = withSpring(1.2, { damping: 12, stiffness: 220 }, () => {
         headerHeartScale.value = withSpring(1);
-      }
-      onToggleLike();
-      return;
+      });
+    } else {
+      headerHeartScale.value = withSpring(1);
     }
     handleHeaderToggleLikeInternal();
-  }, [onToggleLike, headerVisualLiked, headerHeartScale, handleHeaderToggleLikeInternal]);
+  }, [handleHeaderToggleLikeInternal, headerHeartScale, headerLikeState.isLiked]);
 
   const handleHeaderSharePress = useCallback(() => {
     onDismiss?.();
@@ -672,13 +721,89 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
     setIsPosting(true);
 
+    const rootUri = post.uri;
+    const rootCid = post.cid || '';
+
+    const parentUri = replyContext?.parentUri ?? rootUri;
+    const parentCid = replyContext?.parentCid ?? rootCid;
+    const isReply = parentUri !== rootUri;
+    const queryKey = queryKeys.comments.byPost(post.uri);
+    const tempId = `${OPTIMISTIC_COMMENT_PREFIX}${Date.now()}`;
+    const now = new Date().toISOString();
+
+    const optimisticComment: Comment = {
+      uri: tempId,
+      cid: tempId,
+      author: {
+        did: currentUser?.did ?? '',
+        handle: currentUser?.handle ?? '',
+        displayName: currentUserProfile?.displayName,
+        avatar: currentUserProfile?.avatar,
+      } as Comment['author'],
+      record: {
+        $type: 'app.bsky.feed.post',
+        text,
+        createdAt: now,
+      } as Comment['record'],
+      indexedAt: now,
+      likeCount: 0,
+      replyCount: 0,
+      replies: [],
+    };
+
+    const previousCommentsData = queryClient.getQueryData<InfiniteData<CommentsPage>>(queryKey);
+
+    if (!isReply) {
+      setDisplayedTotalComments(prev => {
+        const next = prev + 1;
+        updatePostInteraction(rootUri, { commentCount: next });
+        return next;
+      });
+      queryClient.setQueriesData({ queryKey: queryKeys.feed.all }, old =>
+        bumpReplyCountInFeedCacheData(old, rootUri, 1)
+      );
+    }
+
+    queryClient.setQueryData<InfiniteData<CommentsPage>>(queryKey, old => {
+      if (!old?.pages?.length) {
+        return {
+          pages: [{ comments: [optimisticComment], cursor: null }],
+          pageParams: [null],
+        };
+      }
+
+      if (isReply) {
+        const [firstPage, ...restPages] = old.pages;
+        const inserted = insertReplyInTree(firstPage.comments, parentUri, optimisticComment);
+        if (!inserted.inserted) {
+          // Parent may not be in the currently loaded tree yet. Fallback to temporary root insert.
+          return {
+            ...old,
+            pages: [
+              { ...firstPage, comments: [optimisticComment, ...firstPage.comments] },
+              ...restPages,
+            ],
+          };
+        }
+        return {
+          ...old,
+          pages: [{ ...firstPage, comments: inserted.next }, ...restPages],
+        };
+      }
+
+      const [firstPage, ...restPages] = old.pages;
+      return {
+        ...old,
+        pages: [
+          { ...firstPage, comments: [optimisticComment, ...firstPage.comments] },
+          ...restPages,
+        ],
+      };
+    });
+
+    setPostedCommentUri(tempId);
+
     try {
-      const rootUri = post.uri;
-      const rootCid = post.cid || '';
-
-      const parentUri = replyContext?.parentUri ?? rootUri;
-      const parentCid = replyContext?.parentCid ?? rootCid;
-
       const externalEmbed = hasGif
         ? {
             uri: selectedGif!.fullUrl,
@@ -713,7 +838,36 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         hasGif ? externalEmbed : undefined
       );
 
-      // Store the URI of the newly posted comment to scroll to it after refetch
+      queryClient.setQueryData<InfiniteData<CommentsPage>>(queryKey, old => {
+        if (!old) return old;
+        const replaceOptimistic = (comments: Comment[]): Comment[] =>
+          comments.map(comment => {
+            const updatedReplies = comment.replies?.length
+              ? replaceOptimistic(comment.replies)
+              : comment.replies;
+            if (comment.uri === tempId) {
+              return {
+                ...comment,
+                uri: result.uri,
+                cid: result.cid,
+                replies: updatedReplies,
+              };
+            }
+            if (updatedReplies !== comment.replies) {
+              return { ...comment, replies: updatedReplies };
+            }
+            return comment;
+          });
+
+        return {
+          ...old,
+          pages: old.pages.map(page => ({
+            ...page,
+            comments: replaceOptimistic(page.comments),
+          })),
+        };
+      });
+
       setPostedCommentUri(result.uri);
 
       setNewCommentText('');
@@ -721,21 +875,28 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       setSelectedImages([]);
       setReplyContext(null);
 
-      // Invalidate and force refetch to ensure new comment appears immediately
-      // Use a small delay to account for API propagation
-      setTimeout(async () => {
-        await queryClient.invalidateQueries({
-          queryKey: queryKeys.comments.byPost(post.uri),
-          refetchType: 'all', // Refetch all matching queries, not just active ones
-        });
-        // Force refetch to ensure immediate update
-        await queryClient.refetchQueries({
-          queryKey: queryKeys.comments.byPost(post.uri),
-        });
-      }, 300);
+      // Revalidate in background to sync authoritative ordering/counts from API.
+      void queryClient.invalidateQueries({
+        queryKey,
+      });
 
       setTimeout(() => inputRef.current?.focus?.(), 100);
     } catch (error) {
+      if (!isReply) {
+        setDisplayedTotalComments(prev => {
+          const next = Math.max(0, prev - 1);
+          updatePostInteraction(rootUri, { commentCount: next });
+          return next;
+        });
+        queryClient.setQueriesData({ queryKey: queryKeys.feed.all }, old =>
+          bumpReplyCountInFeedCacheData(old, rootUri, -1)
+        );
+      }
+      if (previousCommentsData) {
+        queryClient.setQueryData(queryKey, previousCommentsData);
+      } else {
+        queryClient.removeQueries({ queryKey });
+      }
       const message = error instanceof Error ? error.message.toLowerCase() : '';
       if (message.includes('1,000,000 byte limit') || message.includes('too large')) {
         Alert.alert(t('common.error'), 'Image is too large to upload. Try a smaller photo.');
@@ -745,7 +906,21 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     } finally {
       setIsPosting(false);
     }
-  }, [post, newCommentText, selectedGif, selectedImages, replyContext, isPosting, queryClient, t]);
+  }, [
+    post,
+    newCommentText,
+    selectedGif,
+    selectedImages,
+    replyContext,
+    isPosting,
+    queryClient,
+    updatePostInteraction,
+    t,
+    currentUser?.did,
+    currentUser?.handle,
+    currentUserProfile?.avatar,
+    currentUserProfile?.displayName,
+  ]);
 
   // Scroll to newly posted comment after it appears in the list
   useEffect(() => {
@@ -797,35 +972,55 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     }
   }, [postedCommentUri, flattenedComments, commentsLoading]);
 
-  const tabOptions: TabOption[] = [
-    {
-      id: 'comments',
-      label:
-        totalComments > 0
-          ? t('comments.commentsCount', { formattedCount: formatNumber(totalComments) })
-          : t('comments.comments'),
-    },
-    {
-      id: 'likes',
-      label:
-        totalLikes > 0
-          ? t('comments.likesCount', { formattedCount: formatNumber(totalLikes) })
-          : t('comments.likes'),
-    },
-  ];
+  const tabOptions: TabOption[] = useMemo(
+    () => [
+      {
+        id: 'comments',
+        label:
+          displayedTotalComments > 0
+            ? t('comments.commentsCount', { formattedCount: formatNumber(displayedTotalComments) })
+            : t('comments.comments'),
+      },
+      {
+        id: 'likes',
+        label:
+          resolvedTotalLikes > 0
+            ? t('comments.likesCount', { formattedCount: formatNumber(resolvedTotalLikes) })
+            : t('comments.likes'),
+      },
+    ],
+    [t, displayedTotalComments, resolvedTotalLikes]
+  );
 
-  const handleTabPress = (tabId: string) => {
+  const handleCommentDeleted = useCallback(
+    (wasReply?: boolean) => {
+      if (wasReply) return;
+      setDisplayedTotalComments(prev => {
+        const next = Math.max(0, prev - 1);
+        if (post?.uri) {
+          updatePostInteraction(post.uri, { commentCount: next });
+        }
+        return next;
+      });
+      if (!post?.uri) return;
+      queryClient.setQueriesData({ queryKey: queryKeys.feed.all }, old =>
+        bumpReplyCountInFeedCacheData(old, post.uri, -1)
+      );
+    },
+    [post?.uri, queryClient, updatePostInteraction]
+  );
+
+  const handleTabPress = useCallback((tabId: string) => {
     const next = tabId as 'comments' | 'likes';
     setActiveTab(next);
     if (next === 'likes') setLikesQueryEnabled(true);
-  };
+  }, []);
 
   const handleClose = () => {
     setPresentedPostUri(null);
     cancelAnimation(headerHeartScale);
     headerHeartScale.value = 1;
-    setHeaderIsPending(false);
-    setHeaderLikeUri(undefined);
+    setHeaderLikeState(prev => ({ ...prev, isLikePending: false }));
     setNewCommentText('');
     setSelectedGif(null);
     setSelectedImages([]);
@@ -858,6 +1053,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         <CommentItem
           comment={item}
           onDismiss={onDismiss}
+          onCommentDeleted={handleCommentDeleted}
           onImagePress={navigateToProfileImageViewer}
           onReplyPress={handleReplyPress}
           highlightUri={scrollToCommentUri}
@@ -865,7 +1061,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         />
       );
     },
-    [scrollToCommentUri, onDismiss, handleReplyPress]
+    [scrollToCommentUri, onDismiss, handleCommentDeleted, handleReplyPress]
   );
 
   const renderLikeItem = useCallback<ListRenderItem<Like>>(
@@ -912,14 +1108,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     );
   }, [likesLoading, t]);
 
-  const overrideCommentsItemLayout = useCallback((layout: { span?: number }) => {
-    layout.span = COMMENT_ITEM_ESTIMATE;
-  }, []);
-
-  const overrideLikesItemLayout = useCallback((layout: { span?: number }) => {
-    layout.span = LIKE_ITEM_ESTIMATE;
-  }, []);
-
   const ItemSeparatorComponent = useCallback(() => {
     return <View style={styles.likeDivider} />;
   }, []);
@@ -932,52 +1120,56 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     if (hasNextLikesPage && !isFetchingNextLikesPage) fetchNextLikesPage();
   }, [hasNextLikesPage, isFetchingNextLikesPage, fetchNextLikesPage]);
 
-  const placeholder = replyContext
-    ? t('comments.replyingTo', { name: replyContext.authorName })
-    : t('comments.saySomething');
-
   const ComposerFooter = (
-    <CommentInputFooter
-      value={newCommentText}
-      onChangeText={setNewCommentText}
-      inputSelection={inputSelection}
-      onSelectionChange={e => setInputSelection(e.nativeEvent.selection)}
-      placeholder={placeholder}
-      onSubmit={handleSendComment}
-      onPressGif={openGifPicker}
-      onPressPhotos={handlePickImages}
-      selectedGifPreviewUri={selectedGif?.previewUrl ?? null}
-      selectedGifAspectRatio={
-        selectedGif?.width && selectedGif?.height && selectedGif.height > 0
-          ? selectedGif.width / selectedGif.height
-          : null
-      }
-      selectedImages={selectedImages}
-      hasAttachment={!!selectedGif || selectedImages.length > 0}
-      onClearAttachment={() => {
-        setSelectedGif(null);
-        setSelectedImages([]);
-      }}
-      onClearGif={() => setSelectedGif(null)}
-      onRemoveImage={handleRemoveSelectedImage}
-      onCancelReply={handleCancelReply}
-      replyContext={
-        replyContext
-          ? {
-              authorName: replyContext.authorName,
-              parentUri: replyContext.parentUri,
-              parentCid: replyContext.parentCid,
-              level: 0,
-            }
-          : null
-      }
-      isPosting={isPosting}
-      maxLength={MAX_COMMENT_LENGTH}
-      inputRef={inputRef}
-      currentUserAvatar={currentUserProfile?.avatar}
-      userSearchModalProps={userSearchModalProps}
-      mentionInputProps={mentionInputProps}
-    />
+    <View style={styles.composerFooter}>
+      {replyContext ? (
+        <View style={styles.replyBanner}>
+          <Text style={styles.replyBannerText}>
+            {`${t('comments.replyingTo', { name: '' }).trim()} `}
+            <Text style={styles.replyBannerNameText}>{replyContext.authorName}</Text>
+          </Text>
+          <NativePressable
+            onPress={handleCancelReply}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={styles.replyBannerCloseButton}
+            accessibilityRole="button"
+            accessibilityLabel={t('comments.cancelReply')}
+          >
+            <Text style={styles.replyBannerCloseText}>{t('common.cancel')}</Text>
+          </NativePressable>
+        </View>
+      ) : null}
+      <CommentInputFooter
+        value={newCommentText}
+        onChangeText={setNewCommentText}
+        inputSelection={inputSelection}
+        onSelectionChange={e => setInputSelection(e.nativeEvent.selection)}
+        placeholder={t('comments.saySomething')}
+        onSubmit={handleSendComment}
+        onPressGif={openGifPicker}
+        onPressPhotos={handlePickImages}
+        selectedGifPreviewUri={selectedGif?.previewUrl ?? null}
+        selectedGifAspectRatio={
+          selectedGif?.width && selectedGif?.height && selectedGif.height > 0
+            ? selectedGif.width / selectedGif.height
+            : null
+        }
+        selectedImages={selectedImages}
+        hasAttachment={!!selectedGif || selectedImages.length > 0}
+        onClearAttachment={() => {
+          setSelectedGif(null);
+          setSelectedImages([]);
+        }}
+        onClearGif={() => setSelectedGif(null)}
+        onRemoveImage={handleRemoveSelectedImage}
+        isPosting={isPosting}
+        maxLength={MAX_COMMENT_LENGTH}
+        inputRef={inputRef}
+        currentUserAvatar={currentUserProfile?.avatar}
+        userSearchModalProps={userSearchModalProps}
+        mentionInputProps={mentionInputProps}
+      />
+    </View>
   );
 
   const headerComponent = (
@@ -1007,18 +1199,14 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
         <NativePressable
           onPress={handleHeaderToggleLike}
-          disabled={!!isLikePending || headerIsPending}
+          disabled={headerLikeState.isLikePending}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           style={styles.actionButton}
         >
           <Animated.View style={headerHeartStyle}>
             <HeartFillIcon
               size={26}
-              color={
-                (onToggleLike ? headerVisualLiked : headerIsLiked)
-                  ? Colors.coral[500]
-                  : Colors.neutral[400]
-              }
+              color={headerVisualLiked ? Colors.coral[500] : Colors.neutral[400]}
             />
           </Animated.View>
         </NativePressable>
@@ -1052,7 +1240,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               scrollEventThrottle={16}
               onEndReached={onEndReachedComments}
               onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
-              overrideItemLayout={overrideCommentsItemLayout}
               removeClippedSubviews={true}
               drawDistance={250}
               ListEmptyComponent={CommentsEmptyComponent}
@@ -1072,7 +1259,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               scrollEventThrottle={16}
               onEndReached={onEndReachedLikes}
               onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
-              overrideItemLayout={overrideLikesItemLayout}
               removeClippedSubviews={true}
               drawDistance={250}
               ListEmptyComponent={LikesEmptyComponent}
@@ -1162,6 +1348,40 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: Colors.neutral[900],
     marginLeft: 52,
+  },
+  composerFooter: {
+    backgroundColor: Colors.black,
+  },
+  replyBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: Colors.neutral[900],
+    backgroundColor: Colors.neutral[950],
+  },
+  replyBannerText: {
+    color: Colors.neutral[200],
+    fontSize: 13,
+    fontFamily: FontFamily.medium,
+    flex: 1,
+    marginRight: 12,
+  },
+  replyBannerNameText: {
+    color: Colors.neutral[200],
+    fontSize: 13,
+    fontFamily: FontFamily.bold,
+  },
+  replyBannerCloseButton: {
+    paddingVertical: 2,
+  },
+  replyBannerCloseText: {
+    color: Colors.neutral[300],
+    fontSize: 12,
+    fontFamily: FontFamily.medium,
   },
 });
 

@@ -56,6 +56,7 @@ export interface VideoOverlayUIProps {
   isLiked?: boolean;
   isReposted?: boolean;
   likeCount?: number;
+  commentCount?: number;
   repostCount?: number;
   isLikePending?: boolean;
   isRepostPending?: boolean;
@@ -84,6 +85,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   isLiked = false,
   isReposted = false,
   likeCount = 0,
+  commentCount = 0,
   repostCount = 0,
   isLikePending = false,
   isRepostPending = false,
@@ -279,10 +281,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   );
   const formattedLikeCount = useMemo(() => formatNumber(likeCount), [likeCount]);
   const formattedRepostCount = useMemo(() => formatNumber(repostCount), [repostCount]);
-  const formattedCommentCount = useMemo(
-    () => formatNumber(post.replyCount || 0),
-    [post.replyCount]
-  );
+  const formattedCommentCount = useMemo(() => formatNumber(commentCount), [commentCount]);
 
   // Memoize icon rendering to prevent unnecessary recreations
   const renderLikeIcon = useCallback(
@@ -399,13 +398,13 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
     presentCommentSection({
       post,
       totalLikes: likeCount,
-      totalComments: post.replyCount || 0,
+      totalComments: commentCount,
       isLiked,
       postedAt: (post.record?.createdAt || post.indexedAt) as string | undefined,
       onToggleLike: onLike,
       isLikePending,
     });
-  }, [post, likeCount, isLiked, onLike, isLikePending, presentCommentSection]);
+  }, [post, likeCount, commentCount, isLiked, onLike, isLikePending, presentCommentSection]);
 
   const handleFollowPress = useCallback(() => {
     if (!post.author?.handle) return;
@@ -961,6 +960,7 @@ const arePropsEqual = (prevProps: VideoOverlayUIProps, nextProps: VideoOverlayUI
   if (prevProps.isLiked !== nextProps.isLiked) return false;
   if (prevProps.isReposted !== nextProps.isReposted) return false;
   if (prevProps.likeCount !== nextProps.likeCount) return false;
+  if (prevProps.commentCount !== nextProps.commentCount) return false;
   if (prevProps.repostCount !== nextProps.repostCount) return false;
   if (prevProps.isLikePending !== nextProps.isLikePending) return false;
   if (prevProps.isRepostPending !== nextProps.isRepostPending) return false;
