@@ -1,0 +1,120 @@
+import type { ProfileViewWithOrbyt } from '@/services/api/types';
+import type { ExtendedFeedViewPost } from '@/services/api/types';
+
+/** Explore search / pager tab identifiers */
+export type ExploreSearchTabId = 'recently-visited' | 'profiles' | 'channels';
+
+export interface SearchSwipePagerRef {
+  setPage: (tabId: ExploreSearchTabId) => void;
+}
+
+/** Canonical slim profile shape for explore lists */
+export type Profile = Pick<
+  ProfileViewWithOrbyt,
+  'did' | 'handle' | 'displayName' | 'avatar' | 'description' | 'viewer' | 'verification' | 'status'
+>;
+
+export interface Channel {
+  uri: string;
+  cid: string;
+  did: string;
+  /** Search hits may omit optional creator fields; grid uses did/handle minimum. */
+  creator: {
+    did: string;
+    handle: string;
+    displayName?: string;
+    avatar?: string;
+  };
+  displayName: string;
+  description?: string;
+  avatar?: string;
+  likeCount?: number;
+  indexedAt: string;
+}
+
+export type ProfileResult = {
+  type: 'profile';
+  data: Profile;
+  relevance: number;
+};
+
+export type ChannelResult = {
+  type: 'channel';
+  data: Channel;
+  relevance: number;
+};
+
+export type SearchResult = ProfileResult | ChannelResult;
+
+export interface SectionHeader {
+  type: 'section-header';
+  title: string;
+  key: string;
+}
+
+export interface SpotlightVideosSection {
+  type: 'spotlight-videos';
+  videos: ExtendedFeedViewPost[];
+  key: string;
+}
+
+export interface OrbytChannelsSection {
+  type: 'orbyt-channels-section';
+  channels: Channel[];
+  key: string;
+}
+
+export interface HeaderSpacerItem {
+  type: 'header-spacer';
+  key: string;
+}
+
+export interface LoadingItem {
+  type: 'loading';
+  key: string;
+}
+
+export type ListItem =
+  | SearchResult
+  | SectionHeader
+  | SpotlightVideosSection
+  | OrbytChannelsSection
+  | HeaderSpacerItem
+  | LoadingItem;
+
+export const isProfileResult = (result: SearchResult): result is ProfileResult =>
+  result.type === 'profile';
+export const isChannelResult = (result: SearchResult): result is ChannelResult =>
+  result.type === 'channel';
+
+/** Internal shape when mapping AT Protocol search feed posts */
+export type SearchFeedPost = ExtendedFeedViewPost['post'] & {
+  contentMode?: string;
+  text?: string;
+  description?: string;
+  likeCount?: number;
+  indexedAt?: string;
+  viewer?: { following?: string | null };
+  avatar?: string;
+};
+
+export function exploreListKeyExtractor(item: ListItem, index: number): string {
+  switch (item.type) {
+    case 'section-header':
+      return item.key || `${item.title}-${index}`;
+    case 'spotlight-videos':
+      return item.key || `spotlight-${index}`;
+    case 'orbyt-channels-section':
+      return item.key || `orbyt-channels-${index}`;
+    case 'header-spacer':
+      return item.key || `header-spacer-${index}`;
+    case 'loading':
+      return item.key || `loading-${index}`;
+    case 'profile':
+      return item.data.did || item.data.handle || `profile-${index}`;
+    case 'channel':
+      return item.data.uri || item.data.cid || `channel-${index}`;
+    default:
+      return `item-${index}`;
+  }
+}

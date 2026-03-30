@@ -17,6 +17,7 @@ const feedsBase = ['feeds'] as const;
 const searchBase = ['search'] as const;
 const moderationBase = ['moderation'] as const;
 const klipyBase = ['klipy'] as const;
+const exploreBase = ['explore'] as const;
 
 export const queryKeys = {
   // Feed queries (merged from FeedService)
@@ -172,6 +173,13 @@ export const queryKeys = {
         q: string
       ) => [...klipyBase, 'media', 'search', kind, customerId, q] as const,
     },
+  },
+
+  // Explore tab (Orbyt grid + spotlight)
+  explore: {
+    all: exploreBase,
+    orbytGrid: (uris: string[]) => [...exploreBase, 'orbyt-channels', uris] as const,
+    spotlightFeed: () => [...exploreBase, 'spotlight-feed'] as const,
   },
 
   // Discourse community (Ideas and Feature Requests)
