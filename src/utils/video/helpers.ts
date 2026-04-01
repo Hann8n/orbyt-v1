@@ -19,7 +19,7 @@ import { isVideoEmbed, isVideoEmbedInMedia } from '../../services/api/types';
 
 /**
  * Default buffer options for video players.
- * Used by VideoCard, VideoPostScreen, and video-editor to ensure consistent buffering behavior.
+ * Used by VideoCard and VideoPostScreen to ensure consistent buffering behavior.
  *
  * - Android: 20s forward buffer (explicit)
  * - iOS: 0s (auto-determined by system)

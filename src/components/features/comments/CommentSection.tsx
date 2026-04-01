@@ -13,7 +13,7 @@ import {
 import { NativePressable } from '@/components/ui/NativePressable';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
-import { Image as ImageCompressor } from 'react-native-compressor';
+import { compressImage } from 'expo-image-and-video-compressor';
 import Animated, {
   cancelAnimation,
   useSharedValue,
@@ -60,6 +60,7 @@ import { CommentLikeItem } from './CommentLikeItem';
 import KlipyGifPickerSheet from './KlipyGifPickerSheet';
 import type { Comment, Like } from '../../../services/api/types';
 import type { KlipyItem } from '../../../services/klipy/KlipyService';
+import { BSKY_LEXICON_EMBED_IMAGE_BLOB_MAX_BYTES } from '../../../utils/atproto/blueskyLexiconMediaLimits';
 
 function normalizeKlipyAssetUrl(url: string | undefined): string | undefined {
   if (!url || typeof url !== 'string') return undefined;
@@ -75,8 +76,9 @@ function isLikelyRasterImageUrl(url: string): boolean {
 }
 
 async function ensureCommentUploadImage(uri: string): Promise<string> {
-  const MAX_UPLOAD_BYTES = 1_000_000;
-  const TARGET_MAX_BYTES = 950_000;
+  /** app.bsky.embed.images — validated against AT Protocol lexicon, not a client guess */
+  const maxBytes = BSKY_LEXICON_EMBED_IMAGE_BLOB_MAX_BYTES;
+  const targetMaxBytes = Math.floor(maxBytes * 0.95);
 
   const readSize = async (targetUri: string): Promise<number> => {
     const response = await fetch(targetUri);
@@ -87,19 +89,18 @@ async function ensureCommentUploadImage(uri: string): Promise<string> {
 
   let candidateUri = uri;
   let size = await readSize(candidateUri);
-  if (size <= MAX_UPLOAD_BYTES) return candidateUri;
+  if (size <= maxBytes) return candidateUri;
 
   const qualitySteps = [0.8, 0.65, 0.5, 0.4];
   for (const quality of qualitySteps) {
-    candidateUri = await ImageCompressor.compress(candidateUri, {
-      compressionMethod: 'manual',
+    candidateUri = await compressImage(candidateUri, {
       output: 'jpg',
       quality,
       maxWidth: 1600,
       maxHeight: 1600,
     });
     size = await readSize(candidateUri);
-    if (size <= TARGET_MAX_BYTES) return candidateUri;
+    if (size <= targetMaxBytes) return candidateUri;
   }
 
   throw new Error('Selected image is too large to upload');

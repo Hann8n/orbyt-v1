@@ -19,4 +19,3 @@ export { default as ProfileService } from './data/ProfileService';
 // Other Services
 export { ModerationService } from './moderation/ModerationService';
 export { default as VideoProcessingService } from './video/VideoProcessingService';
-export { default as VideoEditingService } from './video/VideoEditingService';

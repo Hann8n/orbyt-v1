@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BORDER_RADIUS, APP_CONSTANTS } from '@/utils/constants';
+import { BORDER_RADIUS } from '@/utils/constants';
 import {
   View,
   Text,
@@ -335,20 +335,11 @@ const ContentWarningSelector: React.FC<{
 const PostButton: React.FC<{
   onPress: () => void;
   isPosting: boolean;
-  isCompressing: boolean;
   uploadProgress: number;
   buttonStyle?: 'landscape' | 'portrait';
   width?: number;
   screenWidth?: number;
-}> = ({
-  onPress,
-  isPosting,
-  isCompressing,
-  uploadProgress,
-  buttonStyle = 'portrait',
-  width,
-  screenWidth,
-}) => {
+}> = ({ onPress, isPosting, uploadProgress, buttonStyle = 'portrait', width, screenWidth }) => {
   const { t } = useTranslation();
   const numericWidth =
     buttonStyle === 'portrait' ? Math.max(width ?? (screenWidth ?? 0) * 0.6, 200) : undefined;
@@ -375,11 +366,6 @@ const PostButton: React.FC<{
                 : t('video.creatingPost')}
           </Text>
         </View>
-      ) : isCompressing ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color={Colors.black} />
-          <Text style={styles.postButtonText}>{t('video.gettingReady')}</Text>
-        </View>
       ) : (
         <Text style={styles.postButtonText}>{t('video.post')}</Text>
       )}
@@ -392,10 +378,10 @@ const PostButton: React.FC<{
         glassStyle,
         { width: buttonWidth },
         !(Platform.OS === 'ios' && isLiquidGlassAvailable()) && hostStyle,
-        (isPosting || isCompressing) && disabledStyle,
+        isPosting && disabledStyle,
       ]}
       onPress={onPress}
-      disabled={isPosting || isCompressing}
+      disabled={isPosting}
     >
       {Platform.OS === 'ios' && isLiquidGlassAvailable() ? (
         <>
@@ -608,9 +594,6 @@ const VideoPostScreen: React.FC = () => {
   // Rich text search state (for @ mentions and # hashtags)
   const [descriptionSelection, setDescriptionSelection] = useState({ start: 0, end: 0 });
 
-  // Compression state
-  const [isCompressing, setIsCompressing] = useState(false);
-  const [compressedVideoPath, setCompressedVideoPath] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
 
   // User store hooks
@@ -784,51 +767,6 @@ const VideoPostScreen: React.FC = () => {
     }
   }, [hasVideoSource, t]);
 
-  // Automatically check upload limits and compress video if needed on component mount
-  // Defer compression until after interactions complete to avoid blocking UI
-  useEffect(() => {
-    if (!activeVideoPath) return;
-
-    const ac = new AbortController();
-    const interactionId = requestIdleCallback(
-      async () => {
-        try {
-          if (ac.signal.aborted) return;
-          setIsCompressing(true);
-
-          const result = await VideoProcessingService.checkAndCompressVideoForUpload(
-            activeVideoPath,
-            undefined,
-            () => {}
-          );
-
-          if (ac.signal.aborted) return;
-          if (result.wasCompressed) {
-            setCompressedVideoPath(result.processedVideo.path);
-            logger.info('Video automatically compressed', {
-              component: 'VideoPostScreen',
-              originalSize: result.originalSize,
-              compressedSize: result.compressedSize,
-              reduction: `${((1 - result.compressedSize / result.originalSize) * 100).toFixed(1)}%`,
-            });
-          }
-        } catch (error) {
-          logger.error('Error checking and compressing video', error, {
-            component: 'VideoPostScreen',
-          });
-        } finally {
-          if (!ac.signal.aborted) setIsCompressing(false);
-        }
-      },
-      { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
-    );
-
-    return () => {
-      ac.abort();
-      cancelIdleCallback(interactionId);
-    };
-  }, [activeVideoPath]);
-
   // removed legacy expo-av handlers (not used with expo-video)
 
   // Use RichText API hook for formatting
@@ -867,7 +805,7 @@ const VideoPostScreen: React.FC = () => {
   };
 
   const handlePost = async () => {
-    if (isPosting || isCompressing || isMerging) {
+    if (isPosting || isMerging) {
       if (isMerging) {
         Alert.alert(t('video.pleaseWait'), t('video.videoMergingWait'));
       }
@@ -880,7 +818,7 @@ const VideoPostScreen: React.FC = () => {
     }
 
     // Path is already standardized and validated - trust it
-    const videoPathToUse = compressedVideoPath || activeVideoPath;
+    const videoPathToUse = activeVideoPath;
 
     // Collect all content warnings, including custom one if present (before try block for error handling)
     const allContentWarnings = [...selectedContentWarnings];
@@ -892,8 +830,7 @@ const VideoPostScreen: React.FC = () => {
       setIsPosting(true);
       setUploadProgress(0);
 
-      // Use compressed video if available, otherwise use the validated path
-      const videoPathToUpload = compressedVideoPath || videoPathToUse;
+      const videoPathToUpload = videoPathToUse;
 
       // Save video to gallery FIRST (before upload) so user has it even if upload fails
       try {
@@ -1092,8 +1029,7 @@ const VideoPostScreen: React.FC = () => {
         return;
       }
 
-      // Use compressed video if available, otherwise use the active video path
-      const videoPathToDownload = compressedVideoPath || activeVideoPath;
+      const videoPathToDownload = activeVideoPath;
 
       // Resolve the video path to ensure it's accessible
       const pathInfo = await resolveVideoPath(videoPathToDownload);
@@ -1547,7 +1483,6 @@ const VideoPostScreen: React.FC = () => {
                 <PostButton
                   onPress={handlePost}
                   isPosting={isPosting}
-                  isCompressing={isCompressing}
                   uploadProgress={uploadProgress}
                   buttonStyle="landscape"
                   screenWidth={screenWidth}
@@ -1647,7 +1582,6 @@ const VideoPostScreen: React.FC = () => {
         <PostButton
           onPress={handlePost}
           isPosting={isPosting}
-          isCompressing={isCompressing}
           uploadProgress={uploadProgress}
           buttonStyle="portrait"
           width={screenWidth * 0.6}

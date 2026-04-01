@@ -64,7 +64,6 @@ export interface ListFeedViewProps {
 /**
  * Text overlay for video editing
  * @usage app/post/VideoPostScreen.tsx:30
- * @usage app/video-editor.tsx:33
  */
 export interface TextOverlay {
   id: string;

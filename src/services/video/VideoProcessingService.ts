@@ -3,13 +3,13 @@ import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { File, Directory, Paths } from 'expo-file-system';
-import { Video as VideoCompressor } from 'react-native-compressor';
 import {
   ensureFileUri,
   normalizePathForNative,
   resolveVideoPath,
   stripPathFragment,
 } from '../../utils/video/path';
+import { compress as compressVideoHardware } from 'expo-image-and-video-compressor';
 import { logger } from '../../utils/logger';
 
 // Expo Camera video result type
@@ -85,19 +85,6 @@ export const VIDEO_QUALITY_STANDARDS = {
   '1440p': { minDimension: 1440, bitrate: 8000000, quality: 0.9, label: '2K (1440p)' },
   '4K': { minDimension: 2160, bitrate: 16000000, quality: 0.95, label: '4K (2160p)' },
 } as const;
-
-// Compression quality levels for variable compression
-const COMPRESSION_LEVELS = [
-  { name: 'high', bitrate: 2000000, label: 'High Quality' }, // 2 Mbps
-  { name: 'medium', bitrate: 1000000, label: 'Medium Quality' }, // 1 Mbps
-  { name: 'low', bitrate: 500000, label: 'Low Quality' }, // 0.5 Mbps
-  { name: 'minimal', bitrate: 250000, label: 'Minimal Quality' }, // 0.25 Mbps
-];
-
-const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB in bytes
-
-/** Minimum free disk space (bytes) before starting merge or compress. Uses Paths.availableDiskSpace. */
-const MIN_FREE_DISK_SPACE = 150 * 1024 * 1024; // 150MB
 
 // Video merge settings for complex filter approach
 // These values provide a good balance between quality and compatibility
@@ -459,310 +446,6 @@ class VideoProcessingService {
   }
 
   /**
-   * Estimates upload time based on file size and network speed
-   */
-  private static estimateUploadTime(fileSizeBytes: number, networkSpeedMbps: number = 10): string {
-    const fileSizeMbps = (fileSizeBytes * 8) / 1000000; // Convert to megabits
-    const uploadTimeSeconds = fileSizeMbps / networkSpeedMbps;
-
-    if (uploadTimeSeconds < 60) {
-      return `${Math.ceil(uploadTimeSeconds)} seconds`;
-    } else if (uploadTimeSeconds < 3600) {
-      const minutes = Math.ceil(uploadTimeSeconds / 60);
-      return `${minutes} minute${minutes > 1 ? 's' : ''}`;
-    } else {
-      const hours = Math.ceil(uploadTimeSeconds / 3600);
-      return `${hours} hour${hours > 1 ? 's' : ''}`;
-    }
-  }
-
-  /**
-   * Gets detailed compression information for a video
-   */
-  static async getCompressionInfo(
-    videoPath: string,
-    asset?: ImagePicker.ImagePickerAsset
-  ): Promise<{
-    originalInfo: VideoInfo;
-    compressionOptions: Array<{
-      level: string;
-      label: string;
-      estimatedSize: string;
-      quality: string;
-      uploadTime: string;
-    }>;
-    recommendedLevel: string;
-  }> {
-    const originalInfo = await this.getVideoInfo(videoPath, asset);
-
-    const compressionOptions = COMPRESSION_LEVELS.map(level => {
-      const estimatedSize = this.estimateFileSize(
-        originalInfo.duration,
-        originalInfo.width,
-        originalInfo.height,
-        level.bitrate
-      );
-      const uploadTime = this.estimateUploadTime(estimatedSize);
-
-      return {
-        level: level.name,
-        label: level.label,
-        estimatedSize: this.formatFileSize(estimatedSize),
-        quality: `${Math.round((level.bitrate / 2000000) * 100)}%`, // Estimate quality based on bitrate
-        uploadTime,
-      };
-    });
-
-    // Determine recommended level based on file size
-    const recommendedLevel =
-      originalInfo.size <= MAX_FILE_SIZE
-        ? 'original'
-        : originalInfo.size <= 25 * 1024 * 1024
-          ? 'high'
-          : originalInfo.size <= 40 * 1024 * 1024
-            ? 'medium'
-            : 'low';
-
-    return {
-      originalInfo,
-      compressionOptions,
-      recommendedLevel,
-    };
-  }
-
-  /**
-   * Estimates file size based on video properties and compression settings
-   */
-  private static estimateFileSize(
-    duration: number,
-    _width: number,
-    _height: number,
-    bitrate: number
-  ): number {
-    // Estimate file size: (bitrate * duration) / 8 (bits to bytes)
-    const estimatedSize = (bitrate * duration) / 8;
-
-    // Add 10% overhead for container format and metadata
-    return estimatedSize * 1.1;
-  }
-
-  /**
-   * Gets video file size in bytes using MediaLibrary or FileSystem
-   */
-  private static async getFileSize(filePath: string, assetId?: string | null): Promise<number> {
-    try {
-      // Try MediaLibrary first if we have assetId (for iCloud videos)
-      if (assetId && Platform.OS === 'ios') {
-        try {
-          const assetInfo = await MediaLibrary.getAssetInfoAsync(assetId, {
-            shouldDownloadFromNetwork: true,
-          });
-          if (assetInfo.localUri) {
-            const file = new File(assetInfo.localUri);
-            return file.size || 0;
-          }
-        } catch (_mediaError) {
-          // Fall through to FileSystem
-        }
-      }
-
-      const file = new File(filePath);
-      if (!file.exists) {
-        return 0;
-      }
-      return file.size || 0;
-    } catch (_error) {
-      logger.warn('Could not get file size', { component: 'VideoProcessingService' });
-      return 0;
-    }
-  }
-
-  /**
-   * Compresses video automatically using WhatsApp-like compression (react-native-compressor auto mode)
-   * This uses the same compression algorithm as WhatsApp for optimal quality/size balance
-   */
-  static async compressVideoAuto(
-    videoPath: string,
-    assetId?: string | null,
-    onProgress?: (progress: number) => void
-  ): Promise<ProcessedVideo> {
-    try {
-      const localVideoPath = await this.getLocalVideoPath(videoPath, assetId);
-      await this.validateVideoFileExists(localVideoPath);
-
-      if ((Paths.availableDiskSpace ?? 0) < MIN_FREE_DISK_SPACE) {
-        throw new Error('Not enough storage. Free some space and try again.');
-      }
-      await VideoCompressor.activateBackgroundTask();
-
-      try {
-        // Use automatic compression (WhatsApp-like) with progress callback
-        const compressedPath = await VideoCompressor.compress(
-          localVideoPath,
-          {
-            compressionMethod: 'auto', // WhatsApp-like automatic compression
-          },
-          onProgress || (() => {}) // Progress callback
-        );
-
-        // Get video info from compressed file
-        const compressedFile = new File(compressedPath);
-        if (!compressedFile.exists) {
-          throw new Error('Compressed video file was not created');
-        }
-
-        // Get video metadata from original to preserve dimensions
-        const originalInfo = await this.getVideoInfo(localVideoPath);
-
-        // Ensure file:// prefix for local file
-        const finalPath = ensureFileUri(compressedPath);
-
-        return {
-          path: finalPath,
-          duration: originalInfo.duration,
-          width: originalInfo.width,
-          height: originalInfo.height,
-        };
-      } finally {
-        // Deactivate background task after compression
-        await VideoCompressor.deactivateBackgroundTask();
-      }
-    } catch (error) {
-      logger.error('Error in automatic video compression', error, {
-        component: 'VideoProcessingService',
-      });
-      throw error;
-    }
-  }
-
-  /**
-   * Compresses video with variable quality to meet file size requirements (manual mode)
-   * Falls back to automatic compression if manual compression fails
-   */
-  static async compressVideoWithSizeLimit(
-    videoPath: string,
-    maxSizeBytes: number = MAX_FILE_SIZE,
-    assetId?: string | null
-  ): Promise<ProcessedVideo> {
-    try {
-      const localVideoPath = await this.getLocalVideoPath(videoPath, assetId);
-      const file = await this.validateVideoFileExists(localVideoPath);
-
-      if ((Paths.availableDiskSpace ?? 0) < MIN_FREE_DISK_SPACE) {
-        throw new Error('Not enough storage. Free some space and try again.');
-      }
-      const originalSize = file.size || 0;
-
-      // If original is already under limit, return as-is
-      if (originalSize <= maxSizeBytes) {
-        return {
-          path: localVideoPath,
-          duration: 10, // Default duration
-          width: 1080,
-          height: 1920,
-        };
-      }
-
-      // Try automatic compression first (WhatsApp-like)
-      try {
-        const autoCompressed = await this.compressVideoAuto(localVideoPath, assetId);
-        const compressedFile = new File(normalizePathForNative(autoCompressed.path));
-        const compressedSize = compressedFile.exists ? compressedFile.size || 0 : 0;
-
-        if (compressedSize <= maxSizeBytes) {
-          return autoCompressed;
-        }
-
-        // If auto compression still exceeds limit, try manual compression
-        logger.info('Auto compression exceeded size limit, trying manual compression', {
-          component: 'VideoProcessingService',
-          compressedSize,
-          maxSizeBytes,
-        });
-      } catch (autoError) {
-        logger.warn('Automatic compression failed, falling back to manual', {
-          component: 'VideoProcessingService',
-          error: autoError,
-        });
-      }
-
-      const tempDir = new Directory(Paths.cache, `video_compress_${Date.now()}`);
-      tempDir.create({ intermediates: true, idempotent: true });
-
-      // Try compression levels progressively
-      for (const level of COMPRESSION_LEVELS) {
-        const outputFile = new File(tempDir, `compressed_${level.name}.mp4`);
-
-        try {
-          // Compress with current level using manual mode
-          const compressedPath = await VideoCompressor.compress(localVideoPath, {
-            compressionMethod: 'manual',
-            bitrate: level.bitrate,
-          });
-
-          // Copy to our output path
-          new File(compressedPath).copy(outputFile);
-
-          // Check file size
-          const compressedSize = await this.getFileSize(outputFile.uri);
-
-          if (compressedSize <= maxSizeBytes) {
-            try {
-              tempDir.delete();
-            } catch {
-              // Ignore cleanup failure
-            }
-            const finalPath = ensureFileUri(outputFile.uri);
-            return {
-              path: finalPath,
-              duration: 10, // Default duration
-              width: 1080,
-              height: 1920,
-            };
-          }
-        } catch (_error) {
-          logger.warn(`Compression level ${level.name} failed`, {
-            component: 'VideoProcessingService',
-          });
-          continue;
-        }
-      }
-
-      // If all compression levels still exceed size limit, use the most compressed version
-      const minimalFile = new File(tempDir, 'compressed_minimal.mp4');
-
-      try {
-        const compressedPath = await VideoCompressor.compress(localVideoPath, {
-          compressionMethod: 'manual',
-          bitrate: COMPRESSION_LEVELS[3].bitrate,
-        });
-
-        new File(compressedPath).copy(minimalFile);
-        try {
-          tempDir.delete();
-        } catch {
-          // Ignore cleanup failure
-        }
-        const finalPath = ensureFileUri(minimalFile.uri);
-        return {
-          path: finalPath,
-          duration: 10,
-          width: 1080,
-          height: 1920,
-        };
-      } catch (error) {
-        logger.error('Minimal compression also failed', error, {
-          component: 'VideoProcessingService',
-        });
-        throw new Error('Video compression failed', { cause: error });
-      }
-    } catch (error) {
-      logger.error('Error in variable compression', error, { component: 'VideoProcessingService' });
-      throw error;
-    }
-  }
-
-  /**
    * Gets local video path from MediaLibrary if assetId is provided (for iCloud videos on iOS)
    * Falls back to provided videoPath if MediaLibrary lookup fails
    */
@@ -1024,8 +707,9 @@ class VideoProcessingService {
   }
 
   /**
-   * Normalizes a video to target format (H.264, target resolution, 30fps)
-   * Re-encodes the video if it doesn't match the target format
+   * Normalizes a video to target format (H.264, target resolution, ~30fps)
+   * Prefers hardware-accelerated encoding (expo-image-and-video-compressor) for SDR sources;
+   * HDR→SDR and hardware failures fall back to FFmpeg.
    */
   private static async normalizeVideoFormat(
     inputPath: string,
@@ -1035,18 +719,10 @@ class VideoProcessingService {
     targetFrameRate: number = 30
   ): Promise<string> {
     try {
-      if (!FFmpegKit || !ReturnCode) {
-        throw new Error('FFmpegKit is not available');
-      }
-
-      // Normalize paths
       const normalizedInput = normalizePathForNative(inputPath);
       const normalizedOutput = normalizePathForNative(outputPath);
-
-      // Analyze input video properties (including HDR metadata where available)
       const inputProps = await this.analyzeVideoProperties(inputPath);
 
-      // Check if normalization is needed (skip if already matches target format)
       const isMp4Container = normalizedInput.toLowerCase().endsWith('.mp4');
       const needsNormalization =
         !isMp4Container ||
@@ -1059,20 +735,48 @@ class VideoProcessingService {
         const inputFile = new File(normalizedInput);
         const outputFile = new File(normalizedOutput);
         inputFile.copy(outputFile);
-        return outputPath;
+        return ensureFileUri(outputPath);
       }
 
-      // Build FFmpeg filter chain
-      // Always scale/pad to target dimensions; when the source appears to be HDR,
-      // apply a safe HDR→SDR tonemap first so Bluesky gets a standard BT.709 SDR stream.
+      const isHdr = !!inputProps.isHdr;
+
+      if (!isHdr) {
+        try {
+          const qualityKey = this.getQualityStandard(targetWidth, targetHeight);
+          const standard =
+            qualityKey === 'custom'
+              ? VIDEO_QUALITY_STANDARDS['1080p']
+              : VIDEO_QUALITY_STANDARDS[qualityKey];
+          const compressedUri = await compressVideoHardware(ensureFileUri(normalizedInput), {
+            maxSize: Math.max(targetWidth, targetHeight, 1),
+            bitrate: standard.bitrate,
+            codec: 'h264',
+            speed: 'fast',
+            minimumFileSizeForCompress: 0,
+          });
+          const compressedFile = new File(normalizePathForNative(compressedUri));
+          const outputFile = new File(normalizedOutput);
+          compressedFile.copy(outputFile);
+          if (!outputFile.exists) {
+            throw new Error('Hardware compression output missing after copy');
+          }
+          return ensureFileUri(normalizedOutput);
+        } catch (hwError) {
+          logger.warn('Hardware-accelerated video normalization failed, falling back to FFmpeg', {
+            component: 'VideoProcessingService',
+            error: hwError,
+          });
+        }
+      }
+
+      if (!FFmpegKit || !ReturnCode) {
+        throw new Error('FFmpegKit is not available');
+      }
+
       const scaleAndPadFilter =
         `scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease,` +
         `pad=${targetWidth}:${targetHeight}:(ow-iw)/2:(oh-ih)/2`;
 
-      const isHdr = !!inputProps.isHdr;
-
-      // Mild, well-tested HDR→SDR mapping: linearize, tonemap, then convert to BT.709 and 4:2:0
-      // Simpler chain than the full custom one so it runs reliably on device.
       const hdrTonemapFilter =
         'zscale=t=linear:npl=100,' +
         'format=gbrpf32le,' +
@@ -1083,19 +787,15 @@ class VideoProcessingService {
 
       const videoFilter = isHdr ? hdrTonemapFilter : `${scaleAndPadFilter},format=yuv420p`;
 
-      // Build FFmpeg command for normalization (audio stays standard AAC)
       const ffmpegCommand =
         `-i "${normalizedInput}" ` +
         `-vf "${videoFilter}" ` +
         `-r ${targetFrameRate} -c:v libx264 -preset medium -crf 23 -c:a aac -b:a 128k -movflags +faststart "${normalizedOutput}"`;
 
-      // FFmpeg operations are already async and run in background threads
-      // No need for InteractionManager wrapper - FFmpegKit handles threading internally
       const session = await FFmpegKit.execute(ffmpegCommand);
       const returnCode = await session.getReturnCode();
       if (ReturnCode.isCancel(returnCode)) throw new Error('FFmpeg operation cancelled');
       if (ReturnCode.isSuccess(returnCode)) {
-        // Verify output file exists
         const outputFile = new File(normalizedOutput);
         if (!outputFile.exists) {
           throw new Error('Normalization completed but output file not found');
@@ -1187,7 +887,7 @@ class VideoProcessingService {
     }
 
     if (segments.length === 1) {
-      return await this.normalizeVideo(segments[0].video);
+      return await this.prepareSingleSegment(segments[0]);
     }
 
     const fastMerged = await this.tryMergeSegmentsWithFastSdk(segments);
@@ -1197,6 +897,31 @@ class VideoProcessingService {
     throw new Error(
       'Fast merge failed or is unavailable. Install and link react-native-fast-video-merge.'
     );
+  }
+
+  /**
+   * Keeps single-segment posts on the native camera/gallery output path.
+   * This avoids unnecessary client-side transcode work before posting.
+   */
+  private static async prepareSingleSegment(segment: VideoSegment): Promise<ProcessedVideo> {
+    const originalVideoPath = this.getVideoPath(segment.video);
+    const assetId = 'assetId' in segment.video ? segment.video.assetId : null;
+    const localPath = await this.getLocalVideoPath(originalVideoPath, assetId);
+    const outputPath = ensureFileUri(stripPathFragment(localPath));
+    const outputFile = new File(normalizePathForNative(outputPath));
+
+    if (!outputFile.exists) {
+      throw new Error('Single segment video file does not exist');
+    }
+
+    const fallbackDuration = this.getVideoDuration(segment.video);
+    const duration = segment.duration > 0 ? segment.duration : fallbackDuration;
+    return {
+      path: outputPath,
+      duration: duration > 0 ? duration : 0,
+      width: 1080,
+      height: 1920,
+    };
   }
 
   /**
@@ -1238,7 +963,6 @@ class VideoProcessingService {
         return null;
       }
 
-      const mergedProps = await this.analyzeVideoProperties(outputPath);
       const totalDuration = segments.reduce((sum, segment) => sum + segment.duration, 0);
       logger.info('Merged segments with fast merge SDK', {
         component: 'VideoProcessingService',
@@ -1248,8 +972,8 @@ class VideoProcessingService {
       return {
         path: outputPath,
         duration: totalDuration,
-        width: mergedProps.width || 1080,
-        height: mergedProps.height || 1920,
+        width: 1080,
+        height: 1920,
       };
     } catch (error) {
       logger.warn('Fast merge SDK failed', {
@@ -1257,107 +981,6 @@ class VideoProcessingService {
         error,
       });
       return null;
-    }
-  }
-
-  /**
-   * Checks video size and compresses automatically if over 50MB
-   * Uses automatic WhatsApp-like compression in the background
-   * @param videoPath - Path to the video file
-   * @param assetId - Optional asset ID for MediaLibrary lookup
-   * @param onProgress - Optional progress callback
-   * @returns Processed video (compressed if needed)
-   */
-  static async checkAndCompressVideoForUpload(
-    videoPath: string,
-    assetId?: string | null,
-    onProgress?: (progress: number) => void
-  ): Promise<{
-    processedVideo: ProcessedVideo;
-    wasCompressed: boolean;
-    originalSize: number;
-    compressedSize: number;
-  }> {
-    try {
-      // Get local URI from MediaLibrary if we have assetId (for iCloud videos)
-      const localVideoPath = await this.getLocalVideoPath(videoPath, assetId);
-
-      // Validate file exists and get size
-      const file = await this.validateVideoFileExists(localVideoPath);
-      const originalSize = file.size || 0;
-
-      // Check if video exceeds 50MB limit
-      const needsCompression = originalSize > MAX_FILE_SIZE;
-
-      // If compression is needed, use automatic WhatsApp-like compression
-      if (needsCompression) {
-        logger.info('Video exceeds 50MB limit, starting automatic compression', {
-          component: 'VideoProcessingService',
-          originalSize,
-          maxFileSize: MAX_FILE_SIZE,
-        });
-
-        const compressedVideo = await this.compressVideoAuto(localVideoPath, assetId, onProgress);
-
-        // Get compressed file size
-        const compressedFile = new File(normalizePathForNative(compressedVideo.path));
-        const compressedSize = compressedFile.exists ? compressedFile.size || 0 : 0;
-
-        logger.info('Video compression completed', {
-          component: 'VideoProcessingService',
-          originalSize,
-          compressedSize,
-          reduction: `${((1 - compressedSize / originalSize) * 100).toFixed(1)}%`,
-        });
-
-        return {
-          processedVideo: compressedVideo,
-          wasCompressed: true,
-          originalSize,
-          compressedSize,
-        };
-      }
-
-      // Video is within limits, return as-is
-      const videoInfo = await this.getVideoInfo(localVideoPath);
-      return {
-        processedVideo: {
-          path: localVideoPath,
-          duration: videoInfo.duration,
-          width: videoInfo.width,
-          height: videoInfo.height,
-        },
-        wasCompressed: false,
-        originalSize,
-        compressedSize: originalSize,
-      };
-    } catch (error) {
-      logger.error('Error checking and compressing video for upload', error, {
-        component: 'VideoProcessingService',
-      });
-      throw error;
-    }
-  }
-
-  /**
-   * Optimizes a single video for posting with size limit enforcement
-   */
-  static async optimizeVideoForPosting(
-    videoPath: string,
-    assetId?: string | null
-  ): Promise<ProcessedVideo> {
-    try {
-      // Use the new variable compression method
-      return await this.compressVideoWithSizeLimit(videoPath, MAX_FILE_SIZE, assetId);
-    } catch (error) {
-      logger.error('Error optimizing video', error, { component: 'VideoProcessingService' });
-      // Return original video if optimization fails
-      return {
-        path: videoPath,
-        duration: 10,
-        width: 1080,
-        height: 1920,
-      };
     }
   }
 
@@ -1376,58 +999,6 @@ class VideoProcessingService {
   }
 
   /**
-   * Checks if video file size is acceptable for upload
-   * @param videoPath - Path to the video file
-   * @param assetId - Optional asset ID for MediaLibrary lookup (iCloud videos)
-   * @returns Object with validation result and size information
-   */
-  static async checkVideoSize(
-    videoPath: string,
-    assetId?: string | null
-  ): Promise<{
-    isValid: boolean;
-    sizeMB: number;
-    maxSizeMB: number;
-    needsCompression: boolean;
-  }> {
-    try {
-      // Get local URI from MediaLibrary if we have assetId (for iCloud videos)
-      const localPath = await this.getLocalVideoPath(videoPath, assetId);
-      const file = new File(localPath);
-
-      if (!file.exists) {
-        return {
-          isValid: false,
-          sizeMB: 0,
-          maxSizeMB: MAX_FILE_SIZE / 1024 / 1024,
-          needsCompression: false,
-        };
-      }
-
-      const sizeBytes = file.size || 0;
-      const sizeMB = sizeBytes / 1024 / 1024;
-      const maxSizeMB = MAX_FILE_SIZE / 1024 / 1024;
-      const isValid = sizeBytes <= MAX_FILE_SIZE;
-      const needsCompression = sizeBytes > MAX_FILE_SIZE;
-
-      return {
-        isValid,
-        sizeMB: Math.round(sizeMB * 100) / 100, // Round to 2 decimal places
-        maxSizeMB: Math.round(maxSizeMB * 100) / 100,
-        needsCompression,
-      };
-    } catch (error) {
-      logger.error('Error checking video size', error, { component: 'VideoProcessingService' });
-      return {
-        isValid: false,
-        sizeMB: 0,
-        maxSizeMB: MAX_FILE_SIZE / 1024 / 1024,
-        needsCompression: false,
-      };
-    }
-  }
-
-  /**
    * Gets human-readable file size string
    * @param bytes - File size in bytes
    * @returns Formatted size string (e.g., "2.5 MB")
@@ -1440,50 +1011,6 @@ class VideoProcessingService {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
 
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  }
-
-  /**
-   * Gets compression statistics for a video file
-   * @param originalPath - Path to original video
-   * @param compressedPath - Path to compressed video
-   * @returns Compression statistics
-   */
-  static async getCompressionStats(
-    originalPath: string,
-    compressedPath: string
-  ): Promise<{
-    originalSize: string;
-    compressedSize: string;
-    compressionRatio: number;
-    sizeReduction: string;
-  }> {
-    try {
-      const originalFile = new File(originalPath);
-      const compressedFile = new File(compressedPath);
-
-      const originalBytes = originalFile.exists ? originalFile.size || 0 : 0;
-      const compressedBytes = compressedFile.exists ? compressedFile.size || 0 : 0;
-
-      const compressionRatio = originalBytes > 0 ? (compressedBytes / originalBytes) * 100 : 0;
-      const sizeReduction = originalBytes > 0 ? originalBytes - compressedBytes : 0;
-
-      return {
-        originalSize: this.formatFileSize(originalBytes),
-        compressedSize: this.formatFileSize(compressedBytes),
-        compressionRatio: Math.round(compressionRatio * 100) / 100,
-        sizeReduction: this.formatFileSize(sizeReduction),
-      };
-    } catch (error) {
-      logger.error('Error getting compression stats', error, {
-        component: 'VideoProcessingService',
-      });
-      return {
-        originalSize: 'Unknown',
-        compressedSize: 'Unknown',
-        compressionRatio: 0,
-        sizeReduction: 'Unknown',
-      };
-    }
   }
 
   /**

@@ -50,8 +50,8 @@ export const processAndMergeVideos = async recordedVideos => {
     `-y -f concat -safe 0 -i "${listFilePath}" ` +
     '-map 0:v:0 -map 0:a:0? -dn -sn ' +
     '-fflags +genpts -avoid_negative_ts make_zero ' +
-    '-c:v libx264 -preset veryfast -crf 21 -pix_fmt yuv420p -r 30 ' +
-    '-c:a aac -b:a 128k -ar 48000 -ac 2 ' +
+    '-c:v copy ' +
+    '-c:a aac -b:a 128k -ar 48000 -ac 2 -af aresample=async=1:first_pts=0 ' +
     '-movflags +faststart ' +
     `"${outputPath}"`;
 

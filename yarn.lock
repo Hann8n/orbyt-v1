@@ -4467,6 +4467,11 @@ expo-haptics@~55.0.9:
   resolved "https://registry.yarnpkg.com/expo-haptics/-/expo-haptics-55.0.9.tgz#a6dcb54875e4782627b374702e5dfef5ac85fce8"
   integrity sha512-KCRyHr/uu4syXmoq3aIQ6ahuaX6FGtlPkWGlLlHJ836WF3nG+5+oCaCQiI7qMTpml+Tp/V/zP4ZaowM2KHgLNA==
 
+expo-image-and-video-compressor@^1.0.1:
+  version "1.0.1"
+  resolved "https://registry.yarnpkg.com/expo-image-and-video-compressor/-/expo-image-and-video-compressor-1.0.1.tgz#0523d4f56fd21c27d84c37d65b563a51b46a6082"
+  integrity sha512-M2PgBDL3OCgKbgmnE6EkIhHHSKxpeX5zbxPjQKxmLo9GrfxWEALsmEX4PBW4JSUtbORIjYfGIe3XZwBZ3CVvdA==
+
 expo-image-loader@~55.0.0:
   version "55.0.0"
   resolved "https://registry.yarnpkg.com/expo-image-loader/-/expo-image-loader-55.0.0.tgz#56ae6631a0f43191432296a1f7f1e9737e653cfe"
@@ -7312,11 +7317,6 @@ react-native-clip-trim@^6.1.0-beta.1:
   version "6.1.0-beta.1"
   resolved "https://registry.yarnpkg.com/react-native-clip-trim/-/react-native-clip-trim-6.1.0-beta.1.tgz#6ae2b24f7c3107a08b6a61e4bbb4294f956302eb"
   integrity sha512-sZLg0K75tpJW2nC4v4C3hGYGY6pGzOcLVom0SZ3wqwHrCdGVPW0PNFjU1o4AZj0ZRYMtN5kuARM2hTLiWEOYew==
-
-react-native-compressor@^1.16.0:
-  version "1.16.0"
-  resolved "https://registry.yarnpkg.com/react-native-compressor/-/react-native-compressor-1.16.0.tgz#4c1dbad91f9bb33dd06292763da5ae3bdfbf3f87"
-  integrity sha512-yBJ1j/ank4Ckx/0cKf8QiK1oATppxN8GuNBoW6P83Os7s7MUdCLzVmIXX0ikkusdrgdCaetW6j3hH2eMI54pcw==
 
 react-native-emoji-chooser@^0.1.11:
   version "0.1.11"

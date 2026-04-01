@@ -32,6 +32,37 @@ function getVideoAgent(): Agent {
 
 export class VideoService {
   /**
+   * Ensures the current user may upload a video of this size per Bluesky's
+   * app.bsky.video.getUploadLimits response (daily quota and canUpload).
+   */
+  static async assertVideoUploadAllowed(videoSizeBytes: number): Promise<void> {
+    const limits = await this.getUploadLimits();
+
+    if (!limits.canUpload) {
+      throw new Error(
+        limits.message ||
+          limits.error ||
+          'Video uploads are not available for your account right now.'
+      );
+    }
+
+    if (limits.remainingDailyVideos === 0) {
+      throw new Error(limits.message || 'Daily video upload limit reached. Try again tomorrow.');
+    }
+
+    if (
+      typeof limits.remainingDailyBytes === 'number' &&
+      limits.remainingDailyBytes >= 0 &&
+      videoSizeBytes > limits.remainingDailyBytes
+    ) {
+      throw new Error(
+        limits.message ||
+          'This video is larger than your remaining daily upload allowance on Bluesky.'
+      );
+    }
+  }
+
+  /**
    * Get video upload limits for the authenticated user
    * @returns Upload limits including remainingDailyVideos, remainingDailyBytes, and canUpload flag
    */
@@ -122,6 +153,8 @@ export class VideoService {
         videoName = videoPath.split('/').pop() || 'video.mp4';
         uploadBody = blob;
       }
+
+      await this.assertVideoUploadAllowed(videoSize);
 
       // Upload to video service
       const uploadUrl = new URL('https://video.bsky.app/xrpc/app.bsky.video.uploadVideo');

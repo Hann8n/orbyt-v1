@@ -326,6 +326,11 @@ class AtprotoService {
     return VideoService.getUploadLimits();
   }
 
+  /** Delegates to VideoService — checks app.bsky.video.getUploadLimits before upload */
+  static async assertVideoUploadAllowed(videoSizeBytes: number): Promise<void> {
+    return VideoService.assertVideoUploadAllowed(videoSizeBytes);
+  }
+
   /**
    * Upload a video file to Bluesky
    * Delegates to RepoService
