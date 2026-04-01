@@ -1024,6 +1024,9 @@ const VideoCard = memo(
       const uiOverlayOpacitySV = useDerivedValue(() => {
         'worklet';
         const scrubbing = interpolate(seekingAnimationSV.value, [0, 0.2, 1], [1, 0, 0], 'clamp');
+        if (!isVisible) {
+          return 0;
+        }
         let p: number;
         if (!scrollOffsetYSV) {
           p = 1;
@@ -1049,7 +1052,7 @@ const VideoCard = memo(
           }
         }
         return overlayVisibility.value * p * scrubbing;
-      }, [scrollOffsetYSV, headerH, viewportH, itemSp, idx, cardHeight]);
+      }, [scrollOffsetYSV, headerH, viewportH, itemSp, idx, cardHeight, isVisible]);
 
       return (
         <View style={[styles.container, { height: cardHeight }]}>

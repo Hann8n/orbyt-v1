@@ -38,7 +38,7 @@ import { useCurrentUser } from '@/stores/userStore';
 import { HeaderAction, HeaderActionButton } from '@/components/layout/header/UniversalHeader';
 import { Colors } from '@/theme';
 import { useGlobalAccountSwitcher } from '@/hooks/useGlobalModals';
-import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '@/hooks';
+import { useVisibilityRouteIsActive } from '@/hooks';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFollowMutation, useBlockMutation } from '@/services/data/ProfileService';
 import { queryKeys } from '@/utils/query/queryKeys';
@@ -91,7 +91,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     return 'profile:self';
   }, [providedIdentifier]);
 
-  useVisibilityRouteTracker(profileRouteKey);
   const isRouteFocused = useVisibilityRouteIsActive(profileRouteKey);
 
   const queryClient = useQueryClient();

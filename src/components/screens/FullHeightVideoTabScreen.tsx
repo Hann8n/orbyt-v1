@@ -14,7 +14,7 @@ import { getViewportDimensions } from '@/utils/device/screen';
 import type { EdgeInsets } from 'react-native-safe-area-context';
 import { useFeedVisibility } from '@/core/visibility';
 import { useVisibilityCoreStore } from '@/core/visibility/visibilityStore';
-import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '@/hooks';
+import { useVisibilityRouteIsActive } from '@/hooks';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
 
 const ROUTE_KEY = 'full-height-video-modal';
@@ -126,7 +126,6 @@ const FullHeightVideoTabScreen = memo(() => {
   const params = useLocalSearchParams<{ postUri?: string }>();
   const postUri = typeof params.postUri === 'string' ? params.postUri : '';
 
-  useVisibilityRouteTracker(ROUTE_KEY);
   const isRouteFocused = useVisibilityRouteIsActive(ROUTE_KEY);
 
   const { canPlay, feedKey } = useFeedVisibility({

@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { queryKeys } from '@/utils/query/queryKeys';
 import { FeedPager } from '@/components';
 import { HomeScreenRef, FeedOption } from '@/types';
-import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '@/hooks';
+import { useVisibilityRouteIsActive } from '@/hooks';
 import { Colors } from '@/theme';
 import { tabRefs } from '@/utils/navigation/tabRefs';
 import type { FeedPagerRef } from '@/utils/navigation/tabRefs';
@@ -25,7 +25,6 @@ const HomeScreen = memo(
     const feedBootstrapStatus = useUserStore(state => state.feedBootstrapStatus);
     const feedBootstrapDid = useUserStore(state => state.feedBootstrapDid);
     const insets = useSafeAreaInsets();
-    useVisibilityRouteTracker('home');
     const isRouteFocused = useVisibilityRouteIsActive('home');
     const shouldGateHomeFeed =
       !!currentUser?.did &&

@@ -5,7 +5,7 @@ import { useVisibilityCoreStore } from './visibilityStore';
 import { useSetOverlayVisibility } from '../../context/FeedIndicatorContext';
 const VIEWABILITY_CONFIG: ViewabilityConfig = {
   itemVisiblePercentThreshold: 50,
-  minimumViewTime: 0,
+  minimumViewTime: 150,
   waitForInteraction: false,
 };
 
@@ -91,14 +91,6 @@ export function useFeedVisibility({
     canPlay,
     feedKey,
   };
-}
-
-/**
- * Route focus is read directly from navigation state.
- * Kept as a no-op to preserve existing call sites.
- */
-export function useVisibilityRouteTracker(_routeKey: string) {
-  // Intentionally no-op: route focus is sourced from useVisibilityRouteIsActive().
 }
 
 /**

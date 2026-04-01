@@ -7,9 +7,5 @@ export * from './useGlobalModals';
 export { useProfileChannelNavigation } from './useProfileChannelNavigation';
 export { useAppStore, useAppInitialization } from '../stores/appStore';
 export { useModerationSettings } from './useModerationSettings';
-export {
-  useFeedVisibility,
-  useVisibilityRouteTracker,
-  useVisibilityRouteIsActive,
-} from '../core/visibility';
+export { useFeedVisibility, useVisibilityRouteIsActive } from '../core/visibility';
 export { useSheetPresentation } from './useSheetPresentation';
