@@ -80,6 +80,7 @@ const OVERLAY_FADE_EXPONENT = 2;
 
 /** System moderation labels: do not show in user-facing warning text. */
 const WARNING_HIDDEN_LABELS = ['!hide', '!warn', '!no-unauthenticated'];
+const VIDEO_RECOVERY_TIMEOUT_MS = 8000;
 
 /** Label keys that have i18n translations (video.contentWarningLabels.*) */
 const CONTENT_WARNING_LABEL_KEYS = [
@@ -660,34 +661,70 @@ const VideoCard = memo(
         }, [videoState.userPaused, togglePlayback])
       );
 
-      // On error: retry once with a fresh HLS URL (re-fetch post then replace source)
-      const errorRetriedForUriRef = useRef<string | null>(null);
+      // Retry once with a fresh HLS URL when player errors or gets stuck loading.
+      const recoveryRetriedForUriRef = useRef<string | null>(null);
+      const recoveryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-      // Handle player status changes for callbacks only
+      const clearRecoveryTimeout = useCallback(() => {
+        if (recoveryTimeoutRef.current) {
+          clearTimeout(recoveryTimeoutRef.current);
+          recoveryTimeoutRef.current = null;
+        }
+      }, []);
+
+      const retryVideoRecovery = useCallback(() => {
+        if (!player || recoveryRetriedForUriRef.current === postView.uri) return;
+
+        recoveryRetriedForUriRef.current = postView.uri;
+        ErrorHandler.safeAsync(async () => {
+          const post = await AtprotoService.getPost(postView.uri);
+          const vv = post ? getVideoView(post.embed) : null;
+          const newSource = createVideoSource(vv?.playlist ?? null);
+          if (!newSource) {
+            return;
+          }
+          await player.replaceAsync(newSource);
+        }, 'VideoCard: retry replaceAsync after playback failure');
+      }, [player, postView.uri]);
+
+      // Handle status callbacks and minimal self-heal recovery.
       useEffect(() => {
         if (!player) return;
 
         if (playerStatus === 'readyToPlay') {
+          clearRecoveryTimeout();
+          recoveryRetriedForUriRef.current = null;
           onVideoStatus?.(postView.uri, 'loaded');
         } else if (playerStatus === 'loading') {
           onVideoStatus?.(postView.uri, 'loading');
-        } else if (playerStatus === 'error') {
-          if (errorRetriedForUriRef.current !== postView.uri) {
-            errorRetriedForUriRef.current = postView.uri;
-            ErrorHandler.safeAsync(async () => {
-              const post = await AtprotoService.getPost(postView.uri);
-              const vv = post ? getVideoView(post.embed) : null;
-              const newSource = createVideoSource(vv?.playlist ?? null);
-              if (!newSource) {
-                errorRetriedForUriRef.current = null; // allow retry if getPost returns no source
-                return;
-              }
-              await player.replaceAsync(newSource);
-            }, 'VideoCard: retry replaceAsync after error');
+          clearRecoveryTimeout();
+          if (recoveryRetriedForUriRef.current !== postView.uri) {
+            recoveryTimeoutRef.current = setTimeout(() => {
+              retryVideoRecovery();
+            }, VIDEO_RECOVERY_TIMEOUT_MS);
           }
+        } else if (playerStatus === 'error') {
+          clearRecoveryTimeout();
+          retryVideoRecovery();
           onVideoStatus?.(postView.uri, 'error');
+        } else {
+          clearRecoveryTimeout();
         }
-      }, [playerStatus, player, postView.uri, onVideoStatus]);
+      }, [
+        playerStatus,
+        player,
+        postView.uri,
+        onVideoStatus,
+        clearRecoveryTimeout,
+        retryVideoRecovery,
+      ]);
+
+      // Cleanup recovery timer on unmount.
+      useEffect(() => {
+        return () => {
+          clearRecoveryTimeout();
+        };
+      }, [clearRecoveryTimeout]);
 
       // Control playback based on shouldPlayVideo
       // Drive play/pause directly from our own visibility logic, per Expo docs:
