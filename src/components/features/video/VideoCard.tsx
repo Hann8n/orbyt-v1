@@ -82,6 +82,7 @@ const OVERLAY_FADE_EXPONENT = 2;
 /** System moderation labels: do not show in user-facing warning text. */
 const WARNING_HIDDEN_LABELS = ['!hide', '!warn', '!no-unauthenticated'];
 const VIDEO_RECOVERY_TIMEOUT_MS = 8000;
+const MIN_SCRUBBER_DURATION_SECONDS = 7;
 
 /** Label keys that have i18n translations (video.contentWarningLabels.*) */
 const CONTENT_WARNING_LABEL_KEYS = [
@@ -506,6 +507,11 @@ const VideoCard = memo(
         !videoState.userPaused &&
         isVisible &&
         !!videoUrl;
+      const shouldHideScrubberForShortVideo = !!(
+        player?.duration &&
+        player.duration > 0 &&
+        player.duration < MIN_SCRUBBER_DURATION_SECONDS
+      );
 
       // Text-expanded dim state is driven fully by Reanimated shared values to avoid re-rendering
       // VideoCard when the overlay text is expanded/collapsed.
@@ -1100,8 +1106,8 @@ const VideoCard = memo(
                   />
                 )}
 
-                {/* Video Scrubber - iOS only, overlays video above bottom bar */}
-                {Platform.OS === 'ios' && (
+                {/* Video Scrubber overlays video above bottom bar */}
+                {!shouldHideScrubberForShortVideo && (
                   <VideoScrubber
                     active={isVisible && !hasError}
                     player={player}

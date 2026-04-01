@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Text, StyleSheet, Platform } from 'react-native';
+import { Text, StyleSheet } from 'react-native';
 import { Gesture, GestureDetector, type NativeGesture } from 'react-native-gesture-handler';
 import Animated, {
   clamp,
@@ -41,7 +41,6 @@ const VideoScrubberComponent = ({
   children,
   overlayOpacitySV,
 }: VideoScrubberProps) => {
-  const isIOS = Platform.OS === 'ios';
   const deviceLayout = useDeviceLayout();
   const screenWidth = deviceLayout.screenWidth;
 
@@ -415,10 +414,6 @@ const VideoScrubberComponent = ({
   });
 
   // Card bottom matches feed row (already above tab bar); keep scrubber flush to card bottom.
-
-  if (!isIOS) {
-    return null;
-  }
 
   return (
     <>
