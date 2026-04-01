@@ -53,6 +53,8 @@ import { SegmentManager, type Segment } from '@/utils/video/segmentManager';
 import VideoProcessingService from '@/services/video/VideoProcessingService';
 import { usePendingVideoPostStore } from '@/stores/pendingVideoPostStore';
 import { ErrorHandler } from '@/utils/errors/errorHandler';
+import { useVideoPlayer, VideoView } from 'expo-video';
+import { DEFAULT_BUFFER_OPTIONS } from '@/utils/video/helpers';
 
 // Duration options in seconds - labels resolved via t() in component
 const DURATION_OPTION_KEYS = [
@@ -77,6 +79,42 @@ function toFileUri(path: string): string {
   }
   return `file://${path}`;
 }
+
+const deletePreviewVideoStyles = StyleSheet.create({
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 11,
+  },
+});
+
+/** Last-segment playback for delete confirmation; mounted only while delete preview is active. */
+const DeletePreviewSegmentVideo: React.FC<{ uri: string }> = ({ uri }) => {
+  const player = useVideoPlayer({ uri }, p => {
+    p.loop = true;
+    p.muted = true;
+    p.bufferOptions = DEFAULT_BUFFER_OPTIONS;
+  });
+
+  // Do not call player.pause() on unmount: native shared object may already be released
+  // (NativeSharedObjectNotFoundException). useVideoPlayer tears down playback on unmount.
+  useEffect(() => {
+    player?.play();
+  }, [player, uri]);
+
+  if (!player) return null;
+
+  return (
+    <View style={deletePreviewVideoStyles.overlay} pointerEvents="none">
+      <VideoView
+        player={player}
+        style={StyleSheet.absoluteFill}
+        contentFit="cover"
+        nativeControls={false}
+        surfaceType={Platform.OS === 'android' ? 'textureView' : undefined}
+      />
+    </View>
+  );
+};
 
 interface DeletePreviewState {
   segmentCount: number;
@@ -243,6 +281,16 @@ const CreateScreen: React.FC = () => {
   const maxDuration = selectedDuration;
   const availableTime = segmentManagerRef.current?.getAvailableTime() ?? 0;
   const isDeletePreviewActive = deletePreview !== null;
+
+  const deletePreviewSegmentUri = useMemo(() => {
+    if (!deletePreview) return null;
+    const manager = segmentManagerRef.current;
+    if (!manager) return null;
+    const segments = manager.getSegments();
+    if (segments.length === 0) return null;
+    const uri = getSegmentUri(segments[segments.length - 1]);
+    return uri.length > 0 ? uri : null;
+  }, [deletePreview, getSegmentUri, segmentUpdateTrigger]);
 
   /**
    * Pinch on preview — matches Vision Camera example (exponential-ish feel via piecewise interpolate).
@@ -1269,7 +1317,7 @@ const CreateScreen: React.FC = () => {
           ref={cameraRef}
           style={styles.cameraFill}
           device={cameraDevice}
-          isActive={isFocused && !isTrimmerActive}
+          isActive={isFocused && !isTrimmerActive && !isDeletePreviewActive}
           outputs={[videoOutput]}
           torchMode={flash === 'on' && !isFrontCamera ? 'on' : 'off'}
           zoom={zoomShared}
@@ -1282,14 +1330,19 @@ const CreateScreen: React.FC = () => {
               });
           }}
         />
-        {!isDeletePreviewActive && isOnionSkinningEnabled && lastFrameThumbnail && (
-          <Image
-            source={{ uri: lastFrameThumbnail }}
-            style={styles.onionSkinOverlay}
-            contentFit="cover"
-            cachePolicy="memory-disk"
-            pointerEvents="none"
-          />
+        {isDeletePreviewActive && deletePreviewSegmentUri ? (
+          <DeletePreviewSegmentVideo uri={deletePreviewSegmentUri} />
+        ) : (
+          isOnionSkinningEnabled &&
+          lastFrameThumbnail && (
+            <Image
+              source={{ uri: lastFrameThumbnail }}
+              style={styles.onionSkinOverlay}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              pointerEvents="none"
+            />
+          )
         )}
       </View>
     );
