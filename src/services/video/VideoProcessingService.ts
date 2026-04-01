@@ -107,6 +107,9 @@ export interface VideoInfo {
   codec: string;
 }
 
+/** Reuse in-flight / completed expo-video-thumbnails results per segment (onion skin). */
+const extractLastFrameByKey = new Map<string, Promise<string>>();
+
 class VideoProcessingService {
   /**
    * Gets the actual video duration from the video file path
@@ -1061,28 +1064,38 @@ class VideoProcessingService {
     durationSeconds: number,
     assetId?: string | null
   ): Promise<string> {
-    try {
-      let localVideoPath: string;
-      if (videoPath.includes('video_sandbox') || videoPath.includes('Library/Caches')) {
-        localVideoPath = videoPath;
-      } else {
-        localVideoPath = await this.getLocalVideoPath(videoPath, assetId);
-      }
-      const videoUri = ensureFileUri(localVideoPath);
-
-      // Extract the very last frame (1ms before end to stay within bounds)
-      const timeMs = Math.max(0, Math.round((durationSeconds - 0.001) * 1000));
-
-      // Lower quality (0.5) is fine for low-opacity ghost overlay; faster extraction
-      const { uri } = await VideoThumbnails.getThumbnailAsync(videoUri, {
-        time: timeMs,
-        quality: 0.5,
-      });
-      return uri;
-    } catch (error) {
-      logger.error('Error extracting last frame', error, { component: 'VideoProcessingService' });
-      throw error;
+    const cacheKey = `${videoPath}\u0000${durationSeconds}\u0000${assetId ?? ''}`;
+    const hit = extractLastFrameByKey.get(cacheKey);
+    if (hit) {
+      return hit;
     }
+
+    const pending = (async (): Promise<string> => {
+      try {
+        let localVideoPath: string;
+        if (videoPath.includes('video_sandbox') || videoPath.includes('Library/Caches')) {
+          localVideoPath = videoPath;
+        } else {
+          localVideoPath = await VideoProcessingService.getLocalVideoPath(videoPath, assetId);
+        }
+        const videoUri = ensureFileUri(localVideoPath);
+
+        const timeMs = Math.max(0, Math.round((durationSeconds - 0.001) * 1000));
+
+        const { uri } = await VideoThumbnails.getThumbnailAsync(videoUri, {
+          time: timeMs,
+          quality: 0.5,
+        });
+        return uri;
+      } catch (error) {
+        extractLastFrameByKey.delete(cacheKey);
+        logger.error('Error extracting last frame', error, { component: 'VideoProcessingService' });
+        throw error;
+      }
+    })();
+
+    extractLastFrameByKey.set(cacheKey, pending);
+    return pending;
   }
 }
 

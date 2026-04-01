@@ -134,18 +134,11 @@ const CreateScreen: React.FC = () => {
   const buttonOpacity = useSharedValue(1);
   const zoomStartRef = useRef(0);
 
-  // Use useFocusEffect from expo-router instead of useIsFocused from react-navigation
-  // This ensures compatibility with Expo Router's navigation system
+  // Single focus effect: Vision Camera must stop recording/deactivate only AFTER recorder teardown.
+  // Multiple useFocusEffect hooks each subscribe to 'blur' in registration order; the first could run
+  // setIsFocused(false) before stopRecording(), unmounting the camera while the recorder is still
+  // bound to videoOutput (intermittent native crash when navigating e.g. create → post → back).
   const [isFocused, setIsFocused] = React.useState(false);
-  useFocusEffect(
-    React.useCallback(() => {
-      setIsFocused(true);
-      return () => {
-        setIsFocused(false);
-        setDeletePreview(null);
-      };
-    }, [])
-  );
 
   // Initialize segment manager
   useEffect(() => {
@@ -154,14 +147,14 @@ const CreateScreen: React.FC = () => {
     }
   }, [selectedDuration]);
 
-  // Update max duration when selected duration changes
+  // Update max duration when selected duration changes (segment list unchanged; no segmentUpdateTrigger)
   useEffect(() => {
     if (segmentManagerRef.current) {
       segmentManagerRef.current.setMaxDuration(selectedDuration);
-      // Update UI to reflect changes
       totalDurationShared.value = segmentManagerRef.current.getTotalDuration();
-      progressBarDurationShared.value = segmentManagerRef.current.getTotalDuration();
-      setSegmentUpdateTrigger(prev => prev + 1);
+      if (!isRecordingRef.current) {
+        progressBarDurationShared.value = segmentManagerRef.current.getTotalDuration();
+      }
     }
   }, [progressBarDurationShared, selectedDuration, totalDurationShared]);
 
@@ -175,31 +168,41 @@ const CreateScreen: React.FC = () => {
     return '';
   }, []);
 
-  // Extract only the last segment's frame for onion skinning (single source, no re-extraction of older clips)
-  useEffect(() => {
-    const ac = new AbortController();
+  /** Onion skin: only run after segment list mutations (not e.g. max-duration tweaks). Cache is in VideoProcessingService. */
+  const onionSkinRequestIdRef = useRef(0);
+  const refreshOnionSkinThumbnail = useCallback(() => {
+    const requestId = ++onionSkinRequestIdRef.current;
     const segments = segmentManagerRef.current?.getSegments() ?? [];
     if (segments.length === 0) {
       setLastFrameThumbnail(null);
-      return () => ac.abort();
+      return;
     }
-
     const lastSeg = segments[segments.length - 1];
     const videoUri = getSegmentUri(lastSeg);
     if (!videoUri || lastSeg.duration <= 0) {
       setLastFrameThumbnail(null);
-      return () => ac.abort();
+      return;
     }
+    const segmentAssetId =
+      lastSeg.video &&
+      typeof lastSeg.video === 'object' &&
+      'assetId' in lastSeg.video &&
+      typeof (lastSeg.video as { assetId?: string }).assetId === 'string'
+        ? (lastSeg.video as { assetId: string }).assetId
+        : undefined;
 
-    VideoProcessingService.extractLastFrame(videoUri, lastSeg.duration)
+    VideoProcessingService.extractLastFrame(videoUri, lastSeg.duration, segmentAssetId)
       .then(thumbUri => {
-        if (!ac.signal.aborted) setLastFrameThumbnail(thumbUri);
+        if (requestId === onionSkinRequestIdRef.current) {
+          setLastFrameThumbnail(thumbUri);
+        }
       })
       .catch(() => {
-        if (!ac.signal.aborted) setLastFrameThumbnail(null);
+        if (requestId === onionSkinRequestIdRef.current) {
+          setLastFrameThumbnail(null);
+        }
       });
-    return () => ac.abort();
-  }, [getSegmentUri, segmentUpdateTrigger]);
+  }, [getSegmentUri]);
 
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -212,7 +215,6 @@ const CreateScreen: React.FC = () => {
     cameraHeightFor16x9,
   } = useDeviceLayout();
   const bottomNavBarHeight = getBottomNavBarHeight(insets, isSmallDevice);
-  const listenerSubscription = useRef<Record<string, EventSubscription>>({});
 
   const backDefaultDevice = useCameraDevice('back');
   const backUltraWideDevice = useCameraDevice('back', { physicalDevices: ['ultra-wide-angle'] });
@@ -289,11 +291,18 @@ const CreateScreen: React.FC = () => {
         totalDurationShared.value = manager.getTotalDuration();
         progressBarDurationShared.value = manager.getTotalDuration();
         setSegmentUpdateTrigger(prev => prev + 1);
+        refreshOnionSkinThumbnail();
       }
     }
 
     setDeletePreview(null);
-  }, [deletePreview, isSamePreviewAsLastSegment, progressBarDurationShared, totalDurationShared]);
+  }, [
+    deletePreview,
+    isSamePreviewAsLastSegment,
+    progressBarDurationShared,
+    refreshOnionSkinThumbnail,
+    totalDurationShared,
+  ]);
 
   useEffect(() => {
     if (!deletePreview) return;
@@ -351,6 +360,21 @@ const CreateScreen: React.FC = () => {
         return;
       }
 
+      const manager = segmentManagerRef.current;
+      // Import-only: empty timeline → post with single file (no segment merge).
+      if (manager.getSegmentCount() === 0) {
+        const videoUri = toFileUri(outputPath);
+        setPendingVideoPost({
+          videoPath: videoUri,
+          textOverlays: [],
+        });
+        router.navigate({ pathname: '/post/[id]', params: { id: 'new' } });
+        setIsLoadingFromGallery(false);
+        setIsProcessing(false);
+        setIsTrimmerActive(false);
+        return;
+      }
+
       // Add segment
       const videoUri = outputPath.startsWith('file://') ? outputPath : `file://${outputPath}`;
       const newSegment: Segment = {
@@ -370,11 +394,19 @@ const CreateScreen: React.FC = () => {
       totalDurationShared.value = segmentManagerRef.current.getTotalDuration();
       progressBarDurationShared.value = segmentManagerRef.current.getTotalDuration();
       setSegmentUpdateTrigger(prev => prev + 1);
+      refreshOnionSkinThumbnail();
       setIsLoadingFromGallery(false);
       setIsProcessing(false);
       setIsTrimmerActive(false);
     },
-    [progressBarDurationShared, totalDurationShared, t]
+    [
+      progressBarDurationShared,
+      refreshOnionSkinThumbnail,
+      router,
+      setPendingVideoPost,
+      totalDurationShared,
+      t,
+    ]
   );
 
   // Helper to stop recording without processing (for when trimmer opens)
@@ -392,45 +424,31 @@ const CreateScreen: React.FC = () => {
     }
   }, [currentSegmentDurationShared]);
 
+  const endTrimmerLoading = useCallback(() => {
+    setIsLoadingFromGallery(false);
+    setIsProcessing(false);
+    setIsTrimmerActive(false);
+  }, []);
+
   // Set up event listeners for react-native-clip-trim (TurboModule API).
   useEffect(() => {
     const VideoTrimModule = VideoTrim as Spec;
-    listenerSubscription.current.onCancelTrimming = VideoTrimModule.onCancelTrimming(() => {
-      setIsLoadingFromGallery(false);
-      setIsProcessing(false);
-      setIsTrimmerActive(false);
-    });
-
-    listenerSubscription.current.onCancel = VideoTrimModule.onCancel(() => {
-      setIsLoadingFromGallery(false);
-      setIsProcessing(false);
-      setIsTrimmerActive(false);
-    });
-
-    listenerSubscription.current.onHide = VideoTrimModule.onHide(() => {
-      setIsTrimmerActive(false);
-    });
-
-    listenerSubscription.current.onShow = VideoTrimModule.onShow(() => {
-      stopRecordingImmediate();
-      setIsTrimmerActive(true);
-    });
-
-    listenerSubscription.current.onFinishTrimming =
-      VideoTrimModule.onFinishTrimming(handleTrimmingComplete);
-
-    listenerSubscription.current.onError = VideoTrimModule.onError(({ message }) => {
-      Alert.alert(t('common.error'), message || t('video.failedToTrim'));
-      setIsLoadingFromGallery(false);
-      setIsProcessing(false);
-      setIsTrimmerActive(false);
-    });
-
-    return () => {
-      Object.values(listenerSubscription.current).forEach(listener => listener?.remove());
-      listenerSubscription.current = {};
-    };
-  }, [handleTrimmingComplete, stopRecordingImmediate, t]);
+    const subs: EventSubscription[] = [
+      VideoTrimModule.onCancelTrimming(endTrimmerLoading),
+      VideoTrimModule.onCancel(endTrimmerLoading),
+      VideoTrimModule.onHide(() => setIsTrimmerActive(false)),
+      VideoTrimModule.onShow(() => {
+        stopRecordingImmediate();
+        setIsTrimmerActive(true);
+      }),
+      VideoTrimModule.onFinishTrimming(handleTrimmingComplete),
+      VideoTrimModule.onError(({ message }) => {
+        Alert.alert(t('common.error'), message || t('video.failedToTrim'));
+        endTrimmerLoading();
+      }),
+    ];
+    return () => subs.forEach(s => s.remove());
+  }, [endTrimmerLoading, handleTrimmingComplete, stopRecordingImmediate, t]);
 
   // Request camera permissions on mount
   useEffect(() => {
@@ -465,11 +483,19 @@ const CreateScreen: React.FC = () => {
     };
   }, []);
 
-  // Reset processing state when screen comes back into focus (user navigated back)
   useFocusEffect(
     useCallback(() => {
+      setIsFocused(true);
       setIsProcessing(false);
       return () => {
+        if (recordingAutoStopTimeoutRef.current) {
+          clearTimeout(recordingAutoStopTimeoutRef.current);
+          recordingAutoStopTimeoutRef.current = null;
+        }
+        if (tapTimeoutRef.current) {
+          clearTimeout(tapTimeoutRef.current);
+          tapTimeoutRef.current = null;
+        }
         if (recorderRef.current) {
           recorderRef.current.stopRecording().catch(() => {
             // Ignore stop errors when leaving screen.
@@ -480,17 +506,12 @@ const CreateScreen: React.FC = () => {
           recordingStartAtRef.current = null;
           recorderRef.current = null;
           recordingPromiseRef.current = null;
-        }
-        if (tapTimeoutRef.current) {
-          clearTimeout(tapTimeoutRef.current);
-          tapTimeoutRef.current = null;
-        }
-        if (recordingAutoStopTimeoutRef.current) {
-          clearTimeout(recordingAutoStopTimeoutRef.current);
-          recordingAutoStopTimeoutRef.current = null;
+          recordingStateRef.current = 'idle';
         }
         setIsProcessing(false);
         setFlash('off');
+        setDeletePreview(null);
+        setIsFocused(false);
       };
     }, [currentSegmentDurationShared])
   );
@@ -552,15 +573,23 @@ const CreateScreen: React.FC = () => {
     const newZoom = Math.max(0, Math.min(1, zoomStartRef.current + scaleChange));
     setZoom(newZoom);
   }, []);
-  const pinchGesture = Gesture.Pinch()
-    .onStart(() => {
-      'worklet';
-      runOnJS(captureZoomStart)();
-    })
-    .onUpdate(event => {
-      'worklet';
-      runOnJS(applyZoomFromPinch)(event.scale);
-    });
+
+  // Keep GestureDetector mounted at all times so Camera does not remount when delete preview toggles.
+  // Remounting Camera after stack navigation (post → back) while useVideoOutput is stable can crash native.
+  const pinchGesture = useMemo(
+    () =>
+      Gesture.Pinch()
+        .enabled(!isDeletePreviewActive)
+        .onStart(() => {
+          'worklet';
+          runOnJS(captureZoomStart)();
+        })
+        .onUpdate(event => {
+          'worklet';
+          runOnJS(applyZoomFromPinch)(event.scale);
+        }),
+    [applyZoomFromPinch, captureZoomStart, isDeletePreviewActive]
+  );
 
   // Update shared value when segments change
   useEffect(() => {
@@ -633,9 +662,10 @@ const CreateScreen: React.FC = () => {
       if (!manager.addSegment(newSegment)) return false;
       totalDurationShared.value = manager.getTotalDuration();
       setSegmentUpdateTrigger(prev => prev + 1);
+      refreshOnionSkinThumbnail();
       return true;
     },
-    [totalDurationShared]
+    [refreshOnionSkinThumbnail, totalDurationShared]
   );
 
   const stopRecording = useCallback(async () => {
@@ -1060,6 +1090,7 @@ const CreateScreen: React.FC = () => {
             totalDurationShared.value = 0;
             progressBarDurationShared.value = 0;
             setSegmentUpdateTrigger(prev => prev + 1);
+            refreshOnionSkinThumbnail();
             router.back();
           },
         },
@@ -1237,13 +1268,9 @@ const CreateScreen: React.FC = () => {
       <>
         {/* Camera View - only render when screen is focused and trimmer is not active */}
         <View style={[styles.cameraContainer, cameraContainerLayout]}>
-          {isFocused &&
-            !isTrimmerActive &&
-            (isDeletePreviewActive ? (
-              cameraSurface
-            ) : (
-              <GestureDetector gesture={pinchGesture}>{cameraSurface}</GestureDetector>
-            ))}
+          {isFocused && !isTrimmerActive && (
+            <GestureDetector gesture={pinchGesture}>{cameraSurface}</GestureDetector>
+          )}
 
           {/* Progress Bar - overlays on top of camera */}
           <View
@@ -1462,7 +1489,8 @@ const CreateScreen: React.FC = () => {
         disableGalleryUpload={
           Platform.OS === 'android' ||
           (Platform.OS === 'ios' && parseInt(Device.osVersion || '0', 10) < 17) ||
-          availableTime <= 0
+          availableTime <= 0 ||
+          (segmentManagerRef.current?.hasSegments() ?? false)
         }
         onionSkinningActive={isOnionSkinningEnabled}
       />

@@ -196,6 +196,9 @@ function RootNavigator() {
               options={{
                 animation: 'fade',
                 animationDuration: 200,
+                // Vision Camera + useVideoOutput need a normal lifecycle; stack freezeOnBlur can leave
+                // the session in a bad state when returning from post.
+                freezeOnBlur: false,
               }}
             />
           </Stack.Protected>
