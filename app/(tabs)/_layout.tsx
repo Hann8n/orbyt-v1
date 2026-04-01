@@ -4,6 +4,7 @@ import { useSegments } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 
 import { useDetailNavTabStore } from '@/stores/detailNavTabStore';
+import { useFeedSettings } from '@/stores/userStore';
 import { useUserStore } from '@/stores/userStore';
 import { Colors } from '@/theme';
 import { useUnreadCount } from '@/hooks/useUnreadCount';
@@ -35,6 +36,7 @@ function DetailNavTabSegmentSync() {
 
 export default function TabsLayout() {
   const { t } = useTranslation();
+  const { nativeTabsEnabled } = useFeedSettings();
   const profileColors = useUserStore(state => state.currentUserProfileColors);
   const profileAccentColor = useUserStore(state => state.currentUserProfileAccentColor);
   const { totalUnreadCount } = useUnreadCount();
@@ -65,7 +67,10 @@ export default function TabsLayout() {
           <NativeTabs.Trigger.Label hidden>{t('tabs.home')}</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
 
-        <NativeTabs.Trigger name="explore" role="search">
+        <NativeTabs.Trigger
+          name="explore"
+          {...(nativeTabsEnabled ? { role: 'search' as const } : {})}
+        >
           <NativeTabs.Trigger.Icon src={require('@/assets/tab-icons/png/search_2_cute.png')} />
           <NativeTabs.Trigger.Label hidden>{t('tabs.explore')}</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
