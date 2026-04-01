@@ -753,13 +753,6 @@ const VideoPostScreen: React.FC = () => {
         setMergedVideoPath(mergedVideo.path);
         setIsMerging(false);
 
-        const mergedPoster = await VideoProcessingService.extractFirstFrame(mergedVideo.path).catch(
-          () => undefined
-        );
-        if (mergedPoster) {
-          setThumbnailPath(mergedPoster);
-        }
-
         logger.info('Background merging completed', {
           component: 'VideoPostScreen',
           mergedPath: mergedVideo.path,
@@ -956,17 +949,6 @@ const VideoPostScreen: React.FC = () => {
         commentFilter: (commentFilter || 'all') as 'all' | 'followers' | 'mentioned' | 'none',
         channelSlug,
       };
-
-      // Prefer a frame from the file we upload (avoids stale segment preview / broken paths)
-      let bannerThumbnail: string | null =
-        (await VideoProcessingService.extractFirstFrame(videoPathToUpload).catch(() => null)) ??
-        null;
-      if (!bannerThumbnail && thumbnailPath) {
-        bannerThumbnail = thumbnailPath;
-      }
-      if (bannerThumbnail) {
-        storage.set('video-upload-thumbnail', bannerThumbnail);
-      }
 
       router.replace('/(tabs)/home');
 
@@ -1219,14 +1201,6 @@ const VideoPostScreen: React.FC = () => {
     p.bufferOptions = DEFAULT_BUFFER_OPTIONS;
     playerRef.current = p;
   });
-
-  // Update source and play when videoUri changes
-  useEffect(() => {
-    if (!player || !videoUri) return;
-    player.replaceAsync({ uri: videoUri }).then(() => {
-      player.play();
-    });
-  }, [player, videoUri]);
 
   // Sync play/pause state
   useEffect(() => {

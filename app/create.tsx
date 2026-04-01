@@ -16,19 +16,22 @@ import {
 import { Image } from 'expo-image';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  CameraView,
-  useCameraPermissions,
-  useMicrophonePermissions,
-  CameraRecordingOptions,
-} from 'expo-camera';
+  Camera,
+  useVideoOutput,
+  useCameraPermission,
+  useMicrophonePermission,
+  useCameraDevice,
+  type CameraRef,
+  type Recorder,
+} from 'react-native-vision-camera';
 import { useRouter, useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { useVideoPlayer, VideoView } from 'expo-video';
 import Animated, {
+  Easing,
+  useDerivedValue,
   useSharedValue,
   useAnimatedStyle,
   withTiming,
-  useFrameCallback,
   runOnJS,
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -58,8 +61,6 @@ const DURATION_OPTION_KEYS = [
 const CAPTURE_BUTTON_INNER_BG = hexToRGBA(Colors.neutral[500], 0.4);
 const CAPTURE_BUTTON_INNER_DISABLED_BG = hexToRGBA(Colors.neutral[500], 0.2);
 const DIGITAL_ZOOM_PRESETS = [0.5, 1, 2, 3, 5, 10] as const;
-/** Minimum segment duration (seconds). Shorter clips often have invalid timestamps after camera switch. */
-const MIN_RECORDING_DURATION = 0.4;
 
 function lensToLabel(lens: string): string {
   const n = lens.toLowerCase();
@@ -68,17 +69,23 @@ function lensToLabel(lens: string): string {
   return '1x';
 }
 
+function toFileUri(path: string): string {
+  if (path.startsWith('file://')) {
+    return path;
+  }
+  return `file://${path}`;
+}
+
 interface DeletePreviewState {
-  segmentUri: string;
-  segmentDuration: number;
+  segmentCount: number;
   segmentStartTime: number;
   segmentEndTime: number;
 }
 
 const CreateScreen: React.FC = () => {
   const { t } = useTranslation();
-  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
-  const [microphonePermission, requestMicrophonePermission] = useMicrophonePermissions();
+  const cameraPermission = useCameraPermission();
+  const microphonePermission = useMicrophonePermission();
   const [isRecording, setIsRecording] = useState(false);
   const [isFrontCamera, setIsFrontCamera] = useState(false);
   const [flash, setFlash] = useState<'off' | 'on'>('off');
@@ -88,11 +95,9 @@ const CreateScreen: React.FC = () => {
   const [selectedDuration, setSelectedDuration] = useState(16); // Default to 16 seconds
   const [isZoomExpanded, setIsZoomExpanded] = useState(false);
   const [availableLenses, setAvailableLenses] = useState<string[]>([]);
-  const [lensDataReceived, setLensDataReceived] = useState(false);
   const [selectedLens, setSelectedLens] = useState<string | null>(null);
   const [selectedPresetLabel, setSelectedPresetLabel] = useState('1x');
   const [isTrimmerActive, setIsTrimmerActive] = useState(false);
-  const [lastReadyCameraKey, setLastReadyCameraKey] = useState<string | null>(null);
   const [isOnionSkinningEnabled, setIsOnionSkinningEnabled] = useState(false);
   const [lastFrameThumbnail, setLastFrameThumbnail] = useState<string | null>(null);
   const [deletePreview, setDeletePreview] = useState<DeletePreviewState | null>(null);
@@ -103,17 +108,29 @@ const CreateScreen: React.FC = () => {
   const [segmentUpdateTrigger, setSegmentUpdateTrigger] = useState(0);
 
   // Recording state
-  const cameraRef = useRef<CameraView>(null);
+  const cameraRef = useRef<CameraRef>(null);
+  const recorderRef = useRef<Recorder | null>(null);
   const recordingPromiseRef = useRef<Promise<{ uri: string } | undefined> | null>(null);
+  const recordingPromiseResolverRef = useRef<((value: { uri: string } | undefined) => void) | null>(
+    null
+  );
+  const recordingStartAtRef = useRef<number | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const isRecordingRef = useRef(false);
+  const recordingStateRef = useRef<'idle' | 'starting' | 'recording' | 'stopping'>('idle');
+  const recordingCommittedBaseRef = useRef(0);
+  const forcedStopDurationRef = useRef<number | null>(null);
+  const finishRecordingRef = useRef<((options?: { force?: boolean }) => Promise<void>) | null>(
+    null
+  );
   const lastTapRef = useRef<number>(0);
   const tapTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const recordingAutoStopTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Animated values
   const totalDurationShared = useSharedValue(0); // Total duration from segments (updated when segments change)
-  const recordingStartTime = useSharedValue<number | null>(null); // Start time of current recording (milliseconds, performance.now-based)
-  const recordingElapsed = useSharedValue(0); // Elapsed time during current recording (seconds) - updated continuously
+  const currentSegmentDurationShared = useSharedValue(0);
+  const progressBarDurationShared = useSharedValue(0);
   const buttonOpacity = useSharedValue(1);
   const zoomStartRef = useRef(0);
 
@@ -125,7 +142,6 @@ const CreateScreen: React.FC = () => {
       setIsFocused(true);
       return () => {
         setIsFocused(false);
-        setLastReadyCameraKey(null);
         setDeletePreview(null);
       };
     }, [])
@@ -144,9 +160,10 @@ const CreateScreen: React.FC = () => {
       segmentManagerRef.current.setMaxDuration(selectedDuration);
       // Update UI to reflect changes
       totalDurationShared.value = segmentManagerRef.current.getTotalDuration();
+      progressBarDurationShared.value = segmentManagerRef.current.getTotalDuration();
       setSegmentUpdateTrigger(prev => prev + 1);
     }
-  }, [selectedDuration, totalDurationShared]);
+  }, [progressBarDurationShared, selectedDuration, totalDurationShared]);
 
   const getSegmentUri = useCallback((segment: Segment): string => {
     if (!segment.video || typeof segment.video !== 'object') {
@@ -197,13 +214,30 @@ const CreateScreen: React.FC = () => {
   const bottomNavBarHeight = getBottomNavBarHeight(insets, isSmallDevice);
   const listenerSubscription = useRef<Record<string, EventSubscription>>({});
 
-  // Ready once onCameraReady has fired for this dimensions. Facing changes in-place (no remount).
-  const cameraReadyKey = `${Math.round(screenWidth)}x${Math.round(screenHeight)}`;
-  const isCameraReady = lastReadyCameraKey === cameraReadyKey;
+  const backDefaultDevice = useCameraDevice('back');
+  const backUltraWideDevice = useCameraDevice('back', { physicalDevices: ['ultra-wide-angle'] });
+  const backWideDevice = useCameraDevice('back', { physicalDevices: ['wide-angle'] });
+  const backTelephotoDevice = useCameraDevice('back', { physicalDevices: ['telephoto'] });
+  const frontDevice = useCameraDevice('front');
+  const videoOutput = useVideoOutput({
+    enableAudio: microphonePermission.hasPermission,
+  });
 
-  const handleCameraReady = useCallback(() => {
-    setLastReadyCameraKey(cameraReadyKey);
-  }, [cameraReadyKey]);
+  const cameraDevice = useMemo(() => {
+    if (isFrontCamera) return frontDevice;
+    if (selectedLens === 'ultra-wide-angle' && backUltraWideDevice) return backUltraWideDevice;
+    if (selectedLens === 'telephoto' && backTelephotoDevice) return backTelephotoDevice;
+    if (selectedLens === 'wide-angle' && backWideDevice) return backWideDevice;
+    return backDefaultDevice;
+  }, [
+    isFrontCamera,
+    selectedLens,
+    frontDevice,
+    backUltraWideDevice,
+    backTelephotoDevice,
+    backWideDevice,
+    backDefaultDevice,
+  ]);
 
   // Small phones (e.g. iPhone SE) no longer special-cased: they use the same 16:9 crop as other
   // portrait phones, which may leave a small bottom gap. Full screenHeight only for tablets or
@@ -215,51 +249,6 @@ const CreateScreen: React.FC = () => {
   const maxDuration = selectedDuration;
   const availableTime = segmentManagerRef.current?.getAvailableTime() ?? 0;
   const isDeletePreviewActive = deletePreview !== null;
-  const deletePreviewUri = deletePreview?.segmentUri ?? '';
-
-  const deletePreviewPlayer = useVideoPlayer(
-    deletePreviewUri ? { uri: deletePreviewUri } : null,
-    p => {
-      p.loop = true;
-      p.volume = 1;
-    }
-  );
-
-  useEffect(() => {
-    if (!deletePreviewPlayer) return;
-    let isCancelled = false;
-    let subscription: { remove: () => void } | null = null;
-
-    const updateDeletePreviewPlayback = async () => {
-      if (!isDeletePreviewActive || !deletePreviewUri) {
-        deletePreviewPlayer.pause();
-        deletePreviewPlayer.currentTime = 0;
-        return;
-      }
-
-      // Keep playback resilient while the source transitions to ready.
-      subscription = deletePreviewPlayer.addListener('statusChange', ({ status }) => {
-        if (status === 'readyToPlay' && isDeletePreviewActive && !isCancelled) {
-          deletePreviewPlayer.play();
-        }
-      });
-
-      await deletePreviewPlayer.replaceAsync({ uri: deletePreviewUri });
-      if (isCancelled) return;
-      deletePreviewPlayer.currentTime = 0;
-      deletePreviewPlayer.play();
-    };
-
-    updateDeletePreviewPlayback().catch(() => {
-      // Source replacement failures are non-fatal; preview can be retried by user action.
-    });
-
-    return () => {
-      isCancelled = true;
-      subscription?.remove();
-    };
-  }, [deletePreviewPlayer, deletePreviewUri, isDeletePreviewActive]);
-
   const cancelDeletePreview = useCallback(() => {
     setDeletePreview(null);
   }, []);
@@ -273,38 +262,23 @@ const CreateScreen: React.FC = () => {
       return;
     }
     const lastSegment = segments[segments.length - 1];
-    const segmentUri = getSegmentUri(lastSegment);
-    if (!segmentUri) {
-      setDeletePreview(null);
-      return;
-    }
     const totalDuration = manager.getTotalDuration();
     const segmentDuration = Math.max(lastSegment.duration, 0);
     const segmentStartTime = Math.max(totalDuration - segmentDuration, 0);
     setDeletePreview({
-      segmentUri,
-      segmentDuration,
+      segmentCount: segments.length,
       segmentStartTime,
       segmentEndTime: totalDuration,
     });
-  }, [getSegmentUri]);
+  }, []);
 
-  const isSamePreviewAsLastSegment = useCallback(
-    (preview: DeletePreviewState | null): boolean => {
-      if (!preview) return false;
-      const manager = segmentManagerRef.current;
-      if (!manager) return false;
-      const segments = manager.getSegments();
-      const lastSegment = segments[segments.length - 1];
-      const lastSegmentUri = lastSegment ? getSegmentUri(lastSegment) : '';
-      return (
-        !!lastSegment &&
-        lastSegmentUri === preview.segmentUri &&
-        Math.abs(lastSegment.duration - preview.segmentDuration) < 0.01
-      );
-    },
-    [getSegmentUri]
-  );
+  const isSamePreviewAsLastSegment = useCallback((preview: DeletePreviewState | null): boolean => {
+    if (!preview) return false;
+    const manager = segmentManagerRef.current;
+    if (!manager) return false;
+    const segments = manager.getSegments();
+    return segments.length > 0 && segments.length === preview.segmentCount;
+  }, []);
 
   const confirmDeletePreview = useCallback(() => {
     const manager = segmentManagerRef.current;
@@ -313,12 +287,13 @@ const CreateScreen: React.FC = () => {
       const removedSegment = manager.removeLastSegment();
       if (removedSegment) {
         totalDurationShared.value = manager.getTotalDuration();
+        progressBarDurationShared.value = manager.getTotalDuration();
         setSegmentUpdateTrigger(prev => prev + 1);
       }
     }
 
     setDeletePreview(null);
-  }, [deletePreview, isSamePreviewAsLastSegment, totalDurationShared]);
+  }, [deletePreview, isSamePreviewAsLastSegment, progressBarDurationShared, totalDurationShared]);
 
   useEffect(() => {
     if (!deletePreview) return;
@@ -393,25 +368,29 @@ const CreateScreen: React.FC = () => {
 
       // Update UI
       totalDurationShared.value = segmentManagerRef.current.getTotalDuration();
+      progressBarDurationShared.value = segmentManagerRef.current.getTotalDuration();
       setSegmentUpdateTrigger(prev => prev + 1);
       setIsLoadingFromGallery(false);
       setIsProcessing(false);
       setIsTrimmerActive(false);
     },
-    [totalDurationShared, t]
+    [progressBarDurationShared, totalDurationShared, t]
   );
 
   // Helper to stop recording without processing (for when trimmer opens)
   const stopRecordingImmediate = useCallback(() => {
-    if (isRecordingRef.current && cameraRef.current) {
-      cameraRef.current.stopRecording();
-      recordingStartTime.value = null;
-      recordingElapsed.value = 0;
+    if (recorderRef.current) {
+      recorderRef.current.stopRecording().catch(() => {
+        // Ignore stop errors during immediate shutdown.
+      });
+      currentSegmentDurationShared.value = 0;
       isRecordingRef.current = false;
       setIsRecording(false);
+      recordingStartAtRef.current = null;
+      recorderRef.current = null;
       recordingPromiseRef.current = null;
     }
-  }, [recordingStartTime, recordingElapsed]);
+  }, [currentSegmentDurationShared]);
 
   // Set up event listeners for react-native-clip-trim (TurboModule API).
   useEffect(() => {
@@ -456,16 +435,11 @@ const CreateScreen: React.FC = () => {
   // Request camera permissions on mount
   useEffect(() => {
     const checkPermissions = async () => {
-      if (!cameraPermission?.granted) await requestCameraPermission();
-      if (!microphonePermission?.granted) await requestMicrophonePermission();
+      if (!cameraPermission.hasPermission) await cameraPermission.requestPermission();
+      if (!microphonePermission.hasPermission) await microphonePermission.requestPermission();
     };
     checkPermissions();
-  }, [
-    cameraPermission,
-    requestCameraPermission,
-    microphonePermission,
-    requestMicrophonePermission,
-  ]);
+  }, [cameraPermission, microphonePermission]);
 
   // AbortController for async work (e.g. finishRecording) so we don't setState after unmount
   useEffect(() => {
@@ -496,20 +470,29 @@ const CreateScreen: React.FC = () => {
     useCallback(() => {
       setIsProcessing(false);
       return () => {
-        if (isRecordingRef.current && cameraRef.current) {
-          cameraRef.current.stopRecording();
-          recordingStartTime.value = null;
+        if (recorderRef.current) {
+          recorderRef.current.stopRecording().catch(() => {
+            // Ignore stop errors when leaving screen.
+          });
+          currentSegmentDurationShared.value = 0;
           isRecordingRef.current = false;
           setIsRecording(false);
+          recordingStartAtRef.current = null;
+          recorderRef.current = null;
+          recordingPromiseRef.current = null;
         }
         if (tapTimeoutRef.current) {
           clearTimeout(tapTimeoutRef.current);
           tapTimeoutRef.current = null;
         }
+        if (recordingAutoStopTimeoutRef.current) {
+          clearTimeout(recordingAutoStopTimeoutRef.current);
+          recordingAutoStopTimeoutRef.current = null;
+        }
         setIsProcessing(false);
         setFlash('off');
       };
-    }, [recordingStartTime])
+    }, [currentSegmentDurationShared])
   );
 
   // Disable flash when switching to front camera
@@ -520,22 +503,43 @@ const CreateScreen: React.FC = () => {
   }, [isFrontCamera, flash]);
 
   useEffect(() => {
+    if (isFrontCamera) {
+      setAvailableLenses([]);
+      return;
+    }
+
+    const nextLenses: string[] = [];
+    if (backUltraWideDevice) nextLenses.push('ultra-wide-angle');
+    if (backWideDevice) nextLenses.push('wide-angle');
+    if (backTelephotoDevice) nextLenses.push('telephoto');
+    setAvailableLenses(nextLenses);
+  }, [isFrontCamera, backUltraWideDevice, backWideDevice, backTelephotoDevice]);
+
+  useEffect(() => {
+    if (isFrontCamera || availableLenses.length === 0) {
+      return;
+    }
+    setSelectedLens(prev => {
+      if (prev && availableLenses.includes(prev)) {
+        return prev;
+      }
+      if (availableLenses.includes('wide-angle')) {
+        return 'wide-angle';
+      }
+      return availableLenses[0];
+    });
+  }, [isFrontCamera, availableLenses]);
+
+  useEffect(() => {
     if (isRecording) setIsZoomExpanded(false);
   }, [isRecording]);
 
-  // Pre-request microphone when camera is ready so first press doesn't block on permission
+  // Pre-request microphone so first hold doesn't block on permission
   useEffect(() => {
-    if (isCameraReady && !microphonePermission?.granted) {
-      requestMicrophonePermission();
+    if (!microphonePermission.hasPermission) {
+      microphonePermission.requestPermission();
     }
-  }, [isCameraReady, microphonePermission?.granted, requestMicrophonePermission]);
-
-  // Android: onAvailableLensesChanged may not fire; treat as digital-zoom mode after brief delay
-  useEffect(() => {
-    if (isFrontCamera || !isCameraReady || lensDataReceived) return;
-    const id = setTimeout(() => setLensDataReceived(true), 200);
-    return () => clearTimeout(id);
-  }, [isFrontCamera, isCameraReady, lensDataReceived]);
+  }, [microphonePermission]);
 
   // Pinch gesture: map full pinch range (scale ~0.2–4) to full camera zoom 0–1
   const captureZoomStart = useCallback(() => {
@@ -561,30 +565,44 @@ const CreateScreen: React.FC = () => {
   // Update shared value when segments change
   useEffect(() => {
     totalDurationShared.value = segmentManagerRef.current?.getTotalDuration() ?? 0;
-  }, [segmentUpdateTrigger, totalDurationShared]);
-
-  // Continuously update elapsed time on UI thread every frame using performance.now to minimize drift
-  useFrameCallback(() => {
-    'worklet';
-    if (recordingStartTime.value !== null) {
-      const now = global.performance ? global.performance.now() : Date.now();
-      recordingElapsed.value = (now - recordingStartTime.value) / 1000;
-    } else {
-      recordingElapsed.value = 0;
+    if (!isRecordingRef.current) {
+      progressBarDurationShared.value = totalDurationShared.value;
     }
-  });
+  }, [progressBarDurationShared, segmentUpdateTrigger, totalDurationShared]);
 
-  // Progress bar: completed segments + current recording elapsed
+  useEffect(() => {
+    if (!isRecording) {
+      currentSegmentDurationShared.value = 0;
+      return;
+    }
+    const interval = setInterval(() => {
+      const liveDuration = recorderRef.current?.recordedDuration ?? 0;
+      const maxLiveDuration = Math.max(selectedDuration - recordingCommittedBaseRef.current, 0);
+      const clampedLiveDuration = Math.min(liveDuration, maxLiveDuration);
+      currentSegmentDurationShared.value = clampedLiveDuration;
+      progressBarDurationShared.value = recordingCommittedBaseRef.current + clampedLiveDuration;
+    }, 50);
+    return () => clearInterval(interval);
+  }, [currentSegmentDurationShared, isRecording, progressBarDurationShared, selectedDuration]);
+
+  const smoothedProgressBarDuration = useDerivedValue(() => {
+    'worklet';
+    return withTiming(progressBarDurationShared.value, {
+      duration: 140,
+      easing: Easing.linear,
+    });
+  }, []);
+
   const animatedProgressStyle = useAnimatedStyle(() => {
     'worklet';
-    const currentTotal = totalDurationShared.value + recordingElapsed.value;
+    const stableProgressTotal = smoothedProgressBarDuration.value;
     const safeMax = maxDuration || 1;
-    const clamped = Math.min(Math.max(currentTotal, 0), safeMax);
+    const clamped = Math.min(Math.max(stableProgressTotal, 0), safeMax);
     const progress = (clamped / safeMax) * 100;
     return {
       width: `${progress}%`,
     };
-  }, [maxDuration]);
+  }, [maxDuration, smoothedProgressBarDuration]);
 
   const animatedButtonOpacityStyle = useAnimatedStyle(
     () => ({
@@ -599,167 +617,246 @@ const CreateScreen: React.FC = () => {
     buttonOpacity.value = withTiming(isRecording || isMaxReached ? 0.5 : 1, { duration: 100 });
   }, [isRecording, availableTime, buttonOpacity]);
 
+  const commitCameraSegment = useCallback(
+    (elapsedDuration: number, uri?: string): boolean => {
+      const manager = segmentManagerRef.current;
+      if (!manager || !uri) return false;
+      const available = manager.getAvailableTime();
+      const clampedDuration = Math.min(elapsedDuration, available);
+      if (clampedDuration <= 0) return false;
+
+      const newSegment: Segment = {
+        duration: clampedDuration,
+        video: { uri },
+        sourceType: 'camera',
+      };
+      if (!manager.addSegment(newSegment)) return false;
+      totalDurationShared.value = manager.getTotalDuration();
+      setSegmentUpdateTrigger(prev => prev + 1);
+      return true;
+    },
+    [totalDurationShared]
+  );
+
   const stopRecording = useCallback(async () => {
-    // Prevent duplicate calls - set recording ref to false immediately
-    if (!cameraRef.current || !isRecordingRef.current) {
+    if (!recorderRef.current || recordingStateRef.current === 'stopping') {
       return;
     }
 
-    // Mark as not recording immediately to prevent re-entry
-    isRecordingRef.current = false;
-    setIsRecording(false);
-
     try {
+      recordingStateRef.current = 'stopping';
       setIsProcessing(true);
-
-      // Capture elapsed time before resetting (use recording time directly)
-      const elapsedDuration = recordingElapsed.value;
-
-      // Optimistically update total duration immediately to prevent flash
-      if (elapsedDuration > 0 && segmentManagerRef.current) {
-        totalDurationShared.value = segmentManagerRef.current.getTotalDuration() + elapsedDuration;
-      }
-
-      // Reset recording timer shared values (after optimistic update)
-      recordingStartTime.value = null;
-      recordingElapsed.value = 0;
-
-      // Type guard: ensure camera ref is still valid before stopping
-      const camera = cameraRef.current;
-      if (camera) {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        camera.stopRecording();
-      }
-
-      // Await recording result; promise may reject e.g. after camera flip or very short record
+      const recorder = recorderRef.current;
+      const elapsedDuration = Math.max(
+        forcedStopDurationRef.current ?? recorder.recordedDuration,
+        0
+      );
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await recorder.stopRecording();
+      let segmentUri: string | undefined;
       if (recordingPromiseRef.current) {
-        let video: { uri: string } | undefined;
-        try {
-          video = await recordingPromiseRef.current;
-        } catch {
-          video = undefined;
-        }
-        const manager = segmentManagerRef.current;
-
-        if (video && manager && elapsedDuration >= MIN_RECORDING_DURATION) {
-          const availableTime = manager.getAvailableTime();
-          const clampedDuration = Math.min(elapsedDuration, availableTime);
-
-          if (clampedDuration > 0) {
-            const newSegment: Segment = {
-              duration: clampedDuration,
-              video,
-              sourceType: 'camera',
-            };
-
-            if (manager.addSegment(newSegment)) {
-              totalDurationShared.value = manager.getTotalDuration();
-              setSegmentUpdateTrigger(prev => prev + 1);
-            } else {
-              totalDurationShared.value = manager.getTotalDuration();
-            }
-          } else {
-            totalDurationShared.value = manager.getTotalDuration();
-          }
-        } else if (elapsedDuration > 0 && manager) {
-          totalDurationShared.value = manager.getTotalDuration();
-        }
+        const result = await recordingPromiseRef.current.catch(() => undefined);
+        segmentUri = result?.uri;
       }
+      const didCommit = commitCameraSegment(elapsedDuration, segmentUri);
+      isRecordingRef.current = false;
+      setIsRecording(false);
+      if (didCommit) {
+        requestAnimationFrame(() => {
+          currentSegmentDurationShared.value = 0;
+        });
+      } else {
+        currentSegmentDurationShared.value = 0;
+      }
+      recordingStartAtRef.current = null;
 
+      if (recordingAutoStopTimeoutRef.current) {
+        clearTimeout(recordingAutoStopTimeoutRef.current);
+        recordingAutoStopTimeoutRef.current = null;
+      }
       recordingPromiseRef.current = null;
+      recorderRef.current = null;
+      recordingStateRef.current = 'idle';
+      forcedStopDurationRef.current = null;
     } catch (_e) {
       const manager = segmentManagerRef.current;
       if (manager) totalDurationShared.value = manager.getTotalDuration();
-      recordingStartTime.value = null;
-      recordingElapsed.value = 0;
+      isRecordingRef.current = false;
+      setIsRecording(false);
+      currentSegmentDurationShared.value = 0;
+      recordingStartAtRef.current = null;
       recordingPromiseRef.current = null;
+      recorderRef.current = null;
+      recordingStateRef.current = 'idle';
+      forcedStopDurationRef.current = null;
     } finally {
       setIsProcessing(false);
     }
-  }, [totalDurationShared, recordingStartTime, recordingElapsed]);
+  }, [commitCameraSegment, currentSegmentDurationShared, totalDurationShared]);
+
+  const pauseCurrentSegment = useCallback(async () => {
+    if (!isRecordingRef.current || !recorderRef.current || recordingStateRef.current === 'stopping')
+      return;
+    recordingStateRef.current = 'stopping';
+    const elapsedDuration = Math.max(
+      forcedStopDurationRef.current ?? recorderRef.current.recordedDuration,
+      0
+    );
+    if (recordingAutoStopTimeoutRef.current) {
+      clearTimeout(recordingAutoStopTimeoutRef.current);
+      recordingAutoStopTimeoutRef.current = null;
+    }
+    await recorderRef.current.stopRecording();
+    let segmentUri: string | undefined;
+    if (recordingPromiseRef.current) {
+      const result = await recordingPromiseRef.current.catch(() => undefined);
+      segmentUri = result?.uri;
+    }
+    const didCommit = commitCameraSegment(elapsedDuration, segmentUri);
+    isRecordingRef.current = false;
+    setIsRecording(false);
+    if (didCommit) {
+      requestAnimationFrame(() => {
+        currentSegmentDurationShared.value = 0;
+      });
+    } else {
+      currentSegmentDurationShared.value = 0;
+    }
+    recordingStartAtRef.current = null;
+    recordingPromiseRef.current = null;
+    recorderRef.current = null;
+    recordingStateRef.current = 'idle';
+    forcedStopDurationRef.current = null;
+  }, [commitCameraSegment, currentSegmentDurationShared]);
 
   const startRecording = useCallback(async () => {
     const manager = segmentManagerRef.current;
     const currentTotal = manager?.getTotalDuration() ?? 0;
     const availableTime = manager?.getAvailableTime() ?? 0;
 
-    // Guard: require enough remaining time for at least a minimal segment
-    if (availableTime <= MIN_RECORDING_DURATION) {
+    // Guard: require some remaining time
+    if (availableTime <= 0) {
       return;
     }
 
-    if (cameraRef.current && !isRecordingRef.current && currentTotal < maxDuration) {
-      if (!microphonePermission?.granted) {
-        const result = await requestMicrophonePermission();
-        if (!result.granted) {
+    if (
+      cameraRef.current &&
+      !isRecordingRef.current &&
+      recordingStateRef.current === 'idle' &&
+      currentTotal < maxDuration
+    ) {
+      if (!microphonePermission.hasPermission) {
+        const result = await microphonePermission.requestPermission();
+        if (!result) {
           Alert.alert(t('video.microphonePermission'), t('video.microphonePermissionMessage'));
           return;
         }
       }
 
+      recordingStateRef.current = 'starting';
       isRecordingRef.current = true;
       setIsRecording(true);
-      const now = global.performance ? global.performance.now() : Date.now();
-      recordingStartTime.value = now; // Set shared value for UI-thread timer
-      recordingElapsed.value = 0; // Reset elapsed time
+      recordingCommittedBaseRef.current = segmentManagerRef.current?.getTotalDuration() ?? 0;
+      progressBarDurationShared.value = recordingCommittedBaseRef.current;
+      currentSegmentDurationShared.value = 0;
+      recordingStartAtRef.current = Date.now();
 
       try {
         const managerForDuration = segmentManagerRef.current;
-        const availableTime = managerForDuration?.getAvailableTime() ?? 0;
-        const recordingOptions: CameraRecordingOptions = {
-          maxDuration: availableTime,
-          maxFileSize: 512 * 1024 * 1024,
-        };
-
-        const camera = cameraRef.current;
-        if (camera) {
-          recordingPromiseRef.current = camera.recordAsync(recordingOptions);
+        const availableNow = managerForDuration?.getAvailableTime() ?? 0;
+        if (cameraRef.current) {
+          const localRecorder = await videoOutput.createRecorder({});
+          recorderRef.current = localRecorder;
+          recordingPromiseRef.current = new Promise(resolve => {
+            recordingPromiseResolverRef.current = resolve;
+          });
+          await localRecorder.startRecording(
+            (filePath: string) => {
+              recordingPromiseResolverRef.current?.({ uri: toFileUri(filePath) });
+              recordingPromiseResolverRef.current = null;
+            },
+            () => {
+              recordingPromiseResolverRef.current?.(undefined);
+              recordingPromiseResolverRef.current = null;
+              isRecordingRef.current = false;
+              setIsRecording(false);
+              currentSegmentDurationShared.value = 0;
+              recordingStartAtRef.current = null;
+              recordingPromiseRef.current = null;
+              recorderRef.current = null;
+              recordingStateRef.current = 'idle';
+            }
+          );
+          recordingStateRef.current = 'recording';
         } else {
-          // Camera became unavailable, reset state
           isRecordingRef.current = false;
           setIsRecording(false);
-          recordingStartTime.value = null;
+          recordingStartAtRef.current = null;
+          recordingStateRef.current = 'idle';
         }
+        if (recordingAutoStopTimeoutRef.current) {
+          clearTimeout(recordingAutoStopTimeoutRef.current);
+        }
+        recordingAutoStopTimeoutRef.current = setTimeout(() => {
+          // At auto-stop, recorder duration can lag slightly behind the configured max.
+          // Use the exact remaining window as authoritative segment duration.
+          forcedStopDurationRef.current = availableNow;
+          progressBarDurationShared.value = Math.min(
+            recordingCommittedBaseRef.current + availableNow,
+            maxDuration
+          );
+
+          stopRecording()
+            .then(() => finishRecordingRef.current?.({ force: true }))
+            .catch(() => {
+              // Automatic max-duration completion failed.
+            });
+        }, availableNow * 1000);
       } catch (_e) {
-        // Reset recording timer shared values on error
-        recordingStartTime.value = null;
         isRecordingRef.current = false;
         setIsRecording(false);
+        currentSegmentDurationShared.value = 0;
+        recordingStartAtRef.current = null;
         recordingPromiseRef.current = null;
+        recorderRef.current = null;
+        recordingStateRef.current = 'idle';
+        forcedStopDurationRef.current = null;
       }
     }
   }, [
     microphonePermission,
-    requestMicrophonePermission,
     maxDuration,
-    recordingStartTime,
-    recordingElapsed,
+    currentSegmentDurationShared,
+    progressBarDurationShared,
+    stopRecording,
     t,
+    videoOutput,
   ]);
 
   // Handle press start - begin recording (press in to start)
-  // Wait for onCameraReady before recording – expo-camera requires this
   const handlePressIn = useCallback(() => {
     const currentTotal = segmentManagerRef.current?.getTotalDuration() ?? 0;
     const availableTime = segmentManagerRef.current?.getAvailableTime() ?? 0;
     if (
-      isCameraReady &&
       !isRecordingRef.current &&
+      recordingStateRef.current === 'idle' &&
       !isProcessing &&
       currentTotal < maxDuration &&
-      availableTime > MIN_RECORDING_DURATION
+      availableTime > 0
     ) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       startRecording();
     }
-  }, [isCameraReady, isProcessing, startRecording, maxDuration]);
+  }, [isProcessing, startRecording, maxDuration]);
 
   // Handle press end - stop recording (press out to stop)
   const handlePressOut = useCallback(() => {
     if (isRecordingRef.current) {
-      stopRecording();
+      pauseCurrentSegment().catch(() => {
+        // Segment pause failures are non-fatal; user can retry recording.
+      });
     }
-  }, [stopRecording]);
+  }, [pauseCurrentSegment]);
 
   const pickFromGallery = useCallback(async () => {
     try {
@@ -853,17 +950,13 @@ const CreateScreen: React.FC = () => {
   }, [t]);
 
   const flipCamera = useCallback(async () => {
-    if (isRecordingRef.current && cameraRef.current) {
-      await stopRecording();
-    }
     // Batch all flip-related state in one tick to avoid multiple re-renders and jank
     setZoom(0);
     setIsZoomExpanded(false);
-    setLensDataReceived(false);
     setSelectedLens(null);
     setSelectedPresetLabel('1x');
     setIsFrontCamera(prev => !prev);
-  }, [stopRecording]);
+  }, []);
 
   const handleDoubleTap = useCallback(() => {
     if (isDeletePreviewActive) {
@@ -965,6 +1058,7 @@ const CreateScreen: React.FC = () => {
           onPress: () => {
             segmentManagerRef.current?.clear();
             totalDurationShared.value = 0;
+            progressBarDurationShared.value = 0;
             setSegmentUpdateTrigger(prev => prev + 1);
             router.back();
           },
@@ -976,70 +1070,68 @@ const CreateScreen: React.FC = () => {
     }
   };
 
-  const finishRecording = useCallback(async () => {
-    if (isDeletePreviewActive) {
-      cancelDeletePreview();
-    }
-    const manager = segmentManagerRef.current;
-    if (!manager || isProcessing) {
-      return;
-    }
+  const finishRecording = useCallback(
+    async (options?: { force?: boolean }) => {
+      if (isDeletePreviewActive) {
+        cancelDeletePreview();
+      }
+      const manager = segmentManagerRef.current;
+      if (!manager || (isProcessing && !options?.force)) {
+        return;
+      }
 
-    // Wait for any active recording to finish
-    if (isRecordingRef.current) {
-      await stopRecording();
-    }
+      // Wait for any active recording to finish
+      if (isRecordingRef.current) {
+        await stopRecording();
+      }
 
-    const finalSegments = manager.getSegments();
+      const finalSegments = manager.getSegments();
 
-    if (finalSegments.length === 0) {
-      return;
-    }
+      if (finalSegments.length === 0) {
+        return;
+      }
 
-    // Convert to VideoSegment format
-    const videoSegments = manager.toVideoSegments();
-    const firstSegment = videoSegments[0];
-    const firstVideoUri = firstSegment?.video?.uri ?? '';
+      // Convert to VideoSegment format
+      const videoSegments = manager.toVideoSegments();
+      const firstSegment = videoSegments[0];
 
-    const thumbnailPath = firstVideoUri
-      ? await VideoProcessingService.extractFirstFrame(firstVideoUri, null, { quality: 0.5 }).catch(
-          () => undefined
-        )
-      : undefined;
+      if (abortControllerRef.current?.signal.aborted) return;
 
-    if (abortControllerRef.current?.signal.aborted) return;
-
-    if (videoSegments.length === 1 && firstSegment) {
-      const videoUri = firstSegment.video?.uri;
-      if (videoUri) {
+      if (videoSegments.length === 1 && firstSegment) {
+        const videoUri = firstSegment.video?.uri;
+        if (videoUri) {
+          setPendingVideoPost({
+            videoPath: videoUri,
+            textOverlays: [],
+          });
+          router.navigate({ pathname: '/post/[id]', params: { id: 'new' } });
+        }
+      } else {
         setPendingVideoPost({
-          videoPath: videoUri,
-          thumbnailPath: thumbnailPath ?? undefined,
+          segments: videoSegments.map(s => ({
+            startTime: s.startTime,
+            duration: s.duration,
+            video: s.video as { uri: string; assetId?: string; [k: string]: unknown },
+            sourceType: s.sourceType,
+          })),
           textOverlays: [],
         });
         router.navigate({ pathname: '/post/[id]', params: { id: 'new' } });
       }
-    } else {
-      setPendingVideoPost({
-        segments: videoSegments.map(s => ({
-          startTime: s.startTime,
-          duration: s.duration,
-          video: s.video as { uri: string; assetId?: string; [k: string]: unknown },
-          sourceType: s.sourceType,
-        })),
-        thumbnailPath: thumbnailPath ?? undefined,
-        textOverlays: [],
-      });
-      router.navigate({ pathname: '/post/[id]', params: { id: 'new' } });
-    }
-  }, [
-    cancelDeletePreview,
-    isDeletePreviewActive,
-    router,
-    isProcessing,
-    setPendingVideoPost,
-    stopRecording,
-  ]);
+    },
+    [
+      cancelDeletePreview,
+      isDeletePreviewActive,
+      router,
+      isProcessing,
+      setPendingVideoPost,
+      stopRecording,
+    ]
+  );
+
+  useEffect(() => {
+    finishRecordingRef.current = finishRecording;
+  }, [finishRecording]);
 
   const cameraContainerLayout = useMemo(
     () => ({
@@ -1079,7 +1171,7 @@ const CreateScreen: React.FC = () => {
       return <View style={styles.warningContainer} />;
     }
 
-    if (!cameraPermission.granted) {
+    if (!cameraPermission.hasPermission) {
       return (
         <View style={styles.warningContainer}>
           <Icon
@@ -1089,11 +1181,15 @@ const CreateScreen: React.FC = () => {
             style={styles.errorIcon}
           />
           <Text style={styles.warningText}>{t('video.pleaseEnableCamera')}</Text>
-          <NativePressable style={styles.button} onPress={requestCameraPermission}>
+          <NativePressable style={styles.button} onPress={cameraPermission.requestPermission}>
             <Text style={styles.buttonText}>{t('video.grantPermission')}</Text>
           </NativePressable>
         </View>
       );
+    }
+
+    if (!cameraDevice) {
+      return <View style={styles.warningContainer} />;
     }
 
     const cameraSurface = (
@@ -1104,59 +1200,25 @@ const CreateScreen: React.FC = () => {
         >
           {/* Wrapper matches camera dimensions so overlay aligns pixel-perfect */}
           <View style={[styles.cameraWrapper, cameraLayout]}>
-            {isDeletePreviewActive && deletePreviewUri && deletePreviewPlayer ? (
-              <VideoView
-                player={deletePreviewPlayer}
-                style={styles.cameraFill}
-                contentFit="cover"
-                nativeControls={false}
-                surfaceType={Platform.OS === 'android' ? 'textureView' : undefined}
-              />
-            ) : (
-              <CameraView
-                ref={cameraRef}
-                style={styles.cameraFill}
-                active={isFocused && !isTrimmerActive && !isDeletePreviewActive}
-                facing={isFrontCamera ? 'front' : 'back'}
-                mode="video"
-                flash="off"
-                enableTorch={flash === 'on' && !isFrontCamera}
-                mute={!microphonePermission?.granted}
-                mirror={isFrontCamera}
-                videoQuality={isFrontCamera ? '1080p' : '2160p'}
-                videoStabilizationMode="off"
-                animateShutter={false}
-                zoom={zoom}
-                selectedLens={selectedLens ?? undefined}
-                onCameraReady={handleCameraReady}
-                onMountError={e => {
-                  if (__DEV__)
-                    logger.warn('[Camera] Mount error:', {
-                      component: 'Camera',
-                      message: e?.message,
-                    });
-                }}
-                onAvailableLensesChanged={event => {
-                  const raw = event?.lenses ?? [];
-                  const n = (s: string) => s.toLowerCase();
-                  const physical = raw.filter(
-                    l => !n(l).includes('dual') && !n(l).includes('triple')
-                  );
-                  setAvailableLenses(physical);
-                  setLensDataReceived(true);
-                  if (physical.length > 0) {
-                    setSelectedLens(prev => {
-                      const valid = physical.includes(prev ?? '');
-                      if (valid) return prev;
-                      const wide = physical.find(
-                        l => n(l).includes('wide') && !n(l).includes('ultra')
-                      );
-                      return wide ?? physical[0];
-                    });
-                  }
-                }}
-              />
-            )}
+            <Camera
+              ref={cameraRef}
+              style={styles.cameraFill}
+              device={cameraDevice}
+              isActive={isFocused && !isTrimmerActive}
+              outputs={[videoOutput]}
+              torchMode={flash === 'on' && !isFrontCamera ? 'on' : 'off'}
+              zoom={
+                cameraDevice.minZoom +
+                (cameraDevice.maxZoom - cameraDevice.minZoom) * Math.min(Math.max(zoom, 0), 1)
+              }
+              onError={e => {
+                if (__DEV__)
+                  logger.warn('[Camera] Mount error:', {
+                    component: 'Camera',
+                    message: e?.message ?? 'Unknown camera mount error',
+                  });
+              }}
+            />
             {!isDeletePreviewActive && isOnionSkinningEnabled && lastFrameThumbnail && (
               <Image
                 source={{ uri: lastFrameThumbnail }}
@@ -1223,93 +1285,86 @@ const CreateScreen: React.FC = () => {
                 },
               ]}
             >
-              {!isRecording &&
-                !isFrontCamera &&
-                isCameraReady &&
-                lensDataReceived &&
-                availableLenses.length !== 1 && (
-                  <View style={styles.zoomSelectorContainer}>
-                    {isZoomExpanded ? (
-                      <View style={styles.zoomPicker}>
-                        {availableLenses.length > 0
-                          ? availableLenses.map(lens => {
-                              const isSelected = selectedLens === lens;
-                              const label = lensToLabel(lens);
-                              return (
-                                <Pressable
-                                  key={lens}
+              {!isRecording && !isFrontCamera && availableLenses.length !== 1 && (
+                <View style={styles.zoomSelectorContainer}>
+                  {isZoomExpanded ? (
+                    <View style={styles.zoomPicker}>
+                      {availableLenses.length > 0
+                        ? availableLenses.map(lens => {
+                            const isSelected = selectedLens === lens;
+                            const label = lensToLabel(lens);
+                            return (
+                              <Pressable
+                                key={lens}
+                                style={[
+                                  styles.zoomSegment,
+                                  isSelected && styles.zoomSegmentSelected,
+                                ]}
+                                onPress={() => {
+                                  Haptics.selectionAsync();
+                                  setSelectedLens(lens);
+                                  setZoom(0);
+                                  setIsZoomExpanded(false);
+                                }}
+                              >
+                                <Text
                                   style={[
-                                    styles.zoomSegment,
-                                    isSelected && styles.zoomSegmentSelected,
+                                    styles.zoomSegmentText,
+                                    isSelected && styles.zoomSegmentTextSelected,
                                   ]}
-                                  onPress={() => {
-                                    Haptics.selectionAsync();
-                                    setSelectedLens(lens);
-                                    setZoom(0);
-                                    setIsZoomExpanded(false);
-                                  }}
                                 >
-                                  <Text
-                                    style={[
-                                      styles.zoomSegmentText,
-                                      isSelected && styles.zoomSegmentTextSelected,
-                                    ]}
-                                  >
-                                    {label}
-                                  </Text>
-                                </Pressable>
-                              );
-                            })
-                          : DIGITAL_ZOOM_PRESETS.map(factor => {
-                              const optZoom = Math.log(Math.max(0.5, factor) / 0.5) / Math.log(20);
-                              const isSelected = Math.abs(optZoom - zoom) < 0.03;
-                              const label = factor === 0.5 ? '.5x' : `${factor}x`;
-                              return (
-                                <Pressable
-                                  key={factor}
+                                  {label}
+                                </Text>
+                              </Pressable>
+                            );
+                          })
+                        : DIGITAL_ZOOM_PRESETS.map(factor => {
+                            const optZoom = Math.log(Math.max(0.5, factor) / 0.5) / Math.log(20);
+                            const isSelected = Math.abs(optZoom - zoom) < 0.03;
+                            const label = factor === 0.5 ? '.5x' : `${factor}x`;
+                            return (
+                              <Pressable
+                                key={factor}
+                                style={[
+                                  styles.zoomSegment,
+                                  isSelected && styles.zoomSegmentSelected,
+                                ]}
+                                onPress={() => {
+                                  Haptics.selectionAsync();
+                                  setZoom(optZoom);
+                                  setSelectedPresetLabel(label);
+                                  setIsZoomExpanded(false);
+                                }}
+                              >
+                                <Text
                                   style={[
-                                    styles.zoomSegment,
-                                    isSelected && styles.zoomSegmentSelected,
+                                    styles.zoomSegmentText,
+                                    isSelected && styles.zoomSegmentTextSelected,
                                   ]}
-                                  onPress={() => {
-                                    Haptics.selectionAsync();
-                                    setZoom(optZoom);
-                                    setSelectedPresetLabel(label);
-                                    setIsZoomExpanded(false);
-                                  }}
                                 >
-                                  <Text
-                                    style={[
-                                      styles.zoomSegmentText,
-                                      isSelected && styles.zoomSegmentTextSelected,
-                                    ]}
-                                  >
-                                    {label}
-                                  </Text>
-                                </Pressable>
-                              );
-                            })}
-                      </View>
-                    ) : (
-                      <Pressable
-                        style={styles.zoomCollapsed}
-                        onPress={() => setIsZoomExpanded(true)}
-                      >
-                        <Text style={styles.zoomCollapsedText}>
-                          {availableLenses.length > 0 && selectedLens
-                            ? lensToLabel(selectedLens)
-                            : selectedPresetLabel}
-                        </Text>
-                      </Pressable>
-                    )}
-                  </View>
-                )}
+                                  {label}
+                                </Text>
+                              </Pressable>
+                            );
+                          })}
+                    </View>
+                  ) : (
+                    <Pressable style={styles.zoomCollapsed} onPress={() => setIsZoomExpanded(true)}>
+                      <Text style={styles.zoomCollapsedText}>
+                        {availableLenses.length > 0 && selectedLens
+                          ? lensToLabel(selectedLens)
+                          : selectedPresetLabel}
+                      </Text>
+                    </Pressable>
+                  )}
+                </View>
+              )}
               <View style={styles.recordButtonArea}>
                 <View style={styles.recordButtonAreaSpacer} />
                 <Pressable
                   onPressIn={handlePressIn}
                   onPressOut={handlePressOut}
-                  disabled={availableTime <= 0 || !isCameraReady}
+                  disabled={availableTime <= 0}
                   style={styles.recordButtonContainer}
                 >
                   <Animated.View
@@ -1385,7 +1440,11 @@ const CreateScreen: React.FC = () => {
               right: 4,
             },
           ]}
-          onPress={finishRecording}
+          onPress={() => {
+            finishRecording().catch(() => {
+              // Manual completion failed.
+            });
+          }}
           disabled={isProcessing}
           androidRippleBorderless
         >

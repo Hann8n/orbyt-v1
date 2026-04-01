@@ -298,9 +298,12 @@ const VideoEditorScreen: React.FC = () => {
   // Handle background merging if segments are provided (same as post screen)
   useEffect(() => {
     if (!segmentsParam || mergedVideoPath) return; // Already merged or no segments
+    const ac = new AbortController();
+    let idleCallbackId: number | null = null;
 
     const mergeSegments = async () => {
       try {
+        if (ac.signal.aborted) return;
         setIsMerging(true);
 
         // Parse segments from params
@@ -337,9 +340,11 @@ const VideoEditorScreen: React.FC = () => {
         });
 
         // Merge segments in background using requestIdleCallback
-        requestIdleCallback(
+        idleCallbackId = requestIdleCallback(
           async () => {
+            if (ac.signal.aborted) return;
             const mergedVideo = await VideoProcessingService.mergeSegments(processingSegments);
+            if (ac.signal.aborted) return;
             setMergedVideoPath(mergedVideo.path);
             setIsMerging(false);
           },
@@ -347,6 +352,7 @@ const VideoEditorScreen: React.FC = () => {
         );
       } catch (error: unknown) {
         logger.error('Error merging segments', error, { component: 'VideoEditor' });
+        if (ac.signal.aborted) return;
         setIsMerging(false);
         const errorMessage =
           error instanceof Error ? error.message : t('video.mergingFailedMessage');
@@ -360,6 +366,12 @@ const VideoEditorScreen: React.FC = () => {
     };
 
     mergeSegments();
+    return () => {
+      ac.abort();
+      if (idleCallbackId !== null) {
+        cancelIdleCallback(idleCallbackId);
+      }
+    };
   }, [segmentsParam, mergedVideoPath, router, t]);
 
   // Determine the active video path (merged > provided > null) - same as post screen
@@ -413,14 +425,6 @@ const VideoEditorScreen: React.FC = () => {
     p.bufferOptions = DEFAULT_BUFFER_OPTIONS;
     playerRef.current = p;
   });
-
-  // Update source and play when videoUri changes (same as post screen)
-  useEffect(() => {
-    if (!player || !videoUri) return;
-    player.replaceAsync({ uri: videoUri }).then(() => {
-      player.play();
-    });
-  }, [player, videoUri]);
 
   // Sync play/pause state (same as post screen)
   useEffect(() => {

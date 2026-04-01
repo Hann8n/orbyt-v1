@@ -22,6 +22,9 @@ let FFmpegKit: any = null;
 let ReturnCode: any = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- FFprobeKit types from native module
 let FFprobeKit: any = null;
+type FastMergeInput = string | { path: string };
+type FastMergeFn = (recordedVideos: FastMergeInput[]) => Promise<string | null>;
+let processAndMergeVideos: FastMergeFn | null = null;
 try {
   const ffmpegModule = require('ffmpeg-kit-react-native');
   FFmpegKit = ffmpegModule.FFmpegKit;
@@ -30,6 +33,16 @@ try {
   FFprobeKit = ffmpegModule.FFprobeKit || null;
 } catch (_error) {
   logger.warn('FFmpegKit not available - native module not linked', {
+    component: 'VideoProcessingService',
+  });
+}
+try {
+  const fastMergeModule = require('react-native-fast-video-merge') as {
+    processAndMergeVideos?: FastMergeFn;
+  };
+  processAndMergeVideos = fastMergeModule.processAndMergeVideos ?? null;
+} catch (_error) {
+  logger.info('Fast merge SDK not available - using FFmpeg merge path', {
     component: 'VideoProcessingService',
   });
 }
@@ -89,8 +102,6 @@ const MIN_FREE_DISK_SPACE = 150 * 1024 * 1024; // 150MB
 // Video merge settings for complex filter approach
 // These values provide a good balance between quality and compatibility
 const MERGE_TARGET_FPS = 30; // Standard frame rate for mobile video
-const MERGE_TARGET_AUDIO_SAMPLE_RATE = 44100; // CD-quality audio (44.1kHz)
-const MERGE_TARGET_AUDIO_CHANNELS = 'stereo'; // Stereo audio output
 
 export interface VideoInfo {
   path: string;
@@ -818,36 +829,6 @@ class VideoProcessingService {
   }
 
   /**
-   * Helper to extract video width from ImagePickerAsset or ExpoCameraVideo
-   */
-  private static getVideoWidth(video: ImagePicker.ImagePickerAsset | ExpoCameraVideo): number {
-    if ('uri' in video) {
-      // Check if it's ImagePickerAsset (has width property)
-      if ('width' in video) {
-        return video.width || 0;
-      }
-      // ExpoCameraVideo doesn't have width, return 0 (will be calculated from video file)
-      return 0;
-    }
-    return 0;
-  }
-
-  /**
-   * Helper to extract video height from ImagePickerAsset or ExpoCameraVideo
-   */
-  private static getVideoHeight(video: ImagePicker.ImagePickerAsset | ExpoCameraVideo): number {
-    if ('uri' in video) {
-      // Check if it's ImagePickerAsset (has height property)
-      if ('height' in video) {
-        return video.height || 0;
-      }
-      // ExpoCameraVideo doesn't have height, return 0 (will be calculated from video file)
-      return 0;
-    }
-    return 0;
-  }
-
-  /**
    * Analyzes video properties using FFprobe with fallback to metadata extraction
    * Returns actual codec, resolution, frame rate, and other properties
    */
@@ -1209,223 +1190,73 @@ class VideoProcessingService {
       return await this.normalizeVideo(segments[0].video);
     }
 
-    if (!FFmpegKit || !ReturnCode) {
-      throw new Error('FFmpegKit is not available');
+    const fastMerged = await this.tryMergeSegmentsWithFastSdk(segments);
+    if (fastMerged) {
+      return fastMerged;
     }
-
-    if ((Paths.availableDiskSpace ?? 0) < MIN_FREE_DISK_SPACE) {
-      throw new Error('Not enough storage. Free some space and try again.');
-    }
-
-    try {
-      await VideoCompressor.activateBackgroundTask();
-      const tempDir = new Directory(Paths.cache, `video_merge_${Date.now()}`);
-      tempDir.create({ intermediates: true, idempotent: true });
-      let totalDuration = 0;
-      for (const segment of segments) {
-        totalDuration += segment.duration;
-      }
-
-      const outputFile = new File(tempDir, `merged_video_${Date.now()}.mp4`);
-      await this.mergeSegmentsComplex(segments, outputFile.uri);
-
-      if (!outputFile.exists) {
-        throw new Error('Merged video file was not created');
-      }
-
-      // Analyze merged video to get actual dimensions
-      let mergedWidth = this.getVideoWidth(segments[0].video);
-      let mergedHeight = this.getVideoHeight(segments[0].video);
-
-      try {
-        const mergedProps = await this.analyzeVideoProperties(outputFile.uri);
-        mergedWidth = mergedProps.width;
-        mergedHeight = mergedProps.height;
-      } catch (_error) {
-        for (const segment of segments) {
-          const width = this.getVideoWidth(segment.video);
-          const height = this.getVideoHeight(segment.video);
-          if (width * height > mergedWidth * mergedHeight) {
-            mergedWidth = width;
-            mergedHeight = height;
-          }
-        }
-      }
-
-      const mergedPath = ensureFileUri(outputFile.uri);
-      return {
-        path: mergedPath,
-        duration: totalDuration,
-        width: mergedWidth,
-        height: mergedHeight,
-      };
-    } catch (error) {
-      logger.error('Error merging video segments', error, { component: 'VideoProcessingService' });
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      throw new Error(`Failed to merge video segments: ${errorMessage}`, { cause: error });
-    } finally {
-      await VideoCompressor.deactivateBackgroundTask();
-    }
+    throw new Error(
+      'Fast merge failed or is unavailable. Install and link react-native-fast-video-merge.'
+    );
   }
 
   /**
-   * Merges multiple video segments using FFmpeg complex filter approach
-   * This method uses a single-pass filter graph to scale, normalize, and concatenate
-   * videos in one operation, avoiding glitches from mixing different clip types
-   *
-   * @param segments - Array of video segments to merge
-   * @param outputPath - Path where the merged video will be saved
-   * @returns Promise resolving to the output path
+   * Attempts to merge segments with react-native-fast-video-merge.
+   * Returns null when SDK is unavailable or merge fails.
    */
-  private static async mergeSegmentsComplex(
-    segments: VideoSegment[],
-    outputPath: string
-  ): Promise<string> {
+  private static async tryMergeSegmentsWithFastSdk(
+    segments: VideoSegment[]
+  ): Promise<ProcessedVideo | null> {
+    if (!processAndMergeVideos || segments.length < 2) {
+      return null;
+    }
+
     try {
-      if (segments.length === 0) {
-        throw new Error('No segments to merge');
-      }
-
-      if (segments.length === 1) {
-        // Single segment - return path as-is
-        const videoPath = this.getVideoPath(segments[0].video);
-        return videoPath;
-      }
-
-      if (!FFmpegKit || !ReturnCode) {
-        throw new Error('FFmpegKit is not available');
-      }
-
-      // Analyze all videos to determine target format
-      logger.info('Analyzing videos for complex filter merge', {
-        component: 'VideoProcessingService',
-        segmentCount: segments.length,
-      });
-
-      // Determine target resolution from all segments
-      let targetWidth = 0;
-      let targetHeight = 0;
-
+      const segmentPaths: string[] = [];
       for (const segment of segments) {
-        const width = this.getVideoWidth(segment.video);
-        const height = this.getVideoHeight(segment.video);
-        const totalPixels = width * height;
-        const currentTotalPixels = targetWidth * targetHeight;
-        if (totalPixels > currentTotalPixels) {
-          targetWidth = width;
-          targetHeight = height;
-        }
-      }
-
-      // Fallback to standard 9:16 aspect ratio if no valid resolution found
-      if (targetWidth === 0 || targetHeight === 0) {
-        targetWidth = 1080;
-        targetHeight = 1920;
-      }
-
-      logger.info('Target format for complex filter merge', {
-        component: 'VideoProcessingService',
-        resolution: `${targetWidth}x${targetHeight}`,
-      });
-
-      // Normalize paths
-      const normalizedOutput = normalizePathForNative(outputPath);
-
-      // Build FFmpeg complex filter command
-      let inputCmd = '';
-      let filterGraph = '';
-      const videoLabels: string[] = [];
-      const audioLabels: string[] = [];
-
-      for (let i = 0; i < segments.length; i++) {
-        const segment = segments[i];
         const originalVideoPath = this.getVideoPath(segment.video);
-
-        // Handle iCloud videos on iOS
         const assetId = 'assetId' in segment.video ? segment.video.assetId : null;
-        const videoPath = await this.getLocalVideoPath(originalVideoPath, assetId);
-
-        // Normalize path for FFmpeg
-        // Remove fragment identifier (#...) that iOS gallery URIs may contain
-        const normalizedPath = normalizePathForNative(videoPath);
-
-        // Add input to command
-        inputCmd += `-i "${normalizedPath}" `;
-
-        // Build filter chain for this input
-        // Scale to fit target box with aspect ratio maintained, pad with black bars
-        // setsar=1 ensures square pixel aspect ratio (SAR)
-        // fps filter normalizes frame rate for consistent playback
-        const videoFilter = `[${i}:v]scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease,pad=${targetWidth}:${targetHeight}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=${MERGE_TARGET_FPS}[v${i}]`;
-        filterGraph += videoFilter + ';';
-        videoLabels.push(`[v${i}]`);
-
-        // Force audio resampling to common format to prevent audio glitches
-        // This standardizes sample rate and channel layout across all inputs
-        const audioFilter = `[${i}:a]aformat=sample_rates=${MERGE_TARGET_AUDIO_SAMPLE_RATE}:channel_layouts=${MERGE_TARGET_AUDIO_CHANNELS}[a${i}]`;
-        filterGraph += audioFilter + ';';
-        audioLabels.push(`[a${i}]`);
+        const localPath = await this.getLocalVideoPath(originalVideoPath, assetId);
+        const normalizedPath = normalizePathForNative(stripPathFragment(localPath));
+        segmentPaths.push(normalizedPath);
       }
 
-      // Add concat filter to merge all normalized streams
-      // n=number of segments, v=1 video stream, a=1 audio stream
-      // IMPORTANT: concat filter expects inputs interleaved: [v0][a0][v1][a1]...
-      // NOT grouped: [v0][v1][a0][a1]
-      // Each filter chain must be separated by semicolons
-      // Remove trailing semicolon from filterGraph, then add semicolon before concat inputs
-      filterGraph = filterGraph.replace(/;$/, '');
-      const concatInputs = videoLabels.map((vLabel, idx) => vLabel + audioLabels[idx]).join('');
-      // Add semicolon to separate previous filter chains from concat filter chain
-      filterGraph += `;${concatInputs}concat=n=${segments.length}:v=1:a=1[outv][outa]`;
+      let mergedPath = await processAndMergeVideos(segmentPaths.map(path => ({ path })));
+      if (!mergedPath) {
+        mergedPath = await processAndMergeVideos(segmentPaths);
+      }
+      if (!mergedPath) {
+        return null;
+      }
 
-      // Build final FFmpeg command
-      // -preset ultrafast for quick processing (can use 'medium' for better quality/size)
-      // -c:v libx264: H.264 video codec
-      // -c:a aac: AAC audio codec
-      // -movflags +faststart: optimize for streaming/progressive download
-      const cmd = `${inputCmd}-filter_complex "${filterGraph}" -map "[outv]" -map "[outa]" -c:v libx264 -preset ultrafast -crf 23 -c:a aac -b:a 128k -movflags +faststart "${normalizedOutput}"`;
+      const outputPath = ensureFileUri(mergedPath);
+      const outputFile = new File(normalizePathForNative(outputPath));
+      if (!outputFile.exists) {
+        logger.warn('Fast merge SDK returned non-existent output file', {
+          component: 'VideoProcessingService',
+          outputPath,
+        });
+        return null;
+      }
 
-      logger.info('Executing complex filter merge', {
+      const mergedProps = await this.analyzeVideoProperties(outputPath);
+      const totalDuration = segments.reduce((sum, segment) => sum + segment.duration, 0);
+      logger.info('Merged segments with fast merge SDK', {
         component: 'VideoProcessingService',
         segmentCount: segments.length,
-        targetResolution: `${targetWidth}x${targetHeight}`,
-        filterGraph: filterGraph.substring(0, 500), // Log first 500 chars of filter graph
-        videoLabels: videoLabels.join(','),
-        audioLabels: audioLabels.join(','),
+        outputPath,
       });
-
-      // FFmpeg operations are already async and run in background threads
-      // No need for InteractionManager wrapper - FFmpegKit handles threading internally
-      const session = await FFmpegKit.execute(cmd);
-      const returnCode = await session.getReturnCode();
-      if (ReturnCode.isCancel(returnCode)) throw new Error('FFmpeg operation cancelled');
-      if (ReturnCode.isSuccess(returnCode)) {
-        const outFile = new File(outputPath);
-        if (!outFile.exists) {
-          throw new Error('Complex filter merge completed but output file not found');
-        }
-        logger.info('Complex filter merge completed successfully', {
-          component: 'VideoProcessingService',
-        });
-        return ensureFileUri(normalizedOutput);
-      } else {
-        const failStackTrace = await session.getFailStackTrace();
-        const output = await session.getOutput();
-        logger.error('Complex filter merge failed', {
-          component: 'VideoProcessingService',
-          returnCode,
-          failStackTrace,
-          output,
-        });
-        throw new Error(
-          `Complex filter merge failed: ${failStackTrace || output || 'Unknown error'}`
-        );
-      }
+      return {
+        path: outputPath,
+        duration: totalDuration,
+        width: mergedProps.width || 1080,
+        height: mergedProps.height || 1920,
+      };
     } catch (error) {
-      logger.error('Error in complex filter merge', error, {
+      logger.warn('Fast merge SDK failed', {
         component: 'VideoProcessingService',
+        error,
       });
-      throw error;
+      return null;
     }
   }
 

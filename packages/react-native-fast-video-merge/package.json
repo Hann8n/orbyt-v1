@@ -1,0 +1,22 @@
+{
+  "name": "react-native-fast-video-merge",
+  "version": "1.0.1-orbyt.0",
+  "description": "Local Orbyt fork for fast video merging via FFmpegKit.",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "react-native",
+    "video",
+    "merge",
+    "camera"
+  ],
+  "author": "Muhamman Ahmad, Orbyt",
+  "license": "MIT",
+  "peerDependencies": {
+    "expo-file-system": ">=19.0.0",
+    "ffmpeg-kit-react-native": ">=6.0.0",
+    "react-native": ">=0.83.0"
+  }
+}
