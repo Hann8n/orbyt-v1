@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, type ViewabilityConfig, type ViewToken } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useIsFocused } from '@react-navigation/native';
 import { useVisibilityCoreStore } from './visibilityStore';
 import { useSetOverlayVisibility } from '../../context/FeedIndicatorContext';
 const VIEWABILITY_CONFIG: ViewabilityConfig = {
@@ -43,24 +43,22 @@ export function useFeedVisibility({
     const subscription = AppState.addEventListener('change', setAppState);
     return () => subscription.remove();
   }, []);
-  const activeRoute = useVisibilityCoreStore(state => state.activeRoute);
   const setActiveFeedKey = useVisibilityCoreStore(state => state.setActiveFeedKey);
   const setLastViewableIndex = useVisibilityCoreStore(state => state.setLastViewableIndex);
   const isForeground = appState === 'active';
-  // Video can play if: feed is active AND app is foreground AND route is active
-  const canPlay = isActive && isForeground && activeRoute !== null;
+  // Video can play if: feed is active and app is foreground.
+  // Route focus is already represented by `isActive` at call sites.
+  const canPlay = isActive && isForeground;
 
   const setOverlayVisibility = useSetOverlayVisibility();
   const lastOverlayRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     if (!isActive) return;
-    // Set activeFeedKey when feed becomes active
-    // Include activeRoute in dependencies to ensure this runs when route becomes active
-    // (e.g., when returning to a screen from another tab)
+    // Set activeFeedKey when this feed is active.
     setActiveFeedKey(feedKey);
     setOverlayVisibility(1); // Show overlay when this list feed becomes active (e.g. modal from profile grid)
-  }, [isActive, feedKey, activeRoute, setActiveFeedKey, setOverlayVisibility]);
+  }, [isActive, feedKey, setActiveFeedKey, setOverlayVisibility]);
 
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
@@ -96,34 +94,17 @@ export function useFeedVisibility({
 }
 
 /**
- * Track when a route becomes active/inactive
- * Updates visibility store so videos can pause/resume based on route focus
- * Uses useFocusEffect to integrate with freezeOnBlur: true - routes are only active when screen is focused
+ * Route focus is read directly from navigation state.
+ * Kept as a no-op to preserve existing call sites.
  */
-export function useVisibilityRouteTracker(routeKey: string) {
-  const setActiveRoute = useVisibilityCoreStore(state => state.setActiveRoute);
-
-  useFocusEffect(
-    useCallback(() => {
-      if (!routeKey) return;
-      // Set route as active when screen is focused
-      setActiveRoute(routeKey);
-      return () => {
-        // Clear route when screen loses focus (cleanup runs on blur/unmount)
-        const currentRoute = useVisibilityCoreStore.getState().activeRoute;
-        if (currentRoute === routeKey) {
-          setActiveRoute(null);
-        }
-      };
-    }, [routeKey, setActiveRoute])
-  );
+export function useVisibilityRouteTracker(_routeKey: string) {
+  // Intentionally no-op: route focus is sourced from useVisibilityRouteIsActive().
 }
 
 /**
- * Check if a specific route is currently active
- * Tracks route state from visibility store
+ * Check whether the current screen is focused.
+ * routeKey is intentionally ignored to preserve existing API shape.
  */
-export function useVisibilityRouteIsActive(routeKey: string | null | undefined): boolean {
-  const activeRoute = useVisibilityCoreStore(state => state.activeRoute);
-  return Boolean(routeKey && activeRoute === routeKey);
+export function useVisibilityRouteIsActive(_routeKey: string | null | undefined): boolean {
+  return useIsFocused();
 }

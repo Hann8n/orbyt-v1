@@ -42,7 +42,6 @@ import {
   DEFAULT_SEEK_TOLERANCE_SCRUBBER,
 } from '../../../utils/video/helpers';
 import VideoOverlayUI from './VideoOverlayUI';
-import { useFocusEffect } from 'expo-router';
 import { useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 import { useProfileChannelNavigation } from '../../../hooks/useProfileChannelNavigation';
 import { usePostInteractionStore } from '../../../stores/postInteractionStore';
@@ -127,7 +126,6 @@ export interface VideoCardProps {
   post: Post;
   feedItem?: ExtendedFeedViewPost; // Contains feedContext and reqId natively
   isVisible: boolean;
-  onVideoStatus?: (uri: string, status: string) => void;
   height?: number;
   shouldDisablePlayback?: boolean;
   // Overlay props
@@ -144,7 +142,6 @@ const VideoCard = memo(
         post,
         feedItem,
         isVisible,
-        onVideoStatus,
         height,
         shouldDisablePlayback = false,
         showOverlay = true,
@@ -509,8 +506,6 @@ const VideoCard = memo(
         isVisible &&
         !!videoUrl;
 
-      const isPausedDimmed = !shouldPlayVideo;
-
       // Text-expanded dim state is driven fully by Reanimated shared values to avoid re-rendering
       // VideoCard when the overlay text is expanded/collapsed.
       const textDimActiveSV = useSharedValue(0);
@@ -539,13 +534,6 @@ const VideoCard = memo(
         'worklet';
         return { opacity: textDimOpacitySV.value };
       }, [textDimOpacitySV]);
-
-      const pausedDimAnimatedStyle = useAnimatedStyle(() => {
-        'worklet';
-        // Hide paused dim whenever the text-expanded dim is active (no stacking)
-        const shouldShowPaused = isPausedDimmed && textDimActiveSV.value < 0.5;
-        return { opacity: shouldShowPaused ? 1 : 0 };
-      }, [textDimActiveSV, isPausedDimmed]);
 
       const shouldLoadVideo = !cannotShowMedia && !isBlurred && !!videoSource;
 
@@ -647,20 +635,6 @@ const VideoCard = memo(
         prevIsVisibleRef.current = isVisible;
       }, [shouldDisablePlayback, isVisible, hasError, videoState.userPaused, setVideoState]);
 
-      // Simplified focus effect - pause on blur, resume on focus if needed
-      useFocusEffect(
-        useCallback(() => {
-          // On focus - do nothing, let visibility control playback
-
-          return () => {
-            // On blur - always pause to conserve resources
-            if (!videoState.userPaused) {
-              togglePlayback(false);
-            }
-          };
-        }, [videoState.userPaused, togglePlayback])
-      );
-
       // Retry once with a fresh HLS URL when player errors or gets stuck loading.
       const recoveryRetriedForUriRef = useRef<string | null>(null);
       const recoveryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -687,16 +661,14 @@ const VideoCard = memo(
         }, 'VideoCard: retry replaceAsync after playback failure');
       }, [player, postView.uri]);
 
-      // Handle status callbacks and minimal self-heal recovery.
+      // Handle minimal self-heal recovery.
       useEffect(() => {
         if (!player) return;
 
         if (playerStatus === 'readyToPlay') {
           clearRecoveryTimeout();
           recoveryRetriedForUriRef.current = null;
-          onVideoStatus?.(postView.uri, 'loaded');
         } else if (playerStatus === 'loading') {
-          onVideoStatus?.(postView.uri, 'loading');
           clearRecoveryTimeout();
           if (recoveryRetriedForUriRef.current !== postView.uri) {
             recoveryTimeoutRef.current = setTimeout(() => {
@@ -706,18 +678,10 @@ const VideoCard = memo(
         } else if (playerStatus === 'error') {
           clearRecoveryTimeout();
           retryVideoRecovery();
-          onVideoStatus?.(postView.uri, 'error');
         } else {
           clearRecoveryTimeout();
         }
-      }, [
-        playerStatus,
-        player,
-        postView.uri,
-        onVideoStatus,
-        clearRecoveryTimeout,
-        retryVideoRecovery,
-      ]);
+      }, [playerStatus, player, postView.uri, clearRecoveryTimeout, retryVideoRecovery]);
 
       // Cleanup recovery timer on unmount.
       useEffect(() => {
@@ -1049,15 +1013,6 @@ const VideoCard = memo(
         seenInteractionSentRef.current = false;
       }, [postView.uri]);
 
-      // Video Status Reporting - use post URI for simple tracking
-      useEffect(() => {
-        if (shouldPlayVideo) {
-          onVideoStatus?.(postView.uri, 'playing');
-        } else {
-          onVideoStatus?.(postView.uri, 'paused');
-        }
-      }, [shouldPlayVideo, postView.uri, onVideoStatus]);
-
       const seekingAnimationSV = useSharedValue(0);
       const overlayVisibility = useOverlayVisibility();
       const feedScroll = useFeedScroll();
@@ -1143,15 +1098,7 @@ const VideoCard = memo(
                 </View>
               )}
 
-              {/* Dimming overlays
-                  - Paused/not-playing: instant 0.4 (no animation)
-                  - Text expanded: fades to 0.65 (micro-animation)
-                  - When both apply: prefer text-expanded overlay (no stacking)
-              */}
-              <Animated.View
-                style={[styles.pausedDimmingOverlay, pausedDimAnimatedStyle]}
-                pointerEvents="none"
-              />
+              {/* Dimming overlay for expanded text */}
               <Animated.View
                 style={[styles.textExpandedDimmingOverlay, textDimAnimatedStyle]}
                 pointerEvents="none"
@@ -1346,12 +1293,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: 'Figtree-SemiBold',
     fontWeight: '600',
-  },
-  pausedDimmingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: hexToRGBA(Colors.black, 0.4),
-    zIndex: 5,
-    pointerEvents: 'none',
   },
   textExpandedDimmingOverlay: {
     ...StyleSheet.absoluteFillObject,
