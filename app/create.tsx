@@ -11,6 +11,7 @@ import {
   StatusBar,
   AppState,
   type EventSubscription,
+  type GestureResponderEvent,
   ActivityIndicator,
 } from 'react-native';
 import { Image } from 'expo-image';
@@ -51,6 +52,7 @@ import VideoTrim, { showEditor, isValidFile, type Spec } from 'react-native-clip
 import { SegmentManager, type Segment } from '@/utils/video/segmentManager';
 import VideoProcessingService from '@/services/video/VideoProcessingService';
 import { usePendingVideoPostStore } from '@/stores/pendingVideoPostStore';
+import { ErrorHandler } from '@/utils/errors/errorHandler';
 
 // Duration options in seconds - labels resolved via t() in component
 const DURATION_OPTION_KEYS = [
@@ -118,12 +120,7 @@ const CreateScreen: React.FC = () => {
   const finishRecordingRef = useRef<((options?: { force?: boolean }) => Promise<void>) | null>(
     null
   );
-  const lastTapRef = useRef<number>(0);
-  const tapTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const recordingAutoStopTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  /** Pointer that started the current hold-to-record; stop only when this id lifts (not on button bounds). */
-  const capturePointerIdRef = useRef<number | null>(null);
-
   // Animated values
   const totalDurationShared = useSharedValue(0); // Total duration from segments (updated when segments change)
   const currentSegmentDurationShared = useSharedValue(0);
@@ -520,10 +517,6 @@ const CreateScreen: React.FC = () => {
           clearTimeout(recordingAutoStopTimeoutRef.current);
           recordingAutoStopTimeoutRef.current = null;
         }
-        if (tapTimeoutRef.current) {
-          clearTimeout(tapTimeoutRef.current);
-          tapTimeoutRef.current = null;
-        }
         if (recorderRef.current) {
           recorderRef.current.stopRecording().catch(() => {
             // Ignore stop errors when leaving screen.
@@ -855,24 +848,6 @@ const CreateScreen: React.FC = () => {
     }
   }, [pauseCurrentSegment]);
 
-  const onShutterTouchesDown = useCallback(
-    (pointerId: number) => {
-      if (isRecordingRef.current) return;
-      capturePointerIdRef.current = pointerId;
-      handlePressIn();
-    },
-    [handlePressIn]
-  );
-
-  const onShutterTouchesUpOrCancel = useCallback(
-    (pointerId: number) => {
-      if (capturePointerIdRef.current !== pointerId) return;
-      capturePointerIdRef.current = null;
-      handlePressOut();
-    },
-    [handlePressOut]
-  );
-
   /**
    * Shutter-area vertical pan → zoom (same interpolate curve as VisionCamera CaptureButton).
    * @see https://github.com/mrousavy/react-native-vision-camera/blob/main/example/src/views/CaptureButton.tsx
@@ -913,47 +888,42 @@ const CreateScreen: React.FC = () => {
   );
 
   /**
-   * Manual shutter: pointer id tracked for lift-up stop (not Pressable bounds).
-   * Must run simultaneousWith Pan — nested GestureDetectors block outer Pan after activate().
+   * Hold-to-record must survive vertical sliding for zoom. `Pressable` + `Gesture.Native()` loses
+   * the press as soon as the simultaneous `Pan` activates (~6px). `LongPress` defaults to ~10pt
+   * max movement before fail — raise it and disable cancel-when-outside so lift ends the segment.
    */
-  const shutterManualGesture = useMemo(
+  const shutterHoldGesture = useMemo(
     () =>
-      Gesture.Manual()
+      Gesture.LongPress()
+        .minDuration(0)
+        .maxDistance(Math.max(screenWidth, screenHeight) * 2)
+        .shouldCancelWhenOutside(false)
         .enabled(
           !isDeletePreviewActive && availableTime > 0 && !isLoadingFromGallery && !isProcessing
         )
-        .onTouchesDown((e, manager) => {
+        .onStart(() => {
           'worklet';
-          manager.activate();
-          const t = e.changedTouches[0];
-          if (t !== undefined) runOnJS(onShutterTouchesDown)(t.id);
+          runOnJS(handlePressIn)();
         })
-        .onTouchesUp(e => {
+        .onFinalize(() => {
           'worklet';
-          for (let i = 0; i < e.changedTouches.length; i++) {
-            runOnJS(onShutterTouchesUpOrCancel)(e.changedTouches[i].id);
-          }
-        })
-        .onTouchesCancelled(e => {
-          'worklet';
-          for (let i = 0; i < e.changedTouches.length; i++) {
-            runOnJS(onShutterTouchesUpOrCancel)(e.changedTouches[i].id);
-          }
+          runOnJS(handlePressOut)();
         }),
     [
       availableTime,
+      handlePressIn,
+      handlePressOut,
       isDeletePreviewActive,
       isLoadingFromGallery,
       isProcessing,
-      onShutterTouchesDown,
-      onShutterTouchesUpOrCancel,
+      screenHeight,
+      screenWidth,
     ]
   );
 
-  /** Single detector: Pan + Manual as siblings so zoom and shutter both receive the touch stream. */
   const shutterZoomGesture = useMemo(
-    () => Gesture.Simultaneous(captureZoomPanGesture, shutterManualGesture),
-    [captureZoomPanGesture, shutterManualGesture]
+    () => Gesture.Simultaneous(captureZoomPanGesture, shutterHoldGesture),
+    [captureZoomPanGesture, shutterHoldGesture]
   );
 
   const pickFromGallery = useCallback(async () => {
@@ -1051,34 +1021,40 @@ const CreateScreen: React.FC = () => {
     setIsFrontCamera(prev => !prev);
   }, []);
 
-  const handleDoubleTap = useCallback(() => {
-    if (isDeletePreviewActive) {
-      cancelDeletePreview();
-      return;
-    }
-    const now = Date.now();
-    const DOUBLE_TAP_DELAY = 300; // milliseconds
+  /**
+   * Tap-to-focus like Vision Camera's CameraPage (wrapper `onTouchEnd`), adapted to v4 `focusTo`.
+   * @see https://github.com/mrousavy/react-native-vision-camera/blob/b1d5a62def410bad56df2773ce994311e16cc21c/example/src/CameraPage.tsx
+   */
+  const onFocusTap = useCallback(
+    (event: GestureResponderEvent) => {
+      if (isDeletePreviewActive) return;
+      if (!cameraDevice?.supportsFocusMetering || isFrontCamera) return;
 
-    if (now - lastTapRef.current < DOUBLE_TAP_DELAY) {
-      // Double tap detected
-      if (tapTimeoutRef.current) {
-        clearTimeout(tapTimeoutRef.current);
-        tapTimeoutRef.current = null;
-      }
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      flipCamera();
-    } else {
-      // First tap - wait to see if there's a second tap
-      lastTapRef.current = now;
-      if (tapTimeoutRef.current) {
-        clearTimeout(tapTimeoutRef.current);
-      }
-      tapTimeoutRef.current = setTimeout(() => {
-        lastTapRef.current = 0;
-        tapTimeoutRef.current = null;
-      }, DOUBLE_TAP_DELAY);
-    }
-  }, [cancelDeletePreview, flipCamera, isDeletePreviewActive]);
+      const { locationX, locationY } = event.nativeEvent;
+      void ErrorHandler.safeAsync(async () => {
+        await cameraRef.current?.focusTo({ x: locationX, y: locationY });
+      }, 'CreateScreen.camera.focusTo');
+    },
+    [cameraDevice?.supportsFocusMetering, isDeletePreviewActive, isFrontCamera]
+  );
+
+  const onCameraDoubleTapFlip = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    flipCamera();
+  }, [flipCamera]);
+
+  /** Matches example: TapGestureHandler with numberOfTaps={2} around the preview. */
+  const cameraDoubleTapGesture = useMemo(
+    () =>
+      Gesture.Tap()
+        .numberOfTaps(2)
+        .enabled(!isDeletePreviewActive)
+        .onEnd(() => {
+          'worklet';
+          runOnJS(onCameraDoubleTapFlip)();
+        }),
+    [isDeletePreviewActive, onCameraDoubleTapFlip]
+  );
   const toggleFlash = useCallback(() => {
     // Only allow flash on back camera
     if (!isFrontCamera) {
@@ -1286,44 +1262,52 @@ const CreateScreen: React.FC = () => {
       return <View style={styles.warningContainer} />;
     }
 
-    const cameraSurface = (
-      <Animated.View style={[styles.cameraPressable, cameraAndroidLayout]}>
-        <Pressable
-          onPress={isDeletePreviewActive ? cancelDeletePreview : handleDoubleTap}
-          style={[styles.cameraPressable, cameraAndroidLayout]}
-        >
-          {/* Wrapper matches camera dimensions so overlay aligns pixel-perfect */}
-          <View style={[styles.cameraWrapper, cameraLayout]}>
-            <Camera
-              ref={cameraRef}
-              style={styles.cameraFill}
-              device={cameraDevice}
-              isActive={isFocused && !isTrimmerActive}
-              outputs={[videoOutput]}
-              torchMode={flash === 'on' && !isFrontCamera ? 'on' : 'off'}
-              zoom={zoomShared}
-              enableNativeTapToFocusGesture={
-                !isDeletePreviewActive && cameraDevice.supportsFocusMetering
-              }
-              onError={e => {
-                if (__DEV__)
-                  logger.warn('[Camera] Mount error:', {
-                    component: 'Camera',
-                    message: e?.message ?? 'Unknown camera mount error',
-                  });
-              }}
-            />
-            {!isDeletePreviewActive && isOnionSkinningEnabled && lastFrameThumbnail && (
-              <Image
-                source={{ uri: lastFrameThumbnail }}
-                style={styles.onionSkinOverlay}
-                contentFit="cover"
-                cachePolicy="memory-disk"
-                pointerEvents="none"
-              />
-            )}
+    /** Same layering as Vision Camera example: pinch wraps a view with tap-to-focus, double-tap inside. */
+    const cameraPreviewBody = (
+      <View style={[styles.cameraWrapper, cameraLayout]}>
+        <Camera
+          ref={cameraRef}
+          style={styles.cameraFill}
+          device={cameraDevice}
+          isActive={isFocused && !isTrimmerActive}
+          outputs={[videoOutput]}
+          torchMode={flash === 'on' && !isFrontCamera ? 'on' : 'off'}
+          zoom={zoomShared}
+          enableNativeTapToFocusGesture={false}
+          onError={e => {
+            if (__DEV__)
+              logger.warn('[Camera] Mount error:', {
+                component: 'Camera',
+                message: e?.message ?? 'Unknown camera mount error',
+              });
+          }}
+        />
+        {!isDeletePreviewActive && isOnionSkinningEnabled && lastFrameThumbnail && (
+          <Image
+            source={{ uri: lastFrameThumbnail }}
+            style={styles.onionSkinOverlay}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+            pointerEvents="none"
+          />
+        )}
+      </View>
+    );
+
+    const cameraSurface = isDeletePreviewActive ? (
+      <Pressable
+        onPress={cancelDeletePreview}
+        style={[styles.cameraPressable, cameraAndroidLayout]}
+      >
+        {cameraPreviewBody}
+      </Pressable>
+    ) : (
+      <Animated.View style={[styles.cameraPressable, cameraAndroidLayout]} onTouchEnd={onFocusTap}>
+        <GestureDetector gesture={cameraDoubleTapGesture}>
+          <View style={[styles.cameraPressable, cameraAndroidLayout]} collapsable={false}>
+            {cameraPreviewBody}
           </View>
-        </Pressable>
+        </GestureDetector>
       </Animated.View>
     );
 
@@ -1378,7 +1362,7 @@ const CreateScreen: React.FC = () => {
               <View style={styles.recordButtonArea}>
                 <View style={styles.recordButtonAreaSpacer} />
                 <GestureDetector gesture={shutterZoomGesture}>
-                  <Animated.View style={styles.recordButtonContainer}>
+                  <Animated.View collapsable={false} style={styles.recordButtonContainer}>
                     <Animated.View
                       style={[
                         styles.recordButton,
