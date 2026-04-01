@@ -17,6 +17,7 @@ import { AtprotoService } from '../../../services/api/AtprotoService';
 import { AtprotoFeedService } from '../../../services/api/feed/FeedService';
 import { View, Text, Dimensions, StyleSheet, Platform, ActivityIndicator } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -26,6 +27,7 @@ import Animated, {
   Easing,
   useDerivedValue,
   interpolate,
+  runOnJS,
 } from 'react-native-reanimated';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { BlurView } from '../../ui/BlurView';
@@ -306,8 +308,6 @@ const VideoCard = memo(
       }, [channelSlug]);
 
       // Double tap to like state - using Reanimated for UI thread performance
-      const lastTapRef = useRef<{ time: number; x: number; y: number } | null>(null);
-      const singleTapTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
       const heartScale = useSharedValue(0);
       const heartOpacity = useSharedValue(0);
       const heartPositionX = useSharedValue(0);
@@ -380,7 +380,8 @@ const VideoCard = memo(
       const player = useVideoPlayer(videoSource, player => {
         player.loop = true;
         player.muted = false;
-        player.timeUpdateEventInterval = 0; // Explicit: no progress updates (overlay has no progress bar)
+        // Emit lightweight time updates for iOS scrubber without JS polling loops.
+        player.timeUpdateEventInterval = 0.2;
         player.bufferOptions = DEFAULT_BUFFER_OPTIONS;
         player.seekTolerance = DEFAULT_SEEK_TOLERANCE_SCRUBBER;
       });
@@ -734,122 +735,9 @@ const VideoCard = memo(
         await likeOnlyInteraction();
       }, [likeOnlyInteraction]);
 
-      // Double tap to like animation - runs on UI thread with Reanimated
-      // Heartbeat pattern: quick beat, slight dip, second beat, then fade out
-      const animateHeart = useCallback(
-        (x: number, y: number) => {
-          // Cancel any ongoing animations
-          heartScale.value = 0;
-          heartOpacity.value = 0;
-
-          // Set position
-          heartPositionX.value = x;
-          heartPositionY.value = y;
-
-          // Start animation sequence - heartbeat pattern
-          heartOpacity.value = 1;
-          heartScale.value = withSequence(
-            // First heartbeat beat - quick and strong
-            withTiming(1.3, {
-              duration: 100,
-              easing: Easing.out(Easing.ease),
-            }),
-            // Quick dip below 1 for heartbeat feel
-            withTiming(0.95, {
-              duration: 80,
-              easing: Easing.in(Easing.ease),
-            }),
-            // Second heartbeat beat - slightly smaller
-            withTiming(1.15, {
-              duration: 100,
-              easing: Easing.out(Easing.ease),
-            }),
-            // Return to normal size
-            withTiming(1, {
-              duration: 120,
-              easing: Easing.inOut(Easing.ease),
-            })
-          );
-
-          // Fade out after the heartbeat sequence completes
-          heartOpacity.value = withDelay(
-            400, // Wait for heartbeat to complete (~400ms total)
-            withTiming(
-              0,
-              {
-                duration: 300,
-                easing: Easing.out(Easing.ease),
-              },
-              () => {
-                // Reset values after animation completes
-                heartScale.value = 0;
-              }
-            )
-          );
-        },
-        [heartScale, heartOpacity, heartPositionX, heartPositionY]
-      );
-
-      // Enhanced tap handler with double tap detection
-      const handleVideoTap = useCallback(
-        (
-          event: import('react-native').NativeSyntheticEvent<{
-            locationX: number;
-            locationY: number;
-          }>
-        ) => {
-          const now = Date.now();
-          const x = event.nativeEvent?.locationX ?? cardHeight / 2;
-          const y = event.nativeEvent?.locationY ?? cardHeight / 2;
-
-          // Clear any pending single tap
-          if (singleTapTimeoutRef.current) {
-            clearTimeout(singleTapTimeoutRef.current);
-            singleTapTimeoutRef.current = null;
-          }
-
-          if (lastTapRef.current) {
-            const timeDiff = now - lastTapRef.current.time;
-            const xDiff = Math.abs(x - lastTapRef.current.x);
-            const yDiff = Math.abs(y - lastTapRef.current.y);
-
-            // Double tap detected (within a tight window and similar position)
-            // Use a smaller window than the single-tap delay so playback never toggles on a real double tap
-            if (timeDiff < 250 && xDiff < 50 && yDiff < 50) {
-              // Always show animation for visual feedback
-              animateHeart(x, y);
-              // Only like (never unlike) on double tap
-              handleLikeOnly();
-              lastTapRef.current = null;
-              return;
-            }
-          }
-
-          // Store this tap for potential double tap
-          lastTapRef.current = { time: now, x, y };
-
-          // Wait a bit to see if there's a second tap
-          singleTapTimeoutRef.current = setTimeout(() => {
-            // Single tap - toggle playback
-            togglePlayback();
-            lastTapRef.current = null;
-            singleTapTimeoutRef.current = null;
-          }, 260);
-        },
-        [togglePlayback, cardHeight, handleLikeOnly, animateHeart]
-      );
-
       // Handle long press to show comments
       const handleLongPress = useCallback(() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-        // Clear any pending single tap
-        if (singleTapTimeoutRef.current) {
-          clearTimeout(singleTapTimeoutRef.current);
-          singleTapTimeoutRef.current = null;
-        }
-        // Clear double tap tracking
-        lastTapRef.current = null;
 
         // Track interaction
         queueInteraction(INTERACTIONREPLY_CONST);
@@ -892,14 +780,86 @@ const VideoCard = memo(
         queueInteraction,
       ]);
 
-      // Cleanup timeout on unmount
-      useEffect(() => {
-        return () => {
-          if (singleTapTimeoutRef.current) {
-            clearTimeout(singleTapTimeoutRef.current);
-          }
-        };
-      }, []);
+      const videoGesture = useMemo(() => {
+        const singleTap = Gesture.Tap()
+          .maxDuration(250)
+          .numberOfTaps(1)
+          .onEnd((_event, success) => {
+            'worklet';
+            if (!success) return;
+            runOnJS(togglePlayback)();
+          });
+
+        const doubleTap = Gesture.Tap()
+          .maxDuration(250)
+          .maxDelay(250)
+          .numberOfTaps(2)
+          .onEnd((event, success) => {
+            'worklet';
+            if (!success) return;
+
+            const x = event.x ?? cardHeight / 2;
+            const y = event.y ?? cardHeight / 2;
+
+            heartScale.value = 0;
+            heartOpacity.value = 0;
+            heartPositionX.value = x;
+            heartPositionY.value = y;
+            heartOpacity.value = 1;
+            heartScale.value = withSequence(
+              withTiming(1.3, {
+                duration: 100,
+                easing: Easing.out(Easing.ease),
+              }),
+              withTiming(0.95, {
+                duration: 80,
+                easing: Easing.in(Easing.ease),
+              }),
+              withTiming(1.15, {
+                duration: 100,
+                easing: Easing.out(Easing.ease),
+              }),
+              withTiming(1, {
+                duration: 120,
+                easing: Easing.inOut(Easing.ease),
+              })
+            );
+            heartOpacity.value = withDelay(
+              400,
+              withTiming(
+                0,
+                {
+                  duration: 300,
+                  easing: Easing.out(Easing.ease),
+                },
+                () => {
+                  heartScale.value = 0;
+                }
+              )
+            );
+
+            runOnJS(handleLikeOnly)();
+          });
+
+        const longPress = Gesture.LongPress()
+          .minDuration(400)
+          .onEnd((_event, success) => {
+            'worklet';
+            if (!success) return;
+            runOnJS(handleLongPress)();
+          });
+
+        return Gesture.Race(longPress, Gesture.Exclusive(doubleTap, singleTap));
+      }, [
+        togglePlayback,
+        handleLikeOnly,
+        handleLongPress,
+        cardHeight,
+        heartScale,
+        heartOpacity,
+        heartPositionX,
+        heartPositionY,
+      ]);
 
       const handleRepost = useCallback(async () => {
         if (overlayState.isRepostPending) return;
@@ -1060,99 +1020,98 @@ const VideoCard = memo(
             thumbnailUrl={cannotShowMedia ? null : (posterUrl ?? null)}
             onBlurReady={handleBlurReady}
           />
-          <NativePressable
-            onPress={handleVideoTap}
-            onLongPress={handleLongPress}
-            delayLongPress={400}
-            style={styles.videoContainerPressable}
-            activeOpacity={1}
-            android_ripple={{ color: hexToRGBA(Colors.black, 0), borderless: true }}
-          >
-            <View style={styles.videoContainer}>
-              {!!posterUrl && !cannotShowMedia && (!firstFrameRendered || !blurReady) && (
-                <Image
-                  source={{ uri: posterUrl }}
-                  contentFit="contain"
-                  style={styles.poster}
-                  recyclingKey={recyclingKey}
+          <GestureDetector gesture={videoGesture}>
+            <NativePressable
+              style={styles.videoContainerPressable}
+              activeOpacity={1}
+              android_ripple={{ color: hexToRGBA(Colors.black, 0), borderless: true }}
+            >
+              <View style={styles.videoContainer}>
+                {!!posterUrl && !cannotShowMedia && (!firstFrameRendered || !blurReady) && (
+                  <Image
+                    source={{ uri: posterUrl }}
+                    contentFit="contain"
+                    style={styles.poster}
+                    recyclingKey={recyclingKey}
+                  />
+                )}
+
+                {!!videoSource && !cannotShowMedia && !isBlurred && player && (
+                  <ExpoVideoView
+                    player={player}
+                    style={styles.videoPlayer}
+                    contentFit="contain"
+                    nativeControls={false}
+                    playsInline
+                    surfaceType={Platform.OS === 'android' ? 'textureView' : undefined}
+                    allowsVideoFrameAnalysis={false}
+                    onFirstFrameRender={handleFirstFrameRender}
+                  />
+                )}
+
+                {/* Buffering indicator removed per request */}
+
+                {/* Loading indicator only shown when needed */}
+                {!shouldLoadVideo && !cannotShowMedia && !isBlurred && (
+                  <View style={styles.loadingOverlay}>
+                    <ActivityIndicator size="large" color={Colors.neutral[50]} />
+                    <Text style={styles.loadingText}>{t('video.noHlsStream')}</Text>
+                  </View>
+                )}
+
+                {/* Dimming overlay for expanded text */}
+                <Animated.View
+                  style={[styles.textExpandedDimmingOverlay, textDimAnimatedStyle]}
+                  pointerEvents="none"
                 />
-              )}
 
-              {!!videoSource && !cannotShowMedia && !isBlurred && player && (
-                <ExpoVideoView
-                  player={player}
-                  style={styles.videoPlayer}
-                  contentFit="contain"
-                  nativeControls={false}
-                  playsInline
-                  surfaceType={Platform.OS === 'android' ? 'textureView' : undefined}
-                  allowsVideoFrameAnalysis={false}
-                  onFirstFrameRender={handleFirstFrameRender}
-                />
-              )}
+                {/* Double tap heart animation */}
+                <Animated.View
+                  style={[styles.heartAnimationContainer, heartAnimatedStyle]}
+                  pointerEvents="none"
+                >
+                  <HeartFillIcon size={100} color={Colors.coral[500]} />
+                </Animated.View>
 
-              {/* Buffering indicator removed per request */}
+                {/* Integrated Overlay System using VideoOverlayUI */}
+                {/* Keep overlay mounted to prevent jank when switching videos */}
+                {showOverlay && (
+                  <VideoOverlayUI
+                    post={postView}
+                    isVisible={isVisible}
+                    overlayOpacitySV={uiOverlayOpacitySV}
+                    sourceFeed={resolvedFeedUri}
+                    onOverlayCollapsedChange={handleOverlayCollapsedChange}
+                    onLike={handleLike}
+                    onRepost={handleRepost}
+                    onShareInteraction={handleShareInteraction}
+                    isLiked={overlayState.isLiked}
+                    isReposted={overlayState.isReposted}
+                    likeCount={overlayState.likeCount}
+                    commentCount={overlayState.commentCount}
+                    repostCount={overlayState.repostCount}
+                    isLikePending={overlayState.isLikePending}
+                    isRepostPending={overlayState.isRepostPending}
+                    isFollowing={isFollowing}
+                    hasProfile={hasProfile}
+                    channelSlug={channelSlug}
+                    onChannelPress={handleChannelPress}
+                    authorProfileOverlay={authorProfileOverlay}
+                  />
+                )}
 
-              {/* Loading indicator only shown when needed */}
-              {!shouldLoadVideo && !cannotShowMedia && !isBlurred && (
-                <View style={styles.loadingOverlay}>
-                  <ActivityIndicator size="large" color={Colors.neutral[50]} />
-                  <Text style={styles.loadingText}>{t('video.noHlsStream')}</Text>
-                </View>
-              )}
-
-              {/* Dimming overlay for expanded text */}
-              <Animated.View
-                style={[styles.textExpandedDimmingOverlay, textDimAnimatedStyle]}
-                pointerEvents="none"
-              />
-
-              {/* Double tap heart animation */}
-              <Animated.View
-                style={[styles.heartAnimationContainer, heartAnimatedStyle]}
-                pointerEvents="none"
-              >
-                <HeartFillIcon size={100} color={Colors.coral[500]} />
-              </Animated.View>
-
-              {/* Integrated Overlay System using VideoOverlayUI */}
-              {/* Keep overlay mounted to prevent jank when switching videos */}
-              {showOverlay && (
-                <VideoOverlayUI
-                  post={postView}
-                  isVisible={isVisible}
-                  overlayOpacitySV={uiOverlayOpacitySV}
-                  sourceFeed={resolvedFeedUri}
-                  onOverlayCollapsedChange={handleOverlayCollapsedChange}
-                  onLike={handleLike}
-                  onRepost={handleRepost}
-                  onShareInteraction={handleShareInteraction}
-                  isLiked={overlayState.isLiked}
-                  isReposted={overlayState.isReposted}
-                  likeCount={overlayState.likeCount}
-                  commentCount={overlayState.commentCount}
-                  repostCount={overlayState.repostCount}
-                  isLikePending={overlayState.isLikePending}
-                  isRepostPending={overlayState.isRepostPending}
-                  isFollowing={isFollowing}
-                  hasProfile={hasProfile}
-                  channelSlug={channelSlug}
-                  onChannelPress={handleChannelPress}
-                  authorProfileOverlay={authorProfileOverlay}
-                />
-              )}
-
-              {/* Video Scrubber - iOS only, overlays video above bottom bar */}
-              {Platform.OS === 'ios' && (
-                <VideoScrubber
-                  active={isVisible && !hasError}
-                  player={player}
-                  seekingAnimationSV={seekingAnimationSV}
-                  overlayOpacitySV={uiOverlayOpacitySV}
-                />
-              )}
-            </View>
-          </NativePressable>
+                {/* Video Scrubber - iOS only, overlays video above bottom bar */}
+                {Platform.OS === 'ios' && (
+                  <VideoScrubber
+                    active={isVisible && !hasError}
+                    player={player}
+                    seekingAnimationSV={seekingAnimationSV}
+                    overlayOpacitySV={uiOverlayOpacitySV}
+                  />
+                )}
+              </View>
+            </NativePressable>
+          </GestureDetector>
 
           {(cannotShowMedia || isBlurred) && (
             <>

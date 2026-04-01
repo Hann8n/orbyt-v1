@@ -3,6 +3,7 @@ import { Text, StyleSheet, Platform } from 'react-native';
 import { Gesture, GestureDetector, type NativeGesture } from 'react-native-gesture-handler';
 import Animated, {
   clamp,
+  Easing,
   interpolate,
   type SharedValue,
   useAnimatedReaction,
@@ -46,11 +47,13 @@ const VideoScrubberComponent = ({
 
   const setScrubbingState = useUIStore(state => state.setVisibility);
   const currentTimeSV = useSharedValue(0);
+  const displayedTimeSV = useSharedValue(0);
   const durationSV = useSharedValue(0);
   const [currentSeekTime, setCurrentSeekTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const isSeekingSV = useSharedValue(false);
   const seekProgressSV = useSharedValue(0);
+  const seekStartProgressSV = useSharedValue(0);
   const playerRef = useRef(player);
   const activeRef = useRef(active);
 
@@ -70,6 +73,7 @@ const VideoScrubberComponent = ({
         'worklet';
         isSeekingSV.set(false);
         currentTimeSV.set(0);
+        displayedTimeSV.set(0);
         seekProgressSV.set(0);
         seekingAnimationSV.set(0);
       });
@@ -81,6 +85,7 @@ const VideoScrubberComponent = ({
           scheduleOnUI(() => {
             'worklet';
             currentTimeSV.set(currentTime);
+            displayedTimeSV.set(currentTime);
           });
         }
       } catch (_error) {
@@ -96,11 +101,12 @@ const VideoScrubberComponent = ({
       scheduleOnUI(() => {
         'worklet';
         currentTimeSV.set(0);
+        displayedTimeSV.set(0);
         seekProgressSV.set(0);
       });
       playerRef.current = player;
     }
-  }, [player, currentTimeSV, seekProgressSV]);
+  }, [player, currentTimeSV, displayedTimeSV, seekProgressSV]);
 
   // Read-only duration sync - never affects player. useEvent requires a non-undefined emitter.
   const { status: playerStatus } = useEvent(
@@ -108,6 +114,11 @@ const VideoScrubberComponent = ({
     'statusChange',
     { status: player?.status ?? 'idle' }
   );
+  const timeUpdateEvent = useEvent(
+    player ?? ({ addListener: () => () => {} } as unknown as VideoPlayer),
+    'timeUpdate',
+    { currentTime: 0, currentLiveTimestamp: null, currentOffsetFromLive: null, bufferedPosition: 0 }
+  ) as { currentTime?: number };
 
   useEffect(() => {
     if (!player || !active) return;
@@ -126,37 +137,28 @@ const VideoScrubberComponent = ({
     }
   }, [player, active, playerStatus, duration, durationSV]);
 
-  // Passive read-only sync from player - never interferes with playback
-  // Uses lower frequency to avoid any performance impact on core playback
+  // Event-driven progress sync from player (replaces JS interval polling).
   useEffect(() => {
     if (!player || !active) return;
+    if (playerRef.current !== player) return;
 
-    const syncProgress = () => {
-      // Defensive checks - never block if player is invalid
-      if (!player || playerRef.current !== player) return;
+    const currentTime = timeUpdateEvent?.currentTime;
+    if (typeof currentTime !== 'number' || currentTime < 0) return;
 
-      try {
-        const isSeeking = isSeekingSV.get();
-        // Only read from player when not seeking (during seek, use local seekProgressSV)
-        if (!isSeeking) {
-          // Read-only operation - never affects playback
-          const currentTime = player.currentTime;
-          if (currentTime >= 0) {
-            scheduleOnUI(() => {
-              'worklet';
-              currentTimeSV.set(currentTime);
-            });
-          }
-        }
-      } catch (_error) {
-        // Silently ignore - scrubber never blocks or interferes
-      }
-    };
+    if (isSeekingSV.get()) return;
 
-    // 30fps sync for smooth scrub bar during playback
-    const interval = setInterval(syncProgress, 33);
-    return () => clearInterval(interval);
-  }, [player, active, isSeekingSV, currentTimeSV]);
+    scheduleOnUI(() => {
+      'worklet';
+      currentTimeSV.set(currentTime);
+      // Smooth discrete event updates so progress bar movement stays fluid.
+      displayedTimeSV.set(
+        withTiming(currentTime, {
+          duration: 220,
+          easing: Easing.linear,
+        })
+      );
+    });
+  }, [player, active, timeUpdateEvent, isSeekingSV, currentTimeSV, displayedTimeSV]);
 
   // Sync seekingAnimationSV to UI store using same threshold as overlay (0.2)
   useAnimatedReaction(
@@ -220,6 +222,7 @@ const VideoScrubberComponent = ({
         scheduleOnUI(() => {
           'worklet';
           currentTimeSV.set(time);
+          displayedTimeSV.set(time);
         });
 
         // Clear seeking state after brief delay (non-blocking)
@@ -234,63 +237,110 @@ const VideoScrubberComponent = ({
         // Silently ignore - scrubber never blocks or interferes with playback
       }
     },
-    [player, isSeekingSV, seekingAnimationSV, currentTimeSV]
+    [player, isSeekingSV, seekingAnimationSV, currentTimeSV, displayedTimeSV]
   );
 
-  // Lightweight gesture handler - purely UI, never blocks or interferes with playback
+  // Borrowed from rn-video-slider: use "start progress + translationX" for stable scrubbing math.
   const scrubPanGesture = useMemo(() => {
     const gesture = Gesture.Pan()
       .onStart(() => {
         'worklet';
-        // Enable scrubbing mode for faster seeking during gesture
-        scheduleOnRN(enableScrubbingMode);
-        // Only update local UI state - never affects playback
-        seekProgressSV.set(currentTimeSV.get());
+        const duration = durationSV.get();
+        const currentTime = currentTimeSV.get();
+        seekStartProgressSV.set(duration > 0 ? currentTime / duration : 0);
+        seekProgressSV.set(currentTime);
         isSeekingSV.set(true);
         seekingAnimationSV.set(withTiming(1, { duration: 500 }));
+        scheduleOnRN(enableScrubbingMode);
       })
       .onUpdate(evt => {
         'worklet';
-        // Pure UI calculation - never touches player
-        const progress = evt.x / screenWidth;
         const duration = durationSV.get();
-        seekProgressSV.set(clamp(progress * duration, 0, duration));
+        if (duration <= 0 || screenWidth <= 0) return;
+        const nextProgress = clamp(
+          seekStartProgressSV.get() + evt.translationX / screenWidth,
+          0,
+          1
+        );
+        seekProgressSV.set(nextProgress * duration);
       })
-      .onEnd(evt => {
+      .onEnd(() => {
         'worklet';
-        // Calculate final position (UI only)
-        const progress = evt.x / screenWidth;
         const duration = durationSV.get();
-        const newTime = clamp(progress * duration, 0, duration);
-
-        // Update local UI state immediately
+        const newTime = clamp(seekProgressSV.get(), 0, duration);
         seekProgressSV.set(newTime);
         currentTimeSV.set(newTime);
-
-        // Disable scrubbing mode before seeking (per plan: disable in onEnd, then seek)
+        displayedTimeSV.set(newTime);
         scheduleOnRN(disableScrubbingMode);
-        // Non-blocking seek - fire and forget, never blocks playback
         scheduleOnRN(seekTo, newTime);
       });
 
-    // Don't block scroll - scrubber is non-primary
     if (scrollGesture) {
       gesture.blocksExternalGesture(scrollGesture);
     }
-
     return gesture;
   }, [
     scrollGesture,
+    durationSV,
+    currentTimeSV,
+    seekStartProgressSV,
+    seekProgressSV,
+    isSeekingSV,
     seekingAnimationSV,
     screenWidth,
-    durationSV,
-    isSeekingSV,
-    seekProgressSV,
-    seekTo,
-    currentTimeSV,
     enableScrubbingMode,
     disableScrubbingMode,
+    seekTo,
   ]);
+
+  const scrubTapGesture = useMemo(() => {
+    const gesture = Gesture.Tap()
+      .maxDuration(180)
+      .onStart(evt => {
+        'worklet';
+        const duration = durationSV.get();
+        if (duration <= 0 || screenWidth <= 0) return;
+
+        const clampedX = clamp(evt.x, 0, screenWidth);
+        const newTime = (clampedX / screenWidth) * duration;
+
+        seekProgressSV.set(newTime);
+        currentTimeSV.set(newTime);
+        displayedTimeSV.set(newTime);
+        isSeekingSV.set(true);
+        seekingAnimationSV.set(withTiming(1, { duration: 180 }));
+        scheduleOnRN(enableScrubbingMode);
+      })
+      .onEnd(() => {
+        'worklet';
+        const duration = durationSV.get();
+        const newTime = clamp(seekProgressSV.get(), 0, duration);
+        scheduleOnRN(disableScrubbingMode);
+        scheduleOnRN(seekTo, newTime);
+      });
+
+    if (scrollGesture) {
+      gesture.blocksExternalGesture(scrollGesture);
+    }
+    return gesture;
+  }, [
+    scrollGesture,
+    durationSV,
+    screenWidth,
+    seekProgressSV,
+    currentTimeSV,
+    displayedTimeSV,
+    isSeekingSV,
+    seekingAnimationSV,
+    enableScrubbingMode,
+    disableScrubbingMode,
+    seekTo,
+  ]);
+
+  const scrubGesture = useMemo(
+    () => Gesture.Exclusive(scrubPanGesture, scrubTapGesture),
+    [scrubPanGesture, scrubTapGesture]
+  );
 
   // Optimize time style - add worklet directive for better performance
   const timeStyle = useAnimatedStyle(() => {
@@ -311,9 +361,9 @@ const VideoScrubberComponent = ({
     const isSeeking = isSeekingSV.get();
     const duration = durationSV.get();
     if (duration === 0) return 0;
-    const currentTime = isSeeking ? seekProgressSV.get() : currentTimeSV.get();
+    const currentTime = isSeeking ? seekProgressSV.get() : displayedTimeSV.get();
     return (currentTime / duration) * screenWidth;
-  }, [screenWidth, isSeekingSV, seekProgressSV, currentTimeSV, durationSV]);
+  }, [screenWidth, isSeekingSV, seekProgressSV, displayedTimeSV, durationSV]);
 
   const barHeightSV = useDerivedValue(() => {
     'worklet';
@@ -390,7 +440,7 @@ const VideoScrubberComponent = ({
         </Text>
       </Animated.View>
 
-      <GestureDetector gesture={scrubPanGesture}>
+      <GestureDetector gesture={scrubGesture}>
         <Animated.View style={styles.scrubberContainer} pointerEvents="box-none">
           <Animated.View
             style={[styles.trackContainer, trackContainerOpacityStyle]}
