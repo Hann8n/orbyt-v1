@@ -5,7 +5,7 @@
  */
 import { create } from 'zustand';
 
-interface PostInteraction {
+export interface PostInteraction {
   likeUri?: string;
   repostUri?: string;
   bookmarkUri?: string;
@@ -17,9 +17,19 @@ interface PostInteraction {
   repostCount: number;
 }
 
+/** Merge feed-derived defaults with persisted partial deltas. Pure — safe for useMemo. */
+export function mergePostInteractionDelta(
+  defaultState: PostInteraction,
+  stored: Partial<PostInteraction> | undefined
+): PostInteraction {
+  if (!stored) return defaultState;
+  return { ...defaultState, ...stored };
+}
+
 interface PostInteractionState {
-  // Map of post URIs to their interaction state
-  interactions: Map<string, PostInteraction>;
+  // Partial deltas per post (only fields touched by optimistic updates); full state is
+  // always derived in getPostInteraction via merge with feed-derived defaults.
+  interactions: Map<string, Partial<PostInteraction>>;
 
   // Actions
   updatePostInteraction: (postUri: string, update: Partial<PostInteraction>) => void;
@@ -33,21 +43,17 @@ export const usePostInteractionStore = create<PostInteractionState>((set, get) =
   updatePostInteraction: (postUri: string, update: Partial<PostInteraction>) => {
     set(state => {
       const newInteractions = new Map(state.interactions);
-      const current = newInteractions.get(postUri) || {
-        isLiked: false,
-        isReposted: false,
-        isBookmarked: false,
-        likeCount: 0,
-        commentCount: 0,
-        repostCount: 0,
-      };
+      // Merge onto existing persisted deltas only. Do not seed missing keys with zeros:
+      // the first like/repost update would otherwise persist fake zeros and wipe repost/
+      // comment state that still lives on the post from the feed (see getPostInteraction).
+      const current = newInteractions.get(postUri) ?? {};
       newInteractions.set(postUri, { ...current, ...update });
       return { interactions: newInteractions };
     });
   },
 
   getPostInteraction: (postUri: string, defaultState: PostInteraction) => {
-    return get().interactions.get(postUri) || defaultState;
+    return mergePostInteractionDelta(defaultState, get().interactions.get(postUri));
   },
 
   clearInteractions: () => {

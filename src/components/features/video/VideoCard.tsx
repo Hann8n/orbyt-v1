@@ -46,7 +46,10 @@ import {
 import VideoOverlayUI from './VideoOverlayUI';
 import { useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 import { useProfileChannelNavigation } from '../../../hooks/useProfileChannelNavigation';
-import { usePostInteractionStore } from '../../../stores/postInteractionStore';
+import {
+  mergePostInteractionDelta,
+  usePostInteractionStore,
+} from '../../../stores/postInteractionStore';
 import { useProfile } from '../../../services/data/ProfileService';
 import { getProfileColors } from '../../../utils/formatting/colors';
 import { getChannelBySlug } from '../../../utils/channels/orbyt';
@@ -197,8 +200,15 @@ const VideoCard = memo(
           postView.viewer?.repost,
         ]
       );
-      const persistedInteraction = usePostInteractionStore(state =>
-        state.getPostInteraction(postView.uri, defaultInteraction)
+      // Subscribe to this post's delta only (stable snapshot). Merging with defaults must
+      // happen in useMemo — getPostInteraction() returns a new object each call and breaks
+      // useSyncExternalStore / causes "getSnapshot should be cached" infinite loops.
+      const postInteractionDelta = usePostInteractionStore(state =>
+        state.interactions.get(postView.uri)
+      );
+      const persistedInteraction = useMemo(
+        () => mergePostInteractionDelta(defaultInteraction, postInteractionDelta),
+        [defaultInteraction, postInteractionDelta]
       );
       const updatePostInteraction = usePostInteractionStore(state => state.updatePostInteraction);
 

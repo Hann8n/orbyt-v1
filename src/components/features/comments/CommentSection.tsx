@@ -34,7 +34,10 @@ import AtprotoService from '../../../services/api/AtprotoService';
 import { queryKeys } from '../../../utils/query/queryKeys';
 import { useProfile } from '../../../services/data/ProfileService';
 import { useUserStore } from '../../../stores/userStore';
-import { usePostInteractionStore } from '../../../stores/postInteractionStore';
+import {
+  mergePostInteractionDelta,
+  usePostInteractionStore,
+} from '../../../stores/postInteractionStore';
 import { useCommentStore } from '../../../stores/commentStore';
 import { useReportedPostsStore } from '../../../stores/reportedPostsStore';
 import { useModalStore } from '../../../stores/modalStore';
@@ -460,8 +463,15 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     }),
     [isLiked, totalLikes, totalComments]
   );
-  const persistedHeaderInteraction = usePostInteractionStore(state =>
-    post?.uri ? state.getPostInteraction(post.uri, defaultHeaderInteraction) : null
+  const headerInteractionDelta = usePostInteractionStore(state =>
+    post?.uri ? state.interactions.get(post.uri) : undefined
+  );
+  const persistedHeaderInteraction = useMemo(
+    () =>
+      post?.uri
+        ? mergePostInteractionDelta(defaultHeaderInteraction, headerInteractionDelta)
+        : null,
+    [post?.uri, defaultHeaderInteraction, headerInteractionDelta]
   );
   const updatePostInteraction = usePostInteractionStore(state => state.updatePostInteraction);
   const deletedComments = useCommentStore(state => state.deletedComments);
