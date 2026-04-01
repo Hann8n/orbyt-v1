@@ -28,11 +28,13 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import Animated, {
   Easing,
+  Extrapolation,
+  interpolate,
+  runOnJS,
   useDerivedValue,
   useSharedValue,
   useAnimatedStyle,
   withTiming,
-  runOnJS,
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Icon, { CloseFillIcon, ArrowRightFillIcon } from '@/components/ui/Icon';
@@ -60,14 +62,12 @@ const DURATION_OPTION_KEYS = [
 
 const CAPTURE_BUTTON_INNER_BG = hexToRGBA(Colors.neutral[500], 0.4);
 const CAPTURE_BUTTON_INNER_DISABLED_BG = hexToRGBA(Colors.neutral[500], 0.2);
-const DIGITAL_ZOOM_PRESETS = [0.5, 1, 2, 3, 5, 10] as const;
 
-function lensToLabel(lens: string): string {
-  const n = lens.toLowerCase();
-  if (n.includes('ultra wide') || n.includes('ultra-wide') || n.includes('ultrawide')) return '.5x';
-  if (n.includes('telephoto')) return '2x';
-  return '1x';
-}
+/** Upper cap for zoom factor; Vision Camera docs suggest clamping very large native maxZoom (~128). */
+const CAMERA_ZOOM_MAX_CLAMP = 16;
+
+/** Vision Camera example: pinch scale range mapped before interpolating to zoom. */
+const SCALE_FULL_ZOOM = 3;
 
 function toFileUri(path: string): string {
   if (path.startsWith('file://')) {
@@ -89,14 +89,9 @@ const CreateScreen: React.FC = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [isFrontCamera, setIsFrontCamera] = useState(false);
   const [flash, setFlash] = useState<'off' | 'on'>('off');
-  const [zoom, setZoom] = useState(0); // Zoom level: 0-1 (0 = no zoom, 1 = max zoom)
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoadingFromGallery, setIsLoadingFromGallery] = useState(false);
   const [selectedDuration, setSelectedDuration] = useState(16); // Default to 16 seconds
-  const [isZoomExpanded, setIsZoomExpanded] = useState(false);
-  const [availableLenses, setAvailableLenses] = useState<string[]>([]);
-  const [selectedLens, setSelectedLens] = useState<string | null>(null);
-  const [selectedPresetLabel, setSelectedPresetLabel] = useState('1x');
   const [isTrimmerActive, setIsTrimmerActive] = useState(false);
   const [isOnionSkinningEnabled, setIsOnionSkinningEnabled] = useState(false);
   const [lastFrameThumbnail, setLastFrameThumbnail] = useState<string | null>(null);
@@ -126,13 +121,21 @@ const CreateScreen: React.FC = () => {
   const lastTapRef = useRef<number>(0);
   const tapTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const recordingAutoStopTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  /** Pointer that started the current hold-to-record; stop only when this id lifts (not on button bounds). */
+  const capturePointerIdRef = useRef<number | null>(null);
 
   // Animated values
   const totalDurationShared = useSharedValue(0); // Total duration from segments (updated when segments change)
   const currentSegmentDurationShared = useSharedValue(0);
   const progressBarDurationShared = useSharedValue(0);
   const buttonOpacity = useSharedValue(1);
-  const zoomStartRef = useRef(0);
+  const zoomShared = useSharedValue(1);
+  const deviceMinZoomSV = useSharedValue(1);
+  const deviceMaxZoomSV = useSharedValue(CAMERA_ZOOM_MAX_CLAMP);
+  const pinchStartZoom = useSharedValue(1);
+  /** Capture-button vertical zoom (VisionCamera example CaptureButton pan handler). */
+  const captureZoomPanStartY = useSharedValue(0);
+  const captureZoomPanOffsetY = useSharedValue(0);
 
   // Single focus effect: Vision Camera must stop recording/deactivate only AFTER recorder teardown.
   // Multiple useFocusEffect hooks each subscribe to 'blur' in registration order; the first could run
@@ -216,30 +219,22 @@ const CreateScreen: React.FC = () => {
   } = useDeviceLayout();
   const bottomNavBarHeight = getBottomNavBarHeight(insets, isSmallDevice);
 
-  const backDefaultDevice = useCameraDevice('back');
-  const backUltraWideDevice = useCameraDevice('back', { physicalDevices: ['ultra-wide-angle'] });
-  const backWideDevice = useCameraDevice('back', { physicalDevices: ['wide-angle'] });
-  const backTelephotoDevice = useCameraDevice('back', { physicalDevices: ['telephoto'] });
+  const backDevice = useCameraDevice('back');
   const frontDevice = useCameraDevice('front');
   const videoOutput = useVideoOutput({
     enableAudio: microphonePermission.hasPermission,
   });
 
-  const cameraDevice = useMemo(() => {
-    if (isFrontCamera) return frontDevice;
-    if (selectedLens === 'ultra-wide-angle' && backUltraWideDevice) return backUltraWideDevice;
-    if (selectedLens === 'telephoto' && backTelephotoDevice) return backTelephotoDevice;
-    if (selectedLens === 'wide-angle' && backWideDevice) return backWideDevice;
-    return backDefaultDevice;
-  }, [
-    isFrontCamera,
-    selectedLens,
-    frontDevice,
-    backUltraWideDevice,
-    backTelephotoDevice,
-    backWideDevice,
-    backDefaultDevice,
-  ]);
+  const cameraDevice = isFrontCamera ? frontDevice : backDevice;
+
+  useEffect(() => {
+    if (!cameraDevice) return;
+    const minZ = cameraDevice.minZoom;
+    const maxZ = Math.min(cameraDevice.maxZoom, CAMERA_ZOOM_MAX_CLAMP);
+    deviceMinZoomSV.value = minZ;
+    deviceMaxZoomSV.value = maxZ;
+    zoomShared.value = minZ;
+  }, [cameraDevice?.id, cameraDevice?.maxZoom, cameraDevice?.minZoom]);
 
   // Small phones (e.g. iPhone SE) no longer special-cased: they use the same 16:9 crop as other
   // portrait phones, which may leave a small bottom gap. Full screenHeight only for tablets or
@@ -251,6 +246,39 @@ const CreateScreen: React.FC = () => {
   const maxDuration = selectedDuration;
   const availableTime = segmentManagerRef.current?.getAvailableTime() ?? 0;
   const isDeletePreviewActive = deletePreview !== null;
+
+  /**
+   * Pinch on preview — matches Vision Camera example (exponential-ish feel via piecewise interpolate).
+   * Native pinch cannot run alongside controlled `zoom`.
+   */
+  const cameraPinchGesture = useMemo(
+    () =>
+      Gesture.Pinch()
+        .enabled(!isDeletePreviewActive)
+        .onBegin(() => {
+          'worklet';
+          pinchStartZoom.value = zoomShared.value;
+        })
+        .onUpdate(e => {
+          'worklet';
+          const minZ = deviceMinZoomSV.value;
+          const maxZ = deviceMaxZoomSV.value;
+          const scale = interpolate(
+            e.scale,
+            [1 - 1 / SCALE_FULL_ZOOM, 1, SCALE_FULL_ZOOM],
+            [-1, 0, 1],
+            Extrapolation.CLAMP
+          );
+          zoomShared.value = interpolate(
+            scale,
+            [-1, 0, 1],
+            [minZ, pinchStartZoom.value, maxZ],
+            Extrapolation.CLAMP
+          );
+        }),
+    [isDeletePreviewActive]
+  );
+
   const cancelDeletePreview = useCallback(() => {
     setDeletePreview(null);
   }, []);
@@ -523,73 +551,12 @@ const CreateScreen: React.FC = () => {
     }
   }, [isFrontCamera, flash]);
 
-  useEffect(() => {
-    if (isFrontCamera) {
-      setAvailableLenses([]);
-      return;
-    }
-
-    const nextLenses: string[] = [];
-    if (backUltraWideDevice) nextLenses.push('ultra-wide-angle');
-    if (backWideDevice) nextLenses.push('wide-angle');
-    if (backTelephotoDevice) nextLenses.push('telephoto');
-    setAvailableLenses(nextLenses);
-  }, [isFrontCamera, backUltraWideDevice, backWideDevice, backTelephotoDevice]);
-
-  useEffect(() => {
-    if (isFrontCamera || availableLenses.length === 0) {
-      return;
-    }
-    setSelectedLens(prev => {
-      if (prev && availableLenses.includes(prev)) {
-        return prev;
-      }
-      if (availableLenses.includes('wide-angle')) {
-        return 'wide-angle';
-      }
-      return availableLenses[0];
-    });
-  }, [isFrontCamera, availableLenses]);
-
-  useEffect(() => {
-    if (isRecording) setIsZoomExpanded(false);
-  }, [isRecording]);
-
   // Pre-request microphone so first hold doesn't block on permission
   useEffect(() => {
     if (!microphonePermission.hasPermission) {
       microphonePermission.requestPermission();
     }
   }, [microphonePermission]);
-
-  // Pinch gesture: map full pinch range (scale ~0.2–4) to full camera zoom 0–1
-  const captureZoomStart = useCallback(() => {
-    zoomStartRef.current = zoom;
-  }, [zoom]);
-  const applyZoomFromPinch = useCallback((scale: number) => {
-    // Sensitivity so one full pinch-out reaches 1 and one full pinch-in reaches 0
-    const sensitivity = 1.25;
-    const scaleChange = (scale - 1) * sensitivity;
-    const newZoom = Math.max(0, Math.min(1, zoomStartRef.current + scaleChange));
-    setZoom(newZoom);
-  }, []);
-
-  // Keep GestureDetector mounted at all times so Camera does not remount when delete preview toggles.
-  // Remounting Camera after stack navigation (post → back) while useVideoOutput is stable can crash native.
-  const pinchGesture = useMemo(
-    () =>
-      Gesture.Pinch()
-        .enabled(!isDeletePreviewActive)
-        .onStart(() => {
-          'worklet';
-          runOnJS(captureZoomStart)();
-        })
-        .onUpdate(event => {
-          'worklet';
-          runOnJS(applyZoomFromPinch)(event.scale);
-        }),
-    [applyZoomFromPinch, captureZoomStart, isDeletePreviewActive]
-  );
 
   // Update shared value when segments change
   useEffect(() => {
@@ -888,6 +855,107 @@ const CreateScreen: React.FC = () => {
     }
   }, [pauseCurrentSegment]);
 
+  const onShutterTouchesDown = useCallback(
+    (pointerId: number) => {
+      if (isRecordingRef.current) return;
+      capturePointerIdRef.current = pointerId;
+      handlePressIn();
+    },
+    [handlePressIn]
+  );
+
+  const onShutterTouchesUpOrCancel = useCallback(
+    (pointerId: number) => {
+      if (capturePointerIdRef.current !== pointerId) return;
+      capturePointerIdRef.current = null;
+      handlePressOut();
+    },
+    [handlePressOut]
+  );
+
+  /**
+   * Shutter-area vertical pan → zoom (same interpolate curve as VisionCamera CaptureButton).
+   * @see https://github.com/mrousavy/react-native-vision-camera/blob/main/example/src/views/CaptureButton.tsx
+   */
+  const captureZoomPanGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .enabled(!isDeletePreviewActive)
+        .minDistance(6)
+        .onStart(e => {
+          'worklet';
+          const startY = e.absoluteY;
+          const yForFullZoom = startY * 0.7;
+          const offsetYForFullZoom = startY - yForFullZoom;
+          captureZoomPanStartY.value = startY;
+          captureZoomPanOffsetY.value = interpolate(
+            zoomShared.value,
+            [deviceMinZoomSV.value, deviceMaxZoomSV.value],
+            [0, offsetYForFullZoom],
+            Extrapolation.CLAMP
+          );
+        })
+        .onUpdate(e => {
+          'worklet';
+          const startY = captureZoomPanStartY.value;
+          const offset = captureZoomPanOffsetY.value;
+          const yForFullZoom = startY * 0.7;
+          const minZ = deviceMinZoomSV.value;
+          const maxZ = deviceMaxZoomSV.value;
+          zoomShared.value = interpolate(
+            e.absoluteY - offset,
+            [yForFullZoom, startY],
+            [maxZ, minZ],
+            Extrapolation.CLAMP
+          );
+        }),
+    [isDeletePreviewActive]
+  );
+
+  /**
+   * Manual shutter: pointer id tracked for lift-up stop (not Pressable bounds).
+   * Must run simultaneousWith Pan — nested GestureDetectors block outer Pan after activate().
+   */
+  const shutterManualGesture = useMemo(
+    () =>
+      Gesture.Manual()
+        .enabled(
+          !isDeletePreviewActive && availableTime > 0 && !isLoadingFromGallery && !isProcessing
+        )
+        .onTouchesDown((e, manager) => {
+          'worklet';
+          manager.activate();
+          const t = e.changedTouches[0];
+          if (t !== undefined) runOnJS(onShutterTouchesDown)(t.id);
+        })
+        .onTouchesUp(e => {
+          'worklet';
+          for (let i = 0; i < e.changedTouches.length; i++) {
+            runOnJS(onShutterTouchesUpOrCancel)(e.changedTouches[i].id);
+          }
+        })
+        .onTouchesCancelled(e => {
+          'worklet';
+          for (let i = 0; i < e.changedTouches.length; i++) {
+            runOnJS(onShutterTouchesUpOrCancel)(e.changedTouches[i].id);
+          }
+        }),
+    [
+      availableTime,
+      isDeletePreviewActive,
+      isLoadingFromGallery,
+      isProcessing,
+      onShutterTouchesDown,
+      onShutterTouchesUpOrCancel,
+    ]
+  );
+
+  /** Single detector: Pan + Manual as siblings so zoom and shutter both receive the touch stream. */
+  const shutterZoomGesture = useMemo(
+    () => Gesture.Simultaneous(captureZoomPanGesture, shutterManualGesture),
+    [captureZoomPanGesture, shutterManualGesture]
+  );
+
   const pickFromGallery = useCallback(async () => {
     try {
       setIsLoadingFromGallery(true);
@@ -979,12 +1047,7 @@ const CreateScreen: React.FC = () => {
     }
   }, [t]);
 
-  const flipCamera = useCallback(async () => {
-    // Batch all flip-related state in one tick to avoid multiple re-renders and jank
-    setZoom(0);
-    setIsZoomExpanded(false);
-    setSelectedLens(null);
-    setSelectedPresetLabel('1x');
+  const flipCamera = useCallback(() => {
     setIsFrontCamera(prev => !prev);
   }, []);
 
@@ -1238,9 +1301,9 @@ const CreateScreen: React.FC = () => {
               isActive={isFocused && !isTrimmerActive}
               outputs={[videoOutput]}
               torchMode={flash === 'on' && !isFrontCamera ? 'on' : 'off'}
-              zoom={
-                cameraDevice.minZoom +
-                (cameraDevice.maxZoom - cameraDevice.minZoom) * Math.min(Math.max(zoom, 0), 1)
+              zoom={zoomShared}
+              enableNativeTapToFocusGesture={
+                !isDeletePreviewActive && cameraDevice.supportsFocusMetering
               }
               onError={e => {
                 if (__DEV__)
@@ -1269,7 +1332,7 @@ const CreateScreen: React.FC = () => {
         {/* Camera View - only render when screen is focused and trimmer is not active */}
         <View style={[styles.cameraContainer, cameraContainerLayout]}>
           {isFocused && !isTrimmerActive && (
-            <GestureDetector gesture={pinchGesture}>{cameraSurface}</GestureDetector>
+            <GestureDetector gesture={cameraPinchGesture}>{cameraSurface}</GestureDetector>
           )}
 
           {/* Progress Bar - overlays on top of camera */}
@@ -1312,107 +1375,30 @@ const CreateScreen: React.FC = () => {
                 },
               ]}
             >
-              {!isRecording && !isFrontCamera && availableLenses.length !== 1 && (
-                <View style={styles.zoomSelectorContainer}>
-                  {isZoomExpanded ? (
-                    <View style={styles.zoomPicker}>
-                      {availableLenses.length > 0
-                        ? availableLenses.map(lens => {
-                            const isSelected = selectedLens === lens;
-                            const label = lensToLabel(lens);
-                            return (
-                              <Pressable
-                                key={lens}
-                                style={[
-                                  styles.zoomSegment,
-                                  isSelected && styles.zoomSegmentSelected,
-                                ]}
-                                onPress={() => {
-                                  Haptics.selectionAsync();
-                                  setSelectedLens(lens);
-                                  setZoom(0);
-                                  setIsZoomExpanded(false);
-                                }}
-                              >
-                                <Text
-                                  style={[
-                                    styles.zoomSegmentText,
-                                    isSelected && styles.zoomSegmentTextSelected,
-                                  ]}
-                                >
-                                  {label}
-                                </Text>
-                              </Pressable>
-                            );
-                          })
-                        : DIGITAL_ZOOM_PRESETS.map(factor => {
-                            const optZoom = Math.log(Math.max(0.5, factor) / 0.5) / Math.log(20);
-                            const isSelected = Math.abs(optZoom - zoom) < 0.03;
-                            const label = factor === 0.5 ? '.5x' : `${factor}x`;
-                            return (
-                              <Pressable
-                                key={factor}
-                                style={[
-                                  styles.zoomSegment,
-                                  isSelected && styles.zoomSegmentSelected,
-                                ]}
-                                onPress={() => {
-                                  Haptics.selectionAsync();
-                                  setZoom(optZoom);
-                                  setSelectedPresetLabel(label);
-                                  setIsZoomExpanded(false);
-                                }}
-                              >
-                                <Text
-                                  style={[
-                                    styles.zoomSegmentText,
-                                    isSelected && styles.zoomSegmentTextSelected,
-                                  ]}
-                                >
-                                  {label}
-                                </Text>
-                              </Pressable>
-                            );
-                          })}
-                    </View>
-                  ) : (
-                    <Pressable style={styles.zoomCollapsed} onPress={() => setIsZoomExpanded(true)}>
-                      <Text style={styles.zoomCollapsedText}>
-                        {availableLenses.length > 0 && selectedLens
-                          ? lensToLabel(selectedLens)
-                          : selectedPresetLabel}
-                      </Text>
-                    </Pressable>
-                  )}
-                </View>
-              )}
               <View style={styles.recordButtonArea}>
                 <View style={styles.recordButtonAreaSpacer} />
-                <Pressable
-                  onPressIn={handlePressIn}
-                  onPressOut={handlePressOut}
-                  disabled={availableTime <= 0}
-                  style={styles.recordButtonContainer}
-                >
-                  <Animated.View
-                    style={[
-                      styles.recordButton,
-                      animatedButtonOpacityStyle,
-                      availableTime <= 0 && styles.recordButtonDisabled,
-                    ]}
-                  >
-                    {isLoadingFromGallery ? (
-                      <ActivityIndicator size="large" color="white" />
-                    ) : (
-                      <View
-                        style={[
-                          styles.captureButtonInner,
-                          availableTime <= 0 && styles.captureButtonInnerDisabled,
-                        ]}
-                      />
-                    )}
+                <GestureDetector gesture={shutterZoomGesture}>
+                  <Animated.View style={styles.recordButtonContainer}>
+                    <Animated.View
+                      style={[
+                        styles.recordButton,
+                        animatedButtonOpacityStyle,
+                        availableTime <= 0 && styles.recordButtonDisabled,
+                      ]}
+                    >
+                      {isLoadingFromGallery ? (
+                        <ActivityIndicator size="large" color="white" />
+                      ) : (
+                        <View
+                          style={[
+                            styles.captureButtonInner,
+                            availableTime <= 0 && styles.captureButtonInnerDisabled,
+                          ]}
+                        />
+                      )}
+                    </Animated.View>
                   </Animated.View>
-                </Pressable>
+                </GestureDetector>
                 <View style={styles.recordButtonAreaSpacer}>
                   <NativePressable
                     style={styles.durationSelectorCollapsed}
@@ -1640,50 +1626,6 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'flex-end',
-  },
-  zoomSelectorContainer: {
-    marginBottom: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  zoomCollapsed: {
-    backgroundColor: hexToRGBA(Colors.neutral[500], 0.36),
-    borderRadius: 9,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  zoomCollapsedText: {
-    color: Colors.neutral[50],
-    fontSize: 13,
-    fontFamily: 'Figtree-SemiBold',
-  },
-  zoomPicker: {
-    flexDirection: 'row',
-    backgroundColor: hexToRGBA(Colors.neutral[500], 0.36),
-    borderRadius: 9,
-    padding: 4,
-    maxWidth: 180,
-    alignSelf: 'center',
-  },
-  zoomSegment: {
-    flex: 1,
-    height: 28,
-    minWidth: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 7,
-  },
-  zoomSegmentSelected: {
-    backgroundColor: Colors.neutral[50],
-  },
-  zoomSegmentText: {
-    color: hexToRGBA(Colors.neutral[50], 0.85),
-    fontSize: 13,
-    fontFamily: 'Figtree-Medium',
-  },
-  zoomSegmentTextSelected: {
-    color: Colors.black,
-    fontFamily: 'Figtree-SemiBold',
   },
   recordButtonContainer: {
     alignItems: 'center',
