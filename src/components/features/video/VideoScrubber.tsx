@@ -58,8 +58,8 @@ const VideoScrubberComponent = ({
 
   // Scrubber bar dimensions (from styles)
   const scrubberBarHeight = 3; // Base bar height from styles.track
-  const scrubberTouchAreaHeight = 32; // Touchable area from styles.trackContainer.paddingTop
-  const scrubberTotalHeight = scrubberTouchAreaHeight + scrubberBarHeight; // Matches styles.trackContainer.height (34)
+  const scrubberTouchAreaHeight = 44; // Larger touch target without changing visual bar thickness
+  const scrubberTotalHeight = scrubberTouchAreaHeight + scrubberBarHeight;
 
   // Track active state for visibility reset
   activeRef.current = active;
@@ -381,8 +381,14 @@ const VideoScrubberComponent = ({
     return seekingAnimationSV.get() * 5 + 3;
   }, [seekingAnimationSV]);
 
-  const trackY = useDerivedValue(() => 34 - trackHeightSV.value, [trackHeightSV]);
-  const barY = useDerivedValue(() => 34 - barHeightSV.value, [barHeightSV]);
+  const trackY = useDerivedValue(
+    () => scrubberTotalHeight - trackHeightSV.value,
+    [trackHeightSV, scrubberTotalHeight]
+  );
+  const barY = useDerivedValue(
+    () => scrubberTotalHeight - barHeightSV.value,
+    [barHeightSV, scrubberTotalHeight]
+  );
 
   const childrenStyle = useAnimatedStyle(() => {
     'worklet';
@@ -525,8 +531,8 @@ const styles = StyleSheet.create({
   trackContainer: {
     width: '100%',
     position: 'relative',
-    paddingTop: 32, // Much larger touchable area above the bar for easier grabbing
+    paddingTop: 44, // Larger touchable area above the bar for easier grabbing
     paddingBottom: 0, // No padding below - bar at absolute bottom
-    height: 34, // Total height: 32px padding + 2px bar
+    height: 47, // Total height: 44px touch target + 3px bar
   },
 });
