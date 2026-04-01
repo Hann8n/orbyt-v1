@@ -44,6 +44,7 @@ import {
   DEFAULT_SEEK_TOLERANCE_SCRUBBER,
 } from '../../../utils/video/helpers';
 import VideoOverlayUI from './VideoOverlayUI';
+import { VideoVolumeMuteIndicator } from './VideoVolumeMuteIndicator';
 import { useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 import { useProfileChannelNavigation } from '../../../hooks/useProfileChannelNavigation';
 import {
@@ -85,6 +86,8 @@ const OVERLAY_FADE_EXPONENT = 2;
 /** System moderation labels: do not show in user-facing warning text. */
 const WARNING_HIDDEN_LABELS = ['!hide', '!warn', '!no-unauthenticated'];
 const VIDEO_RECOVERY_TIMEOUT_MS = 8000;
+/** Max ms between two taps to count as double-tap (like). Single-tap mute runs after this window. */
+const VIDEO_DOUBLE_TAP_WINDOW_MS = 260;
 const MIN_SCRUBBER_DURATION_SECONDS = 7;
 
 /** Label keys that have i18n translations (video.contentWarningLabels.*) */
@@ -324,10 +327,24 @@ const VideoCard = memo(
       const heartPositionX = useSharedValue(0);
       const heartPositionY = useSharedValue(0);
 
+      /** Tap-to-mute feedback (scoped to this card / {@link useVideoPlayer} instance). */
+      const volumeIconVariantSV = useSharedValue(0);
+      const volumeIconScaleSV = useSharedValue(0);
+      const volumeIconOpacitySV = useSharedValue(0);
+
       // Interaction tracking - queue interactions and send in batches
       const interactionQueueRef = useRef<Interaction[]>([]);
       const sendInteractionsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
       const seenInteractionSentRef = useRef<boolean>(false);
+      /** Demux single vs double tap without RNGH `Exclusive` (avoids single-tap waiting on double-tap recognition). */
+      const videoTapSingleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+      const clearVideoTapSingleTimer = useCallback(() => {
+        if (videoTapSingleTimerRef.current) {
+          clearTimeout(videoTapSingleTimerRef.current);
+          videoTapSingleTimerRef.current = null;
+        }
+      }, []);
 
       // Queue an interaction for batching
       const queueInteraction = useCallback(
@@ -379,7 +396,7 @@ const VideoCard = memo(
 
       // Track dimensions. Treat height from parent (ListFeedView/VideoItem) as source of truth so
       // cards match the viewport height; fall back to full screen height if no height is provided.
-      const { height: screenHeight } = Dimensions.get('window');
+      const { height: screenHeight, width: screenWidth } = Dimensions.get('window');
       const cardHeight = height ?? screenHeight;
 
       // HLS-only source creation
@@ -534,7 +551,28 @@ const VideoCard = memo(
         textDimActiveSV.value = 0;
 
         textDimOpacitySV.value = 0;
-      }, [postView.uri, textDimActiveSV, textDimOpacitySV]);
+
+        volumeIconVariantSV.value = 0;
+        volumeIconScaleSV.value = 0;
+        volumeIconOpacitySV.value = 0;
+      }, [
+        postView.uri,
+        textDimActiveSV,
+        textDimOpacitySV,
+        volumeIconVariantSV,
+        volumeIconScaleSV,
+        volumeIconOpacitySV,
+      ]);
+
+      useEffect(() => {
+        clearVideoTapSingleTimer();
+      }, [postView.uri, clearVideoTapSingleTimer]);
+
+      useEffect(() => {
+        return () => {
+          clearVideoTapSingleTimer();
+        };
+      }, [clearVideoTapSingleTimer]);
 
       const handleOverlayCollapsedChange = useCallback(
         (isCollapsed: boolean) => {
@@ -751,8 +789,117 @@ const VideoCard = memo(
         await likeOnlyInteraction();
       }, [likeOnlyInteraction]);
 
+      const playHeartBurstAt = useCallback(
+        (x: number, y: number) => {
+          heartScale.value = 0;
+          heartOpacity.value = 0;
+          heartPositionX.value = x;
+          heartPositionY.value = y;
+          heartOpacity.value = 1;
+          heartScale.value = withSequence(
+            withTiming(1.3, {
+              duration: 100,
+              easing: Easing.out(Easing.ease),
+            }),
+            withTiming(0.95, {
+              duration: 80,
+              easing: Easing.in(Easing.ease),
+            }),
+            withTiming(1.15, {
+              duration: 100,
+              easing: Easing.out(Easing.ease),
+            }),
+            withTiming(1, {
+              duration: 120,
+              easing: Easing.inOut(Easing.ease),
+            })
+          );
+          heartOpacity.value = withDelay(
+            400,
+            withTiming(
+              0,
+              {
+                duration: 300,
+                easing: Easing.out(Easing.ease),
+              },
+              () => {
+                heartScale.value = 0;
+              }
+            )
+          );
+        },
+        [heartScale, heartOpacity, heartPositionX, heartPositionY]
+      );
+
+      const handleToggleMute = useCallback(() => {
+        // Mute is independent of autoplay gating (`shouldDisablePlayback`); only block when
+        // there is no player or the user cannot see/hear this media surface.
+        if (!player || cannotShowMedia || isBlurred || hasError) {
+          return;
+        }
+
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+        const nextMuted = !player.muted;
+        player.muted = nextMuted;
+        volumeIconVariantSV.value = nextMuted ? 1 : 0;
+
+        volumeIconScaleSV.value = 0;
+        volumeIconOpacitySV.value = 0;
+        volumeIconOpacitySV.value = 1;
+        volumeIconScaleSV.value = withSequence(
+          withTiming(1.28, {
+            duration: 100,
+            easing: Easing.out(Easing.ease),
+          }),
+          withTiming(0.95, {
+            duration: 85,
+            easing: Easing.in(Easing.ease),
+          }),
+          withTiming(1.1, {
+            duration: 95,
+            easing: Easing.out(Easing.ease),
+          }),
+          withTiming(1, {
+            duration: 115,
+            easing: Easing.inOut(Easing.ease),
+          })
+        );
+        volumeIconOpacitySV.value = withDelay(
+          400,
+          withTiming(
+            0,
+            {
+              duration: 300,
+              easing: Easing.out(Easing.ease),
+            },
+            () => {
+              volumeIconScaleSV.value = 0;
+            }
+          )
+        );
+      }, [player, cannotShowMedia, isBlurred, hasError]);
+
+      const onVideoTapDemux = useCallback(
+        (x: number, y: number) => {
+          if (videoTapSingleTimerRef.current != null) {
+            clearVideoTapSingleTimer();
+            playHeartBurstAt(x, y);
+            void handleLikeOnly();
+            return;
+          }
+          videoTapSingleTimerRef.current = setTimeout(() => {
+            videoTapSingleTimerRef.current = null;
+            handleToggleMute();
+          }, VIDEO_DOUBLE_TAP_WINDOW_MS);
+        },
+        [clearVideoTapSingleTimer, playHeartBurstAt, handleLikeOnly, handleToggleMute]
+      );
+
       // Handle long press to show comments
       const handleLongPress = useCallback(() => {
+        clearVideoTapSingleTimer();
+
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
         // Track interaction
@@ -794,67 +941,21 @@ const VideoCard = memo(
         postView.uri,
         postView.indexedAt,
         queueInteraction,
+        clearVideoTapSingleTimer,
       ]);
 
+      // One `Tap` + JS demux for double-tap-like: `Exclusive(double, single)` delays/cancels
+      // single-tap recognition; demux matches a stable single-tap `onEnd` per finger-up.
       const videoGesture = useMemo(() => {
         const singleTap = Gesture.Tap()
           .maxDuration(250)
           .numberOfTaps(1)
-          .onEnd((_event, success) => {
-            'worklet';
-            if (!success) return;
-            runOnJS(togglePlayback)();
-          });
-
-        const doubleTap = Gesture.Tap()
-          .maxDuration(250)
-          .maxDelay(250)
-          .numberOfTaps(2)
           .onEnd((event, success) => {
             'worklet';
             if (!success) return;
-
-            const x = event.x ?? cardHeight / 2;
-            const y = event.y ?? cardHeight / 2;
-
-            heartScale.value = 0;
-            heartOpacity.value = 0;
-            heartPositionX.value = x;
-            heartPositionY.value = y;
-            heartOpacity.value = 1;
-            heartScale.value = withSequence(
-              withTiming(1.3, {
-                duration: 100,
-                easing: Easing.out(Easing.ease),
-              }),
-              withTiming(0.95, {
-                duration: 80,
-                easing: Easing.in(Easing.ease),
-              }),
-              withTiming(1.15, {
-                duration: 100,
-                easing: Easing.out(Easing.ease),
-              }),
-              withTiming(1, {
-                duration: 120,
-                easing: Easing.inOut(Easing.ease),
-              })
-            );
-            heartOpacity.value = withDelay(
-              400,
-              withTiming(
-                0,
-                {
-                  duration: 300,
-                  easing: Easing.out(Easing.ease),
-                },
-                () => {
-                  heartScale.value = 0;
-                }
-              )
-            );
-
-            runOnJS(handleLikeOnly)();
+            const x = event.x === undefined ? screenWidth / 2 : event.x;
+            const y = event.y === undefined ? cardHeight / 2 : event.y;
+            runOnJS(onVideoTapDemux)(x, y);
           });
 
         const longPress = Gesture.LongPress()
@@ -865,17 +966,8 @@ const VideoCard = memo(
             runOnJS(handleLongPress)();
           });
 
-        return Gesture.Race(longPress, Gesture.Exclusive(doubleTap, singleTap));
-      }, [
-        togglePlayback,
-        handleLikeOnly,
-        handleLongPress,
-        cardHeight,
-        heartScale,
-        heartOpacity,
-        heartPositionX,
-        heartPositionY,
-      ]);
+        return Gesture.Race(longPress, singleTap);
+      }, [onVideoTapDemux, handleLongPress, screenWidth, cardHeight]);
 
       const handleRepost = useCallback(async () => {
         if (overlayState.isRepostPending) return;
@@ -1036,11 +1128,11 @@ const VideoCard = memo(
             onBlurReady={handleBlurReady}
           />
           <GestureDetector gesture={videoGesture}>
-            <NativePressable
-              style={styles.videoContainerPressable}
-              activeOpacity={1}
-              android_ripple={{ color: hexToRGBA(Colors.black, 0), borderless: true }}
-            >
+            {/*
+              Plain View host: NativePressable uses TouchableOpacity/Pressable and competes with
+              RNGH for the responder — taps may never reach GestureDetector (mute / double-tap).
+            */}
+            <View style={styles.videoContainerPressable} collapsable={false}>
               <View style={styles.videoContainer}>
                 {!!posterUrl && !cannotShowMedia && (!firstFrameRendered || !blurReady) && (
                   <Image
@@ -1061,6 +1153,7 @@ const VideoCard = memo(
                     surfaceType={Platform.OS === 'android' ? 'textureView' : undefined}
                     allowsVideoFrameAnalysis={false}
                     onFirstFrameRender={handleFirstFrameRender}
+                    pointerEvents="none"
                   />
                 )}
 
@@ -1088,45 +1181,59 @@ const VideoCard = memo(
                   <HeartFillIcon size={100} color={Colors.coral[500]} />
                 </Animated.View>
 
-                {/* Integrated Overlay System using VideoOverlayUI */}
-                {/* Keep overlay mounted to prevent jank when switching videos */}
-                {showOverlay && (
-                  <VideoOverlayUI
-                    post={postView}
-                    isVisible={isVisible}
-                    overlayOpacitySV={uiOverlayOpacitySV}
-                    sourceFeed={resolvedFeedUri}
-                    onOverlayCollapsedChange={handleOverlayCollapsedChange}
-                    onLike={handleLike}
-                    onRepost={handleRepost}
-                    onShareInteraction={handleShareInteraction}
-                    isLiked={overlayState.isLiked}
-                    isReposted={overlayState.isReposted}
-                    likeCount={overlayState.likeCount}
-                    commentCount={overlayState.commentCount}
-                    repostCount={overlayState.repostCount}
-                    isLikePending={overlayState.isLikePending}
-                    isRepostPending={overlayState.isRepostPending}
-                    isFollowing={isFollowing}
-                    hasProfile={hasProfile}
-                    channelSlug={channelSlug}
-                    onChannelPress={handleChannelPress}
-                    authorProfileOverlay={authorProfileOverlay}
-                  />
-                )}
-
-                {/* Video Scrubber overlays video above bottom bar */}
-                {!shouldHideScrubberForShortVideo && (
-                  <VideoScrubber
-                    active={isVisible && !hasError}
-                    player={player}
-                    seekingAnimationSV={seekingAnimationSV}
-                    overlayOpacitySV={uiOverlayOpacitySV}
-                  />
-                )}
+                <VideoVolumeMuteIndicator
+                  iconVariantSV={volumeIconVariantSV}
+                  scaleSV={volumeIconScaleSV}
+                  opacitySV={volumeIconOpacitySV}
+                  screenWidth={screenWidth}
+                  cardHeight={cardHeight}
+                />
               </View>
-            </NativePressable>
+            </View>
           </GestureDetector>
+
+          {/*
+            Siblings above the tap layer (not inside GestureDetector) so overlay/scrubber controls
+            do not trigger mute / double-tap-like. Scrubber is lower z-index than overlay so action
+            buttons stay on top; overlay uses box-none so scrubber still receives touches in clear areas.
+          */}
+          {!shouldHideScrubberForShortVideo && (
+            <View style={styles.videoScrubberLayer} pointerEvents="box-none">
+              <VideoScrubber
+                active={isVisible && !hasError}
+                player={player}
+                seekingAnimationSV={seekingAnimationSV}
+                overlayOpacitySV={uiOverlayOpacitySV}
+              />
+            </View>
+          )}
+
+          {showOverlay && (
+            <View style={styles.videoOverlayLayer} pointerEvents="box-none">
+              <VideoOverlayUI
+                post={postView}
+                isVisible={isVisible}
+                overlayOpacitySV={uiOverlayOpacitySV}
+                sourceFeed={resolvedFeedUri}
+                onOverlayCollapsedChange={handleOverlayCollapsedChange}
+                onLike={handleLike}
+                onRepost={handleRepost}
+                onShareInteraction={handleShareInteraction}
+                isLiked={overlayState.isLiked}
+                isReposted={overlayState.isReposted}
+                likeCount={overlayState.likeCount}
+                commentCount={overlayState.commentCount}
+                repostCount={overlayState.repostCount}
+                isLikePending={overlayState.isLikePending}
+                isRepostPending={overlayState.isRepostPending}
+                isFollowing={isFollowing}
+                hasProfile={hasProfile}
+                channelSlug={channelSlug}
+                onChannelPress={handleChannelPress}
+                authorProfileOverlay={authorProfileOverlay}
+              />
+            </View>
+          )}
 
           {(cannotShowMedia || isBlurred) && (
             <>
@@ -1182,6 +1289,16 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     position: 'relative',
+  },
+  /** Above scrubber z-order so like/comment/share/profile sit on top of the progress bar region. */
+  videoOverlayLayer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 14,
+  },
+  /** Below overlay buttons; overlay `box-none` lets touches reach the scrubber where there are no controls. */
+  videoScrubberLayer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 10,
   },
   videoPlayer: {
     width: '100%',
