@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { AppState, type ViewabilityConfig, type ViewToken } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import { useVisibilityCoreStore } from './visibilityStore';
 import { useSetOverlayVisibility } from '../../context/FeedIndicatorContext';
+
+/** FlashList/RN viewability — minimumViewTime 0 so the first native callback isn’t delayed ~150ms at cold start. */
 const VIEWABILITY_CONFIG: ViewabilityConfig = {
   itemVisiblePercentThreshold: 50,
-  minimumViewTime: 150,
+  minimumViewTime: 0,
   waitForInteraction: false,
 };
 
@@ -13,6 +15,11 @@ interface FeedVisibilityOptions {
   feedOption: string;
   userDid?: string;
   isActive: boolean;
+  /**
+   * Index FlashList will show first (`initialScrollIndex` or 0). Seeds `lastViewableIndexByFeed` before the
+   * first `onViewableItemsChanged` so overlay/playback visibility matches the list SDK on first paint.
+   */
+  initialViewableIndex?: number;
 }
 
 interface FeedVisibilityResult {
@@ -32,6 +39,7 @@ export function useFeedVisibility({
   feedOption,
   userDid,
   isActive,
+  initialViewableIndex,
 }: FeedVisibilityOptions): FeedVisibilityResult {
   const feedKey =
     (feedOption === 'profile' || feedOption === 'likes' || feedOption === 'reposts') && userDid
@@ -60,13 +68,25 @@ export function useFeedVisibility({
     setOverlayVisibility(1); // Show overlay when this list feed becomes active (e.g. modal from profile grid)
   }, [isActive, feedKey, setActiveFeedKey, setOverlayVisibility]);
 
+  // Before paint: align store with FlashList’s initial window so VideoItem `isVisible` isn’t false until JS viewability runs.
+  useLayoutEffect(() => {
+    if (!isActive || initialViewableIndex === undefined) return;
+    const prev = useVisibilityCoreStore.getState().lastViewableIndexByFeed[feedKey];
+    if (prev !== undefined) return;
+    setLastViewableIndex(feedKey, initialViewableIndex);
+  }, [isActive, feedKey, initialViewableIndex, setLastViewableIndex]);
+
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
       const token = viewableItems.find(t => t.isViewable);
       const nextIndex = typeof token?.index === 'number' ? token.index : -1;
 
       const lastViewable = useVisibilityCoreStore.getState().lastViewableIndexByFeed[feedKey] ?? -1;
-      if (nextIndex !== lastViewable) setLastViewableIndex(feedKey, nextIndex);
+      // Only persist real item indices — never write -1 from viewability so layout glitches don’t
+      // clear a seeded/known index (fullscreen cells normally always have one ≥0 from the SDK).
+      if (nextIndex >= 0 && nextIndex !== lastViewable) {
+        setLastViewableIndex(feedKey, nextIndex);
+      }
 
       if (isActive) {
         const nextOverlay = nextIndex >= 0 ? 1 : 0;

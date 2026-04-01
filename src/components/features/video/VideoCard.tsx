@@ -987,12 +987,11 @@ const VideoCard = memo(
       const viewportH = feedScroll?.viewportHeight ?? 0;
       const itemSp = feedScroll?.itemSpacing ?? 0;
       const idx = index ?? 0;
+      // Opacity: not gated by feed `isVisible` (avoids blank overlay before viewability). Fade only from
+      // scroll position (partially scrolled-away / next card peeking) and scrubbing; pointerEvents still use `isVisible`.
       const uiOverlayOpacitySV = useDerivedValue(() => {
         'worklet';
         const scrubbing = interpolate(seekingAnimationSV.value, [0, 0.2, 1], [1, 0, 0], 'clamp');
-        if (!isVisible) {
-          return 0;
-        }
         let p: number;
         if (!scrollOffsetYSV) {
           p = 1;
@@ -1018,7 +1017,7 @@ const VideoCard = memo(
           }
         }
         return overlayVisibility.value * p * scrubbing;
-      }, [scrollOffsetYSV, headerH, viewportH, itemSp, idx, cardHeight, isVisible]);
+      }, [scrollOffsetYSV, headerH, viewportH, itemSp, idx, cardHeight]);
 
       return (
         <View style={[styles.container, { height: cardHeight }]}>

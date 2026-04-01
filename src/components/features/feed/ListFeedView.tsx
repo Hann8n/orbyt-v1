@@ -281,10 +281,22 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       ? getVideoCardHeight(screenWidth, screenHeight)
       : Math.max(0, viewableAreaHeight - FEED_VIEW_CONSTANTS.LIST_ITEM_GAP);
 
+    const initialScrollIndex =
+      targetScrollIndex !== null &&
+      targetScrollIndex !== undefined &&
+      viewMode === 'list' &&
+      feed.length > 0
+        ? Math.max(0, Math.min(targetScrollIndex, feed.length - 1))
+        : undefined;
+
+    const initialViewableIndexForVisibility =
+      viewMode === 'list' && feed.length > 0 ? (initialScrollIndex ?? 0) : undefined;
+
     const { onViewableItemsChanged, viewabilityConfig, canPlay, feedKey } = useFeedVisibility({
       feedOption,
       userDid,
       isActive: Boolean(isVisible),
+      initialViewableIndex: initialViewableIndexForVisibility,
     });
 
     const isHeaderBlockingPlayback =
@@ -355,21 +367,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     // FlashList's native viewability handles item detection automatically
     // maintainVisibleContentPosition preserves scroll position, so the visible item
     // at that position will be detected by the viewability callback
-
-    // Calculate initialScrollIndex from targetScrollIndex for FlashList's built-in prop
-    // This avoids any scrolling animation or jumps - FlashList handles it natively
-    const initialScrollIndex = (() => {
-      if (
-        targetScrollIndex !== null &&
-        targetScrollIndex !== undefined &&
-        viewMode === 'list' &&
-        listData.length > 0
-      ) {
-        return Math.max(0, Math.min(targetScrollIndex, listData.length - 1));
-      }
-
-      return undefined;
-    })();
 
     // Only adjust scroll when this feed is the active pager page; use this feed's own viewable index
     const handleOrientationChange = useCallback(

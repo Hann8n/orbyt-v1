@@ -48,7 +48,7 @@ import { logger } from '@/utils/logger';
 import { Colors } from '@/theme';
 import { hexToRGBA } from '@/utils/formatting/colors';
 import * as Haptics from 'expo-haptics';
-import VideoTrim, { showEditor, isValidFile, type Spec } from 'react-native-clip-trim';
+import VideoTrim, { showEditor, closeEditor, isValidFile, type Spec } from 'react-native-clip-trim';
 import { SegmentManager, type Segment } from '@/utils/video/segmentManager';
 import VideoProcessingService from '@/services/video/VideoProcessingService';
 import { usePendingVideoPostStore } from '@/stores/pendingVideoPostStore';
@@ -208,6 +208,7 @@ const CreateScreen: React.FC = () => {
 
   /** Onion skin: only run after segment list mutations (not e.g. max-duration tweaks). Cache is in VideoProcessingService. */
   const onionSkinRequestIdRef = useRef(0);
+
   const refreshOnionSkinThumbnail = useCallback(() => {
     const requestId = ++onionSkinRequestIdRef.current;
     const segments = segmentManagerRef.current?.getSegments() ?? [];
@@ -535,7 +536,10 @@ const CreateScreen: React.FC = () => {
   // AbortController for async work (e.g. finishRecording) so we don't setState after unmount
   useEffect(() => {
     abortControllerRef.current = new AbortController();
-    return () => abortControllerRef.current?.abort();
+    return () => {
+      onionSkinRequestIdRef.current += 1;
+      abortControllerRef.current?.abort();
+    };
   }, []);
 
   // Keep status bar hidden even when app returns from background
@@ -1150,6 +1154,12 @@ const CreateScreen: React.FC = () => {
     ]
   );
 
+  /** Dismiss native trimmer (no-op if closed), then navigate away. Teardown listeners + abort + onion invalidation run in useEffect cleanup. */
+  const leaveCreateScreen = useCallback(() => {
+    closeEditor();
+    router.back();
+  }, [router]);
+
   const handleBackPress = async () => {
     if (isDeletePreviewActive) {
       cancelDeletePreview();
@@ -1176,15 +1186,14 @@ const CreateScreen: React.FC = () => {
             segmentManagerRef.current?.clear();
             totalDurationShared.value = 0;
             progressBarDurationShared.value = 0;
+            setLastFrameThumbnail(null);
             setSegmentUpdateTrigger(prev => prev + 1);
-            refreshOnionSkinThumbnail();
-            router.back();
+            leaveCreateScreen();
           },
         },
       ]);
     } else {
-      // No recordings, just navigate back
-      router.back();
+      leaveCreateScreen();
     }
   };
 
@@ -1202,6 +1211,8 @@ const CreateScreen: React.FC = () => {
       if (isRecordingRef.current) {
         await stopRecording();
       }
+
+      if (abortControllerRef.current?.signal.aborted) return;
 
       const finalSegments = manager.getSegments();
 
