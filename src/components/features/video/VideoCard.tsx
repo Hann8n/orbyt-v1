@@ -55,6 +55,7 @@ import { useFeedScroll } from '../../../context/FeedScrollContext';
 import { seenVideoService } from '../../../services/SeenVideoService';
 import { hexToRGBA } from '../../../utils/formatting/colors';
 import { useFollowStore } from '../../../stores/followStore';
+import { useUserStore } from '../../../stores/userStore';
 import { ErrorHandler } from '../../../utils/errors/errorHandler';
 import { useLikeInteraction } from '@/hooks/useLikeInteraction';
 import type {
@@ -155,6 +156,19 @@ const VideoCard = memo(
       // Access feedContext and reqId from feedItem (native properties from FeedViewPost)
       const feedContext = feedItem?.feedContext;
       const reqId = feedItem?.reqId;
+      const algorithmicFeedProvider = useUserStore(state => state.algorithmicFeedProvider);
+      const feedUri = useMemo(
+        () => (feedOption && feedOption.startsWith('at://') ? feedOption : undefined),
+        [feedOption]
+      );
+      const fallbackFeedUri = useMemo(
+        () =>
+          algorithmicFeedProvider && algorithmicFeedProvider.startsWith('at://')
+            ? algorithmicFeedProvider
+            : undefined,
+        [algorithmicFeedProvider]
+      );
+      const resolvedFeedUri = feedUri ?? fallbackFeedUri;
       const { presentCommentSection } = useGlobalCommentSection();
 
       // Normalize post - extract ExtendedPostView from ExtendedFeedViewPost if needed
@@ -336,15 +350,17 @@ const VideoCard = memo(
             interactionQueueRef.current = [];
 
             if (interactionsToSend.length > 0) {
-              AtprotoFeedService.sendFeedInteractions(interactionsToSend).catch(error => {
-                ErrorHandler.handleError(error, 'VideoCard: sendFeedInteractions (debounced)');
-              });
+              AtprotoFeedService.sendFeedInteractions(interactionsToSend, resolvedFeedUri).catch(
+                error => {
+                  ErrorHandler.handleError(error, 'VideoCard: sendFeedInteractions (debounced)');
+                }
+              );
             }
 
             sendInteractionsTimeoutRef.current = null;
           }, 1500);
         },
-        [postView.uri, feedContext, reqId]
+        [postView.uri, feedContext, reqId, resolvedFeedUri]
       );
 
       // Get video URL, thumbnail, and aspect ratio using getVideoView helper + direct property access
@@ -982,12 +998,14 @@ const VideoCard = memo(
           if (interactionQueueRef.current.length > 0) {
             const interactionsToSend = [...interactionQueueRef.current];
             interactionQueueRef.current = [];
-            AtprotoFeedService.sendFeedInteractions(interactionsToSend).catch(error => {
-              ErrorHandler.handleError(error, 'VideoCard: sendFeedInteractions (unmount flush)');
-            });
+            AtprotoFeedService.sendFeedInteractions(interactionsToSend, resolvedFeedUri).catch(
+              error => {
+                ErrorHandler.handleError(error, 'VideoCard: sendFeedInteractions (unmount flush)');
+              }
+            );
           }
         };
-      }, []);
+      }, [resolvedFeedUri]);
 
       // Reset seen interaction flag when post changes
       useEffect(() => {
@@ -1117,7 +1135,7 @@ const VideoCard = memo(
                   post={postView}
                   isVisible={isVisible}
                   overlayOpacitySV={uiOverlayOpacitySV}
-                  feedOption={feedOption as 'following' | 'discover' | undefined}
+                  sourceFeed={resolvedFeedUri}
                   onOverlayCollapsedChange={handleOverlayCollapsedChange}
                   onLike={handleLike}
                   onRepost={handleRepost}

@@ -34,7 +34,7 @@ export interface ShareSheetData {
   authorDid: string;
   authorName?: string;
   authorHandle?: string;
-  feedOption?: 'following' | 'discover';
+  feedOption?: string;
   sourceFeed?: string;
 }
 

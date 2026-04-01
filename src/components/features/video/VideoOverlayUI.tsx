@@ -45,7 +45,7 @@ type Post = ExtendedPostView;
 export interface VideoOverlayUIProps {
   post: Post;
   isVisible: boolean;
-  feedOption?: 'following' | 'discover';
+  sourceFeed?: string;
   // Optional composed shared opacity to tie overlay and scrubber together
   overlayOpacitySV?: SharedValue<number>;
   /** Fires when the description text collapses/expands (collapsed = 2 lines). */
@@ -76,7 +76,7 @@ export interface VideoOverlayUIProps {
 const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   post,
   isVisible,
-  feedOption,
+  sourceFeed,
   overlayOpacitySV,
   onOverlayCollapsedChange,
   onLike,
@@ -236,9 +236,9 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
       authorDid: post.author?.did || '',
       authorName: post.author?.displayName,
       authorHandle: post.author?.handle,
-      feedOption: feedOption,
+      sourceFeed,
     });
-  }, [post.uri, post.cid, post.author, feedOption, presentShareSheet, onShareInteraction]);
+  }, [post.uri, post.cid, post.author, sourceFeed, presentShareSheet, onShareInteraction]);
 
   // Memoize UI calculations to prevent recalculation on every render
   const likeScale = useSharedValue(1);
@@ -968,8 +968,6 @@ const arePropsEqual = (prevProps: VideoOverlayUIProps, nextProps: VideoOverlayUI
   if (prevProps.isFollowing !== nextProps.isFollowing) return false;
   if (prevProps.hasProfile !== nextProps.hasProfile) return false;
   if (prevProps.channelSlug !== nextProps.channelSlug) return false;
-
-  if (prevProps.feedOption !== nextProps.feedOption) return false;
 
   // Object identity changes are common; compare the fields this component actually reads.
   const prevOverlay = prevProps.authorProfileOverlay;

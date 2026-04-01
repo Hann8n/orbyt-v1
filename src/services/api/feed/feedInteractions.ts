@@ -5,11 +5,53 @@ import { AppBskyFeedDefs } from '@atproto/api';
 import { AtprotoCore } from '../core';
 import { deduplicateRequest } from '../inFlightDedup';
 import { storage } from '../../../utils/storage/storage';
+import { logger } from '../../../utils/logger';
 import type { Interaction } from '../types';
 import {
   getFeedInteractionsSupported,
   setFeedInteractionsSupported,
 } from './feedInteractionSupport';
+
+const APPVIEW_SERVICE_PROXY = 'did:web:api.bsky.app#bsky_appview' as const;
+const feedProxyDidCache = new Map<string, string | null>();
+
+async function getFeedGeneratorProxy(feed: string | undefined): Promise<string | null> {
+  if (!feed || !feed.startsWith('at://')) return null;
+
+  if (feedProxyDidCache.has(feed)) {
+    const cachedDid = feedProxyDidCache.get(feed);
+    return cachedDid ? `${cachedDid}#bsky_fg` : null;
+  }
+
+  try {
+    const { api } = await AtprotoCore.getApiClient();
+    const response = await api.app.bsky.feed.getFeedGenerator({ feed });
+    const feedServiceDid = response.data.view?.did ?? null;
+    feedProxyDidCache.set(feed, feedServiceDid);
+    return feedServiceDid ? `${feedServiceDid}#bsky_fg` : null;
+  } catch {
+    // Cache miss as null to avoid repeatedly querying for invalid/unresolvable feeds.
+    feedProxyDidCache.set(feed, null);
+    return null;
+  }
+}
+const interactionDiagnosticsLogged = new Set<
+  'attempt' | 'success' | 'unsupported' | 'unsupported-skip' | 'error'
+>();
+
+function logInteractionDiagnosticOnce(
+  key: 'attempt' | 'success' | 'unsupported' | 'unsupported-skip' | 'error',
+  message: string,
+  context: Record<string, unknown>
+): void {
+  if (interactionDiagnosticsLogged.has(key)) return;
+  interactionDiagnosticsLogged.add(key);
+  logger.info(message, {
+    component: 'feedInteractions',
+    action: 'sendFeedInteractions',
+    ...context,
+  });
+}
 
 export async function likePost(uri: string, cid: string): Promise<string> {
   const cacheKey = `like:${uri}:${cid}`;
@@ -91,7 +133,31 @@ export async function sendFeedInteractions(
   }
 
   // If we've previously confirmed the endpoint is not supported, skip quietly
-  if (getFeedInteractionsSupported() === false) return;
+  if (getFeedInteractionsSupported(feed) === false) {
+    logInteractionDiagnosticOnce(
+      'unsupported-skip',
+      'Skipping feed interactions: endpoint flagged unsupported',
+      {
+        feed: feed ?? null,
+        interactionCount: interactions.length,
+      }
+    );
+    return;
+  }
+
+  const events = interactions
+    .map(interaction => interaction.event)
+    .filter((event): event is string => typeof event === 'string');
+  const proxyTarget = (await getFeedGeneratorProxy(feed)) ?? APPVIEW_SERVICE_PROXY;
+
+  logInteractionDiagnosticOnce('attempt', 'Sending feed interactions (first attempt)', {
+    feed: feed ?? null,
+    interactionCount: interactions.length,
+    events,
+    hasFeedContext: interactions.some(interaction => !!interaction.feedContext),
+    hasReqId: interactions.some(interaction => !!interaction.reqId),
+    proxy: proxyTarget,
+  });
 
   try {
     await AtprotoCore.ensureSession();
@@ -107,35 +173,80 @@ export async function sendFeedInteractions(
 
     const payload = feed !== undefined && feed !== '' ? { feed, interactions } : { interactions };
 
-    await api.app.bsky.feed.sendInteractions(payload);
+    await api.app.bsky.feed.sendInteractions(payload, {
+      headers: { 'atproto-proxy': proxyTarget },
+    });
 
     // Mark endpoint as supported once we have a successful call
-    setFeedInteractionsSupported(true);
+    setFeedInteractionsSupported(true, feed);
+    logInteractionDiagnosticOnce('success', 'Feed interactions sent successfully (first success)', {
+      feed: feed ?? null,
+      interactionCount: interactions.length,
+      events,
+    });
   } catch (error: unknown) {
-    // Check if the error is XRPCNotSupported (404) - this is expected when:
+    // Check if the error is an unsupported endpoint - this is expected when:
     // 1. The PDS doesn't support this endpoint (older PDS versions)
     // 2. The feed generator doesn't support interactions
-    // Since interactions are best-effort, we should handle 404s silently
+    // 3. The service returns "Method Not Implemented" (501)
+    // Since interactions are best-effort, we should handle these silently
     const errorMessage = error instanceof Error ? error.message : String(error);
     const statusCode =
       error && typeof error === 'object' && 'status' in error
         ? (error as { status?: unknown }).status
         : undefined;
+    const errorCode =
+      error && typeof error === 'object' && 'error' in error
+        ? (error as { error?: unknown }).error
+        : undefined;
     const is404 = statusCode === 404;
+    const is501 = statusCode === 501;
+    const isInvalidResponse =
+      errorCode === 'Invalid Response' ||
+      errorMessage.includes('invalid response') ||
+      errorMessage.includes('The server gave an invalid response');
+    const isProxyResolutionError = errorMessage.includes('could not resolve proxy did service url');
     const isNotSupported =
-      is404 || errorMessage === 'XRPCNotSupported' || errorMessage.includes('NotSupported');
+      is404 ||
+      is501 ||
+      isInvalidResponse ||
+      isProxyResolutionError ||
+      errorMessage === 'XRPCNotSupported' ||
+      errorMessage.includes('NotSupported') ||
+      errorMessage.includes('Method Not Implemented') ||
+      errorCode === 'MethodNotImplemented';
 
-    // Silently handle 404/NotSupported errors - these are expected when:
+    // Silently handle unsupported endpoint errors - these are expected when:
     // - PDS doesn't support the endpoint
     // - Feed generator doesn't accept interactions
     // - Session not fully authenticated yet (initial app load)
     // Interactions are best-effort and failures shouldn't spam logs
     if (isNotSupported) {
       // Remember that this endpoint is not supported so we can skip future attempts
-      setFeedInteractionsSupported(false);
+      setFeedInteractionsSupported(false, feed);
+      logInteractionDiagnosticOnce(
+        'unsupported',
+        'Feed interactions endpoint unsupported (first unsupported response)',
+        {
+          feed: feed ?? null,
+          interactionCount: interactions.length,
+          events,
+          statusCode: statusCode ?? null,
+          errorCode: errorCode ?? null,
+          errorMessage,
+        }
+      );
       return;
     }
 
+    logInteractionDiagnosticOnce('error', 'Feed interactions failed with non-unsupported error', {
+      feed: feed ?? null,
+      interactionCount: interactions.length,
+      events,
+      statusCode: statusCode ?? null,
+      errorCode: errorCode ?? null,
+      errorMessage,
+    });
     throw error;
   }
 }
