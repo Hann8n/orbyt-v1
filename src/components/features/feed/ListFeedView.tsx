@@ -18,6 +18,8 @@ import {
   LayoutChangeEvent,
   Platform,
   ActivityIndicator,
+  RefreshControl,
+  StatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SafeAreaView as RNScreensSafeAreaView } from 'react-native-screens/experimental';
@@ -207,6 +209,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       onGridItemPress: onGridItemPressProp,
       zoomTargetPostUri,
       gridFeedModalZoomConfig,
+      pullToRefresh,
     },
     ref
   ) => {
@@ -504,6 +507,33 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     /** Tab / home indicator clearance for the overscroll hint sitting above the bottom edge. */
     const endOfFeedHintBottomInset = useNativeTabBottomSafeArea ? 12 : Math.max(12, insets.bottom);
 
+    /** Offset so the spinner sits below the status bar / notch (see RefreshControl `progressViewOffset`). */
+    const refreshProgressViewOffset = useMemo(() => {
+      const top = getEffectiveTopInset(insets.top);
+      if (Platform.OS === 'android') {
+        return Math.max(top, StatusBar.currentHeight ?? 0);
+      }
+      return top;
+    }, [insets.top]);
+
+    const listRefreshControl = useMemo(() => {
+      if (!pullToRefresh) return undefined;
+      const accent = profileColors?.textColor ?? secondaryColor ?? Colors.neutral[50];
+      const trackBg = profileColors?.backgroundColor ?? backgroundColor ?? Colors.black;
+      return (
+        <RefreshControl
+          refreshing={pullToRefresh.refreshing}
+          onRefresh={() => {
+            void Promise.resolve(pullToRefresh.onRefresh());
+          }}
+          tintColor={accent}
+          colors={[accent]}
+          progressBackgroundColor={trackBg}
+          progressViewOffset={refreshProgressViewOffset}
+        />
+      );
+    }, [pullToRefresh, refreshProgressViewOffset, profileColors, secondaryColor, backgroundColor]);
+
     if (viewMode === 'grid') {
       const grid = (
         <GridFeedView
@@ -524,6 +554,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           contentScrollProgressOutput={contentScrollProgressOutput}
           snapTopInset={snapTopInset}
           useNativeTabBottomSafeArea={useNativeTabBottomSafeArea}
+          pullToRefresh={pullToRefresh}
         />
       );
       const tabSafeBg = backgroundColor || Colors.black;
@@ -626,6 +657,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
                 paddingBottom: useNativeTabBottomSafeArea ? 0 : insets.bottom,
               },
             ]}
+            refreshControl={listRefreshControl}
           />
         </View>
       </View>

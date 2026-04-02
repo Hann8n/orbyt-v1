@@ -48,12 +48,12 @@ const Channel: React.FC = memo(() => {
   const uriParam = (params.id as string) || '';
   const uri = uriParam ? decodeURIComponent(uriParam) : '';
 
-  const [refreshing, setRefreshing] = useState(false);
   const [activeCategoryTab, setActiveCategoryTab] = useState<ChannelCategoryTab>('top');
 
   const {
     data: channelData,
     isLoading: isLoadingChannel,
+    isFetching: isChannelFetching,
     error: channelError,
     refetch: refetchChannel,
   } = useChannel(uri || '');
@@ -228,26 +228,21 @@ const Channel: React.FC = memo(() => {
     return [];
   }, [channelHeaderData?.isOwner, handleDelete, t]);
 
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
+  const refreshChannelMetadata = useCallback(async () => {
     try {
       await refetchChannel();
     } catch (error) {
       logger.error('Error during refresh', error, { component: 'Channel' });
-    } finally {
-      setTimeout(() => {
-        setRefreshing(false);
-      }, 2000);
     }
   }, [refetchChannel]);
 
-  const showErrorScreen = !!channelError && !refreshing;
+  const showErrorScreen = !!channelError && !isChannelFetching;
 
   const renderErrorScreen = () => (
     <ProfileChannelErrorScreen
       title={t('channel.notFound')}
       subtitle={t('channel.retrieveFailed')}
-      onRetry={onRefresh}
+      onRetry={refreshChannelMetadata}
       onGoBack={() => router.back()}
     />
   );
@@ -338,6 +333,8 @@ const Channel: React.FC = memo(() => {
             setActiveCategoryTab(feed === categorySourceFeeds.top ? 'top' : 'latest');
           }}
           {...PROFILE_CHANNEL_FEED_PAGER_DEFAULTS}
+          pullToRefreshEnabled
+          onPullToRefreshExtra={refreshChannelMetadata}
           queryOptions={queryOptions}
           isVisible={isRouteFocused}
           headerComponent={headerComponent}

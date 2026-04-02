@@ -4,7 +4,14 @@
  * Enhanced with React.memo for performance
  */
 
-import React, { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
+import React, {
+  forwardRef,
+  useCallback,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 
@@ -71,6 +78,11 @@ interface FeedRendererProps {
   targetScrollIndex?: number | null; // Initial index to scroll to when opening feed
   /** When opening the feed modal from grid, matches `Link.AppleZoomTarget` on the list row (iOS 18+). */
   zoomTargetPostUri?: string | null;
+
+  /** When true, FlashList shows pull-to-refresh (profile/channel). Ignored for search feeds. */
+  pullToRefreshEnabled?: boolean;
+  /** Runs in parallel with the feed infinite-query `refetch` (e.g. profile/channel metadata). */
+  onPullToRefreshExtra?: () => Promise<unknown>;
 }
 
 // Memoized Feed Renderer Component with Performance Optimizations
@@ -97,6 +109,8 @@ const FeedRenderer = forwardRef<ListFeedViewRef, FeedRendererProps>(
       ListComponent,
       targetScrollIndex: propTargetScrollIndex,
       zoomTargetPostUri,
+      pullToRefreshEnabled = false,
+      onPullToRefreshExtra,
     },
     ref
   ) => {
@@ -212,6 +226,28 @@ const FeedRenderer = forwardRef<ListFeedViewRef, FeedRendererProps>(
       }
     };
 
+    const [pullRefreshing, setPullRefreshing] = useState(false);
+
+    const handlePullToRefresh = useCallback(async () => {
+      if (isSearchFeed) return;
+      setPullRefreshing(true);
+      try {
+        const feedPromise = Promise.resolve(refetch());
+        const extraPromise = onPullToRefreshExtra ? onPullToRefreshExtra() : Promise.resolve();
+        await Promise.all([feedPromise, extraPromise]);
+      } finally {
+        setPullRefreshing(false);
+      }
+    }, [isSearchFeed, refetch, onPullToRefreshExtra]);
+
+    const pullToRefresh = useMemo(() => {
+      if (!pullToRefreshEnabled || isSearchFeed) return undefined;
+      return {
+        refreshing: pullRefreshing,
+        onRefresh: handlePullToRefresh,
+      };
+    }, [pullToRefreshEnabled, isSearchFeed, pullRefreshing, handlePullToRefresh]);
+
     const gridFeedModalZoomConfig: GridFeedModalZoomConfig = useMemo(() => {
       return {
         onBeforeNavigate: (index: number) => {
@@ -291,6 +327,7 @@ const FeedRenderer = forwardRef<ListFeedViewRef, FeedRendererProps>(
         isLoading={isSearchFeed ? false : isLoading || (feed.length === 0 && dataUpdatedAt === 0)}
         isError={isSearchFeed ? false : finalIsError}
         targetScrollIndex={propTargetScrollIndex}
+        pullToRefresh={pullToRefresh}
       />
     );
 

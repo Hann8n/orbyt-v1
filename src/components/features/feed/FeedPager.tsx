@@ -77,6 +77,10 @@ interface FeedPagerRendererProps {
   isVisible?: boolean;
   /** When false, do not render FeedPager's default StatusBar (for screens that manage it themselves). */
   controlStatusBar?: boolean;
+  /** When true, each feed tab shows pull-to-refresh (profile/channel). */
+  pullToRefreshEnabled?: boolean;
+  /** Runs with each visible tab's feed `refetch` when the user pulls to refresh. */
+  onPullToRefreshExtra?: () => Promise<unknown>;
 }
 
 interface FeedPagerProps extends FeedPagerRendererProps {
@@ -161,6 +165,8 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
     queryOptions: queryOptionsProp,
     isVisible = true,
     controlStatusBar = true,
+    pullToRefreshEnabled = false,
+    onPullToRefreshExtra,
   },
   ref
 ) {
@@ -376,6 +382,8 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
         }}
         isVisible={isVisible && index === currentFeedIndex}
         forceError={forceError}
+        pullToRefreshEnabled={pullToRefreshEnabled}
+        onPullToRefreshExtra={onPullToRefreshExtra}
       />
     ),
     [
@@ -390,6 +398,8 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
       baseQueryOptions,
       isVisible,
       forceError,
+      pullToRefreshEnabled,
+      onPullToRefreshExtra,
     ]
   );
 

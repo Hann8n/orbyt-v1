@@ -13,6 +13,8 @@ import {
   LayoutChangeEvent,
   Platform,
   Pressable,
+  RefreshControl,
+  StatusBar,
   type StyleProp,
   type ViewStyle,
   type ImageStyle,
@@ -28,7 +30,7 @@ import Animated, {
   useAnimatedScrollHandler,
 } from 'react-native-reanimated';
 import { FlashList, FlashListRef } from '@shopify/flash-list';
-import type { ListFeedViewRef } from '../../../types';
+import type { ListFeedPullToRefresh, ListFeedViewRef } from '../../../types';
 import { Colors } from '../../../theme';
 import { getVideoView, DEFAULT_VIDEO_ASPECT_RATIO } from '../../../utils/video/helpers';
 import {
@@ -39,7 +41,7 @@ import {
 } from '../../../utils/constants';
 import type { ExtendedFeedViewPost } from '../../../services/api/types';
 import * as Device from 'expo-device';
-import { getViewportDimensions } from '../../../utils/device/screen';
+import { getEffectiveTopInset, getViewportDimensions } from '../../../utils/device/screen';
 import EmptyFeed from './EmptyFeed';
 import BlurredBackground from '../../ui/BlurredBackground';
 import {
@@ -152,6 +154,7 @@ interface GridFeedViewProps {
    * in ListFeedView — same as list `contentContainerStyle` padding. Must not also pad by tab height here.
    */
   useNativeTabBottomSafeArea?: boolean;
+  pullToRefresh?: ListFeedPullToRefresh;
 }
 
 const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
@@ -174,6 +177,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
       contentScrollProgressOutput,
       snapTopInset,
       useNativeTabBottomSafeArea = false,
+      pullToRefresh,
     },
     ref
   ) => {
@@ -375,6 +379,39 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
       return base;
     })();
 
+    /** Offset so the spinner sits below the status bar / notch (see RefreshControl `progressViewOffset`). */
+    const refreshProgressViewOffset = useMemo(() => {
+      const top = getEffectiveTopInset(insets.top);
+      if (Platform.OS === 'android') {
+        return Math.max(top, StatusBar.currentHeight ?? 0);
+      }
+      return top;
+    }, [insets.top]);
+
+    const gridRefreshControl = useMemo(() => {
+      if (!pullToRefresh) return undefined;
+      const accent = profileColors?.textColor ?? secondaryColor ?? Colors.neutral[50];
+      const trackBg = profileColors?.backgroundColor ?? effectiveBackgroundColor;
+      return (
+        <RefreshControl
+          refreshing={pullToRefresh.refreshing}
+          onRefresh={() => {
+            void Promise.resolve(pullToRefresh.onRefresh());
+          }}
+          tintColor={accent}
+          colors={[accent]}
+          progressBackgroundColor={trackBg}
+          progressViewOffset={refreshProgressViewOffset}
+        />
+      );
+    }, [
+      pullToRefresh,
+      refreshProgressViewOffset,
+      profileColors,
+      secondaryColor,
+      effectiveBackgroundColor,
+    ]);
+
     const listHeader = headerComponent ? (
       <View
         style={styles.headerWrapper}
@@ -436,6 +473,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
         scrollEnabled={true}
         onEndReached={hasNextPage ? onLoadMore : undefined}
         onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
+        refreshControl={gridRefreshControl}
       />
     );
 

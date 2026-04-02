@@ -78,7 +78,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
 
   const { currentUser } = useCurrentUser();
 
-  const [refreshing, setRefreshing] = useState<boolean>(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const { presentAccountSwitcher } = useGlobalAccountSwitcher();
   const didLongPressMenuRef = useRef(false);
@@ -190,28 +189,19 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
 
   // Colors are extracted during profile fetch in ProfileService.ts - no need to do it here
 
-  // Handle refresh - refreshes profile metadata and lets FeedRenderer handle feed refresh
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
+  /** Profile metadata + subscriptions; runs with feed `refetch` on pull-to-refresh and on error retry. */
+  const refreshProfileMetadata = useCallback(async () => {
     setProfileError(null);
     try {
-      // Re-initialize activity subscriptions so "keep me posted" reflects server state
       try {
         const { useSubscriptionStore } = await import('@/stores/subscriptionStore');
         await useSubscriptionStore.getState().initialize();
       } catch {
         // Subscriptions are non-critical; ignore errors
       }
-
-      // Refetch profile (includes orbytColors) so cache is updated
       await refetchProfile();
     } catch {
       setProfileError(t('profile.failedToRefresh'));
-    } finally {
-      // Reset refreshing state after a delay to show the refresh animation
-      setTimeout(() => {
-        setRefreshing(false);
-      }, 2000);
     }
   }, [refetchProfile, t]);
 
@@ -254,8 +244,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   }, [profileFeedOptions, activeTab]);
 
   const showErrorScreen = useMemo(
-    () => (isProfileFetchError || profileError || isExternalProfileMissing) && !refreshing,
-    [isProfileFetchError, profileError, isExternalProfileMissing, refreshing]
+    () => (isProfileFetchError || profileError || isExternalProfileMissing) && !didQuery.isFetching,
+    [isProfileFetchError, profileError, isExternalProfileMissing, didQuery.isFetching]
   );
 
   const renderErrorScreen = useMemo(() => {
@@ -266,11 +256,11 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       <ProfileChannelErrorScreen
         title={t('profile.notFound')}
         subtitle={subtitle}
-        onRetry={onRefresh}
+        onRetry={refreshProfileMetadata}
         onGoBack={providedIdentifier ? () => router.back() : undefined}
       />
     );
-  }, [providedIdentifier, profileError, onRefresh, router, t]);
+  }, [providedIdentifier, profileError, refreshProfileMetadata, router, t]);
 
   const isLoading = (isProfileLoading || isHandleResolving) && !profileData;
 
@@ -659,6 +649,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
           currentFeed={activeTab}
           onFeedChange={feed => setActiveTab(feed as ProfileFeedTab)}
           {...PROFILE_CHANNEL_FEED_PAGER_DEFAULTS}
+          pullToRefreshEnabled
+          onPullToRefreshExtra={refreshProfileMetadata}
           queryOptions={queryOptions}
           isVisible={isRouteFocused}
           headerComponent={

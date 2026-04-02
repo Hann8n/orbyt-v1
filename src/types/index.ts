@@ -24,6 +24,12 @@ export type ViewMode = 'list' | 'grid';
 
 export type { FeedModalSearchParams, GridFeedModalZoomConfig };
 
+/** Pull-to-refresh wiring for FlashList-based feeds (e.g. profile/channel). */
+export interface ListFeedPullToRefresh {
+  refreshing: boolean;
+  onRefresh: () => void | Promise<void>;
+}
+
 /**
  * Component props for ListFeedView
  * @usage src/components/features/feed/ListFeedView.tsx:144
@@ -59,6 +65,8 @@ export interface ListFeedViewProps {
   zoomTargetPostUri?: string | null;
   /** When set on iOS, grid uses `Link` + `Link.AppleZoom` per Expo Router zoom transition docs. */
   gridFeedModalZoomConfig?: GridFeedModalZoomConfig | null;
+  /** Native pull-to-refresh on list and grid FlashList. */
+  pullToRefresh?: ListFeedPullToRefresh;
 }
 
 /**
