@@ -276,9 +276,6 @@ export default function RootLayout() {
   const loadBookmarks = useBookmarkStore(state => state.loadBookmarks);
   const clearBookmarks = useBookmarkStore(state => state.clearBookmarks);
   const isInitializingAuth = useUserStore(state => state.isInitializingAuth);
-  const currentUserDid = useUserStore(state => state.currentUser?.did ?? null);
-  const feedBootstrapStatus = useUserStore(state => state.feedBootstrapStatus);
-  const feedBootstrapDid = useUserStore(state => state.feedBootstrapDid);
 
   // Set Android navigation bar button style (light)
   useEffect(() => {
@@ -366,17 +363,9 @@ export default function RootLayout() {
   // Note: OAuthSession.fetchHandler automatically refreshes tokens when making API calls
   // No need to manually refresh on app foreground - tokens refresh automatically via getTokenSet('auto')
 
-  // Keep native splash visible until:
-  // - initial auth restoration completes, and
-  // - if authenticated, feed bootstrap is ready (or errored) for the active DID.
-  //
-  // This avoids the "native splash → purple spinner → app" first-login experience.
-  const isFeedBootstrapReadyForActiveDid =
-    !!currentUserDid &&
-    feedBootstrapDid === currentUserDid &&
-    (feedBootstrapStatus === 'ready' || feedBootstrapStatus === 'error');
-
-  const isAppReady = !isInitializingAuth && (!isAuthenticated || isFeedBootstrapReadyForActiveDid);
+  // Keep native splash gated only by auth restoration. Non-critical network bootstrap
+  // should happen after first render to avoid startup deadlocks.
+  const isAppReady = !isInitializingAuth;
 
   const didHideSplashRef = React.useRef(false);
   useEffect(() => {

@@ -133,6 +133,10 @@ const CreateScreen: React.FC = () => {
   const [isLoadingFromGallery, setIsLoadingFromGallery] = useState(false);
   const [selectedDuration, setSelectedDuration] = useState(16); // Default to 16 seconds
   const [isTrimmerActive, setIsTrimmerActive] = useState(false);
+  const isTrimmerActiveRef = useRef(false);
+  useEffect(() => {
+    isTrimmerActiveRef.current = isTrimmerActive;
+  }, [isTrimmerActive]);
   const [isOnionSkinningEnabled, setIsOnionSkinningEnabled] = useState(false);
   const [lastFrameThumbnail, setLastFrameThumbnail] = useState<string | null>(null);
   const [deletePreview, setDeletePreview] = useState<DeletePreviewState | null>(null);
@@ -172,10 +176,8 @@ const CreateScreen: React.FC = () => {
   const captureZoomPanStartY = useSharedValue(0);
   const captureZoomPanOffsetY = useSharedValue(0);
 
-  // Single focus effect: Vision Camera must stop recording/deactivate only AFTER recorder teardown.
-  // Multiple useFocusEffect hooks each subscribe to 'blur' in registration order; the first could run
-  // setIsFocused(false) before stopRecording(), unmounting the camera while the recorder is still
-  // bound to videoOutput (intermittent native crash when navigating e.g. create → post → back).
+  const focusEpochRef = useRef(0);
+  // Await recorder stop before isFocused false so Camera is not torn down while still bound to videoOutput.
   const [isFocused, setIsFocused] = React.useState(false);
 
   // Initialize segment manager
@@ -483,19 +485,30 @@ const CreateScreen: React.FC = () => {
     ]
   );
 
-  // Helper to stop recording without processing (for when trimmer opens)
-  const stopRecordingImmediate = useCallback(() => {
-    if (recorderRef.current) {
-      recorderRef.current.stopRecording().catch(() => {
-        // Ignore stop errors during immediate shutdown.
-      });
-      currentSegmentDurationShared.value = 0;
-      isRecordingRef.current = false;
-      setIsRecording(false);
-      recordingStartAtRef.current = null;
-      recorderRef.current = null;
-      recordingPromiseRef.current = null;
+  const disposeActiveRecorderAsync = useCallback(async () => {
+    if (recordingAutoStopTimeoutRef.current) {
+      clearTimeout(recordingAutoStopTimeoutRef.current);
+      recordingAutoStopTimeoutRef.current = null;
     }
+    const rec = recorderRef.current;
+    if (!rec) return;
+    recordingStateRef.current = 'stopping';
+    try {
+      await rec.stopRecording();
+    } catch (err) {
+      logger.debug('[Create] stopRecording during dispose', { err });
+    }
+    if (recorderRef.current !== rec) return;
+    recordingPromiseResolverRef.current?.(undefined);
+    recordingPromiseResolverRef.current = null;
+    currentSegmentDurationShared.value = 0;
+    isRecordingRef.current = false;
+    setIsRecording(false);
+    recordingStartAtRef.current = null;
+    recorderRef.current = null;
+    recordingPromiseRef.current = null;
+    recordingStateRef.current = 'idle';
+    forcedStopDurationRef.current = null;
   }, [currentSegmentDurationShared]);
 
   const endTrimmerLoading = useCallback(() => {
@@ -512,8 +525,10 @@ const CreateScreen: React.FC = () => {
       VideoTrimModule.onCancel(endTrimmerLoading),
       VideoTrimModule.onHide(() => setIsTrimmerActive(false)),
       VideoTrimModule.onShow(() => {
-        stopRecordingImmediate();
-        setIsTrimmerActive(true);
+        void (async () => {
+          await disposeActiveRecorderAsync();
+          setIsTrimmerActive(true);
+        })();
       }),
       VideoTrimModule.onFinishTrimming(handleTrimmingComplete),
       VideoTrimModule.onError(({ message }) => {
@@ -522,7 +537,7 @@ const CreateScreen: React.FC = () => {
       }),
     ];
     return () => subs.forEach(s => s.remove());
-  }, [endTrimmerLoading, handleTrimmingComplete, stopRecordingImmediate, t]);
+  }, [disposeActiveRecorderAsync, endTrimmerLoading, handleTrimmingComplete, t]);
 
   // Request camera permissions on mount
   useEffect(() => {
@@ -562,31 +577,21 @@ const CreateScreen: React.FC = () => {
 
   useFocusEffect(
     useCallback(() => {
+      const epoch = ++focusEpochRef.current;
       setIsFocused(true);
       setIsProcessing(false);
       return () => {
-        if (recordingAutoStopTimeoutRef.current) {
-          clearTimeout(recordingAutoStopTimeoutRef.current);
-          recordingAutoStopTimeoutRef.current = null;
-        }
-        if (recorderRef.current) {
-          recorderRef.current.stopRecording().catch(() => {
-            // Ignore stop errors when leaving screen.
-          });
-          currentSegmentDurationShared.value = 0;
-          isRecordingRef.current = false;
-          setIsRecording(false);
-          recordingStartAtRef.current = null;
-          recorderRef.current = null;
-          recordingPromiseRef.current = null;
-          recordingStateRef.current = 'idle';
-        }
-        setIsProcessing(false);
-        setFlash('off');
-        setDeletePreview(null);
-        setIsFocused(false);
+        const captured = epoch;
+        void (async () => {
+          await disposeActiveRecorderAsync();
+          if (captured !== focusEpochRef.current) return;
+          setIsProcessing(false);
+          setFlash('off');
+          setDeletePreview(null);
+          setIsFocused(false);
+        })();
       };
-    }, [currentSegmentDurationShared])
+    }, [disposeActiveRecorderAsync])
   );
 
   // Disable flash when switching to front camera
@@ -1154,9 +1159,10 @@ const CreateScreen: React.FC = () => {
     ]
   );
 
-  /** Dismiss native trimmer (no-op if closed), then navigate away. Teardown listeners + abort + onion invalidation run in useEffect cleanup. */
   const leaveCreateScreen = useCallback(() => {
-    closeEditor();
+    if (isTrimmerActiveRef.current) {
+      closeEditor();
+    }
     router.back();
   }, [router]);
 

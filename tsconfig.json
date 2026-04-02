@@ -17,11 +17,10 @@
     "noImplicitReturns": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "baseUrl": ".",
     "paths": {
-      "@stores/*": ["src/stores/*"],
-      "@/*": ["src/*"],
-      "multiformats": ["node_modules/multiformats/types/src/index.d.ts"]
+      "@stores/*": ["./src/stores/*"],
+      "@/*": ["./src/*"],
+      "multiformats": ["./node_modules/multiformats/types/src/index.d.ts"]
     }
   },
   "include": ["src/**/*", "app/**/*"],
