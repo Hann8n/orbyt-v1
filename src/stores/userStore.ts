@@ -1990,16 +1990,14 @@ export const useUserStore = create<UserState>()(
 
             // Always clean up profile record - remove built-ins and sync clean channels
             // This ensures the profile record is cleaned even if it previously had built-ins
-            try {
-              const urisToSync = filterBuiltInChannels(filteredChannels.map(ch => ch.uri));
-              // Always update to ensure profile record is clean (removes built-ins if they exist)
-              await AtprotoService.updateOrbytProfileChannels(urisToSync);
-            } catch (error) {
+            const urisToSync = filterBuiltInChannels(filteredChannels.map(ch => ch.uri));
+            // Always update to ensure profile record is clean; run in background so startup cannot stall.
+            void AtprotoService.updateOrbytProfileChannels(urisToSync).catch(error => {
               logger.warn('Failed to clean profile record of built-in channels', {
                 component: 'userStore',
                 error: error instanceof Error ? error.message : String(error),
               });
-            }
+            });
             return true;
           } catch (error) {
             logger.error('Error loading subscribed channels', error, { component: 'userStore' });

@@ -44,7 +44,7 @@ import {
   DEFAULT_SEEK_TOLERANCE_SCRUBBER,
 } from '../../../utils/video/helpers';
 import VideoOverlayUI from './VideoOverlayUI';
-import { VideoVolumeMuteIndicator } from './VideoVolumeMuteIndicator';
+import { VideoPlayPauseIndicator } from './VideoPlayPauseIndicator';
 import { useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 import { useProfileChannelNavigation } from '../../../hooks/useProfileChannelNavigation';
 import {
@@ -86,7 +86,7 @@ const OVERLAY_FADE_EXPONENT = 2;
 /** System moderation labels: do not show in user-facing warning text. */
 const WARNING_HIDDEN_LABELS = ['!hide', '!warn', '!no-unauthenticated'];
 const VIDEO_RECOVERY_TIMEOUT_MS = 8000;
-/** Max ms between two taps to count as double-tap (like). Single-tap mute runs after this window. */
+/** Max ms between two taps to count as double-tap (like). Single-tap pause/play runs after this window. */
 const VIDEO_DOUBLE_TAP_WINDOW_MS = 260;
 const MIN_SCRUBBER_DURATION_SECONDS = 7;
 
@@ -327,10 +327,9 @@ const VideoCard = memo(
       const heartPositionX = useSharedValue(0);
       const heartPositionY = useSharedValue(0);
 
-      /** Tap-to-mute feedback (scoped to this card / {@link useVideoPlayer} instance). */
-      const volumeIconVariantSV = useSharedValue(0);
-      const volumeIconScaleSV = useSharedValue(0);
-      const volumeIconOpacitySV = useSharedValue(0);
+      const tapFlashVariantSV = useSharedValue(0);
+      const tapFlashScaleSV = useSharedValue(0);
+      const tapFlashOpacitySV = useSharedValue(0);
 
       // Interaction tracking - queue interactions and send in batches
       const interactionQueueRef = useRef<Interaction[]>([]);
@@ -552,16 +551,16 @@ const VideoCard = memo(
 
         textDimOpacitySV.value = 0;
 
-        volumeIconVariantSV.value = 0;
-        volumeIconScaleSV.value = 0;
-        volumeIconOpacitySV.value = 0;
+        tapFlashVariantSV.value = 0;
+        tapFlashScaleSV.value = 0;
+        tapFlashOpacitySV.value = 0;
       }, [
         postView.uri,
         textDimActiveSV,
         textDimOpacitySV,
-        volumeIconVariantSV,
-        volumeIconScaleSV,
-        volumeIconOpacitySV,
+        tapFlashVariantSV,
+        tapFlashScaleSV,
+        tapFlashOpacitySV,
       ]);
 
       useEffect(() => {
@@ -831,23 +830,21 @@ const VideoCard = memo(
         [heartScale, heartOpacity, heartPositionX, heartPositionY]
       );
 
-      const handleToggleMute = useCallback(() => {
-        // Mute is independent of autoplay gating (`shouldDisablePlayback`); only block when
-        // there is no player or the user cannot see/hear this media surface.
-        if (!player || cannotShowMedia || isBlurred || hasError) {
+      const handleTapTogglePause = useCallback(() => {
+        if (cannotShowMedia || isBlurred || shouldDisablePlayback || hasError) {
           return;
         }
 
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-        const nextMuted = !player.muted;
-        player.muted = nextMuted;
-        volumeIconVariantSV.value = nextMuted ? 1 : 0;
+        const wasPaused = videoState.userPaused;
+        togglePlayback();
+        tapFlashVariantSV.value = wasPaused ? 0 : 1;
 
-        volumeIconScaleSV.value = 0;
-        volumeIconOpacitySV.value = 0;
-        volumeIconOpacitySV.value = 1;
-        volumeIconScaleSV.value = withSequence(
+        tapFlashScaleSV.value = 0;
+        tapFlashOpacitySV.value = 0;
+        tapFlashOpacitySV.value = 1;
+        tapFlashScaleSV.value = withSequence(
           withTiming(1.28, {
             duration: 100,
             easing: Easing.out(Easing.ease),
@@ -865,7 +862,7 @@ const VideoCard = memo(
             easing: Easing.inOut(Easing.ease),
           })
         );
-        volumeIconOpacitySV.value = withDelay(
+        tapFlashOpacitySV.value = withDelay(
           400,
           withTiming(
             0,
@@ -874,11 +871,21 @@ const VideoCard = memo(
               easing: Easing.out(Easing.ease),
             },
             () => {
-              volumeIconScaleSV.value = 0;
+              tapFlashScaleSV.value = 0;
             }
           )
         );
-      }, [player, cannotShowMedia, isBlurred, hasError]);
+      }, [
+        cannotShowMedia,
+        isBlurred,
+        shouldDisablePlayback,
+        hasError,
+        videoState.userPaused,
+        togglePlayback,
+        tapFlashVariantSV,
+        tapFlashScaleSV,
+        tapFlashOpacitySV,
+      ]);
 
       const onVideoTapDemux = useCallback(
         (x: number, y: number) => {
@@ -890,10 +897,10 @@ const VideoCard = memo(
           }
           videoTapSingleTimerRef.current = setTimeout(() => {
             videoTapSingleTimerRef.current = null;
-            handleToggleMute();
+            handleTapTogglePause();
           }, VIDEO_DOUBLE_TAP_WINDOW_MS);
         },
-        [clearVideoTapSingleTimer, playHeartBurstAt, handleLikeOnly, handleToggleMute]
+        [clearVideoTapSingleTimer, playHeartBurstAt, handleLikeOnly, handleTapTogglePause]
       );
 
       // Handle long press to show comments
@@ -1130,7 +1137,7 @@ const VideoCard = memo(
           <GestureDetector gesture={videoGesture}>
             {/*
               Plain View host: NativePressable uses TouchableOpacity/Pressable and competes with
-              RNGH for the responder — taps may never reach GestureDetector (mute / double-tap).
+              RNGH for the responder — taps may never reach GestureDetector (pause/play / double-tap).
             */}
             <View style={styles.videoContainerPressable} collapsable={false}>
               <View style={styles.videoContainer}>
@@ -1181,10 +1188,10 @@ const VideoCard = memo(
                   <HeartFillIcon size={100} color={Colors.coral[500]} />
                 </Animated.View>
 
-                <VideoVolumeMuteIndicator
-                  iconVariantSV={volumeIconVariantSV}
-                  scaleSV={volumeIconScaleSV}
-                  opacitySV={volumeIconOpacitySV}
+                <VideoPlayPauseIndicator
+                  iconVariantSV={tapFlashVariantSV}
+                  scaleSV={tapFlashScaleSV}
+                  opacitySV={tapFlashOpacitySV}
                   screenWidth={screenWidth}
                   cardHeight={cardHeight}
                 />
@@ -1194,7 +1201,7 @@ const VideoCard = memo(
 
           {/*
             Siblings above the tap layer (not inside GestureDetector) so overlay/scrubber controls
-            do not trigger mute / double-tap-like. Scrubber is lower z-index than overlay so action
+            do not trigger pause/play / double-tap-like. Scrubber is lower z-index than overlay so action
             buttons stay on top; overlay uses box-none so scrubber still receives touches in clear areas.
           */}
           {!shouldHideScrubberForShortVideo && (
