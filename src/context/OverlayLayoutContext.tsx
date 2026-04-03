@@ -1,4 +1,4 @@
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useContext, useMemo } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTabBarHeight } from './FeedIndicatorContext';
@@ -25,7 +25,7 @@ export const OverlayLayoutProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const { isTablet, isCompact } = deviceLayout;
 
-  const value: OverlayLayoutValue = (() => {
+  const value = useMemo((): OverlayLayoutValue => {
     const calculated = getBottomNavBarHeight(insets, isCompact);
     const base = measuredTabBarHeight ?? calculated;
     const bottomNavBarHeight = nativeTabsEnabled ? base + 10 : base;
@@ -34,7 +34,7 @@ export const OverlayLayoutProvider: React.FC<{ children: React.ReactNode }> = ({
       isTablet,
       bottomNavBarHeight,
     };
-  })();
+  }, [insets, isCompact, measuredTabBarHeight, nativeTabsEnabled, isTablet]);
 
   return <OverlayLayoutContext.Provider value={value}>{children}</OverlayLayoutContext.Provider>;
 };

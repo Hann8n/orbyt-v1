@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
 import { useSharedValue, SharedValue } from 'react-native-reanimated';
 
 type TabBarContextValue = {
@@ -49,20 +49,26 @@ export const TabBarProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     [overlayVisibility]
   );
 
-  return (
-    <TabBarContext.Provider
-      value={{
-        tabBarHeight,
-        setTabBarHeight: handleSetTabBarHeight,
-        tabBarVisibility,
-        setTabBarVisibility: handleSetTabBarVisibility,
-        overlayVisibility,
-        setOverlayVisibility: handleSetOverlayVisibility,
-      }}
-    >
-      {children}
-    </TabBarContext.Provider>
+  const contextValue = useMemo(
+    () => ({
+      tabBarHeight,
+      setTabBarHeight: handleSetTabBarHeight,
+      tabBarVisibility,
+      setTabBarVisibility: handleSetTabBarVisibility,
+      overlayVisibility,
+      setOverlayVisibility: handleSetOverlayVisibility,
+    }),
+    [
+      tabBarHeight,
+      handleSetTabBarHeight,
+      tabBarVisibility,
+      handleSetTabBarVisibility,
+      overlayVisibility,
+      handleSetOverlayVisibility,
+    ]
   );
+
+  return <TabBarContext.Provider value={contextValue}>{children}</TabBarContext.Provider>;
 };
 
 export const useTabBarHeight = () => {

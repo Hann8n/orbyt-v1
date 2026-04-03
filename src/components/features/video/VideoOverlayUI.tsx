@@ -969,6 +969,15 @@ const arePropsEqual = (prevProps: VideoOverlayUIProps, nextProps: VideoOverlayUI
   if (prevProps.hasProfile !== nextProps.hasProfile) return false;
   if (prevProps.channelSlug !== nextProps.channelSlug) return false;
 
+  if (prevProps.sourceFeed !== nextProps.sourceFeed) return false;
+  if (prevProps.overlayOpacitySV !== nextProps.overlayOpacitySV) return false;
+
+  if (prevProps.onLike !== nextProps.onLike) return false;
+  if (prevProps.onRepost !== nextProps.onRepost) return false;
+  if (prevProps.onShareInteraction !== nextProps.onShareInteraction) return false;
+  if (prevProps.onOverlayCollapsedChange !== nextProps.onOverlayCollapsedChange) return false;
+  if (prevProps.onChannelPress !== nextProps.onChannelPress) return false;
+
   // Object identity changes are common; compare the fields this component actually reads.
   const prevOverlay = prevProps.authorProfileOverlay;
   const nextOverlay = nextProps.authorProfileOverlay;

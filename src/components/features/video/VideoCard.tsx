@@ -1199,6 +1199,7 @@ const VideoCard = memo(
               <VideoScrubber
                 active={isVisible && !hasError}
                 player={player}
+                playerStatus={playerStatus}
                 seekingAnimationSV={seekingAnimationSV}
                 overlayOpacitySV={uiOverlayOpacitySV}
               />

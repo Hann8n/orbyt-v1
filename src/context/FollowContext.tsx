@@ -1,4 +1,4 @@
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useContext, useMemo } from 'react';
 import { useFollowMutation } from '../services/data/ProfileService';
 import { useUserStore } from '../stores/userStore';
 import type { UserState } from '../stores/userStore';
@@ -14,11 +14,9 @@ export const FollowProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const followMutation = useFollowMutation();
   const currentUser = useUserStore(state => state.currentUser);
 
-  return (
-    <FollowContext.Provider value={{ followMutation, currentUser }}>
-      {children}
-    </FollowContext.Provider>
-  );
+  const value = useMemo(() => ({ followMutation, currentUser }), [followMutation, currentUser]);
+
+  return <FollowContext.Provider value={value}>{children}</FollowContext.Provider>;
 };
 
 export const useFollowContext = () => {

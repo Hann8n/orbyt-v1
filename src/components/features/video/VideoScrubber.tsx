@@ -25,6 +25,11 @@ import { useOverlayVisibility } from '../../../context/FeedIndicatorContext';
 interface VideoScrubberProps {
   active: boolean;
   player?: VideoPlayer;
+  /**
+   * Player status from the parent’s single `useEvent(…, 'statusChange')`.
+   * Avoids registering a second status listener on the same `VideoPlayer` (duplicate bridge work per cell).
+   */
+  playerStatus: string;
   seekingAnimationSV: SharedValue<number>;
   scrollGesture?: NativeGesture;
   children?: React.ReactNode;
@@ -36,6 +41,7 @@ interface VideoScrubberProps {
 const VideoScrubberComponent = ({
   active,
   player,
+  playerStatus,
   seekingAnimationSV,
   scrollGesture,
   children,
@@ -107,12 +113,6 @@ const VideoScrubberComponent = ({
     }
   }, [player, currentTimeSV, displayedTimeSV, seekProgressSV]);
 
-  // Read-only duration sync - never affects player. useEvent requires a non-undefined emitter.
-  const { status: playerStatus } = useEvent(
-    player ?? ({ addListener: () => () => {} } as unknown as VideoPlayer),
-    'statusChange',
-    { status: player?.status ?? 'idle' }
-  );
   const timeUpdateEvent = useEvent(
     player ?? ({ addListener: () => () => {} } as unknown as VideoPlayer),
     'timeUpdate',
@@ -483,6 +483,7 @@ export const VideoScrubber = React.memo(VideoScrubberComponent, (prevProps, next
   return (
     prevProps.active === nextProps.active &&
     prevProps.player === nextProps.player &&
+    prevProps.playerStatus === nextProps.playerStatus &&
     prevProps.seekingAnimationSV === nextProps.seekingAnimationSV &&
     prevProps.scrollGesture === nextProps.scrollGesture &&
     prevProps.overlayOpacitySV === nextProps.overlayOpacitySV &&
