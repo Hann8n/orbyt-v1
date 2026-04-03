@@ -3,7 +3,7 @@
  * Updated for unified snapping system
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import { Link } from 'expo-router';
 
@@ -79,8 +79,10 @@ const VideoItem: React.FC<VideoItemProps> = ({
   // No margins - using FlashList ItemSeparatorComponent for spacing
   const containerStyle = [styles.videoContainer, { height: itemHeight }];
 
-  // Normalize post so VideoCard can read `embed` consistently
-  const normalizedPost = { ...post, embed: videoView } as VideoCardPost;
+  const normalizedPost = useMemo(
+    () => ({ ...post, embed: videoView }) as VideoCardPost,
+    [post, videoView]
+  );
 
   // Early return if no video
   if (!hasVideo) {

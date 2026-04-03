@@ -17,13 +17,45 @@ class SeenVideoService {
   private readonly KEY_PREFIX = 'seen:';
   private userDid: string | null = null; // Current user DID for scoping
 
+  /** Lazy full scan of MMKV keys → Set of post URIs; invalidated on user switch / cleanup. */
+  private seenUriCache: Set<string> | null = null;
+  private seenUriCacheDid: string | null = null;
+
+  private invalidateSeenUriCache(): void {
+    this.seenUriCache = null;
+    this.seenUriCacheDid = null;
+  }
+
+  private ensureSeenUriCache(targetUserDid: string): Set<string> {
+    if (this.seenUriCache !== null && this.seenUriCacheDid === targetUserDid) {
+      return this.seenUriCache;
+    }
+    const prefix = `${this.KEY_PREFIX}${targetUserDid}:`;
+    const set = new Set<string>();
+    for (const key of this.seenStorage.getAllKeys()) {
+      if (key.startsWith(prefix)) {
+        const uri = key.substring(prefix.length);
+        if (uri) set.add(uri);
+      }
+    }
+    this.seenUriCache = set;
+    this.seenUriCacheDid = targetUserDid;
+    return set;
+  }
+
+  private addUriToSeenCacheIfReady(videoUri: string): void {
+    if (this.seenUriCache !== null && this.userDid && this.seenUriCacheDid === this.userDid) {
+      this.seenUriCache.add(videoUri);
+    }
+  }
+
   /**
    * Set current user DID (called on login/account switch)
    */
   setUserDid(did: string | null): void {
     this.userDid = did;
-    // Clear session cache on user switch to avoid cross-user contamination
     this.writtenThisSession.clear();
+    this.invalidateSeenUriCache();
   }
 
   /**
@@ -53,6 +85,7 @@ class SeenVideoService {
       const existingTimestamp = this.seenStorage.getNumber(key);
       if (existingTimestamp !== undefined) {
         this.writtenThisSession.add(key);
+        this.addUriToSeenCacheIfReady(videoUri);
         return;
       }
 
@@ -60,6 +93,7 @@ class SeenVideoService {
       // Use set() for timestamp (MMKV infers number type from value)
       this.seenStorage.set(key, Date.now());
       this.writtenThisSession.add(key);
+      this.addUriToSeenCacheIfReady(videoUri);
     } catch (error) {
       // Log error but don't throw - visibility tracking shouldn't break feed
       if (__DEV__) {
@@ -87,7 +121,14 @@ class SeenVideoService {
         return true;
       }
 
-      // Check MMKV (synchronous, fast)
+      if (!this.userDid) {
+        return this.seenStorage.getNumber(key) !== undefined;
+      }
+
+      const seenUris = this.ensureSeenUriCache(this.userDid);
+      if (seenUris.has(videoUri)) {
+        return true;
+      }
       return this.seenStorage.getNumber(key) !== undefined;
     } catch (error) {
       // Log error but return false - don't break feed
@@ -126,21 +167,7 @@ class SeenVideoService {
         return feedItems;
       }
 
-      const prefix = `${this.KEY_PREFIX}${targetUserDid}:`;
-
-      // Get all keys from dedicated instance (faster - only seen video keys, not entire storage)
-      const allKeys = this.seenStorage.getAllKeys();
-      const seenUris = new Set<string>();
-
-      for (const key of allKeys) {
-        if (key.startsWith(prefix)) {
-          // Extract video URI from key: "seen:userDid:videoUri" -> "videoUri"
-          const uri = key.substring(prefix.length);
-          if (uri) {
-            seenUris.add(uri);
-          }
-        }
-      }
+      const seenUris = this.ensureSeenUriCache(targetUserDid);
 
       // If no seen videos, return all items
       if (seenUris.size === 0) {
@@ -250,6 +277,7 @@ class SeenVideoService {
       }
     }
 
+    this.invalidateSeenUriCache();
     return deleted;
   }
 }

@@ -9,7 +9,7 @@ export const queryClient = new QueryClient({
       gcTime: QUERY_CONSTANTS.GC_TIME,
       refetchOnWindowFocus: false,
       refetchOnMount: false,
-      refetchOnReconnect: false,
+      refetchOnReconnect: 'always',
     },
   },
 });

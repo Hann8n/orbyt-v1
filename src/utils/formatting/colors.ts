@@ -206,11 +206,16 @@ export const DEFAULT_PROFILE_COLORS = {
   statusBarStyle: 'light' as const,
 };
 
+/** Mix ratio toward black for profile chrome; uses blendColors so light themes stay softly tinted (darkenColor’s second pass turns white into dull grey). */
+const PROFILE_CHROME_BLEND_TOWARD_BLACK = 0.15;
+
 /**
  * Type for profile colors
  */
 export interface ProfileColorScheme {
   backgroundColor: string;
+  /** Slightly deeper variant of `backgroundColor` for screen root / feed area (list & grid gaps). */
+  chromeBackgroundColor: string;
   foregroundColor: string;
   textColor: string;
   primaryColor: string;
@@ -261,6 +266,11 @@ export function getProfileColors(
 
   return {
     backgroundColor,
+    chromeBackgroundColor: blendColors(
+      backgroundColor,
+      Colors.black,
+      PROFILE_CHROME_BLEND_TOWARD_BLACK
+    ),
     foregroundColor: textColor,
     textColor,
     primaryColor: backgroundColor,

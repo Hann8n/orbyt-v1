@@ -17,7 +17,7 @@ import CloseButton from '../../ui/CloseButton';
 import CancelButton from '../../ui/CancelButton';
 import { VerticalListButton } from '../../ui/VerticalListSheet';
 import { GermDmIcon } from '../../ui/Icon';
-import { AtprotoService } from '../../../services/api/AtprotoService';
+import { RepoService } from '../../../services/api/repo/RepoService';
 import { queryKeys } from '../../../utils/query/queryKeys';
 import { useQueryClient } from '@tanstack/react-query';
 import { Colors } from '../../../theme';
@@ -52,7 +52,7 @@ const GermDisconnectSheet: React.FC<GermDisconnectSheetProps> = ({
     if (isDisconnecting) return;
     setIsDisconnecting(true);
     try {
-      const ok = await AtprotoService.deleteGermDeclaration();
+      const ok = await RepoService.deleteGermDeclaration();
       TrueSheet.dismiss('germ-disconnect-sheet').catch(() => {});
       if (ok) {
         queryClient.invalidateQueries({

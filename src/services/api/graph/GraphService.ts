@@ -106,7 +106,7 @@ export class GraphService {
     };
 
     const { api } = await AtprotoCore.getApiClient();
-    const userDid = await AtprotoCore.getCurrentUserDid();
+    const userDid = AtprotoCore.getCurrentUserDid();
     if (!userDid) throw new Error('No authenticated user');
 
     await api.app.bsky.graph.block.create({ repo: userDid }, record);
@@ -120,7 +120,7 @@ export class GraphService {
     await AtprotoCore.ensureSession();
 
     const { api } = await AtprotoCore.getApiClient();
-    const userDid = await AtprotoCore.getCurrentUserDid();
+    const userDid = AtprotoCore.getCurrentUserDid();
     if (!userDid) throw new Error('No authenticated user');
 
     // Get the profile to get the viewer.blocking URI

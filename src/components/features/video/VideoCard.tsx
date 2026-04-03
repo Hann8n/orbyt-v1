@@ -13,7 +13,6 @@ import { useEvent } from 'expo';
 import { useVideoPlayer, VideoView as ExpoVideoView } from 'expo-video';
 import * as Haptics from 'expo-haptics';
 
-import { AtprotoService } from '../../../services/api/AtprotoService';
 import { AtprotoFeedService } from '../../../services/api/feed/FeedService';
 import { View, Text, Dimensions, StyleSheet, Platform, ActivityIndicator } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
@@ -59,6 +58,7 @@ import { useOverlayVisibility } from '../../../context/FeedIndicatorContext';
 import { useFeedScroll } from '../../../context/FeedScrollContext';
 import { seenVideoService } from '../../../services/SeenVideoService';
 import { hexToRGBA } from '../../../utils/formatting/colors';
+import { useShallow } from 'zustand/react/shallow';
 import { useFollowStore } from '../../../stores/followStore';
 import { useUserStore } from '../../../stores/userStore';
 import { ErrorHandler } from '../../../utils/errors/errorHandler';
@@ -163,7 +163,9 @@ const VideoCard = memo(
       // Access feedContext and reqId from feedItem (native properties from FeedViewPost)
       const feedContext = feedItem?.feedContext;
       const reqId = feedItem?.reqId;
-      const algorithmicFeedProvider = useUserStore(state => state.algorithmicFeedProvider);
+      const { algorithmicFeedProvider } = useUserStore(
+        useShallow(state => ({ algorithmicFeedProvider: state.algorithmicFeedProvider }))
+      );
       const feedUri = useMemo(
         () => (feedOption && feedOption.startsWith('at://') ? feedOption : undefined),
         [feedOption]
@@ -203,17 +205,16 @@ const VideoCard = memo(
           postView.viewer?.repost,
         ]
       );
-      // Subscribe to this post's delta only (stable snapshot). Merging with defaults must
-      // happen in useMemo — getPostInteraction() returns a new object each call and breaks
-      // useSyncExternalStore / causes "getSnapshot should be cached" infinite loops.
-      const postInteractionDelta = usePostInteractionStore(state =>
-        state.interactions.get(postView.uri)
+      const { postInteractionDelta, updatePostInteraction } = usePostInteractionStore(
+        useShallow(state => ({
+          postInteractionDelta: state.interactions.get(postView.uri),
+          updatePostInteraction: state.updatePostInteraction,
+        }))
       );
       const persistedInteraction = useMemo(
         () => mergePostInteractionDelta(defaultInteraction, postInteractionDelta),
         [defaultInteraction, postInteractionDelta]
       );
-      const updatePostInteraction = usePostInteractionStore(state => state.updatePostInteraction);
 
       // Enhanced video state management with automatic recycling
       // Scope by post URI + feedOption so playback state doesn't leak across different feeds
@@ -223,7 +224,7 @@ const VideoCard = memo(
           userPaused: false,
         },
         [postView.uri, feedOption]
-      ); // Auto-resets when post.uri or feed context changes
+      );
 
       // Overlay state - using recycling state for automatic reset, but initialize from store
       const [overlayState, setOverlayState] = useRecyclingState(
@@ -233,44 +234,43 @@ const VideoCard = memo(
           ...persistedInteraction,
         },
         [postView.uri, feedOption]
-      ); // Auto-resets when post.uri or feed context changes
+      );
 
-      useEffect(() => {
-        setOverlayState(prev => {
-          if (prev.isLikePending || prev.isRepostPending) return prev;
-
-          const isUnchanged =
-            prev.isLiked === persistedInteraction.isLiked &&
-            prev.likeCount === persistedInteraction.likeCount &&
-            prev.commentCount === persistedInteraction.commentCount &&
-            prev.likeUri === persistedInteraction.likeUri &&
-            prev.isReposted === persistedInteraction.isReposted &&
-            prev.repostCount === persistedInteraction.repostCount &&
-            prev.repostUri === persistedInteraction.repostUri;
-
-          if (isUnchanged) return prev;
-
-          return {
-            ...prev,
-            isLiked: persistedInteraction.isLiked,
-            likeCount: persistedInteraction.likeCount,
-            commentCount: persistedInteraction.commentCount,
-            likeUri: persistedInteraction.likeUri,
-            isReposted: persistedInteraction.isReposted,
-            repostCount: persistedInteraction.repostCount,
-            repostUri: persistedInteraction.repostUri,
+      const displayInteraction = useMemo(() => {
+        let d = persistedInteraction;
+        if (overlayState.isLikePending) {
+          d = {
+            ...d,
+            isLiked: overlayState.isLiked,
+            likeCount: overlayState.likeCount,
+            likeUri: overlayState.likeUri,
           };
-        });
-      }, [
-        persistedInteraction.isLiked,
-        persistedInteraction.likeCount,
-        persistedInteraction.commentCount,
-        persistedInteraction.likeUri,
-        persistedInteraction.isReposted,
-        persistedInteraction.repostCount,
-        persistedInteraction.repostUri,
-        setOverlayState,
-      ]);
+        }
+        if (overlayState.isRepostPending) {
+          d = {
+            ...d,
+            isReposted: overlayState.isReposted,
+            repostCount: overlayState.repostCount,
+            repostUri: overlayState.repostUri,
+          };
+        }
+        return d;
+      }, [persistedInteraction, overlayState]);
+
+      const likeStateForHook = useMemo(
+        () => ({
+          isLiked: displayInteraction.isLiked,
+          likeCount: displayInteraction.likeCount,
+          likeUri: displayInteraction.likeUri,
+          isLikePending: overlayState.isLikePending,
+          isReposted: displayInteraction.isReposted,
+          isBookmarked: displayInteraction.isBookmarked,
+          commentCount: displayInteraction.commentCount,
+          repostCount: displayInteraction.repostCount,
+          isRepostPending: overlayState.isRepostPending,
+        }),
+        [displayInteraction, overlayState.isLikePending, overlayState.isRepostPending]
+      );
 
       // Lightweight follow state per post, hoisted out of overlay
       // Single useProfile for this card; derive isAuthorBlocked, profileColors, authorDid, authorProfileStatus
@@ -705,7 +705,7 @@ const VideoCard = memo(
 
         recoveryRetriedForUriRef.current = postView.uri;
         ErrorHandler.safeAsync(async () => {
-          const post = await AtprotoService.getPost(postView.uri);
+          const post = await AtprotoFeedService.getPost(postView.uri);
           const vv = post ? getVideoView(post.embed) : null;
           const newSource = createVideoSource(vv?.playlist ?? null);
           if (!newSource) {
@@ -768,7 +768,7 @@ const VideoCard = memo(
 
       const { toggleLike: toggleLikeInteraction, likeOnly: likeOnlyInteraction } =
         useLikeInteraction({
-          state: overlayState,
+          state: likeStateForHook,
           setState: setOverlayState,
           postUri: postView.uri,
           postCid: postView.cid,
@@ -838,7 +838,7 @@ const VideoCard = memo(
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
         const wasPaused = videoState.userPaused;
-        togglePlayback();
+
         tapFlashVariantSV.value = wasPaused ? 0 : 1;
 
         tapFlashScaleSV.value = 0;
@@ -867,6 +867,10 @@ const VideoCard = memo(
             }
           )
         );
+
+        requestAnimationFrame(() => {
+          togglePlayback();
+        });
       }, [
         cannotShowMedia,
         isBlurred,
@@ -919,17 +923,17 @@ const VideoCard = memo(
         };
         presentCommentSection({
           post: commentPost,
-          totalLikes: overlayState.likeCount,
-          totalComments: overlayState.commentCount,
-          isLiked: overlayState.isLiked,
+          totalLikes: displayInteraction.likeCount,
+          totalComments: displayInteraction.commentCount,
+          isLiked: displayInteraction.isLiked,
           postedAt: (postView.record as { createdAt?: string })?.createdAt || postView.indexedAt,
           onToggleLike: handleLike,
           isLikePending: overlayState.isLikePending,
         });
       }, [
-        overlayState.likeCount,
-        overlayState.commentCount,
-        overlayState.isLiked,
+        displayInteraction.likeCount,
+        displayInteraction.commentCount,
+        displayInteraction.isLiked,
         overlayState.isLikePending,
         presentCommentSection,
         handleLike,
@@ -973,12 +977,12 @@ const VideoCard = memo(
 
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-        const newIsReposted = !overlayState.isReposted;
+        const wasReposted = displayInteraction.isReposted;
+        const newIsReposted = !wasReposted;
         const newRepostCount = newIsReposted
-          ? overlayState.repostCount + 1
-          : overlayState.repostCount - 1;
+          ? displayInteraction.repostCount + 1
+          : Math.max(0, displayInteraction.repostCount - 1);
 
-        // Optimistic update
         setOverlayState(prev => ({
           ...prev,
           isRepostPending: true,
@@ -987,22 +991,19 @@ const VideoCard = memo(
         }));
 
         try {
-          if (!overlayState.isReposted) {
-            const repostUri = await AtprotoService.repostPost(postView.uri, postView.cid);
+          if (!wasReposted) {
+            const repostUri = await AtprotoFeedService.repostPost(postView.uri, postView.cid);
             setOverlayState(prev => ({ ...prev, repostUri }));
-            // Persist to store
             updatePostInteraction(postView.uri, {
               isReposted: true,
               repostCount: newRepostCount,
               repostUri,
             });
-            // Track interaction
             queueInteraction(INTERACTIONREPOST_CONST);
           } else {
-            if (!overlayState.repostUri) throw new Error('No repost URI found');
-            await AtprotoService.deleteRepost(overlayState.repostUri);
+            if (!displayInteraction.repostUri) throw new Error('No repost URI found');
+            await AtprotoFeedService.deleteRepost(displayInteraction.repostUri);
             setOverlayState(prev => ({ ...prev, repostUri: undefined }));
-            // Persist to store
             updatePostInteraction(postView.uri, {
               isReposted: false,
               repostCount: newRepostCount,
@@ -1010,20 +1011,19 @@ const VideoCard = memo(
             });
           }
         } catch (_error) {
-          // Revert optimistic update
           setOverlayState(prev => ({
             ...prev,
-            isReposted: !newIsReposted,
-            repostCount: overlayState.repostCount,
+            isReposted: wasReposted,
+            repostCount: displayInteraction.repostCount,
           }));
         } finally {
           setOverlayState(prev => ({ ...prev, isRepostPending: false }));
         }
       }, [
         overlayState.isRepostPending,
-        overlayState.isReposted,
-        overlayState.repostCount,
-        overlayState.repostUri,
+        displayInteraction.isReposted,
+        displayInteraction.repostCount,
+        displayInteraction.repostUri,
         postView.uri,
         postView.cid,
         setOverlayState,
@@ -1216,11 +1216,11 @@ const VideoCard = memo(
                 onLike={handleLike}
                 onRepost={handleRepost}
                 onShareInteraction={handleShareInteraction}
-                isLiked={overlayState.isLiked}
-                isReposted={overlayState.isReposted}
-                likeCount={overlayState.likeCount}
-                commentCount={overlayState.commentCount}
-                repostCount={overlayState.repostCount}
+                isLiked={displayInteraction.isLiked}
+                isReposted={displayInteraction.isReposted}
+                likeCount={displayInteraction.likeCount}
+                commentCount={displayInteraction.commentCount}
+                repostCount={displayInteraction.repostCount}
                 isLikePending={overlayState.isLikePending}
                 isRepostPending={overlayState.isRepostPending}
                 isFollowing={isFollowing}

@@ -54,7 +54,7 @@ export class RepoService {
    */
   static async getOrbytProfileRecord(): Promise<unknown | null> {
     try {
-      const userDid = await AtprotoCore.getCurrentUserDid();
+      const userDid = AtprotoCore.getCurrentUserDid();
       if (!userDid) return null;
       const { api } = await AtprotoCore.getApiClient();
       try {
@@ -189,7 +189,7 @@ export class RepoService {
     algorithmicFeedProvider?: string | null;
   }): Promise<boolean> {
     try {
-      const userDid = await AtprotoCore.getCurrentUserDid();
+      const userDid = AtprotoCore.getCurrentUserDid();
       if (!userDid) return false;
       const apiClient = await AtprotoCore.getApiClient();
       if (!apiClient) {
@@ -261,7 +261,7 @@ export class RepoService {
    */
   static async initOrbytProfileIfNeeded(): Promise<void> {
     try {
-      const userDid = await AtprotoCore.getCurrentUserDid();
+      const userDid = AtprotoCore.getCurrentUserDid();
       if (!userDid) return;
 
       // Check if migration already done for this user
@@ -375,7 +375,7 @@ export class RepoService {
    */
   static async deleteGermDeclaration(): Promise<boolean> {
     try {
-      const userDid = await AtprotoCore.getCurrentUserDid();
+      const userDid = AtprotoCore.getCurrentUserDid();
       if (!userDid) return false;
 
       const { api } = await AtprotoCore.getApiClient();

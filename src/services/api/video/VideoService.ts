@@ -107,7 +107,7 @@ export class VideoService {
       await AtprotoCore.ensureSession();
       const { api } = await AtprotoCore.getApiClient();
       // Get user DID and resolve PDS endpoint
-      const did = await AtprotoCore.getCurrentUserDid();
+      const did = AtprotoCore.getCurrentUserDid();
       if (!did) {
         throw new Error('No user DID available');
       }

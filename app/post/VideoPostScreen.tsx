@@ -41,7 +41,7 @@ import { Typography } from '@/utils/components/typography';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import { useCurrentUser } from '@/stores/userStore';
 import ProfileService from '@/services/data/ProfileService';
-import AtprotoService from '@/services/api/AtprotoService';
+import { AtprotoFeedService } from '@/services/api/feed/FeedService';
 import VideoProcessingService from '@/services/video/VideoProcessingService';
 import { logger } from '@/utils/logger';
 import { useVideoPostDraftStore } from '@/stores/videoPostDraftStore';
@@ -721,16 +721,7 @@ const VideoPostScreen: React.FC = () => {
         if (ac.signal.aborted) return;
         setIsMerging(true);
 
-        const processingSegments = segments.map(seg => ({
-          startTime: seg.startTime,
-          duration: seg.duration,
-          video: seg.video as { uri: string } | { uri: string; [key: string]: unknown },
-          sourceType: seg.sourceType as 'camera' | 'gallery' | undefined,
-        }));
-
-        const mergedVideo = await VideoProcessingService.mergeSegments(
-          processingSegments as Parameters<typeof VideoProcessingService.mergeSegments>[0]
-        );
+        const mergedVideo = await VideoProcessingService.mergeSegments(segments);
 
         if (ac.signal.aborted) return;
         setMergedVideoPath(mergedVideo.path);
@@ -895,7 +886,7 @@ const VideoPostScreen: React.FC = () => {
             useUIStore.getState().setProgress(UPLOAD_KEY, progress);
           });
 
-          const result = await AtprotoService.createVideoPost(
+          const result = await AtprotoFeedService.createVideoPost(
             postMetadata.description,
             postMetadata.videoPath,
             postMetadata.contentWarnings,

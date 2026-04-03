@@ -4,7 +4,7 @@
  * Provides O(1) lookup to check if a post is bookmarked
  */
 import { create } from 'zustand';
-import { AtprotoService } from '../services/api/AtprotoService';
+import { BookmarkService } from '../services/api/bookmark/BookmarkService';
 import { logger } from '../utils/logger';
 
 interface BookmarkState {
@@ -66,7 +66,7 @@ export const useBookmarkStore = create<BookmarkState>((set, get) => ({
       const maxPages = 20; // Safety limit
 
       while (hasMore && pageCount < maxPages) {
-        const response = await AtprotoService.getBookmarks(cursor || undefined, 100);
+        const response = await BookmarkService.getBookmarks(cursor || undefined, 100);
 
         // Process bookmarks from this page
         for (const bookmark of response.bookmarks) {
@@ -74,8 +74,7 @@ export const useBookmarkStore = create<BookmarkState>((set, get) => ({
           if (postUri && postUri.includes('app.bsky.feed.post')) {
             bookmarkedUris.add(postUri);
 
-            // Store bookmark subject if available (added by BookmarkService)
-            const bookmarkSubject = (bookmark as any).bookmarkSubject;
+            const bookmarkSubject = bookmark.bookmarkSubject;
             if (bookmarkSubject?.uri && bookmarkSubject?.cid) {
               subjects.set(postUri, { uri: bookmarkSubject.uri, cid: bookmarkSubject.cid });
             }

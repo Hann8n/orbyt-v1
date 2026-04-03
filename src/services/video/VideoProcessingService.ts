@@ -2,70 +2,51 @@ import { Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
 import * as VideoThumbnails from 'expo-video-thumbnails';
-import { File, Directory, Paths } from 'expo-file-system';
+import { createVideoPlayer } from 'expo-video';
+import type { VideoPlayer } from 'expo-video';
+import { File } from 'expo-file-system';
 import {
   ensureFileUri,
+  isValidVideoPath,
   normalizePathForNative,
   resolveVideoPath,
   stripPathFragment,
 } from '../../utils/video/path';
-import { compress as compressVideoHardware } from 'expo-image-and-video-compressor';
 import { logger } from '../../utils/logger';
 
-// Expo Camera video result type
-type ExpoCameraVideo = { uri: string };
+export type VideoSegmentSource = ImagePicker.ImagePickerAsset | { uri: string };
 
-// Lazy import FFmpegKit to avoid errors when native module isn't linked yet
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- FFmpegKit types from native module
-let FFmpegKit: any = null;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- ReturnCode from native module
-let ReturnCode: any = null;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- FFprobeKit types from native module
-let FFprobeKit: any = null;
+export function getVideoSegmentSourceUri(video: VideoSegmentSource): string {
+  if ('uri' in video && typeof video.uri === 'string') {
+    return video.uri;
+  }
+  return '';
+}
+
 type FastMergeInput = string | { path: string };
 type FastMergeFn = (recordedVideos: FastMergeInput[]) => Promise<string | null>;
 let processAndMergeVideos: FastMergeFn | null = null;
-try {
-  const ffmpegModule = require('ffmpeg-kit-react-native');
-  FFmpegKit = ffmpegModule.FFmpegKit;
-  ReturnCode = ffmpegModule.ReturnCode;
-  // FFprobeKit may not be available in all versions, so it's optional
-  FFprobeKit = ffmpegModule.FFprobeKit || null;
-} catch (_error) {
-  logger.warn('FFmpegKit not available - native module not linked', {
-    component: 'VideoProcessingService',
-  });
-}
 try {
   const fastMergeModule = require('react-native-fast-video-merge') as {
     processAndMergeVideos?: FastMergeFn;
   };
   processAndMergeVideos = fastMergeModule.processAndMergeVideos ?? null;
 } catch (_error) {
-  logger.info('Fast merge SDK not available - using FFmpeg merge path', {
-    component: 'VideoProcessingService',
-  });
+  logger.info('Fast merge SDK not available', { component: 'VideoProcessingService' });
 }
 
-export interface VideoProperties {
+interface VideoProperties {
   width: number;
   height: number;
   frameRate: number;
   codec: string;
   duration: number;
-  // Optional color metadata (when available from FFprobe)
-  colorSpace?: string;
-  colorTransfer?: string;
-  colorPrimaries?: string;
-  // Flag to indicate if the source appears to be HDR (PQ/HLG/BT.2020, etc.)
-  isHdr?: boolean;
-  bitrate?: number;
 }
 
 export interface VideoSegment {
   startTime: number;
   duration: number;
-  video: ImagePicker.ImagePickerAsset | ExpoCameraVideo;
+  video: VideoSegmentSource;
   sourceType?: 'camera' | 'gallery';
 }
 
@@ -86,10 +67,6 @@ export const VIDEO_QUALITY_STANDARDS = {
   '4K': { minDimension: 2160, bitrate: 16000000, quality: 0.95, label: '4K (2160p)' },
 } as const;
 
-// Video merge settings for complex filter approach
-// These values provide a good balance between quality and compatibility
-const MERGE_TARGET_FPS = 30; // Standard frame rate for mobile video
-
 export interface VideoInfo {
   path: string;
   size: number;
@@ -107,56 +84,98 @@ export interface VideoInfo {
   codec: string;
 }
 
-/** Reuse in-flight / completed expo-video-thumbnails results per segment (onion skin). */
 const extractLastFrameByKey = new Map<string, Promise<string>>();
 
+const EXPO_VIDEO_PROBE_TIMEOUT_MS = 20_000;
+
 class VideoProcessingService {
-  /**
-   * Gets the actual video duration from the video file path
-   * Uses FFprobe for accurate duration, falls back to 0 if unavailable
-   */
-  static async getVideoDurationFromFile(videoPath: string): Promise<number> {
-    try {
-      // Normalize path for FFprobe
-      const normalizedPath = normalizePathForNative(videoPath);
+  private static pickerDurationMsToSeconds(durationMs: number): number {
+    if (!Number.isFinite(durationMs) || durationMs <= 0) return 0;
+    return durationMs / 1000;
+  }
 
-      // Try FFprobe first if available
-      if (FFprobeKit) {
-        try {
-          if (typeof FFprobeKit.getMediaInformation === 'function') {
-            const mediaInfo = await FFprobeKit.getMediaInformation(normalizedPath);
-            if (mediaInfo) {
-              const duration = (mediaInfo.getDuration?.() || mediaInfo.duration || 0) / 1000;
-              if (duration > 0) return duration;
-            }
-          } else if (typeof FFprobeKit.execute === 'function') {
-            const probeCommand = `-v error -show_entries format=duration -of json "${normalizedPath}"`;
-            const session = await FFprobeKit.execute(probeCommand);
-            const returnCode = await session.getReturnCode();
+  private static codecFromMimeType(mime: string | null | undefined): string {
+    if (!mime) return 'h264';
+    const m = mime.toLowerCase();
+    if (m.includes('hevc') || m.includes('h265')) return 'hevc';
+    if (m.includes('avc') || m.includes('h264')) return 'h264';
+    if (m.includes('vp9')) return 'vp9';
+    if (m.includes('vp8')) return 'vp8';
+    return 'h264';
+  }
 
-            if (ReturnCode && ReturnCode.isSuccess(returnCode)) {
-              const output = await session.getOutput();
-              const jsonOutput = JSON.parse(output);
-              const format = jsonOutput.format || {};
-              const duration = parseFloat(format.duration || '0');
-              if (duration > 0) return duration;
-            }
-          }
-        } catch (ffprobeError) {
-          logger.warn('FFprobe duration extraction failed', {
-            component: 'VideoProcessingService',
-            error: ffprobeError,
-          });
-        }
-      }
-    } catch (error) {
-      logger.warn('Failed to get video duration from file', {
-        component: 'VideoProcessingService',
-        error,
-      });
+  private static frameRateFromExif(exif: unknown): number | null {
+    if (exif == null || typeof exif !== 'object') return null;
+    const o = exif as Record<string, unknown>;
+    const raw = o['VideoFrameRate'] ?? o['FrameRate'];
+    if (raw == null) return null;
+    if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0) return raw;
+    if (typeof raw === 'string') {
+      const parsed = parseFloat(raw);
+      if (Number.isFinite(parsed) && parsed > 0) return parsed;
     }
-    // Fallback: return 0 if we can't determine duration
-    return 0;
+    return null;
+  }
+
+  private static async waitForExpoPlayerReady(player: VideoPlayer): Promise<void> {
+    if (player.status === 'readyToPlay') return;
+    if (player.status === 'error') {
+      throw new Error('expo-video probe error');
+    }
+    await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        sub.remove();
+        reject(new Error('expo-video metadata probe timeout'));
+      }, EXPO_VIDEO_PROBE_TIMEOUT_MS);
+      const sub = player.addListener('statusChange', ({ status, error }) => {
+        if (status === 'readyToPlay') {
+          clearTimeout(timeout);
+          sub.remove();
+          resolve();
+        } else if (status === 'error') {
+          clearTimeout(timeout);
+          sub.remove();
+          reject(error ?? new Error('expo-video probe error'));
+        }
+      });
+    });
+  }
+
+  /**
+   * Reads duration / dimensions / frame rate from a local file using expo-video's native player.
+   */
+  private static async probeLocalVideoWithExpoPlayer(
+    fileUri: string
+  ): Promise<VideoProperties | null> {
+    if (!fileUri) return null;
+    let player: VideoPlayer | null = null;
+    try {
+      player = createVideoPlayer({ uri: fileUri });
+      await this.waitForExpoPlayerReady(player);
+      const duration = player.duration;
+      if (!duration || duration <= 0) return null;
+      const track = player.videoTrack;
+      const width = track?.size.width ?? 0;
+      const height = track?.size.height ?? 0;
+      const frameRate =
+        track?.frameRate != null && track.frameRate > 0 ? Math.round(track.frameRate) : 30;
+      const codec = this.codecFromMimeType(track?.mimeType);
+      return {
+        width,
+        height,
+        frameRate,
+        codec,
+        duration,
+      };
+    } catch (error) {
+      logger.debug('expo-video local probe failed', {
+        component: 'VideoProcessingService',
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    } finally {
+      player?.release();
+    }
   }
 
   /**
@@ -166,68 +185,66 @@ class VideoProcessingService {
     videoPath: string,
     asset?: ImagePicker.ImagePickerAsset
   ): Promise<VideoInfo> {
-    // Get local URI from MediaLibrary if we have assetId (for iCloud videos)
-    const localUri = await this.getLocalVideoPath(videoPath, asset?.assetId);
+    const resolved = await resolveVideoPath(videoPath, asset?.assetId ?? null);
+    if (!resolved.exists || !resolved.uri) {
+      throw new Error('Video file does not exist');
+    }
+    const localUri = resolved.uri;
+
     let fileSize = asset?.fileSize || 0;
 
-    // Use fileSize from MediaLibrary if available
     if (!fileSize && asset?.assetId && Platform.OS === 'ios') {
       try {
         const assetInfo = await MediaLibrary.getAssetInfoAsync(asset.assetId, {
           shouldDownloadFromNetwork: true,
         });
         if (assetInfo.localUri) {
-          const file = new File(assetInfo.localUri);
-          fileSize = file.size || 0;
+          const mlFile = new File(ensureFileUri(assetInfo.localUri));
+          fileSize = mlFile.size || 0;
         }
       } catch (_mediaError) {
         // Ignore error, use provided fileSize
       }
     }
 
-    // Verify file exists
-    const file = await this.validateVideoFileExists(localUri);
+    const file = new File(localUri);
+    if (!file.exists) {
+      throw new Error('Video file does not exist');
+    }
 
-    // Use fileSize from MediaLibrary/FileSystem if not from ImagePickerAsset
-    const size = fileSize || file.size || 0;
+    const size = fileSize || file.size || resolved.size || 0;
 
-    // Extract metadata from ImagePickerAsset if available
-    let duration = asset?.duration
-      ? asset.duration > 1000
-        ? asset.duration / 1000
-        : asset.duration
-      : 10;
-    let width = asset?.width || 1080;
-    let height = asset?.height || 1920;
+    let duration =
+      asset?.duration != null && asset.duration > 0
+        ? this.pickerDurationMsToSeconds(asset.duration)
+        : 0;
+    let width = asset?.width && asset.width > 0 ? asset.width : 0;
+    let height = asset?.height && asset.height > 0 ? asset.height : 0;
     let frameRate = 30;
-    let codec = 'h264';
+    let codec = asset?.mimeType ? this.codecFromMimeType(asset.mimeType) : 'h264';
 
-    // Extract codec from mimeType if available
-    if (asset?.mimeType) {
-      if (asset.mimeType.includes('h264') || asset.mimeType.includes('avc')) {
-        codec = 'h264';
-      } else if (asset.mimeType.includes('h265') || asset.mimeType.includes('hevc')) {
-        codec = 'hevc';
-      } else if (asset.mimeType.includes('vp9')) {
-        codec = 'vp9';
-      } else if (asset.mimeType.includes('vp8')) {
-        codec = 'vp8';
+    const fromExif = asset?.exif != null ? this.frameRateFromExif(asset.exif) : null;
+    if (fromExif != null) {
+      frameRate = fromExif;
+    }
+
+    if (duration <= 0 || width <= 0 || height <= 0) {
+      const probed = await this.probeLocalVideoWithExpoPlayer(localUri);
+      if (probed && probed.duration > 0) {
+        duration = probed.duration;
+        if (probed.width > 0) width = probed.width;
+        if (probed.height > 0) height = probed.height;
+        if (probed.frameRate > 0) frameRate = probed.frameRate;
+        if (probed.codec) codec = probed.codec;
       }
     }
 
-    // Extract frame rate from EXIF if available
-    if (asset?.exif) {
-      const exifFrameRate = asset.exif['VideoFrameRate'] || asset.exif['FrameRate'];
-      if (exifFrameRate) {
-        frameRate =
-          typeof exifFrameRate === 'number'
-            ? exifFrameRate
-            : parseFloat(String(exifFrameRate)) || 30;
-      }
+    if (!duration || duration <= 0) {
+      throw new Error('Could not determine video duration');
     }
-
-    // Note: VideoManager only supports merge functionality, not getVideoInfo
-    // We'll rely on asset info and fallback values for metadata
+    if (width <= 0 || height <= 0) {
+      throw new Error('Could not determine video dimensions');
+    }
 
     // Determine quality standard based on resolution
     const qualityStandard = this.getQualityStandard(width, height);
@@ -236,7 +253,7 @@ class VideoProcessingService {
     const aspectRatio = this.calculateAspectRatio(width, height);
 
     // Estimate bitrate based on file size and duration
-    const bitrate = size > 0 && duration > 0 ? (size * 8) / duration : 1000000; // bits per second
+    const bitrate = size > 0 && duration > 0 ? (size * 8) / duration : 0;
 
     const videoInfo = {
       path: localUri,
@@ -257,95 +274,6 @@ class VideoProcessingService {
 
     // Removed debug log statement for production
     return videoInfo;
-  }
-
-  /**
-   * Standardizes a video path so the app can safely use it (adds file://, copies from Photos, etc.)
-   */
-  static async standardizeVideoPath(
-    videoPath: string,
-    asset?: ImagePicker.ImagePickerAsset
-  ): Promise<string> {
-    const resolved = await resolveVideoPath(
-      videoPath,
-      asset?.assetId || (asset as { assetId?: string; id?: string })?.id || null
-    );
-    if (!resolved.uri) {
-      throw new Error('Failed to standardize video path');
-    }
-    return resolved.uri;
-  }
-
-  /**
-   * Standardizes and normalizes a video path for in-app editing (trimmer, etc.)
-   * - Resolves iCloud / Photos URIs into a local sandbox path
-   * - Detects HDR / non-H.264 / out-of-range formats
-   * - Re-encodes to SDR BT.709 H.264 when needed
-   *
-   * Returns a path that is safe to pass through the rest of the pipeline as SDR.
-   */
-  static async normalizeVideoPathForEditing(
-    videoPath: string,
-    assetId?: string | null
-  ): Promise<string> {
-    // First, standardize the path (handles iCloud downloads, sandbox copies, file:// prefix)
-    const standardizedPath = await this.standardizeVideoPath(
-      videoPath,
-      assetId ? ({ assetId } as ImagePicker.ImagePickerAsset) : undefined
-    );
-    const localPath = normalizePathForNative(standardizedPath);
-
-    // Analyze properties from the standardized file
-    const props = await this.analyzeVideoProperties(localPath);
-
-    const isHdr = !!props.isHdr;
-
-    // If it's not HDR, keep the standardized path as-is (no extra transcode)
-    if (!isHdr) {
-      return standardizedPath;
-    }
-
-    // For HDR sources, normalize once into an SDR, BT.709, H.264 MP4 for the rest of the flow
-    const targetWidth = props.width > 0 ? props.width : 1080;
-    const targetHeight = props.height > 0 ? props.height : 1920;
-
-    const tempDir = new Directory(Paths.cache, `video_edit_normalize_${Date.now()}`);
-    tempDir.create({ intermediates: true, idempotent: true });
-    const outputFile = new File(tempDir, `normalized_edit_${Date.now()}.mp4`);
-
-    const normalizedPath = await this.normalizeVideoFormat(
-      standardizedPath,
-      outputFile.uri,
-      targetWidth,
-      targetHeight,
-      MERGE_TARGET_FPS
-    );
-
-    return ensureFileUri(normalizedPath);
-  }
-
-  /**
-   * Quick compatibility check to skip unnecessary normalization work
-   */
-  static async isVideoCompatible(
-    videoPath: string,
-    asset?: ImagePicker.ImagePickerAsset
-  ): Promise<boolean> {
-    try {
-      const standardized = await this.standardizeVideoPath(videoPath, asset);
-      const localPath = normalizePathForNative(standardized);
-      const props = await this.analyzeVideoProperties(localPath, asset);
-
-      const codec = (props.codec || '').toLowerCase();
-      const codecOk = codec.includes('264') || codec.includes('avc');
-      const frameRateOk = props.frameRate <= 60;
-      const resolutionOk = Math.max(props.width, props.height) <= 1920;
-
-      return codecOk && frameRateOk && resolutionOk;
-    } catch (_error) {
-      logger.warn('Failed to check video compatibility', { component: 'VideoProcessingService' });
-      return false;
-    }
   }
 
   /**
@@ -448,441 +376,38 @@ class VideoProcessingService {
     }
   }
 
-  /**
-   * Gets local video path from MediaLibrary if assetId is provided (for iCloud videos on iOS)
-   * Falls back to provided videoPath if MediaLibrary lookup fails
-   */
-  private static async getLocalVideoPath(
-    videoPath: string,
-    assetId?: string | null
-  ): Promise<string> {
-    let localVideoPath = videoPath;
-
-    if (assetId && Platform.OS === 'ios') {
-      try {
-        const assetInfo = await MediaLibrary.getAssetInfoAsync(assetId, {
-          shouldDownloadFromNetwork: true,
-        });
-        if (assetInfo.localUri) {
-          localVideoPath = assetInfo.localUri;
-        }
-      } catch (_mediaError) {
-        logger.warn('Failed to get asset from MediaLibrary, using provided path', {
-          component: 'VideoProcessingService',
-        });
-      }
+  private static pickerDimensions(video: VideoSegmentSource): { width: number; height: number } {
+    if (
+      'width' in video &&
+      'height' in video &&
+      typeof video.width === 'number' &&
+      typeof video.height === 'number' &&
+      video.width > 0 &&
+      video.height > 0
+    ) {
+      return { width: video.width, height: video.height };
     }
-
-    return localVideoPath;
+    return { width: 0, height: 0 };
   }
 
   /**
-   * Validates that a video file exists and returns the File object
+   * Helper to extract video duration from picker asset or camera `{ uri }` ref.
    */
-  private static async validateVideoFileExists(videoPath: string): Promise<File> {
-    const file = new File(videoPath);
-    if (!file.exists) {
-      throw new Error('Video file does not exist');
-    }
-    return file;
-  }
-
-  /**
-   * Helper to extract video path from ImagePickerAsset or ExpoCameraVideo
-   */
-  private static getVideoPath(video: ImagePicker.ImagePickerAsset | ExpoCameraVideo): string {
-    if ('uri' in video) {
-      return video.uri;
-    }
-    // Fallback (shouldn't happen)
-    return '';
-  }
-
-  /**
-   * Helper to extract video duration from ImagePickerAsset or ExpoCameraVideo
-   */
-  private static getVideoDuration(video: ImagePicker.ImagePickerAsset | ExpoCameraVideo): number {
-    if ('uri' in video) {
-      // Check if it's ImagePickerAsset (has duration property)
-      if ('duration' in video && video.duration) {
-        // ImagePickerAsset duration is in milliseconds
-        return video.duration > 1000 ? video.duration / 1000 : video.duration;
-      }
-      // ExpoCameraVideo doesn't have duration, return 0 (will be calculated from video file)
-      return 0;
+  private static getVideoDuration(video: VideoSegmentSource): number {
+    if (!('uri' in video)) return 0;
+    if (
+      'duration' in video &&
+      typeof video.duration === 'number' &&
+      Number.isFinite(video.duration) &&
+      video.duration > 0
+    ) {
+      return this.pickerDurationMsToSeconds(video.duration);
     }
     return 0;
   }
 
   /**
-   * Analyzes video properties using FFprobe with fallback to metadata extraction
-   * Returns actual codec, resolution, frame rate, and other properties
-   */
-  private static async analyzeVideoProperties(
-    videoPath: string,
-    asset?: ImagePicker.ImagePickerAsset
-  ): Promise<VideoProperties> {
-    try {
-      // Helper to determine if a stream is HDR based on common FFmpeg color fields
-      const detectHdr = (colorPrimaries?: string, colorTransfer?: string): boolean => {
-        const prim = (colorPrimaries || '').toLowerCase();
-        const trans = (colorTransfer || '').toLowerCase();
-        // Common HDR indicators:
-        // - BT.2020 primaries
-        // - PQ (SMPTE 2084) transfer
-        // - HLG (ARIB STD-B67) transfer
-        const isBt2020 = prim.includes('2020');
-        const isPQ = trans.includes('2084') || trans.includes('pq');
-        const isHLG = trans.includes('hlg') || trans.includes('arib-std-b67');
-        return isBt2020 || isPQ || isHLG;
-      };
-
-      // Normalize path for FFprobe
-      const normalizedPath = normalizePathForNative(videoPath);
-
-      // Try FFprobe first if available
-      if (FFprobeKit) {
-        try {
-          // Use FFprobe to get media information
-          // Try getMediaInformation method (if available in the API)
-          type MediaInfo = {
-            getStreams?: () => unknown[];
-            streams?: unknown[];
-            getDuration?: () => number;
-            duration?: number;
-          };
-          let mediaInfo: MediaInfo | null = null;
-
-          if (typeof FFprobeKit.getMediaInformation === 'function') {
-            // FFprobe operations are already async and run in background threads
-            mediaInfo = await FFprobeKit.getMediaInformation(normalizedPath);
-          } else if (typeof FFprobeKit.execute === 'function') {
-            // Alternative: use FFprobe execute with JSON output
-            const probeCommand = `-v error -select_streams v:0 -show_entries stream=width,height,codec_name,r_frame_rate,duration,color_space,color_transfer,color_primaries -show_entries format=duration -of json "${normalizedPath}"`;
-            // FFprobe operations are already async and run in background threads
-            const session = await FFprobeKit.execute(probeCommand);
-            const returnCode = await session.getReturnCode();
-
-            if (ReturnCode && ReturnCode.isSuccess(returnCode)) {
-              const output = await session.getOutput();
-              try {
-                const jsonOutput = JSON.parse(output);
-                if (jsonOutput.streams && jsonOutput.streams.length > 0) {
-                  const stream = jsonOutput.streams[0];
-                  const format = jsonOutput.format || {};
-
-                  const width = stream.width || 0;
-                  const height = stream.height || 0;
-                  const codec = (stream.codec_name || 'h264').toLowerCase();
-                  const rFrameRate = stream.r_frame_rate || '30/1';
-                  const duration = parseFloat(format.duration || stream.duration || '0');
-                  const colorSpace = stream.color_space || undefined;
-                  const colorTransfer = stream.color_transfer || undefined;
-                  const colorPrimaries = stream.color_primaries || undefined;
-
-                  // Parse frame rate (format: "30/1" or "29.97")
-                  let frameRate = 30;
-                  if (rFrameRate.includes('/')) {
-                    const [num, den] = rFrameRate.split('/').map(Number);
-                    frameRate = den > 0 ? num / den : 30;
-                  } else {
-                    frameRate = parseFloat(rFrameRate) || 30;
-                  }
-
-                  return {
-                    width,
-                    height,
-                    frameRate: Math.round(frameRate),
-                    codec,
-                    duration: duration || 0,
-                    colorSpace,
-                    colorTransfer,
-                    colorPrimaries,
-                    isHdr: detectHdr(colorPrimaries, colorTransfer),
-                  };
-                }
-              } catch (_parseError) {
-                // JSON parse failed, fall through to metadata extraction
-              }
-            }
-          }
-
-          // Try direct media info access if available
-          if (mediaInfo) {
-            const streams = mediaInfo.getStreams?.() || mediaInfo.streams || [];
-            type StreamLike = {
-              getCodecType?: () => string;
-              codec_type?: string;
-              getWidth?: () => number;
-              width?: number;
-              getHeight?: () => number;
-              height?: number;
-              getCodec?: () => string;
-              codec?: string;
-              getRealFrameRate?: () => string;
-              r_frame_rate?: string;
-              getColorSpace?: () => string;
-              color_space?: string;
-              getColorTransfer?: () => string;
-              color_transfer?: string;
-              getColorPrimaries?: () => string;
-              color_primaries?: string;
-            };
-            const videoStream = streams.find(
-              (s: unknown) =>
-                (s as StreamLike).getCodecType?.() === 'video' ||
-                (s as StreamLike).codec_type === 'video'
-            ) as StreamLike | undefined;
-
-            if (videoStream) {
-              const width = videoStream.getWidth?.() || videoStream.width || 0;
-              const height = videoStream.getHeight?.() || videoStream.height || 0;
-              const codec = (videoStream.getCodec?.() || videoStream.codec || 'h264').toLowerCase();
-              const rFrameRate =
-                videoStream.getRealFrameRate?.() || videoStream.r_frame_rate || '30/1';
-              const duration = (mediaInfo.getDuration?.() || mediaInfo.duration || 0) / 1000;
-              const colorSpace =
-                videoStream.getColorSpace?.() || videoStream.color_space || undefined;
-              const colorTransfer =
-                videoStream.getColorTransfer?.() || videoStream.color_transfer || undefined;
-              const colorPrimaries =
-                videoStream.getColorPrimaries?.() || videoStream.color_primaries || undefined;
-
-              // Parse frame rate (format: "30/1" or "29.97")
-              let frameRate = 30;
-              if (rFrameRate.includes('/')) {
-                const [num, den] = rFrameRate.split('/').map(Number);
-                frameRate = den > 0 ? num / den : 30;
-              } else {
-                frameRate = parseFloat(rFrameRate) || 30;
-              }
-
-              return {
-                width,
-                height,
-                frameRate: Math.round(frameRate),
-                codec,
-                duration: duration || 0,
-                colorSpace,
-                colorTransfer,
-                colorPrimaries,
-                isHdr: detectHdr(colorPrimaries, colorTransfer),
-              };
-            }
-          }
-        } catch (ffprobeError) {
-          logger.warn('FFprobe analysis failed, falling back to metadata', {
-            component: 'VideoProcessingService',
-            error: ffprobeError,
-          });
-        }
-      }
-
-      // Fallback to existing metadata extraction
-      const videoInfo = await this.getVideoInfo(videoPath, asset);
-      return {
-        width: videoInfo.width,
-        height: videoInfo.height,
-        frameRate: videoInfo.frameRate,
-        codec: videoInfo.codec,
-        duration: videoInfo.duration,
-        bitrate: videoInfo.bitrate,
-        isHdr: false,
-      };
-    } catch (error) {
-      logger.error('Error analyzing video properties', error, {
-        component: 'VideoProcessingService',
-      });
-
-      // Final fallback with defaults
-      return {
-        width: asset?.width || 1080,
-        height: asset?.height || 1920,
-        frameRate: 30,
-        codec: 'h264',
-        duration: asset?.duration
-          ? asset.duration > 1000
-            ? asset.duration / 1000
-            : asset.duration
-          : 10,
-      };
-    }
-  }
-
-  /**
-   * Normalizes a video to target format (H.264, target resolution, ~30fps)
-   * Prefers hardware-accelerated encoding (expo-image-and-video-compressor) for SDR sources;
-   * HDR→SDR and hardware failures fall back to FFmpeg.
-   */
-  private static async normalizeVideoFormat(
-    inputPath: string,
-    outputPath: string,
-    targetWidth: number,
-    targetHeight: number,
-    targetFrameRate: number = 30
-  ): Promise<string> {
-    try {
-      const normalizedInput = normalizePathForNative(inputPath);
-      const normalizedOutput = normalizePathForNative(outputPath);
-      const inputProps = await this.analyzeVideoProperties(inputPath);
-
-      const isMp4Container = normalizedInput.toLowerCase().endsWith('.mp4');
-      const needsNormalization =
-        !isMp4Container ||
-        inputProps.codec !== 'h264' ||
-        inputProps.width !== targetWidth ||
-        inputProps.height !== targetHeight ||
-        Math.abs(inputProps.frameRate - targetFrameRate) > 0.5;
-
-      if (!needsNormalization) {
-        const inputFile = new File(normalizedInput);
-        const outputFile = new File(normalizedOutput);
-        inputFile.copy(outputFile);
-        return ensureFileUri(outputPath);
-      }
-
-      const isHdr = !!inputProps.isHdr;
-
-      if (!isHdr) {
-        try {
-          const qualityKey = this.getQualityStandard(targetWidth, targetHeight);
-          const standard =
-            qualityKey === 'custom'
-              ? VIDEO_QUALITY_STANDARDS['1080p']
-              : VIDEO_QUALITY_STANDARDS[qualityKey];
-          const compressedUri = await compressVideoHardware(ensureFileUri(normalizedInput), {
-            maxSize: Math.max(targetWidth, targetHeight, 1),
-            bitrate: standard.bitrate,
-            codec: 'h264',
-            speed: 'fast',
-            minimumFileSizeForCompress: 0,
-          });
-          const compressedFile = new File(normalizePathForNative(compressedUri));
-          const outputFile = new File(normalizedOutput);
-          compressedFile.copy(outputFile);
-          if (!outputFile.exists) {
-            throw new Error('Hardware compression output missing after copy');
-          }
-          return ensureFileUri(normalizedOutput);
-        } catch (hwError) {
-          logger.warn('Hardware-accelerated video normalization failed, falling back to FFmpeg', {
-            component: 'VideoProcessingService',
-            error: hwError,
-          });
-        }
-      }
-
-      if (!FFmpegKit || !ReturnCode) {
-        throw new Error('FFmpegKit is not available');
-      }
-
-      const scaleAndPadFilter =
-        `scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease,` +
-        `pad=${targetWidth}:${targetHeight}:(ow-iw)/2:(oh-ih)/2`;
-
-      const hdrTonemapFilter =
-        'zscale=t=linear:npl=100,' +
-        'format=gbrpf32le,' +
-        'tonemap=tonemap=gamma:param=1.2:desat=0:peak=15,' +
-        'zscale=primaries=bt709:transfer=bt709:matrix=bt709:range=limited,' +
-        `${scaleAndPadFilter},` +
-        'format=yuv420p';
-
-      const videoFilter = isHdr ? hdrTonemapFilter : `${scaleAndPadFilter},format=yuv420p`;
-
-      const ffmpegCommand =
-        `-i "${normalizedInput}" ` +
-        `-vf "${videoFilter}" ` +
-        `-r ${targetFrameRate} -c:v libx264 -preset medium -crf 23 -c:a aac -b:a 128k -movflags +faststart "${normalizedOutput}"`;
-
-      const session = await FFmpegKit.execute(ffmpegCommand);
-      const returnCode = await session.getReturnCode();
-      if (ReturnCode.isCancel(returnCode)) throw new Error('FFmpeg operation cancelled');
-      if (ReturnCode.isSuccess(returnCode)) {
-        const outputFile = new File(normalizedOutput);
-        if (!outputFile.exists) {
-          throw new Error('Normalization completed but output file not found');
-        }
-
-        return ensureFileUri(normalizedOutput);
-      } else {
-        const failStackTrace = await session.getFailStackTrace();
-        const output = await session.getOutput();
-        logger.error('Video normalization failed', {
-          component: 'VideoProcessingService',
-          returnCode,
-          failStackTrace,
-          output,
-        });
-        throw new Error(
-          `Video normalization failed: ${failStackTrace || output || 'Unknown error'}`
-        );
-      }
-    } catch (error) {
-      logger.error('Error normalizing video format', error, {
-        component: 'VideoProcessingService',
-      });
-      throw error;
-    }
-  }
-
-  /**
-   * Normalizes a single video to standard format (MP4, H.264)
-   * Handles all video types (camera, gallery, etc.) and ensures consistent format
-   *
-   * @param video - Video from ImagePickerAsset or ExpoCameraVideo
-   * @returns Promise resolving to normalized video with standard format
-   */
-  static async normalizeVideo(
-    video: ImagePicker.ImagePickerAsset | ExpoCameraVideo
-  ): Promise<ProcessedVideo> {
-    const videoPath = this.getVideoPath(video);
-
-    // Handle iCloud videos on iOS
-    const assetId = 'assetId' in video ? video.assetId : null;
-    let localVideoPath = await this.getLocalVideoPath(videoPath, assetId);
-
-    // Strip fragment identifier from path (iOS asset URIs may include #...)
-    localVideoPath = stripPathFragment(localVideoPath);
-
-    // Analyze video to determine target resolution
-    const asset = 'assetId' in video ? (video as ImagePicker.ImagePickerAsset) : undefined;
-    const videoProps = await this.analyzeVideoProperties(localVideoPath, asset);
-    const targetWidth = videoProps.width > 0 ? videoProps.width : 1080;
-    const targetHeight = videoProps.height > 0 ? videoProps.height : 1920;
-
-    const tempDir = new Directory(Paths.cache, `video_normalize_${Date.now()}`);
-    tempDir.create({ intermediates: true, idempotent: true });
-    const outputFile = new File(tempDir, `normalized_${Date.now()}.mp4`);
-
-    const normalizedPath = await this.normalizeVideoFormat(
-      localVideoPath,
-      outputFile.uri,
-      targetWidth,
-      targetHeight,
-      MERGE_TARGET_FPS
-    );
-
-    const finalPath = ensureFileUri(normalizedPath);
-
-    // Verify normalized file exists
-    const normalizedFile = new File(normalizePathForNative(finalPath));
-    if (!normalizedFile.exists) {
-      throw new Error('Normalized video file was not created');
-    }
-
-    return {
-      path: finalPath,
-      duration: this.getVideoDuration(video),
-      width: targetWidth,
-      height: targetHeight,
-    };
-  }
-
-  /**
-   * Merges multiple video segments into a single video file
-   * Uses FFmpeg complex filter for clean merging without audio/video sync glitches
-   * from mixing different clip formats (camera vs uploaded, variable vs fixed frame rates)
+   * Merges multiple video segments via `react-native-fast-video-merge` (native AVAssetExportSession).
    */
   static async mergeSegments(segments: VideoSegment[]): Promise<ProcessedVideo> {
     if (segments.length === 0) {
@@ -907,23 +432,38 @@ class VideoProcessingService {
    * This avoids unnecessary client-side transcode work before posting.
    */
   private static async prepareSingleSegment(segment: VideoSegment): Promise<ProcessedVideo> {
-    const originalVideoPath = this.getVideoPath(segment.video);
+    const originalVideoPath = getVideoSegmentSourceUri(segment.video);
     const assetId = 'assetId' in segment.video ? segment.video.assetId : null;
-    const localPath = await this.getLocalVideoPath(originalVideoPath, assetId);
-    const outputPath = ensureFileUri(stripPathFragment(localPath));
-    const outputFile = new File(normalizePathForNative(outputPath));
-
-    if (!outputFile.exists) {
+    const pathInfo = await resolveVideoPath(originalVideoPath, assetId);
+    if (!pathInfo.exists || !pathInfo.uri) {
       throw new Error('Single segment video file does not exist');
     }
+    const outputPath = pathInfo.uri;
 
+    const picked = this.pickerDimensions(segment.video);
     const fallbackDuration = this.getVideoDuration(segment.video);
-    const duration = segment.duration > 0 ? segment.duration : fallbackDuration;
+    let duration = segment.duration > 0 ? segment.duration : fallbackDuration;
+
+    const probed = await this.probeLocalVideoWithExpoPlayer(outputPath);
+    if (duration <= 0 && probed && probed.duration > 0) {
+      duration = probed.duration;
+    }
+
+    const width = probed && probed.width > 0 ? probed.width : picked.width;
+    const height = probed && probed.height > 0 ? probed.height : picked.height;
+
+    if (width <= 0 || height <= 0) {
+      throw new Error('Could not determine video dimensions');
+    }
+    if (duration <= 0) {
+      throw new Error('Could not determine video duration');
+    }
+
     return {
       path: outputPath,
-      duration: duration > 0 ? duration : 0,
-      width: 1080,
-      height: 1920,
+      duration,
+      width,
+      height,
     };
   }
 
@@ -941,11 +481,16 @@ class VideoProcessingService {
     try {
       const segmentPaths: string[] = [];
       for (const segment of segments) {
-        const originalVideoPath = this.getVideoPath(segment.video);
+        const originalVideoPath = getVideoSegmentSourceUri(segment.video);
         const assetId = 'assetId' in segment.video ? segment.video.assetId : null;
-        const localPath = await this.getLocalVideoPath(originalVideoPath, assetId);
-        const normalizedPath = normalizePathForNative(stripPathFragment(localPath));
-        segmentPaths.push(normalizedPath);
+        const pathInfo = await resolveVideoPath(originalVideoPath, assetId);
+        if (!pathInfo.exists || !pathInfo.localPath) {
+          logger.warn('Fast merge: segment path could not be resolved', {
+            component: 'VideoProcessingService',
+          });
+          return null;
+        }
+        segmentPaths.push(normalizePathForNative(stripPathFragment(pathInfo.localPath)));
       }
 
       let mergedPath = await processAndMergeVideos(segmentPaths.map(path => ({ path })));
@@ -966,7 +511,15 @@ class VideoProcessingService {
         return null;
       }
 
-      const totalDuration = segments.reduce((sum, segment) => sum + segment.duration, 0);
+      const probed = await this.probeLocalVideoWithExpoPlayer(outputPath);
+      if (!probed || probed.duration <= 0 || probed.width <= 0 || probed.height <= 0) {
+        logger.warn('Fast merge: could not probe merged output', {
+          component: 'VideoProcessingService',
+          outputPath,
+        });
+        return null;
+      }
+
       logger.info('Merged segments with fast merge SDK', {
         component: 'VideoProcessingService',
         segmentCount: segments.length,
@@ -974,14 +527,14 @@ class VideoProcessingService {
       });
       return {
         path: outputPath,
-        duration: totalDuration,
-        width: 1080,
-        height: 1920,
+        duration: probed.duration,
+        width: probed.width,
+        height: probed.height,
       };
-    } catch (error) {
+    } catch (error: unknown) {
       logger.warn('Fast merge SDK failed', {
         component: 'VideoProcessingService',
-        error,
+        error: error instanceof Error ? error.message : String(error),
       });
       return null;
     }
@@ -992,9 +545,7 @@ class VideoProcessingService {
    */
   static async validateVideoFile(videoPath: string, assetId?: string | null): Promise<boolean> {
     try {
-      const localVideoPath = await this.getLocalVideoPath(videoPath, assetId);
-      const file = new File(localVideoPath);
-      return file.exists;
+      return await isValidVideoPath(videoPath, assetId ?? null);
     } catch (error) {
       logger.error('Error validating video file', error, { component: 'VideoProcessingService' });
       return false;
@@ -1007,11 +558,12 @@ class VideoProcessingService {
    * @returns Formatted size string (e.g., "2.5 MB")
    */
   static formatFileSize(bytes: number): string {
+    if (!Number.isFinite(bytes) || bytes < 0) return '0 B';
     if (bytes === 0) return '0 B';
 
     const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    const sizes = ['B', 'KB', 'MB', 'GB'] as const;
+    const i = Math.min(sizes.length - 1, Math.max(0, Math.floor(Math.log(bytes) / Math.log(k))));
 
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
@@ -1030,13 +582,11 @@ class VideoProcessingService {
     options?: { quality?: number }
   ): Promise<string> {
     try {
-      let localVideoPath: string;
-      if (videoPath.includes('video_sandbox') || videoPath.includes('Library/Caches')) {
-        localVideoPath = videoPath;
-      } else {
-        localVideoPath = await this.getLocalVideoPath(videoPath, assetId);
+      const pathInfo = await resolveVideoPath(videoPath, assetId ?? null);
+      if (!pathInfo.exists || !pathInfo.uri) {
+        throw new Error('Video file does not exist');
       }
-      const videoUri = ensureFileUri(localVideoPath);
+      const videoUri = pathInfo.uri;
 
       const quality = options?.quality ?? 0.8;
       // Extract the very first frame (0ms). Lower quality (e.g. 0.5) for fast preview background.
@@ -1072,13 +622,11 @@ class VideoProcessingService {
 
     const pending = (async (): Promise<string> => {
       try {
-        let localVideoPath: string;
-        if (videoPath.includes('video_sandbox') || videoPath.includes('Library/Caches')) {
-          localVideoPath = videoPath;
-        } else {
-          localVideoPath = await VideoProcessingService.getLocalVideoPath(videoPath, assetId);
+        const pathInfo = await resolveVideoPath(videoPath, assetId ?? null);
+        if (!pathInfo.exists || !pathInfo.uri) {
+          throw new Error('Video file does not exist');
         }
-        const videoUri = ensureFileUri(localVideoPath);
+        const videoUri = pathInfo.uri;
 
         const timeMs = Math.max(0, Math.round((durationSeconds - 0.001) * 1000));
 
@@ -1086,7 +634,7 @@ class VideoProcessingService {
           time: timeMs,
           quality: 0.5,
         });
-        return uri;
+        return ensureFileUri(uri);
       } catch (error) {
         extractLastFrameByKey.delete(cacheKey);
         logger.error('Error extracting last frame', error, { component: 'VideoProcessingService' });

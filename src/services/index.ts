@@ -1,7 +1,13 @@
 // Export all services from a centralized location
 
-// API Services
-export { AtprotoService } from './api/AtprotoService';
+// API services
+export { AtprotoCore } from './api/core';
+export { AtprotoFeedService } from './api/feed/FeedService';
+export { ActorService } from './api/actor/ActorService';
+export { GraphService } from './api/graph/GraphService';
+export { RepoService } from './api/repo/RepoService';
+export { NotificationService } from './api/notification/NotificationService';
+export { BookmarkService } from './api/bookmark/BookmarkService';
 export { default as OrbytBannerService } from './OrbytBannerService';
 
 // Auth Services
@@ -18,4 +24,7 @@ export { default as ProfileService } from './data/ProfileService';
 
 // Other Services
 export { ModerationService } from './moderation/ModerationService';
-export { default as VideoProcessingService } from './video/VideoProcessingService';
+export {
+  default as VideoProcessingService,
+  getVideoSegmentSourceUri,
+} from './video/VideoProcessingService';

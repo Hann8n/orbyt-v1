@@ -17,7 +17,7 @@ import { Agent } from '@atproto/api';
 import { getOAuthClient, REQUIRED_OAUTH_SCOPES } from '../services/auth';
 import type { OAuthSession } from '@atproto/oauth-client';
 import ProfileService from '../services/data/ProfileService';
-import { AtprotoService } from '../services/api/AtprotoService';
+import { RepoService } from '../services/api/repo/RepoService';
 import { isUserCancellation, getErrorMessage } from '../utils/errors/errorHandler';
 import { requiresReauth } from '../utils/errors/oauth';
 import { logger } from '../utils/logger';
@@ -37,6 +37,7 @@ import {
 import { getProfileColors, getProfileMiddleAccentColor } from '../utils/formatting/colors';
 import type { ProfileColorScheme } from '../utils/formatting/colors';
 import { APP_CONSTANTS, DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI } from '../utils/constants';
+import { setAtprotoSession } from '../services/api/agentBridge';
 import { Platform } from 'react-native';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
 
@@ -392,13 +393,59 @@ const deferOrbytProfileInit = (context: string = 'userStore') => {
   requestIdleCallback(
     async () => {
       try {
-        await AtprotoService.initOrbytProfileIfNeeded();
+        await RepoService.initOrbytProfileIfNeeded();
       } catch (error) {
         logger.debug(`Failed to initialize orbyt profile (${context})`, {
           component: 'userStore',
           error,
         });
       }
+    },
+    { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
+  );
+};
+
+const COLORS_PREFETCH_COOLDOWN_MS = 60 * 60 * 1000;
+
+/** Defer following-list color prefetch until feed bootstrap is ready; throttle to once per hour per DID. */
+const schedulePrefetchOrbytColorsAfterFeedReady = (userDid: string) => {
+  const lastRunKey = getUserScopedKey('orbyt_colors_prefetch_at', userDid);
+
+  requestIdleCallback(
+    () => {
+      const runPrefetch = () => {
+        const last = storage.getNumber(lastRunKey);
+        if (last !== undefined && Date.now() - last < COLORS_PREFETCH_COOLDOWN_MS) {
+          return;
+        }
+        void prefetchColorsForUser(userDid).then(colors => {
+          if (!colors) return;
+          const latest = useUserStore.getState();
+          if (latest.currentUser?.did !== userDid) return;
+          storage.set(lastRunKey, Date.now());
+          latest.setCurrentUserProfileColors(getProfileColors(colors));
+        });
+      };
+
+      const st = useUserStore.getState();
+      if (st.feedBootstrapStatus === 'ready' && st.feedBootstrapDid === userDid) {
+        runPrefetch();
+        return;
+      }
+
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        unsub();
+      };
+      const unsub = useUserStore.subscribe(s => {
+        if (s.feedBootstrapStatus === 'ready' && s.feedBootstrapDid === userDid) {
+          finish();
+          runPrefetch();
+        }
+      });
+      setTimeout(finish, 120_000);
     },
     { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
   );
@@ -597,9 +644,7 @@ export const useUserStore = create<UserState>()(
 
             await get().bootstrapUserFeedSettings(session.did);
 
-            prefetchColorsForUser(session.did).then(colors => {
-              if (colors) setCurrentUserProfileTheme(getProfileColors(colors));
-            });
+            schedulePrefetchOrbytColorsAfterFeedReady(session.did);
           } catch (error) {
             // Handle user cancellation silently
             if (isUserCancellation(error)) {
@@ -849,9 +894,7 @@ export const useUserStore = create<UserState>()(
             // Defer until after interactions complete to improve startup performance
             deferOrbytProfileInit('restoreSession');
 
-            prefetchColorsForUser(session.did).then(colors => {
-              if (colors) setCurrentUserProfileTheme(getProfileColors(colors));
-            });
+            schedulePrefetchOrbytColorsAfterFeedReady(session.did);
 
             // Load and clean subscribed channels after session restore
             // Skip if called from account switch (settings will be loaded once after)
@@ -1234,7 +1277,7 @@ export const useUserStore = create<UserState>()(
             // Sync subscribed channels to orbyt profile record (best-effort)
             try {
               const urisToSync = filterBuiltInChannels(get().subscribedChannels.map(ch => ch.uri));
-              await AtprotoService.updateOrbytProfileChannels(urisToSync);
+              await RepoService.updateOrbytProfileChannels(urisToSync);
             } catch {
               // Best-effort sync, ignore errors
             }
@@ -1277,7 +1320,7 @@ export const useUserStore = create<UserState>()(
             // Sync subscribed channels to orbyt profile record (best-effort)
             try {
               const urisToSync = filterBuiltInChannels(updatedChannels.map(ch => ch.uri));
-              await AtprotoService.updateOrbytProfileChannels(urisToSync);
+              await RepoService.updateOrbytProfileChannels(urisToSync);
             } catch {
               // Best-effort sync, ignore errors
             }
@@ -1361,7 +1404,7 @@ export const useUserStore = create<UserState>()(
             // Sync subscribed channels to orbyt profile record (best-effort)
             try {
               const urisToSync = filterBuiltInChannels(get().subscribedChannels.map(ch => ch.uri));
-              await AtprotoService.updateOrbytProfileChannels(urisToSync);
+              await RepoService.updateOrbytProfileChannels(urisToSync);
             } catch {
               // Best-effort sync, ignore errors
             }
@@ -1402,7 +1445,7 @@ export const useUserStore = create<UserState>()(
             // Sync subscribed channels to orbyt profile record (best-effort)
             try {
               const urisToSync = filterBuiltInChannels(updatedChannels.map(ch => ch.uri));
-              await AtprotoService.updateOrbytProfileChannels(urisToSync);
+              await RepoService.updateOrbytProfileChannels(urisToSync);
             } catch {
               // Best-effort sync, ignore errors
             }
@@ -1455,7 +1498,7 @@ export const useUserStore = create<UserState>()(
 
             // Sync algorithmic feed provider to orbyt profile record (best-effort)
             try {
-              await AtprotoService.updateOrbytProfileAlgorithmicFeedProvider(uri);
+              await RepoService.updateOrbytProfileAlgorithmicFeedProvider(uri);
             } catch {
               // Best-effort sync, ignore errors
             }
@@ -1819,7 +1862,7 @@ export const useUserStore = create<UserState>()(
           // Fetch once and fan out to settings/channels loaders to avoid duplicate record requests.
           let orbytProfileRecord: OrbytProfileRecord | null = null;
           try {
-            orbytProfileRecord = (await AtprotoService.getOrbytProfileRecordForDid(
+            orbytProfileRecord = (await RepoService.getOrbytProfileRecordForDid(
               did
             )) as OrbytProfileRecord | null;
           } catch {
@@ -1873,7 +1916,7 @@ export const useUserStore = create<UserState>()(
               const record =
                 orbytProfileRecord !== undefined
                   ? orbytProfileRecord
-                  : await AtprotoService.getOrbytProfileRecordForDid(did);
+                  : await RepoService.getOrbytProfileRecordForDid(did);
               // Use API structure directly - OrbytProfileRecord.algorithmicFeedProvider is string | null | undefined
               const remoteProvider = (record as OrbytProfileRecord)?.algorithmicFeedProvider;
 
@@ -1947,7 +1990,7 @@ export const useUserStore = create<UserState>()(
               const record =
                 orbytProfileRecord !== undefined
                   ? orbytProfileRecord
-                  : await AtprotoService.getOrbytProfileRecordForDid(did);
+                  : await RepoService.getOrbytProfileRecordForDid(did);
               // Use API structure directly - OrbytProfileRecord.subscribedChannels is string[] | undefined
               const remoteUris: string[] = Array.isArray(
                 (record as OrbytProfileRecord)?.subscribedChannels
@@ -1992,7 +2035,7 @@ export const useUserStore = create<UserState>()(
             // This ensures the profile record is cleaned even if it previously had built-ins
             const urisToSync = filterBuiltInChannels(filteredChannels.map(ch => ch.uri));
             // Always update to ensure profile record is clean; run in background so startup cannot stall.
-            void AtprotoService.updateOrbytProfileChannels(urisToSync).catch(error => {
+            void RepoService.updateOrbytProfileChannels(urisToSync).catch(error => {
               logger.warn('Failed to clean profile record of built-in channels', {
                 component: 'userStore',
                 error: error instanceof Error ? error.message : String(error),
@@ -2058,6 +2101,13 @@ export const useUserStore = create<UserState>()(
     }
   )
 );
+
+const syncAtprotoBridgeFromUserState = (state: UserState) => {
+  setAtprotoSession(state.agent, state.currentUser?.did ?? null);
+};
+
+syncAtprotoBridgeFromUserState(useUserStore.getState());
+useUserStore.subscribe(syncAtprotoBridgeFromUserState);
 
 export const selectIsSessionValid = (state: UserState): boolean =>
   hasAuthoritativeSdkSession(state.oauthSession, state.currentUser?.did ?? null);

@@ -1,5 +1,5 @@
 import { storage } from '../../utils/storage/storage';
-import AtprotoService from '../api/AtprotoService';
+import { AtprotoFeedService } from '../api/feed/FeedService';
 import { extractColorsFromImage, darkenColor } from '../../utils/formatting/colors';
 import { useQuery, useMutation, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { Colors } from '../../theme';
@@ -156,7 +156,7 @@ class ChannelService {
 
     // Async operations already run off the main thread - no delay needed
     try {
-      const channel = await AtprotoService.getFeedGenerator(uri);
+      const channel = await AtprotoFeedService.getFeedGenerator(uri);
       if (!channel) {
         return null;
       }

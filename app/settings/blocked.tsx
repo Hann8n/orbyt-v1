@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import ListScreen from '@/components/ui/ListScreen';
-import AtprotoService from '@/services/api/AtprotoService';
+import { GraphService } from '@/services/api/graph/GraphService';
+import { ActorService } from '@/services/api/actor/ActorService';
 import { logger } from '@/utils/logger';
 
 interface BlockedUser {
@@ -24,13 +25,13 @@ const BlockedUsersScreen: React.FC = () => {
   const loadBlockedUsers = async () => {
     try {
       setLoading(true);
-      const blockedDids = await AtprotoService.getBlockedUsersFromAPI();
+      const blockedDids = await GraphService.getBlockedUsersFromAPI();
 
       // Convert string[] to BlockedUser objects
       const userPromises = blockedDids.map(async (did: string) => {
         try {
           // Try to get profile info for each blocked user
-          const profile = await AtprotoService.getProfile(did);
+          const profile = await ActorService.getProfileByDid(did);
           return {
             did,
             handle: profile?.handle || did,
@@ -60,7 +61,7 @@ const BlockedUsersScreen: React.FC = () => {
   const handleUnblockUser = async (user: BlockedUser) => {
     try {
       setUnblockingUsers(prev => new Set(prev).add(user.did));
-      await AtprotoService.unblockUser(user.did);
+      await GraphService.unblockUser(user.did);
       setBlockedUsers(prev => prev.filter(blockedUser => blockedUser.did !== user.did));
     } catch (error) {
       logger.error('Error unblocking user', error, { component: 'BlockedUsersScreen' });

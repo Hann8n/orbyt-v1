@@ -4,8 +4,9 @@
 import { AppBskyFeedDefs } from '@atproto/api';
 import { AtprotoCore } from '../core';
 import { deduplicateRequest } from '../inFlightDedup';
-import { storage } from '../../../utils/storage/storage';
 import { logger } from '../../../utils/logger';
+import { ALGORITHMIC_FEED_PROVIDERS } from '../../../utils/constants';
+import { setVideoFeedbackInStorage } from './videoFeedbackStorage';
 import type { Interaction } from '../types';
 import {
   getFeedInteractionsSupported,
@@ -56,7 +57,7 @@ function logInteractionDiagnosticOnce(
 export async function likePost(uri: string, cid: string): Promise<string> {
   const cacheKey = `like:${uri}:${cid}`;
   return deduplicateRequest(cacheKey, async () => {
-    const userDid = await AtprotoCore.getCurrentUserDid();
+    const userDid = AtprotoCore.getCurrentUserDid();
     if (!userDid) throw new Error('No authenticated user');
 
     const record = {
@@ -77,7 +78,7 @@ export async function likePost(uri: string, cid: string): Promise<string> {
 export async function deleteLike(likeUri: string): Promise<void> {
   await AtprotoCore.ensureSession();
   const { api } = await AtprotoCore.getApiClient();
-  const userDid = await AtprotoCore.getCurrentUserDid();
+  const userDid = AtprotoCore.getCurrentUserDid();
   if (!userDid) throw new Error('No authenticated user');
   const parts = likeUri.split('/');
   const rkey = parts[parts.length - 1];
@@ -93,7 +94,7 @@ export async function deleteLike(likeUri: string): Promise<void> {
 export async function repostPost(uri: string, cid: string): Promise<string> {
   const cacheKey = `repost:${uri}:${cid}`;
   return deduplicateRequest(cacheKey, async () => {
-    const userDid = await AtprotoCore.getCurrentUserDid();
+    const userDid = AtprotoCore.getCurrentUserDid();
     if (!userDid) throw new Error('No authenticated user');
 
     const record = {
@@ -113,7 +114,7 @@ export async function repostPost(uri: string, cid: string): Promise<string> {
  */
 export async function deleteRepost(repostURI: string): Promise<void> {
   const { api } = await AtprotoCore.getApiClient();
-  const userDid = await AtprotoCore.getCurrentUserDid();
+  const userDid = AtprotoCore.getCurrentUserDid();
   if (!userDid) throw new Error('No authenticated user');
 
   const parts = repostURI.split('/');
@@ -132,7 +133,6 @@ export async function sendFeedInteractions(
     return;
   }
 
-  // If we've previously confirmed the endpoint is not supported, skip quietly
   if (getFeedInteractionsSupported(feed) === false) {
     logInteractionDiagnosticOnce(
       'unsupported-skip',
@@ -166,7 +166,6 @@ export async function sendFeedInteractions(
 
     const hasSendInteractionsMethod = typeof api?.app?.bsky?.feed?.sendInteractions === 'function';
 
-    // Send interactions directly to Bluesky's API
     if (!hasSendInteractionsMethod) {
       throw new Error('sendInteractions method not available on API client');
     }
@@ -177,7 +176,6 @@ export async function sendFeedInteractions(
       headers: { 'atproto-proxy': proxyTarget },
     });
 
-    // Mark endpoint as supported once we have a successful call
     setFeedInteractionsSupported(true, feed);
     logInteractionDiagnosticOnce('success', 'Feed interactions sent successfully (first success)', {
       feed: feed ?? null,
@@ -185,11 +183,6 @@ export async function sendFeedInteractions(
       events,
     });
   } catch (error: unknown) {
-    // Check if the error is an unsupported endpoint - this is expected when:
-    // 1. The PDS doesn't support this endpoint (older PDS versions)
-    // 2. The feed generator doesn't support interactions
-    // 3. The service returns "Method Not Implemented" (501)
-    // Since interactions are best-effort, we should handle these silently
     const errorMessage = error instanceof Error ? error.message : String(error);
     const statusCode =
       error && typeof error === 'object' && 'status' in error
@@ -216,13 +209,7 @@ export async function sendFeedInteractions(
       errorMessage.includes('Method Not Implemented') ||
       errorCode === 'MethodNotImplemented';
 
-    // Silently handle unsupported endpoint errors - these are expected when:
-    // - PDS doesn't support the endpoint
-    // - Feed generator doesn't accept interactions
-    // - Session not fully authenticated yet (initial app load)
-    // Interactions are best-effort and failures shouldn't spam logs
     if (isNotSupported) {
-      // Remember that this endpoint is not supported so we can skip future attempts
       setFeedInteractionsSupported(false, feed);
       logInteractionDiagnosticOnce(
         'unsupported',
@@ -263,73 +250,49 @@ export async function sendVideoFeedback(
   postUri: string,
   type: 'interested' | 'not_interested',
   sourceFeed?: string,
-  feedContext?: string
+  feedContext?: string,
+  algorithmicFeedProvider?: string | null
 ): Promise<void> {
-  try {
-    await AtprotoCore.ensureSession();
+  await AtprotoCore.ensureSession();
 
-    // Get the current user's DID from OAuth session
-    const userDid = await AtprotoCore.getCurrentUserDid();
-    if (!userDid) {
-      throw new Error('No authenticated user found');
-    }
-
-    // Determine target feed for the interaction
-    // Priority: 1. sourceFeed (if post came from an algorithmic feed)
-    //           2. User's selected algorithmic feed provider
-    //           3. null (no target, just store locally)
-    let targetFeed: string | null = null;
-
-    // Import algorithmic feed providers to check if sourceFeed is one of them
-    const { useUserStore } = await import('../../../stores/userStore');
-    const { ALGORITHMIC_FEED_PROVIDERS } = await import('../../../utils/constants');
-    const algorithmicFeedUris: string[] = Object.values(ALGORITHMIC_FEED_PROVIDERS).map(p => p.uri);
-
-    if (sourceFeed && algorithmicFeedUris.includes(sourceFeed)) {
-      // Post came from an algorithmic feed - route interaction to that feed
-      targetFeed = sourceFeed;
-    } else {
-      // Fall back to user's selected algorithmic feed provider
-      const { algorithmicFeedProvider } = useUserStore.getState();
-      targetFeed = algorithmicFeedProvider;
-    }
-
-    // Store feedback in local storage for persistence/history
-    const feedbackKey = `video_feedback_${postUri}`;
-    const feedbackData = {
-      postUri,
-      type,
-      timestamp: new Date().toISOString(),
-      userDid: userDid,
-      targetFeed: targetFeed,
-    };
-    storage.set(feedbackKey, JSON.stringify(feedbackData));
-
-    // If we have a target feed, send the interaction to Bluesky's API
-    // This communicates the preference to the feed generator
-    if (targetFeed) {
-      // Map our feedback types to Bluesky's interaction events using SDK constants
-      // REQUESTMORE = show more like this, REQUESTLESS = show less like this
-      const event =
-        type === 'interested' ? AppBskyFeedDefs.REQUESTMORE : AppBskyFeedDefs.REQUESTLESS;
-
-      // Build the interaction object using proper Interaction type from @atproto/api
-      const interaction: Interaction = {
-        $type: 'app.bsky.feed.defs#interaction',
-        item: postUri,
-        event: event,
-      };
-
-      // Include feedContext if provided (helps feed generators track context)
-      if (feedContext) {
-        interaction.feedContext = feedContext;
-      }
-
-      // Send the interaction using AtprotoFeedService.sendFeedInteractions
-      // This ensures consistent error handling and deduplication
-      await sendFeedInteractions([interaction], targetFeed);
-    }
-  } catch (_error: unknown) {
-    // Interactions are best-effort; swallow errors
+  const userDid = AtprotoCore.getCurrentUserDid();
+  if (!userDid) {
+    throw new Error('No authenticated user found');
   }
+
+  let targetFeed: string | null = null;
+
+  const algorithmicFeedUris: string[] = Object.values(ALGORITHMIC_FEED_PROVIDERS).map(p => p.uri);
+
+  if (sourceFeed && algorithmicFeedUris.includes(sourceFeed)) {
+    targetFeed = sourceFeed;
+  } else {
+    targetFeed = algorithmicFeedProvider ?? null;
+  }
+
+  setVideoFeedbackInStorage({
+    postUri,
+    type,
+    timestamp: new Date().toISOString(),
+    userDid,
+    targetFeed,
+  });
+
+  if (!targetFeed) {
+    return;
+  }
+
+  const event = type === 'interested' ? AppBskyFeedDefs.REQUESTMORE : AppBskyFeedDefs.REQUESTLESS;
+
+  const interaction: Interaction = {
+    $type: 'app.bsky.feed.defs#interaction',
+    item: postUri,
+    event: event,
+  };
+
+  if (feedContext) {
+    interaction.feedContext = feedContext;
+  }
+
+  await sendFeedInteractions([interaction], targetFeed);
 }

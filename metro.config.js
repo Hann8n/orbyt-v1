@@ -10,6 +10,11 @@ const projectRoot = __dirname;
  */
 const config = getDefaultConfig(projectRoot);
 
+// Not in metro-config's jest-validate example; Metro only honors transformer.unstable_workerThreads.
+if (config.watcher && 'unstable_workerThreads' in config.watcher) {
+  delete config.watcher.unstable_workerThreads;
+}
+
 // Configure resolver
 config.resolver = {
   ...config.resolver,

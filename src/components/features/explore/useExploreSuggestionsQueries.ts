@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
-import AtprotoService from '@/services/api/AtprotoService';
+import { AtprotoFeedService } from '@/services/api/feed/FeedService';
 import ChannelService from '@/services/data/ChannelService';
 import type { CachedChannel } from '@/services/data/ChannelService';
 import { queryKeys } from '@/utils/query/queryKeys';
@@ -50,7 +50,7 @@ export function useExploreSuggestionsQueries(orbytChannelUris: string[]) {
   const spotlightQuery = useQuery({
     queryKey: queryKeys.explore.spotlightFeed(),
     queryFn: async () => {
-      const response = await AtprotoService.getFeed(
+      const response = await AtprotoFeedService.getFeed(
         null,
         EXPLORE_SPOTLIGHT_FEED_URI,
         {},

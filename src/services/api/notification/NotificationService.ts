@@ -127,7 +127,7 @@ export class NotificationService {
       }
 
       // Cannot subscribe to yourself
-      const currentUserDid = await AtprotoCore.getCurrentUserDid();
+      const currentUserDid = AtprotoCore.getCurrentUserDid();
       if (currentUserDid === did) {
         throw new Error('Cannot subscribe to your own activity');
       }

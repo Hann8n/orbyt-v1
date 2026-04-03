@@ -66,7 +66,7 @@ import { format, parseISO, isValid, isToday, isYesterday, differenceInMinutes } 
 import { useProfileByDid, useBlockMutation } from '@/services/data/ProfileService';
 import { useChatLogPolling } from '@/hooks/useChatLogPolling';
 import { ChatService } from '@/services/api/chat/ChatService';
-import AtprotoService from '@/services/api/AtprotoService';
+import { ModerationService } from '@/services/moderation/ModerationService';
 import { useUserStore } from '@/stores/userStore';
 import type { MessageView } from '@/services/api/types';
 import { openPostInBluesky } from '@/utils/links/bluesky';
@@ -1669,7 +1669,7 @@ export default function ChatScreen() {
       if (!otherDid) return;
       setIsReportSubmitting(true);
       try {
-        const success = await AtprotoService.reportContent(otherDid, reasonType);
+        const success = await ModerationService.reportContent(otherDid, reasonType);
         if (success) {
           Alert.alert(t('common.thankYou'), t('chat.conversationReported'));
         } else {

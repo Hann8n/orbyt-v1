@@ -30,7 +30,7 @@ import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import type { TrueSheet as TrueSheetHandle } from '@lodev09/react-native-true-sheet';
 import { AppTrueSheet, useMeasuredFooterHeight } from '../../../utils/components/truesheet';
 
-import AtprotoService from '../../../services/api/AtprotoService';
+import { AtprotoFeedService } from '../../../services/api/feed/FeedService';
 import { queryKeys } from '../../../utils/query/queryKeys';
 import { useProfile } from '../../../services/data/ProfileService';
 import { useUserStore } from '../../../stores/userStore';
@@ -614,7 +614,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   } = useInfiniteQuery<{ comments: Comment[]; cursor: string | null }, Error>({
     queryKey: queryKeys.comments.byPost(post?.uri || ''),
     queryFn: ({ pageParam }) =>
-      AtprotoService.getComments(post?.uri || '', pageParam as string | null),
+      AtprotoFeedService.getComments(post?.uri || '', pageParam as string | null),
     getNextPageParam: lastPage => lastPage?.cursor ?? undefined,
     initialPageParam: null,
     enabled: !!post?.uri,
@@ -690,7 +690,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   } = useInfiniteQuery<{ likes: Like[]; cursor: string | null }, Error>({
     queryKey: queryKeys.likes.byPost(post?.uri || ''),
     queryFn: ({ pageParam }) =>
-      AtprotoService.getLikes(post?.uri || '', pageParam as string | null),
+      AtprotoFeedService.getLikes(post?.uri || '', pageParam as string | null),
     getNextPageParam: lastPage => lastPage?.cursor ?? undefined,
     initialPageParam: null,
     enabled: !!post?.uri && likesQueryEnabled,
@@ -843,7 +843,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
           }
         : undefined;
 
-      const result = await AtprotoService.postComment(
+      const result = await AtprotoFeedService.postComment(
         text,
         rootUri,
         rootCid,

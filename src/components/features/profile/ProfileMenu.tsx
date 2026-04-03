@@ -25,7 +25,7 @@ import {
   useBlockMutation,
   useMuteMutation,
 } from '../../../services/data/ProfileService';
-import AtprotoService from '../../../services/api/AtprotoService';
+import { ModerationService } from '../../../services/moderation/ModerationService';
 import type { ProfileAssociatedChat } from '@atproto/api/dist/client/types/app/bsky/actor/defs';
 import { useSheetPresentation } from '../../../hooks';
 
@@ -177,7 +177,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
 
       setIsSubmitting(true);
       try {
-        const success = await AtprotoService.reportContent(profile.did, reasonType);
+        const success = await ModerationService.reportContent(profile.did, reasonType);
         if (success) {
           Alert.alert(t('common.thankYou'), t('alerts.accountReported'));
           onDismiss();

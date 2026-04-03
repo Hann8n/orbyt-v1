@@ -586,7 +586,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   ]);
 
   return (
-    <ProfileChannelFeedLayout backgroundColor={profileColors.backgroundColor}>
+    <ProfileChannelFeedLayout backgroundColor={profileColors.chromeBackgroundColor}>
       <DetailScreenOverlay
         showBackButton={showBackButton}
         actionButtonsTop={actionButtonsTop}
@@ -692,7 +692,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
               </ProfileHeader>
             </View>
           }
-          backgroundColor={profileColors.backgroundColor}
+          backgroundColor={profileColors.chromeBackgroundColor}
           secondaryColor={profileColors.textColor}
           viewMode={viewMode}
           onViewModeChange={setViewMode}

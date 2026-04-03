@@ -7,19 +7,29 @@
 import type { ApiClient, Session } from './types';
 import type { Agent } from '@atproto/api';
 
+import { getAtprotoBridge } from './agentBridge';
+
 /**
- * Small helper to wait until the userStore finishes auth/switching and exposes an agent.
- * This prevents request spam and avoids throwing during session transitions.
+ * Wait until userStore exposes an agent (session restore / account switch).
+ * Dynamic import is isolated here — not on the getApiClient hot path.
  */
 async function waitForAgent(timeoutMs: number = 6000): Promise<Agent | null> {
+  const { agent: bridged } = getAtprotoBridge();
+  if (bridged) return bridged;
+
   const { useUserStore } = await import('../../stores/userStore');
   const start = Date.now();
 
   return new Promise(resolve => {
     const checkAndResolve = (state = useUserStore.getState()) => {
+      const fromBridge = getAtprotoBridge().agent;
+      if (fromBridge) {
+        unsubscribe();
+        resolve(fromBridge);
+        return;
+      }
       if (state.agent) {
         unsubscribe();
-        // Return Agent directly - agent.api is deprecated, use agent directly
         resolve(state.agent);
         return;
       }
@@ -28,12 +38,11 @@ async function waitForAgent(timeoutMs: number = 6000): Promise<Agent | null> {
       const readyState = !state.isAuthenticating && !state.isSwitchingAccount;
       if (readyState || elapsed >= timeoutMs) {
         unsubscribe();
-        resolve(null);
+        resolve(getAtprotoBridge().agent);
       }
     };
 
     const unsubscribe = useUserStore.subscribe(checkAndResolve);
-    // Immediate check in case agent already exists
     checkAndResolve();
   });
 }
@@ -50,17 +59,15 @@ export class AtprotoCore {
    */
   static async ensureSession(): Promise<Session> {
     try {
-      const { useUserStore } = await import('../../stores/userStore');
-      const state = useUserStore.getState();
-
-      if (state.agent && state.currentUser?.did) {
-        return { did: state.currentUser.did, type: 'oauth' };
+      const { agent, did } = getAtprotoBridge();
+      if (agent && did) {
+        return { did, type: 'oauth' };
       }
 
-      // Wait briefly if a session is being restored/switched
-      const waited = await waitForAgent();
-      if (waited && useUserStore.getState().currentUser?.did) {
-        return { did: useUserStore.getState().currentUser!.did!, type: 'oauth' };
+      await waitForAgent();
+      const after = getAtprotoBridge();
+      if (after.agent && after.did) {
+        return { did: after.did, type: 'oauth' };
       }
 
       throw new Error('No valid session found');
@@ -71,21 +78,10 @@ export class AtprotoCore {
   }
 
   /**
-   * Get the current user's DID from session (OAuth or app password)
+   * Current user DID from the session bridge (OAuth). Synchronous mirror of store state.
    */
-  static async getCurrentUserDid(): Promise<string | null> {
-    try {
-      const { useUserStore } = await import('../../stores/userStore');
-      const userStore = useUserStore.getState();
-
-      if (userStore.currentUser?.did) {
-        return userStore.currentUser.did;
-      }
-
-      return null;
-    } catch (_error) {
-      return null;
-    }
+  static getCurrentUserDid(): string | null {
+    return getAtprotoBridge().did;
   }
 
   /**
@@ -96,18 +92,15 @@ export class AtprotoCore {
    */
   static async getApiClient(): Promise<ApiClient> {
     try {
-      const { useUserStore } = await import('../../stores/userStore');
-      const state = useUserStore.getState();
+      const { agent } = getAtprotoBridge();
 
-      if (state.agent) {
-        // Use agent directly - agent.api is deprecated but still works for compatibility
-        return { api: state.agent.api, isOAuth: true };
+      if (agent) {
+        return { api: agent.api, isOAuth: true };
       }
 
-      // Wait for the session to finish restoring/switching before failing
-      const waited = await waitForAgent();
-      if (waited) {
-        return { api: waited.api, isOAuth: true };
+      const resolved = await waitForAgent();
+      if (resolved) {
+        return { api: resolved.api, isOAuth: true };
       }
 
       throw new Error('No API client available');

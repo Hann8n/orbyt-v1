@@ -124,7 +124,7 @@ export class ActorService {
    */
   static async getCurrentUser(): Promise<ProfileViewDetailed> {
     // First try to get the current user DID
-    const userDid = await AtprotoCore.getCurrentUserDid();
+    const userDid = AtprotoCore.getCurrentUserDid();
     if (!userDid) {
       throw new Error('No session available');
     }
@@ -388,7 +388,7 @@ export class ActorService {
     // The API's upsertProfile may pass undefined if validation fails, so we fetch it ourselves
     let manuallyFetchedProfile: AppBskyActorProfile.Record | undefined;
     try {
-      const repo = await AtprotoCore.getCurrentUserDid();
+      const repo = AtprotoCore.getCurrentUserDid();
       if (repo) {
         const existingRecordResponse = await api.com.atproto.repo
           .getRecord({
@@ -471,7 +471,7 @@ export class ActorService {
         // The API's upsertProfile may pass undefined if validation fails, so we fetch it ourselves
         let manuallyFetchedProfileForAvatar: AppBskyActorProfile.Record | undefined;
         try {
-          const repo = await AtprotoCore.getCurrentUserDid();
+          const repo = AtprotoCore.getCurrentUserDid();
           if (repo) {
             const existingRecordResponse = await apiForUpload.com.atproto.repo
               .getRecord({

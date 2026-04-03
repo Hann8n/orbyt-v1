@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import ListScreen from '@/components/ui/ListScreen';
-import AtprotoService from '@/services/api/AtprotoService';
+import { GraphService } from '@/services/api/graph/GraphService';
+import { ActorService } from '@/services/api/actor/ActorService';
 import { logger } from '@/utils/logger';
 
 interface MutedUser {
@@ -24,13 +25,13 @@ const MutedUsersScreen: React.FC = () => {
   const loadMutedUsers = async () => {
     try {
       setLoading(true);
-      const mutedDids = await AtprotoService.getMutedUsersFromAPI();
+      const mutedDids = await GraphService.getMutedUsersFromAPI();
 
       // Convert string[] to MutedUser objects
       const userPromises = mutedDids.map(async (did: string) => {
         try {
           // Try to get profile info for each muted user
-          const profile = await AtprotoService.getProfile(did);
+          const profile = await ActorService.getProfileByDid(did);
           return {
             did,
             handle: profile?.handle || did,
@@ -63,7 +64,7 @@ const MutedUsersScreen: React.FC = () => {
   const handleUnmuteUser = async (user: MutedUser) => {
     try {
       setUnmutingUsers(prev => new Set(prev).add(user.did));
-      await AtprotoService.unmuteUser(user.did);
+      await GraphService.unmuteUser(user.did);
       setMutedUsers(prev => prev.filter(mutedUser => mutedUser.did !== user.did));
     } catch (error) {
       logger.error('Error unmuting user', error, {

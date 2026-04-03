@@ -3,7 +3,7 @@
  * Manages activity subscription state for post notifications from users
  */
 import { create } from 'zustand';
-import AtprotoService from '../services/api/AtprotoService';
+import { NotificationService } from '../services/api/notification/NotificationService';
 import { logger } from '../utils/logger';
 
 interface SubscriptionPreferences {
@@ -45,7 +45,7 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
 
   initialize: async () => {
     try {
-      const { subscriptions } = await AtprotoService.listActivitySubscriptions();
+      const { subscriptions } = await NotificationService.listActivitySubscriptions();
 
       const subscriptionMap = new Map<string, SubscriptionPreferences>();
       subscriptions.forEach((sub: any) => {
@@ -98,7 +98,7 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
     await ProfileService.updateSubscriptionStatus(did, true);
 
     try {
-      await AtprotoService.putActivitySubscription(did, preferences);
+      await NotificationService.putActivitySubscription(did, preferences);
       return true;
     } catch (error) {
       logger.error('Failed to update subscription preferences', error, {
@@ -130,7 +130,7 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
     await ProfileService.updateSubscriptionStatus(did, false);
 
     try {
-      await AtprotoService.deleteActivitySubscription(did);
+      await NotificationService.deleteActivitySubscription(did);
       return false;
     } catch (error) {
       logger.error('Failed to unsubscribe from activity', error, {
