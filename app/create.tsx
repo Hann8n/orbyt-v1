@@ -50,7 +50,10 @@ import { hexToRGBA } from '@/utils/formatting/colors';
 import * as Haptics from 'expo-haptics';
 import VideoTrim, { showEditor, closeEditor, isValidFile, type Spec } from 'react-native-clip-trim';
 import { SegmentManager, type Segment } from '@/utils/video/segmentManager';
-import VideoProcessingService from '@/services/video/VideoProcessingService';
+import { extractAssetId } from '@/utils/video/path';
+import VideoProcessingService, {
+  getVideoSegmentSourceUri,
+} from '@/services/video/VideoProcessingService';
 import { usePendingVideoPostStore } from '@/stores/pendingVideoPostStore';
 import { ErrorHandler } from '@/utils/errors/errorHandler';
 import { useVideoPlayer, VideoView } from 'expo-video';
@@ -163,6 +166,8 @@ const CreateScreen: React.FC = () => {
     null
   );
   const recordingAutoStopTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const discardGenerationRef = useRef(0);
+  const activeRecordingDiscardGenRef = useRef<number | null>(null);
   // Animated values
   const totalDurationShared = useSharedValue(0); // Total duration from segments (updated when segments change)
   const currentSegmentDurationShared = useSharedValue(0);
@@ -172,7 +177,6 @@ const CreateScreen: React.FC = () => {
   const deviceMinZoomSV = useSharedValue(1);
   const deviceMaxZoomSV = useSharedValue(CAMERA_ZOOM_MAX_CLAMP);
   const pinchStartZoom = useSharedValue(1);
-  /** Capture-button vertical zoom (VisionCamera example CaptureButton pan handler). */
   const captureZoomPanStartY = useSharedValue(0);
   const captureZoomPanOffsetY = useSharedValue(0);
 
@@ -202,13 +206,9 @@ const CreateScreen: React.FC = () => {
     if (!segment.video || typeof segment.video !== 'object') {
       return '';
     }
-    if ('uri' in segment.video && typeof segment.video.uri === 'string') {
-      return segment.video.uri;
-    }
-    return '';
+    return getVideoSegmentSourceUri(segment.video);
   }, []);
 
-  /** Onion skin: only run after segment list mutations (not e.g. max-duration tweaks). Cache is in VideoProcessingService. */
   const onionSkinRequestIdRef = useRef(0);
 
   const refreshOnionSkinThumbnail = useCallback(() => {
@@ -224,13 +224,7 @@ const CreateScreen: React.FC = () => {
       setLastFrameThumbnail(null);
       return;
     }
-    const segmentAssetId =
-      lastSeg.video &&
-      typeof lastSeg.video === 'object' &&
-      'assetId' in lastSeg.video &&
-      typeof (lastSeg.video as { assetId?: string }).assetId === 'string'
-        ? (lastSeg.video as { assetId: string }).assetId
-        : undefined;
+    const segmentAssetId = extractAssetId(lastSeg.video) ?? undefined;
 
     VideoProcessingService.extractLastFrame(videoUri, lastSeg.duration, segmentAssetId)
       .then(thumbUri => {
@@ -501,6 +495,7 @@ const CreateScreen: React.FC = () => {
     if (recorderRef.current !== rec) return;
     recordingPromiseResolverRef.current?.(undefined);
     recordingPromiseResolverRef.current = null;
+    activeRecordingDiscardGenRef.current = null;
     currentSegmentDurationShared.value = 0;
     isRecordingRef.current = false;
     setIsRecording(false);
@@ -553,6 +548,7 @@ const CreateScreen: React.FC = () => {
     abortControllerRef.current = new AbortController();
     return () => {
       onionSkinRequestIdRef.current += 1;
+      discardGenerationRef.current += 1;
       abortControllerRef.current?.abort();
     };
   }, []);
@@ -665,6 +661,9 @@ const CreateScreen: React.FC = () => {
 
   const commitCameraSegment = useCallback(
     (elapsedDuration: number, uri?: string): boolean => {
+      if (activeRecordingDiscardGenRef.current !== discardGenerationRef.current) {
+        return false;
+      }
       const manager = segmentManagerRef.current;
       if (!manager || !uri) return false;
       const available = manager.getAvailableTime();
@@ -690,6 +689,8 @@ const CreateScreen: React.FC = () => {
       return;
     }
 
+    const _stopGenStart = discardGenerationRef.current;
+
     try {
       recordingStateRef.current = 'stopping';
       setIsProcessing(true);
@@ -705,7 +706,23 @@ const CreateScreen: React.FC = () => {
         const result = await recordingPromiseRef.current.catch(() => undefined);
         segmentUri = result?.uri;
       }
+      if (discardGenerationRef.current !== _stopGenStart) {
+        isRecordingRef.current = false;
+        recordingStartAtRef.current = null;
+        if (recordingAutoStopTimeoutRef.current) {
+          clearTimeout(recordingAutoStopTimeoutRef.current);
+          recordingAutoStopTimeoutRef.current = null;
+        }
+        recordingPromiseRef.current = null;
+        recorderRef.current = null;
+        recordingStateRef.current = 'idle';
+        forcedStopDurationRef.current = null;
+        activeRecordingDiscardGenRef.current = null;
+        currentSegmentDurationShared.value = 0;
+        return;
+      }
       const didCommit = commitCameraSegment(elapsedDuration, segmentUri);
+      activeRecordingDiscardGenRef.current = null;
       isRecordingRef.current = false;
       setIsRecording(false);
       if (didCommit) {
@@ -728,8 +745,11 @@ const CreateScreen: React.FC = () => {
     } catch (_e) {
       const manager = segmentManagerRef.current;
       if (manager) totalDurationShared.value = manager.getTotalDuration();
+      activeRecordingDiscardGenRef.current = null;
       isRecordingRef.current = false;
-      setIsRecording(false);
+      if (discardGenerationRef.current === _stopGenStart) {
+        setIsRecording(false);
+      }
       currentSegmentDurationShared.value = 0;
       recordingStartAtRef.current = null;
       recordingPromiseRef.current = null;
@@ -737,13 +757,16 @@ const CreateScreen: React.FC = () => {
       recordingStateRef.current = 'idle';
       forcedStopDurationRef.current = null;
     } finally {
-      setIsProcessing(false);
+      if (discardGenerationRef.current === _stopGenStart) {
+        setIsProcessing(false);
+      }
     }
   }, [commitCameraSegment, currentSegmentDurationShared, totalDurationShared]);
 
   const pauseCurrentSegment = useCallback(async () => {
     if (!isRecordingRef.current || !recorderRef.current || recordingStateRef.current === 'stopping')
       return;
+    const pauseGenStart = discardGenerationRef.current;
     recordingStateRef.current = 'stopping';
     const elapsedDuration = Math.max(
       forcedStopDurationRef.current ?? recorderRef.current.recordedDuration,
@@ -759,7 +782,19 @@ const CreateScreen: React.FC = () => {
       const result = await recordingPromiseRef.current.catch(() => undefined);
       segmentUri = result?.uri;
     }
+    if (discardGenerationRef.current !== pauseGenStart) {
+      isRecordingRef.current = false;
+      recordingStartAtRef.current = null;
+      recordingPromiseRef.current = null;
+      recorderRef.current = null;
+      recordingStateRef.current = 'idle';
+      forcedStopDurationRef.current = null;
+      activeRecordingDiscardGenRef.current = null;
+      currentSegmentDurationShared.value = 0;
+      return;
+    }
     const didCommit = commitCameraSegment(elapsedDuration, segmentUri);
+    activeRecordingDiscardGenRef.current = null;
     isRecordingRef.current = false;
     setIsRecording(false);
     if (didCommit) {
@@ -825,6 +860,7 @@ const CreateScreen: React.FC = () => {
             () => {
               recordingPromiseResolverRef.current?.(undefined);
               recordingPromiseResolverRef.current = null;
+              activeRecordingDiscardGenRef.current = null;
               isRecordingRef.current = false;
               setIsRecording(false);
               currentSegmentDurationShared.value = 0;
@@ -835,6 +871,7 @@ const CreateScreen: React.FC = () => {
             }
           );
           recordingStateRef.current = 'recording';
+          activeRecordingDiscardGenRef.current = discardGenerationRef.current;
         } else {
           isRecordingRef.current = false;
           setIsRecording(false);
@@ -860,6 +897,7 @@ const CreateScreen: React.FC = () => {
             });
         }, availableNow * 1000);
       } catch (_e) {
+        activeRecordingDiscardGenRef.current = null;
         isRecordingRef.current = false;
         setIsRecording(false);
         currentSegmentDurationShared.value = 0;
@@ -1189,6 +1227,7 @@ const CreateScreen: React.FC = () => {
           text: t('common.discard'),
           style: 'destructive',
           onPress: () => {
+            discardGenerationRef.current += 1;
             segmentManagerRef.current?.clear();
             totalDurationShared.value = 0;
             progressBarDurationShared.value = 0;
@@ -1243,12 +1282,7 @@ const CreateScreen: React.FC = () => {
         }
       } else {
         setPendingVideoPost({
-          segments: videoSegments.map(s => ({
-            startTime: s.startTime,
-            duration: s.duration,
-            video: s.video as { uri: string; assetId?: string; [k: string]: unknown },
-            sourceType: s.sourceType,
-          })),
+          segments: videoSegments,
           textOverlays: [],
         });
         router.navigate({ pathname: '/post/[id]', params: { id: 'new' } });

@@ -10,7 +10,7 @@ import { Colors } from '../../../theme';
 import { RetryButton } from '../../ui/UI';
 import AnimatedTVStatic from '../../ui/AnimatedTVStatic';
 import { useQuery } from '@tanstack/react-query';
-import AtprotoService from '../../../services/api/AtprotoService';
+import { ActorService } from '../../../services/api/actor/ActorService';
 import { Avatar } from '../../ui/UI';
 import { VerificationBadge, BotBadge } from '../badging';
 import { useRouter } from 'expo-router';
@@ -146,7 +146,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
 
   const { data: suggestedAccounts } = useQuery({
     queryKey: ['suggestedAccounts', 5],
-    queryFn: () => AtprotoService.getSuggestedAccounts(5),
+    queryFn: () => ActorService.getSuggestedAccounts(5),
     enabled: shouldShowSuggestions,
     staleTime: 60 * 1000, // 1 minute
   });

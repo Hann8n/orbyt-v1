@@ -1,10 +1,13 @@
-import { useQuery } from '@tanstack/react-query';
-import AtprotoService from '../services/api/AtprotoService';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { NotificationService } from '../services/api/notification/NotificationService';
 import { ChatService } from '../services/api/chat/ChatService';
 import { useUserStore } from '../stores/userStore';
 import { QUERY_CONSTANTS } from '../utils/constants';
 import { queryKeys } from '../utils/query/queryKeys';
 import { chatReactQueryOptions } from '../utils/query/chatQueryOptions';
+
+/** Matches ChatsTab default "all" segment — shared React Query cache for listConvos. */
+const CHAT_LIST_FILTER_ACCEPTED = { status: 'accepted' as const };
 
 export type UnreadSummary = {
   notificationsCount: number;
@@ -14,26 +17,33 @@ export type UnreadSummary = {
 export const useUnreadCount = () => {
   const isAuthenticated = useUserStore(state => state.isAuthenticated);
 
-  const { data } = useQuery<UnreadSummary>({
-    queryKey: queryKeys.unread.summary(),
-    queryFn: async (): Promise<UnreadSummary> => {
-      const [{ count: notificationsCount }, { conversations }] = await Promise.all([
-        AtprotoService.getUnreadCount(),
-        ChatService.listConvos(null),
-      ]);
-      const messagesCount = conversations.reduce(
-        (sum, c) => sum + (c.muted ? 0 : c.unreadCount),
-        0
-      );
-      return { notificationsCount, messagesCount };
-    },
+  const { data: notificationsCount = 0 } = useQuery({
+    queryKey: [...queryKeys.unread.summary(), 'notifications'],
+    queryFn: async () => (await NotificationService.getUnreadCount()).count,
     enabled: isAuthenticated,
     staleTime: QUERY_CONSTANTS.STALE_TIME_MEDIUM,
     ...chatReactQueryOptions,
   });
 
-  const notificationsCount = data?.notificationsCount ?? 0;
-  const messagesCount = data?.messagesCount ?? 0;
+  const { data: messagesCount = 0 } = useInfiniteQuery({
+    queryKey: queryKeys.chat.conversations.list(undefined, CHAT_LIST_FILTER_ACCEPTED),
+    queryFn: async ({ pageParam }) =>
+      ChatService.listConvos(pageParam as string | null, CHAT_LIST_FILTER_ACCEPTED),
+    initialPageParam: null as string | null,
+    getNextPageParam: lastPage => lastPage?.cursor ?? undefined,
+    enabled: isAuthenticated,
+    staleTime: QUERY_CONSTANTS.STALE_TIME_SHORT,
+    gcTime: 60 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    ...chatReactQueryOptions,
+    select: data =>
+      data.pages
+        .flatMap(p => p.conversations ?? [])
+        .reduce((sum, c) => sum + (c.muted ? 0 : c.unreadCount), 0),
+  });
+
   const totalUnreadCount = notificationsCount + messagesCount;
 
   return {

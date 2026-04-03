@@ -332,7 +332,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
         const borderStyle = {
           borderRightWidth: isLastColumn ? 0 : FEED_VIEW_CONSTANTS.GRID_CELL_GAP,
           borderBottomWidth: isLastRow ? 0 : FEED_VIEW_CONSTANTS.GRID_CELL_GAP,
-          borderColor: Colors.black,
+          borderColor: effectiveBackgroundColor,
         };
 
         return (
@@ -350,7 +350,15 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
           />
         );
       },
-      [onGridItemPress, gridFeedModalZoomConfig, feed, numColumns, itemWidth, itemHeight]
+      [
+        onGridItemPress,
+        gridFeedModalZoomConfig,
+        feed,
+        numColumns,
+        itemWidth,
+        itemHeight,
+        effectiveBackgroundColor,
+      ]
     );
 
     const feedScrollValue = useScrollTracking
@@ -418,11 +426,14 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
         onLayout={useScrollTracking ? handleHeaderLayout : undefined}
       >
         {headerComponent}
-        <View style={styles.headerSeparator} />
+        <View style={[styles.headerSeparator, { backgroundColor: effectiveBackgroundColor }]} />
       </View>
     ) : null;
 
-    const listFooter = feed.length > 0 ? <View style={styles.headerSeparator} /> : null;
+    const listFooter =
+      feed.length > 0 ? (
+        <View style={[styles.headerSeparator, { backgroundColor: effectiveBackgroundColor }]} />
+      ) : null;
 
     const listContent = (
       <ListEl
@@ -504,7 +515,6 @@ const styles = StyleSheet.create({
   },
   headerSeparator: {
     height: FEED_VIEW_CONSTANTS.LIST_ITEM_GAP,
-    backgroundColor: Colors.black,
   },
   listContent: {
     flexGrow: 1,

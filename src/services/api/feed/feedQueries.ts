@@ -3,7 +3,7 @@
  */
 import { moderatePost } from '@atproto/api';
 import { ModerationService } from '../../moderation/ModerationService';
-import { storage } from '../../../utils/storage/storage';
+import { removeVideoFeedbackFromStorage } from './videoFeedbackStorage';
 import { AtprotoCore } from '../core';
 import type {
   FeedResponse,
@@ -259,7 +259,7 @@ function filterVideoPostsEfficiently(posts: FeedViewPost[]): ExtendedFeedViewPos
  */
 export async function applyModerationBatch<T extends { post: PostView }>(items: T[]): Promise<T[]> {
   if (items.length === 0) return items;
-  const userDid = await AtprotoCore.getCurrentUserDid();
+  const userDid = AtprotoCore.getCurrentUserDid();
   const opts = ModerationService.getModerationOpts(userDid ?? undefined);
   if (!opts) return items;
   const mapped = items.map(item => {
@@ -457,30 +457,11 @@ export async function getPosts(
   return result;
 }
 
-export async function getVideoFeedback(
-  postUri: string
-): Promise<{ type: 'interested' | 'not_interested'; timestamp: string; userDid: string } | null> {
-  try {
-    const feedbackKey = `video_feedback_${postUri}`;
-    const feedbackStr = storage.getString(feedbackKey) ?? null;
-
-    if (feedbackStr) {
-      const feedbackData = JSON.parse(feedbackStr);
-      return feedbackData;
-    }
-
-    return null;
-  } catch (_error: unknown) {
-    return null;
-  }
-}
-
 /**
  * Remove stored video feedback for a post
  */
 export function removeVideoFeedback(postUri: string): void {
-  const feedbackKey = `video_feedback_${postUri}`;
-  storage.delete(feedbackKey);
+  removeVideoFeedbackFromStorage(postUri);
 }
 
 /**

@@ -1,5 +1,5 @@
 /**
- * Narrowed type helpers for AtprotoService using @atproto/api generated types.
+ * Narrowed type helpers for the AT Protocol API layer (`@atproto/api` generated types).
  *
  * This file follows AT Protocol's recommended structure and React Native TypeScript best practices:
  * 1. Groups imports by namespace (Feed, Actor, Embed, etc.) for better organization
@@ -179,6 +179,8 @@ export type ExtendedPostView = PostView & {
     displayName?: string;
     handle?: string;
   };
+  /** Present on items from `BookmarkService.getBookmarks` only. */
+  bookmarkSubject?: { uri: string; cid: string };
 };
 
 export type ExtendedFeedViewPost = FeedViewPost & {

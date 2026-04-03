@@ -8,6 +8,7 @@
 import { useEffect, useRef } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { feedService, FeedOption, FeedItem } from '../services/FeedService';
+import { useShallow } from 'zustand/react/shallow';
 import { useUserStore } from '../stores/userStore';
 import { useModerationSettings } from './useModerationSettings';
 import { queryKeys } from '../utils/query/queryKeys';
@@ -63,13 +64,23 @@ export function useFeed(
 ): UseFeedReturn {
   const { enabled = true, ...queryOptions } = options;
 
-  // Use direct selector to prevent re-renders when other user data changes
-  const currentUser = useUserStore(state => state.currentUser);
-  const isSwitchingAccount = useUserStore(state => state.isSwitchingAccount);
-  const feedSourceFingerprint = useUserStore(state => state.feedSourceFingerprint);
-  const feedBootstrapStatus = useUserStore(state => state.feedBootstrapStatus);
-  const feedBootstrapDid = useUserStore(state => state.feedBootstrapDid);
-  const agent = useUserStore(state => state.agent);
+  const {
+    currentUser,
+    isSwitchingAccount,
+    feedSourceFingerprint,
+    feedBootstrapStatus,
+    feedBootstrapDid,
+    agent,
+  } = useUserStore(
+    useShallow(state => ({
+      currentUser: state.currentUser,
+      isSwitchingAccount: state.isSwitchingAccount,
+      feedSourceFingerprint: state.feedSourceFingerprint,
+      feedBootstrapStatus: state.feedBootstrapStatus,
+      feedBootstrapDid: state.feedBootstrapDid,
+      agent: state.agent,
+    }))
+  );
   const prevModReadyRef = useRef(false);
 
   // User-specific feeds use currentUser; profile/likes/reposts use passed userDid

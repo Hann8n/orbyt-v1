@@ -33,7 +33,8 @@ import { useAvatarProfileRing } from '../../../services/colors';
 import { MenuView } from '@react-native-menu/menu';
 import type { MenuAction } from '@react-native-menu/menu';
 
-import AtprotoService from '../../../services/api/AtprotoService';
+import { AtprotoFeedService } from '../../../services/api/feed/FeedService';
+import { ModerationService } from '../../../services/moderation/ModerationService';
 import { queryKeys } from '../../../utils/query/queryKeys';
 import { formatNumber } from '../../../utils/formatting/numbers';
 import { formatHandle } from '../../../utils/formatting/handles';
@@ -406,7 +407,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
 
     try {
       if (newIsLiked) {
-        const likeURI: string = await AtprotoService.likePost(uri, cid);
+        const likeURI: string = await AtprotoFeedService.likePost(uri, cid);
         setLikeUri(likeURI);
         // Persist to store only if URI is valid
         if (uri) {
@@ -418,7 +419,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
         }
       } else {
         if (likeUri) {
-          await AtprotoService.deleteLike(likeUri);
+          await AtprotoFeedService.deleteLike(likeUri);
           setLikeUri(undefined);
           // Persist to store only if URI is valid
           if (uri) {
@@ -596,7 +597,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
   const handleRepost = useCallback(async () => {
     if (!uri || !cid) return;
     try {
-      await AtprotoService.repostPost(uri, cid);
+      await AtprotoFeedService.repostPost(uri, cid);
       Alert.alert(t('common.success'), t('comments.repostedSuccessfully', { postType }));
       queryClient.invalidateQueries({
         queryKey: queryKeys.comments.byPost(rootUri || ''),
@@ -617,7 +618,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
         style: 'destructive',
         onPress: async () => {
           try {
-            const success = await AtprotoService.deletePost(uri);
+            const success = await AtprotoFeedService.deletePost(uri);
             if (success) {
               markCommentAsDeleted(uri);
               onCommentDeleted?.(isReply);
@@ -656,7 +657,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
         text: t('alerts.spam'),
         onPress: async () => {
           try {
-            const success = await AtprotoService.reportContent(uri, 'spam');
+            const success = await ModerationService.reportContent(uri, 'spam');
             if (success) {
               const { useReportedPostsStore } = await import('../../../stores/reportedPostsStore');
               useReportedPostsStore.getState().reportPost(uri);
@@ -673,7 +674,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
         text: t('alerts.harmfulContent'),
         onPress: async () => {
           try {
-            const success = await AtprotoService.reportContent(uri, 'violation');
+            const success = await ModerationService.reportContent(uri, 'violation');
             if (success) {
               const { useReportedPostsStore } = await import('../../../stores/reportedPostsStore');
               useReportedPostsStore.getState().reportPost(uri);
@@ -690,7 +691,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
         text: t('alerts.misleading'),
         onPress: async () => {
           try {
-            const success = await AtprotoService.reportContent(uri, 'misleading');
+            const success = await ModerationService.reportContent(uri, 'misleading');
             if (success) {
               const { useReportedPostsStore } = await import('../../../stores/reportedPostsStore');
               useReportedPostsStore.getState().reportPost(uri);
@@ -707,7 +708,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
         text: t('alerts.sexualContent'),
         onPress: async () => {
           try {
-            const success = await AtprotoService.reportContent(uri, 'sexual');
+            const success = await ModerationService.reportContent(uri, 'sexual');
             if (success) {
               const { useReportedPostsStore } = await import('../../../stores/reportedPostsStore');
               useReportedPostsStore.getState().reportPost(uri);
@@ -724,7 +725,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
         text: t('alerts.rudeOffensive'),
         onPress: async () => {
           try {
-            const success = await AtprotoService.reportContent(uri, 'rude');
+            const success = await ModerationService.reportContent(uri, 'rude');
             if (success) {
               const { useReportedPostsStore } = await import('../../../stores/reportedPostsStore');
               useReportedPostsStore.getState().reportPost(uri);
@@ -741,7 +742,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
         text: t('common.other'),
         onPress: async () => {
           try {
-            const success = await AtprotoService.reportContent(uri, 'other');
+            const success = await ModerationService.reportContent(uri, 'other');
             if (success) {
               const { useReportedPostsStore } = await import('../../../stores/reportedPostsStore');
               useReportedPostsStore.getState().reportPost(uri);

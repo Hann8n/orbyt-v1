@@ -6,7 +6,7 @@ import VerticalListSheet, { TrueSheet } from './VerticalListSheet';
 import { Colors } from './UI';
 import Icon from './Icon';
 import { useAuth, useAccountManagement } from '../../stores/userStore';
-import { AtprotoService } from '../../services/api/AtprotoService';
+import { checkPdsActive } from '../../services/api/pdsHealth';
 import { authSheetStyles } from './AuthSheetStyles';
 import ErrorMessage from './ErrorMessage';
 import { useSheetPresentation } from '../../hooks';
@@ -71,7 +71,7 @@ const SignUpSheet: React.FC<SignUpSheetProps> = ({
     checkAbortRef.current = ac;
 
     const toCheck = pdsUrl.trim() || 'bsky.social';
-    AtprotoService.checkPdsActive(toCheck)
+    checkPdsActive(toCheck)
       .then(result => {
         if (ac.signal.aborted) return;
         setCanContinue(result.success);

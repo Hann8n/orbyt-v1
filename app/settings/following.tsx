@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import ListScreen from '@/components/ui/ListScreen';
-import AtprotoService from '@/services/api/AtprotoService';
+import { GraphService } from '@/services/api/graph/GraphService';
 import { prefetchProfile } from '@/services/data/ProfileService';
 import { useCurrentUser } from '@/stores/userStore';
 import type { ProfileViewBasic } from '@/services/api/types';
@@ -35,7 +35,7 @@ const FollowingScreen: React.FC = () => {
       queryFn: async ({ pageParam }: { pageParam: string | null }) => {
         if (!currentUser?.did) throw new Error('No current user');
 
-        const response = await AtprotoService.getFollowing(currentUser.did, pageParam, 50);
+        const response = await GraphService.getFollowing(currentUser.did, pageParam, 50);
 
         return {
           following: response.following.map((following: ProfileViewBasic) => ({

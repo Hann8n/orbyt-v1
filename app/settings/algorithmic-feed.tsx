@@ -29,7 +29,7 @@ import {
 } from '@/utils/channels/orbyt';
 import { BORDER_RADIUS, ALGORITHMIC_FEED_PROVIDERS } from '@/utils/constants';
 import { hexToRGBA, isColorDark } from '@/utils/formatting/colors';
-import { AtprotoService } from '@/services/api/AtprotoService';
+import { AtprotoFeedService } from '@/services/api/feed/FeedService';
 import { logger } from '@/utils/logger';
 
 interface FeedProviderOption {
@@ -70,13 +70,15 @@ const AlgorithmicFeedScreen: React.FC = () => {
   // Fetch feed generator metadata from API
   const { data: blueskyVideoData } = useQuery({
     queryKey: ['feedGenerator', ALGORITHMIC_FEED_PROVIDERS.BLUESKY_VIDEO.uri],
-    queryFn: () => AtprotoService.getFeedGenerator(ALGORITHMIC_FEED_PROVIDERS.BLUESKY_VIDEO.uri),
+    queryFn: () =>
+      AtprotoFeedService.getFeedGenerator(ALGORITHMIC_FEED_PROVIDERS.BLUESKY_VIDEO.uri),
     staleTime: 60 * 60 * 1000, // Cache for 1 hour
   });
 
   const { data: videosForYouData } = useQuery({
     queryKey: ['feedGenerator', ALGORITHMIC_FEED_PROVIDERS.VIDEOS_FOR_YOU.uri],
-    queryFn: () => AtprotoService.getFeedGenerator(ALGORITHMIC_FEED_PROVIDERS.VIDEOS_FOR_YOU.uri),
+    queryFn: () =>
+      AtprotoFeedService.getFeedGenerator(ALGORITHMIC_FEED_PROVIDERS.VIDEOS_FOR_YOU.uri),
     staleTime: 60 * 60 * 1000, // Cache for 1 hour
   });
 

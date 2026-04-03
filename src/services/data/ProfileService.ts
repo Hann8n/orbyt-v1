@@ -1,4 +1,6 @@
-import AtprotoService from '../api/AtprotoService';
+import { ActorService } from '../api/actor/ActorService';
+import { GraphService } from '../api/graph/GraphService';
+import { RepoService } from '../api/repo/RepoService';
 import {
   useQuery,
   useMutation,
@@ -175,9 +177,8 @@ class ProfileService {
       return null;
     }
 
-    // AtprotoService.getProfileByDid returns profile + canonical OrbytColorData fallback chain.
     // Throw when the response is empty so React Query treats it as a failure (not cacheable null success).
-    const profile = await AtprotoService.getProfileByDid(did);
+    const profile = await ActorService.getProfileByDid(did);
     if (!profile) {
       throw new Error('Failed to fetch profile by DID');
     }
@@ -189,7 +190,6 @@ class ProfileService {
    * Batch fetch multiple profiles
    * More efficient than individual fetches for 2+ profiles
    * React Query handles caching
-   * orbyt records are fetched in parallel by AtprotoService.getProfilesInBatch
    *
    * @param handles - Array of handles to fetch
    * @returns Array of profiles with orbyt records
@@ -203,9 +203,8 @@ class ProfileService {
       new Set(handles.map(h => h?.toLowerCase()).filter(h => !!h && typeof h === 'string'))
     );
 
-    // AtprotoService.getProfilesInBatch already fetches orbyt records in parallel
     try {
-      return await AtprotoService.getProfilesInBatch(uniqueHandles);
+      return await ActorService.getProfilesInBatch(uniqueHandles);
     } catch (_error) {
       return [];
     }
@@ -227,9 +226,8 @@ class ProfileService {
     const uniqueDids = Array.from(new Set(dids.filter(d => !!d && typeof d === 'string')));
 
     try {
-      // AtprotoService.getProfileByDid already includes orbyt records
       const profiles = await Promise.all(
-        uniqueDids.map(did => AtprotoService.getProfileByDid(did).catch(() => null))
+        uniqueDids.map(did => ActorService.getProfileByDid(did).catch(() => null))
       );
 
       return profiles.filter((p): p is ProfileViewWithOrbyt => p !== null);
@@ -238,12 +236,7 @@ class ProfileService {
     }
   }
 
-  /**
-   * Get a profile by handle.
-   * ActorService resolves `orbytColors` with Orbyt Colors API as canonical source,
-   * then falls back to repo-record colors when needed.
-   * React Query handles caching, this just fetches from API.
-   */
+  /** Get a profile by handle (React Query caches). */
   static async getProfile(handle: string): Promise<ProfileViewWithOrbyt | null> {
     if (!handle) return null;
 
@@ -265,7 +258,7 @@ class ProfileService {
     }
 
     // Throw when the response is empty so React Query retries instead of caching null.
-    const profile = await AtprotoService.getProfile(cleanHandle);
+    const profile = await ActorService.getProfile(cleanHandle);
     if (!profile) {
       throw new Error('Failed to fetch profile by handle');
     }
@@ -645,7 +638,7 @@ export function useFollowMutation() {
       // Make the actual API call (graph.follow returns the record URI; use it for unfollow to avoid stale getProfile)
       let followUri: string | undefined;
       if (isFollowing) {
-        followUri = await AtprotoService.follow(resolvedDid);
+        followUri = await GraphService.follow(resolvedDid);
       } else {
         const cached = queryClient.getQueryData<ProfileViewWithOrbyt>(
           profileKeys.detail(resolvedDid)
@@ -655,7 +648,7 @@ export function useFollowMutation() {
         if (!existingFollowUri) {
           existingFollowUri = useFollowStore.getState().getFollowState(resolvedDid)?.followUri;
         }
-        await AtprotoService.unfollow(resolvedDid, existingFollowUri);
+        await GraphService.unfollow(resolvedDid, existingFollowUri);
         followUri = undefined;
       }
 
@@ -753,9 +746,9 @@ export function useBlockMutation() {
     }) => {
       // Make the actual API call
       if (isBlocked) {
-        await AtprotoService.blockUser(did);
+        await GraphService.blockUser(did);
       } else {
-        await AtprotoService.unblockUser(did);
+        await GraphService.unblockUser(did);
       }
 
       // Cache is already updated in onMutate, just return success
@@ -829,9 +822,9 @@ export function useMuteMutation() {
     }) => {
       // Make the actual API call
       if (isMuted) {
-        await AtprotoService.muteUser(did);
+        await GraphService.muteUser(did);
       } else {
-        await AtprotoService.unmuteUser(did);
+        await GraphService.unmuteUser(did);
       }
 
       // Note: Cache updates are handled by React Query mutations
@@ -908,7 +901,7 @@ export function useProfileUpdateMutation() {
     }) => {
       // Handle custom colors - update orbyt profile record
       if (updates.customColors) {
-        await AtprotoService.updateOrbytProfileColors(
+        await RepoService.updateOrbytProfileColors(
           updates.customColors.backgroundColor,
           updates.customColors.textColor
         );
@@ -928,7 +921,7 @@ export function useProfileUpdateMutation() {
         updates.description !== undefined ||
         updates.avatar !== undefined
       ) {
-        updatedProfile = await AtprotoService.updateProfile(profileUpdates);
+        updatedProfile = await ActorService.updateProfile(profileUpdates);
       }
 
       return { handle, updatedProfile, updatedColors: !!updates.customColors };

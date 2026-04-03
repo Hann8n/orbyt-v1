@@ -413,7 +413,7 @@ async function setCommentFilter(
     };
 
     const { api } = await AtprotoCore.getApiClient();
-    const userDid = await AtprotoCore.getCurrentUserDid();
+    const userDid = AtprotoCore.getCurrentUserDid();
     if (!userDid) {
       throw new Error('No authenticated user');
     }
@@ -445,7 +445,7 @@ export async function deletePost(uri: string): Promise<boolean> {
     const rkey = parts[4];
 
     // Get the current user's DID to ensure they own the post
-    const userDid = await AtprotoCore.getCurrentUserDid();
+    const userDid = AtprotoCore.getCurrentUserDid();
     if (!userDid) {
       throw new Error('No authenticated user found');
     }
@@ -488,7 +488,7 @@ export async function mutePostComments(postUri: string): Promise<boolean> {
     const rkey = parts[4];
 
     // Get the current user's DID to ensure they own the post
-    const userDid = await AtprotoCore.getCurrentUserDid();
+    const userDid = AtprotoCore.getCurrentUserDid();
     if (!userDid) {
       throw new Error('No authenticated user found');
     }

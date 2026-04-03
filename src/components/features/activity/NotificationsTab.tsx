@@ -26,7 +26,9 @@ import { Image } from 'expo-image';
 import { LegendList, LegendListRef } from '@legendapp/list';
 import type { ScrollToTopRef } from '../../../utils/navigation/tabRefs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import AtprotoService from '../../../services/api/AtprotoService';
+import { AtprotoCore } from '../../../services/api/core';
+import { AtprotoFeedService } from '../../../services/api/feed/FeedService';
+import { NotificationService } from '../../../services/api/notification/NotificationService';
 import { Link, useRouter, useFocusEffect } from 'expo-router';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -129,11 +131,8 @@ const POST_ACTION_TYPES: readonly PostActionReason[] = [
   'subscribed-post',
 ] as const;
 
-// Type alias for post data map - uses API types directly
-// Matches AtprotoService.getPosts() return type
 type PostDataMap = Map<string, PostView>;
 
-// Helper to get embed from post data - uses API types directly
 const getEmbed = (postData: PostView | null | undefined): PostView['embed'] | undefined => {
   if (!postData) return undefined;
   if ('embed' in postData && postData.embed) return postData.embed;
@@ -305,7 +304,7 @@ const fetchPostData = async (
 
   if (postUri.includes('app.bsky.feed.repost')) {
     try {
-      const apiClient = await AtprotoService.getApiClient();
+      const apiClient = await AtprotoCore.getApiClient();
       if (apiClient) {
         const { api } = apiClient;
         const uriMatch = postUri.match(/at:\/\/([^/]+)\/app\.bsky\.feed\.repost\/(.+)/);
@@ -320,7 +319,7 @@ const fetchPostData = async (
             | undefined;
           if (repostValue?.subject?.uri) {
             rootPostUri = repostValue.subject.uri;
-            const postData = await AtprotoService.getPost(rootPostUri);
+            const postData = await AtprotoFeedService.getPost(rootPostUri);
             if (postData) return { postData, rootPostUri };
           }
         }
@@ -330,7 +329,7 @@ const fetchPostData = async (
     }
   }
 
-  const postData = await AtprotoService.getPost(postUri);
+  const postData = await AtprotoFeedService.getPost(postUri);
   if (!postData) return null;
   return { postData, rootPostUri };
 };
@@ -347,7 +346,7 @@ async function fetchNotificationPostDataMap(uris: string[]): Promise<PostDataMap
   }
 
   if (postUris.length > 0) {
-    const posts = await AtprotoService.getPosts(postUris);
+    const posts = await AtprotoFeedService.getPosts(postUris);
     posts.forEach((post, uri) => {
       if (
         post &&
@@ -363,7 +362,7 @@ async function fetchNotificationPostDataMap(uris: string[]): Promise<PostDataMap
 
   if (repostUris.length > 0) {
     try {
-      const apiClient = await AtprotoService.getApiClient();
+      const apiClient = await AtprotoCore.getApiClient();
       if (!apiClient) return result;
       const { api } = apiClient;
       const rootPostUris: string[] = [];
@@ -391,7 +390,7 @@ async function fetchNotificationPostDataMap(uris: string[]): Promise<PostDataMap
       }
 
       if (rootPostUris.length > 0) {
-        const rootPosts = await AtprotoService.getPosts(rootPostUris);
+        const rootPosts = await AtprotoFeedService.getPosts(rootPostUris);
         rootPosts.forEach((post, uri) => {
           if (
             post &&
@@ -795,7 +794,7 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_, ref) => {
   useFocusEffect(
     useCallback(() => {
       // Update seen status when notifications tab is focused
-      AtprotoService.updateNotificationSeen()
+      NotificationService.updateNotificationSeen()
         .then(() => {
           void queryClient.refetchQueries({ queryKey: queryKeys.unread.summary() });
         })
@@ -813,7 +812,8 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_, ref) => {
   const { data, refetch, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isError } =
     useInfiniteQuery({
       queryKey: [...queryKeys.notifications.lists()],
-      queryFn: ({ pageParam }) => AtprotoService.listNotifications(pageParam as string | null, 50),
+      queryFn: ({ pageParam }) =>
+        NotificationService.listNotifications(pageParam as string | null, 50),
       initialPageParam: null as string | null,
       getNextPageParam: last => last.cursor ?? undefined,
       placeholderData: prev => prev,

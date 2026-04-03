@@ -21,13 +21,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from '../Icon';
 import CloseButton from '../CloseButton';
 import CancelButton from '../CancelButton';
-import AtprotoService from '../../../services/api/AtprotoService';
+import { AtprotoFeedService } from '../../../services/api/feed/FeedService';
+import { BookmarkService } from '../../../services/api/bookmark/BookmarkService';
+import { ModerationService } from '../../../services/moderation/ModerationService';
+import { getVideoFeedbackFromStorage } from '../../../services/api/feed/videoFeedbackStorage';
 import { getFeedInteractionsSupported } from '../../../services/api/feed/feedInteractionSupport';
 import { Colors } from '../UI';
 import { useGlobalShareSheet } from '../../../hooks/useGlobalModals';
 import { formatHandle } from '../../../utils/formatting/handles';
 import { useBookmarkStore } from '../../../stores/bookmarkStore';
 import { useUserStore } from '../../../stores/userStore';
+import { logger } from '../../../utils/logger';
 import SendToPicker from './SendToPicker';
 import { FontFamily, Typography } from '../../../utils/components/typography';
 
@@ -72,6 +76,7 @@ const ShareSheet: React.FC = () => {
 
   // Get current user from store instead of API call
   const currentUser = useUserStore(state => state.currentUser);
+  const algorithmicFeedProvider = useUserStore(state => state.algorithmicFeedProvider);
 
   // Check if the current user is the author - use store instead of API call
   useEffect(() => {
@@ -92,7 +97,7 @@ const ShareSheet: React.FC = () => {
         return;
       }
 
-      const feedback = await AtprotoService.getVideoFeedback(postUri);
+      const feedback = getVideoFeedbackFromStorage(postUri);
       if (isMounted) {
         setSelectedFeedback(feedback?.type ?? null);
       }
@@ -126,7 +131,7 @@ const ShareSheet: React.FC = () => {
         return;
       }
 
-      const generator = await AtprotoService.getFeedGenerator(sourceFeed);
+      const generator = await AtprotoFeedService.getFeedGenerator(sourceFeed);
       const acceptsInteractions = Boolean(generator?.view?.acceptsInteractions);
       if (isMounted) {
         setInteractionsAvailable(acceptsInteractions);
@@ -173,7 +178,7 @@ const ShareSheet: React.FC = () => {
         let cid = postCid;
         if (!cid) {
           try {
-            const post = await AtprotoService.getPost(postUri);
+            const post = await AtprotoFeedService.getPost(postUri);
             cid = post?.cid || '';
           } catch {
             cid = '';
@@ -191,9 +196,9 @@ const ShareSheet: React.FC = () => {
         }
 
         if (newIsBookmarked) {
-          await AtprotoService.createBookmark(postUri, cid);
+          await BookmarkService.createBookmark(postUri, cid);
         } else {
-          await AtprotoService.deleteBookmark(postUri);
+          await BookmarkService.deleteBookmark(postUri);
         }
       } catch (_error) {
         // Revert optimistic update on error
@@ -222,7 +227,7 @@ const ShareSheet: React.FC = () => {
 
       // Perform report in background
       try {
-        const success = await AtprotoService.reportContent(postUri, reasonType);
+        const success = await ModerationService.reportContent(postUri, reasonType);
         if (!success) {
           // Revert optimistic update on error - remove from reported set
           const newSet = new Set(store.reportedPostUris);
@@ -267,7 +272,7 @@ const ShareSheet: React.FC = () => {
 
             // Perform deletion in background
             try {
-              const success = await AtprotoService.deletePost(postUri);
+              const success = await AtprotoFeedService.deletePost(postUri);
               if (!success) {
                 // Re-invalidate on error to ensure UI is correct
                 queryClient.invalidateQueries({
@@ -364,32 +369,52 @@ const ShareSheet: React.FC = () => {
   const handleShowMoreLikeThis = useCallback(async () => {
     if (!postUri) return;
     if (selectedFeedback === 'interested') {
-      AtprotoService.removeVideoFeedback(postUri);
+      AtprotoFeedService.removeVideoFeedback(postUri);
       setSelectedFeedback(null);
       return;
     }
     setSelectedFeedback('interested');
     try {
-      await AtprotoService.sendVideoFeedback(postUri, 'interested', sourceFeed);
-    } catch {
-      // Keep sheet open for retry; feedback interactions are best-effort.
+      await AtprotoFeedService.sendVideoFeedback(
+        postUri,
+        'interested',
+        sourceFeed,
+        undefined,
+        algorithmicFeedProvider
+      );
+    } catch (error: unknown) {
+      logger.warn('ShareSheet: sendVideoFeedback interested failed', {
+        component: 'ShareSheet',
+        postUri,
+        error,
+      });
     }
-  }, [postUri, selectedFeedback, sourceFeed]);
+  }, [postUri, selectedFeedback, sourceFeed, algorithmicFeedProvider]);
 
   const handleShowLessLikeThis = useCallback(async () => {
     if (!postUri) return;
     if (selectedFeedback === 'not_interested') {
-      AtprotoService.removeVideoFeedback(postUri);
+      AtprotoFeedService.removeVideoFeedback(postUri);
       setSelectedFeedback(null);
       return;
     }
     setSelectedFeedback('not_interested');
     try {
-      await AtprotoService.sendVideoFeedback(postUri, 'not_interested', sourceFeed);
-    } catch {
-      // Keep sheet open for retry; feedback interactions are best-effort.
+      await AtprotoFeedService.sendVideoFeedback(
+        postUri,
+        'not_interested',
+        sourceFeed,
+        undefined,
+        algorithmicFeedProvider
+      );
+    } catch (error: unknown) {
+      logger.warn('ShareSheet: sendVideoFeedback not_interested failed', {
+        component: 'ShareSheet',
+        postUri,
+        error,
+      });
     }
-  }, [postUri, selectedFeedback, sourceFeed]);
+  }, [postUri, selectedFeedback, sourceFeed, algorithmicFeedProvider]);
 
   // Neon accent colors for share-sheet (electric glow)
   const NEON = {

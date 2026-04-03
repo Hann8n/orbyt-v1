@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { AtprotoService } from '@/services/api/AtprotoService';
+import { AtprotoFeedService } from '@/services/api/feed/FeedService';
 
 type PostInteractionUpdate = {
   isLiked?: boolean;
@@ -52,7 +52,7 @@ export function useLikeInteraction<T extends BaseLikeState>({
 
     try {
       if (!state.isLiked) {
-        const likeUri = await AtprotoService.likePost(postUri, postCid || '');
+        const likeUri = await AtprotoFeedService.likePost(postUri, postCid || '');
         setState(prev => ({ ...prev, likeUri }));
         updatePostInteraction(postUri, {
           isLiked: true,
@@ -62,7 +62,7 @@ export function useLikeInteraction<T extends BaseLikeState>({
         onLikeSuccess?.();
       } else {
         if (!state.likeUri) throw new Error('No like URI found');
-        await AtprotoService.deleteLike(state.likeUri);
+        await AtprotoFeedService.deleteLike(state.likeUri);
         setState(prev => ({ ...prev, likeUri: undefined }));
         updatePostInteraction(postUri, {
           isLiked: false,
@@ -116,7 +116,7 @@ export function useLikeInteraction<T extends BaseLikeState>({
     });
 
     try {
-      const likeUri = await AtprotoService.likePost(postUri, postCid || '');
+      const likeUri = await AtprotoFeedService.likePost(postUri, postCid || '');
       setState(prev => ({ ...prev, likeUri }));
       updatePostInteraction(postUri, {
         isLiked: true,

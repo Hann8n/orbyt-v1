@@ -1,21 +1,11 @@
 import { create } from 'zustand';
 import type { TextOverlay } from '../types';
+import type { VideoSegment } from '../services/video/VideoProcessingService';
 
-export interface PendingVideoRef {
-  uri: string;
-  assetId?: string | null;
-  duration?: number;
-  width?: number;
-  height?: number;
-  [key: string]: unknown;
-}
+/** Same union as `VideoSegment.video` (camera `{ uri }` or full picker asset). */
+export type PendingVideoRef = VideoSegment['video'];
 
-export interface PendingVideoSegment {
-  startTime: number;
-  duration: number;
-  video: PendingVideoRef;
-  sourceType?: 'camera' | 'gallery';
-}
+export type PendingVideoSegment = VideoSegment;
 
 export interface PendingVideoPostPayload {
   videoPath?: string | null;

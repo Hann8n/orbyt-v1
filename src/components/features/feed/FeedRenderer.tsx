@@ -120,17 +120,17 @@ const FeedRenderer = forwardRef<ListFeedViewRef, FeedRendererProps>(
     // Memoized query options - useFeed handles defaults (staleTime, gcTime, etc.)
     // Keep query enabled always to avoid refetch trigger when visibility changes
     // Visibility is handled separately for video playback and infinite scroll
-    const memoizedQueryOptions = (() => {
+    const memoizedQueryOptions = useMemo(() => {
       const { enabled: providedEnabled, ...restOptions } = queryOptions ?? {};
 
       const computedEnabled =
-        typeof providedEnabled === 'boolean' ? providedEnabled : !isSearchFeed; // Always enabled for non-search feeds, regardless of visibility
+        typeof providedEnabled === 'boolean' ? providedEnabled : !isSearchFeed;
 
       return {
         enabled: computedEnabled,
         ...restOptions,
       };
-    })();
+    }, [queryOptions, isSearchFeed]);
 
     // Regular feed hook with memoized options
     const feedQuery = useFeed(feedOption, userDid, memoizedQueryOptions);
