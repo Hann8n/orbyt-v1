@@ -8,7 +8,7 @@ import { BORDER_RADIUS } from '../../../utils/constants';
 import { Colors } from '../../../theme';
 import { hexToRGBA } from '../../../utils/formatting/colors';
 
-/** Total hit area; icon centered on a frosted blur chip (`BlurView` / expo-blur). */
+/** Total hit area; icon centered on a frosted blur chip (`BlurView` / expo-blur). `GlassView` is not used here — it often does not composite visibly over native video. */
 const CONTAINER_SIZE = 72;
 const ICON_VISUAL_SIZE = 48;
 const ICON_VIEWBOX = 24;

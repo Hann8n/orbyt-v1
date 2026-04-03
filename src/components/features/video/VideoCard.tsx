@@ -838,7 +838,7 @@ const VideoCard = memo(
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
         const wasPaused = videoState.userPaused;
-        togglePlayback();
+
         tapFlashVariantSV.value = wasPaused ? 0 : 1;
 
         tapFlashScaleSV.value = 0;
@@ -867,6 +867,10 @@ const VideoCard = memo(
             }
           )
         );
+
+        requestAnimationFrame(() => {
+          togglePlayback();
+        });
       }, [
         cannotShowMedia,
         isBlurred,
