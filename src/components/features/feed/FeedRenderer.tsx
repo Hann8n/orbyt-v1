@@ -1,7 +1,7 @@
 /**
- * Optimized Feed Renderer with Comprehensive Visibility System
- * Provides a single component for rendering feeds with video items
- * Enhanced with React.memo for performance
+ * Optimized feed renderer: single entry for list/grid feeds with visibility-aware playback.
+ * Uses useMemo/useCallback so FlashList-bound props (`data`, `onLoadMore`, `commonProps`) stay
+ * stable when unrelated parent/query churn occurs — aligns with FlashList v2 prop-memo guidance.
  */
 
 import React, {
