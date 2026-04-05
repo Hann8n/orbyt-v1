@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Text, Linking, StyleSheet, StyleProp, TextStyle } from 'react-native';
+import { Text, Linking, StyleSheet, StyleProp, TextStyle, type TextProps } from 'react-native';
 import { RichText } from '@atproto/api';
 import { Typography } from '../../utils/components/typography';
 import { NATIVE_PRESSABLE_ACTIVE_OPACITY } from '@/utils/constants';
@@ -8,6 +8,9 @@ export interface TextWithLinksProps {
   text: string;
   style?: StyleProp<TextStyle>;
   numberOfLines?: number;
+  ellipsizeMode?: TextProps['ellipsizeMode'];
+  onTextLayout?: TextProps['onTextLayout'];
+  suffix?: React.ReactNode;
   /**
    * Called for @mention / profile taps.
    * - `identifier` may be a DID (preferred) or a handle (without `@`)
@@ -76,6 +79,9 @@ function TextWithLinksBase({
   text,
   style,
   numberOfLines,
+  ellipsizeMode,
+  onTextLayout,
+  suffix,
   onAuthorPress,
   onHashtagPress,
   onLinkPress,
@@ -106,7 +112,12 @@ function TextWithLinksBase({
   };
 
   return (
-    <Text style={style} numberOfLines={numberOfLines}>
+    <Text
+      style={style}
+      numberOfLines={numberOfLines}
+      ellipsizeMode={ellipsizeMode}
+      onTextLayout={onTextLayout}
+    >
       {Array.from(rt.segments()).map((segment, i) => {
         if (segment.isLink() && segment.link?.uri) {
           const uri = segment.link.uri;
@@ -171,6 +182,7 @@ function TextWithLinksBase({
         }
         return <Text key={`${i}-plain`}>{segment.text}</Text>;
       })}
+      {suffix}
     </Text>
   );
 }

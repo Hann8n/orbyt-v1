@@ -317,8 +317,8 @@
     "following": "フォロー中",
     "yourMix": "あなたのミックス",
     "repostedBy": "{{handle}}がリポスト",
-    "contentWarning": "コンテンツの警告",
-    "spotlight": "スポットライト"
+    "showMore": "表示",
+    "showLess": "隠す"
   },
   "profile": {
     "failedToRefresh": "プロフィールの更新に失敗しました。",
