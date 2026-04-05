@@ -19,7 +19,6 @@ import {
   Platform,
   ActivityIndicator,
   RefreshControl,
-  StatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SafeAreaView as RNScreensSafeAreaView } from 'react-native-screens/experimental';
@@ -40,6 +39,7 @@ import {
   RenderTargetOptions,
 } from '@shopify/flash-list';
 import { FeedScrollProvider } from '../../../context/FeedScrollContext';
+import { useTabBarVisibility } from '../../../context/FeedIndicatorContext';
 import EmptyFeed from './EmptyFeed';
 import { VideoItem } from './VideoItem';
 import GridFeedView from './GridFeedView';
@@ -56,6 +56,7 @@ import { isIosLiquidGlassAvailable } from '@/stores/userStore';
 import { getEffectiveTopInset, getViewportDimensions } from '../../../utils/device/screen';
 import { getVideoCardHeight } from '../../../utils/video/helpers';
 import { Colors } from '../../../theme';
+import { blendColors } from '../../../utils/formatting/colors';
 import {
   APP_CONSTANTS,
   SCROLL_CONSTANTS,
@@ -88,16 +89,6 @@ const getListItemType = (item: FeedListItem): string => {
 };
 
 const listKeyExtractor = (item: FeedListItem, _index: number): string => getFeedItemKey(item);
-
-/** Passed via FlashList `extraData` so `renderItem` stays referentially stable (ViewHolder memo). */
-interface ListFeedListRenderExtra {
-  cardHeight: number;
-  feedOption: string;
-  feedKey: string;
-  canPlay: boolean;
-  isHeaderBlockingPlayback: boolean;
-  zoomTargetPostUri: string | null;
-}
 
 // Empty component shown when there are no feed items
 interface ListEmptyComponentProps {
@@ -241,6 +232,29 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     const endOfFeedEnabledSV = useSharedValue(0);
     const endOfFeedOverscrollOpacitySV = useSharedValue(0);
 
+    // Mirror isVisible into a shared value so worklets can read it on the UI thread.
+    const tabBarVisibility = useTabBarVisibility();
+    const isVisibleSV = useSharedValue(isVisible ? 1 : 0);
+    useEffect(() => {
+      isVisibleSV.value = isVisible ? 1 : 0;
+    }, [isVisible, isVisibleSV]);
+
+    // Hide/show the FeedPager tab navigator based on scroll direction.
+    useAnimatedReaction(
+      () => scrollOffsetYSV.value,
+      (y, prevY) => {
+        if (!isVisibleSV.value || prevY === null) return;
+        if (y < 10) {
+          tabBarVisibility.value = 1;
+        } else if (y > prevY + 5) {
+          tabBarVisibility.value = 0;
+        } else if (y < prevY - 5) {
+          tabBarVisibility.value = 1;
+        }
+      },
+      [tabBarVisibility, isVisibleSV]
+    );
+
     // setScrollBasedBlocking via useAnimatedReaction so we only cross the JS bridge when the boolean flips (same pattern as ProfileHeader).
     useAnimatedReaction(
       () => scrollOffsetYSV.value < FEED_VIEW_CONSTANTS.HEADER_BLOCKING_THRESHOLD,
@@ -294,22 +308,10 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       ? getVideoCardHeight(screenWidth, screenHeight)
       : Math.max(0, viewableAreaHeight - FEED_VIEW_CONSTANTS.LIST_ITEM_GAP);
 
-    const initialScrollIndex =
-      targetScrollIndex !== null &&
-      targetScrollIndex !== undefined &&
-      viewMode === 'list' &&
-      feed.length > 0
-        ? Math.max(0, Math.min(targetScrollIndex, feed.length - 1))
-        : undefined;
-
-    const initialViewableIndexForVisibility =
-      viewMode === 'list' && feed.length > 0 ? (initialScrollIndex ?? 0) : undefined;
-
     const { onViewableItemsChanged, viewabilityConfig, canPlay, feedKey } = useFeedVisibility({
       feedOption,
       userDid,
       isActive: Boolean(isVisible),
-      initialViewableIndex: initialViewableIndexForVisibility,
     });
 
     const isHeaderBlockingPlayback =
@@ -344,54 +346,57 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       }
     }, [showEndOfFeed]);
 
-    const listRenderExtraData: ListFeedListRenderExtra = useMemo(
-      () => ({
-        cardHeight,
-        feedOption,
-        feedKey,
-        canPlay,
-        isHeaderBlockingPlayback,
-        zoomTargetPostUri: zoomTargetPostUri ?? null,
-      }),
+    // Render item function - optimized to reduce dependencies and rerenders
+    // VideoItem derives isVisible from store (activeFeedKey+lastViewableIndexByFeed) and allowPlayback from isVisible&&canPlay
+    const renderItem = useCallback(
+      ({ item, index, target }: ListRenderItemInfo<FeedListItem>) => {
+        // FlashList may call renderItem with target=Measurement for layout; skip heavy work (video, images)
+        if (target === RenderTargetOptions.Measurement) {
+          return <View style={[styles.measurementPlaceholder, { height: cardHeight }]} />;
+        }
+
+        const feedItem = item;
+        const isAppleZoomTarget =
+          Boolean(zoomTargetPostUri) &&
+          feedItem.post?.uri === zoomTargetPostUri &&
+          Platform.OS === 'ios';
+        return (
+          <VideoItem
+            feedItem={feedItem}
+            post={feedItem.post}
+            height={cardHeight}
+            feedOption={feedOption as 'following' | 'discover'}
+            feedKey={feedKey}
+            canPlay={canPlay}
+            isHeaderBlockingPlayback={isHeaderBlockingPlayback}
+            index={index}
+            isAppleZoomTarget={isAppleZoomTarget}
+          />
+        );
+      },
       [cardHeight, feedOption, feedKey, canPlay, isHeaderBlockingPlayback, zoomTargetPostUri]
     );
-
-    const listRenderExtraRef = useRef(listRenderExtraData);
-    listRenderExtraRef.current = listRenderExtraData;
-
-    // Stable renderItem identity + FlashList `extraData` (see FlashListProps / ViewHolder memo).
-    const renderItem = useCallback((info: ListRenderItemInfo<FeedListItem>) => {
-      const { item, index, target, extraData } = info;
-      const x = (extraData as ListFeedListRenderExtra | undefined) ?? listRenderExtraRef.current;
-      const rowHeight = x.cardHeight;
-      if (target === RenderTargetOptions.Measurement) {
-        return <View style={[styles.measurementPlaceholder, { height: rowHeight }]} />;
-      }
-      const feedItem = item;
-      const isAppleZoomTarget =
-        Boolean(x.zoomTargetPostUri) &&
-        feedItem.post?.uri === x.zoomTargetPostUri &&
-        Platform.OS === 'ios';
-      return (
-        <VideoItem
-          feedItem={feedItem}
-          post={feedItem.post}
-          height={x.cardHeight}
-          feedOption={x.feedOption as 'following' | 'discover'}
-          feedKey={x.feedKey}
-          canPlay={x.canPlay}
-          isHeaderBlockingPlayback={x.isHeaderBlockingPlayback}
-          index={index}
-          isAppleZoomTarget={isAppleZoomTarget}
-        />
-      );
-    }, []);
 
     // Item type + keys are handled by pure module-scope helpers.
 
     // FlashList's native viewability handles item detection automatically
     // maintainVisibleContentPosition preserves scroll position, so the visible item
     // at that position will be detected by the viewability callback
+
+    // Calculate initialScrollIndex from targetScrollIndex for FlashList's built-in prop
+    // This avoids any scrolling animation or jumps - FlashList handles it natively
+    const initialScrollIndex = (() => {
+      if (
+        targetScrollIndex !== null &&
+        targetScrollIndex !== undefined &&
+        viewMode === 'list' &&
+        listData.length > 0
+      ) {
+        return Math.max(0, Math.min(targetScrollIndex, listData.length - 1));
+      }
+
+      return undefined;
+    })();
 
     // Only adjust scroll when this feed is the active pager page; use this feed's own viewable index
     const handleOrientationChange = useCallback(
@@ -445,18 +450,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     const snapTopInset =
       useLegacyIosTabLiquidGlassLayout && !isCompact ? getEffectiveTopInset(insets.top) : 0;
 
-    const headerHeightRef = useRef(headerHeight);
-    headerHeightRef.current = headerHeight;
-
-    const handleHeaderLayout = useCallback((e: LayoutChangeEvent) => {
-      const h = Math.round(e.nativeEvent.layout.height);
-      if (h <= 0 || h === headerHeightRef.current) return;
-      requestAnimationFrame(() => {
-        setHeaderHeight(prev => (prev === h ? prev : h));
-      });
-    }, []);
-
-    const snapToOffsets = useMemo((): number[] | null => {
+    const snapToOffsets = ((): number[] | null => {
       if (useLegacyIosTabLiquidGlassLayout && !hasHeader && isCompact) {
         return null;
       }
@@ -472,17 +466,17 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       }
 
       return offsets;
-    }, [
-      useLegacyIosTabLiquidGlassLayout,
-      hasHeader,
-      isCompact,
-      listData.length,
-      headerHeight,
-      cardHeight,
-      itemSpacing,
-      isHeaderFeed,
-      snapTopInset,
-    ]);
+    })();
+
+    const handleHeaderLayout = (e: LayoutChangeEvent) => {
+      const h = Math.round(e.nativeEvent.layout.height);
+      if (h > 0 && h !== headerHeight) {
+        // Use requestAnimationFrame to avoid blocking layout
+        requestAnimationFrame(() => {
+          setHeaderHeight(h);
+        });
+      }
+    };
 
     const handleFeedLayout = useCallback((e: LayoutChangeEvent) => {
       const h = Math.round(e.nativeEvent.layout.height);
@@ -527,109 +521,18 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       [contentScrollProgressOutput, fadeDist]
     );
 
-    // Context compares value by reference; memoize so VideoCard subscribers do not re-render on unrelated list updates.
-    const feedScrollValue = useMemo(
-      () => ({
-        scrollOffsetYSV,
-        headerHeight,
-        viewportHeight: viewableAreaHeight,
-        itemSpacing,
-        contentScrollProgressSV,
-      }),
-      [headerHeight, viewableAreaHeight, itemSpacing, scrollOffsetYSV, contentScrollProgressSV]
-    );
-
-    /** ~1 viewport of draw distance for tall full-screen rows; bounded for memory (FlashList default 250). */
-    const flashListDrawDistance = useMemo(() => {
-      if (viewableAreaHeight <= 0) {
-        return 300;
-      }
-      return Math.min(1200, Math.max(300, Math.round(viewableAreaHeight * 0.85)));
-    }, [viewableAreaHeight]);
+    // Memoize context value to avoid unnecessary re-renders of list consumers when layout/scroll haven't changed.
+    // Must be before the grid early return so hooks run in the same order every render.
+    const feedScrollValue = {
+      scrollOffsetYSV,
+      headerHeight,
+      viewportHeight: viewableAreaHeight,
+      itemSpacing,
+      contentScrollProgressSV,
+    };
 
     /** Tab / home indicator clearance for the overscroll hint sitting above the bottom edge. */
     const endOfFeedHintBottomInset = useNativeTabBottomSafeArea ? 12 : Math.max(12, insets.bottom);
-
-    /** Offset so the spinner sits below the status bar / notch (see RefreshControl `progressViewOffset`). */
-    const refreshProgressViewOffset = useMemo(() => {
-      const top = getEffectiveTopInset(insets.top);
-      if (Platform.OS === 'android') {
-        return Math.max(top, StatusBar.currentHeight ?? 0);
-      }
-      return top;
-    }, [insets.top]);
-
-    const listRefreshControl = useMemo(() => {
-      if (!pullToRefresh) return undefined;
-      const accent = profileColors?.textColor ?? secondaryColor ?? Colors.neutral[50];
-      const trackBg = profileColors?.backgroundColor ?? backgroundColor ?? Colors.black;
-      return (
-        <RefreshControl
-          refreshing={pullToRefresh.refreshing}
-          onRefresh={() => {
-            void Promise.resolve(pullToRefresh.onRefresh());
-          }}
-          tintColor={accent}
-          colors={[accent]}
-          progressBackgroundColor={trackBg}
-          progressViewOffset={refreshProgressViewOffset}
-        />
-      );
-    }, [pullToRefresh, refreshProgressViewOffset, profileColors, secondaryColor, backgroundColor]);
-
-    const listHeaderMemo = useMemo(
-      () =>
-        headerComponent ? (
-          <View onLayout={handleHeaderLayout}>
-            {headerComponent}
-            <View style={styles.listHeaderGapStrip} />
-          </View>
-        ) : null,
-      [headerComponent, handleHeaderLayout]
-    );
-
-    const listEmptyMemo = useMemo(
-      () => (
-        <ListEmptyComponent
-          isLoading={isLoading}
-          effectiveIsError={effectiveIsError}
-          feedOption={feedOption}
-          secondaryColor={secondaryColor}
-          profileColors={profileColors}
-          isHeaderFeed={isHeaderFeed}
-          emptyComponentHeight={emptyComponentHeight}
-          onRetry={onRetry}
-        />
-      ),
-      [
-        isLoading,
-        effectiveIsError,
-        feedOption,
-        secondaryColor,
-        profileColors,
-        isHeaderFeed,
-        emptyComponentHeight,
-        onRetry,
-      ]
-    );
-
-    const listFooterMemo = useMemo(
-      () => (feed.length > 0 ? <View style={styles.itemSeparator} /> : null),
-      [feed.length]
-    );
-
-    const listContentContainerStyle = useMemo(
-      () =>
-        feed.length > 0
-          ? [
-              styles.contentContainer,
-              {
-                paddingBottom: useNativeTabBottomSafeArea ? 0 : insets.bottom,
-              },
-            ]
-          : [styles.contentContainer],
-      [feed.length, useNativeTabBottomSafeArea, insets.bottom]
-    );
 
     if (viewMode === 'grid') {
       const grid = (
@@ -685,13 +588,37 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
             ref={flashListRef}
             style={styles.flashList}
             data={listData}
-            extraData={listRenderExtraData}
             renderItem={renderItem}
             keyExtractor={listKeyExtractor}
-            drawDistance={flashListDrawDistance}
             getItemType={getListItemType}
+            refreshControl={
+              pullToRefresh ? (
+                <RefreshControl
+                  refreshing={pullToRefresh.refreshing}
+                  onRefresh={pullToRefresh.onRefresh}
+                  tintColor={
+                    profileColors?.textColor
+                      ? blendColors(profileColors.textColor, Colors.neutral[50], 0.3)
+                      : secondaryColor || Colors.neutral[50]
+                  }
+                  progressViewOffset={insets.top}
+                />
+              ) : undefined
+            }
             initialScrollIndex={initialScrollIndex}
-            ListHeaderComponent={listHeaderMemo}
+            ListHeaderComponent={
+              headerComponent ? (
+                <View onLayout={handleHeaderLayout}>
+                  {headerComponent}
+                  <View
+                    style={{
+                      height: FEED_VIEW_CONSTANTS.LIST_ITEM_GAP,
+                      backgroundColor: Colors.black,
+                    }}
+                  />
+                </View>
+              ) : null
+            }
             // Snapping configuration
 
             pagingEnabled={false}
@@ -722,12 +649,28 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
             alwaysBounceVertical={showEndOfFeed}
             alwaysBounceHorizontal={false}
             // Empty state components - extracted to memoized component
-            ListEmptyComponent={listEmptyMemo}
+            ListEmptyComponent={
+              <ListEmptyComponent
+                isLoading={isLoading}
+                effectiveIsError={effectiveIsError}
+                feedOption={feedOption}
+                secondaryColor={secondaryColor}
+                profileColors={profileColors}
+                isHeaderFeed={isHeaderFeed}
+                emptyComponentHeight={emptyComponentHeight}
+                onRetry={onRetry}
+              />
+            }
             // Item separator for black gaps between cards
             ItemSeparatorComponent={ItemSeparatorComponent}
-            ListFooterComponent={listFooterMemo}
-            contentContainerStyle={listContentContainerStyle}
-            refreshControl={listRefreshControl}
+            ListFooterComponent={feed.length > 0 ? <View style={styles.itemSeparator} /> : null}
+            contentContainerStyle={[
+              styles.contentContainer,
+              feed.length > 0 && {
+                // iOS tab: bottom inset is on RNScreensSafeAreaView wrapper. Android native tabs wrap content per Expo docs.
+                paddingBottom: useNativeTabBottomSafeArea ? 0 : insets.bottom,
+              },
+            ]}
           />
         </View>
       </View>
@@ -776,10 +719,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.transparent,
   },
   itemSeparator: {
-    height: FEED_VIEW_CONSTANTS.LIST_ITEM_GAP,
-    backgroundColor: Colors.black,
-  },
-  listHeaderGapStrip: {
     height: FEED_VIEW_CONSTANTS.LIST_ITEM_GAP,
     backgroundColor: Colors.black,
   },
