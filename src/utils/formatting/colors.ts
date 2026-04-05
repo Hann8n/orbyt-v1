@@ -206,8 +206,21 @@ export const DEFAULT_PROFILE_COLORS = {
   statusBarStyle: 'light' as const,
 };
 
-/** Mix ratio toward black for profile chrome; uses blendColors so light themes stay softly tinted (darkenColor’s second pass turns white into dull grey). */
-const PROFILE_CHROME_BLEND_TOWARD_BLACK = 0.15;
+/**
+ * Adaptive blend ratio toward black for profile chrome.
+ * Uses WCAG relative luminance to scale non-linearly:
+ * light colors (near white) get a gentle blend (~0.10) so they stay tinted,
+ * not greyed; dark colors get a richer deepening (~0.25).
+ *
+ *   blend(L) = 0.10 + 0.15 * (1 - L)
+ *
+ * where L = relative luminance ∈ [0, 1].
+ * This keeps the perceived darkening proportional across the full range.
+ */
+function getAdaptiveChromeBlend(hex: string): number {
+  const L = getRelativeLuminance(hex);
+  return 0.1 + 0.15 * (1 - L);
+}
 
 /**
  * Type for profile colors
@@ -269,7 +282,7 @@ export function getProfileColors(
     chromeBackgroundColor: blendColors(
       backgroundColor,
       Colors.black,
-      PROFILE_CHROME_BLEND_TOWARD_BLACK
+      getAdaptiveChromeBlend(backgroundColor)
     ),
     foregroundColor: textColor,
     textColor,

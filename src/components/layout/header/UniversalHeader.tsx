@@ -33,7 +33,7 @@ import { useRouter } from 'expo-router';
 import { buildFeedModalHref } from '@/utils/navigation/feedModalRoute';
 import { useFeedModalTabSegment } from '@/utils/navigation/feedModalTabSegment';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
-import { hexToRGBA, blendColors } from '../../../utils/formatting/colors';
+import { hexToRGBA, blendColors, getRelativeLuminance } from '../../../utils/formatting/colors';
 import { Avatar } from '../../ui/UI';
 import { Colors } from '../../../theme';
 import { Typography, FontFamily } from '../../../utils/components/typography';
@@ -851,7 +851,11 @@ const HeaderContentComponent = memo<{
                     style={[
                       styles.subtitleActionPill,
                       {
-                        backgroundColor: blendColors(backgroundColor, textColor, 0.28),
+                        backgroundColor: blendColors(
+                          backgroundColor,
+                          textColor,
+                          0.1 + 0.15 * getRelativeLuminance(textColor)
+                        ),
                       },
                     ]}
                   >

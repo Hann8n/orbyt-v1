@@ -14,10 +14,8 @@ import {
   Platform,
   Pressable,
   RefreshControl,
-  StatusBar,
   type StyleProp,
   type ViewStyle,
-  type ImageStyle,
   useWindowDimensions,
 } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
@@ -30,7 +28,7 @@ import Animated, {
   useAnimatedScrollHandler,
 } from 'react-native-reanimated';
 import { FlashList, FlashListRef } from '@shopify/flash-list';
-import type { ListFeedPullToRefresh, ListFeedViewRef } from '../../../types';
+import type { ListFeedViewRef, ListFeedPullToRefresh } from '../../../types';
 import { Colors } from '../../../theme';
 import { getVideoView, DEFAULT_VIDEO_ASPECT_RATIO } from '../../../utils/video/helpers';
 import {
@@ -41,7 +39,7 @@ import {
 } from '../../../utils/constants';
 import type { ExtendedFeedViewPost } from '../../../services/api/types';
 import * as Device from 'expo-device';
-import { getEffectiveTopInset, getViewportDimensions } from '../../../utils/device/screen';
+import { getViewportDimensions } from '../../../utils/device/screen';
 import EmptyFeed from './EmptyFeed';
 import BlurredBackground from '../../ui/BlurredBackground';
 import {
@@ -67,11 +65,9 @@ const VideoGridItem: React.FC<{
   index: number;
   onPress?: (index: number) => void;
   style?: StyleProp<ViewStyle>;
-  itemStyle?: StyleProp<ViewStyle>;
-  thumbnailStyle?: ImageStyle;
   /** iOS: Expo Router zoom transition source (must be inside `Link` with `asChild`). */
   zoomLink?: { href: Href; onBeforeNavigate: () => void };
-}> = ({ item, index, onPress, style, itemStyle, thumbnailStyle, zoomLink }) => {
+}> = ({ item, index, onPress, style, zoomLink }) => {
   const videoView = getVideoView(item.post.embed);
   const thumbnailUrl = videoView?.thumbnail || null;
   const shouldBlur = !!(item.contentListUI?.blur || item.contentMediaUI?.blur);
@@ -79,7 +75,7 @@ const VideoGridItem: React.FC<{
   const handlePress = () => onPress?.(index);
 
   // Link asChild uses Slot: array styles on the direct child are not allowed (expo-router requirement).
-  const flattenedOuterStyle = StyleSheet.flatten([styles.gridItem, style, itemStyle]);
+  const flattenedOuterStyle = StyleSheet.flatten([styles.gridItem, style]);
 
   const validThumbnailUrl =
     thumbnailUrl && typeof thumbnailUrl === 'string' && thumbnailUrl.trim() !== ''
@@ -94,7 +90,7 @@ const VideoGridItem: React.FC<{
       {validThumbnailUrl && !shouldBlur && (
         <Image
           source={{ uri: validThumbnailUrl }}
-          style={StyleSheet.flatten([styles.thumbnail, thumbnailStyle])}
+          style={styles.thumbnail}
           contentFit="contain"
           recyclingKey={recyclingKey}
           cachePolicy="disk"
@@ -119,7 +115,7 @@ const VideoGridItem: React.FC<{
   }
 
   return (
-    <NativePressable style={[styles.gridItem, style, itemStyle]} onPress={handlePress}>
+    <NativePressable style={[styles.gridItem, style]} onPress={handlePress}>
       {cellContent}
     </NativePressable>
   );
@@ -181,9 +177,6 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
     },
     ref
   ) => {
-    const effectiveBackgroundColor = backgroundColor || Colors.black;
-    // Cells stay black; list chrome is transparent so flex-grown space below the grid shows the parent (theme) instead of black.
-
     // Determine if this is a header feed (profile, channel, etc.)
     const isHeaderFeed = getIsHeaderFeed(feedOption, headerComponent);
 
@@ -328,11 +321,10 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
               }
             : undefined;
 
-        // Create border styles - only show borders on the inside of the grid
         const borderStyle = {
           borderRightWidth: isLastColumn ? 0 : FEED_VIEW_CONSTANTS.GRID_CELL_GAP,
           borderBottomWidth: isLastRow ? 0 : FEED_VIEW_CONSTANTS.GRID_CELL_GAP,
-          borderColor: effectiveBackgroundColor,
+          borderColor: backgroundColor,
         };
 
         return (
@@ -341,12 +333,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
             index={index}
             onPress={onGridItemPress}
             zoomLink={zoomLink}
-            style={[
-              { width: itemWidth, height: itemHeight, backgroundColor: Colors.black },
-              borderStyle,
-            ]}
-            itemStyle={styles.gridItemOverride}
-            thumbnailStyle={styles.thumbnailOverride}
+            style={[{ width: itemWidth, height: itemHeight, backgroundColor }, borderStyle]}
           />
         );
       },
@@ -357,7 +344,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
         numColumns,
         itemWidth,
         itemHeight,
-        effectiveBackgroundColor,
+        backgroundColor,
       ]
     );
 
@@ -387,38 +374,10 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
       return base;
     })();
 
-    /** Offset so the spinner sits below the status bar / notch (see RefreshControl `progressViewOffset`). */
-    const refreshProgressViewOffset = useMemo(() => {
-      const top = getEffectiveTopInset(insets.top);
-      if (Platform.OS === 'android') {
-        return Math.max(top, StatusBar.currentHeight ?? 0);
-      }
-      return top;
-    }, [insets.top]);
-
-    const gridRefreshControl = useMemo(() => {
-      if (!pullToRefresh) return undefined;
-      const accent = profileColors?.textColor ?? secondaryColor ?? Colors.neutral[50];
-      const trackBg = profileColors?.backgroundColor ?? effectiveBackgroundColor;
-      return (
-        <RefreshControl
-          refreshing={pullToRefresh.refreshing}
-          onRefresh={() => {
-            void Promise.resolve(pullToRefresh.onRefresh());
-          }}
-          tintColor={accent}
-          colors={[accent]}
-          progressBackgroundColor={trackBg}
-          progressViewOffset={refreshProgressViewOffset}
-        />
-      );
-    }, [
-      pullToRefresh,
-      refreshProgressViewOffset,
-      profileColors,
-      secondaryColor,
-      effectiveBackgroundColor,
-    ]);
+    const separatorStyle = {
+      height: FEED_VIEW_CONSTANTS.LIST_ITEM_GAP,
+      backgroundColor,
+    };
 
     const listHeader = headerComponent ? (
       <View
@@ -426,14 +385,11 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
         onLayout={useScrollTracking ? handleHeaderLayout : undefined}
       >
         {headerComponent}
-        <View style={[styles.headerSeparator, { backgroundColor: effectiveBackgroundColor }]} />
+        <View style={separatorStyle} />
       </View>
     ) : null;
 
-    const listFooter =
-      feed.length > 0 ? (
-        <View style={[styles.headerSeparator, { backgroundColor: effectiveBackgroundColor }]} />
-      ) : null;
+    const listFooter = feed.length > 0 ? <View style={separatorStyle} /> : null;
 
     const listContent = (
       <ListEl
@@ -443,6 +399,16 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
         renderItem={renderGridItem}
         keyExtractor={gridKeyExtractor}
         numColumns={numColumns}
+        refreshControl={
+          !ListComponent && pullToRefresh ? (
+            <RefreshControl
+              refreshing={pullToRefresh.refreshing}
+              onRefresh={pullToRefresh.onRefresh}
+              tintColor={profileColors?.textColor || secondaryColor}
+              progressViewOffset={insets.top}
+            />
+          ) : undefined
+        }
         contentContainerStyle={[
           styles.listContent,
           {
@@ -484,15 +450,11 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
         scrollEnabled={true}
         onEndReached={hasNextPage ? onLoadMore : undefined}
         onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
-        refreshControl={gridRefreshControl}
       />
     );
 
     return (
-      <View
-        style={[styles.container, { backgroundColor: effectiveBackgroundColor }]}
-        onLayout={handleGridContainerLayout}
-      >
+      <View style={[styles.container, { backgroundColor }]} onLayout={handleGridContainerLayout}>
         {useScrollTracking && feedScrollValue ? (
           <FeedScrollProvider value={feedScrollValue}>{listContent}</FeedScrollProvider>
         ) : (
@@ -513,19 +475,12 @@ const styles = StyleSheet.create({
   headerWrapper: {
     width: '100%',
   },
-  headerSeparator: {
-    height: FEED_VIEW_CONSTANTS.LIST_ITEM_GAP,
-  },
   listContent: {
     flexGrow: 1,
     paddingBottom: 20,
-    paddingHorizontal: 0,
   },
   gridItem: {
-    position: 'relative',
     overflow: 'hidden',
-    borderRadius: 0,
-    backgroundColor: Colors.black,
   },
   appleZoomSourceInner: {
     flex: 1,
@@ -535,14 +490,6 @@ const styles = StyleSheet.create({
   thumbnail: {
     width: '100%',
     height: '100%',
-    borderRadius: 0,
-  },
-  gridItemOverride: {
-    borderRadius: 0,
-    padding: 0,
-  },
-  thumbnailOverride: {
-    borderRadius: 0,
   },
 });
 
