@@ -530,8 +530,6 @@ const VideoCard = memo(
         isVisible &&
         !!videoUrl;
 
-      const isPausedDimmed = !shouldPlayVideo;
-
       // Text-expanded dim state is driven fully by Reanimated shared values to avoid re-rendering
       // VideoCard when the overlay text is expanded/collapsed.
       const textDimActiveSV = useSharedValue(0);
@@ -560,13 +558,6 @@ const VideoCard = memo(
         'worklet';
         return { opacity: textDimOpacitySV.value };
       }, [textDimOpacitySV]);
-
-      const pausedDimAnimatedStyle = useAnimatedStyle(() => {
-        'worklet';
-        // Hide paused dim whenever the text-expanded dim is active (no stacking)
-        const shouldShowPaused = isPausedDimmed && textDimActiveSV.value < 0.5;
-        return { opacity: shouldShowPaused ? 1 : 0 };
-      }, [textDimActiveSV, isPausedDimmed]);
 
       const shouldLoadVideo = !cannotShowMedia && !isBlurred && !!videoSource;
 
@@ -1136,15 +1127,7 @@ const VideoCard = memo(
                 </View>
               )}
 
-              {/* Dimming overlays
-                  - Paused/not-playing: instant 0.4 (no animation)
-                  - Text expanded: fades to 0.65 (micro-animation)
-                  - When both apply: prefer text-expanded overlay (no stacking)
-              */}
-              <Animated.View
-                style={[styles.pausedDimmingOverlay, pausedDimAnimatedStyle]}
-                pointerEvents="none"
-              />
+              {/* Text expanded dimming overlay */}
               <Animated.View
                 style={[styles.textExpandedDimmingOverlay, textDimAnimatedStyle]}
                 pointerEvents="none"
@@ -1340,12 +1323,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: 'Figtree-SemiBold',
     fontWeight: '600',
-  },
-  pausedDimmingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: hexToRGBA(Colors.black, 0.4),
-    zIndex: 5,
-    pointerEvents: 'none',
   },
   textExpandedDimmingOverlay: {
     ...StyleSheet.absoluteFillObject,
