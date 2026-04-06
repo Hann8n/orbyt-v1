@@ -165,7 +165,7 @@ const CreateScreen: React.FC = () => {
   const finishRecordingRef = useRef<((options?: { force?: boolean }) => Promise<void>) | null>(
     null
   );
-  const recordingAutoStopTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const recordingAutoStopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const discardGenerationRef = useRef(0);
   const activeRecordingDiscardGenRef = useRef<number | null>(null);
   // Animated values
