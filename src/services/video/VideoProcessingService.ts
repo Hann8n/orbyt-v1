@@ -422,9 +422,7 @@ class VideoProcessingService {
     if (fastMerged) {
       return fastMerged;
     }
-    throw new Error(
-      'Fast merge failed or is unavailable. Install and link react-native-fast-video-merge.'
-    );
+    throw new Error('Fast merge failed.');
   }
 
   /**
@@ -511,14 +509,35 @@ class VideoProcessingService {
         return null;
       }
 
+      const fallbackDuration = segments.reduce((sum, segment) => {
+        return (
+          sum + (Number.isFinite(segment.duration) && segment.duration > 0 ? segment.duration : 0)
+        );
+      }, 0);
+      const fallbackDimensions = this.pickerDimensions(segments[0]?.video);
+
       const probed = await this.probeLocalVideoWithExpoPlayer(outputPath);
       if (!probed || probed.duration <= 0 || probed.width <= 0 || probed.height <= 0) {
         logger.warn('Fast merge: could not probe merged output', {
           component: 'VideoProcessingService',
           outputPath,
         });
-        return null;
       }
+
+      const duration =
+        probed && probed.duration > 0 ? probed.duration : Math.max(fallbackDuration, 0.001);
+      const width =
+        probed && probed.width > 0
+          ? probed.width
+          : fallbackDimensions.width > 0
+            ? fallbackDimensions.width
+            : 1080;
+      const height =
+        probed && probed.height > 0
+          ? probed.height
+          : fallbackDimensions.height > 0
+            ? fallbackDimensions.height
+            : 1920;
 
       logger.info('Merged segments with fast merge SDK', {
         component: 'VideoProcessingService',
@@ -527,9 +546,9 @@ class VideoProcessingService {
       });
       return {
         path: outputPath,
-        duration: probed.duration,
-        width: probed.width,
-        height: probed.height,
+        duration,
+        width,
+        height,
       };
     } catch (error: unknown) {
       logger.warn('Fast merge SDK failed', {

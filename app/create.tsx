@@ -189,7 +189,7 @@ const CreateScreen: React.FC = () => {
     if (!segmentManagerRef.current) {
       segmentManagerRef.current = new SegmentManager(selectedDuration);
     }
-  }, [selectedDuration]);
+  }, []);
 
   // Update max duration when selected duration changes (segment list unchanged; no segmentUpdateTrigger)
   useEffect(() => {
