@@ -319,7 +319,9 @@
     "loading": "Chargement…",
     "following": "abonnements",
     "yourMix": "ton mix",
-    "repostedBy": "republié par {{handle}}"
+    "repostedBy": "republié par {{handle}}",
+    "showMore": "afficher",
+    "showLess": "masquer"
   },
   "profile": {
     "failedToRefresh": "Impossible d'actualiser le profil.",

@@ -317,6 +317,8 @@
     "following": "フォロー中",
     "yourMix": "あなたのミックス",
     "repostedBy": "{{handle}}がリポスト",
+    "showMore": "表示",
+    "showLess": "隠す",
     "contentWarning": "コンテンツの警告",
     "spotlight": "スポットライト"
   },

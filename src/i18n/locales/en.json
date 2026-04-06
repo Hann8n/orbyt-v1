@@ -317,6 +317,8 @@
     "people": "people",
     "feeds": "feeds",
     "channels": "channels",
+    "showMore": "show",
+    "showLess": "hide",
     "loading": "Loading…",
     "following": "following",
     "yourMix": "your mix",

@@ -90,7 +90,7 @@ const BASE_SIZES: Record<TextVariant, number> = {
   h3: 20,
   title: 18,
   subtitle: 16,
-  body: 16,
+  body: 15,
   bodySmall: 14,
   caption: 12,
   overline: 10,

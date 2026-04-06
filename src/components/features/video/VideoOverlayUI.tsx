@@ -10,7 +10,15 @@ import Animated, {
   withSequence,
 } from 'react-native-reanimated';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  type LayoutChangeEvent,
+  type NativeSyntheticEvent,
+  type TextLayoutEventData,
+} from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
@@ -35,7 +43,11 @@ import { useQueryClient } from '@tanstack/react-query';
 import { prefetchProfile } from '../../../services/data/ProfileService';
 import type { ExtendedPostView, PostRecord, StatusView } from '../../../services/api/types';
 import type { RichTextFacet } from '../../../utils/types/richText';
-import { type ProfileColorScheme, pickLighterHex } from '../../../utils/formatting/colors';
+import {
+  type ProfileColorScheme,
+  hexToRGBA,
+  pickLighterHex,
+} from '../../../utils/formatting/colors';
 import { useFollowStore } from '../../../stores/followStore';
 
 const GRADIENT_SHIM = require('../../../assets/embed-video-gradient-shim.png');
@@ -48,7 +60,7 @@ export interface VideoOverlayUIProps {
   sourceFeed?: string;
   // Optional composed shared opacity to tie overlay and scrubber together
   overlayOpacitySV?: SharedValue<number>;
-  /** Fires when the description text collapses/expands (collapsed = 2 lines). */
+  /** Fires when the description text collapses/expands (collapsed = 1 line). */
   onOverlayCollapsedChange?: (isCollapsed: boolean) => void;
   onLike?: () => void;
   onRepost?: () => void;
@@ -114,12 +126,14 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
   const queryClient = useQueryClient();
 
-  // Overlay state
   const [isOverlayCollapsed, setIsOverlayCollapsed] = useState(true);
+  const [captionMeasureWidth, setCaptionMeasureWidth] = useState(0);
+  const [descriptionOverflows, setDescriptionOverflows] = useState<boolean | null>(null);
 
   // Memoize expensive calculations to prevent rerenders
   const author = useMemo(() => post.author || {}, [post.author]);
   const record = useMemo(() => post.record as PostRecord | undefined, [post.record]);
+  const hasDescription = Boolean(record?.text?.trim());
 
   // isAuthorBlocked, profileColors, authorDid, authorProfileStatus from VideoCard's single useProfile
   const profileColors = profileColorsProp ?? undefined;
@@ -137,20 +151,37 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
     setIsOverlayCollapsed(prev => !prev);
   }, []);
 
-  // Reset text state when post changes
   useEffect(() => {
     setIsOverlayCollapsed(true);
   }, [post?.uri, record?.text]);
 
   useEffect(() => {
-    onOverlayCollapsedChange?.(isOverlayCollapsed);
-  }, [isOverlayCollapsed, onOverlayCollapsedChange]);
+    setDescriptionOverflows(null);
+  }, [post?.uri, record?.text, width]);
 
-  // Heuristic to detect long text without layout measurement
-  const hasLongText = useMemo(
-    () => typeof record?.text === 'string' && record.text.length > 140,
-    [record?.text]
+  const onCaptionHostLayout = useCallback((e: LayoutChangeEvent) => {
+    const w = Math.round(e.nativeEvent.layout.width);
+    setCaptionMeasureWidth(prev => (w > 0 && w !== prev ? w : prev));
+  }, []);
+
+  const onDescriptionOverflowMeasure = useCallback(
+    (e: NativeSyntheticEvent<TextLayoutEventData>) => {
+      setDescriptionOverflows(e.nativeEvent.lines.length > 1);
+    },
+    []
   );
+
+  useEffect(() => {
+    if (!hasDescription || descriptionOverflows === null) {
+      onOverlayCollapsedChange?.(true);
+      return;
+    }
+    if (!descriptionOverflows) {
+      onOverlayCollapsedChange?.(true);
+      return;
+    }
+    onOverlayCollapsedChange?.(isOverlayCollapsed);
+  }, [hasDescription, descriptionOverflows, isOverlayCollapsed, onOverlayCollapsedChange]);
 
   // Modal-aware navigation to AuthorProfile (works inside FeedModal or regular screens)
   const navigateToAuthorProfile = useCallback(
@@ -488,29 +519,94 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
               </View>
             )}
 
-            {/* Description container */}
-            {record?.text && (
+            {hasDescription && (
               <View style={styles.descriptionContainer}>
-                {hasLongText ? (
-                  <NativePressable onPress={toggleCollapsed}>
-                    <TextWithAuthorLinks
-                      text={record.text}
-                      style={styles.descriptionText}
-                      numberOfLines={isOverlayCollapsed ? 2 : undefined}
-                      onAuthorPress={navigateToAuthorProfile}
-                      onHashtagPress={navigateToHashtagFeed}
-                      facets={record.facets as RichTextFacet[] | undefined}
-                    />
-                  </NativePressable>
-                ) : (
-                  <TextWithAuthorLinks
-                    text={record.text}
-                    style={styles.descriptionText}
-                    onAuthorPress={navigateToAuthorProfile}
-                    onHashtagPress={navigateToHashtagFeed}
-                    facets={record.facets as RichTextFacet[] | undefined}
-                  />
-                )}
+                <View style={styles.descriptionMeasureHost} onLayout={onCaptionHostLayout}>
+                  {descriptionOverflows === null && captionMeasureWidth > 0 ? (
+                    <View
+                      pointerEvents="none"
+                      style={[styles.descriptionMeasureLayer, { width: captionMeasureWidth }]}
+                      collapsable={false}
+                    >
+                      <TextWithAuthorLinks
+                        text={record?.text ?? ''}
+                        style={[styles.descriptionText, { width: captionMeasureWidth }]}
+                        onTextLayout={onDescriptionOverflowMeasure}
+                        onAuthorPress={navigateToAuthorProfile}
+                        onHashtagPress={navigateToHashtagFeed}
+                        facets={record?.facets as RichTextFacet[] | undefined}
+                      />
+                    </View>
+                  ) : null}
+
+                  <View style={styles.descriptionCaptionColumn}>
+                    {descriptionOverflows === true && isOverlayCollapsed ? (
+                      <View style={styles.descriptionInlineToggleRow}>
+                        <TextWithAuthorLinks
+                          text={record?.text ?? ''}
+                          style={[styles.descriptionText, styles.descriptionTextFlexible]}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                          onAuthorPress={navigateToAuthorProfile}
+                          onHashtagPress={navigateToHashtagFeed}
+                          facets={record?.facets as RichTextFacet[] | undefined}
+                        />
+                        <NativePressable
+                          onPress={toggleCollapsed}
+                          hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+                          accessibilityRole="button"
+                          accessibilityLabel={t('feed.showMore')}
+                          style={[
+                            styles.descriptionToggleSurface,
+                            styles.descriptionTogglePressable,
+                          ]}
+                        >
+                          <Text style={styles.descriptionToggleButtonLabel}>
+                            {t('feed.showMore')}
+                          </Text>
+                        </NativePressable>
+                      </View>
+                    ) : descriptionOverflows === true && !isOverlayCollapsed ? (
+                      <View style={styles.descriptionExpandedWithToggle}>
+                        <TextWithAuthorLinks
+                          text={record?.text ?? ''}
+                          style={styles.descriptionText}
+                          onAuthorPress={navigateToAuthorProfile}
+                          onHashtagPress={navigateToHashtagFeed}
+                          facets={record?.facets as RichTextFacet[] | undefined}
+                        />
+                        <View style={styles.descriptionInlineToggleRow}>
+                          <View style={styles.descriptionTextFlexible} />
+                          <NativePressable
+                            onPress={toggleCollapsed}
+                            hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('feed.showLess')}
+                            style={[
+                              styles.descriptionToggleSurface,
+                              styles.descriptionTogglePressable,
+                            ]}
+                          >
+                            <Text style={styles.descriptionToggleButtonLabel}>
+                              {t('feed.showLess')}
+                            </Text>
+                          </NativePressable>
+                        </View>
+                      </View>
+                    ) : (
+                      <TextWithAuthorLinks
+                        text={record?.text ?? ''}
+                        style={styles.descriptionText}
+                        numberOfLines={
+                          descriptionOverflows === null && captionMeasureWidth > 0 ? 1 : undefined
+                        }
+                        onAuthorPress={navigateToAuthorProfile}
+                        onHashtagPress={navigateToHashtagFeed}
+                        facets={record?.facets as RichTextFacet[] | undefined}
+                      />
+                    )}
+                  </View>
+                </View>
               </View>
             )}
 
@@ -735,7 +831,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    padding: 10,
+    padding: 14,
     zIndex: 2,
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -745,6 +841,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'column',
     justifyContent: 'flex-end',
+    gap: 6,
     marginBottom: 0,
   },
   repostIndicatorContainer: {
@@ -777,12 +874,59 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   descriptionContainer: {
-    marginBottom: 6,
+    marginBottom: 0,
     paddingRight: 10,
     shadowColor: Colors.neutral[200],
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 0.75,
+  },
+  descriptionMeasureHost: {
+    width: '100%',
+    position: 'relative',
+  },
+  descriptionMeasureLayer: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    opacity: 0,
+    zIndex: -1,
+  },
+  descriptionCaptionColumn: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+  },
+  descriptionExpandedWithToggle: {
+    width: '100%',
+    flexDirection: 'column',
+    gap: 6,
+  },
+  descriptionInlineToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    gap: 6,
+  },
+  descriptionTextFlexible: {
+    flex: 1,
+    minWidth: 0,
+  },
+  descriptionToggleSurface: {
+    backgroundColor: hexToRGBA(Colors.neutral[50], 0.12),
+    borderRadius: BORDER_RADIUS.SMALL,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    overflow: 'hidden',
+  },
+  descriptionTogglePressable: {
+    flexShrink: 0,
+  },
+  descriptionToggleButtonLabel: {
+    color: Colors.overlay.white80,
+    fontSize: Typography.sizes.caption,
+    fontFamily: FontFamily.medium,
+    lineHeight: Typography.lineHeights.caption,
+    includeFontPadding: false,
   },
   descriptionText: {
     color: Colors.neutral[50],
@@ -899,12 +1043,6 @@ const styles = StyleSheet.create({
   actionButton: {},
   actionButtonTablet: {
     width: 44,
-  },
-  iconContainer: {
-    width: 34.5,
-    height: 34.5,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   moreMenuIconContainer: {
     width: 28,

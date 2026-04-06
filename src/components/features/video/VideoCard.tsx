@@ -14,9 +14,16 @@ import { useVideoPlayer, VideoView as ExpoVideoView } from 'expo-video';
 import * as Haptics from 'expo-haptics';
 
 import { AtprotoFeedService } from '../../../services/api/feed/FeedService';
-import { View, Text, Dimensions, StyleSheet, Platform, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  Dimensions,
+  StyleSheet,
+  Platform,
+  ActivityIndicator,
+  AppState,
+} from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -26,7 +33,6 @@ import Animated, {
   Easing,
   useDerivedValue,
   interpolate,
-  runOnJS,
 } from 'react-native-reanimated';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { BlurView } from '../../ui/BlurView';
@@ -43,7 +49,7 @@ import {
   DEFAULT_SEEK_TOLERANCE_SCRUBBER,
 } from '../../../utils/video/helpers';
 import VideoOverlayUI from './VideoOverlayUI';
-import { VideoPlayPauseIndicator } from './VideoPlayPauseIndicator';
+import { useFocusEffect } from 'expo-router';
 import { useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 import { useProfileChannelNavigation } from '../../../hooks/useProfileChannelNavigation';
 import {
@@ -58,9 +64,9 @@ import { useOverlayVisibility } from '../../../context/FeedIndicatorContext';
 import { useFeedScroll } from '../../../context/FeedScrollContext';
 import { seenVideoService } from '../../../services/SeenVideoService';
 import { hexToRGBA } from '../../../utils/formatting/colors';
-import { useShallow } from 'zustand/react/shallow';
 import { useFollowStore } from '../../../stores/followStore';
 import { useUserStore } from '../../../stores/userStore';
+import { useShallow } from 'zustand/react/shallow';
 import { ErrorHandler } from '../../../utils/errors/errorHandler';
 import { useLikeInteraction } from '@/hooks/useLikeInteraction';
 import type {
@@ -85,10 +91,6 @@ const OVERLAY_FADE_EXPONENT = 2;
 
 /** System moderation labels: do not show in user-facing warning text. */
 const WARNING_HIDDEN_LABELS = ['!hide', '!warn', '!no-unauthenticated'];
-const VIDEO_RECOVERY_TIMEOUT_MS = 8000;
-/** Max ms between two taps to count as double-tap (like). Single-tap pause/play runs after this window. */
-const VIDEO_DOUBLE_TAP_WINDOW_MS = 260;
-const MIN_SCRUBBER_DURATION_SECONDS = 7;
 
 /** Label keys that have i18n translations (video.contentWarningLabels.*) */
 const CONTENT_WARNING_LABEL_KEYS = [
@@ -135,6 +137,7 @@ export interface VideoCardProps {
   post: Post;
   feedItem?: ExtendedFeedViewPost; // Contains feedContext and reqId natively
   isVisible: boolean;
+  onVideoStatus?: (uri: string, status: string) => void;
   height?: number;
   shouldDisablePlayback?: boolean;
   // Overlay props
@@ -151,6 +154,7 @@ const VideoCard = memo(
         post,
         feedItem,
         isVisible,
+        onVideoStatus,
         height,
         shouldDisablePlayback = false,
         showOverlay = true,
@@ -224,7 +228,7 @@ const VideoCard = memo(
           userPaused: false,
         },
         [postView.uri, feedOption]
-      );
+      ); // Auto-resets when post.uri or feed context changes
 
       // Overlay state - using recycling state for automatic reset, but initialize from store
       const [overlayState, setOverlayState] = useRecyclingState(
@@ -234,7 +238,7 @@ const VideoCard = memo(
           ...persistedInteraction,
         },
         [postView.uri, feedOption]
-      );
+      ); // Auto-resets when post.uri or feed context changes
 
       const displayInteraction = useMemo(() => {
         let d = persistedInteraction;
@@ -321,29 +325,22 @@ const VideoCard = memo(
         return channel?.uri || null;
       }, [channelSlug]);
 
+      // Keep a ref in sync with userPaused so useFocusEffect doesn't re-register on every pause toggle.
+      const userPausedRef = useRef(videoState.userPaused);
+      userPausedRef.current = videoState.userPaused;
+
       // Double tap to like state - using Reanimated for UI thread performance
+      const lastTapRef = useRef<{ time: number; x: number; y: number } | null>(null);
+      const singleTapTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
       const heartScale = useSharedValue(0);
       const heartOpacity = useSharedValue(0);
       const heartPositionX = useSharedValue(0);
       const heartPositionY = useSharedValue(0);
 
-      const tapFlashVariantSV = useSharedValue(0);
-      const tapFlashScaleSV = useSharedValue(0);
-      const tapFlashOpacitySV = useSharedValue(0);
-
       // Interaction tracking - queue interactions and send in batches
       const interactionQueueRef = useRef<Interaction[]>([]);
       const sendInteractionsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
       const seenInteractionSentRef = useRef<boolean>(false);
-      /** Demux single vs double tap without RNGH `Exclusive` (avoids single-tap waiting on double-tap recognition). */
-      const videoTapSingleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-      const clearVideoTapSingleTimer = useCallback(() => {
-        if (videoTapSingleTimerRef.current) {
-          clearTimeout(videoTapSingleTimerRef.current);
-          videoTapSingleTimerRef.current = null;
-        }
-      }, []);
 
       // Queue an interaction for batching
       const queueInteraction = useCallback(
@@ -395,7 +392,7 @@ const VideoCard = memo(
 
       // Track dimensions. Treat height from parent (ListFeedView/VideoItem) as source of truth so
       // cards match the viewport height; fall back to full screen height if no height is provided.
-      const { height: screenHeight, width: screenWidth } = Dimensions.get('window');
+      const { height: screenHeight } = Dimensions.get('window');
       const cardHeight = height ?? screenHeight;
 
       // HLS-only source creation
@@ -407,8 +404,7 @@ const VideoCard = memo(
       const player = useVideoPlayer(videoSource, player => {
         player.loop = true;
         player.muted = false;
-        // Emit lightweight time updates for iOS scrubber without JS polling loops.
-        player.timeUpdateEventInterval = 0.2;
+        player.timeUpdateEventInterval = 0; // Explicit: no progress updates (overlay has no progress bar)
         player.bufferOptions = DEFAULT_BUFFER_OPTIONS;
         player.seekTolerance = DEFAULT_SEEK_TOLERANCE_SCRUBBER;
       });
@@ -533,11 +529,8 @@ const VideoCard = memo(
         !videoState.userPaused &&
         isVisible &&
         !!videoUrl;
-      const shouldHideScrubberForShortVideo = !!(
-        player?.duration &&
-        player.duration > 0 &&
-        player.duration < MIN_SCRUBBER_DURATION_SECONDS
-      );
+
+      const isPausedDimmed = !shouldPlayVideo;
 
       // Text-expanded dim state is driven fully by Reanimated shared values to avoid re-rendering
       // VideoCard when the overlay text is expanded/collapsed.
@@ -550,28 +543,7 @@ const VideoCard = memo(
         textDimActiveSV.value = 0;
 
         textDimOpacitySV.value = 0;
-
-        tapFlashVariantSV.value = 0;
-        tapFlashScaleSV.value = 0;
-        tapFlashOpacitySV.value = 0;
-      }, [
-        postView.uri,
-        textDimActiveSV,
-        textDimOpacitySV,
-        tapFlashVariantSV,
-        tapFlashScaleSV,
-        tapFlashOpacitySV,
-      ]);
-
-      useEffect(() => {
-        clearVideoTapSingleTimer();
-      }, [postView.uri, clearVideoTapSingleTimer]);
-
-      useEffect(() => {
-        return () => {
-          clearVideoTapSingleTimer();
-        };
-      }, [clearVideoTapSingleTimer]);
+      }, [postView.uri, textDimActiveSV, textDimOpacitySV]);
 
       const handleOverlayCollapsedChange = useCallback(
         (isCollapsed: boolean) => {
@@ -588,6 +560,13 @@ const VideoCard = memo(
         'worklet';
         return { opacity: textDimOpacitySV.value };
       }, [textDimOpacitySV]);
+
+      const pausedDimAnimatedStyle = useAnimatedStyle(() => {
+        'worklet';
+        // Hide paused dim whenever the text-expanded dim is active (no stacking)
+        const shouldShowPaused = isPausedDimmed && textDimActiveSV.value < 0.5;
+        return { opacity: shouldShowPaused ? 1 : 0 };
+      }, [textDimActiveSV, isPausedDimmed]);
 
       const shouldLoadVideo = !cannotShowMedia && !isBlurred && !!videoSource;
 
@@ -667,8 +646,7 @@ const VideoCard = memo(
         [player, shouldPlayVideo, togglePlayback, seek, setVideoState, videoState.userPaused]
       );
 
-      // Single effect: auto-resume when (a) overlay blocking is removed, or (b) video becomes visible.
-      // Replaces separate prevShouldDisablePlaybackRef/prevIsVisibleRef effects.
+      // Auto-resume when (a) overlay blocking is removed, or (b) video becomes visible.
       const prevShouldDisablePlaybackRef = useRef(shouldDisablePlayback);
       const prevIsVisibleRef = useRef(isVisible);
       useEffect(() => {
@@ -689,80 +667,82 @@ const VideoCard = memo(
         prevIsVisibleRef.current = isVisible;
       }, [shouldDisablePlayback, isVisible, hasError, videoState.userPaused, setVideoState]);
 
-      // Retry once with a fresh HLS URL when player errors or gets stuck loading.
-      const recoveryRetriedForUriRef = useRef<string | null>(null);
-      const recoveryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+      // Simplified focus effect - pause on blur, resume on focus if needed.
+      // userPausedRef avoids re-registering the effect on every pause/unpause toggle.
+      useFocusEffect(
+        useCallback(() => {
+          // On focus - do nothing, let visibility control playback
 
-      const clearRecoveryTimeout = useCallback(() => {
-        if (recoveryTimeoutRef.current) {
-          clearTimeout(recoveryTimeoutRef.current);
-          recoveryTimeoutRef.current = null;
-        }
-      }, []);
+          return () => {
+            // On blur - always pause to conserve resources
+            if (!userPausedRef.current) {
+              togglePlayback(false);
+            }
+          };
+        }, [togglePlayback])
+      );
 
-      const retryVideoRecovery = useCallback(() => {
-        if (!player || recoveryRetriedForUriRef.current === postView.uri) return;
+      // On error: retry once with a fresh HLS URL (re-fetch post then replace source)
+      const errorRetriedForUriRef = useRef<string | null>(null);
 
-        recoveryRetriedForUriRef.current = postView.uri;
-        ErrorHandler.safeAsync(async () => {
-          const post = await AtprotoFeedService.getPost(postView.uri);
-          const vv = post ? getVideoView(post.embed) : null;
-          const newSource = createVideoSource(vv?.playlist ?? null);
-          if (!newSource) {
-            return;
-          }
-          await player.replaceAsync(newSource);
-        }, 'VideoCard: retry replaceAsync after playback failure');
-      }, [player, postView.uri]);
-
-      // Handle minimal self-heal recovery.
+      // Handle player status changes for callbacks only
       useEffect(() => {
         if (!player) return;
 
         if (playerStatus === 'readyToPlay') {
-          clearRecoveryTimeout();
-          recoveryRetriedForUriRef.current = null;
+          onVideoStatus?.(postView.uri, 'loaded');
         } else if (playerStatus === 'loading') {
-          clearRecoveryTimeout();
-          if (recoveryRetriedForUriRef.current !== postView.uri) {
-            recoveryTimeoutRef.current = setTimeout(() => {
-              retryVideoRecovery();
-            }, VIDEO_RECOVERY_TIMEOUT_MS);
-          }
+          onVideoStatus?.(postView.uri, 'loading');
         } else if (playerStatus === 'error') {
-          clearRecoveryTimeout();
-          retryVideoRecovery();
-        } else {
-          clearRecoveryTimeout();
+          if (errorRetriedForUriRef.current !== postView.uri) {
+            errorRetriedForUriRef.current = postView.uri;
+            ErrorHandler.safeAsync(async () => {
+              const post = await AtprotoFeedService.getPost(postView.uri);
+              const vv = post ? getVideoView(post.embed) : null;
+              const newSource = createVideoSource(vv?.playlist ?? null);
+              if (!newSource) {
+                errorRetriedForUriRef.current = null; // allow retry if getPost returns no source
+                return;
+              }
+              await player.replaceAsync(newSource);
+            }, 'VideoCard: retry replaceAsync after error');
+          }
+          onVideoStatus?.(postView.uri, 'error');
         }
-      }, [playerStatus, player, postView.uri, clearRecoveryTimeout, retryVideoRecovery]);
+      }, [playerStatus, player, postView.uri, onVideoStatus]);
 
-      // Cleanup recovery timer on unmount.
+      // On foreground: reset error retry gate so a stale-session error can be recovered,
+      // and nudge the player if it may have stalled while backgrounded.
       useEffect(() => {
-        return () => {
-          clearRecoveryTimeout();
-        };
-      }, [clearRecoveryTimeout]);
+        const sub = AppState.addEventListener('change', nextState => {
+          if (nextState === 'active') {
+            // Allow retry to fire again after backgrounding
+            errorRetriedForUriRef.current = null;
+            // Guard: only nudge when this card should actually be playing.
+            // isVisible = "viewable row in its feed" — true even for inactive tabs/pager pages.
+            // shouldDisablePlayback captures isActiveFeed && canPlay, so we need all three.
+            if (isVisible && !videoState.userPaused && !shouldDisablePlayback) {
+              if (playerStatus === 'error') {
+                // existing retry path handles re-fetch + replaceAsync
+                return;
+              }
+              // Player may be alive but stalled — nudge it
+              player.play();
+            }
+          }
+        });
+        return () => sub.remove();
+      }, [isVisible, videoState.userPaused, shouldDisablePlayback, playerStatus, player]);
 
-      // Control playback based on shouldPlayVideo
-      // Drive play/pause directly from our own visibility logic, per Expo docs:
+      // Drive play/pause from shouldPlayVideo — the single source of truth for whether
+      // this card should be playing (visibility + user intent + content checks).
       // https://docs.expo.dev/versions/latest/sdk/video/#usage
-      // Optimized: Direct calls without requestAnimationFrame wrapper (callbacks are already immediate)
-      const prevShouldPlayRef = useRef(shouldPlayVideo);
       useEffect(() => {
         if (!player) return;
-
-        // Only update if state actually changed to avoid unnecessary calls
-        if (shouldPlayVideo !== prevShouldPlayRef.current) {
-          prevShouldPlayRef.current = shouldPlayVideo;
-
-          // Direct play/pause calls - no RAF wrapper needed since visibility callbacks are immediate
-          // expo-video's play/pause are synchronous and optimized
-          if (shouldPlayVideo) {
-            player.play();
-          } else {
-            player.pause();
-          }
+        if (shouldPlayVideo) {
+          player.play();
+        } else {
+          player.pause();
         }
       }, [shouldPlayVideo, player]);
 
@@ -788,33 +768,46 @@ const VideoCard = memo(
         await likeOnlyInteraction();
       }, [likeOnlyInteraction]);
 
-      const playHeartBurstAt = useCallback(
+      // Double tap to like animation - runs on UI thread with Reanimated
+      // Heartbeat pattern: quick beat, slight dip, second beat, then fade out
+      const animateHeart = useCallback(
         (x: number, y: number) => {
+          // Cancel any ongoing animations
           heartScale.value = 0;
           heartOpacity.value = 0;
+
+          // Set position
           heartPositionX.value = x;
           heartPositionY.value = y;
+
+          // Start animation sequence - heartbeat pattern
           heartOpacity.value = 1;
           heartScale.value = withSequence(
+            // First heartbeat beat - quick and strong
             withTiming(1.3, {
               duration: 100,
               easing: Easing.out(Easing.ease),
             }),
+            // Quick dip below 1 for heartbeat feel
             withTiming(0.95, {
               duration: 80,
               easing: Easing.in(Easing.ease),
             }),
+            // Second heartbeat beat - slightly smaller
             withTiming(1.15, {
               duration: 100,
               easing: Easing.out(Easing.ease),
             }),
+            // Return to normal size
             withTiming(1, {
               duration: 120,
               easing: Easing.inOut(Easing.ease),
             })
           );
+
+          // Fade out after the heartbeat sequence completes
           heartOpacity.value = withDelay(
-            400,
+            400, // Wait for heartbeat to complete (~400ms total)
             withTiming(
               0,
               {
@@ -822,6 +815,7 @@ const VideoCard = memo(
                 easing: Easing.out(Easing.ease),
               },
               () => {
+                // Reset values after animation completes
                 heartScale.value = 0;
               }
             )
@@ -830,80 +824,66 @@ const VideoCard = memo(
         [heartScale, heartOpacity, heartPositionX, heartPositionY]
       );
 
-      const handleTapTogglePause = useCallback(() => {
-        if (cannotShowMedia || isBlurred || shouldDisablePlayback || hasError) {
-          return;
-        }
+      // Enhanced tap handler with double tap detection
+      const handleVideoTap = useCallback(
+        (
+          event: import('react-native').NativeSyntheticEvent<{
+            locationX: number;
+            locationY: number;
+          }>
+        ) => {
+          const now = Date.now();
+          const x = event.nativeEvent?.locationX ?? cardHeight / 2;
+          const y = event.nativeEvent?.locationY ?? cardHeight / 2;
 
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-        const wasPaused = videoState.userPaused;
-
-        tapFlashVariantSV.value = wasPaused ? 0 : 1;
-
-        tapFlashScaleSV.value = 0;
-        tapFlashOpacitySV.value = 0;
-        tapFlashOpacitySV.value = 1;
-        tapFlashScaleSV.value = withSequence(
-          withTiming(1.18, {
-            duration: 140,
-            easing: Easing.out(Easing.ease),
-          }),
-          withTiming(1, {
-            duration: 180,
-            easing: Easing.out(Easing.cubic),
-          })
-        );
-        tapFlashOpacitySV.value = withDelay(
-          360,
-          withTiming(
-            0,
-            {
-              duration: 280,
-              easing: Easing.out(Easing.ease),
-            },
-            () => {
-              tapFlashScaleSV.value = 0;
-            }
-          )
-        );
-
-        requestAnimationFrame(() => {
-          togglePlayback();
-        });
-      }, [
-        cannotShowMedia,
-        isBlurred,
-        shouldDisablePlayback,
-        hasError,
-        videoState.userPaused,
-        togglePlayback,
-        tapFlashVariantSV,
-        tapFlashScaleSV,
-        tapFlashOpacitySV,
-      ]);
-
-      const onVideoTapDemux = useCallback(
-        (x: number, y: number) => {
-          if (videoTapSingleTimerRef.current != null) {
-            clearVideoTapSingleTimer();
-            playHeartBurstAt(x, y);
-            void handleLikeOnly();
-            return;
+          // Clear any pending single tap
+          if (singleTapTimeoutRef.current) {
+            clearTimeout(singleTapTimeoutRef.current);
+            singleTapTimeoutRef.current = null;
           }
-          videoTapSingleTimerRef.current = setTimeout(() => {
-            videoTapSingleTimerRef.current = null;
-            handleTapTogglePause();
-          }, VIDEO_DOUBLE_TAP_WINDOW_MS);
+
+          if (lastTapRef.current) {
+            const timeDiff = now - lastTapRef.current.time;
+            const xDiff = Math.abs(x - lastTapRef.current.x);
+            const yDiff = Math.abs(y - lastTapRef.current.y);
+
+            // Double tap detected (within a tight window and similar position)
+            // Use a smaller window than the single-tap delay so playback never toggles on a real double tap
+            if (timeDiff < 250 && xDiff < 50 && yDiff < 50) {
+              // Always show animation for visual feedback
+              animateHeart(x, y);
+              // Only like (never unlike) on double tap
+              handleLikeOnly();
+              lastTapRef.current = null;
+              return;
+            }
+          }
+
+          // Store this tap for potential double tap
+          lastTapRef.current = { time: now, x, y };
+
+          // Wait a bit to see if there's a second tap
+          singleTapTimeoutRef.current = setTimeout(() => {
+            // Single tap - toggle playback
+            togglePlayback();
+            lastTapRef.current = null;
+            singleTapTimeoutRef.current = null;
+          }, 260);
         },
-        [clearVideoTapSingleTimer, playHeartBurstAt, handleLikeOnly, handleTapTogglePause]
+        [togglePlayback, cardHeight, handleLikeOnly, animateHeart]
       );
 
       // Handle long press to show comments
       const handleLongPress = useCallback(() => {
-        clearVideoTapSingleTimer();
-
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+        // Clear any pending single tap
+        if (singleTapTimeoutRef.current) {
+          clearTimeout(singleTapTimeoutRef.current);
+          singleTapTimeoutRef.current = null;
+        }
+        // Clear double tap tracking
+        lastTapRef.current = null;
 
         // Track interaction
         queueInteraction(INTERACTIONREPLY_CONST);
@@ -940,37 +920,19 @@ const VideoCard = memo(
         postView.author,
         postView.cid,
         postView.record,
-        postView.replyCount,
         postView.uri,
         postView.indexedAt,
         queueInteraction,
-        clearVideoTapSingleTimer,
       ]);
 
-      // One `Tap` + JS demux for double-tap-like: `Exclusive(double, single)` delays/cancels
-      // single-tap recognition; demux matches a stable single-tap `onEnd` per finger-up.
-      const videoGesture = useMemo(() => {
-        const singleTap = Gesture.Tap()
-          .maxDuration(250)
-          .numberOfTaps(1)
-          .onEnd((event, success) => {
-            'worklet';
-            if (!success) return;
-            const x = event.x === undefined ? screenWidth / 2 : event.x;
-            const y = event.y === undefined ? cardHeight / 2 : event.y;
-            runOnJS(onVideoTapDemux)(x, y);
-          });
-
-        const longPress = Gesture.LongPress()
-          .minDuration(400)
-          .onEnd((_event, success) => {
-            'worklet';
-            if (!success) return;
-            runOnJS(handleLongPress)();
-          });
-
-        return Gesture.Race(longPress, singleTap);
-      }, [onVideoTapDemux, handleLongPress, screenWidth, cardHeight]);
+      // Cleanup timeout on unmount
+      useEffect(() => {
+        return () => {
+          if (singleTapTimeoutRef.current) {
+            clearTimeout(singleTapTimeoutRef.current);
+          }
+        };
+      }, []);
 
       const handleRepost = useCallback(async () => {
         if (overlayState.isRepostPending) return;
@@ -1080,6 +1042,15 @@ const VideoCard = memo(
         seenInteractionSentRef.current = false;
       }, [postView.uri]);
 
+      // Video Status Reporting - use post URI for simple tracking
+      useEffect(() => {
+        if (shouldPlayVideo) {
+          onVideoStatus?.(postView.uri, 'playing');
+        } else {
+          onVideoStatus?.(postView.uri, 'paused');
+        }
+      }, [shouldPlayVideo, postView.uri, onVideoStatus]);
+
       const seekingAnimationSV = useSharedValue(0);
       const overlayVisibility = useOverlayVisibility();
       const feedScroll = useFeedScroll();
@@ -1088,8 +1059,6 @@ const VideoCard = memo(
       const viewportH = feedScroll?.viewportHeight ?? 0;
       const itemSp = feedScroll?.itemSpacing ?? 0;
       const idx = index ?? 0;
-      // Opacity: not gated by feed `isVisible` (avoids blank overlay before viewability). Fade only from
-      // scroll position (partially scrolled-away / next card peeking) and scrubbing; pointerEvents still use `isVisible`.
       const uiOverlayOpacitySV = useDerivedValue(() => {
         'worklet';
         const scrubbing = interpolate(seekingAnimationSV.value, [0, 0.2, 1], [1, 0, 0], 'clamp');
@@ -1126,112 +1095,108 @@ const VideoCard = memo(
             thumbnailUrl={cannotShowMedia ? null : (posterUrl ?? null)}
             onBlurReady={handleBlurReady}
           />
-          <GestureDetector gesture={videoGesture}>
-            {/*
-              Plain View host: NativePressable uses TouchableOpacity/Pressable and competes with
-              RNGH for the responder — taps may never reach GestureDetector (pause/play / double-tap).
-            */}
-            <View style={styles.videoContainerPressable} collapsable={false}>
-              <View style={styles.videoContainer}>
-                {!!posterUrl && !cannotShowMedia && (!firstFrameRendered || !blurReady) && (
-                  <Image
-                    source={{ uri: posterUrl }}
-                    contentFit="contain"
-                    style={styles.poster}
-                    recyclingKey={recyclingKey}
-                  />
-                )}
-
-                {!!videoSource && !cannotShowMedia && !isBlurred && player && (
-                  <ExpoVideoView
-                    player={player}
-                    style={styles.videoPlayer}
-                    contentFit="contain"
-                    nativeControls={false}
-                    playsInline
-                    surfaceType={Platform.OS === 'android' ? 'textureView' : undefined}
-                    allowsVideoFrameAnalysis={false}
-                    onFirstFrameRender={handleFirstFrameRender}
-                    pointerEvents="none"
-                  />
-                )}
-
-                {/* Buffering indicator removed per request */}
-
-                {/* Loading indicator only shown when needed */}
-                {!shouldLoadVideo && !cannotShowMedia && !isBlurred && (
-                  <View style={styles.loadingOverlay}>
-                    <ActivityIndicator size="large" color={Colors.neutral[50]} />
-                    <Text style={styles.loadingText}>{t('video.noHlsStream')}</Text>
-                  </View>
-                )}
-
-                {/* Dimming overlay for expanded text */}
-                <Animated.View
-                  style={[styles.textExpandedDimmingOverlay, textDimAnimatedStyle]}
-                  pointerEvents="none"
+          <NativePressable
+            onPress={handleVideoTap}
+            onLongPress={handleLongPress}
+            delayLongPress={400}
+            style={styles.videoContainerPressable}
+            activeOpacity={1}
+            android_ripple={{ color: hexToRGBA(Colors.black, 0), borderless: true }}
+          >
+            <View style={styles.videoContainer}>
+              {!!posterUrl && !cannotShowMedia && (!firstFrameRendered || !blurReady) && (
+                <Image
+                  source={{ uri: posterUrl }}
+                  contentFit="contain"
+                  style={styles.poster}
+                  recyclingKey={recyclingKey}
                 />
+              )}
 
-                {/* Double tap heart animation */}
-                <Animated.View
-                  style={[styles.heartAnimationContainer, heartAnimatedStyle]}
-                  pointerEvents="none"
-                >
-                  <HeartFillIcon size={100} color={Colors.coral[500]} />
-                </Animated.View>
-
-                <VideoPlayPauseIndicator
-                  iconVariantSV={tapFlashVariantSV}
-                  scaleSV={tapFlashScaleSV}
-                  opacitySV={tapFlashOpacitySV}
+              {!!videoSource && !cannotShowMedia && !isBlurred && player && (
+                <ExpoVideoView
+                  player={player}
+                  style={styles.videoPlayer}
+                  contentFit="contain"
+                  nativeControls={false}
+                  playsInline
+                  surfaceType={Platform.OS === 'android' ? 'textureView' : undefined}
+                  allowsVideoFrameAnalysis={false}
+                  onFirstFrameRender={handleFirstFrameRender}
                 />
-              </View>
-            </View>
-          </GestureDetector>
+              )}
 
-          {/*
-            Siblings above the tap layer (not inside GestureDetector) so overlay/scrubber controls
-            do not trigger pause/play / double-tap-like. Scrubber is lower z-index than overlay so action
-            buttons stay on top; overlay uses box-none so scrubber still receives touches in clear areas.
-          */}
-          {!shouldHideScrubberForShortVideo && (
-            <View style={styles.videoScrubberLayer} pointerEvents="box-none">
-              <VideoScrubber
-                active={isVisible && !hasError}
-                player={player}
-                playerStatus={playerStatus}
-                seekingAnimationSV={seekingAnimationSV}
-                overlayOpacitySV={uiOverlayOpacitySV}
-              />
-            </View>
-          )}
+              {/* Buffering indicator removed per request */}
 
-          {showOverlay && (
-            <View style={styles.videoOverlayLayer} pointerEvents="box-none">
-              <VideoOverlayUI
-                post={postView}
-                isVisible={isVisible}
-                overlayOpacitySV={uiOverlayOpacitySV}
-                sourceFeed={resolvedFeedUri}
-                onOverlayCollapsedChange={handleOverlayCollapsedChange}
-                onLike={handleLike}
-                onRepost={handleRepost}
-                onShareInteraction={handleShareInteraction}
-                isLiked={displayInteraction.isLiked}
-                isReposted={displayInteraction.isReposted}
-                likeCount={displayInteraction.likeCount}
-                commentCount={displayInteraction.commentCount}
-                repostCount={displayInteraction.repostCount}
-                isLikePending={overlayState.isLikePending}
-                isRepostPending={overlayState.isRepostPending}
-                isFollowing={isFollowing}
-                hasProfile={hasProfile}
-                channelSlug={channelSlug}
-                onChannelPress={handleChannelPress}
-                authorProfileOverlay={authorProfileOverlay}
+              {/* Loading indicator only shown when needed */}
+              {!shouldLoadVideo && !cannotShowMedia && !isBlurred && (
+                <View style={styles.loadingOverlay}>
+                  <ActivityIndicator size="large" color={Colors.neutral[50]} />
+                  <Text style={styles.loadingText}>{t('video.noHlsStream')}</Text>
+                </View>
+              )}
+
+              {/* Dimming overlays
+                  - Paused/not-playing: instant 0.4 (no animation)
+                  - Text expanded: fades to 0.65 (micro-animation)
+                  - When both apply: prefer text-expanded overlay (no stacking)
+              */}
+              <Animated.View
+                style={[styles.pausedDimmingOverlay, pausedDimAnimatedStyle]}
+                pointerEvents="none"
               />
+              <Animated.View
+                style={[styles.textExpandedDimmingOverlay, textDimAnimatedStyle]}
+                pointerEvents="none"
+              />
+
+              {/* Double tap heart animation */}
+              <Animated.View
+                style={[styles.heartAnimationContainer, heartAnimatedStyle]}
+                pointerEvents="none"
+              >
+                <HeartFillIcon size={100} color={Colors.coral[500]} />
+              </Animated.View>
+
+              {/* Integrated Overlay System using VideoOverlayUI */}
+              {/* Keep overlay mounted to prevent jank when switching videos */}
+              {showOverlay && (
+                <VideoOverlayUI
+                  post={postView}
+                  isVisible={isVisible}
+                  overlayOpacitySV={uiOverlayOpacitySV}
+                  sourceFeed={resolvedFeedUri}
+                  onOverlayCollapsedChange={handleOverlayCollapsedChange}
+                  onLike={handleLike}
+                  onRepost={handleRepost}
+                  onShareInteraction={handleShareInteraction}
+                  isLiked={displayInteraction.isLiked}
+                  isReposted={displayInteraction.isReposted}
+                  likeCount={displayInteraction.likeCount}
+                  commentCount={displayInteraction.commentCount}
+                  repostCount={displayInteraction.repostCount}
+                  isLikePending={overlayState.isLikePending}
+                  isRepostPending={overlayState.isRepostPending}
+                  isFollowing={isFollowing}
+                  hasProfile={hasProfile}
+                  channelSlug={channelSlug}
+                  onChannelPress={handleChannelPress}
+                  authorProfileOverlay={authorProfileOverlay}
+                />
+              )}
+
+              {/* Video Scrubber - iOS only, overlays video above bottom bar */}
+              {Platform.OS === 'ios' && (
+                <VideoScrubber
+                  active={isVisible && !hasError}
+                  player={player}
+                  playerStatus={playerStatus}
+                  seekingAnimationSV={seekingAnimationSV}
+                  overlayOpacitySV={uiOverlayOpacitySV}
+                />
+              )}
             </View>
-          )}
+          </NativePressable>
 
           {(cannotShowMedia || isBlurred) && (
             <>
@@ -1287,16 +1252,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     position: 'relative',
-  },
-  /** Above scrubber z-order so like/comment/share/profile sit on top of the progress bar region. */
-  videoOverlayLayer: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 14,
-  },
-  /** Below overlay buttons; overlay `box-none` lets touches reach the scrubber where there are no controls. */
-  videoScrubberLayer: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 10,
   },
   videoPlayer: {
     width: '100%',
@@ -1385,6 +1340,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: 'Figtree-SemiBold',
     fontWeight: '600',
+  },
+  pausedDimmingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: hexToRGBA(Colors.black, 0.4),
+    zIndex: 5,
+    pointerEvents: 'none',
   },
   textExpandedDimmingOverlay: {
     ...StyleSheet.absoluteFillObject,

@@ -7,6 +7,7 @@
 import React, {
   forwardRef,
   useCallback,
+  useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -334,6 +335,23 @@ const FeedRenderer = forwardRef<ListFeedViewRef, FeedRendererProps>(
       }),
       []
     );
+
+    // Scroll to top on feed reset: fires when dataUpdatedAt changes and the first item URI
+    // differs from before (covers same-count resets that the old feed.length check missed).
+    const prevFirstUriRef = useRef(feed[0]?.post?.uri ?? null);
+    const prevDataUpdatedAtRef = useRef(dataUpdatedAt);
+    useEffect(() => {
+      const currentFirstUri = feed[0]?.post?.uri ?? null;
+      if (
+        dataUpdatedAt !== prevDataUpdatedAtRef.current &&
+        feed.length > 0 &&
+        currentFirstUri !== prevFirstUriRef.current
+      ) {
+        listFeedViewRef.current?.scrollToTop();
+      }
+      prevFirstUriRef.current = currentFirstUri;
+      prevDataUpdatedAtRef.current = dataUpdatedAt;
+    }, [dataUpdatedAt, feed]);
 
     const commonProps = useMemo(
       () => ({
