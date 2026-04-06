@@ -1062,10 +1062,12 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
 
   const renderCommentItem = useCallback<ListRenderItem<Comment>>(
-    ({ item }) => {
+    ({ item, index }) => {
       const level = item.parent ? 1 : 0;
+      const commentKey = item?.uri || item?.cid || `comment-${index}`;
       return (
         <CommentItem
+          key={commentKey}
           comment={item}
           onDismiss={onDismiss}
           onCommentDeleted={handleCommentDeleted}
