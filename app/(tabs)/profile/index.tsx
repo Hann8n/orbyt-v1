@@ -327,7 +327,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
           {
             text: t('profile.germDisconnect'),
             onPress: async () => {
-              const ok = await (await import('@/services/api/repo/RepoService')).RepoService.deleteGermDeclaration();
+              const ok = await (
+                await import('@/services/api/repo/RepoService')
+              ).RepoService.deleteGermDeclaration();
               if (ok) {
                 queryClient.invalidateQueries({
                   queryKey: queryKeys.profiles.detail(profileData.did),
@@ -744,7 +746,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
           did={profileData.did}
         />
       )}
-
 
       <LiveStreamInfoSheet
         visible={showLiveStreamSheet}

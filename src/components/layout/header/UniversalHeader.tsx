@@ -887,7 +887,12 @@ const HeaderContentComponent = memo<{
                         { backgroundColor: hexToRGBA(textColor, 0.15) },
                       ]}
                     >
-                      <View style={[styles.germCircleButtonSecondary, { backgroundColor: Colors.brand.germBrandGreen }]}>
+                      <View
+                        style={[
+                          styles.germCircleButtonSecondary,
+                          { backgroundColor: Colors.brand.germBrandGreen },
+                        ]}
+                      >
                         <GermDmIcon size={ICON_SIZES.SMALL} color={Colors.black} />
                       </View>
                       <Text
