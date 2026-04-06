@@ -349,7 +349,7 @@
     "germMessageOnGerm": "Message on Germ",
     "germDisconnect": "Disconnect Germ DM",
     "germDisconnectConfirm": "Remove the Germ DM button from your profile? You can reconnect later in the Germ app.",
-    "germDisconnectSheetDescription": "Lets others message you via Germ DM. Manage who sees it in the Germ app, or disconnect below.",
+    "germDisconnectSheetDescription": "You've enabled Germ DM on your profile. You can manage visibility in the Germ app or disconnect here.",
     "germDisconnected": "Germ disconnected",
     "reportOrBlock": "Report or Block",
     "reportAccount": "Report Account",

@@ -859,7 +859,15 @@ const HeaderContentComponent = memo<{
                       },
                     ]}
                   >
-                    <GermDmIcon size={ICON_SIZES.SMALL} color={textColor} />
+                    <View
+                      style={[
+                        styles.germCircleButton,
+                        styles.subtitleActionLeadingIcon,
+                        { backgroundColor: Colors.brand.germBrandGreen },
+                      ]}
+                    >
+                      <GermDmIcon size={ICON_SIZES.SMALL} color={Colors.black} />
+                    </View>
                     <Text
                       style={[styles.subtitleActionLabel, { color: textColor }]}
                       numberOfLines={1}
@@ -879,6 +887,9 @@ const HeaderContentComponent = memo<{
                         { backgroundColor: hexToRGBA(textColor, 0.15) },
                       ]}
                     >
+                      <View style={[styles.germCircleButtonSecondary, { backgroundColor: Colors.brand.germBrandGreen }]}>
+                        <GermDmIcon size={ICON_SIZES.SMALL} color={Colors.black} />
+                      </View>
                       <Text
                         style={[styles.subtitleSecondary, { color: hexToRGBA(textColor, 0.8) }]}
                         numberOfLines={1}
@@ -1514,11 +1525,40 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 4,
+  },
+  subtitleActionLeadingIcon: {
+    marginRight: 4,
+  },
+  subtitleActionTrailingIcon: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingLeft: 0,
+    marginRight: -4,
+    marginVertical: -6,
   },
   subtitleActionLabel: {
     fontFamily: FontFamily.semibold,
     fontSize: Typography.sizes.bodySmall,
+  },
+  germCircleButton: {
+    width: 22,
+    height: 22,
+    borderRadius: BORDER_RADIUS.FULL,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: -8,
+    marginRight: 4,
+    marginTop: -3,
+    marginBottom: -3,
+  },
+  germCircleButtonSecondary: {
+    width: 24,
+    height: 24,
+    borderRadius: BORDER_RADIUS.FULL,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 6,
   },
   subtitleSecondary: {
     fontSize: 14,

@@ -347,7 +347,7 @@
     "germMessageOnGerm": "Germでメッセージ",
     "germDisconnect": "Germ DMを切断",
     "germDisconnectConfirm": "プロフィールからGerm DMボタンを削除しますか？後でGermアプリで再接続できます。",
-    "germDisconnectSheetDescription": "他の人がGerm DMでメッセージを送れるようになります。Germアプリで表示を管理するか、下で切断できます。",
+    "germDisconnectSheetDescription": "プロフィールでGerm DMを有効にしています。Germアプリで表示を管理するか、ここで切断できます。",
     "germDisconnected": "Germを切断しました",
     "reportOrBlock": "報告またはブロック",
     "reportAccount": "アカウントを報告",

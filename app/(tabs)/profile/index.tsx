@@ -10,7 +10,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { BORDER_RADIUS, APP_CONSTANTS, ICON_SIZES } from '@/utils/constants';
 import { getEffectiveTopInset } from '@/utils/device/screen';
-import { View, StyleSheet, Platform, Linking } from 'react-native';
+import { View, StyleSheet, Platform, Linking, Alert } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { FeedPager } from '@/components';
 import {
@@ -47,7 +47,6 @@ import { feedService } from '@/services/FeedService';
 import { FEED_CONFIG } from '@/hooks/useFeed';
 import type { FeedResponse } from '@/services/api/types';
 import ProfileMenu from '@/components/features/profile/ProfileMenu';
-import GermDisconnectSheet from '@/components/features/profile/GermDisconnectSheet';
 import SubscriptionOptionsSheet from '@/components/features/profile/SubscriptionOptionsSheet';
 import LiveStreamInfoSheet from '@/components/features/profile/LiveStreamInfoSheet';
 import type { MenuAction } from '@react-native-menu/menu';
@@ -267,12 +266,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   // Overlay action state (moved from ProfileHeader)
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showSubscriptionSheet, setShowSubscriptionSheet] = useState(false);
-  const [showGermSheet, setShowGermSheet] = useState(false);
-
-  // Reset Germ sheet when navigating away from own profile
-  useEffect(() => {
-    if (!isViewingOwnProfile) setShowGermSheet(false);
-  }, [isViewingOwnProfile]);
   const [showLiveStreamSheet, setShowLiveStreamSheet] = useState(false);
   const liveAvatarMenuActions = useMemo<MenuAction[]>(() => {
     if (!isLive) return [];
@@ -330,7 +323,26 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
 
     const onPress = () => {
       if (isOwnProfile) {
-        setShowGermSheet(true);
+        Alert.alert(t('profile.germDm'), t('profile.germDisconnectSheetDescription'), [
+          {
+            text: t('profile.germDisconnect'),
+            onPress: async () => {
+              const ok = await (await import('@/services/api/repo/RepoService')).RepoService.deleteGermDeclaration();
+              if (ok) {
+                queryClient.invalidateQueries({
+                  queryKey: queryKeys.profiles.detail(profileData.did),
+                });
+                Alert.alert(t('common.success'), t('profile.germDisconnected'));
+              } else {
+                Alert.alert(t('common.error'), t('errors.unexpected'));
+              }
+            },
+          },
+          {
+            text: 'OK',
+            onPress: () => {},
+          },
+        ]);
       } else {
         Linking.openURL(url);
       }
@@ -733,13 +745,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
         />
       )}
 
-      {profileData?.did && isViewingOwnProfile && (
-        <GermDisconnectSheet
-          visible={showGermSheet}
-          onDismiss={() => setShowGermSheet(false)}
-          profileDid={profileData.did}
-        />
-      )}
 
       <LiveStreamInfoSheet
         visible={showLiveStreamSheet}

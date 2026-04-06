@@ -348,7 +348,7 @@
     "germMessageOnGerm": "Message sur Germ",
     "germDisconnect": "Déconnecter Germ DM",
     "germDisconnectConfirm": "Retirer le bouton Germ DM de ton profil ? Tu pourras te reconnecter plus tard dans l'app Germ.",
-    "germDisconnectSheetDescription": "Permet aux autres de te contacter via Germ DM. Gère la visibilité dans l'app Germ, ou déconnecte ci-dessous.",
+    "germDisconnectSheetDescription": "Tu as activé Germ DM sur ton profil. Tu peux gérer la visibilité dans l'app Germ ou te déconnecter ici.",
     "germDisconnected": "Germ déconnecté",
     "reportOrBlock": "Signaler ou bloquer",
     "reportAccount": "Signaler le compte",
