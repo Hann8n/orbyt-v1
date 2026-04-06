@@ -7,7 +7,6 @@
 import React, {
   forwardRef,
   useCallback,
-  useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -31,7 +30,7 @@ import { useFeedModalTabSegment } from '@/utils/navigation/feedModalTabSegment';
 import { FollowProvider } from '../../../context/FollowContext';
 import type { ExtendedFeedViewPost as FeedItem } from '../../../services/api/types';
 
-const noopFeedRefresh = async () => {};
+const noopFeedRefetch = () => {};
 
 // Main Feed Renderer Props
 interface FeedRendererProps {
@@ -84,7 +83,7 @@ interface FeedRendererProps {
 
   /** When true, FlashList shows pull-to-refresh (profile/channel). Ignored for search feeds. */
   pullToRefreshEnabled?: boolean;
-  /** Runs in parallel with feed refresh on pull (e.g. profile/channel metadata). */
+  /** Runs in parallel with the feed infinite-query `refetch` (e.g. profile/channel metadata). */
   onPullToRefreshExtra?: () => Promise<unknown>;
 }
 
@@ -155,7 +154,7 @@ const FeedRenderer = forwardRef<ListFeedViewRef, FeedRendererProps>(
           isFetchingNextPage: searchFeedQuery.isFetchingNextPage,
           hasNextPage: searchFeedQuery.hasNextPage,
           fetchNextPage: searchFeedQuery.fetchNextPage,
-          refresh: noopFeedRefresh,
+          refetch: noopFeedRefetch,
           isPaused: false,
           isProfileFeed: false,
           dataUpdatedAt: 0,
@@ -168,7 +167,7 @@ const FeedRenderer = forwardRef<ListFeedViewRef, FeedRendererProps>(
         isFetchingNextPage: feedQuery.isFetchingNextPage,
         hasNextPage: feedQuery.hasNextPage,
         fetchNextPage: feedQuery.fetchNextPage,
-        refresh: feedQuery.refresh,
+        refetch: feedQuery.refetch,
         isPaused: feedQuery.isPaused,
         isProfileFeed: feedQuery.isProfileFeed,
         dataUpdatedAt: feedQuery.dataUpdatedAt,
@@ -185,7 +184,7 @@ const FeedRenderer = forwardRef<ListFeedViewRef, FeedRendererProps>(
       feedQuery.isFetchingNextPage,
       feedQuery.hasNextPage,
       feedQuery.fetchNextPage,
-      feedQuery.refresh,
+      feedQuery.refetch,
       feedQuery.isPaused,
       feedQuery.isProfileFeed,
       feedQuery.dataUpdatedAt,
@@ -198,13 +197,11 @@ const FeedRenderer = forwardRef<ListFeedViewRef, FeedRendererProps>(
       isFetchingNextPage,
       hasNextPage,
       fetchNextPage,
-      refresh,
+      refetch,
       isPaused,
       isProfileFeed,
       dataUpdatedAt,
     } = feedData;
-
-    const listFeedViewRef = useRef<ListFeedViewRef>(null);
 
     const reportedPostUris = useReportedPostsStore(state => state.reportedPostUris);
     const feed = useMemo(() => {
@@ -216,29 +213,12 @@ const FeedRenderer = forwardRef<ListFeedViewRef, FeedRendererProps>(
       });
     }, [sourceFeed, reportedPostUris]);
 
-    // Scroll to top on feed reset: fires when dataUpdatedAt changes and the first item URI
-    // differs from before (covers same-count resets that the old feed.length check missed).
-    const prevFirstUriRef = useRef(feed[0]?.post?.uri ?? null);
-    const prevDataUpdatedAtRef = useRef(dataUpdatedAt);
-    useEffect(() => {
-      const currentFirstUri = feed[0]?.post?.uri ?? null;
-      if (
-        dataUpdatedAt !== prevDataUpdatedAtRef.current &&
-        feed.length > 0 &&
-        currentFirstUri !== prevFirstUriRef.current
-      ) {
-        listFeedViewRef.current?.scrollToTop(false);
-      }
-      prevFirstUriRef.current = currentFirstUri;
-      prevDataUpdatedAtRef.current = dataUpdatedAt;
-    }, [dataUpdatedAt, feed]);
-
     const finalIsError = forceError || isError;
 
     const handleRetry = useCallback(() => {
-      void refresh();
+      refetch();
       onRetryFeed?.();
-    }, [refresh, onRetryFeed]);
+    }, [refetch, onRetryFeed]);
 
     const handleLoadMore = useCallback(() => {
       if (hasNextPage && !isFetchingNextPage && isVisible) {
@@ -291,13 +271,13 @@ const FeedRenderer = forwardRef<ListFeedViewRef, FeedRendererProps>(
       if (isSearchFeed) return;
       setPullRefreshing(true);
       try {
-        const feedPromise = refresh();
+        const feedPromise = Promise.resolve(refetch());
         const extraPromise = onPullToRefreshExtra ? onPullToRefreshExtra() : Promise.resolve();
         await Promise.all([feedPromise, extraPromise]);
       } finally {
         setPullRefreshing(false);
       }
-    }, [isSearchFeed, refresh, onPullToRefreshExtra]);
+    }, [isSearchFeed, refetch, onPullToRefreshExtra]);
 
     const pullToRefresh = useMemo(() => {
       if (!pullToRefreshEnabled || isSearchFeed) return undefined;
@@ -342,6 +322,9 @@ const FeedRenderer = forwardRef<ListFeedViewRef, FeedRendererProps>(
       isFetchingNextPage,
       feedModalTab,
     ]);
+
+    // Single ref: ListFeedView chooses list vs grid internally and forwards scrollToTop
+    const listFeedViewRef = useRef<ListFeedViewRef>(null);
 
     // Forward ref methods (ListFeedView delegates to grid when in grid mode)
     useImperativeHandle(

@@ -320,9 +320,7 @@
     "loading": "Loading…",
     "following": "following",
     "yourMix": "your mix",
-    "repostedBy": "reposted by {{handle}}",
-    "showMore": "show",
-    "showLess": "hide"
+    "repostedBy": "reposted by {{handle}}"
   },
   "profile": {
     "failedToRefresh": "Failed to refresh profile.",

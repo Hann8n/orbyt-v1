@@ -319,9 +319,7 @@
     "loading": "로딩 중…",
     "following": "팔로잉",
     "yourMix": "내 믹스",
-    "repostedBy": "{{handle}}이(가) 리포스트함",
-    "showMore": "보기",
-    "showLess": "숨기기"
+    "repostedBy": "{{handle}}이(가) 리포스트함"
   },
   "profile": {
     "failedToRefresh": "프로필을 새로고침할 수 없어요.",

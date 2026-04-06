@@ -113,7 +113,7 @@ export interface HomeScreenRef {
  * @usage src/components/features/feed/GridFeedView.tsx:17
  */
 export interface ListFeedViewRef {
-  scrollToTop: (animated?: boolean) => void;
+  scrollToTop: () => void;
 }
 
 // ============================================================================

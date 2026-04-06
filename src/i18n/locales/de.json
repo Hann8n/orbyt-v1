@@ -319,9 +319,7 @@
     "loading": "Lade…",
     "following": "Abos",
     "yourMix": "dein mix",
-    "repostedBy": "repostet von {{handle}}",
-    "showMore": "zeigen",
-    "showLess": "verbergen"
+    "repostedBy": "repostet von {{handle}}"
   },
   "profile": {
     "failedToRefresh": "Profil konnte nicht aktualisiert werden.",

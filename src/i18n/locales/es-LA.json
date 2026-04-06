@@ -319,9 +319,7 @@
     "loading": "Cargando…",
     "following": "siguiendo",
     "yourMix": "tu mix",
-    "repostedBy": "reposteado por {{handle}}",
-    "showMore": "mostrar",
-    "showLess": "ocultar"
+    "repostedBy": "reposteado por {{handle}}"
   },
   "profile": {
     "failedToRefresh": "Error al actualizar el perfil.",

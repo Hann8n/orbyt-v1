@@ -270,8 +270,8 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     useImperativeHandle(
       ref,
       () => ({
-        scrollToTop: (animated = true) => {
-          flashListRef.current?.scrollToTop({ animated });
+        scrollToTop: () => {
+          flashListRef.current?.scrollToTop({ animated: true });
         },
       }),
       []
