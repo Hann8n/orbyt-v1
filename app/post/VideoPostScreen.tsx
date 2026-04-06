@@ -26,6 +26,7 @@ import Animated, {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useVideoPlayer, VideoView, VideoPlayer } from 'expo-video';
+import { FFmpegKit } from 'ffmpeg-kit-react-native';
 import * as MediaLibrary from 'expo-media-library';
 import { Image } from 'expo-image';
 import { BlurView } from '@/components/ui/BlurView';
@@ -716,6 +717,7 @@ const VideoPostScreen: React.FC = () => {
     if (segments.length === 0 || mergedVideoPath) return;
 
     const ac = new AbortController();
+    let shouldCancel = true;
     const mergeSegments = async () => {
       try {
         if (ac.signal.aborted) return;
@@ -724,6 +726,7 @@ const VideoPostScreen: React.FC = () => {
         const mergedVideo = await VideoProcessingService.mergeSegments(segments);
 
         if (ac.signal.aborted) return;
+        shouldCancel = false;
         setMergedVideoPath(mergedVideo.path);
         setIsMerging(false);
 
@@ -735,6 +738,7 @@ const VideoPostScreen: React.FC = () => {
         const errorMessage = error instanceof Error ? error.message : t('errors.unknown');
         logger.error('Background merging failed', error, { component: 'VideoPostScreen' });
         if (ac.signal.aborted) return;
+        shouldCancel = false;
         setIsMerging(false);
         Alert.alert(t('video.mergingFailed'), errorMessage || t('video.mergingFailedMessage'), [
           {
@@ -746,7 +750,12 @@ const VideoPostScreen: React.FC = () => {
     };
 
     mergeSegments();
-    return () => ac.abort();
+    return () => {
+      if (shouldCancel) {
+        void FFmpegKit.cancel();
+      }
+      ac.abort();
+    };
   }, [segments, mergedVideoPath, router, t]);
 
   // No valid video source
@@ -996,6 +1005,9 @@ const VideoPostScreen: React.FC = () => {
   };
 
   const handleCancel = () => {
+    if (isMerging || segments.length > 0) {
+      void FFmpegKit.cancel();
+    }
     router.back();
   };
 

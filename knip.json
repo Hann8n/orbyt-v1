@@ -4,7 +4,6 @@
   "ignore": ["src/**/index.ts"],
   "ignoreDependencies": ["buffer"],
   "ignoreBinaries": ["eas", "tsx"],
-  "ignoreUnresolved": ["babel-plugin-react-compiler"],
   "ignoreExportsUsedInFile": {
     "interface": true,
     "type": true
