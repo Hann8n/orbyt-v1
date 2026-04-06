@@ -49,6 +49,7 @@ import {
   getFeedItemKey,
   getEndOfFeedOverscrollTextColor,
   getProfileColors,
+  getPullToRefreshTintColor,
   isHeaderFeed as getIsHeaderFeed,
 } from './feedViewShared';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
@@ -56,7 +57,6 @@ import { isIosLiquidGlassAvailable } from '@/stores/userStore';
 import { getEffectiveTopInset, getViewportDimensions } from '../../../utils/device/screen';
 import { getVideoCardHeight } from '../../../utils/video/helpers';
 import { Colors } from '../../../theme';
-import { blendColors } from '../../../utils/formatting/colors';
 import {
   APP_CONSTANTS,
   SCROLL_CONSTANTS,
@@ -596,11 +596,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
                 <RefreshControl
                   refreshing={pullToRefresh.refreshing}
                   onRefresh={pullToRefresh.onRefresh}
-                  tintColor={
-                    profileColors?.textColor
-                      ? blendColors(profileColors.textColor, Colors.neutral[50], 0.3)
-                      : secondaryColor || Colors.neutral[50]
-                  }
+                  tintColor={getPullToRefreshTintColor(profileColors?.textColor, secondaryColor)}
                   progressViewOffset={insets.top}
                 />
               ) : undefined

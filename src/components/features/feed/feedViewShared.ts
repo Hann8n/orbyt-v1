@@ -3,7 +3,7 @@ import type { ExtendedFeedViewPost } from '../../../services/api/types';
 import { Colors } from '../../../theme';
 import { FEED_TYPES } from '../../../utils/constants';
 import type { FeedListItem } from '../../../types';
-import { hexToRGBA } from '../../../utils/formatting/colors';
+import { blendColors, hexToRGBA } from '../../../utils/formatting/colors';
 
 export const FEED_VIEW_CONSTANTS = {
   /** Space between list videos; grid header/footer strips match this. */
@@ -29,6 +29,14 @@ export const getProfileColors = (backgroundColor?: string, secondaryColor?: stri
         textColor: secondaryColor,
       }
     : undefined;
+
+export const getPullToRefreshTintColor = (
+  profileTextColor?: string,
+  secondaryColor?: string
+): string =>
+  profileTextColor
+    ? blendColors(profileTextColor, Colors.neutral[50], 0.3)
+    : secondaryColor || Colors.neutral[50];
 
 export const getFeedItemKey = (item: FeedListItem | ExtendedFeedViewPost): string => item.post.uri;
 

@@ -9,11 +9,6 @@ import { chatReactQueryOptions } from '../utils/query/chatQueryOptions';
 /** Matches ChatsTab default "all" segment — shared React Query cache for listConvos. */
 const CHAT_LIST_FILTER_ACCEPTED = { status: 'accepted' as const };
 
-export type UnreadSummary = {
-  notificationsCount: number;
-  messagesCount: number;
-};
-
 export const useUnreadCount = () => {
   const isAuthenticated = useUserStore(state => state.isAuthenticated);
 

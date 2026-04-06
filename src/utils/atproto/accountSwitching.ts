@@ -9,32 +9,6 @@ export type AccountWithCachedProfile<TAccount extends AccountWithDid> = TAccount
   cachedProfile?: ProfileViewWithOrbyt;
 };
 
-type AccountSwitchEligibilityParams = {
-  targetDid: string;
-  activeAccountDid: string | null;
-  isSwitchingAccount: boolean;
-  isAuthenticating: boolean;
-};
-
-export type AccountSwitchEligibility = 'ok' | 'already-active' | 'busy';
-
-export function getAccountSwitchEligibility({
-  targetDid,
-  activeAccountDid,
-  isSwitchingAccount,
-  isAuthenticating,
-}: AccountSwitchEligibilityParams): AccountSwitchEligibility {
-  if (targetDid === activeAccountDid) {
-    return 'already-active';
-  }
-
-  if (isSwitchingAccount || isAuthenticating) {
-    return 'busy';
-  }
-
-  return 'ok';
-}
-
 /**
  * Pulls cached profile data for saved accounts so UI can render richer account rows
  * without re-implementing profile-fetch logic in each component.

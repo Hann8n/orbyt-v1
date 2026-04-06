@@ -47,6 +47,7 @@ import {
   getEmptyFeedType,
   getFeedItemKey,
   getProfileColors,
+  getPullToRefreshTintColor,
   isHeaderFeed as getIsHeaderFeed,
 } from './feedViewShared';
 import { FeedScrollProvider } from '../../../context/FeedScrollContext';
@@ -404,7 +405,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
             <RefreshControl
               refreshing={pullToRefresh.refreshing}
               onRefresh={pullToRefresh.onRefresh}
-              tintColor={profileColors?.textColor || secondaryColor}
+              tintColor={getPullToRefreshTintColor(profileColors?.textColor, secondaryColor)}
               progressViewOffset={insets.top}
             />
           ) : undefined

@@ -2,9 +2,6 @@ import { create } from 'zustand';
 import type { TextOverlay } from '../types';
 import type { VideoSegment } from '../services/video/VideoProcessingService';
 
-/** Same union as `VideoSegment.video` (camera `{ uri }` or full picker asset). */
-export type PendingVideoRef = VideoSegment['video'];
-
 export type PendingVideoSegment = VideoSegment;
 
 export interface PendingVideoPostPayload {

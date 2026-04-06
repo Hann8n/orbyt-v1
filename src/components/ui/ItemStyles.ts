@@ -3,7 +3,7 @@ import { BORDER_RADIUS } from '../../utils/constants';
 import { Colors } from './UI';
 
 /** Vertical padding for AuthorItem / ChannelItem rows (single source of truth). */
-export const ITEM_ROW_PADDING_VERTICAL = 16;
+const ITEM_ROW_PADDING_VERTICAL = 16;
 
 // Shared size configuration for AuthorItem and ChannelItem
 export const itemSizeConfig = {

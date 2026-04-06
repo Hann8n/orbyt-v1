@@ -3,7 +3,7 @@ import { ExpoOAuthClient, type ExpoOAuthClientOptions } from '@atproto/oauth-cli
 // Bundled client metadata - MUST stay byte-for-byte aligned with:
 // https://getorbyt.com/oauth-client-metadata.json
 // The Expo OAuth package handles session storage, refresh, and token lifecycle internally.
-export const CLIENT_METADATA: ExpoOAuthClientOptions['clientMetadata'] = {
+const CLIENT_METADATA: ExpoOAuthClientOptions['clientMetadata'] = {
   client_id: 'https://getorbyt.com/oauth-client-metadata.json',
   client_name: 'orbyt',
   client_uri: 'https://getorbyt.com',

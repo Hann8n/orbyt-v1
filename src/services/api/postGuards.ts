@@ -9,12 +9,12 @@ import {
   isNotFoundPost as threadPostIsNotFound,
 } from './types';
 
-export function isNotFoundPost(post: unknown): post is NotFoundPost {
+function isNotFoundPost(post: unknown): post is NotFoundPost {
   if (!post || typeof post !== 'object') return false;
   return threadPostIsNotFound(post as ThreadPost);
 }
 
-export function isBlockedPost(post: unknown): post is BlockedPost {
+function isBlockedPost(post: unknown): post is BlockedPost {
   if (!post || typeof post !== 'object') return false;
   return threadPostIsBlocked(post as ThreadPost);
 }
