@@ -55,5 +55,3 @@ export const Shadows = {
     elevation: 12,
   } as ViewStyle,
 };
-
-export type ShadowKey = keyof typeof Shadows;

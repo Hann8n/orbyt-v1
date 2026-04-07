@@ -16,40 +16,11 @@ export const androidTextFix: TextStyle = {
 };
 
 /**
- * Android TextInput specific fixes - combines includeFontPadding fix
- * with vertical text alignment for consistent behavior.
+ * Preset for inputs/text fields with platform-specific optimizations.
  */
-export const androidTextInputFix: TextStyle = {
+export const inputTextDefaults: TextStyle = {
   ...(Platform.OS === 'android' && {
     includeFontPadding: false,
     textAlignVertical: 'center',
   }),
 };
-
-/**
- * Preset for inputs/text fields with platform-specific optimizations.
- */
-export const inputTextDefaults: TextStyle = {
-  ...androidTextInputFix,
-};
-
-/**
- * Get platform-specific props for Text components.
- * Returns an object with platform-optimal settings.
- */
-export const getPlatformTextProps = () => ({
-  allowFontScaling: true,
-  maxFontSizeMultiplier: 1.3, // Respect system font scale but cap it
-});
-
-/**
- * Get platform-specific props for TextInput components.
- */
-export const getPlatformTextInputProps = () => ({
-  allowFontScaling: true,
-  maxFontSizeMultiplier: 1.3,
-  ...(Platform.OS === 'android' && {
-    includeFontPadding: false,
-    textAlignVertical: 'center' as const,
-  }),
-});
