@@ -3,6 +3,7 @@ import { BORDER_RADIUS } from '../../utils/constants';
 import { Colors } from './UI';
 import { FontFamily, Typography } from '../../utils/components/typography';
 import { hexToRGBA } from '../../utils/formatting/colors';
+import { inputTextDefaults } from '../../utils/styling/platformText';
 
 /**
  * Shared styles for authentication sheets (LoginSheet, SignUpSheet)
@@ -29,6 +30,7 @@ export const authSheetStyles = StyleSheet.create({
     height: '100%',
     fontFamily: FontFamily.medium,
     letterSpacing: 0.25,
+    ...inputTextDefaults,
   },
   button: {
     backgroundColor: Colors.neutral[200],

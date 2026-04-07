@@ -1,6 +1,7 @@
-import { Platform, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { BORDER_RADIUS } from '@/utils/constants';
-import { Colors } from '@/theme';
+import { Colors, Shadows } from '@/theme';
+import { androidTextFix } from '@/utils/styling/platformText';
 
 export const exploreScreenStyles = StyleSheet.create({
   container: {
@@ -54,14 +55,7 @@ export const exploreScreenStyles = StyleSheet.create({
     overflow: 'hidden',
     paddingHorizontal: 15,
     zIndex: 10,
-    elevation: 5,
-    shadowColor: Colors.black,
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+    ...Shadows.medium,
   },
   searchContainerLiquidGlass: {
     backgroundColor: Colors.transparent,
@@ -91,9 +85,7 @@ export const exploreScreenStyles = StyleSheet.create({
     paddingVertical: 12,
     textAlign: 'left',
     textAlignVertical: 'center',
-    ...(Platform.OS === 'android' && {
-      includeFontPadding: false,
-    }),
+    ...androidTextFix,
   },
   clearButton: {
     marginLeft: 8,

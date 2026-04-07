@@ -28,7 +28,7 @@ import { FontFamily, Typography } from '../../utils/components/typography';
 import { BORDER_RADIUS } from '../../utils/constants';
 import type { StatusView } from '../../services/api/types';
 import { isLiveStatus } from '../../services/data/ProfileService';
-import { Colors, ColorScale, NeutralScale } from '../../theme';
+import { Colors, ColorScale, NeutralScale, Shadows } from '../../theme';
 
 // Re-export Colors for backward compatibility
 export { Colors };
@@ -222,11 +222,7 @@ const retryButtonStyles = StyleSheet.create({
     paddingHorizontal: 24,
     marginTop: 20,
     overflow: 'hidden',
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 8,
+    ...Shadows.large,
     justifyContent: 'center',
     alignItems: 'center',
     minHeight: 44,
@@ -295,11 +291,7 @@ const goBackButtonStyles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 24,
     overflow: 'hidden',
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 8,
+    ...Shadows.large,
     justifyContent: 'center',
     alignItems: 'center',
     minHeight: 44,

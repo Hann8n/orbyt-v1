@@ -25,6 +25,7 @@ import UI from '../../ui/UI';
 import { Colors } from '../../../theme';
 import { BORDER_RADIUS, SCROLL_INDICATOR_CONSTANTS } from '../../../utils/constants';
 import { getFooterBottomPadding } from '../../../utils/components/truesheet/utils';
+import { androidTextFix } from '../../../utils/styling/platformText';
 import { COMPOSER_STYLES } from '../../../utils/components/truesheet/sheetStyles';
 import { UserSearchModal } from '../../ui/usersearch';
 import { useUserStore } from '../../../stores/userStore';
@@ -483,7 +484,7 @@ const styles = StyleSheet.create({
   inputWrapper: COMPOSER_STYLES.inputWrapper,
   textInput: {
     ...COMPOSER_STYLES.textInput,
-    ...(Platform.OS === 'android' && { includeFontPadding: false }),
+    ...androidTextFix,
   },
   sendColumn: {
     alignItems: 'flex-end',
