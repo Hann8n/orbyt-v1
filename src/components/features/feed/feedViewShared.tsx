@@ -13,7 +13,6 @@ export const FEED_VIEW_CONSTANTS = {
   GRID_CELL_GAP: 2.5,
   HEADER_HEIGHT_TABS: 280,
   HEADER_BLOCKING_THRESHOLD: 250,
-  /** Home list: keep FeedPager chrome visible while scroll offset is below this (px). */
   HOME_PAGER_CHROME_VISIBLE_MAX_SCROLL_Y: 10,
 } as const;
 
@@ -83,11 +82,7 @@ type FeedSurfaceStackProps = {
   gridSurface: ReactNode;
 };
 
-/**
- * Dual-mount list + grid: visibility, pointers, a11y. Tradeoff: two `FlashList` surfaces for instant
- * mode switch vs higher memory. `ListFeedView` gates playback / tab bar.
- * Chrome that reads scroll must follow the active surface only (`listActive`).
- */
+/** Dual-mount list + grid: visibility, pointers, a11y. `ListFeedView` gates playback / tab bar. */
 export function FeedSurfaceStack({ listActive, listSurface, gridSurface }: FeedSurfaceStackProps) {
   const layer = (on: boolean, node: ReactNode) => (
     <View

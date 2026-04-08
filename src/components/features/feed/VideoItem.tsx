@@ -51,7 +51,6 @@ export interface VideoItemProps {
   isAppleZoomTarget?: boolean;
 }
 
-/** Rely on React Compiler for memoization; avoid manual `memo()` here. */
 export function VideoItem({
   post,
   feedItem,

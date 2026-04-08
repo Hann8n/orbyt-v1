@@ -144,7 +144,7 @@ export interface VideoCardProps {
   feedOption?: string;
   /** Item index in the list; used with FeedScrollContext to compute percent visible from scroll+layout. */
   index?: number;
-  /** When this card is visible, called on user-driven pause toggles (e.g. home FeedPager). */
+  /** Fired when visible and the user toggles pause. */
   onUserPausedChange?: (userPaused: boolean) => void;
 }
 

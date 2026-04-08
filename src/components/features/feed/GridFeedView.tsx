@@ -61,7 +61,6 @@ const AnimatedFlashList = Animated.createAnimatedComponent(FlashList) as Compone
   FlashListProps<ExtendedFeedViewPost> & { ref?: Ref<FlashListRef<ExtendedFeedViewPost>> }
 >;
 
-/** React Compiler memoizes; avoid wrapping in `memo()`. */
 const VideoGridItem: React.FC<{
   item: ExtendedFeedViewPost;
   index: number;
@@ -237,7 +236,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
         onScroll: event => {
           'worklet';
           const y = event.contentOffset.y;
-          /* eslint-disable react-hooks/immutability -- SharedValue mutations (scrollOffsetYSV, contentScrollProgressOutput) in useAnimatedScrollHandler worklet */
+          /* eslint-disable react-hooks/immutability -- SharedValue.value in worklet */
           scrollOffsetYSV.value = y;
           if (contentScrollProgressOutput && fadeDist > 0) {
             contentScrollProgressOutput.value = Math.max(0, Math.min(1, y / fadeDist));

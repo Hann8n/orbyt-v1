@@ -253,19 +253,16 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       isVisibleSV.value = listSurfaceActive ? 1 : 0;
     }, [listSurfaceActive, isVisibleSV]);
 
-    const chromeVisibleMaxY = FEED_VIEW_CONSTANTS.HOME_PAGER_CHROME_VISIBLE_MAX_SCROLL_Y;
-
-    // Tab bar visibility from list scroll; `homePagerChromeUserHoldSV` pins chrome while the user pauses.
     useAnimatedReaction(
       () => [scrollOffsetYSV.value, homePagerChromeUserHoldSV.value] as const,
       (current, previous) => {
         'worklet';
-        /* Reanimated: SharedValue.value must be written from this UI-thread worklet (lint false positive). */
         /* eslint-disable react-hooks/immutability -- tabBarVisibility SharedValue */
         if (!isVisibleSV.value) return;
 
         const y = current[0];
         const hold = current[1];
+        const chromeMaxY = FEED_VIEW_CONSTANTS.HOME_PAGER_CHROME_VISIBLE_MAX_SCROLL_Y;
 
         if (hold > 0.5) {
           tabBarVisibility.value = 1;
@@ -276,11 +273,11 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         const prevY = previous === null ? y : previous[0];
 
         if (previous === null || prevHold > 0.5) {
-          tabBarVisibility.value = y < chromeVisibleMaxY ? 1 : 0;
+          tabBarVisibility.value = y < chromeMaxY ? 1 : 0;
           return;
         }
 
-        if (y < chromeVisibleMaxY) {
+        if (y < chromeMaxY) {
           tabBarVisibility.value = 1;
         } else if (y > prevY + 5) {
           tabBarVisibility.value = 0;
@@ -486,7 +483,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       if (useLegacyIosTabLiquidGlassLayout && !hasHeader && isCompact) {
         return null;
       }
-      // Avoid wrong per-item snaps on first paint (header height still 0); grid uses [0] until layout.
       if (hasHeader && headerHeight <= 0) {
         return undefined;
       }
@@ -542,7 +538,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       {
         onScroll: event => {
           'worklet';
-          /* eslint-disable react-hooks/immutability -- SharedValue.value writes in worklet */
+          /* eslint-disable react-hooks/immutability -- SharedValue.value in worklet */
           const y = event.contentOffset.y;
           scrollOffsetYSV.value = y;
           if (contentScrollProgressOutput && fadeDist > 0) {
@@ -569,7 +565,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     const setHomePagerChromeUserHold = useCallback(
       (held: boolean) => {
-        // Reanimated: JS-thread write to SharedValue (same pattern as TabBarProvider.setTabBarVisibility)
         // eslint-disable-next-line react-hooks/immutability -- SharedValue.value
         homePagerChromeUserHoldSV.value = held ? 1 : 0;
       },
@@ -685,7 +680,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
             }
             bounces={true}
             directionalLockEnabled={true}
-            // Normal vertical bounce; EOF hint opacity stays 0 unless `endOfFeedEnabledSV` (see scrollHandler).
             alwaysBounceVertical
             alwaysBounceHorizontal={false}
             // Empty state components - extracted to memoized component
@@ -769,7 +763,6 @@ const styles = StyleSheet.create({
   contentContainer: {
     backgroundColor: Colors.transparent,
   },
-  /** List has items: bottom safe area is on RNScreensSafeAreaView when native tab bar owns inset. */
   contentContainerListItemsNativeTabBottom: {
     paddingBottom: 0,
   },
