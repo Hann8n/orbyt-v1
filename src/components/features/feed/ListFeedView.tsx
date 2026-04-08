@@ -44,6 +44,7 @@ import EmptyFeed from './EmptyFeed';
 import { VideoItem } from './VideoItem';
 import GridFeedView from './GridFeedView';
 import {
+  FeedSurfaceStack,
   FEED_VIEW_CONSTANTS,
   getEmptyFeedType,
   getFeedItemKey,
@@ -214,6 +215,8 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     },
     ref
   ) => {
+    const resolvedViewMode = viewMode ?? 'list';
+
     // Hooks
     const insets = useSafeAreaInsets();
 
@@ -226,6 +229,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     // Refs
     const flashListRef = useRef<FlashListRef<FeedListItem>>(null);
+    const gridRef = useRef<ListFeedViewRef>(null);
 
     // Scroll offset for percent-visible: written in useAnimatedScrollHandler (UI thread), read in VideoCard worklet.
     const scrollOffsetYSV = useSharedValue(0);
@@ -234,10 +238,11 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     // Mirror isVisible into a shared value so worklets can read it on the UI thread.
     const tabBarVisibility = useTabBarVisibility();
-    const isVisibleSV = useSharedValue(isVisible ? 1 : 0);
+    const listSurfaceActive = isVisible && resolvedViewMode === 'list';
+    const isVisibleSV = useSharedValue(listSurfaceActive ? 1 : 0);
     useEffect(() => {
-      isVisibleSV.value = isVisible ? 1 : 0;
-    }, [isVisible, isVisibleSV]);
+      isVisibleSV.value = listSurfaceActive ? 1 : 0;
+    }, [listSurfaceActive, isVisibleSV]);
 
     // Hide/show the FeedPager tab navigator based on scroll direction.
     useAnimatedReaction(
@@ -264,17 +269,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         }
       },
       [scrollOffsetYSV]
-    );
-
-    // Expose scrollToTop method
-    useImperativeHandle(
-      ref,
-      () => ({
-        scrollToTop: () => {
-          flashListRef.current?.scrollToTop({ animated: true });
-        },
-      }),
-      []
     );
 
     const { screenWidth, screenHeight, isCompact } = useDeviceLayout();
@@ -311,11 +305,11 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     const { onViewableItemsChanged, viewabilityConfig, canPlay, feedKey } = useFeedVisibility({
       feedOption,
       userDid,
-      isActive: Boolean(isVisible),
+      isActive: listSurfaceActive,
     });
 
     const isHeaderBlockingPlayback =
-      !headerComponent || !isVisible || viewMode !== 'list' ? false : scrollBasedBlocking;
+      !headerComponent || !isVisible || resolvedViewMode !== 'list' ? false : scrollBasedBlocking;
 
     // Memoize profileColors to prevent recreation on every render
     const profileColors = getProfileColors(backgroundColor, secondaryColor);
@@ -389,7 +383,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       if (
         targetScrollIndex !== null &&
         targetScrollIndex !== undefined &&
-        viewMode === 'list' &&
+        resolvedViewMode === 'list' &&
         listData.length > 0
       ) {
         return Math.max(0, Math.min(targetScrollIndex, listData.length - 1));
@@ -403,7 +397,13 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       (_event: { window: ScaledSize }) => {
         const { activeFeedKey, lastViewableIndexByFeed } = useVisibilityCoreStore.getState();
         const idx = lastViewableIndexByFeed[feedKey] ?? -1;
-        if (flashListRef.current && feed.length > 0 && activeFeedKey === feedKey && idx >= 0) {
+        if (
+          flashListRef.current &&
+          feed.length > 0 &&
+          activeFeedKey === feedKey &&
+          idx >= 0 &&
+          resolvedViewMode === 'list'
+        ) {
           try {
             flashListRef.current.scrollToIndex({
               index: idx,
@@ -415,7 +415,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           }
         }
       },
-      [feedKey, feed.length]
+      [feedKey, feed.length, resolvedViewMode]
     );
 
     useEffect(() => {
@@ -522,7 +522,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     );
 
     // Memoize context value to avoid unnecessary re-renders of list consumers when layout/scroll haven't changed.
-    // Must be before the grid early return so hooks run in the same order every render.
     const feedScrollValue = {
       scrollOffsetYSV,
       headerHeight,
@@ -531,45 +530,19 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       contentScrollProgressSV,
     };
 
+    useImperativeHandle(
+      ref,
+      () => ({
+        scrollToTop: () =>
+          resolvedViewMode === 'grid'
+            ? gridRef.current?.scrollToTop()
+            : flashListRef.current?.scrollToTop({ animated: true }),
+      }),
+      [resolvedViewMode]
+    );
+
     /** Tab / home indicator clearance for the overscroll hint sitting above the bottom edge. */
     const endOfFeedHintBottomInset = useNativeTabBottomSafeArea ? 12 : Math.max(12, insets.bottom);
-
-    if (viewMode === 'grid') {
-      const grid = (
-        <GridFeedView
-          feed={feed}
-          headerComponent={headerComponent}
-          backgroundColor={backgroundColor}
-          secondaryColor={secondaryColor}
-          isProfileFeed={isHeaderFeed}
-          feedOption={feedOption}
-          userDid={userDid}
-          onLoadMore={onLoadMore}
-          hasNextPage={hasNextPage}
-          onGridItemPress={onGridItemPressProp}
-          gridFeedModalZoomConfig={gridFeedModalZoomConfig ?? undefined}
-          isError={effectiveIsError}
-          onRetry={onRetry}
-          isLoading={isLoading}
-          ListComponent={ListComponent}
-          contentScrollProgressOutput={contentScrollProgressOutput}
-          snapTopInset={snapTopInset}
-          useNativeTabBottomSafeArea={useNativeTabBottomSafeArea}
-          pullToRefresh={pullToRefresh}
-        />
-      );
-      const tabSafeBg = backgroundColor || Colors.black;
-      return useNativeTabBottomSafeArea ? (
-        <RNScreensSafeAreaView
-          style={[styles.tabSceneSafeArea, { backgroundColor: tabSafeBg }]}
-          edges={{ bottom: true }}
-        >
-          {grid}
-        </RNScreensSafeAreaView>
-      ) : (
-        grid
-      );
-    }
 
     const listBody = (
       <View
@@ -673,19 +646,46 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       </View>
     );
 
-    return (
-      <FeedScrollProvider value={feedScrollValue}>
-        {useNativeTabBottomSafeArea ? (
-          <RNScreensSafeAreaView
-            style={[styles.tabSceneSafeArea, { backgroundColor: backgroundColor || Colors.black }]}
-            edges={{ bottom: true }}
-          >
-            {listBody}
-          </RNScreensSafeAreaView>
-        ) : (
-          listBody
-        )}
-      </FeedScrollProvider>
+    const stack = (
+      <FeedSurfaceStack
+        listActive={resolvedViewMode === 'list'}
+        listSurface={<FeedScrollProvider value={feedScrollValue}>{listBody}</FeedScrollProvider>}
+        gridSurface={
+          <GridFeedView
+            ref={gridRef}
+            feed={feed}
+            headerComponent={headerComponent}
+            backgroundColor={backgroundColor}
+            secondaryColor={secondaryColor}
+            isProfileFeed={isHeaderFeed}
+            feedOption={feedOption}
+            userDid={userDid}
+            onLoadMore={onLoadMore}
+            hasNextPage={hasNextPage}
+            onGridItemPress={onGridItemPressProp}
+            gridFeedModalZoomConfig={gridFeedModalZoomConfig ?? undefined}
+            isError={effectiveIsError}
+            onRetry={onRetry}
+            isLoading={isLoading}
+            ListComponent={ListComponent}
+            contentScrollProgressOutput={contentScrollProgressOutput}
+            snapTopInset={snapTopInset}
+            useNativeTabBottomSafeArea={useNativeTabBottomSafeArea}
+            pullToRefresh={pullToRefresh}
+          />
+        }
+      />
+    );
+
+    return useNativeTabBottomSafeArea ? (
+      <RNScreensSafeAreaView
+        style={[styles.tabSceneSafeArea, { backgroundColor: backgroundColor || Colors.black }]}
+        edges={{ bottom: true }}
+      >
+        {stack}
+      </RNScreensSafeAreaView>
+    ) : (
+      stack
     );
   }
 );

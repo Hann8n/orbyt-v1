@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+import { type ReactNode } from 'react';
+import { View, StyleSheet } from 'react-native';
 import type { ExtendedFeedViewPost } from '../../../services/api/types';
 import { Colors } from '../../../theme';
 import { FEED_TYPES } from '../../../utils/constants';
@@ -68,3 +69,37 @@ export const getEndOfFeedOverscrollTextColor = (
   // apply alpha for the overscroll hint treatment.
   return hexToRGBA(hex, 0.98);
 };
+
+type FeedSurfaceStackProps = {
+  listActive: boolean;
+  listSurface: ReactNode;
+  gridSurface: ReactNode;
+};
+
+/** Dual-mount list + grid: visibility, pointers, a11y. `ListFeedView` still gates playback / tab bar. */
+export function FeedSurfaceStack({ listActive, listSurface, gridSurface }: FeedSurfaceStackProps) {
+  const layer = (on: boolean, node: ReactNode) => (
+    <View
+      collapsable={false}
+      style={[feedSurfaceStyles.layer, on ? feedSurfaceStyles.on : feedSurfaceStyles.off]}
+      pointerEvents={on ? 'auto' : 'none'}
+      importantForAccessibility={on ? 'yes' : 'no-hide-descendants'}
+    >
+      {node}
+    </View>
+  );
+
+  return (
+    <View style={feedSurfaceStyles.root} collapsable={false}>
+      {layer(listActive, listSurface)}
+      {layer(!listActive, gridSurface)}
+    </View>
+  );
+}
+
+const feedSurfaceStyles = StyleSheet.create({
+  root: { flex: 1 },
+  layer: { ...StyleSheet.absoluteFillObject },
+  on: { opacity: 1, zIndex: 1 },
+  off: { opacity: 0, zIndex: 0 },
+});
