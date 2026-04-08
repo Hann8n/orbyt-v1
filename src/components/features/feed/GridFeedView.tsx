@@ -14,6 +14,7 @@ import {
   Platform,
   Pressable,
   RefreshControl,
+  ActivityIndicator,
   type StyleProp,
   type ViewStyle,
   useWindowDimensions,
@@ -141,6 +142,8 @@ interface GridFeedViewProps {
   gridFeedModalZoomConfig?: GridFeedModalZoomConfig | null;
   isError?: boolean;
   onRetry?: () => void;
+  /** True while feed query has no settled data (matches ListFeedView empty-slot loading). */
+  isLoading?: boolean;
   ListComponent?: React.ComponentType<unknown> | null; // Optional custom list component
   /** When provided, grid writes scroll progress (0..1) here on UI thread for overlay/header fade. */
   contentScrollProgressOutput?: SharedValue<number>;
@@ -170,6 +173,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
       gridFeedModalZoomConfig,
       isError = false,
       onRetry,
+      isLoading = false,
       ListComponent,
       contentScrollProgressOutput,
       snapTopInset,
@@ -427,7 +431,22 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
         ListHeaderComponent={listHeader}
         ListFooterComponent={listFooter}
         ListEmptyComponent={
-          isError ? (
+          isLoading ? (
+            <View
+              style={[
+                styles.gridEmptyLoading,
+                {
+                  minHeight: emptyComponentHeight,
+                  backgroundColor: backgroundColor || Colors.black,
+                },
+              ]}
+            >
+              <ActivityIndicator
+                size="large"
+                color={profileColors?.textColor || secondaryColor || Colors.neutral[50]}
+              />
+            </View>
+          ) : isError ? (
             <EmptyFeed
               type="error"
               secondaryColor={secondaryColor}
@@ -469,6 +488,11 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
 GridFeedView.displayName = 'GridFeedView';
 
 const styles = StyleSheet.create({
+  gridEmptyLoading: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   container: {
     flex: 1,
     backgroundColor: Colors.black,

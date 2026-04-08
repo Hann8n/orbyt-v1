@@ -38,6 +38,8 @@ interface UseFeedOptions {
 interface UseFeedReturn {
   // Data
   feed: FeedItem[];
+  /** True until the first fetch settles (incl. when query is disabled / waiting). Prefer over `isLoading` for empty-slot UI. */
+  isPending: boolean;
   isLoading: boolean;
   isError: boolean;
   error: Error | null;
@@ -171,6 +173,7 @@ export function useFeed(
   return {
     // Data (select flattens data.pages → FeedItem[])
     feed: (query.data ?? []) as FeedItem[],
+    isPending: query.isPending,
     isLoading: query.isLoading,
     isError: query.isError,
     error: (query.error ?? null) as Error | null,

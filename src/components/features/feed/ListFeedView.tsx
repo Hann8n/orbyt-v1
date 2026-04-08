@@ -550,6 +550,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           gridFeedModalZoomConfig={gridFeedModalZoomConfig ?? undefined}
           isError={effectiveIsError}
           onRetry={onRetry}
+          isLoading={isLoading}
           ListComponent={ListComponent}
           contentScrollProgressOutput={contentScrollProgressOutput}
           snapTopInset={snapTopInset}

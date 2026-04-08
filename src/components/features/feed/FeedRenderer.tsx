@@ -150,7 +150,7 @@ const FeedRenderer = forwardRef<ListFeedViewRef, FeedRendererProps>(
       if (isSearchFeed) {
         return {
           feed: searchFeedQuery.feed,
-          isLoading: false,
+          isPending: false,
           isError: false,
           isFetchingNextPage: searchFeedQuery.isFetchingNextPage,
           hasNextPage: searchFeedQuery.hasNextPage,
@@ -163,7 +163,7 @@ const FeedRenderer = forwardRef<ListFeedViewRef, FeedRendererProps>(
       }
       return {
         feed: feedQuery.feed,
-        isLoading: feedQuery.isLoading,
+        isPending: feedQuery.isPending,
         isError: feedQuery.isError,
         isFetchingNextPage: feedQuery.isFetchingNextPage,
         hasNextPage: feedQuery.hasNextPage,
@@ -180,7 +180,7 @@ const FeedRenderer = forwardRef<ListFeedViewRef, FeedRendererProps>(
       searchFeedQuery.hasNextPage,
       searchFeedQuery.fetchNextPage,
       feedQuery.feed,
-      feedQuery.isLoading,
+      feedQuery.isPending,
       feedQuery.isError,
       feedQuery.isFetchingNextPage,
       feedQuery.hasNextPage,
@@ -193,7 +193,7 @@ const FeedRenderer = forwardRef<ListFeedViewRef, FeedRendererProps>(
 
     const {
       feed: sourceFeed,
-      isLoading,
+      isPending,
       isError,
       isFetchingNextPage,
       hasNextPage,
@@ -404,7 +404,7 @@ const FeedRenderer = forwardRef<ListFeedViewRef, FeedRendererProps>(
         ref={listFeedViewRef}
         {...commonProps}
         isFetchingNextPage={isFetchingNextPage}
-        isLoading={isSearchFeed ? false : isLoading || (feed.length === 0 && dataUpdatedAt === 0)}
+        isLoading={isSearchFeed ? false : isPending}
         isError={isSearchFeed ? false : finalIsError}
         targetScrollIndex={propTargetScrollIndex}
         pullToRefresh={pullToRefresh}
