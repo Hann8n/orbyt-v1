@@ -11,6 +11,7 @@ import {
   type ImageStyle,
   type StyleProp,
 } from 'react-native';
+import { SvgXml } from 'react-native-svg';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { Image } from 'expo-image';
 import * as Clipboard from 'expo-clipboard';
@@ -92,6 +93,7 @@ function getCommentEmbed(c: Comment) {
 const ASPECT_RATIO_MIN = 0.35;
 const ASPECT_RATIO_MAX = 2.75;
 const ASPECT_RATIO_DEFAULT = 1;
+const PARENT_REPLY_ARROW_ICON_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5.516 3.577a1.707 1.707 0 0 0-.878.803l-.098.2v8.04l.09.312c.342 1.177 1.227 2.07 2.417 2.436l.293.091 4.016.011 4.016.012-1.046 1.055c-.933.94-1.061 1.085-1.175 1.329-.115.245-.129.312-.128.634 0 .308.016.395.111.6.145.316.452.624.762.765.208.095.297.111.604.112.324.001.388-.013.64-.13.265-.124.409-.261 2.682-2.539C20.602 14.522 20.46 14.7 20.46 14c0-.7.142-.522-2.638-3.308-2.273-2.278-2.417-2.415-2.682-2.539-.252-.117-.317-.131-.64-.13-.308 0-.395.016-.6.111a1.662 1.662 0 0 0-.765.762c-.095.208-.111.297-.112.604-.001.323.013.388.128.634.114.244.243.389 1.177 1.331l1.048 1.057-3.76-.011c-3.514-.01-3.767-.016-3.867-.082a.717.717 0 0 1-.178-.178c-.066-.1-.072-.363-.091-3.889L7.46 4.58l-.098-.2a1.792 1.792 0 0 0-.709-.722c-.198-.1-.282-.117-.611-.126-.253-.007-.431.008-.526.045" fill="currentColor" fill-rule="evenodd"/></svg>`;
 
 function clampAspectRatio(ar: number) {
   return Math.max(ASPECT_RATIO_MIN, Math.min(ASPECT_RATIO_MAX, ar));
@@ -1109,8 +1111,11 @@ const CommentItem: React.FC<CommentItemProps> = ({
                     handleAuthorPress(authorHandle, authorDid, authorData);
                   }
                 }}
+                style={styles.commentAuthorNamePressable}
               >
-                <Text style={styles.commentAuthorName}>{authorName}</Text>
+                <Text style={styles.commentAuthorName} numberOfLines={1} ellipsizeMode="tail">
+                  {authorName}
+                </Text>
               </NativePressable>
               {authorHandle && (
                 <VerificationBadge
@@ -1128,26 +1133,34 @@ const CommentItem: React.FC<CommentItemProps> = ({
                   textColor={Colors.neutral[50]}
                 />
               )}
-              {parent && parentAuthorName && level > 0 && parent.parent && (
-                <NativePressable
-                  onPress={() => {
-                    const parentAuthorData = parent?.author;
-                    if (parentAuthorHandle && typeof parentAuthorHandle === 'string') {
-                      handleAuthorPress(
-                        parentAuthorHandle,
-                        parentAuthorDid ?? undefined,
-                        parentAuthorData
-                      );
-                    }
-                  }}
-                >
-                  <Text style={styles.parentChyronText} numberOfLines={1}>
-                    <Text style={styles.parentChyronArrow}>▸ </Text>
-                    {parentAuthorName}
-                  </Text>
-                </NativePressable>
-              )}
             </View>
+            {parent && parentAuthorName && level > 0 && parent.parent && (
+              <NativePressable
+                onPress={() => {
+                  const parentAuthorData = parent?.author;
+                  if (parentAuthorHandle && typeof parentAuthorHandle === 'string') {
+                    handleAuthorPress(
+                      parentAuthorHandle,
+                      parentAuthorDid ?? undefined,
+                      parentAuthorData
+                    );
+                  }
+                }}
+                style={styles.parentChyronPressable}
+              >
+                <View style={styles.parentChyronContent}>
+                  <SvgXml
+                    xml={PARENT_REPLY_ARROW_ICON_SVG}
+                    width={14}
+                    height={14}
+                    color={Colors.neutral[300]}
+                  />
+                  <Text style={styles.parentChyronText} numberOfLines={1} ellipsizeMode="tail">
+                    {parentAuthorHandle || parentAuthorName}
+                  </Text>
+                </View>
+              </NativePressable>
+            )}
 
             {commentText ? (
               <TextWithAuthorLinks
@@ -1346,13 +1359,19 @@ const styles = StyleSheet.create({
   },
   commentItemBody: {
     flex: 1,
+    minWidth: 0,
     justifyContent: 'center',
   },
   commentItemAuthorRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
+    flexWrap: 'nowrap',
     gap: 6,
+    minWidth: 0,
+  },
+  commentAuthorNamePressable: {
+    flexShrink: 1,
+    minWidth: 0,
   },
   commentAuthorName: {
     color: Colors.neutral[50],
@@ -1373,17 +1392,25 @@ const styles = StyleSheet.create({
     bottom: 0,
     zIndex: -1,
   },
-  parentChyronArrow: {
-    color: Colors.neutral[400],
-    fontSize: Typography.sizes.body,
-    fontFamily: FontFamily.regular,
+  parentChyronPressable: {
+    flexShrink: 1,
+    minWidth: 0,
+    marginTop: 0,
+    marginBottom: 0,
+    alignSelf: 'flex-start',
+  },
+  parentChyronContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    minWidth: 0,
   },
   parentChyronText: {
     color: Colors.neutral[200],
     fontSize: Typography.sizes.bodySmall,
     lineHeight: Typography.lineHeights.bodySmall,
     fontFamily: FontFamily.bold,
-    maxWidth: 140,
+    flexShrink: 1,
   },
   commentMetaContainer: {
     flexDirection: 'row',

@@ -1141,7 +1141,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     <View style={styles.composerFooter}>
       {replyContext ? (
         <View style={styles.replyBanner}>
-          <Text style={styles.replyBannerText}>
+          <Text style={styles.replyBannerText} numberOfLines={1} ellipsizeMode="tail">
             {`${t('comments.replyingTo', { name: '' }).trim()} `}
             <Text style={styles.replyBannerNameText}>{replyContext.authorName}</Text>
           </Text>
@@ -1389,6 +1389,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: FontFamily.medium,
     flex: 1,
+    minWidth: 0,
     marginRight: 12,
   },
   replyBannerNameText: {
