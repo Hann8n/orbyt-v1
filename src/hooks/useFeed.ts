@@ -17,8 +17,7 @@ import type { FeedResponse } from '../services/api/types';
 // Optimized feed configuration for smooth performance
 export const FEED_CONFIG = {
   // Cache and performance settings
-  STALE_TIME: 10 * 60 * 1000, // 10 minutes stale time - increased to reduce unnecessary refreshes
-  GC_TIME: 60 * 60 * 1000, // 60 minutes before garbage collection - increased to reduce unnecessary refetching
+  GC_TIME: 60 * 60 * 1000, // 60 minutes before garbage collection
   RETRY_DELAY: 1000, // Longer delay to reduce server load
   MAX_RETRIES: 2, // Reduced retries for faster failure handling
 } as const;
@@ -147,7 +146,7 @@ export function useFeed(
     enabled: queryEnabled,
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage: FeedResponse) => lastPage?.cursor ?? null,
-    staleTime: queryOptions.staleTime ?? FEED_CONFIG.STALE_TIME,
+    staleTime: queryOptions.staleTime,
     gcTime: queryOptions.gcTime ?? FEED_CONFIG.GC_TIME,
     retry: FEED_CONFIG.MAX_RETRIES,
     retryDelay: FEED_CONFIG.RETRY_DELAY,

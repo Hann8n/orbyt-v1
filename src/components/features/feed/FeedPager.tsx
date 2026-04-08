@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useState,
+  useMemo,
   forwardRef,
   useImperativeHandle,
   type ReactNode,
@@ -318,14 +319,17 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
   };
 
   // Memoized query options for feed rendering (merge profile-style overrides when provided)
-  const baseQueryOptions = {
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-    refetchIntervalInBackground: false,
-    ...queryOptionsProp,
-  };
+  // IMPORTANT: Must be memoized to prevent FeedRenderer re-renders on every parent frame
+  const baseQueryOptions = useMemo(
+    () => ({
+      refetchOnMount: false,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      refetchIntervalInBackground: false,
+      ...queryOptionsProp,
+    }),
+    [queryOptionsProp]
+  );
 
   // Optimized feed page styles - consistent with ListFeedView
   const feedPageStyle = {
