@@ -196,6 +196,7 @@
   "channels.orbyt.weird.displayName": "bizarre",
   "channels.orbyt.weird.description": "étrange et merveilleux",
   "common": {
+    "add": "Ajouter",
     "back": "Retour",
     "edit": "Modifier",
     "now": "mtn",
@@ -321,7 +322,9 @@
     "yourMix": "ton mix",
     "repostedBy": "republié par {{handle}}",
     "showMore": "afficher",
-    "showLess": "masquer"
+    "showLess": "masquer",
+    "gridView": "grille",
+    "listView": "liste"
   },
   "profile": {
     "failedToRefresh": "Impossible d'actualiser le profil.",
@@ -557,6 +560,9 @@
     "yesterday": "Hier",
     "messageDeleted": "Message supprimé",
     "invalidConversation": "Conversation invalide",
+    "otherUserUnavailableHint": "Compte indisponible. Utilise ⋯ pour quitter ou gérer ce chat.",
+    "profileUnavailableTitle": "Profil indisponible",
+    "profileUnavailableMessage": "Ce compte ne peut pas être ouvert. Tu peux quitter la conversation depuis le menu du chat.",
     "loading": "Chargement…",
     "noConversationYet": "Pas encore de conversation",
     "youLeftConversation": "Tu as quitté la conversation",
@@ -619,6 +625,7 @@
     "blockedAccounts": "Comptes bloqués",
     "mutedAccounts": "Comptes en sourdine",
     "yourMix": "Ton Mix",
+    "defaultFeedLayout": "Disposition du fil par défaut",
     "appIcon": "Icône de l'app",
     "contentFilters": "Filtres de contenu",
     "newTabs": "Nouveaux onglets",

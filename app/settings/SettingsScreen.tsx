@@ -1,19 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, Alert, Platform, ScrollView, Linking } from 'react-native';
+import { MenuView } from '@react-native-menu/menu';
+import type { MenuAction } from '@react-native-menu/menu';
 import { NativePressable } from '@/components/ui/NativePressable';
 import * as Clipboard from 'expo-clipboard';
-import Icon from '@/components/ui/Icon';
+import Icon, { GridViewIcon, ListViewIcon } from '@/components/ui/Icon';
 import { getDeviceInfo, getFormattedVersion } from '@/utils/version';
 import { Colors } from '@/theme';
 import ListHeader from '@/components/ui/ListHeader';
 import { OptionsButton } from '@/components/ui/OptionsButton';
-import { useAuth, useCurrentUser, useAccountManagement } from '@/stores/userStore';
+import { useAuth, useCurrentUser, useAccountManagement, useUserStore } from '@/stores/userStore';
 import { settingsTextStyles, settingsLayoutStyles } from './SettingsStyles';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useGlobalAccountSwitcher } from '@/hooks/useGlobalModals';
 import ProfileService from '@/services/data/ProfileService';
+import type { ViewMode } from '@/types';
+
+type MenuViewRef = {
+  showMenu?: () => void;
+};
+
 const SettingsScreen: React.FC = () => {
   const { t } = useTranslation();
   const router = useRouter();
@@ -24,6 +32,10 @@ const SettingsScreen: React.FC = () => {
   const { presentAccountSwitcher } = useGlobalAccountSwitcher();
   const { currentUser } = useCurrentUser();
   const { savedAccounts } = useAccountManagement();
+
+  const profileFeedViewMode = useUserStore(state => state.profileFeedViewMode);
+  const setProfileFeedViewMode = useUserStore(state => state.setProfileFeedViewMode);
+  const feedViewMenuRef = useRef<MenuViewRef | null>(null);
 
   const handleLogout = async () => {
     if (isSubmitting) return;
@@ -197,6 +209,10 @@ ${deviceInfo}`
     }
   };
 
+  const handleFeedViewModeChange = async (mode: ViewMode) => {
+    await setProfileFeedViewMode(mode);
+  };
+
   type SettingItem = {
     id: string;
     label: string;
@@ -274,6 +290,13 @@ ${deviceInfo}`
           icon: 'sparkles',
           onPress: () => router.navigate('/settings/algorithmic-feed'),
           linkType: 'internal',
+        },
+        {
+          id: 'profile-feed-view',
+          label: t('settings.defaultFeedLayout'),
+          icon: 'grid',
+          onPress: () => feedViewMenuRef.current?.showMenu?.(),
+          linkType: 'none',
         },
         {
           id: 'app-icon',
@@ -479,6 +502,51 @@ ${deviceInfo}`
                 </View>
               );
             case 'setting':
+              if (item.id === 'profile-feed-view') {
+                const feedViewActions: MenuAction[] = [
+                  {
+                    id: 'list',
+                    title: t('feed.listView'),
+                    state: profileFeedViewMode === 'list' ? 'on' : 'off',
+                  },
+                  {
+                    id: 'grid',
+                    title: t('feed.gridView'),
+                    state: profileFeedViewMode === 'grid' ? 'on' : 'off',
+                  },
+                ];
+                return (
+                  <MenuView
+                    key={key}
+                    ref={feedViewMenuRef}
+                    title=""
+                    actions={feedViewActions}
+                    shouldOpenOnLongPress={false}
+                    themeVariant="dark"
+                    onPressAction={({ nativeEvent }: { nativeEvent: { event?: string } }) => {
+                      const mode = nativeEvent?.event as ViewMode;
+                      if (mode === 'list' || mode === 'grid') {
+                        handleFeedViewModeChange(mode);
+                      }
+                    }}
+                  >
+                    <OptionsButton
+                      label={item.label}
+                      onPress={item.onPress}
+                      linkType="internal"
+                      destructive={item.destructive}
+                      disabled={isSubmitting}
+                      rightIcon={
+                        profileFeedViewMode === 'grid' ? (
+                          <GridViewIcon size={20} color={Colors.neutral[200]} />
+                        ) : (
+                          <ListViewIcon size={20} color={Colors.neutral[200]} />
+                        )
+                      }
+                    />
+                  </MenuView>
+                );
+              }
               return (
                 <OptionsButton
                   key={key}

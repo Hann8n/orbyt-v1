@@ -30,6 +30,7 @@ import {
   useChannelColorsMutation,
 } from '@/services/data/ChannelService';
 import ProfileService from '@/services/data/ProfileService';
+import { useUserStore } from '@/stores/userStore';
 import { extractColorsFromImage, hexToRGBA } from '@/utils/formatting/colors';
 import { useVisibilityRouteIsActive } from '@/hooks';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -48,7 +49,13 @@ const Channel: React.FC = memo(() => {
   const uriParam = (params.id as string) || '';
   const uri = uriParam ? decodeURIComponent(uriParam) : '';
 
-  const [activeCategoryTab, setActiveCategoryTab] = useState<ChannelCategoryTab>('top');
+  const [categoryTabState, setCategoryTabState] = useState<{
+    uri: string;
+    tab: ChannelCategoryTab;
+  }>({
+    uri,
+    tab: 'top',
+  });
 
   const {
     data: channelData,
@@ -61,7 +68,14 @@ const Channel: React.FC = memo(() => {
   const { colors: channelColors } = useChannelColors(uri || '');
   const colorsMutation = useChannelColorsMutation();
 
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const viewMode = useUserStore(state => state.profileFeedViewMode);
+  const setProfileFeedViewMode = useUserStore(state => state.setProfileFeedViewMode);
+  const setViewMode = useCallback(
+    (mode: ViewMode) => {
+      void setProfileFeedViewMode(mode);
+    },
+    [setProfileFeedViewMode]
+  );
 
   const insets = useSafeAreaInsets();
   const topInset = getEffectiveTopInset(insets.top);
@@ -90,9 +104,14 @@ const Channel: React.FC = memo(() => {
   const baseBackTextColor = channelColors.textColor || Colors.neutral[50];
   const channelPagerRef = useRef<FeedPagerRef | null>(null);
 
-  useEffect(() => {
-    setActiveCategoryTab('top');
-  }, [uri]);
+  const activeCategoryTab = categoryTabState.uri === uri ? categoryTabState.tab : 'top';
+
+  const handleCategoryTabChange = useCallback(
+    (tab: ChannelCategoryTab) => {
+      setCategoryTabState({ uri, tab });
+    },
+    [uri]
+  );
 
   const isCategoryChannel = useMemo(() => {
     if (!uri || !isOrbytChannel(uri)) return false;
@@ -264,7 +283,7 @@ const Channel: React.FC = memo(() => {
         activeTab={activeCategoryTab}
         onTabPress={tabId => {
           const id = tabId as ChannelCategoryTab;
-          setActiveCategoryTab(id);
+          handleCategoryTabChange(id);
           const index = id === 'top' ? 0 : 1;
           channelPagerRef.current?.setPage(index);
         }}
@@ -276,7 +295,15 @@ const Channel: React.FC = memo(() => {
         {...PROFILE_CHANNEL_TAB_NAVIGATION_DEFAULTS}
       />
     );
-  }, [isCategoryChannel, tabOptions, activeCategoryTab, channelColors.textColor, viewMode]);
+  }, [
+    isCategoryChannel,
+    tabOptions,
+    activeCategoryTab,
+    handleCategoryTabChange,
+    channelColors.textColor,
+    viewMode,
+    setViewMode,
+  ]);
 
   const headerComponent = (
     <View style={styles.headerContainer} pointerEvents="box-none">
@@ -330,7 +357,7 @@ const Channel: React.FC = memo(() => {
           currentFeed={currentChannelFeed}
           onFeedChange={feed => {
             if (!isCategoryChannel) return;
-            setActiveCategoryTab(feed === categorySourceFeeds.top ? 'top' : 'latest');
+            handleCategoryTabChange(feed === categorySourceFeeds.top ? 'top' : 'latest');
           }}
           {...PROFILE_CHANNEL_FEED_PAGER_DEFAULTS}
           pullToRefreshEnabled

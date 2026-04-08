@@ -253,6 +253,7 @@ export interface UserState {
   // User-specific settings - scoped by DID
   feedDebugOverlayEnabled: boolean;
   nativeTabsEnabled: boolean; // Experimental: Use native tabs instead of custom JavaScript tab bar
+  profileFeedViewMode: 'list' | 'grid';
 
   // Algorithmic feed provider - scoped by DID
   algorithmicFeedProvider: string | null; // Feed URI or null for none
@@ -321,6 +322,7 @@ export interface UserState {
   getFeedDebugOverlayEnabled: () => Promise<boolean>;
   setNativeTabsEnabled: (enabled: boolean) => Promise<void>;
   getNativeTabsEnabled: () => Promise<boolean>;
+  setProfileFeedViewMode: (mode: 'list' | 'grid') => Promise<void>;
 
   // Algorithmic feed provider
   setAlgorithmicFeedProvider: (uri: string | null) => Promise<void>;
@@ -540,6 +542,7 @@ export const useUserStore = create<UserState>()(
         // Feed settings
         feedDebugOverlayEnabled: false, // Keep disabled by default, user can enable manually
         nativeTabsEnabled: isIosLiquidGlassAvailable,
+        profileFeedViewMode: 'list',
 
         // Algorithmic feed provider - default to Videos For You
         algorithmicFeedProvider: DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
@@ -1476,6 +1479,10 @@ export const useUserStore = create<UserState>()(
         getNativeTabsEnabled: async () =>
           storage.getBoolean(getFlagKey('native_tabs_enabled', get().currentUser?.did ?? null)) ??
           isIosLiquidGlassAvailable,
+        setProfileFeedViewMode: async (mode: 'list' | 'grid') => {
+          storage.set(getFlagKey('profile_feed_view_mode', get().currentUser?.did ?? null), mode);
+          set({ profileFeedViewMode: mode });
+        },
 
         // Algorithmic feed provider actions
         setAlgorithmicFeedProvider: async (uri: string | null) => {
@@ -2063,6 +2070,7 @@ export const useUserStore = create<UserState>()(
         grantedOauthScopes: state.grantedOauthScopes,
         feedDebugOverlayEnabled: state.feedDebugOverlayEnabled,
         nativeTabsEnabled: state.nativeTabsEnabled,
+        profileFeedViewMode: state.profileFeedViewMode,
         algorithmicFeedProvider: state.algorithmicFeedProvider,
         subscribedChannels: state.subscribedChannels.filter(
           ch => !BUILT_IN_CHANNELS.includes(ch.uri)

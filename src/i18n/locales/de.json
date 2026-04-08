@@ -196,6 +196,7 @@
   "channels.orbyt.weird.displayName": "Seltsam",
   "channels.orbyt.weird.description": "Seltsam und wunderbar",
   "common": {
+    "add": "Hinzufügen",
     "back": "Zurück",
     "edit": "Bearbeiten",
     "now": "jetzt",
@@ -321,7 +322,9 @@
     "yourMix": "dein mix",
     "repostedBy": "repostet von {{handle}}",
     "showMore": "zeigen",
-    "showLess": "verbergen"
+    "showLess": "verbergen",
+    "gridView": "Raster",
+    "listView": "Liste"
   },
   "profile": {
     "failedToRefresh": "Profil konnte nicht aktualisiert werden.",
@@ -557,6 +560,9 @@
     "yesterday": "Gestern",
     "messageDeleted": "Nachricht gelöscht",
     "invalidConversation": "Ungültige Unterhaltung",
+    "otherUserUnavailableHint": "Konto nicht verfügbar. Nutze ⋯ um den Chat zu verlassen oder zu verwalten.",
+    "profileUnavailableTitle": "Profil nicht verfügbar",
+    "profileUnavailableMessage": "Dieses Konto kann nicht geöffnet werden. Du kannst die Unterhaltung über das Chat-Menü verlassen.",
     "loading": "Lade…",
     "noConversationYet": "Noch keine Unterhaltung mit diesem Nutzer",
     "youLeftConversation": "Du hast diese Unterhaltung verlassen",
@@ -619,6 +625,7 @@
     "blockedAccounts": "Blockierte Konten",
     "mutedAccounts": "Stummschaltungen",
     "yourMix": "Dein Mix",
+    "defaultFeedLayout": "Standard-Feed-Layout",
     "appIcon": "App-Symbol",
     "contentFilters": "Inhaltsfilter",
     "newTabs": "Neue Tabs",

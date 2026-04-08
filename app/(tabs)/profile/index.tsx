@@ -34,7 +34,7 @@ import {
   PROFILE_CHANNEL_FEED_PAGER_DEFAULTS,
   PROFILE_CHANNEL_TAB_NAVIGATION_DEFAULTS,
 } from '@/components/layout/detail/ProfileChannelFeedLayout';
-import { useCurrentUser } from '@/stores/userStore';
+import { useCurrentUser, useUserStore } from '@/stores/userStore';
 import { HeaderAction, HeaderActionButton } from '@/components/layout/header/UniversalHeader';
 import { Colors } from '@/theme';
 import { useGlobalAccountSwitcher } from '@/hooks/useGlobalModals';
@@ -169,7 +169,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
 
   // Tab state
   const [activeTab, setActiveTab] = useState<ProfileFeedTab>('profile');
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const viewMode = useUserStore(state => state.profileFeedViewMode);
+  const setProfileFeedViewMode = useUserStore(state => state.setProfileFeedViewMode);
+  const setViewMode = (mode: ViewMode) => void setProfileFeedViewMode(mode);
 
   // Read block state directly from profileData viewer fields (React Query cache - single source of truth)
   const isBlocked = !!(profileData?.viewer?.blocking || profileData?.viewer?.blockingByList);
@@ -341,7 +343,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
             },
           },
           {
-            text: 'OK',
+            text: t('common.ok'),
             onPress: () => {},
           },
         ]);
@@ -359,6 +361,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     profileData?.associated?.germ,
     profileData?.viewer?.followedBy,
     currentUser?.did,
+    queryClient,
     t,
   ]);
 

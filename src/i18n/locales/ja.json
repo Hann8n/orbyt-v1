@@ -221,7 +221,9 @@
     "accept": "受け入れる",
     "accepting": "受け入れ中…",
     "decline": "辞退",
-    "declining": "辞退中…"
+    "declining": "辞退中…",
+    "add": "追加",
+    "copy": "コピー"
   },
   "errors": {
     "loginFailed": "ログインに失敗しました。もう一度お試しください。",
@@ -252,7 +254,8 @@
     "tryAgain": "再試行",
     "unknown": "不明なエラー",
     "deviceInfoUnavailable": "取得に失敗しました",
-    "emailSubjectErrorReport": "orbyt アプリエラー報告"
+    "emailSubjectErrorReport": "orbyt アプリエラー報告",
+    "couldNotLoadFeature": "この機能を読み込めませんでした。"
   },
   "alerts": {
     "block": "ブロック",
@@ -282,7 +285,8 @@
     "reportContentPrompt": "このコンテンツを報告する理由を選択してください:",
     "contentReported": "このコンテンツは審査のため報告されました。",
     "failedToReport": "報告の送信に失敗しました。もう一度お試しください。",
-    "failedToDeletePost": "投稿の削除に失敗しました。もう一度お試しください。"
+    "failedToDeletePost": "投稿の削除に失敗しました。もう一度お試しください。",
+    "deletePostConfirm": "本当にこの投稿を削除しますか？この操作は元に戻せません。"
   },
   "feed": {
     "nothingOnTheAir": "放送はありません...",
@@ -318,7 +322,9 @@
     "yourMix": "あなたのミックス",
     "repostedBy": "{{handle}}がリポスト",
     "showMore": "表示",
-    "showLess": "隠す"
+    "showLess": "隠す",
+    "gridView": "グリッド",
+    "listView": "リスト"
   },
   "profile": {
     "failedToRefresh": "プロフィールの更新に失敗しました。",
@@ -521,7 +527,26 @@
     "permissionRequiredAvatar": "アバターを更新するには権限が必要です",
     "microphonePermissionMessage": "音声付きで動画を録画するにはマイクへのアクセスを有効にしてください。",
     "trimmedExceedsAvailable": "トリムした動画（{{trimmed}}秒）が利用可能時間（{{available}}秒）を超えています。短くトリムしてください。",
-    "downloadFailedMessage": "動画をフォトライブラリに保存できませんでした。もう一度お試しください。"
+    "downloadFailedMessage": "動画をフォトライブラリに保存できませんでした。もう一度お試しください。",
+    "authenticationFailedMessage": "セッションの有効期限が切れました。ログアウトしてもう一度ログインしてください。",
+    "compressionFailedMessage": "ビデオの圧縮に失敗しました。より短いビデオでもう一度試してください。またはデバイスのストレージを確認してください。",
+    "couldNotAccessMusicFile": "音楽ファイルにアクセスできませんでした",
+    "creatingPost": "投稿を作成中...",
+    "discardRecordingsMessage": "閉じると、すべての録画が破棄されます。続行してもよろしいですか？",
+    "failedToApplyEdits": "編集を適用できませんでした。もう一度試してください。",
+    "failedToProcessTrimmed": "トリミングされたビデオの処理に失敗しました",
+    "failedToSelectMusicFile": "音楽ファイルの選択に失敗しました",
+    "mediaLibraryPermissionForMusic": "メディアライブラリへのアクセスを許可して、音楽を選択してください。",
+    "mediaLibraryPermissionRequired": "ビデオを選択するにはメディアライブラリへのアクセス許可が必要です。",
+    "mergingFailedMessage": "ビデオセグメントのマージに失敗しました。もう一度試してください。",
+    "noMusicFoundMessage": "ライブラリに音声ファイルが見つかりません。",
+    "photoLibraryPermissionRequired": "ビデオを保存するには、フォトライブラリへのアクセスを許可してください。",
+    "processingVideo": "ビデオを処理中...",
+    "retry": "再試行",
+    "uploadFailedGeneric": "ビデオをアップロードできませんでした。問題が発生したようです。\n\nもう一度試しますか？",
+    "uploadFailedRetryPrompt": "ビデオのアップロード中に問題が発生したようです。\n\nもう一度試しますか？",
+    "uploadingVideo": "ビデオをアップロード中...",
+    "videoEditsAppliedSuccess": "ビデオ編集が正常に適用されました！"
   },
   "chat": {
     "all": "すべて",
@@ -576,7 +601,12 @@
     "deleteMessageForMe": "自分側だけ削除",
     "deleteMessageConfirm": "このメッセージはあなたの表示から消えます。相手側には残る場合があります。",
     "cantLoadConversations": "会話を読み込めません",
-    "embedImage": "埋め込み画像"
+    "embedImage": "埋め込み画像",
+    "leave": "退出",
+    "otherUserUnavailableHint": "アカウントが利用できません。⋯を使用してこのチャットを退出するか管理できます。",
+    "profileUnavailableMessage": "このアカウントを開くことはできません。チャットメニューから会話を退出できます。",
+    "profileUnavailableTitle": "プロフィールは利用できません",
+    "reactWith": "{{emoji}}で反応"
   },
   "settings": {
     "title": "設定",
@@ -672,7 +702,18 @@
     "failedToUnsubscribeShort": "チャンネルの登録解除に失敗しました。もう一度お試しください。",
     "emailCopied": "メールをコピーしました",
     "emailCopiedMessage": "メールアプリが設定されていません。サポートメールとデバイス情報をクリップボードにコピーしました。",
-    "emailSubjectSupport": "orbyt サポート依頼"
+    "emailSubjectSupport": "orbyt サポート依頼",
+    "defaultFeedLayout": "デフォルトフィードレイアウト",
+    "exploreChannels": "チャンネルを探索",
+    "failedToLoad": "読み込みに失敗しました",
+    "hideBlockedMutedDescription": "ブロックまたはミュートされたユーザーのコンテンツは常に非表示です",
+    "like": "いいね",
+    "likes": "いいね",
+    "removeAccountMessage": "再度サインインする必要があります。",
+    "removeAccountsMessage": "このデバイスからすべてのアカウントが削除されます。再度サインインする必要があります。",
+    "replies": "返信",
+    "reply": "返信",
+    "vote": "投票"
   },
   "account": {
     "signingIn": "サインイン中",

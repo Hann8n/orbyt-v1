@@ -322,7 +322,9 @@
     "loading": "Loading…",
     "following": "following",
     "yourMix": "your mix",
-    "repostedBy": "reposted by {{handle}}"
+    "repostedBy": "reposted by {{handle}}",
+    "listView": "list",
+    "gridView": "grid"
   },
   "profile": {
     "failedToRefresh": "Failed to refresh profile.",
@@ -623,6 +625,7 @@
     "blockedAccounts": "Blocked accounts",
     "mutedAccounts": "Muted accounts",
     "yourMix": "Your Mix",
+    "defaultFeedLayout": "Default feed layout",
     "appIcon": "App icon",
     "contentFilters": "Content filters",
     "newTabs": "New tabs",

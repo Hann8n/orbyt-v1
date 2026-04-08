@@ -196,6 +196,7 @@
   "channels.orbyt.weird.displayName": "이상함",
   "channels.orbyt.weird.description": "이상하고 놀라운",
   "common": {
+    "add": "추가",
     "back": "뒤로",
     "edit": "편집",
     "now": "지금",
@@ -321,7 +322,9 @@
     "yourMix": "내 믹스",
     "repostedBy": "{{handle}}이(가) 리포스트함",
     "showMore": "보기",
-    "showLess": "숨기기"
+    "showLess": "숨기기",
+    "gridView": "그리드",
+    "listView": "목록"
   },
   "profile": {
     "failedToRefresh": "프로필을 새로고침할 수 없어요.",
@@ -557,6 +560,9 @@
     "yesterday": "어제",
     "messageDeleted": "메시지 삭제됨",
     "invalidConversation": "올바르지 않은 대화",
+    "otherUserUnavailableHint": "계정을 사용할 수 없습니다. ⋯를 사용하여 채팅을 나가거나 관리하세요.",
+    "profileUnavailableTitle": "프로필을 사용할 수 없습니다",
+    "profileUnavailableMessage": "이 계정은 열 수 없습니다. 채팅 메뉴에서 대화를 나갈 수 있습니다.",
     "loading": "로딩 중…",
     "noConversationYet": "아직 이 사용자와 대화가 없어요",
     "youLeftConversation": "이 대화에서 나갔어요",
@@ -619,6 +625,7 @@
     "blockedAccounts": "차단한 계정",
     "mutedAccounts": "뮤트한 계정",
     "yourMix": "내 믹스",
+    "defaultFeedLayout": "기본 피드 레이아웃",
     "appIcon": "앱 아이콘",
     "contentFilters": "콘텐츠 필터",
     "newTabs": "새 탭",
