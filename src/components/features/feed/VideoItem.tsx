@@ -3,14 +3,16 @@
  * Updated for unified snapping system
  */
 
-import React, { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import { Link } from 'expo-router';
 
 import { useVisibilityCoreStore } from '../../../core/visibility';
+import { useFeedScroll } from '../../../context/FeedScrollContext';
 import VideoCard from '../video/VideoCard';
 import type { ExtendedPostView, ExtendedFeedViewPost, PostView } from '../../../services/api/types';
 import { getVideoView } from '../../../utils/video/helpers';
+import { HOME_FEED_PAGER_OPTIONS } from '../../../utils/constants';
 import { Colors } from '../../../theme';
 
 // VideoCard's Post type
@@ -49,7 +51,8 @@ export interface VideoItemProps {
   isAppleZoomTarget?: boolean;
 }
 
-const VideoItem: React.FC<VideoItemProps> = ({
+/** Rely on React Compiler for memoization; avoid manual `memo()` here. */
+export function VideoItem({
   post,
   feedItem,
   height,
@@ -59,7 +62,7 @@ const VideoItem: React.FC<VideoItemProps> = ({
   isHeaderBlockingPlayback = false,
   index = 0,
   isAppleZoomTarget = false,
-}) => {
+}: VideoItemProps) {
   const key = feedKey ?? feedOption ?? '';
   const isActiveFeed = useVisibilityCoreStore(s => s.activeFeedKey === key);
   const isViewable = useVisibilityCoreStore(s => (s.lastViewableIndexByFeed[key] ?? -1) === index);
@@ -84,9 +87,22 @@ const VideoItem: React.FC<VideoItemProps> = ({
     [post, videoView]
   );
 
-  // Early return if no video
+  const setHomePagerChromeUserHold = useFeedScroll()?.setHomePagerChromeUserHold;
+  const onHomeFeedPagerChromeUserPaused = useCallback(
+    (userPaused: boolean) => {
+      if (!feedOption || !HOME_FEED_PAGER_OPTIONS.has(feedOption)) return;
+      setHomePagerChromeUserHold?.(userPaused);
+    },
+    [feedOption, setHomePagerChromeUserHold]
+  );
+
+  const homeFeedPagerChromeHandler =
+    feedOption && HOME_FEED_PAGER_OPTIONS.has(feedOption)
+      ? onHomeFeedPagerChromeUserPaused
+      : undefined;
+
   if (!hasVideo) {
-    return null;
+    return <View style={containerStyle} pointerEvents="none" collapsable={false} />;
   }
 
   // expo-video's useVideoPlayer automatically handles cleanup on unmount
@@ -102,6 +118,7 @@ const VideoItem: React.FC<VideoItemProps> = ({
       showOverlay={true}
       feedOption={feedOption}
       index={index}
+      onUserPausedChange={homeFeedPagerChromeHandler}
     />
   );
 
@@ -116,7 +133,7 @@ const VideoItem: React.FC<VideoItemProps> = ({
       )}
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   videoContainer: {
@@ -138,4 +155,3 @@ const styles = StyleSheet.create({
 });
 
 export default VideoItem;
-export { VideoItem };

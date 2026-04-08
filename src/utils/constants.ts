@@ -94,6 +94,9 @@ export const FEED_TYPES = {
   REPOSTS: 'reposts',
 } as const;
 
+/** Home tab keys that use FeedPager scroll chrome + pause hold behavior. */
+export const HOME_FEED_PAGER_OPTIONS: ReadonlySet<string> = new Set(['following', 'your-mix']);
+
 // Algorithmic feed provider URIs (display names/descriptions fetched from API)
 export const ALGORITHMIC_FEED_PROVIDERS = {
   BLUESKY_VIDEO: {

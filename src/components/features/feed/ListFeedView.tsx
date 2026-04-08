@@ -89,7 +89,7 @@ const getListItemType = (item: FeedListItem): string => {
   return 'default';
 };
 
-const listKeyExtractor = (item: FeedListItem, _index: number): string => getFeedItemKey(item);
+const listKeyExtractor = (item: FeedListItem, index: number): string => getFeedItemKey(item, index);
 
 // Empty component shown when there are no feed items
 interface ListEmptyComponentProps {
@@ -115,7 +115,15 @@ const ListEmptyComponent = ({
 }: ListEmptyComponentProps) => {
   if (isLoading) {
     return (
-      <View style={[styles.centeredLoadingContainer, { backgroundColor: Colors.black }]}>
+      <View
+        style={[
+          styles.centeredLoadingContainer,
+          {
+            backgroundColor: Colors.black,
+            minHeight: emptyComponentHeight,
+          },
+        ]}
+      >
         <ActivityIndicator
           size="large"
           color={profileColors?.textColor || secondaryColor || Colors.neutral[50]}
@@ -233,6 +241,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     // Scroll offset for percent-visible: written in useAnimatedScrollHandler (UI thread), read in VideoCard worklet.
     const scrollOffsetYSV = useSharedValue(0);
+    const homePagerChromeUserHoldSV = useSharedValue(0);
     const endOfFeedEnabledSV = useSharedValue(0);
     const endOfFeedOverscrollOpacitySV = useSharedValue(0);
 
@@ -244,18 +253,41 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       isVisibleSV.value = listSurfaceActive ? 1 : 0;
     }, [listSurfaceActive, isVisibleSV]);
 
-    // Hide/show the FeedPager tab navigator based on scroll direction.
+    const chromeVisibleMaxY = FEED_VIEW_CONSTANTS.HOME_PAGER_CHROME_VISIBLE_MAX_SCROLL_Y;
+
+    // Tab bar visibility from list scroll; `homePagerChromeUserHoldSV` pins chrome while the user pauses.
     useAnimatedReaction(
-      () => scrollOffsetYSV.value,
-      (y, prevY) => {
-        if (!isVisibleSV.value || prevY === null) return;
-        if (y < 10) {
+      () => [scrollOffsetYSV.value, homePagerChromeUserHoldSV.value] as const,
+      (current, previous) => {
+        'worklet';
+        /* Reanimated: SharedValue.value must be written from this UI-thread worklet (lint false positive). */
+        /* eslint-disable react-hooks/immutability -- tabBarVisibility SharedValue */
+        if (!isVisibleSV.value) return;
+
+        const y = current[0];
+        const hold = current[1];
+
+        if (hold > 0.5) {
+          tabBarVisibility.value = 1;
+          return;
+        }
+
+        const prevHold = previous === null ? 0 : previous[1];
+        const prevY = previous === null ? y : previous[0];
+
+        if (previous === null || prevHold > 0.5) {
+          tabBarVisibility.value = y < chromeVisibleMaxY ? 1 : 0;
+          return;
+        }
+
+        if (y < chromeVisibleMaxY) {
           tabBarVisibility.value = 1;
         } else if (y > prevY + 5) {
           tabBarVisibility.value = 0;
         } else if (y < prevY - 5) {
           tabBarVisibility.value = 1;
         }
+        /* eslint-enable react-hooks/immutability */
       },
       [tabBarVisibility, isVisibleSV]
     );
@@ -338,7 +370,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       if (!showEndOfFeed) {
         endOfFeedOverscrollOpacitySV.value = 0;
       }
-    }, [showEndOfFeed]);
+    }, [showEndOfFeed, endOfFeedEnabledSV, endOfFeedOverscrollOpacitySV]);
 
     // Render item function - optimized to reduce dependencies and rerenders
     // VideoItem derives isVisible from store (activeFeedKey+lastViewableIndexByFeed) and allowPlayback from isVisible&&canPlay
@@ -359,7 +391,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
             feedItem={feedItem}
             post={feedItem.post}
             height={cardHeight}
-            feedOption={feedOption as 'following' | 'discover'}
+            feedOption={feedOption}
             feedKey={feedKey}
             canPlay={canPlay}
             isHeaderBlockingPlayback={isHeaderBlockingPlayback}
@@ -450,9 +482,13 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     const snapTopInset =
       useLegacyIosTabLiquidGlassLayout && !isCompact ? getEffectiveTopInset(insets.top) : 0;
 
-    const snapToOffsets = ((): number[] | null => {
+    const snapToOffsets = useMemo((): number[] | null | undefined => {
       if (useLegacyIosTabLiquidGlassLayout && !hasHeader && isCompact) {
         return null;
+      }
+      // Avoid wrong per-item snaps on first paint (header height still 0); grid uses [0] until layout.
+      if (hasHeader && headerHeight <= 0) {
+        return undefined;
       }
       const offsets: number[] = hasHeader ? [0] : [];
 
@@ -466,7 +502,17 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       }
 
       return offsets;
-    })();
+    }, [
+      useLegacyIosTabLiquidGlassLayout,
+      hasHeader,
+      isCompact,
+      headerHeight,
+      listData.length,
+      cardHeight,
+      itemSpacing,
+      snapTopInset,
+      isHeaderFeed,
+    ]);
 
     const handleHeaderLayout = (e: LayoutChangeEvent) => {
       const h = Math.round(e.nativeEvent.layout.height);
@@ -496,11 +542,10 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       {
         onScroll: event => {
           'worklet';
+          /* eslint-disable react-hooks/immutability -- SharedValue.value writes in worklet */
           const y = event.contentOffset.y;
           scrollOffsetYSV.value = y;
           if (contentScrollProgressOutput && fadeDist > 0) {
-            // Reanimated SharedValue: mutating .value is the intended API (UI-thread sync), not the prop reference.
-
             contentScrollProgressOutput.value = Math.max(0, Math.min(1, y / fadeDist));
           }
 
@@ -516,19 +561,42 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
               Math.min(1, overscrollPastEnd / END_OF_FEED_OVERSCROLL_FULL_OPACITY_PX)
             );
           }
+          /* eslint-enable react-hooks/immutability */
         },
       },
       [contentScrollProgressOutput, fadeDist]
     );
 
+    const setHomePagerChromeUserHold = useCallback(
+      (held: boolean) => {
+        // Reanimated: JS-thread write to SharedValue (same pattern as TabBarProvider.setTabBarVisibility)
+        // eslint-disable-next-line react-hooks/immutability -- SharedValue.value
+        homePagerChromeUserHoldSV.value = held ? 1 : 0;
+      },
+      [homePagerChromeUserHoldSV]
+    );
+
     // Memoize context value to avoid unnecessary re-renders of list consumers when layout/scroll haven't changed.
-    const feedScrollValue = {
-      scrollOffsetYSV,
-      headerHeight,
-      viewportHeight: viewableAreaHeight,
-      itemSpacing,
-      contentScrollProgressSV,
-    };
+    const feedScrollValue = useMemo(
+      () => ({
+        scrollOffsetYSV,
+        headerHeight,
+        viewportHeight: viewableAreaHeight,
+        itemSpacing,
+        contentScrollProgressSV,
+        homePagerChromeUserHoldSV,
+        setHomePagerChromeUserHold,
+      }),
+      [
+        scrollOffsetYSV,
+        headerHeight,
+        viewableAreaHeight,
+        itemSpacing,
+        contentScrollProgressSV,
+        homePagerChromeUserHoldSV,
+        setHomePagerChromeUserHold,
+      ]
+    );
 
     useImperativeHandle(
       ref,
@@ -543,6 +611,13 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     /** Tab / home indicator clearance for the overscroll hint sitting above the bottom edge. */
     const endOfFeedHintBottomInset = useNativeTabBottomSafeArea ? 12 : Math.max(12, insets.bottom);
+
+    const listContentContainerExtraStyle =
+      feed.length === 0
+        ? undefined
+        : useNativeTabBottomSafeArea
+          ? styles.contentContainerListItemsNativeTabBottom
+          : { paddingBottom: insets.bottom };
 
     const listBody = (
       <View
@@ -580,12 +655,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
               headerComponent ? (
                 <View onLayout={handleHeaderLayout}>
                   {headerComponent}
-                  <View
-                    style={{
-                      height: FEED_VIEW_CONSTANTS.LIST_ITEM_GAP,
-                      backgroundColor: Colors.black,
-                    }}
-                  />
+                  <View style={styles.listHeaderBottomSeparator} />
                 </View>
               ) : null
             }
@@ -615,8 +685,8 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
             }
             bounces={true}
             directionalLockEnabled={true}
-            // Allow bottom rubber-band when at end of feed so the overscroll hint can appear (not in scroll content).
-            alwaysBounceVertical={showEndOfFeed}
+            // Normal vertical bounce; EOF hint opacity stays 0 unless `endOfFeedEnabledSV` (see scrollHandler).
+            alwaysBounceVertical
             alwaysBounceHorizontal={false}
             // Empty state components - extracted to memoized component
             ListEmptyComponent={
@@ -634,13 +704,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
             // Item separator for black gaps between cards
             ItemSeparatorComponent={ItemSeparatorComponent}
             ListFooterComponent={feed.length > 0 ? <View style={styles.itemSeparator} /> : null}
-            contentContainerStyle={[
-              styles.contentContainer,
-              feed.length > 0 && {
-                // iOS tab: bottom inset is on RNScreensSafeAreaView wrapper. Android native tabs wrap content per Expo docs.
-                paddingBottom: useNativeTabBottomSafeArea ? 0 : insets.bottom,
-              },
-            ]}
+            contentContainerStyle={[styles.contentContainer, listContentContainerExtraStyle]}
           />
         </View>
       </View>
@@ -698,13 +762,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   centeredLoadingContainer: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    minHeight: Dimensions.get('window').height,
   },
   contentContainer: {
     backgroundColor: Colors.transparent,
+  },
+  /** List has items: bottom safe area is on RNScreensSafeAreaView when native tab bar owns inset. */
+  contentContainerListItemsNativeTabBottom: {
+    paddingBottom: 0,
   },
   flashListWrapper: {
     flex: 1,
@@ -716,6 +783,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.transparent,
   },
   itemSeparator: {
+    height: FEED_VIEW_CONSTANTS.LIST_ITEM_GAP,
+    backgroundColor: Colors.black,
+  },
+  listHeaderBottomSeparator: {
     height: FEED_VIEW_CONSTANTS.LIST_ITEM_GAP,
     backgroundColor: Colors.black,
   },

@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
 import type { ExtendedFeedViewPost } from '../../../services/api/types';
 import { Colors } from '../../../theme';
 import { FEED_TYPES } from '../../../utils/constants';
@@ -13,6 +13,8 @@ export const FEED_VIEW_CONSTANTS = {
   GRID_CELL_GAP: 2.5,
   HEADER_HEIGHT_TABS: 280,
   HEADER_BLOCKING_THRESHOLD: 250,
+  /** Home list: keep FeedPager chrome visible while scroll offset is below this (px). */
+  HOME_PAGER_CHROME_VISIBLE_MAX_SCROLL_Y: 10,
 } as const;
 
 export const isHeaderFeed = (feedOption: string, headerComponent?: ReactNode): boolean =>
@@ -39,7 +41,8 @@ export const getPullToRefreshTintColor = (
     ? blendColors(profileTextColor, Colors.neutral[50], 0.3)
     : secondaryColor || Colors.neutral[50];
 
-export const getFeedItemKey = (item: FeedListItem | ExtendedFeedViewPost): string => item.post.uri;
+export const getFeedItemKey = (item: FeedListItem | ExtendedFeedViewPost, index = 0): string =>
+  item.post?.uri ?? item.post?.cid ?? `feed-${index}`;
 
 export const getEmptyFeedType = (feedOption: string): 'no-following' | 'no-videos' =>
   feedOption === FEED_TYPES.FOLLOWING ? 'no-following' : 'no-videos';
@@ -48,6 +51,10 @@ const normalizeHexRgb = (value: string): string | null => {
   const t = value.trim();
   if (/^#[0-9a-fA-F]{6}$/i.test(t)) return t;
   if (/^#[0-9a-fA-F]{8}$/i.test(t)) return `#${t.slice(1, 7)}`;
+  if (/^#[0-9a-fA-F]{3}$/i.test(t)) {
+    const [r, g, b] = [t[1], t[2], t[3]];
+    return `#${r}${r}${g}${g}${b}${b}`;
+  }
   return null;
 };
 
@@ -76,7 +83,11 @@ type FeedSurfaceStackProps = {
   gridSurface: ReactNode;
 };
 
-/** Dual-mount list + grid: visibility, pointers, a11y. `ListFeedView` still gates playback / tab bar. */
+/**
+ * Dual-mount list + grid: visibility, pointers, a11y. Tradeoff: two `FlashList` surfaces for instant
+ * mode switch vs higher memory. `ListFeedView` gates playback / tab bar.
+ * Chrome that reads scroll must follow the active surface only (`listActive`).
+ */
 export function FeedSurfaceStack({ listActive, listSurface, gridSurface }: FeedSurfaceStackProps) {
   const layer = (on: boolean, node: ReactNode) => (
     <View
@@ -84,6 +95,7 @@ export function FeedSurfaceStack({ listActive, listSurface, gridSurface }: FeedS
       style={[feedSurfaceStyles.layer, on ? feedSurfaceStyles.on : feedSurfaceStyles.off]}
       pointerEvents={on ? 'auto' : 'none'}
       importantForAccessibility={on ? 'yes' : 'no-hide-descendants'}
+      accessibilityElementsHidden={Platform.OS === 'ios' ? !on : undefined}
     >
       {node}
     </View>

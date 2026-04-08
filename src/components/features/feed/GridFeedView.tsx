@@ -61,7 +61,7 @@ const AnimatedFlashList = Animated.createAnimatedComponent(FlashList) as Compone
   FlashListProps<ExtendedFeedViewPost> & { ref?: Ref<FlashListRef<ExtendedFeedViewPost>> }
 >;
 
-// Memoized shared video item component
+/** React Compiler memoizes; avoid wrapping in `memo()`. */
 const VideoGridItem: React.FC<{
   item: ExtendedFeedViewPost;
   index: number;
@@ -125,8 +125,8 @@ const VideoGridItem: React.FC<{
 
 VideoGridItem.displayName = 'VideoGridItem';
 
-const gridKeyExtractor = (item: ExtendedFeedViewPost, _index: number): string =>
-  getFeedItemKey(item);
+const gridKeyExtractor = (item: ExtendedFeedViewPost, index: number): string =>
+  getFeedItemKey(item, index);
 
 interface GridFeedViewProps {
   feed: ExtendedFeedViewPost[];
@@ -217,11 +217,20 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
         : 0;
     const emptyComponentHeight = Math.max(0, listViewportForEmpty - emptyStateHeaderDeduction);
     const scrollOffsetYSV = useSharedValue(0);
+    const homePagerChromeUserHoldSV = useSharedValue(0);
     const fadeDist = useScrollTracking ? SCROLL_CONSTANTS.HEADER_FADE_DISTANCE : 0;
     const contentScrollProgressSV = useDerivedValue(() => {
       'worklet';
       return fadeDist > 0 ? Math.max(0, Math.min(1, scrollOffsetYSV.value / fadeDist)) : 0;
     }, [scrollOffsetYSV, fadeDist]);
+
+    const setHomePagerChromeUserHold = useCallback(
+      (held: boolean) => {
+        // eslint-disable-next-line react-hooks/immutability -- SharedValue.value
+        homePagerChromeUserHoldSV.value = held ? 1 : 0;
+      },
+      [homePagerChromeUserHoldSV]
+    );
 
     const scrollHandler = useAnimatedScrollHandler(
       {
@@ -311,12 +320,13 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
     ]);
 
     // Render each grid item - optimized with background processing
+    const feedItemCount = feed.length;
     const renderGridItem = useCallback(
       ({ item, index }: { item: ExtendedFeedViewPost; index: number }) => {
         // Calculate if this is the last column or last row for spacing
         const isLastColumn = (index + 1) % numColumns === 0;
         const isLastRow =
-          Math.floor(index / numColumns) === Math.floor((feed.length - 1) / numColumns);
+          Math.floor(index / numColumns) === Math.floor((feedItemCount - 1) / numColumns);
 
         const zoomLink =
           gridFeedModalZoomConfig && Platform.OS === 'ios'
@@ -345,7 +355,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
       [
         onGridItemPress,
         gridFeedModalZoomConfig,
-        feed,
+        feedItemCount,
         numColumns,
         itemWidth,
         itemHeight,
@@ -360,6 +370,8 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
           viewportHeight: viewportDimensions.height,
           itemSpacing,
           contentScrollProgressSV,
+          homePagerChromeUserHoldSV,
+          setHomePagerChromeUserHold,
         }
       : null;
 

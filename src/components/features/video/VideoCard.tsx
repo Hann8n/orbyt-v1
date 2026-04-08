@@ -144,6 +144,8 @@ export interface VideoCardProps {
   feedOption?: string;
   /** Item index in the list; used with FeedScrollContext to compute percent visible from scroll+layout. */
   index?: number;
+  /** When this card is visible, called on user-driven pause toggles (e.g. home FeedPager). */
+  onUserPausedChange?: (userPaused: boolean) => void;
 }
 
 const VideoCard = memo(
@@ -159,6 +161,7 @@ const VideoCard = memo(
         showOverlay = true,
         feedOption,
         index,
+        onUserPausedChange,
       },
       ref
     ) => {
@@ -327,6 +330,11 @@ const VideoCard = memo(
       // Keep a ref in sync with userPaused so useFocusEffect doesn't re-register on every pause toggle.
       const userPausedRef = useRef(videoState.userPaused);
       userPausedRef.current = videoState.userPaused;
+
+      useEffect(() => {
+        if (!isVisible || !onUserPausedChange) return;
+        onUserPausedChange(videoState.userPaused);
+      }, [isVisible, videoState.userPaused, onUserPausedChange]);
 
       // Double tap to like state - using Reanimated for UI thread performance
       const lastTapRef = useRef<{ time: number; x: number; y: number } | null>(null);
