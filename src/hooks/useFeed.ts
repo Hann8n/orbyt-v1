@@ -11,6 +11,7 @@ import { feedService, FeedOption, FeedItem } from '../services/FeedService';
 import { useShallow } from 'zustand/react/shallow';
 import { useUserStore } from '../stores/userStore';
 import { useModerationSettings } from './useModerationSettings';
+import { QUERY_CONSTANTS } from '../utils/constants';
 import { queryKeys } from '../utils/query/queryKeys';
 import type { FeedResponse } from '../services/api/types';
 
@@ -146,7 +147,7 @@ export function useFeed(
     enabled: queryEnabled,
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage: FeedResponse) => lastPage?.cursor ?? null,
-    staleTime: queryOptions.staleTime,
+    staleTime: queryOptions.staleTime ?? QUERY_CONSTANTS.STALE_TIME_LONG,
     gcTime: queryOptions.gcTime ?? FEED_CONFIG.GC_TIME,
     retry: FEED_CONFIG.MAX_RETRIES,
     retryDelay: FEED_CONFIG.RETRY_DELAY,

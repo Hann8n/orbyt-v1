@@ -158,13 +158,10 @@ const Channel: React.FC = memo(() => {
   const queryOptions = useMemo(
     () => ({
       enabled: Boolean(
-        isRouteFocused &&
-        channelDataForFeed &&
-        uri &&
-        (uri.startsWith('hashtag:') || uri.startsWith('at://'))
+        channelDataForFeed && uri && (uri.startsWith('hashtag:') || uri.startsWith('at://'))
       ),
     }),
-    [isRouteFocused, channelDataForFeed, uri]
+    [channelDataForFeed, uri]
   );
 
   const extractAndSaveColors = useCallback(

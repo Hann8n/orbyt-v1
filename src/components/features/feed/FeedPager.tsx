@@ -374,9 +374,8 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
         onRetryFeed={NOOP}
         queryOptions={{
           ...baseQueryOptions,
-          // Enable feed queries for all pager pages while the pager is visible.
-          // Playback remains controlled by isVisible/currentFeedIndex below.
-          enabled: (baseQueryOptions.enabled ?? true) && isVisible,
+          // Keep feed data queries alive after tab switches; visibility only controls playback.
+          enabled: baseQueryOptions.enabled ?? true,
         }}
         isVisible={isVisible && index === currentFeedIndex}
         forceError={forceError}

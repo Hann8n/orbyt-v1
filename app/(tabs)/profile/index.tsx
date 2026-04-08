@@ -180,9 +180,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   // Memoized query options for profile feed
   const queryOptions = useMemo(
     () => ({
-      enabled: Boolean(isRouteFocused && profileData?.did),
+      enabled: Boolean(profileData?.did),
     }),
-    [isRouteFocused, profileData?.did]
+    [profileData?.did]
   );
 
   // Ensure profileData.did is defined for type safety
