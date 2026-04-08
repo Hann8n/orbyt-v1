@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import { AppState, type ViewabilityConfig, type ViewToken } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import { useVisibilityCoreStore } from './visibilityStore';
-import { useSetOverlayVisibility } from '../../context/FeedIndicatorContext';
 
 /** FlashList/RN viewability — minimumViewTime 0 so the first native callback isn’t delayed ~150ms at cold start. */
 const VIEWABILITY_CONFIG: ViewabilityConfig = {
@@ -58,15 +57,10 @@ export function useFeedVisibility({
   // Route focus is already represented by `isActive` at call sites.
   const canPlay = isActive && isForeground;
 
-  const setOverlayVisibility = useSetOverlayVisibility();
-  const lastOverlayRef = useRef<number | undefined>(undefined);
-
   useEffect(() => {
     if (!isActive) return;
-    // Set activeFeedKey when this feed is active.
     setActiveFeedKey(feedKey);
-    setOverlayVisibility(1); // Show overlay when this list feed becomes active (e.g. modal from profile grid)
-  }, [isActive, feedKey, setActiveFeedKey, setOverlayVisibility]);
+  }, [isActive, feedKey, setActiveFeedKey]);
 
   // Before paint: align store with FlashList’s initial window so VideoItem `isVisible` isn’t false until JS viewability runs.
   useLayoutEffect(() => {
@@ -87,22 +81,8 @@ export function useFeedVisibility({
       if (nextIndex >= 0 && nextIndex !== lastViewable) {
         setLastViewableIndex(feedKey, nextIndex);
       }
-
-      if (isActive) {
-        const nextOverlay = nextIndex >= 0 ? 1 : 0;
-        // Only set overlay to 0 when transitioning from 1 (had viewable item) to none.
-        // When lastOverlayRef is undefined, viewability hasn't reported a viewable item yet;
-        // avoid setOverlayVisibility(0) so the overlay (comment button, etc.) stays visible.
-        if (nextOverlay === 1) {
-          lastOverlayRef.current = 1;
-          setOverlayVisibility(1);
-        } else if (lastOverlayRef.current === 1) {
-          lastOverlayRef.current = 0;
-          setOverlayVisibility(0);
-        }
-      }
     },
-    [feedKey, isActive, setLastViewableIndex, setOverlayVisibility]
+    [feedKey, setLastViewableIndex]
   );
 
   return {

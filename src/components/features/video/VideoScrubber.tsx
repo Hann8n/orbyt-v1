@@ -18,8 +18,6 @@ import { formatTime } from '../../../utils/formatting/time';
 import { Colors } from '../../../theme';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import { useUIStore } from '../../../stores/uiStore';
-import { useOverlayVisibility } from '../../../context/FeedIndicatorContext';
-
 interface VideoScrubberProps {
   active: boolean;
   player?: VideoPlayer;
@@ -30,8 +28,8 @@ interface VideoScrubberProps {
   seekingAnimationSV: SharedValue<number>;
   scrollGesture?: NativeGesture;
   children?: React.ReactNode;
-  // Optional composed shared opacity to tie overlay and scrubber together
-  overlayOpacitySV?: SharedValue<number>;
+  /** Composed opacity from VideoCard (scroll overlap × scrubbing). */
+  overlayOpacitySV: SharedValue<number>;
 }
 
 // Memoize VideoScrubber to prevent unnecessary re-renders when props haven't changed
@@ -339,13 +337,10 @@ const VideoScrubberComponent = ({
     };
   });
 
-  // Use shared value from context - updated from FlashList viewability callbacks (native thread)
-  // If a composed shared opacity is provided, use it to tie with overlay; otherwise fallback to global value
-  const overlayVisibility = useOverlayVisibility();
   const scrubberOpacityStyle = useAnimatedStyle(() => {
     'worklet';
     return {
-      opacity: overlayOpacitySV ? overlayOpacitySV.value : overlayVisibility.value,
+      opacity: overlayOpacitySV.value,
     };
   });
 
@@ -353,7 +348,7 @@ const VideoScrubberComponent = ({
   const trackContainerOpacityStyle = useAnimatedStyle(() => {
     'worklet';
     const seekingAnim = seekingAnimationSV.get();
-    const containerOpacity = overlayOpacitySV ? overlayOpacitySV.value : overlayVisibility.value;
+    const containerOpacity = overlayOpacitySV.value;
     // During scrubbing, ensure track/progress bar stays visible (min 0.95 opacity)
     // Otherwise use container opacity
     return {

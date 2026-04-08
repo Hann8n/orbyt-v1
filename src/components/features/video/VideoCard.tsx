@@ -60,7 +60,6 @@ import { useProfile } from '../../../services/data/ProfileService';
 import { getProfileColors } from '../../../utils/formatting/colors';
 import { getChannelBySlug } from '../../../utils/channels/orbyt';
 import { VideoScrubber } from './VideoScrubber';
-import { useOverlayVisibility } from '../../../context/FeedIndicatorContext';
 import { useFeedScroll } from '../../../context/FeedScrollContext';
 import { seenVideoService } from '../../../services/SeenVideoService';
 import { hexToRGBA } from '../../../utils/formatting/colors';
@@ -1043,7 +1042,6 @@ const VideoCard = memo(
       }, [shouldPlayVideo, postView.uri, onVideoStatus]);
 
       const seekingAnimationSV = useSharedValue(0);
-      const overlayVisibility = useOverlayVisibility();
       const feedScroll = useFeedScroll();
       const scrollOffsetYSV = feedScroll?.scrollOffsetYSV;
       const headerH = feedScroll?.headerHeight ?? 0;
@@ -1077,7 +1075,7 @@ const VideoCard = memo(
             p = Math.pow(raw / OVERLAY_DEAD_ZONE, OVERLAY_FADE_EXPONENT);
           }
         }
-        return overlayVisibility.value * p * scrubbing;
+        return p * scrubbing;
       }, [scrollOffsetYSV, headerH, viewportH, itemSp, idx, cardHeight]);
 
       return (

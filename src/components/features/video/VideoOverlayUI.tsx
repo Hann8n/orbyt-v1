@@ -462,8 +462,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
     [contentPadding]
   );
 
-  // Opacity from composed overlayOpacitySV (itemVisibility + overlayVisibility + scrubbing)
-  // No extra withTiming - composed value already animates via itemVisibilitySV in VideoCard
+  // Opacity from composed overlayOpacitySV (scroll overlap × scrubbing) in VideoCard
   const overlayAnimatedStyle = useAnimatedStyle(() => {
     'worklet';
     const opacityValue = overlayOpacitySV ? overlayOpacitySV.value : 1;

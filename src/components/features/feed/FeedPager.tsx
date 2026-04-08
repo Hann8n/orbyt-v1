@@ -29,11 +29,7 @@ import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ListFeedViewRef } from '../../../types';
 import type { FeedPagerRef } from '../../../utils/navigation/tabRefs';
-import {
-  useSetTabBarVisibility,
-  useTabBarVisibility,
-  useSetOverlayVisibility,
-} from '../../../context/FeedIndicatorContext';
+import { useSetTabBarVisibility, useTabBarVisibility } from '../../../context/FeedIndicatorContext';
 
 // Define the feed options type
 export type FeedOption = string;
@@ -182,15 +178,13 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const setTabBarVisibility = useSetTabBarVisibility();
-  const setOverlayVisibility = useSetOverlayVisibility();
   const tabBarVisibility = useTabBarVisibility();
 
   const feedOptions = feedOptionsProp ?? DEFAULT_FEED_OPTIONS;
 
-  const showBarAndOverlay = useCallback(() => {
+  const showFeedBar = useCallback(() => {
     setTabBarVisibility(1);
-    setOverlayVisibility(1);
-  }, [setTabBarVisibility, setOverlayVisibility]);
+  }, [setTabBarVisibility]);
 
   // Animation values for feed bar vertical transition - using Reanimated for UI thread
   const feedBarTranslateY = useSharedValue(0);
@@ -291,7 +285,7 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
     (currentIndex, previousIndex) => {
       if (previousIndex !== null && currentIndex !== previousIndex) {
         runOnJS(animateFeedBar)(true, true);
-        runOnJS(showBarAndOverlay)();
+        runOnJS(showFeedBar)();
       }
     },
     []
@@ -299,8 +293,8 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
 
   // Ensure controls are visible when pager mounts
   useEffect(() => {
-    showBarAndOverlay();
-  }, [showBarAndOverlay]);
+    showFeedBar();
+  }, [showFeedBar]);
 
   // Handle page change from PagerView - final confirmation after transition completes
   const handlePageSelected = useCallback(
