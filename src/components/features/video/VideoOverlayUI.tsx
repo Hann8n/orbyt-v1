@@ -596,9 +596,8 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                       <TextWithAuthorLinks
                         text={record?.text ?? ''}
                         style={styles.descriptionText}
-                        numberOfLines={
-                          descriptionOverflows === null && captionMeasureWidth > 0 ? 1 : undefined
-                        }
+                        numberOfLines={descriptionOverflows === null ? 1 : undefined}
+                        ellipsizeMode={descriptionOverflows === null ? 'tail' : undefined}
                         onAuthorPress={navigateToAuthorProfile}
                         onHashtagPress={navigateToHashtagFeed}
                         facets={record?.facets as RichTextFacet[] | undefined}
