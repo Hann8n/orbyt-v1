@@ -511,7 +511,6 @@
     "editsAppliedSuccessfully": "動画の編集が正常に適用されました！",
     "noVideoAvailable": "動画がありません",
     "noMusicFound": "音楽が見つかりません",
-    "noAudioFilesFound": "ライブラリにオーディオファイルが見つかりません。",
     "couldNotAccessMusic": "音楽ファイルにアクセスできませんでした",
     "failedToSelectMusic": "音楽ファイルの選択に失敗しました",
     "noPathProvided": "動画パスが指定されていません",

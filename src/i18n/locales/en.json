@@ -143,7 +143,7 @@
     "followedYou": "followed you",
     "mentionedYou": "mentioned you",
     "leftComment": "left a comment",
-    "quotedPost": "quoted your post",
+    "quotedPost": "quoted your {{postType}}",
     "joinedStarterPack": "joined your starter pack",
     "verifiedYou": "verified you",
     "unverifiedYou": "unverified you",
