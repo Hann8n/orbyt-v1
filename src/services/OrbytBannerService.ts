@@ -5,9 +5,9 @@ interface Header {
   id: string;
   imageUrl: string;
   destinationUrl?: string | null;
-  title: string;
+  title: string | null;
   /** Secondary text used by the header banner. */
-  subtitle?: string;
+  subtitle?: string | null;
   // Optional custom colors
   titleColor?: string;
   /** Color for subtitle text. */
@@ -157,7 +157,7 @@ abstract class OrbytAPIService<T extends ApiResponse> {
 
 // Header Service
 class HeaderService extends OrbytAPIService<HeadersResponse> {
-  protected readonly REMOTE_URL = 'https://getorbyt.com/api/headers.json';
+  protected readonly REMOTE_URL = 'https://api.getorbyt.com/v1/headers/active';
   protected readonly ENDPOINT_NAME = 'headers';
   protected readonly DATA_PROPERTY: keyof HeadersResponse = 'headers';
 
