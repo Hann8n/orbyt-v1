@@ -336,6 +336,11 @@ export const exploreScreenStyles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
+  loadingContainerTop: {
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    paddingTop: 24,
+  },
   searchContentWrapper: {
     flex: 1,
   },

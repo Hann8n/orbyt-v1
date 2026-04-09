@@ -1,17 +1,14 @@
 import { View, ActivityIndicator } from 'react-native';
 
 import { Colors } from '@/theme';
-
 import { exploreScreenStyles as styles } from './ExploreScreenStyles';
-
-const LOADING_COLOR = Colors.neutral[50];
-
 type ExploreSectionLoadingVariant = 'sectionHeader' | 'inline' | 'spotlight';
+const LOADING_COLOR = Colors.neutral[50];
 
 export const ExploreSectionLoading = ({ variant }: { variant: ExploreSectionLoadingVariant }) => {
   if (variant === 'sectionHeader') {
     return (
-      <View style={[styles.sectionHeader, styles.loadingContainer]}>
+      <View style={styles.sectionHeader}>
         <ActivityIndicator size="small" color={LOADING_COLOR} />
       </View>
     );

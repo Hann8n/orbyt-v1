@@ -2,7 +2,6 @@ import React from 'react';
 import { View, Text, ActivityIndicator } from 'react-native';
 
 import { Colors } from '@/theme';
-
 import { exploreScreenStyles as styles } from './ExploreScreenStyles';
 
 type SectionHeaderProps = {
@@ -28,7 +27,7 @@ ExploreSectionHeaderRow.displayName = 'ExploreSectionHeaderRow';
 type LoadingRowProps = { minHeight: number };
 
 export const ExploreSuggestionsLoadingRow = React.memo(({ minHeight }: LoadingRowProps) => (
-  <View style={[styles.loadingContainer, { minHeight }]}>
+  <View style={[styles.loadingContainer, styles.loadingContainerTop, { minHeight }]}>
     <ActivityIndicator size="large" color={Colors.neutral[50]} />
   </View>
 ));

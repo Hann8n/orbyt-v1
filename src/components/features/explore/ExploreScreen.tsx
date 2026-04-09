@@ -133,7 +133,7 @@ const ExploreScreen: React.FC = () => {
     }
   }, [currentUser?.did]);
 
-  const { data: fetchedHeaders = [] } = useHeaders();
+  const { data: fetchedHeaders = [], isPending: isHeadersPending } = useHeaders();
 
   useEffect(() => {
     setHasHeaderBannerError(false);
@@ -326,7 +326,8 @@ const ExploreScreen: React.FC = () => {
     []
   );
 
-  const { data: activeChannels = [] } = useOrbytChannels();
+  const { data: activeChannels = [], isPending: isOrbytChannelsMetadataPending } =
+    useOrbytChannels();
   const orbytChannelUris = useMemo(() => activeChannels.map(ch => ch.uri), [activeChannels]);
   const {
     orbytChannelsData,
@@ -337,7 +338,11 @@ const ExploreScreen: React.FC = () => {
     isLoadingSpotlightFeed,
     spotlightFeedError,
     refetchSpotlightFeed,
-  } = useExploreSuggestionsQueries(orbytChannelUris);
+    isInitialSuggestionsLoading,
+    hasSettledInitialSuggestions,
+  } = useExploreSuggestionsQueries(orbytChannelUris, {
+    isResolvingOrbytUris: isOrbytChannelsMetadataPending,
+  });
 
   const isHeaderVisible = useMemo(
     () => headers.length > 0 && !hasHeaderBannerError,
@@ -347,18 +352,21 @@ const ExploreScreen: React.FC = () => {
     const screenWidth = Dimensions.get('window').width;
     return Math.round(screenWidth / EXPLORE_HEADER_BANNER_ASPECT_RATIO);
   }, []);
+  const topChromeSpacerHeight = useMemo(
+    () => getExploreTopChromeSpacerHeight(insets.top),
+    [insets.top]
+  );
+  const activeHeaderHeight = useMemo(
+    () => (isHeaderVisible ? computedHeaderHeight : topChromeSpacerHeight),
+    [computedHeaderHeight, isHeaderVisible, topChromeSpacerHeight]
+  );
 
   const loadingSuggestedItems = useMemo(() => {
     return [{ type: 'loading' as const, variant: 'full' as const, key: 'loading-indicator' }];
   }, []);
 
   const suggestionsList: ListItem[] = useMemo(() => {
-    if (
-      isLoadingSpotlightFeed &&
-      isLoadingOrbytChannels &&
-      !spotlightFeed?.length &&
-      !orbytChannelsData?.length
-    ) {
+    if (!hasSettledInitialSuggestions || isInitialSuggestionsLoading) {
       return loadingSuggestedItems;
     }
     if (
@@ -383,17 +391,6 @@ const ExploreScreen: React.FC = () => {
         videos: spotlightFeed,
         key: 'spotlight-videos',
       });
-    } else if (isLoadingSpotlightFeed) {
-      data.push({
-        type: 'section-header' as const,
-        title: t('feed.spotlight'),
-        key: 'spotlight-header',
-      });
-      data.push({
-        type: 'loading' as const,
-        variant: 'spotlight' as const,
-        key: 'spotlight-loading',
-      });
     }
 
     if (orbytChannelsData?.length) {
@@ -407,21 +404,12 @@ const ExploreScreen: React.FC = () => {
         channels: orbytChannelsData,
         key: 'orbyt-channels',
       });
-    } else if (isLoadingOrbytChannels) {
-      data.push({
-        type: 'section-header' as const,
-        title: t('feed.channels'),
-        key: 'orbyt-channels-header',
-      });
-      data.push({
-        type: 'loading' as const,
-        variant: 'channels' as const,
-        key: 'channels-loading',
-      });
     }
 
     return data;
   }, [
+    isInitialSuggestionsLoading,
+    hasSettledInitialSuggestions,
     isLoadingSpotlightFeed,
     isLoadingOrbytChannels,
     loadingSuggestedItems,
@@ -512,7 +500,7 @@ const ExploreScreen: React.FC = () => {
         }
         const screenHeight = Dimensions.get('window').height;
         const bottomNavHeight = getBottomNavBarHeight(insets);
-        const availableHeight = screenHeight - computedHeaderHeight - bottomNavHeight;
+        const availableHeight = screenHeight - activeHeaderHeight - bottomNavHeight;
         const minHeight = Math.max(availableHeight, 200);
         return <ExploreSuggestionsLoadingRow minHeight={minHeight} />;
       }
@@ -543,7 +531,7 @@ const ExploreScreen: React.FC = () => {
       }
       return null;
     },
-    [t, computedHeaderHeight, insets, queryClient, goToProfile, handleFollow]
+    [t, activeHeaderHeight, insets, queryClient, goToProfile, handleFollow]
   );
 
   const listHeaderComponent = useMemo(() => {
@@ -557,8 +545,13 @@ const ExploreScreen: React.FC = () => {
       );
     }
 
-    return <ExploreTopSpacer height={getExploreTopChromeSpacerHeight(insets.top)} />;
-  }, [computedHeaderHeight, headers, isHeaderVisible, insets.top]);
+    const shouldReserveHeaderSpace = isHeadersPending && headers.length === 0;
+    return (
+      <ExploreTopSpacer
+        height={shouldReserveHeaderSpace ? computedHeaderHeight : topChromeSpacerHeight}
+      />
+    );
+  }, [computedHeaderHeight, headers, isHeaderVisible, isHeadersPending, topChromeSpacerHeight]);
 
   return (
     <View style={[styles.container, Platform.OS === 'android' && styles.androidPaddingTop]}>

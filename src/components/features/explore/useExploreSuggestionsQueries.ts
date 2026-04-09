@@ -9,12 +9,17 @@ import { queryKeys } from '@/utils/query/queryKeys';
 import { EXPLORE_SPOTLIGHT_FEED_URI } from './exploreConstants';
 import type { Channel } from './types';
 
-export function useExploreSuggestionsQueries(orbytChannelUris: string[]) {
+export function useExploreSuggestionsQueries(
+  orbytChannelUris: string[],
+  options?: { isResolvingOrbytUris?: boolean }
+) {
   /** Stable cache identity for the same URI set regardless of source order. */
   const sortedOrbytKeyUris = useMemo(
     () => [...orbytChannelUris].sort((a, b) => a.localeCompare(b)),
     [orbytChannelUris]
   );
+  const isResolvingOrbytUris = options?.isResolvingOrbytUris ?? false;
+  const shouldLoadOrbytChannels = orbytChannelUris.length > 0;
 
   const orbytQuery = useQuery({
     queryKey: queryKeys.explore.orbytGrid(sortedOrbytKeyUris),
@@ -43,8 +48,11 @@ export function useExploreSuggestionsQueries(orbytChannelUris: string[]) {
         })
       );
     },
-    enabled: orbytChannelUris.length > 0,
+    enabled: shouldLoadOrbytChannels,
     staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
   const spotlightQuery = useQuery({
@@ -62,16 +70,35 @@ export function useExploreSuggestionsQueries(orbytChannelUris: string[]) {
     },
     enabled: true,
     staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
+
+  const isSpotlightPending = spotlightQuery.isPending;
+  const isOrbytChannelsPending = shouldLoadOrbytChannels
+    ? orbytQuery.isPending
+    : isResolvingOrbytUris;
+  const isInitialSuggestionsLoading =
+    isSpotlightPending &&
+    isOrbytChannelsPending &&
+    !(spotlightQuery.data?.length || orbytQuery.data?.length);
+  const hasSettledSpotlight = spotlightQuery.isFetched || !!spotlightQuery.error;
+  const hasSettledOrbyt = shouldLoadOrbytChannels
+    ? orbytQuery.isFetched || !!orbytQuery.error
+    : !isResolvingOrbytUris;
+  const hasSettledInitialSuggestions = hasSettledSpotlight && hasSettledOrbyt;
 
   return {
     orbytChannelsData: orbytQuery.data,
-    isLoadingOrbytChannels: orbytQuery.isLoading,
+    isLoadingOrbytChannels: isOrbytChannelsPending,
     orbytChannelsError: orbytQuery.error,
     refetchOrbytChannels: orbytQuery.refetch,
     spotlightFeed: spotlightQuery.data,
-    isLoadingSpotlightFeed: spotlightQuery.isLoading,
+    isLoadingSpotlightFeed: isSpotlightPending,
     spotlightFeedError: spotlightQuery.error,
     refetchSpotlightFeed: spotlightQuery.refetch,
+    isInitialSuggestionsLoading,
+    hasSettledInitialSuggestions,
   };
 }
