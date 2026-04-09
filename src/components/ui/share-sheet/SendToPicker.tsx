@@ -464,11 +464,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: DEFAULT_CONTENT_PADDING_HORIZONTAL,
     paddingVertical: 11,
     minHeight: 46,
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 2,
+    boxShadow: '0 1px 6px rgba(0,0,0,0.25)',
   },
   searchInput: {
     flex: 1,

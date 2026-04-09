@@ -45,7 +45,6 @@ const PopUpModal: React.FC<PopUpModalProps> = ({
                     style={[
                       styles.actionButton,
                       action.isPrimary ? styles.primaryButton : styles.secondaryButton,
-                      index > 0 && { marginLeft: 8 },
                     ]}
                     onPress={action.onPress}
                   >
@@ -71,7 +70,7 @@ const PopUpModal: React.FC<PopUpModalProps> = ({
 const styles = StyleSheet.create({
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: Colors.overlay.black60,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -80,11 +79,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.neutral[900],
     borderRadius: BORDER_RADIUS.MEDIUM,
     padding: 20,
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    boxShadow: '0 2px 4px rgba(0,0,0,0.25)',
   },
   modalTitle: {
     color: Colors.neutral[50],
@@ -105,6 +100,7 @@ const styles = StyleSheet.create({
   actionsContainer: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
+    gap: 8,
   },
   actionButton: {
     paddingVertical: 8,
@@ -112,7 +108,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.SMALL,
   },
   secondaryButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: Colors.overlay.white10,
   },
   primaryButton: {
     backgroundColor: Colors.neutral[900],

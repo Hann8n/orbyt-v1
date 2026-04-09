@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { BORDER_RADIUS } from '../../../utils/constants';
@@ -129,7 +129,6 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
 }) => {
   const { t } = useTranslation();
   const navigation = useRouter();
-  const [suggestedUsers, setSuggestedUsers] = useState<SuggestedUser[]>([]);
   const insets = useSafeAreaInsets();
 
   // Fetch suggested users when this is a following feed with no videos
@@ -152,12 +151,10 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
     staleTime: 60 * 1000, // 1 minute
   });
 
-  // Update suggested users when data comes in
-  useEffect(() => {
-    if (suggestedAccounts && shouldShowSuggestions) {
-      setSuggestedUsers(suggestedAccounts);
-    }
-  }, [suggestedAccounts, shouldShowSuggestions]);
+  const suggestedUsers = useMemo(
+    () => (suggestedAccounts && shouldShowSuggestions ? suggestedAccounts : []),
+    [suggestedAccounts, shouldShowSuggestions]
+  );
 
   // Use ProfileCache's follow mutation hook
   const followMutation = useFollowMutation();
@@ -303,15 +300,11 @@ const styles = StyleSheet.create({
     color: Colors.neutral[50],
     fontSize: Typography.sizes.subtitle,
     fontFamily: FontFamily.semibold,
-    marginTop: 0,
     textAlign: 'center',
   },
   centerContent: {
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  justifyCenter: {
-    justifyContent: 'center',
   },
   iconContainer: {
     width: '100%',

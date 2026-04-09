@@ -769,7 +769,6 @@ const styles = StyleSheet.create({
   flashListWrapper: {
     flex: 1,
     zIndex: 1,
-    ...(Platform.OS === 'android' ? { elevation: 6 } : {}),
   },
   flashList: {
     flex: 1,

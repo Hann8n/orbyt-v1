@@ -1,9 +1,7 @@
 import { ViewStyle } from 'react-native';
-import { Colors } from './colors';
 
 /**
  * Standardized shadow system for consistent depth across the app.
- * Each shadow is defined for both iOS and Android platforms.
  */
 
 export const Shadows = {
@@ -12,11 +10,7 @@ export const Shadows = {
    * Use for: hover states, secondary UI elements
    */
   small: {
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 2,
+    boxShadow: '0 2px 3px rgba(0,0,0,0.15)',
   } as ViewStyle,
 
   /**
@@ -24,11 +18,7 @@ export const Shadows = {
    * Use for: cards, modals, floating action buttons
    */
   medium: {
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 4,
+    boxShadow: '0 4px 6px rgba(0,0,0,0.20)',
   } as ViewStyle,
 
   /**
@@ -36,11 +26,7 @@ export const Shadows = {
    * Use for: sheets, dialogs, overlays
    */
   large: {
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 8,
+    boxShadow: '0 8px 12px rgba(0,0,0,0.25)',
   } as ViewStyle,
 
   /**
@@ -48,10 +34,6 @@ export const Shadows = {
    * Use for: full-screen modals, critical overlays
    */
   xlarge: {
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 12,
+    boxShadow: '0 16px 20px rgba(0,0,0,0.30)',
   } as ViewStyle,
 };

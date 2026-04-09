@@ -1,4 +1,4 @@
-import React, { forwardRef } from 'react';
+import React, { forwardRef, type ElementRef } from 'react';
 import {
   SquircleView as _SquircleView,
   SquircleButton as _SquircleButton,
@@ -23,11 +23,12 @@ export const SquircleView: React.FC<SquircleViewProps> = ({
  * Accepts all Pressable props (style, onPress, disabled, etc.) and handles press feedback natively.
  * API is identical to NativePressable for clean component swaps.
  */
-export const SquircleButton = forwardRef<any, SquircleButtonProps & PressableProps>(
-  function SquircleButton({ cornerSmoothing = CORNER_SMOOTHING, ...props }, ref) {
-    return <_SquircleButton ref={ref} cornerSmoothing={cornerSmoothing} {...props} />;
-  }
-);
+export const SquircleButton = forwardRef<
+  ElementRef<typeof _SquircleButton>,
+  SquircleButtonProps & PressableProps
+>(function SquircleButton({ cornerSmoothing = CORNER_SMOOTHING, ...props }, ref) {
+  return <_SquircleButton ref={ref} cornerSmoothing={cornerSmoothing} {...props} />;
+});
 
 // Style keys that go on the outer SquircleView (shape, layout positioning)
 // Everything else (backgroundColor, padding, flex-container props) stays on NativePressable
@@ -53,12 +54,8 @@ const SQUIRCLE_CONTAINER_KEYS = new Set<string>([
   'borderRightColor',
   // Clipping
   'overflow',
-  // Shadow / elevation
-  'shadowColor',
-  'shadowOffset',
-  'shadowOpacity',
-  'shadowRadius',
-  'elevation',
+  // Shadow
+  'boxShadow',
   // Opacity (disabled states should dim whole element incl. border)
   'opacity',
   // Outer layout — must live on the outermost view
@@ -132,20 +129,21 @@ function shouldFillInnerPressable(container: ViewStyle): boolean {
  */
 const CLIP_STYLE: ViewStyle = { overflow: 'hidden' };
 
-export const SquircleNativePressable = forwardRef<any, NativePressableProps>(
-  function SquircleNativePressable({ style, ...props }, ref) {
-    const { container, inner } = splitStyle(style as StyleProp<ViewStyle>);
-    const fillInnerPressable = shouldFillInnerPressable(container);
-    // overflow:hidden on the SquircleView masks the inner NativePressable's
-    // backgroundColor to the squircle boundary — without it the fill renders
-    // as a plain rectangle on top of the squircle shape.
-    return (
-      <SquircleView style={[container, CLIP_STYLE]} cornerSmoothing={CORNER_SMOOTHING}>
-        <NativePressable ref={ref} style={[fillInnerPressable && styles.fill, inner]} {...props} />
-      </SquircleView>
-    );
-  }
-);
+export const SquircleNativePressable = forwardRef<
+  ElementRef<typeof NativePressable>,
+  NativePressableProps
+>(function SquircleNativePressable({ style, ...props }, ref) {
+  const { container, inner } = splitStyle(style as StyleProp<ViewStyle>);
+  const fillInnerPressable = shouldFillInnerPressable(container);
+  // overflow:hidden on the SquircleView masks the inner NativePressable's
+  // backgroundColor to the squircle boundary — without it the fill renders
+  // as a plain rectangle on top of the squircle shape.
+  return (
+    <SquircleView style={[container, CLIP_STYLE]} cornerSmoothing={CORNER_SMOOTHING}>
+      <NativePressable ref={ref} style={[fillInnerPressable && styles.fill, inner]} {...props} />
+    </SquircleView>
+  );
+});
 
 const styles = StyleSheet.create({
   fill: {

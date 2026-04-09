@@ -150,7 +150,6 @@ export const COMPOSER_STYLES = StyleSheet.create({
     marginLeft: COMPOSER_INPUT_DIMENSIONS.sendButtonMarginLeft,
     overflow: 'hidden' as const,
     zIndex: 11,
-    elevation: 11,
   },
   sendButtonFallback: {
     backgroundColor: Colors.neutral[200],
@@ -164,10 +163,8 @@ export const COMPOSER_STYLES = StyleSheet.create({
     alignSelf: 'center' as const,
     borderRadius: BORDER_RADIUS.FULL,
     backgroundColor: Colors.overlay.white10,
-    marginLeft: 0,
     overflow: 'hidden' as const,
     zIndex: 11,
-    elevation: 11,
   },
   sendButtonGlassBg: {
     ...StyleSheet.absoluteFillObject,

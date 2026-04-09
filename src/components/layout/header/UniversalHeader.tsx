@@ -589,13 +589,7 @@ const CustomActionLayoutComponent = memo<{
       return (
         <View style={styles.buttonContainer}>
           {layout.buttons.map((action, index) => (
-            <View
-              key={action.id}
-              style={[
-                styles.headerActionStackSlot,
-                { zIndex: n - index, elevation: (n - index) * 2 },
-              ]}
-            >
+            <View key={action.id} style={[styles.headerActionStackSlot, { zIndex: n - index }]}>
               <ActionButton
                 action={action}
                 textColor={textColor}
@@ -1185,10 +1179,7 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
                   return (
                     <View
                       key={action.id}
-                      style={[
-                        styles.headerActionStackSlot,
-                        { zIndex: n - index, elevation: (n - index) * 2 },
-                      ]}
+                      style={[styles.headerActionStackSlot, { zIndex: n - index }]}
                     >
                       <ActionButton
                         action={action}
@@ -1248,7 +1239,10 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
         </View>
       )}
       {headerContent}
-      <Animated.View style={[scrollDimAnimatedStyle, { zIndex: 3 }]} collapsable={false} />
+      <Animated.View
+        style={[scrollDimAnimatedStyle, styles.scrollDimOverlay]}
+        collapsable={false}
+      />
     </Animated.View>
   );
 };
@@ -1300,17 +1294,10 @@ const styles = StyleSheet.create({
   actionButtonOuter: {
     borderRadius: BORDER_RADIUS.FULL,
     overflow: 'hidden',
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
+    boxShadow: '0 2px 3px rgba(0,0,0,0.1)',
   },
   actionButtonOuterNoShadow: {
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 0,
+    boxShadow: 'none',
   },
   actionButtonSquircleClip: {
     borderRadius: BORDER_RADIUS.FULL,
@@ -1517,13 +1504,6 @@ const styles = StyleSheet.create({
   subtitleActionLeadingIcon: {
     marginRight: 4,
   },
-  subtitleActionTrailingIcon: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingLeft: 0,
-    marginRight: -4,
-    marginVertical: -6,
-  },
   subtitleActionLabel: {
     fontFamily: FontFamily.semibold,
     fontSize: Typography.sizes.bodySmall,
@@ -1627,6 +1607,9 @@ const styles = StyleSheet.create({
     bottom: 0,
     zIndex: 1,
     overflow: 'hidden',
+  },
+  scrollDimOverlay: {
+    zIndex: 3,
   },
 });
 

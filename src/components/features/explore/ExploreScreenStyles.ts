@@ -82,7 +82,6 @@ export const exploreScreenStyles = StyleSheet.create({
     color: Colors.black,
     fontSize: Typography.sizes.h3,
     fontFamily: FontFamily.medium,
-    padding: 0,
     paddingVertical: 12,
     textAlign: 'left',
     textAlignVertical: 'center',
@@ -95,7 +94,6 @@ export const exploreScreenStyles = StyleSheet.create({
     alignItems: 'center',
   },
   authorItemStyle: {
-    marginBottom: 0,
     paddingVertical: 10,
     paddingHorizontal: 15,
   },
@@ -106,7 +104,6 @@ export const exploreScreenStyles = StyleSheet.create({
     paddingHorizontal: 15,
   },
   channelItemStyle: {
-    marginBottom: 0,
     paddingVertical: 10,
     paddingHorizontal: 15,
   },
@@ -168,7 +165,6 @@ export const exploreScreenStyles = StyleSheet.create({
     fontFamily: FontFamily.bold,
   },
   horizontalChannelButton: {
-    marginBottom: 0,
     borderRadius: BORDER_RADIUS.SMALL,
     overflow: 'hidden',
     position: 'relative',
@@ -206,7 +202,6 @@ export const exploreScreenStyles = StyleSheet.create({
   },
   orbytSlash: {
     fontFamily: FontFamily.semibold,
-    marginRight: 0,
   },
   channelName: {
     color: Colors.neutral[50],
@@ -231,7 +226,6 @@ export const exploreScreenStyles = StyleSheet.create({
 
   spotlightContainer: {
     marginBottom: 7,
-    marginHorizontal: 0,
   },
   spotlightScrollContainer: {
     paddingHorizontal: 10,
@@ -249,7 +243,6 @@ export const exploreScreenStyles = StyleSheet.create({
   },
   spotlightVideoThumbnailContainer: {
     position: 'relative',
-    marginBottom: 0,
     borderRadius: BORDER_RADIUS.SMALL,
     overflow: 'hidden' as const,
   },

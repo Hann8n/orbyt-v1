@@ -67,7 +67,7 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
   const iconSize = Math.round(Math.max(22, Math.min(28, width * 0.07)));
 
   // Render tool button
-  const renderTool = (tool: { id: string; icon: string; activeIcon?: string }, index?: number) => {
+  const renderTool = (tool: { id: string; icon: string; activeIcon?: string }) => {
     const isDeleteDisabled = tool.id === 'delete' && !hasSegments;
     const isFlashDisabled = tool.id === 'flash' && isFrontCamera;
     const isGalleryDisabled = tool.id === 'gallery' && disableGalleryUpload;
@@ -88,14 +88,7 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
     const toolStyle =
       mode === 'create'
         ? [styles.tool, { width: iconSize, height: iconSize }]
-        : [
-            styles.toolEdit,
-            {
-              width: iconSize,
-              height: iconSize,
-              marginLeft: index === 0 ? 0 : 30,
-            },
-          ];
+        : [styles.toolEdit, { width: iconSize, height: iconSize }];
 
     return (
       <NativePressable
@@ -134,12 +127,9 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
         <View
           style={[
             styles.containerCreate,
+            isSmallDevice ? styles.containerCreateSmall : styles.containerCreateNormal,
             isSmallDevice && styles.containerSmall,
-            {
-              // Match bottom tab bar padding behavior from app/(tabs)/_layout.tsx
-              paddingTop: isSmallDevice ? 2 : 6,
-              paddingBottom: insets.bottom,
-            },
+            { paddingBottom: insets.bottom },
           ]}
         >
           {tools.map(tool => renderTool(tool))}
@@ -161,9 +151,7 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
         ]}
       >
         {/* Left side - tools */}
-        <View style={styles.toolsContainer}>
-          {tools.map((tool, index) => renderTool(tool, index))}
-        </View>
+        <View style={styles.toolsContainer}>{tools.map(tool => renderTool(tool))}</View>
 
         {/* Right side - next button */}
         {onNextPress && (
@@ -184,17 +172,23 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
 
 const styles = StyleSheet.create({
   safeArea: {
-    backgroundColor: 'transparent',
+    backgroundColor: Colors.transparent,
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
     zIndex: 10,
   },
+  containerCreateNormal: {
+    paddingTop: 6,
+  },
+  containerCreateSmall: {
+    paddingTop: 2,
+  },
   // Original style for create mode
   containerCreate: {
     flexDirection: 'row',
-    backgroundColor: 'transparent',
+    backgroundColor: Colors.transparent,
     borderTopWidth: 0,
     justifyContent: 'space-around',
     alignItems: 'flex-start',
@@ -204,19 +198,20 @@ const styles = StyleSheet.create({
   // New style for edit mode
   containerEdit: {
     flexDirection: 'row',
-    backgroundColor: 'transparent',
+    backgroundColor: Colors.transparent,
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     flex: 1,
   },
   containerSmall: {
-    backgroundColor: 'transparent',
+    backgroundColor: Colors.transparent,
     borderTopWidth: 0,
   },
   toolsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 30,
   },
   nextButtonContainer: {
     alignItems: 'center',
@@ -241,11 +236,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 16,
     minWidth: 60,
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
+    boxShadow: '0 2px 4px rgba(0,0,0,0.30)',
   },
   nextButtonDisabled: {
     opacity: 0.4,

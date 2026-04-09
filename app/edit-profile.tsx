@@ -865,7 +865,7 @@ const EditProfileScreen: React.FC = () => {
       <View style={[styles.topSafeArea, Platform.OS === 'android' && { paddingTop: insets.top }]}>
         {/* Header */}
         <View style={styles.header}>
-          <NativePressable
+          <SquircleNativePressable
             onPress={() => {
               if (isAboutFocused) {
                 setEditDescription(profileData?.description || '');
@@ -878,11 +878,15 @@ const EditProfileScreen: React.FC = () => {
               }
             }}
             style={styles.cancelButton}
+            accessibilityRole="button"
+            accessibilityLabel={
+              isAboutFocused || isDisplayNameFocused ? t('common.back') : t('common.cancel')
+            }
           >
-            <Text style={[styles.cancelButtonText, { color: Colors.neutral[50] }]}>
+            <Text style={styles.cancelButtonText}>
               {isAboutFocused || isDisplayNameFocused ? t('common.back') : t('common.cancel')}
             </Text>
-          </NativePressable>
+          </SquircleNativePressable>
 
           {isAboutFocused && (aboutRemaining <= 50 || aboutOverBy > 0) && (
             <View style={styles.headerCenter}>
@@ -1311,12 +1315,19 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   cancelButton: {
+    backgroundColor: hexToRGBA(Colors.neutral[300], 0.12),
+    borderRadius: BORDER_RADIUS.LARGE,
     paddingVertical: 8,
-    paddingHorizontal: 4,
+    paddingHorizontal: 14,
+    minHeight: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
   },
   cancelButtonText: {
     fontFamily: FontFamily.bold,
     fontSize: fontSizeFor(17),
+    color: Colors.neutral[50],
   },
   saveButton: {
     backgroundColor: Colors.neutral[50],

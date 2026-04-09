@@ -497,7 +497,6 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     position: 'relative',
     zIndex: 10,
-    elevation: 10,
   },
   controlsRow: {
     flexDirection: 'row',

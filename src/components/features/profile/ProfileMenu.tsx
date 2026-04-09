@@ -453,7 +453,6 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
 const styles = StyleSheet.create({
   optionsContainer: {
     flexDirection: 'column',
-    marginTop: 0,
   },
   submenuContent: {
     ...SHEET_STYLES.contentContainer,

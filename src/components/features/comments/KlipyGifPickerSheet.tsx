@@ -49,6 +49,7 @@ const AdWebViewTile: React.FC<{ html: string }> = memo(({ html }) => (
     originWhitelist={['*']}
   />
 ));
+AdWebViewTile.displayName = 'AdWebViewTile';
 
 const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
   sheetRef,
@@ -376,16 +377,12 @@ const styles = StyleSheet.create({
   tabsBarContainer: {
     backgroundColor: Colors.black,
     paddingHorizontal: SHEET_SPACING.mediaPickerHorizontal,
-    paddingTop: 0,
     paddingBottom: 6,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: Colors.overlay.white10,
     alignItems: 'stretch',
   },
   kindTabs: {
-    paddingVertical: 0,
-    paddingHorizontal: 0,
-    marginTop: 0,
     minHeight: 34,
     alignSelf: 'stretch',
   },
@@ -400,11 +397,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: DEFAULT_CONTENT_PADDING_HORIZONTAL,
     paddingVertical: 11,
     minHeight: 46,
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 2,
+    boxShadow: '0 1px 6px rgba(0,0,0,0.25)',
   },
   searchInput: {
     flex: 1,

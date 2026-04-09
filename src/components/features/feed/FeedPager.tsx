@@ -19,7 +19,6 @@ import Animated, {
   withTiming,
   Easing,
   useAnimatedReaction,
-  runOnJS,
   type SharedValue,
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
@@ -207,10 +206,14 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
       if (index < 0 || !pagerViewRef.current) return;
       if (scrollEnabled) pagerViewRef.current.setPage(index);
       else pagerViewRef.current.setPageWithoutAnimation(index);
+      // eslint-disable-next-line react-hooks/immutability
       pageScrollProgress.value = index;
     },
     [scrollEnabled, pageScrollProgress]
   );
+
+  // Track current feed index for visibility checks (updated via useAnimatedReaction)
+  const [currentFeedIndex, setCurrentFeedIndex] = useState(initialPageIndex);
 
   // Sync controlled currentFeed -> pager page (handles store hydration and programmatic changes)
   useEffect(() => {
@@ -222,15 +225,12 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
     }
   }, [currentFeed, feedOptions, setPagerPage]);
 
-  // Track current feed index for visibility checks (updated via useAnimatedReaction)
-  const [currentFeedIndex, setCurrentFeedIndex] = useState(initialPageIndex);
-
   // Update current feed index state when shared value changes (for isVisible prop)
   useAnimatedReaction(
     () => Math.round(pageScrollProgress.value),
     (currentIndex, previousIndex) => {
       if (previousIndex !== null && currentIndex !== previousIndex) {
-        runOnJS(setCurrentFeedIndex)(currentIndex);
+        setCurrentFeedIndex(currentIndex);
       }
     }
   );
@@ -268,8 +268,7 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
       const translateYValue = visible ? 0 : -50;
 
       if (immediate) {
-        // Reanimated shared value update
-
+        // eslint-disable-next-line react-hooks/immutability
         feedBarTranslateY.value = translateYValue;
       } else {
         feedBarTranslateY.value = withTiming(translateYValue, {
@@ -286,8 +285,8 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
     () => Math.round(pageScrollProgress.value),
     (currentIndex, previousIndex) => {
       if (previousIndex !== null && currentIndex !== previousIndex) {
-        runOnJS(animateFeedBar)(true, true);
-        runOnJS(showFeedBar)();
+        animateFeedBar(true, true);
+        showFeedBar();
       }
     },
     []
@@ -303,6 +302,7 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
     (event: { nativeEvent: { position: number } }) => {
       const nextIndex = event.nativeEvent.position;
       // Update shared value to exact position after transition
+      // eslint-disable-next-line react-hooks/immutability
       pageScrollProgress.value = nextIndex;
       // Notify parent of feed change
       const newFeedOption = feedOptions[nextIndex];
@@ -490,12 +490,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 2,
-    // Subtle shadow for better visibility
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 4, // Android
+    boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
     backgroundColor: Colors.transparent,
     // Opacity is controlled by controlsAnimatedStyle
   },
@@ -508,11 +503,6 @@ const styles = StyleSheet.create({
   feedIndicators: {
     flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: Colors.neutral[200],
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2, // Android
   },
   indicatorItem: {
     paddingHorizontal: 4, // Reduced from 8 to 4 for tighter spacing
@@ -520,11 +510,6 @@ const styles = StyleSheet.create({
   createButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: Colors.neutral[200],
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2, // Android
   },
   pagerView: {
     flex: 1,
