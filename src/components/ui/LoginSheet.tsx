@@ -8,7 +8,7 @@ import { authSheetStyles } from './AuthSheetStyles';
 import ErrorMessage from './ErrorMessage';
 import { useSheetPresentation } from '../../hooks';
 import { isUserCancellation } from '../../utils/errors/errorHandler';
-import { NativePressable } from './NativePressable';
+import { SquircleNativePressable } from './Squircle';
 import { SquircleView } from './Squircle';
 
 interface LoginSheetProps {
@@ -133,7 +133,7 @@ const LoginSheet: React.FC<LoginSheetProps> = ({
           </View>
         </SquircleView>
 
-        <NativePressable
+        <SquircleNativePressable
           style={[authSheetStyles.button, canSubmit && authSheetStyles.buttonActive]}
           onPress={handleSignIn}
           disabled={!canSubmit}
@@ -164,7 +164,7 @@ const LoginSheet: React.FC<LoginSheetProps> = ({
               />
             </View>
           )}
-        </NativePressable>
+        </SquircleNativePressable>
 
         {onOpenSignUp && (
           <View style={authSheetStyles.footerContainer}>

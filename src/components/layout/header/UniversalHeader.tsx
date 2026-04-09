@@ -259,7 +259,6 @@ const ActionButton = memo<{
     return showFilledState ? backgroundColor : textColor;
   }, [textColor, backgroundColor, hasFilledBackground, canUseLiquidGlass]);
 
-  // Outer SquircleView sizing — no padding, no borderRadius (always FULL, set in style)
   const getButtonContainerSize = useCallback(() => {
     const hasLabel = !!action.label;
     const hasIcon = !!(action.customIcon || action.icon);
@@ -308,7 +307,6 @@ const ActionButton = memo<{
     }
   }, [size, action]);
 
-  // Inner NativePressable padding only
   const getButtonPadding = useCallback(() => {
     const hasLabel = !!action.label;
     const hasIcon = !!(action.customIcon || action.icon);
@@ -501,8 +499,6 @@ const ActionButton = memo<{
       })()
     : null;
 
-  // Follow pill: Animated.View owns layout animation, SquircleView clips to pill shape,
-  // NativePressable handles press feedback (activeOpacity dims fill + content together).
   if (shouldAnimate) {
     return (
       <Animated.View

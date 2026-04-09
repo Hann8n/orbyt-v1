@@ -10,7 +10,7 @@ import { authSheetStyles } from './AuthSheetStyles';
 import ErrorMessage from './ErrorMessage';
 import { useSheetPresentation } from '../../hooks';
 import { isUserCancellation } from '../../utils/errors/errorHandler';
-import { NativePressable } from './NativePressable';
+import { SquircleNativePressable } from './Squircle';
 import { SquircleView } from './Squircle';
 
 const DEFAULT_PDS = 'https://bsky.social';
@@ -170,12 +170,13 @@ const SignUpSheet: React.FC<SignUpSheetProps> = ({
           </View>
         </SquircleView>
 
-        <NativePressable
+        <SquircleNativePressable
           style={[
             authSheetStyles.button,
             canContinue && !isSigningUp && authSheetStyles.buttonActive,
           ]}
           onPress={onPress}
+          disabled={!canContinue || isSigningUp}
           accessibilityRole="button"
           accessibilityLabel={t('auth.continueToSignUp')}
           accessibilityState={{ disabled: !canContinue || isSigningUp }}
@@ -206,7 +207,7 @@ const SignUpSheet: React.FC<SignUpSheetProps> = ({
               />
             </View>
           )}
-        </NativePressable>
+        </SquircleNativePressable>
 
         <View style={authSheetStyles.footerContainer}>
           <Text style={authSheetStyles.footerText}>

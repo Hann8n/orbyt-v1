@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '../../utils/constants';
 import { StyleSheet, Text, View, StyleProp, ViewStyle, ActivityIndicator } from 'react-native';
 import { NativePressable } from './NativePressable';
+import { SquircleNativePressable } from './Squircle';
 import { useRouter } from 'expo-router';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { Avatar } from './UI';
@@ -252,12 +253,12 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
         </View>
       </View>
       {shouldShowFollowButton ? (
-        <NativePressable
+        <SquircleNativePressable
           style={[styles.followButton, !actualIsFollowing && styles.followButtonInactive]}
           onPress={handleFollowPress}
         >
           <AddSquareCuteFilledIcon size={32} color={Colors.neutral[400]} />
-        </NativePressable>
+        </SquircleNativePressable>
       ) : showDeleteButton ? (
         <NativePressable onPress={onDeletePress} androidRippleBorderless>
           <StatusIconButton variant="error">

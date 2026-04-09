@@ -24,6 +24,7 @@ import {
   AppState,
 } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
+import { SquircleNativePressable } from '@/components/ui/Squircle';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -1201,7 +1202,7 @@ const VideoCard = memo(
                   </Text>
                 </View>
                 {isBlurred && (
-                  <NativePressable onPress={handleViewContent} style={styles.viewButton}>
+                  <SquircleNativePressable onPress={handleViewContent} style={styles.viewButton}>
                     {Platform.OS === 'ios' && isLiquidGlassAvailable() ? (
                       <GlassView
                         style={styles.glassBackground}
@@ -1213,7 +1214,7 @@ const VideoCard = memo(
                     <View style={styles.buttonContent} pointerEvents="none">
                       <Text style={styles.viewButtonText}>{t('video.seeVideo')}</Text>
                     </View>
-                  </NativePressable>
+                  </SquircleNativePressable>
                 )}
               </View>
             </>

@@ -29,8 +29,7 @@ export const BORDER_RADIUS = {
   FULL: 102,
 } as const;
 
-// Corner smoothing for squircle rendering (0 = circular arc, 1 = iOS icon-style maximum)
-// Tune this single value to adjust the superellipse intensity app-wide.
+/** Passed to `react-native-resquircle` (`SquircleView` / pressables). 0 = circular, 1 = max superellipse. */
 export const CORNER_SMOOTHING = 0.8 as const;
 
 // Query Constants

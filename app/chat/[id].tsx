@@ -27,6 +27,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
+import { SquircleNativePressable } from '@/components/ui/Squircle';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { Image } from 'expo-image';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
@@ -2119,7 +2120,7 @@ export default function ChatScreen() {
               />
             </View>
             {canSend ? (
-              <NativePressable
+              <SquircleNativePressable
                 style={[styles.sendButton, !useLiquidGlass && styles.sendButtonFallback]}
                 onPressIn={() => {
                   // Keep focus anchored on the input so keyboard doesn't collapse
@@ -2146,7 +2147,7 @@ export default function ChatScreen() {
                 ) : (
                   <Icon name="up" size={22} color={Colors.black} />
                 )}
-              </NativePressable>
+              </SquircleNativePressable>
             ) : null}
           </View>
         )}

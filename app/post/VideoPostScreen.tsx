@@ -17,6 +17,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
+import { SquircleNativePressable } from '@/components/ui/Squircle';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -213,8 +214,8 @@ const ChannelSelector: React.FC<{
   return (
     <View style={styles.section}>
       <Text style={styles.sectionHeaderTitle}>{t('video.channelOptional')}</Text>
-      <NativePressable style={styles.channelSelectorContainer} onPress={onPress}>
-        <View style={styles.channelSelectorBox}>
+      <View style={styles.channelSelectorContainer}>
+        <SquircleNativePressable style={styles.channelSelectorBox} onPress={onPress}>
           {!selectedChannel ? (
             <Avatar
               type="channel"
@@ -232,39 +233,41 @@ const ChannelSelector: React.FC<{
               ringColor={showRing ? undefined : 'transparent'}
             />
           )}
-        </View>
-        {!selectedChannel ? (
-          <View style={styles.channelSelectorPlaceholderContainer}>
-            <Text style={styles.channelSelectorPlaceholderText}>{t('video.pickChannel')}</Text>
-            <DownSmallFillIcon size={20} color={Colors.neutral[500]} />
-          </View>
-        ) : (
-          <View style={styles.channelSelectorNameContainer}>
-            {(() => {
-              const orbytChannel = getChannelByUri(selectedChannel.uri);
-              return (
-                shouldShowChannelSlash(selectedChannel.uri) && (
-                  <Text
-                    style={[
-                      styles.channelSelectorName,
-                      styles.orbytSlash,
-                      styles.channelSelectorNameSemiBold,
-                      {
-                        color: orbytChannel?.channelColor || Colors.amber[400],
-                      },
-                    ]}
-                  >
-                    /
-                  </Text>
-                )
-              );
-            })()}
-            <Text style={[styles.channelSelectorName, styles.channelSelectorNameBold]}>
-              {selectedChannel.displayName.toLowerCase()}
-            </Text>
-          </View>
-        )}
-      </NativePressable>
+        </SquircleNativePressable>
+        <NativePressable style={styles.channelSelectorLabelPressable} onPress={onPress}>
+          {!selectedChannel ? (
+            <View style={styles.channelSelectorPlaceholderContainer}>
+              <Text style={styles.channelSelectorPlaceholderText}>{t('video.pickChannel')}</Text>
+              <DownSmallFillIcon size={20} color={Colors.neutral[500]} />
+            </View>
+          ) : (
+            <View style={styles.channelSelectorNameContainer}>
+              {(() => {
+                const orbytChannel = getChannelByUri(selectedChannel.uri);
+                return (
+                  shouldShowChannelSlash(selectedChannel.uri) && (
+                    <Text
+                      style={[
+                        styles.channelSelectorName,
+                        styles.orbytSlash,
+                        styles.channelSelectorNameSemiBold,
+                        {
+                          color: orbytChannel?.channelColor || Colors.amber[400],
+                        },
+                      ]}
+                    >
+                      /
+                    </Text>
+                  )
+                );
+              })()}
+              <Text style={[styles.channelSelectorName, styles.channelSelectorNameBold]}>
+                {selectedChannel.displayName.toLowerCase()}
+              </Text>
+            </View>
+          )}
+        </NativePressable>
+      </View>
     </View>
   );
 };
@@ -279,23 +282,25 @@ const CommentFilterSelector: React.FC<{
   return (
     <View style={styles.section}>
       <Text style={styles.sectionHeaderTitle}>{t('video.comments')}</Text>
-      <NativePressable style={styles.channelSelectorContainer} onPress={onPress}>
-        <View style={styles.channelSelectorBox}>
+      <View style={styles.channelSelectorContainer}>
+        <SquircleNativePressable style={styles.channelSelectorBox} onPress={onPress}>
           <Icon name="chat_3" size={32} color={Colors.neutral[200]} />
-        </View>
-        {!commentFilter ? (
-          <View style={styles.channelSelectorPlaceholderContainer}>
-            <Text style={styles.channelSelectorPlaceholderText}>
-              {getSelectedCommentFilterLabel()}
-            </Text>
-            <DownSmallFillIcon size={20} color={Colors.neutral[500]} />
-          </View>
-        ) : (
-          <View style={styles.channelSelectorNameContainer}>
-            <Text style={styles.channelSelectorName}>{getSelectedCommentFilterLabel()}</Text>
-          </View>
-        )}
-      </NativePressable>
+        </SquircleNativePressable>
+        <NativePressable style={styles.channelSelectorLabelPressable} onPress={onPress}>
+          {!commentFilter ? (
+            <View style={styles.channelSelectorPlaceholderContainer}>
+              <Text style={styles.channelSelectorPlaceholderText}>
+                {getSelectedCommentFilterLabel()}
+              </Text>
+              <DownSmallFillIcon size={20} color={Colors.neutral[500]} />
+            </View>
+          ) : (
+            <View style={styles.channelSelectorNameContainer}>
+              <Text style={styles.channelSelectorName}>{getSelectedCommentFilterLabel()}</Text>
+            </View>
+          )}
+        </NativePressable>
+      </View>
     </View>
   );
 };
@@ -311,23 +316,25 @@ const ContentWarningSelector: React.FC<{
   return (
     <View style={styles.section}>
       <Text style={styles.sectionHeaderTitle}>{t('video.warnings')}</Text>
-      <NativePressable style={styles.channelSelectorContainer} onPress={onPress}>
-        <View style={styles.channelSelectorBox}>
+      <View style={styles.channelSelectorContainer}>
+        <SquircleNativePressable style={styles.channelSelectorBox} onPress={onPress}>
           <Icon name="warning" size={32} color={Colors.neutral[200]} />
-        </View>
-        {selectedContentWarnings.length === 0 && !otherWarning.trim() ? (
-          <View style={styles.channelSelectorPlaceholderContainer}>
-            <Text style={styles.channelSelectorPlaceholderText}>
-              {getSelectedContentWarningsLabel()}
-            </Text>
-            <DownSmallFillIcon size={20} color={Colors.neutral[500]} />
-          </View>
-        ) : (
-          <View style={styles.channelSelectorNameContainer}>
-            <Text style={styles.channelSelectorName}>{getSelectedContentWarningsLabel()}</Text>
-          </View>
-        )}
-      </NativePressable>
+        </SquircleNativePressable>
+        <NativePressable style={styles.channelSelectorLabelPressable} onPress={onPress}>
+          {selectedContentWarnings.length === 0 && !otherWarning.trim() ? (
+            <View style={styles.channelSelectorPlaceholderContainer}>
+              <Text style={styles.channelSelectorPlaceholderText}>
+                {getSelectedContentWarningsLabel()}
+              </Text>
+              <DownSmallFillIcon size={20} color={Colors.neutral[500]} />
+            </View>
+          ) : (
+            <View style={styles.channelSelectorNameContainer}>
+              <Text style={styles.channelSelectorName}>{getSelectedContentWarningsLabel()}</Text>
+            </View>
+          )}
+        </NativePressable>
+      </View>
     </View>
   );
 };
@@ -374,7 +381,7 @@ const PostButton: React.FC<{
   );
 
   return (
-    <NativePressable
+    <SquircleNativePressable
       style={[
         glassStyle,
         { width: buttonWidth },
@@ -397,7 +404,7 @@ const PostButton: React.FC<{
       ) : (
         buttonContent
       )}
-    </NativePressable>
+    </SquircleNativePressable>
   );
 };
 
@@ -2108,6 +2115,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
+  },
+  channelSelectorLabelPressable: {
+    flex: 1,
+    minWidth: 0,
   },
   channelSelectorBox: {
     width: 52,

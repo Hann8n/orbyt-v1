@@ -30,17 +30,13 @@ export const SquircleButton = forwardRef<
   return <_SquircleButton ref={ref} cornerSmoothing={cornerSmoothing} {...props} />;
 });
 
-// Style keys that go on the outer SquircleView (shape, layout positioning)
-// Everything else (backgroundColor, padding, flex-container props) stays on NativePressable
-// so iOS activeOpacity dims the fill + content correctly on press.
+/** Style keys applied to the outer `SquircleView`; fill/padding stay on inner `NativePressable` for press dimming. */
 const SQUIRCLE_CONTAINER_KEYS = new Set<string>([
-  // Squircle shape
   'borderRadius',
   'borderTopLeftRadius',
   'borderTopRightRadius',
   'borderBottomLeftRadius',
   'borderBottomRightRadius',
-  // Border stroke
   'borderWidth',
   'borderColor',
   'borderStyle',
@@ -52,13 +48,9 @@ const SQUIRCLE_CONTAINER_KEYS = new Set<string>([
   'borderBottomColor',
   'borderLeftColor',
   'borderRightColor',
-  // Clipping
   'overflow',
-  // Shadow
   'boxShadow',
-  // Opacity (disabled states should dim whole element incl. border)
   'opacity',
-  // Outer layout — must live on the outermost view
   'flex',
   'flexGrow',
   'flexShrink',
@@ -113,20 +105,7 @@ function shouldFillInnerPressable(container: ViewStyle): boolean {
   );
 }
 
-/**
- * SquircleNativePressable — drop-in replacement for NativePressable with iOS-style superellipse corners.
- *
- * Accepts the exact same API as NativePressable (all PressableProps + androidRippleBorderless /
- * activeOpacity). No style changes required — swap the component tag and it works.
- *
- * How it works:
- *   SquircleView (shape + layout)
- *     └─ NativePressable (backgroundColor + padding + press feedback)
- *          └─ {children}
- *
- * backgroundColor lives on NativePressable so iOS activeOpacity dims the fill on press.
- * borderRadius / shadow / layout live on SquircleView for correct clipping and positioning.
- */
+/** Same API as `NativePressable`; outer squircle clips shape, inner carries fill so iOS press dim works. */
 const CLIP_STYLE: ViewStyle = { overflow: 'hidden' };
 
 export const SquircleNativePressable = forwardRef<
@@ -135,9 +114,6 @@ export const SquircleNativePressable = forwardRef<
 >(function SquircleNativePressable({ style, ...props }, ref) {
   const { container, inner } = splitStyle(style as StyleProp<ViewStyle>);
   const fillInnerPressable = shouldFillInnerPressable(container);
-  // overflow:hidden on the SquircleView masks the inner NativePressable's
-  // backgroundColor to the squircle boundary — without it the fill renders
-  // as a plain rectangle on top of the squircle shape.
   return (
     <SquircleView style={[container, CLIP_STYLE]} cornerSmoothing={CORNER_SMOOTHING}>
       <NativePressable ref={ref} style={[fillInnerPressable && styles.fill, inner]} {...props} />

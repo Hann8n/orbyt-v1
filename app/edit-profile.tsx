@@ -37,13 +37,19 @@ import Animated, {
 import * as ImagePicker from 'expo-image-picker';
 import { MenuView } from '@react-native-menu/menu';
 import type { MenuAction } from '@react-native-menu/menu';
-import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Colors } from '@/theme';
 import { Avatar } from '@/components/ui/UI';
 import { CheckIcon, STROKE_WIDTH_THICK } from '@/components/ui/Icon';
 import { useProfileUpdateMutation, useProfileByDid } from '@/services/data/ProfileService';
 import { hexToRGBA, blendColors } from '@/utils/formatting/colors';
 import { BORDER_RADIUS } from '@/utils/constants';
+import {
+  headerCancelContainer,
+  headerCancelLabel,
+  headerSaveContainer,
+  headerSaveLabel,
+  headerSaveLabelMuted,
+} from '@/components/ui/buttonPresets';
 import { useCurrentUser } from '@/stores/userStore';
 import { splitHandleSuffix } from '@/utils/formatting/handles';
 import { useOrbytColors, saveAndSyncColors } from '@/services/colors';
@@ -102,8 +108,7 @@ const AnimatedColorSquare: React.FC<AnimatedColorSquareProps> = React.memo(
 
     return (
       <View style={styles.colorSquareContainer}>
-        <NativePressable style={[styles.colorSquare, colorSquareBorder]} onPress={onPress}>
-          {/* Background color section */}
+        <SquircleNativePressable style={[styles.colorSquare, colorSquareBorder]} onPress={onPress}>
           <Animated.View
             style={[
               styles.colorSection,
@@ -111,12 +116,10 @@ const AnimatedColorSquare: React.FC<AnimatedColorSquareProps> = React.memo(
               { backgroundColor: displayBackgroundColor },
             ]}
           />
-
-          {/* Text color section */}
           <Animated.View
             style={[styles.colorSection, textAnimatedStyle, { backgroundColor: displayTextColor }]}
           />
-        </NativePressable>
+        </SquircleNativePressable>
       </View>
     );
   }
@@ -877,13 +880,13 @@ const EditProfileScreen: React.FC = () => {
                 handleDismiss();
               }
             }}
-            style={styles.cancelButton}
+            style={headerCancelContainer}
             accessibilityRole="button"
             accessibilityLabel={
               isAboutFocused || isDisplayNameFocused ? t('common.back') : t('common.cancel')
             }
           >
-            <Text style={styles.cancelButtonText}>
+            <Text style={headerCancelLabel}>
               {isAboutFocused || isDisplayNameFocused ? t('common.back') : t('common.cancel')}
             </Text>
           </SquircleNativePressable>
@@ -905,11 +908,7 @@ const EditProfileScreen: React.FC = () => {
           )}
 
           <SquircleNativePressable
-            style={[
-              styles.saveButtonGlass,
-              !isLiquidGlassAvailable() && styles.saveButton,
-              isAboutFocused && aboutOverBy > 0 && styles.saveButtonDisabled,
-            ]}
+            style={[headerSaveContainer, isSaveDisabled && styles.saveButtonDisabled]}
             onPress={() => {
               if (isAboutFocused) {
                 if (aboutOverBy > 0) {
@@ -923,27 +922,20 @@ const EditProfileScreen: React.FC = () => {
               }
             }}
             disabled={isSaveDisabled}
+            accessibilityRole="button"
+            accessibilityLabel={
+              isAboutFocused || isDisplayNameFocused ? t('common.done') : t('common.save')
+            }
+            accessibilityState={{ disabled: isSaveDisabled }}
           >
-            {isLiquidGlassAvailable() && (
-              <GlassView
-                style={styles.glassBackground}
-                glassEffectStyle="clear"
-                tintColor={hexToRGBA(
-                  Colors.neutral[50],
-                  isAboutFocused && aboutOverBy > 0 ? 0.35 : 0.9
-                )}
-                isInteractive
-              />
-            )}
             <View pointerEvents="none">
               {isSaving ? (
                 <CheckIcon size={17} color={Colors.black} strokeWidth={STROKE_WIDTH_THICK} />
               ) : (
                 <Text
                   style={[
-                    styles.saveButtonText,
-                    isLiquidGlassAvailable() && { color: Colors.black },
-                    isAboutFocused && aboutOverBy > 0 && { color: hexToRGBA(Colors.black, 0.25) },
+                    headerSaveLabel,
+                    isAboutFocused && aboutOverBy > 0 && headerSaveLabelMuted,
                   ]}
                 >
                   {isAboutFocused || isDisplayNameFocused ? t('common.done') : t('common.save')}
@@ -1314,49 +1306,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
   },
-  cancelButton: {
-    backgroundColor: hexToRGBA(Colors.neutral[300], 0.12),
-    borderRadius: BORDER_RADIUS.LARGE,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    minHeight: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
-  },
-  cancelButtonText: {
-    fontFamily: FontFamily.bold,
-    fontSize: fontSizeFor(17),
-    color: Colors.neutral[50],
-  },
-  saveButton: {
-    backgroundColor: Colors.neutral[50],
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    minWidth: 60,
-    alignItems: 'center',
-  },
   saveButtonDisabled: {
     opacity: 0.4,
-  },
-  saveButtonGlass: {
-    borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    minWidth: 60,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  glassBackground: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 20,
-  },
-  saveButtonText: {
-    fontFamily: FontFamily.bold,
-    fontSize: fontSizeFor(17),
-    color: Colors.black,
   },
   aboutHeaderCounter: {
     marginHorizontal: 8,
@@ -1464,7 +1415,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   uploadButton: {
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.LARGE,
     paddingHorizontal: 20,
     paddingVertical: 10,
     alignItems: 'center',

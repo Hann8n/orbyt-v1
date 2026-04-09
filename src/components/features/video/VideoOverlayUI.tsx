@@ -20,6 +20,7 @@ import {
   type TextLayoutEventData,
 } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
+import { SquircleNativePressable } from '@/components/ui/Squircle';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '../../../theme';
@@ -550,7 +551,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                           onHashtagPress={navigateToHashtagFeed}
                           facets={record?.facets as RichTextFacet[] | undefined}
                         />
-                        <NativePressable
+                        <SquircleNativePressable
                           onPress={toggleCollapsed}
                           hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
                           accessibilityRole="button"
@@ -563,7 +564,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                           <Text style={styles.descriptionToggleButtonLabel}>
                             {t('feed.showMore')}
                           </Text>
-                        </NativePressable>
+                        </SquircleNativePressable>
                       </View>
                     ) : descriptionOverflows === true && !isOverlayCollapsed ? (
                       <View style={styles.descriptionExpandedWithToggle}>
@@ -576,7 +577,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                         />
                         <View style={styles.descriptionInlineToggleRow}>
                           <View style={styles.descriptionTextFlexible} />
-                          <NativePressable
+                          <SquircleNativePressable
                             onPress={toggleCollapsed}
                             hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
                             accessibilityRole="button"
@@ -589,7 +590,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                             <Text style={styles.descriptionToggleButtonLabel}>
                               {t('feed.showLess')}
                             </Text>
-                          </NativePressable>
+                          </SquircleNativePressable>
                         </View>
                       </View>
                     ) : (

@@ -5,6 +5,12 @@ import { Colors } from './UI';
 import { SquircleView, SquircleNativePressable } from './Squircle';
 import { FontFamily, Typography } from '@/utils/components/typography';
 import { hexToRGBA } from '@/utils/formatting/colors';
+import {
+  modalActionPrimaryContainer,
+  modalActionPrimaryLabel,
+  modalActionSecondaryContainer,
+  modalActionLabel,
+} from './buttonPresets';
 
 interface PopUpModalProps {
   visible: boolean;
@@ -42,18 +48,12 @@ const PopUpModal: React.FC<PopUpModalProps> = ({
                 {actions.map((action, index) => (
                   <SquircleNativePressable
                     key={index}
-                    style={[
-                      styles.actionButton,
-                      action.isPrimary ? styles.primaryButton : styles.secondaryButton,
-                    ]}
+                    style={
+                      action.isPrimary ? modalActionPrimaryContainer : modalActionSecondaryContainer
+                    }
                     onPress={action.onPress}
                   >
-                    <Text
-                      style={[
-                        styles.actionButtonText,
-                        action.isPrimary && styles.primaryButtonText,
-                      ]}
-                    >
+                    <Text style={action.isPrimary ? modalActionPrimaryLabel : modalActionLabel}>
                       {action.label}
                     </Text>
                   </SquircleNativePressable>
@@ -101,25 +101,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
     gap: 8,
-  },
-  actionButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: BORDER_RADIUS.SMALL,
-  },
-  secondaryButton: {
-    backgroundColor: Colors.overlay.white10,
-  },
-  primaryButton: {
-    backgroundColor: Colors.neutral[900],
-  },
-  actionButtonText: {
-    color: Colors.neutral[50],
-    fontSize: Typography.sizes.subtitle,
-    fontFamily: FontFamily.medium,
-  },
-  primaryButtonText: {
-    fontFamily: FontFamily.bold,
   },
 });
 

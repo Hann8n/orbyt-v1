@@ -1,124 +1,41 @@
 import { StyleSheet } from 'react-native';
 import { Colors } from '@/theme';
-import { hexToRGBA } from '@/utils/formatting/colors';
 import { BORDER_RADIUS } from '@/utils/constants';
 import { FontFamily, Typography, fontSizeFor } from '@/utils/components/typography';
+import {
+  settingsCategoryChipContainer,
+  settingsCompactActionContainer,
+  settingsEditChipContainer,
+  settingsFilterChipContainer,
+  settingsIconSquareContainer,
+  settingsLogoutPillContainer,
+  settingsMenuOptionRowContainer,
+  settingsPrimaryRowContainer,
+  settingsToggleGroupContainer,
+  settingsToggleItemContainer,
+} from '@/components/ui/buttonPresets';
 
 // Shared button styles for settings screens
 export const settingsButtonStyles = StyleSheet.create({
-  // Primary button style used across most settings screens
-  primaryButton: {
-    backgroundColor: hexToRGBA(Colors.neutral[300], 0.12),
-    borderRadius: BORDER_RADIUS.LARGE,
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    marginBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    overflow: 'hidden',
-  },
+  primaryButton: settingsPrimaryRowContainer,
 
-  // Menu option style (used in SettingsScreen, ContentFiltersScreen) - matches ShareSheet/VerticalListSheet pattern
-  menuOption: {
-    backgroundColor: Colors.neutral[900],
-    borderRadius: BORDER_RADIUS.LARGE,
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    marginHorizontal: 16,
-    marginBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    overflow: 'hidden',
-    borderWidth: 0,
-    borderColor: Colors.transparent,
-  },
+  menuOption: settingsMenuOptionRowContainer,
 
-  // Action button style (unblock, unmute, etc.)
-  actionButton: {
-    borderWidth: 0,
-    borderColor: Colors.transparent,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: BORDER_RADIUS.FULL,
-    minWidth: 80,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: hexToRGBA(Colors.neutral[300], 0.12),
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
-  },
+  actionButton: settingsCompactActionContainer,
 
-  // Small action button (clear, delete, etc.)
-  smallActionButton: {
-    width: 40,
-    height: 40,
-    borderRadius: BORDER_RADIUS.LARGE,
-    backgroundColor: hexToRGBA(Colors.neutral[300], 0.12),
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  smallActionButton: settingsIconSquareContainer,
 
-  // Edit button style
-  editButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: BORDER_RADIUS.MEDIUM,
-    backgroundColor: Colors.neutral[900],
-  },
+  editButton: settingsEditChipContainer,
 
-  // Category/Sort button style
-  filterButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginRight: 8,
-    borderRadius: BORDER_RADIUS.MEDIUM,
-    backgroundColor: Colors.neutral[900],
-  },
+  filterButton: settingsFilterChipContainer,
 
-  // Category button style (larger)
-  categoryButton: {
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    marginRight: 8,
-    borderRadius: BORDER_RADIUS.LARGE,
-    backgroundColor: Colors.neutral[900],
-  },
+  categoryButton: settingsCategoryChipContainer,
 
-  // Logout button style - matches cancel button (compact footer style)
-  logoutButton: {
-    backgroundColor: Colors.neutral[900],
-    borderRadius: BORDER_RADIUS.FULL,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    minHeight: 44,
-  },
+  logoutButton: settingsLogoutPillContainer,
 
-  // Toggle button group style
-  toggleButtonGroup: {
-    flexDirection: 'row',
-    backgroundColor: Colors.neutral[900],
-    borderRadius: BORDER_RADIUS.MEDIUM,
-    flexShrink: 0,
-    width: 180,
-    overflow: 'hidden',
-  },
+  toggleButtonGroup: settingsToggleGroupContainer,
 
-  // Individual toggle button
-  toggleButton: {
-    flex: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  toggleButton: settingsToggleItemContainer,
 
   // Card item style (for lists)
   cardItem: {

@@ -4,6 +4,14 @@ import { Colors } from './UI';
 import { FontFamily, Typography } from '../../utils/components/typography';
 import { hexToRGBA } from '../../utils/formatting/colors';
 import { inputTextDefaults } from '../../utils/styling/platformText';
+import {
+  authCtaContainer,
+  authCtaContainerActive,
+  authCtaLabel,
+  authCtaLabelActive,
+  buttonContentCenter,
+  buttonContentRowBetween,
+} from './buttonPresets';
 
 /**
  * Shared styles for authentication sheets (LoginSheet, SignUpSheet)
@@ -36,41 +44,12 @@ export const authSheetStyles = StyleSheet.create({
     letterSpacing: 0.25,
     ...inputTextDefaults,
   },
-  button: {
-    backgroundColor: Colors.neutral[200],
-    borderRadius: BORDER_RADIUS.FULL,
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    marginTop: 8,
-    marginBottom: 0,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    flexDirection: 'row',
-    minHeight: 64,
-  },
-  buttonActive: {
-    backgroundColor: Colors.teal[500],
-  },
-  buttonText: {
-    color: Colors.neutral[500],
-    fontSize: Typography.sizes.title,
-    lineHeight: Typography.lineHeights.title,
-    fontFamily: FontFamily.semibold,
-  },
-  buttonTextActive: {
-    color: Colors.neutral[900],
-  },
-  buttonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  buttonContentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
-  },
+  button: authCtaContainer,
+  buttonActive: authCtaContainerActive,
+  buttonText: authCtaLabel,
+  buttonTextActive: authCtaLabelActive,
+  buttonContent: buttonContentCenter,
+  buttonContentRow: buttonContentRowBetween,
   loadingIcon: {
     marginRight: 8,
   },

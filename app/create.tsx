@@ -40,6 +40,7 @@ import Animated, {
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Icon, { CloseFillIcon, ArrowRightFillIcon } from '@/components/ui/Icon';
 import { NativePressable } from '@/components/ui/NativePressable';
+import { SquircleNativePressable } from '@/components/ui/Squircle';
 import BottomToolBar from '@/components/ui/BottomToolBar';
 import * as Device from 'expo-device';
 import { getBottomNavBarHeight } from '@/utils/device/screen';
@@ -1351,9 +1352,12 @@ const CreateScreen: React.FC = () => {
             style={styles.errorIcon}
           />
           <Text style={styles.warningText}>{t('video.pleaseEnableCamera')}</Text>
-          <NativePressable style={styles.button} onPress={cameraPermission.requestPermission}>
+          <SquircleNativePressable
+            style={styles.button}
+            onPress={cameraPermission.requestPermission}
+          >
             <Text style={styles.buttonText}>{t('video.grantPermission')}</Text>
-          </NativePressable>
+          </SquircleNativePressable>
         </View>
       );
     }

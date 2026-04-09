@@ -9,8 +9,7 @@ import { getBottomNavBarHeight } from '../../utils/device/screen';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import Icon from './Icon';
 import { Colors } from './UI';
-import { BORDER_RADIUS } from '@/utils/constants';
-import { FontFamily, fontSizeFor } from '@/utils/components/typography';
+import { toolbarNextContainer, toolbarNextLabel } from './buttonPresets';
 
 interface BottomToolBarProps {
   mode: 'create' | 'edit';
@@ -157,11 +156,11 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
         {onNextPress && (
           <View style={styles.nextButtonContainer}>
             <SquircleNativePressable
-              style={[styles.nextButton, nextButtonDisabled && styles.nextButtonDisabled]}
+              style={[toolbarNextContainer, nextButtonDisabled && styles.nextButtonDisabled]}
               onPress={onNextPress}
               disabled={nextButtonDisabled}
             >
-              <Text style={styles.nextButtonText}>{t('common.next')}</Text>
+              <Text style={toolbarNextLabel}>{t('common.next')}</Text>
             </SquircleNativePressable>
           </View>
         )}
@@ -228,25 +227,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  nextButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.neutral[50],
-    borderRadius: BORDER_RADIUS.LARGE,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    minWidth: 60,
-    boxShadow: '0 2px 4px rgba(0,0,0,0.30)',
-  },
   nextButtonDisabled: {
     opacity: 0.4,
-  },
-  nextButtonText: {
-    color: Colors.black,
-    fontSize: fontSizeFor(17),
-    fontFamily: FontFamily.bold,
-    fontWeight: '600',
-    includeFontPadding: false,
   },
 });
 

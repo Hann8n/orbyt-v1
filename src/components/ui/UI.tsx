@@ -13,6 +13,21 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { NativePressable } from './NativePressable';
+import { SquircleNativePressable } from './Squircle';
+import {
+  buttonContentCenter,
+  buttonDisabledOpacity,
+  buttonIconTint,
+  buttonLabelBase,
+  buttonSizeContainer,
+  buttonSizeLabel,
+  buttonVariantContainer,
+  buttonVariantLabel,
+  retryGlassBackgroundRadius,
+  retryPillContainer,
+  retryPillLabel,
+  shape,
+} from './buttonPresets';
 import { Image } from 'expo-image';
 import { Modal as RNModal } from 'react-native';
 // SafeAreaView is imported elsewhere; no direct usage in this module
@@ -29,7 +44,7 @@ import { BORDER_RADIUS } from '../../utils/constants';
 import { SquircleView } from './Squircle';
 import type { StatusView } from '../../services/api/types';
 import { isLiveStatus } from '../../services/data/ProfileService';
-import { Colors, ColorScale, NeutralScale, Shadows } from '../../theme';
+import { Colors, ColorScale, NeutralScale } from '../../theme';
 
 // Re-export Colors for backward compatibility
 export { Colors };
@@ -81,21 +96,18 @@ const Button: React.FC<ButtonProps> = ({
   textStyle,
 }) => {
   const buttonStyle = [
-    styles.buttonBase,
-    buttonSizeStyles[size],
-    buttonVariantStyles[variant],
-    disabled && styles.buttonDisabled,
+    buttonContentCenter,
+    shape.pill,
+    buttonSizeContainer[size],
+    buttonVariantContainer[variant],
+    (disabled || loading) && buttonDisabledOpacity,
     style,
   ];
-  const computedTextStyle = [
-    styles.buttonTextBase,
-    buttonTextSizeStyles[size],
-    buttonTextVariantStyles[variant],
-  ];
-  const iconColor = buttonIconColorByVariant[variant];
+  const computedTextStyle = [buttonLabelBase, buttonSizeLabel[size], buttonVariantLabel[variant]];
+  const iconColor = buttonIconTint[variant];
 
   return (
-    <NativePressable style={buttonStyle} onPress={onPress} disabled={disabled || loading}>
+    <SquircleNativePressable style={buttonStyle} onPress={onPress} disabled={disabled || loading}>
       {loading ? (
         <ActivityIndicator
           size="small"
@@ -103,76 +115,33 @@ const Button: React.FC<ButtonProps> = ({
         />
       ) : (
         <>
-          <Text style={[computedTextStyle, textStyle]}>{title}</Text>
           {icon && iconPosition === 'left' && (
             <React.Suspense fallback={<View style={styles.iconFallback} />}>
               <Icon
                 name={icon}
                 size={16}
                 color={iconColor}
-                style={styles.iconMargin}
+                style={styles.iconMarginRight}
                 strokeWidth={STROKE_WIDTH_THICK}
               />
             </React.Suspense>
           )}
+          <Text style={[computedTextStyle, textStyle]}>{title}</Text>
           {icon && iconPosition === 'right' && (
             <React.Suspense fallback={<View style={styles.iconFallback} />}>
               <Icon
                 name={icon}
                 size={16}
                 color={iconColor}
-                style={styles.iconMargin}
+                style={styles.iconMarginLeft}
                 strokeWidth={STROKE_WIDTH_THICK}
               />
             </React.Suspense>
           )}
         </>
       )}
-    </NativePressable>
+    </SquircleNativePressable>
   );
-};
-
-const buttonSizeStyles: Record<ButtonSize, ViewStyle> = {
-  small: { paddingVertical: 8, paddingHorizontal: 16, minHeight: 36 },
-  medium: { paddingVertical: 12, paddingHorizontal: 20, minHeight: 44 },
-  large: { paddingVertical: 16, paddingHorizontal: 24, minHeight: 52 },
-};
-
-const buttonVariantStyles: Record<ButtonVariant, ViewStyle> = {
-  primary: { backgroundColor: Colors.neutral[50] },
-  secondary: { backgroundColor: hexToRGBA(Colors.neutral[300], 0.12) },
-  outline: {
-    backgroundColor: Colors.transparent,
-    borderWidth: 1,
-    borderColor: Colors.neutral[300],
-  },
-  ghost: { backgroundColor: Colors.transparent },
-  danger: { backgroundColor: Colors.coral[950] },
-  success: { backgroundColor: Colors.teal[500] },
-};
-
-const buttonTextSizeStyles: Record<ButtonSize, TextStyle> = {
-  small: { fontSize: Typography.sizes.bodySmall },
-  medium: { fontSize: Typography.sizes.subtitle },
-  large: { fontSize: Typography.sizes.body },
-};
-
-const buttonTextVariantStyles: Record<ButtonVariant, TextStyle> = {
-  primary: { color: Colors.black },
-  secondary: { color: Colors.neutral[50] },
-  outline: { color: Colors.neutral[200] },
-  ghost: { color: Colors.neutral[50] },
-  danger: { color: Colors.coral[300] },
-  success: { color: Colors.neutral[50] },
-};
-
-const buttonIconColorByVariant: Record<ButtonVariant, string> = {
-  primary: Colors.black,
-  secondary: Colors.neutral[50],
-  outline: Colors.neutral[200],
-  ghost: Colors.neutral[50],
-  danger: Colors.coral[300],
-  success: Colors.neutral[50],
 };
 
 // Retry Button Component - consistent styling across the app
@@ -195,14 +164,14 @@ export const RetryButton: React.FC<RetryButtonProps> = ({ onPress, style, textSt
   );
 
   return (
-    <NativePressable
-      style={[retryButtonStyles.button, !useLiquidGlass && retryButtonStyles.whiteButton, style]}
+    <SquircleNativePressable
+      style={[retryPillContainer, !useLiquidGlass && retryButtonStyles.whiteButton, style]}
       onPress={onPress}
     >
       {useLiquidGlass ? (
         <>
           <GlassView
-            style={retryButtonStyles.glassBackground}
+            style={[StyleSheet.absoluteFillObject, retryGlassBackgroundRadius]}
             glassEffectStyle="clear"
             tintColor="rgba(255, 255, 255, 1)"
             isInteractive
@@ -212,22 +181,11 @@ export const RetryButton: React.FC<RetryButtonProps> = ({ onPress, style, textSt
       ) : (
         buttonContent
       )}
-    </NativePressable>
+    </SquircleNativePressable>
   );
 };
 
 const retryButtonStyles = StyleSheet.create({
-  button: {
-    borderRadius: BORDER_RADIUS.FULL,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    marginTop: 20,
-    overflow: 'hidden',
-    ...Shadows.large,
-    justifyContent: 'center',
-    alignItems: 'center',
-    minHeight: 44,
-  },
   buttonContent: {
     justifyContent: 'center',
     alignItems: 'center',
@@ -235,15 +193,7 @@ const retryButtonStyles = StyleSheet.create({
   whiteButton: {
     backgroundColor: Colors.neutral[50],
   },
-  glassBackground: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: BORDER_RADIUS.FULL,
-  },
-  text: {
-    color: Colors.black,
-    fontSize: Typography.sizes.subtitle,
-    fontFamily: FontFamily.semibold,
-  },
+  text: retryPillLabel,
 });
 
 /** Matches {@link RetryButton} — use for secondary actions (e.g. Go back) on error / empty states. */
@@ -265,14 +215,14 @@ const GoBackButton: React.FC<GoBackButtonProps> = ({ onPress, style }) => {
   );
 
   return (
-    <NativePressable
-      style={[goBackButtonStyles.button, !useLiquidGlass && goBackButtonStyles.whiteButton, style]}
+    <SquircleNativePressable
+      style={[retryPillContainer, !useLiquidGlass && goBackButtonStyles.whiteButton, style]}
       onPress={onPress}
     >
       {useLiquidGlass ? (
         <>
           <GlassView
-            style={goBackButtonStyles.glassBackground}
+            style={[StyleSheet.absoluteFillObject, retryGlassBackgroundRadius]}
             glassEffectStyle="clear"
             tintColor="rgba(255, 255, 255, 1)"
             isInteractive
@@ -282,22 +232,11 @@ const GoBackButton: React.FC<GoBackButtonProps> = ({ onPress, style }) => {
       ) : (
         buttonContent
       )}
-    </NativePressable>
+    </SquircleNativePressable>
   );
 };
 
 const goBackButtonStyles = StyleSheet.create({
-  button: {
-    borderRadius: BORDER_RADIUS.FULL,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    overflow: 'hidden',
-    ...Shadows.large,
-    justifyContent: 'center',
-    alignItems: 'center',
-    minHeight: 44,
-    marginTop: 20,
-  },
   buttonContent: {
     justifyContent: 'center',
     alignItems: 'center',
@@ -305,15 +244,7 @@ const goBackButtonStyles = StyleSheet.create({
   whiteButton: {
     backgroundColor: Colors.neutral[50],
   },
-  glassBackground: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: BORDER_RADIUS.FULL,
-  },
-  text: {
-    color: Colors.black,
-    fontSize: Typography.sizes.subtitle,
-    fontFamily: FontFamily.semibold,
-  },
+  text: retryPillLabel,
 });
 
 // Icon Component
@@ -932,20 +863,6 @@ const Badge: React.FC<BadgeProps> = ({ text, variant, size, style }) => {
 // ============================================================================
 
 const styles = StyleSheet.create({
-  buttonBase: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: BORDER_RADIUS.FULL,
-    overflow: 'hidden',
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonTextBase: {
-    fontFamily: FontFamily.medium,
-    textAlign: 'center',
-  },
   // Modal styles
   modalBackdrop: {
     flex: 1,
@@ -1034,8 +951,11 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
   },
-  iconMargin: {
+  iconMarginLeft: {
     marginLeft: 8,
+  },
+  iconMarginRight: {
+    marginRight: 8,
   },
   centerContent: {
     justifyContent: 'center',

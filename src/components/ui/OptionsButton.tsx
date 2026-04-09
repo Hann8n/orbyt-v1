@@ -1,8 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, Switch, ViewStyle, TextStyle, StyleSheet, StyleProp } from 'react-native';
 import Icon, { OutlinkIcon } from './Icon';
-import { NativePressable } from './NativePressable';
-import { SquircleView } from './Squircle';
+import { SquircleView, SquircleNativePressable } from './Squircle';
 import { Colors } from './UI';
 import { BORDER_RADIUS } from '../../utils/constants';
 import { hexToRGBA } from '../../utils/formatting/colors';
@@ -161,82 +160,88 @@ export const OptionsButton: React.FC<OptionsButtonProps> = ({
   const effectiveShowChevron = effective.showChevron;
   const effectiveRightIcon = effective.rightIcon;
 
-  const buttonContent = (
-    <SquircleView
-      style={[
-        buttonStyles.menuOption,
-        { backgroundColor: getBackgroundColor() },
-        containerStyle,
-        style,
-      ]}
-    >
-      <View style={buttonStyles.menuOptionContent}>
-        {leftContent ? (
-          leftContent
-        ) : (
-          <View style={buttonStyles.textColumn}>
-            <Text style={[textStyles.menuOptionText, { color: getTextColor() }, textStyle]}>
-              {label}
+  const optionSurfaceStyle = [
+    buttonStyles.menuOption,
+    { backgroundColor: getBackgroundColor() },
+    containerStyle,
+    style,
+  ];
+
+  const optionInner = (
+    <View style={buttonStyles.menuOptionContent}>
+      {leftContent ? (
+        leftContent
+      ) : (
+        <View style={buttonStyles.textColumn}>
+          <Text style={[textStyles.menuOptionText, { color: getTextColor() }, textStyle]}>
+            {label}
+          </Text>
+          {subtitle && (
+            <Text style={[textStyles.menuOptionSubtitle, { color: Colors.neutral[500] }]}>
+              {subtitle}
             </Text>
-            {subtitle && (
-              <Text style={[textStyles.menuOptionSubtitle, { color: Colors.neutral[500] }]}>
-                {subtitle}
-              </Text>
-            )}
-            {description && (
-              <Text
-                style={[textStyles.menuOptionSubtitle, { color: Colors.neutral[500] }]}
-                numberOfLines={1}
-              >
-                {description}
-              </Text>
-            )}
-          </View>
-        )}
-        {rightContent ? (
-          rightContent
-        ) : effectiveRightIcon != null ? (
-          <View style={buttonStyles.rightSlot}>
-            {React.isValidElement(effectiveRightIcon)
-              ? React.cloneElement(
-                  effectiveRightIcon as React.ReactElement<{ color?: string; size?: number }>,
-                  {
-                    color: effectiveShowChevron
-                      ? getChevronColor()
-                      : ((effectiveRightIcon.props as { color?: string })?.color ?? getTextColor()),
-                    size: (effectiveRightIcon.props as { size?: number })?.size ?? 24,
-                  }
-                )
-              : effectiveRightIcon}
-          </View>
-        ) : showSwitch ? (
-          <View style={buttonStyles.switchSlot}>
-            <Switch
-              value={switchValue}
-              onValueChange={onSwitchChange}
-              trackColor={{ false: Colors.neutral[600], true: Colors.teal[300] }} // neutral.600 / teal.300
-              thumbColor={switchValue ? Colors.neutral[50] : Colors.neutral[200]} // neutral.50 / neutral.200
-              ios_backgroundColor={Colors.neutral[600]} // neutral.600
-            />
-          </View>
-        ) : effectiveShowChevron ? (
-          <View style={buttonStyles.rightSlot}>
-            <Icon name="arrow_right" size={24} color={getChevronColor()} />
-          </View>
-        ) : null}
-      </View>
-    </SquircleView>
+          )}
+          {description && (
+            <Text
+              style={[textStyles.menuOptionSubtitle, { color: Colors.neutral[500] }]}
+              numberOfLines={1}
+            >
+              {description}
+            </Text>
+          )}
+        </View>
+      )}
+      {rightContent ? (
+        rightContent
+      ) : effectiveRightIcon != null ? (
+        <View style={buttonStyles.rightSlot}>
+          {React.isValidElement(effectiveRightIcon)
+            ? React.cloneElement(
+                effectiveRightIcon as React.ReactElement<{ color?: string; size?: number }>,
+                {
+                  color: effectiveShowChevron
+                    ? getChevronColor()
+                    : ((effectiveRightIcon.props as { color?: string })?.color ?? getTextColor()),
+                  size: (effectiveRightIcon.props as { size?: number })?.size ?? 24,
+                }
+              )
+            : effectiveRightIcon}
+        </View>
+      ) : showSwitch ? (
+        <View style={buttonStyles.switchSlot}>
+          <Switch
+            value={switchValue}
+            onValueChange={onSwitchChange}
+            trackColor={{ false: Colors.neutral[600], true: Colors.teal[300] }}
+            thumbColor={switchValue ? Colors.neutral[50] : Colors.neutral[200]}
+            ios_backgroundColor={Colors.neutral[600]}
+          />
+        </View>
+      ) : effectiveShowChevron ? (
+        <View style={buttonStyles.rightSlot}>
+          <Icon name="arrow_right" size={24} color={getChevronColor()} />
+        </View>
+      ) : null}
+    </View>
   );
 
   if (onPress) {
     return (
       <View style={buttonStyles.wrapper}>
-        <NativePressable onPress={onPress} disabled={disabled || loading}>
-          {buttonContent}
-        </NativePressable>
+        <SquircleNativePressable
+          style={optionSurfaceStyle}
+          onPress={onPress}
+          disabled={disabled || loading}
+        >
+          {optionInner}
+        </SquircleNativePressable>
       </View>
     );
   }
 
-  return <View style={buttonStyles.wrapper}>{buttonContent}</View>;
+  return (
+    <View style={buttonStyles.wrapper}>
+      <SquircleView style={optionSurfaceStyle}>{optionInner}</SquircleView>
+    </View>
+  );
 };

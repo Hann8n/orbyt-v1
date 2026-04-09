@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text, View, StyleProp, ViewStyle } from 'react-native';
-import { NativePressable } from './NativePressable';
+import { SquircleNativePressable } from './Squircle';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { Avatar } from './UI';
 import { Colors } from './UI';
@@ -72,7 +72,7 @@ const ChannelItem: React.FC<ChannelItemProps> = ({
   };
 
   return (
-    <NativePressable
+    <SquircleNativePressable
       style={[styles.container, { backgroundColor: backgroundColor || Colors.neutral[900] }, style]}
       onPress={handlePress}
     >
@@ -134,7 +134,7 @@ const ChannelItem: React.FC<ChannelItemProps> = ({
           </View>
         )}
       </View>
-    </NativePressable>
+    </SquircleNativePressable>
   );
 };
 
