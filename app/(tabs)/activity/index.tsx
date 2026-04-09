@@ -37,6 +37,7 @@ const ActivityIndicatorItem = React.memo(function ActivityIndicatorItem({
   onPress: () => void;
   badge?: React.ReactNode;
 }) {
+  const fontSize = fontSizeFor(22);
   const animatedStyle = useAnimatedStyle(() => {
     'worklet';
     const baseProgress = pageScrollProgress.value;
@@ -48,13 +49,13 @@ const ActivityIndicatorItem = React.memo(function ActivityIndicatorItem({
 
     return {
       color,
-      fontSize: fontSizeFor(22),
+      fontSize,
       marginRight: 8,
       fontWeight: 'bold' as const,
       fontFamily: FontFamily.black,
       opacity,
     };
-  }, [tabIndex]);
+  }, [tabIndex, fontSize]);
 
   return (
     <NativePressable onPress={onPress} style={styles.indicatorItem}>
