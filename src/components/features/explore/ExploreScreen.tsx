@@ -66,6 +66,7 @@ import {
   exploreSearchChromeHeight,
   getExploreTopChromeSpacerHeight,
 } from './exploreLayout';
+import { EXPLORE_HEADER_BANNER_ASPECT_RATIO } from './exploreConstants';
 
 const ExploreScreen: React.FC = () => {
   const { t } = useTranslation();
@@ -341,9 +342,9 @@ const ExploreScreen: React.FC = () => {
     [hasHeaderBannerError, headers.length]
   );
   const computedHeaderHeight = useMemo(() => {
-    const ratio = Math.max(0.2, Math.min(0.5, headers?.[0]?.heightRatio ?? 0.35));
-    return Math.round(Dimensions.get('window').height * ratio);
-  }, [headers]);
+    const screenWidth = Dimensions.get('window').width;
+    return Math.round(screenWidth / EXPLORE_HEADER_BANNER_ASPECT_RATIO);
+  }, []);
 
   const loadingSuggestedItems = useMemo(() => {
     return [{ type: 'loading' as const, key: 'loading-indicator' }];
