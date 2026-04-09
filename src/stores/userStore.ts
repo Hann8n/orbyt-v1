@@ -817,18 +817,15 @@ export const useUserStore = create<UserState>()(
             }
             loadPersistedColors(did);
 
-            // `restoreSessionInFlight` coalesces concurrent restore calls for the same DID
-            // so a single-use refresh token is never consumed twice.
+            // restoreSessionInFlight coalesces concurrent restores per DID (single-use refresh tokens).
             const session = await restoreSessionInFlight(did);
 
-            // Hydrate profile + read scopes in parallel; both are independent of each other.
             const [{ agent, userProfile, emailConfirmed }, tokenInfo] = await Promise.all([
               hydrateOAuthSession(session),
               session.getTokenInfo(false),
             ]);
             const grantedScopes = tokenInfo.scope.split(' ').filter(Boolean);
 
-            // The atproto scope is the minimum required for the app to function.
             if (!grantedScopes.includes('atproto')) {
               throw new Error('oauth_scope_upgrade_required:atproto');
             }
@@ -836,8 +833,6 @@ export const useUserStore = create<UserState>()(
             const originalIdentifier =
               get().savedAccounts.find(acc => acc.did === did)?.originalIdentifier ?? did;
 
-            // Track whether there was already an active account before we commit state.
-            // Used below to decide whether to show the email verification modal.
             const hadActiveAccount = get().activeAccountDid !== null;
 
             set({
@@ -861,7 +856,6 @@ export const useUserStore = create<UserState>()(
               feedBootstrapDid: null,
             });
 
-            // Only prompt on a first-time restore (not account switches).
             if (!hadActiveAccount && isEmailVerificationRequired(get().currentUser)) {
               set({ showEmailVerificationModal: true });
             }
@@ -952,10 +946,7 @@ export const useUserStore = create<UserState>()(
 
             await SecureStore.setItemAsync(STORAGE_KEYS.ACCOUNTS, JSON.stringify(accounts));
 
-            // Snapshot current account state before the restore attempt so we can
-            // roll back to account A if switching to account B fails. restoreSession()
-            // calls applyAuthFailureState() internally on error, which clears the Zustand
-            // session fields — without this snapshot that would log out the original user.
+            // Snapshot so a failed switch can restore the prior account after auth state is cleared.
             const previousState = {
               currentUser: get().currentUser,
               oauthSession: get().oauthSession,
@@ -967,20 +958,14 @@ export const useUserStore = create<UserState>()(
               feedSourceFingerprint: get().feedSourceFingerprint,
             };
 
-            // Restore session for the new account
-            // The OAuth client package handles session switching internally via restore()
-            // No need to manually clear the client - it manages multiple sessions by DID
             try {
-              // Restore session without loading settings (we'll load them once after)
-              await get().restoreSession(did, true); // skipSettings = true
+              await get().restoreSession(did, true);
 
-              // Verify agent is set before proceeding
               const state = get();
               if (!state.agent) {
                 throw new Error('Agent not available after session restore');
               }
 
-              // Update state - keep isSwitchingAccount true until data is loaded
               set({
                 savedAccounts: accounts,
                 activeAccountDid: did,
@@ -1029,10 +1014,6 @@ export const useUserStore = create<UserState>()(
                   component: 'userStore',
                   did,
                 });
-                // restoreSession() already called applyAuthFailureState() internally, which
-                // cleared currentUser/oauthSession/agent. If account A had a valid session
-                // before we tried to switch, restore it so the user stays authenticated as A
-                // instead of being logged out because B's session was invalid.
                 if (previousState.oauthSession && previousState.currentUser) {
                   set({
                     currentUser: previousState.currentUser,
@@ -1162,14 +1143,12 @@ export const useUserStore = create<UserState>()(
             await SecureStore.setItemAsync(STORAGE_KEYS.ACCOUNTS, JSON.stringify(accounts));
 
             if (isActiveAccount) {
-              // signOut handles token revocation + full state teardown.
               await get().signOut();
             } else {
-              // Revoke the stored OAuth tokens so they don't linger in MMKV.
               try {
                 await getOAuthClient().revoke(did);
               } catch {
-                // Best-effort — session may already be expired or gone.
+                // Best-effort revoke
               }
               set({ savedAccounts: accounts });
             }
@@ -1601,10 +1580,6 @@ export const useUserStore = create<UserState>()(
         },
 
         // Session management
-        // The Agent's fetch handler is backed by OAuthSession, which automatically
-        // refreshes tokens on every request. This check only needs a single call —
-        // if the SDK throws a typed auth error the session is definitively gone;
-        // any other failure (network, server 5xx) leaves the session intact.
         checkSessionHealth: async () => {
           const { agent, currentUser } = get();
           if (!agent || !currentUser?.did) return false;

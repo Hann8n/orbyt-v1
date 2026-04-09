@@ -2,6 +2,10 @@ import { Dimensions, PixelRatio } from 'react-native';
 import { classifyDevice } from '@/utils/device/screen';
 import { Colors } from '../../theme';
 
+const LAYOUT_SCALE_DAMPING = 0.5;
+const LAYOUT_SCALE_MAX = 1.08;
+const LAYOUT_SCALE_MIN = 0.97;
+
 /**
  * Calculate responsive scale factor for typography.
  * Balances user's system font scale (accessibility) with device dimensions.
@@ -27,16 +31,16 @@ const getTypographyScale = (): number => {
 
   // Device type adjustments
   const deviceAdjustment = (() => {
-    if (isTablet) return 1.12;
-    if (isTallScreen) return 1.02;
+    if (isTablet) return 1.05;
+    if (isTallScreen) return 1.0;
     return 1.0;
   })();
 
-  // Combine dimension scaling with device adjustment
-  const dimensionScale = rawScale * deviceAdjustment;
+  const layoutProduct = rawScale * deviceAdjustment;
+  const layoutScale = 1 + (layoutProduct - 1) * LAYOUT_SCALE_DAMPING;
+  const clampedLayout = Math.max(LAYOUT_SCALE_MIN, Math.min(LAYOUT_SCALE_MAX, layoutScale));
 
-  // Final scale: user preference × dimension scale
-  const finalScale = fontScale * dimensionScale;
+  const finalScale = fontScale * clampedLayout;
 
   // Clamp to reasonable bounds
   return Math.max(0.95, Math.min(1.25, finalScale));

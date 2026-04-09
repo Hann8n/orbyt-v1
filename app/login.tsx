@@ -86,8 +86,6 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
       setIsLoading(false);
       if (isUserCancellation(error)) return;
 
-      // Session needs re-auth: skip the error alert and go straight to sign-in.
-      // The OAuth browser flow is the right UX here — no intermediate error needed.
       if (error instanceof AuthFlowError && error.kind === 'reauth_required') {
         try {
           await signIn(account.originalIdentifier);
@@ -104,7 +102,6 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
         return;
       }
 
-      // Network / transient failure — show a friendly message without raw error details.
       Alert.alert(t('auth.networkError'), t('auth.networkErrorMessage'), [
         { text: t('common.ok') },
       ]);

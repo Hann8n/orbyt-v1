@@ -361,7 +361,6 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
     ]
   );
 
-  // For Orbyt channels, use API-managed media URL as primary avatar/background.
   const backgroundImage = useMemo(() => {
     if (!isOrbyt || !channel?.uri) return undefined;
     return getChannelAvatarUri(channel.uri, channel.avatar);
