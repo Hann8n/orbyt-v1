@@ -24,7 +24,7 @@ import {
 import { NativePressable } from '@/components/ui/NativePressable';
 import { SquircleNativePressable } from '@/components/ui/Squircle';
 import { Image } from 'expo-image';
-import { LegendList, LegendListRef } from '@legendapp/list';
+import { FlashList, FlashListRef } from '@shopify/flash-list';
 import type { ScrollToTopRef } from '../../../utils/navigation/tabRefs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AtprotoCore } from '../../../services/api/core';
@@ -760,15 +760,14 @@ NotificationItem.displayName = 'NotificationItem';
 
 const NotificationsTab = forwardRef<ScrollToTopRef>((_, ref) => {
   const { t } = useTranslation();
-  const legendListRef = useRef<LegendListRef>(null);
+  const flashListRef = useRef<FlashListRef<EnrichedNotification>>(null);
 
   // Expose scrollToTop method
   useImperativeHandle(
     ref,
     () => ({
       scrollToTop: () => {
-        // LegendList uses scrollToOffset (compatible with FlatList/FlashList API)
-        legendListRef.current?.scrollToOffset({ offset: 0, animated: true });
+        flashListRef.current?.scrollToOffset({ offset: 0, animated: true });
       },
     }),
     []
@@ -828,7 +827,7 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_, ref) => {
     if (!scrollToTopAfterUpdateRef.current || !data?.pages?.length) return;
     scrollToTopAfterUpdateRef.current = false;
     requestAnimationFrame(() => {
-      legendListRef.current?.scrollToOffset({ offset: 0, animated: false });
+      flashListRef.current?.scrollToOffset({ offset: 0, animated: false });
     });
   }, [data]);
 
@@ -961,8 +960,8 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_, ref) => {
   }, []);
 
   return (
-    <LegendList
-      ref={legendListRef}
+    <FlashList
+      ref={flashListRef}
       style={styles.listContainer}
       contentContainerStyle={[
         styles.listContentContainer,

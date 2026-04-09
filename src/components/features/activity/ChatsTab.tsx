@@ -16,7 +16,7 @@ import {
 } from '../../../utils/constants';
 import { View, Text, StyleSheet, RefreshControl, ActivityIndicator } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
-import { LegendList, LegendListRef } from '@legendapp/list';
+import { FlashList, FlashListRef } from '@shopify/flash-list';
 import type { ScrollToTopRef } from '../../../utils/navigation/tabRefs';
 import { ChatBskyConvoDefs } from '@atproto/api';
 import { ChatService, type ListConvosFilter } from '../../../services/api/chat/ChatService';
@@ -267,7 +267,7 @@ const ConversationItem = React.memo<ConversationItemProps>(
                   {streak < 7 ? (
                     <FlameFillIcon size={14} color={Colors.orange[500]} />
                   ) : (
-                    <FireFillIcon size={14} color="#dc2626" />
+                    <FireFillIcon size={14} color={Colors.coral[600]} />
                   )}
                   <Text
                     style={[
@@ -373,7 +373,7 @@ export interface ChatsTabProps {
 
 const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(({ chatFilter }, ref) => {
   const { t } = useTranslation();
-  const listRef = useRef<LegendListRef>(null);
+  const listRef = useRef<FlashListRef<ConvoView>>(null);
   const scrollOffsetRef = useRef(0);
   const previousFirstConvoIdRef = useRef<string | undefined>(undefined);
   const navigation = useRouter();
@@ -510,21 +510,39 @@ const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(({ chatFilter }, ref)
     refetch().finally(() => setIsUserRefreshing(false));
   }, [refetch]);
 
+  const handleAcceptConvo = useCallback(
+    (convoId: string) => {
+      acceptConvoMutation.mutate(convoId);
+    },
+    [acceptConvoMutation]
+  );
+
+  const handleDeclineConvo = useCallback(
+    (convoId: string) => {
+      leaveConvoMutation.mutate(convoId);
+    },
+    [leaveConvoMutation]
+  );
+
   const renderItem = useCallback(
     ({ item }: { item: ConvoView }) => (
       <ConversationItem
         item={item}
         navigation={navigation}
-        onAccept={convoId => acceptConvoMutation.mutate(convoId)}
-        onDecline={convoId => leaveConvoMutation.mutate(convoId)}
+        onAccept={handleAcceptConvo}
+        onDecline={handleDeclineConvo}
         isAccepting={acceptConvoMutation.isPending && acceptConvoMutation.variables === item.id}
         isDeclining={leaveConvoMutation.isPending && leaveConvoMutation.variables === item.id}
       />
     ),
-    [navigation, acceptConvoMutation, leaveConvoMutation]
+    [navigation, acceptConvoMutation, leaveConvoMutation, handleAcceptConvo, handleDeclineConvo]
   );
 
   const keyExtractor = useCallback((item: ConvoView) => item.id, []);
+
+  const getItemType = useCallback((item: ConvoView) => {
+    return item.status === 'request' ? 'request' : 'conversation';
+  }, []);
 
   const handleLoadMore = useCallback(() => {
     if (hasNextPage && !isFetchingNextPage) fetchNextPage();
@@ -563,7 +581,7 @@ const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(({ chatFilter }, ref)
 
   return (
     <>
-      <LegendList
+      <FlashList
         ref={listRef}
         style={styles.listContainer}
         contentContainerStyle={[
@@ -574,8 +592,10 @@ const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(({ chatFilter }, ref)
         data={isError ? [] : conversations}
         renderItem={renderItem}
         keyExtractor={keyExtractor}
+        getItemType={getItemType}
         ItemSeparatorComponent={ChatDivider}
         estimatedItemSize={80}
+        drawDistance={400}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         ListHeaderComponent={listHeaderComponent}
