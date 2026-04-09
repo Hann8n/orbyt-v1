@@ -30,6 +30,10 @@ interface Header {
   subtitleOpacity?: number;
   /** Optional per-header height ratio override (0-1 of screen height). */
   heightRatio?: number;
+  /** Optional readability shim under text. */
+  bottomShimEnabled?: boolean;
+  /** Optional shim opacity override (0..1). */
+  bottomShimOpacity?: number;
 }
 
 interface HeadersResponse {
