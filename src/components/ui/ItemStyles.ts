@@ -1,5 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { BORDER_RADIUS } from '../../utils/constants';
+import { FontFamily, Typography } from '../../utils/components/typography';
 import { Colors } from './UI';
 
 /** Vertical padding for AuthorItem / ChannelItem rows (single source of truth). */
@@ -63,9 +64,9 @@ export const sharedItemStyles = StyleSheet.create({
   },
   accountDisplayName: {
     color: Colors.neutral[50],
-    fontSize: 18,
+    fontSize: Typography.sizes.title,
     fontWeight: 'bold',
-    fontFamily: 'Figtree-Bold',
+    fontFamily: FontFamily.bold,
     marginBottom: 2,
   },
   accountArrow: {

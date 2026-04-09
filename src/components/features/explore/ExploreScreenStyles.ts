@@ -2,6 +2,7 @@ import { StyleSheet } from 'react-native';
 import { BORDER_RADIUS } from '@/utils/constants';
 import { Colors, Shadows } from '@/theme';
 import { androidTextFix } from '@/utils/styling/platformText';
+import { FontFamily, Typography, fontSizeFor } from '@/utils/components/typography';
 
 export const exploreScreenStyles = StyleSheet.create({
   container: {
@@ -79,8 +80,8 @@ export const exploreScreenStyles = StyleSheet.create({
   searchInput: {
     flex: 1,
     color: Colors.black,
-    fontSize: 20,
-    fontFamily: 'Figtree-Medium',
+    fontSize: Typography.sizes.h3,
+    fontFamily: FontFamily.medium,
     padding: 0,
     paddingVertical: 12,
     textAlign: 'left',
@@ -163,8 +164,8 @@ export const exploreScreenStyles = StyleSheet.create({
   },
   gridChannelName: {
     color: Colors.neutral[50],
-    fontSize: 16,
-    fontFamily: 'Figtree-Bold',
+    fontSize: Typography.sizes.subtitle,
+    fontFamily: FontFamily.bold,
   },
   horizontalChannelButton: {
     marginBottom: 0,
@@ -196,21 +197,21 @@ export const exploreScreenStyles = StyleSheet.create({
   },
   horizontalChannelLabel: {
     color: Colors.neutral[50],
-    fontSize: 22,
-    fontFamily: 'Figtree-Bold',
+    fontSize: fontSizeFor(22),
+    fontFamily: FontFamily.bold,
   },
   channelContent: {
     flex: 1,
     justifyContent: 'center',
   },
   orbytSlash: {
-    fontFamily: 'Figtree-SemiBold',
+    fontFamily: FontFamily.semibold,
     marginRight: 0,
   },
   channelName: {
     color: Colors.neutral[50],
-    fontSize: 17,
-    fontFamily: 'Figtree-Bold',
+    fontSize: fontSizeFor(17),
+    fontFamily: FontFamily.bold,
     flexShrink: 1,
   },
   sectionHeader: {
@@ -224,8 +225,8 @@ export const exploreScreenStyles = StyleSheet.create({
   },
   sectionTitle: {
     color: Colors.neutral[50],
-    fontSize: 18,
-    fontFamily: 'Figtree-SemiBold',
+    fontSize: Typography.sizes.title,
+    fontFamily: FontFamily.semibold,
   },
 
   spotlightContainer: {
@@ -281,8 +282,8 @@ export const exploreScreenStyles = StyleSheet.create({
   },
   spotlightWarningText: {
     color: Colors.neutral[50],
-    fontSize: 10,
-    fontFamily: 'Figtree-Medium',
+    fontSize: Typography.sizes.overline,
+    fontFamily: FontFamily.medium,
     textAlign: 'center',
     paddingHorizontal: 8,
   },
@@ -294,8 +295,8 @@ export const exploreScreenStyles = StyleSheet.create({
   },
   emptyTabText: {
     color: Colors.neutral[500],
-    fontSize: 16,
-    fontFamily: 'Figtree-Regular',
+    fontSize: Typography.sizes.subtitle,
+    fontFamily: FontFamily.regular,
   },
 
   searchTabsContainer: {

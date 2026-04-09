@@ -58,6 +58,7 @@ import { usePendingVideoPostStore } from '@/stores/pendingVideoPostStore';
 import { ErrorHandler } from '@/utils/errors/errorHandler';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { DEFAULT_BUFFER_OPTIONS } from '@/utils/video/helpers';
+import { FontFamily, Typography, fontSizeFor } from '@/utils/components/typography';
 
 // Duration options in seconds - labels resolved via t() in component
 const DURATION_OPTION_KEYS = [
@@ -1586,11 +1587,11 @@ const styles = StyleSheet.create({
   },
   warningText: {
     color: Colors.neutral[200],
-    fontSize: 18,
-    fontFamily: 'Figtree-SemiBold',
+    fontSize: Typography.sizes.title,
+    fontFamily: FontFamily.semibold,
     textAlign: 'center',
     marginBottom: 24,
-    lineHeight: 24,
+    lineHeight: Typography.lineHeights.title,
   },
   errorIcon: {
     marginBottom: 20,
@@ -1613,8 +1614,8 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: Colors.black,
-    fontSize: 16,
-    fontFamily: 'Figtree-SemiBold',
+    fontSize: Typography.sizes.subtitle,
+    fontFamily: FontFamily.semibold,
   },
   cameraContainer: {
     flex: 1,
@@ -1695,8 +1696,8 @@ const styles = StyleSheet.create({
   },
   durationSelectorCollapsedText: {
     color: Colors.neutral[50],
-    fontSize: 17,
-    fontFamily: 'Figtree-Bold',
+    fontSize: fontSizeFor(17),
+    fontFamily: FontFamily.bold,
   },
   doneButton: {
     position: 'absolute',

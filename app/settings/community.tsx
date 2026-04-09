@@ -15,6 +15,7 @@ import { Loading } from '@/components/ui/UI';
 import { Colors } from '@/theme';
 import { BORDER_RADIUS, DISCOURSE } from '@/utils/constants';
 import { queryKeys } from '@/utils/query/queryKeys';
+import { Typography } from '@/utils/components/typography';
 
 const COMMUNITY_URL = DISCOURSE.COMMUNITY_URL;
 const IDEAS_JSON = `${COMMUNITY_URL}/c/${DISCOURSE.IDEAS_CATEGORY_SLUG}/${DISCOURSE.IDEAS_CATEGORY_ID}.json`;
@@ -194,11 +195,11 @@ const styles = StyleSheet.create({
     minHeight: 200,
   },
   errorText: {
-    fontSize: 15,
+    fontSize: Typography.sizes.body,
     color: Colors.brand.coral,
   },
   emptyText: {
-    fontSize: 15,
+    fontSize: Typography.sizes.body,
     color: Colors.neutral[400],
   },
   openForumFooter: {
@@ -209,8 +210,8 @@ const styles = StyleSheet.create({
   },
   openForumFooterText: {
     color: Colors.neutral[50],
-    fontSize: 14,
-    fontFamily: 'Figtree-SemiBold',
+    fontSize: Typography.sizes.bodySmall,
+    fontFamily: Typography.families.semibold,
   },
   topicRow: {
     flexDirection: 'row',
@@ -224,12 +225,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   topicTitle: {
-    fontSize: 16,
+    fontSize: Typography.sizes.subtitle,
     fontWeight: '600',
     color: Colors.neutral[50],
   },
   topicMeta: {
-    fontSize: 13,
+    fontSize: Typography.sizes.caption,
     color: Colors.neutral[400],
     marginTop: 2,
   },
@@ -246,7 +247,7 @@ const styles = StyleSheet.create({
     minWidth: 52,
   },
   voteTallyCount: {
-    fontSize: 14,
+    fontSize: Typography.sizes.bodySmall,
     fontWeight: '600',
     color: Colors.neutral[50],
   },

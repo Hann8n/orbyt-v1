@@ -40,7 +40,7 @@ import { ModerationService } from '../../../services/moderation/ModerationServic
 import { queryKeys } from '../../../utils/query/queryKeys';
 import { formatNumber } from '../../../utils/formatting/numbers';
 import { formatHandle } from '../../../utils/formatting/handles';
-import { Typography, FontFamily } from '../../../utils/components/typography';
+import { Typography, FontFamily, fontSizeFor } from '../../../utils/components/typography';
 import { hexToRGBA } from '../../../utils/formatting/colors';
 import { Colors } from '../../../theme';
 import UI from '../../ui/UI';
@@ -1380,13 +1380,13 @@ const styles = StyleSheet.create({
   },
   commentAuthorName: {
     color: Colors.neutral[50],
-    fontSize: 16,
-    fontFamily: 'Figtree-Bold',
-    lineHeight: 20,
+    fontSize: Typography.sizes.subtitle,
+    fontFamily: FontFamily.bold,
+    lineHeight: Typography.lineHeights.subtitle,
   },
   commentText: {
     color: Colors.neutral[200],
-    fontSize: 15,
+    fontSize: Typography.sizes.body,
     fontFamily: FontFamily.medium,
   },
   highlightOverlay: {
@@ -1423,7 +1423,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   commentTimestamp: {
-    fontSize: 12,
+    fontSize: Typography.sizes.caption,
     color: Colors.neutral[400],
     fontFamily: FontFamily.medium,
     marginRight: 12,
@@ -1433,9 +1433,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   replyButtonText: {
-    fontSize: 12,
+    fontSize: Typography.sizes.caption,
     color: Colors.neutral[200],
-    fontFamily: 'Figtree-Bold',
+    fontFamily: FontFamily.bold,
   },
   moreButton: {
     paddingVertical: 2,
@@ -1457,8 +1457,8 @@ const styles = StyleSheet.create({
   },
   likeCount: {
     color: Colors.neutral[200],
-    fontSize: 12.5,
-    fontFamily: 'Figtree-SemiBold',
+    fontSize: fontSizeFor(12.5),
+    fontFamily: FontFamily.semibold,
     marginTop: 2,
     textAlign: 'center',
     textShadowColor: Colors.overlay.black15,

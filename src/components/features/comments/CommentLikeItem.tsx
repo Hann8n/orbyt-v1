@@ -11,6 +11,7 @@ import type { Like } from '../../../services/api/types';
 
 import UI from '../../ui/UI';
 import { VerificationBadge, BotBadge } from '../badging';
+import { FontFamily, Typography } from '@/utils/components/typography';
 
 type CommentLikeItemProps = {
   like: Like;
@@ -115,8 +116,8 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     minWidth: 0,
     color: Colors.neutral[50],
-    fontSize: 16,
-    fontFamily: 'Figtree-Bold',
-    lineHeight: 20,
+    fontSize: Typography.sizes.subtitle,
+    fontFamily: FontFamily.bold,
+    lineHeight: Typography.lineHeights.subtitle,
   },
 });

@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { BackArrowIcon } from './Icon';
 import CloseButton from './CloseButton';
 import { Colors } from './UI';
+import { FontFamily, Typography, fontSizeFor } from '@/utils/components/typography';
 
 export type ListHeaderMode = 'sheet' | 'root' | 'stacked';
 
@@ -200,14 +201,14 @@ const styles = StyleSheet.create({
   title: {
     flex: 1,
     textAlign: 'center',
-    fontFamily: 'Figtree-Bold',
+    fontFamily: FontFamily.bold,
   },
   titleRoot: {
-    fontSize: 22,
+    fontSize: fontSizeFor(22),
     fontWeight: '700',
   },
   titleStacked: {
-    fontSize: 20,
+    fontSize: Typography.sizes.h3,
     fontWeight: '700',
   },
   titleStackedLeft: {
@@ -216,9 +217,9 @@ const styles = StyleSheet.create({
   },
   titleSheet: {
     textAlign: 'left',
-    fontSize: 24,
+    fontSize: Typography.sizes.h2,
     fontWeight: 'bold',
-    fontFamily: 'Figtree-Bold',
+    fontFamily: FontFamily.bold,
   },
 });
 

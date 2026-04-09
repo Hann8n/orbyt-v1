@@ -5,6 +5,7 @@ import { SquircleNativePressable } from './Squircle';
 import { Image } from 'expo-image';
 import { Colors } from '../../theme';
 import { hexToRGBA } from '../../utils/formatting/colors';
+import { FontFamily, Typography } from '../../utils/components/typography';
 import { Header } from '../../services/OrbytBannerService';
 import Animated, {
   useAnimatedScrollHandler,
@@ -456,14 +457,14 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: Colors.neutral[50],
-    fontSize: 24,
-    fontFamily: 'Figtree-Black',
+    fontSize: Typography.sizes.h2,
+    fontFamily: FontFamily.black,
     marginBottom: 2,
   },
   headerSubtitle: {
     color: Colors.neutral[200],
-    fontSize: 18,
-    fontFamily: 'Figtree-SemiBold',
+    fontSize: Typography.sizes.title,
+    fontFamily: FontFamily.semibold,
   },
   paginationContainer: {
     position: 'absolute',

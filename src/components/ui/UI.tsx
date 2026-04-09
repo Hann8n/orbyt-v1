@@ -241,8 +241,8 @@ const retryButtonStyles = StyleSheet.create({
   },
   text: {
     color: Colors.black,
-    fontSize: 16,
-    fontFamily: 'Figtree-SemiBold',
+    fontSize: Typography.sizes.subtitle,
+    fontFamily: FontFamily.semibold,
   },
 });
 
@@ -311,8 +311,8 @@ const goBackButtonStyles = StyleSheet.create({
   },
   text: {
     color: Colors.black,
-    fontSize: 16,
-    fontFamily: 'Figtree-SemiBold',
+    fontSize: Typography.sizes.subtitle,
+    fontFamily: FontFamily.semibold,
   },
 });
 
@@ -533,7 +533,7 @@ export const Avatar: React.FC<AvatarProps> = ({
   const liveBadgeTextStyle: TextStyle = {
     color: Colors.neutral[50],
     fontSize: badgeDimensions.fontSize,
-    fontFamily: 'Figtree-Black',
+    fontFamily: FontFamily.black,
     fontWeight: '900',
     letterSpacing: badgeDimensions.letterSpacing,
   };
@@ -903,15 +903,15 @@ const Badge: React.FC<BadgeProps> = ({ text, variant, size, style }) => {
 
   const getTextStyle = (): TextStyle => {
     const baseStyle: TextStyle = {
-      fontFamily: 'Figtree-Medium',
+      fontFamily: FontFamily.medium,
       fontWeight: '600',
       color: Colors.neutral[50],
     };
 
     const sizeStyles: Record<BadgeProps['size'], TextStyle> = {
-      small: { fontSize: 12 },
-      medium: { fontSize: 14 },
-      large: { fontSize: 16 },
+      small: { fontSize: Typography.sizes.caption },
+      medium: { fontSize: Typography.sizes.bodySmall },
+      large: { fontSize: Typography.sizes.subtitle },
     };
 
     return {
@@ -959,14 +959,14 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     color: Colors.neutral[50],
-    fontSize: 20,
-    fontFamily: 'Figtree-Bold',
+    fontSize: Typography.sizes.h3,
+    fontFamily: FontFamily.bold,
     marginBottom: 8,
   },
   modalSubtitle: {
     color: Colors.neutral[200],
-    fontSize: 16,
-    fontFamily: 'Figtree-Regular',
+    fontSize: Typography.sizes.subtitle,
+    fontFamily: FontFamily.regular,
     marginBottom: 16,
   },
   modalContent: {
@@ -995,8 +995,8 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     color: Colors.neutral[50],
-    fontSize: 16,
-    fontFamily: 'Figtree-Regular',
+    fontSize: Typography.sizes.subtitle,
+    fontFamily: FontFamily.regular,
     paddingVertical: 12,
   },
   inputWithIcon: {
@@ -1007,8 +1007,8 @@ const styles = StyleSheet.create({
   },
   inputError: {
     color: Colors.coral[500],
-    fontSize: 14,
-    fontFamily: 'Figtree-Regular',
+    fontSize: Typography.sizes.bodySmall,
+    fontFamily: FontFamily.regular,
     marginTop: 4,
     marginLeft: 4,
   },
@@ -1022,8 +1022,8 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     color: Colors.neutral[200],
-    fontSize: 16,
-    fontFamily: 'Figtree-Medium',
+    fontSize: Typography.sizes.subtitle,
+    fontFamily: FontFamily.medium,
     marginTop: 12,
   },
   iconFallback: {

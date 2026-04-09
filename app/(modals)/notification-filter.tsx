@@ -9,6 +9,7 @@ import { Colors } from '@/theme';
 import { BORDER_RADIUS } from '@/utils/constants';
 import type { NotificationReason } from '@/services/api/types';
 import { useActivityFilterStore } from '@/stores/activityFilterStore';
+import { FontFamily, Typography, fontSizeFor, lineHeightFor } from '@/utils/components/typography';
 
 const NOTIFICATION_REASONS_LABEL_KEY: Record<NotificationReason, string> = {
   like: 'activity.likes',
@@ -234,8 +235,8 @@ const styles = StyleSheet.create({
   },
   clearBtnText: {
     color: Colors.neutral[300],
-    fontSize: 14,
-    fontFamily: 'Figtree-SemiBold',
+    fontSize: Typography.sizes.bodySmall,
+    fontFamily: FontFamily.semibold,
   },
   scroll: {
     flex: 1,
@@ -250,15 +251,15 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: Colors.neutral[100],
-    fontSize: 17,
-    fontFamily: 'Figtree-Bold',
+    fontSize: fontSizeFor(17),
+    fontFamily: FontFamily.bold,
     letterSpacing: 0.2,
-    lineHeight: 22,
+    lineHeight: lineHeightFor(fontSizeFor(17)),
   },
   sectionSubtitle: {
     color: Colors.neutral[500],
-    fontSize: 13,
-    fontFamily: 'Figtree-Medium',
+    fontSize: fontSizeFor(13),
+    fontFamily: FontFamily.medium,
     marginBottom: 12,
     marginTop: 4,
   },
@@ -276,8 +277,8 @@ const styles = StyleSheet.create({
   },
   filterOptionLabel: {
     color: Colors.neutral[50],
-    fontSize: 17,
-    fontFamily: 'Figtree-SemiBold',
+    fontSize: fontSizeFor(17),
+    fontFamily: FontFamily.semibold,
     flex: 1,
   },
   checkbox: {

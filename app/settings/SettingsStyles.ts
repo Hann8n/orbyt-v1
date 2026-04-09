@@ -2,7 +2,7 @@ import { StyleSheet } from 'react-native';
 import { Colors } from '@/theme';
 import { hexToRGBA } from '@/utils/formatting/colors';
 import { BORDER_RADIUS } from '@/utils/constants';
-import { FontFamily, Typography } from '@/utils/components/typography';
+import { FontFamily, Typography, fontSizeFor } from '@/utils/components/typography';
 
 // Shared button styles for settings screens
 export const settingsButtonStyles = StyleSheet.create({
@@ -159,32 +159,32 @@ export const settingsTextStyles = StyleSheet.create({
   // Primary button text
   primaryButtonText: {
     color: Colors.neutral[200],
-    fontSize: 18,
+    fontSize: Typography.sizes.title,
     fontWeight: '600',
-    fontFamily: 'Figtree-SemiBold',
+    fontFamily: FontFamily.semibold,
   },
 
   // Menu option text - matches VerticalListSheet pattern
   menuOptionText: {
     color: Colors.neutral[50],
-    fontSize: 18,
-    fontFamily: 'Figtree-SemiBold',
+    fontSize: Typography.sizes.title,
+    fontFamily: FontFamily.semibold,
   },
 
   // Menu option subtitle
   menuOptionSubtitle: {
     color: Colors.neutral[500],
-    fontSize: 12,
+    fontSize: Typography.sizes.caption,
     fontWeight: '400',
-    fontFamily: 'Figtree-Regular',
+    fontFamily: FontFamily.regular,
     marginTop: 4,
   },
 
   // Action button text
   actionButtonText: {
     color: Colors.neutral[50],
-    fontSize: 15,
-    fontFamily: 'Figtree-SemiBold',
+    fontSize: Typography.sizes.body,
+    fontFamily: FontFamily.semibold,
     fontWeight: '600',
     textAlign: 'center',
   },
@@ -192,9 +192,9 @@ export const settingsTextStyles = StyleSheet.create({
   // Section title text
   sectionTitle: {
     color: Colors.neutral[500],
-    fontSize: 16,
+    fontSize: Typography.sizes.subtitle,
     fontWeight: '600',
-    fontFamily: 'Figtree-SemiBold',
+    fontFamily: FontFamily.semibold,
     paddingHorizontal: 30,
     paddingVertical: 12,
     letterSpacing: 0.5,
@@ -203,49 +203,49 @@ export const settingsTextStyles = StyleSheet.create({
   // Label inside a grouped section (e.g. "Read state")
   groupedLabelText: {
     color: Colors.neutral[500],
-    fontSize: 13,
-    fontFamily: 'Figtree-Medium',
+    fontSize: fontSizeFor(13),
+    fontFamily: FontFamily.medium,
   },
 
   // Section title (larger)
   sectionTitleLarge: {
     color: Colors.neutral[50],
-    fontSize: 20,
+    fontSize: Typography.sizes.h3,
     fontWeight: '600',
-    fontFamily: 'Figtree-SemiBold',
+    fontFamily: FontFamily.semibold,
     marginBottom: 8,
   },
 
   // Section description
   sectionDescription: {
     color: Colors.neutral[500],
-    fontSize: 14,
-    fontFamily: 'Figtree-Regular',
-    lineHeight: 20,
+    fontSize: Typography.sizes.bodySmall,
+    fontFamily: FontFamily.regular,
+    lineHeight: Typography.lineHeights.bodySmall,
   },
 
   // Stats text
   statsText: {
     color: Colors.neutral[200],
-    fontSize: 14,
-    fontFamily: 'Figtree-Medium',
+    fontSize: Typography.sizes.bodySmall,
+    fontFamily: FontFamily.medium,
     textAlign: 'center',
   },
 
   // Loading text
   loadingText: {
     color: Colors.neutral[200],
-    fontSize: 16,
-    fontFamily: 'Figtree-Medium',
+    fontSize: Typography.sizes.subtitle,
+    fontFamily: FontFamily.medium,
     marginTop: 12,
   },
 
   // Empty state title
   emptyTitle: {
     color: Colors.neutral[50],
-    fontSize: 20,
+    fontSize: Typography.sizes.h3,
     fontWeight: '600',
-    fontFamily: 'Figtree-SemiBold',
+    fontFamily: FontFamily.semibold,
     marginTop: 16,
     marginBottom: 8,
   },
@@ -253,24 +253,24 @@ export const settingsTextStyles = StyleSheet.create({
   // Empty state description
   emptyDescription: {
     color: Colors.neutral[200],
-    fontSize: 16,
-    fontFamily: 'Figtree-Regular',
+    fontSize: Typography.sizes.subtitle,
+    fontFamily: FontFamily.regular,
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: Typography.lineHeights.subtitle,
   },
 
   // Filter button text
   filterButtonText: {
     color: Colors.neutral[50],
-    fontSize: 12,
-    fontFamily: 'Figtree-Medium',
+    fontSize: Typography.sizes.caption,
+    fontFamily: FontFamily.medium,
   },
 
   // Category button text
   categoryButtonText: {
     color: Colors.neutral[50],
-    fontSize: 15,
-    fontFamily: 'Figtree-Medium',
+    fontSize: Typography.sizes.body,
+    fontFamily: FontFamily.medium,
     letterSpacing: 0.3,
   },
 
@@ -285,48 +285,48 @@ export const settingsTextStyles = StyleSheet.create({
   // Edit button text
   editButtonText: {
     color: Colors.neutral[50],
-    fontSize: 14,
+    fontSize: Typography.sizes.bodySmall,
     fontWeight: '600',
-    fontFamily: 'Figtree-SemiBold',
+    fontFamily: FontFamily.semibold,
   },
 
   // User display name
   userDisplayName: {
     color: Colors.neutral[50],
-    fontSize: 16,
-    fontFamily: 'Figtree-SemiBold',
+    fontSize: Typography.sizes.subtitle,
+    fontFamily: FontFamily.semibold,
     marginBottom: 2,
   },
 
   // User handle
   userHandle: {
     color: Colors.neutral[200],
-    fontSize: 14,
-    fontFamily: 'Figtree-Regular',
+    fontSize: Typography.sizes.bodySmall,
+    fontFamily: FontFamily.regular,
   },
 
   // Channel name
   channelName: {
     color: Colors.neutral[50],
-    fontSize: 16,
+    fontSize: Typography.sizes.subtitle,
     fontWeight: '600',
-    fontFamily: 'Figtree-SemiBold',
+    fontFamily: FontFamily.semibold,
     marginBottom: 4,
   },
 
   // Channel description
   channelDescription: {
     color: Colors.neutral[200],
-    fontSize: 14,
-    fontFamily: 'Figtree-Regular',
+    fontSize: Typography.sizes.bodySmall,
+    fontFamily: FontFamily.regular,
     marginBottom: 4,
   },
 
   // Member count
   memberCount: {
     color: Colors.neutral[500],
-    fontSize: 12,
-    fontFamily: 'Figtree-Regular',
+    fontSize: Typography.sizes.caption,
+    fontFamily: FontFamily.regular,
   },
 });
 
@@ -446,8 +446,8 @@ export const settingsLayoutStyles = StyleSheet.create({
   searchInput: {
     flex: 1,
     color: Colors.neutral[50],
-    fontSize: 16,
-    fontFamily: 'Figtree-Regular',
+    fontSize: Typography.sizes.subtitle,
+    fontFamily: FontFamily.regular,
     paddingVertical: 12,
     paddingLeft: 12,
   },
@@ -502,7 +502,7 @@ export const settingsActiveStyles = StyleSheet.create({
   // Active category button text
   categoryButtonTextActive: {
     color: Colors.black,
-    fontFamily: 'Figtree-Bold',
+    fontFamily: FontFamily.bold,
   },
 
   // Active edit button

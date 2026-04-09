@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import { VideoInfo } from '../../services/video/VideoProcessingService';
 import { Colors } from './UI';
+import { FontFamily, fontSizeFor, Typography } from '@/utils/components/typography';
 
 interface VideoInfoDisplayProps {
   videoInfo: VideoInfo;
@@ -82,16 +83,16 @@ const styles = StyleSheet.create({
   },
   videoInfoLabel: {
     color: Colors.neutral[200],
-    fontSize: 13,
-    fontFamily: 'Figtree-Regular',
+    fontSize: fontSizeFor(13),
+    fontFamily: FontFamily.regular,
     marginBottom: 4,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   videoInfoValue: {
     color: Colors.neutral[50],
-    fontSize: 16,
-    fontFamily: 'Figtree-SemiBold',
+    fontSize: Typography.sizes.subtitle,
+    fontFamily: FontFamily.semibold,
   },
 });
 

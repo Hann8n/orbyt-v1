@@ -48,6 +48,7 @@ import { useCurrentUser } from '@/stores/userStore';
 import { splitHandleSuffix } from '@/utils/formatting/handles';
 import { useOrbytColors, saveAndSyncColors } from '@/services/colors';
 import type { ProfileViewWithOrbyt } from '@/services/api/types';
+import { FontFamily, Typography, fontSizeFor } from '@/utils/components/typography';
 
 export interface ProfileColorOption {
   backgroundColor: string;
@@ -1314,8 +1315,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   cancelButtonText: {
-    fontFamily: 'Figtree-Bold',
-    fontSize: 17,
+    fontFamily: FontFamily.bold,
+    fontSize: fontSizeFor(17),
   },
   saveButton: {
     backgroundColor: Colors.neutral[50],
@@ -1342,19 +1343,19 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   saveButtonText: {
-    fontFamily: 'Figtree-Bold',
-    fontSize: 17,
+    fontFamily: FontFamily.bold,
+    fontSize: fontSizeFor(17),
     color: Colors.black,
   },
   aboutHeaderCounter: {
     marginHorizontal: 8,
-    fontFamily: 'Figtree-SemiBold',
-    fontSize: 14,
+    fontFamily: FontFamily.semibold,
+    fontSize: Typography.sizes.bodySmall,
     color: Colors.neutral[50],
   },
   aboutHeaderCurrent: {
-    fontFamily: 'Figtree-SemiBold',
-    fontSize: 16,
+    fontFamily: FontFamily.semibold,
+    fontSize: Typography.sizes.subtitle,
   },
   aboutHeaderCurrentOver: {
     color: Colors.coral[500],
@@ -1402,32 +1403,32 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   sectionTitle: {
-    fontFamily: 'Figtree-SemiBold',
-    fontSize: 12,
+    fontFamily: FontFamily.semibold,
+    fontSize: Typography.sizes.caption,
     fontWeight: '500',
     marginBottom: 6,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   largeText: {
-    fontFamily: 'Figtree-Black',
-    fontSize: 26,
-    lineHeight: 32,
+    fontFamily: FontFamily.black,
+    fontSize: fontSizeFor(26),
+    lineHeight: Typography.lineHeights.h1,
   },
   handleAt: {
-    fontFamily: 'Figtree-Medium',
+    fontFamily: FontFamily.medium,
     fontWeight: '400',
-    fontSize: 30,
-    lineHeight: 32,
+    fontSize: fontSizeFor(30),
+    lineHeight: Typography.lineHeights.h1,
   },
   handleSuffix: {
-    fontFamily: 'Figtree-Medium',
-    fontSize: 18,
+    fontFamily: FontFamily.medium,
+    fontSize: Typography.sizes.title,
   },
   largeInput: {
-    fontFamily: 'Figtree-Black',
-    fontSize: 32,
-    lineHeight: 40,
+    fontFamily: FontFamily.black,
+    fontSize: fontSizeFor(32),
+    lineHeight: Typography.lineHeights.display,
     borderWidth: 0,
     paddingHorizontal: 0,
     paddingVertical: 0,
@@ -1461,8 +1462,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   uploadButtonText: {
-    fontFamily: 'Figtree-Bold',
-    fontSize: 15,
+    fontFamily: FontFamily.bold,
+    fontSize: Typography.sizes.body,
     fontWeight: '600',
     textAlign: 'center',
   },
@@ -1501,8 +1502,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   textArea: {
-    fontFamily: 'Figtree-Medium',
-    fontSize: 16,
+    fontFamily: FontFamily.medium,
+    fontSize: Typography.sizes.subtitle,
     marginTop: 0,
     minHeight: 100,
     textAlignVertical: 'top',

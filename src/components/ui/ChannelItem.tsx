@@ -14,6 +14,7 @@ import {
   getLocalizedChannelDisplayName,
 } from '../../utils/channels/orbyt';
 import { itemSizeConfig, sharedItemStyles } from './ItemStyles';
+import { FontFamily } from '@/utils/components/typography';
 
 interface ChannelItemProps {
   uri: string;
@@ -154,7 +155,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   orbytSlash: {
-    fontFamily: 'Figtree-SemiBold',
+    fontFamily: FontFamily.semibold,
     marginRight: 0,
   },
 });

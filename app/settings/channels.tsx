@@ -23,6 +23,7 @@ import {
   shouldShowChannelSlash,
 } from '@/utils/channels/orbyt';
 import { logger } from '@/utils/logger';
+import { FontFamily, Typography } from '@/utils/components/typography';
 
 interface ChannelUser {
   did: string;
@@ -270,22 +271,22 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   orbytSlash: {
-    fontSize: 16,
+    fontSize: Typography.sizes.subtitle,
     marginBottom: 2,
-    fontFamily: 'Figtree-SemiBold',
+    fontFamily: FontFamily.semibold,
     marginRight: 0,
   },
   displayName: {
     color: Colors.neutral[50],
-    fontSize: 16,
+    fontSize: Typography.sizes.subtitle,
     marginBottom: 2,
-    fontFamily: 'Figtree-Bold',
+    fontFamily: FontFamily.bold,
     flexShrink: 1,
   },
   description: {
     color: Colors.neutral[200],
-    fontSize: 14,
-    fontFamily: 'Figtree-Regular',
+    fontSize: Typography.sizes.bodySmall,
+    fontFamily: FontFamily.regular,
   },
   emptyContainer: {
     flex: 1,
@@ -300,17 +301,17 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     color: Colors.neutral[50],
-    fontSize: 20,
-    fontFamily: 'Figtree-Bold',
+    fontSize: Typography.sizes.h3,
+    fontFamily: FontFamily.bold,
     marginBottom: 8,
     textAlign: 'center',
   },
   emptySubtitle: {
     color: Colors.neutral[200],
-    fontSize: 16,
-    fontFamily: 'Figtree-Medium',
+    fontSize: Typography.sizes.subtitle,
+    fontFamily: FontFamily.medium,
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: Typography.lineHeights.subtitle,
     marginBottom: 24,
   },
   exploreButton: {
@@ -323,8 +324,8 @@ const styles = StyleSheet.create({
   },
   exploreButtonText: {
     color: Colors.black,
-    fontSize: 16,
-    fontFamily: 'Figtree-SemiBold',
+    fontSize: Typography.sizes.subtitle,
+    fontFamily: FontFamily.semibold,
   },
   sheetContent: {
     paddingHorizontal: 12,

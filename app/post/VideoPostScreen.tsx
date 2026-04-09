@@ -38,7 +38,7 @@ import { TextOverlay } from '@/types';
 import { resolveVideoPath, VideoPathInfo } from '@/utils/video/path';
 import { DEFAULT_BUFFER_OPTIONS, DEFAULT_VIDEO_ASPECT_RATIO } from '@/utils/video/helpers';
 import { Colors } from '@/theme';
-import { Typography } from '@/utils/components/typography';
+import { FontFamily, Typography, fontSizeFor } from '@/utils/components/typography';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import { useCurrentUser } from '@/stores/userStore';
 import ProfileService from '@/services/data/ProfileService';
@@ -1684,7 +1684,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: Colors.neutral[200],
-    fontSize: 16,
+    fontSize: Typography.sizes.subtitle,
   },
   descriptionSectionNoPadding: {
     paddingBottom: 0,
@@ -1696,10 +1696,10 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   channelSelectorNameSemiBold: {
-    fontFamily: 'Figtree-SemiBold',
+    fontFamily: FontFamily.semibold,
   },
   channelSelectorNameBold: {
-    fontFamily: 'Figtree-Bold',
+    fontFamily: FontFamily.bold,
   },
   channelSelectorRow: {
     flexDirection: 'row',
@@ -1729,8 +1729,8 @@ const styles = StyleSheet.create({
   },
   textOverlay: {
     color: Colors.neutral[200],
-    fontSize: 22,
-    fontFamily: 'Figtree-Bold',
+    fontSize: fontSizeFor(22),
+    fontFamily: FontFamily.bold,
     textAlign: 'center',
     textShadowColor: Colors.overlay.black50,
     textShadowOffset: { width: 1, height: 1 },
@@ -1759,12 +1759,12 @@ const styles = StyleSheet.create({
   },
   sectionHeaderTitle: {
     color: Colors.neutral[200],
-    fontSize: 18,
-    fontFamily: 'Figtree-Bold',
+    fontSize: Typography.sizes.title,
+    fontFamily: FontFamily.bold,
     marginBottom: 12,
   },
   orbytSlash: {
-    fontFamily: 'Figtree-SemiBold',
+    fontFamily: FontFamily.semibold,
     marginRight: 0,
   },
   checkbox: {
@@ -1788,8 +1788,8 @@ const styles = StyleSheet.create({
     color: Colors.neutral[200],
     marginTop: 5,
     marginBottom: 10,
-    fontFamily: 'Figtree-Regular',
-    fontSize: 18,
+    fontFamily: FontFamily.regular,
+    fontSize: Typography.sizes.title,
   },
   floatingPostButtonContainer: {
     position: 'absolute',
@@ -1833,8 +1833,8 @@ const styles = StyleSheet.create({
   },
   postButtonText: {
     color: Colors.black,
-    fontSize: 18,
-    fontFamily: 'Figtree-Black',
+    fontSize: Typography.sizes.title,
+    fontFamily: FontFamily.black,
   },
   floatingPostButtonDisabled: {
     opacity: 0.5,
@@ -1927,8 +1927,8 @@ const styles = StyleSheet.create({
   },
   channelListButtonText: {
     color: Colors.neutral[200],
-    fontFamily: 'Figtree-SemiBold',
-    fontSize: 18,
+    fontFamily: FontFamily.semibold,
+    fontSize: Typography.sizes.title,
   },
   listButtonContent: {
     flexDirection: 'row',
@@ -1951,7 +1951,7 @@ const styles = StyleSheet.create({
     color: Colors.neutral[500],
     fontSize: Typography.sizes.body,
     fontFamily: Typography.families.regular,
-    lineHeight: 18,
+    lineHeight: Typography.lineHeights.body,
   },
   sheetOptionRow: {
     flexDirection: 'row',
@@ -1966,8 +1966,8 @@ const styles = StyleSheet.create({
   },
   sheetOptionText: {
     color: Colors.neutral[200],
-    fontSize: 18,
-    fontFamily: 'Figtree-SemiBold',
+    fontSize: Typography.sizes.title,
+    fontFamily: FontFamily.semibold,
     flex: 1,
   },
   sheetInputContainer: {
@@ -1984,27 +1984,27 @@ const styles = StyleSheet.create({
   },
   descriptionInputPreview: {
     color: Colors.neutral[200],
-    fontFamily: 'Figtree-Regular',
-    fontSize: 15,
-    lineHeight: 22,
+    fontFamily: FontFamily.regular,
+    fontSize: Typography.sizes.body,
+    lineHeight: Typography.lineHeights.body,
   },
   descriptionInputPreviewNormal: {
     color: Colors.neutral[200],
-    fontFamily: 'Figtree-Regular',
-    fontSize: 15,
-    lineHeight: 22,
+    fontFamily: FontFamily.regular,
+    fontSize: Typography.sizes.body,
+    lineHeight: Typography.lineHeights.body,
   },
   descriptionInputPreviewMedium: {
     color: Colors.neutral[200],
     fontFamily: Typography.families.medium,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: Typography.sizes.body,
+    lineHeight: Typography.lineHeights.body,
   },
   descriptionInputPreviewSemiBold: {
     color: Colors.neutral[200],
     fontFamily: Typography.families.bold,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: Typography.sizes.body,
+    lineHeight: Typography.lineHeights.body,
   },
   descriptionInputPlaceholder: {
     color: Colors.neutral[600],
@@ -2041,8 +2041,8 @@ const styles = StyleSheet.create({
   },
   descriptionModalDoneText: {
     color: Colors.neutral[200],
-    fontSize: 18,
-    fontFamily: 'Figtree-Medium',
+    fontSize: Typography.sizes.title,
+    fontFamily: FontFamily.medium,
   },
   descriptionModalDoneTextDisabled: {
     color: Colors.coral[500],
@@ -2062,8 +2062,8 @@ const styles = StyleSheet.create({
   descriptionModalInput: {
     // Text is transparent - overlay shows formatted rich text (mentions/hashtags)
     color: Colors.transparent,
-    fontFamily: 'Figtree-Regular',
-    fontSize: 15,
+    fontFamily: FontFamily.regular,
+    fontSize: Typography.sizes.body,
     textAlignVertical: 'top',
     includeFontPadding: false,
     paddingVertical: 0,
@@ -2083,8 +2083,8 @@ const styles = StyleSheet.create({
   },
   descriptionInputOverlayText: {
     color: Colors.neutral[200],
-    fontFamily: 'Figtree-Regular',
-    fontSize: 15,
+    fontFamily: FontFamily.regular,
+    fontSize: Typography.sizes.body,
     textAlignVertical: 'top',
     includeFontPadding: false,
     paddingVertical: 0,
@@ -2092,13 +2092,13 @@ const styles = StyleSheet.create({
   },
   descriptionInputOverlayNormal: {
     color: Colors.neutral[200],
-    fontFamily: 'Figtree-Regular',
-    fontSize: 15,
+    fontFamily: FontFamily.regular,
+    fontSize: Typography.sizes.body,
   },
   descriptionInputOverlaySemiBold: {
     color: Colors.neutral[200],
     fontFamily: Typography.families.bold,
-    fontSize: 15,
+    fontSize: Typography.sizes.body,
   },
   searchModalContainer: {
     flex: 1,
@@ -2125,8 +2125,8 @@ const styles = StyleSheet.create({
   },
   channelSelectorPlaceholderText: {
     color: Colors.neutral[200],
-    fontSize: 18,
-    fontFamily: 'Figtree-Medium',
+    fontSize: Typography.sizes.title,
+    fontFamily: FontFamily.medium,
   },
   channelSelectorNameContainer: {
     flexDirection: 'row',
@@ -2135,8 +2135,8 @@ const styles = StyleSheet.create({
   },
   channelSelectorName: {
     color: Colors.neutral[50],
-    fontSize: 18,
-    fontFamily: 'Figtree-Medium',
+    fontSize: Typography.sizes.title,
+    fontFamily: FontFamily.medium,
   },
 });
 

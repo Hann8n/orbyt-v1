@@ -25,6 +25,7 @@ import {
   isColorDark,
 } from '../../../utils/formatting/colors';
 import { Colors } from '../../../theme';
+import { FontFamily, fontSizeFor } from '../../../utils/components/typography';
 import { useSubscribedChannels } from '../../../hooks/useSubscribedChannels';
 import {
   isOrbytChannel,
@@ -439,8 +440,8 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.FULL,
   },
   subscribeButtonText: {
-    fontFamily: 'Figtree-Bold',
-    fontSize: 17,
+    fontFamily: FontFamily.bold,
+    fontSize: fontSizeFor(17),
   },
 
   viewToggleContainer: {
@@ -461,13 +462,13 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   title: {
-    fontFamily: 'Figtree-Black',
+    fontFamily: FontFamily.black,
     fontWeight: 'bold',
-    fontSize: 28,
+    fontSize: fontSizeFor(28),
     flexShrink: 1,
   },
   orbytSlash: {
-    fontFamily: 'Figtree-SemiBold',
+    fontFamily: FontFamily.semibold,
     marginRight: 0,
   },
 });

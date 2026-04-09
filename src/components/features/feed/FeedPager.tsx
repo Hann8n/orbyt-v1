@@ -31,6 +31,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ListFeedViewRef } from '../../../types';
 import type { FeedPagerRef } from '../../../utils/navigation/tabRefs';
 import { useSetTabBarVisibility, useTabBarVisibility } from '../../../context/FeedIndicatorContext';
+import { FontFamily } from '@/utils/components/typography';
 
 // Define the feed options type
 export type FeedOption = string;
@@ -128,7 +129,7 @@ function FeedIndicatorItem({
       color,
       fontSize: indicatorBaseFontSize,
       marginRight: 8,
-      fontFamily: 'Figtree-Black',
+      fontFamily: FontFamily.black,
       opacity,
     };
   }, [feedIndex, indicatorBaseFontSize]);

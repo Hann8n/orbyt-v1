@@ -983,7 +983,7 @@ const styles = StyleSheet.create({
   authorName: {
     fontSize: Typography.sizes.body,
     fontFamily: FontFamily.bold,
-    lineHeight: 24,
+    lineHeight: Typography.lineHeights.body,
     includeFontPadding: false,
     flexShrink: 1,
     textShadowColor: Colors.transparent,
@@ -992,7 +992,7 @@ const styles = StyleSheet.create({
   authorNameTablet: {
     fontSize: Typography.sizes.title,
     fontFamily: FontFamily.semibold,
-    lineHeight: 24,
+    lineHeight: Typography.lineHeights.title,
     includeFontPadding: false,
     flexShrink: 1,
     textShadowColor: Colors.transparent,

@@ -38,6 +38,7 @@ import EmptyFeed from '../feed/EmptyFeed';
 import { getBottomNavBarHeight } from '../../../utils/device/screen';
 import { formatHandle } from '../../../utils/formatting/handles';
 import { formatRelativeDate } from '../../ui/RelativeDate';
+import { FontFamily, Typography, fontSizeFor } from '../../../utils/components/typography';
 import { queryKeys } from '../../../utils/query/queryKeys';
 import { chatReactQueryOptions } from '../../../utils/query/chatQueryOptions';
 import ChatSettingsSheet from './ChatSettingsSheet';
@@ -708,9 +709,9 @@ const styles = StyleSheet.create({
   },
   authorName: {
     color: Colors.neutral[50],
-    fontSize: 18,
+    fontSize: Typography.sizes.title,
     marginBottom: 2,
-    fontFamily: 'Figtree-Black',
+    fontFamily: FontFamily.black,
     marginRight: 4,
     flexShrink: 1,
   },
@@ -737,12 +738,12 @@ const styles = StyleSheet.create({
   },
   actionText: {
     color: Colors.neutral[400],
-    fontSize: 16.5,
-    fontFamily: 'Figtree-Medium',
+    fontSize: fontSizeFor(16.5),
+    fontFamily: FontFamily.medium,
   },
   actionTextUnread: {
     color: Colors.neutral[50],
-    fontFamily: 'Figtree-SemiBold',
+    fontFamily: FontFamily.semibold,
   },
   actionTextMuted: {
     color: Colors.neutral[500],
@@ -758,8 +759,8 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   streakBadgeText: {
-    fontSize: 12,
-    fontFamily: 'Figtree-SemiBold',
+    fontSize: Typography.sizes.caption,
+    fontFamily: FontFamily.semibold,
   },
   streakBadgeTextFlame: {
     color: Colors.orange[500],
@@ -769,8 +770,8 @@ const styles = StyleSheet.create({
   },
   timeText: {
     color: Colors.neutral[500],
-    fontSize: 14,
-    fontFamily: 'Figtree-Regular',
+    fontSize: Typography.sizes.bodySmall,
+    fontFamily: FontFamily.regular,
     marginLeft: 4,
   },
   timeTextMuted: {
@@ -802,7 +803,7 @@ const styles = StyleSheet.create({
   },
   requestOptionButtonText: {
     textAlign: 'center',
-    fontSize: 15,
+    fontSize: Typography.sizes.body,
   },
   requestOptionButtonAcceptBg: {
     backgroundColor: Colors.brand.teal,
@@ -852,7 +853,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: Colors.neutral[200],
-    fontSize: 16,
-    fontFamily: 'Figtree-Medium',
+    fontSize: Typography.sizes.subtitle,
+    fontFamily: FontFamily.medium,
   },
 });

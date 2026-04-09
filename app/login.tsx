@@ -25,6 +25,7 @@ import RocketBackground from '@/components/ui/RocketBackground';
 import SignUpSheet from '@/components/ui/SignUpSheet';
 import LoginSheet from '@/components/ui/LoginSheet';
 import { isUserCancellation } from '@/utils/errors/errorHandler';
+import { FontFamily, Typography, fontSizeFor } from '@/utils/components/typography';
 
 // Login logo: PNG 4x on Android (avoids SVG stroke clipping), SVG on iOS
 const orbytLogoLoginPng = require('@/assets/orbyt-logo-login.png');
@@ -359,8 +360,8 @@ const styles = StyleSheet.create({
   },
   appName: {
     color: Colors.neutral[50],
-    fontSize: 42,
-    fontFamily: 'Figtree-Black',
+    fontSize: fontSizeFor(42),
+    fontFamily: FontFamily.black,
     textAlign: 'center',
   },
   formContainer: {
@@ -399,13 +400,13 @@ const styles = StyleSheet.create({
   },
   blueskyButtonText: {
     color: Colors.black,
-    fontSize: 18,
-    fontFamily: 'Figtree-SemiBold',
+    fontSize: Typography.sizes.title,
+    fontFamily: FontFamily.semibold,
   },
   blueskyButtonTextGlass: {
     color: Colors.neutral[50],
-    fontSize: 18,
-    fontFamily: 'Figtree-SemiBold',
+    fontSize: Typography.sizes.title,
+    fontFamily: FontFamily.semibold,
   },
   signUpLinkDisabled: {
     opacity: 0.5,
@@ -418,18 +419,18 @@ const styles = StyleSheet.create({
   },
   chooseAccountTitle: {
     color: Colors.neutral[50],
-    fontSize: 28,
+    fontSize: fontSizeFor(28),
     fontWeight: 'bold',
-    fontFamily: 'Figtree-Bold',
+    fontFamily: FontFamily.bold,
     marginBottom: 8,
     textAlign: 'left',
   },
   chooseAccountSubtitle: {
     color: Colors.neutral[200],
-    fontSize: 16,
-    fontFamily: 'Figtree-Regular',
+    fontSize: Typography.sizes.subtitle,
+    fontFamily: FontFamily.regular,
     textAlign: 'left',
-    lineHeight: 22,
+    lineHeight: Typography.lineHeights.subtitle,
   },
   headerSection: {
     marginBottom: 32,
@@ -452,8 +453,8 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: Colors.coral[500],
-    fontSize: 14,
-    fontFamily: 'Figtree-Medium',
+    fontSize: Typography.sizes.bodySmall,
+    fontFamily: FontFamily.medium,
     textAlign: 'center',
   },
   buttonContent: {
@@ -490,8 +491,8 @@ const styles = StyleSheet.create({
   },
   dividerText: {
     color: Colors.neutral[200],
-    fontSize: 14,
-    fontFamily: 'Figtree-Medium',
+    fontSize: Typography.sizes.bodySmall,
+    fontFamily: FontFamily.medium,
     marginHorizontal: 16,
   },
   manualSignInLink: {
@@ -502,13 +503,13 @@ const styles = StyleSheet.create({
   },
   networkSignInText: {
     color: Colors.neutral[200],
-    fontSize: 15,
-    fontFamily: 'Figtree-Regular',
+    fontSize: Typography.sizes.body,
+    fontFamily: FontFamily.regular,
     textAlign: 'center',
-    lineHeight: 21,
+    lineHeight: Typography.lineHeights.body,
   },
   networkSignInLink: {
     color: Colors.neutral[200],
-    fontFamily: 'Figtree-Bold',
+    fontFamily: FontFamily.bold,
   },
 });

@@ -18,6 +18,7 @@ import { formatTime } from '../../../utils/formatting/time';
 import { Colors } from '../../../theme';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import { useUIStore } from '../../../stores/uiStore';
+import { FontFamily, Typography } from '../../../utils/components/typography';
 interface VideoScrubberProps {
   active: boolean;
   player?: VideoPlayer;
@@ -447,17 +448,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '600',
     color: Colors.neutral[50],
-    fontFamily: 'Figtree-SemiBold',
+    fontFamily: FontFamily.semibold,
   },
   timeTextLarge: {
-    fontSize: 36,
+    fontSize: Typography.sizes.display,
     fontVariant: ['tabular-nums'],
-    fontFamily: 'Figtree-SemiBold',
+    fontFamily: FontFamily.semibold,
   },
   timeTextSeparator: {
-    fontSize: 18,
+    fontSize: Typography.sizes.title,
     opacity: 0.8,
-    fontFamily: 'Figtree-Regular',
+    fontFamily: FontFamily.regular,
   },
   timeTextMuted: {
     opacity: 0.8,

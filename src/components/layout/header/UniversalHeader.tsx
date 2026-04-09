@@ -37,7 +37,7 @@ import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation
 import { hexToRGBA, blendColors, getRelativeLuminance } from '../../../utils/formatting/colors';
 import { Avatar } from '../../ui/UI';
 import { Colors } from '../../../theme';
-import { Typography, FontFamily } from '../../../utils/components/typography';
+import { Typography, FontFamily, fontSizeFor } from '../../../utils/components/typography';
 import { splitHandleSuffix } from '../../../utils/formatting/handles';
 import { TextWithLinks } from '../../ui/TextWithLinks';
 import type { RichTextFacet } from '../../../utils/types/richText';
@@ -1375,14 +1375,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   actionText: {
-    fontFamily: 'Figtree-Bold',
+    fontFamily: FontFamily.bold,
     textAlign: 'center',
-    fontSize: 17,
+    fontSize: fontSizeFor(17),
   },
   actionTextBold: {
-    fontFamily: 'Figtree-Bold',
+    fontFamily: FontFamily.bold,
     textAlign: 'center',
-    fontSize: 17,
+    fontSize: fontSizeFor(17),
   },
   actionButtonGlassBackground: {
     ...StyleSheet.absoluteFillObject,
@@ -1482,15 +1482,15 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   title: {
-    fontFamily: 'Figtree-Black',
-    fontSize: 30,
+    fontFamily: FontFamily.black,
+    fontSize: fontSizeFor(30),
     flexShrink: 1,
   },
   subtitle: {
     marginTop: 0,
     marginBottom: 15,
-    fontFamily: 'Figtree-Medium',
-    fontSize: 18,
+    fontFamily: FontFamily.medium,
+    fontSize: Typography.sizes.title,
   },
   subtitleSecondaryPill: {
     marginTop: 4,
@@ -1548,25 +1548,25 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   subtitleSecondary: {
-    fontSize: 14,
+    fontSize: Typography.sizes.bodySmall,
     letterSpacing: 0,
   },
   subtitleSecondaryRegular: {
-    fontFamily: 'Figtree-Medium',
-    fontSize: 14,
+    fontFamily: FontFamily.medium,
+    fontSize: Typography.sizes.bodySmall,
     letterSpacing: 0,
   },
   subtitleSecondaryBold: {
-    fontFamily: 'Figtree-Bold',
-    fontSize: 14,
+    fontFamily: FontFamily.bold,
+    fontSize: Typography.sizes.bodySmall,
     letterSpacing: 0,
   },
   description: {
     marginTop: 12,
     flexShrink: 1,
     flexWrap: 'wrap',
-    fontFamily: 'Figtree-Medium',
-    fontSize: 17,
+    fontFamily: FontFamily.medium,
+    fontSize: fontSizeFor(17),
   },
   content: {
     width: '100%',

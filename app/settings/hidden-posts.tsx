@@ -13,6 +13,7 @@ import { useUserStoreState } from '@/stores/userStore';
 import { useModerationSettings } from '@/hooks/useModerationSettings';
 import { useAvatarProfileRing } from '@/services/colors';
 import { logger } from '@/utils/logger';
+import { FontFamily, Typography } from '@/utils/components/typography';
 
 interface HiddenPost {
   id: string;
@@ -248,21 +249,21 @@ const styles = StyleSheet.create({
   },
   authorName: {
     color: Colors.neutral[50],
-    fontSize: 14,
+    fontSize: Typography.sizes.bodySmall,
     fontWeight: '600',
-    fontFamily: 'Figtree-SemiBold',
+    fontFamily: FontFamily.semibold,
   },
   authorHandle: {
     color: Colors.neutral[200],
-    fontSize: 12,
-    fontFamily: 'Figtree-Regular',
+    fontSize: Typography.sizes.caption,
+    fontFamily: FontFamily.regular,
     marginTop: 1,
   },
   postText: {
     color: Colors.neutral[50],
-    fontSize: 14,
-    fontFamily: 'Figtree-Regular',
-    lineHeight: 18,
+    fontSize: Typography.sizes.bodySmall,
+    fontFamily: FontFamily.regular,
+    lineHeight: Typography.lineHeights.bodySmall,
   },
   unhideButton: {
     flexDirection: 'row',
@@ -286,9 +287,9 @@ const styles = StyleSheet.create({
   },
   unhideButtonText: {
     color: Colors.neutral[50],
-    fontSize: 15,
+    fontSize: Typography.sizes.body,
     fontWeight: '600',
-    fontFamily: 'Figtree-Medium',
+    fontFamily: FontFamily.medium,
     marginLeft: 6,
   },
   loadingContainer: {
@@ -299,8 +300,8 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     color: Colors.neutral[200],
-    fontSize: 16,
-    fontFamily: 'Figtree-Medium',
+    fontSize: Typography.sizes.subtitle,
+    fontFamily: FontFamily.medium,
     marginTop: 12,
   },
   emptyContainer: {
@@ -312,18 +313,18 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     color: Colors.neutral[50],
-    fontSize: 20,
+    fontSize: Typography.sizes.h3,
     fontWeight: '600',
-    fontFamily: 'Figtree-SemiBold',
+    fontFamily: FontFamily.semibold,
     marginTop: 16,
     marginBottom: 8,
   },
   emptyDescription: {
     color: Colors.neutral[200],
-    fontSize: 16,
-    fontFamily: 'Figtree-Regular',
+    fontSize: Typography.sizes.subtitle,
+    fontFamily: FontFamily.regular,
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: Typography.lineHeights.subtitle,
   },
 });
 

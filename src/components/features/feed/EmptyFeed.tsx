@@ -18,6 +18,7 @@ import { useFollowMutation, useProfile } from '../../../services/data/ProfileSer
 import { useAvatarProfileRing } from '../../../services/colors';
 import { formatHandle } from '../../../utils/formatting/handles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FontFamily, Typography } from '../../../utils/components/typography';
 // Use require for static RN asset to avoid TS module typing issues
 const TVStaticGif = require('../../../assets/tv_static.gif');
 const EMPTY_FEED_TV_SIZE = 70;
@@ -300,8 +301,8 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: Colors.neutral[50],
-    fontSize: 16,
-    fontFamily: 'Figtree-SemiBold',
+    fontSize: Typography.sizes.subtitle,
+    fontFamily: FontFamily.semibold,
     marginTop: 0,
     textAlign: 'center',
   },
@@ -330,8 +331,8 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   sectionTitle: {
-    fontSize: 18,
-    fontFamily: 'Figtree-Bold',
+    fontSize: Typography.sizes.title,
+    fontFamily: FontFamily.bold,
     fontWeight: 'bold',
     color: Colors.neutral[50],
   },
@@ -376,9 +377,9 @@ const styles = StyleSheet.create({
   },
   displayName: {
     color: Colors.neutral[50],
-    fontSize: 16,
+    fontSize: Typography.sizes.subtitle,
     marginBottom: 2,
-    fontFamily: 'Figtree-SemiBold',
+    fontFamily: FontFamily.semibold,
     flexShrink: 1,
   },
   followButton: {
@@ -404,8 +405,8 @@ const styles = StyleSheet.create({
   },
   addChannelsButtonText: {
     color: Colors.black,
-    fontSize: 16,
-    fontFamily: 'Figtree-SemiBold',
+    fontSize: Typography.sizes.subtitle,
+    fontFamily: FontFamily.semibold,
   },
 });
 

@@ -56,7 +56,7 @@ import {
 } from '../../../utils/constants';
 import { formatNumber } from '../../../utils/formatting/numbers';
 import { formatHandle } from '../../../utils/formatting/handles';
-import { FontFamily } from '../../../utils/components/typography';
+import { FontFamily, Typography, fontSizeFor } from '../../../utils/components/typography';
 import CommentInputFooter from './CommentInputFooter';
 import CommentItem from './CommentItem';
 import { CommentLikeItem } from './CommentLikeItem';
@@ -1328,7 +1328,7 @@ const styles = StyleSheet.create({
   },
   dateText: {
     color: Colors.neutral[400],
-    fontSize: 15,
+    fontSize: Typography.sizes.body,
     fontFamily: FontFamily.medium,
   },
   actionButton: {
@@ -1360,9 +1360,9 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: Colors.neutral[50],
-    fontSize: 17,
+    fontSize: Typography.sizes.title,
     textAlign: 'center',
-    fontFamily: 'Figtree-SemiBold',
+    fontFamily: FontFamily.semibold,
   },
 
   likeDivider: {
@@ -1386,7 +1386,7 @@ const styles = StyleSheet.create({
   },
   replyBannerText: {
     color: Colors.neutral[200],
-    fontSize: 13,
+    fontSize: fontSizeFor(13),
     fontFamily: FontFamily.medium,
     flex: 1,
     minWidth: 0,
@@ -1394,7 +1394,7 @@ const styles = StyleSheet.create({
   },
   replyBannerNameText: {
     color: Colors.neutral[200],
-    fontSize: 13,
+    fontSize: fontSizeFor(13),
     fontFamily: FontFamily.bold,
   },
   replyBannerCloseButton: {
@@ -1402,7 +1402,7 @@ const styles = StyleSheet.create({
   },
   replyBannerCloseText: {
     color: Colors.neutral[300],
-    fontSize: 12,
+    fontSize: Typography.sizes.caption,
     fontFamily: FontFamily.medium,
   },
 });

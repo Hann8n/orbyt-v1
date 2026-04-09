@@ -17,6 +17,7 @@ import { useRouter } from 'expo-router';
 import { useGlobalAccountSwitcher } from '@/hooks/useGlobalModals';
 import ProfileService from '@/services/data/ProfileService';
 import type { ViewMode } from '@/types';
+import { FontFamily, Typography } from '@/utils/components/typography';
 
 type MenuViewRef = {
   showMenu?: () => void;
@@ -613,8 +614,8 @@ const styles = StyleSheet.create({
   },
   footerSubtext: {
     color: Colors.neutral[500],
-    fontSize: 12,
-    fontFamily: 'Figtree-Regular',
+    fontSize: Typography.sizes.caption,
+    fontFamily: FontFamily.regular,
     textAlign: 'center',
   },
   footerHeartContainer: {
@@ -625,8 +626,8 @@ const styles = StyleSheet.create({
   },
   versionText: {
     color: Colors.neutral[600],
-    fontSize: 12,
-    fontFamily: 'Figtree-Regular',
+    fontSize: Typography.sizes.caption,
+    fontFamily: FontFamily.regular,
     textAlign: 'center',
   },
 });

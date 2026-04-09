@@ -15,6 +15,7 @@ import { Colors } from '@/theme';
 import ChatsTab from '@/components/features/activity/ChatsTab';
 import NotificationsTab from '@/components/features/activity/NotificationsTab';
 import { useUnreadCount } from '@/hooks/useUnreadCount';
+import { FontFamily, fontSizeFor } from '@/utils/components/typography';
 
 // Tab label keys (resolved via t() in component)
 const TAB_LABEL_KEYS: { [key: string]: string } = {
@@ -47,10 +48,10 @@ const ActivityIndicatorItem = React.memo(function ActivityIndicatorItem({
 
     return {
       color,
-      fontSize: 22,
+      fontSize: fontSizeFor(22),
       marginRight: 8,
       fontWeight: 'bold' as const,
-      fontFamily: 'Figtree-Black',
+      fontFamily: FontFamily.black,
       opacity,
     };
   }, [tabIndex]);

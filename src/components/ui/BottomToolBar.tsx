@@ -10,6 +10,7 @@ import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import Icon from './Icon';
 import { Colors } from './UI';
 import { BORDER_RADIUS } from '@/utils/constants';
+import { FontFamily, fontSizeFor } from '@/utils/components/typography';
 
 interface BottomToolBarProps {
   mode: 'create' | 'edit';
@@ -251,8 +252,8 @@ const styles = StyleSheet.create({
   },
   nextButtonText: {
     color: Colors.black,
-    fontSize: 17,
-    fontFamily: 'Figtree-Bold',
+    fontSize: fontSizeFor(17),
+    fontFamily: FontFamily.bold,
     fontWeight: '600',
     includeFontPadding: false,
   },

@@ -32,6 +32,7 @@ import { AtprotoFeedService } from '../../../services/api/feed/FeedService';
 import { NotificationService } from '../../../services/api/notification/NotificationService';
 import { Link, useRouter, useFocusEffect } from 'expo-router';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import { FontFamily, Typography, fontSizeFor } from '../../../utils/components/typography';
 
 import ProfileService, { prefetchProfile, useProfile } from '../../../services/data/ProfileService';
 import { Colors } from '../../../theme';
@@ -1099,9 +1100,9 @@ const styles = StyleSheet.create({
   },
   authorName: {
     color: Colors.neutral[50],
-    fontSize: 18,
+    fontSize: Typography.sizes.title,
     marginBottom: 2,
-    fontFamily: 'Figtree-Black',
+    fontFamily: FontFamily.black,
   },
   actionRow: {
     flexDirection: 'row',
@@ -1120,13 +1121,13 @@ const styles = StyleSheet.create({
   },
   actionText: {
     color: Colors.neutral[400],
-    fontSize: 16.5,
-    fontFamily: 'Figtree-Medium',
+    fontSize: fontSizeFor(16.5),
+    fontFamily: FontFamily.medium,
   },
   timeText: {
     color: Colors.neutral[500],
-    fontSize: 14,
-    fontFamily: 'Figtree-Regular',
+    fontSize: Typography.sizes.bodySmall,
+    fontFamily: FontFamily.regular,
     marginLeft: 4,
   },
   errorContainer: {
@@ -1162,8 +1163,8 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: Colors.neutral[200],
-    fontSize: 16,
+    fontSize: Typography.sizes.subtitle,
     textAlign: 'center',
-    fontFamily: 'Figtree-Medium',
+    fontFamily: FontFamily.medium,
   },
 });

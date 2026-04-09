@@ -14,6 +14,7 @@ import AuthorItem from './AuthorItem';
 import { useFollowMutation } from '../../services/data/ProfileService';
 import { isCurrentUser } from '../../stores/profileInteractionStore';
 import { useUserStore } from '../../stores/userStore';
+import { FontFamily, Typography } from '@/utils/components/typography';
 
 interface User {
   did: string;
@@ -276,17 +277,17 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     color: Colors.neutral[50],
-    fontSize: 20,
-    fontFamily: 'Figtree-Bold',
+    fontSize: Typography.sizes.h3,
+    fontFamily: FontFamily.bold,
     marginBottom: 8,
     textAlign: 'center',
   },
   emptySubtitle: {
     color: Colors.neutral[200],
-    fontSize: 16,
-    fontFamily: 'Figtree-Medium',
+    fontSize: Typography.sizes.subtitle,
+    fontFamily: FontFamily.medium,
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: Typography.lineHeights.subtitle,
   },
   loadingContainer: {
     flex: 1,

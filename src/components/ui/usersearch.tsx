@@ -21,7 +21,7 @@ import { AtprotoFeedService } from '../../services/api/feed/FeedService';
 // Avatar import removed – using AuthorItem instead
 import AuthorItem from './AuthorItem';
 import { Colors } from './UI';
-import { Typography } from '../../utils/components/typography';
+import { FontFamily, Typography, fontSizeFor } from '../../utils/components/typography';
 // VerificationBadge import removed – badges rendered via AuthorItem
 
 // Types
@@ -619,11 +619,11 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: Colors.coral[500],
-    fontSize: 15,
+    fontSize: Typography.sizes.body,
   },
   emptyText: {
     color: Colors.neutral[200],
-    fontSize: 15,
+    fontSize: Typography.sizes.body,
   },
   hashtagItem: {
     flexDirection: 'row',
@@ -637,17 +637,17 @@ const styles = StyleSheet.create({
   },
   hashtagText: {
     color: Colors.neutral[50],
-    fontSize: 17,
-    fontFamily: 'Figtree-Regular',
+    fontSize: fontSizeFor(17),
+    fontFamily: FontFamily.regular,
   },
   hashtagSymbol: {
     color: Colors.neutral[50],
-    fontSize: 17,
+    fontSize: fontSizeFor(17),
     fontFamily: Typography.families.medium,
   },
   hashtagTag: {
     color: Colors.neutral[50],
-    fontSize: 17,
+    fontSize: fontSizeFor(17),
     fontFamily: Typography.families.bold,
   },
   hashtagListContent: {

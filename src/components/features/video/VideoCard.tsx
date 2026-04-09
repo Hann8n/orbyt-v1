@@ -68,6 +68,7 @@ import { useUserStore } from '../../../stores/userStore';
 import { useShallow } from 'zustand/react/shallow';
 import { ErrorHandler } from '../../../utils/errors/errorHandler';
 import { useLikeInteraction } from '@/hooks/useLikeInteraction';
+import { FontFamily, Typography } from '../../../utils/components/typography';
 import type {
   ExtendedPostView,
   ExtendedFeedViewPost,
@@ -1264,7 +1265,7 @@ const styles = StyleSheet.create({
   loadingText: {
     color: Colors.neutral[50],
     marginTop: 10,
-    fontSize: 12,
+    fontSize: Typography.sizes.caption,
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -1291,18 +1292,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   blurTitle: {
-    fontSize: 20,
-    fontFamily: 'Figtree-Bold',
+    fontSize: Typography.sizes.h3,
+    fontFamily: FontFamily.bold,
     color: Colors.neutral[50],
     marginBottom: 12,
     textAlign: 'center',
   },
   blurText: {
-    fontSize: 15,
-    fontFamily: 'Figtree-Regular',
+    fontSize: Typography.sizes.body,
+    fontFamily: FontFamily.regular,
     color: Colors.neutral[200],
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: Typography.lineHeights.body,
   },
   viewButton: {
     position: 'absolute',
@@ -1326,8 +1327,8 @@ const styles = StyleSheet.create({
   },
   viewButtonText: {
     color: Colors.black,
-    fontSize: 15,
-    fontFamily: 'Figtree-SemiBold',
+    fontSize: Typography.sizes.body,
+    fontFamily: FontFamily.semibold,
     fontWeight: '600',
   },
   textExpandedDimmingOverlay: {

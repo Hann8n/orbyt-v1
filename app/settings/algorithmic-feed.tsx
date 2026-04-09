@@ -32,6 +32,7 @@ import { BORDER_RADIUS, ALGORITHMIC_FEED_PROVIDERS } from '@/utils/constants';
 import { hexToRGBA, isColorDark } from '@/utils/formatting/colors';
 import { AtprotoFeedService } from '@/services/api/feed/FeedService';
 import { logger } from '@/utils/logger';
+import { FontFamily, Typography } from '@/utils/components/typography';
 
 interface FeedProviderOption {
   id: string;
@@ -496,9 +497,9 @@ const styles = StyleSheet.create({
   },
   infoText: {
     color: Colors.neutral[500],
-    fontSize: 14,
-    fontFamily: 'Figtree-Regular',
-    lineHeight: 20,
+    fontSize: Typography.sizes.bodySmall,
+    fontFamily: FontFamily.regular,
+    lineHeight: Typography.lineHeights.bodySmall,
   },
   channelsSectionHeader: {
     paddingHorizontal: 20,
@@ -507,8 +508,8 @@ const styles = StyleSheet.create({
   },
   channelsSectionTitle: {
     color: Colors.neutral[50],
-    fontSize: 18,
-    fontFamily: 'Figtree-Bold',
+    fontSize: Typography.sizes.title,
+    fontFamily: FontFamily.bold,
   },
   channelsList: {
     marginTop: 0,
@@ -535,20 +536,20 @@ const styles = StyleSheet.create({
   },
   channelLabel: {
     color: Colors.neutral[50],
-    fontSize: 14,
-    fontFamily: 'Figtree-Bold',
+    fontSize: Typography.sizes.bodySmall,
+    fontFamily: FontFamily.bold,
     marginBottom: 2,
   },
   orbytSlash: {
-    fontSize: 14,
+    fontSize: Typography.sizes.bodySmall,
     marginBottom: 2,
-    fontFamily: 'Figtree-Bold',
+    fontFamily: FontFamily.bold,
     marginRight: 0,
   },
   channelDescription: {
     color: Colors.neutral[200],
-    fontSize: 14,
-    fontFamily: 'Figtree-Regular',
+    fontSize: Typography.sizes.bodySmall,
+    fontFamily: FontFamily.regular,
   },
   subscribeButton: {
     flexDirection: 'row',
@@ -583,8 +584,8 @@ const styles = StyleSheet.create({
     borderRadius: 18,
   },
   subscribeButtonText: {
-    fontFamily: 'Figtree-SemiBold',
-    fontSize: 12,
+    fontFamily: FontFamily.semibold,
+    fontSize: Typography.sizes.caption,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -597,17 +598,17 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     color: Colors.neutral[50],
-    fontSize: 20,
-    fontFamily: 'Figtree-Bold',
+    fontSize: Typography.sizes.h3,
+    fontFamily: FontFamily.bold,
     marginBottom: 8,
     textAlign: 'center',
   },
   emptySubtitle: {
     color: Colors.neutral[200],
-    fontSize: 16,
-    fontFamily: 'Figtree-Medium',
+    fontSize: Typography.sizes.subtitle,
+    fontFamily: FontFamily.medium,
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: Typography.lineHeights.subtitle,
     marginBottom: 24,
   },
   exploreButton: {
@@ -620,8 +621,8 @@ const styles = StyleSheet.create({
   },
   exploreButtonText: {
     color: Colors.black,
-    fontSize: 16,
-    fontFamily: 'Figtree-SemiBold',
+    fontSize: Typography.sizes.subtitle,
+    fontFamily: FontFamily.semibold,
   },
   sheetContent: {
     paddingHorizontal: 12,

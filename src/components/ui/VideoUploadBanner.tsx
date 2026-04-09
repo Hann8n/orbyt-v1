@@ -16,6 +16,7 @@ import Animated, {
 import { Colors } from './UI';
 import { BORDER_RADIUS } from '../../utils/constants';
 import { useVideoUpload } from '../../hooks/useVideoUpload';
+import { FontFamily, Typography, fontSizeFor } from '@/utils/components/typography';
 
 interface VideoUploadBannerProps {
   topInset?: number;
@@ -63,13 +64,13 @@ const styles = StyleSheet.create({
   },
   bannerText: {
     color: Colors.neutral[50],
-    fontSize: 18,
-    fontFamily: 'Figtree-SemiBold',
+    fontSize: Typography.sizes.title,
+    fontFamily: FontFamily.semibold,
   },
   chyronText: {
     color: Colors.neutral[50],
-    fontSize: 13,
-    fontFamily: 'Figtree-Regular',
+    fontSize: fontSizeFor(13),
+    fontFamily: FontFamily.regular,
     opacity: 0.8,
     marginTop: 2,
   },

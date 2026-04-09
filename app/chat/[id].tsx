@@ -45,7 +45,7 @@ import {
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 
 import { Colors } from '@/theme';
-import { Typography, FontFamily } from '@/utils/components/typography';
+import { Typography, FontFamily, fontSizeFor } from '@/utils/components/typography';
 import { APP_CONSTANTS, BORDER_RADIUS, SCROLL_INDICATOR_CONSTANTS } from '@/utils/constants';
 import Icon, {
   BackArrowIcon,
@@ -2270,7 +2270,7 @@ const styles = StyleSheet.create({
     color: Colors.neutral[400],
     fontSize: Typography.sizes.caption,
     fontFamily: FontFamily.regular,
-    lineHeight: 20,
+    lineHeight: Typography.lineHeights.caption,
   },
   menuOptionsContainer: {
     paddingHorizontal: 4,
@@ -2419,10 +2419,10 @@ const styles = StyleSheet.create({
     borderWidth: REACTION_CHIP_STYLE.borderWidth,
   },
   reactionEmoji: {
-    fontSize: 12,
+    fontSize: Typography.sizes.caption,
   },
   reactionCount: {
-    fontSize: 11,
+    fontSize: fontSizeFor(11),
     color: REACTION_CHIP_STYLE.countColor,
     fontFamily: FontFamily.medium,
   },
@@ -2451,7 +2451,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   reactionSheetActiveEmoji: {
-    fontSize: 20,
+    fontSize: Typography.sizes.h3,
   },
   reactionSheetActiveCount: {
     fontSize: Typography.sizes.caption,
@@ -2520,7 +2520,7 @@ const styles = StyleSheet.create({
     color: Colors.neutral[400],
     fontSize: Typography.sizes.bodySmall,
     fontFamily: FontFamily.regular,
-    lineHeight: 20,
+    lineHeight: Typography.lineHeights.bodySmall,
   },
   embedDescriptionFromMe: {
     color: Colors.neutral[300],
@@ -2602,7 +2602,7 @@ const styles = StyleSheet.create({
   sendButtonContent: COMPOSER_STYLES.sendButtonContent,
   placeholder: {
     color: Colors.neutral[400],
-    fontSize: 16,
+    fontSize: Typography.sizes.subtitle,
     padding: 20,
   },
   leftConvoPlaceholder: {

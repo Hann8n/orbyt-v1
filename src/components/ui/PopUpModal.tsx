@@ -3,6 +3,8 @@ import { BORDER_RADIUS } from '../../utils/constants';
 import { Modal, View, Text, Pressable, StyleSheet } from 'react-native';
 import { Colors } from './UI';
 import { SquircleView, SquircleNativePressable } from './Squircle';
+import { FontFamily, Typography } from '@/utils/components/typography';
+import { hexToRGBA } from '@/utils/formatting/colors';
 
 interface PopUpModalProps {
   visible: boolean;
@@ -86,16 +88,16 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     color: Colors.neutral[50],
-    fontSize: 18,
+    fontSize: Typography.sizes.title,
     fontWeight: 'bold',
     marginBottom: 8,
-    fontFamily: 'Figtree-Bold',
+    fontFamily: FontFamily.bold,
   },
   modalSubtitle: {
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: 14,
+    color: hexToRGBA(Colors.neutral[50], 0.7),
+    fontSize: Typography.sizes.bodySmall,
     marginBottom: 16,
-    fontFamily: 'Figtree-Regular',
+    fontFamily: FontFamily.regular,
   },
   childrenContainer: {
     marginBottom: 16,
@@ -117,11 +119,11 @@ const styles = StyleSheet.create({
   },
   actionButtonText: {
     color: Colors.neutral[50],
-    fontSize: 16,
-    fontFamily: 'Figtree-Medium',
+    fontSize: Typography.sizes.subtitle,
+    fontFamily: FontFamily.medium,
   },
   primaryButtonText: {
-    fontFamily: 'Figtree-Bold',
+    fontFamily: FontFamily.bold,
   },
 });
 

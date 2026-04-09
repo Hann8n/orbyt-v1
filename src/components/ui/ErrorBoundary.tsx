@@ -14,6 +14,12 @@ import { logger } from '../../utils/logger';
 import { Colors } from './UI';
 import CancelButton from './CancelButton';
 import { getDeviceInfo } from '../../utils/version';
+import {
+  FontFamily,
+  Typography,
+  fontSizeFor,
+  lineHeightFor,
+} from '../../utils/components/typography';
 
 export interface ErrorBoundaryProps {
   children: ReactNode;
@@ -303,29 +309,29 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   emoji: {
-    fontSize: 32,
-    fontFamily: 'Figtree-SemiBold',
+    fontSize: fontSizeFor(32),
+    fontFamily: FontFamily.semibold,
     color: Colors.neutral[50],
     textAlign: 'left',
     marginBottom: 8,
-    lineHeight: 40,
+    lineHeight: lineHeightFor(fontSizeFor(32)),
   },
   title: {
-    fontSize: 32,
-    fontFamily: 'Figtree-SemiBold',
+    fontSize: fontSizeFor(32),
+    fontFamily: FontFamily.semibold,
     color: Colors.neutral[50],
     textAlign: 'left',
     marginBottom: 12,
-    lineHeight: 40,
+    lineHeight: lineHeightFor(fontSizeFor(32)),
     letterSpacing: 0.15,
   },
   message: {
-    fontSize: 16,
-    fontFamily: 'Figtree-Regular',
+    fontSize: Typography.sizes.subtitle,
+    fontFamily: FontFamily.regular,
     color: Colors.neutral[500],
     textAlign: 'left',
     marginBottom: 24,
-    lineHeight: 24,
+    lineHeight: Typography.lineHeights.subtitle,
   },
   buttonContainer: {
     width: '100%',
@@ -347,8 +353,8 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   supportLinkText: {
-    fontSize: 16,
-    fontFamily: 'Figtree-SemiBold',
+    fontSize: Typography.sizes.subtitle,
+    fontFamily: FontFamily.semibold,
     color: Colors.neutral[200],
     textAlign: 'left',
     textDecorationLine: 'underline',

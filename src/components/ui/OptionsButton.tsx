@@ -6,6 +6,7 @@ import { SquircleView } from './Squircle';
 import { Colors } from './UI';
 import { BORDER_RADIUS } from '../../utils/constants';
 import { hexToRGBA } from '../../utils/formatting/colors';
+import { FontFamily, Typography } from '../../utils/components/typography';
 
 // Define styles inline to avoid import path issues
 const ROW_MIN_HEIGHT = 64; // paddingVertical 40 + standard right-slot 24
@@ -51,14 +52,14 @@ const buttonStyles = StyleSheet.create({
 const textStyles = StyleSheet.create({
   menuOptionText: {
     color: Colors.neutral[50], // neutral.50 - Orbyt White
-    fontSize: 18,
-    fontFamily: 'Figtree-SemiBold',
+    fontSize: Typography.sizes.title,
+    fontFamily: FontFamily.semibold,
   },
   menuOptionSubtitle: {
     color: Colors.neutral[500], // neutral.500
-    fontSize: 12,
+    fontSize: Typography.sizes.caption,
     fontWeight: '400',
-    fontFamily: 'Figtree-Regular',
+    fontFamily: FontFamily.regular,
     marginTop: 4,
   },
 });

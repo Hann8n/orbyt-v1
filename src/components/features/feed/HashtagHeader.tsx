@@ -64,13 +64,13 @@ const styles = StyleSheet.create({
     color: Colors.neutral[50],
     fontFamily: FontFamily.medium,
     includeFontPadding: false,
-    lineHeight: 30,
+    lineHeight: Typography.lineHeights.title,
   },
   hashtagText: {
     fontSize: Typography.sizes.title,
     color: Colors.neutral[50],
     fontFamily: FontFamily.bold,
     includeFontPadding: false,
-    lineHeight: 30,
+    lineHeight: Typography.lineHeights.title,
   },
 });
