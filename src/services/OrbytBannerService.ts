@@ -187,23 +187,26 @@ class HeaderService extends OrbytAPIService<HeadersResponse> {
       }
     }
 
-    // Keep the legacy JSON fallback for local development and rollback only.
-    candidates.push(
-      'http://localhost:5173/api/banners.json',
-      'http://127.0.0.1:5173/api/banners.json',
-      'http://localhost:5500/api/banners.json',
-      'http://127.0.0.1:5500/api/banners.json',
-      'http://localhost:3000/api/banners.json',
-      'http://127.0.0.1:3000/api/banners.json',
-      'http://localhost:5173/api/headers.json',
-      'http://127.0.0.1:5173/api/headers.json',
-      'http://localhost:5500/api/headers.json',
-      'http://127.0.0.1:5500/api/headers.json',
-      'http://localhost:3000/api/headers.json',
-      'http://127.0.0.1:3000/api/headers.json'
-    );
-
+    // Production should prefer the canonical API immediately to avoid localhost timeout penalties.
     candidates.push(this.REMOTE_URL);
+
+    // Keep local JSON fallbacks only for explicit development workflows.
+    if (__DEV__) {
+      candidates.push(
+        'http://localhost:5173/api/banners.json',
+        'http://127.0.0.1:5173/api/banners.json',
+        'http://localhost:5500/api/banners.json',
+        'http://127.0.0.1:5500/api/banners.json',
+        'http://localhost:3000/api/banners.json',
+        'http://127.0.0.1:3000/api/banners.json',
+        'http://localhost:5173/api/headers.json',
+        'http://127.0.0.1:5173/api/headers.json',
+        'http://localhost:5500/api/headers.json',
+        'http://127.0.0.1:5500/api/headers.json',
+        'http://localhost:3000/api/headers.json',
+        'http://127.0.0.1:3000/api/headers.json'
+      );
+    }
 
     return candidates;
   }
@@ -281,6 +284,7 @@ export const useHeaders = () => {
     queryFn: () => HeaderService.getHeaders(),
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
+    refetchOnMount: false,
   });
 };
 

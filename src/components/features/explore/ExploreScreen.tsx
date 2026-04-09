@@ -131,7 +131,7 @@ const ExploreScreen: React.FC = () => {
     }
   }, [currentUser?.did]);
 
-  const { data: fetchedHeaders = [], isLoading: isLoadingHeaders } = useHeaders();
+  const { data: fetchedHeaders = [] } = useHeaders();
 
   useEffect(() => {
     setHasHeaderBannerError(false);
@@ -337,8 +337,8 @@ const ExploreScreen: React.FC = () => {
   } = useExploreSuggestionsQueries(orbytChannelUris);
 
   const isHeaderVisible = useMemo(
-    () => !isLoadingHeaders && headers.length > 0 && !hasHeaderBannerError,
-    [hasHeaderBannerError, isLoadingHeaders, headers.length]
+    () => headers.length > 0 && !hasHeaderBannerError,
+    [hasHeaderBannerError, headers.length]
   );
   const computedHeaderHeight = useMemo(() => {
     const ratio = Math.max(0.2, Math.min(0.5, headers?.[0]?.heightRatio ?? 0.35));
@@ -513,11 +513,8 @@ const ExploreScreen: React.FC = () => {
       );
     }
 
-    const headerSpacerHeight = isLoadingHeaders
-      ? computedHeaderHeight
-      : getExploreTopChromeSpacerHeight(insets.top);
-    return <ExploreTopSpacer height={headerSpacerHeight} />;
-  }, [computedHeaderHeight, headers, isHeaderVisible, isLoadingHeaders, insets.top]);
+    return <ExploreTopSpacer height={getExploreTopChromeSpacerHeight(insets.top)} />;
+  }, [computedHeaderHeight, headers, isHeaderVisible, insets.top]);
 
   return (
     <View style={[styles.container, Platform.OS === 'android' && styles.androidPaddingTop]}>
