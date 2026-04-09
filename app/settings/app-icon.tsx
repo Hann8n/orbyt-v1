@@ -22,6 +22,7 @@ import { useCurrentUser } from '@/stores/userStore';
 import { useOrbytColors } from '@/services/colors';
 import { formatHandle } from '@/utils/formatting/handles';
 import { logger } from '@/utils/logger';
+import { Typography, FontFamily } from '@/utils/components/typography';
 
 type AppIconKey =
   | 'orBYTE'
@@ -309,9 +310,9 @@ const styles = StyleSheet.create({
   },
   sectionTitleText: {
     color: Colors.neutral[500],
-    fontSize: 14,
+    fontSize: Typography.sizes.bodySmall,
     fontWeight: '600',
-    fontFamily: 'Figtree-SemiBold',
+    fontFamily: FontFamily.semibold,
     letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
@@ -322,13 +323,13 @@ const styles = StyleSheet.create({
   },
   attributionText: {
     color: Colors.neutral[500],
-    fontSize: 12,
-    fontFamily: 'Figtree-Regular',
+    fontSize: Typography.sizes.caption,
+    fontFamily: FontFamily.regular,
   },
   attributionHandle: {
     color: Colors.teal[400],
-    fontSize: 12,
-    fontFamily: 'Figtree-SemiBold',
+    fontSize: Typography.sizes.caption,
+    fontFamily: FontFamily.semibold,
   },
   iconGrid: {
     flexDirection: 'row',
@@ -343,7 +344,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   iconPreview: {
-    borderRadius: 16,
+    borderRadius: 22,
     overflow: 'hidden',
     backgroundColor: Colors.neutral[900],
   },
@@ -368,15 +369,15 @@ const styles = StyleSheet.create({
   },
   iconLabel: {
     color: Colors.neutral[50],
-    fontSize: 11,
-    fontFamily: 'Figtree-Medium',
+    fontSize: Typography.sizes.bodySmall,
+    fontFamily: FontFamily.medium,
     marginTop: 6,
     textAlign: 'center',
   },
   iconSubtitle: {
     color: Colors.neutral[500],
-    fontSize: 9,
-    fontFamily: 'Figtree-Regular',
+    fontSize: Typography.sizes.overline,
+    fontFamily: FontFamily.regular,
     marginTop: 2,
     textAlign: 'center',
   },
