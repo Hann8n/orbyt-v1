@@ -50,6 +50,7 @@ import {
   pickLighterHex,
 } from '../../../utils/formatting/colors';
 import { useFollowStore } from '../../../stores/followStore';
+import { sharedItemStyles } from '@/components/ui/ItemStyles';
 
 const GRADIENT_SHIM = require('../../../assets/embed-video-gradient-shim.png');
 
@@ -611,7 +612,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
 
             {/* Author info */}
             <View style={styles.authorInfoContainer}>
-              <View style={styles.avatarContainer}>
+              <View style={[styles.avatarContainer, sharedItemStyles.avatarContainer]}>
                 <NativePressable
                   onPress={handleAuthorPress}
                   hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
@@ -636,7 +637,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                   />
                 </NativePressable>
               </View>
-              <View style={styles.authorTextContainer}>
+              <View style={[styles.authorTextContainer, sharedItemStyles.accountInfoContainer]}>
                 <View style={styles.authorNameRow}>
                   <NativePressable
                     style={styles.authorNamePressable}
@@ -939,8 +940,6 @@ const styles = StyleSheet.create({
     overflow: 'visible',
   },
   authorTextContainer: {
-    marginLeft: 8,
-    flex: 1,
     marginRight: 20,
   },
   authorNameRow: {
@@ -977,9 +976,9 @@ const styles = StyleSheet.create({
     textShadowRadius: 0,
   },
   authorName: {
-    fontSize: Typography.sizes.body,
+    fontSize: Typography.sizes.subtitle,
     fontFamily: FontFamily.bold,
-    lineHeight: Typography.lineHeights.body,
+    lineHeight: Typography.lineHeights.subtitle,
     includeFontPadding: false,
     flexShrink: 1,
     textShadowColor: Colors.transparent,

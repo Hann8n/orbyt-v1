@@ -32,7 +32,7 @@ import { AtprotoFeedService } from '../../../services/api/feed/FeedService';
 import { NotificationService } from '../../../services/api/notification/NotificationService';
 import { Link, useRouter, useFocusEffect } from 'expo-router';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
-import { FontFamily, Typography, fontSizeFor } from '../../../utils/components/typography';
+import { FontFamily, Typography } from '../../../utils/components/typography';
 
 import ProfileService, { prefetchProfile, useProfile } from '../../../services/data/ProfileService';
 import { Colors } from '../../../theme';
@@ -47,6 +47,8 @@ import { useUserStore } from '../../../stores/userStore';
 import BlurredBackground from '../../ui/BlurredBackground';
 import { queryKeys } from '../../../utils/query/queryKeys';
 import { useAvatarProfileRing } from '../../../services/colors';
+import { itemSizeConfig } from '@/components/ui/ItemStyles';
+import { activityListSharedStyles } from './ActivityListStyles';
 import {
   moderateNotification,
   moderatePost,
@@ -103,7 +105,9 @@ const NotificationLoading = () => (
 );
 
 // Divider component for notifications
-const NotificationDivider = () => <View style={styles.divider} />;
+const NotificationDivider = () => (
+  <View style={[activityListSharedStyles.dividerInset, styles.dividerTrailingBleed]} />
+);
 
 // Post kind type
 type PostKind = 'video' | 'image' | 'external' | 'record' | 'text';
@@ -681,7 +685,10 @@ const NotificationItem = React.memo<NotificationItemProps>(
     return (
       <View style={styles.notificationItem}>
         <View style={styles.notificationLeftContainer}>
-          <SquircleNativePressable onPress={handleAvatarPress} style={styles.profileImage}>
+          <SquircleNativePressable
+            onPress={handleAvatarPress}
+            style={activityListSharedStyles.profileImage}
+          >
             <Avatar
               uri={author?.avatar}
               type="profile"
@@ -689,24 +696,27 @@ const NotificationItem = React.memo<NotificationItemProps>(
               showRing={ringProps.showRing}
               ringColor={ringProps.ringColor}
               profileColors={ringProps.profileColors}
-              style={styles.avatarFill}
+              style={activityListSharedStyles.avatarFill}
               status={authorProfile?.status}
             />
           </SquircleNativePressable>
-          <NativePressable onPress={handlePress} style={styles.notificationContent}>
-            <View style={styles.nameRow}>
+          <NativePressable
+            onPress={handlePress}
+            style={[activityListSharedStyles.mainColumn, styles.notificationContentTail]}
+          >
+            <View style={activityListSharedStyles.nameRow}>
               <NativePressable
                 onPress={handleNamePress}
                 hitSlop={nameHitSlop}
-                style={styles.namePressable}
+                style={activityListSharedStyles.namePressable}
               >
-                <Text style={styles.authorName}>
+                <Text style={activityListSharedStyles.authorName}>
                   {formatHandle(author.handle) || t('feed.unknownUser')}
                 </Text>
                 {author.handle && (
                   <VerificationBadge
                     handle={author.handle}
-                    textSize={14}
+                    textSize={itemSizeConfig.medium.badgeTextSize}
                     textColor={Colors.neutral[50]}
                   />
                 )}
@@ -715,20 +725,24 @@ const NotificationItem = React.memo<NotificationItemProps>(
                     handle={author.handle}
                     did={author.did}
                     labels={author.labels}
-                    textSize={14}
+                    textSize={itemSizeConfig.medium.badgeTextSize}
                     textColor={Colors.neutral[50]}
                   />
                 )}
               </NativePressable>
             </View>
-            <View style={styles.actionRow}>
-              <View style={styles.actionTextAndTime}>
-                <View style={styles.actionTextWrap}>
-                  <Text style={styles.actionText} numberOfLines={1}>
+            <View style={activityListSharedStyles.actionRow}>
+              <View style={activityListSharedStyles.actionTextAndTime}>
+                <View style={activityListSharedStyles.secondaryLineWrap}>
+                  <Text style={activityListSharedStyles.actionText} numberOfLines={1}>
                     {actionText}
                   </Text>
                 </View>
-                {indexedAt && <Text style={styles.timeText}>{formatRelativeDate(indexedAt)}</Text>}
+                {indexedAt && (
+                  <Text style={activityListSharedStyles.timeText}>
+                    {formatRelativeDate(indexedAt)}
+                  </Text>
+                )}
               </View>
             </View>
           </NativePressable>
@@ -972,7 +986,7 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_, ref) => {
       ref={flashListRef}
       style={styles.listContainer}
       contentContainerStyle={[
-        styles.listContentContainer,
+        activityListSharedStyles.listContentContainer,
         { paddingBottom: bottomNavBarHeight + 5 },
       ]}
       data={isError ? [] : visibleNotifications}
@@ -1032,18 +1046,6 @@ const styles = StyleSheet.create({
   listContainer: {
     flex: 1,
   },
-  listContentContainer: {
-    paddingHorizontal: 10,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  namePressable: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
   notificationItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -1054,26 +1056,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
   },
-  divider: {
-    height: 1,
-    backgroundColor: Colors.neutral[900],
-    marginLeft: 65,
+  dividerTrailingBleed: {
     marginRight: -10,
   },
-  profileImage: {
-    width: 55,
-    height: 55,
-    borderRadius: BORDER_RADIUS.FULL,
-    marginRight: 12,
-  },
-  avatarFill: {
-    width: '100%',
-    height: '100%',
-  },
-  notificationContent: {
-    flex: 1,
-    justifyContent: 'center',
-    minHeight: 55,
+  notificationContentTail: {
     marginRight: 10,
   },
   thumbnailContainer: {
@@ -1097,38 +1083,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     backgroundColor: Colors.neutral[900],
-  },
-  authorName: {
-    color: Colors.neutral[50],
-    fontSize: Typography.sizes.title,
-    marginBottom: 2,
-    fontFamily: FontFamily.black,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-  },
-  actionTextAndTime: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    minWidth: 0,
-  },
-  actionTextWrap: {
-    flexShrink: 1,
-    minWidth: 0,
-    maxWidth: '100%',
-  },
-  actionText: {
-    color: Colors.neutral[400],
-    fontSize: fontSizeFor(16.5),
-    fontFamily: FontFamily.medium,
-  },
-  timeText: {
-    color: Colors.neutral[500],
-    fontSize: Typography.sizes.bodySmall,
-    fontFamily: FontFamily.regular,
-    marginLeft: 4,
   },
   errorContainer: {
     flex: 1,

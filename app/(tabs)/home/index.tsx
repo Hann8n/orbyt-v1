@@ -93,7 +93,6 @@ const HomeScreen = memo(
             currentFeed={currentFeed}
             onFeedChange={handleFeedChange}
             applySafeArea={true}
-            indicatorFontSize={18}
             isVisible={isRouteFocused}
           />
         )}

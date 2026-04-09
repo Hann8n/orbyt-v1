@@ -14,6 +14,13 @@ import {
   QUERY_CONSTANTS,
   SCROLL_INDICATOR_CONSTANTS,
 } from '../../../utils/constants';
+import {
+  ACTIVITY_LIST_MUTED_ICON_SIZE,
+  ACTIVITY_LIST_SENT_BY_ME_ICON_SIZE,
+  ACTIVITY_LIST_STREAK_ICON_SIZE,
+  ACTIVITY_LIST_TEXT_LEADING,
+  activityListSharedStyles,
+} from './ActivityListStyles';
 import { View, Text, StyleSheet, RefreshControl, ActivityIndicator } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { FlashList, FlashListRef } from '@shopify/flash-list';
@@ -38,7 +45,7 @@ import EmptyFeed from '../feed/EmptyFeed';
 import { getBottomNavBarHeight } from '../../../utils/device/screen';
 import { formatHandle } from '../../../utils/formatting/handles';
 import { formatRelativeDate } from '../../ui/RelativeDate';
-import { FontFamily, Typography, fontSizeFor } from '../../../utils/components/typography';
+import { FontFamily, Typography } from '../../../utils/components/typography';
 import { queryKeys } from '../../../utils/query/queryKeys';
 import { chatReactQueryOptions } from '../../../utils/query/chatQueryOptions';
 import ChatSettingsSheet from './ChatSettingsSheet';
@@ -48,6 +55,7 @@ import { getActiveStreak, isStreakActive } from '../../../utils/chat/streak';
 import { useAvatarProfileRing } from '../../../services/colors';
 import type { ProfileViewBasic, RecordValue } from '../../../services/api/types';
 import ActivitySegmentedChips from './ActivitySegmentedChips';
+import { itemSizeConfig } from '@/components/ui/ItemStyles';
 
 type ConvoView = ChatBskyConvoDefs.ConvoView;
 
@@ -77,7 +85,7 @@ const ChatsLoading = () => (
   </View>
 );
 
-const ChatDivider = () => <View style={styles.divider} />;
+const ChatDivider = () => <View style={activityListSharedStyles.dividerInset} />;
 
 /** Preview from listConvos lastMessage (API may omit $type; accept object with text). */
 function getLastMessagePreview(
@@ -221,7 +229,10 @@ const ConversationItem = React.memo<ConversationItemProps>(
     return (
       <View style={styles.conversationItem}>
         <View style={styles.conversationItemRow}>
-          <NativePressable onPress={handleAvatarPress} style={styles.profileImage}>
+          <NativePressable
+            onPress={handleAvatarPress}
+            style={activityListSharedStyles.profileImage}
+          >
             <Avatar
               uri={other?.avatar}
               type="profile"
@@ -229,46 +240,50 @@ const ConversationItem = React.memo<ConversationItemProps>(
               showRing={ringProps.showRing}
               ringColor={ringProps.ringColor}
               profileColors={ringProps.profileColors}
-              style={styles.avatarFill}
+              style={activityListSharedStyles.avatarFill}
             />
           </NativePressable>
-          <NativePressable onPress={handlePress} style={styles.notificationContent}>
-            <View style={styles.nameRow}>
+          <NativePressable onPress={handlePress} style={activityListSharedStyles.mainColumn}>
+            <View style={activityListSharedStyles.nameRow}>
               <NativePressable
                 onPress={handleNamePress}
                 hitSlop={nameHitSlop}
-                style={styles.namePressable}
+                style={activityListSharedStyles.namePressable}
               >
-                <Text
-                  style={[styles.authorName, isMuted && styles.authorNameMuted]}
-                  numberOfLines={1}
-                >
+                <Text style={activityListSharedStyles.authorName} numberOfLines={1}>
                   {nameLabel}
                 </Text>
                 {handle && (
-                  <VerificationBadge handle={handle} textSize={14} textColor={Colors.neutral[50]} />
+                  <VerificationBadge
+                    handle={handle}
+                    textSize={itemSizeConfig.medium.badgeTextSize}
+                    textColor={Colors.neutral[50]}
+                  />
                 )}
                 {handle && (
                   <BotBadge
                     handle={handle}
                     did={other?.did}
                     labels={(other as ProfileViewBasic | undefined)?.labels}
-                    textSize={14}
+                    textSize={itemSizeConfig.medium.badgeTextSize}
                     textColor={Colors.neutral[50]}
                   />
                 )}
               </NativePressable>
               {isMuted && (
                 <View style={styles.mutedIconWrap} accessibilityLabel={t('a11y.mutedConversation')}>
-                  <MutedChatIcon size={18} color={Colors.neutral[500]} />
+                  <MutedChatIcon size={ACTIVITY_LIST_MUTED_ICON_SIZE} color={Colors.neutral[500]} />
                 </View>
               )}
               {showStreak && (
                 <View style={styles.streakBadge}>
                   {streak < 7 ? (
-                    <FlameFillIcon size={14} color={Colors.orange[500]} />
+                    <FlameFillIcon
+                      size={ACTIVITY_LIST_STREAK_ICON_SIZE}
+                      color={Colors.orange[500]}
+                    />
                   ) : (
-                    <FireFillIcon size={14} color={Colors.coral[600]} />
+                    <FireFillIcon size={ACTIVITY_LIST_STREAK_ICON_SIZE} color={Colors.coral[600]} />
                   )}
                   <Text
                     style={[
@@ -282,8 +297,8 @@ const ConversationItem = React.memo<ConversationItemProps>(
                 </View>
               )}
             </View>
-            <View style={styles.actionRow}>
-              <View style={styles.actionTextAndTime}>
+            <View style={activityListSharedStyles.actionRow}>
+              <View style={activityListSharedStyles.actionTextAndTime}>
                 {unread && (
                   <View style={styles.unreadDotWrap} accessibilityLabel={t('a11y.unreadMessages')}>
                     <View style={[styles.unreadDot, isMuted && styles.unreadDotMuted]} />
@@ -291,13 +306,16 @@ const ConversationItem = React.memo<ConversationItemProps>(
                 )}
                 {isLastMessageFromMe && (
                   <View style={styles.sentByMeIconWrap} accessibilityLabel={t('a11y.youSentLast')}>
-                    <ShareForwardFillIcon size={16} color={Colors.neutral[500]} />
+                    <ShareForwardFillIcon
+                      size={ACTIVITY_LIST_SENT_BY_ME_ICON_SIZE}
+                      color={Colors.neutral[500]}
+                    />
                   </View>
                 )}
-                <View style={styles.messagePreviewWrap}>
+                <View style={activityListSharedStyles.secondaryLineWrap}>
                   <Text
                     style={[
-                      styles.actionText,
+                      activityListSharedStyles.actionText,
                       unread && !isMuted && styles.actionTextUnread,
                       isMuted && styles.actionTextMuted,
                     ]}
@@ -307,7 +325,9 @@ const ConversationItem = React.memo<ConversationItemProps>(
                   </Text>
                 </View>
                 {sentAt && (
-                  <Text style={[styles.timeText, isMuted && styles.timeTextMuted]}>
+                  <Text
+                    style={[activityListSharedStyles.timeText, isMuted && styles.timeTextMuted]}
+                  >
                     {formatRelativeDate(sentAt)}
                   </Text>
                 )}
@@ -586,7 +606,7 @@ const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(({ chatFilter }, ref)
         ref={listRef}
         style={styles.listContainer}
         contentContainerStyle={[
-          styles.listContentContainer,
+          activityListSharedStyles.listContentContainer,
           { paddingBottom: bottomNavBarHeight + 5 },
         ]}
         contentInsetAdjustmentBehavior="never"
@@ -669,7 +689,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   listContainer: { flex: 1 },
-  listContentContainer: { paddingHorizontal: 10 },
   conversationItem: {
     flexDirection: 'column',
     paddingVertical: 10,
@@ -678,68 +697,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  divider: {
-    height: 1,
-    backgroundColor: Colors.neutral[900],
-    marginLeft: 65,
-  },
-  profileImage: {
-    width: 55,
-    height: 55,
-    borderRadius: BORDER_RADIUS.FULL,
-    marginRight: 12,
-  },
-  avatarFill: { width: '100%', height: '100%' },
-  notificationContent: {
-    flex: 1,
-    justifyContent: 'center',
-    minWidth: 0,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    minWidth: 0,
-  },
-  namePressable: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexShrink: 1,
-    maxWidth: '100%',
-  },
-  authorName: {
-    color: Colors.neutral[50],
-    fontSize: Typography.sizes.title,
-    marginBottom: 2,
-    fontFamily: FontFamily.black,
-    marginRight: 4,
-    flexShrink: 1,
-  },
-  authorNameMuted: {
-    color: Colors.neutral[500],
-  },
   mutedIconWrap: {
     marginLeft: 6,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-  },
-  actionTextAndTime: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    minWidth: 0,
-  },
-  messagePreviewWrap: {
-    flexShrink: 1,
-    minWidth: 0,
-    maxWidth: '100%',
-  },
-  actionText: {
-    color: Colors.neutral[400],
-    fontSize: fontSizeFor(16.5),
-    fontFamily: FontFamily.medium,
   },
   actionTextUnread: {
     color: Colors.neutral[50],
@@ -768,12 +727,6 @@ const styles = StyleSheet.create({
   streakBadgeTextFire: {
     color: Colors.coral[600],
   },
-  timeText: {
-    color: Colors.neutral[500],
-    fontSize: Typography.sizes.bodySmall,
-    fontFamily: FontFamily.regular,
-    marginLeft: 4,
-  },
   timeTextMuted: {
     color: Colors.neutral[600],
   },
@@ -782,7 +735,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     marginTop: 10,
-    paddingLeft: 67,
+    paddingLeft: ACTIVITY_LIST_TEXT_LEADING,
   },
   requestOptionButtonWrap: {
     flex: 1,

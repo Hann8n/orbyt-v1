@@ -30,7 +30,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ListFeedViewRef } from '../../../types';
 import type { FeedPagerRef } from '../../../utils/navigation/tabRefs';
 import { useSetTabBarVisibility, useTabBarVisibility } from '../../../context/FeedIndicatorContext';
-import { FontFamily } from '@/utils/components/typography';
+import { FontFamily, Typography } from '@/utils/components/typography';
 
 // Define the feed options type
 export type FeedOption = string;
@@ -168,12 +168,7 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
   ref
 ) {
   const { t } = useTranslation();
-  const {
-    screenWidth: width,
-    screenHeight: height,
-    isTablet,
-    isSmallPhone: isSmallScreen,
-  } = useDeviceLayout();
+  const { screenWidth: width, isTablet } = useDeviceLayout();
   const pagerViewRef = useRef<PagerView>(null);
   const feedRendererRefs = useRef<{ [key: string]: ListFeedViewRef | null }>({});
   const insets = useSafeAreaInsets();
@@ -339,19 +334,13 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
     height: '100%' as const,
   };
 
-  // Dynamic base font size for channel indicators based on screen size
+  // Feed tab labels: scaled tokens, modest bump over body (not full heading weight)
   const indicatorBaseFontSize =
     typeof indicatorFontSize === 'number' && indicatorFontSize > 0
       ? indicatorFontSize
       : isTablet
-        ? 20
-        : isSmallScreen
-          ? 16
-          : (() => {
-              const minDimension = Math.min(width, height);
-              if (minDimension >= 420) return 18; // large phones/phablets
-              return 16;
-            })();
+        ? Typography.sizes.h3
+        : Typography.sizes.title;
 
   const feedSwitcherTopStyle = { top: applySafeArea ? 12 + insets.top : 12 };
 
