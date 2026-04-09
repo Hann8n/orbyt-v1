@@ -30,6 +30,6 @@ export const ExploreSectionLoading = ({ variant }: { variant: ExploreSectionLoad
   );
 };
 
-export const HeaderSpacer = ({ computedHeaderHeight }: { computedHeaderHeight: number }) => (
-  <View style={[styles.headerSpacerFill, { height: computedHeaderHeight }]} />
+export const ExploreTopSpacer = ({ height }: { height: number }) => (
+  <View style={[styles.headerSpacerFill, { height }]} />
 );

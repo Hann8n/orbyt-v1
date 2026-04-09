@@ -46,14 +46,13 @@ export const exploreScreenStyles = StyleSheet.create({
 
   searchContainer: {
     position: 'absolute',
-    left: 15,
-    right: 15,
+    left: 10,
+    right: 10,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.transparent,
     borderRadius: BORDER_RADIUS.SMALL,
     overflow: 'hidden',
-    paddingHorizontal: 15,
     zIndex: 10,
     ...Shadows.medium,
   },
@@ -72,6 +71,7 @@ export const exploreScreenStyles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 15,
   },
   searchIconContainer: {
     marginRight: 10,

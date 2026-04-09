@@ -11,8 +11,19 @@ export const EXPLORE_SEARCH_LAYOUT = {
   GAP_BELOW_BAR: 8,
 } as const;
 
-/** Vertical space to reserve above the tab row (matches search bar stack in the header). */
-export const exploreSearchAreaReservedHeight =
+/**
+ * Height of the search chrome inside the top safe-area container.
+ * Used as a base for both overlay insets and list positioning calculations.
+ */
+export const exploreSearchChromeHeight =
   EXPLORE_SEARCH_LAYOUT.BAR_OFFSET_TOP +
   EXPLORE_SEARCH_LAYOUT.BAR_HEIGHT +
   EXPLORE_SEARCH_LAYOUT.GAP_BELOW_BAR;
+
+/**
+ * Total top offset from the screen top to the bottom of the search chrome.
+ * Use this when positioning content outside the SafeAreaView (e.g., list headers).
+ * For content inside SafeAreaView, use `exploreSearchChromeHeight` directly.
+ */
+export const getExploreTopChromeSpacerHeight = (topInset: number): number =>
+  topInset + exploreSearchChromeHeight;

@@ -55,13 +55,17 @@ import {
   ExploreSuggestionsLoadingRow,
 } from './ExploreSuggestionSectionChrome';
 import { ExploreSpotlightCarousel } from './ExploreSpotlightCarousel';
-import { ExploreSectionLoading, HeaderSpacer } from './exploreListChrome';
+import { ExploreSectionLoading, ExploreTopSpacer } from './exploreListChrome';
 import { ExploreSearchTabIndicator } from './ExploreSearchTabIndicator';
 import { mapSearchFeedToResults } from './mapSearchFeedToResults';
 import { useExploreSuggestionsQueries } from './useExploreSuggestionsQueries';
 import { useExploreTabRefs } from './useExploreTabRefs';
 import { useExploreSearchDebounce } from './useExploreSearchDebounce';
-import { EXPLORE_SEARCH_LAYOUT, exploreSearchAreaReservedHeight } from './exploreLayout';
+import {
+  EXPLORE_SEARCH_LAYOUT,
+  exploreSearchChromeHeight,
+  getExploreTopChromeSpacerHeight,
+} from './exploreLayout';
 
 const ExploreScreen: React.FC = () => {
   const { t } = useTranslation();
@@ -87,6 +91,7 @@ const ExploreScreen: React.FC = () => {
   const indicatorScrollProgress = useSharedValue(0);
   const handleSearchPageIndexChange = useCallback(
     (index: number) => {
+      // eslint-disable-next-line react-hooks/immutability -- Reanimated SharedValue write
       indicatorScrollProgress.value = index;
     },
     [indicatorScrollProgress]
@@ -98,6 +103,7 @@ const ExploreScreen: React.FC = () => {
 
   const followMutation = useFollowMutation();
   const insets = useSafeAreaInsets();
+  const [hasHeaderBannerError, setHasHeaderBannerError] = useState<boolean>(false);
 
   const { nativeTabsEnabled } = useFeedSettings();
 
@@ -126,6 +132,10 @@ const ExploreScreen: React.FC = () => {
   }, [currentUser?.did]);
 
   const { data: fetchedHeaders = [], isLoading: isLoadingHeaders } = useHeaders();
+
+  useEffect(() => {
+    setHasHeaderBannerError(false);
+  }, [fetchedHeaders]);
 
   const headers = useMemo(() => {
     return fetchedHeaders.map((header: Header) => ({
@@ -280,9 +290,11 @@ const ExploreScreen: React.FC = () => {
 
   useEffect(() => {
     if (isSearching) {
+      // eslint-disable-next-line react-hooks/immutability -- Reanimated SharedValue write
       searchProgress.value = withTiming(1, {
         duration: 200,
       });
+      // eslint-disable-next-line react-hooks/immutability -- Reanimated SharedValue write
       contentOpacity.value = withTiming(0, {
         duration: 200,
       });
@@ -325,8 +337,8 @@ const ExploreScreen: React.FC = () => {
   } = useExploreSuggestionsQueries(orbytChannelUris);
 
   const isHeaderVisible = useMemo(
-    () => !isLoadingHeaders && headers.length > 0,
-    [isLoadingHeaders, headers.length]
+    () => !isLoadingHeaders && headers.length > 0 && !hasHeaderBannerError,
+    [hasHeaderBannerError, isLoadingHeaders, headers.length]
   );
   const computedHeaderHeight = useMemo(() => {
     const ratio = Math.max(0.2, Math.min(0.5, headers?.[0]?.heightRatio ?? 0.35));
@@ -334,16 +346,8 @@ const ExploreScreen: React.FC = () => {
   }, [headers]);
 
   const loadingSuggestedItems = useMemo(() => {
-    const items: ListItem[] = [];
-
-    if (!isHeaderVisible) {
-      items.push({ type: 'header-spacer' as const, key: 'header-spacer-loading' });
-    }
-
-    items.push({ type: 'loading' as const, key: 'loading-indicator' });
-
-    return items;
-  }, [isHeaderVisible]);
+    return [{ type: 'loading' as const, key: 'loading-indicator' }];
+  }, []);
 
   const suggestionsList: ListItem[] = useMemo(() => {
     if (isLoadingSpotlightFeed || isLoadingOrbytChannels) {
@@ -353,10 +357,6 @@ const ExploreScreen: React.FC = () => {
       return [];
     }
     const data: ListItem[] = [];
-
-    if (!isHeaderVisible) {
-      data.push({ type: 'header-spacer' as const, key: 'header-spacer' });
-    }
 
     if (spotlightFeed && spotlightFeed.length > 0) {
       data.push({
@@ -389,7 +389,6 @@ const ExploreScreen: React.FC = () => {
     loadingSuggestedItems,
     spotlightFeedError,
     orbytChannelsError,
-    isHeaderVisible,
     spotlightFeed,
     orbytChannelsData,
     t,
@@ -466,9 +465,6 @@ const ExploreScreen: React.FC = () => {
         }
         return <ExploreSectionHeaderRow title={item.title} spotlightLabel={t('feed.spotlight')} />;
       }
-      if (item.type === 'header-spacer') {
-        return <HeaderSpacer computedHeaderHeight={computedHeaderHeight} />;
-      }
       if (item.type === 'loading') {
         const screenHeight = Dimensions.get('window').height;
         const bottomNavHeight = getBottomNavBarHeight(insets);
@@ -505,6 +501,23 @@ const ExploreScreen: React.FC = () => {
     },
     [t, computedHeaderHeight, insets, queryClient, goToProfile, handleFollow]
   );
+
+  const listHeaderComponent = useMemo(() => {
+    if (isHeaderVisible) {
+      return (
+        <HeaderBanner
+          headers={headers}
+          height={computedHeaderHeight}
+          onImageError={() => setHasHeaderBannerError(true)}
+        />
+      );
+    }
+
+    const headerSpacerHeight = isLoadingHeaders
+      ? computedHeaderHeight
+      : getExploreTopChromeSpacerHeight(insets.top);
+    return <ExploreTopSpacer height={headerSpacerHeight} />;
+  }, [computedHeaderHeight, headers, isHeaderVisible, isLoadingHeaders, insets.top]);
 
   return (
     <View style={[styles.container, Platform.OS === 'android' && styles.androidPaddingTop]}>
@@ -575,16 +588,16 @@ const ExploreScreen: React.FC = () => {
                 returnKeyType="search"
                 caretHidden={false}
               />
+              {isSearching && (
+                <NativePressable
+                  onPress={resetExploreSearch}
+                  style={styles.clearButton}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Icon name="close-circle" size={22.5} color={Colors.neutral[900]} />
+                </NativePressable>
+              )}
             </View>
-            {isSearching && (
-              <NativePressable
-                onPress={resetExploreSearch}
-                style={styles.clearButton}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Icon name="close-circle" size={22.5} color={Colors.neutral[900]} />
-              </NativePressable>
-            )}
           </Reanimated.View>
         </NativePressable>
       </SafeAreaView>
@@ -596,10 +609,7 @@ const ExploreScreen: React.FC = () => {
         {isSearching && (
           <SafeAreaView edges={['top']} style={styles.searchResultsSafeArea}>
             <View
-              style={[
-                styles.exploreSearchResultsTopInset,
-                { height: exploreSearchAreaReservedHeight },
-              ]}
+              style={[styles.exploreSearchResultsTopInset, { height: exploreSearchChromeHeight }]}
               pointerEvents="none"
             />
             <Reanimated.View style={[styles.searchTabsContainer, searchTabsAnimatedStyle]}>
@@ -637,11 +647,7 @@ const ExploreScreen: React.FC = () => {
       >
         <FlashList<ListItem>
           ref={flashListRef}
-          ListHeaderComponent={
-            isHeaderVisible ? (
-              <HeaderBanner headers={headers} height={computedHeaderHeight} />
-            ) : null
-          }
+          ListHeaderComponent={listHeaderComponent}
           data={listData}
           keyExtractor={exploreListKeyExtractor}
           renderItem={renderExploreItem}

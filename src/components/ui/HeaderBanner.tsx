@@ -4,6 +4,7 @@ import { View, Text, StyleSheet, Dimensions, Linking, Platform, FlatList } from 
 import { NativePressable } from './NativePressable';
 import { Image } from 'expo-image';
 import { Colors } from '../../theme';
+import { hexToRGBA } from '../../utils/formatting/colors';
 import { Header } from '../../services/OrbytBannerService';
 import Animated, {
   useAnimatedScrollHandler,
@@ -15,6 +16,7 @@ import Animated, {
 interface HeaderBannerProps {
   headers: Header[];
   onHeaderPress?: (header: Header) => void;
+  onImageError?: (header: Header) => void;
   height?: number; // Optional override for banner height
   backgroundColor?: string; // Optional background color for the header container
 }
@@ -26,19 +28,19 @@ const HEADER_WIDTH = screenWidth; // Full width
 const HeaderBanner: React.FC<HeaderBannerProps> = ({
   headers,
   onHeaderPress,
+  onImageError,
   height,
   backgroundColor = Colors.black,
 }) => {
-  const AnimatedFlatList = useMemo(
-    () =>
-      Animated.createAnimatedComponent(FlatList) as unknown as React.ComponentType<{
-        data: Header[] | null | undefined;
-        renderItem: ({ item, index }: { item: Header; index: number }) => React.ReactElement | null;
-        keyExtractor: (item: Header, index: number) => string;
-      }>,
-    []
+  const handleImageError = useCallback(
+    (header: Header) => {
+      if (onImageError) {
+        onImageError(header);
+      }
+    },
+    [onImageError]
   );
-  const AnimatedFlatListAny = AnimatedFlatList as any;
+
   const listRef = useRef<FlatList<Header> | null>(null);
   const isUserDraggingRef = useRef<boolean>(false);
   const virtualIndexRef = useRef<number>(1);
@@ -106,12 +108,12 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
     if (!isCarousel) {
       const firstColor = (slideColors && slideColors[0]) || Colors.neutral[50];
       return {
-        backgroundColor: firstColor as any,
+        backgroundColor: firstColor,
       };
     }
     const indexProgress = scrollX.value / HEADER_WIDTH;
     return {
-      backgroundColor: interpolateColor(indexProgress, inputRange, slideColors as any),
+      backgroundColor: interpolateColor(indexProgress, inputRange, slideColors),
     };
   });
 
@@ -188,7 +190,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
             style={styles.headerImage}
             contentFit="cover"
             transition={Platform.OS === 'android' ? 0 : undefined}
-            onError={() => {}}
+            onError={() => handleImageError(header)}
           />
           <View style={styles.headerOverlay}>
             <View style={styles.textContainer}>
@@ -242,7 +244,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
         </NativePressable>
       );
     },
-    [handleHeaderPress]
+    [handleHeaderPress, handleImageError]
   );
 
   if (!hasHeaders) {
@@ -264,7 +266,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
               style={styles.headerImage}
               contentFit="cover"
               transition={Platform.OS === 'android' ? 0 : undefined}
-              onError={() => {}}
+              onError={() => handleImageError(header)}
             />
             <View style={styles.headerOverlay}>
               <View style={styles.textContainer}>
@@ -323,8 +325,8 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
 
   return (
     <View style={[styles.container, height ? { height } : null, { backgroundColor }]}>
-      <AnimatedFlatListAny
-        ref={listRef as any}
+      <Animated.FlatList
+        ref={listRef}
         data={loopedData}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
@@ -367,9 +369,8 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
             key={`dot-${index}`}
             style={[
               styles.dot,
-              index === 0 ? { marginLeft: 0 } : null,
-              // tint all dots with current slide color, emphasize active with higher opacity
-              { opacity: index === activeIndex ? 0.95 : 0.4 },
+              index === 0 ? styles.dotFirst : null,
+              index === activeIndex ? styles.dotActive : styles.dotInactive,
               colorAnimatedStyle,
             ]}
           />
@@ -437,8 +438,17 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: BORDER_RADIUS.SMALL,
-    backgroundColor: 'rgba(255,255,255,0.4)',
+    backgroundColor: hexToRGBA(Colors.neutral[50], 0.4),
     marginLeft: 6,
+  },
+  dotFirst: {
+    marginLeft: 0,
+  },
+  dotActive: {
+    opacity: 0.95,
+  },
+  dotInactive: {
+    opacity: 0.4,
   },
 });
 

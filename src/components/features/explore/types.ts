@@ -64,11 +64,6 @@ export interface OrbytChannelsSection {
   key: string;
 }
 
-export interface HeaderSpacerItem {
-  type: 'header-spacer';
-  key: string;
-}
-
 export interface LoadingItem {
   type: 'loading';
   key: string;
@@ -79,7 +74,6 @@ export type ListItem =
   | SectionHeader
   | SpotlightVideosSection
   | OrbytChannelsSection
-  | HeaderSpacerItem
   | LoadingItem;
 
 export const isProfileResult = (result: SearchResult): result is ProfileResult =>
@@ -106,8 +100,6 @@ export function exploreListKeyExtractor(item: ListItem, index: number): string {
       return item.key || `spotlight-${index}`;
     case 'orbyt-channels-section':
       return item.key || `orbyt-channels-${index}`;
-    case 'header-spacer':
-      return item.key || `header-spacer-${index}`;
     case 'loading':
       return item.key || `loading-${index}`;
     case 'profile':

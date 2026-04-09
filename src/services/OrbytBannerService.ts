@@ -42,11 +42,7 @@ interface ChannelsResponse {
 }
 
 // Base API response interface
-interface ApiResponse {
-  [key: string]: any;
-}
-
-abstract class OrbytAPIService<T extends ApiResponse> {
+abstract class OrbytAPIService<T extends object> {
   protected abstract readonly REMOTE_URL: string;
   protected abstract readonly ENDPOINT_NAME: string;
   protected abstract readonly DATA_PROPERTY: keyof T;
@@ -61,7 +57,8 @@ abstract class OrbytAPIService<T extends ApiResponse> {
    */
   protected buildCandidateUrls(): string[] {
     const envVarName = `EXPO_PUBLIC_${this.ENDPOINT_NAME.toUpperCase()}_URL`;
-    const envUrl = (process.env as any)?.[envVarName] as string | undefined;
+    const env = process.env as Record<string, string | undefined>;
+    const envUrl = env[envVarName];
     const candidates: string[] = [];
 
     if (envUrl && envUrl.trim().length > 0) {
@@ -109,7 +106,8 @@ abstract class OrbytAPIService<T extends ApiResponse> {
             continue; // try next candidate
           }
           const json = (await response.json()) as T;
-          if (json && json[this.DATA_PROPERTY]) {
+          const payload = json as Record<string, unknown>;
+          if (payload && payload[this.DATA_PROPERTY as string]) {
             data = json;
             usedUrl = candidate;
             break;
@@ -125,7 +123,7 @@ abstract class OrbytAPIService<T extends ApiResponse> {
 
       // Update base URL for HeaderService
       if (usedUrl && this instanceof HeaderService) {
-        (this as any).updateLastSuccessfulBaseUrl(usedUrl);
+        HeaderService.setLastSuccessfulBaseUrl(usedUrl);
       }
 
       return data;
@@ -153,12 +151,16 @@ abstract class OrbytAPIService<T extends ApiResponse> {
    * Return empty data structure for the service
    */
   protected abstract getEmptyData(): T;
+
+  protected updateLastSuccessfulBaseUrl(_url: string): void {
+    // Default no-op for services that do not need base URL tracking.
+  }
 }
 
 // Header Service
 class HeaderService extends OrbytAPIService<HeadersResponse> {
   protected readonly REMOTE_URL = 'https://api.getorbyt.com/v1/headers/active';
-  protected readonly ENDPOINT_NAME = 'headers';
+  protected readonly ENDPOINT_NAME = 'banners';
   protected readonly DATA_PROPERTY: keyof HeadersResponse = 'headers';
 
   protected static lastSuccessfulBaseUrl: string | null = null;
@@ -171,6 +173,39 @@ class HeaderService extends OrbytAPIService<HeadersResponse> {
     const instance = new HeaderService();
     const data = await instance.fetchData();
     return data.headers;
+  }
+
+  protected buildCandidateUrls(): string[] {
+    const envVarNames = ['EXPO_PUBLIC_BANNERS_URL', 'EXPO_PUBLIC_HEADERS_URL'];
+    const candidates: string[] = [];
+    const env = process.env as Record<string, string | undefined>;
+
+    for (const envVarName of envVarNames) {
+      const envUrl = env[envVarName];
+      if (envUrl && envUrl.trim().length > 0) {
+        candidates.push(envUrl.trim());
+      }
+    }
+
+    // Keep the legacy JSON fallback for local development and rollback only.
+    candidates.push(
+      'http://localhost:5173/api/banners.json',
+      'http://127.0.0.1:5173/api/banners.json',
+      'http://localhost:5500/api/banners.json',
+      'http://127.0.0.1:5500/api/banners.json',
+      'http://localhost:3000/api/banners.json',
+      'http://127.0.0.1:3000/api/banners.json',
+      'http://localhost:5173/api/headers.json',
+      'http://127.0.0.1:5173/api/headers.json',
+      'http://localhost:5500/api/headers.json',
+      'http://127.0.0.1:5500/api/headers.json',
+      'http://localhost:3000/api/headers.json',
+      'http://127.0.0.1:3000/api/headers.json'
+    );
+
+    candidates.push(this.REMOTE_URL);
+
+    return candidates;
   }
 
   getLastSuccessfulBaseUrl(): string | null {
@@ -209,8 +244,8 @@ class HeaderService extends OrbytAPIService<HeadersResponse> {
     }
   }
 
-  protected updateLastSuccessfulBaseUrl(url: string): void {
-    HeaderService.lastSuccessfulBaseUrl = this.getBaseUrl(url);
+  static setLastSuccessfulBaseUrl(url: string): void {
+    HeaderService.lastSuccessfulBaseUrl = new HeaderService().getBaseUrl(url);
   }
 
   static clearCache(): void {
