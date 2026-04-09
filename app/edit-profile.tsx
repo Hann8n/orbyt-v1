@@ -44,8 +44,11 @@ import { useProfileUpdateMutation, useProfileByDid } from '@/services/data/Profi
 import { hexToRGBA, blendColors } from '@/utils/formatting/colors';
 import { BORDER_RADIUS } from '@/utils/constants';
 import {
+  editProfileUploadButtonContainer,
+  editProfileUploadButtonLabel,
   headerCancelContainer,
   headerCancelLabel,
+  headerChromePillInnerSlot,
   headerSaveContainer,
   headerSaveLabel,
   headerSaveLabelMuted,
@@ -886,9 +889,11 @@ const EditProfileScreen: React.FC = () => {
               isAboutFocused || isDisplayNameFocused ? t('common.back') : t('common.cancel')
             }
           >
-            <Text style={headerCancelLabel}>
-              {isAboutFocused || isDisplayNameFocused ? t('common.back') : t('common.cancel')}
-            </Text>
+            <View style={headerChromePillInnerSlot}>
+              <Text style={headerCancelLabel}>
+                {isAboutFocused || isDisplayNameFocused ? t('common.back') : t('common.cancel')}
+              </Text>
+            </View>
           </SquircleNativePressable>
 
           {isAboutFocused && (aboutRemaining <= 50 || aboutOverBy > 0) && (
@@ -928,7 +933,7 @@ const EditProfileScreen: React.FC = () => {
             }
             accessibilityState={{ disabled: isSaveDisabled }}
           >
-            <View pointerEvents="none">
+            <View style={headerChromePillInnerSlot}>
               {isSaving ? (
                 <CheckIcon size={17} color={Colors.black} strokeWidth={STROKE_WIDTH_THICK} />
               ) : (
@@ -1111,7 +1116,7 @@ const EditProfileScreen: React.FC = () => {
                       >
                         <SquircleNativePressable
                           style={[
-                            styles.uploadButton,
+                            editProfileUploadButtonContainer,
                             {
                               backgroundColor: blendColors(
                                 currentColors.backgroundColor,
@@ -1123,7 +1128,10 @@ const EditProfileScreen: React.FC = () => {
                           onPress={handleAvatarPress}
                         >
                           <Text
-                            style={[styles.uploadButtonText, { color: currentColors.textColor }]}
+                            style={[
+                              editProfileUploadButtonLabel,
+                              { color: currentColors.textColor },
+                            ]}
                           >
                             {t('editProfile.upload')}
                           </Text>
@@ -1413,21 +1421,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'center',
     gap: 6,
-  },
-  uploadButton: {
-    borderRadius: BORDER_RADIUS.LARGE,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 80,
-    overflow: 'hidden',
-  },
-  uploadButtonText: {
-    fontFamily: FontFamily.bold,
-    fontSize: Typography.sizes.body,
-    fontWeight: '600',
-    textAlign: 'center',
   },
   colorPickerScrollView: {
     marginHorizontal: 0,

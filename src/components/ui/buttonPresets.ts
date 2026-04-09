@@ -2,7 +2,7 @@ import type { TextStyle, ViewStyle } from 'react-native';
 import { Colors, Shadows } from '@/theme';
 import { BORDER_RADIUS } from '@/utils/constants';
 import { hexToRGBA } from '@/utils/formatting/colors';
-import { FontFamily, Typography, fontSizeFor } from '@/utils/components/typography';
+import { FontFamily, Typography, fontSizeFor, lineHeightFor } from '@/utils/components/typography';
 
 export const buttonContentCenter: ViewStyle = {
   flexDirection: 'row',
@@ -195,10 +195,28 @@ export const headerCancelContainer: ViewStyle = {
   backgroundColor: hexToRGBA(Colors.neutral[300], 0.12),
 };
 
-export const headerCancelLabel: TextStyle = {
-  color: Colors.neutral[50],
+/** Shared typography for edit-modal style header pills (Cancel / Save); only color differs per side. */
+const headerChromeLabelBase: TextStyle = {
   fontSize: fontSizeFor(17),
+  lineHeight: lineHeightFor(fontSizeFor(17)),
   fontFamily: FontFamily.semibold,
+  textAlign: 'center',
+  includeFontPadding: false,
+};
+
+/**
+ * Inner slot for header chrome pills so text and icon rows share the same vertical metrics.
+ * Without this, a short icon (e.g. check) yields a shorter inner layout and the squircle can clip the pill.
+ */
+export const headerChromePillInnerSlot: ViewStyle = {
+  minHeight: lineHeightFor(fontSizeFor(17)),
+  justifyContent: 'center',
+  alignItems: 'center',
+};
+
+export const headerCancelLabel: TextStyle = {
+  ...headerChromeLabelBase,
+  color: Colors.neutral[50],
 };
 
 export const headerSaveContainer: ViewStyle = {
@@ -208,13 +226,30 @@ export const headerSaveContainer: ViewStyle = {
 };
 
 export const headerSaveLabel: TextStyle = {
+  ...headerChromeLabelBase,
   color: Colors.black,
-  fontSize: fontSizeFor(17),
-  fontFamily: FontFamily.semibold,
 };
 
 export const headerSaveLabelMuted: TextStyle = {
   color: hexToRGBA(Colors.black, 0.25),
+};
+
+/** Edit profile avatar upload chip; background from caller (`blendColors`). */
+export const editProfileUploadButtonContainer: ViewStyle = {
+  ...shape.rounded,
+  alignItems: 'center',
+  justifyContent: 'center',
+  paddingHorizontal: 20,
+  paddingVertical: 10,
+  minWidth: 80,
+};
+
+/** Pairs with `editProfileUploadButtonContainer`; set `color` from profile text color. */
+export const editProfileUploadButtonLabel: TextStyle = {
+  fontFamily: FontFamily.bold,
+  fontSize: Typography.sizes.body,
+  textAlign: 'center',
+  includeFontPadding: false,
 };
 
 export const retryPillContainer: ViewStyle = {
