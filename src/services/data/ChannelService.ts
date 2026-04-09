@@ -11,6 +11,7 @@ import {
   hashtagToChannelSlug,
 } from '../../utils/channels/orbyt';
 import { hydrateOrbytChannels } from '../OrbytChannelsService';
+import { resolveLocalizedText } from '@/i18n/resolveLocalizedText';
 // Image.resolveAssetSource replaced with expo-asset
 
 export interface CachedChannel {
@@ -328,8 +329,14 @@ class ChannelService {
         displayName: 'orbyt',
         avatar: undefined,
       },
-      displayName: orbytChannel.displayName,
-      description: orbytChannel.description || '', // Use description from orbytChannels
+      displayName:
+        resolveLocalizedText(orbytChannel.displayName, orbytChannel.displayNameTranslations) ||
+        orbytChannel.displayName,
+      description:
+        resolveLocalizedText(
+          orbytChannel.description || '',
+          orbytChannel.descriptionTranslations
+        ) || '', // Use description from orbytChannels
       avatar: avatarUrl,
       likeCount: 0, // Not applicable for hashtag channels
       subscriberCount: 0, // Not applicable for hashtag channels

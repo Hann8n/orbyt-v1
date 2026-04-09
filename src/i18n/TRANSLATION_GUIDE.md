@@ -56,6 +56,24 @@ Orbyt is a **video-first social app** on the Bluesky network (AT Protocol). Fami
 
 Use the target language's natural equivalent for these concepts when available.
 
+## API-Driven Text Localization Contract
+
+For user-facing text coming from API payloads (such as header banners and channels), use this pattern:
+
+- Keep a base/default field (`title`, `subtitle`, `displayName`, `description`)
+- Add optional translation maps next to that field:
+  - `titleTranslations`, `subtitleTranslations`
+  - `displayNameTranslations`, `descriptionTranslations`
+- Translation map type: `Record<string, string>` using locale tags as keys (`en`, `es`, `es-LA`, `fr`, etc.)
+
+Client-side fallback order:
+
+1. Exact locale (for example `es-LA`)
+2. Base language (for example `es`)
+3. Base/default field value
+
+This keeps API localization backward compatible and prevents blank UI text when a locale variant is missing.
+
 ## Spanish-Specific
 
 - Use **tú** (informal) for social/consumer UI — "tu sesión", "inténtalo de nuevo"

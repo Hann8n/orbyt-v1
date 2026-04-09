@@ -1,5 +1,6 @@
 import i18n from '../../i18n';
 import type { RemoteOrbytChannel } from '@/services/OrbytChannelsService';
+import type { TranslationMap } from '@/i18n/resolveLocalizedText';
 import {
   getActiveRemoteChannels,
   getAllRemoteChannels,
@@ -12,7 +13,9 @@ export interface OrbytChannel {
   uri: string;
   slug: string;
   displayName: string;
+  displayNameTranslations?: TranslationMap;
   description?: string;
+  descriptionTranslations?: TranslationMap;
   channelColor: string;
   mediaUrl: string;
   showSlash?: boolean;
@@ -26,7 +29,9 @@ function mapRemoteChannel(channel: RemoteOrbytChannel): OrbytChannel {
     uri: channel.uri,
     slug: channel.slug,
     displayName: channel.displayName,
+    displayNameTranslations: channel.displayNameTranslations,
     description: channel.description || undefined,
+    descriptionTranslations: channel.descriptionTranslations,
     channelColor: channel.channelColor || DEFAULT_CHANNEL_COLOR,
     mediaUrl: channel.mediaUrl,
     showSlash: channel.showSlash,

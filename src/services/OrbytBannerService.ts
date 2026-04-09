@@ -1,4 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
+import {
+  getCurrentLocaleTag,
+  resolveLocalizedText,
+  type TranslationMap,
+} from '@/i18n/resolveLocalizedText';
 
 // Header types
 interface Header {
@@ -6,8 +11,10 @@ interface Header {
   imageUrl: string;
   destinationUrl?: string | null;
   title: string | null;
+  titleTranslations?: TranslationMap;
   /** Secondary text used by the header banner. */
   subtitle?: string | null;
+  subtitleTranslations?: TranslationMap;
   // Optional custom colors
   titleColor?: string;
   /** Color for subtitle text. */
@@ -176,7 +183,11 @@ class HeaderService extends OrbytAPIService<HeadersResponse> {
   static async getHeaders(): Promise<Header[]> {
     const instance = new HeaderService();
     const data = await instance.fetchData();
-    return data.headers;
+    return data.headers.map(header => ({
+      ...header,
+      title: resolveLocalizedText(header.title, header.titleTranslations),
+      subtitle: resolveLocalizedText(header.subtitle ?? null, header.subtitleTranslations),
+    }));
   }
 
   protected buildCandidateUrls(): string[] {
@@ -283,8 +294,9 @@ class StaticChannelsService extends OrbytAPIService<ChannelsResponse> {
 
 // TanStack Query hooks for the services
 export const useHeaders = () => {
+  const locale = getCurrentLocaleTag();
   return useQuery({
-    queryKey: ['headers'],
+    queryKey: ['headers', locale],
     queryFn: () => HeaderService.getHeaders(),
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes

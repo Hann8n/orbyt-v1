@@ -1,12 +1,19 @@
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@/utils/query/queryKeys';
+import {
+  getCurrentLocaleTag,
+  resolveLocalizedText,
+  type TranslationMap,
+} from '@/i18n/resolveLocalizedText';
 
 export interface RemoteOrbytChannel {
   id: string;
   slug: string;
   uri: string;
   displayName: string;
+  displayNameTranslations?: TranslationMap;
   description: string | null;
+  descriptionTranslations?: TranslationMap;
   channelColor: string | null;
   mediaUrl: string;
   showSlash: boolean;
@@ -32,6 +39,9 @@ let channelsBySlug = new Map<string, RemoteOrbytChannel>();
 function normalizeChannel(raw: RemoteOrbytChannel): RemoteOrbytChannel {
   return {
     ...raw,
+    displayName:
+      resolveLocalizedText(raw.displayName, raw.displayNameTranslations) || raw.displayName,
+    description: resolveLocalizedText(raw.description, raw.descriptionTranslations),
     channelColor: raw.channelColor || FALLBACK_COLOR,
   };
 }
@@ -78,8 +88,9 @@ export function isKnownOrbytChannelUri(uri: string): boolean {
 }
 
 export function useOrbytChannels() {
+  const locale = getCurrentLocaleTag();
   return useQuery({
-    queryKey: queryKeys.channels.metadata(),
+    queryKey: queryKeys.channels.metadata(locale),
     queryFn: hydrateOrbytChannels,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,

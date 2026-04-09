@@ -152,7 +152,10 @@ export const queryKeys = {
   // Channel queries (merged from ChannelService)
   channels: {
     all: ['channels'] as const,
-    metadata: () => [...queryKeys.channels.all, 'metadata'] as const,
+    metadata: (locale?: string) =>
+      locale
+        ? ([...queryKeys.channels.all, 'metadata', locale] as const)
+        : ([...queryKeys.channels.all, 'metadata'] as const),
     detail: (uri: string) => [...queryKeys.channels.all, 'detail', uri] as const,
     colors: (uri: string) => [...queryKeys.channels.all, 'colors', uri] as const,
   },
