@@ -959,6 +959,13 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_, ref) => {
     ].join('-');
   }, []);
 
+  const getItemType = useCallback((item: EnrichedNotification) => {
+    if (POST_ACTION_TYPES.includes(item.reason as PostActionReason)) {
+      return 'post-action';
+    }
+    return 'actor-action';
+  }, []);
+
   return (
     <FlashList
       ref={flashListRef}
@@ -971,8 +978,10 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_, ref) => {
       extraData={postDataMap.size}
       renderItem={renderNotificationContent}
       keyExtractor={keyExtractor}
+      getItemType={getItemType}
       ItemSeparatorComponent={NotificationDivider}
       estimatedItemSize={114}
+      drawDistance={400}
       refreshControl={
         <RefreshControl
           refreshing={isUserRefreshing}
