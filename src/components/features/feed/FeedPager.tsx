@@ -19,6 +19,7 @@ import Animated, {
   withTiming,
   Easing,
   useAnimatedReaction,
+  runOnJS,
   type SharedValue,
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
@@ -207,7 +208,6 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
     [scrollEnabled, pageScrollProgress]
   );
 
-  // Track current feed index for visibility checks (updated via useAnimatedReaction)
   const [currentFeedIndex, setCurrentFeedIndex] = useState(initialPageIndex);
 
   // Sync controlled currentFeed -> pager page (handles store hydration and programmatic changes)
@@ -216,19 +216,9 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
     const index = feedOptions.findIndex(option => option === currentFeed);
     if (index >= 0) {
       setPagerPage(index);
-      setCurrentFeedIndex(index); // Keep React state in sync immediately to avoid UI/playback mismatch
+      setCurrentFeedIndex(index);
     }
   }, [currentFeed, feedOptions, setPagerPage]);
-
-  // Update current feed index state when shared value changes (for isVisible prop)
-  useAnimatedReaction(
-    () => Math.round(pageScrollProgress.value),
-    (currentIndex, previousIndex) => {
-      if (previousIndex !== null && currentIndex !== previousIndex) {
-        setCurrentFeedIndex(currentIndex);
-      }
-    }
-  );
 
   // Derive current feed option from current index
   const currentFeedOption = feedOptions[currentFeedIndex] || feedOptions[0] || 'following';
@@ -275,16 +265,23 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
     [isFeedBarVisible, feedBarTranslateY]
   );
 
-  // React to page changes from shared value to trigger callbacks
+  const onPagerIndexChangedFromUI = useCallback(
+    (currentIndex: number) => {
+      setCurrentFeedIndex(currentIndex);
+      animateFeedBar(true, true);
+      showFeedBar();
+    },
+    [animateFeedBar, showFeedBar]
+  );
+
   useAnimatedReaction(
     () => Math.round(pageScrollProgress.value),
     (currentIndex, previousIndex) => {
       if (previousIndex !== null && currentIndex !== previousIndex) {
-        animateFeedBar(true, true);
-        showFeedBar();
+        runOnJS(onPagerIndexChangedFromUI)(currentIndex);
       }
     },
-    []
+    [onPagerIndexChangedFromUI]
   );
 
   // Ensure controls are visible when pager mounts
@@ -334,7 +331,6 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
     height: '100%' as const,
   };
 
-  // Feed tab labels: scaled tokens, modest bump over body (not full heading weight)
   const indicatorBaseFontSize =
     typeof indicatorFontSize === 'number' && indicatorFontSize > 0
       ? indicatorFontSize
