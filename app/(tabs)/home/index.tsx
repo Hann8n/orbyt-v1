@@ -1,5 +1,5 @@
 import { useCallback, useImperativeHandle, forwardRef, memo, useRef, useEffect } from 'react';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -86,9 +86,7 @@ const HomeScreen = memo(
       <View style={styles.container}>
         <VideoUploadBanner topInset={insets.top} applySafeArea={true} />
         {shouldGateHomeFeed ? (
-          <View style={styles.bootstrapLoadingContainer}>
-            <ActivityIndicator size="small" color={Colors.purple[400]} />
-          </View>
+          <View style={styles.bootstrapLoadingContainer} />
         ) : (
           <FeedPager
             ref={feedPagerRef}

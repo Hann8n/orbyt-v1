@@ -463,7 +463,7 @@ const NotificationItem = React.memo<NotificationItemProps>(
         follow: t('activity.followedYou'),
         mention: t('activity.mentionedYou'),
         reply: t('activity.leftComment'),
-        quote: t('activity.quotedPost'),
+        quote: t('activity.quotedPost', { postType: postTypeLabel }),
         post: t('activity.createdPost', { postType: postTypeLabel }),
         'subscribed-post': t('activity.createdPost', { postType: postTypeLabel }),
         'starterpack-joined': t('activity.joinedStarterPack'),
