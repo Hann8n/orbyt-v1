@@ -12,6 +12,7 @@ import {
 } from '../../utils/channels/orbyt';
 import { hydrateOrbytChannels } from '../OrbytChannelsService';
 import { resolveLocalizedText } from '@/i18n/resolveLocalizedText';
+import { queryKeys } from '@/utils/query/queryKeys';
 // Image.resolveAssetSource replaced with expo-asset
 
 export interface CachedChannel {
@@ -50,13 +51,6 @@ export interface ChannelColorScheme {
   accentColor: string; // Add accent color for vibrant UI elements
   statusBarStyle: 'light' | 'dark';
 }
-
-// Query keys for React Query
-const channelKeys = {
-  all: ['channels'] as const,
-  detail: (uri: string) => [...channelKeys.all, 'detail', uri] as const,
-  colors: (uri: string) => [...channelKeys.all, 'colors', uri] as const,
-};
 
 class ChannelService {
   private static channelsHydrationPromise: Promise<unknown> | null = null;
@@ -355,7 +349,7 @@ class ChannelService {
  */
 export function useChannel(uri: string | null | undefined): UseQueryResult<CachedChannel | null> {
   return useQuery({
-    queryKey: channelKeys.detail(uri || ''),
+    queryKey: queryKeys.channels.detail(uri || ''),
     queryFn: () => ChannelService.getChannel(uri || ''),
     enabled: !!uri,
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -449,7 +443,7 @@ export function useChannelColorsMutation() {
     },
     onSuccess: (_, { uri }) => {
       // Invalidate the specific channel query to refetch with new colors
-      queryClient.invalidateQueries({ queryKey: channelKeys.detail(uri) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.channels.detail(uri) });
     },
   });
 }

@@ -160,6 +160,18 @@ export const queryKeys = {
     colors: (uri: string) => [...queryKeys.channels.all, 'colors', uri] as const,
   },
 
+  orbyt: {
+    all: ['orbyt'] as const,
+    headers: (locale?: string) =>
+      locale
+        ? ([...queryKeys.orbyt.all, 'headers', locale] as const)
+        : ([...queryKeys.orbyt.all, 'headers'] as const),
+    colors: {
+      all: ['orbyt', 'colors'] as const,
+      detail: (did: string) => [...queryKeys.orbyt.colors.all, did] as const,
+    },
+  },
+
   // Moderation settings queries
   moderation: {
     all: moderationBase,

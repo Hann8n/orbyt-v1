@@ -9,7 +9,8 @@ export {
   saveAndSyncColors,
   fetchColors,
   batchFetchColors,
-  orbytColorKeys,
+  getOrbytColorKey,
+  getOrbytColorQueryOptions,
 } from './OrbytColors';
 export type { OrbytColorData } from './OrbytColors';
 

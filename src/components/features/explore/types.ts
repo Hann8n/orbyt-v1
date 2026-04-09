@@ -66,6 +66,7 @@ export interface OrbytChannelsSection {
 
 export interface LoadingItem {
   type: 'loading';
+  variant: 'full' | 'spotlight' | 'channels';
   key: string;
 }
 

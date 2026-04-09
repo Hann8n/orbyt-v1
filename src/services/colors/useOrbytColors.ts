@@ -9,13 +9,13 @@ import { queryClient } from '../../utils/query/queryClient';
 import { getProfileColors, pickLighterHex } from '../../utils/formatting/colors';
 import { useProfileByDid } from '../data/ProfileService';
 import {
-  orbytColorKeys,
   fetchColors,
+  ORBYT_COLOR_STALE_TIME_MS,
+  ORBYT_COLOR_GC_TIME_MS,
+  getOrbytColorKey,
   getPersistedColorsSync,
   type OrbytColorData,
 } from './OrbytColors';
-
-const STALE_TIME = 5 * 60 * 1000;
 
 export interface AvatarProfileRingProps {
   showRing: boolean;
@@ -31,21 +31,21 @@ export function useOrbytColors(did: string | null | undefined) {
   const initialData = useMemo(() => {
     if (!did) return undefined;
     return (
-      queryClient.getQueryData<OrbytColorData | null>(orbytColorKeys.color(did)) ??
+      queryClient.getQueryData<OrbytColorData | null>(getOrbytColorKey(did)) ??
       getPersistedColorsSync(did)
     );
   }, [did]);
 
   return useQuery<OrbytColorData | null, Error>({
-    queryKey: did ? orbytColorKeys.color(did) : ['orbytColors', 'disabled'],
-    queryFn: () => (did ? fetchColors(did) : null),
+    queryKey: did ? getOrbytColorKey(did) : ['orbyt', 'colors', 'disabled'],
+    queryFn: ({ signal }) => (did ? fetchColors(did, signal) : null),
     enabled: !!did,
-    initialData,
-    staleTime: STALE_TIME,
-    gcTime: STALE_TIME * 2,
+    staleTime: ORBYT_COLOR_STALE_TIME_MS,
+    gcTime: ORBYT_COLOR_GC_TIME_MS,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     refetchOnReconnect: false,
+    initialData,
   });
 }
 

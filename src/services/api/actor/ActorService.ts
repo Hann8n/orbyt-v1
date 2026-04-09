@@ -14,7 +14,11 @@ import type {
 import type { AppBskyActorProfile } from '@atproto/api';
 import { BlobRef } from '@atproto/lexicon';
 import { CID } from 'multiformats';
-import { batchFetchColors, fetchColors, orbytColorKeys } from '../../colors/OrbytColors';
+import {
+  batchFetchColors,
+  getOrbytColorQueryOptions,
+  getOrbytColorKey,
+} from '../../colors/OrbytColors';
 import { queryClient } from '../../../utils/query/queryClient';
 import { RepoService } from '../repo/RepoService';
 
@@ -95,7 +99,12 @@ export class ActorService {
     } | null
   ) {
     // Canonical source: Orbyt Colors API (includes isBeta + joinedAt).
-    const apiColors = await fetchColors(did);
+    let apiColors = null;
+    try {
+      apiColors = await queryClient.fetchQuery(getOrbytColorQueryOptions(did));
+    } catch {
+      apiColors = null;
+    }
     if (apiColors) {
       return apiColors;
     }
@@ -108,7 +117,7 @@ export class ActorService {
 
     const cached = queryClient.getQueryData<{
       isBeta?: boolean;
-    } | null>(orbytColorKeys.color(did));
+    } | null>(getOrbytColorKey(did));
 
     return {
       backgroundColor: colors.backgroundColor,
@@ -225,9 +234,6 @@ export class ActorService {
         updatedAt?: string;
       } | null;
       const orbytColors = await this.resolveOrbytColors(did, record);
-      if (orbytColors) {
-        queryClient.setQueryData(orbytColorKeys.color(did), orbytColors);
-      }
       return {
         ...profile,
         orbytRecord: null,
@@ -261,9 +267,6 @@ export class ActorService {
         updatedAt?: string;
       } | null;
       const orbytColors = profile.did ? await this.resolveOrbytColors(profile.did, record) : null;
-      if (profile.did && orbytColors) {
-        queryClient.setQueryData(orbytColorKeys.color(profile.did), orbytColors);
-      }
       return {
         ...profile,
         orbytRecord: null,
@@ -335,7 +338,7 @@ export class ActorService {
       const dids = [...new Set(profiles.map(p => p.did).filter(Boolean))] as string[];
       const colorMap = dids.length > 0 ? await batchFetchColors(dids) : {};
       for (const [d, data] of Object.entries(colorMap)) {
-        if (data) queryClient.setQueryData(orbytColorKeys.color(d), data);
+        if (data) queryClient.setQueryData(getOrbytColorKey(d), data);
       }
 
       return profiles.map(profile => ({

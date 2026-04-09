@@ -1091,35 +1091,19 @@ export async function getStaticChannels(
   limit: number = 10
 ): Promise<(GeneratorView & { contentMode?: string })[]> {
   try {
-    const { StaticChannelsService } = await import('../../OrbytBannerService');
-    const channelDids = await StaticChannelsService.getChannels();
+    const { hydrateOrbytChannels } = await import('../../OrbytChannelsService');
+    const remoteChannels = await hydrateOrbytChannels();
+    const channelUris = remoteChannels.map(channel => channel.uri);
 
-    if (!channelDids || channelDids.length === 0) {
+    if (!channelUris || channelUris.length === 0) {
       return [];
     }
 
-    // Directly fetch feed generators using the URIs
-    const feedGenerators = await Promise.all(
-      channelDids.map(async uri => {
-        try {
-          const { api } = await AtprotoCore.getApiClient();
-          const response = await api.app.bsky.feed.getFeedGenerators({
-            feeds: [uri],
-          });
+    const { api } = await AtprotoCore.getApiClient();
+    const response = await api.app.bsky.feed.getFeedGenerators({ feeds: channelUris });
+    const feedGenerators = response.data.feeds || [];
 
-          const feeds = response.data.feeds || [];
-          if (feeds.length > 0) {
-            return feeds[0];
-          }
-          return null;
-        } catch (_error) {
-          return null;
-        }
-      })
-    );
-
-    // Filter out null results and return up to the limit
-    return feedGenerators.filter((feed): feed is GeneratorView => feed !== null).slice(0, limit);
+    return feedGenerators.slice(0, limit);
   } catch (_error: unknown) {
     return [];
   }

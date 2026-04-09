@@ -8,7 +8,7 @@ export { GraphService } from './api/graph/GraphService';
 export { RepoService } from './api/repo/RepoService';
 export { NotificationService } from './api/notification/NotificationService';
 export { BookmarkService } from './api/bookmark/BookmarkService';
-export { default as OrbytBannerService } from './OrbytBannerService';
+export { HeaderService } from './OrbytBannerService';
 
 // Auth Services
 export * from './auth';

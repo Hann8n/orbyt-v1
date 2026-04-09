@@ -5,13 +5,18 @@
  * No token - POST /v1/colors/refresh fetches from PDS (source of truth).
  */
 import { queryClient } from '../../utils/query/queryClient';
+import { queryOptions } from '@tanstack/react-query';
 import { storage } from '../../utils/storage';
 import { getProfileColors } from '../../utils/formatting/colors';
 import { logger } from '../../utils/logger';
+import { fetchJson, ApiRequestError } from '../api/fetchJson';
+import { queryKeys } from '../../utils/query/queryKeys';
 
 const API_BASE = 'https://api.getorbyt.com';
 const STORAGE_KEY = 'orbyt_current_user_colors';
 const STORAGE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+export const ORBYT_COLOR_STALE_TIME_MS = 5 * 60 * 1000;
+export const ORBYT_COLOR_GC_TIME_MS = 10 * 60 * 1000;
 
 export interface OrbytColorData {
   textColor: string;
@@ -20,58 +25,74 @@ export interface OrbytColorData {
   isBeta: boolean;
 }
 
-export const orbytColorKeys = {
-  all: ['orbytColors'] as const,
-  color: (did: string) => [...orbytColorKeys.all, did] as const,
-};
+const getOrbytColorKey = (did: string) => queryKeys.orbyt.colors.detail(did);
+
+export function getOrbytColorQueryOptions(did: string) {
+  return queryOptions({
+    queryKey: getOrbytColorKey(did),
+    queryFn: ({ signal }) => fetchColors(did, signal),
+    enabled: !!did,
+    staleTime: ORBYT_COLOR_STALE_TIME_MS,
+    gcTime: ORBYT_COLOR_GC_TIME_MS,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
+}
 
 // ─── API ─────────────────────────────────────────────────────────────────────
 
-async function fetchColors(did: string): Promise<OrbytColorData | null> {
+async function fetchColors(
+  did: string,
+  signal?: globalThis.AbortSignal
+): Promise<OrbytColorData | null> {
   if (!did) return null;
   try {
-    const res = await fetch(`${API_BASE}/v1/colors/${encodeURIComponent(did)}`);
-    if (res.status === 404) return null;
-    if (!res.ok) {
-      logger.warn(`orbyt colors fetch error: ${res.status}`, { did });
+    return await fetchJson<OrbytColorData>(`${API_BASE}/v1/colors/${encodeURIComponent(did)}`, {
+      signal,
+      timeoutMs: 8000,
+    });
+  } catch (e) {
+    if (e instanceof ApiRequestError && e.status === 404) {
       return null;
     }
-    return (await res.json()) as OrbytColorData;
-  } catch (e) {
     logger.error('orbyt colors fetch failed', e, { did });
-    return null;
+    throw e;
   }
 }
 
-async function batchFetchColors(dids: string[]): Promise<Record<string, OrbytColorData | null>> {
+async function batchFetchColors(
+  dids: string[],
+  signal?: globalThis.AbortSignal
+): Promise<Record<string, OrbytColorData | null>> {
   if (!dids?.length) return {};
   const limited = dids.slice(0, 100);
   try {
-    const res = await fetch(`${API_BASE}/v1/colors`, {
+    return await fetchJson<Record<string, OrbytColorData | null>>(`${API_BASE}/v1/colors`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ dids: limited }),
+      signal,
+      timeoutMs: 10000,
     });
-    if (!res.ok) {
-      logger.warn(`orbyt colors batch error: ${res.status}`);
-      return {};
-    }
-    return (await res.json()) as Record<string, OrbytColorData | null>;
   } catch (e) {
     logger.error('orbyt colors batch failed', e);
-    return {};
+    throw e;
   }
 }
 
-async function refreshColors(did: string): Promise<OrbytColorData | null> {
+async function refreshColors(
+  did: string,
+  signal?: globalThis.AbortSignal
+): Promise<OrbytColorData | null> {
   try {
-    const res = await fetch(`${API_BASE}/v1/colors/refresh`, {
+    return await fetchJson<OrbytColorData>(`${API_BASE}/v1/colors/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ did }),
+      signal,
+      timeoutMs: 12000,
     });
-    if (!res.ok) return null;
-    return (await res.json()) as OrbytColorData;
   } catch (e) {
     logger.error('orbyt colors refresh failed', e, { did });
     return null;
@@ -111,7 +132,7 @@ function loadPersisted(currentUserDid: string): void {
     };
     const valid = did === currentUserDid && Date.now() - timestamp < STORAGE_MAX_AGE_MS && data;
     if (valid) {
-      queryClient.setQueryData(orbytColorKeys.color(did), data, {
+      queryClient.setQueryData(getOrbytColorKey(did), data, {
         updatedAt: timestamp,
       });
     }
@@ -133,7 +154,7 @@ function persist(did: string, data: OrbytColorData | null): void {
 // ─── Sync (React Query + MMKV + user store) ───────────────────────────────────
 
 function syncToCaches(did: string, data: OrbytColorData): void {
-  queryClient.setQueryData(orbytColorKeys.color(did), data, {
+  queryClient.setQueryData(getOrbytColorKey(did), data, {
     updatedAt: Date.now(),
   });
   persist(did, data);
@@ -171,7 +192,7 @@ export async function prefetchOrbytColors(
   const results = await batchFetchColors(dids);
   for (const [did, data] of Object.entries(results)) {
     if (data) {
-      queryClient.setQueryData(orbytColorKeys.color(did), data, {
+      queryClient.setQueryData(getOrbytColorKey(did), data, {
         updatedAt: Date.now(),
       });
     }
@@ -191,7 +212,7 @@ export async function saveAndSyncColors(
 ): Promise<void> {
   const data = await refreshColors(did);
   if (!data) {
-    const cached = queryClient.getQueryData<OrbytColorData | null>(orbytColorKeys.color(did));
+    const cached = queryClient.getQueryData<OrbytColorData | null>(getOrbytColorKey(did));
     const fallback: OrbytColorData = {
       ...colors,
       joinedAt: cached?.joinedAt ?? new Date().toISOString(),
@@ -203,4 +224,4 @@ export async function saveAndSyncColors(
   syncToCaches(did, data);
 }
 
-export { fetchColors, batchFetchColors };
+export { fetchColors, batchFetchColors, getOrbytColorKey };

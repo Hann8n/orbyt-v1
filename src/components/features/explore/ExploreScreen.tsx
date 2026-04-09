@@ -349,19 +349,30 @@ const ExploreScreen: React.FC = () => {
   }, []);
 
   const loadingSuggestedItems = useMemo(() => {
-    return [{ type: 'loading' as const, key: 'loading-indicator' }];
+    return [{ type: 'loading' as const, variant: 'full' as const, key: 'loading-indicator' }];
   }, []);
 
   const suggestionsList: ListItem[] = useMemo(() => {
-    if (isLoadingSpotlightFeed || isLoadingOrbytChannels) {
+    if (
+      isLoadingSpotlightFeed &&
+      isLoadingOrbytChannels &&
+      !spotlightFeed?.length &&
+      !orbytChannelsData?.length
+    ) {
       return loadingSuggestedItems;
     }
-    if (spotlightFeedError || orbytChannelsError) {
+    if (
+      spotlightFeedError &&
+      orbytChannelsError &&
+      !spotlightFeed?.length &&
+      !orbytChannelsData?.length
+    ) {
       return [];
     }
+
     const data: ListItem[] = [];
 
-    if (spotlightFeed && spotlightFeed.length > 0) {
+    if (spotlightFeed?.length) {
       data.push({
         type: 'section-header' as const,
         title: t('feed.spotlight'),
@@ -372,8 +383,20 @@ const ExploreScreen: React.FC = () => {
         videos: spotlightFeed,
         key: 'spotlight-videos',
       });
+    } else if (isLoadingSpotlightFeed) {
+      data.push({
+        type: 'section-header' as const,
+        title: t('feed.spotlight'),
+        key: 'spotlight-header',
+      });
+      data.push({
+        type: 'loading' as const,
+        variant: 'spotlight' as const,
+        key: 'spotlight-loading',
+      });
     }
-    if (orbytChannelsData && orbytChannelsData.length > 0) {
+
+    if (orbytChannelsData?.length) {
       data.push({
         type: 'section-header' as const,
         title: t('feed.channels'),
@@ -384,7 +407,19 @@ const ExploreScreen: React.FC = () => {
         channels: orbytChannelsData,
         key: 'orbyt-channels',
       });
+    } else if (isLoadingOrbytChannels) {
+      data.push({
+        type: 'section-header' as const,
+        title: t('feed.channels'),
+        key: 'orbyt-channels-header',
+      });
+      data.push({
+        type: 'loading' as const,
+        variant: 'channels' as const,
+        key: 'channels-loading',
+      });
     }
+
     return data;
   }, [
     isLoadingSpotlightFeed,
@@ -469,6 +504,12 @@ const ExploreScreen: React.FC = () => {
         return <ExploreSectionHeaderRow title={item.title} spotlightLabel={t('feed.spotlight')} />;
       }
       if (item.type === 'loading') {
+        if (item.variant === 'spotlight') {
+          return <ExploreSectionLoading variant="spotlight" />;
+        }
+        if (item.variant === 'channels') {
+          return <ExploreSectionLoading variant="inline" />;
+        }
         const screenHeight = Dimensions.get('window').height;
         const bottomNavHeight = getBottomNavBarHeight(insets);
         const availableHeight = screenHeight - computedHeaderHeight - bottomNavHeight;
