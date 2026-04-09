@@ -1,336 +1,39 @@
-/**
- * Centralized configuration for orbyt channels
- * Add new channels here to make them available for posting
- */
-
-// Image.resolveAssetSource replaced with expo-asset
 import i18n from '../../i18n';
-import { extractColorsFromImage } from '../formatting/colors';
-import { logger } from '../logger';
-
-/**
- * App color palette - colors that match the app's aesthetic
- * These are vibrant, saturated colors that work well for channel display
- */
-const APP_COLOR_PALETTE = [
-  '#FF93CB', // Pastel pink
-  '#00BFFF', // Electric blue
-  '#FFD700', // Gold
-  '#00E6CC', // Vibrant teal
-  '#39FF14', // Neon green
-  '#ce3bff', // Neon purple
-  '#FF6B35', // Warm orange
-  '#9D4EDD', // Cosmic purple
-  '#FF0080', // Hot pink
-  '#FF6B9D', // Light red
-  '#D07EA2', // Pastel maroon (AA on dark)
-  '#8ECFFF', // Pastel blue (AA on dark)
-  '#FFEB3B', // Bright yellow
-  '#00D4AA', // Green/Teal
-  '#6366F1', // Purple-blue
-  '#8B5CF6', // Purple
-  '#FF4500', // Sunset orange
-];
-
-/**
- * Simple deterministic hash for fallback color selection
- */
-function hashSlug(slug: string): number {
-  let hash = 0;
-  for (let i = 0; i < slug.length; i++) {
-    hash = (hash << 5) - hash + slug.charCodeAt(i);
-    hash |= 0;
-  }
-  return Math.abs(hash);
-}
-
-/**
- * Ensure channels get non-repeating, bright palette colors.
- * - Prefers the channel's requested color if unused.
- * - Otherwise assigns the next unused palette color.
- * - Falls back to hashed selection if palette is exhausted.
- */
-function applyUniqueChannelColors(channels: OrbytChannel[], palette: string[]): OrbytChannel[] {
-  const used = new Set<string>();
-  let paletteIndex = 0;
-
-  return channels.map(channel => {
-    const preferred = (channel.channelColor || '').toLowerCase();
-    const isPreferredAvailable = preferred && !used.has(preferred);
-
-    let selected = channel.channelColor;
-    if (!selected || !isPreferredAvailable) {
-      // Find next unused palette color
-      while (paletteIndex < palette.length && used.has(palette[paletteIndex].toLowerCase())) {
-        paletteIndex++;
-      }
-
-      if (paletteIndex < palette.length) {
-        selected = palette[paletteIndex];
-        paletteIndex++;
-      } else {
-        // Fallback: deterministic hash selection
-        const baseIndex = hashSlug(channel.slug) % palette.length;
-        for (let i = 0; i < palette.length; i++) {
-          const candidate = palette[(baseIndex + i) % palette.length];
-          if (!used.has(candidate.toLowerCase())) {
-            selected = candidate;
-            break;
-          }
-        }
-        selected = selected || palette[baseIndex];
-      }
-    }
-
-    used.add(selected.toLowerCase());
-    return { ...channel, channelColor: selected };
-  });
-}
-
-/**
- * Convert hex color to HSL
- */
-function hexToHSL(hex: string): { h: number; s: number; l: number } {
-  const r = parseInt(hex.slice(1, 3), 16) / 255;
-  const g = parseInt(hex.slice(3, 5), 16) / 255;
-  const b = parseInt(hex.slice(5, 7), 16) / 255;
-
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  let h = 0;
-  let s = 0;
-  const l = (max + min) / 2;
-
-  if (max !== min) {
-    const d = max - min;
-    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-    switch (max) {
-      case r:
-        h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
-        break;
-      case g:
-        h = ((b - r) / d + 2) / 6;
-        break;
-      case b:
-        h = ((r - g) / d + 4) / 6;
-        break;
-    }
-  }
-
-  return { h: h * 360, s, l };
-}
-
-/**
- * Calculate color distance in HSL space
- * This gives better results than RGB for matching hues
- */
-function colorDistance(color1: string, color2: string): number {
-  const hsl1 = hexToHSL(color1);
-  const hsl2 = hexToHSL(color2);
-
-  // Weight hue more heavily, but also consider saturation and lightness
-  const hueDiff = Math.min(Math.abs(hsl1.h - hsl2.h), 360 - Math.abs(hsl1.h - hsl2.h)) / 180;
-  const satDiff = Math.abs(hsl1.s - hsl2.s);
-  const lightDiff = Math.abs(hsl1.l - hsl2.l);
-
-  // Weight hue at 60%, saturation at 25%, lightness at 15%
-  return hueDiff * 0.6 + satDiff * 0.25 + lightDiff * 0.15;
-}
-
-/**
- * Automatically generate a channel color from a GIF
- * Extracts the dominant color and matches it to the closest color in the app's palette
- * This function can be used to update channel colors programmatically
- * @param channelGIF - The GIF asset (require() result)
- * @returns A hex color string that matches the app's aesthetic
- */
-export async function generateChannelColorFromGIF(channelGIF: number): Promise<string> {
-  try {
-    // Resolve the GIF asset to get its URI using expo-asset
-    const { Asset } = require('expo-asset');
-    const asset = Asset.fromModule(channelGIF);
-    const uri = asset.localUri || asset.uri;
-    if (!uri) {
-      return '#6366F1'; // Default purple-blue fallback
-    }
-
-    // Extract colors from the GIF
-    const extractedColors = await extractColorsFromImage(uri);
-    const dominantColor =
-      extractedColors.backgroundColor || extractedColors.accentColor || '#6366F1';
-
-    // Find the closest color in the app's palette
-    let closestColor = APP_COLOR_PALETTE[0];
-    let minDistance = colorDistance(dominantColor, closestColor);
-
-    for (const paletteColor of APP_COLOR_PALETTE) {
-      const distance = colorDistance(dominantColor, paletteColor);
-      if (distance < minDistance) {
-        minDistance = distance;
-        closestColor = paletteColor;
-      }
-    }
-
-    return closestColor;
-  } catch (_error) {
-    // Fallback to a default color if extraction fails
-    return '#6366F1'; // Default purple-blue
-  }
-}
-
-/**
- * Initialize channel colors for all channels that have GIFs
- * This can be called on app startup to auto-generate colors
- * Note: This updates the channel definitions in memory, but changes are not persisted
- * For persistent updates, you would need to modify the channel definitions file
- */
-export async function initializeChannelColors(): Promise<void> {
-  for (const channel of ORBYT_CHANNELS) {
-    if (channel.channelGIF) {
-      try {
-        const generatedColor = await generateChannelColorFromGIF(channel.channelGIF);
-        // Update the channel color in memory
-        channel.channelColor = generatedColor;
-      } catch (error) {
-        // Silently fail - keep existing color, but log a warning for diagnostics
-        logger.warn(`Failed to generate color for channel ${channel.slug}`, {
-          component: 'orbytChannels',
-          channelSlug: channel.slug,
-          error,
-        });
-      }
-    }
-  }
-}
+import type { RemoteOrbytChannel } from '@/services/OrbytChannelsService';
+import {
+  getActiveRemoteChannels,
+  getAllRemoteChannels,
+  getRemoteChannelBySlug,
+  getRemoteChannelByUri,
+  isKnownOrbytChannelUri,
+} from '@/services/OrbytChannelsService';
 
 export interface OrbytChannel {
   uri: string;
   slug: string;
   displayName: string;
-  description?: string; // Channel description (stored locally since we're not loading from server)
-  channelColor: string; // Color for the channel display name
-  channelGIF?: number; // Local GIF asset (require() result) for channel avatar/background
-  showSlash?: boolean; // Whether to show the "/" prefix (default: true)
-  isPostable?: boolean; // Whether users can post to this channel (default: true)
-  isActive?: boolean; // Whether channel is active and should appear in explore (default: true)
+  description?: string;
+  channelColor: string;
+  mediaUrl: string;
+  showSlash?: boolean;
+  isPostable?: boolean;
+  isActive?: boolean;
 }
+const DEFAULT_CHANNEL_COLOR = '#FF93CB';
 
-// Import channel GIFs
-const ArtChannelGIF = require('../../assets/channelGIFs/art.gif');
-const ChillChannelGIF = require('../../assets/channelGIFs/chill.gif');
-const HorrorChannelGIF = require('../../assets/channelGIFs/horror.gif');
-const WeirdChannelGIF = require('../../assets/channelGIFs/weird.gif');
-const PopularNowChannelGIF = require('../../assets/channelGIFs/popular-now.gif');
-const LatestChannelGIF = require('../../assets/channelGIFs/latest.gif');
-const EditsChannelGIF = require('../../assets/channelGIFs/edits.gif');
-const ArchiveChannelGIF = require('../../assets/channelGIFs/archive.gif');
-const HolidaysChannelGIF = require('../../assets/channelGIFs/holidays.gif');
-const PetsChannelGIF = require('../../assets/channelGIFs/pets.gif');
-const FunnyChannelGIF = require('../../assets/channelGIFs/funny.gif');
-
-/**
- * orbyt channel definitions
- * Add new channels here - they will automatically appear in the channel selector
- */
-const BASE_ORBYT_CHANNELS: OrbytChannel[] = [
-  {
-    uri: 'at://local.orbyt.channel/archive',
-    slug: 'archive',
-    displayName: 'archive',
-    description: 'vintage videos from across the web',
-    channelColor: '#D07EA2', // Pastel maroon with AA contrast on dark
-    channelGIF: ArchiveChannelGIF,
-  },
-  {
-    uri: 'at://local.orbyt.channel/art',
-    slug: 'art',
-    displayName: 'art',
-    description: 'creativity in motion',
-    channelColor: '#FFD700', // Yellow color for art channel
-    channelGIF: ArtChannelGIF,
-  },
-  {
-    uri: 'at://local.orbyt.channel/chill',
-    slug: 'chill',
-    displayName: 'chill',
-    description: 'relax and unwind',
-    channelColor: '#8ECFFF', // Pastel blue with AA contrast on dark
-    channelGIF: ChillChannelGIF,
-  },
-  {
-    uri: 'at://local.orbyt.channel/edits',
-    slug: 'edits',
-    displayName: 'edits',
-    description: 'high-energy cuts',
-    channelColor: '#ce3bff', // Bright neon purple for contrast
-    channelGIF: EditsChannelGIF,
-  },
-  {
-    uri: 'at://local.orbyt.channel/funny',
-    slug: 'funny',
-    displayName: 'funny',
-    description: 'for a good laugh',
-    channelColor: '#8B5CF6', // Bright purple for contrast
-    channelGIF: FunnyChannelGIF,
-  },
-  {
-    uri: 'at://local.orbyt.channel/holidays',
-    slug: 'holidays',
-    displayName: 'holidays',
-    description: 'seasonal celebrations',
-    channelColor: '#FF6B35', // Warm orange for holidays (matches app palette)
-    channelGIF: HolidaysChannelGIF,
-    isActive: false, // Seasonal channel - deactivated when not in season
-  },
-  {
-    uri: 'at://local.orbyt.channel/horror',
-    slug: 'horror',
-    displayName: 'horror',
-    description: 'watch with the lights on',
-    channelColor: '#FF6B9D', // Light red for dark backgrounds
-    channelGIF: HorrorChannelGIF,
-  },
-  {
-    uri: 'at://did:plc:2xrqztnmzlckb3xfuuukupso/app.bsky.feed.generator/latest',
-    slug: 'latest',
-    displayName: 'latest',
-    channelColor: '#00BFFF', // Electric blue from palette
-    channelGIF: LatestChannelGIF,
-    showSlash: false, // Don't show slash for latest
-    isPostable: false, // Users cannot post to latest
-  },
-  {
-    uri: 'at://local.orbyt.channel/pets',
-    slug: 'pets',
-    displayName: 'pets',
-    description: 'adorable animals',
-    channelColor: '#00D4AA', // Teal for pets (unique, bright)
-    channelGIF: PetsChannelGIF,
-  },
-  {
-    uri: 'at://did:plc:2xrqztnmzlckb3xfuuukupso/app.bsky.feed.generator/popular-now',
-    slug: 'popular-now',
-    displayName: 'popular now',
-    channelColor: '#FF93CB', // Pastel pink (palette-aligned)
-    channelGIF: PopularNowChannelGIF,
-    showSlash: false, // Don't show slash for popular now
-    isPostable: false, // Users cannot post to popular now
-  },
-  {
-    uri: 'at://local.orbyt.channel/weird',
-    slug: 'weird',
-    displayName: 'weird',
-    description: 'odd and wonderful',
-    channelColor: '#00BFFF', // Teal-blue for contrast on dark
-    channelGIF: WeirdChannelGIF,
-  },
-  // Add more channels here as needed
-];
-
-export const ORBYT_CHANNELS: OrbytChannel[] = applyUniqueChannelColors(
-  BASE_ORBYT_CHANNELS,
-  APP_COLOR_PALETTE
-);
+function mapRemoteChannel(channel: RemoteOrbytChannel): OrbytChannel {
+  return {
+    uri: channel.uri,
+    slug: channel.slug,
+    displayName: channel.displayName,
+    description: channel.description || undefined,
+    channelColor: channel.channelColor || DEFAULT_CHANNEL_COLOR,
+    mediaUrl: channel.mediaUrl,
+    showSlash: channel.showSlash,
+    isPostable: channel.isPostable,
+    isActive: channel.active,
+  };
+}
 
 /**
  * Get localized display name for an orbyt channel.
@@ -420,7 +123,8 @@ export function getChannelBySlug(slug: string): OrbytChannel | undefined {
   if (!slug) {
     return undefined;
   }
-  return ORBYT_CHANNELS.find(channel => channel.slug === slug);
+  const channel = getRemoteChannelBySlug(slug);
+  return channel ? mapRemoteChannel(channel) : undefined;
 }
 
 /**
@@ -428,7 +132,7 @@ export function getChannelBySlug(slug: string): OrbytChannel | undefined {
  * @returns Array of all channel definitions
  */
 export function getAllChannels(): OrbytChannel[] {
-  return [...ORBYT_CHANNELS];
+  return getAllRemoteChannels().map(mapRemoteChannel);
 }
 
 /**
@@ -436,7 +140,7 @@ export function getAllChannels(): OrbytChannel[] {
  * @returns Array of active channel definitions
  */
 export function getActiveChannels(): OrbytChannel[] {
-  return ORBYT_CHANNELS.filter(channel => channel.isActive !== false);
+  return getActiveRemoteChannels().map(mapRemoteChannel);
 }
 
 /**
@@ -444,9 +148,7 @@ export function getActiveChannels(): OrbytChannel[] {
  * @returns Array of postable channel definitions
  */
 export function getPostableChannels(): OrbytChannel[] {
-  return ORBYT_CHANNELS.filter(
-    channel => channel.isPostable !== false && channel.isActive !== false
-  );
+  return getActiveChannels().filter(channel => channel.isPostable !== false);
 }
 
 /**
@@ -468,7 +170,8 @@ export function getChannelByUri(uri: string): OrbytChannel | undefined {
   if (!uri) {
     return undefined;
   }
-  return ORBYT_CHANNELS.find(channel => channel.uri === uri);
+  const channel = getRemoteChannelByUri(uri);
+  return channel ? mapRemoteChannel(channel) : undefined;
 }
 
 /**
@@ -478,15 +181,7 @@ export function getChannelByUri(uri: string): OrbytChannel | undefined {
  */
 export function isOrbytChannel(uri: string): boolean {
   if (!uri) return false;
-  // Check exact match first
-  if (ORBYT_CHANNELS.some(channel => channel.uri === uri)) {
-    return true;
-  }
-  // Also check if it's a local channel URI format
-  if (uri.startsWith('at://local.orbyt.channel/')) {
-    return true;
-  }
-  return false;
+  return isKnownOrbytChannelUri(uri);
 }
 
 /**
@@ -499,7 +194,7 @@ export function getFeedType(uri: string): 'channel' | 'feed' {
 }
 
 /**
- * Get the channel avatar URI, prioritizing channelGIF for orbyt channels
+ * Get the channel avatar URI from API-managed channel metadata.
  * @param uri - Channel URI
  * @param fallbackAvatar - Fallback avatar URI from channel data
  * @returns Avatar URI string or undefined
@@ -508,10 +203,8 @@ export function getChannelAvatarUri(uri: string, fallbackAvatar?: string): strin
   if (!uri) return fallbackAvatar;
 
   const orbytChannel = getChannelByUri(uri);
-  if (orbytChannel?.channelGIF) {
-    const { Asset } = require('expo-asset');
-    const asset = Asset.fromModule(orbytChannel.channelGIF);
-    return asset.localUri || asset.uri;
+  if (orbytChannel?.mediaUrl) {
+    return orbytChannel.mediaUrl;
   }
 
   return fallbackAvatar;

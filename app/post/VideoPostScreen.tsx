@@ -1380,7 +1380,7 @@ const VideoPostScreen: React.FC = () => {
               >
                 <View style={styles.listButtonContent}>
                   <Image
-                    source={channel.channelGIF || { uri: getChannelAvatarUri(channel.uri) }}
+                    source={{ uri: getChannelAvatarUri(channel.uri) }}
                     contentFit="cover"
                     style={styles.channelListButtonGif}
                   />

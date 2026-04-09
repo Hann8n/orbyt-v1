@@ -10,6 +10,7 @@ import {
   extractFeedSlug,
   hashtagToChannelSlug,
 } from '../../utils/channels/orbyt';
+import { hydrateOrbytChannels } from '../OrbytChannelsService';
 // Image.resolveAssetSource replaced with expo-asset
 
 export interface CachedChannel {
@@ -57,6 +58,17 @@ const channelKeys = {
 };
 
 class ChannelService {
+  private static channelsHydrationPromise: Promise<unknown> | null = null;
+
+  private static async ensureChannelsHydrated(): Promise<void> {
+    if (!this.channelsHydrationPromise) {
+      this.channelsHydrationPromise = hydrateOrbytChannels().finally(() => {
+        this.channelsHydrationPromise = null;
+      });
+    }
+    await this.channelsHydrationPromise;
+  }
+
   private static getChannelColorsKey(uri: string): string {
     return `channelColors_${uri.toLowerCase()}`;
   }
@@ -102,9 +114,10 @@ class ChannelService {
    */
   static async getChannel(uriOrFeed: string): Promise<CachedChannel | null> {
     if (!uriOrFeed) return null;
+    await this.ensureChannelsHydrated();
 
-    // Handle local channel URIs (at://local.orbyt.channel/{slug})
-    if (uriOrFeed.startsWith('at://local.orbyt.channel/')) {
+    // Handle known orbyt channel URIs (including local-style URIs if configured remotely)
+    if (isOrbytChannel(uriOrFeed)) {
       const slug = extractFeedSlug(uriOrFeed);
       if (!slug) return null;
 
@@ -143,7 +156,7 @@ class ChannelService {
   private static async fetchAndCacheChannel(uri: string): Promise<CachedChannel | null> {
     if (!uri) return null;
 
-    // Check if this is an orbyt channel - if so, get data from orbytChannels.ts
+    // Check if this is an orbyt channel - if so, get data from API-managed channels.
     const orbytChannel = getChannelByUri(uri);
     if (orbytChannel) {
       return await this.createOrbytChannelCache(orbytChannel);
@@ -264,17 +277,7 @@ class ChannelService {
   private static async createOrbytChannelCache(
     orbytChannel: import('../../utils/channels/orbyt').OrbytChannel
   ): Promise<CachedChannel> {
-    // Extract avatar from channelGIF
-    let avatarUrl: string | undefined = undefined;
-    if (orbytChannel.channelGIF) {
-      try {
-        const { Asset } = require('expo-asset');
-        const asset = Asset.fromModule(orbytChannel.channelGIF);
-        avatarUrl = asset.localUri || asset.uri;
-      } catch (_e) {
-        // Fallback if image resolution fails
-      }
-    }
+    const avatarUrl = orbytChannel.mediaUrl;
 
     // Extract colors from avatar if available
     let channelColors:
@@ -363,9 +366,8 @@ export function useChannelColors(uriOrFeed: string | null | undefined) {
   if (
     !uriOrFeed ||
     (!uriOrFeed.startsWith('hashtag:') &&
-      (!uriOrFeed.startsWith('at://') ||
-        (!uriOrFeed.includes('/app.bsky.feed.generator/') &&
-          !uriOrFeed.startsWith('at://local.orbyt.channel/'))))
+      !uriOrFeed.startsWith('at://') &&
+      !isOrbytChannel(uriOrFeed))
   ) {
     return {
       colors: {

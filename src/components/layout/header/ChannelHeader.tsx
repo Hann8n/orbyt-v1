@@ -32,6 +32,7 @@ import {
   shouldShowChannelSlash,
   getLocalizedChannelDisplayName,
   getLocalizedChannelDescription,
+  getChannelAvatarUri,
 } from '../../../utils/channels/orbyt';
 import { RichText } from '@atproto/api';
 import type { SharedValue } from 'react-native-reanimated';
@@ -359,24 +360,10 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
     ]
   );
 
-  // For orbyt channels, use channelGIF as primary avatar/background, fallback to avatar
-  // Memoize to prevent flickering when feed changes
+  // For Orbyt channels, use API-managed media URL as primary avatar/background.
   const backgroundImage = useMemo(() => {
     if (!isOrbyt || !channel?.uri) return undefined;
-
-    // Get orbyt channel config to check for channelGIF
-    const orbytChannel = getChannelByUri(channel.uri);
-    if (orbytChannel?.channelGIF) {
-      // Convert require() result to URI using Asset.resolveAsync or direct require
-      // expo-image can handle require() directly, but for URI we use Asset
-      const { Asset } = require('expo-asset');
-      const resolvedAsset = Asset.fromModule(orbytChannel.channelGIF);
-      const uri = resolvedAsset.localUri || resolvedAsset.uri;
-      return uri;
-    }
-
-    // Fallback to regular avatar if no channelGIF
-    return channel.avatar;
+    return getChannelAvatarUri(channel.uri, channel.avatar);
   }, [isOrbyt, channel]);
 
   return (

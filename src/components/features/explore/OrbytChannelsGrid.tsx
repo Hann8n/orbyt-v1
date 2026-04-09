@@ -12,7 +12,7 @@ import {
 import { Image } from 'expo-image';
 import * as Device from 'expo-device';
 import { NativePressable } from '@/components/ui/NativePressable';
-import { Avatar, Icon } from '@/components/ui/UI';
+import { Icon } from '@/components/ui/UI';
 import { LinearGradient } from '@/components/ui/LinearGradient';
 import { Colors } from '@/theme';
 import {
@@ -21,7 +21,6 @@ import {
   getChannelAvatarUri,
   getLocalizedChannelDisplayName,
   shouldShowChannelSlash,
-  extractFeedSlug,
 } from '@/utils/channels/orbyt';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { navigateToEncodedChannelUri } from '@/utils/navigation/navigateEncodedChannel';
@@ -30,12 +29,11 @@ import { exploreScreenStyles as styles } from './ExploreScreenStyles';
 
 const CORNER_GRADIENT = require('@/assets/corner-gradient.png');
 
-type ChannelNameVariant = 'list' | 'grid' | 'horizontal';
+type ChannelNameVariant = 'list' | 'grid';
 
 const nameStyles: Record<ChannelNameVariant, TextStyle> = {
   list: styles.channelName,
   grid: styles.gridChannelName,
-  horizontal: styles.horizontalChannelLabel,
 };
 
 const ChannelNameDisplay: React.FC<{
@@ -53,8 +51,7 @@ const ChannelNameDisplay: React.FC<{
     t('feed.unknownChannel');
 
   const nameStyle = nameStyles[nameVariant];
-  const slashColor =
-    nameVariant === 'horizontal' ? undefined : ({ color: channelColor } as TextStyle);
+  const slashColor = { color: channelColor } as TextStyle;
 
   if (isOrbyt) {
     const showSlash = shouldShowChannelSlash(channel.uri);
@@ -135,83 +132,6 @@ const GridChannelItem = ({
   );
 };
 
-const HorizontalChannelItem = ({
-  channel,
-  onPress,
-  itemWidth,
-  itemHeight,
-}: {
-  channel: Channel;
-  onPress: () => void;
-  itemWidth: number;
-  itemHeight: number;
-}) => {
-  const avatarUri = getChannelAvatarUri(channel.uri, channel.avatar);
-  const isOrbyt = isOrbytChannel(channel.uri);
-  const orbytChannel = isOrbyt ? getChannelByUri(channel.uri) : undefined;
-  const channelColor = orbytChannel?.channelColor || Colors.amber[400];
-  const labelMaxWidth = itemWidth - 16 - 16;
-
-  const slug = extractFeedSlug(channel.uri || '');
-  const isPopularNow = slug === 'popular-now';
-  const isLatest = slug === 'latest';
-
-  return (
-    <NativePressable
-      style={[
-        styles.horizontalChannelButton,
-        {
-          width: itemWidth,
-          height: itemHeight,
-          backgroundColor: channelColor,
-        },
-      ]}
-      onPress={onPress}
-    >
-      <View style={[styles.horizontalChannelThumbnail, isLatest && styles.centerContent]}>
-        {isPopularNow ? (
-          <Image
-            source={{ uri: avatarUri }}
-            style={[
-              styles.horizontalChannelImage,
-              styles.popularNowImage,
-              {
-                width: itemWidth * 0.7,
-                height: itemHeight * 2.5,
-              },
-            ]}
-            contentFit="cover"
-            cachePolicy="memory-disk"
-            priority="normal"
-            transition={200}
-          />
-        ) : isLatest ? (
-          <Image
-            source={{ uri: avatarUri }}
-            style={[styles.horizontalChannelImage, styles.latestImage]}
-            contentFit="cover"
-            cachePolicy="memory-disk"
-            priority="normal"
-            transition={200}
-          />
-        ) : (
-          <Avatar
-            uri={avatarUri}
-            type="channel"
-            size={Math.max(itemWidth, itemHeight)}
-            ringColor={Colors.transparent}
-            style={styles.horizontalChannelImage}
-          />
-        )}
-      </View>
-
-      <View style={[styles.horizontalChannelLabelContainer, { maxWidth: labelMaxWidth }]}>
-        <ChannelNameDisplay channel={channel} nameVariant="horizontal" />
-      </View>
-    </NativePressable>
-  );
-};
-
 export const OrbytChannelsGrid = React.memo(({ channels }: { channels: Channel[] }) => {
   const { navigateToChannel: goToChannel } = useProfileChannelNavigation();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
@@ -244,123 +164,23 @@ export const OrbytChannelsGrid = React.memo(({ channels }: { channels: Channel[]
     }
   }, [windowWidth, isTablet]);
 
-  const { itemWidth, fullWidth, specialWidth, buttonHeight } = useMemo(() => {
+  const { itemWidth } = useMemo(() => {
     const screenWidth = windowWidth || Dimensions.get('window').width;
     const availableWidth = screenWidth - padding * 2;
 
     const calculatedItemWidth = Math.floor(
       (availableWidth - (computedColumns - 1) * gap) / computedColumns
     );
-    const gridItemHeight = calculatedItemWidth;
-
-    const calculatedFullWidth = availableWidth;
-
-    const calculatedSpecialWidth = Math.floor((availableWidth - gap) / 2);
-
-    const calculatedButtonHeight = Math.round(gridItemHeight * 0.8);
-
     return {
       itemWidth: calculatedItemWidth,
-      fullWidth: calculatedFullWidth,
-      specialWidth: calculatedSpecialWidth,
-      buttonHeight: calculatedButtonHeight,
     };
   }, [windowWidth, padding, gap, computedColumns]);
 
-  const shouldShowSpecialInRow = useMemo(() => {
-    return computedColumns >= 4 || isTablet;
-  }, [computedColumns, isTablet]);
-
-  const specialItemHeight = useMemo(() => {
-    return shouldShowSpecialInRow ? Math.round(buttonHeight * 0.9) : buttonHeight;
-  }, [shouldShowSpecialInRow, buttonHeight]);
-
-  const { popularNowChannel, latestChannel, otherChannels } = useMemo(() => {
-    let popular: (typeof channels)[0] | undefined;
-    let latest: (typeof channels)[0] | undefined;
-    const rest: typeof channels = [];
-
-    for (const ch of channels) {
-      const slug = extractFeedSlug(ch.uri || '');
-      if (slug === 'popular-now') {
-        popular = ch;
-      } else if (slug === 'latest') {
-        latest = ch;
-      } else {
-        rest.push(ch);
-      }
-    }
-
-    return {
-      popularNowChannel: popular,
-      latestChannel: latest,
-      otherChannels: rest,
-    };
-  }, [channels]);
-
-  const renderSpecialItems = () => {
-    if (!popularNowChannel && !latestChannel) return null;
-
-    if (shouldShowSpecialInRow) {
-      return (
-        <View style={[styles.specialRow, { marginBottom: gap }]}>
-          {popularNowChannel && (
-            <View style={{ width: specialWidth }}>
-              <HorizontalChannelItem
-                channel={popularNowChannel}
-                itemWidth={specialWidth}
-                itemHeight={specialItemHeight}
-                onPress={() => navigateToEncodedChannelUri(popularNowChannel.uri, goToChannel)}
-              />
-            </View>
-          )}
-          {latestChannel && (
-            <View style={{ width: specialWidth, marginLeft: gap }}>
-              <HorizontalChannelItem
-                channel={latestChannel}
-                itemWidth={specialWidth}
-                itemHeight={specialItemHeight}
-                onPress={() => navigateToEncodedChannelUri(latestChannel.uri, goToChannel)}
-              />
-            </View>
-          )}
-        </View>
-      );
-    } else {
-      return (
-        <View style={{ marginBottom: gap }}>
-          {popularNowChannel && (
-            <View style={{ width: fullWidth, marginBottom: gap }}>
-              <HorizontalChannelItem
-                channel={popularNowChannel}
-                itemWidth={fullWidth}
-                itemHeight={specialItemHeight}
-                onPress={() => navigateToEncodedChannelUri(popularNowChannel.uri, goToChannel)}
-              />
-            </View>
-          )}
-          {latestChannel && (
-            <View style={{ width: fullWidth }}>
-              <HorizontalChannelItem
-                channel={latestChannel}
-                itemWidth={fullWidth}
-                itemHeight={specialItemHeight}
-                onPress={() => navigateToEncodedChannelUri(latestChannel.uri, goToChannel)}
-              />
-            </View>
-          )}
-        </View>
-      );
-    }
-  };
-
   return (
     <View style={[styles.channelsGridContainer, { paddingHorizontal: padding }]}>
-      {renderSpecialItems()}
-
-      {otherChannels.length > 0 && (
+      {channels.length > 0 && (
         <View style={styles.gridItemsContainer}>
-          {otherChannels.map((channel, index) => {
+          {channels.map((channel, index) => {
             const isLastInRow = (index + 1) % computedColumns === 0;
             const wrapperStyle = [
               styles.gridChannelWrapper,

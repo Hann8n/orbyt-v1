@@ -32,7 +32,7 @@ import { useFeed } from '@/hooks/useFeed';
 import { useUserStore, useFeedSettings } from '@/stores/userStore';
 import type { ExtendedFeedViewPost } from '@/services/api/types';
 import { useFollowStore } from '@/stores/followStore';
-import { getActiveChannels } from '@/utils/channels/orbyt';
+import { useOrbytChannels } from '@/services/OrbytChannelsService';
 import { useVisitHistory, type VisitHistoryEntry } from '@/hooks/useVisitHistory';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 
@@ -325,7 +325,8 @@ const ExploreScreen: React.FC = () => {
     []
   );
 
-  const orbytChannelUris = useMemo(() => getActiveChannels().map(ch => ch.uri), []);
+  const { data: activeChannels = [] } = useOrbytChannels();
+  const orbytChannelUris = useMemo(() => activeChannels.map(ch => ch.uri), [activeChannels]);
   const {
     orbytChannelsData,
     isLoadingOrbytChannels,

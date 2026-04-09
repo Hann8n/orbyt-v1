@@ -115,8 +115,8 @@ class FeedService {
             hashtag,
             sort,
           });
-        } else if (channel.uri.startsWith('at://local.orbyt.channel/')) {
-          // Local orbyt channels - convert postable ones to hashtag
+        } else if (isOrbytChannel(channel.uri)) {
+          // Orbyt channels - convert postable ones to hashtag
           const orbytChannel = getChannelByUri(channel.uri);
           if (orbytChannel?.isPostable !== false) {
             const hashtagFormat = channelToHashtag(channel.uri);
@@ -276,12 +276,9 @@ class FeedService {
         return feedOption; // Don't normalize - keep as feed generator
       }
 
-      // Convert local URIs to hashtag format for API calls
-      // This only affects local.orbyt.channel URIs, not feed generator URIs
-      if (feedOption.startsWith('at://local.orbyt.channel/')) {
-        const hashtagOption = channelToHashtag(feedOption);
-        return hashtagOption || feedOption;
-      }
+      // Convert postable orbyt channels to hashtag format for API calls.
+      const hashtagOption = channelToHashtag(feedOption);
+      return hashtagOption || feedOption;
     }
 
     return feedOption;
