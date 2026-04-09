@@ -14,7 +14,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { storageAdapter, storage } from '../utils/storage/storage';
 import * as SecureStore from 'expo-secure-store';
 import { Agent } from '@atproto/api';
-import { getOAuthClient, REQUIRED_OAUTH_SCOPES } from '../services/auth';
+import { getOAuthClient } from '../services/auth';
 import type { OAuthSession } from '@atproto/oauth-client';
 import ProfileService from '../services/data/ProfileService';
 import { RepoService } from '../services/api/repo/RepoService';
@@ -119,17 +119,6 @@ function restoreSessionInFlight(did: string): Promise<OAuthSession> {
 
   restoreInFlightByDid.set(did, promise);
   return promise;
-}
-
-async function assertRequiredOauthScopes(session: OAuthSession): Promise<void> {
-  const tokenInfo = await session.getTokenInfo(false);
-  const grantedScopes = tokenInfo.scope.split(' ').filter(Boolean);
-  const requiredCoreScopes = REQUIRED_OAUTH_SCOPES.filter(scope => scope === 'atproto');
-  const missingScopes = requiredCoreScopes.filter(scope => !grantedScopes.includes(scope));
-
-  if (missingScopes.length > 0) {
-    throw new Error(`oauth_scope_upgrade_required:${missingScopes.join(',')}`);
-  }
 }
 
 export const isIosLiquidGlassAvailable = Platform.OS === 'ios' && isLiquidGlassAvailable();
@@ -463,8 +452,8 @@ export const useUserStore = create<UserState>()(
       const hydrateOAuthSession = async (oauthSession: OAuthSession) => {
         const agent = new Agent(oauthSession);
         const [profile, sessionInfo] = await Promise.all([
-          agent.api.app.bsky.actor.getProfile({ actor: oauthSession.did }),
-          agent.api.com.atproto.server.getSession(),
+          agent.app.bsky.actor.getProfile({ actor: oauthSession.did }),
+          agent.com.atproto.server.getSession(),
         ]);
 
         const userProfile = profile.data;
@@ -578,8 +567,10 @@ export const useUserStore = create<UserState>()(
             const client = getOAuthClient();
             const session = await client.signIn(identifier);
 
-            const { agent, userProfile, emailConfirmed } = await hydrateOAuthSession(session);
-            const tokenInfo = await session.getTokenInfo(false);
+            const [{ agent, userProfile, emailConfirmed }, tokenInfo] = await Promise.all([
+              hydrateOAuthSession(session),
+              session.getTokenInfo(false),
+            ]);
             const grantedScopes = tokenInfo.scope.split(' ').filter(Boolean);
 
             // Create account object
@@ -603,23 +594,21 @@ export const useUserStore = create<UserState>()(
             await SecureStore.setItemAsync(STORAGE_KEYS.ACCOUNTS, JSON.stringify(updatedAccounts));
             await SecureStore.setItemAsync(STORAGE_KEYS.ACTIVE_ACCOUNT, session.did);
 
-            // Update state
-            const isAuthenticated = hasAuthoritativeSdkSession(session, session.did);
             set({
               currentUser: {
                 did: session.did,
                 handle: userProfile.handle,
-                displayName: userProfile.displayName, // Use API structure directly
-                avatar: userProfile.avatar, // Use API structure directly
+                displayName: userProfile.displayName,
+                avatar: userProfile.avatar,
                 originalIdentifier: identifier,
                 emailConfirmed,
               },
-              authStatus: isAuthenticated ? 'authenticated' : 'unauthenticated',
-              isAuthenticated,
+              authStatus: 'authenticated',
+              isAuthenticated: true,
               isAuthenticating: false,
               authError: null,
               authErrorCode: 'none',
-              agent: agent,
+              agent,
               activeAccountDid: session.did,
               oauthSession: session,
               grantedOauthScopes: grantedScopes,
@@ -628,16 +617,7 @@ export const useUserStore = create<UserState>()(
               feedBootstrapDid: null,
             });
 
-            // Show email verification modal once on initial login for unverified users
-            const newCurrentUser: UserState['currentUser'] = {
-              did: session.did,
-              handle: userProfile.handle,
-              displayName: userProfile.displayName,
-              avatar: userProfile.avatar,
-              originalIdentifier: identifier,
-              emailConfirmed,
-            };
-            if (isEmailVerificationRequired(newCurrentUser)) {
+            if (isEmailVerificationRequired(get().currentUser)) {
               set({ showEmailVerificationModal: true });
             }
 
@@ -696,8 +676,10 @@ export const useUserStore = create<UserState>()(
               }
             }
 
-            const { agent, userProfile, emailConfirmed } = await hydrateOAuthSession(session);
-            const tokenInfo = await session.getTokenInfo(false);
+            const [{ agent, userProfile, emailConfirmed }, tokenInfo] = await Promise.all([
+              hydrateOAuthSession(session),
+              session.getTokenInfo(false),
+            ]);
             const grantedScopes = tokenInfo.scope.split(' ').filter(Boolean);
 
             // Create account object
@@ -721,16 +703,14 @@ export const useUserStore = create<UserState>()(
             await SecureStore.setItemAsync(STORAGE_KEYS.ACCOUNTS, JSON.stringify(updatedAccounts));
             await SecureStore.setItemAsync(STORAGE_KEYS.ACTIVE_ACCOUNT, session.did);
 
-            // Update state (currentUser must include originalIdentifier; API profile does not)
-            const isAuthenticated = hasAuthoritativeSdkSession(session, session.did);
             set({
               currentUser: {
                 ...userProfile,
                 originalIdentifier: identifier || session.did,
                 emailConfirmed,
               },
-              authStatus: isAuthenticated ? 'authenticated' : 'unauthenticated',
-              isAuthenticated,
+              authStatus: 'authenticated',
+              isAuthenticated: true,
               isAuthenticating: false,
               authError: null,
               authErrorCode: 'none',
@@ -837,56 +817,52 @@ export const useUserStore = create<UserState>()(
             }
             loadPersistedColors(did);
 
-            // `restoreSessionInFlight` prevents concurrent `client.restore(did)` calls for the same DID.
+            // `restoreSessionInFlight` coalesces concurrent restore calls for the same DID
+            // so a single-use refresh token is never consumed twice.
             const session = await restoreSessionInFlight(did);
 
-            if (!session) throw new Error('Failed to restore session from OAuth client');
-            await assertRequiredOauthScopes(session);
-            const tokenInfo = await session.getTokenInfo(false);
+            // Hydrate profile + read scopes in parallel; both are independent of each other.
+            const [{ agent, userProfile, emailConfirmed }, tokenInfo] = await Promise.all([
+              hydrateOAuthSession(session),
+              session.getTokenInfo(false),
+            ]);
             const grantedScopes = tokenInfo.scope.split(' ').filter(Boolean);
 
-            const { agent, userProfile, emailConfirmed } = await hydrateOAuthSession(session);
+            // The atproto scope is the minimum required for the app to function.
+            if (!grantedScopes.includes('atproto')) {
+              throw new Error('oauth_scope_upgrade_required:atproto');
+            }
 
-            // Get original identifier from account
-            const accounts = get().savedAccounts;
-            const account = accounts.find(acc => acc.did === did);
-            const originalIdentifier = account?.originalIdentifier ?? did;
+            const originalIdentifier =
+              get().savedAccounts.find(acc => acc.did === did)?.originalIdentifier ?? did;
 
-            // Update state
-            const isAuthenticated = hasAuthoritativeSdkSession(session, session.did);
+            // Track whether there was already an active account before we commit state.
+            // Used below to decide whether to show the email verification modal.
+            const hadActiveAccount = get().activeAccountDid !== null;
+
             set({
               currentUser: {
                 did: session.did,
                 handle: userProfile.handle,
-                displayName: userProfile.displayName, // Use API structure directly
-                avatar: userProfile.avatar, // Use API structure directly
-                originalIdentifier: originalIdentifier,
+                displayName: userProfile.displayName,
+                avatar: userProfile.avatar,
+                originalIdentifier,
                 emailConfirmed,
               },
-              authStatus: isAuthenticated ? 'authenticated' : 'unauthenticated',
-              isAuthenticated,
+              authStatus: 'authenticated',
+              isAuthenticated: true,
               isAuthenticating: false,
               authError: null,
               authErrorCode: 'none',
-              agent: agent,
+              agent,
               oauthSession: session,
               grantedOauthScopes: grantedScopes,
               feedBootstrapStatus: 'loading',
               feedBootstrapDid: null,
             });
 
-            // Show email verification modal once on initial login for unverified users
-            // Only show on first-time restore (not account switch) - check if we already have an active account
-            const newCurrentUser: UserState['currentUser'] = {
-              did: session.did,
-              handle: userProfile.handle,
-              displayName: userProfile.displayName,
-              avatar: userProfile.avatar,
-              originalIdentifier: originalIdentifier,
-              emailConfirmed,
-            };
-            const existingActiveAccount = get().activeAccountDid;
-            if (existingActiveAccount === null && isEmailVerificationRequired(newCurrentUser)) {
+            // Only prompt on a first-time restore (not account switches).
+            if (!hadActiveAccount && isEmailVerificationRequired(get().currentUser)) {
               set({ showEmailVerificationModal: true });
             }
 
@@ -976,6 +952,21 @@ export const useUserStore = create<UserState>()(
 
             await SecureStore.setItemAsync(STORAGE_KEYS.ACCOUNTS, JSON.stringify(accounts));
 
+            // Snapshot current account state before the restore attempt so we can
+            // roll back to account A if switching to account B fails. restoreSession()
+            // calls applyAuthFailureState() internally on error, which clears the Zustand
+            // session fields — without this snapshot that would log out the original user.
+            const previousState = {
+              currentUser: get().currentUser,
+              oauthSession: get().oauthSession,
+              agent: get().agent,
+              grantedOauthScopes: get().grantedOauthScopes,
+              activeAccountDid: get().activeAccountDid,
+              subscribedChannels: get().subscribedChannels,
+              algorithmicFeedProvider: get().algorithmicFeedProvider,
+              feedSourceFingerprint: get().feedSourceFingerprint,
+            };
+
             // Restore session for the new account
             // The OAuth client package handles session switching internally via restore()
             // No need to manually clear the client - it manages multiple sessions by DID
@@ -1038,12 +1029,33 @@ export const useUserStore = create<UserState>()(
                   component: 'userStore',
                   did,
                 });
-                applyAuthFailureState({
-                  clearActiveDid: true,
-                  authError: 'oauth_reauth_required',
-                  authStatus: 'reauth_required',
-                  authErrorCode: 'reauth_required',
-                });
+                // restoreSession() already called applyAuthFailureState() internally, which
+                // cleared currentUser/oauthSession/agent. If account A had a valid session
+                // before we tried to switch, restore it so the user stays authenticated as A
+                // instead of being logged out because B's session was invalid.
+                if (previousState.oauthSession && previousState.currentUser) {
+                  set({
+                    currentUser: previousState.currentUser,
+                    oauthSession: previousState.oauthSession,
+                    agent: previousState.agent,
+                    grantedOauthScopes: previousState.grantedOauthScopes,
+                    activeAccountDid: previousState.activeAccountDid,
+                    subscribedChannels: previousState.subscribedChannels,
+                    algorithmicFeedProvider: previousState.algorithmicFeedProvider,
+                    feedSourceFingerprint: previousState.feedSourceFingerprint,
+                    authStatus: 'authenticated',
+                    isAuthenticated: true,
+                    authError: null,
+                    authErrorCode: 'none',
+                  });
+                } else {
+                  applyAuthFailureState({
+                    clearActiveDid: true,
+                    authError: 'oauth_reauth_required',
+                    authStatus: 'reauth_required',
+                    authErrorCode: 'reauth_required',
+                  });
+                }
                 throw new AuthFlowError('reauth_required', 'oauth_reauth_required');
               }
               if (restoreOutcome === 'cancelled') {
@@ -1146,22 +1158,19 @@ export const useUserStore = create<UserState>()(
         removeAccount: async (did: string) => {
           try {
             const isActiveAccount = get().activeAccountDid === did;
-
-            // If this is the active account, clean up the OAuth session first
-            if (isActiveAccount) {
-              const client = getOAuthClient();
-              await client.revoke(did);
-            }
-
-            // Remove from saved accounts
             const accounts = get().savedAccounts.filter(acc => acc.did !== did);
             await SecureStore.setItemAsync(STORAGE_KEYS.ACCOUNTS, JSON.stringify(accounts));
 
             if (isActiveAccount) {
-              // If this was the active account, sign out completely
+              // signOut handles token revocation + full state teardown.
               await get().signOut();
             } else {
-              // Just update the accounts list
+              // Revoke the stored OAuth tokens so they don't linger in MMKV.
+              try {
+                await getOAuthClient().revoke(did);
+              } catch {
+                // Best-effort — session may already be expired or gone.
+              }
               set({ savedAccounts: accounts });
             }
           } catch (error) {
@@ -1592,82 +1601,25 @@ export const useUserStore = create<UserState>()(
         },
 
         // Session management
-        // Note: OAuthSession.fetchHandler automatically refreshes tokens via getTokenSet('auto')
-        // The Agent uses OAuthSession.fetchHandler, so token refresh happens automatically
-        // We only need to ensure the Agent is created with a valid session from client.restore()
+        // The Agent's fetch handler is backed by OAuthSession, which automatically
+        // refreshes tokens on every request. This check only needs a single call —
+        // if the SDK throws a typed auth error the session is definitively gone;
+        // any other failure (network, server 5xx) leaves the session intact.
         checkSessionHealth: async () => {
+          const { agent, currentUser } = get();
+          if (!agent || !currentUser?.did) return false;
           try {
-            const currentUser = get().currentUser;
-
-            if (!currentUser?.did) {
-              return false;
-            }
-
-            // Check if we have a valid agent
-            let isHealthy = false;
-
-            try {
-              const agent = get().agent;
-              const userDid = get().currentUser?.did;
-              if (agent && userDid) {
-                // OAuthSession.fetchHandler automatically refreshes tokens if needed
-                // Just verify the session is still valid with a simple API call
-                await agent.api.app.bsky.actor.getProfile({
-                  actor: userDid,
-                });
-                isHealthy = true;
-              }
-            } catch (error) {
-              // If it's a reauth error, session is invalid
-              if (requiresReauth(error)) {
-                isHealthy = false;
-              } else {
-                // Other errors (network, etc.) don't necessarily mean session is invalid
-                // OAuthSession will handle token refresh automatically on next request
-                isHealthy = false;
-              }
-            }
-
-            // If session is unhealthy and requires reauth, sign out the user
-            if (!isHealthy && get().isAuthenticated) {
-              const agent = get().agent;
-              if (agent) {
-                try {
-                  // Try one more time - OAuthSession might refresh tokens automatically
-                  await agent.api.app.bsky.actor.getProfile({
-                    actor: currentUser.did,
-                  });
-                  isHealthy = true;
-                } catch (finalError) {
-                  if (requiresReauth(finalError)) {
-                    set({
-                      authStatus: 'reauth_required',
-                      isAuthenticated: false,
-                      currentUser: null,
-                      currentUserProfileColors: null,
-                      currentUserProfileAccentColor: null,
-                      oauthSession: null,
-                      agent: undefined,
-                      activeAccountDid: null,
-                      algorithmicFeedProvider: DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
-                      subscribedChannels: [],
-                      feedSourceFingerprint: buildFeedSourceFingerprint(
-                        DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
-                        []
-                      ),
-                      feedBootstrapStatus: 'error',
-                      feedBootstrapDid: null,
-                      grantedOauthScopes: [],
-                      authErrorCode: 'reauth_required',
-                    });
-                  }
-                }
-              }
-            }
-
-            return isHealthy;
+            await agent.app.bsky.actor.getProfile({ actor: currentUser.did });
+            return true;
           } catch (error) {
-            logger.error('Session health check failed', error, { component: 'userStore' });
+            if (requiresReauth(error)) {
+              applyAuthFailureState({
+                clearActiveDid: true,
+                authError: 'oauth_reauth_required',
+                authStatus: 'reauth_required',
+                authErrorCode: 'reauth_required',
+              });
+            }
             return false;
           }
         },

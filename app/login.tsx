@@ -19,12 +19,12 @@ import { Svg, Path, Rect, Defs, Mask } from 'react-native-svg';
 import { Colors } from '@/theme';
 import AuthorItem from '@/components/ui/AuthorItem';
 import type { SavedAccount } from '@/stores/userStore';
-import { useAuth, useAccountManagement } from '@/stores/userStore';
+import { AuthFlowError, useAuth, useAccountManagement } from '@/stores/userStore';
 import { hexToRGBA } from '@/utils/formatting/colors';
 import RocketBackground from '@/components/ui/RocketBackground';
 import SignUpSheet from '@/components/ui/SignUpSheet';
 import LoginSheet from '@/components/ui/LoginSheet';
-import { getErrorMessage, isUserCancellation, shouldShowError } from '@/utils/errors/errorHandler';
+import { isUserCancellation } from '@/utils/errors/errorHandler';
 
 // Login logo: PNG 4x on Android (avoids SVG stroke clipping), SVG on iOS
 const orbytLogoLoginPng = require('@/assets/orbyt-logo-login.png');
@@ -76,45 +76,37 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
     clearAuthError();
 
     try {
-      // SDK-first path: switchAccount() performs restore and determines outcome.
       await switchAccount(account.did);
 
       if (onAccountSwitch) {
         await onAccountSwitch(account);
       }
-
-      // Stack.Protected automatically redirects when session is set
-      // No manual navigation needed
     } catch (error) {
       setIsLoading(false);
-      if (isUserCancellation(error)) {
+      if (isUserCancellation(error)) return;
+
+      // Session needs re-auth: skip the error alert and go straight to sign-in.
+      // The OAuth browser flow is the right UX here — no intermediate error needed.
+      if (error instanceof AuthFlowError && error.kind === 'reauth_required') {
+        try {
+          await signIn(account.originalIdentifier);
+          await loadSavedAccounts();
+        } catch (err) {
+          if (!isUserCancellation(err)) {
+            Alert.alert(
+              t('auth.sessionIssue'),
+              t('auth.sessionIssueMessage', { handle: account.handle }),
+              [{ text: t('common.ok') }]
+            );
+          }
+        }
         return;
       }
 
-      const errorMessage = error instanceof Error ? error.message : t('errors.accountSwitchFailed');
-
-      Alert.alert(
-        t('auth.accountSwitchFailed'),
-        t('auth.accountSwitchFailedMessage', { handle: account.handle, error: errorMessage }),
-        [
-          { text: t('common.cancel'), style: 'cancel' },
-          {
-            text: t('auth.signIn'),
-            onPress: () => {
-              void (async () => {
-                try {
-                  await signIn(account.originalIdentifier);
-                  await loadSavedAccounts();
-                } catch (err) {
-                  if (shouldShowError(err)) {
-                    Alert.alert(t('common.error'), getErrorMessage(err));
-                  }
-                }
-              })();
-            },
-          },
-        ]
-      );
+      // Network / transient failure — show a friendly message without raw error details.
+      Alert.alert(t('auth.networkError'), t('auth.networkErrorMessage'), [
+        { text: t('common.ok') },
+      ]);
     } finally {
       setIsLoading(false);
     }

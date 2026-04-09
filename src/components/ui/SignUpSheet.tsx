@@ -112,8 +112,7 @@ const SignUpSheet: React.FC<SignUpSheetProps> = ({
       TrueSheet.dismiss(name);
     } catch (err) {
       if (!isUserCancellation(err)) {
-        const msg = err instanceof Error ? err.message : t('auth.signUpFailed');
-        setError(msg);
+        setError(t('auth.signUpFailed'));
       }
     } finally {
       setIsSigningUp(false);

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, StyleSheet, Alert } from 'react-native';
 import { SquircleButton } from '@/components/ui/Squircle';
-import { SavedAccount } from '../../../stores/userStore';
+import { AuthFlowError, SavedAccount } from '../../../stores/userStore';
 import {
   shouldShowError,
   getErrorMessage,
@@ -108,14 +108,29 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
 
       setSwitchingAccount(account.did);
       try {
-        // Keep switch flow SDK-native: close sheets and let OAuth/session restore drive state.
         closeAccountSwitcherSheets();
         await switchAccount(account.did);
         onAccountSwitch(account);
       } catch (error) {
-        if (isUserCancellation(error)) {
+        if (isUserCancellation(error)) return;
+
+        // Session expired or was revoked — go straight to sign-in for this account.
+        // The previous account stays active (no logout), and if sign-in succeeds the
+        // switch completes naturally.
+        if (error instanceof AuthFlowError && error.kind === 'reauth_required') {
+          try {
+            await signIn(account.originalIdentifier);
+          } catch (signInErr) {
+            if (!isUserCancellation(signInErr)) {
+              Alert.alert(
+                t('auth.sessionIssue'),
+                t('auth.sessionIssueMessage', { handle: account.handle })
+              );
+            }
+          }
           return;
         }
+
         Alert.alert(t('common.error'), t('errors.accountSwitchFailed'));
       } finally {
         setSwitchingAccount(null);
