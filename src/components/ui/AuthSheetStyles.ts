@@ -11,13 +11,17 @@ import { inputTextDefaults } from '../../utils/styling/platformText';
  */
 export const authSheetStyles = StyleSheet.create({
   inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: Colors.neutral[50],
     borderRadius: BORDER_RADIUS.FULL,
     marginBottom: 4,
-    paddingHorizontal: 20,
     height: 56,
+    overflow: 'hidden',
+  },
+  inputContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
   },
   inputIcon: {
     marginRight: 12,

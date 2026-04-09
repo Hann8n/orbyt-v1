@@ -20,6 +20,7 @@ import {
   Platform,
 } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
+import { SquircleView, SquircleNativePressable } from '@/components/ui/Squircle';
 import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -898,7 +899,7 @@ const EditProfileScreen: React.FC = () => {
             </View>
           )}
 
-          <NativePressable
+          <SquircleNativePressable
             style={[
               styles.saveButtonGlass,
               !isLiquidGlassAvailable() && styles.saveButton,
@@ -944,7 +945,7 @@ const EditProfileScreen: React.FC = () => {
                 </Text>
               )}
             </View>
-          </NativePressable>
+          </SquircleNativePressable>
         </View>
 
         {/* Color Picker */}
@@ -1003,7 +1004,7 @@ const EditProfileScreen: React.FC = () => {
       </View>
 
       {/* Profile Editing Fields - Sheet Content */}
-      <View
+      <SquircleView
         style={[styles.bottomSectionContainer, { backgroundColor: currentColors.backgroundColor }]}
       >
         <SafeAreaView
@@ -1111,7 +1112,7 @@ const EditProfileScreen: React.FC = () => {
                         themeVariant="dark"
                         isAnchoredToRight={true}
                       >
-                        <NativePressable
+                        <SquircleNativePressable
                           style={[
                             styles.uploadButton,
                             {
@@ -1129,7 +1130,7 @@ const EditProfileScreen: React.FC = () => {
                           >
                             {t('editProfile.upload')}
                           </Text>
-                        </NativePressable>
+                        </SquircleNativePressable>
                       </MenuView>
                     </View>
                   </View>
@@ -1276,7 +1277,7 @@ const EditProfileScreen: React.FC = () => {
             )}
           </ScrollView>
         </SafeAreaView>
-      </View>
+      </SquircleView>
     </GestureHandlerRootView>
   );
 };

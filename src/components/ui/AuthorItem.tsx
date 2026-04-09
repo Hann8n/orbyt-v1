@@ -255,7 +255,6 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
         <NativePressable
           style={[styles.followButton, !actualIsFollowing && styles.followButtonInactive]}
           onPress={handleFollowPress}
-          androidRippleBorderless
         >
           <AddSquareCuteFilledIcon size={32} color={Colors.neutral[400]} />
         </NativePressable>

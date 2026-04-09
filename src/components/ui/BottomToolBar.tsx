@@ -2,6 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, StyleSheet, Text } from 'react-native';
 import { NativePressable } from './NativePressable';
+import { SquircleNativePressable } from './Squircle';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { getBottomNavBarHeight } from '../../utils/device/screen';
@@ -166,13 +167,13 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
         {/* Right side - next button */}
         {onNextPress && (
           <View style={styles.nextButtonContainer}>
-            <NativePressable
+            <SquircleNativePressable
               style={[styles.nextButton, nextButtonDisabled && styles.nextButtonDisabled]}
               onPress={onNextPress}
               disabled={nextButtonDisabled}
             >
               <Text style={styles.nextButtonText}>{t('common.next')}</Text>
-            </NativePressable>
+            </SquircleNativePressable>
           </View>
         )}
       </View>

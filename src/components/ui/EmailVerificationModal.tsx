@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, Text, TextInput, StyleSheet, ActivityIndicator } from 'react-native';
 import { NativePressable } from './NativePressable';
+import { SquircleNativePressable } from './Squircle';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -270,7 +271,7 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
               )}
             </View>
 
-            <NativePressable
+            <SquircleNativePressable
               style={[
                 styles.verifyButton,
                 token.trim().length === 11 && !isVerifying && !error && styles.verifyButtonActive,
@@ -310,7 +311,7 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
                   />
                 </View>
               )}
-            </NativePressable>
+            </SquircleNativePressable>
 
             {cooldownSeconds === 0 && (
               <NativePressable
@@ -326,7 +327,7 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
           </View>
         ) : (
           <View style={styles.infoContainer}>
-            <NativePressable
+            <SquircleNativePressable
               style={[
                 styles.sendButton,
                 !isSendingEmail && styles.sendButtonActive,
@@ -350,7 +351,7 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
                   <Icon name="arrow_right" size={24} color={Colors.neutral[900]} />
                 </View>
               )}
-            </NativePressable>
+            </SquircleNativePressable>
 
             <Text style={styles.infoText}>{t('auth.youllReceiveCode')}</Text>
           </View>

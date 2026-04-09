@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, View, Text, StyleSheet, FlatList } from 'react-native';
-import { NativePressable } from '@/components/ui/NativePressable';
+import { SquircleNativePressable } from '@/components/ui/Squircle';
 import { useRouter } from 'expo-router';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -137,7 +137,10 @@ export default function ChannelManagementScreen() {
   const renderChannelItem = useCallback(
     ({ item }: { item: ChannelUser }) => {
       return (
-        <NativePressable style={styles.channelItem} onPress={() => handleChannelPress(item)}>
+        <SquircleNativePressable
+          style={styles.channelItem}
+          onPress={() => handleChannelPress(item)}
+        >
           <Avatar
             uri={item.avatar}
             type="channel"
@@ -175,7 +178,7 @@ export default function ChannelManagementScreen() {
               </Text>
             )}
           </View>
-        </NativePressable>
+        </SquircleNativePressable>
       );
     },
     [handleChannelPress, t]
@@ -187,9 +190,9 @@ export default function ChannelManagementScreen() {
         <Icon name="tv_2" size={48} color={Colors.neutral[200]} style={styles.emptyIcon} />
         <Text style={styles.emptyTitle}>{t('settings.noChannelsYet')}</Text>
         <Text style={styles.emptySubtitle}>{t('settings.exploreChannelsSubscribe')}</Text>
-        <NativePressable style={styles.exploreButton} onPress={handleExplorePress}>
+        <SquircleNativePressable style={styles.exploreButton} onPress={handleExplorePress}>
           <Text style={styles.exploreButtonText}>{t('settings.exploreChannels')}</Text>
-        </NativePressable>
+        </SquircleNativePressable>
       </View>
     ),
     [handleExplorePress, t]

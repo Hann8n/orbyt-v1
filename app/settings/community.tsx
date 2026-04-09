@@ -5,6 +5,7 @@
 import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, ScrollView, Linking, RefreshControl } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
+import { SquircleView, SquircleNativePressable } from '@/components/ui/Squircle';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
@@ -66,7 +67,7 @@ function TopicRow({
           {topic.reply_count === 1 ? t('settings.reply') : t('settings.replies')}
         </Text>
       </View>
-      <View style={styles.voteTallyButton}>
+      <SquircleView style={styles.voteTallyButton}>
         <Icon
           name="up"
           size={16}
@@ -81,7 +82,7 @@ function TopicRow({
         >
           {voteCount === 0 ? t('settings.vote') : voteCount}
         </Text>
-      </View>
+      </SquircleView>
     </NativePressable>
   );
 }
@@ -155,12 +156,12 @@ export default function CommunityScreen() {
       </ScrollView>
       {showFooter && (
         <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
-          <NativePressable
+          <SquircleNativePressable
             style={styles.openForumFooter}
             onPress={() => Linking.openURL(openForumUrl)}
           >
             <Text style={styles.openForumFooterText}>{t('settings.openForumInBrowser')}</Text>
-          </NativePressable>
+          </SquircleNativePressable>
         </View>
       )}
     </View>

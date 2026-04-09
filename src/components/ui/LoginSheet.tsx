@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, Text, TextInput, ActivityIndicator } from 'react-native';
-import { NativePressable } from './NativePressable';
 import Icon from './Icon';
 import { Colors } from './UI';
 import VerticalListSheet, { TrueSheet } from './VerticalListSheet';
@@ -9,6 +8,8 @@ import { authSheetStyles } from './AuthSheetStyles';
 import ErrorMessage from './ErrorMessage';
 import { useSheetPresentation } from '../../hooks';
 import { isUserCancellation } from '../../utils/errors/errorHandler';
+import { NativePressable } from './NativePressable';
+import { SquircleView } from './Squircle';
 
 interface LoginSheetProps {
   visible: boolean;
@@ -103,32 +104,34 @@ const LoginSheet: React.FC<LoginSheetProps> = ({
       <View>
         <ErrorMessage error={error} />
 
-        <View style={authSheetStyles.inputContainer}>
-          <Icon name="at" size={28} color={Colors.black} style={authSheetStyles.inputIcon} />
-          <TextInput
-            nativeID="login-handle-input"
-            style={authSheetStyles.input}
-            placeholder={t('auth.handlePlaceholder')}
-            accessibilityLabel={t('auth.handleInput')}
-            accessibilityHint={t('auth.handleInputHint')}
-            placeholderTextColor={Colors.neutral[500]}
-            value={handle}
-            onChangeText={text => {
-              setHandle(text);
-              if (error) setError(null);
-            }}
-            autoCapitalize="none"
-            autoCorrect={false}
-            autoComplete="username"
-            textContentType="username"
-            importantForAutofill="yes"
-            returnKeyType="go"
-            onSubmitEditing={handleSignIn}
-            editable={!isSigningIn}
-            caretHidden={false}
-            autoFocus
-          />
-        </View>
+        <SquircleView style={authSheetStyles.inputContainer}>
+          <View style={authSheetStyles.inputContent}>
+            <Icon name="at" size={28} color={Colors.black} style={authSheetStyles.inputIcon} />
+            <TextInput
+              nativeID="login-handle-input"
+              style={authSheetStyles.input}
+              placeholder={t('auth.handlePlaceholder')}
+              accessibilityLabel={t('auth.handleInput')}
+              accessibilityHint={t('auth.handleInputHint')}
+              placeholderTextColor={Colors.neutral[500]}
+              value={handle}
+              onChangeText={text => {
+                setHandle(text);
+                if (error) setError(null);
+              }}
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="username"
+              textContentType="username"
+              importantForAutofill="yes"
+              returnKeyType="go"
+              onSubmitEditing={handleSignIn}
+              editable={!isSigningIn}
+              caretHidden={false}
+              autoFocus
+            />
+          </View>
+        </SquircleView>
 
         <NativePressable
           style={[authSheetStyles.button, canSubmit && authSheetStyles.buttonActive]}

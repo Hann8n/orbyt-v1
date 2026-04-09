@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../../utils/query/queryKeys';
 import { View, Text, StyleSheet, Share, Platform, Alert, ScrollView } from 'react-native';
 import { NativePressable } from '../NativePressable';
+import { SquircleView } from '../Squircle';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import {
   AppTrueSheet,
@@ -546,19 +547,16 @@ const ShareSheet: React.FC = () => {
                     const backgroundColor = isSwapped ? option.color : option.buttonColor;
 
                     return (
-                      <View
+                      <SquircleView
                         style={[
                           styles.option,
-                          styles.optionShadow,
                           {
                             backgroundColor,
-                            shadowColor: option.color,
-                            shadowOffset: { width: 0, height: 0 },
                           },
                         ]}
                       >
                         <Icon name={option.icon} size={45} color={iconColor} />
-                      </View>
+                      </SquircleView>
                     );
                   }}
                 </NativePressable>
@@ -582,14 +580,14 @@ const ShareSheet: React.FC = () => {
                   const backgroundColor = isActive ? accentColor : Colors.neutral[900];
 
                   return (
-                    <View style={[styles.feedbackButton, { backgroundColor }]}>
+                    <SquircleView style={[styles.feedbackButton, { backgroundColor }]}>
                       <View style={styles.feedbackButtonContent}>
                         <Icon name="interested" size={16} color={foregroundColor} />
                         <Text style={[styles.feedbackButtonText, { color: foregroundColor }]}>
                           Show more
                         </Text>
                       </View>
-                    </View>
+                    </SquircleView>
                   );
                 }}
               </NativePressable>
@@ -606,14 +604,14 @@ const ShareSheet: React.FC = () => {
                   const backgroundColor = isActive ? accentColor : Colors.neutral[900];
 
                   return (
-                    <View style={[styles.feedbackButton, { backgroundColor }]}>
+                    <SquircleView style={[styles.feedbackButton, { backgroundColor }]}>
                       <View style={styles.feedbackButtonContent}>
                         <Icon name="not_interested" size={16} color={foregroundColor} />
                         <Text style={[styles.feedbackButtonText, { color: foregroundColor }]}>
                           Show less
                         </Text>
                       </View>
-                    </View>
+                    </SquircleView>
                   );
                 }}
               </NativePressable>
@@ -675,11 +673,6 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: BORDER_RADIUS.MEDIUM,
     overflow: 'hidden',
-  },
-  optionShadow: {
-    shadowOpacity: 0.9,
-    shadowRadius: 20,
-    elevation: 12,
   },
   optionText: {
     color: Colors.neutral[200],

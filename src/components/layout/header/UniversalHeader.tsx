@@ -28,6 +28,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getEffectiveTopInset } from '@/utils/device/screen';
 import Icon, { BackArrowIcon, MoreFillIcon, STROKE_WIDTH_THICK } from '../../ui/Icon';
 import { NativePressable } from '../../ui/NativePressable';
+import { SquircleView, SquircleNativePressable } from '../../ui/Squircle';
 import { OutlinkIcon, GermDmIcon } from '../../ui/Icon';
 import { useRouter } from 'expo-router';
 import { buildFeedModalHref } from '@/utils/navigation/feedModalRoute';
@@ -258,106 +259,92 @@ const ActionButton = memo<{
     return showFilledState ? backgroundColor : textColor;
   }, [textColor, backgroundColor, hasFilledBackground, canUseLiquidGlass]);
 
-  const getButtonSize = useCallback(() => {
+  // Outer SquircleView sizing — no padding, no borderRadius (always FULL, set in style)
+  const getButtonContainerSize = useCallback(() => {
     const hasLabel = !!action.label;
     const hasIcon = !!(action.customIcon || action.icon);
     const isFollowLeadingIcon = action.id === 'follow' && !!action.customIcon && hasLabel;
 
-    // Icon-only — fixed footprint, full pill radius
     if (!hasLabel) {
       switch (size) {
         case 'small':
-          return { width: 40, height: 32, borderRadius: 100 };
+          return { width: 40, height: 32 };
         case 'large':
-          return { width: 56, height: 48, borderRadius: 100 };
+          return { width: 56, height: 48 };
         default:
-          return { width: 50, height: 44, borderRadius: 100 };
+          return { width: 50, height: 44 };
       }
     }
 
-    // Labeled, text-only (e.g. Edit profile) — same pill heights as icon variants
     if (!hasIcon) {
       switch (size) {
         case 'small':
-          return {
-            paddingHorizontal: 12,
-            paddingVertical: 6,
-            minWidth: 72,
-            height: 32,
-            borderRadius: 100,
-          };
+          return { minWidth: 72, height: 32 };
         case 'large':
-          return {
-            paddingHorizontal: 24,
-            paddingVertical: 12,
-            minWidth: 112,
-            height: 48,
-            borderRadius: 100,
-          };
+          return { minWidth: 112, height: 48 };
         default:
-          return {
-            paddingHorizontal: 16,
-            paddingVertical: 8,
-            minWidth: 92,
-            height: 44,
-            borderRadius: 100,
-          };
+          return { minWidth: 92, height: 44 };
       }
     }
 
-    // Follow + leading custom icon — slightly asymmetric padding for the cap icon
     if (isFollowLeadingIcon) {
       switch (size) {
         case 'small':
-          return {
-            paddingLeft: 7,
-            paddingRight: 10,
-            minWidth: 84,
-            height: 32,
-            borderRadius: 100,
-          };
+          return { minWidth: 84, height: 32 };
         case 'large':
-          return {
-            paddingLeft: 14,
-            paddingRight: 16,
-            minWidth: 120,
-            height: 48,
-            borderRadius: 100,
-          };
+          return { minWidth: 120, height: 48 };
         default:
-          return {
-            paddingLeft: 10,
-            paddingRight: 12,
-            minWidth: 108,
-            height: 44,
-            borderRadius: 100,
-          };
+          return { minWidth: 108, height: 44 };
       }
     }
 
-    // Labeled + trailing icon (e.g. delete) — symmetric pill, matches row spacing used on Follow
     switch (size) {
       case 'small':
-        return {
-          paddingHorizontal: 10,
-          minWidth: 88,
-          height: 32,
-          borderRadius: 100,
-        };
+        return { minWidth: 88, height: 32 };
       case 'large':
-        return {
-          paddingHorizontal: 20,
-          minWidth: 124,
-          height: 48,
-          borderRadius: 100,
-        };
+        return { minWidth: 124, height: 48 };
       default:
-        return {
-          paddingHorizontal: 14,
-          minWidth: 104,
-          height: 44,
-          borderRadius: 100,
-        };
+        return { minWidth: 104, height: 44 };
+    }
+  }, [size, action]);
+
+  // Inner NativePressable padding only
+  const getButtonPadding = useCallback(() => {
+    const hasLabel = !!action.label;
+    const hasIcon = !!(action.customIcon || action.icon);
+    const isFollowLeadingIcon = action.id === 'follow' && !!action.customIcon && hasLabel;
+
+    if (!hasLabel) return {};
+
+    if (!hasIcon) {
+      switch (size) {
+        case 'small':
+          return { paddingHorizontal: 12, paddingVertical: 6 };
+        case 'large':
+          return { paddingHorizontal: 24, paddingVertical: 12 };
+        default:
+          return { paddingHorizontal: 16, paddingVertical: 8 };
+      }
+    }
+
+    if (isFollowLeadingIcon) {
+      switch (size) {
+        case 'small':
+          return { paddingLeft: 7, paddingRight: 10 };
+        case 'large':
+          return { paddingLeft: 14, paddingRight: 16 };
+        default:
+          return { paddingLeft: 10, paddingRight: 12 };
+      }
+    }
+
+    switch (size) {
+      case 'small':
+        return { paddingHorizontal: 10 };
+      case 'large':
+        return { paddingHorizontal: 20 };
+      default:
+        return { paddingHorizontal: 14 };
     }
   }, [size, action]);
 
@@ -514,66 +501,61 @@ const ActionButton = memo<{
       })()
     : null;
 
-  // Follow pill: background must live inside NativePressable so iOS activeOpacity dimms the whole pill,
-  // not only icon/text (profile overlay and elsewhere use non-glass animated follow).
+  // Follow pill: Animated.View owns layout animation, SquircleView clips to pill shape,
+  // NativePressable handles press feedback (activeOpacity dims fill + content together).
   if (shouldAnimate) {
-    const sizeStyle = getButtonSize();
-    const pillRadius = 'borderRadius' in sizeStyle ? sizeStyle.borderRadius : BORDER_RADIUS.FULL;
     return (
       <Animated.View
         layout={FOLLOW_PILL_LAYOUT_ANIMATION}
         collapsable={false}
-        style={[styles.actionButton, sizeStyle]}
+        style={[styles.actionButtonOuter, getButtonContainerSize()]}
       >
-        <NativePressable
-          style={[
-            StyleSheet.absoluteFillObject,
-            {
-              overflow: 'hidden',
-              borderRadius: pillRadius,
-              alignItems: 'center',
-              justifyContent: 'center',
-            },
-          ]}
-          onPress={action.onPress}
-          onLongPress={action.onLongPress}
-          delayLongPress={action.delayLongPress}
-          disabled={action.disabled || action.loading}
-        >
-          <Animated.View
-            pointerEvents="none"
-            style={[StyleSheet.absoluteFillObject, animatedButtonStyle]}
-          />
-          {followCrossfadeContent}
-        </NativePressable>
+        <SquircleView style={[StyleSheet.absoluteFillObject, styles.actionButtonSquircleClip]}>
+          <NativePressable
+            style={[StyleSheet.absoluteFillObject, styles.actionButtonInner]}
+            onPress={action.onPress}
+            onLongPress={action.onLongPress}
+            delayLongPress={action.delayLongPress}
+            disabled={action.disabled || action.loading}
+          >
+            <Animated.View
+              pointerEvents="none"
+              style={[StyleSheet.absoluteFillObject, animatedButtonStyle]}
+            />
+            {followCrossfadeContent}
+          </NativePressable>
+        </SquircleView>
       </Animated.View>
     );
   }
 
   return (
-    <NativePressable
+    <SquircleView
       style={[
-        styles.actionButton,
-        canUseLiquidGlass && styles.actionButtonNoShadow,
-        getButtonStyle(),
-        getButtonSize(),
+        styles.actionButtonOuter,
+        canUseLiquidGlass && styles.actionButtonOuterNoShadow,
+        getButtonContainerSize(),
       ]}
-      onPress={action.onPress}
-      onLongPress={action.onLongPress}
-      delayLongPress={action.delayLongPress}
-      disabled={action.disabled || action.loading}
     >
-      <>
-        {canUseLiquidGlass && (
-          <GlassView
-            style={styles.actionButtonGlassBackground}
-            glassEffectStyle="clear"
-            tintColor={getLiquidGlassTintColor()}
-          />
-        )}
-        {renderContent()}
-      </>
-    </NativePressable>
+      <NativePressable
+        style={[styles.actionButtonInner, getButtonPadding(), getButtonStyle()]}
+        onPress={action.onPress}
+        onLongPress={action.onLongPress}
+        delayLongPress={action.delayLongPress}
+        disabled={action.disabled || action.loading}
+      >
+        <>
+          {canUseLiquidGlass && (
+            <GlassView
+              style={styles.actionButtonGlassBackground}
+              glassEffectStyle="clear"
+              tintColor={getLiquidGlassTintColor()}
+            />
+          )}
+          {renderContent()}
+        </>
+      </NativePressable>
+    </SquircleView>
   );
 });
 ActionButton.displayName = 'ActionButton';
@@ -596,7 +578,7 @@ const CustomActionLayoutComponent = memo<{
         onPress={layout.menuIcon.onPress}
         androidRippleBorderless
       >
-        <MoreFillIcon size={layout.menuIcon.size || 24} color={textColor} />
+        <MoreFillIcon size={layout.menuIcon.size || 20} color={textColor} />
       </NativePressable>
     );
   }, [layout.menuIcon, textColor]);
@@ -758,7 +740,7 @@ const HeaderContentComponent = memo<{
   const useAvatarMenu = Boolean(avatarMenuActions && avatarMenuActions.length > 0);
 
   const avatarPressable = (
-    <NativePressable
+    <SquircleNativePressable
       style={[
         styles.avatar,
         content.avatarStyle === 'rounded-square' && styles.avatarRoundedSquare,
@@ -777,7 +759,7 @@ const HeaderContentComponent = memo<{
           status={content.status}
         />
       )}
-    </NativePressable>
+    </SquircleNativePressable>
   );
 
   return (
@@ -846,7 +828,7 @@ const HeaderContentComponent = memo<{
                   {content.onTitlePress ? ' ›' : ''}
                 </Text>
                 {!!content.subtitleAction && (
-                  <NativePressable
+                  <SquircleNativePressable
                     onPress={content.subtitleAction.onPress}
                     style={[
                       styles.subtitleActionPill,
@@ -859,7 +841,7 @@ const HeaderContentComponent = memo<{
                       },
                     ]}
                   >
-                    <View
+                    <SquircleView
                       style={[
                         styles.germCircleButton,
                         styles.subtitleActionLeadingIcon,
@@ -867,34 +849,34 @@ const HeaderContentComponent = memo<{
                       ]}
                     >
                       <GermDmIcon size={ICON_SIZES.SMALL} color={Colors.black} />
-                    </View>
+                    </SquircleView>
                     <Text
                       style={[styles.subtitleActionLabel, { color: textColor }]}
                       numberOfLines={1}
                     >
                       {content.subtitleAction.label}
                     </Text>
-                  </NativePressable>
+                  </SquircleNativePressable>
                 )}
                 {!!content.subtitleSecondary && (
                   <NativePressable
                     onPress={content.onSubtitleSecondaryPress}
                     disabled={!content.onSubtitleSecondaryPress}
                   >
-                    <View
+                    <SquircleView
                       style={[
                         styles.subtitleSecondaryPill,
                         { backgroundColor: hexToRGBA(textColor, 0.15) },
                       ]}
                     >
-                      <View
+                      <SquircleView
                         style={[
                           styles.germCircleButtonSecondary,
                           { backgroundColor: Colors.brand.germBrandGreen },
                         ]}
                       >
                         <GermDmIcon size={ICON_SIZES.SMALL} color={Colors.black} />
-                      </View>
+                      </SquircleView>
                       <Text
                         style={[styles.subtitleSecondary, { color: hexToRGBA(textColor, 0.8) }]}
                         numberOfLines={1}
@@ -929,7 +911,7 @@ const HeaderContentComponent = memo<{
                         })()}
                       </Text>
                       <OutlinkIcon size={16} color={hexToRGBA(textColor, 0.8)} />
-                    </View>
+                    </SquircleView>
                   </NativePressable>
                 )}
               </View>
@@ -1315,31 +1297,30 @@ const styles = StyleSheet.create({
   headerActionStackSlot: {
     position: 'relative',
   },
-  actionButton: {
+  actionButtonOuter: {
     borderRadius: BORDER_RADIUS.FULL,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'visible',
+    overflow: 'hidden',
     shadowColor: Colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
     elevation: 2,
-    alignSelf: 'center',
   },
-  actionButtonNoShadow: {
-    borderRadius: BORDER_RADIUS.FULL,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'center',
-    backgroundColor: Colors.transparent,
-    shadowColor: Colors.transparent,
+  actionButtonOuterNoShadow: {
     shadowOpacity: 0,
     shadowRadius: 0,
     shadowOffset: { width: 0, height: 0 },
     elevation: 0,
+  },
+  actionButtonSquircleClip: {
+    borderRadius: BORDER_RADIUS.FULL,
+    overflow: 'hidden',
+  },
+  actionButtonInner: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   followContentCrossfade: {
     position: 'relative',
@@ -1421,14 +1402,15 @@ const styles = StyleSheet.create({
     right: 'auto',
   },
   menuIconButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
   buttonContainer: {
     flexDirection: 'row',
     gap: 8,
+    alignItems: 'center',
   },
   buttonGroupContainer: {
     flexDirection: 'row',

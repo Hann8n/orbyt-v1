@@ -7079,6 +7079,11 @@ react-native-reanimated@4.2.1:
     react-native-is-edge-to-edge "1.2.1"
     semver "7.7.3"
 
+react-native-resquircle@^1.0.1:
+  version "1.0.1"
+  resolved "https://registry.yarnpkg.com/react-native-resquircle/-/react-native-resquircle-1.0.1.tgz#10e7c544af3d459b35b5cdb36905d1414d39112e"
+  integrity sha512-Va9pB2I4LZXY+c5FGKRNR4aKDk4M66QnYH1TqVXvnG3mw59mh8/A+vJiFOcMnzj0MvfwdJNy8OGoZTO2As0zaA==
+
 react-native-safe-area-context@~5.6.2:
   version "5.6.2"
   resolved "https://registry.yarnpkg.com/react-native-safe-area-context/-/react-native-safe-area-context-5.6.2.tgz#283e006f5b434fb247fcb4be0971ad7473d5c560"

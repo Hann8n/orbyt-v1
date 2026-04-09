@@ -26,6 +26,7 @@ import {
 } from '../../utils/formatting/colors';
 import { FontFamily, Typography } from '../../utils/components/typography';
 import { BORDER_RADIUS } from '../../utils/constants';
+import { SquircleView } from './Squircle';
 import type { StatusView } from '../../services/api/types';
 import { isLiveStatus } from '../../services/data/ProfileService';
 import { Colors, ColorScale, NeutralScale, Shadows } from '../../theme';
@@ -644,7 +645,7 @@ const Card: React.FC<CardProps> = ({
   backgroundColor = Colors.neutral[900],
 }) => {
   return (
-    <View
+    <SquircleView
       style={[
         {
           backgroundColor,
@@ -657,7 +658,7 @@ const Card: React.FC<CardProps> = ({
       ]}
     >
       {children}
-    </View>
+    </SquircleView>
   );
 };
 
@@ -920,9 +921,9 @@ const Badge: React.FC<BadgeProps> = ({ text, variant, size, style }) => {
   };
 
   return (
-    <View style={[getBadgeStyle(), style]}>
+    <SquircleView style={[getBadgeStyle(), style]}>
       <Text style={getTextStyle()}>{text}</Text>
-    </View>
+    </SquircleView>
   );
 };
 

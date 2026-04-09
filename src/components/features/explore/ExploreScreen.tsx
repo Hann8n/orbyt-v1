@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { QUERY_CONSTANTS, SCROLL_INDICATOR_CONSTANTS } from '@/utils/constants';
 import { View, StyleSheet, TextInput, StatusBar, Platform, Dimensions } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
+import { SquircleView } from '@/components/ui/Squircle';
 import { Image } from 'expo-image';
 import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -543,60 +544,61 @@ const ExploreScreen: React.FC = () => {
           onPress={() => searchInputRef.current?.focus()}
           style={styles.searchBarPressable}
         >
-          <Reanimated.View
-            style={[
-              styles.searchContainer,
-              useLiquidGlassSearchBar
-                ? styles.searchContainerLiquidGlass
-                : styles.searchContainerTintedWhite,
-              {
-                top: EXPLORE_SEARCH_LAYOUT.BAR_OFFSET_TOP,
-                height: EXPLORE_SEARCH_LAYOUT.BAR_HEIGHT,
-              },
-              searchBarAnimatedStyle,
-            ]}
-          >
-            {useLiquidGlassSearchBar && (
-              <GlassView
-                style={styles.searchContainerGlassBackground}
-                glassEffectStyle="clear"
-                tintColor={Colors.neutral[50]}
-              />
-            )}
-            <View style={styles.searchBarContent} pointerEvents="box-none">
-              <View style={styles.searchIconContainer}>
-                <SearchIcon size={24} color={Colors.black} style={styles.searchIconMirror} />
-              </View>
-              <TextInput
-                ref={searchInputRef}
-                nativeID="explore-search-input"
-                style={styles.searchInput}
-                placeholder={t('feed.searchPlaceholder')}
-                placeholderTextColor={Colors.neutral[500]}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                onFocus={() => setIsSearchFocused(true)}
-                onBlur={() => {}}
-                onSubmitEditing={() => {}}
-                autoCapitalize="none"
-                autoCorrect={false}
-                autoComplete="off"
-                textContentType="none"
-                importantForAutofill="no"
-                keyboardAppearance="dark"
-                returnKeyType="search"
-                caretHidden={false}
-              />
-              {isSearching && (
-                <NativePressable
-                  onPress={resetExploreSearch}
-                  style={styles.clearButton}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Icon name="close-circle" size={22.5} color={Colors.neutral[900]} />
-                </NativePressable>
+          <Reanimated.View style={searchBarAnimatedStyle}>
+            <SquircleView
+              style={[
+                styles.searchContainer,
+                useLiquidGlassSearchBar
+                  ? styles.searchContainerLiquidGlass
+                  : styles.searchContainerTintedWhite,
+                {
+                  top: EXPLORE_SEARCH_LAYOUT.BAR_OFFSET_TOP,
+                  height: EXPLORE_SEARCH_LAYOUT.BAR_HEIGHT,
+                },
+              ]}
+            >
+              {useLiquidGlassSearchBar && (
+                <GlassView
+                  style={styles.searchContainerGlassBackground}
+                  glassEffectStyle="clear"
+                  tintColor={Colors.neutral[50]}
+                />
               )}
-            </View>
+              <View style={styles.searchBarContent} pointerEvents="box-none">
+                <View style={styles.searchIconContainer}>
+                  <SearchIcon size={24} color={Colors.black} style={styles.searchIconMirror} />
+                </View>
+                <TextInput
+                  ref={searchInputRef}
+                  nativeID="explore-search-input"
+                  style={styles.searchInput}
+                  placeholder={t('feed.searchPlaceholder')}
+                  placeholderTextColor={Colors.neutral[500]}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  onFocus={() => setIsSearchFocused(true)}
+                  onBlur={() => {}}
+                  onSubmitEditing={() => {}}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="off"
+                  textContentType="none"
+                  importantForAutofill="no"
+                  keyboardAppearance="dark"
+                  returnKeyType="search"
+                  caretHidden={false}
+                />
+                {isSearching && (
+                  <NativePressable
+                    onPress={resetExploreSearch}
+                    style={styles.clearButton}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Icon name="close-circle" size={22.5} color={Colors.neutral[900]} />
+                  </NativePressable>
+                )}
+              </View>
+            </SquircleView>
           </Reanimated.View>
         </NativePressable>
       </SafeAreaView>

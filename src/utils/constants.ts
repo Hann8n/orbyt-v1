@@ -23,11 +23,15 @@ export const LAYOUT_INSETS = {
 
 // Border Radius Constants
 export const BORDER_RADIUS = {
-  SMALL: 8,
-  MEDIUM: 15,
-  LARGE: 20,
-  FULL: 100,
+  SMALL: 10,
+  MEDIUM: 17,
+  LARGE: 22,
+  FULL: 102,
 } as const;
+
+// Corner smoothing for squircle rendering (0 = circular arc, 1 = iOS icon-style maximum)
+// Tune this single value to adjust the superellipse intensity app-wide.
+export const CORNER_SMOOTHING = 0.6 as const;
 
 // Query Constants
 export const QUERY_CONSTANTS = {

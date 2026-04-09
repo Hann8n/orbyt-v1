@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
+import { SquircleView, SquircleNativePressable } from '@/components/ui/Squircle';
 import { useRouter } from 'expo-router';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { buildChannelDetailHref } from '@/utils/navigation/detailRoutes';
@@ -301,9 +302,11 @@ const AlgorithmicFeedScreen: React.FC = () => {
                 description={option.description}
                 onPress={() => handleSelectProvider(option.uri)}
                 rightIcon={
-                  <View style={[styles.optionCheckbox, selected && styles.optionCheckboxSelected]}>
+                  <SquircleView
+                    style={[styles.optionCheckbox, selected && styles.optionCheckboxSelected]}
+                  >
                     {selected && <Icon name="check" size={16} color={Colors.black} />}
-                  </View>
+                  </SquircleView>
                 }
               />
             );
@@ -320,9 +323,9 @@ const AlgorithmicFeedScreen: React.FC = () => {
               <Icon name="tv_2" size={48} color={Colors.neutral[200]} style={styles.emptyIcon} />
               <Text style={styles.emptyTitle}>{t('settings.noChannelsYet')}</Text>
               <Text style={styles.emptySubtitle}>{t('settings.exploreChannelsSubscribe')}</Text>
-              <NativePressable style={styles.exploreButton} onPress={handleExplorePress}>
+              <SquircleNativePressable style={styles.exploreButton} onPress={handleExplorePress}>
                 <Text style={styles.exploreButtonText}>{t('settings.exploreChannels')}</Text>
-              </NativePressable>
+              </SquircleNativePressable>
             </View>
           ) : (
             <View style={styles.channelsList}>
@@ -390,7 +393,7 @@ const AlgorithmicFeedScreen: React.FC = () => {
                         </Text>
                       )}
                     </View>
-                    <NativePressable
+                    <SquircleNativePressable
                       style={[
                         styles.subscribeButton,
                         useGlass
@@ -442,7 +445,7 @@ const AlgorithmicFeedScreen: React.FC = () => {
                           </>
                         )}
                       </View>
-                    </NativePressable>
+                    </SquircleNativePressable>
                   </NativePressable>
                 );
               })}

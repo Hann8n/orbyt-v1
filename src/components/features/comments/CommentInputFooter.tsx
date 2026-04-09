@@ -15,6 +15,7 @@ import {
   type TargetedEvent,
 } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
+import { SquircleView, SquircleNativePressable } from '@/components/ui/Squircle';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Image } from 'expo-image';
@@ -270,7 +271,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
               keyboardShouldPersistTaps="handled"
             >
               {attachmentKind === 'gif' ? (
-                <View style={gifAttachmentWrapStyle}>
+                <SquircleView style={gifAttachmentWrapStyle}>
                   {hasGifPreview ? (
                     <Image
                       source={{ uri: selectedGifPreviewUri ?? undefined }}
@@ -301,7 +302,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                       <Icon name="close" size={18} color={Colors.neutral[50]} />
                     </NativePressable>
                   ) : null}
-                </View>
+                </SquircleView>
               ) : null}
 
               {hasImages
@@ -311,7 +312,10 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                         ? img.aspectRatio.width / img.aspectRatio.height
                         : 1;
                     return (
-                      <View key={img.uri} style={[attachmentThumbWrapStyle, { aspectRatio: ar }]}>
+                      <SquircleView
+                        key={img.uri}
+                        style={[attachmentThumbWrapStyle, { aspectRatio: ar }]}
+                      >
                         <Image
                           source={{ uri: img.uri }}
                           style={attachmentThumbImageStyle}
@@ -328,7 +332,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                             <Icon name="close" size={18} color={Colors.neutral[50]} />
                           </NativePressable>
                         ) : null}
-                      </View>
+                      </SquircleView>
                     );
                   })
                 : null}
@@ -351,7 +355,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
               />
             </View>
           ) : null}
-          <View style={styles.inputWrapper}>
+          <SquircleView style={styles.inputWrapper}>
             <TextInput
               {...mentionInputProps}
               nativeID="comment-input"
@@ -376,7 +380,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
               caretHidden={false}
               onFocus={onFocus}
             />
-          </View>
+          </SquircleView>
           <View style={styles.sendColumn}>
             <View style={styles.controlsRow}>
               {canOpenMediaDrawer && !hasText && attachmentKind === 'none' ? (
@@ -401,7 +405,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                 </MenuView>
               ) : null}
               {shouldRenderSendButton ? (
-                <NativePressable
+                <SquircleNativePressable
                   style={[
                     styles.sendButton,
                     !useLiquidGlass && styles.sendButtonFallback,
@@ -429,9 +433,9 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                   ) : (
                     <Icon name="up" size={22} color={Colors.neutral[300]} />
                   )}
-                </NativePressable>
+                </SquircleNativePressable>
               ) : replyContext && !hasText ? (
-                <NativePressable
+                <SquircleNativePressable
                   style={[styles.sendButton, styles.cancelReplyButton]}
                   onPress={onCancelReply}
                   hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
@@ -440,7 +444,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                   accessibilityLabel={t('comments.cancelReply')}
                 >
                   <Icon name="close" size={18} color={Colors.neutral[200]} />
-                </NativePressable>
+                </SquircleNativePressable>
               ) : null}
             </View>
             {showCharCount ? (

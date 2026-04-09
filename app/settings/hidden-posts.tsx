@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS, SCROLL_INDICATOR_CONSTANTS } from '@/utils/constants';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
-import { NativePressable } from '@/components/ui/NativePressable';
+import { SquircleView, SquircleNativePressable } from '@/components/ui/Squircle';
 import { useRouter } from 'expo-router';
 import Icon from '@/components/ui/Icon';
 import ListHeader from '@/components/ui/ListHeader';
@@ -124,7 +124,7 @@ const HiddenPostsScreen: React.FC = () => {
     const isUnhiding = unhidingPosts.has(item.id);
 
     return (
-      <View style={styles.postItem}>
+      <SquircleView style={styles.postItem}>
         <View style={styles.postInfo}>
           <View style={styles.authorInfo}>
             <View style={styles.avatarContainer}>
@@ -141,7 +141,7 @@ const HiddenPostsScreen: React.FC = () => {
             {item.text || t('settings.hiddenPostContent')}
           </Text>
         </View>
-        <NativePressable
+        <SquircleNativePressable
           style={[styles.unhideButton, isUnhiding && styles.unhideButtonDisabled]}
           onPress={() => handleUnhidePost(item.id)}
           disabled={isUnhiding}
@@ -154,8 +154,8 @@ const HiddenPostsScreen: React.FC = () => {
               <Text style={styles.unhideButtonText}>{t('settings.unhide')}</Text>
             </>
           )}
-        </NativePressable>
-      </View>
+        </SquircleNativePressable>
+      </SquircleView>
     );
   };
 

@@ -4,6 +4,7 @@ import { View, StyleSheet, Text, StyleProp, ViewStyle } from 'react-native';
 import { MenuView } from '@react-native-menu/menu';
 import type { MenuAction } from '@react-native-menu/menu';
 import { NativePressable } from '../../ui/NativePressable';
+import { SquircleNativePressable } from '../../ui/Squircle';
 import { ListViewIcon, GridViewIcon, DownSmallFillIcon } from '../../ui/Icon';
 import type { ViewMode } from '../../../types';
 import { Colors } from '../../../theme';
@@ -111,7 +112,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
           <View style={styles.viewToggleArea}>
             {showViewToggle && onViewModeChange && (
               <View style={styles.viewToggleContainer}>
-                <NativePressable
+                <SquircleNativePressable
                   style={[
                     styles.viewToggleButton,
                     viewMode === 'grid' && styles.activeViewToggleButton,
@@ -122,8 +123,8 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
                     color={viewMode === 'grid' ? activeTabColor : inactiveTabColor}
                     size={20}
                   />
-                </NativePressable>
-                <NativePressable
+                </SquircleNativePressable>
+                <SquircleNativePressable
                   style={[
                     styles.viewToggleButton,
                     viewMode === 'list' && styles.activeViewToggleButton,
@@ -134,7 +135,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
                     color={viewMode === 'list' ? activeTabColor : inactiveTabColor}
                     size={20}
                   />
-                </NativePressable>
+                </SquircleNativePressable>
               </View>
             )}
           </View>

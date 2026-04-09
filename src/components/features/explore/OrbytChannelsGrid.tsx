@@ -12,6 +12,7 @@ import {
 import { Image } from 'expo-image';
 import * as Device from 'expo-device';
 import { NativePressable } from '@/components/ui/NativePressable';
+import { SquircleView } from '@/components/ui/Squircle';
 import { Icon } from '@/components/ui/UI';
 import { LinearGradient } from '@/components/ui/LinearGradient';
 import { Colors } from '@/theme';
@@ -88,7 +89,7 @@ const GridChannelItem = ({
 
   return (
     <NativePressable style={[styles.gridChannelItem, { width: itemWidth }]} onPress={onPress}>
-      <View
+      <SquircleView
         style={[
           styles.gridChannelThumbnail,
           { height: thumbnailHeight },
@@ -127,7 +128,7 @@ const GridChannelItem = ({
         <View style={styles.gridChannelNameOverlay}>
           <ChannelNameDisplay channel={channel} nameVariant="grid" />
         </View>
-      </View>
+      </SquircleView>
     </NativePressable>
   );
 };

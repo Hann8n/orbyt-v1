@@ -12,7 +12,7 @@ import {
   type TextInput,
   ActivityIndicator,
 } from 'react-native';
-import { NativePressable } from './NativePressable';
+import { SquircleNativePressable } from './Squircle';
 import { LinearGradient } from './LinearGradient';
 import { useInfiniteQuery, InfiniteData } from '@tanstack/react-query';
 import { queryKeys } from '../../utils/query/queryKeys';
@@ -317,7 +317,7 @@ export function RichTextSearchModal({
             data={hashtagSuggestions}
             keyExtractor={item => item.tag}
             renderItem={({ item }) => (
-              <NativePressable
+              <SquircleNativePressable
                 style={styles.hashtagItem}
                 onPress={() => onSelectHashtag?.(item.tag)}
               >
@@ -325,7 +325,7 @@ export function RichTextSearchModal({
                   <Text style={styles.hashtagSymbol}>#</Text>
                   <Text style={styles.hashtagTag}>{item.tag}</Text>
                 </Text>
-              </NativePressable>
+              </SquircleNativePressable>
             )}
             contentContainerStyle={styles.hashtagListContent}
             keyboardShouldPersistTaps="handled"

@@ -11,7 +11,7 @@ import {
   StatusBar,
   ActivityIndicator,
 } from 'react-native';
-import { NativePressable } from '@/components/ui/NativePressable';
+import { SquircleNativePressable } from '@/components/ui/Squircle';
 import { Image } from 'expo-image';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -186,7 +186,7 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
     return (
       <View style={[styles.loginButtonsContainer, loginButtonsInsetStyle]}>
         {/* Sign in button */}
-        <NativePressable
+        <SquircleNativePressable
           style={[styles.liquidGlassButton, !useLiquidGlass && styles.whiteButton]}
           onPress={() => !isLoading && setShowLoginSheet(true)}
           disabled={isLoading}
@@ -204,7 +204,7 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
           ) : (
             signInButtonContent
           )}
-        </NativePressable>
+        </SquircleNativePressable>
 
         {/* Sign up link */}
         <View style={styles.manualSignInLink}>

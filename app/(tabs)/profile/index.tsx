@@ -11,7 +11,7 @@ import Animated, {
 import { BORDER_RADIUS, APP_CONSTANTS, ICON_SIZES } from '@/utils/constants';
 import { getEffectiveTopInset } from '@/utils/device/screen';
 import { View, StyleSheet, Platform, Linking, Alert } from 'react-native';
-import { NativePressable } from '@/components/ui/NativePressable';
+import { SquircleNativePressable } from '@/components/ui/Squircle';
 import { FeedPager } from '@/components';
 import {
   useProfileByDid,
@@ -614,7 +614,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       >
         {!showErrorScreen && (
           <Animated.View style={[styles.overlayMenuWrap, overlayControlFadeAnimatedStyle]}>
-            <NativePressable
+            <SquircleNativePressable
               onPress={handleMenuPress}
               onPressIn={handleMenuPressIn}
               onLongPress={isOwnProfileView ? handleMenuLongPress : undefined}
@@ -623,7 +623,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
               androidRippleBorderless
             >
               <MoreFillIcon size={24} color={profileColors.textColor || Colors.neutral[50]} />
-            </NativePressable>
+            </SquircleNativePressable>
           </Animated.View>
         )}
         {headerActions.length > 0 && (

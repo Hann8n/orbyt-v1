@@ -22,6 +22,7 @@ import {
   Platform,
 } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
+import { SquircleNativePressable } from '@/components/ui/Squircle';
 import { Image } from 'expo-image';
 import { LegendList, LegendListRef } from '@legendapp/list';
 import type { ScrollToTopRef } from '../../../utils/navigation/tabRefs';
@@ -679,7 +680,7 @@ const NotificationItem = React.memo<NotificationItemProps>(
     return (
       <View style={styles.notificationItem}>
         <View style={styles.notificationLeftContainer}>
-          <NativePressable onPress={handleAvatarPress} style={styles.profileImage}>
+          <SquircleNativePressable onPress={handleAvatarPress} style={styles.profileImage}>
             <Avatar
               uri={author?.avatar}
               type="profile"
@@ -690,7 +691,7 @@ const NotificationItem = React.memo<NotificationItemProps>(
               style={styles.avatarFill}
               status={authorProfile?.status}
             />
-          </NativePressable>
+          </SquircleNativePressable>
           <NativePressable onPress={handlePress} style={styles.notificationContent}>
             <View style={styles.nameRow}>
               <NativePressable
@@ -747,9 +748,9 @@ const NotificationItem = React.memo<NotificationItemProps>(
             </Pressable>
           </Link>
         ) : shouldShowThumbnailContainer ? (
-          <NativePressable onPress={handleThumbnailPress} style={styles.thumbnailContainer}>
+          <SquircleNativePressable onPress={handleThumbnailPress} style={styles.thumbnailContainer}>
             {thumbnailBody}
-          </NativePressable>
+          </SquircleNativePressable>
         ) : null}
       </View>
     );

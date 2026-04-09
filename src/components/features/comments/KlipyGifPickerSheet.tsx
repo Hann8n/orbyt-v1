@@ -11,7 +11,7 @@ import {
   Share,
   type ListRenderItem,
 } from 'react-native';
-import { NativePressable } from '@/components/ui/NativePressable';
+import { SquircleNativePressable } from '@/components/ui/Squircle';
 import { Image } from 'expo-image';
 import * as WebBrowser from 'expo-web-browser';
 import { WebView } from 'react-native-webview';
@@ -218,7 +218,7 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
         const hasHtmlContent = !!item.content;
         const adDestinationUrl = item.destinationUrl ?? item.fullUrl;
         return (
-          <NativePressable
+          <SquircleNativePressable
             style={styles.tile}
             onPress={() => {
               if (adDestinationUrl && !hasHtmlContent) handleAdPress(adDestinationUrl);
@@ -243,12 +243,12 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
             <BlurView intensity={60} tint="dark" style={styles.adBadge}>
               <Text style={styles.adBadgeText}>{t('comments.klipyAdLabel')}</Text>
             </BlurView>
-          </NativePressable>
+          </SquircleNativePressable>
         );
       }
 
       return (
-        <NativePressable
+        <SquircleNativePressable
           style={styles.tile}
           onPress={() => onSelect(item)}
           onLongPress={() => showContextMenu(item)}
@@ -256,7 +256,7 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
           android_ripple={{ color: Colors.overlay.white10 }}
         >
           <Image source={{ uri: item.previewUrl }} style={styles.tileImage} contentFit="cover" />
-        </NativePressable>
+        </SquircleNativePressable>
       );
     },
     [onSelect, handleAdPress, showContextMenu, t]
@@ -306,7 +306,7 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
             />
             <View style={styles.clearSlot}>
               {trimmed.length > 0 ? (
-                <NativePressable
+                <SquircleNativePressable
                   onPress={() => setQuery('')}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   style={styles.clearButton}
@@ -315,7 +315,7 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
                   accessibilityLabel={t('comments.clearSearch')}
                 >
                   <Icon name="close-circle" size={22.5} color={Colors.neutral[200]} />
-                </NativePressable>
+                </SquircleNativePressable>
               ) : (
                 <View style={styles.clearButtonPlaceholder} />
               )}

@@ -1,10 +1,10 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { NativePressable } from './NativePressable';
 import { useTranslation } from 'react-i18next';
 import { BORDER_RADIUS } from '../../utils/constants';
 import { Colors } from './UI';
 import Icon from './Icon';
+import { SquircleNativePressable } from './Squircle';
 
 interface CloseButtonProps {
   onPress: () => void;
@@ -13,16 +13,15 @@ interface CloseButtonProps {
 const CloseButton: React.FC<CloseButtonProps> = ({ onPress }) => {
   const { t } = useTranslation();
   return (
-    <NativePressable
+    <SquircleNativePressable
       style={styles.closeButton}
       onPress={onPress}
-      androidRippleBorderless
       accessibilityRole="button"
       accessibilityLabel={t('common.close')}
       accessibilityHint={t('common.closesSheet')}
     >
       <Icon name="close" size={34} color={Colors.neutral[200]} style={styles.closeIcon} />
-    </NativePressable>
+    </SquircleNativePressable>
   );
 };
 

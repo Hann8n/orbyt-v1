@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, StyleSheet, Alert } from 'react-native';
-import { NativePressable } from '@/components/ui/NativePressable';
+import { SquircleButton } from '@/components/ui/Squircle';
 import { SavedAccount } from '../../../stores/userStore';
 import {
   shouldShowError,
@@ -270,7 +270,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
   // Custom header button for edit mode toggle (only show when there are multiple accounts)
   const customHeaderButton =
     savedAccounts.length > 1 ? (
-      <NativePressable
+      <SquircleButton
         onPress={toggleEditMode}
         disabled={isSwitchingAccount || isAuthenticating}
         style={[
@@ -281,7 +281,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
         <TypographyText variant="body" weight="semibold">
           {editMode ? t('common.done') : t('common.edit')}
         </TypographyText>
-      </NativePressable>
+      </SquircleButton>
     ) : null;
 
   return (

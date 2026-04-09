@@ -5,6 +5,7 @@ import { Image } from 'expo-image';
 import { Link, useRouter, type Href } from 'expo-router';
 
 import { NativePressable } from '@/components/ui/NativePressable';
+import { SquircleView } from '@/components/ui/Squircle';
 import { Icon } from '@/components/ui/UI';
 import { Colors } from '@/theme';
 import type { ExtendedFeedViewPost } from '@/services/api/types';
@@ -46,7 +47,7 @@ const SpotlightVideoCell = React.memo(
     const shouldBlur = !!(v.contentListUI?.blur || v.contentMediaUI?.blur);
 
     const cellInner = (
-      <View style={styles.spotlightVideoThumbnailContainer}>
+      <SquircleView style={styles.spotlightVideoThumbnailContainer}>
         <BlurredBackground thumbnailUrl={thumbnailUrl} />
         {thumbnailUrl ? (
           <Image
@@ -58,16 +59,16 @@ const SpotlightVideoCell = React.memo(
             transition={200}
           />
         ) : (
-          <View style={styles.spotlightVideoThumbnailPlaceholder}>
+          <SquircleView style={styles.spotlightVideoThumbnailPlaceholder}>
             <Icon name="video_camera_2" size={16} color={Colors.neutral[500]} />
-          </View>
+          </SquircleView>
         )}
         {shouldBlur && (
-          <View style={styles.spotlightWarningOverlay}>
+          <SquircleView style={styles.spotlightWarningOverlay}>
             <Text style={styles.spotlightWarningText}>{t('feed.contentWarning')}</Text>
-          </View>
+          </SquircleView>
         )}
-      </View>
+      </SquircleView>
     );
 
     const flattenedOuterStyle = StyleSheet.flatten([

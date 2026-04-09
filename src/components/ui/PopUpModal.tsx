@@ -2,6 +2,7 @@ import React from 'react';
 import { BORDER_RADIUS } from '../../utils/constants';
 import { Modal, View, Text, Pressable, StyleSheet } from 'react-native';
 import { Colors } from './UI';
+import { SquircleView, SquircleNativePressable } from './Squircle';
 
 interface PopUpModalProps {
   visible: boolean;
@@ -28,7 +29,7 @@ const PopUpModal: React.FC<PopUpModalProps> = ({
     <Modal animationType="fade" transparent={true} visible={visible} onRequestClose={onClose}>
       <Pressable style={styles.modalBackdrop} onPress={onClose}>
         <Pressable onPress={e => e.stopPropagation()}>
-          <View style={styles.modalContainer}>
+          <SquircleView style={styles.modalContainer}>
             <Text style={styles.modalTitle}>{title}</Text>
             {subtitle && <Text style={styles.modalSubtitle}>{subtitle}</Text>}
 
@@ -37,7 +38,7 @@ const PopUpModal: React.FC<PopUpModalProps> = ({
             {actions.length > 0 && (
               <View style={styles.actionsContainer}>
                 {actions.map((action, index) => (
-                  <Pressable
+                  <SquircleNativePressable
                     key={index}
                     style={[
                       styles.actionButton,
@@ -54,11 +55,11 @@ const PopUpModal: React.FC<PopUpModalProps> = ({
                     >
                       {action.label}
                     </Text>
-                  </Pressable>
+                  </SquircleNativePressable>
                 ))}
               </View>
             )}
-          </View>
+          </SquircleView>
         </Pressable>
       </Pressable>
     </Modal>

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BORDER_RADIUS, SCROLL_CONSTANTS, SCROLL_INDICATOR_CONSTANTS } from '../../utils/constants';
 import { View, Text, StyleSheet, Dimensions, Linking, Platform, FlatList } from 'react-native';
-import { NativePressable } from './NativePressable';
+import { SquircleNativePressable } from './Squircle';
 import { Image } from 'expo-image';
 import { Colors } from '../../theme';
 import { hexToRGBA } from '../../utils/formatting/colors';
@@ -182,7 +182,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
     ({ item }: { item: Header }) => {
       const header = item;
       return (
-        <NativePressable
+        <SquircleNativePressable
           key={header.id}
           style={styles.headerItem}
           onPress={() => handleHeaderPress(header)}
@@ -256,7 +256,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
               })()}
             </View>
           </View>
-        </NativePressable>
+        </SquircleNativePressable>
       );
     },
     [handleHeaderPress, handleImageError]
@@ -271,7 +271,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
     return (
       <View style={[styles.container, height ? { height } : null, { backgroundColor }]}>
         <View style={styles.headersContainer}>
-          <NativePressable
+          <SquircleNativePressable
             key={header.id}
             style={styles.headerItem}
             onPress={() => handleHeaderPress(header)}
@@ -345,7 +345,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
                 })()}
               </View>
             </View>
-          </NativePressable>
+          </SquircleNativePressable>
         </View>
       </View>
     );

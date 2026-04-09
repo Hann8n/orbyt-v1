@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, ScrollView, Platform } from 'react-native';
-import { NativePressable } from '@/components/ui/NativePressable';
+import { SquircleNativePressable } from '@/components/ui/Squircle';
 import { useRouter } from 'expo-router';
 import Icon from '@/components/ui/Icon';
 import ListHeader from '@/components/ui/ListHeader';
@@ -88,12 +88,12 @@ const FilterOption: React.FC<{
   checked: boolean;
   onPress: () => void;
 }> = ({ label, checked, onPress }) => (
-  <NativePressable onPress={onPress} style={styles.filterOption}>
+  <SquircleNativePressable onPress={onPress} style={styles.filterOption}>
     <Text style={styles.filterOptionLabel}>{label}</Text>
     <View style={[styles.checkbox, checked && styles.checkboxSelected]}>
       {checked && <Icon name="check" size={16} color={Colors.black} />}
     </View>
-  </NativePressable>
+  </SquircleNativePressable>
 );
 
 export default function NotificationFilterModal() {
@@ -173,13 +173,13 @@ export default function NotificationFilterModal() {
         <View style={styles.section}>
           <View style={styles.sectionTitleRow}>
             <Text style={styles.sectionTitle}>{t('activity.showNotificationsFor')}</Text>
-            <NativePressable
+            <SquircleNativePressable
               onPress={handleClear}
               disabled={!hasFilters}
               style={[styles.clearBtn, !hasFilters && styles.clearBtnDisabled]}
             >
               <Text style={styles.clearBtnText}>{t('activity.clear')}</Text>
-            </NativePressable>
+            </SquircleNativePressable>
           </View>
           <View style={styles.optionGroup}>
             {ORDERED_FILTER_OPTIONS.map((item, index) => {

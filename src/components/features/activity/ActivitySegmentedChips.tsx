@@ -1,7 +1,7 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, type StyleProp, type ViewStyle, View } from 'react-native';
-import { NativePressable } from '@/components/ui/NativePressable';
 import { BORDER_RADIUS, SCROLL_INDICATOR_CONSTANTS } from '../../../utils/constants';
+import { SquircleView, SquircleNativePressable } from '@/components/ui/Squircle';
 import { FontFamily, Typography } from '../../../utils/components/typography';
 import { Colors } from '../../../theme';
 import { useUserStore } from '../../../stores/userStore';
@@ -50,9 +50,9 @@ const ActivitySegmentedChips: React.FC<ActivitySegmentedChipsProps> = ({
   }
 
   const content = (
-    <View style={[styles.track, trackStyle]}>
+    <SquircleView style={[styles.track, trackStyle]}>
       {options.map(option => (
-        <NativePressable
+        <SquircleNativePressable
           key={option.key}
           onPress={option.onPress}
           style={[
@@ -68,9 +68,9 @@ const ActivitySegmentedChips: React.FC<ActivitySegmentedChipsProps> = ({
           >
             {option.label}
           </Text>
-        </NativePressable>
+        </SquircleNativePressable>
       ))}
-    </View>
+    </SquircleView>
   );
 
   if (scrollable) {

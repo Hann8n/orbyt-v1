@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 import { NativePressable } from '@/components/ui/NativePressable';
+import { SquircleView, SquircleNativePressable } from '@/components/ui/Squircle';
 import { Image } from 'expo-image';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
@@ -182,15 +183,19 @@ const CommentImage: React.FC<{
   );
   if (onPress) {
     return (
-      <NativePressable
+      <SquircleNativePressable
         style={[wrapperStyle, { aspectRatio: initialAspectRatio }]}
         onPress={onPress}
       >
         {content}
-      </NativePressable>
+      </SquircleNativePressable>
     );
   }
-  return <View style={[wrapperStyle, { aspectRatio: initialAspectRatio }]}>{content}</View>;
+  return (
+    <SquircleView style={[wrapperStyle, { aspectRatio: initialAspectRatio }]}>
+      {content}
+    </SquircleView>
+  );
 };
 
 const CommentItem: React.FC<CommentItemProps> = ({
@@ -852,7 +857,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
     const hasThumb = !!thumbUrl;
 
     return (
-      <NativePressable
+      <SquircleNativePressable
         onPress={handlePress}
         style={[styles.linkPreviewContainer, hasThumb && styles.linkPreviewContainerWithThumb]}
         android_ripple={{ color: hexToRGBA(Colors.neutral[400], 0.2) }}
@@ -890,7 +895,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
             </View>
           </View>
         )}
-      </NativePressable>
+      </SquircleNativePressable>
     );
   };
   LinkThumbnailComponent.displayName = 'LinkThumbnail';
@@ -1038,7 +1043,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
               : 1;
 
             return (
-              <NativePressable
+              <SquircleNativePressable
                 key={`${img.thumb || img.fullsize || idx}`}
                 style={[
                   styles.commentImageWrapper,
@@ -1060,16 +1065,16 @@ const CommentItem: React.FC<CommentItemProps> = ({
                   contentFit="contain"
                   accessibilityLabel={img.alt || t('comments.commentImage')}
                 />
-              </NativePressable>
+              </SquircleNativePressable>
             );
           }
         )}
         {embedImages.length > 4 && (
-          <View style={styles.moreImagesIndicator}>
+          <SquircleView style={styles.moreImagesIndicator}>
             <Text style={styles.moreImagesText}>
               {t('comments.moreCount', { count: embedImages.length - 4 })}
             </Text>
-          </View>
+          </SquircleView>
         )}
       </View>
     );

@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, Text, TextInput, Linking, ActivityIndicator } from 'react-native';
-import { NativePressable } from './NativePressable';
 import VerticalListSheet, { TrueSheet } from './VerticalListSheet';
 import { Colors } from './UI';
 import Icon from './Icon';
@@ -11,6 +10,8 @@ import { authSheetStyles } from './AuthSheetStyles';
 import ErrorMessage from './ErrorMessage';
 import { useSheetPresentation } from '../../hooks';
 import { isUserCancellation } from '../../utils/errors/errorHandler';
+import { NativePressable } from './NativePressable';
+import { SquircleView } from './Squircle';
 
 const DEFAULT_PDS = 'https://bsky.social';
 
@@ -140,33 +141,35 @@ const SignUpSheet: React.FC<SignUpSheetProps> = ({
       <View>
         <ErrorMessage error={error} />
 
-        <View style={authSheetStyles.inputContainer}>
-          <Icon
-            name="cloud"
-            size={28}
-            color={Colors.neutral[400]}
-            style={authSheetStyles.inputIcon}
-          />
-          <TextInput
-            nativeID="sign-up-pds-input"
-            style={authSheetStyles.input}
-            placeholder={t('auth.accountProviderPlaceholder')}
-            placeholderTextColor={Colors.neutral[500]}
-            value={pdsUrl}
-            onChangeText={text => {
-              setPdsUrl(text);
-              setError(null);
-            }}
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="go"
-            onSubmitEditing={handleSignUp}
-            editable={!isSigningUp}
-            autoFocus
-            accessibilityLabel={t('auth.accountProviderInput')}
-            accessibilityHint={t('auth.accountProviderHint')}
-          />
-        </View>
+        <SquircleView style={authSheetStyles.inputContainer}>
+          <View style={authSheetStyles.inputContent}>
+            <Icon
+              name="cloud"
+              size={28}
+              color={Colors.neutral[400]}
+              style={authSheetStyles.inputIcon}
+            />
+            <TextInput
+              nativeID="sign-up-pds-input"
+              style={authSheetStyles.input}
+              placeholder={t('auth.accountProviderPlaceholder')}
+              placeholderTextColor={Colors.neutral[500]}
+              value={pdsUrl}
+              onChangeText={text => {
+                setPdsUrl(text);
+                setError(null);
+              }}
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="go"
+              onSubmitEditing={handleSignUp}
+              editable={!isSigningUp}
+              autoFocus
+              accessibilityLabel={t('auth.accountProviderInput')}
+              accessibilityHint={t('auth.accountProviderHint')}
+            />
+          </View>
+        </SquircleView>
 
         <NativePressable
           style={[

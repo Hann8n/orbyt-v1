@@ -1,11 +1,11 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Text, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
-import { NativePressable } from './NativePressable';
 import { BORDER_RADIUS } from '../../utils/constants';
 import { Colors } from './UI';
 import { hexToRGBA } from '../../utils/formatting/colors';
 import { FontFamily, Typography } from '../../utils/components/typography';
+import { SquircleNativePressable } from './Squircle';
 
 interface CancelButtonProps {
   onPress: () => void;
@@ -24,7 +24,7 @@ const CancelButton: React.FC<CancelButtonProps> = ({
   const displayText = text ?? t('common.cancel');
   const isPrimary = variant === 'primary';
   return (
-    <NativePressable
+    <SquircleNativePressable
       style={[styles.cancelButton, isPrimary && styles.primaryButton, style]}
       onPress={onPress}
       accessibilityRole="button"
@@ -33,7 +33,7 @@ const CancelButton: React.FC<CancelButtonProps> = ({
       <Text style={[styles.cancelButtonText, isPrimary && styles.primaryButtonText]}>
         {displayText}
       </Text>
-    </NativePressable>
+    </SquircleNativePressable>
   );
 };
 
