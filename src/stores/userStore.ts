@@ -2,8 +2,8 @@
  * Unified User State Management
  *
  * Storage: Zustand persist (MMKV) for non-sensitive state; expo-secure-store for
- * accounts + activeAccountDid. Profile colors: MMKV only (orbyt_current_user_colors);
- * store is filled on rehydrate so tabs/headers render instantly.
+ * accounts + activeAccountDid. Orbyt profile colors: React Query + MMKV seed (see
+ * OrbytColors / useOrbytColors); not duplicated in this store.
  *
  * DID-centric; integrates with @atproto/oauth-client-expo for OAuth.
  */
@@ -32,14 +32,12 @@ import { queryKeys } from '../utils/query/queryKeys';
 import {
   prefetchOrbytColors,
   loadPersistedColors,
-  getPersistedColorsSync,
+  getOrbytColorQueryOptions,
+  syncOrbytColorsQuery,
 } from '../services/colors/OrbytColors';
-import { getProfileColors, getProfileMiddleAccentColor } from '../utils/formatting/colors';
-import type { ProfileColorScheme } from '../utils/formatting/colors';
 import { APP_CONSTANTS, DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI } from '../utils/constants';
 import { setAtprotoSession } from '../services/api/agentBridge';
-import { Platform } from 'react-native';
-import { isLiquidGlassAvailable } from 'expo-glass-effect';
+import { isLiquidGlassAvailableSafe } from '../utils/device/liquidGlassAvailability';
 
 // Note: FeedService is no longer needed here - React Query handles all feed caching
 
@@ -121,27 +119,21 @@ function restoreSessionInFlight(did: string): Promise<OAuthSession> {
   return promise;
 }
 
-export const isIosLiquidGlassAvailable = Platform.OS === 'ios' && isLiquidGlassAvailable();
+export const isIosLiquidGlassAvailable = isLiquidGlassAvailableSafe();
 
-/**
- * Prefetch orbyt colors for a user and their following (non-blocking)
- * Called after sign in or session restore to warm the cache
- */
-async function prefetchColorsForUser(
-  userDid: string
-): Promise<import('../services/colors').OrbytColorData | null> {
+/** Batch Orbyt color API for people you follow (current user is warmed separately via React Query). */
+async function prefetchFollowingOrbytColorsOnly(userDid: string): Promise<void> {
   try {
     const { GraphService } = await import('../services/api/graph/GraphService');
     const followingResponse = await GraphService.getFollowing(userDid, null, 100);
-    const followingDids = followingResponse.following.map(f => f.did);
-    const dids = [userDid, ...followingDids].slice(0, 100);
-    return prefetchOrbytColors(dids, userDid);
+    const followingDids = followingResponse.following.map(f => f.did).slice(0, 99);
+    if (followingDids.length === 0) return;
+    await prefetchOrbytColors(followingDids, null);
   } catch (error) {
-    logger.warn('Failed to prefetch orbyt colors', {
+    logger.warn('Failed to prefetch following Orbyt colors', {
       component: 'userStore',
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    return null;
   }
 }
 
@@ -258,9 +250,6 @@ export interface UserState {
   // Email verification modal state
   showEmailVerificationModal: boolean;
 
-  // Cached profile colors for current user (filled from MMKV on rehydrate; instant tab/header display)
-  currentUserProfileColors: ProfileColorScheme | null;
-  currentUserProfileAccentColor: string | null;
   grantedOauthScopes: string[];
 
   // Actions
@@ -268,10 +257,14 @@ export interface UserState {
   signIn: (identifier: string) => Promise<void>;
   signUp: (identifier: string) => Promise<void>;
   signOut: (clearAllAccounts?: boolean) => Promise<void>;
-  restoreSession: (did: string, skipSettings?: boolean) => Promise<void>;
+  restoreSession: (
+    did: string,
+    skipSettings?: boolean,
+    options?: { preserveAuthStateOnFailure?: boolean }
+  ) => Promise<void>;
 
   // Account management
-  switchAccount: (did: string, onComplete?: () => void) => Promise<void>;
+  switchAccount: (did: string) => Promise<void>;
   addAccount: (
     oauthSession: OAuthSession,
     profileData?: { displayName?: string; avatar?: string; handle?: string; did?: string },
@@ -319,7 +312,6 @@ export interface UserState {
 
   // State management
   setCurrentUser: (user: UserState['currentUser']) => void;
-  setCurrentUserProfileColors: (colors: ProfileColorScheme | null) => void;
   setAuthenticating: (authenticating: boolean) => void;
   setAuthError: (error: string | null) => void;
   clearAuthError: () => void;
@@ -327,8 +319,6 @@ export interface UserState {
   // Email verification modal management
   setShowEmailVerificationModal: (show: boolean) => void;
 
-  // Data invalidation
-  invalidateAllUserData: () => Promise<void>;
   clearAllCaches: () => Promise<void>;
 
   // Session management
@@ -341,11 +331,11 @@ export interface UserState {
   bootstrapUserFeedSettings: (did: string) => Promise<boolean>;
   loadUserSpecificSettings: (
     did: string,
-    orbytProfileRecord?: OrbytProfileRecord | null
+    orbytProfileRecord: OrbytProfileRecord | null
   ) => Promise<boolean>;
   loadSubscribedChannels: (
     did: string,
-    orbytProfileRecord?: OrbytProfileRecord | null
+    orbytProfileRecord: OrbytProfileRecord | null
   ) => Promise<boolean>;
 }
 
@@ -370,6 +360,37 @@ const getUserScopedKey = (baseKey: string, did: string): string => {
   const sanitizedDid = String(did).replace(/[^a-zA-Z0-9._-]/g, '_');
   return `${baseKey}_${sanitizedDid}`;
 };
+
+type ModerationPrefsSnapshot = NonNullable<
+  Awaited<ReturnType<typeof ModerationService.getModerationPrefsAndLabelDefs>>
+>;
+
+function seedModerationQueryCache(did: string, snapshot: ModerationPrefsSnapshot | null): void {
+  if (snapshot) {
+    queryClient.setQueryData(queryKeys.moderation.byUser(did), snapshot);
+  }
+}
+
+/** Profile record wins when present; otherwise MMKV + default generator URI. */
+function resolveAlgorithmicFeedProviderForDid(
+  did: string,
+  record: OrbytProfileRecord | null
+): string | null {
+  try {
+    const remoteProvider = record?.algorithmicFeedProvider;
+    if (remoteProvider !== undefined) {
+      const key = getUserScopedKey(STORAGE_KEYS.ALGORITHMIC_FEED_PROVIDER, did);
+      if (remoteProvider === null) storage.delete(key);
+      else storage.set(key, remoteProvider);
+      return remoteProvider;
+    }
+  } catch {
+    // fall through to local
+  }
+  const key = getUserScopedKey(STORAGE_KEYS.ALGORITHMIC_FEED_PROVIDER, did);
+  const local = storage.getString(key) ?? null;
+  return local ?? DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI;
+}
 
 // Helper to check if email verification is required
 // Returns true if user has email but it's not confirmed
@@ -398,8 +419,8 @@ const deferOrbytProfileInit = (context: string = 'userStore') => {
 
 const COLORS_PREFETCH_COOLDOWN_MS = 60 * 60 * 1000;
 
-/** Defer following-list color prefetch until feed bootstrap is ready; throttle to once per hour per DID. */
-const schedulePrefetchOrbytColorsAfterFeedReady = (userDid: string) => {
+/** Defer following-list Orbyt color batch until feed is ready; throttle to once per hour per DID. */
+const scheduleFollowingOrbytColorsAfterFeedReady = (userDid: string) => {
   const lastRunKey = getUserScopedKey('orbyt_colors_prefetch_at', userDid);
 
   requestIdleCallback(
@@ -409,12 +430,8 @@ const schedulePrefetchOrbytColorsAfterFeedReady = (userDid: string) => {
         if (last !== undefined && Date.now() - last < COLORS_PREFETCH_COOLDOWN_MS) {
           return;
         }
-        void prefetchColorsForUser(userDid).then(colors => {
-          if (!colors) return;
-          const latest = useUserStore.getState();
-          if (latest.currentUser?.did !== userDid) return;
+        void prefetchFollowingOrbytColorsOnly(userDid).then(() => {
           storage.set(lastRunKey, Date.now());
-          latest.setCurrentUserProfileColors(getProfileColors(colors));
         });
       };
 
@@ -451,10 +468,17 @@ export const useUserStore = create<UserState>()(
     (set, get) => {
       const hydrateOAuthSession = async (oauthSession: OAuthSession) => {
         const agent = new Agent(oauthSession);
-        const [profile, sessionInfo] = await Promise.all([
+        const [profile, sessionInfo, orbytColors] = await Promise.all([
           agent.app.bsky.actor.getProfile({ actor: oauthSession.did }),
           agent.com.atproto.server.getSession(),
+          queryClient
+            .fetchQuery(getOrbytColorQueryOptions(oauthSession.did))
+            .catch((): null => null),
         ]);
+
+        if (orbytColors) {
+          syncOrbytColorsQuery(oauthSession.did, orbytColors);
+        }
 
         const userProfile = profile.data;
         const { $type: _profileType, ...profileForCache } = userProfile;
@@ -472,13 +496,6 @@ export const useUserStore = create<UserState>()(
         return { agent, userProfile, emailConfirmed };
       };
 
-      const setCurrentUserProfileTheme = (colors: ProfileColorScheme | null) => {
-        set({
-          currentUserProfileColors: colors,
-          currentUserProfileAccentColor: getProfileMiddleAccentColor(colors),
-        });
-      };
-
       const applyAuthFailureState = (
         params: {
           clearActiveDid: boolean;
@@ -492,8 +509,6 @@ export const useUserStore = create<UserState>()(
           isAuthenticating: false,
           isAuthenticated: false,
           currentUser: null,
-          currentUserProfileColors: null,
-          currentUserProfileAccentColor: null,
           oauthSession: null,
           agent: undefined,
           activeAccountDid: params.clearActiveDid ? null : get().activeAccountDid,
@@ -550,8 +565,6 @@ export const useUserStore = create<UserState>()(
         // Email verification modal state
         showEmailVerificationModal: false,
 
-        currentUserProfileColors: null,
-        currentUserProfileAccentColor: null,
         grantedOauthScopes: [],
 
         // Authentication actions
@@ -627,15 +640,20 @@ export const useUserStore = create<UserState>()(
 
             await get().bootstrapUserFeedSettings(session.did);
 
-            schedulePrefetchOrbytColorsAfterFeedReady(session.did);
+            scheduleFollowingOrbytColorsAfterFeedReady(session.did);
           } catch (error) {
             // Handle user cancellation silently
             if (isUserCancellation(error)) {
+              const stillHasSession = hasAuthoritativeSdkSession(
+                get().oauthSession,
+                get().currentUser?.did ?? null
+              );
               set({
                 isAuthenticating: false,
                 authError: null,
                 authErrorCode: 'none',
-                authStatus: 'unauthenticated',
+                authStatus: stillHasSession ? 'authenticated' : 'unauthenticated',
+                isAuthenticated: stillHasSession,
               });
               return; // Don't throw error for user cancellation
             }
@@ -723,9 +741,9 @@ export const useUserStore = create<UserState>()(
               feedBootstrapDid: null,
             });
 
-            // Defer orbyt profile init after state update
             deferOrbytProfileInit('signUp');
             await get().bootstrapUserFeedSettings(session.did);
+            scheduleFollowingOrbytColorsAfterFeedReady(session.did);
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'OAuth sign-up failed';
             set({
@@ -758,8 +776,7 @@ export const useUserStore = create<UserState>()(
               }
             }
 
-            // Clear all user data
-            await get().invalidateAllUserData();
+            await get().clearAllCaches();
 
             if (clearAllAccounts) {
               await SecureStore.deleteItemAsync(STORAGE_KEYS.ACCOUNTS);
@@ -772,8 +789,6 @@ export const useUserStore = create<UserState>()(
             set({
               authStatus: 'unauthenticated',
               currentUser: null,
-              currentUserProfileColors: null,
-              currentUserProfileAccentColor: null,
               isAuthenticated: false,
               isAuthenticating: false,
               switchingToHandle: null,
@@ -801,7 +816,11 @@ export const useUserStore = create<UserState>()(
           }
         },
 
-        restoreSession: async (did: string, skipSettings: boolean = false) => {
+        restoreSession: async (
+          did: string,
+          skipSettings: boolean = false,
+          options?: { preserveAuthStateOnFailure?: boolean }
+        ) => {
           try {
             set({
               isAuthenticating: true,
@@ -810,11 +829,6 @@ export const useUserStore = create<UserState>()(
               authStatus: 'restoring',
             });
 
-            // Sync-load persisted colors so tabs/header have accent on first paint
-            const persistedColors = getPersistedColorsSync(did);
-            if (persistedColors) {
-              setCurrentUserProfileTheme(getProfileColors(persistedColors));
-            }
             loadPersistedColors(did);
 
             // restoreSessionInFlight coalesces concurrent restores per DID (single-use refresh tokens).
@@ -867,9 +881,8 @@ export const useUserStore = create<UserState>()(
             // Defer until after interactions complete to improve startup performance
             deferOrbytProfileInit('restoreSession');
 
-            schedulePrefetchOrbytColorsAfterFeedReady(session.did);
+            scheduleFollowingOrbytColorsAfterFeedReady(session.did);
 
-            // Load and clean subscribed channels after session restore
             // Skip if called from account switch (settings will be loaded once after)
             if (!skipSettings) {
               await get().bootstrapUserFeedSettings(session.did);
@@ -885,20 +898,28 @@ export const useUserStore = create<UserState>()(
               restoreOutcome,
             });
             if (restoreOutcome === 'reauth_required') {
-              applyAuthFailureState({
-                clearActiveDid: true,
-                authError: 'oauth_reauth_required',
-                authStatus: 'reauth_required',
-                authErrorCode: 'reauth_required',
-              });
+              if (options?.preserveAuthStateOnFailure) {
+                set({ isAuthenticating: false });
+              } else {
+                applyAuthFailureState({
+                  clearActiveDid: true,
+                  authError: 'oauth_reauth_required',
+                  authStatus: 'reauth_required',
+                  authErrorCode: 'reauth_required',
+                });
+              }
               throw new AuthFlowError('reauth_required', 'oauth_reauth_required');
             }
             if (restoreOutcome === 'cancelled') {
-              set({
-                isAuthenticating: false,
-                authStatus: 'unauthenticated',
-                authErrorCode: 'none',
-              });
+              if (options?.preserveAuthStateOnFailure) {
+                set({ isAuthenticating: false });
+              } else {
+                set({
+                  isAuthenticating: false,
+                  authStatus: 'unauthenticated',
+                  authErrorCode: 'none',
+                });
+              }
               throw new AuthFlowError('cancelled', 'oauth_cancelled');
             }
             set({
@@ -912,7 +933,7 @@ export const useUserStore = create<UserState>()(
         },
 
         // Account management actions
-        switchAccount: async (did: string, onComplete?: () => void) => {
+        switchAccount: async (did: string) => {
           try {
             const account = get().savedAccounts.find(acc => acc.did === did);
             set({
@@ -921,20 +942,24 @@ export const useUserStore = create<UserState>()(
               switchingToHandle: account?.handle || account?.did || null,
               switchingToAvatar: account?.avatar || null,
             });
-            const persistedColors = getPersistedColorsSync(did);
-            if (persistedColors) {
-              setCurrentUserProfileTheme(getProfileColors(persistedColors));
-            } else {
-              setCurrentUserProfileTheme(null);
-            }
+            loadPersistedColors(did);
 
             if (!account) {
               logger.error('Account not found for DID', { component: 'userStore', did });
               throw new Error('Account not found');
             }
 
+            const outgoingDid = get().activeAccountDid;
+            if (outgoingDid && outgoingDid !== did) {
+              void queryClient.cancelQueries({
+                predicate: q => {
+                  const key = q.queryKey;
+                  return Array.isArray(key) && key.includes(outgoingDid);
+                },
+              });
+            }
+
             // Clear interaction stores before switching - this ensures no stale data from previous account
-            // Note: React Query cache will be invalidated (not cleared) below for better performance
             await get().clearAllCaches();
 
             // Update account statuses
@@ -946,7 +971,7 @@ export const useUserStore = create<UserState>()(
 
             await SecureStore.setItemAsync(STORAGE_KEYS.ACCOUNTS, JSON.stringify(accounts));
 
-            // Snapshot so a failed switch can restore the prior account after auth state is cleared.
+            // Snapshot so a failed switch can roll back to the prior session.
             const previousState = {
               currentUser: get().currentUser,
               oauthSession: get().oauthSession,
@@ -959,7 +984,7 @@ export const useUserStore = create<UserState>()(
             };
 
             try {
-              await get().restoreSession(did, true);
+              await get().restoreSession(did, true, { preserveAuthStateOnFailure: true });
 
               const state = get();
               if (!state.agent) {
@@ -983,13 +1008,6 @@ export const useUserStore = create<UserState>()(
               });
               await SecureStore.setItemAsync(STORAGE_KEYS.ACTIVE_ACCOUNT, did);
 
-              // Notify UI as soon as the account switch is committed in state.
-              // This allows switch-related sheets to dismiss at switch time instead
-              // of waiting for downstream bootstrapping to finish.
-              if (onComplete) {
-                onComplete();
-              }
-
               // Fetch orbyt profile record once and reuse for both settings and channels
               // Load user-specific settings/channels before unlocking feeds
               await get().bootstrapUserFeedSettings(did);
@@ -1002,11 +1020,13 @@ export const useUserStore = create<UserState>()(
               // Defer until after interactions complete to improve account switch performance
               deferOrbytProfileInit('switchAccount');
 
-              // Invalidate ALL React Query queries to trigger fresh data fetch for the new account
-              // This ensures feeds, profiles, channels, and all user-specific data refreshes
-              // Feeds will now be enabled (because isSwitchingAccount is false) and can fetch successfully
-              // Using invalidateQueries instead of clear() preserves query structure and is faster
-              queryClient.invalidateQueries();
+              // Only invalidate caches whose keys do not include the active DID but still depend on
+              // the session (notifications, DMs, tab unread). Feed/profile queries embed DID and
+              // feedSourceFingerprint — a global invalidate remounts home and triggers a duplicate
+              // fetch right after the first page load.
+              void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
+              void queryClient.invalidateQueries({ queryKey: queryKeys.chat.all });
+              void queryClient.invalidateQueries({ queryKey: queryKeys.unread.summary() });
             } catch (restoreErr) {
               const restoreOutcome = getSessionRestoreOutcome(restoreErr);
               if (restoreOutcome === 'reauth_required') {
@@ -1535,7 +1555,6 @@ export const useUserStore = create<UserState>()(
 
         // State management actions
         setCurrentUser: user => set({ currentUser: user }),
-        setCurrentUserProfileColors: colors => setCurrentUserProfileTheme(colors),
 
         setAuthenticating: authenticating => set({ isAuthenticating: authenticating }),
         setAuthError: error => set({ authError: error }),
@@ -1543,16 +1562,6 @@ export const useUserStore = create<UserState>()(
 
         // Email verification modal management
         setShowEmailVerificationModal: show => set({ showEmailVerificationModal: show }),
-
-        // Data invalidation actions
-        invalidateAllUserData: async () => {
-          try {
-            // Clear all caches
-            await get().clearAllCaches();
-          } catch (error) {
-            logger.error('Error invalidating user data', error, { component: 'userStore' });
-          }
-        },
 
         clearAllCaches: async () => {
           try {
@@ -1567,13 +1576,7 @@ export const useUserStore = create<UserState>()(
             const { useProfileInteractionStore } = await import('./profileInteractionStore');
             useProfileInteractionStore.getState().clearAll();
 
-            // Clear moderation prefs/labelDefs so next account gets fresh data
-            // Moderation prefs are managed by React Query - invalidate cache on logout
             queryClient.removeQueries({ queryKey: queryKeys.moderation.all });
-
-            // Note: React Query cache will be invalidated (not cleared) in switchAccount
-            // This allows for better performance by avoiding full cache clear
-            // Custom caches (ProfileCache, ChannelCache, AtprotoService) have been removed
           } catch (error) {
             logger.error('Error clearing caches', error, { component: 'userStore' });
           }
@@ -1697,8 +1700,6 @@ export const useUserStore = create<UserState>()(
                     authStatus: 'reauth_required',
                     isAuthenticated: false,
                     currentUser: null,
-                    currentUserProfileColors: null,
-                    currentUserProfileAccentColor: null,
                     oauthSession: null,
                     agent: undefined,
                     activeAccountDid: null,
@@ -1793,15 +1794,15 @@ export const useUserStore = create<UserState>()(
             feedBootstrapDid: null,
           });
 
-          // Fetch once and fan out to settings/channels loaders to avoid duplicate record requests.
-          let orbytProfileRecord: OrbytProfileRecord | null = null;
-          try {
-            orbytProfileRecord = (await RepoService.getOrbytProfileRecordForDid(
-              did
-            )) as OrbytProfileRecord | null;
-          } catch {
-            // Individual loaders have local fallback behavior.
-          }
+          const agent = get().agent;
+          const [orbytProfileRecord, modResult] = await Promise.all([
+            RepoService.getOrbytProfileRecordForDid(did)
+              .then(r => r as OrbytProfileRecord | null)
+              .catch((): null => null),
+            ModerationService.getModerationPrefsAndLabelDefs(agent),
+          ]);
+
+          seedModerationQueryCache(did, modResult);
 
           try {
             const [settingsLoaded, channelsLoaded] = await Promise.all([
@@ -1836,53 +1837,19 @@ export const useUserStore = create<UserState>()(
 
         loadUserSpecificSettings: async (
           did: string,
-          orbytProfileRecord?: OrbytProfileRecord | null
+          orbytProfileRecord: OrbytProfileRecord | null
         ) => {
           try {
-            // Load user-specific feed settings
-            const feedDebugOverlayEnabled = await get().getFeedDebugOverlayEnabled();
-            const nativeTabsEnabled = await get().getNativeTabsEnabled();
+            const feedDebugOverlayEnabled =
+              storage.getBoolean(getFlagKey('feed_debug_overlay_enabled', did)) ?? false;
+            const nativeTabsEnabled =
+              storage.getBoolean(getFlagKey('native_tabs_enabled', did)) ??
+              isIosLiquidGlassAvailable;
 
-            // Record-first backfill: Load algorithmic feed provider from profile record first
-            let algorithmicFeedProvider: string | null = null;
-            try {
-              // Use provided record or fetch if not provided
-              const record =
-                orbytProfileRecord !== undefined
-                  ? orbytProfileRecord
-                  : await RepoService.getOrbytProfileRecordForDid(did);
-              // Use API structure directly - OrbytProfileRecord.algorithmicFeedProvider is string | null | undefined
-              const remoteProvider = (record as OrbytProfileRecord)?.algorithmicFeedProvider;
-
-              // If profile record has a value, use it (even if null)
-              if (remoteProvider !== undefined) {
-                algorithmicFeedProvider = remoteProvider;
-                // Save to local storage for faster access next time
-                const key = getUserScopedKey(STORAGE_KEYS.ALGORITHMIC_FEED_PROVIDER, did);
-                if (algorithmicFeedProvider === null) {
-                  storage.delete(key);
-                } else {
-                  storage.set(key, algorithmicFeedProvider);
-                }
-              } else {
-                // No value in profile record, try local storage
-                const key = getUserScopedKey(STORAGE_KEYS.ALGORITHMIC_FEED_PROVIDER, did);
-                const value = storage.getString(key) ?? null;
-                algorithmicFeedProvider = value ?? DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI;
-              }
-            } catch {
-              // Fallback to local storage if profile record fetch fails
-              const key = getUserScopedKey(STORAGE_KEYS.ALGORITHMIC_FEED_PROVIDER, did);
-              const value = storage.getString(key) ?? null;
-              algorithmicFeedProvider = value ?? DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI;
-            }
-
-            const currentUser = get().currentUser;
-            const agent = get().agent;
-            const modResult = await ModerationService.getModerationPrefsAndLabelDefs(agent);
-            if (modResult && currentUser?.did) {
-              queryClient.setQueryData(queryKeys.moderation.byUser(currentUser.did), modResult);
-            }
+            const algorithmicFeedProvider = resolveAlgorithmicFeedProviderForDid(
+              did,
+              orbytProfileRecord
+            );
 
             // Update state with user-specific settings
             set(state => ({
@@ -1903,10 +1870,9 @@ export const useUserStore = create<UserState>()(
 
         loadSubscribedChannels: async (
           did: string,
-          orbytProfileRecord?: OrbytProfileRecord | null
+          orbytProfileRecord: OrbytProfileRecord | null
         ) => {
           try {
-            // Load user-specific channel subscriptions
             const key = getUserScopedKey(STORAGE_KEYS.SUBSCRIBED_CHANNELS, did);
             const savedChannelsStr = storage.getString(key) ?? null;
 
@@ -1914,41 +1880,23 @@ export const useUserStore = create<UserState>()(
               ? JSON.parse(savedChannelsStr)
               : [];
 
-            // Filter out any built-in channels that might have been saved in old data
             savedChannels = savedChannels.filter(ch => !BUILT_IN_CHANNELS.includes(ch.uri));
 
-            // Always check and clean profile record, even if we have local channels
-            // This ensures built-ins are removed from the profile record
-            try {
-              // Use provided record or fetch if not provided
-              const record =
-                orbytProfileRecord !== undefined
-                  ? orbytProfileRecord
-                  : await RepoService.getOrbytProfileRecordForDid(did);
-              // Use API structure directly - OrbytProfileRecord.subscribedChannels is string[] | undefined
-              const remoteUris: string[] = Array.isArray(
-                (record as OrbytProfileRecord)?.subscribedChannels
-              )
-                ? (record as OrbytProfileRecord).subscribedChannels!
-                : [];
+            const remoteUris: string[] = Array.isArray(orbytProfileRecord?.subscribedChannels)
+              ? orbytProfileRecord.subscribedChannels!
+              : [];
 
-              // Record-first backfill: if no local channels, load from orbyt profile record
-              if ((!savedChannels || savedChannels.length === 0) && remoteUris.length > 0) {
-                // Filter out built-in channels from profile record
-                const filteredUris = filterBuiltInChannels(remoteUris);
-
-                if (filteredUris.length > 0) {
-                  savedChannels = filteredUris.map((uri: string) => ({
-                    uri,
-                    displayName: '',
-                    isOrbytChannel: isOrbytChannel(uri),
-                    subscribedAt: Date.now(),
-                  }));
-                  storage.set(key, JSON.stringify(savedChannels));
-                }
+            if (savedChannels.length === 0 && remoteUris.length > 0) {
+              const filteredUris = filterBuiltInChannels(remoteUris);
+              if (filteredUris.length > 0) {
+                savedChannels = filteredUris.map((uri: string) => ({
+                  uri,
+                  displayName: '',
+                  isOrbytChannel: isOrbytChannel(uri),
+                  subscribedAt: Date.now(),
+                }));
+                storage.set(key, JSON.stringify(savedChannels));
               }
-            } catch {
-              // Fallback to local storage if profile record fetch fails
             }
 
             // Double-check: filter built-ins from state (in case persisted state had them)
@@ -2015,22 +1963,9 @@ export const useUserStore = create<UserState>()(
           state.algorithmicFeedProvider ?? DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI,
           state.subscribedChannels
         );
-        // Fill profile colors from MMKV (single source of truth for persisted colors)
         const did = state.activeAccountDid ?? state.currentUser?.did ?? null;
         if (did) {
-          const raw = getPersistedColorsSync(did);
-          if (raw) {
-            state.currentUserProfileColors = getProfileColors(raw);
-            state.currentUserProfileAccentColor = getProfileMiddleAccentColor(
-              state.currentUserProfileColors
-            );
-          } else {
-            state.currentUserProfileColors = null;
-            state.currentUserProfileAccentColor = null;
-          }
-        } else {
-          state.currentUserProfileColors = null;
-          state.currentUserProfileAccentColor = null;
+          loadPersistedColors(did);
         }
       },
     }

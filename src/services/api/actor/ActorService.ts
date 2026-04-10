@@ -19,6 +19,7 @@ import {
   batchFetchColors,
   getOrbytColorQueryOptions,
   getOrbytColorKey,
+  syncOrbytColorsQuery,
 } from '../../colors/OrbytColors';
 import { queryClient } from '../../../utils/query/queryClient';
 import { RepoService } from '../repo/RepoService';
@@ -118,6 +119,7 @@ export class ActorService {
       apiColors = null;
     }
     if (apiColors) {
+      syncOrbytColorsQuery(did, apiColors);
       return apiColors;
     }
 

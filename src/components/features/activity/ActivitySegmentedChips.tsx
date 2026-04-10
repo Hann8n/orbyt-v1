@@ -4,7 +4,7 @@ import { BORDER_RADIUS, SCROLL_INDICATOR_CONSTANTS } from '../../../utils/consta
 import { SquircleView, SquircleNativePressable } from '@/components/ui/Squircle';
 import { FontFamily, Typography } from '../../../utils/components/typography';
 import { Colors } from '../../../theme';
-import { useUserStore } from '../../../stores/userStore';
+import { useCurrentUserOrbytShellColors } from '@/services/colors';
 import {
   blendColors,
   getContrastRatio,
@@ -32,7 +32,7 @@ const ActivitySegmentedChips: React.FC<ActivitySegmentedChipsProps> = ({
   containerStyle,
   trackStyle,
 }) => {
-  const profileColors = useUserStore(state => state.currentUserProfileColors);
+  const { profileColors } = useCurrentUserOrbytShellColors();
   const activeChipColor = getTabBarActiveTintFromProfile(profileColors);
   const activeTextColor = isColorDark(activeChipColor) ? Colors.neutral[50] : Colors.black;
   const inactiveChipColor = blendColors(Colors.neutral[950], activeChipColor, 0.16);

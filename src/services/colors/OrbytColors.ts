@@ -7,7 +7,6 @@
 import { queryClient } from '../../utils/query/queryClient';
 import { queryOptions } from '@tanstack/react-query';
 import { storage } from '../../utils/storage';
-import { getProfileColors } from '../../utils/formatting/colors';
 import { logger } from '../../utils/logger';
 import { fetchJson, ApiRequestError } from '../api/fetchJson';
 import { queryKeys } from '../../utils/query/queryKeys';
@@ -151,24 +150,14 @@ function persist(did: string, data: OrbytColorData | null): void {
   }
 }
 
-// ─── Sync (React Query + MMKV + user store) ───────────────────────────────────
+// ─── Sync (React Query + MMKV seed for initialData) ───────────────────────────
 
-function syncToCaches(did: string, data: OrbytColorData): void {
+/** Write Orbyt API colors into React Query and MMKV (hydrates `useOrbytColors` initialData). */
+export function syncOrbytColorsQuery(did: string, data: OrbytColorData): void {
   queryClient.setQueryData(getOrbytColorKey(did), data, {
     updatedAt: Date.now(),
   });
   persist(did, data);
-  try {
-    // Lazy-load userStore to avoid import-time cycles with ProfileService.
-    const { useUserStore } =
-      require('../../stores/userStore') as typeof import('../../stores/userStore');
-    const activeDid = useUserStore.getState().activeAccountDid;
-    if (activeDid === did) {
-      useUserStore.getState().setCurrentUserProfileColors(getProfileColors(data));
-    }
-  } catch {
-    // userStore may not be initialized yet; cache and persistence are still updated.
-  }
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -218,10 +207,10 @@ export async function saveAndSyncColors(
       joinedAt: cached?.joinedAt ?? new Date().toISOString(),
       isBeta: cached?.isBeta ?? false,
     };
-    syncToCaches(did, fallback);
+    syncOrbytColorsQuery(did, fallback);
     return;
   }
-  syncToCaches(did, data);
+  syncOrbytColorsQuery(did, data);
 }
 
 export { fetchColors, batchFetchColors, getOrbytColorKey };

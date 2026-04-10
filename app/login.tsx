@@ -12,7 +12,7 @@ import {
   StatusBar,
   ActivityIndicator,
 } from 'react-native';
-import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
+import { GlassView } from 'expo-glass-effect';
 import { SquircleNativePressable } from '@/components/ui/Squircle';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,7 +20,12 @@ import { Svg, Path, Rect, Defs, Mask } from 'react-native-svg';
 import { Colors } from '@/theme';
 import AuthorItem from '@/components/ui/AuthorItem';
 import type { SavedAccount } from '@/stores/userStore';
-import { AuthFlowError, useAuth, useAccountManagement } from '@/stores/userStore';
+import {
+  AuthFlowError,
+  useAuth,
+  useAccountManagement,
+  isIosLiquidGlassAvailable,
+} from '@/stores/userStore';
 import type { ProfileViewWithOrbyt } from '@/services/api/types';
 import { hydrateAccountsWithCachedProfiles } from '@/utils/atproto/accountSwitching';
 import { hexToRGBA } from '@/utils/formatting/colors';
@@ -156,15 +161,13 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
       if (error instanceof AuthFlowError && error.kind === 'reauth_required') {
         try {
           await signIn(account.originalIdentifier);
-          await loadSavedAccounts();
-        } catch (err) {
-          if (!isUserCancellation(err)) {
-            Alert.alert(
-              t('auth.sessionIssue'),
-              t('auth.sessionIssueMessage', { handle: account.handle }),
-              [{ text: t('common.ok') }]
-            );
+          await switchAccount(account.did);
+          if (onAccountSwitch) {
+            await onAccountSwitch(account);
           }
+          await loadSavedAccounts();
+        } catch {
+          void 0;
         }
         return;
       }
@@ -232,7 +235,7 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
   );
 
   const renderLoginButtons = () => {
-    const useLiquidGlassSignIn = Platform.OS === 'ios' && isLiquidGlassAvailable();
+    const useLiquidGlassSignIn = isIosLiquidGlassAvailable;
 
     const signInButtonContent = (
       <View style={styles.buttonContent} pointerEvents="none">

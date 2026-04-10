@@ -5,10 +5,10 @@ import { NativeTabs } from 'expo-router/unstable-native-tabs';
 
 import { useDetailNavTabStore } from '@/stores/detailNavTabStore';
 import { useFeedSettings } from '@/stores/userStore';
-import { useUserStore } from '@/stores/userStore';
 import { Colors } from '@/theme';
+import { useCurrentUserOrbytShellColors } from '@/services/colors';
 import { useUnreadCount } from '@/hooks/useUnreadCount';
-import { getTabBarActiveTintFromProfile, TAB_BAR_INACTIVE_TINT } from '@/utils/formatting/colors';
+import { TAB_BAR_INACTIVE_TINT } from '@/utils/formatting/colors';
 import { getDetailNavTabIfInsideTabs } from '@/utils/navigation/detailRoutes';
 
 /** Default tab when opening `/(tabs)` without a segment (avoids resolving a missing `index` tab). */
@@ -37,10 +37,8 @@ function DetailNavTabSegmentSync() {
 export default function TabsLayout() {
   const { t } = useTranslation();
   const { nativeTabsEnabled } = useFeedSettings();
-  const profileColors = useUserStore(state => state.currentUserProfileColors);
-  const profileAccentColor = useUserStore(state => state.currentUserProfileAccentColor);
+  const { activeTint } = useCurrentUserOrbytShellColors();
   const { totalUnreadCount } = useUnreadCount();
-  const activeTint = profileAccentColor ?? getTabBarActiveTintFromProfile(profileColors);
 
   return (
     <>

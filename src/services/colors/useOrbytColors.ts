@@ -6,13 +6,17 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { queryClient } from '../../utils/query/queryClient';
-import { getProfileColors, pickLighterHex } from '../../utils/formatting/colors';
-import { useProfileByDid } from '../data/ProfileService';
 import {
-  fetchColors,
-  ORBYT_COLOR_STALE_TIME_MS,
-  ORBYT_COLOR_GC_TIME_MS,
+  getProfileColors,
+  getTabBarActiveTintFromProfile,
+  pickLighterHex,
+  type ProfileColorScheme,
+} from '../../utils/formatting/colors';
+import { useProfileByDid } from '../data/ProfileService';
+import { useUserStore } from '../../stores/userStore';
+import {
   getOrbytColorKey,
+  getOrbytColorQueryOptions,
   getPersistedColorsSync,
   type OrbytColorData,
 } from './OrbytColors';
@@ -32,21 +36,38 @@ export function useOrbytColors(did: string | null | undefined) {
     if (!did) return undefined;
     return (
       queryClient.getQueryData<OrbytColorData | null>(getOrbytColorKey(did)) ??
-      getPersistedColorsSync(did)
+      getPersistedColorsSync(did) ??
+      undefined
     );
   }, [did]);
 
   return useQuery<OrbytColorData | null, Error>({
-    queryKey: did ? getOrbytColorKey(did) : ['orbyt', 'colors', 'disabled'],
-    queryFn: ({ signal }) => (did ? fetchColors(did, signal) : null),
+    ...(did
+      ? getOrbytColorQueryOptions(did)
+      : {
+          queryKey: ['orbyt', 'colors', 'disabled'] as const,
+          queryFn: () => Promise.resolve(null),
+        }),
     enabled: !!did,
-    staleTime: ORBYT_COLOR_STALE_TIME_MS,
-    gcTime: ORBYT_COLOR_GC_TIME_MS,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
     initialData,
   });
+}
+
+/** Tab bar / shell: derived from React Query Orbyt colors for the signed-in user (no Zustand color copy). */
+export function useCurrentUserOrbytShellColors(): {
+  profileColors: ProfileColorScheme | null;
+  activeTint: string;
+} {
+  const did = useUserStore(s => s.currentUser?.did);
+  const { data: orbyt } = useOrbytColors(did);
+
+  return useMemo(() => {
+    const profileColors = orbyt ? getProfileColors(orbyt) : null;
+    return {
+      profileColors,
+      activeTint: getTabBarActiveTintFromProfile(profileColors),
+    };
+  }, [orbyt]);
 }
 
 export function useAvatarProfileRing(did: string | null | undefined): AvatarProfileRingProps {

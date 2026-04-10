@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, Text, TextInput, Linking, ActivityIndicator, StyleSheet } from 'react-native';
 import AuthModalLayout, { AUTH_KEYBOARD_OVERLAP_SIGN_UP } from '@/components/ui/AuthModalLayout';
@@ -88,7 +88,7 @@ export default function LoginSignUpModal() {
     try {
       await signUp(identifier);
       await loadSavedAccounts();
-      router.dismiss();
+      router.dismissTo('/(tabs)/home');
     } catch (err) {
       if (!isUserCancellation(err)) {
         setError(t('auth.signUpFailed'));

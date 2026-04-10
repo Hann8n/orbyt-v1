@@ -139,7 +139,9 @@ export default function LoginSignInModal() {
     try {
       await signIn(trimmedHandle);
       await loadSavedAccounts();
-      router.dismiss();
+      // `dismiss()` can dispatch POP after `Stack.Protected` swaps login → tabs, leaving no
+      // handler. `dismissTo` lands on the main tab stack in one navigation.
+      router.dismissTo('/(tabs)/home');
     } catch (err) {
       if (!isUserCancellation(err)) {
         const errorMessage = err instanceof Error ? err.message : t('auth.signInFailed');

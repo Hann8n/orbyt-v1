@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, StyleSheet, Alert } from 'react-native';
+import { View, Text, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SquircleButton } from '@/components/ui/Squircle';
 import { AuthFlowError, SavedAccount } from '../../../stores/userStore';
@@ -11,12 +11,11 @@ import {
 } from '../../../utils/errors/errorHandler';
 import { useProfile } from '../../../services/data/ProfileService';
 import type { ProfileViewWithOrbyt } from '../../../services/api/types';
-import { BLUR_INTENSITY } from '../../../utils/constants';
+import { Colors } from '../../../theme';
 import AuthorItem from '../../ui/AuthorItem';
 import VerticalListSheet, { VerticalListButton } from '../../ui/VerticalListSheet';
 import { SHEET_SPACING, SHEET_STYLES } from '../../../utils/components/truesheet';
 import { useAccountManagement, useAuth } from '../../../stores/userStore';
-import { TypographyText } from '../../../utils/components/typography';
 import { useSheetPresentation } from '../../../hooks';
 import { dismissSheet } from '../../../utils/navigation';
 import { hydrateAccountsWithCachedProfiles } from '@/utils/atproto/accountSwitching';
@@ -104,13 +103,10 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
         if (error instanceof AuthFlowError && error.kind === 'reauth_required') {
           try {
             await signIn(account.originalIdentifier);
-          } catch (signInErr) {
-            if (!isUserCancellation(signInErr)) {
-              Alert.alert(
-                t('auth.sessionIssue'),
-                t('auth.sessionIssueMessage', { handle: account.handle })
-              );
-            }
+            await switchAccount(account.did);
+            onAccountSwitch(account);
+          } catch {
+            void 0;
           }
           return;
         }
@@ -220,13 +216,12 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
           avatar={account.cachedProfile?.avatar}
           size="large"
           showRing={true}
-          showArrow={true}
-          arrowStyle="option"
+          showArrow={false}
           showDeleteButton={editMode && savedAccounts.length > 1}
           showCheckmark={shouldShowCheckmark}
           showCheckmarkSpinner={isSwitchTarget && !editMode}
           onDeletePress={() => handleRemoveAccount(account)}
-          backgroundBlurIntensity={BLUR_INTENSITY.ACCOUNT_CARD}
+          backgroundColor={Colors.neutral[900]}
           onPress={() => {
             if (!isActive && !editMode) {
               if (savedAccounts.length > 1) {
@@ -260,9 +255,9 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
           (isSwitchingAccount || isAuthenticating) && styles.headerEditButtonDisabled,
         ]}
       >
-        <TypographyText variant="body" weight="semibold">
+        <Text style={SHEET_STYLES.headerActionButtonText}>
           {editMode ? t('common.done') : t('common.edit')}
-        </TypographyText>
+        </Text>
       </SquircleButton>
     ) : null;
 
@@ -295,7 +290,8 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
 const styles = StyleSheet.create({
   headerEditButton: {
     ...SHEET_STYLES.headerActionButton,
-    paddingHorizontal: SHEET_SPACING.headerActionHorizontalTight,
+    paddingHorizontal: SHEET_SPACING.headerActionHorizontalComfortable,
+    minWidth: 72,
   },
   headerEditButtonDisabled: {
     opacity: 0.5,

@@ -6,6 +6,7 @@ export {
   getPersistedColorsSync,
   loadPersistedColors,
   prefetchOrbytColors,
+  syncOrbytColorsQuery,
   saveAndSyncColors,
   fetchColors,
   batchFetchColors,
@@ -14,5 +15,9 @@ export {
 } from './OrbytColors';
 export type { OrbytColorData } from './OrbytColors';
 
-export { useOrbytColors, useAvatarProfileRing } from './useOrbytColors';
+export {
+  useOrbytColors,
+  useAvatarProfileRing,
+  useCurrentUserOrbytShellColors,
+} from './useOrbytColors';
 export type { AvatarProfileRingProps } from './useOrbytColors';

@@ -44,6 +44,8 @@ export const SHEET_SPACING = {
   footerTop: 12,
   /** Small header actions (e.g. account switcher Edit). */
   headerActionHorizontalTight: 12,
+  /** Text header actions (Edit/Done) — wider inset than `footerHorizontal`. */
+  headerActionHorizontalComfortable: 40,
   /** Media pickers (e.g. Klipy GIF): wider inset for full-screen grid layouts. */
   mediaPickerHorizontal: 16,
 } as const;
