@@ -256,6 +256,9 @@ function RootNavigator() {
           <Stack.Screen name="login" />
         </Stack.Protected>
 
+        <Stack.Screen name="login-sign-in" options={modalSlideUpOptions} />
+        <Stack.Screen name="login-sign-up" options={modalSlideUpOptions} />
+
         {/* OAuth callback - always accessible for deep link handling */}
         <Stack.Screen
           name="oauth/callback"

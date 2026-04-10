@@ -1063,6 +1063,16 @@ const AtLineIcon: React.FC<{
   return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
 };
 
+/** Filled @ (same path as `bluesky-icon`); heavier than `AtLineIcon` for emphasis. */
+const AtFillIcon: React.FC<{
+  size: number;
+  color: string;
+  style?: StyleProp<ViewStyle>;
+}> = ({ size, color, style }) => {
+  const svgXml = AT_FILL_ICON_SVG.replace(/currentColor/g, color);
+  return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
+};
+
 const CloudFillIcon: React.FC<{
   size: number;
   color: string;
@@ -1372,9 +1382,8 @@ const Icon: React.FC<IconProps> = ({
     const svgXml = COLOR_PICKER_FILL_ICON_SVG.replace(/#fff/g, color);
     return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
   }
-  if (name === 'bluesky-icon') {
-    const svgXml = AT_FILL_ICON_SVG.replace(/currentColor/g, color);
-    return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
+  if (name === 'bluesky-icon' || name === 'at-fill') {
+    return <AtFillIcon size={size} color={color} style={style} />;
   }
   if (name === 'gallery' || name === 'photo-album-fill') {
     return <GalleryIcon size={size} color={color} style={style} />;

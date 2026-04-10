@@ -14,22 +14,34 @@ import {
 } from './buttonPresets';
 
 /**
- * Shared styles for authentication sheets (LoginSheet, SignUpSheet)
+ * Inner padding at the start of the auth handle row (@ / avatar). Smaller than the end so the
+ * leading mark isn’t pushed too far in.
+ */
+export const AUTH_INPUT_CONTENT_PADDING_START = 12;
+/** Inner padding at the end of the auth handle row (text field). */
+export const AUTH_INPUT_CONTENT_PADDING_END = 20;
+
+/** Handle/PDS row height. */
+export const AUTH_INPUT_ROW_HEIGHT = 56;
+
+/**
+ * Shared styles for authentication modals (login-sign-in, login-sign-up routes)
  * Maintains consistent styling across auth flows
  */
 export const authSheetStyles = StyleSheet.create({
   inputContainer: {
     backgroundColor: Colors.neutral[50],
-    borderRadius: BORDER_RADIUS.FULL,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     marginBottom: 4,
-    height: 56,
+    height: AUTH_INPUT_ROW_HEIGHT,
     overflow: 'hidden',
   },
   inputContent: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingLeft: AUTH_INPUT_CONTENT_PADDING_START,
+    paddingRight: AUTH_INPUT_CONTENT_PADDING_END,
   },
   inputIcon: {
     marginRight: 12,
@@ -55,9 +67,11 @@ export const authSheetStyles = StyleSheet.create({
   },
   errorContainer: {
     marginBottom: 16,
-    padding: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     backgroundColor: hexToRGBA(Colors.coral[500], 0.1),
-    borderRadius: BORDER_RADIUS.SMALL,
+    borderRadius: BORDER_RADIUS.MEDIUM,
+    overflow: 'hidden',
   },
   errorText: {
     color: Colors.coral[500],

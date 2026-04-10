@@ -3,6 +3,7 @@
  * Handles all actor/profile-related API operations including profile retrieval, search, and updates
  */
 
+import { Agent } from '@atproto/api';
 import { AtprotoCore } from '../core';
 import type {
   ProfileView,
@@ -21,6 +22,17 @@ import {
 } from '../../colors/OrbytColors';
 import { queryClient } from '../../../utils/query/queryClient';
 import { RepoService } from '../repo/RepoService';
+import { logger } from '../../../utils/logger';
+
+/** Unauthenticated App View for sign-in / pre-OAuth discovery (`app.bsky.actor.searchActors`). */
+let publicAppviewAgent: Agent | null = null;
+
+function getPublicAppviewAgent(): Agent {
+  if (!publicAppviewAgent) {
+    publicAppviewAgent = new Agent({ service: 'https://public.api.bsky.app' });
+  }
+  return publicAppviewAgent;
+}
 
 /**
  * Converts JSON blob objects (from getRecord) to BlobRef instances.
@@ -155,6 +167,35 @@ export class ActorService {
     }
 
     return response.data as ProfileViewDetailed;
+  }
+
+  /**
+   * Search actors via the public Bluesky App View (no session).
+   * Used before OAuth on the sign-in screen. Same lexicon as authenticated search.
+   * @see https://docs.bsky.app/docs/api/app-bsky-actor-search-actors
+   */
+  static async searchActorsPublic(
+    term: string,
+    options?: { limit?: number; cursor?: string | null }
+  ): Promise<ProfileSearchResponse> {
+    const q = term.trim().replace(/^@+/, '');
+    if (q.length < 1) {
+      return { profiles: [], cursor: null };
+    }
+    try {
+      const agent = getPublicAppviewAgent();
+      const limit = Math.min(100, Math.max(1, options?.limit ?? 8));
+      const params: { term: string; limit: number; cursor?: string } = { term: q, limit };
+      if (options?.cursor) params.cursor = options.cursor;
+      const response = await agent.app.bsky.actor.searchActors(params);
+      return {
+        profiles: (response.data.actors ?? []) as ProfileViewBasic[],
+        cursor: response.data.cursor ?? null,
+      };
+    } catch (error) {
+      logger.warn('Public actor search failed', { error, term: q });
+      return { profiles: [], cursor: null };
+    }
   }
 
   /**

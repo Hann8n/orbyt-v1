@@ -16,8 +16,6 @@ export { default as AuthorItem } from './AuthorItem';
 export { default as ChannelItem } from './ChannelItem';
 export { default as HeaderBanner } from './HeaderBanner';
 export { default as ListScreen } from './ListScreen';
-export { default as LoginSheet } from './LoginSheet';
-export { default as SignUpSheet } from './SignUpSheet';
 export { default as BlurredBackground } from './BlurredBackground';
 export { OptionsButton } from './OptionsButton';
 export { ErrorBoundary } from './ErrorBoundary';
@@ -26,5 +24,10 @@ export { QueryErrorBoundary } from './QueryErrorBoundary';
 // Default export for the entire UI system
 export { default as UI } from './UI';
 
-export { SquircleView, SquircleButton, SquircleNativePressable } from './Squircle';
+export {
+  SquircleView,
+  SquircleButton,
+  SquircleNativePressable,
+  splitSquircleSurfaceStyle,
+} from './Squircle';
 export * from './buttonPresets';

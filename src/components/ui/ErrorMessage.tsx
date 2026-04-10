@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text } from 'react-native';
+import { Text } from 'react-native';
 import { authSheetStyles } from './AuthSheetStyles';
+import { SquircleView } from './Squircle';
 
 interface ErrorMessageProps {
   error: string | null;
@@ -14,9 +15,9 @@ const ErrorMessage: React.FC<ErrorMessageProps> = ({ error }) => {
   if (!error) return null;
 
   return (
-    <View style={authSheetStyles.errorContainer}>
+    <SquircleView style={authSheetStyles.errorContainer}>
       <Text style={authSheetStyles.errorText}>{error}</Text>
-    </View>
+    </SquircleView>
   );
 };
 

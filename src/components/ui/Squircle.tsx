@@ -94,6 +94,14 @@ function splitStyle(style: StyleProp<ViewStyle>): { container: ViewStyle; inner:
   return { container: container as ViewStyle, inner: inner as ViewStyle };
 }
 
+/** Same inner/outer split as {@link SquircleNativePressable}; use when the inner layer is a `View`. */
+export function splitSquircleSurfaceStyle(style: StyleProp<ViewStyle>): {
+  container: ViewStyle;
+  inner: ViewStyle;
+} {
+  return splitStyle(style);
+}
+
 function shouldFillInnerPressable(container: ViewStyle): boolean {
   return (
     container.width != null ||

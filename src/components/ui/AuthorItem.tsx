@@ -1,9 +1,9 @@
 import React, { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BORDER_RADIUS } from '../../utils/constants';
+import { BORDER_RADIUS, CORNER_SMOOTHING } from '../../utils/constants';
 import { StyleSheet, Text, View, StyleProp, ViewStyle, ActivityIndicator } from 'react-native';
 import { NativePressable } from './NativePressable';
-import { SquircleNativePressable } from './Squircle';
+import { SquircleNativePressable, SquircleView, splitSquircleSurfaceStyle } from './Squircle';
 import { useRouter } from 'expo-router';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { Avatar } from './UI';
@@ -21,9 +21,10 @@ import { useProfile, useFollowMutation, prefetchProfile } from '../../services/d
 import { useAvatarProfileRing } from '../../services/colors';
 import { formatHandle } from '../../utils/formatting/handles';
 import { useQueryClient } from '@tanstack/react-query';
-import { itemSizeConfig, sharedItemStyles } from './ItemStyles';
+import { itemSizeConfig, sharedItemStyles, sharedListRowStyles } from './ItemStyles';
 import { useUserStore } from '../../stores/userStore';
 import { isCurrentUser } from '../../stores/profileInteractionStore';
+import { BlurView } from './BlurView';
 
 interface AuthorItemProps {
   handle: string;
@@ -32,8 +33,12 @@ interface AuthorItemProps {
   avatar?: string;
   textColor?: string;
   backgroundColor?: string;
+  /** Card rows only: expo-blur underlay; intensity 0–100. */
+  backgroundBlurIntensity?: number;
   size?: 'xsmall' | 'small' | 'medium' | 'large';
   showArrow?: boolean;
+  /** `option`: OptionsButton-style arrow; `default`: compact chevron. */
+  arrowStyle?: 'default' | 'option';
   onPress?: () => void;
   style?: StyleProp<ViewStyle>;
   showDate?: boolean;
@@ -67,6 +72,10 @@ interface AuthorItemProps {
   nonInteractive?: boolean;
   /** Mirror avatar/text order (e.g. outgoing message bubbles). */
   reverseRow?: boolean;
+  /** No session: skip profile/ring queries (e.g. sign-in suggestions). */
+  skipServerProfileData?: boolean;
+  /** `listRow`: hairline row; `card`: default squircle surface. */
+  variant?: 'card' | 'listRow';
 }
 
 /** Dim grey for inactive/skeleton state to indicate tappable action. */
@@ -120,8 +129,10 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   avatar,
   textColor = Colors.neutral[50],
   backgroundColor,
+  backgroundBlurIntensity,
   size = 'medium',
   showArrow = true,
+  arrowStyle = 'default',
   onPress,
   style,
   showFollowButton = false,
@@ -138,6 +149,8 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   showCheckmarkSkeleton = false,
   nonInteractive = false,
   reverseRow = false,
+  skipServerProfileData = false,
+  variant = 'card',
 }) => {
   const { t } = useTranslation();
   const router = useRouter();
@@ -146,12 +159,16 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   const currentUser = useUserStore(state => state.currentUser);
 
   const config = itemSizeConfig[size];
-  const actualDisplayName = formatHandle(handle) || t('feed.unknownUser');
   const actualAvatar = avatar || undefined;
 
   // Get following & block status from ProfileService using the hook
-  const { data: cachedProfile } = useProfile(handle);
-  const ringProps = useAvatarProfileRing(did ?? null);
+  const { data: cachedProfile } = useProfile(skipServerProfileData ? null : handle);
+
+  const trimmedPropName = displayName?.trim();
+  const trimmedCachedName = cachedProfile?.displayName?.trim();
+  const actualDisplayName =
+    trimmedPropName || trimmedCachedName || formatHandle(handle) || t('feed.unknownUser');
+  const ringProps = useAvatarProfileRing(skipServerProfileData ? null : (did ?? null));
   const actualIsFollowing = cachedProfile?.viewer?.following ? true : isFollowing;
   const isBlocked = !!(cachedProfile?.viewer?.blocking || cachedProfile?.viewer?.blockingByList);
 
@@ -238,14 +255,18 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
               handle={handle}
               textSize={config.badgeTextSize}
               textColor={textColor || Colors.neutral[50]}
-              verification={cachedProfile?.verification}
+              verification={
+                skipServerProfileData
+                  ? { verifiedStatus: 'none', trustedVerifierStatus: 'none' }
+                  : cachedProfile?.verification
+              }
             />
           )}
           {handle && !hideDisplayName && (
             <BotBadge
               handle={handle}
               did={did}
-              labels={cachedProfile?.labels}
+              labels={skipServerProfileData ? [] : cachedProfile?.labels}
               textSize={config.badgeTextSize}
               textColor={textColor || Colors.neutral[50]}
             />
@@ -287,37 +308,91 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
         <StatusIconButton variant="skeleton" size={28} />
       ) : (
         showArrow && (
-          <View style={styles.accountArrow}>
-            <Icon name="right_small" size={20} color={Colors.neutral[500]} />
+          <View style={[styles.accountArrow, arrowStyle === 'option' && styles.optionArrowSlot]}>
+            <Icon
+              name={arrowStyle === 'option' ? 'arrow_right' : 'right_small'}
+              size={arrowStyle === 'option' ? 24 : 20}
+              color={arrowStyle === 'option' ? Colors.neutral[200] : Colors.neutral[500]}
+            />
           </View>
         )
       )}
     </View>
   );
 
+  const isListRow = variant === 'listRow';
+  const useBlurBackground =
+    backgroundBlurIntensity !== undefined && !isListRow && backgroundBlurIntensity > 0;
+
+  const resolvedBackground = useBlurBackground
+    ? Colors.transparent
+    : backgroundColor !== undefined
+      ? backgroundColor
+      : isListRow
+        ? Colors.transparent
+        : Colors.neutral[900];
+
   const rootStyle = [
-    styles.container,
-    { backgroundColor: backgroundColor || Colors.neutral[900] },
+    isListRow ? styles.listRowContainer : styles.container,
+    { backgroundColor: resolvedBackground },
     style,
   ];
 
+  const wrappedContent = useBlurBackground ? (
+    <>
+      <BlurView
+        intensity={backgroundBlurIntensity!}
+        tint="systemThickMaterialDark"
+        style={styles.blurUnderlay}
+      />
+      {rowContent}
+    </>
+  ) : (
+    rowContent
+  );
+
   if (nonInteractive) {
+    if (isListRow) {
+      return (
+        <View style={rootStyle} pointerEvents="none">
+          {wrappedContent}
+        </View>
+      );
+    }
+    const { container: squircleOuter, inner: squircleInner } = splitSquircleSurfaceStyle(rootStyle);
     return (
-      <View style={rootStyle} pointerEvents="none">
-        {rowContent}
-      </View>
+      <SquircleView style={[squircleOuter, styles.squircleClip]} cornerSmoothing={CORNER_SMOOTHING}>
+        <View style={squircleInner} pointerEvents="none">
+          {wrappedContent}
+        </View>
+      </SquircleView>
+    );
+  }
+
+  if (isListRow) {
+    return (
+      <NativePressable style={rootStyle} onPress={handlePress}>
+        {wrappedContent}
+      </NativePressable>
     );
   }
 
   return (
-    <NativePressable style={rootStyle} onPress={handlePress}>
-      {rowContent}
-    </NativePressable>
+    <SquircleNativePressable style={rootStyle} onPress={handlePress}>
+      {wrappedContent}
+    </SquircleNativePressable>
   );
 };
 
 const styles = StyleSheet.create({
   container: sharedItemStyles.container,
+  squircleClip: {
+    overflow: 'hidden',
+  },
+  blurUnderlay: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  listRowContainer: sharedListRowStyles.container,
   accountButtonContent: sharedItemStyles.accountButtonContent,
   accountButtonContentReverse: { flexDirection: 'row-reverse' },
   /** Tight row for embeds (avoid space-between with no trailing arrow). */
@@ -338,6 +413,12 @@ const styles = StyleSheet.create({
   },
   accountDisplayName: sharedItemStyles.accountDisplayName,
   accountArrow: sharedItemStyles.accountArrow,
+  optionArrowSlot: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   nameRow: sharedItemStyles.nameRow,
   followButton: sharedItemStyles.followButton,
   followButtonInactive: {

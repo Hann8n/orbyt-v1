@@ -29,6 +29,11 @@ export const BORDER_RADIUS = {
   FULL: 102,
 } as const;
 
+/** expo-blur intensity (0–100). */
+export const BLUR_INTENSITY = {
+  ACCOUNT_CARD: 40,
+} as const;
+
 /** Passed to `react-native-resquircle` (`SquircleView` / pressables). 0 = circular, 1 = max superellipse. */
 export const CORNER_SMOOTHING = 0.8 as const;
 

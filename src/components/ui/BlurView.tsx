@@ -1,10 +1,10 @@
 import { memo, type ReactNode } from 'react';
 import { StyleProp, ViewStyle } from 'react-native';
-import { BlurView as ExpoBlurView } from 'expo-blur';
+import { BlurView as ExpoBlurView, type BlurTint } from 'expo-blur';
 
 export interface BlurViewProps {
   intensity?: number;
-  tint?: 'light' | 'dark' | 'default' | 'systemChromeMaterialDark' | 'systemChromeMaterialLight';
+  tint?: BlurTint;
   style?: StyleProp<ViewStyle>;
   children?: ReactNode;
 }

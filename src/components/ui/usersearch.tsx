@@ -32,6 +32,22 @@ interface UserProfile {
   avatar?: string;
 }
 
+/** Author row styling for `RichTextSearchModal` (video post description @/# search) and matching surfaces. */
+export const RICH_TEXT_SEARCH_AUTHOR_ITEM_STYLE: ViewStyle = {
+  paddingVertical: 6,
+  paddingHorizontal: 12,
+  marginBottom: 6,
+};
+
+/** Default `AuthorItem` props for rich-text user search (same as video post description mention picker). */
+export const RICH_TEXT_SEARCH_AUTHOR_ITEM_DEFAULTS = {
+  textColor: Colors.neutral[50],
+  backgroundColor: Colors.black,
+  size: 'large' as const,
+  hideHandleLine: false,
+  showArrow: false,
+};
+
 interface AnchorPosition {
   x: number;
   y: number;
@@ -273,17 +289,13 @@ export function RichTextSearchModal({
               keyExtractor={item => item.did}
               renderItem={({ item }) => (
                 <AuthorItem
+                  {...RICH_TEXT_SEARCH_AUTHOR_ITEM_DEFAULTS}
                   handle={item.handle}
                   did={item.did}
                   displayName={item.displayName}
                   avatar={item.avatar}
-                  textColor={Colors.neutral[50]}
-                  backgroundColor={Colors.black}
-                  size="large"
-                  hideHandleLine={false}
-                  showArrow={false}
                   onPress={() => onSelectUser?.(item)}
-                  style={styles.richTextAuthorItem}
+                  style={RICH_TEXT_SEARCH_AUTHOR_ITEM_STYLE}
                 />
               )}
               onEndReached={() => {
@@ -594,10 +606,6 @@ const styles = StyleSheet.create({
   },
   userSearchList: {
     maxHeight: 260,
-  },
-  richTextAuthorItem: {
-    paddingTop: 10,
-    paddingBottom: 10,
   },
   centered: {
     alignItems: 'center',

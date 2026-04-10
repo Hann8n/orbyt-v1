@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, StyleSheet, Alert } from 'react-native';
+import { useRouter } from 'expo-router';
 import { SquircleButton } from '@/components/ui/Squircle';
 import { AuthFlowError, SavedAccount } from '../../../stores/userStore';
 import {
@@ -10,13 +11,11 @@ import {
 } from '../../../utils/errors/errorHandler';
 import { useProfile } from '../../../services/data/ProfileService';
 import type { ProfileViewWithOrbyt } from '../../../services/api/types';
-import { Colors } from '../../../theme';
+import { BLUR_INTENSITY } from '../../../utils/constants';
 import AuthorItem from '../../ui/AuthorItem';
 import VerticalListSheet, { VerticalListButton } from '../../ui/VerticalListSheet';
 import { SHEET_SPACING, SHEET_STYLES } from '../../../utils/components/truesheet';
 import { useAccountManagement, useAuth } from '../../../stores/userStore';
-import LoginSheet from '../../ui/LoginSheet';
-import SignUpSheet from '../../ui/SignUpSheet';
 import { TypographyText } from '../../../utils/components/typography';
 import { useSheetPresentation } from '../../../hooks';
 import { dismissSheet } from '../../../utils/navigation';
@@ -30,7 +29,6 @@ interface AccountSwitcherProps {
   onLogout?: (clearAllAccounts?: boolean) => Promise<void>;
 }
 
-// Extended interface to include cached profile data
 interface AccountWithProfile extends SavedAccount {
   cachedProfile?: ProfileViewWithOrbyt;
 }
@@ -42,50 +40,41 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
   onAddAccount,
 }) => {
   const { t } = useTranslation();
+  const router = useRouter();
   const [accounts, setAccounts] = useState<AccountWithProfile[]>([]);
   const [switchingAccount, setSwitchingAccount] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
-  const [showHandleInput, setShowHandleInput] = useState(false);
-  const [showSignUpSheet, setShowSignUpSheet] = useState(false);
-  const [, setIsAddingAccount] = useState(false);
 
   useSheetPresentation(visible, 'account-switcher');
 
-  // User store hooks
   const { savedAccounts, switchAccount, removeAccount, activeAccountDid } = useAccountManagement();
 
   const { isAuthenticating, isSwitchingAccount, signIn } = useAuth();
 
-  // Get current active account from store DID to avoid stale isActive flags
   const inferredActive = accounts.find(acc => acc.did === activeAccountDid);
   useProfile(inferredActive?.handle || null);
 
   const loadAccounts = useCallback(async () => {
     const savedAccountsData = savedAccounts;
 
-    // Seed base account data immediately to avoid visual delay.
     setAccounts(savedAccountsData.map(account => ({ ...account })));
 
     try {
       const accountsWithProfiles = await hydrateAccountsWithCachedProfiles(savedAccountsData);
       setAccounts(accountsWithProfiles);
     } catch {
-      // no-op: account loading failures are handled per-account in hydrator
+      void 0;
     }
   }, [savedAccounts]);
 
-  // Preload accounts when savedAccounts change (proactive loading)
   useEffect(() => {
     if (savedAccounts.length > 0) {
       loadAccounts();
     }
   }, [savedAccounts, loadAccounts]);
 
-  // Reset edit mode when modal opens, and disable edit mode if only one account
   useEffect(() => {
     if (visible) {
-      // Always reset to non-edit mode when opening
-      // Edit mode is automatically disabled when there's only one account
       setEditMode(false);
     }
   }, [visible]);
@@ -96,8 +85,6 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
 
   const closeAccountSwitcherSheets = useCallback(() => {
     dismissSheet('account-switcher');
-    dismissSheet('add-account-login-sheet');
-    dismissSheet('add-account-sign-up-sheet');
   }, []);
 
   const handleSwitchAccount = useCallback(
@@ -114,9 +101,6 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
       } catch (error) {
         if (isUserCancellation(error)) return;
 
-        // Session expired or was revoked — go straight to sign-in for this account.
-        // The previous account stays active (no logout), and if sign-in succeeds the
-        // switch completes naturally.
         if (error instanceof AuthFlowError && error.kind === 'reauth_required') {
           try {
             await signIn(account.originalIdentifier);
@@ -143,6 +127,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
       isSwitchingAccount,
       isAuthenticating,
       closeAccountSwitcherSheets,
+      signIn,
       t,
     ]
   );
@@ -167,12 +152,9 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
             try {
               await removeAccount(account.did);
 
-              // If this was the active account, the user will be signed out
-              // so we should dismiss the modal
               if (isActiveAccount) {
                 onDismiss();
               } else {
-                // For non-active accounts, just update the local UI state
                 setAccounts(prevAccounts => prevAccounts.filter(acc => acc.did !== account.did));
               }
             } catch (error) {
@@ -191,27 +173,14 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
     try {
       onDismiss();
       await new Promise(resolve => setTimeout(resolve, 200));
-      setShowHandleInput(true);
-    } catch (_error: unknown) {
-      // ignore
+      router.push({
+        pathname: '/login-sign-in',
+        params: { flow: 'addAccount' },
+      });
+    } catch {
+      void 0;
     }
-  }, [onDismiss]);
-
-  const handleLoginSignIn = useCallback(
-    async (identifier: string) => {
-      setIsAddingAccount(true);
-
-      try {
-        await signIn(identifier);
-
-        // Reload accounts to show the new one
-        await loadAccounts();
-      } finally {
-        setIsAddingAccount(false);
-      }
-    },
-    [signIn, loadAccounts]
-  );
+  }, [onDismiss, router]);
 
   type AccountListItem = {
     type: 'account';
@@ -232,7 +201,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
   const renderAccountItem = useCallback(
     ({ item }: { item: AccountListItem }) => {
       const account = item.data;
-      const isActive = account.did === activeAccountDid; // derive from store to avoid stale flags
+      const isActive = account.did === activeAccountDid;
       const isSwitchTarget = isSwitchingAccount && switchingAccount === account.did;
       const currentAccountDid = switchingAccount || activeAccountDid;
       const isCurrentAccount = account.did === currentAccountDid;
@@ -241,8 +210,6 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
         account.cachedProfile?.displayName || account.displayName || account.handle;
       const handle = account.cachedProfile?.handle || account.handle;
 
-      // Only show a static check on the "current" account (latest selected)
-      // When a switch is in progress, the previous active account immediately loses the check
       const shouldShowCheckmark = !editMode && isCurrentAccount && !isSwitchTarget;
 
       return (
@@ -253,12 +220,13 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
           avatar={account.cachedProfile?.avatar}
           size="large"
           showRing={true}
-          showArrow={false}
+          showArrow={true}
+          arrowStyle="option"
           showDeleteButton={editMode && savedAccounts.length > 1}
           showCheckmark={shouldShowCheckmark}
           showCheckmarkSpinner={isSwitchTarget && !editMode}
           onDeletePress={() => handleRemoveAccount(account)}
-          backgroundColor={Colors.neutral[900]}
+          backgroundBlurIntensity={BLUR_INTENSITY.ACCOUNT_CARD}
           onPress={() => {
             if (!isActive && !editMode) {
               if (savedAccounts.length > 1) {
@@ -282,7 +250,6 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
 
   const keyExtractor = useCallback((item: AccountListItem) => item.data.id, []);
 
-  // Custom header button for edit mode toggle (only show when there are multiple accounts)
   const customHeaderButton =
     savedAccounts.length > 1 ? (
       <SquircleButton
@@ -321,20 +288,6 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
           )}
         </View>
       </VerticalListSheet>
-
-      <LoginSheet
-        visible={showHandleInput}
-        onDismiss={() => setShowHandleInput(false)}
-        onSignIn={handleLoginSignIn}
-        title={t('auth.addAccount')}
-        name="add-account-login-sheet"
-        onOpenSignUp={() => setShowSignUpSheet(true)}
-      />
-      <SignUpSheet
-        visible={showSignUpSheet}
-        onDismiss={() => setShowSignUpSheet(false)}
-        name="add-account-sign-up-sheet"
-      />
     </>
   );
 };

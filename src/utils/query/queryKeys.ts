@@ -18,8 +18,15 @@ const searchBase = ['search'] as const;
 const moderationBase = ['moderation'] as const;
 const klipyBase = ['klipy'] as const;
 const exploreBase = ['explore'] as const;
+const authBase = ['auth'] as const;
 
 export const queryKeys = {
+  auth: {
+    all: authBase,
+    /** Unauthenticated `public.api.bsky.app` actor search (sign-in handle picker). */
+    publicActorSearch: (term: string) => [...authBase, 'publicActorSearch', term] as const,
+  },
+
   // Feed queries (merged from FeedService)
   feed: {
     all: feedBase,

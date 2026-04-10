@@ -23,6 +23,11 @@ interface ListHeaderProps {
   right?: React.ReactNode;
   applySafeAreaTop?: boolean;
   style?: StyleProp<ViewStyle>;
+  /**
+   * Sheet mode only: extra `marginLeft` on the title so it lines up with inset content below
+   * (e.g. auth fields / CTAs that use gutter + inner padding).
+   */
+  sheetTitleExtraMarginLeft?: number;
 }
 
 const ListHeader: React.FC<ListHeaderProps> = ({
@@ -38,6 +43,7 @@ const ListHeader: React.FC<ListHeaderProps> = ({
   right,
   applySafeAreaTop = false,
   style,
+  sheetTitleExtraMarginLeft = 0,
 }) => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -68,7 +74,13 @@ const ListHeader: React.FC<ListHeaderProps> = ({
         <View style={styles.sheetLeft}>
           {left ??
             (title ? (
-              <Text style={titleStyle} numberOfLines={1}>
+              <Text
+                style={[
+                  titleStyle,
+                  sheetTitleExtraMarginLeft > 0 && { marginLeft: sheetTitleExtraMarginLeft },
+                ]}
+                numberOfLines={1}
+              >
                 {title}
               </Text>
             ) : null)}

@@ -89,3 +89,21 @@ export const sharedItemStyles = StyleSheet.create({
     marginLeft: 10,
   },
 });
+
+/**
+ * Flat list rows: no per-row card chrome (contrast with OptionsButton / default AuthorItem cards).
+ * Use a hairline border under each row; clear `borderBottomWidth` on the last row via `style`.
+ */
+export const sharedListRowStyles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    marginBottom: 0,
+    borderRadius: 0,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.neutral[800],
+  },
+});

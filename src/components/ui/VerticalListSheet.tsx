@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export { TrueSheet };
 import {
   AppTrueSheet,
+  type AppTrueSheetVariant,
   CONTENT_TO_FOOTER_GAP_REDUCTION,
   FOOTER_TOP_PADDING_DEFAULT,
   getFooterBottomPadding,
@@ -73,6 +74,10 @@ interface VerticalListSheetProps {
    * Background color for the footer area (default: Colors.black).
    */
   footerBackgroundColor?: string;
+  /**
+   * TrueSheet presentation variant. Use `full` for full-height (detent 1) sheets such as auth flows.
+   */
+  variant?: AppTrueSheetVariant;
 }
 
 const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
@@ -92,6 +97,7 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
   customFooter,
   footerBottomPadding: footerBottomPaddingProp,
   footerBackgroundColor = Colors.black,
+  variant = 'default',
 }) => {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -142,6 +148,7 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
   return (
     <AppTrueSheet
       name={name}
+      variant={variant}
       onDidDismiss={onDismiss}
       scrollable={scrollable}
       header={headerComponent}
