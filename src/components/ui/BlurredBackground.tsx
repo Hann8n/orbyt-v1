@@ -1,8 +1,8 @@
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Colors } from '../../theme';
+import { darkenColor } from '../../utils/formatting/colors';
 import { LinearGradient } from './LinearGradient';
-import { extractColorsFromImage, darkenColor } from '../../utils/formatting/colors';
 
 interface BlurredBackgroundProps {
   thumbnailUrl: string | null;
@@ -11,75 +11,56 @@ interface BlurredBackgroundProps {
   darkOverlay?: boolean;
 }
 
-const ambientColorCache = new Map<string, { backgroundColor: string; accentColor: string }>();
+const RAW_AMBIENT_PAIRS: ReadonlyArray<readonly [string, string]> = [
+  [Colors.purple[900], Colors.neutral[900]],
+  [Colors.blue[900], Colors.purple[900]],
+  [Colors.teal[900], Colors.neutral[900]],
+  [Colors.pink[900], Colors.purple[900]],
+  [Colors.coral[900], Colors.purple[900]],
+  [Colors.neutral[800], Colors.neutral[950]],
+];
+
+const DIM_STOP_PRIMARY = 0.38;
+const DIM_STOP_SECONDARY = 0.45;
+
+const AMBIENT_GRADIENT_PAIRS: ReadonlyArray<readonly [string, string]> = RAW_AMBIENT_PAIRS.map(
+  ([bg, accent]) =>
+    [darkenColor(bg, DIM_STOP_PRIMARY), darkenColor(accent, DIM_STOP_SECONDARY)] as const
+);
+
+function hashSeed(value: string): number {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash << 5) - hash + value.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+function getAmbientColors(seed: string | null): { backgroundColor: string; accentColor: string } {
+  if (!seed) {
+    const [backgroundColor, accentColor] = AMBIENT_GRADIENT_PAIRS[0];
+    return { backgroundColor, accentColor };
+  }
+  const index = hashSeed(seed) % AMBIENT_GRADIENT_PAIRS.length;
+  const [backgroundColor, accentColor] = AMBIENT_GRADIENT_PAIRS[index];
+  return { backgroundColor, accentColor };
+}
 
 const BlurredBackground = memo(function BlurredBackground({
   thumbnailUrl,
   onBlurReady,
   darkOverlay = true,
 }: BlurredBackgroundProps) {
-  const [colors, setColors] = useState<{ backgroundColor: string; accentColor: string }>(() => ({
-    backgroundColor: Colors.black,
-    accentColor: Colors.neutral[800] ?? Colors.black,
-  }));
-
   const notifiedUrlRef = useRef<string | null>(null);
+  const colorSeed = thumbnailUrl ?? 'fallback';
+  const colors = useMemo(() => getAmbientColors(colorSeed), [colorSeed]);
 
   useEffect(() => {
-    if (!thumbnailUrl) return;
-
-    let cancelled = false;
-
-    const url = thumbnailUrl;
-
-    async function run(): Promise<void> {
-      const cached = ambientColorCache.get(url);
-      if (cached) {
-        setColors(cached);
-        if (notifiedUrlRef.current !== url) {
-          notifiedUrlRef.current = url;
-          onBlurReady?.();
-        }
-        return;
-      }
-
-      try {
-        const extracted = await extractColorsFromImage(url);
-
-        // Darken aggressively so the background stays subtle behind readable video UI.
-        const backgroundColor = darkenColor(extracted.backgroundColor, 0.55);
-        const accentColor = darkenColor(extracted.accentColor, 0.6);
-
-        const next = { backgroundColor, accentColor };
-        if (cancelled) return;
-
-        ambientColorCache.set(url, next);
-        setColors(next);
-
-        if (notifiedUrlRef.current !== url) {
-          notifiedUrlRef.current = url;
-          onBlurReady?.();
-        }
-      } catch {
-        // Keep defaults.
-        if (cancelled) return;
-        if (notifiedUrlRef.current !== url) {
-          notifiedUrlRef.current = url;
-          onBlurReady?.();
-        }
-      }
-    }
-
-    // Reset notification for this thumbnail, so poster hiding logic can trigger again.
-    notifiedUrlRef.current = null;
-    void run();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [thumbnailUrl, onBlurReady]);
-
-  if (!thumbnailUrl) return null;
+    if (notifiedUrlRef.current === colorSeed) return;
+    notifiedUrlRef.current = colorSeed;
+    onBlurReady?.();
+  }, [colorSeed, onBlurReady]);
 
   return (
     <View style={styles.container} pointerEvents="none">
@@ -105,6 +86,6 @@ const styles = StyleSheet.create({
   darkOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: Colors.black,
-    opacity: 0.5,
+    opacity: 0.58,
   },
 });

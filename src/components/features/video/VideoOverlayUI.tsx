@@ -162,7 +162,8 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
 
   const onDescriptionOverflowMeasure = useCallback(
     (e: NativeSyntheticEvent<TextLayoutEventData>) => {
-      setDescriptionOverflows(e.nativeEvent.lines.length > 1);
+      const nextOverflows = e.nativeEvent.lines.length > 1;
+      setDescriptionOverflows(prev => (prev === nextOverflows ? prev : nextOverflows));
     },
     []
   );
@@ -300,28 +301,12 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
     [isTabletDevice, actionIconSize]
   );
 
-  // Memoize formatted values to prevent recalculation
-  const formattedAuthorHandle = useMemo(() => formatHandle(author.handle), [author.handle]);
-  const formattedRepostHandle = useMemo(
-    () => formatHandle(post.repostedBy?.handle || ''),
-    [post.repostedBy?.handle]
-  );
-  const formattedLikeCount = useMemo(() => formatNumber(likeCount), [likeCount]);
-  const formattedRepostCount = useMemo(() => formatNumber(repostCount), [repostCount]);
-  const formattedCommentCount = useMemo(() => formatNumber(commentCount), [commentCount]);
-
-  // Memoize icon rendering to prevent unnecessary recreations
-  const renderLikeIcon = useCallback(
-    () => (
-      <Animated.View style={likeAnimatedStyle}>
-        <HeartFillIcon
-          size={effectiveIconSize}
-          color={isLiked ? Colors.coral[500] : Colors.neutral[50]}
-        />
-      </Animated.View>
-    ),
-    [likeAnimatedStyle, effectiveIconSize, isLiked]
-  );
+  // Simple formatting helpers are cheap; keep values as plain derived constants.
+  const formattedAuthorHandle = formatHandle(author.handle);
+  const formattedRepostHandle = formatHandle(post.repostedBy?.handle || '');
+  const formattedLikeCount = formatNumber(likeCount);
+  const formattedRepostCount = formatNumber(repostCount);
+  const formattedCommentCount = formatNumber(commentCount);
 
   // Repost animation: quick tilt (wiggle) + slight scale pulse
   const repostScale = useSharedValue(1);
@@ -348,22 +333,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
     repostRotate.value = 0;
   }, [post?.uri, likeScale, repostScale, repostRotate]);
 
-  const renderRepostIcon = useCallback(
-    () => (
-      <Animated.View style={repostAnimatedStyle}>
-        <RefreshFillIcon
-          size={effectiveIconSize}
-          color={isReposted ? Colors.teal[500] : Colors.neutral[50]}
-        />
-      </Animated.View>
-    ),
-    [repostAnimatedStyle, effectiveIconSize, isReposted]
-  );
-
-  const commentIcon = useMemo(
-    () => <ChatFillIcon size={effectiveIconSize} color={Colors.neutral[50]} />,
-    [effectiveIconSize]
-  );
+  const commentIcon = <ChatFillIcon size={effectiveIconSize} color={Colors.neutral[50]} />;
 
   // Follow state and mutation - subscribe directly to follow store for this author
   const { followMutation, currentUser } = useFollowContext();
@@ -517,7 +487,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
             {hasDescription && (
               <View style={styles.descriptionContainer}>
                 <View style={styles.descriptionMeasureHost} onLayout={onCaptionHostLayout}>
-                  {descriptionOverflows === null && captionMeasureWidth > 0 ? (
+                  {isVisible && descriptionOverflows === null && captionMeasureWidth > 0 ? (
                     <View
                       pointerEvents="none"
                       style={[styles.descriptionMeasureLayer, { width: captionMeasureWidth }]}
@@ -744,13 +714,17 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
               style={[
                 styles.baseActionButton,
                 isTabletDevice ? styles.actionButtonTablet : styles.actionButton,
-                isRepostPending && styles.actionButtonDisabled,
               ]}
               onPress={handleRepostPress}
               disabled={isRepostPending}
               hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
             >
-              {renderRepostIcon()}
+              <Animated.View style={repostAnimatedStyle}>
+                <RefreshFillIcon
+                  size={effectiveIconSize}
+                  color={isReposted ? Colors.teal[500] : Colors.neutral[50]}
+                />
+              </Animated.View>
               <Text style={isTabletDevice ? styles.actionTextTablet : styles.actionText}>
                 {formattedRepostCount}
               </Text>
@@ -774,13 +748,17 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
               style={[
                 styles.baseActionButton,
                 isTabletDevice ? styles.actionButtonTablet : styles.actionButton,
-                isLikePending && styles.actionButtonDisabled,
               ]}
               onPress={handleLikePress}
               disabled={isLikePending}
               hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
             >
-              {renderLikeIcon()}
+              <Animated.View style={likeAnimatedStyle}>
+                <HeartFillIcon
+                  size={effectiveIconSize}
+                  color={isLiked ? Colors.coral[500] : Colors.neutral[50]}
+                />
+              </Animated.View>
               <Text style={isTabletDevice ? styles.actionTextTablet : styles.actionText}>
                 {formattedLikeCount}
               </Text>
@@ -1052,9 +1030,6 @@ const styles = StyleSheet.create({
     minWidth: 45,
     textShadowColor: Colors.transparent,
     textShadowRadius: 0,
-  },
-  actionButtonDisabled: {
-    // Removed opacity transparency effect
   },
   repostIconWrapper: {
     opacity: 0.8,

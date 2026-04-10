@@ -285,11 +285,11 @@ const VideoCard = memo(
       // and pass to VideoOverlayUI to avoid duplicate useProfile there (FlashList deduplication)
       const { data: cachedProfile } = useProfile(postView.author?.handle);
       const authorDid = cachedProfile?.did || postView.author?.did;
-      const followStoreState = useFollowStore(state =>
-        authorDid ? state.follows.get(authorDid) : undefined
+      const storeIsFollowing = useFollowStore(state =>
+        authorDid ? state.follows.get(authorDid)?.isFollowing : undefined
       );
       // Combine both sources: profile cache OR optimistic follow store state
-      const isFollowing = !!(cachedProfile?.viewer?.following || followStoreState?.isFollowing);
+      const isFollowing = !!(cachedProfile?.viewer?.following || storeIsFollowing);
       const hasProfile = !!cachedProfile;
 
       // Single object for overlay (avoids 4 separate props and duplicate useProfile in VideoOverlayUI)
@@ -541,26 +541,19 @@ const VideoCard = memo(
 
       // Text-expanded dim state is driven fully by Reanimated shared values to avoid re-rendering
       // VideoCard when the overlay text is expanded/collapsed.
-      const textDimActiveSV = useSharedValue(0);
       const textDimOpacitySV = useSharedValue(0);
 
       useEffect(() => {
         // Reset dim state when post changes (FlashList recycle safety)
-
-        textDimActiveSV.value = 0;
-
         textDimOpacitySV.value = 0;
-      }, [postView.uri, textDimActiveSV, textDimOpacitySV]);
+      }, [postView.uri, textDimOpacitySV]);
 
       const handleOverlayCollapsedChange = useCallback(
         (isCollapsed: boolean) => {
           const isExpanded = !isCollapsed;
-
-          textDimActiveSV.value = isExpanded ? 1 : 0;
-
           textDimOpacitySV.value = withTiming(isExpanded ? 0.65 : 0, { duration: 120 });
         },
-        [textDimActiveSV, textDimOpacitySV]
+        [textDimOpacitySV]
       );
 
       const textDimAnimatedStyle = useAnimatedStyle(() => {
