@@ -8,6 +8,7 @@ import { queryKeys } from '@/utils/query/queryKeys';
 
 import { EXPLORE_SPOTLIGHT_FEED_URI } from './exploreConstants';
 import type { Channel } from './types';
+import type { ExtendedFeedViewPost } from '@/services/api/types';
 
 export function useExploreSuggestionsQueries(
   orbytChannelUris: string[],
@@ -21,7 +22,7 @@ export function useExploreSuggestionsQueries(
   const isResolvingOrbytUris = options?.isResolvingOrbytUris ?? false;
   const shouldLoadOrbytChannels = orbytChannelUris.length > 0;
 
-  const orbytQuery = useQuery({
+  const orbytQuery = useQuery<Channel[], Error>({
     queryKey: queryKeys.explore.orbytGrid(sortedOrbytKeyUris),
     queryFn: async () => {
       const channelPromises = orbytChannelUris.map(uri => ChannelService.getChannel(uri));
@@ -55,7 +56,7 @@ export function useExploreSuggestionsQueries(
     refetchOnWindowFocus: false,
   });
 
-  const spotlightQuery = useQuery({
+  const spotlightQuery = useQuery<ExtendedFeedViewPost[], Error>({
     queryKey: queryKeys.explore.spotlightFeed(),
     queryFn: async () => {
       const response = await AtprotoFeedService.getFeed(
@@ -79,10 +80,10 @@ export function useExploreSuggestionsQueries(
   const isOrbytChannelsPending = shouldLoadOrbytChannels
     ? orbytQuery.isPending
     : isResolvingOrbytUris;
+  const spotlightCount = spotlightQuery.data?.length ?? 0;
+  const orbytCount = shouldLoadOrbytChannels ? (orbytQuery.data?.length ?? 0) : 0;
   const isInitialSuggestionsLoading =
-    isSpotlightPending &&
-    isOrbytChannelsPending &&
-    !(spotlightQuery.data?.length || orbytQuery.data?.length);
+    isSpotlightPending && isOrbytChannelsPending && !(spotlightCount || orbytCount);
   const hasSettledSpotlight = spotlightQuery.isFetched || !!spotlightQuery.error;
   const hasSettledOrbyt = shouldLoadOrbytChannels
     ? orbytQuery.isFetched || !!orbytQuery.error

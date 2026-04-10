@@ -1,7 +1,7 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { NotificationService } from '../services/api/notification/NotificationService';
 import { ChatService } from '../services/api/chat/ChatService';
-import { useUserStore } from '../stores/userStore';
+import { useUserStore, selectIsSessionValid } from '../stores/userStore';
 import { QUERY_CONSTANTS } from '../utils/constants';
 import { queryKeys } from '../utils/query/queryKeys';
 import { chatReactQueryOptions } from '../utils/query/chatQueryOptions';
@@ -10,12 +10,12 @@ import { chatReactQueryOptions } from '../utils/query/chatQueryOptions';
 const CHAT_LIST_FILTER_ACCEPTED = { status: 'accepted' as const };
 
 export const useUnreadCount = () => {
-  const isAuthenticated = useUserStore(state => state.isAuthenticated);
+  const sessionValid = useUserStore(selectIsSessionValid);
 
   const { data: notificationsCount = 0 } = useQuery({
     queryKey: [...queryKeys.unread.summary(), 'notifications'],
     queryFn: async () => (await NotificationService.getUnreadCount()).count,
-    enabled: isAuthenticated,
+    enabled: sessionValid,
     staleTime: QUERY_CONSTANTS.STALE_TIME_MEDIUM,
     ...chatReactQueryOptions,
   });
@@ -26,7 +26,7 @@ export const useUnreadCount = () => {
       ChatService.listConvos(pageParam as string | null, CHAT_LIST_FILTER_ACCEPTED),
     initialPageParam: null as string | null,
     getNextPageParam: lastPage => lastPage?.cursor ?? undefined,
-    enabled: isAuthenticated,
+    enabled: sessionValid,
     staleTime: QUERY_CONSTANTS.STALE_TIME_SHORT,
     gcTime: 60 * 60 * 1000,
     refetchOnWindowFocus: false,

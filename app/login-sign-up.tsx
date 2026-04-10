@@ -180,7 +180,7 @@ export default function LoginSignUpModal() {
             autoCapitalize="none"
             autoCorrect={false}
             returnKeyType="go"
-            onSubmitEditing={handleSignUp}
+            onSubmitEditing={onPress}
             editable={!isSigningUp}
             autoFocus
             accessibilityLabel={t('auth.accountProviderInput')}

@@ -21,6 +21,8 @@ export const FEED_CONFIG = {
   GC_TIME: 60 * 60 * 1000, // 60 minutes before garbage collection
   RETRY_DELAY: 1000, // Longer delay to reduce server load
   MAX_RETRIES: 2, // Reduced retries for faster failure handling
+  /** Align prefetch / infinite-query defaults with app-wide feed staleness. */
+  STALE_TIME: QUERY_CONSTANTS.STALE_TIME_LONG,
 } as const;
 
 interface UseFeedOptions {
@@ -108,9 +110,12 @@ export function useFeed(
   // Ensure query is enabled only when:
   // 1. Base enabled flag is true
   // 2. Account switch is complete (not switching)
-  // 3. Agent is available (API client ready)
+  // 3. Agent is available (API client ready) — implies a usable ATProto session alongside bootstrap
   // 4. For user-specific feeds, we have a user DID
   // 5. Moderation prefs loaded (from MMKV or fetch) so applyModerationBatch can filter
+  //
+  // We intentionally do not also gate on selectIsSessionValid: feed bootstrap + agent cover
+  // the signed-in path; duplicate session selectors would not change enabled semantics here.
   const isUserSpecificFeed = feedOption === 'following' || feedOption === 'your-mix';
   const isFeedBootstrapReady =
     !isUserSpecificFeed ||

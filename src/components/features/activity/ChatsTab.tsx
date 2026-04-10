@@ -615,7 +615,6 @@ const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(({ chatFilter }, ref)
         keyExtractor={keyExtractor}
         getItemType={getItemType}
         ItemSeparatorComponent={ChatDivider}
-        estimatedItemSize={80}
         drawDistance={400}
         onScroll={handleScroll}
         scrollEventThrottle={16}

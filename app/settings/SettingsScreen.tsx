@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, type ComponentRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, Alert, Platform, ScrollView, Linking } from 'react-native';
 import { MenuView } from '@react-native-menu/menu';
@@ -19,10 +19,6 @@ import ProfileService from '@/services/data/ProfileService';
 import type { ViewMode } from '@/types';
 import { FontFamily, Typography } from '@/utils/components/typography';
 
-type MenuViewRef = {
-  showMenu?: () => void;
-};
-
 const SettingsScreen: React.FC = () => {
   const { t } = useTranslation();
   const router = useRouter();
@@ -36,7 +32,7 @@ const SettingsScreen: React.FC = () => {
 
   const profileFeedViewMode = useUserStore(state => state.profileFeedViewMode);
   const setProfileFeedViewMode = useUserStore(state => state.setProfileFeedViewMode);
-  const feedViewMenuRef = useRef<MenuViewRef | null>(null);
+  const feedViewMenuRef = useRef<ComponentRef<typeof MenuView>>(null);
 
   const handleLogout = async () => {
     if (isSubmitting) return;
@@ -296,7 +292,7 @@ ${deviceInfo}`
           id: 'profile-feed-view',
           label: t('settings.defaultFeedLayout'),
           icon: 'grid',
-          onPress: () => feedViewMenuRef.current?.showMenu?.(),
+          onPress: () => feedViewMenuRef.current?.show(),
           linkType: 'none',
         },
         {

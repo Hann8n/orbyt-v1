@@ -995,7 +995,6 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_, ref) => {
       keyExtractor={keyExtractor}
       getItemType={getItemType}
       ItemSeparatorComponent={NotificationDivider}
-      estimatedItemSize={114}
       drawDistance={400}
       refreshControl={
         <RefreshControl

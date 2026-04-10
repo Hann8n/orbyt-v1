@@ -19,10 +19,10 @@ import {
  */
 export const AUTH_INPUT_CONTENT_PADDING_START = 12;
 /** Inner padding at the end of the auth handle row (text field). */
-export const AUTH_INPUT_CONTENT_PADDING_END = 20;
+const AUTH_INPUT_CONTENT_PADDING_END = 20;
 
 /** Handle/PDS row height. */
-export const AUTH_INPUT_ROW_HEIGHT = 56;
+const AUTH_INPUT_ROW_HEIGHT = 56;
 
 /**
  * Shared styles for authentication modals (login-sign-in, login-sign-up routes)

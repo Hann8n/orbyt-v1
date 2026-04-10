@@ -134,7 +134,7 @@ export const sheetFooterPrimaryLabel: TextStyle = {
   color: Colors.black,
 };
 
-export const modalActionContainer: ViewStyle = {
+const modalActionContainer: ViewStyle = {
   ...shape.compact,
   ...buttonContentCenter,
   paddingVertical: 8,
@@ -181,7 +181,7 @@ export const toolbarNextLabel: TextStyle = {
   includeFontPadding: false,
 };
 
-export const headerChromePill: ViewStyle = {
+const headerChromePill: ViewStyle = {
   ...shape.pill,
   ...buttonContentCenter,
   paddingVertical: 8,

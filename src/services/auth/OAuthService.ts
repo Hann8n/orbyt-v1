@@ -24,8 +24,6 @@ const CLIENT_METADATA: ExpoOAuthClientOptions['clientMetadata'] = {
   dpop_bound_access_tokens: true,
 };
 
-export const REQUIRED_OAUTH_SCOPES = (CLIENT_METADATA.scope ?? '').split(' ').filter(Boolean);
-
 let clientInstance: ExpoOAuthClient | null = null;
 
 /**

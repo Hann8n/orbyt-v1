@@ -19,7 +19,7 @@ export { default as ListFeedView } from './features/feed/ListFeedView';
 export { default as GridFeedView } from './features/feed/GridFeedView';
 export { default as FeedPager } from './features/feed/FeedPager';
 export { default as EmptyFeed } from './features/feed/EmptyFeed';
-export { default as MemoizedVideoItem } from './features/feed/VideoItem';
+export { VideoItem as MemoizedVideoItem } from './features/feed/VideoItem';
 
 // Layout Components
 export { default as UniversalHeader } from './layout/header/UniversalHeader';

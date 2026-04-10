@@ -9,10 +9,10 @@ import { DEFAULT_GRABBER_OPTIONS, SHEET_STYLES } from '@/utils/components/truesh
 import { Typography } from '@/utils/components/typography';
 
 /** Horizontal padding for auth modal body; fixed-body top inset matches this (symmetric with sides). */
-export const AUTH_MODAL_HORIZONTAL_GUTTER = 20;
+const AUTH_MODAL_HORIZONTAL_GUTTER = 20;
 
 /** Default top inset inside the sticky footer (above primary CTA). */
-export const AUTH_STICKY_INNER_PADDING_TOP = 8;
+const AUTH_STICKY_INNER_PADDING_TOP = 8;
 
 /**
  * Gap above the keyboard when open — see KeyboardStickyView `offset.opened`:
@@ -73,7 +73,7 @@ const AuthModalLayout: React.FC<AuthModalLayoutProps> = ({
   const stickyBottomPad = insets.bottom;
 
   const grabberTopPad =
-    (Platform.OS === 'android' ? insets.top : 0) + DEFAULT_GRABBER_OPTIONS.topMargin;
+    (Platform.OS === 'android' ? insets.top : 0) + (DEFAULT_GRABBER_OPTIONS.topMargin ?? 0);
 
   /** Title (+ optional description) live in the chrome row; grabber should not repeat the title. */
   const hasVisibleTitle = Boolean(title);

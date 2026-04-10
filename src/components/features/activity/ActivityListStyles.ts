@@ -4,14 +4,14 @@ import { FontFamily, Typography, fontSizeFor } from '@/utils/components/typograp
 import { Colors } from '@/theme';
 
 /** Avatar column width on Chats + Notifications activity lists. */
-export const ACTIVITY_LIST_AVATAR_SIZE = 55;
+const ACTIVITY_LIST_AVATAR_SIZE = 55;
 /** Horizontal gap between avatar and title column. */
-export const ACTIVITY_LIST_AVATAR_GAP = 12;
+const ACTIVITY_LIST_AVATAR_GAP = 12;
 /** Inset from list leading edge to start of title column (avatar + gap). */
 export const ACTIVITY_LIST_TEXT_LEADING = ACTIVITY_LIST_AVATAR_SIZE + ACTIVITY_LIST_AVATAR_GAP;
 
 /** Preview / secondary line body — shared by Chats and Notifications rows. */
-export const ACTIVITY_LIST_PREVIEW_FONT_SIZE = fontSizeFor(16.5);
+const ACTIVITY_LIST_PREVIEW_FONT_SIZE = fontSizeFor(16.5);
 
 /** Muted-conversation bell — between `ICON_SIZES.SMALL` and `MEDIUM`. */
 export const ACTIVITY_LIST_MUTED_ICON_SIZE = 18;

@@ -5,7 +5,8 @@ import { View, StyleSheet, TextInput, StatusBar, Platform, Dimensions } from 're
 import { NativePressable } from '@/components/ui/NativePressable';
 import { SquircleView } from '@/components/ui/Squircle';
 import { Image } from 'expo-image';
-import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
+import { GlassView, isGlassEffectAPIAvailable } from 'expo-glass-effect';
+import { isLiquidGlassAvailableSafe } from '@/utils/device/liquidGlassAvailability';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList, FlashListRef } from '@shopify/flash-list';
 import Reanimated, {
@@ -246,7 +247,7 @@ const ExploreScreen: React.FC = () => {
 
   const isSearching = isSearchFocused || debouncedQuery.length > 0;
   const useLiquidGlassSearchBar =
-    Platform.OS === 'ios' && isLiquidGlassAvailable() && isGlassEffectAPIAvailable();
+    Platform.OS === 'ios' && isLiquidGlassAvailableSafe() && isGlassEffectAPIAvailable();
 
   const searchBarAnimatedStyle = useAnimatedStyle(() => {
     const shadowOpacity = interpolate(
@@ -410,8 +411,6 @@ const ExploreScreen: React.FC = () => {
   }, [
     isInitialSuggestionsLoading,
     hasSettledInitialSuggestions,
-    isLoadingSpotlightFeed,
-    isLoadingOrbytChannels,
     loadingSuggestedItems,
     spotlightFeedError,
     orbytChannelsError,

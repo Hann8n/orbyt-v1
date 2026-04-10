@@ -8,7 +8,6 @@ export {
   prefetchOrbytColors,
   syncOrbytColorsQuery,
   saveAndSyncColors,
-  fetchColors,
   batchFetchColors,
   getOrbytColorKey,
   getOrbytColorQueryOptions,

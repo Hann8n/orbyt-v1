@@ -12,7 +12,7 @@ import { BORDER_RADIUS, APP_CONSTANTS, ICON_SIZES } from '@/utils/constants';
 import { getEffectiveTopInset } from '@/utils/device/screen';
 import { View, StyleSheet, Platform, Linking, Alert } from 'react-native';
 import { SquircleNativePressable } from '@/components/ui/Squircle';
-import { FeedPager } from '@/components';
+import FeedPager from '@/components/features/feed/FeedPager';
 import {
   useProfileByDid,
   useProfile,

@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { queryKeys } from '@/utils/query/queryKeys';
-import { FeedPager } from '@/components';
+import FeedPager from '@/components/features/feed/FeedPager';
 import { HomeScreenRef, FeedOption } from '@/types';
 import { useVisibilityRouteIsActive } from '@/hooks';
 import { Colors } from '@/theme';

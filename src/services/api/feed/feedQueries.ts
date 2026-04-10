@@ -39,6 +39,8 @@ import {
 } from '../types';
 import i18n from '../../../i18n';
 import { QUERY_CONSTANTS } from '../../../utils/constants';
+import { logger } from '../../../utils/logger';
+import { hydrateOrbytChannels } from '../../OrbytChannelsService';
 
 /**
  * Get feed content - optimized for video-only feeds with maximum batch loading
@@ -1091,7 +1093,6 @@ export async function getStaticChannels(
   limit: number = 10
 ): Promise<(GeneratorView & { contentMode?: string })[]> {
   try {
-    const { hydrateOrbytChannels } = await import('../../OrbytChannelsService');
     const remoteChannels = await hydrateOrbytChannels();
     const channelUris = remoteChannels.map(channel => channel.uri);
 
@@ -1101,7 +1102,14 @@ export async function getStaticChannels(
 
     const { api } = await AtprotoCore.getApiClient();
     const response = await api.app.bsky.feed.getFeedGenerators({ feeds: channelUris });
-    const feedGenerators = response.data.feeds || [];
+    const feedGenerators = response.data.feeds ?? [];
+
+    if (channelUris.length > 0 && feedGenerators.length === 0) {
+      logger.warn('getStaticChannels: no feed generators returned for remote channel URIs', {
+        component: 'feedQueries',
+        uriCount: channelUris.length,
+      });
+    }
 
     return feedGenerators.slice(0, limit);
   } catch (_error: unknown) {

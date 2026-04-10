@@ -34,6 +34,15 @@ React Native + Expo, targeting iOS and Android.
 - **Dependencies first**: Before writing custom utilities, check if an installed dependency or existing `src/utils/` module already provides the functionality.
 - **Path aliases**: `@/*` → `src/*`, `@stores/*` → `src/stores/*`.
 
+### Auth session gating
+
+- **Canonical** “signed in with a usable ATProto session” check: `selectIsSessionValid` from [`src/stores/userStore.ts`](src/stores/userStore.ts) (backed by `hasAuthoritativeSdkSession`). Use this for Expo Router guards, `SessionProvider`, and React Query `enabled`.
+
+### Orbyt public CMS (env URLs)
+
+- **Explore/header banners**: `EXPO_PUBLIC_BANNERS_URL`, `EXPO_PUBLIC_HEADERS_URL` (see [`src/services/OrbytBannerService.ts`](src/services/OrbytBannerService.ts)).
+- **Channel metadata**: `EXPO_PUBLIC_ORBYT_CHANNELS_URL` or `EXPO_PUBLIC_CHANNELS_URL` (see [`src/services/OrbytChannelsService.ts`](src/services/OrbytChannelsService.ts)); falls back to production if unset.
+
 ## Full Documentation
 
 See `.cursor/rules/` for comprehensive architecture, styling, and convention rules enforced during development. Those files contain full service/utility inventories and error handling patterns.

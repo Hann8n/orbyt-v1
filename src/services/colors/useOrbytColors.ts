@@ -31,24 +31,24 @@ export interface AvatarProfileRingProps {
 }
 
 export function useOrbytColors(did: string | null | undefined) {
-  const initialData = useMemo(() => {
+  const initialData = useMemo((): OrbytColorData | null | undefined => {
     if (!did) return undefined;
-    return (
-      queryClient.getQueryData<OrbytColorData | null>(getOrbytColorKey(did)) ??
-      getPersistedColorsSync(did) ??
-      undefined
-    );
+    const fromCache = queryClient.getQueryData<OrbytColorData | null>(getOrbytColorKey(did));
+    if (fromCache !== undefined) return fromCache;
+    return getPersistedColorsSync(did) ?? undefined;
   }, [did]);
 
-  return useQuery<OrbytColorData | null, Error>({
-    ...(did
-      ? getOrbytColorQueryOptions(did)
-      : {
-          queryKey: ['orbyt', 'colors', 'disabled'] as const,
-          queryFn: () => Promise.resolve(null),
-        }),
+  const queryOptions = did
+    ? getOrbytColorQueryOptions(did)
+    : {
+        queryKey: ['orbyt', 'colors', 'disabled'] as const,
+        queryFn: () => Promise.resolve(null),
+      };
+
+  return useQuery({
+    ...queryOptions,
     enabled: !!did,
-    initialData,
+    ...(initialData !== undefined ? { initialData } : {}),
   });
 }
 

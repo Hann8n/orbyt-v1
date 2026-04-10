@@ -1,4 +1,5 @@
 import { queryOptions, useQuery } from '@tanstack/react-query';
+import { Colors } from '@/theme';
 import { queryKeys } from '@/utils/query/queryKeys';
 import { queryClient } from '@/utils/query/queryClient';
 import {
@@ -6,7 +7,10 @@ import {
   resolveLocalizedText,
   type TranslationMap,
 } from '@/i18n/resolveLocalizedText';
-import { fetchJson } from '@/services/api/fetchJson';
+import {
+  fetchOrbytPublicJson,
+  ORBYT_PUBLIC_JSON_TIMEOUT_MS,
+} from '@/services/orbyt/orbytPublicFetch';
 
 export interface RemoteOrbytChannel {
   id: string;
@@ -31,8 +35,14 @@ interface ChannelsResponse {
   channels: RemoteOrbytChannel[];
 }
 
-const REMOTE_URL = 'https://api.getorbyt.com/v1/channels/active';
-const FALLBACK_COLOR = '#FF93CB';
+const DEFAULT_CHANNELS_URL = 'https://api.getorbyt.com/v1/channels/active';
+
+function getChannelsFetchUrl(): string {
+  const env = process.env as Record<string, string | undefined>;
+  const fromEnv =
+    env.EXPO_PUBLIC_ORBYT_CHANNELS_URL?.trim() || env.EXPO_PUBLIC_CHANNELS_URL?.trim();
+  return fromEnv || DEFAULT_CHANNELS_URL;
+}
 
 function normalizeChannel(raw: RemoteOrbytChannel): RemoteOrbytChannel {
   return {
@@ -40,17 +50,20 @@ function normalizeChannel(raw: RemoteOrbytChannel): RemoteOrbytChannel {
     displayName:
       resolveLocalizedText(raw.displayName, raw.displayNameTranslations) || raw.displayName,
     description: resolveLocalizedText(raw.description, raw.descriptionTranslations),
-    channelColor: raw.channelColor || FALLBACK_COLOR,
+    channelColor: raw.channelColor || Colors.pink[300],
   };
 }
 
 async function fetchChannels(signal?: globalThis.AbortSignal): Promise<RemoteOrbytChannel[]> {
-  const payload = await fetchJson<ChannelsResponse>(REMOTE_URL, { signal, timeoutMs: 10000 });
+  const payload = await fetchOrbytPublicJson<ChannelsResponse>(getChannelsFetchUrl(), {
+    signal,
+    timeoutMs: ORBYT_PUBLIC_JSON_TIMEOUT_MS,
+  });
   const channels = Array.isArray(payload.channels) ? payload.channels : [];
   return channels.map(normalizeChannel);
 }
 
-export function getChannelsQueryOptions(locale: string) {
+function getChannelsQueryOptions(locale: string) {
   return queryOptions({
     queryKey: queryKeys.channels.metadata(locale),
     queryFn: ({ signal }) => fetchChannels(signal),

@@ -30,11 +30,15 @@ import { usePostInteractionStore } from './postInteractionStore';
 import { useFollowStore } from './followStore';
 import { queryKeys } from '../utils/query/queryKeys';
 import {
-  prefetchOrbytColors,
   loadPersistedColors,
   getOrbytColorQueryOptions,
   syncOrbytColorsQuery,
 } from '../services/colors/OrbytColors';
+import {
+  deferOrbytProfileInit,
+  prefetchFollowingOrbytColorsOnly,
+} from '../services/auth/authSessionLifecycle';
+import { hydrateOrbytChannels } from '../services/OrbytChannelsService';
 import { APP_CONSTANTS, DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI } from '../utils/constants';
 import { setAtprotoSession } from '../services/api/agentBridge';
 import { isLiquidGlassAvailableSafe } from '../utils/device/liquidGlassAvailability';
@@ -66,6 +70,16 @@ function hasAuthoritativeSdkSession(
 ): boolean {
   if (!oauthSession || !currentUserDid) return false;
   return oauthSession.did === currentUserDid;
+}
+
+const REQUIRED_OAUTH_SCOPE = 'atproto';
+
+async function assertRequiredOAuthScope(session: OAuthSession): Promise<void> {
+  const tokenInfo = await session.getTokenInfo(false);
+  const scopes = tokenInfo.scope.split(' ').filter(Boolean);
+  if (!scopes.includes(REQUIRED_OAUTH_SCOPE)) {
+    throw new Error(`oauth_scope_upgrade_required:${REQUIRED_OAUTH_SCOPE}`);
+  }
 }
 
 export function getSessionRestoreOutcome(error: unknown): SessionRestoreOutcome {
@@ -120,22 +134,6 @@ function restoreSessionInFlight(did: string): Promise<OAuthSession> {
 }
 
 export const isIosLiquidGlassAvailable = isLiquidGlassAvailableSafe();
-
-/** Batch Orbyt color API for people you follow (current user is warmed separately via React Query). */
-async function prefetchFollowingOrbytColorsOnly(userDid: string): Promise<void> {
-  try {
-    const { GraphService } = await import('../services/api/graph/GraphService');
-    const followingResponse = await GraphService.getFollowing(userDid, null, 100);
-    const followingDids = followingResponse.following.map(f => f.did).slice(0, 99);
-    if (followingDids.length === 0) return;
-    await prefetchOrbytColors(followingDids, null);
-  } catch (error) {
-    logger.warn('Failed to prefetch following Orbyt colors', {
-      component: 'userStore',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
-}
 
 /**
  * Seed current-user profile cache immediately after auth profile fetch.
@@ -214,7 +212,6 @@ export interface UserState {
 
   // Authentication state
   authStatus: AuthStatus;
-  isAuthenticated: boolean;
   isAuthenticating: boolean;
   isInitializingAuth: boolean; // Loading state for initial auth state restoration
   isSwitchingAccount: boolean; // Loading state for account switching
@@ -249,8 +246,6 @@ export interface UserState {
 
   // Email verification modal state
   showEmailVerificationModal: boolean;
-
-  grantedOauthScopes: string[];
 
   // Actions
   // Authentication
@@ -400,23 +395,6 @@ export const isEmailVerificationRequired = (currentUser: UserState['currentUser'
   return hasEmail && currentUser.emailConfirmed === false;
 };
 
-// Helper to defer orbyt profile initialization (non-critical, improves startup performance)
-const deferOrbytProfileInit = (context: string = 'userStore') => {
-  requestIdleCallback(
-    async () => {
-      try {
-        await RepoService.initOrbytProfileIfNeeded();
-      } catch (error) {
-        logger.debug(`Failed to initialize orbyt profile (${context})`, {
-          component: 'userStore',
-          error,
-        });
-      }
-    },
-    { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
-  );
-};
-
 const COLORS_PREFETCH_COOLDOWN_MS = 60 * 60 * 1000;
 
 /** Defer following-list Orbyt color batch until feed is ready; throttle to once per hour per DID. */
@@ -469,8 +447,8 @@ export const useUserStore = create<UserState>()(
       const hydrateOAuthSession = async (oauthSession: OAuthSession) => {
         const agent = new Agent(oauthSession);
         const [profile, sessionInfo, orbytColors] = await Promise.all([
-          agent.app.bsky.actor.getProfile({ actor: oauthSession.did }),
-          agent.com.atproto.server.getSession(),
+          agent.api.app.bsky.actor.getProfile({ actor: oauthSession.did }),
+          agent.api.com.atproto.server.getSession(),
           queryClient
             .fetchQuery(getOrbytColorQueryOptions(oauthSession.did))
             .catch((): null => null),
@@ -507,7 +485,6 @@ export const useUserStore = create<UserState>()(
         set({
           authStatus: params.authStatus ?? 'unauthenticated',
           isAuthenticating: false,
-          isAuthenticated: false,
           currentUser: null,
           oauthSession: null,
           agent: undefined,
@@ -522,7 +499,6 @@ export const useUserStore = create<UserState>()(
           feedBootstrapDid: null,
           authError: params.authError,
           authErrorCode: params.authErrorCode ?? 'none',
-          grantedOauthScopes: [],
         });
       };
 
@@ -530,7 +506,6 @@ export const useUserStore = create<UserState>()(
         // Initial state
         currentUser: null,
         authStatus: 'unknown',
-        isAuthenticated: false,
         isAuthenticating: false,
         isInitializingAuth: true, // Start as true - will be set to false after initial auth state is loaded
         isSwitchingAccount: false,
@@ -565,8 +540,6 @@ export const useUserStore = create<UserState>()(
         // Email verification modal state
         showEmailVerificationModal: false,
 
-        grantedOauthScopes: [],
-
         // Authentication actions
         signIn: async (identifier: string) => {
           try {
@@ -579,12 +552,9 @@ export const useUserStore = create<UserState>()(
 
             const client = getOAuthClient();
             const session = await client.signIn(identifier);
+            await assertRequiredOAuthScope(session);
 
-            const [{ agent, userProfile, emailConfirmed }, tokenInfo] = await Promise.all([
-              hydrateOAuthSession(session),
-              session.getTokenInfo(false),
-            ]);
-            const grantedScopes = tokenInfo.scope.split(' ').filter(Boolean);
+            const { agent, userProfile, emailConfirmed } = await hydrateOAuthSession(session);
 
             // Create account object
             const account: SavedAccount = {
@@ -617,14 +587,12 @@ export const useUserStore = create<UserState>()(
                 emailConfirmed,
               },
               authStatus: 'authenticated',
-              isAuthenticated: true,
               isAuthenticating: false,
               authError: null,
               authErrorCode: 'none',
               agent,
               activeAccountDid: session.did,
               oauthSession: session,
-              grantedOauthScopes: grantedScopes,
               savedAccounts: updatedAccounts,
               feedBootstrapStatus: 'loading',
               feedBootstrapDid: null,
@@ -653,7 +621,6 @@ export const useUserStore = create<UserState>()(
                 authError: null,
                 authErrorCode: 'none',
                 authStatus: stillHasSession ? 'authenticated' : 'unauthenticated',
-                isAuthenticated: stillHasSession,
               });
               return; // Don't throw error for user cancellation
             }
@@ -693,12 +660,9 @@ export const useUserStore = create<UserState>()(
                 throw promptError;
               }
             }
+            await assertRequiredOAuthScope(session);
 
-            const [{ agent, userProfile, emailConfirmed }, tokenInfo] = await Promise.all([
-              hydrateOAuthSession(session),
-              session.getTokenInfo(false),
-            ]);
-            const grantedScopes = tokenInfo.scope.split(' ').filter(Boolean);
+            const { agent, userProfile, emailConfirmed } = await hydrateOAuthSession(session);
 
             // Create account object
             const account: SavedAccount = {
@@ -728,7 +692,6 @@ export const useUserStore = create<UserState>()(
                 emailConfirmed,
               },
               authStatus: 'authenticated',
-              isAuthenticated: true,
               isAuthenticating: false,
               authError: null,
               authErrorCode: 'none',
@@ -736,7 +699,6 @@ export const useUserStore = create<UserState>()(
               savedAccounts: updatedAccounts,
               activeAccountDid: session.did,
               oauthSession: session,
-              grantedOauthScopes: grantedScopes,
               feedBootstrapStatus: 'loading',
               feedBootstrapDid: null,
             });
@@ -745,7 +707,31 @@ export const useUserStore = create<UserState>()(
             await get().bootstrapUserFeedSettings(session.did);
             scheduleFollowingOrbytColorsAfterFeedReady(session.did);
           } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'OAuth sign-up failed';
+            if (isUserCancellation(error)) {
+              const stillHasSession = hasAuthoritativeSdkSession(
+                get().oauthSession,
+                get().currentUser?.did ?? null
+              );
+              set({
+                isAuthenticating: false,
+                authError: null,
+                authErrorCode: 'none',
+                authStatus: stillHasSession ? 'authenticated' : 'unauthenticated',
+              });
+              return;
+            }
+
+            const errorMessage = getErrorMessage(error);
+            if (requiresReauth(error)) {
+              set({
+                authStatus: 'reauth_required',
+                isAuthenticating: false,
+                authError: errorMessage,
+                authErrorCode: 'reauth_required',
+              });
+              throw error;
+            }
+
             set({
               authStatus: 'degraded_transient',
               isAuthenticating: false,
@@ -789,14 +775,12 @@ export const useUserStore = create<UserState>()(
             set({
               authStatus: 'unauthenticated',
               currentUser: null,
-              isAuthenticated: false,
               isAuthenticating: false,
               switchingToHandle: null,
               switchingToAvatar: null,
               authError: null,
               authErrorCode: 'none',
               oauthSession: null,
-              grantedOauthScopes: [],
               agent: undefined, // Use undefined to match API expectations
               activeAccountDid: null,
               savedAccounts: clearAllAccounts ? [] : get().savedAccounts,
@@ -833,16 +817,9 @@ export const useUserStore = create<UserState>()(
 
             // restoreSessionInFlight coalesces concurrent restores per DID (single-use refresh tokens).
             const session = await restoreSessionInFlight(did);
+            await assertRequiredOAuthScope(session);
 
-            const [{ agent, userProfile, emailConfirmed }, tokenInfo] = await Promise.all([
-              hydrateOAuthSession(session),
-              session.getTokenInfo(false),
-            ]);
-            const grantedScopes = tokenInfo.scope.split(' ').filter(Boolean);
-
-            if (!grantedScopes.includes('atproto')) {
-              throw new Error('oauth_scope_upgrade_required:atproto');
-            }
+            const { agent, userProfile, emailConfirmed } = await hydrateOAuthSession(session);
 
             const originalIdentifier =
               get().savedAccounts.find(acc => acc.did === did)?.originalIdentifier ?? did;
@@ -859,13 +836,11 @@ export const useUserStore = create<UserState>()(
                 emailConfirmed,
               },
               authStatus: 'authenticated',
-              isAuthenticated: true,
               isAuthenticating: false,
               authError: null,
               authErrorCode: 'none',
               agent,
               oauthSession: session,
-              grantedOauthScopes: grantedScopes,
               feedBootstrapStatus: 'loading',
               feedBootstrapDid: null,
             });
@@ -976,11 +951,50 @@ export const useUserStore = create<UserState>()(
               currentUser: get().currentUser,
               oauthSession: get().oauthSession,
               agent: get().agent,
-              grantedOauthScopes: get().grantedOauthScopes,
               activeAccountDid: get().activeAccountDid,
               subscribedChannels: get().subscribedChannels,
               algorithmicFeedProvider: get().algorithmicFeedProvider,
               feedSourceFingerprint: get().feedSourceFingerprint,
+            };
+
+            const rollbackToPreviousSessionAfterSwitchFailure = async (): Promise<boolean> => {
+              if (!previousState.oauthSession || !previousState.currentUser) {
+                return false;
+              }
+              set({
+                currentUser: previousState.currentUser,
+                oauthSession: previousState.oauthSession,
+                agent: previousState.agent,
+                activeAccountDid: previousState.activeAccountDid,
+                subscribedChannels: previousState.subscribedChannels,
+                algorithmicFeedProvider: previousState.algorithmicFeedProvider,
+                feedSourceFingerprint: previousState.feedSourceFingerprint,
+                authStatus: 'authenticated',
+                authError: null,
+                authErrorCode: 'none',
+                isSwitchingAccount: false,
+                switchingToHandle: null,
+                switchingToAvatar: null,
+              });
+              try {
+                if (previousState.activeAccountDid) {
+                  await SecureStore.setItemAsync(
+                    STORAGE_KEYS.ACTIVE_ACCOUNT,
+                    previousState.activeAccountDid
+                  );
+                } else {
+                  await SecureStore.deleteItemAsync(STORAGE_KEYS.ACTIVE_ACCOUNT);
+                }
+              } catch (syncError) {
+                logger.warn(
+                  'Failed to sync SecureStore active account during account switch rollback',
+                  {
+                    component: 'userStore',
+                    error: syncError instanceof Error ? syncError.message : String(syncError),
+                  }
+                );
+              }
+              return true;
             };
 
             try {
@@ -991,19 +1005,14 @@ export const useUserStore = create<UserState>()(
                 throw new Error('Agent not available after session restore');
               }
 
+              const sessionOk = hasAuthoritativeSdkSession(
+                get().oauthSession,
+                get().currentUser?.did ?? null
+              );
               set({
                 savedAccounts: accounts,
                 activeAccountDid: did,
-                isAuthenticated: hasAuthoritativeSdkSession(
-                  get().oauthSession,
-                  get().currentUser?.did ?? null
-                ),
-                authStatus: hasAuthoritativeSdkSession(
-                  get().oauthSession,
-                  get().currentUser?.did ?? null
-                )
-                  ? 'authenticated'
-                  : 'unauthenticated',
+                authStatus: sessionOk ? 'authenticated' : 'unauthenticated',
                 authErrorCode: 'none',
               });
               await SecureStore.setItemAsync(STORAGE_KEYS.ACTIVE_ACCOUNT, did);
@@ -1034,22 +1043,8 @@ export const useUserStore = create<UserState>()(
                   component: 'userStore',
                   did,
                 });
-                if (previousState.oauthSession && previousState.currentUser) {
-                  set({
-                    currentUser: previousState.currentUser,
-                    oauthSession: previousState.oauthSession,
-                    agent: previousState.agent,
-                    grantedOauthScopes: previousState.grantedOauthScopes,
-                    activeAccountDid: previousState.activeAccountDid,
-                    subscribedChannels: previousState.subscribedChannels,
-                    algorithmicFeedProvider: previousState.algorithmicFeedProvider,
-                    feedSourceFingerprint: previousState.feedSourceFingerprint,
-                    authStatus: 'authenticated',
-                    isAuthenticated: true,
-                    authError: null,
-                    authErrorCode: 'none',
-                  });
-                } else {
+                const rolledBack = await rollbackToPreviousSessionAfterSwitchFailure();
+                if (!rolledBack) {
                   applyAuthFailureState({
                     clearActiveDid: true,
                     authError: 'oauth_reauth_required',
@@ -1060,6 +1055,14 @@ export const useUserStore = create<UserState>()(
                 throw new AuthFlowError('reauth_required', 'oauth_reauth_required');
               }
               if (restoreOutcome === 'cancelled') {
+                const rolledBack = await rollbackToPreviousSessionAfterSwitchFailure();
+                if (!rolledBack) {
+                  set({
+                    isSwitchingAccount: false,
+                    switchingToHandle: null,
+                    switchingToAvatar: null,
+                  });
+                }
                 throw new AuthFlowError('cancelled', 'oauth_cancelled');
               }
               if (restoreOutcome === 'transient_failure') {
@@ -1074,12 +1077,23 @@ export const useUserStore = create<UserState>()(
                   did,
                 });
               }
-              set({
-                isSwitchingAccount: false,
-                authError: 'oauth_restore_transient_failure',
-                authStatus: 'degraded_transient',
-                authErrorCode: 'transient_failure',
-              });
+              const rolledBack = await rollbackToPreviousSessionAfterSwitchFailure();
+              if (rolledBack) {
+                set({
+                  authError: 'oauth_restore_transient_failure',
+                  authStatus: 'degraded_transient',
+                  authErrorCode: 'transient_failure',
+                });
+              } else {
+                set({
+                  isSwitchingAccount: false,
+                  switchingToHandle: null,
+                  switchingToAvatar: null,
+                  authError: 'oauth_restore_transient_failure',
+                  authStatus: 'degraded_transient',
+                  authErrorCode: 'transient_failure',
+                });
+              }
               throw new AuthFlowError('transient_failure', 'oauth_restore_transient_failure');
             }
           } catch (error) {
@@ -1091,7 +1105,6 @@ export const useUserStore = create<UserState>()(
               isSwitchingAccount: false,
               switchingToHandle: null,
               switchingToAvatar: null,
-              isAuthenticated: hasSession,
               authStatus: hasSession ? 'authenticated' : get().authStatus,
             });
             throw error;
@@ -1587,7 +1600,7 @@ export const useUserStore = create<UserState>()(
           const { agent, currentUser } = get();
           if (!agent || !currentUser?.did) return false;
           try {
-            await agent.app.bsky.actor.getProfile({ actor: currentUser.did });
+            await agent.api.app.bsky.actor.getProfile({ actor: currentUser.did });
             return true;
           } catch (error) {
             if (requiresReauth(error)) {
@@ -1698,7 +1711,6 @@ export const useUserStore = create<UserState>()(
                   });
                   set({
                     authStatus: 'reauth_required',
-                    isAuthenticated: false,
                     currentUser: null,
                     oauthSession: null,
                     agent: undefined,
@@ -1711,7 +1723,6 @@ export const useUserStore = create<UserState>()(
                     ),
                     feedBootstrapStatus: 'error',
                     feedBootstrapDid: null,
-                    grantedOauthScopes: [],
                     authErrorCode: 'reauth_required',
                   });
                 } else {
@@ -1805,6 +1816,7 @@ export const useUserStore = create<UserState>()(
           seedModerationQueryCache(did, modResult);
 
           try {
+            await hydrateOrbytChannels().catch(() => {});
             const [settingsLoaded, channelsLoaded] = await Promise.all([
               get().loadUserSpecificSettings(did, orbytProfileRecord),
               get().loadSubscribedChannels(did, orbytProfileRecord),
@@ -1942,7 +1954,6 @@ export const useUserStore = create<UserState>()(
         savedAccounts: state.savedAccounts,
         activeAccountDid: state.activeAccountDid,
         currentUser: state.currentUser,
-        grantedOauthScopes: state.grantedOauthScopes,
         feedDebugOverlayEnabled: state.feedDebugOverlayEnabled,
         nativeTabsEnabled: state.nativeTabsEnabled,
         profileFeedViewMode: state.profileFeedViewMode,

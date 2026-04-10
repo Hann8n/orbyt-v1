@@ -179,6 +179,10 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
 
   const feedOptions = feedOptionsProp ?? DEFAULT_FEED_OPTIONS;
 
+  // Distinguishes user-initiated swipes from programmatic setPage calls so that
+  // animateFeedBar is not triggered on account switches or deep-link navigation.
+  const isProgrammaticNavRef = useRef(false);
+
   const showFeedBar = useCallback(() => {
     setTabBarVisibility(1);
   }, [setTabBarVisibility]);
@@ -200,6 +204,7 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
   const setPagerPage = useCallback(
     (index: number) => {
       if (index < 0 || !pagerViewRef.current) return;
+      isProgrammaticNavRef.current = true;
       if (scrollEnabled) pagerViewRef.current.setPage(index);
       else pagerViewRef.current.setPageWithoutAnimation(index);
       // eslint-disable-next-line react-hooks/immutability
@@ -265,14 +270,11 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
     [isFeedBarVisible, feedBarTranslateY]
   );
 
-  const onPagerIndexChangedFromUI = useCallback(
-    (currentIndex: number) => {
-      setCurrentFeedIndex(currentIndex);
-      animateFeedBar(true, true);
-      showFeedBar();
-    },
-    [animateFeedBar, showFeedBar]
-  );
+  // Keep React feed index in sync during swipe (UI thread → JS). Feed bar visibility is updated
+  // only from handlePageSelected to avoid duplicate animations with the native page-settle event.
+  const onPagerIndexChangedFromUI = useCallback((currentIndex: number) => {
+    setCurrentFeedIndex(currentIndex);
+  }, []);
 
   useAnimatedReaction(
     () => Math.round(pageScrollProgress.value),
@@ -296,13 +298,20 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
       // Update shared value to exact position after transition
       // eslint-disable-next-line react-hooks/immutability
       pageScrollProgress.value = nextIndex;
-      // Notify parent of feed change
+      setCurrentFeedIndex(nextIndex);
+      // Only animate the feed bar for user swipes; skip for programmatic setPage calls
+      // (account switches, deep links) to avoid the spurious slide-in animation.
+      if (!isProgrammaticNavRef.current) {
+        animateFeedBar(true, true);
+        showFeedBar();
+      }
+      isProgrammaticNavRef.current = false;
       const newFeedOption = feedOptions[nextIndex];
       if (newFeedOption) {
         onFeedChange?.(newFeedOption);
       }
     },
-    [feedOptions, onFeedChange, pageScrollProgress]
+    [animateFeedBar, feedOptions, onFeedChange, pageScrollProgress, showFeedBar]
   );
 
   // Retry is handled inside FeedRenderer (refetch); pass stable no-op so child can call it
@@ -475,7 +484,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 2,
-    boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
     backgroundColor: Colors.transparent,
     // Opacity is controlled by controlsAnimatedStyle
   },

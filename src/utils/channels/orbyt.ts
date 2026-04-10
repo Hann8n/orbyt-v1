@@ -1,4 +1,5 @@
 import i18n from '../../i18n';
+import { Colors } from '@/theme';
 import type { RemoteOrbytChannel } from '@/services/OrbytChannelsService';
 import type { TranslationMap } from '@/i18n/resolveLocalizedText';
 import {
@@ -22,7 +23,7 @@ export interface OrbytChannel {
   isPostable?: boolean;
   isActive?: boolean;
 }
-const DEFAULT_CHANNEL_COLOR = '#FF93CB';
+const DEFAULT_CHANNEL_COLOR = Colors.pink[300];
 
 function mapRemoteChannel(channel: RemoteOrbytChannel): OrbytChannel {
   return {

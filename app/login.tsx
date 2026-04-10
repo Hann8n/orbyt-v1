@@ -167,7 +167,9 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
           }
           await loadSavedAccounts();
         } catch {
-          void 0;
+          Alert.alert(t('auth.networkError'), t('auth.networkErrorMessage'), [
+            { text: t('common.ok') },
+          ]);
         }
         return;
       }

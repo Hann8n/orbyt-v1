@@ -5,7 +5,8 @@ import {
   type TranslationMap,
 } from '@/i18n/resolveLocalizedText';
 import { queryKeys } from '@/utils/query/queryKeys';
-import { fetchJson } from '@/services/api/fetchJson';
+import { fetchOrbytPublicJson } from '@/services/orbyt/orbytPublicFetch';
+import { logger } from '@/utils/logger';
 
 // Header types
 interface Header {
@@ -80,7 +81,7 @@ class HeaderService {
 
     for (const candidate of HeaderService.getHeaderCandidates()) {
       try {
-        const data = await fetchJson<HeadersApiResponse>(candidate, {
+        const data = await fetchOrbytPublicJson<HeadersApiResponse>(candidate, {
           signal,
           timeoutMs: 8000,
         });
@@ -100,7 +101,11 @@ class HeaderService {
       }
     }
 
-    throw lastError instanceof Error ? lastError : new Error('Failed to fetch active headers');
+    logger.warn('No header endpoints returned valid data; using empty banner list', {
+      component: 'HeaderService',
+      error: lastError instanceof Error ? lastError.message : String(lastError),
+    });
+    return [];
   }
 
   static getHeadersQueryOptions(locale: string) {
