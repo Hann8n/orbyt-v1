@@ -242,6 +242,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     // Scroll offset for percent-visible: written in useAnimatedScrollHandler (UI thread), read in VideoCard worklet.
     const scrollOffsetYSV = useSharedValue(0);
     const homePagerChromeUserHoldSV = useSharedValue(0);
+    const previousScrollYSV = useSharedValue(0);
     const endOfFeedEnabledSV = useSharedValue(0);
     const endOfFeedOverscrollOpacitySV = useSharedValue(0);
 
@@ -252,42 +253,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     useEffect(() => {
       isVisibleSV.value = listSurfaceActive ? 1 : 0;
     }, [listSurfaceActive, isVisibleSV]);
-
-    useAnimatedReaction(
-      () => [scrollOffsetYSV.value, homePagerChromeUserHoldSV.value] as const,
-      (current, previous) => {
-        'worklet';
-        /* eslint-disable react-hooks/immutability -- tabBarVisibility SharedValue */
-        if (!isVisibleSV.value) return;
-
-        const y = current[0];
-        const hold = current[1];
-        const chromeMaxY = FEED_VIEW_CONSTANTS.HOME_PAGER_CHROME_VISIBLE_MAX_SCROLL_Y;
-
-        if (hold > 0.5) {
-          tabBarVisibility.value = 1;
-          return;
-        }
-
-        const prevHold = previous === null ? 0 : previous[1];
-        const prevY = previous === null ? y : previous[0];
-
-        if (previous === null || prevHold > 0.5) {
-          tabBarVisibility.value = y < chromeMaxY ? 1 : 0;
-          return;
-        }
-
-        if (y < chromeMaxY) {
-          tabBarVisibility.value = 1;
-        } else if (y > prevY + 5) {
-          tabBarVisibility.value = 0;
-        } else if (y < prevY - 5) {
-          tabBarVisibility.value = 1;
-        }
-        /* eslint-enable react-hooks/immutability */
-      },
-      [tabBarVisibility, isVisibleSV]
-    );
 
     // setScrollBasedBlocking via useAnimatedReaction so we only cross the JS bridge when the boolean flips (same pattern as ProfileHeader).
     useAnimatedReaction(
@@ -541,6 +506,23 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           /* eslint-disable react-hooks/immutability -- SharedValue.value in worklet */
           const y = event.contentOffset.y;
           scrollOffsetYSV.value = y;
+
+          if (isVisibleSV.value) {
+            const chromeMaxY = FEED_VIEW_CONSTANTS.HOME_PAGER_CHROME_VISIBLE_MAX_SCROLL_Y;
+            const prevY = previousScrollYSV.value;
+            const isHeld = homePagerChromeUserHoldSV.value > 0.5;
+
+            if (isHeld || y < chromeMaxY) {
+              tabBarVisibility.value = 1;
+            } else if (y > prevY + 5) {
+              tabBarVisibility.value = 0;
+            } else if (y < prevY - 5) {
+              tabBarVisibility.value = 1;
+            }
+          }
+
+          previousScrollYSV.value = y;
+
           if (contentScrollProgressOutput && fadeDist > 0) {
             contentScrollProgressOutput.value = Math.max(0, Math.min(1, y / fadeDist));
           }
@@ -560,15 +542,21 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           /* eslint-enable react-hooks/immutability */
         },
       },
-      [contentScrollProgressOutput, fadeDist]
+      [contentScrollProgressOutput, fadeDist, tabBarVisibility]
     );
 
     const setHomePagerChromeUserHold = useCallback(
       (held: boolean) => {
         // eslint-disable-next-line react-hooks/immutability -- SharedValue.value
         homePagerChromeUserHoldSV.value = held ? 1 : 0;
+        // Keep chrome behavior deterministic when pause/play changes without a scroll event.
+        // eslint-disable-next-line react-hooks/immutability -- SharedValue.value
+        tabBarVisibility.value =
+          held || scrollOffsetYSV.value < FEED_VIEW_CONSTANTS.HOME_PAGER_CHROME_VISIBLE_MAX_SCROLL_Y
+            ? 1
+            : 0;
       },
-      [homePagerChromeUserHoldSV]
+      [homePagerChromeUserHoldSV, scrollOffsetYSV, tabBarVisibility]
     );
 
     // Memoize context value to avoid unnecessary re-renders of list consumers when layout/scroll haven't changed.

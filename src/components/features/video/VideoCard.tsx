@@ -1,4 +1,4 @@
-import React, {
+import {
   useRef,
   forwardRef,
   useImperativeHandle,
@@ -23,8 +23,8 @@ import {
   ActivityIndicator,
   AppState,
 } from 'react-native';
-import { NativePressable } from '@/components/ui/NativePressable';
 import { SquircleNativePressable } from '@/components/ui/Squircle';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -34,6 +34,7 @@ import Animated, {
   Easing,
   useDerivedValue,
   interpolate,
+  runOnJS,
 } from 'react-native-reanimated';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { BlurView } from '../../ui/BlurView';
@@ -89,6 +90,9 @@ type Post = ExtendedPostView | ExtendedFeedViewPost;
 const OVERLAY_DEAD_ZONE = 0.9;
 /** In the fade zone: (raw/deadZone)^exp. >1 = fade out faster. */
 const OVERLAY_FADE_EXPONENT = 2;
+/** Max ms between two taps to count as double-tap (like). Single-tap plays/pauses after this window. */
+const VIDEO_DOUBLE_TAP_WINDOW_MS = 260;
+const MIN_SCRUBBER_DURATION_SECONDS = 7;
 
 /** System moderation labels: do not show in user-facing warning text. */
 const WARNING_HIDDEN_LABELS = ['!hide', '!warn', '!no-unauthenticated'];
@@ -171,9 +175,7 @@ const VideoCard = memo(
       // Access feedContext and reqId from feedItem (native properties from FeedViewPost)
       const feedContext = feedItem?.feedContext;
       const reqId = feedItem?.reqId;
-      const { algorithmicFeedProvider } = useUserStore(
-        useShallow(state => ({ algorithmicFeedProvider: state.algorithmicFeedProvider }))
-      );
+      const algorithmicFeedProvider = useUserStore(state => state.algorithmicFeedProvider);
       const feedUri = useMemo(
         () => (feedOption && feedOption.startsWith('at://') ? feedOption : undefined),
         [feedOption]
@@ -189,12 +191,10 @@ const VideoCard = memo(
       const { presentCommentSection } = useGlobalCommentSection();
 
       // Normalize post - extract ExtendedPostView from ExtendedFeedViewPost if needed
-      const postView: ExtendedPostView = React.useMemo(() => {
-        return normalizePostView(post);
-      }, [post]);
+      const postView: ExtendedPostView = useMemo(() => normalizePostView(post), [post]);
 
       // Subscribe only to this post's interaction so other cards don't re-render on like/repost
-      const defaultInteraction = React.useMemo(
+      const defaultInteraction = useMemo(
         () => ({
           isLiked: !!postView.viewer?.like,
           likeCount: postView.likeCount || 0,
@@ -244,6 +244,9 @@ const VideoCard = memo(
         [postView.uri, feedOption]
       ); // Auto-resets when post.uri or feed context changes
 
+      // Merge persisted counts with any in-flight optimistic updates from overlayState.
+      // Depend on specific fields — not the full overlayState object — so an unrelated
+      // setOverlayState (e.g. isRepostPending: false) doesn't invalidate this memo.
       const displayInteraction = useMemo(() => {
         let d = persistedInteraction;
         if (overlayState.isLikePending) {
@@ -263,7 +266,17 @@ const VideoCard = memo(
           };
         }
         return d;
-      }, [persistedInteraction, overlayState]);
+      }, [
+        persistedInteraction,
+        overlayState.isLikePending,
+        overlayState.isLiked,
+        overlayState.likeCount,
+        overlayState.likeUri,
+        overlayState.isRepostPending,
+        overlayState.isReposted,
+        overlayState.repostCount,
+        overlayState.repostUri,
+      ]);
 
       const likeStateForHook = useMemo(
         () => ({
@@ -294,7 +307,7 @@ const VideoCard = memo(
 
       // Single object for overlay (avoids 4 separate props and duplicate useProfile in VideoOverlayUI)
       // Use profile.orbytColors (from get-profile) so overlay avatar ring uses correct orbyt colors
-      const authorProfileOverlay = React.useMemo(
+      const authorProfileOverlay = useMemo(
         () => ({
           isAuthorBlocked: !!(
             cachedProfile?.viewer?.blocking || cachedProfile?.viewer?.blockingByList
@@ -307,7 +320,7 @@ const VideoCard = memo(
       );
 
       // Extract channel slug from post tags - simple match, no lookups
-      const channelSlug = React.useMemo(() => {
+      const channelSlug = useMemo(() => {
         const record = postView.record as { tags?: string[] };
         const tags = record?.tags || [];
         if (!Array.isArray(tags) || tags.length === 0) {
@@ -323,7 +336,7 @@ const VideoCard = memo(
       }, [postView]);
 
       // Get channel URI for navigation (only lookup needed for routing)
-      const channelUri = React.useMemo(() => {
+      const channelUri = useMemo(() => {
         if (!channelSlug) return null;
         const channel = getChannelBySlug(channelSlug);
         return channel?.uri || null;
@@ -338,9 +351,15 @@ const VideoCard = memo(
         onUserPausedChange(videoState.userPaused);
       }, [isVisible, videoState.userPaused, onUserPausedChange]);
 
-      // Double tap to like state - using Reanimated for UI thread performance
-      const lastTapRef = useRef<{ time: number; x: number; y: number } | null>(null);
-      const singleTapTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+      // Tap demux: single timer shared between single/double-tap detection (bridge target for runOnJS)
+      const videoTapSingleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+      const clearVideoTapSingleTimer = useCallback(() => {
+        if (videoTapSingleTimerRef.current) {
+          clearTimeout(videoTapSingleTimerRef.current);
+          videoTapSingleTimerRef.current = null;
+        }
+      }, []);
+
       const heartScale = useSharedValue(0);
       const heartOpacity = useSharedValue(0);
       const heartPositionX = useSharedValue(0);
@@ -401,7 +420,7 @@ const VideoCard = memo(
 
       // Track dimensions. Treat height from parent (ListFeedView/VideoItem) as source of truth so
       // cards match the viewport height; fall back to full screen height if no height is provided.
-      const { height: screenHeight } = Dimensions.get('window');
+      const { height: screenHeight, width: screenWidth } = Dimensions.get('window');
       const cardHeight = height ?? screenHeight;
 
       // HLS-only source creation
@@ -539,6 +558,13 @@ const VideoCard = memo(
         isVisible &&
         !!videoUrl;
 
+      // Hide scrubber for very short clips — no value in showing it
+      const shouldHideScrubberForShortVideo = !!(
+        player?.duration &&
+        player.duration > 0 &&
+        player.duration < MIN_SCRUBBER_DURATION_SECONDS
+      );
+
       // Text-expanded dim state is driven fully by Reanimated shared values to avoid re-rendering
       // VideoCard when the overlay text is expanded/collapsed.
       const textDimOpacitySV = useSharedValue(0);
@@ -621,7 +647,8 @@ const VideoCard = memo(
             if (player) {
               player.pause();
               player.currentTime = 0;
-              if (!videoState.userPaused) {
+              // Use ref so this dep doesn't force handle recreation on every pause toggle
+              if (!userPausedRef.current) {
                 setVideoState(prev => ({ ...prev, userPaused: true }));
               }
             }
@@ -636,7 +663,7 @@ const VideoCard = memo(
             return 0;
           },
         }),
-        [player, shouldPlayVideo, togglePlayback, seek, setVideoState, videoState.userPaused]
+        [player, shouldPlayVideo, togglePlayback, seek, setVideoState]
       );
 
       // Auto-resume when (a) overlay blocking is removed, or (b) video becomes visible.
@@ -704,28 +731,38 @@ const VideoCard = memo(
         }
       }, [playerStatus, player, postView.uri, onVideoStatus]);
 
-      // On foreground: reset error retry gate so a stale-session error can be recovered,
-      // and nudge the player if it may have stalled while backgrounded.
+      // On foreground: reset error retry gate and nudge stalled player.
+      // Volatile values are read via ref so the subscription only re-registers when the
+      // player instance itself changes — not on every visibility/status change (N cards × M events).
+      const appStateVolatileRef = useRef({
+        isVisible,
+        userPaused: videoState.userPaused,
+        shouldDisablePlayback,
+        playerStatus,
+      });
+      appStateVolatileRef.current = {
+        isVisible,
+        userPaused: videoState.userPaused,
+        shouldDisablePlayback,
+        playerStatus,
+      };
       useEffect(() => {
+        if (!player) return;
         const sub = AppState.addEventListener('change', nextState => {
-          if (nextState === 'active') {
-            // Allow retry to fire again after backgrounding
-            errorRetriedForUriRef.current = null;
-            // Guard: only nudge when this card should actually be playing.
-            // isVisible = "viewable row in its feed" — true even for inactive tabs/pager pages.
-            // shouldDisablePlayback captures isActiveFeed && canPlay, so we need all three.
-            if (isVisible && !videoState.userPaused && !shouldDisablePlayback) {
-              if (playerStatus === 'error') {
-                // existing retry path handles re-fetch + replaceAsync
-                return;
-              }
-              // Player may be alive but stalled — nudge it
-              player.play();
-            }
+          if (nextState !== 'active') return;
+          errorRetriedForUriRef.current = null;
+          const {
+            isVisible: iv,
+            userPaused,
+            shouldDisablePlayback: sdp,
+            playerStatus: ps,
+          } = appStateVolatileRef.current;
+          if (iv && !userPaused && !sdp && ps !== 'error') {
+            player.play();
           }
         });
         return () => sub.remove();
-      }, [isVisible, videoState.userPaused, shouldDisablePlayback, playerStatus, player]);
+      }, [player]);
 
       // Drive play/pause from shouldPlayVideo — the single source of truth for whether
       // this card should be playing (visibility + user intent + content checks).
@@ -817,66 +854,29 @@ const VideoCard = memo(
         [heartScale, heartOpacity, heartPositionX, heartPositionY]
       );
 
-      // Enhanced tap handler with double tap detection
-      const handleVideoTap = useCallback(
-        (
-          event: import('react-native').NativeSyntheticEvent<{
-            locationX: number;
-            locationY: number;
-          }>
-        ) => {
-          const now = Date.now();
-          const x = event.nativeEvent?.locationX ?? cardHeight / 2;
-          const y = event.nativeEvent?.locationY ?? cardHeight / 2;
-
-          // Clear any pending single tap
-          if (singleTapTimeoutRef.current) {
-            clearTimeout(singleTapTimeoutRef.current);
-            singleTapTimeoutRef.current = null;
+      // Tap demux (runOnJS bridge target): second tap within window = double-tap like.
+      // Gesture recognition runs on the UI thread via RNGH; JS only wakes on confirmed events.
+      const handleSingleTap = useCallback(
+        (x: number, y: number) => {
+          if (videoTapSingleTimerRef.current != null) {
+            // Second tap within window — double-tap like
+            clearVideoTapSingleTimer();
+            animateHeart(x, y);
+            void handleLikeOnly();
+            return;
           }
-
-          if (lastTapRef.current) {
-            const timeDiff = now - lastTapRef.current.time;
-            const xDiff = Math.abs(x - lastTapRef.current.x);
-            const yDiff = Math.abs(y - lastTapRef.current.y);
-
-            // Double tap detected (within a tight window and similar position)
-            // Use a smaller window than the single-tap delay so playback never toggles on a real double tap
-            if (timeDiff < 250 && xDiff < 50 && yDiff < 50) {
-              // Always show animation for visual feedback
-              animateHeart(x, y);
-              // Only like (never unlike) on double tap
-              handleLikeOnly();
-              lastTapRef.current = null;
-              return;
-            }
-          }
-
-          // Store this tap for potential double tap
-          lastTapRef.current = { time: now, x, y };
-
-          // Wait a bit to see if there's a second tap
-          singleTapTimeoutRef.current = setTimeout(() => {
-            // Single tap - toggle playback
+          videoTapSingleTimerRef.current = setTimeout(() => {
+            videoTapSingleTimerRef.current = null;
             togglePlayback();
-            lastTapRef.current = null;
-            singleTapTimeoutRef.current = null;
-          }, 260);
+          }, VIDEO_DOUBLE_TAP_WINDOW_MS);
         },
-        [togglePlayback, cardHeight, handleLikeOnly, animateHeart]
+        [clearVideoTapSingleTimer, animateHeart, handleLikeOnly, togglePlayback]
       );
 
       // Handle long press to show comments
       const handleLongPress = useCallback(() => {
+        clearVideoTapSingleTimer();
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-        // Clear any pending single tap
-        if (singleTapTimeoutRef.current) {
-          clearTimeout(singleTapTimeoutRef.current);
-          singleTapTimeoutRef.current = null;
-        }
-        // Clear double tap tracking
-        lastTapRef.current = null;
 
         // Track interaction
         queueInteraction(INTERACTIONREPLY_CONST);
@@ -904,6 +904,7 @@ const VideoCard = memo(
           isLikePending: overlayState.isLikePending,
         });
       }, [
+        clearVideoTapSingleTimer,
         displayInteraction.likeCount,
         displayInteraction.commentCount,
         displayInteraction.isLiked,
@@ -918,14 +919,38 @@ const VideoCard = memo(
         queueInteraction,
       ]);
 
-      // Cleanup timeout on unmount
+      // RNGH gesture: race long-press vs tap. Recognition runs on the UI thread;
+      // runOnJS bridges to JS only when a gesture is confirmed (no overhead during idle scroll).
+      const videoGesture = useMemo(() => {
+        const singleTap = Gesture.Tap()
+          .maxDuration(250)
+          .numberOfTaps(1)
+          .onEnd((event, success) => {
+            'worklet';
+            if (!success) return;
+            const x = event.x ?? screenWidth / 2;
+            const y = event.y ?? cardHeight / 2;
+            runOnJS(handleSingleTap)(x, y);
+          });
+
+        const longPress = Gesture.LongPress()
+          .minDuration(400)
+          .onEnd((_event, success) => {
+            'worklet';
+            if (!success) return;
+            runOnJS(handleLongPress)();
+          });
+
+        return Gesture.Race(longPress, singleTap);
+      }, [handleSingleTap, handleLongPress, screenWidth, cardHeight]);
+
+      // Cleanup demux timer on unmount and post change
       useEffect(() => {
-        return () => {
-          if (singleTapTimeoutRef.current) {
-            clearTimeout(singleTapTimeoutRef.current);
-          }
-        };
-      }, []);
+        return () => clearVideoTapSingleTimer();
+      }, [clearVideoTapSingleTimer]);
+      useEffect(() => {
+        clearVideoTapSingleTimer();
+      }, [postView.uri, clearVideoTapSingleTimer]);
 
       const handleRepost = useCallback(async () => {
         if (overlayState.isRepostPending) return;
@@ -1035,15 +1060,6 @@ const VideoCard = memo(
         seenInteractionSentRef.current = false;
       }, [postView.uri]);
 
-      // Video Status Reporting - use post URI for simple tracking
-      useEffect(() => {
-        if (shouldPlayVideo) {
-          onVideoStatus?.(postView.uri, 'playing');
-        } else {
-          onVideoStatus?.(postView.uri, 'paused');
-        }
-      }, [shouldPlayVideo, postView.uri, onVideoStatus]);
-
       const seekingAnimationSV = useSharedValue(0);
       const feedScroll = useFeedScroll();
       const scrollOffsetYSV = feedScroll?.scrollOffsetYSV;
@@ -1087,100 +1103,110 @@ const VideoCard = memo(
             thumbnailUrl={cannotShowMedia ? null : (posterUrl ?? null)}
             onBlurReady={handleBlurReady}
           />
-          <NativePressable
-            onPress={handleVideoTap}
-            onLongPress={handleLongPress}
-            delayLongPress={400}
-            style={styles.videoContainerPressable}
-            activeOpacity={1}
-            android_ripple={{ color: hexToRGBA(Colors.black, 0), borderless: true }}
-          >
-            <View style={styles.videoContainer}>
-              {!!posterUrl && !cannotShowMedia && (!firstFrameRendered || !blurReady) && (
-                <Image
-                  source={{ uri: posterUrl }}
-                  contentFit="contain"
-                  style={styles.poster}
-                  recyclingKey={recyclingKey}
+          {/*
+            Gesture layer: RNGH recognises taps/long-press on the UI thread and bridges to JS
+            only on confirmed events — no JS thread cost during idle scroll.
+            Overlay and scrubber are siblings outside this layer so their own touch handlers
+            don't compete with the scroll responder or the video tap gesture.
+          */}
+          <GestureDetector gesture={videoGesture}>
+            <View style={styles.videoContainerPressable} collapsable={false}>
+              <View style={styles.videoContainer}>
+                {!!posterUrl && !cannotShowMedia && (!firstFrameRendered || !blurReady) && (
+                  <Image
+                    source={{ uri: posterUrl }}
+                    contentFit="contain"
+                    style={styles.poster}
+                    recyclingKey={recyclingKey}
+                  />
+                )}
+
+                {!!videoSource && !cannotShowMedia && !isBlurred && player && (
+                  <ExpoVideoView
+                    player={player}
+                    style={styles.videoPlayer}
+                    contentFit="contain"
+                    nativeControls={false}
+                    playsInline
+                    surfaceType={Platform.OS === 'android' ? 'textureView' : undefined}
+                    allowsVideoFrameAnalysis={false}
+                    onFirstFrameRender={handleFirstFrameRender}
+                    pointerEvents="none"
+                  />
+                )}
+
+                {/* Loading indicator only shown when needed */}
+                {!shouldLoadVideo && !cannotShowMedia && !isBlurred && (
+                  <View style={styles.loadingOverlay}>
+                    <ActivityIndicator size="large" color={Colors.neutral[50]} />
+                    <Text style={styles.loadingText}>{t('video.noHlsStream')}</Text>
+                  </View>
+                )}
+
+                {/* Text expanded dimming overlay */}
+                <Animated.View
+                  style={[styles.textExpandedDimmingOverlay, textDimAnimatedStyle]}
+                  pointerEvents="none"
                 />
-              )}
 
-              {!!videoSource && !cannotShowMedia && !isBlurred && player && (
-                <ExpoVideoView
-                  player={player}
-                  style={styles.videoPlayer}
-                  contentFit="contain"
-                  nativeControls={false}
-                  playsInline
-                  surfaceType={Platform.OS === 'android' ? 'textureView' : undefined}
-                  allowsVideoFrameAnalysis={false}
-                  onFirstFrameRender={handleFirstFrameRender}
-                />
-              )}
-
-              {/* Buffering indicator removed per request */}
-
-              {/* Loading indicator only shown when needed */}
-              {!shouldLoadVideo && !cannotShowMedia && !isBlurred && (
-                <View style={styles.loadingOverlay}>
-                  <ActivityIndicator size="large" color={Colors.neutral[50]} />
-                  <Text style={styles.loadingText}>{t('video.noHlsStream')}</Text>
-                </View>
-              )}
-
-              {/* Text expanded dimming overlay */}
-              <Animated.View
-                style={[styles.textExpandedDimmingOverlay, textDimAnimatedStyle]}
-                pointerEvents="none"
-              />
-
-              {/* Double tap heart animation */}
-              <Animated.View
-                style={[styles.heartAnimationContainer, heartAnimatedStyle]}
-                pointerEvents="none"
-              >
-                <HeartFillIcon size={100} color={Colors.coral[500]} />
-              </Animated.View>
-
-              {/* Integrated Overlay System using VideoOverlayUI */}
-              {/* Keep overlay mounted to prevent jank when switching videos */}
-              {showOverlay && (
-                <VideoOverlayUI
-                  post={postView}
-                  isVisible={isVisible}
-                  overlayOpacitySV={uiOverlayOpacitySV}
-                  sourceFeed={resolvedFeedUri}
-                  onOverlayCollapsedChange={handleOverlayCollapsedChange}
-                  onLike={handleLike}
-                  onRepost={handleRepost}
-                  onShareInteraction={handleShareInteraction}
-                  isLiked={displayInteraction.isLiked}
-                  isReposted={displayInteraction.isReposted}
-                  likeCount={displayInteraction.likeCount}
-                  commentCount={displayInteraction.commentCount}
-                  repostCount={displayInteraction.repostCount}
-                  isLikePending={overlayState.isLikePending}
-                  isRepostPending={overlayState.isRepostPending}
-                  isFollowing={isFollowing}
-                  hasProfile={hasProfile}
-                  channelSlug={channelSlug}
-                  onChannelPress={handleChannelPress}
-                  authorProfileOverlay={authorProfileOverlay}
-                />
-              )}
-
-              {/* Video Scrubber - iOS only, overlays video above bottom bar */}
-              {Platform.OS === 'ios' && (
-                <VideoScrubber
-                  active={isVisible && !hasError}
-                  player={player}
-                  playerStatus={playerStatus}
-                  seekingAnimationSV={seekingAnimationSV}
-                  overlayOpacitySV={uiOverlayOpacitySV}
-                />
-              )}
+                {/* Double tap heart animation */}
+                <Animated.View
+                  style={[styles.heartAnimationContainer, heartAnimatedStyle]}
+                  pointerEvents="none"
+                >
+                  <HeartFillIcon size={100} color={Colors.coral[500]} />
+                </Animated.View>
+              </View>
             </View>
-          </NativePressable>
+          </GestureDetector>
+
+          {/*
+            Scrubber: sibling above gesture layer, below overlay.
+            box-none passes touches through to scrubber's own GestureDetector in clear areas.
+            Short videos skip the scrubber entirely.
+          */}
+          {Platform.OS === 'ios' && !shouldHideScrubberForShortVideo && (
+            <View style={styles.videoScrubberLayer} pointerEvents="box-none">
+              <VideoScrubber
+                active={isVisible && !hasError}
+                player={player}
+                playerStatus={playerStatus}
+                seekingAnimationSV={seekingAnimationSV}
+                overlayOpacitySV={uiOverlayOpacitySV}
+              />
+            </View>
+          )}
+
+          {/*
+            Overlay: topmost sibling. box-none lets scrubber receive touches in clear areas.
+            Kept outside gesture layer so action buttons don't trigger mute/like.
+          */}
+          {showOverlay && (
+            <View style={styles.videoOverlayLayer} pointerEvents="box-none">
+              <VideoOverlayUI
+                post={postView}
+                isVisible={isVisible}
+                overlayOpacitySV={uiOverlayOpacitySV}
+                sourceFeed={resolvedFeedUri}
+                onOverlayCollapsedChange={handleOverlayCollapsedChange}
+                onLike={handleLike}
+                onRepost={handleRepost}
+                onShareInteraction={handleShareInteraction}
+                isLiked={displayInteraction.isLiked}
+                isReposted={displayInteraction.isReposted}
+                likeCount={displayInteraction.likeCount}
+                commentCount={displayInteraction.commentCount}
+                repostCount={displayInteraction.repostCount}
+                isLikePending={overlayState.isLikePending}
+                isRepostPending={overlayState.isRepostPending}
+                isFollowing={isFollowing}
+                hasProfile={hasProfile}
+                channelSlug={channelSlug}
+                onChannelPress={handleChannelPress}
+                authorProfileOverlay={authorProfileOverlay}
+              />
+            </View>
+          )}
 
           {(cannotShowMedia || isBlurred) && (
             <>
@@ -1268,15 +1294,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 5,
   },
+  /** Below overlay buttons; overlay box-none lets touches reach scrubber in clear areas. */
+  videoScrubberLayer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 10,
+  },
+  /** Above scrubber z-order so like/comment/share/profile sit on top of the progress bar region. */
+  videoOverlayLayer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 14,
+  },
   contentWarningBlur: {
     ...StyleSheet.absoluteFillObject,
-    zIndex: 9,
+    zIndex: 20,
   },
   contentWarningOverlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 10,
+    zIndex: 21,
     paddingBottom: 60,
   },
   blurMessage: {
