@@ -44,11 +44,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { prefetchProfile } from '../../../services/data/ProfileService';
 import type { ExtendedPostView, PostRecord, StatusView } from '../../../services/api/types';
 import type { RichTextFacet } from '../../../utils/types/richText';
-import {
-  type ProfileColorScheme,
-  hexToRGBA,
-  pickLighterHex,
-} from '../../../utils/formatting/colors';
+import { type ProfileColorScheme, hexToRGBA } from '../../../utils/formatting/colors';
 import { useFollowStore } from '../../../stores/followStore';
 import { sharedItemStyles } from '@/components/ui/ItemStyles';
 
@@ -139,9 +135,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
 
   // isAuthorBlocked, profileColors, authorDid, authorProfileStatus from VideoCard's single useProfile
   const profileColors = profileColorsProp ?? undefined;
-  const ringColor = profileColors
-    ? pickLighterHex(profileColors.backgroundColor, profileColors.foregroundColor)
-    : undefined;
+  const ringColor = profileColors?.textColor;
   const authorDid = authorDidProp ?? author.did;
 
   const profilePicUrl = useMemo(

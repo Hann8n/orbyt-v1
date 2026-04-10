@@ -9,7 +9,6 @@ import { queryClient } from '../../utils/query/queryClient';
 import {
   getProfileColors,
   getTabBarActiveTintFromProfile,
-  pickLighterHex,
   type ProfileColorScheme,
 } from '../../utils/formatting/colors';
 import { useProfileByDid } from '../data/ProfileService';
@@ -76,15 +75,13 @@ export function useAvatarProfileRing(did: string | null | undefined): AvatarProf
 
   return useMemo(() => {
     const profileColors = getProfileColors(orbytColors);
-    const ringColor =
-      pickLighterHex(profileColors.backgroundColor, profileColors.foregroundColor) || undefined;
     return {
       showRing: !!did,
-      ringColor,
+      ringColor: profileColors.textColor,
       profileColors: {
         backgroundColor: profileColors.backgroundColor,
         foregroundColor: profileColors.foregroundColor,
-        textColor: profileColors.foregroundColor,
+        textColor: profileColors.textColor,
       },
     };
   }, [did, orbytColors]);

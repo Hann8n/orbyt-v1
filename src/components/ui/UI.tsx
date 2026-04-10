@@ -311,9 +311,7 @@ export const Avatar: React.FC<AvatarProps> = ({
   // Make ring thicker when live
   const baseRingWidth = shouldShowRing ? (size >= 100 ? 3.0 : 2.0) : 0;
   const ringWidth = isLive ? baseRingWidth * 1.5 : baseRingWidth; // 50% thicker when live
-  // No separation when no ring - separation only exists between image and ring
-  const separation = 0;
-  const innerSize = size - ringWidth * 2 - separation * 2;
+  const innerSize = size - ringWidth * 2;
   const innerBorderRadius = type === 'channel' ? size * 0.25 : innerSize * 0.5;
 
   // Determine ring color: red if live, otherwise use provided color or default
@@ -329,13 +327,12 @@ export const Avatar: React.FC<AvatarProps> = ({
       borderRadius,
       borderWidth: shouldShowRing ? ringWidth : 0,
       borderColor: shouldShowRing ? finalRingColor : Colors.transparent,
-      padding: separation,
       justifyContent: 'center',
       alignItems: 'center',
-      backgroundColor: shouldShowRing ? Colors.black : Colors.transparent,
+      backgroundColor: Colors.transparent,
       overflow: 'visible', // Changed to 'visible' to allow LIVE badge to show
     }),
-    [size, borderRadius, shouldShowRing, ringWidth, finalRingColor, separation]
+    [size, borderRadius, shouldShowRing, ringWidth, finalRingColor]
   );
 
   // Style for fallback icon container with profile colors
