@@ -139,12 +139,13 @@ export const VerticalListButton: React.FC<{
       ? { color: Colors.neutral[975] }
       : undefined;
 
+  // Custom leading row = in-sheet action, not a drill-in; omit trailing chevron.
   return (
     <OptionsButton
       label={label}
       leftContent={leftContent}
       rightContent={rightContent}
-      linkType={leftContent ? 'internal' : undefined}
+      linkType={leftContent ? 'none' : undefined}
       onPress={onPress}
       disabled={disabled}
       destructive={isDestructive && !isDestructiveReversed}

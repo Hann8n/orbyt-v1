@@ -15,7 +15,7 @@ const buttonStyles = StyleSheet.create({
     marginBottom: 0,
   },
   menuOption: {
-    backgroundColor: Colors.neutral[925],
+    backgroundColor: Colors.neutral[900],
     borderRadius: BORDER_RADIUS.LARGE,
     marginHorizontal: 16,
     marginBottom: 12,
@@ -126,10 +126,10 @@ export const OptionsButton: React.FC<OptionsButtonProps> = ({
 
   const getBackgroundColor = () => {
     if (disabled) {
-      return hexToRGBA(Colors.neutral[925], 0.5);
+      return hexToRGBA(Colors.neutral[900], 0.5);
     }
     if (destructive) return Colors.coral[950]; // coral.950 - darkest coral
-    return Colors.neutral[925];
+    return Colors.neutral[900];
   };
 
   const getTextColor = () => {

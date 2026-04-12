@@ -43,12 +43,7 @@ import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 
 import { Colors } from '@/theme';
 import { Typography, FontFamily, fontSizeFor } from '@/utils/components/typography';
-import {
-  APP_CONSTANTS,
-  BORDER_RADIUS,
-  LAYOUT_INSETS,
-  SCROLL_INDICATOR_CONSTANTS,
-} from '@/utils/constants';
+import { APP_CONSTANTS, BORDER_RADIUS, SCROLL_INDICATOR_CONSTANTS } from '@/utils/constants';
 import Icon, {
   BackArrowIcon,
   CopyCuteFilledIcon,
@@ -88,8 +83,6 @@ import EmojiPicker from 'react-native-emoji-chooser';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeIn } from 'react-native-reanimated';
-import { MenuView } from '@react-native-menu/menu';
-import type { MenuAction } from '@react-native-menu/menu';
 
 const EMBED_VIDEO_GRADIENT_SHIM = require('@/assets/embed-video-gradient-shim.png');
 
@@ -555,6 +548,7 @@ function MessageReactions({
 
 const REACTION_PICKER_SHEET_NAME = 'chat-reaction-picker';
 const CHAT_MESSAGE_ACTIONS_SHEET_NAME = 'chat-message-actions';
+const CHAT_HEADER_MENU_SHEET_NAME = 'chat-header-menu';
 
 /** Nested content (e.g. embeds) calls this to open the same reaction menu as long-press on the row. */
 const ReactionPickerRowContext = createContext<(() => void) | null>(null);
@@ -889,7 +883,8 @@ function ReactionPickerSheet({
 }
 
 /**
- * Long-press message UI: React (opens full emoji sheet), Copy, Delete — OptionsButton rows.
+ * Long-press message UI: React (opens full emoji sheet), Copy, Delete — same VerticalListSheet
+ * chrome as header chat options; icon + label rows via `leftContent`.
  */
 function MessageActionsSheet({
   messageId,
@@ -909,24 +904,20 @@ function MessageActionsSheet({
   onDelete: (messageId: string) => void;
 }) {
   const { t } = useTranslation();
-  const sheetRef = useRef<TrueSheet>(null);
-  const insets = useSafeAreaInsets();
 
   useEffect(() => {
-    const sheet = sheetRef.current;
-    if (!sheet) return;
-    if (visible) {
-      sheet.present().catch(() => {});
-    } else {
-      sheet.dismiss().catch(() => {});
+    if (!visible || !messageId) {
+      TrueSheet.dismiss(CHAT_MESSAGE_ACTIONS_SHEET_NAME).catch(() => {});
+      return;
     }
-  }, [visible]);
+    TrueSheet.present(CHAT_MESSAGE_ACTIONS_SHEET_NAME).catch(() => {});
+  }, [visible, messageId]);
 
   const dismissAfter = useCallback(
     async (fn: () => void) => {
       fn();
       try {
-        await sheetRef.current?.dismiss();
+        await TrueSheet.dismiss(CHAT_MESSAGE_ACTIONS_SHEET_NAME);
       } catch {
         // ignore
       }
@@ -951,21 +942,11 @@ function MessageActionsSheet({
   }, [messageId, onRequestFullPicker]);
 
   return (
-    <AppTrueSheet ref={sheetRef} name={CHAT_MESSAGE_ACTIONS_SHEET_NAME} onDidDismiss={onDismiss}>
+    <VerticalListSheet name={CHAT_MESSAGE_ACTIONS_SHEET_NAME} onDismiss={onDismiss}>
       {messageId ? (
-        <View
-          style={[
-            SHEET_STYLES.contentContainer,
-            styles.messageActionsActionsBlock,
-            {
-              paddingBottom: Math.max(insets.bottom, LAYOUT_INSETS.SHEET_CONTENT),
-            },
-          ]}
-          accessibilityViewIsModal
-        >
-          <OptionsButton
+        <View accessibilityViewIsModal>
+          <VerticalListButton
             label={t('chat.react')}
-            linkType="none"
             onPress={handleReactPress}
             leftContent={
               <View style={styles.messageActionsOptionLeading}>
@@ -975,9 +956,8 @@ function MessageActionsSheet({
             }
             style={[styles.messageActionsListButton, styles.messageActionsCopySurface]}
           />
-          <OptionsButton
+          <VerticalListButton
             label={t('common.copy')}
-            linkType="none"
             onPress={() => {
               void handleCopyPress();
             }}
@@ -1003,10 +983,9 @@ function MessageActionsSheet({
               canCopy ? styles.messageActionsCopySurface : styles.messageActionsCopySurfaceDisabled,
             ]}
           />
-          <OptionsButton
+          <VerticalListButton
             label={t('chat.deleteMessageForMe')}
-            linkType="none"
-            destructive
+            danger
             onPress={() => {
               void handleDeletePress();
             }}
@@ -1024,7 +1003,7 @@ function MessageActionsSheet({
           />
         </View>
       ) : null}
-    </AppTrueSheet>
+    </VerticalListSheet>
   );
 }
 
@@ -1945,80 +1924,6 @@ export default function ChatScreen() {
     t,
   ]);
 
-  const headerChatMenuActions = useMemo((): MenuAction[] => {
-    const items: MenuAction[] = [];
-    if (!isOtherUserUnavailable) {
-      items.push({ id: 'profile', title: t('chat.goToProfile') });
-    }
-    items.push(
-      {
-        id: 'mute',
-        title: isConvoMuted ? t('chat.unmute') : t('chat.muteConversation'),
-        attributes: { disabled: muteConvoMutation.isPending },
-      },
-      {
-        id: 'block',
-        title: isBlocked ? t('chat.unblockAccount') : t('chat.blockAccount'),
-        attributes: { disabled: blockMutation.isPending || isBlockedByList },
-      },
-      {
-        id: 'report',
-        title: t('chat.reportConversation'),
-        attributes: { disabled: isReportSubmitting },
-      },
-      {
-        id: 'leave',
-        title: t('chat.leaveConversation'),
-        attributes: { destructive: true, disabled: leaveConvoMutation.isPending },
-      }
-    );
-    return items;
-  }, [
-    isOtherUserUnavailable,
-    isConvoMuted,
-    t,
-    muteConvoMutation.isPending,
-    isReportSubmitting,
-    isBlocked,
-    blockMutation.isPending,
-    isBlockedByList,
-    leaveConvoMutation.isPending,
-  ]);
-
-  const handleChatHeaderMenuAction = useCallback(
-    ({ nativeEvent }: { nativeEvent: { event?: string } }) => {
-      const id = nativeEvent?.event;
-      if (!id) return;
-      if (id === 'profile') {
-        handleViewProfile();
-        return;
-      }
-      if (id === 'mute') {
-        handleMuteToggle();
-        return;
-      }
-      if (id === 'report') {
-        handleReportConversation();
-        return;
-      }
-      if (id === 'block') {
-        handleBlockToggle();
-        return;
-      }
-      if (id === 'leave') {
-        handleLeaveConvo();
-        return;
-      }
-    },
-    [
-      handleViewProfile,
-      handleMuteToggle,
-      handleReportConversation,
-      handleBlockToggle,
-      handleLeaveConvo,
-    ]
-  );
-
   const handleSend = useCallback(() => {
     const text = inputText.trim();
     if (!text || sendMessageMutation.isPending) return;
@@ -2201,23 +2106,17 @@ export default function ChatScreen() {
               </Text>
             </View>
           )}
-          <MenuView
-            title=""
-            actions={headerChatMenuActions}
-            onPressAction={handleChatHeaderMenuAction}
-            shouldOpenOnLongPress={false}
-            themeVariant="dark"
-            isAnchoredToRight
+          <NativePressable
+            style={styles.menuButton}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel={t('a11y.chatOptions')}
+            onPress={() => {
+              TrueSheet.present(CHAT_HEADER_MENU_SHEET_NAME).catch(() => {});
+            }}
           >
-            <NativePressable
-              style={styles.menuButton}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              accessibilityRole="button"
-              accessibilityLabel={t('a11y.chatOptions')}
-            >
-              <MoreFillIcon size={24} color={Colors.neutral[50]} />
-            </NativePressable>
-          </MenuView>
+            <MoreFillIcon size={24} color={Colors.neutral[50]} />
+          </NativePressable>
         </View>
       </View>
 
@@ -2252,6 +2151,51 @@ export default function ChatScreen() {
         sentAccentColor={sentMessageAccentColor}
         otherAccentColor={otherUserAccentColor}
       />
+
+      <VerticalListSheet name={CHAT_HEADER_MENU_SHEET_NAME} onDismiss={() => {}}>
+        {!isOtherUserUnavailable ? (
+          <VerticalListButton
+            label={t('chat.goToProfile')}
+            onPress={() => {
+              TrueSheet.dismiss(CHAT_HEADER_MENU_SHEET_NAME).catch(() => {});
+              handleViewProfile();
+            }}
+          />
+        ) : null}
+        <VerticalListButton
+          label={isConvoMuted ? t('chat.unmute') : t('chat.muteConversation')}
+          onPress={() => {
+            TrueSheet.dismiss(CHAT_HEADER_MENU_SHEET_NAME).catch(() => {});
+            handleMuteToggle();
+          }}
+          disabled={muteConvoMutation.isPending}
+        />
+        <VerticalListButton
+          label={isBlocked ? t('chat.unblockAccount') : t('chat.blockAccount')}
+          onPress={() => {
+            TrueSheet.dismiss(CHAT_HEADER_MENU_SHEET_NAME).catch(() => {});
+            handleBlockToggle();
+          }}
+          disabled={blockMutation.isPending || isBlockedByList}
+        />
+        <VerticalListButton
+          label={t('chat.reportConversation')}
+          onPress={() => {
+            TrueSheet.dismiss(CHAT_HEADER_MENU_SHEET_NAME).catch(() => {});
+            handleReportConversation();
+          }}
+          disabled={isReportSubmitting}
+        />
+        <VerticalListButton
+          label={t('chat.leaveConversation')}
+          danger
+          onPress={() => {
+            TrueSheet.dismiss(CHAT_HEADER_MENU_SHEET_NAME).catch(() => {});
+            handleLeaveConvo();
+          }}
+          disabled={leaveConvoMutation.isPending}
+        />
+      </VerticalListSheet>
 
       <VerticalListSheet name="chat-report-or-block" onDismiss={() => {}}>
         <Text style={SHEET_STYLES.sheetScreenTitle}>{t('chat.reportOrBlock')}</Text>
@@ -2731,14 +2675,6 @@ const styles = StyleSheet.create({
   reactionSheetContent: {
     flex: 1,
     minHeight: 360,
-    backgroundColor: Colors.neutral[975],
-  },
-  /**
-   * Message actions: match `SHEET_STYLES.contentContainer` horizontal inset (LAYOUT_INSETS.SHEET_CONTENT)
-   * so space below grabber equals side gutters.
-   */
-  messageActionsActionsBlock: {
-    paddingTop: LAYOUT_INSETS.SHEET_CONTENT,
     backgroundColor: Colors.neutral[975],
   },
   /** Same vertical rhythm as VerticalListSheet `listButtonMargin` */

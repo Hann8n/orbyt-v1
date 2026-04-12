@@ -286,7 +286,7 @@ export const settingsPrimaryRowContainer: ViewStyle = {
 
 export const settingsMenuOptionRowContainer: ViewStyle = {
   ...shape.rounded,
-  backgroundColor: Colors.neutral[925],
+  backgroundColor: Colors.neutral[900],
   paddingVertical: 20,
   paddingHorizontal: 20,
   marginHorizontal: 16,
