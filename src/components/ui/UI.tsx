@@ -320,29 +320,23 @@ export const Avatar: React.FC<AvatarProps> = ({
     : ringColor || profileColors?.textColor || Colors.neutral[200];
 
   // Memoize containerStyle to prevent unnecessary re-renders
+  // Use padding + backgroundColor instead of borderWidth/borderColor to avoid
+  // the sub-pixel gap that border rendering causes between the ring and the image.
   const containerStyle: ViewStyle = React.useMemo(
     () => ({
       width: size,
       height: size,
       borderRadius,
-      borderWidth: shouldShowRing ? ringWidth : 0,
-      borderColor: shouldShowRing ? finalRingColor : Colors.transparent,
+      padding: shouldShowRing ? ringWidth : 0,
+      backgroundColor: shouldShowRing ? finalRingColor : Colors.transparent,
       justifyContent: 'center',
       alignItems: 'center',
-      backgroundColor: Colors.transparent,
-      overflow: 'visible', // Changed to 'visible' to allow LIVE badge to show
+      overflow: 'visible', // Allows LIVE badge to show outside bounds
     }),
     [size, borderRadius, shouldShowRing, ringWidth, finalRingColor]
   );
 
-  // Style for fallback icon container with profile colors
-  const fallbackContainerStyle: ViewStyle = React.useMemo(
-    () => ({
-      ...containerStyle,
-      backgroundColor: profileColors?.backgroundColor || Colors.neutral[900],
-    }),
-    [containerStyle, profileColors?.backgroundColor]
-  );
+  const fallbackInnerBgColor = profileColors?.backgroundColor || Colors.neutral[900];
 
   // LIVE badge style - stepped scaling for consistent appearance at all sizes
   const calculateLiveBadgeDimensions = (avatarSize: number) => {
@@ -512,13 +506,14 @@ export const Avatar: React.FC<AvatarProps> = ({
     const { default: Icon } = require('./Icon');
     return (
       <View style={[{ width: size, height: size }, styleSanitized]}>
-        <View style={fallbackContainerStyle}>
+        <View style={containerStyle}>
           <View
             style={[
               {
                 width: innerSize,
                 height: innerSize,
                 borderRadius: innerBorderRadius,
+                backgroundColor: fallbackInnerBgColor,
               },
               styles.centerContent,
             ]}
