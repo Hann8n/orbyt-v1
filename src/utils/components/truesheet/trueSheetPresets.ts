@@ -18,7 +18,7 @@ export const DEFAULT_GRABBER_OPTIONS: GrabberOptions = {
   height: 4,
   topMargin: 8,
   cornerRadius: 2,
-  color: hexToRGBA(Colors.brand.white, 0.5),
+  color: hexToRGBA(Colors.neutral[500], 0.65),
   adaptive: false,
 };
 
