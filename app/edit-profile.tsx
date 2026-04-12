@@ -63,7 +63,7 @@ const COLOR_SQUARE_WIDTH = 42;
 const COLOR_PICKER_GAP = 4;
 const COLOR_RING_WIDTH = 4;
 const COLOR_RING_OFFSET = COLOR_PICKER_GAP + COLOR_RING_WIDTH;
-const COLOR_PICKER_PADDING = 20;
+const COLOR_PICKER_PADDING = 15;
 const COLOR_DIVIDER_WIDTH = 2;
 const COLOR_DIVIDER_MARGIN = 8;
 const COLOR_DIVIDER_TOTAL_WIDTH = COLOR_DIVIDER_WIDTH + COLOR_DIVIDER_MARGIN * 2;
@@ -994,8 +994,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingHorizontal: 15,
+    paddingTop: 15,
+    paddingBottom: 12,
   },
   saveButtonDisabled: {
     opacity: 0.4,
