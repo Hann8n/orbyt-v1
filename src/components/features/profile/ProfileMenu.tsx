@@ -1,23 +1,14 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
-import { View, Text, StyleSheet, Share, Platform, Alert, Linking } from 'react-native';
+import { View, StyleSheet, Share, Platform, Alert, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Icon from '../../ui/Icon';
 import { Colors } from '../../../theme';
-import CloseButton from '../../ui/CloseButton';
-import CancelButton from '../../ui/CancelButton';
 import VerticalListSheet, { VerticalListButton } from '../../ui/VerticalListSheet';
-import {
-  AppTrueSheet,
-  CONTENT_TO_FOOTER_GAP_REDUCTION,
-  SheetActionFooter,
-  FOOTER_TOP_PADDING_DEFAULT,
-  useMeasuredFooterHeight,
-  getFooterBottomPadding,
-  SHEET_STYLES,
-} from '../../../utils/components/truesheet';
+import { AppTrueSheet } from '../../../utils/components/truesheet';
+import { LAYOUT_INSETS } from '../../../utils/constants';
 import { useAuth } from '../../../stores/userStore';
 import {
   useProfile,
@@ -64,13 +55,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
 
   useSheetPresentation(visible, 'profile-menu-sheet');
 
-  // TrueSheet refs for proper stacking (submenu uses AppTrueSheet with ref)
   const submenuSheetRef = useRef<import('@lodev09/react-native-true-sheet').TrueSheet>(null);
-  const submenuFooterBottomPadding = getFooterBottomPadding(insets.bottom);
-  const submenuFooterTopPadding = FOOTER_TOP_PADDING_DEFAULT;
-  const [submenuContentBottomPadding, wrapSubmenuFooter] = useMeasuredFooterHeight(
-    submenuFooterTopPadding + 44 + submenuFooterBottomPadding
-  );
 
   // Get profile data - prefer useProfileByDid if DID is provided (more reliable for handle.invalid cases)
   // Otherwise fallback to useProfile for backwards compatibility
@@ -360,14 +345,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
   const menuOptions = getMenuOptions();
 
   return (
-    <VerticalListSheet
-      name="profile-menu-sheet"
-      onDismiss={onDismiss}
-      title={handle}
-      showCancelButton={true}
-      cancelButtonText={t('common.cancel')}
-    >
-      {/* Main menu options */}
+    <VerticalListSheet name="profile-menu-sheet" onDismiss={onDismiss}>
       <View style={styles.optionsContainer}>
         {menuOptions.map(option => (
           <VerticalListButton
@@ -388,44 +366,16 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
         onDidDismiss={() => {
           /* no-op */
         }}
-        header={
-          <View style={styles.headerContainer}>
-            <Text style={styles.headerTitle} numberOfLines={1}>
-              {t('profile.reportOrBlock')}
-            </Text>
-            <CloseButton
-              onPress={() => {
-                submenuSheetRef.current?.dismiss().catch(() => {});
-              }}
-            />
-          </View>
-        }
-        footer={wrapSubmenuFooter(
-          <SheetActionFooter
-            bottomPadding={submenuFooterBottomPadding}
-            topPadding={submenuFooterTopPadding}
-            backgroundColor={Colors.black}
-          >
-            <CancelButton
-              onPress={() => {
-                submenuSheetRef.current?.dismiss().catch(() => {});
-              }}
-            />
-          </SheetActionFooter>
-        )}
       >
         <View
           style={[
             styles.submenuContent,
             {
-              paddingBottom: Math.max(
-                0,
-                submenuContentBottomPadding - CONTENT_TO_FOOTER_GAP_REDUCTION
-              ),
+              paddingTop: LAYOUT_INSETS.SHEET_CONTENT,
+              paddingBottom: Math.max(insets.bottom, LAYOUT_INSETS.SHEET_CONTENT),
             },
           ]}
         >
-          {/* Submenu options */}
           <View style={styles.optionsContainer}>
             <VerticalListButton
               label={t('alerts.reportAccount')}
@@ -455,13 +405,7 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
   },
   submenuContent: {
-    ...SHEET_STYLES.contentContainer,
-  },
-  headerContainer: {
-    ...SHEET_STYLES.headerContainer,
-  },
-  headerTitle: {
-    ...SHEET_STYLES.headerTitle,
+    paddingHorizontal: LAYOUT_INSETS.SHEET_CONTENT,
   },
 });
 

@@ -33,7 +33,8 @@
     "altstore:register": "bash scripts/altstore-pal.sh register",
     "altstore:process": "bash scripts/altstore-pal.sh process",
     "altstore:status": "bash scripts/altstore-pal.sh status",
-    "altstore:download": "bash scripts/altstore-pal.sh download"
+    "altstore:download": "bash scripts/altstore-pal.sh download",
+    "assets:recolor-gradients": "npx tsx scripts/recolor-orbyt-gradient-pngs.ts"
   },
   "dependencies": {
     "@atproto/api": "^0.19.5",
@@ -140,6 +141,7 @@
     "prettier": "^3.8.1",
     "react-refresh": "^0.18.0",
     "serve": "^14.2.4",
+    "sharp": "^0.33.5",
     "typescript": "~5.9.2"
   },
   "private": true,

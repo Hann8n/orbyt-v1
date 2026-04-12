@@ -12,6 +12,7 @@ import Animated, {
 import { useUserStore } from '../../stores/userStore';
 import { EmailVerificationService } from '../../services/auth/EmailVerificationService';
 import VerticalListSheet from './VerticalListSheet';
+import { SHEET_STYLES } from '../../utils/components/truesheet';
 import { Colors } from './UI';
 import { BORDER_RADIUS, APP_CONSTANTS } from '../../utils/constants';
 import { logger } from '../../utils/logger';
@@ -227,15 +228,11 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
   };
 
   return (
-    <VerticalListSheet
-      name="email-verification-sheet"
-      onDismiss={handleDismiss}
-      title={t('auth.verifyEmail')}
-      showCancelButton={true}
-      cancelButtonText={t('auth.skipForNow')}
-      scrollable={false}
-    >
+    <VerticalListSheet name="email-verification-sheet" onDismiss={handleDismiss} scrollable={false}>
       <View style={[styles.container, styles.containerBottomPadding]}>
+        <Text style={[SHEET_STYLES.sheetScreenTitle, styles.emailSheetTitle]}>
+          {t('auth.verifyEmail')}
+        </Text>
         <Text style={styles.descriptionText}>
           {emailSent ? t('auth.enterVerificationCode') : t('auth.pleaseVerifyEmail')}
         </Text>
@@ -305,7 +302,7 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
                     size={24}
                     color={
                       token.trim().length === 11 && !isVerifying && !error
-                        ? Colors.neutral[900]
+                        ? Colors.neutral[975]
                         : Colors.neutral[500]
                     }
                   />
@@ -348,7 +345,7 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
               ) : (
                 <View style={styles.buttonContentRow}>
                   <Text style={styles.sendButtonText}>{t('auth.sendCodeButton')}</Text>
-                  <Icon name="arrow_right" size={24} color={Colors.neutral[900]} />
+                  <Icon name="arrow_right" size={24} color={Colors.neutral[975]} />
                 </View>
               )}
             </SquircleNativePressable>
@@ -356,6 +353,9 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
             <Text style={styles.infoText}>{t('auth.youllReceiveCode')}</Text>
           </View>
         )}
+        <NativePressable onPress={handleDismiss} style={styles.skipForNow}>
+          <Text style={styles.skipForNowText}>{t('auth.skipForNow')}</Text>
+        </NativePressable>
       </View>
     </VerticalListSheet>
   );
@@ -363,10 +363,13 @@ export const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 0,
   },
   containerBottomPadding: {
     paddingBottom: 16,
+  },
+  emailSheetTitle: {
+    marginBottom: 8,
   },
   descriptionText: {
     color: Colors.neutral[200],
@@ -374,7 +377,17 @@ const styles = StyleSheet.create({
     lineHeight: Typography.lineHeights.body,
     fontFamily: FontFamily.regular,
     marginBottom: 16,
-    marginTop: 4,
+    marginTop: 0,
+  },
+  skipForNow: {
+    alignSelf: 'center',
+    marginTop: 20,
+    paddingVertical: 8,
+  },
+  skipForNowText: {
+    color: Colors.neutral[400],
+    fontSize: Typography.sizes.body,
+    fontFamily: FontFamily.medium,
   },
   errorIcon: {
     marginLeft: 12,
@@ -423,7 +436,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   sendButtonText: {
-    color: Colors.neutral[900],
+    color: Colors.neutral[975],
     fontSize: Typography.sizes.title,
     lineHeight: Typography.lineHeights.title,
     fontFamily: FontFamily.semibold,
@@ -451,7 +464,7 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.semibold,
   },
   verifyButtonTextActive: {
-    color: Colors.neutral[900],
+    color: Colors.neutral[975],
   },
   resendButton: {
     paddingVertical: 12,

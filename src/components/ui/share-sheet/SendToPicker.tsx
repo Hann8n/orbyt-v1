@@ -21,7 +21,6 @@ import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import {
   AppTrueSheet,
   DEFAULT_CONTENT_PADDING_HORIZONTAL,
-  DEFAULT_GRABBER_OPTIONS,
   useMeasuredFooterHeight,
   SHEET_SPACING,
 } from '../../../utils/components/truesheet';
@@ -389,8 +388,6 @@ const SendToPicker: React.FC<SendToPickerProps> = ({
     <AppTrueSheet
       name={SHEET_NAME}
       variant="sendToPicker"
-      grabber
-      grabberOptions={DEFAULT_GRABBER_OPTIONS}
       onDidPresent={() => setIsSheetPresented(true)}
       onDidDismiss={handleDismiss}
       header={header}
@@ -447,7 +444,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.neutral[975],
     paddingHorizontal: SHEET_SPACING.mediaPickerHorizontal,
     paddingTop: 18,
     paddingBottom: 6,
@@ -464,7 +461,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: DEFAULT_CONTENT_PADDING_HORIZONTAL,
     paddingVertical: 11,
     minHeight: 46,
-    boxShadow: '0 1px 6px rgba(0,0,0,0.25)',
+    boxShadow: '0 1px 6px rgba(5,7,10,0.25)',
   },
   searchInput: {
     flex: 1,

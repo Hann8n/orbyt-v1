@@ -20,6 +20,7 @@ import VerticalListSheet, {
   VerticalListButton,
   TrueSheet,
 } from '@/components/ui/VerticalListSheet';
+import { SHEET_STYLES, SHEET_VERTICAL_LIST_ROW_OUTER } from '@/utils/components/truesheet';
 import {
   isOrbytChannel,
   getChannelByUri,
@@ -28,7 +29,7 @@ import {
   getLocalizedChannelDescription,
   shouldShowChannelSlash,
 } from '@/utils/channels/orbyt';
-import { BORDER_RADIUS, ALGORITHMIC_FEED_PROVIDERS } from '@/utils/constants';
+import { BORDER_RADIUS, ALGORITHMIC_FEED_PROVIDERS, LAYOUT_INSETS } from '@/utils/constants';
 import { hexToRGBA, isColorDark } from '@/utils/formatting/colors';
 import { AtprotoFeedService } from '@/services/api/feed/FeedService';
 import { logger } from '@/utils/logger';
@@ -66,8 +67,24 @@ const AlgorithmicFeedScreen: React.FC = () => {
     unsubscribeFromChannel,
   } = useSubscribedChannels();
   const [selectedChannel, setSelectedChannel] = useState<ChannelUser | null>(null);
-  const [displayedTitle, setDisplayedTitle] = useState<string>('');
   const [subscribingChannels, setSubscribingChannels] = useState<Set<string>>(new Set());
+
+  const channelOptionsSheetTitle = useMemo(() => {
+    if (!selectedChannel) return '';
+    const name =
+      getLocalizedChannelDisplayName(selectedChannel.uri ?? '', selectedChannel.displayName) ||
+      selectedChannel.displayName ||
+      selectedChannel.handle ||
+      t('feed.unknownChannel');
+    if (
+      selectedChannel.isOrbytChannel &&
+      selectedChannel.uri &&
+      shouldShowChannelSlash(selectedChannel.uri)
+    ) {
+      return `/${name}`;
+    }
+    return name;
+  }, [selectedChannel, t]);
 
   // Fetch feed generator metadata from API
   const { data: blueskyVideoData } = useQuery({
@@ -171,24 +188,10 @@ const AlgorithmicFeedScreen: React.FC = () => {
     });
   }, [channels]);
 
-  const handleChannelPress = useCallback(
-    (channel: ChannelUser) => {
-      setSelectedChannel(channel);
-      TrueSheet.present('algorithmic-feed-channel-options');
-      // Set the displayed title immediately
-      const name =
-        getLocalizedChannelDisplayName(channel.uri ?? '', channel.displayName) ||
-        channel.displayName ||
-        channel.handle ||
-        t('feed.unknownChannel');
-      if (channel.isOrbytChannel && channel.uri && shouldShowChannelSlash(channel.uri)) {
-        setDisplayedTitle(`/${name}`);
-      } else {
-        setDisplayedTitle(name);
-      }
-    },
-    [t]
-  );
+  const handleChannelPress = useCallback((channel: ChannelUser) => {
+    setSelectedChannel(channel);
+    TrueSheet.present('algorithmic-feed-channel-options');
+  }, []);
 
   const handleViewChannel = useCallback(() => {
     if (selectedChannel?.uri) {
@@ -284,7 +287,10 @@ const AlgorithmicFeedScreen: React.FC = () => {
 
       <ScrollView
         style={styles.content}
-        contentContainerStyle={settingsLayoutStyles.contentContainerWithPadding}
+        contentContainerStyle={[
+          settingsLayoutStyles.contentContainerWithPadding,
+          { paddingHorizontal: LAYOUT_INSETS.SHEET_CONTENT },
+        ]}
         showsVerticalScrollIndicator={true}
       >
         {/* Info Section */}
@@ -302,6 +308,7 @@ const AlgorithmicFeedScreen: React.FC = () => {
                 label={option.displayName}
                 description={option.description}
                 onPress={() => handleSelectProvider(option.uri)}
+                style={SHEET_VERTICAL_LIST_ROW_OUTER}
                 rightIcon={
                   <SquircleView
                     style={[styles.optionCheckbox, selected && styles.optionCheckboxSelected]}
@@ -458,10 +465,13 @@ const AlgorithmicFeedScreen: React.FC = () => {
       <VerticalListSheet
         name="algorithmic-feed-channel-options"
         onDismiss={() => setSelectedChannel(null)}
-        title={displayedTitle || t('settings.channelOptions')}
-        showCancelButton={true}
       >
         <View style={styles.sheetContent}>
+          {channelOptionsSheetTitle ? (
+            <Text style={SHEET_STYLES.sheetScreenTitle} numberOfLines={2}>
+              {channelOptionsSheetTitle}
+            </Text>
+          ) : null}
           {selectedChannel && (
             <VerticalListButton label={t('common.view')} onPress={handleViewChannel} />
           )}
@@ -491,18 +501,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   infoSection: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 0,
     paddingTop: 8,
     paddingBottom: 16,
   },
   infoText: {
-    color: Colors.neutral[500],
+    color: Colors.neutral[200],
     fontSize: Typography.sizes.bodySmall,
     fontFamily: FontFamily.regular,
     lineHeight: Typography.lineHeights.bodySmall,
   },
   channelsSectionHeader: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 0,
     paddingTop: 15,
     paddingBottom: 8,
   },
@@ -518,7 +528,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 8,
-    paddingHorizontal: 20,
+    paddingHorizontal: 0,
     backgroundColor: Colors.transparent,
   },
   channelAvatar: {
@@ -590,7 +600,7 @@ const styles = StyleSheet.create({
   emptyContainer: {
     alignItems: 'center',
     paddingVertical: 40,
-    paddingHorizontal: 20,
+    paddingHorizontal: 0,
   },
   emptyIcon: {
     marginBottom: 16,
@@ -625,7 +635,6 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.semibold,
   },
   sheetContent: {
-    paddingHorizontal: 12,
     paddingBottom: 12,
   },
 });

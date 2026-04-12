@@ -1300,7 +1300,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.neutral[975],
     minHeight: 0,
     position: 'relative',
   },
@@ -1336,21 +1336,21 @@ const styles = StyleSheet.create({
   },
 
   listContent: {
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.neutral[975],
     paddingHorizontal: 20,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.neutral[975],
     minHeight: 200,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     minHeight: 220,
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.neutral[975],
   },
   emptyContent: {
     flex: 1,
@@ -1367,11 +1367,11 @@ const styles = StyleSheet.create({
 
   likeDivider: {
     height: 1,
-    backgroundColor: Colors.neutral[900],
+    backgroundColor: Colors.neutral[800],
     marginLeft: 52,
   },
   composerFooter: {
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.neutral[975],
   },
   replyBanner: {
     flexDirection: 'row',
@@ -1381,8 +1381,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: Colors.neutral[900],
-    backgroundColor: Colors.neutral[950],
+    borderColor: Colors.neutral[925],
+    backgroundColor: Colors.neutral[975],
   },
   replyBannerText: {
     color: Colors.neutral[200],

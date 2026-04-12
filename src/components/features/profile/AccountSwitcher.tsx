@@ -218,7 +218,8 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
           showCheckmark={shouldShowCheckmark}
           showCheckmarkSpinner={isSwitchTarget && !editMode}
           onDeletePress={() => handleRemoveAccount(account)}
-          backgroundColor={Colors.neutral[900]}
+          backgroundColor={Colors.neutral[925]}
+          style={styles.accountRow}
           onPress={() => {
             if (!isActive && !editMode) {
               if (savedAccounts.length > 1) {
@@ -242,31 +243,35 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
 
   const keyExtractor = useCallback((item: AccountListItem) => item.data.id, []);
 
-  const customHeaderButton =
-    savedAccounts.length > 1 ? (
-      <SquircleButton
-        onPress={toggleEditMode}
-        disabled={isSwitchingAccount || isAuthenticating}
-        style={[
-          styles.headerEditButton,
-          (isSwitchingAccount || isAuthenticating) && styles.headerEditButtonDisabled,
-        ]}
-      >
-        <Text style={SHEET_STYLES.headerActionButtonText}>
-          {editMode ? t('common.done') : t('common.edit')}
-        </Text>
-      </SquircleButton>
-    ) : null;
-
   return (
     <>
-      <VerticalListSheet
-        name="account-switcher"
-        onDismiss={onDismiss}
-        title={t('auth.accounts')}
-        customHeaderButton={customHeaderButton}
-        scrollable={false}
-      >
+      <VerticalListSheet name="account-switcher" onDismiss={onDismiss} scrollable={false}>
+        {savedAccounts.length > 1 ? (
+          <View style={SHEET_STYLES.sheetScreenTitleRow}>
+            <Text
+              style={[SHEET_STYLES.sheetScreenTitle, SHEET_STYLES.sheetScreenTitleFlex]}
+              numberOfLines={1}
+            >
+              {t('auth.accounts')}
+            </Text>
+            <SquircleButton
+              onPress={toggleEditMode}
+              disabled={isSwitchingAccount || isAuthenticating}
+              style={[
+                styles.headerEditButton,
+                (isSwitchingAccount || isAuthenticating) && styles.headerEditButtonDisabled,
+              ]}
+            >
+              <Text style={SHEET_STYLES.headerActionButtonText}>
+                {editMode ? t('common.done') : t('common.edit')}
+              </Text>
+            </SquircleButton>
+          </View>
+        ) : (
+          <Text style={SHEET_STYLES.sheetScreenTitle} numberOfLines={1}>
+            {t('auth.accounts')}
+          </Text>
+        )}
         <View>
           {listData.map(item => (
             <React.Fragment key={keyExtractor(item)}>{renderAccountItem({ item })}</React.Fragment>
@@ -285,10 +290,16 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
 };
 
 const styles = StyleSheet.create({
+  accountRow: {
+    marginBottom: 12,
+  },
   headerEditButton: {
     ...SHEET_STYLES.headerActionButton,
+    /** Visible on neutral[975] sheet (`headerActionButton` was same fill as sheet). */
+    backgroundColor: Colors.neutral[925],
     paddingHorizontal: SHEET_SPACING.headerActionHorizontalComfortable,
     minWidth: 72,
+    flexShrink: 0,
   },
   headerEditButtonDisabled: {
     opacity: 0.5,

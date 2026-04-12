@@ -92,7 +92,7 @@ const FilterOption: React.FC<{
   <SquircleNativePressable onPress={onPress} style={styles.filterOption}>
     <Text style={styles.filterOptionLabel}>{label}</Text>
     <View style={[styles.checkbox, checked && styles.checkboxSelected]}>
-      {checked && <Icon name="check" size={16} color={Colors.black} />}
+      {checked && <Icon name="check" size={16} color={Colors.neutral[975]} />}
     </View>
   </SquircleNativePressable>
 );
@@ -213,7 +213,7 @@ export default function NotificationFilterModal() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.neutral[975],
   },
   sectionTitleRow: {
     flexDirection: 'row',
@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 16,
     paddingHorizontal: 18,
-    backgroundColor: Colors.neutral[900],
+    backgroundColor: Colors.neutral[925],
     borderRadius: BORDER_RADIUS.LARGE,
   },
   filterOptionLabel: {

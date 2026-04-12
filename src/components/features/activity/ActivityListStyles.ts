@@ -91,7 +91,7 @@ export const activityListSharedStyles = StyleSheet.create({
   },
   dividerInset: {
     height: 1,
-    backgroundColor: Colors.neutral[900],
+    backgroundColor: Colors.neutral[925],
     marginLeft: ACTIVITY_LIST_TEXT_LEADING,
   },
 });

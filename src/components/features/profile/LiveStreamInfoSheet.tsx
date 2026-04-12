@@ -7,7 +7,6 @@ import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import {
   AppTrueSheet,
   CONTENT_TO_FOOTER_GAP_REDUCTION,
-  DEFAULT_GRABBER_OPTIONS,
   SheetActionFooter,
   useMeasuredFooterHeight,
   getFooterBottomPadding,
@@ -99,8 +98,6 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
     <AppTrueSheet
       name="live-stream-info-sheet"
       onDidDismiss={onDismiss}
-      grabber={true}
-      grabberOptions={DEFAULT_GRABBER_OPTIONS}
       header={
         status && displayThumbnail ? (
           <View
@@ -138,7 +135,7 @@ const LiveStreamInfoSheet: React.FC<LiveStreamInfoSheetProps> = ({
         )
       }
       footer={wrapFooter(
-        <SheetActionFooter bottomPadding={footerBottomPadding} backgroundColor={Colors.black}>
+        <SheetActionFooter bottomPadding={footerBottomPadding}>
           <CancelButton onPress={handleClosePress} text={t('common.close')} />
         </SheetActionFooter>
       )}

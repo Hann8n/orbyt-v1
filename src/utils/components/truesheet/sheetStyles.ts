@@ -12,6 +12,12 @@ import {
 } from './trueSheetPresets';
 import { COMPOSER_INPUT_PADDING, COMPOSER_INPUT_DIMENSIONS } from './utils';
 
+/** Outer margins for full-width list rows in sheets (`VerticalListSheet` list buttons). Pair with content `paddingHorizontal: DEFAULT_CONTENT_PADDING_HORIZONTAL`. */
+export const SHEET_VERTICAL_LIST_ROW_OUTER: ViewStyle = {
+  marginHorizontal: 0,
+  marginBottom: 8,
+};
+
 export const SHEET_STYLES: {
   headerContainer: ViewStyle;
   headerTitle: TextStyle;
@@ -25,6 +31,12 @@ export const SHEET_STYLES: {
   footerCenteredActions: ViewStyle;
   selectorBox: ViewStyle;
   selectorBoxSelected: ViewStyle;
+  /** In-body screen title (no native sheet header): short, confident, sits under grabber. */
+  sheetScreenTitle: TextStyle;
+  /** Row for title + trailing control (e.g. Edit). */
+  sheetScreenTitleRow: ViewStyle;
+  /** Use with `sheetScreenTitle` when the title shares a row with a button. */
+  sheetScreenTitleFlex: TextStyle;
 } = {
   headerContainer: {
     flexDirection: 'row',
@@ -44,7 +56,7 @@ export const SHEET_STYLES: {
     justifyContent: 'center',
     minWidth: 50,
     height: 32,
-    backgroundColor: Colors.neutral[900],
+    backgroundColor: Colors.neutral[975],
     borderRadius: BORDER_RADIUS.MEDIUM,
   },
   headerActionButtonText: {
@@ -66,7 +78,7 @@ export const SHEET_STYLES: {
     width: '100%',
     alignSelf: 'stretch',
     paddingHorizontal: SHEET_SPACING.footerHorizontal,
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.neutral[975],
   },
   footerCenteredActions: {
     width: '100%',
@@ -85,6 +97,30 @@ export const SHEET_STYLES: {
     backgroundColor: Colors.neutral[50],
     borderColor: Colors.neutral[50],
   },
+  /** Inset comes from `VerticalListSheet` body padding — avoid `width: '100%'` + horizontal margin (RN overflow). */
+  sheetScreenTitle: {
+    color: Colors.neutral[50],
+    fontSize: Typography.sizes.h2,
+    lineHeight: Typography.lineHeights.h2,
+    fontFamily: FontFamily.bold,
+    letterSpacing: -0.35,
+    marginBottom: 10,
+  },
+  sheetScreenTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    alignSelf: 'stretch',
+    marginBottom: 10,
+    gap: 12,
+  },
+  /** Use with `sheetScreenTitle` inside `sheetScreenTitleRow` — row already applies horizontal inset. */
+  sheetScreenTitleFlex: {
+    flex: 1,
+    minWidth: 0,
+    marginBottom: 0,
+    marginHorizontal: 0,
+  },
 };
 
 /** Shared composer input styles (chat, SendTo, comments). */
@@ -94,7 +130,7 @@ export const COMPOSER_STYLES = StyleSheet.create({
     paddingHorizontal: COMPOSER_INPUT_PADDING.horizontal,
     paddingTop: COMPOSER_INPUT_PADDING.vertical,
     paddingBottom: COMPOSER_INPUT_PADDING.vertical,
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.neutral[975],
   },
   /** Row layout for input + send button. */
   row: {
@@ -110,7 +146,7 @@ export const COMPOSER_STYLES = StyleSheet.create({
     paddingHorizontal: COMPOSER_INPUT_PADDING.horizontal,
     paddingTop: COMPOSER_INPUT_PADDING.vertical,
     paddingBottom: COMPOSER_INPUT_PADDING.vertical,
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.neutral[975],
   },
   inputWrapper: {
     flex: 1,

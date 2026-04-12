@@ -1470,7 +1470,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 4,
     overflow: 'hidden',
-    backgroundColor: hexToRGBA(Colors.neutral[900], 0.6),
+    backgroundColor: hexToRGBA(Colors.neutral[925], 0.6),
     borderWidth: 1,
     borderColor: hexToRGBA(Colors.neutral[700], 0.5),
   },
@@ -1481,7 +1481,7 @@ const styles = StyleSheet.create({
   linkPreviewThumbWrap: {
     width: '100%',
     aspectRatio: 1200 / 630, // OG image spec (1.91:1)
-    backgroundColor: Colors.neutral[900],
+    backgroundColor: Colors.neutral[925],
   },
   linkPreviewThumb: {
     width: '100%',

@@ -16,6 +16,9 @@
  * All colors tested for WCAG AA compliance.
  */
 
+/** Full-bleed dark + ink on light surfaces — same as `neutral[975]` (cool blue-grey, not #000). */
+const CANONICAL_BLACK = '#05070a' as const;
+
 export const Colors = {
   // ═══════════════════════════════════════════════════════════════════════════
   // BRAND COLORS (Original Orbyt colors)
@@ -111,7 +114,11 @@ export const Colors = {
     700: '#282f3d',
     800: '#1a1f2a',
     900: '#0e141b', // ← Default profile background / dark
+    /** Between 900 and 950: raised rows/cards on 975 (mid blend, same hue family). */
+    925: '#0c1118',
     950: '#0a0e14',
+    /** Deepest neutral; same hex as `Colors.black` (canonical app “black”). */
+    975: CANONICAL_BLACK,
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -185,17 +192,19 @@ export const Colors = {
   // ═══════════════════════════════════════════════════════════════════════════
   // ESSENTIAL & OVERLAYS (use scale above: neutral[N], purple[N], coral[N], etc.)
   // ═══════════════════════════════════════════════════════════════════════════
-  black: '#000000',
+  /** Alias of `neutral[975]` — use for backgrounds/text instead of literal #000. */
+  black: CANONICAL_BLACK,
 
+  /** Translucent scrims — RGB matches `CANONICAL_BLACK` (#05070a), not pure #000. */
   overlay: {
-    black15: 'rgba(0, 0, 0, 0.15)',
-    black35: 'rgba(0, 0, 0, 0.35)',
-    black50: 'rgba(0, 0, 0, 0.50)',
-    black60: 'rgba(0, 0, 0, 0.60)',
-    black70: 'rgba(0, 0, 0, 0.70)',
-    black75: 'rgba(0, 0, 0, 0.75)',
-    black85: 'rgba(0, 0, 0, 0.85)',
-    black95: 'rgba(0, 0, 0, 0.95)',
+    black15: 'rgba(5, 7, 10, 0.15)',
+    black35: 'rgba(5, 7, 10, 0.35)',
+    black50: 'rgba(5, 7, 10, 0.50)',
+    black60: 'rgba(5, 7, 10, 0.60)',
+    black70: 'rgba(5, 7, 10, 0.70)',
+    black75: 'rgba(5, 7, 10, 0.75)',
+    black85: 'rgba(5, 7, 10, 0.85)',
+    black95: 'rgba(5, 7, 10, 0.95)',
     white10: 'rgba(255, 255, 255, 0.10)',
     white30: 'rgba(255, 255, 255, 0.30)',
     white80: 'rgba(255, 255, 255, 0.80)',
@@ -206,4 +215,5 @@ export const Colors = {
 
 // Type helpers for color scales
 export type ColorScale = 50 | 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900 | 950;
-export type NeutralScale = 0 | ColorScale;
+/** Neutral adds `925` / `975` between standard steps (other scales stop at 950). */
+export type NeutralScale = 0 | ColorScale | 925 | 975;

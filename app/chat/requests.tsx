@@ -27,7 +27,7 @@ export default function ChatRequestsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.neutral[975],
   },
   list: {
     flex: 1,

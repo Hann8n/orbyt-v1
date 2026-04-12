@@ -76,10 +76,10 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     width: '80%',
-    backgroundColor: Colors.neutral[900],
+    backgroundColor: Colors.neutral[925],
     borderRadius: BORDER_RADIUS.MEDIUM,
     padding: 20,
-    boxShadow: '0 2px 4px rgba(0,0,0,0.25)',
+    boxShadow: '0 2px 4px rgba(5,7,10,0.25)',
   },
   modalTitle: {
     color: Colors.neutral[50],

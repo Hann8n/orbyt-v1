@@ -1,7 +1,7 @@
 /**
  * App-wide TrueSheet wrapper that applies consistent defaults.
- * Use for all sheets - applies DEFAULT_SHEET_PROPS (black background, no grabber, auto detents).
- * Override any prop (like detents) as needed.
+ * Use for all sheets — applies DEFAULT_SHEET_PROPS (neutral surface, grabber, auto detents).
+ * Override any prop (like detents or grabber) as needed.
  */
 
 import { forwardRef } from 'react';

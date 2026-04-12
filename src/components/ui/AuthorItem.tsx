@@ -330,7 +330,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
       ? backgroundColor
       : isListRow
         ? Colors.transparent
-        : Colors.neutral[900];
+        : Colors.neutral[925];
 
   const rootStyle = [
     isListRow ? styles.listRowContainer : styles.container,

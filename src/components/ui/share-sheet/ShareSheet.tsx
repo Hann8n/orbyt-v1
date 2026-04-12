@@ -9,7 +9,6 @@ import { SquircleView } from '../Squircle';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import {
   AppTrueSheet,
-  CONTENT_TO_FOOTER_GAP_REDUCTION,
   DEFAULT_CONTENT_PADDING_HORIZONTAL,
   FOOTER_TOP_PADDING_DEFAULT,
   SheetActionFooter,
@@ -487,6 +486,7 @@ const ShareSheet: React.FC = () => {
     return (
       <AppTrueSheet
         name="share-sheet"
+        grabber={false}
         onDidPresent={() => setIsSheetPresented(true)}
         onDidDismiss={handleDismiss}
       >
@@ -499,29 +499,20 @@ const ShareSheet: React.FC = () => {
     <>
       <AppTrueSheet
         name="share-sheet"
+        grabber={false}
         onDidPresent={() => setIsSheetPresented(true)}
         onDidDismiss={handleDismiss}
         header={headerComponent}
         footer={wrapFooter(
-          <SheetActionFooter
-            bottomPadding={footerBottomPadding}
-            topPadding={footerTop}
-            backgroundColor={Colors.black}
-          >
+          <SheetActionFooter bottomPadding={footerBottomPadding} topPadding={footerTop}>
             <CancelButton onPress={dismissSheet} text={t('common.close')} />
           </SheetActionFooter>
         )}
       >
-        <View
-          style={[
-            styles.contentContainer,
-            {
-              paddingBottom: Math.max(0, contentBottomPadding - CONTENT_TO_FOOTER_GAP_REDUCTION),
-            },
-          ]}
-        >
+        <View style={[styles.contentContainer, { paddingBottom: contentBottomPadding }]}>
           <ScrollView
             horizontal
+            style={styles.optionsScroll}
             showsHorizontalScrollIndicator={
               menuOptions.length >=
               SCROLL_INDICATOR_CONSTANTS.SHARE_ACTIONS_ROW_HORIZONTAL_MIN_ITEMS
@@ -577,7 +568,7 @@ const ShareSheet: React.FC = () => {
                   const accentTextColor = Colors.pink[950];
                   const isActive = pressed || isSelected;
                   const foregroundColor = isActive ? accentTextColor : Colors.neutral[50];
-                  const backgroundColor = isActive ? accentColor : Colors.neutral[900];
+                  const backgroundColor = isActive ? accentColor : Colors.neutral[975];
 
                   return (
                     <SquircleView style={[styles.feedbackButton, { backgroundColor }]}>
@@ -601,7 +592,7 @@ const ShareSheet: React.FC = () => {
                   const accentTextColor = Colors.blue[950];
                   const isActive = pressed || isSelected;
                   const foregroundColor = isActive ? accentTextColor : Colors.neutral[50];
-                  const backgroundColor = isActive ? accentColor : Colors.neutral[900];
+                  const backgroundColor = isActive ? accentColor : Colors.neutral[975];
 
                   return (
                     <SquircleView style={[styles.feedbackButton, { backgroundColor }]}>
@@ -647,6 +638,9 @@ const styles = StyleSheet.create({
     // Extend options row to sheet edges while preserving overall content padding
     marginLeft: -DEFAULT_CONTENT_PADDING_HORIZONTAL,
     marginRight: -DEFAULT_CONTENT_PADDING_HORIZONTAL,
+  },
+  optionsScroll: {
+    marginBottom: 24,
   },
   optionsContainer: {
     flexDirection: 'row',

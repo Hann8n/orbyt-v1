@@ -12,12 +12,12 @@ interface BlurredBackgroundProps {
 }
 
 const RAW_AMBIENT_PAIRS: ReadonlyArray<readonly [string, string]> = [
-  [Colors.purple[900], Colors.neutral[900]],
+  [Colors.purple[900], Colors.neutral[925]],
   [Colors.blue[900], Colors.purple[900]],
-  [Colors.teal[900], Colors.neutral[900]],
+  [Colors.teal[900], Colors.neutral[925]],
   [Colors.pink[900], Colors.purple[900]],
   [Colors.coral[900], Colors.purple[900]],
-  [Colors.neutral[800], Colors.neutral[950]],
+  [Colors.neutral[800], Colors.neutral[975]],
 ];
 
 const DIM_STOP_PRIMARY = 0.38;

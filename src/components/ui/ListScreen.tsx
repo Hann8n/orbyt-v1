@@ -189,7 +189,7 @@ const ListScreen: React.FC<ListScreenProps> = ({
 
   if (isLoading) {
     return (
-      <View style={[styles.container, { backgroundColor: Colors.black }]}>
+      <View style={[styles.container, { backgroundColor: Colors.neutral[975] }]}>
         {renderListHeader()}
         <FlashList
           data={[]}
@@ -205,7 +205,7 @@ const ListScreen: React.FC<ListScreenProps> = ({
 
   if (error) {
     return (
-      <View style={[styles.container, { backgroundColor: Colors.black }]}>
+      <View style={[styles.container, { backgroundColor: Colors.neutral[975] }]}>
         {renderListHeader()}
         <FlashList
           data={[]}
@@ -220,7 +220,7 @@ const ListScreen: React.FC<ListScreenProps> = ({
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: Colors.black }]}>
+    <View style={[styles.container, { backgroundColor: Colors.neutral[975] }]}>
       {renderListHeader()}
       <FlashList
         data={data}

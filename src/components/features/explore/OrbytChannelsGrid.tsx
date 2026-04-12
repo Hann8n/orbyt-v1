@@ -110,7 +110,7 @@ const GridChannelItem = ({
             style={[
               styles.gridChannelImage,
               styles.centerContent,
-              { backgroundColor: Colors.neutral[900] },
+              { backgroundColor: Colors.neutral[925] },
             ]}
           >
             <Icon name="tv_2" size={thumbnailHeight * 0.4} color={Colors.neutral[500]} />

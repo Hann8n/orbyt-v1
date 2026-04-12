@@ -1067,7 +1067,7 @@ const styles = StyleSheet.create({
     height: 80, // 9:16 aspect ratio (45/80 = 0.5625)
     borderRadius: BORDER_RADIUS.SMALL,
     overflow: 'hidden',
-    backgroundColor: Colors.neutral[900],
+    backgroundColor: Colors.neutral[925],
   },
   thumbnailAppleZoomInner: {
     flex: 1,
@@ -1081,7 +1081,7 @@ const styles = StyleSheet.create({
   thumbnailPlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: Colors.neutral[900],
+    backgroundColor: Colors.neutral[925],
   },
   errorContainer: {
     flex: 1,

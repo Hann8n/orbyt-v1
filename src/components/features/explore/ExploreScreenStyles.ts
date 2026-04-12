@@ -258,7 +258,7 @@ export const exploreScreenStyles = StyleSheet.create({
     width: 90,
     height: 160, // 9:16 aspect ratio (90 * 16/9)
     borderRadius: BORDER_RADIUS.SMALL,
-    backgroundColor: Colors.neutral[900],
+    backgroundColor: Colors.neutral[925],
     justifyContent: 'center',
     alignItems: 'center',
   },

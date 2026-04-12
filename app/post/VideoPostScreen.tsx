@@ -62,6 +62,7 @@ import VerticalListSheet, {
   VerticalListButton,
   TrueSheet,
 } from '@/components/ui/VerticalListSheet';
+import { SHEET_STYLES } from '@/utils/components/truesheet';
 import { useRichTextSearchTrigger, RichTextSearchModal } from '@/components/ui/usersearch';
 import { useRichText, formatRichTextForDisplay } from '@/hooks/useRichText';
 
@@ -1262,15 +1263,9 @@ const VideoPostScreen: React.FC = () => {
         insets={insets}
       />
 
-      <VerticalListSheet
-        name="post-content-warnings-sheet"
-        onDismiss={() => {}}
-        title={t('video.warnings')}
-        scrollable={false}
-        showCancelButton={true}
-        cancelButtonText={t('common.close')}
-      >
+      <VerticalListSheet name="post-content-warnings-sheet" onDismiss={() => {}} scrollable={false}>
         <View style={styles.sheetContent}>
+          <Text style={SHEET_STYLES.sheetScreenTitle}>{t('video.warnings')}</Text>
           {CONTENT_WARNINGS.map(warning => (
             <NativePressable
               key={warning.id}
@@ -1325,14 +1320,9 @@ const VideoPostScreen: React.FC = () => {
         </View>
       </VerticalListSheet>
 
-      <VerticalListSheet
-        name="post-comment-settings-sheet"
-        onDismiss={() => {}}
-        title={t('video.comments')}
-        showCancelButton={true}
-        cancelButtonText={t('common.close')}
-      >
+      <VerticalListSheet name="post-comment-settings-sheet" onDismiss={() => {}}>
         <View style={styles.sheetContent}>
+          <Text style={SHEET_STYLES.sheetScreenTitle}>{t('video.comments')}</Text>
           {COMMENT_FILTERS.map(filter => (
             <VerticalListButton
               key={filter.id}
@@ -1346,16 +1336,7 @@ const VideoPostScreen: React.FC = () => {
         </View>
       </VerticalListSheet>
 
-      <VerticalListSheet
-        name="post-channel-selection-sheet"
-        onDismiss={() => {}}
-        title={t('video.pickChannel')}
-        scrollable={true}
-        showCancelButton={true}
-        cancelButtonText={t('common.close')}
-        titleSize={26}
-        hideCloseButton={true}
-      >
+      <VerticalListSheet name="post-channel-selection-sheet" onDismiss={() => {}} scrollable={true}>
         <ScrollView
           style={styles.sheetContent}
           contentContainerStyle={[
@@ -1364,6 +1345,7 @@ const VideoPostScreen: React.FC = () => {
           ]}
           showsVerticalScrollIndicator={true}
         >
+          <Text style={SHEET_STYLES.sheetScreenTitle}>{t('video.pickChannel')}</Text>
           <VerticalListButton
             label={t('settings.none')}
             onPress={() => {
@@ -1922,7 +1904,6 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.LARGE,
     paddingVertical: 12,
     paddingHorizontal: 14,
-    marginHorizontal: 0,
     marginBottom: 8,
     backgroundColor: Colors.neutral[900],
     overflow: 'hidden',
@@ -1966,7 +1947,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 20,
     paddingHorizontal: 20,
-    marginHorizontal: 0,
+    marginHorizontal: 16,
     marginBottom: 8,
     backgroundColor: Colors.neutral[900],
     borderRadius: BORDER_RADIUS.LARGE,
@@ -1978,7 +1959,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sheetInputContainer: {
-    marginHorizontal: 0,
     marginBottom: 8,
   },
   sheetInputContainerKeyboard: {

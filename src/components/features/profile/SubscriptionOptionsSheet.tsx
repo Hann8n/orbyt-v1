@@ -1,7 +1,8 @@
 import React, { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import VerticalListSheet, { VerticalListCheckboxButton } from '../../ui/VerticalListSheet';
+import { SHEET_STYLES } from '../../../utils/components/truesheet';
 import { useSubscriptionStore } from '../../../stores/subscriptionStore';
 import { useSheetPresentation } from '../../../hooks';
 
@@ -60,15 +61,14 @@ const SubscriptionOptionsSheet: React.FC<SubscriptionOptionsSheetProps> = ({
   );
 
   return (
-    <VerticalListSheet
-      name="subscription-options-sheet"
-      onDismiss={onDismiss}
-      title={t('profile.keepMePosted')}
-      description={t('profile.getNotifiedActivity')}
-      showCancelButton={true}
-      cancelButtonText={t('common.done')}
-    >
+    <VerticalListSheet name="subscription-options-sheet" onDismiss={onDismiss}>
       <View style={styles.content}>
+        <Text style={[SHEET_STYLES.sheetScreenTitle, styles.subscriptionTitle]}>
+          {t('profile.keepMePosted')}
+        </Text>
+        <Text style={[SHEET_STYLES.descriptionText, styles.subtitle]}>
+          {t('profile.getNotifiedActivity')}
+        </Text>
         <VerticalListCheckboxButton
           label={t('profile.posts')}
           checked={preferences.post}
@@ -87,6 +87,13 @@ const SubscriptionOptionsSheet: React.FC<SubscriptionOptionsSheetProps> = ({
 
 const styles = StyleSheet.create({
   content: {},
+  subscriptionTitle: {
+    marginBottom: 6,
+  },
+  subtitle: {
+    marginTop: 0,
+    marginBottom: 18,
+  },
 });
 
 export default SubscriptionOptionsSheet;

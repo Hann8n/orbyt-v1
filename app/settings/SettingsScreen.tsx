@@ -12,6 +12,7 @@ import ListHeader from '@/components/ui/ListHeader';
 import { OptionsButton } from '@/components/ui/OptionsButton';
 import { useAuth, useCurrentUser, useAccountManagement, useUserStore } from '@/stores/userStore';
 import { settingsTextStyles, settingsLayoutStyles } from './SettingsStyles';
+import { SHEET_VERTICAL_LIST_ROW_OUTER } from '@/utils/components/truesheet';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useGlobalAccountSwitcher } from '@/hooks/useGlobalModals';
@@ -476,7 +477,7 @@ ${deviceInfo}`
   });
 
   return (
-    <View style={[settingsLayoutStyles.container, { backgroundColor: Colors.black }]}>
+    <View style={settingsLayoutStyles.container}>
       <ListHeader
         mode="sheet"
         title={t('settings.title')}
@@ -486,7 +487,7 @@ ${deviceInfo}`
         backgroundColor={Colors.transparent}
       />
       <ScrollView
-        contentContainerStyle={settingsLayoutStyles.contentContainerWithPadding}
+        contentContainerStyle={settingsLayoutStyles.settingsRootScrollContent}
         showsVerticalScrollIndicator={true}
       >
         {listData.map((item, index) => {
@@ -533,6 +534,7 @@ ${deviceInfo}`
                       linkType="internal"
                       destructive={item.destructive}
                       disabled={isSubmitting}
+                      style={SHEET_VERTICAL_LIST_ROW_OUTER}
                       rightIcon={
                         profileFeedViewMode === 'grid' ? (
                           <GridViewIcon size={20} color={Colors.neutral[200]} />
@@ -552,6 +554,7 @@ ${deviceInfo}`
                   linkType={item.linkType}
                   destructive={item.destructive}
                   disabled={isSubmitting}
+                  style={SHEET_VERTICAL_LIST_ROW_OUTER}
                   rightIcon={
                     item.id === 'copy-profile-link' && isProfileLinkCopied ? (
                       <Icon name="check" size={18} color={Colors.teal[300]} />
@@ -570,6 +573,7 @@ ${deviceInfo}`
                   showSwitch={true}
                   switchValue={item.value}
                   onSwitchChange={item.onValueChange}
+                  style={SHEET_VERTICAL_LIST_ROW_OUTER}
                 />
               );
             case 'spacer':
@@ -609,7 +613,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   footerSubtext: {
-    color: Colors.neutral[500],
+    color: Colors.neutral[200],
     fontSize: Typography.sizes.caption,
     fontFamily: FontFamily.regular,
     textAlign: 'center',
@@ -621,7 +625,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   versionText: {
-    color: Colors.neutral[600],
+    color: Colors.neutral[500],
     fontSize: Typography.sizes.caption,
     fontFamily: FontFamily.regular,
     textAlign: 'center',

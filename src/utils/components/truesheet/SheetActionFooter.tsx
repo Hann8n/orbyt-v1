@@ -15,7 +15,7 @@ const SheetActionFooter: React.FC<SheetActionFooterProps> = ({
   children,
   bottomPadding,
   topPadding = FOOTER_TOP_PADDING_DEFAULT,
-  backgroundColor = Colors.black,
+  backgroundColor = Colors.neutral[975],
 }) => {
   return (
     <View style={[styles.footerContainer, { paddingBottom: bottomPadding, backgroundColor }]}>

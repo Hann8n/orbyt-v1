@@ -15,7 +15,7 @@ export const hexToRGBA = (hex: string, alpha: number): string => {
 /**
  * Blends two hex colors together to create a solid color
  * @param color1 First hex color (e.g., '#FFFFFF')
- * @param color2 Second hex color (e.g., '#000000')
+ * @param color2 Second hex color (e.g., `Colors.black` / '#05070a')
  * @param ratio Blend ratio (0-1), where 0 = color1, 1 = color2
  * @returns Blended hex color string
  */
@@ -373,9 +373,9 @@ function getBestColor(result: ImageColorsResult): {
   foregroundColor: string;
   accentColor?: string;
 } {
-  let backgroundColor = '#000000';
-  let foregroundColor = '#FFFFFF';
-  let accentColor = '#FFFFFF';
+  let backgroundColor: string = Colors.black;
+  let foregroundColor: string = '#FFFFFF';
+  let accentColor: string = '#FFFFFF';
 
   if (result.platform === 'android') {
     // Prioritize vibrant colors for more dynamic headers
@@ -403,7 +403,7 @@ function getBestColor(result: ImageColorsResult): {
       foregroundColor = result.lightVibrant || result.lightMuted || '#FFFFFF';
     } else {
       // For light backgrounds, use dark colors
-      foregroundColor = result.darkVibrant || result.darkMuted || result.muted || '#000000';
+      foregroundColor = result.darkVibrant || result.darkMuted || result.muted || Colors.black;
     }
 
     // Select accent color (prefer bright/vibrant)
@@ -426,7 +426,7 @@ function getBestColor(result: ImageColorsResult): {
       foregroundColor = result.secondary || result.detail || '#FFFFFF';
     } else {
       // For light backgrounds, use dark colors
-      foregroundColor = result.primary || '#000000';
+      foregroundColor = result.primary || Colors.black;
     }
 
     // Select accent color
@@ -447,7 +447,7 @@ function getBestColor(result: ImageColorsResult): {
     if (isColorDark(backgroundColor)) {
       foregroundColor = result.lightVibrant || '#FFFFFF';
     } else {
-      foregroundColor = result.darkVibrant || '#000000';
+      foregroundColor = result.darkVibrant || Colors.black;
     }
 
     accentColor = result.lightVibrant || result.vibrant || '#FFFFFF';
@@ -466,7 +466,7 @@ function getBestColor(result: ImageColorsResult): {
   // If colors are the same or contrast is too low, force a contrasting color
   if (normalizedBg === normalizedFg || contrast < 3.0) {
     // Force a contrasting color based on background brightness
-    foregroundColor = isColorDark(backgroundColor) ? '#FFFFFF' : '#000000';
+    foregroundColor = isColorDark(backgroundColor) ? '#FFFFFF' : Colors.black;
   }
 
   return { backgroundColor, foregroundColor, accentColor };

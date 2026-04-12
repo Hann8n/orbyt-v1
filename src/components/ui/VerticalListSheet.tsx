@@ -1,6 +1,5 @@
 import React from 'react';
-import { useTranslation } from 'react-i18next';
-import { View, Text, StyleSheet, ViewStyle, TextStyle, StyleProp } from 'react-native';
+import { View, StyleSheet, ViewStyle, TextStyle, StyleProp } from 'react-native';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -9,16 +8,10 @@ export { TrueSheet };
 import {
   AppTrueSheet,
   type AppTrueSheetVariant,
-  CONTENT_TO_FOOTER_GAP_REDUCTION,
-  FOOTER_TOP_PADDING_DEFAULT,
   getFooterBottomPadding,
-  SheetActionFooter,
-  SHEET_STYLES,
-  useMeasuredFooterHeight,
 } from '../../utils/components/truesheet';
+import { LAYOUT_INSETS } from '../../utils/constants';
 import { CheckboxCuteFilledDuotoneIcon, CuteRegularSquareBoxEmptyIcon } from './Icon';
-import CloseButton from './CloseButton';
-import CancelButton from './CancelButton';
 import { Colors } from './UI';
 import { OptionsButton } from './OptionsButton';
 
@@ -28,52 +21,16 @@ interface VerticalListSheetProps {
    */
   name: string;
   onDismiss: () => void;
-  title: string;
   children: React.ReactNode;
-  showCancelButton?: boolean;
-  cancelButtonText?: string;
-  /**
-   * Description text displayed below the title
-   */
-  description?: string;
-  /**
-   * Custom header button to replace the close button
-   */
-  customHeaderButton?: React.ReactNode;
-  /**
-   * Custom title font size
-   */
-  titleSize?: number;
-  /**
-   * Hide the close button in the header
-   */
-  hideCloseButton?: boolean;
-  /**
-   * Custom top padding for the footer
-   */
-  footerTopPadding?: number;
   /**
    * Enable native scrollable content pinning (default: false).
    * Only set true if the sheet's direct content is a ScrollView/FlatList; we usually use our own ScrollView inside a View.
    */
   scrollable?: boolean;
   /**
-   * Custom bottom padding for content (overrides default calculation)
+   * Custom bottom padding for content (overrides default safe-area padding).
    */
   contentBottomPadding?: number;
-  /**
-   * Custom footer component (replaces default cancel button)
-   */
-  customFooter?: React.ReactNode;
-  /**
-   * Override bottom padding below the footer button. Default uses safe area.
-   * Set to 0 to remove extra padding (e.g. when TrueSheet already handles safe area).
-   */
-  footerBottomPadding?: number;
-  /**
-   * Background color for the footer area (default: Colors.black).
-   */
-  footerBackgroundColor?: string;
   /**
    * TrueSheet presentation variant. Use `full` for full-height (detent 1) sheets such as auth flows.
    */
@@ -83,109 +40,26 @@ interface VerticalListSheetProps {
 const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
   name,
   onDismiss,
-  title,
   children,
-  showCancelButton = true,
-  cancelButtonText: cancelButtonTextProp,
-  description,
-  customHeaderButton,
-  titleSize,
-  hideCloseButton = false,
-  footerTopPadding,
   scrollable = false,
   contentBottomPadding,
-  customFooter,
-  footerBottomPadding: footerBottomPaddingProp,
-  footerBackgroundColor = Colors.black,
   variant = 'default',
 }) => {
-  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const cancelButtonText = cancelButtonTextProp ?? t('common.close');
-  // Use fixed padding only; TrueSheet's insetAdjustment='automatic' already accounts for safe area
-  const footerBottomPadding =
-    footerBottomPaddingProp !== undefined
-      ? footerBottomPaddingProp
-      : getFooterBottomPadding(insets.bottom);
-  const footerTop = footerTopPadding ?? FOOTER_TOP_PADDING_DEFAULT;
-  const hasFooter = showCancelButton || customFooter;
-  const fallbackFooterHeight = hasFooter ? footerTop + 44 + footerBottomPadding : 0;
-  const [measuredFooterHeight, wrapFooter] = useMeasuredFooterHeight(fallbackFooterHeight);
-
-  // Content padding so list isn't cut off by the footer (TrueSheet footer is position:absolute)
-  const contentPaddingBottom =
+  const paddingBottom =
     contentBottomPadding !== undefined
       ? contentBottomPadding
-      : hasFooter
-        ? Math.max(0, measuredFooterHeight - CONTENT_TO_FOOTER_GAP_REDUCTION)
-        : 0;
-
-  const handleDismiss = () => {
-    TrueSheet.dismiss(name).catch(() => {});
-  };
-
-  const headerComponent = (
-    <View style={styles.headerContainer}>
-      <Text
-        style={[
-          styles.headerTitle,
-          titleSize != null && { fontSize: titleSize, lineHeight: titleSize + 6 },
-        ]}
-        numberOfLines={1}
-      >
-        {title}
-      </Text>
-      {hideCloseButton ? (
-        <View style={styles.closeButtonSpacer} />
-      ) : customHeaderButton ? (
-        customHeaderButton
-      ) : (
-        <CloseButton onPress={handleDismiss} />
-      )}
-    </View>
-  );
+      : getFooterBottomPadding(insets.bottom);
 
   return (
-    <AppTrueSheet
-      name={name}
-      variant={variant}
-      onDidDismiss={onDismiss}
-      scrollable={scrollable}
-      header={headerComponent}
-      footer={
-        customFooter
-          ? wrapFooter(
-              <SheetActionFooter
-                bottomPadding={footerBottomPadding}
-                topPadding={footerTop}
-                backgroundColor={footerBackgroundColor}
-              >
-                {customFooter}
-              </SheetActionFooter>
-            )
-          : showCancelButton
-            ? wrapFooter(
-                <SheetActionFooter
-                  bottomPadding={footerBottomPadding}
-                  topPadding={footerTop}
-                  backgroundColor={footerBackgroundColor}
-                >
-                  <CancelButton onPress={handleDismiss} text={cancelButtonText} />
-                </SheetActionFooter>
-              )
-            : undefined
-      }
-    >
+    <AppTrueSheet name={name} variant={variant} onDidDismiss={onDismiss} scrollable={scrollable}>
       <View style={styles.content}>
-        {/* Description */}
-        {description && (
-          <View style={styles.descriptionContainer}>
-            <Text style={styles.descriptionText}>{description}</Text>
-          </View>
-        )}
-
-        {/* Content */}
-        <View style={[styles.contentContainer, { paddingBottom: contentPaddingBottom }]}>
+        <View
+          style={[
+            styles.contentContainer,
+            { paddingTop: LAYOUT_INSETS.SHEET_CONTENT, paddingBottom },
+          ]}
+        >
           {children}
         </View>
       </View>
@@ -194,15 +68,11 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
 };
 
 const styles = StyleSheet.create({
-  content: {
-    // Removed flex: 1 to allow 'auto' detent to properly size to content
+  content: {},
+  /** Matches `LAYOUT_INSETS.SHEET_CONTENT`; list rows use `marginHorizontal: 0` so they align with titles. */
+  contentContainer: {
+    paddingHorizontal: LAYOUT_INSETS.SHEET_CONTENT,
   },
-  headerContainer: SHEET_STYLES.headerContainer,
-  headerTitle: SHEET_STYLES.headerTitle,
-  closeButtonSpacer: SHEET_STYLES.headerCloseSpacer,
-  descriptionContainer: SHEET_STYLES.descriptionContainer,
-  descriptionText: SHEET_STYLES.descriptionText,
-  contentContainer: SHEET_STYLES.contentContainer,
   checkboxButtonCheckboxWrap: {
     width: 24,
     height: 24,
@@ -264,9 +134,9 @@ export const VerticalListButton: React.FC<{
       ? { backgroundColor: Colors.coral[500] }
       : undefined;
   const variantTextStyle: StyleProp<TextStyle> | undefined = isPrimary
-    ? { color: Colors.black }
+    ? { color: Colors.neutral[975] }
     : isDestructiveReversed
-      ? { color: Colors.black }
+      ? { color: Colors.neutral[975] }
       : undefined;
 
   return (
@@ -313,7 +183,7 @@ export const VerticalListCheckboxButton: React.FC<{
             <CheckboxCuteFilledDuotoneIcon
               size={24}
               boxColor={Colors.neutral[50]}
-              checkColor={Colors.black}
+              checkColor={Colors.neutral[975]}
               checkOpacity={1}
             />
           ) : (

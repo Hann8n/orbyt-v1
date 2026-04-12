@@ -838,7 +838,7 @@ const HeaderContentComponent = memo<{
                         { backgroundColor: Colors.brand.germBrandGreen },
                       ]}
                     >
-                      <GermDmIcon size={ICON_SIZES.SMALL} color={Colors.black} />
+                      <GermDmIcon size={ICON_SIZES.SMALL} />
                     </SquircleView>
                     <Text
                       style={[styles.subtitleActionLabel, { color: textColor }]}
@@ -865,7 +865,7 @@ const HeaderContentComponent = memo<{
                           { backgroundColor: Colors.brand.germBrandGreen },
                         ]}
                       >
-                        <GermDmIcon size={ICON_SIZES.SMALL} color={Colors.black} />
+                        <GermDmIcon size={ICON_SIZES.SMALL} />
                       </SquircleView>
                       <Text
                         style={[styles.subtitleSecondary, { color: hexToRGBA(textColor, 0.8) }]}
@@ -1290,7 +1290,7 @@ const styles = StyleSheet.create({
   actionButtonOuter: {
     borderRadius: BORDER_RADIUS.FULL,
     overflow: 'hidden',
-    boxShadow: '0 2px 3px rgba(0,0,0,0.1)',
+    boxShadow: '0 2px 3px rgba(5,7,10,0.1)',
   },
   actionButtonOuterNoShadow: {
     boxShadow: 'none',

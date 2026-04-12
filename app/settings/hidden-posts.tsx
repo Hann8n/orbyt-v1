@@ -213,7 +213,7 @@ const HiddenPostsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.neutral[975],
   },
 
   listContainer: {
@@ -225,12 +225,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    backgroundColor: Colors.neutral[900],
+    backgroundColor: Colors.neutral[925],
     borderRadius: BORDER_RADIUS.MEDIUM,
     padding: 16,
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: Colors.neutral[500],
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Colors.neutral[700],
   },
   postInfo: {
     flex: 1,
@@ -268,7 +268,7 @@ const styles = StyleSheet.create({
   unhideButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.neutral[900],
+    backgroundColor: Colors.neutral[925],
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: BORDER_RADIUS.SMALL,
@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
     height: 40,
     borderWidth: 1,
     borderColor: Colors.neutral[200],
-    shadowColor: Colors.black,
+    shadowColor: Colors.neutral[975],
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: Colors.neutral[900],
+    backgroundColor: Colors.neutral[925],
     justifyContent: 'center',
     alignItems: 'center',
   },

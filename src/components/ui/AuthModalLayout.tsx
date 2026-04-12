@@ -157,7 +157,7 @@ const AuthModalLayout: React.FC<AuthModalLayoutProps> = ({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.neutral[975],
   },
   grabberHost: {
     alignItems: 'center',
@@ -209,13 +209,13 @@ const styles = StyleSheet.create({
   },
   descriptionText: SHEET_STYLES.descriptionText,
   stickyOuter: {
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.neutral[975],
   },
   stickyInner: {
     paddingHorizontal: AUTH_MODAL_HORIZONTAL_GUTTER,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: Colors.neutral[800],
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.neutral[975],
   },
 });
 

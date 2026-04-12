@@ -243,7 +243,11 @@ export default function LoginScreen({ onAccountSwitch }: LoginScreenProps = {}) 
       <View style={styles.buttonContent} pointerEvents="none">
         {isLoading ? (
           <>
-            <ActivityIndicator size="small" color={Colors.black} style={styles.loadingIcon} />
+            <ActivityIndicator
+              size="small"
+              color={Colors.neutral[975]}
+              style={styles.loadingIcon}
+            />
             <Text style={styles.blueskyButtonText}>{t('auth.signingIn')}</Text>
           </>
         ) : (
@@ -392,7 +396,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 8,
     overflow: 'hidden',
-    shadowColor: Colors.black,
+    shadowColor: Colors.neutral[975],
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,
     shadowRadius: 16,
@@ -410,7 +414,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.FULL,
   },
   blueskyButtonText: {
-    color: Colors.black,
+    color: Colors.neutral[975],
     fontSize: Typography.sizes.title,
     fontFamily: FontFamily.bold,
   },

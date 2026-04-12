@@ -18,7 +18,7 @@ For dynamic color manipulation (hexToRGBA, blendColors), import from `src/utils/
 For profile ring / Orbyt profile colors, use hooks from `src/services/colors/`.
 
 - Migration note: existing code contains raw hex values (e.g. `'#000'`, `'#dc2626'`) and raw `rgba()` calls. New and modified code must use `Colors.*` tokens or `hexToRGBA()` from `src/utils/formatting/colors`. When touching a file with violations, migrate them.
-- **Exception — CSS `boxShadow` strings**: React Native 0.83+ accepts a CSS `boxShadow` string property (e.g. `boxShadow: '0 4px 6px rgba(0,0,0,0.20)'`). These strings require raw `rgba()` literals because `hexToRGBA()` produces a plain string, not a valid CSS shadow value. `rgba()` inside `boxShadow` strings is intentional and not a violation. See `src/theme/shadows.ts` for the canonical shadow tokens.
+- **Exception — CSS `boxShadow` strings**: React Native 0.83+ accepts a CSS `boxShadow` string property (e.g. `boxShadow: '0 4px 6px rgba(5,7,10,0.20)'` — tint RGB matches `Colors.black`). These strings use raw `rgba()` because `hexToRGBA()` returns a color string, not a full shadow declaration. Prefer `Shadows.*` from `src/theme/shadows.ts` when possible.
 
 ## Typography
 

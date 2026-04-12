@@ -194,7 +194,7 @@ export default function LoginSignInModal() {
             <Icon
               name="arrow_right"
               size={24}
-              color={signInCtaPrimary ? Colors.neutral[900] : Colors.neutral[500]}
+              color={signInCtaPrimary ? Colors.neutral[975] : Colors.neutral[500]}
             />
           </View>
         )}
@@ -220,7 +220,7 @@ export default function LoginSignInModal() {
             <Icon
               name="at"
               size={LOGIN_AT_ICON_SIZE}
-              color={Colors.black}
+              color={Colors.neutral[975]}
               style={authSheetStyles.inputIcon}
             />
           )}

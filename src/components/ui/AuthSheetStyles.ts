@@ -48,7 +48,7 @@ export const authSheetStyles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    color: Colors.black,
+    color: Colors.neutral[975],
     fontSize: Typography.sizes.h3,
     lineHeight: Typography.lineHeights.h3,
     height: '100%',

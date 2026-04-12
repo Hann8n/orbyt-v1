@@ -34,8 +34,8 @@ const ActivitySegmentedChips: React.FC<ActivitySegmentedChipsProps> = ({
 }) => {
   const { profileColors } = useCurrentUserOrbytShellColors();
   const activeChipColor = getTabBarActiveTintFromProfile(profileColors);
-  const activeTextColor = isColorDark(activeChipColor) ? Colors.neutral[50] : Colors.black;
-  const inactiveChipColor = blendColors(Colors.neutral[950], activeChipColor, 0.16);
+  const activeTextColor = isColorDark(activeChipColor) ? Colors.neutral[50] : Colors.neutral[975];
+  const inactiveChipColor = blendColors(Colors.neutral[975], activeChipColor, 0.16);
 
   // Keep inactive text subdued but ensure it stays readable on inactive chip fill.
   let inactiveTextColor = blendColors(Colors.neutral[300], activeChipColor, 0.45);
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
     gap: 6,
     padding: 4,
     borderRadius: BORDER_RADIUS.FULL,
-    backgroundColor: Colors.neutral[950],
+    backgroundColor: Colors.neutral[975],
   },
   chip: {
     paddingHorizontal: 14,
@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.FULL,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.neutral[900],
+    backgroundColor: Colors.neutral[925],
   },
   chipText: {
     fontSize: Typography.sizes.bodySmall,

@@ -101,8 +101,11 @@ function getLastMessagePreview(
     const embed = (msg as { embed?: unknown }).embed;
     if (embed && typeof embed === 'object') {
       const embedType = (embed as { $type?: string }).$type;
-      // MessageView embed in chat is app.bsky.embed.record#view (lexicon).
-      if (embedType === 'app.bsky.embed.record#view' && 'record' in embed) {
+      // MessageView embed: view lexicon id or main record id (same payload).
+      if (
+        (embedType === 'app.bsky.embed.record#view' || embedType === 'app.bsky.embed.record') &&
+        'record' in embed
+      ) {
         const record = (embed as { record?: EmbedRecordViewRecord }).record;
         if (record && typeof record === 'object') {
           const recordType = record.$type;
@@ -678,7 +681,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   segmentChipsTrack: {
-    backgroundColor: Colors.neutral[950],
+    backgroundColor: Colors.neutral[975],
   },
   segmentGearButton: {
     paddingVertical: 8,
@@ -713,7 +716,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: BORDER_RADIUS.FULL,
-    backgroundColor: Colors.neutral[900],
+    backgroundColor: Colors.neutral[925],
     gap: 4,
   },
   streakBadgeText: {
@@ -761,7 +764,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.brand.teal,
   },
   requestOptionButtonAcceptText: {
-    color: Colors.black,
+    color: Colors.neutral[975],
   },
   unreadDotWrap: {
     width: 8,

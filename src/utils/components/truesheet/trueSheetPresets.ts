@@ -13,13 +13,26 @@ import { LAYOUT_INSETS } from '../../constants';
 
 export type { SheetDetent } from '@lodev09/react-native-true-sheet';
 
-/** Default props for most app sheets (black background, no grabber, auto height). */
-export const DEFAULT_SHEET_PROPS: Pick<TrueSheetProps, 'backgroundColor' | 'grabber' | 'detents'> =
-  {
-    backgroundColor: Colors.black,
-    grabber: false,
-    detents: ['auto'],
-  };
+export const DEFAULT_GRABBER_OPTIONS: GrabberOptions = {
+  width: 42,
+  height: 4,
+  topMargin: 8,
+  cornerRadius: 2,
+  color: hexToRGBA(Colors.brand.white, 0.5),
+  adaptive: false,
+};
+
+/** Default props for most app sheets (neutral surface, grabber, auto height, manual safe-area). */
+export const DEFAULT_SHEET_PROPS: Pick<
+  TrueSheetProps,
+  'backgroundColor' | 'grabber' | 'grabberOptions' | 'detents' | 'insetAdjustment'
+> = {
+  backgroundColor: Colors.neutral[975],
+  grabber: true,
+  grabberOptions: DEFAULT_GRABBER_OPTIONS,
+  detents: ['auto'],
+  insetAdjustment: 'never',
+};
 
 /** Default horizontal padding for sheet content. */
 export const DEFAULT_CONTENT_PADDING_HORIZONTAL = LAYOUT_INSETS.SHEET_CONTENT;
@@ -49,15 +62,6 @@ export const SHEET_SPACING = {
   /** Media pickers (e.g. Klipy GIF): wider inset for full-screen grid layouts. */
   mediaPickerHorizontal: 16,
 } as const;
-
-export const DEFAULT_GRABBER_OPTIONS: GrabberOptions = {
-  width: 42,
-  height: 4,
-  topMargin: 8,
-  cornerRadius: 2,
-  color: hexToRGBA(Colors.brand.white, 0.5),
-  adaptive: false,
-};
 
 /** Shared shell text styles for sheet headers and descriptions. */
 export const SHEET_TEXT_STYLES: {
@@ -101,19 +105,8 @@ export const SHEET_VARIANTS = {
   sendToPicker: {
     detents: SHEET_DETENTS.sendToPicker,
   },
-  /** Reaction picker: grabber, neutral background, custom inset behavior. */
-  reactionPicker: (
-    maxContentHeight: number
-  ): Pick<
-    TrueSheetProps,
-    'backgroundColor' | 'grabber' | 'grabberOptions' | 'insetAdjustment' | 'maxContentHeight'
-  > => {
-    return {
-      backgroundColor: Colors.neutral[900],
-      grabber: true,
-      grabberOptions: DEFAULT_GRABBER_OPTIONS,
-      insetAdjustment: 'never',
-      maxContentHeight,
-    };
-  },
+  /** Reaction picker: caps content height; shell matches `DEFAULT_SHEET_PROPS`. */
+  reactionPicker: (maxContentHeight: number): Pick<TrueSheetProps, 'maxContentHeight'> => ({
+    maxContentHeight,
+  }),
 } as const;

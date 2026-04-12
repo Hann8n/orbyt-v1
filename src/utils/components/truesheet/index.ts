@@ -24,5 +24,5 @@ export {
   SHEET_VARIANTS,
   type SheetDetent,
 } from './trueSheetPresets';
-export { SHEET_STYLES, COMPOSER_STYLES } from './sheetStyles';
+export { SHEET_STYLES, COMPOSER_STYLES, SHEET_VERTICAL_LIST_ROW_OUTER } from './sheetStyles';
 export { default as SheetActionFooter } from './SheetActionFooter';

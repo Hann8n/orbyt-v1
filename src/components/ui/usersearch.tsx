@@ -42,7 +42,7 @@ export const RICH_TEXT_SEARCH_AUTHOR_ITEM_STYLE: ViewStyle = {
 /** Default `AuthorItem` props for rich-text user search (same as video post description mention picker). */
 export const RICH_TEXT_SEARCH_AUTHOR_ITEM_DEFAULTS = {
   textColor: Colors.neutral[50],
-  backgroundColor: Colors.black,
+  backgroundColor: Colors.neutral[975],
   size: 'large' as const,
   hideHandleLine: false,
   showArrow: false,
@@ -183,7 +183,7 @@ export function UserSearchModal({
                 displayName={item.displayName}
                 avatar={item.avatar}
                 textColor={Colors.neutral[50]}
-                backgroundColor={Colors.neutral[900]}
+                backgroundColor={Colors.neutral[925]}
                 size="medium"
                 hideHandleLine={true}
                 showArrow={false}
@@ -308,7 +308,7 @@ export function RichTextSearchModal({
               scrollEnabled={true}
             />
             <LinearGradient
-              colors={['transparent', Colors.black]}
+              colors={['transparent', Colors.neutral[975]]}
               locations={[0, 1]}
               style={styles.fadeGradient}
               pointerEvents="none"
@@ -345,7 +345,7 @@ export function RichTextSearchModal({
             scrollEnabled={true}
           />
           <LinearGradient
-            colors={['transparent', Colors.black]}
+            colors={['transparent', Colors.neutral[975]]}
             locations={[0, 1]}
             style={styles.fadeGradient}
             pointerEvents="none"
@@ -575,7 +575,7 @@ const styles = StyleSheet.create({
     pointerEvents: 'box-none',
   },
   richTextSearchContainer: {
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.neutral[975],
     width: '100%',
     flex: 1,
   },
@@ -597,10 +597,10 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   modal: {
-    backgroundColor: Colors.neutral[900],
+    backgroundColor: Colors.neutral[925],
     borderRadius: BORDER_RADIUS.MEDIUM,
     paddingVertical: 4,
-    boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+    boxShadow: '0 2px 8px rgba(5,7,10,0.2)',
     width: '100%',
     maxHeight: 200,
   },
@@ -628,7 +628,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
     borderRadius: BORDER_RADIUS.LARGE,
     marginBottom: 0,
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.neutral[975],
   },
   hashtagText: {
     color: Colors.neutral[50],

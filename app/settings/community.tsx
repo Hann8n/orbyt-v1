@@ -121,7 +121,7 @@ export default function CommunityScreen() {
         showCloseButton
         onClosePress={() => router.dismiss()}
         applySafeAreaTop={false}
-        backgroundColor={Colors.black}
+        backgroundColor={Colors.transparent}
       />
       <ScrollView
         style={styles.scroll}
@@ -172,7 +172,7 @@ export default function CommunityScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.neutral[975],
   },
   scroll: {
     flex: 1,
@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   footer: {
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.neutral[975],
     paddingTop: 12,
     paddingHorizontal: 20,
     alignItems: 'center',
@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
   openForumFooter: {
     paddingVertical: 12,
     paddingHorizontal: 20,
-    backgroundColor: Colors.neutral[900],
+    backgroundColor: Colors.neutral[925],
     borderRadius: BORDER_RADIUS.FULL,
   },
   openForumFooterText: {
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 10,
     marginLeft: 12,
-    backgroundColor: Colors.neutral[900],
+    backgroundColor: Colors.neutral[925],
     borderRadius: BORDER_RADIUS.LARGE,
     minWidth: 52,
   },

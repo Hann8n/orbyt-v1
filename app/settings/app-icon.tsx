@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
   iconPreview: {
     borderRadius: 22,
     overflow: 'hidden',
-    backgroundColor: Colors.neutral[900],
+    backgroundColor: Colors.neutral[925],
   },
   selectedIndicator: {
     position: 'absolute',
@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: Colors.black,
+    borderColor: Colors.neutral[975],
   },
   iconImage: {
     width: '100%',

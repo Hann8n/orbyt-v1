@@ -1,6 +1,11 @@
 import { StyleSheet } from 'react-native';
 import { Colors } from '@/theme';
-import { BORDER_RADIUS } from '@/utils/constants';
+import { BORDER_RADIUS, LAYOUT_INSETS } from '@/utils/constants';
+
+/** Deepest settings chrome (matches `DEFAULT_SHEET_PROPS.backgroundColor`). */
+const SETTINGS_SURFACE_BG = Colors.neutral[975];
+/** Raised rows / cards on settings surface (matches `OptionsButton` fill). */
+const SETTINGS_ELEVATED_BG = Colors.neutral[925];
 import { FontFamily, Typography, fontSizeFor } from '@/utils/components/typography';
 import {
   settingsCategoryChipContainer,
@@ -39,35 +44,35 @@ export const settingsButtonStyles = StyleSheet.create({
 
   // Card item style (for lists)
   cardItem: {
-    backgroundColor: Colors.neutral[900],
+    backgroundColor: SETTINGS_ELEVATED_BG,
     borderRadius: BORDER_RADIUS.MEDIUM,
     padding: 16,
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: Colors.neutral[500],
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Colors.neutral[700],
   },
 
   // Channel item style
   channelItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.neutral[900],
+    backgroundColor: SETTINGS_ELEVATED_BG,
     borderRadius: BORDER_RADIUS.MEDIUM,
     padding: 16,
-    borderWidth: 1,
-    borderColor: Colors.neutral[600],
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Colors.neutral[700],
   },
 
   // Stats container style
   statsContainer: {
-    backgroundColor: Colors.neutral[900],
-    marginHorizontal: 20,
+    backgroundColor: SETTINGS_ELEVATED_BG,
+    marginHorizontal: LAYOUT_INSETS.SHEET_CONTENT,
     marginTop: 16,
     marginBottom: 8,
     borderRadius: BORDER_RADIUS.MEDIUM,
     padding: 16,
-    borderWidth: 1,
-    borderColor: Colors.neutral[500],
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Colors.neutral[700],
   },
 });
 
@@ -106,20 +111,19 @@ export const settingsTextStyles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // Section title text
+  // Section title text (muted header on 975 surface; matches sheet secondary copy)
   sectionTitle: {
-    color: Colors.neutral[500],
+    color: Colors.neutral[200],
     fontSize: Typography.sizes.subtitle,
     fontWeight: '600',
     fontFamily: FontFamily.semibold,
-    paddingHorizontal: 30,
+    paddingHorizontal: 0,
     paddingVertical: 12,
     letterSpacing: 0.5,
   },
 
-  // Label inside a grouped section (e.g. "Read state")
   groupedLabelText: {
-    color: Colors.neutral[500],
+    color: Colors.neutral[200],
     fontSize: fontSizeFor(13),
     fontFamily: FontFamily.medium,
   },
@@ -133,9 +137,9 @@ export const settingsTextStyles = StyleSheet.create({
     marginBottom: 8,
   },
 
-  // Section description
+  // Section description (matches sheet body description: neutral[200] on 975)
   sectionDescription: {
-    color: Colors.neutral[500],
+    color: Colors.neutral[200],
     fontSize: Typography.sizes.bodySmall,
     fontFamily: FontFamily.regular,
     lineHeight: Typography.lineHeights.bodySmall,
@@ -249,16 +253,14 @@ export const settingsTextStyles = StyleSheet.create({
 
 // Shared layout styles
 export const settingsLayoutStyles = StyleSheet.create({
-  // Container
   container: {
     flex: 1,
-    backgroundColor: Colors.black,
+    backgroundColor: SETTINGS_SURFACE_BG,
   },
 
-  // Safe area
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.black,
+    backgroundColor: SETTINGS_SURFACE_BG,
   },
 
   // Content container
@@ -269,13 +271,18 @@ export const settingsLayoutStyles = StyleSheet.create({
   // Content container with standard settings padding (5px)
   contentContainerWithPadding: {
     paddingBottom: 20,
-    paddingHorizontal: 0, // Remove horizontal padding to match other sheets
+    paddingHorizontal: 0,
   },
 
-  // List container
+  /** Root settings scroll: same horizontal inset as sheet body (`VerticalListSheet`). */
+  settingsRootScrollContent: {
+    paddingBottom: 20,
+    paddingHorizontal: LAYOUT_INSETS.SHEET_CONTENT,
+  },
+
   listContainer: {
     flexGrow: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: LAYOUT_INSETS.SHEET_CONTENT,
     paddingTop: 16,
   },
 
@@ -292,9 +299,9 @@ export const settingsLayoutStyles = StyleSheet.create({
     marginBottom: 12,
   },
 
-  // Grouped list (iOS Settings style): one card per section, rows inside
+  // Grouped list (iOS-style card); rows use hairline separators
   groupedSection: {
-    backgroundColor: Colors.neutral[900],
+    backgroundColor: SETTINGS_ELEVATED_BG,
     borderRadius: BORDER_RADIUS.LARGE,
     overflow: 'hidden',
     marginBottom: 24,
@@ -304,8 +311,8 @@ export const settingsLayoutStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
+    paddingHorizontal: LAYOUT_INSETS.SHEET_CONTENT,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: Colors.neutral[800],
   },
   groupedRowLast: {
@@ -313,8 +320,8 @@ export const settingsLayoutStyles = StyleSheet.create({
   },
   groupedRowLabel: {
     paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderTopWidth: 1,
+    paddingHorizontal: LAYOUT_INSETS.SHEET_CONTENT,
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: Colors.neutral[800],
     marginTop: 4,
   },
@@ -341,21 +348,22 @@ export const settingsLayoutStyles = StyleSheet.create({
     paddingTop: 120,
   },
 
-  // Search container
   searchContainer: {
-    paddingHorizontal: 20,
+    paddingHorizontal: LAYOUT_INSETS.SHEET_CONTENT,
     paddingVertical: 16,
   },
 
-  // Search input container
+  // Search input container (matches SendToPicker search row)
   searchInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.neutral[900],
-    borderRadius: BORDER_RADIUS.MEDIUM,
-    borderWidth: 1,
-    borderColor: Colors.neutral[500],
-    paddingHorizontal: 16,
+    backgroundColor: Colors.neutral[800],
+    borderRadius: BORDER_RADIUS.LARGE,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Colors.neutral[700],
+    paddingHorizontal: LAYOUT_INSETS.SHEET_CONTENT,
+    paddingVertical: 11,
+    minHeight: 46,
     marginBottom: 16,
   },
 
@@ -369,26 +377,22 @@ export const settingsLayoutStyles = StyleSheet.create({
     paddingLeft: 12,
   },
 
-  // Filter container
   filterContainer: {
     marginBottom: 12,
-    marginHorizontal: -20,
+    marginHorizontal: -LAYOUT_INSETS.SHEET_CONTENT,
   },
 
-  // Filter content
   filterContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: LAYOUT_INSETS.SHEET_CONTENT,
   },
 
-  // Category container
   categoryContainer: {
     marginBottom: 8,
-    marginHorizontal: -20,
+    marginHorizontal: -LAYOUT_INSETS.SHEET_CONTENT,
   },
 
-  // Category content
   categoryContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: LAYOUT_INSETS.SHEET_CONTENT,
   },
 
   // Separator
@@ -396,11 +400,10 @@ export const settingsLayoutStyles = StyleSheet.create({
     height: 12,
   },
 
-  // Logout section - matches cancel button container pattern
   logoutSection: {
     alignItems: 'center',
     paddingTop: 20,
-    paddingHorizontal: 24,
+    paddingHorizontal: LAYOUT_INSETS.SHEET_FOOTER,
   },
 });
 
@@ -416,15 +419,13 @@ export const settingsActiveStyles = StyleSheet.create({
     backgroundColor: Colors.neutral[200],
   },
 
-  // Active category button text
   categoryButtonTextActive: {
-    color: Colors.black,
+    color: Colors.neutral[975],
     fontFamily: FontFamily.bold,
   },
 
-  // Active edit button
   editButtonActive: {
-    backgroundColor: Colors.neutral[900],
+    backgroundColor: SETTINGS_ELEVATED_BG,
   },
 
   // Active edit button text

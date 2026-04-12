@@ -15,6 +15,7 @@ import VerticalListSheet, {
   VerticalListButton,
   TrueSheet,
 } from '@/components/ui/VerticalListSheet';
+import { SHEET_STYLES } from '@/utils/components/truesheet';
 import {
   isOrbytChannel,
   getChannelByUri,
@@ -46,7 +47,23 @@ export default function ChannelManagementScreen() {
   const { subscribedChannels: channels, unsubscribeFromChannel } = useSubscribedChannels();
 
   const [selectedChannel, setSelectedChannel] = useState<ChannelUser | null>(null);
-  const [displayedTitle, setDisplayedTitle] = useState<string>('');
+
+  const channelOptionsSheetTitle = useMemo(() => {
+    if (!selectedChannel) return '';
+    const name =
+      getLocalizedChannelDisplayName(selectedChannel.uri ?? '', selectedChannel.displayName) ||
+      selectedChannel.displayName ||
+      selectedChannel.handle ||
+      t('feed.unknownChannel');
+    if (
+      selectedChannel.isOrbytChannel &&
+      selectedChannel.uri &&
+      shouldShowChannelSlash(selectedChannel.uri)
+    ) {
+      return `/${name}`;
+    }
+    return name;
+  }, [selectedChannel, t]);
 
   // Transform channels data - subscribed channels only (no built-ins)
   const listData = useMemo((): ChannelUser[] => {
@@ -75,24 +92,10 @@ export default function ChannelManagementScreen() {
     });
   }, [channels]);
 
-  const handleChannelPress = useCallback(
-    (channel: ChannelUser) => {
-      setSelectedChannel(channel);
-      TrueSheet.present('settings-channels-sheet');
-      // Set the displayed title immediately
-      const name =
-        getLocalizedChannelDisplayName(channel.uri ?? '', channel.displayName) ||
-        channel.displayName ||
-        channel.handle ||
-        t('feed.unknownChannel');
-      if (channel.isOrbytChannel && channel.uri && shouldShowChannelSlash(channel.uri)) {
-        setDisplayedTitle(`/${name}`);
-      } else {
-        setDisplayedTitle(name);
-      }
-    },
-    [t]
-  );
+  const handleChannelPress = useCallback((channel: ChannelUser) => {
+    setSelectedChannel(channel);
+    TrueSheet.present('settings-channels-sheet');
+  }, []);
 
   const handleViewChannel = useCallback(() => {
     if (selectedChannel?.uri) {
@@ -200,7 +203,7 @@ export default function ChannelManagementScreen() {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: Colors.black }]}>
+    <View style={[styles.container, { backgroundColor: Colors.neutral[975] }]}>
       <ListHeader
         mode="sheet"
         title={t('settings.channels')}
@@ -223,11 +226,14 @@ export default function ChannelManagementScreen() {
       <VerticalListSheet
         name="settings-channels-sheet"
         onDismiss={() => setSelectedChannel(null)}
-        title={displayedTitle || t('settings.channelOptions')}
         scrollable={true}
-        showCancelButton={true}
       >
         <View style={styles.sheetContent}>
+          {channelOptionsSheetTitle ? (
+            <Text style={SHEET_STYLES.sheetScreenTitle} numberOfLines={2}>
+              {channelOptionsSheetTitle}
+            </Text>
+          ) : null}
           {selectedChannel && (
             <VerticalListButton label={t('common.view')} onPress={handleViewChannel} />
           )}
@@ -328,7 +334,6 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.semibold,
   },
   sheetContent: {
-    paddingHorizontal: 12,
     paddingBottom: 12,
   },
 });

@@ -77,7 +77,7 @@ class ChannelService {
       return {
         backgroundColor: parsed.backgroundColor,
         foregroundColor: '#FFFFFF',
-        accentColor: parsed.accentColor || '#000000',
+        accentColor: parsed.accentColor || Colors.black,
         statusBarStyle: 'light',
       };
     } catch {
@@ -181,7 +181,7 @@ class ChannelService {
           channelColors = {
             backgroundColor: darkenedBackground,
             foregroundColor: '#FFFFFF', // Always use white text for channels
-            accentColor: extractedColors.accentColor || '#000000', // Accent to black
+            accentColor: extractedColors.accentColor || Colors.black, // Accent to black
             statusBarStyle: 'light' as const,
           };
         } catch (_e) {
@@ -189,7 +189,7 @@ class ChannelService {
           channelColors = {
             backgroundColor: Colors.black,
             foregroundColor: '#FFFFFF',
-            accentColor: '#000000', // Accent to black
+            accentColor: Colors.black, // Accent to black
             statusBarStyle: 'light' as const,
           };
         }
@@ -198,7 +198,7 @@ class ChannelService {
         channelColors = {
           backgroundColor: Colors.black,
           foregroundColor: '#FFFFFF',
-          accentColor: '#000000', // Accent to black
+          accentColor: Colors.black, // Accent to black
           statusBarStyle: 'light' as const,
         };
       }
@@ -290,7 +290,7 @@ class ChannelService {
         channelColors = {
           backgroundColor: darkenedBackground,
           foregroundColor: '#FFFFFF',
-          accentColor: extractedColors.accentColor || '#000000',
+          accentColor: extractedColors.accentColor || Colors.black,
           statusBarStyle: 'light' as const,
         };
       } catch (_e) {
@@ -298,7 +298,7 @@ class ChannelService {
         channelColors = {
           backgroundColor: Colors.black,
           foregroundColor: '#FFFFFF',
-          accentColor: '#000000',
+          accentColor: Colors.black,
           statusBarStyle: 'light' as const,
         };
       }
@@ -307,7 +307,7 @@ class ChannelService {
       channelColors = {
         backgroundColor: Colors.black,
         foregroundColor: '#FFFFFF',
-        accentColor: '#000000',
+        accentColor: Colors.black,
         statusBarStyle: 'light' as const,
       };
     }
@@ -375,14 +375,14 @@ export function useChannelColors(uriOrFeed: string | null | undefined) {
         backgroundColor: Colors.black,
         foregroundColor: '#FFFFFF',
         textColor: Colors.neutral[50],
-        primaryColor: '#000000',
+        primaryColor: Colors.black,
         secondaryColor: Colors.neutral[50],
-        accentColor: '#000000',
+        accentColor: Colors.black,
         statusBarStyle: 'light' as const,
       },
       isLoading: false,
       getColorWithOpacity: (_colorKey: keyof ChannelColorScheme, opacity: number): string => {
-        const hex = '#000000';
+        const hex = Colors.black;
         if (hex.startsWith('#')) {
           const r = parseInt(hex.slice(1, 3), 16);
           const g = parseInt(hex.slice(3, 5), 16);
@@ -395,12 +395,12 @@ export function useChannelColors(uriOrFeed: string | null | undefined) {
   }
 
   const colors: ChannelColorScheme = {
-    backgroundColor: channel?.channelColors?.backgroundColor || '#000000',
+    backgroundColor: channel?.channelColors?.backgroundColor || Colors.black,
     foregroundColor: '#FFFFFF', // Always use white text for channels
     textColor: Colors.neutral[50], // Always use white text for channels
-    primaryColor: channel?.channelColors?.backgroundColor || '#000000',
+    primaryColor: channel?.channelColors?.backgroundColor || Colors.black,
     secondaryColor: Colors.neutral[50], // Always use white text for channels
-    accentColor: channel?.channelColors?.accentColor || '#000000', // Accent to black
+    accentColor: channel?.channelColors?.accentColor || Colors.black, // Accent to black
     statusBarStyle: 'light', // Always use light status bar for channels
   };
 

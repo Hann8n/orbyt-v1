@@ -119,6 +119,10 @@ interface CommentInputFooterProps {
    * should control padding externally to avoid double padding.
    */
   safeAreaBottom?: number;
+  /**
+   * When true, omit the add (+) control entirely (e.g. chat / messages composer).
+   */
+  hideMediaAddButton?: boolean;
 }
 
 const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
@@ -142,6 +146,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   mentionInputProps,
   onFocus,
   safeAreaBottom: safeAreaBottomProp,
+  hideMediaAddButton = false,
   onPressGif,
   onPressPhotos,
   selectedGifPreviewUri = null,
@@ -217,6 +222,8 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
       ? 'gif'
       : 'none';
   const canOpenMediaDrawer = !!(onPressGif || onPressPhotos);
+  const showAddControl =
+    !hideMediaAddButton && canOpenMediaDrawer && !hasText && attachmentKind === 'none';
   const handlePickGif = useCallback(() => {
     onPressGif?.();
   }, [onPressGif]);
@@ -383,7 +390,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
           </SquircleView>
           <View style={styles.sendColumn}>
             <View style={styles.controlsRow}>
-              {canOpenMediaDrawer && !hasText && attachmentKind === 'none' ? (
+              {showAddControl ? (
                 <MenuView
                   title=""
                   actions={mediaMenuActions}
@@ -470,7 +477,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
 
 const styles = StyleSheet.create({
   footerContainer: {
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.neutral[975],
     width: '100%',
   },
   inputContainer: COMPOSER_STYLES.container,

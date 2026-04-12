@@ -44,7 +44,7 @@ export const buttonVariantContainer: Record<ButtonVariantKey, ViewStyle> = {
 };
 
 export const buttonVariantLabel: Record<ButtonVariantKey, TextStyle> = {
-  primary: { color: Colors.black },
+  primary: { color: Colors.neutral[975] },
   secondary: { color: Colors.neutral[50] },
   outline: { color: Colors.neutral[200] },
   ghost: { color: Colors.neutral[50] },
@@ -53,7 +53,7 @@ export const buttonVariantLabel: Record<ButtonVariantKey, TextStyle> = {
 };
 
 export const buttonIconTint: Record<ButtonVariantKey, string> = {
-  primary: Colors.black,
+  primary: Colors.neutral[975],
   secondary: Colors.neutral[50],
   outline: Colors.neutral[200],
   ghost: Colors.neutral[50],
@@ -103,7 +103,7 @@ export const authCtaLabel: TextStyle = {
 };
 
 export const authCtaLabelActive: TextStyle = {
-  color: Colors.neutral[900],
+  color: Colors.neutral[975],
 };
 
 export const sheetFooterSecondaryContainer: ViewStyle = {
@@ -131,7 +131,7 @@ export const sheetFooterPrimaryContainer: ViewStyle = {
 
 export const sheetFooterPrimaryLabel: TextStyle = {
   ...sheetFooterSecondaryLabel,
-  color: Colors.black,
+  color: Colors.neutral[975],
 };
 
 const modalActionContainer: ViewStyle = {
@@ -159,7 +159,7 @@ export const modalActionLabel: TextStyle = {
 
 export const modalActionPrimaryLabel: TextStyle = {
   ...modalActionLabel,
-  color: Colors.black,
+  color: Colors.neutral[975],
   fontFamily: FontFamily.bold,
 };
 
@@ -170,7 +170,7 @@ export const toolbarNextContainer: ViewStyle = {
   paddingVertical: 8,
   paddingHorizontal: 16,
   minWidth: 60,
-  boxShadow: '0 2px 4px rgba(0,0,0,0.30)',
+  boxShadow: '0 2px 4px rgba(5,7,10,0.30)',
 };
 
 export const toolbarNextLabel: TextStyle = {
@@ -227,11 +227,11 @@ export const headerSaveContainer: ViewStyle = {
 
 export const headerSaveLabel: TextStyle = {
   ...headerChromeLabelBase,
-  color: Colors.black,
+  color: Colors.neutral[975],
 };
 
 export const headerSaveLabelMuted: TextStyle = {
-  color: hexToRGBA(Colors.black, 0.25),
+  color: hexToRGBA(Colors.neutral[975], 0.25),
 };
 
 /** Edit profile avatar upload chip; background from caller (`blendColors`). */
@@ -263,7 +263,7 @@ export const retryPillContainer: ViewStyle = {
 };
 
 export const retryPillLabel: TextStyle = {
-  color: Colors.black,
+  color: Colors.neutral[975],
   fontSize: Typography.sizes.subtitle,
   fontFamily: FontFamily.semibold,
 };
@@ -286,7 +286,7 @@ export const settingsPrimaryRowContainer: ViewStyle = {
 
 export const settingsMenuOptionRowContainer: ViewStyle = {
   ...shape.rounded,
-  backgroundColor: Colors.neutral[900],
+  backgroundColor: Colors.neutral[925],
   paddingVertical: 20,
   paddingHorizontal: 20,
   marginHorizontal: 16,
@@ -309,7 +309,7 @@ export const settingsCompactActionContainer: ViewStyle = {
   alignItems: 'center',
   justifyContent: 'center',
   backgroundColor: hexToRGBA(Colors.neutral[300], 0.12),
-  shadowColor: Colors.black,
+  shadowColor: Colors.neutral[975],
   shadowOffset: { width: 0, height: 2 },
   shadowOpacity: 0.1,
   shadowRadius: 3,
@@ -329,7 +329,7 @@ export const settingsEditChipContainer: ViewStyle = {
   paddingHorizontal: 16,
   paddingVertical: 8,
   ...shape.control,
-  backgroundColor: Colors.neutral[900],
+  backgroundColor: Colors.neutral[925],
 };
 
 export const settingsFilterChipContainer: ViewStyle = {
@@ -337,7 +337,7 @@ export const settingsFilterChipContainer: ViewStyle = {
   paddingVertical: 6,
   marginRight: 8,
   ...shape.control,
-  backgroundColor: Colors.neutral[900],
+  backgroundColor: Colors.neutral[925],
 };
 
 export const settingsCategoryChipContainer: ViewStyle = {
@@ -345,13 +345,13 @@ export const settingsCategoryChipContainer: ViewStyle = {
   paddingVertical: 10,
   marginRight: 8,
   ...shape.rounded,
-  backgroundColor: Colors.neutral[900],
+  backgroundColor: Colors.neutral[925],
 };
 
 export const settingsLogoutPillContainer: ViewStyle = {
   ...shape.pill,
   ...buttonContentCenter,
-  backgroundColor: Colors.neutral[900],
+  backgroundColor: Colors.neutral[925],
   paddingVertical: 12,
   paddingHorizontal: 20,
   minHeight: 44,
@@ -360,7 +360,7 @@ export const settingsLogoutPillContainer: ViewStyle = {
 
 export const settingsToggleGroupContainer: ViewStyle = {
   flexDirection: 'row',
-  backgroundColor: Colors.neutral[900],
+  backgroundColor: Colors.neutral[925],
   ...shape.control,
   flexShrink: 0,
   width: 180,

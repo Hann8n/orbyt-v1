@@ -144,7 +144,7 @@ export default function LoginSignUpModal() {
             <Icon
               name="arrow_right"
               size={24}
-              color={canContinue ? Colors.neutral[900] : Colors.neutral[500]}
+              color={canContinue ? Colors.neutral[975] : Colors.neutral[500]}
             />
           </View>
         )}

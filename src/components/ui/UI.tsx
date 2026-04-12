@@ -336,7 +336,7 @@ export const Avatar: React.FC<AvatarProps> = ({
     [size, borderRadius, shouldShowRing, ringWidth, finalRingColor]
   );
 
-  const fallbackInnerBgColor = profileColors?.backgroundColor || Colors.neutral[900];
+  const fallbackInnerBgColor = profileColors?.backgroundColor || Colors.neutral[925];
 
   // LIVE badge style - stepped scaling for consistent appearance at all sizes
   const calculateLiveBadgeDimensions = (avatarSize: number) => {
@@ -568,7 +568,7 @@ const Card: React.FC<CardProps> = ({
   style,
   padding = 16,
   margin = 0,
-  backgroundColor = Colors.neutral[900],
+  backgroundColor = Colors.neutral[925],
 }) => {
   return (
     <SquircleView
@@ -897,7 +897,7 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.neutral[900],
+    backgroundColor: Colors.neutral[925],
     borderRadius: BORDER_RADIUS.MEDIUM,
     borderWidth: 1,
     borderColor: Colors.neutral[500],

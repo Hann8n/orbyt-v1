@@ -73,7 +73,7 @@ const ChannelItem: React.FC<ChannelItemProps> = ({
 
   return (
     <SquircleNativePressable
-      style={[styles.container, { backgroundColor: backgroundColor || Colors.neutral[900] }, style]}
+      style={[styles.container, { backgroundColor: backgroundColor || Colors.neutral[925] }, style]}
       onPress={handlePress}
     >
       <View style={styles.accountButtonContent}>

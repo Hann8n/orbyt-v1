@@ -1,6 +1,8 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Text } from 'react-native';
 import VerticalListSheet, { VerticalListCheckboxButton } from '../../ui/VerticalListSheet';
+import { SHEET_STYLES } from '../../../utils/components/truesheet';
 import { ChatService } from '../../../services/api/chat/ChatService';
 import { useUserStore } from '../../../stores/userStore';
 import { useProfileByDid } from '../../../services/data/ProfileService';
@@ -46,13 +48,8 @@ export default function ChatSettingsSheet({ visible, onDismiss }: ChatSettingsSh
   );
 
   return (
-    <VerticalListSheet
-      name="chat-settings-sheet"
-      onDismiss={onDismiss}
-      title={t('activity.whoCanMessage')}
-      showCancelButton
-      cancelButtonText={t('common.done')}
-    >
+    <VerticalListSheet name="chat-settings-sheet" onDismiss={onDismiss}>
+      <Text style={SHEET_STYLES.sheetScreenTitle}>{t('activity.whoCanMessage')}</Text>
       {[
         { value: 'all' as AllowIncoming, labelKey: 'activity.everyone' },
         { value: 'following' as AllowIncoming, labelKey: 'activity.peopleYouFollow' },

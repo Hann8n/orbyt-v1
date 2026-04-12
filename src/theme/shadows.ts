@@ -2,6 +2,7 @@ import { ViewStyle } from 'react-native';
 
 /**
  * Standardized shadow system for consistent depth across the app.
+ * Shadow tint RGB matches `Colors.black` / `neutral[975]` (#05070a), not pure #000.
  */
 
 export const Shadows = {
@@ -10,7 +11,7 @@ export const Shadows = {
    * Use for: hover states, secondary UI elements
    */
   small: {
-    boxShadow: '0 2px 3px rgba(0,0,0,0.15)',
+    boxShadow: '0 2px 3px rgba(5,7,10,0.15)',
   } as ViewStyle,
 
   /**
@@ -18,7 +19,7 @@ export const Shadows = {
    * Use for: cards, modals, floating action buttons
    */
   medium: {
-    boxShadow: '0 4px 6px rgba(0,0,0,0.20)',
+    boxShadow: '0 4px 6px rgba(5,7,10,0.20)',
   } as ViewStyle,
 
   /**
@@ -26,7 +27,7 @@ export const Shadows = {
    * Use for: sheets, dialogs, overlays
    */
   large: {
-    boxShadow: '0 8px 12px rgba(0,0,0,0.25)',
+    boxShadow: '0 8px 12px rgba(5,7,10,0.25)',
   } as ViewStyle,
 
   /**
@@ -34,6 +35,6 @@ export const Shadows = {
    * Use for: full-screen modals, critical overlays
    */
   xlarge: {
-    boxShadow: '0 16px 20px rgba(0,0,0,0.30)',
+    boxShadow: '0 16px 20px rgba(5,7,10,0.30)',
   } as ViewStyle,
 };

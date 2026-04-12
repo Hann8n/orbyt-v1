@@ -27,10 +27,9 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
-import { SquircleNativePressable } from '@/components/ui/Squircle';
+import { SquircleView } from '@/components/ui/Squircle';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { Image } from 'expo-image';
-import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 
 import BlurredBackground from '@/components/ui/BlurredBackground';
 import { FlashList } from '@shopify/flash-list';
@@ -38,27 +37,34 @@ import { Link, useRouter, useLocalSearchParams, useFocusEffect } from 'expo-rout
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import {
-  AppTrueSheet,
-  COMPOSER_STYLES,
-  getFooterBottomPadding,
-} from '@/utils/components/truesheet';
+import { AppTrueSheet, SHEET_STYLES } from '@/utils/components/truesheet';
+import CommentInputFooter from '@/components/features/comments/CommentInputFooter';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 
 import { Colors } from '@/theme';
 import { Typography, FontFamily, fontSizeFor } from '@/utils/components/typography';
-import { APP_CONSTANTS, BORDER_RADIUS, SCROLL_INDICATOR_CONSTANTS } from '@/utils/constants';
+import {
+  APP_CONSTANTS,
+  BORDER_RADIUS,
+  LAYOUT_INSETS,
+  SCROLL_INDICATOR_CONSTANTS,
+} from '@/utils/constants';
 import Icon, {
   BackArrowIcon,
+  CopyCuteFilledIcon,
+  DeleteCuteFilledIcon,
   FlameFillIcon,
   FireFillIcon,
   MoreFillIcon,
+  ThoughtCuteFilledIcon,
 } from '@/components/ui/Icon';
 import { Avatar } from '@/components/ui/UI';
 import { OptionsButton } from '@/components/ui/OptionsButton';
 import VerticalListSheet, { VerticalListButton } from '@/components/ui/VerticalListSheet';
 import AuthorItem from '@/components/ui/AuthorItem';
 import { itemSizeConfig, sharedItemStyles } from '@/components/ui/ItemStyles';
+import { VerificationBadge, BotBadge } from '@/components/features/badging';
+import { formatHandle } from '@/utils/formatting/handles';
 import { useAvatarProfileRing } from '@/services/colors';
 import { queryKeys } from '@/utils/query/queryKeys';
 import { chatReactQueryOptions } from '@/utils/query/chatQueryOptions';
@@ -75,15 +81,15 @@ import { buildFeedModalHref, buildFullHeightVideoHref } from '@/utils/navigation
 import { useFeedModalTabSegment } from '@/utils/navigation/feedModalTabSegment';
 import { seedChatEmbedVideoFeed } from '@/utils/chat/seedChatEmbedVideoFeed';
 import { getVideoView } from '@/utils/video/helpers';
-import { hexToRGBA } from '@/utils/formatting/colors';
-import type { PostView } from '@/services/api/types';
+import { blendColors, hexToRGBA } from '@/utils/formatting/colors';
+import type { PostView, ProfileViewBasic } from '@/services/api/types';
 import type { RichTextFacet } from '@/utils/types/richText';
 import EmojiPicker from 'react-native-emoji-chooser';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { MenuView } from '@react-native-menu/menu';
-import type { MenuAction, MenuComponentRef } from '@react-native-menu/menu';
+import type { MenuAction } from '@react-native-menu/menu';
 
 const EMBED_VIDEO_GRADIENT_SHIM = require('@/assets/embed-video-gradient-shim.png');
 
@@ -208,10 +214,13 @@ function ChatMessageRichText({
   text,
   facets,
   isFromMe,
+  fromMeAccentColor,
 }: {
   text: string;
   facets?: RichTextFacet[] | null;
   isFromMe: boolean;
+  /** Profile ring / accent for outgoing link color */
+  fromMeAccentColor?: string;
 }) {
   const router = useRouter();
   const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
@@ -264,7 +273,9 @@ function ChatMessageRichText({
             part.isSymbol && styles.messageTextMedium,
             part.isSemiBold && styles.messageTextSemiBold,
             part.kind === 'link' &&
-              (isFromMe ? styles.messageTextLinkFromMe : styles.messageTextLink),
+              (isFromMe
+                ? [styles.messageTextLinkFromMe, { color: fromMeAccentColor ?? Colors.brand.teal }]
+                : styles.messageTextLink),
           ]}
           onPress={part.kind ? () => handlePartPress(part) : undefined}
         >
@@ -300,8 +311,9 @@ function getMessagePreview(msg: MessageItem): string {
   return i18n.t('chat.messageDeleted');
 }
 
-/** Embed is app.bsky.embed.record#view; record can be viewRecord | viewNotFound | viewBlocked | viewDetached (per app.bsky.embed.record View type) */
+/** Embed view type; API/SDK may also return main lexicon id without `#view` (same shape). */
 const EMBED_RECORD_VIEW = 'app.bsky.embed.record#view';
+const EMBED_RECORD = 'app.bsky.embed.record';
 const RECORD_VIEW_RECORD = 'app.bsky.embed.record#viewRecord';
 const RECORD_VIEW_NOT_FOUND = 'app.bsky.embed.record#viewNotFound';
 const RECORD_VIEW_BLOCKED = 'app.bsky.embed.record#viewBlocked';
@@ -332,6 +344,8 @@ type EmbedRecordShape = {
 const CHAT_EMBED_VIDEO_WIDTH = 150;
 const CHAT_EMBED_VIDEO_ASPECT = 9 / 16; // 9:16 card
 const CHAT_EMBED_VIDEO_RADIUS = 10; // slightly less round
+/** Bottom corner toward screen edge — text/caption bubbles only */
+const CHAT_BUBBLE_OUTSIDE_BOTTOM_RADIUS = 6;
 
 type EmbedImage = {
   thumb?: string;
@@ -407,11 +421,9 @@ function getImagesFromRecordEmbeds(embeds: EmbedRecordShape['embeds']): EmbedIma
 
 function isEmbedRecordView(embed: MessageView['embed'] | null | undefined): boolean {
   if (!embed || typeof embed !== 'object') return false;
-  return (
-    (embed as { $type?: string }).$type === EMBED_RECORD_VIEW &&
-    'record' in embed &&
-    (embed as { record?: unknown }).record != null
-  );
+  const t = (embed as { $type?: string }).$type;
+  const isRecordEmbed = t === EMBED_RECORD_VIEW || t === EMBED_RECORD;
+  return isRecordEmbed && 'record' in embed && (embed as { record?: unknown }).record != null;
 }
 
 /** Shared author row for both video and non-video embeds (AuthorItem for verification/bot badges). Use authorAlwaysOnRight (e.g. video overlay) to keep avatar left, handle right regardless of isFromMe. */
@@ -542,13 +554,14 @@ function MessageReactions({
 }
 
 const REACTION_PICKER_SHEET_NAME = 'chat-reaction-picker';
+const CHAT_MESSAGE_ACTIONS_SHEET_NAME = 'chat-message-actions';
 
 /** Nested content (e.g. embeds) calls this to open the same reaction menu as long-press on the row. */
 const ReactionPickerRowContext = createContext<(() => void) | null>(null);
 
 type ReactionPickerState = { messageId: string; showFullSheet: true } | null;
 
-/** Full emoji sheet; long-press menu has React (opens sheet), Copy, Delete. */
+/** Full emoji sheet; opened from the message actions sheet (“more emoji”) or reaction UI. */
 function useReactionPicker() {
   const [state, setState] = useState<ReactionPickerState>(null);
 
@@ -568,93 +581,79 @@ function useReactionPicker() {
   };
 }
 
+function useMessageActionsSheet() {
+  const [messageId, setMessageId] = useState<string | null>(null);
+  const open = useCallback((id: string) => setMessageId(id), []);
+  const close = useCallback(() => setMessageId(null), []);
+  return { messageId, open, close, visible: messageId != null };
+}
+
+/** Segments in visual order: before embed → embed → caption → footer (meta). */
+type ChatMessageRowSegments = {
+  beforeEmbed: ReactNode | null;
+  embed: ReactNode | null;
+  caption: ReactNode | null;
+  footer: ReactNode;
+};
+
 function ChatMessageRow({
   messageId,
-  message,
-  onOpenFullReactionPicker,
-  onCopyMessage,
-  onDeleteMessageForSelf,
+  onOpenMessageActions,
   entering,
   pressableStyle,
-  children,
+  segments,
 }: {
   messageId: string;
-  message: MessageItem;
-  onOpenFullReactionPicker: (messageId: string) => void;
-  onCopyMessage: (messageId: string) => void;
-  onDeleteMessageForSelf: (messageId: string) => void;
+  onOpenMessageActions: (messageId: string) => void;
   entering?: ComponentProps<typeof Animated.View>['entering'];
   pressableStyle: StyleProp<ViewStyle>;
-  children: ReactNode;
+  segments: ChatMessageRowSegments;
 }) {
-  const { t } = useTranslation();
-  const menuRef = useRef<MenuComponentRef>(null);
-  const openMenu = useCallback(() => {
-    menuRef.current?.show();
-  }, []);
+  const openMessageActionsMenu = useCallback(() => {
+    onOpenMessageActions(messageId);
+  }, [messageId, onOpenMessageActions]);
 
-  const canCopyMessage = !!(message.text && message.text.trim().length > 0);
+  const { beforeEmbed, embed, caption, footer } = segments;
 
-  const menuActions = useMemo<MenuAction[]>(() => {
-    const reactAction: MenuAction = {
-      id: 'react',
-      title: t('chat.react'),
-    };
-
-    const copyAction: MenuAction = {
-      id: 'copy',
-      title: t('common.copy'),
-      attributes: { disabled: !canCopyMessage },
-    };
-
-    const deleteAction: MenuAction = {
-      id: 'delete_for_me',
-      title: t('chat.deleteMessageForMe'),
-      attributes: { destructive: true },
-    };
-
-    return [reactAction, copyAction, deleteAction];
-  }, [t, canCopyMessage]);
-
-  const onPressAction = useCallback(
-    ({ nativeEvent }: { nativeEvent: { event?: string } }) => {
-      const id = nativeEvent?.event;
-      if (!id) return;
-      if (id === 'react') {
-        // Let the native menu finish closing before presenting the sheet (avoids overlapping animations / odd “fly away” motion).
-        requestIdleCallback(
-          () => {
-            onOpenFullReactionPicker(messageId);
-          },
-          { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
-        );
-        return;
-      }
-      if (id === 'copy') {
-        onCopyMessage(messageId);
-        return;
-      }
-      if (id === 'delete_for_me') {
-        onDeleteMessageForSelf(messageId);
-        return;
-      }
-    },
-    [messageId, onOpenFullReactionPicker, onCopyMessage, onDeleteMessageForSelf]
+  /**
+   * Keep embeds and links outside long-press zones so taps reach `Pressable` / `Link`.
+   * Message actions (reactions, copy, delete) open from TrueSheet on long-press.
+   */
+  const rowBody = (
+    <>
+      {beforeEmbed != null ? (
+        <NativePressable
+          delayLongPress={400}
+          onLongPress={openMessageActionsMenu}
+          style={styles.chatMessageLongPressZone}
+        >
+          {beforeEmbed}
+        </NativePressable>
+      ) : null}
+      {embed}
+      {caption != null ? (
+        <NativePressable
+          delayLongPress={400}
+          onLongPress={openMessageActionsMenu}
+          style={styles.chatMessageLongPressZone}
+        >
+          {caption}
+        </NativePressable>
+      ) : null}
+      <NativePressable
+        delayLongPress={400}
+        onLongPress={openMessageActionsMenu}
+        style={styles.chatMessageLongPressZone}
+      >
+        {footer}
+      </NativePressable>
+    </>
   );
 
   return (
-    <ReactionPickerRowContext.Provider value={openMenu}>
+    <ReactionPickerRowContext.Provider value={openMessageActionsMenu}>
       <Animated.View entering={entering} style={styles.chatMessageRowAnimated}>
-        <MenuView
-          ref={menuRef}
-          actions={menuActions}
-          onPressAction={onPressAction}
-          shouldOpenOnLongPress
-          themeVariant="dark"
-          style={styles.chatMessageMenuView}
-        >
-          <View style={pressableStyle}>{children}</View>
-        </MenuView>
+        <View style={pressableStyle}>{rowBody}</View>
       </Animated.View>
     </ReactionPickerRowContext.Provider>
   );
@@ -889,6 +888,146 @@ function ReactionPickerSheet({
   );
 }
 
+/**
+ * Long-press message UI: React (opens full emoji sheet), Copy, Delete — OptionsButton rows.
+ */
+function MessageActionsSheet({
+  messageId,
+  visible,
+  onDismiss,
+  canCopy,
+  onRequestFullPicker,
+  onCopy,
+  onDelete,
+}: {
+  messageId: string | null;
+  visible: boolean;
+  onDismiss: () => void;
+  canCopy: boolean;
+  onRequestFullPicker: (messageId: string) => void;
+  onCopy: (messageId: string) => void;
+  onDelete: (messageId: string) => void;
+}) {
+  const { t } = useTranslation();
+  const sheetRef = useRef<TrueSheet>(null);
+  const insets = useSafeAreaInsets();
+
+  useEffect(() => {
+    const sheet = sheetRef.current;
+    if (!sheet) return;
+    if (visible) {
+      sheet.present().catch(() => {});
+    } else {
+      sheet.dismiss().catch(() => {});
+    }
+  }, [visible]);
+
+  const dismissAfter = useCallback(
+    async (fn: () => void) => {
+      fn();
+      try {
+        await sheetRef.current?.dismiss();
+      } catch {
+        // ignore
+      }
+      onDismiss();
+    },
+    [onDismiss]
+  );
+
+  const handleCopyPress = useCallback(() => {
+    if (!messageId || !canCopy) return;
+    void dismissAfter(() => onCopy(messageId));
+  }, [canCopy, dismissAfter, messageId, onCopy]);
+
+  const handleDeletePress = useCallback(() => {
+    if (!messageId) return;
+    void dismissAfter(() => onDelete(messageId));
+  }, [dismissAfter, messageId, onDelete]);
+
+  const handleReactPress = useCallback(() => {
+    if (!messageId) return;
+    onRequestFullPicker(messageId);
+  }, [messageId, onRequestFullPicker]);
+
+  return (
+    <AppTrueSheet ref={sheetRef} name={CHAT_MESSAGE_ACTIONS_SHEET_NAME} onDidDismiss={onDismiss}>
+      {messageId ? (
+        <View
+          style={[
+            SHEET_STYLES.contentContainer,
+            styles.messageActionsActionsBlock,
+            {
+              paddingBottom: Math.max(insets.bottom, LAYOUT_INSETS.SHEET_CONTENT),
+            },
+          ]}
+          accessibilityViewIsModal
+        >
+          <OptionsButton
+            label={t('chat.react')}
+            linkType="none"
+            onPress={handleReactPress}
+            leftContent={
+              <View style={styles.messageActionsOptionLeading}>
+                <ThoughtCuteFilledIcon size={22} color={Colors.neutral[50]} />
+                <Text style={styles.messageActionsOptionTitle}>{t('chat.react')}</Text>
+              </View>
+            }
+            style={[styles.messageActionsListButton, styles.messageActionsCopySurface]}
+          />
+          <OptionsButton
+            label={t('common.copy')}
+            linkType="none"
+            onPress={() => {
+              void handleCopyPress();
+            }}
+            disabled={!canCopy}
+            leftContent={
+              <View style={styles.messageActionsOptionLeading}>
+                <CopyCuteFilledIcon
+                  size={22}
+                  color={canCopy ? Colors.neutral[50] : Colors.neutral[600]}
+                />
+                <Text
+                  style={[
+                    styles.messageActionsOptionTitle,
+                    !canCopy && styles.messageActionsOptionTitleMuted,
+                  ]}
+                >
+                  {t('common.copy')}
+                </Text>
+              </View>
+            }
+            style={[
+              styles.messageActionsListButton,
+              canCopy ? styles.messageActionsCopySurface : styles.messageActionsCopySurfaceDisabled,
+            ]}
+          />
+          <OptionsButton
+            label={t('chat.deleteMessageForMe')}
+            linkType="none"
+            destructive
+            onPress={() => {
+              void handleDeletePress();
+            }}
+            leftContent={
+              <View style={styles.messageActionsOptionLeading}>
+                <DeleteCuteFilledIcon size={22} color={Colors.coral[300]} />
+                <Text
+                  style={[styles.messageActionsOptionTitle, styles.messageActionsOptionTitleDanger]}
+                >
+                  {t('chat.deleteMessageForMe')}
+                </Text>
+              </View>
+            }
+            style={styles.messageActionsListButton}
+          />
+        </View>
+      ) : null}
+    </AppTrueSheet>
+  );
+}
+
 function ChatEmbeddedPost({
   embed,
   isFromMe,
@@ -910,7 +1049,7 @@ function ChatEmbeddedPost({
 
   if (type === RECORD_VIEW_NOT_FOUND || record.notFound === true) {
     return (
-      <View
+      <SquircleView
         style={[
           styles.embedContent,
           isFromMe && styles.embedContentFromMe,
@@ -920,12 +1059,12 @@ function ChatEmbeddedPost({
         <Text style={[styles.embedUnavailableText, isFromMe && styles.embedUnavailableTextFromMe]}>
           Post not found
         </Text>
-      </View>
+      </SquircleView>
     );
   }
   if (type === RECORD_VIEW_BLOCKED || record.blocked === true) {
     return (
-      <View
+      <SquircleView
         style={[
           styles.embedContent,
           isFromMe && styles.embedContentFromMe,
@@ -935,12 +1074,12 @@ function ChatEmbeddedPost({
         <Text style={[styles.embedUnavailableText, isFromMe && styles.embedUnavailableTextFromMe]}>
           Post hidden
         </Text>
-      </View>
+      </SquircleView>
     );
   }
   if (type === RECORD_VIEW_DETACHED || record.detached === true) {
     return (
-      <View
+      <SquircleView
         style={[
           styles.embedContent,
           isFromMe && styles.embedContentFromMe,
@@ -950,7 +1089,7 @@ function ChatEmbeddedPost({
         <Text style={[styles.embedUnavailableText, isFromMe && styles.embedUnavailableTextFromMe]}>
           Post unavailable
         </Text>
-      </View>
+      </SquircleView>
     );
   }
 
@@ -968,12 +1107,12 @@ function ChatEmbeddedPost({
     const thumbnailStyle = {
       width: CHAT_EMBED_VIDEO_WIDTH,
       height: videoHeight,
-      borderRadius: CHAT_EMBED_VIDEO_RADIUS,
     };
     const embedVideoCardLayoutStyle = {
       width: CHAT_EMBED_VIDEO_WIDTH,
       height: videoHeight,
       borderRadius: CHAT_EMBED_VIDEO_RADIUS,
+      overflow: 'hidden' as const,
     };
     const videoThumbnailBody = (
       <>
@@ -1008,27 +1147,29 @@ function ChatEmbeddedPost({
     return (
       <View style={[styles.embedVideoOuter, isFromMe && styles.embedVideoOuterFromMe]}>
         <View style={[styles.embedVideoBlock, { width: CHAT_EMBED_VIDEO_WIDTH }]}>
-          <Link href={fullHeightVideoHref} asChild>
-            <Pressable
-              onPress={() => {
-                seedChatEmbedVideoFeed(record);
-              }}
-              onLongPress={handleLongPress}
-              delayLongPress={delayLongPress}
-              style={StyleSheet.flatten([styles.embedVideoCard, embedVideoCardLayoutStyle])}
-              android_ripple={{ color: Colors.neutral[700] }}
-            >
-              {Platform.OS === 'ios' ? (
-                <Link.AppleZoom>
-                  <View collapsable={false} style={styles.embedVideoAppleZoomInner}>
-                    {videoThumbnailBody}
-                  </View>
-                </Link.AppleZoom>
-              ) : (
-                videoThumbnailBody
-              )}
-            </Pressable>
-          </Link>
+          <SquircleView style={[styles.embedVideoCard, embedVideoCardLayoutStyle]}>
+            <Link href={fullHeightVideoHref} asChild>
+              <Pressable
+                onPress={() => {
+                  seedChatEmbedVideoFeed(record);
+                }}
+                onLongPress={handleLongPress}
+                delayLongPress={delayLongPress}
+                style={styles.embedVideoPressable}
+                android_ripple={{ color: Colors.neutral[700] }}
+              >
+                {Platform.OS === 'ios' ? (
+                  <Link.AppleZoom>
+                    <View collapsable={false} style={styles.embedVideoAppleZoomInner}>
+                      {videoThumbnailBody}
+                    </View>
+                  </Link.AppleZoom>
+                ) : (
+                  videoThumbnailBody
+                )}
+              </Pressable>
+            </Link>
+          </SquircleView>
         </View>
       </View>
     );
@@ -1049,51 +1190,55 @@ function ChatEmbeddedPost({
   const CHAT_EMBED_IMAGE_SINGLE_MAX = 180;
 
   return (
-    <NativePressable
-      onPress={onPressPost}
-      onLongPress={handleLongPress}
-      delayLongPress={delayLongPress}
-      style={[styles.embedContent, isFromMe && styles.embedContentFromMe]}
-      android_ripple={{ color: Colors.neutral[700] }}
-    >
-      {hasImages && (
-        <View style={[styles.embedImagesContainer, isFromMe && styles.embedImagesContainerFromMe]}>
-          {embedImages.slice(0, 4).map((img, idx) => {
-            const total = Math.min(embedImages.length, 4);
-            const aspectRatio = img.aspectRatio
-              ? getClampedAspectRatio(img.aspectRatio.width / img.aspectRatio.height)
-              : 1;
-            const isSingle = total === 1;
-            const w = isSingle
-              ? aspectRatio >= 1
-                ? CHAT_EMBED_IMAGE_SINGLE_MAX
-                : CHAT_EMBED_IMAGE_SINGLE_MAX * aspectRatio
-              : CHAT_EMBED_IMAGE_SIZE;
-            const h = isSingle
-              ? aspectRatio >= 1
-                ? CHAT_EMBED_IMAGE_SINGLE_MAX / aspectRatio
-                : CHAT_EMBED_IMAGE_SINGLE_MAX
-              : CHAT_EMBED_IMAGE_SIZE;
-            return (
-              <View
-                key={img.thumb || img.fullsize || idx}
-                style={[styles.embedImageWrap, { width: w, height: h }]}
-              >
-                <Image
-                  source={{ uri: img.thumb || img.fullsize }}
-                  style={StyleSheet.absoluteFill}
-                  contentFit="cover"
-                  accessible
-                  accessibilityLabel={img.alt || i18n.t('chat.embedImage')}
-                />
-              </View>
-            );
-          })}
-        </View>
-      )}
-      <EmbedAuthor author={author} isFromMe={isFromMe} />
-      <EmbedDescription text={text} isFromMe={isFromMe} />
-    </NativePressable>
+    <SquircleView style={[styles.embedContent, isFromMe && styles.embedContentFromMe]}>
+      <NativePressable
+        onPress={onPressPost}
+        onLongPress={handleLongPress}
+        delayLongPress={delayLongPress}
+        style={styles.embedContentPressable}
+        android_ripple={{ color: Colors.neutral[700] }}
+      >
+        {hasImages && (
+          <View
+            style={[styles.embedImagesContainer, isFromMe && styles.embedImagesContainerFromMe]}
+          >
+            {embedImages.slice(0, 4).map((img, idx) => {
+              const total = Math.min(embedImages.length, 4);
+              const aspectRatio = img.aspectRatio
+                ? getClampedAspectRatio(img.aspectRatio.width / img.aspectRatio.height)
+                : 1;
+              const isSingle = total === 1;
+              const w = isSingle
+                ? aspectRatio >= 1
+                  ? CHAT_EMBED_IMAGE_SINGLE_MAX
+                  : CHAT_EMBED_IMAGE_SINGLE_MAX * aspectRatio
+                : CHAT_EMBED_IMAGE_SIZE;
+              const h = isSingle
+                ? aspectRatio >= 1
+                  ? CHAT_EMBED_IMAGE_SINGLE_MAX / aspectRatio
+                  : CHAT_EMBED_IMAGE_SINGLE_MAX
+                : CHAT_EMBED_IMAGE_SIZE;
+              return (
+                <SquircleView
+                  key={img.thumb || img.fullsize || idx}
+                  style={[styles.embedImageWrap, { width: w, height: h }]}
+                >
+                  <Image
+                    source={{ uri: img.thumb || img.fullsize }}
+                    style={StyleSheet.absoluteFill}
+                    contentFit="cover"
+                    accessible
+                    accessibilityLabel={img.alt || i18n.t('chat.embedImage')}
+                  />
+                </SquircleView>
+              );
+            })}
+          </View>
+        )}
+        <EmbedAuthor author={author} isFromMe={isFromMe} />
+        <EmbedDescription text={text} isFromMe={isFromMe} />
+      </NativePressable>
+    </SquircleView>
   );
 }
 
@@ -1128,7 +1273,9 @@ export default function ChatScreen() {
   const rawId = params.id ?? '';
   const otherDid = params.did ?? rawId;
   const [inputText, setInputText] = useState('');
+  const [inputSelection, setInputSelection] = useState({ start: 0, end: 0 });
   const currentUserDid = useUserStore(s => s.currentUser?.did);
+  const currentUserAvatar = useUserStore(s => s.currentUser?.avatar ?? null);
 
   const openByDid = isDid(rawId);
   const members = useMemo(
@@ -1172,19 +1319,28 @@ export default function ChatScreen() {
   const otherRingProps = useAvatarProfileRing(otherDid || null);
   const currentUserRingProps = useAvatarProfileRing(currentUserDid ?? null);
   const sentMessageAccentColor = currentUserRingProps.ringColor || Colors.brand.teal;
-  const sentMessageAccentBorderStyle = useMemo(
-    () => ({ borderRightColor: sentMessageAccentColor }),
+  /** Outgoing bubble surface + rim: blend profile ring into neutral base (matches app profile colors). */
+  const sentBubbleBlendedStyle = useMemo(
+    () => ({
+      backgroundColor: blendColors(Colors.neutral[900], sentMessageAccentColor, 0.3),
+      borderColor: blendColors(Colors.neutral[800], sentMessageAccentColor, 0.45),
+    }),
     [sentMessageAccentColor]
   );
   const otherUserAccentColor = otherRingProps.ringColor || Colors.neutral[700];
-  const otherMessageAccentBorderStyle = useMemo(
-    () => ({ borderLeftColor: otherUserAccentColor }),
-    [otherUserAccentColor]
-  );
-  const headerConfig = itemSizeConfig.large;
+  const headerAvatarSize = itemSizeConfig.large.avatarSize;
+  const headerBadgeSize = itemSizeConfig.large.badgeTextSize;
   const reactionPicker = useReactionPicker();
+  const {
+    messageId: messageActionsTargetId,
+    open: openMessageActionsSheet,
+    close: closeMessageActionsSheet,
+    visible: messageActionsSheetVisible,
+  } = useMessageActionsSheet();
   const closePickerRef = useRef(reactionPicker.closePicker);
   closePickerRef.current = reactionPicker.closePicker;
+  const closeMessageActionsRef = useRef(closeMessageActionsSheet);
+  closeMessageActionsRef.current = closeMessageActionsSheet;
 
   const isInConvo = !!convo;
   const hasLeftConvo = convoFetched && convo === null && !openByDid;
@@ -1283,12 +1439,14 @@ export default function ChatScreen() {
     },
     onError: (_err, _vars, context) => {
       closePickerRef.current();
+      closeMessageActionsRef.current();
       if (context?.prev != null) {
         queryClient.setQueryData(queryKeys.chat.messages.byConversation(convoId), context.prev);
       }
     },
     onSuccess: () => {
       closePickerRef.current();
+      closeMessageActionsRef.current();
     },
     onSettled: () => {
       queryClient.invalidateQueries({
@@ -1351,6 +1509,36 @@ export default function ChatScreen() {
       ]);
     },
     [deleteMessageForSelfMutation, t]
+  );
+
+  const actionsTargetMessage = useMemo(() => {
+    if (!messageActionsTargetId) return null;
+    const raw = messagesData?.messages ?? [];
+    return (
+      (raw.find((m: { id?: string }) => m.id === messageActionsTargetId) as
+        | MessageItem
+        | undefined) ?? null
+    );
+  }, [messageActionsTargetId, messagesData?.messages]);
+
+  const handleOpenMessageActions = useCallback(
+    (messageId: string) => {
+      openMessageActionsSheet(messageId);
+    },
+    [openMessageActionsSheet]
+  );
+
+  const handleRequestFullPickerFromActions = useCallback(
+    (messageId: string) => {
+      closeMessageActionsSheet();
+      requestIdleCallback(
+        () => {
+          reactionPicker.openFullPicker(messageId);
+        },
+        { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
+      );
+    },
+    [closeMessageActionsSheet, reactionPicker.openFullPicker]
   );
 
   // Newest message id (getMessages returns newest first); pass to updateRead so server marks read up to this message
@@ -1495,7 +1683,9 @@ export default function ChatScreen() {
       if (item.type === 'date') {
         return (
           <Animated.View entering={entering} style={styles.dateSeparator}>
+            <View style={styles.dateSeparatorLine} />
             <Text style={styles.dateSeparatorText}>{item.label}</Text>
+            <View style={styles.dateSeparatorLine} />
           </Animated.View>
         );
       }
@@ -1508,86 +1698,111 @@ export default function ChatScreen() {
       const hasVideoEmbed = !!record && !!getVideoViewFromRecordEmbeds(record.embeds);
       const hasMessageText = msg.text != null && msg.text !== '';
       const showVideoCaption = hasVideoEmbed && hasMessageText;
+      const beforeEmbedRaw: ReactNode =
+        hasMessageText && !hasVideoEmbed ? (
+          <ChatMessageRichText
+            text={msg.text}
+            facets={(msg as { facets?: RichTextFacet[] | null }).facets ?? null}
+            isFromMe={!!isFromMe}
+            fromMeAccentColor={sentMessageAccentColor}
+          />
+        ) : (!msg.text || msg.text === '') && !hasEmbed ? (
+          <Text style={[styles.messageText, isFromMe && styles.messageTextFromMe]}>
+            {getMessagePreview(msg)}
+          </Text>
+        ) : null;
+
+      const shouldBubbleText =
+        beforeEmbedRaw != null &&
+        (Boolean(hasMessageText && !hasVideoEmbed) ||
+          Boolean((!msg.text || msg.text === '') && !hasEmbed));
+
+      const beforeEmbed: ReactNode =
+        shouldBubbleText && beforeEmbedRaw != null ? (
+          <SquircleView
+            style={[
+              styles.messageBubble,
+              isFromMe ? styles.messageBubbleMe : styles.messageBubbleThem,
+              isFromMe ? sentBubbleBlendedStyle : null,
+            ]}
+          >
+            {beforeEmbedRaw}
+          </SquircleView>
+        ) : (
+          beforeEmbedRaw
+        );
+
+      const embedNode: ReactNode =
+        hasEmbed && msg.embed ? (
+          <ChatEmbeddedPost embed={msg.embed} isFromMe={!!isFromMe} delayLongPress={400} />
+        ) : null;
+
+      const captionNode: ReactNode = showVideoCaption ? (
+        <SquircleView
+          style={[
+            styles.messageBubble,
+            styles.videoCaptionBubble,
+            isFromMe ? styles.messageBubbleMe : styles.messageBubbleThem,
+            isFromMe ? sentBubbleBlendedStyle : null,
+          ]}
+        >
+          <ChatMessageRichText
+            text={msg.text}
+            facets={(msg as { facets?: RichTextFacet[] | null }).facets ?? null}
+            isFromMe={!!isFromMe}
+            fromMeAccentColor={sentMessageAccentColor}
+          />
+        </SquircleView>
+      ) : null;
+
+      const footerNode: ReactNode = (
+        <View style={[styles.messageMetaRow, isFromMe && styles.messageMetaRowFromMe]}>
+          {!isFromMe && item.showTime && msg.sentAt && (
+            <Text style={styles.messageTime}>{formatMessageTime(msg.sentAt)}</Text>
+          )}
+          <MessageReactions
+            reactions={(msg as MessageItem).reactions}
+            currentUserDid={currentUserDid ?? undefined}
+            isFromMe={!!isFromMe}
+            sentAccentColor={sentMessageAccentColor}
+            otherAccentColor={otherUserAccentColor}
+          />
+          {isFromMe && item.showTime && msg.sentAt && (
+            <Text style={[styles.messageTime, styles.messageTimeFromMe]}>
+              {formatMessageTime(msg.sentAt)}
+            </Text>
+          )}
+        </View>
+      );
+
       return (
         <ChatMessageRow
           messageId={msg.id}
-          message={msg}
-          onOpenFullReactionPicker={reactionPicker.openFullPicker}
-          onCopyMessage={handleCopyMessage}
-          onDeleteMessageForSelf={handleDeleteMessageForSelf}
+          onOpenMessageActions={handleOpenMessageActions}
           entering={entering}
           pressableStyle={[
             styles.messageRow,
             isFromMe ? styles.messageRowFromMe : styles.messageRowFromThem,
             isNewSender && styles.messageRowNewSender,
-            isFromMe && !hasEmbed && sentMessageAccentBorderStyle,
-            !isFromMe && !hasEmbed && otherMessageAccentBorderStyle,
             hasEmbed && styles.messageRowEmbed,
             hasVideoEmbed && styles.messageRowVideoEmbed,
           ]}
-        >
-          {hasMessageText && !hasVideoEmbed && (
-            <ChatMessageRichText
-              text={msg.text}
-              facets={(msg as { facets?: RichTextFacet[] | null }).facets ?? null}
-              isFromMe={!!isFromMe}
-            />
-          )}
-          {hasEmbed && msg.embed && (
-            <ChatEmbeddedPost embed={msg.embed} isFromMe={!!isFromMe} delayLongPress={400} />
-          )}
-          {showVideoCaption && (
-            <View
-              style={[
-                styles.videoCaptionContainer,
-                isFromMe
-                  ? styles.videoCaptionContainerFromMe
-                  : styles.videoCaptionContainerFromThem,
-                isFromMe ? sentMessageAccentBorderStyle : otherMessageAccentBorderStyle,
-              ]}
-            >
-              <ChatMessageRichText
-                text={msg.text}
-                facets={(msg as { facets?: RichTextFacet[] | null }).facets ?? null}
-                isFromMe={!!isFromMe}
-              />
-            </View>
-          )}
-          {(!msg.text || msg.text === '') && !hasEmbed && (
-            <Text style={[styles.messageText, isFromMe && styles.messageTextFromMe]}>
-              {getMessagePreview(msg)}
-            </Text>
-          )}
-          <View style={[styles.messageMetaRow, isFromMe && styles.messageMetaRowFromMe]}>
-            {!isFromMe && item.showTime && msg.sentAt && (
-              <Text style={styles.messageTime}>{formatMessageTime(msg.sentAt)}</Text>
-            )}
-            <MessageReactions
-              reactions={(msg as MessageItem).reactions}
-              currentUserDid={currentUserDid ?? undefined}
-              isFromMe={!!isFromMe}
-              sentAccentColor={sentMessageAccentColor}
-              otherAccentColor={otherUserAccentColor}
-            />
-            {isFromMe && item.showTime && msg.sentAt && (
-              <Text style={[styles.messageTime, styles.messageTimeFromMe]}>
-                {formatMessageTime(msg.sentAt)}
-              </Text>
-            )}
-          </View>
-        </ChatMessageRow>
+          segments={{
+            beforeEmbed,
+            embed: embedNode,
+            caption: captionNode,
+            footer: footerNode,
+          }}
+        />
       );
     },
     [
       listData.length,
       currentUserDid,
       sentMessageAccentColor,
+      sentBubbleBlendedStyle,
       otherUserAccentColor,
-      sentMessageAccentBorderStyle,
-      otherMessageAccentBorderStyle,
-      reactionPicker.openFullPicker,
-      handleCopyMessage,
-      handleDeleteMessageForSelf,
+      handleOpenMessageActions,
     ]
   );
 
@@ -1819,8 +2034,6 @@ export default function ChatScreen() {
     );
   }, [reactionPicker.state?.messageId, messagesData?.messages]);
 
-  const canSend = !needsAccept && inputText.trim().length > 0 && !sendMessageMutation.isPending;
-  const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
   const headerTop = insets.top + 4;
 
   const rawMessages = messagesData?.messages ?? [];
@@ -1835,6 +2048,14 @@ export default function ChatScreen() {
     rawMessages,
     currentUserDid ?? undefined
   );
+
+  const headerHandleRaw = profile?.handle?.trim() ?? '';
+  const headerHandleTitle =
+    headerHandleRaw !== ''
+      ? formatHandle(headerHandleRaw)
+      : otherDid !== ''
+        ? otherDid.slice(0, 22)
+        : '';
 
   if (!convoId && !openByDid) {
     return (
@@ -1912,22 +2133,52 @@ export default function ChatScreen() {
             <BackArrowIcon size={30} color={Colors.neutral[50]} />
           </NativePressable>
         </View>
-        <View style={[sharedItemStyles.accountButtonContent, styles.headerCenter]}>
+        <View style={styles.headerCenter}>
           <NativePressable
             onPress={handleViewProfile}
-            style={sharedItemStyles.avatarContainer}
+            style={styles.headerTitleBlock}
             accessibilityRole="button"
             accessibilityLabel={t('a11y.viewProfile')}
           >
-            <Avatar
-              uri={profile?.avatar}
-              type="profile"
-              size={headerConfig.avatarSize}
-              showRing={otherRingProps.showRing}
-              ringColor={otherRingProps.ringColor}
-              profileColors={otherRingProps.profileColors}
-              status={profile?.status}
-            />
+            <View style={sharedItemStyles.avatarContainer}>
+              <Avatar
+                uri={profile?.avatar}
+                type="profile"
+                size={headerAvatarSize}
+                showRing={otherRingProps.showRing}
+                ringColor={otherRingProps.ringColor}
+                profileColors={otherRingProps.profileColors}
+                status={profile?.status}
+              />
+            </View>
+            <View style={styles.headerTitleColumn}>
+              <View style={styles.headerNameRow}>
+                {headerHandleTitle !== '' ? (
+                  <Text
+                    style={[sharedItemStyles.accountDisplayName, styles.headerAuthorItemName]}
+                    numberOfLines={1}
+                  >
+                    {headerHandleTitle}
+                  </Text>
+                ) : null}
+                {headerHandleRaw ? (
+                  <VerificationBadge
+                    handle={headerHandleRaw}
+                    textSize={headerBadgeSize}
+                    textColor={Colors.neutral[50]}
+                  />
+                ) : null}
+                {headerHandleRaw ? (
+                  <BotBadge
+                    handle={headerHandleRaw}
+                    did={otherDid}
+                    labels={(profile as ProfileViewBasic | undefined)?.labels}
+                    textSize={headerBadgeSize}
+                    textColor={Colors.neutral[50]}
+                  />
+                ) : null}
+              </View>
+            </View>
           </NativePressable>
         </View>
         <View style={styles.headerRight}>
@@ -1978,6 +2229,16 @@ export default function ChatScreen() {
         </View>
       ) : null}
 
+      <MessageActionsSheet
+        messageId={messageActionsTargetId}
+        visible={messageActionsSheetVisible}
+        onDismiss={closeMessageActionsSheet}
+        canCopy={!!(actionsTargetMessage?.text && actionsTargetMessage.text.trim().length > 0)}
+        onRequestFullPicker={handleRequestFullPickerFromActions}
+        onCopy={handleCopyMessage}
+        onDelete={handleDeleteMessageForSelf}
+      />
+
       <ReactionPickerSheet
         visible={reactionPicker.isSheetVisible}
         onDismiss={reactionPicker.closePicker}
@@ -1992,14 +2253,9 @@ export default function ChatScreen() {
         otherAccentColor={otherUserAccentColor}
       />
 
-      <VerticalListSheet
-        name="chat-report-or-block"
-        onDismiss={() => {}}
-        title={t('chat.reportOrBlock')}
-        showCancelButton
-        cancelButtonText={t('common.cancel')}
-      >
-        <View style={styles.menuOptionsContainer}>
+      <VerticalListSheet name="chat-report-or-block" onDismiss={() => {}}>
+        <Text style={SHEET_STYLES.sheetScreenTitle}>{t('chat.reportOrBlock')}</Text>
+        <View>
           <VerticalListButton
             label={isBlocked ? t('chat.unblockAccount') : t('chat.blockAccount')}
             onPress={() => {
@@ -2102,57 +2358,25 @@ export default function ChatScreen() {
             </View>
           </View>
         ) : (
-          <View style={styles.inputRow}>
-            <View style={styles.inputWrapper}>
-              <TextInput
-                ref={inputRef}
-                style={styles.input}
-                value={inputText}
-                onChangeText={setInputText}
-                placeholder={t('chat.messagePlaceholder')}
-                placeholderTextColor={Colors.neutral[500]}
-                multiline
-                maxLength={1000}
-                editable={!sendMessageMutation.isPending}
-                textAlignVertical="top"
-                returnKeyType="send"
-                blurOnSubmit={false}
-              />
-            </View>
-            {canSend ? (
-              <SquircleNativePressable
-                style={[styles.sendButton, !useLiquidGlass && styles.sendButtonFallback]}
-                onPressIn={() => {
-                  // Keep focus anchored on the input so keyboard doesn't collapse
-                  inputRef.current?.focus();
-                }}
-                onPress={handleSend}
-                hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
-                accessible
-                accessibilityRole="button"
-                accessibilityLabel={t('a11y.sendMessage')}
-              >
-                {useLiquidGlass ? (
-                  <>
-                    <GlassView
-                      style={styles.sendButtonGlass}
-                      glassEffectStyle="clear"
-                      tintColor={hexToRGBA(Colors.neutral[50], 1)}
-                      isInteractive
-                    />
-                    <View style={styles.sendButtonContent} pointerEvents="none">
-                      <Icon name="up" size={22} color={Colors.black} />
-                    </View>
-                  </>
-                ) : (
-                  <Icon name="up" size={22} color={Colors.black} />
-                )}
-              </SquircleNativePressable>
-            ) : null}
+          <View style={styles.chatComposerFooter}>
+            <CommentInputFooter
+              value={inputText}
+              onChangeText={setInputText}
+              inputSelection={inputSelection}
+              onSelectionChange={e => setInputSelection(e.nativeEvent.selection)}
+              placeholder={t('chat.messagePlaceholder')}
+              onSubmit={handleSend}
+              isPosting={sendMessageMutation.isPending}
+              maxLength={1000}
+              inputRef={inputRef}
+              currentUserAvatar={currentUserAvatar}
+              submitAccessibilityLabel={t('a11y.sendMessage')}
+              showAvatar
+              hideMediaAddButton
+            />
           </View>
         )}
       </KeyboardAvoidingView>
-      <View style={[styles.footerSpacer, { height: getFooterBottomPadding(insets.bottom) }]} />
     </View>
   );
 }
@@ -2165,18 +2389,19 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.neutral[800],
+    paddingHorizontal: 10,
+    paddingBottom: 10,
+    backgroundColor: Colors.black,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.neutral[975],
   },
   acceptBar: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingTop: 10,
     paddingBottom: 8,
     gap: 10,
-    borderTopWidth: 1,
-    borderTopColor: Colors.neutral[800],
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Colors.neutral[975],
     backgroundColor: Colors.black,
   },
   acceptBarButtonAcceptBg: {
@@ -2226,6 +2451,33 @@ const styles = StyleSheet.create({
     minWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  headerTitleBlock: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    maxWidth: '100%',
+  },
+  headerTitleColumn: {
+    minWidth: 0,
+    maxWidth: '68%',
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+  },
+  headerNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    gap: 4,
+    maxWidth: '100%',
+  },
+  /** Matches AuthorItem name line for the active `itemSizeConfig` tier. */
+  headerAuthorItemName: {
+    fontSize: itemSizeConfig.large.nameFontSize,
+    fontFamily: FontFamily.black,
+    flexShrink: 1,
+    textAlign: 'left',
   },
   headerRight: {
     width: 88,
@@ -2240,7 +2492,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: BORDER_RADIUS.FULL,
-    backgroundColor: Colors.neutral[900],
+    backgroundColor: Colors.neutral[975],
     gap: 4,
   },
   headerStreakBadgeText: {
@@ -2263,18 +2515,15 @@ const styles = StyleSheet.create({
   otherUserUnavailableBanner: {
     paddingHorizontal: 16,
     paddingVertical: 10,
-    backgroundColor: Colors.neutral[900],
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.neutral[800],
+    backgroundColor: Colors.black,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.neutral[975],
   },
   otherUserUnavailableBannerText: {
     color: Colors.neutral[400],
     fontSize: Typography.sizes.caption,
     fontFamily: FontFamily.regular,
     lineHeight: Typography.lineHeights.caption,
-  },
-  menuOptionsContainer: {
-    paddingHorizontal: 4,
   },
   keyboardView: {
     flex: 1,
@@ -2283,23 +2532,24 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listContent: {
-    paddingLeft: 10,
-    paddingRight: 10,
-    paddingBottom: 24,
+    paddingHorizontal: 12,
+    paddingBottom: 20,
     flexGrow: 1,
     justifyContent: 'flex-end',
   },
   listItemSeparator: {
-    height: 6,
+    height: 4,
   },
   empty: {
     paddingVertical: 48,
     alignItems: 'center',
   },
   emptyText: {
-    color: Colors.neutral[400],
+    color: Colors.neutral[300],
     fontSize: Typography.sizes.subtitle,
     fontFamily: FontFamily.medium,
+    textAlign: 'center',
+    paddingHorizontal: 24,
   },
   messageRow: {
     width: '100%',
@@ -2308,61 +2558,70 @@ const styles = StyleSheet.create({
   chatMessageRowAnimated: {
     width: '100%',
   },
-  chatMessageMenuView: {
-    width: '100%',
+  chatMessageLongPressZone: {
     alignSelf: 'stretch',
   },
+  /** Same pattern as login `dividerContainer` / `divider` / `dividerText` (Or divider). */
   dateSeparator: {
-    paddingVertical: 10,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    paddingVertical: 12,
+  },
+  dateSeparatorLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: Colors.neutral[500],
+    opacity: 0.3,
   },
   dateSeparatorText: {
-    color: Colors.neutral[500],
-    fontSize: Typography.sizes.caption,
+    color: Colors.neutral[200],
+    fontSize: Typography.sizes.bodySmall,
     fontFamily: FontFamily.medium,
+    marginHorizontal: 16,
   },
   messageRowNewSender: {
-    marginTop: 10,
+    marginTop: 12,
   },
   messageRowFromThem: {
-    paddingLeft: 10,
-    borderLeftWidth: 2,
-    borderLeftColor: Colors.neutral[700],
+    alignItems: 'flex-start',
   },
   messageRowFromMe: {
     alignItems: 'flex-end',
-    paddingRight: 10,
-    borderRightWidth: 2,
-    borderRightColor: Colors.brand.teal,
   },
-  messageRowEmbed: {
-    borderLeftWidth: 0,
-    borderRightWidth: 0,
-  },
+  messageRowEmbed: {},
   messageRowVideoEmbed: {
-    paddingLeft: 0,
-    paddingRight: 0,
+    maxWidth: '100%',
   },
-  videoCaptionContainer: {
-    width: CHAT_EMBED_VIDEO_WIDTH,
+  messageBubble: {
     maxWidth: '85%',
-    marginTop: 6,
-    paddingVertical: 0,
-    paddingHorizontal: 0,
-    backgroundColor: Colors.transparent,
-    borderLeftWidth: 2,
-    borderRightWidth: 2,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
   },
-  videoCaptionContainerFromMe: {
-    alignSelf: 'flex-end',
-    paddingRight: 10,
-    borderLeftWidth: 0,
-  },
-  videoCaptionContainerFromThem: {
+  messageBubbleThem: {
     alignSelf: 'flex-start',
-    paddingLeft: 10,
-    borderRightWidth: 0,
+    backgroundColor: Colors.neutral[900],
+    borderColor: Colors.neutral[800],
+    borderTopLeftRadius: BORDER_RADIUS.LARGE,
+    borderTopRightRadius: BORDER_RADIUS.LARGE,
+    borderBottomRightRadius: BORDER_RADIUS.LARGE,
+    borderBottomLeftRadius: CHAT_BUBBLE_OUTSIDE_BOTTOM_RADIUS,
+  },
+  messageBubbleMe: {
+    alignSelf: 'flex-end',
+    borderTopLeftRadius: BORDER_RADIUS.LARGE,
+    borderTopRightRadius: BORDER_RADIUS.LARGE,
+    borderBottomLeftRadius: BORDER_RADIUS.LARGE,
+    borderBottomRightRadius: CHAT_BUBBLE_OUTSIDE_BOTTOM_RADIUS,
+  },
+  /**
+   * Text under a video card: same bubble chrome as other messages (maxWidth, colors),
+   * slightly tighter padding and small top gap so it reads as attached to the video.
+   */
+  videoCaptionBubble: {
+    marginTop: 4,
+    paddingVertical: 8,
   },
   messageText: {
     color: Colors.neutral[50],
@@ -2380,7 +2639,6 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
   messageTextLinkFromMe: {
-    color: Colors.brand.teal,
     textDecorationLine: 'underline',
   },
   messageTextFromMe: {
@@ -2436,7 +2694,7 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: Colors.neutral[800],
-    backgroundColor: Colors.neutral[900],
+    backgroundColor: Colors.neutral[975],
   },
   reactionSheetActiveChips: {
     flexDirection: 'row',
@@ -2473,13 +2731,60 @@ const styles = StyleSheet.create({
   reactionSheetContent: {
     flex: 1,
     minHeight: 360,
-    backgroundColor: Colors.neutral[900],
+    backgroundColor: Colors.neutral[975],
+  },
+  /**
+   * Message actions: match `SHEET_STYLES.contentContainer` horizontal inset (LAYOUT_INSETS.SHEET_CONTENT)
+   * so space below grabber equals side gutters.
+   */
+  messageActionsActionsBlock: {
+    paddingTop: LAYOUT_INSETS.SHEET_CONTENT,
+    backgroundColor: Colors.neutral[975],
+  },
+  /** Same vertical rhythm as VerticalListSheet `listButtonMargin` */
+  messageActionsListButton: {
+    marginHorizontal: 0,
+    marginBottom: 8,
+  },
+  /** Lift copy row off sheet neutral[975] (OptionsButton default surface is neutral[900]) */
+  messageActionsCopySurface: {
+    backgroundColor: Colors.neutral[800],
+  },
+  messageActionsCopySurfaceDisabled: {
+    backgroundColor: hexToRGBA(Colors.neutral[800], 0.52),
+  },
+  messageActionsOptionLeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    flex: 1,
+  },
+  /** Matches OptionsButton `menuOptionText` (VerticalList sheets) */
+  messageActionsOptionTitle: {
+    flex: 1,
+    color: Colors.neutral[50],
+    fontSize: Typography.sizes.title,
+    fontFamily: FontFamily.semibold,
+  },
+  messageActionsOptionTitleMuted: {
+    color: Colors.neutral[600],
+  },
+  messageActionsOptionTitleDanger: {
+    color: Colors.coral[300],
   },
   embedContent: {
-    paddingVertical: 6,
-    paddingHorizontal: 0,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     maxWidth: '85%',
     alignSelf: 'flex-start',
+    backgroundColor: Colors.neutral[900],
+    borderRadius: BORDER_RADIUS.LARGE,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Colors.neutral[800],
+    overflow: 'hidden',
+  },
+  embedContentPressable: {
+    width: '100%',
   },
   embedContentFromMe: {
     alignSelf: 'flex-end',
@@ -2569,9 +2874,13 @@ const styles = StyleSheet.create({
     opacity: 1,
   },
   embedVideoCard: {
-    overflow: 'hidden',
     backgroundColor: Colors.neutral[900],
     position: 'relative',
+  },
+  embedVideoPressable: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
   },
   embedVideoAppleZoomInner: {
     flex: 1,
@@ -2591,16 +2900,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  inputRow: COMPOSER_STYLES.inputRow,
-  inputWrapper: COMPOSER_STYLES.inputWrapper,
-  input: {
-    ...COMPOSER_STYLES.textInput,
-    ...(Platform.OS === 'android' && { includeFontPadding: false }),
+  chatComposerFooter: {
+    backgroundColor: Colors.neutral[975],
   },
-  sendButton: COMPOSER_STYLES.sendButton,
-  sendButtonFallback: COMPOSER_STYLES.sendButtonFallback,
-  sendButtonGlass: COMPOSER_STYLES.sendButtonGlassBg,
-  sendButtonContent: COMPOSER_STYLES.sendButtonContent,
   placeholder: {
     color: Colors.neutral[400],
     fontSize: Typography.sizes.subtitle,
@@ -2611,8 +2913,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-  },
-  footerSpacer: {
-    backgroundColor: Colors.black,
   },
 });

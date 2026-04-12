@@ -20,7 +20,6 @@ import type { TrueSheet } from '@lodev09/react-native-true-sheet';
 import {
   AppTrueSheet,
   DEFAULT_CONTENT_PADDING_HORIZONTAL,
-  DEFAULT_GRABBER_OPTIONS,
   SHEET_SPACING,
 } from '@/utils/components/truesheet';
 import { Colors } from '@/theme';
@@ -287,8 +286,6 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
       ref={sheetRef}
       name="klipy-gif-picker"
       variant="sendToPicker"
-      grabber
-      grabberOptions={DEFAULT_GRABBER_OPTIONS}
       onDidDismiss={onClose}
       scrollable
       header={
@@ -365,17 +362,17 @@ const KlipyGifPickerSheet: React.FC<KlipyGifPickerSheetProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.neutral[975],
   },
   header: {
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.neutral[975],
     paddingHorizontal: SHEET_SPACING.mediaPickerHorizontal,
     paddingTop: 18,
     paddingBottom: 6,
     gap: 8,
   },
   tabsBarContainer: {
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.neutral[975],
     paddingHorizontal: SHEET_SPACING.mediaPickerHorizontal,
     paddingBottom: 6,
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -397,7 +394,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: DEFAULT_CONTENT_PADDING_HORIZONTAL,
     paddingVertical: 11,
     minHeight: 46,
-    boxShadow: '0 1px 6px rgba(0,0,0,0.25)',
+    boxShadow: '0 1px 6px rgba(5,7,10,0.25)',
   },
   searchInput: {
     flex: 1,
@@ -441,7 +438,7 @@ const styles = StyleSheet.create({
     margin: 0,
     borderRadius: 0,
     overflow: 'hidden',
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.neutral[975],
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: Colors.overlay.white10,
   },
@@ -453,7 +450,7 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     height: '100%',
-    backgroundColor: Colors.neutral[900],
+    backgroundColor: Colors.neutral[975],
   },
   adPlaceholder: {
     backgroundColor: Colors.neutral[800],
