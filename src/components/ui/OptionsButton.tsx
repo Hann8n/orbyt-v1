@@ -50,7 +50,7 @@ const buttonStyles = StyleSheet.create({
 
 const textStyles = StyleSheet.create({
   menuOptionText: {
-    color: Colors.neutral[50], // neutral.50 - Orbyt White
+    color: Colors.neutral[50], // Orbyt White
     fontSize: Typography.sizes.title,
     fontFamily: FontFamily.semibold,
   },
@@ -134,14 +134,14 @@ export const OptionsButton: React.FC<OptionsButtonProps> = ({
 
   const getTextColor = () => {
     if (disabled) {
-      return hexToRGBA(Colors.neutral[50], 0.4); // neutral.50 @ 40%
+      return hexToRGBA(Colors.neutral[50], 0.4);
     }
     if (destructive) return Colors.coral[300]; // coral.300 - vibrant salmon-coral text
     // Use custom text color if provided
     if (customTextColor) {
       return customTextColor;
     }
-    return Colors.neutral[50]; // neutral.50 - Orbyt White
+    return Colors.neutral[50];
   };
 
   const getChevronColor = () => {

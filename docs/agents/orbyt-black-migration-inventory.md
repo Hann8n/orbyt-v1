@@ -1,6 +1,6 @@
 # Orbyt black vs neutral black — inventory for follow-up work
 
-**Canonical app black:** `Colors.black` / `neutral[975]` = `**#05070a`\*\* (`src/theme/colors.ts`, `CANONICAL_BLACK`).
+**Orbyt black:** `Colors.black` / `neutral[975]` = **`#05070a`** (`ORBYT_BLACK` in `colors.ts`, exported for the gradient script only). **Orbyt white:** `neutral[0]` / `neutral[50]` / `brand.white` = **`#f3f5fe`** (private `ORBYT_WHITE` in `colors.ts`).
 
 **Intent:** Replace _UI_ uses of pure RGB black (`#000`, `rgba(0,0,0,…)`) with this cool-tinted black so scrims, shadows, and fallbacks match “Orbyt black.”
 
@@ -65,7 +65,7 @@ rg 'rgba\(0,\s*0,\s*0|#000000|#000\b' ios android --glob '!**/Pods/**'
 # App TS/TSX: should only hit Icon.tsx + JSDoc after migration
 rg "rgba\(0,\s*0,\s*0|#000000|'#000'" src app --glob '*.{ts,tsx}'
 
-# Regenerate gradient PNGs if CANONICAL_BLACK ever changes (keep script default in sync)
+# Regenerate gradient PNGs if ORBYT_BLACK ever changes (script default imports it from colors.ts)
 yarn assets:recolor-gradients
 ```
 
@@ -73,4 +73,4 @@ yarn assets:recolor-gradients
 
 ## Script sync
 
-`scripts/recolor-orbyt-gradient-pngs.ts` defaults to hex `05070a`. If `CANONICAL_BLACK` changes in `colors.ts`, update the script default **or** pass `ORBYT_BLACK=` / CLI arg when running.
+`scripts/recolor-orbyt-gradient-pngs.ts` imports default hex from `ORBYT_BLACK` in `colors.ts`. Override with `ORBYT_BLACK=` env or a CLI hex arg when recoloring to a different tint.

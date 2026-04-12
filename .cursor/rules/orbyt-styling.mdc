@@ -12,13 +12,14 @@ Import `Colors` from `src/theme` (via `@/theme` or relative path). Use the `Colo
 - Palette: `Colors.purple[500]`, `Colors.neutral[900]`, `Colors.teal[400]`, etc.
 - Overlays: `Colors.overlay.black60`, `Colors.overlay.white30`, etc.
 - Brand: `Colors.brand.purple`, `Colors.brand.teal`, `Colors.brand.coral`
+- Orbyt White / Orbyt Black: use `Colors.neutral[0]` / `neutral[50]` / `brand.white` for white, and `Colors.black` / `neutral[975]` for black (not `#fff` / `#000`). `ORBYT_BLACK` is exported only for the gradient recolor script.
 - Reference: `src/theme/colors.ts`
 
 For dynamic color manipulation (hexToRGBA, blendColors), import from `src/utils/formatting/colors`.
 For profile ring / Orbyt profile colors, use hooks from `src/services/colors/`.
 
 - Migration note: existing code contains raw hex values (e.g. `'#000'`, `'#dc2626'`) and raw `rgba()` calls. New and modified code must use `Colors.*` tokens or `hexToRGBA()` from `src/utils/formatting/colors`. When touching a file with violations, migrate them.
-- **Exception — CSS `boxShadow` strings**: React Native 0.83+ accepts a CSS `boxShadow` string property (e.g. `boxShadow: '0 4px 6px rgba(5,7,10,0.20)'` — tint RGB matches `Colors.black`). These strings use raw `rgba()` because `hexToRGBA()` returns a color string, not a full shadow declaration. Prefer `Shadows.*` from `src/theme/shadows.ts` when possible.
+- **Exception — CSS `boxShadow` strings**: React Native 0.83+ accepts a CSS `boxShadow` string property (e.g. `boxShadow: '0 4px 6px rgba(5,7,10,0.20)'` — tint RGB matches Orbyt black / `Colors.black`). These strings use raw `rgba()` because `hexToRGBA()` returns a color string, not a full shadow declaration. Prefer `Shadows.*` from `src/theme/shadows.ts` when possible.
 
 ## Typography
 

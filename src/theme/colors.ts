@@ -7,17 +7,20 @@
 
 /**
  * Comprehensive color palette built from Orbyt brand colors:
- * - Purple (#551def) - Primary brand
- * - Teal (#01f5b3) - Success/Accent
- * - Coral (#fe5f79) - Error/Attention
- * - White (#f3f5fe) - Background base (cool-tinted)
+ * - Purple (#551def) — primary brand
+ * - Teal (#01f5b3) — success / accent
+ * - Coral (#fe5f79) — error / attention
+ * - Orbyt White — `neutral[0]` / `brand.white` (not `#fff`)
+ * - Orbyt Black — `neutral[975]` / `black` (not `#000`); `ORBYT_BLACK` exported for the gradient recolor script
  *
  * Each scale uses HSL-based generation for perceptual uniformity.
  * All colors tested for WCAG AA compliance.
  */
 
-/** Full-bleed dark + ink on light surfaces — same as `neutral[975]` (cool blue-grey, not #000). */
-const CANONICAL_BLACK = '#05070a' as const;
+const ORBYT_WHITE = '#f3f5fe' as const;
+
+/** Deepest app black (`neutral[975]`). Exported for `scripts/recolor-orbyt-gradient-pngs.ts`. */
+export const ORBYT_BLACK = '#05070a' as const;
 
 export const Colors = {
   // ═══════════════════════════════════════════════════════════════════════════
@@ -27,7 +30,7 @@ export const Colors = {
     purple: '#551def', // Primary brand (hsl 256, 87%, 53%)
     teal: '#01f5b3', // Accent/success (hsl 164, 99%, 48%)
     coral: '#fe5f79', // Attention/error (hsl 350, 99%, 68%)
-    white: '#f3f5fe', // Background (hsl 229, 69%, 97%)
+    white: ORBYT_WHITE, // Background (hsl 229, 69%, 97%)
     germBrandGreen: '#7ee459', // Germ DM brand
   },
 
@@ -103,8 +106,8 @@ export const Colors = {
   // NEUTRAL SCALE (cool blue-grey; 200=#ccd7e9 text, 900=#0e141b dark – orbyt grey)
   // ═══════════════════════════════════════════════════════════════════════════
   neutral: {
-    0: '#f3f5fe', // ← Orbyt White (no pure white in app)
-    50: '#f3f5fe', // ← Orbyt White
+    0: ORBYT_WHITE, // ← Orbyt White (no pure white in app)
+    50: ORBYT_WHITE, // ← Orbyt White
     100: '#e4eaf5',
     200: '#ccd7e9', // ← Default profile text / light grey
     300: '#a8b8d4',
@@ -117,8 +120,8 @@ export const Colors = {
     /** Between 900 and 950: raised rows/cards on 975 (mid blend, same hue family). */
     925: '#0c1118',
     950: '#0a0e14',
-    /** Deepest neutral; same hex as `Colors.black` (canonical app “black”). */
-    975: CANONICAL_BLACK,
+    /** Deepest neutral — Orbyt Black; same as `Colors.black`. */
+    975: ORBYT_BLACK,
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -192,10 +195,10 @@ export const Colors = {
   // ═══════════════════════════════════════════════════════════════════════════
   // ESSENTIAL & OVERLAYS (use scale above: neutral[N], purple[N], coral[N], etc.)
   // ═══════════════════════════════════════════════════════════════════════════
-  /** Alias of `neutral[975]` — use for backgrounds/text instead of literal #000. */
-  black: CANONICAL_BLACK,
+  /** Orbyt Black — alias of `neutral[975]`; use instead of literal #000. */
+  black: ORBYT_BLACK,
 
-  /** Translucent scrims — RGB matches `CANONICAL_BLACK` (#05070a), not pure #000. */
+  /** Translucent scrims — RGB tint matches `black`, not pure #000. */
   overlay: {
     black15: 'rgba(5, 7, 10, 0.15)',
     black35: 'rgba(5, 7, 10, 0.35)',

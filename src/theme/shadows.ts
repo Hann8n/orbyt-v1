@@ -2,7 +2,7 @@ import { ViewStyle } from 'react-native';
 
 /**
  * Standardized shadow system for consistent depth across the app.
- * Shadow tint RGB matches `Colors.black` / `neutral[975]` (#05070a), not pure #000.
+ * Shadow tint RGB matches Orbyt black (`Colors.black` / `neutral[975]`), not pure #000.
  */
 
 export const Shadows = {

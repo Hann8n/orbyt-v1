@@ -1,6 +1,6 @@
 /**
- * Recolors alpha-mask gradient PNGs from pure black to the app canonical dark
- * (see `src/theme/colors.ts` — `Colors.black` / `neutral[975]`).
+ * Recolors alpha-mask gradient PNGs from pure black to Orbyt black
+ * (`ORBYT_BLACK` in `src/theme/colors.ts` — same as `Colors.black` / `neutral[975]`).
  *
  * Assets are RGBA: the alpha channel defines the fade; RGB was historically
  * #000. This script sets RGB to the target tint while preserving alpha exactly.
@@ -13,6 +13,8 @@
 
 import path from 'path';
 import sharp from 'sharp';
+
+import { ORBYT_BLACK } from '../src/theme/colors';
 
 const GRADIENT_FILES = ['embed-video-gradient-shim.png', 'corner-gradient.png'] as const;
 
@@ -31,7 +33,7 @@ function parseHexRgb(input: string): { r: number; g: number; b: number } {
 async function main(): Promise<void> {
   const fromArg = process.argv[2];
   const fromEnv = process.env.ORBYT_BLACK;
-  const hex = (fromArg || fromEnv || '05070a').replace(/^#/, '');
+  const hex = (fromArg || fromEnv || ORBYT_BLACK.replace(/^#/, '')).replace(/^#/, '');
   const rgb = parseHexRgb(hex);
 
   const assetsDir = path.join(__dirname, '..', 'src', 'assets');

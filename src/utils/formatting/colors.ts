@@ -15,7 +15,7 @@ export const hexToRGBA = (hex: string, alpha: number): string => {
 /**
  * Blends two hex colors together to create a solid color
  * @param color1 First hex color (e.g., '#FFFFFF')
- * @param color2 Second hex color (e.g., `Colors.black` / '#05070a')
+ * @param color2 Second hex color (e.g., `Colors.black`)
  * @param ratio Blend ratio (0-1), where 0 = color1, 1 = color2
  * @returns Blended hex color string
  */
