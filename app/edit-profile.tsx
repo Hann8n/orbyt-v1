@@ -1,12 +1,4 @@
-import React, {
-  useState,
-  useCallback,
-  useMemo,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  startTransition,
-} from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   View,
@@ -23,13 +15,12 @@ import { NativePressable } from '@/components/ui/NativePressable';
 import { SquircleView, SquircleNativePressable } from '@/components/ui/Squircle';
 import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+
 import Animated, {
   Layout,
   useSharedValue,
   useAnimatedStyle,
-  withSpring,
-  SharedValue,
+  withTiming,
   FadeIn,
   FadeOut,
   Easing,
@@ -65,35 +56,123 @@ export interface ProfileColorOption {
 }
 
 const ABOUT_MAX_LENGTH = 256;
+const COLOR_SQUARE_HIT_SLOP = { top: 8, bottom: 8, left: 2, right: 2 };
 
 // Color picker layout constants (must match styles)
-const COLOR_SQUARE_WIDTH = 44;
+const COLOR_SQUARE_WIDTH = 42;
 const COLOR_PICKER_GAP = 4;
+const COLOR_RING_WIDTH = 4;
+const COLOR_RING_OFFSET = COLOR_PICKER_GAP + COLOR_RING_WIDTH;
 const COLOR_PICKER_PADDING = 20;
 const COLOR_DIVIDER_WIDTH = 2;
 const COLOR_DIVIDER_MARGIN = 8;
 const COLOR_DIVIDER_TOTAL_WIDTH = COLOR_DIVIDER_WIDTH + COLOR_DIVIDER_MARGIN * 2;
 const COLOR_ITEM_WIDTH = COLOR_SQUARE_WIDTH + COLOR_PICKER_GAP;
 
+// Predefined color options — module-level constant (no deps, never changes)
+const PREDEFINED_COLORS: ProfileColorOption[] = [
+  // Neutral/Universal (orbyt grey - matches DEFAULT_PROFILE_COLORS / palette)
+  { backgroundColor: Colors.neutral[900], textColor: Colors.neutral[200] },
+  // Primary - colored backgrounds with white text
+  { backgroundColor: '#C6142E', textColor: Colors.neutral[50] },
+  { backgroundColor: '#CC9900', textColor: Colors.neutral[50] },
+  { backgroundColor: '#3D9812', textColor: Colors.neutral[50] },
+  { backgroundColor: '#0B9997', textColor: Colors.neutral[50] },
+  { backgroundColor: '#0E94C6', textColor: Colors.neutral[50] },
+  { backgroundColor: '#0E46C6', textColor: Colors.neutral[50] },
+  { backgroundColor: '#5913C6', textColor: Colors.neutral[50] },
+  { backgroundColor: '#B713C6', textColor: Colors.neutral[50] },
+  { backgroundColor: '#f34965', textColor: Colors.neutral[900] },
+  { backgroundColor: '#f3c949', textColor: Colors.neutral[900] },
+  { backgroundColor: '#73f349', textColor: Colors.neutral[900] },
+  { backgroundColor: '#49f3f1', textColor: Colors.neutral[900] },
+  { backgroundColor: '#49c9f3', textColor: Colors.neutral[900] },
+  { backgroundColor: '#5c8ff5', textColor: Colors.neutral[900] },
+  { backgroundColor: '#8c57f4', textColor: Colors.neutral[900] },
+  { backgroundColor: '#e549f3', textColor: Colors.neutral[900] },
+  // Complementary
+  { backgroundColor: '#fba9d5', textColor: '#45498f' },
+  { backgroundColor: '#02e4bf', textColor: '#414a76' },
+  { backgroundColor: '#c9d3fe', textColor: '#b71431' },
+  { backgroundColor: '#fbb300', textColor: '#2b212a' },
+  { backgroundColor: '#1f1d46', textColor: '#f85d4a' },
+  { backgroundColor: '#2d615e', textColor: '#fdc1b8' },
+  { backgroundColor: '#03df6e', textColor: '#19304d' },
+  { backgroundColor: '#ddf59c', textColor: '#367746' },
+  { backgroundColor: '#523b99', textColor: '#fba2c3' },
+  { backgroundColor: '#ecf9fb', textColor: '#66737e' },
+  { backgroundColor: '#34333f', textColor: '#f88667' },
+  { backgroundColor: '#524864', textColor: '#91f7f8' },
+  { backgroundColor: '#fbc36e', textColor: '#575567' },
+  { backgroundColor: '#cfdae7', textColor: '#b61a59' },
+  { backgroundColor: '#0e1420', textColor: '#ff2c6f' },
+  { backgroundColor: '#61678a', textColor: '#c6f6ad' },
+  { backgroundColor: '#297873', textColor: '#f4fcc3' },
+  { backgroundColor: '#71acab', textColor: '#3a383f' },
+  { backgroundColor: '#84366e', textColor: '#fcb1d4' },
+  { backgroundColor: '#926879', textColor: '#fef9fb' },
+  { backgroundColor: '#4f4085', textColor: '#fda29f' },
+  { backgroundColor: '#464b61', textColor: '#caf7fb' },
+  { backgroundColor: '#9584da', textColor: '#2d234b' },
+  { backgroundColor: '#581b34', textColor: '#ff6340' },
+  // Neon
+  { backgroundColor: '#00132e', textColor: '#42aefa' },
+  { backgroundColor: '#2e0005', textColor: '#fa4254' },
+  { backgroundColor: '#11002e', textColor: '#ce42fa' },
+  { backgroundColor: '#002e2e', textColor: '#42fadb' },
+  { backgroundColor: '#002e13', textColor: '#42fa8f' },
+  { backgroundColor: '#092e00', textColor: '#83fa42' },
+  { backgroundColor: '#2e1b00', textColor: '#faad42' },
+];
+
+// Color swatch flex split: background ~80%, text accent ~20% (3 / (3 + 0.75))
+const FLEX_BG = 3;
+const FLEX_TEXT = 0.75;
+
+// Module-level animation descriptors — created once, never recreated per render
+const SPRING_LAYOUT = Layout.springify().duration(280);
+const FADE_IN_SLOW = FadeIn.duration(280).easing(Easing.out(Easing.ease));
+const FADE_OUT_FAST = FadeOut.duration(100).easing(Easing.in(Easing.ease));
+
+// Find a color match in PREDEFINED_COLORS — normal or inverted
+function findColorMatch(colors: { backgroundColor: string; textColor: string }) {
+  for (let i = 0; i < PREDEFINED_COLORS.length; i++) {
+    const p = PREDEFINED_COLORS[i]!;
+    if (p.backgroundColor === colors.backgroundColor && p.textColor === colors.textColor)
+      return { index: i, inverted: false };
+  }
+  for (let i = 0; i < PREDEFINED_COLORS.length; i++) {
+    const p = PREDEFINED_COLORS[i]!;
+    if (p.backgroundColor === colors.textColor && p.textColor === colors.backgroundColor)
+      return { index: i, inverted: true };
+  }
+  return null;
+}
+
 // Animated Color Square Component
 interface AnimatedColorSquareProps {
   colorOption: ProfileColorOption;
   isSelected: boolean;
-  currentColors: { backgroundColor: string; textColor: string };
-  backgroundFlex: SharedValue<number>;
-  textFlex: SharedValue<number>;
+  isInverted: boolean;
   onPress: () => void;
 }
 
 const AnimatedColorSquare: React.FC<AnimatedColorSquareProps> = React.memo(
-  function AnimatedColorSquare({
-    colorOption,
-    isSelected,
-    currentColors,
-    backgroundFlex,
-    textFlex,
-    onPress,
-  }) {
+  function AnimatedColorSquare({ colorOption, isSelected, isInverted, onPress }) {
+    const backgroundFlex = useSharedValue(isInverted ? FLEX_TEXT : FLEX_BG);
+    const textFlex = useSharedValue(isInverted ? FLEX_BG : FLEX_TEXT);
+
+    useEffect(() => {
+      backgroundFlex.value = withTiming(isInverted ? FLEX_TEXT : FLEX_BG, {
+        duration: 220,
+        easing: Easing.out(Easing.cubic),
+      });
+      textFlex.value = withTiming(isInverted ? FLEX_BG : FLEX_TEXT, {
+        duration: 220,
+        easing: Easing.out(Easing.cubic),
+      });
+    }, [isInverted, backgroundFlex, textFlex]);
+
     const backgroundAnimatedStyle = useAnimatedStyle(() => ({
       flex: backgroundFlex.value,
     }));
@@ -104,14 +183,21 @@ const AnimatedColorSquare: React.FC<AnimatedColorSquareProps> = React.memo(
 
     const displayBackgroundColor = colorOption.backgroundColor;
     const displayTextColor = colorOption.textColor;
-    const colorSquareBorder = {
-      borderColor: isSelected ? currentColors.textColor : Colors.transparent,
-      borderWidth: isSelected ? 3 : 0,
-    };
-
     return (
-      <View style={styles.colorSquareContainer}>
-        <SquircleNativePressable style={[styles.colorSquare, colorSquareBorder]} onPress={onPress}>
+      <View
+        style={[styles.colorSquareContainer, isSelected && styles.colorSquareContainerSelected]}
+      >
+        {isSelected && (
+          <View
+            pointerEvents="none"
+            style={[styles.colorSquareRing, { borderColor: Colors.neutral[50] }]}
+          />
+        )}
+        <NativePressable
+          style={styles.colorSquare}
+          onPress={onPress}
+          hitSlop={COLOR_SQUARE_HIT_SLOP}
+        >
           <Animated.View
             style={[
               styles.colorSection,
@@ -122,7 +208,7 @@ const AnimatedColorSquare: React.FC<AnimatedColorSquareProps> = React.memo(
           <Animated.View
             style={[styles.colorSection, textAnimatedStyle, { backgroundColor: displayTextColor }]}
           />
-        </SquircleNativePressable>
+        </NativePressable>
       </View>
     );
   }
@@ -151,6 +237,45 @@ const EditProfileScreen: React.FC = () => {
         : undefined,
   });
   const { data: orbytColors } = useOrbytColors(currentUser?.did);
+
+  // Compute initial color picker state once, synchronously.
+  // useOrbytColors returns initialData from getPersistedColorsSync so orbytColors
+  // is already populated on the first render — no effect or timing dance needed.
+  const [colorPickerInit] = useState(() => {
+    const colors =
+      orbytColors?.backgroundColor && orbytColors?.textColor
+        ? { backgroundColor: orbytColors.backgroundColor, textColor: orbytColors.textColor }
+        : null;
+    const match = colors ? findColorMatch(colors) : null;
+    const index: number | null = !colors ? 0 : match ? match.index : null;
+    const inverted = match?.inverted ?? false;
+    const hasCustom = !!colors && !match;
+
+    // Compute initial contentOffset so the selected swatch is centered on first render
+    // (synchronous — no flash). Clamp both edges using known content width.
+    const customOffset = hasCustom ? COLOR_ITEM_WIDTH + COLOR_DIVIDER_TOTAL_WIDTH : 0;
+    const colorCenterX =
+      index === null
+        ? COLOR_PICKER_PADDING + COLOR_SQUARE_WIDTH / 2
+        : customOffset + index * COLOR_ITEM_WIDTH + COLOR_PICKER_PADDING + COLOR_SQUARE_WIDTH / 2;
+    const screenWidth = Dimensions.get('window').width;
+    const contentWidth =
+      2 * COLOR_PICKER_PADDING +
+      customOffset +
+      (PREDEFINED_COLORS.length - 1) * COLOR_ITEM_WIDTH +
+      COLOR_SQUARE_WIDTH;
+    const maxScroll = Math.max(0, contentWidth - screenWidth);
+    const offsetX = Math.min(Math.max(0, colorCenterX - screenWidth / 2), maxScroll);
+
+    return {
+      index,
+      inverted,
+      hasCustom,
+      colors,
+      contentOffset: { x: offsetX, y: 0 },
+    };
+  });
+
   const [isAboutFocused, setIsAboutFocused] = useState(false);
   const [isDisplayNameFocused, setIsDisplayNameFocused] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -162,378 +287,49 @@ const EditProfileScreen: React.FC = () => {
     return splitHandleSuffix(rawHandle);
   }, [profileData?.handle, userHandle]);
 
-  // Form state
-  const [editDisplayName, setEditDisplayName] = useState('');
-  const [editDescription, setEditDescription] = useState('');
+  // Form state — both seeded synchronously from cached profile data on first render
+  const [editDisplayName, setEditDisplayName] = useState(() => profileData?.displayName || '');
+  const [editDescription, setEditDescription] = useState(() => profileData?.description || '');
+  // Track the last seen server description to seed the edit field once when real data arrives
+  // (placeholder has description: ''). Calling setState during render is React's documented
+  // pattern for derived-state-from-props; it triggers an immediate re-render, not a cascading one.
+  const [lastProfileDescription, setLastProfileDescription] = useState(profileData?.description);
+  if (profileData?.description && !lastProfileDescription) {
+    setLastProfileDescription(profileData.description);
+    setEditDescription(profileData.description);
+  }
   const [editAvatar, setEditAvatar] = useState<string | undefined>(undefined);
 
   // About length tracking
-  const aboutCount = editDescription?.length || 0;
+  const aboutCount = editDescription.length;
   const aboutOverBy = Math.max(0, aboutCount - ABOUT_MAX_LENGTH);
   const aboutRemaining = Math.max(0, ABOUT_MAX_LENGTH - aboutCount);
 
-  // Color selection state - use index (null = custom)
-  const [selectedColorIndex, setSelectedColorIndex] = useState<number | null>(0);
+  // Color state — all seeded from colorPickerInit (sync, first render correct)
+  const [selectedColorIndex, setSelectedColorIndex] = useState<number | null>(
+    colorPickerInit.index
+  );
+  const selectedColorIndexRef = useRef<number | null>(colorPickerInit.index);
   const [customColors, setCustomColors] = useState<{
     backgroundColor: string;
     textColor: string;
-  } | null>(null);
-
-  // Track inverted state per color index
-  const [invertedStates, setInvertedStates] = useState<Record<number, boolean>>({});
-
-  // Track if user has custom colors (not matching any preset)
-  const [hasCustomColors, setHasCustomColors] = useState(false);
-
-  // Store original custom colors separately - these never change unless user explicitly saves custom color
-  const [originalCustomColors, setOriginalCustomColors] = useState<{
-    backgroundColor: string;
-    textColor: string;
-  } | null>(null);
-
-  // Ref to track if we've initialized colors to prevent infinite loops
-  const hasInitializedColors = useRef(false);
-  // Ref for color picker ScrollView to scroll to selected color
-  const colorPickerScrollViewRef = useRef<ScrollView>(null);
-  // Ref to track if we've done the initial scroll (no animation)
-  const hasDoneInitialScroll = useRef(false);
-  // Ref to track previous selectedColorIndex to detect user changes
-  const previousSelectedColorIndex = useRef<number | null | undefined>(undefined);
-
-  // Predefined color options - just the pairings
-  const predefinedColors: ProfileColorOption[] = useMemo(
-    () => [
-      // Neutral/Universal (orbyt grey - matches DEFAULT_PROFILE_COLORS / palette)
-      {
-        backgroundColor: Colors.neutral[900],
-        textColor: Colors.neutral[200],
-      },
-      // Primary - colored backgrounds with white text (ordered by hue - reverse rainbow order, red first)
-      // Colors adjusted using HSL to be between original and brightened versions, ensuring WCAG AA compliance (4.5:1 contrast with white text)
-      {
-        backgroundColor: '#C6142E', // Red background (HSL: ~350°, ~85%, ~35%)
-        textColor: Colors.neutral[50],
-      },
-      {
-        backgroundColor: '#CC9900', // Yellow background (HSL: ~45°, ~100%, ~40% - vibrant yellow matching other primary colors, WCAG AA compliant)
-        textColor: Colors.neutral[50],
-      },
-      {
-        backgroundColor: '#3D9812', // Green background (HSL: ~105°, ~80%, ~32%)
-        textColor: Colors.neutral[50],
-      },
-      {
-        backgroundColor: '#0B9997', // Teal background (HSL: ~179°, ~88%, ~32%)
-        textColor: Colors.neutral[50],
-      },
-      {
-        backgroundColor: '#0E94C6', // Light blue background (HSL: ~195°, ~88%, ~42%)
-        textColor: Colors.neutral[50],
-      },
-      {
-        backgroundColor: '#0E46C6', // Blue background (HSL: ~220°, ~88%, ~42%)
-        textColor: Colors.neutral[50],
-      },
-      {
-        backgroundColor: '#5913C6', // Purple background (HSL: ~260°, ~88%, ~42%)
-        textColor: Colors.neutral[50],
-      },
-      {
-        backgroundColor: '#B713C6', // Pink background (HSL: ~295°, ~88%, ~42%)
-        textColor: Colors.neutral[50],
-      },
-      {
-        backgroundColor: '#f34965',
-        textColor: Colors.neutral[900],
-      },
-      {
-        backgroundColor: '#f3c949',
-        textColor: Colors.neutral[900],
-      },
-      {
-        backgroundColor: '#73f349',
-        textColor: Colors.neutral[900],
-      },
-      {
-        backgroundColor: '#49f3f1',
-        textColor: Colors.neutral[900],
-      },
-      {
-        backgroundColor: '#49c9f3',
-        textColor: Colors.neutral[900],
-      },
-      {
-        backgroundColor: '#5c8ff5',
-        textColor: Colors.neutral[900],
-      },
-      {
-        backgroundColor: '#8c57f4',
-        textColor: Colors.neutral[900],
-      },
-      {
-        backgroundColor: '#e549f3',
-        textColor: Colors.neutral[900],
-      },
-      // Complementary - colored backgrounds with complementary text colors (ordered by hue - reverse rainbow order, red first)
-      {
-        backgroundColor: '#fba9d5',
-        textColor: '#45498f',
-      },
-      {
-        backgroundColor: '#02e4bf',
-        textColor: '#414a76',
-      },
-      {
-        backgroundColor: '#c9d3fe',
-        textColor: '#b71431',
-      },
-      {
-        backgroundColor: '#fbb300',
-        textColor: '#2b212a',
-      },
-      {
-        backgroundColor: '#1f1d46',
-        textColor: '#f85d4a',
-      },
-      {
-        backgroundColor: '#2d615e',
-        textColor: '#fdc1b8',
-      },
-      {
-        backgroundColor: '#03df6e',
-        textColor: '#19304d',
-      },
-      {
-        backgroundColor: '#ddf59c',
-        textColor: '#367746',
-      },
-      {
-        backgroundColor: '#523b99',
-        textColor: '#fba2c3',
-      },
-      {
-        backgroundColor: '#ecf9fb',
-        textColor: '#66737e',
-      },
-      {
-        backgroundColor: '#34333f',
-        textColor: '#f88667',
-      },
-      {
-        backgroundColor: '#524864',
-        textColor: '#91f7f8',
-      },
-      {
-        backgroundColor: '#fbc36e',
-        textColor: '#575567',
-      },
-      {
-        backgroundColor: '#cfdae7',
-        textColor: '#b61a59', // Adjusted for WCAG AA compliance (4.522:1 contrast ratio)
-      },
-      {
-        backgroundColor: '#0e1420',
-        textColor: '#ff2c6f',
-      },
-      {
-        backgroundColor: '#61678a',
-        textColor: '#c6f6ad',
-      },
-      {
-        backgroundColor: '#297873',
-        textColor: '#f4fcc3',
-      },
-      {
-        backgroundColor: '#71acab',
-        textColor: '#3a383f',
-      },
-      {
-        backgroundColor: '#84366e',
-        textColor: '#fcb1d4',
-      },
-      {
-        backgroundColor: '#926879',
-        textColor: '#fef9fb',
-      },
-      {
-        backgroundColor: '#4f4085',
-        textColor: '#fda29f',
-      },
-      {
-        backgroundColor: '#464b61',
-        textColor: '#caf7fb',
-      },
-      {
-        backgroundColor: '#9584da',
-        textColor: '#2d234b',
-      },
-      {
-        backgroundColor: '#581b34',
-        textColor: '#ff6340',
-      },
-      // Neon - very dark backgrounds with neon text colors (ordered by hue - reverse rainbow order, red first)
-      // All backgrounds: HSL(*, 100%, ~9%) for consistent darkness
-      // All text colors: HSL(*, ~95%, ~62%) for consistent brightness and vibrancy
-      {
-        backgroundColor: '#00132e', // Blue
-        textColor: '#42aefa', // Blue
-      },
-      {
-        backgroundColor: '#2e0005', // Red (normalized to match others)
-        textColor: '#fa4254', // Red (normalized to match others)
-      },
-      {
-        backgroundColor: '#11002e', // Purple
-        textColor: '#ce42fa', // Purple
-      },
-      {
-        backgroundColor: '#002e2e', // Teal
-        textColor: '#42fadb', // Teal
-      },
-      {
-        backgroundColor: '#002e13', // Green (adjusted for better separation from Teal)
-        textColor: '#42fa8f', // Green (adjusted for better separation from Teal)
-      },
-      {
-        backgroundColor: '#092e00', // Green Bright
-        textColor: '#83fa42', // Green Bright
-      },
-      {
-        backgroundColor: '#2e1b00', // Gold
-        textColor: '#faad42', // Gold
-      },
-    ],
-    []
-  );
-
-  // Generate shared values for all colors - create array matching predefinedColors length
-  // Must create them all explicitly since hooks can't be called in loops
-  // predefinedColors has 40 items, create all shared values at top level
-  const colorFlexValues: Array<{ background: SharedValue<number>; text: SharedValue<number> }> = [
-    { background: useSharedValue(3), text: useSharedValue(1) }, // 0
-    { background: useSharedValue(3), text: useSharedValue(1) }, // 1
-    { background: useSharedValue(3), text: useSharedValue(1) }, // 2
-    { background: useSharedValue(3), text: useSharedValue(1) }, // 3
-    { background: useSharedValue(3), text: useSharedValue(1) }, // 4
-    { background: useSharedValue(3), text: useSharedValue(1) }, // 5
-    { background: useSharedValue(3), text: useSharedValue(1) }, // 6
-    { background: useSharedValue(3), text: useSharedValue(1) }, // 7
-    { background: useSharedValue(3), text: useSharedValue(1) }, // 8
-    { background: useSharedValue(3), text: useSharedValue(1) }, // 9
-    { background: useSharedValue(3), text: useSharedValue(1) }, // 10
-    { background: useSharedValue(3), text: useSharedValue(1) }, // 11
-    { background: useSharedValue(3), text: useSharedValue(1) }, // 12
-    { background: useSharedValue(3), text: useSharedValue(1) }, // 13
-    { background: useSharedValue(3), text: useSharedValue(1) }, // 14
-    { background: useSharedValue(3), text: useSharedValue(1) }, // 15
-    { background: useSharedValue(3), text: useSharedValue(1) }, // 16
-    { background: useSharedValue(3), text: useSharedValue(1) }, // 17
-    { background: useSharedValue(3), text: useSharedValue(1) }, // 18
-    { background: useSharedValue(3), text: useSharedValue(1) }, // 19
-    { background: useSharedValue(3), text: useSharedValue(1) }, // 20
-    { background: useSharedValue(3), text: useSharedValue(1) }, // 21
-    { background: useSharedValue(3), text: useSharedValue(1) }, // 22
-    { background: useSharedValue(3), text: useSharedValue(1) }, // 23
-    { background: useSharedValue(3), text: useSharedValue(1) }, // 24
-    { background: useSharedValue(3), text: useSharedValue(1) }, // 25
-    { background: useSharedValue(3), text: useSharedValue(1) }, // 26
-    { background: useSharedValue(3), text: useSharedValue(1) }, // 27
-    { background: useSharedValue(3), text: useSharedValue(1) }, // 28
-    { background: useSharedValue(3), text: useSharedValue(1) }, // 29
-    { background: useSharedValue(3), text: useSharedValue(1) }, // 30
-    { background: useSharedValue(3), text: useSharedValue(1) }, // 31
-    { background: useSharedValue(3), text: useSharedValue(1) }, // 32
-    { background: useSharedValue(3), text: useSharedValue(1) }, // 33
-    { background: useSharedValue(3), text: useSharedValue(1) }, // 34
-    { background: useSharedValue(3), text: useSharedValue(1) }, // 35
-    { background: useSharedValue(3), text: useSharedValue(1) }, // 36
-    { background: useSharedValue(3), text: useSharedValue(1) }, // 37
-    { background: useSharedValue(3), text: useSharedValue(1) }, // 38
-    { background: useSharedValue(3), text: useSharedValue(1) }, // 39
-  ];
-
-  // Custom color flex values (for non-preset colors)
-  const customFlexValues = {
-    background: useSharedValue(3),
-    text: useSharedValue(1),
-  };
-
-  // Store refs to SharedValues to avoid immutability issues in callbacks
-  // SharedValues are stable references, but the array/object containers are recreated each render
-  const colorFlexValuesRef = useRef(colorFlexValues);
-  const customFlexValuesRef = useRef(customFlexValues);
-
-  // Update refs after render to always point to current containers
-  // (SharedValue objects inside are stable, but containers are recreated)
-  useLayoutEffect(() => {
-    colorFlexValuesRef.current = colorFlexValues;
-    customFlexValuesRef.current = customFlexValues;
-  });
-
-  // Helper function to update flex values for a color
-  const updateFlexValues = useCallback(
-    (colorIndex: number | null, inverted: boolean, animated: boolean = false) => {
-      const flexValues =
-        colorIndex === null ? customFlexValuesRef.current : colorFlexValuesRef.current[colorIndex];
-
-      if (!flexValues) return;
-
-      const backgroundValue = inverted ? 1 : 3;
-      const textValue = inverted ? 3 : 1;
-
-      if (animated) {
-        flexValues.background.value = withSpring(backgroundValue);
-        flexValues.text.value = withSpring(textValue);
-      } else {
-        flexValues.background.value = backgroundValue;
-        flexValues.text.value = textValue;
-      }
-    },
-    []
-  );
-
-  // Helper function to find color match (normal or inverted)
-  const findColorMatch = useCallback(
-    (colors: { backgroundColor: string; textColor: string }) => {
-      // Check for normal match and track index during find
-      for (let i = 0; i < predefinedColors.length; i++) {
-        const preset = predefinedColors[i];
-        if (
-          preset.backgroundColor === colors.backgroundColor &&
-          preset.textColor === colors.textColor
-        ) {
-          return {
-            match: preset,
-            index: i,
-            inverted: false,
-          };
-        }
-      }
-
-      // Check for inverted match and track index during find
-      for (let i = 0; i < predefinedColors.length; i++) {
-        const preset = predefinedColors[i];
-        if (
-          preset.backgroundColor === colors.textColor &&
-          preset.textColor === colors.backgroundColor
-        ) {
-          return {
-            match: preset,
-            index: i,
-            inverted: true,
-          };
-        }
-      }
-
-      return null;
-    },
-    [predefinedColors]
-  );
+  } | null>(colorPickerInit.colors);
+  // Inversion state: ref for synchronous reads inside the handler; state for rendering children.
+  const initialInvertedStates: Partial<Record<number | 'custom', boolean>> =
+    colorPickerInit.inverted && colorPickerInit.index !== null
+      ? { [colorPickerInit.index]: true }
+      : {};
+  const invertedStatesRef =
+    useRef<Partial<Record<number | 'custom', boolean>>>(initialInvertedStates);
+  const [invertedStates, setInvertedStates] =
+    useState<Partial<Record<number | 'custom', boolean>>>(initialInvertedStates);
+  const hasCustomColors = colorPickerInit.hasCustom;
+  const originalCustomColors = colorPickerInit.hasCustom ? colorPickerInit.colors : null;
 
   // Mutation
   const profileUpdateMutation = useProfileUpdateMutation();
 
-  // Get colors from orbyt API
+  // Get colors from orbyt API (used by handleSave to detect changes)
   const defaultColors = useMemo(() => {
     if (!orbytColors?.backgroundColor || !orbytColors?.textColor) {
       return undefined;
@@ -544,100 +340,33 @@ const EditProfileScreen: React.FC = () => {
     };
   }, [orbytColors]);
 
-  // Initialize form when component mounts and profile data is available
+  const colorPickerScrollRef = useRef<ScrollView>(null);
+  const isMountedColorScroll = useRef(false);
+
+  // Animate to center the newly selected swatch on user selection.
+  // Initial position is handled synchronously via contentOffset (no flash).
   useEffect(() => {
-    if (profileData && !hasInitializedColors.current) {
-      startTransition(() => {
-        setEditDisplayName(profileData.displayName || '');
-        setEditDescription(profileData.description || '');
-        setEditAvatar(undefined);
-      });
-
-      // Check if default colors match a preset
-      if (defaultColors) {
-        const match = findColorMatch(defaultColors);
-        if (match) {
-          startTransition(() => {
-            setSelectedColorIndex(match.index);
-            setInvertedStates({ [match.index]: match.inverted });
-            setCustomColors({
-              backgroundColor: defaultColors.backgroundColor,
-              textColor: defaultColors.textColor,
-            });
-          });
-          updateFlexValues(match.index, match.inverted, false);
-        } else {
-          // Custom colors - no preset match
-          const originalColors = {
-            backgroundColor: defaultColors.backgroundColor,
-            textColor: defaultColors.textColor,
-          };
-          startTransition(() => {
-            setSelectedColorIndex(null);
-            setInvertedStates({});
-            setCustomColors(originalColors);
-            setOriginalCustomColors(originalColors); // Store original custom colors
-            setHasCustomColors(true);
-          });
-          updateFlexValues(null, false, false);
-        }
-      } else {
-        startTransition(() => {
-          setSelectedColorIndex(0); // First color (black)
-          setInvertedStates({});
-          setCustomColors(null);
-          setHasCustomColors(false);
-        });
-        updateFlexValues(0, false, false);
-      }
-
-      hasInitializedColors.current = true;
-    }
-  }, [profileData, defaultColors, findColorMatch, updateFlexValues]);
-
-  // Scroll to selected color - no animation on initial load, animated for user selections
-  useEffect(() => {
-    if (!hasInitializedColors.current || !colorPickerScrollViewRef.current) {
+    if (!isMountedColorScroll.current) {
+      isMountedColorScroll.current = true;
       return;
     }
-
-    // Skip if selection hasn't changed (for user selections)
-    if (hasDoneInitialScroll.current && previousSelectedColorIndex.current === selectedColorIndex) {
-      return;
-    }
-
     const screenWidth = Dimensions.get('window').width;
-
-    // Calculate center X position of selected color
-    let colorCenterX: number;
-    if (selectedColorIndex === null) {
-      // Custom color is at the start
-      colorCenterX = COLOR_PICKER_PADDING + COLOR_SQUARE_WIDTH / 2;
-    } else {
-      // Account for custom color box and divider if shown
-      const customColorOffset = hasCustomColors ? COLOR_ITEM_WIDTH + COLOR_DIVIDER_TOTAL_WIDTH : 0;
-      colorCenterX =
-        customColorOffset +
-        selectedColorIndex * COLOR_ITEM_WIDTH +
-        COLOR_PICKER_PADDING +
-        COLOR_SQUARE_WIDTH / 2;
-    }
-
-    // Center the color box in the visible area
-    const scrollPosition = Math.max(0, colorCenterX - screenWidth / 2);
-
-    // Determine if this should be animated (only after initial scroll is done)
-    const shouldAnimate = hasDoneInitialScroll.current;
-
-    // Use requestAnimationFrame to ensure layout is complete
-    requestAnimationFrame(() => {
-      colorPickerScrollViewRef.current?.scrollTo({
-        x: scrollPosition,
-        animated: shouldAnimate,
-      });
-      hasDoneInitialScroll.current = true;
-      previousSelectedColorIndex.current = selectedColorIndex;
-    });
+    const customOffset = hasCustomColors ? COLOR_ITEM_WIDTH + COLOR_DIVIDER_TOTAL_WIDTH : 0;
+    const colorCenterX =
+      selectedColorIndex === null
+        ? COLOR_PICKER_PADDING + COLOR_SQUARE_WIDTH / 2
+        : customOffset +
+          selectedColorIndex * COLOR_ITEM_WIDTH +
+          COLOR_PICKER_PADDING +
+          COLOR_SQUARE_WIDTH / 2;
+    const contentWidth =
+      2 * COLOR_PICKER_PADDING +
+      customOffset +
+      (PREDEFINED_COLORS.length - 1) * COLOR_ITEM_WIDTH +
+      COLOR_SQUARE_WIDTH;
+    const maxScroll = Math.max(0, contentWidth - screenWidth);
+    const scrollX = Math.min(Math.max(0, colorCenterX - screenWidth / 2), maxScroll);
+    colorPickerScrollRef.current?.scrollTo({ x: scrollX, animated: true });
   }, [selectedColorIndex, hasCustomColors]);
 
   const handleOpenCamera = useCallback(async () => {
@@ -708,59 +437,54 @@ const EditProfileScreen: React.FC = () => {
     [handleOpenCamera, handleOpenPhotoLibrary]
   );
 
-  const handleAvatarPress = useCallback(async () => {
-    try {
-      await handleOpenPhotoLibrary();
-    } catch (_error) {
-      Alert.alert(t('common.error'), t('profile.failedToOpenImagePicker'));
-    }
-  }, [handleOpenPhotoLibrary, t]);
-
-  // Handle color selection - unified for both predefined and custom colors
+  // Handle color selection - unified for both predefined and custom colors.
+  // Reads selectedColorIndex and invertedStates via refs so this callback is stable.
   const handleColorSelect = useCallback(
     (colorIndex: number | null, colorOption: ProfileColorOption) => {
-      const isAlreadySelected = selectedColorIndex === colorIndex;
+      const currentSelectedIndex = selectedColorIndexRef.current;
+      const isAlreadySelected = currentSelectedIndex === colorIndex;
       const isCustom = colorIndex === null;
-      const stateKey = isCustom ? -1 : colorIndex;
+      const stateKey = isCustom ? 'custom' : colorIndex!;
 
       if (isAlreadySelected) {
-        // Invert colors - toggle inverted state
-        const currentInverted = invertedStates[stateKey] || false;
+        const currentInverted = invertedStatesRef.current[stateKey] || false;
         const newInverted = !currentInverted;
+        invertedStatesRef.current[stateKey] = newInverted;
         setInvertedStates(prev => ({ ...prev, [stateKey]: newInverted }));
 
         const baseColors = isCustom && originalCustomColors ? originalCustomColors : colorOption;
-        const currentBg = customColors?.backgroundColor || baseColors.backgroundColor;
-        const currentText = customColors?.textColor || baseColors.textColor;
-
         setCustomColors({
-          backgroundColor: currentText,
-          textColor: currentBg,
+          backgroundColor: newInverted ? baseColors.textColor : baseColors.backgroundColor,
+          textColor: newInverted ? baseColors.backgroundColor : baseColors.textColor,
         });
-
-        updateFlexValues(colorIndex, newInverted, true);
       } else {
-        // Animate previous box back to normal if it was inverted
-        const prevStateKey = selectedColorIndex === null ? -1 : selectedColorIndex;
-        if (invertedStates[prevStateKey]) {
+        // Reset previous swatch inversion if needed
+        const prevStateKey = currentSelectedIndex === null ? 'custom' : currentSelectedIndex;
+        if (invertedStatesRef.current[prevStateKey]) {
+          invertedStatesRef.current[prevStateKey] = false;
           setInvertedStates(prev => ({ ...prev, [prevStateKey]: false }));
-          updateFlexValues(selectedColorIndex, false, true);
         }
 
         // Select new color
+        selectedColorIndexRef.current = colorIndex;
         setSelectedColorIndex(colorIndex);
-        const wasInverted = invertedStates[stateKey] || false;
+        const wasInverted = invertedStatesRef.current[stateKey] || false;
         const colorsToUse = isCustom && originalCustomColors ? originalCustomColors : colorOption;
 
         setCustomColors({
           backgroundColor: wasInverted ? colorsToUse.textColor : colorsToUse.backgroundColor,
           textColor: wasInverted ? colorsToUse.backgroundColor : colorsToUse.textColor,
         });
-
-        updateFlexValues(colorIndex, wasInverted, true);
       }
     },
-    [selectedColorIndex, invertedStates, customColors, originalCustomColors, updateFlexValues]
+    [originalCustomColors]
+  );
+
+  // Stable per-index press handlers — recreated only if handleColorSelect changes (which is now rare)
+  const colorPressHandlers = useMemo(
+    () =>
+      PREDEFINED_COLORS.map((colorOption, index) => () => handleColorSelect(index, colorOption)),
+    [handleColorSelect]
   );
 
   // Handle save
@@ -837,14 +561,8 @@ const EditProfileScreen: React.FC = () => {
     profileUpdateMutation,
     router,
     currentUser,
-    setIsSaving,
     t,
   ]);
-
-  // Handle dismiss
-  const handleDismiss = useCallback(() => {
-    router.dismiss();
-  }, [router]);
 
   // Helper to dismiss keyboard and reset focus states
   const dismissKeyboardAndFocus = useCallback(() => {
@@ -863,26 +581,55 @@ const EditProfileScreen: React.FC = () => {
       textColor: defaultColors?.textColor || Colors.neutral[50],
     };
   }, [customColors, defaultColors]);
+
+  // Memoize derived colors so inline style objects don't recompute on every keystroke
+  const derivedColors = useMemo(
+    () => ({
+      sectionTitle: hexToRGBA(currentColors.textColor, 0.9),
+      avatarTitle: hexToRGBA(currentColors.textColor, 0.8),
+      handleAt: hexToRGBA(currentColors.textColor, 0.5),
+      handleSuffix: hexToRGBA(currentColors.textColor, 0.7),
+      placeholder: hexToRGBA(currentColors.textColor, 0.3),
+      dividerStrong: blendColors(currentColors.backgroundColor, currentColors.textColor, 0.2),
+      dividerFaint: blendColors(currentColors.backgroundColor, currentColors.textColor, 0.12),
+      uploadButton: blendColors(currentColors.backgroundColor, currentColors.textColor, 0.15),
+    }),
+    [currentColors.backgroundColor, currentColors.textColor]
+  );
+
   const isSaveDisabled = isSaving || (isAboutFocused && aboutOverBy > 0);
 
+  const handleCancelPress = useCallback(() => {
+    if (isAboutFocused) {
+      setEditDescription(profileData?.description || '');
+      dismissKeyboardAndFocus();
+    } else if (isDisplayNameFocused) {
+      setEditDisplayName(profileData?.displayName || '');
+      dismissKeyboardAndFocus();
+    } else {
+      router.dismiss();
+    }
+  }, [isAboutFocused, isDisplayNameFocused, profileData, dismissKeyboardAndFocus, router]);
+
+  const handleSavePress = useCallback(() => {
+    if (isAboutFocused) {
+      if (aboutOverBy > 0) return;
+      dismissKeyboardAndFocus();
+    } else if (isDisplayNameFocused) {
+      dismissKeyboardAndFocus();
+    } else {
+      handleSave();
+    }
+  }, [isAboutFocused, isDisplayNameFocused, aboutOverBy, dismissKeyboardAndFocus, handleSave]);
+
   return (
-    <GestureHandlerRootView style={styles.container}>
+    <View style={styles.container}>
       {/* Header and Color Picker - Black Background Section */}
       <View style={[styles.topSafeArea, Platform.OS === 'android' && { paddingTop: insets.top }]}>
         {/* Header */}
         <View style={styles.header}>
           <SquircleNativePressable
-            onPress={() => {
-              if (isAboutFocused) {
-                setEditDescription(profileData?.description || '');
-                dismissKeyboardAndFocus();
-              } else if (isDisplayNameFocused) {
-                setEditDisplayName(profileData?.displayName || '');
-                dismissKeyboardAndFocus();
-              } else {
-                handleDismiss();
-              }
-            }}
+            onPress={handleCancelPress}
             style={headerCancelContainer}
             accessibilityRole="button"
             accessibilityLabel={
@@ -914,18 +661,7 @@ const EditProfileScreen: React.FC = () => {
 
           <SquircleNativePressable
             style={[headerSaveContainer, isSaveDisabled && styles.saveButtonDisabled]}
-            onPress={() => {
-              if (isAboutFocused) {
-                if (aboutOverBy > 0) {
-                  return;
-                }
-                dismissKeyboardAndFocus();
-              } else if (isDisplayNameFocused) {
-                dismissKeyboardAndFocus();
-              } else {
-                handleSave();
-              }
-            }}
+            onPress={handleSavePress}
             disabled={isSaveDisabled}
             accessibilityRole="button"
             accessibilityLabel={
@@ -953,9 +689,10 @@ const EditProfileScreen: React.FC = () => {
         {/* Color Picker */}
         <View style={styles.colorPickerSection}>
           <ScrollView
-            ref={colorPickerScrollViewRef}
+            ref={colorPickerScrollRef}
             horizontal
             showsHorizontalScrollIndicator={false}
+            contentOffset={colorPickerInit.contentOffset}
             contentContainerStyle={styles.colorPickerContainer}
             style={styles.colorPickerScrollView}
             keyboardShouldPersistTaps="always"
@@ -969,9 +706,7 @@ const EditProfileScreen: React.FC = () => {
                     textColor: originalCustomColors.textColor,
                   }}
                   isSelected={selectedColorIndex === null}
-                  currentColors={currentColors}
-                  backgroundFlex={customFlexValues.background}
-                  textFlex={customFlexValues.text}
+                  isInverted={invertedStates['custom'] ?? false}
                   onPress={() =>
                     handleColorSelect(null, {
                       backgroundColor: originalCustomColors.backgroundColor,
@@ -983,24 +718,15 @@ const EditProfileScreen: React.FC = () => {
               </>
             )}
 
-            {predefinedColors.map((colorOption, index) => {
-              const isSelected = selectedColorIndex === index;
-              const flexValues = colorFlexValues[index];
-
-              if (!flexValues) return null;
-
-              return (
-                <AnimatedColorSquare
-                  key={index}
-                  colorOption={colorOption}
-                  isSelected={isSelected}
-                  currentColors={currentColors}
-                  backgroundFlex={flexValues.background}
-                  textFlex={flexValues.text}
-                  onPress={() => handleColorSelect(index, colorOption)}
-                />
-              );
-            })}
+            {PREDEFINED_COLORS.map((colorOption, index) => (
+              <AnimatedColorSquare
+                key={index}
+                colorOption={colorOption}
+                isSelected={selectedColorIndex === index}
+                isInverted={invertedStates[index] ?? false}
+                onPress={colorPressHandlers[index]!}
+              />
+            ))}
           </ScrollView>
         </View>
       </View>
@@ -1021,19 +747,10 @@ const EditProfileScreen: React.FC = () => {
           >
             {/* Handle & Avatar Sections */}
             {!isAboutFocused && !isDisplayNameFocused && (
-              <Animated.View
-                layout={Layout.springify().duration(280)}
-                entering={FadeIn.duration(280).easing(Easing.out(Easing.ease))}
-                exiting={FadeOut.duration(100).easing(Easing.in(Easing.ease))}
-              >
+              <Animated.View layout={SPRING_LAYOUT} entering={FADE_IN_SLOW} exiting={FADE_OUT_FAST}>
                 {/* Handle Section */}
                 <View style={styles.handleSection}>
-                  <Text
-                    style={[
-                      styles.sectionTitle,
-                      { color: hexToRGBA(currentColors.textColor, 0.9) },
-                    ]}
-                  >
+                  <Text style={[styles.sectionTitle, { color: derivedColors.sectionTitle }]}>
                     {t('editProfile.handle')}
                   </Text>
                   <ScrollView
@@ -1043,23 +760,13 @@ const EditProfileScreen: React.FC = () => {
                     contentContainerStyle={styles.contentContainerFlexGrow}
                   >
                     <Text style={[styles.largeText, { color: currentColors.textColor }]}>
-                      <Text
-                        style={[
-                          styles.handleAt,
-                          { color: hexToRGBA(currentColors.textColor, 0.5) },
-                        ]}
-                      >
-                        @
-                      </Text>
+                      <Text style={[styles.handleAt, { color: derivedColors.handleAt }]}>@</Text>
                       <Text>
                         {' '}
                         {handleBase}
                         {handleSuffix && (
                           <Text
-                            style={[
-                              styles.handleSuffix,
-                              { color: hexToRGBA(currentColors.textColor, 0.7) },
-                            ]}
+                            style={[styles.handleSuffix, { color: derivedColors.handleSuffix }]}
                           >
                             {handleSuffix}
                           </Text>
@@ -1073,11 +780,7 @@ const EditProfileScreen: React.FC = () => {
                   style={[
                     styles.divider,
                     {
-                      backgroundColor: blendColors(
-                        currentColors.backgroundColor,
-                        currentColors.textColor,
-                        0.2
-                      ),
+                      backgroundColor: derivedColors.dividerStrong,
                     },
                   ]}
                 />
@@ -1101,7 +804,7 @@ const EditProfileScreen: React.FC = () => {
                         style={[
                           styles.sectionTitle,
                           styles.sectionTitleAvatar,
-                          { color: hexToRGBA(currentColors.textColor, 0.8) },
+                          { color: derivedColors.avatarTitle },
                         ]}
                       >
                         {t('editProfile.profilePicture')}
@@ -1118,14 +821,10 @@ const EditProfileScreen: React.FC = () => {
                           style={[
                             editProfileUploadButtonContainer,
                             {
-                              backgroundColor: blendColors(
-                                currentColors.backgroundColor,
-                                currentColors.textColor,
-                                0.15
-                              ),
+                              backgroundColor: derivedColors.uploadButton,
                             },
                           ]}
-                          onPress={handleAvatarPress}
+                          onPress={handleOpenPhotoLibrary}
                         >
                           <Text
                             style={[
@@ -1145,11 +844,7 @@ const EditProfileScreen: React.FC = () => {
                   style={[
                     styles.divider,
                     {
-                      backgroundColor: blendColors(
-                        currentColors.backgroundColor,
-                        currentColors.textColor,
-                        0.12
-                      ),
+                      backgroundColor: derivedColors.dividerFaint,
                     },
                   ]}
                 />
@@ -1159,7 +854,7 @@ const EditProfileScreen: React.FC = () => {
             {/* Display Name Section */}
             {!isAboutFocused && (
               <Animated.View
-                layout={Layout.springify().duration(280)}
+                layout={SPRING_LAYOUT}
                 style={[styles.section, isDisplayNameFocused && styles.expandedSection]}
               >
                 <NativePressable
@@ -1170,12 +865,12 @@ const EditProfileScreen: React.FC = () => {
                     }
                   }}
                 >
-                  <Animated.View entering={FadeIn.duration(150).easing(Easing.out(Easing.ease))}>
+                  <View>
                     <Text
                       style={[
                         styles.sectionTitle,
                         styles.sectionTitleDisplayName,
-                        { color: hexToRGBA(currentColors.textColor, 0.8) },
+                        { color: derivedColors.avatarTitle },
                       ]}
                     >
                       {t('editProfile.displayName')}
@@ -1191,7 +886,7 @@ const EditProfileScreen: React.FC = () => {
                       value={editDisplayName}
                       onChangeText={setEditDisplayName}
                       placeholder={t('profile.namePlaceholder')}
-                      placeholderTextColor={hexToRGBA(currentColors.textColor, 0.3)}
+                      placeholderTextColor={derivedColors.placeholder}
                       scrollEnabled
                       maxLength={65}
                       autoComplete="name"
@@ -1203,7 +898,7 @@ const EditProfileScreen: React.FC = () => {
                         setIsAboutFocused(false);
                       }}
                     />
-                  </Animated.View>
+                  </View>
                 </NativePressable>
               </Animated.View>
             )}
@@ -1213,11 +908,7 @@ const EditProfileScreen: React.FC = () => {
                 style={[
                   styles.divider,
                   {
-                    backgroundColor: blendColors(
-                      currentColors.backgroundColor,
-                      currentColors.textColor,
-                      0.12
-                    ),
+                    backgroundColor: derivedColors.dividerFaint,
                   },
                 ]}
               />
@@ -1226,7 +917,7 @@ const EditProfileScreen: React.FC = () => {
             {/* About Section */}
             {!isDisplayNameFocused && (
               <Animated.View
-                layout={Layout.springify().duration(280)}
+                layout={SPRING_LAYOUT}
                 style={[
                   styles.section,
                   styles.aboutSectionContainer,
@@ -1242,16 +933,8 @@ const EditProfileScreen: React.FC = () => {
                   }}
                   style={styles.aboutContentWrapper}
                 >
-                  <Animated.View
-                    entering={FadeIn.duration(150).easing(Easing.out(Easing.ease))}
-                    style={styles.flex1}
-                  >
-                    <Text
-                      style={[
-                        styles.sectionTitle,
-                        { color: hexToRGBA(currentColors.textColor, 0.8) },
-                      ]}
-                    >
+                  <View style={styles.flex1}>
+                    <Text style={[styles.sectionTitle, { color: derivedColors.avatarTitle }]}>
                       {t('editProfile.about')}
                     </Text>
                     <TextInput
@@ -1265,7 +948,7 @@ const EditProfileScreen: React.FC = () => {
                       value={editDescription}
                       onChangeText={setEditDescription}
                       placeholder={t('profile.aboutPlaceholder')}
-                      placeholderTextColor={hexToRGBA(currentColors.textColor, 0.3)}
+                      placeholderTextColor={derivedColors.placeholder}
                       multiline
                       autoComplete="off"
                       textContentType="none"
@@ -1276,14 +959,14 @@ const EditProfileScreen: React.FC = () => {
                         setIsDisplayNameFocused(false);
                       }}
                     />
-                  </Animated.View>
+                  </View>
                 </NativePressable>
               </Animated.View>
             )}
           </ScrollView>
         </SafeAreaView>
       </SquircleView>
-    </GestureHandlerRootView>
+    </View>
   );
 };
 
@@ -1292,7 +975,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.black,
   },
   colorPickerSection: {
-    paddingBottom: 16,
+    paddingBottom: 8,
   },
   bottomSectionContainer: {
     flex: 1,
@@ -1312,7 +995,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 12,
   },
   saveButtonDisabled: {
     opacity: 0.4,
@@ -1375,7 +1058,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontFamily: FontFamily.semibold,
     fontSize: Typography.sizes.caption,
-    fontWeight: '500',
+    fontWeight: '600',
     marginBottom: 6,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -1427,21 +1110,33 @@ const styles = StyleSheet.create({
   },
   colorPickerContainer: {
     paddingHorizontal: 20,
+    paddingVertical: COLOR_RING_OFFSET,
     gap: 4,
   },
   colorSquareContainer: {
     alignItems: 'center',
     justifyContent: 'center',
   },
+  colorSquareContainerSelected: {
+    zIndex: 1,
+  },
+  colorSquareRing: {
+    position: 'absolute',
+    top: -COLOR_RING_OFFSET,
+    left: -COLOR_RING_OFFSET,
+    right: -COLOR_RING_OFFSET,
+    bottom: -COLOR_RING_OFFSET,
+    borderWidth: COLOR_RING_WIDTH,
+  },
   colorDivider: {
     width: 2,
-    height: 44,
+    height: COLOR_SQUARE_WIDTH,
     backgroundColor: Colors.overlay.white30,
     marginHorizontal: 8,
   },
   colorSquare: {
-    width: 44,
-    height: 44,
+    width: COLOR_SQUARE_WIDTH,
+    height: COLOR_SQUARE_WIDTH,
     overflow: 'hidden',
     shadowColor: Colors.black,
     shadowOffset: {
