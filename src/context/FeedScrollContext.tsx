@@ -4,34 +4,47 @@ import type { SharedValue } from 'react-native-reanimated';
 /**
  * Scroll-linked layout for list feeds (`ListFeedView`) and grid surfaces (`FeedScrollProvider`).
  *
- * - scrollOffsetYSV: contentOffset.y (scroll handler → VideoCard worklets).
- * - contentScrollProgressSV: 0..1 for header/overlay fade (useDerivedValue).
- * - contentScrollProgressOutput: optional; screen-owned SharedValue the list writes in the same scroll handler.
- * - headerHeight, viewportHeight, itemSpacing: VideoCard percent-visible.
- * - homePagerChromeUserHoldSV / setHomePagerChromeUserHold: pause hold for home tab chrome (VideoItem).
+ * Split into motion (stable SharedValues + callbacks) vs layout (header/viewport/spacing) so
+ * layout-only updates do not re-render consumers that only need `setHomePagerChromeUserHold`.
  */
-export interface FeedScrollContextValue {
+export interface FeedScrollMotionValue {
   scrollOffsetYSV: SharedValue<number>;
-  headerHeight: number;
-  viewportHeight: number;
-  itemSpacing: number;
   contentScrollProgressSV?: SharedValue<number>;
   homePagerChromeUserHoldSV: SharedValue<number>;
   setHomePagerChromeUserHold: (held: boolean) => void;
 }
 
-const FeedScrollContext = createContext<FeedScrollContextValue | null>(null);
-
-export function FeedScrollProvider({
-  value,
-  children,
-}: {
-  value: FeedScrollContextValue;
-  children: React.ReactNode;
-}) {
-  return <FeedScrollContext.Provider value={value}>{children}</FeedScrollContext.Provider>;
+export interface FeedScrollLayoutValue {
+  headerHeight: number;
+  viewportHeight: number;
+  itemSpacing: number;
 }
 
-export function useFeedScroll(): FeedScrollContextValue | null {
-  return useContext(FeedScrollContext);
+const FeedScrollMotionContext = createContext<FeedScrollMotionValue | null>(null);
+const FeedScrollLayoutContext = createContext<FeedScrollLayoutValue | null>(null);
+
+export function FeedScrollProvider({
+  motion,
+  layout,
+  children,
+}: {
+  motion: FeedScrollMotionValue;
+  layout: FeedScrollLayoutValue;
+  children: React.ReactNode;
+}) {
+  return (
+    <FeedScrollMotionContext.Provider value={motion}>
+      <FeedScrollLayoutContext.Provider value={layout}>{children}</FeedScrollLayoutContext.Provider>
+    </FeedScrollMotionContext.Provider>
+  );
+}
+
+/** Shared scroll values + chrome hold — stable `motion` object avoids re-renders when only layout scalars change. */
+export function useFeedScrollMotion(): FeedScrollMotionValue | null {
+  return useContext(FeedScrollMotionContext);
+}
+
+/** Header height, viewport, item spacing — updates when list layout changes. */
+export function useFeedScrollLayout(): FeedScrollLayoutValue | null {
+  return useContext(FeedScrollLayoutContext);
 }

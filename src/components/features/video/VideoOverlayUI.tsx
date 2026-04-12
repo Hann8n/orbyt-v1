@@ -433,7 +433,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
     'worklet';
     const opacityValue = overlayOpacitySV ? overlayOpacitySV.value : 1;
     return { opacity: opacityValue };
-  }, [overlayOpacitySV]);
+  });
 
   // Pointer events based on per-item visibility - only visible item's overlay is interactive
   // This ensures only the centered/visible card's overlay receives touch events

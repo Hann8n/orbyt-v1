@@ -19,6 +19,7 @@ import { Colors } from '../../../theme';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import { useUIStore } from '../../../stores/uiStore';
 import { FontFamily, Typography } from '../../../utils/components/typography';
+
 interface VideoScrubberProps {
   active: boolean;
   player?: VideoPlayer;
@@ -33,8 +34,12 @@ interface VideoScrubberProps {
   overlayOpacitySV: SharedValue<number>;
 }
 
-// Memoize VideoScrubber to prevent unnecessary re-renders when props haven't changed
-const VideoScrubberComponent = ({
+/**
+ * iOS scrubber with Skia + gestures. Always mounted when the row shows a scrubber so the
+ * track can fade with `overlayOpacitySV` while scrolling. `active` only gates player sync,
+ * intervals, and touch handling — not the Skia track presence.
+ */
+const VideoScrubberActive = ({
   active,
   player,
   playerStatus,
@@ -43,7 +48,6 @@ const VideoScrubberComponent = ({
   children,
   overlayOpacitySV,
 }: VideoScrubberProps) => {
-  const isIOS = Platform.OS === 'ios';
   const deviceLayout = useDeviceLayout();
   const screenWidth = deviceLayout.screenWidth;
 
@@ -274,8 +278,9 @@ const VideoScrubberComponent = ({
       gesture.blocksExternalGesture(scrollGesture);
     }
 
-    return gesture;
+    return gesture.enabled(active);
   }, [
+    active,
     scrollGesture,
     seekingAnimationSV,
     screenWidth,
@@ -328,8 +333,22 @@ const VideoScrubberComponent = ({
     return seekingAnimationSV.get() * 5 + 3;
   }, [seekingAnimationSV]);
 
-  const trackY = useDerivedValue(() => 34 - trackHeightSV.value, [trackHeightSV]);
-  const barY = useDerivedValue(() => 34 - barHeightSV.value, [barHeightSV]);
+  const trackY = useDerivedValue(() => 34 - trackHeightSV.value);
+  const barY = useDerivedValue(() => 34 - barHeightSV.value);
+
+  // Unmount cleanup: clear scrubbing chrome + global flag (parent owns seekingAnimationSV).
+  useEffect(() => {
+    return () => {
+      scheduleOnUI(() => {
+        'worklet';
+        isSeekingSV.set(false);
+        currentTimeSV.set(0);
+        seekProgressSV.set(0);
+        seekingAnimationSV.set(0);
+      });
+      useUIStore.getState().setVisibility('videoScrubbing', false);
+    };
+  }, [seekingAnimationSV, isSeekingSV, currentTimeSV, seekProgressSV]);
 
   const childrenStyle = useAnimatedStyle(() => {
     'worklet';
@@ -359,10 +378,6 @@ const VideoScrubberComponent = ({
 
   // Card bottom matches feed row (already above tab bar); keep scrubber flush to card bottom.
 
-  if (!isIOS) {
-    return null;
-  }
-
   return (
     <>
       <Animated.View
@@ -384,10 +399,13 @@ const VideoScrubberComponent = ({
       </Animated.View>
 
       <GestureDetector gesture={scrubPanGesture}>
-        <Animated.View style={styles.scrubberContainer} pointerEvents="box-none">
+        <Animated.View
+          style={styles.scrubberContainer}
+          pointerEvents={active ? 'box-none' : 'none'}
+        >
           <Animated.View
             style={[styles.trackContainer, trackContainerOpacityStyle]}
-            pointerEvents="auto"
+            pointerEvents={active ? 'auto' : 'none'}
           >
             <Canvas style={StyleSheet.absoluteFill} pointerEvents="none">
               <Rect
@@ -415,13 +433,15 @@ const VideoScrubberComponent = ({
   );
 };
 
-// Set display name for debugging
-VideoScrubberComponent.displayName = 'VideoScrubber';
+VideoScrubberActive.displayName = 'VideoScrubberActive';
 
-// Memoize VideoScrubber to prevent unnecessary re-renders when props haven't changed
-export const VideoScrubber = React.memo(VideoScrubberComponent, (prevProps, nextProps) => {
-  // Custom comparison: only re-render if critical props change
-  // Note: isVisible prop is no longer used (overlay visibility comes from shared value)
+function VideoScrubberShell(props: VideoScrubberProps) {
+  if (Platform.OS !== 'ios') return null;
+  return <VideoScrubberActive {...props} />;
+}
+
+// Memoize: avoid re-renders when unrelated parent props are stable.
+export const VideoScrubber = React.memo(VideoScrubberShell, (prevProps, nextProps) => {
   return (
     prevProps.active === nextProps.active &&
     prevProps.player === nextProps.player &&

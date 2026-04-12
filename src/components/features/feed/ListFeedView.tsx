@@ -39,6 +39,10 @@ import {
   RenderTargetOptions,
 } from '@shopify/flash-list';
 import { FeedScrollProvider } from '../../../context/FeedScrollContext';
+import type {
+  FeedScrollLayoutValue,
+  FeedScrollMotionValue,
+} from '../../../context/FeedScrollContext';
 import { useTabBarVisibility } from '../../../context/FeedIndicatorContext';
 import EmptyFeed from './EmptyFeed';
 import { VideoItem } from './VideoItem';
@@ -296,10 +300,23 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       ? getVideoCardHeight(screenWidth, screenHeight)
       : Math.max(0, viewableAreaHeight - FEED_VIEW_CONSTANTS.LIST_ITEM_GAP);
 
+    const initialScrollIndex = useMemo((): number | undefined => {
+      if (
+        targetScrollIndex !== null &&
+        targetScrollIndex !== undefined &&
+        resolvedViewMode === 'list' &&
+        feed.length > 0
+      ) {
+        return Math.max(0, Math.min(targetScrollIndex, feed.length - 1));
+      }
+      return undefined;
+    }, [targetScrollIndex, resolvedViewMode, feed.length]);
+
     const { onViewableItemsChanged, viewabilityConfig, canPlay, feedKey } = useFeedVisibility({
       feedOption,
       userDid,
       isActive: listSurfaceActive,
+      initialViewableIndex: initialScrollIndex,
     });
 
     const isHeaderBlockingPlayback =
@@ -334,35 +351,51 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       }
     }, [showEndOfFeed, endOfFeedEnabledSV, endOfFeedOverscrollOpacitySV]);
 
-    // Render item function - optimized to reduce dependencies and rerenders
-    // VideoItem derives isVisible from store (activeFeedKey+lastViewableIndexByFeed) and allowPlayback from isVisible&&canPlay
+    /** FlashList `extraData`: stable `renderItem` ref + ViewHolder invalidation when row props change. */
+    const listRenderExtraData = useMemo(
+      () => ({
+        cardHeight,
+        feedOption,
+        feedKey,
+        canPlay,
+        isHeaderBlockingPlayback,
+        zoomTargetPostUri: zoomTargetPostUri ?? null,
+      }),
+      [cardHeight, feedOption, feedKey, canPlay, isHeaderBlockingPlayback, zoomTargetPostUri]
+    );
+
+    // Stable renderItem: reads row props from `extraData` so parent re-renders don't churn the callback ref.
     const renderItem = useCallback(
-      ({ item, index, target }: ListRenderItemInfo<FeedListItem>) => {
-        // FlashList may call renderItem with target=Measurement for layout; skip heavy work (video, images)
+      ({ item, index, target, extraData }: ListRenderItemInfo<FeedListItem>) => {
+        const xd = extraData as typeof listRenderExtraData | undefined;
+        const h = xd?.cardHeight ?? 0;
         if (target === RenderTargetOptions.Measurement) {
-          return <View style={[styles.measurementPlaceholder, { height: cardHeight }]} />;
+          return <View style={[styles.measurementPlaceholder, { height: h }]} />;
+        }
+        if (!xd) {
+          return <View style={[styles.measurementPlaceholder, { height: h }]} />;
         }
 
         const feedItem = item;
         const isAppleZoomTarget =
-          Boolean(zoomTargetPostUri) &&
-          feedItem.post?.uri === zoomTargetPostUri &&
+          Boolean(xd.zoomTargetPostUri) &&
+          feedItem.post?.uri === xd.zoomTargetPostUri &&
           Platform.OS === 'ios';
         return (
           <VideoItem
             feedItem={feedItem}
             post={feedItem.post}
-            height={cardHeight}
-            feedOption={feedOption}
-            feedKey={feedKey}
-            canPlay={canPlay}
-            isHeaderBlockingPlayback={isHeaderBlockingPlayback}
+            height={xd.cardHeight}
+            feedOption={xd.feedOption}
+            feedKey={xd.feedKey}
+            canPlay={xd.canPlay}
+            isHeaderBlockingPlayback={xd.isHeaderBlockingPlayback}
             index={index}
             isAppleZoomTarget={isAppleZoomTarget}
           />
         );
       },
-      [cardHeight, feedOption, feedKey, canPlay, isHeaderBlockingPlayback, zoomTargetPostUri]
+      []
     );
 
     // Item type + keys are handled by pure module-scope helpers.
@@ -370,21 +403,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     // FlashList's native viewability handles item detection automatically
     // maintainVisibleContentPosition preserves scroll position, so the visible item
     // at that position will be detected by the viewability callback
-
-    // Calculate initialScrollIndex from targetScrollIndex for FlashList's built-in prop
-    // This avoids any scrolling animation or jumps - FlashList handles it natively
-    const initialScrollIndex = (() => {
-      if (
-        targetScrollIndex !== null &&
-        targetScrollIndex !== undefined &&
-        resolvedViewMode === 'list' &&
-        listData.length > 0
-      ) {
-        return Math.max(0, Math.min(targetScrollIndex, listData.length - 1));
-      }
-
-      return undefined;
-    })();
 
     // Only adjust scroll when this feed is the active pager page; use this feed's own viewable index
     const handleOrientationChange = useCallback(
@@ -444,32 +462,62 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     const snapTopInset =
       useLegacyIosTabLiquidGlassLayout && !isCompact ? getEffectiveTopInset(insets.top) : 0;
 
-    const snapToOffsets = useMemo((): number[] | null | undefined => {
-      if (useLegacyIosTabLiquidGlassLayout && !hasHeader && isCompact) {
-        return null;
-      }
-      if (hasHeader && headerHeight <= 0) {
+    /** iOS liquid glass + compact home: no snap offsets/interval. */
+    const snapDisabledCompactLiquidGlass =
+      useLegacyIosTabLiquidGlassLayout && !hasHeader && isCompact;
+    const snapWaitHeaderLayout = hasHeader && headerHeight <= 0;
+    /** Uniform pitch from y=0: same as `i * itemSpacing` offsets without allocating O(n) array. */
+    const listSnapUsesInterval =
+      !snapDisabledCompactLiquidGlass &&
+      !snapWaitHeaderLayout &&
+      !hasHeader &&
+      snapTopInset === 0 &&
+      listData.length > 0;
+
+    const snapToIntervalValue = listSnapUsesInterval ? itemSpacing : undefined;
+
+    const snapToOffsets = useMemo((): number[] | undefined => {
+      if (snapDisabledCompactLiquidGlass) {
         return undefined;
       }
-      const offsets: number[] = hasHeader ? [0] : [];
-
-      for (let i = 0; i < listData.length; i++) {
-        if (hasHeader && headerHeight > 0 && cardHeight > 0) {
-          const baseOffset = headerHeight + i * itemSpacing;
-          offsets.push(baseOffset - (isHeaderFeed ? snapTopInset : 0));
-        } else {
-          offsets.push(i * itemSpacing - snapTopInset);
-        }
+      if (snapWaitHeaderLayout) {
+        return undefined;
+      }
+      if (listSnapUsesInterval) {
+        return undefined;
       }
 
+      const n = listData.length;
+      if (hasHeader) {
+        const useHeaderPitch = headerHeight > 0 && cardHeight > 0;
+        const headerSnapAdjust = isHeaderFeed ? snapTopInset : 0;
+        const cap = n + 1;
+        const offsets = new Array<number>(cap);
+        offsets[0] = 0;
+        for (let i = 0; i < n; i++) {
+          if (useHeaderPitch) {
+            const baseOffset = headerHeight + i * itemSpacing;
+            offsets[i + 1] = baseOffset - headerSnapAdjust;
+          } else {
+            offsets[i + 1] = i * itemSpacing - snapTopInset;
+          }
+        }
+        return offsets;
+      }
+
+      const offsets = new Array<number>(n);
+      for (let i = 0; i < n; i++) {
+        offsets[i] = i * itemSpacing - snapTopInset;
+      }
       return offsets;
     }, [
-      useLegacyIosTabLiquidGlassLayout,
+      snapDisabledCompactLiquidGlass,
+      snapWaitHeaderLayout,
+      listSnapUsesInterval,
       hasHeader,
-      isCompact,
       headerHeight,
-      listData.length,
       cardHeight,
+      listData.length,
       itemSpacing,
       snapTopInset,
       isHeaderFeed,
@@ -559,26 +607,28 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       [homePagerChromeUserHoldSV, scrollOffsetYSV, tabBarVisibility]
     );
 
-    // Memoize context value to avoid unnecessary re-renders of list consumers when layout/scroll haven't changed.
-    const feedScrollValue = useMemo(
+    const feedScrollMotion = useMemo<FeedScrollMotionValue>(
       () => ({
         scrollOffsetYSV,
-        headerHeight,
-        viewportHeight: viewableAreaHeight,
-        itemSpacing,
         contentScrollProgressSV,
         homePagerChromeUserHoldSV,
         setHomePagerChromeUserHold,
       }),
       [
         scrollOffsetYSV,
-        headerHeight,
-        viewableAreaHeight,
-        itemSpacing,
         contentScrollProgressSV,
         homePagerChromeUserHoldSV,
         setHomePagerChromeUserHold,
       ]
+    );
+
+    const feedScrollLayout = useMemo<FeedScrollLayoutValue>(
+      () => ({
+        headerHeight,
+        viewportHeight: viewableAreaHeight,
+        itemSpacing,
+      }),
+      [headerHeight, viewableAreaHeight, itemSpacing]
     );
 
     useImperativeHandle(
@@ -595,12 +645,40 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     /** Tab / home indicator clearance for the overscroll hint sitting above the bottom edge. */
     const endOfFeedHintBottomInset = useNativeTabBottomSafeArea ? 12 : Math.max(12, insets.bottom);
 
-    const listContentContainerExtraStyle =
-      feed.length === 0
-        ? undefined
-        : useNativeTabBottomSafeArea
-          ? styles.contentContainerListItemsNativeTabBottom
-          : { paddingBottom: insets.bottom };
+    const listContentContainerExtraStyle = useMemo(() => {
+      if (feed.length === 0) {
+        return undefined;
+      }
+      if (useNativeTabBottomSafeArea) {
+        return styles.contentContainerListItemsNativeTabBottom;
+      }
+      return { paddingBottom: insets.bottom };
+    }, [feed.length, useNativeTabBottomSafeArea, insets.bottom]);
+
+    const listEmptyElement = useMemo(
+      () => (
+        <ListEmptyComponent
+          isLoading={isLoading}
+          effectiveIsError={effectiveIsError}
+          feedOption={feedOption}
+          secondaryColor={secondaryColor}
+          profileColors={profileColors}
+          isHeaderFeed={isHeaderFeed}
+          emptyComponentHeight={emptyComponentHeight}
+          onRetry={onRetry}
+        />
+      ),
+      [
+        isLoading,
+        effectiveIsError,
+        feedOption,
+        secondaryColor,
+        profileColors,
+        isHeaderFeed,
+        emptyComponentHeight,
+        onRetry,
+      ]
+    );
 
     const listBody = (
       <View
@@ -621,6 +699,8 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
             style={styles.flashList}
             data={listData}
             renderItem={renderItem}
+            extraData={listRenderExtraData}
+            drawDistance={FEED_VIEW_CONSTANTS.FLASHLIST_DRAW_DISTANCE}
             keyExtractor={listKeyExtractor}
             getItemType={getListItemType}
             refreshControl={
@@ -645,9 +725,9 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
             // Snapping configuration
 
             pagingEnabled={false}
-            snapToOffsets={snapToOffsets ?? undefined}
-            snapToInterval={undefined}
-            snapToAlignment={undefined}
+            snapToOffsets={snapToOffsets}
+            snapToInterval={snapToIntervalValue}
+            snapToAlignment={snapToIntervalValue != null ? 'start' : undefined}
             decelerationRate={
               Platform.OS === 'ios'
                 ? SCROLL_CONSTANTS.DECELERATION_RATE_IOS
@@ -670,19 +750,8 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
             directionalLockEnabled={true}
             alwaysBounceVertical
             alwaysBounceHorizontal={false}
-            // Empty state components - extracted to memoized component
-            ListEmptyComponent={
-              <ListEmptyComponent
-                isLoading={isLoading}
-                effectiveIsError={effectiveIsError}
-                feedOption={feedOption}
-                secondaryColor={secondaryColor}
-                profileColors={profileColors}
-                isHeaderFeed={isHeaderFeed}
-                emptyComponentHeight={emptyComponentHeight}
-                onRetry={onRetry}
-              />
-            }
+            // Empty state: memoized element so FlashList does not see a new tree every parent render
+            ListEmptyComponent={listEmptyElement}
             // Item separator for black gaps between cards
             ItemSeparatorComponent={ItemSeparatorComponent}
             ListFooterComponent={feed.length > 0 ? <View style={styles.itemSeparator} /> : null}
@@ -695,7 +764,11 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     const stack = (
       <FeedSurfaceStack
         listActive={resolvedViewMode === 'list'}
-        listSurface={<FeedScrollProvider value={feedScrollValue}>{listBody}</FeedScrollProvider>}
+        listSurface={
+          <FeedScrollProvider motion={feedScrollMotion} layout={feedScrollLayout}>
+            {listBody}
+          </FeedScrollProvider>
+        }
         gridSurface={
           <GridFeedView
             ref={gridRef}

@@ -1,27 +1,17 @@
-/**
- * VideoItem Component
- * Updated for unified snapping system
- */
-
-import { useMemo, useCallback } from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Link } from 'expo-router';
 
-import { useVisibilityCoreStore } from '../../../core/visibility';
-import { useFeedScroll } from '../../../context/FeedScrollContext';
+import { computeFeedRowVisibility, useVisibilityCoreStore } from '../../../core/visibility';
+import { useShallow } from 'zustand/react/shallow';
+import { useFeedScrollMotion } from '../../../context/FeedScrollContext';
 import VideoCard from '../video/VideoCard';
 import type { ExtendedPostView, ExtendedFeedViewPost, PostView } from '../../../services/api/types';
 import { getVideoView } from '../../../utils/video/helpers';
 import { HOME_FEED_PAGER_OPTIONS } from '../../../utils/constants';
 import { Colors } from '../../../theme';
 
-// VideoCard's Post type
 type VideoCardPost = ExtendedPostView | ExtendedFeedViewPost;
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-
-// Types
-// Post can be ExtendedPostView, ExtendedFeedViewPost, or simplified post structure
 type Post =
   | ExtendedPostView
   | ExtendedFeedViewPost
@@ -36,11 +26,10 @@ type Post =
       };
     };
 
-// Simplified Video Item Component for immediate playback
 export interface VideoItemProps {
   post: Post;
   feedItem?: ExtendedFeedViewPost; // Preferred - contains feedContext and reqId natively
-  height?: number;
+  height: number;
   feedOption?: string;
   /** Scoped key for visibility (e.g. profile:did). */
   feedKey?: string;
@@ -51,7 +40,7 @@ export interface VideoItemProps {
   isAppleZoomTarget?: boolean;
 }
 
-export function VideoItem({
+function VideoItemComponent({
   post,
   feedItem,
   height,
@@ -63,49 +52,35 @@ export function VideoItem({
   isAppleZoomTarget = false,
 }: VideoItemProps) {
   const key = feedKey ?? feedOption ?? '';
-  const isActiveFeed = useVisibilityCoreStore(s => s.activeFeedKey === key);
-  const isViewable = useVisibilityCoreStore(s => (s.lastViewableIndexByFeed[key] ?? -1) === index);
-  const isVisible = isViewable && !isHeaderBlockingPlayback;
-  const allowPlayback = isViewable && isActiveFeed && canPlay && !isHeaderBlockingPlayback;
+  const { isVisible, allowPlayback } = useVisibilityCoreStore(
+    useShallow(s =>
+      computeFeedRowVisibility({
+        activeFeedKey: s.activeFeedKey,
+        feedKey: key,
+        lastViewableIndexByFeed: s.lastViewableIndexByFeed,
+        index,
+        isHeaderBlockingPlayback,
+        canPlay,
+      })
+    )
+  );
 
-  // Simplified calculations - no memoization needed for simple operations
-  const itemHeight = height || SCREEN_HEIGHT;
-
-  // Extract video embed and URL using getVideoView helper + direct property access
   const embed = 'embed' in post ? (post.embed as PostView['embed']) : undefined;
   const videoView = getVideoView(embed);
-  const videoUrl = videoView?.playlist || null;
+  const hasVideo = Boolean(videoView?.playlist);
 
-  const hasVideo = !!videoUrl;
+  const rowStyle = [styles.videoContainer, { height }];
 
-  // No margins - using FlashList ItemSeparatorComponent for spacing
-  const containerStyle = [styles.videoContainer, { height: itemHeight }];
+  const normalizedPost = { ...post, embed: videoView } as VideoCardPost;
 
-  const normalizedPost = useMemo(
-    () => ({ ...post, embed: videoView }) as VideoCardPost,
-    [post, videoView]
-  );
-
-  const setHomePagerChromeUserHold = useFeedScroll()?.setHomePagerChromeUserHold;
-  const onHomeFeedPagerChromeUserPaused = useCallback(
-    (userPaused: boolean) => {
-      if (!feedOption || !HOME_FEED_PAGER_OPTIONS.has(feedOption)) return;
-      setHomePagerChromeUserHold?.(userPaused);
-    },
-    [feedOption, setHomePagerChromeUserHold]
-  );
-
-  const homeFeedPagerChromeHandler =
-    feedOption && HOME_FEED_PAGER_OPTIONS.has(feedOption)
-      ? onHomeFeedPagerChromeUserPaused
-      : undefined;
+  const setHomePagerChromeUserHold = useFeedScrollMotion()?.setHomePagerChromeUserHold;
+  const onHomeFeedPagerChromeUserPaused = (userPaused: boolean) => {
+    setHomePagerChromeUserHold?.(userPaused);
+  };
 
   if (!hasVideo) {
-    return <View style={containerStyle} pointerEvents="none" collapsable={false} />;
+    return <View style={rowStyle} pointerEvents="none" collapsable={false} />;
   }
-
-  // expo-video's useVideoPlayer automatically handles cleanup on unmount
-  // The VideoCard component manages video state via useRecyclingState for FlashList optimization
 
   const videoCard = (
     <VideoCard
@@ -113,16 +88,19 @@ export function VideoItem({
       feedItem={feedItem}
       isVisible={isVisible}
       shouldDisablePlayback={!allowPlayback}
-      height={itemHeight}
-      showOverlay={true}
+      height={height}
       feedOption={feedOption}
       index={index}
-      onUserPausedChange={homeFeedPagerChromeHandler}
+      onUserPausedChange={
+        feedOption && HOME_FEED_PAGER_OPTIONS.has(feedOption)
+          ? onHomeFeedPagerChromeUserPaused
+          : undefined
+      }
     />
   );
 
   return (
-    <View style={containerStyle}>
+    <View style={rowStyle}>
       {isAppleZoomTarget ? (
         <Link.AppleZoomTarget>
           <View style={styles.appleZoomTargetInner}>{videoCard}</View>
@@ -133,6 +111,9 @@ export function VideoItem({
     </View>
   );
 }
+
+export const VideoItem = VideoItemComponent;
+VideoItemComponent.displayName = 'VideoItem';
 
 const styles = StyleSheet.create({
   videoContainer: {

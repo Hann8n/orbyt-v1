@@ -52,6 +52,10 @@ import {
   isHeaderFeed as getIsHeaderFeed,
 } from './feedViewShared';
 import { FeedScrollProvider } from '../../../context/FeedScrollContext';
+import type {
+  FeedScrollLayoutValue,
+  FeedScrollMotionValue,
+} from '../../../context/FeedScrollContext';
 import type { SharedValue } from 'react-native-reanimated';
 import type { ComponentType, Ref } from 'react';
 import type { FlashListProps } from '@shopify/flash-list';
@@ -362,17 +366,30 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
       ]
     );
 
-    const feedScrollValue = useScrollTracking
-      ? {
-          scrollOffsetYSV,
-          headerHeight,
-          viewportHeight: viewportDimensions.height,
-          itemSpacing,
-          contentScrollProgressSV,
-          homePagerChromeUserHoldSV,
-          setHomePagerChromeUserHold,
-        }
-      : null;
+    const feedScrollMotion = useMemo<FeedScrollMotionValue | null>(() => {
+      if (!useScrollTracking) return null;
+      return {
+        scrollOffsetYSV,
+        contentScrollProgressSV,
+        homePagerChromeUserHoldSV,
+        setHomePagerChromeUserHold,
+      };
+    }, [
+      useScrollTracking,
+      scrollOffsetYSV,
+      contentScrollProgressSV,
+      homePagerChromeUserHoldSV,
+      setHomePagerChromeUserHold,
+    ]);
+
+    const feedScrollLayout = useMemo<FeedScrollLayoutValue | null>(() => {
+      if (!useScrollTracking) return null;
+      return {
+        headerHeight,
+        viewportHeight: viewportDimensions.height,
+        itemSpacing,
+      };
+    }, [useScrollTracking, headerHeight, viewportDimensions.height, itemSpacing]);
 
     const ListEl = ListComponent || (useScrollTracking ? AnimatedFlashList : FlashList);
     const listProps = (() => {
@@ -486,8 +503,10 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
 
     return (
       <View style={[styles.container, { backgroundColor }]} onLayout={handleGridContainerLayout}>
-        {useScrollTracking && feedScrollValue ? (
-          <FeedScrollProvider value={feedScrollValue}>{listContent}</FeedScrollProvider>
+        {useScrollTracking && feedScrollMotion && feedScrollLayout ? (
+          <FeedScrollProvider motion={feedScrollMotion} layout={feedScrollLayout}>
+            {listContent}
+          </FeedScrollProvider>
         ) : (
           listContent
         )}

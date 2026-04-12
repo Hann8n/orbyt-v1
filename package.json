@@ -18,6 +18,7 @@
     "build:android": "bash scripts/build-all.sh android",
     "build:all": "bash scripts/build-all.sh",
     "type-check": "tsc --noEmit",
+    "test:feed-visibility": "npx tsx --test src/core/visibility/feedRowVisibility.test.ts",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\"",
