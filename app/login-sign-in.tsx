@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, Text, TextInput, ActivityIndicator, StyleSheet, Keyboard } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import AuthModalLayout, { AUTH_KEYBOARD_OVERLAP_SIGN_IN } from '@/components/ui/AuthModalLayout';
 import {
@@ -16,7 +16,7 @@ import { itemSizeConfig } from '@/components/ui/ItemStyles';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { SquircleNativePressable } from '@/components/ui/Squircle';
 import { SquircleView } from '@/components/ui/Squircle';
-import { useAuth, useAccountManagement } from '@/stores/userStore';
+import { useAuth } from '@/stores/userStore';
 import { isUserCancellation } from '@/utils/errors/errorHandler';
 import { ActorService } from '@/services/api/actor/ActorService';
 import type { ProfileViewBasic } from '@/services/api/types';
@@ -50,13 +50,10 @@ function shouldRunActorSearch(raw: string): boolean {
 export default function LoginSignInModal() {
   const { t } = useTranslation();
   const router = useRouter();
-  const params = useLocalSearchParams<{ flow?: string | string[] }>();
-  const flowParam = params.flow;
-  const flow = Array.isArray(flowParam) ? flowParam[0] : flowParam;
-  const isAddAccount = flow === 'addAccount';
+  const pathname = usePathname();
+  const isAddAccount = pathname.includes('add-account');
 
   const { signIn } = useAuth();
-  const { loadSavedAccounts } = useAccountManagement();
 
   const sheetTitle = isAddAccount ? t('auth.addAccount') : t('auth.signIn');
 
@@ -138,10 +135,9 @@ export default function LoginSignInModal() {
 
     try {
       await signIn(trimmedHandle);
-      await loadSavedAccounts();
-      // `dismiss()` can dispatch POP after `Stack.Protected` swaps login → tabs, leaving no
-      // handler. `dismissTo` lands on the main tab stack in one navigation.
-      router.dismissTo('/(tabs)/home');
+      if (isAddAccount) {
+        router.dismissTo('/(tabs)/home');
+      }
     } catch (err) {
       if (!isUserCancellation(err)) {
         const errorMessage = err instanceof Error ? err.message : t('auth.signInFailed');
@@ -164,22 +160,6 @@ export default function LoginSignInModal() {
 
   const stickyFooter = (
     <>
-      {isAddAccount ? (
-        <View style={styles.stickyAboveCta}>
-          <Text style={styles.stickyAboveCtaText}>
-            <Text style={authSheetStyles.footerText}>{t('auth.needAccount')} </Text>
-            <Text
-              style={authSheetStyles.footerLink}
-              onPress={() => {
-                router.push('/login-sign-up');
-              }}
-              suppressHighlighting
-            >
-              {t('auth.createOne')}
-            </Text>
-          </Text>
-        </View>
-      ) : null}
       <SquircleNativePressable
         style={[
           authSheetStyles.button,
@@ -289,10 +269,7 @@ export default function LoginSignInModal() {
     <AuthModalLayout
       title={sheetTitle}
       fixedBody={fixedBody}
-      keyboardOverlapSpace={
-        isAddAccount ? AUTH_KEYBOARD_OVERLAP_SIGN_IN + 52 : AUTH_KEYBOARD_OVERLAP_SIGN_IN
-      }
-      stickyInnerPaddingTop={isAddAccount ? 0 : undefined}
+      keyboardOverlapSpace={AUTH_KEYBOARD_OVERLAP_SIGN_IN}
       stickyFooter={stickyFooter}
     >
       {showSuggestions ? (
@@ -318,13 +295,6 @@ export default function LoginSignInModal() {
 }
 
 const styles = StyleSheet.create({
-  stickyAboveCta: {
-    paddingVertical: 8,
-    alignItems: 'center',
-  },
-  stickyAboveCtaText: {
-    textAlign: 'center',
-  },
   stickyCta: {
     marginTop: 0,
     marginBottom: 0,

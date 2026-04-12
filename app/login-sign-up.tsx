@@ -4,7 +4,7 @@ import { View, Text, TextInput, Linking, ActivityIndicator, StyleSheet } from 'r
 import AuthModalLayout, { AUTH_KEYBOARD_OVERLAP_SIGN_UP } from '@/components/ui/AuthModalLayout';
 import { Colors } from '@/components/ui/UI';
 import Icon from '@/components/ui/Icon';
-import { useAuth, useAccountManagement } from '@/stores/userStore';
+import { useAuth } from '@/stores/userStore';
 import { checkPdsActive } from '@/services/api/pdsHealth';
 import { AUTH_INPUT_CONTENT_PADDING_START, authSheetStyles } from '@/components/ui/AuthSheetStyles';
 import { SHEET_STYLES } from '@/utils/components/truesheet';
@@ -12,7 +12,6 @@ import ErrorMessage from '@/components/ui/ErrorMessage';
 import { SquircleNativePressable } from '@/components/ui/Squircle';
 import { SquircleView } from '@/components/ui/Squircle';
 import { isUserCancellation } from '@/utils/errors/errorHandler';
-import { useRouter } from 'expo-router';
 
 const DEFAULT_PDS = 'https://bsky.social';
 
@@ -27,9 +26,7 @@ function normalizePds(input: string): string {
 
 export default function LoginSignUpModal() {
   const { t } = useTranslation();
-  const router = useRouter();
   const { signUp } = useAuth();
-  const { loadSavedAccounts } = useAccountManagement();
   const [pdsUrl, setPdsUrl] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSigningUp, setIsSigningUp] = useState(false);
@@ -87,8 +84,6 @@ export default function LoginSignUpModal() {
     setIsSigningUp(true);
     try {
       await signUp(identifier);
-      await loadSavedAccounts();
-      router.dismissTo('/(tabs)/home');
     } catch (err) {
       if (!isUserCancellation(err)) {
         setError(t('auth.signUpFailed'));
@@ -96,7 +91,7 @@ export default function LoginSignUpModal() {
     } finally {
       setIsSigningUp(false);
     }
-  }, [pdsUrl, signUp, loadSavedAccounts, router, t]);
+  }, [pdsUrl, signUp, t]);
 
   const onPress = () => {
     if (isSigningUp) return;

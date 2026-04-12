@@ -25,18 +25,12 @@ const GlobalAccountSwitcher: React.FC = () => {
     }
   };
 
-  const handleAddAccount = async () => {
-    dismissAccountSwitcher();
-    // Navigate to login to add new account
-    await signOut(false);
-  };
-
   return (
     <AccountSwitcher
       visible={visible}
       onDismiss={dismissAccountSwitcher}
       onAccountSwitch={handleAccountSwitch}
-      onAddAccount={handleAddAccount}
+      onAddAccount={() => {}}
       onLogout={signOut}
     />
   );

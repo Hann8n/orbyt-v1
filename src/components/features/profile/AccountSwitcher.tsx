@@ -169,10 +169,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
     try {
       onDismiss();
       await new Promise(resolve => setTimeout(resolve, 200));
-      router.push({
-        pathname: '/login-sign-in',
-        params: { flow: 'addAccount' },
-      });
+      router.push('/add-account');
     } catch {
       void 0;
     }

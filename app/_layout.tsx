@@ -249,15 +249,15 @@ function RootNavigator() {
               contentStyle: { backgroundColor: Colors.transparent },
             }}
           />
+          <Stack.Screen name="add-account" options={modalSlideUpOptions} />
         </Stack.Protected>
 
-        {/* Public routes - accessible without authentication */}
+        {/* Public routes - cold auth only; guard flip removes these together (no post-login flash) */}
         <Stack.Protected guard={!session}>
           <Stack.Screen name="login" />
+          <Stack.Screen name="login-sign-in" options={modalSlideUpOptions} />
+          <Stack.Screen name="login-sign-up" options={modalSlideUpOptions} />
         </Stack.Protected>
-
-        <Stack.Screen name="login-sign-in" options={modalSlideUpOptions} />
-        <Stack.Screen name="login-sign-up" options={modalSlideUpOptions} />
 
         {/* OAuth callback - always accessible for deep link handling */}
         <Stack.Screen
