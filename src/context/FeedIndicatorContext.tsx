@@ -10,7 +10,6 @@ type TabBarContextValue = {
    * This is a Reanimated shared value for direct use in animated styles.
    */
   tabBarVisibility: SharedValue<number>;
-  setTabBarVisibility: (visibility: number) => void;
 };
 
 const TabBarContext = createContext<TabBarContextValue | null>(null);
@@ -23,24 +22,13 @@ export const TabBarProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setTabBarHeight(height);
   }, []);
 
-  const handleSetTabBarVisibility = useCallback(
-    (visibility: number) => {
-      const clamped = Math.max(0, Math.min(1, visibility));
-      // Reanimated shared values are intentionally mutated for UI-thread sync
-      // eslint-disable-next-line react-hooks/immutability
-      tabBarVisibility.value = clamped;
-    },
-    [tabBarVisibility]
-  );
-
   const contextValue = useMemo(
     () => ({
       tabBarHeight,
       setTabBarHeight: handleSetTabBarHeight,
       tabBarVisibility,
-      setTabBarVisibility: handleSetTabBarVisibility,
     }),
-    [tabBarHeight, handleSetTabBarHeight, tabBarVisibility, handleSetTabBarVisibility]
+    [tabBarHeight, handleSetTabBarHeight, tabBarVisibility]
   );
 
   return <TabBarContext.Provider value={contextValue}>{children}</TabBarContext.Provider>;
@@ -57,12 +45,4 @@ export const useTabBarVisibility = () => {
     throw new Error('useTabBarVisibility must be used within TabBarProvider');
   }
   return context.tabBarVisibility;
-};
-
-export const useSetTabBarVisibility = () => {
-  const context = useContext(TabBarContext);
-  if (!context) {
-    throw new Error('useSetTabBarVisibility must be used within TabBarProvider');
-  }
-  return context.setTabBarVisibility;
 };

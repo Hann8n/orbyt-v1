@@ -68,6 +68,7 @@ import {
   QUERY_CONSTANTS,
   SCROLL_INDICATOR_CONSTANTS,
 } from '../../../utils/constants';
+import { buildListSnapToOffsets } from '@/utils/feed/snapOffsets';
 import type { FeedListItem, ListFeedViewProps, ListFeedViewRef } from '../../../types';
 import { useFeedVisibility, useVisibilityCoreStore } from '../../../core/visibility';
 import { useTranslation } from 'react-i18next';
@@ -154,6 +155,9 @@ ListEmptyComponent.displayName = 'ListEmptyComponent';
 
 /** Pixels of bottom rubber-band past the last item to reach full opacity (iOS overscroll). */
 const END_OF_FEED_OVERSCROLL_FULL_OPACITY_PX = 56;
+const CHROME_DIRECTION_THRESHOLD_PX = 12;
+const CHROME_TOGGLE_MIN_TRAVEL_PX = 28;
+const CHROME_NEAR_TOP_BUFFER_PX = 16;
 
 /** Lift hint from screen bottom so it sits in the band under the last card (above tab / home indicator). */
 const END_OF_FEED_HINT_BOTTOM_OFFSET = 40;
@@ -247,6 +251,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     const scrollOffsetYSV = useSharedValue(0);
     const homePagerChromeUserHoldSV = useSharedValue(0);
     const previousScrollYSV = useSharedValue(0);
+    const chromeToggleAnchorYSV = useSharedValue(0);
     const endOfFeedEnabledSV = useSharedValue(0);
     const endOfFeedOverscrollOpacitySV = useSharedValue(0);
 
@@ -477,39 +482,18 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     const snapToIntervalValue = listSnapUsesInterval ? itemSpacing : undefined;
 
     const snapToOffsets = useMemo((): number[] | undefined => {
-      if (snapDisabledCompactLiquidGlass) {
-        return undefined;
-      }
-      if (snapWaitHeaderLayout) {
-        return undefined;
-      }
-      if (listSnapUsesInterval) {
-        return undefined;
-      }
-
-      const n = listData.length;
-      if (hasHeader) {
-        const useHeaderPitch = headerHeight > 0 && cardHeight > 0;
-        const headerSnapAdjust = isHeaderFeed ? snapTopInset : 0;
-        const cap = n + 1;
-        const offsets = new Array<number>(cap);
-        offsets[0] = 0;
-        for (let i = 0; i < n; i++) {
-          if (useHeaderPitch) {
-            const baseOffset = headerHeight + i * itemSpacing;
-            offsets[i + 1] = baseOffset - headerSnapAdjust;
-          } else {
-            offsets[i + 1] = i * itemSpacing - snapTopInset;
-          }
-        }
-        return offsets;
-      }
-
-      const offsets = new Array<number>(n);
-      for (let i = 0; i < n; i++) {
-        offsets[i] = i * itemSpacing - snapTopInset;
-      }
-      return offsets;
+      return buildListSnapToOffsets({
+        snapDisabledCompactLiquidGlass,
+        snapWaitHeaderLayout,
+        listSnapUsesInterval,
+        hasHeader,
+        headerHeight,
+        cardHeight,
+        itemCount: listData.length,
+        itemSpacing,
+        snapTopInset,
+        isHeaderFeed,
+      });
     }, [
       snapDisabledCompactLiquidGlass,
       snapWaitHeaderLayout,
@@ -558,14 +542,31 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           if (isVisibleSV.value) {
             const chromeMaxY = FEED_VIEW_CONSTANTS.HOME_PAGER_CHROME_VISIBLE_MAX_SCROLL_Y;
             const prevY = previousScrollYSV.value;
+            const dy = y - prevY;
             const isHeld = homePagerChromeUserHoldSV.value > 0.5;
+            const currentVisible = tabBarVisibility.value > 0.5;
+            const travelSinceToggle = Math.abs(y - chromeToggleAnchorYSV.value);
+            const nearTop = y < chromeMaxY + CHROME_NEAR_TOP_BUFFER_PX;
 
-            if (isHeld || y < chromeMaxY) {
-              tabBarVisibility.value = 1;
-            } else if (y > prevY + 5) {
+            if (isHeld || nearTop) {
+              if (!currentVisible) {
+                tabBarVisibility.value = 1;
+                chromeToggleAnchorYSV.value = y;
+              }
+            } else if (
+              currentVisible &&
+              dy > CHROME_DIRECTION_THRESHOLD_PX &&
+              travelSinceToggle > CHROME_TOGGLE_MIN_TRAVEL_PX
+            ) {
               tabBarVisibility.value = 0;
-            } else if (y < prevY - 5) {
+              chromeToggleAnchorYSV.value = y;
+            } else if (
+              !currentVisible &&
+              dy < -CHROME_DIRECTION_THRESHOLD_PX &&
+              travelSinceToggle > CHROME_TOGGLE_MIN_TRAVEL_PX
+            ) {
               tabBarVisibility.value = 1;
+              chromeToggleAnchorYSV.value = y;
             }
           }
 
@@ -597,6 +598,9 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       (held: boolean) => {
         // eslint-disable-next-line react-hooks/immutability -- SharedValue.value
         homePagerChromeUserHoldSV.value = held ? 1 : 0;
+        // Reset anchor so the next direction change needs real travel before toggling.
+        // eslint-disable-next-line react-hooks/immutability -- SharedValue.value
+        chromeToggleAnchorYSV.value = scrollOffsetYSV.value;
         // Keep chrome behavior deterministic when pause/play changes without a scroll event.
         // eslint-disable-next-line react-hooks/immutability -- SharedValue.value
         tabBarVisibility.value =
@@ -604,7 +608,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
             ? 1
             : 0;
       },
-      [homePagerChromeUserHoldSV, scrollOffsetYSV, tabBarVisibility]
+      [homePagerChromeUserHoldSV, scrollOffsetYSV, tabBarVisibility, chromeToggleAnchorYSV]
     );
 
     const feedScrollMotion = useMemo<FeedScrollMotionValue>(

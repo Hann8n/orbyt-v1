@@ -38,6 +38,7 @@ import {
   SCROLL_CONSTANTS,
   SCROLL_INDICATOR_CONSTANTS,
 } from '../../../utils/constants';
+import { buildGridSnapToOffsets } from '@/utils/feed/snapOffsets';
 import type { ExtendedFeedViewPost } from '../../../services/api/types';
 import * as Device from 'expo-device';
 import { getViewportDimensions } from '../../../utils/device/screen';
@@ -303,15 +304,15 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
 
     // Native snapping (same approach as ListFeedView): full header at 0, then each grid row.
     const gridSnapToOffsets = useMemo(() => {
-      if (!useScrollTracking) return undefined;
-      if (headerHeight <= 0) return [0];
-      const firstRowY = headerHeight - (isHeaderFeed ? snapTopInset : 0);
-      const rowCount = feed.length === 0 ? 0 : Math.ceil(feed.length / numColumns);
-      const offsets: number[] = [0];
-      for (let r = 0; r < rowCount; r++) {
-        offsets.push(firstRowY + r * itemSpacing);
-      }
-      return offsets;
+      return buildGridSnapToOffsets({
+        useScrollTracking,
+        headerHeight,
+        isHeaderFeed,
+        snapTopInset,
+        itemCount: feed.length,
+        numColumns,
+        itemSpacing,
+      });
     }, [
       useScrollTracking,
       headerHeight,
