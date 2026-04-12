@@ -438,10 +438,13 @@ export const Avatar: React.FC<AvatarProps> = ({
   }
 
   const badgeBottomOffset = baseOffset + sizeAdjustment;
+  // Keep the LIVE pill inside layout bounds (negative bottom would paint below the root and get clipped).
+  const liveOverflowBelow = isLive ? Math.max(0, -badgeBottomOffset) : 0;
+  const rootHeight = size + liveOverflowBelow;
 
   const liveBadgeStyle: ViewStyle = {
     position: 'absolute',
-    bottom: badgeBottomOffset,
+    bottom: Math.max(0, badgeBottomOffset),
     alignSelf: 'center',
     backgroundColor: Colors.coral[500],
     paddingHorizontal: badgeDimensions.paddingH,
@@ -477,7 +480,7 @@ export const Avatar: React.FC<AvatarProps> = ({
     const isGif = uri.toLowerCase().endsWith('.gif') || uri.includes('.gif?');
 
     return (
-      <View style={[{ width: size, height: size }, styleSanitized]}>
+      <View style={[{ width: size, height: rootHeight }, styleSanitized]}>
         <View style={containerStyle}>
           <Image
             source={{ uri }}
@@ -505,7 +508,7 @@ export const Avatar: React.FC<AvatarProps> = ({
     // Import Icon component dynamically to avoid circular dependency
     const { default: Icon } = require('./Icon');
     return (
-      <View style={[{ width: size, height: size }, styleSanitized]}>
+      <View style={[{ width: size, height: rootHeight }, styleSanitized]}>
         <View style={containerStyle}>
           <View
             style={[
@@ -532,7 +535,7 @@ export const Avatar: React.FC<AvatarProps> = ({
 
   // Use default avatar image if no uri is provided
   return (
-    <View style={[{ width: size, height: size }, styleSanitized]}>
+    <View style={[{ width: size, height: rootHeight }, styleSanitized]}>
       <View style={containerStyle}>
         <Image
           source={require('../../assets/Default-avatar.png')}
