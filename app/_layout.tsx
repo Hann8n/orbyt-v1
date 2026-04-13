@@ -18,7 +18,8 @@ import GlobalAccountSwitcher from '@/components/ui/GlobalAccountSwitcher';
 import { EmailVerificationModal } from '@/components/ui/EmailVerificationModal';
 import { queryClient } from '@/utils/query/queryClient';
 import { QueryErrorBoundary } from '@/components/ui/QueryErrorBoundary';
-import { SessionProvider, useSession } from '@/context/SessionProvider';
+import { useModalStore } from '@/stores/modalStore';
+import { dismissAllSheets } from '@/utils/navigation';
 import { TabBarProvider } from '@/context/FeedIndicatorContext';
 import { OverlayLayoutProvider } from '@/context/OverlayLayoutContext';
 import { seenVideoService } from '@/services/SeenVideoService';
@@ -158,17 +159,19 @@ const modalSlideUpOptions = {
   animation: 'slide_from_bottom' as const,
 };
 
-// Initial route settings for Expo Router
-export const unstable_settings = {
-  // Ensure Stack.Protected redirects to login when unauthenticated
-  initialRouteName: '(tabs)',
-};
-
 // RootNavigator - handles route protection using Stack.Protected
 // Following Expo Router's recommended authentication pattern
 function RootNavigator() {
-  const { session } = useSession();
+  const isAuthenticated = useUserStore(selectIsSessionValid);
   const currentUser = useUserStore(state => state.currentUser);
+  const resetAllModals = useModalStore(state => state.resetAllModals);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      dismissAllSheets();
+      resetAllModals();
+    }
+  }, [isAuthenticated, resetAllModals]);
 
   return (
     <View style={styles.rootView}>
@@ -187,7 +190,7 @@ function RootNavigator() {
         }}
       >
         {/* Protected routes - require authentication */}
-        <Stack.Protected guard={!!session}>
+        <Stack.Protected guard={isAuthenticated}>
           <Stack.Screen name="(tabs)" />
           {/* Protected create route - require email confirmation if email exists */}
           <Stack.Protected guard={canAccessCreate(currentUser?.emailConfirmed ?? null)}>
@@ -253,22 +256,13 @@ function RootNavigator() {
         </Stack.Protected>
 
         {/* Public routes - cold auth only; guard flip removes these together (no post-login flash) */}
-        <Stack.Protected guard={!session}>
+        <Stack.Protected guard={!isAuthenticated}>
           <Stack.Screen name="login" />
           <Stack.Screen name="login-sign-in" options={modalSlideUpOptions} />
           <Stack.Screen name="login-sign-up" options={modalSlideUpOptions} />
         </Stack.Protected>
-
-        {/* OAuth callback - always accessible for deep link handling */}
-        <Stack.Screen
-          name="oauth/callback"
-          options={{
-            animation: 'none',
-            gestureEnabled: false,
-          }}
-        />
       </Stack>
-      {!!session && <GlobalModals />}
+      {isAuthenticated && <GlobalModals />}
     </View>
   );
 }
@@ -384,11 +378,9 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={DarkTheme}>
       <AppProviders>
-        <SessionProvider>
-          <QueryErrorBoundary level="root">
-            <RootNavigator />
-          </QueryErrorBoundary>
-        </SessionProvider>
+        <QueryErrorBoundary level="root">
+          <RootNavigator />
+        </QueryErrorBoundary>
       </AppProviders>
     </ThemeProvider>
   );
