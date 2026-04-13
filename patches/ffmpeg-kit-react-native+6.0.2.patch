@@ -1,15 +1,21 @@
 diff --git a/node_modules/ffmpeg-kit-react-native/android/build.gradle b/node_modules/ffmpeg-kit-react-native/android/build.gradle
-index 2909280..9ee3c64 100644
+index 2909280..fcaef99 100644
 --- a/node_modules/ffmpeg-kit-react-native/android/build.gradle
 +++ b/node_modules/ffmpeg-kit-react-native/android/build.gradle
-@@ -125,5 +125,6 @@ repositories {
- 
+@@ -125,5 +125,12 @@ repositories {
+
  dependencies {
    api 'com.facebook.react:react-native:+'
 -  implementation 'com.arthenica:ffmpeg-kit-' + safePackageName(safeExtGet('ffmpegKitPackage', 'https')) + ':' + safePackageVersion(safeExtGet('ffmpegKitPackage', 'https'))
 +  implementation files("${rootProject.projectDir}/../patches/ffmpeg-kit-full-gpl.aar")
 +  implementation 'com.arthenica:smart-exception-java:0.2.1'
  }
++
++// AGP 8.4+ blocks bundling library AARs that directly depend on local .aar files.
++// This module is consumed as a project dependency by the app, so these publish tasks are not needed.
++tasks.matching { it.name in ['bundleDebugAar', 'bundleReleaseAar'] }.configureEach {
++  enabled = false
++}
 diff --git a/node_modules/ffmpeg-kit-react-native/ffmpeg-kit-react-native.podspec b/node_modules/ffmpeg-kit-react-native/ffmpeg-kit-react-native.podspec
 index 889d3e8..a265d7a 100644
 --- a/node_modules/ffmpeg-kit-react-native/ffmpeg-kit-react-native.podspec
