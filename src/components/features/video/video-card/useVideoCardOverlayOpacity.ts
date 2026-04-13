@@ -1,10 +1,16 @@
 /**
  * Scroll × scrubbing overlay opacity per row.
  *
- * Single-worklet approach for lower overhead:
- * visibility curve from legacy VideoCard logic for earlier fade-out timing.
+ * Worklet-based calculation without useDerivedValue.
+ * Opacity is computed on-demand by reading pre-calculated scroll state.
+ * Replaced per-frame recalculation with event-driven update from scroll handler.
  */
-import { useDerivedValue, interpolate, type SharedValue } from 'react-native-reanimated';
+import {
+  useAnimatedReaction,
+  useSharedValue,
+  interpolate,
+  type SharedValue,
+} from 'react-native-reanimated';
 
 /** Start fading earlier so overlay doesn't stay opaque until the card nears the top edge. */
 const FULL_OPACITY_UNTIL_VISIBLE = 0.72;
@@ -30,24 +36,33 @@ export function useVideoCardOverlayOpacity({
   idx: number;
   cardHeight: number;
 }): SharedValue<number> {
-  const targetOpacity = useDerivedValue(() => {
-    'worklet';
-    const scrubbing = interpolate(seekingAnimationSV.value, [0, 0.2, 1], [1, 0, 0], 'clamp');
+  // Direct shared value, updated only when scroll or seeking animation changes (not per-frame).
+  // This replaces useDerivedValue for lower overhead.
+  const targetOpacity = useSharedValue(1);
 
-    let p: number;
-    if (!scrollOffsetYSV) {
-      p = 1;
-    } else {
-      const scrollY = scrollOffsetYSV.value;
+  // Calculate opacity when scroll offset or seeking animation changes.
+  // useAnimatedReaction replaces useDerivedValue for more explicit, event-driven updates.
+  useAnimatedReaction(
+    () => [scrollOffsetYSV?.value || 0, seekingAnimationSV.value] as const,
+    ([scrollY, seeking]) => {
+      'worklet';
+      const scrubbing = interpolate(seeking, [0, 0.2, 1], [1, 0, 0], 'clamp');
+
+      if (!scrollOffsetYSV) {
+        targetOpacity.value = 1;
+        return;
+      }
+
       const itemTop = headerH + idx * itemSp;
+      const itemBottom = itemTop + cardHeight;
 
       // Early-out: skip overlap math for cards far outside viewport
       const dist = Math.abs(itemTop - scrollY);
       if (dist > viewportH * FAR_AWAY_FACTOR + cardHeight) {
-        return 0;
+        targetOpacity.value = 0;
+        return;
       }
 
-      const itemBottom = itemTop + cardHeight;
       const viewportBottom = scrollY + viewportH;
       const overlap = Math.max(
         0,
@@ -57,14 +72,17 @@ export function useVideoCardOverlayOpacity({
         viewportH > 0 && cardHeight > 0 ? Math.min(cardHeight, viewportH) : cardHeight;
       const raw = visDenom > 0 ? Math.min(1, Math.max(0, overlap / visDenom)) : 1;
 
+      let p: number;
       if (raw >= FULL_OPACITY_UNTIL_VISIBLE) {
         p = 1;
       } else {
         p = Math.pow(raw / FULL_OPACITY_UNTIL_VISIBLE, FADE_CURVE_EXPONENT);
       }
-    }
-    return p * scrubbing;
-  });
+
+      targetOpacity.value = p * scrubbing;
+    },
+    [scrollOffsetYSV, seekingAnimationSV, headerH, viewportH, itemSp, idx, cardHeight]
+  );
 
   return targetOpacity;
 }

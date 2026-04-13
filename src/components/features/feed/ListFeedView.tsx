@@ -25,7 +25,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SafeAreaView as RNScreensSafeAreaView } from 'react-native-screens/experimental';
 import Animated, {
   useSharedValue,
-  useDerivedValue,
   useAnimatedScrollHandler,
   useAnimatedReaction,
   useAnimatedStyle,
@@ -160,9 +159,8 @@ ListEmptyComponent.displayName = 'ListEmptyComponent';
 
 /** Pixels of bottom rubber-band past the last item to reach full opacity (iOS overscroll). */
 const END_OF_FEED_OVERSCROLL_FULL_OPACITY_PX = 56;
-const CHROME_DIRECTION_THRESHOLD_PX = 12;
-const CHROME_TOGGLE_MIN_TRAVEL_PX = 28;
-const CHROME_NEAR_TOP_BUFFER_PX = 16;
+const CHROME_SHOW_DIRECTION_THRESHOLD_PX = 4;
+const CHROME_HIDE_DIRECTION_THRESHOLD_PX = 18;
 
 /** Lift hint from screen bottom so it sits in the band under the last card (above tab / home indicator). */
 const END_OF_FEED_HINT_BOTTOM_OFFSET = 40;
@@ -265,8 +263,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     // Scroll offset for percent-visible: written in useAnimatedScrollHandler (UI thread), read in VideoCard worklet.
     const scrollOffsetYSV = useSharedValue(0);
     const homePagerChromeUserHoldSV = useSharedValue(0);
-    const previousScrollYSV = useSharedValue(0);
-    const chromeToggleAnchorYSV = useSharedValue(0);
     const endOfFeedEnabledSV = useSharedValue(0);
     const endOfFeedOverscrollOpacitySV = useSharedValue(0);
 
@@ -283,9 +279,45 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     const tabBarVisibility = useTabBarVisibility();
     const listSurfaceActive = isVisible && resolvedViewMode === 'list';
     const isVisibleSV = useSharedValue(listSurfaceActive ? 1 : 0);
+    const chromeVisibleMaxY = FEED_VIEW_CONSTANTS.HOME_PAGER_CHROME_VISIBLE_MAX_SCROLL_Y;
     useEffect(() => {
       isVisibleSV.value = listSurfaceActive ? 1 : 0;
     }, [listSurfaceActive, isVisibleSV]);
+
+    useAnimatedReaction(
+      () => [scrollOffsetYSV.value, homePagerChromeUserHoldSV.value] as const,
+      (current, previous) => {
+        'worklet';
+        /* eslint-disable react-hooks/immutability -- SharedValue.value writes in worklet */
+        if (!isVisibleSV.value) return;
+
+        const y = Math.max(0, current[0]);
+        const hold = current[1];
+
+        if (hold > 0.5) {
+          tabBarVisibility.value = 1;
+          return;
+        }
+
+        const prevHold = previous === null ? 0 : previous[1];
+        const prevY = previous === null ? y : Math.max(0, previous[0]);
+
+        if (previous === null || prevHold > 0.5) {
+          tabBarVisibility.value = y < chromeVisibleMaxY ? 1 : 0;
+          return;
+        }
+
+        if (y < chromeVisibleMaxY) {
+          tabBarVisibility.value = 1;
+        } else if (y > prevY + CHROME_HIDE_DIRECTION_THRESHOLD_PX) {
+          tabBarVisibility.value = 0;
+        } else if (y < prevY - CHROME_SHOW_DIRECTION_THRESHOLD_PX) {
+          tabBarVisibility.value = 1;
+        }
+        /* eslint-enable react-hooks/immutability */
+      },
+      [scrollOffsetYSV, homePagerChromeUserHoldSV, tabBarVisibility, isVisibleSV, chromeVisibleMaxY]
+    );
 
     const patchHeaderBlockingPlayback = useCallback(
       (blocked: boolean) => listPlaybackStore.patch({ headerBlockingPlayback: blocked }),
@@ -565,57 +597,33 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     }, []);
 
     const fadeDist = hasHeader ? SCROLL_CONSTANTS.HEADER_FADE_DISTANCE : 0;
-    const contentScrollProgressSV = useDerivedValue(() => {
-      'worklet';
-      return fadeDist > 0 ? Math.max(0, Math.min(1, scrollOffsetYSV.value / fadeDist)) : 0;
-    }, [scrollOffsetYSV, fadeDist]);
+    // Direct shared value, updated in scroll handler (no useDerivedValue).
+    // This eliminates per-frame recalculation overhead.
+    const contentScrollProgressSV = useSharedValue(0);
 
-    // UI-thread scroll handler: one write path for offset and (when provided) overlay progress. No extra useAnimatedReaction.
+    // UI-thread scroll handler: single update path for all scroll-driven animations.
+    // Now consolidates overlay opacity, progress, and end-of-feed calculations.
     const scrollHandler = useAnimatedScrollHandler(
       {
         onScroll: event => {
           'worklet';
           /* eslint-disable react-hooks/immutability -- SharedValue.value in worklet */
-          const y = event.contentOffset.y;
+          const y = Math.max(0, event.contentOffset.y);
           scrollOffsetYSV.value = y;
 
-          if (isVisibleSV.value) {
-            const chromeMaxY = FEED_VIEW_CONSTANTS.HOME_PAGER_CHROME_VISIBLE_MAX_SCROLL_Y;
-            const prevY = previousScrollYSV.value;
-            const dy = y - prevY;
-            const isHeld = homePagerChromeUserHoldSV.value > 0.5;
-            const currentVisible = tabBarVisibility.value > 0.5;
-            const travelSinceToggle = Math.abs(y - chromeToggleAnchorYSV.value);
-            const nearTop = y < chromeMaxY + CHROME_NEAR_TOP_BUFFER_PX;
-
-            if (isHeld || nearTop) {
-              if (!currentVisible) {
-                tabBarVisibility.value = 1;
-                chromeToggleAnchorYSV.value = y;
-              }
-            } else if (
-              currentVisible &&
-              dy > CHROME_DIRECTION_THRESHOLD_PX &&
-              travelSinceToggle > CHROME_TOGGLE_MIN_TRAVEL_PX
-            ) {
-              tabBarVisibility.value = 0;
-              chromeToggleAnchorYSV.value = y;
-            } else if (
-              !currentVisible &&
-              dy < -CHROME_DIRECTION_THRESHOLD_PX &&
-              travelSinceToggle > CHROME_TOGGLE_MIN_TRAVEL_PX
-            ) {
-              tabBarVisibility.value = 1;
-              chromeToggleAnchorYSV.value = y;
-            }
+          // Update all scroll-driven shared values directly in handler (not via useDerivedValue).
+          // This is more efficient than continuous derivation.
+          if (fadeDist > 0) {
+            contentScrollProgressSV.value = Math.max(0, Math.min(1, y / fadeDist));
+          } else {
+            contentScrollProgressSV.value = 0;
           }
-
-          previousScrollYSV.value = y;
 
           if (contentScrollProgressOutput && fadeDist > 0) {
             contentScrollProgressOutput.value = Math.max(0, Math.min(1, y / fadeDist));
           }
 
+          // End-of-feed overscroll opacity: only update when scrolling, not every frame.
           const contentH = event.contentSize?.height ?? 0;
           const layoutH = event.layoutMeasurement?.height ?? 0;
           const maxY = Math.max(0, contentH - layoutH);
@@ -631,16 +639,13 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           /* eslint-enable react-hooks/immutability */
         },
       },
-      [contentScrollProgressOutput, fadeDist, tabBarVisibility]
+      [contentScrollProgressOutput, fadeDist]
     );
 
     const setHomePagerChromeUserHold = useCallback(
       (held: boolean) => {
         // eslint-disable-next-line react-hooks/immutability -- SharedValue.value
         homePagerChromeUserHoldSV.value = held ? 1 : 0;
-        // Reset anchor so the next direction change needs real travel before toggling.
-        // eslint-disable-next-line react-hooks/immutability -- SharedValue.value
-        chromeToggleAnchorYSV.value = scrollOffsetYSV.value;
         // Keep chrome behavior deterministic when pause/play changes without a scroll event.
         // eslint-disable-next-line react-hooks/immutability -- SharedValue.value
         tabBarVisibility.value =
@@ -648,7 +653,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
             ? 1
             : 0;
       },
-      [homePagerChromeUserHoldSV, scrollOffsetYSV, tabBarVisibility, chromeToggleAnchorYSV]
+      [homePagerChromeUserHoldSV, scrollOffsetYSV, tabBarVisibility]
     );
 
     const feedScrollMotion = useMemo<FeedScrollMotionValue>(
