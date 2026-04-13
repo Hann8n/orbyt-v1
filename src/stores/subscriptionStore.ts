@@ -162,14 +162,3 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
     set({ subscriptions: new Map() });
   },
 }));
-
-// Convenience hook for a specific user's subscription
-export const useUserSubscription = (did: string | null | undefined) => {
-  const isSubscribed = useSubscriptionStore(state => (did ? state.isSubscribed(did) : false));
-  const toggleSubscription = useSubscriptionStore(state => state.toggleSubscription);
-
-  return {
-    isSubscribed,
-    toggleSubscription: did ? () => toggleSubscription(did) : async () => false,
-  };
-};

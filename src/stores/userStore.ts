@@ -7,7 +7,6 @@
  *
  * DID-centric; integrates with @atproto/oauth-client-expo for OAuth.
  */
-import { useEffect } from 'react';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 // Note: Using individual selectors instead of shallow comparison for better performance
@@ -16,7 +15,6 @@ import * as SecureStore from 'expo-secure-store';
 import { Agent } from '@atproto/api';
 import { getOAuthClient } from '../services/auth';
 import type { OAuthSession } from '@atproto/oauth-client';
-import ProfileService from '../services/data/ProfileService';
 import { RepoService } from '../services/api/repo/RepoService';
 import { isUserCancellation, getErrorMessage } from '../utils/errors/errorHandler';
 import { requiresReauth } from '../utils/errors/oauth';
@@ -82,7 +80,7 @@ async function assertRequiredOAuthScope(session: OAuthSession): Promise<void> {
   }
 }
 
-export function getSessionRestoreOutcome(error: unknown): SessionRestoreOutcome {
+function getSessionRestoreOutcome(error: unknown): SessionRestoreOutcome {
   if (error instanceof AuthFlowError) return error.kind;
   if (requiresReauth(error)) return 'reauth_required';
   if (isUserCancellation(error)) return 'cancelled';
@@ -389,7 +387,7 @@ function resolveAlgorithmicFeedProviderForDid(
 
 // Helper to check if email verification is required
 // Returns true if user has email but it's not confirmed
-export const isEmailVerificationRequired = (currentUser: UserState['currentUser']): boolean => {
+const isEmailVerificationRequired = (currentUser: UserState['currentUser']): boolean => {
   if (!currentUser) return false;
   const hasEmail = currentUser.emailConfirmed !== undefined;
   return hasEmail && currentUser.emailConfirmed === false;
@@ -2068,17 +2066,6 @@ export const useChannelSubscriptions = () => {
   };
 };
 
-// Hook for accessing the agent directly
-export const useAgent = () => {
-  const agent = useUserStore(state => state.agent);
-  const oauthSession = useUserStore(state => state.oauthSession);
-
-  return {
-    agent,
-    oauthSession,
-  };
-};
-
 // Hook for accessing user store state directly
 export const useUserStoreState = () => {
   const agent = useUserStore(state => state.agent);
@@ -2123,35 +2110,5 @@ export const useAlgorithmicFeedProvider = () => {
     algorithmicFeedProvider,
     setAlgorithmicFeedProvider,
     getAlgorithmicFeedProvider,
-  };
-};
-
-// Hook for precaching current user profile on app launch
-export const useProfilePrecache = () => {
-  const currentUser = useUserStore(state => state.currentUser);
-
-  useEffect(() => {
-    if (currentUser?.did) {
-      ProfileService.precacheCurrentUserProfile();
-    }
-  }, [currentUser?.did]);
-};
-
-// Hook for moderation functionality
-export const useModeration = () => {
-  const agent = useUserStore(state => state.agent);
-  const currentUser = useUserStore(state => state.currentUser);
-
-  return {
-    getModerationPrefs: async () => {
-      const r = await ModerationService.getModerationPrefsAndLabelDefs(agent);
-      return r?.moderationPrefs ?? null;
-    },
-    saveModerationPrefs: async (prefs: import('@atproto/api').ModerationPrefs) => {
-      if (!agent) {
-        throw new Error('No agent available. Please ensure you are logged in.');
-      }
-      return ModerationService.saveModerationPrefs(prefs, agent, currentUser?.did ?? undefined);
-    },
   };
 };

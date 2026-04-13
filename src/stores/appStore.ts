@@ -33,14 +33,3 @@ export const useAppStore = create<AppState>()(
     }
   )
 );
-
-// Convenience hooks - optimized with individual selectors
-export const useAppInitialization = () => {
-  const appState = useAppStore(state => state.appState);
-  const setAppState = useAppStore(state => state.setAppState);
-
-  return {
-    appState,
-    setAppState,
-  };
-};

@@ -92,18 +92,3 @@ export const useFollowStore = create<FollowStoreState>((set, get) => ({
     });
   },
 }));
-
-// Convenience hook for getting follow state with handle fallback
-export const useFollowState = (did?: string, handle?: string) => {
-  const followState = useFollowStore(state => (did ? state.follows.get(did) : undefined));
-  const updateFollowState = useFollowStore(state => state.updateFollowState);
-
-  return {
-    followState,
-    updateFollowState: (update: Partial<FollowState>) => {
-      if (did) {
-        updateFollowState(did, { ...update, handle: handle || update.handle });
-      }
-    },
-  };
-};

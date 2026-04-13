@@ -15,17 +15,6 @@ export const unregisterSheet = (name: string) => {
   registry.delete(name);
 };
 
-export const presentSheet = (name?: string) => {
-  if (!name) return;
-  const actions = registry.get(name);
-  if (!actions) return;
-  try {
-    actions.present();
-  } catch (_e) {
-    // best-effort presentation
-  }
-};
-
 export const dismissSheet = (name?: string) => {
   if (!name) return;
   const actions = registry.get(name);
@@ -45,12 +34,4 @@ export const dismissAllSheets = () => {
       // best-effort dismissal
     }
   });
-};
-
-export default {
-  registerSheet,
-  unregisterSheet,
-  presentSheet,
-  dismissSheet,
-  dismissAllSheets,
 };

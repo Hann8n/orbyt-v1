@@ -6,12 +6,10 @@ export { RetryButton, Loading } from './UI';
 
 // Individual component exports
 export { default as Icon } from './Icon';
-export { default as PopUpModal } from './PopUpModal';
 export { default as BottomToolBar } from './BottomToolBar';
 export { ShareSheet, SendToPicker } from './share-sheet';
 export type { SendToPickerProps } from './share-sheet';
 export { default as RelativeDate } from './RelativeDate';
-export { default as VideoInfoDisplay } from './VideoInfoDisplay';
 export { default as AuthorItem } from './AuthorItem';
 export { default as ChannelItem } from './ChannelItem';
 export { default as HeaderBanner } from './HeaderBanner';

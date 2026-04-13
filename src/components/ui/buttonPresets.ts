@@ -134,35 +134,6 @@ export const sheetFooterPrimaryLabel: TextStyle = {
   color: Colors.neutral[975],
 };
 
-const modalActionContainer: ViewStyle = {
-  ...shape.compact,
-  ...buttonContentCenter,
-  paddingVertical: 8,
-  paddingHorizontal: 16,
-};
-
-export const modalActionSecondaryContainer: ViewStyle = {
-  ...modalActionContainer,
-  backgroundColor: Colors.overlay.white10,
-};
-
-export const modalActionPrimaryContainer: ViewStyle = {
-  ...modalActionContainer,
-  backgroundColor: Colors.neutral[50],
-};
-
-export const modalActionLabel: TextStyle = {
-  color: Colors.neutral[50],
-  fontSize: Typography.sizes.subtitle,
-  fontFamily: FontFamily.medium,
-};
-
-export const modalActionPrimaryLabel: TextStyle = {
-  ...modalActionLabel,
-  color: Colors.neutral[975],
-  fontFamily: FontFamily.bold,
-};
-
 export const toolbarNextContainer: ViewStyle = {
   ...shape.rounded,
   ...buttonContentCenter,

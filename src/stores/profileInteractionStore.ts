@@ -4,7 +4,6 @@
  * Complements ProfileCache (data) with UI/interaction flags
  */
 import { create } from 'zustand';
-import { useUserStore } from './userStore';
 
 export interface ProfileFlags {
   did: string;
@@ -79,10 +78,4 @@ export const isCurrentUser = (
 ): boolean => {
   if (!profileDid || !currentUser) return false;
   return profileDid === currentUser.did || profileHandle === currentUser.handle;
-};
-
-// Hook version for convenience
-export const useIsCurrentUser = (profileDid?: string, profileHandle?: string) => {
-  const currentUser = useUserStore(state => state.currentUser);
-  return isCurrentUser(profileDid, profileHandle, currentUser);
 };

@@ -111,23 +111,3 @@ export const useUIStore = create<UIState>((set, get) => ({
     set({ progress: {} });
   },
 }));
-
-// Convenience hooks for common patterns
-export const useLoading = (key: string) => {
-  const isLoading = useUIStore(state => state.loading[key] ?? false);
-  const setLoading = useUIStore(state => state.setLoading);
-
-  return [isLoading, (loading: boolean) => setLoading(key, loading)] as const;
-};
-
-export const useVisibility = (key: string) => {
-  const isVisible = useUIStore(state => state.visibility[key] ?? false);
-  const setVisibility = useUIStore(state => state.setVisibility);
-  const toggle = useUIStore(state => state.toggleVisibility);
-
-  return {
-    isVisible,
-    setVisible: (visible: boolean) => setVisibility(key, visible),
-    toggle: () => toggle(key),
-  };
-};

@@ -9,9 +9,7 @@ export { default as BottomToolBar } from './ui/BottomToolBar';
 export { default as ListHeader } from './ui/ListHeader';
 export { default as VerticalListSheet } from './ui/VerticalListSheet';
 export { ShareSheet } from './ui/share-sheet';
-export { default as PopUpModal } from './ui/PopUpModal';
 export { TextWithLinks, TextWithAuthorLinks } from './ui/TextWithLinks';
-export { default as VideoInfoDisplay } from './ui/VideoInfoDisplay';
 export { default as RelativeDate } from './ui/RelativeDate';
 
 // Feature Components

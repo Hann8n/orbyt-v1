@@ -10,6 +10,10 @@
   },
   "ignoreIssues": {
     "src/services/api/types.ts": ["types"],
-    "src/utils/components/truesheet/KeyboardAwareFooter.tsx": ["exports"]
+    "src/utils/components/truesheet/KeyboardAwareFooter.tsx": ["exports"],
+    "src/components/features/explore/ExploreScreen.tsx": ["exports"],
+    "src/components/features/profile/ProfileImageViewerScreen.tsx": ["exports"],
+    "src/components/screens/FeedModalTabScreen.tsx": ["exports"],
+    "src/components/screens/FullHeightVideoTabScreen.tsx": ["exports"]
   }
 }
