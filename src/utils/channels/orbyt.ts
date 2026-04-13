@@ -4,7 +4,6 @@ import type { RemoteOrbytChannel } from '@/services/OrbytChannelsService';
 import type { TranslationMap } from '@/i18n/resolveLocalizedText';
 import {
   getActiveRemoteChannels,
-  getAllRemoteChannels,
   getRemoteChannelBySlug,
   getRemoteChannelByUri,
   isKnownOrbytChannelUri,
@@ -134,18 +133,10 @@ export function getChannelBySlug(slug: string): OrbytChannel | undefined {
 }
 
 /**
- * Get all available channels
- * @returns Array of all channel definitions
- */
-export function getAllChannels(): OrbytChannel[] {
-  return getAllRemoteChannels().map(mapRemoteChannel);
-}
-
-/**
  * Get only active channels (for display in explore and channel selection)
  * @returns Array of active channel definitions
  */
-export function getActiveChannels(): OrbytChannel[] {
+function getActiveChannels(): OrbytChannel[] {
   return getActiveRemoteChannels().map(mapRemoteChannel);
 }
 
@@ -188,15 +179,6 @@ export function getChannelByUri(uri: string): OrbytChannel | undefined {
 export function isOrbytChannel(uri: string): boolean {
   if (!uri) return false;
   return isKnownOrbytChannelUri(uri);
-}
-
-/**
- * Get the feed type based on URI
- * @param uri - Feed generator URI
- * @returns 'channel' if it's an orbyt channel, 'feed' if it's an external feed
- */
-export function getFeedType(uri: string): 'channel' | 'feed' {
-  return isOrbytChannel(uri) ? 'channel' : 'feed';
 }
 
 /**

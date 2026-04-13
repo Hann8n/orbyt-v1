@@ -123,68 +123,8 @@ export function getVideoView(embed: PostView['embed'] | null | undefined): Video
   return null;
 }
 
-/**
- * Extracts all metadata from a VideoView in a single call.
- * Returns null if the embed is not a video embed.
- *
- * @param embed - Post embed that may contain video
- * @returns Object with playlist URL, thumbnail URL, and aspect ratio, or null if not a video embed
- *
- * @example
- * ```typescript
- * const metadata = getVideoMetadata(post.embed);
- * if (metadata) {
- *   const { playlist, thumbnail, aspectRatio } = metadata;
- *   // Use video metadata
- * }
- * ```
- */
-export function getVideoMetadata(embed: PostView['embed'] | null | undefined): {
-  playlist: string | null;
-  thumbnail: string | null;
-  aspectRatio: { width: number; height: number } | null;
-} | null {
-  const videoView = getVideoView(embed);
-  if (!videoView) return null;
-
-  return {
-    playlist: videoView.playlist || null,
-    thumbnail: videoView.thumbnail || null,
-    aspectRatio: videoView.aspectRatio
-      ? {
-          width: videoView.aspectRatio.width,
-          height: videoView.aspectRatio.height,
-        }
-      : null,
-  };
-}
-
 /** Default video aspect ratio (width / height). 9:16 portrait used everywhere for consistent sizing. */
 export const DEFAULT_VIDEO_ASPECT_RATIO = 9 / 16;
-
-/**
- * Returns video aspect ratio (width / height) from embed, or default 9:16 portrait.
- * Use for layout: cardHeight = screenWidth / aspectRatio (capped by screenHeight).
- */
-export function getVideoAspectRatioFromEmbed(embed: PostView['embed'] | null | undefined): number {
-  const meta = getVideoMetadata(embed);
-  if (meta?.aspectRatio && meta.aspectRatio.width > 0 && meta.aspectRatio.height > 0) {
-    return meta.aspectRatio.width / meta.aspectRatio.height;
-  }
-  return DEFAULT_VIDEO_ASPECT_RATIO;
-}
-
-/**
- * Returns video aspect ratio (width / height) from a post, or default 9:16 portrait.
- */
-export function getVideoAspectRatioFromPost(
-  post: { embed?: PostView['embed'] } | { post?: { embed?: PostView['embed'] } }
-): number {
-  const embed =
-    (post as { embed?: PostView['embed'] }).embed ??
-    (post as { post?: { embed?: PostView['embed'] } }).post?.embed;
-  return getVideoAspectRatioFromEmbed(embed ?? null);
-}
 
 /**
  * Standard card height for a video in the list feed: screen width / aspect ratio,

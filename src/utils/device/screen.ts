@@ -16,11 +16,11 @@ export function getEffectiveTopInset(hookTop: number): number {
   return Math.max(hookTop, initialWindowMetrics?.insets.top ?? 0);
 }
 
-export const TABLET_SHORT_SIDE_DP = 600;
-export const SMALL_PHONE_SHORT_SIDE_DP = 375;
-export const SMALL_PHONE_LONG_SIDE_DP = 720;
+const TABLET_SHORT_SIDE_DP = 600;
+const SMALL_PHONE_SHORT_SIDE_DP = 375;
+const SMALL_PHONE_LONG_SIDE_DP = 720;
 
-export const LAYOUT = {
+const LAYOUT = {
   TAB_NAV_HEIGHT: 45,
   SMALL_SCREEN_NAV_HEIGHT: 40,
 } as const;

@@ -10,7 +10,7 @@ import i18n from '../../i18n';
  * @param atUri - AT Protocol URI (e.g., at://did:plc:abc123/app.bsky.feed.post/xyz789)
  * @returns Bluesky web URL (e.g., https://bsky.app/profile/did:plc:abc123/post/xyz789)
  */
-export const convertAtUriToBlueskyUrl = (atUri: string): string => {
+const convertAtUriToBlueskyUrl = (atUri: string): string => {
   if (!atUri.startsWith('at://')) {
     return atUri;
   }
@@ -29,31 +29,11 @@ export const convertAtUriToBlueskyUrl = (atUri: string): string => {
 };
 
 /**
- * Convert AT Protocol URI to Bluesky profile URL
- * @param atUri - AT Protocol URI (e.g., at://did:plc:abc123/app.bsky.feed.post/xyz789)
- * @returns Bluesky profile URL (e.g., https://bsky.app/profile/did:plc:abc123)
- */
-export const convertAtUriToProfileUrl = (atUri: string): string => {
-  if (!atUri.startsWith('at://')) {
-    return atUri;
-  }
-
-  // Extract the DID from the AT URI
-  const parts = atUri.replace('at://', '').split('/');
-  if (parts.length >= 1) {
-    const did = parts[0];
-    return `https://bsky.app/profile/${did}`;
-  }
-
-  return atUri;
-};
-
-/**
  * Convert AT Protocol list URI to Bluesky web URL
  * @param atUri - AT Protocol URI (e.g., at://did:plc:abc123/app.bsky.graph.list/xyz789)
  * @returns Bluesky web URL (e.g., https://bsky.app/profile/did:plc:abc123/lists/xyz789)
  */
-export const convertListUriToBlueskyUrl = (atUri: string): string => {
+const convertListUriToBlueskyUrl = (atUri: string): string => {
   if (!atUri.startsWith('at://')) {
     return atUri;
   }

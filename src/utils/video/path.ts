@@ -277,20 +277,3 @@ export function extractAssetId(asset: unknown): string | null {
   }
   return null;
 }
-
-/**
- * Debug: Log all relevant info about a video path
- */
-export function debugVideoPath(label: string, path: string, asset?: unknown): void {
-  if (!DEBUG) return;
-
-  logger.debug(`VideoPath Debug: ${label}`, {
-    component: 'videoPath',
-    path: path?.substring(0, 100) || 'null',
-    hasFilePrefix: path?.startsWith('file://'),
-    hasFragment: path?.includes('#'),
-    assetId: extractAssetId(asset) || 'none',
-    assetType: asset ? typeof asset : undefined,
-    assetKeys: asset ? Object.keys(asset).join(', ') : undefined,
-  });
-}

@@ -64,7 +64,7 @@ export const FontFamily: Record<FontWeightToken, string> = {
 export const fontSizeFor = (base: number): number => Math.round(base * SCALE);
 
 // Update scale dynamically (call when dimensions or font scale changes)
-export const updateTypographyScale = (): void => {
+const updateTypographyScale = (): void => {
   SCALE = getTypographyScale();
 };
 
@@ -148,7 +148,7 @@ import { Text as RNText, TextProps as RNTextProps, StyleSheet } from 'react-nati
  * Hook to subscribe to font scale and dimension changes.
  * Forces components to re-render when user changes system font size.
  */
-export const useResponsiveTypography = () => {
+const useResponsiveTypography = () => {
   const [, forceUpdate] = useState(0);
 
   useEffect(() => {

@@ -54,13 +54,6 @@ export const QUERY_CONSTANTS = {
   FEED_PAGE_MAX_SINGLE: 100,
 } as const;
 
-// Viewability Constants - unified strategy using viewport coverage
-export const VIEWABILITY_CONSTANTS = {
-  VIEW_AREA_COVERAGE_PERCENT_THRESHOLD: 50, // 50% of viewport must be covered by video
-  MINIMUM_VIEW_TIME: 0, // No minimum view time for instant playback
-  WAIT_FOR_INTERACTION: false, // Don't wait for interaction
-} as const;
-
 // Scroll Constants
 export const SCROLL_CONSTANTS = {
   POSITION_CHANGE_THRESHOLD: 30,
@@ -116,37 +109,10 @@ export const ALGORITHMIC_FEED_PROVIDERS = {
 
 export const DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI = ALGORITHMIC_FEED_PROVIDERS.VIDEOS_FOR_YOU.uri;
 
-// View Modes
-export const VIEW_MODES = {
-  LIST: 'list',
-  GRID: 'grid',
-} as const;
-
 // Error messages: use i18n.t('errors.*') - see src/i18n/locales/en.json
-
-// Storage Keys
-export const STORAGE_KEYS = {
-  SESSION: 'session',
-  APP_STORE: 'app-store',
-} as const;
 
 /** iOS press dim for `NativePressable` (`TouchableOpacity`); higher = subtler (RN default is 0.2). */
 export const NATIVE_PRESSABLE_ACTIVE_OPACITY = 0.76;
-
-// Animation Constants
-export const ANIMATION_CONSTANTS = {
-  DURATION: {
-    FAST: 200,
-    NORMAL: 300,
-    SLOW: 500,
-  },
-  EASING: {
-    EASE_IN_OUT: 'ease-in-out',
-    EASE_OUT: 'ease-out',
-    EASE_IN: 'ease-in',
-  },
-  DRAG_SCALE_FACTOR: 1.02,
-} as const;
 
 // Icon Size Constants
 export const ICON_SIZES = {

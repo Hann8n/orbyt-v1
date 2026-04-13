@@ -1,5 +1,4 @@
 import ImageColors, { ImageColorsResult } from 'react-native-image-colors';
-import { APP_CONSTANTS } from '../constants';
 import { Colors } from '../../theme';
 
 /**
@@ -43,25 +42,6 @@ export const isColorDark = (hex: string): boolean => {
   const b = parseInt(color.substring(4, 6), 16);
   const brightness = (r * 299 + g * 587 + b * 114) / 1000;
   return brightness < 128;
-};
-
-/**
- * Inverts a hex color
- * @param hex Hex color string
- * @returns Inverted hex color string
- */
-export const invertColor = (hex: string): string => {
-  const color = hex.replace('#', '');
-  const r = parseInt(color.substring(0, 2), 16);
-  const g = parseInt(color.substring(2, 4), 16);
-  const b = parseInt(color.substring(4, 6), 16);
-
-  // Invert each component
-  const invertedR = (255 - r).toString(16).padStart(2, '0');
-  const invertedG = (255 - g).toString(16).padStart(2, '0');
-  const invertedB = (255 - b).toString(16).padStart(2, '0');
-
-  return `#${invertedR}${invertedG}${invertedB}`;
 };
 
 /**
@@ -126,7 +106,7 @@ export const getRelativeLuminance = (hex: string): number => {
  * Returns the lighter of two hex colors (higher relative luminance).
  * Used for native tab bar tint so icons stay visible on any profile theme.
  */
-export const pickLighterHex = (a: string, b: string): string =>
+const pickLighterHex = (a: string, b: string): string =>
   getRelativeLuminance(a) >= getRelativeLuminance(b) ? a : b;
 
 /** Inactive tab bar icon/label color (used by both native and custom tab bars). */
@@ -166,7 +146,7 @@ function ensureVisibleOnDarkBackground(hex: string, lighterProfileColor: string)
   return Colors.neutral[50];
 }
 
-export function getProfileMiddleAccentColor(profile: ProfileColorScheme | null): string {
+function getProfileMiddleAccentColor(profile: ProfileColorScheme | null): string {
   if (!profile) return Colors.neutral[50];
   const middle = blendColors(profile.backgroundColor, profile.foregroundColor, 0.5);
   const lighter = pickLighterHex(profile.backgroundColor, profile.foregroundColor);
@@ -200,7 +180,7 @@ export const getStatusBarStyle = (backgroundColor: string): 'light' | 'dark' => 
 /**
  * Default profile colors used throughout the app (orbyt grey – from palette neutral scale).
  */
-export const DEFAULT_PROFILE_COLORS = {
+const DEFAULT_PROFILE_COLORS = {
   backgroundColor: Colors.neutral[900],
   foregroundColor: Colors.neutral[200],
   statusBarStyle: 'light' as const,
@@ -519,80 +499,4 @@ export async function extractColorsFromImage(imageUrl: string): Promise<{
       statusBarStyle: 'light' as const,
     };
   }
-}
-
-/**
- * Batch extract colors from multiple images
- * Uses requestIdleCallback to defer operations until after interactions complete
- * @param imageUrls Array of image URLs to extract colors from
- * @returns Promise that resolves to array of color results
- */
-export async function batchExtractColorsFromImages(imageUrls: string[]): Promise<
-  Array<{
-    backgroundColor: string;
-    foregroundColor: string;
-    textColor: string;
-    accentColor: string;
-    statusBarStyle: 'light' | 'dark';
-  }>
-> {
-  if (!imageUrls || imageUrls.length === 0) {
-    return [];
-  }
-
-  return new Promise(resolve => {
-    // Defer batch color extraction until after interactions complete
-    requestIdleCallback(
-      async () => {
-        try {
-          // Process images in smaller batches to avoid overwhelming the system
-          const batchSize = 3;
-          const results: Array<{
-            backgroundColor: string;
-            foregroundColor: string;
-            textColor: string;
-            accentColor: string;
-            statusBarStyle: 'light' | 'dark';
-          }> = [];
-
-          for (let i = 0; i < imageUrls.length; i += batchSize) {
-            const batch = imageUrls.slice(i, i + batchSize);
-            const batchResults = await Promise.allSettled(
-              batch.map(url => extractColorsFromImage(url))
-            );
-
-            // Collect successful results
-            batchResults.forEach(result => {
-              if (result.status === 'fulfilled') {
-                results.push(result.value);
-              } else {
-                // Add fallback color for failed extractions
-                results.push({
-                  backgroundColor: Colors.neutral[900],
-                  foregroundColor: Colors.neutral[50],
-                  textColor: Colors.neutral[50],
-                  accentColor: '#FFFFFF',
-                  statusBarStyle: 'light' as const,
-                });
-              }
-            });
-          }
-
-          resolve(results);
-        } catch (_error) {
-          // Return fallback colors for all images on error
-          resolve(
-            imageUrls.map(() => ({
-              backgroundColor: Colors.neutral[900],
-              foregroundColor: Colors.neutral[50],
-              textColor: Colors.neutral[50],
-              accentColor: '#FFFFFF',
-              statusBarStyle: 'light' as const,
-            }))
-          );
-        }
-      },
-      { timeout: APP_CONSTANTS.IDLE_CALLBACK_TIMEOUT }
-    );
-  });
 }

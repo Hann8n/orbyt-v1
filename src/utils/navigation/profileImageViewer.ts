@@ -2,7 +2,7 @@ import { router, type Href } from 'expo-router';
 
 const PATH = '/profile-image-viewer' as const;
 
-export function buildProfileImageViewerHref(imageUri: string): Href {
+function buildProfileImageViewerHref(imageUri: string): Href {
   const trimmed = imageUri.trim();
   return {
     pathname: PATH,

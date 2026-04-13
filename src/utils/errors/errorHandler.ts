@@ -164,22 +164,3 @@ export function getErrorMessage(error: unknown): string {
 export function shouldShowError(error: unknown): boolean {
   return !ErrorHandler.isUserCancellation(error) && !ErrorHandler.isRuntimeTeardownError(error);
 }
-
-export function isRuntimeTeardownError(error: unknown): boolean {
-  return ErrorHandler.isRuntimeTeardownError(error);
-}
-
-export const CommonErrorHandlers = {
-  login: (error: unknown) => {
-    // Don't show errors for user cancellation
-    if (!ErrorHandler.isUserCancellation(error)) {
-      ErrorHandler.handleError(error, 'Login');
-    }
-  },
-  logout: (error: unknown) => ErrorHandler.handleError(error, 'Logout'),
-  feedLoad: (error: unknown) => ErrorHandler.handleError(error, 'Feed Load'),
-  videoPlayback: (error: unknown) => ErrorHandler.handleError(error, 'Video Playback'),
-  navigation: (error: unknown) => ErrorHandler.handleError(error, 'Navigation'),
-  cache: (error: unknown) => ErrorHandler.handleError(error, 'Cache'),
-  api: (error: unknown) => ErrorHandler.handleError(error, 'API'),
-};

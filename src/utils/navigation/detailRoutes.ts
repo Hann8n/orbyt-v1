@@ -17,7 +17,7 @@ export function isRootModalStackContext(segments: readonly string[]): boolean {
 /**
  * Tab segment immediately under `(tabs)` — stable even when stacked on e.g. `user/[did]`.
  */
-export function getDetailNavTabFromSegments(
+function getDetailNavTabFromSegments(
   segments: readonly string[],
   fallback: DetailNavTab = 'home'
 ): DetailNavTab {

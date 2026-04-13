@@ -85,10 +85,6 @@ export async function hydrateOrbytChannels(): Promise<RemoteOrbytChannel[]> {
   return queryClient.fetchQuery(getChannelsQueryOptions(locale));
 }
 
-export function getAllRemoteChannels(): RemoteOrbytChannel[] {
-  return [...readCachedChannels()];
-}
-
 export function getActiveRemoteChannels(): RemoteOrbytChannel[] {
   return readCachedChannels().filter(channel => channel.active !== false);
 }
