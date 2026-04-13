@@ -23,10 +23,6 @@ import { FontFamily, Typography } from '../../../utils/components/typography';
 interface VideoScrubberProps {
   active: boolean;
   player?: VideoPlayer;
-  /**
-   * From parent’s single `useEvent(player, 'statusChange')` — avoids a second status listener per cell.
-   */
-  playerStatus: string;
   seekingAnimationSV: SharedValue<number>;
   scrollGesture?: NativeGesture;
   children?: React.ReactNode;
@@ -42,7 +38,6 @@ interface VideoScrubberProps {
 const VideoScrubberActive = ({
   active,
   player,
-  playerStatus,
   seekingAnimationSV,
   scrollGesture,
   children,
@@ -112,19 +107,16 @@ const VideoScrubberActive = ({
   useEffect(() => {
     if (!player || !active) return;
 
-    // Read-only operation - never affects playback
-    if (playerStatus === 'readyToPlay' || player.duration > 0) {
-      const playerDuration = player.duration;
-      if (playerDuration > 0 && duration !== playerDuration) {
-        // Only update local state - never touches player
-        setDuration(Math.round(playerDuration));
-        scheduleOnUI(() => {
-          'worklet';
-          durationSV.set(playerDuration);
-        });
-      }
+    const playerDuration = player.duration;
+    if (playerDuration > 0 && duration !== playerDuration) {
+      // Only update local state - never touches player
+      setDuration(Math.round(playerDuration));
+      scheduleOnUI(() => {
+        'worklet';
+        durationSV.set(playerDuration);
+      });
     }
-  }, [player, active, playerStatus, duration, durationSV]);
+  }, [player, active, duration, durationSV]);
 
   // Passive read-only sync from player - never interferes with playback
   // Uses lower frequency to avoid any performance impact on core playback
@@ -363,7 +355,7 @@ const VideoScrubberActive = ({
     // During scrubbing, ensure track/progress bar stays visible (min 0.95 opacity)
     // Otherwise use container opacity
     return {
-      opacity: seekingAnim > 0 ? Math.max(containerOpacity, 0.95) : containerOpacity,
+      opacity: seekingAnim > 0 ? Math.max(containerOpacity, 0.95) : Math.max(containerOpacity, 0.1),
     };
   });
 
@@ -436,7 +428,6 @@ export const VideoScrubber = React.memo(VideoScrubberShell, (prevProps, nextProp
   return (
     prevProps.active === nextProps.active &&
     prevProps.player === nextProps.player &&
-    prevProps.playerStatus === nextProps.playerStatus &&
     prevProps.seekingAnimationSV === nextProps.seekingAnimationSV &&
     prevProps.scrollGesture === nextProps.scrollGesture &&
     prevProps.overlayOpacitySV === nextProps.overlayOpacitySV &&

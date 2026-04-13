@@ -11,7 +11,6 @@ export interface VideoCardOverlayLayersProps {
   shouldRenderScrubber: boolean;
   scrubberActive: boolean;
   player: VideoPlayer | null;
-  playerStatus: string;
   seekingAnimationSV: SharedValue<number>;
   overlayOpacitySV: SharedValue<number>;
   showOverlay: boolean;
@@ -28,7 +27,6 @@ function VideoCardOverlayLayers({
   shouldRenderScrubber,
   scrubberActive,
   player,
-  playerStatus,
   seekingAnimationSV,
   overlayOpacitySV,
   showOverlay,
@@ -46,7 +44,6 @@ function VideoCardOverlayLayers({
           <VideoScrubber
             active={scrubberActive}
             player={player ?? undefined}
-            playerStatus={playerStatus}
             seekingAnimationSV={seekingAnimationSV}
             overlayOpacitySV={overlayOpacitySV}
           />

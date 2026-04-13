@@ -147,63 +147,18 @@ const FeedRenderer = forwardRef<ListFeedViewRef, FeedRendererProps>(
       memoizedQueryOptions
     );
 
-    const feedData = useMemo(() => {
-      if (isSearchFeed) {
-        return {
-          feed: searchFeedQuery.feed,
-          isPending: false,
-          isError: false,
-          isFetchingNextPage: searchFeedQuery.isFetchingNextPage,
-          hasNextPage: searchFeedQuery.hasNextPage,
-          fetchNextPage: searchFeedQuery.fetchNextPage,
-          refetch: noopFeedRefetch,
-          isPaused: false,
-          isProfileFeed: false,
-          dataUpdatedAt: 0,
-        };
-      }
-      return {
-        feed: feedQuery.feed,
-        isPending: feedQuery.isPending,
-        isError: feedQuery.isError,
-        isFetchingNextPage: feedQuery.isFetchingNextPage,
-        hasNextPage: feedQuery.hasNextPage,
-        fetchNextPage: feedQuery.fetchNextPage,
-        refetch: feedQuery.refetch,
-        isPaused: feedQuery.isPaused,
-        isProfileFeed: feedQuery.isProfileFeed,
-        dataUpdatedAt: feedQuery.dataUpdatedAt,
-      };
-    }, [
-      isSearchFeed,
-      searchFeedQuery.feed,
-      searchFeedQuery.isFetchingNextPage,
-      searchFeedQuery.hasNextPage,
-      searchFeedQuery.fetchNextPage,
-      feedQuery.feed,
-      feedQuery.isPending,
-      feedQuery.isError,
-      feedQuery.isFetchingNextPage,
-      feedQuery.hasNextPage,
-      feedQuery.fetchNextPage,
-      feedQuery.refetch,
-      feedQuery.isPaused,
-      feedQuery.isProfileFeed,
-      feedQuery.dataUpdatedAt,
-    ]);
-
-    const {
-      feed: sourceFeed,
-      isPending,
-      isError,
-      isFetchingNextPage,
-      hasNextPage,
-      fetchNextPage,
-      refetch,
-      isPaused,
-      isProfileFeed,
-      dataUpdatedAt,
-    } = feedData;
+    const sourceFeed = isSearchFeed ? searchFeedQuery.feed : feedQuery.feed;
+    const isPending = isSearchFeed ? false : feedQuery.isPending;
+    const isError = isSearchFeed ? false : feedQuery.isError;
+    const isFetchingNextPage = isSearchFeed
+      ? searchFeedQuery.isFetchingNextPage
+      : feedQuery.isFetchingNextPage;
+    const hasNextPage = isSearchFeed ? searchFeedQuery.hasNextPage : feedQuery.hasNextPage;
+    const fetchNextPage = isSearchFeed ? searchFeedQuery.fetchNextPage : feedQuery.fetchNextPage;
+    const refetch = isSearchFeed ? noopFeedRefetch : feedQuery.refetch;
+    const isPaused = isSearchFeed ? false : feedQuery.isPaused;
+    const isProfileFeed = isSearchFeed ? false : feedQuery.isProfileFeed;
+    const dataUpdatedAt = isSearchFeed ? 0 : feedQuery.dataUpdatedAt;
 
     const reportedPostUris = useReportedPostsStore(state => state.reportedPostUris);
     const feed = useMemo(() => {

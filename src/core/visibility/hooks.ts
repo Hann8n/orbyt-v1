@@ -8,7 +8,7 @@ import { useIsFocused } from '@react-navigation/native';
  */
 const VIEWABILITY_CONFIG: ViewabilityConfig = {
   itemVisiblePercentThreshold: 65,
-  minimumViewTime: 40,
+  minimumViewTime: 120,
   waitForInteraction: false,
 };
 

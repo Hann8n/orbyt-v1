@@ -41,6 +41,7 @@ import { useFeedModalTabSegment } from '@/utils/navigation/feedModalTabSegment';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { useFollowContext } from '../../../context/FollowContext';
 import { useQueryClient } from '@tanstack/react-query';
+import { useRecyclingState } from '@shopify/flash-list';
 import { prefetchProfile } from '../../../services/data/ProfileService';
 import type { ExtendedPostView, PostRecord, StatusView } from '../../../services/api/types';
 import type { RichTextFacet } from '../../../utils/types/richText';
@@ -124,9 +125,16 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
   const queryClient = useQueryClient();
 
-  const [isOverlayCollapsed, setIsOverlayCollapsed] = useState(true);
+  const [isOverlayCollapsed, setIsOverlayCollapsed] = useRecyclingState(true, [
+    post?.uri,
+    post?.record,
+  ]);
   const [captionMeasureWidth, setCaptionMeasureWidth] = useState(0);
-  const [descriptionOverflows, setDescriptionOverflows] = useState<boolean | null>(null);
+  const [descriptionOverflows, setDescriptionOverflows] = useRecyclingState<boolean | null>(null, [
+    post?.uri,
+    post?.record,
+    width,
+  ]);
 
   // Memoize expensive calculations to prevent rerenders
   const author = useMemo(() => post.author || {}, [post.author]);
@@ -146,14 +154,6 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   const toggleCollapsed = useCallback(() => {
     setIsOverlayCollapsed(prev => !prev);
   }, []);
-
-  useEffect(() => {
-    setIsOverlayCollapsed(true);
-  }, [post?.uri, record?.text]);
-
-  useEffect(() => {
-    setDescriptionOverflows(null);
-  }, [post?.uri, record?.text, width]);
 
   const onCaptionHostLayout = useCallback((e: LayoutChangeEvent) => {
     const w = Math.round(e.nativeEvent.layout.width);

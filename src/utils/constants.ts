@@ -1,7 +1,7 @@
 // App Constants
 export const APP_CONSTANTS = {
   REFRESH_DELAY: 2000,
-  SCROLL_THROTTLE: 16,
+  SCROLL_THROTTLE: 32,
   POSITION_SAVE_DELAY: 300,
   VISIBILITY_DEBOUNCE: 16, // Reduced from 100ms to 16ms for instant video detection
   ORIENTATION_CHANGE_DELAY: 100,

@@ -986,7 +986,6 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
           shouldRenderScrubber={!shouldHideScrubberForShortVideo}
           scrubberActive={isVisible && !hasError}
           player={player}
-          playerStatus={playerStatus}
           seekingAnimationSV={seekingAnimationSV}
           overlayOpacitySV={uiOverlayOpacitySV}
           showOverlay={showOverlay}

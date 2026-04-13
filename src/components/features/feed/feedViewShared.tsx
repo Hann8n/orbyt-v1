@@ -14,7 +14,7 @@ export const FEED_VIEW_CONSTANTS = {
    * Lower = fewer mounted rows (less Reanimated overlay work + decoders) but higher empty-cell risk when snapping fast.
    * Tune on device if needed (was 360). React Compiler handles dependency memoization automatically.
    */
-  FLASHLIST_DRAW_DISTANCE: 250,
+  FLASHLIST_DRAW_DISTANCE: 220,
   /** Space between grid thumbnails (borders + row pitch for snap). */
   GRID_CELL_GAP: 2.5,
   HEADER_HEIGHT_TABS: 280,
