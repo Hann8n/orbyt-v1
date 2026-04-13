@@ -39,8 +39,6 @@ export function useFeedVisibility({
     return () => subscription.remove();
   }, []);
   const isForeground = appState === 'active';
-  // Video can play if: feed is active and app is foreground.
-  // Route focus is already represented by `isActive` at call sites.
   const canPlay = isActive && isForeground;
 
   const onViewableItemsChanged = useCallback(
