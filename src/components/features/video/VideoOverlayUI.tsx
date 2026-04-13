@@ -271,7 +271,6 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   // Memoize UI calculations to prevent recalculation on every render
   const likeScale = useSharedValue(1);
   const likeAnimatedStyle = useAnimatedStyle(() => {
-    'worklet';
     return {
       transform: [{ scale: likeScale.value }],
     };
@@ -312,7 +311,6 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   const repostScale = useSharedValue(1);
   const repostRotate = useSharedValue(0); // radians
   const repostAnimatedStyle = useAnimatedStyle(() => {
-    'worklet';
     // Ensure rotate is always a string, even when value is 0
     const rotateValue = repostRotate.value;
     const rotateStr = rotateValue === 0 ? '0rad' : `${rotateValue}rad`;
@@ -430,7 +428,6 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
 
   // Opacity from composed overlayOpacitySV (scroll overlap × scrubbing) in VideoCard
   const overlayAnimatedStyle = useAnimatedStyle(() => {
-    'worklet';
     const opacityValue = overlayOpacitySV ? overlayOpacitySV.value : 1;
     return { opacity: opacityValue };
   });

@@ -88,7 +88,7 @@
     "expo-updates": "~55.0.20",
     "expo-video": "~55.0.15",
     "expo-video-thumbnails": "~55.0.14",
-    "expo-web-browser": "~55.0.14",
+    "expo-web-browser": "~55.0.8",
     "ffmpeg-kit-react-native": "6.0.2",
     "i18next": "^25.8.18",
     "multiformats": "^9.9.0",

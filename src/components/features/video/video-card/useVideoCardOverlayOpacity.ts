@@ -9,6 +9,8 @@ import {
   useAnimatedReaction,
   useSharedValue,
   interpolate,
+  withTiming,
+  Easing,
   type SharedValue,
 } from 'react-native-reanimated';
 
@@ -18,6 +20,12 @@ const FADE_CURVE_EXPONENT = 1.35;
 
 /** Skip overlap math for cards far outside the viewport. */
 const FAR_AWAY_FACTOR = 1.5;
+
+/** Smooth opacity transitions to prevent jitter during fast scrolling. */
+const OPACITY_TIMING_CONFIG = {
+  duration: 100,
+  easing: Easing.out(Easing.ease),
+};
 
 export function useVideoCardOverlayOpacity({
   seekingAnimationSV,
@@ -43,13 +51,12 @@ export function useVideoCardOverlayOpacity({
   // Calculate opacity when scroll offset or seeking animation changes.
   // useAnimatedReaction replaces useDerivedValue for more explicit, event-driven updates.
   useAnimatedReaction(
-    () => [scrollOffsetYSV?.value || 0, seekingAnimationSV.value] as const,
+    () => [scrollOffsetYSV?.value ?? 0, seekingAnimationSV.value] as const,
     ([scrollY, seeking]) => {
-      'worklet';
       const scrubbing = interpolate(seeking, [0, 0.2, 1], [1, 0, 0], 'clamp');
 
       if (!scrollOffsetYSV) {
-        targetOpacity.value = 1;
+        targetOpacity.value = withTiming(1, OPACITY_TIMING_CONFIG);
         return;
       }
 
@@ -59,7 +66,7 @@ export function useVideoCardOverlayOpacity({
       // Early-out: skip overlap math for cards far outside viewport
       const dist = Math.abs(itemTop - scrollY);
       if (dist > viewportH * FAR_AWAY_FACTOR + cardHeight) {
-        targetOpacity.value = 0;
+        targetOpacity.value = withTiming(0, OPACITY_TIMING_CONFIG);
         return;
       }
 
@@ -79,7 +86,7 @@ export function useVideoCardOverlayOpacity({
         p = Math.pow(raw / FULL_OPACITY_UNTIL_VISIBLE, FADE_CURVE_EXPONENT);
       }
 
-      targetOpacity.value = p * scrubbing;
+      targetOpacity.value = withTiming(p * scrubbing, OPACITY_TIMING_CONFIG);
     },
     [scrollOffsetYSV, seekingAnimationSV, headerH, viewportH, itemSp, idx, cardHeight]
   );

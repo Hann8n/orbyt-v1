@@ -162,7 +162,6 @@ const VideoScrubberActive = ({
   useAnimatedReaction(
     () => seekingAnimationSV.get(),
     seekingValue => {
-      'worklet';
       const isScrubbing = seekingValue >= 0.2;
       scheduleOnRN(setScrubbingState, 'videoScrubbing', isScrubbing);
     }
@@ -295,7 +294,6 @@ const VideoScrubberActive = ({
 
   // Optimize time style - add worklet directive for better performance
   const timeStyle = useAnimatedStyle(() => {
-    'worklet';
     const seekingValue = seekingAnimationSV.get();
     // Fade in faster and fade out slower to avoid clash with overlay
     // Use a threshold so time appears when seeking is active enough
@@ -308,7 +306,6 @@ const VideoScrubberActive = ({
   });
 
   const progressWidthSV = useDerivedValue(() => {
-    'worklet';
     const isSeeking = isSeekingSV.get();
     const duration = durationSV.get();
     if (duration === 0) return 0;
@@ -317,19 +314,16 @@ const VideoScrubberActive = ({
   }, [screenWidth, isSeekingSV, seekProgressSV, currentTimeSV, durationSV]);
 
   const barHeightSV = useDerivedValue(() => {
-    'worklet';
     const seekingAnim = seekingAnimationSV.get();
     return seekingAnim * 5 + 3;
   }, [seekingAnimationSV]);
 
   const barOpacitySV = useDerivedValue(() => {
-    'worklet';
     const seekingAnim = seekingAnimationSV.get();
     return interpolate(seekingAnim, [0, 1], [0.72, 1]);
   }, [seekingAnimationSV]);
 
   const trackHeightSV = useDerivedValue(() => {
-    'worklet';
     return seekingAnimationSV.get() * 5 + 3;
   }, [seekingAnimationSV]);
 
@@ -351,14 +345,12 @@ const VideoScrubberActive = ({
   }, [seekingAnimationSV, isSeekingSV, currentTimeSV, seekProgressSV]);
 
   const childrenStyle = useAnimatedStyle(() => {
-    'worklet';
     return {
       opacity: 1 - seekingAnimationSV.get(),
     };
   });
 
   const scrubberOpacityStyle = useAnimatedStyle(() => {
-    'worklet';
     return {
       opacity: overlayOpacitySV.value,
     };
@@ -366,7 +358,6 @@ const VideoScrubberActive = ({
 
   // Track container opacity - ensure it stays visible during scrubbing
   const trackContainerOpacityStyle = useAnimatedStyle(() => {
-    'worklet';
     const seekingAnim = seekingAnimationSV.get();
     const containerOpacity = overlayOpacitySV.value;
     // During scrubbing, ensure track/progress bar stays visible (min 0.95 opacity)

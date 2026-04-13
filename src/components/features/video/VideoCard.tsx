@@ -15,7 +15,7 @@ import { useVideoPlayer } from 'expo-video';
 import * as Haptics from 'expo-haptics';
 
 import { AtprotoFeedService } from '../../../services/api/feed/FeedService';
-import { View, Dimensions, StyleSheet, Platform } from 'react-native';
+import { View, useWindowDimensions, StyleSheet, Platform } from 'react-native';
 import { Gesture } from 'react-native-gesture-handler';
 import {
   useSharedValue,
@@ -342,8 +342,8 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
 
     // Track dimensions. Treat height from parent (ListFeedView/VideoItem) as source of truth so
     // cards match the viewport height; fall back to full screen height if no height is provided.
-    const { height: screenHeight, width: screenWidth } = Dimensions.get('window');
-    const cardHeight = height ?? screenHeight;
+    const { height: windowHeight, width: screenWidth } = useWindowDimensions();
+    const cardHeight = height ?? windowHeight;
 
     // HLS-only source creation
     const videoSource = createVideoSource(videoUrl);
@@ -392,7 +392,6 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
 
     // Animated style for heart animation - runs on UI thread
     const heartAnimatedStyle = useAnimatedStyle(() => {
-      'worklet';
       return {
         left: heartPositionX.value - 50,
         top: heartPositionY.value - 50,
@@ -448,7 +447,6 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
     );
 
     const textDimAnimatedStyle = useAnimatedStyle(() => {
-      'worklet';
       return { opacity: textDimOpacitySV.value };
     }, [textDimOpacitySV]);
 
@@ -882,7 +880,6 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
     const feedScrollMotion = useFeedScrollMotion();
     const feedScrollLayout = useFeedScrollLayout();
     const scrollOffsetYSV = feedScrollMotion?.scrollOffsetYSV;
-    const { height: windowHeight } = Dimensions.get('window');
     const uiOverlayOpacitySV = useVideoCardOverlayOpacity({
       seekingAnimationSV,
       scrollOffsetYSV,
