@@ -46,7 +46,6 @@ import { prefetchProfile } from '../../../services/data/ProfileService';
 import type { ExtendedPostView, PostRecord, StatusView } from '../../../services/api/types';
 import type { RichTextFacet } from '../../../utils/types/richText';
 import { type ProfileColorScheme, hexToRGBA } from '../../../utils/formatting/colors';
-import { useFollowStore } from '../../../stores/followStore';
 import { sharedItemStyles } from '@/components/ui/ItemStyles';
 
 const GRADIENT_SHIM = require('../../../assets/embed-video-gradient-shim.png');
@@ -110,7 +109,6 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   const {
     isAuthorBlocked = false,
     profileColors: profileColorsProp,
-    authorDid: authorDidProp,
     authorProfileStatus,
   } = authorProfileOverlay ?? {};
   const overlayLayout = useOverlayLayout();
@@ -141,10 +139,9 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   const record = useMemo(() => post.record as PostRecord | undefined, [post.record]);
   const hasDescription = Boolean(record?.text?.trim());
 
-  // isAuthorBlocked, profileColors, authorDid, authorProfileStatus from VideoCard's single useProfile
+  // isAuthorBlocked, profileColors, authorProfileStatus from VideoCard's single useProfile
   const profileColors = profileColorsProp ?? undefined;
   const ringColor = profileColors?.textColor;
-  const authorDid = authorDidProp ?? author.did;
 
   const profilePicUrl = useMemo(
     () => (author.avatar && author.avatar.startsWith('http') ? author.avatar : undefined),
@@ -153,7 +150,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
 
   const toggleCollapsed = useCallback(() => {
     setIsOverlayCollapsed(prev => !prev);
-  }, []);
+  }, [setIsOverlayCollapsed]);
 
   const onCaptionHostLayout = useCallback((e: LayoutChangeEvent) => {
     const w = Math.round(e.nativeEvent.layout.width);
@@ -165,7 +162,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
       const nextOverflows = e.nativeEvent.lines.length > 1;
       setDescriptionOverflows(prev => (prev === nextOverflows ? prev : nextOverflows));
     },
-    []
+    [setDescriptionOverflows]
   );
 
   useEffect(() => {
@@ -333,17 +330,8 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
 
   const commentIcon = <ChatFillIcon size={effectiveIconSize} color={Colors.neutral[50]} />;
 
-  // Follow state and mutation - subscribe directly to follow store for this author
+  // Follow state and mutation
   const { followMutation, currentUser } = useFollowContext();
-
-  // Efficiently subscribe to only this author's isFollowing boolean in the store
-  // Selecting just the boolean ensures re-renders only when follow state changes
-  const storeIsFollowing = useFollowStore(state =>
-    authorDid ? state.follows.get(authorDid)?.isFollowing : undefined
-  );
-
-  // Combine prop (fallback) with store state (source of truth)
-  const actualIsFollowing = storeIsFollowing ?? isFollowing;
 
   const isCurrentUserProfile = useMemo(
     () => isCurrentUser(post.author?.did, post.author?.handle, currentUser),
@@ -409,7 +397,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
     );
   }, [post.author?.handle, post.author?.did, followMutation]);
 
-  const showFollowText = hasProfile && !actualIsFollowing && !isCurrentUserProfile;
+  const showFollowText = hasProfile && !isFollowing && !isCurrentUserProfile;
 
   // Memoize dynamic styles to prevent style object recreation to prevent style object recreation
   // Pin to the bottom of the video card only. Feed list height already excludes the tab bar

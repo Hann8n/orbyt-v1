@@ -790,6 +790,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
             onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
             onViewableItemsChanged={onViewableItemsChanged}
             viewabilityConfig={viewabilityConfig}
+            maintainVisibleContentPosition={{ disabled: true }}
             // Scroll behavior
             scrollEnabled={true}
             showsVerticalScrollIndicator={
@@ -919,4 +920,4 @@ const styles = StyleSheet.create({
 
 ListFeedViewComponent.displayName = 'ListFeedView';
 
-export default ListFeedViewComponent;
+export default memo(ListFeedViewComponent);

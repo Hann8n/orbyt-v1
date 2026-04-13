@@ -11,6 +11,7 @@ import React, {
   useEffect,
   useImperativeHandle,
   useMemo,
+  memo,
   useRef,
   useState,
 } from 'react';
@@ -90,7 +91,7 @@ interface FeedRendererProps {
 }
 
 // Memoized Feed Renderer Component with Performance Optimizations
-const FeedRenderer = forwardRef<ListFeedViewRef, FeedRendererProps>(
+const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
   (
     {
       feedOption,
@@ -411,6 +412,9 @@ const FeedRenderer = forwardRef<ListFeedViewRef, FeedRendererProps>(
     );
   }
 );
+FeedRendererComponent.displayName = 'FeedRenderer';
+
+const FeedRenderer = memo(FeedRendererComponent);
 
 // Optimized StyleSheet creation outside component to prevent recreation
 const styles = StyleSheet.create({

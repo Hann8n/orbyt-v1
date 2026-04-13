@@ -340,13 +340,11 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
     const videoUrl = videoView?.playlist || null;
     const posterUrl = videoView?.thumbnail || null;
 
-    // Track dimensions. Treat height from parent (ListFeedView/VideoItem) as source of truth so
-    // cards match the viewport height; fall back to full screen height if no height is provided.
-    const { height: windowHeight, width: screenWidth } = useWindowDimensions();
+    const { height: windowHeight } = useWindowDimensions();
     const cardHeight = height ?? windowHeight;
 
     // HLS-only source creation
-    const videoSource = createVideoSource(videoUrl);
+    const videoSource = useMemo(() => createVideoSource(videoUrl), [videoUrl]);
 
     // Create expo-video player with setup callback
     // expo-video's useVideoPlayer automatically handles player lifecycle and cleanup
@@ -689,6 +687,11 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
       [clearVideoTapSingleTimer, animateHeart, handleLikeOnly, togglePlayback]
     );
 
+    // Ref holding latest interaction counts so handleLongPress reads current values at call-time
+    // without those values being listed as deps (breaking the displayInteraction → videoGesture chain).
+    const displayInteractionRef = useRef(displayInteraction);
+    displayInteractionRef.current = displayInteraction;
+
     // Handle long press to show comments
     const handleLongPress = useCallback(() => {
       clearVideoTapSingleTimer();
@@ -712,18 +715,15 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
       };
       presentCommentSection({
         post: commentPost,
-        totalLikes: displayInteraction.likeCount,
-        totalComments: displayInteraction.commentCount,
-        isLiked: displayInteraction.isLiked,
+        totalLikes: displayInteractionRef.current.likeCount,
+        totalComments: displayInteractionRef.current.commentCount,
+        isLiked: displayInteractionRef.current.isLiked,
         postedAt: (postView.record as { createdAt?: string })?.createdAt || postView.indexedAt,
         onToggleLike: handleLike,
         isLikePending: overlayState.isLikePending,
       });
     }, [
       clearVideoTapSingleTimer,
-      displayInteraction.likeCount,
-      displayInteraction.commentCount,
-      displayInteraction.isLiked,
       overlayState.isLikePending,
       presentCommentSection,
       handleLike,
@@ -744,7 +744,7 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
         .onEnd((event, success) => {
           'worklet';
           if (!success) return;
-          const x = event.x ?? screenWidth / 2;
+          const x = event.x ?? 0;
           const y = event.y ?? cardHeight / 2;
           runOnJS(handleSingleTap)(x, y);
         });
@@ -758,7 +758,7 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
         });
 
       return Gesture.Race(longPress, singleTap);
-    }, [handleSingleTap, handleLongPress, screenWidth, cardHeight]);
+    }, [handleSingleTap, handleLongPress, cardHeight]);
 
     // Cleanup demux timer on unmount and post change
     useEffect(() => {
@@ -884,7 +884,7 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
       seekingAnimationSV,
       scrollOffsetYSV,
       headerH: feedScrollLayout?.headerHeight ?? 0,
-      viewportH: feedScrollLayout?.viewportHeight ?? windowHeight,
+      viewportH: feedScrollLayout?.viewportHeight ?? cardHeight,
       itemSp: feedScrollLayout?.itemSpacing ?? cardHeight,
       idx,
       cardHeight,

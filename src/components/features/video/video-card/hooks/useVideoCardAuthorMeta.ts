@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useProfile } from '../../../../../services/data/ProfileService';
 import { useFollowStore } from '../../../../../stores/followStore';
 import { getChannelBySlug } from '../../../../../utils/channels/orbyt';
@@ -24,12 +25,15 @@ export function useVideoCardAuthorMeta(postView: ExtendedPostView): VideoCardAut
   const isFollowing = !!(cachedProfile?.viewer?.following || storeIsFollowing);
   const hasProfile = !!cachedProfile;
 
-  const authorProfileOverlay = {
-    isAuthorBlocked: !!(cachedProfile?.viewer?.blocking || cachedProfile?.viewer?.blockingByList),
-    profileColors: getProfileColors(cachedProfile?.orbytColors ?? cachedProfile),
-    authorDid,
-    authorProfileStatus: cachedProfile?.status,
-  };
+  const authorProfileOverlay = useMemo(
+    () => ({
+      isAuthorBlocked: !!(cachedProfile?.viewer?.blocking || cachedProfile?.viewer?.blockingByList),
+      profileColors: getProfileColors(cachedProfile?.orbytColors ?? cachedProfile),
+      authorDid,
+      authorProfileStatus: cachedProfile?.status,
+    }),
+    [cachedProfile, authorDid]
+  );
 
   const record = postView.record as { tags?: string[] };
   const tags = record?.tags || [];

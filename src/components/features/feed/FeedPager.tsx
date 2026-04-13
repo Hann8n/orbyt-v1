@@ -195,10 +195,6 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
     );
   }, [feedChangeRevealHoldSV]);
 
-  const revealFeedBarForFeedChange = useCallback(() => {
-    scheduleFeedBarRevealHold();
-  }, [scheduleFeedBarRevealHold]);
-
   // Same as PagerView's initialPage – single source of truth for "which page we're on" at mount.
   const initialPageIndex = (() => {
     const feed = currentFeed ?? initialFeed;
@@ -214,14 +210,14 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
   const setPagerPage = useCallback(
     (index: number) => {
       if (index < 0 || !pagerViewRef.current) return;
-      revealFeedBarForFeedChange();
+      scheduleFeedBarRevealHold();
       if (scrollEnabled) pagerViewRef.current.setPage(index);
       else pagerViewRef.current.setPageWithoutAnimation(index);
       // eslint-disable-next-line react-hooks/immutability
       pageScrollProgress.value = index;
       setCurrentFeedIndex(index);
     },
-    [scrollEnabled, pageScrollProgress, revealFeedBarForFeedChange]
+    [scrollEnabled, pageScrollProgress, scheduleFeedBarRevealHold]
   );
 
   // Sync controlled currentFeed -> pager page (handles store hydration and programmatic changes)
@@ -258,7 +254,7 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
         easing: Easing.out(Easing.ease),
       });
     },
-    [feedBarVisibleSV, feedBarOpacitySV, feedBarTranslateYSV]
+    [feedBarVisibleSV]
   );
 
   // Animated style for feed bar - runs on UI thread
@@ -295,13 +291,13 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
       pageScrollProgress.value = nextIndex;
       setCurrentFeedIndex(nextIndex);
       // Feed change should always reveal top controls.
-      revealFeedBarForFeedChange();
+      scheduleFeedBarRevealHold();
       const newFeedOption = feedOptions[nextIndex];
       if (newFeedOption) {
         onFeedChange?.(newFeedOption);
       }
     },
-    [feedOptions, onFeedChange, pageScrollProgress, revealFeedBarForFeedChange]
+    [feedOptions, onFeedChange, pageScrollProgress, scheduleFeedBarRevealHold]
   );
 
   // Retry is handled inside FeedRenderer (refetch); pass stable no-op so child can call it

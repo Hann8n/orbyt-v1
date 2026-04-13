@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useCallback, memo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Link } from 'expo-router';
 
@@ -59,9 +59,12 @@ function VideoItemComponent({
   );
 
   const setHomePagerChromeUserHold = useFeedScrollMotion()?.setHomePagerChromeUserHold;
-  const onHomeFeedPagerChromeUserPaused = (userPaused: boolean) => {
-    setHomePagerChromeUserHold?.(userPaused);
-  };
+  const onHomeFeedPagerChromeUserPaused = useCallback(
+    (userPaused: boolean) => {
+      setHomePagerChromeUserHold?.(userPaused);
+    },
+    [setHomePagerChromeUserHold]
+  );
 
   if (!hasVideo) {
     return <View style={rowStyle} pointerEvents="none" collapsable={false} />;
@@ -97,7 +100,7 @@ function VideoItemComponent({
   );
 }
 
-export const VideoItem = VideoItemComponent;
+export const VideoItem = memo(VideoItemComponent);
 VideoItemComponent.displayName = 'VideoItem';
 
 const styles = StyleSheet.create({

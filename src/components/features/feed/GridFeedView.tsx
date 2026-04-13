@@ -15,7 +15,6 @@ import {
   Pressable,
   RefreshControl,
   ActivityIndicator,
-  type StyleProp,
   type ViewStyle,
   useWindowDimensions,
 } from 'react-native';
@@ -70,7 +69,7 @@ const VideoGridItem: React.FC<{
   item: ExtendedFeedViewPost;
   index: number;
   onPress?: (index: number) => void;
-  style?: StyleProp<ViewStyle>;
+  style?: ViewStyle;
   /** iOS: Expo Router zoom transition source (must be inside `Link` with `asChild`). */
   zoomLink?: { href: Href; onBeforeNavigate: () => void };
 }> = ({ item, index, onPress, style, zoomLink }) => {
@@ -79,9 +78,7 @@ const VideoGridItem: React.FC<{
   const shouldBlur = !!(item.contentListUI?.blur || item.contentMediaUI?.blur);
 
   const handlePress = () => onPress?.(index);
-
-  // Link asChild uses Slot: array styles on the direct child are not allowed (expo-router requirement).
-  const flattenedOuterStyle = StyleSheet.flatten([styles.gridItem, style]);
+  const flattenedStyle = StyleSheet.flatten([styles.gridItem, style]);
 
   const validThumbnailUrl =
     thumbnailUrl && typeof thumbnailUrl === 'string' && thumbnailUrl.trim() !== ''
@@ -109,7 +106,7 @@ const VideoGridItem: React.FC<{
   if (zoomLink && Platform.OS === 'ios') {
     return (
       <Link href={zoomLink.href} asChild>
-        <Pressable style={flattenedOuterStyle} onPress={zoomLink.onBeforeNavigate}>
+        <Pressable style={flattenedStyle} onPress={zoomLink.onBeforeNavigate}>
           <Link.AppleZoom>
             <View collapsable={false} style={styles.appleZoomSourceInner}>
               {cellContent}
@@ -352,7 +349,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
             index={index}
             onPress={onGridItemPress}
             zoomLink={zoomLink}
-            style={[{ width: itemWidth, height: itemHeight, backgroundColor }, borderStyle]}
+            style={{ width: itemWidth, height: itemHeight, backgroundColor, ...borderStyle }}
           />
         );
       },
