@@ -5,7 +5,7 @@ import type { SharedValue } from 'react-native-reanimated';
  * Scroll-linked layout for list feeds (`ListFeedView`) and grid surfaces (`FeedScrollProvider`).
  *
  * Split into motion (stable SharedValues + callbacks) vs layout (header/viewport/spacing) so
- * layout-only updates do not re-render consumers that only need `setHomePagerChromeUserHold`.
+ * layout-only React updates do not re-render consumers that only need `setHomePagerChromeUserHold`.
  */
 export interface FeedScrollMotionValue {
   scrollOffsetYSV: SharedValue<number>;

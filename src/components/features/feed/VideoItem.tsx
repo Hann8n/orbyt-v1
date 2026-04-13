@@ -1,8 +1,7 @@
+import { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Link } from 'expo-router';
 
-import { computeFeedRowVisibility, useVisibilityCoreStore } from '../../../core/visibility';
-import { useShallow } from 'zustand/react/shallow';
 import { useFeedScrollMotion } from '../../../context/FeedScrollContext';
 import VideoCard from '../video/VideoCard';
 import type { ExtendedPostView, ExtendedFeedViewPost, PostView } from '../../../services/api/types';
@@ -31,10 +30,8 @@ export interface VideoItemProps {
   feedItem?: ExtendedFeedViewPost; // Preferred - contains feedContext and reqId natively
   height: number;
   feedOption?: string;
-  /** Scoped key for visibility (e.g. profile:did). */
-  feedKey?: string;
-  canPlay?: boolean;
-  isHeaderBlockingPlayback?: boolean;
+  isVisible?: boolean;
+  allowPlayback?: boolean;
   index?: number;
   /** iOS: marks the row as the zoom transition target (paired with grid `Link.AppleZoom`). */
   isAppleZoomTarget?: boolean;
@@ -45,33 +42,21 @@ function VideoItemComponent({
   feedItem,
   height,
   feedOption,
-  feedKey,
-  canPlay = false,
-  isHeaderBlockingPlayback = false,
+  isVisible,
+  allowPlayback,
   index = 0,
   isAppleZoomTarget = false,
 }: VideoItemProps) {
-  const key = feedKey ?? feedOption ?? '';
-  const { isVisible, allowPlayback } = useVisibilityCoreStore(
-    useShallow(s =>
-      computeFeedRowVisibility({
-        activeFeedKey: s.activeFeedKey,
-        feedKey: key,
-        lastViewableIndexByFeed: s.lastViewableIndexByFeed,
-        index,
-        isHeaderBlockingPlayback,
-        canPlay,
-      })
-    )
-  );
-
   const embed = 'embed' in post ? (post.embed as PostView['embed']) : undefined;
   const videoView = getVideoView(embed);
   const hasVideo = Boolean(videoView?.playlist);
 
   const rowStyle = [styles.videoContainer, { height }];
 
-  const normalizedPost = { ...post, embed: videoView } as VideoCardPost;
+  const normalizedPost = useMemo(
+    () => ({ ...post, embed: videoView }) as VideoCardPost,
+    [post, videoView]
+  );
 
   const setHomePagerChromeUserHold = useFeedScrollMotion()?.setHomePagerChromeUserHold;
   const onHomeFeedPagerChromeUserPaused = (userPaused: boolean) => {
@@ -86,8 +71,8 @@ function VideoItemComponent({
     <VideoCard
       post={normalizedPost}
       feedItem={feedItem}
-      isVisible={isVisible}
-      shouldDisablePlayback={!allowPlayback}
+      {...(isVisible !== undefined ? { isVisible } : {})}
+      {...(allowPlayback !== undefined ? { shouldDisablePlayback: !allowPlayback } : {})}
       height={height}
       feedOption={feedOption}
       index={index}

@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, StyleSheet, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -13,7 +13,6 @@ import { feedService } from '@/services/FeedService';
 import { getViewportDimensions } from '@/utils/device/screen';
 import type { EdgeInsets } from 'react-native-safe-area-context';
 import { useFeedVisibility } from '@/core/visibility';
-import { useVisibilityCoreStore } from '@/core/visibility/visibilityStore';
 import { useVisibilityRouteIsActive } from '@/hooks';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
 
@@ -23,7 +22,6 @@ const FEED_OPTION = 'full-height-video';
 type PlaybackProps = {
   insets: EdgeInsets;
   feedItem: NonNullable<ReturnType<typeof feedService.getCurrentFeed>[number]>;
-  feedKey: string;
   canPlay: boolean;
 };
 
@@ -34,7 +32,6 @@ type PlaybackProps = {
 const FullHeightVideoPlayback = memo(function FullHeightVideoPlayback({
   insets,
   feedItem,
-  feedKey,
   canPlay,
 }: PlaybackProps) {
   const { width: windowWidth, height: windowHeight } = getViewportDimensions(insets, {
@@ -94,9 +91,8 @@ const FullHeightVideoPlayback = memo(function FullHeightVideoPlayback({
               post={feedItem.post}
               height={cardHeight}
               feedOption={FEED_OPTION}
-              feedKey={feedKey}
-              canPlay={canPlay}
-              isHeaderBlockingPlayback={false}
+              isVisible={true}
+              allowPlayback={canPlay}
               index={0}
               isAppleZoomTarget={Platform.OS === 'ios'}
             />
@@ -108,9 +104,8 @@ const FullHeightVideoPlayback = memo(function FullHeightVideoPlayback({
           post={feedItem.post}
           height={fullHeightVideoHeight}
           feedOption={FEED_OPTION}
-          feedKey={feedKey}
-          canPlay={canPlay}
-          isHeaderBlockingPlayback={false}
+          isVisible={true}
+          allowPlayback={canPlay}
           index={0}
           isAppleZoomTarget={Platform.OS === 'ios'}
         />
@@ -128,20 +123,12 @@ const FullHeightVideoTabScreen = memo(() => {
 
   const isRouteFocused = useVisibilityRouteIsActive(ROUTE_KEY);
 
-  const { canPlay, feedKey } = useFeedVisibility({
-    feedOption: FEED_OPTION,
+  const { canPlay } = useFeedVisibility({
     isActive: isRouteFocused,
   });
 
   const items = feedService.getCurrentFeed();
   const feedItem = postUri && items[0]?.post?.uri === postUri ? items[0] : undefined;
-
-  const setLastViewableIndex = useVisibilityCoreStore(s => s.setLastViewableIndex);
-
-  useEffect(() => {
-    if (!isRouteFocused || !feedItem) return;
-    setLastViewableIndex(feedKey, 0);
-  }, [isRouteFocused, feedItem, feedKey, setLastViewableIndex]);
 
   const handleClose = useCallback(() => {
     router.back();
@@ -180,7 +167,6 @@ const FullHeightVideoTabScreen = memo(() => {
             key={postUri}
             insets={insets}
             feedItem={feedItem}
-            feedKey={feedKey}
             canPlay={canPlay}
           />
         ) : null}

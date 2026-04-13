@@ -2,6 +2,7 @@
  * Optimized feed renderer: single entry for list/grid feeds with visibility-aware playback.
  * Uses useMemo/useCallback so FlashList-bound props (`data`, `onLoadMore`, `commonProps`) stay
  * stable when unrelated parent/query churn occurs — aligns with FlashList v2 prop-memo guidance.
+ * React Compiler handles memoization automatically; no manual memo() wrapper needed.
  */
 
 import React, {

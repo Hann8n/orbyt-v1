@@ -23,4 +23,11 @@ config.resolver = {
   unstable_enablePackageExports: true,
 };
 
+// Performance optimizations for faster rebuilds
+config.transformer = {
+  ...config.transformer,
+  // Enable experimental worker thread support for parallel module transformations
+  unstable_workerThreads: true,
+};
+
 module.exports = config;

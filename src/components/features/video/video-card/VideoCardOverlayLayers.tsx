@@ -6,6 +6,8 @@ import VideoOverlayUI, { type VideoOverlayUIProps } from '../VideoOverlayUI';
 import VideoCardContentWarningLayer from './VideoCardContentWarningLayer';
 
 export interface VideoCardOverlayLayersProps {
+  /** When false, skip scrubber + social overlay (list rows far from the active page). Content warning still mounts. */
+  renderHeavyChrome?: boolean;
   shouldRenderScrubber: boolean;
   scrubberActive: boolean;
   player: VideoPlayer | null;
@@ -22,6 +24,7 @@ export interface VideoCardOverlayLayersProps {
 }
 
 function VideoCardOverlayLayers({
+  renderHeavyChrome = true,
   shouldRenderScrubber,
   scrubberActive,
   player,
@@ -38,7 +41,7 @@ function VideoCardOverlayLayers({
 }: VideoCardOverlayLayersProps) {
   return (
     <>
-      {shouldRenderScrubber ? (
+      {renderHeavyChrome && shouldRenderScrubber ? (
         <View style={styles.videoScrubberLayer} pointerEvents="box-none">
           <VideoScrubber
             active={scrubberActive}
@@ -50,7 +53,7 @@ function VideoCardOverlayLayers({
         </View>
       ) : null}
 
-      {showOverlay ? (
+      {renderHeavyChrome && showOverlay ? (
         <View style={styles.videoOverlayLayer} pointerEvents="box-none">
           <VideoOverlayUI {...overlayProps} />
         </View>

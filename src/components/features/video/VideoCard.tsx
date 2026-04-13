@@ -1,4 +1,13 @@
-import { useRef, forwardRef, useImperativeHandle, useEffect, useCallback, useMemo } from 'react';
+import {
+  useRef,
+  forwardRef,
+  useImperativeHandle,
+  useEffect,
+  useCallback,
+  useMemo,
+  useContext,
+  useSyncExternalStore,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRecyclingState } from '@shopify/flash-list';
 import { useEvent } from 'expo';
@@ -6,7 +15,7 @@ import { useVideoPlayer } from 'expo-video';
 import * as Haptics from 'expo-haptics';
 
 import { AtprotoFeedService } from '../../../services/api/feed/FeedService';
-import { View, Dimensions, StyleSheet, Platform, AppState } from 'react-native';
+import { View, Dimensions, StyleSheet, Platform } from 'react-native';
 import { Gesture } from 'react-native-gesture-handler';
 import {
   useSharedValue,
@@ -26,7 +35,6 @@ import {
   DEFAULT_BUFFER_OPTIONS,
   DEFAULT_SEEK_TOLERANCE_SCRUBBER,
 } from '../../../utils/video/helpers';
-import { useFocusEffect } from 'expo-router';
 import { useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 import { useProfileChannelNavigation } from '../../../hooks/useProfileChannelNavigation';
 import {
@@ -34,6 +42,7 @@ import {
   usePostInteractionStore,
 } from '../../../stores/postInteractionStore';
 import { useFeedScrollLayout, useFeedScrollMotion } from '../../../context/FeedScrollContext';
+import { FeedListPlaybackContext, FEED_LIST_PLAYBACK_OUTSIDE_BITS } from '../../../core/visibility';
 import { useVideoCardOverlayOpacity } from './video-card/useVideoCardOverlayOpacity';
 import { useVideoCardModerationState } from './video-card/hooks/useVideoCardModerationState';
 import { useVideoCardAuthorMeta } from './video-card/hooks/useVideoCardAuthorMeta';
@@ -62,6 +71,7 @@ type Post = ExtendedPostView | ExtendedFeedViewPost;
 
 /** Max ms between two taps to count as double-tap (like). Single-tap plays/pauses after this window. */
 const VIDEO_DOUBLE_TAP_WINDOW_MS = 260;
+const feedListPlaybackNoopSubscribe = () => () => {};
 const MIN_SCRUBBER_DURATION_SECONDS = 7;
 
 // Types
@@ -81,11 +91,12 @@ export interface VideoCardRef {
 export interface VideoCardProps {
   post: Post;
   feedItem?: ExtendedFeedViewPost; // Contains feedContext and reqId natively
-  isVisible: boolean;
+  isVisible?: boolean;
   onVideoStatus?: (uri: string, status: string) => void;
   height?: number;
   shouldDisablePlayback?: boolean;
-  // Overlay props
+  /** When false, skip scrubber + `VideoOverlayUI` (list rows far from active). */
+  renderHeavyChrome?: boolean;
   showOverlay?: boolean;
   feedOption?: string;
   /** Item index in the list; used with FeedScrollContext to compute percent visible from scroll+layout. */
@@ -99,10 +110,11 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
     {
       post,
       feedItem,
-      isVisible,
+      isVisible: isVisibleFromProps = true,
       onVideoStatus,
       height,
-      shouldDisablePlayback = false,
+      shouldDisablePlayback: shouldDisablePlaybackFromProps = false,
+      renderHeavyChrome: renderHeavyChromeFromProps = true,
       showOverlay = true,
       feedOption,
       index,
@@ -131,6 +143,24 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
 
     // Normalize post - extract ExtendedPostView from ExtendedFeedViewPost if needed
     const postView: ExtendedPostView = useMemo(() => normalizePostView(post), [post]);
+
+    const idx = index ?? 0;
+    const listPlayback = useContext(FeedListPlaybackContext);
+    const listPlaybackAttached = Boolean(listPlayback && typeof index === 'number');
+    const rowBits = useSyncExternalStore(
+      listPlayback?.subscribe ?? feedListPlaybackNoopSubscribe,
+      listPlaybackAttached
+        ? () => listPlayback!.getRowBits(idx)
+        : () => FEED_LIST_PLAYBACK_OUTSIDE_BITS,
+      () => FEED_LIST_PLAYBACK_OUTSIDE_BITS
+    );
+    const isVisible = listPlaybackAttached ? rowBits % 10 === 1 : isVisibleFromProps;
+    const shouldDisablePlayback = listPlaybackAttached
+      ? !isVisible
+      : shouldDisablePlaybackFromProps;
+    const renderHeavyChrome = listPlaybackAttached
+      ? Math.floor(rowBits / 10) % 10 === 1
+      : renderHeavyChromeFromProps;
 
     // Subscribe only to this post's interaction so other cards don't re-render on like/repost
     const defaultInteraction = useMemo(
@@ -522,21 +552,6 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
       prevIsVisibleRef.current = isVisible;
     }, [shouldDisablePlayback, isVisible, hasError, videoState.userPaused, setVideoState]);
 
-    // Simplified focus effect - pause on blur, resume on focus if needed.
-    // userPausedRef avoids re-registering the effect on every pause/unpause toggle.
-    useFocusEffect(
-      useCallback(() => {
-        // On focus - do nothing, let visibility control playback
-
-        return () => {
-          // On blur - always pause to conserve resources
-          if (!userPausedRef.current) {
-            togglePlayback(false);
-          }
-        };
-      }, [togglePlayback])
-    );
-
     // On error: retry once with a fresh HLS URL (re-fetch post then replace source)
     const errorRetriedForUriRef = useRef<string | null>(null);
 
@@ -565,39 +580,6 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
         onVideoStatus?.(postView.uri, 'error');
       }
     }, [playerStatus, player, postView.uri, onVideoStatus]);
-
-    // On foreground: reset error retry gate and nudge stalled player.
-    // Volatile values are read via ref so the subscription only re-registers when the
-    // player instance itself changes — not on every visibility/status change (N cards × M events).
-    const appStateVolatileRef = useRef({
-      isVisible,
-      userPaused: videoState.userPaused,
-      shouldDisablePlayback,
-      playerStatus,
-    });
-    appStateVolatileRef.current = {
-      isVisible,
-      userPaused: videoState.userPaused,
-      shouldDisablePlayback,
-      playerStatus,
-    };
-    useEffect(() => {
-      if (!player) return;
-      const sub = AppState.addEventListener('change', nextState => {
-        if (nextState !== 'active') return;
-        errorRetriedForUriRef.current = null;
-        const {
-          isVisible: iv,
-          userPaused,
-          shouldDisablePlayback: sdp,
-          playerStatus: ps,
-        } = appStateVolatileRef.current;
-        if (iv && !userPaused && !sdp && ps !== 'error') {
-          player.play();
-        }
-      });
-      return () => sub.remove();
-    }, [player]);
 
     // Drive play/pause from shouldPlayVideo — the single source of truth for whether
     // this card should be playing (visibility + user intent + content checks).
@@ -900,16 +882,13 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
     const feedScrollMotion = useFeedScrollMotion();
     const feedScrollLayout = useFeedScrollLayout();
     const scrollOffsetYSV = feedScrollMotion?.scrollOffsetYSV;
-    const headerH = feedScrollLayout?.headerHeight ?? 0;
-    const viewportH = feedScrollLayout?.viewportHeight ?? 0;
-    const itemSp = feedScrollLayout?.itemSpacing ?? 0;
-    const idx = index ?? 0;
+    const { height: windowHeight } = Dimensions.get('window');
     const uiOverlayOpacitySV = useVideoCardOverlayOpacity({
       seekingAnimationSV,
       scrollOffsetYSV,
-      headerH,
-      viewportH,
-      itemSp,
+      headerH: feedScrollLayout?.headerHeight ?? 0,
+      viewportH: feedScrollLayout?.viewportHeight ?? windowHeight,
+      itemSp: feedScrollLayout?.itemSpacing ?? cardHeight,
       idx,
       cardHeight,
     });
@@ -1006,6 +985,7 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
         />
 
         <VideoCardOverlayLayers
+          renderHeavyChrome={renderHeavyChrome}
           shouldRenderScrubber={!shouldHideScrubberForShortVideo}
           scrubberActive={isVisible && !hasError}
           player={player}

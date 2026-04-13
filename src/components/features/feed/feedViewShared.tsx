@@ -12,9 +12,9 @@ export const FEED_VIEW_CONSTANTS = {
   /**
    * FlashList v2 draw distance (px). Caps off-screen video/Skia work; v2 does not use estimatedItemSize.
    * Lower = fewer mounted rows (less Reanimated overlay work + decoders) but higher empty-cell risk when snapping fast.
-   * Tune on device if needed (was 360).
+   * Tune on device if needed (was 360). React Compiler handles dependency memoization automatically.
    */
-  FLASHLIST_DRAW_DISTANCE: 300,
+  FLASHLIST_DRAW_DISTANCE: 250,
   /** Space between grid thumbnails (borders + row pitch for snap). */
   GRID_CELL_GAP: 2.5,
   HEADER_HEIGHT_TABS: 280,

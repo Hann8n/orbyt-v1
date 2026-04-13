@@ -1,95 +1,65 @@
-import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AppState, type ViewabilityConfig, type ViewToken } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
-import { useVisibilityCoreStore } from './visibilityStore';
 
-/** FlashList/RN viewability — minimumViewTime 0 so the first native callback isn’t delayed ~150ms at cold start. */
+/**
+ * Native list viewability config for playback handoff.
+ * Tuned for faster scroll handoff so the previous video does not linger during vertical swipes.
+ */
 const VIEWABILITY_CONFIG: ViewabilityConfig = {
-  itemVisiblePercentThreshold: 50,
-  minimumViewTime: 0,
+  itemVisiblePercentThreshold: 65,
+  minimumViewTime: 40,
   waitForInteraction: false,
 };
 
 interface FeedVisibilityOptions {
-  feedOption: string;
-  userDid?: string;
   isActive: boolean;
-  /**
-   * Index FlashList will show first (`initialScrollIndex` or 0). Seeds `lastViewableIndexByFeed` before the
-   * first `onViewableItemsChanged` so overlay/playback visibility matches the list SDK on first paint.
-   */
-  initialViewableIndex?: number;
+  /** Emits the most visible row index from native list viewability callbacks. */
+  onActiveVisibleIndexChange?: (index: number) => void;
 }
 
 interface FeedVisibilityResult {
   onViewableItemsChanged: ({ viewableItems }: { viewableItems: ViewToken[] }) => void;
   viewabilityConfig: ViewabilityConfig;
   canPlay: boolean;
-  feedKey: string;
 }
 
 /**
- * Visibility hook: both feeds render side-by-side; each feed is independent (own scroll, own cursor).
- * - setActiveFeedKey: which pager page is in view (only that feed's videos play).
- * - setLastViewableIndex(feedKey): per-feed viewable index.
- * - feedKey: scope profile/likes/reposts by userDid so multiple instances (e.g. two profiles) stay independent.
+ * Visibility hook keeps only environment gates (route/app state) and native viewability wiring.
+ * Per-list visible index ownership is handled by the list component itself.
  */
 export function useFeedVisibility({
-  feedOption,
-  userDid,
   isActive,
-  initialViewableIndex,
+  onActiveVisibleIndexChange,
 }: FeedVisibilityOptions): FeedVisibilityResult {
-  const feedKey =
-    (feedOption === 'profile' || feedOption === 'likes' || feedOption === 'reposts') && userDid
-      ? `${feedOption}:${userDid}`
-      : feedOption;
   // Use React Native's AppState directly (no store sync) per RN docs
   const [appState, setAppState] = useState(AppState.currentState);
   useEffect(() => {
     const subscription = AppState.addEventListener('change', setAppState);
     return () => subscription.remove();
   }, []);
-  const setActiveFeedKey = useVisibilityCoreStore(state => state.setActiveFeedKey);
-  const setLastViewableIndex = useVisibilityCoreStore(state => state.setLastViewableIndex);
   const isForeground = appState === 'active';
   // Video can play if: feed is active and app is foreground.
   // Route focus is already represented by `isActive` at call sites.
   const canPlay = isActive && isForeground;
-
-  useEffect(() => {
-    if (!isActive) return;
-    setActiveFeedKey(feedKey);
-  }, [isActive, feedKey, setActiveFeedKey]);
-
-  // Before paint: align store with FlashList’s initial window so VideoItem `isVisible` isn’t false until JS viewability runs.
-  useLayoutEffect(() => {
-    if (!isActive || initialViewableIndex === undefined) return;
-    const prev = useVisibilityCoreStore.getState().lastViewableIndexByFeed[feedKey];
-    if (prev !== undefined) return;
-    setLastViewableIndex(feedKey, initialViewableIndex);
-  }, [isActive, feedKey, initialViewableIndex, setLastViewableIndex]);
 
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
       const token = viewableItems.find(t => t.isViewable);
       const nextIndex = typeof token?.index === 'number' ? token.index : -1;
 
-      const lastViewable = useVisibilityCoreStore.getState().lastViewableIndexByFeed[feedKey] ?? -1;
-      // Only persist real item indices — never write -1 from viewability so layout glitches don’t
-      // clear a seeded/known index (fullscreen cells normally always have one ≥0 from the SDK).
-      if (nextIndex >= 0 && nextIndex !== lastViewable) {
-        setLastViewableIndex(feedKey, nextIndex);
+      // Only emit real indices to avoid clearing a known row during transient list/layout churn.
+      if (nextIndex >= 0) {
+        onActiveVisibleIndexChange?.(nextIndex);
       }
     },
-    [feedKey, setLastViewableIndex]
+    [onActiveVisibleIndexChange]
   );
 
   return {
     onViewableItemsChanged,
     viewabilityConfig: VIEWABILITY_CONFIG,
     canPlay,
-    feedKey,
   };
 }
 
