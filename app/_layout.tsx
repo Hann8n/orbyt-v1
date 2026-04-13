@@ -56,9 +56,9 @@ SplashScreen.preventAutoHideAsync().catch(() => {
 Appearance.setColorScheme('dark');
 
 // Handle location variable error for React Native (some libs expect web-like globals)
-if (typeof global !== 'undefined' && !global.location) {
+if (!(globalThis as Record<string, unknown>).location) {
   /* eslint-disable no-undef -- DOM types used only for mock cast; not in RN env */
-  global.location = {
+  (globalThis as Record<string, unknown>).location = {
     href: '',
     origin: '',
     protocol: '',
@@ -72,7 +72,7 @@ if (typeof global !== 'undefined' && !global.location) {
     replace: () => {},
     assign: () => {},
     ancestorOrigins: [] as unknown as DOMStringList,
-  } as Location;
+  } as unknown as Location;
   /* eslint-enable no-undef */
 }
 
