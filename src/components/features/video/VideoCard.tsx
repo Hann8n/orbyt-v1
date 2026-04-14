@@ -32,7 +32,7 @@ import {
   normalizePostView,
   createVideoSource,
   getVideoView,
-  DEFAULT_BUFFER_OPTIONS,
+  FEED_BUFFER_OPTIONS,
   DEFAULT_SEEK_TOLERANCE_SCRUBBER,
 } from '../../../utils/video/helpers';
 import { useGlobalCommentSection } from '../../../hooks/useGlobalModals';
@@ -352,8 +352,8 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
     const player = useVideoPlayer(videoSource, player => {
       player.loop = true;
       player.muted = false;
-      player.timeUpdateEventInterval = 0; // Explicit: no progress updates (overlay has no progress bar)
-      player.bufferOptions = DEFAULT_BUFFER_OPTIONS;
+      player.timeUpdateEventInterval = 0.25; // 4fps — drives scrubber via native timeUpdate events
+      player.bufferOptions = FEED_BUFFER_OPTIONS;
       player.seekTolerance = DEFAULT_SEEK_TOLERANCE_SCRUBBER;
     });
 
@@ -587,7 +587,7 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
       } else {
         player.pause();
       }
-    }, [shouldPlayVideo, player]);
+    }, [shouldPlayVideo, player, playerStatus]);
 
     const { toggleLike: toggleLikeInteraction, likeOnly: likeOnlyInteraction } = useLikeInteraction(
       {

@@ -102,7 +102,7 @@ const GridChannelItem = ({
             style={styles.gridChannelImage}
             contentFit="cover"
             cachePolicy="memory-disk"
-            priority="normal"
+            priority="low"
             transition={200}
           />
         ) : (

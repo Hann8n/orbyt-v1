@@ -4,7 +4,6 @@ import { useSegments } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 
 import { useDetailNavTabStore } from '@/stores/detailNavTabStore';
-import { useFeedSettings } from '@/stores/userStore';
 import { Colors } from '@/theme';
 import { useCurrentUserOrbytShellColors } from '@/services/colors';
 import { useUnreadCount } from '@/hooks/useUnreadCount';
@@ -36,7 +35,6 @@ function DetailNavTabSegmentSync() {
 
 export default function TabsLayout() {
   const { t } = useTranslation();
-  const { nativeTabsEnabled } = useFeedSettings();
   const { activeTint } = useCurrentUserOrbytShellColors();
   const { totalUnreadCount } = useUnreadCount();
 
@@ -56,7 +54,9 @@ export default function TabsLayout() {
         disableTransparentOnScrollEdge={true}
       >
         {/* Matches `index.tsx` redirect; hidden so deep links / old state don’t show a fifth tab */}
+        {/* Icon required — omitting it causes UITabBarItem to call UIImage(named:"") which spams CUICatalog logs */}
         <NativeTabs.Trigger name="index" hidden>
+          <NativeTabs.Trigger.Icon src={require('@/assets/tab-icons/png/home_3_cute.png')} />
           <NativeTabs.Trigger.Label hidden />
         </NativeTabs.Trigger>
 
@@ -65,10 +65,7 @@ export default function TabsLayout() {
           <NativeTabs.Trigger.Label hidden>{t('tabs.home')}</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
 
-        <NativeTabs.Trigger
-          name="explore"
-          {...(nativeTabsEnabled ? { role: 'search' as const } : {})}
-        >
+        <NativeTabs.Trigger name="explore">
           <NativeTabs.Trigger.Icon src={require('@/assets/tab-icons/png/search_2_cute.png')} />
           <NativeTabs.Trigger.Label hidden>{t('tabs.explore')}</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>

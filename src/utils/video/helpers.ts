@@ -18,17 +18,27 @@ import type {
 import { isVideoEmbed, isVideoEmbedInMedia } from '../../services/api/types';
 
 /**
- * Default buffer options for video players.
- * Used by VideoCard and VideoPostScreen to ensure consistent buffering behavior.
+ * Feed/preview playback: keep startup and memory pressure low for many concurrent players.
  *
- * - Android: 20s forward buffer (explicit)
- * - iOS: 0s (auto-determined by system)
- * - iOS: waitsToMinimizeStalling enabled for smoother playback
+ * - Android: 3s forward buffer
+ * - iOS: 0s (system-managed)
+ * - waitsToMinimizeStalling: false (fast start)
  */
-export const DEFAULT_BUFFER_OPTIONS: BufferOptions = {
-  preferredForwardBufferDuration: Platform.OS === 'android' ? 20 : 0,
+export const FEED_BUFFER_OPTIONS: BufferOptions = {
+  preferredForwardBufferDuration: Platform.OS === 'android' ? 3 : 0,
+  waitsToMinimizeStalling: false,
+};
+
+/**
+ * Full-screen playback: prefer continuity over instant start.
+ *
+ * - Android: larger forward buffer for reduced rebuffering on poor networks
+ * - iOS: 0s (system-managed)
+ * - waitsToMinimizeStalling: true
+ */
+export const FULLSCREEN_BUFFER_OPTIONS: BufferOptions = {
+  preferredForwardBufferDuration: Platform.OS === 'android' ? 10 : 0,
   waitsToMinimizeStalling: true,
-  // Android-only fields omitted to use platform defaults
 };
 
 /**

@@ -104,50 +104,45 @@ const VideoScrubberActive = ({
     }
   }, [player, currentTimeSV, seekProgressSV]);
 
+  // Sync duration when player becomes ready — HLS duration isn't known until manifest loads
   useEffect(() => {
     if (!player || !active) return;
 
-    const playerDuration = player.duration;
-    if (playerDuration > 0 && duration !== playerDuration) {
-      // Only update local state - never touches player
-      setDuration(Math.round(playerDuration));
-      scheduleOnUI(() => {
-        'worklet';
-        durationSV.set(playerDuration);
-      });
-    }
-  }, [player, active, duration, durationSV]);
-
-  // Passive read-only sync from player - never interferes with playback
-  // Uses lower frequency to avoid any performance impact on core playback
-  useEffect(() => {
-    if (!player || !active) return;
-
-    const syncProgress = () => {
-      // Defensive checks - never block if player is invalid
-      if (!player || playerRef.current !== player) return;
-
-      try {
-        const isSeeking = isSeekingSV.get();
-        // Only read from player when not seeking (during seek, use local seekProgressSV)
-        if (!isSeeking) {
-          // Read-only operation - never affects playback
-          const currentTime = player.currentTime;
-          if (currentTime >= 0) {
-            scheduleOnUI(() => {
-              'worklet';
-              currentTimeSV.set(currentTime);
-            });
-          }
-        }
-      } catch (_error) {
-        // Silently ignore - scrubber never blocks or interferes
+    const syncDuration = (d: number) => {
+      if (d > 0 && d !== duration) {
+        setDuration(Math.round(d));
+        scheduleOnUI(() => {
+          'worklet';
+          durationSV.set(d);
+        });
       }
     };
 
-    // 30fps sync for smooth scrub bar during playback
-    const interval = setInterval(syncProgress, 33);
-    return () => clearInterval(interval);
+    // Check immediately (may already be ready)
+    syncDuration(player.duration);
+
+    const sub = player.addListener('statusChange', ({ status }) => {
+      if (status === 'readyToPlay') syncDuration(player.duration);
+    });
+
+    return () => sub.remove();
+  }, [player, active, duration, durationSV]);
+
+  // Sync playback position via native timeUpdate events (fired at 4fps via timeUpdateEventInterval=0.25).
+  // Animate between ticks with withTiming so the Skia bar moves smoothly at display frame rate.
+  useEffect(() => {
+    if (!player || !active) return;
+
+    const sub = player.addListener('timeUpdate', ({ currentTime }) => {
+      if (!isSeekingSV.get()) {
+        scheduleOnUI(() => {
+          'worklet';
+          currentTimeSV.set(withTiming(currentTime, { duration: 210 }));
+        });
+      }
+    });
+
+    return () => sub.remove();
   }, [player, active, isSeekingSV, currentTimeSV]);
 
   // Sync seekingAnimationSV to UI store using same threshold as overlay (0.2)

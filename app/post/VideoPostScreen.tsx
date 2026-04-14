@@ -37,7 +37,7 @@ import Icon, { BackArrowIcon, DownSmallFillIcon } from '@/components/ui/Icon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextOverlay } from '@/types';
 import { resolveVideoPath, VideoPathInfo } from '@/utils/video/path';
-import { DEFAULT_BUFFER_OPTIONS, DEFAULT_VIDEO_ASPECT_RATIO } from '@/utils/video/helpers';
+import { FULLSCREEN_BUFFER_OPTIONS, DEFAULT_VIDEO_ASPECT_RATIO } from '@/utils/video/helpers';
 import { Colors } from '@/theme';
 import { FontFamily, Typography, fontSizeFor } from '@/utils/components/typography';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
@@ -1145,7 +1145,7 @@ const VideoPostScreen: React.FC = () => {
   const player = useVideoPlayer(videoUri ? { uri: videoUri } : null, p => {
     p.loop = true;
     p.volume = 1;
-    p.bufferOptions = DEFAULT_BUFFER_OPTIONS;
+    p.bufferOptions = FULLSCREEN_BUFFER_OPTIONS;
     playerRef.current = p;
   });
 

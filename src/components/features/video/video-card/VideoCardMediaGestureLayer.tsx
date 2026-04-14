@@ -59,6 +59,7 @@ const VideoCardMediaGestureLayer = function VideoCardMediaGestureLayer({
               contentFit="contain"
               style={styles.poster}
               recyclingKey={recyclingKey}
+              accessible={false}
             />
           )}
 

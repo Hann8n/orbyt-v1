@@ -58,7 +58,7 @@ import VideoProcessingService, {
 import { usePendingVideoPostStore } from '@/stores/pendingVideoPostStore';
 import { ErrorHandler } from '@/utils/errors/errorHandler';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { DEFAULT_BUFFER_OPTIONS } from '@/utils/video/helpers';
+import { FEED_BUFFER_OPTIONS } from '@/utils/video/helpers';
 import { FontFamily, Typography, fontSizeFor } from '@/utils/components/typography';
 
 // Duration options in seconds - labels resolved via t() in component
@@ -97,7 +97,7 @@ const DeletePreviewSegmentVideo: React.FC<{ uri: string }> = ({ uri }) => {
   const player = useVideoPlayer({ uri }, p => {
     p.loop = true;
     p.muted = true;
-    p.bufferOptions = DEFAULT_BUFFER_OPTIONS;
+    p.bufferOptions = FEED_BUFFER_OPTIONS;
   });
 
   // Do not call player.pause() on unmount: native shared object may already be released

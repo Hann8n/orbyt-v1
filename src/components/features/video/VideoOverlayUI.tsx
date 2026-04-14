@@ -435,12 +435,14 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
           style={styles.gradientShimTop}
           contentFit="cover"
           pointerEvents="none"
+          accessible={false}
         />
         <Image
           source={GRADIENT_SHIM}
           style={styles.gradientShim}
           contentFit="cover"
           pointerEvents="none"
+          accessible={false}
         />
         <View style={overlayContentStyle} pointerEvents="box-none">
           <View style={styles.infoColumn} pointerEvents="box-none">
