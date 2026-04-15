@@ -28,21 +28,12 @@ import { Typography, FontFamily } from '@/utils/components/typography';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import { useOverlayLayout } from '../../../context/OverlayLayoutContext';
 import { HeartFillIcon, ChatFillIcon, RefreshFillIcon, MoreFillIcon } from '../../ui/Icon';
-import { isCurrentUser } from '../../../stores/profileInteractionStore';
 import { Avatar } from '../../ui/UI';
 import { formatNumber } from '../../../utils/formatting/numbers';
 import { formatHandle } from '../../../utils/formatting/handles';
 import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
 import { VerificationBadge, BotBadge } from '../badging';
-import { useGlobalShareSheet, useGlobalCommentSection } from '../../../hooks/useGlobalModals';
-import { useRouter } from 'expo-router';
-import { buildFeedModalHref } from '@/utils/navigation/feedModalRoute';
-import { useFeedModalTabSegment } from '@/utils/navigation/feedModalTabSegment';
-import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
-import { useFollowContext } from '../../../context/FollowContext';
-import { useQueryClient } from '@tanstack/react-query';
 import { useRecyclingState } from '@shopify/flash-list';
-import { prefetchProfile } from '../../../services/data/ProfileService';
 import type { ExtendedPostView, PostRecord, StatusView } from '../../../services/api/types';
 import type { RichTextFacet } from '../../../utils/types/richText';
 import { type ProfileColorScheme, hexToRGBA } from '../../../utils/formatting/colors';
@@ -61,7 +52,6 @@ export interface VideoOverlayUIProps {
   onOverlayCollapsedChange?: (isCollapsed: boolean) => void;
   onLike?: () => void;
   onRepost?: () => void;
-  onShareInteraction?: () => void; // Callback to track share interaction
   isLiked?: boolean;
   isReposted?: boolean;
   likeCount?: number;
@@ -71,8 +61,19 @@ export interface VideoOverlayUIProps {
   isRepostPending?: boolean;
   isFollowing?: boolean;
   hasProfile?: boolean;
+  isCurrentUserProfile?: boolean;
   channelSlug?: string | null;
   onChannelPress?: () => void;
+  /** Callbacks moved from VideoOverlayUI to VideoCard — overlay is now presentational. */
+  onAuthorPress?: (
+    identifier: string,
+    data?: { did?: string; handle?: string; displayName?: string; avatar?: string }
+  ) => void;
+  onRepostAuthorPress?: () => void;
+  onOpenComments?: () => void;
+  onSharePress?: () => void;
+  onFollowPress?: () => void;
+  onHashtagPress?: (hashtag: string) => void;
   /** From VideoCard's useProfile (avoids duplicate useProfile in overlay). */
   authorProfileOverlay?: {
     isAuthorBlocked: boolean;
@@ -84,12 +85,11 @@ export interface VideoOverlayUIProps {
 
 const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   post,
-  sourceFeed,
+  sourceFeed: _sourceFeed,
   overlayOpacitySV,
   onOverlayCollapsedChange,
   onLike,
   onRepost,
-  onShareInteraction,
   isLiked = false,
   isReposted = false,
   likeCount = 0,
@@ -99,8 +99,15 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   isRepostPending = false,
   isFollowing = false,
   hasProfile = false,
+  isCurrentUserProfile = false,
   channelSlug,
   onChannelPress,
+  onAuthorPress,
+  onRepostAuthorPress,
+  onOpenComments,
+  onSharePress,
+  onFollowPress,
+  onHashtagPress,
   authorProfileOverlay,
 }) => {
   const { t } = useTranslation();
@@ -114,12 +121,6 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   const isTabletDevice = overlayLayout?.isTablet ?? deviceLayout.isTablet;
 
   const { screenWidth: width } = deviceLayout;
-  const { presentShareSheet } = useGlobalShareSheet();
-  const { presentCommentSection } = useGlobalCommentSection();
-  const navigation = useRouter();
-  const feedModalTab = useFeedModalTabSegment();
-  const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
-  const queryClient = useQueryClient();
 
   const [isOverlayCollapsed, setIsOverlayCollapsed] = useRecyclingState(true, [
     post?.uri,
@@ -174,94 +175,6 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
     }
     onOverlayCollapsedChange?.(isOverlayCollapsed);
   }, [hasDescription, descriptionOverflows, isOverlayCollapsed, onOverlayCollapsedChange]);
-
-  // Modal-aware navigation to AuthorProfile (works inside FeedModal or regular screens)
-  const navigateToAuthorProfile = useCallback(
-    (
-      rawDid?: string | null,
-      authorData?: { did?: string; handle?: string; displayName?: string; avatar?: string }
-    ) => {
-      const cleanDid = (rawDid || authorData?.did || '').trim();
-      if (!cleanDid) return;
-
-      // Prefetch profile with partial data for instant UI + full data in background
-      if (queryClient) {
-        prefetchProfile(
-          queryClient,
-          cleanDid,
-          authorData
-            ? {
-                did: cleanDid,
-                handle: authorData.handle,
-                displayName: authorData.displayName,
-                avatar: authorData.avatar,
-              }
-            : undefined
-        );
-      }
-
-      goToProfile(cleanDid);
-    },
-    [goToProfile, queryClient]
-  );
-
-  // Navigation to hashtag feed
-  const navigateToHashtagFeed = useCallback(
-    (hashtag: string) => {
-      navigation.navigate(
-        buildFeedModalHref(
-          {
-            feedOption: `hashtag:${hashtag}`,
-            backgroundColor: Colors.black,
-            secondaryColor: Colors.neutral[50],
-            initialIndex: '0',
-            initialPostUri: '',
-          },
-          feedModalTab
-        )
-      );
-    },
-    [navigation, feedModalTab]
-  );
-
-  // Consolidated handle extraction helper
-  const extractHandle = useCallback(
-    (
-      handle: string | null | undefined,
-      authorData?: { did?: string; handle?: string; displayName?: string; avatar?: string }
-    ) => {
-      const cleanDid = authorData?.did || handle?.trim();
-      if (cleanDid) {
-        navigateToAuthorProfile(cleanDid, authorData);
-      }
-    },
-    [navigateToAuthorProfile]
-  );
-
-  // Handle author press
-  const handleAuthorPress = useCallback(() => {
-    extractHandle(author.handle, author);
-  }, [author, extractHandle]);
-
-  // Handle repost author press
-  const handleRepostAuthorPress = useCallback(() => {
-    extractHandle(post.repostedBy?.handle, post.repostedBy);
-  }, [post.repostedBy, extractHandle]);
-
-  // Handle share button press
-  const handleSharePress = useCallback(() => {
-    // Track share interaction
-    onShareInteraction?.();
-
-    presentShareSheet({
-      postUri: post.uri,
-      postCid: post.cid,
-      authorDid: post.author?.did || '',
-      authorName: post.author?.displayName,
-      authorHandle: post.author?.handle,
-      sourceFeed,
-    });
-  }, [post.uri, post.cid, post.author, sourceFeed, presentShareSheet, onShareInteraction]);
 
   // Memoize UI calculations to prevent recalculation on every render
   const likeScale = useSharedValue(1);
@@ -328,14 +241,6 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
 
   const commentIcon = <ChatFillIcon size={effectiveIconSize} color={Colors.neutral[50]} />;
 
-  // Follow state and mutation
-  const { followMutation, currentUser } = useFollowContext();
-
-  const isCurrentUserProfile = useMemo(
-    () => isCurrentUser(post.author?.did, post.author?.handle, currentUser),
-    [post.author?.did, post.author?.handle, currentUser]
-  );
-
   // Extract inline handlers to prevent recreation on every render
   const handleLikePress = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -376,24 +281,12 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   }, [isReposted, onRepost, repostScale, repostRotate]);
 
   const handleCommentPress = useCallback(() => {
-    presentCommentSection({
-      post,
-      totalLikes: likeCount,
-      totalComments: commentCount,
-      isLiked,
-      postedAt: (post.record?.createdAt || post.indexedAt) as string | undefined,
-      onToggleLike: onLike,
-      isLikePending,
-    });
-  }, [post, likeCount, commentCount, isLiked, onLike, isLikePending, presentCommentSection]);
+    onOpenComments?.();
+  }, [onOpenComments]);
 
   const handleFollowPress = useCallback(() => {
-    if (!post.author?.handle) return;
-    followMutation.mutate(
-      { did: post.author?.did, handle: post.author.handle, isFollowing: true },
-      {}
-    );
-  }, [post.author?.handle, post.author?.did, followMutation]);
+    onFollowPress?.();
+  }, [onFollowPress]);
 
   const showFollowText = hasProfile && !isFollowing && !isCurrentUserProfile;
 
@@ -410,6 +303,18 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
       },
     ],
     [contentPadding]
+  );
+
+  // Stable adapters so optional callbacks satisfy TextWithAuthorLinks' required prop types.
+  const handleAvatarAndNamePress = useCallback(() => {
+    onAuthorPress?.(author.did ?? author.handle ?? '', author);
+  }, [onAuthorPress, author]);
+
+  const authorLinkPressHandler = useCallback(
+    (identifier: string, data?: { did?: string }) => {
+      onAuthorPress?.(identifier, data);
+    },
+    [onAuthorPress]
   );
 
   // Opacity from composed overlayOpacitySV (scroll overlap × scrubbing) in VideoCard
@@ -445,7 +350,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
               <View style={styles.repostIndicatorBox}>
                 <NativePressable
                   style={styles.repostIndicatorContainer}
-                  onPress={handleRepostAuthorPress}
+                  onPress={onRepostAuthorPress}
                   hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 >
                   <View style={styles.repostIconWrapper}>
@@ -478,8 +383,8 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                         text={record?.text ?? ''}
                         style={[styles.descriptionText, { width: captionMeasureWidth }]}
                         onTextLayout={onDescriptionOverflowMeasure}
-                        onAuthorPress={navigateToAuthorProfile}
-                        onHashtagPress={navigateToHashtagFeed}
+                        onAuthorPress={authorLinkPressHandler}
+                        onHashtagPress={onHashtagPress}
                         facets={record?.facets as RichTextFacet[] | undefined}
                       />
                     </View>
@@ -493,8 +398,8 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                           style={[styles.descriptionText, styles.descriptionTextFlexible]}
                           numberOfLines={1}
                           ellipsizeMode="tail"
-                          onAuthorPress={navigateToAuthorProfile}
-                          onHashtagPress={navigateToHashtagFeed}
+                          onAuthorPress={authorLinkPressHandler}
+                          onHashtagPress={onHashtagPress}
                           facets={record?.facets as RichTextFacet[] | undefined}
                         />
                         <SquircleNativePressable
@@ -517,8 +422,8 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                         <TextWithAuthorLinks
                           text={record?.text ?? ''}
                           style={styles.descriptionText}
-                          onAuthorPress={navigateToAuthorProfile}
-                          onHashtagPress={navigateToHashtagFeed}
+                          onAuthorPress={authorLinkPressHandler}
+                          onHashtagPress={onHashtagPress}
                           facets={record?.facets as RichTextFacet[] | undefined}
                         />
                         <View style={styles.descriptionInlineToggleRow}>
@@ -545,8 +450,8 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                         style={styles.descriptionText}
                         numberOfLines={descriptionOverflows === null ? 1 : undefined}
                         ellipsizeMode={descriptionOverflows === null ? 'tail' : undefined}
-                        onAuthorPress={navigateToAuthorProfile}
-                        onHashtagPress={navigateToHashtagFeed}
+                        onAuthorPress={authorLinkPressHandler}
+                        onHashtagPress={onHashtagPress}
                         facets={record?.facets as RichTextFacet[] | undefined}
                       />
                     )}
@@ -559,7 +464,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
             <View style={styles.authorInfoContainer}>
               <View style={[styles.avatarContainer, sharedItemStyles.avatarContainer]}>
                 <NativePressable
-                  onPress={handleAuthorPress}
+                  onPress={handleAvatarAndNamePress}
                   hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                 >
                   <Avatar
@@ -586,7 +491,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                 <View style={styles.authorNameRow}>
                   <NativePressable
                     style={styles.authorNamePressable}
-                    onPress={handleAuthorPress}
+                    onPress={handleAvatarAndNamePress}
                     hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
                   >
                     <Text
@@ -631,7 +536,6 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                       <View style={styles.followButtonWrapper}>
                         <NativePressable
                           onPress={handleFollowPress}
-                          disabled={followMutation.isPending}
                           hitSlop={{ top: 8, bottom: 8, left: 4, right: 6 }}
                         >
                           <Text
@@ -678,7 +582,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                 styles.baseActionButton,
                 isTabletDevice ? styles.actionButtonTablet : styles.actionButton,
               ]}
-              onPress={handleSharePress}
+              onPress={onSharePress}
               hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
             >
               <View
@@ -1044,9 +948,15 @@ const arePropsEqual = (prevProps: VideoOverlayUIProps, nextProps: VideoOverlayUI
 
   if (prevProps.onLike !== nextProps.onLike) return false;
   if (prevProps.onRepost !== nextProps.onRepost) return false;
-  if (prevProps.onShareInteraction !== nextProps.onShareInteraction) return false;
   if (prevProps.onOverlayCollapsedChange !== nextProps.onOverlayCollapsedChange) return false;
   if (prevProps.onChannelPress !== nextProps.onChannelPress) return false;
+  if (prevProps.onAuthorPress !== nextProps.onAuthorPress) return false;
+  if (prevProps.onRepostAuthorPress !== nextProps.onRepostAuthorPress) return false;
+  if (prevProps.onOpenComments !== nextProps.onOpenComments) return false;
+  if (prevProps.onSharePress !== nextProps.onSharePress) return false;
+  if (prevProps.onFollowPress !== nextProps.onFollowPress) return false;
+  if (prevProps.onHashtagPress !== nextProps.onHashtagPress) return false;
+  if (prevProps.isCurrentUserProfile !== nextProps.isCurrentUserProfile) return false;
 
   // Object identity changes are common; compare the fields this component actually reads.
   const prevOverlay = prevProps.authorProfileOverlay;

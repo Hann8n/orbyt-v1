@@ -35,8 +35,18 @@ import {
   FEED_BUFFER_OPTIONS,
   DEFAULT_SEEK_TOLERANCE_SCRUBBER,
 } from '../../../utils/video/helpers';
-import { useGlobalCommentSection } from '../../../hooks/useGlobalModals';
+import { useModalStore } from '../../../stores/modalStore';
 import { useProfileChannelNavigation } from '../../../hooks/useProfileChannelNavigation';
+import { useFollowMutation } from '../../../services/data/ProfileService';
+import { useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
+import { useFeedModalTabSegment } from '@/utils/navigation/feedModalTabSegment';
+import { buildFeedModalHref } from '@/utils/navigation/feedModalRoute';
+import { useProfile, prefetchProfile } from '../../../services/data/ProfileService';
+import { isCurrentUser } from '../../../stores/profileInteractionStore';
+import { useFollowStore } from '../../../stores/followStore';
+import { getProfileColors } from '../../../utils/formatting/colors';
+import { getChannelBySlug } from '../../../utils/channels/orbyt';
 import {
   mergePostInteractionDelta,
   usePostInteractionStore,
@@ -45,7 +55,6 @@ import { useFeedScrollLayout, useFeedScrollMotion } from '../../../context/FeedS
 import { FeedListPlaybackContext, FEED_LIST_PLAYBACK_OUTSIDE_BITS } from '../../../core/visibility';
 import { useVideoCardOverlayOpacity } from './video-card/useVideoCardOverlayOpacity';
 import { useVideoCardModerationState } from './video-card/hooks/useVideoCardModerationState';
-import { useVideoCardAuthorMeta } from './video-card/hooks/useVideoCardAuthorMeta';
 import VideoCardMediaLayer from './video-card/VideoCardMediaLayer';
 import VideoCardOverlayLayers from './video-card/VideoCardOverlayLayers';
 import { seenVideoService } from '../../../services/SeenVideoService';
@@ -139,7 +148,7 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
       [algorithmicFeedProvider]
     );
     const resolvedFeedUri = feedUri ?? fallbackFeedUri;
-    const { presentCommentSection } = useGlobalCommentSection();
+    const presentCommentSection = useModalStore(state => state.presentCommentSection);
 
     // Normalize post - extract ExtendedPostView from ExtendedFeedViewPost if needed
     const postView: ExtendedPostView = useMemo(() => normalizePostView(post), [post]);
@@ -262,8 +271,40 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
       [displayInteraction, overlayState.isLikePending, overlayState.isRepostPending]
     );
 
-    const { isFollowing, hasProfile, authorProfileOverlay, channelSlug, channelUri } =
-      useVideoCardAuthorMeta(postView);
+    // Author meta — inlined from deleted useVideoCardAuthorMeta hook
+    const { data: cachedProfile } = useProfile(postView.author?.handle);
+    const authorDid = cachedProfile?.did || postView.author?.did;
+    const storeIsFollowing = useFollowStore(state =>
+      authorDid ? state.follows.get(authorDid)?.isFollowing : undefined
+    );
+    const isFollowing = !!(cachedProfile?.viewer?.following || storeIsFollowing);
+    const hasProfile = !!cachedProfile;
+    const authorProfileOverlay = useMemo(
+      () => ({
+        isAuthorBlocked: !!(
+          cachedProfile?.viewer?.blocking || cachedProfile?.viewer?.blockingByList
+        ),
+        profileColors: getProfileColors(cachedProfile?.orbytColors ?? cachedProfile),
+        authorDid,
+        authorProfileStatus: cachedProfile?.status,
+      }),
+      [cachedProfile, authorDid]
+    );
+    const postRecord = postView.record as { tags?: string[] };
+    const channelTag = (postRecord?.tags ?? []).find(
+      (t: string) => typeof t === 'string' && t.startsWith('orbyt-channel-')
+    );
+    const channelSlug = channelTag ? channelTag.replace(/^orbyt-channel-/, '') || null : null;
+    const channelUri = channelSlug ? (getChannelBySlug(channelSlug)?.uri ?? null) : null;
+
+    // Handler-only hooks — use stable selectors to avoid subscribing to modal data or mutation state.
+    const followMutation = useFollowMutation();
+    // Select only the action functions (stable Zustand actions, never change reference).
+    const presentShareSheet = useModalStore(state => state.presentShareSheet);
+    const currentUser = useUserStore(state => state.currentUser);
+    const queryClient = useQueryClient();
+    const navigation = useRouter();
+    const feedModalTab = useFeedModalTabSegment();
 
     // Keep a ref in sync with userPaused so useFocusEffect doesn't re-register on every pause toggle.
     const userPausedRef = useRef(videoState.userPaused);
@@ -687,20 +728,13 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
       [clearVideoTapSingleTimer, animateHeart, handleLikeOnly, togglePlayback]
     );
 
-    // Ref holding latest interaction counts so handleLongPress reads current values at call-time
+    // Ref holding latest interaction counts so gesture handlers read current values at call-time
     // without those values being listed as deps (breaking the displayInteraction → videoGesture chain).
     const displayInteractionRef = useRef(displayInteraction);
     displayInteractionRef.current = displayInteraction;
 
-    // Handle long press to show comments
-    const handleLongPress = useCallback(() => {
-      clearVideoTapSingleTimer();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-      // Track interaction
-      queueInteraction(INTERACTIONREPLY_CONST);
-
-      // Show comment section
+    // Shared comment-section opener — used by long-press gesture and comment button in overlay.
+    const handleOpenComments = useCallback(() => {
       const commentPost = {
         uri: postView.uri,
         cid: postView.cid,
@@ -722,18 +756,14 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
         onToggleLike: handleLike,
         isLikePending: overlayState.isLikePending,
       });
-    }, [
-      clearVideoTapSingleTimer,
-      overlayState.isLikePending,
-      presentCommentSection,
-      handleLike,
-      postView.author,
-      postView.cid,
-      postView.record,
-      postView.uri,
-      postView.indexedAt,
-      queueInteraction,
-    ]);
+    }, [postView, presentCommentSection, handleLike, overlayState.isLikePending]);
+
+    const handleLongPress = useCallback(() => {
+      clearVideoTapSingleTimer();
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      queueInteraction(INTERACTIONREPLY_CONST);
+      handleOpenComments();
+    }, [clearVideoTapSingleTimer, handleOpenComments, queueInteraction]);
 
     // RNGH gesture: race long-press vs tap. Recognition runs on the UI thread;
     // runOnJS bridges to JS only when a gesture is confirmed (no overhead during idle scroll).
@@ -827,7 +857,7 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
       queueInteraction,
     ]);
 
-    const { navigateToChannel: goToChannel } = useProfileChannelNavigation();
+    const { navigateToChannel: goToChannel, navigateToProfile } = useProfileChannelNavigation();
 
     const handleChannelPress = useCallback(() => {
       if (channelUri) {
@@ -835,9 +865,78 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
       }
     }, [channelUri, goToChannel]);
 
-    const handleShareInteraction = useCallback(() => {
+    const isCurrentUserProfile = useMemo(
+      () => isCurrentUser(postView.author?.did, postView.author?.handle, currentUser),
+      [postView.author?.did, postView.author?.handle, currentUser]
+    );
+
+    const handleAuthorPress = useCallback(
+      (
+        rawDid?: string | null,
+        authorData?: { did?: string; handle?: string; displayName?: string; avatar?: string }
+      ) => {
+        const cleanDid = (rawDid || authorData?.did || '').trim();
+        if (!cleanDid) return;
+        prefetchProfile(
+          queryClient,
+          cleanDid,
+          authorData
+            ? {
+                did: cleanDid,
+                handle: authorData.handle,
+                displayName: authorData.displayName,
+                avatar: authorData.avatar,
+              }
+            : undefined
+        );
+        navigateToProfile(cleanDid);
+      },
+      [queryClient, navigateToProfile]
+    );
+
+    const handleRepostAuthorPress = useCallback(() => {
+      const identifier = postView.repostedBy?.handle;
+      if (!identifier) return;
+      handleAuthorPress(identifier, postView.repostedBy);
+    }, [postView.repostedBy, handleAuthorPress]);
+
+    const handleSharePress = useCallback(() => {
       queueInteraction(INTERACTIONSHARE_CONST);
-    }, [queueInteraction]);
+      presentShareSheet({
+        postUri: postView.uri,
+        postCid: postView.cid,
+        authorDid: postView.author?.did || '',
+        authorName: postView.author?.displayName,
+        authorHandle: postView.author?.handle,
+        sourceFeed: resolvedFeedUri,
+      });
+    }, [postView, resolvedFeedUri, queueInteraction, presentShareSheet]);
+
+    const handleFollowPress = useCallback(() => {
+      if (!postView.author?.handle) return;
+      followMutation.mutate(
+        { did: postView.author?.did, handle: postView.author.handle, isFollowing: true },
+        {}
+      );
+    }, [postView.author, followMutation.mutate]);
+
+    const handleHashtagPress = useCallback(
+      (hashtag: string) => {
+        navigation.navigate(
+          buildFeedModalHref(
+            {
+              feedOption: `hashtag:${hashtag}`,
+              backgroundColor: Colors.black,
+              secondaryColor: Colors.neutral[50],
+              initialIndex: '0',
+              initialPostUri: '',
+            },
+            feedModalTab
+          )
+        );
+      },
+      [navigation, feedModalTab]
+    );
 
     // Track interactionSeen and markAsSeen when video becomes visible
     useEffect(() => {
@@ -934,7 +1033,6 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
         onOverlayCollapsedChange: handleOverlayCollapsedChange,
         onLike: handleLike,
         onRepost: handleRepost,
-        onShareInteraction: handleShareInteraction,
         isLiked: displayInteraction.isLiked,
         isReposted: displayInteraction.isReposted,
         likeCount: displayInteraction.likeCount,
@@ -947,6 +1045,13 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
         channelSlug,
         onChannelPress: handleChannelPress,
         authorProfileOverlay,
+        onAuthorPress: handleAuthorPress,
+        onRepostAuthorPress: handleRepostAuthorPress,
+        onOpenComments: handleOpenComments,
+        onSharePress: handleSharePress,
+        onFollowPress: handleFollowPress,
+        onHashtagPress: handleHashtagPress,
+        isCurrentUserProfile,
       }),
       [
         postView,
@@ -955,7 +1060,6 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
         handleOverlayCollapsedChange,
         handleLike,
         handleRepost,
-        handleShareInteraction,
         displayInteraction.isLiked,
         displayInteraction.isReposted,
         displayInteraction.likeCount,
@@ -968,6 +1072,13 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
         channelSlug,
         handleChannelPress,
         authorProfileOverlay,
+        handleAuthorPress,
+        handleRepostAuthorPress,
+        handleOpenComments,
+        handleSharePress,
+        handleFollowPress,
+        handleHashtagPress,
+        isCurrentUserProfile,
       ]
     );
 
