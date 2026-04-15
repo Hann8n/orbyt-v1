@@ -9,6 +9,7 @@ import { useCurrentUserOrbytShellColors } from '@/services/colors';
 import { useUnreadCount } from '@/hooks/useUnreadCount';
 import { TAB_BAR_INACTIVE_TINT } from '@/utils/formatting/colors';
 import { getDetailNavTabIfInsideTabs } from '@/utils/navigation/detailRoutes';
+import { isLiquidGlassAvailable } from 'expo-glass-effect';
 
 /** Default tab when opening `/(tabs)` without a segment (avoids resolving a missing `index` tab). */
 export const unstable_settings = {
@@ -65,7 +66,7 @@ export default function TabsLayout() {
           <NativeTabs.Trigger.Label hidden>{t('tabs.home')}</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
 
-        <NativeTabs.Trigger name="explore">
+        <NativeTabs.Trigger name="explore" role={isLiquidGlassAvailable() ? 'search' : undefined}>
           <NativeTabs.Trigger.Icon src={require('@/assets/tab-icons/png/search_2_cute.png')} />
           <NativeTabs.Trigger.Label hidden>{t('tabs.explore')}</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>

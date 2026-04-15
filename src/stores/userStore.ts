@@ -39,7 +39,7 @@ import {
 import { hydrateOrbytChannels } from '../services/OrbytChannelsService';
 import { APP_CONSTANTS, DEFAULT_ALGORITHMIC_FEED_PROVIDER_URI } from '../utils/constants';
 import { setAtprotoSession } from '../services/api/agentBridge';
-import { isLiquidGlassAvailableSafe } from '../utils/device/liquidGlassAvailability';
+import { isLiquidGlassAvailable } from 'expo-glass-effect';
 
 // Note: FeedService is no longer needed here - React Query handles all feed caching
 
@@ -131,7 +131,7 @@ function restoreSessionInFlight(did: string): Promise<OAuthSession> {
   return promise;
 }
 
-export const isIosLiquidGlassAvailable = isLiquidGlassAvailableSafe();
+export const isIosLiquidGlassAvailable = isLiquidGlassAvailable();
 
 /**
  * Seed current-user profile cache immediately after auth profile fetch.
