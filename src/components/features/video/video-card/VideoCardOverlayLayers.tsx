@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 import type { VideoPlayer } from 'expo-video';
@@ -10,6 +11,8 @@ export interface VideoCardOverlayLayersProps {
   renderHeavyChrome?: boolean;
   shouldRenderScrubber: boolean;
   scrubberActive: boolean;
+  /** Controls whether the overlay layer receives touch events. Pass false for off-screen cards. */
+  isActive: boolean;
   player: VideoPlayer | null;
   seekingAnimationSV: SharedValue<number>;
   overlayOpacitySV: SharedValue<number>;
@@ -26,6 +29,7 @@ function VideoCardOverlayLayers({
   renderHeavyChrome = true,
   shouldRenderScrubber,
   scrubberActive,
+  isActive,
   player,
   seekingAnimationSV,
   overlayOpacitySV,
@@ -51,7 +55,7 @@ function VideoCardOverlayLayers({
       ) : null}
 
       {renderHeavyChrome && showOverlay ? (
-        <View style={styles.videoOverlayLayer} pointerEvents="box-none">
+        <View style={styles.videoOverlayLayer} pointerEvents={isActive ? 'box-none' : 'none'}>
           <VideoOverlayUI {...overlayProps} />
         </View>
       ) : null}
@@ -79,4 +83,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default VideoCardOverlayLayers;
+export default memo(VideoCardOverlayLayers);

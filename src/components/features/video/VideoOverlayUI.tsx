@@ -54,7 +54,6 @@ type Post = ExtendedPostView;
 
 export interface VideoOverlayUIProps {
   post: Post;
-  isVisible: boolean;
   sourceFeed?: string;
   // Optional composed shared opacity to tie overlay and scrubber together
   overlayOpacitySV?: SharedValue<number>;
@@ -85,7 +84,6 @@ export interface VideoOverlayUIProps {
 
 const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   post,
-  isVisible,
   sourceFeed,
   overlayOpacitySV,
   onOverlayCollapsedChange,
@@ -420,15 +418,11 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
     return { opacity: opacityValue };
   });
 
-  // Pointer events based on per-item visibility - only visible item's overlay is interactive
-  // This ensures only the centered/visible card's overlay receives touch events
-  const overlayPointerEvents = isVisible ? ('box-none' as const) : ('none' as const);
-
   return (
     <>
       <Animated.View
         style={[styles.overlayContainer, overlayAnimatedStyle]}
-        pointerEvents={overlayPointerEvents}
+        pointerEvents="box-none"
       >
         <Image
           source={GRADIENT_SHIM}
@@ -474,7 +468,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
             {hasDescription && (
               <View style={styles.descriptionContainer}>
                 <View style={styles.descriptionMeasureHost} onLayout={onCaptionHostLayout}>
-                  {isVisible && descriptionOverflows === null && captionMeasureWidth > 0 ? (
+                  {descriptionOverflows === null && captionMeasureWidth > 0 ? (
                     <View
                       pointerEvents="none"
                       style={[styles.descriptionMeasureLayer, { width: captionMeasureWidth }]}
@@ -1031,7 +1025,6 @@ const styles = StyleSheet.create({
 });
 
 const arePropsEqual = (prevProps: VideoOverlayUIProps, nextProps: VideoOverlayUIProps) => {
-  if (prevProps.isVisible !== nextProps.isVisible) return false;
   if (prevProps.post?.uri !== nextProps.post?.uri) return false;
 
   if (prevProps.isLiked !== nextProps.isLiked) return false;

@@ -929,7 +929,6 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
     const overlayProps = useMemo<VideoOverlayUIProps>(
       () => ({
         post: postView,
-        isVisible,
         overlayOpacitySV: uiOverlayOpacitySV,
         sourceFeed: resolvedFeedUri,
         onOverlayCollapsedChange: handleOverlayCollapsedChange,
@@ -951,7 +950,6 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
       }),
       [
         postView,
-        isVisible,
         uiOverlayOpacitySV,
         resolvedFeedUri,
         handleOverlayCollapsedChange,
@@ -985,6 +983,7 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
           renderHeavyChrome={renderHeavyChrome}
           shouldRenderScrubber={!shouldHideScrubberForShortVideo}
           scrubberActive={isVisible && !hasError}
+          isActive={isVisible}
           player={player}
           seekingAnimationSV={seekingAnimationSV}
           overlayOpacitySV={uiOverlayOpacitySV}
