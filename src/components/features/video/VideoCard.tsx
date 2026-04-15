@@ -352,7 +352,7 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
     const player = useVideoPlayer(videoSource, player => {
       player.loop = true;
       player.muted = false;
-      player.timeUpdateEventInterval = 0.25; // 4fps — drives scrubber via native timeUpdate events
+      player.timeUpdateEventInterval = 0; // Disabled by default; scrubber enables 4fps when active
       player.bufferOptions = FEED_BUFFER_OPTIONS;
       player.seekTolerance = DEFAULT_SEEK_TOLERANCE_SCRUBBER;
     });
@@ -587,7 +587,7 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
       } else {
         player.pause();
       }
-    }, [shouldPlayVideo, player, playerStatus]);
+    }, [shouldPlayVideo, player]);
 
     const { toggleLike: toggleLikeInteraction, likeOnly: likeOnlyInteraction } = useLikeInteraction(
       {

@@ -128,7 +128,14 @@ const VideoScrubberActive = ({
     return () => sub.remove();
   }, [player, active, duration, durationSV]);
 
-  // Sync playback position via native timeUpdate events (fired at 4fps via timeUpdateEventInterval=0.25).
+  // Enable timeUpdate events only while the scrubber is active to avoid bridge traffic on all
+  // feed players. VideoCard initialises timeUpdateEventInterval=0; we set it here when needed.
+  useEffect(() => {
+    if (!player) return;
+    player.timeUpdateEventInterval = active ? 0.25 : 0;
+  }, [player, active]);
+
+  // Sync playback position via native timeUpdate events (fired at 4fps when scrubber active).
   // Animate between ticks with withTiming so the Skia bar moves smoothly at display frame rate.
   useEffect(() => {
     if (!player || !active) return;

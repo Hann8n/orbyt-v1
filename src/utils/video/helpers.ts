@@ -18,15 +18,15 @@ import type {
 import { isVideoEmbed, isVideoEmbedInMedia } from '../../services/api/types';
 
 /**
- * Feed/preview playback: keep startup and memory pressure low for many concurrent players.
+ * Feed/preview playback: balance startup speed with smooth multi-player experience.
  *
- * - Android: 3s forward buffer
+ * - Android: 20s forward buffer (reduces rebuffering across concurrent players)
  * - iOS: 0s (system-managed)
- * - waitsToMinimizeStalling: false (fast start)
+ * - waitsToMinimizeStalling: true (avoids visible stall events that trigger status churn)
  */
 export const FEED_BUFFER_OPTIONS: BufferOptions = {
-  preferredForwardBufferDuration: Platform.OS === 'android' ? 3 : 0,
-  waitsToMinimizeStalling: false,
+  preferredForwardBufferDuration: Platform.OS === 'android' ? 20 : 0,
+  waitsToMinimizeStalling: true,
 };
 
 /**
