@@ -7,8 +7,7 @@
     "development": {
       "distribution": "internal",
       "ios": {
-        "resourceClass": "m-medium",
-        "developmentTeam": "D8VXFBV8SJ"
+        "resourceClass": "m-medium"
       },
       "env": {
         "EXPO_PUBLIC_APP_CONFIG": "app.dev.json"
@@ -37,8 +36,7 @@
       "extends": "preview",
       "ios": {
         "distribution": "internal",
-        "buildConfiguration": "Release",
-        "developmentTeam": "D8VXFBV8SJ"
+        "buildConfiguration": "Release"
       }
     },
     "beta": {
