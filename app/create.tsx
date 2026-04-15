@@ -11,7 +11,6 @@ import {
   StatusBar,
   AppState,
   type EventSubscription,
-  type GestureResponderEvent,
   ActivityIndicator,
 } from 'react-native';
 import { Image } from 'expo-image';
@@ -56,7 +55,6 @@ import VideoProcessingService, {
   getVideoSegmentSourceUri,
 } from '@/services/video/VideoProcessingService';
 import { usePendingVideoPostStore } from '@/stores/pendingVideoPostStore';
-import { ErrorHandler } from '@/utils/errors/errorHandler';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { FEED_BUFFER_OPTIONS } from '@/utils/video/helpers';
 import { FontFamily, Typography, fontSizeFor } from '@/utils/components/typography';
@@ -83,6 +81,10 @@ function toFileUri(path: string): string {
     return path;
   }
   return `file://${path}`;
+}
+
+function handleCameraError(e: Error) {
+  if (__DEV__) logger.warn('[Camera] error:', { message: e?.message ?? 'Unknown' });
 }
 
 const deletePreviewVideoStyles = StyleSheet.create({
@@ -135,13 +137,11 @@ const CreateScreen: React.FC = () => {
   const [isFrontCamera, setIsFrontCamera] = useState(false);
   const [flash, setFlash] = useState<'off' | 'on'>('off');
   const [isProcessing, setIsProcessing] = useState(false);
+  const isProcessingRef = useRef(false);
+  isProcessingRef.current = isProcessing;
   const [isLoadingFromGallery, setIsLoadingFromGallery] = useState(false);
   const [selectedDuration, setSelectedDuration] = useState(16); // Default to 16 seconds
   const [isTrimmerActive, setIsTrimmerActive] = useState(false);
-  const isTrimmerActiveRef = useRef(false);
-  useEffect(() => {
-    isTrimmerActiveRef.current = isTrimmerActive;
-  }, [isTrimmerActive]);
   const [isOnionSkinningEnabled, setIsOnionSkinningEnabled] = useState(false);
   const [lastFrameThumbnail, setLastFrameThumbnail] = useState<string | null>(null);
   const [deletePreview, setDeletePreview] = useState<DeletePreviewState | null>(null);
@@ -183,6 +183,7 @@ const CreateScreen: React.FC = () => {
   const captureZoomPanOffsetY = useSharedValue(0);
 
   const focusEpochRef = useRef(0);
+  const isCameraReadyRef = useRef(false);
   // Await recorder stop before isFocused false so Camera is not torn down while still bound to videoOutput.
   const [isFocused, setIsFocused] = React.useState(false);
 
@@ -255,9 +256,7 @@ const CreateScreen: React.FC = () => {
 
   const backDevice = useCameraDevice('back');
   const frontDevice = useCameraDevice('front');
-  const videoOutput = useVideoOutput({
-    enableAudio: microphonePermission.hasPermission,
-  });
+  const videoOutput = useVideoOutput({ enableAudio: true });
 
   const cameraDevice = isFrontCamera ? frontDevice : backDevice;
 
@@ -481,11 +480,22 @@ const CreateScreen: React.FC = () => {
     ]
   );
 
-  const disposeActiveRecorderAsync = useCallback(async () => {
+  const resetRecordingRefs = useCallback(() => {
     if (recordingAutoStopTimeoutRef.current) {
       clearTimeout(recordingAutoStopTimeoutRef.current);
       recordingAutoStopTimeoutRef.current = null;
     }
+    isRecordingRef.current = false;
+    setIsRecording(false);
+    recordingStartAtRef.current = null;
+    recordingPromiseRef.current = null;
+    recorderRef.current = null;
+    recordingStateRef.current = 'idle';
+    forcedStopDurationRef.current = null;
+    activeRecordingDiscardGenRef.current = null;
+  }, []);
+
+  const disposeActiveRecorderAsync = useCallback(async () => {
     const rec = recorderRef.current;
     if (!rec) return;
     recordingStateRef.current = 'stopping';
@@ -497,16 +507,9 @@ const CreateScreen: React.FC = () => {
     if (recorderRef.current !== rec) return;
     recordingPromiseResolverRef.current?.(undefined);
     recordingPromiseResolverRef.current = null;
-    activeRecordingDiscardGenRef.current = null;
+    resetRecordingRefs();
     currentSegmentDurationShared.value = 0;
-    isRecordingRef.current = false;
-    setIsRecording(false);
-    recordingStartAtRef.current = null;
-    recorderRef.current = null;
-    recordingPromiseRef.current = null;
-    recordingStateRef.current = 'idle';
-    forcedStopDurationRef.current = null;
-  }, [currentSegmentDurationShared]);
+  }, [currentSegmentDurationShared, resetRecordingRefs]);
 
   const endTrimmerLoading = useCallback(() => {
     setIsLoadingFromGallery(false);
@@ -709,24 +712,12 @@ const CreateScreen: React.FC = () => {
         segmentUri = result?.uri;
       }
       if (discardGenerationRef.current !== _stopGenStart) {
-        isRecordingRef.current = false;
-        recordingStartAtRef.current = null;
-        if (recordingAutoStopTimeoutRef.current) {
-          clearTimeout(recordingAutoStopTimeoutRef.current);
-          recordingAutoStopTimeoutRef.current = null;
-        }
-        recordingPromiseRef.current = null;
-        recorderRef.current = null;
-        recordingStateRef.current = 'idle';
-        forcedStopDurationRef.current = null;
-        activeRecordingDiscardGenRef.current = null;
+        resetRecordingRefs();
         currentSegmentDurationShared.value = 0;
         return;
       }
       const didCommit = commitCameraSegment(elapsedDuration, segmentUri);
-      activeRecordingDiscardGenRef.current = null;
-      isRecordingRef.current = false;
-      setIsRecording(false);
+      resetRecordingRefs();
       if (didCommit) {
         requestAnimationFrame(() => {
           currentSegmentDurationShared.value = 0;
@@ -734,36 +725,17 @@ const CreateScreen: React.FC = () => {
       } else {
         currentSegmentDurationShared.value = 0;
       }
-      recordingStartAtRef.current = null;
-
-      if (recordingAutoStopTimeoutRef.current) {
-        clearTimeout(recordingAutoStopTimeoutRef.current);
-        recordingAutoStopTimeoutRef.current = null;
-      }
-      recordingPromiseRef.current = null;
-      recorderRef.current = null;
-      recordingStateRef.current = 'idle';
-      forcedStopDurationRef.current = null;
     } catch (_e) {
       const manager = segmentManagerRef.current;
       if (manager) totalDurationShared.value = manager.getTotalDuration();
-      activeRecordingDiscardGenRef.current = null;
-      isRecordingRef.current = false;
-      if (discardGenerationRef.current === _stopGenStart) {
-        setIsRecording(false);
-      }
+      resetRecordingRefs();
       currentSegmentDurationShared.value = 0;
-      recordingStartAtRef.current = null;
-      recordingPromiseRef.current = null;
-      recorderRef.current = null;
-      recordingStateRef.current = 'idle';
-      forcedStopDurationRef.current = null;
     } finally {
       if (discardGenerationRef.current === _stopGenStart) {
         setIsProcessing(false);
       }
     }
-  }, [commitCameraSegment, currentSegmentDurationShared, totalDurationShared]);
+  }, [commitCameraSegment, currentSegmentDurationShared, resetRecordingRefs, totalDurationShared]);
 
   const pauseCurrentSegment = useCallback(async () => {
     if (!isRecordingRef.current || !recorderRef.current || recordingStateRef.current === 'stopping')
@@ -774,10 +746,6 @@ const CreateScreen: React.FC = () => {
       forcedStopDurationRef.current ?? recorderRef.current.recordedDuration,
       0
     );
-    if (recordingAutoStopTimeoutRef.current) {
-      clearTimeout(recordingAutoStopTimeoutRef.current);
-      recordingAutoStopTimeoutRef.current = null;
-    }
     await recorderRef.current.stopRecording();
     let segmentUri: string | undefined;
     if (recordingPromiseRef.current) {
@@ -785,20 +753,12 @@ const CreateScreen: React.FC = () => {
       segmentUri = result?.uri;
     }
     if (discardGenerationRef.current !== pauseGenStart) {
-      isRecordingRef.current = false;
-      recordingStartAtRef.current = null;
-      recordingPromiseRef.current = null;
-      recorderRef.current = null;
-      recordingStateRef.current = 'idle';
-      forcedStopDurationRef.current = null;
-      activeRecordingDiscardGenRef.current = null;
+      resetRecordingRefs();
       currentSegmentDurationShared.value = 0;
       return;
     }
     const didCommit = commitCameraSegment(elapsedDuration, segmentUri);
-    activeRecordingDiscardGenRef.current = null;
-    isRecordingRef.current = false;
-    setIsRecording(false);
+    resetRecordingRefs();
     if (didCommit) {
       requestAnimationFrame(() => {
         currentSegmentDurationShared.value = 0;
@@ -806,12 +766,7 @@ const CreateScreen: React.FC = () => {
     } else {
       currentSegmentDurationShared.value = 0;
     }
-    recordingStartAtRef.current = null;
-    recordingPromiseRef.current = null;
-    recorderRef.current = null;
-    recordingStateRef.current = 'idle';
-    forcedStopDurationRef.current = null;
-  }, [commitCameraSegment, currentSegmentDurationShared]);
+  }, [commitCameraSegment, currentSegmentDurationShared, resetRecordingRefs]);
 
   const startRecording = useCallback(async () => {
     const manager = segmentManagerRef.current;
@@ -825,6 +780,7 @@ const CreateScreen: React.FC = () => {
 
     if (
       cameraRef.current &&
+      isCameraReadyRef.current &&
       !isRecordingRef.current &&
       recordingStateRef.current === 'idle' &&
       currentTotal < maxDuration
@@ -927,14 +883,14 @@ const CreateScreen: React.FC = () => {
     if (
       !isRecordingRef.current &&
       recordingStateRef.current === 'idle' &&
-      !isProcessing &&
+      !isProcessingRef.current &&
       currentTotal < maxDuration &&
       availableTime > 0
     ) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       startRecording();
     }
-  }, [isProcessing, startRecording, maxDuration]);
+  }, [startRecording, maxDuration]);
 
   // Handle press end - stop recording (press out to stop)
   const handlePressOut = useCallback(() => {
@@ -993,11 +949,9 @@ const CreateScreen: React.FC = () => {
     () =>
       Gesture.LongPress()
         .minDuration(0)
-        .maxDistance(Math.max(screenWidth, screenHeight) * 2)
+        .maxDistance(10000)
         .shouldCancelWhenOutside(false)
-        .enabled(
-          !isDeletePreviewActive && availableTime > 0 && !isLoadingFromGallery && !isProcessing
-        )
+        .enabled(!isDeletePreviewActive && !isLoadingFromGallery)
         .onStart(() => {
           'worklet';
           runOnJS(handlePressIn)();
@@ -1006,16 +960,7 @@ const CreateScreen: React.FC = () => {
           'worklet';
           runOnJS(handlePressOut)();
         }),
-    [
-      availableTime,
-      handlePressIn,
-      handlePressOut,
-      isDeletePreviewActive,
-      isLoadingFromGallery,
-      isProcessing,
-      screenHeight,
-      screenWidth,
-    ]
+    [handlePressIn, handlePressOut, isDeletePreviewActive, isLoadingFromGallery]
   );
 
   const shutterZoomGesture = useMemo(
@@ -1118,23 +1063,6 @@ const CreateScreen: React.FC = () => {
     setIsFrontCamera(prev => !prev);
   }, []);
 
-  /**
-   * Tap-to-focus like Vision Camera's CameraPage (wrapper `onTouchEnd`), adapted to v4 `focusTo`.
-   * @see https://github.com/mrousavy/react-native-vision-camera/blob/b1d5a62def410bad56df2773ce994311e16cc21c/example/src/CameraPage.tsx
-   */
-  const onFocusTap = useCallback(
-    (event: GestureResponderEvent) => {
-      if (isDeletePreviewActive) return;
-      if (!cameraDevice?.supportsFocusMetering || isFrontCamera) return;
-
-      const { locationX, locationY } = event.nativeEvent;
-      void ErrorHandler.safeAsync(async () => {
-        await cameraRef.current?.focusTo({ x: locationX, y: locationY });
-      }, 'CreateScreen.camera.focusTo');
-    },
-    [cameraDevice?.supportsFocusMetering, isDeletePreviewActive, isFrontCamera]
-  );
-
   const onCameraDoubleTapFlip = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     flipCamera();
@@ -1200,11 +1128,11 @@ const CreateScreen: React.FC = () => {
   );
 
   const leaveCreateScreen = useCallback(() => {
-    if (isTrimmerActiveRef.current) {
+    if (isTrimmerActive) {
       closeEditor();
     }
     router.back();
-  }, [router]);
+  }, [router, isTrimmerActive]);
 
   const handleBackPress = async () => {
     if (isDeletePreviewActive) {
@@ -1373,18 +1301,19 @@ const CreateScreen: React.FC = () => {
           ref={cameraRef}
           style={styles.cameraFill}
           device={cameraDevice}
-          isActive={isFocused && !isTrimmerActive && !isDeletePreviewActive}
+          isActive={isFocused && !isTrimmerActive}
           outputs={[videoOutput]}
           torchMode={flash === 'on' && !isFrontCamera ? 'on' : 'off'}
           zoom={zoomShared}
-          enableNativeTapToFocusGesture={false}
-          onError={e => {
-            if (__DEV__)
-              logger.warn('[Camera] Mount error:', {
-                component: 'Camera',
-                message: e?.message ?? 'Unknown camera mount error',
-              });
+          enableNativeTapToFocusGesture={!isFrontCamera && !isDeletePreviewActive}
+          enableSmoothAutoFocus={cameraDevice?.supportsSmoothAutoFocus}
+          onStarted={() => {
+            isCameraReadyRef.current = true;
           }}
+          onStopped={() => {
+            isCameraReadyRef.current = false;
+          }}
+          onError={handleCameraError}
         />
         {isDeletePreviewActive && deletePreviewSegmentUri ? (
           <DeletePreviewSegmentVideo uri={deletePreviewSegmentUri} />
@@ -1411,13 +1340,11 @@ const CreateScreen: React.FC = () => {
         {cameraPreviewBody}
       </Pressable>
     ) : (
-      <Animated.View style={[styles.cameraPressable, cameraAndroidLayout]} onTouchEnd={onFocusTap}>
-        <GestureDetector gesture={cameraDoubleTapGesture}>
-          <View style={[styles.cameraPressable, cameraAndroidLayout]} collapsable={false}>
-            {cameraPreviewBody}
-          </View>
-        </GestureDetector>
-      </Animated.View>
+      <GestureDetector gesture={cameraDoubleTapGesture}>
+        <View style={[styles.cameraPressable, cameraAndroidLayout]} collapsable={false}>
+          {cameraPreviewBody}
+        </View>
+      </GestureDetector>
     );
 
     return (
