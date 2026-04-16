@@ -252,7 +252,7 @@ const ExploreScreen: React.FC = () => {
     const shadowOpacity = interpolate(
       searchProgress.value,
       [0, 1],
-      [0.25, 0.4],
+      [0.15, 0.25],
       Extrapolation.CLAMP
     );
     return {

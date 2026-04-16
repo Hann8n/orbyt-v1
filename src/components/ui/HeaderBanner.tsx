@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BORDER_RADIUS, SCROLL_CONSTANTS, SCROLL_INDICATOR_CONSTANTS } from '../../utils/constants';
+import { BORDER_RADIUS, SCROLL_CONSTANTS } from '../../utils/constants';
 import { View, Text, StyleSheet, Dimensions, Linking, Platform, FlatList } from 'react-native';
 import { SquircleNativePressable } from './Squircle';
 import { Image } from 'expo-image';
@@ -95,9 +95,9 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
   // Build color stops per slide from text color preferences (loop-aware)
   const slideColors = useMemo(() => {
     const realColors = (headers || []).map(h => {
-      const titleCol = h.titleColor as string | undefined;
-      const subCol = h.subtitleColor as string | undefined;
-      return (titleCol || subCol || Colors.neutral[50]) as string;
+      const titleCol = h.titleColor;
+      const subCol = h.subtitleColor;
+      return titleCol || subCol || Colors.neutral[50];
     });
     if (!hasHeaders || headers.length <= 1) return realColors;
     const firstColor = realColors[0];
@@ -153,16 +153,10 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
     const intervalMs = 30000;
     const intervalId = setInterval(() => {
       if (isUserDraggingRef.current) return;
-      const nextVirtual = (() => {
-        const currentVirtual = virtualIndexRef.current;
-        return currentVirtual + 1;
-      })();
-      try {
-        listRef.current?.scrollToIndex({ index: nextVirtual, animated: true });
-      } catch (_err) {
-        // Fallback if index not ready; use offset since getItemLayout is provided
-        listRef.current?.scrollToOffset({ offset: HEADER_WIDTH * nextVirtual, animated: true });
-      }
+      const maxVirtualIndex = headers.length + 1;
+      const nextVirtual =
+        virtualIndexRef.current >= maxVirtualIndex ? 1 : virtualIndexRef.current + 1;
+      listRef.current?.scrollToIndex({ index: nextVirtual, animated: true });
     }, intervalMs);
     return () => clearInterval(intervalId);
   }, [isCarousel, headers.length]);
@@ -182,6 +176,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
   const renderItem = useCallback(
     ({ item }: { item: Header }) => {
       const header = item;
+      const textShimOpacity = header.bottomShimOpacity ?? 0.92;
       return (
         <SquircleNativePressable
           key={header.id}
@@ -195,29 +190,39 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
             transition={Platform.OS === 'android' ? 0 : undefined}
             onError={() => handleImageError(header)}
           />
-          {header.bottomShimEnabled === true && (
+          {header.bottomShimEnabled && (
             <Image
               source={GRADIENT_SHIM}
               style={[
                 styles.headerBottomShim,
                 header.bottomShimOpacity !== undefined
                   ? { opacity: header.bottomShimOpacity }
-                  : null,
+                  : undefined,
               ]}
               contentFit="cover"
               pointerEvents="none"
             />
           )}
           <View style={styles.headerOverlay}>
+            {header.bottomShimEnabled && (
+              <Image
+                source={GRADIENT_SHIM}
+                style={[styles.headerTextShim, { opacity: textShimOpacity }]}
+                contentFit="fill"
+                pointerEvents="none"
+              />
+            )}
             <View style={styles.textContainer}>
               {(() => {
                 const titleEl = !!header.title && (
                   <Text
                     style={[
                       styles.headerTitle,
-                      header.titleColor ? { color: header.titleColor as string } : null,
-                      header.titleFontSize ? { fontSize: header.titleFontSize } : null,
-                      header.titleOpacity !== undefined ? { opacity: header.titleOpacity } : null,
+                      header.titleColor ? { color: header.titleColor } : undefined,
+                      header.titleFontSize ? { fontSize: header.titleFontSize } : undefined,
+                      header.titleOpacity !== undefined
+                        ? { opacity: header.titleOpacity }
+                        : undefined,
                     ]}
                     numberOfLines={1}
                   >
@@ -230,11 +235,11 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
                   <Text
                     style={[
                       styles.headerSubtitle,
-                      header.subtitleColor ? { color: header.subtitleColor as string } : null,
-                      header.subtitleFontSize ? { fontSize: header.subtitleFontSize } : null,
+                      header.subtitleColor ? { color: header.subtitleColor } : undefined,
+                      header.subtitleFontSize ? { fontSize: header.subtitleFontSize } : undefined,
                       header.subtitleOpacity !== undefined
                         ? { opacity: header.subtitleOpacity }
-                        : null,
+                        : undefined,
                     ]}
                     numberOfLines={1}
                   >
@@ -284,14 +289,14 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
               transition={Platform.OS === 'android' ? 0 : undefined}
               onError={() => handleImageError(header)}
             />
-            {header.bottomShimEnabled === true && (
+            {header.bottomShimEnabled && (
               <Image
                 source={GRADIENT_SHIM}
                 style={[
                   styles.headerBottomShim,
                   header.bottomShimOpacity !== undefined
                     ? { opacity: header.bottomShimOpacity }
-                    : null,
+                    : undefined,
                 ]}
                 contentFit="cover"
                 pointerEvents="none"
@@ -361,9 +366,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
         renderItem={renderItem}
         horizontal
         pagingEnabled
-        showsHorizontalScrollIndicator={
-          loopedData.length >= SCROLL_INDICATOR_CONSTANTS.HEADER_CAROUSEL_MIN_ITEMS
-        }
+        showsHorizontalScrollIndicator={false}
         snapToAlignment="start"
         decelerationRate={
           Platform.OS === 'ios'
@@ -446,7 +449,11 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: '45%',
+    height: '60%',
+  },
+  headerTextShim: {
+    ...StyleSheet.absoluteFillObject,
+    transform: [{ scaleY: -1 }],
   },
   textContainer: {
     flex: 1,
@@ -469,7 +476,7 @@ const styles = StyleSheet.create({
   paginationContainer: {
     position: 'absolute',
     bottom: 12,
-    right: 16,
+    right: 10,
     flexDirection: 'row',
   },
   dot: {

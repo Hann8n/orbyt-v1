@@ -56,6 +56,7 @@ export const exploreScreenStyles = StyleSheet.create({
     overflow: 'hidden',
     zIndex: 10,
     ...Shadows.medium,
+    boxShadow: '0 4px 6px rgba(5,7,10,0.14)',
   },
   searchContainerLiquidGlass: {
     backgroundColor: Colors.transparent,
