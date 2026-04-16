@@ -1,0 +1,30 @@
+{
+  "m": {
+    "f": "nanoicons",
+    "u": 1024,
+    "z": 1020,
+    "s": 59648,
+    "h": "67d0b70a14df9b63ddeae1e85cb36dc3fb0b68f63466b6132fb12a1fbce4a308"
+  },
+  "i": {
+    "back-arrow": [1024, [[59648, "#10161F"]]],
+    "beta-badge": [1024, [[59649, "currentColor"]]],
+    "camera-2-fill": [1024, [[59650, "currentColor"]]],
+    "certificate-circular": [1024, [[59651, "currentColor"]]],
+    "certificate-scalloped": [1024, [[59652, "currentColor"]]],
+    "chat-fill": [1024, [[59653, "currentColor"]]],
+    "chevron-down": [1024, [[59654, "#fff"]]],
+    "chevron-right": [1024, [[59655, "#fff"]]],
+    "chevron-up": [1024, [[59656, "#fff"]]],
+    "close-fill": [1024, [[59657, "#09244BFF"]]],
+    "comment-heart-fill": [1024, [[59658, "currentColor"]]],
+    "heart-fill": [1024, [[59659, "currentColor"]]],
+    "more-fill": [1024, [[59660, "currentColor"]]],
+    "outlink": [1024, [[59661, "#09244BFF"]]],
+    "refresh-fill": [1024, [[59662, "currentColor"]]],
+    "reply-arrow": [1024, [[59663, "currentColor"]]],
+    "robot-cute-filled": [1024, [[59664, "currentColor"]]],
+    "search": [1024, [[59665, "#fff"]]],
+    "user": [1024, [[59666, "#fff"]]]
+  }
+}

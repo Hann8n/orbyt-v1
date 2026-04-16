@@ -148,6 +148,17 @@
           }
         }
       ],
+      [
+        "react-native-nano-icons",
+        {
+          "iconSets": [
+            {
+              "inputDir": "./src/assets/icons/nano-icons",
+              "fontFamily": "nanoicons"
+            }
+          ]
+        }
+      ],
       "expo-image"
     ],
     "extra": {

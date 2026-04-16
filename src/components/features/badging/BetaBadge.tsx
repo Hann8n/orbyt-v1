@@ -51,6 +51,7 @@ const BetaBadge: React.FC<BetaBadgeProps> = ({
     else marginLeft = 1;
     return { marginLeft };
   };
+
   return (
     <Svg
       width={displaySize}

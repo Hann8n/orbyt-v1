@@ -1,19 +1,27 @@
 diff --git a/node_modules/react-native-clip-trim/android/build.gradle b/node_modules/react-native-clip-trim/android/build.gradle
-index 5a1c2de..65ce55f 100644
+index 53ad5a1..f60d081 100644
 --- a/node_modules/react-native-clip-trim/android/build.gradle
 +++ b/node_modules/react-native-clip-trim/android/build.gradle
-@@ -95,7 +95,14 @@ def kotlin_version = getExtOrDefault("kotlinVersion")
+@@ -19,6 +19,13 @@ buildscript {
+ apply plugin: "com.android.library"
+ apply plugin: "kotlin-android"
+ 
++
++// AGP 8.4+ blocks bundling library AARs that directly depend on local .aar files.
++// This module is consumed as a project dependency by the app, so these publish tasks are not needed.
++tasks.matching { it.name in ['bundleDebugAar', 'bundleReleaseAar'] }.configureEach {
++  enabled = false
++}
++
+ if (isNewArchitectureEnabled()) {
+   apply plugin: "com.facebook.react"
+ }
+@@ -95,7 +102,7 @@ def kotlin_version = getExtOrDefault("kotlinVersion")
  dependencies {
    implementation "com.facebook.react:react-android"
    implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
 -  implementation 'io.github.maitrungduc1410:ffmpeg-kit-' + getPackageNameOrDefault() +':' + getPackageVersionOrDefault()
 +  implementation files("${rootProject.projectDir}/../patches/ffmpeg-kit-full-gpl.aar")
  }
-
-// AGP 8.4+ blocks bundling library AARs that directly depend on local .aar files.
-// This module is consumed as a project dependency by the app, so these publish tasks are not needed.
-tasks.matching { it.name in ['bundleDebugAar', 'bundleReleaseAar'] }.configureEach {
-  enabled = false
-}
  
  if (isNewArchitectureEnabled()) {

@@ -27,7 +27,7 @@ import { Colors } from '../../../theme';
 import { Typography, FontFamily } from '@/utils/components/typography';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 import { useOverlayLayout } from '../../../context/OverlayLayoutContext';
-import { HeartFillIcon, ChatFillIcon, RefreshFillIcon, MoreFillIcon } from '../../ui/Icon';
+import { NanoIcon } from '../../ui/NanoIcon';
 import { Avatar } from '../../ui/UI';
 import { formatNumber } from '../../../utils/formatting/numbers';
 import { formatHandle } from '../../../utils/formatting/handles';
@@ -239,7 +239,9 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
     repostRotate.value = 0;
   }, [post?.uri, likeScale, repostScale, repostRotate]);
 
-  const commentIcon = <ChatFillIcon size={effectiveIconSize} color={Colors.neutral[50]} />;
+  const commentIcon = (
+    <NanoIcon name="chat-fill" size={effectiveIconSize} color={Colors.neutral[50]} />
+  );
 
   // Extract inline handlers to prevent recreation on every render
   const handleLikePress = useCallback(() => {
@@ -354,7 +356,11 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                   hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 >
                   <View style={styles.repostIconWrapper}>
-                    <RefreshFillIcon size={isTabletDevice ? 26 : 24} color={Colors.neutral[200]} />
+                    <NanoIcon
+                      name="refresh-fill"
+                      size={isTabletDevice ? 26 : 24}
+                      color={Colors.neutral[200]}
+                    />
                   </View>
                   <Text
                     style={[
@@ -591,7 +597,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                   isTabletDevice && styles.moreMenuIconContainerTablet,
                 ]}
               >
-                <MoreFillIcon size={moreMenuIconSize} color={Colors.neutral[50]} />
+                <NanoIcon name="more-fill" size={moreMenuIconSize} color={Colors.neutral[50]} />
               </View>
             </Pressable>
 
@@ -605,7 +611,8 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
               hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
             >
               <Animated.View style={repostAnimatedStyle}>
-                <RefreshFillIcon
+                <NanoIcon
+                  name="refresh-fill"
                   size={effectiveIconSize}
                   color={isReposted ? Colors.teal[500] : Colors.neutral[50]}
                 />
@@ -639,7 +646,8 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
               hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
             >
               <Animated.View style={likeAnimatedStyle}>
-                <HeartFillIcon
+                <NanoIcon
+                  name="heart-fill"
                   size={effectiveIconSize}
                   color={isLiked ? Colors.coral[500] : Colors.neutral[50]}
                 />
