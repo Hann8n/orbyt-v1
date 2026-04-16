@@ -6,7 +6,7 @@ import { Image } from 'expo-image';
 import { VideoView as ExpoVideoView } from 'expo-video';
 import type { VideoPlayer } from 'expo-video';
 import type { VideoSource } from 'expo-video';
-import { HeartFillIcon } from '../../../ui/Icon';
+import { NanoIcon } from '../../../ui/NanoIcon';
 import { Colors } from '../../../../theme';
 import { Typography } from '../../../../utils/components/typography';
 import { hexToRGBA } from '../../../../utils/formatting/colors';
@@ -94,7 +94,7 @@ const VideoCardMediaGestureLayer = function VideoCardMediaGestureLayer({
             style={[styles.heartAnimationContainer, heartAnimatedStyle]}
             pointerEvents="none"
           >
-            <HeartFillIcon size={100} color={Colors.coral[500]} />
+            <NanoIcon name="heart-fill" size={100} color={Colors.coral[500]} />
           </Animated.View>
         </View>
       </View>

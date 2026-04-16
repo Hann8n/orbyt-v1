@@ -46,7 +46,7 @@ import { useLikeInteraction } from '@/hooks/useLikeInteraction';
 
 import TabNavigation, { TabOption } from '../../layout/header/TabNavigation';
 import { Colors } from '../../../theme';
-import { HeartFillIcon, MoreFillIcon } from '../../ui/Icon';
+import { NanoIcon } from '../../ui/NanoIcon';
 import RelativeDate from '../../ui/RelativeDate';
 import { useUserSearchTrigger } from '../../ui/usersearch';
 import {
@@ -1211,7 +1211,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
           style={styles.actionButton}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <MoreFillIcon size={20} color={Colors.neutral[400]} />
+          <NanoIcon name="more-fill" size={20} color={Colors.neutral[400]} />
         </NativePressable>
 
         <NativePressable
@@ -1221,7 +1221,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
           style={styles.actionButton}
         >
           <Animated.View style={headerHeartStyle}>
-            <HeartFillIcon
+            <NanoIcon
+              name="heart-fill"
               size={26}
               color={headerVisualLiked ? Colors.coral[500] : Colors.neutral[500]}
             />
