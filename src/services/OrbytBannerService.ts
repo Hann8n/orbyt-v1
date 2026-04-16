@@ -44,6 +44,8 @@ interface Header {
   bottomShimEnabled?: boolean;
   /** Optional shim opacity override (0..1). */
   bottomShimOpacity?: number;
+  /** Optional overlay tint color for the header image. */
+  overlayColor?: string;
 }
 
 interface HeadersApiResponse {

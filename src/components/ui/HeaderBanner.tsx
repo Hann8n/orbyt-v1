@@ -26,6 +26,48 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const HEADER_HEIGHT = screenHeight * 0.3; // Top 30% of the display height
 const HEADER_WIDTH = screenWidth; // Full width
 
+function normalizeHexColor(hex: string): string | null {
+  const normalized = hex.trim();
+  const match = normalized.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (!match) return null;
+  const hexPart = match[1];
+  if (hexPart.length === 3) {
+    return (
+      '#' +
+      hexPart
+        .split('')
+        .map(digit => digit + digit)
+        .join('')
+        .toLowerCase()
+    );
+  }
+  return '#' + hexPart.toLowerCase();
+}
+
+function colorWithOpacity(color: string, opacity: number): string {
+  if (!color) return color;
+  const normalizedHex = normalizeHexColor(color);
+  if (normalizedHex) {
+    const r = parseInt(normalizedHex.slice(1, 3), 16);
+    const g = parseInt(normalizedHex.slice(3, 5), 16);
+    const b = parseInt(normalizedHex.slice(5, 7), 16);
+    return `rgba(${r},${g},${b},${opacity})`;
+  }
+
+  const rgbaMatch = color.match(
+    /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([\d.]+))?\s*\)$/i
+  );
+  if (rgbaMatch) {
+    const r = Number(rgbaMatch[1]);
+    const g = Number(rgbaMatch[2]);
+    const b = Number(rgbaMatch[3]);
+    const a = rgbaMatch[4] != null ? Number(rgbaMatch[4]) : 1;
+    return `rgba(${r},${g},${b},${a * opacity})`;
+  }
+
+  return color;
+}
+
 const HeaderBanner: React.FC<HeaderBannerProps> = ({
   headers,
   onHeaderPress,
@@ -174,6 +216,15 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
   const renderItem = useCallback(
     ({ item }: { item: Header }) => {
       const header = item;
+      const headerOverlayStyle = header.bottomShimEnabled
+        ? {
+            backgroundColor: colorWithOpacity(
+              header.overlayColor ?? Colors.black,
+              header.bottomShimOpacity ?? 0.35
+            ),
+          }
+        : undefined;
+
       return (
         <SquircleNativePressable
           key={header.id}
@@ -187,7 +238,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
             transition={Platform.OS === 'android' ? 0 : undefined}
             onError={() => handleImageError(header)}
           />
-          <View style={styles.headerOverlay}>
+          <View style={[styles.headerOverlay, headerOverlayStyle]}>
             <View style={styles.textContainer}>
               {(() => {
                 const titleEl = !!header.title && (
