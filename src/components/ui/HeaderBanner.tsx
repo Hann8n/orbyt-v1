@@ -14,8 +14,6 @@ import Animated, {
   interpolateColor,
 } from 'react-native-reanimated';
 
-const GRADIENT_SHIM = require('../../assets/embed-video-gradient-shim.png');
-
 interface HeaderBannerProps {
   headers: Header[];
   onHeaderPress?: (header: Header) => void;
@@ -176,7 +174,6 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
   const renderItem = useCallback(
     ({ item }: { item: Header }) => {
       const header = item;
-      const textShimOpacity = header.bottomShimOpacity ?? 0.92;
       return (
         <SquircleNativePressable
           key={header.id}
@@ -190,28 +187,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
             transition={Platform.OS === 'android' ? 0 : undefined}
             onError={() => handleImageError(header)}
           />
-          {header.bottomShimEnabled && (
-            <Image
-              source={GRADIENT_SHIM}
-              style={[
-                styles.headerBottomShim,
-                header.bottomShimOpacity !== undefined
-                  ? { opacity: header.bottomShimOpacity }
-                  : undefined,
-              ]}
-              contentFit="cover"
-              pointerEvents="none"
-            />
-          )}
           <View style={styles.headerOverlay}>
-            {header.bottomShimEnabled && (
-              <Image
-                source={GRADIENT_SHIM}
-                style={[styles.headerTextShim, { opacity: textShimOpacity }]}
-                contentFit="fill"
-                pointerEvents="none"
-              />
-            )}
             <View style={styles.textContainer}>
               {(() => {
                 const titleEl = !!header.title && (
@@ -289,19 +265,6 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
               transition={Platform.OS === 'android' ? 0 : undefined}
               onError={() => handleImageError(header)}
             />
-            {header.bottomShimEnabled && (
-              <Image
-                source={GRADIENT_SHIM}
-                style={[
-                  styles.headerBottomShim,
-                  header.bottomShimOpacity !== undefined
-                    ? { opacity: header.bottomShimOpacity }
-                    : undefined,
-                ]}
-                contentFit="cover"
-                pointerEvents="none"
-              />
-            )}
             <View style={styles.headerOverlay}>
               <View style={styles.textContainer}>
                 {(() => {
@@ -435,25 +398,10 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  headerBottomShim: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: '45%',
-    transform: [{ scaleY: -1 }],
-    opacity: 0.92,
-  },
   headerOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: '60%',
-  },
-  headerTextShim: {
     ...StyleSheet.absoluteFillObject,
-    transform: [{ scaleY: -1 }],
+    backgroundColor: Colors.overlay.black35,
+    justifyContent: 'flex-end',
   },
   textContainer: {
     flex: 1,
