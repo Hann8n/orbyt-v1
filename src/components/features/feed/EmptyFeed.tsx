@@ -1,26 +1,19 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { useTranslation } from 'react-i18next';
-import type { TFunction } from 'i18next';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import { View, Text, StyleSheet, Dimensions, FlatList } from 'react-native';
+import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import { SquircleNativePressable } from '@/components/ui/Squircle';
-import { Image } from 'expo-image';
 import Icon from '../../ui/Icon';
 import { Colors } from '../../../theme';
 import { RetryButton } from '../../ui/UI';
 import AnimatedTVStatic from '../../ui/AnimatedTVStatic';
 import { useQuery } from '@tanstack/react-query';
 import { ActorService } from '../../../services/api/actor/ActorService';
-import { Avatar } from '../../ui/UI';
-import { VerificationBadge, BotBadge } from '../badging';
+import AuthorItem from '../../ui/AuthorItem';
 import { useRouter } from 'expo-router';
-import { useFollowMutation, useProfile } from '../../../services/data/ProfileService';
-import { useAvatarProfileRing } from '../../../services/colors';
-import { formatHandle } from '../../../utils/formatting/handles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FontFamily, Typography } from '../../../utils/components/typography';
-// Use require for static RN asset to avoid TS module typing issues
-const TVStaticGif = require('../../../assets/tv_static.gif');
+
 const EMPTY_FEED_TV_SIZE = 70;
 
 interface EmptyFeedProps {
@@ -52,68 +45,28 @@ interface SuggestedUser {
 
 type SuggestedUserItemProps = {
   item: SuggestedUser;
-  followMutation: ReturnType<typeof useFollowMutation>;
-  t: TFunction;
 };
 
-const suggestedUserKeyExtractor = (item: SuggestedUser, _index: number): string => item.did;
-
-const SuggestedUserItem: React.FC<SuggestedUserItemProps> = ({ item, followMutation, t }) => {
-  const { data: profile } = useProfile(item.handle || null);
-  const ringProps = useAvatarProfileRing(item.did ?? null);
-  const isFollowing = !!profile?.viewer?.following || !!item.viewer?.following;
+const SuggestedUserItem: React.FC<SuggestedUserItemProps> = ({ item }) => {
+  const isFollowing = !!item.viewer?.following;
 
   return (
-    <View style={styles.profileItem}>
-      <View style={styles.profileTouchable}>
-        <Avatar
-          uri={item.avatar}
-          type="profile"
-          size={40}
-          showRing={ringProps.showRing}
-          ringColor={ringProps.ringColor}
-          profileColors={ringProps.profileColors}
-          style={styles.profileImage}
-        />
-        <View style={styles.profileContent}>
-          <View style={styles.displayNameRow}>
-            <Text style={styles.displayName} numberOfLines={1} ellipsizeMode="tail">
-              {item.displayName || formatHandle(item.handle) || t('feed.unknownUser')}
-            </Text>
-            {item.handle && item.handle.trim() && item.handle.length > 0 && (
-              <VerificationBadge
-                handle={item.handle.trim()}
-                textSize={14}
-                textColor={Colors.neutral[50]}
-              />
-            )}
-            {item.handle && item.handle.trim() && item.handle.length > 0 && (
-              <BotBadge
-                handle={item.handle.trim()}
-                did={item.did}
-                labels={profile?.labels}
-                textSize={14}
-                textColor={Colors.neutral[50]}
-              />
-            )}
-          </View>
-        </View>
-      </View>
-      {!isFollowing && (
-        <SquircleNativePressable
-          style={styles.followButton}
-          onPress={() => {
-            followMutation.mutate({
-              did: item.did,
-              handle: item.handle,
-              isFollowing: !isFollowing,
-            });
-          }}
-        >
-          <Icon name="user_add_2" size={16} color={Colors.black} />
-        </SquircleNativePressable>
-      )}
-    </View>
+    <AuthorItem
+      handle={item.handle || ''}
+      did={item.did}
+      displayName={item.displayName}
+      avatar={item.avatar}
+      size="large"
+      showArrow={false}
+      showFollowButton={!isFollowing}
+      isFollowing={isFollowing}
+      backgroundColor={Colors.transparent}
+      textColor={Colors.neutral[50]}
+      nameFontWeight="Figtree-SemiBold"
+      skipServerProfileData
+      variant="listRow"
+      style={styles.authorItem}
+    />
   );
 };
 
@@ -123,7 +76,6 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
   type = 'no-videos',
   profileColors,
   onRetry,
-  isProfileFeed = false,
   viewableAreaHeight,
   feedOption,
 }) => {
@@ -151,13 +103,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
     staleTime: 60 * 1000, // 1 minute
   });
 
-  const suggestedUsers = useMemo(
-    () => (suggestedAccounts && shouldShowSuggestions ? suggestedAccounts : []),
-    [suggestedAccounts, shouldShowSuggestions]
-  );
-
-  // Use ProfileCache's follow mutation hook
-  const followMutation = useFollowMutation();
+  const suggestedUsers = shouldShowSuggestions ? (suggestedAccounts ?? []) : [];
 
   // Determine icon and message based on type
   const getIconAndMessage = () => {
@@ -193,69 +139,39 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
   const iconColor = profileColors ? profileColors.textColor : secondaryColor || Colors.neutral[200];
   const textColor = profileColors ? profileColors.textColor : secondaryColor || Colors.neutral[200];
 
-  // Render suggested user item using explore screen UI pattern
-  const renderSuggestedUser = ({ item }: { item: SuggestedUser }) => (
-    <SuggestedUserItem item={item} followMutation={followMutation} t={t} />
-  );
-
   // Offset from top so icon + copy sit near the middle of the upper third (H/6 ≈ center of [0, H/3]).
   const containerHeight = viewableAreaHeight
     ? viewableAreaHeight
     : Dimensions.get('window').height - insets.top - insets.bottom;
   const topThirdOffset = Math.max(0, Math.floor(containerHeight / 6));
 
-  // Show suggested users for following feed with no videos
-  if (shouldShowSuggestions && suggestedUsers.length > 0) {
-    return (
-      <View
-        style={[
-          styles.emptyContainer,
-          viewableAreaHeight
-            ? { height: viewableAreaHeight }
-            : {
-                minHeight: isProfileFeed
-                  ? Dimensions.get('window').height - insets.top - insets.bottom
-                  : Dimensions.get('window').height - insets.top - insets.bottom,
-                paddingTop: insets.top,
-                paddingBottom: insets.bottom,
-              },
-        ]}
-      >
-        <View style={[styles.contentContainer, styles.centerContent]}>
-          <View style={styles.iconContainer}>
-            <Image source={TVStaticGif} style={styles.animatedGif} contentFit="contain" />
-          </View>
-          {displayMessage && (
-            <Text style={[styles.emptyText, { color: textColor }]}>{displayMessage}</Text>
-          )}
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>{t('feed.suggestedAccounts')}</Text>
-          </View>
-          <FlatList
-            data={suggestedUsers}
-            renderItem={renderSuggestedUser}
-            keyExtractor={suggestedUserKeyExtractor}
-            scrollEnabled={false}
-            style={styles.suggestionsList}
-            contentContainerStyle={styles.listContainer}
-          />
-        </View>
-      </View>
-    );
-  }
-
   const isNoVideos = type === 'no-videos';
+  const shouldRenderSuggestions = shouldShowSuggestions && suggestedUsers.length > 0;
+  const shouldUseEmptyFeedAnimation = type === 'no-videos' || shouldShowSuggestions;
   return (
     <View
       style={[
         styles.emptyContainer,
         isNoVideos && { backgroundColor: Colors.black },
-        viewableAreaHeight ? { height: viewableAreaHeight } : undefined,
+        viewableAreaHeight
+          ? { height: viewableAreaHeight }
+          : shouldRenderSuggestions
+            ? {
+                minHeight: Dimensions.get('window').height - insets.top - insets.bottom,
+                paddingTop: insets.top,
+                paddingBottom: insets.bottom,
+              }
+            : undefined,
       ]}
     >
-      <View style={[styles.contentContainer, { paddingTop: topThirdOffset }]}>
+      <View
+        style={[
+          styles.contentContainer,
+          shouldRenderSuggestions ? styles.suggestionsContent : { paddingTop: topThirdOffset },
+        ]}
+      >
         <View style={styles.iconContainer}>
-          {type === 'no-videos' ? (
+          {shouldUseEmptyFeedAnimation ? (
             <AnimatedTVStatic size={EMPTY_FEED_TV_SIZE} />
           ) : (
             <Icon name={icon} size={72} color={isNoVideos ? Colors.neutral[200] : iconColor} />
@@ -264,6 +180,18 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
         <Text style={[styles.emptyText, { color: isNoVideos ? Colors.neutral[200] : textColor }]}>
           {displayMessage}
         </Text>
+        {shouldRenderSuggestions && (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>{t('feed.suggestedAccounts')}</Text>
+            </View>
+            <View style={styles.suggestionsList}>
+              {suggestedUsers.map(item => (
+                <SuggestedUserItem key={item.did} item={item} />
+              ))}
+            </View>
+          </>
+        )}
         {isYourMixFeed && type === 'no-videos' && (
           <SquircleNativePressable
             style={styles.addChannelsButton}
@@ -302,7 +230,7 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.semibold,
     textAlign: 'center',
   },
-  centerContent: {
+  suggestionsContent: {
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -312,11 +240,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 16,
   },
-  animatedGif: {
-    width: EMPTY_FEED_TV_SIZE,
-    height: EMPTY_FEED_TV_SIZE,
-  },
-  // Matching ExploreScreen styles exactly
   sectionHeader: {
     paddingHorizontal: 0,
     paddingTop: 15,
@@ -331,61 +254,12 @@ const styles = StyleSheet.create({
   },
   suggestionsList: {
     width: '100%',
-    maxHeight: 300,
-  },
-  listContainer: {
     paddingHorizontal: 0,
     paddingBottom: 20,
   },
-  profileItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  authorItem: {
     paddingVertical: 10,
     paddingHorizontal: 0,
-    position: 'relative',
-  },
-  profileTouchable: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  profileImage: {
-    width: 40,
-    height: 40,
-    borderRadius: BORDER_RADIUS.LARGE,
-    marginRight: 12,
-    borderWidth: 0,
-    borderColor: Colors.transparent,
-  },
-  profileContent: {
-    flex: 1,
-    minWidth: 0,
-    justifyContent: 'center',
-  },
-  displayNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    minWidth: 0,
-  },
-  displayName: {
-    color: Colors.neutral[50],
-    fontSize: Typography.sizes.subtitle,
-    marginBottom: 2,
-    fontFamily: FontFamily.semibold,
-    flexShrink: 1,
-  },
-  followButton: {
-    width: 32,
-    height: 32,
-    borderWidth: 0,
-    borderColor: Colors.transparent,
-    borderRadius: BORDER_RADIUS.SMALL,
-    backgroundColor: Colors.neutral[200],
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-    marginLeft: 10,
   },
   addChannelsButton: {
     backgroundColor: Colors.neutral[50],
