@@ -8,7 +8,7 @@ import {
   useCanvasSize,
 } from '@shopify/react-native-skia';
 import { Colors } from '../../theme';
-import { darkenColor, hexToRGBA } from '../../utils/formatting/colors';
+import { hexToRGBA } from '../../utils/formatting/colors';
 import { LinearGradient } from './LinearGradient';
 
 interface VideoAmbientBackdropProps {
@@ -17,44 +17,60 @@ interface VideoAmbientBackdropProps {
   showScrim?: boolean;
 }
 
-const VIDEO_AMBIENT_BACKDROP_RAW_PAIRS: ReadonlyArray<readonly [string, string]> = [
-  [Colors.purple[900], Colors.neutral[925]],
-  [Colors.blue[900], Colors.purple[900]],
-  [Colors.teal[900], Colors.neutral[925]],
-  [Colors.pink[900], Colors.purple[900]],
-  [Colors.coral[900], Colors.purple[900]],
-  [Colors.neutral[800], Colors.neutral[975]],
-  [Colors.amber[900], Colors.purple[900]],
-  [Colors.orange[900], Colors.purple[900]],
-  [Colors.cyan[900], Colors.blue[900]],
-  [Colors.cyan[900], Colors.neutral[925]],
-  [Colors.amber[900], Colors.neutral[925]],
-  [Colors.blue[900], Colors.teal[900]],
-  [Colors.purple[900], Colors.teal[900]],
-  [Colors.pink[900], Colors.coral[900]],
-  [Colors.orange[900], Colors.neutral[975]],
-  [Colors.coral[900], Colors.neutral[925]],
-  [Colors.teal[900], Colors.purple[900]],
-  [Colors.amber[900], Colors.orange[900]],
-];
+const GOLDEN_ANGLE = 137.50776;
 
-const VIDEO_AMBIENT_BACKDROP_DIM_PRIMARY = 0.38;
-const VIDEO_AMBIENT_BACKDROP_DIM_SECONDARY = 0.45;
+function normalizeHue(value: number): number {
+  const hue = value % 360;
+  return hue < 0 ? hue + 360 : hue;
+}
 
-const VIDEO_AMBIENT_BACKDROP_GRADIENT_PAIRS: ReadonlyArray<readonly [string, string]> =
-  VIDEO_AMBIENT_BACKDROP_RAW_PAIRS.map(
-    ([bg, accent]) =>
-      [
-        darkenColor(bg, VIDEO_AMBIENT_BACKDROP_DIM_PRIMARY),
-        darkenColor(accent, VIDEO_AMBIENT_BACKDROP_DIM_SECONDARY),
-      ] as const
-  );
+function oklchToHex(l: number, c: number, hDeg: number): string {
+  const h = (hDeg * Math.PI) / 180;
+  const a = c * Math.cos(h);
+  const b = c * Math.sin(h);
+
+  const l_ = l + 0.3963377774 * a + 0.2158037573 * b;
+  const m_ = l - 0.1055613458 * a - 0.0638541728 * b;
+  const s_ = l - 0.0894841775 * a - 1.291485548 * b;
+  const lc = l_ * l_ * l_;
+  const mc = m_ * m_ * m_;
+  const sc = s_ * s_ * s_;
+  const linR = 4.0767416621 * lc - 3.3077115913 * mc + 0.2309699292 * sc;
+  const linG = -1.2684380046 * lc + 2.6097574011 * mc - 0.3413193965 * sc;
+  const linB = -0.0041960863 * lc - 0.7034186147 * mc + 1.697613517 * sc;
+
+  const gamma = (x: number) => {
+    const v = Math.max(0, Math.min(1, x));
+    return v <= 0.0031308 ? 12.92 * v : 1.055 * Math.pow(v, 1 / 2.4) - 0.055;
+  };
+  const toHex = (x: number) =>
+    Math.round(gamma(x) * 255)
+      .toString(16)
+      .padStart(2, '0');
+  return `#${toHex(linR)}${toHex(linG)}${toHex(linB)}`;
+}
+
+function getVideoAmbientBackdropGradientColors(seed: string): readonly [string, string] {
+  const baseHue = normalizeHue((hashVideoAmbientBackdropSeed(`${seed}:h`) * GOLDEN_ANGLE) % 360);
+  const secondHueOffset = 150 + (hashVideoAmbientBackdropSeed(`${seed}:h2`) % 61);
+  const secondHue = normalizeHue(baseHue + secondHueOffset);
+
+  const lightPrimary = 0.16 + (hashVideoAmbientBackdropSeed(`${seed}:l1`) % 6) * 0.01;
+  const lightSecondary = 0.1 + (hashVideoAmbientBackdropSeed(`${seed}:l2`) % 5) * 0.01;
+  const chromaPrimary = 0.04 + (hashVideoAmbientBackdropSeed(`${seed}:c1`) % 4) * 0.01;
+  const chromaSecondary = 0.02 + (hashVideoAmbientBackdropSeed(`${seed}:c2`) % 3) * 0.01;
+
+  return [
+    oklchToHex(lightPrimary, chromaPrimary, baseHue),
+    oklchToHex(lightSecondary, chromaSecondary, secondHue),
+  ];
+}
 
 const ANGLES = [155, 170, 185, 200, 215, 230] as const;
 const HIGHLIGHT_X_PCT = [14, 28, 42, 58, 72, 86] as const;
 const HIGHLIGHT_Y_PCT = [12, 20, 28, 36] as const;
-const HIGHLIGHT_OPACITY = [0.05, 0.07, 0.09, 0.11] as const;
-const SCRIM_OPACITY = [0.52, 0.56, 0.6, 0.64] as const;
+const HIGHLIGHT_OPACITY = [0.07, 0.09, 0.11, 0.13] as const;
+const SCRIM_OPACITY = [0.42, 0.46, 0.5, 0.54] as const;
 
 function hashVideoAmbientBackdropSeed(value: string): number {
   let hash = 0;
@@ -98,9 +114,7 @@ type VideoAmbientBackdropComputed = {
 };
 
 function getVideoAmbientBackdropComputed(seed: string): VideoAmbientBackdropComputed {
-  const colorIndex =
-    hashVideoAmbientBackdropSeed(seed) % VIDEO_AMBIENT_BACKDROP_GRADIENT_PAIRS.length;
-  const colors = VIDEO_AMBIENT_BACKDROP_GRADIENT_PAIRS[colorIndex];
+  const colors = getVideoAmbientBackdropGradientColors(seed);
   const angleDeg = ANGLES[hashVideoAmbientBackdropSeed(`${seed}:angle`) % ANGLES.length];
   const hxPct =
     HIGHLIGHT_X_PCT[hashVideoAmbientBackdropSeed(`${seed}:hx`) % HIGHLIGHT_X_PCT.length];
