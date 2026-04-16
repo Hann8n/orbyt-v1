@@ -42,7 +42,7 @@ import type { ExtendedFeedViewPost } from '../../../services/api/types';
 import * as Device from 'expo-device';
 import { getViewportDimensions } from '../../../utils/device/screen';
 import EmptyFeed from './EmptyFeed';
-import BlurredBackground from '../../ui/BlurredBackground';
+import VideoAmbientBackdrop from '../../ui/VideoAmbientBackdrop';
 import {
   FEED_VIEW_CONSTANTS,
   getEmptyFeedType,
@@ -89,7 +89,7 @@ const VideoGridItem: React.FC<{
 
   const cellContent = (
     <>
-      <BlurredBackground thumbnailUrl={validThumbnailUrl} />
+      <VideoAmbientBackdrop seedUrl={validThumbnailUrl} />
       {validThumbnailUrl && !shouldBlur && (
         <Image
           source={{ uri: validThumbnailUrl }}

@@ -10,7 +10,7 @@ import { Icon } from '@/components/ui/UI';
 import { Colors } from '@/theme';
 import type { ExtendedFeedViewPost } from '@/services/api/types';
 import { getVideoView } from '@/utils/video/helpers';
-import BlurredBackground from '@/components/ui/BlurredBackground';
+import VideoAmbientBackdrop from '@/components/ui/VideoAmbientBackdrop';
 import { feedService } from '@/services/FeedService';
 import {
   buildFeedModalHref,
@@ -48,7 +48,7 @@ const SpotlightVideoCell = React.memo(
 
     const cellInner = (
       <SquircleView style={styles.spotlightVideoThumbnailContainer}>
-        <BlurredBackground thumbnailUrl={thumbnailUrl} />
+        <VideoAmbientBackdrop seedUrl={thumbnailUrl} />
         {thumbnailUrl ? (
           <Image
             source={{ uri: thumbnailUrl }}

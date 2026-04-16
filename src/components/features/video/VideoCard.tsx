@@ -410,21 +410,23 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
     // useRecyclingState resets when post changes, so no extra useEffect needed.
     const [userChoseToView, setUserChoseToView] = useRecyclingState(false, [postView.uri]);
 
-    // Track first frame render and blur ready so we hide the poster only when both are done
-    // (avoids showing a blank area where the Skia blur hasn't loaded yet)
+    // Keep poster visible until both first frame and ambient backdrop are ready.
     const [firstFrameRendered, setFirstFrameRendered] = useRecyclingState(false, [
       postView.uri,
       feedOption,
     ]);
-    const [blurReady, setBlurReady] = useRecyclingState(false, [postView.uri, feedOption]);
+    const [videoAmbientBackdropReady, setVideoAmbientBackdropReady] = useRecyclingState(false, [
+      postView.uri,
+      feedOption,
+    ]);
 
     const handleFirstFrameRender = useCallback(() => {
       setFirstFrameRendered(true);
     }, [setFirstFrameRendered]);
 
-    const handleBlurReady = useCallback(() => {
-      setBlurReady(true);
-    }, [setBlurReady]);
+    const handleVideoAmbientBackdropReady = useCallback(() => {
+      setVideoAmbientBackdropReady(true);
+    }, [setVideoAmbientBackdropReady]);
 
     const { cannotShowMedia, isBlurred, warningDescription, handleViewContent } =
       useVideoCardModerationState(postView, feedItem, userChoseToView, setUserChoseToView);
@@ -995,7 +997,7 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
         posterUrl,
         cannotShowMedia,
         firstFrameRendered,
-        blurReady,
+        videoAmbientBackdropReady,
         recyclingKey,
         videoSource,
         isBlurred,
@@ -1012,7 +1014,7 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
         posterUrl,
         cannotShowMedia,
         firstFrameRendered,
-        blurReady,
+        videoAmbientBackdropReady,
         recyclingKey,
         videoSource,
         isBlurred,
@@ -1085,8 +1087,8 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
     return (
       <View style={[styles.container, { height: cardHeight }]}>
         <VideoCardMediaLayer
-          thumbnailUrlForBlur={cannotShowMedia ? null : (posterUrl ?? null)}
-          onBlurReady={handleBlurReady}
+          videoAmbientBackdropSeedUrl={cannotShowMedia ? null : (posterUrl ?? null)}
+          onVideoAmbientBackdropReady={handleVideoAmbientBackdropReady}
           gestureStack={gestureVideoStackProps}
         />
 

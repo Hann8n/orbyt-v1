@@ -1,23 +1,26 @@
 import { type ComponentProps } from 'react';
-import BlurredBackground from '../../../ui/BlurredBackground';
+import VideoAmbientBackdrop from '../../../ui/VideoAmbientBackdrop';
 import VideoCardMediaGestureLayer from './VideoCardMediaGestureLayer';
 
 type GestureStackProps = ComponentProps<typeof VideoCardMediaGestureLayer>;
 
 export interface VideoCardMediaLayerProps {
-  thumbnailUrlForBlur: string | null;
-  onBlurReady: () => void;
+  videoAmbientBackdropSeedUrl: string | null;
+  onVideoAmbientBackdropReady: () => void;
   gestureStack: GestureStackProps;
 }
 
 const VideoCardMediaLayer = function VideoCardMediaLayer({
-  thumbnailUrlForBlur,
-  onBlurReady,
+  videoAmbientBackdropSeedUrl,
+  onVideoAmbientBackdropReady,
   gestureStack,
 }: VideoCardMediaLayerProps) {
   return (
     <>
-      <BlurredBackground thumbnailUrl={thumbnailUrlForBlur} onBlurReady={onBlurReady} />
+      <VideoAmbientBackdrop
+        seedUrl={videoAmbientBackdropSeedUrl}
+        onVideoAmbientBackdropReady={onVideoAmbientBackdropReady}
+      />
       <VideoCardMediaGestureLayer {...gestureStack} />
     </>
   );

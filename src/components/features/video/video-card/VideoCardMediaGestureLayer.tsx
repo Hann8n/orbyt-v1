@@ -18,7 +18,7 @@ export interface VideoCardMediaGestureLayerProps {
   posterUrl: string | null;
   cannotShowMedia: boolean;
   firstFrameRendered: boolean;
-  blurReady: boolean;
+  videoAmbientBackdropReady: boolean;
   recyclingKey: string;
   videoSource: VideoSource | null;
   isBlurred: boolean;
@@ -31,13 +31,12 @@ export interface VideoCardMediaGestureLayerProps {
   heartAnimatedStyle: Record<string, unknown>;
 }
 
-/** Tap/long-press layer + poster, expo-video surface, loading, dimming, double-tap heart. */
 const VideoCardMediaGestureLayer = function VideoCardMediaGestureLayer({
   videoGesture,
   posterUrl,
   cannotShowMedia,
   firstFrameRendered,
-  blurReady,
+  videoAmbientBackdropReady,
   recyclingKey,
   videoSource,
   isBlurred,
@@ -53,15 +52,17 @@ const VideoCardMediaGestureLayer = function VideoCardMediaGestureLayer({
     <GestureDetector gesture={videoGesture}>
       <View style={styles.videoContainerPressable} collapsable={false}>
         <View style={styles.videoContainer}>
-          {!!posterUrl && !cannotShowMedia && (!firstFrameRendered || !blurReady) && (
-            <Image
-              source={{ uri: posterUrl }}
-              contentFit="contain"
-              style={styles.poster}
-              recyclingKey={recyclingKey}
-              accessible={false}
-            />
-          )}
+          {!!posterUrl &&
+            !cannotShowMedia &&
+            (!firstFrameRendered || !videoAmbientBackdropReady) && (
+              <Image
+                source={{ uri: posterUrl }}
+                contentFit="contain"
+                style={styles.poster}
+                recyclingKey={recyclingKey}
+                accessible={false}
+              />
+            )}
 
           {!!videoSource && !cannotShowMedia && !isBlurred && player && (
             <ExpoVideoView

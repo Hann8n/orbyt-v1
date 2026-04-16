@@ -44,7 +44,7 @@ import { formatHandle } from '../../../utils/formatting/handles';
 import { formatRelativeDate } from '../../ui/RelativeDate';
 import { useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 import { useUserStore } from '../../../stores/userStore';
-import BlurredBackground from '../../ui/BlurredBackground';
+import VideoAmbientBackdrop from '../../ui/VideoAmbientBackdrop';
 import { queryKeys } from '../../../utils/query/queryKeys';
 import { useAvatarProfileRing } from '../../../services/colors';
 import { itemSizeConfig } from '@/components/ui/ItemStyles';
@@ -665,7 +665,7 @@ const NotificationItem = React.memo<NotificationItemProps>(
       <>
         {thumbnail ? (
           <>
-            <BlurredBackground thumbnailUrl={thumbnail} />
+            <VideoAmbientBackdrop seedUrl={thumbnail} />
             {!shouldBlurThumbnail && (
               <Image
                 source={{ uri: thumbnail }}

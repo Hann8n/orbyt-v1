@@ -14,7 +14,7 @@ export { default as AuthorItem } from './AuthorItem';
 export { default as ChannelItem } from './ChannelItem';
 export { default as HeaderBanner } from './HeaderBanner';
 export { default as ListScreen } from './ListScreen';
-export { default as BlurredBackground } from './BlurredBackground';
+export { default as VideoAmbientBackdrop } from './VideoAmbientBackdrop';
 export { OptionsButton } from './OptionsButton';
 export { ErrorBoundary } from './ErrorBoundary';
 export { QueryErrorBoundary } from './QueryErrorBoundary';
