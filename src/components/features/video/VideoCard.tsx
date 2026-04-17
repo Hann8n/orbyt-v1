@@ -39,9 +39,6 @@ import { useModalStore } from '../../../stores/modalStore';
 import { useProfileChannelNavigation } from '../../../hooks/useProfileChannelNavigation';
 import { useFollowMutation } from '../../../services/data/ProfileService';
 import { useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
-import { useFeedModalTabSegment } from '@/utils/navigation/feedModalTabSegment';
-import { buildFeedModalHref } from '@/utils/navigation/feedModalRoute';
 import { useProfile, prefetchProfile } from '../../../services/data/ProfileService';
 import { isCurrentUser } from '../../../stores/profileInteractionStore';
 import { useFollowStore } from '../../../stores/followStore';
@@ -112,6 +109,8 @@ export interface VideoCardProps {
   index?: number;
   /** Fired when visible and the user toggles pause. */
   onUserPausedChange?: (userPaused: boolean) => void;
+  /** Navigate to a hashtag feed. */
+  onHashtagPress?: (hashtag: string) => void;
 }
 
 const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
@@ -128,6 +127,7 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
       feedOption,
       index,
       onUserPausedChange,
+      onHashtagPress,
     },
     ref
   ) => {
@@ -303,12 +303,14 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
     const presentShareSheet = useModalStore(state => state.presentShareSheet);
     const currentUser = useUserStore(state => state.currentUser);
     const queryClient = useQueryClient();
-    const navigation = useRouter();
-    const feedModalTab = useFeedModalTabSegment();
 
     // Keep a ref in sync with userPaused so useFocusEffect doesn't re-register on every pause toggle.
     const userPausedRef = useRef(videoState.userPaused);
     userPausedRef.current = videoState.userPaused;
+
+    // Stable ref for overlayState so handleOpenComments doesn't recreate on every pending toggle.
+    const overlayStateRef = useRef(overlayState);
+    overlayStateRef.current = overlayState;
 
     useEffect(() => {
       if (!isVisible || !onUserPausedChange) return;
@@ -756,9 +758,9 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
         isLiked: displayInteractionRef.current.isLiked,
         postedAt: (postView.record as { createdAt?: string })?.createdAt || postView.indexedAt,
         onToggleLike: handleLike,
-        isLikePending: overlayState.isLikePending,
+        isLikePending: overlayStateRef.current.isLikePending,
       });
-    }, [postView, presentCommentSection, handleLike, overlayState.isLikePending]);
+    }, [postView, presentCommentSection, handleLike]);
 
     const handleLongPress = useCallback(() => {
       clearVideoTapSingleTimer();
@@ -922,24 +924,6 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
       );
     }, [postView.author, followMutation.mutate]);
 
-    const handleHashtagPress = useCallback(
-      (hashtag: string) => {
-        navigation.navigate(
-          buildFeedModalHref(
-            {
-              feedOption: `hashtag:${hashtag}`,
-              backgroundColor: Colors.black,
-              secondaryColor: Colors.neutral[50],
-              initialIndex: '0',
-              initialPostUri: '',
-            },
-            feedModalTab
-          )
-        );
-      },
-      [navigation, feedModalTab]
-    );
-
     // Track interactionSeen and markAsSeen when video becomes visible
     useEffect(() => {
       if (isVisible) {
@@ -1052,7 +1036,7 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
         onOpenComments: handleOpenComments,
         onSharePress: handleSharePress,
         onFollowPress: handleFollowPress,
-        onHashtagPress: handleHashtagPress,
+        onHashtagPress,
         isCurrentUserProfile,
       }),
       [
@@ -1079,7 +1063,7 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
         handleOpenComments,
         handleSharePress,
         handleFollowPress,
-        handleHashtagPress,
+        onHashtagPress,
         isCurrentUserProfile,
       ]
     );

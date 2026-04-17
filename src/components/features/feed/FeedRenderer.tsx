@@ -187,6 +187,24 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
     const feedModalTab = useFeedModalTabSegment();
     const router = useRouter();
 
+    const handleHashtagPress = useCallback(
+      (hashtag: string) => {
+        router.navigate(
+          buildFeedModalHref(
+            {
+              feedOption: `hashtag:${hashtag}`,
+              backgroundColor: Colors.black,
+              secondaryColor: Colors.neutral[50],
+              initialIndex: '0',
+              initialPostUri: '',
+            },
+            feedModalTab
+          )
+        );
+      },
+      [router, feedModalTab]
+    );
+
     const handleGridItemPress = useCallback(
       (index: number) => {
         if (index >= 0 && index < feed.length) {
@@ -331,6 +349,7 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
         onGridItemPress: handleGridItemPress,
         gridFeedModalZoomConfig,
         zoomTargetPostUri: zoomTargetPostUri ?? null,
+        onHashtagPress: handleHashtagPress,
       }),
       [
         feed,
@@ -352,6 +371,7 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
         handleGridItemPress,
         gridFeedModalZoomConfig,
         zoomTargetPostUri,
+        handleHashtagPress,
       ]
     );
 

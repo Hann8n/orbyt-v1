@@ -12,7 +12,6 @@ import { useTranslation } from 'react-i18next';
 import { View, StyleSheet, StatusBar, type StyleProp, type ViewStyle } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
 import PagerView from 'react-native-pager-view';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -316,12 +315,10 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
     [queryOptionsProp]
   );
 
-  // Optimized feed page styles - consistent with ListFeedView
-  const feedPageStyle = {
-    ...styles.feedPage,
-    width,
-    height: '100%' as const,
-  };
+  const feedPageStyle = useMemo(
+    () => ({ ...styles.feedPage, width, height: '100%' as const }),
+    [width]
+  );
 
   const indicatorBaseFontSize =
     typeof indicatorFontSize === 'number' && indicatorFontSize > 0
@@ -399,7 +396,7 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
   );
 
   return (
-    <GestureHandlerRootView style={styles.container}>
+    <View style={styles.container}>
       {controlStatusBar && <StatusBar barStyle="light-content" backgroundColor={Colors.black} />}
 
       {showFeedIndicator && (
@@ -446,7 +443,7 @@ const FeedPager = forwardRef<FeedPagerRef, FeedPagerProps>(function FeedPager(
           </View>
         ))}
       </PagerView>
-    </GestureHandlerRootView>
+    </View>
   );
 });
 

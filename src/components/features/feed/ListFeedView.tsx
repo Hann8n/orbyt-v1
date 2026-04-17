@@ -231,6 +231,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       zoomTargetPostUri,
       gridFeedModalZoomConfig,
       pullToRefresh,
+      onHashtagPress,
     },
     ref
   ) => {
@@ -288,7 +289,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       () => [scrollOffsetYSV.value, homePagerChromeUserHoldSV.value] as const,
       (current, previous) => {
         'worklet';
-        /* eslint-disable react-hooks/immutability -- SharedValue.value writes in worklet */
+
         if (!isVisibleSV.value) return;
 
         const y = Math.max(0, current[0]);
@@ -314,7 +315,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         } else if (y < prevY - CHROME_SHOW_DIRECTION_THRESHOLD_PX) {
           tabBarVisibility.value = 1;
         }
-        /* eslint-enable react-hooks/immutability */
       },
       [scrollOffsetYSV, homePagerChromeUserHoldSV, tabBarVisibility, isVisibleSV, chromeVisibleMaxY]
     );
@@ -444,6 +444,9 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       }
     }, [showEndOfFeed, endOfFeedEnabledSV, endOfFeedOverscrollOpacitySV]);
 
+    const onHashtagPressRef = useRef(onHashtagPress);
+    onHashtagPressRef.current = onHashtagPress;
+
     const listRenderExtraData = useMemo(
       () => ({
         cardHeight,
@@ -457,29 +460,27 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       ({ item, index, target, extraData }: ListRenderItemInfo<FeedListItem>) => {
         const xd = extraData as typeof listRenderExtraData | undefined;
         const h = xd?.cardHeight ?? 0;
-        if (target === RenderTargetOptions.Measurement) {
-          return <View style={[styles.measurementPlaceholder, { height: h }]} />;
-        }
-        if (!xd) {
+        if (target === RenderTargetOptions.Measurement || !xd) {
           return <View style={[styles.measurementPlaceholder, { height: h }]} />;
         }
 
-        const feedItem = item;
         const isAppleZoomTarget =
           Boolean(xd.zoomTargetPostUri) &&
-          feedItem.post?.uri === xd.zoomTargetPostUri &&
+          item.post?.uri === xd.zoomTargetPostUri &&
           Platform.OS === 'ios';
         return (
           <VideoItem
-            feedItem={feedItem}
-            post={feedItem.post}
+            feedItem={item}
+            post={item.post}
             height={xd.cardHeight}
             feedOption={xd.feedOption}
             index={index}
             isAppleZoomTarget={isAppleZoomTarget}
+            onHashtagPress={onHashtagPressRef.current}
           />
         );
       },
+
       []
     );
 
@@ -607,7 +608,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       {
         onScroll: event => {
           'worklet';
-          /* eslint-disable react-hooks/immutability -- SharedValue.value in worklet */
+
           const y = Math.max(0, event.contentOffset.y);
           scrollOffsetYSV.value = y;
 
@@ -636,7 +637,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
               Math.min(1, overscrollPastEnd / END_OF_FEED_OVERSCROLL_FULL_OPACITY_PX)
             );
           }
-          /* eslint-enable react-hooks/immutability */
         },
       },
       [contentScrollProgressOutput, fadeDist]
@@ -644,10 +644,9 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     const setHomePagerChromeUserHold = useCallback(
       (held: boolean) => {
-        // eslint-disable-next-line react-hooks/immutability -- SharedValue.value
         homePagerChromeUserHoldSV.value = held ? 1 : 0;
         // Keep chrome behavior deterministic when pause/play changes without a scroll event.
-        // eslint-disable-next-line react-hooks/immutability -- SharedValue.value
+
         tabBarVisibility.value =
           held || scrollOffsetYSV.value < FEED_VIEW_CONSTANTS.HOME_PAGER_CHROME_VISIBLE_MAX_SCROLL_Y
             ? 1

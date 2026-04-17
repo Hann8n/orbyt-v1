@@ -35,6 +35,8 @@ export interface VideoItemProps {
   index?: number;
   /** iOS: marks the row as the zoom transition target (paired with grid `Link.AppleZoom`). */
   isAppleZoomTarget?: boolean;
+  /** Navigate to a hashtag feed. */
+  onHashtagPress?: (hashtag: string) => void;
 }
 
 function VideoItemComponent({
@@ -46,6 +48,7 @@ function VideoItemComponent({
   allowPlayback,
   index = 0,
   isAppleZoomTarget = false,
+  onHashtagPress,
 }: VideoItemProps) {
   const embed = 'embed' in post ? (post.embed as PostView['embed']) : undefined;
   const videoView = getVideoView(embed);
@@ -84,6 +87,7 @@ function VideoItemComponent({
           ? onHomeFeedPagerChromeUserPaused
           : undefined
       }
+      onHashtagPress={onHashtagPress}
     />
   );
 

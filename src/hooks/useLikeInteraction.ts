@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { AtprotoFeedService } from '@/services/api/feed/FeedService';
 
 type PostInteractionUpdate = {
@@ -31,11 +31,17 @@ export function useLikeInteraction<T extends BaseLikeState>({
   updatePostInteraction,
   onLikeSuccess,
 }: UseLikeInteractionParams<T>) {
-  const toggleLike = useCallback(async () => {
-    if (!postUri || state.isLikePending) return;
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const onLikeSuccessRef = useRef(onLikeSuccess);
+  onLikeSuccessRef.current = onLikeSuccess;
 
-    const newIsLiked = !state.isLiked;
-    const newLikeCount = newIsLiked ? state.likeCount + 1 : Math.max(0, state.likeCount - 1);
+  const toggleLike = useCallback(async () => {
+    const s = stateRef.current;
+    if (!postUri || s.isLikePending) return;
+
+    const newIsLiked = !s.isLiked;
+    const newLikeCount = newIsLiked ? s.likeCount + 1 : Math.max(0, s.likeCount - 1);
 
     setState(prev => ({
       ...prev,
@@ -47,11 +53,11 @@ export function useLikeInteraction<T extends BaseLikeState>({
     updatePostInteraction(postUri, {
       isLiked: newIsLiked,
       likeCount: newLikeCount,
-      likeUri: newIsLiked ? state.likeUri : undefined,
+      likeUri: newIsLiked ? s.likeUri : undefined,
     });
 
     try {
-      if (!state.isLiked) {
+      if (!s.isLiked) {
         const likeUri = await AtprotoFeedService.likePost(postUri, postCid || '');
         setState(prev => ({ ...prev, likeUri }));
         updatePostInteraction(postUri, {
@@ -59,10 +65,10 @@ export function useLikeInteraction<T extends BaseLikeState>({
           likeCount: newLikeCount,
           likeUri,
         });
-        onLikeSuccess?.();
+        onLikeSuccessRef.current?.();
       } else {
-        if (!state.likeUri) throw new Error('No like URI found');
-        await AtprotoFeedService.deleteLike(state.likeUri);
+        if (!s.likeUri) throw new Error('No like URI found');
+        await AtprotoFeedService.deleteLike(s.likeUri);
         setState(prev => ({ ...prev, likeUri: undefined }));
         updatePostInteraction(postUri, {
           isLiked: false,
@@ -73,34 +79,25 @@ export function useLikeInteraction<T extends BaseLikeState>({
     } catch {
       setState(prev => ({
         ...prev,
-        isLiked: state.isLiked,
-        likeCount: state.likeCount,
-        likeUri: state.likeUri,
+        isLiked: s.isLiked,
+        likeCount: s.likeCount,
+        likeUri: s.likeUri,
       }));
       updatePostInteraction(postUri, {
-        isLiked: state.isLiked,
-        likeCount: state.likeCount,
-        likeUri: state.likeUri,
+        isLiked: s.isLiked,
+        likeCount: s.likeCount,
+        likeUri: s.likeUri,
       });
     } finally {
       setState(prev => ({ ...prev, isLikePending: false }));
     }
-  }, [
-    onLikeSuccess,
-    postCid,
-    postUri,
-    setState,
-    state.isLikePending,
-    state.isLiked,
-    state.likeCount,
-    state.likeUri,
-    updatePostInteraction,
-  ]);
+  }, [postUri, postCid, setState, updatePostInteraction]);
 
   const likeOnly = useCallback(async () => {
-    if (!postUri || state.isLiked || state.isLikePending) return;
+    const s = stateRef.current;
+    if (!postUri || s.isLiked || s.isLikePending) return;
 
-    const newLikeCount = state.likeCount + 1;
+    const newLikeCount = s.likeCount + 1;
 
     setState(prev => ({
       ...prev,
@@ -112,7 +109,7 @@ export function useLikeInteraction<T extends BaseLikeState>({
     updatePostInteraction(postUri, {
       isLiked: true,
       likeCount: newLikeCount,
-      likeUri: state.likeUri,
+      likeUri: s.likeUri,
     });
 
     try {
@@ -123,33 +120,23 @@ export function useLikeInteraction<T extends BaseLikeState>({
         likeCount: newLikeCount,
         likeUri,
       });
-      onLikeSuccess?.();
+      onLikeSuccessRef.current?.();
     } catch {
       setState(prev => ({
         ...prev,
         isLiked: false,
-        likeCount: state.likeCount,
-        likeUri: state.likeUri,
+        likeCount: s.likeCount,
+        likeUri: s.likeUri,
       }));
       updatePostInteraction(postUri, {
-        isLiked: state.isLiked,
-        likeCount: state.likeCount,
-        likeUri: state.likeUri,
+        isLiked: s.isLiked,
+        likeCount: s.likeCount,
+        likeUri: s.likeUri,
       });
     } finally {
       setState(prev => ({ ...prev, isLikePending: false }));
     }
-  }, [
-    onLikeSuccess,
-    postCid,
-    postUri,
-    setState,
-    state.isLikePending,
-    state.isLiked,
-    state.likeCount,
-    state.likeUri,
-    updatePostInteraction,
-  ]);
+  }, [postUri, postCid, setState, updatePostInteraction]);
 
   return { toggleLike, likeOnly };
 }

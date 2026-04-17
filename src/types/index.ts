@@ -67,6 +67,8 @@ export interface ListFeedViewProps {
   gridFeedModalZoomConfig?: GridFeedModalZoomConfig | null;
   /** Native pull-to-refresh on list and grid FlashList. */
   pullToRefresh?: ListFeedPullToRefresh;
+  /** Navigate to a hashtag feed. */
+  onHashtagPress?: (hashtag: string) => void;
 }
 
 /**

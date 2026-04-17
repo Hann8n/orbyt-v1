@@ -1,13 +1,8 @@
-/**
- * Scroll × scrubbing overlay opacity per row.
- *
- * Worklet-based calculation without useDerivedValue.
- * Opacity is computed on-demand by reading pre-calculated scroll state.
- * Replaced per-frame recalculation with event-driven update from scroll handler.
- */
+/** Scroll drives opacity directly; seek transitions stay timed. */
 import {
   useAnimatedReaction,
   useSharedValue,
+  useDerivedValue,
   interpolate,
   withTiming,
   Easing,
@@ -21,9 +16,8 @@ const FADE_CURVE_EXPONENT = 1.35;
 /** Skip overlap math for cards far outside the viewport. */
 const FAR_AWAY_FACTOR = 1.5;
 
-/** Smooth opacity transitions to prevent jitter during fast scrolling. */
-const OPACITY_TIMING_CONFIG = {
-  duration: 100,
+const SEEK_TIMING_CONFIG = {
+  duration: 120,
   easing: Easing.out(Easing.ease),
 };
 
@@ -44,29 +38,23 @@ export function useVideoCardOverlayOpacity({
   idx: number;
   cardHeight: number;
 }): SharedValue<number> {
-  // Direct shared value, updated only when scroll or seeking animation changes (not per-frame).
-  // This replaces useDerivedValue for lower overhead.
-  const targetOpacity = useSharedValue(1);
+  const scrollOpacitySV = useSharedValue(1);
 
-  // Calculate opacity when scroll offset or seeking animation changes.
-  // useAnimatedReaction replaces useDerivedValue for more explicit, event-driven updates.
   useAnimatedReaction(
-    () => [scrollOffsetYSV?.value ?? 0, seekingAnimationSV.value] as const,
-    ([scrollY, seeking]) => {
-      const scrubbing = interpolate(seeking, [0, 0.2, 1], [1, 0, 0], 'clamp');
-
+    () => scrollOffsetYSV?.value ?? 0,
+    scrollY => {
+      'worklet';
       if (!scrollOffsetYSV) {
-        targetOpacity.value = withTiming(1, OPACITY_TIMING_CONFIG);
+        scrollOpacitySV.value = 1;
         return;
       }
 
       const itemTop = headerH + idx * itemSp;
       const itemBottom = itemTop + cardHeight;
 
-      // Early-out: skip overlap math for cards far outside viewport
       const dist = Math.abs(itemTop - scrollY);
       if (dist > viewportH * FAR_AWAY_FACTOR + cardHeight) {
-        targetOpacity.value = withTiming(0, OPACITY_TIMING_CONFIG);
+        scrollOpacitySV.value = 0;
         return;
       }
 
@@ -86,10 +74,25 @@ export function useVideoCardOverlayOpacity({
         p = Math.pow(raw / FULL_OPACITY_UNTIL_VISIBLE, FADE_CURVE_EXPONENT);
       }
 
-      targetOpacity.value = withTiming(p * scrubbing, OPACITY_TIMING_CONFIG);
+      scrollOpacitySV.value = p;
     },
-    [scrollOffsetYSV, seekingAnimationSV, headerH, viewportH, itemSp, idx, cardHeight]
+    [scrollOffsetYSV, headerH, viewportH, itemSp, idx, cardHeight]
   );
 
-  return targetOpacity;
+  const seekingFactorSV = useSharedValue(1);
+
+  useAnimatedReaction(
+    () => seekingAnimationSV.value,
+    seeking => {
+      'worklet';
+      const scrubbing = interpolate(seeking, [0, 0.2, 1], [1, 0, 0], 'clamp');
+      seekingFactorSV.value = withTiming(scrubbing, SEEK_TIMING_CONFIG);
+    },
+    [seekingAnimationSV]
+  );
+
+  return useDerivedValue(
+    () => scrollOpacitySV.value * seekingFactorSV.value,
+    [scrollOpacitySV, seekingFactorSV]
+  );
 }
