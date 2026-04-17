@@ -1,4 +1,3 @@
-import i18n from '../../../i18n';
 import React, {
   useCallback,
   useEffect,
@@ -9,15 +8,10 @@ import React, {
   useState,
 } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  BORDER_RADIUS,
-  QUERY_CONSTANTS,
-  SCROLL_INDICATOR_CONSTANTS,
-} from '../../../utils/constants';
+import { QUERY_CONSTANTS, SCROLL_INDICATOR_CONSTANTS } from '../../../utils/constants';
 import {
   ACTIVITY_LIST_MUTED_ICON_SIZE,
   ACTIVITY_LIST_SENT_BY_ME_ICON_SIZE,
-  ACTIVITY_LIST_STREAK_ICON_SIZE,
   ACTIVITY_LIST_TEXT_LEADING,
   activityListSharedStyles,
 } from './ActivityListStyles';
@@ -29,17 +23,12 @@ import { ChatBskyConvoDefs } from '@atproto/api';
 import { ChatService, type ListConvosFilter } from '../../../services/api/chat/ChatService';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useInfiniteQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { Colors } from '../../../theme';
 import { OptionsButton } from '../../../components/ui/OptionsButton';
 import { Avatar } from '../../../components/ui/UI';
-import Icon, {
-  FlameFillIcon,
-  FireFillIcon,
-  MutedChatIcon,
-  ShareForwardFillIcon,
-} from '../../../components/ui/Icon';
+import Icon, { MutedChatIcon, ShareForwardFillIcon } from '../../../components/ui/Icon';
 import { VerificationBadge, BotBadge } from '../badging';
 import EmptyFeed from '../feed/EmptyFeed';
 import { getBottomNavBarHeight } from '../../../utils/device/screen';
@@ -51,23 +40,13 @@ import { chatReactQueryOptions } from '../../../utils/query/chatQueryOptions';
 import ChatSettingsSheet from './ChatSettingsSheet';
 import { useUserStore } from '../../../stores/userStore';
 import { useProfileChannelNavigation } from '../../../hooks/useProfileChannelNavigation';
-import { getActiveStreak, isStreakActive } from '../../../utils/chat/streak';
+import { getLastMessagePreview, getOtherMember } from '../../../features/chat/utils/preview';
 import { useAvatarProfileRing } from '../../../services/colors';
-import type { ProfileViewBasic, RecordValue } from '../../../services/api/types';
+import type { ProfileViewBasic } from '../../../services/api/types';
 import ActivitySegmentedChips from './ActivitySegmentedChips';
 import { itemSizeConfig } from '@/components/ui/ItemStyles';
 
 type ConvoView = ChatBskyConvoDefs.ConvoView;
-
-// Type for embed record viewRecord
-interface EmbedRecordViewRecord {
-  $type?: string;
-  author?: ProfileViewBasic;
-  value?: RecordValue;
-  notFound?: boolean;
-  blocked?: boolean;
-  detached?: boolean;
-}
 
 const EmptyChats: React.FC<{ message?: string }> = ({ message }) => {
   const { t } = useTranslation();
@@ -87,65 +66,6 @@ const ChatsLoading = () => (
 
 const ChatDivider = () => <View style={activityListSharedStyles.dividerInset} />;
 
-/** Preview from listConvos lastMessage (API may omit $type; accept object with text). */
-function getLastMessagePreview(
-  lastMessage: ConvoView['lastMessage'],
-  currentUserDid: string | undefined
-): string {
-  if (!lastMessage || typeof lastMessage !== 'object') return '';
-  if (ChatBskyConvoDefs.isMessageView(lastMessage)) {
-    // If the last message includes an embedded post, prefer a richer single-line preview.
-    const msg = lastMessage as ChatBskyConvoDefs.MessageView;
-    const senderDid = (msg as { sender?: { did?: string } }).sender?.did;
-    const isFromMe = !!currentUserDid && !!senderDid && senderDid === currentUserDid;
-    const embed = (msg as { embed?: unknown }).embed;
-    if (embed && typeof embed === 'object') {
-      const embedType = (embed as { $type?: string }).$type;
-      // MessageView embed: view lexicon id or main record id (same payload).
-      if (
-        (embedType === 'app.bsky.embed.record#view' || embedType === 'app.bsky.embed.record') &&
-        'record' in embed
-      ) {
-        const record = (embed as { record?: EmbedRecordViewRecord }).record;
-        if (record && typeof record === 'object') {
-          const recordType = record.$type;
-          if (recordType === 'app.bsky.embed.record#viewRecord' && record.author && record.value) {
-            const authorHandleRaw = (record as { author?: { handle?: string } }).author?.handle;
-            const authorHandle = authorHandleRaw ? formatHandle(authorHandleRaw) : '';
-            const base = isFromMe ? i18n.t('chat.youSharedPost') : i18n.t('chat.sharedPost');
-            return authorHandle ? `${base} by @${authorHandle}` : base;
-          }
-          // Unavailable record variants (notFound/blocked/detached)
-          if (
-            recordType === 'app.bsky.embed.record#viewNotFound' ||
-            recordType === 'app.bsky.embed.record#viewBlocked' ||
-            recordType === 'app.bsky.embed.record#viewDetached' ||
-            record.notFound === true ||
-            record.blocked === true ||
-            record.detached === true
-          ) {
-            return isFromMe ? i18n.t('chat.youSharedPost') : i18n.t('chat.sharedPost');
-          }
-        }
-        return isFromMe ? i18n.t('chat.youSharedPost') : i18n.t('chat.sharedPost');
-      }
-    }
-    return msg.text ?? '';
-  }
-  if ('text' in lastMessage && typeof (lastMessage as { text?: string }).text === 'string') {
-    return (lastMessage as { text: string }).text;
-  }
-  return i18n.t('chat.messageDeleted');
-}
-
-function getOtherMember(
-  convo: ConvoView,
-  currentDid: string | undefined
-): ConvoView['members'][number] | undefined {
-  const others = convo.members?.filter(m => m.did !== currentDid) ?? [];
-  return others[0];
-}
-
 type ConversationItemProps = {
   item: ConvoView;
   navigation: ReturnType<typeof useRouter>;
@@ -158,7 +78,6 @@ type ConversationItemProps = {
 const ConversationItem = React.memo<ConversationItemProps>(
   ({ item, navigation, onAccept, onDecline, isAccepting, isDeclining }) => {
     const { t } = useTranslation();
-    const queryClient = useQueryClient();
     const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
     const currentUser = useUserStore(s => s.currentUser);
     const other = useMemo(
@@ -218,15 +137,6 @@ const ConversationItem = React.memo<ConversationItemProps>(
     const thisAccepting = isRequest && isAccepting;
     const thisDeclining = isRequest && isDeclining;
 
-    const cached = queryClient.getQueryData<{
-      messages?: Array<{ sentAt?: string; sender?: { did?: string } }>;
-    }>(queryKeys.chat.messages.byConversation(item.id ?? ''));
-    const { show: showStreak, count: streak } = getActiveStreak(
-      sentAt,
-      cached?.messages ?? [],
-      currentUser?.did ?? undefined
-    );
-
     const ringProps = useAvatarProfileRing(other?.did ?? undefined);
 
     return (
@@ -276,27 +186,6 @@ const ConversationItem = React.memo<ConversationItemProps>(
               {isMuted && (
                 <View style={styles.mutedIconWrap} accessibilityLabel={t('a11y.mutedConversation')}>
                   <MutedChatIcon size={ACTIVITY_LIST_MUTED_ICON_SIZE} color={Colors.neutral[500]} />
-                </View>
-              )}
-              {showStreak && (
-                <View style={styles.streakBadge}>
-                  {streak < 7 ? (
-                    <FlameFillIcon
-                      size={ACTIVITY_LIST_STREAK_ICON_SIZE}
-                      color={Colors.orange[500]}
-                    />
-                  ) : (
-                    <FireFillIcon size={ACTIVITY_LIST_STREAK_ICON_SIZE} color={Colors.coral[600]} />
-                  )}
-                  <Text
-                    style={[
-                      styles.streakBadgeText,
-                      streak < 7 ? styles.streakBadgeTextFlame : styles.streakBadgeTextFire,
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {streak}
-                  </Text>
                 </View>
               )}
             </View>
@@ -458,7 +347,7 @@ const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(({ chatFilter }, ref)
     getNextPageParam: lastPage => lastPage?.cursor ?? undefined,
     staleTime: QUERY_CONSTANTS.STALE_TIME_SHORT,
     gcTime: 60 * 60 * 1000,
-    refetchInterval: 30000, // Auto-refresh list to stay in sync with indicator
+    // List refresh is driven by the global useChatLog poller invalidating this key.
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     refetchOnReconnect: false,
@@ -471,42 +360,6 @@ const ChatsTab = forwardRef<ScrollToTopRef, ChatsTabProps>(({ chatFilter }, ref)
     () => data?.pages?.flatMap(p => p?.conversations ?? []) ?? [],
     [data]
   );
-
-  // Prefetch messages for recent convos that might show a streak, so the list can display streak badges.
-  // Without this, streak only shows when that convo was previously opened (messages in cache).
-  const convoIdsToFetchForStreak = useMemo(() => {
-    const ids: string[] = [];
-    for (const c of conversations) {
-      const id = c?.id;
-      if (!id) continue;
-      const lastMsg = c.lastMessage;
-      const sentAt =
-        lastMsg &&
-        typeof lastMsg === 'object' &&
-        'sentAt' in lastMsg &&
-        typeof (lastMsg as { sentAt?: string }).sentAt === 'string'
-          ? (lastMsg as { sentAt: string }).sentAt
-          : undefined;
-      if (!isStreakActive(sentAt)) continue;
-      const cached = queryClient.getQueryData<{ messages?: unknown[] }>(
-        queryKeys.chat.messages.byConversation(id)
-      );
-      if (cached?.messages && cached.messages.length > 0) continue;
-      ids.push(id);
-      if (ids.length >= 5) break;
-    }
-    return ids;
-  }, [conversations, queryClient]);
-
-  useQueries({
-    queries: convoIdsToFetchForStreak.map(convoId => ({
-      queryKey: queryKeys.chat.messages.byConversation(convoId),
-      queryFn: () => ChatService.getMessages(convoId, null),
-      staleTime: 60 * 60 * 1000,
-      gcTime: 60 * 60 * 1000,
-      ...chatReactQueryOptions,
-    })),
-  });
 
   const handleScroll = useCallback((e: { nativeEvent: { contentOffset: { y: number } } }) => {
     scrollOffsetRef.current = e.nativeEvent.contentOffset.y;
@@ -708,26 +561,6 @@ const styles = StyleSheet.create({
   },
   actionTextMuted: {
     color: Colors.neutral[500],
-  },
-  streakBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: BORDER_RADIUS.FULL,
-    backgroundColor: Colors.neutral[925],
-    gap: 4,
-  },
-  streakBadgeText: {
-    fontSize: Typography.sizes.caption,
-    fontFamily: FontFamily.semibold,
-  },
-  streakBadgeTextFlame: {
-    color: Colors.orange[500],
-  },
-  streakBadgeTextFire: {
-    color: Colors.coral[600],
   },
   timeTextMuted: {
     color: Colors.neutral[600],

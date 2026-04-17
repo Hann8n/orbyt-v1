@@ -3,49 +3,14 @@
  * All methods use the atproto-proxy header for bsky_chat.
  */
 
-import { retry } from '@atproto/common-web';
-import { RichText } from '@atproto/api';
 import { AtprotoCore } from '../core';
-import { XRPCError, ResponseType } from '@atproto/xrpc';
+import { chatOpts, withRetry429 } from '../../../features/chat/api/chatClient';
+import { detectFacets } from '../../../features/chat/api/facets';
 import type { ConvoView, MessageView } from '../types';
 import type { OutputSchema as GetLogOutputSchema } from '@atproto/api/dist/client/types/chat/bsky/convo/getLog';
 
-const CHAT_SERVICE_DID = 'did:web:api.bsky.chat';
-
-const RATE_LIMIT_DEFAULT_BACKOFF_MS = 5000;
-const RATE_LIMIT_MAX_RETRIES = 2;
-
-/** Re-export getLog output shape from SDK for consumers (e.g. useChatLogPolling). */
+/** Re-export getLog output shape from SDK for consumers (e.g. useChatLog). */
 export type { GetLogOutputSchema };
-
-const chatOpts = () => ({
-  headers: { 'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat` as const },
-});
-
-function parseRetryAfterMs(headers?: Record<string, string | undefined>): number {
-  const raw = headers?.['retry-after'] ?? headers?.['Retry-After'];
-  if (raw == null) return RATE_LIMIT_DEFAULT_BACKOFF_MS;
-  const n = parseInt(raw, 10);
-  if (!Number.isNaN(n) && n > 0) return Math.min(n * 1000, 60_000);
-  return RATE_LIMIT_DEFAULT_BACKOFF_MS;
-}
-
-/** Wrap a chat read call with 429 retry using the same retry() utility the SDK uses (e.g. agent upsertProfile). */
-function withRetry429<T>(fn: () => Promise<T>): Promise<T> {
-  let last429Headers: Record<string, string | undefined> | undefined;
-  return retry(fn, {
-    maxRetries: RATE_LIMIT_MAX_RETRIES,
-    retryable: e => {
-      if (e instanceof XRPCError && e.status === ResponseType.RateLimitExceeded) {
-        last429Headers = e.headers;
-        return true;
-      }
-      return false;
-    },
-    getWaitMs: () =>
-      last429Headers ? parseRetryAfterMs(last429Headers) : RATE_LIMIT_DEFAULT_BACKOFF_MS,
-  });
-}
 
 export interface ConversationsResponse {
   conversations: ConvoView[];
@@ -201,15 +166,8 @@ export const ChatService = {
     if (message.facets && message.facets.length > 0) {
       msg.facets = message.facets;
     } else {
-      try {
-        const rt = new RichText({ text: message.text || '' });
-        await rt.detectFacets(api);
-        if (rt.facets && rt.facets.length > 0) {
-          msg.facets = rt.facets as MessageView['facets'];
-        }
-      } catch {
-        // Ignore facet detection failures; send plain text.
-      }
+      const detected = await detectFacets(message.text);
+      if (detected) msg.facets = detected;
     }
 
     if (message.embed) {

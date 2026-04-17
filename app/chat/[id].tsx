@@ -64,9 +64,8 @@ import { useAvatarProfileRing } from '@/services/colors';
 import { queryKeys } from '@/utils/query/queryKeys';
 import { chatReactQueryOptions } from '@/utils/query/chatQueryOptions';
 import { getActiveStreak } from '@/utils/chat/streak';
-import { format, parseISO, isValid, isToday, isYesterday, differenceInMinutes } from 'date-fns';
+import { parseISO, isValid, differenceInMinutes } from 'date-fns';
 import { useProfileByDid, useBlockMutation } from '@/services/data/ProfileService';
-import { useChatLogPolling } from '@/hooks/useChatLogPolling';
 import { ChatService } from '@/services/api/chat/ChatService';
 import { ModerationService } from '@/services/moderation/ModerationService';
 import { useUserStore } from '@/stores/userStore';
@@ -75,133 +74,38 @@ import { openPostInBluesky } from '@/utils/links/bluesky';
 import { buildFeedModalHref, buildFullHeightVideoHref } from '@/utils/navigation/feedModalRoute';
 import { useFeedModalTabSegment } from '@/utils/navigation/feedModalTabSegment';
 import { seedChatEmbedVideoFeed } from '@/utils/chat/seedChatEmbedVideoFeed';
-import { getVideoView } from '@/utils/video/helpers';
 import { blendColors, hexToRGBA } from '@/utils/formatting/colors';
-import type { PostView, ProfileViewBasic } from '@/services/api/types';
+import type { ProfileViewBasic } from '@/services/api/types';
 import type { RichTextFacet } from '@/utils/types/richText';
+import { type ReactionShape, groupReactions } from '@/features/chat/utils/reactions';
+import { type ChatRichTextPart, formatChatRichTextParts } from '@/features/chat/utils/richText';
+import { getDateGroupLabel, getDateKey, formatMessageTime } from '@/features/chat/utils/dates';
+import {
+  RECORD_VIEW_RECORD,
+  RECORD_VIEW_NOT_FOUND,
+  RECORD_VIEW_BLOCKED,
+  RECORD_VIEW_DETACHED,
+  CHAT_EMBED_VIDEO_WIDTH,
+  CHAT_EMBED_VIDEO_ASPECT,
+  CHAT_EMBED_VIDEO_RADIUS,
+  CHAT_BUBBLE_OUTSIDE_BOTTOM_RADIUS,
+  type EmbedRecordShape,
+  getVideoViewFromRecordEmbeds,
+  getImagesFromRecordEmbeds,
+  isEmbedRecordView,
+} from '@/features/chat/utils/embeds';
+import {
+  type MessageItem,
+  type ChatListItem,
+  MESSAGE_GROUP_WINDOW_MINUTES,
+  getMessagePreview,
+} from '@/features/chat/utils/grouping';
 import EmojiPicker from 'react-native-emoji-chooser';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
 const EMBED_VIDEO_GRADIENT_SHIM = require('@/assets/embed-video-gradient-shim.png');
-
-/** Chat message item: full MessageView from API (id, rev, text, facets?, embed?, sender, sentAt, reactions?, etc.) */
-type MessageItem = MessageView & { sender?: { did: string } };
-
-/** Reaction shape from chat.bsky.convo messageView */
-type ReactionShape = { value: string; sender?: { did?: string }; createdAt?: string };
-
-/** Group reactions by emoji value: { value, count, includesMe } */
-function groupReactions(
-  reactions: ReactionShape[] | undefined,
-  currentUserDid: string | undefined
-): Array<{ value: string; count: number; includesMe: boolean }> {
-  if (!reactions?.length) return [];
-  const map = new Map<string, { count: number; includesMe: boolean }>();
-  for (const r of reactions) {
-    const v = r.value ?? '';
-    if (!v) continue;
-    const prev = map.get(v);
-    const isMe = !!currentUserDid && r.sender?.did === currentUserDid;
-    if (prev) {
-      prev.count += 1;
-      prev.includesMe = prev.includesMe || isMe;
-    } else {
-      map.set(v, { count: 1, includesMe: isMe });
-    }
-  }
-  return Array.from(map.entries()).map(([value, { count, includesMe }]) => ({
-    value,
-    count,
-    includesMe,
-  }));
-}
-
-/** Window in minutes for grouping consecutive messages from same sender */
-const MESSAGE_GROUP_WINDOW_MINUTES = 5;
-
-/** List item: message or date separator */
-type ChatListItem =
-  | { type: 'message'; message: MessageItem; showTime: boolean; groupedWithPrevious: boolean }
-  | { type: 'date'; dateKey: string; label: string };
-
-type ChatRichTextPart = {
-  text: string;
-  isSemiBold?: boolean;
-  isSymbol?: boolean;
-  kind?: 'mention' | 'hashtag' | 'link';
-  identifier?: string;
-  href?: string;
-};
-
-function formatChatRichTextParts(
-  text: string,
-  facets?: RichTextFacet[] | null
-): ChatRichTextPart[] {
-  if (!text) return [{ text: '', isSemiBold: false }];
-  if (!facets || facets.length === 0) return [{ text, isSemiBold: false }];
-
-  const parts: ChatRichTextPart[] = [];
-  const textBytes = new TextEncoder().encode(text);
-  let lastByteIndex = 0;
-  const sortedFacets = [...facets].sort((a, b) => a.index.byteStart - b.index.byteStart);
-
-  for (const facet of sortedFacets) {
-    const start = Math.max(0, Math.min(textBytes.length, facet.index.byteStart));
-    const end = Math.max(start, Math.min(textBytes.length, facet.index.byteEnd));
-
-    if (start > lastByteIndex) {
-      const beforeText = new TextDecoder().decode(textBytes.slice(lastByteIndex, start));
-      if (beforeText) parts.push({ text: beforeText, isSemiBold: false });
-    }
-
-    const facetText = new TextDecoder().decode(textBytes.slice(start, end));
-    const features = facet.features ?? [];
-    const mentionFeature = features.find(f => f.$type === 'app.bsky.richtext.facet#mention');
-    const hashtagFeature = features.find(f => f.$type === 'app.bsky.richtext.facet#tag');
-    const linkFeature = features.find(f => f.$type === 'app.bsky.richtext.facet#link');
-
-    const isMention = !!mentionFeature;
-    const isHashtag = !!hashtagFeature;
-    const isLink = !!linkFeature;
-
-    if (isMention || isHashtag) {
-      const symbol = facetText[0];
-      const textAfterSymbol = facetText.slice(1);
-      const base: Omit<ChatRichTextPart, 'text' | 'isSemiBold'> = {
-        kind: isMention ? 'mention' : 'hashtag',
-        identifier:
-          textAfterSymbol ||
-          (isMention
-            ? mentionFeature?.did || mentionFeature?.uri || ''
-            : hashtagFeature?.tag || ''),
-      };
-
-      if (symbol) parts.push({ text: symbol, isSemiBold: false, isSymbol: true, ...base });
-      if (textAfterSymbol) parts.push({ text: textAfterSymbol, isSemiBold: true, ...base });
-    } else if (isLink) {
-      const href = linkFeature?.uri || facetText;
-      parts.push({
-        text: facetText,
-        isSemiBold: false,
-        kind: 'link',
-        href,
-      });
-    } else {
-      parts.push({ text: facetText, isSemiBold: false });
-    }
-
-    lastByteIndex = end;
-  }
-
-  if (lastByteIndex < textBytes.length) {
-    const remainingText = new TextDecoder().decode(textBytes.slice(lastByteIndex));
-    if (remainingText) parts.push({ text: remainingText, isSemiBold: false });
-  }
-
-  return parts.length > 0 ? parts : [{ text, isSemiBold: false }];
-}
 
 function ChatMessageRichText({
   text,
@@ -277,146 +181,6 @@ function ChatMessageRichText({
       ))}
     </Text>
   );
-}
-
-function getDateGroupLabel(sentAt: string): string {
-  const date = parseISO(sentAt);
-  if (!isValid(date)) return '';
-  if (isToday(date)) return i18n.t('chat.today');
-  if (isYesterday(date)) return i18n.t('chat.yesterday');
-  return format(date, 'EEEE, MMM d');
-}
-
-function getDateKey(sentAt: string): string {
-  const date = parseISO(sentAt);
-  if (!isValid(date)) return '';
-  return format(date, 'yyyy-MM-dd');
-}
-
-function formatMessageTime(sentAt?: string): string {
-  if (!sentAt) return '';
-  const date = parseISO(sentAt);
-  return isValid(date) ? format(date, 'h:mm a') : '';
-}
-
-function getMessagePreview(msg: MessageItem): string {
-  if (msg.text != null && msg.text !== '') return msg.text;
-  return i18n.t('chat.messageDeleted');
-}
-
-/** Embed view type; API/SDK may also return main lexicon id without `#view` (same shape). */
-const EMBED_RECORD_VIEW = 'app.bsky.embed.record#view';
-const EMBED_RECORD = 'app.bsky.embed.record';
-const RECORD_VIEW_RECORD = 'app.bsky.embed.record#viewRecord';
-const RECORD_VIEW_NOT_FOUND = 'app.bsky.embed.record#viewNotFound';
-const RECORD_VIEW_BLOCKED = 'app.bsky.embed.record#viewBlocked';
-const RECORD_VIEW_DETACHED = 'app.bsky.embed.record#viewDetached';
-
-/** Shape of embed.record for display (viewRecord has uri, cid, author, value, embeds; viewNotFound/viewBlocked/viewDetached have uri + flag) */
-type EmbedRecordShape = {
-  $type?: string;
-  uri?: string;
-  cid?: string;
-  author?: { did: string; handle?: string; displayName?: string; avatar?: string };
-  value?: { text?: string };
-  embeds?: Array<{
-    $type?: string;
-    thumbnail?: string;
-    playlist?: string;
-    aspectRatio?: { width: number; height: number };
-  }>;
-  indexedAt?: string;
-  replyCount?: number;
-  repostCount?: number;
-  likeCount?: number;
-  notFound?: true;
-  blocked?: true;
-  detached?: true;
-};
-
-const CHAT_EMBED_VIDEO_WIDTH = 150;
-const CHAT_EMBED_VIDEO_ASPECT = 9 / 16; // 9:16 card
-const CHAT_EMBED_VIDEO_RADIUS = 10; // slightly less round
-/** Bottom corner toward screen edge — text/caption bubbles only */
-const CHAT_BUBBLE_OUTSIDE_BOTTOM_RADIUS = 6;
-
-type EmbedImage = {
-  thumb?: string;
-  fullsize?: string;
-  alt?: string;
-  aspectRatio?: { width: number; height: number };
-};
-
-/** Get video view from record.embeds (post can have video in embeds[] or as recordWithMedia) */
-function getVideoViewFromRecordEmbeds(
-  embeds: EmbedRecordShape['embeds']
-): { thumbnail: string | null; playlist?: string } | null {
-  if (!embeds?.length) return null;
-  for (let i = 0; i < embeds.length; i++) {
-    const view = getVideoView(embeds[i] as PostView['embed']);
-    if (view) return { thumbnail: view.thumbnail || null, playlist: view.playlist };
-    // recordWithMedia: embeds[i].media could be video
-    const item = embeds[i] as {
-      $type?: string;
-      media?: { $type?: string; thumbnail?: string; playlist?: string };
-    };
-    if (item?.$type === 'app.bsky.embed.recordWithMedia#view' && item.media) {
-      const mediaView = getVideoView(item.media as PostView['embed']);
-      if (mediaView)
-        return { thumbnail: mediaView.thumbnail || null, playlist: mediaView.playlist };
-    }
-  }
-  return null;
-}
-
-/** Get images/GIFs from record.embeds (app.bsky.embed.images#view or recordWithMedia with images) */
-function getImagesFromRecordEmbeds(embeds: EmbedRecordShape['embeds']): EmbedImage[] {
-  const result: EmbedImage[] = [];
-  if (!embeds?.length) return result;
-  for (let i = 0; i < embeds.length; i++) {
-    const e = embeds[i] as {
-      $type?: string;
-      images?: EmbedImage[];
-      media?: { $type?: string; images?: EmbedImage[] };
-    };
-    if (e?.$type === 'app.bsky.embed.images' || e?.$type === 'app.bsky.embed.images#view') {
-      if (Array.isArray(e.images)) {
-        for (const img of e.images) {
-          if (img && (img.thumb || img.fullsize))
-            result.push({
-              thumb: img.thumb,
-              fullsize: img.fullsize,
-              alt: img.alt,
-              aspectRatio: img.aspectRatio,
-            });
-        }
-      }
-    } else if (e?.$type === 'app.bsky.embed.recordWithMedia#view' && e.media) {
-      const media = e.media as { $type?: string; images?: EmbedImage[] };
-      if (
-        (media.$type === 'app.bsky.embed.images' || media.$type === 'app.bsky.embed.images#view') &&
-        Array.isArray(media.images)
-      ) {
-        for (const img of media.images) {
-          if (img && (img.thumb || img.fullsize))
-            result.push({
-              thumb: img.thumb,
-              fullsize: img.fullsize,
-              alt: img.alt,
-              aspectRatio: img.aspectRatio,
-            });
-        }
-      }
-    }
-  }
-  return result;
-}
-
-function isEmbedRecordView(embed: MessageView['embed'] | null | undefined): boolean {
-  if (!embed || typeof embed !== 'object') return false;
-  const t = (embed as { $type?: string }).$type;
-  const isRecordEmbed = t === EMBED_RECORD_VIEW || t === EMBED_RECORD;
-  return isRecordEmbed && 'record' in embed && (embed as { record?: unknown }).record != null;
 }
 
 /** Shared author row for both video and non-video embeds (AuthorItem for verification/bot badges). Use authorAlwaysOnRight (e.g. video overlay) to keep avatar left, handle right regardless of isFromMe. */
@@ -1356,8 +1120,6 @@ export default function ChatScreen() {
       };
     }, [])
   );
-
-  useChatLogPolling(isInConvo ? convoId : undefined, queryClient);
 
   const sendMessageMutation = useMutation({
     mutationFn: (text: string) => ChatService.sendMessage(convoId, { text }),

@@ -7,6 +7,7 @@ import { useDetailNavTabStore } from '@/stores/detailNavTabStore';
 import { Colors } from '@/theme';
 import { useCurrentUserOrbytShellColors } from '@/services/colors';
 import { useUnreadCount } from '@/hooks/useUnreadCount';
+import { useChatLog } from '@/features/chat/hooks/useChatLog';
 import { TAB_BAR_INACTIVE_TINT } from '@/utils/formatting/colors';
 import { getDetailNavTabIfInsideTabs } from '@/utils/navigation/detailRoutes';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
@@ -38,6 +39,7 @@ export default function TabsLayout() {
   const { t } = useTranslation();
   const { activeTint } = useCurrentUserOrbytShellColors();
   const { totalUnreadCount } = useUnreadCount();
+  useChatLog();
 
   return (
     <>
