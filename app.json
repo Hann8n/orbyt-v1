@@ -26,7 +26,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./src/assets/AppIcons/android/orbyt_icon_adaptive_foreground.png",
-        "backgroundColor": "#000000"
+        "backgroundColor": "#05070a"
       },
       "package": "com.orbyt.app",
       "versionCode": 2026041500,
@@ -39,7 +39,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#000000",
+          "backgroundColor": "#05070a",
           "image": "./src/assets/splash.png",
           "imageWidth": 200,
           "resizeMode": "contain"
