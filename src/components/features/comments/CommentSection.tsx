@@ -22,7 +22,6 @@ import Animated, {
 } from 'react-native-reanimated';
 import { FlashList, ListRenderItem, FlashListRef } from '@shopify/flash-list';
 import { useInfiniteQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
 import { navigateToProfileImageViewer } from '@/utils/navigation/profileImageViewer';
 
@@ -281,16 +280,10 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const scrollToCommentUri = globalData?.scrollToCommentUri;
   const [displayedTotalComments, setDisplayedTotalComments] = useState(totalComments);
 
-  const insets = useSafeAreaInsets();
   const [listBottomPadding, wrapFooter] = useMeasuredFooterHeight(96);
   const listContentStyle = useMemo(
-    () => [
-      styles.listContent,
-      {
-        paddingBottom: listBottomPadding + (typeof insets?.bottom === 'number' ? insets.bottom : 0),
-      },
-    ],
-    [listBottomPadding, insets?.bottom]
+    () => [styles.listContent, { paddingBottom: listBottomPadding }],
+    [listBottomPadding]
   );
 
   const klipySheetRef = useRef<TrueSheetHandle>(null);

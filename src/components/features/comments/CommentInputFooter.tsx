@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { memo, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   View,
@@ -7,7 +7,6 @@ import {
   ScrollView,
   StyleSheet,
   Platform,
-  Keyboard,
   type StyleProp,
   type ViewStyle,
   type ImageStyle,
@@ -176,27 +175,11 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   const { data: currentUserProfile } = useProfile(currentUserHandle);
   const ringProps = useAvatarProfileRing(currentUserDid);
 
-  // Bottom padding: reduced safe area when keyboard closed; collapse when keyboard open
-  // so the padding doesn't push the footer up with the keyboard.
+  // Keep footer placement simple: rely on TrueSheet native keyboard handling and a
+  // clamped safe-area inset for the resting state.
   const insets = useSafeAreaInsets();
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const rawSafeArea = safeAreaBottomProp !== undefined ? safeAreaBottomProp : insets.bottom;
-  const clampedSafeArea = getFooterBottomPadding(rawSafeArea);
-
-  useEffect(() => {
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const onShow = () => setKeyboardVisible(true);
-    const onHide = () => setKeyboardVisible(false);
-    const showSub = Keyboard.addListener(showEvent, onShow);
-    const hideSub = Keyboard.addListener(hideEvent, onHide);
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
-
-  const bottomPadding = keyboardVisible ? 0 : clampedSafeArea;
+  const bottomPadding = getFooterBottomPadding(rawSafeArea);
 
   const hasImages = selectedImages.length > 0;
   const hasGifPreview = !!selectedGifPreviewUri;
