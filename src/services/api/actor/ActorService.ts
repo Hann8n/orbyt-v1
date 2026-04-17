@@ -35,6 +35,19 @@ function getPublicAppviewAgent(): Agent {
   return publicAppviewAgent;
 }
 
+function createOfflineBlobRef(link: string, mimeType: string): BlobRef {
+  const blob = BlobRef.asBlobRef({
+    $type: 'blob',
+    ref: { $link: link },
+    mimeType,
+    size: 0,
+  });
+  if (!blob) {
+    throw new Error('Failed to create offline mock blob ref');
+  }
+  return blob;
+}
+
 /**
  * Converts JSON blob objects (from getRecord) to BlobRef instances.
  * When manually fetching records via getRecord, blobs come as JSON objects
@@ -426,6 +439,13 @@ export class ActorService {
       textColor: string;
     };
   }): Promise<ProfileViewDetailed> {
+    if (AtprotoCore.isOutgoingApiBlocked()) {
+      if (AtprotoCore.shouldFailOfflineWriteMock()) {
+        throw new Error('Offline write mock failure: updateProfile');
+      }
+      return this.getCurrentUser();
+    }
+
     await AtprotoCore.ensureSession();
     // Use the correct upsertProfile method as per Bluesky documentation
     const { api } = await AtprotoCore.getApiClient();
@@ -626,6 +646,13 @@ export class ActorService {
    * @returns BlobRef instance for the uploaded image
    */
   static async uploadImage(imageUri: string): Promise<BlobRef> {
+    if (AtprotoCore.isOutgoingApiBlocked()) {
+      if (AtprotoCore.shouldFailOfflineWriteMock()) {
+        throw new Error('Offline write mock failure: uploadImage');
+      }
+      return createOfflineBlobRef(`bafk-offline-image-${Date.now()}`, 'image/jpeg');
+    }
+
     await AtprotoCore.ensureSession();
 
     let imageBlob: Blob;

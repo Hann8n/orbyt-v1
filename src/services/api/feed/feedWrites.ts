@@ -19,6 +19,17 @@ export async function postComment(
   images?: { uri: string; alt: string; aspectRatio?: { width: number; height: number } }[],
   externalEmbed?: { uri: string; title?: string; description?: string; thumb?: string }
 ): Promise<{ uri: string; cid: string }> {
+  if (AtprotoCore.isOutgoingApiBlocked()) {
+    if (AtprotoCore.shouldFailOfflineWriteMock()) {
+      throw new Error('Offline write mock failure: postComment');
+    }
+    const stamp = Date.now();
+    return {
+      uri: `at://did:plc:offline-debug/app.bsky.feed.post/mock-comment-${stamp}`,
+      cid: `offline-comment-cid-${stamp}`,
+    };
+  }
+
   await AtprotoCore.ensureSession();
   const { api } = await AtprotoCore.getApiClient();
 
@@ -193,6 +204,20 @@ export async function createVideoPost(
   jobId?: string,
   videoBlob?: BlobRef
 ): Promise<CreateRecordResponse> {
+  if (AtprotoCore.isOutgoingApiBlocked()) {
+    if (AtprotoCore.shouldFailOfflineWriteMock()) {
+      throw new Error('Offline write mock failure: createVideoPost');
+    }
+    const stamp = Date.now();
+    if (onProgress) {
+      onProgress(100);
+    }
+    return {
+      uri: `at://did:plc:offline-debug/app.bsky.feed.post/mock-video-${stamp}`,
+      cid: `offline-video-cid-${stamp}`,
+    };
+  }
+
   await AtprotoCore.ensureSession();
 
   // Check email confirmation before allowing video post
@@ -431,6 +456,13 @@ async function setCommentFilter(
 }
 
 export async function deletePost(uri: string): Promise<boolean> {
+  if (AtprotoCore.isOutgoingApiBlocked()) {
+    if (AtprotoCore.shouldFailOfflineWriteMock()) {
+      return false;
+    }
+    return !!uri;
+  }
+
   try {
     await AtprotoCore.ensureSession();
 
@@ -476,6 +508,13 @@ export async function deletePost(uri: string): Promise<boolean> {
  * @returns A boolean indicating success
  */
 export async function mutePostComments(postUri: string): Promise<boolean> {
+  if (AtprotoCore.isOutgoingApiBlocked()) {
+    if (AtprotoCore.shouldFailOfflineWriteMock()) {
+      return false;
+    }
+    return !!postUri;
+  }
+
   try {
     await AtprotoCore.ensureSession();
     // Extract the record key (rkey) from the URI

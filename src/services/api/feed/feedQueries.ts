@@ -42,6 +42,81 @@ import { QUERY_CONSTANTS } from '../../../utils/constants';
 import { logger } from '../../../utils/logger';
 import { hydrateOrbytChannels } from '../../OrbytChannelsService';
 
+function buildMockComments(postUri: string): Comment[] {
+  const nowIso = new Date().toISOString();
+  const rootReplyUri = `${postUri}/debug-comment-root`;
+  const childReplyUri = `${postUri}/debug-comment-child`;
+  const rootCid = 'debug-root-cid';
+  const childCid = 'debug-child-cid';
+
+  const rootComment: Comment = {
+    uri: rootReplyUri,
+    cid: rootCid,
+    author: {
+      did: 'did:plc:debug-author-root',
+      handle: 'offline.tester',
+      displayName: 'Offline Tester',
+    },
+    record: {
+      $type: 'app.bsky.feed.post',
+      text: 'Offline debug mode: API calls are disabled.',
+      createdAt: nowIso,
+    } as PostRecord,
+    indexedAt: nowIso,
+    likeCount: 2,
+    replyCount: 1,
+    replies: [],
+    parent: null,
+  };
+
+  const childComment: Comment = {
+    uri: childReplyUri,
+    cid: childCid,
+    author: {
+      did: 'did:plc:debug-author-child',
+      handle: 'qa.bot',
+      displayName: 'QA Bot',
+    },
+    record: {
+      $type: 'app.bsky.feed.post',
+      text: 'Nested replies still render in offline mode.',
+      createdAt: nowIso,
+    } as PostRecord,
+    indexedAt: nowIso,
+    likeCount: 0,
+    replyCount: 0,
+    replies: [],
+    parent: rootComment,
+  };
+
+  rootComment.replies = [childComment];
+  return [rootComment];
+}
+
+function buildMockLikes(): Like[] {
+  const nowIso = new Date().toISOString();
+  return [
+    {
+      createdAt: nowIso,
+      indexedAt: nowIso,
+      actor: {
+        did: 'did:plc:debug-like-1',
+        handle: 'offline.like.one',
+        displayName: 'Offline Like One',
+      },
+    } as Like,
+    {
+      createdAt: nowIso,
+      indexedAt: nowIso,
+      actor: {
+        did: 'did:plc:debug-like-2',
+        handle: 'offline.like.two',
+        displayName: 'Offline Like Two',
+      },
+    } as Like,
+  ];
+}
+
 /**
  * Get feed content - optimized for video-only feeds with maximum batch loading
  * Uses @atproto/api directly - React Query handles retries
@@ -62,6 +137,10 @@ export async function getFeed(
   limit: number = QUERY_CONSTANTS.FEED_PAGE_MAX_SINGLE,
   feedType?: FeedType
 ): Promise<FeedResponse> {
+  if (!AtprotoCore.isIncomingApiEnabled()) {
+    return { feed: [], cursor: null };
+  }
+
   try {
     const apiClient = await AtprotoCore.getApiClient();
 
@@ -283,6 +362,11 @@ export async function getComments(
   cursor: string | null = null,
   _limit: number = 25
 ): Promise<CommentsResponse> {
+  if (!AtprotoCore.isIncomingApiEnabled()) {
+    if (cursor) return { comments: [], cursor: null };
+    return { comments: buildMockComments(postUri), cursor: null };
+  }
+
   await AtprotoCore.ensureSession();
   try {
     // Use Bluesky threading parameters
@@ -379,6 +463,11 @@ export async function getLikes(
   cursor: string | null = null,
   limit: number = 25
 ): Promise<LikesResponse> {
+  if (!AtprotoCore.isIncomingApiEnabled()) {
+    if (cursor) return { likes: [], cursor: null };
+    return { likes: buildMockLikes().slice(0, limit), cursor: null };
+  }
+
   await AtprotoCore.ensureSession();
   try {
     const params: { uri: string; limit: number; cursor?: string } = { uri, limit };

@@ -55,6 +55,13 @@ function logInteractionDiagnosticOnce(
 }
 
 export async function likePost(uri: string, cid: string): Promise<string> {
+  if (AtprotoCore.isOutgoingApiBlocked()) {
+    if (AtprotoCore.shouldFailOfflineWriteMock()) {
+      throw new Error('Offline write mock failure: likePost');
+    }
+    return `at://did:plc:offline-debug/app.bsky.feed.like/mock-like-${Date.now()}`;
+  }
+
   const cacheKey = `like:${uri}:${cid}`;
   return deduplicateRequest(cacheKey, async () => {
     const userDid = AtprotoCore.getCurrentUserDid();
@@ -76,6 +83,13 @@ export async function likePost(uri: string, cid: string): Promise<string> {
  * @param likeUri - URI of the like to delete
  */
 export async function deleteLike(likeUri: string): Promise<void> {
+  if (AtprotoCore.isOutgoingApiBlocked()) {
+    if (AtprotoCore.shouldFailOfflineWriteMock()) {
+      throw new Error('Offline write mock failure: deleteLike');
+    }
+    return;
+  }
+
   await AtprotoCore.ensureSession();
   const { api } = await AtprotoCore.getApiClient();
   const userDid = AtprotoCore.getCurrentUserDid();
@@ -92,6 +106,13 @@ export async function deleteLike(likeUri: string): Promise<void> {
  * @returns The URI of the created repost
  */
 export async function repostPost(uri: string, cid: string): Promise<string> {
+  if (AtprotoCore.isOutgoingApiBlocked()) {
+    if (AtprotoCore.shouldFailOfflineWriteMock()) {
+      throw new Error('Offline write mock failure: repostPost');
+    }
+    return `at://did:plc:offline-debug/app.bsky.feed.repost/mock-repost-${Date.now()}`;
+  }
+
   const cacheKey = `repost:${uri}:${cid}`;
   return deduplicateRequest(cacheKey, async () => {
     const userDid = AtprotoCore.getCurrentUserDid();
@@ -113,6 +134,13 @@ export async function repostPost(uri: string, cid: string): Promise<string> {
  * @param repostURI - URI of the repost to delete
  */
 export async function deleteRepost(repostURI: string): Promise<void> {
+  if (AtprotoCore.isOutgoingApiBlocked()) {
+    if (AtprotoCore.shouldFailOfflineWriteMock()) {
+      throw new Error('Offline write mock failure: deleteRepost');
+    }
+    return;
+  }
+
   const { api } = await AtprotoCore.getApiClient();
   const userDid = AtprotoCore.getCurrentUserDid();
   if (!userDid) throw new Error('No authenticated user');
@@ -129,6 +157,13 @@ export async function sendFeedInteractions(
   interactions: Interaction[],
   feed?: string
 ): Promise<void> {
+  if (AtprotoCore.isOutgoingApiBlocked()) {
+    if (AtprotoCore.shouldFailOfflineWriteMock()) {
+      throw new Error('Offline write mock failure: sendFeedInteractions');
+    }
+    return;
+  }
+
   if (!interactions || interactions.length === 0) {
     return;
   }
@@ -253,6 +288,13 @@ export async function sendVideoFeedback(
   feedContext?: string,
   algorithmicFeedProvider?: string | null
 ): Promise<void> {
+  if (AtprotoCore.isOutgoingApiBlocked()) {
+    if (AtprotoCore.shouldFailOfflineWriteMock()) {
+      throw new Error('Offline write mock failure: sendVideoFeedback');
+    }
+    return;
+  }
+
   await AtprotoCore.ensureSession();
 
   const userDid = AtprotoCore.getCurrentUserDid();

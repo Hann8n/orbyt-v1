@@ -22,6 +22,19 @@ import type {
 } from '../types';
 import type { SubscribedChannel } from '../../../stores/userStore';
 
+function createOfflineBlobRef(link: string, mimeType: string): BlobRef {
+  const blob = BlobRef.asBlobRef({
+    $type: 'blob',
+    ref: { $link: link },
+    mimeType,
+    size: 0,
+  });
+  if (!blob) {
+    throw new Error('Failed to create offline mock blob ref');
+  }
+  return blob;
+}
+
 export class RepoService {
   /**
    * Upload a video file to Bluesky
@@ -29,6 +42,13 @@ export class RepoService {
    * @returns Blob reference for the uploaded video
    */
   static async uploadVideo(videoPath: string): Promise<BlobRef> {
+    if (AtprotoCore.isOutgoingApiBlocked()) {
+      if (AtprotoCore.shouldFailOfflineWriteMock()) {
+        throw new Error('Offline write mock failure: uploadVideo');
+      }
+      return createOfflineBlobRef(`bafk-offline-video-${Date.now()}`, 'video/mp4');
+    }
+
     await AtprotoCore.ensureSession();
 
     if (!videoPath.startsWith('file://')) {
@@ -188,6 +208,13 @@ export class RepoService {
     subscribedChannels?: string[];
     algorithmicFeedProvider?: string | null;
   }): Promise<boolean> {
+    if (AtprotoCore.isOutgoingApiBlocked()) {
+      if (AtprotoCore.shouldFailOfflineWriteMock()) {
+        return false;
+      }
+      return true;
+    }
+
     try {
       const userDid = AtprotoCore.getCurrentUserDid();
       if (!userDid) return false;
@@ -374,6 +401,13 @@ export class RepoService {
    * @returns True if successfully deleted or record did not exist
    */
   static async deleteGermDeclaration(): Promise<boolean> {
+    if (AtprotoCore.isOutgoingApiBlocked()) {
+      if (AtprotoCore.shouldFailOfflineWriteMock()) {
+        return false;
+      }
+      return true;
+    }
+
     try {
       const userDid = AtprotoCore.getCurrentUserDid();
       if (!userDid) return false;

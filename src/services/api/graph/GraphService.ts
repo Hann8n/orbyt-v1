@@ -14,6 +14,13 @@ export class GraphService {
    * @returns Follow URI
    */
   static async follow(did: string): Promise<string> {
+    if (AtprotoCore.isOutgoingApiBlocked()) {
+      if (AtprotoCore.shouldFailOfflineWriteMock()) {
+        throw new Error('Offline write mock failure: follow');
+      }
+      return `at://did:plc:offline-debug/app.bsky.graph.follow/mock-follow-${Date.now()}`;
+    }
+
     const cacheKey = `follow:${did}`;
     return deduplicateRequest(cacheKey, async () => {
       const { api } = await AtprotoCore.getApiClient();
@@ -44,6 +51,13 @@ export class GraphService {
    * @returns True if successful
    */
   static async unfollow(did: string, followUri?: string): Promise<boolean> {
+    if (AtprotoCore.isOutgoingApiBlocked()) {
+      if (AtprotoCore.shouldFailOfflineWriteMock()) {
+        return false;
+      }
+      return true;
+    }
+
     const cacheKey = `unfollow:${did}`;
     return deduplicateRequest(cacheKey, async () => {
       const { api } = await AtprotoCore.getApiClient();
@@ -97,6 +111,13 @@ export class GraphService {
    * @param did - User DID to block
    */
   static async blockUser(did: string): Promise<void> {
+    if (AtprotoCore.isOutgoingApiBlocked()) {
+      if (AtprotoCore.shouldFailOfflineWriteMock()) {
+        throw new Error('Offline write mock failure: blockUser');
+      }
+      return;
+    }
+
     await AtprotoCore.ensureSession();
 
     const record = {
@@ -117,6 +138,13 @@ export class GraphService {
    * @param did - User DID to unblock
    */
   static async unblockUser(did: string): Promise<void> {
+    if (AtprotoCore.isOutgoingApiBlocked()) {
+      if (AtprotoCore.shouldFailOfflineWriteMock()) {
+        throw new Error('Offline write mock failure: unblockUser');
+      }
+      return;
+    }
+
     await AtprotoCore.ensureSession();
 
     const { api } = await AtprotoCore.getApiClient();
@@ -152,6 +180,13 @@ export class GraphService {
    * @returns Promise indicating success
    */
   static async muteUser(did: string): Promise<boolean> {
+    if (AtprotoCore.isOutgoingApiBlocked()) {
+      if (AtprotoCore.shouldFailOfflineWriteMock()) {
+        return false;
+      }
+      return true;
+    }
+
     try {
       await AtprotoCore.ensureSession();
 
@@ -173,6 +208,13 @@ export class GraphService {
    * @returns Promise indicating success
    */
   static async unmuteUser(did: string): Promise<boolean> {
+    if (AtprotoCore.isOutgoingApiBlocked()) {
+      if (AtprotoCore.shouldFailOfflineWriteMock()) {
+        return false;
+      }
+      return true;
+    }
+
     try {
       await AtprotoCore.ensureSession();
 

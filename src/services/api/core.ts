@@ -8,6 +8,14 @@ import type { ApiClient, Session } from './types';
 import type { Agent } from '@atproto/api';
 
 import { getAtprotoBridge } from './agentBridge';
+import {
+  getAtprotoOfflineWriteMockMode,
+  getAtprotoDebugMode,
+  isAtprotoIncomingApiEnabled,
+  isAtprotoOfflineModeEnabled,
+  isAtprotoOutgoingApiBlocked,
+  shouldFailAtprotoOfflineWriteMock,
+} from './debugMode';
 
 /**
  * Wait until userStore exposes an agent (session restore / account switch).
@@ -52,6 +60,30 @@ async function waitForAgent(timeoutMs: number = 6000): Promise<Agent | null> {
  * This is imported by namespace services instead of AtprotoService to avoid cycles
  */
 export class AtprotoCore {
+  static getDebugMode(): ReturnType<typeof getAtprotoDebugMode> {
+    return getAtprotoDebugMode();
+  }
+
+  static isOfflineModeEnabled(): boolean {
+    return isAtprotoOfflineModeEnabled();
+  }
+
+  static isIncomingApiEnabled(): boolean {
+    return isAtprotoIncomingApiEnabled();
+  }
+
+  static isOutgoingApiBlocked(): boolean {
+    return isAtprotoOutgoingApiBlocked();
+  }
+
+  static getOfflineWriteMockMode(): ReturnType<typeof getAtprotoOfflineWriteMockMode> {
+    return getAtprotoOfflineWriteMockMode();
+  }
+
+  static shouldFailOfflineWriteMock(): boolean {
+    return shouldFailAtprotoOfflineWriteMock();
+  }
+
   /**
    * Ensures a valid session exists (OAuth or app password)
    * This optimized version prevents duplicate session checks when multiple
