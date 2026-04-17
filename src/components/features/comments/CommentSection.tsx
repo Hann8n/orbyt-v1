@@ -293,6 +293,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
   const [activeTab, setActiveTab] = useState<'comments' | 'likes'>('comments');
   const [likesQueryEnabled, setLikesQueryEnabled] = useState(false);
+  const [isListScrolled, setIsListScrolled] = useState(false);
 
   const [newCommentText, setNewCommentText] = useState('');
   const [selectedGif, setSelectedGif] = useState<KlipyItem | null>(null);
@@ -1021,8 +1022,17 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const handleTabPress = useCallback((tabId: string) => {
     const next = tabId as 'comments' | 'likes';
     setActiveTab(next);
+    setIsListScrolled(false);
     if (next === 'likes') setLikesQueryEnabled(true);
   }, []);
+
+  const handleListScroll = useCallback(
+    (event: { nativeEvent: { contentOffset: { y: number } } }) => {
+      const nextScrolled = event.nativeEvent.contentOffset.y > 2;
+      setIsListScrolled(prev => (prev === nextScrolled ? prev : nextScrolled));
+    },
+    []
+  );
 
   const handleClose = () => {
     setPresentedPostUri(null);
@@ -1034,6 +1044,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     setSelectedImages([]);
     setActiveTab('comments');
     setLikesQueryEnabled(false);
+    setIsListScrolled(false);
     setInputSelection({ start: 0, end: 0 });
     setReplyContext(null);
     setIsPosting(false);
@@ -1183,7 +1194,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   );
 
   const headerComponent = (
-    <View style={styles.header}>
+    <View style={[styles.header, isListScrolled && styles.headerScrolled]}>
       <View style={styles.tabContainer}>
         <TabNavigation
           tabs={tabOptions}
@@ -1251,6 +1262,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               }
               nestedScrollEnabled
               scrollEventThrottle={16}
+              onScroll={handleListScroll}
               onEndReached={onEndReachedComments}
               onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
               removeClippedSubviews={true}
@@ -1272,6 +1284,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               }
               nestedScrollEnabled
               scrollEventThrottle={16}
+              onScroll={handleListScroll}
               onEndReached={onEndReachedLikes}
               onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
               removeClippedSubviews={true}
@@ -1305,6 +1318,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingTop: 12,
+    backgroundColor: Colors.neutral[975],
+  },
+  headerScrolled: {
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.neutral[925],
   },
   tabContainer: {
     flex: 1,
@@ -1374,7 +1392,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 8,
     borderTopWidth: 1,
-    borderBottomWidth: 1,
     borderColor: Colors.neutral[925],
     backgroundColor: Colors.neutral[975],
   },

@@ -462,6 +462,8 @@ const styles = StyleSheet.create({
   footerContainer: {
     backgroundColor: Colors.neutral[975],
     width: '100%',
+    borderTopWidth: 1,
+    borderColor: Colors.neutral[925],
   },
   inputContainer: COMPOSER_STYLES.container,
   inputRow: COMPOSER_STYLES.row,
