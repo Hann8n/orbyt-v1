@@ -256,13 +256,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
     lineHeight: lineHeightFor(fontSizeFor(17)),
   },
-  sectionSubtitle: {
-    color: Colors.neutral[500],
-    fontSize: fontSizeFor(13),
-    fontFamily: FontFamily.medium,
-    marginBottom: 12,
-    marginTop: 4,
-  },
   optionGroup: {
     gap: 8,
   },

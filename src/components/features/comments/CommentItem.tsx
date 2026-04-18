@@ -286,26 +286,25 @@ const CommentItem: React.FC<CommentItemProps> = ({
   const highlightOpacity = useSharedValue(0);
 
   React.useEffect(() => {
-    if (shouldHighlight) {
-      // Delay highlight start by 500ms to allow comment section to appear
-      const delayTimeout = setTimeout(() => {
-        // Smooth fade in with ease-out curve for natural feel
-        highlightOpacity.value = withTiming(1, {
-          duration: 450,
-          easing: Easing.out(Easing.cubic),
+    if (!shouldHighlight) return undefined;
+    let fadeOutTimeout: ReturnType<typeof setTimeout> | null = null;
+    const delayTimeout = setTimeout(() => {
+      highlightOpacity.value = withTiming(1, {
+        duration: 450,
+        easing: Easing.out(Easing.cubic),
+      });
+      fadeOutTimeout = setTimeout(() => {
+        highlightOpacity.value = withTiming(0, {
+          duration: 1400,
+          easing: Easing.inOut(Easing.cubic),
         });
-        // Then fade out after 2 seconds with smooth ease-in-out curve
-        setTimeout(() => {
-          highlightOpacity.value = withTiming(0, {
-            duration: 1400,
-            easing: Easing.inOut(Easing.cubic),
-          });
-        }, 2000);
-      }, 500);
+      }, 2000);
+    }, 500);
 
-      return () => clearTimeout(delayTimeout);
-    }
-    return undefined;
+    return () => {
+      clearTimeout(delayTimeout);
+      if (fadeOutTimeout) clearTimeout(fadeOutTimeout);
+    };
   }, [shouldHighlight, highlightOpacity]);
 
   const highlightStyle = useAnimatedStyle(() => {

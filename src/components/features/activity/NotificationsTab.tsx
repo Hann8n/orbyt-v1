@@ -31,6 +31,7 @@ import { AtprotoCore } from '../../../services/api/core';
 import { AtprotoFeedService } from '../../../services/api/feed/FeedService';
 import { NotificationService } from '../../../services/api/notification/NotificationService';
 import { Link, useRouter, useFocusEffect } from 'expo-router';
+import { useIsFocused } from '@react-navigation/native';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { FontFamily, Typography } from '../../../utils/components/typography';
 
@@ -351,8 +352,59 @@ async function fetchNotificationPostDataMap(uris: string[]): Promise<PostDataMap
     else postUris.push(uri);
   }
 
-  if (postUris.length > 0) {
-    const posts = await AtprotoFeedService.getPosts(postUris);
+  // Run direct-post fetch and repost-record resolution in parallel; they are independent.
+  const postsPromise =
+    postUris.length > 0 ? AtprotoFeedService.getPosts(postUris) : Promise.resolve(null);
+
+  const repostsPromise = (async () => {
+    if (repostUris.length === 0) return null;
+    try {
+      const apiClient = await AtprotoCore.getApiClient();
+      if (!apiClient) return null;
+      const { api } = apiClient;
+
+      // Fetch all repost records concurrently instead of sequentially.
+      const repostRecordResults = await Promise.all(
+        repostUris.map(async repostUri => {
+          const uriMatch = repostUri.match(/at:\/\/([^/]+)\/app\.bsky\.feed\.repost\/(.+)/);
+          if (!uriMatch) return null;
+          try {
+            const repostRecordResponse = await api.com.atproto.repo.getRecord({
+              repo: uriMatch[1],
+              collection: 'app.bsky.feed.repost',
+              rkey: uriMatch[2],
+            });
+            const repostValue = repostRecordResponse?.data?.value as
+              | AppBskyFeedRepost.Record
+              | undefined;
+            const subjectUri = repostValue?.subject?.uri;
+            if (!subjectUri) return null;
+            return { repostUri, rootUri: subjectUri };
+          } catch {
+            return null;
+          }
+        })
+      );
+
+      const repostToRootMap = new Map<string, string>();
+      const rootPostUris: string[] = [];
+      for (const entry of repostRecordResults) {
+        if (!entry) continue;
+        repostToRootMap.set(entry.repostUri, entry.rootUri);
+        rootPostUris.push(entry.rootUri);
+      }
+
+      const rootPosts =
+        rootPostUris.length > 0 ? await AtprotoFeedService.getPosts(rootPostUris) : null;
+      return { rootPosts, repostToRootMap };
+    } catch {
+      return null;
+    }
+  })();
+
+  const [posts, repostData] = await Promise.all([postsPromise, repostsPromise]);
+
+  if (posts) {
     posts.forEach((post, uri) => {
       if (
         post &&
@@ -366,56 +418,23 @@ async function fetchNotificationPostDataMap(uris: string[]): Promise<PostDataMap
     });
   }
 
-  if (repostUris.length > 0) {
-    try {
-      const apiClient = await AtprotoCore.getApiClient();
-      if (!apiClient) return result;
-      const { api } = apiClient;
-      const rootPostUris: string[] = [];
-      const repostToRootMap = new Map<string, string>();
-
-      for (const repostUri of repostUris) {
-        try {
-          const uriMatch = repostUri.match(/at:\/\/([^/]+)\/app\.bsky\.feed\.repost\/(.+)/);
-          if (!uriMatch) continue;
-          const repostRecordResponse = await api.com.atproto.repo.getRecord({
-            repo: uriMatch[1],
-            collection: 'app.bsky.feed.repost',
-            rkey: uriMatch[2],
-          });
-          const repostValue = repostRecordResponse?.data?.value as
-            | AppBskyFeedRepost.Record
-            | undefined;
-          if (repostValue?.subject?.uri) {
-            rootPostUris.push(repostValue.subject.uri);
-            repostToRootMap.set(repostUri, repostValue.subject.uri);
-          }
-        } catch {
-          /* skip */
+  if (repostData?.rootPosts) {
+    const { rootPosts, repostToRootMap } = repostData;
+    rootPosts.forEach((post, uri) => {
+      if (
+        post &&
+        !AppBskyFeedDefs.isNotFoundPost(post) &&
+        !AppBskyFeedDefs.isBlockedPost(post) &&
+        'author' in post &&
+        'cid' in post
+      ) {
+        const postView = post as PostView;
+        result.set(uri, postView);
+        for (const [repostUri, rootUri] of repostToRootMap.entries()) {
+          if (rootUri === uri) result.set(repostUri, postView);
         }
       }
-
-      if (rootPostUris.length > 0) {
-        const rootPosts = await AtprotoFeedService.getPosts(rootPostUris);
-        rootPosts.forEach((post, uri) => {
-          if (
-            post &&
-            !AppBskyFeedDefs.isNotFoundPost(post) &&
-            !AppBskyFeedDefs.isBlockedPost(post) &&
-            'author' in post &&
-            'cid' in post
-          ) {
-            const postView = post as PostView;
-            result.set(uri, postView);
-            for (const [repostUri, rootUri] of repostToRootMap.entries()) {
-              if (rootUri === uri) result.set(repostUri, postView);
-            }
-          }
-        });
-      }
-    } catch {
-      /* skip */
-    }
+    });
   }
 
   return result;
@@ -429,10 +448,16 @@ type NotificationItemProps = {
   queryClient: ReturnType<typeof useQueryClient>;
   postDataMap: PostDataMap;
   moderationOpts: ModerationOpts | null;
+  /**
+   * Passed from parent `NotificationsTab` so each row doesn't subscribe individually. When false,
+   * the Skia-backed `VideoAmbientBackdrop` is skipped (the activity tab is retained but off-screen
+   * under Expo Router native tabs). See docs/react-native-optimization-agent-handoff.md (P0).
+   */
+  isTabFocused: boolean;
 };
 
 const NotificationItem = React.memo<NotificationItemProps>(
-  ({ item, navigation, queryClient, postDataMap, moderationOpts }) => {
+  ({ item, navigation, queryClient, postDataMap, moderationOpts, isTabFocused }) => {
     const { t } = useTranslation();
     const { navigateToProfile: goToProfile } = useProfileChannelNavigation();
     const currentUser = useUserStore(s => s.currentUser);
@@ -665,7 +690,7 @@ const NotificationItem = React.memo<NotificationItemProps>(
       <>
         {thumbnail ? (
           <>
-            <VideoAmbientBackdrop seedUrl={thumbnail} />
+            {isTabFocused && <VideoAmbientBackdrop seedUrl={thumbnail} />}
             {!shouldBlurThumbnail && (
               <Image
                 source={{ uri: thumbnail }}
@@ -945,6 +970,11 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_, ref) => {
     refetch().finally(() => setIsUserRefreshing(false));
   }, [refetch]);
 
+  // Skip Skia-backed VideoAmbientBackdrop inside each notification row when the activity tab is
+  // retained-but-inactive (Expo Router NativeTabs keep visited tabs mounted). Reduces cross-tab
+  // commit cascade during e.g. home-feed scroll. See docs/react-native-optimization-agent-handoff.md (P0).
+  const isTabFocused = useIsFocused();
+
   const renderNotificationContent = useCallback(
     ({ item }: { item: EnrichedNotification }) => {
       return (
@@ -954,10 +984,11 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((_, ref) => {
           queryClient={queryClient}
           postDataMap={postDataMap}
           moderationOpts={moderationOpts}
+          isTabFocused={isTabFocused}
         />
       );
     },
-    [navigation, queryClient, postDataMap, moderationOpts]
+    [navigation, queryClient, postDataMap, moderationOpts, isTabFocused]
   );
 
   const keyExtractor = useCallback((item: EnrichedNotification) => {

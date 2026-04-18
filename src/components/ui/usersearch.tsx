@@ -371,23 +371,23 @@ export function useUserSearchTrigger({
 
   // Watch value/selection for @ mention
   useEffect(() => {
-    if (!selection) return;
+    if (!selection) return undefined;
     const cursor = selection.start;
     const mention = getMentionQuery(value, cursor);
-    if (mention && mention.query.length > 0) {
-      // Defer state updates to avoid synchronous setState warnings in effects
-      setTimeout(() => {
+    // Defer state updates to avoid synchronous setState warnings in effects;
+    // clear on unmount or rapid re-runs so stale timers don't call setState.
+    const t = setTimeout(() => {
+      if (mention && mention.query.length > 0) {
         setMentionQuery(mention.query);
         setMentionRange({ start: mention.start, end: mention.end });
         setModalVisible(true);
-      }, 0);
-    } else {
-      setTimeout(() => {
+      } else {
         setMentionQuery('');
         setMentionRange(null);
         setModalVisible(false);
-      }, 0);
-    }
+      }
+    }, 0);
+    return () => clearTimeout(t);
   }, [value, selection]);
 
   // Insert selected handle at the mention position
@@ -449,50 +449,49 @@ export function useRichTextSearchTrigger({
 
   // Watch value/selection for @ mention or # hashtag
   useEffect(() => {
-    if (!selection) return;
+    if (!selection) return undefined;
     const cursor = selection.start;
 
+    // Resolve the desired state once, then commit it in a single deferred
+    // setState batch. Clearing on rerun prevents stale timers from calling
+    // setState after unmount or rapid input churn.
+    let next:
+      | { kind: 'dismiss' }
+      | { kind: 'hashtag'; query: string; start: number; end: number }
+      | { kind: 'mention'; query: string; start: number; end: number }
+      | null = null;
+
     // If modal is visible and user types a space, dismiss it
-    if (modalVisible && cursor > 0) {
-      const charBeforeCursor = value[cursor - 1];
-      if (charBeforeCursor === ' ') {
-        setTimeout(() => {
-          setModalVisible(false);
-          setSearchQuery('');
-          setSearchRange(null);
-        }, 0);
-        return;
+    if (modalVisible && cursor > 0 && value[cursor - 1] === ' ') {
+      next = { kind: 'dismiss' };
+    } else {
+      const hashtag = getHashtagQuery(value, cursor);
+      if (hashtag) {
+        next = { kind: 'hashtag', query: hashtag.query, start: hashtag.start, end: hashtag.end };
+      } else {
+        const mention = getMentionQuery(value, cursor);
+        if (mention && mention.query.length > 0) {
+          next = { kind: 'mention', query: mention.query, start: mention.start, end: mention.end };
+        } else {
+          next = { kind: 'dismiss' };
+        }
       }
     }
 
-    // Check for hashtag first (more specific pattern)
-    const hashtag = getHashtagQuery(value, cursor);
-    if (hashtag) {
-      setTimeout(() => {
-        setSearchQuery(hashtag.query);
-        setSearchRange({ start: hashtag.start, end: hashtag.end });
-        setSearchType('hashtag');
-        setModalVisible(true);
-      }, 0);
-      return;
-    }
-
-    // Check for mention
-    const mention = getMentionQuery(value, cursor);
-    if (mention && mention.query.length > 0) {
-      setTimeout(() => {
-        setSearchQuery(mention.query);
-        setSearchRange({ start: mention.start, end: mention.end });
-        setSearchType('mention');
-        setModalVisible(true);
-      }, 0);
-    } else {
-      setTimeout(() => {
+    const t = setTimeout(() => {
+      if (!next) return;
+      if (next.kind === 'dismiss') {
         setSearchQuery('');
         setSearchRange(null);
         setModalVisible(false);
-      }, 0);
-    }
+        return;
+      }
+      setSearchQuery(next.query);
+      setSearchRange({ start: next.start, end: next.end });
+      setSearchType(next.kind);
+      setModalVisible(true);
+    }, 0);
+    return () => clearTimeout(t);
   }, [value, selection, modalVisible]);
 
   // Insert selected user at the mention position

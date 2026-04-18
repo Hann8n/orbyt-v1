@@ -24,23 +24,31 @@ export function useRichText(text: string): [RichTextAPI, boolean] {
     setRichText(rt);
     setIsResolving(true);
 
-    // Resolve mentions asynchronously
+    // Guard against stale async completions when `text` changes rapidly or
+    // the hook unmounts mid-resolution. Prevents out-of-order setRichText.
+    let cancelled = false;
+
     const resolveFacets = async () => {
       try {
         // For display purposes, we use detectFacetsWithoutResolution
         // This detects facets but doesn't resolve mentions to DIDs
         // Full resolution happens when creating posts
         rt.detectFacetsWithoutResolution();
+        if (cancelled) return;
         setRichText(rt);
       } catch (error) {
+        if (cancelled) return;
         logger.error('Error detecting facets', error, { component: 'useRichText' });
-        // Keep the unresolved version if detection fails
       } finally {
-        setIsResolving(false);
+        if (!cancelled) setIsResolving(false);
       }
     };
 
     resolveFacets();
+
+    return () => {
+      cancelled = true;
+    };
   }, [text]);
 
   return [richText, isResolving];

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import ListScreen from '@/components/ui/ListScreen';
 import { GraphService } from '@/services/api/graph/GraphService';
@@ -18,48 +18,55 @@ const MutedUsersScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [_unmutingUsers, setUnmutingUsers] = useState<Set<string>>(new Set());
 
+  const loadMutedUsers = useCallback(
+    async (isCancelled: () => boolean) => {
+      try {
+        setLoading(true);
+        const mutedDids = await GraphService.getMutedUsersFromAPI();
+        if (isCancelled()) return;
+
+        const userPromises = mutedDids.map(async (did: string) => {
+          try {
+            const profile = await ActorService.getProfileByDid(did);
+            return {
+              did,
+              handle: profile?.handle || did,
+              displayName: profile?.displayName,
+              avatar: profile?.avatar,
+            };
+          } catch (_error) {
+            return {
+              did,
+              handle: did,
+              displayName: t('profile.unknownUser'),
+              avatar: undefined,
+            };
+          }
+        });
+
+        const users = await Promise.all(userPromises);
+        if (isCancelled()) return;
+        setMutedUsers(users);
+      } catch (error) {
+        if (isCancelled()) return;
+        logger.error('Error loading muted users', error, {
+          component: 'MutedUsersScreen',
+          action: 'loadMutedUsers',
+        });
+      } finally {
+        if (!isCancelled()) setLoading(false);
+      }
+    },
+    [t]
+  );
+
   useEffect(() => {
-    loadMutedUsers();
-  }, []);
-
-  const loadMutedUsers = async () => {
-    try {
-      setLoading(true);
-      const mutedDids = await GraphService.getMutedUsersFromAPI();
-
-      // Convert string[] to MutedUser objects
-      const userPromises = mutedDids.map(async (did: string) => {
-        try {
-          // Try to get profile info for each muted user
-          const profile = await ActorService.getProfileByDid(did);
-          return {
-            did,
-            handle: profile?.handle || did,
-            displayName: profile?.displayName,
-            avatar: profile?.avatar,
-          };
-        } catch (_error) {
-          // If we can't get profile info, use basic info
-          return {
-            did,
-            handle: did,
-            displayName: t('profile.unknownUser'),
-            avatar: undefined,
-          };
-        }
-      });
-
-      const users = await Promise.all(userPromises);
-      setMutedUsers(users);
-    } catch (error) {
-      logger.error('Error loading muted users', error, {
-        component: 'MutedUsersScreen',
-        action: 'loadMutedUsers',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+    let cancelled = false;
+    loadMutedUsers(() => cancelled);
+    return () => {
+      cancelled = true;
+    };
+  }, [loadMutedUsers]);
 
   const handleUnmuteUser = async (user: MutedUser) => {
     try {

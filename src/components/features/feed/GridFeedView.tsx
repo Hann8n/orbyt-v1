@@ -21,6 +21,7 @@ import {
 import { NativePressable } from '@/components/ui/NativePressable';
 import { Link, type Href } from 'expo-router';
 import { Image } from 'expo-image';
+import { useIsFocused } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue,
@@ -72,7 +73,14 @@ const VideoGridItem: React.FC<{
   style?: ViewStyle;
   /** iOS: Expo Router zoom transition source (must be inside `Link` with `asChild`). */
   zoomLink?: { href: Href; onBeforeNavigate: () => void };
-}> = ({ item, index, onPress, style, zoomLink }) => {
+  /**
+   * When false, grid lives under a retained but inactive tab (Expo Router native tabs keep all
+   * visited tabs mounted). Skia-backed `VideoAmbientBackdrop` becomes ~148 fibers per cross-tab
+   * cascade commit; skipping it while off-screen shrinks the cascade to O(visible feed) without
+   * changing what the user sees. See docs/react-native-optimization-agent-handoff.md (P0).
+   */
+  isTabFocused: boolean;
+}> = ({ item, index, onPress, style, zoomLink, isTabFocused }) => {
   const videoView = getVideoView(item.post.embed);
   const thumbnailUrl = videoView?.thumbnail || null;
   const shouldBlur = !!(item.contentListUI?.blur || item.contentMediaUI?.blur);
@@ -89,7 +97,7 @@ const VideoGridItem: React.FC<{
 
   const cellContent = (
     <>
-      <VideoAmbientBackdrop seedUrl={validThumbnailUrl} />
+      {isTabFocused && <VideoAmbientBackdrop seedUrl={validThumbnailUrl} />}
       {validThumbnailUrl && !shouldBlur && (
         <Image
           source={{ uri: validThumbnailUrl }}
@@ -320,6 +328,10 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
       itemSpacing,
     ]);
 
+    // Skip Skia-backed VideoAmbientBackdrop on retained-but-inactive tabs (see VideoGridItem prop).
+    // One subscription per GridFeedView — stable between focus changes; no churn during scroll.
+    const isTabFocused = useIsFocused();
+
     // Render each grid item - optimized with background processing
     const feedItemCount = feed.length;
     const renderGridItem = useCallback(
@@ -349,6 +361,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
             index={index}
             onPress={onGridItemPress}
             zoomLink={zoomLink}
+            isTabFocused={isTabFocused}
             style={{ width: itemWidth, height: itemHeight, backgroundColor, ...borderStyle }}
           />
         );
@@ -361,6 +374,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
         itemWidth,
         itemHeight,
         backgroundColor,
+        isTabFocused,
       ]
     );
 
