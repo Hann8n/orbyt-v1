@@ -21,7 +21,10 @@ import {
 import { NativePressable } from '@/components/ui/NativePressable';
 import { Link, type Href } from 'expo-router';
 import { Image } from 'expo-image';
-import { useIsFocused } from '@react-navigation/native';
+// Imported from `@react-navigation/core` directly: `@react-navigation/native` re-exports this
+// (`export * from '@react-navigation/core'`) but HMR can transiently break the re-export and
+// throw `Property 'useIsFocused' doesn't exist`. See docs/react-native-optimization-agent-handoff.md.
+import { useIsFocused } from '@react-navigation/core';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue,
@@ -74,10 +77,12 @@ const VideoGridItem: React.FC<{
   /** iOS: Expo Router zoom transition source (must be inside `Link` with `asChild`). */
   zoomLink?: { href: Href; onBeforeNavigate: () => void };
   /**
-   * When false, grid lives under a retained but inactive tab (Expo Router native tabs keep all
-   * visited tabs mounted). Skia-backed `VideoAmbientBackdrop` becomes ~148 fibers per cross-tab
-   * cascade commit; skipping it while off-screen shrinks the cascade to O(visible feed) without
-   * changing what the user sees. See docs/react-native-optimization-agent-handoff.md (P0).
+   * False when this grid cell is not user-visible, from either:
+   *   - a retained-but-inactive tab (Expo Router native tabs keep all visited tabs mounted), or
+   *   - dual-mounting under `FeedSurfaceStack` with the list layer active (home feed in list mode).
+   * Skia-backed `VideoAmbientBackdrop` becomes ~148 fibers per cross-tab cascade commit; skipping
+   * it while off-screen shrinks the cascade to O(visible feed) without changing what the user
+   * sees. See docs/react-native-optimization-agent-handoff.md (P0).
    */
   isTabFocused: boolean;
 }> = ({ item, index, onPress, style, zoomLink, isTabFocused }) => {
@@ -164,6 +169,14 @@ interface GridFeedViewProps {
    */
   useNativeTabBottomSafeArea?: boolean;
   pullToRefresh?: ListFeedPullToRefresh;
+  /**
+   * False while this grid is the inactive layer in `FeedSurfaceStack` (dual-mounted alongside the
+   * list under a home/profile feed). Skia-backed `VideoAmbientBackdrop` is skipped while the surface
+   * is off-screen; toggling view mode flips this back to true and the backdrop rehydrates on the
+   * next render. See docs/react-native-optimization-agent-handoff.md (P0). Defaults to true so other
+   * call sites (non-dual-mount usages) behave unchanged.
+   */
+  isSurfaceVisible?: boolean;
 }
 
 const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
@@ -188,6 +201,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
       snapTopInset,
       useNativeTabBottomSafeArea = false,
       pullToRefresh,
+      isSurfaceVisible = true,
     },
     ref
   ) => {
@@ -328,9 +342,13 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
       itemSpacing,
     ]);
 
-    // Skip Skia-backed VideoAmbientBackdrop on retained-but-inactive tabs (see VideoGridItem prop).
+    // Skip Skia-backed VideoAmbientBackdrop when this grid is not user-visible:
+    //   1. Retained-but-inactive tab (Expo Router native tabs keep visited tabs mounted).
+    //   2. Dual-mounted under `FeedSurfaceStack` while the list surface is the active layer
+    //      (home feed in list mode hides the grid via opacity=0; no need to render backdrops).
     // One subscription per GridFeedView — stable between focus changes; no churn during scroll.
     const isTabFocused = useIsFocused();
+    const shouldRenderBackdrops = isTabFocused && isSurfaceVisible;
 
     // Render each grid item - optimized with background processing
     const feedItemCount = feed.length;
@@ -361,7 +379,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
             index={index}
             onPress={onGridItemPress}
             zoomLink={zoomLink}
-            isTabFocused={isTabFocused}
+            isTabFocused={shouldRenderBackdrops}
             style={{ width: itemWidth, height: itemHeight, backgroundColor, ...borderStyle }}
           />
         );
@@ -374,7 +392,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
         itemWidth,
         itemHeight,
         backgroundColor,
-        isTabFocused,
+        shouldRenderBackdrops,
       ]
     );
 

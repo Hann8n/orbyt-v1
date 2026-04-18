@@ -922,7 +922,7 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
         { did: postView.author?.did, handle: postView.author.handle, isFollowing: true },
         {}
       );
-    }, [postView.author, followMutation.mutate]);
+    }, [postView.author, followMutation]);
 
     // Track interactionSeen and markAsSeen when video becomes visible
     useEffect(() => {
@@ -1073,6 +1073,10 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
         <VideoCardMediaLayer
           videoAmbientBackdropSeedUrl={cannotShowMedia ? null : (posterUrl ?? null)}
           onVideoAmbientBackdropReady={handleVideoAmbientBackdropReady}
+          // `renderHeavyChrome` is already scoped to the active row ± 1 neighbor via the list playback
+          // neighborChrome bit — exactly the prefetch window we want for the backdrop. Non-list usage
+          // (modal fullscreen, etc.) defaults `renderHeavyChromeFromProps` to true, preserving behavior.
+          shouldRenderAmbientBackdrop={renderHeavyChrome}
           gestureStack={gestureVideoStackProps}
         />
 

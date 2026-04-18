@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { View, Text, FlatList, Platform, Pressable, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { Link, useRouter, type Href } from 'expo-router';
-import { useIsFocused } from '@react-navigation/native';
+// See GridFeedView for rationale — direct import avoids HMR re-export breakage.
+import { useIsFocused } from '@react-navigation/core';
 
 import { NativePressable } from '@/components/ui/NativePressable';
 import { SquircleView } from '@/components/ui/Squircle';

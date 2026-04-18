@@ -31,7 +31,8 @@ import { AtprotoCore } from '../../../services/api/core';
 import { AtprotoFeedService } from '../../../services/api/feed/FeedService';
 import { NotificationService } from '../../../services/api/notification/NotificationService';
 import { Link, useRouter, useFocusEffect } from 'expo-router';
-import { useIsFocused } from '@react-navigation/native';
+// See GridFeedView for rationale — direct import avoids HMR re-export breakage.
+import { useIsFocused } from '@react-navigation/core';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { FontFamily, Typography } from '../../../utils/components/typography';
 

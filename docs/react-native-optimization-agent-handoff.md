@@ -131,19 +131,58 @@ High-confidence fixes (async, timers, effect deps, races):
 
 ---
 
+## Phase 6 — P0.5 + P0 second-vector fix (shipped in working tree)
+
+### P0.5 — Gate `VideoAmbientBackdrop` inside `VideoCard` via `renderHeavyChrome`
+
+**Change:** In `src/components/features/video/VideoCard.tsx` (~L1073), pass `shouldRenderAmbientBackdrop={renderHeavyChrome}` into `VideoCardMediaLayer`. `renderHeavyChrome` is already derived from `FeedListPlaybackContext` row bits (`Math.floor(rowBits / 10) % 10 === 1` → active row ± 1 neighbor), so the backdrop is now scoped to **the active row + its immediate neighbors** instead of every FlashList-retained card.
+
+**Files touched:**
+
+| File                                                               | Change                                                                                    |
+| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| `src/components/features/video/VideoCard.tsx`                      | Pass `shouldRenderAmbientBackdrop={renderHeavyChrome}` to `VideoCardMediaLayer` (~L1079). |
+| `src/components/features/video/video-card/VideoCardMediaLayer.tsx` | Accept `shouldRenderAmbientBackdrop` prop; wrap `<VideoAmbientBackdrop>` in the gate.     |
+
+`onVideoAmbientBackdropReady` behavior is unchanged — when the gate is closed the callback is never invoked, so the poster/cover stays visible on the parent `VideoCard`, which already handles a missing-ready state gracefully (no first-frame UX regression).
+
+### P0 — Close second retention vector: dual-mounted grid in `FeedSurfaceStack`
+
+**Regression found:** The original P0 (`useIsFocused()` gating in `VideoGridItem`) only covered **cross-tab** retention. `FeedSurfaceStack` in `src/components/features/feed/feedViewShared.tsx` **dual-mounts** the list and grid layers on the **same** tab and toggles them via opacity/zIndex. That means while the Home tab was in **list mode**, the hidden grid layer (with ~36 retained `VideoGridItem` cells) still passed the tab-focus gate — Home is focused even though its grid is invisible — and each cell rendered a Skia `Canvas`. A profiler drill-down (`profiler-commit-query mode=by_index`) into a 43.78ms commit confirmed **36 `VideoAmbientBackdrop` fibers with parent = `View`**, tracing back to `VideoGridItem` under the inactive grid layer.
+
+**Change:** Plumb `isSurfaceVisible` from `FeedSurfaceStack` → `ListFeedView` → `GridFeedView` and AND it with `useIsFocused()` before gating the backdrop. The grid cell now renders its Skia canvas **only when both** its tab is focused **and** it is the active surface layer.
+
+**Files touched:**
+
+| File                                            | Change                                                                                                                                                                                                 |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/components/features/feed/GridFeedView.tsx` | New optional `isSurfaceVisible` prop (defaults to `true`); compute `shouldRenderBackdrops = isTabFocused && isSurfaceVisible` once per `GridFeedView` render and thread it through to `VideoGridItem`. |
+| `src/components/features/feed/ListFeedView.tsx` | Pass `isSurfaceVisible={resolvedViewMode === 'grid'}` to the dual-mounted grid surface.                                                                                                                |
+
+### Re-profile result
+
+**Scenario recorded:** home feed swipes → profile tab swipes → back to home, profiler running across the interaction (session length reflects investigation/implementation time — only the user-driven portion is relevant for per-commit cost).
+
+| Metric                             | Baseline         | After P0 (phase 5) | After P0.5 + P0-v2 (phase 6) | Δ vs baseline |
+| ---------------------------------- | ---------------- | ------------------ | ---------------------------- | ------------- |
+| Slowest hot commit                 | **~54ms**        | **39.65ms**        | **no commit ≥ 16ms**         | **≤ −70%**    |
+| Hot commits (≥16ms absolute)       | 7 / 86           | 8 / 89             | **0 / 346**                  | **−100%**     |
+| `VideoAmbientBackdrop` per cascade | ~148 (cross-tab) | 51 (home only)     | **≤ 3** (active ± 1)         | **−98%**      |
+
+`react-profiler-analyze` output: `✅ All clear — all React commits were below 16ms. No performance issues detected in this session.` `profiler-load` confirmed 0 commits persisted at the hot-commit threshold.
+
+**Remaining cost shape:**
+
+- With `VideoAmbientBackdrop` now scoped to O(1) cells per commit, `VideoScrubberActive` becomes the next largest per-commit contributor when the user actively drags the scrubber. Still worth revisiting (see P1) but is no longer on the critical path for steady-state scroll.
+- `ContextNavigator` cascades remain — the cascade is still **wide** in fiber count, but each fiber is now cheap (no Skia `Canvas`), so commit times fit inside a 16ms frame on the test device (iPhone Air, dev build).
+
+---
+
 ## Prioritized next steps (for the next agent)
 
-Implement in **order**; **re-profile the same 5-swipe scenario** after each meaningful change.
+Implement in **order**; **re-profile the same home → profile → home scenario** after each meaningful change.
 
-### P0.5 — Gate `VideoAmbientBackdrop` inside `VideoCard` by `isVisible`
-
-**Goal:** The home-feed `VideoCard` mounts ~50 retained instances via FlashList; each renders a `VideoAmbientBackdrop` whether or not the row is the currently-visible card. Off-screen backdrops are invisible to the user.
-
-**Tactic:** In `src/components/features/video/VideoCard.tsx` (~L1073), pass `isVisible` (or `isVisible` + 1-row prefetch window) into `VideoCardMediaLayer` and gate `<VideoAmbientBackdrop>` accordingly. Care: `onVideoAmbientBackdropReady` is currently used to gate revealing the video — verify the visibility-gate doesn't regress first-frame UX (may need to render backdrop one row ahead, or fall back to the still poster while the gate is closed).
-
-**Acceptance:** `VideoAmbientBackdrop` instances per cascade drops from 51 → ~1–3 (visible card + neighbors). Slowest hot commit drops below ~25ms.
-
-### P0 — Cut cross-tab work during home scroll _(original — partially shipped above)_
+### P0 — Cut cross-tab work during home scroll _(shipped — Phase 5 + Phase 6)_
 
 **Goal:** When the user is on **home**, do **not** re-render **inactive tabs’** heavy subtrees on every navigation tick.
 
@@ -157,7 +196,7 @@ Implement in **order**; **re-profile the same 5-swipe scenario** after each mean
    - **Narrow selectors** or **move subscriptions** below `FlashList` so list scroll does not tickle root **`NavigationState`** consumers unnecessarily.
 3. **Confirm what updates on scroll** — add temporary logging or React DevTools “why did this render?” on `ContextNavigator` / layout route once, then remove.
 
-**Acceptance:** Hot-commit fiber count drops materially; `VideoAmbientBackdrop` **instances per commit** on home scroll approaches **O(visible feed rows)** (~10–20), not **~100+**.
+**Acceptance:** Hot-commit fiber count drops materially; `VideoAmbientBackdrop` **instances per commit** on home scroll approaches **O(visible feed rows)** (~10–20), not **~100+**. _Shipped — Phase 5 narrowed cross-tab; Phase 6 closed the dual-mounted-grid regression and scoped home-feed backdrops to active row ± 1._
 
 ### P1 — `VideoScrubberActive` / scrubber path
 
@@ -236,6 +275,19 @@ Phase 2 edits (non-exhaustive if more local edits exist):
 - `app/settings/blocked.tsx`
 - `app/settings/muted.tsx`
 - `app/(modals)/notification-filter.tsx`
+
+Phase 5 edits (P0 — cross-tab `VideoAmbientBackdrop` gate):
+
+- `src/components/features/feed/GridFeedView.tsx`
+- `src/components/features/activity/NotificationsTab.tsx`
+- `src/components/features/explore/ExploreSpotlightCarousel.tsx`
+
+Phase 6 edits (P0.5 + P0 second vector):
+
+- `src/components/features/video/VideoCard.tsx`
+- `src/components/features/video/video-card/VideoCardMediaLayer.tsx`
+- `src/components/features/feed/GridFeedView.tsx`
+- `src/components/features/feed/ListFeedView.tsx`
 
 Profiler-related **code changes**: none required — measurement only.
 

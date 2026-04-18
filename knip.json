@@ -2,13 +2,14 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "project": ["app/**/*.{ts,tsx}", "src/**/*.{ts,tsx}"],
   "ignore": ["src/**/index.ts"],
-  "ignoreDependencies": ["buffer"],
+  "ignoreDependencies": ["buffer", "@react-navigation/core"],
   "ignoreBinaries": ["eas", "tsx"],
   "ignoreExportsUsedInFile": {
     "interface": true,
     "type": true
   },
   "ignoreIssues": {
+    "src/context/FollowContext.tsx": ["exports"],
     "src/services/api/types.ts": ["types"],
     "src/utils/components/truesheet/KeyboardAwareFooter.tsx": ["exports"],
     "src/components/features/explore/ExploreScreen.tsx": ["exports"],

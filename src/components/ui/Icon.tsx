@@ -48,7 +48,6 @@ const EXPLORE_ICON_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" fill="
 </svg>`;
 
 const HEART_FILL_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none"><path fill="white" d="M18.494 3.801c2.095 1.221 3.569 3.7 3.504 6.592C21.86 16.5 13.5 21 12 21s-9.861-4.5-9.998-10.607c-.065-2.892 1.409-5.37 3.504-6.592C7.466 2.66 9.928 2.653 12 4.338c2.072-1.685 4.534-1.679 6.494-.537"/></g></svg>`;
-const COMMENT_HEART_FILL_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none"><path fill="white" d="M18.494 3.801c2.095 1.221 3.569 3.7 3.504 6.592C21.86 16.5 13.5 21 12 21s-9.861-4.5-9.998-10.607c-.065-2.892 1.409-5.37 3.504-6.592C7.466 2.66 9.928 2.653 12 5.15c2.072-2.497 4.534-2.491 6.494-1.349" transform="translate(0 -0.6) scale(1 0.94)"/></g></svg>`;
 
 const CHAT_FILL_ICON_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
   <path d="M2 11.5C2 6.643 6.656 3 12 3s10 3.643 10 8.5S17.344 20 12 20c-.653 0-1.292-.053-1.911-.155-.093.073-.253.205-.45.344C9.07 20.59 8.249 21 7 21a1 1 0 0 1-1-1c0-.55.143-1.234-.094-1.756C3.577 16.723 2 14.298 2 11.5" fill="white"/>
@@ -208,22 +207,13 @@ const ExploreIcon: React.FC<{
 };
 
 // Custom Heart Fill Icon component
-export const HeartFillIcon: React.FC<{ size: number; color: string }> = ({ size, color }) => {
+const HeartFillIcon: React.FC<{ size: number; color: string }> = ({ size, color }) => {
   const svgXml = HEART_FILL_ICON_SVG.replace(/white/g, color);
   return <SvgXml xml={svgXml} width={size} height={size} />;
 };
 
-// Slightly shorter heart with a deeper "v", tuned for comment like button.
-export const CommentHeartFillIcon: React.FC<{ size: number; color: string }> = ({
-  size,
-  color,
-}) => {
-  const svgXml = COMMENT_HEART_FILL_ICON_SVG.replace(/white/g, color);
-  return <SvgXml xml={svgXml} width={size} height={size} />;
-};
-
 // Custom Chat Fill Icon component
-export const ChatFillIcon: React.FC<{ size: number; color: string }> = ({ size, color }) => {
+const ChatFillIcon: React.FC<{ size: number; color: string }> = ({ size, color }) => {
   const svgXml = CHAT_FILL_ICON_SVG.replace(/white/g, color);
   return <SvgXml xml={svgXml} width={size} height={size} />;
 };
@@ -246,7 +236,7 @@ export const FireFillIcon: React.FC<{ size: number; color: string }> = ({ size, 
 };
 
 // Custom Refresh Fill Icon component
-export const RefreshFillIcon: React.FC<{ size: number; color: string }> = ({ size, color }) => {
+const RefreshFillIcon: React.FC<{ size: number; color: string }> = ({ size, color }) => {
   const svgXml = REFRESH_FILL_ICON_SVG.replace(/white/g, color);
   return <SvgXml xml={svgXml} width={size} height={size} />;
 };
