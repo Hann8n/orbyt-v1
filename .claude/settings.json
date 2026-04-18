@@ -1,5 +1,8 @@
 {
   "permissions": {
     "allow": ["mcp__argent"]
+  },
+  "enabledPlugins": {
+    "expo@claude-plugins-official": true
   }
 }
