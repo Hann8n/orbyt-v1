@@ -842,6 +842,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
             snapTopInset={snapTopInset}
             useNativeTabBottomSafeArea={useNativeTabBottomSafeArea}
             pullToRefresh={pullToRefresh}
+            isSurfaceVisible={resolvedViewMode === 'grid'}
           />
         }
       />

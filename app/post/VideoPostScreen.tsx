@@ -1178,11 +1178,11 @@ const VideoPostScreen: React.FC = () => {
 
   // Reset selection when modal opens to fix cursor alignment
   useEffect(() => {
-    if (showDescriptionInputModal) {
-      setTimeout(() => {
-        setDescriptionSelection({ start: description.length, end: description.length });
-      }, 100);
-    }
+    if (!showDescriptionInputModal) return undefined;
+    const t = setTimeout(() => {
+      setDescriptionSelection({ start: description.length, end: description.length });
+    }, 100);
+    return () => clearTimeout(t);
   }, [showDescriptionInputModal, description.length]);
 
   // Fixed container size with 9:16 aspect ratio

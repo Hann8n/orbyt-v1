@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleProp, ViewStyle } from 'react-native';
+import { StyleProp, StyleSheet, ViewStyle } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { useProfile } from '../../../services/data/ProfileService';
 import { Colors } from '../../../theme';
@@ -62,7 +62,7 @@ const VerificationBadge: React.FC<VerificationBadgeProps> = ({
       name={actualBadgeType === 'scalloped' ? 'certificate-scalloped' : 'certificate-circular'}
       size={badgeSize}
       color={fillColor}
-      style={[{ marginLeft }, style]}
+      style={StyleSheet.flatten([{ marginLeft }, style])}
       accessible={!onPress}
       accessibilityRole={onPress ? undefined : 'image'}
     />

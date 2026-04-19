@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleProp, ViewStyle } from 'react-native';
+import { StyleProp, StyleSheet, ViewStyle } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { NativePressable } from '@/components/ui/NativePressable';
 import type { Label } from '@atproto/api/dist/client/types/com/atproto/label/defs';
@@ -61,7 +61,7 @@ const BotBadge: React.FC<BotBadgeProps> = ({
       name="robot-cute-filled"
       size={badgeSize}
       color={fillColor}
-      style={[{ marginLeft }, style]}
+      style={StyleSheet.flatten([{ marginLeft }, style])}
       accessible={!onPress}
       accessibilityLabel={onPress ? undefined : a11yLabel}
       accessibilityRole={onPress ? undefined : 'image'}
