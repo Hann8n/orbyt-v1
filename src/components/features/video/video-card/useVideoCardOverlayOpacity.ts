@@ -1,27 +1,13 @@
-/** Scroll drives opacity directly; seek transitions stay timed. */
-import {
-  useAnimatedReaction,
-  useSharedValue,
-  useDerivedValue,
-  interpolate,
-  type SharedValue,
-} from 'react-native-reanimated';
-
-/** Start fading earlier so overlay doesn't stay opaque until the card nears the top edge. */
-const FULL_OPACITY_UNTIL_VISIBLE = 0.72;
-const FADE_CURVE_EXPONENT = 1.35;
-
-/** Skip overlap math for cards far outside the viewport. */
-const FAR_AWAY_FACTOR = 1.5;
+import { useDerivedValue, interpolate, type SharedValue } from 'react-native-reanimated';
 
 export function useVideoCardOverlayOpacity({
   seekingAnimationSV,
   scrollOffsetYSV,
   headerH,
-  viewportH,
+  viewportH: _viewportH,
   itemSp,
   idx,
-  cardHeight,
+  cardHeight: _cardHeight,
 }: {
   seekingAnimationSV: SharedValue<number>;
   scrollOffsetYSV?: SharedValue<number>;
@@ -31,46 +17,20 @@ export function useVideoCardOverlayOpacity({
   idx: number;
   cardHeight: number;
 }): SharedValue<number> {
-  const scrollOpacitySV = useSharedValue(1);
-
-  useAnimatedReaction(
-    () => scrollOffsetYSV?.value ?? 0,
-    scrollY => {
-      'worklet';
-      if (!scrollOffsetYSV) {
-        scrollOpacitySV.value = 1;
-        return;
-      }
-
-      const itemTop = headerH + idx * itemSp;
-      const itemBottom = itemTop + cardHeight;
-
-      const dist = Math.abs(itemTop - scrollY);
-      if (dist > viewportH * FAR_AWAY_FACTOR + cardHeight) {
-        scrollOpacitySV.value = 0;
-        return;
-      }
-
-      const viewportBottom = scrollY + viewportH;
-      const overlap = Math.max(
-        0,
-        Math.min(itemBottom, viewportBottom) - Math.max(itemTop, scrollY)
-      );
-      const visDenom =
-        viewportH > 0 && cardHeight > 0 ? Math.min(cardHeight, viewportH) : cardHeight;
-      const raw = visDenom > 0 ? Math.min(1, Math.max(0, overlap / visDenom)) : 1;
-
-      let p: number;
-      if (raw >= FULL_OPACITY_UNTIL_VISIBLE) {
-        p = 1;
-      } else {
-        p = Math.pow(raw / FULL_OPACITY_UNTIL_VISIBLE, FADE_CURVE_EXPONENT);
-      }
-
-      scrollOpacitySV.value = p;
-    },
-    [scrollOffsetYSV, headerH, viewportH, itemSp, idx, cardHeight]
-  );
+  // Keep a delayed fade start, then smoothstep to zero over a slightly extended
+  // range so fast flings do not hard-drop opacity in a single frame.
+  const scrollOpacitySV = useDerivedValue((): number => {
+    if (!scrollOffsetYSV) return 1;
+    const offset = scrollOffsetYSV.value - (headerH + idx * itemSp);
+    const abs = offset < 0 ? -offset : offset;
+    const fadeStart = itemSp * 0.08;
+    const fadeEnd = itemSp * 1.15;
+    const fadeRange = fadeEnd - fadeStart;
+    if (fadeRange <= 0) return 1;
+    // Smoothstep(0..1): t*t*(3-2*t)
+    const t = Math.max(0, Math.min(1, (abs - fadeStart) / fadeRange));
+    return 1 - t * t * (3 - 2 * t);
+  }, [scrollOffsetYSV, headerH, idx, itemSp]);
 
   const seekingFactorSV = useDerivedValue(
     () => interpolate(seekingAnimationSV.value, [0, 0.2, 1], [1, 0, 0], 'clamp'),

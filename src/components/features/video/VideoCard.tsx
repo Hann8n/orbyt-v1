@@ -79,6 +79,16 @@ type Post = ExtendedPostView | ExtendedFeedViewPost;
 const VIDEO_DOUBLE_TAP_WINDOW_MS = 260;
 const feedListPlaybackNoopSubscribe = () => () => {};
 const MIN_SCRUBBER_DURATION_SECONDS = 7;
+const cardHeightStyleCache = new Map<number, { height: number }>();
+
+const getCardHeightStyle = (cardHeight: number): { height: number } => {
+  const normalized = Math.max(0, Math.round(cardHeight));
+  const cached = cardHeightStyleCache.get(normalized);
+  if (cached) return cached;
+  const style = { height: normalized };
+  cardHeightStyleCache.set(normalized, style);
+  return style;
+};
 
 // Types
 export interface VideoCardRef {
@@ -279,16 +289,33 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
     );
     const isFollowing = !!(cachedProfile?.viewer?.following || storeIsFollowing);
     const hasProfile = !!cachedProfile;
+    const orbytBgColor = cachedProfile?.orbytColors?.backgroundColor;
+    const orbytTextColor = cachedProfile?.orbytColors?.textColor;
+    const profileColors = useMemo(
+      () =>
+        getProfileColors(
+          orbytBgColor !== undefined
+            ? { orbytColors: { backgroundColor: orbytBgColor, textColor: orbytTextColor ?? '' } }
+            : null
+        ),
+      [orbytBgColor, orbytTextColor]
+    );
     const authorProfileOverlay = useMemo(
       () => ({
         isAuthorBlocked: !!(
           cachedProfile?.viewer?.blocking || cachedProfile?.viewer?.blockingByList
         ),
-        profileColors: getProfileColors(cachedProfile?.orbytColors ?? cachedProfile),
+        profileColors,
         authorDid,
         authorProfileStatus: cachedProfile?.status,
       }),
-      [cachedProfile, authorDid]
+      [
+        cachedProfile?.viewer?.blocking,
+        cachedProfile?.viewer?.blockingByList,
+        profileColors,
+        authorDid,
+        cachedProfile?.status,
+      ]
     );
     const postRecord = postView.record as { tags?: string[] };
     const channelTag = (postRecord?.tags ?? []).find(
@@ -311,6 +338,10 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
     // Stable ref for overlayState so handleOpenComments doesn't recreate on every pending toggle.
     const overlayStateRef = useRef(overlayState);
     overlayStateRef.current = overlayState;
+
+    // Live ref for isVisible so callbacks don't need it as a reactive dep.
+    const isVisibleRef = useRef(isVisible);
+    isVisibleRef.current = isVisible;
 
     useEffect(() => {
       if (!isVisible || !onUserPausedChange) return;
@@ -483,11 +514,11 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
 
     const handleOverlayCollapsedChange = useCallback(
       (isCollapsed: boolean) => {
-        if (!isVisible) return;
+        if (!isVisibleRef.current) return;
         const isExpanded = !isCollapsed;
         textDimOpacitySV.value = withTiming(isExpanded ? 0.65 : 0, { duration: 120 });
       },
-      [isVisible, textDimOpacitySV]
+      [textDimOpacitySV]
     );
 
     const textDimAnimatedStyle = useAnimatedStyle(() => {
@@ -804,15 +835,15 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
     }, [postView.uri, clearVideoTapSingleTimer]);
 
     const handleRepost = useCallback(async () => {
-      if (overlayState.isRepostPending) return;
+      if (overlayStateRef.current.isRepostPending) return;
 
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-      const wasReposted = displayInteraction.isReposted;
+      const wasReposted = displayInteractionRef.current.isReposted;
       const newIsReposted = !wasReposted;
       const newRepostCount = newIsReposted
-        ? displayInteraction.repostCount + 1
-        : Math.max(0, displayInteraction.repostCount - 1);
+        ? displayInteractionRef.current.repostCount + 1
+        : Math.max(0, displayInteractionRef.current.repostCount - 1);
 
       setOverlayState(prev => ({
         ...prev,
@@ -832,8 +863,8 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
           });
           queueInteraction(INTERACTIONREPOST_CONST);
         } else {
-          if (!displayInteraction.repostUri) throw new Error('No repost URI found');
-          await AtprotoFeedService.deleteRepost(displayInteraction.repostUri);
+          if (!displayInteractionRef.current.repostUri) throw new Error('No repost URI found');
+          await AtprotoFeedService.deleteRepost(displayInteractionRef.current.repostUri);
           setOverlayState(prev => ({ ...prev, repostUri: undefined }));
           updatePostInteraction(postView.uri, {
             isReposted: false,
@@ -844,25 +875,18 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
       } catch (_error) {
         setOverlayState(prev => ({
           ...prev,
-          isReposted: wasReposted,
-          repostCount: displayInteraction.repostCount,
+          isReposted: displayInteractionRef.current.isReposted,
+          repostCount: displayInteractionRef.current.repostCount,
         }));
       } finally {
         setOverlayState(prev => ({ ...prev, isRepostPending: false }));
       }
-    }, [
-      overlayState.isRepostPending,
-      displayInteraction.isReposted,
-      displayInteraction.repostCount,
-      displayInteraction.repostUri,
-      postView.uri,
-      postView.cid,
-      setOverlayState,
-      updatePostInteraction,
-      queueInteraction,
-    ]);
+    }, [postView.uri, postView.cid, setOverlayState, updatePostInteraction, queueInteraction]);
 
     const { navigateToChannel: goToChannel, navigateToProfile } = useProfileChannelNavigation();
+
+    const followMutationRef = useRef(followMutation);
+    followMutationRef.current = followMutation;
 
     const channelUriRef = useRef(channelUri);
     channelUriRef.current = channelUri;
@@ -931,11 +955,11 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
 
     const handleFollowPress = useCallback(() => {
       if (!postView.author?.handle) return;
-      followMutation.mutate(
+      followMutationRef.current.mutate(
         { did: postView.author?.did, handle: postView.author.handle, isFollowing: true },
         {}
       );
-    }, [postView.author, followMutation]);
+    }, [postView.author?.did, postView.author?.handle]);
 
     // Track interactionSeen and markAsSeen when video becomes visible
     useEffect(() => {
@@ -1083,7 +1107,7 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
     );
 
     return (
-      <View style={[styles.container, { height: cardHeight }]}>
+      <View style={StyleSheet.compose(styles.container, getCardHeightStyle(cardHeight))}>
         <VideoCardMediaLayer
           videoAmbientBackdropSeedUrl={cannotShowMedia ? null : (posterUrl ?? null)}
           onVideoAmbientBackdropReady={handleVideoAmbientBackdropReady}

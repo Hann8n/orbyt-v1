@@ -112,6 +112,60 @@ interface ListEmptyComponentProps {
   onRetry?: () => void;
 }
 
+const minHeightStyleCache = new Map<number, { minHeight: number }>();
+const measurementHeightStyleCache = new Map<number, { height: number }>();
+const bottomPaddingStyleCache = new Map<number, { paddingBottom: number }>();
+const viewBackgroundStyleCache = new Map<string, { backgroundColor: string }>();
+const overscrollHintLayoutStyleCache = new Map<number, { paddingBottom: number; bottom: number }>();
+
+const getMinHeightStyle = (minHeight: number): { minHeight: number } => {
+  const normalized = Math.max(0, Math.round(minHeight));
+  const cached = minHeightStyleCache.get(normalized);
+  if (cached) return cached;
+  const style = { minHeight: normalized };
+  minHeightStyleCache.set(normalized, style);
+  return style;
+};
+
+const getMeasurementHeightStyle = (height: number): { height: number } => {
+  const normalized = Math.max(0, Math.round(height));
+  const cached = measurementHeightStyleCache.get(normalized);
+  if (cached) return cached;
+  const style = { height: normalized };
+  measurementHeightStyleCache.set(normalized, style);
+  return style;
+};
+
+const getBottomPaddingStyle = (paddingBottom: number): { paddingBottom: number } => {
+  const normalized = Math.max(0, Math.round(paddingBottom));
+  const cached = bottomPaddingStyleCache.get(normalized);
+  if (cached) return cached;
+  const style = { paddingBottom: normalized };
+  bottomPaddingStyleCache.set(normalized, style);
+  return style;
+};
+
+const getBackgroundStyle = (backgroundColor: string): { backgroundColor: string } => {
+  const cached = viewBackgroundStyleCache.get(backgroundColor);
+  if (cached) return cached;
+  const style = { backgroundColor };
+  viewBackgroundStyleCache.set(backgroundColor, style);
+  return style;
+};
+
+const getOverscrollHintLayoutStyle = (
+  bottomInset: number
+): { paddingBottom: number; bottom: number } => {
+  const normalized = Math.max(0, Math.round(bottomInset));
+  const cached = overscrollHintLayoutStyleCache.get(normalized);
+  if (cached) return cached;
+  const style = { paddingBottom: normalized, bottom: END_OF_FEED_HINT_BOTTOM_OFFSET };
+  overscrollHintLayoutStyleCache.set(normalized, style);
+  return style;
+};
+const MAINTAIN_VISIBLE_CONTENT_POSITION_DISABLED = { disabled: true } as const;
+const SAFE_AREA_BOTTOM_EDGES = { bottom: true } as const;
+
 const ListEmptyComponent = ({
   isLoading,
   effectiveIsError,
@@ -122,21 +176,23 @@ const ListEmptyComponent = ({
   emptyComponentHeight,
   onRetry,
 }: ListEmptyComponentProps) => {
+  const loadingIndicatorColor = profileColors?.textColor ?? secondaryColor ?? Colors.neutral[50];
+  const loadingContainerStyle = useMemo(
+    () =>
+      StyleSheet.compose(
+        StyleSheet.compose(
+          styles.centeredLoadingContainer,
+          styles.centeredLoadingContainerBackground
+        ),
+        getMinHeightStyle(emptyComponentHeight)
+      ),
+    [emptyComponentHeight]
+  );
+
   if (isLoading) {
     return (
-      <View
-        style={[
-          styles.centeredLoadingContainer,
-          {
-            backgroundColor: Colors.black,
-            minHeight: emptyComponentHeight,
-          },
-        ]}
-      >
-        <ActivityIndicator
-          size="large"
-          color={profileColors?.textColor || secondaryColor || Colors.neutral[50]}
-        />
+      <View style={loadingContainerStyle}>
+        <ActivityIndicator size="large" color={loadingIndicatorColor} />
       </View>
     );
   }
@@ -175,18 +231,20 @@ type EndOfFeedOverscrollHintProps = {
 const EndOfFeedOverscrollHint = memo(
   ({ opacitySV, bottomInset, labelColor }: EndOfFeedOverscrollHintProps) => {
     const { t } = useTranslation();
+    const hintLayoutStyle = useMemo(() => getOverscrollHintLayoutStyle(bottomInset), [bottomInset]);
     const animatedStyle = useAnimatedStyle(() => ({
       opacity: opacitySV.value,
     }));
+    const hintContainerStyle = useMemo(
+      () =>
+        StyleSheet.compose(
+          StyleSheet.compose(styles.endOfFeedOverscrollHint, hintLayoutStyle),
+          animatedStyle
+        ),
+      [hintLayoutStyle, animatedStyle]
+    );
     return (
-      <Animated.View
-        pointerEvents="none"
-        style={[
-          styles.endOfFeedOverscrollHint,
-          { paddingBottom: bottomInset, bottom: END_OF_FEED_HINT_BOTTOM_OFFSET },
-          animatedStyle,
-        ]}
-      >
+      <Animated.View pointerEvents="none" style={hintContainerStyle}>
         <View style={styles.endOfFeedOverscrollInner}>
           <TypographyText
             variant="body"
@@ -417,6 +475,11 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     // Memoize profileColors to prevent recreation on every render
     const profileColors = getProfileColors(backgroundColor, secondaryColor);
+    const resolvedBackgroundColor = backgroundColor ?? Colors.black;
+    const containerBackgroundStyle = useMemo(
+      () => getBackgroundStyle(resolvedBackgroundColor),
+      [resolvedBackgroundColor]
+    );
 
     const endOfFeedHintColor = useMemo(
       () => getEndOfFeedOverscrollTextColor(profileColors?.textColor, secondaryColor),
@@ -461,7 +524,14 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         const xd = extraData as typeof listRenderExtraData | undefined;
         const h = xd?.cardHeight ?? 0;
         if (target === RenderTargetOptions.Measurement || !xd) {
-          return <View style={[styles.measurementPlaceholder, { height: h }]} />;
+          return (
+            <View
+              style={StyleSheet.compose(
+                styles.measurementPlaceholder,
+                getMeasurementHeightStyle(h)
+              )}
+            />
+          );
         }
 
         const isAppleZoomTarget =
@@ -703,8 +773,20 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       if (useNativeTabBottomSafeArea) {
         return styles.contentContainerListItemsNativeTabBottom;
       }
-      return { paddingBottom: insets.bottom };
+      return getBottomPaddingStyle(insets.bottom);
     }, [feed.length, useNativeTabBottomSafeArea, insets.bottom]);
+    const listContentContainerStyle = useMemo(
+      () => StyleSheet.compose(styles.contentContainer, listContentContainerExtraStyle),
+      [listContentContainerExtraStyle]
+    );
+    const listContainerStyle = useMemo(
+      () => StyleSheet.compose(styles.container, containerBackgroundStyle),
+      [containerBackgroundStyle]
+    );
+    const tabSafeAreaStyle = useMemo(
+      () => StyleSheet.compose(styles.tabSceneSafeArea, containerBackgroundStyle),
+      [containerBackgroundStyle]
+    );
 
     const listEmptyElement = useMemo(
       () => (
@@ -758,115 +840,163 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       [feed.length]
     );
 
-    const listBody = (
-      <View
-        collapsable={false}
-        style={[styles.container, { backgroundColor: backgroundColor || Colors.black }]}
-        onLayout={handleFeedLayout}
-      >
-        {showEndOfFeed ? (
-          <EndOfFeedOverscrollHint
-            opacitySV={endOfFeedOverscrollOpacitySV}
-            bottomInset={endOfFeedHintBottomInset}
-            labelColor={endOfFeedHintColor}
-          />
-        ) : null}
-        <View style={styles.flashListWrapper}>
-          <AnimatedFlashList
-            ref={flashListRef}
-            style={styles.flashList}
-            data={listData}
-            renderItem={renderItem}
-            extraData={listRenderExtraData}
-            drawDistance={FEED_VIEW_CONSTANTS.FLASHLIST_DRAW_DISTANCE}
-            keyExtractor={listKeyExtractor}
-            getItemType={getListItemType}
-            refreshControl={refreshControlElement}
-            initialScrollIndex={initialScrollIndex}
-            ListHeaderComponent={listHeaderElement}
-            // Snapping configuration
-
-            pagingEnabled={false}
-            snapToOffsets={snapToOffsets}
-            snapToInterval={snapToIntervalValue}
-            snapToAlignment={snapToIntervalValue != null ? 'start' : undefined}
-            decelerationRate={
-              Platform.OS === 'ios'
-                ? SCROLL_CONSTANTS.DECELERATION_RATE_IOS
-                : SCROLL_CONSTANTS.DECELERATION_RATE_ANDROID
-            }
-            // Disable fast scrolling to prevent scrolling past multiple items
-            disableIntervalMomentum={true}
-            scrollEventThrottle={APP_CONSTANTS.SCROLL_THROTTLE}
-            onScroll={scrollHandler}
-            onEndReached={onLoadMore}
-            onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
-            onViewableItemsChanged={onViewableItemsChanged}
-            viewabilityConfig={viewabilityConfig}
-            maintainVisibleContentPosition={{ disabled: true }}
-            // Scroll behavior
-            scrollEnabled={true}
-            showsVerticalScrollIndicator={
-              listData.length >= SCROLL_INDICATOR_CONSTANTS.FEED_LIST_MIN_ITEMS
-            }
-            bounces={true}
-            directionalLockEnabled={true}
-            alwaysBounceVertical
-            alwaysBounceHorizontal={false}
-            // Empty state: memoized element so FlashList does not see a new tree every parent render
-            ListEmptyComponent={listEmptyElement}
-            // Item separator for black gaps between cards
-            ItemSeparatorComponent={ItemSeparatorComponent}
-            ListFooterComponent={listFooterElement}
-            contentContainerStyle={[styles.contentContainer, listContentContainerExtraStyle]}
-          />
+    const listBody = useMemo(
+      () => (
+        <View collapsable={false} style={listContainerStyle} onLayout={handleFeedLayout}>
+          {showEndOfFeed ? (
+            <EndOfFeedOverscrollHint
+              opacitySV={endOfFeedOverscrollOpacitySV}
+              bottomInset={endOfFeedHintBottomInset}
+              labelColor={endOfFeedHintColor}
+            />
+          ) : null}
+          <View style={styles.flashListWrapper}>
+            <AnimatedFlashList
+              ref={flashListRef}
+              style={styles.flashList}
+              data={listData}
+              renderItem={renderItem}
+              extraData={listRenderExtraData}
+              drawDistance={FEED_VIEW_CONSTANTS.FLASHLIST_DRAW_DISTANCE}
+              keyExtractor={listKeyExtractor}
+              getItemType={getListItemType}
+              refreshControl={refreshControlElement}
+              initialScrollIndex={initialScrollIndex}
+              ListHeaderComponent={listHeaderElement}
+              // Snapping configuration
+              pagingEnabled={false}
+              snapToOffsets={snapToOffsets}
+              snapToInterval={snapToIntervalValue}
+              snapToAlignment={snapToIntervalValue != null ? 'start' : undefined}
+              decelerationRate={
+                Platform.OS === 'ios'
+                  ? SCROLL_CONSTANTS.DECELERATION_RATE_IOS
+                  : SCROLL_CONSTANTS.DECELERATION_RATE_ANDROID
+              }
+              // Disable fast scrolling to prevent scrolling past multiple items
+              disableIntervalMomentum={true}
+              scrollEventThrottle={APP_CONSTANTS.SCROLL_THROTTLE}
+              onScroll={scrollHandler}
+              onEndReached={onLoadMore}
+              onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
+              onViewableItemsChanged={onViewableItemsChanged}
+              viewabilityConfig={viewabilityConfig}
+              maintainVisibleContentPosition={MAINTAIN_VISIBLE_CONTENT_POSITION_DISABLED}
+              // Scroll behavior
+              scrollEnabled={true}
+              showsVerticalScrollIndicator={
+                listData.length >= SCROLL_INDICATOR_CONSTANTS.FEED_LIST_MIN_ITEMS
+              }
+              bounces={true}
+              directionalLockEnabled={true}
+              alwaysBounceVertical
+              alwaysBounceHorizontal={false}
+              // Empty state: memoized element so FlashList does not see a new tree every parent render
+              ListEmptyComponent={listEmptyElement}
+              // Item separator for black gaps between cards
+              ItemSeparatorComponent={ItemSeparatorComponent}
+              ListFooterComponent={listFooterElement}
+              contentContainerStyle={listContentContainerStyle}
+            />
+          </View>
         </View>
-      </View>
+      ),
+      [
+        listContainerStyle,
+        handleFeedLayout,
+        showEndOfFeed,
+        endOfFeedOverscrollOpacitySV,
+        endOfFeedHintBottomInset,
+        endOfFeedHintColor,
+        listData,
+        renderItem,
+        listRenderExtraData,
+        refreshControlElement,
+        initialScrollIndex,
+        listHeaderElement,
+        snapToOffsets,
+        snapToIntervalValue,
+        scrollHandler,
+        onLoadMore,
+        onViewableItemsChanged,
+        viewabilityConfig,
+        listEmptyElement,
+        listFooterElement,
+        listContentContainerStyle,
+      ]
+    );
+
+    const listSurfaceNode = useMemo(
+      () => (
+        <FeedListPlaybackContext.Provider value={listPlaybackStore}>
+          <FeedScrollProvider motion={feedScrollMotion} layout={feedScrollLayout}>
+            {listBody}
+          </FeedScrollProvider>
+        </FeedListPlaybackContext.Provider>
+      ),
+      [listPlaybackStore, feedScrollMotion, feedScrollLayout, listBody]
+    );
+
+    const gridSurfaceNode = useMemo(
+      () => (
+        <GridFeedView
+          ref={gridRef}
+          feed={feed}
+          headerComponent={headerComponent}
+          backgroundColor={backgroundColor}
+          secondaryColor={secondaryColor}
+          isProfileFeed={isHeaderFeed}
+          feedOption={feedOption}
+          userDid={userDid}
+          onLoadMore={onLoadMore}
+          hasNextPage={hasNextPage}
+          onGridItemPress={onGridItemPressProp}
+          gridFeedModalZoomConfig={gridFeedModalZoomConfig ?? undefined}
+          isError={effectiveIsError}
+          onRetry={onRetry}
+          isLoading={isLoading}
+          ListComponent={ListComponent}
+          contentScrollProgressOutput={contentScrollProgressOutput}
+          snapTopInset={snapTopInset}
+          useNativeTabBottomSafeArea={useNativeTabBottomSafeArea}
+          pullToRefresh={pullToRefresh}
+          isSurfaceVisible={resolvedViewMode === 'grid'}
+        />
+      ),
+      [
+        feed,
+        headerComponent,
+        backgroundColor,
+        secondaryColor,
+        isHeaderFeed,
+        feedOption,
+        userDid,
+        onLoadMore,
+        hasNextPage,
+        onGridItemPressProp,
+        gridFeedModalZoomConfig,
+        effectiveIsError,
+        onRetry,
+        isLoading,
+        ListComponent,
+        contentScrollProgressOutput,
+        snapTopInset,
+        useNativeTabBottomSafeArea,
+        pullToRefresh,
+        resolvedViewMode,
+      ]
     );
 
     const stack = (
       <FeedSurfaceStack
         listActive={resolvedViewMode === 'list'}
-        listSurface={
-          <FeedListPlaybackContext.Provider value={listPlaybackStore}>
-            <FeedScrollProvider motion={feedScrollMotion} layout={feedScrollLayout}>
-              {listBody}
-            </FeedScrollProvider>
-          </FeedListPlaybackContext.Provider>
-        }
-        gridSurface={
-          <GridFeedView
-            ref={gridRef}
-            feed={feed}
-            headerComponent={headerComponent}
-            backgroundColor={backgroundColor}
-            secondaryColor={secondaryColor}
-            isProfileFeed={isHeaderFeed}
-            feedOption={feedOption}
-            userDid={userDid}
-            onLoadMore={onLoadMore}
-            hasNextPage={hasNextPage}
-            onGridItemPress={onGridItemPressProp}
-            gridFeedModalZoomConfig={gridFeedModalZoomConfig ?? undefined}
-            isError={effectiveIsError}
-            onRetry={onRetry}
-            isLoading={isLoading}
-            ListComponent={ListComponent}
-            contentScrollProgressOutput={contentScrollProgressOutput}
-            snapTopInset={snapTopInset}
-            useNativeTabBottomSafeArea={useNativeTabBottomSafeArea}
-            pullToRefresh={pullToRefresh}
-            isSurfaceVisible={resolvedViewMode === 'grid'}
-          />
-        }
+        listSurface={listSurfaceNode}
+        gridSurface={gridSurfaceNode}
       />
     );
 
     return useNativeTabBottomSafeArea ? (
-      <RNScreensSafeAreaView
-        style={[styles.tabSceneSafeArea, { backgroundColor: backgroundColor || Colors.black }]}
-        edges={{ bottom: true }}
-      >
+      <RNScreensSafeAreaView style={tabSafeAreaStyle} edges={SAFE_AREA_BOTTOM_EDGES}>
         {stack}
       </RNScreensSafeAreaView>
     ) : (
@@ -886,6 +1016,9 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  centeredLoadingContainerBackground: {
+    backgroundColor: Colors.black,
   },
   contentContainer: {
     backgroundColor: Colors.transparent,

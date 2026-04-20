@@ -15,6 +15,7 @@ import {
   Text,
   StyleSheet,
   Pressable,
+  useWindowDimensions,
   type LayoutChangeEvent,
   type NativeSyntheticEvent,
   type TextLayoutEventData,
@@ -25,8 +26,6 @@ import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '../../../theme';
 import { Typography, FontFamily } from '@/utils/components/typography';
-import { useDeviceLayout } from '@/hooks/useDeviceLayout';
-import { useOverlayLayout } from '../../../context/OverlayLayoutContext';
 import { NanoIcon } from '../../ui/NanoIcon';
 import { Avatar } from '../../ui/UI';
 import { formatNumber } from '../../../utils/formatting/numbers';
@@ -40,8 +39,24 @@ import { type ProfileColorScheme, hexToRGBA } from '../../../utils/formatting/co
 import { sharedItemStyles } from '@/components/ui/ItemStyles';
 
 const GRADIENT_SHIM = require('../../../assets/embed-video-gradient-shim.png');
+const HIT_SLOP_12 = { top: 12, bottom: 12, left: 12, right: 12 } as const;
+const HIT_SLOP_6 = { top: 6, bottom: 6, left: 6, right: 6 } as const;
+const HIT_SLOP_8_6 = { top: 8, bottom: 8, left: 6, right: 6 } as const;
+const HIT_SLOP_8_4_6 = { top: 8, bottom: 8, left: 4, right: 6 } as const;
+const HIT_SLOP_6_4 = { top: 6, bottom: 6, left: 4, right: 4 } as const;
+const HIT_SLOP_14 = { top: 14, bottom: 14, left: 14, right: 14 } as const;
 
 type Post = ExtendedPostView;
+const widthStyleCache = new Map<number, { width: number }>();
+
+const getWidthStyle = (width: number): { width: number } => {
+  const normalized = Math.max(0, Math.round(width));
+  const cached = widthStyleCache.get(normalized);
+  if (cached) return cached;
+  const style = { width: normalized };
+  widthStyleCache.set(normalized, style);
+  return style;
+};
 
 export interface VideoOverlayUIProps {
   post: Post;
@@ -116,11 +131,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
     profileColors: profileColorsProp,
     authorProfileStatus,
   } = authorProfileOverlay ?? {};
-  const overlayLayout = useOverlayLayout();
-  const deviceLayout = useDeviceLayout();
-  const isTabletDevice = overlayLayout?.isTablet ?? deviceLayout.isTablet;
-
-  const { screenWidth: width } = deviceLayout;
+  const { width } = useWindowDimensions();
 
   const [isOverlayCollapsed, setIsOverlayCollapsed] = useRecyclingState(true, [
     post?.uri,
@@ -194,18 +205,66 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   }, [width]);
 
   const { contentPadding, actionIconSize, authorAvatarSize } = uiCalculations;
-
-  // Memoize icon size calculation (reused multiple times)
-  const effectiveIconSize = useMemo(
-    () => (isTabletDevice ? Math.max(actionIconSize, 34) : actionIconSize),
-    [isTabletDevice, actionIconSize]
+  const moreMenuIconSize = Math.max(Math.round(actionIconSize * 0.68), 18);
+  const captionMeasureWidthStyle = useMemo(
+    () => getWidthStyle(captionMeasureWidth),
+    [captionMeasureWidth]
   );
-  const moreMenuIconSize = useMemo(
+  const repostIndicatorTextStyle = useMemo(
+    () => StyleSheet.compose(styles.repostIndicatorText, styles.repostTextOpacity),
+    []
+  );
+  const descriptionMeasureLayerStyle = useMemo(
+    () => StyleSheet.compose(styles.descriptionMeasureLayer, captionMeasureWidthStyle),
+    [captionMeasureWidthStyle]
+  );
+  const descriptionMeasureTextStyle = useMemo(
+    () => StyleSheet.compose(styles.descriptionText, captionMeasureWidthStyle),
+    [captionMeasureWidthStyle]
+  );
+  const descriptionCollapsedTextStyle = useMemo(
+    () => StyleSheet.compose(styles.descriptionText, styles.descriptionTextFlexible),
+    []
+  );
+  const descriptionToggleStyle = useMemo(
+    () => StyleSheet.compose(styles.descriptionToggleSurface, styles.descriptionTogglePressable),
+    []
+  );
+  const avatarContainerStyle = useMemo(
+    () => StyleSheet.compose(styles.avatarContainer, sharedItemStyles.avatarContainer),
+    []
+  );
+  const authorTextContainerStyle = useMemo(
+    () => StyleSheet.compose(styles.authorTextContainer, sharedItemStyles.accountInfoContainer),
+    []
+  );
+  const authorNameTextStyle = useMemo(
+    () => StyleSheet.compose(styles.baseText, styles.authorName),
+    []
+  );
+  const followSeparatorStyle = useMemo(
+    () => StyleSheet.compose(styles.authorName, styles.followSeparator),
+    []
+  );
+  const followTextStyle = useMemo(
     () =>
-      isTabletDevice
-        ? Math.max(Math.round(actionIconSize * 0.68), 22)
-        : Math.max(Math.round(actionIconSize * 0.68), 18),
-    [isTabletDevice, actionIconSize]
+      StyleSheet.compose(StyleSheet.compose(styles.baseText, styles.authorName), styles.followText),
+    []
+  );
+  const sourceTextStyle = useMemo(
+    () => StyleSheet.compose(styles.sourceText, styles.sourceTextOpacity),
+    []
+  );
+  const avatarProfileColors = useMemo(
+    () =>
+      profileColors
+        ? {
+            backgroundColor: profileColors.backgroundColor,
+            foregroundColor: profileColors.foregroundColor,
+            textColor: profileColors.textColor,
+          }
+        : undefined,
+    [profileColors]
   );
 
   // Simple formatting helpers are cheap; keep values as plain derived constants.
@@ -240,7 +299,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   }, [post?.uri, likeScale, repostScale, repostRotate]);
 
   const commentIcon = (
-    <NanoIcon name="chat-fill" size={effectiveIconSize} color={Colors.neutral[50]} />
+    <NanoIcon name="chat-fill" size={actionIconSize} color={Colors.neutral[50]} />
   );
 
   // Extract inline handlers to prevent recreation on every render
@@ -324,14 +383,14 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
     const opacityValue = overlayOpacitySV ? overlayOpacitySV.value : 1;
     return { opacity: opacityValue };
   });
+  const overlayContainerStyle = useMemo(
+    () => StyleSheet.compose(styles.overlayContainer, overlayAnimatedStyle),
+    [overlayAnimatedStyle]
+  );
 
   return (
     <>
-      <Animated.View
-        style={[styles.overlayContainer, overlayAnimatedStyle]}
-        pointerEvents="box-none"
-        shouldRasterizeIOS
-      >
+      <Animated.View style={overlayContainerStyle} pointerEvents="box-none">
         <Image
           source={GRADIENT_SHIM}
           style={styles.gradientShimTop}
@@ -354,23 +413,12 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                 <NativePressable
                   style={styles.repostIndicatorContainer}
                   onPress={onRepostAuthorPress}
-                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  hitSlop={HIT_SLOP_12}
                 >
                   <View style={styles.repostIconWrapper}>
-                    <NanoIcon
-                      name="refresh-fill"
-                      size={isTabletDevice ? 26 : 24}
-                      color={Colors.neutral[200]}
-                    />
+                    <NanoIcon name="refresh-fill" size={24} color={Colors.neutral[200]} />
                   </View>
-                  <Text
-                    style={[
-                      isTabletDevice
-                        ? styles.repostIndicatorTextTablet
-                        : styles.repostIndicatorText,
-                      styles.repostTextOpacity,
-                    ]}
-                  >
+                  <Text style={repostIndicatorTextStyle}>
                     {t('feed.repostedBy', { handle: formattedRepostHandle })}
                   </Text>
                 </NativePressable>
@@ -383,12 +431,12 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                   {descriptionOverflows === null && captionMeasureWidth > 0 ? (
                     <View
                       pointerEvents="none"
-                      style={[styles.descriptionMeasureLayer, { width: captionMeasureWidth }]}
+                      style={descriptionMeasureLayerStyle}
                       collapsable={false}
                     >
                       <TextWithAuthorLinks
                         text={record?.text ?? ''}
-                        style={[styles.descriptionText, { width: captionMeasureWidth }]}
+                        style={descriptionMeasureTextStyle}
                         onTextLayout={onDescriptionOverflowMeasure}
                         onAuthorPress={authorLinkPressHandler}
                         onHashtagPress={onHashtagPress}
@@ -402,7 +450,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                       <View style={styles.descriptionInlineToggleRow}>
                         <TextWithAuthorLinks
                           text={record?.text ?? ''}
-                          style={[styles.descriptionText, styles.descriptionTextFlexible]}
+                          style={descriptionCollapsedTextStyle}
                           numberOfLines={1}
                           ellipsizeMode="tail"
                           onAuthorPress={authorLinkPressHandler}
@@ -411,13 +459,10 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                         />
                         <SquircleNativePressable
                           onPress={toggleCollapsed}
-                          hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+                          hitSlop={HIT_SLOP_6_4}
                           accessibilityRole="button"
                           accessibilityLabel={t('feed.showMore')}
-                          style={[
-                            styles.descriptionToggleSurface,
-                            styles.descriptionTogglePressable,
-                          ]}
+                          style={descriptionToggleStyle}
                         >
                           <Text style={styles.descriptionToggleButtonLabel}>
                             {t('feed.showMore')}
@@ -437,13 +482,10 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                           <View style={styles.descriptionTextFlexible} />
                           <SquircleNativePressable
                             onPress={toggleCollapsed}
-                            hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+                            hitSlop={HIT_SLOP_6_4}
                             accessibilityRole="button"
                             accessibilityLabel={t('feed.showLess')}
-                            style={[
-                              styles.descriptionToggleSurface,
-                              styles.descriptionTogglePressable,
-                            ]}
+                            style={descriptionToggleStyle}
                           >
                             <Text style={styles.descriptionToggleButtonLabel}>
                               {t('feed.showLess')}
@@ -469,11 +511,8 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
 
             {/* Author info */}
             <View style={styles.authorInfoContainer}>
-              <View style={[styles.avatarContainer, sharedItemStyles.avatarContainer]}>
-                <NativePressable
-                  onPress={handleAvatarAndNamePress}
-                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                >
+              <View style={avatarContainerStyle}>
+                <NativePressable onPress={handleAvatarAndNamePress} hitSlop={HIT_SLOP_6}>
                   <Avatar
                     uri={profilePicUrl}
                     type="profile"
@@ -482,33 +521,18 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                     ringColor={ringColor}
                     blurRadius={isAuthorBlocked ? 30 : 0}
                     status={authorProfileStatus ?? undefined}
-                    profileColors={
-                      profileColors
-                        ? {
-                            backgroundColor: profileColors.backgroundColor,
-                            foregroundColor: profileColors.foregroundColor,
-                            textColor: profileColors.foregroundColor,
-                          }
-                        : undefined
-                    }
+                    profileColors={avatarProfileColors}
                   />
                 </NativePressable>
               </View>
-              <View style={[styles.authorTextContainer, sharedItemStyles.accountInfoContainer]}>
+              <View style={authorTextContainerStyle}>
                 <View style={styles.authorNameRow}>
                   <NativePressable
                     style={styles.authorNamePressable}
                     onPress={handleAvatarAndNamePress}
-                    hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                    hitSlop={HIT_SLOP_8_6}
                   >
-                    <Text
-                      style={[
-                        styles.baseText,
-                        isTabletDevice ? styles.authorNameTablet : styles.authorName,
-                      ]}
-                      numberOfLines={1}
-                      ellipsizeMode="tail"
-                    >
+                    <Text style={authorNameTextStyle} numberOfLines={1} ellipsizeMode="tail">
                       {formattedAuthorHandle}
                     </Text>
                   </NativePressable>
@@ -516,7 +540,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                     <View style={styles.authorBadgeWrapper}>
                       <VerificationBadge
                         handle={author.handle}
-                        size={isTabletDevice ? 22 : 20}
+                        size={20}
                         customMargin={2}
                         textColor={Colors.neutral[50]}
                       />
@@ -524,7 +548,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                         handle={author.handle}
                         did={author.did}
                         labels={author.labels}
-                        size={isTabletDevice ? 22 : 20}
+                        size={20}
                         customMargin={2}
                         textColor={Colors.neutral[50]}
                       />
@@ -532,28 +556,10 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                   )}
                   {showFollowText && (
                     <>
-                      <Text
-                        style={[
-                          isTabletDevice ? styles.authorNameTablet : styles.authorName,
-                          styles.followSeparator,
-                        ]}
-                      >
-                        {' · '}
-                      </Text>
+                      <Text style={followSeparatorStyle}>{' · '}</Text>
                       <View style={styles.followButtonWrapper}>
-                        <NativePressable
-                          onPress={handleFollowPress}
-                          hitSlop={{ top: 8, bottom: 8, left: 4, right: 6 }}
-                        >
-                          <Text
-                            style={[
-                              styles.baseText,
-                              isTabletDevice ? styles.authorNameTablet : styles.authorName,
-                              styles.followText,
-                            ]}
-                          >
-                            {t('profile.follow')}
-                          </Text>
+                        <NativePressable onPress={handleFollowPress} hitSlop={HIT_SLOP_8_4_6}>
+                          <Text style={followTextStyle}>{t('profile.follow')}</Text>
                         </NativePressable>
                       </View>
                     </>
@@ -563,17 +569,10 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                   <NativePressable
                     style={styles.sourceIndicatorContainer}
                     onPress={onChannelPress}
-                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                    hitSlop={HIT_SLOP_12}
                   >
-                    <Text
-                      style={[
-                        isTabletDevice ? styles.sourceTextTablet : styles.sourceText,
-                        styles.sourceTextOpacity,
-                      ]}
-                    >
-                      <Text style={isTabletDevice ? styles.sourceSlashTablet : styles.sourceSlash}>
-                        /
-                      </Text>
+                    <Text style={sourceTextStyle}>
+                      <Text style={styles.sourceSlash}>/</Text>
                       {getLocalizedChannelDisplayNameFromSlug(channelSlug, channelSlug)}
                     </Text>
                   </NativePressable>
@@ -584,78 +583,51 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
 
           {/* Action buttons — Pressable (no NativePressable dim); like/repost use Animated feedback inside */}
           <View style={styles.actionsContainer} pointerEvents="box-none">
-            <Pressable
-              style={[
-                styles.baseActionButton,
-                isTabletDevice ? styles.actionButtonTablet : styles.actionButton,
-              ]}
-              onPress={onSharePress}
-              hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
-            >
-              <View
-                style={[
-                  styles.moreMenuIconContainer,
-                  isTabletDevice && styles.moreMenuIconContainerTablet,
-                ]}
-              >
+            <Pressable style={styles.baseActionButton} onPress={onSharePress} hitSlop={HIT_SLOP_14}>
+              <View style={styles.moreMenuIconContainer}>
                 <NanoIcon name="more-fill" size={moreMenuIconSize} color={Colors.neutral[50]} />
               </View>
             </Pressable>
 
             <Pressable
-              style={[
-                styles.baseActionButton,
-                isTabletDevice ? styles.actionButtonTablet : styles.actionButton,
-              ]}
+              style={styles.baseActionButton}
               onPress={handleRepostPress}
               disabled={isRepostPending}
-              hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+              hitSlop={HIT_SLOP_14}
             >
               <Animated.View style={repostAnimatedStyle}>
                 <NanoIcon
                   name="refresh-fill"
-                  size={effectiveIconSize}
+                  size={actionIconSize}
                   color={isReposted ? Colors.teal[500] : Colors.neutral[50]}
                 />
               </Animated.View>
-              <Text style={isTabletDevice ? styles.actionTextTablet : styles.actionText}>
-                {formattedRepostCount}
-              </Text>
+              <Text style={styles.actionText}>{formattedRepostCount}</Text>
             </Pressable>
 
             <Pressable
-              style={[
-                styles.baseActionButton,
-                isTabletDevice ? styles.actionButtonTablet : styles.actionButton,
-              ]}
+              style={styles.baseActionButton}
               onPress={handleCommentPress}
-              hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+              hitSlop={HIT_SLOP_14}
             >
               {commentIcon}
-              <Text style={isTabletDevice ? styles.actionTextTablet : styles.actionText}>
-                {formattedCommentCount}
-              </Text>
+              <Text style={styles.actionText}>{formattedCommentCount}</Text>
             </Pressable>
 
             <Pressable
-              style={[
-                styles.baseActionButton,
-                isTabletDevice ? styles.actionButtonTablet : styles.actionButton,
-              ]}
+              style={styles.baseActionButton}
               onPress={handleLikePress}
               disabled={isLikePending}
-              hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+              hitSlop={HIT_SLOP_14}
             >
               <Animated.View style={likeAnimatedStyle}>
                 <NanoIcon
                   name="heart-fill"
-                  size={effectiveIconSize}
+                  size={actionIconSize}
                   color={isLiked ? Colors.coral[500] : Colors.neutral[50]}
                 />
               </Animated.View>
-              <Text style={isTabletDevice ? styles.actionTextTablet : styles.actionText}>
-                {formattedLikeCount}
-              </Text>
+              <Text style={styles.actionText}>{formattedLikeCount}</Text>
             </Pressable>
           </View>
         </View>
@@ -724,14 +696,6 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     includeFontPadding: false,
     lineHeight: Typography.lineHeights.bodySmall,
-  },
-  repostIndicatorTextTablet: {
-    color: Colors.neutral[200],
-    fontSize: Typography.sizes.subtitle,
-    fontFamily: FontFamily.semibold,
-    marginLeft: 6,
-    includeFontPadding: false,
-    lineHeight: Typography.lineHeights.subtitle,
   },
   repostIndicatorBox: {
     backgroundColor: Colors.transparent,
@@ -850,15 +814,6 @@ const styles = StyleSheet.create({
     textShadowColor: Colors.transparent,
     textShadowRadius: 0,
   },
-  authorNameTablet: {
-    fontSize: Typography.sizes.title,
-    fontFamily: FontFamily.semibold,
-    lineHeight: Typography.lineHeights.title,
-    includeFontPadding: false,
-    flexShrink: 1,
-    textShadowColor: Colors.transparent,
-    textShadowRadius: 0,
-  },
   sourceIndicatorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -868,14 +823,7 @@ const styles = StyleSheet.create({
   sourceSlash: {
     fontFamily: FontFamily.semibold,
   },
-  sourceSlashTablet: {
-    fontFamily: FontFamily.semibold,
-  },
   sourceText: {
-    fontSize: Typography.sizes.subtitle,
-    fontFamily: FontFamily.bold,
-  },
-  sourceTextTablet: {
     fontSize: Typography.sizes.subtitle,
     fontFamily: FontFamily.bold,
   },
@@ -889,32 +837,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: 36.5,
   },
-  actionButton: {},
-  actionButtonTablet: {
-    width: 44,
-  },
   moreMenuIconContainer: {
     width: 28,
     height: 28,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  moreMenuIconContainerTablet: {
-    width: 32,
-    height: 32,
-  },
   actionText: {
-    color: Colors.neutral[50],
-    fontSize: Typography.sizes.caption,
-    fontFamily: FontFamily.semibold,
-    marginTop: 1,
-    textAlign: 'center',
-    width: '100%',
-    minWidth: 45,
-    textShadowColor: Colors.transparent,
-    textShadowRadius: 0,
-  },
-  actionTextTablet: {
     color: Colors.neutral[50],
     fontSize: Typography.sizes.caption,
     fontFamily: FontFamily.semibold,
