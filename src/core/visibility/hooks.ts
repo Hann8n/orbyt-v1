@@ -2,15 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { AppState, type ViewabilityConfig, type ViewToken } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 
-/**
- * Native list viewability config for playback handoff.
- * Tuned for faster scroll handoff so the previous video does not linger during vertical swipes.
- */
-const VIEWABILITY_CONFIG: ViewabilityConfig = {
-  itemVisiblePercentThreshold: 65,
-  minimumViewTime: 120,
-  waitForInteraction: false,
-};
+import { FEED_ROW_VIEWABILITY_CONFIG } from './feedRowVisibility';
 
 interface FeedVisibilityOptions {
   isActive: boolean;
@@ -32,7 +24,6 @@ export function useFeedVisibility({
   isActive,
   onActiveVisibleIndexChange,
 }: FeedVisibilityOptions): FeedVisibilityResult {
-  // Use React Native's AppState directly (no store sync) per RN docs
   const [appState, setAppState] = useState(AppState.currentState);
   useEffect(() => {
     const subscription = AppState.addEventListener('change', setAppState);
@@ -46,7 +37,6 @@ export function useFeedVisibility({
       const token = viewableItems.find(t => t.isViewable);
       const nextIndex = typeof token?.index === 'number' ? token.index : -1;
 
-      // Only emit real indices to avoid clearing a known row during transient list/layout churn.
       if (nextIndex >= 0) {
         onActiveVisibleIndexChange?.(nextIndex);
       }
@@ -56,7 +46,7 @@ export function useFeedVisibility({
 
   return {
     onViewableItemsChanged,
-    viewabilityConfig: VIEWABILITY_CONFIG,
+    viewabilityConfig: FEED_ROW_VIEWABILITY_CONFIG satisfies ViewabilityConfig,
     canPlay,
   };
 }

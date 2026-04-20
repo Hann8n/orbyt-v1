@@ -208,19 +208,15 @@ const memoizedQueryOptions = useMemo(() => {
 
 ## Priority 3 — SDK Upgrade Opportunities
 
-### 3.1 Replace `react-native-vision-camera 5.0.0-beta.8` with stable release or `expo-camera`
+### 3.1 `react-native-vision-camera` — stable v5 + lifecycle hygiene (resolved direction)
 
 **File:** `package.json`, `app/create.tsx`, any file importing from `react-native-vision-camera`
 
-**Problem:** The app uses `react-native-vision-camera@5.0.0-beta.8`. The latest stable VisionCamera release is v4.7.3. Using a beta version in production introduces risk of breaking changes, undocumented behaviors, and no official support. Additionally, Expo SDK 55 ships a fully revamped `expo-camera` API that supports video recording with quality controls, camera device selection, and is fully managed within the Expo ecosystem.
+**Status:** The app pins **`react-native-vision-camera@^5.0.1`** (stable v5) with **`react-native-nitro-modules`** and **`react-native-nitro-image`**, per upstream v5 requirements. The old “beta.8 / downgrade to v4.7.3 / migrate to expo-camera” guidance is **obsolete**.
 
-**Evaluation task:**
+**Why stay on VisionCamera v5:** Create uses **`useVideoOutput`**, **`createRecorder`**, Reanimated-driven zoom (SharedValue → **`cameraRef.current.controller.setZoom`** via `useAnimatedReaction`, avoiding the optional **`react-native-vision-camera-worklets`** native add-on), native tap-to-focus, torch, and multi-segment recording orchestration — a better fit than swapping to `expo-camera` without a full product decision.
 
-1. Audit all usages of `react-native-vision-camera` in the codebase (use `Grep` for `react-native-vision-camera` imports).
-2. Determine whether the app uses VisionCamera-exclusive features (frame processors, worklets, `useSkiaFrameProcessor`) or just basic camera + recording.
-3. If only basic recording is needed: migrate to `expo-camera` (fully SDK-managed, no native config, compatible with Expo Go for development). The `expo-camera` `CameraView` API supports `mode="video"`, `recordAsync()`, `stopRecording()`, and quality options.
-4. If frame processors or advanced real-time processing is genuinely needed: downgrade to the stable `react-native-vision-camera@4.7.3` and remove the beta pin.
-5. Update `package.json` and run a full build test after any change.
+**Ongoing hygiene (not a version migration):** Follow [VisionCamera lifecycle](https://visioncamera.margelo.com/docs/lifecycle) — prefer **`isActive`** over tearing down `<Camera />` when possible; use **`onConfigured`** on `<Camera />` so outputs are ready before `createRecorder`; keep **`freezeOnBlur: false`** on the create stack screen where the session must not freeze. Re-audit after major Expo / VisionCamera bumps.
 
 ---
 
@@ -336,7 +332,7 @@ The cleanest fix for `sendVideoFeedback` is to add `algorithmicFeedProvider: str
 2. After Issue 1.2 (SeenVideoService): Test with a large seen-video MMKV store. Verify that videos marked as seen are correctly filtered and that account switching clears the cache.
 3. After Issue 1.3 (VideoItem memo): Use React DevTools Profiler to confirm VideoCard no longer re-renders when parent re-renders with unchanged props.
 4. After Issue 2.1 (AtprotoService removal): Run `yarn type-check` and `yarn lint` to catch all broken import sites. Use `knip` to confirm no dead code remains.
-5. After Issue 3.1 (VisionCamera): Full create flow test on both iOS and Android, including multi-segment recording if applicable.
+5. After Issue 3.1 (VisionCamera v5 lifecycle): Full create flow test on both iOS and Android, including multi-segment recording if applicable.
 
 **Do not change:** The AT Protocol polling approach in `useChatLogPolling` is architecturally correct — `chat.bsky.convo.getLog` is a cursor-based HTTP query endpoint, not a WebSocket subscription. The polling with exponential backoff is the prescribed approach per the AT Protocol lexicon. The visibility system (`visibilityStore`, `useVisibilityCoreStore`) is well-designed. The FlashList v2 integration with `useRecyclingState` is correct. The MMKV + Zustand persist setup is correct.
 
@@ -354,7 +350,7 @@ The cleanest fix for `sendVideoFeedback` is to add `algorithmicFeedProvider: str
 | 2.2 Unread count cache      | `src/hooks/useUnreadCount.ts`, `src/utils/query/queryKeys.ts`           |
 | 2.3 useEffect derived state | `src/components/features/video/VideoCard.tsx`                           |
 | 2.4 FeedRenderer options    | `src/components/features/feed/FeedRenderer.tsx`                         |
-| 3.1 VisionCamera beta       | `package.json`, `app/create.tsx`                                        |
+| 3.1 VisionCamera v5         | `package.json`, `app/create.tsx`                                        |
 | 3.2 expo-video preload      | `src/utils/video/helpers.ts`, feed list component                       |
 | 3.3 FFprobe removal         | `src/services/video/VideoProcessingService.ts`                          |
 | 3.4 refetchOnReconnect      | `src/utils/query/queryClient.ts`                                        |

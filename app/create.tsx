@@ -24,13 +24,14 @@ import {
   type CameraRef,
   type Recorder,
 } from 'react-native-vision-camera';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import Animated, {
   Easing,
   Extrapolation,
   interpolate,
   runOnJS,
+  useAnimatedReaction,
   useDerivedValue,
   useSharedValue,
   useAnimatedStyle,
@@ -58,6 +59,7 @@ import { usePendingVideoPostStore } from '@/stores/pendingVideoPostStore';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { FEED_BUFFER_OPTIONS } from '@/utils/video/helpers';
 import { FontFamily, Typography, fontSizeFor } from '@/utils/components/typography';
+import { useVisionCameraScreenActive } from '@/hooks/useVisionCameraScreenActive';
 
 // Duration options in seconds - labels resolved via t() in component
 const DURATION_OPTION_KEYS = [
@@ -182,11 +184,23 @@ const CreateScreen: React.FC = () => {
   const captureZoomPanStartY = useSharedValue(0);
   const captureZoomPanOffsetY = useSharedValue(0);
 
-  const focusEpochRef = useRef(0);
   const isCameraReadyRef = useRef(false);
-  // Await recorder stop before isFocused false so Camera is not torn down while still bound to videoOutput.
-  const [isFocused, setIsFocused] = React.useState(false);
 
+  const applyCameraZoom = useCallback((z: number) => {
+    if (!isCameraReadyRef.current) return;
+    const ctrl = cameraRef.current?.controller;
+    if (!ctrl) return;
+    void ctrl.setZoom(z).catch(() => {});
+  }, []);
+
+  useAnimatedReaction(
+    () => zoomShared.value,
+    (z, prev) => {
+      if (prev === z) return;
+      runOnJS(applyCameraZoom)(z);
+    },
+    [applyCameraZoom]
+  );
   // Initialize segment manager
   useEffect(() => {
     if (!segmentManagerRef.current) {
@@ -290,10 +304,6 @@ const CreateScreen: React.FC = () => {
     return uri.length > 0 ? uri : null;
   }, [deletePreview, getSegmentUri, segmentUpdateTrigger]);
 
-  /**
-   * Pinch on preview — matches Vision Camera example (exponential-ish feel via piecewise interpolate).
-   * Native pinch cannot run alongside controlled `zoom`.
-   */
   const cameraPinchGesture = useMemo(
     () =>
       Gesture.Pinch()
@@ -511,6 +521,22 @@ const CreateScreen: React.FC = () => {
     currentSegmentDurationShared.value = 0;
   }, [currentSegmentDurationShared, resetRecordingRefs]);
 
+  const onCameraScreenFocusEnter = useCallback(() => {
+    setIsProcessing(false);
+  }, []);
+
+  const onCameraScreenInactiveAfterDispose = useCallback(() => {
+    setIsProcessing(false);
+    setFlash('off');
+    setDeletePreview(null);
+  }, []);
+
+  const isCameraScreenActive = useVisionCameraScreenActive({
+    disposeBeforeInactive: disposeActiveRecorderAsync,
+    onFocusEnter: onCameraScreenFocusEnter,
+    onInactiveAfterDispose: onCameraScreenInactiveAfterDispose,
+  });
+
   const endTrimmerLoading = useCallback(() => {
     setIsLoadingFromGallery(false);
     setIsProcessing(false);
@@ -539,13 +565,13 @@ const CreateScreen: React.FC = () => {
     return () => subs.forEach(s => s.remove());
   }, [disposeActiveRecorderAsync, endTrimmerLoading, handleTrimmingComplete, t]);
 
-  // Request camera permissions on mount
+  // Request camera and microphone permissions on mount.
   useEffect(() => {
     const checkPermissions = async () => {
       if (!cameraPermission.hasPermission) await cameraPermission.requestPermission();
       if (!microphonePermission.hasPermission) await microphonePermission.requestPermission();
     };
-    checkPermissions();
+    void checkPermissions();
   }, [cameraPermission, microphonePermission]);
 
   // AbortController for async work (e.g. finishRecording) so we don't setState after unmount
@@ -576,38 +602,12 @@ const CreateScreen: React.FC = () => {
     };
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      const epoch = ++focusEpochRef.current;
-      setIsFocused(true);
-      setIsProcessing(false);
-      return () => {
-        const captured = epoch;
-        void (async () => {
-          await disposeActiveRecorderAsync();
-          if (captured !== focusEpochRef.current) return;
-          setIsProcessing(false);
-          setFlash('off');
-          setDeletePreview(null);
-          setIsFocused(false);
-        })();
-      };
-    }, [disposeActiveRecorderAsync])
-  );
-
   // Disable flash when switching to front camera
   useEffect(() => {
     if (isFrontCamera && flash === 'on') {
       setFlash('off');
     }
   }, [isFrontCamera, flash]);
-
-  // Pre-request microphone so first hold doesn't block on permission
-  useEffect(() => {
-    if (!microphonePermission.hasPermission) {
-      microphonePermission.requestPermission();
-    }
-  }, [microphonePermission]);
 
   // Update shared value when segments change
   useEffect(() => {
@@ -1301,14 +1301,14 @@ const CreateScreen: React.FC = () => {
           ref={cameraRef}
           style={styles.cameraFill}
           device={cameraDevice}
-          isActive={isFocused && !isTrimmerActive}
+          isActive={isCameraScreenActive && !isTrimmerActive && !!cameraDevice}
           outputs={[videoOutput]}
           torchMode={flash === 'on' && !isFrontCamera ? 'on' : 'off'}
-          zoom={zoomShared}
           enableNativeTapToFocusGesture={!isFrontCamera && !isDeletePreviewActive}
           enableSmoothAutoFocus={cameraDevice?.supportsSmoothAutoFocus}
-          onStarted={() => {
+          onConfigured={() => {
             isCameraReadyRef.current = true;
+            applyCameraZoom(zoomShared.value);
           }}
           onStopped={() => {
             isCameraReadyRef.current = false;
@@ -1349,11 +1349,8 @@ const CreateScreen: React.FC = () => {
 
     return (
       <>
-        {/* Camera View - only render when screen is focused and trimmer is not active */}
         <View style={[styles.cameraContainer, cameraContainerLayout]}>
-          {isFocused && !isTrimmerActive && (
-            <GestureDetector gesture={cameraPinchGesture}>{cameraSurface}</GestureDetector>
-          )}
+          <GestureDetector gesture={cameraPinchGesture}>{cameraSurface}</GestureDetector>
 
           {/* Progress Bar - overlays on top of camera */}
           <View
