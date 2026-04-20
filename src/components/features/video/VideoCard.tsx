@@ -863,11 +863,20 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
 
     const { navigateToChannel: goToChannel, navigateToProfile } = useProfileChannelNavigation();
 
+    const channelUriRef = useRef(channelUri);
+    channelUriRef.current = channelUri;
+    const goToChannelRef = useRef(goToChannel);
+    goToChannelRef.current = goToChannel;
+    const navigateToProfileRef = useRef(navigateToProfile);
+    navigateToProfileRef.current = navigateToProfile;
+    const queryClientRef = useRef(queryClient);
+    queryClientRef.current = queryClient;
+
     const handleChannelPress = useCallback(() => {
-      if (channelUri) {
-        goToChannel(encodeURIComponent(channelUri));
-      }
-    }, [channelUri, goToChannel]);
+      const currentChannelUri = channelUriRef.current;
+      if (!currentChannelUri) return;
+      goToChannelRef.current(encodeURIComponent(currentChannelUri));
+    }, []);
 
     const isCurrentUserProfile = useMemo(
       () => isCurrentUser(postView.author?.did, postView.author?.handle, currentUser),
@@ -882,7 +891,7 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
         const cleanDid = (rawDid || authorData?.did || '').trim();
         if (!cleanDid) return;
         prefetchProfile(
-          queryClient,
+          queryClientRef.current,
           cleanDid,
           authorData
             ? {
@@ -893,16 +902,19 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
               }
             : undefined
         );
-        navigateToProfile(cleanDid);
+        navigateToProfileRef.current(cleanDid);
       },
-      [queryClient, navigateToProfile]
+      []
     );
 
+    const repostedByRef = useRef(postView.repostedBy);
+    repostedByRef.current = postView.repostedBy;
     const handleRepostAuthorPress = useCallback(() => {
-      const identifier = postView.repostedBy?.handle;
+      const repostedBy = repostedByRef.current;
+      const identifier = repostedBy?.handle;
       if (!identifier) return;
-      handleAuthorPress(identifier, postView.repostedBy);
-    }, [postView.repostedBy, handleAuthorPress]);
+      handleAuthorPress(identifier, repostedBy);
+    }, [handleAuthorPress]);
 
     const handleSharePress = useCallback(() => {
       queueInteraction(INTERACTIONSHARE_CONST);
