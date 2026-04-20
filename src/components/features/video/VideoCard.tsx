@@ -483,10 +483,11 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
 
     const handleOverlayCollapsedChange = useCallback(
       (isCollapsed: boolean) => {
+        if (!isVisible) return;
         const isExpanded = !isCollapsed;
         textDimOpacitySV.value = withTiming(isExpanded ? 0.65 : 0, { duration: 120 });
       },
-      [textDimOpacitySV]
+      [isVisible, textDimOpacitySV]
     );
 
     const textDimAnimatedStyle = useAnimatedStyle(() => {
@@ -977,9 +978,10 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
     const feedScrollMotion = useFeedScrollMotion();
     const feedScrollLayout = useFeedScrollLayout();
     const scrollOffsetYSV = feedScrollMotion?.scrollOffsetYSV;
+    const overlayScrollOffsetYSV = renderHeavyChrome ? scrollOffsetYSV : undefined;
     const uiOverlayOpacitySV = useVideoCardOverlayOpacity({
       seekingAnimationSV,
-      scrollOffsetYSV,
+      scrollOffsetYSV: overlayScrollOffsetYSV,
       headerH: feedScrollLayout?.headerHeight ?? 0,
       viewportH: feedScrollLayout?.viewportHeight ?? cardHeight,
       itemSp: feedScrollLayout?.itemSpacing ?? cardHeight,

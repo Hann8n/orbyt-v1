@@ -330,6 +330,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
       <Animated.View
         style={[styles.overlayContainer, overlayAnimatedStyle]}
         pointerEvents="box-none"
+        shouldRasterizeIOS
       >
         <Image
           source={GRADIENT_SHIM}

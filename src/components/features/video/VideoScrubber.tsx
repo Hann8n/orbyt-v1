@@ -3,6 +3,7 @@ import { Text, StyleSheet, Platform } from 'react-native';
 import { Gesture, GestureDetector, type NativeGesture } from 'react-native-gesture-handler';
 import Animated, {
   clamp,
+  Easing,
   interpolate,
   type SharedValue,
   useAnimatedReaction,
@@ -43,6 +44,9 @@ const VideoScrubberActive = ({
   children,
   overlayOpacitySV,
 }: VideoScrubberProps) => {
+  const SCRUBBER_TIME_UPDATE_INTERVAL_SECONDS = 0.1;
+  const SCRUBBER_INTERPOLATION_DURATION_MS = 100;
+
   const deviceLayout = useDeviceLayout();
   const screenWidth = deviceLayout.screenWidth;
 
@@ -132,7 +136,7 @@ const VideoScrubberActive = ({
   // feed players. VideoCard initialises timeUpdateEventInterval=0; we set it here when needed.
   useEffect(() => {
     if (!player) return;
-    player.timeUpdateEventInterval = active ? 0.25 : 0;
+    player.timeUpdateEventInterval = active ? SCRUBBER_TIME_UPDATE_INTERVAL_SECONDS : 0;
   }, [player, active]);
 
   // Sync playback position via native timeUpdate events (fired at 4fps when scrubber active).
@@ -144,20 +148,26 @@ const VideoScrubberActive = ({
       if (!isSeekingSV.get()) {
         scheduleOnUI(() => {
           'worklet';
-          currentTimeSV.set(withTiming(currentTime, { duration: 210 }));
+          currentTimeSV.set(
+            withTiming(currentTime, {
+              duration: SCRUBBER_INTERPOLATION_DURATION_MS,
+              easing: Easing.linear,
+            })
+          );
         });
       }
     });
 
     return () => sub.remove();
-  }, [player, active, isSeekingSV, currentTimeSV]);
+  }, [player, active, isSeekingSV, currentTimeSV, SCRUBBER_INTERPOLATION_DURATION_MS]);
 
   // Sync seekingAnimationSV to UI store using same threshold as overlay (0.2)
   useAnimatedReaction(
-    () => seekingAnimationSV.get(),
-    seekingValue => {
-      const isScrubbing = seekingValue >= 0.2;
-      scheduleOnRN(setScrubbingState, 'videoScrubbing', isScrubbing);
+    () => seekingAnimationSV.get() >= 0.2,
+    (isScrubbing, prevIsScrubbing) => {
+      if (prevIsScrubbing === null || isScrubbing !== prevIsScrubbing) {
+        scheduleOnRN(setScrubbingState, 'videoScrubbing', isScrubbing);
+      }
     }
   );
 

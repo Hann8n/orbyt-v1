@@ -4,8 +4,6 @@ import {
   useSharedValue,
   useDerivedValue,
   interpolate,
-  withTiming,
-  Easing,
   type SharedValue,
 } from 'react-native-reanimated';
 
@@ -15,11 +13,6 @@ const FADE_CURVE_EXPONENT = 1.35;
 
 /** Skip overlap math for cards far outside the viewport. */
 const FAR_AWAY_FACTOR = 1.5;
-
-const SEEK_TIMING_CONFIG = {
-  duration: 120,
-  easing: Easing.out(Easing.ease),
-};
 
 export function useVideoCardOverlayOpacity({
   seekingAnimationSV,
@@ -79,15 +72,8 @@ export function useVideoCardOverlayOpacity({
     [scrollOffsetYSV, headerH, viewportH, itemSp, idx, cardHeight]
   );
 
-  const seekingFactorSV = useSharedValue(1);
-
-  useAnimatedReaction(
-    () => seekingAnimationSV.value,
-    seeking => {
-      'worklet';
-      const scrubbing = interpolate(seeking, [0, 0.2, 1], [1, 0, 0], 'clamp');
-      seekingFactorSV.value = withTiming(scrubbing, SEEK_TIMING_CONFIG);
-    },
+  const seekingFactorSV = useDerivedValue(
+    () => interpolate(seekingAnimationSV.value, [0, 0.2, 1], [1, 0, 0], 'clamp'),
     [seekingAnimationSV]
   );
 
