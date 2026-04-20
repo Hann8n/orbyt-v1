@@ -54,7 +54,7 @@ function VideoItemComponent({
   const videoView = getVideoView(embed);
   const hasVideo = Boolean(videoView?.playlist);
 
-  const rowStyle = [styles.videoContainer, { height }];
+  const rowStyle = useMemo(() => [styles.videoContainer, { height }], [height]);
 
   const normalizedPost = useMemo(
     () => ({ ...post, embed: videoView }) as VideoCardPost,

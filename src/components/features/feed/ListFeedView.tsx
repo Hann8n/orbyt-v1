@@ -580,15 +580,18 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       isHeaderFeed,
     ]);
 
-    const handleHeaderLayout = (e: LayoutChangeEvent) => {
-      const h = Math.round(e.nativeEvent.layout.height);
-      if (h > 0 && h !== headerHeight) {
-        // Use requestAnimationFrame to avoid blocking layout
-        requestAnimationFrame(() => {
-          setHeaderHeight(h);
-        });
-      }
-    };
+    const handleHeaderLayout = useCallback(
+      (e: LayoutChangeEvent) => {
+        const h = Math.round(e.nativeEvent.layout.height);
+        if (h > 0 && h !== headerHeight) {
+          // Use requestAnimationFrame to avoid blocking layout
+          requestAnimationFrame(() => {
+            setHeaderHeight(h);
+          });
+        }
+      },
+      [headerHeight]
+    );
 
     const handleFeedLayout = useCallback((e: LayoutChangeEvent) => {
       const h = Math.round(e.nativeEvent.layout.height);
@@ -728,6 +731,33 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       ]
     );
 
+    const refreshControlElement = useMemo(() => {
+      if (!pullToRefresh) return undefined;
+      return (
+        <RefreshControl
+          refreshing={pullToRefresh.refreshing}
+          onRefresh={pullToRefresh.onRefresh}
+          tintColor={getPullToRefreshTintColor(profileColors?.textColor, secondaryColor)}
+          progressViewOffset={insets.top}
+        />
+      );
+    }, [pullToRefresh, profileColors?.textColor, secondaryColor, insets.top]);
+
+    const listHeaderElement = useMemo(() => {
+      if (!headerComponent) return null;
+      return (
+        <View onLayout={handleHeaderLayout}>
+          {headerComponent}
+          <View style={styles.listHeaderBottomSeparator} />
+        </View>
+      );
+    }, [headerComponent, handleHeaderLayout]);
+
+    const listFooterElement = useMemo(
+      () => (feed.length > 0 ? <View style={styles.itemSeparator} /> : null),
+      [feed.length]
+    );
+
     const listBody = (
       <View
         collapsable={false}
@@ -751,25 +781,9 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
             drawDistance={FEED_VIEW_CONSTANTS.FLASHLIST_DRAW_DISTANCE}
             keyExtractor={listKeyExtractor}
             getItemType={getListItemType}
-            refreshControl={
-              pullToRefresh ? (
-                <RefreshControl
-                  refreshing={pullToRefresh.refreshing}
-                  onRefresh={pullToRefresh.onRefresh}
-                  tintColor={getPullToRefreshTintColor(profileColors?.textColor, secondaryColor)}
-                  progressViewOffset={insets.top}
-                />
-              ) : undefined
-            }
+            refreshControl={refreshControlElement}
             initialScrollIndex={initialScrollIndex}
-            ListHeaderComponent={
-              headerComponent ? (
-                <View onLayout={handleHeaderLayout}>
-                  {headerComponent}
-                  <View style={styles.listHeaderBottomSeparator} />
-                </View>
-              ) : null
-            }
+            ListHeaderComponent={listHeaderElement}
             // Snapping configuration
 
             pagingEnabled={false}
@@ -803,7 +817,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
             ListEmptyComponent={listEmptyElement}
             // Item separator for black gaps between cards
             ItemSeparatorComponent={ItemSeparatorComponent}
-            ListFooterComponent={feed.length > 0 ? <View style={styles.itemSeparator} /> : null}
+            ListFooterComponent={listFooterElement}
             contentContainerStyle={[styles.contentContainer, listContentContainerExtraStyle]}
           />
         </View>

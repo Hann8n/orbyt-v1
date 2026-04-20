@@ -5,6 +5,7 @@ const react = require('eslint-plugin-react');
 const reactHooks = require('eslint-plugin-react-hooks');
 const reactNative = require('eslint-plugin-react-native');
 const reactCompiler = require('eslint-plugin-react-compiler');
+const reactPerf = require('eslint-plugin-react-perf');
 const prettier = require('eslint-config-prettier');
 
 module.exports = [
@@ -56,6 +57,7 @@ module.exports = [
       react,
       'react-hooks': reactHooks,
       'react-native': reactNative,
+      'react-perf': reactPerf,
     },
     rules: {
       ...typescript.configs.recommended.rules,
@@ -85,7 +87,18 @@ module.exports = [
       'react-native/split-platform-components': 'warn',
       'react-native/no-inline-styles': 'warn',
       'react-native/no-color-literals': 'warn',
+      'react-native/no-single-element-style-arrays': 'warn',
       'react/display-name': 'warn',
+      'react-perf/jsx-no-new-object-as-prop': 'warn',
+      'react-perf/jsx-no-new-array-as-prop': 'warn',
+      'react-perf/jsx-no-new-function-as-prop': 'warn',
+      'react-perf/jsx-no-jsx-as-prop': 'warn',
+      'react/no-array-index-key': 'warn',
+      'react/jsx-no-bind': 'warn',
+      'react/jsx-no-constructed-context-values': 'warn',
+      'react/no-unstable-nested-components': 'warn',
+      'react/no-object-type-as-default-prop': 'warn',
+      'no-empty': ['warn', { allowEmptyCatch: false }],
     },
     settings: {
       react: {

@@ -133,6 +133,7 @@
     "eslint-plugin-react-compiler": "^19.1.0-rc.2",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-native": "^5.0.0",
+    "eslint-plugin-react-perf": "^3.3.3",
     "husky": "^9.1.7",
     "knip": "^6.1.0",
     "lint-staged": "^16.2.7",
