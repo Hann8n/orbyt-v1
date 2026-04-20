@@ -962,7 +962,6 @@ const arePropsEqual = (prevProps: VideoOverlayUIProps, nextProps: VideoOverlayUI
   if (prevProps.onRepostAuthorPress !== nextProps.onRepostAuthorPress) return false;
   if (prevProps.onOpenComments !== nextProps.onOpenComments) return false;
   if (prevProps.onSharePress !== nextProps.onSharePress) return false;
-  if (prevProps.onFollowPress !== nextProps.onFollowPress) return false;
   if (prevProps.onHashtagPress !== nextProps.onHashtagPress) return false;
   if (prevProps.isCurrentUserProfile !== nextProps.isCurrentUserProfile) return false;
 

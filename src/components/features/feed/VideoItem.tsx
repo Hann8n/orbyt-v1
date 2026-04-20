@@ -104,7 +104,45 @@ function VideoItemComponent({
   );
 }
 
-export const VideoItem = memo(VideoItemComponent);
+const getPostVideoPlaylist = (post: Post): string | undefined => {
+  if (!('embed' in post)) return undefined;
+  return getVideoView(post.embed as PostView['embed'])?.playlist;
+};
+
+const areVideoItemPropsEqual = (prev: VideoItemProps, next: VideoItemProps): boolean => {
+  const prevUri = 'uri' in prev.post ? prev.post.uri : undefined;
+  const nextUri = 'uri' in next.post ? next.post.uri : undefined;
+  const prevCid = 'cid' in prev.post ? prev.post.cid : undefined;
+  const nextCid = 'cid' in next.post ? next.post.cid : undefined;
+
+  const prevFeedItemUri = prev.feedItem?.post?.uri;
+  const nextFeedItemUri = next.feedItem?.post?.uri;
+  const prevFeedItemCid = prev.feedItem?.post?.cid;
+  const nextFeedItemCid = next.feedItem?.post?.cid;
+  const prevFeedContext = prev.feedItem?.feedContext;
+  const nextFeedContext = next.feedItem?.feedContext;
+  const prevReqId = prev.feedItem?.reqId;
+  const nextReqId = next.feedItem?.reqId;
+
+  return (
+    prevUri === nextUri &&
+    prevCid === nextCid &&
+    getPostVideoPlaylist(prev.post) === getPostVideoPlaylist(next.post) &&
+    prevFeedItemUri === nextFeedItemUri &&
+    prevFeedItemCid === nextFeedItemCid &&
+    prevFeedContext === nextFeedContext &&
+    prevReqId === nextReqId &&
+    prev.height === next.height &&
+    prev.feedOption === next.feedOption &&
+    prev.isVisible === next.isVisible &&
+    prev.allowPlayback === next.allowPlayback &&
+    prev.index === next.index &&
+    prev.isAppleZoomTarget === next.isAppleZoomTarget &&
+    prev.onHashtagPress === next.onHashtagPress
+  );
+};
+
+export const VideoItem = memo(VideoItemComponent, areVideoItemPropsEqual);
 VideoItemComponent.displayName = 'VideoItem';
 
 const styles = StyleSheet.create({
