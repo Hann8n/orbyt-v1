@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { QUERY_CONSTANTS, SCROLL_INDICATOR_CONSTANTS } from '@/utils/constants';
-import { View, StyleSheet, TextInput, StatusBar, Platform, Dimensions } from 'react-native';
+import { View, StyleSheet, TextInput, StatusBar, Platform } from 'react-native';
 import { NativePressable } from '@/components/ui/NativePressable';
 import { SquircleView } from '@/components/ui/Squircle';
 import { Image } from 'expo-image';
@@ -106,7 +106,7 @@ const ExploreScreen: React.FC = () => {
 
   const followMutation = useFollowMutation();
   const insets = useSafeAreaInsets();
-  const { isCompact } = useDeviceLayout();
+  const { isCompact, screenWidth, screenHeight } = useDeviceLayout();
   const [hasHeaderBannerError, setHasHeaderBannerError] = useState<boolean>(false);
 
   const bottomPadding = isIosLiquidGlassAvailable
@@ -348,10 +348,7 @@ const ExploreScreen: React.FC = () => {
     () => headers.length > 0 && !hasHeaderBannerError,
     [hasHeaderBannerError, headers.length]
   );
-  const computedHeaderHeight = useMemo(() => {
-    const screenWidth = Dimensions.get('window').width;
-    return Math.round(screenWidth / EXPLORE_HEADER_BANNER_ASPECT_RATIO);
-  }, []);
+  const computedHeaderHeight = Math.round(screenWidth / EXPLORE_HEADER_BANNER_ASPECT_RATIO);
   const topChromeSpacerHeight = useMemo(
     () => getExploreTopChromeSpacerHeight(insets.top),
     [insets.top]
@@ -496,9 +493,7 @@ const ExploreScreen: React.FC = () => {
         if (item.variant === 'channels') {
           return <ExploreSectionLoading variant="inline" />;
         }
-        const screenHeight = Dimensions.get('window').height;
-        const bottomNavHeight = getBottomNavBarHeight(insets);
-        const availableHeight = screenHeight - activeHeaderHeight - bottomNavHeight;
+        const availableHeight = screenHeight - activeHeaderHeight - bottomPadding;
         const minHeight = Math.max(availableHeight, 200);
         return <ExploreSuggestionsLoadingRow minHeight={minHeight} />;
       }
@@ -529,7 +524,7 @@ const ExploreScreen: React.FC = () => {
       }
       return null;
     },
-    [t, activeHeaderHeight, insets, queryClient, goToProfile, handleFollow]
+    [t, activeHeaderHeight, bottomPadding, queryClient, goToProfile, handleFollow, screenHeight]
   );
 
   const listHeaderComponent = useMemo(() => {
@@ -695,7 +690,6 @@ const ExploreScreen: React.FC = () => {
           }
           bounces={true}
           scrollEventThrottle={16}
-          onEndReached={() => {}}
           onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
           removeClippedSubviews={false}
           viewabilityConfig={viewabilityConfig}

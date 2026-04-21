@@ -11,11 +11,6 @@ import { TAB_BAR_INACTIVE_TINT } from '@/utils/formatting/colors';
 import { getDetailNavTabIfInsideTabs } from '@/utils/navigation/detailRoutes';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
 
-/** Default tab when opening `/(tabs)` without a segment (avoids resolving a missing `index` tab). */
-export const unstable_settings = {
-  initialRouteName: 'home',
-};
-
 /**
  * While a root modal (e.g. settings) is focused, `useSegments()` no longer includes `(tabs)`; we skip
  * updates so `lastFocusedDetailNavTab` stays the tab the user was on before the modal.
@@ -54,11 +49,6 @@ export default function TabsLayout() {
         badgeBackgroundColor={activeTint}
         disableTransparentOnScrollEdge={true}
       >
-        <NativeTabs.Trigger name="index" hidden>
-          <NativeTabs.Trigger.Icon src={require('@/assets/tab-icons/png/home_3_cute.png')} />
-          <NativeTabs.Trigger.Label hidden />
-        </NativeTabs.Trigger>
-
         <NativeTabs.Trigger name="home">
           <NativeTabs.Trigger.Icon src={require('@/assets/tab-icons/png/home_3_cute.png')} />
           <NativeTabs.Trigger.Label hidden>{t('tabs.home')}</NativeTabs.Trigger.Label>

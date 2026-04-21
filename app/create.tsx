@@ -139,21 +139,15 @@ const CreateScreen: React.FC = () => {
   const [isFrontCamera, setIsFrontCamera] = useState(false);
   const [flash, setFlash] = useState<'off' | 'on'>('off');
   const [isProcessing, setIsProcessing] = useState(false);
-  const isProcessingRef = useRef(false);
-  isProcessingRef.current = isProcessing;
   const [isLoadingFromGallery, setIsLoadingFromGallery] = useState(false);
   const [selectedDuration, setSelectedDuration] = useState(16); // Default to 16 seconds
   const [isTrimmerActive, setIsTrimmerActive] = useState(false);
   const [isOnionSkinningEnabled, setIsOnionSkinningEnabled] = useState(false);
   const [lastFrameThumbnail, setLastFrameThumbnail] = useState<string | null>(null);
   const [deletePreview, setDeletePreview] = useState<DeletePreviewState | null>(null);
-  const setPendingVideoPost = usePendingVideoPostStore(s => s.setPayload);
-
-  // Segment manager - single source of truth
-  const segmentManagerRef = useRef<SegmentManager | null>(null);
   const [segmentUpdateTrigger, setSegmentUpdateTrigger] = useState(0);
 
-  // Recording state
+  const segmentManagerRef = useRef<SegmentManager | null>(null);
   const cameraRef = useRef<CameraRef>(null);
   const recorderRef = useRef<Recorder | null>(null);
   const recordingPromiseRef = useRef<Promise<{ uri: string } | undefined> | null>(null);
@@ -172,6 +166,9 @@ const CreateScreen: React.FC = () => {
   const recordingAutoStopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const discardGenerationRef = useRef(0);
   const activeRecordingDiscardGenRef = useRef<number | null>(null);
+  const isProcessingRef = useRef(false);
+  isProcessingRef.current = isProcessing;
+  const setPendingVideoPost = usePendingVideoPostStore(s => s.setPayload);
   // Animated values
   const totalDurationShared = useSharedValue(0); // Total duration from segments (updated when segments change)
   const currentSegmentDurationShared = useSharedValue(0);
@@ -201,13 +198,12 @@ const CreateScreen: React.FC = () => {
     },
     [applyCameraZoom]
   );
-  // Initialize segment manager
+
   useEffect(() => {
     if (!segmentManagerRef.current) {
       segmentManagerRef.current = new SegmentManager(selectedDuration);
     }
   }, []);
-
   // Update max duration when selected duration changes (segment list unchanged; no segmentUpdateTrigger)
   useEffect(() => {
     if (segmentManagerRef.current) {

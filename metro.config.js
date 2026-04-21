@@ -15,19 +15,4 @@ if (config.watcher && 'unstable_workerThreads' in config.watcher) {
   delete config.watcher.unstable_workerThreads;
 }
 
-// Configure resolver
-config.resolver = {
-  ...config.resolver,
-  // Enable package exports support and allow fallback to file-based resolution
-  // This handles cases where transitive dependencies import internal paths
-  unstable_enablePackageExports: true,
-};
-
-// Performance optimizations for faster rebuilds
-config.transformer = {
-  ...config.transformer,
-  // Enable experimental worker thread support for parallel module transformations
-  unstable_workerThreads: true,
-};
-
 module.exports = config;

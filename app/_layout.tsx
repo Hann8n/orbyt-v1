@@ -1,6 +1,6 @@
 import '@/i18n';
 import React, { useEffect } from 'react';
-import { View, StyleSheet, StatusBar, Appearance, Platform } from 'react-native';
+import { View, StyleSheet, StatusBar, Platform } from 'react-native';
 import { Stack } from 'expo-router';
 import { DarkTheme, ThemeProvider } from '@react-navigation/native';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
@@ -21,7 +21,6 @@ import { QueryErrorBoundary } from '@/components/ui/QueryErrorBoundary';
 import { useModalStore } from '@/stores/modalStore';
 import { dismissAllSheets } from '@/utils/navigation';
 import { TabBarProvider } from '@/context/FeedIndicatorContext';
-import { OverlayLayoutProvider } from '@/context/OverlayLayoutContext';
 import { seenVideoService } from '@/services/SeenVideoService';
 import { storage } from '@/utils/storage/storage';
 import { logger } from '@/utils/logger';
@@ -36,45 +35,19 @@ const LazyCommentSection = React.lazy(
   () => import('@/components/features/comments/CommentSection')
 );
 
-// Configure Reanimated logger to disable strict mode warnings
 configureReanimatedLogger({
   level: ReanimatedLogLevel.warn,
   strict: false,
 });
 
-// Configure splash screen animation options
 SplashScreen.setOptions({
   duration: 400,
   fade: true,
 });
 
-// Prevent the splash screen from auto-hiding before we're ready
-SplashScreen.preventAutoHideAsync().catch(() => {
-  // Non-fatal: if the splash already hid, we can still render normally.
+SplashScreen.preventAutoHideAsync().catch(error => {
+  logger.debug('SplashScreen.preventAutoHideAsync failed', { error });
 });
-
-Appearance.setColorScheme('dark');
-
-// Handle location variable error for React Native (some libs expect web-like globals)
-if (!(globalThis as Record<string, unknown>).location) {
-  /* eslint-disable no-undef -- DOM types used only for mock cast; not in RN env */
-  (globalThis as Record<string, unknown>).location = {
-    href: '',
-    origin: '',
-    protocol: '',
-    host: '',
-    hostname: '',
-    port: '',
-    pathname: '',
-    search: '',
-    hash: '',
-    reload: () => {},
-    replace: () => {},
-    assign: () => {},
-    ancestorOrigins: [] as unknown as DOMStringList,
-  } as unknown as Location;
-  /* eslint-enable no-undef */
-}
 
 // Consolidated providers wrapper
 const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -84,9 +57,7 @@ const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children }) => 
         <LocaleSync />
         <GestureHandlerRootView style={styles.gestureHandler}>
           <KeyboardProvider>
-            <TabBarProvider>
-              <OverlayLayoutProvider>{children}</OverlayLayoutProvider>
-            </TabBarProvider>
+            <TabBarProvider>{children}</TabBarProvider>
           </KeyboardProvider>
         </GestureHandlerRootView>
       </QueryClientProvider>

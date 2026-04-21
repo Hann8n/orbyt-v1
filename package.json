@@ -19,11 +19,12 @@
     "build:all": "bash scripts/build-all.sh",
     "icons:build": "npx react-native-nano-icons --path ./.nanoicons.json",
     "type-check": "tsc --noEmit",
+    "doctor": "expo-doctor",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\"",
     "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,json,md}\"",
-    "check": "yarn type-check && yarn deps:knip && yarn lint && yarn format:check",
+    "check": "yarn doctor && yarn type-check && yarn deps:knip && yarn lint && yarn format:check",
     "deps:knip": "knip",
     "analyze:deps": "npx @e18e/cli analyze",
     "serve:docs": "npx serve docs -l 5173 --single",
@@ -152,9 +153,7 @@
     "bplist-parser": "0.3.2",
     "react-native-is-edge-to-edge": "1.3.1",
     "@expo/log-box": "55.0.8",
-    "expo-web-browser": "~55.0.8",
-    "@react-navigation/native": "7.2.1",
-    "@react-navigation/core": "7.17.1"
+    "expo-web-browser": "~55.0.8"
   },
   "expo": {
     "doctor": {

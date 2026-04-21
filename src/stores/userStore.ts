@@ -1975,7 +1975,6 @@ useUserStore.subscribe(syncAtprotoBridgeFromUserState);
 export const selectIsSessionValid = (state: UserState): boolean =>
   hasAuthoritativeSdkSession(state.oauthSession, state.currentUser?.did ?? null);
 
-// Convenience hooks - optimized with individual selectors to prevent over-subscription
 export const useAuth = () => {
   const isAuthenticated = useUserStore(selectIsSessionValid);
   const isAuthenticating = useUserStore(state => state.isAuthenticating);
@@ -2050,7 +2049,6 @@ export const useChannelSubscriptions = () => {
   };
 };
 
-// Hook for accessing user store state directly
 export const useUserStoreState = () => {
   const agent = useUserStore(state => state.agent);
   const isAuthenticated = useUserStore(selectIsSessionValid);
@@ -2065,7 +2063,6 @@ export const useUserStoreState = () => {
   };
 };
 
-// Hook for feed settings
 export const useFeedSettings = () => {
   const feedDebugOverlayEnabled = useUserStore(state => state.feedDebugOverlayEnabled);
   const setFeedDebugOverlayEnabled = useUserStore(state => state.setFeedDebugOverlayEnabled);
@@ -2078,7 +2075,6 @@ export const useFeedSettings = () => {
   };
 };
 
-// Hook for algorithmic feed provider settings
 export const useAlgorithmicFeedProvider = () => {
   const algorithmicFeedProvider = useUserStore(state => state.algorithmicFeedProvider);
   const setAlgorithmicFeedProvider = useUserStore(state => state.setAlgorithmicFeedProvider);
