@@ -119,6 +119,8 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
     },
     ref
   ) => {
+    const resolvedBackgroundColor = backgroundColor ?? Colors.black;
+
     // Feed type detection
     const isSearchFeed = feedOption === 'search';
 
@@ -216,7 +218,7 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
               {
                 feedOption: feedOption || 'search',
                 userDid,
-                backgroundColor: backgroundColor || Colors.black,
+                backgroundColor: resolvedBackgroundColor,
                 secondaryColor: secondaryColor || Colors.neutral[50],
                 initialIndex: index.toString(),
                 initialPostUri,
@@ -234,6 +236,7 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
         userDid,
         backgroundColor,
         secondaryColor,
+        resolvedBackgroundColor,
         hasNextPage,
         isFetchingNextPage,
         feedModalTab,
@@ -277,7 +280,7 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
             {
               feedOption: feedOption || 'search',
               userDid,
-              backgroundColor: backgroundColor || Colors.black,
+              backgroundColor: resolvedBackgroundColor,
               secondaryColor: secondaryColor || Colors.neutral[50],
               initialIndex: String(index),
               initialPostUri,
@@ -292,8 +295,8 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
       feed,
       feedOption,
       userDid,
-      backgroundColor,
       secondaryColor,
+      resolvedBackgroundColor,
       hasNextPage,
       isFetchingNextPage,
       feedModalTab,
@@ -390,15 +393,23 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
 
     const profileColors = secondaryColor
       ? {
-          backgroundColor: backgroundColor || Colors.black,
+          backgroundColor: resolvedBackgroundColor,
           textColor: secondaryColor,
         }
       : undefined;
+    const containerStyle = useMemo(
+      () => StyleSheet.compose(styles.container, { backgroundColor: resolvedBackgroundColor }),
+      [resolvedBackgroundColor]
+    );
+    const errorContainerStyle = useMemo(
+      () => StyleSheet.compose(styles.errorContainer, { backgroundColor: resolvedBackgroundColor }),
+      [resolvedBackgroundColor]
+    );
 
     // Early return for error states
     if (finalIsError && !isSearchFeed) {
       return (
-        <View style={[styles.errorContainer, { backgroundColor }]}>
+        <View style={errorContainerStyle}>
           <EmptyFeed
             type="error"
             secondaryColor={secondaryColor}
@@ -413,7 +424,7 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
     // Offline state
     if (isPaused && !isSearchFeed) {
       return (
-        <View style={[styles.errorContainer, { backgroundColor }]}>
+        <View style={errorContainerStyle}>
           <EmptyFeed
             type="no-connection"
             secondaryColor={secondaryColor}
@@ -427,7 +438,7 @@ const FeedRendererComponent = forwardRef<ListFeedViewRef, FeedRendererProps>(
 
     return (
       <FollowProvider>
-        <View style={styles.container}>{feedView}</View>
+        <View style={containerStyle}>{feedView}</View>
       </FollowProvider>
     );
   }
@@ -440,7 +451,6 @@ const FeedRenderer = memo(FeedRendererComponent);
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.black,
   },
   errorContainer: {
     flex: 1,

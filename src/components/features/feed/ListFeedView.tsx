@@ -114,7 +114,6 @@ interface ListEmptyComponentProps {
 const minHeightStyleCache = new Map<number, { minHeight: number }>();
 const measurementHeightStyleCache = new Map<number, { height: number }>();
 const bottomPaddingStyleCache = new Map<number, { paddingBottom: number }>();
-const viewBackgroundStyleCache = new Map<string, { backgroundColor: string }>();
 const overscrollHintLayoutStyleCache = new Map<number, { paddingBottom: number; bottom: number }>();
 
 const getMinHeightStyle = (minHeight: number): { minHeight: number } => {
@@ -141,14 +140,6 @@ const getBottomPaddingStyle = (paddingBottom: number): { paddingBottom: number }
   if (cached) return cached;
   const style = { paddingBottom: normalized };
   bottomPaddingStyleCache.set(normalized, style);
-  return style;
-};
-
-const getBackgroundStyle = (backgroundColor: string): { backgroundColor: string } => {
-  const cached = viewBackgroundStyleCache.get(backgroundColor);
-  if (cached) return cached;
-  const style = { backgroundColor };
-  viewBackgroundStyleCache.set(backgroundColor, style);
   return style;
 };
 
@@ -472,12 +463,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     // Memoize profileColors to prevent recreation on every render
     const profileColors = getProfileColors(backgroundColor, secondaryColor);
-    const resolvedBackgroundColor = backgroundColor ?? Colors.black;
-    const containerBackgroundStyle = useMemo(
-      () => getBackgroundStyle(resolvedBackgroundColor),
-      [resolvedBackgroundColor]
-    );
-
     const endOfFeedHintColor = useMemo(
       () => getEndOfFeedOverscrollTextColor(profileColors?.textColor, secondaryColor),
       [profileColors?.textColor, secondaryColor]
@@ -776,14 +761,8 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       () => StyleSheet.compose(styles.contentContainer, listContentContainerExtraStyle),
       [listContentContainerExtraStyle]
     );
-    const listContainerStyle = useMemo(
-      () => StyleSheet.compose(styles.container, containerBackgroundStyle),
-      [containerBackgroundStyle]
-    );
-    const tabSafeAreaStyle = useMemo(
-      () => StyleSheet.compose(styles.tabSceneSafeArea, containerBackgroundStyle),
-      [containerBackgroundStyle]
-    );
+    const listContainerStyle = styles.container;
+    const tabSafeAreaStyle = styles.tabSceneSafeArea;
 
     const listEmptyElement = useMemo(
       () => (
@@ -1015,7 +994,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   centeredLoadingContainerBackground: {
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.transparent,
   },
   contentContainer: {
     backgroundColor: Colors.transparent,

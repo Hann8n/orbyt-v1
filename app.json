@@ -10,7 +10,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.getorbyt.app",
       "appleTeamId": "D8VXFBV8SJ",
-      "buildNumber": "2026042100",
+      "buildNumber": "2026042101",
       "icon": "./src/assets/AppIcons/iOS/Orbyt.icon",
       "infoPlist": {
         "CFBundleDevelopmentRegion": "en",
@@ -29,7 +29,7 @@
         "backgroundColor": "#05070a"
       },
       "package": "com.orbyt.app",
-      "versionCode": 2026042100,
+      "versionCode": 2026042101,
       "permissions": ["CAMERA", "RECORD_AUDIO"]
     },
     "web": {

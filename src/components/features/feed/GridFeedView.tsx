@@ -183,7 +183,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
     {
       feed,
       headerComponent,
-      backgroundColor = Colors.black,
+      backgroundColor = Colors.transparent,
       secondaryColor = Colors.neutral[50],
       feedOption,
       userDid,
@@ -368,7 +368,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
         const borderStyle = {
           borderRightWidth: isLastColumn ? 0 : FEED_VIEW_CONSTANTS.GRID_CELL_GAP,
           borderBottomWidth: isLastRow ? 0 : FEED_VIEW_CONSTANTS.GRID_CELL_GAP,
-          borderColor: backgroundColor,
+          borderColor: Colors.transparent,
         };
 
         return (
@@ -378,7 +378,12 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
             onPress={onGridItemPress}
             zoomLink={zoomLink}
             isTabFocused={shouldRenderBackdrops}
-            style={{ width: itemWidth, height: itemHeight, backgroundColor, ...borderStyle }}
+            style={{
+              width: itemWidth,
+              height: itemHeight,
+              backgroundColor: Colors.transparent,
+              ...borderStyle,
+            }}
           />
         );
       },
@@ -389,7 +394,6 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
         numColumns,
         itemWidth,
         itemHeight,
-        backgroundColor,
         shouldRenderBackdrops,
       ]
     );
@@ -437,7 +441,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
 
     const separatorStyle = {
       height: FEED_VIEW_CONSTANTS.LIST_ITEM_GAP,
-      backgroundColor,
+      backgroundColor: Colors.transparent,
     };
 
     const listHeader = headerComponent ? (
@@ -493,7 +497,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
                 styles.gridEmptyLoading,
                 {
                   minHeight: emptyComponentHeight,
-                  backgroundColor: backgroundColor || Colors.black,
+                  backgroundColor: Colors.transparent,
                 },
               ]}
             >
@@ -528,7 +532,10 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
     );
 
     return (
-      <View style={[styles.container, { backgroundColor }]} onLayout={handleGridContainerLayout}>
+      <View
+        style={[styles.container, { backgroundColor: Colors.transparent }]}
+        onLayout={handleGridContainerLayout}
+      >
         {useScrollTracking && feedScrollMotion && feedScrollLayout ? (
           <FeedScrollProvider motion={feedScrollMotion} layout={feedScrollLayout}>
             {listContent}
@@ -551,7 +558,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.transparent,
   },
   headerWrapper: {
     width: '100%',
