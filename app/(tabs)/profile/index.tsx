@@ -716,7 +716,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
           contentScrollProgressOutput={overlayScrollProgressSV}
         />
       )}
-      <ProfileChannelFeedLoadingOverlay visible={isLoading} />
+      <ProfileChannelFeedLoadingOverlay
+        visible={isLoading}
+        backgroundColor={profileColors.chromeBackgroundColor}
+      />
 
       {/* Sheets and menus moved from ProfileHeader so overlay buttons can control them */}
       <ProfileMenu

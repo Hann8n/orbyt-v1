@@ -369,7 +369,7 @@ const Channel: React.FC = memo(() => {
           contentScrollProgressOutput={overlayScrollProgressSV}
         />
       )}
-      <ProfileChannelFeedLoadingOverlay visible={isLoading} />
+      <ProfileChannelFeedLoadingOverlay visible={isLoading} backgroundColor={Colors.black} />
     </ProfileChannelFeedLayout>
   );
 });
