@@ -228,7 +228,6 @@ export interface UserState {
 
   // User-specific settings - scoped by DID
   feedDebugOverlayEnabled: boolean;
-  nativeTabsEnabled: boolean; // Experimental: Use native tabs instead of custom JavaScript tab bar
   profileFeedViewMode: 'list' | 'grid';
 
   // Algorithmic feed provider - scoped by DID
@@ -295,8 +294,6 @@ export interface UserState {
   // Feed settings
   setFeedDebugOverlayEnabled: (enabled: boolean) => Promise<void>;
   getFeedDebugOverlayEnabled: () => Promise<boolean>;
-  setNativeTabsEnabled: (enabled: boolean) => Promise<void>;
-  getNativeTabsEnabled: () => Promise<boolean>;
   setProfileFeedViewMode: (mode: 'list' | 'grid') => Promise<void>;
 
   // Algorithmic feed provider
@@ -518,7 +515,6 @@ export const useUserStore = create<UserState>()(
 
         // Feed settings
         feedDebugOverlayEnabled: false, // Keep disabled by default, user can enable manually
-        nativeTabsEnabled: isIosLiquidGlassAvailable,
         profileFeedViewMode: 'list',
 
         // Algorithmic feed provider - default to Videos For You
@@ -1491,13 +1487,6 @@ export const useUserStore = create<UserState>()(
           storage.getBoolean(
             getFlagKey('feed_debug_overlay_enabled', get().currentUser?.did ?? null)
           ) ?? false,
-        setNativeTabsEnabled: async (enabled: boolean) => {
-          storage.set(getFlagKey('native_tabs_enabled', get().currentUser?.did ?? null), enabled);
-          set({ nativeTabsEnabled: enabled });
-        },
-        getNativeTabsEnabled: async () =>
-          storage.getBoolean(getFlagKey('native_tabs_enabled', get().currentUser?.did ?? null)) ??
-          isIosLiquidGlassAvailable,
         setProfileFeedViewMode: async (mode: 'list' | 'grid') => {
           storage.set(getFlagKey('profile_feed_view_mode', get().currentUser?.did ?? null), mode);
           set({ profileFeedViewMode: mode });
@@ -1852,9 +1841,6 @@ export const useUserStore = create<UserState>()(
           try {
             const feedDebugOverlayEnabled =
               storage.getBoolean(getFlagKey('feed_debug_overlay_enabled', did)) ?? false;
-            const nativeTabsEnabled =
-              storage.getBoolean(getFlagKey('native_tabs_enabled', did)) ??
-              isIosLiquidGlassAvailable;
 
             const algorithmicFeedProvider = resolveAlgorithmicFeedProviderForDid(
               did,
@@ -1864,7 +1850,6 @@ export const useUserStore = create<UserState>()(
             // Update state with user-specific settings
             set(state => ({
               feedDebugOverlayEnabled,
-              nativeTabsEnabled,
               algorithmicFeedProvider,
               feedSourceFingerprint: buildFeedSourceFingerprint(
                 algorithmicFeedProvider,
@@ -1953,7 +1938,6 @@ export const useUserStore = create<UserState>()(
         activeAccountDid: state.activeAccountDid,
         currentUser: state.currentUser,
         feedDebugOverlayEnabled: state.feedDebugOverlayEnabled,
-        nativeTabsEnabled: state.nativeTabsEnabled,
         profileFeedViewMode: state.profileFeedViewMode,
         algorithmicFeedProvider: state.algorithmicFeedProvider,
         subscribedChannels: state.subscribedChannels.filter(
@@ -2084,19 +2068,13 @@ export const useUserStoreState = () => {
 // Hook for feed settings
 export const useFeedSettings = () => {
   const feedDebugOverlayEnabled = useUserStore(state => state.feedDebugOverlayEnabled);
-  const nativeTabsEnabled = useUserStore(state => state.nativeTabsEnabled);
   const setFeedDebugOverlayEnabled = useUserStore(state => state.setFeedDebugOverlayEnabled);
-  const setNativeTabsEnabled = useUserStore(state => state.setNativeTabsEnabled);
   const getFeedDebugOverlayEnabled = useUserStore(state => state.getFeedDebugOverlayEnabled);
-  const getNativeTabsEnabled = useUserStore(state => state.getNativeTabsEnabled);
 
   return {
     feedDebugOverlayEnabled,
-    nativeTabsEnabled,
     setFeedDebugOverlayEnabled,
-    setNativeTabsEnabled,
     getFeedDebugOverlayEnabled,
-    getNativeTabsEnabled,
   };
 };
 

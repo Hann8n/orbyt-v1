@@ -54,8 +54,6 @@ export default function TabsLayout() {
         badgeBackgroundColor={activeTint}
         disableTransparentOnScrollEdge={true}
       >
-        {/* Matches `index.tsx` redirect; hidden so deep links / old state don’t show a fifth tab */}
-        {/* Icon required — omitting it causes UITabBarItem to call UIImage(named:"") which spams CUICatalog logs */}
         <NativeTabs.Trigger name="index" hidden>
           <NativeTabs.Trigger.Icon src={require('@/assets/tab-icons/png/home_3_cute.png')} />
           <NativeTabs.Trigger.Label hidden />

@@ -30,12 +30,13 @@ import EmptyFeed from '@/components/features/feed/EmptyFeed';
 import { getBottomNavBarHeight } from '@/utils/device/screen';
 import { HeaderService, useHeaders, type Header } from '@/services/OrbytBannerService';
 import { useFeed } from '@/hooks/useFeed';
-import { useUserStore, useFeedSettings } from '@/stores/userStore';
+import { isIosLiquidGlassAvailable, useUserStore } from '@/stores/userStore';
 import type { ExtendedFeedViewPost } from '@/services/api/types';
 import { useFollowStore } from '@/stores/followStore';
 import { useOrbytChannels } from '@/services/OrbytChannelsService';
 import { useVisitHistory, type VisitHistoryEntry } from '@/hooks/useVisitHistory';
 import { useProfileChannelNavigation } from '@/hooks/useProfileChannelNavigation';
+import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 
 import {
   exploreListKeyExtractor,
@@ -105,13 +106,12 @@ const ExploreScreen: React.FC = () => {
 
   const followMutation = useFollowMutation();
   const insets = useSafeAreaInsets();
+  const { isCompact } = useDeviceLayout();
   const [hasHeaderBannerError, setHasHeaderBannerError] = useState<boolean>(false);
 
-  const { nativeTabsEnabled } = useFeedSettings();
-
-  const bottomPadding = nativeTabsEnabled
-    ? getBottomNavBarHeight(insets) + 10
-    : getBottomNavBarHeight(insets);
+  const bottomPadding = isIosLiquidGlassAvailable
+    ? getBottomNavBarHeight(insets, isCompact) + 10
+    : getBottomNavBarHeight(insets, isCompact);
 
   const handleFollow = useCallback(
     (profile: Profile) => {
@@ -609,7 +609,7 @@ const ExploreScreen: React.FC = () => {
                   value={searchQuery}
                   onChangeText={setSearchQuery}
                   onFocus={() => setIsSearchFocused(true)}
-                  onBlur={() => {}}
+                  onBlur={() => setIsSearchFocused(false)}
                   onSubmitEditing={() => {}}
                   autoCapitalize="none"
                   autoCorrect={false}

@@ -1,8 +1,7 @@
 import React, { createContext, useContext, useMemo } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useTabBarHeight } from './FeedIndicatorContext';
-import { useFeedSettings } from '../stores/userStore';
+import { isIosLiquidGlassAvailable } from '../stores/userStore';
 import { getBottomNavBarHeight } from '@/utils/device/screen';
 import { useDeviceLayout } from '@/hooks/useDeviceLayout';
 
@@ -19,22 +18,19 @@ const OverlayLayoutContext = createContext<OverlayLayoutValue | null>(null);
  */
 export const OverlayLayoutProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const insets = useSafeAreaInsets();
-  const measuredTabBarHeight = useTabBarHeight();
-  const { nativeTabsEnabled } = useFeedSettings();
   const deviceLayout = useDeviceLayout();
 
   const { isTablet, isCompact } = deviceLayout;
 
   const value = useMemo((): OverlayLayoutValue => {
-    const calculated = getBottomNavBarHeight(insets, isCompact);
-    const base = measuredTabBarHeight ?? calculated;
-    const bottomNavBarHeight = nativeTabsEnabled ? base + 10 : base;
+    const base = getBottomNavBarHeight(insets, isCompact);
+    const bottomNavBarHeight = isIosLiquidGlassAvailable ? base + 10 : base;
 
     return {
       isTablet,
       bottomNavBarHeight,
     };
-  }, [insets, isCompact, measuredTabBarHeight, nativeTabsEnabled, isTablet]);
+  }, [insets, isCompact, isTablet]);
 
   return <OverlayLayoutContext.Provider value={value}>{children}</OverlayLayoutContext.Provider>;
 };

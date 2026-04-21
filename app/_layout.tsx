@@ -159,6 +159,13 @@ const modalSlideUpOptions = {
   animation: 'slide_from_bottom' as const,
 };
 
+const cardSlideFromRightOptions = {
+  headerShown: false,
+  presentation: 'card' as const,
+  gestureEnabled: true,
+  animation: 'slide_from_right' as const,
+};
+
 // RootNavigator - handles route protection using Stack.Protected
 // Following Expo Router's recommended authentication pattern
 function RootNavigator() {
@@ -213,35 +220,12 @@ function RootNavigator() {
               gestureEnabled: false,
             }}
           />
-          <Stack.Screen
-            name="channel/[id]"
-            options={{
-              headerShown: false,
-              presentation: 'card',
-              gestureEnabled: true,
-              animation: 'slide_from_right',
-            }}
-          />
-          <Stack.Screen
-            name="chat/[id]"
-            options={{
-              headerShown: false,
-              presentation: 'card',
-              gestureEnabled: true,
-              animation: 'slide_from_right',
-            }}
-          />
-          <Stack.Screen
-            name="chat/requests"
-            options={{
-              headerShown: false,
-              presentation: 'card',
-              gestureEnabled: true,
-              animation: 'slide_from_right',
-            }}
-          />
+          <Stack.Screen name="channel/[id]" options={cardSlideFromRightOptions} />
+          <Stack.Screen name="chat/[id]" options={cardSlideFromRightOptions} />
+          <Stack.Screen name="chat/requests" options={cardSlideFromRightOptions} />
           <Stack.Screen name="settings" options={modalSlideUpOptions} />
           <Stack.Screen name="edit-profile" options={modalSlideUpOptions} />
+          <Stack.Screen name="add-account" options={modalSlideUpOptions} />
           <Stack.Screen
             name="profile-image-viewer"
             options={{
@@ -252,7 +236,6 @@ function RootNavigator() {
               contentStyle: { backgroundColor: Colors.transparent },
             }}
           />
-          <Stack.Screen name="add-account" options={modalSlideUpOptions} />
         </Stack.Protected>
 
         {/* Public routes - cold auth only; guard flip removes these together (no post-login flash) */}
