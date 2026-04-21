@@ -52,6 +52,8 @@ import { useFeedScrollLayout, useFeedScrollMotion } from '../../../context/FeedS
 import { FeedListPlaybackContext, FEED_LIST_PLAYBACK_OUTSIDE_BITS } from '../../../core/visibility';
 import { useVideoCardOverlayOpacity } from './video-card/useVideoCardOverlayOpacity';
 import { useVideoCardModerationState } from './video-card/hooks/useVideoCardModerationState';
+import { computeShouldPlayVideo } from './video-card/hooks/computeShouldPlayVideo';
+import { useFeedInteractionQueue } from './video-card/hooks/useFeedInteractionQueue';
 import VideoCardMediaLayer from './video-card/VideoCardMediaLayer';
 import VideoCardOverlayLayers from './video-card/VideoCardOverlayLayers';
 import { seenVideoService } from '../../../services/SeenVideoService';
@@ -60,11 +62,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { ErrorHandler } from '../../../utils/errors/errorHandler';
 import { useLikeInteraction } from '@/hooks/useLikeInteraction';
 import type { VideoOverlayUIProps } from './VideoOverlayUI';
-import type {
-  ExtendedPostView,
-  ExtendedFeedViewPost,
-  Interaction,
-} from '../../../services/api/types';
+import type { ExtendedPostView, ExtendedFeedViewPost } from '../../../services/api/types';
 import {
   INTERACTIONSEEN as INTERACTIONSEEN_CONST,
   INTERACTIONLIKE as INTERACTIONLIKE_CONST,
@@ -362,53 +360,13 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
     const heartPositionX = useSharedValue(0);
     const heartPositionY = useSharedValue(0);
 
-    // Interaction tracking - queue interactions and send in batches
-    const interactionQueueRef = useRef<Interaction[]>([]);
-    const sendInteractionsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const seenInteractionSentRef = useRef<boolean>(false);
-
-    // Queue an interaction for batching
-    const queueInteraction = useCallback(
-      (event: NonNullable<Interaction['event']>) => {
-        const interaction: Interaction = {
-          $type: 'app.bsky.feed.defs#interaction',
-          item: postView.uri,
-          event: event,
-        };
-
-        // Use feedContext from feedItem if provided (native property from FeedViewPost)
-        if (feedContext) {
-          interaction.feedContext = feedContext;
-        }
-        if (reqId) {
-          interaction.reqId = reqId;
-        }
-
-        interactionQueueRef.current.push(interaction);
-
-        // Clear existing timeout
-        if (sendInteractionsTimeoutRef.current) {
-          clearTimeout(sendInteractionsTimeoutRef.current);
-        }
-
-        // Send batched interactions after 1.5 seconds of inactivity
-        sendInteractionsTimeoutRef.current = setTimeout(() => {
-          const interactionsToSend = [...interactionQueueRef.current];
-          interactionQueueRef.current = [];
-
-          if (interactionsToSend.length > 0) {
-            AtprotoFeedService.sendFeedInteractions(interactionsToSend, resolvedFeedUri).catch(
-              error => {
-                ErrorHandler.handleError(error, 'VideoCard: sendFeedInteractions (debounced)');
-              }
-            );
-          }
-
-          sendInteractionsTimeoutRef.current = null;
-        }, 1500);
-      },
-      [postView.uri, feedContext, reqId, resolvedFeedUri]
-    );
+    const { queueInteraction, queueSeenInteractionOnce, resetSeenInteraction } =
+      useFeedInteractionQueue({
+        postUri: postView.uri,
+        feedContext,
+        reqId,
+        resolvedFeedUri,
+      });
 
     const videoView = getVideoView(postView.embed);
     const videoUrl = videoView?.playlist || null;
@@ -487,14 +445,15 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
     }, [postView.uri, heartScale, heartOpacity, heartPositionX, heartPositionY]);
 
     // Isolated video playback logic - only depends on this video's state
-    const shouldPlayVideo =
-      !cannotShowMedia &&
-      !isBlurred &&
-      !shouldDisablePlayback &&
-      !hasError &&
-      !videoState.userPaused &&
-      isVisible &&
-      !!videoUrl;
+    const shouldPlayVideo = computeShouldPlayVideo({
+      cannotShowMedia,
+      isBlurred,
+      shouldDisablePlayback,
+      hasError,
+      userPaused: videoState.userPaused,
+      isVisible,
+      videoUrl,
+    });
 
     // Hide scrubber for very short clips — no value in showing it
     const shouldHideScrubberForShortVideo = !!(
@@ -964,39 +923,15 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
     // Track interactionSeen and markAsSeen when video becomes visible
     useEffect(() => {
       if (isVisible) {
-        if (!seenInteractionSentRef.current) {
-          seenInteractionSentRef.current = true;
-          queueInteraction(INTERACTIONSEEN_CONST);
-        }
+        queueSeenInteractionOnce(INTERACTIONSEEN_CONST);
         seenVideoService.markAsSeen(postView.uri);
       }
-    }, [isVisible, queueInteraction, postView.uri]);
-
-    // Send remaining interactions on unmount
-    useEffect(() => {
-      return () => {
-        if (sendInteractionsTimeoutRef.current) {
-          clearTimeout(sendInteractionsTimeoutRef.current);
-          sendInteractionsTimeoutRef.current = null;
-        }
-
-        // Send any remaining queued interactions
-        if (interactionQueueRef.current.length > 0) {
-          const interactionsToSend = [...interactionQueueRef.current];
-          interactionQueueRef.current = [];
-          AtprotoFeedService.sendFeedInteractions(interactionsToSend, resolvedFeedUri).catch(
-            error => {
-              ErrorHandler.handleError(error, 'VideoCard: sendFeedInteractions (unmount flush)');
-            }
-          );
-        }
-      };
-    }, [resolvedFeedUri]);
+    }, [isVisible, queueSeenInteractionOnce, postView.uri]);
 
     // Reset seen interaction flag when post changes
     useEffect(() => {
-      seenInteractionSentRef.current = false;
-    }, [postView.uri]);
+      resetSeenInteraction();
+    }, [postView.uri, resetSeenInteraction]);
 
     const seekingAnimationSV = useSharedValue(0);
     const feedScrollMotion = useFeedScrollMotion();

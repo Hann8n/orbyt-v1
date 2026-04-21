@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, type ViewabilityConfig, type ViewToken } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 
@@ -16,6 +16,47 @@ interface FeedVisibilityResult {
   canPlay: boolean;
 }
 
+const getTokenVisibilityScore = (token: ViewToken): number => {
+  const asRecord = token as ViewToken & {
+    percentVisible?: number;
+    visiblePercent?: number;
+    itemVisiblePercent?: number;
+    viewablePercent?: number;
+    coverage?: number;
+  };
+
+  return (
+    asRecord.percentVisible ??
+    asRecord.visiblePercent ??
+    asRecord.itemVisiblePercent ??
+    asRecord.viewablePercent ??
+    asRecord.coverage ??
+    (token.isViewable ? 0 : -1)
+  );
+};
+
+const selectMostVisibleToken = (viewableItems: ViewToken[]): ViewToken | undefined => {
+  let bestToken: (ViewToken & { index: number }) | undefined;
+  let bestScore = -1;
+
+  for (const token of viewableItems) {
+    if (typeof token.index !== 'number') continue;
+    const candidate = token as ViewToken & { index: number };
+    const score = getTokenVisibilityScore(candidate);
+    if (score < 0) continue;
+    if (
+      !bestToken ||
+      score > bestScore ||
+      (score === bestScore && candidate.index < bestToken.index)
+    ) {
+      bestToken = candidate;
+      bestScore = score;
+    }
+  }
+
+  return bestToken;
+};
+
 /**
  * Visibility hook keeps only environment gates (route/app state) and native viewability wiring.
  * Per-list visible index ownership is handled by the list component itself.
@@ -31,17 +72,41 @@ export function useFeedVisibility({
   }, []);
   const isForeground = appState === 'active';
   const canPlay = isActive && isForeground;
+  const canPlayRef = useRef(canPlay);
+  const onActiveVisibleIndexChangeRef = useRef(onActiveVisibleIndexChange);
+  const lastEmittedIndexRef = useRef(-1);
+
+  useEffect(() => {
+    canPlayRef.current = canPlay;
+  }, [canPlay]);
+
+  useEffect(() => {
+    onActiveVisibleIndexChangeRef.current = onActiveVisibleIndexChange;
+  }, [onActiveVisibleIndexChange]);
+
+  useEffect(() => {
+    if (!canPlay) {
+      lastEmittedIndexRef.current = -1;
+    }
+  }, [canPlay]);
 
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-      const token = viewableItems.find(t => t.isViewable);
+      if (!canPlayRef.current) return;
+      const token = selectMostVisibleToken(viewableItems);
       const nextIndex = typeof token?.index === 'number' ? token.index : -1;
 
-      if (nextIndex >= 0) {
-        onActiveVisibleIndexChange?.(nextIndex);
+      if (nextIndex < 0) {
+        lastEmittedIndexRef.current = -1;
+        return;
+      }
+
+      if (nextIndex >= 0 && nextIndex !== lastEmittedIndexRef.current) {
+        lastEmittedIndexRef.current = nextIndex;
+        onActiveVisibleIndexChangeRef.current?.(nextIndex);
       }
     },
-    [onActiveVisibleIndexChange]
+    []
   );
 
   return {
