@@ -6,7 +6,7 @@ import {
   interpolate,
   Extrapolate,
 } from 'react-native-reanimated';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import ChannelHeader from '@/components/layout/header/ChannelHeader';
@@ -14,7 +14,7 @@ import TabNavigation, { TabOption } from '@/components/layout/header/TabNavigati
 import DetailScreenOverlay from '@/components/layout/detail/DetailScreenOverlay';
 import {
   ProfileChannelFeedLayout,
-  ProfileChannelFeedLoadingOverlay,
+  ProfileChannelFeedLoadingScreen,
   ProfileChannelErrorScreen,
   PROFILE_CHANNEL_FEED_OVERLAY_TOP_OFFSET,
   PROFILE_CHANNEL_FEED_PAGER_DEFAULTS,
@@ -318,6 +318,7 @@ const Channel: React.FC = memo(() => {
   );
 
   const isLoading = isLoadingChannel && !channelDataForFeed;
+  const showBackgroundRefreshIndicator = isChannelFetching && !isLoading && !showErrorScreen;
 
   return (
     <ProfileChannelFeedLayout backgroundColor={Colors.black}>
@@ -342,10 +343,17 @@ const Channel: React.FC = memo(() => {
             ))}
           </View>
         )}
+        {showBackgroundRefreshIndicator && (
+          <View style={styles.overlayRefreshWrap}>
+            <ActivityIndicator size="small" color={channelColors.textColor || Colors.neutral[50]} />
+          </View>
+        )}
       </DetailScreenOverlay>
 
       {showErrorScreen ? (
         renderErrorScreen()
+      ) : isLoading ? (
+        <ProfileChannelFeedLoadingScreen backgroundColor={Colors.black} />
       ) : (
         <FeedPager
           ref={channelPagerRef}
@@ -369,7 +377,6 @@ const Channel: React.FC = memo(() => {
           contentScrollProgressOutput={overlayScrollProgressSV}
         />
       )}
-      <ProfileChannelFeedLoadingOverlay visible={isLoading} backgroundColor={Colors.black} />
     </ProfileChannelFeedLayout>
   );
 });
@@ -387,6 +394,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     columnGap: 8,
+  },
+  overlayRefreshWrap: {
+    marginTop: 10,
+    alignSelf: 'center',
   },
 });
 

@@ -47,18 +47,15 @@ export function ProfileChannelFeedLayout({
   );
 }
 
-interface ProfileChannelFeedLoadingOverlayProps {
-  visible: boolean;
-  backgroundColor?: string;
+interface ProfileChannelFeedLoadingScreenProps {
+  backgroundColor: string;
 }
 
-export function ProfileChannelFeedLoadingOverlay({
-  visible,
-  backgroundColor = Colors.transparent,
-}: ProfileChannelFeedLoadingOverlayProps) {
-  if (!visible) return null;
+export function ProfileChannelFeedLoadingScreen({
+  backgroundColor,
+}: ProfileChannelFeedLoadingScreenProps) {
   return (
-    <View style={[styles.loadingOverlay, { backgroundColor }]} collapsable={false}>
+    <View style={[styles.loadingScreen, { backgroundColor }]} collapsable={false}>
       <ActivityIndicator size="large" color={Colors.neutral[50]} />
     </View>
   );
@@ -70,10 +67,9 @@ const styles = StyleSheet.create({
     minHeight: '100%',
     overflow: 'hidden',
   },
-  loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+  loadingScreen: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 9999,
   },
 });

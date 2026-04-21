@@ -10,7 +10,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { BORDER_RADIUS, APP_CONSTANTS, ICON_SIZES } from '@/utils/constants';
 import { getEffectiveTopInset } from '@/utils/device/screen';
-import { View, StyleSheet, Platform, Linking, Alert } from 'react-native';
+import { View, StyleSheet, Platform, Linking, Alert, ActivityIndicator } from 'react-native';
 import { SquircleNativePressable } from '@/components/ui/Squircle';
 import FeedPager from '@/components/features/feed/FeedPager';
 import {
@@ -28,7 +28,7 @@ import { ProfileHeader, TabNavigation, TabOption } from '@/components/layout/hea
 import DetailScreenOverlay from '@/components/layout/detail/DetailScreenOverlay';
 import {
   ProfileChannelFeedLayout,
-  ProfileChannelFeedLoadingOverlay,
+  ProfileChannelFeedLoadingScreen,
   ProfileChannelErrorScreen,
   PROFILE_CHANNEL_FEED_OVERLAY_TOP_OFFSET,
   PROFILE_CHANNEL_FEED_PAGER_DEFAULTS,
@@ -264,6 +264,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   }, [providedIdentifier, profileError, refreshProfileMetadata, router, t]);
 
   const isLoading = (isProfileLoading || isHandleResolving) && !profileData;
+  const showBackgroundRefreshIndicator = didQuery.isFetching && !isLoading && !showErrorScreen;
 
   // Overlay action state (moved from ProfileHeader)
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -652,10 +653,17 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
             ))}
           </Animated.View>
         )}
+        {showBackgroundRefreshIndicator && (
+          <Animated.View style={[styles.overlayRefreshWrap, overlayControlFadeAnimatedStyle]}>
+            <ActivityIndicator size="small" color={profileColors.textColor || Colors.neutral[50]} />
+          </Animated.View>
+        )}
       </DetailScreenOverlay>
 
       {showErrorScreen ? (
         renderErrorScreen
+      ) : isLoading ? (
+        <ProfileChannelFeedLoadingScreen backgroundColor={profileColors.chromeBackgroundColor} />
       ) : (
         <FeedPager
           ref={r => {
@@ -716,11 +724,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
           contentScrollProgressOutput={overlayScrollProgressSV}
         />
       )}
-      <ProfileChannelFeedLoadingOverlay
-        visible={isLoading}
-        backgroundColor={profileColors.chromeBackgroundColor}
-      />
-
       {/* Sheets and menus moved from ProfileHeader so overlay buttons can control them */}
       <ProfileMenu
         visible={showProfileMenu}
@@ -787,6 +790,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     columnGap: 8,
     zIndex: 2,
+  },
+  overlayRefreshWrap: {
+    marginTop: 10,
+    alignSelf: 'center',
+    zIndex: 1,
   },
   /** Lets the lead (e.g. follow) pill paint above trailing actions during layout morph. */
   overlayHeaderActionSlot: {
