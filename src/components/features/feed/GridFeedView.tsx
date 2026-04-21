@@ -147,7 +147,6 @@ interface GridFeedViewProps {
   headerComponent?: React.ReactNode;
   backgroundColor?: string;
   secondaryColor?: string;
-  isProfileFeed?: boolean;
   feedOption: 'profile' | 'following' | 'likes' | 'reposts' | string;
   userDid?: string;
   onLoadMore: () => void; // Simplified callback for loading more content
@@ -186,7 +185,6 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
       headerComponent,
       backgroundColor = Colors.black,
       secondaryColor = Colors.neutral[50],
-      isProfileFeed = false,
       feedOption,
       userDid,
       onLoadMore,
@@ -510,7 +508,6 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
               secondaryColor={secondaryColor}
               profileColors={profileColors}
               onRetry={onRetry}
-              isProfileFeed={isProfileFeed || isHeaderFeed}
               viewableAreaHeight={emptyComponentHeight}
               feedOption={feedOption}
             />
@@ -519,7 +516,6 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
               type={getEmptyFeedType(feedOption)}
               secondaryColor={secondaryColor}
               profileColors={profileColors}
-              isProfileFeed={isProfileFeed || isHeaderFeed}
               viewableAreaHeight={emptyComponentHeight}
               feedOption={feedOption}
             />

@@ -107,7 +107,6 @@ interface ListEmptyComponentProps {
   feedOption: string;
   secondaryColor?: string;
   profileColors?: { backgroundColor: string; textColor: string };
-  isHeaderFeed: boolean;
   emptyComponentHeight: number;
   onRetry?: () => void;
 }
@@ -172,7 +171,6 @@ const ListEmptyComponent = ({
   feedOption,
   secondaryColor,
   profileColors,
-  isHeaderFeed,
   emptyComponentHeight,
   onRetry,
 }: ListEmptyComponentProps) => {
@@ -200,7 +198,6 @@ const ListEmptyComponent = ({
   const commonProps = {
     secondaryColor,
     profileColors,
-    isProfileFeed: isHeaderFeed,
     viewableAreaHeight: emptyComponentHeight,
     feedOption,
   };
@@ -796,7 +793,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           feedOption={feedOption}
           secondaryColor={secondaryColor}
           profileColors={profileColors}
-          isHeaderFeed={isHeaderFeed}
           emptyComponentHeight={emptyComponentHeight}
           onRetry={onRetry}
         />
@@ -827,13 +823,15 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     const listHeaderElement = useMemo(() => {
       if (!headerComponent) return null;
+      const separatorStyle =
+        feed.length > 0 ? styles.listHeaderBottomSeparator : styles.listHeaderBottomSeparatorEmpty;
       return (
         <View onLayout={handleHeaderLayout}>
           {headerComponent}
-          <View style={styles.listHeaderBottomSeparator} />
+          <View style={separatorStyle} />
         </View>
       );
-    }, [headerComponent, handleHeaderLayout]);
+    }, [headerComponent, handleHeaderLayout, feed.length]);
 
     const listFooterElement = useMemo(
       () => (feed.length > 0 ? <View style={styles.itemSeparator} /> : null),
@@ -945,7 +943,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           headerComponent={headerComponent}
           backgroundColor={backgroundColor}
           secondaryColor={secondaryColor}
-          isProfileFeed={isHeaderFeed}
           feedOption={feedOption}
           userDid={userDid}
           onLoadMore={onLoadMore}
@@ -1041,6 +1038,10 @@ const styles = StyleSheet.create({
   listHeaderBottomSeparator: {
     height: FEED_VIEW_CONSTANTS.LIST_ITEM_GAP,
     backgroundColor: Colors.black,
+  },
+  listHeaderBottomSeparatorEmpty: {
+    height: FEED_VIEW_CONSTANTS.LIST_ITEM_GAP,
+    backgroundColor: Colors.transparent,
   },
   measurementPlaceholder: {
     // Used by FlashList for measurement passes

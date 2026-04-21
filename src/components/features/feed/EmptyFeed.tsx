@@ -13,6 +13,7 @@ import AuthorItem from '../../ui/AuthorItem';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FontFamily, Typography } from '../../../utils/components/typography';
+import { getEndOfFeedOverscrollTextColor } from './feedViewShared';
 
 const EMPTY_FEED_TV_SIZE = 70;
 
@@ -26,7 +27,6 @@ interface EmptyFeedProps {
   };
 
   onRetry?: () => void;
-  isProfileFeed?: boolean;
   viewableAreaHeight?: number;
   feedOption?: string;
 }
@@ -137,7 +137,9 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
 
   // Use profile colors if available, otherwise fall back to secondaryColor or default
   const iconColor = profileColors ? profileColors.textColor : secondaryColor || Colors.neutral[200];
-  const textColor = profileColors ? profileColors.textColor : secondaryColor || Colors.neutral[200];
+  const textColor = profileColors
+    ? getEndOfFeedOverscrollTextColor(profileColors.textColor, secondaryColor)
+    : secondaryColor || Colors.neutral[200];
 
   // Offset from top so icon + copy sit near the middle of the upper third (H/6 ≈ center of [0, H/3]).
   const containerHeight = viewableAreaHeight
@@ -148,11 +150,11 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
   const isNoVideos = type === 'no-videos';
   const shouldRenderSuggestions = shouldShowSuggestions && suggestedUsers.length > 0;
   const shouldUseEmptyFeedAnimation = type === 'no-videos' || shouldShowSuggestions;
+  const noVideosColor = profileColors ? textColor : Colors.neutral[200];
   return (
     <View
       style={[
         styles.emptyContainer,
-        isNoVideos && { backgroundColor: Colors.black },
         viewableAreaHeight
           ? { height: viewableAreaHeight }
           : shouldRenderSuggestions
@@ -174,10 +176,10 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
           {shouldUseEmptyFeedAnimation ? (
             <AnimatedTVStatic size={EMPTY_FEED_TV_SIZE} />
           ) : (
-            <Icon name={icon} size={72} color={isNoVideos ? Colors.neutral[200] : iconColor} />
+            <Icon name={icon} size={72} color={isNoVideos ? noVideosColor : iconColor} />
           )}
         </View>
-        <Text style={[styles.emptyText, { color: isNoVideos ? Colors.neutral[200] : textColor }]}>
+        <Text style={[styles.emptyText, { color: isNoVideos ? noVideosColor : textColor }]}>
           {displayMessage}
         </Text>
         {shouldRenderSuggestions && (
