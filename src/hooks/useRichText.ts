@@ -54,21 +54,27 @@ export function useRichText(text: string): [RichTextAPI, boolean] {
   return [richText, isResolving];
 }
 
+export type RichTextDisplayPart = {
+  displayKey: string;
+  text: string;
+  isSemiBold: boolean;
+  isSymbol?: boolean;
+};
+
 /**
  * Format rich text for display (extracts mentions and hashtags for styling)
  * @param richText - RichText instance from @atproto/api
  * @returns Array of text parts with formatting info
  */
-export function formatRichTextForDisplay(
-  richText: RichTextAPI
-): Array<{ text: string; isSemiBold: boolean; isSymbol?: boolean }> {
-  const parts: Array<{ text: string; isSemiBold: boolean; isSymbol?: boolean }> = [];
+export function formatRichTextForDisplay(richText: RichTextAPI): RichTextDisplayPart[] {
+  const parts: RichTextDisplayPart[] = [];
   const text = richText.text;
 
   if (!text || !richText.facets || richText.facets.length === 0) {
-    return [{ text: text || '', isSemiBold: false }];
+    return [{ displayKey: 'rt-all', text: text || '', isSemiBold: false }];
   }
 
+  let partSeq = 0;
   const textBytes = new TextEncoder().encode(text);
   let lastByteIndex = 0;
   const sortedFacets = [...richText.facets].sort((a, b) => a.index.byteStart - b.index.byteStart);
@@ -80,7 +86,11 @@ export function formatRichTextForDisplay(
       const beforeText = new TextDecoder().decode(beforeBytes);
 
       if (beforeText) {
-        parts.push({ text: beforeText, isSemiBold: false });
+        parts.push({
+          displayKey: `rt-plain-${lastByteIndex}-${facet.index.byteStart}-${partSeq++}`,
+          text: beforeText,
+          isSemiBold: false,
+        });
       }
     }
 
@@ -98,13 +108,26 @@ export function formatRichTextForDisplay(
       const textAfterSymbol = facetText.slice(1);
 
       if (symbol) {
-        parts.push({ text: symbol, isSemiBold: false, isSymbol: true });
+        parts.push({
+          displayKey: `rt-sym-${facet.index.byteStart}-${facet.index.byteEnd}-${partSeq++}`,
+          text: symbol,
+          isSemiBold: false,
+          isSymbol: true,
+        });
       }
       if (textAfterSymbol) {
-        parts.push({ text: textAfterSymbol, isSemiBold: true });
+        parts.push({
+          displayKey: `rt-body-${facet.index.byteStart}-${facet.index.byteEnd}-${partSeq++}`,
+          text: textAfterSymbol,
+          isSemiBold: true,
+        });
       }
     } else {
-      parts.push({ text: facetText, isSemiBold: false });
+      parts.push({
+        displayKey: `rt-facet-${facet.index.byteStart}-${facet.index.byteEnd}-${partSeq++}`,
+        text: facetText,
+        isSemiBold: false,
+      });
     }
 
     lastByteIndex = facet.index.byteEnd;
@@ -115,9 +138,15 @@ export function formatRichTextForDisplay(
     const remainingBytes = textBytes.slice(lastByteIndex);
     const remainingText = new TextDecoder().decode(remainingBytes);
     if (remainingText) {
-      parts.push({ text: remainingText, isSemiBold: false });
+      parts.push({
+        displayKey: `rt-trail-${lastByteIndex}-${textBytes.length}-${partSeq++}`,
+        text: remainingText,
+        isSemiBold: false,
+      });
     }
   }
 
-  return parts.length > 0 ? parts : [{ text: text || '', isSemiBold: false }];
+  return parts.length > 0
+    ? parts
+    : [{ displayKey: 'rt-fallback', text: text || '', isSemiBold: false }];
 }

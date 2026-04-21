@@ -720,7 +720,7 @@ const EditProfileScreen: React.FC = () => {
 
             {PREDEFINED_COLORS.map((colorOption, index) => (
               <AnimatedColorSquare
-                key={index}
+                key={`${colorOption.backgroundColor}-${colorOption.textColor}`}
                 colorOption={colorOption}
                 isSelected={selectedColorIndex === index}
                 isInverted={invertedStates[index] ?? false}

@@ -124,6 +124,10 @@ interface CommentInputFooterProps {
   hideMediaAddButton?: boolean;
 }
 
+const EMPTY_SELECTED_IMAGES = Object.freeze(
+  [] as NonNullable<CommentInputFooterProps['selectedImages']>
+);
+
 const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   value,
   onChangeText,
@@ -150,12 +154,13 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   onPressPhotos,
   selectedGifPreviewUri = null,
   selectedGifAspectRatio = null,
-  selectedImages = [],
+  selectedImages,
   onRemoveImage,
   onClearGif,
   hasAttachment = false,
   onClearAttachment,
 }) => {
+  const resolvedSelectedImages = selectedImages ?? EMPTY_SELECTED_IMAGES;
   const { t } = useTranslation();
   const resolvedPlaceholder = placeholder ?? t('comments.saySomething');
   const resolvedSubmitLabel = submitAccessibilityLabel ?? t('comments.sendComment');
@@ -181,7 +186,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   const rawSafeArea = safeAreaBottomProp !== undefined ? safeAreaBottomProp : insets.bottom;
   const bottomPadding = getFooterBottomPadding(rawSafeArea);
 
-  const hasImages = selectedImages.length > 0;
+  const hasImages = resolvedSelectedImages.length > 0;
   const hasGifPreview = !!selectedGifPreviewUri;
   // `selectedGifPreviewUri` can be null depending on the provider; `hasAttachment` is the reliable signal.
   const hasGifAttachment = !hasImages && !!hasAttachment;
@@ -254,7 +259,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={
-                (hasImages ? selectedImages.length : hasGifAttachment ? 1 : 0) >=
+                (hasImages ? resolvedSelectedImages.length : hasGifAttachment ? 1 : 0) >=
                 SCROLL_INDICATOR_CONSTANTS.COMPOSER_ATTACHMENTS_MIN_ITEMS
               }
               contentContainerStyle={styles.attachmentStrip}
@@ -296,7 +301,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
               ) : null}
 
               {hasImages
-                ? selectedImages.slice(0, 4).map(img => {
+                ? resolvedSelectedImages.slice(0, 4).map(img => {
                     const ar =
                       img.aspectRatio && img.aspectRatio.height > 0
                         ? img.aspectRatio.width / img.aspectRatio.height

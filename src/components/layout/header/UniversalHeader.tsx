@@ -52,6 +52,24 @@ import { useDetailHeaderScrollPresentation } from './useDetailHeaderScrollPresen
 const GRADIENT_SHIM = require('../../../assets/embed-video-gradient-shim.png');
 const TABBED_HEADER_BACKGROUND_CUTOFF = 20;
 
+const EMPTY_HEADER_ACTIONS = Object.freeze([] as HeaderAction[]);
+const EMPTY_CUSTOM_ACTION_LAYOUTS = Object.freeze([] as CustomActionLayout[]);
+const EMPTY_REACT_NODE_ARRAY = Object.freeze([] as React.ReactNode[]);
+
+function getCustomActionLayoutKey(layout: CustomActionLayout, index: number): string {
+  const position = layout.position ?? 'top-right';
+  if (layout.type === 'menu') {
+    return `custom-action-menu-${position}-${layout.menuIcon?.name ?? 'icon'}-${index}`;
+  }
+  if (layout.type === 'button-group') {
+    const primaryId = layout.buttonGroup?.primary.id ?? 'primary';
+    const secondaryId = layout.buttonGroup?.secondary?.id ?? 'secondary';
+    return `custom-action-group-${position}-${primaryId}-${secondaryId}-${index}`;
+  }
+  const buttonIds = (layout.buttons ?? []).map(button => button.id).join('-') || 'none';
+  return `custom-action-buttons-${position}-${buttonIds}-${index}`;
+}
+
 /** Single spec for follow ↔ unfollow: same duration, easing, and layout as the ink crossfade. */
 const FOLLOW_PILL_TRANSITION_MS = 360;
 
@@ -643,7 +661,7 @@ const InlineTitleWithBadges: React.FC<{
   title: string;
   titleStyle: TextStyle;
   badges?: React.ReactNode[];
-}> = ({ title, titleStyle, badges = [] }) => {
+}> = ({ title, titleStyle, badges = EMPTY_REACT_NODE_ARRAY }) => {
   const [lines, setLines] = React.useState<
     Array<{ x: number; y: number; width: number; height: number }>
   >([]);
@@ -656,13 +674,14 @@ const InlineTitleWithBadges: React.FC<{
   const last = lines.length ? lines[lines.length - 1] : null;
   const badgeTop = last ? last.y : 0; // align container to line top
   const badgeLeft = last ? last.x + last.width : 0;
+  const badgeNodes = React.useMemo(() => React.Children.toArray(badges).filter(Boolean), [badges]);
 
   return (
     <View style={styles.inlineTitleContainer}>
       <Text style={titleStyle} onTextLayout={handleTextLayout}>
         {title}
       </Text>
-      {last && badges && badges.filter(Boolean).length > 0 && (
+      {last && badgeNodes.length > 0 && (
         <View
           pointerEvents="box-none"
           style={[
@@ -672,8 +691,16 @@ const InlineTitleWithBadges: React.FC<{
           ]}
         >
           <View style={styles.inlineBadgesRow}>
-            {badges.map((node, idx) => (
-              <React.Fragment key={`badge-${idx}`}>{node}</React.Fragment>
+            {badgeNodes.map((node, index) => (
+              <React.Fragment
+                key={
+                  React.isValidElement(node) && node.key != null
+                    ? String(node.key)
+                    : `inline-badge-${index}`
+                }
+              >
+                {node}
+              </React.Fragment>
             ))}
           </View>
         </View>
@@ -935,8 +962,8 @@ HeaderContentComponent.displayName = 'HeaderContentComponent';
 // Main universal header component
 const UniversalHeader: React.FC<UniversalHeaderProps> = ({
   content,
-  actions = [],
-  customActions = [],
+  actions = EMPTY_HEADER_ACTIONS,
+  customActions = EMPTY_CUSTOM_ACTION_LAYOUTS,
   showBackButton = false,
   onBackPress,
   backgroundColor = Colors.black,
@@ -1191,7 +1218,7 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
             {/* Custom Action Layouts */}
             {customActions.map((layout, index) => (
               <CustomActionLayoutComponent
-                key={`custom-action-${index}`}
+                key={getCustomActionLayoutKey(layout, index)}
                 layout={layout}
                 textColor={textColor}
                 backgroundColor={backgroundColor}

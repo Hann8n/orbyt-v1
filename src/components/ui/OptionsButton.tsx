@@ -22,7 +22,7 @@ const buttonStyles = StyleSheet.create({
     minHeight: ROW_MIN_HEIGHT,
     overflow: 'hidden',
     borderWidth: 0,
-    borderColor: 'transparent',
+    borderColor: Colors.transparent,
   },
   menuOptionContent: {
     flexDirection: 'row',

@@ -116,70 +116,79 @@ function TextWithLinksBase({
       ellipsizeMode={ellipsizeMode}
       onTextLayout={onTextLayout}
     >
-      {Array.from(rt.segments()).map((segment, i) => {
-        if (segment.isLink() && segment.link?.uri) {
-          const uri = segment.link.uri;
-          return (
-            <InlinePressableText
-              key={`${i}-link`}
-              style={[style, styles.link]}
-              onPress={() => handleLinkPress(uri)}
-            >
-              {segment.text}
-            </InlinePressableText>
-          );
-        }
-        if (segment.isMention() && segment.mention?.did) {
-          const full = segment.text || '';
-          const symbol = full[0] || '@';
-          const handle = full.slice(1);
-          return (
-            <InlinePressableText
-              key={`${i}-mention`}
-              style={style}
-              onPress={() => onAuthorPress(segment.mention!.did!, { did: segment.mention!.did })}
-            >
-              <Text style={styles.symbol}>{symbol}</Text>
-              <Text style={styles.mentionTagText}>{handle}</Text>
-            </InlinePressableText>
-          );
-        }
-        if (segment.isMention()) {
-          // Unresolved mention (common when using detectFacetsWithoutResolution): fall back to @handle text.
-          const candidate = stripAtPrefix((segment.text || '').trim());
-          if (candidate) {
+      {(() => {
+        let charOffset = 0;
+        return Array.from(rt.segments()).map(segment => {
+          const start = charOffset;
+          const segmentText = segment.text ?? '';
+          const end = start + segmentText.length;
+          charOffset = end;
+          const segmentKeyBase = `rtw-${start}-${end}`;
+
+          if (segment.isLink() && segment.link?.uri) {
+            const uri = segment.link.uri;
+            return (
+              <InlinePressableText
+                key={`${segmentKeyBase}-link`}
+                style={[style, styles.link]}
+                onPress={() => handleLinkPress(uri)}
+              >
+                {segment.text}
+              </InlinePressableText>
+            );
+          }
+          if (segment.isMention() && segment.mention?.did) {
             const full = segment.text || '';
             const symbol = full[0] || '@';
             const handle = full.slice(1);
             return (
               <InlinePressableText
-                key={`${i}-mention-unresolved`}
+                key={`${segmentKeyBase}-mention`}
                 style={style}
-                onPress={() => onAuthorPress(candidate)}
+                onPress={() => onAuthorPress(segment.mention!.did!, { did: segment.mention!.did })}
               >
                 <Text style={styles.symbol}>{symbol}</Text>
                 <Text style={styles.mentionTagText}>{handle}</Text>
               </InlinePressableText>
             );
           }
-        }
-        if (segment.isTag() && segment.tag?.tag && onHashtagPress) {
-          const full = segment.text || '';
-          const symbol = full[0] || '#';
-          const tag = full.slice(1);
-          return (
-            <InlinePressableText
-              key={`${i}-tag`}
-              style={style}
-              onPress={() => onHashtagPress(segment.tag!.tag!)}
-            >
-              <Text style={styles.symbol}>{symbol}</Text>
-              <Text style={styles.mentionTagText}>{tag}</Text>
-            </InlinePressableText>
-          );
-        }
-        return <Text key={`${i}-plain`}>{segment.text}</Text>;
-      })}
+          if (segment.isMention()) {
+            // Unresolved mention (common when using detectFacetsWithoutResolution): fall back to @handle text.
+            const candidate = stripAtPrefix((segment.text || '').trim());
+            if (candidate) {
+              const full = segment.text || '';
+              const symbol = full[0] || '@';
+              const handle = full.slice(1);
+              return (
+                <InlinePressableText
+                  key={`${segmentKeyBase}-mention-unresolved`}
+                  style={style}
+                  onPress={() => onAuthorPress(candidate)}
+                >
+                  <Text style={styles.symbol}>{symbol}</Text>
+                  <Text style={styles.mentionTagText}>{handle}</Text>
+                </InlinePressableText>
+              );
+            }
+          }
+          if (segment.isTag() && segment.tag?.tag && onHashtagPress) {
+            const full = segment.text || '';
+            const symbol = full[0] || '#';
+            const tag = full.slice(1);
+            return (
+              <InlinePressableText
+                key={`${segmentKeyBase}-tag`}
+                style={style}
+                onPress={() => onHashtagPress(segment.tag!.tag!)}
+              >
+                <Text style={styles.symbol}>{symbol}</Text>
+                <Text style={styles.mentionTagText}>{tag}</Text>
+              </InlinePressableText>
+            );
+          }
+          return <Text key={`${segmentKeyBase}-plain`}>{segment.text}</Text>;
+        });
+      })()}
     </Text>
   );
 }

@@ -832,71 +832,6 @@ const CommentItem: React.FC<CommentItemProps> = ({
     ]
   );
 
-  const LinkThumbnailComponent: React.FC<{
-    external: {
-      uri: string;
-      thumb?: string | { ref: { $link: string } };
-      title?: string;
-      description?: string;
-    };
-  }> = ({ external }) => {
-    if (!external?.uri || !/^https?:\/\//.test(external.uri)) return null;
-
-    const thumbUrl = resolveExternalThumbUrl(external.thumb, getCommentRepoDid(comment));
-
-    const handlePress = () => {
-      if (external.uri) {
-        Linking.openURL(external.uri).catch(() => {});
-      }
-    };
-
-    const hasThumb = !!thumbUrl;
-
-    return (
-      <SquircleNativePressable
-        onPress={handlePress}
-        style={[styles.linkPreviewContainer, hasThumb && styles.linkPreviewContainerWithThumb]}
-        android_ripple={{ color: hexToRGBA(Colors.neutral[400], 0.2) }}
-      >
-        {hasThumb ? (
-          <>
-            <View style={styles.linkPreviewThumbWrap}>
-              <Image
-                source={{ uri: thumbUrl }}
-                style={styles.linkPreviewThumb}
-                contentFit="contain"
-              />
-            </View>
-            <View style={styles.linkPreviewContent}>
-              {external.title ? (
-                <Text numberOfLines={2} style={styles.linkPreviewTitle}>
-                  {external.title}
-                </Text>
-              ) : null}
-              {external.description ? (
-                <Text numberOfLines={external.title ? 1 : 2} style={styles.linkPreviewDescription}>
-                  {external.description}
-                </Text>
-              ) : null}
-            </View>
-          </>
-        ) : (
-          <View style={styles.linkPreviewContentNoThumb}>
-            <View style={styles.linkPreviewTextWrap}>
-              {external.title ? (
-                <Text numberOfLines={2} style={styles.linkPreviewTitleNoThumb}>
-                  {external.title}
-                </Text>
-              ) : null}
-            </View>
-          </View>
-        )}
-      </SquircleNativePressable>
-    );
-  };
-  LinkThumbnailComponent.displayName = 'LinkThumbnail';
-  const LinkThumbnail = React.memo(LinkThumbnailComponent);
-
   const renderImages = (hasText: boolean) => {
     const embed = getCommentEmbed(comment);
 
@@ -979,7 +914,9 @@ const CommentItem: React.FC<CommentItemProps> = ({
         );
       }
 
-      return <LinkThumbnail external={external} />;
+      return (
+        <CommentExternalLinkThumbnail external={external} repoDid={getCommentRepoDid(comment)} />
+      );
     }
 
     let embedImages: {
@@ -1514,6 +1451,73 @@ const styles = StyleSheet.create({
     lineHeight: Typography.lineHeights.bodySmall,
     marginBottom: 1,
   },
+});
+
+type CommentExternalLinkEmbed = {
+  uri: string;
+  thumb?: string | { ref: { $link: string } };
+  title?: string;
+  description?: string;
+};
+
+const CommentExternalLinkThumbnail = React.memo(function CommentExternalLinkThumbnail({
+  external,
+  repoDid,
+}: {
+  external: CommentExternalLinkEmbed;
+  repoDid: string | undefined;
+}) {
+  if (!external.uri || !/^https?:\/\//.test(external.uri)) return null;
+
+  const thumbUrl = resolveExternalThumbUrl(external.thumb, repoDid);
+
+  const handlePress = () => {
+    Linking.openURL(external.uri).catch(() => {});
+  };
+
+  const hasThumb = !!thumbUrl;
+
+  return (
+    <SquircleNativePressable
+      onPress={handlePress}
+      style={[styles.linkPreviewContainer, hasThumb && styles.linkPreviewContainerWithThumb]}
+      android_ripple={{ color: hexToRGBA(Colors.neutral[400], 0.2) }}
+    >
+      {hasThumb ? (
+        <>
+          <View style={styles.linkPreviewThumbWrap}>
+            <Image
+              source={{ uri: thumbUrl }}
+              style={styles.linkPreviewThumb}
+              contentFit="contain"
+            />
+          </View>
+          <View style={styles.linkPreviewContent}>
+            {external.title ? (
+              <Text numberOfLines={2} style={styles.linkPreviewTitle}>
+                {external.title}
+              </Text>
+            ) : null}
+            {external.description ? (
+              <Text numberOfLines={external.title ? 1 : 2} style={styles.linkPreviewDescription}>
+                {external.description}
+              </Text>
+            ) : null}
+          </View>
+        </>
+      ) : (
+        <View style={styles.linkPreviewContentNoThumb}>
+          <View style={styles.linkPreviewTextWrap}>
+            {external.title ? (
+              <Text numberOfLines={2} style={styles.linkPreviewTitleNoThumb}>
+                {external.title}
+              </Text>
+            ) : null}
+          </View>
+        </View>
+      )}
+    </SquircleNativePressable>
+  );
 });
 
 export default MemoizedCommentItem;

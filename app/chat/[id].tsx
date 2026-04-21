@@ -127,6 +127,7 @@ type ChatListItem =
   | { type: 'date'; dateKey: string; label: string };
 
 type ChatRichTextPart = {
+  partKey: string;
   text: string;
   isSemiBold?: boolean;
   isSymbol?: boolean;
@@ -139,12 +140,13 @@ function formatChatRichTextParts(
   text: string,
   facets?: RichTextFacet[] | null
 ): ChatRichTextPart[] {
-  if (!text) return [{ text: '', isSemiBold: false }];
-  if (!facets || facets.length === 0) return [{ text, isSemiBold: false }];
+  if (!text) return [{ partKey: 'chat-rt-empty', text: '', isSemiBold: false }];
+  if (!facets || facets.length === 0) return [{ partKey: 'chat-rt-all', text, isSemiBold: false }];
 
   const parts: ChatRichTextPart[] = [];
   const textBytes = new TextEncoder().encode(text);
   let lastByteIndex = 0;
+  let partSeq = 0;
   const sortedFacets = [...facets].sort((a, b) => a.index.byteStart - b.index.byteStart);
 
   for (const facet of sortedFacets) {
@@ -153,7 +155,12 @@ function formatChatRichTextParts(
 
     if (start > lastByteIndex) {
       const beforeText = new TextDecoder().decode(textBytes.slice(lastByteIndex, start));
-      if (beforeText) parts.push({ text: beforeText, isSemiBold: false });
+      if (beforeText)
+        parts.push({
+          partKey: `chat-rt-${lastByteIndex}-${start}-${partSeq++}`,
+          text: beforeText,
+          isSemiBold: false,
+        });
     }
 
     const facetText = new TextDecoder().decode(textBytes.slice(start, end));
@@ -169,7 +176,7 @@ function formatChatRichTextParts(
     if (isMention || isHashtag) {
       const symbol = facetText[0];
       const textAfterSymbol = facetText.slice(1);
-      const base: Omit<ChatRichTextPart, 'text' | 'isSemiBold'> = {
+      const base: Omit<ChatRichTextPart, 'text' | 'isSemiBold' | 'partKey'> = {
         kind: isMention ? 'mention' : 'hashtag',
         identifier:
           textAfterSymbol ||
@@ -178,18 +185,36 @@ function formatChatRichTextParts(
             : hashtagFeature?.tag || ''),
       };
 
-      if (symbol) parts.push({ text: symbol, isSemiBold: false, isSymbol: true, ...base });
-      if (textAfterSymbol) parts.push({ text: textAfterSymbol, isSemiBold: true, ...base });
+      if (symbol)
+        parts.push({
+          ...base,
+          partKey: `chat-rt-${start}-sym-${partSeq++}`,
+          text: symbol,
+          isSemiBold: false,
+          isSymbol: true,
+        });
+      if (textAfterSymbol)
+        parts.push({
+          ...base,
+          partKey: `chat-rt-${start}-body-${partSeq++}`,
+          text: textAfterSymbol,
+          isSemiBold: true,
+        });
     } else if (isLink) {
       const href = linkFeature?.uri || facetText;
       parts.push({
+        partKey: `chat-rt-link-${start}-${end}-${partSeq++}`,
         text: facetText,
         isSemiBold: false,
         kind: 'link',
         href,
       });
     } else {
-      parts.push({ text: facetText, isSemiBold: false });
+      parts.push({
+        partKey: `chat-rt-${start}-${end}-${partSeq++}`,
+        text: facetText,
+        isSemiBold: false,
+      });
     }
 
     lastByteIndex = end;
@@ -197,10 +222,15 @@ function formatChatRichTextParts(
 
   if (lastByteIndex < textBytes.length) {
     const remainingText = new TextDecoder().decode(textBytes.slice(lastByteIndex));
-    if (remainingText) parts.push({ text: remainingText, isSemiBold: false });
+    if (remainingText)
+      parts.push({
+        partKey: `chat-rt-trail-${lastByteIndex}-${partSeq++}`,
+        text: remainingText,
+        isSemiBold: false,
+      });
   }
 
-  return parts.length > 0 ? parts : [{ text, isSemiBold: false }];
+  return parts.length > 0 ? parts : [{ partKey: 'chat-rt-fallback', text, isSemiBold: false }];
 }
 
 function ChatMessageRichText({
@@ -259,9 +289,9 @@ function ChatMessageRichText({
 
   return (
     <Text style={[styles.messageText, isFromMe && styles.messageTextFromMe]}>
-      {parts.map((part, index) => (
+      {parts.map(part => (
         <Text
-          key={index}
+          key={part.partKey}
           style={[
             part.isSymbol && styles.messageTextMedium,
             part.isSemiBold && styles.messageTextSemiBold,
@@ -1802,12 +1832,6 @@ export default function ChatScreen() {
     []
   );
 
-  const listItemSeparator = useMemo(() => {
-    const ListItemSeparator = () => <View style={styles.listItemSeparator} />;
-    ListItemSeparator.displayName = 'ListItemSeparator';
-    return ListItemSeparator;
-  }, []);
-
   const handleBack = useCallback(() => router.back(), [router]);
 
   const { navigateToProfile: goToProfileFromChat } = useProfileChannelNavigation();
@@ -2230,7 +2254,7 @@ export default function ChatScreen() {
             extraData={{ listLength: listData.length }}
             style={styles.list}
             contentContainerStyle={styles.listContent}
-            ItemSeparatorComponent={listItemSeparator}
+            ItemSeparatorComponent={ChatFlashListItemSeparator}
             showsVerticalScrollIndicator={
               listData.length >= SCROLL_INDICATOR_CONSTANTS.CHAT_MESSAGES_MIN_ITEMS
             }
@@ -2851,3 +2875,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
 });
+
+function ChatFlashListItemSeparator() {
+  return <View style={styles.listItemSeparator} />;
+}

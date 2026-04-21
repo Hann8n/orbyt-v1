@@ -183,11 +183,11 @@ export default function NotificationFilterModal() {
             </SquircleNativePressable>
           </View>
           <View style={styles.optionGroup}>
-            {ORDERED_FILTER_OPTIONS.map((item, index) => {
+            {ORDERED_FILTER_OPTIONS.map(item => {
               if (item.type === 'grouped') {
                 return (
                   <FilterOption
-                    key={`grouped-${index}`}
+                    key={`grouped-${item.option.primaryReason}`}
                     label={t(item.option.labelKey)}
                     checked={isGroupedOptionSelected(item.option.reasons)}
                     onPress={() => handleToggleGrouped(item.option.reasons)}

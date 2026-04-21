@@ -410,9 +410,9 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({
         initialScrollIndex={headers.length > 1 ? 1 : 0}
       />
       <View style={styles.paginationContainer}>
-        {headers.map((_, index) => (
+        {headers.map((header, index) => (
           <Animated.View
-            key={`dot-${index}`}
+            key={`dot-${header.id}`}
             style={[
               styles.dot,
               index === 0 ? styles.dotFirst : null,

@@ -1260,10 +1260,13 @@ const CreateScreen: React.FC = () => {
     }),
     [cameraWidth, cameraHeight, isTabletDevice, isSmallDevice, fitsNative16x9, insets.top]
   );
-  const backButtonPosition = useMemo(
-    () => ({ top: isSmallDevice || !fitsNative16x9 ? 5 : insets.top + 4, left: 4 }),
-    [isSmallDevice, fitsNative16x9, insets.top]
-  );
+  const { backButtonPosition, doneButtonOffsetStyle } = useMemo(() => {
+    const top = isSmallDevice || !fitsNative16x9 ? 5 : insets.top + 4;
+    return {
+      backButtonPosition: { top, left: 4 },
+      doneButtonOffsetStyle: { top, right: 4 },
+    };
+  }, [isSmallDevice, fitsNative16x9, insets.top]);
   // Render content based on the state of permissions and device availability
   const renderContent = () => {
     if (!cameraPermission) {
@@ -1463,13 +1466,7 @@ const CreateScreen: React.FC = () => {
 
       {segmentManagerRef.current?.hasSegments() && (
         <NativePressable
-          style={[
-            styles.doneButton,
-            {
-              top: isSmallDevice || !fitsNative16x9 ? 5 : insets.top + 4,
-              right: 4,
-            },
-          ]}
+          style={[styles.doneButton, doneButtonOffsetStyle]}
           onPress={() => {
             finishRecording().catch(() => {
               // Manual completion failed.

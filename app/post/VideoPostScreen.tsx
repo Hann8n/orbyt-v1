@@ -64,7 +64,11 @@ import VerticalListSheet, {
 } from '@/components/ui/VerticalListSheet';
 import { SHEET_STYLES } from '@/utils/components/truesheet';
 import { useRichTextSearchTrigger, RichTextSearchModal } from '@/components/ui/usersearch';
-import { useRichText, formatRichTextForDisplay } from '@/hooks/useRichText';
+import {
+  useRichText,
+  formatRichTextForDisplay,
+  type RichTextDisplayPart,
+} from '@/hooks/useRichText';
 
 const VIDEO_WIDTH = 150; // Fixed preview width
 
@@ -168,7 +172,7 @@ const VideoPreviewContent: React.FC<{
 // Reusable description preview component
 const DescriptionPreview: React.FC<{
   description: string;
-  formattedRichText: Array<{ text: string; isSemiBold: boolean; isSymbol?: boolean }>;
+  formattedRichText: RichTextDisplayPart[];
   onPress: () => void;
 }> = ({ description, formattedRichText, onPress }) => {
   const { t } = useTranslation();
@@ -180,9 +184,9 @@ const DescriptionPreview: React.FC<{
       <NativePressable onPress={onPress} style={styles.descriptionInputTouchable}>
         {description ? (
           <Text style={styles.descriptionInputPreview} numberOfLines={3}>
-            {formattedRichText.map((part, index) => (
+            {formattedRichText.map(part => (
               <Text
-                key={index}
+                key={part.displayKey}
                 style={
                   part.isSymbol
                     ? styles.descriptionInputPreviewMedium
@@ -413,7 +417,7 @@ const PostButton: React.FC<{
 const DescriptionInputModal: React.FC<{
   visible: boolean;
   description: string;
-  formattedRichText: Array<{ text: string; isSemiBold: boolean; isSymbol?: boolean }>;
+  formattedRichText: RichTextDisplayPart[];
   setDescription: (text: string) => void;
   setDescriptionSelection: (selection: { start: number; end: number }) => void;
   onClose: () => void;
@@ -508,9 +512,9 @@ const DescriptionInputModal: React.FC<{
                 {description && (
                   <View style={styles.descriptionInputOverlay} pointerEvents="none">
                     <Text style={styles.descriptionInputOverlayText}>
-                      {formattedRichText.map((part, index) => (
+                      {formattedRichText.map(part => (
                         <Text
-                          key={index}
+                          key={part.displayKey}
                           style={
                             part.isSemiBold
                               ? styles.descriptionInputOverlaySemiBold

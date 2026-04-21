@@ -604,18 +604,31 @@ interface ModalProps {
   style?: ViewStyle;
 }
 
+const EMPTY_MODAL_ACTIONS = Object.freeze([] as NonNullable<ModalProps['actions']>);
+
 const Modal: React.FC<ModalProps> = ({
   visible,
   onClose,
   title,
   subtitle,
   children,
-  actions = [],
+  actions = EMPTY_MODAL_ACTIONS,
   showCloseButton = true,
   style,
 }) => {
   // Currently reserved for future header close button; read to satisfy type checker
   void showCloseButton;
+  const keyedActions = React.useMemo(() => {
+    const occurrences = new Map<string, number>();
+    return actions.map(action => {
+      const variant = action.variant ?? 'primary';
+      const baseKey = `modal-action-${action.label}-${variant}`;
+      const occurrence = occurrences.get(baseKey) ?? 0;
+      occurrences.set(baseKey, occurrence + 1);
+      return { action, key: `${baseKey}-${occurrence}` };
+    });
+  }, [actions]);
+
   return (
     <RNModal animationType="fade" transparent={true} visible={visible} onRequestClose={onClose}>
       <NativePressable style={styles.modalBackdrop} onPress={onClose}>
@@ -628,13 +641,13 @@ const Modal: React.FC<ModalProps> = ({
 
             {actions.length > 0 && (
               <View style={styles.modalActions}>
-                {actions.map((action, index) => (
+                {keyedActions.map(({ action, key }, idx) => (
                   <Button
-                    key={index}
+                    key={key}
                     title={action.label}
                     onPress={action.onPress}
                     variant={action.variant || 'primary'}
-                    style={index > 0 ? styles.modalActionMargin : undefined}
+                    style={idx > 0 ? styles.modalActionMargin : undefined}
                   />
                 ))}
               </View>

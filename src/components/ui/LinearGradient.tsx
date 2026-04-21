@@ -8,6 +8,9 @@ import {
   useCanvasSize,
 } from '@shopify/react-native-skia';
 
+const DEFAULT_GRADIENT_START = { x: 0, y: 0 };
+const DEFAULT_GRADIENT_END = { x: 0, y: 1 };
+
 interface LinearGradientProps {
   colors: string[];
   locations?: number[];
@@ -27,13 +30,15 @@ interface LinearGradientProps {
 export const LinearGradient: React.FC<LinearGradientProps> = ({
   colors,
   locations,
-  start = { x: 0, y: 0 },
-  end = { x: 0, y: 1 },
+  start: startProp,
+  end: endProp,
   dither = true,
   style,
   pointerEvents = 'auto',
   children,
 }) => {
+  const start = startProp ?? DEFAULT_GRADIENT_START;
+  const end = endProp ?? DEFAULT_GRADIENT_END;
   const { ref, size } = useCanvasSize();
   const flattenedStyle = StyleSheet.flatten(style || {});
 
