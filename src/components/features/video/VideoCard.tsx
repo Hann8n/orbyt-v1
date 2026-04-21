@@ -63,13 +63,7 @@ import { ErrorHandler } from '../../../utils/errors/errorHandler';
 import { useLikeInteraction } from '@/hooks/useLikeInteraction';
 import type { VideoOverlayUIProps } from './VideoOverlayUI';
 import type { ExtendedPostView, ExtendedFeedViewPost } from '../../../services/api/types';
-import {
-  INTERACTIONSEEN as INTERACTIONSEEN_CONST,
-  INTERACTIONLIKE as INTERACTIONLIKE_CONST,
-  INTERACTIONREPOST as INTERACTIONREPOST_CONST,
-  INTERACTIONREPLY as INTERACTIONREPLY_CONST,
-  INTERACTIONSHARE as INTERACTIONSHARE_CONST,
-} from '../../../services/api/types';
+import { INTERACTIONSEEN as INTERACTIONSEEN_CONST } from '../../../services/api/types';
 // Use proper API types - normalize to always work with ExtendedPostView
 type Post = ExtendedPostView | ExtendedFeedViewPost;
 
@@ -360,13 +354,12 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
     const heartPositionX = useSharedValue(0);
     const heartPositionY = useSharedValue(0);
 
-    const { queueInteraction, queueSeenInteractionOnce, resetSeenInteraction } =
-      useFeedInteractionQueue({
-        postUri: postView.uri,
-        feedContext,
-        reqId,
-        resolvedFeedUri,
-      });
+    const { queueSeenInteractionOnce, resetSeenInteraction } = useFeedInteractionQueue({
+      postUri: postView.uri,
+      feedContext,
+      reqId,
+      resolvedFeedUri,
+    });
 
     const videoView = getVideoView(postView.embed);
     const videoUrl = videoView?.playlist || null;
@@ -632,7 +625,6 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
         postUri: postView.uri,
         postCid: postView.cid,
         updatePostInteraction,
-        onLikeSuccess: () => queueInteraction(INTERACTIONLIKE_CONST),
       }
     );
 
@@ -756,9 +748,8 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
     const handleLongPress = useCallback(() => {
       clearVideoTapSingleTimer();
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      queueInteraction(INTERACTIONREPLY_CONST);
       handleOpenComments();
-    }, [clearVideoTapSingleTimer, handleOpenComments, queueInteraction]);
+    }, [clearVideoTapSingleTimer, handleOpenComments]);
 
     // RNGH gesture: race long-press vs tap. Recognition runs on the UI thread;
     // runOnJS bridges to JS only when a gesture is confirmed (no overhead during idle scroll).
@@ -820,7 +811,6 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
             repostCount: newRepostCount,
             repostUri,
           });
-          queueInteraction(INTERACTIONREPOST_CONST);
         } else {
           if (!displayInteractionRef.current.repostUri) throw new Error('No repost URI found');
           await AtprotoFeedService.deleteRepost(displayInteractionRef.current.repostUri);
@@ -840,7 +830,7 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
       } finally {
         setOverlayState(prev => ({ ...prev, isRepostPending: false }));
       }
-    }, [postView.uri, postView.cid, setOverlayState, updatePostInteraction, queueInteraction]);
+    }, [postView.uri, postView.cid, setOverlayState, updatePostInteraction]);
 
     const { navigateToChannel: goToChannel, navigateToProfile } = useProfileChannelNavigation();
 
@@ -901,7 +891,6 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
     }, [handleAuthorPress]);
 
     const handleSharePress = useCallback(() => {
-      queueInteraction(INTERACTIONSHARE_CONST);
       presentShareSheet({
         postUri: postView.uri,
         postCid: postView.cid,
@@ -910,7 +899,7 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
         authorHandle: postView.author?.handle,
         sourceFeed: resolvedFeedUri,
       });
-    }, [postView, resolvedFeedUri, queueInteraction, presentShareSheet]);
+    }, [postView, resolvedFeedUri, presentShareSheet]);
 
     const handleFollowPress = useCallback(() => {
       if (!postView.author?.handle) return;

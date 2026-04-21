@@ -38,8 +38,10 @@ export function useFeedInteractionQueue({
     [resolvedFeedUri]
   );
 
-  const queueInteraction = useCallback(
+  const queueSeenInteractionOnce = useCallback(
     (event: QueueInteractionEvent) => {
+      if (seenInteractionSentRef.current) return;
+      seenInteractionSentRef.current = true;
       const interaction: Interaction = {
         $type: 'app.bsky.feed.defs#interaction',
         item: postUri,
@@ -61,15 +63,6 @@ export function useFeedInteractionQueue({
     [postUri, feedContext, reqId, flushNow]
   );
 
-  const queueSeenInteractionOnce = useCallback(
-    (event: QueueInteractionEvent) => {
-      if (seenInteractionSentRef.current) return;
-      seenInteractionSentRef.current = true;
-      queueInteraction(event);
-    },
-    [queueInteraction]
-  );
-
   const resetSeenInteraction = useCallback(() => {
     seenInteractionSentRef.current = false;
   }, []);
@@ -86,7 +79,6 @@ export function useFeedInteractionQueue({
   );
 
   return {
-    queueInteraction,
     queueSeenInteractionOnce,
     resetSeenInteraction,
   };

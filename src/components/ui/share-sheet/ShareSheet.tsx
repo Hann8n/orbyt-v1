@@ -24,14 +24,11 @@ import CancelButton from '../CancelButton';
 import { AtprotoFeedService } from '../../../services/api/feed/FeedService';
 import { BookmarkService } from '../../../services/api/bookmark/BookmarkService';
 import { ModerationService } from '../../../services/moderation/ModerationService';
-import { getVideoFeedbackFromStorage } from '../../../services/api/feed/videoFeedbackStorage';
-import { getFeedInteractionsSupported } from '../../../services/api/feed/feedInteractionSupport';
 import { Colors } from '../UI';
 import { useGlobalShareSheet } from '../../../hooks/useGlobalModals';
 import { formatHandle } from '../../../utils/formatting/handles';
 import { useBookmarkStore } from '../../../stores/bookmarkStore';
 import { useUserStore } from '../../../stores/userStore';
-import { logger } from '../../../utils/logger';
 import SendToPicker from './SendToPicker';
 import { FontFamily, Typography } from '../../../utils/components/typography';
 
@@ -41,17 +38,12 @@ const ShareSheet: React.FC = () => {
   const data = getCurrentData();
 
   // Always render the TrueSheet component, but only show content when there's data
-  const { postUri, postCid, authorDid, authorName, authorHandle, sourceFeed } = data || {};
+  const { postUri, postCid, authorDid, authorName, authorHandle } = data || {};
   const queryClient = useQueryClient();
   const [isCurrentUser, setIsCurrentUser] = useState<boolean>(false);
   const [showConversationPicker, setShowConversationPicker] = useState<boolean>(false);
   const [currentUserDid, setCurrentUserDid] = useState<string>('');
   const [isSheetPresented, setIsSheetPresented] = useState(false);
-  const [selectedFeedback, setSelectedFeedback] = useState<'interested' | 'not_interested' | null>(
-    null
-  );
-  const [interactionsAvailable, setInteractionsAvailable] = useState(false);
-
   // Bookmark store
   const isBookmarked = useBookmarkStore(state => (postUri ? state.isBookmarked(postUri) : false));
   const addBookmark = useBookmarkStore(state => state.addBookmark);
@@ -76,8 +68,6 @@ const ShareSheet: React.FC = () => {
 
   // Get current user from store instead of API call
   const currentUser = useUserStore(state => state.currentUser);
-  const algorithmicFeedProvider = useUserStore(state => state.algorithmicFeedProvider);
-
   // Check if the current user is the author - use store instead of API call
   useEffect(() => {
     if (authorDid) {
@@ -86,63 +76,6 @@ const ShareSheet: React.FC = () => {
       setIsCurrentUser(did === authorDid);
     }
   }, [authorDid, currentUser?.did]);
-
-  // Load persisted feedback state for this post so button selection survives sheet re-open.
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadFeedback = async () => {
-      if (!postUri) {
-        if (isMounted) setSelectedFeedback(null);
-        return;
-      }
-
-      const feedback = getVideoFeedbackFromStorage(postUri);
-      if (isMounted) {
-        setSelectedFeedback(feedback?.type ?? null);
-      }
-    };
-
-    loadFeedback();
-    return () => {
-      isMounted = false;
-    };
-  }, [postUri]);
-
-  // Gate interaction buttons based on per-feed availability/capability.
-  useEffect(() => {
-    let isMounted = true;
-
-    const checkAvailability = async () => {
-      if (!sourceFeed || !sourceFeed.startsWith('at://')) {
-        if (isMounted) setInteractionsAvailable(false);
-        return;
-      }
-
-      // If we've already marked this feed unsupported in-session, hide immediately.
-      if (getFeedInteractionsSupported(sourceFeed) === false) {
-        if (isMounted) setInteractionsAvailable(false);
-        return;
-      }
-
-      // If we've already seen a successful interaction in-session, show immediately.
-      if (getFeedInteractionsSupported(sourceFeed) === true) {
-        if (isMounted) setInteractionsAvailable(true);
-        return;
-      }
-
-      const generator = await AtprotoFeedService.getFeedGenerator(sourceFeed);
-      const acceptsInteractions = Boolean(generator?.view?.acceptsInteractions);
-      if (isMounted) {
-        setInteractionsAvailable(acceptsInteractions);
-      }
-    };
-
-    checkAvailability();
-    return () => {
-      isMounted = false;
-    };
-  }, [sourceFeed]);
 
   // Handle dismiss from TrueSheet - fires when sheet is dismissed by any means
   const handleDismiss = useCallback(() => {
@@ -366,56 +299,6 @@ const ShareSheet: React.FC = () => {
     dismissSheet();
   }, [dismissSheet]);
 
-  const handleShowMoreLikeThis = useCallback(async () => {
-    if (!postUri) return;
-    if (selectedFeedback === 'interested') {
-      AtprotoFeedService.removeVideoFeedback(postUri);
-      setSelectedFeedback(null);
-      return;
-    }
-    setSelectedFeedback('interested');
-    try {
-      await AtprotoFeedService.sendVideoFeedback(
-        postUri,
-        'interested',
-        sourceFeed,
-        undefined,
-        algorithmicFeedProvider
-      );
-    } catch (error: unknown) {
-      logger.warn('ShareSheet: sendVideoFeedback interested failed', {
-        component: 'ShareSheet',
-        postUri,
-        error,
-      });
-    }
-  }, [postUri, selectedFeedback, sourceFeed, algorithmicFeedProvider]);
-
-  const handleShowLessLikeThis = useCallback(async () => {
-    if (!postUri) return;
-    if (selectedFeedback === 'not_interested') {
-      AtprotoFeedService.removeVideoFeedback(postUri);
-      setSelectedFeedback(null);
-      return;
-    }
-    setSelectedFeedback('not_interested');
-    try {
-      await AtprotoFeedService.sendVideoFeedback(
-        postUri,
-        'not_interested',
-        sourceFeed,
-        undefined,
-        algorithmicFeedProvider
-      );
-    } catch (error: unknown) {
-      logger.warn('ShareSheet: sendVideoFeedback not_interested failed', {
-        component: 'ShareSheet',
-        postUri,
-        error,
-      });
-    }
-  }, [postUri, selectedFeedback, sourceFeed, algorithmicFeedProvider]);
-
   // Neon accent colors for share-sheet (electric glow)
   const NEON = {
     purple: '#c084fc',
@@ -500,6 +383,7 @@ const ShareSheet: React.FC = () => {
       <AppTrueSheet
         name="share-sheet"
         grabber={false}
+        insetAdjustment="automatic"
         onDidPresent={() => setIsSheetPresented(true)}
         onDidDismiss={handleDismiss}
         header={headerComponent}
@@ -555,59 +439,6 @@ const ShareSheet: React.FC = () => {
               </View>
             ))}
           </ScrollView>
-
-          {interactionsAvailable && (
-            <View style={styles.feedbackRow}>
-              <NativePressable
-                style={styles.feedbackButtonPressable}
-                onPress={handleShowMoreLikeThis}
-              >
-                {({ pressed }) => {
-                  const isSelected = selectedFeedback === 'interested';
-                  const accentColor = Colors.pink[400];
-                  const accentTextColor = Colors.pink[950];
-                  const isActive = pressed || isSelected;
-                  const foregroundColor = isActive ? accentTextColor : Colors.neutral[50];
-                  const backgroundColor = isActive ? accentColor : Colors.neutral[975];
-
-                  return (
-                    <SquircleView style={[styles.feedbackButton, { backgroundColor }]}>
-                      <View style={styles.feedbackButtonContent}>
-                        <Icon name="interested" size={16} color={foregroundColor} />
-                        <Text style={[styles.feedbackButtonText, { color: foregroundColor }]}>
-                          Show more
-                        </Text>
-                      </View>
-                    </SquircleView>
-                  );
-                }}
-              </NativePressable>
-              <NativePressable
-                style={styles.feedbackButtonPressable}
-                onPress={handleShowLessLikeThis}
-              >
-                {({ pressed }) => {
-                  const isSelected = selectedFeedback === 'not_interested';
-                  const accentColor = Colors.blue[400];
-                  const accentTextColor = Colors.blue[950];
-                  const isActive = pressed || isSelected;
-                  const foregroundColor = isActive ? accentTextColor : Colors.neutral[50];
-                  const backgroundColor = isActive ? accentColor : Colors.neutral[975];
-
-                  return (
-                    <SquircleView style={[styles.feedbackButton, { backgroundColor }]}>
-                      <View style={styles.feedbackButtonContent}>
-                        <Icon name="not_interested" size={16} color={foregroundColor} />
-                        <Text style={[styles.feedbackButtonText, { color: foregroundColor }]}>
-                          Show less
-                        </Text>
-                      </View>
-                    </SquircleView>
-                  );
-                }}
-              </NativePressable>
-            </View>
-          )}
         </View>
       </AppTrueSheet>
 
@@ -640,7 +471,7 @@ const styles = StyleSheet.create({
     marginRight: -DEFAULT_CONTENT_PADDING_HORIZONTAL,
   },
   optionsScroll: {
-    marginBottom: 24,
+    marginBottom: 0,
   },
   optionsContainer: {
     flexDirection: 'row',
@@ -675,38 +506,6 @@ const styles = StyleSheet.create({
     marginTop: 12,
     textAlign: 'center',
     fontFamily: FontFamily.medium,
-  },
-  feedbackRow: {
-    marginTop: 32,
-    paddingHorizontal: SHEET_SPACING.headerHorizontal,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  feedbackButton: {
-    ...SHEET_STYLES.headerActionButton,
-    flex: 1,
-    minWidth: 0,
-    height: 42,
-    minHeight: 42,
-  },
-  feedbackButtonPressable: {
-    flex: 1,
-    minWidth: 0,
-  },
-  feedbackButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    gap: 6,
-  },
-  feedbackButtonText: {
-    ...SHEET_STYLES.headerActionButtonText,
-    width: 'auto',
-    textAlign: 'center',
-    includeFontPadding: false,
-    textAlignVertical: 'center',
   },
 });
 
