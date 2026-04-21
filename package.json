@@ -17,6 +17,7 @@
     "build:ios": "bash scripts/build-all.sh ios",
     "build:android": "bash scripts/build-all.sh android",
     "build:all": "bash scripts/build-all.sh",
+    "icons:build": "npx react-native-nano-icons --path ./.nanoicons.json",
     "type-check": "tsc --noEmit",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",

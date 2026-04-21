@@ -1,0 +1,9 @@
+{
+  "iconSets": [
+    {
+      "inputDir": "./src/assets/icons/nano-icons",
+      "fontFamily": "nanoicons",
+      "outputDir": "./src/assets/icons/nanoicons"
+    }
+  ]
+}

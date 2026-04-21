@@ -10,7 +10,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.getorbyt.app",
       "appleTeamId": "D8VXFBV8SJ",
-      "buildNumber": "2026042000",
+      "buildNumber": "2026042002",
       "icon": "./src/assets/AppIcons/iOS/Orbyt.icon",
       "infoPlist": {
         "CFBundleDevelopmentRegion": "en",
@@ -29,7 +29,7 @@
         "backgroundColor": "#05070a"
       },
       "package": "com.orbyt.app",
-      "versionCode": 2026042000,
+      "versionCode": 2026042002,
       "permissions": ["CAMERA", "RECORD_AUDIO"]
     },
     "web": {
@@ -55,7 +55,8 @@
             "./src/assets/fonts/Figtree-SemiBold.ttf",
             "./src/assets/fonts/Figtree-Bold.ttf",
             "./src/assets/fonts/Figtree-BoldItalic.ttf",
-            "./src/assets/fonts/Figtree-Black.ttf"
+            "./src/assets/fonts/Figtree-Black.ttf",
+            "./src/assets/icons/nanoicons/nanoicons.ttf"
           ]
         }
       ],
@@ -146,17 +147,6 @@
             "ios": ["en", "de", "es", "es-419", "fr", "ja", "ko", "pt-BR"],
             "android": ["en", "de", "es", "es-419", "fr", "ja", "ko", "pt-BR"]
           }
-        }
-      ],
-      [
-        "react-native-nano-icons",
-        {
-          "iconSets": [
-            {
-              "inputDir": "./src/assets/icons/nano-icons",
-              "fontFamily": "nanoicons"
-            }
-          ]
         }
       ],
       "expo-image"

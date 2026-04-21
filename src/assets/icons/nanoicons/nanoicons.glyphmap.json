@@ -4,26 +4,19 @@
     "u": 1024,
     "z": 1020,
     "s": 59648,
-    "h": "804dc4abfac29dd7b21c3e19e21b8892e392e7cea91cf84eb68da139c2d6b134"
+    "h": "57918e74db5b4a33cc3b8cbf3d8b67ee9145bd5ed9b0a22b9cd4e61cb44151a4"
   },
   "i": {
-    "back-arrow": [1024, [[59648, "currentColor"]]],
+    "beta-badge": [1024, [[59648, "currentColor"]]],
     "camera-2-fill": [1024, [[59649, "currentColor"]]],
     "certificate-circular": [1024, [[59650, "currentColor"]]],
     "certificate-scalloped": [1024, [[59651, "currentColor"]]],
     "chat-fill": [1024, [[59652, "currentColor"]]],
-    "chevron-down": [1024, [[59653, "currentColor"]]],
-    "chevron-right": [1024, [[59654, "currentColor"]]],
-    "chevron-up": [1024, [[59655, "currentColor"]]],
-    "close-fill": [1024, [[59656, "currentColor"]]],
-    "comment-heart-fill": [1024, [[59657, "currentColor"]]],
-    "heart-fill": [1024, [[59658, "currentColor"]]],
-    "more-fill": [1024, [[59659, "currentColor"]]],
-    "outlink": [1024, [[59660, "currentColor"]]],
-    "refresh-fill": [1024, [[59661, "currentColor"]]],
-    "reply-arrow": [1024, [[59662, "currentColor"]]],
-    "robot-cute-filled": [1024, [[59663, "currentColor"]]],
-    "search": [1024, [[59664, "currentColor"]]],
-    "user": [1024, [[59665, "currentColor"]]]
+    "comment-heart-fill": [1024, [[59653, "currentColor"]]],
+    "heart-fill": [1024, [[59654, "currentColor"]]],
+    "more-fill": [1024, [[59655, "currentColor"]]],
+    "refresh-fill": [1024, [[59656, "currentColor"]]],
+    "reply-arrow": [1024, [[59657, "currentColor"]]],
+    "robot-cute-filled": [1024, [[59658, "currentColor"]]]
   }
 }
