@@ -21,9 +21,6 @@ import {
 import { NativePressable } from '@/components/ui/NativePressable';
 import { Link, type Href } from 'expo-router';
 import { Image } from 'expo-image';
-// Imported from `@react-navigation/core` directly: `@react-navigation/native` re-exports this
-// (`export * from '@react-navigation/core'`) but HMR can transiently break the re-export and
-// throw `Property 'useIsFocused' doesn't exist`. See docs/react-native-optimization-agent-handoff.md.
 import { useIsFocused } from '@react-navigation/core';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -49,12 +46,14 @@ import EmptyFeed from './EmptyFeed';
 import VideoAmbientBackdrop from '../../ui/VideoAmbientBackdrop';
 import {
   FEED_VIEW_CONSTANTS,
+  IOS_LIQUID_GLASS_EXTRA_BOTTOM_PADDING,
   getEmptyFeedType,
   getFeedItemKey,
   getProfileColors,
   getPullToRefreshTintColor,
   isHeaderFeed as getIsHeaderFeed,
 } from './feedViewShared';
+import { isIosLiquidGlassAvailable } from '@/stores/userStore';
 import { FeedScrollProvider } from '../../../context/FeedScrollContext';
 import type {
   FeedScrollLayoutValue,
@@ -68,22 +67,12 @@ import type { GridFeedModalZoomConfig } from '@/utils/navigation/feedModalRoute'
 const AnimatedFlashList = Animated.createAnimatedComponent(FlashList) as ComponentType<
   FlashListProps<ExtendedFeedViewPost> & { ref?: Ref<FlashListRef<ExtendedFeedViewPost>> }
 >;
-
 const VideoGridItem: React.FC<{
   item: ExtendedFeedViewPost;
   index: number;
   onPress?: (index: number) => void;
   style?: ViewStyle;
-  /** iOS: Expo Router zoom transition source (must be inside `Link` with `asChild`). */
   zoomLink?: { href: Href; onBeforeNavigate: () => void };
-  /**
-   * False when this grid cell is not user-visible, from either:
-   *   - a retained-but-inactive tab (Expo Router native tabs keep all visited tabs mounted), or
-   *   - dual-mounting under `FeedSurfaceStack` with the list layer active (home feed in list mode).
-   * Skia-backed `VideoAmbientBackdrop` becomes ~148 fibers per cross-tab cascade commit; skipping
-   * it while off-screen shrinks the cascade to O(visible feed) without changing what the user
-   * sees. See docs/react-native-optimization-agent-handoff.md (P0).
-   */
   isTabFocused: boolean;
 }> = ({ item, index, onPress, style, zoomLink, isTabFocused }) => {
   const videoView = getVideoView(item.post.embed);
@@ -149,32 +138,18 @@ interface GridFeedViewProps {
   secondaryColor?: string;
   feedOption: 'profile' | 'following' | 'likes' | 'reposts' | string;
   userDid?: string;
-  onLoadMore: () => void; // Simplified callback for loading more content
+  onLoadMore: () => void;
   hasNextPage?: boolean;
-  onGridItemPress?: (index: number) => void; // Callback for grid item tap
+  onGridItemPress?: (index: number) => void;
   gridFeedModalZoomConfig?: GridFeedModalZoomConfig | null;
   isError?: boolean;
   onRetry?: () => void;
-  /** True while feed query has no settled data (matches ListFeedView empty-slot loading). */
   isLoading?: boolean;
-  ListComponent?: React.ComponentType<unknown> | null; // Optional custom list component
-  /** When provided, grid writes scroll progress (0..1) here on UI thread for overlay/header fade. */
+  ListComponent?: React.ComponentType<unknown> | null;
   contentScrollProgressOutput?: SharedValue<number>;
-  /** Same inset as list `snapToOffsets` so the first grid row aligns with list’s first video snap. */
   snapTopInset: number;
-  /**
-   * When true (iOS + native tabs, non–liquid-glass), bottom inset is applied by `RNScreensSafeAreaView`
-   * in ListFeedView — same as list `contentContainerStyle` padding. Must not also pad by tab height here.
-   */
   useNativeTabBottomSafeArea?: boolean;
   pullToRefresh?: ListFeedPullToRefresh;
-  /**
-   * False while this grid is the inactive layer in `FeedSurfaceStack` (dual-mounted alongside the
-   * list under a home/profile feed). Skia-backed `VideoAmbientBackdrop` is skipped while the surface
-   * is off-screen; toggling view mode flips this back to true and the backdrop rehydrates on the
-   * next render. See docs/react-native-optimization-agent-handoff.md (P0). Defaults to true so other
-   * call sites (non-dual-mount usages) behave unchanged.
-   */
   isSurfaceVisible?: boolean;
 }
 
@@ -203,22 +178,13 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
     },
     ref
   ) => {
-    // Determine if this is a header feed (profile, channel, etc.)
     const isHeaderFeed = getIsHeaderFeed(feedOption, headerComponent);
-
-    // Use profile colors when available
     const profileColors = getProfileColors(backgroundColor, secondaryColor);
-
-    // Ref for scrolling
     const flashListRef = useRef<FlashListRef<ExtendedFeedViewPost>>(null);
-
-    // Header height for FeedScrollContext (only when header present and using FlashList)
     const [headerHeight, setHeaderHeight] = useState(0);
-    /** List region height from layout — matches ListFeedView feedLayoutHeight for empty-state sizing. */
     const [gridLayoutHeight, setGridLayoutHeight] = useState(0);
     const hasHeader = Boolean(headerComponent);
     const useScrollTracking = !ListComponent && hasHeader;
-    // Use actual safe area insets and bottom nav bar height
     const insets = useSafeAreaInsets();
     const viewportDimensions = getViewportDimensions(insets);
     const viewableAreaHeight = viewportDimensions.height;
@@ -276,13 +242,11 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
       }
     };
 
-    // Expose scrollToTop method
     useImperativeHandle(
       ref,
       () => ({
         scrollToTop: () => {
           if (flashListRef.current) {
-            // Grid always uses FlashList
             flashListRef.current.scrollToTop({ animated: true });
           }
         },
@@ -290,15 +254,12 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
       []
     );
 
-    // Responsive grid columns and item size
     const { width: windowWidth, height: windowHeight } = useWindowDimensions();
     const isTablet =
       Device.deviceType === Device.DeviceType.TABLET || Math.min(windowWidth, windowHeight) >= 600;
-    // Breakpoints: ensure at least 3 columns; default 3 on mobile
-    // Adjust as needed: 3 (<=480), 4 (<=900), 5 (<=1200), 6 (>1200 or tablets)
     const computedColumns = (() => {
       const w = windowWidth || Dimensions.get('window').width;
-      let cols = 3; // default mobile
+      let cols = 3;
       if (w > 1200 || isTablet) {
         cols = 6;
       } else if (w > 900) {
@@ -308,18 +269,17 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
       } else {
         cols = 3;
       }
-      // enforce minimum of 3
       return Math.max(3, cols);
     })();
 
     const numColumns = computedColumns;
-    // With borders instead of margins, items can use full width divided by columns.
-    // Cell aspect matches standard video aspect (9:16 portrait).
     const itemWidth = (windowWidth || Dimensions.get('window').width) / numColumns;
     const itemHeight = itemWidth / DEFAULT_VIDEO_ASPECT_RATIO;
     const itemSpacing = itemHeight + FEED_VIEW_CONSTANTS.GRID_CELL_GAP;
+    const extraBottomPadding = isIosLiquidGlassAvailable
+      ? IOS_LIQUID_GLASS_EXTRA_BOTTOM_PADDING
+      : 0;
 
-    // Native snapping (same approach as ListFeedView): full header at 0, then each grid row.
     const gridSnapToOffsets = useMemo(() => {
       return buildGridSnapToOffsets({
         useScrollTracking,
@@ -340,19 +300,12 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
       itemSpacing,
     ]);
 
-    // Skip Skia-backed VideoAmbientBackdrop when this grid is not user-visible:
-    //   1. Retained-but-inactive tab (Expo Router native tabs keep visited tabs mounted).
-    //   2. Dual-mounted under `FeedSurfaceStack` while the list surface is the active layer
-    //      (home feed in list mode hides the grid via opacity=0; no need to render backdrops).
-    // One subscription per GridFeedView — stable between focus changes; no churn during scroll.
     const isTabFocused = useIsFocused();
     const shouldRenderBackdrops = isTabFocused && isSurfaceVisible;
 
-    // Render each grid item - optimized with background processing
     const feedItemCount = feed.length;
     const renderGridItem = useCallback(
       ({ item, index }: { item: ExtendedFeedViewPost; index: number }) => {
-        // Calculate if this is the last column or last row for spacing
         const isLastColumn = (index + 1) % numColumns === 0;
         const isLastRow =
           Math.floor(index / numColumns) === Math.floor((feedItemCount - 1) / numColumns);
@@ -478,9 +431,8 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(
           styles.listContent,
           {
             backgroundColor: Colors.transparent,
-            // Match ListFeedView: wrapper applies bottom safe area when useNativeTabBottomSafeArea; else `insets.bottom` only.
             ...(feed.length > 0 && {
-              paddingBottom: useNativeTabBottomSafeArea ? 0 : insets.bottom,
+              paddingBottom: useNativeTabBottomSafeArea ? 0 : insets.bottom + extraBottomPadding,
             }),
           },
         ]}
@@ -569,6 +521,7 @@ const styles = StyleSheet.create({
   },
   gridItem: {
     overflow: 'hidden',
+    backgroundColor: Colors.black,
   },
   appleZoomSourceInner: {
     flex: 1,

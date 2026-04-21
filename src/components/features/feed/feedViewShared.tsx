@@ -7,20 +7,15 @@ import type { FeedListItem } from '../../../types';
 import { blendColors, hexToRGBA } from '../../../utils/formatting/colors';
 
 export const FEED_VIEW_CONSTANTS = {
-  /** Space between list videos; grid header/footer strips match this. */
   LIST_ITEM_GAP: 3,
-  /**
-   * FlashList v2 draw distance (px). Caps off-screen video/Skia work; v2 does not use estimatedItemSize.
-   * Lower = fewer mounted rows (less Reanimated overlay work + decoders) but higher empty-cell risk when snapping fast.
-   * Tune on device if needed (was 360). React Compiler handles dependency memoization automatically.
-   */
   FLASHLIST_DRAW_DISTANCE: 220,
-  /** Space between grid thumbnails (borders + row pitch for snap). */
-  GRID_CELL_GAP: 2.5,
+  GRID_CELL_GAP: 2,
   HEADER_HEIGHT_TABS: 280,
   HEADER_BLOCKING_THRESHOLD: 250,
   HOME_PAGER_CHROME_VISIBLE_MAX_SCROLL_Y: 10,
 } as const;
+
+export const IOS_LIQUID_GLASS_EXTRA_BOTTOM_PADDING = 12;
 
 export const isHeaderFeed = (feedOption: string, headerComponent?: ReactNode): boolean =>
   feedOption === FEED_TYPES.PROFILE ||
@@ -63,10 +58,6 @@ const normalizeHexRgb = (value: string): string | null => {
   return null;
 };
 
-/**
- * End-of-feed overscroll hint: prefers profile/secondary text color, adjusted for contrast on dark feeds
- * and a touch more opacity than a “ghost” tint so copy stays readable.
- */
 export const getEndOfFeedOverscrollTextColor = (
   profileTextColor?: string,
   secondaryColor?: string
@@ -77,8 +68,6 @@ export const getEndOfFeedOverscrollTextColor = (
     return Colors.neutral[300];
   }
 
-  // Preserve the original dynamic text color direction (dark/light) and only
-  // apply alpha for the overscroll hint treatment.
   return hexToRGBA(hex, 0.98);
 };
 
@@ -88,7 +77,6 @@ type FeedSurfaceStackProps = {
   gridSurface: ReactNode;
 };
 
-/** Dual-mount list + grid: visibility, pointers, a11y. `ListFeedView` gates playback / tab bar. */
 export function FeedSurfaceStack({ listActive, listSurface, gridSurface }: FeedSurfaceStackProps) {
   const layer = (on: boolean, node: ReactNode) => (
     <View

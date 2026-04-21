@@ -4,7 +4,6 @@ import { useSegments } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 
 import { useDetailNavTabStore } from '@/stores/detailNavTabStore';
-import { Colors } from '@/theme';
 import { useCurrentUserOrbytShellColors } from '@/services/colors';
 import { useUnreadCount } from '@/hooks/useUnreadCount';
 import { TAB_BAR_INACTIVE_TINT } from '@/utils/formatting/colors';
@@ -33,13 +32,13 @@ export default function TabsLayout() {
   const { t } = useTranslation();
   const { activeTint } = useCurrentUserOrbytShellColors();
   const { totalUnreadCount } = useUnreadCount();
+  const supportsLiquidGlass = isLiquidGlassAvailable();
 
   return (
     <>
       <DetailNavTabSegmentSync />
       <NativeTabs
-        backgroundColor={Colors.black}
-        blurEffect="none"
+        backgroundColor="clear"
         labelVisibilityMode="unlabeled"
         tintColor={activeTint}
         iconColor={{
@@ -47,14 +46,13 @@ export default function TabsLayout() {
           selected: activeTint,
         }}
         badgeBackgroundColor={activeTint}
-        disableTransparentOnScrollEdge={true}
       >
         <NativeTabs.Trigger name="home">
           <NativeTabs.Trigger.Icon src={require('@/assets/tab-icons/png/home_3_cute.png')} />
           <NativeTabs.Trigger.Label hidden>{t('tabs.home')}</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
 
-        <NativeTabs.Trigger name="explore" role={isLiquidGlassAvailable() ? 'search' : undefined}>
+        <NativeTabs.Trigger name="explore" role={supportsLiquidGlass ? 'search' : undefined}>
           <NativeTabs.Trigger.Icon src={require('@/assets/tab-icons/png/search_2_cute.png')} />
           <NativeTabs.Trigger.Label hidden>{t('tabs.explore')}</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>

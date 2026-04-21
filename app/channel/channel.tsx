@@ -6,7 +6,7 @@ import {
   interpolate,
   Extrapolate,
 } from 'react-native-reanimated';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import ChannelHeader from '@/components/layout/header/ChannelHeader';
@@ -153,15 +153,13 @@ const Channel: React.FC = memo(() => {
     categorySourceFeeds.latest,
   ]);
 
-  const channelDataForFeed = channelData;
-
   const queryOptions = useMemo(
     () => ({
       enabled: Boolean(
-        channelDataForFeed && uri && (uri.startsWith('hashtag:') || uri.startsWith('at://'))
+        channelData && uri && (uri.startsWith('hashtag:') || uri.startsWith('at://'))
       ),
     }),
-    [channelDataForFeed, uri]
+    [channelData, uri]
   );
 
   const extractAndSaveColors = useCallback(
@@ -209,9 +207,9 @@ const Channel: React.FC = memo(() => {
 
     return {
       id: uri,
-      uri: uri,
+      uri,
       name: channelData.displayName || t('settings.untitledChannel'),
-      description: description,
+      description,
       avatar: channelData.avatar || '',
       likeCount,
       isOwner: false,
@@ -317,9 +315,7 @@ const Channel: React.FC = memo(() => {
     </View>
   );
 
-  const isLoading = isLoadingChannel && !channelDataForFeed;
-  const showBackgroundRefreshIndicator = isChannelFetching && !isLoading && !showErrorScreen;
-
+  const isLoading = isLoadingChannel && !channelData;
   return (
     <ProfileChannelFeedLayout backgroundColor={Colors.black}>
       <DetailScreenOverlay
@@ -343,11 +339,6 @@ const Channel: React.FC = memo(() => {
             ))}
           </View>
         )}
-        {showBackgroundRefreshIndicator && (
-          <View style={styles.overlayRefreshWrap}>
-            <ActivityIndicator size="small" color={channelColors.textColor || Colors.neutral[50]} />
-          </View>
-        )}
       </DetailScreenOverlay>
 
       {showErrorScreen ? (
@@ -358,7 +349,7 @@ const Channel: React.FC = memo(() => {
         <FeedPager
           ref={channelPagerRef}
           feedOptions={channelPagerFeeds}
-          userDid={channelDataForFeed?.did}
+          userDid={channelData?.did}
           currentFeed={currentChannelFeed}
           onFeedChange={feed => {
             if (!isCategoryChannel) return;
@@ -394,10 +385,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     columnGap: 8,
-  },
-  overlayRefreshWrap: {
-    marginTop: 10,
-    alignSelf: 'center',
   },
 });
 

@@ -50,6 +50,7 @@ import GridFeedView from './GridFeedView';
 import {
   FeedSurfaceStack,
   FEED_VIEW_CONSTANTS,
+  IOS_LIQUID_GLASS_EXTRA_BOTTOM_PADDING,
   getEmptyFeedType,
   getFeedItemKey,
   getEndOfFeedOverscrollTextColor,
@@ -78,7 +79,6 @@ import {
 import { useTranslation } from 'react-i18next';
 import { TypographyText } from '@/utils/components/typography';
 
-// Reanimated-wrapped FlashList so useAnimatedScrollHandler runs on UI thread. Do not use @shopify/flash-list's AnimatedFlashList (it uses RN Animated).
 const AnimatedFlashList = Animated.createAnimatedComponent(FlashList) as ComponentType<
   FlashListProps<FeedListItem> & { ref?: Ref<FlashListRef<FeedListItem>> }
 >;
@@ -91,8 +91,6 @@ const ItemSeparatorComponent = ({
   trailingItem?: FeedListItem;
 }) => <View style={styles.itemSeparator} />;
 
-// FlashList recycling helpers: these are pure/dep-free so React Compiler
-// can handle memoization without us manually wrapping them in useCallback.
 const getListItemType = (item: FeedListItem): string => {
   if (item.post?.embed?.$type === 'app.bsky.embed.record#view') return 'video';
   return 'default';
@@ -100,7 +98,6 @@ const getListItemType = (item: FeedListItem): string => {
 
 const listKeyExtractor = (item: FeedListItem, index: number): string => getFeedItemKey(item, index);
 
-// Empty component shown when there are no feed items
 interface ListEmptyComponentProps {
   isLoading: boolean;
   effectiveIsError: boolean;
@@ -201,21 +198,17 @@ const ListEmptyComponent = ({
 
 ListEmptyComponent.displayName = 'ListEmptyComponent';
 
-/** Pixels of bottom rubber-band past the last item to reach full opacity (iOS overscroll). */
 const END_OF_FEED_OVERSCROLL_FULL_OPACITY_PX = 56;
 const CHROME_SHOW_DIRECTION_THRESHOLD_PX = 4;
 const CHROME_HIDE_DIRECTION_THRESHOLD_PX = 18;
 
-/** Lift hint from screen bottom so it sits in the band under the last card (above tab / home indicator). */
 const END_OF_FEED_HINT_BOTTOM_OFFSET = 40;
-
 type EndOfFeedOverscrollHintProps = {
   opacitySV: SharedValue<number>;
   bottomInset: number;
   labelColor: string;
 };
 
-/** End-of-feed copy under the scroll layer; opacity from bottom overscroll only. */
 const EndOfFeedOverscrollHint = memo(
   ({ opacitySV, bottomInset, labelColor }: EndOfFeedOverscrollHintProps) => {
     const { t } = useTranslation();
@@ -300,14 +293,12 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     // Layout state
     const [headerHeight, setHeaderHeight] = useState(0);
-    /** Pixel height of the feed region from onLayout — source of truth once laid out (profile pager, tab shell, modals). */
     const [feedLayoutHeight, setFeedLayoutHeight] = useState(0);
 
     // Refs
     const flashListRef = useRef<FlashListRef<FeedListItem>>(null);
     const gridRef = useRef<ListFeedViewRef>(null);
 
-    // Scroll offset for percent-visible: written in useAnimatedScrollHandler (UI thread), read in VideoCard worklet.
     const scrollOffsetYSV = useSharedValue(0);
     const homePagerChromeUserHoldSV = useSharedValue(0);
     const endOfFeedEnabledSV = useSharedValue(0);
@@ -322,7 +313,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     const headerBlockingBaseSuppressedSV = useSharedValue(1);
 
-    // Mirror isVisible into a shared value so worklets can read it on the UI thread.
     const tabBarVisibility = useTabBarVisibility();
     const listSurfaceActive = isVisible && resolvedViewMode === 'list';
     const isVisibleSV = useSharedValue(listSurfaceActive ? 1 : 0);
@@ -386,14 +376,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     const { screenWidth, screenHeight, isCompact } = useDeviceLayout();
     const isHeaderFeed = getIsHeaderFeed(feedOption, headerComponent);
     const hasTabBar = hasTabBarProp ?? true;
-    /** Pre–SafeAreaView list snap: `getViewportDimensions` + `getVideoCardHeight` (peek under glass tab bar). */
-    const useLegacyIosTabLiquidGlassLayout = hasTabBar && isIosLiquidGlassAvailable;
-    /**
-     * Native tabs only auto-adjust the first ScrollView on iOS; FlashList does not get tab-bar insets.
-     * Non–liquid-glass iOS: RNScreens SafeAreaView bottom inset avoids clipping (Expo-recommended).
-     * Liquid glass iOS: legacy viewport + card height; list draws under the tab bar for next-card peek.
-     * @see https://docs.expo.dev/router/advanced/native-tabs/#safe-area-handling
-     */
+    const useManualIosGlassTabPaddingLayout = hasTabBar && isIosLiquidGlassAvailable;
     const useNativeTabBottomSafeArea =
       hasTabBar && Platform.OS === 'ios' && !isIosLiquidGlassAvailable;
 
@@ -402,7 +385,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         const maxViewport = Math.max(0, screenHeight - insets.bottom);
         return feedLayoutHeight > 0 ? Math.min(feedLayoutHeight, maxViewport) : maxViewport;
       }
-      if (useLegacyIosTabLiquidGlassLayout) {
+      if (useManualIosGlassTabPaddingLayout) {
         return getViewportDimensions(insets, { useFullWindowHeight: !hasTabBar }).height;
       }
       if (feedLayoutHeight > 0) {
@@ -410,7 +393,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       }
       return Math.max(0, screenHeight - insets.top - insets.bottom);
     })();
-    const cardHeight = useLegacyIosTabLiquidGlassLayout
+    const cardHeight = useManualIosGlassTabPaddingLayout
       ? getVideoCardHeight(screenWidth, screenHeight)
       : Math.max(0, viewableAreaHeight - FEED_VIEW_CONSTANTS.LIST_ITEM_GAP);
 
@@ -461,18 +444,14 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       headerBlockingBaseSuppressedSV,
     ]);
 
-    // Memoize profileColors to prevent recreation on every render
     const profileColors = getProfileColors(backgroundColor, secondaryColor);
     const endOfFeedHintColor = useMemo(
       () => getEndOfFeedOverscrollTextColor(profileColors?.textColor, secondaryColor),
       [profileColors?.textColor, secondaryColor]
     );
 
-    // Feed is already filtered by FeedRenderer: reported + shouldFilter.
-    // FlashList's maintainVisibleContentPosition will handle position preservation.
     const listData = feed;
 
-    // Error handling
     const effectiveIsError = forceError || isError;
 
     const showEndOfFeed =
@@ -565,17 +544,9 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       return () => subscription?.remove();
     }, [handleOrientationChange]);
 
-    // Snapping configuration - memoized to prevent recalculation (always compute)
-    // FlashList's ItemSeparatorComponent adds spacing between items, so we need to account for it
-    // Total spacing from start of one item to start of next = cardHeight + LIST_ITEM_GAP
     const itemSpacing = cardHeight + FEED_VIEW_CONSTANTS.LIST_ITEM_GAP;
     const hasHeader = Boolean(headerComponent);
 
-    /**
-     * Empty state sits below ListHeaderComponent (profile/channel header). Height must be the
-     * visible list viewport minus that header — not full window height — or the slot is oversized
-     * and copy is positioned using the wrong vertical scale.
-     */
     const listViewportForEmpty = feedLayoutHeight > 0 ? feedLayoutHeight : viewableAreaHeight;
     const emptyStateHeaderDeduction = ListComponent
       ? FEED_VIEW_CONSTANTS.HEADER_HEIGHT_TABS
@@ -584,19 +555,12 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         : 0;
     const emptyComponentHeight = Math.max(0, listViewportForEmpty - emptyStateHeaderDeduction);
 
-    /**
-     * iOS tab + liquid glass: offset snaps by top safe area on non-compact devices so the first
-     * card aligns with the status bar. Use effective top inset (same as UniversalHeader) when the
-     * hook reports 0 under native tabs.
-     */
     const snapTopInset =
-      useLegacyIosTabLiquidGlassLayout && !isCompact ? getEffectiveTopInset(insets.top) : 0;
+      useManualIosGlassTabPaddingLayout && !isCompact ? getEffectiveTopInset(insets.top) : 0;
 
-    /** iOS liquid glass + compact home: no snap offsets/interval. */
     const snapDisabledCompactLiquidGlass =
-      useLegacyIosTabLiquidGlassLayout && !hasHeader && isCompact;
+      useManualIosGlassTabPaddingLayout && !hasHeader && isCompact;
     const snapWaitHeaderLayout = hasHeader && headerHeight <= 0;
-    /** Uniform pitch from y=0: same as `i * itemSpacing` offsets without allocating O(n) array. */
     const listSnapUsesInterval =
       !snapDisabledCompactLiquidGlass &&
       !snapWaitHeaderLayout &&
@@ -636,7 +600,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       (e: LayoutChangeEvent) => {
         const h = Math.round(e.nativeEvent.layout.height);
         if (h > 0 && h !== headerHeight) {
-          // Use requestAnimationFrame to avoid blocking layout
           requestAnimationFrame(() => {
             setHeaderHeight(h);
           });
@@ -653,12 +616,8 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     }, []);
 
     const fadeDist = hasHeader ? SCROLL_CONSTANTS.HEADER_FADE_DISTANCE : 0;
-    // Direct shared value, updated in scroll handler (no useDerivedValue).
-    // This eliminates per-frame recalculation overhead.
     const contentScrollProgressSV = useSharedValue(0);
 
-    // UI-thread scroll handler: single update path for all scroll-driven animations.
-    // Now consolidates overlay opacity, progress, and end-of-feed calculations.
     const scrollHandler = useAnimatedScrollHandler(
       {
         onScroll: event => {
@@ -667,8 +626,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           const y = Math.max(0, event.contentOffset.y);
           scrollOffsetYSV.value = y;
 
-          // Update all scroll-driven shared values directly in handler (not via useDerivedValue).
-          // This is more efficient than continuous derivation.
           if (fadeDist > 0) {
             contentScrollProgressSV.value = Math.max(0, Math.min(1, y / fadeDist));
           } else {
@@ -679,7 +636,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
             contentScrollProgressOutput.value = Math.max(0, Math.min(1, y / fadeDist));
           }
 
-          // End-of-feed overscroll opacity: only update when scrolling, not every frame.
           const contentH = event.contentSize?.height ?? 0;
           const layoutH = event.layoutMeasurement?.height ?? 0;
           const maxY = Math.max(0, contentH - layoutH);
@@ -700,8 +656,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     const setHomePagerChromeUserHold = useCallback(
       (held: boolean) => {
         homePagerChromeUserHoldSV.value = held ? 1 : 0;
-        // Keep chrome behavior deterministic when pause/play changes without a scroll event.
-
         tabBarVisibility.value =
           held || scrollOffsetYSV.value < FEED_VIEW_CONSTANTS.HOME_PAGER_CHROME_VISIBLE_MAX_SCROLL_Y
             ? 1
@@ -745,7 +699,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       [resolvedViewMode]
     );
 
-    /** Tab / home indicator clearance for the overscroll hint sitting above the bottom edge. */
     const endOfFeedHintBottomInset = useNativeTabBottomSafeArea ? 12 : Math.max(12, insets.bottom);
 
     const listContentContainerExtraStyle = useMemo(() => {
@@ -755,8 +708,11 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       if (useNativeTabBottomSafeArea) {
         return styles.contentContainerListItemsNativeTabBottom;
       }
-      return getBottomPaddingStyle(insets.bottom);
-    }, [feed.length, useNativeTabBottomSafeArea, insets.bottom]);
+      const bottomPadding =
+        insets.bottom +
+        (useManualIosGlassTabPaddingLayout ? IOS_LIQUID_GLASS_EXTRA_BOTTOM_PADDING : 0);
+      return getBottomPaddingStyle(bottomPadding);
+    }, [feed.length, useNativeTabBottomSafeArea, insets.bottom, useManualIosGlassTabPaddingLayout]);
     const listContentContainerStyle = useMemo(
       () => StyleSheet.compose(styles.contentContainer, listContentContainerExtraStyle),
       [listContentContainerExtraStyle]
@@ -840,7 +796,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
               refreshControl={refreshControlElement}
               initialScrollIndex={initialScrollIndex}
               ListHeaderComponent={listHeaderElement}
-              // Snapping configuration
               pagingEnabled={false}
               snapToOffsets={snapToOffsets}
               snapToInterval={snapToIntervalValue}
@@ -850,7 +805,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
                   ? SCROLL_CONSTANTS.DECELERATION_RATE_IOS
                   : SCROLL_CONSTANTS.DECELERATION_RATE_ANDROID
               }
-              // Disable fast scrolling to prevent scrolling past multiple items
               disableIntervalMomentum={true}
               scrollEventThrottle={APP_CONSTANTS.SCROLL_THROTTLE}
               onScroll={scrollHandler}
@@ -859,7 +813,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
               onViewableItemsChanged={onViewableItemsChanged}
               viewabilityConfig={viewabilityConfig}
               maintainVisibleContentPosition={MAINTAIN_VISIBLE_CONTENT_POSITION_DISABLED}
-              // Scroll behavior
               scrollEnabled={true}
               showsVerticalScrollIndicator={
                 listData.length >= SCROLL_INDICATOR_CONSTANTS.FEED_LIST_MIN_ITEMS
@@ -868,9 +821,7 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
               directionalLockEnabled={true}
               alwaysBounceVertical
               alwaysBounceHorizontal={false}
-              // Empty state: memoized element so FlashList does not see a new tree every parent render
               ListEmptyComponent={listEmptyElement}
-              // Item separator for black gaps between cards
               ItemSeparatorComponent={ItemSeparatorComponent}
               ListFooterComponent={listFooterElement}
               contentContainerStyle={listContentContainerStyle}
@@ -944,7 +895,6 @@ const ListFeedViewComponent = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         headerComponent,
         backgroundColor,
         secondaryColor,
-        isHeaderFeed,
         feedOption,
         userDid,
         onLoadMore,

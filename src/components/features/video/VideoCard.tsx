@@ -27,7 +27,6 @@ import {
   runOnJS,
   cancelAnimation,
 } from 'react-native-reanimated';
-import { Colors } from '../../../theme';
 import {
   normalizePostView,
   createVideoSource,
@@ -35,6 +34,7 @@ import {
   FEED_BUFFER_OPTIONS,
   DEFAULT_SEEK_TOLERANCE_SCRUBBER,
 } from '../../../utils/video/helpers';
+import { Colors } from '../../../theme';
 import { useModalStore } from '../../../stores/modalStore';
 import { useProfileChannelNavigation } from '../../../hooks/useProfileChannelNavigation';
 import { useFollowMutation } from '../../../services/data/ProfileService';
@@ -431,10 +431,10 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
       player.seekTolerance = DEFAULT_SEEK_TOLERANCE_SCRUBBER;
     });
 
-    // Listen to player status changes using expo's useEvent hook
-    const { status: playerStatus } = useEvent(player, 'statusChange', {
-      status: player?.status ?? 'idle',
+    const playerStatusEvent = useEvent(player, 'statusChange', {
+      status: 'idle',
     });
+    const playerStatus = playerStatusEvent?.status ?? 'idle';
 
     // Derive error state directly from playerStatus (no need to duplicate in state)
     const hasError = playerStatus === 'error';
@@ -1145,7 +1145,7 @@ const styles = StyleSheet.create({
     width: '100%',
     position: 'relative',
     overflow: 'hidden',
-    backgroundColor: Colors.black, // Fallback background color
+    backgroundColor: Colors.black,
   },
 });
 
