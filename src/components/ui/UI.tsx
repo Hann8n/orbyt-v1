@@ -252,6 +252,8 @@ const goBackButtonStyles = StyleSheet.create({
 // Avatar Component
 export type AvatarType = 'profile' | 'channel' | 'user';
 
+const DEFAULT_AVATAR_SOURCE = require('../../assets/Default-avatar.png');
+
 interface AvatarProps {
   uri?: string;
   type?: AvatarType;
@@ -286,9 +288,13 @@ export const Avatar: React.FC<AvatarProps> = ({
   profileColors,
 }) => {
   const { t } = useTranslation();
-  // Check if status is live using helper function
   const isLive = isLiveStatus(status);
   const iconSize = fallbackIconSize || Math.max(size * 0.6, 20);
+  const [hasImageError, setHasImageError] = React.useState<boolean>(false);
+
+  React.useEffect(() => {
+    setHasImageError(false);
+  }, [uri]);
 
   const getBorderRadius = () => {
     switch (type) {
@@ -469,82 +475,75 @@ export const Avatar: React.FC<AvatarProps> = ({
     borderRadius: innerBorderRadius,
   };
 
+  const remoteAvatarClipStyle = React.useMemo(
+    (): ViewStyle => ({
+      width: innerSize,
+      height: innerSize,
+      borderRadius: innerBorderRadius,
+      overflow: 'hidden',
+    }),
+    [innerSize, innerBorderRadius]
+  );
+
   // Normalize style: avoid accidentally passing strings which React treats as children
   const styleSanitized =
     typeof style === 'object' || typeof style === 'undefined'
       ? (style as StyleProp<ViewStyle>)
       : undefined;
 
-  if (uri) {
-    // Detect if URI is a GIF by checking file extension
-    const isGif = uri.toLowerCase().endsWith('.gif') || uri.includes('.gif?');
+  const shouldRenderRemoteImage = !!uri && !hasImageError;
+  const remoteImagePriority = shouldRenderRemoteImage
+    ? type === 'channel' && (uri.toLowerCase().endsWith('.gif') || uri.includes('.gif?'))
+      ? 'low'
+      : 'normal'
+    : 'normal';
 
-    return (
-      <View style={[{ width: size, height: rootHeight }, styleSanitized]}>
-        <View style={containerStyle}>
-          <Image
-            source={{ uri }}
-            style={imageStyle}
-            contentFit="cover"
-            blurRadius={blurRadius || 0}
-            cachePolicy="memory-disk"
-            priority={type === 'channel' && isGif ? 'low' : 'normal'}
-            transition={200}
-            allowDownscaling={true}
-            recyclingKey={uri}
-          />
-        </View>
-        {isLive && (
-          <View style={liveBadgeStyle}>
-            <Text style={liveBadgeTextStyle}>{t('profile.live')}</Text>
-          </View>
-        )}
-      </View>
-    );
-  }
+  const mediaContent = shouldRenderRemoteImage ? (
+    <View style={remoteAvatarClipStyle}>
+      <Image
+        source={{ uri }}
+        style={[StyleSheet.absoluteFillObject, imageStyle]}
+        placeholder={DEFAULT_AVATAR_SOURCE}
+        placeholderContentFit="cover"
+        contentFit="cover"
+        blurRadius={blurRadius || 0}
+        cachePolicy="memory-disk"
+        priority={remoteImagePriority}
+        transition={200}
+        allowDownscaling={true}
+        recyclingKey={uri}
+        onError={() => {
+          setHasImageError(true);
+        }}
+      />
+    </View>
+  ) : fallbackIcon ? (
+    <View
+      style={[
+        {
+          width: innerSize,
+          height: innerSize,
+          borderRadius: innerBorderRadius,
+          backgroundColor: fallbackInnerBgColor,
+        },
+        styles.centerContent,
+      ]}
+    >
+      <Icon name={fallbackIcon} size={iconSize} color={fallbackIconColor} />
+    </View>
+  ) : (
+    <Image
+      source={DEFAULT_AVATAR_SOURCE}
+      style={imageStyle}
+      contentFit="cover"
+      cachePolicy="memory"
+      priority="high"
+    />
+  );
 
-  // Use fallback icon if provided, otherwise use default avatar image
-  if (fallbackIcon) {
-    // Import Icon component dynamically to avoid circular dependency
-    const { default: Icon } = require('./Icon');
-    return (
-      <View style={[{ width: size, height: rootHeight }, styleSanitized]}>
-        <View style={containerStyle}>
-          <View
-            style={[
-              {
-                width: innerSize,
-                height: innerSize,
-                borderRadius: innerBorderRadius,
-                backgroundColor: fallbackInnerBgColor,
-              },
-              styles.centerContent,
-            ]}
-          >
-            <Icon name={fallbackIcon} size={iconSize} color={fallbackIconColor} />
-          </View>
-        </View>
-        {isLive && (
-          <View style={liveBadgeStyle}>
-            <Text style={liveBadgeTextStyle}>{t('profile.live')}</Text>
-          </View>
-        )}
-      </View>
-    );
-  }
-
-  // Use default avatar image if no uri is provided
   return (
     <View style={[{ width: size, height: rootHeight }, styleSanitized]}>
-      <View style={containerStyle}>
-        <Image
-          source={require('../../assets/Default-avatar.png')}
-          style={imageStyle}
-          contentFit="cover"
-          cachePolicy="memory"
-          priority="high"
-        />
-      </View>
+      <View style={containerStyle}>{mediaContent}</View>
       {isLive && (
         <View style={liveBadgeStyle}>
           <Text style={liveBadgeTextStyle}>{t('profile.live')}</Text>

@@ -60,6 +60,7 @@ import { seenVideoService } from '../../../services/SeenVideoService';
 import { useUserStore } from '../../../stores/userStore';
 import { useShallow } from 'zustand/react/shallow';
 import { ErrorHandler } from '../../../utils/errors/errorHandler';
+import { logger } from '../../../utils/logger';
 import { useLikeInteraction } from '@/hooks/useLikeInteraction';
 import type { VideoOverlayUIProps } from './VideoOverlayUI';
 import type { ExtendedPostView, ExtendedFeedViewPost } from '../../../services/api/types';
@@ -72,6 +73,14 @@ const VIDEO_DOUBLE_TAP_WINDOW_MS = 260;
 const feedListPlaybackNoopSubscribe = () => () => {};
 const MIN_SCRUBBER_DURATION_SECONDS = 7;
 const cardHeightStyleCache = new Map<number, { height: number }>();
+
+function logVideoCardPlayerError(action: string, err: unknown): void {
+  logger.debug(`VideoCard: ${action} threw`, {
+    component: 'VideoCard',
+    action,
+    error: err instanceof Error ? err.message : String(err),
+  });
+}
 
 const getCardHeightStyle = (cardHeight: number): { height: number } => {
   const normalized = Math.max(0, Math.round(cardHeight));
@@ -505,20 +514,19 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
       [cannotShowMedia, isBlurred, shouldDisablePlayback, hasError, setVideoState]
     );
 
-    // togglePlayback handles all play/pause logic directly
-
     const seek = useCallback(
       (position: number) => {
-        if (player) {
-          // expo-video uses seconds, convert from ms if needed
+        if (!player) return;
+        try {
           const positionInSeconds = position > 1000 ? position / 1000 : position;
           player.currentTime = positionInSeconds;
+        } catch (err) {
+          logVideoCardPlayerError('seek', err);
         }
       },
       [player]
     );
 
-    // Expose functions via ref
     useImperativeHandle(
       ref,
       () => ({
@@ -526,18 +534,27 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
         pause: () => togglePlayback(false),
         togglePlay: () => togglePlayback(),
         getDuration: () => {
-          if (player && player.duration) {
-            return player.duration * 1000; // Convert to ms
+          if (!player) return 0;
+          try {
+            const seconds = player.duration;
+            if (typeof seconds === 'number' && Number.isFinite(seconds) && seconds > 0) {
+              return seconds * 1000;
+            }
+          } catch (err) {
+            logVideoCardPlayerError('getDuration', err);
           }
           return 0;
         },
         seekTo: seek,
         seek,
         unload: () => {
-          if (player) {
+          if (!player) return;
+          try {
             player.pause();
             player.currentTime = 0;
-            // Use ref so this dep doesn't force handle recreation on every pause toggle
+          } catch (err) {
+            logVideoCardPlayerError('unload', err);
+          } finally {
             if (!userPausedRef.current) {
               setVideoState(prev => ({ ...prev, userPaused: true }));
             }
@@ -547,8 +564,14 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
         // Report intended play state based on our own logic, not the underlying player flag
         getPlayState: () => shouldPlayVideo,
         getCurrentTime: () => {
-          if (player && player.currentTime) {
-            return player.currentTime * 1000; // Convert to ms
+          if (!player) return 0;
+          try {
+            const seconds = player.currentTime;
+            if (typeof seconds === 'number' && Number.isFinite(seconds)) {
+              return seconds * 1000;
+            }
+          } catch (err) {
+            logVideoCardPlayerError('getCurrentTime', err);
           }
           return 0;
         },
@@ -584,6 +607,13 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
     useEffect(() => {
       if (!player) return;
 
+      let cancelled = false;
+      const bailIfStale = () => {
+        if (!cancelled) return false;
+        errorRetriedForUriRef.current = null;
+        return true;
+      };
+
       if (playerStatus === 'readyToPlay') {
         onVideoStatus?.(postView.uri, 'loaded');
       } else if (playerStatus === 'loading') {
@@ -593,28 +623,40 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
           errorRetriedForUriRef.current = postView.uri;
           ErrorHandler.safeAsync(async () => {
             const post = await AtprotoFeedService.getPost(postView.uri);
+            if (bailIfStale()) return;
             const vv = post ? getVideoView(post.embed) : null;
             const newSource = createVideoSource(vv?.playlist ?? null);
             if (!newSource) {
               errorRetriedForUriRef.current = null; // allow retry if getPost returns no source
               return;
             }
-            await player.replaceAsync(newSource);
+            if (bailIfStale()) return;
+            try {
+              await player.replaceAsync(newSource);
+            } catch (err) {
+              logVideoCardPlayerError('replaceAsync', err);
+              errorRetriedForUriRef.current = null;
+            }
           }, 'VideoCard: retry replaceAsync after error');
         }
         onVideoStatus?.(postView.uri, 'error');
       }
+
+      return () => {
+        cancelled = true;
+      };
     }, [playerStatus, player, postView.uri, onVideoStatus]);
 
-    // Drive play/pause from shouldPlayVideo — the single source of truth for whether
-    // this card should be playing (visibility + user intent + content checks).
-    // https://docs.expo.dev/versions/latest/sdk/video/#usage
     useEffect(() => {
       if (!player) return;
-      if (shouldPlayVideo) {
-        player.play();
-      } else {
-        player.pause();
+      try {
+        if (shouldPlayVideo) {
+          player.play();
+        } else {
+          player.pause();
+        }
+      } catch (err) {
+        logVideoCardPlayerError(shouldPlayVideo ? 'play' : 'pause', err);
       }
     }, [shouldPlayVideo, player]);
 

@@ -154,12 +154,24 @@ class VideoProcessingService {
       await this.waitForExpoPlayerReady(player);
       const duration = player.duration;
       if (!duration || duration <= 0) return null;
-      const track = player.videoTrack;
-      const width = track?.size.width ?? 0;
-      const height = track?.size.height ?? 0;
-      const frameRate =
-        track?.frameRate != null && track.frameRate > 0 ? Math.round(track.frameRate) : 30;
-      const codec = this.codecFromMimeType(track?.mimeType);
+      let width = 0;
+      let height = 0;
+      let frameRate = 30;
+      let codec = 'h264';
+      try {
+        const track = player.videoTrack;
+        width = track?.size.width ?? 0;
+        height = track?.size.height ?? 0;
+        frameRate =
+          track?.frameRate != null && track.frameRate > 0 ? Math.round(track.frameRate) : 30;
+        codec = this.codecFromMimeType(track?.mimeType);
+      } catch (err) {
+        logger.debug('VideoProcessingService: videoTrack read threw', {
+          component: 'VideoProcessingService',
+          action: 'probeLocalVideoWithExpoPlayer',
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
       return {
         width,
         height,
