@@ -24,19 +24,35 @@ export function useFeedInteractionQueue({
   const interactionQueueRef = useRef<Interaction[]>([]);
   const sendInteractionsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const seenInteractionSentRef = useRef(false);
+  const prevPostUriRef = useRef<string | null>(null);
+  const resolvedFeedUriRef = useRef(resolvedFeedUri);
 
-  const flushNow = useCallback(
-    (errorScope: string) => {
-      const interactionsToSend = [...interactionQueueRef.current];
-      interactionQueueRef.current = [];
-      if (interactionsToSend.length === 0) return;
+  useEffect(() => {
+    resolvedFeedUriRef.current = resolvedFeedUri;
+  }, [resolvedFeedUri]);
 
-      AtprotoFeedService.sendFeedInteractions(interactionsToSend, resolvedFeedUri).catch(error => {
-        ErrorHandler.handleError(error, errorScope);
-      });
-    },
-    [resolvedFeedUri]
-  );
+  const flushNow = useCallback((errorScope: string) => {
+    const interactionsToSend = [...interactionQueueRef.current];
+    interactionQueueRef.current = [];
+    if (interactionsToSend.length === 0) return;
+
+    AtprotoFeedService.sendFeedInteractions(interactionsToSend, resolvedFeedUriRef.current).catch(
+      error => ErrorHandler.handleError(error, errorScope)
+    );
+  }, []);
+
+  useEffect(() => {
+    const prev = prevPostUriRef.current;
+    if (prev !== null && prev !== postUri) {
+      if (sendInteractionsTimeoutRef.current) {
+        clearTimeout(sendInteractionsTimeoutRef.current);
+        sendInteractionsTimeoutRef.current = null;
+      }
+      flushNow('VideoCard: sendFeedInteractions (post change flush)');
+      seenInteractionSentRef.current = false;
+    }
+    prevPostUriRef.current = postUri;
+  }, [postUri, flushNow]);
 
   const queueSeenInteractionOnce = useCallback(
     (event: QueueInteractionEvent) => {
@@ -63,10 +79,6 @@ export function useFeedInteractionQueue({
     [postUri, feedContext, reqId, flushNow]
   );
 
-  const resetSeenInteraction = useCallback(() => {
-    seenInteractionSentRef.current = false;
-  }, []);
-
   useEffect(
     () => () => {
       if (sendInteractionsTimeoutRef.current) {
@@ -80,6 +92,5 @@ export function useFeedInteractionQueue({
 
   return {
     queueSeenInteractionOnce,
-    resetSeenInteraction,
   };
 }

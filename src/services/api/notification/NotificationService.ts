@@ -28,14 +28,8 @@ export class NotificationService {
   ): Promise<NotificationsResponse> {
     await AtprotoCore.ensureSession();
     try {
-      const apiClient = await AtprotoCore.getApiClient();
-      if (!apiClient) {
-        return { notifications: [], cursor: null };
-      }
+      const { api } = await AtprotoCore.getApiClient();
 
-      const { api } = apiClient;
-
-      // Verify we have a valid API client
       if (!api || !api.app || !api.app.bsky || !api.app.bsky.notification) {
         logger.error('Invalid API client structure for listNotifications', {
           component: 'NotificationService',
@@ -68,7 +62,7 @@ export class NotificationService {
         limit,
         errorMessage: errorMsg,
       });
-      throw error; // Re-throw so the UI can handle it properly
+      throw error;
     }
   }
 
@@ -93,14 +87,7 @@ export class NotificationService {
   static async updateNotificationSeen(): Promise<void> {
     await AtprotoCore.ensureSession();
     try {
-      const apiClient = await AtprotoCore.getApiClient();
-      if (!apiClient) {
-        return; // Non-critical operation, fail silently
-      }
-
-      const { api } = apiClient;
-      // Call the Bluesky API to mark notifications as seen
-      // This uses the current timestamp as the seenAt parameter
+      const { api } = await AtprotoCore.getApiClient();
       await api.app.bsky.notification.updateSeen({
         seenAt: new Date().toISOString(),
       });

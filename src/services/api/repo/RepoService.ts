@@ -218,11 +218,7 @@ export class RepoService {
     try {
       const userDid = AtprotoCore.getCurrentUserDid();
       if (!userDid) return false;
-      const apiClient = await AtprotoCore.getApiClient();
-      if (!apiClient) {
-        return false;
-      }
-      const { api } = apiClient;
+      const { api } = await AtprotoCore.getApiClient();
 
       // Read existing
       let existing: OrbytProfileRecord | null = null;

@@ -360,9 +360,7 @@ async function fetchNotificationPostDataMap(uris: string[]): Promise<PostDataMap
   const repostsPromise = (async () => {
     if (repostUris.length === 0) return null;
     try {
-      const apiClient = await AtprotoCore.getApiClient();
-      if (!apiClient) return null;
-      const { api } = apiClient;
+      const { api } = await AtprotoCore.getApiClient();
 
       // Fetch all repost records concurrently instead of sequentially.
       const repostRecordResults = await Promise.all(

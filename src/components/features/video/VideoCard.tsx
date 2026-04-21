@@ -363,7 +363,7 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
     const heartPositionX = useSharedValue(0);
     const heartPositionY = useSharedValue(0);
 
-    const { queueSeenInteractionOnce, resetSeenInteraction } = useFeedInteractionQueue({
+    const { queueSeenInteractionOnce } = useFeedInteractionQueue({
       postUri: postView.uri,
       feedContext,
       reqId,
@@ -958,11 +958,6 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
         seenVideoService.markAsSeen(postView.uri);
       }
     }, [isVisible, queueSeenInteractionOnce, postView.uri]);
-
-    // Reset seen interaction flag when post changes
-    useEffect(() => {
-      resetSeenInteraction();
-    }, [postView.uri, resetSeenInteraction]);
 
     const seekingAnimationSV = useSharedValue(0);
     const feedScrollMotion = useFeedScrollMotion();

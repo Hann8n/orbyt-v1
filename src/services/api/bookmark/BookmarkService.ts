@@ -57,13 +57,7 @@ export class BookmarkService {
    */
   static async getBookmarks(cursor?: string, limit: number = 50): Promise<BookmarksResponse> {
     await AtprotoCore.ensureSession();
-    const apiClient = await AtprotoCore.getApiClient();
-
-    if (!apiClient) {
-      return { bookmarks: [], cursor: null };
-    }
-
-    const { api } = apiClient;
+    const { api } = await AtprotoCore.getApiClient();
 
     try {
       const response = await api.app.bsky.bookmark.getBookmarks({

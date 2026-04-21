@@ -142,14 +142,7 @@ export async function getFeed(
   }
 
   try {
-    const apiClient = await AtprotoCore.getApiClient();
-
-    // Handle case where no session is available
-    if (!apiClient) {
-      return { feed: [], cursor: null };
-    }
-
-    const { api } = apiClient;
+    const { api } = await AtprotoCore.getApiClient();
 
     let responseData: RawFeedApiOutput;
 

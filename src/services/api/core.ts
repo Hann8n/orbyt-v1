@@ -120,7 +120,7 @@ export class AtprotoCore {
    * Get the API client (OAuth or app password)
    * Gets the current Agent from userStore
    * OAuthSession.fetchHandler automatically refreshes tokens via getTokenSet('auto')
-   * Returns null if no session is available (instead of throwing)
+   * Throws if no agent is available after waiting on the session bridge.
    */
   static async getApiClient(): Promise<ApiClient> {
     try {
